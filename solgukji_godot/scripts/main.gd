@@ -208,6 +208,8 @@ func _handle_args() -> void:
 		battle.level_pick.selected = int(a.level)
 	if a.has("seed"):
 		battle.fixed_seed = int(a.seed)
+	if a.has("auto"):
+		battle.auto_on = true
 	if tabs.current_tab == 1:
 		await get_tree().process_frame
 		battle.new_battle()
@@ -221,6 +223,11 @@ func _handle_args() -> void:
 			w.want_pitch = 0.32
 			w.want_yaw = float(a.get("yaw", "0.4"))
 			w.cam_rate = 3.0
+	if a.has("tap"):
+		# 점검용 —— "초:명령" 을 쉼표로. 명령은 돌격·방진·재정비·ult(준비된 첫 장수)
+		for item in str(a.tap).split(","):
+			var kv: PackedStringArray = item.split(":")
+			_tap_later(float(kv[0]), kv[1])
 	if a.has("ultlist"):
 		# 점검용 —— 이 전투에서 고유기가 언제 누구에게서 터지는지
 		for g in battle.groups:
@@ -306,6 +313,22 @@ func _handle_args() -> void:
 			var path: String = a.shot if n == 1 else a.shot.replace(".png", "_%d.png" % i)
 			get_viewport().get_texture().get_image().save_png(path)
 		get_tree().quit()
+
+
+func _tap_later(sec: float, what: String) -> void:
+	while battle.clock < sec:
+		await get_tree().process_frame
+	if what == "ult":
+		for sq in battle.field.order:
+			if sq.camp == "A" and battle.ult_ready(sq.key):
+				battle.request_ult(sq.key)
+				print("탭 %.1f초: %s 고유기 → 적용된 입력 %d개" % [battle.clock, sq.row.name, battle.res.applied.size()])
+				return
+		print("탭 %.1f초: 준비된 고유기 없음" % battle.clock)
+	else:
+		var p := battle.cmd_points()
+		battle.request_cmd(what)
+		print("탭 %.1f초: 군령 %s (포인트 %.0f) → 적용된 입력 %d개" % [battle.clock, what, p, battle.res.applied.size()])
 
 
 func _flat(bg: Color, border: Color, bw := 1, rad := 6, pad := 8) -> StyleBoxFlat:

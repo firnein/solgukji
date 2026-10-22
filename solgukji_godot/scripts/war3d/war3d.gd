@@ -1074,6 +1074,13 @@ func apply(key: String, troops: float, morale: float, from_key: String) -> void:
 	sq.morale = morale
 
 
+## 군령 —— 그 진영 부대마다 발밑에 고리가 퍼진다
+func cmd_fx(camp: String, col: Color) -> void:
+	for sq in order:
+		if sq.alive and sq.camp == camp:
+			_ring(p3(sq.pos, 0.15), col, 0.8)
+
+
 func heal_fx(key: String) -> void:
 	var sq: Squad = squads.get(key)
 	if sq:

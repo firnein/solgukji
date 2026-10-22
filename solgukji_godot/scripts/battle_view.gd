@@ -56,6 +56,14 @@ var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간
 const SLOW := 0.25          # 슬로모션 배속
 const ULT_DELAY := 0.36     # 고유기 발동 뒤 피해가 터지기까지 (전장 시간 —— 슬로모션 중이라 실제로는 약 1.6초)
 var dbg_nolog := false      # 점검용 —— 전투 기록을 쓰지 않는다
+## 전투 중 개입 —— 탭할 때마다 (시드 + 입력 전부)로 처음부터 다시 계산하고, 입력 앞부분은 그대로 둔 채 뒤만 바꾼다
+var _p := {}                # 지금 전투의 재료 (덱·진형·시드)
+var inputs := []            # 플레이어 입력 [행동 번호, "A", 종류, 값]
+var auto_on := false        # 자동 전투 (고유기·군령을 AI 가 쓴다)
+var live_e = null           # 화면에 마지막으로 반영된 사건 —— 게이지·포인트 표시용
+var _shift := 0.0           # 개입을 바로 보여 주려고 당긴 시간 합
+var cmd_btns := []
+var pts_label: Label
 var smooth := true          # false 면 예전처럼 이벤트 순간에 한꺼번에 깎는다 (비교용)
 var ambient := {}           # key -> 다음 자유 사격·시전 시각 (궁병·지략 계열)
 
@@ -104,7 +112,28 @@ func _ready() -> void:
 	cards_bar = HBoxContainer.new()
 	cards_bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	cards_bar.add_theme_constant_override("separation", 6)
-	bar_bg.add_child(cards_bar)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	bar_bg.add_child(row)
+	var cmdv := VBoxContainer.new()
+	cmdv.add_theme_constant_override("separation", 4)
+	row.add_child(cmdv)
+	pts_label = Label.new()
+	pts_label.add_theme_font_size_override("font_size", 12)
+	pts_label.add_theme_color_override("font_color", DB.PAL.bamboo)
+	cmdv.add_child(pts_label)
+	var cb := HBoxContainer.new()
+	cmdv.add_child(cb)
+	for nm in Battle.CMDS:
+		var b := Button.new()
+		b.text = nm
+		b.tooltip_text = "군령 2 · " + Battle.CMDS[nm].d
+		b.custom_minimum_size = Vector2(58, 40)
+		b.pressed.connect(func(): request_cmd(nm))
+		cb.add_child(b)
+		cmd_btns.append(b)
+	cards_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(cards_bar)
 	left.add_child(bar_bg)
 	add_child(_build_side())
 
@@ -150,8 +179,13 @@ func _build_side() -> Control:
 	sk.pressed.connect(skip)
 	sp.add_child(sk)
 	v.add_child(sp)
+	var auto_btn := CheckButton.new()
+	auto_btn.text = "자동 전투 (고유기·군령을 AI 가)"
+	auto_btn.button_pressed = auto_on
+	auto_btn.toggled.connect(set_auto)
+	v.add_child(auto_btn)
 	var hint := Label.new()
-	hint.text = "휠: 확대 · 오른쪽 끌기·Q/E: 회전 · 왼쪽 끌기·WASD: 이동 · 스페이스: 일시정지 · 아래 카드: 부대로 이동"
+	hint.text = "아래 장수 카드가 금빛이면 눌러 고유기 · 군령은 포인트 2 · 휠: 확대 · 오른쪽 끌기·Q/E: 회전 · 왼쪽 끌기·WASD: 이동 · 스페이스: 일시정지"
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.add_theme_color_override("font_color", DB.PAL.bamboo_dim)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -212,9 +246,96 @@ func new_battle() -> void:
 	var foe: Array = DB.D.BOTNAME[rng.randi() % DB.D.BOTNAME.size()]
 	var quest: String = DB.D.QUESTS[clampi(lv * 2, 0, 6)][rng.randi() % 3]
 	var title := "대전 · %s" % foe[0] if rng.randf() < 0.5 else "토벌 · %s" % quest
-	res = Battle.new(fixed_seed).run(DB.auto_place(a.cards, a.form), a.form, 100, null,
-		DB.auto_place(b.cards, b.form), b.form, 100, null, title, foe[0])
+	_p = {"a": DB.auto_place(a.cards, a.form), "fa": a.form, "b": DB.auto_place(b.cards, b.form), "fb": b.form,
+		"seed": fixed_seed if fixed_seed >= 0 else rng.randi() % 1000000, "title": title, "foe": foe[0],
+		"policy": {"A": "auto" if auto_on else "manual", "B": "smart"}}
+	inputs = []
+	res = _simulate()
 	_begin()
+
+
+func _simulate() -> Dictionary:
+	return Battle.new(_p.seed).run(_p.a, _p.fa, 100, null, _p.b, _p.fb, 100, null, _p.title, _p.foe,
+		inputs.duplicate(true), _p.policy)
+
+
+## 입력 반영 —— 처음부터 다시 계산하고 뒷부분 시간표만 갈아 끼운다. 입력이 실제로 먹혔는지 돌려준다
+func _resim() -> bool:
+	var before: int = res.applied.size()
+	res = _simulate()
+	_build_timeline(true)
+	if gi < groups.size() and groups[gi].t > clock:
+		var d: float = groups[gi].t - clock
+		_shift += d
+		for j in range(gi, groups.size()):
+			groups[j].t -= d
+	return res.applied.size() > before
+
+
+## 입력을 걸 행동 번호 —— 바로 앞 사건이 그 번호의 입력 판정 뒤에 나왔다면 다음 번호로
+func _input_an() -> int:
+	var i := _next_idx()
+	var prev: Dictionary = res.ev[maxi(0, i - 1)]
+	return prev.an + 1 if prev.get("bd", false) else res.ev[i].an
+
+
+func _next_idx() -> int:
+	return groups[gi].ev[0] if gi < groups.size() else -1
+
+
+## 다음 행동 직전의 엔진 상태 (입력이 걸리는 시점)
+func _engine_state():
+	var i := _next_idx()
+	if i < 0 or not running or finished:
+		return null
+	return res.ev[maxi(0, i - 1)]
+
+
+func unit_live(key: String) -> Array:
+	if live_e == null or not idx_of.has(key):
+		return [0, 0]
+	var s: Array = live_e.s[idx_of[key]]
+	return [s[4], s[5]]
+
+
+func ult_ready(key: String) -> bool:
+	var e = _engine_state()
+	if e == null or not idx_of.has(key):
+		return false
+	var s: Array = e.s[idx_of[key]]
+	return s[2] == 1 and s[4] >= 100 and s[5] > 0 and not s[3].has("seal")
+
+
+func cmd_points() -> float:
+	var e = _engine_state()
+	return e.pts[0] if e != null else 0.0
+
+
+func request_ult(key: String) -> void:
+	if not ult_ready(key):
+		hud.float_text(key, "아직 준비 중", Color("#9aa3b8"), 12)
+		return
+	inputs.append([_input_an(), "A", "ult", key])
+	if not _resim():
+		inputs.pop_back()
+		hud.float_text(key, "잠시 뒤에 —— 앞 고유기 직후", Color("#9aa3b8"), 12)
+
+
+func request_cmd(name_: String) -> void:
+	if cmd_points() < Battle.CMD_COST:
+		return
+	inputs.append([_input_an(), "A", "cmd", name_])
+	if not _resim():
+		inputs.pop_back()
+
+
+func set_auto(on: bool) -> void:
+	auto_on = on
+	if _engine_state() != null:
+		inputs.append([_input_an(), "A", "policy", "auto" if on else "manual"])
+		_resim()
+	elif not _p.is_empty():
+		_p.policy.A = "auto" if on else "manual"
 
 
 ## 전투 난수로 섞는다 —— 같은 시드면 같은 신화전이 나오도록 (Array.shuffle 은 전역 난수를 쓴다)
@@ -243,6 +364,8 @@ func _begin() -> void:
 		mc.sq = sq
 		mc.view = self
 		cards_bar.add_child(mc)
+	_shift = 0.0
+	live_e = res.ev[0]
 	_build_timeline()
 	clock = 0.0
 	gi = 0
@@ -264,15 +387,16 @@ func _form_txt(form: String, syn: Dictionary) -> String:
 
 
 ## 엔진 이벤트 → 행동 묶음 + 시작 시각 + 이벤트별 병력·사기 증감
-func _build_timeline() -> void:
+func _build_timeline(rebuild := false) -> void:
 	var ev: Array = res.ev
 	idx_of.clear()
 	for i in res.roster.size():
 		idx_of[res.roster[i].key] = i
 	var base: Array = ev[0].s
-	cur = []
-	for u in base:
-		cur.append([float(u[0]), float(u[1])])
+	if not rebuild:
+		cur = []
+		for u in base:
+			cur.append([float(u[0]), float(u[1])])
 	changes = []
 	var prev := base
 	for e in ev:
@@ -343,23 +467,27 @@ func _build_timeline() -> void:
 					loss_times[ch[0]].append(gr.t)
 	for lt in loss_times:
 		lt.sort()
-	shown = []
-	drain = []
-	src = []
-	for c in cur:
-		shown.append(c.duplicate())
-		drain.append([0.0, 0.0])
-		src.append("")
-	rout_wait.clear()
+	if not rebuild:
+		shown = []
+		drain = []
+		src = []
+		for c in cur:
+			shown.append(c.duplicate())
+			drain.append([0.0, 0.0])
+			src.append("")
+		rout_wait.clear()
+		ambient.clear()
+		for sq in field.order:
+			ambient[sq.key] = OPEN + rng.randf_range(0.5, 2.5)
+	else:
+		for gr in groups:
+			gr.t -= _shift
 	plans.clear()
-	ambient.clear()
 	for gr in groups:
 		if gr.kind in ["melee", "volley", "spell"] and not gr.targets.is_empty():
 			if not plans.has(gr.who):
 				plans[gr.who] = []
 			plans[gr.who].append([gr.t, gr.targets[0]])
-	for sq in field.order:
-		ambient[sq.key] = OPEN + rng.randf_range(0.5, 2.5)
 
 
 # ───────── 재생 ─────────
@@ -401,6 +529,10 @@ func _process_inner(dt: float) -> void:
 	while not due.is_empty() and due[0][0] <= clock:
 		_apply(due.pop_front()[1])
 	_drain_step(d)
+	var pts := cmd_points()
+	pts_label.text = "군령  %s  (2 소모)" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
+	for b in cmd_btns:
+		b.disabled = pts < Battle.CMD_COST
 	field.pt("감독", t0)
 	if not finished and gi >= groups.size() and pending.is_empty() and due.is_empty() and not _draining():
 		if finish_t < 0:
@@ -479,6 +611,7 @@ func _release(g: Dictionary, t0: float) -> void:
 
 func _apply(i: int, quiet := false) -> void:
 	var e: Dictionary = res.ev[i]
+	live_e = e
 	_log(e)
 	var from: String = e.get("a", e.get("who", ""))
 	for ch in changes[i]:
@@ -521,6 +654,10 @@ func _apply(i: int, quiet := false) -> void:
 			hud.float_text(f, "저항", Color("#cfe6ff"), 12)
 		"passive":
 			hud.float_text(e.a, "『%s』" % e.name, Color("#8fe0d0"), 14)
+		"cmd":
+			var col: Color = {"돌격": Color("#ff8a4a"), "방진": Color("#6fb0ff"), "재정비": Color("#8FD4C2")}.get(e.name, Color.WHITE)
+			hud.announce("%s 군령 『%s』 —— %s" % ["아군" if e.camp == "A" else "적", e.name, Battle.CMDS[e.name].d], col)
+			field.cmd_fx(e.camp, col)
 		"status":
 			hud.float_text(f, DB.D.STATUS[e.st].n, Color(DB.D.STATUS[e.st].c).lightened(0.2), 13)
 		"cleanse":
@@ -672,6 +809,11 @@ class Hud extends Control:
 		floats.clear()
 		stamp_info = null
 
+	var ann = null
+
+	func announce(text: String, col: Color) -> void:
+		ann = {"text": text, "col": col, "t": 0.0}
+
 	func float_text(key: String, text: String, col: Color, fs: int) -> void:
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
@@ -741,6 +883,10 @@ class Hud extends Control:
 			cut.t += dt
 			if cut.t > 1.6:
 				cut = null
+		if ann:
+			ann.t += dt
+			if ann.t > 1.8:
+				ann = null
 
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
@@ -791,6 +937,16 @@ class Hud extends Control:
 			draw_rect(Rect2(br.position + Vector2(0, 6), Vector2(w, 2)), Color(0, 0, 0, 0.6 * a))
 			draw_rect(Rect2(br.position + Vector2(0, 6), Vector2(w * clampf(sq.morale / 200.0, 0, 1), 2)),
 				Color(DB.PAL.gold if sq.morale > 30 else Color("#a05a2a"), a))
+			# 고유기 게이지 —— 불멸·신화. 적 게이지도 보여 준다 (읽고 방진으로 받으라고)
+			var lv := view.unit_live(sq.key)
+			if sq.tier >= 7 and lv[1] > 0:
+				var gb := Rect2(br.position + Vector2(0, 10), Vector2(w, 3))
+				draw_rect(gb.grow(1), Color(0, 0, 0, 0.6 * a))
+				var full: bool = lv[0] >= 100
+				var gc := Color("#ffd257") if full else Color("#b8902e")
+				if full:
+					gc = gc.lerp(Color.WHITE, 0.4 + 0.4 * sin(view.clock * 10.0))
+				draw_rect(Rect2(gb.position, Vector2(w * clampf(lv[0] / 100.0, 0, 1), 3)), Color(gc, a))
 			var x := br.position.x
 			for st in sq.statuses:
 				draw_circle(Vector2(x + 3, br.position.y + 13), 3, Color(DB.D.STATUS[st].c, a))
@@ -837,6 +993,10 @@ class Hud extends Control:
 		_text(fd, Vector2(bx, 46), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw, 16, DB.PAL.paper)
 		if view.speed == 0.0:
 			_text(fd, Vector2(0, size.y / 2), "일 시 정 지", HORIZONTAL_ALIGNMENT_CENTER, size.x, 26, DB.PAL.bamboo)
+		if ann:
+			var aa: float = clampf(ann.t / 0.15, 0, 1) * clampf((1.8 - ann.t) / 0.4, 0, 1)
+			var ac: Color = ann.col
+			_text(DB.font_display, Vector2(0, 84), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, Color(ac, aa))
 		if cut:
 			_draw_cut()
 		# 결과 낙관
@@ -975,14 +1135,19 @@ class MiniCard extends Control:
 	var _last := []
 
 	func _process(_dt: float) -> void:
-		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0]
-		if now != _last:
+		var lv := view.unit_live(sq.key)
+		var ready := view.ult_ready(sq.key)
+		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], ready]
+		if now != _last or ready:
 			_last = now
 			queue_redraw()
 
 	func _gui_input(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			view.focus(sq)
+			if view.ult_ready(sq.key):
+				view.request_ult(sq.key)
+			else:
+				view.focus(sq)
 
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
@@ -1008,5 +1173,27 @@ class MiniCard extends Control:
 		draw_rect(Rect2(4, 55, (size.x - 8) * clampf(sq.troops / sq.max, 0, 1), 5), War3D.TEAM.A)
 		draw_rect(Rect2(4, 62, size.x - 8, 3), DB.PAL.ink)
 		draw_rect(Rect2(4, 62, (size.x - 8) * clampf(sq.morale / 200.0, 0, 1), 3), DB.PAL.gold)
+		# 고유기 게이지와 남은 횟수
+		var lv := view.unit_live(sq.key)
+		if sq.tier >= 7:
+			draw_rect(Rect2(4, 67, size.x - 8, 3), DB.PAL.ink)
+			draw_rect(Rect2(4, 67, (size.x - 8) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
+			for i in lv[1]:
+				draw_circle(Vector2(size.x - 8 - i * 7, 8), 2.5, Color("#ffd257"))
+		if view.ult_ready(sq.key):
+			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
+			var rb := StyleBoxFlat.new()
+			rb.draw_center = false
+			rb.border_color = Color("#ffd257").lerp(Color.WHITE, pulse * 0.5)
+			rb.set_border_width_all(3)
+			rb.set_corner_radius_all(6)
+			rb.shadow_color = Color("#ffd257", 0.5 * pulse)
+			rb.shadow_size = 6
+			draw_style_box(rb, Rect2(Vector2.ZERO, size))
+			_glow_text("고유기!")
 		if not sq.alive:
 			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
+
+	func _glow_text(t: String) -> void:
+		draw_string_outline(DB.font_display, Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, 4, Color(0, 0, 0, 0.9))
+		draw_string(DB.font_display, Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, Color("#ffd257"))
