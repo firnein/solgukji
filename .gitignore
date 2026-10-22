@@ -1,0 +1,10 @@
+# Godot 캐시 —— 프로젝트를 열면 다시 만들어진다
+solgukji_godot/.godot/
+# Godot 실행 파일 (220MB) —— README 의 안내대로 받는다
+tools/*.exe
+tools/*.zip
+# 점검 결과물
+solgukji_godot/tests/out_*
+# 파이썬
+__pycache__/
+*.pyc

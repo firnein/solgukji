@@ -1,0 +1,1012 @@
+class_name BattleView
+extends HBoxContainer
+## 실시간 3D 전장 —— 판정은 Battle(턴제 엔진)이 끝낸다. 그리기는 War3D 가 맡는다.
+## 판정은 Battle(턴제 엔진)이 끝낸다. 이 화면은 그 결과를 시간축에 다시 깔아
+## 행동들이 겹쳐 흐르게 재생한다. 근접 부대는 실제로 달려가 맞붙고, 궁병은 화살을 날리고,
+## 지략 계열은 불·물·혼란을 퍼뜨린다. 병력이 줄면 병사 인형이 쓰러진다.
+##
+## 시간 배치: 입장 OPEN 초 → 행동 하나마다 STEP 초씩 어긋나게 시작 → 턴 끝 정산.
+## 근접 행동은 부대가 상대에 닿을 때까지 결과 적용을 미룬다. 병력은 이벤트별 증감(델타)으로
+## 적용하므로 행동끼리 순서가 뒤섞여도 최종 병력은 엔진과 같다.
+##
+## 피해 흘려 넣기: 이벤트가 오면 목표 병력(cur)만 바꾸고, 화면 병력(shown)은 그 부대가
+## 다음에 피해를 받을 때까지(0.8~3.5초) 꾸준히 따라간다. 그래서 맞붙어 있는 동안 병사가
+## 한 명씩 계속 쓰러진다. 병력이 다해 무너지는 패주는 남은 병사가 다 쓰러진 뒤에 표시한다.
+## 다음 이벤트가 오기 전에 따라잡으므로 최종 값은 엔진과 같다 (_finish 에서 확인한다).
+
+const LEVELS := [["초반 · 1일차", 60], ["중반 · 4일차", 300], ["후반 · 6일차", 700], ["신화전", -1]]
+const OPEN := 2.2
+const STEP := 0.6
+const MELEE_WAIT := 6.0
+
+var stage: Control          # 전장 영역
+var port: SubViewport
+var field: War3D
+var hud: Hud
+var cards_bar: HBoxContainer
+var log_box: RichTextLabel
+var title_label: Label
+var level_pick: OptionButton
+var speed_btns := []
+
+var res: Dictionary
+var rng := RandomNumberGenerator.new()
+var speed := 1.0
+var clock := 0.0
+var running := false
+var finished := false
+var finish_t := -1.0
+
+var groups := []            # 행동 묶음
+var group_of := []          # 이벤트 번호 -> 그 이벤트가 속한 행동 묶음 (치명타 판정에 쓴다)
+var gi := 0
+var pending := []           # 상대에 닿기를 기다리는 근접 행동
+var due := []               # [시각, 이벤트 번호]
+var changes := []           # 이벤트별 [[유닛 번호, 병력 증감, 사기 증감], …]
+var cur := []               # 유닛별 [병력, 사기] —— 지금까지 적용한 값
+var idx_of := {}            # key -> 유닛 번호
+var plans := {}             # key -> [[시각, 상대 key], …] —— 부대가 미리 달려갈 상대 순서
+var shown := []             # 유닛별 [병력, 사기] —— 화면에 보이는 값. cur 를 향해 흘러간다
+var drain := []             # 유닛별 [병력 초당 변화량, 사기 초당 변화량]
+var src := []               # 유닛별 마지막 공격자 key (쓰러지는 병사를 고르는 데 쓴다)
+var loss_times := []        # 유닛별 병력 손실이 예정된 행동 시각 (정렬)
+var rout_wait := {}         # 유닛 번호 -> true —— 병력이 다 흘러간 뒤 무너뜨린다
+var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 (점검용)
+var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
+const SLOW := 0.25          # 슬로모션 배속
+const ULT_DELAY := 0.36     # 고유기 발동 뒤 피해가 터지기까지 (전장 시간 —— 슬로모션 중이라 실제로는 약 1.6초)
+var dbg_nolog := false      # 점검용 —— 전투 기록을 쓰지 않는다
+var smooth := true          # false 면 예전처럼 이벤트 순간에 한꺼번에 깎는다 (비교용)
+var ambient := {}           # key -> 다음 자유 사격·시전 시각 (궁병·지략 계열)
+
+
+
+func _ready() -> void:
+	rng.randomize()
+	add_theme_constant_override("separation", 0)
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 0)
+	add_child(left)
+
+	stage = Control.new()
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage.clip_contents = true
+	left.add_child(stage)
+	var box := SubViewportContainer.new()
+	box.stretch = true
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.mouse_filter = Control.MOUSE_FILTER_STOP
+	box.gui_input.connect(_stage_input)
+	stage.add_child(box)
+	port = SubViewport.new()
+	port.own_world_3d = true
+	port.msaa_3d = Viewport.MSAA_4X
+	port.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+	port.positional_shadow_atlas_size = 4096
+	box.add_child(port)
+	field = War3D.new()
+	port.add_child(field)
+	hud = Hud.new()
+	hud.view = self
+	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(hud)
+
+	var bar_bg := PanelContainer.new()
+	bar_bg.custom_minimum_size = Vector2(0, 86)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#0f1424")
+	sb.border_color = DB.PAL.ink3
+	sb.border_width_top = 1
+	sb.set_content_margin_all(7)
+	bar_bg.add_theme_stylebox_override("panel", sb)
+	cards_bar = HBoxContainer.new()
+	cards_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards_bar.add_theme_constant_override("separation", 6)
+	bar_bg.add_child(cards_bar)
+	left.add_child(bar_bg)
+	add_child(_build_side())
+
+
+func _build_side() -> Control:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(330, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	panel.add_child(v)
+	title_label = Label.new()
+	title_label.add_theme_font_override("font", DB.font_display)
+	title_label.add_theme_font_size_override("font_size", 20)
+	title_label.text = "전장"
+	v.add_child(title_label)
+
+	var row := HBoxContainer.new()
+	level_pick = OptionButton.new()
+	for l in LEVELS:
+		level_pick.add_item(l[0])
+	level_pick.selected = 2
+	level_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(level_pick)
+	var nb := Button.new()
+	nb.text = "새 전투"
+	nb.pressed.connect(new_battle)
+	row.add_child(nb)
+	v.add_child(row)
+
+	var sp := HBoxContainer.new()
+	for s in [0.0, 1.0, 2.0, 4.0]:
+		var b := Button.new()
+		b.text = "❚❚" if s == 0.0 else "%d×" % s
+		b.toggle_mode = true
+		b.button_pressed = s == 1.0
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(func(): _set_speed(s))
+		speed_btns.append([b, s])
+		sp.add_child(b)
+	var sk := Button.new()
+	sk.text = "결과로"
+	sk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sk.pressed.connect(skip)
+	sp.add_child(sk)
+	v.add_child(sp)
+	var hint := Label.new()
+	hint.text = "휠: 확대 · 오른쪽 끌기·Q/E: 회전 · 왼쪽 끌기·WASD: 이동 · 스페이스: 일시정지 · 아래 카드: 부대로 이동"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", DB.PAL.bamboo_dim)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(hint)
+
+	log_box = RichTextLabel.new()
+	log_box.bbcode_enabled = true
+	log_box.scroll_following = true
+	log_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_box.add_theme_font_size_override("normal_font_size", 12)
+	v.add_child(log_box)
+	return panel
+
+
+func _set_speed(s: float) -> void:
+	speed = s
+	for p in speed_btns:
+		p[0].button_pressed = p[1] == s
+
+
+func _unhandled_input(e: InputEvent) -> void:
+	if is_visible_in_tree() and e is InputEventKey and e.pressed and e.keycode == KEY_SPACE:
+		_set_speed(1.0 if speed == 0.0 else 0.0)
+
+
+# ───────── 카메라 ─────────
+
+func fit_camera() -> void:
+	field.reset_camera()
+
+
+func focus(sq: Squad) -> void:
+	field.focus(sq)
+
+
+func _stage_input(e: InputEvent) -> void:
+	field.camera_input(e)
+
+
+# ───────── 전투 준비 ─────────
+
+func new_battle() -> void:
+	if fixed_seed >= 0:
+		rng.seed = fixed_seed
+	var lv: int = level_pick.selected
+	var pv: int = LEVELS[lv][1]
+	var styles := ["물리", "지략", "균형"]
+	var a: Dictionary
+	var b: Dictionary
+	if pv < 0:
+		var myth: Array = _shuffled(DB.by_tier(8))
+		var imm: Array = _shuffled(DB.by_tier(7))
+		a = {"cards": myth.slice(0, 5) + imm.slice(0, 4), "form": ["eorin", "hagik", "bongsi", "anwol"][rng.randi() % 4]}
+		b = DB.gen_board(1200, styles[rng.randi() % 3], rng)
+	else:
+		a = DB.gen_board(pv, styles[rng.randi() % 3], rng)
+		b = DB.gen_board(pv * rng.randf_range(0.85, 1.1), styles[rng.randi() % 3], rng)
+	var foe: Array = DB.D.BOTNAME[rng.randi() % DB.D.BOTNAME.size()]
+	var quest: String = DB.D.QUESTS[clampi(lv * 2, 0, 6)][rng.randi() % 3]
+	var title := "대전 · %s" % foe[0] if rng.randf() < 0.5 else "토벌 · %s" % quest
+	res = Battle.new(fixed_seed).run(DB.auto_place(a.cards, a.form), a.form, 100, null,
+		DB.auto_place(b.cards, b.form), b.form, 100, null, title, foe[0])
+	_begin()
+
+
+## 전투 난수로 섞는다 —— 같은 시드면 같은 신화전이 나오도록 (Array.shuffle 은 전역 난수를 쓴다)
+func _shuffled(a: Array) -> Array:
+	var out := a.duplicate()
+	for i in range(out.size() - 1, 0, -1):
+		var j := rng.randi() % (i + 1)
+		var t = out[i]
+		out[i] = out[j]
+		out[j] = t
+	return out
+
+
+func _begin() -> void:
+	field.setup(res)
+	fit_camera()
+	hud.reset()
+	log_box.clear()
+	title_label.text = res.title
+	for c in cards_bar.get_children():
+		c.queue_free()
+	var mine: Array = field.order.filter(func(s): return s.camp == "A")
+	mine.sort_custom(func(x, y): return x.row.slot < y.row.slot)
+	for sq in mine:
+		var mc := MiniCard.new()
+		mc.sq = sq
+		mc.view = self
+		cards_bar.add_child(mc)
+	_build_timeline()
+	clock = 0.0
+	gi = 0
+	pending.clear()
+	due.clear()
+	finished = false
+	finish_t = -1.0
+	running = true
+	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
+
+
+func _form_txt(form: String, syn: Dictionary) -> String:
+	var parts := []
+	for x in syn.list:
+		parts.append("%s%d" % [x.fac, x.n])
+	for x in syn.tagList:
+		parts.append("%s%d" % [x.tag, x.n])
+	return DB.FORM[form].n + (" (" + " ".join(parts) + ")" if not parts.is_empty() else "")
+
+
+## 엔진 이벤트 → 행동 묶음 + 시작 시각 + 이벤트별 병력·사기 증감
+func _build_timeline() -> void:
+	var ev: Array = res.ev
+	idx_of.clear()
+	for i in res.roster.size():
+		idx_of[res.roster[i].key] = i
+	var base: Array = ev[0].s
+	cur = []
+	for u in base:
+		cur.append([float(u[0]), float(u[1])])
+	changes = []
+	var prev := base
+	for e in ev:
+		var ch := []
+		for u in e.s.size():
+			var dt: float = e.s[u][0] - prev[u][0]
+			var dm: float = e.s[u][1] - prev[u][1]
+			if dt != 0 or dm != 0:
+				ch.append([u, dt, dm])
+		changes.append(ch)
+		prev = e.s
+
+	groups = []
+	group_of = []
+	var g = null
+	for i in ev.size():
+		var e: Dictionary = ev[i]
+		if g == null or g.ai != e.ai:
+			g = {"ai": e.ai, "ph": e.ph, "who": e.who, "ev": [], "targets": [], "skill": "",
+				"kind": "misc", "st": "", "phys": false, "int": false, "t": 0.0, "wait": 0.0,
+				"ult": null, "foes": [], "allies": [], "min_t": 0.0}
+			groups.append(g)
+		g.ev.append(i)
+		group_of.append(g)
+		var fx: String = e.get("fx", "")
+		if fx == "ult":
+			g.ult = e
+		elif fx == "skill":
+			g.skill = e.name
+		elif (fx == "phys" or fx == "int") and e.get("a") == g.who:
+			if not g.targets.has(e.f):
+				g.targets.append(e.f)
+			g[fx] = true
+		elif fx == "status" and g.st == "" and e.f != g.who:
+			g.st = e.st
+		# 고유기 이펙트를 뿌릴 곳 —— 적과 아군을 나눠 모은다
+		var fk: String = e.get("f", "")
+		if fk != "" and g.who != "" and (fk != g.who or fx == "heal"):
+			var side: Array = g.foes if fk.substr(0, 1) != g.who.substr(0, 1) else g.allies
+			if not side.has(fk):
+				side.append(fk)
+	var t := OPEN
+	for gr in groups:
+		if gr.who != "" and field.squads.has(gr.who):
+			var cls: String = field.squads[gr.who].cls
+			if gr.phys and (cls == "melee" or cls == "cav"):
+				gr.kind = "melee"
+			elif gr.phys and cls == "ranged":
+				gr.kind = "volley"
+			elif gr.phys or gr.int:
+				gr.kind = "spell"
+		if gr.ph == "end":
+			gr.t = t + 0.15
+			t += 0.45
+		elif gr.who == "":
+			gr.t = t
+		else:
+			gr.t = t
+			t += STEP
+	# 유닛별 손실 예정 시각 —— 흘려 넣는 기간을 정한다
+	loss_times = []
+	for u in res.roster.size():
+		loss_times.append([])
+	for gr in groups:
+		for i in gr.ev:
+			for ch in changes[i]:
+				if ch[1] < 0 and not loss_times[ch[0]].has(gr.t):
+					loss_times[ch[0]].append(gr.t)
+	for lt in loss_times:
+		lt.sort()
+	shown = []
+	drain = []
+	src = []
+	for c in cur:
+		shown.append(c.duplicate())
+		drain.append([0.0, 0.0])
+		src.append("")
+	rout_wait.clear()
+	plans.clear()
+	ambient.clear()
+	for gr in groups:
+		if gr.kind in ["melee", "volley", "spell"] and not gr.targets.is_empty():
+			if not plans.has(gr.who):
+				plans[gr.who] = []
+			plans[gr.who].append([gr.t, gr.targets[0]])
+	for sq in field.order:
+		ambient[sq.key] = OPEN + rng.randf_range(0.5, 2.5)
+
+
+# ───────── 재생 ─────────
+
+func _process(dt: float) -> void:
+	var tv := Time.get_ticks_usec()
+	_process_inner(dt)
+	if field:
+		field.pt("[화면전체]", tv)
+
+
+func _process_inner(dt: float) -> void:
+	if not running:
+		return
+	if slow_t > 0:
+		slow_t -= dt
+	var spd := speed * (SLOW if slow_t > 0 else 1.0)
+	field.time_scale = spd
+	field.active = is_visible_in_tree()
+	var d := dt * spd
+	clock += d
+	field.clock = clock
+	var t0 := Time.get_ticks_usec()
+	field.direct(plans)
+	_ambient_fire()
+	t0 = field.pt("지휘", t0)
+	field.step(d)
+	t0 = Time.get_ticks_usec()
+	while gi < groups.size() and groups[gi].t <= clock:
+		# 고유기 컷인은 한 번에 하나 —— 앞 연출이 끝날 때까지 다음 고유기는 기다린다
+		if groups[gi].ult != null and (slow_t > 0 or hud.cut != null):
+			break
+		_start_group(groups[gi])
+		gi += 1
+	for g in pending.duplicate():
+		if clock >= g.min_t and (field.arrived(g.who) or clock >= g.wait):
+			pending.erase(g)
+			_release(g, clock)
+	while not due.is_empty() and due[0][0] <= clock:
+		_apply(due.pop_front()[1])
+	_drain_step(d)
+	field.pt("감독", t0)
+	if not finished and gi >= groups.size() and pending.is_empty() and due.is_empty() and not _draining():
+		if finish_t < 0:
+			finish_t = clock + 1.0
+		elif clock >= finish_t:
+			_finish()
+	hud.queue_redraw()
+
+
+## 궁병·지략 계열은 제 차례 사이에도 쉬지 않고 쏘고 던진다 (피해는 엔진 이벤트 때만 들어간다)
+func _ambient_fire() -> void:
+	if finished:
+		return
+	for sq in field.order:
+		if not sq.alive or sq.state == "flee" or (sq.cls != "ranged" and sq.cls != "caster"):
+			continue
+		if clock < ambient.get(sq.key, 0.0):
+			continue
+		ambient[sq.key] = clock + rng.randf_range(2.2, 3.6)
+		var p: Array = plans.get(sq.key, [])
+		if p.is_empty() or not field.squads.has(p[0][1]) or not field.squads[p[0][1]].alive:
+			continue
+		if sq.cls == "ranged":
+			field.volley(sq.key, [p[0][1]], true)
+		else:
+			field.cast(sq.key, [p[0][1]], "", true)
+
+
+func _start_group(g: Dictionary) -> void:
+	if g.ult != null and field.squads.has(g.who):
+		_start_ult(g)
+		return
+	if g.skill != "":
+		field.skill_fx(g.who)
+		hud.float_text(g.who, "『%s』" % g.skill, DB.PAL.gold, 15)
+	match g.kind:
+		"melee":
+			field.order_melee(g.who, g.targets[0])
+			g.wait = clock + MELEE_WAIT
+			pending.append(g)
+		"volley":
+			field.volley(g.who, g.targets)
+			_release(g, clock + 0.72)
+		"spell":
+			field.cast(g.who, g.targets, g.st)
+			_release(g, clock + 0.6)
+		_:
+			_release(g, clock)
+
+
+## 고유기 —— 슬로모션 + 화면 가운데 초상 컷인 + 카메라가 다가간 뒤 대형 이펙트와 함께 터진다
+func _start_ult(g: Dictionary) -> void:
+	var sq: Squad = field.squads[g.who]
+	var u: Dictionary = g.ult
+	if speed > 0:
+		slow_t = 1.45
+	hud.ult_cutin(sq, u.name, u.shout)
+	field.cinematic(sq, 2.2)
+	field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
+	g.min_t = clock + ULT_DELAY
+	if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty():
+		field.order_melee(g.who, g.targets[0])
+		g.wait = clock + MELEE_WAIT
+		pending.append(g)
+	else:
+		_release(g, clock + ULT_DELAY)
+
+
+func _release(g: Dictionary, t0: float) -> void:
+	var k := 0
+	for i in g.ev:
+		due.append([t0 + k * 0.06, i])
+		k += 1
+	due.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
+
+
+func _apply(i: int, quiet := false) -> void:
+	var e: Dictionary = res.ev[i]
+	_log(e)
+	var from: String = e.get("a", e.get("who", ""))
+	for ch in changes[i]:
+		var u: int = ch[0]
+		cur[u][0] += ch[1]
+		cur[u][1] += ch[2]
+		if from != "":
+			src[u] = from
+		if quiet or not smooth:
+			_snap(u)
+		else:
+			_retarget(u)
+		field.squads[res.roster[u].key].statuses = e.s[u][3]
+	var f: String = e.get("f", "")
+	if f != "" and idx_of.has(f):
+		field.squads[f].statuses = e.s[idx_of[f]][3]
+	if quiet:
+		if e.get("fx") == "rout":
+			_snap(idx_of[f])
+			field.rout(f)
+		return
+	_damage_number(i, e, f)
+	match e.get("fx", ""):
+		"phys":
+			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
+				field.clash(e.a, f)
+		"heal":
+			field.heal_fx(f)
+		"rout":
+			var u: int = idx_of[f]
+			if smooth and cur[u][0] <= 0 and shown[u][0] > 0.5:
+				# 병력이 다해 무너진다 —— 남은 병사가 0.9초에 걸쳐 다 쓰러진 뒤 무너뜨린다
+				rout_wait[u] = true
+				drain[u][0] = maxf(drain[u][0], shown[u][0] / 0.9)
+			else:
+				_do_rout(u)
+		"dodge":
+			hud.float_text(f, "회피", Color.WHITE, 12)
+		"resist":
+			hud.float_text(f, "저항", Color("#cfe6ff"), 12)
+		"passive":
+			hud.float_text(e.a, "『%s』" % e.name, Color("#8fe0d0"), 14)
+		"status":
+			hud.float_text(f, DB.D.STATUS[e.st].n, Color(DB.D.STATUS[e.st].c).lightened(0.2), 13)
+		"cleanse":
+			hud.float_text(f, DB.D.STATUS[e.st].n + " 해제", Color("#8FD4C2"), 12)
+
+
+## 피해 숫자 —— 스킬·고유기로 들어간 타격은 치명타로 크게 찍는다 (수치는 엔진 그대로)
+func _damage_number(i: int, e: Dictionary, f: String) -> void:
+	var fx: String = e.get("fx", "")
+	if f == "" or not e.has("n"):
+		return
+	var n: float = e.n
+	match fx:
+		"phys", "int":
+			hud.damage(f, n, fx, e.get("crit", false))
+		"heal":
+			hud.damage(f, n, "heal", false)
+		"tick":
+			hud.damage(f, n, "tick", false)
+
+
+func _snap(u: int) -> void:
+	shown[u] = cur[u].duplicate()
+	drain[u] = [0.0, 0.0]
+	field.apply(res.roster[u].key, shown[u][0], shown[u][1], src[u])
+
+
+## 목표가 바뀌면 흘려 넣는 속도를 다시 잰다 —— 다음 손실 예정까지 다 따라잡도록
+func _retarget(u: int) -> void:
+	var gap: float = shown[u][0] - cur[u][0]
+	if gap > 0:
+		var next := -1.0
+		for t in loss_times[u]:
+			if t > clock + 0.05:
+				next = t
+				break
+		var span := clampf(next - clock if next > 0 else 1.6, 0.8, 3.5)
+		drain[u][0] = gap / span
+	else:
+		drain[u][0] = -gap / 0.5            # 회복은 빠르게
+	drain[u][1] = absf(shown[u][1] - cur[u][1]) / 0.6
+
+
+func _drain_step(dt: float) -> void:
+	for u in shown.size():
+		var moved := false
+		if absf(cur[u][0] - shown[u][0]) > 0.01:
+			shown[u][0] = move_toward(shown[u][0], cur[u][0], maxf(drain[u][0], 1.0) * dt)
+			moved = true
+		if absf(cur[u][1] - shown[u][1]) > 0.01:
+			shown[u][1] = move_toward(shown[u][1], cur[u][1], maxf(drain[u][1], 5.0) * dt)
+			moved = true
+		if moved:
+			field.apply(res.roster[u].key, shown[u][0], shown[u][1], src[u])
+		if rout_wait.has(u) and absf(cur[u][0] - shown[u][0]) < 0.5:
+			rout_wait.erase(u)
+			_do_rout(u)
+
+
+func _draining() -> bool:
+	if not rout_wait.is_empty():
+		return true
+	for u in shown.size():
+		if absf(cur[u][0] - shown[u][0]) > 0.5:
+			return true
+	return false
+
+
+func _do_rout(u: int) -> void:
+	var key: String = res.roster[u].key
+	_snap(u)
+	var sq: Squad = field.squads.get(key)
+	hud.float_text(key, "궤멸" if sq and sq.troops <= 0 else "패주!", Color("#ff6b57"), 16)
+	field.rout(key)
+
+
+func _log(e: Dictionary) -> void:
+	if dbg_nolog:
+		return
+	if e.c == "div":
+		if e.t != "":
+			log_box.append_text("[color=#C6AC7C]%s[/color]\n" % e.t)
+		return
+	if e.get("fx") == "ult":
+		log_box.append_text("[color=#5d6a88]%s[/color] [color=#ffd76e][b]%s[/b][/color]\n" % [clock_text(), e.t])
+		return
+	var col: String = {"A": "#E9E3D3", "B": "#E9A79E", "sk": "#D9A64B", "mo": "#C9A2FF", "hl": "#8FD4C2",
+		"st": "#E8A06A", "rt": "#FF6B57"}.get(e.c, "#E9E3D3")
+	log_box.append_text("[color=#5d6a88]%s[/color] [color=%s]%s[/color]\n" % [clock_text(), col, e.t])
+
+
+func clock_text() -> String:
+	var s := int(clock)
+	return "%d:%02d" % [s / 60, s % 60]
+
+
+## 결과로 —— 남은 행동을 연출 없이 한꺼번에 적용한다
+func skip() -> void:
+	if not running or finished:
+		return
+	var rest := []
+	for d in due:
+		rest.append(d[1])
+	for g in pending:
+		rest.append_array(g.ev)
+	for j in range(gi, groups.size()):
+		rest.append_array(groups[j].ev)
+	rest.sort()
+	due.clear()
+	pending.clear()
+	gi = groups.size()
+	for u in shown.size():
+		_snap(u)
+	for u in rout_wait.keys():
+		field.rout(res.roster[u].key)
+	rout_wait.clear()
+	for i in rest:
+		_apply(i, true)
+	_finish()
+
+
+func _finish() -> void:
+	finished = true
+	# 흘려 넣은 결과가 엔진의 최종 병력과 같은지 확인한다
+	var final: Array = res.ev[res.ev.size() - 1].s
+	for u in shown.size():
+		if absf(shown[u][0] - final[u][0]) > 1.0:
+			push_warning("병력 불일치 %s: 화면 %.0f / 엔진 %d" % [res.roster[u].name, shown[u][0], final[u][0]])
+	if not res.draw:
+		field.celebrate("A" if res.win else "B")
+	var txt := "무승부" if res.draw else ("승전" if res.win else "패전")
+	var col: Color = DB.PAL.jade if res.win else DB.PAL.seal
+	var sub := "잔존 %d부대 대 %d부대 · %s" % [res.left, res.eLeft, clock_text()]
+	if res.mvp:
+		sub += "\n수훈갑  %s  · 격파 %d" % [res.mvp.name, res.mvp.kills]
+	hud.stamp(txt, sub, col)
+	log_box.append_text("\n[color=%s][b]%s[/b][/color] — %s\n" % [col.to_html(false), txt, sub.replace("\n", " · ")])
+
+
+# ───────── 화면 위 표시 (전장 확대와 상관없이 같은 크기) ─────────
+
+class Hud extends Control:
+	var view: BattleView
+	var floats := []
+	var stamp_info = null
+	var stamp_t := 0.0
+
+	func reset() -> void:
+		floats.clear()
+		stamp_info = null
+
+	func float_text(key: String, text: String, col: Color, fs: int) -> void:
+		var sq: Squad = view.field.squads.get(key)
+		if sq == null:
+			return
+		var n := 0
+		for f in floats:
+			if f.key == key and view.clock - f.t0 < 0.8:
+				n += 1
+		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n})
+
+	## 피해 숫자 —— 적이 입은 피해는 흰색, 아군이 입은 피해는 붉은색, 책략은 보랏빛, 회복은 초록.
+	## 치명타는 금빛으로 크게 찍혔다가 자리를 잡고 "치명타!" 가 붙는다.
+	func damage(key: String, amount: float, kind: String, crit: bool) -> void:
+		var sq: Squad = view.field.squads.get(key)
+		if sq == null:
+			return
+		var mine: bool = sq.camp == "A"
+		var col: Color
+		var fs := 15
+		var text := "-" + Battle.num(amount)
+		match kind:
+			"phys":
+				col = Color("#ff8a78") if mine else Color("#fff1dc")
+			"int":
+				col = Color("#e3a2ff") if mine else Color("#d8c4ff")
+			"heal":
+				col = Color("#8FD4C2")
+				text = "+" + Battle.num(amount)
+				fs = 13
+			_:
+				col = Color("#ffb070")
+				fs = 12
+		if crit:
+			col = Color("#ffd257") if not mine else Color("#ff6a4a")
+			fs = 24
+		var n := 0
+		for f in floats:
+			if f.key == key and view.clock - f.t0 < 0.6:
+				n += 1
+		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock,
+			"n": n % 4, "jx": randf_range(-26, 26), "crit": crit, "num": true})
+
+	var cut = null           # 고유기 컷인 {k, name, shout, camp, col, t}
+	var _brush := PackedVector2Array()
+
+	func ult_cutin(sq: Squad, nm: String, shout: String) -> void:
+		cut = {"k": sq.cid, "who": sq.row.name, "name": nm, "shout": shout, "camp": sq.camp,
+			"col": DB.tier_color(sq.cid), "t": 0.0}
+		# 붓질 띠의 거친 가장자리 —— 매번 조금씩 다르게
+		_brush = PackedVector2Array()
+		var r := RandomNumberGenerator.new()
+		r.randomize()
+		for i in 25:
+			_brush.append(Vector2(i / 24.0, r.randf_range(-0.09, 0.09)))
+
+	func stamp(text: String, sub: String, col: Color) -> void:
+		stamp_info = {"text": text, "sub": sub, "col": col}
+		stamp_t = 0.0
+
+	func _to_screen(p: Vector2, lift := 3.3) -> Vector2:
+		return view.field.to_screen(p, lift)
+
+	func _process(dt: float) -> void:
+		if stamp_info:
+			stamp_t += dt
+		if cut:
+			cut.t += dt
+			if cut.t > 1.6:
+				cut = null
+
+	func _draw() -> void:
+		var t0 := Time.get_ticks_usec()
+		_draw_all()
+		view.field.pt("머리표", t0)
+
+	func _draw_all() -> void:
+		var fb := DB.font_body
+		var fd := DB.font_display
+		# 부대 머리표 —— 이름 · 병력 · 사기 · 상태이상. 겹치면 위로 비켜 쌓는다.
+		var tags := []
+		for sq in view.field.order:
+			if sq.state != "gone":
+				var sp := _to_screen(sq.pos, 5.4)
+				if sp.x > -9999 and view.field.label_alpha(sq.pos) > 0.02:
+					tags.append([sp, sq])
+		tags.sort_custom(func(x, y): return x[0].y > y[0].y)
+		var placed: Array[Rect2] = []
+		for t in tags:
+			var p: Vector2 = t[0]
+			var sq: Squad = t[1]
+			var w := 62.0
+			var myth: bool = sq.tier >= 8
+			var r := Rect2(p - Vector2(w / 2 + (40 if myth else 6), 16 if myth else 12), Vector2(w + (46 if myth else 12), 32 if myth else 28))
+			for _i in 6:
+				var hit := false
+				for q in placed:
+					if q.intersects(r):
+						hit = true
+						break
+				if not hit:
+					break
+				r.position.y -= 15
+			placed.append(r)
+			p.y = r.position.y + 12
+			var a: float = sq.fade * view.field.label_alpha(sq.pos)
+			var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+			var fs := 11
+			while fs > 8 and fb.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w + 20:
+				fs -= 1
+			var nc: Color = DB.tier_color(sq.cid).lightened(0.25)
+			draw_string(fb, p + Vector2(-w / 2 - 10 + 1, 1), nm, HORIZONTAL_ALIGNMENT_CENTER, w + 20, fs, Color(0, 0, 0, 0.7 * a))
+			draw_string(fb, p + Vector2(-w / 2 - 10, 0), nm, HORIZONTAL_ALIGNMENT_CENTER, w + 20, fs, Color(nc, a))
+			var br := Rect2(p + Vector2(-w / 2, 4), Vector2(w, 4))
+			draw_rect(br.grow(1), Color(0, 0, 0, 0.6 * a))
+			draw_rect(Rect2(br.position, Vector2(w * clampf(sq.troops / sq.max, 0, 1), 4)),
+				Color(War3D.TEAM[sq.camp].lightened(0.15), a))
+			draw_rect(Rect2(br.position + Vector2(0, 6), Vector2(w, 2)), Color(0, 0, 0, 0.6 * a))
+			draw_rect(Rect2(br.position + Vector2(0, 6), Vector2(w * clampf(sq.morale / 200.0, 0, 1), 2)),
+				Color(DB.PAL.gold if sq.morale > 30 else Color("#a05a2a"), a))
+			var x := br.position.x
+			for st in sq.statuses:
+				draw_circle(Vector2(x + 3, br.position.y + 13), 3, Color(DB.D.STATUS[st].c, a))
+				x += 8
+			# 신화 장수 —— 이름표 왼쪽에 초상
+			if myth and a > 0.5:
+				var pr := Rect2(p + Vector2(-w / 2 - 36, -15), Vector2(30, 30))
+				draw_rect(pr.grow(2), Color(DB.tier_color(sq.cid), a))
+				Art.draw_portrait(self, pr, sq.cid)
+				if not sq.alive:
+					draw_rect(pr, Color(0, 0, 0, 0.6))
+		# 떠오르는 글씨
+		var keep := []
+		for f in floats:
+			var life := 1.6 if f.get("crit", false) else 1.3
+			var u: float = (view.clock - f.t0) / life
+			if u >= 1.0:
+				continue
+			keep.append(f)
+			var col: Color = f.col
+			col.a = 1.0 - maxf(0, u - 0.55) / 0.45
+			if f.get("num", false):
+				_draw_number(f, u, col)
+				continue
+			var p := _to_screen(f.p, 6.5) + Vector2(0, -20 - f.n * 16 - u * 26)
+			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 5, Color(0, 0, 0, col.a * 0.85))
+			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
+		floats = keep
+		# 위쪽 —— 시계와 세력 균형
+		var tA := 0.0
+		var tB := 0.0
+		for sq in view.field.order:
+			if sq.alive:
+				if sq.camp == "A": tA += sq.troops
+				else: tB += sq.troops
+		var bw := minf(420.0, size.x - 260)
+		var bx := (size.x - bw) / 2
+		var ratio := 0.5 if tA + tB <= 0 else tA / (tA + tB)
+		draw_rect(Rect2(bx - 2, 12, bw + 4, 12), Color(0, 0, 0, 0.55))
+		draw_rect(Rect2(bx, 14, bw * ratio, 8), War3D.TEAM.A)
+		draw_rect(Rect2(bx + bw * ratio, 14, bw * (1 - ratio), 8), War3D.TEAM.B)
+		_text(fb, Vector2(bx - 128, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 120, 13, Color("#a9c8f0"))
+		_text(fb, Vector2(bx + bw + 8, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
+		_text(fd, Vector2(bx, 46), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw, 16, DB.PAL.paper)
+		if view.speed == 0.0:
+			_text(fd, Vector2(0, size.y / 2), "일 시 정 지", HORIZONTAL_ALIGNMENT_CENTER, size.x, 26, DB.PAL.bamboo)
+		if cut:
+			_draw_cut()
+		# 결과 낙관
+		if stamp_info:
+			var u := clampf(stamp_t / 0.25, 0, 1)
+			var sc := lerpf(2.0, 1.0, ease(u, 0.4))
+			var c := size / 2 + Vector2(0, -30)
+			draw_set_transform(c, deg_to_rad(-6), Vector2.ONE * sc)
+			var box := Rect2(Vector2(-90, -62), Vector2(180, 124))
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.05, 0.06, 0.1, 0.75 * u)
+			sb.border_color = Color(stamp_info.col, u)
+			sb.set_border_width_all(5)
+			sb.set_corner_radius_all(14)
+			draw_style_box(sb, box)
+			draw_string(fd, Vector2(-90, 18), stamp_info.text, HORIZONTAL_ALIGNMENT_CENTER, 180, 50, Color(stamp_info.col.lightened(0.25), u))
+			draw_set_transform(Vector2.ZERO)
+			var y := c.y + 92
+			for line in stamp_info.sub.split("\n"):
+				_text(fb, Vector2(0, y), line, HORIZONTAL_ALIGNMENT_CENTER, size.x, 15, Color(DB.PAL.paper, u))
+				y += 22
+
+	func _draw_number(f: Dictionary, u: float, col: Color) -> void:
+		var base := _to_screen(f.p, 4.0)
+		if base.x < -9999:
+			return
+		var fd := DB.font_display
+		var crit: bool = f.crit
+		var t: float = view.clock - f.t0
+		var p := base + Vector2(f.jx, -f.n * 15 - u * (34 if crit else 26))
+		var sc := 1.0
+		if crit:
+			sc = lerpf(1.9, 1.0, ease(clampf(t / 0.14, 0, 1), 0.4))       # 쾅 찍혔다가 자리를 잡는다
+			p += Vector2(randf_range(-2, 2), randf_range(-2, 2)) * clampf(1.0 - t / 0.25, 0, 1)
+		draw_set_transform(p, 0, Vector2.ONE * sc)
+		var w := 160.0
+		draw_string_outline(fd, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, 6 if crit else 4, Color(0, 0, 0, col.a * 0.9))
+		draw_string(fd, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, col)
+		if crit:
+			var lc := Color(1, 0.95, 0.8, col.a)
+			draw_string_outline(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 12, 4, Color(0.4, 0.05, 0, col.a * 0.9))
+			draw_string(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 12, lc)
+		draw_set_transform(Vector2.ZERO)
+
+	## 고유기 컷인 —— 어두워진 화면, 비스듬한 먹띠, 미끄러져 들어오는 초상, 도장처럼 박히는 기술명, 외침
+	func _draw_cut() -> void:
+		var t: float = cut.t
+		var fade := clampf(t / 0.12, 0, 1) * clampf((1.6 - t) / 0.3, 0, 1)
+		if fade <= 0.01:
+			return
+		var foe: bool = cut.camp == "B"
+		var col: Color = cut.col
+		var accent: Color = Color("#c8463c") if foe else Color("#d9a64b")
+		var sz := size
+		# 어둡게 + 가장자리 비네트
+		draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.5 * fade))
+		for i in 6:
+			var a := 0.08 * fade * (6 - i) / 6.0
+			draw_rect(Rect2(Vector2.ZERO, sz).grow(-i * 22.0), Color(0, 0, 0, a), false, 22.0)
+		# 집중선 —— 화면 가운데로 모이는 가는 선
+		var c := sz / 2
+		var r := RandomNumberGenerator.new()
+		r.seed = int(t * 20.0)
+		for i in 46:
+			var ang := r.randf() * TAU
+			var dir := Vector2.from_angle(ang)
+			var a0 := sz.length() * 0.6
+			var a1 := r.randf_range(0.28, 0.42) * sz.length()
+			draw_line(c + dir * a0, c + dir * a1, Color(1, 1, 1, 0.13 * fade), r.randf_range(1.0, 3.0))
+		# 먹띠 —— 비스듬히 화면을 가로지른다
+		var band_h := 170.0
+		var slide := ease(clampf(t / 0.22, 0, 1), 0.3)
+		var sx := (1.0 - slide) * (sz.x if foe else -sz.x)
+		var tilt := -0.12 if not foe else 0.12
+		var poly := PackedVector2Array()
+		for p in _brush:
+			poly.append(Vector2(sx + p.x * (sz.x + 200) - 100, c.y - band_h / 2 + p.y * band_h + (p.x - 0.5) * sz.x * tilt))
+		for i in range(_brush.size() - 1, -1, -1):
+			var p: Vector2 = _brush[i]
+			poly.append(Vector2(sx + p.x * (sz.x + 200) - 100, c.y + band_h / 2 - p.y * band_h * 0.7 + (p.x - 0.5) * sz.x * tilt))
+		draw_colored_polygon(poly, Color(0.06, 0.05, 0.07, 0.92 * fade))
+		draw_polyline(poly.slice(0, _brush.size()), Color(accent, 0.9 * fade), 3.0)
+		# 초상 —— 띠보다 크게, 옆에서 미끄러져 들어온다
+		var ph := minf(sz.y * 0.62, 400.0)
+		var pw := ph * 0.78
+		var pin := ease(clampf((t - 0.05) / 0.25, 0, 1), 0.25)
+		var px := lerpf(-pw - 40, sz.x * 0.14, pin) if not foe else lerpf(sz.x + 40, sz.x * 0.86 - pw, pin)
+		var pr := Rect2(px, c.y - ph * 0.55, pw, ph)
+		if pin > 0.02:
+			draw_rect(pr.grow(8), Color(col, 0.35 * fade))
+			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
+		if pin > 0.02:
+			Art.draw_portrait(self, pr, cut.k, t)
+			if fade < 1.0:
+				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
+			draw_rect(pr, Color(col, fade), false, 3.0)
+		# 기술명 —— 크게 찍혔다가 자리를 잡는다
+		var fd := DB.font_display
+		var nt := clampf((t - 0.22) / 0.16, 0, 1)
+		if nt > 0:
+			var sc := lerpf(1.9, 1.0, ease(nt, 0.35))
+			var shake := Vector2(randf_range(-3, 3), randf_range(-3, 3)) * (1.0 - nt)
+			var tx := sz.x * 0.36 if not foe else sz.x * 0.08
+			var tw := sz.x * 0.56
+			var title: String = "『%s』" % cut.name
+			draw_set_transform(Vector2(tx + tw / 2, c.y + 26) + shake, tilt * 0.5, Vector2.ONE * sc)
+			draw_string_outline(fd, Vector2(-tw / 2, 0), title, HORIZONTAL_ALIGNMENT_CENTER, tw, 64, 12, Color(0, 0, 0, fade))
+			draw_string(fd, Vector2(-tw / 2, 0), title, HORIZONTAL_ALIGNMENT_CENTER, tw, 64, Color(accent.lightened(0.35), fade * nt))
+			draw_set_transform(Vector2.ZERO)
+			# 외침 —— 한 글자씩 나온다
+			var shout: String = "“%s”" % cut.shout
+			var shown := shout.substr(0, int(clampf((t - 0.3) / 0.55, 0, 1) * shout.length()))
+			_text(fd, Vector2(tx, c.y - 52), shown, HORIZONTAL_ALIGNMENT_CENTER, tw, 24, Color(1, 0.95, 0.88, fade))
+			# 장수 이름 낙관
+			var who: String = cut.who
+			var wsz := DB.font_body.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)
+			var wb := Rect2(Vector2(tx + tw / 2 - wsz.x / 2 - 10, c.y + 50), Vector2(wsz.x + 20, 26))
+			draw_rect(wb, Color(accent, 0.85 * fade))
+			draw_string(DB.font_body, wb.position + Vector2(10, 19), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, fade))
+
+	func _text(f: Font, p: Vector2, s: String, al: int, w: float, fs: int, col: Color) -> void:
+		draw_string_outline(f, p, s, al, w, fs, 5, Color(0, 0, 0, 0.8 * col.a))
+		draw_string(f, p, s, al, w, fs, col)
+
+
+## 아래 띠의 아군 부대 카드 —— 누르면 그 부대로 카메라가 간다
+class MiniCard extends Control:
+	var sq: Squad
+	var view: BattleView
+
+	func _ready() -> void:
+		custom_minimum_size = Vector2(96, 72)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		tooltip_text = sq.row.name
+
+	var _last := []
+
+	func _process(_dt: float) -> void:
+		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0]
+		if now != _last:
+			_last = now
+			queue_redraw()
+
+	func _gui_input(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			view.focus(sq)
+
+	func _draw() -> void:
+		var t0 := Time.get_ticks_usec()
+		_draw_card()
+		view.field.pt("아래카드", t0)
+
+	func _draw_card() -> void:
+		var tc := DB.tier_color(sq.cid)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = DB.PAL.ink2
+		sb.set_corner_radius_all(6)
+		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 else 1)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if sq.hurt > 0.05 else tc)
+		draw_style_box(sb, Rect2(Vector2.ZERO, size))
+		Art.draw_portrait(self, Rect2(4, 4, 34, 46), sq.cid)
+		var fb := DB.font_body
+		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+		draw_string(DB.font_display, Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))
+		draw_string(fb, Vector2(41, 31), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo_dim)
+		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
+		draw_string(fb, Vector2(41, 45), state, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
+		draw_rect(Rect2(4, 55, size.x - 8, 5), DB.PAL.ink)
+		draw_rect(Rect2(4, 55, (size.x - 8) * clampf(sq.troops / sq.max, 0, 1), 5), War3D.TEAM.A)
+		draw_rect(Rect2(4, 62, size.x - 8, 3), DB.PAL.ink)
+		draw_rect(Rect2(4, 62, (size.x - 8) * clampf(sq.morale / 200.0, 0, 1), 3), DB.PAL.gold)
+		if not sq.alive:
+			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))

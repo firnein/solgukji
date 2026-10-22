@@ -1,0 +1,725 @@
+{
+ "_설명": "불멸·신화 장수의 고유기. 인물 이름(카드 이름 마지막 단어)으로 찾는다. 수치는 신화 기준이며 불멸 카드는 mult·heal·morale·amt 를 tier7_scale 배로 쓴다. first = 등급별로 처음 쓸 수 있는 턴 (엔진이 0~1턴을 무작위로 더해 장수마다 흩는다), cd = 쓰고 나서 다시 쓰기까지 턴 수. eff 는 차례로 적용한다: hit(적 타격) · ally(아군 회복·강화) · foe(적 약화·상태이상).",
+ "tier7_scale": 0.8,
+ "first": {
+  "7": 3,
+  "8": 2
+ },
+ "cd": 3,
+ "list": {
+  "황충": {
+   "name": "백보천양",
+   "shout": "이 늙은이의 화살을 받아라!",
+   "vfx": "arrowstorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 3.2,
+     "tgt": "back2",
+     "pierce": 0.5,
+     "exec": 0.25
+    }
+   ]
+  },
+  "하후연": {
+   "name": "질풍신궁",
+   "shout": "사흘에 오백 리, 엿새에 천 리!",
+   "vfx": "arrowstorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.25,
+     "tgt": "all"
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "buff": {
+      "stat": "spd",
+      "amt": -0.35,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "태사자": {
+   "name": "쌍극난무",
+   "shout": "신의를 지키는 자, 태사자다!",
+   "vfx": "arrowstorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 3.4,
+     "tgt": "back2",
+     "pierce": 0.4,
+     "morale": 12
+    }
+   ]
+  },
+  "손권": {
+   "name": "강동의 기치",
+   "shout": "강동의 아들들이여, 나를 따르라!",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "morale": 25,
+     "buff": {
+      "stat": "atk",
+      "amt": 0.4,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 0.9,
+     "tgt": "all"
+    }
+   ]
+  },
+  "마초": {
+   "name": "서량철기",
+   "shout": "금마초가 간다! 길을 비켜라!",
+   "vfx": "charge",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.2,
+     "tgt": "line:선봉+전군",
+     "morale": 12,
+     "exec": 0.2
+    }
+   ]
+  },
+  "장료": {
+   "name": "요래요래",
+   "shout": "장료가 왔다! 울던 아이도 그친다!",
+   "vfx": "charge",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 3.6,
+     "tgt": "back1"
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "morale": 15
+    }
+   ]
+  },
+  "장합": {
+   "name": "묘변돌격",
+   "shout": "적의 허를 찌른다!",
+   "vfx": "charge",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.2,
+     "tgt": "back2"
+    },
+    {
+     "t": "foe",
+     "tgt": "back2",
+     "buff": {
+      "stat": "spd",
+      "amt": -0.3,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "동탁": {
+   "name": "낙양겁화",
+   "shout": "불태워라! 모조리 불태워!",
+   "vfx": "firestorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 0.9,
+     "tgt": "all",
+     "status": {
+      "k": "burn",
+      "val": 0.1,
+      "dur": 3
+     }
+    }
+   ]
+  },
+  "원소": {
+   "name": "사세삼공",
+   "shout": "하북의 대군을 보아라!",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "morale": 20,
+     "buff": {
+      "stat": "def",
+      "amt": 0.25,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.6,
+     "tgt": "front3"
+    }
+   ]
+  },
+  "조운": {
+   "name": "단기구주",
+   "shout": "상산의 조자룡이 여기 있다!",
+   "vfx": "charge",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.15,
+     "tgt": "all",
+     "pierce": 0.3
+    },
+    {
+     "t": "ally",
+     "tgt": "self",
+     "heal": 0.25
+    }
+   ]
+  },
+  "손책": {
+   "name": "소패왕의 노도",
+   "shout": "강동은 내 손으로 평정한다!",
+   "vfx": "charge",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.5,
+     "tgt": "front3",
+     "morale": 12
+    }
+   ]
+  },
+  "여포": {
+   "name": "천하무쌍",
+   "shout": "나를 막을 자, 천하에 없다!",
+   "vfx": "whirlwind",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.6,
+     "tgt": "all",
+     "exec": 0.2,
+     "morale": 10
+    }
+   ]
+  },
+  "감녕": {
+   "name": "백기겁영",
+   "shout": "방울 소리가 들리거든 이미 늦었다!",
+   "vfx": "shadow",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.8,
+     "tgt": "back2",
+     "status": {
+      "k": "seal",
+      "val": 1,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "여몽": {
+   "name": "백의도강",
+   "shout": "흰 옷 아래 칼을 숨겼다!",
+   "vfx": "shadow",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.4,
+     "tgt": "line:후군",
+     "status": {
+      "k": "confuse",
+      "val": 1,
+      "dur": 1
+     },
+     "exec": 0.25
+    }
+   ]
+  },
+  "위연": {
+   "name": "자오곡 기습",
+   "shout": "누가 감히 나를 죽이겠느냐!",
+   "vfx": "shadow",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 4.4,
+     "tgt": "back1",
+     "exec": 0.35,
+     "status": {
+      "k": "bleed",
+      "val": 0.12,
+      "dur": 3
+     }
+    }
+   ]
+  },
+  "가후": {
+   "name": "독사의 계책",
+   "shout": "계책은 이미 끝났소.",
+   "vfx": "poison",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.2,
+     "tgt": "all",
+     "status": {
+      "k": "plague",
+      "val": 12,
+      "dur": 3
+     }
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "buff": {
+      "stat": "res",
+      "amt": -0.3,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "사마의": {
+   "name": "낭고상",
+   "shout": "때를 기다렸을 뿐.",
+   "vfx": "illusion",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.0,
+     "tgt": "all",
+     "status": {
+      "k": "seal",
+      "val": 1,
+      "dur": 2
+     }
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "morale": 15
+    }
+   ]
+  },
+  "초선": {
+   "name": "연환계",
+   "shout": "누구의 편에 설지 정하시지요.",
+   "vfx": "illusion",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 0.9,
+     "tgt": "all",
+     "morale": 18
+    },
+    {
+     "t": "foe",
+     "tgt": "front3",
+     "status": {
+      "k": "confuse",
+      "val": 1,
+      "dur": 1
+     }
+    }
+   ]
+  },
+  "조조": {
+   "name": "천하간웅",
+   "shout": "천하가 나를 저버리게 두지 않겠다!",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "morale": 25,
+     "buff": {
+      "stat": "atk",
+      "amt": 0.3,
+      "dur": 2
+     }
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "int",
+      "amt": 0.3,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.1,
+     "tgt": "all"
+    }
+   ]
+  },
+  "장로": {
+   "name": "오두미도",
+   "shout": "도의 이치로 너희를 다스린다.",
+   "vfx": "poison",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "heal": 0.15
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "status": {
+      "k": "plague",
+      "val": 10,
+      "dur": 3
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 0.8,
+     "tgt": "all"
+    }
+   ]
+  },
+  "장각": {
+   "name": "황천당립",
+   "shout": "창천은 이미 죽었다! 황천이 일어선다!",
+   "vfx": "thunder",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.8,
+     "tgt": "all",
+     "morale": 15,
+     "status": {
+      "k": "burn",
+      "val": 0.1,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "화타": {
+   "name": "오금희",
+   "shout": "살릴 수 있는 자는 모두 살린다.",
+   "vfx": "heal",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "heal": 0.42,
+     "morale": 20,
+     "cleanse": 2
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 0.6,
+     "tgt": "all"
+    }
+   ]
+  },
+  "노숙": {
+   "name": "강동의 대계",
+   "shout": "천하삼분, 아직 끝나지 않았소.",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "heal": 0.2,
+     "morale": 15,
+     "buff": {
+      "stat": "def",
+      "amt": 0.3,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 0.6,
+     "tgt": "all"
+    }
+   ]
+  },
+  "순욱": {
+   "name": "왕좌지재",
+   "shout": "주공께 승리를 바칩니다.",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "morale": 20,
+     "buff": {
+      "stat": "res",
+      "amt": 0.4,
+      "dur": 2
+     }
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "int",
+      "amt": 0.25,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 0.8,
+     "tgt": "all"
+    }
+   ]
+  },
+  "유비": {
+   "name": "인덕의 기치",
+   "shout": "백성을 버리고 어찌 대업을 이루겠는가!",
+   "vfx": "heal",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "heal": 0.3,
+     "morale": 30,
+     "buff": {
+      "stat": "def",
+      "amt": 0.25,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "허저": {
+   "name": "호치맹공",
+   "shout": "웃통을 벗은 허저를 보아라!",
+   "vfx": "slash",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 4.0,
+     "tgt": "front1"
+    },
+    {
+     "t": "ally",
+     "tgt": "self",
+     "buff": {
+      "stat": "def",
+      "amt": 0.4,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "전위": {
+   "name": "악래의 쌍철극",
+   "shout": "주공께는 한 발짝도 다가오지 못한다!",
+   "vfx": "slash",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.6,
+     "tgt": "front3"
+    },
+    {
+     "t": "ally",
+     "tgt": "allyFront",
+     "buff": {
+      "stat": "def",
+      "amt": 0.3,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "관우": {
+   "name": "청룡언월참",
+   "shout": "관운장의 청룡도를 받아라!",
+   "vfx": "slash",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 3.6,
+     "tgt": "front3",
+     "exec": 0.3,
+     "morale": 15
+    }
+   ]
+  },
+  "장비": {
+   "name": "장판교 대갈",
+   "shout": "연인 장익덕이 여기 있다! 누가 나와 결사하겠느냐!",
+   "vfx": "roar",
+   "eff": [
+    {
+     "t": "foe",
+     "tgt": "all",
+     "morale": 30,
+     "buff": {
+      "stat": "spd",
+      "amt": -0.4,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.6,
+     "tgt": "denseLine"
+    }
+   ]
+  },
+  "곽가": {
+   "name": "십승십패",
+   "shout": "이 싸움, 열에 열을 이깁니다.",
+   "vfx": "illusion",
+   "eff": [
+    {
+     "t": "foe",
+     "tgt": "all",
+     "buff": {
+      "stat": "res",
+      "amt": -0.4,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.4,
+     "tgt": "all"
+    }
+   ]
+  },
+  "육손": {
+   "name": "이릉 화공",
+   "shout": "칠백 리 영채를 모두 불살라라!",
+   "vfx": "firestorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.5,
+     "tgt": "all",
+     "status": {
+      "k": "burn",
+      "val": 0.16,
+      "dur": 3
+     }
+    }
+   ]
+  },
+  "주유": {
+   "name": "적벽대화",
+   "shout": "동남풍이 분다… 불을 놓아라!",
+   "vfx": "firestorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.7,
+     "tgt": "all",
+     "morale": 10,
+     "status": {
+      "k": "burn",
+      "val": 0.14,
+      "dur": 3
+     }
+    }
+   ]
+  },
+  "강유": {
+   "name": "구벌중원",
+   "shout": "승상의 뜻을 잇겠다!",
+   "vfx": "thunder",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 2.4,
+     "tgt": "line:후군"
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "int",
+      "amt": 0.3,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "제갈량": {
+   "name": "팔진도",
+   "shout": "모든 것은 이 공명의 손바닥 안에 있소.",
+   "vfx": "thunder",
+   "eff": [
+    {
+     "t": "foe",
+     "tgt": "front3",
+     "status": {
+      "k": "confuse",
+      "val": 1,
+      "dur": 1
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.4,
+     "tgt": "all"
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "res",
+      "amt": 0.3,
+      "dur": 2
+     }
+    }
+   ]
+  }
+ }
+}

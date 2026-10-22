@@ -1,0 +1,3389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#131A2B">
+<meta name="format-detection" content="telephone=no">
+<title>솔국지 — 랜덤 디펜스 프로토타입</title>
+<link rel="stylesheet" media="print" onload="this.media='all'"
+  href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap">
+<style>
+:root{
+  --ink:#131A2B; --ink2:#1B2338; --ink3:#242E49; --ink4:#33405F;
+  --paper:#E9E3D3; --bamboo:#C6AC7C; --bamboo-dim:#8D7B5C;
+  --seal:#BE4A3C; --seal-dim:#7A3129; --jade:#4F9080; --gold:#D9A64B;
+  --display:'Nanum Myeongjo','Apple SD Gothic Neo',AppleGothic,'Malgun Gothic',serif;
+  --body:-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic',Roboto,sans-serif;
+  --mono:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:#131A2B}
+html,body{margin:0;padding:0}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);
+  font-size:14px;line-height:1.55;overscroll-behavior:none;
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);
+  -webkit-font-smoothing:antialiased;touch-action:manipulation}
+button,input{-webkit-appearance:none;appearance:none;border-radius:0}
+h1,h2,h3,.dsp,.ttl{font-family:var(--display);font-weight:800;letter-spacing:-.01em;margin:0}
+.ttl{font-size:17px}
+button{font-family:inherit;font-size:inherit;color:inherit;border:0;background:none;cursor:pointer;
+  -webkit-appearance:none;appearance:none;touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.num,.pw,.rk{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+header{position:sticky;top:0;z-index:40;background:rgba(19,26,43,.96);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--ink3)}
+.hbar{display:flex;align-items:center;gap:10px;padding:calc(9px + env(safe-area-inset-top)) 13px 7px}
+.daymark{font-family:var(--display);font-weight:800;font-size:19px;line-height:1}
+.daymark small{font-family:var(--body);font-weight:400;font-size:10px;color:var(--bamboo-dim);
+  display:block;letter-spacing:.1em;margin-bottom:2px}
+.hstat{margin-left:auto;display:flex;gap:13px;text-align:right}
+.hstat div{line-height:1.2}
+.hstat b{font-family:var(--mono);font-size:14px;display:block;color:var(--bamboo)}
+.hstat span{font-size:9px;color:var(--bamboo-dim);letter-spacing:.08em}
+.phasebar{display:flex;gap:2px;padding:0 13px 8px}
+.pseg{flex:1;height:3px;background:var(--ink3);border-radius:2px}
+.pseg.on{background:var(--bamboo)} .pseg.done{background:var(--bamboo-dim)}
+
+main{padding:13px}
+.screen{display:none} .screen.on{display:block}
+.sect{margin-bottom:16px}
+.eyebrow{font-size:10px;letter-spacing:.16em;color:var(--bamboo-dim);margin-bottom:6px}
+.panel{background:var(--ink2);border:1px solid var(--ink3);border-radius:10px;padding:12px}
+.hint{font-size:12px;color:var(--bamboo-dim);line-height:1.6}
+.statrow{display:flex;gap:16px}
+.statrow b{font-family:var(--mono);font-size:18px;color:var(--bamboo);display:block}
+.statrow span{font-size:10px;color:var(--bamboo-dim)}
+.lead{margin-bottom:14px}
+.lead b{display:block;font-family:var(--display);font-weight:800;font-size:18px;margin-bottom:3px}
+.lead span{display:block;font-size:12px;color:var(--bamboo-dim);line-height:1.6}
+.actgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.act{padding:10px 9px;border-radius:9px;background:var(--ink2);border:1px solid var(--ink3);
+  text-align:left;line-height:1.3}
+.act b{display:block;font-family:var(--display);font-weight:700;font-size:13px}
+.act i{display:block;font-style:normal;font-size:10px;color:var(--bamboo-dim);margin-top:1px}
+.act.pri{background:var(--bamboo);border-color:var(--bamboo);color:#1A1508}
+.act.pri i{color:rgba(26,21,8,.65)}
+.act.warn{background:var(--ink3);border-color:var(--seal)}
+.act.warn b{color:#E9A79E}
+.act.rnd{background:var(--ink3);border-color:var(--jade)}
+.act.rnd b{color:#8FD4C2}
+/* 조합 카드 —— 한 단계 위만, 재료 보유를 색으로 */
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:6px}
+.ucard{background:var(--ink);border:1px solid var(--ink3);border-left:3px solid var(--ink4);
+  border-radius:0 8px 8px 0;padding:7px 8px;display:flex;flex-direction:column;gap:4px}
+.ucard.self{margin-bottom:2px}
+.ucard.ready{background:rgba(79,144,128,.10);border-color:#4F908055}
+.uch{display:flex;align-items:baseline;gap:6px;text-align:left;width:100%;padding:0}
+.uch b{flex:1;font-family:var(--display);font-weight:700;font-size:12px;line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ufr{flex:none;font-family:var(--mono);font-size:9px;color:var(--seal)}
+.ufr.full{color:var(--jade)}
+.umat{display:flex;flex-wrap:wrap;gap:3px}
+.umat em{font-style:normal;font-size:9px;line-height:1.5;padding:1px 5px;border-radius:4px;
+  white-space:nowrap}
+.umat em.ok{color:#8FD4C2;background:rgba(79,144,128,.16);border:1px solid #4F908055}
+.umat em.no{color:#D98C82;background:rgba(190,74,60,.12);border:1px solid #BE4A3C44}
+.ubt{align-self:stretch;padding:4px;border-radius:5px;background:var(--ink3);
+  border:1px solid var(--ink4);font-size:10px;color:var(--bamboo-dim)}
+.ubt.on{background:var(--bamboo);border-color:var(--bamboo);color:#1A1508;font-weight:700}
+.ubt:disabled{opacity:.5}
+.card .amp{display:block;font-size:9px;color:var(--gold);font-weight:700;margin-top:2px}
+.act:disabled{opacity:.36}
+.skrow{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--ink3)}
+.skrow:last-child{border-bottom:0}
+.skn{flex:none;width:74px;font-family:var(--display);font-weight:700;font-size:11px;line-height:1.35}
+.skb{flex:1;min-width:0}
+.skb b{display:block;font-family:var(--display);font-weight:700;font-size:12px;color:var(--gold)}
+.skb b em{font-style:normal;font-family:var(--body);font-weight:400;font-size:10px;
+  color:var(--bamboo-dim);margin-left:5px}
+.skb>span{display:block;font-size:11px;color:var(--paper);line-height:1.55;margin-top:1px}
+.skb i{display:block;font-style:normal;font-size:10px;color:var(--jade);margin-top:2px}
+
+.btn{display:block;width:100%;padding:12px;border-radius:9px;text-align:center;
+  background:var(--ink3);border:1px solid var(--ink4);font-weight:500;
+  transition:background .12s,transform .08s}
+.btn:active{transform:scale(.985)}
+.btn.pri{background:var(--bamboo);color:#1A1508;border-color:var(--bamboo);font-weight:700}
+.btn.warn{background:var(--seal);color:#FFF1EE;border-color:var(--seal)}
+.btn.ghost{background:none}
+.btn:disabled{opacity:.34;cursor:default}
+.btn small{display:block;font-weight:400;font-size:11px;opacity:.75;margin-top:2px}
+.btnrow{display:flex;gap:8px} .btnrow .btn{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:11px;padding:5px 10px;border-radius:14px;background:var(--ink2);
+  border:1px solid var(--ink3);color:var(--bamboo-dim)}
+.chip.on{background:var(--ink3);border-color:var(--bamboo);color:var(--bamboo);font-weight:500}
+
+/* 세력 배지 */
+.fac{position:absolute;top:0;left:0;font-size:8px;line-height:1;padding:2px 3px;
+  border-radius:0 0 4px 0;color:#fff;font-weight:700;letter-spacing:.02em}
+.tgi{position:absolute;top:1px;left:16px;color:var(--bamboo);opacity:.95}
+.tgi.x{position:static;vertical-align:-1px;margin-right:3px;opacity:.85}
+.tgi.hd{position:static;width:14px;height:14px;vertical-align:-2px;margin:0 4px 0 3px;opacity:.9}
+.upn .tgi{opacity:.8}
+.card .tgi{left:15px}
+.slot .tgi{left:auto;right:3px;top:2px}
+.uc .tgi{left:auto;right:2px;top:1px}
+.st-row .tgi,.lg .tgi{position:static;padding:0 3px 0 1px}
+
+
+/* 카드 */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.card{background:var(--ink2);border:1px solid var(--ink3);border-left:3px solid var(--ink4);
+  border-radius:0 7px 7px 0;padding:12px 8px 7px;text-align:left;position:relative;overflow:hidden}
+.card .nm{font-family:var(--display);font-weight:700;font-size:13px;line-height:1.25;display:block}
+.card .tg{font-size:9px;color:var(--bamboo-dim);letter-spacing:.04em;display:block}
+.card .ef{font-size:9px;color:var(--jade);display:block;margin-top:2px;line-height:1.35}
+.card .qty{position:absolute;top:4px;right:5px;font-family:var(--mono);font-size:11px;
+  color:var(--bamboo);background:var(--ink);border-radius:9px;padding:0 5px}
+.card.myth{background:linear-gradient(100deg,rgba(255,215,110,.12),var(--ink2))}
+.card.ondeck{box-shadow:inset 0 0 0 1px var(--bamboo)}
+.card.ondeck .tg::after{content:' · 편성 중';color:var(--bamboo)}
+.card.aff::after{content:'';position:absolute;bottom:5px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--jade)}
+.card.bad::after{content:'';position:absolute;bottom:5px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--seal)}
+.tierdot{display:inline-block;width:6px;height:6px;border-radius:50%;vertical-align:1px;margin-right:4px}
+
+/* 조합 */
+.rec{padding:9px 10px;margin-bottom:5px;background:var(--ink2);border:1px solid var(--ink3);
+  border-left:3px solid var(--ink4);border-radius:0 8px 8px 0;position:relative;padding-top:13px}
+.rtop{display:flex;align-items:center;gap:9px}
+.rsub{margin-top:7px;padding-top:6px;border-top:1px dashed var(--ink3)}
+.sr{display:flex;align-items:baseline;gap:6px;font-size:10px;line-height:1.6;padding:2px 0}
+.sr .srk{flex:none;font-family:var(--display);font-weight:700;font-size:11px;min-width:52px}
+.sr .srm{flex:1;color:var(--bamboo-dim)}
+.sr .srm em{font-style:normal;color:var(--paper)}
+.sr .srm em.lack{color:var(--seal)}
+.sr .srb{flex:none;padding:3px 8px;border-radius:5px;background:var(--ink3);
+  border:1px solid var(--bamboo-dim);color:var(--bamboo);font-size:10px;font-weight:600}
+.sr.ok .srk{text-shadow:0 0 6px currentColor}
+.rec .out{min-width:84px}
+.rec .out b{font-family:var(--display);font-size:13px;display:block;line-height:1.2}
+.rec .out i{font-style:normal;font-size:9px;color:var(--bamboo-dim)}
+.rec .mats{flex:1;font-size:10px;color:var(--bamboo-dim);line-height:1.5}
+.rec .mats em{font-style:normal;color:var(--paper)}
+.rec .mats em.lack{color:var(--seal)}
+.rec .mats em.self{color:var(--gold);font-weight:600}
+.rec .mk{padding:7px 12px;border-radius:7px;background:var(--bamboo);color:#1A1508;font-weight:700;font-size:12px}
+.rec .mk:disabled{background:var(--ink3);color:var(--bamboo-dim);font-weight:400}
+.rec.locked{opacity:.55}
+.rsk{margin-top:6px;padding-top:5px;border-top:1px dashed var(--ink3);font-size:10px;line-height:1.5}
+.rsk b{font-family:var(--display);font-weight:700;color:var(--gold);margin-right:5px}
+.rsk span{color:var(--paper)}
+.rsk i{font-style:normal;color:var(--jade);margin-left:5px}
+.lrn em u{display:block;text-decoration:none;font-size:9px;color:var(--bamboo-dim);
+  font-family:var(--body);font-weight:400;margin-top:1px}
+.lrn em.own u{color:var(--gold)}
+table.grd{width:100%;border-collapse:collapse;font-size:11px}
+table.grd th,table.grd td{padding:4px 3px;text-align:right;border-bottom:1px solid var(--ink3)}
+table.grd th{color:var(--bamboo-dim);font-weight:400;font-size:9px;letter-spacing:.06em}
+table.grd tr:last-child td{border-bottom:0}
+table.grd td:first-child,table.grd th:first-child{text-align:left}
+table.grd td:first-child b{font-family:var(--display);font-size:12px}
+table.grd td{color:#8994AC;font-family:var(--mono)}
+table.grd td.has{color:var(--paper);font-weight:600}
+.lg.lghd{border-bottom:1px solid var(--ink4);padding-bottom:4px}
+.lgp i.hd{width:11px;height:auto;background:none;border:0;font-size:8px;text-align:center;
+  font-family:var(--display);font-weight:700;line-height:1}
+.mpath{margin-bottom:11px}
+.mpath:last-child{margin-bottom:0}
+.mph{font-family:var(--display);font-weight:700;font-size:12px;color:var(--bamboo);
+  padding:5px 0 4px;border-bottom:1px solid var(--ink3);margin-bottom:5px}
+.mph span{font-family:var(--body);font-weight:400;font-size:10px;color:var(--bamboo-dim);margin-left:5px}
+.mrow{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:6px 8px;margin-bottom:4px;
+  background:var(--ink);border:1px solid var(--ink3);border-radius:6px;text-align:left;width:100%}
+.mrow.own{border-color:#ffd76e66;background:rgba(255,215,110,.06)}
+.mrow .mn{font-family:var(--display);font-weight:700;font-size:12px}
+.mrow .mt{font-size:9px;color:var(--bamboo-dim);text-align:right;font-family:var(--mono)}
+.mrow .mm{grid-column:1/3;font-size:10px;color:var(--bamboo-dim);line-height:1.5}
+.mrow .mm em{font-style:normal;color:#8994AC}
+.mrow .mm em.ok{color:var(--paper)}
+.mrow .mi{grid-column:1/3;font-size:10px}
+
+/* 진형 선택 */
+.fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.fbtn{padding:7px 3px 6px;border-radius:8px;background:var(--ink2);border:1px solid var(--ink3);
+  text-align:center;line-height:1.25}
+.fbtn b{font-family:var(--display);font-size:12px;display:block}
+.fbtn i{font-style:normal;font-size:8px;color:var(--bamboo-dim);display:block}
+.fbtn.on{background:var(--ink3);border-color:var(--bamboo)} .fbtn.on b{color:var(--bamboo)}
+.fmini{display:block;margin-top:3px}
+.fmini span{display:flex;gap:1px;justify-content:center;margin-bottom:1px}
+.fmini i{width:4px;height:4px;border-radius:1px;background:var(--ink4)}
+.fmini i.on{background:var(--bamboo-dim)}
+.fbtn.on .fmini i.on{background:var(--bamboo)}
+
+/* 편성판 */
+.board{padding:11px 5px 5px;background:var(--ink2);border:1px solid var(--ink3);border-radius:10px}
+.enemyface{text-align:center;font-size:10px;letter-spacing:.22em;color:var(--seal);
+  padding-bottom:8px;border-bottom:1px dashed var(--seal-dim);margin:0 8px 11px}
+.frow{display:flex;align-items:stretch;gap:5px;margin-bottom:5px;padding:0 7px}
+.frow .lbl{width:26px;flex:none;font-size:9px;color:var(--bamboo-dim);display:flex;align-items:center}
+.frow .cells{flex:1;display:flex;gap:5px}
+.frow.colhd{margin-bottom:3px}
+.frow.colhd .cells span{flex:1;text-align:center;font-size:9px;color:var(--bamboo-dim);letter-spacing:.08em}
+.rec .mats em .tgi{vertical-align:-1px;margin-right:1px;opacity:.7}
+.slot{flex:1;min-width:0;min-height:62px;border-radius:7px;background:var(--ink);
+  border:1px dashed var(--ink4);display:flex;flex-direction:column;justify-content:center;
+  align-items:center;padding:9px 2px 3px;text-align:center;position:relative}
+.slot.void{background:none;border:1px dotted var(--ink3);opacity:.3;min-height:62px}
+.slot.filled{border-style:solid;background:var(--ink3)}
+.slot .sn{font-family:var(--display);font-weight:700;font-size:11px;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.slot .st{font-size:8px;color:var(--bamboo-dim)}
+.slot .sp{font-family:var(--mono);font-size:8px;color:var(--bamboo)}
+.slot .islot{font-size:8px;color:var(--ink4);margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.slot .islot.has{font-weight:600}
+.slot .empty{font-size:16px;color:var(--ink4)}
+.slot.van{border-top:2px solid var(--seal)}
+.slot.aff::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--jade)}
+.slot.bad::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--seal)}
+.facrow{display:flex;gap:5px}
+.tsrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px;padding:5px 0;
+  border-bottom:1px solid var(--ink3)}
+.tsrow:last-child{border-bottom:0}
+.tsrow b{font-family:var(--display);font-weight:700;font-size:12px}
+.tsrow em{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--bamboo)}
+.tsrow>span{font-size:11px;color:var(--paper)}
+.tsrow i{flex-basis:100%;font-style:normal;font-size:10px;color:var(--gold)}
+.tsrow u{flex-basis:100%;text-decoration:none;font-size:10px;color:var(--ink4)}
+.tsrow.cap b{color:var(--gold)}
+.fchip{font-size:11px;padding:3px 9px;border-radius:12px;border:1px solid var(--ink4)}
+
+/* 전장 */
+.stage{background:var(--ink2);border:1px solid var(--ink3);border-radius:10px;padding:9px 7px}
+.bhead{display:flex;align-items:baseline;gap:7px;padding:0 3px 6px;flex-wrap:wrap}
+.bhead b{font-family:var(--display);font-size:12px;font-weight:700;color:var(--bamboo)}
+.bhead.foe b{color:var(--seal)}
+.bhead span{font-size:9px;color:var(--bamboo-dim)}
+.brow{display:flex;align-items:stretch;gap:5px;margin-bottom:4px}
+.blbl{width:24px;flex:none;font-size:9px;color:var(--bamboo-dim);display:flex;align-items:center}
+.blbl.foe{color:#8B5A52}
+.bcells{flex:1;display:flex;gap:4px}
+.uc{flex:1;min-width:0;background:var(--ink);border:1px solid var(--ink3);border-radius:5px;
+  padding:9px 2px 3px;text-align:center;position:relative;
+  transition:opacity .3s,transform .12s,box-shadow .18s}
+.uc.void{background:none;border:1px dotted var(--ink3);opacity:.25}
+.uc .un{display:block;font-family:var(--display);font-weight:700;font-size:10px;line-height:1.15;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uc .ut{display:block;font-size:8px;color:var(--bamboo-dim);line-height:1.3}
+.uc .bar{height:3px;margin-top:2px}
+.uc.gone{opacity:.2} .uc.gone .un{text-decoration:line-through}
+.uc.act{box-shadow:0 0 0 1px var(--gold);transform:translateY(-2px)}
+.uc.hurt{box-shadow:0 0 0 1px var(--seal)}
+.midrule{display:flex;align-items:center;gap:8px;margin:8px 2px}
+.midrule span{flex:1;height:1px;background:var(--seal-dim)}
+.midrule b{font-size:9px;letter-spacing:.22em;color:var(--seal-dim);font-weight:400}
+.bar{border-radius:3px;background:var(--ink);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--jade)}
+.bar.m i{background:var(--gold)} .bar.lo i{background:var(--seal)}
+
+.feed{background:var(--ink2);border:1px solid var(--ink3);border-radius:10px;
+  padding:11px;height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  font-size:13px;line-height:1.7}
+.feed p{margin:0 0 3px;opacity:0;animation:fin .22s ease-out forwards}
+@keyframes fin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.feed p.a{color:var(--paper)} .feed p.b{color:#9AA6BD}
+.feed p.sk{color:var(--gold);font-family:var(--display);font-weight:700}
+.feed p.rt{color:var(--seal);font-family:var(--display);font-weight:700}
+.feed p.mo{color:#C58FA8} .feed p.hl{color:var(--jade)}
+.feed p.div{color:var(--bamboo-dim);font-size:11px}
+.feed hr{border:0;border-top:1px solid var(--ink3);margin:8px 0}
+.verdict{font-family:var(--display);font-weight:800;font-size:19px;padding:10px 0 3px;
+  animation:fin .4s ease-out forwards}
+.verdict.w{color:var(--jade)} .verdict.l{color:var(--seal)}
+
+/* 순위 · 계보 */
+.st-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--ink2);
+  border:1px solid var(--ink3);border-radius:8px;margin-bottom:5px;position:relative;padding-left:10px}
+.st-row.me{border-color:var(--bamboo)} .st-row.out{opacity:.38}
+.st-row .rk{font-size:12px;color:var(--bamboo-dim);width:16px}
+.st-row .fac{position:static;border-radius:3px;padding:2px 4px;font-size:9px}
+.st-row .nm{flex:1;font-family:var(--display);font-weight:700;font-size:14px}
+.st-row .nm small{font-family:var(--body);font-weight:400;font-size:10px;color:var(--bamboo-dim);display:block}
+.st-row .pw{font-size:12px;color:var(--bamboo)}
+.lg{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--ink3)}
+.lg:last-of-type{border-bottom:0}
+.lg .fac{position:static;border-radius:3px;padding:2px 4px;font-size:9px}
+.lgt{width:28px;flex:none;font-size:11px;color:var(--bamboo-dim)}
+.lgp{display:flex;gap:3px;flex:none}
+.lgp i{width:11px;height:11px;border-radius:2px;background:var(--ink);border:1px solid var(--ink3)}
+.lgn{flex:1;text-align:right;font-family:var(--display);font-weight:700;font-size:12px}
+.lgn small{display:block;font-family:var(--body);font-weight:400;font-size:9px;color:var(--bamboo-dim)}
+.lrow{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--ink3);align-items:baseline}
+.lrow:last-child{border-bottom:0}
+.lrt{width:32px;flex:none;font-size:11px;font-weight:700;letter-spacing:.02em}
+.lrn{flex:1;font-size:12px;line-height:1.9;display:flex;flex-wrap:wrap;gap:4px}
+.lrn em{font-style:normal;color:#8994AC;white-space:nowrap;
+  border:1px solid var(--ink3);border-radius:4px;padding:1px 6px;background:var(--ink)}
+.lrn em.own{font-weight:700;background:var(--ink3)}
+.lrn em b{font-family:var(--mono);font-size:10px;opacity:.85;margin-left:3px}
+.lrn em u{display:block;text-decoration:none;font-size:9px;color:var(--bamboo-dim);
+  font-family:var(--display);font-weight:700;margin-top:1px}
+.lrn em.own u{color:var(--gold)}
+.lgp i{cursor:default}
+.lrn em u{display:block;text-decoration:none;font-size:9px;color:var(--gold);margin-top:1px}
+.rsk{margin-top:6px;padding-top:5px;border-top:1px dashed var(--ink3);font-size:10px;
+  color:var(--paper);line-height:1.5}
+.rsk::before{content:"";}
+.rsk em{font-style:normal;color:var(--bamboo-dim);margin:0 4px}
+.strike{width:22px;height:5px;border-radius:3px;background:var(--ink3)}
+.strike.on{background:var(--seal)}
+.brk{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--ink3)}
+.brk:last-of-type{border-bottom:0}
+.brkr{width:28px;flex:none;font-size:10px;color:var(--bamboo-dim);padding-top:3px}
+.brkm{flex:1;display:flex;flex-wrap:wrap;gap:4px}
+.brkp{font-size:11px;background:var(--ink);border:1px solid var(--ink3);border-radius:5px;
+  padding:3px 7px;white-space:nowrap}
+.brkp.now{border-color:var(--gold)}
+.brkp i{font-style:normal;color:var(--ink4);margin:0 4px;font-size:9px}
+.brkp em{font-style:normal;color:var(--bamboo-dim)}
+.brkp em.win{color:var(--paper)}
+.brkp em.me{font-family:var(--display);font-weight:700;color:var(--bamboo)}
+.brkp em.me.win{color:var(--jade)}
+
+/* 조정 */
+.kn{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--ink3)}
+.kn:last-child{border-bottom:0}
+.kn label{flex:1;font-size:12px;line-height:1.3}
+.kn label small{display:block;color:var(--bamboo-dim);font-size:10px}
+.kn input[type=range]{flex:1.1;min-width:0;accent-color:var(--bamboo);
+  -webkit-appearance:none;appearance:none;height:22px;background:transparent}
+.kn input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--ink3)}
+.kn input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:18px;height:18px;border-radius:50%;background:var(--bamboo);margin-top:-7px}
+.kn b{font-family:var(--mono);font-size:12px;color:var(--bamboo);width:44px;text-align:right}
+table.sim{width:100%;border-collapse:collapse;font-size:12px}
+table.sim th,table.sim td{padding:5px 4px;text-align:right;border-bottom:1px solid var(--ink3)}
+table.sim th{color:var(--bamboo-dim);font-weight:400;font-size:10px}
+table.sim td:first-child,table.sim th:first-child{text-align:left;font-family:var(--display);font-weight:700}
+table.sim td.good{color:var(--jade)} table.sim td.bad{color:var(--seal)}
+table.aff{width:100%;border-collapse:collapse;font-size:11px}
+table.aff th,table.aff td{padding:4px 3px;text-align:left;border-bottom:1px solid var(--ink3);vertical-align:top}
+table.aff th{color:var(--bamboo-dim);font-weight:400;font-size:9px;letter-spacing:.06em}
+table.aff tr:last-child td{border-bottom:0}
+table.aff td:first-child{font-family:var(--display);font-weight:700;white-space:nowrap;color:#8994AC}
+table.aff tr.has td:first-child{color:var(--paper)}
+table.aff td:first-child b{font-family:var(--mono);font-size:9px;color:var(--bamboo);margin-left:3px}
+table.aff td.g{color:var(--jade)} table.aff td.r{color:#C4675C}
+
+/* 시트 · 내비 */
+.mask{position:fixed;inset:0;z-index:90;background:rgba(8,11,19,.82);
+  display:flex;align-items:flex-end;justify-content:center}
+.mask.hide{display:none}
+.sheet{width:100%;max-width:560px;max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:var(--ink2);border-top:1px solid var(--ink4);border-radius:14px 14px 0 0;
+  padding:15px 13px calc(22px + env(safe-area-inset-bottom))}
+.sheet h3{font-size:17px;margin-bottom:3px}
+.sheet .sub{font-size:12px;color:var(--bamboo-dim);margin-bottom:12px}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:50;display:flex;
+  background:rgba(19,26,43,.97);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-top:1px solid var(--ink3);
+  padding:6px 3px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;padding:5px 1px;text-align:center;line-height:1.2;border-radius:8px}
+nav button b{font-family:var(--display);font-size:12px;font-weight:700;display:block;color:var(--bamboo-dim)}
+nav button i{font-style:normal;font-size:7px;letter-spacing:.04em;color:var(--ink4)}
+nav button.on b{color:var(--bamboo)} nav button.on i{color:var(--bamboo-dim)}
+#toast{position:fixed;top:calc(62px + env(safe-area-inset-top));left:0;right:0;z-index:120;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:0 12px}
+.tst{max-width:520px;width:100%;background:rgba(27,35,56,.97);border:1px solid var(--ink4);
+  border-left:3px solid var(--bamboo);border-radius:8px;padding:8px 12px;font-size:12px;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);animation:tin .25s ease-out}
+.tst.news{border-left-color:var(--seal)}
+.tst.gain{border-left-color:var(--jade)}
+.tst b{font-family:var(--display);font-weight:700}
+@keyframes tin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.nws{font-size:11px;line-height:1.7;color:var(--bamboo-dim);padding:2px 0;
+  border-bottom:1px solid var(--ink3)}
+.nws:last-child{border-bottom:0}
+.nws b{font-family:var(--display);font-weight:700;color:var(--paper)}
+.nws em{font-style:normal;font-weight:700}
+.nws span{opacity:.7}
+/* 한 단계 위 목록 —— 손패와 대조해 있다·없다가 한눈에 */
+.upgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(156px,1fr));gap:6px}
+.upc{background:var(--ink);border:1px solid var(--ink3);border-left:3px solid var(--ink4);
+  border-radius:0 8px 8px 0;padding:7px 8px}
+.upc.can{background:rgba(79,144,128,.10);border-color:var(--jade)}
+.uph{display:flex;align-items:baseline;gap:5px}
+.upn{font-family:var(--display);font-weight:700;font-size:13px;padding:0;text-align:left;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.upq{font-family:var(--mono);font-size:9px;color:var(--bamboo);background:var(--ink2);
+  border-radius:8px;padding:0 5px;flex:none}
+.upb{margin-left:auto;font-size:9px;padding:1px 5px;border-radius:4px;white-space:nowrap;flex:none}
+.upb.y{color:#8FD4C2;background:rgba(79,144,128,.22)}
+.upb.n{color:#C4675C;background:rgba(190,74,60,.16)}
+.upm{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+
+.mchip{font-size:9px;padding:2px 5px;border-radius:4px;border:1px solid var(--ink3);
+  background:var(--ink2);white-space:nowrap;line-height:1.3}
+.mchip.ok{color:var(--paper);border-color:rgba(79,144,128,.5)}
+.mchip.no{color:#C4675C;border-color:rgba(190,74,60,.4)}
+.mchip b{font-family:var(--mono);font-size:9px;margin-left:3px;opacity:.85}
+.upmk{display:block;width:100%;margin-top:6px;padding:5px;border-radius:6px;
+  background:var(--bamboo);color:#1A1508;font-weight:700;font-size:11px}
+.upmk.off{background:var(--ink3);color:var(--bamboo-dim);font-weight:400}
+.skbox{margin-top:10px;padding:8px 10px;background:var(--ink);border:1px solid var(--ink3);
+  border-left:2px solid var(--gold);border-radius:0 6px 6px 0}
+.skbox b{display:block;font-family:var(--display);font-weight:700;font-size:13px;color:var(--gold)}
+.skbox b em{font-style:normal;font-family:var(--body);font-weight:400;font-size:10px;
+  color:var(--bamboo-dim);margin-left:6px}
+.skbox>span{display:block;font-size:12px;color:var(--paper);line-height:1.6;margin-top:3px}
+/* 수훈갑 */
+.meritcard{background:var(--ink);border:1px solid var(--ink3);border-left:3px solid var(--gold);
+  border-radius:0 9px 9px 0;padding:11px 12px}
+.meritcard.fell{opacity:.72}
+.mh{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.mh b{font-family:var(--display);font-weight:800;font-size:17px}
+.mh span:last-child{font-size:10px;color:var(--bamboo-dim);margin-left:2px}
+.mrts{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:5px 12px}
+.mrt{display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:1px solid var(--ink3);padding:3px 0}
+.mrt span{font-size:11px;color:var(--bamboo-dim)}
+.mrt b{font-family:var(--mono);font-size:13px;color:var(--paper)}
+.mrow2{display:flex;align-items:center;gap:5px;padding:5px 8px;background:var(--ink);
+  border:1px solid var(--ink3);border-radius:6px;margin-bottom:4px}
+.mrow2 .rk{font-family:var(--mono);font-size:10px;color:var(--bamboo-dim);width:12px}
+.mrow2 b{font-family:var(--display);font-weight:700;font-size:12px}
+.mrow2 span:last-child{margin-left:auto;font-size:10px;color:var(--bamboo-dim);font-family:var(--mono)}
+.stage{scroll-margin-top:calc(66px + env(safe-area-inset-top))}
+.skbox i{display:block;font-style:normal;font-size:11px;color:var(--jade);margin-top:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="boot" style="position:fixed;inset:0;z-index:200;background:#131A2B;color:#E9E3D3;
+  padding:24px;font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;display:none;
+  overflow:auto;-webkit-overflow-scrolling:touch">
+  <div style="font-size:18px;font-weight:700;margin-bottom:10px">불러오지 못했습니다</div>
+  <div id="bootMsg" style="color:#C6AC7C;font-size:12px;white-space:pre-wrap;word-break:break-all"></div>
+  <div style="margin-top:16px;font-size:12px;color:#8D7B5C">
+    아이폰에서 파일 앱으로 열면 미리보기라 실행되지 않습니다.
+    공유 → Safari로 열기를 눌러주세요.</div>
+</div>
+<script>
+(function(){
+  function show(m){
+    var b=document.getElementById('boot');
+    if(!b) return;
+    b.style.display='block';
+    document.getElementById('bootMsg').textContent=m;
+  }
+  window.addEventListener('error',function(e){
+    show((e.message||'오류')+'\n'+(e.filename||'')+' '+(e.lineno||'')+':'+(e.colno||''));
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    show('처리되지 않은 예외: '+(e.reason&&e.reason.message||e.reason));
+  });
+  window.__bootOK=function(){ var b=document.getElementById('boot'); if(b) b.remove(); };
+  setTimeout(function(){
+    if(!document.querySelector('#sc-draw').innerHTML)
+      show('화면이 그려지지 않았습니다. 자바스크립트가 실행되지 않는 환경일 수 있습니다.');
+  }, 3000);
+})();
+</script>
+<header>
+  <div class="hbar">
+    <div class="daymark"><small id="hDay">솔국지 · DAY 1 월요일</small><span id="hPhase">오전</span></div>
+    <div class="hstat">
+      <div><b id="hPower">0</b><span>전력</span></div>
+      <div><b id="hPv">0</b><span>PV</span></div>
+      <div><b id="hRank">—</b><span>순위</span></div>
+    </div>
+  </div>
+  <div class="phasebar" id="hBar"></div>
+</header>
+<main>
+  <section class="screen on" id="sc-draw"></section>
+  <section class="screen" id="sc-forge"></section>
+  <section class="screen" id="sc-deploy"></section>
+  <section class="screen" id="sc-battle"></section>
+  <section class="screen" id="sc-line"></section>
+  <section class="screen" id="sc-rank"></section>
+  <section class="screen" id="sc-tune"></section>
+</main>
+<nav>
+  <button class="on" data-sc="draw"><b>징집</b><i>DRAW</i></button>
+  <button data-sc="forge"><b>조합</b><i>FORGE</i></button>
+  <button data-sc="deploy"><b>편성</b><i>DEPLOY</i></button>
+  <button data-sc="battle"><b>전장</b><i>WAR</i></button>
+  <button data-sc="line"><b>계보</b><i>TREE</i></button>
+  <button data-sc="rank"><b>순위</b><i>RANK</i></button>
+  <button data-sc="tune"><b>조정</b><i>TUNE</i></button>
+</nav>
+<div id="toast"></div>
+<div class="mask hide" id="mask"><div class="sheet" id="sheet"></div></div>
+<script>
+
+/* ═══════════════════════════════════════════════════════════
+   1. 기본 정의
+   ═══════════════════════════════════════════════════════════ */
+/* 등급 —— pv는 허용 범위(lo~hi)이며 카드마다 다르다. 병력은 pv × 효율.
+   신화는 불멸 위의 8티어로, 불멸 + 초월 + 유니크 아이템이 필요하다. */
+const TIER = {
+  1:{n:'기본', c:'#708090'}, 2:{n:'일반', c:'#009f27'}, 3:{n:'고급', c:'#d59700'},
+  4:{n:'희귀', c:'#9932cc'}, 5:{n:'전설', c:'#fd2b2b'}, 6:{n:'초월', c:'#25e3d2'},
+  7:{n:'불멸', c:'#fa8072'}, 8:{n:'신화', c:'#ffd76e'}
+};
+const TIERS = [1,2,3,4,5,6,7,8];
+const KINDNM = {immortal:'불멸', myth:'신화', legend:'신화'};
+const RATE = {4:.25, 5:.30, 6:.35, 7:.40, 8:.45};
+const FAC = {
+  '촉':{c:'#2fa14e', full:'촉한'}, '위':{c:'#3b6fd4', full:'조위'},
+  '오':{c:'#c9403a', full:'동오'}, '군':{c:'#6b7280', full:'군웅'}
+};
+/* 세력 시너지 —— 편성판 9칸의 세력 구성이 진영 전체를 강화한다 */
+/* 세력 시너지 —— 9칸이니 다섯 명이 상한이다. 세력마다 성격이 다르다. */
+const SYN = {
+  '촉':{stat:'morale', v:[15,30,50],    d:'시작 사기', extra:'다섯 명부터 사기 회복이 1.5배'},
+  '위':{stat:'atk',    v:[.08,.16,.26], d:'공격력',   extra:'정예의 창끝'},
+  '오':{stat:'spd',    v:[.08,.16,.26], d:'속도',     extra:'다섯 명부터 선공을 다툰다'},
+  '군':{stat:'troop',  v:[.08,.18,.30], d:'병력',     extra:'물량으로 버틴다'}
+};
+/* 병종 시너지 —— 두 명부터 붙고 다섯 명에서 고유 효과가 열린다.
+   아홉 칸이라 한 병종을 다섯까지 모으는 건 현실적인 목표다. */
+const TAGSYN = {
+  '창병':{stat:'troop', v:[.08,.17,.27,.40], d:'병력', cap:'반격', capd:'물리 피격 시 70% 확률로 되받아친다'},
+  '기병':{stat:'atk', v:[.03,.06,.10,.15], d:'공격력', cap:'선봉', capd:'첫 턴에 기병이 먼저 움직인다'},
+  '궁병':{stat:'rate',v:[.03,.06,.09,.14], d:'스킬 발동률', cap:'관통', capd:'후열을 직접 노린다'},
+  '도적':{stat:'atk', v:[.07,.14,.22,.32], d:'공격력', cap:'회피', capd:'물리 공격을 45% 확률로 흘린다'},
+  '책사':{stat:'int', v:[.06,.12,.19,.28], d:'책략', cap:'중용', capd:'걸어둔 상태이상이 한 턴 더 간다'},
+  '유생':{stat:'res', v:[.07,.14,.22,.32], d:'책략방어', cap:'인화', capd:'턴마다 아군 병력이 4.5% 회복되고 패주 확률이 절반이 된다'},
+  '술사':{stat:'stx', v:[.20,.38,.58,.85], d:'상태이상 효과', cap:'현혹', capd:'상태이상 저항을 무시한다'},
+  '모사':{stat:'brk', v:[.09,.18,.28,.40], d:'적 책략방어 감소', cap:'봉계', capd:'책략이 30% 확률로 스킬을 봉인한다'}
+};
+const TAGSYN_STEP = [2,3,4,5];
+const SYN_STEP = [3,4,5];
+
+/* 상태이상 —— 지략 계열이 판을 흔드는 수단.
+   화상·수몰은 병력을 직접 깎아 사기만 깎던 지략을 실전용으로 만든다. */
+const STATUS = {
+  burn:   {n:'화상', c:'#e07a3c', d:'턴마다 병력이 타 들어간다'},
+  flood:  {n:'수몰', c:'#4a9ad4', d:'병력이 잠기고 발이 묶인다'},
+  confuse:{n:'혼란', c:'#b57edc', d:'행동하지 못한다'},
+  bleed:  {n:'출혈', c:'#c4564a', d:'상처가 벌어져 병력이 흘러나간다'},
+  plague: {n:'역병', c:'#7fa86b', d:'턴마다 사기가 꺾인다'},
+  seal:   {n:'봉인', c:'#8d8d8d', d:'스킬을 쓸 수 없다'}
+};
+
+/* 전투 계수 —— 시뮬레이션으로 교정한 기본값 */
+const K = {
+  troop:22, intTroop:12, morale:0.029, aoe:0.80, regen:6,
+  routSame:8, routOther:2, hit50:12, hit25:18,
+  routMin:0.09, routSlope:0.025, cap:20,
+  guard:0.66, guardFrom:5   /* 전설 이상은 등급 차이만큼 책략 사기 피해를 흘린다 */
+};
+
+/* ═══ 로스터 201장 —— 기본8 일반11 고급28 희귀39 전설37 초월38 불멸20 신화20
+   PV는 조합 재료의 합으로 정해지므로 같은 등급 안에서도 폭이 있다.
+   [id,이름,티어,태그,세력,공,방,책공,책방,속도,병력,PV,스킬,종류,필요아이템] */
+const CARDDEF = [
+/* 기본패 8종 —— 뽑기로만 얻는다 */
+['spear','창병',1,'창병','군',22,34,0,24,72,100,1,null,'',''],
+['horse','기병',1,'기병','군',36,22,0,22,118,100,1,null,'',''],
+['bow','궁병',1,'궁병','군',32,18,0,30,88,100,1,null,'',''],
+['rogue','도적',1,'도적','군',30,14,6,30,126,100,1,null,'',''],
+['strat','책사',1,'책사','군',6,16,34,24,84,100,1,null,'',''],
+['schol','유생',1,'유생','군',4,22,22,32,76,100,1,null,'',''],
+['occul','술사',1,'술사','군',8,12,38,22,96,100,1,null,'',''],
+['schem','모사',1,'모사','군',10,14,32,24,108,100,1,null,'',''],
+['c0','창병대',2,'창병','군',48,44,0,28,80,500,3,null,'',''],
+['c1','극병대',2,'창병','군',55,41,0,24,78,500,2,null,'',''],
+['c2','중기병',2,'기병','군',63,32,0,25,130,500,3,null,'',''],
+['c3','경기병',2,'기병','군',69,29,0,22,127,500,2,null,'',''],
+['c4','궁수대',2,'궁병','군',58,24,0,38,98,500,3,null,'',''],
+['c5','노수대',2,'궁병','군',65,20,0,35,96,500,2,null,'',''],
+['c6','산월도적',2,'도적','군',53,23,6,38,132,500,3,null,'',''],
+['c7','막부서리',2,'책사','군',8,24,56,32,94,500,3,null,'',''],
+['c8','태학생',2,'유생','군',8,34,43,35,84,500,3,null,'',''],
+['c9','태평도사',2,'술사','군',7,22,56,35,102,500,3,null,'',''],
+['c10','주부서리',2,'모사','군',12,26,50,32,112,500,3,null,'',''],
+['c11','우금',3,'창병','위',64,59,0,37,82,900,5,null,'',''],
+['c12','악진',3,'창병','위',74,54,0,32,80,900,5,null,'',''],
+['c13','이전',3,'창병','위',58,70,0,32,79,900,5,null,'',''],
+['c14','하후패',3,'기병','위',83,43,0,34,132,900,5,null,'',''],
+['c15','곽회',3,'기병','위',93,38,0,29,129,900,5,null,'',''],
+['c16','안량',3,'기병','군',77,54,0,29,127,900,5,null,'',''],
+['c17','학소',3,'궁병','위',77,32,0,51,100,900,5,null,'',''],
+['c18','여상',3,'궁병','위',87,27,0,46,98,900,5,null,'',''],
+['c19','서성',3,'궁병','오',71,43,0,46,96,900,5,null,'',''],
+['c20','주창',3,'도적','촉',71,30,8,51,134,900,5,null,'',''],
+['c21','요화',3,'도적','촉',80,26,8,46,131,900,6,null,'',''],
+['c22','관해',3,'도적','군',64,42,8,46,129,900,5,null,'',''],
+['c23','능조',3,'도적','오',64,27,18,51,134,900,6,null,'',''],
+['c24','마충',3,'도적','오',67,27,8,58,145,900,5,null,'',''],
+['c25','마량',3,'책사','촉',11,32,74,43,96,900,5,null,'',''],
+['c26','이적',3,'책사','촉',21,27,74,38,94,900,6,null,'',''],
+['c27','유엽',3,'책사','위',5,43,74,38,92,900,5,null,'',''],
+['c28','간옹',3,'유생','촉',11,45,58,46,86,900,5,null,'',''],
+['c29','미축',3,'유생','촉',21,40,57,42,84,900,6,null,'',''],
+['c30','진군',3,'유생','위',5,56,57,42,83,900,5,null,'',''],
+['c31','우길',3,'술사','군',10,29,75,46,104,900,5,null,'',''],
+['c32','장보',3,'술사','군',19,24,75,42,102,900,6,null,'',''],
+['c33','장량',3,'술사','군',3,40,75,42,100,900,5,null,'',''],
+['c34','초주',3,'술사','촉',3,26,85,46,104,900,6,null,'',''],
+['c35','오범',3,'술사','오',6,26,75,53,112,900,5,null,'',''],
+['c36','저수',3,'모사','군',16,35,66,43,114,900,5,null,'',''],
+['c37','전풍',3,'모사','군',26,30,66,38,112,900,6,null,'',''],
+['c38','심배',3,'모사','군',10,46,66,38,109,900,5,null,'',''],
+['c39','관우',4,'창병','촉',96,89,0,55,84,2700,14,{n:'횡소천군',eff:{kind:'phys',mult:0.950,tgt:'front3'},psv:null},'',''],
+['c40','장비',4,'창병','촉',110,82,0,48,82,2700,12,{n:'방원지세',eff:{kind:'phys',mult:0.950,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'vanguard'},'',''],
+['c41','허저',4,'창병','위',86,106,0,48,81,2700,14,{n:'필사돌격',eff:{kind:'phys',mult:1.425,tgt:'front1',selfBuff:{stat:'def',amt:.3,dur:2}},psv:'tough'},'',''],
+['c42','서황',4,'창병','위',92,89,0,59,84,2700,13,{n:'횡소천군',eff:{kind:'phys',mult:0.950,tgt:'front3'},psv:'rearguard'},'',''],
+['c43','주태',4,'창병','오',91,84,0,65,91,2700,15,{n:'방원지세',eff:{kind:'phys',mult:0.950,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'swift'},'',''],
+['c44','조운',4,'기병','촉',125,65,0,50,134,2700,14,{n:'일점돌파',eff:{kind:'phys',mult:1.710,tgt:'front1',exec:.3},psv:null},'',''],
+['c45','마초',4,'기병','촉',139,58,0,43,131,2700,12,{n:'철기유린',eff:{kind:'phys',mult:0.950,tgt:'line:선봉+전군',morale:6},psv:'vanguard'},'',''],
+['c46','장료',4,'기병','위',115,82,0,43,129,2700,14,{n:'배후차단',eff:{kind:'phys',mult:1.377,tgt:'back1',spd:{amt:-.2,dur:2}},psv:'tough'},'',''],
+['c47','마대',4,'기병','촉',122,64,0,54,134,2700,12,{n:'일점돌파',eff:{kind:'phys',mult:1.710,tgt:'front1',exec:.3},psv:'rearguard'},'',''],
+['c48','손책',4,'기병','오',120,60,0,60,145,2700,14,{n:'철기유린',eff:{kind:'phys',mult:0.950,tgt:'line:선봉+전군',morale:6},psv:'swift'},'',''],
+['c49','황충',4,'궁병','촉',115,48,0,77,102,2700,14,{n:'일제사격',eff:{kind:'phys',mult:0.950,tgt:'denseLine',morale:6},psv:null},'',''],
+['c50','태사자',4,'궁병','오',129,41,0,70,100,2700,12,{n:'저격',eff:{kind:'phys',mult:1.140,tgt:'back2'},psv:'vanguard'},'',''],
+['c51','정보',4,'궁병','오',105,65,0,70,98,2700,14,{n:'화망',eff:{kind:'phys',mult:0.570,tgt:'all'},psv:'tough'},'',''],
+['c52','하후연',4,'궁병','위',112,46,0,82,102,2700,12,{n:'일제사격',eff:{kind:'phys',mult:0.950,tgt:'denseLine',morale:6},psv:'rearguard'},'',''],
+['c53','손권',4,'궁병','오',111,43,0,86,110,2700,14,{n:'저격',eff:{kind:'phys',mult:1.140,tgt:'back2'},psv:'swift'},'',''],
+['c54','여몽',4,'도적','오',105,46,12,77,136,2700,14,{n:'후미교란',eff:{kind:'phys',mult:1.092,tgt:'line:후군',morale:6},psv:null},'',''],
+['c55','감녕',4,'도적','오',120,38,12,70,133,2700,15,{n:'암습',eff:{kind:'phys',mult:1.520,tgt:'back1',spd:{amt:-.25,dur:2}},psv:'vanguard'},'',''],
+['c56','능통',4,'도적','오',96,62,12,70,131,2700,15,{n:'매복',eff:{kind:'phys',mult:1.140,tgt:'back2',morale:5},psv:'tough'},'',''],
+['c57','정봉',4,'도적','오',96,41,26,77,136,2700,14,{n:'후미교란',eff:{kind:'phys',mult:1.092,tgt:'line:후군',morale:6},psv:'rearguard'},'',''],
+['c58','장연',4,'도적','군',101,41,12,86,147,2700,14,{n:'암습',eff:{kind:'phys',mult:1.520,tgt:'back1',spd:{amt:-.25,dur:2}},psv:'swift'},'',''],
+['c59','제갈량',4,'책사','촉',17,48,110,65,98,2700,15,{n:'진법',eff:{kind:'int',mult:0.760,tgt:'all',morale:8},psv:null},'',''],
+['c60','방통',4,'책사','촉',31,41,110,58,96,2700,15,{n:'허실',eff:{kind:'int',mult:0.902,tgt:'all'},psv:'vanguard'},'',''],
+['c61','곽가',4,'책사','위',7,65,110,58,94,2700,14,{n:'반간',eff:{kind:'int',mult:1.092,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:'tough'},'',''],
+['c62','육손',4,'책사','오',7,43,125,65,98,2700,13,{n:'진법',eff:{kind:'int',mult:0.760,tgt:'all',morale:8},psv:'rearguard'},'',''],
+['c63','강유',4,'책사','촉',12,43,111,74,106,2700,15,{n:'허실',eff:{kind:'int',mult:0.902,tgt:'all'},psv:'swift'},'',''],
+['c64','주유',4,'책사','오',17,48,110,65,98,2700,14,{n:'반간',eff:{kind:'int',mult:1.092,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:null},'',''],
+['c65','유비',4,'유생','촉',17,67,86,70,88,2700,14,{n:'격려',eff:{kind:'heal',morale:4,tgt:'allyAll',allyBuff:{stat:'res',amt:.2,dur:2,tgt:'allyAll'}},psv:null},'',''],
+['c66','노숙',4,'유생','오',31,60,87,62,86,2700,14,{n:'결속',eff:{kind:'heal',morale:3.2,tgt:'allyAll',allyBuff:{stat:'def',amt:.15,dur:2,tgt:'allyAll'}},psv:'vanguard'},'',''],
+['c67','법정',4,'유생','촉',7,84,87,62,84,2700,14,{n:'독려',eff:{kind:'heal',morale:5.6,tgt:'allyFront',allyBuff:{stat:'def',amt:.25,dur:2,tgt:'allyFront'}},psv:'tough'},'',''],
+['c68','순욱',4,'유생','위',7,62,101,70,88,2700,13,{n:'격려',eff:{kind:'heal',morale:4,tgt:'allyAll',allyBuff:{stat:'res',amt:.2,dur:2,tgt:'allyAll'}},psv:'rearguard'},'',''],
+['c69','장각',4,'술사','군',14,43,113,70,106,2700,14,{n:'요술',eff:{kind:'int',mult:0.712,tgt:'all',morale:8},psv:null},'',''],
+['c70','좌자',4,'술사','군',29,36,113,62,104,2700,15,{n:'혹세',eff:{kind:'morale',morale:10,tgt:'all',foeSpd:{amt:-.2,dur:2}},psv:'vanguard'},'',''],
+['c71','화타',4,'술사','군',5,60,113,62,102,2700,14,{n:'저주',eff:{kind:'int',mult:1.092,tgt:'front3',resDown:{amt:-.35,dur:2}},psv:'tough'},'',''],
+['c72','장로',4,'술사','군',5,38,127,70,106,2700,14,{n:'요술',eff:{kind:'int',mult:0.712,tgt:'all',morale:8},psv:'rearguard'},'',''],
+['c73','관로',4,'술사','군',10,38,113,79,114,2700,14,{n:'혹세',eff:{kind:'morale',morale:10,tgt:'all',foeSpd:{amt:-.2,dur:2}},psv:'swift'},'',''],
+['c74','조조',4,'모사','위',24,53,98,65,116,2700,15,{n:'이간',eff:{kind:'int',mult:0.902,tgt:'all',morale:7},psv:null},'',''],
+['c75','사마의',4,'모사','위',38,46,98,58,114,2700,14,{n:'교란',eff:{kind:'res',amt:-.3,dur:2,morale:7,tgt:'all'},psv:'vanguard'},'',''],
+['c76','가후',4,'모사','위',14,70,98,58,111,2700,14,{n:'밀계',eff:{kind:'int',mult:1.235,tgt:'back2',morale:8},psv:'tough'},'',''],
+['c77','초선',4,'모사','군',14,48,113,65,116,2700,13,{n:'이간',eff:{kind:'int',mult:0.902,tgt:'all',morale:7},psv:'rearguard'},'',''],
+['c78','의절 관우',5,'창병','촉',148,137,0,85,86,8500,38,{n:'횡소천군',eff:{kind:'phys',mult:1.050,tgt:'front3'},psv:null},'',''],
+['c79','환안 장비',5,'창병','촉',170,126,0,74,84,8500,36,{n:'방원지세',eff:{kind:'phys',mult:1.050,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'vanguard'},'',''],
+['c80','맹호 허저',5,'창병','위',133,163,0,74,83,8500,38,{n:'필사돌격',eff:{kind:'phys',mult:1.575,tgt:'front1',selfBuff:{stat:'def',amt:.3,dur:2}},psv:'tough'},'',''],
+['c81','거부 서황',5,'창병','위',141,138,0,91,86,8500,38,{n:'횡소천군',eff:{kind:'phys',mult:1.050,tgt:'front3'},psv:'rearguard'},'',''],
+['c82','불사 주태',5,'창병','오',140,130,0,100,93,8500,39,{n:'방원지세',eff:{kind:'phys',mult:1.050,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'swift'},'',''],
+['c83','담기 조운',5,'기병','촉',192,100,0,78,136,8500,38,{n:'일점돌파',eff:{kind:'phys',mult:1.890,tgt:'front1',exec:.3},psv:null},'',''],
+['c84','금마 마초',5,'기병','촉',214,89,0,67,133,8500,37,{n:'철기유린',eff:{kind:'phys',mult:1.050,tgt:'line:선봉+전군',morale:6},psv:'vanguard'},'',''],
+['c85','질풍 장료',5,'기병','위',177,126,0,67,131,8500,38,{n:'배후차단',eff:{kind:'phys',mult:1.522,tgt:'back1',spd:{amt:-.2,dur:2}},psv:'tough'},'',''],
+['c86','비기 마대',5,'기병','촉',189,98,0,83,136,8500,36,{n:'일점돌파',eff:{kind:'phys',mult:1.890,tgt:'front1',exec:.3},psv:'rearguard'},'',''],
+['c87','소패 손책',5,'기병','오',186,92,0,92,147,8500,38,{n:'철기유린',eff:{kind:'phys',mult:1.050,tgt:'line:선봉+전군',morale:6},psv:'swift'},'',''],
+['c88','강궁 황충',5,'궁병','촉',178,74,0,118,104,8500,38,{n:'일제사격',eff:{kind:'phys',mult:1.050,tgt:'denseLine',morale:6},psv:null},'',''],
+['c89','동래 태사자',5,'궁병','오',200,63,0,107,102,8500,37,{n:'저격',eff:{kind:'phys',mult:1.260,tgt:'back2'},psv:'vanguard'},'',''],
+['c90','철심 정보',5,'궁병','오',163,100,0,107,100,8500,37,{n:'화망',eff:{kind:'phys',mult:0.630,tgt:'all'},psv:'tough'},'',''],
+['c91','표질 하후연',5,'궁병','위',173,71,0,126,104,8500,36,{n:'일제사격',eff:{kind:'phys',mult:1.050,tgt:'denseLine',morale:6},psv:'rearguard'},'',''],
+['c92','벽안 손권',5,'궁병','오',170,67,0,133,112,8500,38,{n:'저격',eff:{kind:'phys',mult:1.260,tgt:'back2'},psv:'swift'},'',''],
+['c93','잠룡 여몽',5,'도적','오',164,70,18,118,138,8500,39,{n:'후미교란',eff:{kind:'phys',mult:1.208,tgt:'line:후군',morale:6},psv:null},'',''],
+['c94','금범 감녕',5,'도적','오',186,59,18,107,135,8500,41,{n:'암습',eff:{kind:'phys',mult:1.680,tgt:'back1',spd:{amt:-.25,dur:2}},psv:'vanguard'},'',''],
+['c95','열혈 능통',5,'도적','오',149,96,18,107,132,8500,40,{n:'매복',eff:{kind:'phys',mult:1.260,tgt:'back2',morale:5},psv:'tough'},'',''],
+['c96','한월 정봉',5,'도적','오',148,63,41,118,138,8500,39,{n:'후미교란',eff:{kind:'phys',mult:1.208,tgt:'line:후군',morale:6},psv:'rearguard'},'',''],
+['c97','와룡 제갈량',5,'책사','촉',26,74,170,100,100,8500,40,{n:'진법',eff:{kind:'int',mult:0.840,tgt:'all',morale:8},psv:null},'',''],
+['c98','봉추 방통',5,'책사','촉',48,63,170,89,98,8500,40,{n:'허실',eff:{kind:'int',mult:0.997,tgt:'all'},psv:'vanguard'},'',''],
+['c99','귀재 곽가',5,'책사','위',11,100,170,89,96,8500,38,{n:'반간',eff:{kind:'int',mult:1.208,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:'tough'},'',''],
+['c100','국사 육손',5,'책사','오',11,67,192,100,100,8500,38,{n:'진법',eff:{kind:'int',mult:0.840,tgt:'all',morale:8},psv:'rearguard'},'',''],
+['c101','기린아 강유',5,'책사','촉',18,67,170,115,108,8500,40,{n:'허실',eff:{kind:'int',mult:0.997,tgt:'all'},psv:'swift'},'',''],
+['c102','공근 주유',5,'책사','오',26,74,170,100,100,8500,38,{n:'반간',eff:{kind:'int',mult:1.208,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:null},'',''],
+['c103','황숙 유비',5,'유생','촉',26,104,133,107,90,8500,39,{n:'격려',eff:{kind:'heal',morale:6,tgt:'allyAll',allyBuff:{stat:'res',amt:.2,dur:2,tgt:'allyAll'}},psv:null},'',''],
+['c104','대의 노숙',5,'유생','오',48,92,134,96,88,8500,39,{n:'결속',eff:{kind:'heal',morale:4.8,tgt:'allyAll',allyBuff:{stat:'def',amt:.15,dur:2,tgt:'allyAll'}},psv:'vanguard'},'',''],
+['c105','효직 법정',5,'유생','촉',11,130,133,96,86,8500,38,{n:'독려',eff:{kind:'heal',morale:8.4,tgt:'allyFront',allyBuff:{stat:'def',amt:.25,dur:2,tgt:'allyFront'}},psv:'tough'},'',''],
+['c106','문약 순욱',5,'유생','위',11,96,156,107,90,8500,38,{n:'격려',eff:{kind:'heal',morale:6,tgt:'allyAll',allyBuff:{stat:'res',amt:.2,dur:2,tgt:'allyAll'}},psv:'rearguard'},'',''],
+['c107','황천 장각',5,'술사','군',22,67,174,107,108,8500,37,{n:'요술',eff:{kind:'int',mult:0.788,tgt:'all',morale:8},psv:null},'',''],
+['c108','선옹 좌자',5,'술사','군',44,56,174,96,106,8500,38,{n:'혹세',eff:{kind:'morale',morale:10,tgt:'all',foeSpd:{amt:-.2,dur:2}},psv:'vanguard'},'',''],
+['c109','활인 화타',5,'술사','군',7,92,175,96,104,8500,39,{n:'저주',eff:{kind:'int',mult:1.208,tgt:'front3',resDown:{amt:-.35,dur:2}},psv:'tough'},'',''],
+['c110','사군 장로',5,'술사','군',7,59,197,107,108,8500,38,{n:'요술',eff:{kind:'int',mult:0.788,tgt:'all',morale:8},psv:'rearguard'},'',''],
+['c111','효웅 조조',5,'모사','위',37,81,152,100,118,8500,40,{n:'이간',eff:{kind:'int',mult:0.997,tgt:'all',morale:7},psv:null},'',''],
+['c112','와호 사마의',5,'모사','위',59,70,152,89,116,8500,39,{n:'교란',eff:{kind:'res',amt:-.3,dur:2,morale:7,tgt:'all'},psv:'vanguard'},'',''],
+['c113','귀모 가후',5,'모사','위',22,107,152,89,113,8500,39,{n:'밀계',eff:{kind:'int',mult:1.365,tgt:'back2',morale:8},psv:'tough'},'',''],
+['c114','옥용 초선',5,'모사','군',22,74,174,100,118,8500,37,{n:'이간',eff:{kind:'int',mult:0.997,tgt:'all',morale:7},psv:'rearguard'},'',''],
+['c115','한수정후 관우',6,'창병','촉',212,196,0,122,88,25000,88,{n:'횡소천군',eff:{kind:'phys',mult:1.200,tgt:'front3'},psv:null},'',''],
+['c116','우장군 서황',6,'창병','위',244,180,0,106,86,25000,88,{n:'방원지세',eff:{kind:'phys',mult:1.200,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'vanguard'},'',''],
+['c117','혈전 주태',6,'창병','오',191,233,0,106,84,25000,90,{n:'필사돌격',eff:{kind:'phys',mult:1.800,tgt:'front1',selfBuff:{stat:'def',amt:.3,dur:2}},psv:'tough'},'',''],
+['c118','독안 하후돈',6,'창병','위',203,197,0,130,88,25000,93,{n:'횡소천군',eff:{kind:'phys',mult:1.200,tgt:'front3'},psv:'rearguard'},'',''],
+['c119','철벽 조인',6,'창병','위',201,186,0,143,95,25000,92,{n:'방원지세',eff:{kind:'phys',mult:1.200,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'swift'},'',''],
+['c120','합비신장 장료',6,'기병','위',276,143,0,111,138,25000,91,{n:'일점돌파',eff:{kind:'phys',mult:2.160,tgt:'front1',exec:.3},psv:null},'',''],
+['c121','오자양장 장합',6,'기병','위',308,127,0,95,135,25000,89,{n:'철기유린',eff:{kind:'phys',mult:1.200,tgt:'line:선봉+전군',morale:6},psv:'vanguard'},'',''],
+['c122','상국 동탁',6,'기병','군',255,180,0,95,132,25000,89,{n:'배후차단',eff:{kind:'phys',mult:1.740,tgt:'back1',spd:{amt:-.2,dur:2}},psv:'tough'},'',''],
+['c123','사세삼공 원소',6,'기병','군',271,141,0,118,138,25000,89,{n:'일점돌파',eff:{kind:'phys',mult:2.160,tgt:'front1',exec:.3},psv:'rearguard'},'',''],
+['c124','서량웅 마등',6,'기병','군',266,132,0,132,149,25000,89,{n:'철기유린',eff:{kind:'phys',mult:1.200,tgt:'line:선봉+전군',morale:6},psv:'swift'},'',''],
+['c125','백마장군 공손찬',6,'기병','군',276,143,0,111,138,25000,89,{n:'배후차단',eff:{kind:'phys',mult:1.740,tgt:'back1',spd:{amt:-.2,dur:2}},psv:null},'',''],
+['c126','신궁 태사자',6,'궁병','오',254,106,0,170,106,25000,88,{n:'일제사격',eff:{kind:'phys',mult:1.200,tgt:'denseLine',morale:6},psv:null},'',''],
+['c127','적벽화신 황개',6,'궁병','오',286,90,0,154,104,25000,89,{n:'저격',eff:{kind:'phys',mult:1.440,tgt:'back2'},psv:'vanguard'},'',''],
+['c128','탕구장군 정보',6,'궁병','오',233,143,0,154,102,25000,87,{n:'화망',eff:{kind:'phys',mult:0.720,tgt:'all'},psv:'tough'},'',''],
+['c129','경병도독 하후연',6,'궁병','위',249,101,0,180,106,25000,88,{n:'일제사격',eff:{kind:'phys',mult:1.200,tgt:'denseLine',morale:6},psv:'rearguard'},'',''],
+['c130','강동벽안 손권',6,'궁병','오',244,95,0,191,114,25000,91,{n:'저격',eff:{kind:'phys',mult:1.440,tgt:'back2'},psv:'swift'},'',''],
+['c131','남군태수 여몽',6,'도적','오',233,101,26,170,140,25000,92,{n:'후미교란',eff:{kind:'phys',mult:1.380,tgt:'line:후군',morale:6},psv:null},'',''],
+['c132','강동효장 능통',6,'도적','오',265,85,26,154,137,25000,94,{n:'암습',eff:{kind:'phys',mult:1.920,tgt:'back1',spd:{amt:-.25,dur:2}},psv:'vanguard'},'',''],
+['c133','동오덕왕 엄백호',6,'도적','오',212,138,26,154,134,25000,92,{n:'매복',eff:{kind:'phys',mult:1.440,tgt:'back2',morale:5},psv:'tough'},'',''],
+['c134','정서대장 위연',6,'도적','촉',212,90,58,170,140,25000,93,{n:'후미교란',eff:{kind:'phys',mult:1.380,tgt:'line:후군',morale:6},psv:'rearguard'},'',''],
+['c135','천수기린 강유',6,'책사','촉',37,106,244,143,102,25000,91,{n:'진법',eff:{kind:'int',mult:0.960,tgt:'all',morale:8},psv:null},'',''],
+['c136','연환계 방통',6,'책사','촉',69,90,244,127,100,25000,93,{n:'허실',eff:{kind:'int',mult:1.140,tgt:'all'},psv:'vanguard'},'',''],
+['c137','백미 마량',6,'책사','촉',16,143,244,127,98,25000,88,{n:'반간',eff:{kind:'int',mult:1.380,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:'tough'},'',''],
+['c138','십승십패 곽가',6,'책사','위',16,95,276,143,102,25000,92,{n:'진법',eff:{kind:'int',mult:0.960,tgt:'all',morale:8},psv:'rearguard'},'',''],
+['c139','상대장군 육손',6,'책사','오',26,95,245,164,110,25000,92,{n:'허실',eff:{kind:'int',mult:1.140,tgt:'all'},psv:'swift'},'',''],
+['c140','사도 종회',6,'책사','위',37,106,244,143,102,25000,91,{n:'반간',eff:{kind:'int',mult:1.380,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:null},'',''],
+['c141','대도독 주유',6,'책사','오',69,90,244,127,100,25000,92,{n:'진법',eff:{kind:'int',mult:0.960,tgt:'all',morale:8},psv:'vanguard'},'',''],
+['c142','상서령 법정',6,'유생','촉',37,148,191,154,92,25000,91,{n:'격려',eff:{kind:'heal',morale:8,tgt:'allyAll',allyBuff:{stat:'res',amt:.2,dur:2,tgt:'allyAll'}},psv:null},'',''],
+['c143','도독 노숙',6,'유생','오',69,132,191,138,90,25000,92,{n:'결속',eff:{kind:'heal',morale:6.4,tgt:'allyAll',allyBuff:{stat:'def',amt:.15,dur:2,tgt:'allyAll'}},psv:'vanguard'},'',''],
+['c144','강동이교 대교',6,'유생','오',16,186,190,138,88,25000,88,{n:'독려',eff:{kind:'heal',morale:11.2,tgt:'allyFront',allyBuff:{stat:'def',amt:.25,dur:2,tgt:'allyFront'}},psv:'tough'},'',''],
+['c145','경국지색 소교',6,'유생','오',16,138,222,154,92,25000,91,{n:'격려',eff:{kind:'heal',morale:8,tgt:'allyAll',allyBuff:{stat:'res',amt:.2,dur:2,tgt:'allyAll'}},psv:'rearguard'},'',''],
+['c146','왕좌지재 순욱',6,'유생','위',26,138,191,175,99,25000,91,{n:'결속',eff:{kind:'heal',morale:6.4,tgt:'allyAll',allyBuff:{stat:'def',amt:.15,dur:2,tgt:'allyAll'}},psv:'swift'},'',''],
+['c147','좌원방 좌자',6,'술사','군',32,95,249,154,110,25000,90,{n:'요술',eff:{kind:'int',mult:0.900,tgt:'all',morale:8},psv:null},'',''],
+['c148','한녕태수 장로',6,'술사','군',64,80,248,138,108,25000,90,{n:'혹세',eff:{kind:'morale',morale:10,tgt:'all',foeSpd:{amt:-.2,dur:2}},psv:'vanguard'},'',''],
+['c149','십면매복 정욱',6,'모사','위',53,117,217,143,120,25000,91,{n:'이간',eff:{kind:'int',mult:1.140,tgt:'all',morale:7},psv:null},'',''],
+['c150','음평기습 등애',6,'모사','위',85,101,217,127,118,25000,94,{n:'교란',eff:{kind:'res',amt:-.3,dur:2,morale:7,tgt:'all'},psv:'vanguard'},'',''],
+['c151','중가황제 원술',6,'모사','군',32,154,217,127,115,25000,90,{n:'밀계',eff:{kind:'int',mult:1.560,tgt:'back2',morale:8},psv:'tough'},'',''],
+['c152','절세미인 초선',6,'모사','군',32,106,249,143,120,25000,91,{n:'이간',eff:{kind:'int',mult:1.140,tgt:'all',morale:7},psv:'rearguard'},'',''],
+['c153','호치 허저',7,'창병','위',296,274,0,170,90,47000,118,{n:'횡소천군',eff:{kind:'phys',mult:1.400,tgt:'front3'},psv:'tough'},'immortal',''],
+['c154','악래 전위',7,'창병','위',340,252,0,148,88,47000,116,{n:'방원지세',eff:{kind:'phys',mult:1.400,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'vanguard'},'immortal',''],
+['c155','오호대장 마초',7,'기병','촉',355,252,0,133,134,47000,122,{n:'배후차단',eff:{kind:'phys',mult:2.030,tgt:'back1',spd:{amt:-.2,dur:2}},psv:'vanguard'},'immortal',''],
+['c156','오자제일 장료',7,'기병','위',378,197,0,165,140,47000,118,{n:'일점돌파',eff:{kind:'phys',mult:2.520,tgt:'front1',exec:.3},psv:'vanguard'},'immortal',''],
+['c157','묘변 장합',7,'기병','위',370,185,0,185,151,47000,118,{n:'철기유린',eff:{kind:'phys',mult:1.400,tgt:'line:선봉+전군',morale:6},psv:'swift'},'immortal',''],
+['c158','폭군 동탁',7,'기병','군',385,200,0,155,140,47000,117,{n:'배후차단',eff:{kind:'phys',mult:2.030,tgt:'back1',spd:{amt:-.2,dur:2}},psv:'tough'},'immortal',''],
+['c159','하북패자 원소',7,'기병','군',429,178,0,133,137,47000,118,{n:'일점돌파',eff:{kind:'phys',mult:2.520,tgt:'front1',exec:.3},psv:'vanguard'},'immortal',''],
+['c160','노장 황충',7,'궁병','촉',325,200,0,215,104,47000,118,{n:'저격',eff:{kind:'phys',mult:1.680,tgt:'back2'},psv:'intShield'},'immortal',''],
+['c161','신속 하후연',7,'궁병','위',346,142,0,252,108,47000,117,{n:'화망',eff:{kind:'phys',mult:0.840,tgt:'all'},psv:'swift'},'immortal',''],
+['c162','동래맹호 태사자',7,'궁병','오',341,133,0,266,117,47000,117,{n:'일제사격',eff:{kind:'phys',mult:1.400,tgt:'denseLine',morale:6},psv:'intShield'},'immortal',''],
+['c163','벽안아 손권',7,'궁병','오',355,148,0,237,108,47000,117,{n:'저격',eff:{kind:'phys',mult:1.680,tgt:'back2'},psv:'lord'},'immortal',''],
+['c164','금범적 감녕',7,'도적','오',370,118,37,215,139,47000,122,{n:'매복',eff:{kind:'phys',mult:1.680,tgt:'back2',morale:5},psv:'firstStrike'},'immortal',''],
+['c165','오하아몽 여몽',7,'도적','오',296,192,37,215,136,47000,125,{n:'후미교란',eff:{kind:'phys',mult:1.610,tgt:'line:후군',morale:6},psv:'firstStrike'},'immortal',''],
+['c166','자오곡 위연',7,'도적','촉',296,126,81,237,142,47000,123,{n:'암습',eff:{kind:'phys',mult:2.240,tgt:'back1',spd:{amt:-.25,dur:2}},psv:'rearguard'},'immortal',''],
+['c167','천기 곽가',7,'책사','위',37,133,341,229,112,47000,122,{n:'반간',eff:{kind:'int',mult:1.610,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:'rearguard'},'immortal',''],
+['c168','이릉대첩 육손',7,'책사','오',52,148,340,200,104,47000,124,{n:'진법',eff:{kind:'int',mult:1.120,tgt:'all',morale:8},psv:'rearguard'},'immortal',''],
+['c169','미주랑 주유',7,'책사','오',96,126,340,178,102,47000,118,{n:'허실',eff:{kind:'int',mult:1.330,tgt:'all'},psv:'resBreak'},'immortal',''],
+['c170','구벌중원 강유',7,'책사','촉',22,200,340,178,100,47000,120,{n:'반간',eff:{kind:'int',mult:1.610,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:'tough'},'immortal',''],
+['c171','강동주석 노숙',7,'유생','오',22,192,311,215,94,47000,121,{n:'격려',eff:{kind:'heal',morale:11,tgt:'allyAll',allyBuff:{stat:'res',amt:.2,dur:2,tgt:'allyAll'}},psv:'moraleHeal'},'immortal',''],
+['c172','순령군 순욱',7,'유생','위',37,192,267,244,102,47000,122,{n:'결속',eff:{kind:'heal',morale:8.8,tgt:'allyAll',allyBuff:{stat:'def',amt:.15,dur:2,tgt:'allyAll'}},psv:'allyRes'},'immortal',''],
+['c173','오두미교주 장로',7,'술사','군',44,133,348,215,112,47000,119,{n:'저주',eff:{kind:'int',mult:1.610,tgt:'front3',resDown:{amt:-.35,dur:2}},psv:'statusUp'},'immortal',''],
+['c174','독사 가후',7,'모사','위',118,141,303,178,120,47000,122,{n:'이간',eff:{kind:'int',mult:1.330,tgt:'all',morale:7},psv:'resBreak'},'immortal',''],
+['c175','낭고 사마의',7,'모사','위',44,215,303,178,117,47000,124,{n:'교란',eff:{kind:'res',amt:-.3,dur:2,morale:7,tgt:'all'},psv:'rearguard'},'immortal',''],
+['c176','연환미계 초선',7,'모사','군',44,148,348,200,122,47000,118,{n:'밀계',eff:{kind:'int',mult:1.820,tgt:'back2',morale:8},psv:'resBreak'},'immortal',''],
+['c177','미염공 관우',8,'창병','촉',356,329,0,205,92,70000,158,{n:'횡소천군',eff:{kind:'phys',mult:1.600,tgt:'front3'},psv:'noRout'},'myth','청룡언월도'],
+['c178','만인적 장비',8,'창병','촉',409,303,0,178,90,70000,160,{n:'방원지세',eff:{kind:'phys',mult:1.600,tgt:'denseLine',allyBuff:{stat:'def',amt:.2,dur:1,tgt:'allyFront'}},psv:'tough'},'myth','장팔사모'],
+['c179','상산조자룡 조운',8,'기병','촉',427,303,0,160,136,70000,162,{n:'배후차단',eff:{kind:'phys',mult:2.320,tgt:'back1',spd:{amt:-.2,dur:2}},psv:'swift'},'myth','청강검'],
+['c180','소패왕 손책',8,'기병','오',454,237,0,199,142,70000,165,{n:'일점돌파',eff:{kind:'phys',mult:2.880,tgt:'front1',exec:.3},psv:'vanguard'},'myth','고정도'],
+['c181','비장 여포',8,'기병','군',446,222,0,222,153,70000,146,{n:'철기유린',eff:{kind:'phys',mult:1.600,tgt:'line:선봉+전군',morale:6},psv:'noAllyRoutLoss'},'myth','방천화극'],
+['c182','강동의 악몽 장료',8,'기병','위',463,240,0,187,142,70000,155,{n:'배후차단',eff:{kind:'phys',mult:2.320,tgt:'back1',spd:{amt:-.2,dur:2}},psv:'noAllyRoutLoss'},'myth','합비군기'],
+['c183','낙양겁화 동탁',8,'기병','군',516,214,0,160,139,70000,165,{n:'일점돌파',eff:{kind:'phys',mult:2.880,tgt:'front1',exec:.3},psv:'statusUp'},'myth','상국절'],
+['c184','삼일오백리 하후연',8,'궁병','위',392,240,0,258,106,70000,158,{n:'저격',eff:{kind:'phys',mult:1.920,tgt:'back2'},psv:'firstStrike'},'myth','철태궁'],
+['c185','쌍극신사 태사자',8,'궁병','오',417,170,0,303,110,70000,164,{n:'화망',eff:{kind:'phys',mult:0.960,tgt:'all'},psv:'swift'},'myth','쌍단극'],
+['c186','오대제 손권',8,'궁병','오',410,160,0,320,119,70000,145,{n:'일제사격',eff:{kind:'phys',mult:1.600,tgt:'denseLine',morale:6},psv:'lord'},'myth','오왕검'],
+['c187','신산 제갈량',8,'책사','촉',62,178,410,240,106,70000,164,{n:'허실',eff:{kind:'int',mult:1.520,tgt:'all'},psv:'allyRes'},'myth','백우선'],
+['c188','십승의 예언 곽가',8,'책사','위',116,151,409,214,104,70000,171,{n:'반간',eff:{kind:'int',mult:1.840,tgt:'line:후군',resDown:{amt:-.3,dur:2}},psv:'rearguard'},'myth','십승십패론'],
+['c189','화공대도독 육손',8,'책사','오',27,240,409,214,102,70000,147,{n:'진법',eff:{kind:'int',mult:1.280,tgt:'all',morale:8},psv:'statusUp'},'myth','도독인'],
+['c190','인덕군주 유비',8,'유생','촉',27,231,374,258,96,70000,162,{n:'결속',eff:{kind:'heal',morale:11.2,tgt:'allyAll',allyBuff:{stat:'def',amt:.15,dur:2,tgt:'allyAll'}},psv:'lord'},'myth','쌍고검'],
+['c191','장자방 순욱',8,'유생','위',44,231,321,294,104,70000,169,{n:'독려',eff:{kind:'heal',morale:19.6,tgt:'allyFront',allyBuff:{stat:'def',amt:.25,dur:2,tgt:'allyFront'}},psv:'moraleHeal'},'myth','왕좌지인'],
+['c192','대현량사 장각',8,'술사','군',53,160,419,258,114,70000,158,{n:'요술',eff:{kind:'int',mult:1.200,tgt:'all',morale:8},psv:'statusUp'},'myth','태평요술서'],
+['c193','신의 화타',8,'술사','군',107,134,418,231,112,70000,165,{n:'혹세',eff:{kind:'morale',morale:10,tgt:'all',foeSpd:{amt:-.2,dur:2}},psv:'moraleHeal'},'myth','청낭서'],
+['c194','난세간웅 조조',8,'모사','위',53,258,365,214,119,70000,164,{n:'밀계',eff:{kind:'int',mult:2.080,tgt:'back2',morale:8},psv:'lord'},'myth','칠성보도'],
+['c195','적벽대도독 주유',8,'책사','오',27,160,463,240,106,70000,160,{n:'진법',eff:{kind:'int',mult:1.280,tgt:'all',morale:8},psv:'resBreak'},'myth','주랑금'],
+['c196','월하미인 초선',8,'모사','군',71,178,365,276,134,70000,173,{n:'교란',eff:{kind:'res',amt:-.3,dur:2,morale:7,tgt:'all'},psv:'allyRes'},'myth','옥잠'],
+['c197','백기겁영 감녕',8,'도적','오',392,169,44,285,144,70000,163,{n:'매복',eff:{kind:'phys',mult:1.920,tgt:'back2',morale:5},psv:'firstStrike'},'myth','금범'],
+['c198','백의도강 여몽',8,'도적','오',446,142,44,258,141,70000,173,{n:'후미교란',eff:{kind:'phys',mult:1.840,tgt:'line:후군',morale:6},psv:'swift'},'myth','백의'],
+['c199','반골 위연',8,'도적','촉',357,231,44,258,138,70000,154,{n:'암습',eff:{kind:'phys',mult:2.560,tgt:'back1',spd:{amt:-.25,dur:2}},psv:'tough'},'myth','한중지도'],
+];
+const RECDEF = [
+['c0',['spear','spear','horse']],
+['c1',['spear','spear']],
+['c2',['horse','horse','bow']],
+['c3',['horse','horse']],
+['c4',['bow','bow','rogue']],
+['c5',['bow','bow']],
+['c6',['rogue','rogue','strat']],
+['c7',['strat','strat','schol']],
+['c8',['schol','schol','occul']],
+['c9',['occul','occul','schem']],
+['c10',['schem','schem','spear']],
+['c11',['c0','spear','bow']],
+['c12',['c1','c0']],
+['c13',['c0','spear','bow']],
+['c14',['c2','horse','rogue']],
+['c15',['c3','c2']],
+['c16',['c2','horse','rogue']],
+['c17',['c4','bow','strat']],
+['c18',['c5','c4']],
+['c19',['c4','bow','strat']],
+['c20',['c6','rogue','schol']],
+['c21',['c6','c6']],
+['c22',['c6','rogue','schol']],
+['c23',['c6','c6']],
+['c24',['c6','rogue','schol']],
+['c25',['c7','strat','occul']],
+['c26',['c7','c7']],
+['c27',['c7','strat','occul']],
+['c28',['c8','schol','schem']],
+['c29',['c8','c8']],
+['c30',['c8','schol','schem']],
+['c31',['c9','occul','spear']],
+['c32',['c9','c9']],
+['c33',['c9','occul','spear']],
+['c34',['c9','c9']],
+['c35',['c9','occul','spear']],
+['c36',['c10','schem','horse']],
+['c37',['c10','c10']],
+['c38',['c10','schem','horse']],
+['c39',['c11','c14','c0','spear']],
+['c40',['c12','c17','c1']],
+['c41',['c13','c20','c0','spear']],
+['c42',['c11','c23','c1']],
+['c43',['c12','c26','c0','spear']],
+['c44',['c14','c19','c2','horse']],
+['c45',['c15','c22','c3']],
+['c46',['c16','c25','c2','horse']],
+['c47',['c14','c28','c3']],
+['c48',['c15','c31','c2','horse']],
+['c49',['c17','c24','c4','bow']],
+['c50',['c18','c27','c5']],
+['c51',['c19','c30','c4','bow']],
+['c52',['c17','c33','c5']],
+['c53',['c18','c36','c4','bow']],
+['c54',['c20','c31','c6','rogue']],
+['c55',['c21','c34','c6']],
+['c56',['c22','c37','c6','rogue']],
+['c57',['c23','c12','c6']],
+['c58',['c24','c15','c6','rogue']],
+['c59',['c25','c34','c7','strat']],
+['c60',['c26','c37','c7']],
+['c61',['c27','c12','c7','strat']],
+['c62',['c25','c15','c7']],
+['c63',['c26','c18','c7','strat']],
+['c64',['c27','c21','c7']],
+['c65',['c28','c11','c8','schol']],
+['c66',['c29','c14','c8']],
+['c67',['c30','c17','c8','schol']],
+['c68',['c28','c20','c8']],
+['c69',['c31','c18','c9','occul']],
+['c70',['c32','c21','c9']],
+['c71',['c33','c24','c9','occul']],
+['c72',['c34','c27','c9']],
+['c73',['c35','c30','c9','occul']],
+['c74',['c36','c21','c10','schem']],
+['c75',['c37','c24','c10']],
+['c76',['c38','c27','c10','schem']],
+['c77',['c36','c30','c10']],
+['c78',['c39','c44','c11','c12']],
+['c79',['c40','c49','c12','c13']],
+['c80',['c41','c54','c13','c11']],
+['c81',['c42','c59','c11','c12']],
+['c82',['c43','c64','c12','c13']],
+['c83',['c44','c51','c14','c15']],
+['c84',['c45','c56','c15','c16']],
+['c85',['c46','c61','c16','c14']],
+['c86',['c47','c66','c14','c15']],
+['c87',['c48','c71','c15','c16']],
+['c88',['c49','c58','c17','c18']],
+['c89',['c50','c63','c18','c19']],
+['c90',['c51','c68','c19','c17']],
+['c91',['c52','c73','c17','c18']],
+['c92',['c53','c39','c18','c19']],
+['c93',['c54','c65','c20','c21']],
+['c94',['c55','c70','c21','c22']],
+['c95',['c56','c75','c22','c23']],
+['c96',['c57','c41','c23','c24']],
+['c97',['c59','c73','c25','c26']],
+['c98',['c60','c39','c26','c27']],
+['c99',['c61','c44','c27','c25']],
+['c100',['c62','c49','c25','c26']],
+['c101',['c63','c54','c26','c27']],
+['c102',['c64','c65','c27','c25']],
+['c103',['c65','c39','c28','c29']],
+['c104',['c66','c44','c29','c30']],
+['c105',['c67','c49','c30','c28']],
+['c106',['c68','c54','c28','c29']],
+['c107',['c69','c47','c31','c32']],
+['c108',['c70','c52','c32','c33']],
+['c109',['c71','c57','c33','c34']],
+['c110',['c72','c62','c34','c35']],
+['c111',['c74','c53','c36','c37']],
+['c112',['c75','c58','c37','c38']],
+['c113',['c76','c63','c38','c36']],
+['c114',['c77','c68','c36','c37']],
+['c115',['c78','c83','c40']],
+['c116',['c79','c88','c41']],
+['c117',['c80','c93','c42']],
+['c118',['c81','c98','c43']],
+['c119',['c82','c103','c39']],
+['c120',['c83','c94','c45']],
+['c121',['c84','c99','c46']],
+['c122',['c85','c104','c47']],
+['c123',['c86','c109','c48']],
+['c124',['c87','c114','c44']],
+['c125',['c83','c82','c45']],
+['c126',['c88','c105','c50']],
+['c127',['c89','c110','c51']],
+['c128',['c90','c78','c52']],
+['c129',['c91','c83','c53']],
+['c130',['c92','c93','c49']],
+['c131',['c93','c78','c55']],
+['c132',['c94','c83','c56']],
+['c133',['c95','c88','c57']],
+['c134',['c96','c97','c58']],
+['c135',['c97','c91','c60']],
+['c136',['c98','c96','c61']],
+['c137',['c99','c107','c62']],
+['c138',['c100','c112','c63']],
+['c139',['c101','c80','c64']],
+['c140',['c102','c85','c59']],
+['c141',['c97','c90','c60']],
+['c142',['c103','c100','c66']],
+['c143',['c104','c109','c67']],
+['c144',['c105','c114','c68']],
+['c145',['c106','c82','c65']],
+['c146',['c103','c87','c66']],
+['c147',['c107','c78','c70']],
+['c148',['c108','c83','c71']],
+['c149',['c111','c89','c75']],
+['c150',['c112','c94','c76']],
+['c151',['c113','c99','c77']],
+['c152',['c114','c104','c74']],
+['c153',['c115','c39','c51','spear','spear']],
+['c154',['c116','c40','c54','spear','spear']],
+['c155',['c120','c44','c56','horse','horse']],
+['c156',['c121','c45','c59','horse','horse']],
+['c157',['c122','c46','c62','horse','horse']],
+['c158',['c123','c47','c65','horse','horse']],
+['c159',['c124','c48','c68','horse','horse']],
+['c160',['c126','c49','c61','bow','bow']],
+['c161',['c127','c50','c64','bow','bow']],
+['c162',['c128','c51','c67','bow','bow']],
+['c163',['c129','c52','c70','bow','bow']],
+['c164',['c131','c54','c66','rogue','rogue']],
+['c165',['c132','c55','c69','rogue','rogue']],
+['c166',['c133','c56','c72','rogue','rogue']],
+['c167',['c135','c59','c72','strat','strat']],
+['c168',['c136','c60','c75','strat','strat']],
+['c169',['c137','c61','c39','strat','strat']],
+['c170',['c138','c62','c42','strat','strat']],
+['c171',['c142','c65','c75','schol','schol']],
+['c172',['c143','c66','c39','schol','schol']],
+['c173',['c147','c69','c42','occul','occul']],
+['c174',['c149','c74','c46','schem','schem']],
+['c175',['c150','c75','c49','schem','schem']],
+['c176',['c151','c76','c52','schem','schem']],
+['c177',['c153','c78','spear','spear']],
+['c178',['c116','c79','c86']],
+['c179',['c155','c83','horse','horse']],
+['c180',['c121','c84','c93']],
+['c181',['c157','c46','c47','horse','horse']],
+['c182',['c158','c86','horse','horse']],
+['c183',['c124','c87','c102']],
+['c184',['c160','c88','bow','bow']],
+['c185',['c127','c89','c100']],
+['c186',['c162','c51','c52','bow','bow']],
+['c187',['c167','c97','strat','strat']],
+['c188',['c136','c98','c78']],
+['c189',['c169','c61','c62','strat','strat']],
+['c190',['c171','c103','schol','schol']],
+['c191',['c143','c104','c83']],
+['c192',['c173','c107','occul','occul']],
+['c193',['c148','c108','c90']],
+['c194',['c174','c111','schem','schem']],
+['c195',['c170','c100','strat','strat']],
+['c196',['c150','c112','c97']],
+['c197',['c164','c93','rogue','rogue']],
+['c198',['c132','c94','c106']],
+['c199',['c166','c56','c57','rogue','rogue']],
+];
+/* [id,이름,등급,태그,주스탯,주보정,부스탯,부보정,스킬률+,용도] */
+const ITEMDEF = [
+['i0','무명 창','일반','창병','atk',0.08,'res',0.0,0,''],
+['i1','정련 창','매직','창병','atk',0.15,'res',0.05,0,''],
+['i2','명품 창','레어','창병','atk',0.24,'res',0.09,3,''],
+['i3','무명 갑옷','일반','창병','def',0.08,'atk',0.0,0,''],
+['i4','정련 갑옷','매직','창병','def',0.15,'atk',0.05,0,''],
+['i5','명품 갑옷','레어','창병','def',0.24,'atk',0.09,3,''],
+['i6','무명 방패','일반','창병','res',0.08,'def',0.0,0,''],
+['i7','정련 방패','매직','창병','res',0.15,'def',0.05,0,''],
+['i8','명품 방패','레어','창병','res',0.24,'def',0.09,3,''],
+['i9','무명 도','일반','기병','atk',0.08,'spd',0.0,0,''],
+['i10','정련 도','매직','기병','atk',0.15,'spd',0.05,0,''],
+['i11','명품 도','레어','기병','atk',0.24,'spd',0.09,3,''],
+['i12','무명 안장','일반','기병','spd',0.08,'atk',0.0,0,''],
+['i13','정련 안장','매직','기병','spd',0.15,'atk',0.05,0,''],
+['i14','명품 안장','레어','기병','spd',0.24,'atk',0.09,3,''],
+['i15','무명 마갑','일반','기병','def',0.08,'res',0.0,0,''],
+['i16','정련 마갑','매직','기병','def',0.15,'res',0.05,0,''],
+['i17','명품 마갑','레어','기병','def',0.24,'res',0.09,3,''],
+['i18','무명 궁','일반','궁병','atk',0.08,'res',0.0,0,''],
+['i19','정련 궁','매직','궁병','atk',0.15,'res',0.05,0,''],
+['i20','명품 궁','레어','궁병','atk',0.24,'res',0.09,3,''],
+['i21','무명 시통','일반','궁병','spd',0.08,'atk',0.0,0,''],
+['i22','정련 시통','매직','궁병','spd',0.15,'atk',0.05,0,''],
+['i23','명품 시통','레어','궁병','spd',0.24,'atk',0.09,3,''],
+['i24','무명 경갑','일반','궁병','def',0.08,'spd',0.0,0,''],
+['i25','정련 경갑','매직','궁병','def',0.15,'spd',0.05,0,''],
+['i26','명품 경갑','레어','궁병','def',0.24,'spd',0.09,3,''],
+['i27','무명 단검','일반','도적','atk',0.08,'spd',0.0,0,''],
+['i28','정련 단검','매직','도적','atk',0.15,'spd',0.05,0,''],
+['i29','명품 단검','레어','도적','atk',0.24,'spd',0.09,3,''],
+['i30','무명 경장','일반','도적','spd',0.08,'res',0.0,0,''],
+['i31','정련 경장','매직','도적','spd',0.15,'res',0.05,0,''],
+['i32','명품 경장','레어','도적','spd',0.24,'res',0.09,3,''],
+['i33','무명 두건','일반','도적','res',0.08,'spd',0.0,0,''],
+['i34','정련 두건','매직','도적','res',0.15,'spd',0.05,0,''],
+['i35','명품 두건','레어','도적','res',0.24,'spd',0.09,3,''],
+['i36','무명 병서','일반','책사','int',0.08,'res',0.0,0,''],
+['i37','정련 병서','매직','책사','int',0.15,'res',0.05,0,''],
+['i38','명품 병서','레어','책사','int',0.24,'res',0.09,3,''],
+['i39','무명 부채','일반','책사','int',0.08,'spd',0.0,0,''],
+['i40','정련 부채','매직','책사','int',0.15,'spd',0.05,0,''],
+['i41','명품 부채','레어','책사','int',0.24,'spd',0.09,3,''],
+['i42','무명 관복','일반','책사','res',0.08,'def',0.0,0,''],
+['i43','정련 관복','매직','책사','res',0.15,'def',0.05,0,''],
+['i44','명품 관복','레어','책사','res',0.24,'def',0.09,3,''],
+['i45','무명 경전','일반','유생','int',0.08,'def',0.0,0,''],
+['i46','정련 경전','매직','유생','int',0.15,'def',0.05,0,''],
+['i47','명품 경전','레어','유생','int',0.24,'def',0.09,3,''],
+['i48','무명 인장','일반','유생','res',0.08,'int',0.0,0,''],
+['i49','정련 인장','매직','유생','res',0.15,'int',0.05,0,''],
+['i50','명품 인장','레어','유생','res',0.24,'int',0.09,3,''],
+['i51','무명 관복','일반','유생','def',0.08,'res',0.0,0,''],
+['i52','정련 관복','매직','유생','def',0.15,'res',0.05,0,''],
+['i53','명품 관복','레어','유생','def',0.24,'res',0.09,3,''],
+['i54','무명 부적','일반','술사','int',0.08,'res',0.0,0,''],
+['i55','정련 부적','매직','술사','int',0.15,'res',0.05,0,''],
+['i56','명품 부적','레어','술사','int',0.24,'res',0.09,3,''],
+['i57','무명 법장','일반','술사','int',0.08,'spd',0.0,0,''],
+['i58','정련 법장','매직','술사','int',0.15,'spd',0.05,0,''],
+['i59','명품 법장','레어','술사','int',0.24,'spd',0.09,3,''],
+['i60','무명 도포','일반','술사','res',0.08,'def',0.0,0,''],
+['i61','정련 도포','매직','술사','res',0.15,'def',0.05,0,''],
+['i62','명품 도포','레어','술사','res',0.24,'def',0.09,3,''],
+['i63','무명 서간','일반','모사','int',0.08,'res',0.0,0,''],
+['i64','정련 서간','매직','모사','int',0.15,'res',0.05,0,''],
+['i65','명품 서간','레어','모사','int',0.24,'res',0.09,3,''],
+['i66','무명 죽간','일반','모사','int',0.08,'spd',0.0,0,''],
+['i67','정련 죽간','매직','모사','int',0.15,'spd',0.05,0,''],
+['i68','명품 죽간','레어','모사','int',0.24,'spd',0.09,3,''],
+['i69','무명 인장','일반','모사','res',0.08,'def',0.0,0,''],
+['i70','정련 인장','매직','모사','res',0.15,'def',0.05,0,''],
+['i71','명품 인장','레어','모사','res',0.24,'def',0.09,3,''],
+['i72','청룡언월도','유니크','창병','atk',0.34,'res',0.14,7,'myth'],
+['i73','장팔사모','유니크','창병','atk',0.36,'spd',0.12,7,'myth'],
+['i74','청강검','유니크','기병','atk',0.32,'spd',0.16,7,'myth'],
+['i75','고정도','유니크','기병','atk',0.34,'def',0.14,7,'myth'],
+['i76','방천화극','유니크','기병','atk',0.38,'res',0.1,7,'myth'],
+['i77','합비군기','유니크','기병','def',0.3,'atk',0.18,7,'myth'],
+['i78','상국절','유니크','기병','atk',0.3,'def',0.18,7,'myth'],
+['i79','철태궁','유니크','궁병','atk',0.36,'spd',0.12,7,'myth'],
+['i80','쌍단극','유니크','궁병','atk',0.32,'spd',0.16,7,'myth'],
+['i81','오왕검','유니크','궁병','def',0.3,'res',0.18,7,'myth'],
+['i82','백우선','유니크','책사','int',0.34,'res',0.14,7,'myth'],
+['i83','십승십패론','유니크','책사','int',0.36,'spd',0.12,7,'myth'],
+['i84','도독인','유니크','책사','int',0.32,'def',0.16,7,'myth'],
+['i85','쌍고검','유니크','유생','def',0.3,'int',0.18,7,'myth'],
+['i86','왕좌지인','유니크','유생','int',0.34,'res',0.14,7,'myth'],
+['i87','태평요술서','유니크','술사','int',0.36,'res',0.12,7,'myth'],
+['i88','청낭서','유니크','술사','int',0.34,'def',0.14,7,'myth'],
+['i89','칠성보도','유니크','모사','int',0.32,'spd',0.16,7,'myth'],
+['i90','주랑금','유니크','모사','int',0.34,'res',0.14,7,'myth'],
+['i91','옥잠','유니크','모사','res',0.3,'int',0.18,7,'myth'],
+['i92','금범','유니크','도적','atk',0.34,'spd',0.14,7,'myth'],
+['i93','백의','유니크','도적','spd',0.32,'res',0.16,7,'myth'],
+['i94','한중지도','유니크','도적','atk',0.3,'def',0.18,7,'myth'],
+];
+
+const C = {};
+CARDDEF.forEach(r=>{ C[r[0]]={id:r[0],name:r[1],tier:r[2],tag:r[3],fac:r[4],atk:r[5],def:r[6],
+  int:r[7],res:r[8],spd:r[9],tr:r[10],pv:r[11],sk:r[12],kind:r[13],need:r[14]}; });
+/* 등급별 PV 범위·대표값을 카드 데이터에서 채운다.
+   PV가 카드마다 다르므로 TIER 쪽 값은 여기서 유도해야 어긋나지 않는다. */
+const PVRANGE = {};
+TIERS.forEach(t=>{
+  const ks=Object.keys(C).filter(k=>C[k].tier===t);
+  const p=ks.map(k=>C[k].pv);
+  TIER[t].lo=Math.min(...p); TIER[t].hi=Math.max(...p);
+  TIER[t].pv=Math.round((TIER[t].lo+TIER[t].hi)/2);
+  TIER[t].tr=C[ks[0]].tr;
+  PVRANGE[t] = TIER[t].lo===TIER[t].hi ? String(TIER[t].lo) : TIER[t].lo+'~'+TIER[t].hi;
+});
+
+/* ═══ 병종별 스킬 풀 —— 병종마다 셋. 등급이 오르면 배율과 지속이 함께 자란다.
+   지략 계열은 화공·수공·혼란·역병·봉인으로 병력과 행동을 직접 건드린다. ═══ */
+const SKILLPOOL = {
+  '창병':[
+    {n:'횡소천군', k:'phys', mult:1.48, tgt:'front3'},                       /* 광역 */
+    {n:'철벽방진', k:'phys', mult:1.20, tgt:'denseLine',                     /* 수비·반격 */
+      allyBuff:{stat:'def',amt:.22,dur:2,tgt:'allyFront'},
+      stance:{amt:.45,dur:2}},
+    {n:'필사돌격', k:'phys', mult:1.72, tgt:'front1', pierce:.40,            /* 관통 */
+      selfBuff:{stat:'def',amt:.30,dur:2}}
+  ],
+  '기병':[
+    {n:'일점돌파', k:'phys', mult:1.28, tgt:'front1', exec:.14},             /* 처형 */
+    {n:'철기유린', k:'phys', mult:1.05, tgt:'line:선봉+전군', morale:6,      /* 광역·제압 */
+      spd:{amt:-.35,dur:2}},
+    {n:'우회돌격', k:'phys', mult:1.50, tgt:'back1',                         /* 후방·출혈 */
+      status:{k:'bleed',val:0.085,dur:3}}
+  ],
+  '궁병':[
+    {n:'일제사격', k:'phys', mult:1.08, tgt:'denseLine', morale:6},          /* 광역 */
+    {n:'화시난발', k:'phys', mult:0.88, tgt:'front3',                        /* 화공 */
+      status:{k:'burn',val:0.115,dur:2}},
+    {n:'저격',     k:'phys', mult:1.34, tgt:'back2', pierce:.35}             /* 후방·관통 */
+  ],
+  '도적':[
+    {n:'후미교란', k:'phys', mult:1.32, tgt:'line:후군', morale:6},          /* 광역 */
+    {n:'암습',     k:'phys', mult:1.78, tgt:'back1', spd:{amt:-.25,dur:2},   /* 단일·출혈 */
+      status:{k:'bleed',val:0.10,dur:3}},
+    {n:'독계',     k:'phys', mult:1.00, tgt:'back2',                         /* 역병 */
+      status:{k:'plague',val:8,dur:3}}
+  ],
+  /* ── 지략 ── */
+  '책사':[
+    {n:'화공', k:'int', mult:0.80, tgt:'denseLine', status:{k:'burn',val:0.155,dur:3}},
+    {n:'수공', k:'int', mult:0.95, tgt:'all',       status:{k:'flood',val:0.13,dur:2},
+      foeSpd:{amt:-.30,dur:2}},
+    {n:'팔문금쇄', k:'int', mult:1.10, tgt:'line:후군', morale:8,
+      resDown:{amt:-.30,dur:2}}
+  ],
+  '유생':[
+    {n:'격려', k:'int', mult:0.88, tgt:'all', heal:9, tHeal:0.07,
+      allyBuff:{stat:'res',amt:.20,dur:2,tgt:'allyAll'}},
+    {n:'독려', k:'int', mult:0.82, tgt:'front3', heal:11, tHeal:0.085,
+      allyBuff:{stat:'def',amt:.25,dur:2,tgt:'allyFront'}},
+    {n:'인덕', k:'int', mult:1.02, tgt:'all', heal:7, cleanse:1, tHeal:0.075,
+      allyBuff:{stat:'def',amt:.15,dur:2,tgt:'allyAll'}}
+  ],
+  '술사':[
+    {n:'혹세', k:'int', mult:0.95, tgt:'front3', morale:9,
+      status:{k:'confuse',val:1,dur:1}},
+    {n:'역병', k:'int', mult:0.92, tgt:'all', status:{k:'burn',val:0.10,dur:4}, morale:6},
+    {n:'저주', k:'int', mult:1.15, tgt:'front3', resDown:{amt:-.35,dur:2},
+      status:{k:'burn',val:0.14,dur:2}}
+  ],
+  '모사':[
+    {n:'이간', k:'int', mult:1.22, tgt:'all', morale:7},
+    {n:'봉계', k:'int', mult:1.08, tgt:'back2', status:{k:'seal',val:1,dur:2}, morale:6},
+    {n:'밀계', k:'int', mult:1.15, tgt:'all', morale:8}
+  ]
+};
+/* 등급별 배율 —— 상위 등급일수록 배율·사기·지속이 커진다 */
+const SKMUL = {4:0.95, 5:1.05, 6:1.20, 7:1.40, 8:1.60};
+const SKDUR = {4:0, 5:0, 6:0, 7:1, 8:1};
+function buildSkill(tag, idx, tier){
+  const base=SKILLPOOL[tag][idx % SKILLPOOL[tag].length];
+  const m=SKMUL[tier]||1, e={kind:base.k, tgt:base.tgt};
+  if (base.mult)   e.mult = +(base.mult*m).toFixed(3);
+  if (base.morale) e.morale = +(base.morale*m).toFixed(1);
+  if (base.exec)   e.exec = base.exec;
+  if (base.spd)    e.spd = base.spd;
+  if (base.foeSpd) e.foeSpd = base.foeSpd;
+  if (base.resDown)e.resDown = base.resDown;
+  if (base.selfBuff) e.selfBuff = base.selfBuff;
+  if (base.allyBuff) e.allyBuff = base.allyBuff;
+  if (base.cleanse)  e.cleanse = base.cleanse;
+  if (base.tHeal)    e.tHeal = +(base.tHeal*m).toFixed(4);
+  if (base.pierce)   e.pierce = base.pierce;
+  if (base.stance)   e.stance = base.stance;
+  if (base.status){
+    const s=base.status;
+    /* 화상·수몰은 대상 병력에 비례하므로 비율로 두고, 사기 계열은 절대값 */
+    e.status = {k:s.k,
+      val: (s.k==='burn'||s.k==='flood') ? +(s.val*m).toFixed(3) : +(s.val*m).toFixed(1),
+      dur: s.dur + (SKDUR[tier]||0)};
+  }
+  return {n:base.n, eff:e, psv:null};
+}
+
+/* 카드에 스킬을 다시 물린다 —— 기존에 박혀 있던 정의를 풀 기준으로 덮는다.
+   패시브는 원래 값을 유지한다. */
+(function reskill(){
+  const idx={};
+  Object.keys(C).sort((a,b)=>C[a].tier-C[b].tier||a.localeCompare(b)).forEach(k=>{
+    const c=C[k];
+    if (c.tier<4) { c.sk=null; return; }
+    const key=c.tag+c.tier;
+    idx[key]=(idx[key]||0);
+    const psv=c.sk&&c.sk.psv||null;
+    c.sk=buildSkill(c.tag, idx[key], c.tier);
+    c.sk.psv=psv;
+    idx[key]++;
+  });
+})();
+
+const BASE = Object.keys(C).filter(k=>C[k].tier===1);
+
+const IT = {};
+ITEMDEF.forEach(r=>{ IT[r[0]]={id:r[0],name:r[1],grade:r[2],tag:r[3],
+  pri:r[4],pa:r[5],sec:r[6],sa:r[7],rb:r[8],use:r[9]}; });
+const ITEM_BY_NAME = {};
+Object.keys(IT).forEach(k=>{ ITEM_BY_NAME[IT[k].name]=k; });
+const IGRADE = {'일반':'#708090','매직':'#009f27','레어':'#9932cc','유니크':'#d59700'};
+const STATNM = {atk:'공격', def:'방어', int:'책략', res:'책략방어', spd:'속도'};
+
+const TAGORDER = ['창병','기병','궁병','도적','책사','유생','술사','모사'];
+const tagIdx = k => TAGORDER.indexOf(C[k].tag);
+const sortCards = ks => ks.slice().sort((a,b)=>
+  (C[b].tier-C[a].tier) || (tagIdx(a)-tagIdx(b)) || C[a].name.localeCompare(C[b].name,'ko'));
+const byTier = t => Object.keys(C).filter(k=>C[k].tier===t)
+  .sort((a,b)=>(tagIdx(a)-tagIdx(b)) || C[a].name.localeCompare(C[b].name,'ko'));
+const byTierTag = (t,tag) => byTier(t).filter(k=>C[k].tag===tag);
+const REC = RECDEF;
+const RECOF = {}; REC.forEach(r=>RECOF[r[0]]=r[1]);
+/* 스킬 효과를 사람이 읽는 문장으로 —— 데이터에서 직접 만들어 설명이 어긋나지 않는다 */
+const TGTNM = {front1:'최전열 1체', back1:'최후열 1체', back2:'최후열 2체', front3:'전열 3체',
+  all:'전체', denseLine:'가장 두꺼운 열', self:'자신', allyAll:'아군 전체', allyFront:'아군 최전열'};
+const tgtName = t => TGTNM[t] || (t && t.startsWith('line:') ? t.slice(5).replace('+','·')+' 전체' : t||'');
+const PSVTITLE = {
+  noRout:'불굴', noAllyRoutLoss:'철심', intShield:'심지', firstStrike:'선수',
+  allyRes:'비호', moraleHeal:'인망', statusUp:'주술', resBreak:'파계',
+  vanguard:'돌격', rearguard:'후방', tough:'완력', swift:'신속', lord:'군주'
+};
+/* 패시브 이름과 설명은 반드시 이 사전을 거친다. 키를 그대로 띄우면 영문이 노출된다. */
+const psvName = p => p ? (PSVTITLE[p] || p) : '';
+const psvDesc = p => p ? (PSVNM[p] || p) : '';
+const PSVNM = {
+  noRout:'패주 확률 65% 경감', noAllyRoutLoss:'아군 이탈로 인한 사기 감소 절반',
+  intShield:'책략으로 받는 사기 감소 40% 경감', firstStrike:'항상 선공에 가깝게 행동',
+  allyRes:'아군 전체 책략방어 +10%', moraleHeal:'턴마다 아군 전체 사기 +2',
+  statusUp:'자신이 주는 사기 감소 +30%', resBreak:'적 책략방어 20% 무시',
+  vanguard:'선봉·전군에서 공격 +15%', rearguard:'중군·후군에서 책략 +15%',
+  tough:'병력 손실로 인한 사기 충격 절반', swift:'행동 순서 난수 절반', lord:'진영 전체 시작 사기 +15'
+};
+function skillDesc(c){
+  if (!c.sk) return '';
+  const e=c.sk.eff, p=[];
+  const pct=v=>Math.round(v*100)+'%';
+  if (e.kind==='phys') p.push(`적 ${tgtName(e.tgt)}에 물리 ${pct(e.mult)}`);
+  else if (e.kind==='int') p.push(`적 ${tgtName(e.tgt)}에 책략 ${pct(e.mult)}`);
+  else if (e.kind==='heal') p.push(`${tgtName(e.tgt)} 사기 +${Math.round(e.morale)}`);
+  else if (e.kind==='morale') p.push(`적 ${tgtName(e.tgt)} 사기 −${Math.round(e.morale)}`);
+  else if (e.kind==='res') p.push(`적 ${tgtName(e.tgt)} 책략방어 ${pct(e.amt)}`);
+  if (e.kind!=='morale' && e.kind!=='heal' && e.kind!=='res' && e.morale)
+    p.push(`사기 −${Math.round(e.morale)}`);
+  if (e.pierce) p.push(`방어 ${pct(e.pierce)} 무시`);
+  if (e.exec) p.push(`병력 ${pct(e.exec)} 이하면 즉시 이탈`);
+  if (e.stance) p.push(`자신 반격 ${pct(e.stance.amt)} · ${e.stance.dur}턴`);
+  if (e.status) p.push(`『${STATUS[e.status.k].n}』 ${e.status.dur}턴`);
+  if (e.tHeal) p.push(`아군 병력 ${pct(e.tHeal)} 회복`);
+  if (e.heal) p.push(`아군 사기 +${Math.round(e.heal)}`);
+  if (e.cleanse) p.push(`아군 상태이상 ${e.cleanse}종 해제`);
+  if (e.spd) p.push(`대상 속도 ${pct(e.spd.amt)}`);
+  if (e.foeSpd) p.push(`대상 속도 ${pct(e.foeSpd.amt)}`);
+  if (e.resDown) p.push(`대상 책략방어 ${pct(e.resDown.amt)}`);
+  if (e.selfBuff) p.push(`자신 ${STATNM[e.selfBuff.stat]} ${pct(e.selfBuff.amt)}`);
+  if (e.allyBuff) p.push(`${tgtName(e.allyBuff.tgt)} ${STATNM[e.allyBuff.stat]} ${pct(e.allyBuff.amt)}`);
+  return p.join(' · ');
+}
+const mythKind = k => C[k].kind==='myth' ? '아이템형' : C[k].kind==='legend' ? '심층조합' : '';
+const skillRole = c => !c.sk ? '' :
+  ({phys:'물리 공격', int:'책략 공격', heal:'아군 회복', morale:'사기 붕괴', res:'약화'})[c.sk.eff.kind]||'';
+
+const gradeOf = k => TIER[C[k].tier].n;
+const colorOf = k => TIER[C[k].tier].c;
+
+/* ═══════════════════════════════════════════════════════════
+   2. 진형 —— 3열 × 4행. 진형마다 9칸의 모양이 다르다 (빈칸 허용)
+   ═══════════════════════════════════════════════════════════ */
+const LINES = ['선봉','전군','중군','후군'];
+const FORM = {
+  bongsi: {n:'봉시진', sil:'화살촉', mask:['.X.','X.X','XXX','XXX']},
+  eorin:  {n:'어린진', sil:'비늘',   mask:['X.X','XXX','XXX','.X.']},
+  bangwon:{n:'방원진', sil:'직사각', mask:['...','XXX','XXX','XXX']},
+  hagik:  {n:'학익진', sil:'날개',   mask:['XXX','XXX','X.X','.X.']},
+  anhaeng:{n:'안행진', sil:'사선',   mask:['XX.','XX.','.XX','XXX']},
+  anwol:  {n:'안월진', sil:'초승달', mask:['XXX','X.X','XXX','.X.']},
+  chuhaeng:{n:'추행진',sil:'송곳',   mask:['.X.','XXX','XXX','X.X']},
+  jangsa: {n:'장사진', sil:'뱀',     mask:['X.X','.X.','XXX','XXX']}
+};
+/* mask 를 슬롯 배열로 전개 —— slots[i] = {line, row, col} */
+Object.keys(FORM).forEach(k=>{
+  const f = FORM[k], slots = [], grid = [];
+  f.mask.forEach((row,ri)=>{
+    const g=[];
+    row.split('').forEach((ch,ci)=>{
+      if (ch==='X'){ g.push(slots.length);
+        slots.push({line:LINES[ri], row:ri, col:ci, side:ci===1?'중앙':'측면'}); }
+      else g.push(null);
+    });
+    grid.push(g);
+  });
+  f.slots = slots; f.grid = grid;
+  f.count = LINES.map(l=>slots.filter(s=>s.line===l).length);
+});
+/* 좌우 개념 —— 가운데 칸은 중앙, 양 옆은 좌우를 묶어 측면으로 다룬다.
+   좌와 우를 다르게 대하는 병종은 없다. */
+const sideOf = col => col===1 ? '중앙' : '측면';
+const posName = (line,col) => col===0 ? '좌'+line : col===2 ? '우'+line : line;
+/* 진형이 어울리는 병종 —— 진형 선택이 병종 구성에 묶인다 */
+const FORMBOON = {
+  bongsi:  {tags:['기병','창병'], stat:'atk', v:.12, d:'화살촉이 정면을 뚫는다'},
+  eorin:   {tags:['창병','유생'], stat:'def', v:.14, d:'비늘이 서로를 가린다'},
+  bangwon: {tags:['유생','책사'], stat:'res', v:.16, d:'원진이 계략을 흘린다'},
+  hagik:   {tags:['궁병','도적'], stat:'rate',v:.07, d:'날개가 사계를 넓힌다'},
+  anhaeng: {tags:['도적','기병'], stat:'spd', v:.14, d:'사선이 발을 살린다'},
+  anwol:   {tags:['창병','궁병'], stat:'atk', v:.11, d:'초승달이 화력을 모은다'},
+  chuhaeng:{tags:['도적','모사'], stat:'spd', v:.13, d:'송곳이 틈을 낸다'},
+  jangsa:  {tags:['책사','술사'], stat:'int', v:.15, d:'장사진이 술법을 잇는다'}
+};
+const LINE = {
+  '선봉':{pri:1, atk:1.25, def:.90, int:.80},
+  '전군':{pri:2, atk:1.10, def:1.15, int:1.00},
+  '중군':{pri:3, atk:1.00, def:1.05, int:1.15},
+  '후군':{pri:4, atk:.80,  def:.85,  int:1.30}
+};
+/* 선호 구역과 어색 구역 —— 열(선봉·전군·중군·후군) × 자리(중앙·측면) 여덟 구역.
+   선호는 둘까지 가질 수 있고, 어색은 하나다. 좌우를 가리지 않으므로 측면으로 묶는다. */
+const AFF = {
+  '창병':{pref:[['선봉','중앙'],['전군','중앙'],['전군','측면']], bad:['후군','측면'],
+          b:{def:1.25,atk:1.22}, p:{def:.80}, why:'정면을 막는다'},
+  '기병':{pref:[['선봉','측면'],['선봉','중앙'],['전군','측면']], bad:['후군','중앙'],
+          b:{atk:1.08,spd:1.15}, p:{atk:.75}, why:'측면으로 돌파한다'},
+  '궁병':{pref:[['중군','중앙'],['중군','측면'],['전군','중앙']], bad:['선봉','중앙'],
+          b:{pierce:1}, p:{atk:.80}, why:'사계를 확보한다'},
+  '도적':{pref:[['중군','측면'],['후군','측면'],['중군','중앙']], bad:['선봉','중앙'],
+          b:{spd:1.25,atk:1.14}, p:{def:.70}, why:'측면으로 우회한다'},
+  '책사':{pref:[['중군','중앙'],['후군','중앙'],['중군','측면']], bad:['선봉','측면'],
+          b:{int:1.20}, p:{int:.70}, why:'중앙에서 지휘한다'},
+  '유생':{pref:[['후군','중앙'],['후군','측면'],['중군','중앙']], bad:['선봉','측면'],
+          b:{int:1.10,res:1.15}, p:{int:.70}, why:'후방에서 보급한다'},
+  '술사':{pref:[['후군','측면'],['중군','측면'],['후군','중앙']], bad:['전군','중앙'],
+          b:{int:1.15}, p:{int:.70}, why:'후방 측면에서 술법을 편다'},
+  '모사':{pref:[['후군','중앙'],['후군','측면'],['중군','측면']], bad:['전군','측면'],
+          b:{int:1.22}, p:{int:.70}, why:'후방에서 계략을 꾸민다'}
+};
+const AFFLBL = {pref:'선호', bad:'어색'};
+const zoneStr = z => `${z[0]} ${z[1]}`;
+/* 배치 구역 판정 —— 선호 / 어색 / 평범 */
+function affOf(tag, line, side){
+  const a=AFF[tag]; if(!a) return '';
+  if (a.pref.some(z=>z[0]===line && z[1]===side)) return 'pref';
+  if (a.bad[0]===line && a.bad[1]===side) return 'bad';
+  return '';
+}
+function affDesc(tag, which){
+  const a=AFF[tag], src = which==='pref' ? a.b : a.p, out=[];
+  for (const s in src){
+    if (s==='pierce'){ out.push('적 후열 직접 타격'); continue; }
+    const v=Math.round((src[s]-1)*100);
+    out.push(`${STATNM[s]} ${v>0?'+':''}${v}%`);
+  }
+  return out.join(' · ');
+}
+const affZones = (tag,which) => which==='pref'
+  ? AFF[tag].pref.map(zoneStr).join(' · ') : zoneStr(AFF[tag].bad);
+
+/* 병종 아이콘 —— 12px에서 읽히도록 채운 실루엣으로 그린다.
+   창=창날 자루 · 기병=말굽 · 궁병=활과 화살 · 도적=복면
+   책사=부채 · 유생=펼친 책 · 술사=불꽃 · 모사=두루마리 */
+const TAGPATH = {
+  '창병':{m:'f', d:'M6 0.6 L8.4 5.2 L3.6 5.2 Z M5.1 4.8 h1.8 V11.4 h-1.8 Z'},
+  '기병':{m:'s', w:2.2, d:'M2.8 10.8 V6.6 a3.2 3.2 0 0 1 6.4 0 V10.8'},
+  '궁병':{m:'s', w:1.6, d:'M3.3 1.3 A4.9 4.9 0 0 1 3.3 11.1 M3.3 1.3 V11.1 M4 6.2 H10.2'},
+  '도적':{m:'e', d:'M1.3 3.6 h9.4 v3.1 q0 2.4 -2.4 2.4 h-4.6 q-2.4 0 -2.4 -2.4 Z '
+                 + 'M3.8 5.3 a1 1 0 1 0 0.02 0 Z M8.2 5.3 a1 1 0 1 0 0.02 0 Z'},
+  '책사':{m:'f', d:'M6 11.3 L1.6 4.3 A5.1 5.1 0 0 1 10.4 4.3 Z'},
+  '유생':{m:'f', d:'M1.2 2.6 L6 4.3 V11.3 L1.2 9.6 Z M10.8 2.6 L6 4.3 V11.3 L10.8 9.6 Z'},
+  '술사':{m:'f', d:'M6 1 C8 3.9 9.6 5.2 9.6 7.8 A3.6 3.6 0 0 1 2.4 7.8 C2.4 5.2 4 3.9 6 1 Z'},
+  '모사':{m:'f', d:'M1.5 1.4 h9 v1.9 h-9 Z M2.9 3.9 h6.2 v4.2 h-6.2 Z M1.5 8.7 h9 v1.9 h-9 Z'}
+};
+function tagIcon(tag, cls){
+  const p=TAGPATH[tag]; if(!p) return '';
+  const paint = p.m==='s'
+    ? `fill="none" stroke="currentColor" stroke-width="${p.w||1.8}" stroke-linecap="round"`
+    : `fill="currentColor" stroke="none"${p.m==='e'?' fill-rule="evenodd"':''}`;
+  return `<svg class="tgi ${cls||''}" viewBox="0 0 12 12" width="11" height="11" ${paint}
+    role="img" aria-label="${tag}"><title>${tag}</title><path d="${p.d}"/></svg>`;
+}
+const FRONT_WANT = {'기병':3,'창병':2,'궁병':1,'도적':0,'책사':0,'유생':0,'술사':-1,'모사':-1};
+
+/* ═══════════════════════════════════════════════════════════
+   3. 진행 규칙
+   ═══════════════════════════════════════════════════════════ */
+const PHASE_N = ['오전','오후','저녁'];
+const DAYNAME = ['월','화','수','목','금','토','일'];
+/* 무상으로 손에 쥐여주는 패의 천장. 초월 이상은 오직 조합으로만 오른다. */
+const FREE_TIER_CAP = 5;
+const capPick = p => ({...p, t:Math.min(FREE_TIER_CAP, p.t)});
+/* 기본패 —— 완만하게 줄인다. 조합 재료가 마지막 날까지 마르지 않도록
+   후반에도 바닥을 두껍게 남긴다. 예전엔 6일차가 0장이라 절벽이었다. */
+const DRAWS  = [14,13,12,11,10,9,8];
+/* 전투 보상 기본패 —— 뽑기를 늘리는 대신 싸워서 병사를 모은다.
+   토벌은 이겨야 온전히 받고, 대전은 져도 조금은 남는다. */
+const QUEST_BASE = [7,9,12,14,17,20,23];     /* 토벌 승리 시 일차별 */
+const PVP_BASE   = {win:7, lose:4};
+/* 무작위 배급 —— 일정 일차부터 상위 카드를 지정 없이 던져준다.
+   선택권과 달리 무엇이 올지 몰라 편성을 흔든다. */
+const RANDOM_GRANT = [
+  [], [], [{t:4,n:1}], [{t:4,n:1}],
+  [{t:4,n:1},{t:5,n:1}], [{t:4,n:2},{t:5,n:1}], [{t:4,n:1},{t:5,n:2}]
+];
+/* 선택권 —— 천장이 전설로 내려간 만큼 장수로 메운다 */
+const PICKS  = [
+  [{t:2,n:2}], [{t:3,n:1},{t:1,n:1}], [{t:3,n:2},{t:2,n:1}],
+  [{t:4,n:1},{t:3,n:1}], [{t:5,n:1}], [{t:5,n:1},{t:4,n:1}], [{t:5,n:1}]
+];
+const QUEST_REWARD = [
+  [{t:3,n:2},{t:2,n:1}], [{t:4,n:1}], [{t:4,n:1},{t:2,n:1}],
+  [{t:4,n:1},{t:3,n:1},{t:2,n:1}], [{t:5,n:1},{t:3,n:1}], [{t:5,n:1},{t:4,n:1}],
+  [{t:5,n:1},{t:4,n:2}]
+];
+const QUESTS = [
+  ['황건적 소요','관해의 무리','장각의 요술'],
+  ['황보숭 연합','광종 공방','장보 토벌'],
+  ['반동탁 연합','사수관 돌파','호뢰관 혈전'],
+  ['서주 침공','여포의 야습','소패 공방'],
+  ['백마의 전투','오소 기습','관도 결전'],
+  ['형주 남하','장판파 추격','강릉 봉쇄'],
+  ['오림의 밤','적벽 화공','화용도']
+];
+/* 토벌 난이도 —— 20판 실측 보드 PV에 오전 0.78 / 오후 0.92 / 저녁 0.84 배율 */
+/* 토벌 난이도 —— 1일차는 부대 카드만 상대하고, 6일차부터 초월이 등장한다 */
+const QPV = [
+  [26,52,60],
+  [79,113,124],
+  [124,150,146],
+  [138,175,172],
+  [192,294,348],
+  [428,667,712],
+  [751,930,853]
+];
+const BOTNAME = [
+  ['jbj','전력 1위 사냥꾼','위'], ['소리한소리','조합 장인','오'], ['꼼꼼파더','계산이 빠르다','군'],
+  ['정지s','속공 애호가','촉'], ['감자와니','물량 승부','군'], ['마이콜','지략 편중','오'],
+  ['모피스','변칙 진형','군']
+];
+const STYLES = ['물리','지략','균형','물리','균형','물리','지략'];
+/* 봇 실력 계수 —— 판마다 무작위로 뽑는다. 특정 봇이 늘 강한 일이 없고,
+   매 판 강적과 약체의 구성이 달라진다. */
+const SKILL_LO = 0.98, SKILL_HI = 1.38;
+/* 경고 한도 —— 21회 토벌 중 세 번까지 버틴다. 네 번째 실패에 멸망. */
+const STRIKE_MAX = 4;
+const TRADE_PER_PHASE = 5;
+/* 아이템 지급 —— 페이즈가 흐를수록 상위 등급이 나온다.
+   유니크는 확률에서 빠졌다. 아래 UNIQUE_PHASES에서만 확정으로 온다. */
+const DROP = [
+  {upto:5,  w:{'일반':85,'매직':15}},
+  {upto:10, w:{'일반':40,'매직':50,'레어':10}},
+  {upto:15, w:{'매직':45,'레어':55}},
+  {upto:18, w:{'매직':25,'레어':75}},
+  {upto:99, w:{'매직':10,'레어':90}}
+];
+/* 유니크 수급 시점 —— 3·4·5·6일차 아침(오전) 넷뿐이다.
+   페이즈 번호 = day*3 + phase 이고 day는 0부터라 3일차 오전이 6이 된다.
+   신화 조합에 필요한 유니크가 언제 오는지 확정되어 계획을 세울 수 있다. */
+const UNIQUE_PHASES = [6, 9, 12, 15];
+
+/* ═══════════════════════════════════════════════════════════
+   4. 상태
+   ═══════════════════════════════════════════════════════════ */
+let S, PB=null;
+function newGame(){
+  S = {
+    day:0, phase:0, sc:'draw',
+    inv:{}, bag:{}, board:new Array(9).fill(null), equip:new Array(9).fill(null),
+    form:'eorin', drawn:false, picked:false,
+    questDone:false, pvpDone:false, pendingPicks:[], log:null, over:null,
+    trades:TRADE_PER_PHASE, strikes:0, lastDraw:null, lastItem:null, tour:null,
+    fTag:null, myW:0, myL:0, news:[],
+    bots:BOTNAME.map((b,i)=>({name:b[0], epi:b[1], fac:b[2], style:STYLES[i], pv:0,
+      w:0, l:0, strikes:0, skill:+rnd(SKILL_LO,SKILL_HI).toFixed(2)}))
+  };
+  give('spear',3); give('horse',3); give('bow',2); give('strat',2);
+  gainItem();
+}
+const give = (k,n=1)=>{ S.inv[k]=(S.inv[k]||0)+n; };
+const onBoard = k => S.board.reduce((s,x)=>s+(x===k?1:0),0);
+const have = k => (S.inv[k]||0) + onBoard(k);
+const take = (k,n=1)=>{
+  let need=n;
+  const fromInv = Math.min(need, S.inv[k]||0);
+  if (fromInv){ S.inv[k]-=fromInv; need-=fromInv; if(S.inv[k]<=0) delete S.inv[k]; }
+  for (let i=0; i<9 && need>0; i++) if (S.board[i]===k){
+    S.board[i]=null; S.equip[i]=null; need--;
+  }
+};
+function pool(){
+  const o={};
+  Object.keys(S.inv).forEach(k=>o[k]=(o[k]||0)+S.inv[k]);
+  S.board.forEach(k=>{ if(k) o[k]=(o[k]||0)+1; });
+  return o;
+}
+const poolKeys = ()=>sortCards(Object.keys(pool()));
+const myPV = ()=>Object.keys(pool()).reduce((s,k)=>s+C[k].pv*pool()[k],0);
+const boardPower = ()=>S.board.reduce((s,k)=>s+(k?C[k].tr:0),0);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pickR=a=>a[Math.floor(Math.random()*a.length)];
+function jong(w){ const c=w.charCodeAt(w.length-1)-0xAC00; return c>=0&&c<11172&&c%28!==0; }
+const GA = w => w + (jong(w)?'이':'가');
+const EUL = w => w + (jong(w)?'을':'를');
+
+/* ═══ 아이템 ═══ */
+const bagKeys = ()=>Object.keys(S.bag).sort((a,b)=>{
+  const g=['유니크','레어','매직','일반'];
+  return g.indexOf(IT[a].grade)-g.indexOf(IT[b].grade)
+      || TAGORDER.indexOf(IT[a].tag)-TAGORDER.indexOf(IT[b].tag);
+});
+function gainItem(){
+  const p = S.day*3+S.phase;
+  let grade;
+  if (UNIQUE_PHASES.indexOf(p)>=0) grade='유니크';   /* 정해진 아침에만 확정 지급 */
+  else {
+    /* 그 외 페이즈는 레어가 천장이다 */
+    const tbl = DROP.find(d=>p<=d.upto).w;
+    let tot=0; for(const g in tbl) tot+=tbl[g];
+    let r=Math.random()*tot; grade='일반';
+    for(const g in tbl){ r-=tbl[g]; if(r<=0){ grade=g; break; } }
+  }
+  let pool = Object.keys(IT).filter(k=>IT[k].grade===grade);
+  /* 보급은 지금 세운 군세에 맞는 물건이 온다. 유니크는 특히 그렇다. */
+  const tags = new Set(S.board.filter(Boolean).map(k=>C[k].tag));
+  Object.keys(S.inv).forEach(k=>{ if(C[k].tier>=5) tags.add(C[k].tag); });
+  if (tags.size){
+    const fit = pool.filter(k=>tags.has(IT[k].tag));
+    if (fit.length && (grade==='유니크' || Math.random()<0.7)) pool = fit;
+  }
+  const id = pickR(pool);
+  S.bag[id]=(S.bag[id]||0)+1;
+  S.lastItem = id;
+  return id;
+}
+const equippedItems = ()=>S.equip.filter(Boolean);
+function canEquip(cardId, itemId){
+  if (!cardId || !itemId) return false;
+  if (innateItem(cardId)) return false;      /* 아이템형 신화는 내장되어 잠긴다 */
+  return IT[itemId].tag === C[cardId].tag;
+}
+/* 신화 장수는 조합 때 소모한 유니크 아이템을 영구히 장착한다 */
+const innateItem = cardId => C[cardId].need ? ITEM_BY_NAME[C[cardId].need] : null;
+function itemOfSlot(i){
+  const k=S.board[i]; if(!k) return null;
+  return innateItem(k) || S.equip[i];
+}
+
+/* ═══════════════════════════════════════════════════════════
+   5. 조합 · 환전
+   ═══════════════════════════════════════════════════════════ */
+function matCount(mats){ const m={}; for(const x of mats) m[x]=(m[x]||0)+1; return m; }
+function needItem(out){ return C[out].need ? ITEM_BY_NAME[C[out].need] : null; }
+function canForge(out, mats){
+  const m=matCount(mats);
+  if (!Object.keys(m).every(k=>have(k)>=m[k])) return false;
+  const ni = needItem(out);
+  if (ni && !(S.bag[ni]>0)) return false;
+  return true;
+}
+function forge(out, mats){
+  if (!canForge(out,mats)) return false;
+  const m=matCount(mats);
+  for (const k in m) take(k,m[k]);
+  const ni=needItem(out);
+  if (ni){ S.bag[ni]--; if(S.bag[ni]<=0) delete S.bag[ni]; }
+  give(out); return true;
+}
+function tierStock(t){
+  const p=pool(), o={};
+  sortCards(Object.keys(p)).forEach(k=>{ if(C[k].tier===t) o[k]=p[k]; });
+  return o;
+}
+const tierTotal = t => Object.values(tierStock(t)).reduce((a,b)=>a+b,0);
+function trade(from, want){
+  if (S.trades<=0 || C[from].tier!==C[want].tier || have(from)<1) return false;
+  take(from,1); give(want); S.trades--; return true;
+}
+/* 연관 조합 —— 지금 손패로 얼마나 가까운지 순으로 */
+function nearRecipes(limit){
+  const out=[];
+  for (const [o,mats] of REC){
+    const m=matCount(mats);
+    let short=0, tot=0;
+    for (const k in m){ tot+=m[k]; short+=Math.max(0,m[k]-have(k)); }
+    const ni=needItem(o);
+    const noItem = ni && !(S.bag[ni]>0);
+    if (short===tot) continue;                 /* 재료가 하나도 없으면 제외 */
+    out.push({out:o, mats, short, tot, noItem});
+  }
+  out.sort((a,b)=>(a.short-b.short) || (C[b.out].tier-C[a.out].tier));
+  return out.slice(0, limit||12);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   6. 보드 생성
+   ═══════════════════════════════════════════════════════════ */
+const PHYS_TAGS=['창병','기병','궁병','도적'], INT_TAGS=['책사','유생','술사','모사'];
+const tierTag=(t,tags)=>Object.keys(C).filter(k=>C[k].tier===t && tags.includes(C[k].tag));
+const POOLS = {
+  '물리':Object.fromEntries(TIERS.map(t=>[t,tierTag(t,PHYS_TAGS)])),
+  '지략':Object.fromEntries(TIERS.map(t=>[t,tierTag(t,INT_TAGS)])),
+  '균형':Object.fromEntries(TIERS.map(t=>[t,byTier(t)]))
+};
+const STYLE_FORM = {'물리':'hagik','지략':'bangwon','균형':'eorin'};
+function genBoard(pv, style){
+  const mid=t=>Math.round((TIER[t].lo+TIER[t].hi)/2);
+  const tiers=new Array(9).fill(1); let spent=9;
+  for (let g=0; g<400; g++){
+    let lo=0; for(let i=1;i<9;i++) if(tiers[i]<tiers[lo]) lo=i;
+    const t=tiers[lo]; if(t>=7) break;          /* 봇은 신화를 만들지 않는다 */
+    const cost=mid(t+1)-mid(t);
+    if (spent+cost>pv) break;
+    tiers[lo]=t+1; spent+=cost;
+  }
+  const pl=POOLS[style];
+  const cards=tiers.map(t=>{
+    const src=(pl[t]&&pl[t].length)?pl[t]:POOLS['균형'][t];
+    const ok=src.filter(k=>C[k].tier<8);   /* 봇은 신화를 쓰지 않는다 */
+    return pickR(ok.length?ok:src);
+  });
+  return {cards, form:STYLE_FORM[style], power:cards.reduce((s,k)=>s+C[k].tr,0)};
+}
+/* 자동 편성 —— 각 카드를 선호 구역에 앉히려 시도한다.
+   같은 열이라도 중앙과 측면을 가리므로 배치가 자연히 흩어진다. */
+function autoPlace(cards, form){
+  const f=FORM[form];
+  const order=cards.slice().filter(Boolean)
+    .sort((a,b)=>(C[b].tier-C[a].tier) || (FRONT_WANT[C[b].tag]-FRONT_WANT[C[a].tag]));
+  const out=new Array(9).fill(null), used=new Array(9).fill(false);
+  const score=(k,i)=>{
+    const s=f.slots[i]; if(!s) return -99;
+    const z=affOf(C[k].tag, s.line, s.side);
+    return (z==='pref'?6:z==='bad'?-4:0)
+      - Math.abs(LINE[s.line].pri - (4-FRONT_WANT[C[k].tag]))*0.6;
+  };
+  for (const k of order){
+    let best=-1, bs=-1e9;
+    for (let i=0;i<9;i++){
+      if (used[i]||!f.slots[i]) continue;
+      const v=score(k,i);
+      if (v>bs){ bs=v; best=i; }
+    }
+    if (best>=0){ used[best]=true; out[best]=k; }
+  }
+  return out;
+}
+
+/* 추천 아이템 —— 가방에서 태그가 맞는 최상 등급을 고른다 */
+function recommendItems(){
+  const used={};
+  const eq=new Array(9).fill(null);
+  const order=['유니크','레어','매직','일반'];
+  const slots=S.board.map((k,i)=>({k,i})).filter(o=>o.k && C[o.k].kind!=='myth')
+    .sort((a,b)=>C[b.k].tier-C[a.k].tier);
+  for (const {k,i} of slots){
+    const cand=Object.keys(S.bag).filter(it=>IT[it].tag===C[k].tag
+      && (S.bag[it]-(used[it]||0))>0
+      && !(IT[it].use==='myth'));       /* 유니크 재료는 장착 대신 조합에 남긴다 */
+    if (!cand.length) continue;
+    cand.sort((a,b)=>order.indexOf(IT[a].grade)-order.indexOf(IT[b].grade));
+    eq[i]=cand[0]; used[cand[0]]=(used[cand[0]]||0)+1;
+  }
+  return eq;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   7. 전투 엔진
+   ═══════════════════════════════════════════════════════════ */
+function facSyn(cards, form){
+  const fc={}, tc={};
+  cards.forEach(k=>{ if(!k) return;
+    fc[C[k].fac]=(fc[C[k].fac]||0)+1;
+    tc[C[k].tag]=(tc[C[k].tag]||0)+1; });
+  const out={morale:0, atk:1, spd:1, troop:1, list:[], count:fc,
+             tag:{}, tagList:[], tagCount:tc, caps:{},
+             boon: form ? FORMBOON[form] : null};
+  /* 세력 */
+  for (const f in fc){
+    const s=SYN[f]; if(!s) continue;
+    let lv=-1; SYN_STEP.forEach((st,i)=>{ if(fc[f]>=st) lv=i; });
+    if (lv<0) continue;
+    const v=s.v[lv];
+    if (s.stat==='morale') out.morale+=v; else out[s.stat]*=(1+v);
+    out.list.push({fac:f, n:fc[f], lv:lv+1, v});
+    if (f==='촉' && fc[f]>=5) out.regenUp=true;
+    if (f==='오' && fc[f]>=5) out.fastSide=true;
+  }
+  /* 병종 —— 태그별 보정과 다섯 명 고유 효과 */
+  for (const t in tc){
+    const s=TAGSYN[t]; if(!s) continue;
+    let lv=-1; TAGSYN_STEP.forEach((st,i)=>{ if(tc[t]>=st) lv=i; });
+    if (lv<0) continue;
+    out.tag[t]={stat:s.stat, v:s.v[lv], lv:lv+1};
+    out.tagList.push({tag:t, n:tc[t], lv:lv+1, v:s.v[lv], stat:s.stat});
+    if (tc[t]>=5){ out.caps[t]=s.cap; }
+  }
+  return out;
+}
+function mkUnit(cid, line, camp, morale, slot, item, syn, side){
+  const c=C[cid];
+  const ts=(syn.tag&&syn.tag[c.tag])||null;
+  return {c, line, side:side||'중앙', camp, slot, key:camp+slot, item,
+          troops:Math.round(c.tr*syn.troop*(ts&&ts.stat==='troop'?1+ts.v:1)),
+          max:Math.round(c.tr*syn.troop*(ts&&ts.stat==='troop'?1+ts.v:1)),
+          morale:Math.min(200, morale+syn.morale), synAtk:syn.atk, synSpd:syn.spd,
+          ts, caps:syn.caps||{}, regenUp:!!syn.regenUp, fastSide:!!syn.fastSide,
+          boon:(syn.boon && syn.boon.tags.includes(c.tag)) ? syn.boon : null,
+          buffs:[], alive:true, hit50:false, hit25:false, psv:(c.sk&&c.sk.psv)||null,
+          dmg:0, mdmg:0, heal:0, kills:0, lastHit:null, st:[]};
+}
+function eff(u, stat){
+  const c=u.c, lm=LINE[u.line], af=AFF[c.tag];
+  let v=c[stat];
+  if (stat==='atk') v*=lm.atk;
+  if (stat==='def') v*=lm.def;
+  if (stat==='int') v*=lm.int;
+  if (u.psv==='vanguard'  && stat==='atk' && lm.pri<=2) v*=1.15;
+  if (u.psv==='rearguard' && stat==='int' && lm.pri>=3) v*=1.15;
+  const zone=affOf(c.tag, u.line, u.side);
+  if (zone==='pref' && af.b[stat]) v*=af.b[stat];
+  if (zone==='bad'  && af.p[stat]) v*=af.p[stat];
+  if (u.item){
+    const it=IT[u.item];
+    /* 신화 장수가 자기 전용 유니크를 들면 효과가 증폭된다 */
+    const amp = (u.c.need && ITEM_BY_NAME[u.c.need]===u.item) ? MYTH_AMP : 1;
+    if (it.pri===stat) v*=(1+it.pa*amp);
+    if (it.sec===stat) v*=(1+it.sa*amp);
+  }
+  if (stat==='atk') v*=u.synAtk;
+  if (stat==='spd') v*=u.synSpd;
+  /* 병종 시너지 —— 같은 병종을 모으면 그 병종다운 곳이 강해진다 */
+  if (u.ts && u.ts.stat===stat) v*=(1+u.ts.v);
+  /* 진형 적합 —— 진형이 품는 병종이면 한 번 더 붙는다 */
+  if (u.boon && u.boon.stat===stat) v*=(1+u.boon.v);
+  for (const b of u.buffs) if (b.stat===stat) v*=(1+b.amt);
+  if (u.allyRes && stat==='res') v*=1.10;
+  if (stat==='atk'||stat==='int') v*=(0.4+0.6*(u.troops/u.max));
+  return Math.max(1,v);
+}
+const MYTH_AMP = 1.6;      /* 전용 유니크의 증폭 배수 */
+const isSignature = (cardId,itemId) => !!(C[cardId].need && ITEM_BY_NAME[C[cardId].need]===itemId);
+const hasSt = (u,k) => u.st && u.st.some(s=>s.k===k);
+const skRate = u => hasSt(u,'seal') ? 0
+  : RATE[u.c.tier] + (u.item ? IT[u.item].rb/100 * (isSignature(u.c.id,u.item)?MYTH_AMP:1) : 0)
+    + ((u.ts && u.ts.stat==='rate') ? u.ts.v : 0)
+    + ((u.boon && u.boon.stat==='rate') ? u.boon.v : 0);
+const mMul = u => 0.5 + Math.min(200,Math.max(0,u.morale))/200;
+/* 등급 방벽 —— 전설 이상 유닛은 아래 등급이 거는 책략에 사기가 덜 흔들린다.
+   희귀 지략가 여러 명이 불멸의 사기를 무너뜨리는 상황을 막는다. */
+function moraleGuard(atk, def){
+  if (!atk || def.c.tier < K.guardFrom) return 1;
+  const gap = def.c.tier - atk.c.tier;
+  return gap<=0 ? 1 : Math.max(0.18, Math.pow(K.guard, gap));
+}
+const liveOf=(us,s)=>us.filter(u=>u.alive&&u.camp===s);
+
+function resolveTargets(spec, foes, self, allies){
+  const live=foes.filter(u=>u.alive); if(!live.length) return [];
+  const pri=live.map(u=>LINE[u.line].pri);
+  const mn=Math.min(...pri), mx=Math.max(...pri);
+  const front=live.filter(u=>LINE[u.line].pri===mn);
+  const back =live.filter(u=>LINE[u.line].pri===mx);
+  if (spec==='front1') return [pickR(front)];
+  if (spec==='back1')  return [pickR(back)];
+  if (spec==='back2')  return live.slice().sort((a,b)=>LINE[b.line].pri-LINE[a.line].pri).slice(0,2);
+  if (spec==='front3') return live.slice().sort((a,b)=>LINE[a.line].pri-LINE[b.line].pri).slice(0,3);
+  if (spec==='all')    return live;
+  if (spec==='self')   return [self];
+  if (spec==='allyAll')return allies.filter(u=>u.alive);
+  if (spec==='allyFront'){
+    const al=allies.filter(u=>u.alive); if(!al.length) return [];
+    const p=Math.min(...al.map(u=>LINE[u.line].pri));
+    return al.filter(u=>LINE[u.line].pri===p);
+  }
+  if (spec==='denseLine'){
+    const g={}; live.forEach(u=>{(g[u.line]=g[u.line]||[]).push(u)});
+    return Object.values(g).sort((a,b)=>b.length-a.length)[0];
+  }
+  if (spec.startsWith('line:')){
+    const want=spec.slice(5).split('+');
+    const m=live.filter(u=>want.includes(u.line));
+    return m.length?m:front;
+  }
+  return front;
+}
+function basicTarget(u, foes){
+  const af=AFF[u.c.tag];
+  if (u.c.tag==='궁병' && (u.caps['궁병'] || affOf(u.c.tag,u.line,u.side)==='pref'))
+    return resolveTargets('back1',foes);
+  if (u.c.tag==='도적') return resolveTargets('back1',foes);
+  if (u.c.int>u.c.atk)  return resolveTargets('back1',foes);
+  return resolveTargets('front1',foes);
+}
+const NM = u => (u.camp==='B' ? '적 ' : '') + u.c.name;
+
+function runBattle(aCards, aForm, aMorale, aEquip, bCards, bForm, bMorale, bEquip, title, foeName){
+  const ev=[], units=[];
+  const aSyn=facSyn(aCards,aForm), bSyn=facSyn(bCards,bForm);
+  const aS=FORM[aForm].slots, bS=FORM[bForm].slots;
+  aCards.forEach((k,i)=>{ if(k&&aS[i]) units.push(mkUnit(k,aS[i].line,'A',aMorale,i,
+    (aEquip&&aEquip[i])||innateItem(k), aSyn, aS[i].side)); });
+  bCards.forEach((k,i)=>{ if(k&&bS[i]) units.push(mkUnit(k,bS[i].line,'B',bMorale,i,
+    (bEquip&&bEquip[i])||innateItem(k), bSyn, bS[i].side)); });
+  const aRes=aCards.some(k=>k&&C[k].sk&&C[k].sk.psv==='allyRes');
+  const bRes=bCards.some(k=>k&&C[k].sk&&C[k].sk.psv==='allyRes');
+  for (const u of units) u.allyRes = (u.camp==='A'?aRes:bRes);
+  for (const cp of ['A','B']){
+    if (!units.some(u=>u.camp===cp && u.psv==='lord')) continue;
+    for (const u of units) if (u.camp===cp) u.morale=Math.min(200,u.morale+15);
+  }
+  const L=(cls,text,focus)=>ev.push({c:cls,t:text,f:focus||null,
+    s:units.map(u=>[Math.max(0,Math.round(u.troops)),Math.round(u.morale),u.alive?1:0])});
+
+  function physHit(a,d,mult,noCounter,pierce){
+    /* 도적 다섯 — 회피 */
+    if (d.caps['도적'] && d.c.tag==='도적' && Math.random()<0.45){
+      L('mo',`${NM(d)}이 몸을 틀어 흘려냈다`,d.key); return;
+    }
+    const A=eff(a,'atk');
+    let D=eff(d,'def');
+    if (pierce) D*=(1-pierce);            /* 관통 —— 방어를 그만큼 무시한다 */
+    const dmg=A*(A/(A+D))*mMul(a)*rnd(.9,1.1)*mult;
+    const loss=Math.max(1,Math.round(dmg*K.troop));
+    d.troops-=loss; a.dmg+=loss; d.lastHit=a;
+    L(a.camp,`${GA(NM(a))} ${EUL(NM(d))} 들이쳤다 — 병력 ${loss.toLocaleString()} 손실`,d.key);
+    /* 반격 —— 창병 다섯의 「반격」 또는 반격태세를 두른 유닛 */
+    if (!noCounter && d.alive){
+      const stance=d.buffs.find(b=>b.stat==='counter');
+      const p = (d.caps['창병'] && d.c.tag==='창병' ? 0.70 : 0) + (stance ? stance.amt : 0);
+      if (p>0 && Math.random()<p){
+        L('sk',`${GA(NM(d))} 창을 되받아 찔렀다`,d.key);
+        physHit(d,a,1.28,true);
+      }
+    }
+  }
+  /* 책략 공격은 사기를 흔들면서 병력도 함께 깎는다.
+     병력 계수가 물리보다 낮아 결정력은 떨어지지만, 지략만으로도 적을 무너뜨릴 수 있다. */
+  function intHit(a,d,mult,spread){
+    const I=eff(a,'int'); let R=eff(d,'res');
+    if (a.psv==='resBreak') R*=0.8;
+    if (a.ts && a.ts.stat==='brk') R*=(1-a.ts.v);   /* 모사 시너지 */
+    const dmg=I*(I/(I+R))*mMul(a)*rnd(.9,1.1)*mult;
+    let ml=dmg*K.morale*(spread>=3?K.aoe:1)*moraleGuard(a,d);
+    if (a.psv==='statusUp') ml*=1.3;
+    if (d.psv==='intShield') ml*=0.6;
+    d.morale-=ml;
+    const loss=Math.max(1,Math.round(dmg*K.intTroop*(spread>=3?K.aoe:1)));
+    d.troops-=loss; a.dmg+=loss; a.mdmg+=ml; d.lastHit=a;
+    L('mo',`${NM(a)}의 계략이 ${NM(d)}의 진을 흔들었다 — 병력 ${loss.toLocaleString()} · 사기 ${ml.toFixed(0)}`,d.key);
+  }
+  function moraleHit(d,amt,who,spread,src){
+    let a=amt*(spread>=3?K.aoe:1)*moraleGuard(src,d);
+    if (src&&src.psv==='statusUp') a*=1.3;
+    if (d.psv==='intShield') a*=0.6;
+    d.morale-=a;
+    if (src) src.mdmg+=a;
+    L('mo',`『${who}』에 ${NM(d)}의 군세가 술렁인다 — 사기 ${a.toFixed(0)} 감소`,d.key);
+  }
+  /* 병력 회복 —— 유생이 소모전에서 값을 갖게 하는 수단.
+     최대 병력을 넘지 않고, 무너진 칸은 되살리지 않는다. */
+  function healTroop(d,ratio,who,src){
+    if (!d.alive) return;
+    const g=Math.min(Math.round(d.max*ratio), d.max-d.troops);
+    if (g<=0) return;
+    d.troops+=g;
+    if (src) src.heal+=g/300;
+    L('hl',`『${who}』에 ${NM(d)}의 대오가 정비된다 — 병력 +${g.toLocaleString()}`,d.key);
+  }
+  function healMorale(d,amt,who,src){
+    const b=d.morale; d.morale=Math.min(200,d.morale+amt);
+    const g=d.morale-b;
+    if (src && g>0) src.heal+=g;
+    if (g>0.5) L('hl',`『${who}』에 ${NM(d)}의 군세가 다시 일어선다 — 사기 +${g.toFixed(0)}`,d.key);
+  }
+  function addBuff(u,b){
+    u.buffs.push({stat:b.stat,amt:b.amt,dur:b.dur});
+    L('sk',`${NM(u)}의 ${STATNM[b.stat]||b.stat}이 ${b.amt>0?'올랐다':'꺾였다'} · ${b.amt>0?'+':''}${Math.round(b.amt*100)}%`,u.key);
+  }
+  /* 상태이상 부여 —— 술사 시너지가 효과를 키우고, 책사 시너지가 지속을 늘린다 */
+  function inflict(a,d,kind,val,dur){
+    if (!d.alive) return;
+    const stx = (a && a.ts && a.ts.stat==='stx') ? (1+a.ts.v) : 1;
+    const ext = ((a&&a.caps&&a.caps['책사'])?1:0) + ((a&&a.caps&&a.caps['술사'])?1:0);
+    /* 술사 다섯(현혹)은 등급 저항을 무시한다 —— 감쇠 없이 1배로 들어간다 */
+    const resist = (a && a.caps && a.caps['술사']) ? 1
+                 : (d.c.tier>=K.guardFrom ? moraleGuard(a,d) : 1);
+    /* 화상·수몰은 대상 병력에 비례한다. 비율을 절대값으로 환산해 담는다. */
+    const scale = (kind==='burn'||kind==='flood'||kind==='bleed') ? d.max : 1;
+    const v = Math.max(1, Math.round((val||0)*scale*stx*resist));
+    const t = (dur||1) + ext;
+    const old = d.st.find(s=>s.k===kind);
+    if (old){ old.val=Math.max(old.val,v); old.dur=Math.max(old.dur,t); }
+    else {
+      /* 한 유닛이 동시에 지는 상태이상은 두 종까지. 겹쳐 쌓여 순삭되는 일을 막는다. */
+      if (d.st.length>=2){ const w=d.st.reduce((a,b)=>a.dur<=b.dur?a:b); d.st.splice(d.st.indexOf(w),1); }
+      d.st.push({k:kind, val:v, dur:t});
+    }
+    const per = (kind==='burn'||kind==='bleed') ? `턴당 ${v.toLocaleString()}`
+              : (kind==='flood') ? `턴당 ${Math.round(v*0.7).toLocaleString()}`
+              : (kind==='plague') ? `턴당 사기 ${v}` : '';
+    L('st',`${NM(d)}이 『${STATUS[kind].n}』에 걸렸다 — ${t}턴${per?' · '+per:''}`,d.key);
+  }
+  function cleanse(u){
+    if (!u.st.length) return false;
+    const nm=STATUS[u.st[0].k].n; u.st.shift();
+    L('hl',`${NM(u)}의 『${nm}』이 씻겼다`,u.key);
+    return true;
+  }
+  /* 턴 끝 상태이상 처리 */
+  function tickStatus(){
+    for (const u of units){
+      if (!u.alive || !u.st.length) continue;
+      for (const s of u.st){
+        if (s.k==='burn'){ const l=Math.round(s.val); u.troops-=l;
+          L('st',`${NM(u)}이 불길에 휩싸인다 — 병력 ${l.toLocaleString()} 손실`,u.key); }
+        else if (s.k==='flood'){ const l=Math.round(s.val*0.7); u.troops-=l;
+          L('st',`${NM(u)}의 진영이 물에 잠긴다 — 병력 ${l.toLocaleString()} 손실`,u.key); }
+        else if (s.k==='bleed'){ const l=Math.round(s.val); u.troops-=l;
+          L('st',`${NM(u)}의 상처가 벌어진다 — 병력 ${l.toLocaleString()} 손실`,u.key); }
+        else if (s.k==='plague'){ u.morale-=s.val;
+          L('st',`${NM(u)}의 군세에 역병이 돈다 — 사기 ${s.val.toFixed(0)} 감소`,u.key); }
+      }
+      u.st.forEach(s=>s.dur--);
+      u.st=u.st.filter(s=>s.dur>0);
+    }
+    /* 유생 다섯 —— 턴마다 아군 하나를 씻는다 */
+    for (const cp of ['A','B']){
+      const side=units.filter(u=>u.alive&&u.camp===cp);
+      if (!side.length || !side[0].caps['유생']) continue;
+      const sick=side.find(u=>u.st.length);
+      if (sick) cleanse(sick);
+    }
+  }
+
+  function rout(u,why){
+    if (!u.alive) return;
+    u.alive=false;
+    if (u.lastHit && u.lastHit.camp!==u.camp) u.lastHit.kills++;
+    for (const o of units){
+      if (!o.alive||o.camp!==u.camp) continue;
+      const cut=(o.psv==='noAllyRoutLoss')?0.5:1;
+      o.morale-=(o.line===u.line?K.routSame:K.routOther)*cut;
+    }
+    L('rt',`${NM(u)}의 군세가 ${why}`,u.key);
+  }
+
+  let turn=0, winner=null;
+  while (turn<K.cap && !winner){
+    turn++;
+    if (turn>1) L('div','');
+    for (const u of units) u.buffs=u.buffs.filter(b=>--b.dur>0);
+    const order=units.filter(u=>u.alive)
+      .map(u=>{
+        let sp = u.psv==='firstStrike' ? eff(u,'spd')*1.25
+               : u.psv==='swift' ? eff(u,'spd')*(1+rnd(-.07,.07))
+               : eff(u,'spd')*(1+rnd(-.15,.15));
+        if (turn===1 && u.caps['기병'] && u.c.tag==='기병') sp*=1.6;  /* 기병 다섯 — 선봉 */
+        if (u.fastSide) sp*=1.12;                                     /* 오 다섯 — 선공 다툼 */
+        return {u, sp};
+      })
+      .sort((x,y)=>y.sp-x.sp).map(o=>o.u);
+
+    order.forEach((u,ui)=>{
+      if (!u.alive) return;
+      if (hasSt(u,'confuse')){
+        L('st',`${NM(u)}이 혼란에 빠져 움직이지 못한다`,u.key); return;
+      }
+      const foes=units.filter(o=>o.camp!==u.camp), allies=units.filter(o=>o.camp===u.camp);
+      if (!foes.some(o=>o.alive)) return;
+      const sk=u.c.sk; let used=false;
+      if (sk && Math.random()<skRate(u)){
+        const e=sk.eff; let ok=true;
+        if (e.cond==='first' && ui!==0) ok=false;
+        if (e.cond==='hurt' && u.troops/u.max>0.5) ok=false;
+        if (ok){
+          used=true;
+          L('sk',`${GA(NM(u))} 『${sk.n}』${jong(sk.n)?'을':'를'} 펼친다`,u.key);
+          if (e.kind==='phys'){
+            const ts=resolveTargets(e.tgt,foes,u,allies);
+            for (const t of ts){
+              if(!t.alive) continue;
+              physHit(u,t,e.mult,false,e.pierce);
+              if (e.exec && t.troops>0 && t.troops/t.max<=e.exec) rout(t,'한 칼에 짓밟혔다');
+              if (e.morale) moraleHit(t,e.morale,sk.n,ts.length,u);
+              if (e.spd) addBuff(t,{stat:'spd',amt:e.spd.amt,dur:e.spd.dur});
+              if (e.resDown) addBuff(t,{stat:'res',amt:e.resDown.amt,dur:e.resDown.dur});
+              if (e.status) inflict(u,t,e.status.k,e.status.val,e.status.dur);
+            }
+            if (e.selfBuff) addBuff(u,e.selfBuff);
+            if (e.stance) u.buffs.push({stat:'counter', amt:e.stance.amt, dur:e.stance.dur});
+            if (e.allyBuff) for (const t of resolveTargets(e.allyBuff.tgt,foes,u,allies)) addBuff(t,e.allyBuff);
+          } else if (e.kind==='int'){
+            const ts=resolveTargets(e.tgt,foes,u,allies);
+            for (const t of ts){
+              if(!t.alive) continue;
+              intHit(u,t,e.mult,ts.length);
+              if (e.morale) moraleHit(t,e.morale,sk.n,ts.length,u);
+              if (e.resDown) addBuff(t,{stat:'res',amt:e.resDown.amt,dur:e.resDown.dur});
+              if (e.status) inflict(u,t,e.status.k,e.status.val,e.status.dur);
+              /* 모사 다섯 — 봉계: 책략이 스킬을 봉인한다 */
+              if (u.caps['모사'] && Math.random()<0.30) inflict(u,t,'seal',1,2);
+            }
+            /* 책략을 쓰면서 아군을 다스리는 계열 */
+            if (e.heal) for (const t of allies) if(t.alive) healMorale(t,e.heal,sk.n,u);
+            if (e.tHeal) for (const t of allies) if(t.alive) healTroop(t,e.tHeal,sk.n,u);
+            if (e.cleanse){ let n=e.cleanse;
+              for (const t of allies){ if(n<=0) break; if(t.alive&&t.st.length&&cleanse(t)) n--; } }
+            if (e.allyBuff) for (const t of resolveTargets(e.allyBuff.tgt,foes,u,allies)) addBuff(t,e.allyBuff);
+          } else if (e.kind==='morale'){
+            const ts=resolveTargets(e.tgt,foes,u,allies);
+            for (const t of ts){
+              if(!t.alive) continue;
+              moraleHit(t,e.morale,sk.n,ts.length,u);
+              if (e.foeSpd) addBuff(t,{stat:'spd',amt:e.foeSpd.amt,dur:e.foeSpd.dur});
+              if (e.status) inflict(u,t,e.status.k,e.status.val,e.status.dur);
+            }
+          } else if (e.kind==='heal'){
+            for (const t of resolveTargets(e.tgt,foes,u,allies)) if(t.alive) healMorale(t,e.morale,sk.n,u);
+            if (e.tHeal) for (const t of allies) if(t.alive) healTroop(t,e.tHeal,sk.n,u);
+            if (e.allyBuff) for (const t of resolveTargets(e.allyBuff.tgt,foes,u,allies)) addBuff(t,e.allyBuff);
+            if (e.cleanse){ let n=e.cleanse;
+              for (const t of allies){ if(n<=0) break; if(t.alive&&t.st.length&&cleanse(t)) n--; } }
+          } else if (e.kind==='res'){
+            const ts=resolveTargets(e.tgt,foes,u,allies);
+            for (const t of ts){
+              if(!t.alive) continue;
+              addBuff(t,{stat:'res',amt:e.amt,dur:e.dur});
+              if (e.morale) moraleHit(t,e.morale,sk.n,ts.length,u);
+            }
+          }
+        }
+      }
+      if (!used){
+        const t=basicTarget(u,foes)[0];
+        if (t&&t.alive){ if (u.c.int>u.c.atk) intHit(u,t,1,1); else physHit(u,t,1); }
+      }
+      for (const o of units) if (o.alive && o.troops<=0) rout(o,'병력이 다해 무너졌다');
+    });
+
+    for (const u of units){
+      if (!u.alive) continue;
+      const r=u.troops/u.max, tg=(u.psv==='tough')?0.5:1;
+      if (!u.hit50 && r<=0.5){ u.hit50=true; u.morale-=K.hit50*tg; }
+      if (!u.hit25 && r<=0.25){ u.hit25=true; u.morale-=K.hit25*tg; }
+      if (u.morale>30 && u.morale<100){
+        let rg=K.regen*(u.regenUp?1.5:1);
+        if (u.caps['유생']) rg*=2;          /* 유생 다섯 — 인화 */
+        u.morale=Math.min(100,u.morale+rg);
+      }
+    }
+    /* 유생 다섯 — 인화: 턴마다 진영 전체가 대오를 추스른다 */
+    for (const cp of ['A','B']){
+      const side=units.filter(u=>u.alive&&u.camp===cp);
+      if (!side.length || !side[0].caps['유생']) continue;
+      side.forEach(u=>{ const g=Math.min(Math.round(u.max*0.045), u.max-u.troops);
+        if(g>0) u.troops+=g; });
+      L('hl',`대오를 추스른다 — 진영 병력 4.5% 회복`,side[0].key);
+    }
+    tickStatus();
+    for (const o of units) if (o.alive && o.troops<=0) rout(o,'병력이 다해 무너졌다');
+    for (const cp of ['A','B']){
+      if (!units.some(u=>u.alive&&u.camp===cp&&u.psv==='moraleHeal')) continue;
+      for (const u of units) if (u.alive&&u.camp===cp) u.morale=Math.min(200,u.morale+2);
+    }
+    for (const u of units){
+      if (!u.alive) continue;
+      if (u.morale<=30){
+        let p=Math.max(K.routMin,(30-u.morale)*K.routSlope);
+        if (u.psv==='noRout') p*=0.35;
+        if (u.caps['유생']) p*=0.5;         /* 유생 다섯 — 인화 */
+        if (Math.random()<p) rout(u,`사기 ${Math.max(0,u.morale).toFixed(0)}에서 끝내 패주했다`);
+      }
+    }
+    const aA=liveOf(units,'A').length, bA=liveOf(units,'B').length;
+    if (!aA&&!bA) winner='draw'; else if(!bA) winner='A'; else if(!aA) winner='B';
+  }
+  if (!winner){
+    const at=liveOf(units,'A').reduce((s,u)=>s+u.troops,0);
+    const bt=liveOf(units,'B').reduce((s,u)=>s+u.troops,0);
+    winner=at>bt?'A':(bt>at?'B':'draw');
+    L('div',`해가 기운다 — 잔존 병력 ${Math.round(at).toLocaleString()} 대 ${Math.round(bt).toLocaleString()}`);
+  }
+  const roster=units.map(u=>({name:u.c.name, tier:u.c.tier, tag:u.c.tag, fac:u.c.fac,
+    kind:u.c.kind, line:u.line, side:u.side, camp:u.camp, max:u.max,
+    key:u.key, item:u.item, id:u.c.id}));
+  /* 수훈갑 —— 병력 피해·사기 피해·이탈·회복을 합산해 으뜸을 고른다 */
+  const merit = u => u.dmg + u.mdmg*420 + u.heal*420 + u.kills*3200;
+  const mine = units.filter(u=>u.camp==='A');
+  const ranked = mine.slice().sort((x,y)=>merit(y)-merit(x))
+    .filter(u=>merit(u)>0)
+    .map(u=>({name:u.c.name, tier:u.c.tier, tag:u.c.tag, fac:u.c.fac, kind:u.c.kind,
+      line:u.line, side:u.side, slot:u.slot, item:u.item, alive:u.alive,
+      dmg:Math.round(u.dmg), mdmg:Math.round(u.mdmg), heal:Math.round(u.heal),
+      kills:u.kills, merit:Math.round(merit(u)),
+      left:Math.max(0,Math.round(u.troops)), max:u.max, morale:Math.round(u.morale)}));
+  return {win:winner==='A', draw:winner==='draw', ev, roster, title, aForm, bForm,
+          aSyn, bSyn, foe:foeName||'', mvp:ranked[0]||null, ranked:ranked.slice(0,3),
+          left:liveOf(units,'A').length, eLeft:liveOf(units,'B').length, turns:turn};
+}
+const myMorale = ()=>Math.round(Math.min(130, 100 + S.myW*3 - S.myL*4));
+function myBattle(eCards, eForm, title, foeName){
+  return runBattle(S.board, S.form, myMorale(), S.equip,
+                   eCards, eForm, 100, null, title, foeName);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   8. 진행
+   ═══════════════════════════════════════════════════════════ */
+const botPvGain=(d,p)=>22+d*4+(p===2?4:0);
+/* 봇 등용 소식 —— 실제로 편성 가능한 최고 등급이 올라갔을 때만 알린다.
+   누적 PV만 보면 아직 편성하지도 못하는 등급을 예고해 소식과 실전이 어긋난다. */
+function botNews(){
+  const out=[];
+  for (const b of S.bots){
+    const top=Math.max(...genBoard(b.pv, b.style).cards.map(k=>C[k].tier));
+    if (top<6 || top<=(b.topTier||0)) continue;
+    b.topTier=top;
+    const pl=(POOLS[b.style][top]||[]).filter(k=>C[k].tier<8);
+    if (!pl.length) continue;
+    out.push({who:b.name, unit:pickR(pl)});
+  }
+  return out;
+}
+let TOASTS=[];
+function toast(msg, cls){
+  const box=$('#toast'); if(!box) return;
+  TOASTS.push({msg,cls});
+  box.innerHTML=TOASTS.map(t=>`<div class="tst ${t.cls||''}">${t.msg}</div>`).join('');
+  if (typeof setTimeout==='function') setTimeout(()=>{
+    TOASTS.shift();
+    const b2=$('#toast'); if(b2) b2.innerHTML=TOASTS.map(t=>`<div class="tst ${t.cls||''}">${t.msg}</div>`).join('');
+  }, 2800);
+}
+const phaseIdx = ()=>S.day*3+S.phase;
+function advance(){
+  S.phase++;
+  if (S.phase>2){ S.phase=0; S.day++; }
+  S.drawn=false; S.picked=false; S.granted=false; S.questDone=false; S.pvpDone=false;
+  S.log=null; PB=null; S.trades=TRADE_PER_PHASE; S.lastDraw=null;
+  if (S.day>6){ S.over={win:true,msg:'일주일을 살아남았다'}; S.day=6; render(); return; }
+  const it=gainItem();                         /* 페이즈가 넘어갈 때 아이템 1개 */
+  /* 유니크는 정해진 아침에만 온다. 왔다는 사실이 묻히지 않게 따로 알린다. */
+  if (it && IT[it].grade==='유니크')
+    toast(`<b style="color:var(--gold)">${esc(IT[it].name)}</b> 유니크 보급 도착 · ${esc(IT[it].tag)}`,'gain');
+  for (const b of S.bots) b.pv+=botPvGain(S.day,S.phase)*b.skill*rnd(.9,1.1);
+  const news=botNews();
+  news.forEach(n=>{
+    S.news.unshift(n);
+    toast(`<b>${esc(n.who)}</b>가 <b style="color:${colorOf(n.unit)}">${esc(C[n.unit].name)}</b>을 등용했습니다`,'news');
+  });
+  S.news=S.news.slice(0,12);
+  render();
+}
+function doQuest(){
+  const pv=QPV[S.day][S.phase];
+  const eb=genBoard(pv, pickR(['물리','지략','균형']));
+  const r=myBattle(autoPlace(eb.cards,eb.form), eb.form, `토벌 · ${QUESTS[S.day][S.phase]}`, QUESTS[S.day][S.phase]);
+  r.kind='quest';                              /* 결과 삽화를 고르는 데 쓴다 */
+  S.log=r; S.questDone=true; PB={i:0,done:false,timer:null,fresh:true};
+  if (r.win){
+    S.pendingPicks=S.pendingPicks.concat(QUEST_REWARD[S.day].map(p=>({...p,src:`토벌 · ${QUESTS[S.day][S.phase]}`})));
+    const n=QUEST_BASE[S.day];
+    for (let i=0;i<n;i++) give(pickR(BASE));
+    S.lastSpoil={n, src:`토벌 · ${QUESTS[S.day][S.phase]}`};
+  }
+  else {
+    /* 어느 페이즈든 토벌 실패는 경고로 쌓인다. */
+    S.strikes++;
+    if (S.strikes>=STRIKE_MAX && S.day>=2)
+      S.over={win:false,msg:`${QUESTS[S.day][S.phase]} 실패 — ${STRIKE_MAX}번의 패배로 세력이 멸망했다`};
+  }
+  for (const b of S.bots){
+    if (b.pv < pv*0.95*rnd(.92,1.08)){ b.strikes++; b.pv*=0.94; }
+  }
+  render(); go('battle');
+}
+function doPvp(){
+  const foe=pickR(S.bots);
+  const eb=genBoard(foe.pv, foe.style);
+  const r=myBattle(autoPlace(eb.cards,eb.form), eb.form, `대전 · ${foe.name}`, foe.name);
+  /* 상대는 봇이다. 진영 머리에 아이디를 걸어 누구와 붙는지 첫 줄에 보이게 한다. */
+  r.foeBot={name:foe.name, epi:foe.epi, fac:foe.fac, pv:Math.round(foe.pv)};
+  r.kind='pvp';
+  S.log=r; S.pvpDone=true; PB={i:0,done:false,timer:null,fresh:true};
+  const nb = r.win ? PVP_BASE.win : PVP_BASE.lose;
+  for (let i=0;i<nb;i++) give(pickR(BASE));
+  S.lastSpoil={n:nb, src:`대전 · ${foe.name}`};
+  if (r.win){ S.myW++; foe.l++; S.pendingPicks.push({t:S.day>=3?4:3,n:1,src:`대전 승리 · ${foe.name}`}); }
+  else { S.myL++; foe.w++; S.pendingPicks.push({t:S.day>=3?3:2,n:1,src:`대전 패배 · ${foe.name}`}); }
+  render(); go('battle');
+}
+
+/* ═══ 8인 토너먼트 ═══ */
+const ROUNDNM=['8강','4강','결승'];
+function initTour(){
+  const ps=[{me:1,name:'나',pv:myPV()}]
+    .concat(S.bots.map(b=>({me:0,name:b.name,pv:Math.round(b.pv),style:b.style})));
+  ps.sort((a,b)=>b.pv-a.pv);
+  const seed=[0,7,3,4,1,6,2,5];
+  S.tour={round:0, list:seed.map(i=>ps[i]), res:[null,null,null], myMatch:-1, next:null};
+  prepRound();
+}
+function tourBoard(pl){
+  if (pl.me) return {cards:S.board, form:S.form, morale:myMorale(), equip:S.equip};
+  const eb=genBoard(pl.pv, pl.style||'균형');
+  return {cards:autoPlace(eb.cards,eb.form), form:eb.form, morale:100, equip:null};
+}
+function simMatch(a,b){
+  const x=tourBoard(a), y=tourBoard(b);
+  return runBattle(x.cards,x.form,x.morale,x.equip,y.cards,y.form,y.morale,y.equip,'').win?a:b;
+}
+function prepRound(){
+  const L=S.tour.list, r=S.tour.round;
+  const mi=L.findIndex(p=>p.me);
+  S.tour.myMatch = mi>=0 ? Math.floor(mi/2) : -1;
+  const ms=[];
+  for (let m=0;m<L.length/2;m++){
+    const a=L[m*2], b=L[m*2+1];
+    ms.push(m===S.tour.myMatch ? {a,b,w:null} : {a,b,w:simMatch(a,b)});
+  }
+  S.tour.res[r]=ms;
+}
+const tourRank = ()=> S.tour.round===0?'5~8위':S.tour.round===1?'3~4위':'2위';
+function doTour(){
+  const r=S.tour.round, ms=S.tour.res[r], m=ms[S.tour.myMatch];
+  const me=m.a.me?m.a:m.b, foe=m.a.me?m.b:m.a;
+  const y=tourBoard(foe);
+  const res=runBattle(S.board,S.form,myMorale(),S.equip,y.cards,y.form,y.morale,y.equip,
+                      `${ROUNDNM[r]} · ${foe.name}`, foe.name);
+  const fb=S.bots.find(b=>b.name===foe.name);
+  if (fb) res.foeBot={name:fb.name, epi:fb.epi, fac:fb.fac, pv:Math.round(foe.pv)};
+  res.kind='pvp';                              /* 토너먼트도 세력 간 대전으로 친다 */
+  S.log=res; PB={i:0,done:false,timer:null,fresh:true};
+  m.w = res.win?me:foe;
+  if (!res.win) S.over={win:false,msg:`${ROUNDNM[r]}에서 ${foe.name}에게 패했다 — 최종 ${tourRank()}`};
+  else if (r===2) S.over={win:true,msg:`${EUL(foe.name)} 꺾고 천하를 얻었다`};
+  else { S.myW++; S.tour.next=ms.map(x=>x.w); }
+  render(); go('battle');
+}
+function tourAdvance(){
+  S.tour.list=S.tour.next; S.tour.next=null; S.tour.round++;
+  S.log=null; PB=null; prepRound(); render();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   9. UI 공통
+   ═══════════════════════════════════════════════════════════ */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function go(sc){
+  S.sc=sc;
+  document.querySelectorAll('.screen').forEach(e=>e.classList.toggle('on',e.id==='sc-'+sc));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.sc===sc));
+  window.scrollTo(0,0);
+}
+function facBadge(k){
+  const c=C[k];
+  const ico=tagIcon(c.tag);
+  if (c.tier<=2) return ico;          /* 기본패와 부대 카드는 세력이 없다 */
+  return `<span class="fac" style="background:${FAC[c.fac].c}">${c.fac}</span>${ico}`;
+}
+function cardHTML(k, qty, cls='', info=false){
+  const c=C[k];
+  const tag = info ? 'button' : 'div';
+  const attr = info ? ` data-info="${k}"` : '';
+  return `<${tag} class="card ${cls} ${c.kind==='myth'?'myth':''}"${attr}
+      style="border-left-color:${colorOf(k)}">
+    ${facBadge(k)}
+    ${qty!=null?`<span class="qty">${qty}</span>`:''}
+    <span class="nm" style="color:${colorOf(k)}">${esc(c.name)}</span>
+    <span class="tg">${c.tag} · ${gradeOf(k)}</span></${tag}>`;
+}
+function itemHTML(id, qty, cls='', ampFor=null){
+  const it=IT[id];
+  const amp = ampFor && isSignature(ampFor,id);
+  const f = amp ? MYTH_AMP : 1;
+  return `<div class="card item ${cls}" style="border-left-color:${IGRADE[it.grade]}">
+    ${qty!=null?`<span class="qty">${qty}</span>`:''}
+    <span class="nm" style="color:${IGRADE[it.grade]}">${esc(it.name)}</span>
+    <span class="tg">${it.tag} · ${it.grade}</span>
+    <span class="ef">${STATNM[it.pri]} +${Math.round(it.pa*f*100)}%${
+      it.sa?` · ${STATNM[it.sec]} +${Math.round(it.sa*f*100)}%`:''}${
+      it.rb?` · 발동 +${(it.rb*f).toFixed(0)}%p`:''}</span>
+    ${amp?`<span class="amp">전용 증폭 ×${MYTH_AMP}</span>`:''}
+    ${it.use==='myth'&&!amp?`<span class="ef" style="color:var(--bamboo-dim)">신화 조합 재료</span>`:''}</div>`;
+}
+
+/* 부족한 재료 한 줄 —— 그 재료를 무엇으로 만드는지 바로 보여준다 */
+function subLine(k){
+  const c=C[k];
+  if (c.tier===1)
+    return `<div class="sr"><span class="srk" style="color:${colorOf(k)}">${esc(c.name)}</span>
+      <span class="srm">기본패 — 징집으로 얻는다</span></div>`;
+  const mats=RECOF[k];
+  if (!mats)
+    return `<div class="sr"><span class="srk" style="color:${colorOf(k)}">${esc(c.name)}</span>
+      <span class="srm">조합식 없음</span></div>`;
+  const m=matCount(mats);
+  const ok=canForge(k,mats);
+  const ni=needItem(k);
+  return `<div class="sr ${ok?'ok':''}">
+    <span class="srk" style="color:${colorOf(k)}">${esc(c.name)}</span>
+    <span class="srm">← ${Object.keys(m).map(x=>{
+      const need=m[x],got=have(x);
+      return `<em class="${got>=need?'':'lack'}">${esc(C[x].name)}${need>1?'×'+need:''}(${got})</em>`;
+    }).join(' + ')}${ni?` <em class="${S.bag[ni]>0?'':'lack'}">＋${esc(IT[ni].name)}</em>`:''}</span>
+    ${ok?`<button class="srb" data-out="${k}">조합</button>`:''}</div>`;
+}
+
+/* ── 징집 ── */
+function rDraw(){
+  if (S.over){ $('#sc-draw').innerHTML=overHTML(); return; }
+  const n=DRAWS[S.day];
+  let h=`<div class="lead">
+      <b>${S.day===6?'결전의 날':'징집과 배급'}</b>
+      <span>${S.day===6 ? '더 이상 농민을 징집하지 않는다. 명장만이 소환된다.'
+        : `뽑기 ${n}장으로 기본패를 얻고, 선택권으로 상위 카드를 지정한다.`}</span>
+    </div>`;
+
+  const pickList = S.day===6
+    ? (S.phase===0?[{t:6,n:1}] : S.phase===1?[{t:5,n:1}] : [{t:6,n:1},{t:4,n:2}])
+    : PICKS[S.day];
+  const acts=[];
+  if (n>0) acts.push(`<button class="act pri" id="bDraw" ${S.drawn?'disabled':''}>
+    <b>${S.drawn?'징집 완료':`기본패 ${n}장`}</b><i>8종 균등</i></button>`);
+  if (pickList.length) acts.push(`<button class="act" id="bPick" ${S.picked?'disabled':''}>
+    <b>${S.picked?'선택권 완료':'선택권 사용'}</b><i>${pickList.map(p=>`${TIER[p.t].n}×${p.n}`).join(' ')}</i></button>`);
+  const rg=RANDOM_GRANT[S.day];
+  if (rg.length) acts.push(`<button class="act rnd" id="bRand" ${S.granted?'disabled':''}>
+    <b>${S.granted?'무작위 배급 완료':'무작위 배급'}</b><i>${rg.map(p=>`${TIER[p.t].n}×${p.n}`).join(' ')} 무작위</i></button>`);
+  S.pendingPicks.forEach((p,i)=>acts.push(`<button class="act warn" data-rw="${i}">
+    <b>${TIER[p.t].n} ×${p.n}</b><i>${esc((p.src||'보상').split(' · ')[0])}</i></button>`));
+  if (acts.length) h+=`<div class="sect"><div class="actgrid">${acts.join('')}</div></div>`;
+
+  if (S.news.length) h+=`<div class="sect"><div class="eyebrow">전황 소식</div>
+    <div class="panel" style="padding:8px 11px">
+    ${S.news.slice(0,5).map(n=>`<div class="nws">
+      <b>${esc(n.who)}</b>가 <em style="color:${colorOf(n.unit)}">${esc(C[n.unit].name)}</em>
+      <span>${gradeOf(n.unit)} 등용</span></div>`).join('')}</div></div>`;
+
+  if (S.lastItem) h+=`<div class="sect"><div class="eyebrow">이번 페이즈 보급품</div>
+    <div class="cgrid">${itemHTML(S.lastItem,null,'fresh')}</div></div>`;
+
+  if (S.lastDraw && S.lastDraw.length){
+    const t={}; S.lastDraw.forEach(k=>t[k]=(t[k]||0)+1);
+    h+=`<div class="sect"><div class="eyebrow">방금 징집한 ${S.lastDraw.length}장</div>
+      <div class="cgrid">${sortCards(Object.keys(t)).map(k=>cardHTML(k,t[k])).join('')}</div></div>`;
+  }
+
+  const pl=pool(), keys=poolKeys();
+  const tot=Object.values(pl).reduce((a,b)=>a+b,0);
+  h+=`<div class="sect"><div class="eyebrow">보유 카드 — ${tot}장 · ${myPV()} PV</div>
+    ${keys.length?`<div class="cgrid">${keys.map(k=>
+        cardHTML(k,pl[k],onBoard(k)?'ondeck':'',true)).join('')}</div>
+      <div class="hint" style="margin-top:6px">카드를 누르면 그 카드가 쓰이는 상위 조합을 볼 수 있다.</div>`
+      :`<div class="panel hint">보유 카드가 없다.</div>`}</div>`;
+
+  /* 빈 자리에는 지금 손패로 이어지는 조합을 띄운다.
+     부족한 재료마다 그 재료를 만드는 하위 조합식을 한 줄 더 붙여 다음 할 일을 보여준다. */
+  const near=nearRecipes(10);
+  h+=`<div class="sect"><div class="eyebrow">연관 조합 — 지금 손패에서 이어지는 길</div>
+    ${near.length?near.map(r=>{
+      const m=matCount(r.mats);
+      const ready=r.short===0 && !r.noItem;
+      const lacking=Object.keys(m).filter(k=>have(k)<m[k]);
+      return `<div class="rec ${ready?'':'locked'}" style="border-left-color:${colorOf(r.out)}">
+        <div class="rtop">
+          <div class="out">${facBadge(r.out)}<b style="color:${colorOf(r.out)}">${esc(C[r.out].name)}</b>
+            <i>${gradeOf(r.out)}${r.short?` · ${r.short}장 부족`:' · 조합 가능'}</i></div>
+          <div class="mats">${Object.keys(m).map(k=>{
+            const need=m[k],got=have(k);
+            return `<em class="${got>=need?'':'lack'}">${tagIcon(C[k].tag,'x')}${esc(C[k].name)}${need>1?'×'+need:''}(${got})</em>`;
+          }).join(' + ')}${r.noItem?` <em class="lack">＋${esc(C[r.out].need)}</em>`:''}</div>
+          <button class="mk" data-out="${r.out}" ${ready?'':'disabled'}>조합</button>
+        </div>
+        ${lacking.length||r.noItem?`<div class="rsub">
+          ${lacking.map(k=>subLine(k)).join('')}
+          ${r.noItem?`<div class="sr"><span class="srk" style="color:${IGRADE['유니크']}">${esc(C[r.out].need)}</span>
+            <span class="srm">유니크 보급품 — 후반 페이즈에서 지급된다</span></div>`:''}
+        </div>`:''}
+      </div>`;
+    }).join('')
+    :`<div class="panel hint">먼저 기본패를 모으자.</div>`}</div>`;
+
+  $('#sc-draw').innerHTML=h;
+  const bd=$('#bDraw'); if(bd) bd.onclick=()=>{
+    const got=[]; for(let i=0;i<n;i++){ const k=pickR(BASE); give(k); got.push(k); }
+    S.lastDraw=got; S.drawn=true; render();
+  };
+  const bp=$('#bPick'); if(bp) bp.onclick=()=>openPicker(pickList.map(capPick),()=>{S.picked=true;});
+  const brd=$('#bRand'); if(brd) brd.onclick=()=>{
+    const got=[];
+    for (const p of RANDOM_GRANT[S.day].map(capPick))
+      for (let i=0;i<p.n;i++){
+        const k=pickR(byTier(p.t).filter(x=>C[x].tier<8));
+        give(k); got.push(k);
+      }
+    S.granted=true;
+    got.forEach(k=>toast(`<b style="color:${colorOf(k)}">${esc(C[k].name)}</b> 배급 · ${gradeOf(k)}`,'gain'));
+    render();
+  };
+  $('#sc-draw').querySelectorAll('[data-rw]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.rw, p=S.pendingPicks[i];
+    openPicker([capPick({t:p.t,n:p.n})],()=>{ S.pendingPicks.splice(i,1); });
+  });
+  $('#sc-draw').querySelectorAll('.mk,.srb').forEach(b=>b.onclick=()=>{
+    if (forge(b.dataset.out, RECOF[b.dataset.out])) render();
+  });
+  $('#sc-draw').querySelectorAll('[data-info]').forEach(b=>b.onclick=()=>openCardInfo(b.dataset.info));
+}
+
+/* 카드 상세 —— 한 단계 위 목록만 보여준다. 재료는 손패와 대조해 있다·없다를 바로 찍는다. */
+function usedIn(k){
+  return REC.filter(([o,mats])=>mats.includes(k))
+    .map(([o,mats])=>({out:o, need:matCount(mats)[k], mats}));
+}
+function missCount(x){
+  const m=matCount(RECOF[x]||[]);
+  let miss=0;
+  for (const q in m) miss += Math.max(0, m[q]-have(q));
+  const ni=needItem(x);
+  if (ni && !(S.bag[ni]>0)) miss++;
+  return miss;
+}
+function nextUp(k){
+  const t=C[k].tier, one=[], far=[];
+  usedIn(k).forEach(u=>{ (C[u.out].tier===t+1 ? one : far).push(u.out); });
+  one.sort((x,y)=>missCount(x)-missCount(y) || C[x].name.localeCompare(C[y].name,'ko'));
+  return {one, far};
+}
+/* 재료 칩 —— 있으면 초록 체크, 없으면 붉은 표시 */
+/* 재료 종수와 갖춘 수 —— 진행도 표시용 */
+function matProgress(x){
+  const m=matCount(RECOF[x]||[]), ni=needItem(x);
+  let tot=0, got=0;
+  for (const q in m){ tot++; if (have(q)>=m[q]) got++; }
+  if (ni){ tot++; if (S.bag[ni]>0) got++; }
+  return [got,tot];
+}
+function matLine(x){
+  const m=matCount(RECOF[x]||[]), ni=needItem(x), out=[];
+  Object.keys(m).forEach(q=>{
+    const need=m[q], got=have(q), ok=got>=need;
+    /* 재료를 누르면 그 카드가 주인공이 되는 팝업으로 넘어간다 */
+    out.push(`<button class="mchip ${ok?'ok':'no'}" data-tree="${q}">${ok?'✔':'✘'} ${tagIcon(C[q].tag,'x')}${esc(C[q].name)}<b>${got}/${need}</b></button>`);
+  });
+  if (ni){
+    const ok=S.bag[ni]>0;
+    out.push(`<span class="mchip ${ok?'ok':'no'}">${ok?'✔':'✘'} ◆${esc(IT[ni].name)}<b>${S.bag[ni]||0}/1</b></span>`);
+  }
+  return out.join('');
+}
+function upCard(x){
+  const c=C[x], ok=canForge(x, RECOF[x]), n=pool()[x]||0;
+  return `<div class="upc ${ok?'can':''}" style="border-left-color:${TIER[c.tier].c}">
+    <div class="uph">
+      <button class="upn" data-tree="${x}" style="color:${TIER[c.tier].c}"
+        >${tagIcon(c.tag,'x')}${esc(c.name)}${c.kind==='myth'?'★':''}</button>
+      ${n?`<span class="upq">${n}장</span>`:''}
+      <span class="upb ${ok?'y':'n'}">${ok?'가능':'부족 '+missCount(x)}</span>
+    </div>
+    <div class="upm">${matLine(x)}</div>
+    ${ok?`<button class="upmk" data-mk="${x}">조합</button>`:''}</div>`;
+}
+function openCardInfo(k){
+  const c=C[k], pl=pool(), own=RECOF[k];
+  const {one, far}=nextUp(k);
+  const canN=one.filter(x=>canForge(x,RECOF[x])).length;
+
+  let h=`<h3>${c.tier>2?`<span class="fac" style="position:static;border-radius:3px;padding:2px 5px;
+      background:${FAC[c.fac].c}">${c.fac}</span>`:''}${tagIcon(c.tag,'hd')}
+    <span style="color:${TIER[c.tier].c}">${esc(c.name)}</span></h3>
+    <div class="sub">${c.tag} · ${TIER[c.tier].n} · ${c.pv} PV · ${c.tr.toLocaleString()}명 ·
+      <b style="color:${pl[k]?'var(--jade)':'var(--seal)'}">보유 ${pl[k]||0}장</b></div>
+    <div class="panel" style="margin-bottom:12px">
+      <div class="statrow">
+        <div><b>${c.atk}</b><span>공격</span></div>
+        <div><b>${c.def}</b><span>방어</span></div>
+        ${c.int?`<div><b>${c.int}</b><span>책략</span></div>`:''}
+        <div><b>${c.res}</b><span>책방</span></div>
+        <div><b>${c.spd}</b><span>속도</span></div>
+      </div>
+      ${c.sk?`<div class="skbox">
+        <b>『${esc(c.sk.n)}』<em>${skillRole(c)} · 발동 ${Math.round(RATE[c.tier]*100)}%</em></b>
+        <span>${esc(skillDesc(c))}</span>
+        ${c.sk.psv?`<i>패시브 「${esc(psvName(c.sk.psv))}」 ${esc(psvDesc(c.sk.psv))}</i>`:''}
+        </div>`:''}
+      <div class="hint" style="margin-top:7px">
+        ${AFF[c.tag].why} —
+        <b style="color:var(--jade)">선호 ${affZones(c.tag,'pref')}</b> ${affDesc(c.tag,'pref')} ·
+        <b style="color:var(--seal)">어색 ${affZones(c.tag,'bad')}</b> ${affDesc(c.tag,'bad')}</div>
+    </div>`;
+
+  /* 타겟 유닛의 조합법 —— 등급과 무관하게 가장 먼저 보여준다.
+     부족한 재료를 눌러 들어온 사람이 알고 싶은 건 바로 이것이다. */
+  if (own){
+    const [g,tt]=matProgress(k), ok=canForge(k,own);
+    h+=`<div class="eyebrow">이 카드를 만드는 법 — 재료 ${g}/${tt}${ok?' · 지금 조합 가능':''}</div>
+      <div class="upc ${ok?'can':''}" style="border-left-color:${TIER[c.tier].c};margin-bottom:14px">
+        <div class="upm">${matLine(k)}</div>
+        <button class="upmk ${ok?'':'off'}" data-mk="${k}" ${ok?'':'disabled'}>${ok?'조합':`재료 ${tt-g}종 부족`}</button>
+      </div>`;
+  } else {
+    h+=`<div class="eyebrow">이 카드를 만드는 법</div>
+      <div class="panel hint" style="margin-bottom:14px">기본패 — 조합할 수 없고 징집으로만 얻는다.</div>`;
+  }
+
+  h+=`<div class="eyebrow">한 단계 위 · ${TIER[Math.min(8,c.tier+1)].n} ${one.length}종${
+    canN?` — <b style="color:var(--jade)">${canN}종 지금 조합 가능</b>`:''}</div>`;
+  h+= one.length ? `<div class="upgrid">${one.map(upCard).join('')}</div>`
+    : `<div class="panel hint">${c.tier===8
+        ? '최종 등급이라 위가 없다. 그대로 편성한다.'
+        : `이 카드를 재료로 쓰는 ${TIER[c.tier+1].n} 조합이 없다 — 편성 전용이다.`}</div>`;
+  if (far.length){
+    const g={}; far.forEach(x=>{ g[C[x].tier]=(g[C[x].tier]||0)+1; });
+    h+=`<div class="hint" style="margin-top:7px">그 밖에 ${
+      Object.entries(g).map(([t,n])=>`${TIER[t].n} ${n}종`).join(' · ')}에도 재료로 쓰인다.</div>`;
+  }
+  if (!one.length && c.tier<8){
+    /* 막다른 카드라면 같은 병종의 상위 등급을 대신 안내한다 */
+    const alt=byTierTag(c.tier+1, c.tag);
+    if (alt.length) h+=`<div class="hint" style="margin-top:7px">
+      같은 ${c.tag} ${TIER[c.tier+1].n}: ${alt.map(x=>
+        `<b data-tree="${x}" style="color:${TIER[c.tier+1].c};cursor:pointer">${esc(C[x].name)}</b>`
+      ).join(' · ')}</div>`;
+  }
+
+
+  openSheet(h);
+  $('#sheet').querySelectorAll('[data-tree]').forEach(b=>b.onclick=()=>{
+    if (b.dataset.tree!==k) openCardInfo(b.dataset.tree);
+  });
+  $('#sheet').querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{
+    const t=b.dataset.mk;
+    if (forge(t, RECOF[t])){
+      toast(`<b style="color:${TIER[C[t].tier].c}">${esc(C[t].name)}</b> 조합 완료`,'gain');
+      render(); openCardInfo(k);
+    }
+  });
+}
+
+/* ── 조합 (전체 목록 + 필터) ── */
+function rForge(){
+  const f=S.fTag;
+  let h=`<div class="sect"><div class="eyebrow">조합 — 전체 ${REC.length}개</div>
+    <div class="chips">
+      <button class="chip ${!f?'on':''}" data-t="">전체</button>
+      ${TAGORDER.map(t=>`<button class="chip ${f===t?'on':''}" data-t="${t}">${t}</button>`).join('')}
+    </div>
+    <div class="hint" style="margin-top:6px">편성판 카드도 재료로 쓰인다. 신화 장수는 유니크 아이템이 함께 필요하다.</div></div>`;
+  for (let t=8;t>=2;t--){
+    let list=REC.filter(r=>C[r[0]].tier===t);
+    if (f) list=list.filter(r=>C[r[0]].tag===f);
+    if (!list.length) continue;
+    h+=`<div class="sect"><div class="eyebrow">
+      <span class="tierdot" style="background:${TIER[t].c}"></span>${TIER[t].n} · ${PVRANGE[t]} PV · ${list.length}종</div>`;
+    for (const [out,mats] of list){
+      const ok=canForge(out,mats), m=matCount(mats), ni=needItem(out);
+      h+=`<div class="rec ${ok?'':'locked'}" style="border-left-color:${colorOf(out)}">
+        <div class="rtop">
+        <div class="out">${facBadge(out)}<b style="color:${colorOf(out)}">${esc(C[out].name)}</b>
+          <i>${C[out].tag} · ${C[out].pv} PV</i></div>
+        <div class="mats">${Object.keys(m).map(k=>{
+          const need=m[k],got=have(k);
+          return `<em class="${got>=need?'':'lack'}">${tagIcon(C[k].tag,'x')}${esc(C[k].name)}${need>1?'×'+need:''}(${got})</em>`;
+        }).join(' + ')}${ni?` <em class="${S.bag[ni]>0?'':'lack'}">＋${esc(IT[ni].name)}(${S.bag[ni]||0})</em>`:''}</div>
+        <button class="mk" data-out="${out}" ${ok?'':'disabled'}>조합</button></div>
+        ${C[out].sk?`<div class="rsk">『${esc(C[out].sk.n)}』
+          <em>${skillRole(C[out])} · ${Math.round(RATE[C[out].tier]*100)}%</em>
+          ${esc(skillDesc(C[out]))}${C[out].sk.psv?` · 패시브 ${esc(PSVNM[C[out].sk.psv]||'')}`:''}</div>`:''}
+        </div>`;
+    }
+    h+=`</div>`;
+  }
+  /* 보유 스킬 —— 지금 손패·편성판에 있는 카드의 능력을 한눈에 */
+  const owned=poolKeys().filter(k=>C[k].sk);
+  h+=`<div class="sect"><div class="eyebrow">보유 스킬 — ${owned.length}종</div>
+    ${owned.length?`<div class="panel" style="padding:9px 11px">
+      ${owned.map(k=>{
+        const c=C[k];
+        return `<div class="skrow">
+          <span class="skn" style="color:${colorOf(k)}">${esc(c.name)}</span>
+          <span class="skb">
+            <b>『${esc(c.sk.n)}』<em>${skillRole(c)} · 발동 ${Math.round(RATE[c.tier]*100)}%</em></b>
+            <span>${esc(skillDesc(c))}</span>
+            ${c.sk.psv?`<i>「${esc(psvName(c.sk.psv))}」 ${esc(psvDesc(c.sk.psv))}</i>`:''}
+          </span></div>`;
+      }).join('')}</div>`
+      :`<div class="panel hint">희귀 등급부터 스킬을 가진다. 아직 보유한 스킬이 없다.</div>`}</div>`;
+
+  const tradable=[2,3,4,5,6,7].filter(t=>tierTotal(t)>0);
+  const pl=pool();
+  h+=`<div class="sect"><div class="eyebrow">환전 — 이번 페이즈 ${S.trades}회 남음</div>
+    <div class="panel"><div class="hint" style="margin-bottom:10px">
+      같은 등급 안에서 1대1로 바꾼다. 계보를 갈아타는 유일한 통로다.</div>
+    ${!tradable.length?'<div class="hint">바꿀 카드가 없다.</div>'
+      :(S.trades<=0?'<div class="hint">이번 페이즈 환전을 모두 썼다.</div>'
+      :`<div class="cgrid">${tradable.flatMap(t=>Object.keys(tierStock(t)).map(k=>
+          `<button class="card" data-tr="${k}" style="border-left-color:${colorOf(k)}">
+            ${facBadge(k)}<span class="qty">${pl[k]}</span>
+            <span class="nm" style="color:${colorOf(k)}">${esc(C[k].name)}</span>
+            <span class="tg">${C[k].tag} · 바꾸기</span></button>`)).join('')}</div>`)}
+    </div></div>`;
+  $('#sc-forge').innerHTML=h;
+  $('#sc-forge').querySelectorAll('.chip[data-t]').forEach(b=>b.onclick=()=>{
+    S.fTag=b.dataset.t||null; rForge();
+  });
+  $('#sc-forge').querySelectorAll('.mk').forEach(b=>b.onclick=()=>{
+    if (forge(b.dataset.out, RECOF[b.dataset.out])) render();
+  });
+  $('#sc-forge').querySelectorAll('.card[data-tr]').forEach(b=>b.onclick=()=>openTrade(b.dataset.tr));
+}
+function openTrade(from){
+  const t=C[from].tier;
+  let h=`<h3>${esc(C[from].name)} 환전</h3>
+    <div class="sub">같은 ${TIER[t].n} 등급 안에서 바꾼다 — 남은 횟수 ${S.trades}회</div>`;
+  for (const tag of TAGORDER){
+    const ks=byTierTag(t,tag).filter(k=>k!==from);
+    if (!ks.length) continue;
+    h+=`<div class="eyebrow" style="margin:11px 0 5px">${tag}</div>
+      <div class="cgrid">${ks.map(k=>`<button class="card" data-w="${k}" style="border-left-color:${colorOf(k)}">
+        ${facBadge(k)}<span class="nm" style="color:${colorOf(k)}">${esc(C[k].name)}</span>
+        <span class="tg">공${C[k].atk} 방${C[k].def}${C[k].int?' 책'+C[k].int:''}</span></button>`).join('')}</div>`;
+  }
+  openSheet(h);
+  $('#sheet').querySelectorAll('.card[data-w]').forEach(b=>b.onclick=()=>{
+    if (trade(from,b.dataset.w)){ closeSheet(); render(); }
+  });
+}
+
+/* ── 편성 (3열×4행 진형 + 아이템) ── */
+function rDeploy(){
+  const f=FORM[S.form];
+  let h=`<div class="sect"><div class="eyebrow">진형 — 3열 4행 · 9칸</div>
+    <div class="fgrid">${Object.keys(FORM).map(k=>`
+      <button class="fbtn ${k===S.form?'on':''}" data-f="${k}">
+        <b>${FORM[k].n}</b><i>${FORM[k].sil}</i>
+        <span class="fmini">${FORM[k].mask.map(r=>`<span>${r.split('').map(c=>
+          `<i class="${c==='X'?'on':''}"></i>`).join('')}</span>`).join('')}</span>
+      </button>`).join('')}</div></div>`;
+
+  h+=`<div class="board"><div class="enemyface">적 진영</div>
+    <div class="frow colhd"><span class="lbl"></span><div class="cells">
+      <span>좌</span><span>중앙</span><span>우</span></div></div>`;
+  f.grid.forEach((row,ri)=>{
+    h+=`<div class="frow"><span class="lbl">${LINES[ri]}</span><div class="cells">`;
+    row.forEach(si=>{
+      if (si===null){ h+=`<div class="slot void"></div>`; return; }
+      const k=S.board[si], ln=LINES[ri];
+      if (!k){ h+=`<div class="slot" data-slot="${si}"><span class="empty">＋</span></div>`; return; }
+      const c=C[k], af=AFF[c.tag];
+      const sd=f.slots[si].side, rel=affOf(c.tag,ln,sd);
+      const mk=rel==='pref'?'aff':(rel==='bad'?'bad':'');
+      const itId=itemOfSlot(si);
+      h+=`<div class="slot filled ${ln==='선봉'?'van':''} ${mk}" data-slot="${si}">
+        ${c.tier>2?`<span class="fac" style="background:${FAC[c.fac].c}">${c.fac}</span>`:''}
+        ${tagIcon(c.tag)}
+        <span class="sn" style="color:${colorOf(k)}">${esc(c.name)}</span>
+        <span class="st">${c.tag}${rel?` · ${AFFLBL[rel]}`:''}</span>
+        <span class="sp">${c.tr.toLocaleString()}</span>
+        <span class="islot ${itId?'has':''}" style="${itId?`color:${IGRADE[IT[itId].grade]}`:''}">
+          ${itId?esc(IT[itId].name):'빈 슬롯'}${innateItem(k)?` 🔒×${MYTH_AMP}`:''}</span></div>`;
+    });
+    h+=`</div></div>`;
+  });
+  h+=`</div>`;
+
+  const cnt=f.count;
+  h+=`<div class="hint" style="margin-top:8px">
+    <span style="color:var(--jade)">●</span> 선호 · <span style="color:var(--seal)">●</span> 어색 —
+    ${cnt.join('·')} 배분. 물리 공격은 최전열부터 도달한다.</div>`;
+
+  h+=`<div class="sect" style="margin-top:13px"><div class="eyebrow">선호 · 어색 구역</div>
+    <div class="panel" style="padding:9px 11px">
+    <div class="hint" style="margin-bottom:8px">자리는 <b>열</b>(선봉·전군·중군·후군)과
+    <b>좌우</b>(가운데는 중앙, 양옆은 측면)로 갈린다. 좌와 우를 가리는 병종은 없다.
+    <b style="color:var(--jade)">선호 구역</b>은 보너스,
+    <b style="color:var(--seal)">어색 구역</b>은 손실이며 나머지는 열 보정만 받는다.</div>
+    <table class="aff"><tr><th>직업</th><th>선호 구역</th><th>이득</th><th>어색 구역</th><th>손실</th></tr>
+    ${TAGORDER.map(t=>{
+      const n=S.board.filter((k,i)=>k&&C[k].tag===t).length;
+      return `<tr class="${n?'has':''}">
+        <td>${tagIcon(t,'x')}${t}${n?`<b>${n}</b>`:''}</td>
+        <td class="g">${affZones(t,'pref')}</td><td class="g">${affDesc(t,'pref')}</td>
+        <td class="r">${affZones(t,'bad')}</td><td class="r">${affDesc(t,'bad')}</td></tr>`;
+    }).join('')}</table></div></div>`;
+
+  h+=`<div class="sect" style="margin-top:14px"><div class="btnrow">
+    <button class="btn" id="bAuto">자동 편성 + 장착</button>
+    <button class="btn ghost" id="bClear">전부 해제</button></div></div>`;
+
+  /* 세력 시너지 */
+  const syn=facSyn(S.board,S.form);
+  h+=`<div class="sect"><div class="eyebrow">세력 시너지</div><div class="panel">
+    <div class="facrow">${TAGORDER.length&&Object.keys(FAC).map(fc=>{
+      const n=syn.count[fc]||0;
+      return `<span class="fchip" style="border-color:${FAC[fc].c};${n?`background:${FAC[fc].c}22`:'opacity:.4'}">
+        <b style="color:${FAC[fc].c}">${fc}</b> ${n}</span>`;
+    }).join('')}</div>
+    ${syn.list.length?syn.list.map(s=>`<div class="hint" style="margin-top:5px">
+      <b style="color:${FAC[s.fac].c}">${FAC[s.fac].full}</b> ${s.n}명 · ${SYN[s.fac].d}
+      ${SYN[s.fac].stat==='morale'?`+${s.v}`:`+${Math.round(s.v*100)}%`}</div>`).join('')
+      :`<div class="hint" style="margin-top:6px">같은 세력 3명부터 시너지가 붙는다. 3·5·7명에서 단계가 올라간다.</div>`}
+    </div></div>`;
+
+  /* 병종 시너지 —— 두 명부터 붙고 다섯에서 고유 효과가 열린다 */
+  h+=`<div class="sect"><div class="eyebrow">병종 시너지 — 2·3·4·5명</div><div class="panel">
+    ${TAGORDER.map(t=>{
+      const n=syn.tagCount[t]||0, e=syn.tag[t], s=TAGSYN[t];
+      if(!n) return '';
+      const cap=n>=5;
+      return `<div class="tsrow ${cap?'cap':''}">
+        ${tagIcon(t,'x')}<b>${t}</b><em>${n}명</em>
+        <span>${e?`${s.d} +${Math.round(e.v*100)}%`:'2명부터'}</span>
+        ${cap?`<i>「${s.cap}」 ${s.capd}</i>`:`<u>다섯이면 「${s.cap}」</u>`}</div>`;
+    }).join('')||'<div class="hint">같은 병종 두 명부터 시너지가 붙는다.</div>'}
+    </div></div>`;
+
+  /* 진형 우대 —— 진형이 품는 병종 */
+  const bn=FORMBOON[S.form];
+  const bnN=bn?bn.tags.reduce((a,t)=>a+(syn.tagCount[t]||0),0):0;
+  h+=`<div class="sect"><div class="eyebrow">진형 우대</div><div class="panel">
+    <div class="hint"><b style="color:var(--bamboo)">${FORM[S.form].n}</b> — ${bn?bn.d:''}</div>
+    <div class="hint" style="margin-top:5px">
+      ${bn?`${bn.tags.map(t=>`${tagIcon(t,'x')}${t}`).join(' · ')}에게
+        ${STATNM[bn.stat]||(bn.stat==='rate'?'스킬 발동률':bn.stat)} +${Math.round(bn.v*100)}%
+        <b style="color:${bnN?'var(--jade)':'var(--seal)'}">현재 ${bnN}명 해당</b>`:'없음'}</div>
+    </div></div>`;
+
+  h+=`<div class="sect"><div class="eyebrow">편성 전력</div><div class="panel">
+    <div class="statrow">
+      <div><b>${Math.round(boardPower()*syn.troop).toLocaleString()}</b><span>총 병력</span></div>
+      <div><b>${S.board.filter(Boolean).length}/9</b><span>배치</span></div>
+      <div><b>${Math.min(200,myMorale()+syn.morale)}</b><span>시작 사기</span></div>
+      <div><b>${equippedItems().length}</b><span>장착</span></div>
+    </div></div></div>`;
+
+  const bk=bagKeys();
+  h+=`<div class="sect"><div class="eyebrow">보급품 — ${Object.values(S.bag).reduce((a,b)=>a+b,0)}개</div>
+    ${bk.length?`<div class="cgrid">${bk.map(id=>itemHTML(id,S.bag[id])).join('')}</div>
+      <div class="hint" style="margin-top:7px">유니크는 신화 장수 조합에 쓰이며, 조합 시 그 장수에게 영구히 장착된다.</div>`
+      :`<div class="panel hint">보급품이 없다. 페이즈가 넘어가면 하나씩 지급된다.</div>`}</div>`;
+
+  $('#sc-deploy').innerHTML=h;
+  $('#sc-deploy').querySelectorAll('.fbtn').forEach(b=>b.onclick=()=>{
+    const old=FORM[S.form].slots.length;
+    S.form=b.dataset.f; render();
+  });
+  $('#sc-deploy').querySelectorAll('.slot[data-slot]').forEach(el=>el.onclick=()=>openSlot(+el.dataset.slot));
+  $('#bAuto').onclick=()=>{
+    const all=[];
+    Object.keys(S.inv).forEach(k=>{ for(let i=0;i<S.inv[k];i++) all.push(k); });
+    S.board.forEach(k=>{ if(k) all.push(k); });
+    all.sort((a,b)=>C[b].tr-C[a].tr);
+    const ch=all.slice(0,9);
+    S.inv={}; all.slice(9).forEach(k=>give(k));
+    S.board=autoPlace(ch,S.form);
+    S.equip=recommendItems();
+    render();
+  };
+  $('#bClear').onclick=()=>{
+    S.board.forEach(k=>{ if(k) give(k); });
+    S.board=new Array(9).fill(null); S.equip=new Array(9).fill(null); render();
+  };
+}
+function openSlot(i){
+  const cur=S.board[i], line=FORM[S.form].slots[i].line;
+  const pl=pool(); if(cur) pl[cur]=(pl[cur]||1)-1;
+  Object.keys(pl).forEach(k=>{ if(pl[k]<=0) delete pl[k]; });
+  const keys=sortCards(Object.keys(pl));
+  const slotSide=FORM[S.form].slots[i].side, slotCol=FORM[S.form].slots[i].col;
+  let h=`<h3>${posName(line,slotCol)} 배치</h3>
+    <div class="sub">${line} · ${slotSide} — 공격 ${Math.round(LINE[line].atk*100)}% ·
+    방어 ${Math.round(LINE[line].def*100)}% · 책략 ${Math.round(LINE[line].int*100)}% ·
+    피격 ${LINE[line].pri}순위</div>
+    <div class="panel" style="margin-bottom:12px;padding:9px 11px">
+      <div class="hint"><b style="color:var(--jade)">이 구역을 선호하는 직업</b> —
+        ${TAGORDER.filter(t=>affOf(t,line,slotSide)==='pref')
+          .map(t=>`${t}(${affDesc(t,'pref')})`).join(' · ')||'없음'}</div>
+      <div class="hint" style="margin-top:5px"><b style="color:var(--seal)">이 구역이 어색한 직업</b> —
+        ${TAGORDER.filter(t=>affOf(t,line,slotSide)==='bad')
+          .map(t=>`${t}(${affDesc(t,'bad')})`).join(' · ')||'없음'}</div>
+    </div>`;
+  if (cur){
+    const inn=innateItem(cur), itId=itemOfSlot(i);
+    h+=`<div class="panel" style="margin-bottom:12px">
+      <div class="ttl" style="font-size:15px">${facBadge(cur)} ${esc(C[cur].name)}</div>
+      <div class="hint">${C[cur].tag} · ${gradeOf(cur)} · 공${C[cur].atk} 방${C[cur].def}${
+        C[cur].int?' 책'+C[cur].int:''} 속${C[cur].spd}</div>
+      ${C[cur].sk?`<div class="hint" style="margin-top:4px;color:var(--gold)">『${C[cur].sk.n}』 발동 ${Math.round(RATE[C[cur].tier]*100)}%</div>`:''}
+      <div style="margin-top:9px">${inn
+        ? `<div class="hint">🔒 ${esc(IT[inn].name)} 내장 — 탈착할 수 없다</div>`
+        : `<button class="btn" id="mItem">${itId?`아이템: ${esc(IT[itId].name)}`:'아이템 장착'}</button>`}</div>
+      <button class="btn ghost" id="mRemove" style="margin-top:7px">내리기</button></div>`;
+  }
+  if (!keys.length) h+=`<div class="panel hint">배치할 카드가 없다.</div>`;
+  else h+=`<div class="cgrid">${keys.map(k=>{
+    const rel=affOf(C[k].tag,line,slotSide), mk=rel==='pref'?'aff':(rel==='bad'?'bad':'');
+    return `<button class="card ${mk}" data-k="${k}" style="border-left-color:${colorOf(k)}">
+      ${facBadge(k)}<span class="qty">${pl[k]}</span>
+      <span class="nm" style="color:${colorOf(k)}">${esc(C[k].name)}</span>
+      <span class="tg">${C[k].tag}${rel?` · ${AFFLBL[rel]}`:''}</span>
+      ${rel?`<span class="ef" style="color:${rel==='pref'?'var(--jade)':'var(--seal)'}">${affDesc(C[k].tag,rel)}</span>`:''}
+      </button>`;
+  }).join('')}</div>`;
+  openSheet(h);
+  const rm=$('#mRemove'); if(rm) rm.onclick=()=>{ give(cur); S.board[i]=null; S.equip[i]=null; closeSheet(); render(); };
+  const mi=$('#mItem'); if(mi) mi.onclick=()=>openItem(i);
+  $('#sheet').querySelectorAll('.card[data-k]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.k, prev=S.board[i];
+    S.board[i]=null;
+    if (prev) give(prev);
+    take(k); S.board[i]=k;
+    if (S.equip[i] && !canEquip(k,S.equip[i])) S.equip[i]=null;
+    closeSheet(); render();
+  });
+}
+function openItem(i){
+  const k=S.board[i];
+  const used={}; S.equip.forEach((e,j)=>{ if(e&&j!==i) used[e]=(used[e]||0)+1; });
+  const cand=Object.keys(S.bag).filter(id=>canEquip(k,id) && (S.bag[id]-(used[id]||0))>0);
+  let h=`<h3>${esc(C[k].name)} 아이템</h3>
+    <div class="sub">${C[k].tag} 전용 아이템만 장착할 수 있다 · 슬롯 1칸</div>`;
+  if (S.equip[i]) h+=`<button class="btn ghost" id="iOff" style="margin-bottom:11px">해제</button>`;
+  if (!cand.length) h+=`<div class="panel hint">장착할 수 있는 ${C[k].tag} 아이템이 없다.</div>`;
+  else h+=`<div class="cgrid">${cand.map(id=>
+    `<button class="card item" data-i="${id}" style="border-left-color:${IGRADE[IT[id].grade]}">
+      <span class="qty">${S.bag[id]-(used[id]||0)}</span>
+      <span class="nm" style="color:${IGRADE[IT[id].grade]}">${esc(IT[id].name)}</span>
+      <span class="tg">${IT[id].grade}</span>
+      <span class="ef">${STATNM[IT[id].pri]} +${Math.round(IT[id].pa*100)}%${
+        IT[id].sa?` · ${STATNM[IT[id].sec]} +${Math.round(IT[id].sa*100)}%`:''}${
+        IT[id].rb?` · 발동 +${IT[id].rb}%p`:''}</span></button>`).join('')}</div>`;
+  openSheet(h);
+  const off=$('#iOff'); if(off) off.onclick=()=>{ S.equip[i]=null; closeSheet(); render(); };
+  $('#sheet').querySelectorAll('.card[data-i]').forEach(b=>b.onclick=()=>{
+    S.equip[i]=b.dataset.i; closeSheet(); render();
+  });
+}
+
+/* ── 전장 ── */
+function stageHTML(r){
+  const chip=u=>{
+    const col = u.kind==='myth' ? '#ffd76e' : TIER[u.tier].c;
+    return `<div class="uc" data-k="${u.key}">
+      ${u.tier>2?`<span class="fac" style="background:${FAC[u.fac].c}">${u.fac}</span>`:''}
+      ${tagIcon(u.tag)}
+      <span class="un" style="color:${col}">${esc(u.name)}</span>
+      <span class="ut">${u.tag}${u.item?' ◆':''}</span>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="bar m"><i style="width:50%"></i></div></div>`;
+  };
+  const rows=(side,form,rev)=>{
+    const f=FORM[form];
+    const order=rev?[3,2,1,0]:[0,1,2,3];
+    return order.map(ri=>{
+      const cells=f.grid[ri].map(si=>{
+        if (si===null) return `<div class="uc void"></div>`;
+        const u=r.roster.find(x=>x.camp===side && x.key===side+si);
+        return u?chip(u):`<div class="uc void"></div>`;
+      }).join('');
+      return `<div class="brow"><span class="blbl ${side==='B'?'foe':''}">${LINES[ri]}</span>
+        <div class="bcells">${cells}</div></div>`;
+    }).join('');
+  };
+  const synTxt=s=>s.list.length?s.list.map(x=>`${x.fac}${x.n}`).join(' '):'없음';
+  return `<div class="stage">
+    <div class="bhead foe"><b>${r.foe?esc(r.foe):'적 진영'}${
+        r.foeBot?'<span class="botid">BOT</span>':''}</b>
+      <span>${r.foeBot?`${esc(r.foeBot.epi)} · ${r.foeBot.pv>0?`${r.foeBot.pv} PV · `:''}`:''}${
+        FORM[r.bForm].n} · ${FORM[r.bForm].sil} · 시너지 ${synTxt(r.bSyn)}</span></div>
+    ${rows('B',r.bForm,true)}
+    <div class="midrule"><span></span><b>접 전 면</b><span></span></div>
+    ${rows('A',r.aForm,false)}
+    <div class="bhead"><b>내 진영</b><span>${FORM[r.aForm].n} · ${FORM[r.aForm].sil} · 시너지 ${synTxt(r.aSyn)}</span></div>
+    </div>`;
+}
+function applySnap(r,snap){
+  r.roster.forEach((u,i)=>{
+    const el=document.querySelector(`.uc[data-k="${u.key}"]`); if(!el) return;
+    const [tr,mo,al]=snap[i];
+    const bars=el.querySelectorAll('.bar i'); if(bars.length<2) return;
+    const tp=Math.max(0,Math.min(100,tr/u.max*100)), mp=Math.max(0,Math.min(100,mo/200*100));
+    bars[0].style.width=tp+'%'; bars[0].parentNode.className='bar'+(tp<=25?' lo':'');
+    bars[1].style.width=mp+'%'; bars[1].parentNode.className='bar m'+(mo<=30?' lo':'');
+    el.classList.toggle('gone',!al);
+  });
+}
+function focusChip(key,cls){
+  document.querySelectorAll('.uc.act,.uc.hurt').forEach(e=>e.classList.remove('act','hurt'));
+  if(!key) return;
+  const el=document.querySelector(`.uc[data-k="${key}"]`);
+  if(el) el.classList.add(cls==='sk'||cls==='hl'?'act':'hurt');
+}
+/* 출진하면 적 진영이 화면 맨 윗줄에 걸리도록 스크롤을 옮긴다.
+   상단 헤더가 sticky라 그 높이만큼 덜어내야 적 진영 머리가 가려지지 않는다.
+   go()가 스크롤을 0으로 되돌린 뒤에 실행되어야 해서 한 프레임 미룬다. */
+function focusFoeLine(){
+  if (typeof window==='undefined' || typeof window.requestAnimationFrame!=='function') return;
+  window.requestAnimationFrame(()=>{
+    const st=document.querySelector('#sc-battle .stage'); if(!st) return;
+    const hd=document.querySelector('header');
+    const off=(hd?hd.offsetHeight:0)+6;
+    const cur=window.pageYOffset||document.documentElement.scrollTop||0;
+    const top=Math.max(0, Math.round(st.getBoundingClientRect().top+cur-off));
+    try { window.scrollTo({top, behavior:'smooth'}); }
+    catch(e){ window.scrollTo(0, top); }
+  });
+}
+function stopPlay(){ if(PB&&PB.timer){ clearInterval(PB.timer); PB.timer=null; } }
+const evHTML=e=>e.c==='div'?(e.t?`<hr><p class="div">${esc(e.t)}</p>`:'<hr>')
+  :`<p class="${e.c}">${esc(e.t)}</p>`;
+function startPlay(r){
+  stopPlay();
+  const feed=$('#feed'); if(!feed) return;
+  feed.innerHTML=''; PB={i:0,done:false,timer:null};
+  const step=()=>{
+    if (PB.i>=r.ev.length){ finishPlay(r); return; }
+    const e=r.ev[PB.i++];
+    applySnap(r,e.s); focusChip(e.f,e.c);
+    feed.insertAdjacentHTML('beforeend',evHTML(e));
+    feed.scrollTop=feed.scrollHeight;
+  };
+  PB.timer=setInterval(step,260); step();
+}
+/* 결과 삽화 —— 토벌은 황건적 그림, 대전·토너먼트는 세력전 그림.
+   무승부는 이길 것도 진 것도 아니라 그림 없이 간다. */
+const ART = (typeof window!=='undefined' && window.BATTLE_ART) || {};
+const ART_CAP = {
+  win1:'적장을 무릎 꿇렸다', win2:'전열을 밀어붙였다',
+  lose1:'토벌에 실패했다',   lose2:'진영이 무너졌다'
+};
+function battleArt(r){
+  if (r.draw) return null;
+  const key = (r.win?'win':'lose') + (r.kind==='quest' ? '1' : '2');
+  return ART[key] ? {key, ...ART[key]} : null;
+}
+/* 수훈갑 —— 전투가 끝나면 으뜸 공을 세운 유닛을 알린다 */
+function openMerit(r){
+  const m=r.mvp;
+  const art=battleArt(r);
+  if (!m && !art){ return; }              /* 공도 그림도 없으면 띄울 것이 없다 */
+  const line = x => x ? `<div class="mrt"><span>${x[0]}</span><b>${x[1]}</b></div>` : '';
+  let h=`<h3>${m?'수훈갑':(r.win?'승전':'패전')}</h3>
+    <div class="sub">${esc(r.title)} · ${r.turns}턴 —
+    ${r.draw?'무승부':(r.win?'승리':'패배')}</div>`;
+  if (art)
+    h+=`<figure class="bart ${r.win?'w':'l'}">
+      <img src="${art.uri}" alt="" width="${art.w}" height="${art.h}" decoding="async">
+      <figcaption>${ART_CAP[art.key]}</figcaption></figure>`;
+  if (m)
+  h+=`<div class="meritcard ${m.alive?'':'fell'}" style="border-left-color:${TIER[m.tier].c}">
+      <div class="mh">
+        ${m.tier>2?`<span class="fac" style="position:static;border-radius:3px;padding:2px 5px;
+          background:${FAC[m.fac].c}">${m.fac}</span>`:''}${tagIcon(m.tag,'hd')}
+        <b style="color:${TIER[m.tier].c}">${esc(m.name)}${m.kind==='myth'?'★':''}</b>
+        <span>${posName(m.line, FORM[r.aForm].slots[m.slot]?FORM[r.aForm].slots[m.slot].col:1)}</span>
+      </div>
+      <div class="mrts">
+        ${m.dmg?line(['입힌 병력 피해', m.dmg.toLocaleString()]):''}
+        ${m.mdmg?line(['꺾은 사기', m.mdmg.toLocaleString()]):''}
+        ${m.kills?line(['이탈시킨 적', m.kills+'칸']):''}
+        ${m.heal?line(['되살린 사기', m.heal.toLocaleString()]):''}
+        ${line(['남은 병력', m.alive?`${m.left.toLocaleString()} / ${m.max.toLocaleString()}`:'무너짐'])}
+        ${m.item?line(['장비', IT[m.item].name]):''}
+      </div>
+    </div>`;
+  if (m && r.ranked.length>1){
+    h+=`<div class="eyebrow" style="margin-top:13px">그다음 공</div>
+      ${r.ranked.slice(1).map((x,i)=>`<div class="mrow2">
+        <span class="rk">${i+2}</span>${tagIcon(x.tag,'x')}
+        <b style="color:${TIER[x.tier].c}">${esc(x.name)}</b>
+        <span>${[x.dmg?`병력 ${x.dmg.toLocaleString()}`:'',
+                 x.mdmg?`사기 ${x.mdmg.toLocaleString()}`:'',
+                 x.kills?`이탈 ${x.kills}`:'',
+                 x.heal?`회복 ${x.heal.toLocaleString()}`:''].filter(Boolean).join(' · ')}</span>
+      </div>`).join('')}`;
+  }
+  if (S.lastSpoil) h+=`<div class="hint" style="margin-top:11px;text-align:center">
+    노획 — 기본패 <b style="color:var(--bamboo)">${S.lastSpoil.n}장</b></div>`;
+  h+=`<button class="btn pri" id="mrtClose" style="margin-top:14px">확인</button>`;
+  openSheet(h);
+  const b=$('#mrtClose'); if(b) b.onclick=closeSheet;
+}
+function finishPlay(r){
+  stopPlay(); if(PB) PB.done=true;
+  const feed=$('#feed');
+  if (feed){
+    if (r.ev.length) applySnap(r,r.ev[r.ev.length-1].s);
+    focusChip(null);
+    feed.insertAdjacentHTML('beforeend',
+      `<div class="verdict ${r.win?'w':'l'}">${r.draw?'무승부':(r.win?'승리':'패배')} — 잔존 ${r.left}칸 대 ${r.eLeft}칸</div>`);
+    feed.scrollTop=feed.scrollHeight;
+  }
+  render();
+  openMerit(r);
+}
+function skipPlay(r){
+  stopPlay();
+  const feed=$('#feed');
+  if (feed) feed.innerHTML=r.ev.map(e=>evHTML(e).replace('<p class=','<p style="animation:none;opacity:1" class=')).join('');
+  PB={i:r.ev.length,done:false,timer:null}; finishPlay(r);
+}
+function bracketHTML(){
+  const t=S.tour;
+  return `<div class="sect"><div class="eyebrow">대진표 — ${ROUNDNM[t.round]} 진행 중</div>
+    <div class="panel" style="padding:10px 11px">
+    ${t.res.map((ms,r)=>!ms?'':`<div class="brk"><span class="brkr">${ROUNDNM[r]}</span>
+      <div class="brkm">${ms.map((m,i)=>{
+        const cur=r===t.round&&i===t.myMatch&&!m.w;
+        const nm=pl=>`<em class="${m.w&&m.w.name===pl.name?'win':''} ${pl.me?'me':''}">${esc(pl.name)}</em>`;
+        return `<span class="brkp ${cur?'now':''}">${nm(m.a)}<i>대</i>${nm(m.b)}</span>`;
+      }).join('')}</div></div>`).join('')}
+    <div class="hint" style="margin-top:8px">전력 순위로 시딩한다. 다른 대진도 같은 전투 엔진으로 진행된다.</div>
+    </div></div>`;
+}
+function rBattle(){
+  if (S.over){ stopPlay(); $('#sc-battle').innerHTML=overHTML(); return; }
+  const placed=S.board.filter(Boolean).length;
+  const isTour=S.day===6&&S.phase===2;
+  if (isTour&&!S.tour) initTour();
+  let h='';
+  if (isTour){
+    const m=S.tour.res[S.tour.round][S.tour.myMatch];
+    const foe=m.a.me?m.b:m.a;
+    h+=`<div class="sect"><div class="eyebrow">최종 토너먼트</div><div class="panel">
+      <div class="ttl">${ROUNDNM[S.tour.round]} — ${esc(foe.name)}</div>
+      <div class="hint">지면 그대로 끝난다. 상대 ${foe.pv} PV · 내 전력 ${myPV()} PV</div></div></div>`;
+    h+=bracketHTML();
+    if (!S.log) h+=`<div class="sect"><button class="btn warn" id="bTour" ${placed?'':'disabled'}>
+      ${placed?'출진':'편성이 비어 있다'}<small>${placed}/9칸 · ${boardPower().toLocaleString()}명</small></button></div>`;
+  } else {
+    /* 페이즈마다 토벌 1회 + 대전 1회 */
+    h+=`<div class="sect"><div class="eyebrow">${DAYNAME[S.day]}요일 ${PHASE_N[S.phase]}</div>
+      <div class="panel"><div class="ttl">이 페이즈의 두 전투</div>
+      <div class="hint">토벌과 임의 세력 대전을 각각 한 번 치른다.
+      <b style="color:var(--seal)">토벌 실패는 어느 페이즈든 경고로 쌓인다</b> —
+      현재 ${S.strikes}/${STRIKE_MAX}회.</div></div></div>`;
+    /* 두 전투는 반드시 순서대로 하나씩. 재생 중에는 둘 다 잠근다. */
+    const playing = !!(PB && !PB.done);
+    h+=`<div class="sect"><button class="btn ${S.questDone?'':'warn'}" id="bQuest"
+        ${S.questDone||!placed||playing?'disabled':''}>
+      ${S.questDone?'① 토벌 완료':`① 토벌 — ${QUESTS[S.day][S.phase]}`}
+      <small>${S.questDone?`다음은 대전이다`
+        :`적 전력 ${QPV[S.day][S.phase]} PV · 승리 시 기본패 ${QUEST_BASE[S.day]}장 · 실패 시 경고`
+      }</small></button></div>`;
+    h+=`<div class="sect"><button class="btn ${S.pvpDone?'':(S.questDone?'pri':'')}" id="bPvp"
+        ${S.pvpDone||!placed||playing||!S.questDone?'disabled':''}>
+      ${S.pvpDone?'② 대전 완료':'② 대전 — 임의 세력'}
+      <small>${!S.questDone?'토벌을 먼저 끝내야 열린다'
+        :`승리 시 기본패 ${PVP_BASE.win}장 · 패배해도 ${PVP_BASE.lose}장`}</small></button></div>`;
+  }
+
+  if (S.log){
+    const r=S.log;
+    h+=`<div class="sect">${stageHTML(r)}</div>`;
+    h+=`<div class="sect"><div class="eyebrow">${esc(r.title)} · ${r.turns}턴</div>
+      <div class="feed" id="feed"></div></div>`;
+    if (PB&&!PB.done) h+=`<div class="sect"><button class="btn ghost" id="bSkip">끝까지 건너뛰기</button></div>`;
+    else if (S.tour&&S.tour.next)
+      h+=`<div class="sect"><button class="btn pri" id="bRound">${ROUNDNM[S.tour.round+1]} 진출</button></div>`;
+    else if (!isTour&&S.questDone&&S.pvpDone)
+      h+=`<div class="sect"><button class="btn pri" id="bNext">다음 페이즈로<small>${
+        S.phase===2?`${DAYNAME[Math.min(6,S.day+1)]}요일 오전`:PHASE_N[S.phase+1]}</small></button></div>`;
+  }
+  $('#sc-battle').innerHTML=h;
+  const bq=$('#bQuest'); if(bq) bq.onclick=doQuest;
+  const bv=$('#bPvp');   if(bv) bv.onclick=doPvp;
+  const bt=$('#bTour');  if(bt) bt.onclick=doTour;
+  const bs=$('#bSkip');  if(bs) bs.onclick=()=>skipPlay(S.log);
+  const bn=$('#bNext');  if(bn) bn.onclick=()=>{ advance(); go('draw'); };
+  const brd=$('#bRound');if(brd) brd.onclick=tourAdvance;
+  if (S.log){
+    if (PB&&PB.fresh){
+      PB.fresh=false; startPlay(S.log);
+      focusFoeLine();
+    }
+    else if (PB&&PB.done){
+      const feed=$('#feed');
+      if (feed){
+        feed.innerHTML=S.log.ev.map(e=>evHTML(e).replace('<p class=','<p style="animation:none;opacity:1" class=')).join('')
+          +`<div class="verdict ${S.log.win?'w':'l'}" style="animation:none;opacity:1">${
+            S.log.draw?'무승부':(S.log.win?'승리':'패배')} — 잔존 ${S.log.left}칸 대 ${S.log.eLeft}칸</div>`;
+        if (S.log.ev.length) applySnap(S.log,S.log.ev[S.log.ev.length-1].s);
+      }
+    }
+  }
+}
+
+/* ── 계보 ── */
+/* 신화 조합을 재료 등급 구성으로 묶어 경로를 보여준다 */
+function mythPaths(){
+  const g={};
+  byTier(8).forEach(k=>{
+    const key=RECOF[k].map(x=>C[x].tier).sort((p,q)=>q-p).join(',');
+    (g[key]=g[key]||[]).push(k);
+  });
+  return Object.entries(g).sort((x,y)=>y[1].length-x[1].length)
+    .map(([key,ks])=>({label:key.split(',').map(t=>TIER[+t].n).join(' + '), ks}));
+}
+function rLine(){
+  const pl=pool();
+  const owned=t=>byTier(t).filter(k=>pl[k]).length;
+
+  /* 등급 범례 —— PV가 카드마다 다르므로 범위를 함께 보여준다 */
+  let h=`<div class="sect"><div class="eyebrow">등급</div>
+    <div class="panel" style="padding:9px 11px">
+    <table class="grd"><tr><th>등급</th><th>PV</th><th>병력</th><th>종수</th><th>보유</th></tr>
+    ${TIERS.map(t=>`<tr>
+      <td><span class="tierdot" style="background:${TIER[t].c}"></span>
+        <b style="color:${TIER[t].c}">${TIER[t].n}</b></td>
+      <td>${PVRANGE[t]}</td><td>${TIER[t].tr.toLocaleString()}</td>
+      <td>${byTier(t).length}</td>
+      <td class="${owned(t)?'has':''}">${owned(t)||'—'}</td></tr>`).join('')}
+    </table></div></div>`;
+
+  /* 계보 진행도 —— 게이지 위에 등급 머리글을 달아 어디까지 왔는지 읽히게 */
+  h+=`<div class="sect"><div class="eyebrow">계보 진행도</div>
+    <div class="panel" style="padding:11px 12px">
+    <div class="lg lghd"><span class="lgt"></span>
+      <span class="lgp">${TIERS.map(t=>`<i class="hd" style="color:${TIER[t].c}">${TIER[t].n[0]}</i>`).join('')}</span>
+      <span class="lgn" style="font-family:var(--body);font-weight:400;font-size:9px">최고 보유</span></div>
+    ${TAGORDER.map(tag=>{
+      const own=Object.keys(pl).filter(k=>C[k].tag===tag);
+      const top=own.length?Math.max(...own.map(k=>C[k].tier)):0;
+      const best=own.filter(k=>C[k].tier===top).sort((x,y)=>pl[y]-pl[x])[0];
+      const n=own.reduce((x,k)=>x+pl[k],0);
+      return `<div class="lg"><span class="lgt">${tagIcon(tag,'x')}${tag}</span>
+        <span class="lgp">${TIERS.map(t=>
+          `<i class="${t<=top?'on':''}" style="${t<=top?`background:${TIER[t].c};border-color:transparent`:''}"></i>`).join('')}</span>
+        <span class="lgn">${best?esc(C[best].name):'—'}<small>${n?n+'장':'없음'}</small></span></div>`;
+    }).join('')}
+    <div class="hint" style="margin-top:9px">가로 여덟 칸이 기본부터 신화까지다.
+    칸이 비어 있으면 그 등급에 아직 도달하지 못했다는 뜻이다.</div>
+    </div></div>`;
+
+  /* 병종별 계보 —— 카드마다 스킬명과 PV를 붙인다 */
+  for (const tag of TAGORDER){
+    const cnt=[6,7,8].map(t=>byTierTag(t,tag).length);
+    h+=`<div class="sect"><div class="eyebrow">${tagIcon(tag,'x')} ${tag} 계보
+      <span style="color:var(--bamboo-dim)"> · 초월 ${cnt[0]} 불멸 ${cnt[1]} 신화 ${cnt[2]}</span></div>
+      <div class="panel" style="padding:9px 11px">`;
+    for (let t=8;t>=1;t--){
+      const ks=byTierTag(t,tag);
+      if (!ks.length) continue;
+      h+=`<div class="lrow"><span class="lrt" style="color:${TIER[t].c}">${TIER[t].n}</span>
+        <span class="lrn">${ks.map(k=>{
+          const c=C[k], has=(pl[k]||0)>0;
+          return `<em class="${has?'own':''}" data-info="${k}"
+            style="${has?`color:${TIER[t].c};border-color:${TIER[t].c}66`:''}"
+            >${esc(c.name)}${c.kind==='myth'?'★':''}${has?`<b>${pl[k]}</b>`:''}
+            <u>${c.sk?esc(c.sk.n)+' · ':''}${c.pv} PV</u></em>`;
+        }).join('')}</span></div>`;
+    }
+    h+=`</div></div>`;
+  }
+
+  /* 신화 —— 경로가 셋이라 묶어서 보여준다 */
+  const paths=mythPaths();
+  h+=`<div class="sect"><div class="eyebrow">신화 ${byTier(8).length}종 — 경로 ${paths.length}갈래</div>
+    <div class="panel hint" style="margin-bottom:8px">
+      모든 신화는 유니크 아이템을 함께 소모하며, 그 아이템은 완성된 장수에게 영구히 장착된다.
+      불멸을 거치지 않는 경로도 있다.</div>
+    ${paths.map(p=>`<div class="mpath">
+      <div class="mph">${esc(p.label)} <span>${p.ks.length}종</span></div>
+      ${p.ks.map(k=>{
+        const c=C[k], ni=ITEM_BY_NAME[c.need], has=(pl[k]||0)>0;
+        const m=matCount(RECOF[k]);
+        return `<div class="mrow ${has?'own':''}" data-info="${k}">
+          <span class="mn" style="color:${TIER[8].c}">${esc(c.name)}</span>
+          <span class="mt">${c.tag} · ${c.pv} PV</span>
+          <span class="mm">${Object.keys(m).map(x=>{
+            const need=m[x], got=have(x);
+            return `<em class="${got>=need?'ok':''}">${esc(C[x].name)}${need>1?'×'+need:''}</em>`;
+          }).join(' + ')}</span>
+          <span class="mi" style="color:${S.bag[ni]>0?IGRADE['유니크']:'var(--seal)'}">
+            ◆ ${esc(c.need)} ${S.bag[ni]||0}개</span></div>`;
+      }).join('')}
+    </div>`).join('')}</div>`;
+
+  $('#sc-line').innerHTML=h;
+  $('#sc-line').querySelectorAll('[data-info]').forEach(b=>b.onclick=()=>openCardInfo(b.dataset.info));
+}
+
+/* ── 순위 ── */
+function standHTML(){
+  const dead=!!(S.over&&!S.over.win);
+  const rows=[{name:'나',epi:`${S.myW}승 ${S.myL}패${S.strikes?` · 경고 ${S.strikes}`:''}`,
+               fac:'촉', pv:myPV(), me:1, dead}]
+    .concat(S.bots.map(b=>({name:b.name,epi:b.epi,fac:b.fac,pv:Math.round(b.pv),dead:false})));
+  rows.sort((a,b)=>b.pv-a.pv);
+  return rows.map((r,i)=>`<div class="st-row ${r.me?'me':''} ${r.dead?'out':''}">
+    <span class="rk">${i+1}</span>
+    <span class="fac" style="background:${FAC[r.fac].c}">${r.fac}</span>
+    <span class="nm">${esc(r.name)}<small>${esc(r.epi)}</small></span>
+    <span class="pw">${r.dead?'멸망':r.pv+' PV'}</span></div>`).join('');
+}
+function rRank(){
+  const ranked=S.bots.map(b=>b.pv).concat([myPV()]).sort((a,b)=>b-a);
+  const my=ranked.indexOf(myPV())+1;
+  let h=`<div class="sect"><div class="eyebrow">군웅 할거 · ${DAYNAME[S.day]}요일 ${PHASE_N[S.phase]}</div>
+    <div class="panel"><div class="statrow">
+      <div><b style="font-size:24px">${my}위</b><span>8인 중</span></div>
+      <div><b>${myPV()}</b><span>내 전력</span></div>
+      <div><b>${S.myW}승 ${S.myL}패</b><span>전적</span></div>
+    </div></div></div>`;
+  h+=`<div class="sect">${standHTML()}</div>`;
+  h+=`<div class="sect"><div class="eyebrow">세력 성향</div><div class="panel">
+    ${S.bots.slice().sort((a,b)=>b.pv-a.pv).map(b=>`<div class="lg">
+      <span class="fac" style="background:${FAC[b.fac].c}">${b.fac}</span>
+      <span class="lgn" style="flex:1;text-align:left;margin-left:7px">${esc(b.name)}
+        <small>${b.style} 편중 · ${FORM[STYLE_FORM[b.style]].n}${b.strikes?` · 토벌 실패 ${b.strikes}`:''}</small></span>
+      <span class="pw">${Math.round(b.pv)}</span></div>`).join('')}</div></div>`;
+  h+=`<div class="sect"><div class="eyebrow">경고</div><div class="panel">
+    <div style="display:flex;gap:6px;align-items:center">
+      ${Array.from({length:STRIKE_MAX},(_,i)=>`<span class="strike ${i<S.strikes?'on':''}"></span>`).join('')}
+      <span class="hint" style="margin-left:6px">토벌 실패 ${S.strikes} / ${STRIKE_MAX}</span></div>
+    <div class="hint" style="margin-top:8px">모든 토벌 실패가 경고로 쌓이며, 3일차부터 한도에 닿으면 멸망한다. 봇 세력은 멸망하지 않고 전력 손실로만 대가를 치른다.</div>
+    </div></div>`;
+  $('#sc-rank').innerHTML=h;
+}
+
+/* ── 조정 ── */
+const KNOBS=[
+  ['troop','병력 손실 배수','물리 피해 × 배수',4,40,1],
+  ['intTroop','책략 병력 배수','책략 피해 × 배수 = 병력 손실',2,30,1],
+  ['morale','책략 사기 배수','책략 피해 × 배수 = 사기 손실',0.01,0.20,0.005],
+  ['aoe','광역 사기 효율','3체 이상 대상',0.2,1,0.05],
+  ['regen','사기 자연 회복','턴당 · 동요 중 없음',0,16,1],
+  ['routSame','이탈 연쇄 · 같은 열','',0,20,1],
+  ['routOther','이탈 연쇄 · 타 열','',0,20,1],
+  ['routSlope','패주 확률 기울기','사기 30 미달 1점당',0.005,0.06,0.005],
+  ['cap','최대 턴','초과 시 병력 비교',6,40,1]
+];
+const KDEF=Object.assign({},K);
+let simOut=null;
+function simBoards(){
+  const p=byTier(7).filter(k=>PHYS_TAGS.includes(C[k].tag));
+  const q=byTier(7).filter(k=>INT_TAGS.includes(C[k].tag));
+  const s6=byTier(6);
+  const ph=p.slice(0,3).concat(s6.filter(k=>PHYS_TAGS.includes(C[k].tag)).slice(0,6));
+  const it=q.slice(0,3).concat(s6.filter(k=>INT_TAGS.includes(C[k].tag)).slice(0,6));
+  const mx=p.slice(0,2).concat(q.slice(0,2)).concat(s6.slice(0,5));
+  return {'물리':ph,'지략':it,'혼합':mx};
+}
+function runSim(n){
+  const B=simBoards(), ks=Object.keys(B), rows=[];
+  const FM={'물리':'hagik','지략':'bangwon','혼합':'eorin'};
+  for (let i=0;i<ks.length;i++) for (let j=i+1;j<ks.length;j++){
+    let w=0,tt=0,cp=0;
+    for (let t=0;t<n;t++){
+      const r=runBattle(autoPlace(B[ks[i]],FM[ks[i]]),FM[ks[i]],115,null,
+                        autoPlace(B[ks[j]],FM[ks[j]]),FM[ks[j]],115,null,'sim');
+      if(r.win)w++; tt+=r.turns; if(r.turns>=K.cap)cp++;
+    }
+    rows.push({a:ks[i],b:ks[j],win:Math.round(w/n*100),turns:(tt/n).toFixed(1),cap:Math.round(cp/n*100)});
+  }
+  const forms=Object.keys(FORM).map(f=>{
+    let w=0;
+    for(let t=0;t<n;t++)
+      if (runBattle(autoPlace(B['물리'],f),f,115,null,
+                    autoPlace(B['지략'],'bangwon'),'bangwon',115,null,'sim').win) w++;
+    return {f:FORM[f].n, win:Math.round(w/n*100)};
+  });
+  simOut={rows,forms,n};
+}
+function rTune(){
+  let h=`<div class="sect"><div class="eyebrow">전투 계수</div>
+    <div class="panel hint">값을 바꾸고 시뮬레이션을 돌리면 균형이 어떻게 움직이는지 볼 수 있다.</div></div>
+    <div class="sect"><div class="panel">`;
+  for (const [k,nm,d,mn,mx,st] of KNOBS)
+    h+=`<div class="kn"><label>${nm}${d?`<small>${d}</small>`:''}</label>
+      <input type="range" data-k="${k}" min="${mn}" max="${mx}" step="${st}" value="${K[k]}">
+      <b id="kv-${k}">${K[k]}</b></div>`;
+  h+=`</div></div><div class="sect"><div class="btnrow">
+    <button class="btn" id="bSim40">40전</button>
+    <button class="btn pri" id="bSim150">150전</button></div>
+    <button class="btn ghost" id="bReset" style="margin-top:8px">기본값 복원</button></div>`;
+  if (simOut){
+    h+=`<div class="sect"><div class="eyebrow">빌드 상성 — ${simOut.n}전</div><div class="panel">
+      <table class="sim"><tr><th>대결</th><th>승률</th><th>턴</th><th>판정</th></tr>
+      ${simOut.rows.map(r=>{
+        const dv=Math.abs(r.win-50);
+        return `<tr><td>${r.a} → ${r.b}</td>
+          <td class="${dv<=12?'good':dv>=28?'bad':''}">${r.win}%</td>
+          <td>${r.turns}</td><td class="${r.cap<=20?'':'bad'}">${r.cap}%</td></tr>`;
+      }).join('')}</table></div></div>`;
+    h+=`<div class="sect"><div class="eyebrow">진형 선택의 가치</div><div class="panel">
+      <table class="sim"><tr><th>물리 보드의 진형</th><th>지략 방원진 상대</th></tr>
+      ${simOut.forms.map(f=>`<tr><td>${f.f}</td><td>${f.win}%</td></tr>`).join('')}</table></div></div>`;
+  }
+  h+=`<div class="sect"><div class="eyebrow">공식</div><div class="panel hint">
+    실효 = 기본 × 열보정 × 직업적성 × 아이템 × 세력시너지 × (0.4 + 0.6 × 병력비율)<br>
+    사기배율 = 0.5 + 사기 ÷ 200 (상한 200)<br>
+    물리 = 공격실효 × 공격실효 ÷ (공격실효 + 방어실효) × 사기배율 × 난수<br>
+    책략 = 같은 형태, 책략공격 대 책략방어 → 사기 감소<br>
+    행동 순서 = 속도 × (1 ± 15%) 내림차순</div></div>`;
+  $('#sc-tune').innerHTML=h;
+  $('#sc-tune').querySelectorAll('input[type=range]').forEach(el=>{
+    el.oninput=()=>{ K[el.dataset.k]=+el.value; $('#kv-'+el.dataset.k).textContent=el.value; };
+  });
+  $('#bSim40').onclick=()=>{ runSim(40); rTune(); };
+  $('#bSim150').onclick=()=>{ runSim(150); rTune(); };
+  $('#bReset').onclick=()=>{ Object.assign(K,KDEF); simOut=null; rTune(); };
+}
+
+/* ── 종료 · 시트 ── */
+function overHTML(){
+  const o=S.over;
+  return `<div class="sect"><div class="panel" style="text-align:center;padding:26px 16px">
+    <div style="font-family:var(--display);font-weight:800;font-size:24px;color:${o.win?'var(--jade)':'var(--seal)'}">
+      ${o.win?'우승':'멸망'}</div>
+    <div class="hint" style="margin:8px 0 16px">${esc(o.msg)}</div>
+    <div class="num" style="font-size:15px;color:var(--bamboo)">
+      최종 ${boardPower().toLocaleString()}명 · ${myPV()} PV · ${S.myW}승 ${S.myL}패</div></div></div>
+    <div class="sect">${standHTML()}</div>
+    <div class="sect"><button class="btn pri" id="bNew">새 판 시작</button></div>`;
+}
+function openPicker(queue,done){
+  /* 어느 경로로 들어오든 선택권의 천장은 전설이다. 초월 위로는 조합으로만 오른다. */
+  queue=queue.map(capPick);
+  function step(){
+    if (!queue.length){ closeSheet(); done(); render(); return; }
+    const p=queue[0];
+    let h=`<h3>${TIER[p.t].n} 선택권</h3>
+      <div class="sub">남은 선택 ${queue.reduce((s,x)=>s+x.n,0)}회 · ${byTier(p.t).length}종${
+        p.t>=FREE_TIER_CAP?' · 무상 제공의 천장':''}</div>`;
+    for (const tag of TAGORDER){
+      const ks=byTierTag(p.t,tag);
+      if (!ks.length) continue;
+      h+=`<div class="eyebrow" style="margin:11px 0 5px">${tag} ${ks.length}종</div>
+        <div class="cgrid">${ks.map(k=>`<button class="card" data-k="${k}" style="border-left-color:${colorOf(k)}">
+          ${facBadge(k)}<span class="nm" style="color:${colorOf(k)}">${esc(C[k].name)}</span>
+          <span class="tg">공${C[k].atk} 방${C[k].def}${C[k].int?' 책'+C[k].int:''} 속${C[k].spd}</span>
+          </button>`).join('')}</div>`;
+    }
+    openSheet(h);
+    $('#sheet').querySelectorAll('.card[data-k]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.k;
+      give(k);
+      toast(`<b style="color:${colorOf(k)}">${esc(C[k].name)}</b> 획득 · ${gradeOf(k)}`,'gain');
+      p.n--; if(p.n<=0) queue.shift(); step();
+    });
+  }
+  step();
+}
+function openSheet(h){ $('#sheet').innerHTML=h; $('#mask').classList.remove('hide'); }
+function closeSheet(){ $('#mask').classList.add('hide'); }
+
+/* ── 렌더 ── */
+function render(){
+  $('#hDay').textContent=`솔국지 · DAY ${S.day+1} ${DAYNAME[S.day]}요일`;
+  $('#hPhase').textContent=S.over?(S.over.win?'종료':'멸망'):PHASE_N[S.phase];
+  $('#hPower').textContent=boardPower().toLocaleString();
+  $('#hPv').textContent=myPV();
+  const ranked=S.bots.map(b=>b.pv).concat([myPV()]).sort((a,b)=>b-a);
+  $('#hRank').textContent=(ranked.indexOf(myPV())+1)+'위';
+  $('#hBar').innerHTML=Array.from({length:21},(_,i)=>{
+    const cur=phaseIdx();
+    return `<span class="pseg ${i===cur?'on':i<cur?'done':''}"></span>`;
+  }).join('');
+  rDraw(); rForge(); rDeploy(); rBattle(); rLine(); rRank(); rTune();
+  const bn=$('#bNew'); if(bn) bn.onclick=()=>{ newGame(); render();
+if (typeof window!=='undefined' && window.__bootOK) window.__bootOK(); go('draw'); };
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.sc));
+$('#mask').onclick=e=>{ if(e.target.id==='mask') closeSheet(); };
+newGame(); render();
+if (typeof window!=='undefined' && window.__bootOK) window.__bootOK();
+
+</script>
+</body>
+</html>
