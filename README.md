@@ -1,7 +1,7 @@
 # 솔국지
 
 삼국지 랜덤 디펜스 HTML 프로토타입(`solgukji-9.html`)을 Godot 4.4 로 옮기는 프로젝트.
-게임 구조·실행·점검 방법은 [`solgukji_godot/README.md`](solgukji_godot/README.md) 에 있다.
+**이어서 작업할 때는 [`작업현황.md`](작업현황.md) 부터 읽는다.** 게임 구조·실행·점검 방법은 [`solgukji_godot/README.md`](solgukji_godot/README.md) 에 있다.
 
 | 폴더 | 내용 |
 |---|---|
@@ -9,6 +9,7 @@
 | `tools/scripts/` | 데이터 추출 · 특기 생성 · 일러스트 시트 자르기 스크립트 |
 | `prompts/` | 장수 일러스트 생성 프롬프트 |
 | `solgukji-9.html` | 원본 HTML 프로토타입 |
+| `references/` | 일러스트 레퍼런스 —— 촉 원본 시트, 예전에 받은 초상(동탁·주유·태사자·하후돈·하후연) |
 
 ## 새 PC 에서 시작하기
 1. 이 저장소를 받는다.
