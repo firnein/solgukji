@@ -7,8 +7,10 @@
   3. 각 덩어리를 가장 가까운 이름표의 캐릭터에게 준다 → 이웃 캐릭터의 창·망토가 섞이지 않는다.
   4. 캐릭터마다 정사각 캔버스에 여백을 넉넉히 두고 바닥 쪽에 맞춰 놓는다.
 
-실행: python -I slice_sheet.py 시트.png "주창,요화,..." 출력폴더 [미리보기.png]
+실행: python -I slice_sheet.py 시트.png "주창,요화,..." 출력폴더 [미리보기.png] [--hole=168]
 이름은 시트의 읽는 순서(위 줄부터, 왼쪽부터)로 준다.
+--hole: 사방이 막힌 초록(무기와 몸 사이 등)을 바탕으로 칠 밝기(g 평균). 기본 168 —— 촉 시트의 초록 옷(g≤161)을 지키는 값.
+        초록 옷이 없는 시트(위·오)는 155 로 낮추면 다리·창 사이에 갇힌 얼룩까지 지운다.
 """
 import sys
 from collections import deque
@@ -66,8 +68,14 @@ def components(mask: np.ndarray):
 
 
 def main():
-    src, names, out = sys.argv[1], sys.argv[2].split(","), sys.argv[3]
-    preview = sys.argv[4] if len(sys.argv) > 4 else None
+    opts = [a for a in sys.argv[1:] if a.startswith("--")]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    hole_g = 168
+    for o in opts:
+        if o.startswith("--hole="):
+            hole_g = int(o.split("=", 1)[1])
+    src, names, out = args[0], args[1].split(","), args[2]
+    preview = args[3] if len(args) > 3 else None
     im = Image.open(src).convert("RGB")
     rgb = np.asarray(im)
     bg = flood_background(rgb)
@@ -77,21 +85,40 @@ def main():
     cand = (g > r + 12) & (g > b + 25) & (g > 110) & ~bg
     hlab, holes = components(cand)
     for c in holes:
-        if c["n"] >= 150 and rgb[hlab == c["id"]][:, 1].mean() >= 168:
+        if c["n"] >= 60 and rgb[hlab == c["id"]][:, 1].mean() >= hole_g:     # 60px —— 투석기 틀 안처럼 작은 구멍도
             bg |= hlab == c["id"]
     fg = ~bg
     # 이름표 —— 짙은 초록 판 + 안쪽 흰 글씨. 발끝과 붙어 있을 수 있어 색으로 따로 찾는다
     r, g, bb = (rgb[..., i].astype(int) for i in range(3))
     plate = (g < 105) & (g > r + 5) & (g > bb + 5) & (r > 25)
     plab, pcomps = components(plate)
-    labels = []
+    # 이름표 조각 —— 짙은 초록 판 안에 흰 글씨. 글자가 판을 가로질러 하나가 두 조각으로 갈라지는 일이 있어
+    # 먼저 느슨하게 조각을 모아 같은 높이에서 겹치거나 맞붙은 것을 합친 뒤, 합친 판의 크기로 이름표를 가린다.
+    pieces = []
     for c in pcomps:
         hh, ww = c["y1"] - c["y0"] + 1, c["x1"] - c["x0"] + 1
-        if 16 <= hh <= 45 and 50 <= ww <= 160 and ww > hh * 2:
+        if 16 <= hh <= 70 and 30 <= ww <= 240:
             region = rgb[c["y0"]:c["y1"] + 1, c["x0"]:c["x1"] + 1].reshape(-1, 3).astype(int)
             text = (region.min(axis=1) > 190).mean()
             if 0.03 < text < 0.4:
-                labels.append(c)
+                pieces.append(c)
+    pieces.sort(key=lambda c: c["x0"])
+    merged = []
+    for c in pieces:
+        m = next((o for o in merged if min(o["y1"], c["y1"]) - max(o["y0"], c["y0"]) > 0.5 * min(o["y1"] - o["y0"], c["y1"] - c["y0"])
+                  and c["x0"] <= o["x1"] + 15), None)
+        if m is None:
+            merged.append(dict(c))
+        else:
+            for k, f in (("y0", min), ("x0", min), ("y1", max), ("x1", max)):
+                m[k] = f(m[k], c[k])
+            m["cy"] = (m["y0"] + m["y1"]) / 2
+            m["cx"] = (m["x0"] + m["x1"]) / 2
+            m["n"] += c["n"]
+    # 촉 시트는 높이 16~45 · 너비 50~160, Gemini 1024px 시트는 50×150 안팎 —— 시트마다 조금씩 달라 넉넉히 잡는다
+    labels = [m for m in merged if 50 <= m["x1"] - m["x0"] + 1 <= 240 and m["x1"] - m["x0"] + 1 > (m["y1"] - m["y0"] + 1) * 2]
+    if len(labels) != len(names):
+        sys.exit(f"이름표 {len(labels)}개 / 이름 {len(names)}개 — 인물 수가 다르다. 시트를 다시 만들거나 이름 목록을 확인한다")
     # 이름표 자리는 캐릭터에서 뺀다
     for c in labels:
         fg[c["y0"]:c["y1"] + 1, max(0, c["x0"] - 2):c["x1"] + 3] = False
@@ -112,6 +139,9 @@ def main():
     owner = np.zeros(len(comps) + 1, dtype=np.int32) - 1
     for c in comps:
         if c["id"] in label_ids or c["n"] < 25:
+            continue
+        # 이름표 붓질 조각 —— 짙은 초록이 절반을 넘는 덩어리는 버린다
+        if c["n"] < 3000 and plate[lab == c["id"]].mean() > 0.5:
             continue
         # 덩어리 아래쪽에 이름표가 있는 캐릭터를 우선 —— 몸통 중심과 이름표 위 지점 사이 거리
         d = np.hypot(anchors[:, 0] - c["cy"], (anchors[:, 1] - c["cx"]) * 1.0)

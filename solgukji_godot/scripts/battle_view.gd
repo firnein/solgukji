@@ -18,6 +18,10 @@ const LEVELS := [["초반 · 1일차", 60], ["중반 · 4일차", 300], ["후반
 const OPEN := 2.2
 const STEP := 0.6
 const MELEE_WAIT := 6.0
+const PVP_LEN := 52.0       # 대전·토너먼트 목표 길이(초, 1배속) —— 행동 간격을 벌려 맞춘다. 끝맺음까지 50~60초
+const QUEST_SPEED := 2.0    # 토벌은 빨리 본다
+var pace := 1.0             # 행동 간격 배율 (STEP · 턴 끝 정산에 곱한다)
+var target_len := 0.0       # 0 이면 늘리지 않는다
 
 var stage: Control          # 전장 영역
 var port: SubViewport
@@ -66,6 +70,17 @@ var cmd_btns := []
 var pts_label: Label
 var smooth := true          # false 면 예전처럼 이벤트 순간에 한꺼번에 깎는다 (비교용)
 var ambient := {}           # key -> 다음 자유 사격·시전 시각 (궁병·지략 계열)
+## 게임 모드 —— 게임 화면(GameScreen)이 덱을 주고 띄운다. 연습용 단계 고르기·새 전투는 숨긴다
+signal ended(res: Dictionary, inputs: Array)
+signal inputs_changed(inputs: Array)
+var game_mode := false
+var end_clock := 0.0        # 점검용 —— 전투가 끝난 전장 시각(초, 1배속 기준)
+var locked := false         # 온라인 1단계 —— 서버가 준 결과를 재생만 한다 (고유기·군령 입력 없음)
+var _auto_btn: CheckButton
+var _dev_row: Control
+var _side: Control
+var _touches := {}          # 손가락 번호 -> 위치 (두 손가락 확대·회전)
+var _pinch := []            # [거리, 각도]
 
 
 
@@ -135,7 +150,8 @@ func _ready() -> void:
 	cards_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(cards_bar)
 	left.add_child(bar_bg)
-	add_child(_build_side())
+	_side = _build_side()
+	add_child(_side)
 
 
 func _build_side() -> Control:
@@ -162,6 +178,7 @@ func _build_side() -> Control:
 	nb.pressed.connect(new_battle)
 	row.add_child(nb)
 	v.add_child(row)
+	_dev_row = row
 
 	var sp := HBoxContainer.new()
 	for s in [0.0, 1.0, 2.0, 4.0]:
@@ -183,6 +200,7 @@ func _build_side() -> Control:
 	auto_btn.text = "자동 전투 (고유기·군령을 AI 가)"
 	auto_btn.button_pressed = auto_on
 	auto_btn.toggled.connect(set_auto)
+	_auto_btn = auto_btn
 	v.add_child(auto_btn)
 	var hint := Label.new()
 	hint.text = "아래 장수 카드가 금빛이면 눌러 고유기 · 군령은 포인트 2 · 휠: 확대 · 오른쪽 끌기·Q/E: 회전 · 왼쪽 끌기·WASD: 이동 · 스페이스: 일시정지"
@@ -222,6 +240,29 @@ func focus(sq: Squad) -> void:
 
 
 func _stage_input(e: InputEvent) -> void:
+	# 두 손가락: 벌리면 확대, 돌리면 회전. 그동안 한 손가락 끌기(이동)는 막는다
+	if e is InputEventScreenTouch:
+		if e.pressed:
+			_touches[e.index] = e.position
+		else:
+			_touches.erase(e.index)
+		_pinch = []
+		return
+	if e is InputEventScreenDrag:
+		_touches[e.index] = e.position
+		if _touches.size() >= 2:
+			var ps: Array = _touches.values()
+			var d: Vector2 = ps[1] - ps[0]
+			var now := [d.length(), d.angle()]
+			if not _pinch.is_empty() and now[0] > 1.0:
+				field.pinch(_pinch[0] / now[0], wrapf(now[1] - _pinch[1], -PI, PI))
+			_pinch = now
+		return
+	if e is InputEventMagnifyGesture:
+		field.pinch(1.0 / e.factor, 0.0)
+		return
+	if e is InputEventMouseMotion and _touches.size() >= 2:
+		return
 	field.camera_input(e)
 
 
@@ -255,8 +296,49 @@ func new_battle() -> void:
 
 
 func _simulate() -> Dictionary:
-	return Battle.new(_p.seed).run(_p.a, _p.fa, 100, null, _p.b, _p.fb, 100, null, _p.title, _p.foe,
-		inputs.duplicate(true), _p.policy)
+	return Battle.new(_p.seed).run(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
+		_p.title, _p.foe, inputs.duplicate(true), _p.policy)
+
+
+## 게임에서 부른다 —— bt 는 Run.battle (a·b 진영 {cards, form, morale, equip}, seed, title, foe, inputs)
+func play(bt: Dictionary, auto := false) -> void:
+	game_mode = true
+	locked = false
+	_auto_btn.disabled = false
+	_dev_row.visible = false
+	auto_on = auto
+	_p = {"a": bt.a.cards, "fa": bt.a.form, "ma": bt.a.morale, "ea": bt.a.equip,
+		"b": bt.b.cards, "fb": bt.b.form, "mb": bt.b.morale, "eb": bt.b.equip,
+		"seed": bt.seed, "title": bt.title, "foe": bt.foe,
+		"policy": Run.policy_for(bt, "auto" if auto else "manual")}
+	inputs = bt.get("inputs", []).duplicate(true)
+	res = _simulate()
+	_pace_for(str(bt.get("kind", "")))
+	_begin()
+	_set_speed(QUEST_SPEED if bt.get("kind", "") == "quest" else 1.0)
+
+
+## 온라인 —— 서버가 계산한 결과(사람끼리 대전이면 내 쪽이 A 가 되게 뒤집은 것)를 그대로 재생한다
+func play_res(r: Dictionary, kind := "") -> void:
+	game_mode = true
+	locked = true
+	_dev_row.visible = false
+	_auto_btn.disabled = true
+	_p = {}
+	inputs = []
+	res = r
+	_pace_for(kind)
+	_begin()
+	_set_speed(QUEST_SPEED if kind == "quest" else 1.0)
+
+
+## 대전·토너먼트는 50~60초가 되게 늘리고, 토벌은 그대로(2배속으로 본다)
+func _pace_for(kind: String) -> void:
+	target_len = PVP_LEN if kind in ["pvp", "tour"] else 0.0
+
+
+func set_side_visible(on: bool) -> void:
+	_side.visible = on
 
 
 ## 입력 반영 —— 처음부터 다시 계산하고 뒷부분 시간표만 갈아 끼운다. 입력이 실제로 먹혔는지 돌려준다
@@ -312,6 +394,9 @@ func cmd_points() -> float:
 
 
 func request_ult(key: String) -> void:
+	if locked:
+		hud.float_text(key, "온라인 대전은 자동 전투", Color("#9aa3b8"), 12)
+		return
 	if not ult_ready(key):
 		hud.float_text(key, "아직 준비 중", Color("#9aa3b8"), 12)
 		return
@@ -319,21 +404,30 @@ func request_ult(key: String) -> void:
 	if not _resim():
 		inputs.pop_back()
 		hud.float_text(key, "잠시 뒤에 —— 앞 고유기 직후", Color("#9aa3b8"), 12)
+	else:
+		inputs_changed.emit(inputs)
 
 
 func request_cmd(name_: String) -> void:
+	if locked:
+		return
 	if cmd_points() < Battle.CMD_COST:
 		return
 	inputs.append([_input_an(), "A", "cmd", name_])
 	if not _resim():
 		inputs.pop_back()
+	else:
+		inputs_changed.emit(inputs)
 
 
 func set_auto(on: bool) -> void:
+	if locked:
+		return
 	auto_on = on
 	if _engine_state() != null:
 		inputs.append([_input_an(), "A", "policy", "auto" if on else "manual"])
 		_resim()
+		inputs_changed.emit(inputs)
 	elif not _p.is_empty():
 		_p.policy.A = "auto" if on else "manual"
 
@@ -438,6 +532,15 @@ func _build_timeline(rebuild := false) -> void:
 			var side: Array = g.foes if fk.substr(0, 1) != g.who.substr(0, 1) else g.allies
 			if not side.has(fk):
 				side.append(fk)
+	if not rebuild:
+		# 목표 길이에 맞춰 행동 간격을 벌린다 (최대 7배 —— 2~3턴에 끝나는 초반 대전도 50초 안팎이 되게)
+		var sched := 0.0
+		for gr in groups:
+			if gr.ph == "end":
+				sched += 0.45
+			elif gr.who != "":
+				sched += STEP
+		pace = clampf((target_len - OPEN) / maxf(1.0, sched), 1.0, 7.0) if target_len > 0 else 1.0
 	var t := OPEN
 	for gr in groups:
 		if gr.who != "" and field.squads.has(gr.who):
@@ -449,13 +552,13 @@ func _build_timeline(rebuild := false) -> void:
 			elif gr.phys or gr.int:
 				gr.kind = "spell"
 		if gr.ph == "end":
-			gr.t = t + 0.15
-			t += 0.45
+			gr.t = t + 0.15 * pace
+			t += 0.45 * pace
 		elif gr.who == "":
 			gr.t = t
 		else:
 			gr.t = t
-			t += STEP
+			t += STEP * pace
 	# 유닛별 손실 예정 시각 —— 흘려 넣는 기간을 정한다
 	loss_times = []
 	for u in res.roster.size():
@@ -532,7 +635,7 @@ func _process_inner(dt: float) -> void:
 	var pts := cmd_points()
 	pts_label.text = "군령  %s  (2 소모)" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
 	for b in cmd_btns:
-		b.disabled = pts < Battle.CMD_COST
+		b.disabled = locked or pts < Battle.CMD_COST
 	field.pt("감독", t0)
 	if not finished and gi >= groups.size() and pending.is_empty() and due.is_empty() and not _draining():
 		if finish_t < 0:
@@ -589,7 +692,7 @@ func _start_ult(g: Dictionary) -> void:
 	var u: Dictionary = g.ult
 	if speed > 0:
 		slow_t = 1.45
-	hud.ult_cutin(sq, u.name, u.shout)
+	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false))
 	field.cinematic(sq, 2.2)
 	field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
 	g.min_t = clock + ULT_DELAY
@@ -694,7 +797,7 @@ func _retarget(u: int) -> void:
 			if t > clock + 0.05:
 				next = t
 				break
-		var span := clampf(next - clock if next > 0 else 1.6, 0.8, 3.5)
+		var span := clampf(next - clock if next > 0 else 1.6 * pace, 0.8, 3.5 * pace)     # 대전을 늘린 만큼 흘려 넣는 창도 늘린다
 		drain[u][0] = gap / span
 	else:
 		drain[u][0] = -gap / 0.5            # 회복은 빠르게
@@ -794,6 +897,8 @@ func _finish() -> void:
 	if res.mvp:
 		sub += "\n수훈갑  %s  · 격파 %d" % [res.mvp.name, res.mvp.kills]
 	hud.stamp(txt, sub, col)
+	end_clock = clock
+	ended.emit(res, inputs)
 	log_box.append_text("\n[color=%s][b]%s[/b][/color] — %s\n" % [col.to_html(false), txt, sub.replace("\n", " · ")])
 
 
@@ -859,8 +964,8 @@ class Hud extends Control:
 	var cut = null           # 고유기 컷인 {k, name, shout, camp, col, t}
 	var _brush := PackedVector2Array()
 
-	func ult_cutin(sq: Squad, nm: String, shout: String) -> void:
-		cut = {"k": sq.cid, "who": sq.row.name, "name": nm, "shout": shout, "camp": sq.camp,
+	func ult_cutin(sq: Squad, nm: String, shout: String, crisis := false) -> void:
+		cut = {"k": sq.cid, "who": sq.row.name, "name": nm, "shout": shout, "camp": sq.camp, "crisis": crisis,
 			"col": DB.tier_color(sq.cid), "t": 0.0}
 		# 붓질 띠의 거친 가장자리 —— 매번 조금씩 다르게
 		_brush = PackedVector2Array()
@@ -1110,6 +1215,8 @@ class Hud extends Control:
 			var shout: String = "“%s”" % cut.shout
 			var shown := shout.substr(0, int(clampf((t - 0.3) / 0.55, 0, 1) * shout.length()))
 			_text(fd, Vector2(tx, c.y - 52), shown, HORIZONTAL_ALIGNMENT_CENTER, tw, 24, Color(1, 0.95, 0.88, fade))
+			if cut.crisis:      # 위기에 쓴 고유기 —— 위력이 오른다
+				_text(fd, Vector2(tx, c.y - 92), "배수진", HORIZONTAL_ALIGNMENT_CENTER, tw, 22, Color(1, 0.35, 0.25, fade * nt))
 			# 장수 이름 낙관
 			var who: String = cut.who
 			var wsz := DB.font_body.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)

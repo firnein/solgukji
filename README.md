@@ -17,5 +17,10 @@
    `tools/Godot_v4.4.1-stable_win64.exe`, `tools/Godot_v4.4.1-stable_win64_console.exe` 가 생기면 된다.
    (https://github.com/godotengine/godot/releases/tag/4.4.1-stable 의 `Godot_v4.4.1-stable_win64.exe.zip`)
 3. 파이썬 3 과 `pip install pillow numpy` —— `tools/scripts/` 스크립트에 필요하다.
-4. `solgukji_godot/run.bat` 으로 실행, `edit.bat` 으로 에디터.
+4. 처음 한 번 `tools/Godot_v4.4.1-stable_win64_console.exe --headless --path solgukji_godot --import` (전역 클래스 등록).
+5. `solgukji_godot/run.bat` 으로 실행, `edit.bat` 으로 에디터.
    3D 전투는 Forward+ 렌더러라 Vulkan 을 지원하는 그래픽 카드가 필요하다.
+6. (온라인 대전) 서버로 쓸 PC 에서 `solgukji_godot/server.bat` —— 휴대폰은 「온라인 대전」에서 `ws://<그 PC 주소>:7777`.
+7. (안드로이드 APK 를 만들 때만) `powershell -ExecutionPolicy Bypass -File tools\scripts\setup_android.ps1`
+   —— JDK 17 · Android SDK · Godot 내보내기 템플릿 · 디버그 키를 `tools/` 아래에 포터블로 받는다(약 3GB).
+   그다음 `solgukji_godot/build_apk.bat` → `build/solgukji.apk`.

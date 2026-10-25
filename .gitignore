@@ -8,3 +8,11 @@ solgukji_godot/tests/out_*
 # 파이썬
 __pycache__/
 *.pyc
+# 안드로이드 빌드 도구 (JDK·SDK·Godot 내보내기 템플릿·내려받은 압축) —— tools/scripts/setup_android.ps1 로 받는다
+tools/jdk17/
+tools/android/
+tools/editor_data/
+tools/dl/
+tools/_sc_
+# 빌드 결과
+build/

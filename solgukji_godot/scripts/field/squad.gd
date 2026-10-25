@@ -20,6 +20,7 @@ const CLS := {"창병": "melee", "도적": "melee", "기병": "cav", "궁병": "
 	"책사": "caster", "유생": "caster", "술사": "caster", "모사": "caster"}
 ## 등급별 병사 인형 수 —— 기병은 절반, 지략 계열은 호위대까지 쳐서 절반 남짓
 const COUNT := {1: 36, 2: 44, 3: 54, 4: 64, 5: 72, 6: 80, 7: 88, 8: 96}
+static var count_scale := 1.0   # 품질 설정 —— 모바일은 병사 수를 줄인다 (Settings)
 ## 이동 속도 (px/초) —— 기병은 돌격 때 더 빨라진다
 const SPEED := {"창병": 62.0, "도적": 80.0, "기병": 95.0, "궁병": 55.0,
 	"책사": 50.0, "유생": 50.0, "술사": 52.0, "모사": 52.0}
@@ -111,7 +112,7 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	home = at
 	pos = at
 	fwd = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
-	var n: int = COUNT[tier]
+	var n: int = maxi(12, roundi(COUNT[tier] * count_scale))
 	match cls:
 		"cav":
 			n = maxi(12, n / 2)

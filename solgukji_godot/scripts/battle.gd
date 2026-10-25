@@ -16,6 +16,9 @@ static var passives_enabled := true  # 특기(개인·단체) 켜기
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
 ## 화면은 입력이 생길 때마다 처음부터 다시 계산한다 —— 입력 앞부분은 똑같이 나오고 뒤만 달라진다.
 ## 정책: auto(충전되면 제 차례에 바로 · 군령은 늘 돌격) · smart(상황을 보고 끼어든다) · manual(입력만)
+##       tac:<고유기>:<군령> —— 덱 주인이 정하는 비동기 상대 AI 전술. smart = tac:영리:영리
+##         고유기  즉시(차면 바로) · 영리(값어치 볼 때) · 위기(아군이 꺾였을 때만)
+##         군령    공세(늘 돌격) · 영리(상대를 보고) · 수비(방진·재정비로 버틴다)
 const GAUGE_ACT := 30.0       # 제 차례마다
 const GAUGE_HIT := 80.0       # 병력을 잃은 비율 × 이만큼
 const GAUGE_DEAL := 6.0       # 때릴 때마다
@@ -25,8 +28,13 @@ const PTS_EVERY := 6          # 행동 6번마다 군령 포인트 1
 const PTS_MAX := 3.0
 const CMD_COST := 2.0
 const CMD_TURNS := 2
+const CRISIS_LOSS := 0.35     # 위기 —— 아군 평균 병력 손실이 이만큼 넘거나
+const CRISIS_UNITS := 5       #        살아 있는 부대가 이만큼 이하면
+static var crisis_amp := 1.3  # 위기에 쓴 고유기 위력 배율 (배수진) —— 점검용으로 바꿀 수 있어 static
+static var cmd_links := true   # 특기–군령 연결 켜기 (비교용)
+static var breach := 0.0      # 돌격 중인 공격자가 무시하는 적 방진 피해 감소 비율 —— 0 이 기본 (올리면 조작 효과가 사라진다, 기획 문서 참고)
 const CMDS := {
-	"돌격": {"d": "공격 +20% · 방어 -25%", "buffs": [{"stat": "atk", "amt": 0.20}, {"stat": "def", "amt": -0.25}]},
+	"돌격": {"d": "공격 +20% · 방어 -25%", "buffs": [{"stat": "atk", "amt": 0.20}, {"stat": "def", "amt": -0.25}, {"stat": "breach", "amt": 1.0}]},
 	"방진": {"d": "받는 피해 -30% · 속도 -10% · 받는 고유기 피해 추가 -35%", "buffs": [{"stat": "guard", "amt": 0.30}, {"stat": "spd", "amt": -0.10}, {"stat": "uguard", "amt": 0.35}]},
 	"재정비": {"d": "사기 +25 · 패주 확률 -60%", "buffs": [{"stat": "calm", "amt": 0.6}], "morale": 25.0},
 }
@@ -82,6 +90,7 @@ var rejected := []            # 거절된 입력과 까닭 (점검용)
 var policy := {"A": "auto", "B": "auto"}
 var act_n := 0                # 지금까지 끝낸 행동 수 —— 입력 시점의 기준
 var pts := {"A": 0.0, "B": 0.0}
+var cmdm := {"A": {}, "B": {}}    # 특기–군령 연결 (data/passives.json catalog 의 cmd) —— 진영 단위
 var _ult_last := {"A": -99, "B": -99}
 var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 —— 사건에 bd 로 적어 화면이 입력 시점을 고른다
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
@@ -365,7 +374,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var op := 1.0 if a.opened else 1.0 + mv(a, "opener")
 	a.opened = true
 	var dmg := A * (A / (A + Dv)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * op * (1.0 - mv(d, "dr"))
-	dmg *= 1.0 - _buff_sum(d, "guard")
+	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
 		dmg *= 1.0 - _buff_sum(d, "uguard")
 	var loss := maxf(1, roundf(dmg * K.troop))
@@ -394,7 +403,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	var crit: bool = rng.randf() < mv(a, "icrit")
 	var cm: float = (DB.PSV.base_critd + mv(a, "critd")) if crit else 1.0
 	var dmg := I * (I / (I + R)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * (1.0 - mv(d, "idr"))
-	dmg *= 1.0 - _buff_sum(d, "guard")
+	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
 		dmg *= 1.0 - _buff_sum(d, "uguard")
 	var aoe: float = K.aoe if spread >= 3 else 1.0
@@ -553,6 +562,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and b_equip[i] else innate_item(k), b_syn))
 	if passives_enabled:
 		_apply_group_passives()
+		for cp in ["A", "B"]:
+			pts[cp] = minf(PTS_MAX, cmdm[cp].get("pts_start", 0.0))
 
 	var turn := 0
 	var winner := ""
@@ -590,7 +601,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			act_n += 1
 			if act_n % PTS_EVERY == 0:
 				for cp in ["A", "B"]:
-					pts[cp] = minf(PTS_MAX, pts[cp] + 1.0)
+					pts[cp] = minf(PTS_MAX, pts[cp] + 1.0 + cmdm[cp].get("pts_rate", 0.0))
 		_ai += 1
 		_ph = "end"
 		_who = ""
@@ -748,9 +759,11 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	_ult_last[u.camp] = act_n
 	_in_ult = true
 	var nm_: String = ul.name
-	L("sk", "%s 고유기 『%s』 —— “%s”" % [nm(u), nm_, ul.shout],
-		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx})
-	for comp in ul.eff:
+	var amp := crisis_amp if _crisis(u.camp) else 1.0
+	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
+		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0})
+	for comp_ in ul.eff:
+		var comp: Dictionary = _amp_comp(comp_, amp)
 		var ts := resolve_targets(comp.tgt, foes, u, allies)
 		match comp.t:
 			"hit":
@@ -822,6 +835,9 @@ func _apply_group_passives() -> void:
 				t.m[k] = t.m.get(k, 0.0) + base[k] * total
 	for ok in owner:
 		var o: Array = owner[ok]
+		var cm: Dictionary = DB.PSV.catalog[o[3].name].get("cmd", {}) if cmd_links else {}
+		for k in cm:
+			cmdm[o[0].camp][k] = maxf(cmdm[o[0].camp].get(k, 0.0), cm[k] * o[1])
 		L("sk", "%s의 단체 특기 『%s』 — %s" % [nm(o[0]), o[3].name, o[3].d],
 			{"fx": "passive", "a": o[0].key, "name": o[3].name, "n": o[2]})
 	# 병력·사기는 시작 값에 바로 반영한다
@@ -886,7 +902,10 @@ func _between() -> void:
 			_apply_input(inp)
 	for cp in ["A", "B"]:
 		if policy[cp] == "smart":
-			_smart(cp)
+			_smart(cp, "영리", "영리")
+		elif str(policy[cp]).begins_with("tac:"):
+			var tp: PackedStringArray = str(policy[cp]).split(":")
+			_smart(cp, tp[1], tp[2])
 		elif policy[cp] == "auto":
 			for u in units:
 				if u.camp == cp and can_ult(u):
@@ -938,27 +957,97 @@ func _command(cp: String, name_: String) -> void:
 		if not u.alive or u.camp != cp:
 			continue
 		for b in c.buffs:
-			u.buffs.append({"stat": b.stat, "amt": b.amt, "dur": CMD_TURNS})
+			u.buffs.append({"stat": b.stat, "amt": _cmd_amt(cp, name_, b), "dur": CMD_TURNS})
 		if c.has("morale"):
-			heal_morale(u, c.morale, name_, null)
+			heal_morale(u, c.morale * (1.0 + cmdm[cp].get("rally", 0.0)), name_, null)
+
+
+## 특기가 세게 해 주는 군령 수치 —— 맹진은 돌격의 공격, 창진은 방진의 피해 감소, 군주는 재정비
+func _cmd_amt(cp: String, name_: String, b: Dictionary) -> float:
+	var up := 0.0
+	if name_ == "돌격" and b.stat == "atk":
+		up = cmdm[cp].get("assault", 0.0)
+	elif name_ == "방진" and b.stat == "guard":
+		up = cmdm[cp].get("phalanx", 0.0)
+	elif name_ == "재정비" and b.stat == "calm":
+		return minf(0.9, b.amt * (1.0 + cmdm[cp].get("rally", 0.0)))
+	return b.amt * (1.0 + up)
 
 
 ## 영리한 AI —— 고유기는 값어치가 있을 때, 군령은 상대를 보고 고른다
-func _smart(cp: String) -> void:
+func _smart(cp: String, ult_t: String, cmd_t: String) -> void:
 	# 기본은 자동과 같다 (충전되면 쓰고, 포인트는 돌격). 다른 점:
 	#  ① 적이 돌격 중이면 방진으로 받는다 —— 적의 공격 상승은 막고, 방어가 내려간 적을 친다
 	#  ② 적 광역 고유기가 터지기 직전이면 방진
 	#  ③ 회복·격려형 고유기는 아군이 꺾일 때까지 아껴 둔다
 	var threat := _ult_threat(cp)
 	var foe_charging := _side_has(_foe(cp), "atk")
-	if pts[cp] >= CMD_COST and not _side_has(cp, "uguard") and (foe_charging or threat >= 75.0):
+	if cmd_t != "공세" and pts[cp] >= CMD_COST and not _side_has(cp, "uguard") and (foe_charging or threat >= 75.0):
 		_command(cp, "방진")
 	for u in units:
-		if u.camp == cp and can_ult(u) and _ult_worth(u):
+		if u.camp == cp and can_ult(u) and _ult_ok(u, ult_t):
 			_interrupt_ult(u)
 			break
-	if pts[cp] >= CMD_COST and not foe_charging and threat < 50.0:
-		_command(cp, "돌격")
+	if pts[cp] < CMD_COST:
+		return
+	match cmd_t:
+		"공세":
+			_command(cp, "돌격")
+		"수비":
+			# 돌격은 하지 않는다. 사기가 꺾이면 재정비, 포인트가 넘치면 방진을 미리 친다
+			if _avg_morale(cp) < 60.0:
+				_command(cp, "재정비")
+			elif pts[cp] >= PTS_MAX and not _side_has(cp, "guard"):
+				_command(cp, "방진")
+		_:
+			if not foe_charging and threat < 50.0:
+				_command(cp, "돌격")
+
+
+func _ult_ok(u: Unit, ult_t: String) -> bool:
+	match ult_t:
+		"즉시":
+			return true
+		"위기":
+			return _crisis(u.camp) or u.troops / u.max < 0.4      # 쓰지도 못하고 쓰러지지 않게
+	return _ult_worth(u)
+
+
+## 위기 —— 아군이 꺾였는가. 이때 쓴 고유기는 crisis_amp 배 (배수진)
+func _crisis(cp: String) -> bool:
+	var mine := units.filter(func(o): return o.alive and o.camp == cp)
+	var hurt := 0.0
+	for o in mine:
+		hurt += 1.0 - o.troops / o.max
+	return hurt / maxf(1, mine.size()) > CRISIS_LOSS or mine.size() <= CRISIS_UNITS
+
+
+func _amp_comp(comp: Dictionary, amp: float) -> Dictionary:
+	if amp == 1.0:
+		return comp
+	var c := comp.duplicate()
+	if c.t == "hit":
+		c.mult = c.mult * amp
+	elif c.t == "ally":
+		for k in ["heal", "morale"]:
+			if c.has(k):
+				c[k] = c[k] * amp
+	return c
+
+
+## 방진의 피해 감소 —— 돌격 중인 공격자는 그 일부를 무시한다
+func _guard(a: Unit, d: Unit) -> float:
+	return _buff_sum(d, "guard") * (1.0 - (breach if _buff_sum(a, "breach") > 0 else 0.0))
+
+
+func _avg_morale(cp: String) -> float:
+	var n := 0
+	var m := 0.0
+	for o in units:
+		if o.alive and o.camp == cp:
+			m += o.morale
+			n += 1
+	return m / maxf(1, n)
 
 
 func _foe(cp: String) -> String:

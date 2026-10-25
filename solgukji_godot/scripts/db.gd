@@ -22,6 +22,7 @@ var ICON := {}           # 병종 -> Texture2D (흰색, modulate 로 칠한다)
 
 var font_display: Font
 var font_body: Font
+var font_bold: Font
 
 var _portrait_cache := {}
 var _portrait_used := {}     # 배경이 투명한 그림 -> 실제로 그려진 영역 (Rect2)
@@ -168,10 +169,16 @@ func _build_icons() -> void:
 
 
 func _build_fonts() -> void:
-	# 본문은 시스템 고딕, 제목은 동봉한 나눔명조(OFL)를 쓴다
-	var body := SystemFont.new()
-	body.font_names = PackedStringArray(["Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", "Segoe UI"])
+	# 본문은 동봉한 나눔고딕, 제목은 나눔명조 (둘 다 OFL) —— 휴대폰에도 같은 글꼴이 나오도록 동봉한다.
+	# 한자·기호처럼 나눔에 없는 글자는 시스템 글꼴로 넘긴다
+	var sys := SystemFont.new()
+	sys.font_names = PackedStringArray(["Malgun Gothic", "Noto Sans CJK KR", "Apple SD Gothic Neo", "Segoe UI Symbol", "Segoe UI"])
+	var body: FontFile = load("res://assets/fonts/NanumGothic-Regular.ttf")
+	body.fallbacks = [sys]
 	font_body = body
+	var bold: FontFile = load("res://assets/fonts/NanumGothic-Bold.ttf")
+	bold.fallbacks = [sys]
+	font_bold = bold
 	var disp: FontFile = load("res://assets/fonts/NanumMyeongjo-ExtraBold.ttf")
 	disp.fallbacks = [body]
 	font_display = disp
@@ -195,7 +202,7 @@ func person(k: String) -> String:
 
 ## 초상 —— assets/portraits/<인물>.png, 병사 카드는 assets/troops/<병종>.png 를 찾는다.
 ## 없으면 null 을 돌려주고, 그리는 쪽에서 수묵 실루엣 플레이스홀더를 쓴다.
-## 임포트 없이 파일을 떨궈 넣기만 하면 바뀌도록 Image 로 직접 읽는다.
+## 임포트 없이 파일을 떨궈 넣기만 하면 바뀌도록 Image 로 직접 읽는다. 파일이 없으면(내보낸 앱) 임포트된 텍스처를 쓴다.
 func portrait(k: String) -> Texture2D:
 	var base := ("res://assets/troops/%s" % C[k].tag) if C[k].tier <= 2 \
 		else ("res://assets/portraits/%s" % person(k))
@@ -204,17 +211,25 @@ func portrait(k: String) -> Texture2D:
 	var tex: Texture2D = null
 	for ext in ["png", "jpg", "jpeg", "webp"]:
 		var path := "%s.%s" % [base, ext]
+		var img: Image = null
 		if FileAccess.file_exists(path):
-			var img := _load_image(path)
-			if img:
-				tex = ImageTexture.create_from_image(img)
-				# 네 귀퉁이가 투명하면 잘라 낸 인물 그림으로 보고, 그려진 영역만 기억해 둔다
-				if img.detect_alpha() != Image.ALPHA_NONE:
-					var w := img.get_width() - 1
-					var h := img.get_height() - 1
-					if img.get_pixel(0, 0).a < 0.1 and img.get_pixel(w, 0).a < 0.1 and img.get_pixel(0, h).a < 0.1 and img.get_pixel(w, h).a < 0.1:
-						_portrait_used[base] = Rect2(img.get_used_rect())
-				break
+			img = _load_image(path)
+		elif ResourceLoader.exists(path):
+			# 내보낸 앱(휴대폰)에는 원본 그림 파일이 없고 임포트된 텍스처만 들어간다
+			var t = load(path)
+			if t is Texture2D:
+				img = t.get_image()
+				if img and img.is_compressed():
+					img.decompress()
+		if img:
+			tex = ImageTexture.create_from_image(img)
+			# 네 귀퉁이가 투명하면 잘라 낸 인물 그림으로 보고, 그려진 영역만 기억해 둔다
+			if img.detect_alpha() != Image.ALPHA_NONE:
+				var w := img.get_width() - 1
+				var h := img.get_height() - 1
+				if img.get_pixel(0, 0).a < 0.1 and img.get_pixel(w, 0).a < 0.1 and img.get_pixel(0, h).a < 0.1 and img.get_pixel(w, h).a < 0.1:
+					_portrait_used[base] = Rect2(img.get_used_rect())
+			break
 	_portrait_cache[base] = tex
 	return tex
 

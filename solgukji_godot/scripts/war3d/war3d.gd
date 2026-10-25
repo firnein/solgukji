@@ -65,6 +65,8 @@ var _bufs := {}             # MultiMesh -> 인스턴스 버퍼 (변환 12 + 사�
 var prof := {}              # 점검용 —— 구간별 누적 시간 (마이크로초)
 var dbg_nofx := false       # 점검용 —— 파티클을 만들지 않는다
 var ult: UltFx
+var _env: Environment
+var _sun: DirectionalLight3D
 var _cine := 0.0            # 고유기 카메라 연출이 남은 시간 (실시간)
 var _cine_back := []        # 연출 전 카메라 [대상, 거리, 높이각]
 
@@ -163,7 +165,7 @@ func _environment() -> void:
 	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 0.95
-	env.ssao_enabled = true
+	env.ssao_enabled = false        # set_quality 가 켠다 (Forward+ 에서만)
 	env.ssao_intensity = 1.6
 	env.ssao_radius = 1.2
 	env.glow_enabled = true
@@ -174,7 +176,7 @@ func _environment() -> void:
 	env.fog_density = 0.0011
 	env.fog_aerial_perspective = 0.6
 	env.fog_sky_affect = 0.25
-	env.volumetric_fog_enabled = true
+	env.volumetric_fog_enabled = false
 	env.volumetric_fog_density = 0.0012
 	env.volumetric_fog_albedo = Color("#c8d0d8")
 	env.volumetric_fog_length = 220
@@ -184,7 +186,9 @@ func _environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	_env = env
 	var sun := DirectionalLight3D.new()
+	_sun = sun
 	sun.light_color = Color("#ffdcb0")
 	sun.light_energy = 1.7
 	sun.shadow_enabled = true
@@ -192,6 +196,19 @@ func _environment() -> void:
 	sun.shadow_blur = 1.5
 	add_child(sun)
 	sun.look_at_from_position(Vector3(-45, 78, 62), Vector3.ZERO)
+	set_quality(Settings.quality if Settings.quality >= 0 else 2)     # 설정을 안 읽은 점검 화면(main.tscn)은 높음
+
+
+## 품질 —— 0 낮음: SSAO·볼류메트릭 안개 끔, 그림자 거리 줄임 (모바일 렌더러는 둘 다 지원하지 않는다)
+func set_quality(q: int) -> void:
+	if _env == null:
+		return
+	var fp := RenderingServer.get_current_rendering_method() == "forward_plus"
+	_env.ssao_enabled = fp and q >= 2
+	_env.volumetric_fog_enabled = fp and q >= 2
+	_env.glow_enabled = q >= 1
+	_sun.directional_shadow_max_distance = [140.0, 200.0, 240.0][clampi(q, 0, 2)]
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
 
 func _terrain() -> void:
@@ -882,6 +899,13 @@ func camera_input(e: InputEvent) -> void:
 			var rt := Vector3(-sin(want_yaw), 0, cos(want_yaw))
 			want_t += (-rt * e.relative.x + fw * e.relative.y) * want_dist * 0.0017
 			cam_rate = 8.0
+
+
+## 두 손가락 —— ratio 는 거리 배율(1 보다 작으면 다가간다), turn 은 회전 (라디안)
+func pinch(ratio: float, turn: float) -> void:
+	want_dist = clampf(want_dist * ratio, 8.0, 170.0)
+	want_yaw -= turn
+	cam_rate = 6.0
 
 
 func to_screen(p: Vector2, lift: float) -> Vector2:
