@@ -81,7 +81,6 @@ var _manual := 0.0          # 손으로 카메라를 움직인 뒤 자동 카메
 const MANUAL_HOLD := 5.0
 var squad_rings := {}       # 부대 key -> Decal (발밑 진영색 고리)
 var _ring_tex: Texture2D
-var _attr := CameraAttributesPractical.new()   # 먼 곳 흐림 (중간·높음)
 
 
 func _ready() -> void:
@@ -130,8 +129,6 @@ func _ready() -> void:
 	cam = Camera3D.new()
 	cam.fov = 50
 	cam.far = 2000
-	_attr.dof_blur_amount = 0.06
-	cam.attributes = _attr
 	add_child(cam)
 	cam.current = true
 	_update_cam(1.0)
@@ -191,7 +188,7 @@ func _environment() -> void:
 	env.fog_enabled = true
 	env.fog_light_color = Color("#9fb0bf")
 	env.fog_density = 0.0011
-	env.fog_aerial_perspective = 0.6
+	env.fog_aerial_perspective = 0.2
 	env.fog_sky_affect = 0.25
 	env.volumetric_fog_enabled = false
 	env.volumetric_fog_density = 0.0012
@@ -224,7 +221,6 @@ func set_quality(q: int) -> void:
 	_env.ssao_enabled = fp and q >= 2
 	_env.volumetric_fog_enabled = fp and q >= 2
 	_env.glow_enabled = q >= 1
-	_attr.dof_blur_far_enabled = q >= 1
 	_sun.directional_shadow_max_distance = [140.0, 200.0, 240.0][clampi(q, 0, 2)]
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
@@ -950,8 +946,6 @@ func _update_cam(dt: float) -> void:
 	var tgt := Vector3(cam_t.x, height(cam_t.x, cam_t.z) + 1.0, cam_t.z)
 	cam.position = tgt + off
 	cam.look_at(tgt)
-	_attr.dof_blur_far_distance = cam_dist * 1.35 + 12.0
-	_attr.dof_blur_far_transition = cam_dist * 0.8 + 10.0
 	if shake > 0.01:
 		cam.position += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * shake * 0.35
 		shake = maxf(0, shake - dt * 1.6)

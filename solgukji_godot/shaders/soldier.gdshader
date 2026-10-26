@@ -5,13 +5,13 @@
 //   b = 번쩍(피격)
 //   a = 걸음 박자(0~1). 서 있으면 2 를 더한다
 // 팔다리는 UV.x(부위)와 UV2(축 자리 x, y)로 모델 좌표 Z 축을 돌며 흔든다 (Models · MeshKit.joint).
-// 작은 화면에서도 진영이 읽히게 옷감은 세력색으로 은은히 빛나고, 윤곽에 테두리 빛을 준다.
+// 작은 화면에서도 진영이 읽히게 옷감은 세력색으로 아주 살짝 빛나고, 윤곽에 약한 테두리 빛을 준다.
 shader_type spatial;
 render_mode cull_disabled;
 
 uniform vec3 team_a : source_color = vec3(0.25, 0.5, 0.82);
 uniform vec3 team_b : source_color = vec3(0.78, 0.27, 0.23);
-uniform float team_glow = 0.16;
+uniform float team_glow = 0.05;
 varying vec4 v_custom;     // r 진영, g 어둡게, b 번쩍, a 옷 밝기
 
 vec2 rot(vec2 v, float a) {
@@ -58,6 +58,6 @@ void fragment() {
 	ALBEDO = base;
 	ROUGHNESS = mix(0.8, 0.45, step(0.6, vc.b) * (1.0 - COLOR.a));   // 쇠붙이는 조금 반짝인다
 	EMISSION = team * team_glow * COLOR.a * clamp(alive, 0.0, 1.0) + vec3(1.0, 0.9, 0.8) * v_custom.b * 0.6;
-	RIM = 0.6 * clamp(alive, 0.0, 1.0);
-	RIM_TINT = 0.55;
+	RIM = 0.2 * clamp(alive, 0.0, 1.0);     // 세면 작은 병사가 빛 덩어리로 뭉개진다
+	RIM_TINT = 0.3;
 }

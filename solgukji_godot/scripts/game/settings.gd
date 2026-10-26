@@ -7,7 +7,7 @@ const PATH := "user://settings.cfg"
 const QUALITY_N := ["낮음", "중간", "높음"]
 const COUNT_SCALE := [0.4, 0.65, 1.0]     # 병사 수 배율 (Squad.count_scale)
 const SHADOW := [1024, 2048, 4096]
-const RES_SCALE := [0.6, 0.8, 1.0]       # 전장 3D 해상도 (화면 실제 픽셀 대비)
+const RES_SCALE := [0.75, 0.9, 1.0]      # 전장 3D 해상도 (화면 실제 픽셀 대비) —— 낮으면 병사가 뿌옇다
 
 static var quality := -1
 static var auto_battle := false
@@ -43,8 +43,9 @@ static func apply() -> void:
 
 ## 전장 뷰포트에 품질을 건다 (BattleView 가 만든 SubViewport)
 static func apply_port(port: SubViewport) -> void:
-	port.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][quality]
-	port.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA     # 싸다 —— 끄면 낮음에서 풀잎이 검은 점으로 깜빡인다
+	# 모바일 GPU(타일 방식)는 MSAA 2배가 싸다. FXAA 는 화면 전체를 문질러 병사가 뿌옇게 되므로 쓰지 않는다
+	port.msaa_3d = [Viewport.MSAA_2X, Viewport.MSAA_2X, Viewport.MSAA_4X][quality]
+	port.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	port.positional_shadow_atlas_size = SHADOW[quality]
 	var w := port.get_child(0) as War3D
 	if w:
