@@ -26,6 +26,7 @@ var font_bold: Font
 
 var _portrait_cache := {}
 var _portrait_used := {}     # 배경이 투명한 그림 -> 실제로 그려진 영역 (Rect2)
+var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등급 그림이 없으면 기본 그림)
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 
@@ -201,11 +202,42 @@ func person(k: String) -> String:
 
 
 ## 초상 —— assets/portraits/<인물>.png, 병사 카드는 assets/troops/<병종>.png 를 찾는다.
+## 높은 등급 카드는 등급 그림을 먼저 찾고 없으면 한 단계씩 내려간다: 신화 → <인물>_신화 → _불멸 → _초월 → <인물>, 불멸 → _불멸 → _초월 → <인물>, 초월 → _초월 → <인물>.
+## (일러스트를 등급 구간마다 따로 뽑는다 —— prompts/삼국지_일러스트_프롬프트.md)
 ## 없으면 null 을 돌려주고, 그리는 쪽에서 수묵 실루엣 플레이스홀더를 쓴다.
 ## 임포트 없이 파일을 떨궈 넣기만 하면 바뀌도록 Image 로 직접 읽는다. 파일이 없으면(내보낸 앱) 임포트된 텍스처를 쓴다.
 func portrait(k: String) -> Texture2D:
-	var base := ("res://assets/troops/%s" % C[k].tag) if C[k].tier <= 2 \
-		else ("res://assets/portraits/%s" % person(k))
+	var base := portrait_base(k)
+	return _portrait_cache.get(base) if base != "" else null
+
+
+## 이 카드가 실제로 쓰는 그림 경로(확장자 없이). 그림이 하나도 없으면 ""
+func portrait_base(k: String) -> String:
+	if _portrait_pick.has(k):
+		return _portrait_pick[k]
+	var c: Dictionary = C[k]
+	var cands: Array = []
+	if c.tier <= 2:
+		cands = ["res://assets/troops/%s" % c.tag]
+	else:
+		var p := "res://assets/portraits/%s" % person(k)
+		if c.tier >= 8:
+			cands.append(p + "_신화")
+		if c.tier >= 7:
+			cands.append(p + "_불멸")
+		if c.tier >= 6:
+			cands.append(p + "_초월")
+		cands.append(p)
+	var pick := ""
+	for b in cands:
+		if _load_portrait(b) != null:
+			pick = b
+			break
+	_portrait_pick[k] = pick
+	return pick
+
+
+func _load_portrait(base: String) -> Texture2D:
 	if _portrait_cache.has(base):
 		return _portrait_cache[base]
 	var tex: Texture2D = null
@@ -236,9 +268,7 @@ func portrait(k: String) -> Texture2D:
 
 ## 잘라 낸 인물 그림이면 그려진 영역, 아니면 빈 Rect2
 func portrait_used(k: String) -> Rect2:
-	portrait(k)
-	var base := ("res://assets/troops/%s" % C[k].tag) if C[k].tier <= 2 		else ("res://assets/portraits/%s" % person(k))
-	return _portrait_used.get(base, Rect2())
+	return _portrait_used.get(portrait_base(k), Rect2())
 
 
 ## 그림 읽기 —— 확장자가 아니라 파일 앞머리로 형식을 가린다 (JPEG 를 .png 로 저장한 경우 등)
