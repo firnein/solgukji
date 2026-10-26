@@ -1189,12 +1189,16 @@ class Hud extends Control:
 			var sq: Squad = t[1]
 			var a: float = sq.fade * view.field.label_alpha(sq.pos)
 			var myth: bool = sq.tier >= 8
+			var art: bool = myth or DB.portrait(sq.cid) != null      # 그림이 있으면 등급과 관계없이 초상을 붙인다
 			var team: Color = War3D.TEAM[sq.camp]
 			var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 			var fs := 11
 			var nw := fbo.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			var w := clampf(nw + 22, 46, 76)
+			var ps := 28.0 if myth else 24.0
 			var r := Rect2(p - Vector2(w / 2, 22), Vector2(w, 30))
+			if art:
+				r = Rect2(r.position - Vector2(ps + 4, 0), r.size + Vector2(ps + 4, 0))     # 초상 자리까지 겹침 판정
 			var full := true
 			for i in 3:
 				var hit := false
@@ -1210,6 +1214,8 @@ class Hud extends Control:
 					full = false          # 비켜도 겹친다 —— 막대만
 					r = Rect2(p - Vector2(w / 2, 4), Vector2(w, 10))
 			placed.append(r)
+			if art and full:
+				r = Rect2(r.position + Vector2(ps + 4, 0), r.size - Vector2(ps + 4, 0))    # 이름표는 초상 오른쪽에
 			var bar_y := r.position.y + (20.0 if full else 0.0)
 			if full:
 				# 알약 이름표 —— 어두운 바탕, 왼쪽에 진영색 점, 등급색 이름
@@ -1251,10 +1257,10 @@ class Hud extends Control:
 			for st in sq.statuses:
 				draw_circle(Vector2(x, br.position.y + 2), 3, Color(DB.D.STATUS[st].c, a))
 				x += 7
-			# 신화 장수 —— 이름표 왼쪽에 초상
-			if myth and full and a > 0.5:
-				var pr := Rect2(r.position + Vector2(-32, -4), Vector2(28, 28))
-				draw_rect(pr.grow(2), Color(DB.tier_color(sq.cid), a))
+			# 초상 —— 이름표 왼쪽. 테두리는 등급색 (신화는 조금 크게)
+			if art and full and a > 0.5:
+				var pr := Rect2(r.position + Vector2(-ps - 4, 15 - ps * 0.5), Vector2(ps, ps))
+				draw_rect(pr.grow(2 if myth else 1.5), Color(DB.tier_color(sq.cid), a))
 				Art.draw_portrait(self, pr, sq.cid)
 				if not sq.alive:
 					draw_rect(pr, Color(0, 0, 0, 0.6))
