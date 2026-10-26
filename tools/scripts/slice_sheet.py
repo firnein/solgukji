@@ -117,7 +117,12 @@ def main():
             m["n"] += c["n"]
     # 촉 시트는 높이 16~45 · 너비 50~160, Gemini 1024px 시트는 50×150 안팎 —— 시트마다 조금씩 달라 넉넉히 잡는다
     labels = [m for m in merged if 50 <= m["x1"] - m["x0"] + 1 <= 320 and m["x1"] - m["x0"] + 1 > (m["y1"] - m["y0"] + 1) * 2]
+    # 옷의 짙은 초록 조각이 이름표처럼 잡히는 일이 있다 —— 이름표 너비 중앙값의 절반이 안 되면 버린다
+    if labels:
+        mw = float(np.median([m["x1"] - m["x0"] + 1 for m in labels]))
+        labels = [m for m in labels if m["x1"] - m["x0"] + 1 >= mw * 0.5]
     if len(labels) != len(names):
+        for c in labels: print("  이름표", int(c["x0"]), int(c["y0"]), int(c["x1"] - c["x0"] + 1), "x", int(c["y1"] - c["y0"] + 1))
         sys.exit(f"이름표 {len(labels)}개 / 이름 {len(names)}개 — 인물 수가 다르다. 시트를 다시 만들거나 이름 목록을 확인한다")
     # 이름표 자리는 캐릭터에서 뺀다
     for c in labels:
