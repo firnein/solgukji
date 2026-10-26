@@ -13,6 +13,16 @@ $tools = Split-Path -Parent $PSScriptRoot
 $dl = Join-Path $tools "dl"
 New-Item -ItemType Directory -Force $dl | Out-Null
 
+# 폴더 옮기기 —— 백신이 막 푼 파일을 잠그면 Move-Item 이 거부된다. 잠시 기다려 다시, 안 되면 복사
+function Move-Dir($from, $to) {
+    for ($i = 0; $i -lt 5; $i++) {
+        try { Move-Item $from $to -ErrorAction Stop; return } catch { Start-Sleep -Seconds 3 }
+    }
+    robocopy $from $to /E /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "복사 실패: $from -> $to" }
+    Remove-Item $from -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
+}
+
 function Get-File($url, $out) {
     if (-not (Test-Path $out)) {
         Write-Host "받는 중: $url"
@@ -27,8 +37,8 @@ if (-not (Test-Path (Join-Path $jdk "bin\java.exe"))) {
     Get-File "https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jdk/hotspot/normal/eclipse" $zip
     $tmp = Join-Path $dl "jdk_tmp"
     Expand-Archive $zip $tmp -Force
-    Move-Item (Get-ChildItem $tmp | Select-Object -First 1).FullName $jdk
-    Remove-Item $tmp -Recurse -Force -Confirm:$false
+    Move-Dir (Get-ChildItem $tmp | Select-Object -First 1).FullName $jdk
+    Remove-Item $tmp -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
 }
 
 # Android SDK
@@ -40,11 +50,14 @@ if (-not (Test-Path $sdkm)) {
     $ct = Join-Path $sdk "cmdline-tools"
     New-Item -ItemType Directory -Force $ct | Out-Null
     Expand-Archive $zip $ct -Force
-    Move-Item (Join-Path $ct "cmdline-tools") (Join-Path $ct "latest")
+    Move-Dir (Join-Path $ct "cmdline-tools") (Join-Path $ct "latest")
 }
 $env:JAVA_HOME = $jdk
 if (-not (Test-Path (Join-Path $sdk "build-tools\34.0.0"))) {
-    "y`ny`ny`ny`ny`ny`ny`ny`n" | & $sdkm "--sdk_root=$sdk" --licenses | Out-Null
+    # 라이선스 수락 —— 파이프로 y 를 넣으면 PowerShell 5.1 에서 안 먹을 때가 있어 cmd 로 파일을 흘려 넣는다
+    $yes = Join-Path $dl "yes.txt"
+    [System.IO.File]::WriteAllText($yes, ("y`r`n" * 20))
+    cmd /c "`"$sdkm`" --sdk_root=`"$sdk`" --licenses < `"$yes`"" | Out-Null
     & $sdkm "--sdk_root=$sdk" "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 }
 
@@ -55,9 +68,11 @@ if (-not (Test-Path (Join-Path $tpl "android_debug.apk"))) {
     $tpz = Join-Path $dl "godot_templates.tpz"
     Get-File "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz" $tpz
     $tmp = Join-Path $tools "editor_data\export_templates\tmp"
-    Expand-Archive $tpz $tmp -Force    # .tpz 는 zip 이다
-    Move-Item (Join-Path $tmp "templates") $tpl
-    Remove-Item $tmp -Recurse -Force -Confirm:$false
+    $tzip = Join-Path $dl "godot_templates.zip"      # .tpz 는 zip 이다 —— Expand-Archive 는 확장자가 .zip 이어야 받는다
+    if (-not (Test-Path $tzip)) { Copy-Item $tpz $tzip }
+    Expand-Archive $tzip $tmp -Force
+    Move-Dir (Join-Path $tmp "templates") $tpl
+    Remove-Item $tmp -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
 }
 
 # 디버그 서명 키
