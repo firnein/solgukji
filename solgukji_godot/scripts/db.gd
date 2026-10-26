@@ -271,7 +271,19 @@ func _load_portrait(base: String) -> Texture2D:
 							if img.get_pixel(x, y).a > 0.5:
 								on += 1
 					if n > 0 and on > n * 0.77:     # 새 화풍 패널 0.79~0.89, 오려 낸 인물은 0.74 이하
-						_portrait_panel[base] = true
+						# 패널 윗변 —— 깃털·창끝이 패널 위로 튀어나와 있다. 한 줄이 거의 다 찬 첫 줄을 패널 시작으로 본다
+						var top := ur.position.y
+						for y in range(ur.position.y, ur.end.y, 2):
+							var row := 0
+							var cnt := 0
+							for x in range(ur.position.x, ur.end.x, 4):
+								cnt += 1
+								if img.get_pixel(x, y).a > 0.5:
+									row += 1
+							if row > cnt * 0.85:
+								top = y
+								break
+						_portrait_panel[base] = top
 			break
 	_portrait_cache[base] = tex
 	return tex
@@ -280,6 +292,11 @@ func _load_portrait(base: String) -> Texture2D:
 ## 패널째 잘린 그림인가 —— 사각형이 꽉 차 있어 칸에 맞춰 위쪽만 보여 줘도 된다
 func portrait_panel(k: String) -> bool:
 	return _portrait_panel.has(portrait_base(k))
+
+
+## 패널 윗변의 그림 속 y —— 이보다 위는 패널 밖으로 튀어나온 깃·무기
+func portrait_panel_top(k: String) -> float:
+	return float(_portrait_panel.get(portrait_base(k), 0))
 
 
 ## 잘라 낸 인물 그림이면 그려진 영역, 아니면 빈 Rect2

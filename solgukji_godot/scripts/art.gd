@@ -118,7 +118,6 @@ static func _troops(ci: CanvasItem, r: Rect2, c: Dictionary) -> void:
 	ci.draw_texture_rect(ic, Rect2(cx - s * 0.5, cy - s * 0.55, s, s), false, Color(col, 0.9))
 
 
-## 잘라 낸 인물 —— 그려진 영역 전체가 들어오게 줄이고, 아래쪽 띠(칸 높이의 15%) 위에 발을 붙여 가운데 둔다
 ## 패널 그림 —— 칸 너비에 맞추고 아래를 잘라 칸을 꽉 채운다 (머리·투구 깃은 남긴다)
 static func _draw_panel(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> void:
 	var area := r.grow(-minf(r.size.x, r.size.y) * 0.03)
@@ -135,6 +134,23 @@ static func _draw_panel(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -
 	ci.draw_texture_rect_region(tex, area, src)
 
 
+## 패널 그림을 칸 밖으로 튀어나오게 —— 패널은 칸 너비를 꽉 채우고(아래는 자름), 패널 위로 솟은 깃·무기는
+## 칸 위로 최대 pop 만큼 넘쳐 그린다. 테두리 뒤에 불러 테두리를 덮게 한다. 패널 그림이 아니면 false.
+static func draw_panel_pop(ci: CanvasItem, r: Rect2, k: String, pop: float) -> bool:
+	if not DB.portrait_panel(k):
+		return false
+	var tex := DB.portrait(k)
+	var used := DB.portrait_used(k)
+	var top := DB.portrait_panel_top(k)
+	var s := r.size.x / used.size.x
+	# 그림 맨 위를 칸 위 above 에 둔다 —— 깃·무기가 납작하게 잘리지 않고 통째로 솟는다 (그만큼 아래를 더 자른다)
+	var above := minf((top - used.position.y) * s, pop)
+	var src := Rect2(used.position, Vector2(used.size.x, minf((r.size.y + above) / s, used.size.y)))
+	ci.draw_texture_rect_region(tex, Rect2(r.position.x, r.position.y - above, r.size.x, src.size.y * s), src)
+	return true
+
+
+## 잘라 낸 인물 —— 그려진 영역 전체가 들어오게 줄이고, 아래쪽 띠(칸 높이의 15%) 위에 발을 붙여 가운데 둔다
 static func _draw_fit(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> void:
 	var area := Rect2(r.position + Vector2(r.size.x * 0.05, r.size.y * 0.05), Vector2(r.size.x * 0.9, r.size.y * 0.80))
 	var sc := minf(area.size.x / used.size.x, area.size.y / used.size.y)
