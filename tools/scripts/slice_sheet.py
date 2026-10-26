@@ -97,7 +97,7 @@ def main():
     pieces = []
     for c in pcomps:
         hh, ww = c["y1"] - c["y0"] + 1, c["x1"] - c["x0"] + 1
-        if 16 <= hh <= 70 and 30 <= ww <= 240:
+        if 16 <= hh <= 90 and 30 <= ww <= 320:
             region = rgb[c["y0"]:c["y1"] + 1, c["x0"]:c["x1"] + 1].reshape(-1, 3).astype(int)
             text = (region.min(axis=1) > 190).mean()
             if 0.03 < text < 0.4:
@@ -116,7 +116,7 @@ def main():
             m["cx"] = (m["x0"] + m["x1"]) / 2
             m["n"] += c["n"]
     # 촉 시트는 높이 16~45 · 너비 50~160, Gemini 1024px 시트는 50×150 안팎 —— 시트마다 조금씩 달라 넉넉히 잡는다
-    labels = [m for m in merged if 50 <= m["x1"] - m["x0"] + 1 <= 240 and m["x1"] - m["x0"] + 1 > (m["y1"] - m["y0"] + 1) * 2]
+    labels = [m for m in merged if 50 <= m["x1"] - m["x0"] + 1 <= 320 and m["x1"] - m["x0"] + 1 > (m["y1"] - m["y0"] + 1) * 2]
     if len(labels) != len(names):
         sys.exit(f"이름표 {len(labels)}개 / 이름 {len(names)}개 — 인물 수가 다르다. 시트를 다시 만들거나 이름 목록을 확인한다")
     # 이름표 자리는 캐릭터에서 뺀다
@@ -150,6 +150,11 @@ def main():
     tiles = []
     for i, nm in enumerate(names):
         ids = np.nonzero(owner == i)[0]
+        # 본체(가장 큰 덩어리)에서 40px 넘게 떨어진 작은 조각은 버린다 —— 패널 밖 먼지가 캔버스를 키우지 않게
+        cs = {c["id"]: c for c in comps}
+        main_c = max((cs[k] for k in ids), key=lambda c: c["n"])
+        ids = [k for k in ids if cs[k]["n"] >= 3000 or (cs[k]["y0"] <= main_c["y1"] + 40 and cs[k]["y1"] >= main_c["y0"] - 40
+                                                      and cs[k]["x0"] <= main_c["x1"] + 40 and cs[k]["x1"] >= main_c["x0"] - 40)]
         mask = np.isin(lab, ids)
         # 외곽선 바깥 1px 까지 포함해 가장자리가 깎이지 않게
         m2 = mask.copy()
