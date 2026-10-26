@@ -1601,6 +1601,13 @@ func _dev_args() -> void:
 			_battle._set_speed(float(a.speed))
 		if a.has("gmenu"):
 			_battle.toggle_menu()
+		if a.has("gcam"):       # 점검용 카메라 —— 거리:높이각
+			var cv: PackedStringArray = str(a.gcam).split(":")
+			await get_tree().create_timer(4.0).timeout
+			_battle.field.focus(_battle.field.order[0])
+			_battle.field.want_dist = float(cv[0])
+			if cv.size() > 1:
+				_battle.field.want_pitch = float(cv[1])
 		if a.has("gclose"):
 			# 끝나면 1초 뒤 결과 정리를 누른 것처럼 —— 저장·보상 흐름 점검
 			await _battle.ended

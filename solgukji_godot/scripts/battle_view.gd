@@ -120,6 +120,24 @@ func _ready() -> void:
 	_box.add_child(port)
 	field = War3D.new()
 	port.add_child(field)
+	# 가장자리를 살짝 어둡게 —— 눈이 가운데 싸움으로 간다
+	var vg := GradientTexture2D.new()
+	vg.width = 128
+	vg.height = 128
+	vg.fill = GradientTexture2D.FILL_RADIAL
+	vg.fill_from = Vector2(0.5, 0.5)
+	vg.fill_to = Vector2(1.08, 0.5)
+	var vgr := Gradient.new()
+	vgr.offsets = PackedFloat32Array([0.0, 0.62, 1.0])
+	vgr.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0.05), Color(0.02, 0.02, 0.05, 0.5)])
+	vg.gradient = vgr
+	var vig := TextureRect.new()
+	vig.texture = vg
+	vig.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vig.stretch_mode = TextureRect.STRETCH_SCALE
+	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(vig)
 	hud = Hud.new()
 	hud.view = self
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -366,6 +384,9 @@ func _stage_input(e: InputEvent) -> void:
 	if e is InputEventScreenTouch:
 		if e.pressed:
 			_touches[e.index] = e.position
+			if e.double_tap:
+				field.auto_camera()
+				hud.announce("자동 카메라", DB.PAL.bamboo)
 		else:
 			_touches.erase(e.index)
 		_pinch = []
@@ -379,6 +400,11 @@ func _stage_input(e: InputEvent) -> void:
 			if not _pinch.is_empty() and now[0] > 1.0:
 				field.pinch(_pinch[0] / now[0], wrapf(now[1] - _pinch[1], -PI, PI))
 			_pinch = now
+		return
+	# 두 번 누르기 —— 자동 카메라로 돌아간다
+	if e is InputEventMouseButton and e.pressed and e.double_click and e.button_index == MOUSE_BUTTON_LEFT:
+		field.auto_camera()
+		hud.announce("자동 카메라", DB.PAL.bamboo)
 		return
 	if e is InputEventMagnifyGesture:
 		field.pinch(1.0 / e.factor, 0.0)
@@ -1082,12 +1108,21 @@ class Hud extends Control:
 		if crit:
 			col = Color("#ffd257") if not mine else Color("#ff6a4a")
 			fs = 24
+		if not crit:
+			for f in floats:
+				if f.key == key and f.get("num", false) and not f.crit and f.kind == kind and view.clock - f.t0 < 0.45:
+					f.amount += amount
+					f.text = ("+" if kind == "heal" else "-") + Battle.num(f.amount)
+					f.t0 = view.clock - 0.05
+					f.pop = view.clock
+					f.p = sq.pos
+					return
 		var n := 0
 		for f in floats:
 			if f.key == key and view.clock - f.t0 < 0.6:
 				n += 1
-		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock,
-			"n": n % 4, "jx": randf_range(-26, 26), "crit": crit, "num": true})
+		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "kind": kind, "amount": amount,
+			"pop": view.clock, "n": n % 3, "jx": randf_range(-22, 22), "crit": crit, "num": true})
 
 	var cut = null           # 고유기 컷인 {k, name, shout, camp, col, t}
 	var _brush := PackedVector2Array()
@@ -1129,22 +1164,30 @@ class Hud extends Control:
 	func _draw_all() -> void:
 		var fb := DB.font_body
 		var fd := DB.font_display
-		# 부대 머리표 —— 이름 · 병력 · 사기 · 상태이상. 겹치면 위로 비켜 쌓는다.
+		# 부대 머리표 —— 진영색 알약 이름표 + 병력 막대(+ 사기·고유기 가는 줄). 아래쪽(가까운) 부대부터 놓고,
+		# 겹치면 한 번 비켜 보고 그래도 겹치면 이름을 빼고 막대만 남긴다.
 		var tags := []
 		for sq in view.field.order:
 			if sq.state != "gone":
-				var sp := _to_screen(sq.pos, 5.4)
+				var sp := _to_screen(sq.pos, 5.0)
 				if sp.x > -9999 and view.field.label_alpha(sq.pos) > 0.02:
 					tags.append([sp, sq])
 		tags.sort_custom(func(x, y): return x[0].y > y[0].y)
 		var placed: Array[Rect2] = []
+		var fbo: Font = DB.font_bold
 		for t in tags:
 			var p: Vector2 = t[0]
 			var sq: Squad = t[1]
-			var w := 62.0
+			var a: float = sq.fade * view.field.label_alpha(sq.pos)
 			var myth: bool = sq.tier >= 8
-			var r := Rect2(p - Vector2(w / 2 + (40 if myth else 6), 16 if myth else 12), Vector2(w + (46 if myth else 12), 32 if myth else 28))
-			for _i in 6:
+			var team: Color = War3D.TEAM[sq.camp]
+			var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+			var fs := 11
+			var nw := fbo.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var w := clampf(nw + 22, 46, 76)
+			var r := Rect2(p - Vector2(w / 2, 22), Vector2(w, 30))
+			var full := true
+			for i in 3:
 				var hit := false
 				for q in placed:
 					if q.intersects(r):
@@ -1152,41 +1195,56 @@ class Hud extends Control:
 						break
 				if not hit:
 					break
-				r.position.y -= 15
+				if i == 0:
+					r.position.y -= 14
+				else:
+					full = false          # 비켜도 겹친다 —— 막대만
+					r = Rect2(p - Vector2(w / 2, 4), Vector2(w, 10))
 			placed.append(r)
-			p.y = r.position.y + 12
-			var a: float = sq.fade * view.field.label_alpha(sq.pos)
-			var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
-			var fs := 11
-			while fs > 8 and fb.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w + 20:
-				fs -= 1
-			var nc: Color = DB.tier_color(sq.cid).lightened(0.25)
-			draw_string(fb, p + Vector2(-w / 2 - 10 + 1, 1), nm, HORIZONTAL_ALIGNMENT_CENTER, w + 20, fs, Color(0, 0, 0, 0.7 * a))
-			draw_string(fb, p + Vector2(-w / 2 - 10, 0), nm, HORIZONTAL_ALIGNMENT_CENTER, w + 20, fs, Color(nc, a))
-			var br := Rect2(p + Vector2(-w / 2, 4), Vector2(w, 4))
-			draw_rect(br.grow(1), Color(0, 0, 0, 0.6 * a))
-			draw_rect(Rect2(br.position, Vector2(w * clampf(sq.troops / sq.max, 0, 1), 4)),
-				Color(War3D.TEAM[sq.camp].lightened(0.15), a))
-			draw_rect(Rect2(br.position + Vector2(0, 6), Vector2(w, 2)), Color(0, 0, 0, 0.6 * a))
-			draw_rect(Rect2(br.position + Vector2(0, 6), Vector2(w * clampf(sq.morale / 200.0, 0, 1), 2)),
+			var bar_y := r.position.y + (20.0 if full else 0.0)
+			if full:
+				# 알약 이름표 —— 어두운 바탕, 왼쪽에 진영색 점, 등급색 이름
+				var pill := Rect2(r.position.x, r.position.y, w, 17)
+				var sb := StyleBoxFlat.new()
+				sb.bg_color = Color(0.04, 0.05, 0.09, 0.72 * a)
+				sb.border_color = Color(DB.tier_color(sq.cid), 0.8 * a) if sq.tier >= 5 else Color(team, 0.5 * a)
+				sb.set_border_width_all(1)
+				sb.set_corner_radius_all(9)
+				draw_style_box(sb, pill)
+				draw_circle(pill.position + Vector2(8, 8.5), 3.2, Color(team.lightened(0.25), a))
+				var nc: Color = DB.tier_color(sq.cid).lightened(0.35) if sq.tier >= 3 else Color(0.92, 0.9, 0.85)
+				draw_string(fbo, pill.position + Vector2(14, 13), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 18, fs, Color(nc, a))
+			# 병력 막대
+			var br := Rect2(r.position.x + 3, bar_y, w - 6, 4)
+			draw_rect(br.grow(1), Color(0, 0, 0, 0.65 * a))
+			var hp := clampf(sq.troops / sq.max, 0, 1)
+			var hc := team.lightened(0.2)
+			if hp < 0.3:
+				hc = hc.lerp(Color("#ffd257"), 0.5 + 0.5 * sin(view.clock * 8.0))
+			draw_rect(Rect2(br.position, Vector2(br.size.x * hp, 4)), Color(hc, a))
+			draw_rect(Rect2(br.position, Vector2(br.size.x * hp, 1)), Color(1, 1, 1, 0.35 * a))
+			# 사기
+			var mr := Rect2(br.position + Vector2(0, 5), Vector2(br.size.x, 2))
+			draw_rect(mr, Color(0, 0, 0, 0.6 * a))
+			draw_rect(Rect2(mr.position, Vector2(mr.size.x * clampf(sq.morale / 200.0, 0, 1), 2)),
 				Color(DB.PAL.gold if sq.morale > 30 else Color("#a05a2a"), a))
 			# 고유기 게이지 —— 불멸·신화. 적 게이지도 보여 준다 (읽고 방진으로 받으라고)
 			var lv := view.unit_live(sq.key)
 			if sq.tier >= 7 and lv[1] > 0:
-				var gb := Rect2(br.position + Vector2(0, 10), Vector2(w, 3))
+				var gb := Rect2(br.position + Vector2(0, 8), Vector2(br.size.x, 3))
 				draw_rect(gb.grow(1), Color(0, 0, 0, 0.6 * a))
-				var full: bool = lv[0] >= 100
-				var gc := Color("#ffd257") if full else Color("#b8902e")
-				if full:
+				var fullg: bool = lv[0] >= 100
+				var gc := Color("#ffd257") if fullg else Color("#b8902e")
+				if fullg:
 					gc = gc.lerp(Color.WHITE, 0.4 + 0.4 * sin(view.clock * 10.0))
-				draw_rect(Rect2(gb.position, Vector2(w * clampf(lv[0] / 100.0, 0, 1), 3)), Color(gc, a))
-			var x := br.position.x
+				draw_rect(Rect2(gb.position, Vector2(gb.size.x * clampf(lv[0] / 100.0, 0, 1), 3)), Color(gc, a))
+			var x := br.position.x + br.size.x + 5
 			for st in sq.statuses:
-				draw_circle(Vector2(x + 3, br.position.y + 13), 3, Color(DB.D.STATUS[st].c, a))
-				x += 8
+				draw_circle(Vector2(x, br.position.y + 2), 3, Color(DB.D.STATUS[st].c, a))
+				x += 7
 			# 신화 장수 —— 이름표 왼쪽에 초상
-			if myth and a > 0.5:
-				var pr := Rect2(p + Vector2(-w / 2 - 36, -15), Vector2(30, 30))
+			if myth and full and a > 0.5:
+				var pr := Rect2(r.position + Vector2(-32, -4), Vector2(28, 28))
 				draw_rect(pr.grow(2), Color(DB.tier_color(sq.cid), a))
 				Art.draw_portrait(self, pr, sq.cid)
 				if not sq.alive:
@@ -1259,15 +1317,18 @@ class Hud extends Control:
 		var fd := DB.font_display
 		var crit: bool = f.crit
 		var t: float = view.clock - f.t0
-		var p := base + Vector2(f.jx, -f.n * 15 - u * (34 if crit else 26))
+		var p := base + Vector2(f.jx, -f.n * 16 - ease(u, 0.5) * (34 if crit else 24))
 		var sc := 1.0
 		if crit:
 			sc = lerpf(1.9, 1.0, ease(clampf(t / 0.14, 0, 1), 0.4))       # 쾅 찍혔다가 자리를 잡는다
 			p += Vector2(randf_range(-2, 2), randf_range(-2, 2)) * clampf(1.0 - t / 0.25, 0, 1)
+		else:
+			sc = lerpf(1.35, 1.0, ease(clampf((view.clock - f.pop) / 0.12, 0, 1), 0.4))   # 합쳐질 때마다 톡 튄다
 		draw_set_transform(p, 0, Vector2.ONE * sc)
 		var w := 160.0
-		draw_string_outline(fd, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, 6 if crit else 4, Color(0, 0, 0, col.a * 0.9))
-		draw_string(fd, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, col)
+		var nf: Font = fd if crit else DB.font_bold
+		draw_string_outline(nf, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, 6 if crit else 5, Color(0.05, 0.03, 0.02, col.a * 0.92))
+		draw_string(nf, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, col)
 		if crit:
 			var lc := Color(1, 0.95, 0.8, col.a)
 			draw_string_outline(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 12, 4, Color(0.4, 0.05, 0, col.a * 0.9))

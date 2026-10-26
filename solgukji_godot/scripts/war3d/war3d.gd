@@ -71,6 +71,12 @@ var _env: Environment
 var _sun: DirectionalLight3D
 var _cine := 0.0            # 고유기 카메라 연출이 남은 시간 (실시간)
 var _cine_back := []        # 연출 전 카메라 [대상, 거리, 높이각]
+var director := true        # 자동 카메라 —— 살아 있는 부대가 화면에 꽉 차게 따라간다
+var _manual := 0.0          # 손으로 카메라를 움직인 뒤 자동 카메라가 쉬는 시간 (실시간)
+const MANUAL_HOLD := 5.0
+var squad_rings := {}       # 부대 key -> Decal (발밑 진영색 고리)
+var _ring_tex: Texture2D
+var _attr := CameraAttributesPractical.new()   # 먼 곳 흐림 (중간·높음)
 
 
 func _ready() -> void:
@@ -118,6 +124,8 @@ func _ready() -> void:
 	cam = Camera3D.new()
 	cam.fov = 50
 	cam.far = 2000
+	_attr.dof_blur_amount = 0.06
+	cam.attributes = _attr
 	add_child(cam)
 	cam.current = true
 	_update_cam(1.0)
@@ -155,8 +163,8 @@ func _environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var psm := ProceduralSkyMaterial.new()
-	psm.sky_top_color = Color("#3a5578")
-	psm.sky_horizon_color = Color("#d8c4a4")
+	psm.sky_top_color = Color("#3f6596")
+	psm.sky_horizon_color = Color("#e6cfa6")
 	psm.ground_horizon_color = Color("#9a8a70")
 	psm.ground_bottom_color = Color("#2b2a26")
 	psm.sky_curve = 0.12
@@ -164,9 +172,10 @@ func _environment() -> void:
 	sky.sky_material = psm
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.55
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 0.95
+	env.ambient_light_energy = 0.75
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 1.0
+	env.tonemap_white = 6.0
 	env.ssao_enabled = false        # set_quality 가 켠다 (Forward+ 에서만)
 	env.ssao_intensity = 1.6
 	env.ssao_radius = 1.2
@@ -183,16 +192,16 @@ func _environment() -> void:
 	env.volumetric_fog_albedo = Color("#c8d0d8")
 	env.volumetric_fog_length = 220
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.05
-	env.adjustment_contrast = 1.1
+	env.adjustment_saturation = 1.12
+	env.adjustment_contrast = 1.06
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	_env = env
 	var sun := DirectionalLight3D.new()
 	_sun = sun
-	sun.light_color = Color("#ffdcb0")
-	sun.light_energy = 1.7
+	sun.light_color = Color("#ffd9a8")
+	sun.light_energy = 2.0
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 240
 	sun.shadow_blur = 1.5
@@ -209,6 +218,7 @@ func set_quality(q: int) -> void:
 	_env.ssao_enabled = fp and q >= 2
 	_env.volumetric_fog_enabled = fp and q >= 2
 	_env.glow_enabled = q >= 1
+	_attr.dof_blur_far_enabled = q >= 1
 	_sun.directional_shadow_max_distance = [140.0, 200.0, 240.0][clampi(q, 0, 2)]
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
@@ -242,7 +252,7 @@ func _terrain() -> void:
 			verts[k] = Vector3(x, y, z)
 			norms[k] = nn
 			var n2 := noise.get_noise_2d(x * 1.7 + 77.0, z * 1.7) * 0.5 + 0.5
-			var c := Color(0.24, 0.32, 0.14).lerp(Color(0.40, 0.42, 0.20), n2)
+			var c := Color(0.27, 0.38, 0.15).lerp(Color(0.46, 0.48, 0.22), n2)
 			var n3 := noise.get_noise_2d(x * 3.1 - 40.0, z * 3.1) * 0.5 + 0.5
 			var trample := (1.0 - smoothstep(22.0, 58.0, absf(x))) * (1.0 - smoothstep(16.0, 34.0, absf(z))) * clampf(n3 * 1.6 - 0.2, 0, 1)
 			c = c.lerp(Color(0.36, 0.30, 0.21), trample * 0.7)
@@ -395,6 +405,7 @@ func clear() -> void:
 	weapons.clear()
 	capes.clear()
 	banners.clear()
+	squad_rings.clear()
 	auras.clear()
 	arrows.clear()
 	orbs.clear()
@@ -442,9 +453,11 @@ func setup(res: Dictionary) -> void:
 			m.cull_mode = BaseMaterial3D.CULL_DISABLED
 			m.roughness = 0.7
 			cp.material_override = m
+			cp.layers = 2
 			unit_root.add_child(cp)
 			capes[sq.key] = cp
 		banners[sq.key] = _make_banner(sq)
+		squad_rings[sq.key] = _make_ring(sq)
 	_bufs.clear()
 	for tag in count:
 		bodies[tag] = _mm(body_mesh[tag], count[tag])
@@ -464,8 +477,35 @@ func _mm(mesh: Mesh, n: int) -> MultiMeshInstance3D:
 	var mi := MultiMeshInstance3D.new()
 	mi.multimesh = mm
 	mi.material_override = soldier_mat
+	mi.layers = 2
 	unit_root.add_child(mi)
 	return mi
+
+
+## 발밑 고리 —— 땅에 비추는 진영색 테두리. 멀리서도 아군·적과 부대 덩어리가 읽힌다
+func _make_ring(sq: Squad) -> Decal:
+	if _ring_tex == null:
+		var g := GradientTexture2D.new()
+		g.width = 128
+		g.height = 128
+		g.fill = GradientTexture2D.FILL_RADIAL
+		g.fill_from = Vector2(0.5, 0.5)
+		g.fill_to = Vector2(1.0, 0.5)
+		var gr := Gradient.new()
+		gr.offsets = PackedFloat32Array([0.0, 0.6, 0.84, 0.93, 1.0])
+		gr.colors = PackedColorArray([Color(1, 1, 1, 0.10), Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.85), Color(1, 1, 1, 0.45), Color(1, 1, 1, 0)])
+		g.gradient = gr
+		_ring_tex = g
+	var d := Decal.new()
+	d.texture_albedo = _ring_tex
+	d.modulate = TEAM[sq.camp].lightened(0.1)
+	d.albedo_mix = 0.85
+	d.cull_mask = 1
+	d.upper_fade = 0.4
+	d.lower_fade = 0.4
+	d.distance_fade_enabled = false
+	unit_root.add_child(d)
+	return d
 
 
 func _make_banner(sq: Squad) -> Node3D:
@@ -553,7 +593,13 @@ func _process_inner(dt: float) -> void:
 		if Input.is_key_pressed(KEY_A): mv -= rt
 		if Input.is_key_pressed(KEY_Q): want_yaw -= dt * 1.2
 		if Input.is_key_pressed(KEY_E): want_yaw += dt * 1.2
+		if mv != Vector3.ZERO or Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_E):
+			_manual = MANUAL_HOLD
 		want_t += mv * dt * want_dist * 0.9
+	if _manual > 0:
+		_manual -= dt
+	elif director and _intro <= 0 and _cine <= 0 and not order.is_empty() and Engine.get_process_frames() % 3 == 0:
+		_auto_frame()       # 세 프레임에 한 번 —— 카메라는 어차피 천천히 따라간다
 	_update_cam(dt)
 	for n in fx_nodes:
 		if is_instance_valid(n[0]):
@@ -815,6 +861,15 @@ func _sync() -> void:
 			var at: Vector2 = sq.general.pos if sq.general and sq.general.alive else sq.pos - sq.fwd * (sq.depth() + 6)
 			bn.position = p3(at)
 			bn.rotation = Vector3(0, atan2(-sq.fwd.y, sq.fwd.x) + PI, 0)
+		var rg: Decal = squad_rings[sq.key]
+		rg.visible = bn.visible
+		if rg.visible:
+			var w: float = (sq.cols * sq.sp + 18.0) * S
+			var dp: float = (sq.depth() + 18.0) * S
+			rg.size = Vector3(dp, 3.0, w)
+			rg.position = p3(sq.pos - sq.fwd * sq.depth() * 0.5)
+			rg.rotation = Vector3(0, atan2(-sq.fwd.y, sq.fwd.x), 0)
+			rg.modulate.a = 0.75 + 0.25 * sq.glow
 
 
 func _weapon_angle(sq: Squad, s, kind: String, alive: bool) -> float:
@@ -845,9 +900,101 @@ func _update_cam(dt: float) -> void:
 	var tgt := Vector3(cam_t.x, height(cam_t.x, cam_t.z) + 1.0, cam_t.z)
 	cam.position = tgt + off
 	cam.look_at(tgt)
+	_attr.dof_blur_far_distance = cam_dist * 1.35 + 12.0
+	_attr.dof_blur_far_transition = cam_dist * 0.8 + 10.0
 	if shake > 0.01:
 		cam.position += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * shake * 0.35
 		shake = maxf(0, shake - dt * 1.6)
+
+
+## 자동 카메라 —— 살아 있는 부대를 모두 화면 안에 담는 가장 가까운 거리를 찾는다.
+## 후보 거리마다 부대 가장자리 점을 직접 투영해 보고(원근 포함), 위아래 가운데를 맞춘다.
+## 위쪽은 세력 막대·시계가 있어 조금 더 비운다.
+func _auto_frame() -> void:
+	var fw := Vector2(cos(want_yaw), sin(want_yaw))
+	var rt := Vector2(-sin(want_yaw), cos(want_yaw))
+	var pts := PackedVector2Array()
+	var hot := Vector2.ZERO
+	var hn := 0
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for sq in order:
+		if not sq.alive or sq.state == "gone":
+			continue
+		var p: Vector2 = sq.pos * S
+		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 2.0
+		for o in [rt * r, -rt * r, fw * r, -fw * r]:
+			pts.append(p + o)
+			lo = Vector2(minf(lo.x, p.x + o.x), minf(lo.y, p.y + o.y))
+			hi = Vector2(maxf(hi.x, p.x + o.x), maxf(hi.y, p.y + o.y))
+		if sq.contact:
+			hot += p
+			hn += 1
+	if pts.is_empty():
+		return
+	var c := (lo + hi) / 2
+	if hn > 0:
+		c = c.lerp(hot / hn, 0.2)           # 맞붙은 곳 쪽으로 살짝
+	var vp := get_viewport().get_visible_rect().size
+	var aspect := vp.x / maxf(vp.y, 1.0)
+	var th := tan(deg_to_rad(cam.fov) / 2)
+	var tv := th
+	if cam.keep_aspect == Camera3D.KEEP_WIDTH:
+		tv = th / aspect
+	else:
+		th = tv * aspect
+	const TOP := 0.62       # 화면 위 끝 (1 이 끝) —— 머리띠·머리표 자리
+	const BOT := -0.9
+	const SIDE := 0.88
+	var d := maxf(20.0, want_dist * 0.85)     # 지난 거리 근처부터 찾는다 (계산을 줄인다)
+	var tgt := c
+	for _i in 30:
+		# 세로 가운데 맞춤 —— 두 번 고쳐 잡는다
+		for _j in 2:
+			var e := _ndc_range(pts, tgt, d, fw, rt, th, tv)
+			if e.x < -8.0:
+				break           # 카메라 뒤로 넘어간 점이 있다 —— 더 물러나야 한다
+			var want_mid := (TOP + BOT) / 2
+			var mid := (e.z + e.w) / 2
+			tgt += fw * (mid - want_mid) * d * tv / maxf(sin(want_pitch), 0.3)
+		var e2 := _ndc_range(pts, tgt, d, fw, rt, th, tv)
+		if e2.x >= -SIDE and e2.y <= SIDE and e2.w <= TOP and e2.z >= BOT:
+			break
+		d *= 1.07
+		if d > 110.0:
+			d = 110.0
+			break
+	want_dist = d
+	want_t = Vector3(tgt.x, 0, tgt.y)
+	cam_rate = 1.3
+
+
+
+## 땅 위 점들을 (대상, 거리)의 카메라로 투영한 화면 범위 —— x 최소·최대, y 최소·최대 (-1~1)
+func _ndc_range(pts: PackedVector2Array, tgt: Vector2, d: float, fw: Vector2, rt: Vector2, th: float, tv: float) -> Vector4:
+	var cp := cos(want_pitch)
+	var spt := sin(want_pitch)
+	var h0 := height(tgt.x, tgt.y) + 1.0
+	var eye := Vector3(tgt.x - fw.x * cp * d, h0 + spt * d, tgt.y - fw.y * cp * d)
+	var f := Vector3(fw.x * cp, -spt, fw.y * cp)           # 카메라 앞
+	var r := Vector3(rt.x, 0, rt.y)                        # 카메라 오른쪽
+	var u := r.cross(f)                                    # 카메라 위
+	var e := Vector4(INF, -INF, INF, -INF)
+	for p in pts:
+		var v := Vector3(p.x, h0 - 1.0, p.y) - eye
+		var z := v.dot(f)
+		if z < 0.5:
+			return Vector4(-9, 9, -9, 9)
+		var x := v.dot(r) / z / th
+		var y := v.dot(u) / z / tv
+		e = Vector4(minf(e.x, x), maxf(e.y, x), minf(e.z, y), maxf(e.w, y))
+	return e
+
+
+## 자동 카메라로 돌아간다 (두 번 누르기 · 카메라 맞춤)
+func auto_camera() -> void:
+	_manual = 0.0
+	director = true
 
 
 func reset_camera() -> void:
@@ -858,10 +1005,11 @@ func reset_camera() -> void:
 	cam_dist = 24.0
 	want_t = Vector3(-4, 0, 0)
 	want_yaw = 0.0
-	want_pitch = 0.92 if portrait else 0.6
-	want_dist = 64.0 if portrait else 62.0
+	want_pitch = 0.86 if portrait else 0.6
+	want_dist = 52.0 if portrait else 62.0
 	cam_rate = 0.9
 	_intro = 3.5
+	_manual = 0.0
 	_update_cam(0.0)
 
 
@@ -881,10 +1029,13 @@ func focus(sq: Squad) -> void:
 	want_t = p3(sq.pos)
 	want_dist = minf(want_dist, 30.0)
 	cam_rate = 4.0
+	_manual = MANUAL_HOLD
 
 
 func camera_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.pressed:
+		if e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			_manual = MANUAL_HOLD
 		if e.button_index == MOUSE_BUTTON_WHEEL_UP:
 			want_dist = clampf(want_dist * 0.88, 8.0, 170.0)
 			cam_rate = 4.0
@@ -893,6 +1044,8 @@ func camera_input(e: InputEvent) -> void:
 			cam_rate = 4.0
 	elif e is InputEventMouseMotion:
 		var rel: Vector2 = e.relative / screen_scale       # 3D 해상도 배율을 걷어 내고 논리 좌표로
+		if e.button_mask != 0 and rel.length() > 0.5:
+			_manual = MANUAL_HOLD
 		if e.button_mask & MOUSE_BUTTON_MASK_RIGHT:
 			want_yaw += rel.x * 0.006
 			want_pitch = clampf(want_pitch + rel.y * 0.004, 0.12, 1.42)
@@ -909,6 +1062,7 @@ func pinch(ratio: float, turn: float) -> void:
 	want_dist = clampf(want_dist * ratio, 8.0, 170.0)
 	want_yaw -= turn
 	cam_rate = 6.0
+	_manual = MANUAL_HOLD
 
 
 func to_screen(p: Vector2, lift: float) -> Vector2:
@@ -918,11 +1072,13 @@ func to_screen(p: Vector2, lift: float) -> Vector2:
 	return cam.unproject_position(w) / screen_scale
 
 
-## 세로 화면 —— 폭을 기준으로 화각을 잡고 조금 더 물러난다 (양 날개가 잘리지 않게)
+## 세로 화면 —— 세로 화각을 좁혀 원근 왜곡을 줄인다. 양 날개는 자동 카메라가 거리로 맞춘다
 func set_portrait(on: bool) -> void:
+	if on != portrait and _cine <= 0:
+		want_pitch = 0.86 if on else 0.6
 	portrait = on
-	cam.keep_aspect = Camera3D.KEEP_WIDTH if on else Camera3D.KEEP_HEIGHT
-	cam.fov = 70.0 if on else 50.0
+	cam.keep_aspect = Camera3D.KEEP_HEIGHT
+	cam.fov = 62.0 if on else 50.0
 
 
 ## 머리표 투명도 —— 가까이 볼 때 멀리 있는 부대의 표가 지평선에 쌓이지 않게 흐린다
