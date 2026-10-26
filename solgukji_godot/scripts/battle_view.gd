@@ -1287,7 +1287,10 @@ class Hud extends Control:
 		if ann:
 			var aa: float = clampf(ann.t / 0.15, 0, 1) * clampf((1.8 - ann.t) / 0.4, 0, 1)
 			var ac: Color = ann.col
-			_text(DB.font_display, Vector2(0, 84), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, Color(ac, aa))
+			var afs := 20
+			while afs > 12 and DB.font_display.get_string_size(ann.text, HORIZONTAL_ALIGNMENT_LEFT, -1, afs).x > size.x - 24:
+				afs -= 1         # 세로 화면에서 폭을 넘지 않게
+			_text(DB.font_display, Vector2(0, 84), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))
 		if cut:
 			_draw_cut()
 		# 결과 낙관
