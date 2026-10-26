@@ -57,7 +57,9 @@
 - **위 상태줄**: 날짜·페이즈 · 병력 · PV·순위·경고 · ☰ 메뉴, 아래에 21칸 진행 막대.
 - **아래 탭 5개**: 징집 · 조합 · 편성 · 전투 · 기록(순위 | 계보). 할 일이 있으면 빨간 점, 조합은 지금 조합 가능한 수. 지금 탭을 다시 누르면 맨 위로.
 - **바텀시트**: 카드 상세·선택권·환전·칸 배치·아이템·메뉴·설정·온라인 접속은 아래에서 올라온다. 손잡이를 끌어내리거나 바깥을 누르거나 ✕·뒤로 가기로 닫는다. 내용만큼만 올라오고 화면 88% 를 넘으면 안에서 스크롤.
-- 카드 목록은 두 칸 격자(`AutoGrid` —— PC 창을 넓히면 칸이 는다, 글줄은 최대 640 폭). 조합 등급·병종 계보는 접는 묶음, 조합 필터는 가로로 넘기는 칩.
+- **징집**: 할 일은 기호 타일 한 줄(징집 · 선택권 · 배급 · 보상 · 이어서 —— 끝내면 ✔), 보급품·소식은 한 줄 칩(누르면 시트), 이어지는 조합은 가로로 넘기는 띠(되는 것 먼저 · 버튼 한 번에 조합), 보유 카드는 초상 타일 5칸 격자(▲ = 지금 조합 가능한 상위 카드의 재료).
+- **조합**: 병종·등급 칩 두 줄로 거르고, '지금 조합 가능'은 가로 띠(바로 조합), 나머지는 모자란 장수가 적은 순 격자(-n · ◆ 유니크 필요, 40개씩 더 보기). 타일을 누르면 조합 시트(재료 가진 수/필요 수 · 조합 · 카드 상세). 환전은 머리줄 칩 → 시트.
+- 초상 타일 `MiniTile`, 기호 `Icons`(선으로 그려 휴대폰 글꼴과 무관). 큰 카드 목록(선택권·칸 배치)은 두 칸 격자(`AutoGrid`). 병종 계보는 접는 묶음.
 - **편성**: 진형 띠(가로) + 9칸 편성판을 위에 고정하고 아래 [손패 | 시너지 | 보급품] 만 스크롤 —— 손패를 길게 눌러 바로 칸으로 끌 수 있다.
 - 알림은 아래 탭 위에 잠깐 뜬다. 버튼을 누르면 짧게 진동(설정에서 끔).
 - 노치·홈 막대는 안전 영역(`DisplayServer.get_display_safe_area`)만큼 비켜 그린다.
@@ -106,7 +108,8 @@ Godot 의 ScrollContainer 는 손가락이 처음 닿은 버튼·패널이 입�
 - 내보내기 설정: `export_presets.cfg` (패키지 `com.solgukji.game`, `data/*.json` 포함, `tests/` 제외, 세로 고정, 권한: 인터넷·진동).
 
 ### 릴리스 서명 (스토어용)
-1. 처음 한 번 `powershell -ExecutionPolicy Bypass -File ..	ools\scripts\make_release_key.ps1` —— 비밀번호를 묻고 `%USERPROFILE%\.solgukjielease.keystore`(별칭 `solgukji`)를 만든다. **저장소 밖**에 두고 깃에 올리지 않는다. 키 파일은 따로 백업, 비밀번호는 비밀번호 관리자에.
+1. 처음 한 번 `powershell -ExecutionPolicy Bypass -File ..	ools\scripts\make_release_key.ps1` —— 비밀번호를 묻고 `%USERPROFILE%\.solgukji
+elease.keystore`(별칭 `solgukji`)를 만든다. **저장소 밖**에 두고 깃에 올리지 않는다. 키 파일은 따로 백업, 비밀번호는 비밀번호 관리자에.
 2. `build_release.bat` —— 비밀번호를 묻고 환경 변수(`GODOT_ANDROID_KEYSTORE_RELEASE_*`)로만 Godot 에 넘겨 `../build/solgukji-release.apk` 를 만든다. `export_presets.cfg` 에는 비밀번호를 적지 않는다.
 3. 올릴 때마다 `export_presets.cfg` 의 `version/code` 를 1씩 올린다(`version/name` 은 보이는 버전).
 - 구글 플레이는 APK 대신 AAB 를 받는다 —— AAB 는 Godot 의 Gradle 빌드(`gradle_build/use_gradle_build=true` + 프로젝트 > Android 빌드 템플릿 설치)가 필요하다. 올릴 때가 되면 켠다. Play 앱 서명을 켜면 위 키는 업로드 키가 된다.

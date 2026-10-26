@@ -210,6 +210,10 @@ static func chip(text: String, on: bool, cb: Callable, h := 40) -> Button:
 		b.add_theme_stylebox_override("normal", flat(P.ink2, P.ink4, 1, r, 14))
 		b.add_theme_stylebox_override("hover", flat(P.ink3, P.bamboo_dim, 1, r, 14))
 	b.add_theme_stylebox_override("pressed", flat(P.ink4, P.bamboo, 1, r, 14))
+	for st in ["normal", "hover", "pressed"]:
+		var sb: StyleBoxFlat = b.get_theme_stylebox(st)
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
 	b.pressed.connect(func():
 		buzz()
 		cb.call())
@@ -280,6 +284,80 @@ static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button
 	h.add_child(ar)
 	b.add_child(h)
 	return b
+
+
+## 기호 행동 타일 —— 위에 그림, 아래 두 줄(제목 · 설명). 끝낸 일은 ✔ 로 흐리게
+static func tile_act(icon: String, title: String, sub: String, cb: Callable, kind := "", done := false, disabled := false) -> Button:
+	var P := DB.PAL
+	var b := btn("", cb, kind, 80)
+	b.disabled = disabled or done
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if done:
+		b.add_theme_stylebox_override("disabled", flat(Color(P.ink2, 0.6), P.ink3, 1, 10, 6))
+	var v := vbox(1)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 4
+	v.offset_right = -4
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var a := 0.45 if b.disabled else 1.0
+	var ic := Icons.View.new("check" if done else icon, Color(P.jade if done else (P.gold if kind == "gold" else P.paper), a), 24)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	for pair in [[title, 14, P.paper, true], [sub, 11, P.bamboo, false]]:
+		var l := lbl(pair[0], pair[1], Color(pair[2], a), pair[3])
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		l.clip_text = true
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(l)
+	b.add_child(v)
+	return b
+
+
+## 기호 칩 —— 한 줄 요약 (보급품 · 소식 · 환전). 누르면 자세히
+static func icon_chip(icon: String, text: String, col: Color, cb: Callable) -> Button:
+	var P := DB.PAL
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 44)
+	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(col, 0.55), 1, 22, 0))
+	b.add_theme_stylebox_override("hover", flat(P.ink3, col, 1, 22, 0))
+	b.add_theme_stylebox_override("pressed", flat(P.ink4, col, 1, 22, 0))
+	b.pressed.connect(func():
+		buzz()
+		cb.call())
+	var h := hbox(6)
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 10
+	h.offset_right = -12
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := Icons.View.new(icon, col, 20)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var l := lbl(text, 13, col.lightened(0.25))
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.size_flags_vertical = Control.SIZE_FILL
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.clip_text = true
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(l)
+	b.add_child(h)
+	return b
+
+
+## 머리줄 —— 왼쪽 제목, 오른쪽 작은 글씨
+static func head(title: String, right := "") -> HBoxContainer:
+	var h := hbox(8)
+	var t := eyebrow(title)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(t)
+	if right != "":
+		var r := lbl(right, 12, DB.PAL.bamboo_dim)
+		r.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		r.size_flags_vertical = Control.SIZE_FILL
+		h.add_child(r)
+	return h
 
 
 static func vbox(sep := 8) -> VBoxContainer:

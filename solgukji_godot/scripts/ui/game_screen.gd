@@ -18,6 +18,8 @@ const TAB_H := 62.0
 var run: Run
 var page := "draw"
 var forge_tag := ""
+var forge_tier := 0           # 조합 등급 거르기 (0 = 모두)
+var _forge_more := 0
 var _open := {}               # 접는 묶음 -> 펼침 여부
 var _scroll_keep := {}        # 페이지 -> 스크롤 위치
 
@@ -746,31 +748,6 @@ func mats_bb(out: String) -> String:
 	return " + ".join(parts)
 
 
-## 조합 한 줄 —— 위: 결과 카드 + 조합 버튼 · 아래: 재료와 특기
-func recipe_row(out: String, sub := "") -> Control:
-	var v := UI.vbox(6)
-	var h := UI.hbox(10)
-	var t := tile(out, run.pool().get(out, -1))
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(t)
-	var c: Dictionary = DB.C[out]
-	var ok := run.can_forge(out)
-	var b := UI.btn("조합" if ok else "부족 %d" % run.miss_count(out), func():
-		if act("forge", [out]):
-			toast("%s 조합 완료" % c.name, "gain"), "pri" if ok else "", 48)
-	b.disabled = not ok
-	b.custom_minimum_size = Vector2(92, 48)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(b)
-	v.add_child(h)
-	v.add_child(UI.rich(mats_bb(out), 14))
-	if sub != "":
-		v.add_child(UI.hint(sub))
-	elif c.sk:
-		v.add_child(UI.hint("『%s』 %s" % [c.sk.n, DB.skill_desc(c)]))
-	return UI.panel(v, 10)
-
-
 ## 페이지 머리 —— 큰 제목 + 설명
 func _page_head(title: String, sub: String) -> Control:
 	var v := UI.vbox(2)
@@ -780,86 +757,188 @@ func _page_head(title: String, sub: String) -> Control:
 	return v
 
 
+## 초상 작은 카드 격자 —— 한 줄에 4~5장
+func minis() -> AutoGrid:
+	return UI.grid(66, 6)
+
+
+func mtile(k: String, n := -1, on_tap := Callable()) -> MiniTile:
+	var t := MiniTile.new().setup(k, n)
+	t.tapped.connect(on_tap if on_tap.is_valid() else func(id): card_info(id))
+	return t
+
+
+## 지금 조합할 수 있는 상위 카드들의 재료 —— 보유 카드에 ▲ 표시
+func _ready_mats() -> Dictionary:
+	var out := {}
+	for r in DB.D.RECDEF:
+		if run.can_forge(r[0]):
+			for m in DB.RECOF[r[0]]:
+				out[m] = true
+	return out
+
+
+## 조합 카드 하나 (가로 띠용) —— 초상 + 아래 버튼. 되면 바로 조합, 안 되면 재료 시트
+func recipe_card(out: String) -> Control:
+	var v := UI.vbox(4)
+	v.custom_minimum_size = Vector2(86, 0)
+	var ok := run.can_forge(out)
+	var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
+	t.custom_minimum_size = Vector2(86, 112)
+	t.lit = ok
+	v.add_child(t)
+	var miss := run.miss_count(out)
+	var b := UI.btn("조합" if ok else ("-%d장" % miss if miss > 0 else "◆필요"), func():
+		if ok:
+			if act("forge", [out]):
+				toast("%s 조합 완료" % DB.C[out].name, "gain")
+		else:
+			recipe_sheet(out), "pri" if ok else "ghost", 34)
+	b.add_theme_font_size_override("font_size", 13)
+	v.add_child(b)
+	return v
+
+
+## 조합 시트 —— 결과 카드 · 재료(가진 수/필요 수) · 조합 버튼 · 카드 상세
+func recipe_sheet(out: String) -> void:
+	var c: Dictionary = DB.C[out]
+	var b := open_sheet("%s 조합" % c.name)
+	b.add_child(tile(out, run.pool().get(out, -1)))
+	if c.sk:
+		b.add_child(UI.hint("『%s』 %s" % [c.sk.n, DB.skill_desc(c)]))
+	b.add_child(UI.head("재료", "누르면 그 카드 상세"))
+	var g := minis()
+	var m := Run.mat_count(DB.RECOF[out])
+	for q in m:
+		var got := run.have(q)
+		var t := mtile(q, -1)
+		t.badge = "%d/%d" % [got, m[q]]
+		t.badge_col = Color(DB.PAL.jade, 0.9) if got >= m[q] else Color(DB.PAL.seal, 0.9)
+		t.dim = got <= 0
+		g.add_child(t)
+	b.add_child(g)
+	var ni = Run.need_item(out)
+	if ni != null:
+		var have_it: bool = run.bag.get(ni, 0) > 0
+		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 후반 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): pass))
+	var ok := run.can_forge(out)
+	var fb := UI.btn("조합하기" if ok else "재료 부족 — %d장" % run.miss_count(out), func():
+		if act("forge", [out]):
+			toast("%s 조합 완료" % c.name, "gain")
+			close_sheet(), "pri" if ok else "", 56)
+	fb.disabled = not ok
+	b.add_child(fb)
+	b.add_child(UI.btn("카드 상세 보기", func(): card_info(out), "ghost", 46))
+
+
 # ───────── 징집 ─────────
 
 func _page_draw() -> Control:
 	if run.over:
 		return _over_panel()
-	var v := UI.vbox(20)
+	var v := UI.vbox(16)
 	var n := run.draws_n()
-	v.add_child(_page_head("결전의 날" if run.day == 6 else "징집과 배급",
-		"더 이상 농민을 징집하지 않는다. 명장만이 소환된다." if run.day == 6 else "뽑기 %d장으로 기본패를 얻고, 선택권으로 상위 카드를 지정한다." % n))
-	var acts := UI.grid(160, 8)
+	if run.day == 6:
+		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 더 이상 농민을 징집하지 않는다. 명장만이 소환된다.", 14), 10))
+
+	# 할 일 —— 기호 타일 한 줄
+	var acts := UI.grid(80, 6)
 	if n > 0:
-		acts.add_child(UI.act("징집 완료" if run.drawn else "기본패 %d장" % n, "8종 균등", func(): act("do_draw"), "pri", run.drawn or not can_act()))
+		acts.add_child(UI.tile_act("draw", "징집", "기본패 %d장" % n, func(): act("do_draw"), "pri", run.drawn, not can_act()))
 	var pl := run.pick_list()
 	if not pl.is_empty():
-		acts.add_child(UI.act("선택권 완료" if run.picked else "선택권 사용",
-			" ".join(pl.map(func(p): return "%s×%d" % [DB.TIER[p.t].n, p.n])), func():
+		acts.add_child(UI.tile_act("pick", "선택권", " ".join(pl.map(func(p): return "%s%d" % [DB.TIER[p.t].n, p.n])), func():
 			act("begin_picks", ["phase", -1])
-			picker(), "", run.picked or not can_act()))
+			picker(), "", run.picked, not can_act()))
 	var rg := run.grant_list()
 	if not rg.is_empty():
-		acts.add_child(UI.act("무작위 배급 완료" if run.granted else "무작위 배급",
-			" ".join(rg.map(func(p): return "%s×%d" % [DB.TIER[mini(Run.FREE_TIER_CAP, int(p.t))].n, p.n])) + " 무작위", func():
+		acts.add_child(UI.tile_act("grant", "배급", " ".join(rg.map(func(p): return "%s%d" % [DB.TIER[mini_n(Run.FREE_TIER_CAP, int(p.t))].n, p.n])), func():
 			for k in act("random_grant"):
-				toast("%s 배급 · %s" % [DB.C[k].name, DB.TIER[DB.C[k].tier].n], "gain"), "", run.granted or not can_act()))
+				toast("%s 배급 · %s" % [DB.C[k].name, DB.TIER[DB.C[k].tier].n], "gain"), "", run.granted, not can_act()))
 	for i in run.pending_picks.size():
 		var p: Dictionary = run.pending_picks[i]
-		acts.add_child(UI.act("%s ×%d" % [DB.TIER[mini(Run.FREE_TIER_CAP, p.t)].n, p.n], str(p.src).split(" · ")[0] + " 보상", func():
+		acts.add_child(UI.tile_act("gift", "%s ×%d" % [DB.TIER[mini_n(Run.FREE_TIER_CAP, int(p.t))].n, p.n], str(p.src).split(" · ")[0], func():
 			act("begin_picks", ["pending", i])
-			picker(), "warn", not can_act()))
+			picker(), "warn", false, not can_act()))
 	if not run.pick_queue.is_empty():
 		var left := 0
 		for q in run.pick_queue:
 			left += int(q.n)
-		acts.add_child(UI.act("선택권 이어서", "%d회 남음" % left, picker, "gold", not can_act()))
+		acts.add_child(UI.tile_act("pick", "이어서", "%d회 남음" % left, picker, "gold", false, not can_act()))
 	v.add_child(acts)
-	if run.last_spoil != null:
-		v.add_child(UI.hint("방금 받은 기본패 %d장 — %s" % [run.last_spoil.n, run.last_spoil.src]))
 
+	# 보급품 · 소식 —— 한 줄 칩
+	var chips := UI.hbox(6)
 	if run.last_item != null:
-		v.add_child(UI.sect("이번 페이즈 보급품", item_box(run.last_item)))
+		var it: Dictionary = DB.IT[run.last_item]
+		var ic := UI.icon_chip("item", "%s · %s" % [it.name, UI.item_text(run.last_item)], UI.item_col(run.last_item), func(): _item_sheet(run.last_item))
+		ic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ic.size_flags_stretch_ratio = 2.0
+		chips.add_child(ic)
 	if not run.news.is_empty():
-		var nv := UI.vbox(4)
-		for nw in run.news.slice(0, 5):
-			nv.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.TIER[DB.C[nw.unit].tier].n]))
-		v.add_child(UI.sect("전황 소식", UI.panel(nv)))
+		var nc := UI.icon_chip("news", "소식 %d" % run.news.size(), DB.PAL.bamboo, _news_sheet)
+		nc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chips.add_child(nc)
+	if chips.get_child_count() > 0:
+		v.add_child(chips)
 
-	if not run.last_draw.is_empty():
-		var cnt := {}
-		for k in run.last_draw:
-			cnt[k] = cnt.get(k, 0) + 1
-		var f := tiles()
-		for k in Run.sort_cards(cnt.keys()):
-			f.add_child(tile(k, cnt[k]))
-		v.add_child(UI.sect("방금 징집한 %d장" % run.last_draw.size(), f))
+	# 이어지는 조합 —— 가로로 넘긴다 (되는 것 먼저)
+	var near := run.near_recipes(12)
+	if not near.is_empty():
+		near.sort_custom(func(x, y):
+			var a := run.can_forge(x.out)
+			var b2 := run.can_forge(y.out)
+			if a != b2:
+				return a
+			return x.short < y.short)
+		var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
+		var sec := UI.vbox(6)
+		sec.add_child(UI.head("이어지는 조합", ("지금 %d개 가능 · " % ready_n if ready_n else "") + "옆으로 넘기기 ›"))
+		var st := UI.strip(8)
+		for r in near:
+			st[1].add_child(recipe_card(r.out))
+		sec.add_child(st[0])
+		v.add_child(sec)
 
+	# 보유 카드 —— 초상 격자
 	var p := run.pool()
 	var tot := 0
 	for k in p:
 		tot += p[k]
-	var hand := tiles()
+	var mats := _ready_mats()
+	var hand := minis()
 	for k in Run.sort_cards(p.keys()):
-		var t := tile(k, p[k])
+		var t := mtile(k, p[k])
 		if run.on_board(k) > 0:
-			t.mark = "on"
-			t.note = "편성 %d · 손패 %d" % [run.on_board(k), run.inv.get(k, 0)]
+			t.badge = "편성 %d" % run.on_board(k)
+			t.badge_col = Color(DB.PAL.ink4, 0.95)
+		t.up = mats.has(k)
 		hand.add_child(t)
 	var hv := UI.vbox(6)
-	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다."))
-	hv.add_child(UI.hint("카드를 누르면 능력과 그 카드가 쓰이는 상위 조합을 볼 수 있다."))
-	v.add_child(UI.sect("보유 카드 — %d장 · %d PV" % [tot, run.my_pv()], hv))
-
-	var near := run.near_recipes(10)
-	var rv := UI.vbox(8)
-	for r in near:
-		var sub := "%d장 부족" % r.short if r.short > 0 else ("유니크 %s 필요 — 후반 보급" % DB.C[r.out].need if r.no_item else "")
-		rv.add_child(recipe_row(r.out, sub))
-	if near.is_empty():
-		rv.add_child(UI.hint("먼저 기본패를 모으자."))
-	v.add_child(UI.sect("연관 조합 — 지금 손패에서 이어지는 길", rv))
+	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
+	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
+	v.add_child(hv)
 	return v
+
+
+func mini_n(a: int, b: int) -> int:
+	return a if a < b else b
+
+
+func _news_sheet() -> void:
+	var b := open_sheet("전황 소식")
+	for nw in run.news:
+		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.TIER[DB.C[nw.unit].tier].n], 15))
+
+
+func _item_sheet(id: String) -> void:
+	var it: Dictionary = DB.IT[id]
+	var b := open_sheet(it.name)
+	b.add_child(item_box(id, run.bag.get(id, 0)))
+	b.add_child(UI.hint("%s 전용 · %s. 편성 탭에서 칸을 눌러 장착한다.%s" % [it.tag, it.grade, " 신화 장수 조합 재료이기도 하다." if it.use == "myth" else ""]))
+	b.add_child(UI.btn("편성하러 가기", func():
+		close_sheet()
+		go("deploy"), "pri"))
 
 
 ## 선택권 —— Run.pick_queue 맨 앞 선택권에서 한 장씩 고른다. 다 쓰면 닫는다
@@ -1004,66 +1083,95 @@ func _toggle(key: String, default := false) -> void:
 
 
 func _page_forge() -> Control:
-	var v := UI.vbox(16)
-	v.add_child(_page_head("조합", "편성판 카드도 재료로 쓰인다. 신화 장수는 유니크 아이템이 함께 필요하다."))
+	var v := UI.vbox(14)
+	var hd := UI.hbox(8)
+	var tl := UI.lbl("조합", 22, DB.PAL.paper, true)
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hd.add_child(tl)
+	var tb := UI.icon_chip("trade", "환전 %d회" % run.trades, DB.PAL.gold if run.trades > 0 else DB.PAL.bamboo_dim, _trade_list)
+	tb.custom_minimum_size = Vector2(118, 40)
+	hd.add_child(tb)
+	v.add_child(hd)
+	# 거르기 —— 병종 · 등급 (가로로 넘기는 칩 두 줄)
 	var st := UI.strip(6)
 	for t in [""] + DB.D.TAGORDER:
 		var n: int = DB.D.RECDEF.filter(func(r): return run.can_forge(r[0]) and (t == "" or DB.C[r[0]].tag == t)).size()
 		st[1].add_child(UI.chip(("전체" if t == "" else t) + (" %d" % n if n > 0 else ""), forge_tag == t, func():
 			forge_tag = t
-			render()))
-	st[0].custom_minimum_size = Vector2(0, 44)
+			_forge_more = 0
+			render(), 36))
 	v.add_child(st[0])
-	var ready: Array = DB.D.RECDEF.filter(func(r): return run.can_forge(r[0]) and (forge_tag == "" or DB.C[r[0]].tag == forge_tag))
+	var st2 := UI.strip(6)
+	for t in [0, 2, 3, 4, 5, 6, 7, 8]:
+		st2[1].add_child(UI.chip("모든 등급" if t == 0 else DB.TIER[t].n, forge_tier == t, func():
+			forge_tier = t
+			_forge_more = 0
+			render(), 36))
+	v.add_child(st2[0])
+	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and (forge_tier == 0 or DB.C[r[0]].tier == forge_tier))
+	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
+	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
 	if not ready.is_empty():
-		var nv := UI.vbox(8)
+		var sec := UI.vbox(6)
+		sec.add_child(UI.head("지금 조합 가능 %d" % ready.size(), "버튼 한 번에 조합 ›"))
+		var rs := UI.strip(8)
 		for r in ready:
-			nv.add_child(recipe_row(r[0]))
-		v.add_child(UI.sect("지금 조합 가능 — %d개" % ready.size(), nv))
-	else:
-		v.add_child(UI.panel(UI.hint("지금 조합할 수 있는 것이 없다. 아래 등급을 펼쳐 무엇이 모자란지 보자.")))
-	var tv0 := UI.vbox(8)
-	for t in range(8, 1, -1):
-		var lst: Array = DB.D.RECDEF.filter(func(r): return DB.C[r[0]].tier == t and (forge_tag == "" or DB.C[r[0]].tag == forge_tag))
-		if lst.is_empty():
-			continue
-		var key: String = "forge:%d:%s" % [t, forge_tag]
-		var open: bool = _open.get(key, false)
-		var near_n: int = lst.filter(func(r): return run.miss_count(r[0]) <= 1).size()
-		tv0.add_child(UI.fold(DB.TIER[t].n, "%d종 · %d~%d PV%s" % [lst.size(), DB.TIER[t].lo, DB.TIER[t].hi, (" · 1장 이내 %d" % near_n) if near_n else ""],
-			open, func(): _toggle(key)))
-		if not open:
-			continue
-		lst.sort_custom(func(x, y):
-			var a := run.can_forge(x[0])
-			var b2 := run.can_forge(y[0])
-			if a != b2:
-				return a
-			return run.miss_count(x[0]) < run.miss_count(y[0]))
-		for r in lst:
-			tv0.add_child(recipe_row(r[0]))
-	v.add_child(UI.sect("등급별 조합법", tv0))
-
-	# 환전
-	var tv := UI.vbox(8)
-	tv.add_child(UI.hint("같은 등급 안에서 1대1로 바꾼다. 계보를 갈아타는 유일한 통로다."))
-	var f := tiles()
-	var p := run.pool()
-	for t in [2, 3, 4, 5, 6, 7]:
-		for k in run.tier_stock(t):
-			var tl := tile(k, p[k], func(id): trade_sheet(id))
-			tl.note = "눌러서 바꾸기"
-			tl.note_col = DB.PAL.gold
-			f.add_child(tl)
-	if run.trades <= 0:
-		tv.add_child(UI.hint("이번 페이즈 환전을 모두 썼다."))
-	elif f.get_child_count() == 0:
-		tv.add_child(UI.hint("바꿀 카드가 없다."))
-	else:
-		tv.add_child(f)
-	v.add_child(UI.sect("환전 — 이번 페이즈 %d회 남음" % run.trades, tv))
+			rs[1].add_child(recipe_card(r[0]))
+		sec.add_child(rs[0])
+		v.add_child(sec)
+	# 나머지 —— 가까운 순 (모자란 장수 적은 것 먼저, 같으면 높은 등급)
+	lst = lst.filter(func(r): return not run.can_forge(r[0]))
+	lst.sort_custom(func(x, y):
+		var a := run.miss_count(x[0])
+		var b2 := run.miss_count(y[0])
+		if a != b2:
+			return a < b2
+		return DB.C[x[0]].tier > DB.C[y[0]].tier)
+	var show_n := 40 + _forge_more
+	var g := minis()
+	for i in mini_n(show_n, lst.size()):
+		var out: String = lst[i][0]
+		var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
+		var miss := run.miss_count(out)
+		t.lit = run.can_forge(out)
+		if t.lit:
+			t.badge = "조합"
+			t.badge_col = Color(DB.PAL.jade, 0.95)
+		elif miss > 0:
+			t.badge = "-%d" % miss
+			t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
+		else:
+			t.badge = "◆"
+			t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
+		g.add_child(t)
+	var sec2 := UI.vbox(6)
+	sec2.add_child(UI.head(("나머지 %d — 가까운 순" if not ready.is_empty() else "조합법 %d — 가까운 순") % lst.size(), "-n 모자람 · ◆ 유니크"))
+	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
+	if lst.size() > show_n:
+		sec2.add_child(UI.btn("더 보기 (%d개 남음)" % (lst.size() - show_n), func():
+			_forge_more += 40
+			render(), "ghost", 46))
+	v.add_child(sec2)
 	return v
+
+
+## 환전 —— 바꿀 수 있는 카드 고르기 (같은 등급 1대1)
+func _trade_list() -> void:
+	var b := open_sheet("환전 — 이번 페이즈 %d회" % run.trades)
+	b.add_child(UI.hint("같은 등급 안에서 1대1로 바꾼다. 계보를 갈아타는 유일한 통로다. 바꿀 카드를 누른다."))
+	if run.trades <= 0:
+		b.add_child(UI.hint("이번 페이즈 환전을 모두 썼다."))
+		return
+	var g := minis()
+	var p := run.pool()
+	for t in [7, 6, 5, 4, 3, 2]:
+		for k in run.tier_stock(t):
+			g.add_child(mtile(k, p[k], func(id): trade_sheet(id)))
+	if g.get_child_count() == 0:
+		b.add_child(UI.hint("바꿀 카드가 없다."))
+	else:
+		b.add_child(g)
 
 
 func trade_sheet(from: String) -> void:
@@ -1476,6 +1584,7 @@ func _dev_args() -> void:
 		var kv: PackedStringArray = str(a.gsheet).split(":")
 		match kv[0]:
 			"card": card_info(kv[1])
+			"recipe": recipe_sheet(kv[1])
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
 			"settings": _settings_sheet()
