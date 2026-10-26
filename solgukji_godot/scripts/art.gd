@@ -20,7 +20,9 @@ static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0) -> void
 	# 실제 그림 —— 배경이 투명한 그림도 세력색 바탕 위에 얹힌다
 	if tex:
 		var used := DB.portrait_used(k)
-		if used.has_area():
+		if used.has_area() and DB.portrait_panel(k):
+			_draw_panel(ci, r, tex, used)
+		elif used.has_area():
 			_draw_fit(ci, r, tex, used)
 		else:
 			_draw_cover(ci, r, tex)
@@ -117,6 +119,22 @@ static func _troops(ci: CanvasItem, r: Rect2, c: Dictionary) -> void:
 
 
 ## 잘라 낸 인물 —— 그려진 영역 전체가 들어오게 줄이고, 아래쪽 띠(칸 높이의 15%) 위에 발을 붙여 가운데 둔다
+## 패널 그림 —— 칸 너비에 맞추고 아래를 잘라 칸을 꽉 채운다 (머리·투구 깃은 남긴다)
+static func _draw_panel(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> void:
+	var area := r.grow(-minf(r.size.x, r.size.y) * 0.03)
+	var src := used
+	var want_h := used.size.x * area.size.y / area.size.x
+	if want_h < used.size.y:
+		src.size.y = want_h
+		ci.draw_texture_rect_region(tex, area, src)
+		return
+	# 칸이 그림보다 세로로 길면 높이에 맞추고 양옆을 자른다
+	var want_w := used.size.y * area.size.x / area.size.y
+	src.position.x += (used.size.x - want_w) / 2
+	src.size.x = want_w
+	ci.draw_texture_rect_region(tex, area, src)
+
+
 static func _draw_fit(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> void:
 	var area := Rect2(r.position + Vector2(r.size.x * 0.05, r.size.y * 0.05), Vector2(r.size.x * 0.9, r.size.y * 0.80))
 	var sc := minf(area.size.x / used.size.x, area.size.y / used.size.y)

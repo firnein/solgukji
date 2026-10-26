@@ -26,6 +26,7 @@ var font_bold: Font
 
 var _portrait_cache := {}
 var _portrait_used := {}     # 배경이 투명한 그림 -> 실제로 그려진 영역 (Rect2)
+var _portrait_panel := {}    # 패널째 잘린 그림(그려진 영역이 거의 꽉 찬 사각형) —— 칸을 꽉 채워 그린다
 var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등급 그림이 없으면 기본 그림)
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
@@ -260,10 +261,25 @@ func _load_portrait(base: String) -> Texture2D:
 				var w := img.get_width() - 1
 				var h := img.get_height() - 1
 				if img.get_pixel(0, 0).a < 0.1 and img.get_pixel(w, 0).a < 0.1 and img.get_pixel(0, h).a < 0.1 and img.get_pixel(w, h).a < 0.1:
-					_portrait_used[base] = Rect2(img.get_used_rect())
+					var ur := img.get_used_rect()
+					_portrait_used[base] = Rect2(ur)
+					var n := 0
+					var on := 0
+					for y in range(ur.position.y, ur.end.y, 8):
+						for x in range(ur.position.x, ur.end.x, 8):
+							n += 1
+							if img.get_pixel(x, y).a > 0.5:
+								on += 1
+					if n > 0 and on > n * 0.77:     # 새 화풍 패널 0.79~0.89, 오려 낸 인물은 0.74 이하
+						_portrait_panel[base] = true
 			break
 	_portrait_cache[base] = tex
 	return tex
+
+
+## 패널째 잘린 그림인가 —— 사각형이 꽉 차 있어 칸에 맞춰 위쪽만 보여 줘도 된다
+func portrait_panel(k: String) -> bool:
+	return _portrait_panel.has(portrait_base(k))
 
 
 ## 잘라 낸 인물 그림이면 그려진 영역, 아니면 빈 Rect2
