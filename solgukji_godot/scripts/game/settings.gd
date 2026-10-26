@@ -7,9 +7,11 @@ const PATH := "user://settings.cfg"
 const QUALITY_N := ["낮음", "중간", "높음"]
 const COUNT_SCALE := [0.4, 0.65, 1.0]     # 병사 수 배율 (Squad.count_scale)
 const SHADOW := [1024, 2048, 4096]
+const RES_SCALE := [0.6, 0.8, 1.0]       # 전장 3D 해상도 (화면 실제 픽셀 대비)
 
 static var quality := -1
 static var auto_battle := false
+static var haptics := true
 static var _loaded := false
 
 
@@ -21,6 +23,7 @@ static func load_cfg() -> void:
 	if cf.load(PATH) == OK:
 		quality = int(cf.get_value("gfx", "quality", -1))
 		auto_battle = bool(cf.get_value("play", "auto_battle", false))
+		haptics = bool(cf.get_value("play", "haptics", true))
 	if quality < 0:
 		quality = 0 if OS.has_feature("mobile") else 2
 	apply()
@@ -30,6 +33,7 @@ static func save_cfg() -> void:
 	var cf := ConfigFile.new()
 	cf.set_value("gfx", "quality", quality)
 	cf.set_value("play", "auto_battle", auto_battle)
+	cf.set_value("play", "haptics", haptics)
 	cf.save(PATH)
 
 

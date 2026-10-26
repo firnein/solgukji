@@ -1,8 +1,9 @@
 class_name UI
 extends RefCounted
-## 화면 부품 —— 손가락으로 누르기 좋게 버튼은 높이 48 이상. 색은 DB.PAL.
+## 화면 부품 —— 세로 화면(기준 폭 400) 휴대폰용. 손가락으로 누르기 좋게 버튼은 높이 48 이상. 색은 DB.PAL.
+## 스크롤은 UI.scroll() 로 만든다 (TouchScroll 이 버튼 위에서 끌어도 스크롤되게 한다).
 
-const BTN_H := 52
+const BTN_H := 50
 
 
 static func theme() -> Theme:
@@ -37,6 +38,23 @@ static func theme() -> Theme:
 	th.set_stylebox("grabber_highlight", "VScrollBar", flat(P.bamboo_dim, P.bamboo_dim, 0, 6, 0))
 	th.set_stylebox("grabber_pressed", "VScrollBar", flat(P.bamboo, P.bamboo, 0, 6, 0))
 	th.set_stylebox("scroll", "VScrollBar", flat(Color(P.ink, 0.4), P.ink, 0, 6, 0))
+	# 손가락으로 끄니 막대는 가늘게 보여 주기만 한다
+	var thin := flat(Color(P.paper, 0.18), Color(P.paper, 0.18), 0, 3, 0)
+	thin.content_margin_left = 2
+	thin.content_margin_right = 2
+	th.set_stylebox("grabber", "VScrollBar", thin)
+	th.set_stylebox("scroll", "VScrollBar", StyleBoxEmpty.new())
+	var thin_h := thin.duplicate()
+	thin_h.content_margin_left = 0
+	thin_h.content_margin_right = 0
+	thin_h.content_margin_top = 2
+	thin_h.content_margin_bottom = 2
+	th.set_stylebox("grabber", "HScrollBar", thin_h)
+	th.set_stylebox("scroll", "HScrollBar", StyleBoxEmpty.new())
+	th.set_stylebox("normal", "LineEdit", flat(P.ink, P.ink4, 1, 8, 10))
+	th.set_stylebox("focus", "LineEdit", flat(P.ink, P.bamboo, 1, 8, 10))
+	th.set_font_size("font_size", "LineEdit", 16)
+	th.set_font_size("font_size", "CheckButton", 15)
 	return th
 
 
@@ -62,7 +80,7 @@ static func lbl(text: String, fs := 15, col := Color(0, 0, 0, 0), display := fal
 
 
 static func hint(text: String) -> Label:
-	var l := lbl(text, 13, DB.PAL.bamboo_dim)
+	var l := lbl(text, 13, DB.PAL.bamboo_dim.lightened(0.12))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
@@ -89,7 +107,9 @@ static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> Button:
 	b.text = text
 	b.custom_minimum_size = Vector2(0, h)
 	b.add_theme_font_size_override("font_size", 16)
-	b.pressed.connect(cb)
+	b.pressed.connect(func():
+		buzz()
+		cb.call())
 	match kind:
 		"pri":
 			b.add_theme_stylebox_override("normal", flat(DB.PAL.jade.darkened(0.25), DB.PAL.jade, 1, 8, 10))
@@ -109,7 +129,8 @@ static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> Button:
 static func act(title: String, sub: String, cb: Callable, kind := "", disabled := false) -> Button:
 	var b := btn("", cb, kind, 64)
 	b.disabled = disabled
-	b.custom_minimum_size = Vector2(220, 64)
+	b.custom_minimum_size = Vector2(0, 64)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -120,6 +141,10 @@ static func act(title: String, sub: String, cb: Callable, kind := "", disabled :
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var s := lbl(sub, 12, Color(DB.PAL.bamboo, 0.4 if disabled else 1.0))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	s.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	s.clip_text = true
+	t.clip_text = true
 	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(t)
 	v.add_child(s)
@@ -132,6 +157,129 @@ static func panel(child: Control, pad := 12) -> PanelContainer:
 	p.add_theme_stylebox_override("panel", flat(DB.PAL.ink2, DB.PAL.ink3, 1, 8, pad))
 	p.add_child(child)
 	return p
+
+
+## 스크롤 상자 —— 손가락 끌기는 TouchScroll 이 맡는다. horizontal 이면 가로로만
+static func scroll(horizontal := false) -> ScrollContainer:
+	var sc := ScrollContainer.new()
+	if horizontal:
+		sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	else:
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	TouchScroll.add(sc)
+	return sc
+
+
+## 가로로 넘기는 띠 —— 칩·진형처럼 한 줄에 다 안 들어가는 것
+static func strip(sep := 8) -> Array:
+	var sc := scroll(true)
+	var h := hbox(sep)
+	sc.add_child(h)
+	return [sc, h]
+
+
+## 폭에 맞춰 칸 수를 정하는 격자 —— 카드·아이템 목록 (휴대폰 세로는 두 칸)
+static func grid(min_w := 168.0, sep := 8) -> AutoGrid:
+	var g := AutoGrid.new()
+	g.min_w = min_w
+	g.sep = sep
+	return g
+
+
+## 짧은 진동 —— 휴대폰에서 누를 때 손끝 반응
+static func buzz(ms := 8) -> void:
+	if Settings.haptics and OS.has_feature("mobile"):
+		Input.vibrate_handheld(ms)
+
+
+## 알약 모양 선택지 —— 필터·탭에 쓴다
+static func chip(text: String, on: bool, cb: Callable, h := 40) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(0, h)
+	b.add_theme_font_size_override("font_size", 14)
+	var P := DB.PAL
+	var r := int(h / 2)
+	if on:
+		b.add_theme_stylebox_override("normal", flat(P.bamboo, P.bamboo, 1, r, 14))
+		b.add_theme_stylebox_override("hover", flat(P.bamboo, P.gold, 1, r, 14))
+		b.add_theme_color_override("font_color", Color("#1A1508"))
+		b.add_theme_color_override("font_hover_color", Color("#1A1508"))
+	else:
+		b.add_theme_stylebox_override("normal", flat(P.ink2, P.ink4, 1, r, 14))
+		b.add_theme_stylebox_override("hover", flat(P.ink3, P.bamboo_dim, 1, r, 14))
+	b.add_theme_stylebox_override("pressed", flat(P.ink4, P.bamboo, 1, r, 14))
+	b.pressed.connect(func():
+		buzz()
+		cb.call())
+	return b
+
+
+## 분할 탭 —— [계보 | 순위] 처럼 한 줄을 나눠 고른다
+static func segmented(items: Array, cur: String, cb: Callable) -> Control:
+	var P := DB.PAL
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", flat(P.ink2, P.ink3, 1, 12, 4))
+	var h := hbox(4)
+	p.add_child(h)
+	for it in items:
+		var on: bool = it[0] == cur
+		var b := Button.new()
+		b.text = it[1]
+		b.custom_minimum_size = Vector2(0, 40)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 15)
+		b.add_theme_font_override("font", DB.font_display)
+		b.add_theme_stylebox_override("normal", flat(P.ink4 if on else Color(0, 0, 0, 0), P.ink4 if on else Color(0, 0, 0, 0), 0, 9, 6))
+		b.add_theme_stylebox_override("hover", flat(P.ink4 if on else P.ink3, P.ink4, 0, 9, 6))
+		b.add_theme_stylebox_override("pressed", flat(P.ink4, P.ink4, 0, 9, 6))
+		b.add_theme_color_override("font_color", P.paper if on else P.bamboo_dim)
+		b.add_theme_color_override("font_pressed_color", P.paper)
+		var key: String = it[0]
+		b.pressed.connect(func():
+			buzz()
+			cb.call(key))
+		h.add_child(b)
+	return p
+
+
+## 접는 묶음 —— 머리줄을 누르면 펼치고 접는다. open 이면 body 를 붙인다 (닫혀 있으면 body 를 만들지 않아도 된다)
+static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button:
+	var P := DB.PAL
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 52)
+	b.add_theme_stylebox_override("normal", flat(P.ink2, P.ink3, 1, 10, 12))
+	b.add_theme_stylebox_override("hover", flat(P.ink3, P.ink4, 1, 10, 12))
+	b.add_theme_stylebox_override("pressed", flat(P.ink3, P.bamboo_dim, 1, 10, 12))
+	b.pressed.connect(func():
+		buzz()
+		cb.call())
+	var h := hbox(8)
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 14
+	h.offset_right = -14
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var t := lbl(title, 16, P.paper, true)
+	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	t.size_flags_vertical = Control.SIZE_FILL
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(t)
+	var s := lbl(sub, 13, P.bamboo)
+	s.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	s.size_flags_vertical = Control.SIZE_FILL
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	s.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	s.clip_text = true
+	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(s)
+	var ar := lbl("−" if open else "+", 20, P.bamboo_dim, true)
+	ar.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ar.size_flags_vertical = Control.SIZE_FILL
+	ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(ar)
+	b.add_child(h)
+	return b
 
 
 static func vbox(sep := 8) -> VBoxContainer:

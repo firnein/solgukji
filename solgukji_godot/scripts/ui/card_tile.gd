@@ -5,7 +5,7 @@ extends Control
 
 signal tapped(k: String)
 
-const SIZE := Vector2(176, 78)
+const SIZE := Vector2(168, 78)
 const HOLD := 0.35
 
 var k := ""

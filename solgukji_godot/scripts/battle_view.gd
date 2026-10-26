@@ -1,5 +1,5 @@
 class_name BattleView
-extends HBoxContainer
+extends Control
 ## 실시간 3D 전장 —— 판정은 Battle(턴제 엔진)이 끝낸다. 그리기는 War3D 가 맡는다.
 ## 판정은 Battle(턴제 엔진)이 끝낸다. 이 화면은 그 결과를 시간축에 다시 깔아
 ## 행동들이 겹쳐 흐르게 재생한다. 근접 부대는 실제로 달려가 맞붙고, 궁병은 화살을 날리고,
@@ -13,6 +13,10 @@ extends HBoxContainer
 ## 다음에 피해를 받을 때까지(0.8~3.5초) 꾸준히 따라간다. 그래서 맞붙어 있는 동안 병사가
 ## 한 명씩 계속 쓰러진다. 병력이 다해 무너지는 패주는 남은 병사가 다 쓰러진 뒤에 표시한다.
 ## 다음 이벤트가 오기 전에 따라잡으므로 최종 값은 엔진과 같다 (_finish 에서 확인한다).
+##
+## 화면(휴대폰 세로): 위 띠(제목 · 배속 · ⋯ 메뉴) / 전장 / 아래 독(군령 + 아군 장수 카드 격자).
+## ⋯ 메뉴는 오른쪽에서 열린다 —— 자동 전투 · 결과로 · 전투 기록.
+## 3D 는 화면 실제 해상도(× 품질 배율)로 그린다 —— 논리 크기로 그리면 휴대폰에서 흐리다.
 
 const LEVELS := [["초반 · 1일차", 60], ["중반 · 4일차", 300], ["후반 · 6일차", 700], ["신화전", -1]]
 const OPEN := 2.2
@@ -27,7 +31,7 @@ var stage: Control          # 전장 영역
 var port: SubViewport
 var field: War3D
 var hud: Hud
-var cards_bar: HBoxContainer
+var cards_bar: AutoGrid
 var log_box: RichTextLabel
 var title_label: Label
 var level_pick: OptionButton
@@ -79,6 +83,9 @@ var locked := false         # 온라인 1단계 —— 서버가 준 결과를 �
 var _auto_btn: CheckButton
 var _dev_row: Control
 var _side: Control
+var _side_mask: ColorRect
+var _box: SubViewportContainer
+var _rscale := 1.0         # 3D 해상도 / 논리 크기
 var _touches := {}          # 손가락 번호 -> 위치 (두 손가락 확대·회전)
 var _pinch := []            # [거리, 각도]
 
@@ -86,28 +93,31 @@ var _pinch := []            # [거리, 각도]
 
 func _ready() -> void:
 	rng.randomize()
-	add_theme_constant_override("separation", 0)
-	var left := VBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation", 0)
-	add_child(left)
+	var bg := ColorRect.new()
+	bg.color = Color("#0b0f1a")
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.add_theme_constant_override("separation", 0)
+	add_child(col)
+	col.add_child(_build_top())
 
 	stage = Control.new()
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.clip_contents = true
-	left.add_child(stage)
-	var box := SubViewportContainer.new()
-	box.stretch = true
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.mouse_filter = Control.MOUSE_FILTER_STOP
-	box.gui_input.connect(_stage_input)
-	stage.add_child(box)
+	col.add_child(stage)
+	_box = SubViewportContainer.new()
+	_box.stretch = false
+	_box.mouse_filter = Control.MOUSE_FILTER_STOP
+	_box.gui_input.connect(_stage_input)
+	stage.add_child(_box)
 	port = SubViewport.new()
 	port.own_world_3d = true
 	port.msaa_3d = Viewport.MSAA_4X
 	port.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	port.positional_shadow_atlas_size = 4096
-	box.add_child(port)
+	_box.add_child(port)
 	field = War3D.new()
 	port.add_child(field)
 	hud = Hud.new()
@@ -115,56 +125,147 @@ func _ready() -> void:
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage.add_child(hud)
+	stage.resized.connect(fit_port)
 
-	var bar_bg := PanelContainer.new()
-	bar_bg.custom_minimum_size = Vector2(0, 86)
+	# 아래 독 —— 군령 줄 + 아군 장수 카드 격자 (금빛이면 눌러 고유기)
+	var dock := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#0f1424")
 	sb.border_color = DB.PAL.ink3
 	sb.border_width_top = 1
-	sb.set_content_margin_all(7)
-	bar_bg.add_theme_stylebox_override("panel", sb)
-	cards_bar = HBoxContainer.new()
-	cards_bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	cards_bar.add_theme_constant_override("separation", 6)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	dock.add_theme_stylebox_override("panel", sb)
+	col.add_child(dock)
+	var dv := VBoxContainer.new()
+	dv.add_theme_constant_override("separation", 8)
+	dock.add_child(dv)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	bar_bg.add_child(row)
-	var cmdv := VBoxContainer.new()
-	cmdv.add_theme_constant_override("separation", 4)
-	row.add_child(cmdv)
+	row.add_theme_constant_override("separation", 6)
+	dv.add_child(row)
 	pts_label = Label.new()
-	pts_label.add_theme_font_size_override("font_size", 12)
+	pts_label.add_theme_font_size_override("font_size", 13)
 	pts_label.add_theme_color_override("font_color", DB.PAL.bamboo)
-	cmdv.add_child(pts_label)
-	var cb := HBoxContainer.new()
-	cmdv.add_child(cb)
+	pts_label.custom_minimum_size = Vector2(64, 0)
+	pts_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pts_label.size_flags_vertical = Control.SIZE_FILL
+	row.add_child(pts_label)
 	for nm in Battle.CMDS:
 		var b := Button.new()
 		b.text = nm
 		b.tooltip_text = "군령 2 · " + Battle.CMDS[nm].d
-		b.custom_minimum_size = Vector2(58, 40)
-		b.pressed.connect(func(): request_cmd(nm))
-		cb.add_child(b)
+		b.custom_minimum_size = Vector2(0, 44)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_override("font", DB.font_display)
+		b.add_theme_font_size_override("font_size", 16)
+		b.pressed.connect(func():
+			UI.buzz(12)
+			request_cmd(nm))
+		row.add_child(b)
 		cmd_btns.append(b)
-	cards_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(cards_bar)
-	left.add_child(bar_bg)
-	_side = _build_side()
-	add_child(_side)
+	cards_bar = UI.grid(64, 5)
+	cards_bar.max_cols = 5
+	dv.add_child(cards_bar)
+
+	_build_side()
 
 
-func _build_side() -> Control:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(330, 0)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	panel.add_child(v)
+## 위 띠 —— 전투 이름 · 배속 · ⋯ 메뉴
+func _build_top() -> Control:
+	var bar := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#0f1424")
+	sb.border_color = DB.PAL.ink3
+	sb.border_width_bottom = 1
+	sb.content_margin_left = 12
+	sb.content_margin_right = 4
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	bar.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 4)
+	bar.add_child(h)
 	title_label = Label.new()
 	title_label.add_theme_font_override("font", DB.font_display)
-	title_label.add_theme_font_size_override("font_size", 20)
+	title_label.add_theme_font_size_override("font_size", 16)
 	title_label.text = "전장"
-	v.add_child(title_label)
+	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_label.clip_text = true
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.size_flags_vertical = Control.SIZE_FILL
+	h.add_child(title_label)
+	var seg := PanelContainer.new()
+	seg.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, DB.PAL.ink3, 1, 10, 3))
+	var sp := HBoxContainer.new()
+	sp.add_theme_constant_override("separation", 2)
+	seg.add_child(sp)
+	for s in [0.0, 1.0, 2.0, 4.0]:
+		var b := Button.new()
+		b.text = "❚❚" if s == 0.0 else "%d×" % s
+		b.toggle_mode = true
+		b.button_pressed = s == 1.0
+		b.custom_minimum_size = Vector2(40, 38)
+		b.add_theme_font_size_override("font_size", 14)
+		b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+		b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.bamboo, DB.PAL.bamboo, 0, 8, 4))
+		b.add_theme_stylebox_override("hover_pressed", UI.flat(DB.PAL.bamboo, DB.PAL.bamboo, 0, 8, 4))
+		b.pressed.connect(func():
+			UI.buzz()
+			_set_speed(s))
+		speed_btns.append([b, s])
+		sp.add_child(b)
+	h.add_child(seg)
+	var mb := Button.new()
+	mb.text = "⋯"
+	mb.custom_minimum_size = Vector2(44, 40)
+	mb.add_theme_font_size_override("font_size", 22)
+	mb.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	mb.pressed.connect(toggle_menu)
+	h.add_child(mb)
+	return bar
+
+
+## ⋯ 메뉴 —— 오른쪽에서 열린다. 자동 전투 · 결과로 · 전투 기록 (점검 화면에서는 단계 고르기 · 새 전투)
+func _build_side() -> void:
+	_side_mask = ColorRect.new()
+	_side_mask.color = Color(0, 0, 0, 0.45)
+	_side_mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_side_mask.visible = false
+	_side_mask.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			set_side_visible(false))
+	TouchScroll.block(_side_mask)
+	add_child(_side_mask)
+	var panel := PanelContainer.new()
+	var psb := UI.flat(DB.PAL.ink2, DB.PAL.bamboo_dim, 0, 0, 14)
+	psb.border_width_left = 1
+	psb.corner_radius_top_left = 16
+	psb.corner_radius_bottom_left = 16
+	panel.add_theme_stylebox_override("panel", psb)
+	panel.anchor_left = 1
+	panel.anchor_right = 1
+	panel.anchor_top = 0
+	panel.anchor_bottom = 1
+	panel.visible = false
+	add_child(panel)
+	_side = panel
+	_fit_side()
+	resized.connect(_fit_side)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	panel.add_child(v)
+	var top := HBoxContainer.new()
+	var tl := UI.lbl("전투 메뉴", 18, DB.PAL.paper, true)
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(tl)
+	var x := UI.btn("✕", func(): set_side_visible(false), "ghost", 44)
+	x.custom_minimum_size = Vector2(44, 44)
+	x.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	top.add_child(x)
+	v.add_child(top)
 
 	var row := HBoxContainer.new()
 	level_pick = OptionButton.new()
@@ -172,50 +273,71 @@ func _build_side() -> Control:
 		level_pick.add_item(l[0])
 	level_pick.selected = 2
 	level_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	level_pick.custom_minimum_size = Vector2(0, 44)
 	row.add_child(level_pick)
 	var nb := Button.new()
 	nb.text = "새 전투"
-	nb.pressed.connect(new_battle)
+	nb.custom_minimum_size = Vector2(0, 44)
+	nb.pressed.connect(func():
+		set_side_visible(false)
+		new_battle())
 	row.add_child(nb)
 	v.add_child(row)
 	_dev_row = row
 
-	var sp := HBoxContainer.new()
-	for s in [0.0, 1.0, 2.0, 4.0]:
-		var b := Button.new()
-		b.text = "❚❚" if s == 0.0 else "%d×" % s
-		b.toggle_mode = true
-		b.button_pressed = s == 1.0
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(func(): _set_speed(s))
-		speed_btns.append([b, s])
-		sp.add_child(b)
-	var sk := Button.new()
-	sk.text = "결과로"
-	sk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sk.pressed.connect(skip)
-	sp.add_child(sk)
-	v.add_child(sp)
 	var auto_btn := CheckButton.new()
 	auto_btn.text = "자동 전투 (고유기·군령을 AI 가)"
 	auto_btn.button_pressed = auto_on
+	auto_btn.custom_minimum_size = Vector2(0, 48)
+	auto_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auto_btn.toggled.connect(set_auto)
 	_auto_btn = auto_btn
 	v.add_child(auto_btn)
+	v.add_child(UI.btn("결과로 건너뛰기", func():
+		set_side_visible(false)
+		skip(), "ghost", 46))
 	var hint := Label.new()
-	hint.text = "아래 장수 카드가 금빛이면 눌러 고유기 · 군령은 포인트 2 · 휠: 확대 · 오른쪽 끌기·Q/E: 회전 · 왼쪽 끌기·WASD: 이동 · 스페이스: 일시정지"
-	hint.add_theme_font_size_override("font_size", 11)
+	hint.text = "장수 카드가 금빛이면 눌러 고유기 · 군령은 포인트 2\n두 손가락: 확대·회전 · 한 손가락: 이동\nPC: 휠 확대 · 오른쪽 끌기·Q/E 회전 · WASD 이동 · 스페이스 일시정지"
+	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", DB.PAL.bamboo_dim)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hint)
-
+	v.add_child(UI.eyebrow("전투 기록"))
 	log_box = RichTextLabel.new()
 	log_box.bbcode_enabled = true
 	log_box.scroll_following = true
 	log_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_box.add_theme_font_size_override("normal_font_size", 12)
+	log_box.add_theme_font_size_override("normal_font_size", 13)
+	log_box.add_theme_font_size_override("bold_font_size", 13)
+	TouchScroll.add(log_box)
 	v.add_child(log_box)
-	return panel
+
+
+func _fit_side() -> void:
+	if _side == null:
+		return
+	var w := minf(340.0, size.x * 0.86)
+	_side.offset_left = -w
+	_side.offset_right = 0
+
+
+func toggle_menu() -> void:
+	set_side_visible(not _side.visible)
+
+
+## 3D 해상도 맞추기 —— 화면 실제 픽셀(× 품질 배율)로 그리고 논리 크기로 줄여 보인다
+func fit_port() -> void:
+	if stage == null or stage.size.x < 2 or stage.size.y < 2:
+		return
+	var win := get_tree().root.get_final_transform().get_scale().x
+	var q: float = Settings.RES_SCALE[clampi(Settings.quality, 0, 2)]
+	_rscale = clampf(win * q, 0.75, 3.0)
+	var px := Vector2i(int(stage.size.x * _rscale), int(stage.size.y * _rscale))
+	port.size = px
+	_box.size = Vector2(px)
+	_box.scale = Vector2.ONE / _rscale
+	field.screen_scale = _rscale
+	field.set_portrait(stage.size.x < stage.size.y)
 
 
 func _set_speed(s: float) -> void:
@@ -305,6 +427,8 @@ func play(bt: Dictionary, auto := false) -> void:
 	game_mode = true
 	locked = false
 	_auto_btn.disabled = false
+	_auto_btn.text = "자동 전투 (고유기·군령을 AI 가)"
+	_auto_btn.set_pressed_no_signal(auto)
 	_dev_row.visible = false
 	auto_on = auto
 	_p = {"a": bt.a.cards, "fa": bt.a.form, "ma": bt.a.morale, "ea": bt.a.equip,
@@ -324,6 +448,7 @@ func play_res(r: Dictionary, kind := "") -> void:
 	locked = true
 	_dev_row.visible = false
 	_auto_btn.disabled = true
+	_auto_btn.text = "온라인 1단계 — 양쪽 모두 자동 전투"
 	_p = {}
 	inputs = []
 	res = r
@@ -339,6 +464,7 @@ func _pace_for(kind: String) -> void:
 
 func set_side_visible(on: bool) -> void:
 	_side.visible = on
+	_side_mask.visible = on
 
 
 ## 입력 반영 —— 처음부터 다시 계산하고 뒷부분 시간표만 갈아 끼운다. 입력이 실제로 먹혔는지 돌려준다
@@ -444,6 +570,8 @@ func _shuffled(a: Array) -> Array:
 
 
 func _begin() -> void:
+	set_side_visible(false)
+	fit_port()
 	field.setup(res)
 	fit_camera()
 	hud.reset()
@@ -633,7 +761,7 @@ func _process_inner(dt: float) -> void:
 		_apply(due.pop_front()[1])
 	_drain_step(d)
 	var pts := cmd_points()
-	pts_label.text = "군령  %s  (2 소모)" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
+	pts_label.text = "군령\n%s" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
 	for b in cmd_btns:
 		b.disabled = locked or pts < Battle.CMD_COST
 	field.pt("감독", t0)
@@ -1087,14 +1215,14 @@ class Hud extends Control:
 			if sq.alive:
 				if sq.camp == "A": tA += sq.troops
 				else: tB += sq.troops
-		var bw := minf(420.0, size.x - 260)
+		var bw := clampf(size.x - 190, 120, 420)
 		var bx := (size.x - bw) / 2
 		var ratio := 0.5 if tA + tB <= 0 else tA / (tA + tB)
 		draw_rect(Rect2(bx - 2, 12, bw + 4, 12), Color(0, 0, 0, 0.55))
 		draw_rect(Rect2(bx, 14, bw * ratio, 8), War3D.TEAM.A)
 		draw_rect(Rect2(bx + bw * ratio, 14, bw * (1 - ratio), 8), War3D.TEAM.B)
-		_text(fb, Vector2(bx - 128, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 120, 13, Color("#a9c8f0"))
-		_text(fb, Vector2(bx + bw + 8, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
+		_text(fb, Vector2(bx - 98, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 92, 13, Color("#a9c8f0"))
+		_text(fb, Vector2(bx + bw + 6, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
 		_text(fd, Vector2(bx, 46), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw, 16, DB.PAL.paper)
 		if view.speed == 0.0:
 			_text(fd, Vector2(0, size.y / 2), "일 시 정 지", HORIZONTAL_ALIGNMENT_CENTER, size.x, 26, DB.PAL.bamboo)
@@ -1156,6 +1284,7 @@ class Hud extends Control:
 		var col: Color = cut.col
 		var accent: Color = Color("#c8463c") if foe else Color("#d9a64b")
 		var sz := size
+		var tall := sz.x < sz.y
 		# 어둡게 + 가장자리 비네트
 		draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.5 * fade))
 		for i in 6:
@@ -1163,6 +1292,7 @@ class Hud extends Control:
 			draw_rect(Rect2(Vector2.ZERO, sz).grow(-i * 22.0), Color(0, 0, 0, a), false, 22.0)
 		# 집중선 —— 화면 가운데로 모이는 가는 선
 		var c := sz / 2
+		var by := c.y + (sz.y * 0.12 if tall else 0.0)     # 먹띠 가운데 높이
 		var r := RandomNumberGenerator.new()
 		r.seed = int(t * 20.0)
 		for i in 46:
@@ -1178,18 +1308,24 @@ class Hud extends Control:
 		var tilt := -0.12 if not foe else 0.12
 		var poly := PackedVector2Array()
 		for p in _brush:
-			poly.append(Vector2(sx + p.x * (sz.x + 200) - 100, c.y - band_h / 2 + p.y * band_h + (p.x - 0.5) * sz.x * tilt))
+			poly.append(Vector2(sx + p.x * (sz.x + 200) - 100, by - band_h / 2 + p.y * band_h + (p.x - 0.5) * sz.x * tilt))
 		for i in range(_brush.size() - 1, -1, -1):
 			var p: Vector2 = _brush[i]
-			poly.append(Vector2(sx + p.x * (sz.x + 200) - 100, c.y + band_h / 2 - p.y * band_h * 0.7 + (p.x - 0.5) * sz.x * tilt))
+			poly.append(Vector2(sx + p.x * (sz.x + 200) - 100, by + band_h / 2 - p.y * band_h * 0.7 + (p.x - 0.5) * sz.x * tilt))
 		draw_colored_polygon(poly, Color(0.06, 0.05, 0.07, 0.92 * fade))
 		draw_polyline(poly.slice(0, _brush.size()), Color(accent, 0.9 * fade), 3.0)
 		# 초상 —— 띠보다 크게, 옆에서 미끄러져 들어온다
-		var ph := minf(sz.y * 0.62, 400.0)
+		var ph := minf(sz.y * (0.36 if tall else 0.62), 400.0)
 		var pw := ph * 0.78
 		var pin := ease(clampf((t - 0.05) / 0.25, 0, 1), 0.25)
-		var px := lerpf(-pw - 40, sz.x * 0.14, pin) if not foe else lerpf(sz.x + 40, sz.x * 0.86 - pw, pin)
-		var pr := Rect2(px, c.y - ph * 0.55, pw, ph)
+		var px: float
+		var pr: Rect2
+		if tall:
+			px = lerpf(-pw - 40, (sz.x - pw) / 2, pin) if not foe else lerpf(sz.x + 40, (sz.x - pw) / 2, pin)
+			pr = Rect2(px, by - band_h / 2 - ph + 24, pw, ph)
+		else:
+			px = lerpf(-pw - 40, sz.x * 0.14, pin) if not foe else lerpf(sz.x + 40, sz.x * 0.86 - pw, pin)
+			pr = Rect2(px, c.y - ph * 0.55, pw, ph)
 		if pin > 0.02:
 			draw_rect(pr.grow(8), Color(col, 0.35 * fade))
 			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
@@ -1204,23 +1340,26 @@ class Hud extends Control:
 		if nt > 0:
 			var sc := lerpf(1.9, 1.0, ease(nt, 0.35))
 			var shake := Vector2(randf_range(-3, 3), randf_range(-3, 3)) * (1.0 - nt)
-			var tx := sz.x * 0.36 if not foe else sz.x * 0.08
-			var tw := sz.x * 0.56
+			var tx := sz.x * 0.04 if tall else (sz.x * 0.36 if not foe else sz.x * 0.08)
+			var tw := sz.x * (0.92 if tall else 0.56)
 			var title: String = "『%s』" % cut.name
-			draw_set_transform(Vector2(tx + tw / 2, c.y + 26) + shake, tilt * 0.5, Vector2.ONE * sc)
-			draw_string_outline(fd, Vector2(-tw / 2, 0), title, HORIZONTAL_ALIGNMENT_CENTER, tw, 64, 12, Color(0, 0, 0, fade))
-			draw_string(fd, Vector2(-tw / 2, 0), title, HORIZONTAL_ALIGNMENT_CENTER, tw, 64, Color(accent.lightened(0.35), fade * nt))
+			var tfs := 64
+			while tfs > 30 and fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > tw:
+				tfs -= 2
+			draw_set_transform(Vector2(tx + tw / 2, by + 26) + shake, tilt * 0.5, Vector2.ONE * sc)
+			draw_string_outline(fd, Vector2(-tw / 2, 0), title, HORIZONTAL_ALIGNMENT_CENTER, tw, tfs, 12, Color(0, 0, 0, fade))
+			draw_string(fd, Vector2(-tw / 2, 0), title, HORIZONTAL_ALIGNMENT_CENTER, tw, tfs, Color(accent.lightened(0.35), fade * nt))
 			draw_set_transform(Vector2.ZERO)
 			# 외침 —— 한 글자씩 나온다
 			var shout: String = "“%s”" % cut.shout
 			var shown := shout.substr(0, int(clampf((t - 0.3) / 0.55, 0, 1) * shout.length()))
-			_text(fd, Vector2(tx, c.y - 52), shown, HORIZONTAL_ALIGNMENT_CENTER, tw, 24, Color(1, 0.95, 0.88, fade))
+			_text(fd, Vector2(tx, by - 40 if tall else by - 52), shown, HORIZONTAL_ALIGNMENT_CENTER, tw, 20 if tall else 24, Color(1, 0.95, 0.88, fade))
 			if cut.crisis:      # 위기에 쓴 고유기 —— 위력이 오른다
-				_text(fd, Vector2(tx, c.y - 92), "배수진", HORIZONTAL_ALIGNMENT_CENTER, tw, 22, Color(1, 0.35, 0.25, fade * nt))
+				_text(fd, Vector2(tx, pr.position.y - 10 if tall else by - 92), "배수진", HORIZONTAL_ALIGNMENT_CENTER, tw, 22, Color(1, 0.35, 0.25, fade * nt))
 			# 장수 이름 낙관
 			var who: String = cut.who
 			var wsz := DB.font_body.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)
-			var wb := Rect2(Vector2(tx + tw / 2 - wsz.x / 2 - 10, c.y + 50), Vector2(wsz.x + 20, 26))
+			var wb := Rect2(Vector2(tx + tw / 2 - wsz.x / 2 - 10, by + 50), Vector2(wsz.x + 20, 26))
 			draw_rect(wb, Color(accent, 0.85 * fade))
 			draw_string(DB.font_body, wb.position + Vector2(10, 19), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, fade))
 
@@ -1235,7 +1374,7 @@ class MiniCard extends Control:
 	var view: BattleView
 
 	func _ready() -> void:
-		custom_minimum_size = Vector2(96, 72)
+		custom_minimum_size = Vector2(64, 58)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		tooltip_text = sq.row.name
 
@@ -1252,6 +1391,7 @@ class MiniCard extends Control:
 	func _gui_input(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			if view.ult_ready(sq.key):
+				UI.buzz(20)
 				view.request_ult(sq.key)
 			else:
 				view.focus(sq)
@@ -1262,6 +1402,9 @@ class MiniCard extends Control:
 		view.field.pt("아래카드", t0)
 
 	func _draw_card() -> void:
+		if size.x < 90:
+			_draw_small()
+			return
 		var tc := DB.tier_color(sq.cid)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = DB.PAL.ink2
@@ -1298,6 +1441,54 @@ class MiniCard extends Control:
 			rb.shadow_size = 6
 			draw_style_box(rb, Rect2(Vector2.ZERO, size))
 			_glow_text("고유기!")
+		if not sq.alive:
+			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
+
+	## 작은 카드 —— 초상 · 이름 · 병력, 아래에 병력·사기·고유기 막대
+	func _draw_small() -> void:
+		var tc := DB.tier_color(sq.cid)
+		var w := size.x
+		var h := size.y
+		var ready := view.ult_ready(sq.key)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = DB.PAL.ink2
+		sb.set_corner_radius_all(6)
+		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 else 1)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if sq.hurt > 0.05 else tc)
+		draw_style_box(sb, Rect2(Vector2.ZERO, size))
+		var bar_y := h - 16
+		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
+		Art.draw_portrait(self, pr, sq.cid)
+		var x := pr.end.x + 3
+		var tw := w - x - 2
+		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+		var fs := 12
+		while fs > 9 and DB.font_display.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
+			fs -= 1
+		draw_string(DB.font_display, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
+		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
+		draw_string(DB.font_body, Vector2(x, 31), state, HORIZONTAL_ALIGNMENT_LEFT, tw, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
+		draw_rect(Rect2(3, bar_y, w - 6, 4), DB.PAL.ink)
+		draw_rect(Rect2(3, bar_y, (w - 6) * clampf(sq.troops / sq.max, 0, 1), 4), War3D.TEAM.A)
+		draw_rect(Rect2(3, bar_y + 6, w - 6, 2), DB.PAL.ink)
+		draw_rect(Rect2(3, bar_y + 6, (w - 6) * clampf(sq.morale / 200.0, 0, 1), 2), DB.PAL.gold)
+		var lv := view.unit_live(sq.key)
+		if sq.tier >= 7:
+			draw_rect(Rect2(3, bar_y + 10, w - 6, 3), DB.PAL.ink)
+			draw_rect(Rect2(3, bar_y + 10, (w - 6) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
+			for i in lv[1]:
+				draw_circle(Vector2(w - 6 - i * 6, 6), 2.3, Color("#ffd257"))
+		if ready:
+			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
+			var rb := StyleBoxFlat.new()
+			rb.draw_center = true
+			rb.bg_color = Color("#ffd257", 0.10 + 0.08 * pulse)
+			rb.border_color = Color("#ffd257").lerp(Color.WHITE, pulse * 0.5)
+			rb.set_border_width_all(3)
+			rb.set_corner_radius_all(6)
+			draw_style_box(rb, Rect2(Vector2.ZERO, size))
+			draw_string_outline(DB.font_display, Vector2(0, 44), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, 4, Color(0, 0, 0, 0.9))
+			draw_string(DB.font_display, Vector2(0, 44), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color("#ffd257"))
 		if not sq.alive:
 			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
 

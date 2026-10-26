@@ -64,15 +64,15 @@ func _process(dt: float) -> void:
 func connect_sheet() -> void:
 	var b := gs.open_sheet("온라인 대전")
 	b.add_child(UI.hint("집 PC 에서 server.bat 을 띄우고, 그 PC 의 주소를 넣는다. 같은 와이파이면 ws://192.168.x.x:7777, 밖에서는 공유기 포트포워딩 주소나 Cloudflare 터널 주소(wss://…)."))
-	var row := UI.hbox()
-	row.add_child(UI.lbl("서버", 14, DB.PAL.bamboo))
+	var row := UI.vbox(4)
+	row.add_child(UI.lbl("서버 주소", 14, DB.PAL.bamboo))
 	_url_edit = LineEdit.new()
 	_url_edit.text = net.url
 	_url_edit.custom_minimum_size = Vector2(0, 48)
 	_url_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_url_edit)
 	b.add_child(row)
-	var row2 := UI.hbox()
+	var row2 := UI.vbox(4)
 	row2.add_child(UI.lbl("이름", 14, DB.PAL.bamboo))
 	_name_edit = LineEdit.new()
 	_name_edit.text = net.player
@@ -109,7 +109,10 @@ func connect_sheet() -> void:
 	b.add_child(cr)
 	b.add_child(UI.eyebrow("열린 방 — %d개" % rooms.size()))
 	for r in rooms:
-		b.add_child(UI.btn("%s  ·  %s 방장 · %d명 · %s" % [r.code, r.host, r.n, r.mode_n], func(): net.send({"t": "join", "code": r.code})))
+		var rb := UI.btn("%s  ·  %s 방장 · %d명 · %s" % [r.code, r.host, r.n, r.mode_n], func(): net.send({"t": "join", "code": r.code}))
+		rb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		rb.clip_text = true
+		b.add_child(rb)
 	b.add_child(UI.btn("새로 고침", func(): net.send({"t": "list"}), "ghost"))
 
 
@@ -215,17 +218,22 @@ func _show_lobby() -> void:
 	lobby.color = DB.PAL.ink
 	lobby.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	gs.add_child(lobby)
-	var c := CenterContainer.new()
+	TouchScroll.block(lobby)
+	var c := MarginContainer.new()
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var side := maxf(24.0, (gs.size.x - 520.0) / 2.0)
+	for sd in ["left", "right"]:
+		c.add_theme_constant_override("margin_" + sd, int(side))
 	lobby.add_child(c)
 	var v := UI.vbox(12)
-	v.custom_minimum_size = Vector2(560, 0)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	c.add_child(v)
 	var t := UI.lbl("방 %s" % room.code, 54, DB.PAL.gold, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var s := UI.lbl("%s · 친구에게 서버 주소와 이 코드를 알려 주세요" % room.mode_n, 15, DB.PAL.bamboo_dim)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(s)
 	var sv := UI.vbox(4)
 	for i in room.seats.size():
@@ -317,7 +325,7 @@ func war_page() -> Control:
 		if st.dead:
 			tag += "  [color=#e0806f]멸망[/color]"
 		sv.add_child(UI.rich("[color=%s]%s[/color]  %s  [color=#C6AC7C]%d PV[/color]%s" % [col, mark, who, st.pv, tag], 15))
-	var two := UI.hbox(18)
+	var two := UI.vbox(16)
 	var sp := UI.sect("자리 — 사람 %d · 봇 %d" % [room.seats.filter(func(x): return x.human).size(), room.seats.filter(func(x): return not x.human).size()], UI.panel(sv))
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	two.add_child(sp)
@@ -325,7 +333,7 @@ func war_page() -> Control:
 	var bv := UI.vbox(6)
 	for x in last_battles:
 		var res: Dictionary = x.res
-		var h := UI.hbox(10)
+		var h := UI.hbox(8)
 		var col2 := "#8fd4c2" if res.win else ("#C6AC7C" if res.draw else "#e0806f")
 		var r := UI.rich("[color=%s][b]%s[/b][/color]  %s — 잔존 %d 대 %d" % [col2, "무승부" if res.draw else ("승리" if res.win else "패배"), x.title, res.left, res.eLeft], 15)
 		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL

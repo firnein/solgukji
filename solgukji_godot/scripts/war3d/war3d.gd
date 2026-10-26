@@ -29,6 +29,8 @@ var cam_t := Vector3.ZERO
 var cam_yaw := 0.0
 var cam_pitch := 0.62
 var cam_dist := 78.0
+var screen_scale := 1.0     # 3D 해상도 / 화면 논리 크기 (BattleView.fit_port)
+var portrait := false
 var want_t := Vector3.ZERO
 var want_yaw := 0.0
 var want_pitch := 0.62
@@ -856,8 +858,8 @@ func reset_camera() -> void:
 	cam_dist = 24.0
 	want_t = Vector3(-4, 0, 0)
 	want_yaw = 0.0
-	want_pitch = 0.6
-	want_dist = 62.0
+	want_pitch = 0.92 if portrait else 0.6
+	want_dist = 64.0 if portrait else 62.0
 	cam_rate = 0.9
 	_intro = 3.5
 	_update_cam(0.0)
@@ -890,14 +892,15 @@ func camera_input(e: InputEvent) -> void:
 			want_dist = clampf(want_dist / 0.88, 8.0, 170.0)
 			cam_rate = 4.0
 	elif e is InputEventMouseMotion:
+		var rel: Vector2 = e.relative / screen_scale       # 3D 해상도 배율을 걷어 내고 논리 좌표로
 		if e.button_mask & MOUSE_BUTTON_MASK_RIGHT:
-			want_yaw += e.relative.x * 0.006
-			want_pitch = clampf(want_pitch + e.relative.y * 0.004, 0.12, 1.42)
+			want_yaw += rel.x * 0.006
+			want_pitch = clampf(want_pitch + rel.y * 0.004, 0.12, 1.42)
 			cam_rate = 6.0
 		elif e.button_mask & (MOUSE_BUTTON_MASK_LEFT | MOUSE_BUTTON_MASK_MIDDLE):
 			var fw := Vector3(cos(want_yaw), 0, sin(want_yaw))
 			var rt := Vector3(-sin(want_yaw), 0, cos(want_yaw))
-			want_t += (-rt * e.relative.x + fw * e.relative.y) * want_dist * 0.0017
+			want_t += (-rt * rel.x + fw * rel.y) * want_dist * 0.0017 * (1.6 if portrait else 1.0)
 			cam_rate = 8.0
 
 
@@ -912,7 +915,14 @@ func to_screen(p: Vector2, lift: float) -> Vector2:
 	var w := p3(p, lift)
 	if cam.is_position_behind(w):
 		return Vector2(-99999, -99999)
-	return cam.unproject_position(w)
+	return cam.unproject_position(w) / screen_scale
+
+
+## 세로 화면 —— 폭을 기준으로 화각을 잡고 조금 더 물러난다 (양 날개가 잘리지 않게)
+func set_portrait(on: bool) -> void:
+	portrait = on
+	cam.keep_aspect = Camera3D.KEEP_WIDTH if on else Camera3D.KEEP_HEIGHT
+	cam.fov = 70.0 if on else 50.0
 
 
 ## 머리표 투명도 —— 가까이 볼 때 멀리 있는 부대의 표가 지평선에 쌓이지 않게 흐린다

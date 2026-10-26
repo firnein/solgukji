@@ -2,7 +2,7 @@
 
 `../solgukji-9.html` (모바일 HTML 프로토타입)을 Godot 4.4로 옮겼다.
 **게임 화면**(징집·조합·편성·전투·계보·순위 · 7일 21페이즈 · 토너먼트 · 저장)과 **실시간 3D 전장**이 있다.
-가로 화면 고정. PC 는 Forward+ (그림자·SSAO·볼류메트릭 안개), 휴대폰은 Mobile 렌더러로 돈다.
+**휴대폰 세로 화면 기준**(논리 해상도 400×860, 남는 높이는 늘어난다 · PC 창은 450×968). PC 는 Forward+ (그림자·SSAO·볼류메트릭 안개), 휴대폰은 Mobile 렌더러로 돈다.
 예전 점검 화면(카드 도감·연습 전투)은 `--tab=…` 인자로 연다 (`scenes/main.tscn`).
 
 전장은 토탈워처럼 보이지만 판정은 원본 턴제 엔진 그대로다. `battle_view.gd` 가 엔진의 행동들을
@@ -21,6 +21,7 @@
 - `run.bat` — 게임 실행
 - `edit.bat` — Godot 에디터로 열기
 - `build_apk.bat` — 안드로이드 디버그 APK → `../build/solgukji.apk` (아래 「안드로이드」)
+- `build_release.bat` — 스토어용 릴리스 APK (서명 키 필요 —— 아래 「릴리스 서명」)
 - Godot 은 `../tools/` 에 포터블로 들어 있다 (설치 불필요).
 
 ## 구조
@@ -40,26 +41,48 @@
 | `tests/selftest.tscn` | 엔진 자가 점검 (헤드리스) |
 | `scripts/game/run.gd` | 한 판의 진행 상태 — 원본 `S` · 징집·조합·환전·편성·7일 진행·토벌·대전·토너먼트 · 저장(`user://save.json`) |
 | `scripts/game/settings.gd` | 설정 — 품질(병사 수·AA·그림자·SSAO) · 자동 전투 (`user://settings.cfg`) |
-| `scripts/ui/game_screen.gd` | 게임 화면 — 머리띠 · 왼쪽 탭 · 페이지 · 오른쪽 시트 · 알림 · 전투 전환 · 제목 화면 (`scenes/game.tscn`, 시작 장면) |
-| `scripts/ui/deploy_page.gd` | 편성 — 진형 · 9칸 편성판(끌어 놓기·칸끼리 바꾸기) · 손패 · 시너지 · 보급품 |
+| `scripts/ui/game_screen.gd` | 게임 화면 — 위 상태줄 · 아래 탭 5개 · 페이지 · 바텀시트 · 알림 · 전투 전환 · 제목 화면 (`scenes/game.tscn`, 시작 장면) |
+| `scripts/ui/deploy_page.gd` | 편성 — 진형 띠 · 9칸 편성판(고정, 끌어 놓기·칸끼리 바꾸기) · [손패·시너지·보급품] |
 | `scripts/ui/card_tile.gd` | 작은 카드 — 탭 · 길게 눌러 끌기 |
-| `scripts/ui/ui.gd` | 화면 부품 · 테마 (손가락 기준 버튼 높이 48+) |
+| `scripts/ui/ui.gd` | 화면 부품 · 테마 (버튼 높이 48+ · 칩 · 나눔 탭 · 접는 묶음 · 스크롤 상자 · 진동) |
+| `scripts/ui/touch_scroll.gd` | 손가락 스크롤 (autoload `TouchScroll`) — 버튼·카드 위에서 끌어도 스크롤 · 관성 |
+| `scripts/ui/auto_grid.gd` | 폭에 맞춰 칸 수를 정하는 격자 (휴대폰 카드 두 칸) |
 | `tests/game.tscn` | 진행 점검 — 단순 규칙으로 한 판을 끝까지 돌며 페이즈마다 저장·불러오기 |
 
 데이터를 HTML에서 다시 뽑으려면:
 `python -I ../tools/scripts/extract.py ../solgukji-9.html data/game.json`
 
-## 게임 화면
-원본 HTML 의 화면을 가로 화면에 옮겼다. 왼쪽 탭: 징집 · 조합 · 편성 · 전투 · 계보 · 순위. 카드를 누르면 오른쪽 시트에 상세(능력치·스킬·고유기·특기·선호 구역·만드는 법·한 단계 위 조합)가 열린다.
+## 게임 화면 (휴대폰 세로)
+원본 HTML 의 화면을 휴대폰 세로 화면에 옮겼다.
+- **위 상태줄**: 날짜·페이즈 · 병력 · PV·순위·경고 · ☰ 메뉴, 아래에 21칸 진행 막대.
+- **아래 탭 5개**: 징집 · 조합 · 편성 · 전투 · 기록(순위 | 계보). 할 일이 있으면 빨간 점, 조합은 지금 조합 가능한 수. 지금 탭을 다시 누르면 맨 위로.
+- **바텀시트**: 카드 상세·선택권·환전·칸 배치·아이템·메뉴·설정·온라인 접속은 아래에서 올라온다. 손잡이를 끌어내리거나 바깥을 누르거나 ✕·뒤로 가기로 닫는다. 내용만큼만 올라오고 화면 88% 를 넘으면 안에서 스크롤.
+- 카드 목록은 두 칸 격자(`AutoGrid` —— PC 창을 넓히면 칸이 는다, 글줄은 최대 640 폭). 조합 등급·병종 계보는 접는 묶음, 조합 필터는 가로로 넘기는 칩.
+- **편성**: 진형 띠(가로) + 9칸 편성판을 위에 고정하고 아래 [손패 | 시너지 | 보급품] 만 스크롤 —— 손패를 길게 눌러 바로 칸으로 끌 수 있다.
+- 알림은 아래 탭 위에 잠깐 뜬다. 버튼을 누르면 짧게 진동(설정에서 끔).
+- 노치·홈 막대는 안전 영역(`DisplayServer.get_display_safe_area`)만큼 비켜 그린다.
 - 진행 규칙·수치는 원본 그대로 (`DB.D` 의 DRAWS·PICKS·QPV·QUEST_REWARD… · `Run` 상단 상수).
 - **원본과 다른 점**: 전투 결과는 전투가 *끝날 때* 반영한다(고유기·군령 입력으로 결과가 바뀌므로). 시작할 때 전투 재료(시드·양쪽 덱)를 `Run.battle` 에 적고, 입력할 때마다 저장한다. 전투 도중 앱이 꺼지면 다음에 열 때 적어 둔 입력으로 다시 계산해 마무리한다(남은 부분은 자동).
 - 상대 AI: 대전·토너먼트 상대는 `smart`(비동기 상대), 토벌의 적은 `auto`.
 - 저장: 행동할 때마다 `user://save.json`. 키 순서를 지키고 실수를 다 살려 쓴다 —— 그래야 불러온 판이 같은 결과로 이어진다(`tests/game.tscn` 이 확인).
-- 편성: 손패 카드를 **길게 눌러** 칸으로 끈다 / 카드를 눌러 고른 뒤 칸을 누른다 / 칸을 눌러 목록에서 고른다. 칸끼리 끌면 자리를 바꾸고, 칸을 손패 쪽으로 끌면 내린다.
-- 휴대폰 뒤로 가기: 시트를 닫고, 그다음엔 제목 화면. 앱이 가려지면 저장한다.
+- 편성: 손패 카드를 **길게 눌러** 칸으로 끈다 / 카드를 눌러 고른 뒤 칸을 누른다 / 칸을 눌러 목록에서 고른다. 칸을 길게 눌러 다른 칸으로 끌면 자리를 바꾸고, 아래 목록으로 끌면 내린다. 짧게 끌면 끌기가 아니라 스크롤이다.
+- 휴대폰 뒤로 가기: 시트를 닫고, 전투 중엔 전투 메뉴, 그다음엔 제목 화면. 앱이 가려지면 저장한다.
+
+### 손가락 스크롤 (`TouchScroll`)
+Godot 의 ScrollContainer 는 손가락이 처음 닿은 버튼·패널이 입력을 삼키면 끌기를 못 받는다(예전 "스크롤이 씹히는" 원인).
+`TouchScroll` 이 화면 입력을 먼저 보고, 10px 넘게 움직이면 방향에 맞는 스크롤 상자를 골라 직접 움직인다(가로 띠 위에서 세로로 끌면 바깥 페이지가 움직인다).
+그때 밑에서 눌린 버튼은 화면 밖으로 끌려 나간 것으로 처리해 눌리지 않는다. 떼면 관성. 스크롤 상자는 `UI.scroll()` 로 만들면 등록된다,
+시트 가림막·전투 화면처럼 위를 덮는 것은 `TouchScroll.block()`.
+점검: `--gnew=7 --gplay=4 --gtouch` —— 버튼 위 끌기(스크롤만) · 버튼 탭(눌림) · 칩 띠 가로/세로 · 시트 안 · 손잡이 끌어내리기 · 편성 손패 7가지를 손가락 입력으로 흉내 내 확인한다.
+
+### 전투 화면 (세로)
+위 띠(전투 이름 · ❚❚ 1× 2× 4× · ⋯) / 전장 / 아래 독(군령 포인트 + 돌격·방진·재정비, 아군 장수 카드 5칸 격자 —— 금빛이면 눌러 고유기).
+⋯ 메뉴는 오른쪽에서 열린다: 자동 전투 · 결과로 건너뛰기 · 조작 안내 · 전투 기록. 카메라는 세로면 폭 기준 화각(70°)으로 조금 더 내려다본다.
+3D 는 화면 실제 픽셀 × 품질 배율(낮음 0.6 · 중간 0.8 · 높음 1.0)로 그린다(`BattleView.fit_port`) —— 논리 크기(400 폭)로 그리면 휴대폰에서 흐리다.
+고유기 컷인은 세로면 초상을 위 가운데, 기술명·외침을 아래 먹띠에 놓는다.
 
 점검용 인자 (`--` 뒤): `--gnew=시드 --gplay=페이즈수`(자동으로 진행해 둔 판) `--gpage=draw|forge|deploy|war|line|rank`
-`--gsheet=card:c39|slot:3|menu|settings` `--gbattle=quest|pvp|tour [--speed=2 --gclose]` `--gq=0~2`(품질) `--gshot=경로.png --after=초`.
+`--gsheet=card:c39|slot:3|menu|settings|pick|online` `--gbattle=quest|pvp|tour [--speed=2 --gclose --gmenu]` `--gq=0~2`(품질) `--gtitle`(제목 화면) `--gtouch`(손가락 점검) `--gshot=경로.png --after=초 [--scroll=픽셀]`.
 예) `Godot.exe --path . --rendering-method mobile -- --gq=0 --gnew=7 --gplay=6 --gbattle=quest --gshot=out.png --after=10` (휴대폰 렌더러로 미리 보기)
 
 ## 온라인 대전 (집 PC 서버)
@@ -80,7 +103,13 @@
 2. `build_apk.bat` → `../build/solgukji.apk` (arm64, 디버그 서명). 휴대폰에서 USB 디버깅을 켜고 `..\tools\android\sdk\platform-tools\adb install -r ..\build\solgukji.apk`, 또는 파일을 옮겨 설치.
 - 렌더러는 Mobile (SSAO·볼류메트릭 안개 없음). 품질 낮음 = 병사 40% · MSAA 끔 · 그림자 2분할. 휴대폰은 처음에 '낮음'.
 - 글꼴은 동봉한 나눔고딕·나눔명조(OFL). 초상은 내보낸 앱에선 임포트된 텍스처로 읽는다.
-- 내보내기 설정: `export_presets.cfg` (패키지 `com.solgukji.game`, `data/*.json` 포함, `tests/` 제외).
+- 내보내기 설정: `export_presets.cfg` (패키지 `com.solgukji.game`, `data/*.json` 포함, `tests/` 제외, 세로 고정, 권한: 인터넷·진동).
+
+### 릴리스 서명 (스토어용)
+1. 처음 한 번 `powershell -ExecutionPolicy Bypass -File ..	ools\scripts\make_release_key.ps1` —— 비밀번호를 묻고 `%USERPROFILE%\.solgukjielease.keystore`(별칭 `solgukji`)를 만든다. **저장소 밖**에 두고 깃에 올리지 않는다. 키 파일은 따로 백업, 비밀번호는 비밀번호 관리자에.
+2. `build_release.bat` —— 비밀번호를 묻고 환경 변수(`GODOT_ANDROID_KEYSTORE_RELEASE_*`)로만 Godot 에 넘겨 `../build/solgukji-release.apk` 를 만든다. `export_presets.cfg` 에는 비밀번호를 적지 않는다.
+3. 올릴 때마다 `export_presets.cfg` 의 `version/code` 를 1씩 올린다(`version/name` 은 보이는 버전).
+- 구글 플레이는 APK 대신 AAB 를 받는다 —— AAB 는 Godot 의 Gradle 빌드(`gradle_build/use_gradle_build=true` + 프로젝트 > Android 빌드 템플릿 설치)가 필요하다. 올릴 때가 되면 켠다. Play 앱 서명을 켜면 위 키는 업로드 키가 된다.
 
 ## 고유기 (불멸·신화)
 `data/ultimates.json` —— 인물 34명의 전용 기술. 이름·외침·연출 계열(vfx)·효과(eff)를 적는다.

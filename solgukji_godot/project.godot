@@ -13,14 +13,17 @@ config/icon="res://assets/icon.png"
 [autoload]
 
 DB="*res://scripts/db.gd"
+TouchScroll="*res://scripts/ui/touch_scroll.gd"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=760
+window/size/viewport_width=400
+window/size/viewport_height=860
+window/size/window_width_override=450
+window/size/window_height_override=968
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=4
+window/handheld/orientation=1
 
 [input_devices]
 
