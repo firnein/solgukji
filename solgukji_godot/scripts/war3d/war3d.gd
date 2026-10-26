@@ -13,8 +13,14 @@ const TEAM := {"A": Color("#3f7fd0"), "B": Color("#c8463c")}
 const ST_COL := {"burn": Color("#ff8a3c"), "flood": Color("#4a9ad4"), "confuse": Color("#b57edc"),
 	"bleed": Color("#c4564a"), "plague": Color("#7fa86b"), "seal": Color("#9a9a9a")}
 const WEAPON := {"창병": "spear", "도적": "sword", "기병": "lance"}
-const HAND := {"spear": Vector3(0.16, 0.74, 0.24), "sword": Vector3(0.2, 0.74, 0.22), "lance": Vector3(0.16, 1.62, 0.27)}
+const HAND := {"spear": Vector3(0.16, 0.74, 0.24), "sword": Vector3(0.2, 0.74, 0.22), "lance": Vector3(0.16, 1.62, 0.27),
+	"g_glaive": Models.G_HAND, "g_saber": Models.G_HAND, "g_lance": Models.G_HAND}
+## 무기 든 팔이 도는 어깨 자리 (모델 x, y) —— 손에 쥔 무기도 같은 축으로 함께 돈다
+const ARM_PIVOT := {"spear": Models.SHOULDER, "sword": Models.SHOULDER, "lance": Models.R_SHOULDER,
+	"g_glaive": Models.R_SHOULDER, "g_saber": Models.R_SHOULDER, "g_lance": Models.R_SHOULDER}
 const HIDDEN := Transform3D(Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO), Vector3(0, -500, 0))
+
+signal ult_flash(col: Color)     # 고유기가 터지는 순간 —— 화면 섬광 (BattleView 의 Hud)
 
 var squads := {}
 var order: Array = []
@@ -44,7 +50,6 @@ var weapon_mesh := {}
 var bodies := {}            # 병종 -> MultiMeshInstance3D
 var weapons := {}           # 무기 -> MultiMeshInstance3D
 var entries := []           # [부대, 병사, 병종, 번호, 무기, 무기번호, 장수인가]
-var capes := {}             # 부대 key -> MeshInstance3D
 var banners := {}           # 부대 key -> Node3D
 var unit_root: Node3D
 var fx_root: Node3D
@@ -93,7 +98,8 @@ func _ready() -> void:
 	soldier_mat.set_shader_parameter("team_b", TEAM.B)
 	for tag in Squad.CLS:
 		body_mesh[tag] = Models.body(tag)
-	weapon_mesh = {"spear": Models.spear(), "sword": Models.sword(), "lance": Models.lance()}
+	weapon_mesh = {"spear": Models.spear(), "sword": Models.sword(), "lance": Models.lance(),
+		"g_glaive": Models.glaive(), "g_saber": Models.saber(), "g_lance": Models.snake_lance()}
 	unit_root = Node3D.new()
 	add_child(unit_root)
 	fx_root = Node3D.new()
@@ -403,7 +409,6 @@ func clear() -> void:
 	entries.clear()
 	bodies.clear()
 	weapons.clear()
-	capes.clear()
 	banners.clear()
 	squad_rings.clear()
 	auras.clear()
@@ -437,25 +442,20 @@ func setup(res: Dictionary) -> void:
 		for s in sq.all_figures():
 			var gen: bool = s == sq.general
 			var wk: String = WEAPON.get(sq.tag, "")
-			var idx: int = count.get(sq.tag, 0)
-			count[sq.tag] = idx + 1
+			var bk: String = sq.tag
+			if gen:
+				bk = "G:" + sq.tag              # 장수는 군마 탄 전용 모델
+				wk = Models.general_weapon(sq.tag)
+				if not body_mesh.has(bk):
+					body_mesh[bk] = Models.general(sq.tag)
+			var idx: int = count.get(bk, 0)
+			count[bk] = idx + 1
 			var widx := -1
 			if wk != "":
 				widx = wcount.get(wk, 0)
 				wcount[wk] = widx + 1
 			# [부대, 병사, 병종, 번호, 무기, 무기번호, 장수, 정착(더 이상 안 변함), 기병]
-			entries.append([sq, s, sq.tag, idx, wk, widx, gen, false, sq.cls == "cav"])
-		if sq.general:
-			var cp := MeshInstance3D.new()
-			cp.mesh = Models.cape()
-			var m := StandardMaterial3D.new()
-			m.albedo_color = DB.tier_color(sq.cid)
-			m.cull_mode = BaseMaterial3D.CULL_DISABLED
-			m.roughness = 0.7
-			cp.material_override = m
-			cp.layers = 2
-			unit_root.add_child(cp)
-			capes[sq.key] = cp
+			entries.append([sq, s, bk, idx, wk, widx, gen, false, sq.cls == "cav" or gen])
 		banners[sq.key] = _make_banner(sq)
 		squad_rings[sq.key] = _make_ring(sq)
 	_bufs.clear()
@@ -636,6 +636,10 @@ func step(dt: float) -> void:
 		_duel_t = 0.3
 		_pair_duels()
 	t = pt("짝짓기", t)
+	_air(dt)
+	if Engine.get_process_frames() % 2 == 0:
+		_crowd()
+	t = pt("밀치기", t)
 	_separate(dt)
 	_status_fx()
 	ult.step()
@@ -675,6 +679,77 @@ func _pair_duels() -> void:
 			s.duel = best
 			if best.duel == null:
 				best.duel = s
+
+
+## 맞붙은 곳의 병사끼리 겹치지 않게 —— 격자 칸(6px)에 나눠 담고 이웃 칸만 본다. 적·아군 가리지 않는다
+const CROWD_R := 4.6
+func _crowd() -> void:
+	var cells := {}
+	var list := []
+	for sq in order:
+		if not sq.alive or not (sq.contact or sq.loose > 0.3):
+			continue
+		for s in sq.soldiers:
+			if s.alive and s.air <= 0.0:
+				var c := Vector2i(floori(s.pos.x / 6.0), floori(s.pos.y / 6.0))
+				if cells.has(c):
+					cells[c].append(s)
+				else:
+					cells[c] = [s]
+				list.append([s, c])
+	for it in list:
+		var s = it[0]
+		var c: Vector2i = it[1]
+		for dx in [-1, 0, 1]:
+			for dy in [-1, 0, 1]:
+				var cl = cells.get(c + Vector2i(dx, dy))
+				if cl == null:
+					continue
+				for o in cl:
+					if o == s:
+						continue
+					var d: Vector2 = s.pos - o.pos
+					var l := d.length()
+					if l < CROWD_R and l > 0.001:
+						var push: Vector2 = d / l * (CROWD_R - l) * 0.5
+						s.pos += push
+						o.pos -= push
+
+
+## 고유기에 맞아 날아간 병사 —— 포물선으로 떴다가 떨어진다
+func _air(dt: float) -> void:
+	for sq in order:
+		for s in sq.soldiers:
+			if s.air > 0.0 or s.vy > 0.0:
+				s.vy -= 22.0 * dt
+				s.air = maxf(0.0, s.air + s.vy * dt)
+				s.pos += s.kb * dt
+				s.kb *= exp(-dt * 1.5)
+				s.spin += s.fall * dt * 7.0
+				if s.air <= 0.0 and s.vy < 0.0:
+					s.vy = 0.0
+					s.kb = Vector2.ZERO
+					s.spin = 0.0
+					s.hit_t = clock
+
+
+## 고유기 충격 —— 중심에서 가까운 병사를 공중으로 날린다. power 1 이면 몇 m 뜬다
+func launch(key: String, center: Vector2, radius: float, power: float) -> void:
+	var sq: Squad = squads.get(key)
+	if sq == null:
+		return
+	for s in sq.soldiers:
+		var d: Vector2 = s.pos - center
+		var l := d.length()
+		if l > radius or s.air > 0.0:
+			continue
+		var f := (1.0 - l / radius) * power * rng.randf_range(0.6, 1.2)
+		if f < 0.15:
+			continue
+		s.vy = 4.0 + 9.0 * f
+		s.air = 0.01
+		s.kb = (d / maxf(l, 0.1)) * (40.0 + 140.0 * f)
+		s.fall = 1.0 if rng.randf() < 0.5 else -1.0
 
 
 func _separate(dt: float) -> void:
@@ -730,44 +805,9 @@ static func _hide(buf: PackedFloat32Array, o: int) -> void:
 	buf[o + 7] = -500.0
 
 
-func _xform(sq: Squad, s, gen: bool) -> Array:
-	var x: float = s.pos.x * S
-	var z: float = s.pos.y * S
-	var y := height(x, z)
-	var b := Basis(Vector3.UP, -s.yaw)
-	var dark := 0.0
-	var flash := 0.0
-	var dead: bool = not s.alive and s.die_t >= 0 and clock >= s.die_t
-	if dead:
-		var u := minf(1.0, (clock - s.die_t) / 0.4)
-		b = b * Basis(Vector3.RIGHT, s.fall * u * PI * 0.48)
-		dark = 0.42 * u
-	elif not s.alive and s.die_t < 0:
-		return [HIDDEN, Color(), false]
-	else:
-		if sq.state == "gone":
-			return [HIDDEN, Color(), false]
-		var cav: bool = sq.tag == "기병"
-		y += absf(sin(s.walk * 0.9)) * (0.16 if cav else 0.08)
-		if cav:
-			b = b * Basis(Vector3.BACK, sin(s.walk * 0.45) * 0.07)
-		# 공격하며 앞으로 기울고, 맞으면 뒤로 젖힌다
-		var a: float = (clock - s.atk_t0) / Squad.ATTACK_TIME
-		if a >= 0 and a <= 1 and not cav:
-			b = b * Basis(Vector3.BACK, -0.28 * sin(PI * a))
-		var h: float = (clock - s.hit_t) / 0.3
-		if h >= 0 and h <= 1:
-			b = b * Basis(Vector3.BACK, 0.3 * sin(PI * h))
-		if sq.cheer and s.slot % 3 == 0:
-			y += maxf(0, sin(clock * 9.0 + s.phase)) * 0.35
-		flash = sq.hurt * 0.35
-	b = b * Basis.from_scale(Vector3.ONE * (1.25 if gen else s.size))
-	var team := 0.0 if sq.camp == "A" else 1.0
-	return [Transform3D(b, Vector3(x, y, z)), Color(team, dark, flash, s.tint), not dead]
-
-
 ## 병사 → GPU 버퍼. 병종마다 버퍼 하나에 몰아 쓰고 프레임 끝에 한 번만 넘긴다.
 ## 다 쓰러진 시신과 떠나 버린 병사는 한 번 쓴 뒤로 다시 계산하지 않는다(정착).
+## 사용자 값 4 개는 soldier.gdshader 머리말 참고 (진영+옷 밝기 · 어둡게/공격 · 번쩍 · 걸음 박자)
 func _sync() -> void:
 	var bufs := {}
 	for k in _bufs:
@@ -793,12 +833,12 @@ func _sync() -> void:
 				_hide(hb, e[5] * 16)
 				bufs[wk] = hb
 			e[7] = sq.state == "gone"
-			if e[6] and capes.has(sq.key):
-				capes[sq.key].visible = false
 			continue
+		var walking: bool = s.walk != s.walk_drawn
+		s.walk_drawn = s.walk
 		# 그대로 서 있고 동작도 없으면 지난번 값을 그대로 둔다
 		var anim: bool = dead or clock - s.atk_t0 < Squad.ATTACK_TIME or clock - s.hit_t < 0.3 or sq.cheer \
-			or (s.spawn_t >= 0 and clock - s.spawn_t < 0.5)
+			or (s.spawn_t >= 0 and clock - s.spawn_t < 0.5) or s.air > 0.0 or walking != s.drawn_mv
 		var wang := _weapon_angle(sq, s, wk, not dead) if wk != "" else 0.0
 		# 눈에 띄지 않을 만큼만 움직였으면 건너뛴다 (0.5cm · 0.2도)
 		if not anim and absf(s.pos.x - s.drawn.x) < 0.05 and absf(s.pos.y - s.drawn.y) < 0.05 \
@@ -806,49 +846,59 @@ func _sync() -> void:
 			continue
 		s.drawn = Vector3(s.pos.x, s.pos.y, s.yaw)
 		s.drawn_w = wang
+		s.drawn_mv = walking
 		var x: float = s.pos.x * S
 		var z: float = s.pos.y * S
-		var y := height(x, z)
+		var y: float = height(x, z) + s.air
 		var b := Basis(Vector3.UP, -s.yaw)
-		var dark := 0.0
+		var g := 0.0                # 시신이면 어둡게(+), 살아 있으면 공격 진행(-)
 		var flash := 0.0
 		var settle := false
+		var atk := 0.0
 		if dead:
 			var u := minf(1.0, (clock - s.die_t) / 0.4)
 			b = b * Basis(Vector3.RIGHT, s.fall * u * PI * 0.48)
-			dark = 0.42 * u
-			settle = u >= 1.0
+			g = 0.42 * u
+			settle = u >= 1.0 and s.air <= 0.0
 		else:
 			var cav: bool = e[8]
 			y += absf(sin(s.walk * 0.9)) * (0.16 if cav else 0.08)
 			if cav:
 				b = b * Basis(Vector3.BACK, sin(s.walk * 0.45) * 0.07)
 			var a: float = (clock - s.atk_t0) / Squad.ATTACK_TIME
-			if a >= 0 and a <= 1 and not cav:
-				b = b * Basis(Vector3.BACK, -0.28 * sin(PI * a))
+			if a >= 0 and a <= 1:
+				atk = a
+				if not cav:
+					b = b * Basis(Vector3.BACK, -0.28 * sin(PI * a))
 			var h: float = (clock - s.hit_t) / 0.3
 			if h >= 0 and h <= 1:
 				b = b * Basis(Vector3.BACK, 0.3 * sin(PI * h))
 				flash = 0.45 * sin(PI * h)          # 맞은 병사만 번쩍인다
 			if sq.cheer and s.slot % 3 == 0:
 				y += maxf(0, sin(clock * 9.0 + s.phase)) * 0.35
-		var sc: float = 1.25 if e[6] else s.size
+			g = -atk
+		if s.air > 0.0:
+			b = b * Basis(Vector3.BACK, s.spin)     # 날아가며 뒤집힌다
+		var sc: float = 1.3 if e[6] else s.size
 		b = b * Basis.from_scale(Vector3(sc, sc, sc))
 		var p := Vector3(x, y, z)
-		var team := 0.0 if sq.camp == "A" else 1.0
-		_put(bbuf, o, b, p, team, dark, flash, s.tint)
+		var r0: float = (0.0 if sq.camp == "A" else 1.0) + s.tint * 0.5
+		var step_ph: float = fposmod(s.walk * 0.9 / TAU, 1.0) + (0.0 if walking else 2.0)
+		_put(bbuf, o, b, p, r0, g, flash, step_ph)
 		bufs[e[2]] = bbuf
 		if wk != "":
 			var wb: PackedFloat32Array = bufs[wk]
 			var hand: Vector3 = HAND[wk]
-			if wk != "sword" and not dead and sq.contact:
-				hand += Vector3(0.45 * sin(PI * clampf((clock - s.atk_t0) / Squad.ATTACK_TIME, 0, 1)), 0, 0)   # 찌르기
-			var wbasis := b * Basis(Vector3.BACK, wang)
-			_put(wb, e[5] * 16, wbasis, p + b * hand, team, dark, flash, s.tint)
+			# 팔이 어깨를 축으로 돌면 손과 무기도 같이 돈다 (셰이더의 4 번 부위와 같은 각)
+			var arm := 1.3 * sin(PI * atk)
+			var piv: Vector2 = ARM_PIVOT[wk]
+			var hd := Vector2(hand.x - piv.x, hand.y - piv.y).rotated(arm)
+			hand = Vector3(piv.x + hd.x, piv.y + hd.y, hand.z)
+			if (wk == "spear" or wk == "lance" or wk == "g_lance") and not dead and sq.contact:
+				hand += Vector3(0.45 * sin(PI * atk), 0, 0)   # 찌르기
+			var wbasis := b * Basis(Vector3.BACK, wang + arm * 0.5)
+			_put(wb, e[5] * 16, wbasis, p + b * hand, r0, g, flash, step_ph)
 			bufs[wk] = wb
-		if e[6] and capes.has(sq.key):
-			capes[sq.key].transform = Transform3D(b, p)
-			capes[sq.key].visible = true
 		e[7] = settle
 	for k in bufs:
 		_bufs[k] = bufs[k]
@@ -873,17 +923,17 @@ func _sync() -> void:
 
 
 func _weapon_angle(sq: Squad, s, kind: String, alive: bool) -> float:
-	var front: bool = alive and sq.rank_of(s) < 2
+	var front: bool = alive and (s == sq.general or sq.rank_of(s) < 2)
 	var ready: bool = front and (sq.contact or (sq.engaged != null and sq.pos.distance_to(sq.engaged.pos) < 140.0))
 	var a := clampf((clock - s.atk_t0) / Squad.ATTACK_TIME, 0, 1)
 	match kind:
 		"spear":
 			return -1.38 if ready else -0.1
-		"sword":
+		"sword", "g_saber", "g_glaive":
 			if sq.contact and front and a < 1.0:
 				return lerpf(-2.6, -0.3, a)          # 머리 위에서 내려친다
 			return -1.9 if ready else -0.55
-		"lance":
+		"lance", "g_lance":
 			return -1.45 if ready or (sq.moving and sq.engaged != null) else -0.22
 	return 0.0
 
@@ -909,32 +959,26 @@ func _update_cam(dt: float) -> void:
 
 ## 자동 카메라 —— 살아 있는 부대를 모두 화면 안에 담는 가장 가까운 거리를 찾는다.
 ## 후보 거리마다 부대 가장자리 점을 직접 투영해 보고(원근 포함), 위아래 가운데를 맞춘다.
+## 다 담으려면 너무 멀어지면(FAR_OK 넘게) 싸우는 부대(맞닿았거나 상대에게 달려가는)만 담는다 —— 뒤에 선 예비대는 화면 밖으로.
 ## 위쪽은 세력 막대·시계가 있어 조금 더 비운다.
+const FAR_OK := 46.0
 func _auto_frame() -> void:
 	var fw := Vector2(cos(want_yaw), sin(want_yaw))
 	var rt := Vector2(-sin(want_yaw), cos(want_yaw))
-	var pts := PackedVector2Array()
-	var hot := Vector2.ZERO
-	var hn := 0
-	var lo := Vector2(INF, INF)
-	var hi := Vector2(-INF, -INF)
+	var all := PackedVector2Array()
+	var hot := PackedVector2Array()
 	for sq in order:
 		if not sq.alive or sq.state == "gone":
 			continue
 		var p: Vector2 = sq.pos * S
-		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 2.0
+		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 0.8
+		var busy: bool = sq.contact or (sq.engaged != null and sq.moving)
 		for o in [rt * r, -rt * r, fw * r, -fw * r]:
-			pts.append(p + o)
-			lo = Vector2(minf(lo.x, p.x + o.x), minf(lo.y, p.y + o.y))
-			hi = Vector2(maxf(hi.x, p.x + o.x), maxf(hi.y, p.y + o.y))
-		if sq.contact:
-			hot += p
-			hn += 1
-	if pts.is_empty():
+			all.append(p + o)
+			if busy:
+				hot.append(p + o)
+	if all.is_empty():
 		return
-	var c := (lo + hi) / 2
-	if hn > 0:
-		c = c.lerp(hot / hn, 0.2)           # 맞붙은 곳 쪽으로 살짝
 	var vp := get_viewport().get_visible_rect().size
 	var aspect := vp.x / maxf(vp.y, 1.0)
 	var th := tan(deg_to_rad(cam.fov) / 2)
@@ -943,11 +987,26 @@ func _auto_frame() -> void:
 		tv = th / aspect
 	else:
 		th = tv * aspect
+	var res := _fit(all, fw, rt, th, tv)
+	if res[0] > FAR_OK and hot.size() >= 4:
+		res = _fit(hot, fw, rt, th, tv)
+	want_dist = res[0]
+	want_t = Vector3(res[1].x, 0, res[1].y)
+	cam_rate = 1.1
+
+
+## 점들을 다 담는 [거리, 대상]
+func _fit(pts: PackedVector2Array, fw: Vector2, rt: Vector2, th: float, tv: float) -> Array:
 	const TOP := 0.62       # 화면 위 끝 (1 이 끝) —— 머리띠·머리표 자리
 	const BOT := -0.9
-	const SIDE := 0.88
-	var d := maxf(20.0, want_dist * 0.85)     # 지난 거리 근처부터 찾는다 (계산을 줄인다)
-	var tgt := c
+	const SIDE := 1.0        # 세로 화면은 폭이 좁다 —— 양옆 부대 끝이 화면 끝에 닿게
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for p in pts:
+		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
+		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
+	var tgt := (lo + hi) / 2
+	var d := clampf(want_dist * 0.85, 18.0, 110.0)    # 지난 거리 근처부터 찾는다 (계산을 줄인다)
 	for _i in 30:
 		# 세로 가운데 맞춤 —— 두 번 고쳐 잡는다
 		for _j in 2:
@@ -964,10 +1023,7 @@ func _auto_frame() -> void:
 		if d > 110.0:
 			d = 110.0
 			break
-	want_dist = d
-	want_t = Vector3(tgt.x, 0, tgt.y)
-	cam_rate = 1.3
-
+	return [d, tgt]
 
 
 ## 땅 위 점들을 (대상, 거리)의 카메라로 투영한 화면 범위 —— x 최소·최대, y 최소·최대 (-1~1)

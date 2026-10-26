@@ -1624,8 +1624,13 @@ func _dev_args() -> void:
 		if a.has("scroll"):
 			_scroll.scroll_vertical = int(a.scroll)
 			await get_tree().process_frame
-		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(a.gshot)
+		# --frames=N --every=초 —— 연속 장면을 경로_0.png, 경로_1.png … 로
+		var nf := int(a.get("frames", "1"))
+		for i in nf:
+			if i > 0:
+				await get_tree().create_timer(float(a.get("every", "0.5"))).timeout
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(a.gshot if nf == 1 else str(a.gshot).replace(".png", "_%d.png" % i))
 		get_tree().quit()
 
 

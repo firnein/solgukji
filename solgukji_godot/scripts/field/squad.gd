@@ -13,7 +13,11 @@ extends RefCounted
 ## 바글바글하게 (밀도)
 ##  · 부대당 병사를 토탈워 쪽으로 늘리고, 어깨가 닿는 간격으로 세운다.
 ##  · 줄마다 반 칸씩 엇갈리고, 자리마다 크게 어긋나며, 서 있어도 조금씩 꼼지락거린다.
-##  · 맞붙으면 앞 세 줄은 대열 자리를 버리고 마주 선 적 병사(duel)와 일대일로 붙는다.
+##  · 맞붙으면 앞 네 줄은 대열 자리를 버리고 마주 선 적 병사(duel)를 에워싸며 붙고, 뒷줄은 앞으로 밀고 든다.
+##
+## 흐트러짐 (loose) —— 실시간 전투처럼
+##  · 싸우는 동안 병사마다 대열 자리에서 벗어난 만큼(free)을 기억한다. 싸움이 끝나도 바로 칸으로 돌아가지 않고
+##    흐트러진 무리 그대로 다음 상대에게 몰려가며, 몇 초에 걸쳐 천천히 대열을 되찾는다.
 
 ## 병종 → 연출 계열
 const CLS := {"창병": "melee", "도적": "melee", "기병": "cav", "궁병": "ranged",
@@ -27,8 +31,10 @@ const SPEED := {"창병": 62.0, "도적": 80.0, "기병": 95.0, "궁병": 55.0,
 const TURN := 1.4           # 대열이 도는 속도 (라디안/초)
 const SOLDIER_TURN := 7.0   # 병사가 고개를 돌리는 속도
 const CONTACT_GAP := 2.0    # 맞닿은 두 대열 앞줄 사이 (px)
-const DUEL_RANKS := 3       # 맞붙으면 일대일로 흩어지는 앞줄 수
+const DUEL_RANKS := 4       # 맞붙으면 일대일로 흩어지는 앞줄 수
 const DUEL_DIST := 7.0      # 일대일로 붙은 두 병사 사이 (px)
+const LOOSE_IN := 1.2       # 맞붙으면 초당 이만큼 흐트러진다
+const LOOSE_OUT := 0.22     # 떨어지면 초당 이만큼 대열을 되찾는다 (약 4~5초)
 const ATTACK_TIME := 0.38   # 한 번 찌르거나 휘두르는 시간
 
 
@@ -55,6 +61,13 @@ class Soldier:
 	var drawn := Vector3(1e9, 0, 0)   # 마지막으로 GPU 에 쓴 (x, y, 방향) —— 같으면 다시 쓰지 않는다
 	var drawn_w := 0.0        # 마지막으로 쓴 무기 각도
 	var wander_t := 0.0       # 다음에 자리를 살짝 바꿀 시각
+	var walk_drawn := 0.0     # 마지막으로 그린 걸음 —— 바뀌었으면 걷는 중
+	var drawn_mv := false
+	var air := 0.0            # 공중에 뜬 높이 (m) —— 고유기에 날아간다
+	var vy := 0.0             # 위로 솟는 속도 (m/초)
+	var spin := 0.0           # 날아가며 뒤집힌 각
+	var kb := Vector2.ZERO    # 밀려나는 속도 (px/초)
+	var free := Vector2.ZERO  # 싸우며 대열 자리에서 벗어난 만큼 —— loose 만큼 남는다
 
 
 var key: String
@@ -91,6 +104,7 @@ var fade := 1.0
 var glow := 0.0
 var hurt := 0.0
 var cheer := false
+var loose := 0.0          # 흐트러짐 0~1
 var _rk := 1              # 이번 프레임의 줄 수 (매번 세지 않도록)
 var _figs: Array = []     # 병사 + 장수 (한 번 만들어 계속 쓴다)
 var _slice := 0           # 가만히 선 부대는 병사를 네 조로 나눠 번갈아 움직인다
@@ -276,6 +290,10 @@ func update(dt: float, clock: float) -> void:
 				want_dir = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 		_turn_toward(want_dir, dt)
 
+	if contact:
+		loose = minf(1.0, loose + dt * LOOSE_IN)
+	else:
+		loose = maxf(0.0, loose - dt * LOOSE_OUT)
 	glow = maxf(0, glow - dt * 1.4)
 	hurt = maxf(0, hurt - dt * 2.5)
 	var enemy_at = engaged.pos if engaged else face_to
@@ -283,12 +301,12 @@ func update(dt: float, clock: float) -> void:
 	var front := pos + fwd * (_rk - 1) * sp * 0.5
 	var rgt := right()
 	var half := (cols - 1) / 2.0
-	var calm: bool = not moving and not contact and state != "flee" and not cheer
+	var calm: bool = not moving and not contact and state != "flee" and not cheer and loose <= 0.0
 	_slice = (_slice + 1) % 4
 	var sdt := dt * 4.0 if calm else dt
 	for s: Soldier in _figs:
-		if not s.alive:
-			continue
+		if not s.alive or s.air > 0.0:
+			continue            # 공중에 뜬 병사는 War3D._air 가 움직인다
 		if calm and (s.slot & 3) != _slice:
 			continue
 		var want_p: Vector2
@@ -300,19 +318,31 @@ func update(dt: float, clock: float) -> void:
 			rk = s.slot / cols
 			var c := s.slot % cols
 			want_p = front - fwd * (rk * sp * 0.92) + rgt * ((c - half + (0.5 if rk & 1 else 0.0)) * sp) + s.jit
+		var grid_p := want_p
 		var fighting: bool = contact and rk < DUEL_RANKS
+		var pressing: bool = contact and not fighting and s != general     # 뒷줄 —— 앞으로 밀고 든다
 		# 서 있어도 꼼지락거린다 —— 싸울 때는 더 크게, 더 자주
 		if clock >= s.wander_t:
 			s.wander_t = clock + _rng.randf_range(0.4, 1.2) * (1.0 if fighting else 3.0)
 			s.wander = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * (0.6 if fighting else 0.3)
 		want_p += s.wander
 		if fighting and s.duel != null and s.duel.alive:
-			# 일대일 —— 마주 선 적 병사 앞에 선다. 대열 자리에서 너무 멀어지지는 않는다
+			# 일대일 —— 마주 선 적 병사 앞에 선다. 여럿이 한 적에 붙으면 병사마다 다른 각도로 에워싼다
 			var away: Vector2 = s.pos - s.duel.pos
-			var stand: Vector2 = s.duel.pos + (away.normalized() if away.length() > 0.1 else -fwd) * DUEL_DIST
-			want_p = want_p + (stand - want_p).limit_length(sp * 2.5)
+			var dir: Vector2 = (away.normalized() if away.length() > 0.1 else -fwd).rotated((s.phase - PI) * 0.4)
+			var stand: Vector2 = s.duel.pos + dir * DUEL_DIST
+			want_p = want_p + (stand - want_p).limit_length(sp * (2.5 + 3.5 * loose))
 		elif fighting:
 			want_p += fwd * sp * 0.5
+		elif pressing:
+			want_p += fwd * sp * minf(rk - DUEL_RANKS + 1, 3) * 0.6 * loose        # 빈자리로 밀려든다
+		# 흐트러짐 —— 싸우는 동안 벗어난 만큼 기억했다가, 대열로 천천히 돌아간다
+		if fighting or pressing:
+			s.free = (s.pos - grid_p).limit_length(sp * 6.0)
+		elif loose > 0.0:
+			want_p = grid_p + s.free * loose + s.wander
+		else:
+			s.free = Vector2.ZERO
 		if fighting:
 			if clock >= s.next_atk:
 				s.atk_t0 = clock

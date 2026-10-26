@@ -5,12 +5,17 @@ extends RefCounted
 ##   slash 초승달 검기 · charge 금빛 궤적+충격파 · arrowstorm 화살비 · firestorm 불기둥+그을음
 ##   thunder 낙뢰 · poison 독안개 · illusion 보랏빛 소용돌이 · aura/heal 빛기둥
 ##   shadow 검은 연기 · whirlwind 회전 충격파 · roar 겹겹 충격파+화면 흔들림
+## 모든 고유기 공통: 장수 발밑에 도는 법진 → 터지는 순간 화면 섬광 · 큰 충격파 고리 · 맞은 부대 병사가 공중으로 날아간다
+##   (날리는 세기는 LAUNCH —— 물리 계열일수록 세다)
+const LAUNCH := {"slash": 0.95, "charge": 1.0, "whirlwind": 0.9, "roar": 0.7, "thunder": 0.75, "firestorm": 0.55,
+	"shadow": 0.5, "illusion": 0.35, "poison": 0.25, "arrowstorm": 0.3}
 
 var w: War3D
 var timed := []           # [시각, Callable]
 var live := []            # {n: Node3D, t0, life, kind, m: Material, ...}
 var trails := {}          # 부대 key -> 끝나는 시각 (돌격 궤적)
 var _scorch_tex: Texture2D
+static var _circle_tex: Texture2D     # 한 번 그려 두고 전투마다 다시 쓴다
 
 
 func _init(war: War3D) -> void:
@@ -26,6 +31,8 @@ func _init(war: War3D) -> void:
 	gr.offsets = PackedFloat32Array([0, 0.55, 1])
 	g.gradient = gr
 	_scorch_tex = g
+	if _circle_tex == null:
+		_circle_tex = _magic_circle()
 
 
 func clear() -> void:
@@ -45,7 +52,8 @@ func play(vfx: String, akey: String, foes: Array, allies: Array, delay: float) -
 		return
 	var ap := w.p3(a.pos)
 	var col := _col(vfx)
-	# 기 모으기 —— 장수 발밑 빛 고리와 기둥
+	# 기 모으기 —— 장수 발밑에 도는 법진, 빛 고리와 기둥
+	_circle(ap, col, 22.0, delay + 0.7)
 	_pillar(ap, col, delay + 0.4, 0.6)
 	w._ring(ap + Vector3(0, 0.2, 0), col, delay + 0.3)
 	w._light(ap + Vector3(0, 3, 0), col, 5.0, delay + 0.5)
@@ -73,11 +81,27 @@ func _impact(vfx: String, akey: String, foes: Array, allies: Array, col: Color) 
 	for k in allies:
 		if w.squads.has(k):
 			apos.append(w.p3(w.squads[k].pos))
-	w.shake = maxf(w.shake, 0.5)
+	w.shake = maxf(w.shake, 0.7)
+	w.ult_flash.emit(col)
+	# 공통 —— 맞은 부대마다 큰 충격파와 병사 날리기
+	var lp: float = LAUNCH.get(vfx, 0.0)
+	for k in foes:
+		var d: Squad = w.squads.get(k)
+		if d == null:
+			continue
+		var dp := w.p3(d.pos)
+		_shock(dp, col, 16.0)
+		w._ring(dp + Vector3(0, 0.25, 0), col, 0.9)
+		if lp > 0.0:
+			var c: Vector2 = d.pos + (a.pos - d.pos).normalized() * d.depth() * 0.3 if a else d.pos
+			w.launch(k, c, 55.0, lp)
 	match vfx:
 		"slash":
 			for p in fpos:
 				_crescent(p + Vector3(0, 1.3, 0), (p - ap).normalized(), col)
+				var pp: Vector3 = p
+				at(0.1, func(): _crescent(pp + Vector3(0, 1.8, 0), (pp - ap).normalized().rotated(Vector3.UP, 0.5), col.lightened(0.3)))
+				_cut(p, (p - ap).normalized())
 				w._particles(p + Vector3(0, 1, 0), "spark", col)
 				w._ring(p + Vector3(0, 0.2, 0), col, 0.6)
 				w._light(p + Vector3(0, 2, 0), col, 6.0, 0.35)
@@ -95,7 +119,7 @@ func _impact(vfx: String, akey: String, foes: Array, allies: Array, col: Color) 
 				var d: Squad = w.squads.get(k)
 				if d == null:
 					continue
-				for i in 70:
+				for i in 120:
 					var tp := d.pos + Vector2(w.rng.randf_range(-45, 45), w.rng.randf_range(-45, 45))
 					var p1 := w.p3(tp, 0.1)
 					var p0 := ap + Vector3(w.rng.randf_range(-6, 6), 2.0, w.rng.randf_range(-6, 6))
@@ -113,20 +137,24 @@ func _impact(vfx: String, akey: String, foes: Array, allies: Array, col: Color) 
 				_scorch(p)
 		"thunder":
 			for p in fpos:
-				for i in 3:
+				_circle(p, col, 18.0, 0.9)
+				for i in 5:
 					at(i * 0.09, func(): _bolt(p + Vector3(w.rng.randf_range(-3, 3), 0, w.rng.randf_range(-3, 3)), col))
 		"poison":
 			for p in fpos:
+				_circle(p, col, 18.0, 1.4)
 				for i in 2:
 					w._particles(p + Vector3(w.rng.randf_range(-3, 3), 0.5, w.rng.randf_range(-3, 3)), "mist", col)
 				w._light(p + Vector3(0, 2, 0), col, 3.0, 1.2)
 		"illusion":
 			for p in fpos:
 				_spiral(p, col)
+				_circle(p, col, 20.0, 1.2)
 				w._particles(p + Vector3(0, 1.5, 0), "magic", col)
 				w._light(p + Vector3(0, 2, 0), col, 4.0, 0.9)
 		"aura", "heal":
 			for p in apos:
+				_circle(p, col, 16.0, 1.4)
 				_pillar(p, col, 1.3, 1.0)
 				w._particles(p + Vector3(0, 0.8, 0), "heal", col)
 				w._ring(p + Vector3(0, 0.2, 0), col, 0.9)
@@ -190,8 +218,8 @@ func _crescent(p: Vector3, dir: Vector3, col: Color) -> void:
 		var a1 := lerpf(-1.2, 1.2, float(i + 1) / seg)
 		var fade0 := sin(PI * float(i) / seg)
 		var fade1 := sin(PI * float(i + 1) / seg)
-		var r0 := 4.6
-		var r1 := 3.6
+		var r0 := 7.4
+		var r1 := 5.6
 		var o0 := Vector3(cos(a0), 0, sin(a0))
 		var o1 := Vector3(cos(a1), 0, sin(a1))
 		var ca := Color(1, 1, 1, fade0)
@@ -200,7 +228,7 @@ func _crescent(p: Vector3, dir: Vector3, col: Color) -> void:
 		for v in [[o0 * r0, ca], [o1 * r0, cb], [o1 * r1, ci], [o0 * r0, ca], [o1 * r1, ci], [o0 * r1, ci]]:
 			st.set_color(v[1])
 			st.add_vertex(v[0])
-	var mi := _spawn(st.commit(), col, p, 0.45, "crescent", {"yaw": atan2(-dir.z, dir.x) + PI})
+	var mi := _spawn(st.commit(), col, p, 0.6, "crescent", {"yaw": atan2(-dir.z, dir.x) + PI})
 	mi.rotation = Vector3(0.25, atan2(-dir.z, dir.x) + PI, 0)
 
 
@@ -268,6 +296,71 @@ func _scorch(p: Vector3) -> void:
 	w.fx_root.add_child(d)
 
 
+## 법진 —— 땅에 비추는 빛 무늬. 커지며 돌다가 사라진다
+func _circle(p: Vector3, col: Color, size: float, life: float) -> void:
+	var d := Decal.new()
+	d.texture_albedo = _circle_tex
+	d.texture_emission = _circle_tex
+	d.emission_energy = 2.5
+	d.modulate = col.lightened(0.2)
+	d.size = Vector3(size, 8.0, size)
+	d.cull_mask = 1
+	d.position = p
+	w.fx_root.add_child(d)
+	live.append({"n": d, "t0": w.clock, "life": life, "kind": "circle", "m": null, "col": col, "size": size})
+
+
+## 땅에 남는 검흔 —— 길쭉한 그을음
+func _cut(p: Vector3, dir: Vector3) -> void:
+	var d := Decal.new()
+	d.texture_albedo = _scorch_tex
+	d.size = Vector3(16, 6, 2.2)
+	d.position = p
+	d.rotation.y = atan2(-dir.z, dir.x) + PI * 0.5
+	d.modulate = Color(1, 1, 1, 0.8)
+	d.cull_mask = 1
+	w.fx_root.add_child(d)
+
+
+## 법진 무늬 —— 겹 원 · 눈금 · 육각별을 한 번 그려 둔다 (흰색, 알파로 모양)
+static func _magic_circle() -> Texture2D:
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var c := n / 2.0
+	var star := []
+	for i in 6:
+		star.append(Vector2.from_angle(TAU * i / 6.0 - PI / 2) * 0.62)
+	for y in n:
+		for x in n:
+			var p := Vector2((x - c) / c, (y - c) / c)
+			var r := p.length()
+			var a := 0.0
+			# 겹 원
+			for rr in [0.96, 0.86, 0.62, 0.3]:
+				a = maxf(a, 1.0 - absf(r - rr) / 0.025)
+			# 바깥 띠의 눈금
+			if r > 0.86 and r < 0.96:
+				var ang := atan2(p.y, p.x)
+				a = maxf(a, 0.75 * float(fposmod(ang * 24.0 / PI, 2.0) < 0.35))
+			# 육각별 —— 두 개의 삼각형
+			for t in 2:
+				for i in 3:
+					var a0: Vector2 = star[(i * 2 + t) % 6]
+					var a1: Vector2 = star[((i + 1) * 2 + t) % 6]
+					var e := a1 - a0
+					var u := clampf((p - a0).dot(e) / e.length_squared(), 0, 1)
+					var dd := (p - (a0 + e * u)).length()
+					a = maxf(a, 1.0 - dd / 0.022)
+			# 가운데 은은한 빛
+			a = maxf(a, 0.25 * (1.0 - smoothstep(0.0, 0.3, r)))
+			if r > 1.0:
+				a = 0.0
+			a = clampf(a, 0, 1)
+			img.set_pixel(x, y, Color(a, a, a, a))       # 발광은 알파를 보지 않는다 —— 색에도 미리 곱해 둔다
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
 func step() -> void:
 	# 예약된 순간
 	var keep := []
@@ -310,6 +403,12 @@ func step() -> void:
 			"spiral":
 				r.n.rotation.y += r.spin * 0.016
 				m.albedo_color = Color(r.col, 1.0 - u)
+			"circle":
+				var dc: Decal = r.n
+				var g := ease(minf(1.0, u * 3.0), 0.4)
+				dc.size = Vector3(r.size * (0.4 + 0.6 * g), 8.0, r.size * (0.4 + 0.6 * g))
+				dc.rotation.y += 0.02
+				dc.modulate.a = 1.0 - smoothstep(0.7, 1.0, u)
 			"bolt":
 				m.albedo_color = Color(r.col, (1.0 - u) * (0.6 + 0.4 * sin(w.clock * 90.0)))
 	live = lk

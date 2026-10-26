@@ -220,6 +220,7 @@ func _handle_args() -> void:
 			var w: War3D = battle.field
 			w.want_t = Vector3(float(a.get("nx", "0")), 0, 0)
 			w.want_dist = float(a.near)
+			w.director = false
 			w.want_pitch = 0.32
 			w.want_yaw = float(a.get("yaw", "0.4"))
 			w.cam_rate = 3.0

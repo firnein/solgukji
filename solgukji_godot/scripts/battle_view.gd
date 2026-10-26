@@ -143,6 +143,7 @@ func _ready() -> void:
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage.add_child(hud)
+	field.ult_flash.connect(hud.flash)
 	stage.resized.connect(fit_port)
 
 	# 아래 독 —— 군령 줄 + 아군 장수 카드 격자 (금빛이면 눌러 고유기)
@@ -1069,6 +1070,13 @@ class Hud extends Control:
 		stamp_info = null
 
 	var ann = null
+	var _flash := Color(0, 0, 0, 0)
+	var _flash_t := 9.0
+
+	## 고유기 섬광 —— 화면 전체가 그 빛으로 번쩍였다가 0.35초에 걸쳐 걷힌다
+	func flash(col: Color) -> void:
+		_flash = col
+		_flash_t = 0.0
 
 	func announce(text: String, col: Color) -> void:
 		ann = {"text": text, "col": col, "t": 0.0}
@@ -1151,6 +1159,7 @@ class Hud extends Control:
 			cut.t += dt
 			if cut.t > 1.6:
 				cut = null
+		_flash_t += dt
 		if ann:
 			ann.t += dt
 			if ann.t > 1.8:
@@ -1266,6 +1275,9 @@ class Hud extends Control:
 			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 5, Color(0, 0, 0, col.a * 0.85))
 			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
 		floats = keep
+		if _flash_t < 0.35:
+			var fa := (1.0 - _flash_t / 0.35)
+			draw_rect(Rect2(Vector2.ZERO, size), Color(_flash.lerp(Color.WHITE, 0.55), 0.55 * fa * fa))
 		# 위쪽 —— 시계와 세력 균형
 		var tA := 0.0
 		var tB := 0.0

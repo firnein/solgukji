@@ -7,6 +7,20 @@ extends RefCounted
 var v := PackedVector3Array()
 var n := PackedVector3Array()
 var c := PackedColorArray()
+## 관절 —— 지금부터 쌓는 도형이 어느 부위인지(part)와 그 부위가 도는 축의 자리(pivot: 모델 x, y).
+## 셰이더가 UV.x 로 부위를, UV2 로 축을 읽어 팔다리를 흔든다 (soldier.gdshader). 0 = 몸통(안 움직임)
+var part := 0
+var pivot := Vector2.ZERO
+var uv := PackedVector2Array()
+var uv2 := PackedVector2Array()
+var _parts := false
+
+
+func joint(p: int, pv := Vector2.ZERO) -> void:
+	part = p
+	pivot = pv
+	if p != 0:
+		_parts = true
 
 
 func tri(a: Vector3, b: Vector3, d: Vector3, col: Color, hint: Vector3) -> void:
@@ -17,6 +31,8 @@ func tri(a: Vector3, b: Vector3, d: Vector3, col: Color, hint: Vector3) -> void:
 		v.append(p)
 		n.append(nn)
 		c.append(col)
+		uv.append(Vector2(part, 0))
+		uv2.append(pivot)
 
 
 func quad(a: Vector3, b: Vector3, d: Vector3, e: Vector3, col: Color, hint: Vector3) -> void:
@@ -101,6 +117,9 @@ func mesh() -> ArrayMesh:
 	arr[Mesh.ARRAY_VERTEX] = v
 	arr[Mesh.ARRAY_NORMAL] = n
 	arr[Mesh.ARRAY_COLOR] = c
+	if _parts:
+		arr[Mesh.ARRAY_TEX_UV] = uv
+		arr[Mesh.ARRAY_TEX_UV2] = uv2
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	return m
