@@ -592,10 +592,13 @@ func tick_status() -> void:
 
 ## 불타는 적을 칠 때 피해 배율 —— 공격자의 fire_amp, 대상의 fire_res 가 깎는다
 func _fire_mul(a: Unit, d: Unit) -> float:
-	if a == null or not has_st(d, "burn"):
+	if a == null or not fire_enabled:
 		return 1.0
-	var amp := mv(a, "fire_amp")
-	return 1.0 + amp * (1.0 - minf(1.0, mv(d, "fire_res"))) if amp > 0 else 1.0
+	var res := 1.0 - minf(1.0, mv(d, "fire_res"))
+	var m := 1.0 + mv(a, "fire_hit") * res          # 화염일격 —— 즉발 (고급·희귀)
+	if has_st(d, "burn"):
+		m *= 1.0 + mv(a, "fire_amp") * res
+	return m
 
 
 ## 화상 세기 배율 —— 건 쪽 burn_amp, 받는 쪽 fire_weak 는 올리고 fire_res 는 내린다
@@ -696,10 +699,13 @@ func _scorched(d: Unit) -> bool:
 
 ## 물에 잠긴 적을 칠 때 피해 배율 —— 공격자의 water_amp, 대상의 flood_res 가 깎는다
 func _water_mul(a: Unit, d: Unit) -> float:
-	if a == null or not water_enabled or not has_st(d, "flood"):
+	if a == null or not water_enabled:
 		return 1.0
-	var amp := mv(a, "water_amp")
-	return 1.0 + amp * (1.0 - minf(1.0, mv(d, "flood_res"))) if amp > 0 else 1.0
+	var res := 1.0 - minf(1.0, mv(d, "flood_res"))
+	var m := 1.0 + mv(a, "water_hit") * res         # 수격 —— 즉발 (고급·희귀)
+	if has_st(d, "flood"):
+		m *= 1.0 + mv(a, "water_amp") * res
+	return m
 
 
 ## 수몰된 부대의 속도 배율 (이감) —— 기본 water.slow + 적 진영의 격류, 제방이 깎는다
