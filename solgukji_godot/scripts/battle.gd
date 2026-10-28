@@ -209,22 +209,23 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	u.fast_side = syn.get("fastSide", false)
 	var boon = syn.boon
 	u.boon = boon if boon and boon.tags.has(u.c.tag) else null
-	if passives_enabled:
-		var ps = DB.passives_of(cid)
-		if ps != null and ps.self:
-			for k in ps.self.m:
-				u.m[k] = u.m.get(k, 0.0) + ps.self.m[k]
-	if fire_enabled:
-		var ps = DB.passives_of(cid)
-		if ps != null and ps.get("fire"):
-			for t in ps.fire.traits:
-				for k in t.m:
-					u.m[k] = u.m.get(k, 0.0) + t.m[k]
+	var ps = DB.passives_of(cid)
+	if ps != null:
+		for t in ps.traits:
+			if not _trait_on(t):
+				continue
+			for k in t.m:
+				u.m[k] = u.m.get(k, 0.0) + t.m[k]
 	if u.c.tier >= 7:
 		u.ult = DB.ult_of(cid)
 		if u.ult:
 			u.charges = ULT_CHARGES.get(u.c.tier, 1)
 	return u
+
+
+## 특기 켜짐 —— 속성(화공) 특기는 fire_enabled, 나머지는 passives_enabled
+func _trait_on(t: Dictionary) -> bool:
+	return fire_enabled if t.attr == "화공" else passives_enabled
 
 
 func innate_item(cid: String):
@@ -713,7 +714,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		var k = b_cards[i]
 		if k and i < bS.size():
 			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and b_equip[i] else innate_item(k), b_syn))
-	if passives_enabled:
+	if passives_enabled or fire_enabled:
 		_apply_group_passives()
 		for cp in ["A", "B"]:
 			pts[cp] = minf(PTS_MAX, cmdm[cp].get("pts_start", 0.0))
@@ -974,13 +975,9 @@ func _apply_group_passives() -> void:
 		var ps = DB.passives_of(u.c.id)
 		if ps == null:
 			continue
-		var gs := []
-		if ps.group:
-			gs.append(ps.group)
-		if fire_enabled and ps.get("fire"):
-			gs.append_array(ps.fire.groups)
-		for g in gs:
-			_group_from(u, g, got, owner)
+		for g in ps.groups:
+			if _trait_on(g):
+				_group_from(u, g, got, owner)
 	_finish_groups(got, owner)
 
 

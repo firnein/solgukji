@@ -77,9 +77,9 @@ func _load() -> void:
 		if C[k].tier == 1:
 			BASE.append(k)
 
-	_reskill()
 	ULT = JSON.parse_string(FileAccess.open("res://data/ultimates.json", FileAccess.READ).get_as_text())
 	PSV = JSON.parse_string(FileAccess.open("res://data/passives.json", FileAccess.READ).get_as_text())
+	_reskill()
 	_build_forms()
 	_build_pools()
 	_build_icons()
@@ -93,17 +93,28 @@ func _reskill() -> void:
 			return C[a].tier < C[b].tier
 		return a < b)
 	var idx := {}
+	var reserved: Array = PSV.reserved_skills
 	for k in ids:
 		var c: Dictionary = C[k]
 		if c.tier < 4:
 			c.sk = null
 			continue
-		var key: String = c.tag + str(c.tier)
-		idx[key] = idx.get(key, 0)
-		var psv = c.sk.get("psv") if c.sk else null
-		c.sk = _build_skill(c.tag, idx[key], c.tier)
-		c.sk.psv = psv
-		idx[key] += 1
+		# 인물에게 지정된 스킬 (속성 인물의 속성 스킬) —— 없으면 남은 병종 스킬을 돌려 쓴다
+		var want: String = PSV.skill.get(person(k), {}).get(c.tag, "")
+		var pool: Array = D.SKILLPOOL[c.tag]
+		var i := -1
+		if want != "":
+			for j in pool.size():
+				if pool[j].n == want: i = j
+		if i < 0:
+			var free := []
+			for j in pool.size():
+				if not reserved.has(pool[j].n): free.append(j)
+			var key: String = c.tag + str(c.tier)
+			idx[key] = idx.get(key, 0)
+			i = free[idx[key] % free.size()]
+			idx[key] += 1
+		c.sk = _build_skill(c.tag, i, c.tier)
 
 
 func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
@@ -337,54 +348,31 @@ func passives_of(k: String):
 		return _psv_cache[k]
 	var out = null
 	var c: Dictionary = C[k]
-	var p = PSV.persons.get(person(k)) if c.tier >= 3 else null
-	if p != null:
-		out = _psv_pair(p, PSV.catalog, c.tier)
-		out.fire = null
-	# 화공 —— 특기와 따로 붙는 속성 층 (data/passives.json 의 fire)
-	var f = PSV.fire.persons.get(person(k)) if c.tier >= 3 else null
-	if f != null:
-		if out == null:
-			out = {"self": null, "group": null}
-		out.fire = _fire_ladder(f, c.tier)
+	var lad = PSV.ladder.get(person(k)) if c.tier >= 3 else null
+	if lad != null:
+		out = {"traits": [], "groups": []}
+		for e in lad:
+			if c.tier < int(e[1]):
+				continue
+			var t: Dictionary = PSV.traits[e[0]]
+			var attr: String = t.get("attr", "")
+			var sc: float = (PSV.attr_scale if attr != "" else PSV.tier_scale)[str(c.tier)]
+			if t.has("scope"):
+				out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc, "attr": attr})
+			else:
+				var m := {}
+				for key in t.m:
+					m[key] = t.m[key] * (1.0 if key in PSV.flags else sc)
+				out.traits.append({"name": e[0], "d": t.d, "m": m, "attr": attr})
+		if out.traits.is_empty() and out.groups.is_empty():
+			out = null
 	_psv_cache[k] = out
 	return out
 
 
-func _psv_pair(p: Dictionary, cat: Dictionary, tier: int) -> Dictionary:
-	var sc: float = PSV.tier_scale[str(tier)]
-	var s: Dictionary = cat[p.self]
-	var m := {}
-	for key in s.m:
-		m[key] = s.m[key] * (1.0 if key in ["first", "burn_dur"] else sc)
-	var out := {"self": {"name": p.self, "d": s.d, "m": m}, "group": null}
-	if tier >= int(PSV.group_from_tier):
-		var g: Dictionary = cat[p.group]
-		out.group = {"name": p.group, "d": g.d, "scope": g.scope, "scale": sc}
-	return out
-
-
-## 화공 사다리 —— [특기, 붙는 등급] 중 카드 등급 이하인 것. {traits: [{name, d, m}], groups: [{name, d, scope, scale}]}
-func _fire_ladder(f: Array, tier: int):
-	var sc: float = PSV.fire.tier_scale[str(tier)]
-	var out := {"traits": [], "groups": []}
-	for e in f:
-		if tier < int(e[1]):
-			continue
-		var t: Dictionary = PSV.fire.catalog[e[0]]
-		if t.has("scope"):
-			out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc})
-		else:
-			var m := {}
-			for key in t.m:
-				m[key] = t.m[key] * (1.0 if key in PSV.fire.flags else sc)
-			out.traits.append({"name": e[0], "d": t.d, "m": m})
-	return out if not (out.traits.is_empty() and out.groups.is_empty()) else null
-
-
-## 단체 특기 이름 -> 정의 (특기 또는 화공)
+## 단체 특기 이름 -> 정의
 func group_def(name_: String) -> Dictionary:
-	return PSV.catalog[name_] if PSV.catalog.has(name_) else PSV.fire.catalog[name_]
+	return PSV.traits[name_]
 
 
 ## 덱 점검용 —— 카드끼리 단체 특기가 닿는지 (진형 자리는 병종으로 짐작한다)
@@ -443,21 +431,19 @@ func passive_text(k: String) -> String:
 	var ps = passives_of(k)
 	if ps == null:
 		return ""
+	var line := {}
+	for t in ps.traits:
+		var mt := mods_text(t.m)
+		line[t.name] = "%s 『%s』 %s%s" % [t.attr if t.attr != "" else "개인", t.name, t.d, ("
+   " + mt) if mt != "" else ""]
+	for g in ps.groups:
+		line[g.name] = "%s 『%s』 %s
+   %s" % [(g.attr + " 단체") if g.attr != "" else "단체", g.name, g.d, mods_text(PSV.traits[g.name].m, g.scale)]
+	# 사다리 순서대로 (등급이 오를 때 붙는 차례)
 	var lines := []
-	if ps.self:
-		lines.append("개인 『%s』 %s
-   %s" % [ps.self.name, ps.self.d, mods_text(ps.self.m)])
-	if ps.group:
-		lines.append("단체 『%s』 %s
-   %s" % [ps.group.name, ps.group.d, mods_text(PSV.catalog[ps.group.name].m, ps.group.scale)])
-	if ps.get("fire"):
-		for t in ps.fire.traits:
-			var mt := mods_text(t.m)
-			lines.append("화공 『%s』 %s%s" % [t.name, t.d, ("
-   " + mt) if mt != "" else ""])
-		for g in ps.fire.groups:
-			lines.append("화공 단체 『%s』 %s
-   %s" % [g.name, g.d, mods_text(PSV.fire.catalog[g.name].m, g.scale)])
+	for e in PSV.ladder[person(k)]:
+		if line.has(e[0]):
+			lines.append(line[e[0]])
 	return "
 ".join(lines)
 
@@ -610,7 +596,3 @@ func skill_desc(c: Dictionary) -> String:
 	return " · ".join(p)
 
 
-func psv_text(p) -> String:
-	if p == null:
-		return ""
-	return "%s — %s" % [D.PSVTITLE.get(p, p), D.PSVNM.get(p, p)]

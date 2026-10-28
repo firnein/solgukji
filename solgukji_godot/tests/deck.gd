@@ -80,19 +80,19 @@ func _score(deck: Array, use_p: bool) -> float:
 		var seen := {}
 		for k in deck:
 			var ps = DB.passives_of(k)
-			if ps == null or ps.group == null:
+			if ps == null:
 				continue
-			var g: Dictionary = ps.group
-			var w: float = [1.0, 0.5, 0.0][mini(seen.get(g.name, 0), 2)]     # 둘까지 겹친다
-			seen[g.name] = seen.get(g.name, 0) + 1
-			if g.scope == "all" or g.scope == "foe":
-				s += 1.0 * w
-				continue
-			var n := 0
-			for j in deck:
-				if DB.passive_hits(g, k, j):
-					n += 1
-			s += 0.5 * mini(n, 6) * w
+			for g in ps.groups:
+				var w: float = [1.0, 0.5, 0.0][mini(seen.get(g.name, 0), 2)]     # 둘까지 겹친다
+				seen[g.name] = seen.get(g.name, 0) + 1
+				if g.scope == "all" or g.scope == "foe":
+					s += 1.0 * w
+					continue
+				var n := 0
+				for j in deck:
+					if DB.passive_hits(g, k, j):
+						n += 1
+				s += 0.5 * mini(n, 6) * w
 	return s
 
 
