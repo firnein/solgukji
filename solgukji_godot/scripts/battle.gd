@@ -10,10 +10,17 @@ extends RefCounted
 
 const MYTH_AMP := 1.6
 ## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다.
-## 원본 계수 그대로면 같은 등급끼리 2~3턴에 끝나 상태이상·디버프가 쓸 틈이 없다. 0.45 면 같은 등급끼리 평균 4~10턴
+## 원본 계수 그대로면 같은 등급끼리 2~3턴에 끝나 상태이상·디버프가 쓸 틈이 없다. 0.35 면 같은 등급끼리 평균 4~11턴
 ## (tests/turns.tscn). 비율은 그대로라 원본의 균형(피해 대 회복, 직접 대 지속)은 유지된다. 일회성 기준값
 ## (반파·괴멸 사기 하락, 패주 확률, 처형 문턱)은 바꾸지 않는다.
-static var pace := 0.45
+static var pace := 0.35
+## 사기는 '결과' —— 솔국지 확장. 책략 한 대마다 능력치에 비례해 사기를 깎던 것(원본 K.morale)을 없앴다.
+## 사기 통은 등급과 관계없이 100 이라 낮은 등급에선 그 피해가 거의 0 이었고(책사·술사가 약한 까닭), 높은 등급에선 과했다.
+## 대신 책략은 병력 피해가 int_troop 배로 오르고, 패주는 병력이 꺾여도 일어난다(rout_hp 아래, 비율에 따라).
+## 스킬·고유기·특기의 고정 사기 효과, 아군 이탈·반파 충격, 역병 같은 '사건'은 그대로다.
+static var int_troop := 1.7
+static var rout_hp := 0.3          # 병력이 이 비율 아래면 턴 끝마다 패주를 굴린다
+static var rout_hp_slope := 1.5    # (rout_hp - 남은 비율) × 이만큼 —— 10% 남으면 30%
 static var ults_enabled := true     # 고유기 켜기 (밸런스 비교용으로 끌 수 있다)
 static var passives_enabled := true  # 특기(개인·단체) 켜기
 static var fire_enabled := true      # 화공 속성 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
@@ -42,7 +49,7 @@ static var breach := 0.0      # 돌격 중인 공격자가 무시하는 적 방�
 const CMDS := {
 	"돌격": {"d": "공격 +20% · 방어 -25%", "buffs": [{"stat": "atk", "amt": 0.20}, {"stat": "def", "amt": -0.25}, {"stat": "breach", "amt": 1.0}]},
 	"방진": {"d": "받는 피해 -30% · 속도 -10% · 받는 고유기 피해 추가 -35%", "buffs": [{"stat": "guard", "amt": 0.30}, {"stat": "spd", "amt": -0.10}, {"stat": "uguard", "amt": 0.35}]},
-	"재정비": {"d": "사기 +11 · 패주 확률 -60%", "buffs": [{"stat": "calm", "amt": 0.6}], "morale": 25.0},     # 사기는 heal_morale 에서 pace(0.45)를 곱해 +11
+	"재정비": {"d": "사기 +9 · 패주 확률 -60%", "buffs": [{"stat": "calm", "amt": 0.6}], "morale": 25.0},     # 사기는 heal_morale 에서 pace(0.35)를 곱해 +9
 }
 
 
@@ -427,19 +434,15 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	var fm := _fire_mul(a, d)
 	dmg *= fm
 	var aoe: float = K.aoe if spread >= 3 else 1.0
-	var ml: float = dmg * K.morale * pace * aoe * morale_guard(a, d)
-	ml *= (1.0 + mv(a, "mdeal")) * (1.0 - mv(d, "mshield"))
-	d.morale -= ml
-	var loss := maxf(1, roundf(dmg * K.intTroop * pace * aoe))
+	var loss := maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe))
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	_stat(d, loss)
 	_charge(d, a, loss)
 	d.troops -= loss
 	a.dmg += loss
-	a.mdmg += ml
 	d.last_hit = a
-	L("mo", "%s%s의 계략이 %s의 진을 흔들었다 — 병력 %s · 사기 %d" % ["치명타! " if crit else "", nm(a), nm(d), num(loss), roundi(ml)],
-		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "m": ml, "crit": crit, "fire": fm > 1.0})
+	L("mo", "%s%s의 계략이 %s의 진을 흔들었다 — 병력 %s 손실" % ["치명타! " if crit else "", nm(a), nm(d), num(loss)],
+		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0})
 	_ignite(a, d)
 
 
@@ -794,13 +797,20 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			if healed != "":
 				L("hl", "특기로 대오를 추스른다", {"fx": "heal", "f": healed})
 		for u in units:
-			if not u.alive or u.morale > 30: continue
-			var p := maxf(K.routMin, (30 - u.morale) * K.routSlope)
+			if not u.alive: continue
+			var r := u.troops / u.max
+			var pm := maxf(K.routMin, (30 - u.morale) * K.routSlope) if u.morale <= 30 else 0.0
+			var pt := (rout_hp - r) * rout_hp_slope if r < rout_hp else 0.0
+			if pm <= 0 and pt <= 0: continue
+			var p := 1.0 - (1.0 - pm) * (1.0 - pt)
 			p *= 1.0 - mv(u, "rout")
 			p *= 1.0 - _buff_sum(u, "calm")
 			if u.caps.has("유생"): p *= 0.5
 			if rng.randf() < p:
-				rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)))
+				if pm >= pt:
+					rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)))
+				else:
+					rout(u, "병력이 꺾여 패주했다 (남은 병력 %d%%)" % roundi(r * 100))
 		var aA := live_count("A")
 		var bA := live_count("B")
 		if aA == 0 and bA == 0: winner = "draw"
