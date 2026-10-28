@@ -18,6 +18,8 @@ func _ready() -> void:
 	trials = int(args.get("trials", "40"))
 	if args.get("ult", "1") == "0":
 		Battle.ults_enabled = false
+	for o in str(args.get("off", "")).split(",", false):     # 비교용: --off=passives,dash,counter,fire,water,aim
+		Battle.set(o + "_enabled", false)
 	var t0 := Time.get_ticks_msec()
 	var out := FileAccess.open("res://tests/out_balance.csv", FileAccess.WRITE)
 	out.store_line("tier,id,name,tag,fac,stat_sum,stat_z,win_rate")

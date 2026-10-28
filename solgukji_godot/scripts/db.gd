@@ -604,11 +604,15 @@ func skill_desc(c: Dictionary) -> String:
 
 
 ## 병종 상성 배율 —— 공격 병종 a 가 수비 병종 d 를 칠 때 (1 ± amt)
-func cls_mul(a: String, d: String) -> float:
+func cls_mul(a: String, d: String, tier := 8) -> float:
 	if CLASS_COUNTER.is_empty():
 		return 1.0
+	# 책략계가 끼는 상성은 등급마다 세기가 다르다 (책략은 낮은 등급에서 약하고 높은 등급에서 세다)
+	var amt := float(CLASS_COUNTER.amt)
+	if (INT_TAGS.has(a) or INT_TAGS.has(d)) and CLASS_COUNTER.has("int_amt"):
+		amt = float(CLASS_COUNTER.int_amt.get(str(tier), amt))
 	if CLASS_COUNTER.win.get(a, []).has(d):
-		return 1.0 + float(CLASS_COUNTER.amt)
+		return 1.0 + amt
 	if CLASS_COUNTER.lose.get(a, []).has(d):
-		return 1.0 - float(CLASS_COUNTER.amt)
+		return 1.0 - amt
 	return 1.0
