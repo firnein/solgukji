@@ -25,6 +25,8 @@ static var ults_enabled := true     # 고유기 켜기 (밸런스 비교용으�
 static var passives_enabled := true  # 특기(개인·단체) 켜기
 static var fire_enabled := true      # 화공 속성 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
 static var water_enabled := true     # 수공 속성 켜기 (수몰 이감 규칙 포함)
+static var dash_enabled := true      # 돌파 속성 켜기 (와해)
+static var aim_enabled := true       # 표적 속성 켜기 (표식)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
@@ -80,6 +82,7 @@ class Unit:
 	var avenge_n := 0         # 비장 —— 아군이 무너진 횟수
 	var opened := false       # 첫 공격을 했는가 (기신·강행·습격)
 	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
+	var break_used := false   # 장판돌파 —— 첫 공격의 확정 와해를 썼는가
 	var dmg := 0.0
 	var mdmg := 0.0
 	var heal := 0.0
@@ -111,7 +114,8 @@ var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
-	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0}
+	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
+	"tac_amp": 0.0, "breaks": 0, "marks": 0, "collapses": 0, "chains": 0, "execs": 0}
 
 
 func _init(seed_value: int = -1) -> void:
@@ -230,6 +234,8 @@ func _trait_on(t: Dictionary) -> bool:
 	match t.attr:
 		"화공": return fire_enabled
 		"수공": return water_enabled
+		"돌파": return dash_enabled
+		"표적": return aim_enabled
 	return passives_enabled
 
 
@@ -356,11 +362,13 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 
 
 func basic_target(u: Unit, foes: Array) -> Array:
-	if u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref"):
-		return resolve_targets("back1", foes, u, [])
-	if u.c.tag == "도적": return resolve_targets("back1", foes, u, [])
-	if u.c.int > u.c.atk: return resolve_targets("back1", foes, u, [])
-	return resolve_targets("front1", foes, u, [])
+	var back: bool = (u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or u.c.int > u.c.atk
+	# 집중사격 —— 원거리·책략 기본 공격은 표식된 적을 노린다
+	if back and aim_enabled and _side_max(u.camp, "focus") > 0:
+		var mk := foes.filter(func(o): return o.alive and has_st(o, "mark"))
+		if not mk.is_empty():
+			return [pick(mk)]
+	return resolve_targets("back1" if back else "front1", foes, u, [])
 
 
 # ───────── 로그 ─────────
@@ -406,8 +414,10 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		dmg *= 1.0 - _buff_sum(d, "uguard")
 	var fm := _fire_mul(a, d)
 	var wm := _water_mul(a, d)
-	dmg *= fm * wm
+	var tm := _tac_mul(a, d)
+	dmg *= fm * wm * tm
 	var loss := maxf(1, roundf(dmg * K.troop * pace))
+	stats.tac_amp += loss * (1.0 - 1.0 / tm)
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
@@ -419,6 +429,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		{"fx": "phys", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
 	_soak(a, d)
+	_tac_hit(a, d)
 	if not no_counter and d.alive:
 		var stance = null
 		for b in d.buffs:
@@ -442,11 +453,13 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 		dmg *= 1.0 - _buff_sum(d, "uguard")
 	var fm := _fire_mul(a, d)
 	var wm := _water_mul(a, d)
-	dmg *= fm * wm
+	var tm := _tac_mul(a, d)
+	dmg *= fm * wm * tm
 	var aoe: float = K.aoe if spread >= 3 else 1.0
 	var loss := maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe))
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
+	stats.tac_amp += loss * (1.0 - 1.0 / tm)
 	_stat(d, loss)
 	_charge(d, a, loss)
 	d.troops -= loss
@@ -456,6 +469,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
 	_soak(a, d)
+	_tac_hit(a, d)
 
 
 func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> void:
@@ -516,6 +530,8 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 		sp = mv(a, "flow") if a else 0.0
 	var amp := 1.0 + (mv(a, "st_amp") if a and kind in ["burn", "flood", "bleed", "plague"] else 0.0)     # 요술
 	var v := maxf(1, roundf(val * scale * stx * resist * fire * amp))
+	if kind == "break" or kind == "mark":      # 받는 피해 + 비율 —— 반올림하지 않는다
+		v = val * resist * (1.0 - minf(0.9, mv(d, "break_res" if kind == "break" else "mark_res")))
 	var t := maxi(dur, 1) + ext
 	if kind == "flood":
 		_douse(d)
@@ -758,6 +774,112 @@ func _drown() -> void:
 			rout(u, "물에 휩쓸려 무너졌다")
 
 
+# ───────── 돌파 · 표적 (솔국지 확장) ─────────
+
+func _st_of(u: Unit, k: String):
+	for x in u.st:
+		if x.k == k:
+			return x
+	return null
+
+
+## 와해 · 표식에 걸린 적을 칠 때 피해 배율 (+ 즉발 충돌 · 관통). 와해·표식 세기는 걸 때 이미 저항이 깎였다
+func _tac_mul(a: Unit, d: Unit) -> float:
+	if a == null:
+		return 1.0
+	var m := 1.0
+	if dash_enabled:
+		var res := 1.0 - minf(1.0, mv(d, "break_res"))
+		m *= 1.0 + mv(a, "break_hit") * res
+		var b = _st_of(d, "break")
+		if b:
+			m *= 1.0 + b.val + mv(a, "break_amp") * res
+	if aim_enabled:
+		var res := 1.0 - minf(1.0, mv(d, "mark_res"))
+		m *= 1.0 + mv(a, "mark_hit") * res
+		var k = _st_of(d, "mark")
+		if k:
+			m *= 1.0 + k.val + mv(a, "mark_amp") * res
+	return m
+
+
+func _tac_val(kind: String, a: Unit) -> float:
+	var cfg: Dictionary = DB.PSV.dash.break if kind == "break" else DB.PSV.aim.mark
+	return float(cfg.val[str(clampi(a.c.tier if a else 5, 3, 8))])
+
+
+func _tac_dur(kind: String) -> int:
+	return int((DB.PSV.dash.break if kind == "break" else DB.PSV.aim.mark).dur)
+
+
+## 맞힌 뒤 —— 충파(와해) · 조준(표식) · 일기당천(와해된 적 처형)
+func _tac_hit(a: Unit, d: Unit) -> void:
+	if d.troops <= 0 or not d.alive:
+		return
+	if aim_enabled:
+		var pa := mv(a, "aim")
+		if pa > 0 and rng.randf() < pa:
+			stats.marks += 1
+			inflict(a, d, "mark", _tac_val("mark", a), _tac_dur("mark"))
+	if dash_enabled:
+		var ps := mv(a, "shatter")
+		var sure := false
+		if mv(a, "first_break") > 0 and not a.break_used:
+			a.break_used = true
+			sure = true
+		if mv(a, "mark_break") > 0 and has_st(d, "mark"):
+			sure = true
+		if sure or (ps > 0 and rng.randf() < ps):
+			stats.breaks += 1
+			inflict(a, d, "break", _tac_val("break", a), _tac_dur("break"))
+		var ex := mv(a, "exec_break")
+		if ex > 0 and has_st(d, "break") and d.troops / d.max <= ex:
+			stats.execs += 1
+			rout(d, "일기당천 —— 한 칼에 베였다")
+
+
+## 합비돌격(적 선봉 와해) · 속사(적 후군 표식) —— 전투 시작에 한 번, 가진 장수마다
+func _tac_open() -> void:
+	for u in units:
+		var rush := dash_enabled and mv(u, "rush") > 0
+		var spot := aim_enabled and mv(u, "spot") > 0
+		if not rush and not spot:
+			continue
+		var live := units.filter(func(o): return o.camp != u.camp and o.alive)
+		if live.is_empty():
+			continue
+		if rush:
+			var mn: int = live.map(pri).min()
+			L("sk", "%s의 기병이 적 선봉을 들이친다" % nm(u), {"fx": "skill", "a": u.key, "name": "돌파", "kind": "phys"})
+			for t in live.filter(func(o): return pri(o) == mn):
+				stats.breaks += 1
+				inflict(u, t, "break", _tac_val("break", u), _tac_dur("break"))
+		if spot:
+			var mx: int = live.map(pri).max()
+			L("sk", "%s의 화살이 적 후군을 겨눈다" % nm(u), {"fx": "skill", "a": u.key, "name": "표적", "kind": "phys"})
+			for t in live.filter(func(o): return pri(o) == mx):
+				stats.marks += 1
+				inflict(u, t, "mark", _tac_val("mark", u), _tac_dur("mark"))
+
+
+## 무너질 때 —— 궤멸(와해된 부대가 무너지면 같은 열 전체 와해) · 백보천양(표식이 가장 지친 적에게 옮긴다)
+func _tac_rout(u: Unit) -> void:
+	var foe := _foe(u.camp)
+	if dash_enabled and has_st(u, "break") and _side_max(foe, "collapse") > 0:
+		var b = _st_of(u, "break")
+		for t in units:
+			if t.alive and t != u and t.camp == u.camp and t.line == u.line and not has_st(t, "break"):
+				stats.collapses += 1
+				inflict(null, t, "break", b.val, _tac_dur("break"))
+	if aim_enabled and has_st(u, "mark") and _side_max(foe, "chain_mark") > 0:
+		var k = _st_of(u, "mark")
+		var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and not has_st(o, "mark"))
+		if not cand.is_empty():
+			cand.sort_custom(func(x, y): return x.troops / x.max < y.troops / y.max)
+			stats.chains += 1
+			inflict(null, cand[0], "mark", k.val, _tac_dur("mark"))
+
+
 ## 수몰이 걸리면 불이 꺼진다
 func _douse(d: Unit) -> void:
 	if fire_enabled and water_enabled and _side_max(_foe(d.camp), "steam") > 0:
@@ -780,6 +902,7 @@ func rout(u: Unit, why: String) -> void:
 	u.alive = false
 	if fire_enabled and has_st(u, "burn") and _side_max(_foe(u.camp), "blaze") > 0:
 		_blaze(u)
+	_tac_rout(u)
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
 	for o in units:
 		if not o.alive or o.camp != u.camp: continue
@@ -822,6 +945,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		_kindle()
 	if water_enabled:
 		_tide()
+	_tac_open()
 	var turn := 0
 	var winner := ""
 	while turn < K.cap and winner == "":
@@ -906,6 +1030,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			if pm <= 0 and pt <= 0: continue
 			var p := 1.0 - (1.0 - pm) * (1.0 - pt)
 			p *= 1.0 + _side_max(_foe(u.camp), "fear")      # 위압 —— 적 진영에서 가장 센 값 하나
+			if dash_enabled and has_st(u, "break"):
+				p *= float(DB.PSV.dash.rout_mul)               # 와해 —— 진형이 무너져 쉽게 패주한다
 			p *= 1.0 - mv(u, "rout")
 			p *= 1.0 - _buff_sum(u, "calm")
 			if u.caps.has("유생"): p *= 0.5

@@ -49,6 +49,8 @@ func _load() -> void:
 	D.CARDDEF.append_array(ext.cards)
 	D.RECDEF.append_array(ext.recipes)
 	D.ITEMDEF.append_array(ext.items)
+	for k in ext.get("status", {}):
+		D.STATUS[k] = ext.status[k]
 	_build_fonts()
 
 	for r in D.CARDDEF:
@@ -401,7 +403,9 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"rpierce": "적 책략방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 책략", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
 	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
-	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항", "fire_hit": "불길 추가 피해", "water_hit": "물살 추가 피해"}
+	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항", "fire_hit": "불길 추가 피해", "water_hit": "물살 추가 피해",
+	"shatter": "와해 확률", "break_amp": "와해된 적에게 피해", "break_hit": "충격 추가 피해", "exec_break": "와해된 적 처형 문턱", "break_res": "와해 저항",
+	"aim": "표식 확률", "mark_amp": "표식된 적에게 피해", "mark_hit": "관통 추가 피해", "mark_res": "표식 저항"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur"]
 
 
@@ -412,7 +416,7 @@ func mods_text(m: Dictionary, scale := 1.0) -> String:
 		if k == "first":
 			out.append("선공")
 			continue
-		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam"]:      # 속성 마무리 —— 설명으로 충분
+		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break"]:      # 속성 마무리 —— 설명으로 충분
 			continue
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
