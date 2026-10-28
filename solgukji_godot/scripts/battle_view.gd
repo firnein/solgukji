@@ -930,7 +930,8 @@ func _damage_number(i: int, e: Dictionary, f: String) -> void:
 	var n: float = e.n
 	match fx:
 		"phys", "int":
-			hud.damage(f, n, "fire" if e.get("fire", false) else fx, e.get("crit", false))     # 불타는 적을 더 세게 친 타격 (화공)
+			var k: String = "fire" if e.get("fire", false) else ("water" if e.get("water", false) else fx)
+			hud.damage(f, n, k, e.get("crit", false))     # 불타는(화공) · 잠긴(수공) 적을 더 세게 친 타격
 		"heal":
 			hud.damage(f, n, "heal", false)
 		"tick":
@@ -1108,6 +1109,9 @@ class Hud extends Control:
 				col = Color("#e3a2ff") if mine else Color("#d8c4ff")
 			"fire":
 				col = Color("#ff7a2e") if mine else Color("#ffa040")
+				fs = 17
+			"water":
+				col = Color("#3fa0ff") if mine else Color("#7cc4ff")
 				fs = 17
 				col = Color("#8FD4C2")
 				text = "+" + Battle.num(amount)

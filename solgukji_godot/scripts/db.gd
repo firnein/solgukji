@@ -352,7 +352,7 @@ func passives_of(k: String):
 	if lad != null:
 		out = {"traits": [], "groups": []}
 		for e in lad:
-			if c.tier < int(e[1]):
+			if c.tier < int(e[1]) or (e.size() > 2 and c.tier > int(e[2])):
 				continue
 			var t: Dictionary = PSV.traits[e[0]]
 			var attr: String = t.get("attr", "")
@@ -400,7 +400,8 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
 	"rpierce": "적 책략방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 책략", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
-	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기"}
+	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
+	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur"]
 
 
@@ -411,7 +412,7 @@ func mods_text(m: Dictionary, scale := 1.0) -> String:
 		if k == "first":
 			out.append("선공")
 			continue
-		if k in ["kindle", "blaze", "night", "scorch"]:      # 화공 마무리 —— 설명으로 충분
+		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam"]:      # 속성 마무리 —— 설명으로 충분
 			continue
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)

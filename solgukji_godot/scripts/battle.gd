@@ -24,6 +24,7 @@ static var rout_hp_slope := 1.5    # (rout_hp - 남은 비율) × 이만큼 —�
 static var ults_enabled := true     # 고유기 켜기 (밸런스 비교용으로 끌 수 있다)
 static var passives_enabled := true  # 특기(개인·단체) 켜기
 static var fire_enabled := true      # 화공 속성 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
+static var water_enabled := true     # 수공 속성 켜기 (수몰 이감 규칙 포함)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
@@ -109,7 +110,8 @@ var _ult_last := {"A": -99, "B": -99}
 var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 —— 사건에 bd 로 적어 화면이 입력 시점을 고른다
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
-	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0}
+	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
+	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0}
 
 
 func _init(seed_value: int = -1) -> void:
@@ -225,7 +227,10 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 
 ## 특기 켜짐 —— 속성(화공) 특기는 fire_enabled, 나머지는 passives_enabled
 func _trait_on(t: Dictionary) -> bool:
-	return fire_enabled if t.attr == "화공" else passives_enabled
+	match t.attr:
+		"화공": return fire_enabled
+		"수공": return water_enabled
+	return passives_enabled
 
 
 func innate_item(cid: String):
@@ -262,7 +267,7 @@ func eff(u: Unit, stat: String) -> float:
 		if it.pri == stat: v *= (1 + it.pa * amp)
 		if it.sec == stat: v *= (1 + it.sa * amp)
 	if stat == "atk": v *= u.syn_atk
-	if stat == "spd": v *= u.syn_spd
+	if stat == "spd": v *= u.syn_spd * _flood_slow(u)
 	if u.ts and u.ts.stat == stat: v *= (1 + u.ts.v)
 	if u.boon and u.boon.stat == stat: v *= (1 + u.boon.v)
 	for b in u.buffs:
@@ -400,17 +405,20 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if _in_ult:
 		dmg *= 1.0 - _buff_sum(d, "uguard")
 	var fm := _fire_mul(a, d)
-	dmg *= fm
+	var wm := _water_mul(a, d)
+	dmg *= fm * wm
 	var loss := maxf(1, roundf(dmg * K.troop * pace))
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
+	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
 	d.troops -= loss
 	a.dmg += loss
 	d.last_hit = a
 	_charge(d, a, loss)
 	L(a.camp, "%s%s %s 들이쳤다 — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), num(loss)],
-		{"fx": "phys", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0})
+		{"fx": "phys", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
+	_soak(a, d)
 	if not no_counter and d.alive:
 		var stance = null
 		for b in d.buffs:
@@ -433,18 +441,21 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	if _in_ult:
 		dmg *= 1.0 - _buff_sum(d, "uguard")
 	var fm := _fire_mul(a, d)
-	dmg *= fm
+	var wm := _water_mul(a, d)
+	dmg *= fm * wm
 	var aoe: float = K.aoe if spread >= 3 else 1.0
 	var loss := maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe))
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
+	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
 	_charge(d, a, loss)
 	d.troops -= loss
 	a.dmg += loss
 	d.last_hit = a
 	L("mo", "%s%s의 계략이 %s의 진을 흔들었다 — 병력 %s 손실" % ["치명타! " if crit else "", nm(a), nm(d), num(loss)],
-		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0})
+		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
+	_soak(a, d)
 
 
 func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> void:
@@ -500,6 +511,9 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 		fire = _burn_mul(a, d)
 		ext += int(mv(a, "burn_dur")) if a else 0
 		sp = mv(a, "spread") if a else 0.0
+	elif kind == "flood" and water_enabled:
+		fire = 1.0 - minf(0.9, mv(d, "flood_res"))
+		sp = mv(a, "flow") if a else 0.0
 	var amp := 1.0 + (mv(a, "st_amp") if a and kind in ["burn", "flood", "bleed", "plague"] else 0.0)     # 요술
 	var v := maxf(1, roundf(val * scale * stx * resist * fire * amp))
 	var t := maxi(dur, 1) + ext
@@ -550,6 +564,9 @@ func tick_status() -> void:
 				"flood":
 					var l := roundf(s.val * 0.7)
 					u.troops -= l
+					stats.flood += l
+					if s.get("sp", 0.0) > 0 and rng.randf() < s.sp:
+						spreads.append([u, s])
 					L("st", "%s의 진영이 물에 잠긴다 — 병력 %s 손실" % [nm(u), num(l)], {"fx": "tick", "f": u.key, "st": "flood", "n": l})
 				"bleed":
 					u.troops -= s.val
@@ -561,6 +578,7 @@ func tick_status() -> void:
 		u.st = u.st.filter(func(s): return s.dur > 0)
 	for sp in spreads:
 		_spread_burn(sp[0], sp[1])
+	_drown()
 	for cp in ["A", "B"]:
 		var side := units.filter(func(u): return u.alive and u.camp == cp)
 		if side.is_empty() or not side[0].caps.has("유생"): continue
@@ -606,7 +624,7 @@ func _ignite(a: Unit, d: Unit) -> void:
 
 ## 번짐 —— 같은 열의 이웃(없으면 아무 아군)에게 화상이 옮겨 붙는다. 세기는 spread_val 배, 번진 불은 반만 다시 번진다
 func _spread_burn(u: Unit, s: Dictionary) -> void:
-	var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and not has_st(o, "burn"))
+	var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and not has_st(o, s.k))
 	if cand.is_empty():
 		return
 	var same := cand.filter(func(o): return o.line == u.line)
@@ -614,15 +632,22 @@ func _spread_burn(u: Unit, s: Dictionary) -> void:
 
 
 func _spread_burn_to(u: Unit, s: Dictionary, t: Unit) -> void:
-	var v := maxf(1, roundf(s.val / u.max * t.max * float(DB.PSV.fire.spread_val) * (1.0 + mv(t, "fire_weak")) * (1.0 - minf(0.9, mv(t, "fire_res")))))
+	var water: bool = s.k == "flood"
+	var res := mv(t, "flood_res") if water else mv(t, "fire_res")
+	var weak := 0.0 if water else mv(t, "fire_weak")
+	var v := maxf(1, roundf(s.val / u.max * t.max * float(DB.PSV.water.flow_val if water else DB.PSV.fire.spread_val) * (1.0 + weak) * (1.0 - minf(0.9, res))))
 	if t.st.size() >= 2:
 		var w = t.st[0]
 		for x in t.st:
 			if x.dur <= w.dur: w = x
 		t.st.erase(w)
-	t.st.append({"k": "burn", "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5})
-	stats.spreads += 1
-	L("st", "불길이 %s에게 번졌다" % nm(t), {"fx": "status", "f": t.key, "st": "burn", "from": u.key})
+	t.st.append({"k": s.k, "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5})
+	if water:
+		stats.flows += 1
+		L("st", "물길이 %s의 진영으로 흘러들었다" % nm(t), {"fx": "status", "f": t.key, "st": "flood", "from": u.key})
+	else:
+		stats.spreads += 1
+		L("st", "불길이 %s에게 번졌다" % nm(t), {"fx": "status", "f": t.key, "st": "burn", "from": u.key})
 
 
 ## 진영에서 가장 센 수정치 (살아 있는 부대 중)
@@ -667,8 +692,75 @@ func _scorched(d: Unit) -> bool:
 	return true
 
 
+# ───────── 수공 (솔국지 확장) ─────────
+
+## 물에 잠긴 적을 칠 때 피해 배율 —— 공격자의 water_amp, 대상의 flood_res 가 깎는다
+func _water_mul(a: Unit, d: Unit) -> float:
+	if a == null or not water_enabled or not has_st(d, "flood"):
+		return 1.0
+	var amp := mv(a, "water_amp")
+	return 1.0 + amp * (1.0 - minf(1.0, mv(d, "flood_res"))) if amp > 0 else 1.0
+
+
+## 수몰된 부대의 속도 배율 (이감) —— 기본 water.slow + 적 진영의 격류, 제방이 깎는다
+func _flood_slow(u: Unit) -> float:
+	if not water_enabled or not has_st(u, "flood"):
+		return 1.0
+	var sl := minf(0.7, float(DB.PSV.water.slow) + _side_max(_foe(u.camp), "flood_slow"))
+	return 1.0 - sl * (1.0 - minf(1.0, mv(u, "flood_res")))
+
+
+## 침수로 거는 수몰 세기 —— 거는 카드 등급별
+func _water_flood(a: Unit) -> float:
+	return float(DB.PSV.water.flood.val[str(clampi(a.c.tier, 3, 8))])
+
+
+## 침수 —— 맞힐 때마다 soak 확률로 수몰
+func _soak(a: Unit, d: Unit) -> void:
+	var p := mv(a, "soak")
+	if p <= 0 or d.troops <= 0 or not d.alive:
+		return
+	if rng.randf() < p:
+		stats.soaks += 1
+		inflict(a, d, "flood", _water_flood(a), int(DB.PSV.water.flood.dur))
+
+
+## 백의도강 —— 전투 시작에 적 후군 전체에 수몰 (가진 장수마다)
+func _tide() -> void:
+	for u in units:
+		if mv(u, "tide") <= 0:
+			continue
+		var live := units.filter(func(o): return o.camp != u.camp and o.alive)
+		if live.is_empty():
+			continue
+		var mx: int = live.map(pri).max()
+		L("sk", "%s의 군사가 강을 건너 적 후군을 덮친다" % nm(u), {"fx": "skill", "a": u.key, "name": "수공", "kind": "int"})
+		for t in live.filter(func(o): return pri(o) == mx):
+			stats.tides += 1
+			inflict(u, t, "flood", _water_flood(u), int(DB.PSV.water.flood.dur))
+
+
+## 수엄칠군 —— 적에게 수엄칠군이 있으면, 잠긴 채 병력이 drown_at 아래로 떨어진 부대는 휩쓸려 무너진다
+func _drown() -> void:
+	if not water_enabled:
+		return
+	for u in units:
+		if not u.alive or not has_st(u, "flood") or u.troops / u.max >= float(DB.PSV.water.drown_at):
+			continue
+		if _side_max(_foe(u.camp), "drown") > 0:
+			stats.drowned += 1
+			rout(u, "물에 휩쓸려 무너졌다")
+
+
 ## 수몰이 걸리면 불이 꺼진다
 func _douse(d: Unit) -> void:
+	if fire_enabled and water_enabled and _side_max(_foe(d.camp), "steam") > 0:
+		for x in d.st:
+			if x.k == "burn":
+				x.val = roundf(x.val * 1.3)
+				stats.steams += 1
+				L("st", "묶인 %s의 진영에 불길이 더 거세진다" % nm(d), {"fx": "status", "f": d.key, "st": "burn"})
+		return
 	for x in d.st:
 		if x.k == "burn":
 			d.st.erase(x)
@@ -722,6 +814,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 
 	if fire_enabled:
 		_kindle()
+	if water_enabled:
+		_tide()
 	var turn := 0
 	var winner := ""
 	while turn < K.cap and winner == "":
