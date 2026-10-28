@@ -44,6 +44,11 @@ func _load() -> void:
 	var f := FileAccess.open("res://data/game.json", FileAccess.READ)
 	D = JSON.parse_string(f.get_as_text())
 	K = D.K
+	# 솔국지 확장 카드 —— 원본 뒤에 붙인다 (data/cards_ext.json)
+	var ext = JSON.parse_string(FileAccess.open("res://data/cards_ext.json", FileAccess.READ).get_as_text())
+	D.CARDDEF.append_array(ext.cards)
+	D.RECDEF.append_array(ext.recipes)
+	D.ITEMDEF.append_array(ext.items)
 	_build_fonts()
 
 	for r in D.CARDDEF:
