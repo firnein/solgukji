@@ -56,6 +56,9 @@ var online: Online = null     # 온라인 대전 중이면 있다 (scripts/ui/on
 
 func _ready() -> void:
 	Settings.load_cfg()
+	if OS.has_feature("testscene"):       # 테스트 APK (build_test_apk.bat) —— 전투 점검 화면으로 바로
+		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
+		return
 	var dev := OS.get_cmdline_user_args()
 	for a in dev:
 		if a.begins_with("--tab"):

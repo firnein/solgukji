@@ -205,6 +205,8 @@ func _handle_args() -> void:
 		_set_filter(int(a.filter))
 	if a.has("tab"):
 		tabs.current_tab = int(a.tab)
+	elif OS.has_feature("testscene"):     # 테스트 APK 는 연습 전투 탭으로 연다
+		tabs.current_tab = 1
 	if a.has("level"):
 		battle.level_pick.selected = int(a.level)
 	if a.has("seed"):

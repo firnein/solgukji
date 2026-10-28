@@ -56,6 +56,8 @@
 - `edit.bat` — Godot 에디터로 열기
 - `build_apk.bat` — 안드로이드 디버그 APK → `../build/solgukji.apk` (아래 「안드로이드」)
 - `build_release.bat` — 스토어용 릴리스 APK (서명 키 필요 —— 아래 「릴리스 서명」)
+- `build_test_apk.bat` — 전투 점검 화면(`test.bat` 과 같은 `scenes/main.tscn` 연습 전투 탭)을 따로 담은 디버그 APK → `../build/solgukji_test.apk`
+  (패키지 `com.solgukji.test` · 앱 이름 "솔국지 테스트" —— 게임과 같이 깔린다. 내보내기 설정 "Android 테스트" 의 `testscene` 기능 표식으로 시작 장면을 바꾼다)
 - Godot 은 `../tools/` 에 포터블로 들어 있다 (설치 불필요).
 
 ## 구조
