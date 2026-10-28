@@ -334,17 +334,34 @@ func passives_of(k: String):
 	var c: Dictionary = C[k]
 	var p = PSV.persons.get(person(k)) if c.tier >= 3 else null
 	if p != null:
-		var sc: float = PSV.tier_scale[str(c.tier)]
-		var s: Dictionary = PSV.catalog[p.self]
-		var m := {}
-		for key in s.m:
-			m[key] = s.m[key] * (1.0 if key == "first" else sc)
-		out = {"self": {"name": p.self, "d": s.d, "m": m}, "group": null}
-		if c.tier >= int(PSV.group_from_tier):
-			var g: Dictionary = PSV.catalog[p.group]
-			out.group = {"name": p.group, "d": g.d, "scope": g.scope, "scale": sc}
+		out = _psv_pair(p, PSV.catalog, c.tier)
+		out.fire = null
+	# 화공 —— 특기와 따로 붙는 속성 층 (data/passives.json 의 fire)
+	var f = PSV.fire.persons.get(person(k)) if c.tier >= 3 else null
+	if f != null:
+		if out == null:
+			out = {"self": null, "group": null}
+		out.fire = _psv_pair(f, PSV.fire.catalog, c.tier)
 	_psv_cache[k] = out
 	return out
+
+
+func _psv_pair(p: Dictionary, cat: Dictionary, tier: int) -> Dictionary:
+	var sc: float = PSV.tier_scale[str(tier)]
+	var s: Dictionary = cat[p.self]
+	var m := {}
+	for key in s.m:
+		m[key] = s.m[key] * (1.0 if key in ["first", "burn_dur"] else sc)
+	var out := {"self": {"name": p.self, "d": s.d, "m": m}, "group": null}
+	if tier >= int(PSV.group_from_tier):
+		var g: Dictionary = cat[p.group]
+		out.group = {"name": p.group, "d": g.d, "scope": g.scope, "scale": sc}
+	return out
+
+
+## 단체 특기 이름 -> 정의 (특기 또는 화공)
+func group_def(name_: String) -> Dictionary:
+	return PSV.catalog[name_] if PSV.catalog.has(name_) else PSV.fire.catalog[name_]
 
 
 ## 덱 점검용 —— 카드끼리 단체 특기가 닿는지 (진형 자리는 병종으로 짐작한다)
@@ -370,8 +387,10 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"counter": "반격", "stres": "상태이상 저항", "low_atk": "절반 이하 공격", "avenge": "아군 이탈마다 공격",
 	"opener": "첫 공격 피해", "first": "선공", "regen": "턴마다 병력", "mregen": "턴마다 사기",
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
-	"rpierce": "적 책략방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 책략", "foe_morale": "적 시작 사기 -"}
-const MOD_FLAT := ["morale", "mregen", "foe_morale"]
+	"rpierce": "적 책략방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 책략", "foe_morale": "적 시작 사기 -",
+	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
+	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)"}
+const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur"]
 
 
 ## 수치 요약 —— "치명타 확률 +14% · 치명타 피해 +69%"
@@ -384,6 +403,10 @@ func mods_text(m: Dictionary, scale := 1.0) -> String:
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
+		if k in ["regen", "mregen"]:      # 턴마다 흐르는 양 —— 전투 속도(Battle.pace)만큼 줄어 있다
+			v *= Battle.pace
+			out.append(("%s%s%.1f" if k == "mregen" else "%s%s%.1f%%") % [lb, sign, v if k == "mregen" else v * 100])
+			continue
 		if k in MOD_FLAT:
 			out.append("%s%s%.0f" % [lb, sign, v])
 		else:
@@ -395,10 +418,22 @@ func passive_text(k: String) -> String:
 	var ps = passives_of(k)
 	if ps == null:
 		return ""
-	var s := "개인 『%s』 %s\n   %s" % [ps.self.name, ps.self.d, mods_text(ps.self.m)]
+	var lines := []
+	if ps.self:
+		lines.append("개인 『%s』 %s
+   %s" % [ps.self.name, ps.self.d, mods_text(ps.self.m)])
 	if ps.group:
-		s += "\n단체 『%s』 %s\n   %s" % [ps.group.name, ps.group.d, mods_text(PSV.catalog[ps.group.name].m, ps.group.scale)]
-	return s
+		lines.append("단체 『%s』 %s
+   %s" % [ps.group.name, ps.group.d, mods_text(PSV.catalog[ps.group.name].m, ps.group.scale)])
+	if ps.get("fire"):
+		var f: Dictionary = ps.fire
+		lines.append("화공 『%s』 %s
+   %s" % [f.self.name, f.self.d, mods_text(f.self.m)])
+		if f.group:
+			lines.append("화공 단체 『%s』 %s
+   %s" % [f.group.name, f.group.d, mods_text(PSV.fire.catalog[f.group.name].m, f.group.scale)])
+	return "
+".join(lines)
 
 
 ## 고유기 —— 신화 기준 수치를 불멸 카드에는 tier7_scale 배로 줄여 준다
@@ -533,13 +568,13 @@ func skill_desc(c: Dictionary) -> String:
 	match e.kind:
 		"phys": p.append("적 %s에 물리 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
 		"int": p.append("적 %s에 책략 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
-	if e.has("morale"): p.append("사기 −%d" % roundi(e.morale))
+	if e.has("morale"): p.append("사기 −%d" % roundi(e.morale * Battle.pace))
 	if e.has("pierce"): p.append("방어 %s 무시" % pct.call(e.pierce))
 	if e.has("exec"): p.append("병력 %s 이하면 즉시 이탈" % pct.call(e.exec))
 	if e.has("stance"): p.append("자신 반격 %s · %d턴" % [pct.call(e.stance.amt), e.stance.dur])
 	if e.has("status"): p.append("『%s』 %d턴" % [D.STATUS[e.status.k].n, e.status.dur])
-	if e.has("tHeal"): p.append("아군 병력 %s 회복" % pct.call(e.tHeal))
-	if e.has("heal"): p.append("아군 사기 +%d" % roundi(e.heal))
+	if e.has("tHeal"): p.append("아군 병력 %.1f%% 회복" % (e.tHeal * Battle.pace * 100))
+	if e.has("heal"): p.append("아군 사기 +%d" % roundi(e.heal * Battle.pace))
 	if e.has("cleanse"): p.append("아군 상태이상 %d종 해제" % e.cleanse)
 	if e.has("spd"): p.append("대상 속도 %s" % pct.call(e.spd.amt))
 	if e.has("foeSpd"): p.append("대상 속도 %s" % pct.call(e.foeSpd.amt))

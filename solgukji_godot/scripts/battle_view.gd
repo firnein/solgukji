@@ -484,9 +484,9 @@ func play_res(r: Dictionary, kind := "") -> void:
 	_set_speed(QUEST_SPEED if kind == "quest" else 1.0)
 
 
-## 대전·토너먼트는 50~60초가 되게 늘리고, 토벌은 그대로(2배속으로 본다)
-func _pace_for(kind: String) -> void:
-	target_len = PVP_LEN if kind in ["pvp", "tour"] else 0.0
+## 모든 전투를 1배속 기준 50~60초에 맞춘다 (토벌은 2배속으로 보니 25~30초)
+func _pace_for(_kind: String) -> void:
+	target_len = PVP_LEN
 
 
 func set_side_visible(on: bool) -> void:
@@ -688,14 +688,14 @@ func _build_timeline(rebuild := false) -> void:
 			if not side.has(fk):
 				side.append(fk)
 	if not rebuild:
-		# 목표 길이에 맞춰 행동 간격을 벌린다 (최대 7배 —— 2~3턴에 끝나는 초반 대전도 50초 안팎이 되게)
+		# 목표 길이에 맞춰 행동 간격을 벌리거나 좁힌다 (0.3~7배 —— 짧은 판은 늘리고, 10턴 넘는 판은 행동을 촘촘히)
 		var sched := 0.0
 		for gr in groups:
 			if gr.ph == "end":
 				sched += 0.45
 			elif gr.who != "":
 				sched += STEP
-		pace = clampf((target_len - OPEN) / maxf(1.0, sched), 1.0, 7.0) if target_len > 0 else 1.0
+		pace = clampf((target_len - OPEN) / maxf(1.0, sched), 0.3, 7.0) if target_len > 0 else 1.0
 	var t := OPEN
 	for gr in groups:
 		if gr.who != "" and field.squads.has(gr.who):
@@ -930,7 +930,7 @@ func _damage_number(i: int, e: Dictionary, f: String) -> void:
 	var n: float = e.n
 	match fx:
 		"phys", "int":
-			hud.damage(f, n, fx, e.get("crit", false))
+			hud.damage(f, n, "fire" if e.get("fire", false) else fx, e.get("crit", false))     # 불타는 적을 더 세게 친 타격 (화공)
 		"heal":
 			hud.damage(f, n, "heal", false)
 		"tick":
@@ -1106,7 +1106,9 @@ class Hud extends Control:
 				col = Color("#ff8a78") if mine else Color("#fff1dc")
 			"int":
 				col = Color("#e3a2ff") if mine else Color("#d8c4ff")
-			"heal":
+			"fire":
+				col = Color("#ff7a2e") if mine else Color("#ffa040")
+				fs = 17
 				col = Color("#8FD4C2")
 				text = "+" + Battle.num(amount)
 				fs = 13

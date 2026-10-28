@@ -9,8 +9,14 @@ extends RefCounted
 ##   s   : 이벤트 직후 모든 유닛의 [병력, 사기, 생존, 상태이상 목록] 스냅샷
 
 const MYTH_AMP := 1.6
+## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다.
+## 원본 계수 그대로면 같은 등급끼리 2~3턴에 끝나 상태이상·디버프가 쓸 틈이 없다. 0.45 면 같은 등급끼리 평균 4~10턴
+## (tests/turns.tscn). 비율은 그대로라 원본의 균형(피해 대 회복, 직접 대 지속)은 유지된다. 일회성 기준값
+## (반파·괴멸 사기 하락, 패주 확률, 처형 문턱)은 바꾸지 않는다.
+static var pace := 0.45
 static var ults_enabled := true     # 고유기 켜기 (밸런스 비교용으로 끌 수 있다)
 static var passives_enabled := true  # 특기(개인·단체) 켜기
+static var fire_enabled := true      # 화공 속성 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
@@ -36,7 +42,7 @@ static var breach := 0.0      # 돌격 중인 공격자가 무시하는 적 방�
 const CMDS := {
 	"돌격": {"d": "공격 +20% · 방어 -25%", "buffs": [{"stat": "atk", "amt": 0.20}, {"stat": "def", "amt": -0.25}, {"stat": "breach", "amt": 1.0}]},
 	"방진": {"d": "받는 피해 -30% · 속도 -10% · 받는 고유기 피해 추가 -35%", "buffs": [{"stat": "guard", "amt": 0.30}, {"stat": "spd", "amt": -0.10}, {"stat": "uguard", "amt": 0.35}]},
-	"재정비": {"d": "사기 +25 · 패주 확률 -60%", "buffs": [{"stat": "calm", "amt": 0.6}], "morale": 25.0},
+	"재정비": {"d": "사기 +11 · 패주 확률 -60%", "buffs": [{"stat": "calm", "amt": 0.6}], "morale": 25.0},     # 사기는 heal_morale 에서 pace(0.45)를 곱해 +11
 }
 
 
@@ -94,7 +100,8 @@ var cmdm := {"A": {}, "B": {}}    # 특기–군령 연결 (data/passives.json c
 var _ult_last := {"A": -99, "B": -99}
 var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 —— 사건에 bd 로 적어 화면이 입력 시점을 고른다
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
-var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0}   # 점검용
+var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
+	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0}
 
 
 func _init(seed_value: int = -1) -> void:
@@ -196,9 +203,14 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	u.boon = boon if boon and boon.tags.has(u.c.tag) else null
 	if passives_enabled:
 		var ps = DB.passives_of(cid)
-		if ps != null:
+		if ps != null and ps.self:
 			for k in ps.self.m:
 				u.m[k] = u.m.get(k, 0.0) + ps.self.m[k]
+	if fire_enabled:
+		var ps = DB.passives_of(cid)
+		if ps != null and ps.get("fire"):
+			for k in ps.fire.self.m:
+				u.m[k] = u.m.get(k, 0.0) + ps.fire.self.m[k]
 	if u.c.tier >= 7:
 		u.ult = DB.ult_of(cid)
 		if u.ult:
@@ -377,14 +389,18 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
 		dmg *= 1.0 - _buff_sum(d, "uguard")
-	var loss := maxf(1, roundf(dmg * K.troop))
+	var fm := _fire_mul(a, d)
+	dmg *= fm
+	var loss := maxf(1, roundf(dmg * K.troop * pace))
+	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	_stat(d, loss)
 	d.troops -= loss
 	a.dmg += loss
 	d.last_hit = a
 	_charge(d, a, loss)
 	L(a.camp, "%s%s %s 들이쳤다 — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), num(loss)],
-		{"fx": "phys", "a": a.key, "f": d.key, "n": loss, "crit": crit})
+		{"fx": "phys", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0})
+	_ignite(a, d)
 	if not no_counter and d.alive:
 		var stance = null
 		for b in d.buffs:
@@ -406,11 +422,14 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
 		dmg *= 1.0 - _buff_sum(d, "uguard")
+	var fm := _fire_mul(a, d)
+	dmg *= fm
 	var aoe: float = K.aoe if spread >= 3 else 1.0
-	var ml: float = dmg * K.morale * aoe * morale_guard(a, d)
+	var ml: float = dmg * K.morale * pace * aoe * morale_guard(a, d)
 	ml *= (1.0 + mv(a, "mdeal")) * (1.0 - mv(d, "mshield"))
 	d.morale -= ml
-	var loss := maxf(1, roundf(dmg * K.intTroop * aoe))
+	var loss := maxf(1, roundf(dmg * K.intTroop * pace * aoe))
+	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	_stat(d, loss)
 	_charge(d, a, loss)
 	d.troops -= loss
@@ -418,11 +437,12 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	a.mdmg += ml
 	d.last_hit = a
 	L("mo", "%s%s의 계략이 %s의 진을 흔들었다 — 병력 %s · 사기 %d" % ["치명타! " if crit else "", nm(a), nm(d), num(loss), roundi(ml)],
-		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "m": ml, "crit": crit})
+		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "m": ml, "crit": crit, "fire": fm > 1.0})
+	_ignite(a, d)
 
 
 func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> void:
-	var a: float = amt * (K.aoe if spread >= 3 else 1.0) * morale_guard(src, d)
+	var a: float = amt * pace * (K.aoe if spread >= 3 else 1.0) * morale_guard(src, d)
 	if src: a *= 1.0 + mv(src, "mdeal")
 	a *= 1.0 - mv(d, "mshield")
 	d.morale -= a
@@ -433,7 +453,7 @@ func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> voi
 
 func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if not d.alive: return
-	var g := minf(roundf(d.max * ratio), d.max - d.troops)
+	var g := minf(roundf(d.max * ratio * pace), d.max - d.troops)
 	if g <= 0: return
 	d.troops += g
 	if src: src.heal += g / 300.0
@@ -443,7 +463,7 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 
 func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
 	var b := d.morale
-	d.morale = minf(200, d.morale + amt)
+	d.morale = minf(200, d.morale + amt * pace)
 	var g := d.morale - b
 	if src and g > 0: src.heal += g
 	if g > 0.5:
@@ -467,22 +487,31 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	var stx: float = (1 + a.ts.v) if a and a.ts and a.ts.stat == "stx" else 1.0
 	var ext := (1 if a and a.caps.has("책사") else 0) + (1 if a and a.caps.has("술사") else 0)
 	var resist := 1.0 if a and a.caps.has("술사") else (morale_guard(a, d) if d.c.tier >= K.guardFrom else 1.0)
-	var scale: float = d.max if kind in ["burn", "flood", "bleed"] else 1.0
-	var v := maxf(1, roundf(val * scale * stx * resist))
+	var scale: float = d.max * pace if kind in ["burn", "flood", "bleed"] else (pace if kind == "plague" else 1.0)
+	var fire := 1.0
+	var sp := 0.0
+	if kind == "burn":
+		fire = _burn_mul(a, d)
+		ext += int(mv(a, "burn_dur")) if a else 0
+		sp = mv(a, "spread") if a else 0.0
+	var v := maxf(1, roundf(val * scale * stx * resist * fire))
 	var t := maxi(dur, 1) + ext
+	if kind == "flood":
+		_douse(d)
 	var old = null
 	for s in d.st:
 		if s.k == kind: old = s
 	if old:
 		old.val = maxf(old.val, v)
 		old.dur = maxi(old.dur, t)
+		old.sp = maxf(old.get("sp", 0.0), sp)
 	else:
 		if d.st.size() >= 2:
 			var w = d.st[0]
 			for s in d.st:
 				if s.dur <= w.dur: w = s
 			d.st.erase(w)
-		d.st.append({"k": kind, "val": v, "dur": t})
+		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp})
 	L("st", "%s 『%s』에 걸렸다 — %d턴" % [ga(nm(d)), DB.D.STATUS[kind].n, t],
 		{"fx": "status", "f": d.key, "st": kind})
 
@@ -496,12 +525,16 @@ func cleanse(u: Unit) -> bool:
 
 
 func tick_status() -> void:
+	var spreads := []
 	for u in units:
 		if not u.alive or u.st.is_empty(): continue
 		for s in u.st:
 			match s.k:
 				"burn":
 					u.troops -= s.val
+					stats.burn += s.val
+					if s.get("sp", 0.0) > 0 and rng.randf() < s.sp:
+						spreads.append([u, s])
 					L("st", "%s 불길에 휩싸인다 — 병력 %s 손실" % [ga(nm(u)), num(s.val)], {"fx": "tick", "f": u.key, "st": "burn", "n": s.val})
 				"flood":
 					var l := roundf(s.val * 0.7)
@@ -515,6 +548,8 @@ func tick_status() -> void:
 					L("st", "%s의 군세에 역병이 돈다 — 사기 %d 감소" % [nm(u), roundi(s.val)], {"fx": "tick", "f": u.key, "st": "plague", "m": s.val})
 		for s in u.st: s.dur -= 1
 		u.st = u.st.filter(func(s): return s.dur > 0)
+	for sp in spreads:
+		_spread_burn(sp[0], sp[1])
 	for cp in ["A", "B"]:
 		var side := units.filter(func(u): return u.alive and u.camp == cp)
 		if side.is_empty() or not side[0].caps.has("유생"): continue
@@ -522,6 +557,60 @@ func tick_status() -> void:
 			if not u.st.is_empty():
 				cleanse(u)
 				break
+
+
+# ───────── 화공 (솔국지 확장) ─────────
+
+## 불타는 적을 칠 때 피해 배율 —— 공격자의 fire_amp, 대상의 fire_res 가 깎는다
+func _fire_mul(a: Unit, d: Unit) -> float:
+	if a == null or not has_st(d, "burn"):
+		return 1.0
+	var amp := mv(a, "fire_amp")
+	return 1.0 + amp * (1.0 - minf(1.0, mv(d, "fire_res"))) if amp > 0 else 1.0
+
+
+## 화상 세기 배율 —— 건 쪽 burn_amp, 받는 쪽 fire_weak 는 올리고 fire_res 는 내린다
+func _burn_mul(a: Unit, d: Unit) -> float:
+	var m := (1.0 + (mv(a, "burn_amp") if a else 0.0)) * (1.0 + mv(d, "fire_weak"))
+	return m * (1.0 - minf(0.9, mv(d, "fire_res")))
+
+
+## 점화 —— 맞힐 때마다 ignite 확률로 화상
+func _ignite(a: Unit, d: Unit) -> void:
+	var p := mv(a, "ignite")
+	if p <= 0 or d.troops <= 0 or not d.alive:
+		return
+	if rng.randf() < p:
+		stats.ignites += 1
+		inflict(a, d, "burn", DB.PSV.fire.burn.val, int(DB.PSV.fire.burn.dur))
+
+
+## 번짐 —— 같은 열의 이웃(없으면 아무 아군)에게 화상이 옮겨 붙는다. 세기는 spread_val 배, 번진 불은 반만 다시 번진다
+func _spread_burn(u: Unit, s: Dictionary) -> void:
+	var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and not has_st(o, "burn"))
+	if cand.is_empty():
+		return
+	var same := cand.filter(func(o): return o.line == u.line)
+	var t: Unit = pick(same if not same.is_empty() else cand)
+	var v := maxf(1, roundf(s.val / u.max * t.max * float(DB.PSV.fire.spread_val) * (1.0 + mv(t, "fire_weak")) * (1.0 - minf(0.9, mv(t, "fire_res")))))
+	if t.st.size() >= 2:
+		var w = t.st[0]
+		for x in t.st:
+			if x.dur <= w.dur: w = x
+		t.st.erase(w)
+	t.st.append({"k": "burn", "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5})
+	stats.spreads += 1
+	L("st", "불길이 %s에게 번졌다" % nm(t), {"fx": "status", "f": t.key, "st": "burn", "from": u.key})
+
+
+## 수몰이 걸리면 불이 꺼진다
+func _douse(d: Unit) -> void:
+	for x in d.st:
+		if x.k == "burn":
+			d.st.erase(x)
+			stats.doused += 1
+			L("st", "%s의 불길이 물에 꺼졌다" % nm(d), {"fx": "cleanse", "f": d.key, "st": "burn"})
+			return
 
 
 func rout(u: Unit, why: String) -> void:
@@ -617,16 +706,16 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 				u.hit25 = true
 				u.morale -= K.hit25 * tg
 			if u.morale > 30 and u.morale < 100:
-				var rg: float = K.regen * (1.5 if u.regen_up else 1.0)
+				var rg: float = K.regen * pace * (1.5 if u.regen_up else 1.0)
 				if u.caps.has("유생"): rg *= 2
 				u.morale = minf(100, u.morale + rg)
 		for cp in ["A", "B"]:
 			var side := units.filter(func(u): return u.alive and u.camp == cp)
 			if side.is_empty() or not side[0].caps.has("유생"): continue
 			for u in side:
-				var g := minf(roundf(u.max * 0.045), u.max - u.troops)
+				var g := minf(roundf(u.max * 0.045 * pace), u.max - u.troops)
 				if g > 0: u.troops += g
-			L("hl", "대오를 추스른다 — 진영 병력 4.5% 회복", {"fx": "heal", "f": side[0].key})
+			L("hl", "대오를 추스른다 — 진영 병력 %.1f%% 회복" % (4.5 * pace), {"fx": "heal", "f": side[0].key})
 		tick_status()
 		check_rout()
 		for cp in ["A", "B"]:
@@ -634,9 +723,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			for u in units:
 				if not u.alive or u.camp != cp: continue
 				if mv(u, "mregen") > 0:
-					u.morale = minf(200, u.morale + mv(u, "mregen"))
+					u.morale = minf(200, u.morale + mv(u, "mregen") * pace)
 				if mv(u, "regen") > 0 and u.troops < u.max:
-					u.troops = minf(u.max, u.troops + roundf(u.max * mv(u, "regen")))
+					u.troops = minf(u.max, u.troops + roundf(u.max * mv(u, "regen") * pace))
 					healed = u.key
 			if healed != "":
 				L("hl", "특기로 대오를 추스른다", {"fx": "heal", "f": healed})
@@ -809,33 +898,46 @@ func _apply_group_passives() -> void:
 	var owner := {}           # [진영, 이름] -> 가장 센 주인 (기록용)
 	for u in units:
 		var ps = DB.passives_of(u.c.id)
-		if ps == null or ps.group == null:
+		if ps == null:
 			continue
-		var g: Dictionary = ps.group
-		var n := 0
-		for t in units:
-			if _scope_hits(g.scope, u, t):
-				if not got.has(t):
-					got[t] = {}
-				if not got[t].has(g.name):
-					got[t][g.name] = []
-				got[t][g.name].append(g.scale)
-				n += 1
-		var ok: String = u.camp + g.name
-		if not owner.has(ok) or g.scale > owner[ok][1]:
-			owner[ok] = [u, g.scale, n, g]
+		var gs := []
+		if ps.group:
+			gs.append(ps.group)
+		if fire_enabled and ps.get("fire") and ps.fire.group:
+			gs.append(ps.fire.group)
+		for g in gs:
+			_group_from(u, g, got, owner)
+	_finish_groups(got, owner)
+
+
+func _group_from(u: Unit, g: Dictionary, got: Dictionary, owner: Dictionary) -> void:
+	var n := 0
+	for t in units:
+		if _scope_hits(g.scope, u, t):
+			if not got.has(t):
+				got[t] = {}
+			if not got[t].has(g.name):
+				got[t][g.name] = []
+			got[t][g.name].append(g.scale)
+			n += 1
+	var ok: String = u.camp + g.name
+	if not owner.has(ok) or g.scale > owner[ok][1]:
+		owner[ok] = [u, g.scale, n, g]
+
+
+func _finish_groups(got: Dictionary, owner: Dictionary) -> void:
 	for t in got:
 		for nm_ in got[t]:
 			var sc: Array = got[t][nm_]
 			sc.sort()
 			sc.reverse()
 			var total: float = sc[0] + (sc[1] * 0.5 if sc.size() > 1 else 0.0)
-			var base: Dictionary = DB.PSV.catalog[nm_].m
+			var base: Dictionary = DB.group_def(nm_).m
 			for k in base:
-				t.m[k] = t.m.get(k, 0.0) + base[k] * total
+				t.m[k] = t.m.get(k, 0.0) + base[k] * (1.0 if k == "burn_dur" else total)
 	for ok in owner:
 		var o: Array = owner[ok]
-		var cm: Dictionary = DB.PSV.catalog[o[3].name].get("cmd", {}) if cmd_links else {}
+		var cm: Dictionary = DB.group_def(o[3].name).get("cmd", {}) if cmd_links else {}
 		for k in cm:
 			cmdm[o[0].camp][k] = maxf(cmdm[o[0].camp].get(k, 0.0), cm[k] * o[1])
 		L("sk", "%s의 단체 특기 『%s』 — %s" % [nm(o[0]), o[3].name, o[3].d],
@@ -897,15 +999,21 @@ func can_ult(u: Unit) -> bool:
 ## 행동 사이 —— 이번 행동 번호에 걸린 입력을 처리하고, 영리한 AI 가 판단한다
 func _between() -> void:
 	_bdone = act_n
+	# 양쪽 AI 는 이번 판단 직전의 같은 상황을 보고 동시에 정한다. 예전엔 A 가 먼저 군령을 내리면 B 가 그걸 보고
+	# 같은 순간에 방진으로 받아쳐 B 쪽이 늘 유리했다 (영리 대 영리, 덱을 바꿔 붙여도 A 승률 40% 안팎).
+	# 사람(A)의 입력도 이 뒤에 처리되므로 AI 가 사람의 군령을 보고 맞대응하지 못한다.
+	var seen := {}
+	for cp in ["A", "B"]:
+		seen[cp] = {"charging": _side_has(_foe(cp), "atk"), "threat": _ult_threat(cp)}
 	for inp in inputs:
 		if int(inp[0]) == act_n:
 			_apply_input(inp)
 	for cp in ["A", "B"]:
 		if policy[cp] == "smart":
-			_smart(cp, "영리", "영리")
+			_smart(cp, "영리", "영리", seen[cp])
 		elif str(policy[cp]).begins_with("tac:"):
 			var tp: PackedStringArray = str(policy[cp]).split(":")
-			_smart(cp, tp[1], tp[2])
+			_smart(cp, tp[1], tp[2], seen[cp])
 		elif policy[cp] == "auto":
 			for u in units:
 				if u.camp == cp and can_ult(u):
@@ -975,13 +1083,13 @@ func _cmd_amt(cp: String, name_: String, b: Dictionary) -> float:
 
 
 ## 영리한 AI —— 고유기는 값어치가 있을 때, 군령은 상대를 보고 고른다
-func _smart(cp: String, ult_t: String, cmd_t: String) -> void:
+func _smart(cp: String, ult_t: String, cmd_t: String, seen: Dictionary) -> void:
 	# 기본은 자동과 같다 (충전되면 쓰고, 포인트는 돌격). 다른 점:
 	#  ① 적이 돌격 중이면 방진으로 받는다 —— 적의 공격 상승은 막고, 방어가 내려간 적을 친다
 	#  ② 적 광역 고유기가 터지기 직전이면 방진
 	#  ③ 회복·격려형 고유기는 아군이 꺾일 때까지 아껴 둔다
-	var threat := _ult_threat(cp)
-	var foe_charging := _side_has(_foe(cp), "atk")
+	var threat: float = seen.threat
+	var foe_charging: bool = seen.charging
 	if cmd_t != "공세" and pts[cp] >= CMD_COST and not _side_has(cp, "uguard") and (foe_charging or threat >= 75.0):
 		_command(cp, "방진")
 	for u in units:
