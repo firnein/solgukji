@@ -30,6 +30,7 @@ var _portrait_panel := {}    # 패널째 잘린 그림(그려진 영역이 거�
 var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등급 그림이 없으면 기본 그림)
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
+var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
 
 const PHYS_TAGS := ["창병", "기병", "궁병", "도적"]
 const INT_TAGS := ["책사", "유생", "술사", "모사"]
@@ -51,6 +52,7 @@ func _load() -> void:
 	D.ITEMDEF.append_array(ext.items)
 	for k in ext.get("status", {}):
 		D.STATUS[k] = ext.status[k]
+	CLASS_COUNTER = ext.get("class_counter", {})
 	_build_fonts()
 
 	for r in D.CARDDEF:
@@ -601,3 +603,12 @@ func skill_desc(c: Dictionary) -> String:
 	return " · ".join(p)
 
 
+## 병종 상성 배율 —— 공격 병종 a 가 수비 병종 d 를 칠 때 (1 ± amt)
+func cls_mul(a: String, d: String) -> float:
+	if CLASS_COUNTER.is_empty():
+		return 1.0
+	if CLASS_COUNTER.win.get(a, []).has(d):
+		return 1.0 + float(CLASS_COUNTER.amt)
+	if CLASS_COUNTER.lose.get(a, []).has(d):
+		return 1.0 - float(CLASS_COUNTER.amt)
+	return 1.0

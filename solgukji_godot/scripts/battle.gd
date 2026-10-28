@@ -27,6 +27,7 @@ static var fire_enabled := true      # 화공 속성 켜기 (솔국지 확장 �
 static var water_enabled := true     # 수공 속성 켜기 (수몰 이감 규칙 포함)
 static var dash_enabled := true      # 돌파 속성 켜기 (와해)
 static var aim_enabled := true       # 표적 속성 켜기 (표식)
+static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
@@ -415,7 +416,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var fm := _fire_mul(a, d)
 	var wm := _water_mul(a, d)
 	var tm := _tac_mul(a, d)
-	dmg *= fm * wm * tm
+	dmg *= fm * wm * tm * (DB.cls_mul(a.c.tag, d.c.tag) if counter_enabled else 1.0)
 	var loss := maxf(1, roundf(dmg * K.troop * pace))
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
@@ -454,7 +455,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	var fm := _fire_mul(a, d)
 	var wm := _water_mul(a, d)
 	var tm := _tac_mul(a, d)
-	dmg *= fm * wm * tm
+	dmg *= fm * wm * tm * (DB.cls_mul(a.c.tag, d.c.tag) if counter_enabled else 1.0)
 	var aoe: float = K.aoe if spread >= 3 else 1.0
 	var loss := maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe))
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
