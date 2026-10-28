@@ -100,7 +100,7 @@ def main():
         if 16 <= hh <= 90 and 30 <= ww <= 320:
             region = rgb[c["y0"]:c["y1"] + 1, c["x0"]:c["x1"] + 1].reshape(-1, 3).astype(int)
             text = (region.min(axis=1) > 190).mean()
-            if 0.03 < text < 0.4:
+            if 0.01 < text < 0.4:      # 번호만 쓴 이름표(대용량 시트)는 흰 글씨가 적다
                 pieces.append(c)
     pieces.sort(key=lambda c: c["x0"])
     merged = []
