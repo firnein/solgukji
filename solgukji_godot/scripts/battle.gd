@@ -500,7 +500,8 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 		fire = _burn_mul(a, d)
 		ext += int(mv(a, "burn_dur")) if a else 0
 		sp = mv(a, "spread") if a else 0.0
-	var v := maxf(1, roundf(val * scale * stx * resist * fire))
+	var amp := 1.0 + (mv(a, "st_amp") if a and kind in ["burn", "flood", "bleed", "plague"] else 0.0)     # 요술
+	var v := maxf(1, roundf(val * scale * stx * resist * fire * amp))
 	var t := maxi(dur, 1) + ext
 	if kind == "flood":
 		_douse(d)
@@ -804,6 +805,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			var pt := (rout_hp - r) * rout_hp_slope if r < rout_hp else 0.0
 			if pm <= 0 and pt <= 0: continue
 			var p := 1.0 - (1.0 - pm) * (1.0 - pt)
+			p *= 1.0 + _side_max(_foe(u.camp), "fear")      # 위압 —— 적 진영에서 가장 센 값 하나
 			p *= 1.0 - mv(u, "rout")
 			p *= 1.0 - _buff_sum(u, "calm")
 			if u.caps.has("유생"): p *= 0.5
