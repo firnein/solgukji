@@ -341,7 +341,7 @@ func passives_of(k: String):
 	if f != null:
 		if out == null:
 			out = {"self": null, "group": null}
-		out.fire = _psv_pair(f, PSV.fire.catalog, c.tier)
+		out.fire = _fire_ladder(f, c.tier)
 	_psv_cache[k] = out
 	return out
 
@@ -357,6 +357,24 @@ func _psv_pair(p: Dictionary, cat: Dictionary, tier: int) -> Dictionary:
 		var g: Dictionary = cat[p.group]
 		out.group = {"name": p.group, "d": g.d, "scope": g.scope, "scale": sc}
 	return out
+
+
+## 화공 사다리 —— [특기, 붙는 등급] 중 카드 등급 이하인 것. {traits: [{name, d, m}], groups: [{name, d, scope, scale}]}
+func _fire_ladder(f: Array, tier: int):
+	var sc: float = PSV.fire.tier_scale[str(tier)]
+	var out := {"traits": [], "groups": []}
+	for e in f:
+		if tier < int(e[1]):
+			continue
+		var t: Dictionary = PSV.fire.catalog[e[0]]
+		if t.has("scope"):
+			out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc})
+		else:
+			var m := {}
+			for key in t.m:
+				m[key] = t.m[key] * (1.0 if key in PSV.fire.flags else sc)
+			out.traits.append({"name": e[0], "d": t.d, "m": m})
+	return out if not (out.traits.is_empty() and out.groups.is_empty()) else null
 
 
 ## 단체 특기 이름 -> 정의 (특기 또는 화공)
@@ -389,7 +407,7 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
 	"rpierce": "적 책략방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 책략", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
-	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)"}
+	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)", "terror": "화상마다 적 사기 -"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur"]
 
 
@@ -400,12 +418,14 @@ func mods_text(m: Dictionary, scale := 1.0) -> String:
 		if k == "first":
 			out.append("선공")
 			continue
+		if k in ["kindle", "blaze", "night", "scorch"]:      # 화공 마무리 —— 설명으로 충분
+			continue
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
-		if k in ["regen", "mregen"]:      # 턴마다 흐르는 양 —— 전투 속도(Battle.pace)만큼 줄어 있다
+		if k in ["regen", "mregen", "terror"]:      # 턴마다 흐르는 양 —— 전투 속도(Battle.pace)만큼 줄어 있다
 			v *= Battle.pace
-			out.append(("%s%s%.1f" if k == "mregen" else "%s%s%.1f%%") % [lb, sign, v if k == "mregen" else v * 100])
+			out.append(("%s%s%.1f%%" if k == "regen" else "%s%s%.1f") % [lb, sign, v * 100 if k == "regen" else v])
 			continue
 		if k in MOD_FLAT:
 			out.append("%s%s%.0f" % [lb, sign, v])
@@ -426,12 +446,13 @@ func passive_text(k: String) -> String:
 		lines.append("단체 『%s』 %s
    %s" % [ps.group.name, ps.group.d, mods_text(PSV.catalog[ps.group.name].m, ps.group.scale)])
 	if ps.get("fire"):
-		var f: Dictionary = ps.fire
-		lines.append("화공 『%s』 %s
-   %s" % [f.self.name, f.self.d, mods_text(f.self.m)])
-		if f.group:
+		for t in ps.fire.traits:
+			var mt := mods_text(t.m)
+			lines.append("화공 『%s』 %s%s" % [t.name, t.d, ("
+   " + mt) if mt != "" else ""])
+		for g in ps.fire.groups:
 			lines.append("화공 단체 『%s』 %s
-   %s" % [f.group.name, f.group.d, mods_text(PSV.fire.catalog[f.group.name].m, f.group.scale)])
+   %s" % [g.name, g.d, mods_text(PSV.fire.catalog[g.name].m, g.scale)])
 	return "
 ".join(lines)
 

@@ -71,6 +71,7 @@ class Unit:
 	var m := {}               # 특기 수정치 (data/passives.json 의 m 키) —— mv() 로 읽는다
 	var avenge_n := 0         # 비장 —— 아군이 무너진 횟수
 	var opened := false       # 첫 공격을 했는가 (기신·강행·습격)
+	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
 	var dmg := 0.0
 	var mdmg := 0.0
 	var heal := 0.0
@@ -101,7 +102,7 @@ var _ult_last := {"A": -99, "B": -99}
 var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 —— 사건에 bd 로 적어 화면이 입력 시점을 고른다
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
-	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0}
+	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0}
 
 
 func _init(seed_value: int = -1) -> void:
@@ -209,8 +210,9 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	if fire_enabled:
 		var ps = DB.passives_of(cid)
 		if ps != null and ps.get("fire"):
-			for k in ps.fire.self.m:
-				u.m[k] = u.m.get(k, 0.0) + ps.fire.self.m[k]
+			for t in ps.fire.traits:
+				for k in t.m:
+					u.m[k] = u.m.get(k, 0.0) + t.m[k]
 	if u.c.tier >= 7:
 		u.ult = DB.ult_of(cid)
 		if u.ult:
@@ -452,7 +454,7 @@ func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> voi
 
 
 func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
-	if not d.alive: return
+	if not d.alive or _scorched(d): return
 	var g := minf(roundf(d.max * ratio * pace), d.max - d.troops)
 	if g <= 0: return
 	d.troops += g
@@ -533,6 +535,10 @@ func tick_status() -> void:
 				"burn":
 					u.troops -= s.val
 					stats.burn += s.val
+					var tr := _side_max(_foe(u.camp), "terror")
+					if tr > 0:
+						u.morale -= tr * pace
+						stats.terror += tr * pace
 					if s.get("sp", 0.0) > 0 and rng.randf() < s.sp:
 						spreads.append([u, s])
 					L("st", "%s 불길에 휩싸인다 — 병력 %s 손실" % [ga(nm(u)), num(s.val)], {"fx": "tick", "f": u.key, "st": "burn", "n": s.val})
@@ -575,14 +581,22 @@ func _burn_mul(a: Unit, d: Unit) -> float:
 	return m * (1.0 - minf(0.9, mv(d, "fire_res")))
 
 
+## 점화로 거는 화상 세기 —— 거는 카드 등급별 (data/passives.json fire.burn.val)
+func _fire_burn(a: Unit) -> float:
+	return float(DB.PSV.fire.burn.val[str(clampi(a.c.tier, 3, 8))])
+
+
 ## 점화 —— 맞힐 때마다 ignite 확률로 화상
 func _ignite(a: Unit, d: Unit) -> void:
 	var p := mv(a, "ignite")
+	if mv(a, "night") > 0 and not a.night_used:
+		a.night_used = true
+		p = 1.0
 	if p <= 0 or d.troops <= 0 or not d.alive:
 		return
-	if rng.randf() < p:
+	if p >= 1.0 or rng.randf() < p:
 		stats.ignites += 1
-		inflict(a, d, "burn", DB.PSV.fire.burn.val, int(DB.PSV.fire.burn.dur))
+		inflict(a, d, "burn", _fire_burn(a), int(DB.PSV.fire.burn.dur))
 
 
 ## 번짐 —— 같은 열의 이웃(없으면 아무 아군)에게 화상이 옮겨 붙는다. 세기는 spread_val 배, 번진 불은 반만 다시 번진다
@@ -591,7 +605,10 @@ func _spread_burn(u: Unit, s: Dictionary) -> void:
 	if cand.is_empty():
 		return
 	var same := cand.filter(func(o): return o.line == u.line)
-	var t: Unit = pick(same if not same.is_empty() else cand)
+	_spread_burn_to(u, s, pick(same if not same.is_empty() else cand))
+
+
+func _spread_burn_to(u: Unit, s: Dictionary, t: Unit) -> void:
 	var v := maxf(1, roundf(s.val / u.max * t.max * float(DB.PSV.fire.spread_val) * (1.0 + mv(t, "fire_weak")) * (1.0 - minf(0.9, mv(t, "fire_res")))))
 	if t.st.size() >= 2:
 		var w = t.st[0]
@@ -601,6 +618,48 @@ func _spread_burn(u: Unit, s: Dictionary) -> void:
 	t.st.append({"k": "burn", "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5})
 	stats.spreads += 1
 	L("st", "불길이 %s에게 번졌다" % nm(t), {"fx": "status", "f": t.key, "st": "burn", "from": u.key})
+
+
+## 진영에서 가장 센 수정치 (살아 있는 부대 중)
+func _side_max(cp: String, k: String) -> float:
+	var v := 0.0
+	for o in units:
+		if o.alive and o.camp == cp:
+			v = maxf(v, mv(o, k))
+	return v
+
+
+## 화선돌격·박망파 —— 전투 시작에 적 선봉 전체에 화상 (가진 장수마다)
+func _kindle() -> void:
+	for u in units:
+		if mv(u, "kindle") <= 0:
+			continue
+		var foes := units.filter(func(o): return o.camp != u.camp)
+		var front := resolve_targets("allyFront", [], u, foes)
+		L("sk", "%s의 불길이 적 선봉을 덮친다" % nm(u), {"fx": "skill", "a": u.key, "name": "화공", "kind": "int"})
+		for t in front:
+			inflict(u, t, "burn", _fire_burn(u), int(DB.PSV.fire.burn.dur))
+
+
+## 칠백리 —— 불타던 부대가 무너지면 그 불이 같은 열 전체로
+func _blaze(u: Unit) -> void:
+	var s = null
+	for x in u.st:
+		if x.k == "burn": s = x
+	if s == null:
+		return
+	for t in units:
+		if t.alive and t != u and t.camp == u.camp and t.line == u.line and not has_st(t, "burn"):
+			_spread_burn_to(u, s, t)
+			stats.blazes += 1
+
+
+## 오소 —— 불타는 부대는 (적에게 오소가 있으면) 병력을 회복하지 못한다
+func _scorched(d: Unit) -> bool:
+	if not fire_enabled or not has_st(d, "burn") or _side_max(_foe(d.camp), "scorch") <= 0:
+		return false
+	stats.scorched += 1
+	return true
 
 
 ## 수몰이 걸리면 불이 꺼진다
@@ -616,6 +675,8 @@ func _douse(d: Unit) -> void:
 func rout(u: Unit, why: String) -> void:
 	if not u.alive: return
 	u.alive = false
+	if fire_enabled and has_st(u, "burn") and _side_max(_foe(u.camp), "blaze") > 0:
+		_blaze(u)
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
 	for o in units:
 		if not o.alive or o.camp != u.camp: continue
@@ -654,6 +715,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		for cp in ["A", "B"]:
 			pts[cp] = minf(PTS_MAX, cmdm[cp].get("pts_start", 0.0))
 
+	if fire_enabled:
+		_kindle()
 	var turn := 0
 	var winner := ""
 	while turn < K.cap and winner == "":
@@ -713,6 +776,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			var side := units.filter(func(u): return u.alive and u.camp == cp)
 			if side.is_empty() or not side[0].caps.has("유생"): continue
 			for u in side:
+				if _scorched(u): continue
 				var g := minf(roundf(u.max * 0.045 * pace), u.max - u.troops)
 				if g > 0: u.troops += g
 			L("hl", "대오를 추스른다 — 진영 병력 %.1f%% 회복" % (4.5 * pace), {"fx": "heal", "f": side[0].key})
@@ -724,7 +788,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 				if not u.alive or u.camp != cp: continue
 				if mv(u, "mregen") > 0:
 					u.morale = minf(200, u.morale + mv(u, "mregen") * pace)
-				if mv(u, "regen") > 0 and u.troops < u.max:
+				if mv(u, "regen") > 0 and u.troops < u.max and not _scorched(u):
 					u.troops = minf(u.max, u.troops + roundf(u.max * mv(u, "regen") * pace))
 					healed = u.key
 			if healed != "":
@@ -903,8 +967,8 @@ func _apply_group_passives() -> void:
 		var gs := []
 		if ps.group:
 			gs.append(ps.group)
-		if fire_enabled and ps.get("fire") and ps.fire.group:
-			gs.append(ps.fire.group)
+		if fire_enabled and ps.get("fire"):
+			gs.append_array(ps.fire.groups)
 		for g in gs:
 			_group_from(u, g, got, owner)
 	_finish_groups(got, owner)
