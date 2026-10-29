@@ -1,0 +1,20 @@
+Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.
+LAYOUT: image 1024x1536 portrait. 2 LARGE vertical rounded-rectangle panels, 2 columns x 1 rows (short last row centered), wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke banner with ONLY its number (1-2) in big white digits. No other text, no names, no watermark.
+BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
+BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
+FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: CAVALRY rider is the subject, only the horse's head or mane peeks in at the edge.
+SPLENDOR (card rank): MYTHIC the most splendid gilded armor or imperial silk with dragon or phoenix motifs, a faint golden glow behind the head.
+Do not draw tags, ★ or line labels as text.
+
+1. [CAVALRY]★ Lü Bu, the mightiest warrior, crown with two very long pheasant feathers, red-black ornate armor, crescent-bladed halberd.
+   COLORS: own warlord colors.
+   FACE: tall, sharp cold handsome face, clean-shaven, two very long pheasant feathers on his crown, tall cold handsome face, sharp jaw, fierce upturned eyes with a murderous glint, straight proud nose, thin cruel smile, arrogant unrivaled warrior.
+   SPLENDOR: MYTHIC.
+   MOMENT (hint only, no scenery): fighting the three sworn brothers alone at Hulao Pass, Red Hare rearing, sky-piercing halberd clashing against a glaive, a serpent spear and twin swords, aura of the unrivaled warrior.
+2. [CAVALRY]★ Dong Zhuo, obese tyrant with a thick beard, gaudy black-gold armor over a robe.
+   COLORS: own warlord colors.
+   FACE: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin, huge fat bloated face, tiny piggy eyes sunk in fat, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer.
+   SPLENDOR: MYTHIC.
+   MOMENT (hint only, no scenery): the burning of Luoyang, the palace in flames behind him, cackling with a torch in hand.

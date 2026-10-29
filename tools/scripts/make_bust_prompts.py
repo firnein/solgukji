@@ -4,6 +4,7 @@
   prompts/바스트샷/      : 원본 시트 그대로 (12 · 20명)
   prompts/바스트샷_6명/  : 6명씩 나눈 시트 (2열 × 3줄 —— 칸이 커서 얼굴이 더 또렷하다) + 자르기_이름.txt
   prompts/레오나르도_5천자/ : 프롬프트 5000자 제한용 —— 공통 문구 압축 + 장수 3명 이하 + 자르기_이름.txt
+  prompts/실사풍_바스트/    : 5000자 · 3명 이하, 치비 대신 반실사 초상화(references/style_ref_realistic_bust.png), 배경은 거의 빈 단색
   원본 블록에서 인물 크기 규칙을 바스트샷 규칙으로 바꾼다. SHOT 은
     MYTHIC · ORNATE (높은 등급) —— SCENE 의 가장 상징적인 순간에 맞춘 표정·손짓 (손과 소품이 화면 안으로 올라와도 된다)
     FINE · PLAIN               —— 가슴 위 구도 목록에서 칸마다 다른 각도·표정
@@ -194,48 +195,92 @@ def leo_entry(e: str, i: int) -> str:
     return "\n".join(out)
 
 
-D_LEO = "prompts/레오나르도_5천자"
-reset(D_LEO)
-leo_cut = ["레오나르도 5천자 시트를 뽑은 뒤 D:\\Sol 에서 자르기 (이름 순서 = 이름표 번호 순서). 자른 뒤 solgukji_godot 에서 Godot --import 를 한 번 돌린다.\n"]
-leo_no, sizes = 0, []
+REAL_COMMON = (
+    "Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character "
+    "portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), "
+    "painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, "
+    "detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.\n"
+    "LAYOUT: image 1024x1536 portrait. {n} LARGE vertical rounded-rectangle panels, {cols} columns x {rows} rows (short last row centered), "
+    "wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke "
+    "banner with ONLY its number (1-{n}) in big white digits. No other text, no names, no watermark.\n"
+    "BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, "
+    "shoulders and collar filling the panel width. Headgear may reach the top edge.\n"
+    "BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) "
+    "behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.\n"
+    "FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, "
+    "facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.\n"
+    "RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— "
+    "a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.\n"
+    "★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: {classes}.\n"
+    "SPLENDOR (card rank): {splendor}.\n"
+    "Do not draw tags, ★ or line labels as text.\n")
+REAL_SPLENDOR = {
+    "PLAIN": "PLAIN simple cloth or worn leather and iron, muted colors",
+    "FINE": "FINE fine officer robe or polished armor, a few gold accents",
+    "ORNATE": "ORNATE rich brocade, gold embroidery, jeweled clasps",
+    "MYTHIC": "MYTHIC the most splendid gilded armor or imperial silk with dragon or phoenix motifs, a faint golden glow behind the head",
+}
 
 
-def leo_text(chunk):
-    n = len(chunk)
-    cols, rows = (2, (n + 1) // 2) if n > 2 else (n, 1)
-    cls = []
-    spl = []
-    for e in chunk:
-        c = re.match(r"\d+\. \(card[^)]*\) \[([A-Z]+)\]", e).group(1)
-        s = re.search(r"SPLENDOR: ([A-Z]+)", e).group(1)
-        cls += [c] if c not in cls else []
-        spl += [s] if s not in spl else []
-    head = LEO_COMMON.format(n=n, cols=cols, rows=rows, classes=" / ".join(CLASS_HINT[c] for c in cls),
-                             splendor=" / ".join(SPLENDOR_HINT[s] for s in ["PLAIN", "FINE", "ORNATE", "MYTHIC"] if s in spl))
-    return head + "\n" + "\n".join(leo_entry(e, i + 1) for i, e in enumerate(chunk)) + "\n"
+def real_entry(e: str, i: int) -> str:
+    L = leo_entry(e, i).split("\n")
+    rank = next((l for l in L if l.strip().startswith("SPLENDOR:")), "")
+    high = "MYTHIC" in rank or "ORNATE" in rank
+    out = []
+    for ln in L:
+        k = ln.strip().split(":")[0]
+        if k == "LIGHT":
+            continue
+        if k == "SCENE":
+            if high:
+                out.append("   MOMENT (hint only, no scenery): " + ln.split(": ", 1)[1])
+            continue
+        out.append(ln)
+    return "\n".join(out)
 
 
-for si, sec in enumerate(sections):
-    head = sec.split("\n", 1)[0]
-    num, part, tiers, k, cnt = re.match(r"(\d+)\. (\S+) \(([^)]*)\) (\d+) — (\d+)장", head).groups()
-    block = bustify(re.search(r"```\n(.*?)\n```", sec, flags=re.S).group(1), si)
-    entries = re.split(r"\n(?=\d+\. \(card)", block.split("\nImage size", 1)[1].split("\n\n", 1)[1].strip())
-    names = re.search(r"자르기 이름 목록: `([^`]*)`", sec).group(1).split(",")
-    # 3명까지 (한 장에 인물이 적을수록 얼굴이 또렷하다), 5000자를 넘는 묶음이 있으면 한 명씩 줄인다 —— 고르게 나눈다
-    for per in (3, 2, 1):
-        groups = -(-len(entries) // per)
-        bounds = [round(len(entries) * g / groups) for g in range(groups + 1)]
-        texts = [leo_text(entries[bounds[g]:bounds[g + 1]]) for g in range(groups)]
-        if all(len(t) <= LIMIT for t in texts):
-            break
-    for g, t in enumerate(texts):
-        leo_no += 1
-        n = bounds[g + 1] - bounds[g]
-        fname = "%02d_%s%s-%d_%d명.txt" % (leo_no, part, k, g + 1, n)
-        open(os.path.join(D_LEO, fname), "w", encoding="utf-8", newline="\n").write(t)
-        sizes.append(len(t))
-        leo_cut.append("[%s] %d자" % (fname, len(t)))
-        leo_cut.append('  python -I tools/scripts/slice_panels.py 시트.png "%s" solgukji_godot/assets/portraits' % ",".join(names[bounds[g]:bounds[g + 1]]))
-        leo_cut.append("")
-open(os.path.join(D_LEO, "자르기_이름.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(leo_cut))
-print(leo_no, "개 레오나르도 시트 · 글자 수 %d ~ %d" % (min(sizes), max(sizes)))
+def write_sheets(dst, label, common_tpl, splendor_hint, entry_fn):
+    reset(dst)
+    lines = ["%s 시트를 뽑은 뒤 D:\Sol 에서 자르기 (이름 순서 = 이름표 번호 순서). 자른 뒤 solgukji_godot 에서 Godot --import 를 한 번 돌린다.\n" % label]
+    no, sizes = 0, []
+
+    def text_of(chunk):
+        n = len(chunk)
+        cols, rows = (2, (n + 1) // 2) if n > 2 else (n, 1)
+        cls, spl = [], []
+        for e in chunk:
+            c = re.match(r"\d+\. \(card[^)]*\) \[([A-Z]+)\]", e).group(1)
+            r = re.search(r"SPLENDOR: ([A-Z]+)", e).group(1)
+            cls += [c] if c not in cls else []
+            spl += [r] if r not in spl else []
+        head = common_tpl.format(n=n, cols=cols, rows=rows, classes=" / ".join(CLASS_HINT[c] for c in cls),
+                                 splendor=" / ".join(splendor_hint[r] for r in ["PLAIN", "FINE", "ORNATE", "MYTHIC"] if r in spl))
+        return head + "\n" + "\n".join(entry_fn(e, i + 1) for i, e in enumerate(chunk)) + "\n"
+
+    for si, sec in enumerate(sections):
+        head = sec.split("\n", 1)[0]
+        num, part, tiers, k, cnt = re.match(r"(\d+)\. (\S+) \(([^)]*)\) (\d+) — (\d+)장", head).groups()
+        block = bustify(re.search(r"```\n(.*?)\n```", sec, flags=re.S).group(1), si)
+        entries = re.split(r"\n(?=\d+\. \(card)", block.split("\nImage size", 1)[1].split("\n\n", 1)[1].strip())
+        names = re.search(r"자르기 이름 목록: `([^`]*)`", sec).group(1).split(",")
+        # 3명까지 (한 장에 인물이 적을수록 얼굴이 또렷하다), 5000자를 넘는 묶음이 있으면 한 명씩 줄인다 —— 고르게 나눈다
+        for per in (3, 2, 1):
+            groups = -(-len(entries) // per)
+            bounds = [round(len(entries) * g / groups) for g in range(groups + 1)]
+            texts = [text_of(entries[bounds[g]:bounds[g + 1]]) for g in range(groups)]
+            if all(len(t) <= LIMIT for t in texts):
+                break
+        for g, t in enumerate(texts):
+            no += 1
+            fname = "%02d_%s%s-%d_%d명.txt" % (no, part, k, g + 1, bounds[g + 1] - bounds[g])
+            open(os.path.join(dst, fname), "w", encoding="utf-8", newline="\n").write(t)
+            sizes.append(len(t))
+            lines.append("[%s] %d자" % (fname, len(t)))
+            lines.append('  python -I tools/scripts/slice_panels.py 시트.png "%s" solgukji_godot/assets/portraits' % ",".join(names[bounds[g]:bounds[g + 1]]))
+            lines.append("")
+    open(os.path.join(dst, "자르기_이름.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(lines))
+    print(dst, no, "시트 · 글자 수 %d ~ %d" % (min(sizes), max(sizes)))
+
+
+write_sheets("prompts/레오나르도_5천자", "레오나르도 5천자", LEO_COMMON, SPLENDOR_HINT, leo_entry)
+write_sheets("prompts/실사풍_바스트", "실사풍 바스트", REAL_COMMON, REAL_SPLENDOR, real_entry)

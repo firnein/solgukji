@@ -1,0 +1,25 @@
+Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.
+LAYOUT: image 1024x1536 portrait. 3 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (short last row centered), wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke banner with ONLY its number (1-3) in big white digits. No other text, no names, no watermark.
+BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
+BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
+FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: STRATEGIST flowing robe, white crane-feather fan / SCHOLAR scholar robe and hat, book, bamboo slips or court tablet, no weapon.
+SPLENDOR (card rank): FINE fine officer robe or polished armor, a few gold accents.
+Do not draw tags, ★ or line labels as text.
+
+1. [STRATEGIST]★ Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: pale young face, smug smile, flushed cheeks, loose untied hair, slender pale young face, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair, decadent genius.
+   SPLENDOR: FINE.
+   SHOT: slight low angle, composed, looking down at the viewer, robe collar framing the face.
+2. [STRATEGIST] Zhong Hui, arrogant young noble strategist in a fine blue robe, white feather fan raised, ambitious smirk.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: young, pretty arrogant face, long hair with a gold hairpin, pretty narrow face, arrogant upturned eyes, thin nose, sneering smile, smooth pale skin, ambitious smug genius.
+   SPLENDOR: FINE.
+   SHOT: front view, half the face lit by warm light, half in shadow, serious.
+3. [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: elegant 40s, neat full beard, tall formal hat, handsome dignified oval face, gentle sad eyes, straight nose, refined calm mouth, smooth fair skin, noble upright expression.
+   SPLENDOR: FINE.
+   SHOT: head turned back toward the viewer over the shoulder, sly side glance.

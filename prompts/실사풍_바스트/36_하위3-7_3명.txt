@@ -1,0 +1,25 @@
+Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.
+LAYOUT: image 1024x1536 portrait. 3 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (short last row centered), wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke banner with ONLY its number (1-3) in big white digits. No other text, no names, no watermark.
+BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
+BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
+FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: SCHOLAR scholar robe and hat, book, bamboo slips or court tablet, no weapon / ARCHER bow held near the shoulder, quiver on the back.
+SPLENDOR (card rank): PLAIN simple cloth or worn leather and iron, muted colors.
+Do not draw tags, ★ or line labels as text.
+
+1. [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: elegant 40s, neat full beard, tall formal hat, handsome dignified oval face, gentle sad eyes, straight nose, refined calm mouth, smooth fair skin, noble upright expression.
+   SPLENDOR: PLAIN.
+   SHOT: side profile, looking into the distance, calm.
+2. [SCHOLAR] Chen Qun, neat bureaucrat official in a scholar's hat, holding a thick law book and a brush.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: neat thin goatee, squinting eyes, official hat, neat narrow face, squinting bureaucratic eyes, small mouth, pale indoor skin, meticulous official.
+   SPLENDOR: PLAIN.
+   SHOT: 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+3. [ARCHER]★ Sun Quan, the classic young Wu emperor: striking green-blue eyes and a reddish-purple beard, regal red and gold robe, holding a sword, dignified. Archer hint only: a bow slung on his back and a small quiver.
+   COLORS: Wu: crimson, red, orange and gold.
+   FACE: green-blue eyes, reddish-purple beard, square jaw, broad square jaw, striking green-blue eyes, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler.
+   SPLENDOR: PLAIN.
+   SHOT: front view, chin raised, fierce confident gaze straight at the viewer.

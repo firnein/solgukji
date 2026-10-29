@@ -1,0 +1,25 @@
+Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.
+LAYOUT: image 1024x1536 portrait. 3 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (short last row centered), wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke banner with ONLY its number (1-3) in big white digits. No other text, no names, no watermark.
+BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
+BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
+FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: SCHEMER dark robe with hood or high collar, scroll, vial or chess piece / ROGUE light armor, headband or scarf, short blade near the face.
+SPLENDOR (card rank): PLAIN simple cloth or worn leather and iron, muted colors.
+Do not draw tags, ★ or line labels as text.
+
+1. [SCHEMER] Shen Pei, stubborn loyal official in a purple-gray high-collared robe, holding a sealed order scroll, stern.
+   COLORS: own warlord colors.
+   FACE: older, long thin beard, rigid upright posture, older narrow face, rigid cold eyes, tight lips, proud unbending posture.
+   SPLENDOR: PLAIN.
+   SHOT: slight low angle, composed, looking down at the viewer, robe collar framing the face.
+2. [ROGUE] Zhang Yan, Black Mountain bandit leader in a black outfit, agile leaping pose, a knife in each hand.
+   COLORS: own warlord colors.
+   FACE: young, black mask scarf over the lower face, young sharp eyes above a black mask scarf over the lower face, lean face, quick bandit glance.
+   SPLENDOR: PLAIN.
+   SHOT: 3/4 view, shouting a battle cry, hair and plume blown back by wind.
+3. [ROGUE] Guan Hai, giant Yellow Turban bandit with a yellow headband, light leather vest, a hand axe in each hand, roaring.
+   COLORS: own warlord colors.
+   FACE: giant, bald with a yellow headband, wild beard, giant brutish face, bald head with a yellow headband, bulging angry eyes, flat nose, roaring mouth.
+   SPLENDOR: PLAIN.
+   SHOT: side profile, gritted teeth, eyes on a distant target.

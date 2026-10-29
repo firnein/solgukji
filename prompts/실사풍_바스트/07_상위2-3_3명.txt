@@ -1,0 +1,25 @@
+Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.
+LAYOUT: image 1024x1536 portrait. 3 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (short last row centered), wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke banner with ONLY its number (1-3) in big white digits. No other text, no names, no watermark.
+BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
+BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
+FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: SCHEMER dark robe with hood or high collar, scroll, vial or chess piece / CAVALRY rider is the subject, only the horse's head or mane peeks in at the edge.
+SPLENDOR (card rank): ORNATE rich brocade, gold embroidery, jeweled clasps / MYTHIC the most splendid gilded armor or imperial silk with dragon or phoenix motifs, a faint golden glow behind the head.
+Do not draw tags, ★ or line labels as text.
+
+1. [SCHEMER] Chen Gong, proud loyal strategist in dark purple and black robes, a strategist hat, holding a rolled map of Yanzhou.
+   COLORS: own warlord colors.
+   FACE: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes, lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression.
+   SPLENDOR: MYTHIC.
+   MOMENT (hint only, no scenery): his last stand at the White Gate Tower, bound yet standing tall, refusing to serve Cao Cao, storm clouds and broken banners of Lu Bu behind.
+2. [CAVALRY]★ Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
+   SPLENDOR: ORNATE.
+   MOMENT (hint only, no scenery): Hefei: leading only 800 riders straight into a 100,000-man Wu army, halberd raised and shouting his name, the enemy ranks scattering, Sun Quan fleeing over a broken bridge in the background.
+3. [CAVALRY] Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: early 20s, pretty delicate face, clean-shaven, long flowing hair with a jade hairpin, slender build, beautiful delicate face, long-lashed elegant eyes, thin refined nose, faint smile, very fair skin, vain graceful expression.
+   SPLENDOR: ORNATE.
+   MOMENT (hint only, no scenery): the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.

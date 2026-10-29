@@ -1,0 +1,25 @@
+Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.
+LAYOUT: image 1024x1536 portrait. 3 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (short last row centered), wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke banner with ONLY its number (1-3) in big white digits. No other text, no names, no watermark.
+BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
+BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
+FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: SORCERER Taoist robe, staff or talismans, faint glowing magic / SCHEMER dark robe with hood or high collar, scroll, vial or chess piece.
+SPLENDOR (card rank): FINE fine officer robe or polished armor, a few gold accents.
+Do not draw tags, ★ or line labels as text.
+
+1. [SORCERER] Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
+   COLORS: own warlord colors.
+   FACE: middle-aged, neat black beard, tall Taoist crown, smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, serene pious expression.
+   SPLENDOR: FINE.
+   SHOT: slight low angle, composed, looking down at the viewer, robe collar framing the face.
+2. [SCHEMER]★ Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
+   COLORS: own warlord colors.
+   FACE: beautiful, elaborate hair ornaments and flowers, delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
+   SPLENDOR: FINE.
+   SHOT: front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
+3. [SCHEMER] Yuan Shu, self-proclaimed emperor in an imperial yellow robe, clutching the jade imperial seal greedily, sly grin.
+   COLORS: own warlord colors.
+   FACE: plump greedy face, thin mustache, imperial crown, puffy cheeks, small shifty eyes, fleshy nose, pouting entitled mouth, pampered pale skin.
+   SPLENDOR: FINE.
+   SHOT: head turned back toward the viewer over the shoulder, sly side glance.

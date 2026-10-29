@@ -1,0 +1,25 @@
+Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.
+LAYOUT: image 1024x1536 portrait. 3 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (short last row centered), wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke banner with ONLY its number (1-3) in big white digits. No other text, no names, no watermark.
+BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
+BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
+FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: CAVALRY rider is the subject, only the horse's head or mane peeks in at the edge / SPEARMAN heavy armor, helmet, long polearm on the shoulder.
+SPLENDOR (card rank): ORNATE rich brocade, gold embroidery, jeweled clasps.
+Do not draw tags, ★ or line labels as text.
+
+1. [CAVALRY]★ Dong Zhuo, obese tyrant with a thick beard, gaudy black-gold armor over a robe.
+   COLORS: own warlord colors.
+   FACE: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin, huge fat bloated face, tiny piggy eyes sunk in fat, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer.
+   SPLENDOR: ORNATE.
+   MOMENT (hint only, no scenery): the tyrant feasting in his Meiwu fortress on mountains of looted gold, laughing with a wine cup while trembling officials bow.
+2. [CAVALRY] Yuan Shao, proud noble warlord in gold armor and a long gold cape.
+   COLORS: own warlord colors.
+   FACE: 40s, aristocratic long face, long neat mustache and pointed goatee, tall noble helmet-crown, haughty raised chin, heavy-lidded condescending eyes, long straight nose, pursed proud lips, pale pampered skin.
+   SPLENDOR: ORNATE.
+   MOMENT (hint only, no scenery): leader of the eighteen-lord coalition against Dong Zhuo, raising the alliance oath cup on the altar, a sea of different lords' banners behind him, gold cape.
+3. [SPEARMAN]★ Xu Chu, the classic "Tiger Fool": huge bulky bare-chested strongman with a round shaved head and big belly, holding a giant spiked iron club, big grin. Spearman hint only: a round shield strapped to his arm.
+   COLORS: Wei: navy, deep blue and steel with silver.
+   FACE: bald round head, fat round face, rosy cheeks, huge belly, huge round moon face, chubby rosy cheeks, small sleepy eyes, button nose, simple grin, naive strongman look.
+   SPLENDOR: ORNATE.
+   MOMENT (hint only, no scenery): the 'Tiger Fool' bare-chested after tearing off his armor mid-duel with Ma Chao, steam rising from his body, broken weapon shafts around him, a faint tiger-stripe aura.
