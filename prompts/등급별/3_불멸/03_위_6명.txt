@@ -16,6 +16,9 @@ STYLE:
 
 OUTFIT LEVEL (RANK 2): ornate —— gold trims and engraved gilded plates, rich brocade, fur, jewels, capes and plumes, much
 more splendid than rank 1, while keeping the character's main colors and signature items.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -30,27 +33,33 @@ LAYOUT:
 CHARACTERS
 1. Xu Chu  [SPEARMAN, Wei] —— same person as reference #1
    IDENTITY: bald round head, fat round face, rosy cheeks, huge belly. FACE: huge round moon face, chubby rosy cheeks, small sleepy eyes, button nose, simple grin, bald round head, naive strongman look. BUILD: huge and fat, the widest body on any sheet, big round belly.
+   SIGNATURE (unique to him on this sheet): HEAD completely bald round head; FACIAL HAIR no beard; MARK bare chest, huge belly, giant spiked iron club.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: the 'Tiger Fool' bare-chested after tearing off his armor mid-duel with Ma Chao, steam rising from his body, broken weapon shafts around him, a faint tiger-stripe aura.
 2. Zhang Liao  [CAVALRY, Wei] —— same person as reference #2
-   IDENTITY: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes. FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare. BUILD: lean and hard, tall.
+   IDENTITY: 40s, grim veteran cavalry commander, dark steel helmet with cheek guards and a tall purple-black plume, square-cut short black beard, scar across the left cheek. FACE: hard square MAN's face, deep-set narrow cold eyes under heavy straight brows, scar across the left cheek, straight nose, square-cut short black beard and mustache, tanned skin, grim silent commander. BUILD: lean and hard, tall.
+   SIGNATURE (unique to him on this sheet): HEAD dark steel helmet with cheek guards and a tall purple-black plume; FACIAL HAIR square-cut short black beard and mustache; MARK scar across the left cheek, crescent-bladed halberd, black horse.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a black warhorse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: Hefei: leading only 800 riders straight into a 100,000-man Wu army, halberd raised and shouting his name, the enemy ranks scattering, Sun Quan fleeing over a broken bridge in the background.
 3. Zhang He  [CAVALRY, Wei] —— same person as reference #3
    IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a dapple-grey horse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.
 4. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #4
-   IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.
+   IDENTITY: 40s, lean wild archer, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin. FACE: gaunt long MAN's face with hollow cheeks, wide wild eyes, hooked thin nose, long thin drooping mustache and long thin goatee, huge toothy reckless grin, sun-browned skin, restless hyper energy. BUILD: lean and long-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD NO helmet, shaggy shoulder-length hair under a blue cloth headband; FACIAL HAIR long thin drooping mustache and a long thin goatee; MARK gaunt hollow cheeks, huge toothy grin, longbow, always ON FOOT.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: lightning-fast archer, loosing three arrows at once, speed streaks around him.
 5. Guo Jia  [STRATEGIST, Wei] —— same person as reference #5
    IDENTITY: pale young face, smug smile, flushed cheeks, loose untied hair. FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius. BUILD: slender and loose-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, loose untied hair; FACIAL HAIR faint stubble; MARK flushed cheeks, wine gourd.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: reading the secrets of heaven, feather fan raised, glowing constellations above him.
 6. Xun Yu  [SCHOLAR, Wei] —— same person as reference #6
    IDENTITY: elegant 40s, neat full beard, tall formal hat. FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression. BUILD: tall and upright.
+   SIGNATURE (unique to him on this sheet): HEAD tall formal court hat; FACIAL HAIR neat full beard; MARK court tablet, incense pouch.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: Lord Xun of the fragrant incense holding the EMPTY food box sent by Cao Cao, understanding its meaning, sorrowful but dignified, incense smoke curling into fading flower shapes.

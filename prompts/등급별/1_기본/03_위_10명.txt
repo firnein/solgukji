@@ -20,6 +20,9 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 - Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
   vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
 - The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -37,59 +40,69 @@ CHARACTERS
    LOOK: 40s, hard square jaw, short black beard, thick eyebrows, fierce unblinking eyes, scar on the chin.
    FACE: hard square jaw, scar on the chin, thick straight eyebrows, fierce unblinking eyes, broad nose, short black beard, tanned skin, grim determination.
    BUILD: solid and broad.
+   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR short black beard; MARK scar on the chin, a small wooden coffin strapped on his back.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 2. Xu Huang  [SPEARMAN, Wei]
    DESIGN: Xu Huang, calm general with a mustache, blue armor, on foot, long-handled great axe braced in front.
    LOOK: 40s, long drooping mustache, calm face, helmet with a blue tassel.
    FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength.
    BUILD: solid and square.
+   SIGNATURE (unique to him on this sheet): HEAD iron helmet with a blue tassel; FACIAL HAIR long drooping walrus mustache, no beard; MARK long-handled great axe.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 3. Yue Jin  [SPEARMAN, Wei]
    DESIGN: Yue Jin, small but fierce vanguard officer, helmet with a plume, spear thrust forward, shield on arm.
    LOOK: small and short, young, clean-shaven, big determined eyes, oversized plumed helmet.
    FACE: small young MAN, square stubborn face, big determined eyes under thick brows, small nose, clenched teeth, faint stubble, tiny body under an oversized helmet.
    BUILD: small and short, the shortest soldier, oversized helmet.
+   SIGNATURE (unique to him on this sheet): HEAD oversized round helmet with a tall plume; FACIAL HAIR clean-shaven; MARK the tiniest body, spear and small shield.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 4. Yu Jin  [SPEARMAN, Wei]
    DESIGN: Yu Jin, strict disciplined general with a neat mustache, tidy blue armor, spear in one hand and a war banner pole on his back.
    LOOK: strict narrow eyes, neat thin mustache only, official black cap.
    FACE: narrow strict face, narrow judging eyes, thin pointed nose, neat thin mustache, pressed thin lips, rigid disciplinarian.
    BUILD: upright and rigid.
+   SIGNATURE (unique to him on this sheet): HEAD black official cap; FACIAL HAIR neat pencil mustache only; MARK war banner pole on his back.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 5. Li Dian  [SPEARMAN, Wei]
    DESIGN: Li Dian, mild scholarly general with a gentle smile, light blue armor, spear held upright, a book tucked in his belt.
    LOOK: soft round face, light short beard, gentle smile, scholar's topknot with a ribbon.
    FACE: soft round scholarly face, light short beard, gentle eyes, small nose, polite smile, mild-mannered general.
    BUILD: medium build, soft.
+   SIGNATURE (unique to him on this sheet): HEAD scholar topknot tied with a blue ribbon; FACIAL HAIR light short beard; MARK a book tucked in his belt, gentle smile.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 6. Dian Wei  [SPEARMAN, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Dian Wei, massive bodyguard with a topknot and scars, on foot, a heavy iron halberd in each hand, protective stance.
    LOOK: giant, heavy brow ridge, dark stubble beard, scarred face, small topknot.
    FACE: massive square ape-like face, heavy brow ridge, small deep-set fierce eyes, wide flat nose, thick lips, dark skin covered in scars, terrifying brute.
    BUILD: giant, towering, ape-like long arms.
+   SIGNATURE (unique to him on this sheet): HEAD shaved head with a tiny topknot; FACIAL HAIR dark stubble; MARK giant, a heavy iron halberd in each hand.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 7. Cao Ren  [SPEARMAN, Wei]
    DESIGN: Cao Ren, defensive general in heavy blue plate armor, large rectangular tower shield and spear, solid immovable stance.
    LOOK: square face covered by a huge full beard, full-face helmet visor raised.
    FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender.
    BUILD: massive and square, like a wall.
+   SIGNATURE (unique to him on this sheet): HEAD full-face helmet with the visor raised; FACIAL HAIR enormous bushy beard covering the lower face; MARK huge rectangular tower shield.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 8. Xiahou Dun  [SPEARMAN, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Xiahou Dun, fierce one-eyed general with a black eyepatch over his left eye, dark blue heavy armor, on foot, long spear braced forward and a round shield.
    LOOK: black eyepatch, wild long black hair, full thick beard.
    FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression.
    BUILD: big, broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, wild long loose black hair; FACIAL HAIR full thick black beard; MARK black eyepatch over the left eye.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 9. Xu Chu  [SPEARMAN, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Xu Chu, the classic "Tiger Fool": huge bulky bare-chested strongman with a round shaved head and big belly, holding a giant spiked iron club, big grin. Spearman hint only: a round shield strapped to his arm.
    LOOK: bald round head, fat round face, rosy cheeks, huge belly.
    FACE: huge round moon face, chubby rosy cheeks, small sleepy eyes, button nose, simple grin, bald round head, naive strongman look.
    BUILD: huge and fat, the widest body on any sheet, big round belly.
+   SIGNATURE (unique to him on this sheet): HEAD completely bald round head; FACIAL HAIR no beard; MARK bare chest, huge belly, giant spiked iron club.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 10. Guo Huai  [CAVALRY, Wei]
    DESIGN: Guo Huai, calm frontier general with a fur collar, blue armor.
    LOOK: 50s, square jaw, short neat grey-streaked beard, calm heavy-lidded eyes, fur hat.
    FACE: weathered square face, calm heavy-lidded eyes, broad nose, short grey-streaked beard, patient mouth, frontier windburn.
    BUILD: sturdy.
+   SIGNATURE (unique to him on this sheet): HEAD round fur hat; FACIAL HAIR short grey-streaked beard; MARK fur collar.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a shaggy dun frontier horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.

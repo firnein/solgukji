@@ -16,6 +16,9 @@ STYLE:
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -30,18 +33,22 @@ LAYOUT:
 CHARACTERS
 1. Sun Ce  [CAVALRY, Wu] —— same person as reference #1
    IDENTITY: early 20s, wild spiky reddish-brown hair, tanned skin, huge toothy grin, red headband. FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror. BUILD: athletic, broad shoulders.
+   SIGNATURE (unique to him on this sheet): HEAD red headband over wild spiky reddish-brown hair; FACIAL HAIR no beard; MARK huge toothy grin.
    COLORS: Wu red: crimson, red, orange and gold.
    MOUNTED: riding a chestnut horse —— rider and horse together in the scene, the horse charging or rearing.
    MOMENT (paint this scene): the Little Conqueror, spear raised high over conquered Jiangdong, a roaring tiger spirit and red banners.
 2. Sun Quan  [ARCHER, Wu] —— same person as reference #2
    IDENTITY: green-blue eyes, reddish-purple beard, square jaw. FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler. BUILD: broad and sturdy.
+   SIGNATURE (unique to him on this sheet): HEAD red-gold crown cap; FACIAL HAIR reddish-purple beard; MARK striking green-blue eyes.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): the Great Emperor of Wu in imperial robe and crown on a dragon-headed flagship, phoenix banners.
 3. Taishi Ci  [ARCHER, Wu] —— same person as reference #3
    IDENTITY: 30s, long tied-back hair, strong jaw, short beard. FACE: strong square jaw, bright honest eyes, straight thick brows, straight nose, short beard, tanned skin, heroic loyal expression. BUILD: tall and athletic.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, long tied-back hair; FACIAL HAIR short beard; MARK a short halberd in each hand, bow on his back.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): the divine archer of the twin halberds, loosing a glowing arrow while two halberds orbit him.
 4. Gan Ning  [ROGUE, Wu] —— same person as reference #4
    IDENTITY: feathered headband, tattoos on arms and neck, gold earrings, wild grin. FACE: wide grinning face, big toothy grin, wild bright eyes, broken flat nose, sun-tanned skin, tattooed neck, reckless pirate expression. BUILD: lean and muscular, tattooed arms.
+   SIGNATURE (unique to him on this sheet): HEAD feathered headband; FACIAL HAIR no beard; MARK gold earrings, tattoos, bells on his belt.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): the night raid with a hundred riders, feathers and bells, torches lighting the enemy camp.

@@ -17,6 +17,9 @@ STYLE:
 
 OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
 bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -33,22 +36,27 @@ LAYOUT:
 CHARACTERS
 1. Yu Ji  [SORCERER, Independent] —— same person as reference #1
    IDENTITY: old, white topknot, gentle smile. FACE: smooth ageless old face, white topknot, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal. BUILD: thin old man, light as a feather.
+   SIGNATURE (unique to him on this sheet): HEAD white topknot, no hat; FACIAL HAIR short soft white beard; MARK horsetail whisk, gourd.
    COLORS: his own colors as described (independent).
    THIS RANK'S LOOK: Yu Ji, old Taoist immortal in a white robe, horsetail whisk raised, gourd on his belt.
    POSE (no scenery, only the pose and expression of): the immortal of Jiangdong calling down rain on a parched field, people kneeling, his ghostly image lingering.
 2. Zhang Lu  [SORCERER, Independent] —— same person as reference #2
    IDENTITY: middle-aged, neat black beard, tall Taoist crown. FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression. BUILD: medium build, calm.
+   SIGNATURE (unique to him on this sheet): HEAD tall Taoist crown; FACIAL HAIR neat black beard; MARK staff and rice sack.
    COLORS: his own colors as described (independent).
    POSE (no scenery, only the pose and expression of): the governor of Hanning, the walled city of Hanzhong behind him, rice sacks.
 3. Zuo Ci  [SORCERER, Independent] —— same person as reference #3
    IDENTITY: very old, extremely long white beard, blind in one eye (milky eye), slight limp. FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal. BUILD: thin very old man, slight limp.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, wild white hair; FACIAL HAIR extremely long white beard; MARK one milky blind eye, staff.
    COLORS: his own colors as described (independent).
    POSE (no scenery, only the pose and expression of): Zuo Yuanfang conjuring a live fish from an empty basin, sparkles of magic.
 4. Yuan Shu  [SCHEMER, Independent] —— same person as reference #4
    IDENTITY: plump greedy face, thin mustache, imperial crown. FACE: plump greedy face, puffy cheeks, small shifty eyes, fleshy nose, thin mustache, pouting entitled mouth, pampered pale skin. BUILD: plump, soft belly.
+   SIGNATURE (unique to him on this sheet): HEAD imperial crown; FACIAL HAIR thin mustache; MARK jade imperial seal clutched greedily.
    COLORS: his own colors as described (independent).
    POSE (no scenery, only the pose and expression of): the self-proclaimed emperor of Zhong on his throne with the jade seal and a jar of honey water.
 5. Diaochan  [SCHEMER, Independent] —— same person as reference #5
    IDENTITY: beautiful, elaborate hair ornaments and flowers. FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty. BUILD: slender woman.
+   SIGNATURE (unique to her on this sheet): HAIR elaborate updo with flowers and dangling hair ornaments; MARK folded fan hiding half her face, long pink silk ribbons.
    COLORS: her own colors as described (independent).
    POSE (no scenery, only the pose and expression of): the peerless beauty dancing in a moonlit garden, silk ribbons.

@@ -20,6 +20,9 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 - Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
   vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
 - The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -33,10 +36,11 @@ LAYOUT:
 
 CHARACTERS
 1. Zhang Liao  [CAVALRY, Wei]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
-   LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
-   FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
+   DESIGN: Zhang Liao, stern veteran cavalry general, helmeted, blue-purple armor, crescent-bladed halberd.
+   LOOK: 40s, grim veteran cavalry commander, dark steel helmet with cheek guards and a tall purple-black plume, square-cut short black beard, scar across the left cheek.
+   FACE: hard square MAN's face, deep-set narrow cold eyes under heavy straight brows, scar across the left cheek, straight nose, square-cut short black beard and mustache, tanned skin, grim silent commander.
    BUILD: lean and hard, tall.
+   SIGNATURE (unique to him on this sheet): HEAD dark steel helmet with cheek guards and a tall purple-black plume; FACIAL HAIR square-cut short black beard and mustache; MARK scar across the left cheek, crescent-bladed halberd, black horse.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a black warhorse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 2. Zhang He  [CAVALRY, Wei]
@@ -44,6 +48,7 @@ CHARACTERS
    LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
    FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
    BUILD: slender but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a dapple-grey horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 3. Xiahou Ba  [CAVALRY, Wei]
@@ -51,6 +56,7 @@ CHARACTERS
    LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
    FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
    BUILD: teenage, short and wiry.
+   SIGNATURE (unique to him on this sheet): HEAD short spiky hair, no helmet; FACIAL HAIR no beard; MARK sticking plaster on his nose.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a small bay pony-like horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 4. Lü Xiang  [ARCHER, Wei]
@@ -58,40 +64,47 @@ CHARACTERS
    LOOK: very young, clean-shaven, short cropped hair under a simple cloth cap, freckles.
    FACE: very young MAN, freckled square face, short cropped hair, wide nervous eyes, thick brows, small nose, faint stubble, earnest rookie.
    BUILD: young, slim.
+   SIGNATURE (unique to him on this sheet): HEAD simple cloth cap; FACIAL HAIR clean-shaven; MARK freckles.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 5. Xiahou Yuan  [ARCHER, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Xiahou Yuan, lean swift archer general, light blue armor and headband, drawing a bow at full stretch, quiver on back.
-   LOOK: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean.
-   FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression.
+   LOOK: 40s, lean wild archer, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin.
+   FACE: gaunt long MAN's face with hollow cheeks, wide wild eyes, hooked thin nose, long thin drooping mustache and long thin goatee, huge toothy reckless grin, sun-browned skin, restless hyper energy.
    BUILD: lean and long-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD NO helmet, shaggy shoulder-length hair under a blue cloth headband; FACIAL HAIR long thin drooping mustache and a long thin goatee; MARK gaunt hollow cheeks, huge toothy grin, longbow, always ON FOOT.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 6. Hao Zhao  [ARCHER, Wei]
    DESIGN: Hao Zhao, stubborn fortress defender in a blue helmet, aiming a large crossbow, bolt quiver at his hip.
    LOOK: 40s, heavy full helmet, stern square face, short black beard.
    FACE: stern square face, short black beard, unwavering small eyes, broad nose, tight mouth, stubborn fortress defender.
    BUILD: stocky.
+   SIGNATURE (unique to him on this sheet): HEAD heavy full helmet; FACIAL HAIR short black beard; MARK large crossbow.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 7. Guo Jia  [STRATEGIST, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
    LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
    FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius.
    BUILD: slender and loose-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, loose untied hair; FACIAL HAIR faint stubble; MARK flushed cheeks, wine gourd.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 8. Liu Ye  [STRATEGIST, Wei]
    DESIGN: Liu Ye, young inventor strategist with a white feather fan, a blueprint and a small catapult model at his feet.
    LOOK: young, curious bright eyes, ink stains on his fingers and cheek.
    FACE: young curious face, bright inquisitive eyes, ink stains on fingers and cheek, small nose, excited smile, inventor.
    BUILD: slim young man.
+   SIGNATURE (unique to him on this sheet): HEAD small scholar cap worn askew; FACIAL HAIR clean-shaven; MARK ink stains on cheek and fingers, small catapult model.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 9. Zhong Hui  [STRATEGIST, Wei]
    DESIGN: Zhong Hui, arrogant young noble strategist in a fine blue robe, white feather fan raised, ambitious smirk.
    LOOK: young man, sharp arrogant face, long hair with a gold hairpin.
    FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, thin mustache, pale skin, ambitious smug genius.
    BUILD: slim, chin raised.
+   SIGNATURE (unique to him on this sheet): HEAD long hair held by a gold hairpin crown; FACIAL HAIR thin mustache; MARK arrogant raised chin.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 10. Xun Yu  [SCHOLAR, Wei]
    DESIGN: Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
    LOOK: elegant 40s, neat full beard, tall formal hat.
    FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression.
    BUILD: tall and upright.
+   SIGNATURE (unique to him on this sheet): HEAD tall formal court hat; FACIAL HAIR neat full beard; MARK court tablet, incense pouch.
    COLORS: Wei blue: navy, deep blue and steel with silver.

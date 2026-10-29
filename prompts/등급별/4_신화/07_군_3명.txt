@@ -16,6 +16,9 @@ STYLE:
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -32,13 +35,16 @@ LAYOUT:
 CHARACTERS
 1. Hua Tuo  [SORCERER, Independent] —— same person as reference #1
    IDENTITY: old kindly face, white beard, bald top. FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man. BUILD: small round old man, energetic.
+   SIGNATURE (unique to him on this sheet): HEAD bald shiny top with white side hair; FACIAL HAIR short white beard; MARK medicine box on his back, acupuncture needles.
    COLORS: his own colors as described (independent).
    MOMENT (paint this scene): the divine physician calmly offering to open Cao Cao's skull to cure his headache, a gleaming scalpel and golden needles in hand, Cao Cao's huge furious shadow looming behind, healing light and swirling herbs.
 2. Chen Gong  [SCHEMER, Independent] —— same person as reference #2
    IDENTITY: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes. FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression. BUILD: lean and upright.
+   SIGNATURE (unique to him on this sheet): HEAD black strategist hat; FACIAL HAIR neat long black beard; MARK rolled map, cold eyes.
    COLORS: his own colors as described (independent).
    MOMENT (paint this scene): his last stand at the White Gate Tower, bound yet standing tall, refusing to serve Cao Cao, storm clouds and broken banners of Lu Bu behind.
 3. Diaochan  [SCHEMER, Independent] —— same person as reference #3
    IDENTITY: beautiful, elaborate hair ornaments and flowers. FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty. BUILD: slender woman.
+   SIGNATURE (unique to her on this sheet): HAIR elaborate updo with flowers and dangling hair ornaments; MARK folded fan hiding half her face, long pink silk ribbons.
    COLORS: her own colors as described (independent).
    MOMENT (paint this scene): the beauty under the moon, praying beneath a full moon that hides behind clouds, petals drifting.

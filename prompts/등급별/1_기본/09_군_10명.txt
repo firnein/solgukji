@@ -20,6 +20,9 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 - Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
   vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
 - The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -37,58 +40,68 @@ CHARACTERS
    LOOK: middle-aged, neat black beard, tall Taoist crown.
    FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression.
    BUILD: medium build, calm.
+   SIGNATURE (unique to him on this sheet): HEAD tall Taoist crown; FACIAL HAIR neat black beard; MARK staff and rice sack.
    COLORS: his own colors as described (independent).
 2. Zhang Bao  [SORCERER, Independent]
    DESIGN: Zhang Bao, sorcerer brother with a yellow headscarf, holding a sword covered in glowing paper talismans, swirling wind.
    LOOK: middle-aged, black beard, fierce eyes.
    FACE: middle-aged fierce face, black beard, burning fanatical eyes, broad nose, shouting mouth.
    BUILD: sturdy.
+   SIGNATURE (unique to him on this sheet): HEAD yellow headscarf; FACIAL HAIR black beard; MARK sword covered in paper talismans.
    COLORS: his own colors as described (independent).
 3. Zuo Ci  [SORCERER, Independent]
    DESIGN: Zuo Ci, mystic immortal with a long white beard, floating slightly off the ground, staff in hand, faint glowing aura, mischievous smile.
    LOOK: very old, extremely long white beard, blind in one eye (milky eye), slight limp.
    FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal.
    BUILD: thin very old man, slight limp.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, wild white hair; FACIAL HAIR extremely long white beard; MARK one milky blind eye, staff.
    COLORS: his own colors as described (independent).
 4. Hua Tuo  [SORCERER, Independent]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Hua Tuo, kindly old doctor in a pale robe, medicine box on his back, acupuncture needles glowing green in his fingers.
    LOOK: old kindly face, white beard, bald top.
    FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man.
    BUILD: small round old man, energetic.
+   SIGNATURE (unique to him on this sheet): HEAD bald shiny top with white side hair; FACIAL HAIR short white beard; MARK medicine box on his back, acupuncture needles.
    COLORS: his own colors as described (independent).
 5. Shen Pei  [SCHEMER, Independent]
    DESIGN: Shen Pei, stubborn loyal official in a purple-gray high-collared robe, holding a sealed order scroll, stern.
    LOOK: older, long thin beard, rigid upright posture.
    FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
    BUILD: rigid and thin.
+   SIGNATURE (unique to him on this sheet): HEAD purple-grey high hat; FACIAL HAIR long thin beard; MARK high collar, sealed order scroll.
    COLORS: his own colors as described (independent).
 6. Yuan Shu  [SCHEMER, Independent]
    DESIGN: Yuan Shu, self-proclaimed emperor in an imperial yellow robe, clutching the jade imperial seal greedily, sly grin.
    LOOK: plump greedy face, thin mustache, imperial crown.
    FACE: plump greedy face, puffy cheeks, small shifty eyes, fleshy nose, thin mustache, pouting entitled mouth, pampered pale skin.
    BUILD: plump, soft belly.
+   SIGNATURE (unique to him on this sheet): HEAD imperial crown; FACIAL HAIR thin mustache; MARK jade imperial seal clutched greedily.
    COLORS: his own colors as described (independent).
 7. Ju Shou  [SCHEMER, Independent]
    DESIGN: Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
    LOOK: gaunt middle-aged, worried brow, short beard.
    FACE: gaunt middle-aged face, worried knitted brow, tired baggy eyes, short beard, anxious mouth.
    BUILD: gaunt.
+   SIGNATURE (unique to him on this sheet): HEAD small black scholar cap; FACIAL HAIR short beard; MARK secret plan scroll held to his chest.
    COLORS: his own colors as described (independent).
 8. Tian Feng  [SCHEMER, Independent]
    DESIGN: Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
    LOOK: stern thick frowning eyebrows, square beard.
    FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
    BUILD: stiff and square.
+   SIGNATURE (unique to him on this sheet): HEAD square official hat; FACIAL HAIR square-cut beard; MARK thick frowning brows, written memorial.
    COLORS: his own colors as described (independent).
 9. Chen Gong  [SCHEMER, Independent]
    DESIGN: Chen Gong, proud loyal strategist in dark purple and black robes, a strategist hat, holding a rolled map of Yanzhou.
    LOOK: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes.
    FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression.
    BUILD: lean and upright.
+   SIGNATURE (unique to him on this sheet): HEAD black strategist hat; FACIAL HAIR neat long black beard; MARK rolled map, cold eyes.
    COLORS: his own colors as described (independent).
 10. Diaochan  [SCHEMER, Independent]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    LOOK: beautiful, elaborate hair ornaments and flowers.
    FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
    BUILD: slender woman.
+   SIGNATURE (unique to her on this sheet): HAIR elaborate updo with flowers and dangling hair ornaments; MARK folded fan hiding half her face, long pink silk ribbons.
    COLORS: her own colors as described (independent).

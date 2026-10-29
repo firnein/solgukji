@@ -16,6 +16,9 @@ STYLE:
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -30,18 +33,22 @@ LAYOUT:
 CHARACTERS
 1. Lü Meng  [ROGUE, Wu] —— same person as reference #1
    IDENTITY: stocky, short beard, plain white robe hood. FACE: square stocky face, thick neck, heavy brows, small sharp eyes, broad nose, short scruffy beard, a scholar's ink stain on his cheek, focused cunning look. BUILD: stocky, thick neck.
+   SIGNATURE (unique to him on this sheet): HEAD plain white merchant's hood; FACIAL HAIR short scruffy beard; MARK book in one hand, saber hidden behind his back.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): crossing the river in white robes by night, disguised merchant boats behind him, saber in hand.
 2. Lu Xun  [STRATEGIST, Wu] —— same person as reference #2
    IDENTITY: youthful man, neat topknot, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, quietly confident scholar-general. BUILD: slim but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD neat topknot tied with a red ribbon; FACIAL HAIR very faint mustache line; MARK white feather fan.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): the fire-attack grand commander, a sea of flames behind him, feather fan sweeping.
 3. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #3
    IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, neat thin mustache, pale skin, noble masculine bearing. BUILD: tall and graceful.
+   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): the grand commander of Red Cliffs, sword drawn before the burning enemy fleet.
 4. Dong Zhuo  [CAVALRY, Independent] —— same person as reference #4
    IDENTITY: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin. FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer. BUILD: obese, round barrel body, short legs.
+   SIGNATURE (unique to him on this sheet): HEAD gaudy black-gold cap; FACIAL HAIR thick curly black beard; MARK obese, triple chin.
    COLORS: his own colors as described (independent).
    MOUNTED: riding a sturdy black horse straining under his weight —— rider and horse together in the scene, the horse charging or rearing.
    MOMENT (paint this scene): the burning of Luoyang, the palace in flames behind him, cackling with a torch in hand.

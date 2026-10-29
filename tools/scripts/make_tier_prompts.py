@@ -106,6 +106,10 @@ def load_entries():
 cards = load_cards()
 ent = load_entries()
 faces = json.load(open("prompts/faces.json", encoding="utf-8"))
+SIG = json.load(open("prompts/signatures.json", encoding="utf-8"))
+# md 의 LOOK 이 다른 인물과 겹치는 경우 덮어쓴다 (장료 · 하후연: 둘 다 '긴 꽁지머리 · 매눈 · 가는 수염'이라 쌍둥이로 나왔다)
+LOOK_FIX = {"장료": "40s, grim veteran cavalry commander, dark steel helmet with cheek guards and a tall purple-black plume, square-cut short black beard, scar across the left cheek.",
+            "하후연": "40s, lean wild archer, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin."}
 person_cards = defaultdict(list)
 for c in cards:
     person_cards[c[1].split(" ")[-1]].append(c)
@@ -116,7 +120,7 @@ for p in person_cards:
 def person_info(p):
     cs = person_cards[p]
     src = next(ent[c[1]] for c in cs if c[1] in ent)        # 가장 낮은 등급 설명 = 기본 디자인
-    desc = src["desc"]
+    desc = src["desc"].replace("long hair tied back, blue-purple armor", "helmeted, blue-purple armor") if p == "장료" else src["desc"]
     iconic = desc.startswith("★ICONIC")
     desc = desc.replace("★ICONIC ", "")
     en = desc.split(",")[0].replace('the classic ', "")
@@ -128,13 +132,17 @@ def person_info(p):
     if p in ("초선", "대교", "소교"):
         color = color.replace("his own", "her own")
     return {"p": p, "en": en, "desc": desc, "iconic": iconic, "fac": fac, "cls": CLASS_EN[cs[0][3]],
-            "look": src.get("LOOK", ""), "face": faces.get(p, ""), "build": BUILD.get(p) or DEF_BUILD[cs[0][3]],
+            "look": LOOK_FIX.get(p, src.get("LOOK", "")), "face": faces.get(p, ""), "build": BUILD.get(p) or DEF_BUILD[cs[0][3]],
             "color": color}
 
 
 INFO = {p: person_info(p) for p in person_cards}
 
-GENDER = """GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+DISTINCT = """EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+"""
+GENDER = DISTINCT + """GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face."""
 
@@ -252,12 +260,18 @@ CHARACTERS
 }
 
 
+def sig(x):
+    h, f, m = SIG[x["p"]]
+    return "   SIGNATURE (unique to him on this sheet): HEAD %s; FACIAL HAIR %s; MARK %s." % (h, f, m) if f != "-" else         "   SIGNATURE (unique to her on this sheet): HAIR %s; MARK %s." % (h, m)
+
+
 def base_entry(i, x):
     lines = ["%d. %s  [%s, %s]%s" % (i, x["en"], x["cls"], FAC_EN[x["fac"]], "  ★ICONIC: draw the famous traditional look exactly" if x["iconic"] else ""),
              "   DESIGN: " + x["desc"],
              "   LOOK: " + x["look"],
              "   FACE: " + x["face"] + ".",
              "   BUILD: " + x["build"] + ".",
+             sig(x),
              "   COLORS: " + x["color"] + "."] + mount(x, "base")
     return "\n".join(lines)
 
@@ -266,8 +280,9 @@ def tier_entry(i, x, card, tier):
     e = ent.get(card[1], {})
     lines = ["%d. %s  [%s, %s] —— same person as reference #%d" % (i, x["en"], x["cls"], FAC_EN[x["fac"]], i),
              "   IDENTITY: " + x["look"] + " FACE: " + x["face"] + ". BUILD: " + x["build"] + ".",
+             sig(x),
              "   COLORS: " + x["color"] + "."] + mount(x, tier)
-    d = e.get("desc", "").replace("★ICONIC ", "")
+    d = e.get("desc", "").replace("★ICONIC ", "").replace("long hair tied back, blue-purple armor", "helmeted, blue-purple armor")
     if d and d != x["desc"]:
         lines.append("   THIS RANK'S LOOK: " + d)
     scene = e.get("SCENE", "")

@@ -16,6 +16,9 @@ STYLE:
 
 OUTFIT LEVEL (RANK 2): ornate —— gold trims and engraved gilded plates, rich brocade, fur, jewels, capes and plumes, much
 more splendid than rank 1, while keeping the character's main colors and signature items.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -30,28 +33,34 @@ LAYOUT:
 CHARACTERS
 1. Guan Yu  [SPEARMAN, Shu] —— same person as reference #1
    IDENTITY: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf. FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression. BUILD: very tall and dignified, long legs, upright.
+   SIGNATURE (unique to him on this sheet): HEAD green cloth headscarf; FACIAL HAIR extremely long straight black beard reaching his belly; MARK deep date-red face, Green Dragon crescent glaive.
    COLORS: Shu green: green, jade and earthy gold.
    THIS RANK'S LOOK: Guan Yu, red face, extremely long black beard, green robe over gilded armor, Green Dragon crescent glaive.
    POSE AND SOFT BACKGROUND HINT: drowning the seven armies at Fancheng, the Han river flood bursting behind him, enemy boats capsizing, glaive raised over the torrent.
 2. Ma Chao  [CAVALRY, Shu] —— same person as reference #2
    IDENTITY: early 20s young man, fierce slanted brows, pale skin, sharp handsome masculine face, lion-head helmet, Qiang-style braid. FACE: young MAN, narrow but strong angular jaw, high cheekbones, sharp upturned fierce eyes, thin straight nose, proud thin mouth, pale skin with a faint scar on the brow, thick neck, cold arrogant handsome warrior. BUILD: slim and athletic, broad shoulders.
+   SIGNATURE (unique to him on this sheet): HEAD silver lion-head helmet with a white plume; FACIAL HAIR clean-shaven; MARK Qiang-style braid, lion-face chest plate.
    COLORS: Shu green: green, jade and earthy gold.
    MOUNTED: riding a silver-grey Xiliang warhorse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: chasing Cao Cao at Tong Pass, spear thrust forward, a roaring silver tiger spirit behind him, a cut-off beard and a discarded red robe flying in the wind.
 3. Huang Zhong  [ARCHER, Shu] —— same person as reference #3
    IDENTITY: 60s, white beard and white bushy eyebrows, wrinkles, muscular old arms. FACE: long weathered face, sunken cheeks, small fierce squinting eyes in deep wrinkles, big hawk nose, wide grinning mouth with a missing tooth, leathery tanned skin. BUILD: lean old body with sinewy muscular arms.
+   SIGNATURE (unique to him on this sheet): HEAD green bandana tied low over a white topknot; FACIAL HAIR long white beard and big white bushy eyebrows; MARK deep wrinkles, huge longbow.
    COLORS: Shu green: green, jade and earthy gold.
    POSE AND SOFT BACKGROUND HINT: the old general at Mount Dingjun, drawing his bow at full stretch, the arrow tip glowing.
 4. Wei Yan  [ROGUE, Shu] —— same person as reference #4
    IDENTITY: prominent bony bump on the back of the head and forehead, crooked fierce grin, short black beard. FACE: wide brutish face, protruding bony forehead ridge, small glaring eyes, flat broad nose, crooked sneering mouth, dark tanned skin, rebellious defiant expression. BUILD: broad and heavy, hunched forward.
+   SIGNATURE (unique to him on this sheet): HEAD bare head, short spiky hair, a bony bump on the forehead; FACIAL HAIR short black beard; MARK crooked sneer, broad-bladed glaive.
    COLORS: Shu green: green, jade and earthy gold.
    POSE AND SOFT BACKGROUND HINT: the Ziwu Valley gambit, charging through a narrow mountain gorge with his glaive.
 5. Jiang Wei  [STRATEGIST, Shu] —— same person as reference #5
    IDENTITY: early 20s young man, short helmet with green plume, short sideburns. FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look. BUILD: athletic young soldier.
+   SIGNATURE (unique to him on this sheet): HEAD short helmet with a green plume; FACIAL HAIR short sideburns and a faint chin stubble; MARK three-pointed spear.
    COLORS: Shu green: green, jade and earthy gold.
    POSE AND SOFT BACKGROUND HINT: the northern campaigns, three-pointed spear raised toward the central plains, wind-swept Shu banners.
 6. Fa Zheng  [SCHOLAR, Shu] —— same person as reference #6
    IDENTITY: 30s, sharp narrow face, thin mustache, sly narrowed eyes. FACE: narrow pointed face, thin hooked nose, slanted narrow calculating eyes, thin lips curled in a smirk, sallow skin, vengeful sly expression. BUILD: thin.
+   SIGNATURE (unique to him on this sheet): HEAD tall narrow black official hat; FACIAL HAIR thin pencil mustache; MARK sly narrow eyes, bamboo slips.
    COLORS: Shu green: green, jade and earthy gold.
    THIS RANK'S LOOK: Fa Zheng, sharp-eyed clever advisor in a green scholar robe and hat, a signal flag in hand.
    POSE AND SOFT BACKGROUND HINT: on the peak of Mount Dingjun, raising a flag to signal the charge at the perfect moment, the enemy camp below.

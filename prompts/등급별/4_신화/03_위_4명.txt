@@ -16,6 +16,9 @@ STYLE:
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -29,18 +32,22 @@ LAYOUT:
 
 CHARACTERS
 1. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #1
-   IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.
+   IDENTITY: 40s, lean wild archer, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin. FACE: gaunt long MAN's face with hollow cheeks, wide wild eyes, hooked thin nose, long thin drooping mustache and long thin goatee, huge toothy reckless grin, sun-browned skin, restless hyper energy. BUILD: lean and long-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD NO helmet, shaggy shoulder-length hair under a blue cloth headband; FACIAL HAIR long thin drooping mustache and a long thin goatee; MARK gaunt hollow cheeks, huge toothy grin, longbow, always ON FOOT.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOMENT (paint this scene): five hundred li in three days — a blur of speed, shooting mid-dash, wind and dust trails.
 2. Guo Jia  [STRATEGIST, Wei] —— same person as reference #2
    IDENTITY: pale young face, smug smile, flushed cheeks, loose untied hair. FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius. BUILD: slender and loose-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, loose untied hair; FACIAL HAIR faint stubble; MARK flushed cheeks, wine gourd.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOMENT (paint this scene): the prophecy of ten victories, ten glowing scrolls orbiting him, feather fan raised.
 3. Xun Yu  [SCHOLAR, Wei] —— same person as reference #3
    IDENTITY: elegant 40s, neat full beard, tall formal hat. FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression. BUILD: tall and upright.
+   SIGNATURE (unique to him on this sheet): HEAD tall formal court hat; FACIAL HAIR neat full beard; MARK court tablet, incense pouch.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOMENT (paint this scene): the Zhang Liang of his age, court tablet raised, a golden imperial palace and glowing scrolls behind.
 4. Cao Cao  [SCHEMER, Wei] —— same person as reference #4
    IDENTITY: 40s, sharp narrow eyes, short trimmed black beard, official crown hat. FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma. BUILD: short and wiry, but commanding posture.
+   SIGNATURE (unique to him on this sheet): HEAD official crown hat; FACIAL HAIR short trimmed black beard; MARK straight Yitian sword, short cape.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOMENT (paint this scene): the hero of chaos on a cliff above a burning realm, Yitian sword drawn, cape and crows in the wind.

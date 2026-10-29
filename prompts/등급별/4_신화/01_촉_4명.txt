@@ -16,6 +16,9 @@ STYLE:
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -30,18 +33,22 @@ LAYOUT:
 CHARACTERS
 1. Guan Yu  [SPEARMAN, Shu] —— same person as reference #1
    IDENTITY: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf. FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression. BUILD: very tall and dignified, long legs, upright.
+   SIGNATURE (unique to him on this sheet): HEAD green cloth headscarf; FACIAL HAIR extremely long straight black beard reaching his belly; MARK deep date-red face, Green Dragon crescent glaive.
    COLORS: Shu green: green, jade and earthy gold.
    MOMENT (paint this scene): beheading Hua Xiong before the wine cools —— returning with the head, the wine cup still steaming in his hand, stroking his long beard, a green dragon spirit coiling around the glaive.
 2. Zhang Fei  [SPEARMAN, Shu] —— same person as reference #2
    IDENTITY: round glaring eyes, bristly tiger-whisker beard, thick eyebrows, dark tanned skin, wide mouth. FACE: wide round face, huge round bulging glaring eyes, bristly tiger-whisker beard bursting outward, thick black brows, flat wide nose, enormous roaring mouth, dark tanned skin. BUILD: big and burly, barrel chest.
+   SIGNATURE (unique to him on this sheet): HEAD black cloth headwrap knotted at the brow over bristling wild hair; FACIAL HAIR bristly tiger-whisker beard bursting outward like spikes; MARK huge round bulging eyes, dark tanned skin, serpent-headed spear.
    COLORS: Shu green: green, jade and earthy gold.
    MOMENT (paint this scene): the match for ten thousand, roaring alone on Changban Bridge, the bridge cracking under his voice.
 3. Zhao Yun  [CAVALRY, Shu] —— same person as reference #3
    IDENTITY: late 20s, handsome balanced face, clean-shaven, neat shoulder-length hair, silver helmet with a red tassel, calm brave eyes. FACE: heroic handsome MAN, balanced face with a strong square jaw, clear calm brave eyes, straight thick brows, straight nose, firm mouth, clean-shaven with a faint stubble shadow, healthy tanned skin, steady honorable expression. BUILD: tall and balanced, athletic.
+   SIGNATURE (unique to him on this sheet): HEAD silver helmet with a red tassel; FACIAL HAIR clean-shaven; MARK white-silver armor, silver spear.
    COLORS: Shu green: green, jade and earthy gold.
    MOUNTED: riding a pure white horse —— rider and horse together in the scene, the horse charging or rearing.
    MOMENT (paint this scene): Zhao Zilong of Changshan riding through the enemy host at Changban with baby Liu Shan, silver spear flashing.
 4. Wei Yan  [ROGUE, Shu] —— same person as reference #4
    IDENTITY: prominent bony bump on the back of the head and forehead, crooked fierce grin, short black beard. FACE: wide brutish face, protruding bony forehead ridge, small glaring eyes, flat broad nose, crooked sneering mouth, dark tanned skin, rebellious defiant expression. BUILD: broad and heavy, hunched forward.
+   SIGNATURE (unique to him on this sheet): HEAD bare head, short spiky hair, a bony bump on the forehead; FACIAL HAIR short black beard; MARK crooked sneer, broad-bladed glaive.
    COLORS: Shu green: green, jade and earthy gold.
    MOMENT (paint this scene): shouting 'Who dares to kill me?!' with arms spread on horseback, the fatal blade flashing from behind, broken chains, a dark red sky.
