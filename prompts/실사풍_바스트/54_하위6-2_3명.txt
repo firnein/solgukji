@@ -3,7 +3,7 @@ LAYOUT: image 1024x1536 portrait. 3 LARGE vertical rounded-rectangle panels, 2 c
 BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, shoulders and collar filling the panel width. Headgear may reach the top edge.
 BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.
 FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.
-RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.
+RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— translate it into ONE signature prop or gesture near the face or shoulder and a faint effect behind them (e.g. a glint of lightning on the blade, a wisp of flame); never paint the place, armies or other people.
 ★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: STRATEGIST flowing robe, white crane-feather fan / ARCHER bow held near the shoulder, quiver on the back.
 SPLENDOR (card rank): PLAIN simple cloth or worn leather and iron, muted colors.
 Do not draw tags, ★ or line labels as text.

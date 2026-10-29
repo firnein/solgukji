@@ -210,7 +210,8 @@ REAL_COMMON = (
     "FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, "
     "facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.\n"
     "RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— "
-    "a signature prop or gesture near the face or shoulder and a faint effect behind them; never a full scene.\n"
+    "translate it into ONE signature prop or gesture near the face or shoulder and a faint effect behind them "
+    "(e.g. a glint of lightning on the blade, a wisp of flame); never paint the place, armies or other people.\n"
     "★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: {classes}.\n"
     "SPLENDOR (card rank): {splendor}.\n"
     "Do not draw tags, ★ or line labels as text.\n")
@@ -241,7 +242,7 @@ def real_entry(e: str, i: int) -> str:
 
 def write_sheets(dst, label, common_tpl, splendor_hint, entry_fn):
     reset(dst)
-    lines = ["%s 시트를 뽑은 뒤 D:\Sol 에서 자르기 (이름 순서 = 이름표 번호 순서). 자른 뒤 solgukji_godot 에서 Godot --import 를 한 번 돌린다.\n" % label]
+    lines = ["%s 시트를 뽑은 뒤 D:\\Sol 에서 자르기 (이름 순서 = 이름표 번호 순서). 자른 뒤 solgukji_godot 에서 Godot --import 를 한 번 돌린다.\n" % label]
     no, sizes = 0, []
 
     def text_of(chunk):
