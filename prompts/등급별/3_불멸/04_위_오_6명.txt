@@ -25,6 +25,7 @@ no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
 - Image 1024x1536 portrait. ALWAYS a fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
 - Characters 1 to 6 fill the first 6 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
 - Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.

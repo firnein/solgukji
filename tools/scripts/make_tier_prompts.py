@@ -17,8 +17,8 @@ from collections import defaultdict
 OUT = "prompts/등급별"
 TIER_DIR = {6: "2_초월", 7: "3_불멸", 8: "4_신화"}
 SUFFIX = {6: "_초월", 7: "_불멸", 8: "_신화"}
-PER = {"base": 10, 6: 12, 7: 6, 8: 4}            # 한 장 최대 인원 (고르게 나눈다) —— 기본은 10명 넘으면 다리가 짧아진다
-GRID = {10: (5, 2), 12: (4, 3), 6: (3, 2), 4: (2, 2)}
+PER = {"base": 5, 6: 6, 7: 6, 8: 4}              # 한 장 인원 —— 많으면 모델이 인물별 지시를 섞거나 빠뜨린다 (기본 10명 · 초월 12명에서 실패)
+GRID = {5: (5, 1), 6: (3, 2), 4: (2, 2)}
 FAC_EN = {"촉": "Shu", "위": "Wei", "오": "Wu", "군": "Independent"}
 FAC_ORDER = ["촉", "위", "오", "군"]
 CLASS_EN = {"창병": "SPEARMAN", "기병": "CAVALRY", "궁병": "ARCHER", "도적": "ROGUE",
@@ -196,6 +196,7 @@ no long eyelashes, no blush, no rosy lips, no soft baby face."""
 
 LAYOUT = """LAYOUT:
 - Image {size}. ALWAYS a fixed grid of {cols} columns x {rows} rows = {slots} equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
 - Characters 1 to {n} fill the first {n} slots in order.{empty}
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
 - Under each panel a dark green brush-stroke banner with ONLY its number (1 to {n}) in big white digits.

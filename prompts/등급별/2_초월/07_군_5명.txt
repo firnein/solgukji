@@ -25,9 +25,10 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1024x1536 portrait. ALWAYS a fixed grid of 4 columns x 3 rows = 12 equal slots, reading order left to right, top to bottom.
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
 - Characters 1 to 5 fill the first 5 slots in order.
-- The last 7 slots (6, 7, 8, 9, 10, 11, 12) stay EMPTY: plain background only, no character, no panel, no banner, no number.
+- The last 1 slot (6) stay EMPTY: plain background only, no character, no panel, no banner, no number.
   Do not enlarge, stretch or re-space the characters to fill the space —— every slot keeps the same size as on a full sheet.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
 - Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.

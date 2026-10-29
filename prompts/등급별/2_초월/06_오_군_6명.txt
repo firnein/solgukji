@@ -1,0 +1,69 @@
+The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn one level fancier for a
+mobile card game's higher-rank card art (rank 1 upgrade).
+
+REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
+shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+Only the drawing finish, outfit richness and pose change. Someone must recognize them instantly from the reference.
+
+STYLE:
+- Detailed chibi, about 3 heads tall, drawn larger: KNEE-UP to WAIST-UP framing, the character fills most of the panel.
+- Crisp ink lines with fine detail, richer cel shading with highlights, textured materials (lamellar plates, rivets,
+  stitched leather, layered cloth, wood grain on shafts, steel shine on blades).
+- Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
+  joyful expressions as fits the character.
+- Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
+  no buildings, no other people, no animals except the horse of a CAVALRY character.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED) —— never standing on foot.
+
+OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
+bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 6 fill the first 6 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Xiao Qiao  [SCHOLAR, Wu] —— same person as reference #1
+   IDENTITY: younger, twin hair buns, bright playful eyes. FACE: small round youthful face, bright playful big eyes, button nose, cheerful open smile, twin hair buns, lively younger-sister beauty. BUILD: petite young woman.
+   SIGNATURE (unique to her on this sheet): HAIR twin hair buns; MARK pink hanfu, scroll and brush.
+   COLORS: Wu red: crimson, red, orange and gold.
+   POSE (no scenery, only the pose and expression of): the beauty who topples states playing a zither, plum petals.
+2. Zhang Zhao  [SCHOLAR, Wu] —— same person as reference #2
+   IDENTITY: 60s, stern long face, long grey beard, deep frown lines, upright posture. FACE: long stern old face, deep frown lines, disapproving narrow eyes, long nose, long grey beard, tight lecturing mouth. BUILD: thin old man, very upright.
+   SIGNATURE (unique to him on this sheet): HEAD official court hat; FACIAL HAIR long grey beard; MARK court tablet, deep frown.
+   COLORS: Wu red: crimson, red, orange and gold.
+   POSE (no scenery, only the pose and expression of): the senior civil minister of Jiangdong addressing the court, a pile of memorials beside him.
+3. Gongsun Zan  [CAVALRY, Independent] —— same person as reference #3
+   IDENTITY: 30s, lean handsome face, thin mustache, white-plumed helmet. FACE: lean handsome MAN's face with a firm jaw, proud bright eyes, straight nose, thin mustache, confident stern mouth, fair skin, white-plumed helmet. BUILD: tall and lean.
+   SIGNATURE (unique to him on this sheet): HEAD white-plumed helmet; FACIAL HAIR thin mustache; MARK white armor, white horse.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a pure white horse (the White Horse General) —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): the White Horse General leading his white horse volunteers.
+4. Dong Zhuo  [CAVALRY, Independent] —— same person as reference #4
+   IDENTITY: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin. FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer. BUILD: obese, round barrel body, short legs.
+   SIGNATURE (unique to him on this sheet): HEAD gaudy black-gold cap; FACIAL HAIR thick curly black beard; MARK obese, triple chin.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a sturdy black horse straining under his weight —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): Chancellor Dong Zhuo entering Luoyang, arrogant, gaudy banners.
+5. Ma Teng  [CAVALRY, Independent] —— same person as reference #5
+   IDENTITY: 50s, big bushy grey beard, weathered sun-browned skin, fur Qiang hat, warm eyes. FACE: big weathered MAN's face, warm deep-set eyes in sun wrinkles, broad nose, big bushy grey beard, sun-browned skin, fur Qiang hat, fatherly frontier lord. BUILD: big, broad old man.
+   SIGNATURE (unique to him on this sheet): HEAD fur Qiang hat; FACIAL HAIR big bushy grey beard; MARK fur-trimmed brown armor.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a shaggy brown Xiliang steppe horse —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): the hero of Xiliang leading Qiang horsemen across the steppe.
+6. Yuan Shao  [CAVALRY, Independent] —— same person as reference #6
+   IDENTITY: 40s, aristocratic long face, long neat mustache and pointed goatee, tall noble helmet-crown, haughty raised chin. FACE: aristocratic long face, haughty raised chin, heavy-lidded condescending eyes, long straight nose, pursed proud lips, pale pampered skin. BUILD: tall and stately.
+   SIGNATURE (unique to him on this sheet): HEAD tall noble helmet-crown with gold wings; FACIAL HAIR long neat mustache and a pointed goatee; MARK long gold cape.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a white horse in gold barding —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): heir of four generations of the highest ministers, noble clan banners behind.

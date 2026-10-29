@@ -1,4 +1,4 @@
-A character design sheet of 10 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 5 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -28,10 +28,11 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 2 rows = 10 equal slots, reading order left to right, top to bottom.
-- Characters 1 to 10 fill the first 10 slots in order.
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the first 5 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 10) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
@@ -70,39 +71,3 @@ CHARACTERS
    BUILD: very tall and thin old man.
    SIGNATURE (unique to him on this sheet): HEAD tall black hat; FACIAL HAIR long white beard; MARK ambush map with ten little flags.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-6. Cao Cao  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Cao Cao, the classic ambitious warlord: sharp eyes, short black beard, black-and-navy robe with gold trim and a short cape, official crown hat, holding his famous straight sword (Yitian sword) with confidence. Schemer hint only: a sly smirk and a sealed scroll tucked in his belt.
-   LOOK: 40s, sharp narrow eyes, short trimmed black beard, official crown hat.
-   FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma.
-   BUILD: short and wiry, but commanding posture.
-   SIGNATURE (unique to him on this sheet): HEAD official crown hat; FACIAL HAIR short trimmed black beard; MARK straight Yitian sword, short cape.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-7. Zhou Tai  [SPEARMAN, Wu]
-   DESIGN: Zhou Tai, stoic scar-covered bodyguard with bandages, red armor, on foot, long spear braced forward and a battered shield, unbreakable stance.
-   LOOK: cropped hair, many scars and bandages, stoic expressionless face.
-   FACE: expressionless stone-like face, cropped hair, many crisscrossing scars and bandages, dull steady eyes, flat nose, closed mouth, stoic guardian.
-   BUILD: solid, broad, covered in bandages.
-   SIGNATURE (unique to him on this sheet): HEAD cropped hair with bandages wrapped around the head; FACIAL HAIR no beard; MARK crisscrossing scars and bandages everywhere.
-   COLORS: Wu red: crimson, red, orange and gold.
-8. Sun Ce  [CAVALRY, Wu]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Sun Ce, confident young conqueror with a red headband and big grin, red armor.
-   LOOK: early 20s, wild spiky reddish-brown hair, tanned skin, huge toothy grin, red headband.
-   FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror.
-   BUILD: athletic, broad shoulders.
-   SIGNATURE (unique to him on this sheet): HEAD red headband over wild spiky reddish-brown hair; FACIAL HAIR no beard; MARK huge toothy grin.
-   COLORS: Wu red: crimson, red, orange and gold.
-   MOUNTED: riding a chestnut horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
-9. Xu Sheng  [ARCHER, Wu]
-   DESIGN: Xu Sheng, steady general in red armor, holding a long glaive, bow and quiver on his back.
-   LOOK: middle-aged, neat mustache, red-plumed helmet.
-   FACE: middle-aged steady face, neat mustache, calm watchful eyes, straight nose, composed mouth, reliable officer.
-   BUILD: steady medium build.
-   SIGNATURE (unique to him on this sheet): HEAD plain iron helmet with a red plume; FACIAL HAIR neat mustache; MARK long glaive, bow slung on his back.
-   COLORS: Wu red: crimson, red, orange and gold.
-10. Sun Quan  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Sun Quan, the classic young Wu emperor: striking green-blue eyes and a reddish-purple beard, regal red and gold robe, holding a sword, dignified. Archer hint only: a bow slung on his back and a small quiver.
-   LOOK: green-blue eyes, reddish-purple beard, square jaw.
-   FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler.
-   BUILD: broad and sturdy.
-   SIGNATURE (unique to him on this sheet): HEAD red-gold crown cap; FACIAL HAIR reddish-purple beard; MARK striking green-blue eyes.
-   COLORS: Wu red: crimson, red, orange and gold.

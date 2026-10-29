@@ -1,18 +1,30 @@
 초월 —— 이름 순서 = 이름표 번호 순서. 시트를 뽑은 뒤 D:\Sol 에서 자르기, 다 자르면 solgukji_godot 에서 Godot --import 한 번.
 위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).
 
-[01_촉_위_12명.txt]  1 한수정후 관우 · 2 정서대장 위연 · 3 천수기린 강유 · 4 백미 마량 · 5 연환계 방통 · 6 상서령 법정 · 7 결사 방덕 · 8 우장군 서황 · 9 철벽 조인 · 10 독안 하후돈 · 11 합비신장 장료 · 12 오자양장 장합
-  참조:   python -I tools/scripts/make_ref_sheet.py "관우,위연,강유,마량,방통,법정,방덕,서황,조인,하후돈,장료,장합" prompts/등급별/2_초월/참조_01.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_초월,위연_초월,강유_초월,마량_초월,방통_초월,법정_초월,방덕_초월,서황_초월,조인_초월,하후돈_초월,장료_초월,장합_초월" solgukji_godot/assets/portraits
+[01_촉_6명.txt]  1 한수정후 관우 · 2 정서대장 위연 · 3 천수기린 강유 · 4 백미 마량 · 5 연환계 방통 · 6 상서령 법정
+  참조:   python -I tools/scripts/make_ref_sheet.py "관우,위연,강유,마량,방통,법정" prompts/등급별/2_초월/참조_01.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_초월,위연_초월,강유_초월,마량_초월,방통_초월,법정_초월" solgukji_godot/assets/portraits
 
-[02_위_오_12명.txt]  1 경병도독 하후연 · 2 십승십패 곽가 · 3 사도 종회 · 4 왕좌지재 순욱 · 5 음평기습 등애 · 6 십면매복 정욱 · 7 혈전 주태 · 8 강동벽안 손권 · 9 탕구장군 정보 · 10 신궁 태사자 · 11 적벽화신 황개 · 12 강동효장 능통
-  참조:   python -I tools/scripts/make_ref_sheet.py "하후연,곽가,종회,순욱,등애,정욱,주태,손권,정보,태사자,황개,능통" prompts/등급별/2_초월/참조_02.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "하후연_초월,곽가_초월,종회_초월,순욱_초월,등애_초월,정욱_초월,주태_초월,손권_초월,정보_초월,태사자_초월,황개_초월,능통_초월" solgukji_godot/assets/portraits
+[02_위_6명.txt]  1 결사 방덕 · 2 우장군 서황 · 3 철벽 조인 · 4 독안 하후돈 · 5 합비신장 장료 · 6 오자양장 장합
+  참조:   python -I tools/scripts/make_ref_sheet.py "방덕,서황,조인,하후돈,장료,장합" prompts/등급별/2_초월/참조_02.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "방덕_초월,서황_초월,조인_초월,하후돈_초월,장료_초월,장합_초월" solgukji_godot/assets/portraits
 
-[03_오_군_12명.txt]  1 동오덕왕 엄백호 · 2 남군태수 여몽 · 3 상대장군 육손 · 4 대도독 주유 · 5 도독 노숙 · 6 강동이교 대교 · 7 경국지색 소교 · 8 강동문신 장소 · 9 백마장군 공손찬 · 10 상국 동탁 · 11 서량웅 마등 · 12 사세삼공 원소
-  참조:   python -I tools/scripts/make_ref_sheet.py "엄백호,여몽,육손,주유,노숙,대교,소교,장소,공손찬,동탁,마등,원소" prompts/등급별/2_초월/참조_03.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "엄백호_초월,여몽_초월,육손_초월,주유_초월,노숙_초월,대교_초월,소교_초월,장소_초월,공손찬_초월,동탁_초월,마등_초월,원소_초월" solgukji_godot/assets/portraits
+[03_위_6명.txt]  1 경병도독 하후연 · 2 십승십패 곽가 · 3 사도 종회 · 4 왕좌지재 순욱 · 5 음평기습 등애 · 6 십면매복 정욱
+  참조:   python -I tools/scripts/make_ref_sheet.py "하후연,곽가,종회,순욱,등애,정욱" prompts/등급별/2_초월/참조_03.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "하후연_초월,곽가_초월,종회_초월,순욱_초월,등애_초월,정욱_초월" solgukji_godot/assets/portraits
 
-[04_군_5명.txt]  1 강동신선 우길 · 2 한녕태수 장로 · 3 좌원방 좌자 · 4 중가황제 원술 · 5 절세미인 초선
-  참조:   python -I tools/scripts/make_ref_sheet.py "우길,장로,좌자,원술,초선" prompts/등급별/2_초월/참조_04.png
+[04_오_6명.txt]  1 혈전 주태 · 2 강동벽안 손권 · 3 탕구장군 정보 · 4 신궁 태사자 · 5 적벽화신 황개 · 6 강동효장 능통
+  참조:   python -I tools/scripts/make_ref_sheet.py "주태,손권,정보,태사자,황개,능통" prompts/등급별/2_초월/참조_04.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "주태_초월,손권_초월,정보_초월,태사자_초월,황개_초월,능통_초월" solgukji_godot/assets/portraits
+
+[05_오_6명.txt]  1 동오덕왕 엄백호 · 2 남군태수 여몽 · 3 상대장군 육손 · 4 대도독 주유 · 5 도독 노숙 · 6 강동이교 대교
+  참조:   python -I tools/scripts/make_ref_sheet.py "엄백호,여몽,육손,주유,노숙,대교" prompts/등급별/2_초월/참조_05.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "엄백호_초월,여몽_초월,육손_초월,주유_초월,노숙_초월,대교_초월" solgukji_godot/assets/portraits
+
+[06_오_군_6명.txt]  1 경국지색 소교 · 2 강동문신 장소 · 3 백마장군 공손찬 · 4 상국 동탁 · 5 서량웅 마등 · 6 사세삼공 원소
+  참조:   python -I tools/scripts/make_ref_sheet.py "소교,장소,공손찬,동탁,마등,원소" prompts/등급별/2_초월/참조_06.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "소교_초월,장소_초월,공손찬_초월,동탁_초월,마등_초월,원소_초월" solgukji_godot/assets/portraits
+
+[07_군_5명.txt]  1 강동신선 우길 · 2 한녕태수 장로 · 3 좌원방 좌자 · 4 중가황제 원술 · 5 절세미인 초선
+  참조:   python -I tools/scripts/make_ref_sheet.py "우길,장로,좌자,원술,초선" prompts/등급별/2_초월/참조_07.png
   자르기: python -I tools/scripts/slice_panels.py 시트.png "우길_초월,장로_초월,좌자_초월,원술_초월,초선_초월" solgukji_godot/assets/portraits
