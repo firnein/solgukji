@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
 CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
 (at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
 figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
@@ -41,7 +44,7 @@ Banner under each panel: only its number.
    LOOK: early 20s, fierce slanted brows, pale skin, sharp handsome face, lion-head helmet, Qiang-style braid.
    FACE: narrow V-shaped jaw, high cheekbones, upturned sharp eyes with long lashes, thin straight nose, small proud mouth, pale almost foreign-looking skin, cold arrogant pretty-boy expression.
    SPLENDOR: ORNATE.
-   SCENE: one of the Five Tiger Generals, charging with his spear, a roaring silver tiger spirit behind him.
+   SCENE: chasing Cao Cao at Tong Pass, spear thrust forward, a roaring silver tiger spirit behind him, a cut-off beard and a discarded red robe flying in the wind.
    SHOT: low-angle hero shot from below, towering over the viewer, full body.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.
 2. (card: 노장 황충) [ARCHER] ★ICONIC Huang Zhong, white-bearded old veteran in green armor, drawing a huge longbow with a fierce grin, quiver on back.

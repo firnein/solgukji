@@ -1,0 +1,92 @@
+A character sheet of chibi Three Kingdoms (ancient China) characters, super-deformed proportions (about 2.5 to 3 heads tall)
+but with mature, characterful faces (not babyish). Each character is drawn inside its own vertical rounded-rectangle panel;
+weapons, plumes and banners may stick out above the panel.
+Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, intricate armor and costume patterns,
+warm and consistent style across all characters (same style as the attached reference sheet if one is attached).
+EVERY PANEL IS A DIFFERENT ILLUSTRATION, like separate key arts from different stories —— NOT the same photo with a
+different person. Never repeat the template "front-facing character, waist up, centered, battlefield with banners behind".
+Each panel follows its own SHOT (angle, head turn, expression) and LIGHT (time, weather, color palette) lines, and its SCENE place.
+Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
+background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
+Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
+BUST SHOT ONLY: every panel is a chest-up portrait —— the frame cuts at the chest (just below the shoulders and collar);
+no waist, no legs, no full body. The head and face fill the upper half of the panel and are large, sharp and detailed;
+the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
+SHOT changes only the angle, head turn, expression and gesture —— NOT the framing.
+MYTHIC and ORNATE: the iconic moment of SCENE is shown INSIDE the bust frame —— hands and signature props come up into the
+frame (an arrow pulled from the eye, a fan sweeping, a cup raised), and the SCENE's effects (fire, flood, storm, aura, light)
+swirl around the head and shoulders and may burst out of the panel. FINE and PLAIN: SCENE and LIGHT are only a soft background.
+Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
+Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
+Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
+no names, no title, no frame, no watermark.
+
+TROOP CLASS must be obvious from the armor, headgear and the prop near the shoulder:
+SPEARMAN heavy armor, long polearm, planted stance / CAVALRY the rider is the subject, only the horse head or mane peeks in /
+ARCHER bow in hand, quiver / ROGUE light armor, agile, short blades / STRATEGIST flowing robe, white feather fan /
+SCHOLAR scholar robe and hat, book or tablet, no weapon drawn / SORCERER Taoist robe, staff or talismans, faint glowing magic /
+SCHEMER dark robe, high collar, sly, scroll or chess piece.
+★ICONIC characters: their famous look and signature weapon come FIRST, the class is only a small hint.
+FACTION gives costume colors. LOOK gives each face —— every character must look clearly different (age, face, hair, facial hair, build).
+SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer gear, a few gold accents /
+ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
+Do not draw the bracket tags, ★ marks or line labels as text.
+
+Image size 1024x1536 portrait. Grid of 6 characters: 2 columns x 3 rows (a short last row is centered). LARGE vertical panels, chest-up portrait with a SCENE background inside each panel.
+Banner under each panel: only its number.
+
+1. (card: 오호대장 마초) [CAVALRY] ★ICONIC Ma Chao, dashing young general in shining silver lion-head armor with a green cape.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: early 20s, fierce slanted brows, pale skin, sharp handsome face, lion-head helmet, Qiang-style braid.
+   FACE: narrow V-shaped jaw, high cheekbones, upturned sharp eyes with long lashes, thin straight nose, small proud mouth, pale almost foreign-looking skin, cold arrogant pretty-boy expression.
+   SPLENDOR: ORNATE.
+   SCENE: chasing Cao Cao at Tong Pass, spear thrust forward, a roaring silver tiger spirit behind him, a cut-off beard and a discarded red robe flying in the wind.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
+   LIGHT: mystic glow, violet and gold sparks on a dark ground.
+2. (card: 노장 황충) [ARCHER] ★ICONIC Huang Zhong, white-bearded old veteran in green armor, drawing a huge longbow with a fierce grin, quiver on back.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 60s, white beard and white bushy eyebrows, wrinkles, muscular old arms.
+   FACE: long weathered face, sunken cheeks, small fierce squinting eyes in deep wrinkles, big hawk nose, wide grinning mouth with a missing tooth, leathery tanned skin.
+   SPLENDOR: ORNATE.
+   SCENE: the old general at Mount Dingjun, drawing his bow at full stretch, the arrow tip glowing.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
+   LIGHT: spring peach blossoms, pink petals and soft green.
+3. (card: 자오곡 위연) [ROGUE] ★ICONIC Wei Yan, the classic fierce rebel-boned general: bold glaring face with a prominent bony forehead, dark-green armor, swinging a big broad-bladed glaive. Rogue hint only: a light, agile, low crouching pose.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: prominent bony bump on the back of the head and forehead, crooked fierce grin, short black beard.
+   FACE: wide brutish face, protruding bony forehead ridge, small glaring eyes, flat broad nose, crooked sneering mouth, dark tanned skin, rebellious defiant expression.
+   SPLENDOR: ORNATE.
+   SCENE: the Ziwu Valley gambit, charging through a narrow mountain gorge with his glaive.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
+   LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
+4. (card: 구벌중원 강유) [STRATEGIST] ★ICONIC Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: early 20s, clean-shaven, earnest big eyes, short helmet with green plume.
+   FACE: boyish oval face, large earnest round eyes, straight determined brows, small straight nose, firm closed mouth, smooth fair skin, serious eager expression.
+   SPLENDOR: ORNATE.
+   SCENE: the northern campaigns, three-pointed spear raised toward the central plains, wind-swept Shu banners.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
+   LIGHT: golden autumn leaves, ochre and rust.
+5. (card: 수엄칠군 관우) [SPEARMAN] ★ICONIC Guan Yu, red face, extremely long black beard, green robe over gilded armor, Green Dragon crescent glaive.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf.
+   FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression.
+   SPLENDOR: ORNATE.
+   SCENE: drowning the seven armies at Fancheng, the Han river flood bursting behind him, enemy boats capsizing, glaive raised over the torrent.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
+   LIGHT: river spray and mist, blue-green water light.
+6. (card: 삼고초려 유비) [SCHOLAR] ★ICONIC Liu Bei, benevolent lord with long earlobes and a gentle smile, layered green robes, his twin swords at his waist, holding a scroll respectfully.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, very long earlobes, kind gentle eyes, thin mustache and short beard, simple topknot crown.
+   FACE: broad gentle round face, very long earlobes reaching the jaw, soft droopy kind eyes, small mustache, warm humble smile, slightly tired look.
+   SPLENDOR: ORNATE.
+   SCENE: the third visit to the thatched cottage, standing humbly in the snow before the hut, bowing with hands clasped, Guan Yu and Zhang Fei waiting behind.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
+   LIGHT: falling snow, white and pale icy blue.

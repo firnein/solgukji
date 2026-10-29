@@ -13,11 +13,16 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
 BUST SHOT ONLY: every panel is a chest-up portrait —— the frame cuts at the chest (just below the shoulders and collar);
-no waist, no hands below the chest, no legs, no full body. The head and face fill the upper half of the panel and are
-large, sharp and detailed; the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
-SHOT changes only the angle, head turn, expression and what is held near the face or shoulder —— NOT the framing.
-SCENE and LIGHT are only the background mood behind the head and shoulders (a hint of the place, blurred), not an action to show in full.
+no waist, no legs, no full body. The head and face fill the upper half of the panel and are large, sharp and detailed;
+the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
+SHOT changes only the angle, head turn, expression and gesture —— NOT the framing.
+MYTHIC and ORNATE: the iconic moment of SCENE is shown INSIDE the bust frame —— hands and signature props come up into the
+frame (an arrow pulled from the eye, a fan sweeping, a cup raised), and the SCENE's effects (fire, flood, storm, aura, light)
+swirl around the head and shoulders and may burst out of the panel. FINE and PLAIN: SCENE and LIGHT are only a soft background.
 Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
 Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
 Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,

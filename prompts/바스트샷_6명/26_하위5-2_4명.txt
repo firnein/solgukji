@@ -1,0 +1,72 @@
+A character sheet of chibi Three Kingdoms (ancient China) characters, super-deformed proportions (about 2.5 to 3 heads tall)
+but with mature, characterful faces (not babyish). Each character is drawn inside its own vertical rounded-rectangle panel;
+weapons, plumes and banners may stick out above the panel.
+Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, intricate armor and costume patterns,
+warm and consistent style across all characters (same style as the attached reference sheet if one is attached).
+EVERY PANEL IS A DIFFERENT ILLUSTRATION, like separate key arts from different stories —— NOT the same photo with a
+different person. Never repeat the template "front-facing character, waist up, centered, battlefield with banners behind".
+Each panel follows its own SHOT (angle, head turn, expression) and LIGHT (time, weather, color palette) lines, and its SCENE place.
+Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
+background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
+Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
+BUST SHOT ONLY: every panel is a chest-up portrait —— the frame cuts at the chest (just below the shoulders and collar);
+no waist, no legs, no full body. The head and face fill the upper half of the panel and are large, sharp and detailed;
+the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
+SHOT changes only the angle, head turn, expression and gesture —— NOT the framing.
+MYTHIC and ORNATE: the iconic moment of SCENE is shown INSIDE the bust frame —— hands and signature props come up into the
+frame (an arrow pulled from the eye, a fan sweeping, a cup raised), and the SCENE's effects (fire, flood, storm, aura, light)
+swirl around the head and shoulders and may burst out of the panel. FINE and PLAIN: SCENE and LIGHT are only a soft background.
+Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
+Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
+Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
+no names, no title, no frame, no watermark.
+
+TROOP CLASS must be obvious from the armor, headgear and the prop near the shoulder:
+SPEARMAN heavy armor, long polearm, planted stance / CAVALRY the rider is the subject, only the horse head or mane peeks in /
+ARCHER bow in hand, quiver / ROGUE light armor, agile, short blades / STRATEGIST flowing robe, white feather fan /
+SCHOLAR scholar robe and hat, book or tablet, no weapon drawn / SORCERER Taoist robe, staff or talismans, faint glowing magic /
+SCHEMER dark robe, high collar, sly, scroll or chess piece.
+★ICONIC characters: their famous look and signature weapon come FIRST, the class is only a small hint.
+FACTION gives costume colors. LOOK gives each face —— every character must look clearly different (age, face, hair, facial hair, build).
+SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer gear, a few gold accents /
+ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
+Do not draw the bracket tags, ★ marks or line labels as text.
+
+Image size 1024x1536 portrait. Grid of 4 characters: 2 columns x 2 rows (a short last row is centered). LARGE vertical panels, chest-up portrait with a SCENE background inside each panel.
+Banner under each panel: only its number.
+
+1. (card: 전풍) [SCHEMER] Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
+   FACTION: independent warlord, own colors.
+   LOOK: stern thick frowning eyebrows, square beard.
+   FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+   LIGHT: heavy rain storm, dark teal, flashes of lightning.
+2. (card: 심배) [SCHEMER] Shen Pei, stubborn loyal official in a purple-gray high-collared robe, holding a sealed order scroll, stern.
+   FACTION: independent warlord, own colors.
+   LOOK: older, long thin beard, rigid upright posture.
+   FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), slight low angle, composed, looking down at the viewer, robe collar framing the face.
+   LIGHT: pale dawn, cool blue-grey and soft pink.
+3. (card: 장연) [ROGUE] Zhang Yan, Black Mountain bandit leader in a black outfit, agile leaping pose, a knife in each hand.
+   FACTION: independent warlord, own colors.
+   LOOK: young, black mask scarf over the lower face.
+   FACE: young sharp eyes above a black mask scarf over the lower face, lean face, quick bandit glance.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), 3/4 view, shouting a battle cry, hair and plume blown back by wind.
+   LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
+4. (card: 관해) [ROGUE] Guan Hai, giant Yellow Turban bandit with a yellow headband, light leather vest, a hand axe in each hand, roaring.
+   FACTION: independent warlord, own colors.
+   LOOK: giant, bald with a yellow headband, wild beard.
+   FACE: giant brutish face, bald head with a yellow headband, wild beard, bulging angry eyes, flat nose, roaring mouth.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), side profile, gritted teeth, eyes on a distant target.
+   LIGHT: river spray and mist, blue-green water light.

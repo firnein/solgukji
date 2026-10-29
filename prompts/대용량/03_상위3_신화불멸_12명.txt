@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
 CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
 (at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
 figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
@@ -81,7 +84,7 @@ Banner under each panel: only its number.
    LOOK: elegant 40s, neat full beard, tall formal hat.
    FACE: handsome dignified oval face, gentle sad eyes, straight nose, neat full beard, refined calm mouth, smooth fair skin, noble upright expression.
    SPLENDOR: ORNATE.
-   SCENE: Lord Xun of the fragrant incense, elegant court robe, incense smoke curling into flower shapes.
+   SCENE: Lord Xun of the fragrant incense holding the EMPTY food box sent by Cao Cao, understanding its meaning, sorrowful but dignified, incense smoke curling into fading flower shapes.
    SHOT: close framing, a few foreground objects (petals, smoke, curtain) only at the panel edges, face fully visible.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 7. (card: 벽안아 손권) [ARCHER] ★ICONIC Sun Quan, the classic young Wu emperor: striking green-blue eyes and a reddish-purple beard, regal red and gold robe, holding a sword, dignified. Archer hint only: a bow slung on his back and a small quiver.
@@ -97,7 +100,7 @@ Banner under each panel: only its number.
    LOOK: 30s, long tied-back hair, strong jaw, short beard.
    FACE: strong square jaw, bright honest eyes, straight thick brows, straight nose, short beard, tanned skin, heroic loyal expression.
    SPLENDOR: ORNATE.
-   SCENE: the fierce tiger of Donglai in a duel stance, a short halberd in each hand, bow on his back, tiger aura.
+   SCENE: the duel with Sun Ce at Shenting, grappling and having snatched Sun Ce's helmet, a short halberd in the other hand, tiger aura.
    SHOT: mid-leap or mid-swing, diagonal tilted frame, cloth and hair whipping.
    LIGHT: spring peach blossoms, pink petals and soft green.
 9. (card: 금범적 감녕) [ROGUE] ★ICONIC Gan Ning, brash pirate-like fighter with bells on his belt, feathered headband and tattoos, crouching leap with a big curved sword.

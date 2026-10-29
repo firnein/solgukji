@@ -13,11 +13,16 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
 BUST SHOT ONLY: every panel is a chest-up portrait —— the frame cuts at the chest (just below the shoulders and collar);
-no waist, no hands below the chest, no legs, no full body. The head and face fill the upper half of the panel and are
-large, sharp and detailed; the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
-SHOT changes only the angle, head turn, expression and what is held near the face or shoulder —— NOT the framing.
-SCENE and LIGHT are only the background mood behind the head and shoulders (a hint of the place, blurred), not an action to show in full.
+no waist, no legs, no full body. The head and face fill the upper half of the panel and are large, sharp and detailed;
+the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
+SHOT changes only the angle, head turn, expression and gesture —— NOT the framing.
+MYTHIC and ORNATE: the iconic moment of SCENE is shown INSIDE the bust frame —— hands and signature props come up into the
+frame (an arrow pulled from the eye, a fan sweeping, a cup raised), and the SCENE's effects (fire, flood, storm, aura, light)
+swirl around the head and shoulders and may burst out of the panel. FINE and PLAIN: SCENE and LIGHT are only a soft background.
 Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
 Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
 Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
@@ -34,7 +39,7 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-Image size 1024x1536 portrait. Grid of 9 characters: 3 columns x 3 rows (a short last row is centered). LARGE vertical panels, chest-up portrait with a soft SCENE background inside each panel.
+Image size 1024x1536 portrait. Grid of 9 characters: 3 columns x 3 rows (a short last row is centered). LARGE vertical panels, chest-up portrait with a SCENE background inside each panel.
 Banner under each panel: only its number.
 
 1. (card: 강동주석 노숙) [SCHOLAR] Lu Su, friendly round-faced diplomat in a red-brown scholar robe and hat, holding an open book and a rolled map.
@@ -43,7 +48,7 @@ Banner under each panel: only its number.
    FACE: round chubby face, warm small smiling eyes, round nose, broad friendly smile, plump cheeks, soft skin, honest good-natured look.
    SPLENDOR: ORNATE.
    SCENE: the pillar of Jiangdong on a riverbank, holding a great map of the realm.
-   SHOT: BUST (chest-up), slight high angle, looking up at the viewer with a knowing smile.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: river spray and mist, blue-green water light.
 2. (card: 오두미교주 장로) [SORCERER] Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
    FACTION: independent warlord, own colors.
@@ -51,7 +56,7 @@ Banner under each panel: only its number.
    FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression.
    SPLENDOR: ORNATE.
    SCENE: master of the Five Pecks of Rice cult, rice sack and glowing talismans, followers' lanterns behind.
-   SHOT: BUST (chest-up), front view, half the face lit by warm light, half in shadow, serious.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: falling snow, white and pale icy blue.
 3. (card: 연환미계 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    FACTION: independent warlord, own colors.
@@ -59,7 +64,7 @@ Banner under each panel: only its number.
    FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
    SPLENDOR: ORNATE.
    SCENE: the chain stratagem — dancing between two shadow silhouettes of rival warlords, chain-shaped silk ribbons.
-   SHOT: BUST (chest-up), side profile, looking into the distance, calm.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: moonlit night, deep indigo and silver.
 4. (card: 발시담정 하후돈) [SPEARMAN] ★ICONIC Xiahou Dun, fierce one-eyed general, dark blue heavy armor, long spear and round shield.
    FACTION: Wei colors: navy, deep blue and steel with silver.
@@ -67,7 +72,7 @@ Banner under each panel: only its number.
    FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression.
    SPLENDOR: ORNATE.
    SCENE: the famous moment of pulling the arrow out of his own left eye with a roar, battle dust, his spear still in the other hand.
-   SHOT: BUST (chest-up), slight high angle, glaring up at the viewer, weapon blade crossing in front of the chest, cut by the panel edge.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 5. (card: 번성수장 조인) [SPEARMAN] Cao Ren, defensive general in heavy blue plate armor, huge rectangular tower shield and spear, immovable stance.
    FACTION: Wei colors: navy, deep blue and steel with silver.
@@ -75,7 +80,7 @@ Banner under each panel: only its number.
    FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender.
    SPLENDOR: ORNATE.
    SCENE: holding Fancheng to the last on a half-flooded city wall, arrows stuck in his shield, rising water below, refusing to fall back.
-   SHOT: BUST (chest-up), front view, half the face in shadow, eyes narrowed, cold stare.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: river spray and mist, blue-green water light.
 6. (card: 주아부 서황) [SPEARMAN] Xu Huang, calm general with a long mustache, blue armor, long-handled great axe.
    FACTION: Wei colors: navy, deep blue and steel with silver.
@@ -83,7 +88,7 @@ Banner under each panel: only its number.
    FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength.
    SPLENDOR: ORNATE.
    SCENE: cutting straight through the encirclement trenches at Fancheng, great axe swung, the enemy ring breaking around him.
-   SHOT: BUST (chest-up), 3/4 view, shouting a battle cry, hair and plume blown back by wind.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.
 7. (card: 희조선인 좌자) [SORCERER] Zuo Ci, mystic immortal with a long white beard, floating slightly, staff in hand, faint glowing aura.
    FACTION: independent warlord, own colors.
@@ -91,15 +96,15 @@ Banner under each panel: only its number.
    FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal.
    SPLENDOR: ORNATE.
    SCENE: mocking Cao Cao at his banquet, peeling a tangerine that is empty inside, a crane flying out of a wine cup, guards grasping at illusions.
-   SHOT: BUST (chest-up), head turned back toward the viewer over the shoulder, sly side glance.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 8. (card: 천공장군 장각) [SORCERER] ★ICONIC Zhang Jiao, Yellow Turban leader in an ornate yellow Taoist robe and yellow headscarf, long beard, staff raised to the sky.
    FACTION: independent warlord, own colors.
    LOOK: gaunt old face, long grey beard.
    FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression.
    SPLENDOR: ORNATE.
-   SCENE: the General of Heaven summoning a storm, lightning splitting the sky over a sea of yellow banners and kneeling followers.
-   SHOT: BUST (chest-up), 3/4 view, gentle smile, eyes toward the viewer.
+   SCENE: the General of Heaven proclaiming the uprising from an altar, arms raised, a sea of yellow headbands and torches below, talisman water bowl smoking.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
 9. (card: 괄골요독 화타) [SORCERER] ★ICONIC Hua Tuo, kindly old doctor in a pale robe, medicine box on his back, a small scraping knife and glowing needles.
    FACTION: independent warlord, own colors.
@@ -107,5 +112,5 @@ Banner under each panel: only its number.
    FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man.
    SPLENDOR: ORNATE.
    SCENE: scraping the poison from Guan Yu arm bone while Guan Yu calmly plays go beside him, a basin of herbs and soft green healing light.
-   SHOT: BUST (chest-up), 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+   SHOT: BUST (chest-up), the most iconic moment of SCENE at full drama —— the expression, gesture and camera angle that fit it; hands and signature props come up into the frame.
    LIGHT: pale dawn, cool blue-grey and soft pink.
