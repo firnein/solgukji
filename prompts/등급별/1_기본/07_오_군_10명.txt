@@ -1,4 +1,4 @@
-A character design sheet of 7 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 10 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -25,9 +25,10 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. 7 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 2 rows = 10 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 10 fill the first 10 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 7) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 10) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
@@ -73,3 +74,24 @@ CHARACTERS
    FACE: long thin old face, long thin beard, gazing up at the stars with glassy eyes, thin nose, mystical aloof expression.
    BUILD: thin old man.
    COLORS: Wu red: crimson, red, orange and gold.
+8. Gongsun Zan  [CAVALRY, Independent]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Gongsun Zan, "White Horse General" in white armor with a white-plumed helmet.
+   LOOK: 30s, lean handsome face, thin mustache, white-plumed helmet.
+   FACE: lean handsome MAN's face with a firm jaw, proud bright eyes, straight nose, thin mustache, confident stern mouth, fair skin, white-plumed helmet.
+   BUILD: tall and lean.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a pure white horse (the White Horse General) —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
+9. Dong Zhuo  [CAVALRY, Independent]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Dong Zhuo, obese tyrant with a thick beard, gaudy black-gold armor over a robe.
+   LOOK: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin.
+   FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer.
+   BUILD: obese, round barrel body, short legs.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a sturdy black horse straining under his weight —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
+10. Ma Teng  [CAVALRY, Independent]
+   DESIGN: Ma Teng, northwestern frontier veteran with a beard, brown fur-trimmed armor.
+   LOOK: 50s, big bushy grey beard, weathered sun-browned skin, fur Qiang hat, warm eyes.
+   FACE: big weathered MAN's face, warm deep-set eyes in sun wrinkles, broad nose, big bushy grey beard, sun-browned skin, fur Qiang hat, fatherly frontier lord.
+   BUILD: big, broad old man.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a shaggy brown Xiliang steppe horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.

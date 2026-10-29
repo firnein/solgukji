@@ -1,4 +1,4 @@
-The SAME 4 Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
+The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
 card art (rank 2 upgrade) for a mobile card game.
 
 REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
@@ -21,27 +21,38 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1024x1536 portrait. 4 characters in 3 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 6 fill the first 6 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Jiang Wei  [STRATEGIST, Shu] —— same person as reference #1
-   IDENTITY: early 20s young man, short helmet with green plume, short sideburns. FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look. BUILD: athletic young soldier.
-   COLORS: Shu green: green, jade and earthy gold.
-   POSE AND SOFT BACKGROUND HINT: the northern campaigns, three-pointed spear raised toward the central plains, wind-swept Shu banners.
-2. Fa Zheng  [SCHOLAR, Shu] —— same person as reference #2
-   IDENTITY: 30s, sharp narrow face, thin mustache, sly narrowed eyes. FACE: narrow pointed face, thin hooked nose, slanted narrow calculating eyes, thin lips curled in a smirk, sallow skin, vengeful sly expression. BUILD: thin.
-   COLORS: Shu green: green, jade and earthy gold.
-   THIS RANK'S LOOK: Fa Zheng, sharp-eyed clever advisor in a green scholar robe and hat, a signal flag in hand.
-   POSE AND SOFT BACKGROUND HINT: on the peak of Mount Dingjun, raising a flag to signal the charge at the perfect moment, the enemy camp below.
-3. Xu Shu  [SCHOLAR, Shu] —— same person as reference #3
+1. Xu Shu  [SCHOLAR, Shu] —— same person as reference #1
    IDENTITY: 30s, lean handsome face, short neat beard, a cloth headband instead of a hat, earnest sad eyes. FACE: lean rugged face with a sword scar on the jaw, deep-set melancholic eyes, straight nose, tight sad mouth, weathered skin, conflicted serious expression. BUILD: lean swordsman build.
    COLORS: Shu green: green, jade and earthy gold.
    POSE AND SOFT BACKGROUND HINT: turning back on horseback as he leaves Liu Bei, pointing toward the Sleeping Dragon hill to recommend Zhuge Liang, autumn road.
-4. Liu Bei  [SCHOLAR, Shu] —— same person as reference #4
+2. Liu Bei  [SCHOLAR, Shu] —— same person as reference #2
    IDENTITY: 30s, very long earlobes, kind gentle eyes, thin mustache and short beard, simple topknot crown. FACE: broad gentle round face, very long earlobes reaching the jaw, soft droopy kind eyes, small mustache, warm humble smile, slightly tired look. BUILD: medium height, gentle stance, long arms.
    COLORS: Shu green: green, jade and earthy gold.
    THIS RANK'S LOOK: Liu Bei, benevolent lord with long earlobes and a gentle smile, layered green robes, his twin swords at his waist, holding a scroll respectfully.
    POSE AND SOFT BACKGROUND HINT: the third visit to the thatched cottage, standing humbly in the snow before the hut, bowing with hands clasped, Guan Yu and Zhang Fei waiting behind.
+3. Xu Huang  [SPEARMAN, Wei] —— same person as reference #3
+   IDENTITY: 40s, long drooping mustache, calm face, helmet with a blue tassel. FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength. BUILD: solid and square.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Xu Huang, calm general with a long mustache, blue armor, long-handled great axe.
+   POSE AND SOFT BACKGROUND HINT: cutting straight through the encirclement trenches at Fancheng, great axe swung, the enemy ring breaking around him.
+4. Dian Wei  [SPEARMAN, Wei] —— same person as reference #4
+   IDENTITY: giant, heavy brow ridge, dark stubble beard, scarred face, small topknot. FACE: massive square ape-like face, heavy brow ridge, small deep-set fierce eyes, wide flat nose, thick lips, dark skin covered in scars, terrifying brute. BUILD: giant, towering, ape-like long arms.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: the reborn E Lai guarding a burning gate, a heavy halberd in each hand, arrows stuck in his armor.
+5. Cao Ren  [SPEARMAN, Wei] —— same person as reference #5
+   IDENTITY: square face covered by a huge full beard, full-face helmet visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Cao Ren, defensive general in heavy blue plate armor, huge rectangular tower shield and spear, immovable stance.
+   POSE AND SOFT BACKGROUND HINT: holding Fancheng to the last on a half-flooded city wall, arrows stuck in his shield, rising water below, refusing to fall back.
+6. Xiahou Dun  [SPEARMAN, Wei] —— same person as reference #6
+   IDENTITY: black eyepatch, wild long black hair, full thick beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Xiahou Dun, fierce one-eyed general, dark blue heavy armor, long spear and round shield.
+   POSE AND SOFT BACKGROUND HINT: the famous moment of pulling the arrow out of his own left eye with a roar, battle dust, his spear still in the other hand.

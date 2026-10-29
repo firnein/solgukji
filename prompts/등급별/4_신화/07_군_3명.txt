@@ -21,21 +21,24 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1024x1536 portrait. 3 characters in 2 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 2 columns x 2 rows = 4 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 3 fill the first 3 slots in order.
+- The last 1 slot (4) stay EMPTY: plain background only, no character, no panel, no banner, no number.
+  Do not enlarge, stretch or re-space the characters to fill the space —— every slot keeps the same size as on a full sheet.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
 - Under each panel a dark green brush-stroke banner with ONLY its number (1 to 3) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Guo Jia  [STRATEGIST, Wei] —— same person as reference #1
-   IDENTITY: pale young face, smug smile, flushed cheeks, loose untied hair. FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius. BUILD: slender and loose-limbed.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-   MOMENT (paint this scene): the prophecy of ten victories, ten glowing scrolls orbiting him, feather fan raised.
-2. Xun Yu  [SCHOLAR, Wei] —— same person as reference #2
-   IDENTITY: elegant 40s, neat full beard, tall formal hat. FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression. BUILD: tall and upright.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-   MOMENT (paint this scene): the Zhang Liang of his age, court tablet raised, a golden imperial palace and glowing scrolls behind.
-3. Cao Cao  [SCHEMER, Wei] —— same person as reference #3
-   IDENTITY: 40s, sharp narrow eyes, short trimmed black beard, official crown hat. FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma. BUILD: short and wiry, but commanding posture.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-   MOMENT (paint this scene): the hero of chaos on a cliff above a burning realm, Yitian sword drawn, cape and crows in the wind.
+1. Hua Tuo  [SORCERER, Independent] —— same person as reference #1
+   IDENTITY: old kindly face, white beard, bald top. FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man. BUILD: small round old man, energetic.
+   COLORS: his own colors as described (independent).
+   MOMENT (paint this scene): the divine physician calmly offering to open Cao Cao's skull to cure his headache, a gleaming scalpel and golden needles in hand, Cao Cao's huge furious shadow looming behind, healing light and swirling herbs.
+2. Chen Gong  [SCHEMER, Independent] —— same person as reference #2
+   IDENTITY: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes. FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression. BUILD: lean and upright.
+   COLORS: his own colors as described (independent).
+   MOMENT (paint this scene): his last stand at the White Gate Tower, bound yet standing tall, refusing to serve Cao Cao, storm clouds and broken banners of Lu Bu behind.
+3. Diaochan  [SCHEMER, Independent] —— same person as reference #3
+   IDENTITY: beautiful, elaborate hair ornaments and flowers. FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty. BUILD: slender woman.
+   COLORS: her own colors as described (independent).
+   MOMENT (paint this scene): the beauty under the moon, praying beneath a full moon that hides behind clouds, petals drifting.

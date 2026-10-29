@@ -1,4 +1,4 @@
-A character design sheet of 8 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 10 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -25,55 +25,68 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. 8 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 2 rows = 10 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 10 fill the first 10 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 8) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 10) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Zuo Ci  [SORCERER, Independent]
+1. Zhang Lu  [SORCERER, Independent]
+   DESIGN: Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
+   LOOK: middle-aged, neat black beard, tall Taoist crown.
+   FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression.
+   BUILD: medium build, calm.
+   COLORS: his own colors as described (independent).
+2. Zhang Bao  [SORCERER, Independent]
+   DESIGN: Zhang Bao, sorcerer brother with a yellow headscarf, holding a sword covered in glowing paper talismans, swirling wind.
+   LOOK: middle-aged, black beard, fierce eyes.
+   FACE: middle-aged fierce face, black beard, burning fanatical eyes, broad nose, shouting mouth.
+   BUILD: sturdy.
+   COLORS: his own colors as described (independent).
+3. Zuo Ci  [SORCERER, Independent]
    DESIGN: Zuo Ci, mystic immortal with a long white beard, floating slightly off the ground, staff in hand, faint glowing aura, mischievous smile.
    LOOK: very old, extremely long white beard, blind in one eye (milky eye), slight limp.
    FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal.
    BUILD: thin very old man, slight limp.
    COLORS: his own colors as described (independent).
-2. Hua Tuo  [SORCERER, Independent]  ★ICONIC: draw the famous traditional look exactly
+4. Hua Tuo  [SORCERER, Independent]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Hua Tuo, kindly old doctor in a pale robe, medicine box on his back, acupuncture needles glowing green in his fingers.
    LOOK: old kindly face, white beard, bald top.
    FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man.
    BUILD: small round old man, energetic.
    COLORS: his own colors as described (independent).
-3. Shen Pei  [SCHEMER, Independent]
+5. Shen Pei  [SCHEMER, Independent]
    DESIGN: Shen Pei, stubborn loyal official in a purple-gray high-collared robe, holding a sealed order scroll, stern.
    LOOK: older, long thin beard, rigid upright posture.
    FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
    BUILD: rigid and thin.
    COLORS: his own colors as described (independent).
-4. Yuan Shu  [SCHEMER, Independent]
+6. Yuan Shu  [SCHEMER, Independent]
    DESIGN: Yuan Shu, self-proclaimed emperor in an imperial yellow robe, clutching the jade imperial seal greedily, sly grin.
    LOOK: plump greedy face, thin mustache, imperial crown.
    FACE: plump greedy face, puffy cheeks, small shifty eyes, fleshy nose, thin mustache, pouting entitled mouth, pampered pale skin.
    BUILD: plump, soft belly.
    COLORS: his own colors as described (independent).
-5. Ju Shou  [SCHEMER, Independent]
+7. Ju Shou  [SCHEMER, Independent]
    DESIGN: Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
    LOOK: gaunt middle-aged, worried brow, short beard.
    FACE: gaunt middle-aged face, worried knitted brow, tired baggy eyes, short beard, anxious mouth.
    BUILD: gaunt.
    COLORS: his own colors as described (independent).
-6. Tian Feng  [SCHEMER, Independent]
+8. Tian Feng  [SCHEMER, Independent]
    DESIGN: Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
    LOOK: stern thick frowning eyebrows, square beard.
    FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
    BUILD: stiff and square.
    COLORS: his own colors as described (independent).
-7. Chen Gong  [SCHEMER, Independent]
+9. Chen Gong  [SCHEMER, Independent]
    DESIGN: Chen Gong, proud loyal strategist in dark purple and black robes, a strategist hat, holding a rolled map of Yanzhou.
    LOOK: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes.
    FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression.
    BUILD: lean and upright.
    COLORS: his own colors as described (independent).
-8. Diaochan  [SCHEMER, Independent]  ★ICONIC: draw the famous traditional look exactly
+10. Diaochan  [SCHEMER, Independent]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    LOOK: beautiful, elaborate hair ornaments and flowers.
    FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.

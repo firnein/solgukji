@@ -1,4 +1,4 @@
-The SAME 4 Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
+The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
 card art (rank 2 upgrade) for a mobile card game.
 
 REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
@@ -21,9 +21,10 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1024x1536 portrait. 4 characters in 3 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 6 fill the first 6 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
@@ -45,3 +46,12 @@ CHARACTERS
    IDENTITY: prominent bony bump on the back of the head and forehead, crooked fierce grin, short black beard. FACE: wide brutish face, protruding bony forehead ridge, small glaring eyes, flat broad nose, crooked sneering mouth, dark tanned skin, rebellious defiant expression. BUILD: broad and heavy, hunched forward.
    COLORS: Shu green: green, jade and earthy gold.
    POSE AND SOFT BACKGROUND HINT: the Ziwu Valley gambit, charging through a narrow mountain gorge with his glaive.
+5. Jiang Wei  [STRATEGIST, Shu] —— same person as reference #5
+   IDENTITY: early 20s young man, short helmet with green plume, short sideburns. FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look. BUILD: athletic young soldier.
+   COLORS: Shu green: green, jade and earthy gold.
+   POSE AND SOFT BACKGROUND HINT: the northern campaigns, three-pointed spear raised toward the central plains, wind-swept Shu banners.
+6. Fa Zheng  [SCHOLAR, Shu] —— same person as reference #6
+   IDENTITY: 30s, sharp narrow face, thin mustache, sly narrowed eyes. FACE: narrow pointed face, thin hooked nose, slanted narrow calculating eyes, thin lips curled in a smirk, sallow skin, vengeful sly expression. BUILD: thin.
+   COLORS: Shu green: green, jade and earthy gold.
+   THIS RANK'S LOOK: Fa Zheng, sharp-eyed clever advisor in a green scholar robe and hat, a signal flag in hand.
+   POSE AND SOFT BACKGROUND HINT: on the peak of Mount Dingjun, raising a flag to signal the charge at the perfect moment, the enemy camp below.

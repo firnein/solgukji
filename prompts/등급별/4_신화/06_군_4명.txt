@@ -21,26 +21,28 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1024x1536 portrait. 4 characters in 2 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 2 columns x 2 rows = 4 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 4 fill the first 4 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
 - Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Zuo Ci  [SORCERER, Independent] —— same person as reference #1
+1. Lü Bu  [CAVALRY, Independent] —— same person as reference #1
+   IDENTITY: tall, sharp cold handsome face, clean-shaven, two very long pheasant feathers on his crown. FACE: tall cold handsome MAN, sharp angular jaw, fierce upturned eyes with a murderous glint, straight proud nose, thin cruel smile, clean-shaven, thick muscular neck, two very long pheasant feathers on his crown, arrogant unrivaled warrior. BUILD: tall, long-limbed, heroic proportions.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding Red Hare, a fiery red-chestnut warhorse with a flame-like mane —— rider and horse together in the scene, the horse charging or rearing.
+   MOMENT (paint this scene): fighting the three sworn brothers alone at Hulao Pass, Red Hare rearing, sky-piercing halberd clashing against a glaive, a serpent spear and twin swords, aura of the unrivaled warrior.
+2. Sima Hui  [SCHOLAR, Independent] —— same person as reference #2
+   IDENTITY: elderly, long silky white beard, bright clear eyes, gentle knowing smile, simple hermit cap. FACE: long serene face, bright clear eyes in kind wrinkles, small nose, gentle knowing smile, smooth old skin, saintly calm hermit. BUILD: thin old hermit, relaxed.
+   COLORS: white, pale blue and silver (hermit).
+   MOMENT (paint this scene): in his bamboo grove beside a still pond that reflects the sky like a mirror, faint images of a sleeping dragon and a young phoenix rising from the water.
+3. Zhang Jiao  [SORCERER, Independent] —— same person as reference #3
+   IDENTITY: gaunt old face, long grey beard. FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression. BUILD: skeletal and gaunt.
+   COLORS: his own colors as described (independent).
+   MOMENT (paint this scene): the apocalypse of the Yellow Turbans: the whole sky turned yellow, a giant storm vortex above him, lightning striking, his eyes and talismans blazing, the plain yellow banners of millions below.
+4. Zuo Ci  [SORCERER, Independent] —— same person as reference #4
    IDENTITY: very old, extremely long white beard, blind in one eye (milky eye), slight limp. FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal. BUILD: thin very old man, slight limp.
    COLORS: his own colors as described (independent).
    THIS RANK'S LOOK: Zuo Ci as the transcendent Master Wujiao, flowing silver-white Taoist robes, a glowing book of the Dunjia arts floating before him.
    MOMENT (paint this scene): standing among clouds as many illusory doubles of himself scatter across the sky, white cranes circling, the Dunjia book shining.
-2. Hua Tuo  [SORCERER, Independent] —— same person as reference #2
-   IDENTITY: old kindly face, white beard, bald top. FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man. BUILD: small round old man, energetic.
-   COLORS: his own colors as described (independent).
-   MOMENT (paint this scene): the divine physician calmly offering to open Cao Cao's skull to cure his headache, a gleaming scalpel and golden needles in hand, Cao Cao's huge furious shadow looming behind, healing light and swirling herbs.
-3. Chen Gong  [SCHEMER, Independent] —— same person as reference #3
-   IDENTITY: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes. FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression. BUILD: lean and upright.
-   COLORS: his own colors as described (independent).
-   MOMENT (paint this scene): his last stand at the White Gate Tower, bound yet standing tall, refusing to serve Cao Cao, storm clouds and broken banners of Lu Bu behind.
-4. Diaochan  [SCHEMER, Independent] —— same person as reference #4
-   IDENTITY: beautiful, elaborate hair ornaments and flowers. FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty. BUILD: slender woman.
-   COLORS: her own colors as described (independent).
-   MOMENT (paint this scene): the beauty under the moon, praying beneath a full moon that hides behind clouds, petals drifting.

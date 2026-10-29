@@ -1,4 +1,4 @@
-A character design sheet of 7 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 10 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -25,52 +25,71 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. 7 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 2 rows = 10 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 10 fill the first 10 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 7) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 10) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Zhou Tai  [SPEARMAN, Wu]
+1. Chen Qun  [SCHOLAR, Wei]
+   DESIGN: Chen Qun, neat bureaucrat official in a scholar's hat, holding a thick law book and a brush.
+   LOOK: neat thin goatee, squinting eyes, official hat.
+   FACE: neat narrow face, squinting bureaucratic eyes, neat thin goatee, small mouth, pale indoor skin, meticulous official.
+   BUILD: neat and thin.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Jia Xu  [SCHEMER, Wei]
+   DESIGN: Jia Xu, old crafty schemer with a thin mustache and half-closed eyes, dark hooded robe, holding a small poison vial and a scroll.
+   LOOK: old, hunched, thin long mustache, half-closed eyes, wrinkled.
+   FACE: wrinkled shrewd old face, half-closed lazy eyes, droopy thin mustache, small mouth, sallow skin, unreadable bored expression.
+   BUILD: hunched old man.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+3. Deng Ai  [SCHEMER, Wei]
+   DESIGN: Deng Ai, rugged plotter wrapped in a felt blanket cloak for a secret mountain crossing, holding a rolled route map and a coil of rope, determined.
+   LOOK: rugged square jaw, stubble, windburned cheeks.
+   FACE: rugged square jaw, windburned red cheeks, squinting stubborn eyes, crooked nose, stubble, slight stutter frown, hardy peasant general.
+   BUILD: stocky and rugged.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+4. Sima Yi  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Sima Yi, patient schemer with a thin long beard, dark purple-navy hooded robe, holding a black go stone between two fingers, sly sideways glance.
+   LOOK: gaunt face, thin long beard, wolf-like glance over his shoulder.
+   FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking back over the shoulder, long thin nose, thin lips in a faint cunning smile, pale skin, scheming patience.
+   BUILD: tall and gaunt, long neck.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+5. Cheng Yu  [SCHEMER, Wei]
+   DESIGN: Cheng Yu, tall stern old advisor with a long white beard, dark robe, holding an ambush map marked with ten flags.
+   LOOK: very tall old man, long white beard, stern furrowed brow.
+   FACE: very long stern face, deep furrowed brow, piercing narrow eyes, long nose, long white beard, cold grim mouth, harsh old official.
+   BUILD: very tall and thin old man.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+6. Cao Cao  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Cao Cao, the classic ambitious warlord: sharp eyes, short black beard, black-and-navy robe with gold trim and a short cape, official crown hat, holding his famous straight sword (Yitian sword) with confidence. Schemer hint only: a sly smirk and a sealed scroll tucked in his belt.
+   LOOK: 40s, sharp narrow eyes, short trimmed black beard, official crown hat.
+   FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma.
+   BUILD: short and wiry, but commanding posture.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+7. Zhou Tai  [SPEARMAN, Wu]
    DESIGN: Zhou Tai, stoic scar-covered bodyguard with bandages, red armor, on foot, long spear braced forward and a battered shield, unbreakable stance.
    LOOK: cropped hair, many scars and bandages, stoic expressionless face.
    FACE: expressionless stone-like face, cropped hair, many crisscrossing scars and bandages, dull steady eyes, flat nose, closed mouth, stoic guardian.
    BUILD: solid, broad, covered in bandages.
    COLORS: Wu red: crimson, red, orange and gold.
-2. Sun Ce  [CAVALRY, Wu]  ★ICONIC: draw the famous traditional look exactly
+8. Sun Ce  [CAVALRY, Wu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Sun Ce, confident young conqueror with a red headband and big grin, red armor.
    LOOK: early 20s, wild spiky reddish-brown hair, tanned skin, huge toothy grin, red headband.
    FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror.
    BUILD: athletic, broad shoulders.
    COLORS: Wu red: crimson, red, orange and gold.
    MOUNTED: riding a chestnut horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
-3. Xu Sheng  [ARCHER, Wu]
+9. Xu Sheng  [ARCHER, Wu]
    DESIGN: Xu Sheng, steady general in red armor, aiming a longbow, quiver on back.
    LOOK: middle-aged, neat mustache, red-plumed helmet.
    FACE: middle-aged steady face, neat mustache, calm watchful eyes, straight nose, composed mouth, reliable officer.
    BUILD: steady medium build.
    COLORS: Wu red: crimson, red, orange and gold.
-4. Sun Quan  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
+10. Sun Quan  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Sun Quan, the classic young Wu emperor: striking green-blue eyes and a reddish-purple beard, regal red and gold robe, holding a sword, dignified. Archer hint only: a bow slung on his back and a small quiver.
    LOOK: green-blue eyes, reddish-purple beard, square jaw.
    FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler.
    BUILD: broad and sturdy.
-   COLORS: Wu red: crimson, red, orange and gold.
-5. Cheng Pu  [ARCHER, Wu]
-   DESIGN: Cheng Pu, old veteran with a long white beard, red armor, holding a longbow with an arrow nocked, quiver on back.
-   LOOK: old, long white beard, upright posture.
-   FACE: long dignified old face, calm wise eyes, straight nose, long white beard, upright stern mouth, weathered skin, veteran elder.
-   BUILD: tall old man, upright.
-   COLORS: Wu red: crimson, red, orange and gold.
-6. Taishi Ci  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Taishi Ci, the classic brave of Donglai: red armor, a short halberd in each hand (his famous twin halberds). Archer hint only: a big bow and quiver on his back.
-   LOOK: 30s, long tied-back hair, strong jaw, short beard.
-   FACE: strong square jaw, bright honest eyes, straight thick brows, straight nose, short beard, tanned skin, heroic loyal expression.
-   BUILD: tall and athletic.
-   COLORS: Wu red: crimson, red, orange and gold.
-7. Huang Gai  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Huang Gai, the classic old Red Cliffs veteran: scarred face, red armor, holding his famous iron whip, a burning torch / fire motif behind him. Archer hint only: a bow on his back with fire arrows in the quiver.
-   LOOK: old, bald on top with white side hair, scarred face.
-   FACE: battered old face, scarred and bruised, bald top with white side hair, deep wrinkles, determined squinting eyes, broad nose, gritted teeth.
-   BUILD: stocky old man, battle-worn.
    COLORS: Wu red: crimson, red, orange and gold.

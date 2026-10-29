@@ -1,34 +1,26 @@
 불멸 —— 이름 순서 = 이름표 번호 순서. 시트를 뽑은 뒤 D:\Sol 에서 자르기, 다 자르면 solgukji_godot 에서 Godot --import 한 번.
 위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).
 
-[01_촉_4명.txt]  1 수엄칠군 관우 · 2 오호대장 마초 · 3 노장 황충 · 4 자오곡 위연
-  참조:   python -I tools/scripts/make_ref_sheet.py "관우,마초,황충,위연" prompts/등급별/3_불멸/참조_01.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_불멸,마초_불멸,황충_불멸,위연_불멸" solgukji_godot/assets/portraits
+[01_촉_6명.txt]  1 수엄칠군 관우 · 2 오호대장 마초 · 3 노장 황충 · 4 자오곡 위연 · 5 구벌중원 강유 · 6 정군산 법정
+  참조:   python -I tools/scripts/make_ref_sheet.py "관우,마초,황충,위연,강유,법정" prompts/등급별/3_불멸/참조_01.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_불멸,마초_불멸,황충_불멸,위연_불멸,강유_불멸,법정_불멸" solgukji_godot/assets/portraits
 
-[02_촉_4명.txt]  1 구벌중원 강유 · 2 정군산 법정 · 3 주마천제갈 서서 · 4 삼고초려 유비
-  참조:   python -I tools/scripts/make_ref_sheet.py "강유,법정,서서,유비" prompts/등급별/3_불멸/참조_02.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "강유_불멸,법정_불멸,서서_불멸,유비_불멸" solgukji_godot/assets/portraits
+[02_촉_위_6명.txt]  1 주마천제갈 서서 · 2 삼고초려 유비 · 3 주아부 서황 · 4 악래 전위 · 5 번성수장 조인 · 6 발시담정 하후돈
+  참조:   python -I tools/scripts/make_ref_sheet.py "서서,유비,서황,전위,조인,하후돈" prompts/등급별/3_불멸/참조_02.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "서서_불멸,유비_불멸,서황_불멸,전위_불멸,조인_불멸,하후돈_불멸" solgukji_godot/assets/portraits
 
-[03_위_6명.txt]  1 주아부 서황 · 2 악래 전위 · 3 번성수장 조인 · 4 발시담정 하후돈 · 5 호치 허저 · 6 오자제일 장료
-  참조:   python -I tools/scripts/make_ref_sheet.py "서황,전위,조인,하후돈,허저,장료" prompts/등급별/3_불멸/참조_03.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "서황_불멸,전위_불멸,조인_불멸,하후돈_불멸,허저_불멸,장료_불멸" solgukji_godot/assets/portraits
+[03_위_6명.txt]  1 호치 허저 · 2 오자제일 장료 · 3 묘변 장합 · 4 신속 하후연 · 5 천기 곽가 · 6 순령군 순욱
+  참조:   python -I tools/scripts/make_ref_sheet.py "허저,장료,장합,하후연,곽가,순욱" prompts/등급별/3_불멸/참조_03.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "허저_불멸,장료_불멸,장합_불멸,하후연_불멸,곽가_불멸,순욱_불멸" solgukji_godot/assets/portraits
 
-[04_위_6명.txt]  1 묘변 장합 · 2 신속 하후연 · 3 천기 곽가 · 4 순령군 순욱 · 5 독사 가후 · 6 낭고 사마의
-  참조:   python -I tools/scripts/make_ref_sheet.py "장합,하후연,곽가,순욱,가후,사마의" prompts/등급별/3_불멸/참조_04.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "장합_불멸,하후연_불멸,곽가_불멸,순욱_불멸,가후_불멸,사마의_불멸" solgukji_godot/assets/portraits
+[04_위_오_6명.txt]  1 독사 가후 · 2 낭고 사마의 · 3 벽안아 손권 · 4 동래맹호 태사자 · 5 금범적 감녕 · 6 오하아몽 여몽
+  참조:   python -I tools/scripts/make_ref_sheet.py "가후,사마의,손권,태사자,감녕,여몽" prompts/등급별/3_불멸/참조_04.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "가후_불멸,사마의_불멸,손권_불멸,태사자_불멸,감녕_불멸,여몽_불멸" solgukji_godot/assets/portraits
 
-[05_오_4명.txt]  1 벽안아 손권 · 2 동래맹호 태사자 · 3 금범적 감녕 · 4 오하아몽 여몽
-  참조:   python -I tools/scripts/make_ref_sheet.py "손권,태사자,감녕,여몽" prompts/등급별/3_불멸/참조_05.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "손권_불멸,태사자_불멸,감녕_불멸,여몽_불멸" solgukji_godot/assets/portraits
+[05_오_군_6명.txt]  1 이릉대첩 육손 · 2 미주랑 주유 · 3 강동주석 노숙 · 4 폭군 동탁 · 5 하북패자 원소 · 6 천공장군 장각
+  참조:   python -I tools/scripts/make_ref_sheet.py "육손,주유,노숙,동탁,원소,장각" prompts/등급별/3_불멸/참조_05.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "육손_불멸,주유_불멸,노숙_불멸,동탁_불멸,원소_불멸,장각_불멸" solgukji_godot/assets/portraits
 
-[06_오_3명.txt]  1 이릉대첩 육손 · 2 미주랑 주유 · 3 강동주석 노숙
-  참조:   python -I tools/scripts/make_ref_sheet.py "육손,주유,노숙" prompts/등급별/3_불멸/참조_06.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "육손_불멸,주유_불멸,노숙_불멸" solgukji_godot/assets/portraits
-
-[07_군_4명.txt]  1 폭군 동탁 · 2 하북패자 원소 · 3 천공장군 장각 · 4 오두미교주 장로
-  참조:   python -I tools/scripts/make_ref_sheet.py "동탁,원소,장각,장로" prompts/등급별/3_불멸/참조_07.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "동탁_불멸,원소_불멸,장각_불멸,장로_불멸" solgukji_godot/assets/portraits
-
-[08_군_3명.txt]  1 희조선인 좌자 · 2 괄골요독 화타 · 3 연환미계 초선
-  참조:   python -I tools/scripts/make_ref_sheet.py "좌자,화타,초선" prompts/등급별/3_불멸/참조_08.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "좌자_불멸,화타_불멸,초선_불멸" solgukji_godot/assets/portraits
+[06_군_4명.txt]  1 오두미교주 장로 · 2 희조선인 좌자 · 3 괄골요독 화타 · 4 연환미계 초선
+  참조:   python -I tools/scripts/make_ref_sheet.py "장로,좌자,화타,초선" prompts/등급별/3_불멸/참조_06.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장로_불멸,좌자_불멸,화타_불멸,초선_불멸" solgukji_godot/assets/portraits

@@ -1,4 +1,4 @@
-The SAME 7 Three Kingdoms generals as numbered in the attached reference image, redrawn one level fancier for a
+The SAME 12 Three Kingdoms generals as numbered in the attached reference image, redrawn one level fancier for a
 mobile card game's higher-rank card art (rank 1 upgrade).
 
 REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
@@ -22,37 +22,62 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1024x1536 portrait. 7 characters in 4 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 4 columns x 3 rows = 12 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 12 fill the first 12 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 7) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 12) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Lü Meng  [ROGUE, Wu] —— same person as reference #1
+1. Yan Baihu  [ROGUE, Wu] —— same person as reference #1
+   IDENTITY: scruffy beard under a white tiger pelt hood. FACE: rough bandit face, scruffy beard, small greedy eyes, broken nose, missing teeth, dirty tanned skin, white tiger pelt hood. BUILD: burly, slightly fat.
+   COLORS: Wu red: crimson, red, orange and gold.
+   POSE (no scenery, only the pose and expression of): the self-styled Virtuous King of East Wu on a bandit throne covered in a tiger pelt.
+2. Lü Meng  [ROGUE, Wu] —— same person as reference #2
    IDENTITY: stocky, short beard, plain white robe hood. FACE: square stocky face, thick neck, heavy brows, small sharp eyes, broad nose, short scruffy beard, a scholar's ink stain on his cheek, focused cunning look. BUILD: stocky, thick neck.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the governor of Nan commandery standing on captured city walls, saber lowered.
-2. Lu Xun  [STRATEGIST, Wu] —— same person as reference #2
+3. Lu Xun  [STRATEGIST, Wu] —— same person as reference #3
    IDENTITY: youthful man, neat topknot, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, quietly confident scholar-general. BUILD: slim but broad-shouldered.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the senior general calmly commanding a camp, feather fan raised, soldiers in formation.
-3. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #3
+4. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #4
    IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, neat thin mustache, pale skin, noble masculine bearing. BUILD: tall and graceful.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the grand commander inspecting the navy from his flagship, sword at his side, sails behind.
-4. Lu Su  [SCHOLAR, Wu] —— same person as reference #4
+5. Lu Su  [SCHOLAR, Wu] —— same person as reference #5
    IDENTITY: round chubby kind face, short beard. FACE: round chubby face, warm small smiling eyes, round nose, broad friendly smile, plump cheeks, soft skin, honest good-natured look. BUILD: chubby and round.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the commander at the single-sword meeting, calm and smiling, a map in hand.
-5. Da Qiao  [SCHOLAR, Wu] —— same person as reference #5
+6. Da Qiao  [SCHOLAR, Wu] —— same person as reference #6
    IDENTITY: elegant mature face, hair in an updo with many hairpins. FACE: mature graceful oval face, gentle almond eyes, small nose, soft lips, elegant updo, calm elder-sister beauty. BUILD: slender graceful woman.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): one of the two Qiao sisters of Jiangdong by the river, a poem scroll, her sister's shadow nearby.
-6. Xiao Qiao  [SCHOLAR, Wu] —— same person as reference #6
+7. Xiao Qiao  [SCHOLAR, Wu] —— same person as reference #7
    IDENTITY: younger, twin hair buns, bright playful eyes. FACE: small round youthful face, bright playful big eyes, button nose, cheerful open smile, twin hair buns, lively younger-sister beauty. BUILD: petite young woman.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the beauty who topples states playing a zither, plum petals.
-7. Zhang Zhao  [SCHOLAR, Wu] —— same person as reference #7
+8. Zhang Zhao  [SCHOLAR, Wu] —— same person as reference #8
    IDENTITY: 60s, stern long face, long grey beard, deep frown lines, upright posture. FACE: long stern old face, deep frown lines, disapproving narrow eyes, long nose, long grey beard, tight lecturing mouth. BUILD: thin old man, very upright.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the senior civil minister of Jiangdong addressing the court, a pile of memorials beside him.
+9. Gongsun Zan  [CAVALRY, Independent] —— same person as reference #9
+   IDENTITY: 30s, lean handsome face, thin mustache, white-plumed helmet. FACE: lean handsome MAN's face with a firm jaw, proud bright eyes, straight nose, thin mustache, confident stern mouth, fair skin, white-plumed helmet. BUILD: tall and lean.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a pure white horse (the White Horse General) —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): the White Horse General leading his white horse volunteers.
+10. Dong Zhuo  [CAVALRY, Independent] —— same person as reference #10
+   IDENTITY: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin. FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer. BUILD: obese, round barrel body, short legs.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a sturdy black horse straining under his weight —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): Chancellor Dong Zhuo entering Luoyang, arrogant, gaudy banners.
+11. Ma Teng  [CAVALRY, Independent] —— same person as reference #11
+   IDENTITY: 50s, big bushy grey beard, weathered sun-browned skin, fur Qiang hat, warm eyes. FACE: big weathered MAN's face, warm deep-set eyes in sun wrinkles, broad nose, big bushy grey beard, sun-browned skin, fur Qiang hat, fatherly frontier lord. BUILD: big, broad old man.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a shaggy brown Xiliang steppe horse —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): the hero of Xiliang leading Qiang horsemen across the steppe.
+12. Yuan Shao  [CAVALRY, Independent] —— same person as reference #12
+   IDENTITY: 40s, aristocratic long face, long neat mustache and pointed goatee, tall noble helmet-crown, haughty raised chin. FACE: aristocratic long face, haughty raised chin, heavy-lidded condescending eyes, long straight nose, pursed proud lips, pale pampered skin. BUILD: tall and stately.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a white horse in gold barding —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   POSE (no scenery, only the pose and expression of): heir of four generations of the highest ministers, noble clan banners behind.

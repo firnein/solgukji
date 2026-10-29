@@ -21,34 +21,34 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1024x1536 portrait. 6 characters in 3 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 6 fill the first 6 slots in order.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
 - Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Zhang He  [CAVALRY, Wei] —— same person as reference #1
-   IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-   MOUNTED: riding a dapple-grey horse —— rider waist-up, the horse's armored head, neck and mane in front of him.
-   POSE AND SOFT BACKGROUND HINT: the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.
-2. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #2
-   IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-   POSE AND SOFT BACKGROUND HINT: lightning-fast archer, loosing three arrows at once, speed streaks around him.
-3. Guo Jia  [STRATEGIST, Wei] —— same person as reference #3
-   IDENTITY: pale young face, smug smile, flushed cheeks, loose untied hair. FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius. BUILD: slender and loose-limbed.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-   POSE AND SOFT BACKGROUND HINT: reading the secrets of heaven, feather fan raised, glowing constellations above him.
-4. Xun Yu  [SCHOLAR, Wei] —— same person as reference #4
-   IDENTITY: elegant 40s, neat full beard, tall formal hat. FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression. BUILD: tall and upright.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-   POSE AND SOFT BACKGROUND HINT: Lord Xun of the fragrant incense holding the EMPTY food box sent by Cao Cao, understanding its meaning, sorrowful but dignified, incense smoke curling into fading flower shapes.
-5. Jia Xu  [SCHEMER, Wei] —— same person as reference #5
+1. Jia Xu  [SCHEMER, Wei] —— same person as reference #1
    IDENTITY: old, hunched, thin long mustache, half-closed eyes, wrinkled. FACE: wrinkled shrewd old face, half-closed lazy eyes, droopy thin mustache, small mouth, sallow skin, unreadable bored expression. BUILD: hunched old man.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: the venomous schemer with a poison vial, a small snake coiled around his arm.
-6. Sima Yi  [SCHEMER, Wei] —— same person as reference #6
+2. Sima Yi  [SCHEMER, Wei] —— same person as reference #2
    IDENTITY: gaunt face, thin long beard, wolf-like glance over his shoulder. FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking back over the shoulder, long thin nose, thin lips in a faint cunning smile, pale skin, scheming patience. BUILD: tall and gaunt, long neck.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: the wolf's glance — looking back over his shoulder with glowing eyes, a wolf shadow behind him.
+3. Sun Quan  [ARCHER, Wu] —— same person as reference #3
+   IDENTITY: green-blue eyes, reddish-purple beard, square jaw. FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler. BUILD: broad and sturdy.
+   COLORS: Wu red: crimson, red, orange and gold.
+   POSE AND SOFT BACKGROUND HINT: the green-eyed young lord on a warship prow, sword raised to command the fleet, bow on his back.
+4. Taishi Ci  [ARCHER, Wu] —— same person as reference #4
+   IDENTITY: 30s, long tied-back hair, strong jaw, short beard. FACE: strong square jaw, bright honest eyes, straight thick brows, straight nose, short beard, tanned skin, heroic loyal expression. BUILD: tall and athletic.
+   COLORS: Wu red: crimson, red, orange and gold.
+   POSE AND SOFT BACKGROUND HINT: the duel with Sun Ce at Shenting, grappling and having snatched Sun Ce's helmet, a short halberd in the other hand, tiger aura.
+5. Gan Ning  [ROGUE, Wu] —— same person as reference #5
+   IDENTITY: feathered headband, tattoos on arms and neck, gold earrings, wild grin. FACE: wide grinning face, big toothy grin, wild bright eyes, broken flat nose, sun-tanned skin, tattooed neck, reckless pirate expression. BUILD: lean and muscular, tattooed arms.
+   COLORS: Wu red: crimson, red, orange and gold.
+   POSE AND SOFT BACKGROUND HINT: the brocade-sail pirate on a ship with brocade sails, bells ringing, leaping with a curved sword.
+6. Lü Meng  [ROGUE, Wu] —— same person as reference #6
+   IDENTITY: stocky, short beard, plain white robe hood. FACE: square stocky face, thick neck, heavy brows, small sharp eyes, broad nose, short scruffy beard, a scholar's ink stain on his cheek, focused cunning look. BUILD: stocky, thick neck.
+   COLORS: Wu red: crimson, red, orange and gold.
+   POSE AND SOFT BACKGROUND HINT: the scholar-general reborn, a book in one hand and a saber in the other, pages flying around him.

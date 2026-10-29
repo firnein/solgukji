@@ -139,7 +139,8 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face."""
 
 LAYOUT = """LAYOUT:
-- Image {size}. {n} characters in {cols} columns x {rows} rows (a short last row is centered), reading order left to right, top to bottom.
+- Image {size}. ALWAYS a fixed grid of {cols} columns x {rows} rows = {slots} equal slots, reading order left to right, top to bottom.
+- Characters 1 to {n} fill the first {n} slots in order.{empty}
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
 - Under each panel a dark green brush-stroke banner with ONLY its number (1 to {n}) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text."""
@@ -280,17 +281,19 @@ def tier_entry(i, x, card, tier):
 
 
 def split(items, per):
-    groups = -(-len(items) // per)
-    b = [round(len(items) * g / groups) for g in range(groups + 1)]
-    return [items[b[g]:b[g + 1]] for g in range(groups)]
+    """앞에서부터 per 명씩 꽉 채운다 —— 모자라는 마지막 장은 빈칸을 남긴다 (칸 수를 줄이면 비율이 깨진다)."""
+    return [items[i:i + per] for i in range(0, len(items), per)]
 
 
 def layout(n, per, portrait):
     cols, rows = GRID[per]
-    if n <= cols * (rows - 1):
-        rows = -(-n // cols)
     size = "1024x1536 portrait" if portrait else "1536x1024 landscape"
-    return LAYOUT.format(size=size, n=n, cols=cols, rows=rows)
+    slots = cols * rows
+    empty = "" if n == slots else (
+        "\n- The last %d slot%s (%s) stay EMPTY: plain background only, no character, no panel, no banner, no number.\n"
+        "  Do not enlarge, stretch or re-space the characters to fill the space —— every slot keeps the same size as on a full sheet."
+        % (slots - n, "s" if slots - n > 1 else "", ", ".join(str(k) for k in range(n + 1, slots + 1))))
+    return LAYOUT.format(size=size, n=n, cols=cols, rows=rows, slots=slots, empty=empty)
 
 
 def reset(d):
@@ -309,26 +312,28 @@ def write_sheets(key, folder, groups, label):
         howto.append("위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).")
     howto.append("")
     no, sizes = 0, []
-    for fac, items in groups:
-        for chunk in split(items, per):
-            no += 1
-            n = len(chunk)
-            if key == "base":
-                text = BASE_COMMON.format(n=n, gender=GENDER, layout=layout(n, per, False))
-                text += "\n".join(base_entry(j + 1, INFO[p]) for j, (p, _) in enumerate(chunk)) + "\n"
-            else:
-                text = TIER_COMMON[key].format(n=n, gender=GENDER, layout=layout(n, per, True))
-                text += "\n".join(tier_entry(j + 1, INFO[p], c, key) for j, (p, c) in enumerate(chunk)) + "\n"
-            fname = "%02d_%s_%d명.txt" % (no, fac, n)
-            open(os.path.join(dst, fname), "w", encoding="utf-8", newline="\n").write(text)
-            sizes.append(len(text))
-            suf = SUFFIX.get(key, "")
-            names = ",".join(p + suf for p, _ in chunk)
-            howto.append("[%s]  %s" % (fname, " · ".join("%d %s" % (j + 1, c[1]) for j, (p, c) in enumerate(chunk))))
-            if key != "base":
-                howto.append('  참조:   python -I tools/scripts/make_ref_sheet.py "%s" %s/참조_%02d.png' % (",".join(p for p, _ in chunk), dst.replace("\\", "/"), no))
-            howto.append('  자르기: python -I tools/scripts/slice_panels.py 시트.png "%s" solgukji_godot/assets/portraits' % names)
-            howto.append("")
+    # 세력 순서대로 이어 붙여 꽉 채운다 —— 세력 경계에서 끊으면 1~2명짜리 시트가 생긴다
+    allp = [pc for _, items in groups for pc in items]
+    for chunk in split(allp, per):
+        fac = "_".join(dict.fromkeys(c[4] for _, c in chunk))
+        no += 1
+        n = len(chunk)
+        if key == "base":
+            text = BASE_COMMON.format(n=n, gender=GENDER, layout=layout(n, per, False))
+            text += "\n".join(base_entry(j + 1, INFO[p]) for j, (p, _) in enumerate(chunk)) + "\n"
+        else:
+            text = TIER_COMMON[key].format(n=n, gender=GENDER, layout=layout(n, per, True))
+            text += "\n".join(tier_entry(j + 1, INFO[p], c, key) for j, (p, c) in enumerate(chunk)) + "\n"
+        fname = "%02d_%s_%d명.txt" % (no, fac, n)
+        open(os.path.join(dst, fname), "w", encoding="utf-8", newline="\n").write(text)
+        sizes.append(len(text))
+        suf = SUFFIX.get(key, "")
+        names = ",".join(p + suf for p, _ in chunk)
+        howto.append("[%s]  %s" % (fname, " · ".join("%d %s" % (j + 1, c[1]) for j, (p, c) in enumerate(chunk))))
+        if key != "base":
+            howto.append('  참조:   python -I tools/scripts/make_ref_sheet.py "%s" %s/참조_%02d.png' % (",".join(p for p, _ in chunk), dst.replace("\\", "/"), no))
+        howto.append('  자르기: python -I tools/scripts/slice_panels.py 시트.png "%s" solgukji_godot/assets/portraits' % names)
+        howto.append("")
     open(os.path.join(dst, "자르기_이름.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(howto))
     print(dst, no, "시트,", sum(len(g[1]) for g in groups), "명, 글자 수 %d ~ %d" % (min(sizes), max(sizes)))
 
