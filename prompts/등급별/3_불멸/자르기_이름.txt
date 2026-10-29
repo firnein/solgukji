@@ -1,4 +1,6 @@
-불멸 —— 이름 순서 = 이름표 번호 순서. 시트를 뽑은 뒤 D:\Sol 에서 자르기, 다 자르면 solgukji_godot 에서 Godot --import 한 번.
+불멸 —— 이름 순서 = 이름표 번호 순서. 시트는 references/등급별_시트/3_불멸/<txt 와 같은 이름>.png 로 두고 D:\Sol 에서
+  python -I tools/scripts/slice_tier.py 3_불멸   → 잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_tier.py 3_불멸 --apply
+  다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)
 위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).
 
 [01_촉_6명.txt]  1 수엄칠군 관우 · 2 오호대장 마초 · 3 노장 황충 · 4 자오곡 위연 · 5 구벌중원 강유 · 6 정군산 법정

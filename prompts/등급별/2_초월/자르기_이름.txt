@@ -1,4 +1,6 @@
-초월 —— 이름 순서 = 이름표 번호 순서. 시트를 뽑은 뒤 D:\Sol 에서 자르기, 다 자르면 solgukji_godot 에서 Godot --import 한 번.
+초월 —— 이름 순서 = 이름표 번호 순서. 시트는 references/등급별_시트/2_초월/<txt 와 같은 이름>.png 로 두고 D:\Sol 에서
+  python -I tools/scripts/slice_tier.py 2_초월   → 잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_tier.py 2_초월 --apply
+  다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)
 위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).
 
 [01_촉_6명.txt]  1 한수정후 관우 · 2 정서대장 위연 · 3 천수기린 강유 · 4 백미 마량 · 5 연환계 방통 · 6 상서령 법정

@@ -371,7 +371,9 @@ def write_sheets(key, folder, groups, label):
     dst = os.path.join(OUT, folder)
     reset(dst)
     per = PER[key]
-    howto = ["%s —— 이름 순서 = 이름표 번호 순서. 시트를 뽑은 뒤 D:\\Sol 에서 자르기, 다 자르면 solgukji_godot 에서 Godot --import 한 번." % label]
+    howto = ["%s —— 이름 순서 = 이름표 번호 순서. 시트는 references/등급별_시트/%s/<txt 와 같은 이름>.png 로 두고 D:\\Sol 에서" % (label, folder),
+             "  python -I tools/scripts/slice_tier.py %s   → 잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_tier.py %s --apply" % (folder, folder),
+             "  다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)"]
     if key != "base":
         howto.append("위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).")
     howto.append("")
@@ -396,7 +398,8 @@ def write_sheets(key, folder, groups, label):
         howto.append("[%s]  %s" % (fname, " · ".join("%d %s" % (j + 1, c[1]) for j, (p, c) in enumerate(chunk))))
         if key != "base":
             howto.append('  참조:   python -I tools/scripts/make_ref_sheet.py "%s" %s/참조_%02d.png' % (",".join(p for p, _ in chunk), dst.replace("\\", "/"), no))
-        howto.append('  자르기: python -I tools/scripts/slice_panels.py 시트.png "%s" solgukji_godot/assets/portraits' % names)
+        tool = "slice_sheet.py" if key == "base" else "slice_panels.py"     # 기본은 인물만 오려 내고, 위 등급은 패널째
+        howto.append('  자르기: python -I tools/scripts/%s 시트.png "%s" solgukji_godot/assets/portraits' % (tool, names))
         howto.append("")
     open(os.path.join(dst, "자르기_이름.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(howto))
     print(dst, no, "시트,", sum(len(g[1]) for g in groups), "명, 글자 수 %d ~ %d" % (min(sizes), max(sizes)))
