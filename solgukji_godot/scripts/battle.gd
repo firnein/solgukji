@@ -23,10 +23,10 @@ static var rout_hp := 0.3          # 병력이 이 비율 아래면 턴 끝마�
 static var rout_hp_slope := 1.5    # (rout_hp - 남은 비율) × 이만큼 —— 10% 남으면 30%
 static var ults_enabled := true     # 고유기 켜기 (밸런스 비교용으로 끌 수 있다)
 static var passives_enabled := true  # 특기(개인·단체) 켜기
-static var fire_enabled := true      # 화공 속성 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
-static var water_enabled := true     # 수공 속성 켜기 (수몰 이감 규칙 포함)
-static var dash_enabled := true      # 돌파 속성 켜기 (와해)
-static var aim_enabled := true       # 표적 속성 켜기 (표식)
+static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
+static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
+static var dash_enabled := true      # 돌파 계열 켜기 (와해)
+static var aim_enabled := true       # 표적 계열 켜기 (표식)
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
@@ -230,7 +230,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	return u
 
 
-## 특기 켜짐 —— 속성(화공) 특기는 fire_enabled, 나머지는 passives_enabled
+## 특기 켜짐 —— 계열(화공) 특기는 fire_enabled, 나머지는 passives_enabled
 func _trait_on(t: Dictionary) -> bool:
 	match t.attr:
 		"화공": return fire_enabled

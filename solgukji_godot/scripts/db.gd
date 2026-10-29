@@ -103,7 +103,7 @@ func _reskill() -> void:
 		if c.tier < 4:
 			c.sk = null
 			continue
-		# 인물에게 지정된 스킬 (속성 인물의 속성 스킬) —— 없으면 남은 병종 스킬을 돌려 쓴다
+		# 인물에게 지정된 스킬 (계열 인물의 계열 스킬) —— 없으면 남은 병종 스킬을 돌려 쓴다
 		var want: String = PSV.skill.get(person(k), {}).get(c.tag, "")
 		var pool: Array = D.SKILLPOOL[c.tag]
 		var i := -1
@@ -418,7 +418,7 @@ func mods_text(m: Dictionary, scale := 1.0) -> String:
 		if k == "first":
 			out.append("선공")
 			continue
-		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break"]:      # 속성 마무리 —— 설명으로 충분
+		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break"]:      # 계열 마무리 —— 설명으로 충분
 			continue
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
@@ -439,13 +439,14 @@ func passive_text(k: String) -> String:
 	if ps == null:
 		return ""
 	var line := {}
+	# 특기 앞에는 개인 · 단체만 적는다 —— attr(화공 · 수공 · 돌파 · 표적 계열)은 내부 분류라 보이지 않는다 (배율 · 시험 스위치용)
 	for t in ps.traits:
 		var mt := mods_text(t.m)
-		line[t.name] = "%s 『%s』 %s%s" % [t.attr if t.attr != "" else "개인", t.name, t.d, ("
+		line[t.name] = "개인 『%s』 %s%s" % [t.name, t.d, ("
    " + mt) if mt != "" else ""]
 	for g in ps.groups:
-		line[g.name] = "%s 『%s』 %s
-   %s" % [(g.attr + " 단체") if g.attr != "" else "단체", g.name, g.d, mods_text(PSV.traits[g.name].m, g.scale)]
+		line[g.name] = "단체 『%s』 %s
+   %s" % [g.name, g.d, mods_text(PSV.traits[g.name].m, g.scale)]
 	# 사다리 순서대로 (등급이 오를 때 붙는 차례)
 	var lines := []
 	for e in PSV.ladder[person(k)]:
