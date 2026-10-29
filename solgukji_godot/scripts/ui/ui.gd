@@ -429,16 +429,16 @@ static func ult_desc(u: Dictionary) -> String:
 				if comp.has("exec"):
 					s += " · 병력 %d%% 이하 즉사" % roundi(comp.exec * 100)
 				if comp.has("morale"):
-					s += " · 사기 -%d" % roundi(comp.morale * Battle.pace)
+					s += " · 사기 -%d" % roundi(comp.morale * Battle.burst())
 				if comp.has("status"):
 					s += " · %s" % DB.D.STATUS.get(comp.status.k, {}).get("n", comp.status.k)
 				parts.append(s)
 			"ally":
 				var s := tg
 				if comp.has("heal"):
-					s += " 병력 회복 %.1f%%" % (comp.heal * Battle.pace * 100)
+					s += " 병력 회복 %.1f%%" % (comp.heal * Battle.burst() * 100)
 				if comp.has("morale"):
-					s += " 사기 +%d" % roundi(comp.morale * Battle.pace)
+					s += " 사기 +%d" % roundi(comp.morale * Battle.burst())
 				if comp.has("buff"):
 					s += " %s %+d%%" % [DB.D.STATNM.get(comp.buff.stat, comp.buff.stat), roundi(comp.buff.amt * 100)]
 				if comp.has("cleanse"):
@@ -447,7 +447,7 @@ static func ult_desc(u: Dictionary) -> String:
 			"foe":
 				var s := tg
 				if comp.has("morale"):
-					s += " 사기 -%d" % roundi(comp.morale * Battle.pace)
+					s += " 사기 -%d" % roundi(comp.morale * Battle.burst())
 				if comp.has("buff"):
 					s += " %s %+d%%" % [DB.D.STATNM.get(comp.buff.stat, comp.buff.stat), roundi(comp.buff.amt * 100)]
 				if comp.has("status"):

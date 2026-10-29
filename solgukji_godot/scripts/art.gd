@@ -7,6 +7,9 @@ const INK := Color("#0a0e18")
 
 
 static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0) -> void:
+	# 넓이가 없거나(접히는 중인 칸) 화면에서 아주 먼 곳(달아난 부대의 머리표)은 그리지 않는다 —— 좌표가 크면 다각형 분할이 실패한다
+	if r.size.x < 1.0 or r.size.y < 1.0 or absf(r.position.x) > 20000.0 or absf(r.position.y) > 20000.0:
+		return
 	var c: Dictionary = DB.C[k]
 	var tex := DB.portrait(k)
 	var fc := DB.fac_color(c.fac)

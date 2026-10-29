@@ -17,12 +17,15 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	games = int(args.get("games", "150"))
+	if args.has("tmul"):                  # 턴 배율 (Battle.turn_mul) 바꿔 보기
+		Battle.auto_turn = false
+		Battle.set_turn_mul(float(args.tmul))
 	for k in ["troop", "intTroop", "morale", "regen", "hit50", "hit25", "routSlope", "routMin", "routSame", "cap"]:
 		if args.has(k):
 			DB.K[k] = float(args[k])
 	if args.has("pace"):
 		Battle.pace = float(args.pace)
-	print("pace %s · K: troop %s · intTroop %s · morale %s" % [Battle.pace, DB.K.troop, DB.K.intTroop, DB.K.morale])
+	print("턴 배율 %s · pace %s · K: troop %s · intTroop %s · morale %s" % [Battle.turn_mul, Battle.pace, DB.K.troop, DB.K.intTroop, DB.K.morale])
 	pol = str(args.get("pol", "smart"))
 	mirror = args.has("mirror")
 	var t0 := Time.get_ticks_msec()
@@ -66,7 +69,7 @@ func _run(ta: int, tb: int) -> void:
 			"", "", [], {"A": pol, "B": pol})
 		turns.append(r.turns)
 		w += 1.0 if r.win else (0.5 if r.draw else 0.0)
-		if r.turns >= DB.K.cap: capped += 1
+		if r.turns >= roundi(DB.K.cap * Battle.turn_mul): capped += 1
 		for e in r.ev:
 			if e.get("fx") == "rout":
 				if str(e.t).contains("패주"): routs += 1

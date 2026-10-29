@@ -688,14 +688,15 @@ func _build_timeline(rebuild := false) -> void:
 			if not side.has(fk):
 				side.append(fk)
 	if not rebuild:
-		# 목표 길이에 맞춰 행동 간격을 벌리거나 좁힌다 (0.3~7배 —— 짧은 판은 늘리고, 10턴 넘는 판은 행동을 촘촘히)
+		# 목표 길이에 맞춰 행동 간격을 벌리거나 좁힌다 (0.12~7배 —— 짧은 판은 늘리고, 긴 판은 행동을 촘촘히)
+		# 턴 배율(Battle.turn_mul) 뒤로 같은 등급끼리 15턴 안팎 · 행동 약 270번이라 0.2배 근처가 된다
 		var sched := 0.0
 		for gr in groups:
 			if gr.ph == "end":
 				sched += 0.45
 			elif gr.who != "":
 				sched += STEP
-		pace = clampf((target_len - OPEN) / maxf(1.0, sched), 0.3, 7.0) if target_len > 0 else 1.0
+		pace = clampf((target_len - OPEN) / maxf(1.0, sched), 0.12, 7.0) if target_len > 0 else 1.0
 	var t := OPEN
 	for gr in groups:
 		if gr.who != "" and field.squads.has(gr.who):
@@ -1260,9 +1261,14 @@ class Hud extends Control:
 					gc = gc.lerp(Color.WHITE, 0.4 + 0.4 * sin(view.clock * 10.0))
 				draw_rect(Rect2(gb.position, Vector2(gb.size.x * clampf(lv[0] / 100.0, 0, 1), 3)), Color(gc, a))
 			var x := br.position.x + br.size.x + 5
+			# 상태 —— 색 동그라미에 첫 글자 (방 · 감 · 화 …)
 			for st in sq.statuses:
-				draw_circle(Vector2(x, br.position.y + 2), 3, Color(DB.D.STATUS[st].c, a))
-				x += 7
+				var sd: Dictionary = DB.D.STATUS[st]
+				var sc := Vector2(x + 5, br.position.y + 3)
+				draw_circle(sc, 6, Color(0, 0, 0, 0.7 * a))
+				draw_circle(sc, 5, Color(sd.c, a))
+				draw_string(DB.font_bold, sc + Vector2(-6, 3.5), sd.n.left(1), HORIZONTAL_ALIGNMENT_CENTER, 12, 8, Color(0.08, 0.06, 0.04, a))
+				x += 12
 			# 초상 —— 이름표 왼쪽. 테두리는 등급색 (신화는 조금 크게)
 			if art and full and a > 0.5:
 				var pr := Rect2(r.position + Vector2(-ps - 4, 15 - ps * 0.5), Vector2(ps, ps))

@@ -23,6 +23,8 @@ var ICON := {}           # 병종 -> Texture2D (흰색, modulate 로 칠한다)
 var font_display: Font
 var font_body: Font
 var font_bold: Font
+var STAT_ADJ := {}      # 능력치 보정 (set_stat_adjust)
+var _BASE := {}         # 보정 전 원본 능력치
 
 var _portrait_cache := {}
 var _portrait_used := {}     # 배경이 투명한 그림 -> 실제로 그려진 영역 (Rect2)
@@ -60,6 +62,9 @@ func _load() -> void:
 			"atk": float(r[5]), "def": float(r[6]), "int": float(r[7]), "res": float(r[8]),
 			"spd": float(r[9]), "tr": int(r[10]), "pv": int(r[11]), "sk": r[12],
 			"kind": r[13], "need": r[14]}
+	for k in C:
+		_BASE[k] = {"atk": C[k].atk, "def": C[k].def, "int": C[k].int, "res": C[k].res, "spd": C[k].spd}
+	set_stat_adjust(ext.get("stat_adjust", {}))
 	for r in D.RECDEF:
 		RECOF[r[0]] = r[1]
 	for r in D.ITEMDEF:
@@ -415,7 +420,7 @@ const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt"]
 
 
 ## 수치 요약 —— "치명타 확률 +14% · 치명타 피해 +69%"
-func mods_text(m: Dictionary, scale := 1.0) -> String:
+func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 	var out := []
 	for k in m:
 		if k == "first":
@@ -427,8 +432,8 @@ func mods_text(m: Dictionary, scale := 1.0) -> String:
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
-		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 전투 속도(Battle.pace)만큼 줄어 있다
-			v *= Battle.pace
+		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 그 등급 전투의 속도(pace)만큼 줄어 있다
+			v *= Battle.pace_for(tier)
 			var pct: bool = k in ["regen", "mend", "cheer_hit"]
 			out.append(("%s%s%.1f%%" if pct else "%s%s%.1f") % [lb, sign, v * 100 if pct else v])
 			continue
@@ -446,12 +451,12 @@ func passive_text(k: String) -> String:
 	var line := {}
 	# 특기 앞에는 개인 · 단체만 적는다 —— attr(화공 · 수공 · 돌파 · 표적 계열)은 내부 분류라 보이지 않는다 (배율 · 시험 스위치용)
 	for t in ps.traits:
-		var mt := mods_text(t.m)
+		var mt := mods_text(t.m, 1.0, C[k].tier)
 		line[t.name] = "개인 『%s』 %s%s" % [t.name, t.d, ("
    " + mt) if mt != "" else ""]
 	for g in ps.groups:
 		line[g.name] = "단체 『%s』 %s
-   %s" % [g.name, g.d, mods_text(PSV.traits[g.name].m, g.scale)]
+   %s" % [g.name, g.d, mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)]
 	# 사다리 순서대로 (등급이 오를 때 붙는 차례)
 	var lines := []
 	for e in PSV.ladder[person(k)]:
@@ -480,6 +485,16 @@ func ult_of(k: String):
 			if comp.has("status") and comp.status.k in ["burn", "bleed", "flood", "plague"]:
 				comp.status.val = comp.status.val * s
 	return u
+
+
+## 능력치 보정 (솔국지 확장, data/cards_ext.json stat_adjust) —— 원본 HTML 수치(game.json)는 그대로 두고 곱한다.
+## {"병종": {"등급": {"atk": 0.9, ...}}} —— 다시 부르면 원본에서 새로 계산한다 (점검 장면이 값을 바꿔 볼 때)
+func set_stat_adjust(adj: Dictionary) -> void:
+	STAT_ADJ = adj
+	for k in C:
+		var m: Dictionary = adj.get(C[k].tag, {}).get(str(C[k].tier), {})
+		for s in _BASE[k]:
+			C[k][s] = _BASE[k][s] * float(m.get(s, 1.0))
 
 
 func by_tier(t: int) -> Array:
@@ -593,13 +608,14 @@ func skill_desc(c: Dictionary) -> String:
 	match e.kind:
 		"phys": p.append("적 %s에 물리 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
 		"int": p.append("적 %s에 책략 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
-	if e.has("morale"): p.append("사기 −%d" % roundi(e.morale * Battle.pace))
+	var pc := Battle.pace_for(c.tier)
+	if e.has("morale"): p.append("사기 −%d" % roundi(e.morale * pc))
 	if e.has("pierce"): p.append("방어 %s 무시" % pct.call(e.pierce))
 	if e.has("exec"): p.append("병력 %s 이하면 즉시 이탈" % pct.call(e.exec))
 	if e.has("stance"): p.append("자신 반격 %s · %d턴" % [pct.call(e.stance.amt), e.stance.dur])
 	if e.has("status"): p.append("『%s』 %d턴" % [D.STATUS[e.status.k].n, e.status.dur])
-	if e.has("tHeal"): p.append("아군 병력 %.1f%% 회복" % (e.tHeal * Battle.pace * 100))
-	if e.has("heal"): p.append("아군 사기 +%d" % roundi(e.heal * Battle.pace))
+	if e.has("tHeal"): p.append("아군 병력 %.1f%% 회복" % (e.tHeal * pc * 100))
+	if e.has("heal"): p.append("아군 사기 +%d" % roundi(e.heal * pc))
 	if e.has("cleanse"): p.append("아군 상태이상 %d종 해제" % e.cleanse)
 	if e.has("spd"): p.append("대상 속도 %s" % pct.call(e.spd.amt))
 	if e.has("foeSpd"): p.append("대상 속도 %s" % pct.call(e.foeSpd.amt))

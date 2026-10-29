@@ -21,10 +21,24 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	games = int(args.get("games", "200"))
+	if args.has("tmul"):                  # 턴 배율 (Battle.turn_mul) 바꿔 보기
+		Battle.auto_turn = false
+		Battle.set_turn_mul(float(args.tmul))
 	attr = str(args.get("attr", "화공"))
+	Battle.ults_enabled = not args.has("noult")
+	Battle.counter_charge = args.has("charge")
+	Battle.counter_enabled = not args.has("nocls")
+	for k in ["dr", "int_dr", "counter", "amp", "dur"]:       # 철벽 수치 바꿔 보기 (--g_dr=0 처럼)
+		if args.has("g_" + k): DB.PSV.guard[k] = float(args["g_" + k])
+	for k in DB.PSV.virtue:                  # 인덕 수치 (--v_moved=0.4 처럼)
+		if args.has("v_" + k): DB.PSV.virtue[k] = float(args["v_" + k])
+	if args.has("mend"):                     # 인술 치료 비율
+		DB.PSV.traits["인술"].m["mend"] = float(args["mend"])
+		DB._psv_cache.clear()
+	var tiers: Array = Array(str(args.get("tiers", "3,4,5,6,7,8")).split(",")).map(func(x): return int(x))
 	var t0 := Time.get_ticks_msec()
 	var cp: String = COUNTER[attr]
-	for t in [3, 4, 5, 6, 7, 8]:
+	for t in tiers:
 		var deck := _attr_cards(t, attr, cp)
 		var ctr := DB.by_tier(t).filter(func(k): return DB.person(k) == cp)
 		print("━━ %s · %s %d장 (%s)%s" % [DB.TIER[t].n, attr, deck.size(), ", ".join(deck.map(func(k): return DB.C[k].name)),
@@ -37,6 +51,7 @@ func _ready() -> void:
 		var on := _match(t, deck, t, [], [])
 		print("  같은 등급 무작위: 켬 %.0f%% · 끔 %.0f%% (%s 몫 %+.0f%%p) · %.1f턴 · %s 비중 %.0f%% · %s" % [
 			on.w, off.w, attr, on.w - off.w, on.turns, attr, on.share, on.note])
+		print("    (끔: %s)" % off.note)
 		if not ctr.is_empty():
 			var c := _match(t, deck, t, ctr, [])
 			print("  %s 든 상대: %.0f%% · %s 비중 %.0f%%" % [cp, c.w, attr, c.share])
@@ -121,7 +136,8 @@ func _match(t: int, core: Array, tf: int, foe_core: Array, _x: Array) -> Diction
 	match attr:
 		"화공": note = "점화 %.1f · 번짐 %.1f /판" % [per.call("ignites"), per.call("spreads")]
 		"수공": note = "침수 %.1f · 물길 %.1f · 도강 %.1f · 휩쓸림 %.1f /판" % [per.call("soaks"), per.call("flows"), per.call("tides"), per.call("drowned")]
-		"철벽": note = "방진 %.1f · 반격 %.1f · 사수 %.1f /판 (비중 = 반격 피해)" % [per.call("phalanx"), per.call("counters"), per.call("stands")]
+		"철벽": note = "방진 %.1f · 반격 %.1f · 사수 %.1f /판 (비중 = 반격 피해) · 물리 %.0f%% 책략 %.0f%% 고유기 %.0f%% · 방진 중 받은 물리 %.1f%%" % [per.call("phalanx"), per.call("counters"), per.call("stands"),
+			per.call("phys") / maxf(1, per.call("dmg")) * 100, per.call("intd") / maxf(1, per.call("dmg")) * 100, per.call("ult_dmg") / maxf(1, per.call("dmg")) * 100, per.call("ph_taken") / maxf(1, per.call("dmg")) * 100]
 		"계략": note = "혼란 %.1f · 옮김 %.1f · 제 편 공격 %.1f · 사기 꺾음 %.0f /판" % [per.call("confuses"), per.call("passes"), per.call("turncoats"), per.call("jolts")]
 		"인덕": note = "치료 %.0f · 감읍 %.1f · 도원결의 %.2f /판 (비중 = 치료량)" % [per.call("mends"), per.call("moved"), per.call("oaths")]
 		_: note = "와해 %.1f · 궤멸 %.1f · 처형 %.1f · 표식 %.1f · 옮김 %.1f /판" % [per.call("breaks"), per.call("collapses"), per.call("execs"), per.call("marks"), per.call("chains")]

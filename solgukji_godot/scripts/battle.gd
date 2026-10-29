@@ -9,11 +9,43 @@ extends RefCounted
 ##   s   : 이벤트 직후 모든 유닛의 [병력, 사기, 생존, 상태이상 목록] 스냅샷
 
 const MYTH_AMP := 1.6
-## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다.
+## 턴 배율 —— 솔국지 확장 (10/30). 전투를 이만큼 더 많은 턴으로 늘린다 (같은 등급 평균 4~10턴 → 15턴 안팎).
+## 매 턴 반복되는 것(피해 · 회복 · 상태이상 확률 · 지속 턴)은 pace 로 나눠지거나 턴당 비율이 같아 그대로 둔다.
+## 한 판에 한 번뿐인 것은 이만큼 키운다 —— 고유기 위력 · 고유기와 전투 시작 효과와 군령의 지속 턴 · 군령 사기.
+## 이만큼 천천히 차는 것 —— 고유기 게이지 · 군령 포인트 · 같은 진영 고유기 간격. 턴마다 굴리는 패주 확률은 전체 빈도가 같게 줄인다.
+## 턴 상한(원본 K.cap 20)과 첫 턴 기병 돌격 · 첫 공격 보너스도 이만큼 늘린다. 바꿀 때는 set_turn_mul().
+## 등급마다 전투 길이가 달라(배율 3 에서 고급 10턴 · 초월 28턴) 전투에 나온 카드의 평균 등급으로 배율을 고른다 —— 어느 등급이든 15턴 안팎.
+const BASE_PACE := 0.35
+const TURN_MUL := {1: 4.5, 2: 4.5, 3: 4.5, 4: 4.3, 5: 2.6, 6: 1.6, 7: 1.8, 8: 3.9}
+static var auto_turn := true      # 전투마다 평균 등급으로 배율을 고른다 (점검 장면이 --tmul 로 고정하면 false)
+static var turn_mul := 3.0
+## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다. = BASE_PACE / turn_mul
 ## 원본 계수 그대로면 같은 등급끼리 2~3턴에 끝나 상태이상·디버프가 쓸 틈이 없다. 0.35 면 같은 등급끼리 평균 4~11턴
 ## (tests/turns.tscn). 비율은 그대로라 원본의 균형(피해 대 회복, 직접 대 지속)은 유지된다. 일회성 기준값
 ## (반파·괴멸 사기 하락, 패주 확률, 처형 문턱)은 바꾸지 않는다.
-static var pace := 0.35
+static var pace := BASE_PACE / 3.0
+
+
+static func set_turn_mul(m: float) -> void:
+	turn_mul = m
+	pace = BASE_PACE / m
+
+
+## 평균 등급 t 의 턴 배율 —— 표 사이는 잇는다
+static func turn_mul_for(t: float) -> float:
+	var lo := clampi(floori(t), 1, 8)
+	var hi := clampi(lo + 1, 1, 8)
+	return lerpf(TURN_MUL[lo], TURN_MUL[hi], clampf(t - lo, 0.0, 1.0))
+
+
+## 그 등급 전투의 pace (카드 설명의 턴당 수치용)
+static func pace_for(t: float) -> float:
+	return BASE_PACE / turn_mul_for(t)
+
+
+## 한 판에 한 번뿐인 효과의 턴당 세기 (고유기 · 군령 설명용) —— 턴 배율과 상관없이 같다
+static func burst() -> float:
+	return pace * turn_mul
 ## 사기는 '결과' —— 솔국지 확장. 책략 한 대마다 능력치에 비례해 사기를 깎던 것(원본 K.morale)을 없앴다.
 ## 사기 통은 등급과 관계없이 100 이라 낮은 등급에선 그 피해가 거의 0 이었고(책사·술사가 약한 까닭), 높은 등급에선 과했다.
 ## 대신 책략은 병력 피해가 int_troop 배로 오르고, 패주는 병력이 꺾여도 일어난다(rout_hp 아래, 비율에 따라).
@@ -28,6 +60,7 @@ static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규�
 static var dash_enabled := true      # 돌파 계열 켜기 (와해)
 static var aim_enabled := true       # 표적 계열 켜기 (표식)
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
+static var counter_charge := false   # 반격을 맞은 쪽도 고유기 게이지가 차는가 —— 차면 반격이 적 고유기를 앞당겨 철벽이 손해를 봤다(10/29 측정)
 static var scheme_enabled := true    # 계략 계열 켜기 (혼란 걸기 · 키우기 · 옮기기 · 미인계)
 static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 감읍 · 도원결의 · 단량)
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
@@ -84,7 +117,7 @@ class Unit:
 	var hit25 := false
 	var m := {}               # 특기 수정치 (data/passives.json 의 m 키) —— mv() 로 읽는다
 	var avenge_n := 0         # 비장 —— 아군이 무너진 횟수
-	var opened := false       # 첫 공격을 했는가 (기신·강행·습격)
+	var opens := 0            # 첫 공격 보너스를 쓴 횟수 (기신·강행·습격) —— 턴 배율만큼 나눠 쓴다
 	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
 	var break_used := false   # 장판돌파 —— 첫 공격의 확정 와해를 썼는가
 	var stand_used := false   # 사수 —— 방진 중 병력 1에서 버티기를 썼는가
@@ -118,11 +151,13 @@ var cmdm := {"A": {}, "B": {}}    # 특기–군령 연결 (data/passives.json c
 var _ult_last := {"A": -99, "B": -99}
 var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 —— 사건에 bd 로 적어 화면이 입력 시점을 고른다
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
+var _one := 1.0               # 한 번뿐인 효과(고유기 · 군령 사기)의 세기 배율 —— 그동안 turn_mul
+var _long := 1.0              # 한 번뿐인 효과(고유기 · 전투 시작 · 군령)의 지속 턴 배율 —— 그동안 turn_mul
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
 	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
 	"tac_amp": 0.0, "breaks": 0, "marks": 0, "collapses": 0, "chains": 0, "execs": 0,
-	"phalanx": 0, "counters": 0, "counter_dmg": 0.0, "stands": 0,
+	"phalanx": 0, "counters": 0, "counter_dmg": 0.0, "stands": 0, "phys": 0.0, "intd": 0.0, "ph_taken": 0.0,
 	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
 	"mends": 0.0, "moved": 0, "oaths": 0}
 var _oath_used := {"A": false, "B": false}
@@ -389,7 +424,7 @@ func basic_target(u: Unit, foes: Array) -> Array:
 func L(cls: String, text: String, extra: Dictionary = {}) -> void:
 	var snap := []
 	for u in units:
-		snap.append([maxi(0, roundi(u.troops)), roundi(u.morale), 1 if u.alive else 0, u.st.map(func(x): return x.k),
+		snap.append([maxi(0, roundi(u.troops)), roundi(u.morale), 1 if u.alive else 0, _shown_st(u),
 			int(u.gauge), u.charges])     # 내림 —— 100 은 정말 다 찼을 때만
 	var e := {"c": cls, "t": text, "s": snap, "ai": _ai, "ph": _ph, "who": _who, "turn": _turn,
 		"an": act_n, "pts": [pts.A, pts.B], "bd": _bdone == act_n}
@@ -419,8 +454,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if pierce > 0: Dv *= (1 - pierce)
 	var crit: bool = rng.randf() < DB.PSV.base_crit + mv(a, "crit")
 	var cm: float = (DB.PSV.base_critd + mv(a, "critd")) if crit else 1.0
-	var op := 1.0 if a.opened else 1.0 + mv(a, "opener")
-	a.opened = true
+	var op := 1.0 if a.opens >= roundi(turn_mul) else 1.0 + mv(a, "opener")
+	a.opens += 1
 	var dmg := A * (A / (A + Dv)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * op * (1.0 - mv(d, "dr"))
 	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
@@ -432,11 +467,14 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if _phalanx(d):
 		dmg *= 1.0 - float(DB.PSV.guard.dr)        # 방진 —— 받는 물리 피해 감소
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
-	var loss := _stand(d, maxf(1, roundf(dmg * K.troop * pace)))
+	var loss := _stand(d, maxf(1, roundf(dmg * K.troop * pace * _one)))
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
 	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
 	if a.countering:
 		stats.counter_dmg += loss
+	if not _in_ult:
+		stats.phys += loss
+		if _phalanx(d): stats.ph_taken += loss
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
@@ -461,6 +499,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		if p > 0 and rng.randf() < p:
 			L("sk", "%s 창을 되받아 찔렀다" % ga(nm(d)), {"fx": "buff", "f": d.key})
 			var cmul := 1.28
+			if ph:
+				cmul *= 1.0 + float(DB.PSV.guard.amp)       # 방진 —— 반격 피해 +
 			if guard_enabled:
 				cmul *= 1.0 + mv(d, "counter_hit") + (mv(d, "phalanx_amp") if ph else 0.0)     # 반격(즉발) · 역습
 			stats.counters += 1
@@ -487,13 +527,16 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	var wm := _water_mul(a, d)
 	var tm := _tac_mul(a, d)
 	var sm := _scheme_mul(a, d)
+	if _phalanx(d):
+		dmg *= 1.0 - float(DB.PSV.guard.int_dr)    # 방진 —— 받는 책략 피해 감소
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
 	var aoe: float = K.aoe if spread >= 3 else 1.0
-	var loss := _stand(d, maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe)))
+	var loss := _stand(d, maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe * _one)))
 	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
+	if not _in_ult: stats.intd += loss
 	_stat(d, loss)
 	_charge(d, a, loss)
 	d.troops -= loss
@@ -511,7 +554,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 
 
 func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> void:
-	var a: float = amt * pace * (K.aoe if spread >= 3 else 1.0) * morale_guard(src, d)
+	var a: float = amt * pace * _one * (K.aoe if spread >= 3 else 1.0) * morale_guard(src, d)
 	if src: a *= 1.0 + mv(src, "mdeal")
 	a *= 1.0 - mv(d, "mshield")
 	d.morale -= a
@@ -524,7 +567,7 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if not d.alive or _scorched(d): return
 	if virtue_enabled and _side_max(_foe(d.camp), "starve") > 0:
 		ratio *= 1.0 - float(DB.PSV.virtue.starve)      # 단량 —— 적이 군량을 끊었다
-	var g := minf(roundf(d.max * ratio * pace), d.max - d.troops)
+	var g := minf(roundf(d.max * ratio * pace * _one), d.max - d.troops)
 	if g <= 0: return
 	d.troops += g
 	if src: src.heal += g / 300.0
@@ -536,7 +579,7 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 
 func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
 	var b := d.morale
-	d.morale = minf(200, d.morale + amt * pace)
+	d.morale = minf(200, d.morale + amt * pace * _one)
 	var g := d.morale - b
 	if src and g > 0: src.heal += g
 	if g > 0.5:
@@ -545,7 +588,7 @@ func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
 
 
 func add_buff(u: Unit, b: Dictionary) -> void:
-	u.buffs.append({"stat": b.stat, "amt": float(b.amt), "dur": int(b.dur)})
+	u.buffs.append({"stat": b.stat, "amt": float(b.amt), "dur": roundi(int(b.dur) * _long)})
 	var up: bool = b.amt > 0
 	L("sk", "%s의 %s %s · %s%d%%" % [nm(u), ga(DB.D.STATNM.get(b.stat, b.stat)), "올랐다" if up else "꺾였다",
 		"+" if up else "", roundi(b.amt * 100)], {"fx": "buff", "f": u.key, "up": up})
@@ -578,7 +621,7 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 		v *= 1.0 - float(DB.PSV.guard.break_res)
 		d.buffs = d.buffs.filter(func(b): return b.stat != "phalanx")
 		L("st", "%s의 방진이 무너졌다" % nm(d), {"fx": "cleanse", "f": d.key, "st": "break"})
-	var t := maxi(dur, 1) + ext
+	var t := roundi((maxi(dur, 1) + ext) * _long)
 	if kind == "flood":
 		_douse(d)
 	var old = null
@@ -944,6 +987,16 @@ func _tac_rout(u: Unit) -> void:
 
 # ───────── 철벽 · 계략 · 인덕 (솔국지 확장) ─────────
 
+## 머리표에 보일 상태 —— 상태이상에 방진 · 감읍 버프를 더한다 (표시용, 판정에 쓰지 않는다)
+func _shown_st(u: Unit) -> Array:
+	var out: Array = u.st.map(func(x): return x.k)
+	if _phalanx(u):
+		out.append("phalanx")
+	if u.buffs.any(func(b): return b.get("moved", false)):
+		out.append("moved")
+	return out
+
+
 ## 방진 중인가 (철벽)
 func _phalanx(u: Unit) -> bool:
 	return guard_enabled and _buff_sum(u, "phalanx") > 0
@@ -955,9 +1008,9 @@ func _give_phalanx(u: Unit, dur: int, why: String) -> void:
 		return
 	for b in u.buffs:
 		if b.stat == "phalanx":
-			b.dur = maxi(b.dur, dur)
+			b.dur = maxi(b.dur, roundi(dur * _long))
 			return
-	u.buffs.append({"stat": "phalanx", "amt": 1.0, "dur": dur})
+	u.buffs.append({"stat": "phalanx", "amt": 1.0, "dur": roundi(dur * _long)})
 	stats.phalanx += 1
 	L("sk", "%s 방진을 친다 (%s)" % [ga(nm(u)), why], {"fx": "buff", "f": u.key, "up": true})
 
@@ -1114,20 +1167,28 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		var k = b_cards[i]
 		if k and i < bS.size():
 			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and b_equip[i] else innate_item(k), b_syn))
+	if auto_turn and not units.is_empty():
+		var ts := 0.0
+		for u in units:
+			ts += u.c.tier
+		set_turn_mul(turn_mul_for(ts / units.size()))
 	if passives_enabled or fire_enabled:
 		_apply_group_passives()
 		for cp in ["A", "B"]:
 			pts[cp] = minf(PTS_MAX, cmdm[cp].get("pts_start", 0.0))
 
+	_long = turn_mul                 # 전투 시작 효과는 한 번뿐 —— 지속 턴을 턴 배율만큼
 	if fire_enabled:
 		_kindle()
 	if water_enabled:
 		_tide()
 	_tac_open()
 	_guard_open()
+	_long = 1.0
 	var turn := 0
 	var winner := ""
-	while turn < K.cap and winner == "":
+	var cap := roundi(K.cap * turn_mul)
+	while turn < cap and winner == "":
 		turn += 1
 		_turn = turn
 		_ai += 1
@@ -1143,7 +1204,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			var sp: float
 			if mv(u, "first") > 0: sp = eff(u, "spd") * 1.25
 			else: sp = eff(u, "spd") * (1 + rnd(-0.15, 0.15))
-			if turn == 1 and u.caps.has("기병") and u.c.tag == "기병": sp *= 1.6
+			if turn <= roundi(turn_mul) and u.caps.has("기병") and u.c.tag == "기병": sp *= 1.6
 			if u.fast_side: sp *= 1.12
 			order.append([u, sp])
 		order.sort_custom(func(x, y): return x[1] > y[1])
@@ -1161,7 +1222,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			act_n += 1
 			if act_n % PTS_EVERY == 0:
 				for cp in ["A", "B"]:
-					pts[cp] = minf(PTS_MAX, pts[cp] + 1.0 + cmdm[cp].get("pts_rate", 0.0))
+					pts[cp] = minf(PTS_MAX, pts[cp] + (1.0 + cmdm[cp].get("pts_rate", 0.0)) / turn_mul)
 		_ai += 1
 		_ph = "end"
 		_who = ""
@@ -1214,6 +1275,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			p *= 1.0 - mv(u, "rout")
 			p *= 1.0 - _buff_sum(u, "calm")
 			if u.caps.has("유생"): p *= 0.5
+			p = 1.0 - pow(1.0 - minf(p, 1.0), 1.0 / turn_mul)     # 턴이 늘어난 만큼 —— 전투 전체로 보면 같은 빈도
 			if rng.randf() < p:
 				if pm >= pt:
 					rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)))
@@ -1278,7 +1340,7 @@ func act(u: Unit) -> void:
 	var allies := units.filter(func(o): return o.camp == u.camp)
 	if not foes.any(func(o): return o.alive): return
 	# 고유기 —— 자동 정책이면 준비된 차례에 바로 쓴다 (영리한 AI·사람은 _between 에서 끼어든다)
-	u.gauge = minf(100.0, u.gauge + GAUGE_ACT * (1.2 if u.c.tier >= 8 else 1.0))
+	u.gauge = minf(100.0, u.gauge + GAUGE_ACT * (1.2 if u.c.tier >= 8 else 1.0) / turn_mul)
 	var sk = u.c.sk
 	var used := false
 	if sk and rng.randf() < sk_rate(u):
@@ -1339,6 +1401,8 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	u.gauge = 0.0
 	_ult_last[u.camp] = act_n
 	_in_ult = true
+	_one = turn_mul
+	_long = turn_mul
 	var nm_: String = ul.name
 	var amp := crisis_amp if _crisis(u.camp) else 1.0
 	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
@@ -1382,6 +1446,8 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 					if comp.has("status"):
 						inflict(u, t, comp.status.k, comp.status.val, int(comp.status.dur))
 	_in_ult = false
+	_one = 1.0
+	_long = 1.0
 
 
 ## 단체 특기 —— 전투 시작에 한 번. 같은 이름은 둘까지 겹친다 (센 것 하나 + 두 번째는 절반).
@@ -1467,8 +1533,10 @@ func _stat(d: Unit, loss: float) -> void:
 
 
 func _charge(d: Unit, a: Unit, loss: float) -> void:
+	if a.countering and not counter_charge:
+		return
 	d.gauge = minf(100.0, d.gauge + GAUGE_HIT * loss / d.max)
-	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL)
+	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / turn_mul)
 
 
 func _buff_sum(u: Unit, stat: String) -> float:
@@ -1481,7 +1549,7 @@ func _buff_sum(u: Unit, stat: String) -> float:
 
 func can_ult(u: Unit) -> bool:
 	return ults_enabled and u.alive and u.ult != null and u.charges > 0 and u.gauge >= 100.0 \
-		and not has_st(u, "seal") and act_n - _ult_last[u.camp] >= ULT_SIDE_GAP
+		and not has_st(u, "seal") and act_n - _ult_last[u.camp] >= ULT_SIDE_GAP * turn_mul
 
 
 ## 행동 사이 —— 이번 행동 번호에 걸린 입력을 처리하고, 영리한 AI 가 판단한다
@@ -1553,9 +1621,11 @@ func _command(cp: String, name_: String) -> void:
 		if not u.alive or u.camp != cp:
 			continue
 		for b in c.buffs:
-			u.buffs.append({"stat": b.stat, "amt": _cmd_amt(cp, name_, b), "dur": CMD_TURNS})
+			u.buffs.append({"stat": b.stat, "amt": _cmd_amt(cp, name_, b), "dur": roundi(CMD_TURNS * turn_mul)})
 		if c.has("morale"):
+			_one = turn_mul
 			heal_morale(u, c.morale * (1.0 + cmdm[cp].get("rally", 0.0)), name_, null)
+			_one = 1.0
 
 
 ## 특기가 세게 해 주는 군령 수치 —— 맹진은 돌격의 공격, 창진은 방진의 피해 감소, 군주는 재정비
