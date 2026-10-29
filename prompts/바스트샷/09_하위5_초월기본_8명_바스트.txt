@@ -9,6 +9,10 @@ Each panel follows its own SHOT (angle, head turn, expression) and LIGHT (time, 
 Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
 background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
 Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
 BUST SHOT ONLY: every panel is a chest-up portrait —— the frame cuts at the chest (just below the shoulders and collar);
 no waist, no hands below the chest, no legs, no full body. The head and face fill the upper half of the panel and are
 large, sharp and detailed; the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
@@ -36,48 +40,56 @@ Banner under each panel: only its number.
 1. (card: 사군 장로) [SORCERER] Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
    FACTION: independent warlord, own colors.
    LOOK: middle-aged, neat black beard, tall Taoist crown.
+   FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), 3/4 view, gentle smile, eyes toward the viewer.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 2. (card: 관로) [SORCERER] Guan Lu, diviner holding a turtle shell, glowing trigram symbols floating around it.
    FACTION: independent warlord, own colors.
    LOOK: homely face, big forehead, thick eyebrows.
+   FACE: homely face, big bulging forehead, thick eyebrows, odd wandering eyes, wide nose, eccentric fortune-teller grin.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), slight high angle, looking up at the viewer with a knowing smile.
    LIGHT: spring peach blossoms, pink petals and soft green.
 3. (card: 옥용 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    FACTION: independent warlord, own colors.
    LOOK: beautiful, elaborate hair ornaments and flowers.
+   FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), front view, half the face lit by warm light, half in shadow, serious.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.
 4. (card: 저수) [SCHEMER] Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
    FACTION: independent warlord, own colors.
    LOOK: gaunt middle-aged, worried brow, short beard.
+   FACE: gaunt middle-aged face, worried knitted brow, tired baggy eyes, short beard, anxious mouth.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), side profile, looking into the distance, calm.
    LIGHT: golden autumn leaves, ochre and rust.
 5. (card: 전풍) [SCHEMER] Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
    FACTION: independent warlord, own colors.
    LOOK: stern thick frowning eyebrows, square beard.
+   FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
 6. (card: 심배) [SCHEMER] Shen Pei, stubborn loyal official in a purple-gray high-collared robe, holding a sealed order scroll, stern.
    FACTION: independent warlord, own colors.
    LOOK: older, long thin beard, rigid upright posture.
+   FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), slight low angle, composed, looking down at the viewer, robe collar framing the face.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 7. (card: 장연) [ROGUE] Zhang Yan, Black Mountain bandit leader in a black outfit, agile leaping pose, a knife in each hand.
    FACTION: independent warlord, own colors.
    LOOK: young, black mask scarf over the lower face.
+   FACE: young sharp eyes above a black mask scarf over the lower face, lean face, quick bandit glance.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), 3/4 view, shouting a battle cry, hair and plume blown back by wind.
    LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
 8. (card: 관해) [ROGUE] Guan Hai, giant Yellow Turban bandit with a yellow headband, light leather vest, a hand axe in each hand, roaring.
    FACTION: independent warlord, own colors.
    LOOK: giant, bald with a yellow headband, wild beard.
+   FACE: giant brutish face, bald head with a yellow headband, wild beard, bulging angry eyes, flat nose, roaring mouth.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), side profile, gritted teeth, eyes on a distant target.
    LIGHT: river spray and mist, blue-green water light.

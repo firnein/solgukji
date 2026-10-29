@@ -9,6 +9,10 @@ Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, 
 Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
 background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
 Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
 CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
 (at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
 figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
@@ -35,6 +39,7 @@ Banner under each panel: only its number.
 1. (card: 대현량사 장각) [SORCERER] ★ICONIC Zhang Jiao, Yellow Turban leader in a yellow Taoist robe and yellow headscarf, long beard, staff raised, crackling lightning around his hand.
    FACTION: independent warlord, own colors.
    LOOK: gaunt old face, long grey beard.
+   FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression.
    SPLENDOR: MYTHIC.
    SCENE: the Great Teacher summoning a yellow storm, lightning splitting the yellow sky.
    SHOT: foreshortened, weapon thrust right at the viewer.
@@ -42,6 +47,7 @@ Banner under each panel: only its number.
 2. (card: 신의 화타) [SORCERER] ★ICONIC Hua Tuo, kindly old doctor in a pale robe, medicine box on his back, acupuncture needles glowing green in his fingers.
    FACTION: independent warlord, own colors.
    LOOK: old kindly face, white beard, bald top.
+   FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man.
    SPLENDOR: MYTHIC.
    SCENE: the divine physician, glowing golden needles, healing light and swirling herbs.
    SHOT: 3/4 back view, large in frame, head turned back toward the viewer.
@@ -49,6 +55,7 @@ Banner under each panel: only its number.
 3. (card: 월하미인 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    FACTION: independent warlord, own colors.
    LOOK: beautiful, elaborate hair ornaments and flowers.
+   FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
    SPLENDOR: MYTHIC.
    SCENE: the beauty under the moon, praying beneath a full moon that hides behind clouds, petals drifting.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
@@ -56,6 +63,7 @@ Banner under each panel: only its number.
 4. (card: 대장군 하후돈) [SPEARMAN] ★ICONIC Xiahou Dun as Grand General of Wei, black eyepatch, gilded dark blue armor with a tiger crest, long spear and round shield.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: black eyepatch, wild long black hair, full thick beard, older and commanding.
+   FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression.
    SPLENDOR: MYTHIC.
    SCENE: the Grand General standing before endless Wei banners and armies, a golden general seal at his belt, a storm of spears behind him.
    SHOT: seen from the side at full speed, long motion streaks.
@@ -63,6 +71,7 @@ Banner under each panel: only its number.
 5. (card: 수경선생 사마휘) [SCHOLAR] Sima Hui, the Water Mirror hermit sage, white and pale-blue hermit robes, a feather fan and a mirror-like round jade disk.
    FACTION: independent hermit, white, pale blue and silver.
    LOOK: elderly, long silky white beard, bright clear eyes, gentle knowing smile, simple hermit cap.
+   FACE: long serene face, bright clear eyes in kind wrinkles, small nose, gentle knowing smile, smooth old skin, saintly calm hermit.
    SPLENDOR: MYTHIC.
    SCENE: in his bamboo grove beside a still pond that reflects the sky like a mirror, faint images of a sleeping dragon and a young phoenix rising from the water.
    SHOT: slight high angle, half-body, looking up at the viewer.
@@ -70,6 +79,7 @@ Banner under each panel: only its number.
 6. (card: 오각선생 좌자) [SORCERER] Zuo Ci as the transcendent Master Wujiao, flowing silver-white Taoist robes, a glowing book of the Dunjia arts floating before him.
    FACTION: independent warlord, own colors.
    LOOK: very old, extremely long white beard, blind in one eye (milky eye), serene smile.
+   FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal.
    SPLENDOR: MYTHIC.
    SCENE: standing among clouds as many illusory doubles of himself scatter across the sky, white cranes circling, the Dunjia book shining.
    SHOT: side profile, face clearly lit and large in frame, bright window, moon or sky behind.
@@ -77,6 +87,7 @@ Banner under each panel: only its number.
 7. (card: 백문충절 진궁) [SCHEMER] Chen Gong, proud loyal strategist in dark purple and black robes, a strategist hat, holding a rolled map of Yanzhou.
    FACTION: independent warlord, own colors.
    LOOK: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes.
+   FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression.
    SPLENDOR: MYTHIC.
    SCENE: his last stand at the White Gate Tower, bound yet standing tall, refusing to serve Cao Cao, storm clouds and broken banners of Lu Bu behind.
    SHOT: full body filling the panel from top to bottom, wide dynamic stance, scenery only around the edges.
@@ -84,6 +95,7 @@ Banner under each panel: only its number.
 8. (card: 오자제일 장료) [CAVALRY] ★ICONIC Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
+   FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
    SPLENDOR: ORNATE.
    SCENE: first of Wei's Five Elite Generals, leading a charge with his halberd raised, Wei banners streaming behind.
    SHOT: slight high angle, character large in frame, enemies or ground small below.
@@ -91,6 +103,7 @@ Banner under each panel: only its number.
 9. (card: 묘변 장합) [CAVALRY] Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: early 20s, pretty delicate face, clean-shaven, long flowing hair with a jade hairpin, slender build.
+   FACE: beautiful delicate face, long-lashed elegant eyes, thin refined nose, faint smile, very fair skin, vain graceful expression.
    SPLENDOR: ORNATE.
    SCENE: the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.
    SHOT: 3/4 back view, character large in frame, face turned back toward the viewer and clearly visible.
@@ -98,6 +111,7 @@ Banner under each panel: only its number.
 10. (card: 폭군 동탁) [CAVALRY] ★ICONIC Dong Zhuo, obese tyrant with a thick beard, gaudy black-gold armor over a robe.
    FACTION: independent warlord, own colors.
    LOOK: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin.
+   FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer.
    SPLENDOR: ORNATE.
    SCENE: the tyrant lounging on a pile of looted treasure, laughing with a wine cup.
    SHOT: extreme close-up of the face, shouting, weapon edge crossing the frame.
@@ -105,6 +119,7 @@ Banner under each panel: only its number.
 11. (card: 하북패자 원소) [CAVALRY] Yuan Shao, proud noble warlord in gold armor and a long gold cape.
    FACTION: independent warlord, own colors.
    LOOK: 40s, aristocratic long face, long neat mustache and pointed goatee, tall noble helmet-crown, haughty raised chin.
+   FACE: aristocratic long face, haughty raised chin, heavy-lidded condescending eyes, long straight nose, pursed proud lips, pale pampered skin.
    SPLENDOR: ORNATE.
    SCENE: the hegemon of Hebei, a vast sea of Yuan banners behind him, sword pointed forward, gold cape.
    SHOT: low-angle hero shot from below, towering over the viewer, full body.
@@ -112,6 +127,7 @@ Banner under each panel: only its number.
 12. (card: 호치 허저) [SPEARMAN] ★ICONIC Xu Chu, the classic "Tiger Fool": huge bulky bare-chested strongman with a round shaved head and big belly, holding a giant spiked iron club, big grin. Spearman hint only: a round shield strapped to his arm.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: bald round head, fat round face, rosy cheeks, huge belly.
+   FACE: huge round moon face, chubby rosy cheeks, small sleepy eyes, button nose, simple grin, bald round head, naive strongman look.
    SPLENDOR: ORNATE.
    SCENE: the 'Tiger Fool' in full fury, smashing the ground with his giant spiked club, cracks and rocks flying, a faint tiger-stripe aura.
    SHOT: mid-leap or mid-swing, diagonal tilted frame, cloth and hair whipping.

@@ -9,6 +9,10 @@ Each panel follows its own SHOT (angle, head turn, expression) and LIGHT (time, 
 Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
 background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
 Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
 BUST SHOT ONLY: every panel is a chest-up portrait —— the frame cuts at the chest (just below the shoulders and collar);
 no waist, no hands below the chest, no legs, no full body. The head and face fill the upper half of the panel and are
 large, sharp and detailed; the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
@@ -36,6 +40,7 @@ Banner under each panel: only its number.
 1. (card: 강동주석 노숙) [SCHOLAR] Lu Su, friendly round-faced diplomat in a red-brown scholar robe and hat, holding an open book and a rolled map.
    FACTION: Wu colors: crimson, red, orange and gold.
    LOOK: round chubby kind face, short beard.
+   FACE: round chubby face, warm small smiling eyes, round nose, broad friendly smile, plump cheeks, soft skin, honest good-natured look.
    SPLENDOR: ORNATE.
    SCENE: the pillar of Jiangdong on a riverbank, holding a great map of the realm.
    SHOT: BUST (chest-up), slight high angle, looking up at the viewer with a knowing smile.
@@ -43,6 +48,7 @@ Banner under each panel: only its number.
 2. (card: 오두미교주 장로) [SORCERER] Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
    FACTION: independent warlord, own colors.
    LOOK: middle-aged, neat black beard, tall Taoist crown.
+   FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression.
    SPLENDOR: ORNATE.
    SCENE: master of the Five Pecks of Rice cult, rice sack and glowing talismans, followers' lanterns behind.
    SHOT: BUST (chest-up), front view, half the face lit by warm light, half in shadow, serious.
@@ -50,6 +56,7 @@ Banner under each panel: only its number.
 3. (card: 연환미계 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    FACTION: independent warlord, own colors.
    LOOK: beautiful, elaborate hair ornaments and flowers.
+   FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
    SPLENDOR: ORNATE.
    SCENE: the chain stratagem — dancing between two shadow silhouettes of rival warlords, chain-shaped silk ribbons.
    SHOT: BUST (chest-up), side profile, looking into the distance, calm.
@@ -57,6 +64,7 @@ Banner under each panel: only its number.
 4. (card: 발시담정 하후돈) [SPEARMAN] ★ICONIC Xiahou Dun, fierce one-eyed general, dark blue heavy armor, long spear and round shield.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: black eyepatch, wild long black hair, full thick beard.
+   FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression.
    SPLENDOR: ORNATE.
    SCENE: the famous moment of pulling the arrow out of his own left eye with a roar, battle dust, his spear still in the other hand.
    SHOT: BUST (chest-up), slight high angle, glaring up at the viewer, weapon blade crossing in front of the chest, cut by the panel edge.
@@ -64,6 +72,7 @@ Banner under each panel: only its number.
 5. (card: 번성수장 조인) [SPEARMAN] Cao Ren, defensive general in heavy blue plate armor, huge rectangular tower shield and spear, immovable stance.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: square face covered by a huge full beard, full-face helmet visor raised.
+   FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender.
    SPLENDOR: ORNATE.
    SCENE: holding Fancheng to the last on a half-flooded city wall, arrows stuck in his shield, rising water below, refusing to fall back.
    SHOT: BUST (chest-up), front view, half the face in shadow, eyes narrowed, cold stare.
@@ -71,6 +80,7 @@ Banner under each panel: only its number.
 6. (card: 주아부 서황) [SPEARMAN] Xu Huang, calm general with a long mustache, blue armor, long-handled great axe.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, long drooping mustache, calm face, helmet with a blue tassel.
+   FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength.
    SPLENDOR: ORNATE.
    SCENE: cutting straight through the encirclement trenches at Fancheng, great axe swung, the enemy ring breaking around him.
    SHOT: BUST (chest-up), 3/4 view, shouting a battle cry, hair and plume blown back by wind.
@@ -78,6 +88,7 @@ Banner under each panel: only its number.
 7. (card: 희조선인 좌자) [SORCERER] Zuo Ci, mystic immortal with a long white beard, floating slightly, staff in hand, faint glowing aura.
    FACTION: independent warlord, own colors.
    LOOK: very old, extremely long white beard, blind in one eye (milky eye), slight limp.
+   FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal.
    SPLENDOR: ORNATE.
    SCENE: mocking Cao Cao at his banquet, peeling a tangerine that is empty inside, a crane flying out of a wine cup, guards grasping at illusions.
    SHOT: BUST (chest-up), head turned back toward the viewer over the shoulder, sly side glance.
@@ -85,6 +96,7 @@ Banner under each panel: only its number.
 8. (card: 천공장군 장각) [SORCERER] ★ICONIC Zhang Jiao, Yellow Turban leader in an ornate yellow Taoist robe and yellow headscarf, long beard, staff raised to the sky.
    FACTION: independent warlord, own colors.
    LOOK: gaunt old face, long grey beard.
+   FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression.
    SPLENDOR: ORNATE.
    SCENE: the General of Heaven summoning a storm, lightning splitting the sky over a sea of yellow banners and kneeling followers.
    SHOT: BUST (chest-up), 3/4 view, gentle smile, eyes toward the viewer.
@@ -92,6 +104,7 @@ Banner under each panel: only its number.
 9. (card: 괄골요독 화타) [SORCERER] ★ICONIC Hua Tuo, kindly old doctor in a pale robe, medicine box on his back, a small scraping knife and glowing needles.
    FACTION: independent warlord, own colors.
    LOOK: old kindly face, white beard, bald top.
+   FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man.
    SPLENDOR: ORNATE.
    SCENE: scraping the poison from Guan Yu arm bone while Guan Yu calmly plays go beside him, a basin of herbs and soft green healing light.
    SHOT: BUST (chest-up), 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.

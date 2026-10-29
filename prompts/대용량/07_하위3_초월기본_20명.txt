@@ -9,6 +9,10 @@ Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, 
 Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
 background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
 Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
 CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
 (at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
 figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
@@ -35,120 +39,140 @@ Banner under each panel: only its number.
 1. (card: 질풍 장료) [CAVALRY] ★ICONIC Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
+   FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
    SPLENDOR: PLAIN.
    SHOT: LOW ANGLE HALF-BODY, front view — charging at the viewer, halberd swung back over his shoulder ready to strike, fierce shouting face; only his dark bay horse's lowered head and flying mane at the bottom corner, dust.
    LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
 2. (card: 곽회) [CAVALRY] Guo Huai, calm frontier general with a fur collar, blue armor.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 50s, square jaw, short neat grey-streaked beard, calm heavy-lidded eyes, fur hat.
+   FACE: weathered square face, calm heavy-lidded eyes, broad nose, short grey-streaked beard, patient mouth, frontier windburn.
    SPLENDOR: PLAIN.
    SHOT: calm BUST SHOT — his face and fur collar large in frame, one hand stroking the brown horse's muzzle that leans in from the side, spear resting on his shoulder, quiet gaze at the viewer, snow flakes.
    LIGHT: river spray and mist, blue-green water light.
 3. (card: 하후패) [CAVALRY] Xiahou Ba, young determined general in blue armor.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
+   FACE: eager teenage face, short spiky hair, wide excited eyes, small sticking plaster on the nose, open grin, no beard.
    SPLENDOR: PLAIN.
    SHOT: 3/4 BACK VIEW, HALF-BODY — seen from behind, looking back over his shoulder at the viewer with a determined glance, long polearm angled across the frame, cape blowing; only the black horse's neck and ears below.
    LIGHT: harsh noon sun, dusty sand yellow and bleached sky.
 4. (card: 소패 손책) [CAVALRY] ★ICONIC Sun Ce, confident young conqueror with a red headband and big grin, red armor.
    FACTION: Wu colors: crimson, red, orange and gold.
    LOOK: early 20s, wild spiky reddish-brown hair, tanned skin, huge toothy grin, red headband.
+   FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror.
    SPLENDOR: PLAIN.
    SHOT: energetic HALF-BODY, rising in the stirrups mid-leap, big laugh, spear thrust forward, headband ribbons flying; only the chestnut horse's head and front hooves tucked at the bottom of the frame.
    LIGHT: falling snow, white and pale icy blue.
 5. (card: 맹호 허저) [SPEARMAN] ★ICONIC Xu Chu, the classic "Tiger Fool": huge bulky bare-chested strongman with a round shaved head and big belly, holding a giant spiked iron club, big grin. Spearman hint only: a round shield strapped to his arm.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: bald round head, fat round face, rosy cheeks, huge belly.
+   FACE: huge round moon face, chubby rosy cheeks, small sleepy eyes, button nose, simple grin, bald round head, naive strongman look.
    SPLENDOR: PLAIN.
    SHOT: low-angle hero shot from below, towering over the viewer, full body.
    LIGHT: crisp clear morning, bright sky blue and white clouds.
 6. (card: 거부 서황) [SPEARMAN] Xu Huang, calm general with a mustache, blue armor, on foot, long-handled great axe braced in front.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, long drooping mustache, calm face, helmet with a blue tassel.
+   FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength.
    SPLENDOR: PLAIN.
    SHOT: seen from the side at full speed, long motion streaks.
    LIGHT: moonlit night, deep indigo and silver.
 7. (card: 우금) [SPEARMAN] Yu Jin, strict disciplined general with a neat mustache, tidy blue armor, spear in one hand and a war banner pole on his back.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: strict narrow eyes, neat thin mustache only, official black cap.
+   FACE: narrow strict face, narrow judging eyes, thin pointed nose, neat thin mustache, pressed thin lips, rigid disciplinarian.
    SPLENDOR: PLAIN.
    SHOT: extreme close-up of the face, shouting, weapon edge crossing the frame.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 8. (card: 악진) [SPEARMAN] Yue Jin, small but fierce vanguard officer, helmet with a plume, spear thrust forward, shield on arm.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: small and short, young, clean-shaven, big determined eyes, oversized plumed helmet.
+   FACE: small young face, big determined round eyes, small nose, clenched teeth, clean-shaven, tiny body under an oversized helmet.
    SPLENDOR: PLAIN.
    SHOT: mid-leap or mid-swing, diagonal tilted frame, cloth and hair whipping.
    LIGHT: spring peach blossoms, pink petals and soft green.
 9. (card: 이전) [SPEARMAN] Li Dian, mild scholarly general with a gentle smile, light blue armor, spear held upright, a book tucked in his belt.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: soft round face, light short beard, gentle smile, scholar's topknot with a ribbon.
+   FACE: soft round scholarly face, light short beard, gentle eyes, small nose, polite smile, mild-mannered general.
    SPLENDOR: PLAIN.
    SHOT: full body filling the panel from top to bottom, wide dynamic stance, scenery only around the edges.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.
 10. (card: 표질 하후연) [ARCHER] ★ICONIC Xiahou Yuan, lean swift archer general, light blue armor and headband, drawing a bow at full stretch, quiver on back.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean.
+   FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression.
    SPLENDOR: PLAIN.
    SHOT: slight high angle, character large in frame, enemies or ground small below.
    LIGHT: golden autumn leaves, ochre and rust.
 11. (card: 여상) [ARCHER] Lü Xiang, archer officer in simple blue armor, holding a longbow with an arrow nocked, quiver on back.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: very young, clean-shaven, short cropped hair under a simple cloth cap, freckles.
+   FACE: very young freckled face, short cropped hair, wide nervous eyes, small nose, clean-shaven, earnest rookie.
    SPLENDOR: PLAIN.
    SHOT: foreshortened, weapon thrust right at the viewer.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
 12. (card: 학소) [ARCHER] Hao Zhao, stubborn fortress defender in a blue helmet, aiming a large crossbow, bolt quiver at his hip.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, heavy full helmet, stern square face, short black beard.
+   FACE: stern square face, short black beard, unwavering small eyes, broad nose, tight mouth, stubborn fortress defender.
    SPLENDOR: PLAIN.
    SHOT: 3/4 back view, character large in frame, face turned back toward the viewer and clearly visible.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 13. (card: 효웅 조조) [SCHEMER] ★ICONIC Cao Cao, the classic ambitious warlord: sharp eyes, short black beard, black-and-navy robe with gold trim and a short cape, official crown hat, holding his famous straight sword (Yitian sword) with confidence. Schemer hint only: a sly smirk and a sealed scroll tucked in his belt.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, sharp narrow eyes, short trimmed black beard, official crown hat.
+   FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma.
    SPLENDOR: PLAIN.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
 14. (card: 와호 사마의) [SCHEMER] ★ICONIC Sima Yi, patient schemer with a thin long beard, dark purple-navy hooded robe, holding a black go stone between two fingers, sly sideways glance.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: gaunt face, thin long beard, wolf-like glance over his shoulder.
+   FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking back over the shoulder, long thin nose, thin lips in a faint cunning smile, pale skin, scheming patience.
    SPLENDOR: PLAIN.
    SHOT: close framing, a few foreground objects (petals, smoke, curtain) only at the panel edges, face fully visible.
    LIGHT: river spray and mist, blue-green water light.
 15. (card: 귀모 가후) [SCHEMER] Jia Xu, old crafty schemer with a thin mustache and half-closed eyes, dark hooded robe, holding a small poison vial and a scroll.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: old, hunched, thin long mustache, half-closed eyes, wrinkled.
+   FACE: wrinkled shrewd old face, half-closed lazy eyes, droopy thin mustache, small mouth, sallow skin, unreadable bored expression.
    SPLENDOR: PLAIN.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: harsh noon sun, dusty sand yellow and bleached sky.
 16. (card: 귀재 곽가) [STRATEGIST] ★ICONIC Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
+   FACE: slender pale young face, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair, decadent genius.
    SPLENDOR: PLAIN.
    SHOT: side profile, face clearly lit and large in frame, bright window, moon or sky behind.
    LIGHT: falling snow, white and pale icy blue.
 17. (card: 유엽) [STRATEGIST] Liu Ye, young inventor strategist with a white feather fan, a blueprint and a small catapult model at his feet.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: young, curious bright eyes, ink stains on his fingers and cheek.
+   FACE: young curious face, bright inquisitive eyes, ink stains on fingers and cheek, small nose, excited smile, inventor.
    SPLENDOR: PLAIN.
    SHOT: leaning casually on a table, pillar or tree, knees-up, tilted head.
    LIGHT: crisp clear morning, bright sky blue and white clouds.
 18. (card: 문약 순욱) [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: elegant 40s, neat full beard, tall formal hat.
+   FACE: handsome dignified oval face, gentle sad eyes, straight nose, neat full beard, refined calm mouth, smooth fair skin, noble upright expression.
    SPLENDOR: PLAIN.
    SHOT: knees-up, walking toward the viewer, character fills the panel.
    LIGHT: moonlit night, deep indigo and silver.
 19. (card: 진군) [SCHOLAR] Chen Qun, neat bureaucrat official in a scholar's hat, holding a thick law book and a brush.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: neat thin goatee, squinting eyes, official hat.
+   FACE: neat narrow face, squinting bureaucratic eyes, neat thin goatee, small mouth, pale indoor skin, meticulous official.
    SPLENDOR: PLAIN.
    SHOT: extreme close-up of the face and hands, eyes locked on the viewer.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 20. (card: 벽안 손권) [ARCHER] ★ICONIC Sun Quan, the classic young Wu emperor: striking green-blue eyes and a reddish-purple beard, regal red and gold robe, holding a sword, dignified. Archer hint only: a bow slung on his back and a small quiver.
    FACTION: Wu colors: crimson, red, orange and gold.
    LOOK: green-blue eyes, reddish-purple beard, square jaw.
+   FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler.
    SPLENDOR: PLAIN.
    SHOT: 3/4 back view, character large in frame, face turned back toward the viewer and clearly visible.
    LIGHT: spring peach blossoms, pink petals and soft green.
