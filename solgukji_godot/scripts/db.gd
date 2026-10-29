@@ -407,8 +407,11 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
 	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항", "fire_hit": "불길 추가 피해", "water_hit": "물살 추가 피해",
 	"shatter": "와해 확률", "break_amp": "와해된 적에게 피해", "break_hit": "충격 추가 피해", "exec_break": "와해된 적 처형 문턱", "break_res": "와해 저항",
-	"aim": "표식 확률", "mark_amp": "표식된 적에게 피해", "mark_hit": "관통 추가 피해", "mark_res": "표식 저항"}
-const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur"]
+	"aim": "표식 확률", "mark_amp": "표식된 적에게 피해", "mark_hit": "관통 추가 피해", "mark_res": "표식 저항",
+	"phalanx": "방진 확률", "counter_hit": "반격 피해", "phalanx_amp": "방진 중 반격 피해",
+	"sow": "혼란 확률", "jolt": "맞힐 때 적 사기 -", "confuse_amp": "혼란·봉인된 적에게 피해",
+	"mend": "차례마다 치료", "cheer_hit": "맞힐 때 아군 치료"}
+const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt"]
 
 
 ## 수치 요약 —— "치명타 확률 +14% · 치명타 피해 +69%"
@@ -418,14 +421,16 @@ func mods_text(m: Dictionary, scale := 1.0) -> String:
 		if k == "first":
 			out.append("선공")
 			continue
-		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break"]:      # 계열 마무리 —— 설명으로 충분
+		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break",
+				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx"]:      # 계열 마무리 —— 설명으로 충분
 			continue
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
-		if k in ["regen", "mregen", "terror"]:      # 턴마다 흐르는 양 —— 전투 속도(Battle.pace)만큼 줄어 있다
+		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 전투 속도(Battle.pace)만큼 줄어 있다
 			v *= Battle.pace
-			out.append(("%s%s%.1f%%" if k == "regen" else "%s%s%.1f") % [lb, sign, v * 100 if k == "regen" else v])
+			var pct: bool = k in ["regen", "mend", "cheer_hit"]
+			out.append(("%s%s%.1f%%" if pct else "%s%s%.1f") % [lb, sign, v * 100 if pct else v])
 			continue
 		if k in MOD_FLAT:
 			out.append("%s%s%.0f" % [lb, sign, v])

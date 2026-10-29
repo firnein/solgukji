@@ -27,6 +27,9 @@ static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 �
 static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
 static var dash_enabled := true      # 돌파 계열 켜기 (와해)
 static var aim_enabled := true       # 표적 계열 켜기 (표식)
+static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
+static var scheme_enabled := true    # 계략 계열 켜기 (혼란 걸기 · 키우기 · 옮기기 · 미인계)
+static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 감읍 · 도원결의 · 단량)
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
@@ -84,6 +87,8 @@ class Unit:
 	var opened := false       # 첫 공격을 했는가 (기신·강행·습격)
 	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
 	var break_used := false   # 장판돌파 —— 첫 공격의 확정 와해를 썼는가
+	var stand_used := false   # 사수 —— 방진 중 병력 1에서 버티기를 썼는가
+	var countering := false   # 반격 중 (점검 통계용)
 	var dmg := 0.0
 	var mdmg := 0.0
 	var heal := 0.0
@@ -116,7 +121,11 @@ var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
 	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
-	"tac_amp": 0.0, "breaks": 0, "marks": 0, "collapses": 0, "chains": 0, "execs": 0}
+	"tac_amp": 0.0, "breaks": 0, "marks": 0, "collapses": 0, "chains": 0, "execs": 0,
+	"phalanx": 0, "counters": 0, "counter_dmg": 0.0, "stands": 0,
+	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
+	"mends": 0.0, "moved": 0, "oaths": 0}
+var _oath_used := {"A": false, "B": false}
 
 
 func _init(seed_value: int = -1) -> void:
@@ -237,6 +246,9 @@ func _trait_on(t: Dictionary) -> bool:
 		"수공": return water_enabled
 		"돌파": return dash_enabled
 		"표적": return aim_enabled
+		"철벽": return guard_enabled
+		"계략": return scheme_enabled
+		"인덕": return virtue_enabled
 	return passives_enabled
 
 
@@ -416,9 +428,15 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var fm := _fire_mul(a, d)
 	var wm := _water_mul(a, d)
 	var tm := _tac_mul(a, d)
-	dmg *= fm * wm * tm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
-	var loss := maxf(1, roundf(dmg * K.troop * pace))
+	var sm := _scheme_mul(a, d)
+	if _phalanx(d):
+		dmg *= 1.0 - float(DB.PSV.guard.dr)        # 방진 —— 받는 물리 피해 감소
+	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
+	var loss := _stand(d, maxf(1, roundf(dmg * K.troop * pace)))
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
+	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
+	if a.countering:
+		stats.counter_dmg += loss
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
@@ -431,14 +449,27 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	_ignite(a, d)
 	_soak(a, d)
 	_tac_hit(a, d)
+	_after_hit(a, d)
 	if not no_counter and d.alive:
 		var stance = null
 		for b in d.buffs:
 			if b.stat == "counter": stance = b
+		var ph := _phalanx(d)
 		var p: float = (0.70 if d.caps.has("창병") and d.c.tag == "창병" else 0.0) + (stance.amt if stance else 0.0) + mv(d, "counter")
+		if ph:
+			p += float(DB.PSV.guard.counter)           # 방진 —— 반격 확률 +
 		if p > 0 and rng.randf() < p:
 			L("sk", "%s 창을 되받아 찔렀다" % ga(nm(d)), {"fx": "buff", "f": d.key})
-			phys_hit(d, a, 1.28, true)
+			var cmul := 1.28
+			if guard_enabled:
+				cmul *= 1.0 + mv(d, "counter_hit") + (mv(d, "phalanx_amp") if ph else 0.0)     # 반격(즉발) · 역습
+			stats.counters += 1
+			d.countering = true
+			phys_hit(d, a, cmul, true)
+			d.countering = false
+			if ph and mv(d, "phalanx_break") > 0 and a.alive and dash_enabled:            # 장판단기 —— 방진 중 반격이 와해시킨다
+				stats.breaks += 1
+				inflict(d, a, "break", _tac_val("break", d), _tac_dur("break"))
 
 
 func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
@@ -455,9 +486,11 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	var fm := _fire_mul(a, d)
 	var wm := _water_mul(a, d)
 	var tm := _tac_mul(a, d)
-	dmg *= fm * wm * tm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
+	var sm := _scheme_mul(a, d)
+	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
 	var aoe: float = K.aoe if spread >= 3 else 1.0
-	var loss := maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe))
+	var loss := _stand(d, maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe)))
+	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
@@ -471,6 +504,10 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	_ignite(a, d)
 	_soak(a, d)
 	_tac_hit(a, d)
+	_after_hit(a, d)
+	if scheme_enabled and d.alive and d.troops > 0 and mv(a, "sow") > 0 and rng.randf() < mv(a, "sow"):     # 반목 —— 책략이 맞으면 혼란
+		stats.confuses += 1
+		inflict(a, d, "confuse", 1, int(DB.PSV.scheme.dur))
 
 
 func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> void:
@@ -485,12 +522,16 @@ func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> voi
 
 func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if not d.alive or _scorched(d): return
+	if virtue_enabled and _side_max(_foe(d.camp), "starve") > 0:
+		ratio *= 1.0 - float(DB.PSV.virtue.starve)      # 단량 —— 적이 군량을 끊었다
 	var g := minf(roundf(d.max * ratio * pace), d.max - d.troops)
 	if g <= 0: return
 	d.troops += g
 	if src: src.heal += g / 300.0
 	L("hl", "『%s』에 %s의 대오가 정비된다 — 병력 +%s" % [who, nm(d), num(g)],
 		{"fx": "heal", "f": d.key, "n": g})
+	if virtue_enabled and _side_max(d.camp, "moved") > 0:
+		_give_moved(d)
 
 
 func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
@@ -533,6 +574,10 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	var v := maxf(1, roundf(val * scale * stx * resist * fire * amp))
 	if kind == "break" or kind == "mark":      # 받는 피해 + 비율 —— 반올림하지 않는다
 		v = val * resist * (1.0 - minf(0.9, mv(d, "break_res" if kind == "break" else "mark_res")))
+	if kind == "break" and _phalanx(d):         # 와해 ↔ 방진 —— 방진이 와해를 덜 받고, 대신 방진이 풀린다
+		v *= 1.0 - float(DB.PSV.guard.break_res)
+		d.buffs = d.buffs.filter(func(b): return b.stat != "phalanx")
+		L("st", "%s의 방진이 무너졌다" % nm(d), {"fx": "cleanse", "f": d.key, "st": "break"})
 	var t := maxi(dur, 1) + ext
 	if kind == "flood":
 		_douse(d)
@@ -564,11 +609,15 @@ func cleanse(u: Unit) -> bool:
 
 func tick_status() -> void:
 	var spreads := []
+	var passes := []
 	for u in units:
 		if not u.alive or u.st.is_empty(): continue
 		for s in u.st:
 			match s.k:
 				"burn":
+					if scheme_enabled and has_st(u, "confuse") and _side_max(_foe(u.camp), "confuse_burn") > 0:
+						u.troops -= s.val          # 팔진화계 —— 혼란된 적의 화상이 두 배로 탄다
+						stats.burn += s.val
 					u.troops -= s.val
 					stats.burn += s.val
 					var tr := _side_max(_foe(u.camp), "terror")
@@ -592,9 +641,21 @@ func tick_status() -> void:
 					u.morale -= s.val
 					L("st", "%s의 군세에 역병이 돈다 — 사기 %d 감소" % [nm(u), roundi(s.val)], {"fx": "tick", "f": u.key, "st": "plague", "m": s.val})
 		for s in u.st: s.dur -= 1
+		for s in u.st:
+			if s.k == "confuse" and s.dur <= 0 and not s.get("passed", false) and scheme_enabled \
+					and _side_max(_foe(u.camp), "confuse_pass") > 0:
+				passes.append(u)
 		u.st = u.st.filter(func(s): return s.dur > 0)
 	for sp in spreads:
 		_spread_burn(sp[0], sp[1])
+	for u in passes:                                  # 반간 —— 풀린 혼란이 같은 열 이웃에게 옮겨 간다 (한 번만)
+		var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and o.line == u.line and not has_st(o, "confuse"))
+		if cand.is_empty(): continue
+		var t: Unit = cand[rng.randi() % cand.size()]
+		stats.passes += 1
+		inflict(null, t, "confuse", 1, int(DB.PSV.scheme.dur))
+		var c = _st_of(t, "confuse")
+		if c: c.passed = true
 	_drown()
 	for cp in ["A", "B"]:
 		var side := units.filter(func(u): return u.alive and u.camp == cp)
@@ -881,6 +942,114 @@ func _tac_rout(u: Unit) -> void:
 			inflict(null, cand[0], "mark", k.val, _tac_dur("mark"))
 
 
+# ───────── 철벽 · 계략 · 인덕 (솔국지 확장) ─────────
+
+## 방진 중인가 (철벽)
+func _phalanx(u: Unit) -> bool:
+	return guard_enabled and _buff_sum(u, "phalanx") > 0
+
+
+## 방진을 친다 —— 버프 stat "phalanx" (eff() 가 읽지 않는 표시용), 이미 있으면 남은 턴만 늘린다
+func _give_phalanx(u: Unit, dur: int, why: String) -> void:
+	if not guard_enabled or not u.alive:
+		return
+	for b in u.buffs:
+		if b.stat == "phalanx":
+			b.dur = maxi(b.dur, dur)
+			return
+	u.buffs.append({"stat": "phalanx", "amt": 1.0, "dur": dur})
+	stats.phalanx += 1
+	L("sk", "%s 방진을 친다 (%s)" % [ga(nm(u)), why], {"fx": "buff", "f": u.key, "up": true})
+
+
+## 사수 —— 방진 중 이 피해로 무너질 참이면 한 번, 병력 1을 남긴다
+func _stand(d: Unit, loss: float) -> float:
+	if d.troops - loss <= 0 and not d.stand_used and mv(d, "last_stand") > 0 and _phalanx(d):
+		d.stand_used = true
+		stats.stands += 1
+		L("sk", "%s 방진을 지키며 끝내 버틴다" % ga(nm(d)), {"fx": "buff", "f": d.key, "up": true})
+		return maxf(0, d.troops - 1)
+	return loss
+
+
+## 철옹성 —— 전투 시작에 아군 전열(가장 앞 열) 전원 방진 1턴 (턴 시작에 1 줄어 2로 준다)
+func _guard_open() -> void:
+	if not guard_enabled:
+		return
+	for u in units:
+		if mv(u, "wall") <= 0 or not u.alive:
+			continue
+		var mine := units.filter(func(o): return o.camp == u.camp and o.alive)
+		var mn: int = mine.map(pri).min()
+		L("sk", "%s의 명으로 전열이 성벽처럼 늘어선다" % nm(u), {"fx": "skill", "a": u.key, "name": "철옹성", "kind": "phys"})
+		for t in mine.filter(func(o): return pri(o) == mn):
+			_give_phalanx(t, 2, "철옹성")
+
+
+## 혼란 · 봉인된 적을 칠 때 (허실) · 초선 폐월(혼란된 적은 와해된 것으로)
+func _scheme_mul(a: Unit, d: Unit) -> float:
+	if a == null or not scheme_enabled:
+		return 1.0
+	var m := 1.0
+	var dazed := has_st(d, "confuse") or has_st(d, "seal")
+	if dazed:
+		m *= 1.0 + mv(a, "confuse_amp")
+	if has_st(d, "confuse") and not has_st(d, "break") and dash_enabled and _side_max(a.camp, "confuse_break") > 0:
+		m *= 1.0 + _tac_val("break", a)
+	return m
+
+
+## 자기 차례 시작 —— 방진(철벽) · 인술(가장 지친 아군 치료)
+func _turn_start(u: Unit) -> void:
+	if guard_enabled and mv(u, "phalanx") > 0 and rng.randf() < mv(u, "phalanx"):
+		_give_phalanx(u, int(DB.PSV.guard.dur), "방진")
+	if virtue_enabled and mv(u, "mend") > 0:
+		var t = _most_hurt(u.camp)
+		if t:
+			var b: float = t.troops
+			heal_troop(t, mv(u, "mend"), "인술", u)
+			stats.mends += t.troops - b
+
+
+func _most_hurt(cp: String):
+	var al := units.filter(func(o): return o.alive and o.camp == cp and o.troops < o.max and not _scorched(o))
+	if al.is_empty():
+		return null
+	al.sort_custom(func(x, y): return x.troops / x.max < y.troops / y.max)
+	return al[0]
+
+
+## 맞힌 뒤 (물리 · 책략 공통) —— 교란(즉발 사기 -) · 위무(즉발 아군 치료)
+func _after_hit(a: Unit, d: Unit) -> void:
+	if scheme_enabled and d.alive and mv(a, "jolt") > 0:
+		d.morale -= mv(a, "jolt")
+		stats.jolts += mv(a, "jolt")
+	if virtue_enabled and mv(a, "cheer_hit") > 0:
+		var t = _most_hurt(a.camp)
+		if t:
+			var b: float = t.troops
+			heal_troop(t, mv(a, "cheer_hit"), "위무", a)
+			stats.mends += t.troops - b
+
+
+## 감읍 —— 치료받은 아군이 2턴 동안 공격 · 책략 + (이미 있으면 남은 턴만 늘린다). 유비 「인의」면 방진도 친다
+func _give_moved(u: Unit) -> void:
+	var dur: int = int(DB.PSV.virtue.moved_dur)
+	var found := false
+	for b in u.buffs:
+		if b.get("moved", false):
+			b.dur = maxi(b.dur, dur)
+			found = true
+	if not found:
+		var amt: float = DB.PSV.virtue.moved
+		u.buffs.append({"stat": "atk", "amt": amt, "dur": dur, "moved": true})
+		u.buffs.append({"stat": "int", "amt": amt, "dur": dur, "moved": true})
+		stats.moved += 1
+		L("sk", "%s 감읍해 힘을 낸다" % ga(nm(u)), {"fx": "buff", "f": u.key, "up": true})
+	if _side_max(u.camp, "moved_phalanx") > 0:
+		_give_phalanx(u, dur, "인의")
+
+
 ## 수몰이 걸리면 불이 꺼진다
 func _douse(d: Unit) -> void:
 	if fire_enabled and water_enabled and _side_max(_foe(d.camp), "steam") > 0:
@@ -900,6 +1069,14 @@ func _douse(d: Unit) -> void:
 
 func rout(u: Unit, why: String) -> void:
 	if not u.alive: return
+	if virtue_enabled and not _oath_used[u.camp] and _side_max(u.camp, "oath") > 0:      # 도원결의 —— 진영에서 한 번, 무너질 부대를 일으켜 세운다
+		_oath_used[u.camp] = true
+		stats.oaths += 1
+		u.troops = maxf(u.troops, roundf(u.max * float(DB.PSV.virtue.oath)))
+		u.morale = maxf(u.morale, 60.0)
+		u.st = u.st.filter(func(s): return s.k != "break")
+		L("hl", "도원의 맹세 —— %s 다시 일어선다" % ga(nm(u)), {"fx": "heal", "f": u.key, "n": u.troops})
+		return
 	u.alive = false
 	if fire_enabled and has_st(u, "burn") and _side_max(_foe(u.camp), "blaze") > 0:
 		_blaze(u)
@@ -947,6 +1124,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	if water_enabled:
 		_tide()
 	_tac_open()
+	_guard_open()
 	var turn := 0
 	var winner := ""
 	while turn < K.cap and winner == "":
@@ -1084,8 +1262,18 @@ func live_count(cp: String) -> int:
 func act(u: Unit) -> void:
 	if not u.alive: return
 	if has_st(u, "confuse"):
+		if scheme_enabled and _side_max(_foe(u.camp), "turncoat") > 0:      # 미인계 —— 혼란된 적이 제 편을 친다
+			var own := units.filter(func(o): return o.alive and o != u and o.camp == u.camp)
+			if not own.is_empty():
+				var t: Unit = own[rng.randi() % own.size()]
+				stats.turncoats += 1
+				L("st", "혼란에 빠진 %s 제 편 %s 들이친다" % [ga(nm(u)), eul(nm(t))], {"fx": "status", "f": u.key, "st": "confuse"})
+				if u.c.int > u.c.atk: int_hit(u, t, 1, 1)
+				else: phys_hit(u, t, 1, true)
+				return
 		L("st", "%s 혼란에 빠져 움직이지 못한다" % ga(nm(u)), {"fx": "status", "f": u.key, "st": "confuse"})
 		return
+	_turn_start(u)
 	var foes := units.filter(func(o): return o.camp != u.camp)
 	var allies := units.filter(func(o): return o.camp == u.camp)
 	if not foes.any(func(o): return o.alive): return
