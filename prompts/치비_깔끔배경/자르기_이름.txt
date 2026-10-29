@@ -1,0 +1,112 @@
+치비 깔끔배경 시트를 뽑은 뒤 D:\Sol 에서 자르기 (이름 순서 = 이름표 번호 순서). 자른 뒤 solgukji_godot 에서 Godot --import 를 한 번 돌린다.
+
+[01_상위1-1_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "마초_불멸,황충_불멸,위연_불멸,강유_불멸" solgukji_godot/assets/portraits
+
+[02_상위1-2_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "관우_불멸,유비_불멸,법정_불멸,서서_불멸" solgukji_godot/assets/portraits
+
+[03_상위1-3_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "감녕_신화,여몽_신화,주유_신화,육손_신화" solgukji_godot/assets/portraits
+
+[04_상위2-1_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "장각_신화,화타_신화,초선_신화,하후돈_신화" solgukji_godot/assets/portraits
+
+[05_상위2-2_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "사마휘_신화,좌자_신화,진궁_신화,장료_불멸" solgukji_godot/assets/portraits
+
+[06_상위2-3_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "장합_불멸,동탁_불멸,원소_불멸,허저_불멸" solgukji_godot/assets/portraits
+
+[07_상위3-1_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "전위_불멸,하후연_불멸,사마의_불멸,가후_불멸" solgukji_godot/assets/portraits
+
+[08_상위3-2_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "곽가_불멸,순욱_불멸,손권_불멸,태사자_불멸" solgukji_godot/assets/portraits
+
+[09_상위3-3_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "감녕_불멸,여몽_불멸,주유_불멸,육손_불멸" solgukji_godot/assets/portraits
+
+[10_상위4-1_3명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "노숙_불멸,장로_불멸,초선_불멸" solgukji_godot/assets/portraits
+
+[11_상위4-2_3명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "하후돈_불멸,조인_불멸,서황_불멸" solgukji_godot/assets/portraits
+
+[12_상위4-3_3명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "좌자_불멸,장각_불멸,화타_불멸" solgukji_godot/assets/portraits
+
+[13_하위1-1_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "관우_초월,위연_초월,강유_초월,방통_초월,법정_초월" solgukji_godot/assets/portraits
+
+[14_하위1-2_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "마량_초월,조운,마초,마대,장료_초월" solgukji_godot/assets/portraits
+
+[15_하위1-3_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "장합_초월,하후돈_초월,서황_초월,조인_초월,하후연_초월" solgukji_godot/assets/portraits
+
+[16_하위1-4_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "정욱_초월,등애_초월,곽가_초월,종회_초월,순욱_초월" solgukji_godot/assets/portraits
+
+[17_하위2-1_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "손권_초월,태사자_초월,황개_초월,정보_초월,여몽_초월" solgukji_godot/assets/portraits
+
+[18_하위2-2_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "능통_초월,엄백호_초월,주태_초월,주유_초월,육손_초월" solgukji_godot/assets/portraits
+
+[19_하위2-3_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "노숙_초월,대교_초월,소교_초월,좌자_초월,장로_초월" solgukji_godot/assets/portraits
+
+[20_하위2-4_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "초선_초월,원술_초월,방덕_초월,장소_초월,우길_초월" solgukji_godot/assets/portraits
+
+[21_하위3-1_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "장료,곽회,하후패,손책,허저" solgukji_godot/assets/portraits
+
+[22_하위3-2_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "서황,우금,악진,이전,하후연" solgukji_godot/assets/portraits
+
+[23_하위3-3_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "여상,학소,조조,사마의,가후" solgukji_godot/assets/portraits
+
+[24_하위3-4_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "곽가,유엽,순욱,진군,손권" solgukji_godot/assets/portraits
+
+[25_하위4-1_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "태사자,정보,서성,감녕,여몽" solgukji_godot/assets/portraits
+
+[26_하위4-2_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "능통,정봉,능조,마충,주태" solgukji_godot/assets/portraits
+
+[27_하위4-3_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "주유,육손,노숙,오범,장각" solgukji_godot/assets/portraits
+
+[28_하위4-4_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "장보,장량,좌자,우길,화타" solgukji_godot/assets/portraits
+
+[29_하위5-1_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "장로,관로,초선,저수" solgukji_godot/assets/portraits
+
+[30_하위5-2_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "전풍,심배,장연,관해" solgukji_godot/assets/portraits
+
+[31_상위5-1_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "장료_신화,손책_신화,조운_신화,여포_신화" solgukji_godot/assets/portraits
+
+[32_상위5-2_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "동탁_신화,유비_신화,관우_신화,장비_신화" solgukji_godot/assets/portraits
+
+[33_상위6-1_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "제갈량_신화,위연_신화,하후연_신화,조조_신화" solgukji_godot/assets/portraits
+
+[34_상위6-2_4명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "곽가_신화,순욱_신화,손권_신화,태사자_신화" solgukji_godot/assets/portraits
+
+[35_하위6-1_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "유비,관우,장비,제갈량,황충" solgukji_godot/assets/portraits
+
+[36_하위6-2_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "강유,방통,법정,마량,이적" solgukji_godot/assets/portraits
+
+[37_하위6-3_5명.txt]
+  python -I tools/scripts/slice_panels.py 시트.png "간옹,미축,요화,주창,초주" solgukji_godot/assets/portraits

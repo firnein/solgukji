@@ -1,0 +1,81 @@
+A character sheet of 4 chibi Three Kingdoms (ancient China, late Han dynasty) character PORTRAITS.
+
+STYLE (if an earlier sheet of this series is attached, copy only its drawing style, not its compositions or faces):
+- Chibi / super-deformed proportions (about 2.5 to 3 heads tall) but MATURE, characterful faces —— not babyish, not cute-generic.
+- Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, warm and consistent across the sheet.
+- Costume drawn with great care: layered Han-dynasty robes with crossed collars, embroidered silk and brocade with cloud, dragon,
+  phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves and helmets of the era;
+  armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings, all with intricate patterns.
+- Clear readable shapes, expressive eyes and brows, crisp outlines that separate the character from the background.
+
+LAYOUT:
+- Image 1024x1536 portrait. 4 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: the big chibi head, shoulders and upper chest only, cut at the chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel) —— CLEAN:
+- A simple, quiet watercolor wash: soft cream paper tone fading into a pale tint of the PORTRAIT LIGHT color, a little paper grain.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow, a few petals or sparks).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no banners, no crowds, no other people, no animals except
+  where CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Strongly distinctive faces even in chibi style. Follow LOOK and FACE exactly and EXAGGERATE them like a caricature: age, face
+  shape, cheekbones, eye shape and size, brows, nose, mouth, facial hair, hairline, skin tone, wrinkles, scars, usual expression.
+- Ages must clearly differ (smooth young faces vs. deep wrinkles). Not everyone is handsome: some are plain, ugly, fat, gaunt or
+  brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome anime face, no same-face syndrome.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- SORCERER: Taoist robe and crown, a staff, prayer beads or paper talismans, faint glowing sparks near the hand.
+- SCHEMER: dark muted robe with a high collar or hood, a sly look, holding a scroll, a vial or a go stone.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: realistic or photographic rendering, plain generic anime style, babyish faces, identical faces, busy backgrounds, scenery,
+extra people, cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [SORCERER] Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: middle-aged, neat black beard, tall Taoist crown.
+   FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression.
+   SPLENDOR: PLAIN.
+   POSE: 3/4 view, gentle smile, eyes toward the viewer.
+   PORTRAIT LIGHT: golden-orange backlight rim, warm shadows, wash faintly tinted amber.
+2. [SORCERER] Guan Lu, diviner holding a turtle shell, glowing trigram symbols floating around it.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: homely face, big forehead, thick eyebrows.
+   FACE: homely face, big bulging forehead, thick eyebrows, odd wandering eyes, wide nose, eccentric fortune-teller grin.
+   SPLENDOR: PLAIN.
+   POSE: slight high angle, looking up at the viewer with a knowing smile.
+   PORTRAIT LIGHT: soft warm daylight with a pink tint, wash faintly tinted blush pink.
+3. [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
+   COSTUME COLORS: his own warlord colors.
+   LOOK: beautiful, elaborate hair ornaments and flowers.
+   FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
+   SPLENDOR: PLAIN.
+   POSE: front view, half the face lit by warm light, half in shadow, serious.
+   PORTRAIT LIGHT: faint violet-and-gold glow behind the head, cool key light.
+4. [SCHEMER] Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: gaunt middle-aged, worried brow, short beard.
+   FACE: gaunt middle-aged face, worried knitted brow, tired baggy eyes, short beard, anxious mouth.
+   SPLENDOR: PLAIN.
+   POSE: side profile, looking into the distance, calm.
+   PORTRAIT LIGHT: warm golden afternoon light, wash faintly tinted ochre.

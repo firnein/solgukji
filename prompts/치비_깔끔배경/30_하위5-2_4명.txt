@@ -1,0 +1,81 @@
+A character sheet of 4 chibi Three Kingdoms (ancient China, late Han dynasty) character PORTRAITS.
+
+STYLE (if an earlier sheet of this series is attached, copy only its drawing style, not its compositions or faces):
+- Chibi / super-deformed proportions (about 2.5 to 3 heads tall) but MATURE, characterful faces —— not babyish, not cute-generic.
+- Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, warm and consistent across the sheet.
+- Costume drawn with great care: layered Han-dynasty robes with crossed collars, embroidered silk and brocade with cloud, dragon,
+  phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves and helmets of the era;
+  armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings, all with intricate patterns.
+- Clear readable shapes, expressive eyes and brows, crisp outlines that separate the character from the background.
+
+LAYOUT:
+- Image 1024x1536 portrait. 4 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: the big chibi head, shoulders and upper chest only, cut at the chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel) —— CLEAN:
+- A simple, quiet watercolor wash: soft cream paper tone fading into a pale tint of the PORTRAIT LIGHT color, a little paper grain.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow, a few petals or sparks).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no banners, no crowds, no other people, no animals except
+  where CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Strongly distinctive faces even in chibi style. Follow LOOK and FACE exactly and EXAGGERATE them like a caricature: age, face
+  shape, cheekbones, eye shape and size, brows, nose, mouth, facial hair, hairline, skin tone, wrinkles, scars, usual expression.
+- Ages must clearly differ (smooth young faces vs. deep wrinkles). Not everyone is handsome: some are plain, ugly, fat, gaunt or
+  brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome anime face, no same-face syndrome.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- SCHEMER: dark muted robe with a high collar or hood, a sly look, holding a scroll, a vial or a go stone.
+- ROGUE: light leather or cloth armor, a headband or scarf, a short blade or dagger held near the face, alert eyes.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: realistic or photographic rendering, plain generic anime style, babyish faces, identical faces, busy backgrounds, scenery,
+extra people, cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [SCHEMER] Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: stern thick frowning eyebrows, square beard.
+   FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
+   SPLENDOR: PLAIN.
+   POSE: 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+   PORTRAIT LIGHT: cool overcast light, wet sheen on armor and hair, wash faintly tinted teal-grey.
+2. [SCHEMER] Shen Pei, stubborn loyal official in a purple-gray high-collared robe, holding a sealed order scroll, stern.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: older, long thin beard, rigid upright posture.
+   FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
+   SPLENDOR: PLAIN.
+   POSE: slight low angle, composed, looking down at the viewer, robe collar framing the face.
+   PORTRAIT LIGHT: pale cool dawn light, soft pink highlights, wash faintly tinted lavender-grey.
+3. [ROGUE] Zhang Yan, Black Mountain bandit leader in a black outfit, agile leaping pose, a knife in each hand.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: young, black mask scarf over the lower face.
+   FACE: young sharp eyes above a black mask scarf over the lower face, lean face, quick bandit glance.
+   SPLENDOR: PLAIN.
+   POSE: 3/4 view, shouting a battle cry, hair and plume blown back by wind.
+   PORTRAIT LIGHT: soft diffuse grey light, low contrast, background faintly misty grey.
+4. [ROGUE] Guan Hai, giant Yellow Turban bandit with a yellow headband, light leather vest, a hand axe in each hand, roaring.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: giant, bald with a yellow headband, wild beard.
+   FACE: giant brutish face, bald head with a yellow headband, wild beard, bulging angry eyes, flat nose, roaring mouth.
+   SPLENDOR: PLAIN.
+   POSE: side profile, gritted teeth, eyes on a distant target.
+   PORTRAIT LIGHT: cool blue-green reflected light from below, wash faintly tinted sea-green.

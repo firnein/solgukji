@@ -1,0 +1,86 @@
+A character sheet of 4 chibi Three Kingdoms (ancient China, late Han dynasty) character PORTRAITS.
+
+STYLE (if an earlier sheet of this series is attached, copy only its drawing style, not its compositions or faces):
+- Chibi / super-deformed proportions (about 2.5 to 3 heads tall) but MATURE, characterful faces —— not babyish, not cute-generic.
+- Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, warm and consistent across the sheet.
+- Costume drawn with great care: layered Han-dynasty robes with crossed collars, embroidered silk and brocade with cloud, dragon,
+  phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves and helmets of the era;
+  armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings, all with intricate patterns.
+- Clear readable shapes, expressive eyes and brows, crisp outlines that separate the character from the background.
+
+LAYOUT:
+- Image 1024x1536 portrait. 4 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: the big chibi head, shoulders and upper chest only, cut at the chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel) —— CLEAN:
+- A simple, quiet watercolor wash: soft cream paper tone fading into a pale tint of the PORTRAIT LIGHT color, a little paper grain.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow, a few petals or sparks).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no banners, no crowds, no other people, no animals except
+  where CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Strongly distinctive faces even in chibi style. Follow LOOK and FACE exactly and EXAGGERATE them like a caricature: age, face
+  shape, cheekbones, eye shape and size, brows, nose, mouth, facial hair, hairline, skin tone, wrinkles, scars, usual expression.
+- Ages must clearly differ (smooth young faces vs. deep wrinkles). Not everyone is handsome: some are plain, ugly, fat, gaunt or
+  brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome anime face, no same-face syndrome.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- MYTHIC: the most splendid —— gilded armor or imperial silk covered in dragon, phoenix or tiger motifs, luminous gold details, a faint golden glow behind the head, and the panel edged in faint gold.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- CAVALRY: riding armor with a short cape; the rider is the subject —— at most the horse's head or mane peeks in at the edge.
+- SCHOLAR: Confucian scholar robe and hat, holding bamboo slips, a book or a court tablet, no weapon.
+- SPEARMAN: heavy lamellar armor and a helmet with neck guard; the shaft of a long polearm rests on the shoulder.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: realistic or photographic rendering, plain generic anime style, babyish faces, identical faces, busy backgrounds, scenery,
+extra people, cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [CAVALRY] ★ICONIC Dong Zhuo, obese tyrant with a thick beard, gaudy black-gold armor over a robe.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin.
+   FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer.
+   SPLENDOR: MYTHIC.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: warm ember-orange rim light from behind, flickering warm key light, wash faintly tinted orange.
+   MOMENT (hint only, no scenery): the burning of Luoyang, the palace in flames behind him, cackling with a torch in hand.
+2. [SCHOLAR] ★ICONIC Liu Bei, the classic benevolent lord: long earlobes, gentle smile, green robe, holding his famous twin swords (one in each hand). Scholar hint only: a book of the classics hanging at his waist.
+   COSTUME COLORS: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, very long earlobes, kind gentle eyes, thin mustache and short beard, simple topknot crown.
+   FACE: broad gentle round face, very long earlobes reaching the jaw, soft droopy kind eyes, small mustache, warm humble smile, slightly tired look.
+   SPLENDOR: MYTHIC.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: soft warm daylight with a pink tint, wash faintly tinted blush pink.
+   MOMENT (hint only, no scenery): the Peach Garden Oath under blooming peach trees, raising a wine cup to heaven, his two sworn brothers' silhouettes beside him, twin swords at his side.
+3. [SPEARMAN] ★ICONIC Guan Yu, tall dignified general with a very long black beard and red face, green robe over armor, on foot, Green Dragon crescent glaive braced upright beside him.
+   COSTUME COLORS: Shu colors: green, jade and earthy gold.
+   LOOK: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf.
+   FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression.
+   SPLENDOR: MYTHIC.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: bright high sunlight, crisp shadows under the brow, wash faintly tinted sand.
+   MOMENT (hint only, no scenery): beheading Hua Xiong before the wine cools —— returning with the head, the wine cup still steaming in his hand, stroking his long beard, a green dragon spirit coiling around the glaive.
+4. [SPEARMAN] ★ICONIC Zhang Fei, wild bearded general with round glaring eyes, dark armor, on foot, serpent spear braced forward, shouting.
+   COSTUME COLORS: Shu colors: green, jade and earthy gold.
+   LOOK: round glaring eyes, bristly tiger-whisker beard, thick eyebrows, dark tanned skin, wide mouth.
+   FACE: wide round face, huge round bulging glaring eyes, bristly tiger-whisker beard bursting outward, thick black brows, flat wide nose, enormous roaring mouth, dark tanned skin.
+   SPLENDOR: MYTHIC.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: cool blue-green reflected light from below, wash faintly tinted sea-green.
+   MOMENT (hint only, no scenery): the match for ten thousand, roaring alone on Changban Bridge, the bridge cracking under his voice.

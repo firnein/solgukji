@@ -3,7 +3,7 @@
 실행: python -I tools/scripts/make_bust_prompts.py [prompts/삼국지_일러스트_프롬프트_대용량.md]
   prompts/바스트샷/      : 원본 시트 그대로 (12 · 20명)
   prompts/바스트샷_6명/  : 6명씩 나눈 시트 (2열 × 3줄 —— 칸이 커서 얼굴이 더 또렷하다) + 자르기_이름.txt
-  prompts/실사풍_바스트/    : 치비 대신 반실사 초상화(references/style_ref_realistic_bust.png), 배경은 거의 빈 단색 · 상위 4명 / 하위 6명
+  prompts/치비_깔끔배경/  : 치비 그림체 + 바스트 + 배경은 단순한 수채 워시, 자세한 판 · 상위 4명 / 하위 6명
   원본 블록에서 인물 크기 규칙을 바스트샷 규칙으로 바꾼다. SHOT 은
     MYTHIC · ORNATE (높은 등급) —— SCENE 의 가장 상징적인 순간에 맞춘 표정·손짓 (손과 소품이 화면 안으로 올라와도 된다)
     FINE · PLAIN               —— 가슴 위 구도 목록에서 칸마다 다른 각도·표정
@@ -134,21 +134,18 @@ print(len(os.listdir(D_FULL)), "시트 /", six_no, "개 6명 시트")
 
 
 
-# ── 실사풍 바스트 판 —— 치비 대신 반실사 초상화(references/style_ref_realistic_bust.png), 배경은 거의 빈 단색 ──
+# ── 치비 깔끔배경 판 —— 기존 치비 그림체 + 바스트 + 배경은 단순한 수채 워시 (자세한 판) ──
 #    글자 수 제한 없이 자세하게. 한 장 인원: 상위(신화·불멸) 4명 2×2 · 하위(초월·기본) 6명 2×3 (고르게 나눈다)
-REAL_PER = {"상위": 4, "하위": 6}
-REAL_COMMON = """A sheet of {n} semi-realistic historical PORTRAIT PAINTINGS of Three Kingdoms (ancient China, late Han dynasty) figures.
+CLEAN_PER = {"상위": 4, "하위": 6}
+CLEAN_COMMON = """A character sheet of {n} chibi Three Kingdoms (ancient China, late Han dynasty) character PORTRAITS.
 
-STYLE (follow the attached reference image if one is attached —— copy only its painting style, not its person):
-- Polished official character portraits like those of a modern historical strategy game: semi-realistic digital painting.
-- Realistic adult anatomy and proportions. NOT chibi, NOT super-deformed, NOT anime, NOT cartoon, NOT a photograph.
-- Lifelike skin with subtle pores, natural skin tones and gentle blush; realistic eyes with catchlights; individual hair strands,
-  neatly combed topknots, realistic beards and mustaches.
-- Costume rendered with great care: layered Han-dynasty robes with crossed collars (left over right), embroidered silk and brocade
-  with traditional cloud, dragon, phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves
-  and helmets of the era; armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings.
-- Soft diffused studio key light from the front-left, gentle fill, a thin rim light separating the figure from the background,
-  sharp focus on the eyes, slightly softer edges toward the shoulders. Rich but natural color, high detail, clean finish.
+STYLE (if an earlier sheet of this series is attached, copy only its drawing style, not its compositions or faces):
+- Chibi / super-deformed proportions (about 2.5 to 3 heads tall) but MATURE, characterful faces —— not babyish, not cute-generic.
+- Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, warm and consistent across the sheet.
+- Costume drawn with great care: layered Han-dynasty robes with crossed collars, embroidered silk and brocade with cloud, dragon,
+  phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves and helmets of the era;
+  armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings, all with intricate patterns.
+- Clear readable shapes, expressive eyes and brows, crisp outlines that separate the character from the background.
 
 LAYOUT:
 - Image 1024x1536 portrait. {n} LARGE vertical rounded-rectangle panels, {cols} columns x {rows} rows (a short last row is centered).
@@ -157,23 +154,23 @@ LAYOUT:
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark.
 
 PORTRAIT FRAMING (every panel):
-- Bust portrait: head, shoulders and upper chest only, cut at mid-chest. No waist, no legs, no full body, no horse body.
+- Bust portrait: the big chibi head, shoulders and upper chest only, cut at the chest. No waist, no legs, no full body, no horse body.
 - The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
 - Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
 - Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
 
-BACKGROUND (every panel):
-- Plain and quiet: a soft off-white to pale warm-grey gradient, very slightly tinted by the PORTRAIT LIGHT color.
-- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow or a few motes of light).
-- No scenery, no landscape, no battlefield, no buildings, no furniture, no crowds, no other people, no animals except where
-  CLASS says a horse's head may peek in at the edge. All attention on the character.
+BACKGROUND (every panel) —— CLEAN:
+- A simple, quiet watercolor wash: soft cream paper tone fading into a pale tint of the PORTRAIT LIGHT color, a little paper grain.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow, a few petals or sparks).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no banners, no crowds, no other people, no animals except
+  where CLASS says a horse's head may peek in at the edge. All attention on the character.
 
 FACES MUST BE UNIQUE:
-- Realistic yet strongly distinctive faces. Follow LOOK and FACE exactly: age, skull and jaw shape, cheekbones, eye shape and
-  size, brows, nose, mouth and lips, facial hair, hairline, skin tone and texture, wrinkles, scars and the usual expression.
-- Ages must clearly differ (smooth young skin vs. deep wrinkles and sagging skin). Not everyone is handsome: some are plain,
-  ugly, fat, gaunt or brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
-- No generic handsome face, no same-face syndrome, no copying the face of the reference image.
+- Strongly distinctive faces even in chibi style. Follow LOOK and FACE exactly and EXAGGERATE them like a caricature: age, face
+  shape, cheekbones, eye shape and size, brows, nose, mouth, facial hair, hairline, skin tone, wrinkles, scars, usual expression.
+- Ages must clearly differ (smooth young faces vs. deep wrinkles). Not everyone is handsome: some are plain, ugly, fat, gaunt or
+  brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome anime face, no same-face syndrome.
 
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 {splendor}
@@ -187,19 +184,19 @@ TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
 ★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
 the class hint is secondary.
 
-AVOID: chibi or anime proportions, big cartoon eyes, plastic skin, identical faces, busy backgrounds, scenery, extra people,
-cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+AVOID: realistic or photographic rendering, plain generic anime style, babyish faces, identical faces, busy backgrounds, scenery,
+extra people, cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
 Do not draw the tags, ★ marks or line labels as text.
 
 CHARACTERS
 """
-REAL_SPLENDOR = {
+CLEAN_SPLENDOR = {
     "PLAIN": "- PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.",
     "FINE": "- FINE: a proper officer —— good silk robe or polished lamellar armor, engraved trims, a few silver or gold accents, a neat belt ornament.",
     "ORNATE": "- ORNATE: richly decorated —— heavy brocade with gold embroidery, jeweled clasps and jade, gilded edges on the armor, a fine cape or sash.",
-    "MYTHIC": "- MYTHIC: the most splendid —— gilded armor or imperial silk covered in dragon, phoenix or tiger motifs, luminous gold details, and a faint golden glow behind the head.",
+    "MYTHIC": "- MYTHIC: the most splendid —— gilded armor or imperial silk covered in dragon, phoenix or tiger motifs, luminous gold details, a faint golden glow behind the head, and the panel edged in faint gold.",
 }
-REAL_CLASS = {
+CLEAN_CLASS = {
     "SPEARMAN": "- SPEARMAN: heavy lamellar armor and a helmet with neck guard; the shaft of a long polearm rests on the shoulder.",
     "CAVALRY": "- CAVALRY: riding armor with a short cape; the rider is the subject —— at most the horse's head or mane peeks in at the edge.",
     "ARCHER": "- ARCHER: lighter armor or bracers, the upper limb of a bow and arrow fletchings visible over the shoulder.",
@@ -210,25 +207,25 @@ REAL_CLASS = {
     "SCHEMER": "- SCHEMER: dark muted robe with a high collar or hood, a sly look, holding a scroll, a vial or a go stone.",
 }
 PORTRAIT_LIGHT = {
-    "raging fire": "warm ember-orange rim light from behind, flickering warm key light, background faintly tinted orange",
-    "moonlit night": "cool silver-blue moonlight rim, soft cool key light, background faintly tinted blue-grey",
-    "river spray": "cool blue-green reflected light from below, background faintly tinted sea-green",
-    "falling snow": "cold soft white light, pale icy shadows, background faintly tinted icy blue",
+    "raging fire": "warm ember-orange rim light from behind, flickering warm key light, wash faintly tinted orange",
+    "moonlit night": "cool silver-blue moonlight rim, soft cool key light, wash faintly tinted blue-grey",
+    "river spray": "cool blue-green reflected light from below, wash faintly tinted sea-green",
+    "falling snow": "cold soft white light, pale icy shadows, wash faintly tinted icy blue",
     "lamp-lit interior": "warm amber lamp light from one side, deep soft shadows on the other side",
-    "golden autumn": "warm golden afternoon light, background faintly tinted ochre",
-    "spring peach": "soft warm daylight with a pink tint, background faintly tinted blush pink",
+    "golden autumn": "warm golden afternoon light, wash faintly tinted ochre",
+    "spring peach": "soft warm daylight with a pink tint, wash faintly tinted blush pink",
     "misty mountains": "soft diffuse grey light, low contrast, background faintly misty grey",
-    "blazing sunset": "golden-orange backlight rim, warm shadows, background faintly tinted amber",
+    "blazing sunset": "golden-orange backlight rim, warm shadows, wash faintly tinted amber",
     "mystic glow": "faint violet-and-gold glow behind the head, cool key light",
-    "pale dawn": "pale cool dawn light, soft pink highlights, background faintly tinted lavender-grey",
-    "harsh noon": "bright high sunlight, crisp shadows under the brow, background faintly tinted sand",
-    "crisp clear": "clean neutral daylight, crisp and bright, background faintly tinted sky blue",
-    "heavy rain": "cool overcast light, wet sheen on armor and hair, background faintly tinted teal-grey",
+    "pale dawn": "pale cool dawn light, soft pink highlights, wash faintly tinted lavender-grey",
+    "harsh noon": "bright high sunlight, crisp shadows under the brow, wash faintly tinted sand",
+    "crisp clear": "clean neutral daylight, crisp and bright, wash faintly tinted sky blue",
+    "heavy rain": "cool overcast light, wet sheen on armor and hair, wash faintly tinted teal-grey",
 }
 POSE_HIGH = "the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful"
 
 
-def real_entry(e: str, i: int) -> str:
+def clean_entry(e: str, i: int) -> str:
     L = e.split("\n")
     m = re.match(r"\d+\. \(card[^)]*\) (.*)", L[0])
     out = ["%d. %s" % (i, m.group(1))]
@@ -258,7 +255,7 @@ def real_entry(e: str, i: int) -> str:
     return "\n".join(out)
 
 
-def write_real(dst, label):
+def write_clean(dst, label):
     reset(dst)
     for f in os.listdir(dst):
         os.remove(os.path.join(dst, f))
@@ -270,7 +267,7 @@ def write_real(dst, label):
         block = bustify(re.search(r"```\n(.*?)\n```", sec, flags=re.S).group(1), si)
         entries = re.split(r"\n(?=\d+\. \(card)", block.split("\nImage size", 1)[1].split("\n\n", 1)[1].strip())
         names = re.search(r"자르기 이름 목록: `([^`]*)`", sec).group(1).split(",")
-        per = REAL_PER[part]
+        per = CLEAN_PER[part]
         groups = -(-len(entries) // per)                  # per 명 이하로 고르게
         bounds = [round(len(entries) * g / groups) for g in range(groups + 1)]
         for g in range(groups):
@@ -283,11 +280,11 @@ def write_real(dst, label):
                 r = re.search(r"SPLENDOR: ([A-Z]+)", e).group(1)
                 cls += [c] if c not in cls else []
                 spl += [r] if r not in spl else []
-            text = REAL_COMMON.format(
+            text = CLEAN_COMMON.format(
                 n=n, cols=cols, rows=rows,
-                classes="\n".join(REAL_CLASS[c] for c in cls),
-                splendor="\n".join(REAL_SPLENDOR[r] for r in ["PLAIN", "FINE", "ORNATE", "MYTHIC"] if r in spl))
-            text += "\n".join(real_entry(e, j + 1) for j, e in enumerate(chunk)) + "\n"
+                classes="\n".join(CLEAN_CLASS[c] for c in cls),
+                splendor="\n".join(CLEAN_SPLENDOR[r] for r in ["PLAIN", "FINE", "ORNATE", "MYTHIC"] if r in spl))
+            text += "\n".join(clean_entry(e, j + 1) for j, e in enumerate(chunk)) + "\n"
             no += 1
             fname = "%02d_%s%s-%d_%d명.txt" % (no, part, k, g + 1, n)
             open(os.path.join(dst, fname), "w", encoding="utf-8", newline="\n").write(text)
@@ -299,4 +296,4 @@ def write_real(dst, label):
     print(dst, no, "시트 · 글자 수 %d ~ %d" % (min(sizes), max(sizes)))
 
 
-write_real("prompts/실사풍_바스트", "실사풍 바스트")
+write_clean("prompts/치비_깔끔배경", "치비 깔끔배경")

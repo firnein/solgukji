@@ -1,0 +1,89 @@
+A character sheet of 5 chibi Three Kingdoms (ancient China, late Han dynasty) character PORTRAITS.
+
+STYLE (if an earlier sheet of this series is attached, copy only its drawing style, not its compositions or faces):
+- Chibi / super-deformed proportions (about 2.5 to 3 heads tall) but MATURE, characterful faces —— not babyish, not cute-generic.
+- Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, warm and consistent across the sheet.
+- Costume drawn with great care: layered Han-dynasty robes with crossed collars, embroidered silk and brocade with cloud, dragon,
+  phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves and helmets of the era;
+  armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings, all with intricate patterns.
+- Clear readable shapes, expressive eyes and brows, crisp outlines that separate the character from the background.
+
+LAYOUT:
+- Image 1024x1536 portrait. 5 LARGE vertical rounded-rectangle panels, 2 columns x 3 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: the big chibi head, shoulders and upper chest only, cut at the chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel) —— CLEAN:
+- A simple, quiet watercolor wash: soft cream paper tone fading into a pale tint of the PORTRAIT LIGHT color, a little paper grain.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow, a few petals or sparks).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no banners, no crowds, no other people, no animals except
+  where CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Strongly distinctive faces even in chibi style. Follow LOOK and FACE exactly and EXAGGERATE them like a caricature: age, face
+  shape, cheekbones, eye shape and size, brows, nose, mouth, facial hair, hairline, skin tone, wrinkles, scars, usual expression.
+- Ages must clearly differ (smooth young faces vs. deep wrinkles). Not everyone is handsome: some are plain, ugly, fat, gaunt or
+  brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome anime face, no same-face syndrome.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- FINE: a proper officer —— good silk robe or polished lamellar armor, engraved trims, a few silver or gold accents, a neat belt ornament.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- SCHEMER: dark muted robe with a high collar or hood, a sly look, holding a scroll, a vial or a go stone.
+- STRATEGIST: flowing layered robe and a guan or scholar cap, a white crane-feather fan held near the chin.
+- SCHOLAR: Confucian scholar robe and hat, holding bamboo slips, a book or a court tablet, no weapon.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: realistic or photographic rendering, plain generic anime style, babyish faces, identical faces, busy backgrounds, scenery,
+extra people, cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [SCHEMER] Cheng Yu, tall stern old advisor with a long white beard, dark robe, holding an ambush map marked with ten flags.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: very tall old man, long white beard, stern furrowed brow.
+   FACE: very long stern face, deep furrowed brow, piercing narrow eyes, long nose, long white beard, cold grim mouth, harsh old official.
+   SPLENDOR: FINE.
+   POSE: side profile, looking into the distance, calm.
+   PORTRAIT LIGHT: warm golden afternoon light, wash faintly tinted ochre.
+2. [SCHEMER] Deng Ai, rugged plotter wrapped in a felt blanket cloak for a secret mountain crossing, holding a rolled route map and a coil of rope, determined.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: rugged square jaw, stubble, windburned cheeks.
+   FACE: rugged square jaw, windburned red cheeks, squinting stubborn eyes, crooked nose, stubble, slight stutter frown, hardy peasant general.
+   SPLENDOR: FINE.
+   POSE: 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+   PORTRAIT LIGHT: cool overcast light, wet sheen on armor and hair, wash faintly tinted teal-grey.
+3. [STRATEGIST] ★ICONIC Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
+   FACE: slender pale young face, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair, decadent genius.
+   SPLENDOR: FINE.
+   POSE: slight low angle, composed, looking down at the viewer, robe collar framing the face.
+   PORTRAIT LIGHT: pale cool dawn light, soft pink highlights, wash faintly tinted lavender-grey.
+4. [STRATEGIST] Zhong Hui, arrogant young noble strategist in a fine blue robe, white feather fan raised, ambitious smirk.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: young, pretty arrogant face, long hair with a gold hairpin.
+   FACE: pretty narrow face, arrogant upturned eyes, thin nose, sneering smile, smooth pale skin, ambitious smug genius.
+   SPLENDOR: FINE.
+   POSE: front view, half the face lit by warm light, half in shadow, serious.
+   PORTRAIT LIGHT: soft diffuse grey light, low contrast, background faintly misty grey.
+5. [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: elegant 40s, neat full beard, tall formal hat.
+   FACE: handsome dignified oval face, gentle sad eyes, straight nose, neat full beard, refined calm mouth, smooth fair skin, noble upright expression.
+   SPLENDOR: FINE.
+   POSE: head turned back toward the viewer over the shoulder, sly side glance.
+   PORTRAIT LIGHT: warm amber lamp light from one side, deep soft shadows on the other side.
