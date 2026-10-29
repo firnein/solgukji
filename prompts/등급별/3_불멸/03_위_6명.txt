@@ -1,0 +1,56 @@
+The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
+card art (rank 2 upgrade) for a mobile card game.
+
+REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
+shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+The outfit becomes grander, but the person is unmistakably the same.
+
+STYLE:
+- Rich detailed chibi, about 3 to 3.5 heads tall, WAIST-UP or chest-up, large and close in the panel, slightly low angle.
+- Fine ink lines, deep shading with strong highlights, lavish material detail: gilded lamellar, embossed dragon/tiger/
+  phoenix motifs, fur collars, jeweled clasps, silk capes and sashes, tall plumes and crests.
+- CAVALRY ride their warhorse: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
+  Others hold their signature weapon or item in a strong, characterful pose.
+- Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
+  —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
+
+OUTFIT LEVEL (RANK 2): ornate —— gold trims and engraved gilded plates, rich brocade, fur, jewels, capes and plumes, much
+more splendid than rank 1, while keeping the character's main colors and signature items.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. 6 characters in 3 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Xu Huang  [SPEARMAN, Wei] —— same person as reference #1
+   IDENTITY: 40s, long drooping mustache, calm face, helmet with a blue tassel. FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength. BUILD: solid and square.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Xu Huang, calm general with a long mustache, blue armor, long-handled great axe.
+   POSE AND SOFT BACKGROUND HINT: cutting straight through the encirclement trenches at Fancheng, great axe swung, the enemy ring breaking around him.
+2. Dian Wei  [SPEARMAN, Wei] —— same person as reference #2
+   IDENTITY: giant, heavy brow ridge, dark stubble beard, scarred face, small topknot. FACE: massive square ape-like face, heavy brow ridge, small deep-set fierce eyes, wide flat nose, thick lips, dark skin covered in scars, terrifying brute. BUILD: giant, towering, ape-like long arms.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: the reborn E Lai guarding a burning gate, a heavy halberd in each hand, arrows stuck in his armor.
+3. Cao Ren  [SPEARMAN, Wei] —— same person as reference #3
+   IDENTITY: square face covered by a huge full beard, full-face helmet visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Cao Ren, defensive general in heavy blue plate armor, huge rectangular tower shield and spear, immovable stance.
+   POSE AND SOFT BACKGROUND HINT: holding Fancheng to the last on a half-flooded city wall, arrows stuck in his shield, rising water below, refusing to fall back.
+4. Xiahou Dun  [SPEARMAN, Wei] —— same person as reference #4
+   IDENTITY: black eyepatch, wild long black hair, full thick beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Xiahou Dun, fierce one-eyed general, dark blue heavy armor, long spear and round shield.
+   POSE AND SOFT BACKGROUND HINT: the famous moment of pulling the arrow out of his own left eye with a roar, battle dust, his spear still in the other hand.
+5. Xu Chu  [SPEARMAN, Wei] —— same person as reference #5
+   IDENTITY: bald round head, fat round face, rosy cheeks, huge belly. FACE: huge round moon face, chubby rosy cheeks, small sleepy eyes, button nose, simple grin, bald round head, naive strongman look. BUILD: huge and fat, the widest body on any sheet, big round belly.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: the 'Tiger Fool' bare-chested after tearing off his armor mid-duel with Ma Chao, steam rising from his body, broken weapon shafts around him, a faint tiger-stripe aura.
+6. Zhang Liao  [CAVALRY, Wei] —— same person as reference #6
+   IDENTITY: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes. FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare. BUILD: lean and hard, tall.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: Hefei: leading only 800 riders straight into a 100,000-man Wu army, halberd raised and shouting his name, the enemy ranks scattering, Sun Quan fleeing over a broken bridge in the background.

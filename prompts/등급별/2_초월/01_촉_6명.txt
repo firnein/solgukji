@@ -1,0 +1,53 @@
+The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn one level fancier for a
+mobile card game's higher-rank card art (rank 1 upgrade).
+
+REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
+shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+Only the drawing finish, outfit richness and pose change. Someone must recognize them instantly from the reference.
+
+STYLE:
+- Detailed chibi, about 3 heads tall, drawn larger: KNEE-UP to WAIST-UP framing, the character fills most of the panel.
+- Crisp ink lines with fine detail, richer cel shading with highlights, textured materials (lamellar plates, rivets,
+  stitched leather, layered cloth, wood grain on shafts, steel shine on blades).
+- Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
+  joyful expressions as fits the character.
+- Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
+  no buildings, no other people, no animals except a cavalry horse's head when CLASS is CAVALRY.
+
+OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
+bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. 6 characters in 4 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Guan Yu  [SPEARMAN, Shu] —— same person as reference #1
+   IDENTITY: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf. FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression. BUILD: very tall and dignified, long legs, upright.
+   COLORS: Shu green: green, jade and earthy gold.
+   POSE (no scenery, only the pose and expression of): the Marquis of Hanshou reading the Spring and Autumn Annals by lamplight, his glaive leaning beside him.
+2. Wei Yan  [ROGUE, Shu] —— same person as reference #2
+   IDENTITY: prominent bony bump on the back of the head and forehead, crooked fierce grin, short black beard. FACE: wide brutish face, protruding bony forehead ridge, small glaring eyes, flat broad nose, crooked sneering mouth, dark tanned skin, rebellious defiant expression. BUILD: broad and heavy, hunched forward.
+   COLORS: Shu green: green, jade and earthy gold.
+   POSE (no scenery, only the pose and expression of): the Great General Who Conquers the West guarding the passes of Hanzhong, glaive ready.
+3. Jiang Wei  [STRATEGIST, Shu] —— same person as reference #3
+   IDENTITY: early 20s young man, short helmet with green plume, short sideburns. FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look. BUILD: athletic young soldier.
+   COLORS: Shu green: green, jade and earthy gold.
+   POSE (no scenery, only the pose and expression of): the qilin of Tianshui, a glowing qilin spirit behind him, spear raised.
+4. Ma Liang  [STRATEGIST, Shu] —— same person as reference #4
+   IDENTITY: young gentle face, distinctive pure WHITE eyebrows, neat topknot. FACE: gentle young MAN, oval face with a firm chin, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, short thin mustache, fair skin. BUILD: slim.
+   COLORS: Shu green: green, jade and earthy gold.
+   POSE (no scenery, only the pose and expression of): the white-browed best of the Ma brothers, writing a letter of alliance, his brothers' silhouettes behind.
+5. Pang Tong  [STRATEGIST, Shu] —— same person as reference #5
+   IDENTITY: plain homely face, flat nose, messy unkempt hair, scruffy stubble. FACE: ugly homely face, flat squashed nose, mismatched small eyes, thick lips, pockmarked skin, messy hair, scruffy stubble, sly lopsided grin. BUILD: short, scruffy, slightly hunched.
+   COLORS: Shu green: green, jade and earthy gold.
+   POSE (no scenery, only the pose and expression of): the chained-ships stratagem, a fleet chained together behind him, scroll unrolled.
+6. Fa Zheng  [SCHOLAR, Shu] —— same person as reference #6
+   IDENTITY: 30s, sharp narrow face, thin mustache, sly narrowed eyes. FACE: narrow pointed face, thin hooked nose, slanted narrow calculating eyes, thin lips curled in a smirk, sallow skin, vengeful sly expression. BUILD: thin.
+   COLORS: Shu green: green, jade and earthy gold.
+   POSE (no scenery, only the pose and expression of): the chief secretary planning Mount Dingjun, pointing at a mountain map.

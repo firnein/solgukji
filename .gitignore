@@ -16,3 +16,5 @@ tools/dl/
 tools/_sc_
 # 빌드 결과
 build/
+# 등급별 일러스트 참조 이미지 —— make_ref_sheet.py 로 언제든 다시 만든다
+prompts/등급별/*/참조_*.png

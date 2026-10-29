@@ -1,0 +1,92 @@
+A character design sheet of 10 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. 10 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 10) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Zhou Tai  [SPEARMAN, Wu]
+   DESIGN: Zhou Tai, stoic scar-covered bodyguard with bandages, red armor, on foot, long spear braced forward and a battered shield, unbreakable stance.
+   LOOK: cropped hair, many scars and bandages, stoic expressionless face.
+   FACE: expressionless stone-like face, cropped hair, many crisscrossing scars and bandages, dull steady eyes, flat nose, closed mouth, stoic guardian.
+   BUILD: solid, broad, covered in bandages.
+   COLORS: Wu red: crimson, red, orange and gold.
+2. Sun Ce  [CAVALRY, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Sun Ce, confident young conqueror with a red headband and big grin, red armor.
+   LOOK: early 20s, wild spiky reddish-brown hair, tanned skin, huge toothy grin, red headband.
+   FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror.
+   BUILD: athletic, broad shoulders.
+   COLORS: Wu red: crimson, red, orange and gold.
+3. Xu Sheng  [ARCHER, Wu]
+   DESIGN: Xu Sheng, steady general in red armor, aiming a longbow, quiver on back.
+   LOOK: middle-aged, neat mustache, red-plumed helmet.
+   FACE: middle-aged steady face, neat mustache, calm watchful eyes, straight nose, composed mouth, reliable officer.
+   BUILD: steady medium build.
+   COLORS: Wu red: crimson, red, orange and gold.
+4. Sun Quan  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Sun Quan, the classic young Wu emperor: striking green-blue eyes and a reddish-purple beard, regal red and gold robe, holding a sword, dignified. Archer hint only: a bow slung on his back and a small quiver.
+   LOOK: green-blue eyes, reddish-purple beard, square jaw.
+   FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler.
+   BUILD: broad and sturdy.
+   COLORS: Wu red: crimson, red, orange and gold.
+5. Cheng Pu  [ARCHER, Wu]
+   DESIGN: Cheng Pu, old veteran with a long white beard, red armor, holding a longbow with an arrow nocked, quiver on back.
+   LOOK: old, long white beard, upright posture.
+   FACE: long dignified old face, calm wise eyes, straight nose, long white beard, upright stern mouth, weathered skin, veteran elder.
+   BUILD: tall old man, upright.
+   COLORS: Wu red: crimson, red, orange and gold.
+6. Taishi Ci  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Taishi Ci, the classic brave of Donglai: red armor, a short halberd in each hand (his famous twin halberds). Archer hint only: a big bow and quiver on his back.
+   LOOK: 30s, long tied-back hair, strong jaw, short beard.
+   FACE: strong square jaw, bright honest eyes, straight thick brows, straight nose, short beard, tanned skin, heroic loyal expression.
+   BUILD: tall and athletic.
+   COLORS: Wu red: crimson, red, orange and gold.
+7. Huang Gai  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Huang Gai, the classic old Red Cliffs veteran: scarred face, red armor, holding his famous iron whip, a burning torch / fire motif behind him. Archer hint only: a bow on his back with fire arrows in the quiver.
+   LOOK: old, bald on top with white side hair, scarred face.
+   FACE: battered old face, scarred and bruised, bald top with white side hair, deep wrinkles, determined squinting eyes, broad nose, gritted teeth.
+   BUILD: stocky old man, battle-worn.
+   COLORS: Wu red: crimson, red, orange and gold.
+8. Gan Ning  [ROGUE, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Gan Ning, brash pirate-like fighter with bells on his belt, feathered headband and tattoos, crouching leap with a big curved sword.
+   LOOK: feathered headband, tattoos on arms and neck, gold earrings, wild grin.
+   FACE: wide grinning face, big toothy grin, wild bright eyes, broken flat nose, sun-tanned skin, tattooed neck, reckless pirate expression.
+   BUILD: lean and muscular, tattooed arms.
+   COLORS: Wu red: crimson, red, orange and gold.
+9. Ling Cao  [ROGUE, Wu]
+   DESIGN: Ling Cao, rough river captain with a cutlass and a rope over the shoulder, crouching.
+   LOOK: sun-tanned sailor, bandana, rough stubble.
+   FACE: sun-tanned sailor face, rough stubble, squinting eyes from the sea glare, broad nose, salt-cracked lips, bandana.
+   BUILD: stocky sailor.
+   COLORS: Wu red: crimson, red, orange and gold.
+10. Ling Tong  [ROGUE, Wu]
+   DESIGN: Ling Tong, young agile fighter in a red outfit, mid-spin with a three-section staff.
+   LOOK: young, high ponytail, clean-shaven, energetic.
+   FACE: young MAN, lively angular face, bright energetic eyes, thick brows, small nose, eager open-mouthed grin, stubble on the jaw, high ponytail, hot-blooded youth.
+   BUILD: lean and agile.
+   COLORS: Wu red: crimson, red, orange and gold.

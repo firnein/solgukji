@@ -1,0 +1,25 @@
+기본 캐릭터 —— 이름 순서 = 이름표 번호 순서. 시트를 뽑은 뒤 D:\Sol 에서 자르기, 다 자르면 solgukji_godot 에서 Godot --import 한 번.
+
+[01_촉_10명.txt]  1 관우 · 2 장비 · 3 마대 · 4 마초 · 5 조운 · 6 황충 · 7 요화 · 8 정서대장 위연 · 9 주창 · 10 강유
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우,장비,마대,마초,조운,황충,요화,위연,주창,강유" solgukji_godot/assets/portraits
+
+[02_촉_10명.txt]  1 마량 · 2 방통 · 3 이적 · 4 제갈량 · 5 간옹 · 6 미축 · 7 법정 · 8 주마천제갈 서서 · 9 유비 · 10 초주
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "마량,방통,이적,제갈량,간옹,미축,법정,서서,유비,초주" solgukji_godot/assets/portraits
+
+[03_위_13명.txt]  1 결사 방덕 · 2 서황 · 3 악진 · 4 우금 · 5 이전 · 6 악래 전위 · 7 철벽 조인 · 8 독안 하후돈 · 9 허저 · 10 곽회 · 11 장료 · 12 오자양장 장합 · 13 하후패
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "방덕,서황,악진,우금,이전,전위,조인,하후돈,허저,곽회,장료,장합,하후패" solgukji_godot/assets/portraits
+
+[04_위_13명.txt]  1 여상 · 2 하후연 · 3 학소 · 4 곽가 · 5 유엽 · 6 사도 종회 · 7 순욱 · 8 진군 · 9 가후 · 10 음평기습 등애 · 11 사마의 · 12 십면매복 정욱 · 13 조조
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "여상,하후연,학소,곽가,유엽,종회,순욱,진군,가후,등애,사마의,정욱,조조" solgukji_godot/assets/portraits
+
+[05_오_10명.txt]  1 주태 · 2 손책 · 3 서성 · 4 손권 · 5 정보 · 6 태사자 · 7 적벽화신 황개 · 8 감녕 · 9 능조 · 10 능통
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "주태,손책,서성,손권,정보,태사자,황개,감녕,능조,능통" solgukji_godot/assets/portraits
+
+[06_오_11명.txt]  1 마충 · 2 동오덕왕 엄백호 · 3 여몽 · 4 정봉 · 5 육손 · 6 주유 · 7 노숙 · 8 강동이교 대교 · 9 경국지색 소교 · 10 강동문신 장소 · 11 오범
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "마충,엄백호,여몽,정봉,육손,주유,노숙,대교,소교,장소,오범" solgukji_godot/assets/portraits
+
+[07_군_12명.txt]  1 백마장군 공손찬 · 2 상국 동탁 · 3 서량웅 마등 · 4 안량 · 5 비장 여포 · 6 사세삼공 원소 · 7 관해 · 8 장연 · 9 수경선생 사마휘 · 10 관로 · 11 우길 · 12 장각
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "공손찬,동탁,마등,안량,여포,원소,관해,장연,사마휘,관로,우길,장각" solgukji_godot/assets/portraits
+
+[08_군_11명.txt]  1 장량 · 2 장로 · 3 장보 · 4 좌자 · 5 화타 · 6 심배 · 7 중가황제 원술 · 8 저수 · 9 전풍 · 10 백문충절 진궁 · 11 초선
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장량,장로,장보,좌자,화타,심배,원술,저수,전풍,진궁,초선" solgukji_godot/assets/portraits

@@ -1,0 +1,92 @@
+A character design sheet of 10 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. 10 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 10) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Guan Yu  [SPEARMAN, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Guan Yu, tall dignified general with a very long black beard and red face, green robe over armor, on foot, Green Dragon crescent glaive braced upright beside him.
+   LOOK: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf.
+   FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression.
+   BUILD: very tall and dignified, long legs, upright.
+   COLORS: Shu green: green, jade and earthy gold.
+2. Zhang Fei  [SPEARMAN, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Zhang Fei, wild bearded general with round glaring eyes, dark armor, on foot, serpent spear braced forward, shouting.
+   LOOK: round glaring eyes, bristly tiger-whisker beard, thick eyebrows, dark tanned skin, wide mouth.
+   FACE: wide round face, huge round bulging glaring eyes, bristly tiger-whisker beard bursting outward, thick black brows, flat wide nose, enormous roaring mouth, dark tanned skin.
+   BUILD: big and burly, barrel chest.
+   COLORS: Shu green: green, jade and earthy gold.
+3. Ma Dai  [CAVALRY, Shu]
+   DESIGN: Ma Dai, loyal cousin of Ma Chao, green and bronze armor.
+   LOOK: late 20s, round friendly face, short stubble beard, bronze helmet, loyal steady eyes.
+   FACE: round friendly face, short stubble beard, loyal round eyes, broad nose, earnest smile, tanned frontier skin.
+   BUILD: sturdy.
+   COLORS: Shu green: green, jade and earthy gold.
+4. Ma Chao  [CAVALRY, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Ma Chao, dashing young general in shining silver lion-head armor with a green cape.
+   LOOK: early 20s young man, fierce slanted brows, pale skin, sharp handsome masculine face, lion-head helmet, Qiang-style braid.
+   FACE: young MAN, narrow but strong angular jaw, high cheekbones, sharp upturned fierce eyes, thin straight nose, proud thin mouth, pale skin with a faint scar on the brow, thick neck, cold arrogant handsome warrior.
+   BUILD: slim and athletic, broad shoulders.
+   COLORS: Shu green: green, jade and earthy gold.
+5. Zhao Yun  [CAVALRY, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Zhao Yun, handsome heroic general in white-silver armor with green trim, silver spear.
+   LOOK: late 20s, handsome balanced face, clean-shaven, neat shoulder-length hair, silver helmet with a red tassel, calm brave eyes.
+   FACE: heroic handsome MAN, balanced face with a strong square jaw, clear calm brave eyes, straight thick brows, straight nose, firm mouth, clean-shaven with a faint stubble shadow, healthy tanned skin, steady honorable expression.
+   BUILD: tall and balanced, athletic.
+   COLORS: Shu green: green, jade and earthy gold.
+6. Huang Zhong  [ARCHER, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Huang Zhong, white-bearded old veteran in green armor, drawing a huge longbow with a fierce grin, quiver on back.
+   LOOK: 60s, white beard and white bushy eyebrows, wrinkles, muscular old arms.
+   FACE: long weathered face, sunken cheeks, small fierce squinting eyes in deep wrinkles, big hawk nose, wide grinning mouth with a missing tooth, leathery tanned skin.
+   BUILD: lean old body with sinewy muscular arms.
+   COLORS: Shu green: green, jade and earthy gold.
+7. Liao Hua  [ROGUE, Shu]
+   DESIGN: Liao Hua, former Yellow Turban scout with a faded yellow headband, light leather armor, holding two daggers, alert pose.
+   LOOK: thin wiry body, faded yellow headband, scar across the nose.
+   FACE: thin wiry face, alert darting eyes, scar across the nose, faded yellow headband, tight cautious mouth, sun-weathered skin.
+   BUILD: thin and wiry.
+   COLORS: Shu green: green, jade and earthy gold.
+8. Wei Yan  [ROGUE, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Wei Yan, the classic fierce rebel-boned general: bold glaring face with a prominent bony forehead, dark-green armor, swinging a big broad-bladed glaive. Rogue hint only: a light, agile, low crouching pose.
+   LOOK: prominent bony bump on the back of the head and forehead, crooked fierce grin, short black beard.
+   FACE: wide brutish face, protruding bony forehead ridge, small glaring eyes, flat broad nose, crooked sneering mouth, dark tanned skin, rebellious defiant expression.
+   BUILD: broad and heavy, hunched forward.
+   COLORS: Shu green: green, jade and earthy gold.
+9. Zhou Cang  [ROGUE, Shu]
+   DESIGN: Zhou Cang, rough loyal bandit-turned-retainer with a big beard, bare arms, light cloth armor, crouching with a heavy curved saber.
+   LOOK: huge black bushy beard covering half his face, swarthy, very muscular.
+   FACE: swarthy brutal face, huge black bushy beard covering half the face, big fierce loyal eyes, broad flat nose, very muscular neck.
+   BUILD: short and very muscular, thick arms.
+   COLORS: Shu green: green, jade and earthy gold.
+10. Jiang Wei  [STRATEGIST, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
+   LOOK: early 20s young man, short helmet with green plume, short sideburns.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
+   BUILD: athletic young soldier.
+   COLORS: Shu green: green, jade and earthy gold.

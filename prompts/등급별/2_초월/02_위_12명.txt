@@ -1,0 +1,77 @@
+The SAME 12 Three Kingdoms generals as numbered in the attached reference image, redrawn one level fancier for a
+mobile card game's higher-rank card art (rank 1 upgrade).
+
+REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
+shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+Only the drawing finish, outfit richness and pose change. Someone must recognize them instantly from the reference.
+
+STYLE:
+- Detailed chibi, about 3 heads tall, drawn larger: KNEE-UP to WAIST-UP framing, the character fills most of the panel.
+- Crisp ink lines with fine detail, richer cel shading with highlights, textured materials (lamellar plates, rivets,
+  stitched leather, layered cloth, wood grain on shafts, steel shine on blades).
+- Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
+  joyful expressions as fits the character.
+- Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
+  no buildings, no other people, no animals except a cavalry horse's head when CLASS is CAVALRY.
+
+OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
+bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. 12 characters in 4 columns x 3 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 12) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Pang De  [SPEARMAN, Wei] —— same person as reference #1
+   IDENTITY: 40s, hard square jaw, short black beard, thick eyebrows, fierce unblinking eyes, scar on the chin. FACE: hard square jaw, scar on the chin, thick straight eyebrows, fierce unblinking eyes, broad nose, short black beard, tanned skin, grim determination. BUILD: solid and broad.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): marching out to face Guan Yu with his own coffin carried behind him, vowing to die or win.
+2. Xu Huang  [SPEARMAN, Wei] —— same person as reference #2
+   IDENTITY: 40s, long drooping mustache, calm face, helmet with a blue tassel. FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength. BUILD: solid and square.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): General of the Right breaking the siege of Fancheng, great axe raised, river and siege towers.
+3. Cao Ren  [SPEARMAN, Wei] —— same person as reference #3
+   IDENTITY: square face covered by a huge full beard, full-face helmet visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): the iron wall standing before the walls of Fancheng behind his tower shield.
+4. Xiahou Dun  [SPEARMAN, Wei] —— same person as reference #4
+   IDENTITY: black eyepatch, wild long black hair, full thick beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): the one-eyed general after battle, newly tied black eyepatch, glaring with his single eye, spear on his shoulder.
+5. Zhang Liao  [CAVALRY, Wei] —— same person as reference #5
+   IDENTITY: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes. FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare. BUILD: lean and hard, tall.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): the divine general of Hefei standing guard on the city gate tower at dawn, halberd planted, watching the river.
+6. Zhang He  [CAVALRY, Wei] —— same person as reference #6
+   IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): one of Wei's Five Elite Generals in an elegant charge, spear twirling.
+7. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #7
+   IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): commander of the light troops on a swift raid, drawing his bow amid dust.
+8. Guo Jia  [STRATEGIST, Wei] —— same person as reference #8
+   IDENTITY: pale young face, smug smile, flushed cheeks, loose untied hair. FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius. BUILD: slender and loose-limbed.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): ten victories and ten defeats, counting on his fingers, two glowing scales of light beside him.
+9. Zhong Hui  [STRATEGIST, Wei] —— same person as reference #9
+   IDENTITY: young man, sharp arrogant face, long hair with a gold hairpin. FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, thin mustache, pale skin, ambitious smug genius. BUILD: slim, chin raised.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): the Minister over the Masses leading the conquest of Shu, feather fan pointed at the mountains.
+10. Xun Yu  [SCHOLAR, Wei] —— same person as reference #10
+   IDENTITY: elegant 40s, neat full beard, tall formal hat. FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression. BUILD: tall and upright.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): the talent to assist a king, offering a scroll with both hands in a palace hall.
+11. Deng Ai  [SCHEMER, Wei] —— same person as reference #11
+   IDENTITY: rugged square jaw, stubble, windburned cheeks. FACE: rugged square jaw, windburned red cheeks, squinting stubborn eyes, crooked nose, stubble, slight stutter frown, hardy peasant general. BUILD: stocky and rugged.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): the surprise attack through Yinping, rolling down a cliff wrapped in a felt blanket.
+12. Cheng Yu  [SCHEMER, Wei] —— same person as reference #12
+   IDENTITY: very tall old man, long white beard, stern furrowed brow. FACE: very long stern face, deep furrowed brow, piercing narrow eyes, long nose, long white beard, cold grim mouth, harsh old official. BUILD: very tall and thin old man.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE (no scenery, only the pose and expression of): the ambush on ten sides, a map with ten flags, soldiers hidden in the reeds behind.

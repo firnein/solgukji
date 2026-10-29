@@ -1,0 +1,53 @@
+The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
+card art (rank 2 upgrade) for a mobile card game.
+
+REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
+shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+The outfit becomes grander, but the person is unmistakably the same.
+
+STYLE:
+- Rich detailed chibi, about 3 to 3.5 heads tall, WAIST-UP or chest-up, large and close in the panel, slightly low angle.
+- Fine ink lines, deep shading with strong highlights, lavish material detail: gilded lamellar, embossed dragon/tiger/
+  phoenix motifs, fur collars, jeweled clasps, silk capes and sashes, tall plumes and crests.
+- CAVALRY ride their warhorse: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
+  Others hold their signature weapon or item in a strong, characterful pose.
+- Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
+  —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
+
+OUTFIT LEVEL (RANK 2): ornate —— gold trims and engraved gilded plates, rich brocade, fur, jewels, capes and plumes, much
+more splendid than rank 1, while keeping the character's main colors and signature items.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. 6 characters in 3 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Zhang He  [CAVALRY, Wei] —— same person as reference #1
+   IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.
+2. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #2
+   IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: lightning-fast archer, loosing three arrows at once, speed streaks around him.
+3. Guo Jia  [STRATEGIST, Wei] —— same person as reference #3
+   IDENTITY: pale young face, smug smile, flushed cheeks, loose untied hair. FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius. BUILD: slender and loose-limbed.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: reading the secrets of heaven, feather fan raised, glowing constellations above him.
+4. Xun Yu  [SCHOLAR, Wei] —— same person as reference #4
+   IDENTITY: elegant 40s, neat full beard, tall formal hat. FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression. BUILD: tall and upright.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: Lord Xun of the fragrant incense holding the EMPTY food box sent by Cao Cao, understanding its meaning, sorrowful but dignified, incense smoke curling into fading flower shapes.
+5. Jia Xu  [SCHEMER, Wei] —— same person as reference #5
+   IDENTITY: old, hunched, thin long mustache, half-closed eyes, wrinkled. FACE: wrinkled shrewd old face, half-closed lazy eyes, droopy thin mustache, small mouth, sallow skin, unreadable bored expression. BUILD: hunched old man.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: the venomous schemer with a poison vial, a small snake coiled around his arm.
+6. Sima Yi  [SCHEMER, Wei] —— same person as reference #6
+   IDENTITY: gaunt face, thin long beard, wolf-like glance over his shoulder. FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking back over the shoulder, long thin nose, thin lips in a faint cunning smile, pale skin, scheming patience. BUILD: tall and gaunt, long neck.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   POSE AND SOFT BACKGROUND HINT: the wolf's glance — looking back over his shoulder with glowing eyes, a wolf shadow behind him.

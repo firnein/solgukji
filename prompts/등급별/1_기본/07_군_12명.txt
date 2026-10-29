@@ -1,0 +1,104 @@
+A character design sheet of 12 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. 12 characters in 5 columns x 3 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 12) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Gongsun Zan  [CAVALRY, Independent]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Gongsun Zan, "White Horse General" in white armor with a white-plumed helmet.
+   LOOK: 30s, lean handsome face, thin mustache, white-plumed helmet.
+   FACE: lean handsome MAN's face with a firm jaw, proud bright eyes, straight nose, thin mustache, confident stern mouth, fair skin, white-plumed helmet.
+   BUILD: tall and lean.
+   COLORS: his own colors as described (independent).
+2. Dong Zhuo  [CAVALRY, Independent]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Dong Zhuo, obese tyrant with a thick beard, gaudy black-gold armor over a robe.
+   LOOK: very fat, bulbous red nose, thick curly black beard, tiny piggy eyes, double chin.
+   FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer.
+   BUILD: obese, round barrel body, short legs.
+   COLORS: his own colors as described (independent).
+3. Ma Teng  [CAVALRY, Independent]
+   DESIGN: Ma Teng, northwestern frontier veteran with a beard, brown fur-trimmed armor.
+   LOOK: 50s, big bushy grey beard, weathered sun-browned skin, fur Qiang hat, warm eyes.
+   FACE: big weathered MAN's face, warm deep-set eyes in sun wrinkles, broad nose, big bushy grey beard, sun-browned skin, fur Qiang hat, fatherly frontier lord.
+   BUILD: big, broad old man.
+   COLORS: his own colors as described (independent).
+4. Yan Liang  [CAVALRY, Independent]
+   DESIGN: Yan Liang, fierce general in gold-and-brown armor.
+   LOOK: broad brutish face, thick single unibrow, braided beard, shaved head with a top knot.
+   FACE: broad brutish MAN's face, thick single unibrow, small mean eyes, flat wide nose, thick braided beard, shaved head with a top knot, arrogant sneer.
+   BUILD: big and brutish.
+   COLORS: his own colors as described (independent).
+5. Lü Bu  [CAVALRY, Independent]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Lü Bu, the mightiest warrior, crown with two very long pheasant feathers, red-black ornate armor, crescent-bladed halberd.
+   LOOK: tall, sharp cold handsome face, clean-shaven, two very long pheasant feathers on his crown.
+   FACE: tall cold handsome MAN, sharp angular jaw, fierce upturned eyes with a murderous glint, straight proud nose, thin cruel smile, clean-shaven, thick muscular neck, two very long pheasant feathers on his crown, arrogant unrivaled warrior.
+   BUILD: tall, long-limbed, heroic proportions.
+   COLORS: his own colors as described (independent).
+6. Yuan Shao  [CAVALRY, Independent]
+   DESIGN: Yuan Shao, proud noble warlord in gold armor and a long gold cape.
+   LOOK: 40s, aristocratic long face, long neat mustache and pointed goatee, tall noble helmet-crown, haughty raised chin.
+   FACE: aristocratic long face, haughty raised chin, heavy-lidded condescending eyes, long straight nose, pursed proud lips, pale pampered skin.
+   BUILD: tall and stately.
+   COLORS: his own colors as described (independent).
+7. Guan Hai  [ROGUE, Independent]
+   DESIGN: Guan Hai, giant Yellow Turban bandit with a yellow headband, light leather vest, a hand axe in each hand, roaring.
+   LOOK: giant, bald with a yellow headband, wild beard.
+   FACE: giant brutish face, bald head with a yellow headband, wild beard, bulging angry eyes, flat nose, roaring mouth.
+   BUILD: giant brute, thick limbs.
+   COLORS: his own colors as described (independent).
+8. Zhang Yan  [ROGUE, Independent]
+   DESIGN: Zhang Yan, Black Mountain bandit leader in a black outfit, agile leaping pose, a knife in each hand.
+   LOOK: young, black mask scarf over the lower face.
+   FACE: young sharp eyes above a black mask scarf over the lower face, lean face, quick bandit glance.
+   BUILD: lean and agile.
+   COLORS: his own colors as described (independent).
+9. Sima Hui  [SCHOLAR, Independent]
+   DESIGN: Sima Hui, the Water Mirror hermit sage, white and pale-blue hermit robes, a feather fan and a mirror-like round jade disk.
+   LOOK: elderly, long silky white beard, bright clear eyes, gentle knowing smile, simple hermit cap.
+   FACE: long serene face, bright clear eyes in kind wrinkles, small nose, gentle knowing smile, smooth old skin, saintly calm hermit.
+   BUILD: thin old hermit, relaxed.
+   COLORS: white, pale blue and silver (hermit).
+10. Guan Lu  [SORCERER, Independent]
+   DESIGN: Guan Lu, diviner holding a turtle shell, glowing trigram symbols floating around it.
+   LOOK: homely face, big forehead, thick eyebrows.
+   FACE: homely face, big bulging forehead, thick eyebrows, odd wandering eyes, wide nose, eccentric fortune-teller grin.
+   BUILD: short with a big head.
+   COLORS: his own colors as described (independent).
+11. Yu Ji  [SORCERER, Independent]
+   DESIGN: Yu Ji, old Taoist hermit in a white robe, horsetail whisk raised, a gourd on his belt, soft healing glow.
+   LOOK: old, white topknot, gentle smile.
+   FACE: smooth ageless old face, white topknot, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal.
+   BUILD: thin old man, light as a feather.
+   COLORS: his own colors as described (independent).
+12. Zhang Jiao  [SORCERER, Independent]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Zhang Jiao, Yellow Turban leader in a yellow Taoist robe and yellow headscarf, long beard, staff raised, crackling lightning around his hand.
+   LOOK: gaunt old face, long grey beard.
+   FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression.
+   BUILD: skeletal and gaunt.
+   COLORS: his own colors as described (independent).
