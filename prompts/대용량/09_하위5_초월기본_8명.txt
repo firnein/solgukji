@@ -1,0 +1,78 @@
+A character sheet of chibi Three Kingdoms (ancient China) characters, super-deformed proportions (about 2.5 to 3 heads tall)
+but with mature, characterful faces (not babyish). Each character is drawn inside its own vertical rounded-rectangle panel;
+weapons, plumes and banners may stick out above the panel.
+Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, intricate armor and costume patterns,
+warm and consistent style across all characters (same style as the attached reference sheet if one is attached).
+EVERY PANEL IS A DIFFERENT ILLUSTRATION, like separate key arts from different stories —— NOT the same photo with a
+different person. Never repeat the template "front-facing character, waist up, centered, battlefield with banners behind".
+Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, weather, color palette) lines, and its SCENE place.
+Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
+background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
+Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
+Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
+Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
+no names, no title, no frame, no watermark.
+
+TROOP CLASS must be obvious from silhouette, pose and main prop:
+SPEARMAN heavy armor, long polearm, planted stance / CAVALRY the rider is the subject, only the horse head or mane peeks in /
+ARCHER bow in hand, quiver / ROGUE light armor, agile, short blades / STRATEGIST flowing robe, white feather fan /
+SCHOLAR scholar robe and hat, book or tablet, no weapon drawn / SORCERER Taoist robe, staff or talismans, faint glowing magic /
+SCHEMER dark robe, high collar, sly, scroll or chess piece.
+★ICONIC characters: their famous look and signature weapon come FIRST, the class is only a small hint.
+FACTION gives costume colors. LOOK gives each face —— every character must look clearly different (age, face, hair, facial hair, build).
+SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer gear, a few gold accents /
+ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
+Do not draw the bracket tags, ★ marks or line labels as text.
+
+Image size 1024x1536 portrait. Grid of 8 characters: 4 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
+Banner under each panel: only its number.
+
+1. (card: 사군 장로) [SORCERER] Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
+   FACTION: independent warlord, own colors.
+   LOOK: middle-aged, neat black beard, tall Taoist crown.
+   SPLENDOR: PLAIN.
+   SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
+   LIGHT: blazing sunset backlight, orange rim light, long shadows.
+2. (card: 관로) [SORCERER] Guan Lu, diviner holding a turtle shell, glowing trigram symbols floating around it.
+   FACTION: independent warlord, own colors.
+   LOOK: homely face, big forehead, thick eyebrows.
+   SPLENDOR: PLAIN.
+   SHOT: partly hidden behind foreground objects (curtains, branches, smoke), peeking out.
+   LIGHT: spring peach blossoms, pink petals and soft green.
+3. (card: 옥용 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
+   FACTION: independent warlord, own colors.
+   LOOK: beautiful, elaborate hair ornaments and flowers.
+   SPLENDOR: PLAIN.
+   SHOT: high-angle view from above, standing in the middle of the place.
+   LIGHT: mystic glow, violet and gold sparks on a dark ground.
+4. (card: 저수) [SCHEMER] Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
+   FACTION: independent warlord, own colors.
+   LOOK: gaunt middle-aged, worried brow, short beard.
+   SPLENDOR: PLAIN.
+   SHOT: side profile, silhouette against a bright window, moon or sky.
+   LIGHT: golden autumn leaves, ochre and rust.
+5. (card: 전풍) [SCHEMER] Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
+   FACTION: independent warlord, own colors.
+   LOOK: stern thick frowning eyebrows, square beard.
+   SPLENDOR: PLAIN.
+   SHOT: leaning casually on a table, pillar or tree, knees-up, tilted head.
+   LIGHT: heavy rain storm, dark teal, flashes of lightning.
+6. (card: 심배) [SCHEMER] Shen Pei, stubborn loyal official in a purple-gray high-collared robe, holding a sealed order scroll, stern.
+   FACTION: independent warlord, own colors.
+   LOOK: older, long thin beard, rigid upright posture.
+   SPLENDOR: PLAIN.
+   SHOT: full body walking toward the viewer through the place.
+   LIGHT: pale dawn, cool blue-grey and soft pink.
+7. (card: 장연) [ROGUE] Zhang Yan, Black Mountain bandit leader in a black outfit, agile leaping pose, a knife in each hand.
+   FACTION: independent warlord, own colors.
+   LOOK: young, black mask scarf over the lower face.
+   SPLENDOR: PLAIN.
+   SHOT: foreshortened, weapon thrust right at the viewer.
+   LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
+8. (card: 관해) [ROGUE] Guan Hai, giant Yellow Turban bandit with a yellow headband, light leather vest, a hand axe in each hand, roaring.
+   FACTION: independent warlord, own colors.
+   LOOK: giant, bald with a yellow headband, wild beard.
+   SPLENDOR: PLAIN.
+   SHOT: over-the-shoulder view from behind, head turned back toward the viewer.
+   LIGHT: river spray and mist, blue-green water light.

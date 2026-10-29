@@ -1,0 +1,150 @@
+A character sheet of chibi Three Kingdoms (ancient China) characters, super-deformed proportions (about 2.5 to 3 heads tall)
+but with mature, characterful faces (not babyish). Each character is drawn inside its own vertical rounded-rectangle panel;
+weapons, plumes and banners may stick out above the panel.
+Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, intricate armor and costume patterns,
+warm and consistent style across all characters (same style as the attached reference sheet if one is attached).
+EVERY PANEL IS A DIFFERENT ILLUSTRATION, like separate key arts from different stories —— NOT the same photo with a
+different person. Never repeat the template "front-facing character, waist up, centered, battlefield with banners behind".
+Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, weather, color palette) lines, and its SCENE place.
+Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
+background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
+Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
+Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
+Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
+no names, no title, no frame, no watermark.
+
+TROOP CLASS must be obvious from silhouette, pose and main prop:
+SPEARMAN heavy armor, long polearm, planted stance / CAVALRY the rider is the subject, only the horse head or mane peeks in /
+ARCHER bow in hand, quiver / ROGUE light armor, agile, short blades / STRATEGIST flowing robe, white feather fan /
+SCHOLAR scholar robe and hat, book or tablet, no weapon drawn / SORCERER Taoist robe, staff or talismans, faint glowing magic /
+SCHEMER dark robe, high collar, sly, scroll or chess piece.
+★ICONIC characters: their famous look and signature weapon come FIRST, the class is only a small hint.
+FACTION gives costume colors. LOOK gives each face —— every character must look clearly different (age, face, hair, facial hair, build).
+SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer gear, a few gold accents /
+ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
+Do not draw the bracket tags, ★ marks or line labels as text.
+
+Image size 1024x1536 portrait. Grid of 20 characters: 4 columns x 5 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
+Banner under each panel: only its number.
+
+1. (card: 동래 태사자) [ARCHER] ★ICONIC Taishi Ci, the classic brave of Donglai: red armor, a short halberd in each hand (his famous twin halberds). Archer hint only: a big bow and quiver on his back.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 30s, long tied-back hair, strong jaw, short beard.
+   SPLENDOR: PLAIN.
+   SHOT: extreme close-up of the face, shouting, weapon edge crossing the frame.
+   LIGHT: falling snow, white and pale icy blue.
+2. (card: 철심 정보) [ARCHER] Cheng Pu, old veteran with a long white beard, red armor, holding a longbow with an arrow nocked, quiver on back.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: old, long white beard, upright posture.
+   SPLENDOR: PLAIN.
+   SHOT: mid-leap or mid-swing, diagonal tilted frame, cloth and hair whipping.
+   LIGHT: crisp clear morning, bright sky blue and white clouds.
+3. (card: 서성) [ARCHER] Xu Sheng, steady general in red armor, aiming a longbow, quiver on back.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: middle-aged, neat mustache, red-plumed helmet.
+   SPLENDOR: PLAIN.
+   SHOT: small full-body figure in a vast landscape seen from far away, lots of scenery.
+   LIGHT: moonlit night, deep indigo and silver.
+4. (card: 금범 감녕) [ROGUE] ★ICONIC Gan Ning, brash pirate-like fighter with bells on his belt, feathered headband and tattoos, crouching leap with a big curved sword.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: feathered headband, tattoos on arms and neck, gold earrings, wild grin.
+   SPLENDOR: PLAIN.
+   SHOT: high-angle view from above, enemies or ground far below.
+   LIGHT: blazing sunset backlight, orange rim light, long shadows.
+5. (card: 잠룡 여몽) [ROGUE] ★ICONIC Lü Meng, general disguised in a plain white merchant's robe, sneaking pose, a saber hidden behind his back and a book in the other hand.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: stocky, short beard, plain white robe hood.
+   SPLENDOR: PLAIN.
+   SHOT: foreshortened, weapon thrust right at the viewer.
+   LIGHT: spring peach blossoms, pink petals and soft green.
+6. (card: 열혈 능통) [ROGUE] Ling Tong, young agile fighter in a red outfit, mid-spin with a three-section staff.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: young, high ponytail, clean-shaven, energetic.
+   SPLENDOR: PLAIN.
+   SHOT: over-the-shoulder view from behind, head turned back toward the viewer.
+   LIGHT: mystic glow, violet and gold sparks on a dark ground.
+7. (card: 한월 정봉) [ROGUE] Ding Feng, snow-battle hero in light armor and a fur hat, dashing pose with a short sword in each hand.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 50s veteran, grey stubble, fur hat.
+   SPLENDOR: PLAIN.
+   SHOT: low-angle hero shot from below, towering over the viewer, full body.
+   LIGHT: golden autumn leaves, ochre and rust.
+8. (card: 능조) [ROGUE] Ling Cao, rough river captain with a cutlass and a rope over the shoulder, crouching.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: sun-tanned sailor, bandana, rough stubble.
+   SPLENDOR: PLAIN.
+   SHOT: seen from the side at full speed, long motion streaks.
+   LIGHT: heavy rain storm, dark teal, flashes of lightning.
+9. (card: 마충) [ROGUE] Ma Zhong, sly young officer with a dagger in each hand and a coiled rope, sneaking pose.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: thin weasel-like face, small mustache, shifty eyes.
+   SPLENDOR: PLAIN.
+   SHOT: extreme close-up of the face, shouting, weapon edge crossing the frame.
+   LIGHT: pale dawn, cool blue-grey and soft pink.
+10. (card: 불사 주태) [SPEARMAN] Zhou Tai, stoic scar-covered bodyguard with bandages, red armor, on foot, long spear braced forward and a battered shield, unbreakable stance.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: cropped hair, many scars and bandages, stoic expressionless face.
+   SPLENDOR: PLAIN.
+   SHOT: mid-leap or mid-swing, diagonal tilted frame, cloth and hair whipping.
+   LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
+11. (card: 공근 주유) [STRATEGIST] ★ICONIC Zhou Yu, the classic handsome grand commander of Red Cliffs: red robe over light armor, holding a sword elegantly, flames of Red Cliffs curling behind him. Strategist hint only: a feather fan tucked at his waist.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: handsome, long flowing hair, clean-shaven.
+   SPLENDOR: PLAIN.
+   SHOT: leaning casually on a table, pillar or tree, knees-up, tilted head.
+   LIGHT: river spray and mist, blue-green water light.
+12. (card: 국사 육손) [STRATEGIST] Lu Xun, gentle youthful scholar-general in a red robe, white feather fan in hand, a line of small flames around (fire attack).
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: boyish youthful face, neat topknot.
+   SPLENDOR: PLAIN.
+   SHOT: full body walking toward the viewer through the place.
+   LIGHT: harsh noon sun, dusty sand yellow and bleached sky.
+13. (card: 대의 노숙) [SCHOLAR] Lu Su, friendly round-faced diplomat in a red-brown scholar robe and hat, holding an open book and a rolled map.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: round chubby kind face, short beard.
+   SPLENDOR: PLAIN.
+   SHOT: extreme close-up of the face and hands, eyes locked on the viewer.
+   LIGHT: falling snow, white and pale icy blue.
+14. (card: 오범) [SORCERER] Wu Fan, astrologer in a dark red Taoist robe, holding divining sticks, a glowing star chart floating beside him.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: old, long thin beard, star-embroidered hat.
+   SPLENDOR: PLAIN.
+   SHOT: seen from behind, looking out over a view, head half-turned.
+   LIGHT: crisp clear morning, bright sky blue and white clouds.
+15. (card: 황천 장각) [SORCERER] ★ICONIC Zhang Jiao, Yellow Turban leader in a yellow Taoist robe and yellow headscarf, long beard, staff raised, crackling lightning around his hand.
+   FACTION: independent warlord, own colors.
+   LOOK: gaunt old face, long grey beard.
+   SPLENDOR: PLAIN.
+   SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
+   LIGHT: moonlit night, deep indigo and silver.
+16. (card: 장보) [SORCERER] Zhang Bao, sorcerer brother with a yellow headscarf, holding a sword covered in glowing paper talismans, swirling wind.
+   FACTION: independent warlord, own colors.
+   LOOK: middle-aged, black beard, fierce eyes.
+   SPLENDOR: PLAIN.
+   SHOT: partly hidden behind foreground objects (curtains, branches, smoke), peeking out.
+   LIGHT: blazing sunset backlight, orange rim light, long shadows.
+17. (card: 장량) [SORCERER] Zhang Liang, sorcerer brother with a yellow headscarf, a fan of glowing paper talismans spread in his hand.
+   FACTION: independent warlord, own colors.
+   LOOK: younger, clean-shaven, smirking.
+   SPLENDOR: PLAIN.
+   SHOT: high-angle view from above, standing in the middle of the place.
+   LIGHT: spring peach blossoms, pink petals and soft green.
+18. (card: 선옹 좌자) [SORCERER] Zuo Ci, mystic immortal with a long white beard, floating slightly off the ground, staff in hand, faint glowing aura, mischievous smile.
+   FACTION: independent warlord, own colors.
+   LOOK: very old, extremely long white beard, blind in one eye (milky eye), slight limp.
+   SPLENDOR: PLAIN.
+   SHOT: side profile, silhouette against a bright window, moon or sky.
+   LIGHT: mystic glow, violet and gold sparks on a dark ground.
+19. (card: 우길) [SORCERER] Yu Ji, old Taoist hermit in a white robe, horsetail whisk raised, a gourd on his belt, soft healing glow.
+   FACTION: independent warlord, own colors.
+   LOOK: old, white topknot, gentle smile.
+   SPLENDOR: PLAIN.
+   SHOT: leaning casually on a table, pillar or tree, knees-up, tilted head.
+   LIGHT: golden autumn leaves, ochre and rust.
+20. (card: 활인 화타) [SORCERER] ★ICONIC Hua Tuo, kindly old doctor in a pale robe, medicine box on his back, acupuncture needles glowing green in his fingers.
+   FACTION: independent warlord, own colors.
+   LOOK: old kindly face, white beard, bald top.
+   SPLENDOR: PLAIN.
+   SHOT: full body walking toward the viewer through the place.
+   LIGHT: heavy rain storm, dark teal, flashes of lightning.
