@@ -9,7 +9,7 @@ STYLE:
 - Rich detailed chibi, about 3 to 3.5 heads tall, WAIST-UP or chest-up, large and close in the panel, slightly low angle.
 - Fine ink lines, deep shading with strong highlights, lavish material detail: gilded lamellar, embossed dragon/tiger/
   phoenix motifs, fur collars, jeweled clasps, silk capes and sashes, tall plumes and crests.
-- CAVALRY ride their warhorse: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
   Others hold their signature weapon or item in a strong, characterful pose.
 - Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
   —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
@@ -53,4 +53,5 @@ CHARACTERS
 6. Zhang Liao  [CAVALRY, Wei] —— same person as reference #6
    IDENTITY: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes. FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare. BUILD: lean and hard, tall.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a black warhorse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: Hefei: leading only 800 riders straight into a 100,000-man Wu army, halberd raised and shouting his name, the enemy ranks scattering, Sun Quan fleeing over a broken bridge in the background.

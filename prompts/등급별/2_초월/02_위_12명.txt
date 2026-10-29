@@ -12,7 +12,8 @@ STYLE:
 - Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
   joyful expressions as fits the character.
 - Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
-  no buildings, no other people, no animals except a cavalry horse's head when CLASS is CAVALRY.
+  no buildings, no other people, no animals except the horse of a CAVALRY character.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED) —— never standing on foot.
 
 OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
 bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
@@ -46,10 +47,12 @@ CHARACTERS
 5. Zhang Liao  [CAVALRY, Wei] —— same person as reference #5
    IDENTITY: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes. FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare. BUILD: lean and hard, tall.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a black warhorse —— rider and the front half of the horse (head, chest, front legs) in the panel.
    POSE (no scenery, only the pose and expression of): the divine general of Hefei standing guard on the city gate tower at dawn, halberd planted, watching the river.
 6. Zhang He  [CAVALRY, Wei] —— same person as reference #6
    IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a dapple-grey horse —— rider and the front half of the horse (head, chest, front legs) in the panel.
    POSE (no scenery, only the pose and expression of): one of Wei's Five Elite Generals in an elegant charge, spear twirling.
 7. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #7
    IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.

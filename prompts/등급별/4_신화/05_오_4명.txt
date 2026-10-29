@@ -12,7 +12,7 @@ STYLE:
 - Each panel is ONE full illustration of the character's MOMENT (their most famous scene): a painted background inside
   the panel —— battlefield, river, palace, burning sky, banners with the faction character —— plus ONE legendary effect
   (lightning, flames, a roaring spirit animal, a dragon of mist, swirling petals, golden light) wrapping around them.
-- CAVALRY ride their warhorse, rider as the clear subject.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
@@ -30,6 +30,7 @@ CHARACTERS
 1. Sun Ce  [CAVALRY, Wu] —— same person as reference #1
    IDENTITY: early 20s, wild spiky reddish-brown hair, tanned skin, huge toothy grin, red headband. FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror. BUILD: athletic, broad shoulders.
    COLORS: Wu red: crimson, red, orange and gold.
+   MOUNTED: riding a chestnut horse —— rider and horse together in the scene, the horse charging or rearing.
    MOMENT (paint this scene): the Little Conqueror, spear raised high over conquered Jiangdong, a roaring tiger spirit and red banners.
 2. Sun Quan  [ARCHER, Wu] —— same person as reference #2
    IDENTITY: green-blue eyes, reddish-purple beard, square jaw. FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler. BUILD: broad and sturdy.

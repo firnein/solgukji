@@ -9,6 +9,7 @@ STYLE:
 - Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
 - Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
   The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
 simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
@@ -48,18 +49,21 @@ CHARACTERS
    FACE: round friendly face, short stubble beard, loyal round eyes, broad nose, earnest smile, tanned frontier skin.
    BUILD: sturdy.
    COLORS: Shu green: green, jade and earthy gold.
+   MOUNTED: riding a bay horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 4. Ma Chao  [CAVALRY, Shu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Ma Chao, dashing young general in shining silver lion-head armor with a green cape.
    LOOK: early 20s young man, fierce slanted brows, pale skin, sharp handsome masculine face, lion-head helmet, Qiang-style braid.
    FACE: young MAN, narrow but strong angular jaw, high cheekbones, sharp upturned fierce eyes, thin straight nose, proud thin mouth, pale skin with a faint scar on the brow, thick neck, cold arrogant handsome warrior.
    BUILD: slim and athletic, broad shoulders.
    COLORS: Shu green: green, jade and earthy gold.
+   MOUNTED: riding a silver-grey Xiliang warhorse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 5. Zhao Yun  [CAVALRY, Shu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Zhao Yun, handsome heroic general in white-silver armor with green trim, silver spear.
    LOOK: late 20s, handsome balanced face, clean-shaven, neat shoulder-length hair, silver helmet with a red tassel, calm brave eyes.
    FACE: heroic handsome MAN, balanced face with a strong square jaw, clear calm brave eyes, straight thick brows, straight nose, firm mouth, clean-shaven with a faint stubble shadow, healthy tanned skin, steady honorable expression.
    BUILD: tall and balanced, athletic.
    COLORS: Shu green: green, jade and earthy gold.
+   MOUNTED: riding a pure white horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 6. Huang Zhong  [ARCHER, Shu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Huang Zhong, white-bearded old veteran in green armor, drawing a huge longbow with a fierce grin, quiver on back.
    LOOK: 60s, white beard and white bushy eyebrows, wrinkles, muscular old arms.

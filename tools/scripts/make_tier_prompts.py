@@ -60,6 +60,25 @@ DEF_BUILD = {"창병": "sturdy soldier build", "기병": "athletic rider build",
              "책사": "slim scholar build", "유생": "slim scholar build", "술사": "thin build", "모사": "slim build"}
 
 
+# 기병은 모든 등급에서 말을 탄다 —— 같은 인물은 같은 말
+HORSE = {"여포": "Red Hare, a fiery red-chestnut warhorse with a flame-like mane", "조운": "a pure white horse",
+         "공손찬": "a pure white horse (the White Horse General)", "마초": "a silver-grey Xiliang warhorse",
+         "마등": "a shaggy brown Xiliang steppe horse", "동탁": "a sturdy black horse straining under his weight",
+         "원소": "a white horse in gold barding", "장료": "a black warhorse", "손책": "a chestnut horse",
+         "마대": "a bay horse", "장합": "a dapple-grey horse", "하후패": "a small bay pony-like horse",
+         "곽회": "a shaggy dun frontier horse", "안량": "a big dark brown warhorse"}
+MOUNT = {"base": "MOUNTED: riding %s —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.",
+         6: "MOUNTED: riding %s —— rider and the front half of the horse (head, chest, front legs) in the panel.",
+         7: "MOUNTED: riding %s —— rider waist-up, the horse's armored head, neck and mane in front of him.",
+         8: "MOUNTED: riding %s —— rider and horse together in the scene, the horse charging or rearing."}
+
+
+def mount(x, key):
+    if x["cls"] != "CAVALRY":
+        return []
+    return ["   " + MOUNT[key] % HORSE.get(x["p"], "a warhorse")]
+
+
 def load_cards():
     d = json.load(open("solgukji_godot/data/game.json", encoding="utf-8"))
     e = json.load(open("solgukji_godot/data/cards_ext.json", encoding="utf-8"))
@@ -137,6 +156,7 @@ STYLE:
 - Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
 - Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
   The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
 simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
@@ -169,7 +189,8 @@ STYLE:
 - Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
   joyful expressions as fits the character.
 - Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
-  no buildings, no other people, no animals except a cavalry horse's head when CLASS is CAVALRY.
+  no buildings, no other people, no animals except the horse of a CAVALRY character.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED) —— never standing on foot.
 
 OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
 bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
@@ -190,7 +211,7 @@ STYLE:
 - Rich detailed chibi, about 3 to 3.5 heads tall, WAIST-UP or chest-up, large and close in the panel, slightly low angle.
 - Fine ink lines, deep shading with strong highlights, lavish material detail: gilded lamellar, embossed dragon/tiger/
   phoenix motifs, fur collars, jeweled clasps, silk capes and sashes, tall plumes and crests.
-- CAVALRY ride their warhorse: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
   Others hold their signature weapon or item in a strong, characterful pose.
 - Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
   —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
@@ -217,7 +238,7 @@ STYLE:
 - Each panel is ONE full illustration of the character's MOMENT (their most famous scene): a painted background inside
   the panel —— battlefield, river, palace, burning sky, banners with the faction character —— plus ONE legendary effect
   (lightning, flames, a roaring spirit animal, a dragon of mist, swirling petals, golden light) wrapping around them.
-- CAVALRY ride their warhorse, rider as the clear subject.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
@@ -236,7 +257,7 @@ def base_entry(i, x):
              "   LOOK: " + x["look"],
              "   FACE: " + x["face"] + ".",
              "   BUILD: " + x["build"] + ".",
-             "   COLORS: " + x["color"] + "."]
+             "   COLORS: " + x["color"] + "."] + mount(x, "base")
     return "\n".join(lines)
 
 
@@ -244,7 +265,7 @@ def tier_entry(i, x, card, tier):
     e = ent.get(card[1], {})
     lines = ["%d. %s  [%s, %s] —— same person as reference #%d" % (i, x["en"], x["cls"], FAC_EN[x["fac"]], i),
              "   IDENTITY: " + x["look"] + " FACE: " + x["face"] + ". BUILD: " + x["build"] + ".",
-             "   COLORS: " + x["color"] + "."]
+             "   COLORS: " + x["color"] + "."] + mount(x, tier)
     d = e.get("desc", "").replace("★ICONIC ", "")
     if d and d != x["desc"]:
         lines.append("   THIS RANK'S LOOK: " + d)

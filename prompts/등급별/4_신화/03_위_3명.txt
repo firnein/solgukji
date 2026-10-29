@@ -12,7 +12,7 @@ STYLE:
 - Each panel is ONE full illustration of the character's MOMENT (their most famous scene): a painted background inside
   the panel —— battlefield, river, palace, burning sky, banners with the faction character —— plus ONE legendary effect
   (lightning, flames, a roaring spirit animal, a dragon of mist, swirling petals, golden light) wrapping around them.
-- CAVALRY ride their warhorse, rider as the clear subject.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
@@ -35,6 +35,7 @@ CHARACTERS
 2. Zhang Liao  [CAVALRY, Wei] —— same person as reference #2
    IDENTITY: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes. FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare. BUILD: lean and hard, tall.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a black warhorse —— rider and horse together in the scene, the horse charging or rearing.
    MOMENT (paint this scene): the nightmare of Jiangdong at Hefei, crashing through Wu lines with eight hundred riders, blue lightning on the halberd.
 3. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #3
    IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.

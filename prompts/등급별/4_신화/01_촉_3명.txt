@@ -12,7 +12,7 @@ STYLE:
 - Each panel is ONE full illustration of the character's MOMENT (their most famous scene): a painted background inside
   the panel —— battlefield, river, palace, burning sky, banners with the faction character —— plus ONE legendary effect
   (lightning, flames, a roaring spirit animal, a dragon of mist, swirling petals, golden light) wrapping around them.
-- CAVALRY ride their warhorse, rider as the clear subject.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
@@ -38,4 +38,5 @@ CHARACTERS
 3. Zhao Yun  [CAVALRY, Shu] —— same person as reference #3
    IDENTITY: late 20s, handsome balanced face, clean-shaven, neat shoulder-length hair, silver helmet with a red tassel, calm brave eyes. FACE: heroic handsome MAN, balanced face with a strong square jaw, clear calm brave eyes, straight thick brows, straight nose, firm mouth, clean-shaven with a faint stubble shadow, healthy tanned skin, steady honorable expression. BUILD: tall and balanced, athletic.
    COLORS: Shu green: green, jade and earthy gold.
+   MOUNTED: riding a pure white horse —— rider and horse together in the scene, the horse charging or rearing.
    MOMENT (paint this scene): Zhao Zilong of Changshan riding through the enemy host at Changban with baby Liu Shan, silver spear flashing.

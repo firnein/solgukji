@@ -12,7 +12,7 @@ STYLE:
 - Each panel is ONE full illustration of the character's MOMENT (their most famous scene): a painted background inside
   the panel —— battlefield, river, palace, burning sky, banners with the faction character —— plus ONE legendary effect
   (lightning, flames, a roaring spirit animal, a dragon of mist, swirling petals, golden light) wrapping around them.
-- CAVALRY ride their warhorse, rider as the clear subject.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.

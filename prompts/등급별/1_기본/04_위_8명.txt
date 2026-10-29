@@ -9,6 +9,7 @@ STYLE:
 - Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
 - Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
   The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
 simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
@@ -36,24 +37,28 @@ CHARACTERS
    FACE: weathered square face, calm heavy-lidded eyes, broad nose, short grey-streaked beard, patient mouth, frontier windburn.
    BUILD: sturdy.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a shaggy dun frontier horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 2. Zhang Liao  [CAVALRY, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
    LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
    FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
    BUILD: lean and hard, tall.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a black warhorse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 3. Zhang He  [CAVALRY, Wei]
    DESIGN: Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
    LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
    FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
    BUILD: slender but broad-shouldered.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a dapple-grey horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 4. Xiahou Ba  [CAVALRY, Wei]
    DESIGN: Xiahou Ba, young determined general in blue armor.
    LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
    FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
    BUILD: teenage, short and wiry.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a small bay pony-like horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 5. Lü Xiang  [ARCHER, Wei]
    DESIGN: Lü Xiang, archer officer in simple blue armor, holding a longbow with an arrow nocked, quiver on back.
    LOOK: very young, clean-shaven, short cropped hair under a simple cloth cap, freckles.

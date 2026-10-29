@@ -9,6 +9,7 @@ STYLE:
 - Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
 - Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
   The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
 simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
@@ -42,6 +43,7 @@ CHARACTERS
    FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror.
    BUILD: athletic, broad shoulders.
    COLORS: Wu red: crimson, red, orange and gold.
+   MOUNTED: riding a chestnut horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 3. Xu Sheng  [ARCHER, Wu]
    DESIGN: Xu Sheng, steady general in red armor, aiming a longbow, quiver on back.
    LOOK: middle-aged, neat mustache, red-plumed helmet.

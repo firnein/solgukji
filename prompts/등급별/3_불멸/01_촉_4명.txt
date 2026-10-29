@@ -9,7 +9,7 @@ STYLE:
 - Rich detailed chibi, about 3 to 3.5 heads tall, WAIST-UP or chest-up, large and close in the panel, slightly low angle.
 - Fine ink lines, deep shading with strong highlights, lavish material detail: gilded lamellar, embossed dragon/tiger/
   phoenix motifs, fur collars, jeweled clasps, silk capes and sashes, tall plumes and crests.
-- CAVALRY ride their warhorse: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
   Others hold their signature weapon or item in a strong, characterful pose.
 - Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
   —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
@@ -35,6 +35,7 @@ CHARACTERS
 2. Ma Chao  [CAVALRY, Shu] —— same person as reference #2
    IDENTITY: early 20s young man, fierce slanted brows, pale skin, sharp handsome masculine face, lion-head helmet, Qiang-style braid. FACE: young MAN, narrow but strong angular jaw, high cheekbones, sharp upturned fierce eyes, thin straight nose, proud thin mouth, pale skin with a faint scar on the brow, thick neck, cold arrogant handsome warrior. BUILD: slim and athletic, broad shoulders.
    COLORS: Shu green: green, jade and earthy gold.
+   MOUNTED: riding a silver-grey Xiliang warhorse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: chasing Cao Cao at Tong Pass, spear thrust forward, a roaring silver tiger spirit behind him, a cut-off beard and a discarded red robe flying in the wind.
 3. Huang Zhong  [ARCHER, Shu] —— same person as reference #3
    IDENTITY: 60s, white beard and white bushy eyebrows, wrinkles, muscular old arms. FACE: long weathered face, sunken cheeks, small fierce squinting eyes in deep wrinkles, big hawk nose, wide grinning mouth with a missing tooth, leathery tanned skin. BUILD: lean old body with sinewy muscular arms.

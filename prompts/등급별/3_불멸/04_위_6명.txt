@@ -9,7 +9,7 @@ STYLE:
 - Rich detailed chibi, about 3 to 3.5 heads tall, WAIST-UP or chest-up, large and close in the panel, slightly low angle.
 - Fine ink lines, deep shading with strong highlights, lavish material detail: gilded lamellar, embossed dragon/tiger/
   phoenix motifs, fur collars, jeweled clasps, silk capes and sashes, tall plumes and crests.
-- CAVALRY ride their warhorse: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
   Others hold their signature weapon or item in a strong, characterful pose.
 - Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
   —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
@@ -30,6 +30,7 @@ CHARACTERS
 1. Zhang He  [CAVALRY, Wei] —— same person as reference #1
    IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a dapple-grey horse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.
 2. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #2
    IDENTITY: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean. FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression. BUILD: lean and long-limbed.

@@ -12,7 +12,8 @@ STYLE:
 - Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
   joyful expressions as fits the character.
 - Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
-  no buildings, no other people, no animals except a cavalry horse's head when CLASS is CAVALRY.
+  no buildings, no other people, no animals except the horse of a CAVALRY character.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED) —— never standing on foot.
 
 OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
 bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
