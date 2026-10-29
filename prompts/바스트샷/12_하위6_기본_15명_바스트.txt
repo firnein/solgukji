@@ -1,0 +1,149 @@
+A character sheet of chibi Three Kingdoms (ancient China) characters, super-deformed proportions (about 2.5 to 3 heads tall)
+but with mature, characterful faces (not babyish). Each character is drawn inside its own vertical rounded-rectangle panel;
+weapons, plumes and banners may stick out above the panel.
+Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, intricate armor and costume patterns,
+warm and consistent style across all characters (same style as the attached reference sheet if one is attached).
+EVERY PANEL IS A DIFFERENT ILLUSTRATION, like separate key arts from different stories —— NOT the same photo with a
+different person. Never repeat the template "front-facing character, waist up, centered, battlefield with banners behind".
+Each panel follows its own SHOT (angle, head turn, expression) and LIGHT (time, weather, color palette) lines, and its SCENE place.
+Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
+background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
+Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
+BUST SHOT ONLY: every panel is a chest-up portrait —— the frame cuts at the chest (just below the shoulders and collar);
+no waist, no legs, no full body. The head and face fill the upper half of the panel and are large, sharp and detailed;
+the shoulders fill the panel width. Helmets, plumes and weapon tips may stick out above the panel.
+SHOT changes only the angle, head turn, expression and gesture —— NOT the framing.
+MYTHIC and ORNATE: the iconic moment of SCENE is shown INSIDE the bust frame —— hands and signature props come up into the
+frame (an arrow pulled from the eye, a fan sweeping, a cup raised), and the SCENE's effects (fire, flood, storm, aura, light)
+swirl around the head and shoulders and may burst out of the panel. FINE and PLAIN: SCENE and LIGHT are only a soft background.
+Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
+Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
+Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
+no names, no title, no frame, no watermark.
+
+TROOP CLASS must be obvious from the armor, headgear and the prop near the shoulder:
+SPEARMAN heavy armor, long polearm, planted stance / CAVALRY the rider is the subject, only the horse head or mane peeks in /
+ARCHER bow in hand, quiver / ROGUE light armor, agile, short blades / STRATEGIST flowing robe, white feather fan /
+SCHOLAR scholar robe and hat, book or tablet, no weapon drawn / SORCERER Taoist robe, staff or talismans, faint glowing magic /
+SCHEMER dark robe, high collar, sly, scroll or chess piece.
+★ICONIC characters: their famous look and signature weapon come FIRST, the class is only a small hint.
+FACTION gives costume colors. LOOK gives each face —— every character must look clearly different (age, face, hair, facial hair, build).
+SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer gear, a few gold accents /
+ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
+Do not draw the bracket tags, ★ marks or line labels as text.
+
+Image size 1024x1536 portrait. Grid of 15 characters: 4 columns x 4 rows (a short last row is centered). medium vertical panels, chest-up portrait fills the panel, soft background.
+Banner under each panel: only its number.
+
+1. (card: 황숙 유비) [SCHOLAR] ★ICONIC Liu Bei, the classic benevolent lord: long earlobes, gentle smile, green robe, holding his famous twin swords (one in each hand). Scholar hint only: a book of the classics hanging at his waist.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, very long earlobes, kind gentle eyes, thin mustache and short beard, simple topknot crown.
+   FACE: broad gentle round face, very long earlobes reaching the jaw, soft droopy kind eyes, small mustache, warm humble smile, slightly tired look.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), slight high angle, looking up at the viewer with a knowing smile.
+   LIGHT: blazing sunset backlight, orange rim light, long shadows.
+2. (card: 의절 관우) [SPEARMAN] ★ICONIC Guan Yu, tall dignified general with a very long black beard and red face, green robe over armor, on foot, Green Dragon crescent glaive braced upright beside him.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf.
+   FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), 3/4 view, wild grin, one hand gripping the weapon near the shoulder.
+   LIGHT: pale dawn, cool blue-grey and soft pink.
+3. (card: 환안 장비) [SPEARMAN] ★ICONIC Zhang Fei, wild bearded general with round glaring eyes, dark armor, on foot, serpent spear braced forward, shouting.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: round glaring eyes, bristly tiger-whisker beard, thick eyebrows, dark tanned skin, wide mouth.
+   FACE: wide round face, huge round bulging glaring eyes, bristly tiger-whisker beard bursting outward, thick black brows, flat wide nose, enormous roaring mouth, dark tanned skin.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), slight low angle, looking down at the viewer, weapon shaft resting on the shoulder.
+   LIGHT: golden autumn leaves, ochre and rust.
+4. (card: 와룡 제갈량) [STRATEGIST] ★ICONIC Zhuge Liang, serene genius strategist in a white-and-green Taoist robe and black scholar's cap, white crane-feather fan raised.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: late 20s, serene slender face, thin mustache, black silk scholar's cap (lun jin).
+   FACE: slender serene oval face, calm deep knowing eyes, long straight nose, thin neat mustache, faint mysterious smile, smooth fair skin, black silk scholar's cap, otherworldly composure.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+   LIGHT: crisp clear morning, bright sky blue and white clouds.
+5. (card: 강궁 황충) [ARCHER] ★ICONIC Huang Zhong, white-bearded old veteran in green armor, drawing a huge longbow with a fierce grin, quiver on back.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 60s, white beard and white bushy eyebrows, wrinkles, muscular old arms.
+   FACE: long weathered face, sunken cheeks, small fierce squinting eyes in deep wrinkles, big hawk nose, wide grinning mouth with a missing tooth, leathery tanned skin.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), front view, half the face in shadow, eyes narrowed, cold stare.
+   LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
+6. (card: 기린아 강유) [STRATEGIST] ★ICONIC Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: early 20s, clean-shaven, earnest big eyes, short helmet with green plume.
+   FACE: boyish oval face, large earnest round eyes, straight determined brows, small straight nose, firm closed mouth, smooth fair skin, serious eager expression.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
+   LIGHT: falling snow, white and pale icy blue.
+7. (card: 봉추 방통) [STRATEGIST] Pang Tong, scruffy plain-faced genius with messy hair, rumpled green robe, holding a feather fan and a chain-link scroll (linked-ships plan).
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: plain homely face, flat nose, messy unkempt hair, scruffy stubble.
+   FACE: ugly homely face, flat squashed nose, mismatched small eyes, thick lips, pockmarked skin, messy hair, scruffy stubble, sly lopsided grin.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), head turned back toward the viewer over the shoulder, sly side glance.
+   LIGHT: harsh noon sun, dusty sand yellow and bleached sky.
+8. (card: 효직 법정) [SCHOLAR] Fa Zheng, sharp-eyed clever advisor in a green scholar robe and hat, holding bamboo slips.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, sharp narrow face, thin mustache, sly narrowed eyes.
+   FACE: narrow pointed face, thin hooked nose, slanted narrow calculating eyes, thin lips curled in a smirk, sallow skin, vengeful sly expression.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), 3/4 view, gentle smile, eyes toward the viewer.
+   LIGHT: moonlit night, deep indigo and silver.
+9. (card: 마량) [STRATEGIST] Ma Liang, gentle scholar with white eyebrows, green robe, holding a feather fan and a letter.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: young gentle face, distinctive pure WHITE eyebrows, neat topknot.
+   FACE: gentle young oval face, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, fair skin.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), front view, half the face lit by warm light, half in shadow, serious.
+   LIGHT: spring peach blossoms, pink petals and soft green.
+10. (card: 이적) [STRATEGIST] Yi Ji, witty envoy in a light green robe, holding a feather fan and an envoy's tally.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: round cheerful face, small goatee, laughing eyes.
+   FACE: round cheerful face, laughing crescent eyes, small goatee, button nose, wide talkative grin, witty envoy.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), slight low angle, composed, looking down at the viewer, robe collar framing the face.
+   LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
+11. (card: 간옹) [SCHOLAR] Jian Yong, relaxed laid-back scholar lounging, loose robe, holding a book and a wine cup.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: sleepy half-closed eyes, loose messy hair, rosy drunk cheeks, unbuttoned collar.
+   FACE: lazy long face, sleepy half-closed drunk eyes, rosy cheeks, loose messy hair, lopsided carefree grin, unbuttoned collar.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), side profile, looking into the distance, calm.
+   LIGHT: blazing sunset backlight, orange rim light, long shadows.
+12. (card: 미축) [SCHOLAR] Mi Zhu, wealthy merchant-scholar in a rich green-gold robe, holding an account book and a string of coins.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: plump, well-groomed curled mustache, wealthy merchant's hat.
+   FACE: plump wealthy face, well-groomed curled mustache, small shrewd merchant eyes, fleshy nose, polite money-counting smile, smooth pampered skin.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+   LIGHT: pale dawn, cool blue-grey and soft pink.
+13. (card: 요화) [ROGUE] Liao Hua, former Yellow Turban scout with a faded yellow headband, light leather armor, holding two daggers, alert pose.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: thin wiry body, faded yellow headband, scar across the nose.
+   FACE: thin wiry face, alert darting eyes, scar across the nose, faded yellow headband, tight cautious mouth, sun-weathered skin.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), front view, chin raised, fierce confident gaze straight at the viewer.
+   LIGHT: golden autumn leaves, ochre and rust.
+14. (card: 주창) [ROGUE] Zhou Cang, rough loyal bandit-turned-retainer with a big beard, bare arms, light cloth armor, crouching with a heavy curved saber.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: huge black bushy beard covering half his face, swarthy, very muscular.
+   FACE: swarthy brutal face, huge black bushy beard covering half the face, big fierce loyal eyes, broad flat nose, very muscular neck.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), 3/4 view, shouting a battle cry, hair and plume blown back by wind.
+   LIGHT: crisp clear morning, bright sky blue and white clouds.
+15. (card: 초주) [SORCERER] Qiao Zhou, scholarly diviner in a pale green Taoist robe, holding a star-chart staff, small glowing star sparks around his hand.
+   FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: old and thin, long thin grey goatee, star-patterned scholar's hat.
+   FACE: old thin bony face, long thin grey goatee, squinting stargazer eyes, long nose, pursed thoughtful mouth, star-patterned scholar's hat.
+   SPLENDOR: PLAIN.
+   SHOT: BUST (chest-up), head turned back toward the viewer over the shoulder, sly side glance.
+   LIGHT: misty mountains, monochrome ink-wash grey with one color accent.

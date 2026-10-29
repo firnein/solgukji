@@ -18,7 +18,7 @@ RULE = ("FACES MUST BE UNIQUE: never reuse one face —— no generic handsome a
         "vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.")
 ANCHOR = "Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...)."
 s = re.sub(r"\nFACES MUST BE UNIQUE:.*?brutish\.", "", s, flags=re.S)
-assert s.count(ANCHOR) == 9
+assert s.count(ANCHOR) == len(re.findall(r"^## \d+\.", s, flags=re.M))
 s = s.replace(ANCHOR, ANCHOR + "\n" + RULE)
 
 lines = s.split("\n")

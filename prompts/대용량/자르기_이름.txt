@@ -35,3 +35,15 @@
 [09_하위5_초월기본_8명.txt] 9. 하위 (초월·기본) 5 — 8장 (4열 × 2줄) · 기본 8  → `--hole=155`
   python -I tools/scripts/slice_panels.py 시트.png "장로,관로,초선,저수,전풍,심배,장연,관해" solgukji_godot/assets/portraits
   (칸 안이 배경 없이 인물만 오려진 모양이면) python -I tools/scripts/slice_sheet.py 시트.png "장로,관로,초선,저수,전풍,심배,장연,관해" solgukji_godot/assets/portraits --hole=155
+
+[10_상위5_신화_8명.txt] 10. 상위 (신화) 5 — 8장 · 다시 뽑기 (상징 장면 · 얼굴 개성)  ※ 촉 초록 옷 있음 → `--hole` 없이
+  python -I tools/scripts/slice_panels.py 시트.png "장료_신화,손책_신화,조운_신화,여포_신화,동탁_신화,유비_신화,관우_신화,장비_신화" solgukji_godot/assets/portraits
+  (칸 안이 배경 없이 인물만 오려진 모양이면) python -I tools/scripts/slice_sheet.py 시트.png "장료_신화,손책_신화,조운_신화,여포_신화,동탁_신화,유비_신화,관우_신화,장비_신화" solgukji_godot/assets/portraits
+
+[11_상위6_신화_8명.txt] 11. 상위 (신화) 6 — 8장 · 다시 뽑기 (상징 장면 · 얼굴 개성)  ※ 촉 초록 옷 있음 → `--hole` 없이
+  python -I tools/scripts/slice_panels.py 시트.png "제갈량_신화,위연_신화,하후연_신화,조조_신화,곽가_신화,순욱_신화,손권_신화,태사자_신화" solgukji_godot/assets/portraits
+  (칸 안이 배경 없이 인물만 오려진 모양이면) python -I tools/scripts/slice_sheet.py 시트.png "제갈량_신화,위연_신화,하후연_신화,조조_신화,곽가_신화,순욱_신화,손권_신화,태사자_신화" solgukji_godot/assets/portraits
+
+[12_하위6_기본_15명.txt] 12. 하위 (기본) 6 — 15장 · 다시 뽑기 (상징 장면 · 얼굴 개성)  ※ 촉 초록 옷 있음 → `--hole` 없이
+  python -I tools/scripts/slice_panels.py 시트.png "유비,관우,장비,제갈량,황충,강유,방통,법정,마량,이적,간옹,미축,요화,주창,초주" solgukji_godot/assets/portraits
+  (칸 안이 배경 없이 인물만 오려진 모양이면) python -I tools/scripts/slice_sheet.py 시트.png "유비,관우,장비,제갈량,황충,강유,방통,법정,마량,이적,간옹,미축,요화,주창,초주" solgukji_godot/assets/portraits
