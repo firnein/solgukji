@@ -51,10 +51,10 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
 3. Deng Ai  [SCHEMER, Wei]
    DESIGN: Deng Ai, rugged plotter wrapped in a felt blanket cloak for a secret mountain crossing, holding a rolled route map and a coil of rope, determined.
-   LOOK: rugged square jaw, stubble, windburned cheeks.
-   FACE: rugged square jaw, windburned red cheeks, squinting stubborn eyes, crooked nose, stubble, slight stutter frown, hardy peasant general.
+   LOOK: about 66, old rugged face, grey-white rough stubble, deep wrinkles, windburned cheeks.
+   FACE: OLD MAN of about 66, rugged square jaw, deep wrinkles, windburned red cheeks, squinting stubborn eyes, crooked nose, grey-white rough stubble, slight stutter frown, hardy veteran.
    BUILD: stocky and rugged.
-   SIGNATURE (unique to him on this sheet): HEAD felt blanket cloak pulled over his head; FACIAL HAIR rough stubble; MARK coil of rope and rolled route map.
+   SIGNATURE (unique to him on this sheet): HEAD felt blanket cloak pulled over his head; FACIAL HAIR grey-white rough stubble; MARK old man, coil of rope and rolled route map.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 4. Sima Yi  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Sima Yi, patient schemer with a thin long beard, dark purple-navy hooded robe, holding a black go stone between two fingers, sly sideways glance.
@@ -93,11 +93,11 @@ CHARACTERS
    COLORS: Wu red: crimson, red, orange and gold.
    MOUNTED: riding a chestnut horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 9. Xu Sheng  [ARCHER, Wu]
-   DESIGN: Xu Sheng, steady general in red armor, aiming a longbow, quiver on back.
+   DESIGN: Xu Sheng, steady general in red armor, holding a long glaive, bow and quiver on his back.
    LOOK: middle-aged, neat mustache, red-plumed helmet.
    FACE: middle-aged steady face, neat mustache, calm watchful eyes, straight nose, composed mouth, reliable officer.
    BUILD: steady medium build.
-   SIGNATURE (unique to him on this sheet): HEAD red-plumed helmet; FACIAL HAIR neat mustache; MARK longbow.
+   SIGNATURE (unique to him on this sheet): HEAD plain iron helmet with a red plume; FACIAL HAIR neat mustache; MARK long glaive, bow slung on his back.
    COLORS: Wu red: crimson, red, orange and gold.
 10. Sun Quan  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Sun Quan, the classic young Wu emperor: striking green-blue eyes and a reddish-purple beard, regal red and gold robe, holding a sword, dignified. Archer hint only: a bow slung on his back and a small quiver.

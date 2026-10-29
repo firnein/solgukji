@@ -36,11 +36,11 @@ LAYOUT:
 
 CHARACTERS
 1. Yan Liang  [CAVALRY, Independent]
-   DESIGN: Yan Liang, fierce general in gold-and-brown armor.
-   LOOK: broad brutish face, thick single unibrow, braided beard, shaved head with a top knot.
-   FACE: broad brutish MAN's face, thick single unibrow, small mean eyes, flat wide nose, thick braided beard, shaved head with a top knot, arrogant sneer.
+   DESIGN: Yan Liang, fierce general in an embroidered robe over gold armor, with a big blade.
+   LOOK: 40s, broad fierce face, thick single unibrow, thick full black beard, gold-crested helmet.
+   FACE: broad fierce MAN's face, thick single unibrow, small mean eyes, flat wide nose, thick full black beard, arrogant sneer.
    BUILD: big and brutish.
-   SIGNATURE (unique to him on this sheet): HEAD shaved head with a top knot; FACIAL HAIR thick braided beard; MARK single unibrow, big blade.
+   SIGNATURE (unique to him on this sheet): HEAD gold-crested helmet; FACIAL HAIR thick full black beard; MARK embroidered robe over gold armor, big blade, unibrow.
    COLORS: his own colors as described (independent).
    MOUNTED: riding a big dark brown warhorse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 2. Lü Bu  [CAVALRY, Independent]  ★ICONIC: draw the famous traditional look exactly
@@ -88,23 +88,23 @@ CHARACTERS
    SIGNATURE (unique to him on this sheet): HEAD no hat, big bulging forehead; FACIAL HAIR no beard; MARK turtle shell with trigrams.
    COLORS: his own colors as described (independent).
 8. Yu Ji  [SORCERER, Independent]
-   DESIGN: Yu Ji, old Taoist hermit in a white robe, horsetail whisk raised, a gourd on his belt, soft healing glow.
-   LOOK: old, white topknot, gentle smile.
-   FACE: smooth ageless old face, white topknot, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal.
+   DESIGN: Yu Ji, old Taoist hermit in a white robe, crane-feather cloak, goosefoot staff raised, soft healing glow.
+   LOOK: very old, white topknot, long flowing white beard, gentle smile.
+   FACE: smooth ageless old face, white topknot, long flowing white beard, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal.
    BUILD: thin old man, light as a feather.
-   SIGNATURE (unique to him on this sheet): HEAD white topknot, no hat; FACIAL HAIR short soft white beard; MARK horsetail whisk, gourd.
+   SIGNATURE (unique to him on this sheet): HEAD white topknot, no hat; FACIAL HAIR long flowing white beard; MARK crane-feather cloak, goosefoot staff.
    COLORS: his own colors as described (independent).
 9. Zhang Jiao  [SORCERER, Independent]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Zhang Jiao, Yellow Turban leader in a yellow Taoist robe and yellow headscarf, long beard, staff raised, crackling lightning around his hand.
+   DESIGN: Zhang Jiao, Yellow Turban leader in a yellow Taoist robe and yellow headscarf, long beard, nine-knot staff raised, crackling lightning around his hand.
    LOOK: gaunt old face, long grey beard.
    FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression.
    BUILD: skeletal and gaunt.
-   SIGNATURE (unique to him on this sheet): HEAD yellow headscarf; FACIAL HAIR long grey beard; MARK skeletal face, staff with lightning.
+   SIGNATURE (unique to him on this sheet): HEAD tall yellow Taoist crown over a yellow hood; FACIAL HAIR long grey beard; MARK skeletal face, nine-knot staff, Taiping scroll.
    COLORS: his own colors as described (independent).
 10. Zhang Liang  [SORCERER, Independent]
-   DESIGN: Zhang Liang, sorcerer brother with a yellow headscarf, a fan of glowing paper talismans spread in his hand.
-   LOOK: younger, clean-shaven, smirking.
+   DESIGN: Zhang Liang, sorcerer brother with a yellow headscarf, yellow-trimmed armor, spear and a yellow war banner, a few talismans tied to the spear.
+   LOOK: younger, clean-shaven, smirking, iron helmet wrapped in yellow cloth.
    FACE: younger face, clean-shaven, smirking, mischievous narrow eyes, sharp nose.
    BUILD: wiry.
-   SIGNATURE (unique to him on this sheet): HEAD yellow headscarf tied as a bandana; FACIAL HAIR clean-shaven; MARK fan of glowing talismans.
+   SIGNATURE (unique to him on this sheet): HEAD iron helmet wrapped in yellow cloth; FACIAL HAIR clean-shaven; MARK yellow-trimmed armor, spear, yellow war banner.
    COLORS: his own colors as described (independent).

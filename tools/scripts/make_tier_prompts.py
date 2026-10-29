@@ -30,7 +30,7 @@ FAC_COLOR = {"촉": "Shu green: green, jade and earthy gold",
 # 실루엣 —— 얼굴만으로 부족해서 체격 · 키를 따로 못박는다 (없으면 병종 기본값)
 BUILD = {
     "허저": "huge and fat, the widest body on any sheet, big round belly", "전위": "giant, towering, ape-like long arms",
-    "동탁": "obese, round barrel body, short legs", "관해": "giant brute, thick limbs", "주창": "short and very muscular, thick arms",
+    "동탁": "obese, round barrel body, short legs", "관해": "giant brute, thick limbs", "주창": "tall dark-skinned giant, thick arms",
     "장비": "big and burly, barrel chest", "관우": "very tall and dignified, long legs, upright", "조인": "massive and square, like a wall",
     "악진": "small and short, the shortest soldier, oversized helmet", "조조": "short and wiry, but commanding posture",
     "하후돈": "big, broad-shouldered", "황충": "lean old body with sinewy muscular arms", "정보": "tall old man, upright",
@@ -67,6 +67,8 @@ HORSE = {"여포": "Red Hare, a fiery red-chestnut warhorse with a flame-like ma
          "원소": "a white horse in gold barding", "장료": "a black warhorse", "손책": "a chestnut horse",
          "마대": "a bay horse", "장합": "a dapple-grey horse", "하후패": "a small bay pony-like horse",
          "곽회": "a shaggy dun frontier horse", "안량": "a big dark brown warhorse"}
+# 기병이 아니어도 원전에서 말이 상징인 인물 —— 하후연(三日五百 기병), 방덕(白馬將軍)
+HORSE_EXTRA = {"하후연": "a lean fast horse at full gallop", "방덕": "a white horse"}
 MOUNT = {"base": "MOUNTED: riding %s —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.",
          6: "MOUNTED: riding %s —— rider and the front half of the horse (head, chest, front legs) in the panel.",
          7: "MOUNTED: riding %s —— rider waist-up, the horse's armored head, neck and mane in front of him.",
@@ -74,9 +76,9 @@ MOUNT = {"base": "MOUNTED: riding %s —— a small chubby chibi horse, rider AN
 
 
 def mount(x, key):
-    if x["cls"] != "CAVALRY":
+    if x["cls"] != "CAVALRY" and x["p"] not in HORSE_EXTRA:
         return []
-    return ["   " + MOUNT[key] % HORSE.get(x["p"], "a warhorse")]
+    return ["   " + MOUNT[key] % (HORSE.get(x["p"]) or HORSE_EXTRA.get(x["p"]) or "a warhorse")]
 
 
 def load_cards():
@@ -107,9 +109,55 @@ cards = load_cards()
 ent = load_entries()
 faces = json.load(open("prompts/faces.json", encoding="utf-8"))
 SIG = json.load(open("prompts/signatures.json", encoding="utf-8"))
-# md 의 LOOK 이 다른 인물과 겹치는 경우 덮어쓴다 (장료 · 하후연: 둘 다 '긴 꽁지머리 · 매눈 · 가는 수염'이라 쌍둥이로 나왔다)
-LOOK_FIX = {"장료": "40s, grim veteran cavalry commander, dark steel helmet with cheek guards and a tall purple-black plume, square-cut short black beard, scar across the left cheek.",
-            "하후연": "40s, lean wild archer, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin."}
+# md 의 LOOK · 설명을 덮어쓴다 —— 다른 인물과 겹치거나(장료 · 하후연 쌍둥이) 원전과 어긋나는 것 (prompts/장수_고증_조사.md 1 · 2장)
+LOOK_FIX = {
+    "장료": "40s, grim veteran cavalry commander, dark steel helmet with cheek guards and a tall purple-black plume, square-cut short black beard, scar across the left cheek.",
+    "하후연": "40s, lean wild archer-rider, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin.",
+    "위연": "40s, deep date-red face, bright star-like eyes, a bony bump at the BACK of the head, arrogant grin, short black beard.",
+    "화타": "very old but with a youthful glowing face, short white beard, square cloth cap.",
+    "유비": "30s, earlobes reaching his shoulders, very long arms, kind gentle eyes, clean-shaven or a faint thin mustache, simple topknot crown.",
+    "방통": "plain ugly face, upturned snub nose, thick brows, dark swarthy face, short scruffy beard, messy hair.",
+    "조운": "late 20s, broad face with a full heavy jaw, thick brows, large clear eyes, clean-shaven, silver helmet with a red tassel.",
+    "마초": "early 20s young man, jade-white face, bright shooting-star eyes, sharp handsome masculine face, lion-head helmet.",
+    "태사자": "30s, long tied-back hair, strong jaw, long handsome beard, long ape-like arms.",
+    "방덕": "40s, hard square jaw, full black beard, thick eyebrows, fierce unblinking eyes.",
+    "등애": "about 66, old rugged face, grey-white rough stubble, deep wrinkles, windburned cheeks.",
+    "우길": "very old, white topknot, long flowing white beard, gentle smile.",
+    "안량": "40s, broad fierce face, thick single unibrow, thick full black beard, gold-crested helmet.",
+    "주창": "tall, very dark skin, thick curly black beard, very muscular.",
+    "조인": "square face with a broad greying beard, heavy round helmet with the visor raised.",
+    "하후돈": "black eyepatch, wild long black hair, short thick black beard.",
+    "학소": "40s, heavy battered full helmet, stern square face, thick black mustache only.",
+    "종회": "young man, sharp arrogant face, clean-shaven, high topknot in a gold hair crown.",
+    "악진": "small and short, faint stubble, big determined eyes, oversized plumed helmet.",
+    "하후패": "late teens, short spiky hair, no beard, eager wide eyes.",
+    "능조": "sun-tanned sailor, high topknot with a sea-blue bandana, short grizzled beard.",
+    "육손": "youthful man, red scholar's cap, very faint mustache line.",
+    "장량": "younger, clean-shaven, smirking, iron helmet wrapped in yellow cloth.",
+}
+DESC_FIX = {
+    "장료": [("long hair tied back, blue-purple armor", "helmeted, blue-purple armor")],
+    "위연": [("bold glaring face with a prominent bony forehead", "deep date-red face, bright star-like eyes, a bony bump at the BACK of his skull")],
+    "화타": [("medicine box on his back", "a blue cloth medicine bag hanging on his arm")],
+    "태사자": [("a short halberd in each hand (his famous twin halberds)", "a short halberd in one hand and Sun Ce's captured helmet in the other")],
+    "우길": [("horsetail whisk raised, a gourd on his belt", "crane-feather cloak, goosefoot staff raised"), ("horsetail whisk raised, gourd on his belt", "crane-feather cloak, goosefoot staff raised")],
+    "안량": [("fierce general in gold-and-brown armor.", "fierce general in an embroidered robe over gold armor, with a big blade.")],
+    "주창": [("crouching with a heavy curved saber", "holding Guan Yu's Green Dragon glaive upright for his lord")],
+    "정보": [("holding a longbow with an arrow nocked, quiver on back", "holding a snake-headed serpent spear, bow and quiver on his back")],
+    "서성": [("aiming a longbow, quiver on back", "holding a long glaive, bow and quiver on his back")],
+    "육손": [("white feather fan in hand", "twin swords in hand")],
+    "대교": [("red-pink hanfu dress", "blue-teal hanfu dress, folding fan")],
+    "장량": [("a fan of glowing paper talismans spread in his hand", "yellow-trimmed armor, spear and a yellow war banner, a few talismans tied to the spear")],
+    "장각": [("staff raised", "nine-knot staff raised")],
+}
+
+
+def fix_desc(p, d):
+    for a, b in DESC_FIX.get(p, []):
+        d = d.replace(a, b)
+    return d
+
+
 person_cards = defaultdict(list)
 for c in cards:
     person_cards[c[1].split(" ")[-1]].append(c)
@@ -120,7 +168,7 @@ for p in person_cards:
 def person_info(p):
     cs = person_cards[p]
     src = next(ent[c[1]] for c in cs if c[1] in ent)        # 가장 낮은 등급 설명 = 기본 디자인
-    desc = src["desc"].replace("long hair tied back, blue-purple armor", "helmeted, blue-purple armor") if p == "장료" else src["desc"]
+    desc = fix_desc(p, src["desc"])
     iconic = desc.startswith("★ICONIC")
     desc = desc.replace("★ICONIC ", "")
     en = desc.split(",")[0].replace('the classic ', "")
@@ -282,7 +330,7 @@ def tier_entry(i, x, card, tier):
              "   IDENTITY: " + x["look"] + " FACE: " + x["face"] + ". BUILD: " + x["build"] + ".",
              sig(x),
              "   COLORS: " + x["color"] + "."] + mount(x, tier)
-    d = e.get("desc", "").replace("★ICONIC ", "").replace("long hair tied back, blue-purple armor", "helmeted, blue-purple armor")
+    d = fix_desc(x["p"], e.get("desc", "")).replace("★ICONIC ", "")
     if d and d != x["desc"]:
         lines.append("   THIS RANK'S LOOK: " + d)
     scene = e.get("SCENE", "")

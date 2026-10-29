@@ -37,11 +37,12 @@ LAYOUT:
 CHARACTERS
 1. Pang De  [SPEARMAN, Wei]
    DESIGN: Pang De, grim loyal general in dark iron armor with a large broad-bladed spear, a wooden coffin carried behind him by his soldiers.
-   LOOK: 40s, hard square jaw, short black beard, thick eyebrows, fierce unblinking eyes, scar on the chin.
-   FACE: hard square jaw, scar on the chin, thick straight eyebrows, fierce unblinking eyes, broad nose, short black beard, tanned skin, grim determination.
+   LOOK: 40s, hard square jaw, full black beard, thick eyebrows, fierce unblinking eyes.
+   FACE: hard square MAN's jaw, thick straight eyebrows, fierce unblinking eyes, broad nose, full black beard, tanned skin, grim determination.
    BUILD: solid and broad.
-   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR short black beard; MARK scar on the chin, a small wooden coffin strapped on his back.
+   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR full black beard; MARK small wooden coffin strapped on his back, white horse.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a white horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 2. Xu Huang  [SPEARMAN, Wei]
    DESIGN: Xu Huang, calm general with a mustache, blue armor, on foot, long-handled great axe braced in front.
    LOOK: 40s, long drooping mustache, calm face, helmet with a blue tassel.
@@ -51,10 +52,10 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
 3. Yue Jin  [SPEARMAN, Wei]
    DESIGN: Yue Jin, small but fierce vanguard officer, helmet with a plume, spear thrust forward, shield on arm.
-   LOOK: small and short, young, clean-shaven, big determined eyes, oversized plumed helmet.
-   FACE: small young MAN, square stubborn face, big determined eyes under thick brows, small nose, clenched teeth, faint stubble, tiny body under an oversized helmet.
+   LOOK: small and short, faint stubble, big determined eyes, oversized plumed helmet.
+   FACE: small MAN, square stubborn face, big determined eyes under thick brows, small nose, clenched teeth, faint stubble, tiny body under an oversized helmet.
    BUILD: small and short, the shortest soldier, oversized helmet.
-   SIGNATURE (unique to him on this sheet): HEAD oversized round helmet with a tall plume; FACIAL HAIR clean-shaven; MARK the tiniest body, spear and small shield.
+   SIGNATURE (unique to him on this sheet): HEAD oversized round helmet with a tall plume; FACIAL HAIR faint stubble; MARK tiny body, scaling ladder on his back and a spear.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 4. Yu Jin  [SPEARMAN, Wei]
    DESIGN: Yu Jin, strict disciplined general with a neat mustache, tidy blue armor, spear in one hand and a war banner pole on his back.
@@ -79,17 +80,17 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
 7. Cao Ren  [SPEARMAN, Wei]
    DESIGN: Cao Ren, defensive general in heavy blue plate armor, large rectangular tower shield and spear, solid immovable stance.
-   LOOK: square face covered by a huge full beard, full-face helmet visor raised.
-   FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender.
+   LOOK: square face with a broad greying beard, heavy round helmet with the visor raised.
+   FACE: huge square head, small hard eyes under a heavy brow, wide nose, broad GREYING beard, ruddy skin, immovable defender.
    BUILD: massive and square, like a wall.
-   SIGNATURE (unique to him on this sheet): HEAD full-face helmet with the visor raised; FACIAL HAIR enormous bushy beard covering the lower face; MARK huge rectangular tower shield.
+   SIGNATURE (unique to him on this sheet): HEAD heavy round helmet with the visor raised; FACIAL HAIR broad greying beard; MARK huge rectangular tower shield.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 8. Xiahou Dun  [SPEARMAN, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Xiahou Dun, fierce one-eyed general with a black eyepatch over his left eye, dark blue heavy armor, on foot, long spear braced forward and a round shield.
-   LOOK: black eyepatch, wild long black hair, full thick beard.
-   FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression.
+   LOOK: black eyepatch, wild long black hair, short thick black beard.
+   FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, short thick black beard, snarling mouth with bared teeth, battle scars, fearsome expression.
    BUILD: big, broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, wild long loose black hair; FACIAL HAIR full thick black beard; MARK black eyepatch over the left eye.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, wild long loose black hair; FACIAL HAIR short thick black beard; MARK black eyepatch over the LEFT eye.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 9. Xu Chu  [SPEARMAN, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Xu Chu, the classic "Tiger Fool": huge bulky bare-chested strongman with a round shaved head and big belly, holding a giant spiked iron club, big grin. Spearman hint only: a round shield strapped to his arm.

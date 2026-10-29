@@ -37,13 +37,13 @@ CHARACTERS
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): crossing the river in white robes by night, disguised merchant boats behind him, saber in hand.
 2. Lu Xun  [STRATEGIST, Wu] —— same person as reference #2
-   IDENTITY: youthful man, neat topknot, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, quietly confident scholar-general. BUILD: slim but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD neat topknot tied with a red ribbon; FACIAL HAIR very faint mustache line; MARK white feather fan.
+   IDENTITY: youthful man, red scholar's cap, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, red scholar's cap. BUILD: slim but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD red scholar's cap; FACIAL HAIR very faint mustache line; MARK twin swords, a torch.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): the fire-attack grand commander, a sea of flames behind him, feather fan sweeping.
 3. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #3
-   IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, neat thin mustache, pale skin, noble masculine bearing. BUILD: tall and graceful.
-   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword.
+   IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, clean-shaven, pale skin, noble masculine bearing. BUILD: tall and graceful.
+   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword, guqin zither.
    COLORS: Wu red: crimson, red, orange and gold.
    MOMENT (paint this scene): the grand commander of Red Cliffs, sword drawn before the burning enemy fleet.
 4. Dong Zhuo  [CAVALRY, Independent] —— same person as reference #4

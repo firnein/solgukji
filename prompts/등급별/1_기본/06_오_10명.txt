@@ -36,18 +36,18 @@ LAYOUT:
 
 CHARACTERS
 1. Cheng Pu  [ARCHER, Wu]
-   DESIGN: Cheng Pu, old veteran with a long white beard, red armor, holding a longbow with an arrow nocked, quiver on back.
+   DESIGN: Cheng Pu, old veteran with a long white beard, red armor, holding a snake-headed serpent spear, bow and quiver on his back.
    LOOK: old, long white beard, upright posture.
    FACE: long dignified old face, calm wise eyes, straight nose, long white beard, upright stern mouth, weathered skin, veteran elder.
    BUILD: tall old man, upright.
-   SIGNATURE (unique to him on this sheet): HEAD red cloth cap with a short tassel; FACIAL HAIR long white beard; MARK upright old veteran, longbow.
+   SIGNATURE (unique to him on this sheet): HEAD red cloth cap with a short tassel; FACIAL HAIR long white beard; MARK snake-headed serpent spear, bow slung on his back.
    COLORS: Wu red: crimson, red, orange and gold.
 2. Taishi Ci  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Taishi Ci, the classic brave of Donglai: red armor, a short halberd in each hand (his famous twin halberds). Archer hint only: a big bow and quiver on his back.
-   LOOK: 30s, long tied-back hair, strong jaw, short beard.
-   FACE: strong square jaw, bright honest eyes, straight thick brows, straight nose, short beard, tanned skin, heroic loyal expression.
+   DESIGN: Taishi Ci, the classic brave of Donglai: red armor, a short halberd in one hand and Sun Ce's captured helmet in the other. Archer hint only: a big bow and quiver on his back.
+   LOOK: 30s, long tied-back hair, strong jaw, long handsome beard, long ape-like arms.
+   FACE: MAN with a strong square jaw, bright honest eyes, straight thick brows, straight nose, long handsome flowing beard, tanned skin, heroic loyal expression.
    BUILD: tall and athletic.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, long tied-back hair; FACIAL HAIR short beard; MARK a short halberd in each hand, bow on his back.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, long tied-back hair; FACIAL HAIR long handsome flowing beard; MARK a short halberd in one hand, Sun Ce's captured helmet in the other, bow on his back.
    COLORS: Wu red: crimson, red, orange and gold.
 3. Huang Gai  [ARCHER, Wu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Huang Gai, the classic old Red Cliffs veteran: scarred face, red armor, holding his famous iron whip, a burning torch / fire motif behind him. Archer hint only: a bow on his back with fire arrows in the quiver.
@@ -65,17 +65,17 @@ CHARACTERS
    COLORS: Wu red: crimson, red, orange and gold.
 5. Ling Cao  [ROGUE, Wu]
    DESIGN: Ling Cao, rough river captain with a cutlass and a rope over the shoulder, crouching.
-   LOOK: sun-tanned sailor, bandana, rough stubble.
-   FACE: sun-tanned sailor face, rough stubble, squinting eyes from the sea glare, broad nose, salt-cracked lips, bandana.
+   LOOK: sun-tanned sailor, high topknot with a sea-blue bandana, short grizzled beard.
+   FACE: sun-tanned sailor face, short grizzled beard, squinting eyes from the sea glare, broad nose, salt-cracked lips, high topknot with a sea-blue bandana.
    BUILD: stocky sailor.
-   SIGNATURE (unique to him on this sheet): HEAD sailor bandana; FACIAL HAIR rough stubble; MARK rope over the shoulder, cutlass.
+   SIGNATURE (unique to him on this sheet): HEAD high topknot with a sea-blue bandana; FACIAL HAIR short grizzled beard; MARK cutlass, rope over the shoulder, an arrow stuck in his shoulder.
    COLORS: Wu red: crimson, red, orange and gold.
 6. Ling Tong  [ROGUE, Wu]
    DESIGN: Ling Tong, young agile fighter in a red outfit, mid-spin with a three-section staff.
    LOOK: young, high ponytail, clean-shaven, energetic.
-   FACE: young MAN, lively angular face, bright energetic eyes, thick brows, small nose, eager open-mouthed grin, stubble on the jaw, high ponytail, hot-blooded youth.
+   FACE: young MAN, lively angular face, bright energetic eyes, thick brows, small nose, eager open-mouthed grin, clean-shaven, high ponytail, hot-blooded youth.
    BUILD: lean and agile.
-   SIGNATURE (unique to him on this sheet): HEAD high ponytail; FACIAL HAIR stubble on the jaw; MARK three-section staff.
+   SIGNATURE (unique to him on this sheet): HEAD high ponytail; FACIAL HAIR clean-shaven; MARK three-section staff.
    COLORS: Wu red: crimson, red, orange and gold.
 7. Ma Zhong  [ROGUE, Wu]
    DESIGN: Ma Zhong, sly young officer with a dagger in each hand and a coiled rope, sneaking pose.

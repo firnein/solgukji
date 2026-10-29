@@ -48,15 +48,15 @@ CHARACTERS
    LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
    FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
    BUILD: slender but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash, claw gauntlets.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a dapple-grey horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 3. Xiahou Ba  [CAVALRY, Wei]
    DESIGN: Xiahou Ba, young determined general in blue armor.
-   LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
-   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
+   LOOK: late teens, short spiky hair, no beard, eager wide eyes.
+   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, open toothy grin.
    BUILD: teenage, short and wiry.
-   SIGNATURE (unique to him on this sheet): HEAD short spiky hair, no helmet; FACIAL HAIR no beard; MARK sticking plaster on his nose.
+   SIGNATURE (unique to him on this sheet): HEAD short spiky hair, no helmet; FACIAL HAIR no beard; MARK his late father's battered longbow on his back, a green Shu ribbon tied on his blue armor.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a small bay pony-like horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 4. Lü Xiang  [ARCHER, Wei]
@@ -68,17 +68,18 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
 5. Xiahou Yuan  [ARCHER, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Xiahou Yuan, lean swift archer general, light blue armor and headband, drawing a bow at full stretch, quiver on back.
-   LOOK: 40s, lean wild archer, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin.
+   LOOK: 40s, lean wild archer-rider, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin.
    FACE: gaunt long MAN's face with hollow cheeks, wide wild eyes, hooked thin nose, long thin drooping mustache and long thin goatee, huge toothy reckless grin, sun-browned skin, restless hyper energy.
    BUILD: lean and long-limbed.
-   SIGNATURE (unique to him on this sheet): HEAD NO helmet, shaggy shoulder-length hair under a blue cloth headband; FACIAL HAIR long thin drooping mustache and a long thin goatee; MARK gaunt hollow cheeks, huge toothy grin, longbow, always ON FOOT.
+   SIGNATURE (unique to him on this sheet): HEAD NO helmet, shaggy shoulder-length hair under a blue cloth headband; FACIAL HAIR long thin drooping mustache and a long thin goatee; MARK gaunt hollow cheeks, huge toothy grin, longbow, shooting from a galloping horse.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a lean fast horse at full gallop —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 6. Hao Zhao  [ARCHER, Wei]
    DESIGN: Hao Zhao, stubborn fortress defender in a blue helmet, aiming a large crossbow, bolt quiver at his hip.
-   LOOK: 40s, heavy full helmet, stern square face, short black beard.
-   FACE: stern square face, short black beard, unwavering small eyes, broad nose, tight mouth, stubborn fortress defender.
+   LOOK: 40s, heavy battered full helmet, stern square face, thick black mustache only.
+   FACE: stern square face, thick black mustache only (no beard), unwavering small eyes, broad nose, tight mouth, stubborn fortress defender.
    BUILD: stocky.
-   SIGNATURE (unique to him on this sheet): HEAD heavy full helmet; FACIAL HAIR short black beard; MARK large crossbow.
+   SIGNATURE (unique to him on this sheet): HEAD heavy battered full helmet; FACIAL HAIR thick black mustache only, no beard; MARK large crossbow.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 7. Guo Jia  [STRATEGIST, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
@@ -96,10 +97,10 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
 9. Zhong Hui  [STRATEGIST, Wei]
    DESIGN: Zhong Hui, arrogant young noble strategist in a fine blue robe, white feather fan raised, ambitious smirk.
-   LOOK: young man, sharp arrogant face, long hair with a gold hairpin.
-   FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, thin mustache, pale skin, ambitious smug genius.
+   LOOK: young man, sharp arrogant face, clean-shaven, high topknot in a gold hair crown.
+   FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, clean-shaven, pale skin, ambitious smug genius.
    BUILD: slim, chin raised.
-   SIGNATURE (unique to him on this sheet): HEAD long hair held by a gold hairpin crown; FACIAL HAIR thin mustache; MARK arrogant raised chin.
+   SIGNATURE (unique to him on this sheet): HEAD high topknot held by a gold hair crown; FACIAL HAIR clean-shaven; MARK arrogant raised chin, forged letter and brush.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 10. Xun Yu  [SCHOLAR, Wei]
    DESIGN: Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.

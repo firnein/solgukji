@@ -32,13 +32,13 @@ LAYOUT:
 
 CHARACTERS
 1. Lu Xun  [STRATEGIST, Wu] —— same person as reference #1
-   IDENTITY: youthful man, neat topknot, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, quietly confident scholar-general. BUILD: slim but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD neat topknot tied with a red ribbon; FACIAL HAIR very faint mustache line; MARK white feather fan.
+   IDENTITY: youthful man, red scholar's cap, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, red scholar's cap. BUILD: slim but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD red scholar's cap; FACIAL HAIR very faint mustache line; MARK twin swords, a torch.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE AND SOFT BACKGROUND HINT: the Battle of Yiling, a chain of enemy camps burning behind him, feather fan pointing forward.
 2. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #2
-   IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, neat thin mustache, pale skin, noble masculine bearing. BUILD: tall and graceful.
-   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword.
+   IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, clean-shaven, pale skin, noble masculine bearing. BUILD: tall and graceful.
+   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword, guqin zither.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE AND SOFT BACKGROUND HINT: the handsome commander calmly playing a guqin zither while ships burn far behind, sword at his side.
 3. Lu Su  [SCHOLAR, Wu] —— same person as reference #3
@@ -60,7 +60,7 @@ CHARACTERS
    POSE AND SOFT BACKGROUND HINT: leader of the eighteen-lord coalition against Dong Zhuo, raising the alliance oath cup on the altar, a sea of different lords' banners behind him, gold cape.
 6. Zhang Jiao  [SORCERER, Independent] —— same person as reference #6
    IDENTITY: gaunt old face, long grey beard. FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression. BUILD: skeletal and gaunt.
-   SIGNATURE (unique to him on this sheet): HEAD yellow headscarf; FACIAL HAIR long grey beard; MARK skeletal face, staff with lightning.
+   SIGNATURE (unique to him on this sheet): HEAD tall yellow Taoist crown over a yellow hood; FACIAL HAIR long grey beard; MARK skeletal face, nine-knot staff, Taiping scroll.
    COLORS: his own colors as described (independent).
-   THIS RANK'S LOOK: Zhang Jiao, Yellow Turban leader in an ornate yellow Taoist robe and yellow headscarf, long beard, staff raised to the sky.
+   THIS RANK'S LOOK: Zhang Jiao, Yellow Turban leader in an ornate yellow Taoist robe and yellow headscarf, long beard, nine-knot staff raised to the sky.
    POSE AND SOFT BACKGROUND HINT: the General of Heaven proclaiming the uprising from an altar, arms raised, a sea of yellow headbands and torches below, talisman water bowl smoking.

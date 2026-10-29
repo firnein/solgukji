@@ -44,10 +44,10 @@ CHARACTERS
    COLORS: Shu green: green, jade and earthy gold.
 2. Pang Tong  [STRATEGIST, Shu]
    DESIGN: Pang Tong, scruffy plain-faced genius with messy hair, rumpled green robe, holding a feather fan and a chain-link scroll (linked-ships plan).
-   LOOK: plain homely face, flat nose, messy unkempt hair, scruffy stubble.
-   FACE: ugly homely face, flat squashed nose, mismatched small eyes, thick lips, pockmarked skin, messy hair, scruffy stubble, sly lopsided grin.
+   LOOK: plain ugly face, upturned snub nose, thick brows, dark swarthy face, short scruffy beard, messy hair.
+   FACE: ugly MAN with a swarthy dark face, upturned flared nostrils (snub nose), thick bushy brows, small sly eyes, thick lips, short scruffy beard, messy hair, lopsided grin.
    BUILD: short, scruffy, slightly hunched.
-   SIGNATURE (unique to him on this sheet): HEAD no hat, messy bird's-nest hair; FACIAL HAIR scruffy patchy stubble; MARK ugly flat nose, rumpled robe, chain-link scroll.
+   SIGNATURE (unique to him on this sheet): HEAD messy bird's-nest hair under a battered wide straw hat; FACIAL HAIR short scruffy beard; MARK upturned snub nose, dark face, thick brows, rumpled robe.
    COLORS: Shu green: green, jade and earthy gold.
 3. Yi Ji  [STRATEGIST, Shu]
    DESIGN: Yi Ji, witty envoy in a light green robe, holding a feather fan and an envoy's tally.
@@ -87,16 +87,16 @@ CHARACTERS
 8. Xu Shu  [SCHOLAR, Shu]
    DESIGN: Xu Shu, former wandering swordsman turned scholar, green-grey scholar robe with a sword on his back, holding a bamboo scroll.
    LOOK: 30s, lean handsome face, short neat beard, a cloth headband instead of a hat, earnest sad eyes.
-   FACE: lean rugged face with a sword scar on the jaw, deep-set melancholic eyes, straight nose, tight sad mouth, weathered skin, conflicted serious expression.
+   FACE: lean rugged MAN's face, deep-set melancholic eyes, straight nose, short neat beard, tight sad mouth, weathered skin, conflicted serious expression.
    BUILD: lean swordsman build.
-   SIGNATURE (unique to him on this sheet): HEAD plain cloth headband, no hat; FACIAL HAIR short neat beard; MARK sword scar on the jaw, sword on his back.
+   SIGNATURE (unique to him on this sheet): HEAD plain cloth headband, no hat; FACIAL HAIR short neat beard; MARK plain scholar robe, sword at his hip, his mother's letter in hand.
    COLORS: Shu green: green, jade and earthy gold.
 9. Liu Bei  [SCHOLAR, Shu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Liu Bei, the classic benevolent lord: long earlobes, gentle smile, green robe, holding his famous twin swords (one in each hand). Scholar hint only: a book of the classics hanging at his waist.
-   LOOK: 30s, very long earlobes, kind gentle eyes, thin mustache and short beard, simple topknot crown.
-   FACE: broad gentle round face, very long earlobes reaching the jaw, soft droopy kind eyes, small mustache, warm humble smile, slightly tired look.
+   LOOK: 30s, earlobes reaching his shoulders, very long arms, kind gentle eyes, clean-shaven or a faint thin mustache, simple topknot crown.
+   FACE: MAN with a jade-fair gentle face, red lips, very long earlobes reaching his shoulders, soft kind eyes, clean-shaven or a faint thin mustache, warm humble smile.
    BUILD: medium height, gentle stance, long arms.
-   SIGNATURE (unique to him on this sheet): HEAD simple gold topknot crown; FACIAL HAIR thin mustache and a short beard; MARK very long earlobes, twin swords.
+   SIGNATURE (unique to him on this sheet): HEAD simple gold topknot crown; FACIAL HAIR clean-shaven or only a faint thin mustache; MARK earlobes reaching his shoulders, arms reaching his knees, twin swords.
    COLORS: Shu green: green, jade and earthy gold.
 10. Qiao Zhou  [SORCERER, Shu]
    DESIGN: Qiao Zhou, scholarly diviner in a pale green Taoist robe, holding a star-chart staff, small glowing star sparks around his hand.

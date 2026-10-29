@@ -35,10 +35,10 @@ LAYOUT:
 
 CHARACTERS
 1. Yu Ji  [SORCERER, Independent] —— same person as reference #1
-   IDENTITY: old, white topknot, gentle smile. FACE: smooth ageless old face, white topknot, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal. BUILD: thin old man, light as a feather.
-   SIGNATURE (unique to him on this sheet): HEAD white topknot, no hat; FACIAL HAIR short soft white beard; MARK horsetail whisk, gourd.
+   IDENTITY: very old, white topknot, long flowing white beard, gentle smile. FACE: smooth ageless old face, white topknot, long flowing white beard, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal. BUILD: thin old man, light as a feather.
+   SIGNATURE (unique to him on this sheet): HEAD white topknot, no hat; FACIAL HAIR long flowing white beard; MARK crane-feather cloak, goosefoot staff.
    COLORS: his own colors as described (independent).
-   THIS RANK'S LOOK: Yu Ji, old Taoist immortal in a white robe, horsetail whisk raised, gourd on his belt.
+   THIS RANK'S LOOK: Yu Ji, old Taoist immortal in a white robe, crane-feather cloak, goosefoot staff raised.
    POSE (no scenery, only the pose and expression of): the immortal of Jiangdong calling down rain on a parched field, people kneeling, his ghostly image lingering.
 2. Zhang Lu  [SORCERER, Independent] —— same person as reference #2
    IDENTITY: middle-aged, neat black beard, tall Taoist crown. FACE: smooth middle-aged oval face, calm half-closed meditative eyes, small straight nose, neat black beard, serene pious expression. BUILD: medium build, calm.
@@ -46,8 +46,8 @@ CHARACTERS
    COLORS: his own colors as described (independent).
    POSE (no scenery, only the pose and expression of): the governor of Hanning, the walled city of Hanzhong behind him, rice sacks.
 3. Zuo Ci  [SORCERER, Independent] —— same person as reference #3
-   IDENTITY: very old, extremely long white beard, blind in one eye (milky eye), slight limp. FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal. BUILD: thin very old man, slight limp.
-   SIGNATURE (unique to him on this sheet): HEAD no hat, wild white hair; FACIAL HAIR extremely long white beard; MARK one milky blind eye, staff.
+   IDENTITY: very old, extremely long white beard, blind in one eye (milky eye), slight limp. FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, very long white beard, trickster immortal. BUILD: thin very old man, slight limp.
+   SIGNATURE (unique to him on this sheet): HEAD white rattan crown; FACIAL HAIR extremely long white beard; MARK one milky blind eye, limping on a staff, blue robe, wooden clogs.
    COLORS: his own colors as described (independent).
    POSE (no scenery, only the pose and expression of): Zuo Yuanfang conjuring a live fish from an empty basin, sparkles of magic.
 4. Yuan Shu  [SCHEMER, Independent] —— same person as reference #4

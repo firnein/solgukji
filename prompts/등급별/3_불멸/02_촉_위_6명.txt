@@ -32,13 +32,13 @@ LAYOUT:
 
 CHARACTERS
 1. Xu Shu  [SCHOLAR, Shu] —— same person as reference #1
-   IDENTITY: 30s, lean handsome face, short neat beard, a cloth headband instead of a hat, earnest sad eyes. FACE: lean rugged face with a sword scar on the jaw, deep-set melancholic eyes, straight nose, tight sad mouth, weathered skin, conflicted serious expression. BUILD: lean swordsman build.
-   SIGNATURE (unique to him on this sheet): HEAD plain cloth headband, no hat; FACIAL HAIR short neat beard; MARK sword scar on the jaw, sword on his back.
+   IDENTITY: 30s, lean handsome face, short neat beard, a cloth headband instead of a hat, earnest sad eyes. FACE: lean rugged MAN's face, deep-set melancholic eyes, straight nose, short neat beard, tight sad mouth, weathered skin, conflicted serious expression. BUILD: lean swordsman build.
+   SIGNATURE (unique to him on this sheet): HEAD plain cloth headband, no hat; FACIAL HAIR short neat beard; MARK plain scholar robe, sword at his hip, his mother's letter in hand.
    COLORS: Shu green: green, jade and earthy gold.
    POSE AND SOFT BACKGROUND HINT: turning back on horseback as he leaves Liu Bei, pointing toward the Sleeping Dragon hill to recommend Zhuge Liang, autumn road.
 2. Liu Bei  [SCHOLAR, Shu] —— same person as reference #2
-   IDENTITY: 30s, very long earlobes, kind gentle eyes, thin mustache and short beard, simple topknot crown. FACE: broad gentle round face, very long earlobes reaching the jaw, soft droopy kind eyes, small mustache, warm humble smile, slightly tired look. BUILD: medium height, gentle stance, long arms.
-   SIGNATURE (unique to him on this sheet): HEAD simple gold topknot crown; FACIAL HAIR thin mustache and a short beard; MARK very long earlobes, twin swords.
+   IDENTITY: 30s, earlobes reaching his shoulders, very long arms, kind gentle eyes, clean-shaven or a faint thin mustache, simple topknot crown. FACE: MAN with a jade-fair gentle face, red lips, very long earlobes reaching his shoulders, soft kind eyes, clean-shaven or a faint thin mustache, warm humble smile. BUILD: medium height, gentle stance, long arms.
+   SIGNATURE (unique to him on this sheet): HEAD simple gold topknot crown; FACIAL HAIR clean-shaven or only a faint thin mustache; MARK earlobes reaching his shoulders, arms reaching his knees, twin swords.
    COLORS: Shu green: green, jade and earthy gold.
    THIS RANK'S LOOK: Liu Bei, benevolent lord with long earlobes and a gentle smile, layered green robes, his twin swords at his waist, holding a scroll respectfully.
    POSE AND SOFT BACKGROUND HINT: the third visit to the thatched cottage, standing humbly in the snow before the hut, bowing with hands clasped, Guan Yu and Zhang Fei waiting behind.
@@ -54,14 +54,14 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: the reborn E Lai guarding a burning gate, a heavy halberd in each hand, arrows stuck in his armor.
 5. Cao Ren  [SPEARMAN, Wei] —— same person as reference #5
-   IDENTITY: square face covered by a huge full beard, full-face helmet visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
-   SIGNATURE (unique to him on this sheet): HEAD full-face helmet with the visor raised; FACIAL HAIR enormous bushy beard covering the lower face; MARK huge rectangular tower shield.
+   IDENTITY: square face with a broad greying beard, heavy round helmet with the visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, broad GREYING beard, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
+   SIGNATURE (unique to him on this sheet): HEAD heavy round helmet with the visor raised; FACIAL HAIR broad greying beard; MARK huge rectangular tower shield.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    THIS RANK'S LOOK: Cao Ren, defensive general in heavy blue plate armor, huge rectangular tower shield and spear, immovable stance.
    POSE AND SOFT BACKGROUND HINT: holding Fancheng to the last on a half-flooded city wall, arrows stuck in his shield, rising water below, refusing to fall back.
 6. Xiahou Dun  [SPEARMAN, Wei] —— same person as reference #6
-   IDENTITY: black eyepatch, wild long black hair, full thick beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, wild long loose black hair; FACIAL HAIR full thick black beard; MARK black eyepatch over the left eye.
+   IDENTITY: black eyepatch, wild long black hair, short thick black beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, short thick black beard, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, wild long loose black hair; FACIAL HAIR short thick black beard; MARK black eyepatch over the LEFT eye.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    THIS RANK'S LOOK: Xiahou Dun, fierce one-eyed general, dark blue heavy armor, long spear and round shield.
    POSE AND SOFT BACKGROUND HINT: the famous moment of pulling the arrow out of his own left eye with a roar, battle dust, his spear still in the other hand.

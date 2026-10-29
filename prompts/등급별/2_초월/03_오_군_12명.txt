@@ -43,13 +43,13 @@ CHARACTERS
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the governor of Nan commandery standing on captured city walls, saber lowered.
 3. Lu Xun  [STRATEGIST, Wu] —— same person as reference #3
-   IDENTITY: youthful man, neat topknot, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, quietly confident scholar-general. BUILD: slim but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD neat topknot tied with a red ribbon; FACIAL HAIR very faint mustache line; MARK white feather fan.
+   IDENTITY: youthful man, red scholar's cap, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, red scholar's cap. BUILD: slim but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD red scholar's cap; FACIAL HAIR very faint mustache line; MARK twin swords, a torch.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the senior general calmly commanding a camp, feather fan raised, soldiers in formation.
 4. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #4
-   IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, neat thin mustache, pale skin, noble masculine bearing. BUILD: tall and graceful.
-   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword.
+   IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, clean-shaven, pale skin, noble masculine bearing. BUILD: tall and graceful.
+   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword, guqin zither.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): the grand commander inspecting the navy from his flagship, sword at his side, sails behind.
 5. Lu Su  [SCHOLAR, Wu] —— same person as reference #5
@@ -59,7 +59,7 @@ CHARACTERS
    POSE (no scenery, only the pose and expression of): the commander at the single-sword meeting, calm and smiling, a map in hand.
 6. Da Qiao  [SCHOLAR, Wu] —— same person as reference #6
    IDENTITY: elegant mature face, hair in an updo with many hairpins. FACE: mature graceful oval face, gentle almond eyes, small nose, soft lips, elegant updo, calm elder-sister beauty. BUILD: slender graceful woman.
-   SIGNATURE (unique to her on this sheet): HAIR elegant updo with many hairpins; MARK red-pink hanfu, poetry book.
+   SIGNATURE (unique to her on this sheet): HAIR elegant updo with many hairpins; MARK blue-teal hanfu, folding fan, poetry book.
    COLORS: Wu red: crimson, red, orange and gold.
    POSE (no scenery, only the pose and expression of): one of the two Qiao sisters of Jiangdong by the river, a poem scroll, her sister's shadow nearby.
 7. Xiao Qiao  [SCHOLAR, Wu] —— same person as reference #7

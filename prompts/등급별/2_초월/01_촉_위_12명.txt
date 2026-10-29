@@ -38,8 +38,8 @@ CHARACTERS
    COLORS: Shu green: green, jade and earthy gold.
    POSE (no scenery, only the pose and expression of): the Marquis of Hanshou reading the Spring and Autumn Annals by lamplight, his glaive leaning beside him.
 2. Wei Yan  [ROGUE, Shu] —— same person as reference #2
-   IDENTITY: prominent bony bump on the back of the head and forehead, crooked fierce grin, short black beard. FACE: wide brutish face, protruding bony forehead ridge, small glaring eyes, flat broad nose, crooked sneering mouth, dark tanned skin, rebellious defiant expression. BUILD: broad and heavy, hunched forward.
-   SIGNATURE (unique to him on this sheet): HEAD bare head, short spiky hair, a bony bump on the forehead; FACIAL HAIR short black beard; MARK crooked sneer, broad-bladed glaive.
+   IDENTITY: 40s, deep date-red face, bright star-like eyes, a bony bump at the BACK of the head, arrogant grin, short black beard. FACE: MAN with a deep date-red face like Guan Yu, bright star-like eyes, strong nose, short black beard, arrogant defiant sneer, a visible bony bump at the BACK of his skull. BUILD: broad and heavy, hunched forward.
+   SIGNATURE (unique to him on this sheet): HEAD topknot, with a visible bony bump at the BACK of the skull; FACIAL HAIR short black beard; MARK deep date-red face, star-like eyes, broad-bladed saber.
    COLORS: Shu green: green, jade and earthy gold.
    POSE (no scenery, only the pose and expression of): the Great General Who Conquers the West guarding the passes of Hanzhong, glaive ready.
 3. Jiang Wei  [STRATEGIST, Shu] —— same person as reference #3
@@ -53,8 +53,8 @@ CHARACTERS
    COLORS: Shu green: green, jade and earthy gold.
    POSE (no scenery, only the pose and expression of): the white-browed best of the Ma brothers, writing a letter of alliance, his brothers' silhouettes behind.
 5. Pang Tong  [STRATEGIST, Shu] —— same person as reference #5
-   IDENTITY: plain homely face, flat nose, messy unkempt hair, scruffy stubble. FACE: ugly homely face, flat squashed nose, mismatched small eyes, thick lips, pockmarked skin, messy hair, scruffy stubble, sly lopsided grin. BUILD: short, scruffy, slightly hunched.
-   SIGNATURE (unique to him on this sheet): HEAD no hat, messy bird's-nest hair; FACIAL HAIR scruffy patchy stubble; MARK ugly flat nose, rumpled robe, chain-link scroll.
+   IDENTITY: plain ugly face, upturned snub nose, thick brows, dark swarthy face, short scruffy beard, messy hair. FACE: ugly MAN with a swarthy dark face, upturned flared nostrils (snub nose), thick bushy brows, small sly eyes, thick lips, short scruffy beard, messy hair, lopsided grin. BUILD: short, scruffy, slightly hunched.
+   SIGNATURE (unique to him on this sheet): HEAD messy bird's-nest hair under a battered wide straw hat; FACIAL HAIR short scruffy beard; MARK upturned snub nose, dark face, thick brows, rumpled robe.
    COLORS: Shu green: green, jade and earthy gold.
    POSE (no scenery, only the pose and expression of): the chained-ships stratagem, a fleet chained together behind him, scroll unrolled.
 6. Fa Zheng  [SCHOLAR, Shu] —— same person as reference #6
@@ -63,9 +63,10 @@ CHARACTERS
    COLORS: Shu green: green, jade and earthy gold.
    POSE (no scenery, only the pose and expression of): the chief secretary planning Mount Dingjun, pointing at a mountain map.
 7. Pang De  [SPEARMAN, Wei] —— same person as reference #7
-   IDENTITY: 40s, hard square jaw, short black beard, thick eyebrows, fierce unblinking eyes, scar on the chin. FACE: hard square jaw, scar on the chin, thick straight eyebrows, fierce unblinking eyes, broad nose, short black beard, tanned skin, grim determination. BUILD: solid and broad.
-   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR short black beard; MARK scar on the chin, a small wooden coffin strapped on his back.
+   IDENTITY: 40s, hard square jaw, full black beard, thick eyebrows, fierce unblinking eyes. FACE: hard square MAN's jaw, thick straight eyebrows, fierce unblinking eyes, broad nose, full black beard, tanned skin, grim determination. BUILD: solid and broad.
+   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR full black beard; MARK small wooden coffin strapped on his back, white horse.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a white horse —— rider and the front half of the horse (head, chest, front legs) in the panel.
    POSE (no scenery, only the pose and expression of): marching out to face Guan Yu with his own coffin carried behind him, vowing to die or win.
 8. Xu Huang  [SPEARMAN, Wei] —— same person as reference #8
    IDENTITY: 40s, long drooping mustache, calm face, helmet with a blue tassel. FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength. BUILD: solid and square.
@@ -73,13 +74,13 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE (no scenery, only the pose and expression of): General of the Right breaking the siege of Fancheng, great axe raised, river and siege towers.
 9. Cao Ren  [SPEARMAN, Wei] —— same person as reference #9
-   IDENTITY: square face covered by a huge full beard, full-face helmet visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, enormous bushy beard covering the lower face, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
-   SIGNATURE (unique to him on this sheet): HEAD full-face helmet with the visor raised; FACIAL HAIR enormous bushy beard covering the lower face; MARK huge rectangular tower shield.
+   IDENTITY: square face with a broad greying beard, heavy round helmet with the visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, broad GREYING beard, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
+   SIGNATURE (unique to him on this sheet): HEAD heavy round helmet with the visor raised; FACIAL HAIR broad greying beard; MARK huge rectangular tower shield.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE (no scenery, only the pose and expression of): the iron wall standing before the walls of Fancheng behind his tower shield.
 10. Xiahou Dun  [SPEARMAN, Wei] —— same person as reference #10
-   IDENTITY: black eyepatch, wild long black hair, full thick beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, wild long loose black hair; FACIAL HAIR full thick black beard; MARK black eyepatch over the left eye.
+   IDENTITY: black eyepatch, wild long black hair, short thick black beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, short thick black beard, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, wild long loose black hair; FACIAL HAIR short thick black beard; MARK black eyepatch over the LEFT eye.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE (no scenery, only the pose and expression of): the one-eyed general after battle, newly tied black eyepatch, glaring with his single eye, spear on his shoulder.
 11. Zhang Liao  [CAVALRY, Wei] —— same person as reference #11
@@ -90,7 +91,7 @@ CHARACTERS
    POSE (no scenery, only the pose and expression of): the divine general of Hefei standing guard on the city gate tower at dawn, halberd planted, watching the river.
 12. Zhang He  [CAVALRY, Wei] —— same person as reference #12
    IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash, claw gauntlets.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a dapple-grey horse —— rider and the front half of the horse (head, chest, front legs) in the panel.
    POSE (no scenery, only the pose and expression of): one of Wei's Five Elite Generals in an elegant charge, spear twirling.
