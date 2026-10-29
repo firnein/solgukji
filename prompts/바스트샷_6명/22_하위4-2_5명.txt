@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -45,7 +48,7 @@ Banner under each panel: only its number.
 1. (card: 열혈 능통) [ROGUE] Ling Tong, young agile fighter in a red outfit, mid-spin with a three-section staff.
    FACTION: Wu colors: crimson, red, orange and gold.
    LOOK: young, high ponytail, clean-shaven, energetic.
-   FACE: youthful lively face, bright energetic eyes, small nose, eager open-mouthed grin, clean-shaven, high ponytail, hot-blooded youth.
+   FACE: young MAN, lively angular face, bright energetic eyes, thick brows, small nose, eager open-mouthed grin, stubble on the jaw, high ponytail, hot-blooded youth.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), 3/4 view, wild grin, one hand gripping the weapon near the shoulder.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.

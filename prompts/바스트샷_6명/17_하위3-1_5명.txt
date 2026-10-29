@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -59,7 +62,7 @@ Banner under each panel: only its number.
 3. (card: 하후패) [CAVALRY] Xiahou Ba, young determined general in blue armor.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
-   FACE: eager teenage face, short spiky hair, wide excited eyes, small sticking plaster on the nose, open grin, no beard.
+   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), slight high angle, glaring up at the viewer, weapon blade crossing in front of the chest, cut by the panel edge.
    LIGHT: harsh noon sun, dusty sand yellow and bleached sky.

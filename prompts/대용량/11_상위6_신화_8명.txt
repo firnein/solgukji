@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -42,7 +45,7 @@ Banner under each panel: only its number.
 1. (card: 신산 제갈량) [STRATEGIST] ★ICONIC Zhuge Liang, serene genius strategist in a white-and-green Taoist robe and black scholar's cap, white crane-feather fan raised.
    FACTION: Shu colors: green, jade and earthy gold.
    LOOK: late 20s, serene slender face, thin mustache, black silk scholar's cap (lun jin).
-   FACE: slender serene oval face, calm deep knowing eyes, long straight nose, thin neat mustache, faint mysterious smile, smooth fair skin, black silk scholar's cap, otherworldly composure.
+   FACE: slender serene MAN, long oval face with a defined jaw, calm deep knowing eyes, long straight nose, thin neat mustache and a short goatee, faint mysterious smile, black silk scholar's cap, otherworldly composure.
    SPLENDOR: MYTHIC.
    SCENE: the divine strategist on the seven-star altar, summoning the east wind with his feather fan.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
@@ -74,7 +77,7 @@ Banner under each panel: only its number.
 5. (card: 십승의 예언 곽가) [STRATEGIST] ★ICONIC Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
-   FACE: slender pale young face, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair, decadent genius.
+   FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius.
    SPLENDOR: MYTHIC.
    SCENE: the prophecy of ten victories, ten glowing scrolls orbiting him, feather fan raised.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
@@ -82,7 +85,7 @@ Banner under each panel: only its number.
 6. (card: 장자방 순욱) [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: elegant 40s, neat full beard, tall formal hat.
-   FACE: handsome dignified oval face, gentle sad eyes, straight nose, neat full beard, refined calm mouth, smooth fair skin, noble upright expression.
+   FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression.
    SPLENDOR: MYTHIC.
    SCENE: the Zhang Liang of his age, court tablet raised, a golden imperial palace and glowing scrolls behind.
    SHOT: side profile, face clearly lit and large in frame, bright window, moon or sky behind.

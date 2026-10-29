@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - ORNATE: richly decorated —— heavy brocade with gold embroidery, jeweled clasps and jade, gilded edges on the armor, a fine cape or sash.
 
@@ -53,8 +60,8 @@ Do not draw the tags, ★ marks or line labels as text.
 CHARACTERS
 1. [CAVALRY] Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
    COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
-   LOOK: early 20s, pretty delicate face, clean-shaven, long flowing hair with a jade hairpin, slender build.
-   FACE: beautiful delicate face, long-lashed elegant eyes, thin refined nose, faint smile, very fair skin, vain graceful expression.
+   LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
+   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
    SPLENDOR: ORNATE.
    POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
    PORTRAIT LIGHT: faint violet-and-gold glow behind the head, cool key light.

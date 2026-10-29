@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -44,8 +47,8 @@ Banner under each panel: only its number.
 
 1. (card: 기린아 강유) [STRATEGIST] ★ICONIC Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
    FACTION: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, clean-shaven, earnest big eyes, short helmet with green plume.
-   FACE: boyish oval face, large earnest round eyes, straight determined brows, small straight nose, firm closed mouth, smooth fair skin, serious eager expression.
+   LOOK: early 20s young man, short helmet with green plume, short sideburns.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
    LIGHT: falling snow, white and pale icy blue.
@@ -66,7 +69,7 @@ Banner under each panel: only its number.
 4. (card: 마량) [STRATEGIST] Ma Liang, gentle scholar with white eyebrows, green robe, holding a feather fan and a letter.
    FACTION: Shu colors: green, jade and earthy gold.
    LOOK: young gentle face, distinctive pure WHITE eyebrows, neat topknot.
-   FACE: gentle young oval face, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, fair skin.
+   FACE: gentle young MAN, oval face with a firm chin, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, short thin mustache, fair skin.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), front view, half the face lit by warm light, half in shadow, serious.
    LIGHT: spring peach blossoms, pink petals and soft green.

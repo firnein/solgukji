@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - ORNATE: richly decorated —— heavy brocade with gold embroidery, jeweled clasps and jade, gilded edges on the armor, a fine cape or sash.
 
@@ -55,8 +62,8 @@ Do not draw the tags, ★ marks or line labels as text.
 CHARACTERS
 1. [CAVALRY] ★ICONIC Ma Chao, dashing young general in shining silver lion-head armor with a green cape.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, fierce slanted brows, pale skin, sharp handsome face, lion-head helmet, Qiang-style braid.
-   FACE: narrow V-shaped jaw, high cheekbones, upturned sharp eyes with long lashes, thin straight nose, small proud mouth, pale almost foreign-looking skin, cold arrogant pretty-boy expression.
+   LOOK: early 20s young man, fierce slanted brows, pale skin, sharp handsome masculine face, lion-head helmet, Qiang-style braid.
+   FACE: young MAN, narrow but strong angular jaw, high cheekbones, sharp upturned fierce eyes, thin straight nose, proud thin mouth, pale skin with a faint scar on the brow, thick neck, cold arrogant handsome warrior.
    SPLENDOR: ORNATE.
    POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
    PORTRAIT LIGHT: faint violet-and-gold glow behind the head, cool key light.
@@ -79,8 +86,8 @@ CHARACTERS
    MOMENT (hint only, no scenery): the Ziwu Valley gambit, charging through a narrow mountain gorge with his glaive.
 4. [STRATEGIST] ★ICONIC Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, clean-shaven, earnest big eyes, short helmet with green plume.
-   FACE: boyish oval face, large earnest round eyes, straight determined brows, small straight nose, firm closed mouth, smooth fair skin, serious eager expression.
+   LOOK: early 20s young man, short helmet with green plume, short sideburns.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
    SPLENDOR: ORNATE.
    POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
    PORTRAIT LIGHT: warm golden afternoon light, wash faintly tinted ochre.

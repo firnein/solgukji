@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
 
@@ -68,7 +75,7 @@ CHARACTERS
 3. [CAVALRY] Xiahou Ba, young determined general in blue armor.
    COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
    LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
-   FACE: eager teenage face, short spiky hair, wide excited eyes, small sticking plaster on the nose, open grin, no beard.
+   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
    SPLENDOR: PLAIN.
    POSE: slight high angle, glaring up at the viewer, weapon blade crossing in front of the chest, cut by the panel edge.
    PORTRAIT LIGHT: bright high sunlight, crisp shadows under the brow, wash faintly tinted sand.

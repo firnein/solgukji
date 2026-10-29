@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -61,15 +64,15 @@ Banner under each panel: only its number.
 3. (card: 십승십패 곽가) [STRATEGIST] ★ICONIC Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
-   FACE: slender pale young face, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair, decadent genius.
+   FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius.
    SPLENDOR: FINE.
    SCENE: ten victories and ten defeats, counting on his fingers, two glowing scales of light beside him.
    SHOT: BUST (chest-up), slight low angle, composed, looking down at the viewer, robe collar framing the face.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 4. (card: 사도 종회) [STRATEGIST] Zhong Hui, arrogant young noble strategist in a fine blue robe, white feather fan raised, ambitious smirk.
    FACTION: Wei colors: navy, deep blue and steel with silver.
-   LOOK: young, pretty arrogant face, long hair with a gold hairpin.
-   FACE: pretty narrow face, arrogant upturned eyes, thin nose, sneering smile, smooth pale skin, ambitious smug genius.
+   LOOK: young man, sharp arrogant face, long hair with a gold hairpin.
+   FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, thin mustache, pale skin, ambitious smug genius.
    SPLENDOR: FINE.
    SCENE: the Minister over the Masses leading the conquest of Shu, feather fan pointed at the mountains.
    SHOT: BUST (chest-up), front view, half the face lit by warm light, half in shadow, serious.
@@ -77,7 +80,7 @@ Banner under each panel: only its number.
 5. (card: 왕좌지재 순욱) [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: elegant 40s, neat full beard, tall formal hat.
-   FACE: handsome dignified oval face, gentle sad eyes, straight nose, neat full beard, refined calm mouth, smooth fair skin, noble upright expression.
+   FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression.
    SPLENDOR: FINE.
    SCENE: the talent to assist a king, offering a scroll with both hands in a palace hall.
    SHOT: BUST (chest-up), head turned back toward the viewer over the shoulder, sly side glance.

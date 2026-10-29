@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -56,7 +59,7 @@ Banner under each panel: only its number.
 3. (card: 하후패) [CAVALRY] Xiahou Ba, young determined general in blue armor.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
-   FACE: eager teenage face, short spiky hair, wide excited eyes, small sticking plaster on the nose, open grin, no beard.
+   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
    SPLENDOR: PLAIN.
    SHOT: 3/4 BACK VIEW, HALF-BODY — seen from behind, looking back over his shoulder at the viewer with a determined glance, long polearm angled across the frame, cape blowing; only the black horse's neck and ears below.
    LIGHT: harsh noon sun, dusty sand yellow and bleached sky.
@@ -91,7 +94,7 @@ Banner under each panel: only its number.
 8. (card: 악진) [SPEARMAN] Yue Jin, small but fierce vanguard officer, helmet with a plume, spear thrust forward, shield on arm.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: small and short, young, clean-shaven, big determined eyes, oversized plumed helmet.
-   FACE: small young face, big determined round eyes, small nose, clenched teeth, clean-shaven, tiny body under an oversized helmet.
+   FACE: small young MAN, square stubborn face, big determined eyes under thick brows, small nose, clenched teeth, faint stubble, tiny body under an oversized helmet.
    SPLENDOR: PLAIN.
    SHOT: mid-leap or mid-swing, diagonal tilted frame, cloth and hair whipping.
    LIGHT: spring peach blossoms, pink petals and soft green.
@@ -112,7 +115,7 @@ Banner under each panel: only its number.
 11. (card: 여상) [ARCHER] Lü Xiang, archer officer in simple blue armor, holding a longbow with an arrow nocked, quiver on back.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: very young, clean-shaven, short cropped hair under a simple cloth cap, freckles.
-   FACE: very young freckled face, short cropped hair, wide nervous eyes, small nose, clean-shaven, earnest rookie.
+   FACE: very young MAN, freckled square face, short cropped hair, wide nervous eyes, thick brows, small nose, faint stubble, earnest rookie.
    SPLENDOR: PLAIN.
    SHOT: foreshortened, weapon thrust right at the viewer.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
@@ -147,7 +150,7 @@ Banner under each panel: only its number.
 16. (card: 귀재 곽가) [STRATEGIST] ★ICONIC Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
-   FACE: slender pale young face, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair, decadent genius.
+   FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius.
    SPLENDOR: PLAIN.
    SHOT: side profile, face clearly lit and large in frame, bright window, moon or sky behind.
    LIGHT: falling snow, white and pale icy blue.
@@ -161,7 +164,7 @@ Banner under each panel: only its number.
 18. (card: 문약 순욱) [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: elegant 40s, neat full beard, tall formal hat.
-   FACE: handsome dignified oval face, gentle sad eyes, straight nose, neat full beard, refined calm mouth, smooth fair skin, noble upright expression.
+   FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression.
    SPLENDOR: PLAIN.
    SHOT: knees-up, walking toward the viewer, character fills the panel.
    LIGHT: moonlit night, deep indigo and silver.

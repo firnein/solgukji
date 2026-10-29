@@ -172,6 +172,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 {splendor}
 

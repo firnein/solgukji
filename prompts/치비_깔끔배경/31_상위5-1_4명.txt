@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - MYTHIC: the most splendid —— gilded armor or imperial silk covered in dragon, phoenix or tiger motifs, luminous gold details, a faint golden glow behind the head, and the panel edged in faint gold.
 
@@ -69,7 +76,7 @@ CHARACTERS
 3. [CAVALRY] ★ICONIC Zhao Yun, handsome heroic general in white-silver armor with green trim, silver spear.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
    LOOK: late 20s, handsome balanced face, clean-shaven, neat shoulder-length hair, silver helmet with a red tassel, calm brave eyes.
-   FACE: balanced heroic handsome face, clear calm brave eyes, straight nose, firm mouth, clean-shaven, fair skin, steady honorable expression.
+   FACE: heroic handsome MAN, balanced face with a strong square jaw, clear calm brave eyes, straight thick brows, straight nose, firm mouth, clean-shaven with a faint stubble shadow, healthy tanned skin, steady honorable expression.
    SPLENDOR: MYTHIC.
    POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
    PORTRAIT LIGHT: warm golden afternoon light, wash faintly tinted ochre.
@@ -77,7 +84,7 @@ CHARACTERS
 4. [CAVALRY] ★ICONIC Lü Bu, the mightiest warrior, crown with two very long pheasant feathers, red-black ornate armor, crescent-bladed halberd.
    COSTUME COLORS: his own warlord colors.
    LOOK: tall, sharp cold handsome face, clean-shaven, two very long pheasant feathers on his crown.
-   FACE: tall cold handsome face, sharp jaw, fierce upturned eyes with a murderous glint, straight proud nose, thin cruel smile, clean-shaven, two very long pheasant feathers on his crown, arrogant unrivaled warrior.
+   FACE: tall cold handsome MAN, sharp angular jaw, fierce upturned eyes with a murderous glint, straight proud nose, thin cruel smile, clean-shaven, thick muscular neck, two very long pheasant feathers on his crown, arrogant unrivaled warrior.
    SPLENDOR: MYTHIC.
    POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
    PORTRAIT LIGHT: clean neutral daylight, crisp and bright, wash faintly tinted sky blue.

@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -60,8 +63,8 @@ Banner under each panel: only its number.
    LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
 3. (card: 천수기린 강유) [STRATEGIST] ★ICONIC Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
    FACTION: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, clean-shaven, earnest big eyes, short helmet with green plume.
-   FACE: boyish oval face, large earnest round eyes, straight determined brows, small straight nose, firm closed mouth, smooth fair skin, serious eager expression.
+   LOOK: early 20s young man, short helmet with green plume, short sideburns.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
    SPLENDOR: FINE.
    SCENE: the qilin of Tianshui, a glowing qilin spirit behind him, spear raised.
    SHOT: BUST (chest-up), front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
@@ -85,7 +88,7 @@ Banner under each panel: only its number.
 6. (card: 백미 마량) [STRATEGIST] Ma Liang, gentle scholar with white eyebrows, green robe, holding a feather fan and a letter.
    FACTION: Shu colors: green, jade and earthy gold.
    LOOK: young gentle face, distinctive pure WHITE eyebrows, neat topknot.
-   FACE: gentle young oval face, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, fair skin.
+   FACE: gentle young MAN, oval face with a firm chin, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, short thin mustache, fair skin.
    SPLENDOR: FINE.
    SCENE: the white-browed best of the Ma brothers, writing a letter of alliance, his brothers' silhouettes behind.
    SHOT: BUST (chest-up), slight high angle, looking up at the viewer with a knowing smile.
@@ -93,14 +96,14 @@ Banner under each panel: only its number.
 7. (card: 담기 조운) [CAVALRY] ★ICONIC Zhao Yun, handsome heroic general in white-silver armor with green trim, silver spear.
    FACTION: Shu colors: green, jade and earthy gold.
    LOOK: late 20s, handsome balanced face, clean-shaven, neat shoulder-length hair, silver helmet with a red tassel, calm brave eyes.
-   FACE: balanced heroic handsome face, clear calm brave eyes, straight nose, firm mouth, clean-shaven, fair skin, steady honorable expression.
+   FACE: heroic handsome MAN, balanced face with a strong square jaw, clear calm brave eyes, straight thick brows, straight nose, firm mouth, clean-shaven with a faint stubble shadow, healthy tanned skin, steady honorable expression.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), 3/4 view, wild grin, one hand gripping the weapon near the shoulder.
    LIGHT: moonlit night, deep indigo and silver.
 8. (card: 금마 마초) [CAVALRY] ★ICONIC Ma Chao, dashing young general in shining silver lion-head armor with a green cape.
    FACTION: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, fierce slanted brows, pale skin, sharp handsome face, lion-head helmet, Qiang-style braid.
-   FACE: narrow V-shaped jaw, high cheekbones, upturned sharp eyes with long lashes, thin straight nose, small proud mouth, pale almost foreign-looking skin, cold arrogant pretty-boy expression.
+   LOOK: early 20s young man, fierce slanted brows, pale skin, sharp handsome masculine face, lion-head helmet, Qiang-style braid.
+   FACE: young MAN, narrow but strong angular jaw, high cheekbones, sharp upturned fierce eyes, thin straight nose, proud thin mouth, pale skin with a faint scar on the brow, thick neck, cold arrogant handsome warrior.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), slight low angle, looking down at the viewer, weapon shaft resting on the shoulder.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
@@ -121,8 +124,8 @@ Banner under each panel: only its number.
    LIGHT: falling snow, white and pale icy blue.
 11. (card: 오자양장 장합) [CAVALRY] Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
    FACTION: Wei colors: navy, deep blue and steel with silver.
-   LOOK: early 20s, pretty delicate face, clean-shaven, long flowing hair with a jade hairpin, slender build.
-   FACE: beautiful delicate face, long-lashed elegant eyes, thin refined nose, faint smile, very fair skin, vain graceful expression.
+   LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
+   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
    SPLENDOR: FINE.
    SCENE: one of Wei's Five Elite Generals in an elegant charge, spear twirling.
    SHOT: BUST (chest-up), 3/4 view, shouting a battle cry, hair and plume blown back by wind.
@@ -178,15 +181,15 @@ Banner under each panel: only its number.
 18. (card: 십승십패 곽가) [STRATEGIST] ★ICONIC Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
-   FACE: slender pale young face, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair, decadent genius.
+   FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius.
    SPLENDOR: FINE.
    SCENE: ten victories and ten defeats, counting on his fingers, two glowing scales of light beside him.
    SHOT: BUST (chest-up), slight low angle, composed, looking down at the viewer, robe collar framing the face.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 19. (card: 사도 종회) [STRATEGIST] Zhong Hui, arrogant young noble strategist in a fine blue robe, white feather fan raised, ambitious smirk.
    FACTION: Wei colors: navy, deep blue and steel with silver.
-   LOOK: young, pretty arrogant face, long hair with a gold hairpin.
-   FACE: pretty narrow face, arrogant upturned eyes, thin nose, sneering smile, smooth pale skin, ambitious smug genius.
+   LOOK: young man, sharp arrogant face, long hair with a gold hairpin.
+   FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, thin mustache, pale skin, ambitious smug genius.
    SPLENDOR: FINE.
    SCENE: the Minister over the Masses leading the conquest of Shu, feather fan pointed at the mountains.
    SHOT: BUST (chest-up), front view, half the face lit by warm light, half in shadow, serious.
@@ -194,7 +197,7 @@ Banner under each panel: only its number.
 20. (card: 왕좌지재 순욱) [SCHOLAR] Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: elegant 40s, neat full beard, tall formal hat.
-   FACE: handsome dignified oval face, gentle sad eyes, straight nose, neat full beard, refined calm mouth, smooth fair skin, noble upright expression.
+   FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression.
    SPLENDOR: FINE.
    SCENE: the talent to assist a king, offering a scroll with both hands in a palace hall.
    SHOT: BUST (chest-up), head turned back toward the viewer over the shoulder, sly side glance.

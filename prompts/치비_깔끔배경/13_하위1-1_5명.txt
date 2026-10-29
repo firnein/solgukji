@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - FINE: a proper officer —— good silk robe or polished lamellar armor, engraved trims, a few silver or gold accents, a neat belt ornament.
 
@@ -69,8 +76,8 @@ CHARACTERS
    PORTRAIT LIGHT: soft diffuse grey light, low contrast, background faintly misty grey.
 3. [STRATEGIST] ★ICONIC Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, clean-shaven, earnest big eyes, short helmet with green plume.
-   FACE: boyish oval face, large earnest round eyes, straight determined brows, small straight nose, firm closed mouth, smooth fair skin, serious eager expression.
+   LOOK: early 20s young man, short helmet with green plume, short sideburns.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
    SPLENDOR: FINE.
    POSE: front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
    PORTRAIT LIGHT: faint violet-and-gold glow behind the head, cool key light.

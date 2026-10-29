@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -59,7 +62,7 @@ Banner under each panel: only its number.
 3. (card: 악진) [SPEARMAN] Yue Jin, small but fierce vanguard officer, helmet with a plume, spear thrust forward, shield on arm.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: small and short, young, clean-shaven, big determined eyes, oversized plumed helmet.
-   FACE: small young face, big determined round eyes, small nose, clenched teeth, clean-shaven, tiny body under an oversized helmet.
+   FACE: small young MAN, square stubborn face, big determined eyes under thick brows, small nose, clenched teeth, faint stubble, tiny body under an oversized helmet.
    SPLENDOR: PLAIN.
    SHOT: BUST (chest-up), head turned sharply back toward the viewer over the shoulder, motion in the hair.
    LIGHT: spring peach blossoms, pink petals and soft green.

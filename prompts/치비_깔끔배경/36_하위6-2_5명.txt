@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
 
@@ -53,8 +60,8 @@ Do not draw the tags, ★ marks or line labels as text.
 CHARACTERS
 1. [STRATEGIST] ★ICONIC Jiang Wei, the classic heir of Zhuge Liang: young earnest general in green armor holding his three-pointed spear. Strategist hint only: a white feather fan tucked at his waist.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, clean-shaven, earnest big eyes, short helmet with green plume.
-   FACE: boyish oval face, large earnest round eyes, straight determined brows, small straight nose, firm closed mouth, smooth fair skin, serious eager expression.
+   LOOK: early 20s young man, short helmet with green plume, short sideburns.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
    SPLENDOR: PLAIN.
    POSE: front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
    PORTRAIT LIGHT: cold soft white light, pale icy shadows, wash faintly tinted icy blue.
@@ -75,7 +82,7 @@ CHARACTERS
 4. [STRATEGIST] Ma Liang, gentle scholar with white eyebrows, green robe, holding a feather fan and a letter.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
    LOOK: young gentle face, distinctive pure WHITE eyebrows, neat topknot.
-   FACE: gentle young oval face, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, fair skin.
+   FACE: gentle young MAN, oval face with a firm chin, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, short thin mustache, fair skin.
    SPLENDOR: PLAIN.
    POSE: front view, half the face lit by warm light, half in shadow, serious.
    PORTRAIT LIGHT: soft warm daylight with a pink tint, wash faintly tinted blush pink.

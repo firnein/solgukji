@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
 
@@ -68,7 +75,7 @@ CHARACTERS
 3. [SPEARMAN] Yue Jin, small but fierce vanguard officer, helmet with a plume, spear thrust forward, shield on arm.
    COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
    LOOK: small and short, young, clean-shaven, big determined eyes, oversized plumed helmet.
-   FACE: small young face, big determined round eyes, small nose, clenched teeth, clean-shaven, tiny body under an oversized helmet.
+   FACE: small young MAN, square stubborn face, big determined eyes under thick brows, small nose, clenched teeth, faint stubble, tiny body under an oversized helmet.
    SPLENDOR: PLAIN.
    POSE: head turned sharply back toward the viewer over the shoulder, motion in the hair.
    PORTRAIT LIGHT: soft warm daylight with a pink tint, wash faintly tinted blush pink.

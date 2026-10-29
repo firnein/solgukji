@@ -33,6 +33,13 @@ FACES MUST BE UNIQUE:
   brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
 - No generic handsome anime face, no same-face syndrome.
 
+GENDER:
+- Every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao.
+- Men must read as men at a glance even in chibi style: a masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders,
+  male hairstyles and headwear (topknot, guan crown, helmet, headscarf), stubble or facial hair where written.
+- Young or handsome men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face, no
+  sparkly anime-girl eyes.
+
 RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
 - PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
 - FINE: a proper officer —— good silk robe or polished lamellar armor, engraved trims, a few silver or gold accents, a neat belt ornament.
@@ -55,21 +62,21 @@ CHARACTERS
 1. [STRATEGIST] Ma Liang, gentle scholar with white eyebrows, green robe, holding a feather fan and a letter.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
    LOOK: young gentle face, distinctive pure WHITE eyebrows, neat topknot.
-   FACE: gentle young oval face, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, fair skin.
+   FACE: gentle young MAN, oval face with a firm chin, pure white eyebrows standing out on dark hair, calm wise eyes, small nose, kind smile, short thin mustache, fair skin.
    SPLENDOR: FINE.
    POSE: slight high angle, looking up at the viewer with a knowing smile.
    PORTRAIT LIGHT: pale cool dawn light, soft pink highlights, wash faintly tinted lavender-grey.
 2. [CAVALRY] ★ICONIC Zhao Yun, handsome heroic general in white-silver armor with green trim, silver spear.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
    LOOK: late 20s, handsome balanced face, clean-shaven, neat shoulder-length hair, silver helmet with a red tassel, calm brave eyes.
-   FACE: balanced heroic handsome face, clear calm brave eyes, straight nose, firm mouth, clean-shaven, fair skin, steady honorable expression.
+   FACE: heroic handsome MAN, balanced face with a strong square jaw, clear calm brave eyes, straight thick brows, straight nose, firm mouth, clean-shaven with a faint stubble shadow, healthy tanned skin, steady honorable expression.
    SPLENDOR: PLAIN.
    POSE: 3/4 view, wild grin, one hand gripping the weapon near the shoulder.
    PORTRAIT LIGHT: cool silver-blue moonlight rim, soft cool key light, wash faintly tinted blue-grey.
 3. [CAVALRY] ★ICONIC Ma Chao, dashing young general in shining silver lion-head armor with a green cape.
    COSTUME COLORS: Shu colors: green, jade and earthy gold.
-   LOOK: early 20s, fierce slanted brows, pale skin, sharp handsome face, lion-head helmet, Qiang-style braid.
-   FACE: narrow V-shaped jaw, high cheekbones, upturned sharp eyes with long lashes, thin straight nose, small proud mouth, pale almost foreign-looking skin, cold arrogant pretty-boy expression.
+   LOOK: early 20s young man, fierce slanted brows, pale skin, sharp handsome masculine face, lion-head helmet, Qiang-style braid.
+   FACE: young MAN, narrow but strong angular jaw, high cheekbones, sharp upturned fierce eyes, thin straight nose, proud thin mouth, pale skin with a faint scar on the brow, thick neck, cold arrogant handsome warrior.
    SPLENDOR: PLAIN.
    POSE: slight low angle, looking down at the viewer, weapon shaft resting on the shoulder.
    PORTRAIT LIGHT: golden-orange backlight rim, warm shadows, wash faintly tinted amber.

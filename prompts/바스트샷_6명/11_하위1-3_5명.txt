@@ -13,6 +13,9 @@ FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face
 exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
 Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
 vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
 IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
 expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
 FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
@@ -44,8 +47,8 @@ Banner under each panel: only its number.
 
 1. (card: 오자양장 장합) [CAVALRY] Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
    FACTION: Wei colors: navy, deep blue and steel with silver.
-   LOOK: early 20s, pretty delicate face, clean-shaven, long flowing hair with a jade hairpin, slender build.
-   FACE: beautiful delicate face, long-lashed elegant eyes, thin refined nose, faint smile, very fair skin, vain graceful expression.
+   LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
+   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
    SPLENDOR: FINE.
    SCENE: one of Wei's Five Elite Generals in an elegant charge, spear twirling.
    SHOT: BUST (chest-up), 3/4 view, shouting a battle cry, hair and plume blown back by wind.
