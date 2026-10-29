@@ -1,0 +1,88 @@
+A sheet of 4 semi-realistic historical PORTRAIT PAINTINGS of Three Kingdoms (ancient China, late Han dynasty) figures.
+
+STYLE (follow the attached reference image if one is attached —— copy only its painting style, not its person):
+- Polished official character portraits like those of a modern historical strategy game: semi-realistic digital painting.
+- Realistic adult anatomy and proportions. NOT chibi, NOT super-deformed, NOT anime, NOT cartoon, NOT a photograph.
+- Lifelike skin with subtle pores, natural skin tones and gentle blush; realistic eyes with catchlights; individual hair strands,
+  neatly combed topknots, realistic beards and mustaches.
+- Costume rendered with great care: layered Han-dynasty robes with crossed collars (left over right), embroidered silk and brocade
+  with traditional cloud, dragon, phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves
+  and helmets of the era; armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings.
+- Soft diffused studio key light from the front-left, gentle fill, a thin rim light separating the figure from the background,
+  sharp focus on the eyes, slightly softer edges toward the shoulders. Rich but natural color, high detail, clean finish.
+
+LAYOUT:
+- Image 1024x1536 portrait. 4 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: head, shoulders and upper chest only, cut at mid-chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel):
+- Plain and quiet: a soft off-white to pale warm-grey gradient, very slightly tinted by the PORTRAIT LIGHT color.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow or a few motes of light).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no crowds, no other people, no animals except where
+  CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Realistic yet strongly distinctive faces. Follow LOOK and FACE exactly: age, skull and jaw shape, cheekbones, eye shape and
+  size, brows, nose, mouth and lips, facial hair, hairline, skin tone and texture, wrinkles, scars and the usual expression.
+- Ages must clearly differ (smooth young skin vs. deep wrinkles and sagging skin). Not everyone is handsome: some are plain,
+  ugly, fat, gaunt or brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome face, no same-face syndrome, no copying the face of the reference image.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- ORNATE: richly decorated —— heavy brocade with gold embroidery, jeweled clasps and jade, gilded edges on the armor, a fine cape or sash.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- SPEARMAN: heavy lamellar armor and a helmet with neck guard; the shaft of a long polearm rests on the shoulder.
+- SCHOLAR: Confucian scholar robe and hat, holding bamboo slips, a book or a court tablet, no weapon.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: chibi or anime proportions, big cartoon eyes, plastic skin, identical faces, busy backgrounds, scenery, extra people,
+cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [SPEARMAN] ★ICONIC Guan Yu, red face, extremely long black beard, green robe over gilded armor, Green Dragon crescent glaive.
+   COSTUME COLORS: Shu colors: green, jade and earthy gold.
+   LOOK: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf.
+   FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression.
+   SPLENDOR: ORNATE.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: cool blue-green reflected light from below, background faintly tinted sea-green.
+   MOMENT (hint only, no scenery): drowning the seven armies at Fancheng, the Han river flood bursting behind him, enemy boats capsizing, glaive raised over the torrent.
+2. [SCHOLAR] ★ICONIC Liu Bei, benevolent lord with long earlobes and a gentle smile, layered green robes, his twin swords at his waist, holding a scroll respectfully.
+   COSTUME COLORS: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, very long earlobes, kind gentle eyes, thin mustache and short beard, simple topknot crown.
+   FACE: broad gentle round face, very long earlobes reaching the jaw, soft droopy kind eyes, small mustache, warm humble smile, slightly tired look.
+   SPLENDOR: ORNATE.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: cold soft white light, pale icy shadows, background faintly tinted icy blue.
+   MOMENT (hint only, no scenery): the third visit to the thatched cottage, standing humbly in the snow before the hut, bowing with hands clasped, Guan Yu and Zhang Fei waiting behind.
+3. [SCHOLAR] Fa Zheng, sharp-eyed clever advisor in a green scholar robe and hat, a signal flag in hand.
+   COSTUME COLORS: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, sharp narrow face, thin mustache, sly narrowed eyes.
+   FACE: narrow pointed face, thin hooked nose, slanted narrow calculating eyes, thin lips curled in a smirk, sallow skin, vengeful sly expression.
+   SPLENDOR: ORNATE.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: soft diffuse grey light, low contrast, background faintly misty grey.
+   MOMENT (hint only, no scenery): on the peak of Mount Dingjun, raising a flag to signal the charge at the perfect moment, the enemy camp below.
+4. [SCHOLAR] Xu Shu, former wandering swordsman turned scholar, green-grey scholar robe with a sword on his back, holding a bamboo scroll.
+   COSTUME COLORS: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, lean handsome face, short neat beard, a cloth headband instead of a hat, earnest sad eyes.
+   FACE: lean rugged face with a sword scar on the jaw, deep-set melancholic eyes, straight nose, tight sad mouth, weathered skin, conflicted serious expression.
+   SPLENDOR: ORNATE.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: warm golden afternoon light, background faintly tinted ochre.
+   MOMENT (hint only, no scenery): turning back on horseback as he leaves Liu Bei, pointing toward the Sleeping Dragon hill to recommend Zhuge Liang, autumn road.

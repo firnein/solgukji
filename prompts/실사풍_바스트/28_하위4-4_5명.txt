@@ -1,0 +1,90 @@
+A sheet of 5 semi-realistic historical PORTRAIT PAINTINGS of Three Kingdoms (ancient China, late Han dynasty) figures.
+
+STYLE (follow the attached reference image if one is attached —— copy only its painting style, not its person):
+- Polished official character portraits like those of a modern historical strategy game: semi-realistic digital painting.
+- Realistic adult anatomy and proportions. NOT chibi, NOT super-deformed, NOT anime, NOT cartoon, NOT a photograph.
+- Lifelike skin with subtle pores, natural skin tones and gentle blush; realistic eyes with catchlights; individual hair strands,
+  neatly combed topknots, realistic beards and mustaches.
+- Costume rendered with great care: layered Han-dynasty robes with crossed collars (left over right), embroidered silk and brocade
+  with traditional cloud, dragon, phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves
+  and helmets of the era; armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings.
+- Soft diffused studio key light from the front-left, gentle fill, a thin rim light separating the figure from the background,
+  sharp focus on the eyes, slightly softer edges toward the shoulders. Rich but natural color, high detail, clean finish.
+
+LAYOUT:
+- Image 1024x1536 portrait. 5 LARGE vertical rounded-rectangle panels, 2 columns x 3 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: head, shoulders and upper chest only, cut at mid-chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel):
+- Plain and quiet: a soft off-white to pale warm-grey gradient, very slightly tinted by the PORTRAIT LIGHT color.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow or a few motes of light).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no crowds, no other people, no animals except where
+  CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Realistic yet strongly distinctive faces. Follow LOOK and FACE exactly: age, skull and jaw shape, cheekbones, eye shape and
+  size, brows, nose, mouth and lips, facial hair, hairline, skin tone and texture, wrinkles, scars and the usual expression.
+- Ages must clearly differ (smooth young skin vs. deep wrinkles and sagging skin). Not everyone is handsome: some are plain,
+  ugly, fat, gaunt or brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome face, no same-face syndrome, no copying the face of the reference image.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- SORCERER: Taoist robe and crown, a staff, prayer beads or paper talismans, faint glowing sparks near the hand.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: chibi or anime proportions, big cartoon eyes, plastic skin, identical faces, busy backgrounds, scenery, extra people,
+cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [SORCERER] Zhang Bao, sorcerer brother with a yellow headscarf, holding a sword covered in glowing paper talismans, swirling wind.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: middle-aged, black beard, fierce eyes.
+   FACE: middle-aged fierce face, black beard, burning fanatical eyes, broad nose, shouting mouth.
+   SPLENDOR: PLAIN.
+   POSE: 3/4 view, eyes half-closed in thought, a scroll or fan near the chin.
+   PORTRAIT LIGHT: golden-orange backlight rim, warm shadows, background faintly tinted amber.
+2. [SORCERER] Zhang Liang, sorcerer brother with a yellow headscarf, a fan of glowing paper talismans spread in his hand.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: younger, clean-shaven, smirking.
+   FACE: younger face, clean-shaven, smirking, mischievous narrow eyes, sharp nose.
+   SPLENDOR: PLAIN.
+   POSE: slight low angle, composed, looking down at the viewer, robe collar framing the face.
+   PORTRAIT LIGHT: soft warm daylight with a pink tint, background faintly tinted blush pink.
+3. [SORCERER] Zuo Ci, mystic immortal with a long white beard, floating slightly off the ground, staff in hand, faint glowing aura, mischievous smile.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: very old, extremely long white beard, blind in one eye (milky eye), slight limp.
+   FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal.
+   SPLENDOR: PLAIN.
+   POSE: front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
+   PORTRAIT LIGHT: faint violet-and-gold glow behind the head, cool key light.
+4. [SORCERER] Yu Ji, old Taoist hermit in a white robe, horsetail whisk raised, a gourd on his belt, soft healing glow.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: old, white topknot, gentle smile.
+   FACE: smooth ageless old face, white topknot, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal.
+   SPLENDOR: PLAIN.
+   POSE: head turned back toward the viewer over the shoulder, sly side glance.
+   PORTRAIT LIGHT: warm golden afternoon light, background faintly tinted ochre.
+5. [SORCERER] ★ICONIC Hua Tuo, kindly old doctor in a pale robe, medicine box on his back, acupuncture needles glowing green in his fingers.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: old kindly face, white beard, bald top.
+   FACE: round kindly face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, bald shiny top with white side hair, cheerful energetic old man.
+   SPLENDOR: PLAIN.
+   POSE: 3/4 view, gentle smile, eyes toward the viewer.
+   PORTRAIT LIGHT: cool overcast light, wet sheen on armor and hair, background faintly tinted teal-grey.

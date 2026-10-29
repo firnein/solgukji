@@ -1,0 +1,91 @@
+A sheet of 4 semi-realistic historical PORTRAIT PAINTINGS of Three Kingdoms (ancient China, late Han dynasty) figures.
+
+STYLE (follow the attached reference image if one is attached —— copy only its painting style, not its person):
+- Polished official character portraits like those of a modern historical strategy game: semi-realistic digital painting.
+- Realistic adult anatomy and proportions. NOT chibi, NOT super-deformed, NOT anime, NOT cartoon, NOT a photograph.
+- Lifelike skin with subtle pores, natural skin tones and gentle blush; realistic eyes with catchlights; individual hair strands,
+  neatly combed topknots, realistic beards and mustaches.
+- Costume rendered with great care: layered Han-dynasty robes with crossed collars (left over right), embroidered silk and brocade
+  with traditional cloud, dragon, phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves
+  and helmets of the era; armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings.
+- Soft diffused studio key light from the front-left, gentle fill, a thin rim light separating the figure from the background,
+  sharp focus on the eyes, slightly softer edges toward the shoulders. Rich but natural color, high detail, clean finish.
+
+LAYOUT:
+- Image 1024x1536 portrait. 4 LARGE vertical rounded-rectangle panels, 2 columns x 2 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: head, shoulders and upper chest only, cut at mid-chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel):
+- Plain and quiet: a soft off-white to pale warm-grey gradient, very slightly tinted by the PORTRAIT LIGHT color.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow or a few motes of light).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no crowds, no other people, no animals except where
+  CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Realistic yet strongly distinctive faces. Follow LOOK and FACE exactly: age, skull and jaw shape, cheekbones, eye shape and
+  size, brows, nose, mouth and lips, facial hair, hairline, skin tone and texture, wrinkles, scars and the usual expression.
+- Ages must clearly differ (smooth young skin vs. deep wrinkles and sagging skin). Not everyone is handsome: some are plain,
+  ugly, fat, gaunt or brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome face, no same-face syndrome, no copying the face of the reference image.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- ORNATE: richly decorated —— heavy brocade with gold embroidery, jeweled clasps and jade, gilded edges on the armor, a fine cape or sash.
+- MYTHIC: the most splendid —— gilded armor or imperial silk covered in dragon, phoenix or tiger motifs, luminous gold details, and a faint golden glow behind the head.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- SCHOLAR: Confucian scholar robe and hat, holding bamboo slips, a book or a court tablet, no weapon.
+- SORCERER: Taoist robe and crown, a staff, prayer beads or paper talismans, faint glowing sparks near the hand.
+- SCHEMER: dark muted robe with a high collar or hood, a sly look, holding a scroll, a vial or a go stone.
+- CAVALRY: riding armor with a short cape; the rider is the subject —— at most the horse's head or mane peeks in at the edge.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: chibi or anime proportions, big cartoon eyes, plastic skin, identical faces, busy backgrounds, scenery, extra people,
+cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [SCHOLAR] Sima Hui, the Water Mirror hermit sage, white and pale-blue hermit robes, a feather fan and a mirror-like round jade disk.
+   COSTUME COLORS: independent hermit, white, pale blue and silver.
+   LOOK: elderly, long silky white beard, bright clear eyes, gentle knowing smile, simple hermit cap.
+   FACE: long serene face, bright clear eyes in kind wrinkles, small nose, gentle knowing smile, smooth old skin, saintly calm hermit.
+   SPLENDOR: MYTHIC.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: cool blue-green reflected light from below, background faintly tinted sea-green.
+   MOMENT (hint only, no scenery): in his bamboo grove beside a still pond that reflects the sky like a mirror, faint images of a sleeping dragon and a young phoenix rising from the water.
+2. [SORCERER] Zuo Ci as the transcendent Master Wujiao, flowing silver-white Taoist robes, a glowing book of the Dunjia arts floating before him.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: very old, extremely long white beard, blind in one eye (milky eye), serene smile.
+   FACE: bony elongated face, one milky blind eye and one sharp mischievous eye, long thin nose, toothless impish grin, deeply wrinkled skin, trickster immortal.
+   SPLENDOR: MYTHIC.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: soft diffuse grey light, low contrast, background faintly misty grey.
+   MOMENT (hint only, no scenery): standing among clouds as many illusory doubles of himself scatter across the sky, white cranes circling, the Dunjia book shining.
+3. [SCHEMER] Chen Gong, proud loyal strategist in dark purple and black robes, a strategist hat, holding a rolled map of Yanzhou.
+   COSTUME COLORS: his own warlord colors.
+   LOOK: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes.
+   FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression.
+   SPLENDOR: MYTHIC.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: golden-orange backlight rim, warm shadows, background faintly tinted amber.
+   MOMENT (hint only, no scenery): his last stand at the White Gate Tower, bound yet standing tall, refusing to serve Cao Cao, storm clouds and broken banners of Lu Bu behind.
+4. [CAVALRY] ★ICONIC Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
+   FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
+   SPLENDOR: ORNATE.
+   POSE: the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful.
+   PORTRAIT LIGHT: clean neutral daylight, crisp and bright, background faintly tinted sky blue.
+   MOMENT (hint only, no scenery): Hefei: leading only 800 riders straight into a 100,000-man Wu army, halberd raised and shouting his name, the enemy ranks scattering, Sun Quan fleeing over a broken bridge in the background.

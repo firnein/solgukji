@@ -1,0 +1,91 @@
+A sheet of 5 semi-realistic historical PORTRAIT PAINTINGS of Three Kingdoms (ancient China, late Han dynasty) figures.
+
+STYLE (follow the attached reference image if one is attached —— copy only its painting style, not its person):
+- Polished official character portraits like those of a modern historical strategy game: semi-realistic digital painting.
+- Realistic adult anatomy and proportions. NOT chibi, NOT super-deformed, NOT anime, NOT cartoon, NOT a photograph.
+- Lifelike skin with subtle pores, natural skin tones and gentle blush; realistic eyes with catchlights; individual hair strands,
+  neatly combed topknots, realistic beards and mustaches.
+- Costume rendered with great care: layered Han-dynasty robes with crossed collars (left over right), embroidered silk and brocade
+  with traditional cloud, dragon, phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves
+  and helmets of the era; armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings.
+- Soft diffused studio key light from the front-left, gentle fill, a thin rim light separating the figure from the background,
+  sharp focus on the eyes, slightly softer edges toward the shoulders. Rich but natural color, high detail, clean finish.
+
+LAYOUT:
+- Image 1024x1536 portrait. 5 LARGE vertical rounded-rectangle panels, 2 columns x 3 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: head, shoulders and upper chest only, cut at mid-chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel):
+- Plain and quiet: a soft off-white to pale warm-grey gradient, very slightly tinted by the PORTRAIT LIGHT color.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow or a few motes of light).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no crowds, no other people, no animals except where
+  CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Realistic yet strongly distinctive faces. Follow LOOK and FACE exactly: age, skull and jaw shape, cheekbones, eye shape and
+  size, brows, nose, mouth and lips, facial hair, hairline, skin tone and texture, wrinkles, scars and the usual expression.
+- Ages must clearly differ (smooth young skin vs. deep wrinkles and sagging skin). Not everyone is handsome: some are plain,
+  ugly, fat, gaunt or brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome face, no same-face syndrome, no copying the face of the reference image.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- SPEARMAN: heavy lamellar armor and a helmet with neck guard; the shaft of a long polearm rests on the shoulder.
+- ARCHER: lighter armor or bracers, the upper limb of a bow and arrow fletchings visible over the shoulder.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: chibi or anime proportions, big cartoon eyes, plastic skin, identical faces, busy backgrounds, scenery, extra people,
+cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [SPEARMAN] Xu Huang, calm general with a mustache, blue armor, on foot, long-handled great axe braced in front.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, long drooping mustache, calm face, helmet with a blue tassel.
+   FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength.
+   SPLENDOR: PLAIN.
+   POSE: side profile, gritted teeth, eyes on a distant target.
+   PORTRAIT LIGHT: cool silver-blue moonlight rim, soft cool key light, background faintly tinted blue-grey.
+2. [SPEARMAN] Yu Jin, strict disciplined general with a neat mustache, tidy blue armor, spear in one hand and a war banner pole on his back.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: strict narrow eyes, neat thin mustache only, official black cap.
+   FACE: narrow strict face, narrow judging eyes, thin pointed nose, neat thin mustache, pressed thin lips, rigid disciplinarian.
+   SPLENDOR: PLAIN.
+   POSE: front view, chin raised, fierce confident gaze straight at the viewer.
+   PORTRAIT LIGHT: golden-orange backlight rim, warm shadows, background faintly tinted amber.
+3. [SPEARMAN] Yue Jin, small but fierce vanguard officer, helmet with a plume, spear thrust forward, shield on arm.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: small and short, young, clean-shaven, big determined eyes, oversized plumed helmet.
+   FACE: small young face, big determined round eyes, small nose, clenched teeth, clean-shaven, tiny body under an oversized helmet.
+   SPLENDOR: PLAIN.
+   POSE: head turned sharply back toward the viewer over the shoulder, motion in the hair.
+   PORTRAIT LIGHT: soft warm daylight with a pink tint, background faintly tinted blush pink.
+4. [SPEARMAN] Li Dian, mild scholarly general with a gentle smile, light blue armor, spear held upright, a book tucked in his belt.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: soft round face, light short beard, gentle smile, scholar's topknot with a ribbon.
+   FACE: soft round scholarly face, light short beard, gentle eyes, small nose, polite smile, mild-mannered general.
+   SPLENDOR: PLAIN.
+   POSE: 3/4 view, wild grin, one hand gripping the weapon near the shoulder.
+   PORTRAIT LIGHT: faint violet-and-gold glow behind the head, cool key light.
+5. [ARCHER] ★ICONIC Xiahou Yuan, lean swift archer general, light blue armor and headband, drawing a bow at full stretch, quiver on back.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean.
+   FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression.
+   SPLENDOR: PLAIN.
+   POSE: slight low angle, looking down at the viewer, weapon shaft resting on the shoulder.
+   PORTRAIT LIGHT: warm golden afternoon light, background faintly tinted ochre.

@@ -1,0 +1,91 @@
+A sheet of 5 semi-realistic historical PORTRAIT PAINTINGS of Three Kingdoms (ancient China, late Han dynasty) figures.
+
+STYLE (follow the attached reference image if one is attached —— copy only its painting style, not its person):
+- Polished official character portraits like those of a modern historical strategy game: semi-realistic digital painting.
+- Realistic adult anatomy and proportions. NOT chibi, NOT super-deformed, NOT anime, NOT cartoon, NOT a photograph.
+- Lifelike skin with subtle pores, natural skin tones and gentle blush; realistic eyes with catchlights; individual hair strands,
+  neatly combed topknots, realistic beards and mustaches.
+- Costume rendered with great care: layered Han-dynasty robes with crossed collars (left over right), embroidered silk and brocade
+  with traditional cloud, dragon, phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves
+  and helmets of the era; armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings.
+- Soft diffused studio key light from the front-left, gentle fill, a thin rim light separating the figure from the background,
+  sharp focus on the eyes, slightly softer edges toward the shoulders. Rich but natural color, high detail, clean finish.
+
+LAYOUT:
+- Image 1024x1536 portrait. 5 LARGE vertical rounded-rectangle panels, 2 columns x 3 rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: head, shoulders and upper chest only, cut at mid-chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel):
+- Plain and quiet: a soft off-white to pale warm-grey gradient, very slightly tinted by the PORTRAIT LIGHT color.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow or a few motes of light).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no crowds, no other people, no animals except where
+  CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Realistic yet strongly distinctive faces. Follow LOOK and FACE exactly: age, skull and jaw shape, cheekbones, eye shape and
+  size, brows, nose, mouth and lips, facial hair, hairline, skin tone and texture, wrinkles, scars and the usual expression.
+- Ages must clearly differ (smooth young skin vs. deep wrinkles and sagging skin). Not everyone is handsome: some are plain,
+  ugly, fat, gaunt or brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome face, no same-face syndrome, no copying the face of the reference image.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+- PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+- ARCHER: lighter armor or bracers, the upper limb of a bow and arrow fletchings visible over the shoulder.
+- SCHEMER: dark muted robe with a high collar or hood, a sly look, holding a scroll, a vial or a go stone.
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: chibi or anime proportions, big cartoon eyes, plastic skin, identical faces, busy backgrounds, scenery, extra people,
+cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+1. [ARCHER] Lü Xiang, archer officer in simple blue armor, holding a longbow with an arrow nocked, quiver on back.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: very young, clean-shaven, short cropped hair under a simple cloth cap, freckles.
+   FACE: very young freckled face, short cropped hair, wide nervous eyes, small nose, clean-shaven, earnest rookie.
+   SPLENDOR: PLAIN.
+   POSE: slight high angle, glaring up at the viewer, weapon blade crossing in front of the chest, cut by the panel edge.
+   PORTRAIT LIGHT: cool overcast light, wet sheen on armor and hair, background faintly tinted teal-grey.
+2. [ARCHER] Hao Zhao, stubborn fortress defender in a blue helmet, aiming a large crossbow, bolt quiver at his hip.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, heavy full helmet, stern square face, short black beard.
+   FACE: stern square face, short black beard, unwavering small eyes, broad nose, tight mouth, stubborn fortress defender.
+   SPLENDOR: PLAIN.
+   POSE: front view, half the face in shadow, eyes narrowed, cold stare.
+   PORTRAIT LIGHT: pale cool dawn light, soft pink highlights, background faintly tinted lavender-grey.
+3. [SCHEMER] ★ICONIC Cao Cao, the classic ambitious warlord: sharp eyes, short black beard, black-and-navy robe with gold trim and a short cape, official crown hat, holding his famous straight sword (Yitian sword) with confidence. Schemer hint only: a sly smirk and a sealed scroll tucked in his belt.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, sharp narrow eyes, short trimmed black beard, official crown hat.
+   FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma.
+   SPLENDOR: PLAIN.
+   POSE: front view, head slightly tilted, hand near the face (stroking the beard, holding a fan or a brush).
+   PORTRAIT LIGHT: soft diffuse grey light, low contrast, background faintly misty grey.
+4. [SCHEMER] ★ICONIC Sima Yi, patient schemer with a thin long beard, dark purple-navy hooded robe, holding a black go stone between two fingers, sly sideways glance.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: gaunt face, thin long beard, wolf-like glance over his shoulder.
+   FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking back over the shoulder, long thin nose, thin lips in a faint cunning smile, pale skin, scheming patience.
+   SPLENDOR: PLAIN.
+   POSE: head turned back toward the viewer over the shoulder, sly side glance.
+   PORTRAIT LIGHT: cool blue-green reflected light from below, background faintly tinted sea-green.
+5. [SCHEMER] Jia Xu, old crafty schemer with a thin mustache and half-closed eyes, dark hooded robe, holding a small poison vial and a scroll.
+   COSTUME COLORS: Wei colors: navy, deep blue and steel with silver.
+   LOOK: old, hunched, thin long mustache, half-closed eyes, wrinkled.
+   FACE: wrinkled shrewd old face, half-closed lazy eyes, droopy thin mustache, small mouth, sallow skin, unreadable bored expression.
+   SPLENDOR: PLAIN.
+   POSE: 3/4 view, gentle smile, eyes toward the viewer.
+   PORTRAIT LIGHT: bright high sunlight, crisp shadows under the brow, background faintly tinted sand.

@@ -3,8 +3,7 @@
 실행: python -I tools/scripts/make_bust_prompts.py [prompts/삼국지_일러스트_프롬프트_대용량.md]
   prompts/바스트샷/      : 원본 시트 그대로 (12 · 20명)
   prompts/바스트샷_6명/  : 6명씩 나눈 시트 (2열 × 3줄 —— 칸이 커서 얼굴이 더 또렷하다) + 자르기_이름.txt
-  prompts/레오나르도_5천자/ : 프롬프트 5000자 제한용 —— 공통 문구 압축 + 장수 3명 이하 + 자르기_이름.txt
-  prompts/실사풍_바스트/    : 5000자 · 3명 이하, 치비 대신 반실사 초상화(references/style_ref_realistic_bust.png), 배경은 거의 빈 단색
+  prompts/실사풍_바스트/    : 치비 대신 반실사 초상화(references/style_ref_realistic_bust.png), 배경은 거의 빈 단색 · 상위 4명 / 하위 6명
   원본 블록에서 인물 크기 규칙을 바스트샷 규칙으로 바꾼다. SHOT 은
     MYTHIC · ORNATE (높은 등급) —— SCENE 의 가장 상징적인 순간에 맞춘 표정·손짓 (손과 소품이 화면 안으로 올라와도 된다)
     FINE · PLAIN               —— 가슴 위 구도 목록에서 칸마다 다른 각도·표정
@@ -133,155 +132,171 @@ open(os.path.join(D_SIX, "자르기_이름.txt"), "w", encoding="utf-8", newline
 print(len(os.listdir(D_FULL)), "시트 /", six_no, "개 6명 시트")
 
 
-# ── 레오나르도 5천자 판 —— 공통 문구를 압축하고(그 시트에 나오는 병종·화려함만), 장수 줄을 합쳐 5000자 안에 3명 ──
-LIMIT = 4950
-CLASS_HINT = {
-    "SPEARMAN": "SPEARMAN heavy armor, helmet, long polearm on the shoulder",
-    "CAVALRY": "CAVALRY rider is the subject, only the horse's head or mane peeks in at the edge",
-    "ARCHER": "ARCHER bow held near the shoulder, quiver on the back",
-    "ROGUE": "ROGUE light armor, headband or scarf, short blade near the face",
-    "STRATEGIST": "STRATEGIST flowing robe, white crane-feather fan",
-    "SCHOLAR": "SCHOLAR scholar robe and hat, book, bamboo slips or court tablet, no weapon",
-    "SORCERER": "SORCERER Taoist robe, staff or talismans, faint glowing magic",
-    "SCHEMER": "SCHEMER dark robe with hood or high collar, scroll, vial or chess piece",
-}
-SPLENDOR_HINT = {
-    "PLAIN": "PLAIN worn practical gear, muted, no glow",
-    "FINE": "FINE polished officer gear, a few gold accents",
-    "ORNATE": "ORNATE gold filigree, embroidered silk, flowing cape, light glints",
-    "MYTHIC": "MYTHIC gilded armor with dragon or phoenix motifs, golden aura and sparkles, panel edged in faint gold",
-}
-LEO_COMMON = (
-    "Chibi Three Kingdoms (ancient China) character sheet: super-deformed bodies (2.5-3 heads tall) but mature, characterful faces.\n"
-    "Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, intricate armor and costume patterns, one consistent style.\n"
-    "LAYOUT: image 1024x1536 portrait. {n} LARGE vertical rounded-rectangle panels, {cols} columns x {rows} rows (short last row centered), "
-    "wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke "
-    "banner with ONLY its number (1-{n}) in big white digits. No other text, no names, no watermark.\n"
-    "BUST SHOT ONLY: chest-up portraits cut at the chest, no waist, legs or full body. The face fills the upper half of the panel, "
-    "large, sharp and detailed. Helmets, plumes and weapon tips may stick out above the panel.\n"
-    "EVERY PANEL IS A DIFFERENT ILLUSTRATION: its own angle, head turn and expression (SHOT) and its own time, weather and background "
-    "colors (LIGHT, never the faction color). Never repeat a front-facing centered template.\n"
-    "FACES MUST BE UNIQUE: draw each FACE exactly and EXAGGERATE it like a caricature (shape, eyes, brows, nose, mouth, skin, age lines, "
-    "scars, expression). No generic handsome anime face; recognizable at thumbnail size; ages really differ; not everyone is beautiful.\n"
-    "IMPACT BY RANK: MYTHIC and ORNATE show their most famous moment (SCENE) at full drama inside the bust frame: intense expression, "
-    "hands and signature props come up into the frame, effects (fire, flood, storm, aura, light) swirl around the head and shoulders and "
-    "may burst out of the panel. FINE: moderate drama. PLAIN: quiet portrait with a soft hint of the place.\n"
-    "★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: {classes}.\n"
-    "SPLENDOR (card rank): {splendor}.\n"
-    "Do not draw tags, ★ or line labels as text.\n")
 
 
-def leo_entry(e: str, i: int) -> str:
-    L = e.split("\n")
-    m = re.match(r"\d+\. \(card[^)]*\) (\[[A-Z]+\]) (★ICONIC )?(.*)", L[0])
-    out = ["%d. %s%s %s" % (i, m.group(1), "★" if m.group(2) else "", m.group(3))]
-    look = face = ""
-    for ln in L[1:]:
-        k, _, v = ln.strip().partition(": ")
-        if k == "FACTION":
-            out.append("   COLORS: " + v.replace(" colors:", ":").replace("independent warlord, own colors.", "own warlord colors."))
-        elif k == "LOOK":
-            look = v.rstrip(".")
-        elif k == "FACE":
-            face = v.rstrip(".")
-        elif k == "SHOT":
-            if "most iconic moment" not in v:
-                out.append("   SHOT: " + v.replace("BUST (chest-up), ", ""))
-        else:
-            out.append(ln)
-    first = [p.strip() for p in look.split(",") if p.strip()]          # 나이 · 머리 · 투구 먼저, 그 뒤 얼굴 생김새
-    rest = [p.strip() for p in face.split(",") if p.strip() and p.strip() not in first]
-    out.insert(2, "   FACE: " + ", ".join(first + rest) + ".")
-    return "\n".join(out)
+# ── 실사풍 바스트 판 —— 치비 대신 반실사 초상화(references/style_ref_realistic_bust.png), 배경은 거의 빈 단색 ──
+#    글자 수 제한 없이 자세하게. 한 장 인원: 상위(신화·불멸) 4명 2×2 · 하위(초월·기본) 6명 2×3 (고르게 나눈다)
+REAL_PER = {"상위": 4, "하위": 6}
+REAL_COMMON = """A sheet of {n} semi-realistic historical PORTRAIT PAINTINGS of Three Kingdoms (ancient China, late Han dynasty) figures.
 
+STYLE (follow the attached reference image if one is attached —— copy only its painting style, not its person):
+- Polished official character portraits like those of a modern historical strategy game: semi-realistic digital painting.
+- Realistic adult anatomy and proportions. NOT chibi, NOT super-deformed, NOT anime, NOT cartoon, NOT a photograph.
+- Lifelike skin with subtle pores, natural skin tones and gentle blush; realistic eyes with catchlights; individual hair strands,
+  neatly combed topknots, realistic beards and mustaches.
+- Costume rendered with great care: layered Han-dynasty robes with crossed collars (left over right), embroidered silk and brocade
+  with traditional cloud, dragon, phoenix or geometric patterns, belts and jade ornaments, guan crowns, scholar caps, headscarves
+  and helmets of the era; armor as lamellar plates, scale or lacquered leather with bronze, iron or gilded fittings.
+- Soft diffused studio key light from the front-left, gentle fill, a thin rim light separating the figure from the background,
+  sharp focus on the eyes, slightly softer edges toward the shoulders. Rich but natural color, high detail, clean finish.
 
-REAL_COMMON = (
-    "Semi-realistic historical portrait paintings of Three Kingdoms (ancient China) figures, in the style of polished official character "
-    "portraits from a modern historical strategy game: realistic adult anatomy and proportions (NOT chibi, NOT anime, NOT cartoon), "
-    "painterly digital painting with lifelike skin texture, realistic hair strands, finely embroidered silk and brocade patterns, "
-    "detailed lacquered and metal armor, soft diffused studio light from the front-left, gentle rim light, sharp focus on the face.\n"
-    "LAYOUT: image 1024x1536 portrait. {n} LARGE vertical rounded-rectangle panels, {cols} columns x {rows} rows (short last row centered), "
-    "wide gaps, on flat light green paper (#9BCF88); nothing touches the neighboring panels. Under each panel a dark green brush-stroke "
-    "banner with ONLY its number (1-{n}) in big white digits. No other text, no names, no watermark.\n"
-    "BUST PORTRAIT: head, shoulders and upper chest only; the face large in the upper half of the panel, front or 3/4 view, "
-    "shoulders and collar filling the panel width. Headgear may reach the top edge.\n"
-    "BACKGROUND: plain and quiet —— a soft off-white to pale warm-grey gradient, at most a faint blurred wisp (mist, smoke, glow) "
-    "behind the shoulders. No scenery, no battlefield, no buildings, no crowds, no other people. All attention on the character.\n"
-    "FACES MUST BE UNIQUE: realistic yet distinctive faces —— follow FACE exactly (age, bone structure, eyes, brows, nose, mouth, "
-    "facial hair, skin, scars, expression). Ages clearly differ, not everyone is handsome; recognizable at thumbnail size.\n"
-    "RANK shows in the costume and a subtle touch, not in scenery. MOMENT (MYTHIC and ORNATE only): a small hint of their legend —— "
-    "translate it into ONE signature prop or gesture near the face or shoulder and a faint effect behind them "
-    "(e.g. a glint of lightning on the blade, a wisp of flame); never paint the place, armies or other people.\n"
-    "★ = famous traditional look and signature weapon come first, class is only a small hint. CLASS: {classes}.\n"
-    "SPLENDOR (card rank): {splendor}.\n"
-    "Do not draw tags, ★ or line labels as text.\n")
+LAYOUT:
+- Image 1024x1536 portrait. {n} LARGE vertical rounded-rectangle panels, {cols} columns x {rows} rows (a short last row is centered).
+- Wide, even gaps on flat light green paper (#9BCF88) around the panels. Nothing crosses into a neighboring panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to {n}) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+PORTRAIT FRAMING (every panel):
+- Bust portrait: head, shoulders and upper chest only, cut at mid-chest. No waist, no legs, no full body, no horse body.
+- The face is large and sits in the upper half of the panel; shoulders and collar fill the panel width.
+- Headgear, plumes and the tip of a signature weapon may reach or slightly break the top edge.
+- Each panel follows its own POSE line (head turn, gaze, expression, gesture) —— no two panels share the same pose.
+
+BACKGROUND (every panel):
+- Plain and quiet: a soft off-white to pale warm-grey gradient, very slightly tinted by the PORTRAIT LIGHT color.
+- At most a faint, blurred wisp behind the shoulders (thin mist, smoke, a soft glow or a few motes of light).
+- No scenery, no landscape, no battlefield, no buildings, no furniture, no crowds, no other people, no animals except where
+  CLASS says a horse's head may peek in at the edge. All attention on the character.
+
+FACES MUST BE UNIQUE:
+- Realistic yet strongly distinctive faces. Follow LOOK and FACE exactly: age, skull and jaw shape, cheekbones, eye shape and
+  size, brows, nose, mouth and lips, facial hair, hairline, skin tone and texture, wrinkles, scars and the usual expression.
+- Ages must clearly differ (smooth young skin vs. deep wrinkles and sagging skin). Not everyone is handsome: some are plain,
+  ugly, fat, gaunt or brutish exactly as written. Each must be recognizable at thumbnail size, even with the costume covered.
+- No generic handsome face, no same-face syndrome, no copying the face of the reference image.
+
+RANK (SPLENDOR) shows in the costume and a subtle touch, never in scenery:
+{splendor}
+
+MOMENT (only on MYTHIC and ORNATE characters): a small hint of their legend inside the portrait —— translate it into ONE signature
+prop or gesture near the face or shoulder (a cup, a fan, a blade, an arrow, a scroll) plus a faint effect behind them (a glint of
+lightning, a wisp of flame, drifting petals, a soft aura). Never paint the place, armies or other people from the MOMENT text.
+
+TROOP CLASS is a small hint from armor, headgear and the prop near the shoulder:
+{classes}
+★ICONIC characters: their famous traditional look and signature weapon come FIRST and are drawn exactly as described;
+the class hint is secondary.
+
+AVOID: chibi or anime proportions, big cartoon eyes, plastic skin, identical faces, busy backgrounds, scenery, extra people,
+cropped faces, text or labels, modern clothing, fantasy-western armor, Japanese samurai armor or kimono.
+Do not draw the tags, ★ marks or line labels as text.
+
+CHARACTERS
+"""
 REAL_SPLENDOR = {
-    "PLAIN": "PLAIN simple cloth or worn leather and iron, muted colors",
-    "FINE": "FINE fine officer robe or polished armor, a few gold accents",
-    "ORNATE": "ORNATE rich brocade, gold embroidery, jeweled clasps",
-    "MYTHIC": "MYTHIC the most splendid gilded armor or imperial silk with dragon or phoenix motifs, a faint golden glow behind the head",
+    "PLAIN": "- PLAIN: practical worn gear —— plain cloth, faded dye, leather and dull iron, simple hair ties, no gold, muted colors.",
+    "FINE": "- FINE: a proper officer —— good silk robe or polished lamellar armor, engraved trims, a few silver or gold accents, a neat belt ornament.",
+    "ORNATE": "- ORNATE: richly decorated —— heavy brocade with gold embroidery, jeweled clasps and jade, gilded edges on the armor, a fine cape or sash.",
+    "MYTHIC": "- MYTHIC: the most splendid —— gilded armor or imperial silk covered in dragon, phoenix or tiger motifs, luminous gold details, and a faint golden glow behind the head.",
 }
+REAL_CLASS = {
+    "SPEARMAN": "- SPEARMAN: heavy lamellar armor and a helmet with neck guard; the shaft of a long polearm rests on the shoulder.",
+    "CAVALRY": "- CAVALRY: riding armor with a short cape; the rider is the subject —— at most the horse's head or mane peeks in at the edge.",
+    "ARCHER": "- ARCHER: lighter armor or bracers, the upper limb of a bow and arrow fletchings visible over the shoulder.",
+    "ROGUE": "- ROGUE: light leather or cloth armor, a headband or scarf, a short blade or dagger held near the face, alert eyes.",
+    "STRATEGIST": "- STRATEGIST: flowing layered robe and a guan or scholar cap, a white crane-feather fan held near the chin.",
+    "SCHOLAR": "- SCHOLAR: Confucian scholar robe and hat, holding bamboo slips, a book or a court tablet, no weapon.",
+    "SORCERER": "- SORCERER: Taoist robe and crown, a staff, prayer beads or paper talismans, faint glowing sparks near the hand.",
+    "SCHEMER": "- SCHEMER: dark muted robe with a high collar or hood, a sly look, holding a scroll, a vial or a go stone.",
+}
+PORTRAIT_LIGHT = {
+    "raging fire": "warm ember-orange rim light from behind, flickering warm key light, background faintly tinted orange",
+    "moonlit night": "cool silver-blue moonlight rim, soft cool key light, background faintly tinted blue-grey",
+    "river spray": "cool blue-green reflected light from below, background faintly tinted sea-green",
+    "falling snow": "cold soft white light, pale icy shadows, background faintly tinted icy blue",
+    "lamp-lit interior": "warm amber lamp light from one side, deep soft shadows on the other side",
+    "golden autumn": "warm golden afternoon light, background faintly tinted ochre",
+    "spring peach": "soft warm daylight with a pink tint, background faintly tinted blush pink",
+    "misty mountains": "soft diffuse grey light, low contrast, background faintly misty grey",
+    "blazing sunset": "golden-orange backlight rim, warm shadows, background faintly tinted amber",
+    "mystic glow": "faint violet-and-gold glow behind the head, cool key light",
+    "pale dawn": "pale cool dawn light, soft pink highlights, background faintly tinted lavender-grey",
+    "harsh noon": "bright high sunlight, crisp shadows under the brow, background faintly tinted sand",
+    "crisp clear": "clean neutral daylight, crisp and bright, background faintly tinted sky blue",
+    "heavy rain": "cool overcast light, wet sheen on armor and hair, background faintly tinted teal-grey",
+}
+POSE_HIGH = "the expression and gesture of the MOMENT, front or 3/4 view, intense and characterful"
 
 
 def real_entry(e: str, i: int) -> str:
-    L = leo_entry(e, i).split("\n")
-    rank = next((l for l in L if l.strip().startswith("SPLENDOR:")), "")
+    L = e.split("\n")
+    m = re.match(r"\d+\. \(card[^)]*\) (.*)", L[0])
+    out = ["%d. %s" % (i, m.group(1))]
+    rank = next((l for l in L if l.startswith("   SPLENDOR:")), "")
     high = "MYTHIC" in rank or "ORNATE" in rank
-    out = []
-    for ln in L:
-        k = ln.strip().split(":")[0]
-        if k == "LIGHT":
-            continue
-        if k == "SCENE":
-            if high:
-                out.append("   MOMENT (hint only, no scenery): " + ln.split(": ", 1)[1])
-            continue
-        out.append(ln)
+    scene = light = shot = ""
+    for ln in L[1:]:
+        k, _, v = ln.strip().partition(": ")
+        if k == "FACTION":
+            out.append("   COSTUME COLORS: " + v.replace("independent warlord, own colors.", "his own warlord colors."))
+        elif k in ("LOOK", "FACE", "SPLENDOR"):
+            out.append(ln)
+        elif k == "SCENE":
+            scene = v
+        elif k == "LIGHT":
+            light = v
+        elif k == "SHOT":
+            shot = v
+    if high or "most iconic moment" in shot:
+        out.append("   POSE: " + POSE_HIGH + ".")
+    else:
+        out.append("   POSE: " + shot.replace("BUST (chest-up), ", ""))
+    tone = next((t for key, t in PORTRAIT_LIGHT.items() if light.startswith(key)), "soft neutral studio light")
+    out.append("   PORTRAIT LIGHT: " + tone + ".")
+    if high and scene:
+        out.append("   MOMENT (hint only, no scenery): " + scene)
     return "\n".join(out)
 
 
-def write_sheets(dst, label, common_tpl, splendor_hint, entry_fn):
+def write_real(dst, label):
     reset(dst)
+    for f in os.listdir(dst):
+        os.remove(os.path.join(dst, f))
     lines = ["%s 시트를 뽑은 뒤 D:\\Sol 에서 자르기 (이름 순서 = 이름표 번호 순서). 자른 뒤 solgukji_godot 에서 Godot --import 를 한 번 돌린다.\n" % label]
     no, sizes = 0, []
-
-    def text_of(chunk):
-        n = len(chunk)
-        cols, rows = (2, (n + 1) // 2) if n > 2 else (n, 1)
-        cls, spl = [], []
-        for e in chunk:
-            c = re.match(r"\d+\. \(card[^)]*\) \[([A-Z]+)\]", e).group(1)
-            r = re.search(r"SPLENDOR: ([A-Z]+)", e).group(1)
-            cls += [c] if c not in cls else []
-            spl += [r] if r not in spl else []
-        head = common_tpl.format(n=n, cols=cols, rows=rows, classes=" / ".join(CLASS_HINT[c] for c in cls),
-                                 splendor=" / ".join(splendor_hint[r] for r in ["PLAIN", "FINE", "ORNATE", "MYTHIC"] if r in spl))
-        return head + "\n" + "\n".join(entry_fn(e, i + 1) for i, e in enumerate(chunk)) + "\n"
-
     for si, sec in enumerate(sections):
         head = sec.split("\n", 1)[0]
         num, part, tiers, k, cnt = re.match(r"(\d+)\. (\S+) \(([^)]*)\) (\d+) — (\d+)장", head).groups()
         block = bustify(re.search(r"```\n(.*?)\n```", sec, flags=re.S).group(1), si)
         entries = re.split(r"\n(?=\d+\. \(card)", block.split("\nImage size", 1)[1].split("\n\n", 1)[1].strip())
         names = re.search(r"자르기 이름 목록: `([^`]*)`", sec).group(1).split(",")
-        # 3명까지 (한 장에 인물이 적을수록 얼굴이 또렷하다), 5000자를 넘는 묶음이 있으면 한 명씩 줄인다 —— 고르게 나눈다
-        for per in (3, 2, 1):
-            groups = -(-len(entries) // per)
-            bounds = [round(len(entries) * g / groups) for g in range(groups + 1)]
-            texts = [text_of(entries[bounds[g]:bounds[g + 1]]) for g in range(groups)]
-            if all(len(t) <= LIMIT for t in texts):
-                break
-        for g, t in enumerate(texts):
+        per = REAL_PER[part]
+        groups = -(-len(entries) // per)                  # per 명 이하로 고르게
+        bounds = [round(len(entries) * g / groups) for g in range(groups + 1)]
+        for g in range(groups):
+            chunk = entries[bounds[g]:bounds[g + 1]]
+            n = len(chunk)
+            cols, rows = (2, (n + 1) // 2) if n > 2 else (n, 1)
+            cls, spl = [], []
+            for e in chunk:
+                c = re.match(r"\d+\. \(card[^)]*\) \[([A-Z]+)\]", e).group(1)
+                r = re.search(r"SPLENDOR: ([A-Z]+)", e).group(1)
+                cls += [c] if c not in cls else []
+                spl += [r] if r not in spl else []
+            text = REAL_COMMON.format(
+                n=n, cols=cols, rows=rows,
+                classes="\n".join(REAL_CLASS[c] for c in cls),
+                splendor="\n".join(REAL_SPLENDOR[r] for r in ["PLAIN", "FINE", "ORNATE", "MYTHIC"] if r in spl))
+            text += "\n".join(real_entry(e, j + 1) for j, e in enumerate(chunk)) + "\n"
             no += 1
-            fname = "%02d_%s%s-%d_%d명.txt" % (no, part, k, g + 1, bounds[g + 1] - bounds[g])
-            open(os.path.join(dst, fname), "w", encoding="utf-8", newline="\n").write(t)
-            sizes.append(len(t))
-            lines.append("[%s] %d자" % (fname, len(t)))
+            fname = "%02d_%s%s-%d_%d명.txt" % (no, part, k, g + 1, n)
+            open(os.path.join(dst, fname), "w", encoding="utf-8", newline="\n").write(text)
+            sizes.append(len(text))
+            lines.append("[%s]" % fname)
             lines.append('  python -I tools/scripts/slice_panels.py 시트.png "%s" solgukji_godot/assets/portraits' % ",".join(names[bounds[g]:bounds[g + 1]]))
             lines.append("")
     open(os.path.join(dst, "자르기_이름.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(lines))
     print(dst, no, "시트 · 글자 수 %d ~ %d" % (min(sizes), max(sizes)))
 
 
-write_sheets("prompts/레오나르도_5천자", "레오나르도 5천자", LEO_COMMON, SPLENDOR_HINT, leo_entry)
-write_sheets("prompts/실사풍_바스트", "실사풍 바스트", REAL_COMMON, REAL_SPLENDOR, real_entry)
+write_real("prompts/실사풍_바스트", "실사풍 바스트")
