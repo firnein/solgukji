@@ -1,8 +1,8 @@
-"""속성 배정안 —— 장수마다 속성 여러 개(개수 제한 없음, 첫째가 주 속성), 등급별 속성 분포 계산.
+"""전법 배정안 —— 장수마다 전법 여러 개(개수 제한 없음, 첫째가 주 전법), 등급별 전법 분포 계산.
 
-실행: python -I tools/scripts/attr_plan.py  →  속성_배정안.md
-  속성은 병종과 상관없이 인물에 붙는다 (예: 동탁은 기병이지만 화공).
-  카드는 자기 인물의 속성마다 1장씩 센다. 목표: 등급마다 속성별 6장 이상.
+실행: python -I tools/scripts/attr_plan.py  →  전법_배정안.md
+  전법은 병종과 상관없이 인물에 붙는다 (예: 동탁은 기병이지만 화공).
+  카드는 자기 인물의 전법마다 1장씩 센다. 목표: 등급마다 전법별 6장 이상.
 """
 import json
 from collections import Counter
@@ -16,7 +16,7 @@ ATTR = {
     "계략": "혼란 · 봉인 · 공포 · 이간으로 적을 흔든다",
     "인덕": "아군을 치유하고 사기 · 능력을 북돋운다",
 }
-# 인물 → ([속성 …], 근거) —— 개수 제한 없음, 앞이 주 속성(카드 스킬을 고르는 풀)
+# 인물 → ([전법 …], 근거) —— 개수 제한 없음, 앞이 주 전법(카드 스킬을 고르는 풀)
 P = {
     # 촉
     "관우": (["수공", "돌파"], "수엄칠군 · 오관참장"),
@@ -125,6 +125,41 @@ A = list(ATTR)
 F = ["촉", "위", "오", "군"]
 FN = {"군": "군웅"}
 
+# 전법이 없던 특기 40개의 새 전법 (None = 공용 특기로 둔다). 병종 · 세력 범위 단체 특기는 전법 범위로 바꿀 예정.
+TRAIT_ATTR = {
+    "철벽": "철벽", "불굴": "철벽", "금강": "철벽", "창신": "철벽", "심지": "철벽", "투쟁": "철벽", "결속": "철벽", "창진": "철벽",
+    "귀모": "계략", "신산": "계략", "백출": "계략", "위압": "계략", "위풍": "계략", "반계": "계략", "요술": "계략", "군략": "계략",
+    "인덕": "인덕", "명경": "인덕", "군주": "인덕", "비호": "인덕", "보급": "인덕", "통솔": "인덕", "교화": "인덕", "고무": "인덕", "명성": "인덕",
+    "기신": "돌파", "철기": "돌파", "강행": "돌파", "습격": "돌파", "돌격": "돌파", "맹진": "돌파",
+    "궁신": "표적", "연사": "표적",
+    "신속": None, "용장": None, "맹장": None, "비장": None, "후방": None, "후원": None, "선봉": None,
+}
+PSV = json.load(open("solgukji_godot/data/passives.json", encoding="utf-8"))
+untagged = {k for k, v in PSV["traits"].items() if "attr" not in v}
+assert untagged == set(TRAIT_ATTR), (untagged - set(TRAIT_ATTR), set(TRAIT_ATTR) - untagged)
+
+
+COUNTER = {"천우", "우중", "제방", "호위", "은폐"}     # 맞수 특기 —— 그 전법을 막는 쪽이라 전법 덱으로 세지 않는다
+
+
+def trait_attr(n):
+    if n in COUNTER:
+        return None
+    t = PSV["traits"].get(n, {})
+    return t.get("attr") or TRAIT_ATTR.get(n)
+
+
+# 지금 특기 사다리에서 나오는 전법 + 일화로 정한 전법(P) —— 합친 것이 최종 (P 순서가 앞, 첫째 = 주 전법)
+FROM_LADDER = {p: [] for p in P}
+for p, rows in PSV["ladder"].items():
+    for r in rows:
+        a = trait_attr(r[0])
+        if a and a not in FROM_LADDER.setdefault(p, []):
+            FROM_LADDER[p].append(a)
+for p in P:
+    at, why = P[p]
+    P[p] = (at + [a for a in FROM_LADDER[p] if a not in at], why)
+
 
 def tier_counts(t):
     cnt, fac = Counter(), {a: Counter() for a in A}
@@ -137,12 +172,12 @@ def tier_counts(t):
     return cnt, fac
 
 
-L = ["# 속성 배정안", "",
-     "`tools/scripts/attr_plan.py` 로 만든다. 속성 개수는 장수마다 다르다(일화가 있는 만큼) —— 병종과 상관없이 정했다. 첫 속성이 주 속성(카드 스킬 풀).",
-     "카드는 자기 인물의 속성마다 1장씩 센다. 목표: 등급마다 속성별 6장 이상.", "",
-     "## 속성 (7)", "", "| 속성 | 하는 일 |", "|---|---|"]
+L = ["# 전법 배정안", "",
+     "`tools/scripts/attr_plan.py` 로 만든다. 전법 개수는 장수마다 다르다(일화가 있는 만큼) —— 병종과 상관없이 정했다. 첫 전법이 주 전법(카드 스킬 풀).",
+     "카드는 자기 인물의 전법마다 1장씩 센다. 목표: 등급마다 전법별 6장 이상.", "",
+     "## 전법 (7)", "", "| 전법 | 하는 일 |", "|---|---|"]
 L += ["| %s | %s |" % (a, ATTR[a]) for a in A]
-L += ["", "## 등급별 속성 카드 수", "", "| 등급 | 카드 | " + " | ".join(A) + " |", "|---|---|" + "---|" * len(A)]
+L += ["", "## 등급별 전법 카드 수", "", "| 등급 | 카드 | " + " | ".join(A) + " |", "|---|---|" + "---|" * len(A)]
 low = []
 for t in range(3, 9):
     cnt, _ = tier_counts(t)
@@ -150,20 +185,28 @@ for t in range(3, 9):
     L.append("| %s | %d | %s |" % (T[t], n, " | ".join(("**%d**" % cnt[a]) if cnt[a] < 6 else str(cnt[a]) for a in A)))
     low += ["%s %s %d" % (T[t], a, cnt[a]) for a in A if cnt[a] < 6]
 L += ["", "굵은 칸 = 6장 미만." + (" 부족: " + ", ".join(low) if low else " 모두 6장 이상."), "",
-      "## 등급별 세력 분포 (속성마다 촉/위/오/군웅)", "", "| 등급 | " + " | ".join(A) + " |", "|---|" + "---|" * len(A)]
+      "## 등급별 세력 분포 (전법마다 촉/위/오/군웅)", "", "| 등급 | " + " | ".join(A) + " |", "|---|" + "---|" * len(A)]
 for t in range(3, 9):
     _, fac = tier_counts(t)
     L.append("| %s | %s |" % (T[t], " | ".join("/".join(str(fac[a][f]) for f in F) for a in A)))
-L += ["", "## 장수별 속성", "", "| 장수 | 세력 | 병종 | 주 속성 | 다른 속성 | 근거 |", "|---|---|---|---|---|---|"]
+L += ["", "## 특기 → 전법", "", "전법이 붙어 있던 특기 46개(화공 · 수공 · 돌파 · 표적)는 그대로. 전법이 없던 40개를 이렇게 나눈다 (병종 · 세력 범위 단체 특기는 전법 범위로 바꿀 예정):", ""]
+for a in A + [None]:
+    ks = [k for k, v in TRAIT_ATTR.items() if v == a]
+    if ks:
+        L.append("- **%s**: %s" % (a or "공용 (전법 없음)", " · ".join(ks)))
+L += ["", "## 장수별 전법", "", "밑줄 없는 것 = 지금 특기 사다리에서 나온 전법, *기울임* = 일화로 더한 전법 (특기를 새로 붙여야 함).", "",
+      "| 장수 | 세력 | 병종 | 주 전법 | 다른 전법 | 근거 |", "|---|---|---|---|---|---|"]
 info = {}
 for c in cards:
     info.setdefault(person(c), (c[4], c[3]))
 for p in sorted(P, key=lambda p: (F.index(info[p][0]), p)):
     at, why = P[p]
-    L.append("| %s | %s | %s | %s | %s | %s |" % (p, FN.get(info[p][0], info[p][0]), info[p][1], at[0], " · ".join(at[1:]) or "-", why))
+    fmt = lambda a: a if a in FROM_LADDER[p] else "*%s*" % a
+    L.append("| %s | %s | %s | %s | %s | %s |" % (p, FN.get(info[p][0], info[p][0]), info[p][1], fmt(at[0]), " · ".join(fmt(a) for a in at[1:]) or "-", why))
 pc = Counter(a for v in P.values() for a in v[0])
 nc = Counter(len(v[0]) for v in P.values())
-L += ["", "속성별 인물 수: " + " · ".join("%s %d" % (a, pc[a]) for a in A), "", "속성 개수별 인물 수: " + " · ".join("%d개 %d명" % (k, nc[k]) for k in sorted(nc))]
-open("속성_배정안.md", "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
+new = sum(1 for p in P for a in P[p][0] if a not in FROM_LADDER[p])
+L += ["", "전법별 인물 수: " + " · ".join("%s %d" % (a, pc[a]) for a in A), "", "전법 개수별 인물 수: " + " · ".join("%d개 %d명" % (k, nc[k]) for k in sorted(nc)), "", "특기를 새로 붙여야 하는 (장수, 전법): %d건" % new]
+open("전법_배정안.md", "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
 print("\n".join(l for l in L if l.startswith("| 고급") or l.startswith("| 희귀") or l.startswith("| 전설") or l.startswith("| 초월") or l.startswith("| 불멸") or l.startswith("| 신화"))[:3000])
 print(L[-1]); print("부족:", low)
