@@ -9,6 +9,10 @@ Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, 
 Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
 background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
 Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
+(at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
+figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
+The background is a supporting backdrop behind the character.
 Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
 Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
 Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
@@ -38,19 +42,19 @@ Banner under each panel: only its number.
    FACTION: independent warlord, own colors.
    LOOK: homely face, big forehead, thick eyebrows.
    SPLENDOR: PLAIN.
-   SHOT: partly hidden behind foreground objects (curtains, branches, smoke), peeking out.
+   SHOT: close framing, a few foreground objects (petals, smoke, curtain) only at the panel edges, face fully visible.
    LIGHT: spring peach blossoms, pink petals and soft green.
 3. (card: 옥용 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    FACTION: independent warlord, own colors.
    LOOK: beautiful, elaborate hair ornaments and flowers.
    SPLENDOR: PLAIN.
-   SHOT: high-angle view from above, standing in the middle of the place.
+   SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.
 4. (card: 저수) [SCHEMER] Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
    FACTION: independent warlord, own colors.
    LOOK: gaunt middle-aged, worried brow, short beard.
    SPLENDOR: PLAIN.
-   SHOT: side profile, silhouette against a bright window, moon or sky.
+   SHOT: side profile, face clearly lit and large in frame, bright window, moon or sky behind.
    LIGHT: golden autumn leaves, ochre and rust.
 5. (card: 전풍) [SCHEMER] Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
    FACTION: independent warlord, own colors.
@@ -62,7 +66,7 @@ Banner under each panel: only its number.
    FACTION: independent warlord, own colors.
    LOOK: older, long thin beard, rigid upright posture.
    SPLENDOR: PLAIN.
-   SHOT: full body walking toward the viewer through the place.
+   SHOT: knees-up, walking toward the viewer, character fills the panel.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 7. (card: 장연) [ROGUE] Zhang Yan, Black Mountain bandit leader in a black outfit, agile leaping pose, a knife in each hand.
    FACTION: independent warlord, own colors.
@@ -74,5 +78,5 @@ Banner under each panel: only its number.
    FACTION: independent warlord, own colors.
    LOOK: giant, bald with a yellow headband, wild beard.
    SPLENDOR: PLAIN.
-   SHOT: over-the-shoulder view from behind, head turned back toward the viewer.
+   SHOT: 3/4 back view, character large in frame, face turned back toward the viewer and clearly visible.
    LIGHT: river spray and mist, blue-green water light.

@@ -9,6 +9,10 @@ Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, 
 Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
 background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
 Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
+(at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
+figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
+The background is a supporting backdrop behind the character.
 Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
 Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
 Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
@@ -33,14 +37,14 @@ Banner under each panel: only its number.
    LOOK: round chubby kind face, short beard.
    SPLENDOR: ORNATE.
    SCENE: the pillar of Jiangdong on a riverbank, holding a great map of the realm.
-   SHOT: high-angle view from above, standing in the middle of the place.
+   SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: river spray and mist, blue-green water light.
 2. (card: 오두미교주 장로) [SORCERER] Zhang Lu, Taoist cult leader in layered Taoist robes and a tall Taoist crown, holding a staff and a rice sack, faint glowing talisman.
    FACTION: independent warlord, own colors.
    LOOK: middle-aged, neat black beard, tall Taoist crown.
    SPLENDOR: ORNATE.
    SCENE: master of the Five Pecks of Rice cult, rice sack and glowing talismans, followers' lanterns behind.
-   SHOT: side profile, silhouette against a bright window, moon or sky.
+   SHOT: side profile, face clearly lit and large in frame, bright window, moon or sky behind.
    LIGHT: falling snow, white and pale icy blue.
 3. (card: 연환미계 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    FACTION: independent warlord, own colors.
@@ -54,7 +58,7 @@ Banner under each panel: only its number.
    LOOK: black eyepatch, wild long black hair, full thick beard.
    SPLENDOR: ORNATE.
    SCENE: the famous moment of pulling the arrow out of his own left eye with a roar, battle dust, his spear still in the other hand.
-   SHOT: high-angle view from above, enemies or ground far below.
+   SHOT: slight high angle, character large in frame, enemies or ground small below.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 5. (card: 번성수장 조인) [SPEARMAN] Cao Ren, defensive general in heavy blue plate armor, huge rectangular tower shield and spear, immovable stance.
    FACTION: Wei colors: navy, deep blue and steel with silver.
@@ -68,7 +72,7 @@ Banner under each panel: only its number.
    LOOK: 40s, long drooping mustache, calm face, helmet with a blue tassel.
    SPLENDOR: ORNATE.
    SCENE: cutting straight through the encirclement trenches at Fancheng, great axe swung, the enemy ring breaking around him.
-   SHOT: over-the-shoulder view from behind, head turned back toward the viewer.
+   SHOT: 3/4 back view, character large in frame, face turned back toward the viewer and clearly visible.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.
 7. (card: 희조선인 좌자) [SORCERER] Zuo Ci, mystic immortal with a long white beard, floating slightly, staff in hand, faint glowing aura.
    FACTION: independent warlord, own colors.
@@ -89,5 +93,5 @@ Banner under each panel: only its number.
    LOOK: old kindly face, white beard, bald top.
    SPLENDOR: ORNATE.
    SCENE: scraping the poison from Guan Yu arm bone while Guan Yu calmly plays go beside him, a basin of herbs and soft green healing light.
-   SHOT: full body walking toward the viewer through the place.
+   SHOT: knees-up, walking toward the viewer, character fills the panel.
    LIGHT: pale dawn, cool blue-grey and soft pink.

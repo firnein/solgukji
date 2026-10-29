@@ -9,6 +9,10 @@ Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, 
 Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
 background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
 Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
+(at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
+figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
+The background is a supporting backdrop behind the character.
 Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
 Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
 Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
@@ -40,7 +44,7 @@ Banner under each panel: only its number.
    LOOK: old kindly face, white beard, bald top.
    SPLENDOR: MYTHIC.
    SCENE: the divine physician, glowing golden needles, healing light and swirling herbs.
-   SHOT: seen from behind, looking out over a view, head half-turned.
+   SHOT: 3/4 back view, large in frame, head turned back toward the viewer.
    LIGHT: falling snow, white and pale icy blue.
 3. (card: 월하미인 초선) [SCHEMER] ★ICONIC Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    FACTION: independent warlord, own colors.
@@ -61,35 +65,35 @@ Banner under each panel: only its number.
    LOOK: elderly, long silky white beard, bright clear eyes, gentle knowing smile, simple hermit cap.
    SPLENDOR: MYTHIC.
    SCENE: in his bamboo grove beside a still pond that reflects the sky like a mirror, faint images of a sleeping dragon and a young phoenix rising from the water.
-   SHOT: high-angle view from above, standing in the middle of the place.
+   SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: river spray and mist, blue-green water light.
 6. (card: 오각선생 좌자) [SORCERER] Zuo Ci as the transcendent Master Wujiao, flowing silver-white Taoist robes, a glowing book of the Dunjia arts floating before him.
    FACTION: independent warlord, own colors.
    LOOK: very old, extremely long white beard, blind in one eye (milky eye), serene smile.
    SPLENDOR: MYTHIC.
    SCENE: standing among clouds as many illusory doubles of himself scatter across the sky, white cranes circling, the Dunjia book shining.
-   SHOT: side profile, silhouette against a bright window, moon or sky.
+   SHOT: side profile, face clearly lit and large in frame, bright window, moon or sky behind.
    LIGHT: misty mountains, monochrome ink-wash grey with one color accent.
 7. (card: 백문충절 진궁) [SCHEMER] Chen Gong, proud loyal strategist in dark purple and black robes, a strategist hat, holding a rolled map of Yanzhou.
    FACTION: independent warlord, own colors.
    LOOK: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes.
    SPLENDOR: MYTHIC.
    SCENE: his last stand at the White Gate Tower, bound yet standing tall, refusing to serve Cao Cao, storm clouds and broken banners of Lu Bu behind.
-   SHOT: small full-body figure in a vast landscape seen from far away, lots of scenery.
+   SHOT: full body filling the panel from top to bottom, wide dynamic stance, scenery only around the edges.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 8. (card: 오자제일 장료) [CAVALRY] ★ICONIC Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
    SPLENDOR: ORNATE.
    SCENE: first of Wei's Five Elite Generals, leading a charge with his halberd raised, Wei banners streaming behind.
-   SHOT: high-angle view from above, enemies or ground far below.
+   SHOT: slight high angle, character large in frame, enemies or ground small below.
    LIGHT: crisp clear morning, bright sky blue and white clouds.
 9. (card: 묘변 장합) [CAVALRY] Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
    FACTION: Wei colors: navy, deep blue and steel with silver.
    LOOK: early 20s, pretty delicate face, clean-shaven, long flowing hair with a jade hairpin, slender build.
    SPLENDOR: ORNATE.
    SCENE: the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.
-   SHOT: over-the-shoulder view from behind, head turned back toward the viewer.
+   SHOT: 3/4 back view, character large in frame, face turned back toward the viewer and clearly visible.
    LIGHT: mystic glow, violet and gold sparks on a dark ground.
 10. (card: 폭군 동탁) [CAVALRY] ★ICONIC Dong Zhuo, obese tyrant with a thick beard, gaudy black-gold armor over a robe.
    FACTION: independent warlord, own colors.
