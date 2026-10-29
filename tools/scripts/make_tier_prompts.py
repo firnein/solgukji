@@ -17,8 +17,8 @@ from collections import defaultdict
 OUT = "prompts/등급별"
 TIER_DIR = {6: "2_초월", 7: "3_불멸", 8: "4_신화"}
 SUFFIX = {6: "_초월", 7: "_불멸", 8: "_신화"}
-PER = {"base": 15, 6: 12, 7: 6, 8: 4}            # 한 장 최대 인원 (고르게 나눈다)
-GRID = {15: (5, 3), 12: (4, 3), 6: (3, 2), 4: (2, 2)}
+PER = {"base": 10, 6: 12, 7: 6, 8: 4}            # 한 장 최대 인원 (고르게 나눈다) —— 기본은 10명 넘으면 다리가 짧아진다
+GRID = {10: (5, 2), 12: (4, 3), 6: (3, 2), 4: (2, 2)}
 FAC_EN = {"촉": "Shu", "위": "Wei", "오": "Wu", "군": "Independent"}
 FAC_ORDER = ["촉", "위", "오", "군"]
 CLASS_EN = {"창병": "SPEARMAN", "기병": "CAVALRY", "궁병": "ARCHER", "도적": "ROGUE",

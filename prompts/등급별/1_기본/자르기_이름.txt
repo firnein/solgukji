@@ -6,20 +6,29 @@
 [02_촉_10명.txt]  1 마량 · 2 방통 · 3 이적 · 4 제갈량 · 5 간옹 · 6 미축 · 7 법정 · 8 주마천제갈 서서 · 9 유비 · 10 초주
   자르기: python -I tools/scripts/slice_panels.py 시트.png "마량,방통,이적,제갈량,간옹,미축,법정,서서,유비,초주" solgukji_godot/assets/portraits
 
-[03_위_13명.txt]  1 결사 방덕 · 2 서황 · 3 악진 · 4 우금 · 5 이전 · 6 악래 전위 · 7 철벽 조인 · 8 독안 하후돈 · 9 허저 · 10 곽회 · 11 장료 · 12 오자양장 장합 · 13 하후패
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "방덕,서황,악진,우금,이전,전위,조인,하후돈,허저,곽회,장료,장합,하후패" solgukji_godot/assets/portraits
+[03_위_9명.txt]  1 결사 방덕 · 2 서황 · 3 악진 · 4 우금 · 5 이전 · 6 악래 전위 · 7 철벽 조인 · 8 독안 하후돈 · 9 허저
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "방덕,서황,악진,우금,이전,전위,조인,하후돈,허저" solgukji_godot/assets/portraits
 
-[04_위_13명.txt]  1 여상 · 2 하후연 · 3 학소 · 4 곽가 · 5 유엽 · 6 사도 종회 · 7 순욱 · 8 진군 · 9 가후 · 10 음평기습 등애 · 11 사마의 · 12 십면매복 정욱 · 13 조조
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "여상,하후연,학소,곽가,유엽,종회,순욱,진군,가후,등애,사마의,정욱,조조" solgukji_godot/assets/portraits
+[04_위_8명.txt]  1 곽회 · 2 장료 · 3 오자양장 장합 · 4 하후패 · 5 여상 · 6 하후연 · 7 학소 · 8 곽가
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "곽회,장료,장합,하후패,여상,하후연,학소,곽가" solgukji_godot/assets/portraits
 
-[05_오_10명.txt]  1 주태 · 2 손책 · 3 서성 · 4 손권 · 5 정보 · 6 태사자 · 7 적벽화신 황개 · 8 감녕 · 9 능조 · 10 능통
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "주태,손책,서성,손권,정보,태사자,황개,감녕,능조,능통" solgukji_godot/assets/portraits
+[05_위_9명.txt]  1 유엽 · 2 사도 종회 · 3 순욱 · 4 진군 · 5 가후 · 6 음평기습 등애 · 7 사마의 · 8 십면매복 정욱 · 9 조조
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "유엽,종회,순욱,진군,가후,등애,사마의,정욱,조조" solgukji_godot/assets/portraits
 
-[06_오_11명.txt]  1 마충 · 2 동오덕왕 엄백호 · 3 여몽 · 4 정봉 · 5 육손 · 6 주유 · 7 노숙 · 8 강동이교 대교 · 9 경국지색 소교 · 10 강동문신 장소 · 11 오범
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "마충,엄백호,여몽,정봉,육손,주유,노숙,대교,소교,장소,오범" solgukji_godot/assets/portraits
+[06_오_7명.txt]  1 주태 · 2 손책 · 3 서성 · 4 손권 · 5 정보 · 6 태사자 · 7 적벽화신 황개
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "주태,손책,서성,손권,정보,태사자,황개" solgukji_godot/assets/portraits
 
-[07_군_12명.txt]  1 백마장군 공손찬 · 2 상국 동탁 · 3 서량웅 마등 · 4 안량 · 5 비장 여포 · 6 사세삼공 원소 · 7 관해 · 8 장연 · 9 수경선생 사마휘 · 10 관로 · 11 우길 · 12 장각
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "공손찬,동탁,마등,안량,여포,원소,관해,장연,사마휘,관로,우길,장각" solgukji_godot/assets/portraits
+[07_오_7명.txt]  1 감녕 · 2 능조 · 3 능통 · 4 마충 · 5 동오덕왕 엄백호 · 6 여몽 · 7 정봉
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "감녕,능조,능통,마충,엄백호,여몽,정봉" solgukji_godot/assets/portraits
 
-[08_군_11명.txt]  1 장량 · 2 장로 · 3 장보 · 4 좌자 · 5 화타 · 6 심배 · 7 중가황제 원술 · 8 저수 · 9 전풍 · 10 백문충절 진궁 · 11 초선
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "장량,장로,장보,좌자,화타,심배,원술,저수,전풍,진궁,초선" solgukji_godot/assets/portraits
+[08_오_7명.txt]  1 육손 · 2 주유 · 3 노숙 · 4 강동이교 대교 · 5 경국지색 소교 · 6 강동문신 장소 · 7 오범
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "육손,주유,노숙,대교,소교,장소,오범" solgukji_godot/assets/portraits
+
+[09_군_8명.txt]  1 백마장군 공손찬 · 2 상국 동탁 · 3 서량웅 마등 · 4 안량 · 5 비장 여포 · 6 사세삼공 원소 · 7 관해 · 8 장연
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "공손찬,동탁,마등,안량,여포,원소,관해,장연" solgukji_godot/assets/portraits
+
+[10_군_7명.txt]  1 수경선생 사마휘 · 2 관로 · 3 우길 · 4 장각 · 5 장량 · 6 장로 · 7 장보
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "사마휘,관로,우길,장각,장량,장로,장보" solgukji_godot/assets/portraits
+
+[11_군_8명.txt]  1 좌자 · 2 화타 · 3 심배 · 4 중가황제 원술 · 5 저수 · 6 전풍 · 7 백문충절 진궁 · 8 초선
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "좌자,화타,심배,원술,저수,전풍,진궁,초선" solgukji_godot/assets/portraits

@@ -1,0 +1,80 @@
+A character design sheet of 8 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. 8 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 8) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Guo Huai  [CAVALRY, Wei]
+   DESIGN: Guo Huai, calm frontier general with a fur collar, blue armor.
+   LOOK: 50s, square jaw, short neat grey-streaked beard, calm heavy-lidded eyes, fur hat.
+   FACE: weathered square face, calm heavy-lidded eyes, broad nose, short grey-streaked beard, patient mouth, frontier windburn.
+   BUILD: sturdy.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Zhang Liao  [CAVALRY, Wei]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
+   LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
+   FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
+   BUILD: lean and hard, tall.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+3. Zhang He  [CAVALRY, Wei]
+   DESIGN: Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
+   LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
+   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
+   BUILD: slender but broad-shouldered.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+4. Xiahou Ba  [CAVALRY, Wei]
+   DESIGN: Xiahou Ba, young determined general in blue armor.
+   LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
+   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
+   BUILD: teenage, short and wiry.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+5. Lü Xiang  [ARCHER, Wei]
+   DESIGN: Lü Xiang, archer officer in simple blue armor, holding a longbow with an arrow nocked, quiver on back.
+   LOOK: very young, clean-shaven, short cropped hair under a simple cloth cap, freckles.
+   FACE: very young MAN, freckled square face, short cropped hair, wide nervous eyes, thick brows, small nose, faint stubble, earnest rookie.
+   BUILD: young, slim.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+6. Xiahou Yuan  [ARCHER, Wei]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Xiahou Yuan, lean swift archer general, light blue armor and headband, drawing a bow at full stretch, quiver on back.
+   LOOK: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean.
+   FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression.
+   BUILD: lean and long-limbed.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+7. Hao Zhao  [ARCHER, Wei]
+   DESIGN: Hao Zhao, stubborn fortress defender in a blue helmet, aiming a large crossbow, bolt quiver at his hip.
+   LOOK: 40s, heavy full helmet, stern square face, short black beard.
+   FACE: stern square face, short black beard, unwavering small eyes, broad nose, tight mouth, stubborn fortress defender.
+   BUILD: stocky.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+8. Guo Jia  [STRATEGIST, Wei]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
+   LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
+   FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius.
+   BUILD: slender and loose-limbed.
+   COLORS: Wei blue: navy, deep blue and steel with silver.

@@ -1,4 +1,4 @@
-A character design sheet of 10 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 7 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -24,9 +24,9 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. 10 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1536x1024 landscape. 7 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 10) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 7) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
@@ -71,22 +71,4 @@ CHARACTERS
    LOOK: old, bald on top with white side hair, scarred face.
    FACE: battered old face, scarred and bruised, bald top with white side hair, deep wrinkles, determined squinting eyes, broad nose, gritted teeth.
    BUILD: stocky old man, battle-worn.
-   COLORS: Wu red: crimson, red, orange and gold.
-8. Gan Ning  [ROGUE, Wu]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Gan Ning, brash pirate-like fighter with bells on his belt, feathered headband and tattoos, crouching leap with a big curved sword.
-   LOOK: feathered headband, tattoos on arms and neck, gold earrings, wild grin.
-   FACE: wide grinning face, big toothy grin, wild bright eyes, broken flat nose, sun-tanned skin, tattooed neck, reckless pirate expression.
-   BUILD: lean and muscular, tattooed arms.
-   COLORS: Wu red: crimson, red, orange and gold.
-9. Ling Cao  [ROGUE, Wu]
-   DESIGN: Ling Cao, rough river captain with a cutlass and a rope over the shoulder, crouching.
-   LOOK: sun-tanned sailor, bandana, rough stubble.
-   FACE: sun-tanned sailor face, rough stubble, squinting eyes from the sea glare, broad nose, salt-cracked lips, bandana.
-   BUILD: stocky sailor.
-   COLORS: Wu red: crimson, red, orange and gold.
-10. Ling Tong  [ROGUE, Wu]
-   DESIGN: Ling Tong, young agile fighter in a red outfit, mid-spin with a three-section staff.
-   LOOK: young, high ponytail, clean-shaven, energetic.
-   FACE: young MAN, lively angular face, bright energetic eyes, thick brows, small nose, eager open-mouthed grin, stubble on the jaw, high ponytail, hot-blooded youth.
-   BUILD: lean and agile.
    COLORS: Wu red: crimson, red, orange and gold.

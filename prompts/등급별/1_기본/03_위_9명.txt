@@ -1,4 +1,4 @@
-A character design sheet of 13 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 9 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -24,9 +24,9 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. 13 characters in 5 columns x 3 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1536x1024 landscape. 9 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 13) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 9) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
@@ -83,28 +83,4 @@ CHARACTERS
    LOOK: bald round head, fat round face, rosy cheeks, huge belly.
    FACE: huge round moon face, chubby rosy cheeks, small sleepy eyes, button nose, simple grin, bald round head, naive strongman look.
    BUILD: huge and fat, the widest body on any sheet, big round belly.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-10. Guo Huai  [CAVALRY, Wei]
-   DESIGN: Guo Huai, calm frontier general with a fur collar, blue armor.
-   LOOK: 50s, square jaw, short neat grey-streaked beard, calm heavy-lidded eyes, fur hat.
-   FACE: weathered square face, calm heavy-lidded eyes, broad nose, short grey-streaked beard, patient mouth, frontier windburn.
-   BUILD: sturdy.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-11. Zhang Liao  [CAVALRY, Wei]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Zhang Liao, stern veteran cavalry general, long hair tied back, blue-purple armor, crescent-bladed halberd.
-   LOOK: 40s, sharp angular face, long hair in a high tail, thin mustache, a scar on his left cheek, narrow hawk eyes.
-   FACE: sharp angular face, narrow hawk eyes, scar on the left cheek, straight thin nose, tight disciplined mouth, tanned skin, cold battle-hardened stare.
-   BUILD: lean and hard, tall.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-12. Zhang He  [CAVALRY, Wei]
-   DESIGN: Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
-   LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
-   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
-   BUILD: slender but broad-shouldered.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-13. Xiahou Ba  [CAVALRY, Wei]
-   DESIGN: Xiahou Ba, young determined general in blue armor.
-   LOOK: late teens, short spiky hair, no beard, eager wide eyes, a small sticking plaster on his nose.
-   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, small sticking plaster on the nose, open toothy grin.
-   BUILD: teenage, short and wiry.
    COLORS: Wei blue: navy, deep blue and steel with silver.

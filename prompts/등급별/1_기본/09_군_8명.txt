@@ -1,4 +1,4 @@
-A character design sheet of 12 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 8 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -24,9 +24,9 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. 12 characters in 5 columns x 3 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1536x1024 landscape. 8 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 12) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 8) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
@@ -77,28 +77,4 @@ CHARACTERS
    LOOK: young, black mask scarf over the lower face.
    FACE: young sharp eyes above a black mask scarf over the lower face, lean face, quick bandit glance.
    BUILD: lean and agile.
-   COLORS: his own colors as described (independent).
-9. Sima Hui  [SCHOLAR, Independent]
-   DESIGN: Sima Hui, the Water Mirror hermit sage, white and pale-blue hermit robes, a feather fan and a mirror-like round jade disk.
-   LOOK: elderly, long silky white beard, bright clear eyes, gentle knowing smile, simple hermit cap.
-   FACE: long serene face, bright clear eyes in kind wrinkles, small nose, gentle knowing smile, smooth old skin, saintly calm hermit.
-   BUILD: thin old hermit, relaxed.
-   COLORS: white, pale blue and silver (hermit).
-10. Guan Lu  [SORCERER, Independent]
-   DESIGN: Guan Lu, diviner holding a turtle shell, glowing trigram symbols floating around it.
-   LOOK: homely face, big forehead, thick eyebrows.
-   FACE: homely face, big bulging forehead, thick eyebrows, odd wandering eyes, wide nose, eccentric fortune-teller grin.
-   BUILD: short with a big head.
-   COLORS: his own colors as described (independent).
-11. Yu Ji  [SORCERER, Independent]
-   DESIGN: Yu Ji, old Taoist hermit in a white robe, horsetail whisk raised, a gourd on his belt, soft healing glow.
-   LOOK: old, white topknot, gentle smile.
-   FACE: smooth ageless old face, white topknot, gentle closed-eye smile, small nose, glowing pale skin, serene Taoist immortal.
-   BUILD: thin old man, light as a feather.
-   COLORS: his own colors as described (independent).
-12. Zhang Jiao  [SORCERER, Independent]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Zhang Jiao, Yellow Turban leader in a yellow Taoist robe and yellow headscarf, long beard, staff raised, crackling lightning around his hand.
-   LOOK: gaunt old face, long grey beard.
-   FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression.
-   BUILD: skeletal and gaunt.
    COLORS: his own colors as described (independent).

@@ -1,0 +1,74 @@
+A character design sheet of 7 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. 7 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 7) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Gan Ning  [ROGUE, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Gan Ning, brash pirate-like fighter with bells on his belt, feathered headband and tattoos, crouching leap with a big curved sword.
+   LOOK: feathered headband, tattoos on arms and neck, gold earrings, wild grin.
+   FACE: wide grinning face, big toothy grin, wild bright eyes, broken flat nose, sun-tanned skin, tattooed neck, reckless pirate expression.
+   BUILD: lean and muscular, tattooed arms.
+   COLORS: Wu red: crimson, red, orange and gold.
+2. Ling Cao  [ROGUE, Wu]
+   DESIGN: Ling Cao, rough river captain with a cutlass and a rope over the shoulder, crouching.
+   LOOK: sun-tanned sailor, bandana, rough stubble.
+   FACE: sun-tanned sailor face, rough stubble, squinting eyes from the sea glare, broad nose, salt-cracked lips, bandana.
+   BUILD: stocky sailor.
+   COLORS: Wu red: crimson, red, orange and gold.
+3. Ling Tong  [ROGUE, Wu]
+   DESIGN: Ling Tong, young agile fighter in a red outfit, mid-spin with a three-section staff.
+   LOOK: young, high ponytail, clean-shaven, energetic.
+   FACE: young MAN, lively angular face, bright energetic eyes, thick brows, small nose, eager open-mouthed grin, stubble on the jaw, high ponytail, hot-blooded youth.
+   BUILD: lean and agile.
+   COLORS: Wu red: crimson, red, orange and gold.
+4. Ma Zhong  [ROGUE, Wu]
+   DESIGN: Ma Zhong, sly young officer with a dagger in each hand and a coiled rope, sneaking pose.
+   LOOK: thin weasel-like face, small mustache, shifty eyes.
+   FACE: thin weasel-like face, small mustache, shifty narrow eyes, pointed nose, sneaky grin.
+   BUILD: thin and sneaky.
+   COLORS: Wu red: crimson, red, orange and gold.
+5. Yan Baihu  [ROGUE, Wu]
+   DESIGN: Yan Baihu, local bandit king wearing a white tiger pelt, heavy curved saber resting on his shoulder.
+   LOOK: scruffy beard under a white tiger pelt hood.
+   FACE: rough bandit face, scruffy beard, small greedy eyes, broken nose, missing teeth, dirty tanned skin, white tiger pelt hood.
+   BUILD: burly, slightly fat.
+   COLORS: Wu red: crimson, red, orange and gold.
+6. Lü Meng  [ROGUE, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Lü Meng, general disguised in a plain white merchant's robe, sneaking pose, a saber hidden behind his back and a book in the other hand.
+   LOOK: stocky, short beard, plain white robe hood.
+   FACE: square stocky face, thick neck, heavy brows, small sharp eyes, broad nose, short scruffy beard, a scholar's ink stain on his cheek, focused cunning look.
+   BUILD: stocky, thick neck.
+   COLORS: Wu red: crimson, red, orange and gold.
+7. Ding Feng  [ROGUE, Wu]
+   DESIGN: Ding Feng, snow-battle hero in light armor and a fur hat, dashing pose with a short sword in each hand.
+   LOOK: 50s veteran, grey stubble, fur hat.
+   FACE: grizzled old face, grey stubble, squinting cheerful eyes in wrinkles, broken nose, gap-toothed laugh, fur hat.
+   BUILD: short and tough old man.
+   COLORS: Wu red: crimson, red, orange and gold.

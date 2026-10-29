@@ -1,4 +1,4 @@
-A character design sheet of 13 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+A character design sheet of 9 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
 These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
 character must be clear, simple and instantly recognizable.
 
@@ -24,85 +24,61 @@ masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headw
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
 LAYOUT:
-- Image 1536x1024 landscape. 13 characters in 5 columns x 3 rows (a short last row is centered), reading order left to right, top to bottom.
+- Image 1536x1024 landscape. 9 characters in 5 columns x 2 rows (a short last row is centered), reading order left to right, top to bottom.
 - Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
-- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 13) in big white digits.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 9) in big white digits.
 - No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
 
 CHARACTERS
-1. Lü Xiang  [ARCHER, Wei]
-   DESIGN: Lü Xiang, archer officer in simple blue armor, holding a longbow with an arrow nocked, quiver on back.
-   LOOK: very young, clean-shaven, short cropped hair under a simple cloth cap, freckles.
-   FACE: very young MAN, freckled square face, short cropped hair, wide nervous eyes, thick brows, small nose, faint stubble, earnest rookie.
-   BUILD: young, slim.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-2. Xiahou Yuan  [ARCHER, Wei]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Xiahou Yuan, lean swift archer general, light blue armor and headband, drawing a bow at full stretch, quiver on back.
-   LOOK: 40s, wild long ponytail, sharp hawk eyes, thin pointed beard, lean.
-   FACE: lean long face, sharp hawk eyes, hooked thin nose, thin pointed beard, wild excited grin, tanned skin, restless reckless expression.
-   BUILD: lean and long-limbed.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-3. Hao Zhao  [ARCHER, Wei]
-   DESIGN: Hao Zhao, stubborn fortress defender in a blue helmet, aiming a large crossbow, bolt quiver at his hip.
-   LOOK: 40s, heavy full helmet, stern square face, short black beard.
-   FACE: stern square face, short black beard, unwavering small eyes, broad nose, tight mouth, stubborn fortress defender.
-   BUILD: stocky.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-4. Guo Jia  [STRATEGIST, Wei]  ★ICONIC: draw the famous traditional look exactly
-   DESIGN: Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
-   LOOK: pale young face, smug smile, flushed cheeks, loose untied hair.
-   FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius.
-   BUILD: slender and loose-limbed.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
-5. Liu Ye  [STRATEGIST, Wei]
+1. Liu Ye  [STRATEGIST, Wei]
    DESIGN: Liu Ye, young inventor strategist with a white feather fan, a blueprint and a small catapult model at his feet.
    LOOK: young, curious bright eyes, ink stains on his fingers and cheek.
    FACE: young curious face, bright inquisitive eyes, ink stains on fingers and cheek, small nose, excited smile, inventor.
    BUILD: slim young man.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-6. Zhong Hui  [STRATEGIST, Wei]
+2. Zhong Hui  [STRATEGIST, Wei]
    DESIGN: Zhong Hui, arrogant young noble strategist in a fine blue robe, white feather fan raised, ambitious smirk.
    LOOK: young man, sharp arrogant face, long hair with a gold hairpin.
    FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, thin mustache, pale skin, ambitious smug genius.
    BUILD: slim, chin raised.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-7. Xun Yu  [SCHOLAR, Wei]
+3. Xun Yu  [SCHOLAR, Wei]
    DESIGN: Xun Yu, dignified elegant scholar with a neat beard, formal dark blue official robe and tall hat, holding a court tablet, a fragrant incense pouch at the waist.
    LOOK: elegant 40s, neat full beard, tall formal hat.
    FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression.
    BUILD: tall and upright.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-8. Chen Qun  [SCHOLAR, Wei]
+4. Chen Qun  [SCHOLAR, Wei]
    DESIGN: Chen Qun, neat bureaucrat official in a scholar's hat, holding a thick law book and a brush.
    LOOK: neat thin goatee, squinting eyes, official hat.
    FACE: neat narrow face, squinting bureaucratic eyes, neat thin goatee, small mouth, pale indoor skin, meticulous official.
    BUILD: neat and thin.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-9. Jia Xu  [SCHEMER, Wei]
+5. Jia Xu  [SCHEMER, Wei]
    DESIGN: Jia Xu, old crafty schemer with a thin mustache and half-closed eyes, dark hooded robe, holding a small poison vial and a scroll.
    LOOK: old, hunched, thin long mustache, half-closed eyes, wrinkled.
    FACE: wrinkled shrewd old face, half-closed lazy eyes, droopy thin mustache, small mouth, sallow skin, unreadable bored expression.
    BUILD: hunched old man.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-10. Deng Ai  [SCHEMER, Wei]
+6. Deng Ai  [SCHEMER, Wei]
    DESIGN: Deng Ai, rugged plotter wrapped in a felt blanket cloak for a secret mountain crossing, holding a rolled route map and a coil of rope, determined.
    LOOK: rugged square jaw, stubble, windburned cheeks.
    FACE: rugged square jaw, windburned red cheeks, squinting stubborn eyes, crooked nose, stubble, slight stutter frown, hardy peasant general.
    BUILD: stocky and rugged.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-11. Sima Yi  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
+7. Sima Yi  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Sima Yi, patient schemer with a thin long beard, dark purple-navy hooded robe, holding a black go stone between two fingers, sly sideways glance.
    LOOK: gaunt face, thin long beard, wolf-like glance over his shoulder.
    FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking back over the shoulder, long thin nose, thin lips in a faint cunning smile, pale skin, scheming patience.
    BUILD: tall and gaunt, long neck.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-12. Cheng Yu  [SCHEMER, Wei]
+8. Cheng Yu  [SCHEMER, Wei]
    DESIGN: Cheng Yu, tall stern old advisor with a long white beard, dark robe, holding an ambush map marked with ten flags.
    LOOK: very tall old man, long white beard, stern furrowed brow.
    FACE: very long stern face, deep furrowed brow, piercing narrow eyes, long nose, long white beard, cold grim mouth, harsh old official.
    BUILD: very tall and thin old man.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-13. Cao Cao  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
+9. Cao Cao  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Cao Cao, the classic ambitious warlord: sharp eyes, short black beard, black-and-navy robe with gold trim and a short cape, official crown hat, holding his famous straight sword (Yitian sword) with confidence. Schemer hint only: a sly smirk and a sealed scroll tucked in his belt.
    LOOK: 40s, sharp narrow eyes, short trimmed black beard, official crown hat.
    FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma.
