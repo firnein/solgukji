@@ -62,7 +62,7 @@ static var aim_enabled := true       # 표적 계열 켜기 (표식)
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
 static var counter_charge := false   # 반격을 맞은 쪽도 고유기 게이지가 차는가 —— 차면 반격이 적 고유기를 앞당겨 철벽이 손해를 봤다(10/29 측정)
 static var scheme_enabled := true    # 계략 계열 켜기 (혼란 걸기 · 키우기 · 옮기기 · 미인계)
-static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 감읍 · 도원결의 · 단량)
+static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 · 도원결의 · 단량)
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
@@ -989,7 +989,7 @@ func _tac_rout(u: Unit) -> void:
 
 # ───────── 철벽 · 계략 · 인덕 (솔국지 확장) ─────────
 
-## 머리표에 보일 상태 —— 상태이상에 방진 · 감읍 버프를 더한다 (표시용, 판정에 쓰지 않는다)
+## 머리표에 보일 상태 —— 상태이상에 방진 · 분발 버프를 더한다 (표시용, 판정에 쓰지 않는다)
 func _shown_st(u: Unit) -> Array:
 	var out: Array = u.st.map(func(x): return x.k)
 	if _phalanx(u):
@@ -1087,7 +1087,7 @@ func _after_hit(a: Unit, d: Unit) -> void:
 			stats.mends += t.troops - b
 
 
-## 감읍 —— 치료받은 아군이 2턴 동안 공격 · 책략 + (이미 있으면 남은 턴만 늘린다). 유비 「인의」면 방진도 친다
+## 분발 —— 치료받은 아군이 2턴 동안 공격 · 책략 + (이미 있으면 남은 턴만 늘린다). 유비 「인의」면 방진도 친다
 func _give_moved(u: Unit) -> void:
 	var dur: int = int(DB.PSV.virtue.moved_dur)
 	var found := false
@@ -1100,7 +1100,7 @@ func _give_moved(u: Unit) -> void:
 		u.buffs.append({"stat": "atk", "amt": amt, "dur": dur, "moved": true})
 		u.buffs.append({"stat": "int", "amt": amt, "dur": dur, "moved": true})
 		stats.moved += 1
-		L("sk", "%s 감읍해 힘을 낸다" % ga(nm(u)), {"fx": "buff", "f": u.key, "up": true})
+		L("sk", "%s 분발해 힘을 낸다" % ga(nm(u)), {"fx": "buff", "f": u.key, "up": true})
 	if _side_max(u.camp, "moved_phalanx") > 0:
 		_give_phalanx(u, dur, "인의")
 

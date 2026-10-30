@@ -1025,7 +1025,7 @@ func card_info(k: String) -> void:
 	var uc = UI.unique_chips(k)
 	if uc != null:
 		var uh := UI.hbox(6)
-		var ul := UI.lbl("금색", 12, Color("#e8c25a"), true)
+		var ul := UI.lbl("고유", 12, Color("#e8c25a"), true)
 		ul.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		uh.add_child(ul)
 		uc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1038,7 +1038,7 @@ func card_info(k: String) -> void:
 	top.add_child(st)
 	b.add_child(top)
 	if c.sk:
-		b.add_child(UI.rich("[color=#D9A64B]일반 기술 『%s』[/color]  [color=#8D7B5C]%s · 차례마다 %d%% 충전[/color]\n%s" % [
+		b.add_child(UI.rich("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s · 차례마다 %d%% 충전[/color]\n%s" % [
 			c.sk.n, DB.cond_text(c.sk.cond), roundi(DB.D.RATE.get(str(c.tier), 0) * 100), DB.skill_desc(c)], 13))
 	var u = DB.ult_of(k) if c.tier >= 6 else null
 	if u != null:

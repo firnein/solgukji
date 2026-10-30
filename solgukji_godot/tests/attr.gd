@@ -139,7 +139,7 @@ func _match(t: int, core: Array, tf: int, foe_core: Array, _x: Array) -> Diction
 		"철벽": note = "방진 %.1f · 반격 %.1f · 사수 %.1f /판 (비중 = 반격 피해) · 물리 %.0f%% 책략 %.0f%% 고유기 %.0f%% · 방진 중 받은 물리 %.1f%%" % [per.call("phalanx"), per.call("counters"), per.call("stands"),
 			per.call("phys") / maxf(1, per.call("dmg")) * 100, per.call("intd") / maxf(1, per.call("dmg")) * 100, per.call("ult_dmg") / maxf(1, per.call("dmg")) * 100, per.call("ph_taken") / maxf(1, per.call("dmg")) * 100]
 		"계략": note = "혼란 %.1f · 옮김 %.1f · 제 편 공격 %.1f · 사기 꺾음 %.0f /판" % [per.call("confuses"), per.call("passes"), per.call("turncoats"), per.call("jolts")]
-		"인덕": note = "치료 %.0f · 감읍 %.1f · 도원결의 %.2f /판 (비중 = 치료량)" % [per.call("mends"), per.call("moved"), per.call("oaths")]
+		"인덕": note = "치료 %.0f · 분발 %.1f · 도원결의 %.2f /판 (비중 = 치료량)" % [per.call("mends"), per.call("moved"), per.call("oaths")]
 		_: note = "와해 %.1f · 궤멸 %.1f · 처형 %.1f · 표식 %.1f · 옮김 %.1f /판" % [per.call("breaks"), per.call("collapses"), per.call("execs"), per.call("marks"), per.call("chains")]
 	return {"w": w / games * 100, "turns": float(turns) / games, "share": share / maxf(1, dmg) * 100, "note": note,
 		"doused": per.call("doused"), "steams": per.call("steams")}
