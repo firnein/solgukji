@@ -1478,7 +1478,7 @@ class Hud extends Control:
 		draw_colored_polygon(poly, Color(0.06, 0.05, 0.07, 0.92 * fade))
 		draw_polyline(poly.slice(0, _brush.size()), Color(accent, 0.9 * fade), 3.0)
 		# 초상 —— 띠보다 크게, 옆에서 미끄러져 들어온다
-		var ph := minf(sz.y * (0.36 if tall else 0.62), 400.0)
+		var ph := minf(sz.y * (0.42 if tall else 0.66), 460.0) if DB.myth_art(cut.k) else minf(sz.y * (0.36 if tall else 0.62), 400.0)
 		var pw := ph * 0.78
 		var pin := ease(clampf((t - 0.05) / 0.25, 0, 1), 0.25)
 		var px: float
@@ -1493,7 +1493,11 @@ class Hud extends Control:
 			draw_rect(pr.grow(8), Color(col, 0.35 * fade))
 			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
 		if pin > 0.02:
-			Art.draw_portrait(self, pr, cut.k, t)
+			var mt := DB.myth_art(cut.k)
+			if mt:
+				Art._draw_cover(self, pr, mt)        # 고유기 컷인 —— 신화 그림 (10/30)
+			else:
+				Art.draw_portrait(self, pr, cut.k, t)
 			if fade < 1.0:
 				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
 			draw_rect(pr, Color(col, fade), false, 3.0)

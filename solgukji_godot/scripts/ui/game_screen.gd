@@ -43,6 +43,13 @@ var _sheet_scroll: ScrollContainer
 var _sheet_h := 0.0
 var _sheet_tw: Tween
 var _sheet_drag := -1.0       # 손잡이를 끄는 중이면 누른 y
+# 카드 시트 길 —— 상세 · 조합 시트에서 다른 카드로 넘어가면 지나온 카드를 쌓아 두고 '‹ 이전' · 오른쪽 쓸기로 돌아간다 (10/30)
+var _route := {}              # 지금 보는 카드 시트 {kind: "card" | "recipe", k}
+var _hist: Array = []         # 지나온 카드 시트들
+var _routing := false         # 카드 시트를 여는 중 (open_sheet 가 길을 지우지 않게)
+var _back_nav := false        # 뒤로 가는 중 (길에 쌓지 않게)
+var _back_btn: Button
+var _swipe_p := Vector2.INF   # 시트 위에서 누른 곳 (쓸기 판정)
 var _sheet_dy := 0.0
 var _toast_box: VBoxContainer
 var _battle_layer: Control
@@ -293,6 +300,12 @@ func _build_sheet() -> void:
 	tm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tm.add_child(top)
 	hv.add_child(tm)
+	_back_btn = UI.btn("‹", go_back, "ghost", 40)
+	_back_btn.add_theme_font_size_override("font_size", 14)
+	_back_btn.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3, DB.PAL.ink4, 1, 8, 6))
+	_back_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_back_btn.visible = false
+	top.add_child(_back_btn)
 	_sheet_title = UI.lbl("", 19, DB.PAL.paper, true)
 	_sheet_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sheet_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -616,6 +629,11 @@ func act(m: String, a := []):
 ## col 을 주면 제목을 그 색 · 큰 글씨로 (카드 시트 —— 등급색 장수 이름)
 func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	var was := _sheet.visible
+	if not _routing:
+		_route = {}
+		_hist.clear()
+	_routing = false
+	_update_back()
 	if not was:
 		Sfx.play("open")
 	_sheet_title.text = title
@@ -635,6 +653,8 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 
 
 func close_sheet() -> void:
+	_route = {}
+	_hist.clear()
 	if not _sheet.visible:
 		return
 	_slide_sheet(_sheet_h, 0.2, func():
@@ -644,6 +664,57 @@ func close_sheet() -> void:
 
 func sheet_open() -> bool:
 	return _sheet.visible
+
+
+## 카드 시트로 들어간다 —— 다른 카드 시트를 보던 중이면 그 시트를 길에 쌓는다
+func _route_enter(kind: String, k: String) -> void:
+	var r := {"kind": kind, "k": k}
+	if _back_nav:
+		_back_nav = false
+	elif _sheet.visible and not _route.is_empty() and _route != r:
+		_hist.append(_route)
+		if _hist.size() > 20:
+			_hist.pop_front()
+	elif not _sheet.visible:
+		_hist.clear()
+	_route = r
+	_routing = true
+
+
+## 이전 카드 시트로 (‹ 버튼 · 오른쪽 쓸기). 없으면 아무것도 하지 않는다
+func go_back() -> void:
+	if _hist.is_empty():
+		return
+	var r: Dictionary = _hist.pop_back()
+	_back_nav = true
+	if r.kind == "recipe":
+		recipe_sheet(r.k)
+	else:
+		card_info(r.k)
+
+
+func _update_back() -> void:
+	if _back_btn == null:
+		return
+	_back_btn.visible = not _hist.is_empty()
+	if _back_btn.visible:
+		var pk: String = _hist[-1].k
+		_back_btn.text = "‹ " + (DB.person(pk) if DB.C[pk].tier > 2 else DB.C[pk].name)
+
+
+## 시트 위 오른쪽 쓸기 —— 이전 카드 시트로
+func _input(e: InputEvent) -> void:
+	if not _sheet.visible or _hist.is_empty():
+		return
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		if e.pressed:
+			_swipe_p = e.position if _sheet.get_global_rect().has_point(e.position) else Vector2.INF
+		elif _swipe_p != Vector2.INF:
+			var d: Vector2 = e.position - _swipe_p
+			_swipe_p = Vector2.INF
+			if d.x > 90 and absf(d.y) < d.x * 0.5:
+				UI.buzz()
+				go_back()
 
 
 func _menu() -> void:
@@ -827,6 +898,7 @@ func recipe_card(out: String) -> Control:
 
 ## 조합 시트 —— 제목은 등급색 장수 이름. 결과 카드(특기 칸) · 재료 한 줄(가진 수/필요 수) · 조합 + 상세 버튼 한 줄
 func recipe_sheet(out: String) -> void:
+	_route_enter("recipe", out)
 	var c: Dictionary = DB.C[out]
 	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
 	var t0 := tile(out, run.pool().get(out, -1))
@@ -857,7 +929,10 @@ func recipe_sheet(out: String) -> void:
 	var fb := UI.btn("조합하기" if ok else "재료 부족 %d장" % run.miss_count(out), func():
 		if act("forge", [out]):
 			toast("%s 조합 완료" % c.name, "gain")
-			close_sheet(), "pri" if ok else "", 44)
+			if _hist.is_empty():
+				close_sheet()
+			else:
+				go_back(), "pri" if ok else "", 44)
 	fb.disabled = not ok
 	fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	br.add_child(fb)
@@ -1014,6 +1089,7 @@ func can_act() -> bool:
 # ───────── 카드 상세 ─────────
 
 func card_info(k: String) -> void:
+	_route_enter("card", k)
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
 	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
@@ -1166,7 +1242,11 @@ func _up_row(out: String) -> Control:
 		var fb := UI.btn("조합", func():
 			if act("forge", [out]):
 				toast("%s 조합 완료" % DB.C[out].name, "gain")
-				# 지금 보던 카드 상세를 다시 연다
+				# 지금 보던 카드 상세를 다시 연다 (지나온 길은 그대로)
+				if _route.get("kind", "") == "card":
+					_back_nav = true
+					card_info(_route.k)
+					return
 				for kk in DB.C:
 					if DB.C[kk].name == me:
 						card_info(kk)
@@ -1699,7 +1779,13 @@ func _dev_args() -> void:
 						code = r.code
 			online.net.send({"t": "join", "code": code})
 	if a.has("gsheet"):
-		var kv: PackedStringArray = str(a.gsheet).split(":")
+		# 쉼표로 여러 시트를 차례로 열 수 있다 (카드 시트 길 점검: --gsheet=card:c39,recipe:c11)
+		var parts: PackedStringArray = str(a.gsheet).split(",")
+		for pi in range(parts.size() - 1):
+			var kv0: PackedStringArray = parts[pi].split(":")
+			if kv0[0] == "card": card_info(kv0[1])
+			elif kv0[0] == "recipe": recipe_sheet(kv0[1])
+		var kv: PackedStringArray = parts[parts.size() - 1].split(":")
 		match kv[0]:
 			"card": card_info(kv[1])
 			"recipe": recipe_sheet(kv[1])

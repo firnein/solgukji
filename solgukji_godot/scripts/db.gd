@@ -296,6 +296,13 @@ func person(k: String) -> String:
 ## (일러스트를 등급 구간마다 따로 뽑는다 —— prompts/삼국지_일러스트_프롬프트.md)
 ## 없으면 null 을 돌려주고, 그리는 쪽에서 수묵 실루엣 플레이스홀더를 쓴다.
 ## 임포트 없이 파일을 떨궈 넣기만 하면 바뀌도록 Image 로 직접 읽는다. 파일이 없으면(내보낸 앱) 임포트된 텍스처를 쓴다.
+## 신화 그림 (<인물>_신화.png) —— 고유기 컷인에 쓴다. 등급과 관계없이 그 인물의 신화 그림이 있으면 (없으면 null)
+func myth_art(k: String) -> Texture2D:
+	if C[k].tier <= 2:
+		return null
+	return _load_portrait("res://assets/portraits/%s_신화" % person(k))
+
+
 func portrait(k: String) -> Texture2D:
 	var base := portrait_base(k)
 	return _portrait_cache.get(base) if base != "" else null

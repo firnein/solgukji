@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d1afwrq00rruc"
-valid=false
+uid="uid://b3o6mdnpeyem8"
+path="res://.godot/imported/주유.png-2770fadbe31d205bb78a5f32c249d27a.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/portraits/주유.png"
+dest_files=["res://.godot/imported/주유.png-2770fadbe31d205bb78a5f32c249d27a.ctex"]
 
 [params]
 
