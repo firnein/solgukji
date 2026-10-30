@@ -1037,6 +1037,17 @@ func card_info(k: String) -> void:
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
 	b.add_child(top)
+	# 고유 특기 —— 접지 않고 바로 보인다 (꾸밈 문구 + 효과 + 수치)
+	for t in DB.trait_list(k):
+		if t.unique:
+			var gd: String = t.d
+			var parts := gd.split(" —— ", true, 1)
+			var ub := "[color=#FFD76E][b]고유 『%s%d』[/b][/color]%s  [color=#E8C25A]%s[/color]" % [t.name, t.lv, " 단체" if t.group else "", parts[0]]
+			if parts.size() > 1:
+				ub += "\n[color=#C6AC7C]%s[/color]" % parts[1]
+			if t.mt != "":
+				ub += "\n[color=#8FD4C2]%s[/color]" % t.mt
+			b.add_child(UI.panel(UI.rich(ub, 14), 8))
 	if not c.get("sks", []).is_empty():
 		var sl := []
 		for x in c.sks:
@@ -1050,18 +1061,13 @@ func card_info(k: String) -> void:
 	if not tl.is_empty():
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
 		var tg := _info_grid()
-		for t in tl:
-			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "
-"), ("
-[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
-			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "
-[color=#8D7B5C]단체[/color]" if t.group else ""], body)
+		for t in tl.filter(func(x): return not x.unique):
+			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "\n"), ("\n[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
+			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "\n[color=#8D7B5C]단체[/color]" if t.group else ""], body)
 		b.add_child(_fold_sec("card_traits", "특기 설명", tg))
 	var ag := _info_grid()
-	_info_row(ag, "[color=#8fd4c2]선호[/color]", "%s
-[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref")])
-	_info_row(ag, "[color=#e0806f]어색[/color]", "%s
-[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
+	_info_row(ag, "[color=#8fd4c2]선호[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref")])
+	_info_row(ag, "[color=#e0806f]어색[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
 	b.add_child(_fold_sec("card_aff", "선호 대열", ag))
 
 	b.add_child(UI.eyebrow("이 카드를 만드는 법"))
