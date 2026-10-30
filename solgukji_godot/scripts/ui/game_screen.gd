@@ -1005,13 +1005,13 @@ func card_info(k: String) -> void:
 	var st := UI.vbox(6)
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var sg := GridContainer.new()
-	sg.columns = 2
+	sg.columns = 5 if c["int"] > 0 else 4
 	sg.add_theme_constant_override("h_separation", 6)
 	sg.add_theme_constant_override("v_separation", 6)
 	for pair in [["공격", c.atk], ["방어", c["def"]], ["책략", c["int"]], ["책방", c.res], ["속도", c.spd]]:
 		if pair[0] == "책략" and pair[1] <= 0:
 			continue
-		var sp := UI.panel(UI.stat(str(int(pair[1])), pair[0]), 4)
+		var sp := UI.panel(UI.stat(str(int(pair[1])), pair[0]), 2)
 		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sg.add_child(sp)
 	sg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1028,13 +1028,21 @@ func card_info(k: String) -> void:
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
 		b.add_child(UI.trait_chips(k))
-		var lines := []
+		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
+		var tg := _info_grid()
 		for t in tl:
-			lines.append("[color=#8FD4C2][b]%s%d[/b][/color]%s [color=#C6AC7C]%s[/color]%s" % [t.name, t.lv, " (단체)" if t.group else "", t.d,
-				("\n   [color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""])
-		b.add_child(UI.rich("\n".join(lines), 13))
-	b.add_child(UI.rich("[color=#8fd4c2]선호[/color]  %s  %s\n[color=#e0806f]어색[/color]  %s  %s" % [
-		UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref"), UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")], 14))
+			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "
+"), ("
+[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
+			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "
+[color=#8D7B5C]단체[/color]" if t.group else ""], body)
+		b.add_child(tg)
+	var ag := _info_grid()
+	_info_row(ag, "[color=#8fd4c2]선호[/color]", "%s
+[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref")])
+	_info_row(ag, "[color=#e0806f]어색[/color]", "%s
+[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
+	b.add_child(ag)
 
 	b.add_child(UI.eyebrow("이 카드를 만드는 법"))
 	if DB.RECOF.has(k):
@@ -1060,6 +1068,25 @@ func card_info(k: String) -> void:
 		for t in far:
 			parts.append("%s %d종" % [DB.TIER[t].n, far[t]])
 		b.add_child(UI.hint("그 밖에 " + " · ".join(parts) + "에도 재료로 쓰인다."))
+
+
+## 상세 시트의 두 칸 표 —— 왼쪽 머리말, 오른쪽 내용 (오른쪽 줄들의 왼끝이 맞는다)
+func _info_grid() -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("v_separation", 8)
+	return g
+
+
+func _info_row(g: GridContainer, head: String, body: String) -> void:
+	var h := UI.rich(head, 14)
+	h.autowrap_mode = TextServer.AUTOWRAP_OFF
+	h.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	g.add_child(h)
+	var r := UI.rich(body, 13)
+	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	g.add_child(r)
 
 
 ## 상세 시트의 조합 줄 —— 재료 칩을 누르면 그 카드 상세로 넘어간다
