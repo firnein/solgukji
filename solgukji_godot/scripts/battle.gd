@@ -16,7 +16,7 @@ const MYTH_AMP := 1.6
 ## 턴 상한(원본 K.cap 20)과 첫 턴 기병 돌격 · 첫 공격 보너스도 이만큼 늘린다. 바꿀 때는 set_turn_mul().
 ## 등급마다 전투 길이가 달라(배율 3 에서 고급 10턴 · 초월 28턴) 전투에 나온 카드의 평균 등급으로 배율을 고른다 —— 어느 등급이든 15턴 안팎.
 const BASE_PACE := 0.35
-const TURN_MUL := {1: 4.5, 2: 4.5, 3: 4.5, 4: 4.3, 5: 2.6, 6: 1.6, 7: 1.8, 8: 3.9}
+const TURN_MUL := {1: 4.5, 2: 4.5, 3: 4.5, 4: 4.3, 5: 3.1, 6: 1.95, 7: 2.1, 8: 5.0}   # 10/30 기술 여러 개 · 축 특기 뒤 다시 맞춤
 static var auto_turn := true      # 전투마다 평균 등급으로 배율을 고른다 (점검 장면이 --tmul 로 고정하면 false)
 static var turn_mul := 3.0
 ## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다. = BASE_PACE / turn_mul
@@ -1380,12 +1380,19 @@ func act(u: Unit) -> void:
 	if not foes.any(func(o): return o.alive): return
 	# 고유기 —— 자동 정책이면 준비된 차례에 바로 쓴다 (영리한 AI·사람은 _between 에서 끼어든다)
 	u.gauge = minf(100.0, u.gauge + GAUGE_ACT * (1.2 if u.c.tier >= 8 else 1.0) / turn_mul)
-	var sk = u.c.sk
+	var sk = null
 	var used := false
-	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동
-	if sk:
+	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동.
+	# 기술이 여러 개면 충전 하나를 같이 쓰고, 조건이 맞는 것 가운데 앞선 것 하나 (2026-10-30)
+	var sks: Array = u.c.get("sks", [])
+	if not sks.is_empty():
 		u.sk_charge = minf(SK_BANK, u.sk_charge + sk_rate(u))
-	if sk and u.sk_charge >= 1.0 and _sk_cond(u, str(sk.get("cond", "always")), foes, allies):
+		if u.sk_charge >= 1.0:
+			for x in sks:
+				if _sk_cond(u, str(x.get("cond", "always")), foes, allies):
+					sk = x
+					break
+	if sk:
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false

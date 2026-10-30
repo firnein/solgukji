@@ -109,6 +109,7 @@ func _reskill() -> void:
 		var c: Dictionary = C[k]
 		if c.tier < 4:
 			c.sk = null
+			c.sks = []
 			continue
 		# 인물에게 지정된 스킬 (계열 인물의 계열 스킬) —— 없으면 남은 병종 스킬을 돌려 쓴다
 		var want: String = PSV.skill.get(person(k), {}).get(c.tag, "")
@@ -126,6 +127,55 @@ func _reskill() -> void:
 			i = free[idx[key] % free.size()]
 			idx[key] += 1
 		c.sk = _build_skill(c.tag, i, c.tier)
+	for k in ids:
+		C[k].sks = _skill_list(k)
+
+
+## 기술 여러 개 (솔국지 확장, 2026-10-30) —— 첫 기술은 원본 배정 그대로, 등급이 오를수록 범용 기술을 더한다 (전설 +1 · 초월 +1 · 불멸 · 신화 +2).
+## 더하는 기술은 그 인물 특기의 축(도트 · 둔화 · 혼란 …)에 맞는 것부터, 자기 주 능력치(공격 / 책략)와 같은 종류만.
+const SKILL_EXTRA := {5: 1, 6: 1, 7: 2, 8: 2}
+const AXIS_SKILLS := {"도트": ["화공", "화시난발", "역병"], "둔화": ["수공", "철기유린"], "혼란": ["혹세", "봉계"],
+	"책방깎": ["팔문금쇄", "저주"], "방깎": ["필사돌격", "저격"], "물리": ["횡소천군", "일점돌파", "일제사격"],
+	"책략": ["이간", "밀계"], "공깎": ["후미교란", "철기유린"], "책략깎": ["밀계", "이간"], "철벽": ["철벽방진"],
+	"인덕": ["격려", "독려", "인덕"]}
+
+func _skill_list(k: String) -> Array:
+	var c: Dictionary = C[k]
+	if c.sk == null:
+		return []
+	var out := [c.sk]
+	var n: int = SKILL_EXTRA.get(c.tier, 0)
+	if n <= 0:
+		return out
+	var kind := "int" if c["int"] > c.atk else "phys"
+	var want := []
+	for e in PSV.ladder.get(person(k), []):
+		var a: String = PSV.traits.get(e[0], {}).get("attr", "")
+		for nm in AXIS_SKILLS.get(a, []):
+			if not want.has(nm): want.append(nm)
+	for nm in D.SKILLPOOL[c.tag].map(func(x): return x.n):
+		if not want.has(nm): want.append(nm)
+	for tg in D.TAGORDER:
+		for x in D.SKILLPOOL[tg]:
+			if not want.has(x.n): want.append(x.n)
+	for nm in want:
+		if out.size() > n:
+			break
+		if out.any(func(x): return x.n == nm):
+			continue
+		var b = _build_skill_named(nm, c.tier)
+		if b != null and b.eff.kind == kind:
+			out.append(b)
+	return out
+
+
+func _build_skill_named(nm: String, tier: int):
+	for tg in D.SKILLPOOL:
+		var pool: Array = D.SKILLPOOL[tg]
+		for j in pool.size():
+			if pool[j].n == nm:
+				return _build_skill(tg, j, tier)
+	return null
 
 
 ## 합친 상태이상 (2026-10-30) —— 출혈은 화상으로, 봉인은 혼란으로. 원본 기술 · 고유기 데이터는 그대로 두고 불러올 때 바꾼다
@@ -651,10 +701,12 @@ func tgt_name(t: String) -> String:
 	return t
 
 
-func skill_desc(c: Dictionary) -> String:
-	if c.sk == null:
+func skill_desc(c: Dictionary, sk = null) -> String:
+	if sk == null:
+		sk = c.sk
+	if sk == null:
 		return ""
-	var e: Dictionary = c.sk.eff
+	var e: Dictionary = sk.eff
 	var p := []
 	var pct := func(v): return "%d%%" % roundi(v * 100)
 	match e.kind:

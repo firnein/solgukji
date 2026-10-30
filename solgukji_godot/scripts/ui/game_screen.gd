@@ -1037,9 +1037,12 @@ func card_info(k: String) -> void:
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
 	b.add_child(top)
-	if c.sk:
-		b.add_child(UI.rich("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s · 차례마다 %d%% 충전[/color]\n%s" % [
-			c.sk.n, DB.cond_text(c.sk.cond), roundi(DB.D.RATE.get(str(c.tier), 0) * 100), DB.skill_desc(c)], 13))
+	if not c.get("sks", []).is_empty():
+		var sl := []
+		for x in c.sks:
+			sl.append("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.cond_text(x.cond), DB.skill_desc(c, x)])
+		b.add_child(UI.rich("[color=#8D7B5C]기술 %d개 · 충전 하나를 같이 씀 (차례마다 %d%%)[/color]\n" % [c.sks.size(), roundi(DB.D.RATE.get(str(c.tier), 0) * 100)]
+			+ "\n".join(sl), 13))
 	var u = DB.ult_of(k) if c.tier >= 6 else null
 	if u != null:
 		b.add_child(UI.rich("[color=#ffd76e][b]고유기 『%s』[/b][/color]  “%s”\n%s" % [u.name, u.shout, UI.ult_desc(u)], 14))
