@@ -400,19 +400,23 @@ static func stat(value: String, label: String) -> VBoxContainer:
 	return v
 
 
-## 특기 칸 줄 —— 네모 안에 이름 + 레벨(금색), 단체 특기는 옥색 테두리. 폭에 맞춰 줄바꿈
-static func trait_chips(k: String, fs := 14) -> HFlowContainer:
-	var f := flow(5)
+## 특기 격자 —— 같은 폭의 칸(cols 줄)에 이름 + 레벨(금색), 칸 색은 계열 (DB.trait_col)
+static func trait_chips(k: String, fs := 15, cols := 4) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = cols
+	g.add_theme_constant_override("h_separation", 4)
+	g.add_theme_constant_override("v_separation", 4)
 	for t in DB.trait_list(k):
-		var r := rich("[color=#E9E3D3]%s[/color][color=#D9A64B]%d[/color]" % [t.name, t.lv], fs)
-		r.fit_content = true
+		var tc := DB.trait_col(t)
+		var r := rich("[center][color=#F2EEE4]%s[/color][color=#FFD76E]%d[/color][/center]" % [t.name, t.lv], fs)
 		r.autowrap_mode = TextServer.AUTOWRAP_OFF
 		var pc := PanelContainer.new()
-		pc.add_theme_stylebox_override("panel", flat(DB.PAL.ink3, DB.PAL.jade if t.group else DB.PAL.ink4.lightened(0.15), 1, 4, 5))
+		pc.add_theme_stylebox_override("panel", flat(tc.darkened(0.5), tc, 1, 4, 4))
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pc.mouse_filter = Control.MOUSE_FILTER_PASS
 		pc.add_child(r)
-		f.add_child(pc)
-	return f
+		g.add_child(pc)
+	return g
 
 
 static func card_bb(k: String) -> String:

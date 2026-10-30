@@ -116,7 +116,7 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.55))
 
 
-## 특기 칸 —— 네모 안에 이름 + 레벨(금색). 칸이 모자라면 마지막에 +n. 단체 특기는 옥색 테두리
+## 특기 칸 —— 네모 안에 이름 + 레벨(금색), 계열 색(DB.trait_col). 칸이 모자라면 마지막에 +n
 static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 	var ts := DB.trait_list(id)
 	var fb := DB.font_body
@@ -136,8 +136,9 @@ static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 			ci.draw_string(fb, q, more, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.bamboo)
 			return
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = DB.PAL.ink3
-		sb.border_color = DB.PAL.jade if t.group else DB.PAL.ink4.lightened(0.15)
+		var tc := DB.trait_col(t)
+		sb.bg_color = tc.darkened(0.55)
+		sb.border_color = tc
 		sb.set_border_width_all(1)
 		sb.set_corner_radius_all(3)
 		ci.draw_style_box(sb, Rect2(p, Vector2(cw, ch)))

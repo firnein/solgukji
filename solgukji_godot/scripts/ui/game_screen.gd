@@ -1005,17 +1005,24 @@ func card_info(k: String) -> void:
 	var st := UI.vbox(6)
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var sg := GridContainer.new()
-	sg.columns = 5 if c["int"] > 0 else 4
+	sg.columns = 4
 	sg.add_theme_constant_override("h_separation", 6)
 	sg.add_theme_constant_override("v_separation", 6)
-	for pair in [["공격", c.atk], ["방어", c["def"]], ["책략", c["int"]], ["책방", c.res], ["속도", c.spd]]:
-		if pair[0] == "책략" and pair[1] <= 0:
-			continue
-		var sp := UI.panel(UI.stat(str(int(pair[1])), pair[0]), 2)
+	# 공격은 하나로 —— 책략이 더 높은 장수는 책략 값을 파랑으로, 아니면 물리 공격을 빨강으로
+	var magic: bool = c["int"] > c.atk
+	for pair in [["공격", c["int"] if magic else c.atk], ["방어", c["def"]], ["책방", c.res], ["속도", c.spd]]:
+		var sv := UI.stat(str(int(pair[1])), pair[0])
+		if pair[0] == "공격":
+			(sv.get_child(0) as Label).add_theme_color_override("font_color", Color("#6fa8ff") if magic else Color("#ff6b5a"))
+			(sv.get_child(1) as Label).text = "책략 공격" if magic else "물리 공격"
+		var sp := UI.panel(sv, 2)
 		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sg.add_child(sp)
 	sg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	st.add_child(sg)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 6
+	st.add_child(gap)
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
 	b.add_child(top)
@@ -1036,13 +1043,13 @@ func card_info(k: String) -> void:
 [color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
 			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "
 [color=#8D7B5C]단체[/color]" if t.group else ""], body)
-		b.add_child(tg)
+		b.add_child(_fold_sec("card_traits", "특기 설명", tg))
 	var ag := _info_grid()
 	_info_row(ag, "[color=#8fd4c2]선호[/color]", "%s
 [color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref")])
 	_info_row(ag, "[color=#e0806f]어색[/color]", "%s
 [color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
-	b.add_child(ag)
+	b.add_child(_fold_sec("card_aff", "선호 대열", ag))
 
 	b.add_child(UI.eyebrow("이 카드를 만드는 법"))
 	if DB.RECOF.has(k):
@@ -1068,6 +1075,30 @@ func card_info(k: String) -> void:
 		for t in far:
 			parts.append("%s %d종" % [DB.TIER[t].n, far[t]])
 		b.add_child(UI.hint("그 밖에 " + " · ".join(parts) + "에도 재료로 쓰인다."))
+
+
+## 접는 칸 —— 머리줄을 누르면 열고 닫는다. 기본은 닫힘, 연 상태는 _open[key] 에 남아 다른 카드에서도 이어진다
+func _fold_sec(key: String, title: String, body: Control) -> Control:
+	var v := UI.vbox(6)
+	var hb := Button.new()
+	hb.flat = true
+	hb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hb.custom_minimum_size.y = 36
+	hb.add_theme_font_override("font", DB.font_display)
+	hb.add_theme_font_size_override("font_size", 14)
+	hb.add_theme_color_override("font_color", DB.PAL.bamboo)
+	var upd := func():
+		var on: bool = _open.get(key, false)
+		hb.text = ("▾ " if on else "▸ ") + title
+		body.visible = on
+	hb.pressed.connect(func():
+		UI.buzz()
+		_open[key] = not _open.get(key, false)
+		upd.call())
+	upd.call()
+	v.add_child(hb)
+	v.add_child(body)
+	return v
 
 
 ## 상세 시트의 두 칸 표 —— 왼쪽 머리말, 오른쪽 내용 (오른쪽 줄들의 왼끝이 맞는다)

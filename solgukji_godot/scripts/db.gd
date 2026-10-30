@@ -396,14 +396,24 @@ func trait_list(k: String) -> Array:
 		return []
 	var by := {}
 	for t in ps.traits:
-		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "d": t.d, "mt": mods_text(t.m, 1.0, C[k].tier)}
+		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "d": t.d, "mt": mods_text(t.m, 1.0, C[k].tier)}
 	for g in ps.groups:
-		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "d": g.d, "mt": mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)}
+		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "d": g.d, "mt": mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)}
 	var out := []
 	for e in PSV.ladder[person(k)]:
 		if by.has(e[0]):
 			out.append(by[e[0]])
 	return out
+
+
+## 특기 칸 색 —— 계열마다 (화공 붉은 주황 · 수공 파랑 · 돌파 주황 · 표적 분홍 · 철벽 강철 · 계략 보라 · 인덕 초록), 계열 없는 개인 특기는 황토, 단체는 청록
+const TRAIT_COL := {"화공": Color("#c8553d"), "수공": Color("#3f7fc0"), "돌파": Color("#c98a2e"), "표적": Color("#c0507a"),
+	"철벽": Color("#6f8aa6"), "계략": Color("#8a5ab8"), "인덕": Color("#4f9a5a"), "": Color("#a8893c"), "단체": Color("#3f9a94")}
+
+func trait_col(t: Dictionary) -> Color:
+	if t.attr == "" and t.group:
+		return TRAIT_COL["단체"]
+	return TRAIT_COL.get(t.attr, TRAIT_COL[""])
 
 
 ## 단체 특기 이름 -> 정의
