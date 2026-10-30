@@ -1,18 +1,16 @@
 extends Node
-## 계열 점검 —— 실행: godot --headless --path . res://tests/attr.tscn [-- --attr=화공|수공|돌파|표적|철벽|계략|인덕 --games=200]
+## 특기 축 점검 —— 실행: godot --headless --path . res://tests/attr.tscn [-- --attr=물리|책략|도트|공깎|책략깎|방깎|책방깎|둔화|혼란|철벽|인덕 --games=200]
 ##
-## 계열 덱: 그 등급에서 그 계열 특기가 붙은 카드 중 6장(많으면 판마다 무작위) + 같은 등급 무작위로 9장 (맞수 인물은 뺀다).
-##  ① 계열 덱 vs 같은 등급 무작위 —— 그 계열을 켰을 때와 껐을 때 (차이가 계열의 몫)
-##  ② 계열 덱 vs 맞수 인물이 든 무작위 (화공 → 사마의, 수공 → 조인, 돌파 → 허저, 표적 → 정봉, 철벽 → 장료(와해), 계략 → 노숙(명경), 인덕 → 정욱(단량))
-##  ③ 계열 덱 vs 한 등급 위 무작위 —— 등급 격차가 그대로인지
-##  ④ 화공 덱 vs 수공 덱 (--attr=수공 일 때) —— 수몰이 불을 끄는 상극, 신화는 주유 「수륙병진」
+## 축 덱: 그 등급에서 그 축 특기(고유 특기 포함)가 붙은 카드 중 6장(많으면 판마다 무작위) + 같은 등급 무작위로 9장.
+##  ① 축 덱 vs 같은 등급 무작위 —— 그 축을 켰을 때와 껐을 때 (Battle.axis_off, 차이가 축의 몫)
+##  ② 축 덱 vs 한 등급 위 무작위 —— 등급 격차가 그대로인지
 ## 양쪽 영리 AI, 홀수 판은 진영을 바꿔 붙인다.
 
 const FORMS := ["eorin", "hagik", "bongsi", "anwol", "bangwon", "anhaeng", "chuhaeng", "jangsa"]
-const COUNTER := {"화공": "사마의", "수공": "조인", "돌파": "허저", "표적": "정봉", "철벽": "장료", "계략": "노숙", "인덕": "정욱"}
-const NOT_DECK := {"돌파": ["전위"], "인덕": ["조조"]}     # 맞수 특기만 가진 인물 —— 계열 덱에 넣지 않는다
+const COUNTER := {}       # 맞수 인물 (2026-10-30 축 개편 뒤로는 비워 둔다)
+const NOT_DECK := {}
 var games := 200
-var attr := "화공"
+var attr := "물리"
 
 
 func _ready() -> void:
@@ -24,7 +22,7 @@ func _ready() -> void:
 	if args.has("tmul"):                  # 턴 배율 (Battle.turn_mul) 바꿔 보기
 		Battle.auto_turn = false
 		Battle.set_turn_mul(float(args.tmul))
-	attr = str(args.get("attr", "화공"))
+	attr = str(args.get("attr", "물리"))
 	Battle.ults_enabled = not args.has("noult")
 	Battle.counter_charge = args.has("charge")
 	Battle.counter_enabled = not args.has("nocls")
@@ -37,7 +35,7 @@ func _ready() -> void:
 		DB._psv_cache.clear()
 	var tiers: Array = Array(str(args.get("tiers", "3,4,5,6,7,8")).split(",")).map(func(x): return int(x))
 	var t0 := Time.get_ticks_msec()
-	var cp: String = COUNTER[attr]
+	var cp: String = COUNTER.get(attr, "")
 	for t in tiers:
 		var deck := _attr_cards(t, attr, cp)
 		var ctr := DB.by_tier(t).filter(func(k): return DB.person(k) == cp)
@@ -58,23 +56,13 @@ func _ready() -> void:
 		if t < 8:
 			var up := _match(t, deck, t + 1, [], [])
 			print("  한 등급 위 무작위: %.0f%%" % up.w)
-		if attr == "수공":
-			var fire := _attr_cards(t, "화공", "사마의")
-			if not fire.is_empty():
-				var fw := _match(t, deck, t, fire, [])
-				print("  수공 덱 vs 화공 덱: 수공 %.0f%% (화상 꺼짐 %.1f · 수륙병진 %.1f /판)" % [fw.w, fw.doused, fw.steams])
 	print("소요 %.1f초" % ((Time.get_ticks_msec() - t0) / 1000.0))
 	get_tree().quit()
 
 
 func _toggle(a: String, on: bool) -> void:
-	if a == "화공": Battle.fire_enabled = on
-	if a == "수공": Battle.water_enabled = on
-	if a == "돌파": Battle.dash_enabled = on
-	if a == "표적": Battle.aim_enabled = on
-	if a == "철벽": Battle.guard_enabled = on
-	if a == "계략": Battle.scheme_enabled = on
-	if a == "인덕": Battle.virtue_enabled = on
+	if on: Battle.axis_off.erase(a)
+	else: Battle.axis_off[a] = true
 
 
 func _attr_cards(t: int, a: String, counter: String) -> Array:
@@ -122,11 +110,10 @@ func _match(t: int, core: Array, tf: int, foe_core: Array, _x: Array) -> Diction
 		turns += r.turns
 		var s: Dictionary = r.stats
 		match attr:
-			"화공": share += s.burn + s.fire_amp
-			"수공": share += s.flood + s.water_amp
+			"도트": share += s.burn + s.fire_amp
 			"철벽": share += s.counter_dmg
-			"계략": share += s.scheme_amp
 			"인덕": share += s.mends
+			"물리", "책략": share += s.cleaves
 			_: share += s.tac_amp
 		dmg += s.dmg + s.burn + s.flood
 		for k in s:
@@ -134,12 +121,12 @@ func _match(t: int, core: Array, tf: int, foe_core: Array, _x: Array) -> Diction
 	var per := func(k): return st.get(k, 0.0) / games
 	var note := ""
 	match attr:
-		"화공": note = "점화 %.1f · 번짐 %.1f /판" % [per.call("ignites"), per.call("spreads")]
-		"수공": note = "침수 %.1f · 물길 %.1f · 도강 %.1f · 휩쓸림 %.1f /판" % [per.call("soaks"), per.call("flows"), per.call("tides"), per.call("drowned")]
-		"철벽": note = "방진 %.1f · 반격 %.1f · 사수 %.1f /판 (비중 = 반격 피해) · 물리 %.0f%% 책략 %.0f%% 고유기 %.0f%% · 방진 중 받은 물리 %.1f%%" % [per.call("phalanx"), per.call("counters"), per.call("stands"),
-			per.call("phys") / maxf(1, per.call("dmg")) * 100, per.call("intd") / maxf(1, per.call("dmg")) * 100, per.call("ult_dmg") / maxf(1, per.call("dmg")) * 100, per.call("ph_taken") / maxf(1, per.call("dmg")) * 100]
-		"계략": note = "혼란 %.1f · 옮김 %.1f · 제 편 공격 %.1f · 사기 꺾음 %.0f /판" % [per.call("confuses"), per.call("passes"), per.call("turncoats"), per.call("jolts")]
+		"도트": note = "점화 %.1f · 번짐 %.1f /판" % [per.call("ignites"), per.call("spreads")]
+		"물리", "책략": note = "기세 %.1f · 추격 %.1f · 이웃 피해 %.0f · 처형 %.1f /판" % [per.call("kills_amp"), per.call("chases"), per.call("cleaves"), per.call("execs")]
+		"공깎", "책략깎", "방깎", "책방깎": note = "깎기 %.1f회 · 깎은 양 %.0f /판" % [per.call("cut_n"), per.call("cuts")]
+		"둔화": note = "침수 %.1f · 도강 %.1f · 휩쓸림 %.1f /판" % [per.call("soaks"), per.call("tides"), per.call("drowned")]
+		"혼란": note = "혼란 %.1f · 위압 %.1f · 옮김 %.1f · 제 편 공격 %.1f /판" % [per.call("confuses"), per.call("awes"), per.call("passes"), per.call("turncoats")]
+		"철벽": note = "방진 %.1f · 반격 %.1f · 사수 %.1f /판 (비중 = 반격 피해)" % [per.call("phalanx"), per.call("counters"), per.call("stands")]
 		"인덕": note = "치료 %.0f · 분발 %.1f · 도원결의 %.2f /판 (비중 = 치료량)" % [per.call("mends"), per.call("moved"), per.call("oaths")]
-		_: note = "와해 %.1f · 궤멸 %.1f · 처형 %.1f · 표식 %.1f · 옮김 %.1f /판" % [per.call("breaks"), per.call("collapses"), per.call("execs"), per.call("marks"), per.call("chains")]
 	return {"w": w / games * 100, "turns": float(turns) / games, "share": share / maxf(1, dmg) * 100, "note": note,
-		"doused": per.call("doused"), "steams": per.call("steams")}
+		"doused": per.call("doused")}

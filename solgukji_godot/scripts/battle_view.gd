@@ -921,6 +921,8 @@ func _apply(i: int, quiet := false) -> void:
 			hud.float_text(f, DB.D.STATUS[e.st].n, Color(DB.D.STATUS[e.st].c).lightened(0.2), 13)
 		"cleanse":
 			hud.float_text(f, DB.D.STATUS[e.st].n + " 해제", Color("#8FD4C2"), 12)
+		"debuff":       # 수치 깎기 (위축 · 산란 · 파갑 · 현혹)
+			hud.float_text(f, "%s −%d" % [DB.D.STATUS[e.st].n, roundi(e.n)], Color(DB.D.STATUS[e.st].c).lightened(0.2), 12)
 
 
 ## 피해 숫자 —— 스킬·고유기로 들어간 타격은 치명타로 크게 찍는다 (수치는 엔진 그대로)

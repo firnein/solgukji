@@ -128,6 +128,10 @@ func _reskill() -> void:
 		c.sk = _build_skill(c.tag, i, c.tier)
 
 
+## 합친 상태이상 (2026-10-30) —— 출혈은 화상으로, 봉인은 혼란으로. 원본 기술 · 고유기 데이터는 그대로 두고 불러올 때 바꾼다
+const ST_MERGE := {"bleed": "burn", "seal": "confuse"}
+
+
 func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 	var pool: Array = D.SKILLPOOL[tag]
 	var base: Dictionary = pool[i % pool.size()]
@@ -140,7 +144,10 @@ func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 		if base.has(key):
 			e[key] = base[key]
 	if base.has("status"):
-		var s: Dictionary = base.status
+		var s: Dictionary = base.status.duplicate()
+		s.k = ST_MERGE.get(s.k, s.k)
+		if s.k == "confuse":
+			s.dur = 1          # 혼란은 차례를 통째로 날린다 —— 봉인(2턴)에서 온 것도 1턴
 		var ratio: bool = s.k == "burn" or s.k == "flood"
 		e.status = {"k": s.k,
 			"val": snappedf(s.val * m, 0.001 if ratio else 0.1),
@@ -414,9 +421,11 @@ func trait_list(k: String) -> Array:
 	return out
 
 
-## 특기 칸 색 —— 계열마다 (화공 붉은 주황 · 수공 파랑 · 돌파 주황 · 표적 분홍 · 철벽 강철 · 계략 보라 · 인덕 초록), 계열 없는 개인 특기는 황토, 단체는 청록
-const TRAIT_COL := {"화공": Color("#c8553d"), "수공": Color("#3f7fc0"), "돌파": Color("#c98a2e"), "표적": Color("#c0507a"),
-	"철벽": Color("#6f8aa6"), "계략": Color("#8a5ab8"), "인덕": Color("#4f9a5a"), "": Color("#a8893c"), "단체": Color("#3f9a94")}
+## 특기 칸 색 —— 축마다 (2026-10-30: 물리 · 책략 · 도트 · 공깎 · 책략깎 · 방깎 · 책방깎 · 둔화 · 혼란 · 철벽 · 인덕), 축 없는 개인은 회황, 단체는 청록
+const TRAIT_COL := {"물리": Color("#c98a2e"), "책략": Color("#3f7fc0"), "도트": Color("#c8553d"),
+	"공깎": Color("#b0504a"), "책략깎": Color("#5a6fc0"), "방깎": Color("#a8893c"), "책방깎": Color("#8a5ab8"),
+	"둔화": Color("#3f9aa8"), "혼란": Color("#9a5ab0"), "철벽": Color("#6f8aa6"), "인덕": Color("#4f9a5a"),
+	"": Color("#8a8668"), "단체": Color("#3f9a94")}
 
 func trait_col(t: Dictionary) -> Color:
 	if t.attr == "" and t.group:
@@ -460,7 +469,13 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"aim": "표식 확률", "mark_amp": "표식된 적에게 피해", "mark_hit": "관통 추가 피해", "mark_res": "표식 저항",
 	"phalanx": "방진 확률", "counter_hit": "반격 피해", "phalanx_amp": "방진 중 반격 피해",
 	"sow": "혼란 확률", "jolt": "맞힐 때 적 사기 -", "confuse_amp": "혼란·봉인된 적에게 피해",
-	"mend": "차례마다 치료", "cheer_hit": "맞힐 때 아군 치료"}
+	"mend": "차례마다 치료", "cheer_hit": "맞힐 때 아군 치료",
+	"kill_amp": "적을 무너뜨린 뒤 다음 공격 피해", "cleave": "같은 열 이웃에게 피해", "icleave": "같은 열 이웃에게 책략 피해",
+	"int_low": "절반 아래 적에게 책략 피해", "sk_amp": "기술 책략 피해", "ally_sk": "아군 기술 때 충전",
+	"cut_atk": "맞힐 때 적 공격 −(내 공격의)", "cut_int": "맞힐 때 적 책략 −(내 책략의)", "cut_def": "맞힐 때 적 방어 −(내 공격의)",
+	"cut_res": "맞힐 때 적 책방 −(내 책략의)", "first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
+	"open_cut_int": "시작에 적 후군 책략 −(내 책략의)", "open_cut_res": "시작에 적 전원 책방 −(내 책략의)",
+	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt"]
 
 
@@ -472,7 +487,8 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 			out.append("선공")
 			continue
 		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break",
-				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx"]:      # 계열 마무리 —— 설명으로 충분
+				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx",
+				"chase", "open_slow"]:      # 계열 마무리 —— 설명으로 충분
 			continue
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
@@ -505,6 +521,11 @@ func ult_of(k: String):
 	var u: Dictionary = base.duplicate(true)
 	u.first = u.get("first", ULT.first[str(C[k].tier)])
 	u.cd = u.get("cd", ULT.cd)
+	for comp in u.eff:
+		if comp.has("status"):
+			comp.status.k = ST_MERGE.get(comp.status.k, comp.status.k)
+			if comp.status.k == "confuse":
+				comp.status.dur = mini(int(comp.status.dur), 1)
 	if C[k].tier <= 7:
 		var s: float = ULT.tier7_scale if C[k].tier == 7 else ULT.tier6_scale
 		for comp in u.eff:

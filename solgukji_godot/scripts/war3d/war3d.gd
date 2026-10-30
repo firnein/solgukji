@@ -12,7 +12,7 @@ const CS := 118.0       # 좌·중앙·우 간격 (px) —— 옆 부대와 거�
 const TEAM := {"A": Color("#3f7fd0"), "B": Color("#c8463c")}
 const ST_COL := {"burn": Color("#ff8a3c"), "flood": Color("#4a9ad4"), "confuse": Color("#b57edc"),
 	"bleed": Color("#c4564a"), "plague": Color("#7fa86b"), "seal": Color("#9a9a9a"),
-	"break": Color("#e8a84a"), "mark": Color("#ff5a7a"),     # 와해 · 표식 (솔국지 확장)
+	"cut_atk": Color("#e0705a"), "cut_int": Color("#7f8fe0"), "cut_def": Color("#e8a84a"), "cut_res": Color("#c46fd0"),     # 위축 · 산란 · 파갑 · 현혹 (수치 깎기, 솔국지 확장)
 	"phalanx": Color("#7fb2e5"), "moved": Color("#f2c46d")}  # 방진 · 분발 (버프)
 const WEAPON := {"창병": "spear", "도적": "sword", "기병": "lance"}
 const HAND := {"spear": Vector3(0.16, 0.74, 0.24), "sword": Vector3(0.2, 0.74, 0.22), "lance": Vector3(0.16, 1.62, 0.27),
