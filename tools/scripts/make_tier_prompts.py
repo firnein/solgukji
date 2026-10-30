@@ -349,23 +349,27 @@ REFERENCE (attached image): the general shown in the reference is THIS person. K
 eye shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
 Do not turn them into a generic handsome warrior —— the face must clearly be the reference face, only realistic and terrifying.
 
+IDENTITY FIRST: a fan must name this general at a glance from the face, headwear, facial hair, outfit colors and weapon.
+Everything in the MUST SHOW line has to be clearly visible and well lit. Their own outfit colors stay true and readable ——
+never tint the whole picture one color, never let light or effects wash out the face or the costume.
+
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
 - CLOSE and IMPACTFUL: the face and upper body dominate the panel (from an extreme face close-up to at most waist-up),
   shoulders, weapons and hair may run off the panel edges.
 - Follow the COMPOSITION line exactly (camera angle, head direction, crop, weapon placement) and the LIGHT line exactly
   (color of the light and the background). These differ for every general, so the cards in the game never look alike.
-- The killing intent is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder) with a
-  murderous, overwhelming glare —— bared teeth, a roar, or a chilling calm smile, a cruel or merciless look as fits the
-  person. Scholars and schemers look just as deadly in their own way: an icy contemptuous stare, a smile that means you
-  are already dead.
+- The threat is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder). Follow the
+  EXPRESSION line —— each general is dangerous in their OWN way (a roar, a sly smile, cold contempt, serene certainty,
+  drunken madness, a seductive smile), never the same generic angry face.
 
 STYLE:
 - Premium anime card illustration, realistic-leaning proportions (not chibi), very sharp detailed face: intense eyes with
   a sharp catchlight, deep shadows under the brow, sweat, battle grime, scars and blood specks where they fit.
-- Hard cinematic lighting: dark background, one strong key light from the side or below plus a burning rim light along
-  the hair, cheek and shoulder; high contrast, the eyes the brightest point of the face.
-- Background is dark and simple, in the colors of the LIGHT line —— only mood, no detailed scene, nothing that pulls
-  attention from the face. Do NOT add guardian beasts or giant spirit animals.
+- LIGHTING: clear and natural on the character —— the face evenly lit with true skin tone, readable details, a soft rim
+  light only to separate them from the background. No blinding glow, no heavy colored light on the face, no lens flare.
+- BACKGROUND: the setting of the SCENE line, painted softly and slightly out of focus behind them so each card has its own
+  place and color (a palace, a river fleet, a mountain path, a burning camp ...). It must not be brighter than the face.
+  Do NOT add guardian beasts or giant spirit animals.
 - A thin ornate dark-gold card frame around the edge of the image.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version of their gear, seen close up —— heavy gilded and engraved armor, worn and
@@ -410,11 +414,14 @@ def tier_entry(i, x, card, tier):
     elif tier == 7 and scene:
         lines.append("   MOMENT (paint this scene): " + scene)
     elif tier == 8 and scene:
-        lines.append("   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): " + scene)
+        lines.append("   SCENE (paint this setting softly behind them, the character in front and naturally lit, no guardian beasts): " + scene)
     if tier == 8:
         lines.append("   COMPOSITION: " + COMP.get(x["p"], COMPS[0]) + ".")
         if x["p"] in LIGHT:
-            lines.append("   LIGHT: " + LIGHT[x["p"]] + ".")
+            lines.append("   BACKGROUND COLOR: " + LIGHT[x["p"]] + " (only behind them, the character stays naturally lit).")
+        lines.append("   EXPRESSION: " + EXPR.get(x["p"], "a cold murderous glare straight at the viewer") + ".")
+        h, f, m = SIG[x["p"]]
+        lines.append("   MUST SHOW (clearly, large and well lit): %s; %s; %s." % (h, f if f != "-" else "her face", m))
     return "\n".join(lines)
 
 
@@ -449,22 +456,22 @@ def assign_comps(names):
 
 
 LIGHTS = [
-    "blood-red sunset behind, hard orange rim light, black smoke",
-    "cold blue moonlight and heavy rain, wet hair and armor glinting",
-    "white lightning flash from above, storm clouds, stark black-and-white contrast with one accent color",
-    "green-gold lantern glow from below in a dark palace hall",
-    "roaring orange firelight from a burning fortress, flying embers",
-    "violet dusk mist, a pale moon, cold purple shadows",
-    "icy dawn light, frost breath, pale grey-blue sky",
-    "golden temple light through incense smoke, deep brown shadows",
-    "sickly green poison mist and dim torchlight",
-    "crimson battle haze with a low red sun, dust and arrows in the air",
+    "background in a red sunset haze",
+    "background in blue night rain",
+    "background under grey storm clouds",
+    "background in a lantern-lit palace hall",
+    "background with a burning camp far behind",
+    "background in violet dusk mist",
+    "background in cold misty dawn",
+    "background in warm incense smoke",
+    "background in a dark green forest gloom",
+    "background in a dusty yellow battlefield haze",
 ]
 LIGHT_PREF = {"관우": 3, "장비": 2, "조운": 1, "제갈량": 5, "주유": 4, "육손": 4, "조조": 7, "사마의": 6, "여포": 9, "초선": 5,
               "화타": 7, "장각": 2, "가후": 8, "곽가": 5, "손권": 1, "유비": 7, "황충": 0, "하후돈": 9, "장료": 6, "손책": 0}
 
 
-def assign_solo(names):
+def assign_solo(names):  # noqa
     """한 명씩 그리는 신화 —— 인물에 맞는 구도 · 조명부터, 없으면 가장 덜 쓴 것"""
     cu, lu = [0] * len(COMPS), [0] * len(LIGHTS)
     for p in names:
@@ -481,6 +488,31 @@ def assign_solo(names):
 
 
 LIGHT = {}
+# 신화 표정 —— 장수마다 다른 위협 (10/30 사용자: 다 비슷하다)
+EXPR = {
+    "순욱": "serene, perfectly composed noble calm, eyes half-lidded in quiet judgment —— elegance that is somehow frightening",
+    "조조": "a sly knowing smirk, one brow raised, eyes that read your every thought —— the hero of chaos amused by you",
+    "손권": "cold calm authority, chin slightly raised, the striking green-blue eyes fixed on you without blinking",
+    "손책": "a wild fierce grin full of teeth, eager to charge, youthful reckless fury",
+    "태사자": "grim honorable resolve, jaw set, the look of a man who keeps his word even unto death",
+    "감녕": "a savage pirate snarl, teeth bared, eyes wide with bloodlust",
+    "여몽": "a quiet scholar's stare that suddenly turns deadly, a faint cold smile",
+    "육손": "young calm cold calculation, the look of a commander who has already won",
+    "주유": "elegant proud disdain, a faint cool smile, a beautiful but merciless gaze",
+    "동탁": "a gluttonous tyrant's cruel leer, heavy-lidded eyes, a greedy grin",
+    "여포": "arrogant savage pride, a predator's grin, utterly fearless",
+    "사마휘": "a gentle old sage's mysterious smile, eyes that see through everything",
+    "장각": "a feverish zealot's wide-eyed glare, chanting, possessed by heaven's mandate",
+    "좌자": "an eerie playful smirk of a wizard, the blind milky eye glowing faintly",
+    "화타": "stern focused intensity of a master physician, calm but unyielding",
+    "진궁": "unbowed defiance, chin raised, contempt for death",
+    "초선": "a seductive dangerous smile behind the fan, eyes that charm and kill",
+    "관우": "majestic cold dignity, narrowed phoenix eyes, utterly silent menace",
+    "장비": "a thundering roar, eyes bulging, veins standing out",
+    "조운": "calm fearless focus, quietly confident, a hero's steady gaze",
+    "제갈량": "serene, all-knowing, a faint smile —— the calm of someone who planned your death long ago",
+    "유비": "sorrowful righteous resolve, tears held back, a gaze that commands loyalty",
+}
 
 
 def split(items, per):

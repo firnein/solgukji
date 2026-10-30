@@ -5,23 +5,27 @@ REFERENCE (attached image): the general shown in the reference is THIS person. K
 eye shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
 Do not turn them into a generic handsome warrior —— the face must clearly be the reference face, only realistic and terrifying.
 
+IDENTITY FIRST: a fan must name this general at a glance from the face, headwear, facial hair, outfit colors and weapon.
+Everything in the MUST SHOW line has to be clearly visible and well lit. Their own outfit colors stay true and readable ——
+never tint the whole picture one color, never let light or effects wash out the face or the costume.
+
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
 - CLOSE and IMPACTFUL: the face and upper body dominate the panel (from an extreme face close-up to at most waist-up),
   shoulders, weapons and hair may run off the panel edges.
 - Follow the COMPOSITION line exactly (camera angle, head direction, crop, weapon placement) and the LIGHT line exactly
   (color of the light and the background). These differ for every general, so the cards in the game never look alike.
-- The killing intent is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder) with a
-  murderous, overwhelming glare —— bared teeth, a roar, or a chilling calm smile, a cruel or merciless look as fits the
-  person. Scholars and schemers look just as deadly in their own way: an icy contemptuous stare, a smile that means you
-  are already dead.
+- The threat is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder). Follow the
+  EXPRESSION line —— each general is dangerous in their OWN way (a roar, a sly smile, cold contempt, serene certainty,
+  drunken madness, a seductive smile), never the same generic angry face.
 
 STYLE:
 - Premium anime card illustration, realistic-leaning proportions (not chibi), very sharp detailed face: intense eyes with
   a sharp catchlight, deep shadows under the brow, sweat, battle grime, scars and blood specks where they fit.
-- Hard cinematic lighting: dark background, one strong key light from the side or below plus a burning rim light along
-  the hair, cheek and shoulder; high contrast, the eyes the brightest point of the face.
-- Background is dark and simple, in the colors of the LIGHT line —— only mood, no detailed scene, nothing that pulls
-  attention from the face. Do NOT add guardian beasts or giant spirit animals.
+- LIGHTING: clear and natural on the character —— the face evenly lit with true skin tone, readable details, a soft rim
+  light only to separate them from the background. No blinding glow, no heavy colored light on the face, no lens flare.
+- BACKGROUND: the setting of the SCENE line, painted softly and slightly out of focus behind them so each card has its own
+  place and color (a palace, a river fleet, a mountain path, a burning camp ...). It must not be brighter than the face.
+  Do NOT add guardian beasts or giant spirit animals.
 - A thin ornate dark-gold card frame around the edge of the image.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version of their gear, seen close up —— heavy gilded and engraved armor, worn and
@@ -44,6 +48,8 @@ CHARACTERS
    IDENTITY: beautiful, elaborate hair ornaments and flowers. FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty. BUILD: slender woman.
    SIGNATURE (unique to her on this sheet): HAIR elaborate updo with flowers and dangling hair ornaments; MARK folded fan hiding half her face, long pink silk ribbons.
    COLORS: her own colors as described (independent).
-   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): the beauty under the moon, praying beneath a full moon that hides behind clouds, petals drifting.
+   SCENE (paint this setting softly behind them, the character in front and naturally lit, no guardian beasts): the beauty under the moon, praying beneath a full moon that hides behind clouds, petals drifting.
    COMPOSITION: three-quarter view, LOW angle from below, looming over the viewer, chin raised, looking down with contempt, the weapon resting on the shoulder.
-   LIGHT: violet dusk mist, a pale moon, cold purple shadows.
+   BACKGROUND COLOR: background in violet dusk mist (only behind them, the character stays naturally lit).
+   EXPRESSION: a seductive dangerous smile behind the fan, eyes that charm and kill.
+   MUST SHOW (clearly, large and well lit): elaborate updo with flowers and dangling hair ornaments; her face; folded fan hiding half her face, long pink silk ribbons.
