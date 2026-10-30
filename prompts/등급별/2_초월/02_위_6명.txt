@@ -1,22 +1,21 @@
-The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn one level fancier for a
-mobile card game's higher-rank card art (rank 1 upgrade).
+The SAME 6 Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
+card art (TRANSCENDENT rank) for a mobile card game.
 
 REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
 shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
-Only the drawing finish, outfit richness and pose change. Someone must recognize them instantly from the reference.
+The outfit becomes grander, but the person is unmistakably the same.
 
 STYLE:
-- Detailed chibi, about 3 heads tall, drawn larger: KNEE-UP to WAIST-UP framing, the character fills most of the panel.
-- Crisp ink lines with fine detail, richer cel shading with highlights, textured materials (lamellar plates, rivets,
-  stitched leather, layered cloth, wood grain on shafts, steel shine on blades).
-- Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
-  joyful expressions as fits the character.
-- Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
-  no buildings, no other people, no animals except the horse of a CAVALRY character.
-- CAVALRY characters are ALWAYS on horseback (see MOUNTED) —— never standing on foot.
+- Rich detailed chibi, about 3 to 3.5 heads tall, WAIST-UP or chest-up, large and close in the panel, slightly low angle.
+- Fine ink lines, deep shading with strong highlights, lavish material detail: gilded lamellar, embossed dragon/tiger/
+  phoenix motifs, fur collars, jeweled clasps, silk capes and sashes, tall plumes and crests.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot: the rider is the subject, with the horse's armored head, neck and mane in the lower part.
+  Others hold their signature weapon or item in a strong, characterful pose.
+- Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
+  —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
 
-OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
-bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
+OUTFIT LEVEL (TRANSCENDENT): ornate —— gold trims and engraved gilded plates, rich brocade, fur, jewels, capes and plumes,
+far more splendid than the base design, while keeping the character's main colors and signature items.
 EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
 the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
@@ -40,34 +39,34 @@ CHARACTERS
    SIGNATURE (unique to him on this sheet): HEAD blue cloth headscarf (no helmet); FACIAL HAIR full black beard; MARK small upright wooden coffin on a short rope behind his back, upright long spear.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    THIS RANK'S LOOK: Pang De, grim loyal general in dark iron armor with a large broad-bladed spear, a wooden coffin carried behind him by his soldiers.
-   POSE (no scenery, only the pose and expression of): marching out to face Guan Yu with his own coffin carried behind him, vowing to die or win.
+   POSE AND SOFT BACKGROUND HINT: marching out to face Guan Yu with his own coffin carried behind him, vowing to die or win.
 2. Xu Huang  [SPEARMAN, Wei] —— same person as reference #2
    IDENTITY: 40s, long drooping mustache, calm face, helmet with a blue tassel. FACE: long calm face, long drooping mustache, steady heavy-lidded eyes, straight broad nose, composed mouth, weathered skin, disciplined quiet strength. BUILD: solid and square.
    SIGNATURE (unique to him on this sheet): HEAD iron helmet with a blue tassel; FACIAL HAIR long drooping walrus mustache, no beard; MARK long-handled great axe.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-   POSE (no scenery, only the pose and expression of): General of the Right breaking the siege of Fancheng, great axe raised, river and siege towers.
+   POSE AND SOFT BACKGROUND HINT: General of the Right breaking the siege of Fancheng, great axe raised, river and siege towers.
 3. Cao Ren  [SPEARMAN, Wei] —— same person as reference #3
    IDENTITY: square face with a broad greying beard, heavy round helmet with the visor raised. FACE: huge square head, small hard eyes under a heavy brow, wide nose, broad GREYING beard, ruddy skin, immovable defender. BUILD: massive and square, like a wall.
    SIGNATURE (unique to him on this sheet): HEAD heavy round helmet with the visor raised; FACIAL HAIR broad greying beard; MARK man-tall tower shield, crouched guarding stance.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    THIS RANK'S LOOK: Cao Ren, defensive general in heavy blue plate armor, large rectangular tower shield and spear, solid immovable stance.
-   POSE (no scenery, only the pose and expression of): the iron wall standing before the walls of Fancheng behind his tower shield.
+   POSE AND SOFT BACKGROUND HINT: the iron wall standing before the walls of Fancheng behind his tower shield.
 4. Xiahou Dun  [SPEARMAN, Wei] —— same person as reference #4
    IDENTITY: black eyepatch, NEATLY tied hair in a tidy topknot, short thick black beard. FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, short thick black beard, snarling mouth with bared teeth, battle scars, fearsome expression. BUILD: big, broad-shouldered.
    SIGNATURE (unique to him on this sheet): HEAD neat tidy topknot; FACIAL HAIR short thick black beard; MARK black eyepatch over the LEFT eye, single-edged heavy blade.
    COLORS: Wei blue: navy, deep blue and steel with silver.
    THIS RANK'S LOOK: Xiahou Dun, fierce one-eyed general with a black eyepatch over his left eye, dark blue heavy armor, on foot, long spear braced forward and a round shield.
-   POSE (no scenery, only the pose and expression of): the one-eyed general after battle, newly tied black eyepatch, glaring with his single eye, spear on his shoulder.
+   POSE AND SOFT BACKGROUND HINT: the one-eyed general after battle, newly tied black eyepatch, glaring with his single eye, spear on his shoulder.
 5. Zhang Liao  [CAVALRY, Wei] —— same person as reference #5
    IDENTITY: 40s, grim veteran cavalry commander, dark steel helmet with cheek guards and a tall purple-black plume, square-cut short black beard, scar across the left cheek. FACE: hard square MAN's face, deep-set narrow cold eyes under heavy straight brows, scar across the left cheek, straight nose, square-cut short black beard and mustache, tanned skin, grim silent commander. BUILD: lean and hard, tall.
    SIGNATURE (unique to him on this sheet): HEAD dark steel helmet with cheek guards and a tall purple-black plume; FACIAL HAIR square-cut short black beard and mustache; MARK scar across the left cheek, crescent-bladed halberd, black horse.
    COLORS: Wei blue: navy, deep blue and steel with silver.
-   MOUNTED: riding a black warhorse —— rider and the front half of the horse (head, chest, front legs) in the panel.
-   POSE (no scenery, only the pose and expression of): the divine general of Hefei standing guard on the city gate tower at dawn, halberd planted, watching the river.
+   MOUNTED: riding a black warhorse —— rider waist-up, the horse's armored head, neck and mane in front of him.
+   POSE AND SOFT BACKGROUND HINT: the divine general of Hefei standing guard on the city gate tower at dawn, halberd planted, watching the river.
 6. Zhang He  [CAVALRY, Wei] —— same person as reference #6
    IDENTITY: elegant handsome man, refined long face, thin neat mustache. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
    SIGNATURE (unique to him on this sheet): HEAD helmet split half yellow and half blue; FACIAL HAIR thin neat mustache; MARK armor split yellow and blue, long spear.
    COLORS: split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao).
-   MOUNTED: riding a dapple-grey horse —— rider and the front half of the horse (head, chest, front legs) in the panel.
+   MOUNTED: riding a dapple-grey horse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    THIS RANK'S LOOK: Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
-   POSE (no scenery, only the pose and expression of): one of Wei's Five Elite Generals in an elegant charge, spear twirling.
+   POSE AND SOFT BACKGROUND HINT: one of Wei's Five Elite Generals in an elegant charge, spear twirling.

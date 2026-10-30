@@ -70,9 +70,9 @@ HORSE = {"여포": "Red Hare, a fiery red-chestnut warhorse with a flame-like ma
 # 기병이 아니어도 원전에서 말이 상징인 인물 —— 하후연(三日五百 기병), 방덕(白馬將軍)
 HORSE_EXTRA = {"하후연": "a lean fast horse at full gallop"}     # 방덕은 창병이라 말에서 내린다 (10/30 사용자)
 MOUNT = {"base": "MOUNTED: riding %s —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.",
-         6: "MOUNTED: riding %s —— rider and the front half of the horse (head, chest, front legs) in the panel.",
-         7: "MOUNTED: riding %s —— rider waist-up, the horse's armored head, neck and mane in front of him.",
-         8: "MOUNTED: riding %s —— rider and horse together in the scene, the horse charging or rearing."}
+         6: "MOUNTED: riding %s —— rider waist-up, the horse's armored head, neck and mane in front of him.",
+         7: "MOUNTED: riding %s —— rider and horse together in the scene, the horse charging or rearing.",
+         8: "MOUNTED: riding %s —— rider and a magnificent armored horse charging or rearing in full view, mane and tail like flames or wind."}
 
 
 def mount(x, key):
@@ -292,34 +292,10 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 CHARACTERS
 """
 
+# 10/30 사용자: 초월 · 불멸도 고티어인데 평범했다 —— 한 칸씩 올린다. 초월 = 예전 불멸, 불멸 = 예전 신화, 신화 = 더 화려한 새 단계
 TIER_COMMON = {
-    6: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, redrawn one level fancier for a
-mobile card game's higher-rank card art (rank 1 upgrade).
-
-REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
-shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
-Only the drawing finish, outfit richness and pose change. Someone must recognize them instantly from the reference.
-
-STYLE:
-- Detailed chibi, about 3 heads tall, drawn larger: KNEE-UP to WAIST-UP framing, the character fills most of the panel.
-- Crisp ink lines with fine detail, richer cel shading with highlights, textured materials (lamellar plates, rivets,
-  stitched leather, layered cloth, wood grain on shafts, steel shine on blades).
-- Confident poses that show personality: weapon raised, braced, aimed or held across the body; fierce, calm, sly or
-  joyful expressions as fits the character.
-- Each panel is a vertical rounded rectangle filled with a soft painted green foliage / watercolor texture. No scenery,
-  no buildings, no other people, no animals except the horse of a CAVALRY character.
-- CAVALRY characters are ALWAYS on horseback (see MOUNTED) —— never standing on foot.
-
-OUTFIT LEVEL (RANK 1): the same base outfit upgraded —— engraved armor plates with metal edge trims, a few silver or
-bronze accents, better cloth with simple woven patterns, belts and pouches. No heavy gold, no glow, no aura yet.
-{gender}
-
-{layout}
-
-CHARACTERS
-""",
-    7: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
-card art (rank 2 upgrade) for a mobile card game.
+    6: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, redrawn as splendid high-rank
+card art (TRANSCENDENT rank) for a mobile card game.
 
 REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
 shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
@@ -334,16 +310,16 @@ STYLE:
 - Panel background: a vertical rounded rectangle, a soft painted field with a few hints of the setting behind the character
   —— a faction banner, distant soldiers' silhouettes, smoke, mist or sparks —— kept soft and low-detail so the character pops.
 
-OUTFIT LEVEL (RANK 2): ornate —— gold trims and engraved gilded plates, rich brocade, fur, jewels, capes and plumes, much
-more splendid than rank 1, while keeping the character's main colors and signature items.
+OUTFIT LEVEL (TRANSCENDENT): ornate —— gold trims and engraved gilded plates, rich brocade, fur, jewels, capes and plumes,
+far more splendid than the base design, while keeping the character's main colors and signature items.
 {gender}
 
 {layout}
 
 CHARACTERS
 """,
-    8: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, painted as MYTHIC top-rank
-card illustrations for a mobile card game —— the most impressive art in the game.
+    7: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, painted as IMMORTAL-rank
+card illustrations for a mobile card game —— top-tier art, each one a small famous scene.
 
 REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
 shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
@@ -358,8 +334,41 @@ STYLE:
   (lightning, flames, a roaring spirit animal, a dragon of mist, swirling petals, golden light) wrapping around them.
 - CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
 
-OUTFIT LEVEL (MYTHIC): the most splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
+OUTFIT LEVEL (IMMORTAL): a very splendid version —— gilded armor or imperial silk covered in dragon, phoenix or tiger
 motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, while keeping main colors and signature items.
+{gender}
+
+{layout}
+
+CHARACTERS
+""",
+    8: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, painted as MYTHIC splash-art card
+illustrations for a mobile card game —— the rarest, most breathtaking art in the whole game, clearly a step ABOVE ordinary
+top-tier art. Think the legendary "ultra-rare" card of a gacha game.
+
+REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
+shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+The person is a living legend here, yet unmistakably the same.
+
+STYLE:
+- Premium anime splash art, heroic proportions (about 5 heads tall, only slightly stylized), full-body or three-quarter
+  body in an EPIC dynamic pose (mid-strike, charging, commanding a storm, unleashing a spell), strong perspective and depth.
+- Ultra-dense linework and painterly rendering, cinematic lighting: blazing rim light, god rays, bloom and lens glow,
+  deep contrast between a dark dramatic sky and the radiant hero. Eyes may glow faintly with their signature color.
+- Each panel is ONE epic scene of the character's legend at its peak, with a deep painted background (a sea of soldiers,
+  a burning fleet, collapsing walls, a stormy heaven), and a HUGE manifested guardian spirit behind them that fits the
+  character (a colossal green dragon, a roaring white tiger, a vermilion phoenix of fire, a thunder qilin, a celestial
+  tortoise-serpent, a giant ghostly army) towering over the scene, plus swirling elemental energy (fire, lightning,
+  water, wind, petals, starlight) and floating golden embers and particles everywhere.
+- Each panel has an ornate GOLD filigree frame with jade and ruby inlays and small dragon-head corner pieces; parts of
+  the effect (flames, a blade tip, a ribbon, the spirit's claw) may burst slightly OVER the frame edge for depth, but never
+  into a neighboring panel.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
+
+OUTFIT LEVEL (MYTHIC): the ultimate legendary version —— divine armor of gold and jade covered in sculpted dragon, phoenix
+or tiger reliefs, gem-studded, glowing engraved runes along the edges, enormous flowing silk capes and ribbons that float
+in the wind, an ornate halo or radiant crest behind the head, the signature weapon transformed into a legendary artifact
+(glowing edge, wrapped in its element), while keeping the character's main colors and signature items recognizable.
 {gender}
 
 {layout}
@@ -396,11 +405,11 @@ def tier_entry(i, x, card, tier):
         lines.append("   THIS RANK'S LOOK: " + d)
     scene = e.get("SCENE", "")
     if tier == 6 and scene:
-        lines.append("   POSE (no scenery, only the pose and expression of): " + scene)
-    elif tier == 7 and scene:
         lines.append("   POSE AND SOFT BACKGROUND HINT: " + scene)
-    elif tier == 8 and scene:
+    elif tier == 7 and scene:
         lines.append("   MOMENT (paint this scene): " + scene)
+    elif tier == 8 and scene:
+        lines.append("   LEGEND AT ITS PEAK (paint this scene as epic splash art, with the guardian spirit): " + scene)
     return "\n".join(lines)
 
 
