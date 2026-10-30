@@ -17,8 +17,8 @@ from collections import defaultdict
 OUT = "prompts/등급별"
 TIER_DIR = {6: "2_초월", 7: "3_불멸", 8: "4_신화"}
 SUFFIX = {6: "_초월", 7: "_불멸", 8: "_신화"}
-PER = {"base": 5, 6: 6, 7: 6, 8: 4}              # 한 장 인원 —— 많으면 모델이 인물별 지시를 섞거나 빠뜨린다 (기본 10명 · 초월 12명에서 실패)
-GRID = {5: (5, 1), 6: (3, 2), 4: (2, 2)}
+PER = {"base": 5, 6: 6, 7: 6, 8: 1}               # 신화는 한 장에 한 명 (10/30 —— 4명을 한 장에 그리면 구도 · 얼굴이 다 같아졌다)              # 한 장 인원 —— 많으면 모델이 인물별 지시를 섞거나 빠뜨린다 (기본 10명 · 초월 12명에서 실패)
+GRID = {5: (5, 1), 6: (3, 2), 4: (2, 2), 1: (1, 1)}
 FAC_EN = {"촉": "Shu", "위": "Wei", "오": "Wu", "군": "Independent"}
 FAC_ORDER = ["촉", "위", "오", "군"]
 CLASS_EN = {"창병": "SPEARMAN", "기병": "CAVALRY", "궁병": "ARCHER", "도적": "ROGUE",
@@ -342,21 +342,18 @@ motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, w
 
 CHARACTERS
 """,
-    8: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, painted as MYTHIC card art for a
-mobile card game —— the rarest, most intimidating art in the game. One look at the card should make the viewer feel this
-person is about to KILL THEM right now.
+    8: """ONE MYTHIC card illustration of a single Three Kingdoms general for a mobile card game —— the rarest, most
+intimidating art in the game. One look at the card should make the viewer feel this person is about to KILL THEM right now.
 
-REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
-shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
-The person is unmistakably the same, only far more terrifying and magnificent.
+REFERENCE (attached image): the general shown in the reference is THIS person. Keep the identity EXACTLY: the same face,
+eye shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+Do not turn them into a generic handsome warrior —— the face must clearly be the reference face, only realistic and terrifying.
 
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
 - CLOSE and IMPACTFUL: the face and upper body dominate the panel (from an extreme face close-up to at most waist-up),
   shoulders, weapons and hair may run off the panel edges.
-- EVERY PANEL HAS ITS OWN COMPOSITION —— follow each character's COMPOSITION line exactly. On one sheet no two panels may
-  share the same camera angle, head direction, crop or weapon placement. Vary: front / three-quarter / profile / looking
-  back over the shoulder; low angle / high angle / tilted (dutch) angle; extreme face crop / bust / waist-up; weapon in the
-  foreground / across the face / over the shoulder / swinging with motion blur.
+- Follow the COMPOSITION line exactly (camera angle, head direction, crop, weapon placement) and the LIGHT line exactly
+  (color of the light and the background). These differ for every general, so the cards in the game never look alike.
 - The killing intent is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder) with a
   murderous, overwhelming glare —— bared teeth, a roar, or a chilling calm smile, a cruel or merciless look as fits the
   person. Scholars and schemers look just as deadly in their own way: an icy contemptuous stare, a smile that means you
@@ -367,9 +364,9 @@ STYLE:
   a sharp catchlight, deep shadows under the brow, sweat, battle grime, scars and blood specks where they fit.
 - Hard cinematic lighting: dark background, one strong key light from the side or below plus a burning rim light along
   the hair, cheek and shoulder; high contrast, the eyes the brightest point of the face.
-- Background is dark and simple: smoke, embers, ash, rain, a blurred battlefield glow or blood-red sky —— only mood, no
-  detailed scene, nothing that pulls attention from the face. Do NOT add guardian beasts or giant spirit animals.
-- A thin ornate dark-gold frame around each panel. Nothing crosses into a neighboring panel.
+- Background is dark and simple, in the colors of the LIGHT line —— only mood, no detailed scene, nothing that pulls
+  attention from the face. Do NOT add guardian beasts or giant spirit animals.
+- A thin ornate dark-gold card frame around the edge of the image.
 
 OUTFIT LEVEL (MYTHIC): the most splendid version of their gear, seen close up —— heavy gilded and engraved armor, worn and
 battle-scarred, rich silk and fur at the collar, while keeping the character's main colors and signature items.
@@ -416,6 +413,8 @@ def tier_entry(i, x, card, tier):
         lines.append("   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): " + scene)
     if tier == 8:
         lines.append("   COMPOSITION: " + COMP.get(x["p"], COMPS[0]) + ".")
+        if x["p"] in LIGHT:
+            lines.append("   LIGHT: " + LIGHT[x["p"]] + ".")
     return "\n".join(lines)
 
 
@@ -449,9 +448,49 @@ def assign_comps(names):
         COMP[p] = COMPS[c]
 
 
+LIGHTS = [
+    "blood-red sunset behind, hard orange rim light, black smoke",
+    "cold blue moonlight and heavy rain, wet hair and armor glinting",
+    "white lightning flash from above, storm clouds, stark black-and-white contrast with one accent color",
+    "green-gold lantern glow from below in a dark palace hall",
+    "roaring orange firelight from a burning fortress, flying embers",
+    "violet dusk mist, a pale moon, cold purple shadows",
+    "icy dawn light, frost breath, pale grey-blue sky",
+    "golden temple light through incense smoke, deep brown shadows",
+    "sickly green poison mist and dim torchlight",
+    "crimson battle haze with a low red sun, dust and arrows in the air",
+]
+LIGHT_PREF = {"관우": 3, "장비": 2, "조운": 1, "제갈량": 5, "주유": 4, "육손": 4, "조조": 7, "사마의": 6, "여포": 9, "초선": 5,
+              "화타": 7, "장각": 2, "가후": 8, "곽가": 5, "손권": 1, "유비": 7, "황충": 0, "하후돈": 9, "장료": 6, "손책": 0}
+
+
+def assign_solo(names):
+    """한 명씩 그리는 신화 —— 인물에 맞는 구도 · 조명부터, 없으면 가장 덜 쓴 것"""
+    cu, lu = [0] * len(COMPS), [0] * len(LIGHTS)
+    for p in names:
+        c = COMP_PREF.get(p)
+        if c is None or cu[c] >= 3:
+            c = min(range(len(COMPS)), key=lambda k: cu[k])
+        lt = LIGHT_PREF.get(p)
+        if lt is None or lu[lt] >= 3:
+            lt = min(range(len(LIGHTS)), key=lambda k: lu[k])
+        cu[c] += 1
+        lu[lt] += 1
+        COMP[p] = COMPS[c]
+        LIGHT[p] = LIGHTS[lt]
+
+
+LIGHT = {}
+
+
 def split(items, per):
     """앞에서부터 per 명씩 꽉 채운다 —— 모자라는 마지막 장은 빈칸을 남긴다 (칸 수를 줄이면 비율이 깨진다)."""
     return [items[i:i + per] for i in range(0, len(items), per)]
+
+
+SOLO_LAYOUT = """LAYOUT:
+- Image 1024x1536 portrait. ONE single card illustration filling the whole image inside the card frame.
+- No text anywhere: no name, no title, no number, no banner, no caption, no signature, no watermark."""
 
 
 def layout(n, per, portrait):
@@ -486,6 +525,8 @@ def write_sheets(key, folder, groups, label, start=0):
     no, sizes = max(0, start - 1), []
     # 세력 순서대로 이어 붙여 꽉 채운다 —— 세력 경계에서 끊으면 1~2명짜리 시트가 생긴다
     allp = [pc for _, items in groups for pc in items]
+    if key == 8 and per == 1:
+        assign_solo([p for p, _ in allp])
     for chunk in split(allp, per):
         fac = "_".join(dict.fromkeys(c[4] for _, c in chunk))
         no += 1
@@ -494,11 +535,11 @@ def write_sheets(key, folder, groups, label, start=0):
             text = BASE_COMMON.format(n=n, gender=GENDER, layout=layout(n, per, False))
             text += "\n".join(base_entry(j + 1, INFO[p]) for j, (p, _) in enumerate(chunk)) + "\n"
         else:
-            if key == 8:
+            if key == 8 and per > 1:
                 assign_comps([p for p, _ in chunk])
-            text = TIER_COMMON[key].format(n=n, gender=GENDER, layout=layout(n, per, True))
+            text = TIER_COMMON[key].format(n=n, gender=GENDER, layout=SOLO_LAYOUT if per == 1 else layout(n, per, True))
             text += "\n".join(tier_entry(j + 1, INFO[p], c, key) for j, (p, c) in enumerate(chunk)) + "\n"
-        fname = "%02d_%s_%d명.txt" % (no, fac, n)
+        fname = ("%02d_%s.txt" % (no, chunk[0][0])) if per == 1 else ("%02d_%s_%d명.txt" % (no, fac, n))
         open(os.path.join(dst, fname), "w", encoding="utf-8", newline="\n").write(text)
         sizes.append(len(text))
         suf = SUFFIX.get(key, "")

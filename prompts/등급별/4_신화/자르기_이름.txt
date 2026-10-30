@@ -3,30 +3,110 @@
   다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)
 위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).
 
-[01_촉_4명.txt]  1 미염공 관우 · 2 만인적 장비 · 3 상산조자룡 조운 · 4 반골 위연
-  참조:   python -I tools/scripts/make_ref_sheet.py "관우,장비,조운,위연" prompts/등급별/4_신화/참조_01.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_신화,장비_신화,조운_신화,위연_신화" solgukji_godot/assets/portraits
+[01_관우.txt]  1 미염공 관우
+  참조:   python -I tools/scripts/make_ref_sheet.py "관우" prompts/등급별/4_신화/참조_01.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_신화" solgukji_godot/assets/portraits
 
-[02_촉_위_4명.txt]  1 신산 제갈량 · 2 인덕군주 유비 · 3 대장군 하후돈 · 4 강동의 악몽 장료
-  참조:   python -I tools/scripts/make_ref_sheet.py "제갈량,유비,하후돈,장료" prompts/등급별/4_신화/참조_02.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "제갈량_신화,유비_신화,하후돈_신화,장료_신화" solgukji_godot/assets/portraits
+[02_장비.txt]  1 만인적 장비
+  참조:   python -I tools/scripts/make_ref_sheet.py "장비" prompts/등급별/4_신화/참조_02.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장비_신화" solgukji_godot/assets/portraits
 
-[03_위_4명.txt]  1 삼일오백리 하후연 · 2 십승의 예언 곽가 · 3 장자방 순욱 · 4 난세간웅 조조
-  참조:   python -I tools/scripts/make_ref_sheet.py "하후연,곽가,순욱,조조" prompts/등급별/4_신화/참조_03.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "하후연_신화,곽가_신화,순욱_신화,조조_신화" solgukji_godot/assets/portraits
+[03_조운.txt]  1 상산조자룡 조운
+  참조:   python -I tools/scripts/make_ref_sheet.py "조운" prompts/등급별/4_신화/참조_03.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "조운_신화" solgukji_godot/assets/portraits
 
-[04_오_4명.txt]  1 소패왕 손책 · 2 오대제 손권 · 3 쌍극신사 태사자 · 4 백기겁영 감녕
-  참조:   python -I tools/scripts/make_ref_sheet.py "손책,손권,태사자,감녕" prompts/등급별/4_신화/참조_04.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "손책_신화,손권_신화,태사자_신화,감녕_신화" solgukji_godot/assets/portraits
+[04_위연.txt]  1 반골 위연
+  참조:   python -I tools/scripts/make_ref_sheet.py "위연" prompts/등급별/4_신화/참조_04.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "위연_신화" solgukji_godot/assets/portraits
 
-[05_오_군_4명.txt]  1 백의도강 여몽 · 2 화공대도독 육손 · 3 적벽대도독 주유 · 4 낙양겁화 동탁
-  참조:   python -I tools/scripts/make_ref_sheet.py "여몽,육손,주유,동탁" prompts/등급별/4_신화/참조_05.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "여몽_신화,육손_신화,주유_신화,동탁_신화" solgukji_godot/assets/portraits
+[05_제갈량.txt]  1 신산 제갈량
+  참조:   python -I tools/scripts/make_ref_sheet.py "제갈량" prompts/등급별/4_신화/참조_05.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "제갈량_신화" solgukji_godot/assets/portraits
 
-[06_군_4명.txt]  1 비장 여포 · 2 수경선생 사마휘 · 3 대현량사 장각 · 4 오각선생 좌자
-  참조:   python -I tools/scripts/make_ref_sheet.py "여포,사마휘,장각,좌자" prompts/등급별/4_신화/참조_06.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "여포_신화,사마휘_신화,장각_신화,좌자_신화" solgukji_godot/assets/portraits
+[06_유비.txt]  1 인덕군주 유비
+  참조:   python -I tools/scripts/make_ref_sheet.py "유비" prompts/등급별/4_신화/참조_06.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "유비_신화" solgukji_godot/assets/portraits
 
-[07_군_3명.txt]  1 신의 화타 · 2 백문충절 진궁 · 3 월하미인 초선
-  참조:   python -I tools/scripts/make_ref_sheet.py "화타,진궁,초선" prompts/등급별/4_신화/참조_07.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "화타_신화,진궁_신화,초선_신화" solgukji_godot/assets/portraits
+[07_하후돈.txt]  1 대장군 하후돈
+  참조:   python -I tools/scripts/make_ref_sheet.py "하후돈" prompts/등급별/4_신화/참조_07.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "하후돈_신화" solgukji_godot/assets/portraits
+
+[08_장료.txt]  1 강동의 악몽 장료
+  참조:   python -I tools/scripts/make_ref_sheet.py "장료" prompts/등급별/4_신화/참조_08.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장료_신화" solgukji_godot/assets/portraits
+
+[09_하후연.txt]  1 삼일오백리 하후연
+  참조:   python -I tools/scripts/make_ref_sheet.py "하후연" prompts/등급별/4_신화/참조_09.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "하후연_신화" solgukji_godot/assets/portraits
+
+[10_곽가.txt]  1 십승의 예언 곽가
+  참조:   python -I tools/scripts/make_ref_sheet.py "곽가" prompts/등급별/4_신화/참조_10.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "곽가_신화" solgukji_godot/assets/portraits
+
+[11_순욱.txt]  1 장자방 순욱
+  참조:   python -I tools/scripts/make_ref_sheet.py "순욱" prompts/등급별/4_신화/참조_11.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "순욱_신화" solgukji_godot/assets/portraits
+
+[12_조조.txt]  1 난세간웅 조조
+  참조:   python -I tools/scripts/make_ref_sheet.py "조조" prompts/등급별/4_신화/참조_12.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "조조_신화" solgukji_godot/assets/portraits
+
+[13_손책.txt]  1 소패왕 손책
+  참조:   python -I tools/scripts/make_ref_sheet.py "손책" prompts/등급별/4_신화/참조_13.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "손책_신화" solgukji_godot/assets/portraits
+
+[14_손권.txt]  1 오대제 손권
+  참조:   python -I tools/scripts/make_ref_sheet.py "손권" prompts/등급별/4_신화/참조_14.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "손권_신화" solgukji_godot/assets/portraits
+
+[15_태사자.txt]  1 쌍극신사 태사자
+  참조:   python -I tools/scripts/make_ref_sheet.py "태사자" prompts/등급별/4_신화/참조_15.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "태사자_신화" solgukji_godot/assets/portraits
+
+[16_감녕.txt]  1 백기겁영 감녕
+  참조:   python -I tools/scripts/make_ref_sheet.py "감녕" prompts/등급별/4_신화/참조_16.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "감녕_신화" solgukji_godot/assets/portraits
+
+[17_여몽.txt]  1 백의도강 여몽
+  참조:   python -I tools/scripts/make_ref_sheet.py "여몽" prompts/등급별/4_신화/참조_17.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "여몽_신화" solgukji_godot/assets/portraits
+
+[18_육손.txt]  1 화공대도독 육손
+  참조:   python -I tools/scripts/make_ref_sheet.py "육손" prompts/등급별/4_신화/참조_18.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "육손_신화" solgukji_godot/assets/portraits
+
+[19_주유.txt]  1 적벽대도독 주유
+  참조:   python -I tools/scripts/make_ref_sheet.py "주유" prompts/등급별/4_신화/참조_19.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "주유_신화" solgukji_godot/assets/portraits
+
+[20_동탁.txt]  1 낙양겁화 동탁
+  참조:   python -I tools/scripts/make_ref_sheet.py "동탁" prompts/등급별/4_신화/참조_20.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "동탁_신화" solgukji_godot/assets/portraits
+
+[21_여포.txt]  1 비장 여포
+  참조:   python -I tools/scripts/make_ref_sheet.py "여포" prompts/등급별/4_신화/참조_21.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "여포_신화" solgukji_godot/assets/portraits
+
+[22_사마휘.txt]  1 수경선생 사마휘
+  참조:   python -I tools/scripts/make_ref_sheet.py "사마휘" prompts/등급별/4_신화/참조_22.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "사마휘_신화" solgukji_godot/assets/portraits
+
+[23_장각.txt]  1 대현량사 장각
+  참조:   python -I tools/scripts/make_ref_sheet.py "장각" prompts/등급별/4_신화/참조_23.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장각_신화" solgukji_godot/assets/portraits
+
+[24_좌자.txt]  1 오각선생 좌자
+  참조:   python -I tools/scripts/make_ref_sheet.py "좌자" prompts/등급별/4_신화/참조_24.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "좌자_신화" solgukji_godot/assets/portraits
+
+[25_화타.txt]  1 신의 화타
+  참조:   python -I tools/scripts/make_ref_sheet.py "화타" prompts/등급별/4_신화/참조_25.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "화타_신화" solgukji_godot/assets/portraits
+
+[26_진궁.txt]  1 백문충절 진궁
+  참조:   python -I tools/scripts/make_ref_sheet.py "진궁" prompts/등급별/4_신화/참조_26.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "진궁_신화" solgukji_godot/assets/portraits
+
+[27_초선.txt]  1 월하미인 초선
+  참조:   python -I tools/scripts/make_ref_sheet.py "초선" prompts/등급별/4_신화/참조_27.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "초선_신화" solgukji_godot/assets/portraits

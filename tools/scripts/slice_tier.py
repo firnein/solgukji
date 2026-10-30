@@ -41,6 +41,15 @@ for sheet, names in plan:
     if not os.path.exists(src):
         missing.append(sheet)
         continue
+    if "," not in names and not tier.startswith("1_기본"):      # 한 명짜리(신화) —— 그림 전체가 카드
+        from PIL import Image
+        im = Image.open(src).convert("RGB")
+        im.save(os.path.join(out, names + ".png"))
+        im.thumbnail((400, 600))
+        im.save(os.path.join(prev, sheet + ".png"))
+        print("[%s] %s 한 장 그대로" % (sheet, names))
+        done += 1
+        continue
     cmd = [sys.executable, "-I", tool, src, names, out, os.path.join(prev, sheet + ".png")]
     if tier.startswith("1_기본") and "촉" not in sheet:
         cmd.append("--hole=155")
