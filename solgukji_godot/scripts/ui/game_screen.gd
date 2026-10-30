@@ -1020,8 +1020,10 @@ func card_info(k: String) -> void:
 		sg.add_child(sp)
 	sg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	st.add_child(sg)
+	# 특기판 —— 모든 특기 칸, 가진 것만 계열 색
+	st.add_child(TraitBoard.new().setup(k))
 	var gap := Control.new()
-	gap.custom_minimum_size.y = 6
+	gap.custom_minimum_size.y = 2
 	st.add_child(gap)
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
@@ -1034,7 +1036,6 @@ func card_info(k: String) -> void:
 		b.add_child(UI.rich("[color=#ffd76e][b]고유기 『%s』[/b][/color]  “%s”\n%s" % [u.name, u.shout, UI.ult_desc(u)], 14))
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
-		b.add_child(UI.trait_chips(k))
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
 		var tg := _info_grid()
 		for t in tl:
