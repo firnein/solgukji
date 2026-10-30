@@ -1,7 +1,7 @@
 class_name DeployPage
 extends RefCounted
 ## 편성 —— 진형 고르기 · 9칸 편성판 · 손패. 원본 rDeploy · openSlot · openItem.
-## 세로 화면: 위에 진형 띠와 편성판을 고정하고, 아래 [손패 | 시너지 | 보급품] 만 스크롤한다.
+## 세로 화면: 위에 진형 띠와 편성판을 고정하고, 아래 [손패 | 진형 | 보급품] 만 스크롤한다.
 ## 놓는 법 셋: ① 손패 카드를 길게 눌러 칸으로 끈다 ② 손패 카드를 눌러 고르고 칸을 누른다
 ## ③ 칸을 눌러 목록에서 고른다. 칸을 길게 눌러 다른 칸으로 끌면 자리를 바꾸고, 아래 목록으로 끌면 내린다.
 
@@ -89,12 +89,12 @@ func build() -> Control:
 	bp.add_child(grid)
 	v.add_child(UI.panel(bp, 8))
 
-	# 아래 —— [손패 | 시너지 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
+	# 아래 —— [손패 | 진형 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
 	var keys := Run.sort_cards(run.inv.keys())
 	var n_items := 0
 	for id in run.bag:
 		n_items += run.bag[id]
-	v.add_child(UI.segmented([["hand", "손패 %d" % keys.size()], ["syn", "시너지"], ["item", "보급품 %d" % n_items]], seg, func(k):
+	v.add_child(UI.segmented([["hand", "손패 %d" % keys.size()], ["syn", "진형"], ["item", "보급품 %d" % n_items]], seg, func(k):
 		seg = k
 		gs.render()))
 	var hand := HandDrop.new()
@@ -148,41 +148,14 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 	hv.add_child(fl)
 
 
-func _syn(v: VBoxContainer, syn: Dictionary) -> void:
+## 진형 탭 —— 진형 우대(이 진형에서 힘을 받는 병종)와 선호 · 어색 칸 설명. 세력 · 병종 시너지는 10/30 에 없앴다
+func _syn(v: VBoxContainer, _syn_unused: Dictionary) -> void:
 	var run: Run = gs.run
 	var f: Dictionary = DB.FORM[run.form]
-	var fv := UI.vbox(4)
-	var fc := UI.hbox(10)
-	var cnt := {}
-	for k in run.board:
-		if k != null:
-			cnt[DB.C[k].fac] = cnt.get(DB.C[k].fac, 0) + 1
-	for fac in DB.D.FAC:
-		var n: int = cnt.get(fac, 0)
-		fc.add_child(UI.lbl("%s %d" % [fac, n], 15, DB.fac_color(fac) if n else Color(DB.PAL.paper, 0.3), true))
-	fv.add_child(fc)
-	for s in syn.list:
-		var sd: Dictionary = DB.D.SYN[s.fac]
-		fv.add_child(UI.rich("[b]%s[/b] %d명 · %s %s" % [DB.D.FAC[s.fac].full, s.n, sd.d, ("+%d" % s.v) if sd.stat == "morale" else "+%d%%" % roundi(s.v * 100)], 14))
-	if syn.list.is_empty():
-		fv.add_child(UI.hint("같은 세력 3명부터 시너지가 붙는다. 3·4·5명에서 단계가 오른다."))
-	v.add_child(UI.sect("세력 시너지", UI.panel(fv)))
-	var tv := UI.vbox(4)
 	var tcnt := {}
 	for k in run.board:
 		if k != null:
 			tcnt[DB.C[k].tag] = tcnt.get(DB.C[k].tag, 0) + 1
-	for t in DB.D.TAGORDER:
-		var n: int = tcnt.get(t, 0)
-		if n == 0:
-			continue
-		var s: Dictionary = DB.D.TAGSYN[t]
-		var e = syn.tag.get(t)
-		tv.add_child(UI.rich("[b]%s[/b] %d명 · %s%s" % [t, n, ("%s +%d%%" % [s.d, roundi(e.v * 100)]) if e else "2명부터",
-			("\n[color=#D9A64B]「%s」 %s[/color]" % [s.cap, s.capd]) if n >= 5 else "  [color=#5d6a88]다섯이면 「%s」[/color]" % s.cap], 14))
-	if tcnt.is_empty():
-		tv.add_child(UI.hint("같은 병종 두 명부터 시너지가 붙는다."))
-	v.add_child(UI.sect("병종 시너지 — 2·3·4·5명", UI.panel(tv)))
 	var bn = DB.D.FORMBOON.get(run.form)
 	var bn_n := 0
 	if bn:

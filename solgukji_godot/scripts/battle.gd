@@ -16,7 +16,7 @@ const MYTH_AMP := 1.6
 ## 턴 상한(원본 K.cap 20)과 첫 턴 기병 돌격 · 첫 공격 보너스도 이만큼 늘린다. 바꿀 때는 set_turn_mul().
 ## 등급마다 전투 길이가 달라(배율 3 에서 고급 10턴 · 초월 28턴) 전투에 나온 카드의 평균 등급으로 배율을 고른다 —— 어느 등급이든 15턴 안팎.
 const BASE_PACE := 0.35
-const TURN_MUL := {1: 5.25, 2: 5.25, 3: 5.25, 4: 6.5, 5: 3.95, 6: 2.75, 7: 4.0, 8: 10.3}   # 10/30 축 밸런스 조정 뒤 다시 맞춤
+const TURN_MUL := {1: 4.9, 2: 4.9, 3: 4.9, 4: 5.9, 5: 3.7, 6: 2.8, 7: 3.75, 8: 9.8}   # 10/30 시너지 없앤 뒤 다시 맞춤
 static var auto_turn := true      # 전투마다 평균 등급으로 배율을 고른다 (점검 장면이 --tmul 로 고정하면 false)
 static var turn_mul := 3.0
 ## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다. = BASE_PACE / turn_mul
@@ -59,6 +59,7 @@ static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 �
 static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
 static var axis_off := {}            # 특기 축 끄기 (점검용) —— {"물리": true, …} 이면 그 축의 특기가 붙지 않는다
 static var axis_off_camp := ""       # 축 끄기를 한쪽 진영에만 ("A" · "B", 비우면 양쪽) —— 점검할 덱 쪽만 끄려고
+static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
 static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 · 현혹 —— 솔국지 확장)
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
 static var counter_charge := false   # 반격을 맞은 쪽도 고유기 게이지가 차는가 —— 차면 반격이 적 고유기를 앞당겨 철벽이 손해를 봤다(10/29 측정)
@@ -213,6 +214,8 @@ static func fac_syn(cards: Array, form: String) -> Dictionary:
 		tc[c.tag] = tc.get(c.tag, 0) + 1
 	var out := {"morale": 0.0, "atk": 1.0, "spd": 1.0, "troop": 1.0, "list": [], "tag": {},
 		"tagList": [], "caps": {}, "boon": DB.D.FORMBOON.get(form)}
+	if not synergy_enabled:      # 10/30 세력 · 병종 시너지 없앰 —— 진형 우대(boon)만 남는다
+		return out
 	for f in fc:
 		var s = DB.D.SYN.get(f)
 		if s == null:
