@@ -400,6 +400,21 @@ static func stat(value: String, label: String) -> VBoxContainer:
 	return v
 
 
+## 특기 칸 줄 —— 네모 안에 이름 + 레벨(금색), 단체 특기는 옥색 테두리. 폭에 맞춰 줄바꿈
+static func trait_chips(k: String, fs := 14) -> HFlowContainer:
+	var f := flow(5)
+	for t in DB.trait_list(k):
+		var r := rich("[color=#E9E3D3]%s[/color][color=#D9A64B]%d[/color]" % [t.name, t.lv], fs)
+		r.fit_content = true
+		r.autowrap_mode = TextServer.AUTOWRAP_OFF
+		var pc := PanelContainer.new()
+		pc.add_theme_stylebox_override("panel", flat(DB.PAL.ink3, DB.PAL.jade if t.group else DB.PAL.ink4.lightened(0.15), 1, 4, 5))
+		pc.mouse_filter = Control.MOUSE_FILTER_PASS
+		pc.add_child(r)
+		f.add_child(pc)
+	return f
+
+
 static func card_bb(k: String) -> String:
 	return "[color=%s]%s[/color]" % [DB.tier_color(k).to_html(false), DB.C[k].name]
 

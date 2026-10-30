@@ -75,7 +75,8 @@ static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 �
 const GAUGE_ACT := 30.0       # 제 차례마다
 const GAUGE_HIT := 80.0       # 병력을 잃은 비율 × 이만큼
 const GAUGE_DEAL := 6.0       # 때릴 때마다
-const ULT_CHARGES := {7: 1, 8: 1}   # 불멸·신화 모두 전투당 1번
+const ULT_CHARGES := {6: 1, 7: 1, 8: 1}   # 초월·불멸·신화 모두 전투당 1번
+const SK_BANK := 2.0       # 일반 기술 충전 상한 —— 조건이 안 맞는 동안 두 번까지 모아 둔다
 const ULT_SIDE_GAP := 4       # 같은 진영 고유기 사이 최소 행동 수
 const PTS_EVERY := 6          # 행동 6번마다 군령 포인트 1
 const PTS_MAX := 3.0
@@ -128,8 +129,9 @@ class Unit:
 	var kills := 0
 	var last_hit: Unit = null
 	var st := []
-	var ult = null            # 고유기 (불멸·신화) —— DB.ult_of 참고
+	var ult = null            # 고유기 (초월·불멸·신화) —— DB.ult_of 참고
 	var gauge := 0.0          # 고유기 게이지 (100 이면 준비)
+	var sk_charge := 0.5      # 일반 기술 충전 (1 이면 준비) —— 차례마다 sk_rate 만큼 찬다
 	var charges := 0          # 남은 고유기 횟수
 
 
@@ -267,7 +269,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 				continue
 			for k in t.m:
 				u.m[k] = u.m.get(k, 0.0) + t.m[k]
-	if u.c.tier >= 7:
+	if u.c.tier >= 6:
 		u.ult = DB.ult_of(cid)
 		if u.ult:
 			u.charges = ULT_CHARGES.get(u.c.tier, 1)
@@ -1343,10 +1345,14 @@ func act(u: Unit) -> void:
 	u.gauge = minf(100.0, u.gauge + GAUGE_ACT * (1.2 if u.c.tier >= 8 else 1.0) / turn_mul)
 	var sk = u.c.sk
 	var used := false
-	if sk and rng.randf() < sk_rate(u):
+	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동
+	if sk:
+		u.sk_charge = minf(SK_BANK, u.sk_charge + sk_rate(u))
+	if sk and u.sk_charge >= 1.0 and _sk_cond(u, str(sk.get("cond", "always")), foes, allies):
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false
+		if ok: u.sk_charge -= 1.0
 		if ok:
 			used = true
 			L("sk", "%s 『%s』%s 펼친다" % [ga(nm(u)), sk.n, "을" if jong(sk.n) else "를"],
@@ -1393,6 +1399,46 @@ func act(u: Unit) -> void:
 		if not tt.is_empty() and tt[0].alive:
 			if u.c.int > u.c.atk: int_hit(u, tt[0], 1, 1)
 			else: phys_hit(u, tt[0], 1)
+
+
+## 일반 기술 발동 조건 —— DB.cond_text 와 같은 문법. '|' 는 또는
+func _sk_cond(u: Unit, cond: String, foes: Array, allies: Array) -> bool:
+	var lf := foes.filter(func(o): return o.alive)
+	var la := allies.filter(func(o): return o.alive)
+	for one in cond.split("|"):
+		var kv := one.split(":")
+		var v: String = kv[1] if kv.size() > 1 else ""
+		match kv[0]:
+			"always": return true
+			"hurt":
+				if u.troops / u.max <= float(v): return true
+			"ally_hurt":
+				if la.any(func(o): return o.troops / o.max <= float(v)): return true
+			"foe_hurt":
+				if lf.any(func(o): return o.troops / o.max <= float(v)): return true
+			"dense":
+				var g := {}
+				for o in lf:
+					g[o.line] = g.get(o.line, 0) + 1
+				if not g.is_empty() and g.values().max() >= int(v): return true
+			"front_n":
+				if not lf.is_empty():
+					var mn: int = lf.map(pri).min()
+					if lf.filter(func(o): return pri(o) == mn).size() >= int(v): return true
+			"foe_n":
+				if lf.size() >= int(v): return true
+			"line":
+				if lf.any(func(o): return o.line == v): return true
+			"no_st":
+				if lf.any(func(o): return not has_st(o, v)): return true
+			"ally_st":
+				if la.any(func(o): return o.st.any(func(x): return x.k in ["burn", "bleed", "flood", "plague", "confuse", "seal", "break", "mark"])): return true
+			"foe_morale":
+				if not lf.is_empty() and not la.is_empty():
+					var fm: float = lf.reduce(func(s, o): return s + o.morale, 0.0) / lf.size()
+					var am: float = la.reduce(func(s, o): return s + o.morale, 0.0) / la.size()
+					if fm >= am: return true
+	return false
 
 
 func _do_ult(u: Unit, foes: Array, allies: Array) -> void:

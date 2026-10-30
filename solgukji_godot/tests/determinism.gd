@@ -25,7 +25,7 @@ func _ready() -> void:
 		var k := maxi(1, last_an / 3)
 		var ult_key := ""
 		for row in r0.roster:
-			if row.camp == "A" and row.tier >= 7:
+			if row.camp == "A" and row.tier >= 6:
 				ult_key = row.key
 		var inp := [[k, "A", "cmd", "돌격"], [k + 2, "A", "ult", ult_key]]
 		var r1 := _run(a, b, seed, inp, pol)

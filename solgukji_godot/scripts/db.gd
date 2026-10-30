@@ -33,6 +33,7 @@ var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
+var SKILL_COND: Dictionary   # 일반 기술 발동 조건 (data/cards_ext.json skill_cond)
 
 const PHYS_TAGS := ["창병", "기병", "궁병", "도적"]
 const INT_TAGS := ["책사", "유생", "술사", "모사"]
@@ -55,6 +56,7 @@ func _load() -> void:
 	for k in ext.get("status", {}):
 		D.STATUS[k] = ext.status[k]
 	CLASS_COUNTER = ext.get("class_counter", {})
+	SKILL_COND = ext.get("skill_cond", {})
 	_build_fonts()
 
 	for r in D.CARDDEF:
@@ -143,7 +145,7 @@ func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 		e.status = {"k": s.k,
 			"val": snappedf(s.val * m, 0.001 if ratio else 0.1),
 			"dur": int(s.dur) + int(D.SKDUR.get(str(tier), 0))}
-	return {"n": base.n, "eff": e, "psv": null}
+	return {"n": base.n, "eff": e, "psv": null, "cond": str(SKILL_COND.get(base.n, "always"))}
 
 
 func _build_forms() -> void:
@@ -365,17 +367,42 @@ func passives_of(k: String):
 				continue
 			var t: Dictionary = PSV.traits[e[0]]
 			var attr: String = t.get("attr", "")
-			var sc: float = (PSV.attr_scale if attr != "" else PSV.tier_scale)[str(c.tier)]
+			var lv := trait_level(k, e[0])
+			var sc: float = (PSV.level_scale_attr if attr != "" else PSV.level_scale)[str(lv)]
 			if t.has("scope"):
-				out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc, "attr": attr})
+				out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc, "attr": attr, "lv": lv})
 			else:
 				var m := {}
 				for key in t.m:
 					m[key] = t.m[key] * (1.0 if key in PSV.flags else sc)
-				out.traits.append({"name": e[0], "d": t.d, "m": m, "attr": attr})
+				out.traits.append({"name": e[0], "d": t.d, "m": m, "attr": attr, "lv": lv})
 		if out.traits.is_empty() and out.groups.is_empty():
 			out = null
 	_psv_cache[k] = out
+	return out
+
+
+## 특기 레벨 —— passives.json level[인물][특기][카드 등급]. 없으면 카드 등급 - 2 (고급 1 ~ 신화 6). 1~9
+func trait_level(k: String, name_: String) -> int:
+	var t: int = C[k].tier
+	var lv = PSV.get("level", {}).get(person(k), {}).get(name_, {}).get(str(t))
+	return clampi(int(lv) if lv != null else t - 2, 1, 9)
+
+
+## 카드의 특기 —— 사다리 순서로 [{name, lv, group, d, mt(수치 요약)}]
+func trait_list(k: String) -> Array:
+	var ps = passives_of(k)
+	if ps == null:
+		return []
+	var by := {}
+	for t in ps.traits:
+		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "d": t.d, "mt": mods_text(t.m, 1.0, C[k].tier)}
+	for g in ps.groups:
+		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "d": g.d, "mt": mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)}
+	var out := []
+	for e in PSV.ladder[person(k)]:
+		if by.has(e[0]):
+			out.append(by[e[0]])
 	return out
 
 
@@ -445,28 +472,14 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 
 
 func passive_text(k: String) -> String:
-	var ps = passives_of(k)
-	if ps == null:
-		return ""
-	var line := {}
-	# 특기 앞에는 개인 · 단체만 적는다 —— attr(화공 · 수공 · 돌파 · 표적 계열)은 내부 분류라 보이지 않는다 (배율 · 시험 스위치용)
-	for t in ps.traits:
-		var mt := mods_text(t.m, 1.0, C[k].tier)
-		line[t.name] = "개인 『%s』 %s%s" % [t.name, t.d, ("
-   " + mt) if mt != "" else ""]
-	for g in ps.groups:
-		line[g.name] = "단체 『%s』 %s
-   %s" % [g.name, g.d, mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)]
-	# 사다리 순서대로 (등급이 오를 때 붙는 차례)
+	# 특기 이름 뒤에 레벨 —— 개인 특기는 따로 적지 않고 단체만 표시한다. attr(계열)은 내부 분류라 보이지 않는다
 	var lines := []
-	for e in PSV.ladder[person(k)]:
-		if line.has(e[0]):
-			lines.append(line[e[0]])
-	return "
-".join(lines)
+	for t in trait_list(k):
+		lines.append("『%s%d』%s %s%s" % [t.name, t.lv, " 단체" if t.group else "", t.d, ("\n   " + t.mt) if t.mt != "" else ""])
+	return "\n".join(lines)
 
 
-## 고유기 —— 신화 기준 수치를 불멸 카드에는 tier7_scale 배로 줄여 준다
+## 고유기 —— 신화 기준 수치를 불멸 카드에는 tier7_scale, 초월 카드에는 tier6_scale 배로 줄여 준다
 func ult_of(k: String):
 	var base = ULT.list.get(person(k))
 	if base == null:
@@ -474,8 +487,8 @@ func ult_of(k: String):
 	var u: Dictionary = base.duplicate(true)
 	u.first = u.get("first", ULT.first[str(C[k].tier)])
 	u.cd = u.get("cd", ULT.cd)
-	if C[k].tier == 7:
-		var s: float = ULT.tier7_scale
+	if C[k].tier <= 7:
+		var s: float = ULT.tier7_scale if C[k].tier == 7 else ULT.tier6_scale
 		for comp in u.eff:
 			for key in ["mult", "heal", "morale"]:
 				if comp.has(key):
@@ -623,6 +636,29 @@ func skill_desc(c: Dictionary) -> String:
 	if e.has("selfBuff"): p.append("자신 %s %s" % [D.STATNM[e.selfBuff.stat], pct.call(e.selfBuff.amt)])
 	if e.has("allyBuff"): p.append("%s %s %s" % [tgt_name(e.allyBuff.tgt), D.STATNM[e.allyBuff.stat], pct.call(e.allyBuff.amt)])
 	return " · ".join(p)
+
+
+## 일반 기술 발동 조건 글 —— "자신 병력 60% 이하 또는 …"
+func cond_text(cond: String) -> String:
+	var out := []
+	for one in cond.split("|"):
+		var kv := one.split(":")
+		var v: String = kv[1] if kv.size() > 1 else ""
+		var pc := "%d%%" % roundi(float(v) * 100) if v.is_valid_float() else v
+		match kv[0]:
+			"always": out.append("충전되면 바로")
+			"hurt": out.append("자신 병력 %s 이하" % pc)
+			"ally_hurt": out.append("아군 병력 %s 이하가 있을 때" % pc)
+			"foe_hurt": out.append("적 병력 %s 이하가 있을 때" % pc)
+			"dense": out.append("한 열에 적 %s부대 이상" % v)
+			"front_n": out.append("적 맨 앞 열에 %s부대 이상" % v)
+			"foe_n": out.append("적 %s부대 이상" % v)
+			"line": out.append("적 %s이 있을 때" % v)
+			"no_st": out.append("『%s』 아닌 적이 있을 때" % D.STATUS[v].n)
+			"ally_st": out.append("상태이상 걸린 아군이 있을 때")
+			"foe_morale": out.append("적 사기가 아군 이상일 때")
+			_: out.append(one)
+	return " 또는 ".join(out)
 
 
 ## 병종 상성 배율 —— 공격 병종 a 가 수비 병종 d 를 칠 때 (1 ± amt)

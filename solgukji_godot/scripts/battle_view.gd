@@ -1250,9 +1250,9 @@ class Hud extends Control:
 			draw_rect(mr, Color(0, 0, 0, 0.6 * a))
 			draw_rect(Rect2(mr.position, Vector2(mr.size.x * clampf(sq.morale / 200.0, 0, 1), 2)),
 				Color(DB.PAL.gold if sq.morale > 30 else Color("#a05a2a"), a))
-			# 고유기 게이지 —— 불멸·신화. 적 게이지도 보여 준다 (읽고 방진으로 받으라고)
+			# 고유기 게이지 —— 초월·불멸·신화. 적 게이지도 보여 준다 (읽고 방진으로 받으라고)
 			var lv := view.unit_live(sq.key)
-			if sq.tier >= 7 and lv[1] > 0:
+			if sq.tier >= 6 and lv[1] > 0:
 				var gb := Rect2(br.position + Vector2(0, 8), Vector2(br.size.x, 3))
 				draw_rect(gb.grow(1), Color(0, 0, 0, 0.6 * a))
 				var fullg: bool = lv[0] >= 100
@@ -1519,7 +1519,7 @@ class MiniCard extends Control:
 		draw_rect(Rect2(4, 62, (size.x - 8) * clampf(sq.morale / 200.0, 0, 1), 3), DB.PAL.gold)
 		# 고유기 게이지와 남은 횟수
 		var lv := view.unit_live(sq.key)
-		if sq.tier >= 7:
+		if sq.tier >= 6:
 			draw_rect(Rect2(4, 67, size.x - 8, 3), DB.PAL.ink)
 			draw_rect(Rect2(4, 67, (size.x - 8) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
 			for i in lv[1]:
@@ -1567,7 +1567,7 @@ class MiniCard extends Control:
 		draw_rect(Rect2(3, bar_y + 6, w - 6, 2), DB.PAL.ink)
 		draw_rect(Rect2(3, bar_y + 6, (w - 6) * clampf(sq.morale / 200.0, 0, 1), 2), DB.PAL.gold)
 		var lv := view.unit_live(sq.key)
-		if sq.tier >= 7:
+		if sq.tier >= 6:
 			draw_rect(Rect2(3, bar_y + 10, w - 6, 3), DB.PAL.ink)
 			draw_rect(Rect2(3, bar_y + 10, (w - 6) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
 			for i in lv[1]:

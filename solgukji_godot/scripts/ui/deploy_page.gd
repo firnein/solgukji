@@ -272,7 +272,7 @@ func slot_sheet(i: int) -> void:
 		iv.add_child(ub)
 		cv.add_child(iv)
 		if c.sk:
-			cv.add_child(UI.hint("『%s』 %s" % [c.sk.n, DB.skill_desc(c)]))
+			cv.add_child(UI.hint("『%s』 %s —— %s" % [c.sk.n, DB.cond_text(c.sk.cond), DB.skill_desc(c)]))
 		b.add_child(UI.panel(cv, 10))
 	var keys := Run.sort_cards(run.inv.keys())
 	if keys.is_empty():

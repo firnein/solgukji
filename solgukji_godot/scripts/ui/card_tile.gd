@@ -1,6 +1,7 @@
 class_name CardTile
 extends Control
-## 작은 카드 —— 손패·조합·선택권 목록에 쓴다. 왼쪽 초상, 등급색 띠, 이름, 병종·등급, 장수.
+## 작은 카드 —— 손패·조합·선택권 목록에 쓴다. 왼쪽 초상(오른쪽 위 병종 기호), 등급색 띠, 등급색 이름, 특기 칸(이름+레벨).
+## 등급은 이름 색과 띠로 알 수 있어 따로 적지 않는다. 병력 · PV 는 상세에서.
 ## 탭하면 tapped. drag_data 를 주면 길게 눌러(0.35초) 끌 수 있다 —— 짧게 끌면 목록이 스크롤된다.
 
 signal tapped(k: String)
@@ -90,23 +91,56 @@ func _draw() -> void:
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(9, 9), 8, DB.fac_color(c.fac))
 		draw_string(DB.font_display, pr.position + Vector2(1, 13), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color.WHITE)
+	# 병종 기호 —— 초상 오른쪽 위
+	var tcen := Vector2(pr.end.x - 8, pr.position.y + 8)
+	draw_circle(tcen, 8.5, Color(DB.PAL.ink, 0.85))
+	draw_texture_rect(DB.ICON[c.tag], Rect2(tcen - Vector2(5.5, 5.5), Vector2(11, 11)), false, DB.PAL.paper)
 	var x := pr.end.x + 7
 	var tw := w - x - 6
 	var fd := DB.font_display
 	var fb := DB.font_body
-	var fs := 15
-	while fs > 10 and fd.get_string_size(c.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw - (22 if qty > 0 else 0):
+	var fs := 18
+	while fs > 11 and fd.get_string_size(c.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw - (26 if qty > 0 else 0):
 		fs -= 1
-	draw_string(fd, Vector2(x, 24), c.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2) if c.tier >= 3 else DB.PAL.paper)
-	draw_texture_rect(DB.ICON[c.tag], Rect2(x, 33, 13, 13), false, DB.PAL.bamboo)
-	draw_string(fb, Vector2(x + 16, 45), "%s · %s" % [c.tag, DB.TIER[c.tier].n], HORIZONTAL_ALIGNMENT_LEFT, tw - 16, 12, DB.PAL.bamboo)
+	draw_string(fd, Vector2(x, 25), c.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2) if c.tier >= 3 else DB.PAL.paper)
 	if note != "":
-		draw_string(fb, Vector2(x, 66), note, HORIZONTAL_ALIGNMENT_LEFT, tw, 11, note_col if note_col.a > 0 else DB.PAL.bamboo_dim)
+		draw_string(fb, Vector2(x, h - 12), note, HORIZONTAL_ALIGNMENT_LEFT, tw, 11, note_col if note_col.a > 0 else DB.PAL.bamboo_dim)
+		draw_traits(self, k, Rect2(x, 33, tw, 18))
 	else:
-		draw_string(fb, Vector2(x, 66), "병력 %s · %d PV" % [Battle.num(c.tr), c.pv], HORIZONTAL_ALIGNMENT_LEFT, tw, 11, DB.PAL.bamboo_dim)
+		draw_traits(self, k, Rect2(x, 33, tw, h - 37))
 	if qty > 0:
 		var qr := Rect2(w - 28, 5, 23, 19)
 		draw_rect(qr, Color(DB.PAL.gold, 0.9))
 		draw_string(fb, qr.position + Vector2(0, 15), str(qty), HORIZONTAL_ALIGNMENT_CENTER, qr.size.x, 13, Color("#1A1508"))
 	if mark == "dim":
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.55))
+
+
+## 특기 칸 —— 네모 안에 이름 + 레벨(금색). 칸이 모자라면 마지막에 +n. 단체 특기는 옥색 테두리
+static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
+	var ts := DB.trait_list(id)
+	var fb := DB.font_body
+	var ch := fs + 7.0
+	var gap := 3.0
+	var p := r.position
+	for i in ts.size():
+		var t: Dictionary = ts[i]
+		var nw := fb.get_string_size(t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var lw := fb.get_string_size(str(t.lv), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var cw := nw + lw + 9
+		if p.x + cw > r.end.x and p.x > r.position.x:
+			p = Vector2(r.position.x, p.y + ch + gap)
+		if p.y + ch > r.end.y:
+			var more := "+%d" % (ts.size() - i)
+			var q := Vector2(r.end.x - fb.get_string_size(more, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x, p.y - gap - 5)
+			ci.draw_string(fb, q, more, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.bamboo)
+			return
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = DB.PAL.ink3
+		sb.border_color = DB.PAL.jade if t.group else DB.PAL.ink4.lightened(0.15)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(3)
+		ci.draw_style_box(sb, Rect2(p, Vector2(cw, ch)))
+		ci.draw_string(fb, p + Vector2(4, ch - 5), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.paper)
+		ci.draw_string(fb, p + Vector2(5 + nw, ch - 5), str(t.lv), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.gold)
+		p.x += cw + gap

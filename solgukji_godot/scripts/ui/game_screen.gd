@@ -608,9 +608,12 @@ func act(m: String, a := []):
 
 # ───────── 시트 ─────────
 
-func open_sheet(title: String) -> VBoxContainer:
+## col 을 주면 제목을 그 색 · 큰 글씨로 (카드 시트 —— 등급색 장수 이름)
+func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	var was := _sheet.visible
 	_sheet_title.text = title
+	_sheet_title.add_theme_color_override("font_color", col if col.a > 0 else DB.PAL.paper)
+	_sheet_title.add_theme_font_size_override("font_size", 24 if col.a > 0 else 19)
 	for c in _sheet_body.get_children():
 		c.queue_free()
 	_sheet_mask.visible = true
@@ -802,36 +805,46 @@ func recipe_card(out: String) -> Control:
 	return v
 
 
-## 조합 시트 —— 결과 카드 · 재료(가진 수/필요 수) · 조합 버튼 · 카드 상세
+## 조합 시트 —— 제목은 등급색 장수 이름. 결과 카드(특기 칸) · 재료 한 줄(가진 수/필요 수) · 조합 + 상세 버튼 한 줄
 func recipe_sheet(out: String) -> void:
 	var c: Dictionary = DB.C[out]
-	var b := open_sheet("%s 조합" % c.name)
-	b.add_child(tile(out, run.pool().get(out, -1)))
+	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
+	var t0 := tile(out, run.pool().get(out, -1))
+	t0.custom_minimum_size.y = 84
+	b.add_child(t0)
 	if c.sk:
-		b.add_child(UI.hint("『%s』 %s" % [c.sk.n, DB.skill_desc(c)]))
-	b.add_child(UI.head("재료", "누르면 그 카드 상세"))
-	var g := minis()
+		b.add_child(UI.hint("『%s』 %s —— %s" % [c.sk.n, DB.cond_text(c.sk.cond), DB.skill_desc(c)]))
+	var row := UI.hbox(6)
+	var ml := UI.lbl("재료", 13, DB.PAL.bamboo, true)
+	ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(ml)
 	var m := Run.mat_count(DB.RECOF[out])
 	for q in m:
 		var got := run.have(q)
 		var t := mtile(q, -1)
+		t.custom_minimum_size = Vector2(56, 78)
 		t.badge = "%d/%d" % [got, m[q]]
 		t.badge_col = Color(DB.PAL.jade, 0.9) if got >= m[q] else Color(DB.PAL.seal, 0.9)
 		t.dim = got <= 0
-		g.add_child(t)
-	b.add_child(g)
+		row.add_child(t)
+	b.add_child(row)
 	var ni = Run.need_item(out)
 	if ni != null:
 		var have_it: bool = run.bag.get(ni, 0) > 0
 		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 후반 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): pass))
 	var ok := run.can_forge(out)
-	var fb := UI.btn("조합하기" if ok else "재료 부족 — %d장" % run.miss_count(out), func():
+	var br := UI.hbox(6)
+	var fb := UI.btn("조합하기" if ok else "재료 부족 %d장" % run.miss_count(out), func():
 		if act("forge", [out]):
 			toast("%s 조합 완료" % c.name, "gain")
-			close_sheet(), "pri" if ok else "", 56)
+			close_sheet(), "pri" if ok else "", 44)
 	fb.disabled = not ok
-	b.add_child(fb)
-	b.add_child(UI.btn("카드 상세 보기", func(): card_info(out), "ghost", 46))
+	fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	br.add_child(fb)
+	var ib := UI.btn("상세", func(): card_info(out), "ghost", 44)
+	ib.custom_minimum_size.x = 84
+	br.add_child(ib)
+	b.add_child(br)
 
 
 # ───────── 징집 ─────────
@@ -983,35 +996,45 @@ func can_act() -> bool:
 func card_info(k: String) -> void:
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
-	var b := open_sheet(c.name)
+	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
 	var top := UI.hbox(14)
 	var big := CardView.new().setup(k, Vector2(132, 188))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	top.add_child(big)
-	var st := UI.vbox(8)
+	# 초상 오른쪽 —— 능력치 (등급 · 병종 · 세력 · PV · 병력은 테두리색 · 기호로 안다)
+	var st := UI.vbox(6)
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	st.add_child(UI.rich("[color=%s]%s[/color] · %s · %s\n%d PV · %s명\n[b][color=%s]보유 %d장[/color][/b]" % [
-		DB.tier_color(k).to_html(false), DB.TIER[c.tier].n, c.tag, DB.D.FAC[c.fac].full, c.pv, Battle.num(c.tr),
-		"#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 15))
-	if c.sk:
-		st.add_child(UI.rich("[color=#D9A64B]『%s』[/color] 발동 %d%%\n%s" % [c.sk.n, roundi(DB.D.RATE.get(str(c.tier), 0) * 100), DB.skill_desc(c)], 13))
-	top.add_child(st)
-	b.add_child(top)
-	var sr := UI.hbox(4)
+	var sg := GridContainer.new()
+	sg.columns = 2
+	sg.add_theme_constant_override("h_separation", 6)
+	sg.add_theme_constant_override("v_separation", 6)
 	for pair in [["공격", c.atk], ["방어", c["def"]], ["책략", c["int"]], ["책방", c.res], ["속도", c.spd]]:
 		if pair[0] == "책략" and pair[1] <= 0:
 			continue
-		sr.add_child(UI.stat(str(int(pair[1])), pair[0]))
-	b.add_child(UI.panel(sr, 8))
-	var u = DB.ult_of(k) if c.tier >= 7 else null
+		var sp := UI.panel(UI.stat(str(int(pair[1])), pair[0]), 4)
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sg.add_child(sp)
+	sg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	st.add_child(sg)
+	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
+	top.add_child(st)
+	b.add_child(top)
+	if c.sk:
+		b.add_child(UI.rich("[color=#D9A64B]일반 기술 『%s』[/color]  [color=#8D7B5C]%s · 차례마다 %d%% 충전[/color]\n%s" % [
+			c.sk.n, DB.cond_text(c.sk.cond), roundi(DB.D.RATE.get(str(c.tier), 0) * 100), DB.skill_desc(c)], 13))
+	var u = DB.ult_of(k) if c.tier >= 6 else null
 	if u != null:
 		b.add_child(UI.rich("[color=#ffd76e][b]고유기 『%s』[/b][/color]  “%s”\n%s" % [u.name, u.shout, UI.ult_desc(u)], 14))
-	var pt := DB.passive_text(k)
-	if pt != "":
-		b.add_child(UI.rich("[color=#8FD4C2]%s[/color]" % pt, 14))
-	var a: Dictionary = DB.D.AFF[c.tag]
-	b.add_child(UI.rich("[color=#8D7B5C]%s —[/color] [color=#8fd4c2]선호 %s[/color] %s · [color=#e0806f]어색 %s[/color] %s" % [
-		a.why, UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref"), UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")], 14))
+	var tl := DB.trait_list(k)
+	if not tl.is_empty():
+		b.add_child(UI.trait_chips(k))
+		var lines := []
+		for t in tl:
+			lines.append("[color=#8FD4C2][b]%s%d[/b][/color]%s [color=#C6AC7C]%s[/color]%s" % [t.name, t.lv, " (단체)" if t.group else "", t.d,
+				("\n   [color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""])
+		b.add_child(UI.rich("\n".join(lines), 13))
+	b.add_child(UI.rich("[color=#8fd4c2]선호[/color]  %s  %s\n[color=#e0806f]어색[/color]  %s  %s" % [
+		UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref"), UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")], 14))
 
 	b.add_child(UI.eyebrow("이 카드를 만드는 법"))
 	if DB.RECOF.has(k):

@@ -1,9 +1,10 @@
 {
- "_설명": "불멸·신화 장수의 고유기. 인물 이름(카드 이름 마지막 단어)으로 찾는다. 수치는 신화 기준이며 불멸 카드는 mult·heal·morale·amt 를 tier7_scale 배로 쓴다. first = 등급별로 처음 쓸 수 있는 턴 (엔진이 0~1턴을 무작위로 더해 장수마다 흩는다), cd = 쓰고 나서 다시 쓰기까지 턴 수. eff 는 차례로 적용한다: hit(적 타격) · ally(아군 회복·강화) · foe(적 약화·상태이상).",
+ "_설명": "초월·불멸·신화 장수의 고유기 (초월은 2026-10-30 부터). 인물 이름(카드 이름 마지막 단어)으로 찾는다. 수치는 신화 기준이며 불멸 카드는 mult·heal·morale·amt 를 tier7_scale 배, 초월 카드는 tier6_scale 배로 쓴다. first = 등급별로 처음 쓸 수 있는 턴 (엔진이 0~1턴을 무작위로 더해 장수마다 흩는다), cd = 쓰고 나서 다시 쓰기까지 턴 수. eff 는 차례로 적용한다: hit(적 타격) · ally(아군 회복·강화) · foe(적 약화·상태이상).",
  "tier7_scale": 0.8,
  "first": {
   "7": 3,
-  "8": 2
+  "8": 2,
+  "6": 4
  },
  "cd": 3,
  "list": {
@@ -910,6 +911,428 @@
      }
     }
    ]
+  },
+  "공손찬": {
+   "name": "백마의종",
+   "shout": "백마의종이여, 오랑캐를 짓밟아라!",
+   "vfx": "charge",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.2,
+     "tgt": "line:선봉+전군",
+     "morale": 12
+    },
+    {
+     "t": "foe",
+     "tgt": "line:선봉+전군",
+     "buff": {
+      "stat": "spd",
+      "amt": -0.25,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "마등": {
+   "name": "서량의 기치",
+   "shout": "서량의 철기여, 나를 따르라!",
+   "vfx": "charge",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.0,
+     "tgt": "front3"
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "spd",
+      "amt": 0.25,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "주태": {
+   "name": "십이창흔",
+   "shout": "이 몸의 상처가 곧 주군을 지킨 증표다!",
+   "vfx": "roar",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "self",
+     "heal": 0.35
+    },
+    {
+     "t": "ally",
+     "tgt": "allyFront",
+     "buff": {
+      "stat": "def",
+      "amt": 0.4,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.8,
+     "tgt": "front3"
+    }
+   ]
+  },
+  "방덕": {
+   "name": "대관결사",
+   "shout": "관을 지고 왔다. 오늘 살아 돌아갈 생각은 없다!",
+   "vfx": "slash",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 3.8,
+     "tgt": "front1",
+     "exec": 0.3
+    },
+    {
+     "t": "ally",
+     "tgt": "self",
+     "buff": {
+      "stat": "def",
+      "amt": 0.3,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "황개": {
+   "name": "고육지계",
+   "shout": "늙은 몸을 태워 적벽을 밝히리라!",
+   "vfx": "firestorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.5,
+     "tgt": "denseLine",
+     "status": {
+      "k": "burn",
+      "val": 0.15,
+      "dur": 3
+     }
+    },
+    {
+     "t": "ally",
+     "tgt": "self",
+     "heal": 0.15
+    }
+   ]
+  },
+  "정보": {
+   "name": "노장의 화선",
+   "shout": "강동 삼대를 모신 늙은 창이다!",
+   "vfx": "firestorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 1.6,
+     "tgt": "front3",
+     "status": {
+      "k": "burn",
+      "val": 0.12,
+      "dur": 3
+     }
+    },
+    {
+     "t": "ally",
+     "tgt": "allyFront",
+     "buff": {
+      "stat": "def",
+      "amt": 0.2,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "능통": {
+   "name": "결사보주",
+   "shout": "주군께서는 먼저 강을 건너십시오!",
+   "vfx": "slash",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.4,
+     "tgt": "front3",
+     "morale": 10
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "def",
+      "amt": 0.25,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "엄백호": {
+   "name": "동오덕왕",
+   "shout": "강동의 산은 우리 것이다!",
+   "vfx": "shadow",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "phys",
+     "mult": 2.6,
+     "tgt": "back2",
+     "status": {
+      "k": "bleed",
+      "val": 0.1,
+      "dur": 3
+     }
+    }
+   ]
+  },
+  "방통": {
+   "name": "봉추연환",
+   "shout": "배를 잇고, 불을 놓아라.",
+   "vfx": "firestorm",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.5,
+     "tgt": "all",
+     "status": {
+      "k": "burn",
+      "val": 0.12,
+      "dur": 3
+     }
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "buff": {
+      "stat": "spd",
+      "amt": -0.3,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "마량": {
+   "name": "백미의 지략",
+   "shout": "마씨 오상 가운데 백미가 가장 낫다 했지요.",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "int",
+      "amt": 0.3,
+      "dur": 2
+     },
+     "morale": 15
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "res",
+      "amt": 0.25,
+      "dur": 2
+     }
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.0,
+     "tgt": "all"
+    }
+   ]
+  },
+  "종회": {
+   "name": "사도의 대군",
+   "shout": "촉은 이미 내 손 안에 있다.",
+   "vfx": "illusion",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.8,
+     "tgt": "all",
+     "morale": 12
+    },
+    {
+     "t": "foe",
+     "tgt": "back1",
+     "status": {
+      "k": "seal",
+      "val": 1,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "대교": {
+   "name": "국색천향",
+   "shout": "부디 다치지 마세요.",
+   "vfx": "heal",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "heal": 0.22,
+     "morale": 15
+    },
+    {
+     "t": "foe",
+     "tgt": "front3",
+     "morale": 10
+    }
+   ]
+  },
+  "소교": {
+   "name": "청아지음",
+   "shout": "공근께서 곡을 틀리시면 돌아보시지요.",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "int",
+      "amt": 0.3,
+      "dur": 2
+     },
+     "morale": 15
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 0.8,
+     "tgt": "all"
+    }
+   ]
+  },
+  "장소": {
+   "name": "보국지책",
+   "shout": "나라를 지키는 것은 칼이 아니라 계책이오.",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "res",
+      "amt": 0.35,
+      "dur": 2
+     },
+     "morale": 15
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "def",
+      "amt": 0.2,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "우길": {
+   "name": "청우강림",
+   "shout": "하늘이여, 비를 내리소서.",
+   "vfx": "heal",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "heal": 0.25,
+     "cleanse": 1
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "status": {
+      "k": "flood",
+      "val": 0.1,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "정욱": {
+   "name": "십면매복",
+   "shout": "사방이 모두 우리 군사다.",
+   "vfx": "illusion",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.3,
+     "tgt": "all"
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "buff": {
+      "stat": "atk",
+      "amt": -0.25,
+      "dur": 2
+     }
+    }
+   ]
+  },
+  "등애": {
+   "name": "음평기습",
+   "shout": "길이 없으면 굴러서라도 넘는다!",
+   "vfx": "shadow",
+   "eff": [
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 3.2,
+     "tgt": "back1",
+     "exec": 0.3
+    },
+    {
+     "t": "foe",
+     "tgt": "all",
+     "morale": 15
+    }
+   ]
+  },
+  "원술": {
+   "name": "옥새칭제",
+   "shout": "천명은 원씨에게 있다! 짐이 황제다!",
+   "vfx": "aura",
+   "eff": [
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "atk",
+      "amt": 0.3,
+      "dur": 2
+     },
+     "morale": 20
+    },
+    {
+     "t": "hit",
+     "kind": "int",
+     "mult": 1.0,
+     "tgt": "all"
+    }
+   ]
   }
- }
+ },
+ "tier6_scale": 0.65
 }
