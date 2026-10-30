@@ -7,14 +7,16 @@ shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, m
 The person is unmistakably the same, only far more terrifying and magnificent.
 
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
-- An extreme CLOSE-UP BUST SHOT: the FACE and CHEST fill most of the panel (top of the head to mid-chest), the face large,
-  slightly off-center, a little low angle so they loom over the viewer. Shoulders and armor may run off the panel edges.
-- The character looks STRAIGHT INTO THE CAMERA with a murderous, overwhelming glare —— cold killing intent, bared teeth or
-  a chilling calm smile, a cruel or merciless look as fits the person. Scholars and schemers look just as deadly in their
-  own way: an icy contemptuous stare, a smile that means you are already dead.
-- The signature weapon is pushed toward the viewer in the foreground (a blade edge, a spear point, a halberd crescent, a
-  bow drawn at the viewer, a fan or brush raised like a weapon) with strong perspective, partly out of focus.
-- Hands, if visible, grip the weapon right in front of the chest.
+- CLOSE and IMPACTFUL: the face and upper body dominate the panel (from an extreme face close-up to at most waist-up),
+  shoulders, weapons and hair may run off the panel edges.
+- EVERY PANEL HAS ITS OWN COMPOSITION —— follow each character's COMPOSITION line exactly. On one sheet no two panels may
+  share the same camera angle, head direction, crop or weapon placement. Vary: front / three-quarter / profile / looking
+  back over the shoulder; low angle / high angle / tilted (dutch) angle; extreme face crop / bust / waist-up; weapon in the
+  foreground / across the face / over the shoulder / swinging with motion blur.
+- The killing intent is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder) with a
+  murderous, overwhelming glare —— bared teeth, a roar, or a chilling calm smile, a cruel or merciless look as fits the
+  person. Scholars and schemers look just as deadly in their own way: an icy contemptuous stare, a smile that means you
+  are already dead.
 
 STYLE:
 - Premium anime card illustration, realistic-leaning proportions (not chibi), very sharp detailed face: intense eyes with
@@ -49,21 +51,25 @@ CHARACTERS
    IDENTITY: early 20s, wild spiky reddish-brown hair, tanned skin, huge toothy grin, red headband. FACE: bold square face, huge toothy grin, bright fierce eyes, short nose, tanned skin, wild spiky reddish-brown hair, charismatic little conqueror. BUILD: athletic, broad shoulders.
    SIGNATURE (unique to him on this sheet): HEAD red headband over wild spiky reddish-brown hair; FACIAL HAIR no beard; MARK huge toothy grin.
    COLORS: Wu red: crimson, red, orange and gold.
-   MOUNTED (bust shot): only the rider's face and chest in the frame —— at most a glimpse of the armored horse's head or mane at the panel edge (a chestnut horse).
-   MOOD (close-up bust, only a dark blurred hint of this moment behind the face): the Little Conqueror, spear raised high over conquered Jiangdong, a roaring tiger spirit and red banners.
+   MOUNTED: the rider's face and upper body are the subject —— the armored horse only as a glimpse of head, neck or mane at the panel edge (a chestnut horse).
+   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): the Little Conqueror, spear raised high over conquered Jiangdong, a roaring tiger spirit and red banners.
+   COMPOSITION: mid-ROAR, mouth wide open shouting, hair and cloth whipped back by wind, a tilted (dutch) angle, sparks flying past the face.
 2. Sun Quan  [ARCHER, Wu] —— same person as reference #2
    IDENTITY: green-blue eyes, reddish-purple beard, square jaw. FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler. BUILD: broad and sturdy.
    SIGNATURE (unique to him on this sheet): HEAD red-gold crown cap; FACIAL HAIR reddish-purple beard; MARK striking green-blue eyes.
    COLORS: Wu red: crimson, red, orange and gold.
-   MOOD (close-up bust, only a dark blurred hint of this moment behind the face): the Great Emperor of Wu in imperial robe and crown on a dragon-headed flagship, phoenix banners.
+   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): the Great Emperor of Wu in imperial robe and crown on a dragon-headed flagship, phoenix banners.
+   COMPOSITION: waist-up, arms crossed or one hand raised in a command, standing still and enormous, the quiet before killing, the camera slightly below.
 3. Taishi Ci  [ARCHER, Wu] —— same person as reference #3
    IDENTITY: 30s, long tied-back hair, strong jaw, long handsome beard, long ape-like arms. FACE: MAN with a strong square jaw, bright honest eyes, straight thick brows, straight nose, long handsome flowing beard, tanned skin, heroic loyal expression. BUILD: tall and athletic.
    SIGNATURE (unique to him on this sheet): HEAD no helmet, long tied-back hair; FACIAL HAIR long handsome flowing beard; MARK a short halberd in one hand, Sun Ce's captured helmet in the other, bow on his back.
    COLORS: Wu red: crimson, red, orange and gold.
-   MOOD (close-up bust, only a dark blurred hint of this moment behind the face): the divine archer of the twin halberds, loosing a glowing arrow while two halberds orbit him.
+   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): the divine archer of the twin halberds, loosing a glowing arrow while two halberds orbit him.
+   COMPOSITION: the weapon's point thrust straight AT the viewer in sharp perspective, the face behind it, half in focus, between the blade and the frame.
 4. Gan Ning  [ROGUE, Wu] —— same person as reference #4
    IDENTITY: 30s, menacing pirate chief, NO feathers, scar across the brow, scary glare. FACE: lean hard face, fierce glaring narrowed eyes under a heavy scarred brow, broken flat nose, sun-tanned skin, tattooed neck, bared-teeth snarl, menacing and scary, NOT playful. BUILD: lean and muscular, tattooed arms.
    SIGNATURE (unique to him on this sheet): HEAD red brocade pirate bandana knotted at the back with long tails; FACIAL HAIR rough short stubble; MARK grappling hook rope, brass bells on his belt, tattoos.
    COLORS: Wu red: crimson, red, orange and gold.
    THIS RANK'S LOOK: Gan Ning, brash pirate-like fighter with bells on his belt, feathered headband and tattoos, crouching leap with a big curved sword.
-   MOOD (close-up bust, only a dark blurred hint of this moment behind the face): the night raid with a hundred riders, feathers and bells, torches lighting the enemy camp.
+   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): the night raid with a hundred riders, feathers and bells, torches lighting the enemy camp.
+   COMPOSITION: HIGH angle, leaning forward toward the camera as if about to lunge, face very close and slightly distorted by the wide lens.

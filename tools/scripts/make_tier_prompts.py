@@ -72,7 +72,7 @@ HORSE_EXTRA = {"하후연": "a lean fast horse at full gallop"}     # 방덕은 
 MOUNT = {"base": "MOUNTED: riding %s —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.",
          6: "MOUNTED: riding %s —— rider waist-up, the horse's armored head, neck and mane in front of him.",
          7: "MOUNTED: riding %s —— rider and horse together in the scene, the horse charging or rearing.",
-         8: "MOUNTED (bust shot): only the rider's face and chest in the frame —— at most a glimpse of the armored horse's head or mane at the panel edge (%s)."}
+         8: "MOUNTED: the rider's face and upper body are the subject —— the armored horse only as a glimpse of head, neck or mane at the panel edge (%s)."}
 
 
 def mount(x, key):
@@ -351,14 +351,16 @@ shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, m
 The person is unmistakably the same, only far more terrifying and magnificent.
 
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
-- An extreme CLOSE-UP BUST SHOT: the FACE and CHEST fill most of the panel (top of the head to mid-chest), the face large,
-  slightly off-center, a little low angle so they loom over the viewer. Shoulders and armor may run off the panel edges.
-- The character looks STRAIGHT INTO THE CAMERA with a murderous, overwhelming glare —— cold killing intent, bared teeth or
-  a chilling calm smile, a cruel or merciless look as fits the person. Scholars and schemers look just as deadly in their
-  own way: an icy contemptuous stare, a smile that means you are already dead.
-- The signature weapon is pushed toward the viewer in the foreground (a blade edge, a spear point, a halberd crescent, a
-  bow drawn at the viewer, a fan or brush raised like a weapon) with strong perspective, partly out of focus.
-- Hands, if visible, grip the weapon right in front of the chest.
+- CLOSE and IMPACTFUL: the face and upper body dominate the panel (from an extreme face close-up to at most waist-up),
+  shoulders, weapons and hair may run off the panel edges.
+- EVERY PANEL HAS ITS OWN COMPOSITION —— follow each character's COMPOSITION line exactly. On one sheet no two panels may
+  share the same camera angle, head direction, crop or weapon placement. Vary: front / three-quarter / profile / looking
+  back over the shoulder; low angle / high angle / tilted (dutch) angle; extreme face crop / bust / waist-up; weapon in the
+  foreground / across the face / over the shoulder / swinging with motion blur.
+- The killing intent is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder) with a
+  murderous, overwhelming glare —— bared teeth, a roar, or a chilling calm smile, a cruel or merciless look as fits the
+  person. Scholars and schemers look just as deadly in their own way: an icy contemptuous stare, a smile that means you
+  are already dead.
 
 STYLE:
 - Premium anime card illustration, realistic-leaning proportions (not chibi), very sharp detailed face: intense eyes with
@@ -411,8 +413,40 @@ def tier_entry(i, x, card, tier):
     elif tier == 7 and scene:
         lines.append("   MOMENT (paint this scene): " + scene)
     elif tier == 8 and scene:
-        lines.append("   MOOD (close-up bust, only a dark blurred hint of this moment behind the face): " + scene)
+        lines.append("   MOOD (only a dark blurred hint of this moment behind them, no guardian beasts): " + scene)
+    if tier == 8:
+        lines.append("   COMPOSITION: " + COMP.get(x["p"], COMPS[0]) + ".")
     return "\n".join(lines)
+
+
+# 신화 구도 —— 한 장 안에서 겹치지 않게 돌려 쓴다. 인물에 맞는 구도가 있으면 그것부터 (10/30 사용자: 구도가 다 똑같다)
+COMPS = [
+    "extreme close-up of the face filling the panel, cut off at the chin and forehead, eyes burning straight into the viewer, the weapon's edge slicing diagonally across the lower corner",
+    "three-quarter view, LOW angle from below, looming over the viewer, chin raised, looking down with contempt, the weapon resting on the shoulder",
+    "PROFILE turned to the side, the head snapping toward the viewer so only the eyes look into the camera, weapon held upright beside the face",
+    "seen from BEHIND over the shoulder, turning back to glare at the viewer, the back armor and cape in the foreground",
+    "HIGH angle, leaning forward toward the camera as if about to lunge, face very close and slightly distorted by the wide lens",
+    "the weapon's point thrust straight AT the viewer in sharp perspective, the face behind it, half in focus, between the blade and the frame",
+    "mid-ROAR, mouth wide open shouting, hair and cloth whipped back by wind, a tilted (dutch) angle, sparks flying past the face",
+    "face HALF IN SHADOW, only one eye and half the mouth lit by firelight, a dead-calm cruel smile, everything else sinking into darkness",
+    "mid-SWING, the weapon blurred in a wide arc across the panel, the body twisted, the eyes locked on the viewer through the motion",
+    "waist-up, arms crossed or one hand raised in a command, standing still and enormous, the quiet before killing, the camera slightly below",
+]
+COMP_PREF = {"장비": 6, "여포": 8, "관우": 1, "조운": 5, "마초": 8, "황충": 5, "하후돈": 0, "하후연": 5, "태사자": 5,
+             "제갈량": 7, "사마의": 3, "조조": 9, "주유": 2, "육손": 2, "초선": 7, "곽가": 7, "가후": 7, "장료": 4, "허저": 6,
+             "전위": 1, "손책": 6, "감녕": 4, "여몽": 3, "유비": 9, "손권": 9, "동탁": 1, "원소": 9, "장각": 6, "화타": 2,
+             "좌자": 3, "진궁": 0, "사마휘": 7, "순욱": 2, "위연": 0, "강유": 5, "법정": 7, "노숙": 9}
+COMP = {}
+
+
+def assign_comps(names):
+    used = set()
+    for p in names:
+        c = COMP_PREF.get(p)
+        if c is None or c in used:
+            c = next(k for k in range(len(COMPS)) if k not in used)
+        used.add(c)
+        COMP[p] = COMPS[c]
 
 
 def split(items, per):
@@ -460,6 +494,8 @@ def write_sheets(key, folder, groups, label, start=0):
             text = BASE_COMMON.format(n=n, gender=GENDER, layout=layout(n, per, False))
             text += "\n".join(base_entry(j + 1, INFO[p]) for j, (p, _) in enumerate(chunk)) + "\n"
         else:
+            if key == 8:
+                assign_comps([p for p, _ in chunk])
             text = TIER_COMMON[key].format(n=n, gender=GENDER, layout=layout(n, per, True))
             text += "\n".join(tier_entry(j + 1, INFO[p], c, key) for j, (p, c) in enumerate(chunk)) + "\n"
         fname = "%02d_%s_%d명.txt" % (no, fac, n)
