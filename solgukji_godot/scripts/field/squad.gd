@@ -31,9 +31,9 @@ const SPEED := {"창병": 62.0, "도적": 80.0, "기병": 95.0, "궁병": 55.0,
 const TURN := 1.4           # 대열이 도는 속도 (라디안/초)
 const SOLDIER_TURN := 7.0   # 병사가 고개를 돌리는 속도
 const CONTACT_GAP := 2.0    # 맞닿은 두 대열 앞줄 사이 (px)
-const DUEL_RANKS := 4       # 맞붙으면 일대일로 흩어지는 앞줄 수
+const DUEL_RANKS := 2       # 맞붙으면 일대일로 흩어지는 앞줄 수 (10/30 4 → 2: 대열이 덩어리로 남게)
 const DUEL_DIST := 7.0      # 일대일로 붙은 두 병사 사이 (px)
-const LOOSE_IN := 1.2       # 맞붙으면 초당 이만큼 흐트러진다
+const LOOSE_IN := 0.6       # 맞붙으면 초당 이만큼 흐트러진다 (10/30 1.2 → 0.6)
 const LOOSE_OUT := 0.22     # 떨어지면 초당 이만큼 대열을 되찾는다 (약 4~5초)
 const ATTACK_TIME := 0.38   # 한 번 찌르거나 휘두르는 시간
 

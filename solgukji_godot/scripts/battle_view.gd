@@ -828,7 +828,7 @@ func _start_group(g: Dictionary) -> void:
 		return
 	if g.skill != "":
 		field.skill_fx(g.who)
-		hud.float_text(g.who, "『%s』" % g.skill, DB.PAL.gold, 15)
+		hud.skill_banner(g.who, g.skill)
 	match g.kind:
 		"melee":
 			field.order_melee(g.who, g.targets[0])
@@ -912,20 +912,14 @@ func _apply(i: int, quiet := false) -> void:
 				_do_rout(u)
 		"dodge":
 			hud.float_text(f, "회피", Color.WHITE, 12)
-		"resist":
-			hud.float_text(f, "저항", Color("#cfe6ff"), 12)
-		"passive":
-			hud.float_text(e.a, "『%s』" % e.name, Color("#8fe0d0"), 14)
+		"resist", "passive":
+			pass          # 저항 · 단체 특기 —— 글씨를 띄우지 않는다 (화면을 덮었다)
 		"cmd":
 			var col: Color = {"돌격": Color("#ff8a4a"), "방진": Color("#6fb0ff"), "재정비": Color("#8FD4C2")}.get(e.name, Color.WHITE)
 			hud.announce("%s 군령 『%s』 —— %s" % ["아군" if e.camp == "A" else "적", e.name, Battle.CMDS[e.name].d], col)
 			field.cmd_fx(e.camp, col)
-		"status":
-			hud.float_text(f, DB.D.STATUS[e.st].n, Color(DB.D.STATUS[e.st].c).lightened(0.2), 13)
-		"cleanse":
-			hud.float_text(f, DB.D.STATUS[e.st].n + " 해제", Color("#8FD4C2"), 12)
-		"debuff":       # 수치 깎기 (위축 · 산란 · 파갑 · 현혹)
-			hud.float_text(f, "%s −%d" % [DB.D.STATUS[e.st].n, roundi(e.n)], Color(DB.D.STATUS[e.st].c).lightened(0.2), 12)
+		"status", "cleanse", "debuff":
+			pass          # 상태이상 · 해제 · 수치 깎기 —— 머리표 배지로 보인다
 
 
 ## 소리 —— 사건 종류마다 (Sfx 가 잦은 소리는 건너뛴다)
@@ -1111,6 +1105,52 @@ class Hud extends Control:
 	func announce(text: String, col: Color) -> void:
 		ann = {"text": text, "col": col, "t": 0.0}
 
+	## 기술 현판 —— 부대 머리 위에 1.4초. 진영색 띠 + 금테 + 큰 기술명 (삼국지13 전법 발동)
+	var banners_sk := []
+
+	func skill_banner(key: String, nm: String) -> void:
+		var sq: Squad = view.field.squads.get(key)
+		if sq == null:
+			return
+		banners_sk = banners_sk.filter(func(b): return b.key != key)
+		banners_sk.append({"key": key, "name": nm, "t0": view.clock, "camp": sq.camp})
+
+	func _draw_skill_banners() -> void:
+		var keep := []
+		for b in banners_sk:
+			var t: float = view.clock - b.t0
+			if t > 1.4:
+				continue
+			keep.append(b)
+			var sq: Squad = view.field.squads.get(b.key)
+			if sq == null:
+				continue
+			var p := _to_screen(sq.pos, 7.5)
+			if p.x < -9999:
+				continue
+			var a := clampf(t / 0.08, 0, 1) * clampf((1.4 - t) / 0.3, 0, 1)
+			var sc := lerpf(1.6, 1.0, ease(clampf(t / 0.16, 0, 1), 0.4))
+			var fd := DB.font_display
+			var fs := 17
+			var tw := fd.get_string_size(b.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var w := tw + 34.0
+			var h := 28.0
+			draw_set_transform(p + Vector2(0, -46 - t * 10), 0, Vector2.ONE * sc)
+			var box := Rect2(Vector2(-w / 2, -h / 2), Vector2(w, h))
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.06, 0.05, 0.04, 0.88 * a)
+			sb.border_color = Color("#d9a64b", a)
+			sb.set_border_width_all(2)
+			sb.set_corner_radius_all(4)
+			draw_style_box(sb, box)
+			var team: Color = War3D.TEAM[b.camp]
+			draw_rect(Rect2(box.position + Vector2(3, 3), Vector2(6, h - 6)), Color(team.lightened(0.2), a))
+			draw_rect(Rect2(box.end - Vector2(9, h - 3), Vector2(6, h - 6)), Color(team.lightened(0.2), a))
+			draw_string_outline(fd, Vector2(-w / 2, 6), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 4, Color(0, 0, 0, 0.8 * a))
+			draw_string(fd, Vector2(-w / 2, 6), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color("#ffe6a8", a))
+			draw_set_transform(Vector2.ZERO)
+		banners_sk = keep
+
 	func float_text(key: String, text: String, col: Color, fs: int) -> void:
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
@@ -1153,7 +1193,7 @@ class Hud extends Control:
 			fs = 24
 		if not crit:
 			for f in floats:
-				if f.key == key and f.get("num", false) and not f.crit and f.kind == kind and view.clock - f.t0 < 0.45:
+				if f.key == key and f.get("num", false) and not f.crit and f.kind == kind and view.clock - f.t0 < 0.9:
 					f.amount += amount
 					f.text = ("+" if kind == "heal" else "-") + Battle.num(f.amount)
 					f.t0 = view.clock - 0.05
@@ -1321,6 +1361,7 @@ class Hud extends Control:
 			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 5, Color(0, 0, 0, col.a * 0.85))
 			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
 		floats = keep
+		_draw_skill_banners()
 		if _flash_t < 0.35:
 			var fa := (1.0 - _flash_t / 0.35)
 			draw_rect(Rect2(Vector2.ZERO, size), Color(_flash.lerp(Color.WHITE, 0.55), 0.55 * fa * fa))

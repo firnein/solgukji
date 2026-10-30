@@ -490,8 +490,8 @@ func _make_ring(sq: Squad) -> Decal:
 		g.fill_from = Vector2(0.5, 0.5)
 		g.fill_to = Vector2(1.0, 0.5)
 		var gr := Gradient.new()
-		gr.offsets = PackedFloat32Array([0.0, 0.6, 0.84, 0.93, 1.0])
-		gr.colors = PackedColorArray([Color(1, 1, 1, 0.10), Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.85), Color(1, 1, 1, 0.45), Color(1, 1, 1, 0)])
+		gr.offsets = PackedFloat32Array([0.0, 0.8, 0.9, 0.95, 1.0])
+		gr.colors = PackedColorArray([Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.03), Color(1, 1, 1, 0.38), Color(1, 1, 1, 0.12), Color(1, 1, 1, 0)])     # 10/30 옅고 가늘게 (화면을 덮었다)
 		g.gradient = gr
 		_ring_tex = g
 	var d := Decal.new()
@@ -757,11 +757,14 @@ func _separate(dt: float) -> void:
 			continue
 		for j in range(i + 1, order.size()):
 			var b: Squad = order[j]
-			if not b.alive or a.engaged == b or b.engaged == a or a.contact or b.contact:
+			if not b.alive or a.engaged == b or b.engaged == a:
 				continue
+			# 10/30 —— 싸우는 중이어도 맞붙은 짝이 아니면 서로 겹치지 않게 민다 (부대가 한 덩어리로 섞이던 것)
+			var fighting := a.contact or b.contact
+			var rad := 62.0 if fighting else 70.0
 			var d := a.pos - b.pos
-			if d.length() < 70.0 and d.length() > 0.01:
-				var push := d.normalized() * (70.0 - d.length()) * dt * 3.0
+			if d.length() < rad and d.length() > 0.01:
+				var push := d.normalized() * (rad - d.length()) * dt * (1.8 if fighting else 3.0)
 				if a.state != "hold": a.pos += push
 				if b.state != "hold": b.pos -= push
 
