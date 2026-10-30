@@ -829,6 +829,7 @@ func _start_group(g: Dictionary) -> void:
 	if g.skill != "":
 		field.skill_fx(g.who)
 		hud.skill_banner(g.who, g.skill)
+		field.skill_hit_fx(g.targets, g.kind == "spell")
 	match g.kind:
 		"melee":
 			field.order_melee(g.who, g.targets[0])

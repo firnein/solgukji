@@ -960,7 +960,7 @@ func _update_cam(dt: float) -> void:
 ## 후보 거리마다 부대 가장자리 점을 직접 투영해 보고(원근 포함), 위아래 가운데를 맞춘다.
 ## 다 담으려면 너무 멀어지면(FAR_OK 넘게) 싸우는 부대(맞닿았거나 상대에게 달려가는)만 담는다 —— 뒤에 선 예비대는 화면 밖으로.
 ## 위쪽은 세력 막대·시계가 있어 조금 더 비운다.
-const FAR_OK := 46.0
+const FAR_OK := 34.0       # 10/30 46 → 34: 멀어지면 싸우는 부대만 담는다 (교전 지점을 더 가까이)
 func _auto_frame() -> void:
 	var fw := Vector2(cos(want_yaw), sin(want_yaw))
 	var rt := Vector2(-sin(want_yaw), cos(want_yaw))
@@ -1060,7 +1060,7 @@ func reset_camera() -> void:
 	cam_dist = 24.0
 	want_t = Vector3(-4, 0, 0)
 	want_yaw = 0.0
-	want_pitch = 0.86 if portrait else 0.6
+	want_pitch = 0.74 if portrait else 0.55     # 10/30 조금 더 낮게 (삼국지13 처럼 비스듬히)
 	want_dist = 52.0 if portrait else 62.0
 	cam_rate = 0.9
 	_intro = 3.5
@@ -1130,7 +1130,7 @@ func to_screen(p: Vector2, lift: float) -> Vector2:
 ## 세로 화면 —— 세로 화각을 좁혀 원근 왜곡을 줄인다. 양 날개는 자동 카메라가 거리로 맞춘다
 func set_portrait(on: bool) -> void:
 	if on != portrait and _cine <= 0:
-		want_pitch = 0.86 if on else 0.6
+		want_pitch = 0.74 if on else 0.55
 	portrait = on
 	cam.keep_aspect = Camera3D.KEEP_HEIGHT
 	cam.fov = 62.0 if on else 50.0
@@ -1149,7 +1149,27 @@ func order_melee(akey: String, dkey: String) -> void:
 	var d: Squad = squads.get(dkey)
 	if a == null or d == null or not a.alive or not d.alive:
 		return
-	_assign(a, d)
+	_assign(a, _lane_target(a, d))
+
+
+## 전선 (10/30 삼국지13 연출) —— 보병은 엔진이 고른 상대가 멀면 전장을 가로질러 달려가지 않고 앞의 가장 가까운 적과 맞붙는다.
+## 이미 맞닿아 싸우는 중이면 그 상대를 놓지 않는다. 기병은 그대로 (먼 적을 우회해 친다). 피해 숫자는 엔진이 정한 상대에 뜬다
+func _lane_target(a: Squad, d: Squad) -> Squad:
+	if a.cls == "cav":
+		return d
+	if a.contact and a.engaged != null and a.engaged.alive:
+		return a.engaged
+	var near: Squad = null
+	var nd := 1e12
+	for o in order:
+		if o.alive and o.camp != a.camp and o.state != "flee" and o.state != "gone":
+			var dd: float = a.pos.distance_to(o.pos)
+			if dd < nd:
+				nd = dd
+				near = o
+	if near != null and a.pos.distance_to(d.pos) > nd + 100.0:
+		return near
+	return d
 
 
 ## 상대 배정 —— 같은 상대에 이미 붙은 아군 수만큼 옆으로 비켜 선다
@@ -1182,7 +1202,7 @@ func direct(plans: Dictionary) -> void:
 		var tgt: Squad = squads.get(plan[0][1]) if not plan.is_empty() else null
 		if sq.cls == "melee" or sq.cls == "cav":
 			if tgt:
-				_assign(sq, tgt)
+				_assign(sq, _lane_target(sq, tgt))
 			elif sq.engaged == null:
 				# 할 일이 없으면 우리 편을 치는 적에게 붙는다
 				var foe := _attacker_of_side(sq)
@@ -1339,6 +1359,19 @@ func skill_fx(key: String) -> void:
 	sq.glow = 1.0
 	_ring(p3(sq.pos, 0.15), DB.PAL.gold, 0.8)
 	_light(p3(sq.pos, 2.5), DB.PAL.gold, 2.0, 0.7)
+
+
+## 기술이 떨어지는 곳 —— 맞는 부대마다 땅에 번지는 고리 · 빛 (물리는 금빛 흙먼지, 책략은 보랏빛)
+func skill_hit_fx(keys: Array, magic: bool) -> void:
+	var col := Color("#b57edc") if magic else Color("#ffcf6a")
+	for k in keys:
+		var t: Squad = squads.get(k)
+		if t == null or not t.alive:
+			continue
+		_ring(p3(t.pos, 0.2), col, 1.0)
+		_light(p3(t.pos, 3.0), col, 2.4, 0.6)
+		if not dbg_nofx:
+			_particles(p3(t.pos, 0.6), "magic" if magic else "dust", col)
 
 
 func rout(key: String) -> void:
