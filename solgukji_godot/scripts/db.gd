@@ -24,7 +24,7 @@ var font_display: Font
 var font_body: Font
 var font_bold: Font
 var STAT_ADJ := {}      # 능력치 보정 (set_stat_adjust)
-const TIER_ART := false  # 초월 · 불멸 · 신화 전용 그림(<인물>_신화.png 등)을 쓸까 —— 10/30 사용자: 지금은 모든 등급이 기본 그림
+const TIER_ART := false  # 초월 · 불멸 · 신화 전용 그림(<인물>_신화.png 등)을 쓸까 —— 10/30 사용자: 지금은 모든 등급이 기본 그림 (true 로 바꾸면 export_presets.cfg 의 exclude_filter 에서 *_초월 · *_불멸 · *_신화 도 빼야 APK 에 들어간다)
 var _BASE := {}         # 보정 전 원본 능력치
 
 var _portrait_cache := {}
