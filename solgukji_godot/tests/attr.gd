@@ -53,7 +53,7 @@ func _ready() -> void:
 		if not ctr.is_empty():
 			var c := _match(t, deck, t, ctr, [])
 			print("  %s 든 상대: %.0f%% · %s 비중 %.0f%%" % [cp, c.w, attr, c.share])
-		if t < 8:
+		if t < 8 and not args.has("noup"):
 			var up := _match(t, deck, t + 1, [], [])
 			print("  한 등급 위 무작위: %.0f%%" % up.w)
 	print("소요 %.1f초" % ((Time.get_ticks_msec() - t0) / 1000.0))
@@ -98,6 +98,7 @@ func _match(t: int, core: Array, tf: int, foe_core: Array, _x: Array) -> Diction
 		var fb: String = FORMS[rng.randi() % FORMS.size()]
 		var sd := rng.randi() % 100000
 		var flip := i % 2 == 1
+		Battle.axis_off_camp = "B" if flip else "A"      # 축 끄기는 점검하는 덱 쪽만
 		var pa := DB.auto_place(a, fa)
 		var pb := DB.auto_place(b, fb)
 		var r: Dictionary

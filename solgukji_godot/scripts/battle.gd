@@ -16,7 +16,7 @@ const MYTH_AMP := 1.6
 ## 턴 상한(원본 K.cap 20)과 첫 턴 기병 돌격 · 첫 공격 보너스도 이만큼 늘린다. 바꿀 때는 set_turn_mul().
 ## 등급마다 전투 길이가 달라(배율 3 에서 고급 10턴 · 초월 28턴) 전투에 나온 카드의 평균 등급으로 배율을 고른다 —— 어느 등급이든 15턴 안팎.
 const BASE_PACE := 0.35
-const TURN_MUL := {1: 5.05, 2: 5.05, 3: 5.05, 4: 6.3, 5: 4.55, 6: 3.3, 7: 4.75, 8: 10.3}   # 10/30 한 차례에 기술 여러 개 뒤 다시 맞춤
+const TURN_MUL := {1: 5.25, 2: 5.25, 3: 5.25, 4: 6.5, 5: 3.95, 6: 2.75, 7: 4.0, 8: 10.3}   # 10/30 축 밸런스 조정 뒤 다시 맞춤
 static var auto_turn := true      # 전투마다 평균 등급으로 배율을 고른다 (점검 장면이 --tmul 로 고정하면 false)
 static var turn_mul := 3.0
 ## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다. = BASE_PACE / turn_mul
@@ -58,6 +58,7 @@ static var passives_enabled := true  # 특기(개인·단체) 켜기
 static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
 static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
 static var axis_off := {}            # 특기 축 끄기 (점검용) —— {"물리": true, …} 이면 그 축의 특기가 붙지 않는다
+static var axis_off_camp := ""       # 축 끄기를 한쪽 진영에만 ("A" · "B", 비우면 양쪽) —— 점검할 덱 쪽만 끄려고
 static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 · 현혹 —— 솔국지 확장)
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
 static var counter_charge := false   # 반격을 맞은 쪽도 고유기 게이지가 차는가 —— 차면 반격이 적 고유기를 앞당겨 철벽이 손해를 봤다(10/29 측정)
@@ -271,7 +272,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	var ps = DB.passives_of(cid)
 	if ps != null:
 		for t in ps.traits:
-			if not _trait_on(t):
+			if not _trait_on(t, camp):
 				continue
 			for k in t.m:
 				u.m[k] = u.m.get(k, 0.0) + t.m[k]
@@ -283,8 +284,10 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 
 
 ## 특기 켜짐 —— 축(attr)이 axis_off 에 있으면 끈다. 철벽 · 인덕은 guard_enabled · virtue_enabled 로도 끈다
-func _trait_on(t: Dictionary) -> bool:
-	if not passives_enabled or axis_off.has(t.attr):
+func _trait_on(t: Dictionary, camp := "") -> bool:
+	if not passives_enabled:
+		return false
+	if axis_off.has(t.attr) and (axis_off_camp == "" or camp == "" or camp == axis_off_camp):
 		return false
 	match t.attr:
 		"도트": return fire_enabled
@@ -901,9 +904,9 @@ func _cut(a: Unit, d: Unit, stat: String, amt: float, why: String) -> void:
 	L("st", "『%s』 %s의 %s −%d" % [why, nm(d), CUT_NAME[stat], roundi(v)], {"fx": "debuff", "f": d.key, "st": CUT_ST[stat], "n": v})
 
 
-## 맞힐 때마다 깎는 양 —— 특기 값 × 자기 능력치(물리는 공격, 책략은 책략) / 턴 배율 (턴이 늘어도 전투 전체로는 같게)
+## 맞힐 때마다 깎는 양 —— 특기 값 × 자기 능력치(물리는 공격, 책략은 책략). 10/30 턴 배율로 나누던 것을 뺐다 (높은 등급에서 거의 0 이 됐다)
 func _cut_amt(a: Unit, key: String, phys: bool) -> float:
-	return mv(a, key) * (a.c.atk if phys else a.c["int"]) / turn_mul
+	return mv(a, key) * (a.c.atk if phys else a.c["int"])
 
 
 ## 디버프에 걸린 적인가 (약점) —— 화상 · 둔화 · 혼란 · 봉인 · 역병, 또는 깎인 수치
@@ -920,7 +923,10 @@ func _debuffed(d: Unit) -> bool:
 func _tac_mul(a: Unit, d: Unit) -> float:
 	if a == null:
 		return 1.0
-	return 1.0 + (mv(a, "weak_amp") if _debuffed(d) else 0.0)
+	var m := 1.0 + (mv(a, "weak_amp") if _debuffed(d) else 0.0)
+	if water_enabled and has_st(d, "flood"):
+		m *= 1.0 + float(DB.PSV.water.get("weak", 0.0))      # 둔화 —— 발이 묶인 적은 더 아프게 맞는다
+	return m
 
 
 ## 한 번 쓰고 사라지는 피해 배율 —— 기세(적을 무너뜨린 뒤 다음 공격)
@@ -1603,7 +1609,7 @@ func _apply_group_passives() -> void:
 		if ps == null:
 			continue
 		for g in ps.groups:
-			if _trait_on(g):
+			if _trait_on(g, u.camp):
 				_group_from(u, g, got, owner)
 	_finish_groups(got, owner)
 
