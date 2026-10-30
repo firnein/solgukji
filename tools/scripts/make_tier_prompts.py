@@ -72,7 +72,7 @@ HORSE_EXTRA = {"하후연": "a lean fast horse at full gallop"}     # 방덕은 
 MOUNT = {"base": "MOUNTED: riding %s —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.",
          6: "MOUNTED: riding %s —— rider waist-up, the horse's armored head, neck and mane in front of him.",
          7: "MOUNTED: riding %s —— rider and horse together in the scene, the horse charging or rearing.",
-         8: "MOUNTED: riding %s —— rider and a magnificent armored horse charging or rearing in full view, mane and tail like flames or wind."}
+         8: "MOUNTED (bust shot): only the rider's face and chest in the frame —— at most a glimpse of the armored horse's head or mane at the panel edge (%s)."}
 
 
 def mount(x, key):
@@ -342,33 +342,35 @@ motifs, luminous gold details, flowing capes and ribbons, a faint golden glow, w
 
 CHARACTERS
 """,
-    8: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, painted as MYTHIC splash-art card
-illustrations for a mobile card game —— the rarest, most breathtaking art in the whole game, clearly a step ABOVE ordinary
-top-tier art. Think the legendary "ultra-rare" card of a gacha game.
+    8: """The SAME {n} Three Kingdoms generals as numbered in the attached reference image, painted as MYTHIC card art for a
+mobile card game —— the rarest, most intimidating art in the game. One look at the card should make the viewer feel this
+person is about to KILL THEM right now.
 
 REFERENCE (attached image): character #k in the reference = panel #k here. Keep each identity EXACTLY: the same face, eye
 shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
-The person is a living legend here, yet unmistakably the same.
+The person is unmistakably the same, only far more terrifying and magnificent.
+
+FRAMING —— THIS IS THE MOST IMPORTANT PART:
+- An extreme CLOSE-UP BUST SHOT: the FACE and CHEST fill most of the panel (top of the head to mid-chest), the face large,
+  slightly off-center, a little low angle so they loom over the viewer. Shoulders and armor may run off the panel edges.
+- The character looks STRAIGHT INTO THE CAMERA with a murderous, overwhelming glare —— cold killing intent, bared teeth or
+  a chilling calm smile, a cruel or merciless look as fits the person. Scholars and schemers look just as deadly in their
+  own way: an icy contemptuous stare, a smile that means you are already dead.
+- The signature weapon is pushed toward the viewer in the foreground (a blade edge, a spear point, a halberd crescent, a
+  bow drawn at the viewer, a fan or brush raised like a weapon) with strong perspective, partly out of focus.
+- Hands, if visible, grip the weapon right in front of the chest.
 
 STYLE:
-- Premium anime splash art, heroic proportions (about 5 heads tall, only slightly stylized), full-body or three-quarter
-  body in an EPIC dynamic pose (mid-strike, charging, commanding a storm, unleashing a spell), strong perspective and depth.
-- Ultra-dense linework and painterly rendering, cinematic lighting: blazing rim light, god rays, bloom and lens glow,
-  deep contrast between a dark dramatic sky and the radiant hero. Eyes may glow faintly with their signature color.
-- Each panel is ONE epic scene of the character's legend at its peak, with a deep painted background (a sea of soldiers,
-  a burning fleet, collapsing walls, a stormy heaven), and a HUGE manifested guardian spirit behind them that fits the
-  character (a colossal green dragon, a roaring white tiger, a vermilion phoenix of fire, a thunder qilin, a celestial
-  tortoise-serpent, a giant ghostly army) towering over the scene, plus swirling elemental energy (fire, lightning,
-  water, wind, petals, starlight) and floating golden embers and particles everywhere.
-- Each panel has an ornate GOLD filigree frame with jade and ruby inlays and small dragon-head corner pieces; parts of
-  the effect (flames, a blade tip, a ribbon, the spirit's claw) may burst slightly OVER the frame edge for depth, but never
-  into a neighboring panel.
-- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot, rider as the clear subject.
+- Premium anime card illustration, realistic-leaning proportions (not chibi), very sharp detailed face: intense eyes with
+  a sharp catchlight, deep shadows under the brow, sweat, battle grime, scars and blood specks where they fit.
+- Hard cinematic lighting: dark background, one strong key light from the side or below plus a burning rim light along
+  the hair, cheek and shoulder; high contrast, the eyes the brightest point of the face.
+- Background is dark and simple: smoke, embers, ash, rain, a blurred battlefield glow or blood-red sky —— only mood, no
+  detailed scene, nothing that pulls attention from the face. Do NOT add guardian beasts or giant spirit animals.
+- A thin ornate dark-gold frame around each panel. Nothing crosses into a neighboring panel.
 
-OUTFIT LEVEL (MYTHIC): the ultimate legendary version —— divine armor of gold and jade covered in sculpted dragon, phoenix
-or tiger reliefs, gem-studded, glowing engraved runes along the edges, enormous flowing silk capes and ribbons that float
-in the wind, an ornate halo or radiant crest behind the head, the signature weapon transformed into a legendary artifact
-(glowing edge, wrapped in its element), while keeping the character's main colors and signature items recognizable.
+OUTFIT LEVEL (MYTHIC): the most splendid version of their gear, seen close up —— heavy gilded and engraved armor, worn and
+battle-scarred, rich silk and fur at the collar, while keeping the character's main colors and signature items.
 {gender}
 
 {layout}
@@ -409,7 +411,7 @@ def tier_entry(i, x, card, tier):
     elif tier == 7 and scene:
         lines.append("   MOMENT (paint this scene): " + scene)
     elif tier == 8 and scene:
-        lines.append("   LEGEND AT ITS PEAK (paint this scene as epic splash art, with the guardian spirit): " + scene)
+        lines.append("   MOOD (close-up bust, only a dark blurred hint of this moment behind the face): " + scene)
     return "\n".join(lines)
 
 
