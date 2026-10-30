@@ -332,6 +332,7 @@ func eff(u: Unit, stat: String) -> float:
 	for b in u.buffs:
 		if b.stat == stat: v *= (1 + b.amt)
 	if stat == "atk" or stat == "int": v *= (0.4 + 0.6 * (u.troops / u.max))
+	v *= morale_mul(u)               # 사기 —— 모든 능력치에 (2026-10-30 사용자 결정)
 	v -= u.cut.get(stat, 0.0)        # 위축 · 산란 · 파갑 · 현혹 —— 0 까지
 	return maxf(1, v)
 
@@ -355,7 +356,14 @@ func sk_rate(u: Unit) -> float:
 	return r + mv(u, "rate")
 
 
-## 사기는 패주 전용 (2026-10-30 사용자 결정) —— 예전엔 주는 피해에 0.5 + 사기/200 을 곱했다. 피해는 공격 · 책략 수치(위축 · 산란)로만 바뀐다
+## 사기 —— 모든 능력치(공격 · 방어 · 책략 · 책방 · 속도)에 곱한다 (2026-10-30 사용자 결정). 사기 0 → 0.6배, 100 → 1배, 200 → 1.4배.
+## 예전(원본)은 주는 피해에만 0.5 + 사기/200 을 곱했다. 사기 30 이하에서 패주를 굴리는 것은 그대로
+static var morale_w := 0.4
+
+func morale_mul(u: Unit) -> float:
+	return 1.0 + morale_w * (clampf(u.morale, 0, 200) - 100.0) / 100.0
+
+
 func m_mul(_u: Unit) -> float:
 	return 1.0
 
