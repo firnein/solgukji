@@ -200,14 +200,17 @@ REDO = {
                look="early 20s, smooth youthful face, clean-shaven.",
                face="slender pale young MAN in his early 20s, smooth CLEAN-SHAVEN face (no beard, no stubble), angular sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair",
                sig=["no hat, loose untied hair", "clean-shaven, no beard at all", "short calligraphy brush in hand, wine gourd, flushed cheeks"]),
-    "방덕": dict(desc="Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a long spear in one hand, with the other hand DRAGGING a heavy wooden coffin behind him on a rope (he brought his own coffin to battle)",
-               sig=["black iron helmet with a black horsehair crest", "full black beard", "wooden coffin dragged behind him on a rope, long spear"]),
+    "방덕": dict(desc="Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a BLUE cloth headscarf, a long spear held UPRIGHT in one hand, and a SMALL wooden coffin standing on end right behind his back, pulled on a short rope over his shoulder (he brought his own coffin to battle). Keep him and the coffin COMPACT inside his own slot: the coffin is no wider than his body and does not stick out to the sides",
+               sig=["blue cloth headscarf (no helmet)", "full black beard", "small upright wooden coffin on a short rope behind his back, upright long spear"]),
     "사마의": dict(desc="Sima Yi, the cold supreme schemer who came to rule Wei: deep blue robes with a WHITE CLOAK over his shoulders, ARMS FOLDED across his chest, chin raised, looking down with absolute authority",
                 look="50s, imposing tall figure, long thin beard, aura of the most powerful man in the realm.",
                 face="long gaunt face, sunken cheeks, narrow wolf-like eyes looking down coldly, long thin nose, thin lips in a faint cunning smile, pale skin, overwhelming quiet authority",
                 sig=["tall black official crown", "long thin beard", "white cloak over deep blue robes, arms folded"]),
-    "심배": dict(color=YUAN, desc="Shen Pei, stubborn loyal official of Yuan Shao in a YELLOW-GOLD high-collared robe, holding a sealed order scroll, stern",
-               sig=["tall black official hat", "long thin beard", "high collar, sealed order scroll"]),
+    "심배": dict(color=YUAN, desc="Shen Pei, stubborn hot-tempered official of Yuan Shao in a YELLOW-GOLD high-collared robe, gripping a sealed order scroll in a fist, glaring",
+               look="60s, stocky old man, bald crown with a grey topknot, short bristly grey goatee, bulging glaring eyes.",
+               face="broad ruddy square face, thick bushy GREY eyebrows, big round BULGING glaring eyes (not narrow), wide flat nose, short bristly grey goatee only (no long beard), deep frown lines, stubborn clenched jaw",
+               build="short and stocky, barrel-shaped",
+               sig=["bald crown with a small grey topknot tied in a yellow cloth (no hat)", "short bristly grey goatee", "high collar, sealed scroll gripped in a fist"]),
     "안량": dict(color=YUAN),
     "우금": dict(desc="Yu Jin, strict disciplinarian general with long UNBOUND messy hair falling loose, a BLUE cape, plain iron armor, a war banner pole on his back",
                sig=["no cap, long loose disheveled hair", "neat pencil mustache only", "blue cape, war banner pole on his back"]),
@@ -222,8 +225,12 @@ REDO = {
     "하후돈": dict(look="black eyepatch, NEATLY tied hair in a tidy topknot, short thick black beard.",
                 desc="Xiahou Dun, fierce one-eyed general in dark blue armor, hair neatly tied in a tidy topknot, holding a heavy SINGLE-EDGED blade (one cutting edge only, like a heavy dao)",
                 sig=["neat tidy topknot", "short thick black beard", "black eyepatch over the LEFT eye, single-edged heavy blade"]),
-    "저수": dict(color=YUAN),
-    "전풍": dict(color=YUAN),
+    "저수": dict(color=YUAN, desc="Ju Shou, loyal worried strategist of Yuan Shao in a plain yellow-brown robe, hunched forward, clutching a secret plan scroll to his chest",
+               face="thin pale face, worried knitted brow, droopy sad eyes with dark bags, small sparse moustache and a thin wispy chin beard, anxious open mouth",
+               build="thin and hunched", look="50s, thin worried man, wispy little beard.", sig=["small soft black scholar cap", "sparse wispy moustache and thin chin beard", "secret plan scroll hugged to his chest, hunched worry"]),
+    "전풍": dict(color=YUAN, desc="Tian Feng, blunt fearless advisor of Yuan Shao in a stiff yellow-gold robe, standing square and pointing at a written memorial while scolding",
+               face="broad square face, thick black frowning eyebrows, wide fierce eyes, broad nose, thick black square-cut beard, open scolding mouth",
+               build="tall, stiff and square-shouldered", look="40s, stern square-faced man, thick square black beard.", sig=["square black official hat with flaps", "thick black square-cut beard", "pointing finger and a written memorial"]),
     "진궁": dict(desc="Chen Gong, defiant strategist of Lü Bu captured at White Gate Tower: crimson-and-black robe, a plain black headscarf, a straight sword at his hip, a CUT ROPE still tied around one wrist, chin raised in proud defiance",
                look="40s, lean proud face, neat long black beard, piercing stare, unbowed even as a captive.",
                face="lean long face, prominent cheekbones, piercing defiant eyes, straight nose, thin firm lips, pale stern skin, proud raised chin",
@@ -231,7 +238,7 @@ REDO = {
                color="crimson red and black"),
 }
 for _p, _o in REDO.items():
-    for _k in ("desc", "look", "face", "color"):
+    for _k in ("desc", "look", "face", "color", "build"):
         if _k in _o:
             INFO[_p][_k] = _o[_k]
     if "sig" in _o:
@@ -240,6 +247,8 @@ for _p, _o in REDO.items():
 DISTINCT = """EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
 the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
 """
 GENDER = DISTINCT + """GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
@@ -268,7 +277,7 @@ STYLE:
 - CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
-simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
 weapons, hats) are ALREADY present here, because later versions must keep them.
 
 FACES AND SILHOUETTES MUST ALL DIFFER:

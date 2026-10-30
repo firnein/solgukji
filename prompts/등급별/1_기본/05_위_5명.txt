@@ -12,7 +12,7 @@ STYLE:
 - CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
-simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
 weapons, hats) are ALREADY present here, because later versions must keep them.
 
 FACES AND SILHOUETTES MUST ALL DIFFER:
@@ -23,6 +23,8 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
 the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -37,11 +39,11 @@ LAYOUT:
 
 CHARACTERS
 1. Pang De  [SPEARMAN, Wei]
-   DESIGN: Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a long spear in one hand, with the other hand DRAGGING a heavy wooden coffin behind him on a rope (he brought his own coffin to battle)
+   DESIGN: Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a BLUE cloth headscarf, a long spear held UPRIGHT in one hand, and a SMALL wooden coffin standing on end right behind his back, pulled on a short rope over his shoulder (he brought his own coffin to battle). Keep him and the coffin COMPACT inside his own slot: the coffin is no wider than his body and does not stick out to the sides
    LOOK: 40s, hard square jaw, full black beard, thick eyebrows, fierce unblinking eyes.
    FACE: hard square MAN's jaw, thick straight eyebrows, fierce unblinking eyes, broad nose, full black beard, tanned skin, grim determination.
    BUILD: solid and broad.
-   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR full black beard; MARK wooden coffin dragged behind him on a rope, long spear.
+   SIGNATURE (unique to him on this sheet): HEAD blue cloth headscarf (no helmet); FACIAL HAIR full black beard; MARK small upright wooden coffin on a short rope behind his back, upright long spear.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 2. Xu Huang  [SPEARMAN, Wei]
    DESIGN: Xu Huang, calm general with a mustache, blue armor, on foot, long-handled great axe braced in front.

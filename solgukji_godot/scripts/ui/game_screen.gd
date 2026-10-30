@@ -1040,7 +1040,7 @@ func card_info(k: String) -> void:
 	# 고유 특기 —— 접지 않고 바로 보인다 (이름 · 수치)
 	for t in DB.trait_list(k):
 		if t.unique:
-			var ub := "[color=#FFD76E][b]고유 %s[/b][/color]" % t.name
+			var ub := "[color=#FFD76E][b]%s[/b][/color]" % t.name
 			if t.mt != "":
 				ub += "\n[color=#8FD4C2]%s[/color]" % t.mt
 			b.add_child(UI.panel(UI.rich(ub, 14), 8))
@@ -1048,8 +1048,7 @@ func card_info(k: String) -> void:
 		var sl := []
 		for x in c.sks:
 			sl.append("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.cond_text(x.cond), DB.skill_desc(c, x)])
-		b.add_child(UI.rich("[color=#8D7B5C]기술 %d개 · 저마다 차례마다 %d%% 충전 · 한 차례에 하나[/color]\n" % [c.sks.size(), roundi(DB.D.RATE.get(str(c.tier), 0) * 100)]
-			+ "\n".join(sl), 13))
+		b.add_child(UI.rich("\n".join(sl), 13))
 	var u = DB.ult_of(k) if c.tier >= 6 else null
 	if u != null:
 		b.add_child(UI.rich("[color=#ffd76e][b]고유기 『%s』[/b][/color]  “%s”\n%s" % [u.name, u.shout, UI.ult_desc(u)], 14))

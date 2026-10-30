@@ -16,7 +16,7 @@ const MYTH_AMP := 1.6
 ## 턴 상한(원본 K.cap 20)과 첫 턴 기병 돌격 · 첫 공격 보너스도 이만큼 늘린다. 바꿀 때는 set_turn_mul().
 ## 등급마다 전투 길이가 달라(배율 3 에서 고급 10턴 · 초월 28턴) 전투에 나온 카드의 평균 등급으로 배율을 고른다 —— 어느 등급이든 15턴 안팎.
 const BASE_PACE := 0.35
-const TURN_MUL := {1: 5.05, 2: 5.05, 3: 5.05, 4: 5.45, 5: 3.95, 6: 2.8, 7: 3.5, 8: 7.2}   # 10/30 기술마다 따로 충전 · 사기 축 뒤 다시 맞춤
+const TURN_MUL := {1: 5.05, 2: 5.05, 3: 5.05, 4: 6.3, 5: 4.55, 6: 3.3, 7: 4.75, 8: 10.3}   # 10/30 한 차례에 기술 여러 개 뒤 다시 맞춤
 static var auto_turn := true      # 전투마다 평균 등급으로 배율을 고른다 (점검 장면이 --tmul 로 고정하면 false)
 static var turn_mul := 3.0
 ## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다. = BASE_PACE / turn_mul
@@ -1417,32 +1417,31 @@ func act(u: Unit) -> void:
 	var sk = null
 	var used := false
 	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동.
-	# 기술은 저마다 따로 충전이 돈다 (2026-10-30 사용자). 한 차례에 하나만 —— 충전이 차고 조건이 맞는 것 가운데 앞선 것
+	# 기술은 저마다 따로 충전이 돈다 (2026-10-30 사용자). 충전이 차고 조건이 맞는 기술은 한 차례에 모두 쓴다 (여러 개도)
 	var sks: Array = u.c.get("sks", [])
-	var si := -1
 	if not sks.is_empty():
 		while u.sk_ch.size() < sks.size():
 			u.sk_ch.append(0.5)
 		var r := sk_rate(u)
 		for j in sks.size():
 			u.sk_ch[j] = minf(SK_BANK, u.sk_ch[j] + r)
-		for j in sks.size():
-			if u.sk_ch[j] >= 1.0 and _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
-				sk = sks[j]
-				si = j
-				break
-	if sk:
+	for j in sks.size():
+		if not u.alive or not foes.any(func(o): return o.alive):
+			break
+		if u.sk_ch[j] < 1.0 or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
+			continue
+		sk = sks[j]
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false
-		if ok: u.sk_ch[si] -= 1.0
+		if ok: u.sk_ch[j] -= 1.0
 		if ok:
 			used = true
 			u.in_skill = true
 			for o in allies:
 				if o != u and o.alive and mv(o, "ally_sk") > 0:      # 연계 —— 아군이 기술을 쓰면 내 기술 충전이 모두 찬다
-					for j in o.sk_ch.size():
-						o.sk_ch[j] = minf(SK_BANK, o.sk_ch[j] + mv(o, "ally_sk"))
+					for jj in o.sk_ch.size():
+						o.sk_ch[jj] = minf(SK_BANK, o.sk_ch[jj] + mv(o, "ally_sk"))
 			L("sk", "%s 『%s』%s 펼친다" % [ga(nm(u)), sk.n, "을" if jong(sk.n) else "를"],
 				{"fx": "skill", "a": u.key, "name": sk.n, "kind": e.kind})
 			match e.kind:

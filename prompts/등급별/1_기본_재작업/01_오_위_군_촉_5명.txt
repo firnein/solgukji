@@ -12,7 +12,7 @@ STYLE:
 - CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
-simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
 weapons, hats) are ALREADY present here, because later versions must keep them.
 
 FACES AND SILHOUETTES MUST ALL DIFFER:
@@ -23,6 +23,8 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
 the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -51,18 +53,18 @@ CHARACTERS
    SIGNATURE (unique to him on this sheet): HEAD tall black official crown; FACIAL HAIR long thin beard; MARK white cloak over deep blue robes, arms folded.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 3. Pang De  [SPEARMAN, Wei]
-   DESIGN: Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a long spear in one hand, with the other hand DRAGGING a heavy wooden coffin behind him on a rope (he brought his own coffin to battle)
+   DESIGN: Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a BLUE cloth headscarf, a long spear held UPRIGHT in one hand, and a SMALL wooden coffin standing on end right behind his back, pulled on a short rope over his shoulder (he brought his own coffin to battle). Keep him and the coffin COMPACT inside his own slot: the coffin is no wider than his body and does not stick out to the sides
    LOOK: 40s, hard square jaw, full black beard, thick eyebrows, fierce unblinking eyes.
    FACE: hard square MAN's jaw, thick straight eyebrows, fierce unblinking eyes, broad nose, full black beard, tanned skin, grim determination.
    BUILD: solid and broad.
-   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR full black beard; MARK wooden coffin dragged behind him on a rope, long spear.
+   SIGNATURE (unique to him on this sheet): HEAD blue cloth headscarf (no helmet); FACIAL HAIR full black beard; MARK small upright wooden coffin on a short rope behind his back, upright long spear.
    COLORS: Wei blue: navy, deep blue and steel with silver.
 4. Shen Pei  [SCHEMER, Independent]
-   DESIGN: Shen Pei, stubborn loyal official of Yuan Shao in a YELLOW-GOLD high-collared robe, holding a sealed order scroll, stern
-   LOOK: older, long thin beard, rigid upright posture.
-   FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
-   BUILD: rigid and thin.
-   SIGNATURE (unique to him on this sheet): HEAD tall black official hat; FACIAL HAIR long thin beard; MARK high collar, sealed order scroll.
+   DESIGN: Shen Pei, stubborn hot-tempered official of Yuan Shao in a YELLOW-GOLD high-collared robe, gripping a sealed order scroll in a fist, glaring
+   LOOK: 60s, stocky old man, bald crown with a grey topknot, short bristly grey goatee, bulging glaring eyes.
+   FACE: broad ruddy square face, thick bushy GREY eyebrows, big round BULGING glaring eyes (not narrow), wide flat nose, short bristly grey goatee only (no long beard), deep frown lines, stubborn clenched jaw.
+   BUILD: short and stocky, barrel-shaped.
+   SIGNATURE (unique to him on this sheet): HEAD bald crown with a small grey topknot tied in a yellow cloth (no hat); FACIAL HAIR short bristly grey goatee; MARK high collar, sealed scroll gripped in a fist.
    COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
 5. Jiang Wei  [STRATEGIST, Shu]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Jiang Wei, young strategist-general in green armor with a WHITE cloth hood over his head, a spear in one hand and a rolled military map in the other, thoughtful sharp eyes

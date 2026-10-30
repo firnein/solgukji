@@ -12,7 +12,7 @@ STYLE:
 - CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
-simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
 weapons, hats) are ALREADY present here, because later versions must keep them.
 
 FACES AND SILHOUETTES MUST ALL DIFFER:
@@ -23,6 +23,8 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
 the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -65,9 +67,9 @@ CHARACTERS
    SIGNATURE (unique to him on this sheet): HEAD square cloth cap (fangjin); FACIAL HAIR short white beard; MARK blue cloth medicine bag hanging on his arm, acupuncture needles.
    COLORS: his own colors as described (independent).
 5. Shen Pei  [SCHEMER, Independent]
-   DESIGN: Shen Pei, stubborn loyal official of Yuan Shao in a YELLOW-GOLD high-collared robe, holding a sealed order scroll, stern
-   LOOK: older, long thin beard, rigid upright posture.
-   FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
-   BUILD: rigid and thin.
-   SIGNATURE (unique to him on this sheet): HEAD tall black official hat; FACIAL HAIR long thin beard; MARK high collar, sealed order scroll.
+   DESIGN: Shen Pei, stubborn hot-tempered official of Yuan Shao in a YELLOW-GOLD high-collared robe, gripping a sealed order scroll in a fist, glaring
+   LOOK: 60s, stocky old man, bald crown with a grey topknot, short bristly grey goatee, bulging glaring eyes.
+   FACE: broad ruddy square face, thick bushy GREY eyebrows, big round BULGING glaring eyes (not narrow), wide flat nose, short bristly grey goatee only (no long beard), deep frown lines, stubborn clenched jaw.
+   BUILD: short and stocky, barrel-shaped.
+   SIGNATURE (unique to him on this sheet): HEAD bald crown with a small grey topknot tied in a yellow cloth (no hat); FACIAL HAIR short bristly grey goatee; MARK high collar, sealed scroll gripped in a fist.
    COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
