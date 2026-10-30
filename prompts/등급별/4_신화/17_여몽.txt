@@ -12,8 +12,10 @@ never tint the whole picture one color, never let light or effects wash out the 
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
 - CLOSE and IMPACTFUL: the face and upper body dominate the panel (from an extreme face close-up to at most waist-up),
   shoulders, weapons and hair may run off the panel edges.
-- Follow the COMPOSITION line exactly (camera angle, head direction, crop, weapon placement) and the LIGHT line exactly
-  (color of the light and the background). These differ for every general, so the cards in the game never look alike.
+- Follow the COMPOSITION line exactly (camera angle, head direction, crop, weapon placement) and the BACKGROUND COLOR line.
+  These differ for every general, so the cards in the game never look alike.
+- HANDS: keep hands OUT of the frame unless the COMPOSITION needs them. If a hand shows, it is a natural relaxed grip with
+  five correct fingers, never two hands crowded around the face, never a hand blocking the face.
 - The threat is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder). Follow the
   EXPRESSION line —— each general is dangerous in their OWN way (a roar, a sly smile, cold contempt, serene certainty,
   drunken madness, a seductive smile), never the same generic angry face.
@@ -49,7 +51,7 @@ CHARACTERS
    SIGNATURE (unique to him on this sheet): HEAD plain white merchant's hood; FACIAL HAIR short scruffy beard; MARK book in one hand, saber hidden behind his back.
    COLORS: Wu red: crimson, red, orange and gold.
    SCENE (paint this setting softly behind them, the character in front and naturally lit, no guardian beasts): crossing the river in white robes by night, disguised merchant boats behind him, saber in hand.
-   COMPOSITION: seen from BEHIND over the shoulder, turning back to glare at the viewer, the back armor and cape in the foreground.
+   COMPOSITION: tight bust seen slightly from above, head lowered, glaring UP at the viewer through the brows, hands out of the frame, a saber hilt just visible over the shoulder.
    BACKGROUND COLOR: background with a burning camp far behind (only behind them, the character stays naturally lit).
    EXPRESSION: a quiet scholar's stare that suddenly turns deadly, a faint cold smile.
    MUST SHOW (clearly, large and well lit): plain white merchant's hood; short scruffy beard; book in one hand, saber hidden behind his back.

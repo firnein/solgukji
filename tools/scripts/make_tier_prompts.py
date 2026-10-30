@@ -356,8 +356,10 @@ never tint the whole picture one color, never let light or effects wash out the 
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
 - CLOSE and IMPACTFUL: the face and upper body dominate the panel (from an extreme face close-up to at most waist-up),
   shoulders, weapons and hair may run off the panel edges.
-- Follow the COMPOSITION line exactly (camera angle, head direction, crop, weapon placement) and the LIGHT line exactly
-  (color of the light and the background). These differ for every general, so the cards in the game never look alike.
+- Follow the COMPOSITION line exactly (camera angle, head direction, crop, weapon placement) and the BACKGROUND COLOR line.
+  These differ for every general, so the cards in the game never look alike.
+- HANDS: keep hands OUT of the frame unless the COMPOSITION needs them. If a hand shows, it is a natural relaxed grip with
+  five correct fingers, never two hands crowded around the face, never a hand blocking the face.
 - The threat is aimed at the VIEWER: the eyes meet the camera (even from a profile or over the shoulder). Follow the
   EXPRESSION line —— each general is dangerous in their OWN way (a roar, a sly smile, cold contempt, serene certainty,
   drunken madness, a seductive smile), never the same generic angry face.
@@ -443,6 +445,12 @@ COMP_PREF = {"장비": 6, "여포": 8, "관우": 1, "조운": 5, "마초": 8, "�
              "전위": 1, "손책": 6, "감녕": 4, "여몽": 3, "유비": 9, "손권": 9, "동탁": 1, "원소": 9, "장각": 6, "화타": 2,
              "좌자": 3, "진궁": 0, "사마휘": 7, "순욱": 2, "위연": 0, "강유": 5, "법정": 7, "노숙": 9}
 COMP = {}
+# 손이 이상하게 나온 장수 —— 손이 화면 밖인 구도로 따로 (10/30 사용자: 여몽 · 주유 · 육손)
+COMP_OVERRIDE = {
+    "여몽": "tight bust seen slightly from above, head lowered, glaring UP at the viewer through the brows, hands out of the frame, a saber hilt just visible over the shoulder",
+    "주유": "front bust with the head tilted a little, chin up, hands out of the frame, long hair and the cape blowing across the lower part of the panel, a burning fleet far behind",
+    "육손": "three-quarter view chest-up, turning toward the viewer, hands out of the frame, the sword sheathed on the back with only its hilt above the shoulder, flames reflected in the eyes",
+}
 
 
 def assign_comps(names):
@@ -483,7 +491,7 @@ def assign_solo(names):  # noqa
             lt = min(range(len(LIGHTS)), key=lambda k: lu[k])
         cu[c] += 1
         lu[lt] += 1
-        COMP[p] = COMPS[c]
+        COMP[p] = COMP_OVERRIDE.get(p, COMPS[c])
         LIGHT[p] = LIGHTS[lt]
 
 
