@@ -120,7 +120,7 @@ class Unit:
 	var avenge_n := 0         # 비장 —— 아군이 무너진 횟수
 	var opens := 0            # 첫 공격 보너스를 쓴 횟수 (기신·강행·습격) —— 턴 배율만큼 나눠 쓴다
 	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
-	var break_used := false   # 장판돌파 —— 첫 공격의 확정 와해를 썼는가
+	var break_used := false   # 칠진칠출 —— 첫 공격의 확정 와해를 썼는가
 	var stand_used := false   # 사수 —— 방진 중 병력 1에서 버티기를 썼는가
 	var countering := false   # 반격 중 (점검 통계용)
 	var dmg := 0.0
@@ -509,7 +509,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			d.countering = true
 			phys_hit(d, a, cmul, true)
 			d.countering = false
-			if ph and mv(d, "phalanx_break") > 0 and a.alive and dash_enabled:            # 장판단기 —— 방진 중 반격이 와해시킨다
+			if ph and mv(d, "phalanx_break") > 0 and a.alive and dash_enabled:            # 일신시담 —— 방진 중 반격이 와해시킨다
 				stats.breaks += 1
 				inflict(d, a, "break", _tac_val("break", d), _tac_dur("break"))
 

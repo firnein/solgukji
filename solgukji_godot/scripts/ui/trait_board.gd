@@ -1,6 +1,6 @@
 class_name TraitBoard
 extends Control
-## 특기판 —— 게임의 모든 특기를 계열 순서로 같은 폭 칸에 늘어놓고, 이 카드가 가진 특기만 계열 색으로 칠한다(이름 + 레벨).
+## 특기판 —— 게임의 모든 일반 특기를 (고유 특기는 빼고 —— UI.trait_chips 로 따로) 계열 순서로 같은 폭 칸에 늘어놓고, 이 카드가 가진 특기만 계열 색으로 칠한다(이름 + 레벨).
 ## 없는 특기는 어둡게 이름만. 칸 수는 cols, 높이는 줄 수로 정해진다.
 
 const ORDER := ["", "화공", "수공", "돌파", "표적", "철벽", "계략", "인덕", "단체"]
@@ -19,7 +19,8 @@ func setup(id: String, n_cols := 5) -> TraitBoard:
 	cols = n_cols
 	_all = all_traits()
 	for t in DB.trait_list(k):
-		_mine[t.name] = t
+		if not t.unique:
+			_mine[t.name] = t
 	var rows := ceili(_all.size() / float(cols))
 	custom_minimum_size = Vector2(0, rows * (ch + gap) - gap)
 	mouse_filter = Control.MOUSE_FILTER_PASS
@@ -35,7 +36,7 @@ static func all_traits() -> Array:
 	var out := []
 	for cat in ORDER:
 		for n in DB.PSV.traits:
-			if not used.has(n):
+			if not used.has(n) or DB.PSV.traits[n].get("unique", false):
 				continue
 			var t: Dictionary = DB.PSV.traits[n]
 			var attr: String = t.get("attr", "")

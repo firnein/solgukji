@@ -400,23 +400,22 @@ static func stat(value: String, label: String) -> VBoxContainer:
 	return v
 
 
-## 특기 격자 —— 같은 폭의 칸(cols 줄)에 이름 + 레벨(금색), 칸 색은 계열 (DB.trait_col)
-static func trait_chips(k: String, fs := 15, cols := 4) -> GridContainer:
-	var g := GridContainer.new()
-	g.columns = cols
-	g.add_theme_constant_override("h_separation", 4)
-	g.add_theme_constant_override("v_separation", 4)
-	for t in DB.trait_list(k):
+## 고유 특기 칸 —— 그 인물만의 특기(unique)만, 계열 색 바탕 · 금 테두리 · 이름 + 레벨. 없으면 null
+static func unique_chips(k: String, fs := 13):
+	var ts := DB.trait_list(k).filter(func(t): return t.unique)
+	if ts.is_empty():
+		return null
+	var f := flow(4)
+	for t in ts:
 		var tc := DB.trait_col(t)
-		var r := rich("[center][color=#F2EEE4]%s[/color][color=#FFD76E]%d[/color][/center]" % [t.name, t.lv], fs)
+		var r := rich("[color=#F2EEE4]%s[/color][color=#FFD76E]%d[/color]" % [t.name, t.lv], fs)
 		r.autowrap_mode = TextServer.AUTOWRAP_OFF
 		var pc := PanelContainer.new()
-		pc.add_theme_stylebox_override("panel", flat(tc.darkened(0.5), tc, 1, 4, 4))
-		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pc.add_theme_stylebox_override("panel", flat(tc.darkened(0.35), Color("#e8c25a"), 2, 4, 4))
 		pc.mouse_filter = Control.MOUSE_FILTER_PASS
 		pc.add_child(r)
-		g.add_child(pc)
-	return g
+		f.add_child(pc)
+	return f
 
 
 static func card_bb(k: String) -> String:

@@ -138,7 +138,7 @@ static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 		var sb := StyleBoxFlat.new()
 		var tc := DB.trait_col(t)
 		sb.bg_color = tc.darkened(0.55)
-		sb.border_color = tc
+		sb.border_color = Color("#e8c25a") if t.unique else tc
 		sb.set_border_width_all(1)
 		sb.set_corner_radius_all(3)
 		ci.draw_style_box(sb, Rect2(p, Vector2(cw, ch)))

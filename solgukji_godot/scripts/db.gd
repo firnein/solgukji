@@ -396,9 +396,9 @@ func trait_list(k: String) -> Array:
 		return []
 	var by := {}
 	for t in ps.traits:
-		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "d": t.d, "mt": mods_text(t.m, 1.0, C[k].tier)}
+		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": t.d, "mt": mods_text(t.m, 1.0, C[k].tier)}
 	for g in ps.groups:
-		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "d": g.d, "mt": mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)}
+		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": g.d, "mt": mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)}
 	var out := []
 	for e in PSV.ladder[person(k)]:
 		if by.has(e[0]):

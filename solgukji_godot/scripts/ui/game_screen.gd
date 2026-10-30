@@ -1022,6 +1022,15 @@ func card_info(k: String) -> void:
 	st.add_child(sg)
 	# 특기판 —— 모든 특기 칸, 가진 것만 계열 색
 	st.add_child(TraitBoard.new().setup(k))
+	var uc = UI.unique_chips(k)
+	if uc != null:
+		var uh := UI.hbox(6)
+		var ul := UI.lbl("고유", 12, Color("#e8c25a"), true)
+		ul.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		uh.add_child(ul)
+		uc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		uh.add_child(uc)
+		st.add_child(uh)
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 2
 	st.add_child(gap)
