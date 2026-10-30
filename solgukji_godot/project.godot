@@ -14,6 +14,7 @@ config/icon="res://assets/icon.png"
 
 DB="*res://scripts/db.gd"
 TouchScroll="*res://scripts/ui/touch_scroll.gd"
+Sfx="*res://scripts/game/sfx.gd"
 
 [display]
 

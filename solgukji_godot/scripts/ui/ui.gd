@@ -189,6 +189,7 @@ static func grid(min_w := 168.0, sep := 8) -> AutoGrid:
 
 ## 짧은 진동 —— 휴대폰에서 누를 때 손끝 반응
 static func buzz(ms := 8) -> void:
+	Sfx.play("tap")
 	if Settings.haptics and OS.has_feature("mobile"):
 		Input.vibrate_handheld(ms)
 

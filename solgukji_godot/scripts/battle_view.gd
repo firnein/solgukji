@@ -623,6 +623,8 @@ func _begin() -> void:
 	finished = false
 	finish_t = -1.0
 	running = true
+	Sfx.music("battle")
+	Sfx.play("drums")
 	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
 
 
@@ -893,6 +895,7 @@ func _apply(i: int, quiet := false) -> void:
 			field.rout(f)
 		return
 	_damage_number(i, e, f)
+	_sound(e)
 	match e.get("fx", ""):
 		"phys":
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
@@ -923,6 +926,28 @@ func _apply(i: int, quiet := false) -> void:
 			hud.float_text(f, DB.D.STATUS[e.st].n + " 해제", Color("#8FD4C2"), 12)
 		"debuff":       # 수치 깎기 (위축 · 산란 · 파갑 · 현혹)
 			hud.float_text(f, "%s −%d" % [DB.D.STATUS[e.st].n, roundi(e.n)], Color(DB.D.STATUS[e.st].c).lightened(0.2), 12)
+
+
+## 소리 —— 사건 종류마다 (Sfx 가 잦은 소리는 건너뛴다)
+func _sound(e: Dictionary) -> void:
+	match e.get("fx", ""):
+		"phys": Sfx.play("crit" if e.get("crit", false) else "hit")
+		"int": Sfx.play("magic")
+		"skill": Sfx.play("skill")
+		"ult": Sfx.play("ult")
+		"rout": Sfx.play("rout")
+		"heal": Sfx.play("heal")
+		"cmd": Sfx.play("horn")
+		"debuff": Sfx.play("debuff")
+		"status", "tick":
+			match str(e.get("st", "")):
+				"burn": Sfx.play("burn")
+				"flood": Sfx.play("splash")
+				"confuse": Sfx.play("confuse")
+
+
+func _exit_tree() -> void:
+	Sfx.music("menu")
 
 
 ## 피해 숫자 —— 스킬·고유기로 들어간 타격은 치명타로 크게 찍는다 (수치는 엔진 그대로)
@@ -1056,6 +1081,7 @@ func _finish() -> void:
 	if res.mvp:
 		sub += "\n수훈갑  %s  · 격파 %d" % [res.mvp.name, res.mvp.kills]
 	hud.stamp(txt, sub, col)
+	Sfx.play("lose" if res.draw or not res.win else "win")
 	end_clock = clock
 	ended.emit(res, inputs)
 	log_box.append_text("\n[color=%s][b]%s[/b][/color] — %s\n" % [col.to_html(false), txt, sub.replace("\n", " · ")])

@@ -56,6 +56,7 @@ var online: Online = null     # 온라인 대전 중이면 있다 (scripts/ui/on
 
 func _ready() -> void:
 	Settings.load_cfg()
+	Sfx.music("menu")
 	if OS.has_feature("testscene"):       # 테스트 APK (build_test_apk.bat) —— 전투 점검 화면으로 바로
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
 		return
@@ -560,6 +561,7 @@ func _render_head() -> void:
 
 
 func toast(text: String, kind := "") -> void:
+	Sfx.play({"gain": "gain", "bad": "deny", "gold": "gain"}.get(kind, "draw"))
 	var p := PanelContainer.new()
 	var col: Color = {"gold": DB.PAL.gold, "news": DB.PAL.bamboo, "gain": DB.PAL.jade, "bad": DB.PAL.seal}.get(kind, DB.PAL.bamboo_dim)
 	var sb := UI.flat(Color("#1b2236", 0.97), Color(col, 0.6), 1, 12, 12)
@@ -600,6 +602,9 @@ func changed() -> void:
 ## (서버가 같은 명령을 판정해 상태를 돌려보낸다 —— 난수 상태가 같아 결과도 같다)
 func act(m: String, a := []):
 	var r = run.command(m, a.duplicate())
+	match m:
+		"forge": Sfx.play("forge" if r else "deny")
+		"do_draw", "pick", "random_grant": Sfx.play("draw")
 	if online != null:
 		online.send_cmd(m, a)
 	changed()
@@ -611,6 +616,8 @@ func act(m: String, a := []):
 ## col 을 주면 제목을 그 색 · 큰 글씨로 (카드 시트 —— 등급색 장수 이름)
 func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	var was := _sheet.visible
+	if not was:
+		Sfx.play("open")
 	_sheet_title.text = title
 	_sheet_title.add_theme_color_override("font_color", col if col.a > 0 else DB.PAL.paper)
 	_sheet_title.add_theme_font_size_override("font_size", 24 if col.a > 0 else 19)
@@ -684,6 +691,19 @@ func _settings_sheet() -> void:
 		Settings.auto_battle = on
 		Settings.save_cfg())
 	b.add_child(cb)
+	# 소리 크기 —— 끔 · 작게 · 보통 · 크게
+	for which in ["sfx", "bgm"]:
+		var cur: float = Settings.sfx_vol if which == "sfx" else Settings.bgm_vol
+		var lv := "0" if cur <= 0.001 else ("1" if cur < 0.4 else ("2" if cur < 0.75 else "3"))
+		b.add_child(UI.eyebrow("효과음" if which == "sfx" else "배경 음악"))
+		b.add_child(UI.segmented([["0", "끔"], ["1", "작게"], ["2", "보통"], ["3", "크게"]], lv, func(key):
+			var v: float = [0.0, 0.3, 0.6, 1.0][int(key)]
+			if which == "sfx": Settings.sfx_vol = v
+			else: Settings.bgm_vol = v
+			Settings.save_cfg()
+			Sfx.apply_volume()
+			Sfx.play("gain")
+			_settings_sheet()))
 	var vb := CheckButton.new()
 	vb.text = "누를 때 진동"
 	vb.button_pressed = Settings.haptics
