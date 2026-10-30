@@ -1025,7 +1025,7 @@ func card_info(k: String) -> void:
 	var uc = UI.unique_chips(k)
 	if uc != null:
 		var uh := UI.hbox(6)
-		var ul := UI.lbl("고유", 12, Color("#e8c25a"), true)
+		var ul := UI.lbl("금색", 12, Color("#e8c25a"), true)
 		ul.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		uh.add_child(ul)
 		uc.size_flags_horizontal = Control.SIZE_EXPAND_FILL

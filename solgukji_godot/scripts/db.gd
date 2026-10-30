@@ -369,9 +369,14 @@ func passives_of(k: String):
 			var attr: String = t.get("attr", "")
 			var lv := trait_level(k, e[0])
 			var sc: float = (PSV.level_scale_attr if attr != "" else PSV.level_scale)[str(lv)]
+			if t.has("self"):      # 금색 특기 —— 단체 효과와 함께 주인에게만 붙는 장치
+				var sm := {}
+				for key in t.self:
+					sm[key] = t.self[key] * (1.0 if key in PSV.flags else sc)
+				out.traits.append({"name": e[0], "d": t.d, "m": sm, "attr": attr, "lv": lv})
 			if t.has("scope"):
 				out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc, "attr": attr, "lv": lv})
-			else:
+			elif not t.has("self"):
 				var m := {}
 				for key in t.m:
 					m[key] = t.m[key] * (1.0 if key in PSV.flags else sc)
@@ -398,7 +403,10 @@ func trait_list(k: String) -> Array:
 	for t in ps.traits:
 		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": t.d, "mt": mods_text(t.m, 1.0, C[k].tier)}
 	for g in ps.groups:
-		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": g.d, "mt": mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)}
+		var gmt := mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)
+		if by.has(g.name) and by[g.name].mt != "":      # 금색 —— 주인 장치 수치도 함께
+			gmt = (gmt + " · " if gmt != "" else "") + "자신 " + by[g.name].mt
+		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": g.d, "mt": gmt}
 	var out := []
 	for e in PSV.ladder[person(k)]:
 		if by.has(e[0]):

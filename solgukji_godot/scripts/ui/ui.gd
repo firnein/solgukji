@@ -400,18 +400,17 @@ static func stat(value: String, label: String) -> VBoxContainer:
 	return v
 
 
-## 고유 특기 칸 —— 그 인물만의 특기(unique)만, 계열 색 바탕 · 금 테두리 · 이름 + 레벨. 없으면 null
+## 금색(고유) 특기 칸 —— 인물마다 하나, 금빛 바탕 · 금 테두리 · 이름 + 레벨. 없으면 null
 static func unique_chips(k: String, fs := 13):
 	var ts := DB.trait_list(k).filter(func(t): return t.unique)
 	if ts.is_empty():
 		return null
 	var f := flow(4)
 	for t in ts:
-		var tc := DB.trait_col(t)
-		var r := rich("[color=#F2EEE4]%s[/color][color=#FFD76E]%d[/color]" % [t.name, t.lv], fs)
+		var r := rich("[color=#FFF3D0]%s[/color][color=#FFD76E]%d[/color]" % [t.name, t.lv], fs)
 		r.autowrap_mode = TextServer.AUTOWRAP_OFF
 		var pc := PanelContainer.new()
-		pc.add_theme_stylebox_override("panel", flat(tc.darkened(0.35), Color("#e8c25a"), 2, 4, 4))
+		pc.add_theme_stylebox_override("panel", flat(Color("#6b5212"), Color("#f0cf6a"), 2, 4, 4))
 		pc.mouse_filter = Control.MOUSE_FILTER_PASS
 		pc.add_child(r)
 		f.add_child(pc)
