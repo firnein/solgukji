@@ -346,11 +346,14 @@ CHARACTERS
 intimidating art in the game. One look at the card should make the viewer feel this person is about to KILL THEM right now.
 
 REFERENCE (attached image): the general shown in the reference is THIS person. Keep the identity EXACTLY: the same face,
-eye shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+eye shape, brows, facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature item (a weapon is optional here).
 Do not turn them into a generic handsome warrior —— the face must clearly be the reference face, only realistic and terrifying.
 
 IDENTITY FIRST: a fan must name this general at a glance from the face, headwear, facial hair, outfit colors and weapon.
-Everything in the MUST SHOW line has to be clearly visible and well lit. Their own outfit colors stay true and readable ——
+Everything in the MUST SHOW line has to be clearly visible and well lit.
+WEAPONS ARE OPTIONAL: not every general holds a weapon. If the COMPOSITION line does not mention a weapon, draw NO weapon ——
+let the face, the gaze, the posture and the outfit carry the threat (a ruler with folded arms, a schemer with empty hands,
+a strategist with only a fan or a scroll). Their own outfit colors stay true and readable ——
 never tint the whole picture one color, never let light or effects wash out the face or the costume.
 
 FRAMING —— THIS IS THE MOST IMPORTANT PART:
@@ -423,7 +426,7 @@ def tier_entry(i, x, card, tier):
             lines.append("   BACKGROUND COLOR: " + LIGHT[x["p"]] + " (only behind them, the character stays naturally lit).")
         lines.append("   EXPRESSION: " + EXPR.get(x["p"], "a cold murderous glare straight at the viewer") + ".")
         h, f, m = SIG[x["p"]]
-        lines.append("   MUST SHOW (clearly, large and well lit): %s; %s; %s." % (h, f if f != "-" else "her face", m))
+        lines.append("   MUST SHOW (clearly, large and well lit): %s; %s; and if they fit the composition: %s." % (h, f if f != "-" else "her face", m))
     return "\n".join(lines)
 
 
@@ -447,6 +450,13 @@ COMP_PREF = {"장비": 6, "여포": 8, "관우": 1, "조운": 5, "마초": 8, "�
 COMP = {}
 # 손이 이상하게 나온 장수 —— 손이 화면 밖인 구도로 따로 (10/30 사용자: 여몽 · 주유 · 육손)
 COMP_OVERRIDE = {
+    # 무기 없이 —— 얼굴 · 자세 · 옷이 위협을 맡는다 (10/30 사용자: 모두 무기를 들 필요는 없다)
+    "동탁": "front bust, leaning back on a throne-like seat, a heavy gold cup raised near the chin in one fat hand, no weapon",
+    "사마휘": "close bust of the old sage, eyes half closed then opening to look straight through the viewer, hands out of the frame, no weapon",
+    "장각": "front bust, arms spread wide out of the frame as he chants, wild hair and yellow sleeves rising, no weapon in view",
+    "화타": "three-quarter bust, holding a single long acupuncture needle up near the eye, a cold clinical stare, no weapon",
+    "초선": "close bust, the folded fan covering the lower half of her face, only her eyes and brows above it, no weapon",
+    "진궁": "front bust, bound wrists raised to the chest with the cut rope hanging, chin up in defiance, no weapon",
     "여몽": "tight bust seen slightly from above, head lowered, glaring UP at the viewer through the brows, hands out of the frame, a saber hilt just visible over the shoulder",
     "주유": "front bust with the head tilted a little, chin up, hands out of the frame, long hair and the cape blowing across the lower part of the panel, a burning fleet far behind",
     "육손": "three-quarter view chest-up, turning toward the viewer, hands out of the frame, the sword sheathed on the back with only its hilt above the shoulder, flames reflected in the eyes",
