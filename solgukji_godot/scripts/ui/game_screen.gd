@@ -1042,7 +1042,8 @@ func card_info(k: String) -> void:
 		if t.unique:
 			var gd: String = t.d
 			var parts := gd.split(" —— ", true, 1)
-			var ub := "[color=#FFD76E][b]고유 『%s%d』[/b][/color]%s  [color=#E8C25A]%s[/color]" % [t.name, t.lv, " 단체" if t.group else "", parts[0]]
+			var ub := "[color=#FFD76E][b]고유 %s[/b][/color]%s
+[color=#E8C25A]%s[/color]" % [t.name, " (단체)" if t.group else "", parts[0]]
 			if parts.size() > 1:
 				ub += "\n[color=#C6AC7C]%s[/color]" % parts[1]
 			if t.mt != "":
