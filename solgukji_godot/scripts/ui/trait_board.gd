@@ -1,30 +1,53 @@
 class_name TraitBoard
 extends Control
-## 특기판 —— 게임의 모든 일반 특기를 (고유 특기는 빼고 —— UI.trait_chips 로 따로) 계열 순서로 같은 폭 칸에 늘어놓고, 이 카드가 가진 특기만 계열 색으로 칠한다(이름 + 레벨).
-## 없는 특기는 어둡게 이름만. 칸 수는 cols, 높이는 줄 수로 정해진다.
+## 특기판 —— 기본은 이 카드가 가진 일반 특기만 칸으로 늘어놓는다(이름 + 레벨, 계열 색). 판을 누르면 게임의 모든 일반 특기를
+## 계열 순서로 펼치고(가진 것만 색, 없는 것은 어둡게 이름만), 다시 누르면 접는다. 펼침 상태는 다른 카드에서도 이어진다.
+## 고유 특기는 여기 넣지 않는다 (UI.unique_chips 로 따로). 칸 수는 cols, 높이는 줄 수로 정해진다.
 
 const ORDER := ["물리", "책략", "도트", "공깎", "책략깎", "방깎", "책방깎", "둔화", "혼란", "사기", "철벽", "인덕", "", "단체"]
+
+static var expanded := false   # 모든 특기를 펼쳐 보는 중
 
 var k := ""
 var cols := 5
 var fs := 10
 var ch := 16.0
 var gap := 2.0
-var _all: Array = []         # [{name, attr, group}] —— 계열 순서
+var _all: Array = []         # 보여 줄 칸 [{name, attr, group}] —— 계열 순서 (접힘이면 가진 것만)
 var _mine := {}              # 이름 -> {lv, ...}
+var _press := Vector2.INF
 
 
 func setup(id: String, n_cols := 5) -> TraitBoard:
 	k = id
 	cols = n_cols
-	_all = all_traits()
 	for t in DB.trait_list(k):
 		if not t.unique:
 			_mine[t.name] = t
-	var rows := ceili(_all.size() / float(cols))
-	custom_minimum_size = Vector2(0, rows * (ch + gap) - gap)
-	mouse_filter = Control.MOUSE_FILTER_PASS
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	_rebuild()
 	return self
+
+
+func _rebuild() -> void:
+	_all = all_traits()
+	if not expanded:
+		_all = _all.filter(func(t): return _mine.has(t.name))
+	var rows := ceili((_all.size() + 1) / float(cols))      # 마지막 칸은 '모두 보기' · '접기'
+	custom_minimum_size = Vector2(0, rows * (ch + gap) - gap)
+	queue_redraw()
+
+
+func _gui_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		if e.pressed:
+			_press = e.position
+		elif _press != Vector2.INF and e.position.distance_to(_press) < 14:
+			_press = Vector2.INF
+			UI.buzz()
+			expanded = not expanded
+			_rebuild()
+			accept_event()
 
 
 ## 사다리에 실제로 쓰이는 특기 전부 —— 계열(ORDER) 순서, 같은 계열 안은 passives.json 순서
@@ -76,3 +99,12 @@ func _draw() -> void:
 		draw_string(fb, Vector2(x, y), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, f, Color("#F2EEE4") if own else Color(DB.PAL.bamboo_dim, 0.55))
 		if own:
 			draw_string(fb, Vector2(x + nw, y), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, f, Color("#FFD76E"))
+	# 마지막 칸 —— 모두 보기 · 접기
+	var i := _all.size()
+	var hr := Rect2((cw + gap) * (i % cols), (ch + gap) * (i / cols), cw, ch)
+	var hs := StyleBoxFlat.new()
+	hs.set_corner_radius_all(3)
+	hs.bg_color = Color(DB.PAL.ink3, 0.6)
+	draw_style_box(hs, hr)
+	var label := "접기 ▴" if expanded else "모두 ▾"
+	draw_string(fb, Vector2(hr.position.x, hr.position.y + ch / 2 + fs * 0.36), label, HORIZONTAL_ALIGNMENT_CENTER, cw, fs, DB.PAL.bamboo)
