@@ -24,6 +24,7 @@ var font_display: Font
 var font_body: Font
 var font_bold: Font
 var STAT_ADJ := {}      # 능력치 보정 (set_stat_adjust)
+const TIER_ART := false  # 초월 · 불멸 · 신화 전용 그림(<인물>_신화.png 등)을 쓸까 —— 10/30 사용자: 지금은 모든 등급이 기본 그림
 var _BASE := {}         # 보정 전 원본 능력치
 
 var _portrait_cache := {}
@@ -310,12 +311,13 @@ func portrait_base(k: String) -> String:
 		cands = ["res://assets/troops/%s" % c.tag]
 	else:
 		var p := "res://assets/portraits/%s" % person(k)
-		if c.tier >= 8:
-			cands.append(p + "_신화")
-		if c.tier >= 7:
-			cands.append(p + "_불멸")
-		if c.tier >= 6:
-			cands.append(p + "_초월")
+		if TIER_ART:
+			if c.tier >= 8:
+				cands.append(p + "_신화")
+			if c.tier >= 7:
+				cands.append(p + "_불멸")
+			if c.tier >= 6:
+				cands.append(p + "_초월")
 		cands.append(p)
 	var pick := ""
 	for b in cands:
