@@ -1,0 +1,12 @@
+기본 캐릭터 다시 그리기 —— 이름 순서 = 이름표 번호 순서. 시트는 references/등급별_시트/1_기본_재작업/<txt 와 같은 이름>.png 로 두고 D:\Sol 에서
+  python -I tools/scripts/slice_tier.py 1_기본_재작업   → 잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_tier.py 1_기본_재작업 --apply
+  다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)
+
+[01_오_위_군_촉_5명.txt]  1 감녕 · 2 사마의 · 3 결사 방덕 · 4 심배 · 5 강유
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "감녕,사마의,방덕,심배,강유" solgukji_godot/assets/portraits
+
+[02_위_오_군_5명.txt]  1 곽가 · 2 육손 · 3 철벽 조인 · 4 안량 · 5 백문충절 진궁
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "곽가,육손,조인,안량,진궁" solgukji_godot/assets/portraits
+
+[03_위_군_5명.txt]  1 독안 하후돈 · 2 우금 · 3 오자양장 장합 · 4 저수 · 5 전풍
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "하후돈,우금,장합,저수,전풍" solgukji_godot/assets/portraits

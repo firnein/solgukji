@@ -68,7 +68,7 @@ HORSE = {"여포": "Red Hare, a fiery red-chestnut warhorse with a flame-like ma
          "마대": "a bay horse", "장합": "a dapple-grey horse", "하후패": "a small bay pony-like horse",
          "곽회": "a shaggy dun frontier horse", "안량": "a big dark brown warhorse"}
 # 기병이 아니어도 원전에서 말이 상징인 인물 —— 하후연(三日五百 기병), 방덕(白馬將軍)
-HORSE_EXTRA = {"하후연": "a lean fast horse at full gallop", "방덕": "a white horse"}
+HORSE_EXTRA = {"하후연": "a lean fast horse at full gallop"}     # 방덕은 창병이라 말에서 내린다 (10/30 사용자)
 MOUNT = {"base": "MOUNTED: riding %s —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.",
          6: "MOUNTED: riding %s —— rider and the front half of the horse (head, chest, front legs) in the panel.",
          7: "MOUNTED: riding %s —— rider waist-up, the horse's armored head, neck and mane in front of him.",
@@ -185,6 +185,57 @@ def person_info(p):
 
 
 INFO = {p: person_info(p) for p in person_cards}
+
+# 기본 그림 다시 그리기 (2026-10-30 사용자 수정 요청) —— INFO · SIG 를 덮어쓴다. 1_기본 프롬프트에도 같이 들어간다.
+YUAN = "Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color)"
+REDO = {
+    "감녕": dict(desc="Gan Ning, fearsome river PIRATE captain of the Brocade Sails, bare muscular tattooed arms, red brocade sash, a broad curved pirate saber in one hand and a coiled rope with an iron grappling hook over his shoulder, brass bells on his belt",
+               look="30s, menacing pirate chief, NO feathers, scar across the brow, scary glare.",
+               face="lean hard face, fierce glaring narrowed eyes under a heavy scarred brow, broken flat nose, sun-tanned skin, tattooed neck, bared-teeth snarl, menacing and scary, NOT playful",
+               sig=["red brocade pirate bandana knotted at the back with long tails", "rough short stubble", "grappling hook rope, brass bells on his belt, tattoos"]),
+    "강유": dict(desc="Jiang Wei, young strategist-general in green armor with a WHITE cloth hood over his head, a spear in one hand and a rolled military map in the other, thoughtful sharp eyes",
+               look="young man in his 20s, intelligent determined face, white hood over green armor.",
+               sig=["white cloth hood", "short sideburns and a faint chin stubble", "green armor, spear and a rolled military map"]),
+    "곽가": dict(desc="Guo Jia, very young brilliant strategist who died young, slender and pale in a loose blue-grey robe, holding a SHORT CALLIGRAPHY BRUSH (no fan), a wine gourd at his hip",
+               look="early 20s, smooth youthful face, clean-shaven.",
+               face="slender pale young MAN in his early 20s, smooth CLEAN-SHAVEN face (no beard, no stubble), angular sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair",
+               sig=["no hat, loose untied hair", "clean-shaven, no beard at all", "short calligraphy brush in hand, wine gourd, flushed cheeks"]),
+    "방덕": dict(desc="Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a long spear in one hand, with the other hand DRAGGING a heavy wooden coffin behind him on a rope (he brought his own coffin to battle)",
+               sig=["black iron helmet with a black horsehair crest", "full black beard", "wooden coffin dragged behind him on a rope, long spear"]),
+    "사마의": dict(desc="Sima Yi, the cold supreme schemer who came to rule Wei: deep blue robes with a WHITE CLOAK over his shoulders, ARMS FOLDED across his chest, chin raised, looking down with absolute authority",
+                look="50s, imposing tall figure, long thin beard, aura of the most powerful man in the realm.",
+                face="long gaunt face, sunken cheeks, narrow wolf-like eyes looking down coldly, long thin nose, thin lips in a faint cunning smile, pale skin, overwhelming quiet authority",
+                sig=["tall black official crown", "long thin beard", "white cloak over deep blue robes, arms folded"]),
+    "심배": dict(color=YUAN, desc="Shen Pei, stubborn loyal official of Yuan Shao in a YELLOW-GOLD high-collared robe, holding a sealed order scroll, stern",
+               sig=["tall black official hat", "long thin beard", "high collar, sealed order scroll"]),
+    "안량": dict(color=YUAN),
+    "우금": dict(desc="Yu Jin, strict disciplinarian general with long UNBOUND messy hair falling loose, a BLUE cape, plain iron armor, a war banner pole on his back",
+               sig=["no cap, long loose disheveled hair", "neat pencil mustache only", "blue cape, war banner pole on his back"]),
+    "육손": dict(desc="Lu Xun, young grand commander of Wu in a general's red-and-dark lamellar ARMOR, holding ONE straight commander's sword raised to direct the troops (a single sword, not two)",
+               sig=["red scholar's cap", "very faint mustache line", "general's armor, ONE commander's sword raised"]),
+    "장합": dict(desc="Zhang He, elegant cavalry general whose ARMOR IS SPLIT IN TWO COLORS: the left half YELLOW (his old lord Yuan Shao) and the right half BLUE (his new lord Cao Cao), helmet split yellow and blue the same way, holding a LONG SPEAR",
+               look="elegant handsome man, refined long face, thin neat mustache.",
+               sig=["helmet split half yellow and half blue", "thin neat mustache", "armor split yellow and blue, long spear"],
+               color="split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao)"),
+    "조인": dict(desc="Cao Ren, master of holding a fortress: CROUCHED in a guarding stance BEHIND a huge tower shield AS TALL AS A MAN, braced against it, only his helmeted head and fierce eyes showing over the top",
+               sig=["heavy round helmet with the visor raised", "broad greying beard", "man-tall tower shield, crouched guarding stance"]),
+    "하후돈": dict(look="black eyepatch, NEATLY tied hair in a tidy topknot, short thick black beard.",
+                desc="Xiahou Dun, fierce one-eyed general in dark blue armor, hair neatly tied in a tidy topknot, holding a heavy SINGLE-EDGED blade (one cutting edge only, like a heavy dao)",
+                sig=["neat tidy topknot", "short thick black beard", "black eyepatch over the LEFT eye, single-edged heavy blade"]),
+    "저수": dict(color=YUAN),
+    "전풍": dict(color=YUAN),
+    "진궁": dict(desc="Chen Gong, defiant strategist of Lü Bu captured at White Gate Tower: crimson-and-black robe, a plain black headscarf, a straight sword at his hip, a CUT ROPE still tied around one wrist, chin raised in proud defiance",
+               look="40s, lean proud face, neat long black beard, piercing stare, unbowed even as a captive.",
+               face="lean long face, prominent cheekbones, piercing defiant eyes, straight nose, thin firm lips, pale stern skin, proud raised chin",
+               sig=["plain black headscarf", "neat long black beard", "cut rope tied around one wrist, sword at the hip, crimson-black robe"],
+               color="crimson red and black"),
+}
+for _p, _o in REDO.items():
+    for _k in ("desc", "look", "face", "color"):
+        if _k in _o:
+            INFO[_p][_k] = _o[_k]
+    if "sig" in _o:
+        SIG[_p] = _o["sig"]
 
 DISTINCT = """EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
@@ -415,5 +466,10 @@ def by_faction(pairs):
 
 os.makedirs(OUT, exist_ok=True)
 write_sheets("base", "1_기본", by_faction([(p, cs[0]) for p, cs in person_cards.items()]), "기본 캐릭터")
+# 다시 그릴 인물만 (5명씩) —— 같은 세력 · 비슷한 차림이 한 장에 몰리지 않게 섞었다
+REDO_ORDER = ["감녕", "사마의", "방덕", "심배", "강유",
+              "곽가", "육손", "조인", "안량", "진궁",
+              "하후돈", "우금", "장합", "저수", "전풍"]
+write_sheets("base", "1_기본_재작업", [("", [(p, person_cards[p][0]) for p in REDO_ORDER])], "기본 캐릭터 다시 그리기")
 for t in (6, 7, 8):
     write_sheets(t, TIER_DIR[t], by_faction([(p, c) for p, cs in person_cards.items() for c in cs if c[2] == t]), TIER_DIR[t][2:])

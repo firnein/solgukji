@@ -49,21 +49,21 @@ CHARACTERS
    FACE: gaunt middle-aged face, worried knitted brow, tired baggy eyes, short beard, anxious mouth.
    BUILD: gaunt.
    SIGNATURE (unique to him on this sheet): HEAD small black scholar cap; FACIAL HAIR short beard; MARK secret plan scroll held to his chest.
-   COLORS: his own colors as described (independent).
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
 3. Tian Feng  [SCHEMER, Independent]
    DESIGN: Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
    LOOK: stern thick frowning eyebrows, square beard.
    FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
    BUILD: stiff and square.
    SIGNATURE (unique to him on this sheet): HEAD square official hat; FACIAL HAIR square-cut beard; MARK thick frowning brows, written memorial.
-   COLORS: his own colors as described (independent).
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
 4. Chen Gong  [SCHEMER, Independent]
-   DESIGN: Chen Gong, proud loyal strategist in dark purple and black robes, a strategist hat, holding a rolled map of Yanzhou.
-   LOOK: 40s, dignified lean face, neat long black beard, upright unbending posture, cold resolute eyes.
-   FACE: lean long face, prominent cheekbones, cold narrow eyes, straight nose, thin unsmiling lips, pale stern skin, unbending righteous expression.
+   DESIGN: Chen Gong, defiant strategist of Lü Bu captured at White Gate Tower: crimson-and-black robe, a plain black headscarf, a straight sword at his hip, a CUT ROPE still tied around one wrist, chin raised in proud defiance
+   LOOK: 40s, lean proud face, neat long black beard, piercing stare, unbowed even as a captive.
+   FACE: lean long face, prominent cheekbones, piercing defiant eyes, straight nose, thin firm lips, pale stern skin, proud raised chin.
    BUILD: lean and upright.
-   SIGNATURE (unique to him on this sheet): HEAD black strategist hat; FACIAL HAIR neat long black beard; MARK rolled map, cold eyes.
-   COLORS: his own colors as described (independent).
+   SIGNATURE (unique to him on this sheet): HEAD plain black headscarf; FACIAL HAIR neat long black beard; MARK cut rope tied around one wrist, sword at the hip, crimson-black robe.
+   COLORS: crimson red and black.
 5. Diaochan  [SCHEMER, Independent]  ★ICONIC: draw the famous traditional look exactly
    DESIGN: Diaochan, beautiful dancer in a flowing pink silk dress with long ribbons, half-hiding her face behind a folded fan, knowing sly smile, a thin chain-link ribbon (linked-chain scheme).
    LOOK: beautiful, elaborate hair ornaments and flowers.

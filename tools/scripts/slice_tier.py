@@ -34,7 +34,7 @@ howto = open(os.path.join("prompts/등급별", tier, "자르기_이름.txt"), en
 plan = re.findall(r'^\[(\S+)\.txt\].*?\n(?:  참조:.*\n)?  자르기: .*? "([^"]+)"', howto, flags=re.M)
 os.makedirs(out, exist_ok=True)
 os.makedirs(prev, exist_ok=True)
-tool = "tools/scripts/slice_sheet.py" if tier == "1_기본" else "tools/scripts/slice_panels.py"
+tool = "tools/scripts/slice_sheet.py" if tier.startswith("1_기본") else "tools/scripts/slice_panels.py"
 done, missing = 0, []
 for sheet, names in plan:
     src = os.path.join(sheets, sheet + ".png")
@@ -42,7 +42,7 @@ for sheet, names in plan:
         missing.append(sheet)
         continue
     cmd = [sys.executable, "-I", tool, src, names, out, os.path.join(prev, sheet + ".png")]
-    if tier == "1_기본" and "촉" not in sheet:
+    if tier.startswith("1_기본") and "촉" not in sheet:
         cmd.append("--hole=155")
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     print("[%s]" % sheet, (r.stdout + r.stderr).strip().replace("\n", " | "))

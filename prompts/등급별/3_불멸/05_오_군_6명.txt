@@ -34,8 +34,9 @@ LAYOUT:
 CHARACTERS
 1. Lu Xun  [STRATEGIST, Wu] —— same person as reference #1
    IDENTITY: youthful man, red scholar's cap, very faint mustache line. FACE: young MAN with a smooth face but a defined jaw, calm narrow clever eyes, straight thin brows, small straight nose, composed closed mouth, very faint mustache line, fair skin, red scholar's cap. BUILD: slim but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD red scholar's cap; FACIAL HAIR very faint mustache line; MARK twin swords, a torch.
+   SIGNATURE (unique to him on this sheet): HEAD red scholar's cap; FACIAL HAIR very faint mustache line; MARK general's armor, ONE commander's sword raised.
    COLORS: Wu red: crimson, red, orange and gold.
+   THIS RANK'S LOOK: Lu Xun, gentle youthful scholar-general in a red robe, twin swords in hand, a line of small flames around (fire attack).
    POSE AND SOFT BACKGROUND HINT: the Battle of Yiling, a chain of enemy camps burning behind him, feather fan pointing forward.
 2. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #2
    IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, clean-shaven, pale skin, noble masculine bearing. BUILD: tall and graceful.

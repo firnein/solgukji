@@ -38,9 +38,10 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
    POSE AND SOFT BACKGROUND HINT: the venomous schemer with a poison vial, a small snake coiled around his arm.
 2. Sima Yi  [SCHEMER, Wei] —— same person as reference #2
-   IDENTITY: gaunt face, thin long beard, wolf-like glance over his shoulder. FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking back over the shoulder, long thin nose, thin lips in a faint cunning smile, pale skin, scheming patience. BUILD: tall and gaunt, long neck.
-   SIGNATURE (unique to him on this sheet): HEAD purple-navy hood; FACIAL HAIR long thin beard; MARK black go stone, glance over the shoulder.
+   IDENTITY: 50s, imposing tall figure, long thin beard, aura of the most powerful man in the realm. FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking down coldly, long thin nose, thin lips in a faint cunning smile, pale skin, overwhelming quiet authority. BUILD: tall and gaunt, long neck.
+   SIGNATURE (unique to him on this sheet): HEAD tall black official crown; FACIAL HAIR long thin beard; MARK white cloak over deep blue robes, arms folded.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Sima Yi, patient schemer with a thin long beard, dark purple-navy hooded robe, holding a black go stone between two fingers, sly sideways glance.
    POSE AND SOFT BACKGROUND HINT: the wolf's glance — looking back over his shoulder with glowing eyes, a wolf shadow behind him.
 3. Sun Quan  [ARCHER, Wu] —— same person as reference #3
    IDENTITY: green-blue eyes, reddish-purple beard, square jaw. FACE: broad square jaw, striking green-blue eyes, reddish-purple beard, wide nose, firm mouth, ruddy skin, exotic and commanding young ruler. BUILD: broad and sturdy.
@@ -53,9 +54,10 @@ CHARACTERS
    COLORS: Wu red: crimson, red, orange and gold.
    POSE AND SOFT BACKGROUND HINT: the duel with Sun Ce at Shenting, grappling and having snatched Sun Ce's helmet, a short halberd in the other hand, tiger aura.
 5. Gan Ning  [ROGUE, Wu] —— same person as reference #5
-   IDENTITY: feathered headband, tattoos on arms and neck, gold earrings, wild grin. FACE: wide grinning face, big toothy grin, wild bright eyes, broken flat nose, sun-tanned skin, tattooed neck, reckless pirate expression. BUILD: lean and muscular, tattooed arms.
-   SIGNATURE (unique to him on this sheet): HEAD feathered headband; FACIAL HAIR no beard; MARK gold earrings, tattoos, bells on his belt.
+   IDENTITY: 30s, menacing pirate chief, NO feathers, scar across the brow, scary glare. FACE: lean hard face, fierce glaring narrowed eyes under a heavy scarred brow, broken flat nose, sun-tanned skin, tattooed neck, bared-teeth snarl, menacing and scary, NOT playful. BUILD: lean and muscular, tattooed arms.
+   SIGNATURE (unique to him on this sheet): HEAD red brocade pirate bandana knotted at the back with long tails; FACIAL HAIR rough short stubble; MARK grappling hook rope, brass bells on his belt, tattoos.
    COLORS: Wu red: crimson, red, orange and gold.
+   THIS RANK'S LOOK: Gan Ning, brash pirate-like fighter with bells on his belt, feathered headband and tattoos, crouching leap with a big curved sword.
    POSE AND SOFT BACKGROUND HINT: the brocade-sail pirate on a ship with brocade sails, bells ringing, leaping with a curved sword.
 6. Lü Meng  [ROGUE, Wu] —— same person as reference #6
    IDENTITY: stocky, short beard, plain white robe hood. FACE: square stocky face, thick neck, heavy brows, small sharp eyes, broad nose, short scruffy beard, a scholar's ink stain on his cheek, focused cunning look. BUILD: stocky, thick neck.

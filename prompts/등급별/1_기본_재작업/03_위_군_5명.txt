@@ -1,0 +1,74 @@
+A character design sheet of 5 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the first 5 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Xiahou Dun  [SPEARMAN, Wei]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Xiahou Dun, fierce one-eyed general in dark blue armor, hair neatly tied in a tidy topknot, holding a heavy SINGLE-EDGED blade (one cutting edge only, like a heavy dao)
+   LOOK: black eyepatch, NEATLY tied hair in a tidy topknot, short thick black beard.
+   FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, short thick black beard, snarling mouth with bared teeth, battle scars, fearsome expression.
+   BUILD: big, broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD neat tidy topknot; FACIAL HAIR short thick black beard; MARK black eyepatch over the LEFT eye, single-edged heavy blade.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Yu Jin  [SPEARMAN, Wei]
+   DESIGN: Yu Jin, strict disciplinarian general with long UNBOUND messy hair falling loose, a BLUE cape, plain iron armor, a war banner pole on his back
+   LOOK: strict narrow eyes, neat thin mustache only, official black cap.
+   FACE: narrow strict face, narrow judging eyes, thin pointed nose, neat thin mustache, pressed thin lips, rigid disciplinarian.
+   BUILD: upright and rigid.
+   SIGNATURE (unique to him on this sheet): HEAD no cap, long loose disheveled hair; FACIAL HAIR neat pencil mustache only; MARK blue cape, war banner pole on his back.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+3. Zhang He  [CAVALRY, Wei]
+   DESIGN: Zhang He, elegant cavalry general whose ARMOR IS SPLIT IN TWO COLORS: the left half YELLOW (his old lord Yuan Shao) and the right half BLUE (his new lord Cao Cao), helmet split yellow and blue the same way, holding a LONG SPEAR
+   LOOK: elegant handsome man, refined long face, thin neat mustache.
+   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
+   BUILD: slender but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD helmet split half yellow and half blue; FACIAL HAIR thin neat mustache; MARK armor split yellow and blue, long spear.
+   COLORS: split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao).
+   MOUNTED: riding a dapple-grey horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
+4. Ju Shou  [SCHEMER, Independent]
+   DESIGN: Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
+   LOOK: gaunt middle-aged, worried brow, short beard.
+   FACE: gaunt middle-aged face, worried knitted brow, tired baggy eyes, short beard, anxious mouth.
+   BUILD: gaunt.
+   SIGNATURE (unique to him on this sheet): HEAD small black scholar cap; FACIAL HAIR short beard; MARK secret plan scroll held to his chest.
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
+5. Tian Feng  [SCHEMER, Independent]
+   DESIGN: Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
+   LOOK: stern thick frowning eyebrows, square beard.
+   FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
+   BUILD: stiff and square.
+   SIGNATURE (unique to him on this sheet): HEAD square official hat; FACIAL HAIR square-cut beard; MARK thick frowning brows, written memorial.
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).

@@ -1037,15 +1037,12 @@ func card_info(k: String) -> void:
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
 	b.add_child(top)
-	# 고유 특기 —— 접지 않고 바로 보인다 (꾸밈 문구 + 효과 + 수치)
+	# 고유 특기 —— 접지 않고 바로 보인다 (이름 · 꾸밈 문구 · 수치)
 	for t in DB.trait_list(k):
 		if t.unique:
 			var gd: String = t.d
 			var parts := gd.split(" —— ", true, 1)
-			var ub := "[color=#FFD76E][b]고유 %s[/b][/color]%s
-[color=#E8C25A]%s[/color]" % [t.name, " (단체)" if t.group else "", parts[0]]
-			if parts.size() > 1:
-				ub += "\n[color=#C6AC7C]%s[/color]" % parts[1]
+			var ub := "[color=#FFD76E][b]고유 %s[/b][/color]%s\n[color=#E8C25A]%s[/color]" % [t.name, " (단체)" if t.group else "", parts[0]]
 			if t.mt != "":
 				ub += "\n[color=#8FD4C2]%s[/color]" % t.mt
 			b.add_child(UI.panel(UI.rich(ub, 14), 8))

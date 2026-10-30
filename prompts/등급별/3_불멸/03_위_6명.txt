@@ -44,10 +44,11 @@ CHARACTERS
    MOUNTED: riding a black warhorse —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: Hefei: leading only 800 riders straight into a 100,000-man Wu army, halberd raised and shouting his name, the enemy ranks scattering, Sun Quan fleeing over a broken bridge in the background.
 3. Zhang He  [CAVALRY, Wei] —— same person as reference #3
-   IDENTITY: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash, claw gauntlets.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
+   IDENTITY: elegant handsome man, refined long face, thin neat mustache. FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male. BUILD: slender but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD helmet split half yellow and half blue; FACIAL HAIR thin neat mustache; MARK armor split yellow and blue, long spear.
+   COLORS: split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao).
    MOUNTED: riding a dapple-grey horse —— rider waist-up, the horse's armored head, neck and mane in front of him.
+   THIS RANK'S LOOK: Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
    POSE AND SOFT BACKGROUND HINT: the master of changing tactics, an elegant spear flourish, his sash drawing patterns in the air.
 4. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #4
    IDENTITY: 40s, lean wild archer-rider, NO helmet, shaggy shoulder-length hair under a blue cloth headband, long thin drooping mustache and goatee, gaunt cheeks, huge grin. FACE: gaunt long MAN's face with hollow cheeks, wide wild eyes, hooked thin nose, long thin drooping mustache and long thin goatee, huge toothy reckless grin, sun-browned skin, restless hyper energy. BUILD: lean and long-limbed.
@@ -56,9 +57,10 @@ CHARACTERS
    MOUNTED: riding a lean fast horse at full gallop —— rider waist-up, the horse's armored head, neck and mane in front of him.
    POSE AND SOFT BACKGROUND HINT: lightning-fast archer, loosing three arrows at once, speed streaks around him.
 5. Guo Jia  [STRATEGIST, Wei] —— same person as reference #5
-   IDENTITY: pale young face, smug smile, flushed cheeks, loose untied hair. FACE: slender pale young MAN, angular face with a sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, faint stubble, loose messy hair, decadent genius. BUILD: slender and loose-limbed.
-   SIGNATURE (unique to him on this sheet): HEAD no hat, loose untied hair; FACIAL HAIR faint stubble; MARK flushed cheeks, wine gourd.
+   IDENTITY: early 20s, smooth youthful face, clean-shaven. FACE: slender pale young MAN in his early 20s, smooth CLEAN-SHAVEN face (no beard, no stubble), angular sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair. BUILD: slender and loose-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, loose untied hair; FACIAL HAIR clean-shaven, no beard at all; MARK short calligraphy brush in hand, wine gourd, flushed cheeks.
    COLORS: Wei blue: navy, deep blue and steel with silver.
+   THIS RANK'S LOOK: Guo Jia, pale, slightly sickly but smug genius, loose relaxed blue robe, white feather fan in one hand and a wine gourd at the waist, sly smile.
    POSE AND SOFT BACKGROUND HINT: reading the secrets of heaven, feather fan raised, glowing constellations above him.
 6. Xun Yu  [SCHOLAR, Wei] —— same person as reference #6
    IDENTITY: elegant 40s, neat full beard, tall formal hat. FACE: handsome dignified MAN in his 40s, oval face with a firm jaw, gentle sad eyes, straight nose, neat full beard, refined calm mouth, fair skin, noble upright expression. BUILD: tall and upright.

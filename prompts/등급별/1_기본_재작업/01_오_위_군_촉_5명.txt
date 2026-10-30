@@ -1,0 +1,73 @@
+A character design sheet of 5 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the first 5 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Gan Ning  [ROGUE, Wu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Gan Ning, fearsome river PIRATE captain of the Brocade Sails, bare muscular tattooed arms, red brocade sash, a broad curved pirate saber in one hand and a coiled rope with an iron grappling hook over his shoulder, brass bells on his belt
+   LOOK: 30s, menacing pirate chief, NO feathers, scar across the brow, scary glare.
+   FACE: lean hard face, fierce glaring narrowed eyes under a heavy scarred brow, broken flat nose, sun-tanned skin, tattooed neck, bared-teeth snarl, menacing and scary, NOT playful.
+   BUILD: lean and muscular, tattooed arms.
+   SIGNATURE (unique to him on this sheet): HEAD red brocade pirate bandana knotted at the back with long tails; FACIAL HAIR rough short stubble; MARK grappling hook rope, brass bells on his belt, tattoos.
+   COLORS: Wu red: crimson, red, orange and gold.
+2. Sima Yi  [SCHEMER, Wei]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Sima Yi, the cold supreme schemer who came to rule Wei: deep blue robes with a WHITE CLOAK over his shoulders, ARMS FOLDED across his chest, chin raised, looking down with absolute authority
+   LOOK: 50s, imposing tall figure, long thin beard, aura of the most powerful man in the realm.
+   FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking down coldly, long thin nose, thin lips in a faint cunning smile, pale skin, overwhelming quiet authority.
+   BUILD: tall and gaunt, long neck.
+   SIGNATURE (unique to him on this sheet): HEAD tall black official crown; FACIAL HAIR long thin beard; MARK white cloak over deep blue robes, arms folded.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+3. Pang De  [SPEARMAN, Wei]
+   DESIGN: Pang De, grim loyal SPEARMAN standing ON FOOT (no horse), dark iron armor, a long spear in one hand, with the other hand DRAGGING a heavy wooden coffin behind him on a rope (he brought his own coffin to battle)
+   LOOK: 40s, hard square jaw, full black beard, thick eyebrows, fierce unblinking eyes.
+   FACE: hard square MAN's jaw, thick straight eyebrows, fierce unblinking eyes, broad nose, full black beard, tanned skin, grim determination.
+   BUILD: solid and broad.
+   SIGNATURE (unique to him on this sheet): HEAD black iron helmet with a black horsehair crest; FACIAL HAIR full black beard; MARK wooden coffin dragged behind him on a rope, long spear.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+4. Shen Pei  [SCHEMER, Independent]
+   DESIGN: Shen Pei, stubborn loyal official of Yuan Shao in a YELLOW-GOLD high-collared robe, holding a sealed order scroll, stern
+   LOOK: older, long thin beard, rigid upright posture.
+   FACE: older narrow face, long thin beard, rigid cold eyes, tight lips, proud unbending posture.
+   BUILD: rigid and thin.
+   SIGNATURE (unique to him on this sheet): HEAD tall black official hat; FACIAL HAIR long thin beard; MARK high collar, sealed order scroll.
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
+5. Jiang Wei  [STRATEGIST, Shu]  ★ICONIC: draw the famous traditional look exactly
+   DESIGN: Jiang Wei, young strategist-general in green armor with a WHITE cloth hood over his head, a spear in one hand and a rolled military map in the other, thoughtful sharp eyes
+   LOOK: young man in his 20s, intelligent determined face, white hood over green armor.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
+   BUILD: athletic young soldier.
+   SIGNATURE (unique to him on this sheet): HEAD white cloth hood; FACIAL HAIR short sideburns and a faint chin stubble; MARK green armor, spear and a rolled military map.
+   COLORS: Shu green: green, jade and earthy gold.

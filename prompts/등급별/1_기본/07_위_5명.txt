@@ -45,12 +45,12 @@ CHARACTERS
    COLORS: Wei blue: navy, deep blue and steel with silver.
    MOUNTED: riding a black warhorse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 2. Zhang He  [CAVALRY, Wei]
-   DESIGN: Zhang He, elegant handsome general with a hair ornament, blue armor with a long flowing sash.
-   LOOK: early 20s, elegant refined man, thin neat mustache, long flowing hair with a jade hairpin, slender but broad-shouldered build.
+   DESIGN: Zhang He, elegant cavalry general whose ARMOR IS SPLIT IN TWO COLORS: the left half YELLOW (his old lord Yuan Shao) and the right half BLUE (his new lord Cao Cao), helmet split yellow and blue the same way, holding a LONG SPEAR
+   LOOK: elegant handsome man, refined long face, thin neat mustache.
    FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
    BUILD: slender but broad-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD no helmet, long flowing hair with a jade hairpin; FACIAL HAIR thin neat mustache; MARK long flowing sash, claw gauntlets.
-   COLORS: Wei blue: navy, deep blue and steel with silver.
+   SIGNATURE (unique to him on this sheet): HEAD helmet split half yellow and half blue; FACIAL HAIR thin neat mustache; MARK armor split yellow and blue, long spear.
+   COLORS: split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao).
    MOUNTED: riding a dapple-grey horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 3. Xiahou Ba  [CAVALRY, Wei]
    DESIGN: Xiahou Ba, young determined general in blue armor.
