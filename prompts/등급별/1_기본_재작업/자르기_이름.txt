@@ -10,3 +10,6 @@
 
 [03_위_군_5명.txt]  1 독안 하후돈 · 2 우금 · 3 오자양장 장합 · 4 저수 · 5 전풍
   자르기: python -I tools/scripts/slice_sheet.py 시트.png "하후돈,우금,장합,저수,전풍" solgukji_godot/assets/portraits
+
+[04_위_군_5명.txt]  1 사마의 · 2 결사 방덕 · 3 심배 · 4 저수 · 5 전풍
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "사마의,방덕,심배,저수,전풍" solgukji_godot/assets/portraits

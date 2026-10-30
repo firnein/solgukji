@@ -12,7 +12,7 @@ STYLE:
 - CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
 
 OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
-simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+simple trims, no gold ornaments, no capes, no glowing effects. Iconic features (beards, eyepatch, headbands, signature
 weapons, hats) are ALREADY present here, because later versions must keep them.
 
 FACES AND SILHOUETTES MUST ALL DIFFER:
@@ -23,8 +23,6 @@ FACES AND SILHOUETTES MUST ALL DIFFER:
 EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
 the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
-STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
-and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
 GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men read as men at a glance ——
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
@@ -61,16 +59,16 @@ CHARACTERS
    COLORS: split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao).
    MOUNTED: riding a dapple-grey horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
 4. Ju Shou  [SCHEMER, Independent]
-   DESIGN: Ju Shou, loyal worried strategist of Yuan Shao in a plain yellow-brown robe, hunched forward, clutching a secret plan scroll to his chest
-   LOOK: 50s, thin worried man, wispy little beard.
-   FACE: thin pale face, worried knitted brow, droopy sad eyes with dark bags, small sparse moustache and a thin wispy chin beard, anxious open mouth.
-   BUILD: thin and hunched.
-   SIGNATURE (unique to him on this sheet): HEAD small soft black scholar cap; FACIAL HAIR sparse wispy moustache and thin chin beard; MARK secret plan scroll hugged to his chest, hunched worry.
+   DESIGN: Ju Shou, loyal grave-faced strategist in a gold-brown robe, holding a secret plan scroll close to his chest.
+   LOOK: gaunt middle-aged, worried brow, short beard.
+   FACE: gaunt middle-aged face, worried knitted brow, tired baggy eyes, short beard, anxious mouth.
+   BUILD: gaunt.
+   SIGNATURE (unique to him on this sheet): HEAD small black scholar cap; FACIAL HAIR short beard; MARK secret plan scroll held to his chest.
    COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
 5. Tian Feng  [SCHEMER, Independent]
-   DESIGN: Tian Feng, blunt fearless advisor of Yuan Shao in a stiff yellow-gold robe, standing square and pointing at a written memorial while scolding
-   LOOK: 40s, stern square-faced man, thick square black beard.
-   FACE: broad square face, thick black frowning eyebrows, wide fierce eyes, broad nose, thick black square-cut beard, open scolding mouth.
-   BUILD: tall, stiff and square-shouldered.
-   SIGNATURE (unique to him on this sheet): HEAD square black official hat with flaps; FACIAL HAIR thick black square-cut beard; MARK pointing finger and a written memorial.
+   DESIGN: Tian Feng, blunt stern advisor in a gold-brown robe, holding a written memorial, frowning.
+   LOOK: stern thick frowning eyebrows, square beard.
+   FACE: stern face, thick frowning eyebrows, square beard, fierce honest eyes, broad nose, scolding mouth.
+   BUILD: stiff and square.
+   SIGNATURE (unique to him on this sheet): HEAD square official hat; FACIAL HAIR square-cut beard; MARK thick frowning brows, written memorial.
    COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).

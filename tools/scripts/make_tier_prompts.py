@@ -426,10 +426,11 @@ def reset(d):
         os.remove(os.path.join(d, f))
 
 
-def write_sheets(key, folder, groups, label):
-    """groups: [(faction, [(person, card)])]"""
+def write_sheets(key, folder, groups, label, start=0):
+    """groups: [(faction, [(person, card)])]. start > 0 이면 폴더를 비우지 않고 start 번부터 새 시트만 더한다 (이미 쓴 시트 프롬프트는 그대로)"""
     dst = os.path.join(OUT, folder)
-    reset(dst)
+    if start == 0:
+        reset(dst)
     per = PER[key]
     howto = ["%s —— 이름 순서 = 이름표 번호 순서. 시트는 references/등급별_시트/%s/<txt 와 같은 이름>.png 로 두고 D:\\Sol 에서" % (label, folder),
              "  python -I tools/scripts/slice_tier.py %s   → 잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_tier.py %s --apply" % (folder, folder),
@@ -437,7 +438,7 @@ def write_sheets(key, folder, groups, label):
     if key != "base":
         howto.append("위 등급은 먼저 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다 (1_기본 을 다 자른 뒤에).")
     howto.append("")
-    no, sizes = 0, []
+    no, sizes = max(0, start - 1), []
     # 세력 순서대로 이어 붙여 꽉 채운다 —— 세력 경계에서 끊으면 1~2명짜리 시트가 생긴다
     allp = [pc for _, items in groups for pc in items]
     for chunk in split(allp, per):
@@ -461,7 +462,15 @@ def write_sheets(key, folder, groups, label):
         tool = "slice_sheet.py" if key == "base" else "slice_panels.py"     # 기본은 인물만 오려 내고, 위 등급은 패널째
         howto.append('  자르기: python -I tools/scripts/%s 시트.png "%s" solgukji_godot/assets/portraits' % (tool, names))
         howto.append("")
-    open(os.path.join(dst, "자르기_이름.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(howto))
+    hp = os.path.join(dst, "자르기_이름.txt")
+    if start > 0 and os.path.exists(hp):
+        old = open(hp, encoding="utf-8").read()
+        blocks = "\n".join(howto[howto.index("") + 1:]).split("\n\n")
+        new = [b for b in blocks if b.strip() and b.split("]")[0] + "]" not in old]
+        if new:
+            open(hp, "w", encoding="utf-8", newline="\n").write(old.rstrip("\n") + "\n\n" + "\n\n".join(new).strip("\n") + "\n")
+    else:
+        open(hp, "w", encoding="utf-8", newline="\n").write("\n".join(howto))
     print(dst, no, "시트,", sum(len(g[1]) for g in groups), "명, 글자 수 %d ~ %d" % (min(sizes), max(sizes)))
 
 
@@ -476,9 +485,9 @@ def by_faction(pairs):
 os.makedirs(OUT, exist_ok=True)
 write_sheets("base", "1_기본", by_faction([(p, cs[0]) for p, cs in person_cards.items()]), "기본 캐릭터")
 # 다시 그릴 인물만 (5명씩) —— 같은 세력 · 비슷한 차림이 한 장에 몰리지 않게 섞었다
-REDO_ORDER = ["감녕", "사마의", "방덕", "심배", "강유",
-              "곽가", "육손", "조인", "안량", "진궁",
-              "하후돈", "우금", "장합", "저수", "전풍"]
-write_sheets("base", "1_기본_재작업", [("", [(p, person_cards[p][0]) for p in REDO_ORDER])], "기본 캐릭터 다시 그리기")
+# 01~03 은 10/30 에 그림으로 뽑았다 —— 프롬프트를 다시 쓰지 않는다 (깃 5c26048 그대로).
+# 04 (10/30): 01 에서 사마의 · 심배 얼굴이 겹치고 방덕 관이 칸을 넘어서 다시 —— 얼굴을 새로 쓴 저수 · 전풍도 함께
+REDO_04 = ["사마의", "방덕", "심배", "저수", "전풍"]
+write_sheets("base", "1_기본_재작업", [("", [(p, person_cards[p][0]) for p in REDO_04])], "기본 캐릭터 다시 그리기", start=4)
 for t in (6, 7, 8):
     write_sheets(t, TIER_DIR[t], by_faction([(p, c) for p, cs in person_cards.items() for c in cs if c[2] == t]), TIER_DIR[t][2:])
