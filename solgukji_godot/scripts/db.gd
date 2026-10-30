@@ -57,6 +57,7 @@ func _load() -> void:
 		D.STATUS[k] = ext.status[k]
 	CLASS_COUNTER = ext.get("class_counter", {})
 	SKILL_COND = ext.get("skill_cond", {})
+	D.SKILLPOOL["범용"] = ext.get("skills_ext", []).filter(func(x): return x.has("n"))     # 범용 기술 (누구나 추가 기술로)
 	_build_fonts()
 
 	for r in D.CARDDEF:
@@ -131,13 +132,13 @@ func _reskill() -> void:
 		C[k].sks = _skill_list(k)
 
 
-## 기술 여러 개 (솔국지 확장, 2026-10-30) —— 첫 기술은 원본 배정 그대로, 등급이 오를수록 범용 기술을 더한다 (전설 +1 · 초월 +1 · 불멸 · 신화 +2).
+## 기술 여러 개 (솔국지 확장, 2026-10-30) —— 첫 기술은 원본 배정 그대로, 희귀부터 기술을 더한다 (희귀 · 전설 · 초월 +1, 불멸 · 신화 +2). 기술마다 충전이 따로 돈다.
 ## 더하는 기술은 그 인물 특기의 축(도트 · 둔화 · 혼란 …)에 맞는 것부터, 자기 주 능력치(공격 / 책략)와 같은 종류만.
-const SKILL_EXTRA := {5: 1, 6: 1, 7: 2, 8: 2}
+const SKILL_EXTRA := {4: 1, 5: 1, 6: 1, 7: 2, 8: 2}
 const AXIS_SKILLS := {"도트": ["화공", "화시난발", "역병"], "둔화": ["수공", "철기유린"], "혼란": ["혹세", "봉계"],
 	"책방깎": ["팔문금쇄", "저주"], "방깎": ["필사돌격", "저격"], "물리": ["횡소천군", "일점돌파", "일제사격"],
 	"책략": ["이간", "밀계"], "공깎": ["후미교란", "철기유린"], "책략깎": ["밀계", "이간"], "철벽": ["철벽방진"],
-	"인덕": ["격려", "독려", "인덕"]}
+	"인덕": ["격려", "독려", "인덕"], "사기": ["진두지휘", "격문", "고함", "고취", "격려", "독려"]}
 
 func _skill_list(k: String) -> Array:
 	var c: Dictionary = C[k]
@@ -149,13 +150,16 @@ func _skill_list(k: String) -> Array:
 		return out
 	var kind := "int" if c["int"] > c.atk else "phys"
 	var want := []
+	# 아군 사기를 북돋는 특기(함성 · 독전 · 고무)를 가진 인물은 사기 기술을 먼저 받는다
+	if PSV.ladder.get(person(k), []).any(func(e): return e[0] in ["함성", "독전", "고무"] and c.tier >= int(e[1])):
+		want.append_array(AXIS_SKILLS["사기"])
 	for e in PSV.ladder.get(person(k), []):
 		var a: String = PSV.traits.get(e[0], {}).get("attr", "")
 		for nm in AXIS_SKILLS.get(a, []):
 			if not want.has(nm): want.append(nm)
 	for nm in D.SKILLPOOL[c.tag].map(func(x): return x.n):
 		if not want.has(nm): want.append(nm)
-	for tg in D.TAGORDER:
+	for tg in D.TAGORDER + ["범용"]:
 		for x in D.SKILLPOOL[tg]:
 			if not want.has(x.n): want.append(x.n)
 	for nm in want:
@@ -190,7 +194,7 @@ func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 	if base.has("mult"): e.mult = snappedf(base.mult * m, 0.001)
 	if base.has("morale"): e.morale = snappedf(base.morale * m, 0.1)
 	if base.has("tHeal"): e.tHeal = snappedf(base.tHeal * m, 0.0001)
-	for key in ["exec", "spd", "foeSpd", "resDown", "selfBuff", "allyBuff", "cleanse", "pierce", "stance", "heal"]:
+	for key in ["exec", "spd", "foeSpd", "resDown", "selfBuff", "allyBuff", "cleanse", "pierce", "stance", "heal", "rally"]:
 		if base.has(key):
 			e[key] = base[key]
 	if base.has("status"):
@@ -474,7 +478,7 @@ func trait_list(k: String) -> Array:
 ## 특기 칸 색 —— 축마다 (2026-10-30: 물리 · 책략 · 도트 · 공깎 · 책략깎 · 방깎 · 책방깎 · 둔화 · 혼란 · 철벽 · 인덕), 축 없는 개인은 회황, 단체는 청록
 const TRAIT_COL := {"물리": Color("#c98a2e"), "책략": Color("#3f7fc0"), "도트": Color("#c8553d"),
 	"공깎": Color("#b0504a"), "책략깎": Color("#5a6fc0"), "방깎": Color("#a8893c"), "책방깎": Color("#8a5ab8"),
-	"둔화": Color("#3f9aa8"), "혼란": Color("#9a5ab0"), "철벽": Color("#6f8aa6"), "인덕": Color("#4f9a5a"),
+	"둔화": Color("#3f9aa8"), "혼란": Color("#9a5ab0"), "철벽": Color("#6f8aa6"), "인덕": Color("#4f9a5a"), "사기": Color("#d6b84a"),
 	"": Color("#8a8668"), "단체": Color("#3f9a94")}
 
 func trait_col(t: Dictionary) -> Color:
@@ -525,8 +529,10 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"cut_atk": "맞힐 때 적 공격 −(내 공격의)", "cut_int": "맞힐 때 적 책략 −(내 책략의)", "cut_def": "맞힐 때 적 방어 −(내 공격의)",
 	"cut_res": "맞힐 때 적 책방 −(내 책략의)", "first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
 	"open_cut_int": "시작에 적 후군 책략 −(내 책략의)", "open_cut_res": "시작에 적 전원 책방 −(내 책략의)",
-	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해"}
-const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt"]
+	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해",
+	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "차례마다 같은 열 사기(전투 전체)", "resolve": "아군이 무너지면 사기",
+	"steady": "사기 60 아래에서 한 번 사기", "ult_rally": "아군 고유기 때 아군 전원 사기"}
+const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt", "rally_kill", "cheer_turn", "resolve", "steady", "ult_rally"]
 
 
 ## 수치 요약 —— "치명타 확률 +14% · 치명타 피해 +69%"
@@ -719,7 +725,7 @@ func skill_desc(c: Dictionary, sk = null) -> String:
 	if e.has("stance"): p.append("자신 반격 %s · %d턴" % [pct.call(e.stance.amt), e.stance.dur])
 	if e.has("status"): p.append("『%s』 %d턴" % [D.STATUS[e.status.k].n, e.status.dur])
 	if e.has("tHeal"): p.append("아군 병력 %.1f%% 회복" % (e.tHeal * pc * 100))
-	if e.has("heal"): p.append("아군 사기 +%d" % roundi(e.heal * pc))
+	if e.has("heal"): p.append("아군 전원 사기 +%d" % roundi(e.heal * (1.0 if e.get("rally", false) else pc)))
 	if e.has("cleanse"): p.append("아군 상태이상 %d종 해제" % e.cleanse)
 	if e.has("spd"): p.append("대상 속도 %s" % pct.call(e.spd.amt))
 	if e.has("foeSpd"): p.append("대상 속도 %s" % pct.call(e.foeSpd.amt))
@@ -748,6 +754,7 @@ func cond_text(cond: String) -> String:
 			"no_st": out.append("『%s』 아닌 적이 있을 때" % D.STATUS[v].n)
 			"ally_st": out.append("상태이상 걸린 아군이 있을 때")
 			"foe_morale": out.append("적 사기가 아군 이상일 때")
+			"ally_morale": out.append("아군 사기가 %s 아래일 때" % v)
 			_: out.append(one)
 	return " 또는 ".join(out)
 

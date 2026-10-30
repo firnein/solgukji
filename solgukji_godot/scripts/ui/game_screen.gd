@@ -1041,7 +1041,7 @@ func card_info(k: String) -> void:
 		var sl := []
 		for x in c.sks:
 			sl.append("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.cond_text(x.cond), DB.skill_desc(c, x)])
-		b.add_child(UI.rich("[color=#8D7B5C]기술 %d개 · 충전 하나를 같이 씀 (차례마다 %d%%)[/color]\n" % [c.sks.size(), roundi(DB.D.RATE.get(str(c.tier), 0) * 100)]
+		b.add_child(UI.rich("[color=#8D7B5C]기술 %d개 · 저마다 차례마다 %d%% 충전 · 한 차례에 하나[/color]\n" % [c.sks.size(), roundi(DB.D.RATE.get(str(c.tier), 0) * 100)]
 			+ "\n".join(sl), 13))
 	var u = DB.ult_of(k) if c.tier >= 6 else null
 	if u != null:

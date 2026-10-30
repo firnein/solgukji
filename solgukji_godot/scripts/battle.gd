@@ -16,7 +16,7 @@ const MYTH_AMP := 1.6
 ## 턴 상한(원본 K.cap 20)과 첫 턴 기병 돌격 · 첫 공격 보너스도 이만큼 늘린다. 바꿀 때는 set_turn_mul().
 ## 등급마다 전투 길이가 달라(배율 3 에서 고급 10턴 · 초월 28턴) 전투에 나온 카드의 평균 등급으로 배율을 고른다 —— 어느 등급이든 15턴 안팎.
 const BASE_PACE := 0.35
-const TURN_MUL := {1: 4.5, 2: 4.5, 3: 4.5, 4: 4.3, 5: 3.1, 6: 1.95, 7: 2.1, 8: 5.0}   # 10/30 기술 여러 개 · 축 특기 뒤 다시 맞춤
+const TURN_MUL := {1: 5.05, 2: 5.05, 3: 5.05, 4: 5.45, 5: 3.95, 6: 2.8, 7: 3.5, 8: 7.2}   # 10/30 기술마다 따로 충전 · 사기 축 뒤 다시 맞춤
 static var auto_turn := true      # 전투마다 평균 등급으로 배율을 고른다 (점검 장면이 --tmul 로 고정하면 false)
 static var turn_mul := 3.0
 ## 전투 속도 —— 솔국지 확장 (원본에 없음). 턴마다 흐르는 양(병력·사기 피해, 지속 피해, 회복)을 모두 이만큼 곱한다. = BASE_PACE / turn_mul
@@ -126,6 +126,7 @@ class Unit:
 	var chase_turn := -1      # 추격 —— 이 턴에 한 번 더 쳤다
 	var in_skill := false     # 기술을 쓰는 중 (신산)
 	var cleaving := false     # 휩쓸기 · 파상 피해 중 (다시 번지지 않게)
+	var steady_used := false  # 진정 —— 사기 60 아래에서 한 번 추스름을 썼는가
 	var stand_used := false   # 사수 —— 방진 중 병력 1에서 버티기를 썼는가
 	var countering := false   # 반격 중 (점검 통계용)
 	var dmg := 0.0
@@ -136,7 +137,7 @@ class Unit:
 	var st := []
 	var ult = null            # 고유기 (초월·불멸·신화) —— DB.ult_of 참고
 	var gauge := 0.0          # 고유기 게이지 (100 이면 준비)
-	var sk_charge := 0.5      # 일반 기술 충전 (1 이면 준비) —— 차례마다 sk_rate 만큼 찬다
+	var sk_ch := []           # 기술마다 따로 도는 충전 (1 이면 준비, SK_BANK 까지 모은다)
 	var charges := 0          # 남은 고유기 횟수
 
 
@@ -163,7 +164,7 @@ var _long := 1.0              # 한 번뿐인 효과(고유기 · 전투 시작 
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
 	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
-	"tac_amp": 0.0, "cuts": 0.0, "cut_n": 0, "execs": 0, "kills_amp": 0, "chases": 0, "cleaves": 0.0, "awes": 0,
+	"tac_amp": 0.0, "cuts": 0.0, "cut_n": 0, "execs": 0, "kills_amp": 0, "chases": 0, "cleaves": 0.0, "awes": 0, "rallied": 0.0,
 	"phalanx": 0, "counters": 0, "counter_dmg": 0.0, "stands": 0, "phys": 0.0, "intd": 0.0, "ph_taken": 0.0,
 	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
 	"mends": 0.0, "moved": 0, "oaths": 0}
@@ -1099,8 +1100,26 @@ func _scheme_mul(a: Unit, d: Unit) -> float:
 	return m
 
 
-## 자기 차례 시작 —— 방진(철벽) · 인술(가장 지친 아군 치료)
+## 사기를 채운다 (사기 축 —— 함성 · 독전 · 결사 · 진정 · 고무). log=false 면 기록 없이 (차례마다 조금씩 차는 것)
+func _rally(u: Unit, amt: float, why: String, log := true) -> void:
+	if not u.alive or amt <= 0:
+		return
+	var b := u.morale
+	u.morale = minf(200, u.morale + amt)
+	stats.rallied += u.morale - b
+	if log and u.morale - b >= 1:
+		L("hl", "『%s』 %s의 사기 +%d" % [why, nm(u), roundi(u.morale - b)], {"fx": "heal", "f": u.key, "m": u.morale - b})
+
+
+## 자기 차례 시작 —— 방진(철벽) · 인술(가장 지친 아군 치료) · 독전 · 진정
 func _turn_start(u: Unit) -> void:
+	if mv(u, "cheer_turn") > 0:      # 독전 —— 차례마다 같은 열 아군 사기 + (턴 배율만큼 나눠 전투 전체로는 같게)
+		for o in units:
+			if o.alive and o.camp == u.camp and o.line == u.line:
+				_rally(o, mv(u, "cheer_turn") / turn_mul, "", false)
+	if mv(u, "steady") > 0 and not u.steady_used and u.morale < 60:      # 진정 —— 사기가 60 아래로 떨어지면 한 번 추스른다
+		u.steady_used = true
+		_rally(u, mv(u, "steady"), "진정")
 	if guard_enabled and mv(u, "phalanx") > 0 and rng.randf() < mv(u, "phalanx"):
 		_give_phalanx(u, int(DB.PSV.guard.dur), "방진")
 	if virtue_enabled and mv(u, "mend") > 0:
@@ -1186,6 +1205,13 @@ func rout(u: Unit, why: String) -> void:
 		o.morale -= (K.routSame if o.line == u.line else K.routOther) * (1.0 - mv(o, "rout_loss"))
 		if mv(o, "avenge") > 0 and o.avenge_n < 3:
 			o.avenge_n += 1
+		if mv(o, "resolve") > 0:      # 결사 —— 아군이 무너지면 오히려 사기가 오른다
+			_rally(o, mv(o, "resolve"), "결사")
+	var lh = u.last_hit
+	if lh and lh.camp != u.camp and lh.alive and mv(lh, "rally_kill") > 0:      # 함성 —— 적을 무너뜨리면 아군 전원 사기 +
+		for o in units:
+			if o.alive and o.camp == lh.camp:
+				_rally(o, mv(lh, "rally_kill"), "함성")
 	L("rt", "%s의 군세가 %s" % [nm(u), why], {"fx": "rout", "f": u.key})
 
 
@@ -1391,26 +1417,32 @@ func act(u: Unit) -> void:
 	var sk = null
 	var used := false
 	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동.
-	# 기술이 여러 개면 충전 하나를 같이 쓰고, 조건이 맞는 것 가운데 앞선 것 하나 (2026-10-30)
+	# 기술은 저마다 따로 충전이 돈다 (2026-10-30 사용자). 한 차례에 하나만 —— 충전이 차고 조건이 맞는 것 가운데 앞선 것
 	var sks: Array = u.c.get("sks", [])
+	var si := -1
 	if not sks.is_empty():
-		u.sk_charge = minf(SK_BANK, u.sk_charge + sk_rate(u))
-		if u.sk_charge >= 1.0:
-			for x in sks:
-				if _sk_cond(u, str(x.get("cond", "always")), foes, allies):
-					sk = x
-					break
+		while u.sk_ch.size() < sks.size():
+			u.sk_ch.append(0.5)
+		var r := sk_rate(u)
+		for j in sks.size():
+			u.sk_ch[j] = minf(SK_BANK, u.sk_ch[j] + r)
+		for j in sks.size():
+			if u.sk_ch[j] >= 1.0 and _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
+				sk = sks[j]
+				si = j
+				break
 	if sk:
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false
-		if ok: u.sk_charge -= 1.0
+		if ok: u.sk_ch[si] -= 1.0
 		if ok:
 			used = true
 			u.in_skill = true
 			for o in allies:
-				if o != u and o.alive and mv(o, "ally_sk") > 0:      # 연계 —— 아군이 기술을 쓰면 내 충전 +
-					o.sk_charge = minf(SK_BANK, o.sk_charge + mv(o, "ally_sk"))
+				if o != u and o.alive and mv(o, "ally_sk") > 0:      # 연계 —— 아군이 기술을 쓰면 내 기술 충전이 모두 찬다
+					for j in o.sk_ch.size():
+						o.sk_ch[j] = minf(SK_BANK, o.sk_ch[j] + mv(o, "ally_sk"))
 			L("sk", "%s 『%s』%s 펼친다" % [ga(nm(u)), sk.n, "을" if jong(sk.n) else "를"],
 				{"fx": "skill", "a": u.key, "name": sk.n, "kind": e.kind})
 			match e.kind:
@@ -1425,6 +1457,9 @@ func act(u: Unit) -> void:
 						if e.has("resDown"): _cut(u, t, "res", -float(e.resDown.amt) * eff(t, "res"), sk.n)      # 책략방어 감소 → 현혹(수치)
 						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
 					if e.has("selfBuff"): add_buff(u, e.selfBuff)
+					if e.has("heal"):      # 범용 사기 기술 (진두지휘 · 고함)
+						for t in allies:
+							if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
 					if e.has("stance"): u.buffs.append({"stat": "counter", "amt": float(e.stance.amt), "dur": int(e.stance.dur)})
 					if e.has("allyBuff"):
 						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff)
@@ -1439,7 +1474,7 @@ func act(u: Unit) -> void:
 						if u.caps.has("모사") and rng.randf() < 0.30: inflict(u, t, "confuse", 1, 1)      # 봉인은 혼란으로 합쳤다
 					if e.has("heal"):
 						for t in allies:
-							if t.alive: heal_morale(t, e.heal, sk.n, u)
+							if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
 					if e.has("tHeal"):
 						for t in allies:
 							if t.alive: heal_troop(t, e.tHeal, sk.n, u)
@@ -1490,6 +1525,8 @@ func _sk_cond(u: Unit, cond: String, foes: Array, allies: Array) -> bool:
 				if lf.any(func(o): return not has_st(o, v)): return true
 			"ally_st":
 				if la.any(func(o): return o.st.any(func(x): return x.k in ["burn", "bleed", "flood", "plague", "confuse", "seal", "break", "mark"])): return true
+			"ally_morale":
+				if not la.is_empty() and la.reduce(func(s, o): return s + o.morale, 0.0) / la.size() <= float(v): return true
 			"foe_morale":
 				if not lf.is_empty() and not la.is_empty():
 					var fm: float = lf.reduce(func(s, o): return s + o.morale, 0.0) / lf.size()
@@ -1503,6 +1540,11 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	u.charges -= 1
 	u.gauge = 0.0
 	_ult_last[u.camp] = act_n
+	var cheer := _side_max(u.camp, "ult_rally")      # 고무 —— 아군이 고유기를 쓰면 아군 전원 사기 +
+	if cheer > 0:
+		for o in units:
+			if o.alive and o.camp == u.camp:
+				_rally(o, cheer, "고무")
 	_in_ult = true
 	_one = turn_mul
 	_long = turn_mul
