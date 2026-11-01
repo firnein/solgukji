@@ -183,6 +183,9 @@ var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점�
 	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
 	"mends": 0.0, "moved": 0, "oaths": 0}
 var _oath_used := {"A": false, "B": false}
+## 덱 연쇄 —— 진영별 특기 연쇄 횟수 (결과표 · 전투 중 강조). 1 · 3 · 6 · 10 · 15 · 20 · 30 · 50 번째에 사건을 남긴다
+var chains := {"A": {}, "B": {}}
+const CHAIN_MARKS := [1, 3, 6, 10, 15, 20, 30, 50]
 
 
 func _init(seed_value: int = -1) -> void:
@@ -576,6 +579,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			if guard_enabled:
 				cmul *= 1.0 + mv(d, "counter_hit") + (mv(d, "phalanx_amp") if ph else 0.0)     # 반격(즉발) · 역습
 			stats.counters += 1
+			_chain(d.camp, "반격", d.key)
 			d.countering = true
 			phys_hit(d, a, cmul, true)
 			d.countering = false
@@ -626,6 +630,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	_cleave(a, d, mult, false)
 	if scheme_enabled and d.alive and d.troops > 0 and mv(a, "sow") > 0 and rng.randf() < mv(a, "sow"):     # 반목 —— 책략이 맞으면 혼란
 		stats.confuses += 1
+		_chain(a.camp, "반목", a.key)
 		inflict(a, d, "confuse", 1, int(DB.PSV.scheme.dur))
 
 
@@ -760,6 +765,7 @@ func tick_status() -> void:
 		if cand.is_empty(): continue
 		var t: Unit = cand[rng.randi() % cand.size()]
 		stats.passes += 1
+		_chain(_foe(u.camp), "반간")
 		inflict(null, t, "confuse", 1, int(DB.PSV.scheme.dur))
 		var c = _st_of(t, "confuse")
 		if c: c.passed = true
@@ -807,6 +813,7 @@ func _ignite(a: Unit, d: Unit) -> void:
 		return
 	if p >= 1.0 or rng.randf() < p:
 		stats.ignites += 1
+		_chain(a.camp, "점화", a.key)
 		inflict(a, d, "burn", _fire_burn(a), int(DB.PSV.fire.burn.dur))
 
 
@@ -832,9 +839,11 @@ func _spread_burn_to(u: Unit, s: Dictionary, t: Unit) -> void:
 	t.st.append({"k": s.k, "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5})
 	if water:
 		stats.flows += 1
+		_chain(_foe(t.camp), "물길")
 		L("st", "물길이 %s의 진영으로 흘러들었다" % nm(t), {"fx": "status", "f": t.key, "st": "flood", "from": u.key})
 	else:
 		stats.spreads += 1
+		_chain(_foe(t.camp), "불길 번짐")
 		L("st", "불길이 %s에게 번졌다" % nm(t), {"fx": "status", "f": t.key, "st": "burn", "from": u.key})
 
 
@@ -870,6 +879,7 @@ func _blaze(u: Unit) -> void:
 		if t.alive and t != u and t.camp == u.camp and _same_line(t, u) and not has_st(t, "burn"):
 			_spread_burn_to(u, s, t)
 			stats.blazes += 1
+			_chain(_foe(u.camp), "연소")
 
 
 ## 오소 —— 불타는 부대는 (적에게 오소가 있으면) 병력을 회복하지 못한다
@@ -902,6 +912,7 @@ func _soak(a: Unit, d: Unit) -> void:
 		return
 	if rng.randf() < p:
 		stats.soaks += 1
+		_chain(a.camp, "침수", a.key)
 		inflict(a, d, "flood", _water_flood(a), int(DB.PSV.water.flood.dur))
 
 
@@ -916,6 +927,7 @@ func _tide() -> void:
 		L("sk", "%s의 군사가 강을 건너 적 후군을 덮친다" % nm(u), {"fx": "skill", "a": u.key, "name": "수공", "kind": "int"})
 		for t in _back_of(live):
 			stats.tides += 1
+			_chain(u.camp, "백의도강", u.key)
 			inflict(u, t, "flood", _water_flood(u), int(DB.PSV.water.flood.dur))
 
 
@@ -928,6 +940,7 @@ func _drown() -> void:
 			continue
 		if _side_max(_foe(u.camp), "drown") > 0:
 			stats.drowned += 1
+			_chain(_foe(u.camp), "수엄칠군")
 			rout(u, "물에 휩쓸려 무너졌다")
 
 
@@ -992,6 +1005,7 @@ func _amp_once(a: Unit) -> float:
 	var m := 1.0 + a.kill_amp
 	a.kill_amp = 0.0
 	stats.kills_amp += 1
+	_chain(a.camp, "기세", a.key)
 	return m
 
 
@@ -1016,10 +1030,12 @@ func _tac_hit(a: Unit, d: Unit, phys: bool) -> void:
 		_cut(a, d, "def", 0.06 * maxf(a.c.atk, a.c["int"]) / turn_mul, "경국")
 	if mv(a, "awe") > 0 and d.morale <= 60 and rng.randf() < mv(a, "awe"):      # 위압 —— 꺾인 적은 겁에 질려 차례를 날린다
 		stats.awes += 1
+		_chain(a.camp, "위압", a.key)
 		inflict(a, d, "confuse", 1, int(DB.PSV.scheme.dur))
 	var ex := mv(a, "exec_break")
 	if ex > 0 and d.cut.def > 0 and d.troops / d.max <= ex:      # 비장(여포) —— 방어가 깎인 적을 베어 넘긴다
 		stats.execs += 1
+		_chain(a.camp, "비장", a.key)
 		rout(d, "한 칼에 베였다")
 
 
@@ -1087,6 +1103,7 @@ func _do_chase() -> void:
 		if tt.is_empty() or not tt[0].alive:
 			continue
 		stats.chases += 1
+		_chain(k.camp, "추격", k.key)
 		L("sk", "%s 달아나는 적을 몰아친다" % ga(nm(k)), {"fx": "skill", "a": k.key, "name": "추격", "kind": "phys"})
 		if k.c["int"] > k.c.atk: int_hit(k, tt[0], 1, 1)
 		else: phys_hit(k, tt[0], 1, true)
@@ -1235,6 +1252,7 @@ func _douse(d: Unit) -> void:
 			if x.k == "burn":
 				x.val = roundf(x.val * 1.3)
 				stats.steams += 1
+				_chain(_foe(d.camp), "증기")
 				L("st", "묶인 %s의 진영에 불길이 더 거세진다" % nm(d), {"fx": "status", "f": d.key, "st": "burn"})
 		return
 	for x in d.st:
@@ -1250,6 +1268,7 @@ func rout(u: Unit, why: String) -> void:
 	if virtue_enabled and not _oath_used[u.camp] and _side_max(u.camp, "oath") > 0:      # 도원결의 —— 진영에서 한 번, 무너질 부대를 일으켜 세운다
 		_oath_used[u.camp] = true
 		stats.oaths += 1
+		_chain(u.camp, "도원결의", u.key)
 		u.troops = maxf(u.troops, roundf(u.max * float(DB.PSV.virtue.oath)))
 		u.morale = maxf(u.morale, 60.0)
 		L("hl", "도원의 맹세 —— %s 다시 일어선다" % ga(nm(u)), {"fx": "heal", "f": u.key, "n": u.troops})
@@ -1478,7 +1497,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 		mvp = {"name": mine[0].c.name, "id": mine[0].c.id, "kills": mine[0].kills, "dmg": roundi(mine[0].dmg)}
 	return {"win": winner == "A", "draw": winner == "draw", "ev": ev, "roster": roster, "title": _meta.title,
 		"foe": _meta.foe, "aForm": _meta.aForm, "bForm": _meta.bForm, "aSyn": _meta.aSyn, "bSyn": _meta.bSyn, "mvp": mvp,
-		"left": live_count("A"), "eLeft": live_count("B"), "turns": turn, "applied": applied, "rejected": rejected, "policy": policy.duplicate(), "stats": stats}
+		"left": live_count("A"), "eLeft": live_count("B"), "turns": turn, "applied": applied, "rejected": rejected, "policy": policy.duplicate(), "stats": stats, "chains": chains}
 
 
 func live_count(cp: String) -> int:
@@ -1493,6 +1512,7 @@ func act(u: Unit) -> void:
 			if not own.is_empty():
 				var t: Unit = own[rng.randi() % own.size()]
 				stats.turncoats += 1
+				_chain(_foe(u.camp), "미인계")
 				L("st", "혼란에 빠진 %s 제 편 %s 들이친다" % [ga(nm(u)), eul(nm(t))], {"fx": "status", "f": u.key, "st": "confuse"})
 				if u.c.int > u.c.atk: int_hit(u, t, 1, 1)
 				else: phys_hit(u, t, 1, true)
@@ -1914,6 +1934,14 @@ func _ult_ok(u: Unit, ult_t: String) -> bool:
 		"위기":
 			return _crisis(u.camp) or u.troops / u.max < 0.4      # 쓰지도 못하고 쓰러지지 않게
 	return _ult_worth(u)
+
+
+## 덱 연쇄 한 번 —— 세고, 고비(CHAIN_MARKS)마다 사건을 남긴다 (화면이 크게 알린다)
+func _chain(cp: String, name_: String, key := "") -> void:
+	var n: int = chains[cp].get(name_, 0) + 1
+	chains[cp][name_] = n
+	if n in CHAIN_MARKS:
+		L("sk", "%s 진영 연쇄 『%s』 ×%d" % ["아군" if cp == "A" else "적", name_, n], {"fx": "chain", "camp": cp, "name": name_, "n": n, "a": key})
 
 
 ## 위기 —— 아군이 꺾였는가. 이때 쓴 고유기는 crisis_amp 배 (배수진)

@@ -71,6 +71,7 @@ var inputs := []            # 플레이어 입력 [행동 번호, "A", 종류, �
 var direct := false         # 직접 지휘 —— 고유기 · 군령 버튼을 보인다. 꺼져 있어도 내 쪽은 영리한 AI 가 쓴다 (11/1 덱 감상 전투)
 var _cmd_row: Control
 var live_e = null           # 화면에 마지막으로 반영된 사건 —— 게이지·포인트 표시용
+var live_i := 0
 var _shift := 0.0           # 개입을 바로 보여 주려고 당긴 시간 합
 var cmd_btns := []
 var pts_label: Label
@@ -658,6 +659,7 @@ func _begin() -> void:
 	_shift = 0.0
 	warn_until = -1.0
 	live_e = res.ev[0]
+	live_i = 0
 	_build_timeline()
 	clock = 0.0
 	gi = 0
@@ -905,18 +907,16 @@ func _ult_warn(e: Dictionary) -> void:
 	else:
 		warn_until = clock + wait
 		warn_key = e.a
-		UI.buzz(40)
+		if direct:
+			UI.buzz(40)
 		warn_name = "%s 『%s』" % [who, e.name]
-	if e.get("fast", false):
-		hud.stamp("맞받아치기", "", col)
 
 
 func _ult_cut(e: Dictionary) -> void:
 	var f: String = e.get("f", "")
 	if f == warn_key:
 		warn_until = -1.0
-	var mine: bool = f.begins_with("B")         # 적 기세를 끊었다
-	hud.stamp("끊었다!" if mine else "끊겼다…", "『%s』" % e.name, Color("#ffd257") if mine else Color("#9aa3b8"))
+	# 11/2 사용자: 맞받아치기 · 끊었다 같은 큰 글씨는 이상하다 → 띄우지 않는다
 	if field.squads.has(f):
 		field.squads[f].hurt = 1.0
 	slow_t = maxf(slow_t, 0.6)
@@ -995,7 +995,10 @@ func _release(g: Dictionary, t0: float) -> void:
 
 func _apply(i: int, quiet := false) -> void:
 	var e: Dictionary = res.ev[i]
-	live_e = e
+	# 11/2 고유기 묶음은 늦게 풀려 사건이 순서를 건너뛴다 —— 게이지 표시는 가장 늦은 사건만 (예전 사건으로 되돌아가면 막대가 요동쳤다)
+	if i >= live_i:
+		live_i = i
+		live_e = e
 	_log(e)
 	var from: String = e.get("a", e.get("who", ""))
 	for ch in changes[i]:
@@ -1044,6 +1047,12 @@ func _apply(i: int, quiet := false) -> void:
 			hud.float_text(f, "회피", Color.WHITE, 12)
 		"resist", "passive":
 			pass          # 저항 · 단체 특기 —— 글씨를 띄우지 않는다 (화면을 덮었다)
+		"chain":
+			hud.chain(e)
+			if e.camp == "A" and e.n >= 3:
+				Sfx.play("skill")
+			if e.get("a", "") != "" and field.squads.has(e.a):
+				field.squads[e.a].glow = 1.0
 		"cmd":
 			var col: Color = {"돌격": Color("#ff8a4a"), "방진": Color("#6fb0ff"), "재정비": Color("#8FD4C2")}.get(e.name, Color.WHITE)
 			hud.announce("%s 군령 『%s』 —— %s" % ["아군" if e.camp == "A" else "적", e.name, Battle.CMDS[e.name].d], col)
@@ -1222,6 +1231,7 @@ class Hud extends Control:
 	func reset() -> void:
 		floats.clear()
 		stamp_info = null
+		chains_fx.clear()
 
 	var ann = null
 	var _flash := Color(0, 0, 0, 0)
@@ -1385,16 +1395,55 @@ class Hud extends Control:
 			if ann.t > 1.8:
 				ann = null
 
+	## 덱 연쇄 띠 —— 아군은 왼쪽(금빛) · 적은 오른쪽(붉게), 진영마다 최근 셋. 횟수가 클수록 크게 (11/1 덱 감상 전투)
+	var chains_fx := []
+
+	func chain(e: Dictionary) -> void:
+		chains_fx = chains_fx.filter(func(c): return not (c.camp == e.camp and c.name == e.name))
+		chains_fx.append({"camp": e.camp, "name": e.name, "n": e.n, "t0": view.clock})
+		var mine := chains_fx.filter(func(c): return c.camp == e.camp)
+		if mine.size() > 3:
+			chains_fx.erase(mine[0])
+
+	func _draw_chains() -> void:
+		const LIFE := 2.6
+		chains_fx = chains_fx.filter(func(c): return view.clock - c.t0 < LIFE)
+		var row := {"A": 0, "B": 0}
+		for c in chains_fx:
+			var t: float = view.clock - c.t0
+			var a := clampf(t / 0.15, 0, 1) * clampf((LIFE - t) / 0.5, 0, 1)
+			var mine: bool = c.camp == "A"
+			var big := 1.0 + minf(0.5, c.n / 30.0)
+			var fs := int((15 if mine else 12) * big)
+			var txt := "%s ×%d" % [c.name, c.n]
+			var tw := DB.font_display.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 22
+			var h := fs + 12.0
+			var slide := (1.0 - ease(clampf(t / 0.25, 0, 1), 0.3)) * 40.0
+			var x := 10.0 - slide if mine else size.x - 10.0 - tw + slide
+			var y: float = 124.0 + row[c.camp] * (h + 6)
+			row[c.camp] += 1
+			var col := Color("#ffd257") if mine else Color("#ff7a66")
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.08, 0.06, 0.02, 0.8 * a) if mine else Color(0.1, 0.03, 0.03, 0.7 * a)
+			sb.border_color = Color(col, a * (0.6 + 0.4 * sin(t * 10.0) if t < 0.8 else 0.7))
+			sb.set_border_width_all(2 if mine else 1)
+			sb.set_corner_radius_all(6)
+			draw_style_box(sb, Rect2(x, y, tw, h))
+			_text(DB.font_display, Vector2(x + 11, y + h * 0.5 + fs * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col.lightened(0.2), a))
+			if mine and t < 0.6:
+				_text(DB.font_body, Vector2(x + tw + 6, y + h * 0.5 + 4), "연쇄!", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(col, a * (1.0 - t / 0.6)))
+
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
 		_draw_all()
+		_draw_chains()
 		_draw_warn()
 		view.field.pt("머리표", t0)
 
 	## 적 고유기 예고 띠 —— 화면 위쪽 가운데에 크게, 남은 초가 줄어든다
 	func _draw_warn() -> void:
 		var left: float = view.warn_until - view.clock
-		if left <= 0.0:
+		if left <= 0.0 or not view.direct:      # 자동 감상에선 적 고유기 예고 띠를 띄우지 않는다
 			return
 		var pulse := 0.5 + 0.5 * sin(view.clock * 12.0)
 		var w := size.x - 40.0

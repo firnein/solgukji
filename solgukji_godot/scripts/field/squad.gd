@@ -25,7 +25,7 @@ const CLS := {"창병": "melee", "도적": "melee", "기병": "cav", "궁병": "
 ## 등급별 병사 인형 수 —— 기병은 절반, 지략 계열은 호위대까지 쳐서 절반 남짓
 const COUNT := {1: 36, 2: 44, 3: 54, 4: 64, 5: 72, 6: 80, 7: 88, 8: 96}
 static var count_scale := 1.0   # 품질 설정 —— 모바일은 병사 수를 줄인다 (Settings)
-const DENSITY := 2.4            # 10/31 사용자: 더 바글바글하게 · 군집을 더 크게 —— 병사 수 배율
+const DENSITY := 1.1            # 11/2 사용자: 한 칸에 바글바글한 게 아니라 군집이 커 보이길 —— 수는 줄이고(2.4 → 1.1) 간격을 넓혀 덩치는 유지
 ## 이동 속도 (px/초) —— 기병은 돌격 때 더 빨라진다
 const SPEED := {"창병": 62.0, "도적": 80.0, "기병": 95.0, "궁병": 55.0,
 	"책사": 50.0, "유생": 50.0, "술사": 52.0, "모사": 52.0}
@@ -143,15 +143,15 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	match cls:
 		"cav":
 			n = maxi(12, n / 2)
-			sp = 10.5
-			cols = 11
+			sp = 14.0
+			cols = 9
 		"caster":
 			n = maxi(12, int(n * 0.45))
-			sp = 7.0
-			cols = 10
+			sp = 9.5
+			cols = 7
 		_:
-			sp = 5.8
-			cols = 18
+			sp = 8.0
+			cols = 14
 	for i in n:
 		soldiers.append(_new_soldier(i))
 	if tier >= 3:

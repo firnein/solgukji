@@ -14,7 +14,7 @@ static var direct := false     # 직접 지휘 —— 켜면 전투 중 고유�
 static var haptics := true
 static var sfx_vol := 0.8      # 효과음 크기 (0 끔 ~ 1)
 static var bgm_vol := 0.5      # 배경 음악 크기
-static var dots := true       # 전장 표현 —— 점묘(블라인드삼국식 2D, 10/31 사용자) / 3D
+static var dots := false      # 전장 표현 —— 3D(삼국지13식, 11/1 사용자: 기본으로 되돌림) / 점묘(블라인드삼국식 2D)
 static var sumuk := false      # 전장 화풍 —— 수묵(삼국지11 시안) 후처리 (10/31)
 static var _loaded := false
 
@@ -31,7 +31,7 @@ static func load_cfg() -> void:
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
 		bgm_vol = float(cf.get_value("sound", "bgm", 0.5))
 		sumuk = bool(cf.get_value("gfx", "sumuk", false))
-		dots = bool(cf.get_value("gfx", "dots", true))
+		dots = bool(cf.get_value("gfx", "dots_v2", false))     # 11/1 키를 바꿔 예전 저장(점묘 기본)을 3D 로
 	if quality < 0:
 		quality = 0 if OS.has_feature("mobile") else 2
 	apply()
@@ -45,7 +45,7 @@ static func save_cfg() -> void:
 	cf.set_value("sound", "sfx", sfx_vol)
 	cf.set_value("sound", "bgm", bgm_vol)
 	cf.set_value("gfx", "sumuk", sumuk)
-	cf.set_value("gfx", "dots", dots)
+	cf.set_value("gfx", "dots_v2", dots)
 	cf.save(PATH)
 
 

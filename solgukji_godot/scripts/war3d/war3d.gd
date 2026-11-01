@@ -96,7 +96,7 @@ const SPRITE_H := {"기병": 2.75}   # 그림 판 한 변 (세계 단위, 없으
 static var sprites_enabled := false   # 지금 그림은 3D 를 찍은 임시라 끈다 —— 일러스트 그림(prompts/병사_스프라이트)이 오면 true
 # 구운 3D 병사 (10/31 사용자: 무료 3D 에셋 —— KayKit CC0) : assets/models/vat/<병종>_mesh.res 가 있으면 그 병종 병사는 이것으로 (그림 판보다 먼저)
 const VAT_DIR := "res://assets/models/vat/"
-static var vat_enabled := true       # 10/31 사용자: Mixamo 실사 병사 (창병부터) —— 구운 병종만 이것으로
+static var vat_enabled := false      # 11/2 사용자: 창병 원래대로 —— 구운 병사(KayKit) 끔, 모든 병종 도형 모델
 var vat_mat := {}           # 병종 -> 재질
 var vat_mesh := {}          # 병종 -> 메시
 var sprite_mat := {}        # 병종 -> 그림 판 재질
@@ -227,7 +227,7 @@ func _environment() -> void:
 	sky.radiance_size = Sky.RADIANCE_SIZE_256
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.62
+	env.ambient_light_energy = 0.5
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 0.95
 	env.tonemap_white = 6.0
@@ -247,9 +247,9 @@ func _environment() -> void:
 	env.volumetric_fog_albedo = Color("#c8d0d8")
 	env.volumetric_fog_length = 220
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 0.9
-	env.adjustment_contrast = 1.16
-	env.adjustment_brightness = 0.96
+	env.adjustment_saturation = 1.0
+	env.adjustment_contrast = 1.04
+	env.adjustment_brightness = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -278,18 +278,17 @@ func set_quality(q: int) -> void:
 		for bk in body_mesh.keys():
 			if str(bk).begins_with("G:"):
 				body_mesh.erase(bk)
-	var fp := RenderingServer.get_current_rendering_method() == "forward_plus"
-	_env.ssao_enabled = fp and q >= 2
-	_env.volumetric_fog_enabled = fp and q >= 2
+	_env.ssao_enabled = false        # 11/2 깔끔한 톤: 그늘 잡음 · 깜빡임이 지글거림으로 보여 끈다
+	_env.volumetric_fog_enabled = false
 	_env.glow_enabled = q >= 1
 	# 10/31 후처리 (고품질 · Forward+): 간접광(SSIL) · 진한 그늘 · 먼 곳 흐림 —— 실사 땅 · 나무와 맞춘다
-	_env.ssil_enabled = fp and q >= 2
+	_env.ssil_enabled = false
 	_env.ssil_intensity = 0.7
 	_env.ssil_radius = 6.0
 	_env.ssao_intensity = 2.2
 	_env.ssao_radius = 1.6
 	_env.volumetric_fog_density = 0.0018
-	if q >= 2:
+	if false:      # 먼 곳 흐림도 끈다 (깔끔한 톤)
 		if _cam_attr == null:
 			_cam_attr = CameraAttributesPractical.new()
 			_cam_attr.dof_blur_far_enabled = true
@@ -334,13 +333,13 @@ func _terrain() -> void:
 			verts[k] = Vector3(x, y, z)
 			norms[k] = nn
 			var n2 := noise.get_noise_2d(x * 1.7 + 77.0, z * 1.7) * 0.5 + 0.5
-			var c := Color(0.28, 0.32, 0.19).lerp(Color(0.42, 0.40, 0.27), n2)       # 10/31 흙빛 도는 풀 (예전 쨍한 연두)
+			var c := Color(0.33, 0.43, 0.23).lerp(Color(0.40, 0.46, 0.26), n2)       # 11/2 깔끔한 풀빛 (얼룩은 완만하게)
 			var n3 := noise.get_noise_2d(x * 3.1 - 40.0, z * 3.1) * 0.5 + 0.5
 			var trample := (1.0 - smoothstep(22.0, 58.0, absf(x))) * (1.0 - smoothstep(16.0, 34.0, absf(z))) * clampf(n3 * 1.6 - 0.2, 0, 1)
-			c = c.lerp(Color(0.34, 0.28, 0.21), trample * 0.8)
+			c = c.lerp(Color(0.52, 0.47, 0.34), trample * 0.5)
 			var slope := 1.0 - nn.y
-			c = c.lerp(Color(0.42, 0.41, 0.38), smoothstep(0.18, 0.42, slope))
-			c = c.lerp(Color(0.18, 0.26, 0.14), smoothstep(80.0, 200.0, Vector2(x * 0.8, z * 1.5).length()) * 0.5)
+			c = c.lerp(Color(0.50, 0.49, 0.42), smoothstep(0.18, 0.42, slope) * 0.7)
+			c = c.lerp(Color(0.30, 0.40, 0.24), smoothstep(80.0, 200.0, Vector2(x * 0.8, z * 1.5).length()) * 0.5)
 			c.a = clampf(trample * 0.9 + smoothstep(0.15, 0.4, slope) + (n3 - 0.55) * 0.6, 0.0, 1.0)     # 실사 지형의 진흙 비율 (terrain.gdshader)
 			cols[k] = c
 	var idx := PackedInt32Array()
@@ -465,7 +464,7 @@ func _scenery() -> void:
 		_scatter(Models.rock(r2), rocks[i])
 	# 풀포기
 	var tufts := []
-	for t in 16000:
+	for t in 3000:      # 11/2 잔 풀포기가 멀리서 지글거린다 → 줄임
 		var x := r2.randf_range(-140, 140)
 		var z := r2.randf_range(-95, 95)
 		tufts.append(_place(x, z, r2.randf_range(0.7, 1.7)))
@@ -1538,11 +1537,14 @@ var _tree_mat := {}
 
 
 ## xforms(자리 · 배율)마다 그 종류의 그림 하나를 골라 판으로 세운다. 그림이 없으면 false
+const PHOTO_TREES := false      # 11/2 사용자: 실사 그림 판이 깨져 보인다 → 도형 나무 (깔끔한 톤)
 func _tree_boards(parent: Node3D, kind: String, xforms: Array, r: RandomNumberGenerator) -> bool:
 	if _tree_info == null:
 		_tree_info = {}
 		if FileAccess.file_exists("res://assets/trees/trees.json"):
 			_tree_info = JSON.parse_string(FileAccess.get_file_as_string("res://assets/trees/trees.json"))
+	if not PHOTO_TREES:
+		return false
 	var names: Array = TREE_SET[kind].filter(func(n): return _tree_info.has(n) and ResourceLoader.exists("res://assets/trees/%s.png" % n))
 	if names.is_empty():
 		return false

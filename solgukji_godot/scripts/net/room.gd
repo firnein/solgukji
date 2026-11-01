@@ -292,8 +292,7 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 
 
 func _bot_side(b: Dictionary) -> Dictionary:
-	var eb := DB.gen_board(b.bot.pv, b.bot.style, rng)
-	return {"cards": DB.auto_place(eb.cards, eb.form), "form": eb.form, "morale": 100, "equip": null}
+	return Run.bot_side(b.bot.pv * Run.BOT_PV_MUL, b.bot.style, day * 3 + phase, rng)
 
 
 func _advance() -> void:

@@ -151,26 +151,33 @@ func _by_distance() -> bool:
 
 # ───────── 고유기 기 모으기 (10/31 사용자: 전투에 판단할 거리를 —— 예고 → 대응) ─────────
 ## 고유기는 바로 터지지 않고 WIND 초 동안 기를 모은다. 그동안 상대는 ① 방진으로 받거나 ② 제 고유기로 그 장수를 맞혀 끊는다.
-## 적이 기를 모으는 중에 쓴 고유기는 WIND_FAST 초 만에 터진다 (맞받아치기) —— 늦게 눌러도 끊을 수 있게.
+## 11/2 맞받아치기(적이 기를 모을 때 쓴 고유기는 WIND_FAST 초 만에 터져 끊는다)와 영리한 AI 의 고유기 아껴 두기는 없앴다 —— 자동 감상에서 고유기가 연달아 터졌다.
 const WIND := 2.5
 const WIND_FAST := 0.7
 const CUT_GAUGE := 30.0        # 끊긴 장수는 게이지가 이만큼 남는다 (횟수는 그대로)
 var _wind := {}                # 유닛 -> 터질 시각
+## 11/2 사용자: 후반에 고유기가 연달아 터진다 → 초 단위 간격. 어느 진영이든 직전 고유기에서 ULT_GAP 초,
+## 같은 진영은 ULT_SIDE_SEC 초가 지나야 다음 고유기 (맞받아치기로 바로 받아치던 것도 없앴다)
+static var ult_gap := 3.5
+static var ult_side_sec := 7.0
+var _ult_t := -99.0
+var _ult_side_t := {"A": -99.0, "B": -99.0}
 
 
 func can_ult(u: Unit) -> bool:
-	return not _wind.has(u) and super.can_ult(u)
+	if _wind.size() > 0 or _tm - _ult_t < ult_gap or _tm - _ult_side_t[u.camp] < ult_side_sec:
+		return false
+	return super.can_ult(u)
 
 
 func _interrupt_ult(u: Unit) -> void:
 	if _wind.has(u):
 		return
 	var fast := false
-	for o in _wind:
-		if o.camp != u.camp:
-			fast = true
-	var wait := WIND_FAST if fast else WIND
+	var wait := WIND
 	_wind[u] = _tm + wait
+	_ult_t = _tm + wait
+	_ult_side_t[u.camp] = _tm + wait
 	u.gauge = 0.0                 # 다시 누를 수 없게 (터지거나 끊길 때 정리)
 	_ult_last[u.camp] = act_n
 	# 맞을 곳 미리 보기 —— 지금 자리 기준으로 고유기 대상들을 원으로
@@ -188,7 +195,7 @@ func _interrupt_ult(u: Unit) -> void:
 	_ai += 1
 	_ph = "act"
 	_who = u.key
-	L("sk", "%s 『%s』 기를 모은다%s" % [ga(nm(u)), u.ult.name, " —— 맞받아치기!" if fast else ""],
+	L("sk", "%s 『%s』 기를 모은다%s" % [ga(nm(u)), u.ult.name, ""],
 		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "fast": fast})
 
 
@@ -210,23 +217,6 @@ func _cut_wind(d: Unit, a: Unit) -> void:
 	d.gauge = CUT_GAUGE
 	stats["ult_cuts"] = stats.get("ult_cuts", 0) + 1
 	L("sk", "%s 『%s』 기세가 끊겼다!" % [ga(nm(d)), d.ult.name], {"fx": "ult_cut", "a": a.key, "f": d.key, "name": d.ult.name})
-
-
-## 영리한 AI —— 적 고유기가 곧 차면(게이지 60 넘게) 내 고유기를 아껴 두었다가, 적이 기를 모으면 맞받아쳐 끊는다
-func _ult_ok(u: Unit, ult_t: String) -> bool:
-	if not super._ult_ok(u, ult_t):
-		return false
-	var foe_wind := false
-	for o in _wind:
-		if o.camp != u.camp:
-			foe_wind = true
-	if foe_wind:
-		return true
-	var g := 0.0
-	for o in units:
-		if o.camp != u.camp and o.alive and o.ult != null and o.charges > 0:
-			g = maxf(g, o.gauge)
-	return g < 60.0 or _crisis(u.camp)
 
 
 ## 적이 기를 모으는 중이면 위협 최대 —— 영리한 AI 가 방진으로 받는다

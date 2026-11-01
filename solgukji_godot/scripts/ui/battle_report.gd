@@ -48,6 +48,14 @@ func _fill() -> void:
 	_tabs = nt
 	for c in _body.get_children():
 		c.queue_free()
+	var ch: Dictionary = res.get("chains", {}).get(camp, {})
+	if not ch.is_empty():
+		var names := ch.keys()
+		names.sort_custom(func(x, y): return ch[x] > ch[y])
+		var parts := []
+		for k in names.slice(0, 5):
+			parts.append("[b]%s[/b] ×%d" % [k, int(ch[k])])
+		_body.add_child(UI.rich("[color=#%s]덱 연쇄[/color]  %s" % [("ffd257" if camp == "A" else "ff7a66"), "   ".join(parts)], 13))
 	var rows := _rows(camp)
 	var top_d := 1.0
 	var top_t := 1.0

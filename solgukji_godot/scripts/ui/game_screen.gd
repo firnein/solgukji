@@ -757,7 +757,7 @@ func _settings_sheet() -> void:
 	b.add_child(row)
 	b.add_child(UI.hint("병사 수 %d%% · 휴대폰은 '낮음'부터 시작합니다. 다음 전투부터 적용됩니다." % roundi(Settings.COUNT_SCALE[Settings.quality] * 100)))
 	b.add_child(UI.eyebrow("전장 표현"))
-	b.add_child(UI.segmented([["dots", "점묘 (2D)"], ["3d", "3D"]], "dots" if Settings.dots else "3d", func(key):
+	b.add_child(UI.segmented([["3d", "3D (삼국지13)"], ["dots", "점묘 (2D)"]], "dots" if Settings.dots else "3d", func(key):
 		Settings.dots = key == "dots"
 		Settings.save_cfg()
 		if _battle:
@@ -1500,7 +1500,7 @@ func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 	_battle_res = res
 	UI.buzz(30)
 	await get_tree().create_timer(1.4).timeout      # 승전 · 패전 도장을 먼저 보이고
-	if not _battle_layer.visible or _battle.res != res:
+	if not _battle_layer.visible or not is_same(_battle.res, res):     # 같은 전투인지 —— 내용 비교(!=)는 큰 결과에 느리다
 		return
 	_show_report(res)
 	_battle_done.visible = true

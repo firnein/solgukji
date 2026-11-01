@@ -11,7 +11,7 @@ uniform sampler2D mud_diff : source_color, repeat_enable, filter_linear_mipmap_a
 uniform sampler2D mud_nor : hint_normal, repeat_enable, filter_linear_mipmap_anisotropic;
 uniform sampler2D mud_rough : hint_roughness_g, repeat_enable, filter_linear_mipmap;
 uniform float tile = 7.0;            // 텍스처 한 장이 덮는 세계 단위 (병사 키 약 1.4)
-uniform bool realistic = true;       // false 면 예전 정점 색 지형
+uniform bool realistic = false;      // 11/2 사용자: 실사 텍스처가 깨지고 지글거린다 → 기본은 깔끔한 정점 색 지형
 varying vec3 wpos;
 
 void vertex() {
@@ -31,8 +31,10 @@ void fragment() {
 	float fine = texture(detail, wpos.xz * 0.09).r;
 	float broad = texture(detail, wpos.xz * 0.012 + vec2(0.37, 0.11)).r;
 	if (!realistic) {
-		ALBEDO = pow(COLOR.rgb, vec3(2.2)) * (0.74 + 0.5 * fine) * (0.82 + 0.36 * broad);
-		ROUGHNESS = 0.96;
+		// 깔끔한 톤 —— 잔무늬(fine) 없이 아주 큰 얼룩만 살짝. 멀리서 반짝이며 지글거리지 않게
+		ALBEDO = pow(COLOR.rgb, vec3(2.2)) * (0.92 + 0.16 * broad);
+		ROUGHNESS = 1.0;
+		SPECULAR = 0.15;
 	} else {
 		vec2 uv = wpos.xz / tile;
 		float w = clamp(COLOR.a + (broad - 0.5) * 0.7 + (fine - 0.5) * 0.25, 0.0, 1.0);

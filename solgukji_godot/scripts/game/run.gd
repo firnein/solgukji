@@ -13,8 +13,8 @@ const DAYNAME := ["월", "화", "수", "목", "금", "토", "일"]
 const ROUNDNM := ["8강", "4강", "결승"]
 const FREE_TIER_CAP := 5      # 무상으로 주는 패의 천장. 초월 이상은 조합으로만 오른다
 const STRIKE_MAX := 4         # 토벌 실패 경고 한도 —— 3일차부터 닿으면 멸망
-const SKILL_LO := 0.98        # 봇 실력 계수
-const SKILL_HI := 1.38
+const SKILL_LO := 1.08        # 봇 실력 계수 (11/2 난이도 상승: 0.98 ~ 1.38 → 1.08 ~ 1.45)
+const SKILL_HI := 1.45
 const SAVE_PATH := "user://save.json"
 
 var rng := RandomNumberGenerator.new()
@@ -87,7 +87,9 @@ func new_game(seed_value := -1) -> void:
 	give("horse", 3)
 	give("bow", 2)
 	give("strat", 2)
-	gain_item()
+	var it0 := gain_item()
+	if DB.IT[it0].grade == "유니크":
+		toasts.append(["%s 유니크 보급 도착 · %s" % [DB.IT[it0].name, DB.IT[it0].tag], "gold"])
 
 
 func _nine() -> Array:
@@ -197,7 +199,7 @@ func gain_item() -> String:
 	var p := phase_idx()
 	var grade := "일반"
 	if DB.D.UNIQUE_PHASES.has(p):
-		grade = "유니크"           # 정해진 아침에만 확정 지급
+		grade = "유니크"           # 정해진 아침에만 확정 지급 (11/2 사용자: 1 · 3 · 5일차 아침)
 	else:
 		var tbl: Dictionary = {}
 		for d in DB.D.DROP:
@@ -451,6 +453,26 @@ const TACS := {
 }
 
 
+## 덱에 맞는 작전 —— 물리(공격 ≥ 지력) 장수가 많으면 맹공, 지략 장수가 많으면 굳히기 (11/1 tests/tac_fit 측정:
+## 기병 · 창병 · 궁병 · 도적 덱은 맹공 +4~15%p, 책사 · 모사 · 술사 · 유생 덱은 맹공 -4~-11 · 굳히기 +2~11%p). [작전, 물리 수, 지략 수]
+static func recommend_tac(cards: Array) -> Array:
+	var ph := 0
+	var it := 0
+	for k in cards:
+		if k == null or not DB.C.has(k):
+			continue
+		if DB.C[k].atk >= DB.C[k]["int"]:
+			ph += 1
+		else:
+			it += 1
+	var t := "균형"
+	if ph >= it + 3:
+		t = "맹공"
+	elif it >= ph + 3:
+		t = "굳히기"
+	return [t, ph, it]
+
+
 func set_tac(t: String) -> void:
 	if TACS.has(t):
 		tac = t
@@ -593,8 +615,50 @@ func _my_side() -> Dictionary:
 
 
 func _bot_side(pv: float, style: String) -> Dictionary:
-	var eb := DB.gen_board(pv, style, rng)
-	return {"cards": DB.auto_place(eb.cards, eb.form), "form": eb.form, "morale": 100, "equip": null}
+	return bot_side(pv * BOT_PV_MUL, style, phase_idx(), rng)
+
+
+## 봇 · 토벌 적 군세 —— 11/2 사용자: 너무 허접하다 → 장비를 끼우고(그 때 보급 등급으로, 사람보다 조금 많이) 덱에 맞는 작전을 쓴다
+const BOT_PV_MUL := 1.08
+const QUEST_PV_MUL := 1.2
+static func bot_side(pv: float, style: String, p_idx: int, r: RandomNumberGenerator) -> Dictionary:
+	var eb := DB.gen_board(pv, style, r)
+	var cards := DB.auto_place(eb.cards, eb.form)
+	return {"cards": cards, "form": eb.form, "morale": 100, "equip": bot_equip(cards, p_idx, r), "tac": recommend_tac(cards)[0]}
+
+
+## 높은 등급 장수부터 (보급 수 + 2)개까지, 그 때의 보급 등급표로 병종이 맞는 장비를 끼운다
+static func bot_equip(cards: Array, p_idx: int, r: RandomNumberGenerator) -> Array:
+	var eq := []
+	eq.resize(cards.size())
+	var tbl: Dictionary = {}
+	for d in DB.D.DROP:
+		if p_idx <= int(d.upto):
+			tbl = d.w
+			break
+	var slots := []
+	for i in cards.size():
+		if cards[i] != null and innate_item(cards[i]) == null:
+			slots.append(i)
+	slots.sort_custom(func(a, b): return DB.C[cards[a]].tier > DB.C[cards[b]].tier)
+	var n := mini(slots.size(), p_idx + 2)
+	for j in n:
+		var i: int = slots[j]
+		var tot := 0.0
+		for g in tbl:
+			tot += tbl[g]
+		var x := r.randf() * tot
+		var grade := "일반"
+		for g in tbl:
+			x -= tbl[g]
+			if x <= 0:
+				grade = g
+				break
+		var tag: String = DB.C[cards[i]].tag
+		var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade and DB.IT[k].tag == tag and DB.IT[k].use != "myth")
+		if not cand.is_empty():
+			eq[i] = cand[r.randi() % cand.size()]
+	return eq
 
 
 func quest_name() -> String:
@@ -602,7 +666,7 @@ func quest_name() -> String:
 
 
 func quest_pv() -> int:
-	return int(DB.D.QPV[day][phase])
+	return int(DB.D.QPV[day][phase] * QUEST_PV_MUL)
 
 
 func start_quest() -> Dictionary:
@@ -610,7 +674,7 @@ func start_quest() -> Dictionary:
 	var styles := ["물리", "지략", "균형"]
 	var foe := _bot_side(pv, styles[rng.randi() % 3])
 	battle = {"kind": "quest", "a": _my_side(), "b": foe, "seed": rng.randi() % 1000000,
-		"title": "토벌 · %s" % quest_name(), "foe": quest_name(), "pv": pv, "inputs": [], "foe_ai": "auto"}
+		"title": "토벌 · %s" % quest_name(), "foe": quest_name(), "pv": pv, "inputs": []}
 	return battle
 
 
@@ -633,7 +697,7 @@ func start_tour() -> Dictionary:
 	return battle
 
 
-## 정책 —— 각 진영이 고른 작전 (없으면 영리). 토벌의 적은 자동(foe_ai)
+## 정책 —— 각 진영이 고른 작전 (없으면 영리). foe_ai 가 있으면 적은 그것 (11/2 부터 토벌 적도 작전을 쓴다)
 static func policy_for(bt: Dictionary) -> Dictionary:
 	if bt.has("pol"):
 		return bt.pol

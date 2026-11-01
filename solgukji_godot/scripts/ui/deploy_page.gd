@@ -44,10 +44,12 @@ func build() -> Control:
 
 	# 작전 —— 전투는 자동, 이 방침대로 AI 가 고유기 · 군령을 쓴다
 	var tv := UI.vbox(2)
-	tv.add_child(UI.segmented(Run.TACS.keys().map(func(k): return [k, "작전 " + k]), run.tac, func(k):
+	var rec := Run.recommend_tac(run.board)
+	tv.add_child(UI.segmented(Run.TACS.keys().map(func(k): return [k, ("작전 " + k) + (" ★" if k == rec[0] else "")]), run.tac, func(k):
 		gs.act("set_tac", [k])))
-	var th := UI.lbl(Run.TACS[run.tac].d, 12, DB.PAL.bamboo)
-	th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var th := UI.rich("[color=#C6AC7C]%s[/color]
+[color=#8D7B5C]★ 추천 —— 물리 %d · 지략 %d → %s[/color]" % [Run.TACS[run.tac].d, rec[1], rec[2],
+		{"맹공": "돌격이 물리 덱을 키운다", "굳히기": "지략 덱은 버티며 책략을 쌓는 편이 낫다", "균형": "고르게 섞여 균형이 무난하다"}[rec[0]]], 12)
 	tv.add_child(th)
 	v.add_child(tv)
 
