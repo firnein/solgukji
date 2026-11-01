@@ -1,0 +1,40 @@
+{
+	"bright": 1.9,
+	"clips": {
+		"attack": [
+			16,
+			8,
+			false
+		],
+		"cheer": [
+			37,
+			6,
+			true
+		],
+		"death": [
+			29,
+			8,
+			false
+		],
+		"hit": [
+			24,
+			5,
+			false
+		],
+		"idle": [
+			0,
+			6,
+			true
+		],
+		"walk": [
+			6,
+			10,
+			true
+		]
+	},
+	"frames": 43,
+	"src": "창병",
+	"texture": "res://assets/models/vat/창병_texture.png",
+	"tris": 2104,
+	"verts": 2379
+}

@@ -1,6 +1,6 @@
 class_name MiniTile
 extends Control
-## 초상 위주의 작은 카드 —— 휴대폰 세로에서 한 줄에 4~5장. 보유 카드·조합 격자·재료에 쓴다.
+## 초상 위주의 작은 카드 —— 휴대폰 세로에서 한 줄에 4장. 보유 카드·조합 격자·재료에 쓴다.
 ## 위: 초상(등급색 테두리 · 세력 점 · 장수 배지) / 아래: 이름. 왼쪽 아래 알약 배지(조합 · -2 · 2/3 …).
 ## 짧게 누르면 tapped, 끌면 목록이 스크롤된다.
 
@@ -19,7 +19,7 @@ var _press := Vector2.INF
 func setup(id: String, n := -1) -> MiniTile:
 	k = id
 	qty = n
-	custom_minimum_size = Vector2(64, 96)
+	custom_minimum_size = Vector2(78, 112)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	return self
 

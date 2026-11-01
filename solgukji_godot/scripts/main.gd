@@ -209,10 +209,12 @@ func _handle_args() -> void:
 		tabs.current_tab = 1
 	if a.has("level"):
 		battle.level_pick.selected = int(a.level)
+	if a.has("dots"):             # 전장 표현 (1 점묘 · 0 3D)
+		Settings.dots = a.dots != "0"
 	if a.has("seed"):
 		battle.fixed_seed = int(a.seed)
-	if a.has("auto"):
-		battle.auto_on = true
+	if a.has("direct"):          # 직접 지휘 버튼 보이기
+		battle.direct = true
 	if tabs.current_tab == 1:
 		await get_tree().process_frame
 		battle.new_battle()

@@ -1,0 +1,41 @@
+An animation sprite sheet of ONE generic Three Kingdoms (late Han dynasty China) soldier for a mobile strategy game.
+The same soldier is drawn 8 times in 8 poses. These sprites will stand on a 3D battlefield, so every pose must match exactly
+in size, proportions, colors and costume — only the pose changes.
+
+STYLE (must match our general portraits):
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading. Readable as a tiny figure: strong silhouette,
+  few small details. Not glossy, not painterly, no gradients, no glow.
+- A plain anonymous rank-and-file soldier: simple face, no famous-general features, no beard unless stated.
+
+VIEW: pure SIDE VIEW, the soldier faces RIGHT in every pose (looking and moving toward the right edge). No front or back views.
+
+TEAM COLOR (very important): the parts listed under TEAM PARTS are painted in ONE flat pure magenta (#FF00FF) with only a slightly
+darker magenta for shadow. The game recolors magenta into each army's color. Use magenta NOWHERE else, and never use pink,
+purple or red-violet anywhere else on the soldier.
+NO GREEN anywhere on the soldier (no green cloth, trims or items) —— green is the background color and gets erased.
+
+LAYOUT:
+- Image 2048x1024 landscape. A fixed grid of 4 columns x 2 rows = 8 equal square cells, reading order left to right, top to bottom.
+- Exactly one pose per cell, centered, never crossing into a neighbor cell. Leave a wide empty margin around every pose.
+- The soldier is the SAME SIZE in every cell, and his feet stand on the same invisible ground line near the bottom of each cell
+  (except pose 7, which lies on that ground line).
+- Flat light green background (#9BCF88) over the whole sheet. No ground, no shadows, no scenery, no effects, no dust,
+  no motion lines, no grid lines, no borders.
+- No text anywhere: no numbers, no labels, no captions, no signature, no watermark.
+
+POSES (cell 1 to 8):
+1. Standing ready, weapon held in the normal ready position.
+2. Walking: left foot forward, right foot back, mid-stride.
+3. Walking: right foot forward, left foot back, mid-stride (the opposite step of pose 2).
+4. Attack wind-up: body coiled back, weapon drawn back ready to strike.
+5. Attack strike: lunging forward to the right, weapon fully extended or swung through toward the right.
+6. Hit: flinching backward (leaning left), eyes squeezed shut, weapon still in hand.
+7. Fallen: lying flat on his back on the ground line, head toward the left, weapon dropped beside him.
+8. Cheering: standing, weapon raised high above his head in victory.
+
+SOLDIER: SORCERER (Taoist mystic)  —— 병종 술사
+- Loose Taoist robe, a dark pointed hood, a cord belt with a small gourd; older, thin beard.
+- ITEM: a tall wooden staff with a small glowing-orange orb on top (the orb is orange, not magenta). Pose 4 raises the staff, pose 5 points it forward to the right.
+TEAM PARTS (magenta #FF00FF): the robe body and sleeves.
+Everything else uses natural dull colors (iron grey, leather brown, dark cloth, skin).

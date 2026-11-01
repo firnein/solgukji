@@ -20,6 +20,7 @@ extends Control
 
 const LEVELS := [["초반 · 1일차", 60], ["중반 · 4일차", 300], ["후반 · 6일차", 700], ["신화전", -1]]
 const OPEN := 2.2
+const OPEN_RT := 0.8        # 실시간 엔진 —— 엔진 0초가 화면 이 시각. 이후는 엔진 시각 그대로 (1배속 = 실제 시간)
 const STEP := 0.6
 const MELEE_WAIT := 6.0
 const PVP_LEN := 52.0       # 대전·토너먼트 목표 길이(초, 1배속) —— 행동 간격을 벌려 맞춘다. 끝맺음까지 50~60초
@@ -67,7 +68,8 @@ var dbg_nolog := false      # 점검용 —— 전투 기록을 쓰지 않는다
 ## 전투 중 개입 —— 탭할 때마다 (시드 + 입력 전부)로 처음부터 다시 계산하고, 입력 앞부분은 그대로 둔 채 뒤만 바꾼다
 var _p := {}                # 지금 전투의 재료 (덱·진형·시드)
 var inputs := []            # 플레이어 입력 [행동 번호, "A", 종류, 값]
-var auto_on := false        # 자동 전투 (고유기·군령을 AI 가 쓴다)
+var direct := false         # 직접 지휘 —— 고유기 · 군령 버튼을 보인다. 꺼져 있어도 내 쪽은 영리한 AI 가 쓴다 (11/1 덱 감상 전투)
+var _cmd_row: Control
 var live_e = null           # 화면에 마지막으로 반영된 사건 —— 게이지·포인트 표시용
 var _shift := 0.0           # 개입을 바로 보여 주려고 당긴 시간 합
 var cmd_btns := []
@@ -88,6 +90,12 @@ var _box: SubViewportContainer
 var _rscale := 1.0         # 3D 해상도 / 논리 크기
 var _touches := {}          # 손가락 번호 -> 위치 (두 손가락 확대·회전)
 var _pinch := []            # [거리, 각도]
+var dots: DotView          # 점묘 전장 (scripts/field/dot_view.gd)
+var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 중) —— 방진 버튼을 깜빡인다
+var warn_key := ""
+var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이름
+var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 그 부대를 따라간다
+const LONG_PRESS := 0.45
 
 
 
@@ -111,6 +119,7 @@ func _ready() -> void:
 	_box.stretch = false
 	_box.mouse_filter = Control.MOUSE_FILTER_STOP
 	_box.gui_input.connect(_stage_input)
+	apply_style()
 	stage.add_child(_box)
 	port = SubViewport.new()
 	port.own_world_3d = true
@@ -120,6 +129,12 @@ func _ready() -> void:
 	_box.add_child(port)
 	field = War3D.new()
 	port.add_child(field)
+	# 점묘 전장 (Settings.dots) —— 3D 위에 덮는다. 켜면 3D 는 그리지 않고 계산만 한다
+	dots = DotView.new()
+	dots.view = self
+	dots.field = field
+	dots.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(dots)
 	# 가장자리를 살짝 어둡게 —— 눈이 가운데 싸움으로 간다
 	var vg := GradientTexture2D.new()
 	vg.width = 128
@@ -164,6 +179,8 @@ func _ready() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	dv.add_child(row)
+	_cmd_row = row
+	row.visible = direct
 	pts_label = Label.new()
 	pts_label.add_theme_font_size_override("font_size", 13)
 	pts_label.add_theme_color_override("font_color", DB.PAL.bamboo)
@@ -305,11 +322,11 @@ func _build_side() -> void:
 	_dev_row = row
 
 	var auto_btn := CheckButton.new()
-	auto_btn.text = "자동 전투 (고유기·군령을 AI 가)"
-	auto_btn.button_pressed = auto_on
+	auto_btn.text = "직접 지휘 (고유기·군령 버튼)"
+	auto_btn.button_pressed = direct
 	auto_btn.custom_minimum_size = Vector2(0, 48)
 	auto_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	auto_btn.toggled.connect(set_auto)
+	auto_btn.toggled.connect(set_direct)
 	_auto_btn = auto_btn
 	v.add_child(auto_btn)
 	v.add_child(UI.btn("결과로 건너뛰기", func():
@@ -390,6 +407,8 @@ func _stage_input(e: InputEvent) -> void:
 				hud.announce("자동 카메라", DB.PAL.bamboo)
 		else:
 			_touches.erase(e.index)
+		if _touches.size() >= 2:
+			_press = []
 		_pinch = []
 		return
 	if e is InputEventScreenDrag:
@@ -407,6 +426,10 @@ func _stage_input(e: InputEvent) -> void:
 		field.auto_camera()
 		hud.announce("자동 카메라", DB.PAL.bamboo)
 		return
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		_press = [e.position, Time.get_ticks_msec()] if e.pressed and _touches.size() < 2 else []
+	elif e is InputEventMouseMotion and not _press.is_empty() and e.position.distance_to(_press[0]) > 14:
+		_press = []
 	if e is InputEventMagnifyGesture:
 		field.pinch(1.0 / e.factor, 0.0)
 		return
@@ -438,30 +461,30 @@ func new_battle() -> void:
 	var title := "대전 · %s" % foe[0] if rng.randf() < 0.5 else "토벌 · %s" % quest
 	_p = {"a": DB.auto_place(a.cards, a.form), "fa": a.form, "b": DB.auto_place(b.cards, b.form), "fb": b.form,
 		"seed": fixed_seed if fixed_seed >= 0 else rng.randi() % 1000000, "title": title, "foe": foe[0],
-		"policy": {"A": "auto" if auto_on else "manual", "B": "smart"}}
+		"policy": {"A": "smart", "B": "smart"}}
 	inputs = []
 	res = _simulate()
 	_begin()
 
 
 func _simulate() -> Dictionary:
-	return Battle.new(_p.seed).run(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
+	return RtBattle.make(_p.seed).run(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
 		_p.title, _p.foe, inputs.duplicate(true), _p.policy)
 
 
 ## 게임에서 부른다 —— bt 는 Run.battle (a·b 진영 {cards, form, morale, equip}, seed, title, foe, inputs)
-func play(bt: Dictionary, auto := false) -> void:
+func play(bt: Dictionary, direct_ := false) -> void:
 	game_mode = true
 	locked = false
 	_auto_btn.disabled = false
-	_auto_btn.text = "자동 전투 (고유기·군령을 AI 가)"
-	_auto_btn.set_pressed_no_signal(auto)
+	_auto_btn.text = "직접 지휘 (고유기·군령 버튼)"
+	_auto_btn.set_pressed_no_signal(direct_)
 	_dev_row.visible = false
-	auto_on = auto
+	set_direct(direct_)
 	_p = {"a": bt.a.cards, "fa": bt.a.form, "ma": bt.a.morale, "ea": bt.a.equip,
 		"b": bt.b.cards, "fb": bt.b.form, "mb": bt.b.morale, "eb": bt.b.equip,
 		"seed": bt.seed, "title": bt.title, "foe": bt.foe,
-		"policy": Run.policy_for(bt, "auto" if auto else "manual")}
+		"policy": Run.policy_for(bt)}
 	inputs = bt.get("inputs", []).duplicate(true)
 	res = _simulate()
 	_pace_for(str(bt.get("kind", "")))
@@ -476,6 +499,7 @@ func play_res(r: Dictionary, kind := "") -> void:
 	_dev_row.visible = false
 	_auto_btn.disabled = true
 	_auto_btn.text = "온라인 1단계 — 양쪽 모두 자동 전투"
+	set_direct(false)
 	_p = {}
 	inputs = []
 	res = r
@@ -489,6 +513,26 @@ func _pace_for(_kind: String) -> void:
 	target_len = PVP_LEN
 
 
+## 전장 화풍 —— 수묵(삼국지11 시안)이면 3D 화면 위에 먹선 · 종이 후처리를 입힌다 (Settings.sumuk)
+func apply_style() -> void:
+	if dots:
+		dots.visible = Settings.dots
+		field.flat = dots if Settings.dots else null
+		port.render_target_update_mode = SubViewport.UPDATE_DISABLED if Settings.dots else SubViewport.UPDATE_ALWAYS
+		_box.visible = not Settings.dots
+	if Settings.sumuk:
+		var m := ShaderMaterial.new()
+		m.shader = load("res://shaders/sumuk.gdshader")
+		_box.material = m
+	else:
+		_box.material = null
+
+
+## 실시간 엔진의 결과인가 (위치 기록 track 이 있다)
+func _rt() -> bool:
+	return res.get("rt", false)
+
+
 func set_side_visible(on: bool) -> void:
 	_side.visible = on
 	_side_mask.visible = on
@@ -499,7 +543,7 @@ func _resim() -> bool:
 	var before: int = res.applied.size()
 	res = _simulate()
 	_build_timeline(true)
-	if gi < groups.size() and groups[gi].t > clock:
+	if gi < groups.size() and groups[gi].t > clock and not _rt():
 		var d: float = groups[gi].t - clock
 		_shift += d
 		for j in range(gi, groups.size()):
@@ -573,16 +617,11 @@ func request_cmd(name_: String) -> void:
 		inputs_changed.emit(inputs)
 
 
-func set_auto(on: bool) -> void:
-	if locked:
-		return
-	auto_on = on
-	if _engine_state() != null:
-		inputs.append([_input_an(), "A", "policy", "auto" if on else "manual"])
-		_resim()
-		inputs_changed.emit(inputs)
-	elif not _p.is_empty():
-		_p.policy.A = "auto" if on else "manual"
+## 직접 지휘 켜기 · 끄기 —— 버튼만 보이고 숨긴다. 내 쪽 AI(영리)는 그대로 돌고, 누르면 그보다 먼저 쓴다
+func set_direct(on: bool) -> void:
+	direct = on and not locked
+	if _cmd_row:
+		_cmd_row.visible = direct
 
 
 ## 전투 난수로 섞는다 —— 같은 시드면 같은 신화전이 나오도록 (Array.shuffle 은 전역 난수를 쓴다)
@@ -601,6 +640,9 @@ func _begin() -> void:
 	fit_port()
 	field.setup(res)
 	fit_camera()
+	apply_style()
+	if Settings.dots:
+		dots.setup()
 	hud.reset()
 	log_box.clear()
 	title_label.text = res.title
@@ -614,6 +656,7 @@ func _begin() -> void:
 		mc.view = self
 		cards_bar.add_child(mc)
 	_shift = 0.0
+	warn_until = -1.0
 	live_e = res.ev[0]
 	_build_timeline()
 	clock = 0.0
@@ -625,6 +668,14 @@ func _begin() -> void:
 	running = true
 	Sfx.music("battle")
 	Sfx.play("drums")
+	# 지형 (실시간 엔진) —— 이번 판에 무엇이 깔렸고 무슨 효과인지 한 줄로
+	var tz: Array = res.get("terrain", [])
+	if not tz.is_empty():
+		var parts := []
+		if tz.any(func(z): return z.k == "river"): parts.append("강(이동 느림 · 받는 피해 +)")
+		if tz.any(func(z): return z.k == "forest"): parts.append("숲(화살 막음 · 화공 번짐)")
+		if tz.any(func(z): return z.k == "hill"): parts.append("언덕(사거리 · 내려치기 +)")
+		hud.announce("지형 —— " + " · ".join(parts), Color("#c9d6a3"))
 	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
 
 
@@ -693,12 +744,12 @@ func _build_timeline(rebuild := false) -> void:
 		# 목표 길이에 맞춰 행동 간격을 벌리거나 좁힌다 (0.12~7배 —— 짧은 판은 늘리고, 긴 판은 행동을 촘촘히)
 		# 턴 배율(Battle.turn_mul) 뒤로 같은 등급끼리 15턴 안팎 · 행동 약 270번이라 0.2배 근처가 된다
 		var sched := 0.0
-		for gr in groups:
+		for gr in groups if not _rt() else []:
 			if gr.ph == "end":
 				sched += 0.45
 			elif gr.who != "":
 				sched += STEP
-		pace = clampf((target_len - OPEN) / maxf(1.0, sched), 0.12, 7.0) if target_len > 0 else 1.0
+		pace = clampf((target_len - OPEN) / maxf(1.0, sched), 0.12, 7.0) if target_len > 0 and not _rt() else 1.0
 	var t := OPEN
 	for gr in groups:
 		if gr.who != "" and field.squads.has(gr.who):
@@ -709,7 +760,9 @@ func _build_timeline(rebuild := false) -> void:
 				gr.kind = "volley"
 			elif gr.phys or gr.int:
 				gr.kind = "spell"
-		if gr.ph == "end":
+		if _rt():
+			gr.t = OPEN_RT + float(ev[gr.ev[0]].get("tm", 0.0))
+		elif gr.ph == "end":
 			gr.t = t + 0.15 * pace
 			t += 0.45 * pace
 		elif gr.who == "":
@@ -755,6 +808,13 @@ func _build_timeline(rebuild := false) -> void:
 
 func _process(dt: float) -> void:
 	var tv := Time.get_ticks_usec()
+	if not _press.is_empty() and Time.get_ticks_msec() - _press[1] >= LONG_PRESS * 1000:
+		var sq := field.squad_at(_press[0]) if field else null
+		_press = []
+		if sq:
+			field.follow_squad(sq)
+			UI.buzz(30)
+			hud.announce("%s 따라가기" % sq.row.name, DB.PAL.gold)
 	_process_inner(dt)
 	if field:
 		field.pt("[화면전체]", tv)
@@ -772,7 +832,10 @@ func _process_inner(dt: float) -> void:
 	clock += d
 	field.clock = clock
 	var t0 := Time.get_ticks_usec()
-	field.direct(plans)
+	if _rt():
+		field.follow_track(res.track, clock - OPEN_RT)
+	else:
+		field.direct(plans)
 	_ambient_fire()
 	t0 = field.pt("지휘", t0)
 	field.step(d)
@@ -794,6 +857,11 @@ func _process_inner(dt: float) -> void:
 	pts_label.text = "군령\n%s" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
 	for b in cmd_btns:
 		b.disabled = locked or pts < Battle.CMD_COST
+		# 적이 기를 모으는 동안 방진 버튼을 금빛으로 깜빡인다
+		if direct and b.text == "방진" and clock < warn_until and not b.disabled:
+			b.modulate = Color.WHITE.lerp(Color("#ffd257"), 0.5 + 0.5 * sin(clock * 14.0))
+		else:
+			b.modulate = Color.WHITE
 	field.pt("감독", t0)
 	if not finished and gi >= groups.size() and pending.is_empty() and due.is_empty() and not _draining():
 		if finish_t < 0:
@@ -822,7 +890,57 @@ func _ambient_fire() -> void:
 			field.cast(sq.key, [p[0][1]], "", true)
 
 
+## 고유기 기 모으기 예고 —— 맞을 곳을 붉게(적) · 푸르게(아군) 깔고, 적이면 크게 알리고 방진 버튼을 깜빡인다
+func _ult_warn(e: Dictionary) -> void:
+	var mine: bool = str(e.a).begins_with("A")
+	var wait: float = e.get("wait", 2.5)
+	var col := Color("#6fb0ff") if mine else Color("#ff4a3a")
+	for w in e.get("warn", []):
+		field.area_mark({"k": "circle", "x": w.x, "y": w.y, "r": w.r}, col, wait + 0.3)
+	if field.squads.has(e.a):
+		field.skill_fx(e.a)
+	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
+	if mine:
+		hud.announce("%s 『%s』 기를 모은다 —— %.1f초" % [who, e.name, wait], Color("#9cc8ff"))
+	else:
+		warn_until = clock + wait
+		warn_key = e.a
+		UI.buzz(40)
+		warn_name = "%s 『%s』" % [who, e.name]
+	if e.get("fast", false):
+		hud.stamp("맞받아치기", "", col)
+
+
+func _ult_cut(e: Dictionary) -> void:
+	var f: String = e.get("f", "")
+	if f == warn_key:
+		warn_until = -1.0
+	var mine: bool = f.begins_with("B")         # 적 기세를 끊었다
+	hud.stamp("끊었다!" if mine else "끊겼다…", "『%s』" % e.name, Color("#ffd257") if mine else Color("#9aa3b8"))
+	if field.squads.has(f):
+		field.squads[f].hurt = 1.0
+	slow_t = maxf(slow_t, 0.6)
+
+
+## 기술 · 고유기 범위를 땅에 깐다 (실시간 엔진이 사건에 area 를 적는다)
+func _show_areas(g: Dictionary) -> void:
+	for i in g.ev:
+		var e: Dictionary = res.ev[i]
+		if e.has("area"):
+			var col: Color = Color("#ffd257") if e.get("fx") == "ult" else (Color("#6fb0ff") if str(e.get("a", "A")).begins_with("A") else Color("#ff6a5a"))
+			for sh in e.area:
+				field.area_mark(sh, col, 1.4 if e.get("fx") == "ult" else 1.0)
+
+
 func _start_group(g: Dictionary) -> void:
+	_show_areas(g)
+	for i in g.ev:
+		var e: Dictionary = res.ev[i]
+		match e.get("fx", ""):
+			"ult_warn":
+				_ult_warn(e)
+			"ult_cut":
+				_ult_cut(e)
 	if g.ult != null and field.squads.has(g.who):
 		_start_ult(g)
 		return
@@ -832,11 +950,15 @@ func _start_group(g: Dictionary) -> void:
 		field.skill_hit_fx(g.targets, g.kind == "spell")
 	match g.kind:
 		"melee":
-			field.order_melee(g.who, g.targets[0])
-			g.wait = clock + MELEE_WAIT
-			pending.append(g)
+			if _rt():
+				field.clash(g.who, g.targets[0], g.skill != "")       # 실시간 엔진은 맞닿았을 때만 친다 —— 이미 붙어 있다
+				_release(g, clock)
+			else:
+				field.order_melee(g.who, g.targets[0])
+				g.wait = clock + MELEE_WAIT
+				pending.append(g)
 		"volley":
-			field.volley(g.who, g.targets)
+			field.volley(g.who, g.targets, false, g.skill != "")
 			_release(g, clock + 0.72)
 		"spell":
 			field.cast(g.who, g.targets, g.st)
@@ -855,7 +977,7 @@ func _start_ult(g: Dictionary) -> void:
 	field.cinematic(sq, 2.2)
 	field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
 	g.min_t = clock + ULT_DELAY
-	if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty():
+	if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty() and not _rt():
 		field.order_melee(g.who, g.targets[0])
 		g.wait = clock + MELEE_WAIT
 		pending.append(g)
@@ -897,10 +1019,17 @@ func _apply(i: int, quiet := false) -> void:
 		return
 	_damage_number(i, e, f)
 	_sound(e)
+	# 무쌍 —— 기술 · 고유기 타격은 병력을 바로 깎고 쓰러질 병사들을 한꺼번에 날린다
+	var gq: Dictionary = group_of[i]
+	if (e.get("fx") == "phys" or e.get("fx") == "int") and (gq.skill != "" or gq.ult != null) and idx_of.has(f) and smooth:
+		_snap(idx_of[f])
+		field.blast(f, from, 1.6 if gq.ult != null else 1.0)
 	match e.get("fx", ""):
 		"phys":
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
-				field.clash(e.a, f)
+				field.clash(e.a, f, e.get("crit", false) or group_of[i].skill != "" or group_of[i].ult != null)
+			if e.get("dir", "") == "후방":       # 실시간 엔진 —— 뒤에서 친 타격만 (측면은 잦아서 띄우지 않는다, 10/31)
+				hud.float_text(f, "후방!", Color("#ff5e3a"), 11)
 		"heal":
 			field.heal_fx(f)
 		"rout":
@@ -1120,7 +1249,7 @@ class Hud extends Control:
 		var keep := []
 		for b in banners_sk:
 			var t: float = view.clock - b.t0
-			if t > 1.4:
+			if t > 1.0:
 				continue
 			keep.append(b)
 			var sq: Squad = view.field.squads.get(b.key)
@@ -1129,26 +1258,27 @@ class Hud extends Control:
 			var p := _to_screen(sq.pos, 7.5)
 			if p.x < -9999:
 				continue
-			var a := clampf(t / 0.08, 0, 1) * clampf((1.4 - t) / 0.3, 0, 1)
-			var sc := lerpf(1.6, 1.0, ease(clampf(t / 0.16, 0, 1), 0.4))
+			# 10/31 사용자: 작고 짧게 (글씨 17 → 12, 1.4초 → 1.0초)
+			var a := clampf(t / 0.08, 0, 1) * clampf((1.0 - t) / 0.25, 0, 1)
+			var sc := lerpf(1.25, 1.0, ease(clampf(t / 0.14, 0, 1), 0.4))
 			var fd := DB.font_display
-			var fs := 17
+			var fs := 12
 			var tw := fd.get_string_size(b.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			var w := tw + 34.0
-			var h := 28.0
-			draw_set_transform(p + Vector2(0, -46 - t * 10), 0, Vector2.ONE * sc)
+			var w := tw + 22.0
+			var h := 19.0
+			draw_set_transform(p + Vector2(0, -34 - t * 8), 0, Vector2.ONE * sc)
 			var box := Rect2(Vector2(-w / 2, -h / 2), Vector2(w, h))
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = Color(0.06, 0.05, 0.04, 0.88 * a)
 			sb.border_color = Color("#d9a64b", a)
-			sb.set_border_width_all(2)
-			sb.set_corner_radius_all(4)
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(3)
 			draw_style_box(sb, box)
 			var team: Color = War3D.TEAM[b.camp]
-			draw_rect(Rect2(box.position + Vector2(3, 3), Vector2(6, h - 6)), Color(team.lightened(0.2), a))
-			draw_rect(Rect2(box.end - Vector2(9, h - 3), Vector2(6, h - 6)), Color(team.lightened(0.2), a))
-			draw_string_outline(fd, Vector2(-w / 2, 6), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 4, Color(0, 0, 0, 0.8 * a))
-			draw_string(fd, Vector2(-w / 2, 6), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color("#ffe6a8", a))
+			draw_rect(Rect2(box.position + Vector2(2, 2), Vector2(4, h - 4)), Color(team.lightened(0.2), a))
+			draw_rect(Rect2(box.end - Vector2(6, h - 2), Vector2(4, h - 4)), Color(team.lightened(0.2), a))
+			draw_string_outline(fd, Vector2(-w / 2, 4.5), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 3, Color(0, 0, 0, 0.8 * a))
+			draw_string(fd, Vector2(-w / 2, 4.5), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color("#ffe6a8", a))
 			draw_set_transform(Vector2.ZERO)
 		banners_sk = keep
 
@@ -1162,6 +1292,10 @@ class Hud extends Control:
 				n += 1
 		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n})
 
+	const SMALL_HIT := 0.04          # 이보다 작은 타격은 모아서 띄운다 (부대 최대 병력 대비)
+	const SMALL_HIT_FAR := 0.1       # 멀리 볼 때 (War3D.overview) —— 큰 타격만
+	var _small := {}                 # 부대 key + 종류 -> 아직 띄우지 않은 피해 합
+
 	## 피해 숫자 —— 적이 입은 피해는 흰색, 아군이 입은 피해는 붉은색, 책략은 보랏빛, 회복은 초록.
 	## 치명타는 금빛으로 크게 찍혔다가 자리를 잡고 "치명타!" 가 붙는다.
 	func damage(key: String, amount: float, kind: String, crit: bool) -> void:
@@ -1170,7 +1304,7 @@ class Hud extends Control:
 			return
 		var mine: bool = sq.camp == "A"
 		var col: Color
-		var fs := 15
+		var fs := 11                     # 10/31 사용자: 숫자가 화면을 덮는다 → 작게 (예전 15)
 		var text := "-" + Battle.num(amount)
 		match kind:
 			"phys":
@@ -1179,19 +1313,20 @@ class Hud extends Control:
 				col = Color("#e3a2ff") if mine else Color("#d8c4ff")
 			"fire":
 				col = Color("#ff7a2e") if mine else Color("#ffa040")
-				fs = 17
+				fs = 12
 			"water":
 				col = Color("#3fa0ff") if mine else Color("#7cc4ff")
-				fs = 17
+				fs = 12
+			"heal":
 				col = Color("#8FD4C2")
 				text = "+" + Battle.num(amount)
-				fs = 13
+				fs = 10
 			_:
 				col = Color("#ffb070")
-				fs = 12
+				fs = 9
 		if crit:
 			col = Color("#ffd257") if not mine else Color("#ff6a4a")
-			fs = 24
+			fs = 17
 		if not crit:
 			for f in floats:
 				if f.key == key and f.get("num", false) and not f.crit and f.kind == kind and view.clock - f.t0 < 0.9:
@@ -1201,6 +1336,15 @@ class Hud extends Control:
 					f.pop = view.clock
 					f.p = sq.pos
 					return
+			# 작은 타격(부대 병력의 SMALL_HIT 아래)은 바로 띄우지 않고 모았다가 넘치면 한 번에
+			var sk: String = key + kind
+			var acc: float = _small.get(sk, 0.0) + amount
+			if acc < sq.max * (SMALL_HIT_FAR if view.field.overview else SMALL_HIT):
+				_small[sk] = acc
+				return
+			_small.erase(sk)
+			amount = acc
+			text = ("+" if kind == "heal" else "-") + Battle.num(amount)
 		var n := 0
 		for f in floats:
 			if f.key == key and view.clock - f.t0 < 0.6:
@@ -1244,7 +1388,88 @@ class Hud extends Control:
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
 		_draw_all()
+		_draw_warn()
 		view.field.pt("머리표", t0)
+
+	## 적 고유기 예고 띠 —— 화면 위쪽 가운데에 크게, 남은 초가 줄어든다
+	func _draw_warn() -> void:
+		var left: float = view.warn_until - view.clock
+		if left <= 0.0:
+			return
+		var pulse := 0.5 + 0.5 * sin(view.clock * 12.0)
+		var w := size.x - 40.0
+		var r := Rect2(20, 70, w, 30)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.35, 0.03, 0.02, 0.86)
+		sb.border_color = Color(1.0, 0.35, 0.25).lerp(Color.WHITE, pulse * 0.4)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(6)
+		draw_style_box(sb, r)
+		var fd := DB.font_display
+		draw_string(fd, r.position + Vector2(0, 21), "적 %s —— %.1f" % [view.warn_name, left], HORIZONTAL_ALIGNMENT_CENTER, w, 18, Color("#ffe0d0"))
+		var tot := 2.5
+		draw_rect(Rect2(r.position + Vector2(4, r.size.y - 5), Vector2((w - 8) * clampf(left / tot, 0, 1), 3)), Color("#ffd257"))
+
+	## 점묘 전장의 장수 토큰 —— 둥근 초상 + 진영색 테 + 병력 숫자 (블라인드삼국식)
+	func _token(sq: Squad, p: Vector2) -> void:
+		if sq.state == "gone":
+			return
+		var a: float = sq.fade
+		var r := 15.0 if sq.tier < 7 else 17.0
+		var ring: Color = War3D.TEAM[sq.camp].lightened(0.35)
+		if sq.hurt > 0.05:
+			ring = ring.lerp(Color(1, 1, 1), sq.hurt * 0.7)
+		draw_circle(p, r + 2.5, Color(0, 0, 0, 0.55 * a))
+		draw_circle(p, r + 1.5, Color(ring, a))
+		Art.draw_face_circle(self, p, r, sq.cid)
+		draw_arc(p, r + 0.2, 0, TAU, 32, Color(ring, a), 2.0)
+		if not sq.alive:
+			draw_circle(p, r, Color(0, 0, 0, 0.6))
+		# 병력 —— 5.3K 처럼
+		var n: float = sq.troops
+		var txt := ("%.1fK" % (n / 1000.0)) if n >= 1000 else str(roundi(n))
+		var fb: Font = DB.font_bold
+		var tw := fb.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10
+		var br := Rect2(p + Vector2(-tw / 2, r + 3), Vector2(tw, 14))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.05, 0.07, 0.12, 0.85 * a)
+		sb.border_color = Color(ring, 0.6 * a)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(3)
+		draw_style_box(sb, br)
+		draw_string(fb, br.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, tw, 10, Color(0.92, 0.95, 1.0, a))
+		var since: float = view.clock - sq.act_t
+		if since < CombatFx.ATTACK_HOLD and sq.alive:
+			_act_icon(p + Vector2(r + 4, -r + 2), sq.act_kind, a)
+
+	## 행동 아이콘 —— 주황 동그라미 위에 흰 그림
+	func _act_icon(c: Vector2, kind: String, a: float) -> void:
+		var bg: Color = {"melee": Color("#e0662f"), "shoot": Color("#d8a531"), "cast": Color("#8f63d1")}.get(kind, Color("#888"))
+		draw_set_transform(c, 0.0, Vector2(0.72, 0.72))       # 이름표에 맞춰 작게
+		c = Vector2.ZERO
+		draw_circle(c, 8.5, Color(0, 0, 0, 0.6 * a))
+		draw_circle(c, 7.5, Color(bg, a))
+		var wc := Color(1, 1, 1, a)
+		match kind:
+			"melee":       # 엇갈린 두 칼
+				draw_line(c + Vector2(-4.5, 4.5), c + Vector2(4.5, -4.5), wc, 1.8)
+				draw_line(c + Vector2(4.5, 4.5), c + Vector2(-4.5, -4.5), wc, 1.8)
+				draw_line(c + Vector2(-5.5, 1.5), c + Vector2(-1.5, 5.5), wc, 1.4)
+				draw_line(c + Vector2(5.5, 1.5), c + Vector2(1.5, 5.5), wc, 1.4)
+			"shoot":       # 활과 화살
+				draw_arc(c + Vector2(-2.5, 0), 5.0, -1.2, 1.2, 8, wc, 1.5)
+				draw_line(c + Vector2(-0.5, -4.7), c + Vector2(-0.5, 4.7), wc, 0.8)
+				draw_line(c + Vector2(-3.0, 0), c + Vector2(5.0, 0), wc, 1.4)
+				draw_line(c + Vector2(5.0, 0), c + Vector2(2.5, -2.0), wc, 1.4)
+				draw_line(c + Vector2(5.0, 0), c + Vector2(2.5, 2.0), wc, 1.4)
+			_:             # 별
+				var pts := PackedVector2Array()
+				for i in 10:
+					var r := 5.0 if i % 2 == 0 else 2.2
+					var t := -PI / 2 + i * PI / 5
+					pts.append(c + Vector2(cos(t), sin(t)) * r)
+				draw_colored_polygon(pts, wc)
+		draw_set_transform(Vector2.ZERO)
 
 	func _draw_all() -> void:
 		var fb := DB.font_body
@@ -1263,20 +1488,31 @@ class Hud extends Control:
 		for t in tags:
 			var p: Vector2 = t[0]
 			var sq: Squad = t[1]
+			if view.field.flat != null:
+				_token(sq, view.field.to_screen(sq.pos, 0.0))
+				continue
 			var a: float = sq.fade * view.field.label_alpha(sq.pos)
 			var myth: bool = sq.tier >= 8
 			var art: bool = myth or DB.portrait(sq.cid) != null      # 그림이 있으면 등급과 관계없이 초상을 붙인다
 			var team: Color = War3D.TEAM[sq.camp]
 			var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
-			var fs := 11
+			# 10/31 사용자: 이름표를 줄인다 —— 글씨 9 · 알약 높이 13 · 초상 16 (신화 19)
+			var fs := 9
 			var nw := fbo.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			var w := clampf(nw + 22, 46, 76)
-			var ps := 28.0 if myth else 24.0
-			var r := Rect2(p - Vector2(w / 2, 22), Vector2(w, 30))
+			var w := clampf(nw + 16, 34, 58)
+			var ps := 19.0 if myth else 16.0
+			var r := Rect2(p - Vector2(w / 2, 17), Vector2(w, 22))
+			# 10/31 사용자: 평소에는 작은 초상 + 병력 막대만. 이름 · 사기 · 게이지 · 상태는 따라가는(꾹 누른) 부대와 고유기가 찬 부대만
+			var lvq := view.unit_live(sq.key)
+			var detail: bool = sq == view.field.follow or (sq.tier >= 6 and lvq[1] > 0 and lvq[0] >= 100)
+			if not detail:
+				w = 30.0
+				ps = 13.0
+				r = Rect2(p - Vector2(w / 2, 4), Vector2(w, 9))
 			if art:
-				r = Rect2(r.position - Vector2(ps + 4, 0), r.size + Vector2(ps + 4, 0))     # 초상 자리까지 겹침 판정
-			var full := true
-			for i in 3:
+				r = Rect2(r.position - Vector2(ps + 3, 0), r.size + Vector2(ps + 3, 0))     # 초상 자리까지 겹침 판정
+			var full := detail
+			for i in (3 if detail else 0):
 				var hit := false
 				for q in placed:
 					if q.intersects(r):
@@ -1285,64 +1521,72 @@ class Hud extends Control:
 				if not hit:
 					break
 				if i == 0:
-					r.position.y -= 14
+					r.position.y -= 11
 				else:
 					full = false          # 비켜도 겹친다 —— 막대만
-					r = Rect2(p - Vector2(w / 2, 4), Vector2(w, 10))
+					r = Rect2(p - Vector2(w / 2, 3), Vector2(w, 7))
 			placed.append(r)
-			if art and full:
-				r = Rect2(r.position + Vector2(ps + 4, 0), r.size - Vector2(ps + 4, 0))    # 이름표는 초상 오른쪽에
-			var bar_y := r.position.y + (20.0 if full else 0.0)
+			if art:
+				r = Rect2(r.position + Vector2(ps + 3, 0), r.size - Vector2(ps + 3, 0))    # 이름표 · 막대는 초상 오른쪽에
+			var bar_y := r.position.y + (15.0 if full else 0.0)
 			if full:
 				# 알약 이름표 —— 어두운 바탕, 왼쪽에 진영색 점, 등급색 이름
-				var pill := Rect2(r.position.x, r.position.y, w, 17)
+				var pill := Rect2(r.position.x, r.position.y, w, 13)
 				var sb := StyleBoxFlat.new()
 				sb.bg_color = Color(0.04, 0.05, 0.09, 0.72 * a)
 				sb.border_color = Color(DB.tier_color(sq.cid), 0.8 * a) if sq.tier >= 5 else Color(team, 0.5 * a)
 				sb.set_border_width_all(1)
-				sb.set_corner_radius_all(9)
+				sb.set_corner_radius_all(7)
 				draw_style_box(sb, pill)
-				draw_circle(pill.position + Vector2(8, 8.5), 3.2, Color(team.lightened(0.25), a))
+				draw_circle(pill.position + Vector2(6, 6.5), 2.4, Color(team.lightened(0.25), a))
 				var nc: Color = DB.tier_color(sq.cid).lightened(0.35) if sq.tier >= 3 else Color(0.92, 0.9, 0.85)
-				draw_string(fbo, pill.position + Vector2(14, 13), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 18, fs, Color(nc, a))
+				draw_string(fbo, pill.position + Vector2(10, 10), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 13, fs, Color(nc, a))
+				# 지금 하는 일 —— 친 뒤 잠깐 이름표 오른쪽 끝에 칼(근접) · 활(사격) · 별(책략)
+				var since: float = view.clock - sq.act_t
+				if since < CombatFx.ATTACK_HOLD and sq.alive:
+					_act_icon(pill.position + Vector2(w + 7, 6.5), sq.act_kind, a * (1.0 - since / CombatFx.ATTACK_HOLD * 0.6))
 			# 병력 막대
-			var br := Rect2(r.position.x + 3, bar_y, w - 6, 4)
+			var br := Rect2(r.position.x + 3, bar_y, w - 6, 3)
 			draw_rect(br.grow(1), Color(0, 0, 0, 0.65 * a))
 			var hp := clampf(sq.troops / sq.max, 0, 1)
 			var hc := team.lightened(0.2)
 			if hp < 0.3:
 				hc = hc.lerp(Color("#ffd257"), 0.5 + 0.5 * sin(view.clock * 8.0))
-			draw_rect(Rect2(br.position, Vector2(br.size.x * hp, 4)), Color(hc, a))
+			draw_rect(Rect2(br.position, Vector2(br.size.x * hp, 3)), Color(hc, a))
 			draw_rect(Rect2(br.position, Vector2(br.size.x * hp, 1)), Color(1, 1, 1, 0.35 * a))
-			# 사기
-			var mr := Rect2(br.position + Vector2(0, 5), Vector2(br.size.x, 2))
-			draw_rect(mr, Color(0, 0, 0, 0.6 * a))
-			draw_rect(Rect2(mr.position, Vector2(mr.size.x * clampf(sq.morale / 200.0, 0, 1), 2)),
-				Color(DB.PAL.gold if sq.morale > 30 else Color("#a05a2a"), a))
+			# 사기 (자세히 볼 때만)
+			if full:
+				var mr := Rect2(br.position + Vector2(0, 4), Vector2(br.size.x, 1.5))
+				draw_rect(mr, Color(0, 0, 0, 0.6 * a))
+				draw_rect(Rect2(mr.position, Vector2(mr.size.x * clampf(sq.morale / 200.0, 0, 1), 2)),
+					Color(DB.PAL.gold if sq.morale > 30 else Color("#a05a2a"), a))
+			elif sq.alive and view.clock - sq.act_t < CombatFx.ATTACK_HOLD:
+				# 작은 이름표 —— 행동 아이콘은 막대 오른쪽
+				_act_icon(Vector2(br.end.x + 6, br.position.y + 1.5), sq.act_kind, a * (1.0 - (view.clock - sq.act_t) / CombatFx.ATTACK_HOLD * 0.6))
 			# 고유기 게이지 —— 초월·불멸·신화. 적 게이지도 보여 준다 (읽고 방진으로 받으라고)
 			var lv := view.unit_live(sq.key)
-			if sq.tier >= 6 and lv[1] > 0:
-				var gb := Rect2(br.position + Vector2(0, 8), Vector2(br.size.x, 3))
+			if full and sq.tier >= 6 and lv[1] > 0:
+				var gb := Rect2(br.position + Vector2(0, 6), Vector2(br.size.x, 2))
 				draw_rect(gb.grow(1), Color(0, 0, 0, 0.6 * a))
 				var fullg: bool = lv[0] >= 100
 				var gc := Color("#ffd257") if fullg else Color("#b8902e")
 				if fullg:
 					gc = gc.lerp(Color.WHITE, 0.4 + 0.4 * sin(view.clock * 10.0))
-				draw_rect(Rect2(gb.position, Vector2(gb.size.x * clampf(lv[0] / 100.0, 0, 1), 3)), Color(gc, a))
+				draw_rect(Rect2(gb.position, Vector2(gb.size.x * clampf(lv[0] / 100.0, 0, 1), 2)), Color(gc, a))
 			var x := br.position.x + br.size.x + 5
 			# 상태 —— 색 동그라미에 첫 글자 (방 · 감 · 화 …)
-			for st in sq.statuses:
+			for st in (sq.statuses.slice(0, 2) if full else []):          # 상태는 둘까지만, 자세히 볼 때만 (10/31)
 				var sd: Dictionary = DB.D.STATUS[st]
-				var sc := Vector2(x + 5, br.position.y + 3)
-				draw_circle(sc, 6, Color(0, 0, 0, 0.7 * a))
-				draw_circle(sc, 5, Color(sd.c, a))
-				draw_string(DB.font_bold, sc + Vector2(-6, 3.5), sd.n.left(1), HORIZONTAL_ALIGNMENT_CENTER, 12, 8, Color(0.08, 0.06, 0.04, a))
-				x += 12
+				var sc := Vector2(x + 4, br.position.y + 2)
+				draw_circle(sc, 4.5, Color(0, 0, 0, 0.7 * a))
+				draw_circle(sc, 3.8, Color(sd.c, a))
+				draw_string(DB.font_bold, sc + Vector2(-5, 2.6), sd.n.left(1), HORIZONTAL_ALIGNMENT_CENTER, 10, 6, Color(0.08, 0.06, 0.04, a))
+				x += 9
 			# 초상 —— 이름표 왼쪽. 테두리는 등급색 (신화는 조금 크게)
-			if art and full and a > 0.5:
-				var pr := Rect2(r.position + Vector2(-ps - 4, 15 - ps * 0.5), Vector2(ps, ps))
+			if art and a > 0.5:
+				var pr := Rect2(r.position + Vector2(-ps - 3, (11.0 if full else 1.5) - ps * 0.5), Vector2(ps, ps))
 				draw_rect(pr.grow(2 if myth else 1.5), Color(DB.tier_color(sq.cid), a))
-				Art.draw_portrait(self, pr, sq.cid)
+				Art.draw_portrait(self, pr, sq.cid, 0.0, "face")
 				if not sq.alive:
 					draw_rect(pr, Color(0, 0, 0, 0.6))
 		# 떠오르는 글씨
@@ -1434,8 +1678,8 @@ class Hud extends Control:
 		draw_string(nf, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, col)
 		if crit:
 			var lc := Color(1, 0.95, 0.8, col.a)
-			draw_string_outline(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 12, 4, Color(0.4, 0.05, 0, col.a * 0.9))
-			draw_string(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 12, lc)
+			draw_string_outline(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 10, 3, Color(0.4, 0.05, 0, col.a * 0.9))
+			draw_string(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 10, lc)
 		draw_set_transform(Vector2.ZERO)
 
 	## 고유기 컷인 —— 어두워진 화면, 비스듬한 먹띠, 미끄러져 들어오는 초상, 도장처럼 박히는 기술명, 외침
@@ -1494,11 +1738,7 @@ class Hud extends Control:
 			draw_rect(pr.grow(8), Color(col, 0.35 * fade))
 			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
 		if pin > 0.02:
-			var mt := DB.myth_art(cut.k)
-			if mt:
-				Art._draw_cover(self, pr, mt)        # 고유기 컷인 —— 신화 그림 (10/30)
-			else:
-				Art.draw_portrait(self, pr, cut.k, t)
+			Art.draw_portrait(self, pr, cut.k, t, "ult")      # 고유기 컷인 —— 고유기용 (신화 그림, 없으면 얼굴)
 			if fade < 1.0:
 				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
 			draw_rect(pr, Color(col, fade), false, 3.0)
@@ -1558,7 +1798,7 @@ class MiniCard extends Control:
 
 	func _gui_input(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			if view.ult_ready(sq.key):
+			if view.direct and view.ult_ready(sq.key):
 				UI.buzz(20)
 				view.request_ult(sq.key)
 			else:
@@ -1580,7 +1820,7 @@ class MiniCard extends Control:
 		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 else 1)
 		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if sq.hurt > 0.05 else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
-		Art.draw_portrait(self, Rect2(4, 4, 34, 46), sq.cid)
+		Art.draw_portrait(self, Rect2(4, 4, 34, 46), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
 		var fb := DB.font_body
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		draw_string(DB.font_display, Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))
@@ -1598,7 +1838,7 @@ class MiniCard extends Control:
 			draw_rect(Rect2(4, 67, (size.x - 8) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
 			for i in lv[1]:
 				draw_circle(Vector2(size.x - 8 - i * 7, 8), 2.5, Color("#ffd257"))
-		if view.ult_ready(sq.key):
+		if view.direct and view.ult_ready(sq.key):       # 직접 지휘일 때만 '눌러라' 금테
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
 			var rb := StyleBoxFlat.new()
 			rb.draw_center = false
@@ -1617,7 +1857,7 @@ class MiniCard extends Control:
 		var tc := DB.tier_color(sq.cid)
 		var w := size.x
 		var h := size.y
-		var ready := view.ult_ready(sq.key)
+		var ready := view.direct and view.ult_ready(sq.key)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = DB.PAL.ink2
 		sb.set_corner_radius_all(6)
@@ -1626,7 +1866,7 @@ class MiniCard extends Control:
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		var bar_y := h - 16
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
-		Art.draw_portrait(self, pr, sq.cid)
+		Art.draw_portrait(self, pr, sq.cid, 0.0, "ult" if ready else "face")
 		var x := pr.end.x + 3
 		var tw := w - x - 2
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name

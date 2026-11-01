@@ -1,6 +1,6 @@
 class_name Settings
 extends RefCounted
-## 설정 —— user://settings.cfg. 품질(병사 수·안티에일리어싱·그림자)과 자동 전투, 소리 크기.
+## 설정 —— user://settings.cfg. 품질(병사 수·안티에일리어싱·그림자)과 직접 지휘, 소리 크기.
 ## 모바일은 처음 켤 때 '낮음', PC 는 '높음'으로 시작한다.
 
 const PATH := "user://settings.cfg"
@@ -10,10 +10,12 @@ const SHADOW := [1024, 2048, 4096]
 const RES_SCALE := [0.75, 0.9, 1.0]      # 전장 3D 해상도 (화면 실제 픽셀 대비) —— 낮으면 병사가 뿌옇다
 
 static var quality := -1
-static var auto_battle := false
+static var direct := false     # 직접 지휘 —— 켜면 전투 중 고유기 · 군령 버튼이 보인다. 꺼도 AI 가 똑같이 잘 쓴다 (11/1: 덱 감상 전투)
 static var haptics := true
 static var sfx_vol := 0.8      # 효과음 크기 (0 끔 ~ 1)
 static var bgm_vol := 0.5      # 배경 음악 크기
+static var dots := true       # 전장 표현 —— 점묘(블라인드삼국식 2D, 10/31 사용자) / 3D
+static var sumuk := false      # 전장 화풍 —— 수묵(삼국지11 시안) 후처리 (10/31)
 static var _loaded := false
 
 
@@ -24,10 +26,12 @@ static func load_cfg() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(PATH) == OK:
 		quality = int(cf.get_value("gfx", "quality", -1))
-		auto_battle = bool(cf.get_value("play", "auto_battle", false))
+		direct = bool(cf.get_value("play", "direct", false))
 		haptics = bool(cf.get_value("play", "haptics", true))
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
 		bgm_vol = float(cf.get_value("sound", "bgm", 0.5))
+		sumuk = bool(cf.get_value("gfx", "sumuk", false))
+		dots = bool(cf.get_value("gfx", "dots", true))
 	if quality < 0:
 		quality = 0 if OS.has_feature("mobile") else 2
 	apply()
@@ -36,10 +40,12 @@ static func load_cfg() -> void:
 static func save_cfg() -> void:
 	var cf := ConfigFile.new()
 	cf.set_value("gfx", "quality", quality)
-	cf.set_value("play", "auto_battle", auto_battle)
+	cf.set_value("play", "direct", direct)
 	cf.set_value("play", "haptics", haptics)
 	cf.set_value("sound", "sfx", sfx_vol)
 	cf.set_value("sound", "bgm", bgm_vol)
+	cf.set_value("gfx", "sumuk", sumuk)
+	cf.set_value("gfx", "dots", dots)
 	cf.save(PATH)
 
 

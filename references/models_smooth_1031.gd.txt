@@ -1,0 +1,464 @@
+class_name Models
+extends RefCounted
+## 병사·말·무기·풍경 모델 —— 전부 코드로 만든다. 사람 · 말 · 무기는 매끈한 도형(MeshKit.lathe · blob · limb, 10/31), 풍경은 로우폴리. 모델은 +X 를 바라보고 발끝이 원점이다.
+## 정점 색 알파 1 = 세력색으로 칠할 옷감, 0 = 고유색(피부·쇠·나무). 알파 1 인 곳의 rgb 는 명암만 준다.
+## 팔다리는 MeshKit.joint 로 부위를 표시해 두고 셰이더가 걸음·공격 박자에 맞춰 흔든다.
+##   1 왼다리 · 2 오른다리 · 3 왼팔 · 4 무기 든 오른팔(공격 때만) · 5·6 말 다리(대각선 짝) · 7 빈 오른팔(걸음에 흔듦)
+
+const SKIN := Color(0.86, 0.70, 0.55, 0)
+const DARK := Color(0.14, 0.14, 0.16, 0)
+const LEATHER := Color(0.36, 0.25, 0.16, 0)
+const STEEL := Color(0.66, 0.68, 0.72, 0)
+const GOLD := Color(0.85, 0.66, 0.30, 0)
+const WOOD := Color(0.45, 0.33, 0.20, 0)
+const PAPER := Color(0.93, 0.89, 0.78, 0)
+const HORSE := Color(0.42, 0.28, 0.17, 0)
+const HORSE2 := Color(0.22, 0.15, 0.10, 0)
+const RED := Color(0.78, 0.16, 0.12, 0)
+const HIP := Vector2(0, 0.48)
+const SHOULDER := Vector2(0.02, 0.95)
+const R_SHOULDER := Vector2(0.0, 1.9)     # 말 탄 사람의 어깨
+
+
+static var soldier_detail := 0.62   # 매끈한 도형 분할 —— 병사 · 장수 (Settings 품질이 정한다)
+static var general_detail := 1.0
+
+
+static func team(shade := 1.0) -> Color:
+	return Color(shade, shade, shade, 1)
+
+
+## 병종별 몸통 (무기 제외 —— 무기는 따로 움직인다)
+static func body(tag: String) -> ArrayMesh:
+	var k := MeshKit.new()
+	k.detail = soldier_detail          # 병사는 화면에서 작다 —— 둘레를 덜 나눈다
+	match tag:
+		"기병":
+			_horse(k)
+			_rider(k)
+		"책사", "유생", "술사", "모사":
+			_robe(k, tag)
+		_:
+			_infantry(k, tag)
+	return k.mesh()
+
+
+## 보병 (창병 · 궁병 · 도적) —— 10/31 매끈한 모양으로 다시: 가늘어지는 팔다리 · 허리에서 가슴으로 넓어지는 몸통 ·
+## 띠마다 명암이 다른 미늘 치마 · 둥근 투구와 붉은 술. 관절 · 어깨 · 엉덩이 자리는 예전과 같다 (무기 손 자리 War3D.HAND)
+static func _infantry(k: MeshKit, tag: String) -> void:
+	var rogue := tag == "도적"
+	var armored := tag == "창병"
+	var cloth := DARK if rogue else team()
+	for z in [-0.085, 0.085]:
+		k.joint(1 if z < 0 else 2, HIP)
+		k.limb(Vector3(0, 0.5, z), Vector3(0.015, 0.28, z * 1.05), 0.075, 0.058, DARK, 7)          # 허벅지
+		k.limb(Vector3(0.015, 0.28, z * 1.05), Vector3(0, 0.08, z * 1.05), 0.056, 0.047, DARK if rogue else LEATHER, 7)   # 정강이 각반
+		k.blob(Vector3(0.045, 0.035, z * 1.05), Vector3(0.095, 0.04, 0.052), LEATHER, 8, 4)       # 신
+	k.joint(0)
+	k.lathe(Vector3(0, 0.46, 0), [Vector2(0.13, 0), Vector2(0.15, 0.1), Vector2(0.18, 0.26), Vector2(0.19, 0.36), Vector2(0.15, 0.46), Vector2(0.06, 0.52)], [cloth], 12, Vector2(0.72, 1.0))
+	if not rogue:
+		var bands := []
+		for i in 5:
+			bands.append((STEEL if i % 2 == 0 else STEEL.darkened(0.28)) if armored else team(0.66 if i % 2 == 0 else 0.5))
+		k.lathe(Vector3(0, 0.32, 0), [Vector2(0.215, 0), Vector2(0.205, 0.06), Vector2(0.19, 0.12), Vector2(0.175, 0.18), Vector2(0.16, 0.24), Vector2(0.15, 0.28)], bands, 12, Vector2(0.78, 1.0))
+	if armored:
+		var cb := []
+		for i in 5:
+			cb.append(STEEL if i % 2 == 0 else STEEL.darkened(0.22))
+		k.lathe(Vector3(0, 0.62, 0), [Vector2(0.168, 0), Vector2(0.193, 0.08), Vector2(0.203, 0.16), Vector2(0.197, 0.24), Vector2(0.16, 0.31), Vector2(0.1, 0.34)], cb, 12, Vector2(0.75, 1.0))
+	k.lathe(Vector3(0, 0.555, 0), [Vector2(0.168, 0), Vector2(0.172, 0.035), Vector2(0.166, 0.07)], [LEATHER], 12, Vector2(0.75, 1.0))   # 허리띠
+	k.blob(Vector3(0.128, 0.592, 0), Vector3(0.022, 0.03, 0.04), GOLD, 6, 4)
+	for z in [-0.205, 0.205]:
+		k.joint(3 if z < 0 else (7 if tag == "궁병" else 4), SHOULDER)
+		k.limb(Vector3(0.0, 0.92, z), Vector3(0.03, 0.74, z * 1.06), 0.058, 0.048, cloth if rogue else team(0.85), 7)
+		k.limb(Vector3(0.03, 0.74, z * 1.06), Vector3(0.06, 0.6, z * 1.08), 0.047, 0.04, LEATHER, 7)     # 팔뚝 토시
+		k.blob(Vector3(0.066, 0.57, z * 1.08), Vector3(0.04, 0.045, 0.035), SKIN, 6, 4)
+		if not rogue:
+			k.blob(Vector3(0.0, 0.935, z * 1.03), Vector3(0.1, 0.06, 0.085), STEEL if armored else LEATHER, 8, 5)   # 어깨받이
+	k.joint(0)
+	k.limb(Vector3(0, 0.95, 0), Vector3(0, 1.02, 0), 0.045, 0.045, SKIN, 6)
+	k.blob(Vector3(0.01, 1.1, 0), Vector3(0.095, 0.108, 0.088), SKIN, 10, 7)
+	match tag:
+		"창병":
+			k.lathe(Vector3(-0.005, 1.095, 0), [Vector2(0.128, 0), Vector2(0.12, 0.06), Vector2(0.104, 0.12), Vector2(0.075, 0.17), Vector2(0.035, 0.2), Vector2(0.0, 0.212)], [STEEL.darkened(0.15), STEEL], 12)
+			k.lathe(Vector3(-0.005, 1.085, 0), [Vector2(0.12, 0), Vector2(0.142, 0.012), Vector2(0.138, 0.025)], [GOLD], 12)            # 투구 테
+			k.blob(Vector3(-0.075, 1.05, 0), Vector3(0.05, 0.07, 0.105), team(0.6), 8, 5)                   # 목가리개
+			k.limb(Vector3(-0.005, 1.3, 0), Vector3(-0.07, 1.42, 0), 0.012, 0.03, RED, 6)
+			k.blob(Vector3(-0.09, 1.43, 0), Vector3(0.06, 0.035, 0.035), RED, 6, 4)                         # 붉은 술
+			k.joint(3, SHOULDER)
+			k.blob(Vector3(0.15, 0.74, -0.27), Vector3(0.032, 0.26, 0.17), team(0.6), 12, 6)                   # 방패
+			k.blob(Vector3(0.18, 0.74, -0.27), Vector3(0.025, 0.05, 0.05), GOLD, 6, 4)
+			k.joint(0)
+		"궁병":
+			k.lathe(Vector3(-0.005, 1.1, 0), [Vector2(0.105, 0), Vector2(0.11, 0.05), Vector2(0.095, 0.1), Vector2(0.05, 0.14), Vector2(0.0, 0.15)], [LEATHER.darkened(0.1), LEATHER], 10)
+			k.lathe(Vector3(-0.005, 1.095, 0), [Vector2(0.112, 0), Vector2(0.116, 0.025)], [team(0.7)], 10)                 # 머리띠
+			k.limb(Vector3(-0.15, 0.6, 0.08), Vector3(-0.18, 1.0, 0.04), 0.05, 0.056, LEATHER, 7)                 # 화살통
+			for i in 3:
+				k.limb(Vector3(-0.18, 1.0, 0.025 + i * 0.015), Vector3(-0.2, 1.1, 0.02 + i * 0.02), 0.006, 0.006, WOOD, 4)
+				k.blob(Vector3(-0.2, 1.12, 0.02 + i * 0.02), Vector3(0.015, 0.03, 0.006), PAPER, 4, 3)
+			k.joint(7, SHOULDER)
+			var prev := Vector3.ZERO
+			for i in 9:
+				var t := lerpf(-1.15, 1.15, i / 8.0)
+				var p := Vector3(0.24 + cos(t) * 0.12, 0.85 + sin(t) * 0.5, 0.2)
+				if i > 0:
+					k.limb(prev, p, 0.02 - absf(t) * 0.006, 0.02 - absf(t) * 0.006, WOOD, 5)
+				prev = p
+			k.limb(Vector3(0.24 + cos(1.15) * 0.12, 0.85 + sin(1.15) * 0.5, 0.2), Vector3(0.24 + cos(1.15) * 0.12, 0.85 - sin(1.15) * 0.5, 0.2), 0.004, 0.004, PAPER, 3)
+			k.joint(0)
+		"도적":
+			k.blob(Vector3(-0.012, 1.12, 0), Vector3(0.112, 0.125, 0.105), DARK, 10, 6)                       # 두건
+			k.blob(Vector3(-0.09, 1.0, 0), Vector3(0.06, 0.08, 0.11), DARK, 8, 5)
+			k.lathe(Vector3(0.0, 1.035, 0), [Vector2(0.1, 0), Vector2(0.104, 0.05)], [team(0.9)], 10)          # 복면
+
+
+## 지략 (책사 · 유생 · 술사 · 모사) —— 땅까지 퍼지는 도포 · 넓은 소매 · 관과 소품
+static func _robe(k: MeshKit, tag: String) -> void:
+	k.lathe(Vector3(0, 0, 0), [Vector2(0.31, 0), Vector2(0.3, 0.07), Vector2(0.27, 0.28), Vector2(0.22, 0.56), Vector2(0.2, 0.76), Vector2(0.18, 0.9), Vector2(0.09, 0.99)],
+		[team(0.55), team(0.95), team(), team(), team(), team()], 14, Vector2(0.84, 1.0))
+	k.lathe(Vector3(0, 0.56, 0), [Vector2(0.226, 0), Vector2(0.23, 0.035), Vector2(0.224, 0.07)], [PAPER], 14, Vector2(0.86, 1.0))      # 허리 띠
+	k.blob(Vector3(0.14, 0.86, 0), Vector3(0.03, 0.1, 0.075), PAPER, 6, 5)                                        # 앞섶
+	for z in [-0.22, 0.22]:
+		k.joint(3 if z < 0 else 7, SHOULDER)
+		k.limb(Vector3(0, 0.93, z), Vector3(0.1, 0.65, z * 1.15), 0.06, 0.1, team(0.8), 8)                          # 넓은 소매
+		k.blob(Vector3(0.12, 0.6, z * 1.15), Vector3(0.04, 0.045, 0.035), SKIN, 6, 4)
+	k.joint(0)
+	k.limb(Vector3(0, 0.97, 0), Vector3(0, 1.04, 0), 0.045, 0.045, SKIN, 6)
+	k.blob(Vector3(0.01, 1.12, 0), Vector3(0.095, 0.108, 0.088), SKIN, 10, 7)
+	k.blob(Vector3(0.075, 1.03, 0), Vector3(0.035, 0.07, 0.045), DARK, 6, 5)                                   # 수염
+	match tag:
+		"책사":
+			k.lathe(Vector3(-0.01, 1.19, 0), [Vector2(0.08, 0), Vector2(0.085, 0.16), Vector2(0.075, 0.2), Vector2(0.0, 0.205)], [DARK], 10)
+			k.lathe(Vector3(-0.01, 1.2, 0), [Vector2(0.0, 0), Vector2(0.2, 0.0), Vector2(0.2, 0.018), Vector2(0.0, 0.018)], [DARK], 14, Vector2(1.0, 0.75))
+			k.joint(7, SHOULDER)
+			k.limb(Vector3(0.12, 0.6, 0.25), Vector3(0.2, 0.72, 0.22), 0.012, 0.012, WOOD, 4)
+			k.blob(Vector3(0.3, 0.86, 0.22), Vector3(0.16, 0.13, 0.015), PAPER, 10, 5, Basis(Vector3.BACK, -0.6))            # 깃털 부채
+			k.joint(0)
+		"유생":
+			k.lathe(Vector3(-0.01, 1.2, 0), [Vector2(0.1, 0), Vector2(0.1, 0.1), Vector2(0.07, 0.15), Vector2(0.0, 0.16)], [DARK], 10)
+			k.lathe(Vector3(-0.01, 1.2, 0), [Vector2(0.0, 0), Vector2(0.27, 0.0), Vector2(0.26, 0.02), Vector2(0.0, 0.02)], [DARK], 16)
+			k.limb(Vector3(0.22, 0.64, 0.12), Vector3(0.22, 0.64, 0.32), 0.035, 0.035, PAPER, 8)                     # 두루마리
+		"술사":
+			k.lathe(Vector3(-0.02, 1.0, 0), [Vector2(0.15, 0), Vector2(0.14, 0.12), Vector2(0.11, 0.22), Vector2(0.06, 0.34), Vector2(0.0, 0.44)], [DARK.lightened(0.05), DARK], 12)
+			k.limb(Vector3(0.24, 0.0, 0.22), Vector3(0.24, 1.72, 0.22), 0.022, 0.018, WOOD, 6)
+			k.blob(Vector3(0.24, 1.8, 0.22), Vector3(0.07, 0.07, 0.07), Color(1.0, 0.62, 0.25, 0), 8, 5)
+		"모사":
+			k.lathe(Vector3(-0.01, 1.2, 0), [Vector2(0.1, 0), Vector2(0.1, 0.08), Vector2(0.085, 0.11), Vector2(0.0, 0.115)], [DARK], 10)
+			k.limb(Vector3(-0.03, 1.33, -0.14), Vector3(-0.03, 1.33, 0.14), 0.018, 0.018, DARK, 5)
+			k.joint(7, SHOULDER)
+			k.limb(Vector3(0.24, 0.7, 0.06), Vector3(0.24, 0.7, 0.34), 0.045, 0.045, PAPER, 8)
+			k.joint(0)
+
+
+## 말 —— 둥근 몸통 · 앞가슴 · 엉덩이 · 들린 목 · 갈기 · 꼬리. 다리는 넓적다리와 정강이 둘로
+static func _horse(k: MeshKit) -> void:
+	for p in [Vector3(-0.55, 0, -0.15), Vector3(-0.55, 0, 0.15), Vector3(0.5, 0, -0.15), Vector3(0.5, 0, 0.15)]:
+		k.joint(5 if (p.x > 0) == (p.z < 0) else 6, Vector2(p.x, 0.95))
+		var back: bool = p.x < 0
+		k.limb(p + Vector3(0, 1.0, 0), p + Vector3(-0.05 if back else 0.03, 0.52, 0), 0.085 if back else 0.07, 0.05, HORSE, 7)
+		k.limb(p + Vector3(-0.05 if back else 0.03, 0.52, 0), p + Vector3(0, 0.08, 0), 0.042, 0.036, HORSE2, 6)
+		k.blob(p + Vector3(0.02, 0.04, 0), Vector3(0.055, 0.04, 0.05), DARK, 6, 4)     # 발굽
+	k.joint(0)
+	k.blob(Vector3(0, 1.2, 0), Vector3(0.7, 0.27, 0.22), HORSE, 12, 7)
+	k.blob(Vector3(0.5, 1.24, 0), Vector3(0.3, 0.29, 0.22), HORSE, 10, 6)
+	k.blob(Vector3(-0.5, 1.25, 0), Vector3(0.3, 0.29, 0.23), HORSE, 10, 6)
+	k.limb(Vector3(0.62, 1.34, 0), Vector3(0.92, 1.8, 0), 0.15, 0.1, HORSE, 9)
+	k.limb(Vector3(0.95, 1.86, 0), Vector3(1.22, 1.62, 0), 0.1, 0.06, HORSE, 9)
+	for z in [-0.05, 0.05]:
+		k.limb(Vector3(0.92, 1.93, z), Vector3(0.88, 2.04, z * 1.3), 0.025, 0.008, HORSE2, 4)
+		k.blob(Vector3(1.08, 1.82, z * 1.6), Vector3(0.015, 0.015, 0.012), DARK, 4, 3)
+	k.limb(Vector3(0.6, 1.5, 0), Vector3(0.86, 1.98, 0), 0.035, 0.03, HORSE2, 5)                    # 갈기
+	k.limb(Vector3(-0.78, 1.38, 0), Vector3(-1.0, 0.82, 0), 0.06, 0.025, HORSE2, 6)                 # 꼬리
+	k.blob(Vector3(-0.05, 1.33, 0), Vector3(0.3, 0.17, 0.245), team(0.55), 10, 5)                   # 안장 깔개
+	k.blob(Vector3(-0.05, 1.46, 0), Vector3(0.24, 0.05, 0.2), LEATHER, 8, 4)
+
+
+## 기병 —— 말 위에 앉은 몸통 · 굽힌 다리 · 둥근 투구
+static func _rider(k: MeshKit) -> void:
+	for z in [-0.16, 0.16]:
+		k.limb(Vector3(-0.04, 1.5, z), Vector3(0.14, 1.42, z * 1.25), 0.07, 0.058, DARK, 7)
+		k.limb(Vector3(0.14, 1.42, z * 1.25), Vector3(0.1, 1.14, z * 1.35), 0.052, 0.045, LEATHER, 7)
+		k.blob(Vector3(0.13, 1.1, z * 1.35), Vector3(0.08, 0.035, 0.045), LEATHER, 6, 4)
+	k.lathe(Vector3(-0.04, 1.48, 0), [Vector2(0.13, 0), Vector2(0.15, 0.1), Vector2(0.175, 0.26), Vector2(0.18, 0.34), Vector2(0.14, 0.42), Vector2(0.06, 0.47)], [team()], 12, Vector2(0.72, 1.0))
+	var cb := []
+	for i in 4:
+		cb.append(STEEL if i % 2 == 0 else STEEL.darkened(0.25))
+	k.lathe(Vector3(-0.04, 1.62, 0), [Vector2(0.16, 0), Vector2(0.18, 0.08), Vector2(0.185, 0.16), Vector2(0.15, 0.25), Vector2(0.09, 0.28)], cb, 12, Vector2(0.75, 1.0))
+	for z in [-0.2, 0.2]:
+		k.joint(3 if z < 0 else 4, R_SHOULDER)
+		k.limb(Vector3(-0.02, 1.88, z), Vector3(0.02, 1.7, z * 1.05), 0.055, 0.045, team(0.85), 7)
+		k.limb(Vector3(0.02, 1.7, z * 1.05), Vector3(0.05, 1.56, z * 1.07), 0.044, 0.038, LEATHER, 6)
+		k.blob(Vector3(0.055, 1.53, z * 1.07), Vector3(0.038, 0.042, 0.033), SKIN, 6, 4)
+		k.blob(Vector3(-0.03, 1.9, z * 1.02), Vector3(0.09, 0.055, 0.08), STEEL, 8, 5)
+	k.joint(0)
+	k.limb(Vector3(-0.03, 1.93, 0), Vector3(-0.03, 1.98, 0), 0.042, 0.042, SKIN, 6)
+	k.blob(Vector3(-0.02, 2.05, 0), Vector3(0.09, 0.102, 0.084), SKIN, 10, 7)
+	k.lathe(Vector3(-0.03, 2.045, 0), [Vector2(0.12, 0), Vector2(0.112, 0.06), Vector2(0.095, 0.12), Vector2(0.06, 0.17), Vector2(0.025, 0.21), Vector2(0.0, 0.26)], [STEEL.darkened(0.15), STEEL], 12)
+	k.lathe(Vector3(-0.03, 2.035, 0), [Vector2(0.115, 0), Vector2(0.136, 0.012), Vector2(0.132, 0.025)], [GOLD], 12)
+
+
+## 무기 —— 손잡이가 원점, 위(+Y)로 뻗는다. 자세는 회전으로 바꾼다.
+static func spear() -> ArrayMesh:
+	var k := MeshKit.new()
+	k.limb(Vector3(0, -0.6, 0), Vector3(0, 2.2, 0), 0.02, 0.018, WOOD, 5)
+	k.blob(Vector3(0, 2.36, 0), Vector3(0.035, 0.17, 0.012), STEEL, 6, 5)                     # 버들잎 창날
+	k.blob(Vector3(0, 2.17, 0), Vector3(0.03, 0.05, 0.03), team(0.9), 6, 4)                   # 술
+	return k.mesh()
+
+
+static func sword() -> ArrayMesh:
+	var k := MeshKit.new()
+	k.blob(Vector3(0, 0.39, 0), Vector3(0.012, 0.32, 0.035), STEEL, 6, 6)
+	k.limb(Vector3(0, 0.06, -0.08), Vector3(0, 0.06, 0.08), 0.018, 0.018, GOLD, 5)
+	k.limb(Vector3(0, -0.1, 0), Vector3(0, 0.05, 0), 0.022, 0.022, LEATHER, 5)
+	return k.mesh()
+
+
+static func lance() -> ArrayMesh:
+	var k := MeshKit.new()
+	k.limb(Vector3(0, -0.9, 0), Vector3(0, 2.9, 0), 0.024, 0.02, WOOD, 5)
+	k.blob(Vector3(0, 3.08, 0), Vector3(0.04, 0.2, 0.014), STEEL, 6, 5)
+	k.blob(Vector3(0, 2.8, 0.07), Vector3(0.01, 0.12, 0.07), team(), 6, 4)                    # 창기
+	return k.mesh()
+
+
+## 장수 망토 —— 등 뒤로 늘어진 삼각 천
+static func cape() -> ArrayMesh:
+	var k := MeshKit.new()
+	var c := Color(1, 1, 1, 0)
+	k.quad(Vector3(-0.12, 0.98, -0.18), Vector3(-0.12, 0.98, 0.18), Vector3(-0.42, 0.25, 0.26), Vector3(-0.42, 0.25, -0.26), c, Vector3(0.2, 0.6, 0))
+	return k.mesh()
+
+
+static func arrow() -> ArrayMesh:
+	var k := MeshKit.new()
+	k.cyl(Vector3(0, 0, 0.45), Vector3(0, 0, -0.45), 0.012, WOOD, 3)
+	k.cone(Vector3(0, 0, -0.45), Vector3(0, 0, -0.56), 0.025, STEEL, 3)
+	k.box(Vector3(0, 0, 0.4), Vector3(0.005, 0.06, 0.12), PAPER)
+	return k.mesh()
+
+
+static func pine(rng: RandomNumberGenerator) -> ArrayMesh:
+	var k := MeshKit.new()
+	k.cyl(Vector3.ZERO, Vector3(0, 2.2, 0), 0.22, Color(0.3, 0.22, 0.15), 5, 0.14)
+	var g := Color(0.16, 0.26, 0.17).lerp(Color(0.2, 0.3, 0.16), rng.randf())
+	for i in 4:
+		var y := 1.4 + i * 1.55
+		k.cone(Vector3(0, y, 0), Vector3(0, y + 2.6, 0), 2.1 - i * 0.42, g.lightened(i * 0.04), 7)
+	return k.mesh()
+
+
+static func broadleaf(rng: RandomNumberGenerator) -> ArrayMesh:
+	var k := MeshKit.new()
+	k.cyl(Vector3.ZERO, Vector3(0, 2.8, 0), 0.25, Color(0.32, 0.24, 0.16), 5, 0.16)
+	var g := Color(0.28, 0.36, 0.18).lerp(Color(0.38, 0.38, 0.17), rng.randf())
+	k.sphere(Vector3(0, 3.6, 0), 1.9, g, 7, 5, Vector3(1, 0.85, 1), 0.12, rng)
+	k.sphere(Vector3(0.9, 3.0, 0.5), 1.2, g.darkened(0.08), 6, 4, Vector3.ONE, 0.12, rng)
+	k.sphere(Vector3(-0.8, 3.1, -0.6), 1.3, g.lightened(0.05), 6, 4, Vector3.ONE, 0.12, rng)
+	return k.mesh()
+
+
+static func rock(rng: RandomNumberGenerator) -> ArrayMesh:
+	var k := MeshKit.new()
+	k.sphere(Vector3(0, 0.15, 0), 1.0, Color(0.42, 0.41, 0.38), 7, 5, Vector3(1.3, 0.7, 1.0), 0.22, rng)
+	return k.mesh()
+
+
+static func grass(rng: RandomNumberGenerator) -> ArrayMesh:
+	var k := MeshKit.new()
+	for i in 5:
+		var a := rng.randf() * TAU
+		var o := Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.0, 0.12)
+		var h := rng.randf_range(0.18, 0.38)
+		var lean := Vector3(rng.randf_range(-0.1, 0.1), 0, rng.randf_range(-0.1, 0.1))
+		var side := Vector3(-sin(a), 0, cos(a)) * 0.03
+		var col := Color(0.26, 0.33, 0.14).lerp(Color(0.42, 0.44, 0.22), rng.randf())
+		k.tri(o - side, o + side, o + lean + Vector3(0, h, 0), col, o + Vector3(cos(a), 0, sin(a)))
+	return k.mesh()
+
+
+static func mountain(rng: RandomNumberGenerator, r: float, h: float) -> ArrayMesh:
+	var k := MeshKit.new()
+	var col := Color(0.36, 0.40, 0.42)
+	var seg := 9
+	var peak := Vector3(rng.randf_range(-0.2, 0.2) * r, h, rng.randf_range(-0.2, 0.2) * r)
+	var mid := []
+	var base := []
+	for i in seg:
+		var t := TAU * i / seg
+		var d := Vector3(cos(t), 0, sin(t))
+		base.append(d * r * rng.randf_range(0.85, 1.15) + Vector3(0, -12, 0))
+		mid.append(d * r * rng.randf_range(0.45, 0.6) + Vector3(0, h * rng.randf_range(0.45, 0.6), 0))
+	for i in seg:
+		var j := (i + 1) % seg
+		k.quad(base[i], base[j], mid[j], mid[i], col.darkened(rng.randf() * 0.1), Vector3(0, h * 0.3, 0))
+		k.tri(mid[i], mid[j], peak, col.lightened(0.05 + rng.randf() * 0.08), Vector3(0, h * 0.3, 0))
+	return k.mesh()
+
+
+# ───────── 장수 —— 갑옷 입힌 군마 위의 장수. 병종마다 무기가 다르다 ─────────
+##   창병 → 청룡언월도 · 도적 → 대도 · 기병 → 장팔사모 · 궁병 → 큰 활(몸에 붙임) · 지략 → 깃털 부채(몸에 붙임)
+## 무기가 따로 있으면(general_weapon) 오른손 자리 G_HAND 에 붙여 따로 움직인다.
+const G_HAND := Vector3(0.18, 1.58, 0.3)
+
+
+static func general_weapon(tag: String) -> String:
+	match tag:
+		"창병": return "g_glaive"
+		"도적": return "g_saber"
+		"기병": return "g_lance"
+	return ""
+
+
+static func general(tag: String) -> ArrayMesh:
+	var k := MeshKit.new()
+	k.detail = general_detail
+	_warhorse(k)
+	var caster: bool = Squad.CLS.get(tag, "") == "caster"
+	# 다리 —— 등자에 건 채로 움직이지 않는다
+	for z in [-0.2, 0.2]:
+		k.limb(Vector3(-0.02, 1.62, z), Vector3(0.16, 1.52, z * 1.2), 0.08, 0.065, DARK, 7)
+		k.limb(Vector3(0.16, 1.52, z * 1.2), Vector3(0.12, 1.22, z * 1.3), 0.06, 0.05, LEATHER, 7)
+		k.blob(Vector3(0.16, 1.18, z * 1.3), Vector3(0.09, 0.04, 0.05), LEATHER, 6, 4)
+	# 몸통 —— 도포(지략) 또는 미늘 갑옷 · 금 허리띠 · 호심경
+	if caster:
+		k.lathe(Vector3(-0.04, 1.5, 0), [Vector2(0.24, 0), Vector2(0.22, 0.12), Vector2(0.2, 0.3), Vector2(0.18, 0.42), Vector2(0.1, 0.52)], [team(0.8), team()], 14, Vector2(0.8, 1.0))
+		k.lathe(Vector3(-0.04, 1.66, 0), [Vector2(0.205, 0), Vector2(0.21, 0.04), Vector2(0.203, 0.07)], [PAPER], 14, Vector2(0.8, 1.0))
+	else:
+		k.lathe(Vector3(-0.04, 1.54, 0), [Vector2(0.15, 0), Vector2(0.17, 0.1), Vector2(0.2, 0.26), Vector2(0.21, 0.36), Vector2(0.16, 0.46), Vector2(0.07, 0.5)], [team()], 14, Vector2(0.74, 1.0))
+		var cb := []
+		for i in 6:
+			cb.append(GOLD if i == 0 else (STEEL if i % 2 == 1 else STEEL.darkened(0.25)))
+		k.lathe(Vector3(-0.04, 1.66, 0), [Vector2(0.19, 0), Vector2(0.215, 0.06), Vector2(0.225, 0.13), Vector2(0.22, 0.2), Vector2(0.19, 0.26), Vector2(0.13, 0.3), Vector2(0.08, 0.32)], cb, 14, Vector2(0.75, 1.0))
+		var sk := []
+		for i in 4:
+			sk.append(team(0.7) if i % 2 == 0 else GOLD.darkened(0.2))
+		k.lathe(Vector3(-0.04, 1.42, 0), [Vector2(0.27, 0), Vector2(0.25, 0.06), Vector2(0.22, 0.13), Vector2(0.19, 0.2), Vector2(0.18, 0.24)], sk, 14, Vector2(0.82, 1.0))
+		k.lathe(Vector3(-0.04, 1.64, 0), [Vector2(0.19, 0), Vector2(0.195, 0.04), Vector2(0.19, 0.07)], [GOLD], 14, Vector2(0.75, 1.0))
+		k.lathe(Vector3(0.115, 1.84, 0), [Vector2(0.0, 0), Vector2(0.085, 0.0), Vector2(0.09, 0.012), Vector2(0.0, 0.02)], [GOLD], 12, Vector2.ONE, Basis(Vector3.BACK, -PI / 2))     # 호심경
+		for z in [-0.23, 0.23]:
+			k.blob(Vector3(-0.03, 1.98, z), Vector3(0.13, 0.08, 0.11), GOLD, 10, 6)                    # 짐승 머리 견갑
+			k.blob(Vector3(-0.03, 1.94, z * 1.12), Vector3(0.12, 0.06, 0.06), GOLD.darkened(0.2), 8, 5)
+	# 망토 —— 등 뒤로 늘어진 세력색 천 (위가 좁고 아래가 넓게 · 조금 휘게)
+	var cape := []
+	for i in 5:
+		var u := i / 4.0
+		cape.append([Vector3(-0.17 - u * 0.47 - sin(u * PI) * 0.06, 2.0 - u * 0.82, -0.22 - u * 0.13), Vector3(-0.17 - u * 0.47 - sin(u * PI) * 0.06, 2.0 - u * 0.82, 0.22 + u * 0.13)])
+	for i in 4:
+		k.quad(cape[i][0], cape[i][1], cape[i + 1][1], cape[i + 1][0], team(0.68 - i * 0.03), Vector3(0.2, 1.6, 0))
+	# 팔 —— 오른팔은 무기를 들고 공격 때 휘두른다
+	for z in [-0.24, 0.24]:
+		var weapon_arm: bool = z > 0 and general_weapon(tag) != ""
+		k.joint(3 if z < 0 else (4 if weapon_arm else 7), R_SHOULDER)
+		k.limb(Vector3(-0.02, 1.9, z), Vector3(0.02, 1.71, z * 1.05), 0.062, 0.05, team(0.85) if caster else STEEL, 7)
+		k.limb(Vector3(0.02, 1.71, z * 1.05), Vector3(0.05, 1.56, z * 1.07), 0.05, 0.042, team(0.75) if caster else GOLD.darkened(0.15), 7)
+		k.blob(Vector3(0.055, 1.53, z * 1.07), Vector3(0.045, 0.05, 0.04), SKIN, 6, 4)
+		if z < 0 and tag == "궁병":
+			# 큰 활 —— 왼손에 세워 든다
+			var prev := Vector3.ZERO
+			for i in 11:
+				var t := lerpf(-1.2, 1.2, i / 10.0)
+				var q := Vector3(0.12 + cos(t) * 0.16, 1.55 + sin(t) * 0.75, z - 0.04)
+				if i > 0:
+					k.limb(prev, q, 0.024 - absf(t) * 0.007, 0.024 - absf(t) * 0.007, WOOD.darkened(0.2), 5)
+				prev = q
+			k.limb(Vector3(0.12 + cos(1.2) * 0.16, 1.55 + sin(1.2) * 0.75, z - 0.04), Vector3(0.12 + cos(1.2) * 0.16, 1.55 - sin(1.2) * 0.75, z - 0.04), 0.005, 0.005, PAPER, 3)
+		if z > 0 and caster:
+			k.limb(Vector3(0.07, 1.52, z), Vector3(0.18, 1.62, z), 0.016, 0.016, WOOD, 5)
+			k.blob(Vector3(0.3, 1.8, z), Vector3(0.18, 0.15, 0.015), PAPER, 10, 5, Basis(Vector3.BACK, -0.65))       # 깃털 부채
+	k.joint(0)
+	# 머리 —— 얼굴 · 눈 · 수염 · 투구(금테 · 붉은 술) 또는 관
+	k.limb(Vector3(-0.03, 1.98, 0), Vector3(-0.03, 2.05, 0), 0.05, 0.05, SKIN, 6)
+	k.blob(Vector3(-0.015, 2.14, 0), Vector3(0.105, 0.12, 0.098), SKIN, 12, 8)
+	for z in [-0.036, 0.036]:
+		k.blob(Vector3(0.085, 2.155, z), Vector3(0.009, 0.013, 0.014), DARK, 4, 3)
+	k.blob(Vector3(0.07, 2.04, 0), Vector3(0.04, 0.085, 0.055), DARK, 8, 5)        # 수염
+	if caster:
+		k.lathe(Vector3(-0.03, 2.22, 0), [Vector2(0.095, 0), Vector2(0.1, 0.16), Vector2(0.09, 0.2), Vector2(0.0, 0.21)], [DARK], 12)
+		k.limb(Vector3(-0.03, 2.4, -0.17), Vector3(-0.03, 2.4, 0.17), 0.015, 0.015, DARK, 5)
+	else:
+		k.lathe(Vector3(-0.03, 2.13, 0), [Vector2(0.135, 0), Vector2(0.128, 0.07), Vector2(0.11, 0.14), Vector2(0.08, 0.2), Vector2(0.04, 0.25), Vector2(0.0, 0.3)], [STEEL.darkened(0.12), STEEL], 14)
+		k.lathe(Vector3(-0.03, 2.12, 0), [Vector2(0.13, 0), Vector2(0.15, 0.015), Vector2(0.146, 0.035)], [GOLD], 14)
+		k.blob(Vector3(0.09, 2.3, 0), Vector3(0.02, 0.08, 0.1), GOLD, 8, 5)                       # 이마 장식
+		k.blob(Vector3(-0.11, 2.08, 0), Vector3(0.06, 0.08, 0.12), team(0.6), 8, 5)                # 목가리개
+		k.limb(Vector3(-0.03, 2.42, 0), Vector3(-0.12, 2.58, 0), 0.015, 0.04, RED, 6)
+		k.blob(Vector3(-0.15, 2.6, 0), Vector3(0.08, 0.045, 0.045), RED, 8, 5)                    # 붉은 술
+	# 등 뒤 깃발 —— 장수기
+	k.limb(Vector3(-0.2, 1.7, 0), Vector3(-0.24, 2.95, 0), 0.015, 0.012, WOOD, 5)
+	k.blob(Vector3(-0.24, 2.98, 0), Vector3(0.025, 0.04, 0.025), GOLD, 6, 4)
+	k.quad(Vector3(-0.24, 2.92, 0), Vector3(-0.24, 2.55, 0), Vector3(-0.62, 2.6, 0.02), Vector3(-0.62, 2.9, 0.02), team(0.95), Vector3(-0.4, 2.7, 0.5))
+	return k.mesh()
+
+
+## 군마 —— 굵은 몸통 · 들린 목 · 갈기 · 세력색 마갑과 금테
+static func _warhorse(k: MeshKit) -> void:
+	for p in [Vector3(-0.62, 0, -0.17), Vector3(-0.62, 0, 0.17), Vector3(0.56, 0, -0.17), Vector3(0.56, 0, 0.17)]:
+		k.joint(5 if (p.x > 0) == (p.z < 0) else 6, Vector2(p.x, 1.05))
+		var back: bool = p.x < 0
+		k.limb(p + Vector3(0, 1.1, 0), p + Vector3(-0.05 if back else 0.03, 0.55, 0), 0.1 if back else 0.085, 0.06, HORSE, 8)
+		k.limb(p + Vector3(-0.05 if back else 0.03, 0.55, 0), p + Vector3(0, 0.09, 0), 0.05, 0.045, HORSE2, 7)
+		k.blob(p + Vector3(0.025, 0.045, 0), Vector3(0.065, 0.045, 0.058), DARK, 6, 4)
+	k.joint(0)
+	k.blob(Vector3(0, 1.3, 0), Vector3(0.8, 0.3, 0.26), HORSE, 14, 8)
+	k.blob(Vector3(0.6, 1.34, 0), Vector3(0.34, 0.32, 0.26), HORSE, 12, 7)
+	k.blob(Vector3(-0.6, 1.34, 0), Vector3(0.34, 0.33, 0.27), HORSE, 12, 7)
+	k.limb(Vector3(0.7, 1.46, 0), Vector3(1.02, 2.0, 0), 0.17, 0.115, HORSE, 10)
+	k.limb(Vector3(1.04, 2.06, 0), Vector3(1.36, 1.8, 0), 0.115, 0.07, HORSE, 10)
+	for z in [-0.06, 0.06]:
+		k.limb(Vector3(1.0, 2.14, z), Vector3(0.96, 2.27, z * 1.3), 0.028, 0.008, HORSE2, 4)
+		k.blob(Vector3(1.18, 2.02, z * 1.6), Vector3(0.016, 0.016, 0.013), DARK, 4, 3)
+	k.limb(Vector3(0.66, 1.62, 0), Vector3(0.96, 2.16, 0), 0.05, 0.035, HORSE2, 5)       # 갈기
+	k.limb(Vector3(-0.9, 1.5, 0), Vector3(-1.14, 0.84, 0), 0.075, 0.03, HORSE2, 6)       # 꼬리
+	# 마갑 —— 세력색 천과 금테, 얼굴 가리개
+	k.lathe(Vector3(-0.02, 0.98, 0), [Vector2(0.86, 0), Vector2(0.86, 0.035), Vector2(0.84, 0.05)], [GOLD], 16, Vector2(1.0, 0.36))
+	k.lathe(Vector3(-0.02, 1.01, 0), [Vector2(0.84, 0), Vector2(0.83, 0.2), Vector2(0.78, 0.34), Vector2(0.6, 0.44), Vector2(0.0, 0.46)], [team(0.72), team(0.75), team(0.7), team(0.7)], 16, Vector2(1.0, 0.37))
+	k.blob(Vector3(1.2, 2.02, 0), Vector3(0.19, 0.05, 0.085), STEEL, 8, 4, Basis(Vector3.BACK, -0.68))       # 얼굴 가리개 (머리 등을 따라)
+	k.blob(Vector3(0.68, 1.36, 0), Vector3(0.15, 0.3, 0.27), team(0.6), 10, 6)
+	# 안장
+	k.blob(Vector3(-0.02, 1.58, 0), Vector3(0.28, 0.06, 0.24), LEATHER, 10, 5)
+	k.blob(Vector3(0.2, 1.66, 0), Vector3(0.05, 0.08, 0.16), LEATHER, 6, 4)
+
+
+## 청룡언월도 —— 긴 자루 끝의 넓은 초승달 날과 붉은 술
+static func glaive() -> ArrayMesh:
+	var k := MeshKit.new()
+	k.cyl(Vector3(0, -1.0, 0), Vector3(0, 2.3, 0), 0.032, WOOD.darkened(0.25), 5)
+	k.cyl(Vector3(0, -1.0, 0), Vector3(0, -1.15, 0), 0.04, GOLD, 5, 0.01)
+	k.cyl(Vector3(0, 2.2, 0), Vector3(0, 2.28, 0), 0.05, GOLD, 6)
+	var prev := Vector3(0, 2.25, 0)
+	for i in 6:
+		var u := (i + 1) / 6.0
+		var q := Vector3(0.05 + sin(u * 1.4) * 0.28, 2.25 + u * 0.75, 0)
+		k.box((prev + q) / 2 + Vector3(0.06, 0, 0), Vector3(0.16 + 0.1 * sin(u * PI), (q - prev).length() + 0.02, 0.025), STEEL, Basis(Vector3.BACK, -atan2(q.x - prev.x, q.y - prev.y)))
+		prev = q
+	k.cone(Vector3(0, 2.2, 0), Vector3(-0.08, 1.95, 0), 0.08, RED, 5)
+	return k.mesh()
+
+
+## 대도 —— 넓고 휜 외날
+static func saber() -> ArrayMesh:
+	var k := MeshKit.new()
+	k.cyl(Vector3(0, -0.22, 0), Vector3(0, 0.06, 0), 0.03, LEATHER, 5)
+	k.box(Vector3(0, 0.08, 0), Vector3(0.09, 0.04, 0.2), GOLD)
+	var prev := Vector3(0, 0.1, 0)
+	for i in 5:
+		var u := (i + 1) / 5.0
+		var q := Vector3(sin(u * 0.9) * 0.18, 0.1 + u * 0.95, 0)
+		k.box((prev + q) / 2, Vector3(0.11 - u * 0.03, (q - prev).length() + 0.02, 0.03), STEEL, Basis(Vector3.BACK, -atan2(q.x - prev.x, q.y - prev.y)))
+		prev = q
+	return k.mesh()
+
+
+## 장팔사모 —— 뱀처럼 굽은 창날
+static func snake_lance() -> ArrayMesh:
+	var k := MeshKit.new()
+	k.cyl(Vector3(0, -1.1, 0), Vector3(0, 3.0, 0), 0.03, DARK, 5)
+	k.cyl(Vector3(0, 2.92, 0), Vector3(0, 3.0, 0), 0.05, GOLD, 6)
+	var prev := Vector3(0, 3.0, 0)
+	for i in 6:
+		var u := (i + 1) / 6.0
+		var q := Vector3(sin(u * TAU) * 0.06, 3.0 + u * 0.55, 0)
+		k.cyl(prev, q, 0.055 * (1.0 - u * 0.8), STEEL, 4)
+		prev = q
+	k.cone(Vector3(0, 2.9, 0), Vector3(0, 2.62, 0), 0.07, RED, 5)
+	return k.mesh()

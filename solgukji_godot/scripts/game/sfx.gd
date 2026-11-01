@@ -7,11 +7,11 @@ extends Node
 const SFX_NAMES := ["tap", "open", "draw", "gain", "forge", "deny", "hit", "crit", "magic", "skill", "ult", "rout",
 	"burn", "splash", "confuse", "heal", "debuff", "horn", "drums", "win", "lose"]
 ## 소리마다 기본 크기(dB)와 최소 간격(초)
-const TUNE := {"tap": [-10.0, 0.04], "open": [-12.0, 0.1], "draw": [-6.0, 0.05], "deny": [-12.0, 0.2], "debuff": [-14.0, 0.12],
-	"hit": [-9.0, 0.045], "crit": [-6.0, 0.08], "magic": [-9.0, 0.07], "skill": [-6.0, 0.1], "rout": [-4.0, 0.15],
-	"burn": [-12.0, 0.15], "splash": [-12.0, 0.15], "confuse": [-14.0, 0.2], "heal": [-6.0, 0.15], "horn": [-6.0, 0.5],
-	"ult": [-2.0, 0.3], "drums": [-4.0, 1.0], "win": [-3.0, 1.0], "lose": [-3.0, 1.0], "gain": [-4.0, 0.1], "forge": [-3.0, 0.2]}
+const TUNE := {"tap": [-16.0, 0.05], "open": [-16.0, 0.1], "draw": [-10.0, 0.06], "deny": [-14.0, 0.2], "gain": [-10.0, 0.12],
+	"forge": [-8.0, 0.2], "hit": [-15.0, 0.09], "crit": [-10.0, 0.12], "magic": [-13.0, 0.1], "skill": [-9.0, 0.15],
+	"ult": [-6.0, 0.3], "rout": [-10.0, 0.2], "horn": [-8.0, 0.8], "drums": [-6.0, 1.0], "win": [-5.0, 1.0]}     # 10/31 녹음 소리에 맞춘 크기 (dB) · 최소 간격 (초)
 const POOL := 12
+const ENABLED := true      # 10/31 사용자: 유치하지 않은 소리로 바꿔 다시 켠다 (CC0 녹음 —— assets/sfx/_licenses/출처.txt)
 
 var _s := {}
 var _pool: Array[AudioStreamPlayer] = []
@@ -28,10 +28,16 @@ func _ready() -> void:
 			AudioServer.add_bus()
 			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus)
 			AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
+	# 이름마다 변형 여럿 —— <이름>.wav|ogg, <이름>_2 … 또는 <이름>_1 … (칼 부딪침 10종 등). 없으면 그 소리는 나지 않는다
 	for n in SFX_NAMES:
-		var st = load("res://assets/sfx/%s.wav" % n)
-		if st:
-			_s[n] = st
+		var vs := []
+		for suf in [""] + range(1, 11).map(func(i): return "_%d" % i):
+			for ext in ["wav", "ogg"]:
+				var path := "res://assets/sfx/%s%s.%s" % [n, suf, ext]
+				if ResourceLoader.exists(path):
+					vs.append(load(path))
+		if not vs.is_empty():
+			_s[n] = vs
 	for i in POOL:
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX"
@@ -58,7 +64,7 @@ func apply_volume() -> void:
 
 
 func play(n: String, vol_db := 0.0, pitch_var := 0.06) -> void:
-	if not _s.has(n):
+	if not ENABLED or not _s.has(n):
 		return
 	var tune: Array = TUNE.get(n, [-6.0, 0.05])
 	var now := Time.get_ticks_msec() / 1000.0
@@ -74,7 +80,7 @@ func play(n: String, vol_db := 0.0, pitch_var := 0.06) -> void:
 		best = _pool[0]
 		_pool.erase(best)
 		_pool.append(best)
-	best.stream = _s[n]
+	best.stream = _s[n][randi() % _s[n].size()]
 	best.volume_db = float(tune[0]) + vol_db
 	best.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var)
 	best.play()
@@ -82,7 +88,7 @@ func play(n: String, vol_db := 0.0, pitch_var := 0.06) -> void:
 
 ## 배경 음악 —— 같은 곡이면 그대로, "" 이면 끈다
 func music(n: String) -> void:
-	if n == _bgm_name:
+	if not ENABLED or n == _bgm_name:
 		return
 	_bgm_name = n
 	var old := _bgm_a if _bgm_a.playing else _bgm_b
@@ -93,10 +99,16 @@ func music(n: String) -> void:
 		tw.tween_callback(old.stop)
 	if n == "":
 		return
-	var st = load("res://assets/bgm/%s.wav" % n)
+	var st = null
+	for ext in ["ogg", "wav"]:
+		if ResourceLoader.exists("res://assets/bgm/%s.%s" % [n, ext]):
+			st = load("res://assets/bgm/%s.%s" % [n, ext])
+			break
 	if st == null:
 		return
-	if st is AudioStreamWAV:
+	if st is AudioStreamOggVorbis:
+		st.loop = true
+	elif st is AudioStreamWAV:
 		st.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		st.loop_begin = 0
 		st.loop_end = int(st.get_length() * st.mix_rate)
@@ -104,4 +116,4 @@ func music(n: String) -> void:
 	nw.volume_db = -40.0
 	nw.play()
 	var tw2 := create_tween()
-	tw2.tween_property(nw, "volume_db", -8.0, 0.6)
+	tw2.tween_property(nw, "volume_db", -13.0, 0.6)      # 10/31 오케스트라 곡은 효과음 밑에 깔리게

@@ -55,9 +55,11 @@ var _toast_box: VBoxContainer
 var _battle_layer: Control
 var _battle: BattleView
 var _battle_done: Button
+var _report: BattleReport    # 전투 결과표 (끝나고 잠시 뒤 뜬다)
 var _battle_res = null
 var _title: Control
 var deploy: DeployPage
+var forge_tree: ForgeTree     # 조합 탭 맨 위 갈무리 트리 (scripts/ui/forge_tree.gd)
 var online: Online = null     # 온라인 대전 중이면 있다 (scripts/ui/online.gd)
 
 
@@ -101,6 +103,7 @@ func _ready() -> void:
 	root.add_child(_build_tabbar())
 	deploy = DeployPage.new()
 	deploy.gs = self
+	forge_tree = ForgeTree.new(self)
 	_toast_box = UI.vbox(6)
 	_toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast_box.alignment = BoxContainer.ALIGNMENT_END
@@ -390,7 +393,7 @@ func _build_tabbar_badges() -> void:
 	var r := run
 	var draw_todo := can_act() and (
 		(not r.drawn and r.draws_n() > 0) or (not r.picked and not r.pick_list().is_empty())
-		or (not r.granted and not r.grant_list().is_empty()) or not r.pending_picks.is_empty() or not r.pick_queue.is_empty())
+		or (not r.granted and not r.grant_list().is_empty()) or r.ticket_left() > 0)
 	_tabs.draw.badge = 0 if draw_todo and r.over == null else -1
 	var nf := 0
 	for rc in DB.D.RECDEF:
@@ -753,17 +756,31 @@ func _settings_sheet() -> void:
 		row.add_child(bt)
 	b.add_child(row)
 	b.add_child(UI.hint("병사 수 %d%% · 휴대폰은 '낮음'부터 시작합니다. 다음 전투부터 적용됩니다." % roundi(Settings.COUNT_SCALE[Settings.quality] * 100)))
+	b.add_child(UI.eyebrow("전장 표현"))
+	b.add_child(UI.segmented([["dots", "점묘 (2D)"], ["3d", "3D"]], "dots" if Settings.dots else "3d", func(key):
+		Settings.dots = key == "dots"
+		Settings.save_cfg()
+		if _battle:
+			_battle.apply_style()
+		_settings_sheet()))
+	b.add_child(UI.eyebrow("전장 화풍"))
+	b.add_child(UI.segmented([["base", "기본"], ["sumuk", "수묵 (삼국지11 시안)"]], "sumuk" if Settings.sumuk else "base", func(key):
+		Settings.sumuk = key == "sumuk"
+		Settings.save_cfg()
+		if _battle:
+			_battle.apply_style()
+		_settings_sheet()))
 	var cb := CheckButton.new()
-	cb.text = "자동 전투로 시작 (고유기·군령을 AI 가 쓴다)"
-	cb.button_pressed = Settings.auto_battle
+	cb.text = "직접 지휘 (전투 중 고유기·군령 버튼을 보인다 —— 꺼도 AI 가 알아서 쓴다)"
+	cb.button_pressed = Settings.direct
 	cb.custom_minimum_size = Vector2(0, 52)
 	cb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cb.toggled.connect(func(on):
-		Settings.auto_battle = on
+		Settings.direct = on
 		Settings.save_cfg())
 	b.add_child(cb)
 	# 소리 크기 —— 끔 · 작게 · 보통 · 크게
-	for which in ["sfx", "bgm"]:
+	for which in (["sfx", "bgm"] if Sfx.ENABLED else []):
 		var cur: float = Settings.sfx_vol if which == "sfx" else Settings.bgm_vol
 		var lv := "0" if cur <= 0.001 else ("1" if cur < 0.4 else ("2" if cur < 0.75 else "3"))
 		b.add_child(UI.eyebrow("효과음" if which == "sfx" else "배경 음악"))
@@ -854,9 +871,9 @@ func _page_head(title: String, sub: String) -> Control:
 	return v
 
 
-## 초상 작은 카드 격자 —— 한 줄에 4~5장
+## 초상 작은 카드 격자 —— 한 줄에 4장
 func minis() -> AutoGrid:
-	return UI.grid(66, 6)
+	return UI.grid(78, 6)       # 10/30 66 → 78: 한 줄 5장 → 4장, 초상을 크게
 
 
 func mtile(k: String, n := -1, on_tap := Callable()) -> MiniTile:
@@ -936,8 +953,14 @@ func recipe_sheet(out: String) -> void:
 	fb.disabled = not ok
 	fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	br.add_child(fb)
+	var pn := forge_tree.pinned(out)
+	var pb := UI.btn("갈무리 해제" if pn else "갈무리", func():
+		forge_tree.toggle(out)
+		close_sheet(), "ghost" if pn else "", 44)
+	pb.custom_minimum_size.x = 96
+	br.add_child(pb)
 	var ib := UI.btn("상세", func(): card_info(out), "ghost", 44)
-	ib.custom_minimum_size.x = 84
+	ib.custom_minimum_size.x = 72
 	br.add_child(ib)
 	b.add_child(br)
 
@@ -960,23 +983,25 @@ func _page_draw() -> Control:
 	if not pl.is_empty():
 		acts.add_child(UI.tile_act("pick", "선택권", " ".join(pl.map(func(p): return "%s%d" % [DB.TIER[p.t].n, p.n])), func():
 			act("begin_picks", ["phase", -1])
-			picker(), "", run.picked, not can_act()))
+			if not run.ticket_tiers().is_empty():
+				picker(run.ticket_tiers()[0]), "", run.picked, not can_act()))
 	var rg := run.grant_list()
 	if not rg.is_empty():
 		acts.add_child(UI.tile_act("grant", "배급", " ".join(rg.map(func(p): return "%s%d" % [DB.TIER[mini_n(Run.FREE_TIER_CAP, int(p.t))].n, p.n])), func():
 			for k in act("random_grant"):
 				toast("%s 배급 · %s" % [DB.C[k].name, DB.TIER[DB.C[k].tier].n], "gain"), "", run.granted, not can_act()))
-	for i in run.pending_picks.size():
-		var p: Dictionary = run.pending_picks[i]
-		acts.add_child(UI.tile_act("gift", "%s ×%d" % [DB.TIER[mini_n(Run.FREE_TIER_CAP, int(p.t))].n, p.n], str(p.src).split(" · ")[0], func():
-			act("begin_picks", ["pending", i])
-			picker(), "warn", false, not can_act()))
-	if not run.pick_queue.is_empty():
-		var left := 0
-		for q in run.pick_queue:
-			left += int(q.n)
-		acts.add_child(UI.tile_act("pick", "이어서", "%d회 남음" % left, picker, "gold", false, not can_act()))
 	v.add_child(acts)
+	# 선택권 —— 등급마다 버튼 하나, 따로 쓴다
+	var tt := run.ticket_tiers()
+	if not tt.is_empty():
+		var tv := UI.vbox(6)
+		tv.add_child(UI.head("선택권 %d장" % run.ticket_left(), "등급을 눌러 고른다"))
+		var tg := UI.grid(80, 6)
+		for t in tt:
+			tg.add_child(UI.tile_act("gift", "%s ×%d" % [DB.TIER[t].n, int(run.tickets[str(t)])], "%d종 중 고르기" % DB.by_tier(t).size(),
+				func(): picker(t), "gold", false, not can_act()))
+		tv.add_child(tg)
+		v.add_child(tv)
 
 	# 보급품 · 소식 —— 한 줄 칩
 	var chips := UI.hbox(6)
@@ -1052,16 +1077,12 @@ func _item_sheet(id: String) -> void:
 		go("deploy"), "pri"))
 
 
-## 선택권 —— Run.pick_queue 맨 앞 선택권에서 한 장씩 고른다. 다 쓰면 닫는다
-func picker() -> void:
-	if run.pick_queue.is_empty() or not can_act():
+## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다
+func picker(t: int) -> void:
+	var left := int(run.tickets.get(str(t), 0))
+	if left <= 0 or not can_act():
 		close_sheet()
 		return
-	var p: Dictionary = run.pick_queue[0]
-	var t := int(p.t)
-	var left := 0
-	for x in run.pick_queue:
-		left += int(x.n)
 	var b := open_sheet("%s 선택권 — 남은 %d회" % [DB.TIER[t].n, left])
 	b.add_child(UI.hint("%d종 중에서 고른다.%s" % [DB.by_tier(t).size(), " 무상으로 받는 패의 천장이다. 초월부터는 조합으로만 오른다." if t >= Run.FREE_TIER_CAP else ""]))
 	for tag in DB.D.TAGORDER:
@@ -1075,7 +1096,7 @@ func picker() -> void:
 			var tl := tile(k, run.pool().get(k, -1), func(id):
 				if act("pick", [id]):
 					toast("%s 획득 · %s" % [DB.C[id].name, DB.TIER[DB.C[id].tier].n], "gain")
-				picker())
+				picker(t))
 			tl.note = "공%d 방%d%s 속%d" % [c.atk, c["def"], (" 책%d" % c["int"]) if c["int"] > 0 else "", c.spd]
 			f.add_child(tl)
 		b.add_child(f)
@@ -1282,14 +1303,8 @@ func _toggle(key: String, default := false) -> void:
 
 func _page_forge() -> Control:
 	var v := UI.vbox(14)
-	var hd := UI.hbox(8)
-	var tl := UI.lbl("조합", 22, DB.PAL.paper, true)
-	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hd.add_child(tl)
-	var tb := UI.icon_chip("trade", "환전 %d회" % run.trades, DB.PAL.gold if run.trades > 0 else DB.PAL.bamboo_dim, _trade_list)
-	tb.custom_minimum_size = Vector2(118, 40)
-	hd.add_child(tb)
-	v.add_child(hd)
+	v.add_child(UI.lbl("조합", 22, DB.PAL.paper, true))
+	v.add_child(forge_tree.build())
 	# 거르기 —— 병종 · 등급 (가로로 넘기는 칩 두 줄)
 	var st := UI.strip(6)
 	for t in [""] + DB.D.TAGORDER:
@@ -1354,45 +1369,6 @@ func _page_forge() -> Control:
 	return v
 
 
-## 환전 —— 바꿀 수 있는 카드 고르기 (같은 등급 1대1)
-func _trade_list() -> void:
-	var b := open_sheet("환전 — 이번 페이즈 %d회" % run.trades)
-	b.add_child(UI.hint("같은 등급 안에서 1대1로 바꾼다. 계보를 갈아타는 유일한 통로다. 바꿀 카드를 누른다."))
-	if run.trades <= 0:
-		b.add_child(UI.hint("이번 페이즈 환전을 모두 썼다."))
-		return
-	var g := minis()
-	var p := run.pool()
-	for t in [7, 6, 5, 4, 3, 2]:
-		for k in run.tier_stock(t):
-			g.add_child(mtile(k, p[k], func(id): trade_sheet(id)))
-	if g.get_child_count() == 0:
-		b.add_child(UI.hint("바꿀 카드가 없다."))
-	else:
-		b.add_child(g)
-
-
-func trade_sheet(from: String) -> void:
-	var t: int = DB.C[from].tier
-	var b := open_sheet("%s 환전 — 남은 %d회" % [DB.C[from].name, run.trades])
-	b.add_child(UI.hint("같은 %s 등급 안에서 바꾼다." % DB.TIER[t].n))
-	for tag in DB.D.TAGORDER:
-		var ks := Run.by_tier_tag(t, tag).filter(func(x): return x != from)
-		if ks.is_empty():
-			continue
-		b.add_child(UI.eyebrow(tag))
-		var f := tiles()
-		for k in ks:
-			var c: Dictionary = DB.C[k]
-			var tl := tile(k, -1, func(id):
-				if act("trade", [from, id]):
-					toast("%s → %s" % [DB.C[from].name, DB.C[id].name], "gain")
-					close_sheet())
-			tl.note = "공%d 방%d%s" % [c.atk, c["def"], (" 책%d" % c["int"]) if c["int"] > 0 else ""]
-			f.add_child(tl)
-		b.add_child(f)
-
-
 # ───────── 전투 ─────────
 
 func _page_war() -> Control:
@@ -1437,16 +1413,7 @@ func _page_war() -> Control:
 				run.advance()
 				run.save()
 				go("draw"), "pri"))
-	var cb := CheckButton.new()
-	cb.text = "자동 전투로 시작 — 고유기·군령을 AI 가 쓴다"
-	cb.button_pressed = Settings.auto_battle
-	cb.custom_minimum_size = Vector2(0, 52)
-	cb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	cb.toggled.connect(func(on):
-		Settings.auto_battle = on
-		Settings.save_cfg())
-	v.add_child(cb)
-	v.add_child(UI.hint("전투 중에는 아래 장수 카드가 금빛이면 눌러 고유기, 군령(돌격·방진·재정비)은 포인트 2. 두 손가락으로 확대·회전, 한 손가락으로 이동. 자동 전투는 전투 중에도 ⋯ 메뉴에서 바꿀 수 있다."))
+	v.add_child(UI.hint("전투는 자동으로 흘러간다 —— 고유기 · 군령은 AI 가 알아서 쓴다. 덱과 배치가 승부를 가른다. 두 손가락으로 확대·회전, 한 손가락으로 이동. 직접 지휘는 설정 또는 전투 중 ⋯ 메뉴에서 켠다."))
 	return v
 
 
@@ -1459,8 +1426,8 @@ func _result_panel() -> Control:
 		s += " · 수훈갑 %s" % r.mvp
 	if run.last_spoil != null:
 		s += "\n[color=#C6AC7C]기본패 %d장 획득[/color]" % run.last_spoil.n
-	if not run.pending_picks.is_empty():
-		s += "\n[color=#D9A64B]받을 선택권 %d개 — 징집 탭에서[/color]" % run.pending_picks.size()
+	if run.ticket_left() > 0:
+		s += "\n[color=#D9A64B]선택권 %d장 — 징집 탭에서[/color]" % run.ticket_left()
 	return UI.panel(UI.rich(s, 15), 14)
 
 
@@ -1503,9 +1470,10 @@ func _start(kind: String) -> void:
 	close_sheet()
 	_battle_res = null
 	_battle_done.visible = false
+	_hide_report()
 	_battle_layer.visible = true
 	Settings.apply_port(_battle.port)
-	_battle.play(bt, Settings.auto_battle)
+	_battle.play(bt, Settings.direct)
 
 
 ## 온라인 —— 서버가 계산한 결과를 재생만 한다
@@ -1513,6 +1481,7 @@ func show_battle(res: Dictionary, last: bool, kind := "") -> void:
 	close_sheet()
 	_battle_res = null
 	_battle_done.visible = false
+	_hide_report()
 	_battle_done.text = "결과 정리  ▶" if last else "다음 전투  ▶"
 	_battle_layer.visible = true
 	Settings.apply_port(_battle.port)
@@ -1529,8 +1498,36 @@ func battle_visible() -> bool:
 
 func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 	_battle_res = res
-	_battle_done.visible = true
 	UI.buzz(30)
+	await get_tree().create_timer(1.4).timeout      # 승전 · 패전 도장을 먼저 보이고
+	if not _battle_layer.visible or _battle.res != res:
+		return
+	_show_report(res)
+	_battle_done.visible = true
+
+
+## 결과표 —— 화면 가운데, 아래에 [결과 정리] 버튼
+func _show_report(res: Dictionary) -> void:
+	_hide_report()
+	_report = BattleReport.make(res)
+	var w := minf(size.x - 24.0, 460.0)
+	_report.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_report.offset_left = -w / 2
+	_report.offset_right = w / 2
+	_report.offset_top = 96
+	_battle_layer.add_child(_report)
+	_battle_layer.move_child(_battle_done, -1)
+	_battle_done.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_battle_done.offset_left = -130
+	_battle_done.offset_right = 130
+	_battle_done.offset_top = -150
+	_battle_done.offset_bottom = -92
+
+
+func _hide_report() -> void:
+	if _report:
+		_report.queue_free()
+		_report = null
 
 
 func _on_battle_close() -> void:
@@ -1794,10 +1791,17 @@ func _dev_args() -> void:
 			"settings": _settings_sheet()
 			"pick":
 				act("begin_picks", ["phase", -1])
-				picker()
+				if not run.ticket_tiers().is_empty():
+					picker(run.ticket_tiers()[0])
 			"online": _go_online()
 	if a.has("gtitle"):
 		_title.visible = true
+	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
+		Settings.dots = a.gdots != "0"
+	if a.has("gsumuk"):          # 점검용 —— 수묵 화풍으로 (저장하지 않는다)
+		Settings.sumuk = a.gsumuk != "0"
+		if _battle:
+			_battle.apply_style()
 	if a.has("gbattle"):
 		await get_tree().process_frame
 		_start(a.gbattle)
@@ -1818,7 +1822,7 @@ func _dev_args() -> void:
 			await get_tree().create_timer(1.0).timeout
 			_on_battle_close()
 			print("전투 정리: %s · 길이 %.1f초(배율 %.2f) · 토벌 %s · 대전 %s · 경고 %d · 선택권 %d · 저장 %s" % [run.last_result.title, _battle.end_clock, _battle.pace,
-				run.quest_done, run.pvp_done, run.strikes, run.pending_picks.size(), Run.has_save()])
+				run.quest_done, run.pvp_done, run.strikes, run.ticket_left(), Run.has_save()])
 	if a.has("gtouch"):
 		await _touch_test()
 		get_tree().quit()

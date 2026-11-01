@@ -316,7 +316,7 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 	return b
 
 
-## 기호 칩 —— 한 줄 요약 (보급품 · 소식 · 환전). 누르면 자세히
+## 기호 칩 —— 한 줄 요약 (보급품 · 소식). 누르면 자세히
 static func icon_chip(icon: String, text: String, col: Color, cb: Callable) -> Button:
 	var P := DB.PAL
 	var b := Button.new()

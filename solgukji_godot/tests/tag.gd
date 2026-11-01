@@ -7,6 +7,7 @@ extends Node
 
 const FORMS := ["eorin", "hagik", "bongsi", "anwol", "bangwon", "anhaeng", "chuhaeng", "jangsa"]
 var games := 200
+var rt := false            # --rt: 실시간 엔진
 var _turns := 0.0
 var _n := 0
 
@@ -17,6 +18,20 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	games = int(args.get("games", "200"))
+	rt = args.has("rt")
+	Battle.ults_enabled = not args.has("noult")
+	if args.has("nopsv"): Battle.passives_enabled = false
+	if args.has("bow"): RtBattle.bow_range = float(args.bow)
+	if args.has("cast"): RtBattle.cast_range = float(args.cast)
+	if args.has("far"): RtBattle.far_mul = float(args.far)
+	if args.has("near"): RtBattle.near_mul = float(args.near)
+	if args.has("bank"): RtBattle.melee_bank = float(args.bank)
+	if args.has("reach"): RtBattle.melee_reach = float(args.reach)
+	if args.has("intm"): RtBattle.int_mul = float(args.intm)
+	if args.has("intt"):          # --intt=3:1,4:0.9,… 등급별 책략 배율
+		for kv in str(args.intt).split(","):
+			RtBattle.int_tier[int(kv.split(":")[0])] = float(kv.split(":")[1])
+	if args.has("charge"): RtBattle.cav_charge = float(args.charge)
 	if args.has("tmul"):                  # 턴 배율 (Battle.turn_mul) 바꿔 보기
 		Battle.auto_turn = false
 		Battle.set_turn_mul(float(args.tmul))
@@ -77,9 +92,9 @@ func _match(t: int, core: Array) -> float:
 		var pb := DB.auto_place(b, fb)
 		var r: Dictionary
 		if flip:
-			r = Battle.new(sd).run(pb, fb, 100, null, pa, fa, 100, null, "", "", [], {"A": "smart", "B": "smart"})
+			r = (RtBattle.new(sd) if rt else Battle.new(sd)).run(pb, fb, 100, null, pa, fa, 100, null, "", "", [], {"A": "smart", "B": "smart"})
 		else:
-			r = Battle.new(sd).run(pa, fa, 100, null, pb, fb, 100, null, "", "", [], {"A": "smart", "B": "smart"})
+			r = (RtBattle.new(sd) if rt else Battle.new(sd)).run(pa, fa, 100, null, pb, fb, 100, null, "", "", [], {"A": "smart", "B": "smart"})
 		w += 1.0 if (r.win != flip and not r.draw) else (0.5 if r.draw else 0.0)
 		_turns += r.turns
 		_n += 1

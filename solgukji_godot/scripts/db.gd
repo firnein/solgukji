@@ -30,6 +30,7 @@ var _BASE := {}         # 보정 전 원본 능력치
 var _portrait_cache := {}
 var _portrait_used := {}     # 배경이 투명한 그림 -> 실제로 그려진 영역 (Rect2)
 var _portrait_panel := {}    # 패널째 잘린 그림(그려진 영역이 거의 꽉 찬 사각형) —— 칸을 꽉 채워 그린다
+var _portrait_face := {}     # 그림 -> 얼굴 자리 (그림 속 정사각형 Rect2) —— 전투용 썸네일 (10/30)
 var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등급 그림이 없으면 기본 그림)
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
@@ -360,6 +361,7 @@ func _load_portrait(base: String) -> Texture2D:
 				if img.get_pixel(0, 0).a < 0.1 and img.get_pixel(w, 0).a < 0.1 and img.get_pixel(0, h).a < 0.1 and img.get_pixel(w, h).a < 0.1:
 					var ur := img.get_used_rect()
 					_portrait_used[base] = Rect2(ur)
+					_portrait_face[base] = _find_face(img, ur)
 					var n := 0
 					var on := 0
 					for y in range(ur.position.y, ur.end.y, 8):
@@ -394,6 +396,52 @@ func portrait_panel(k: String) -> bool:
 ## 패널 윗변의 그림 속 y —— 이보다 위는 패널 밖으로 튀어나온 깃·무기
 func portrait_panel_top(k: String) -> float:
 	return float(_portrait_panel.get(portrait_base(k), 0))
+
+
+## 전투용 썸네일 —— 그림에서 얼굴 자리(정사각형). 잘라 낸 인물이 아니면 위쪽 가운데
+func portrait_face(k: String) -> Rect2:
+	var base := portrait_base(k)
+	if _portrait_face.has(base):
+		return _portrait_face[base]
+	var tex := portrait(k)
+	if tex == null:
+		return Rect2()
+	var ts := tex.get_size()
+	var side := minf(ts.x, ts.y) * 0.55
+	return Rect2((ts.x - side) / 2, ts.y * 0.1, side, side)
+
+
+## 얼굴 찾기 —— 2등신 인물은 머리가 위쪽 40% 안에 있다. 머리 띠(위 18~40%)의 줄마다 가장 넓게 이어진 불투명 구간의
+## 가운데를 모아 중앙값을 가로 중심으로 쓴다 (옆으로 뻗은 창·깃발에 끌려가지 않게). 크기는 인물 키의 38%
+static func _find_face(img: Image, ur: Rect2i) -> Rect2:
+	var h := float(ur.size.y)
+	var mids := []
+	var widths := []
+	for y in range(int(ur.position.y + h * 0.18), int(ur.position.y + h * 0.40), 3):
+		var best := 0
+		var best_mid := 0.0
+		var run := 0
+		var start := 0
+		for x in range(ur.position.x, ur.end.x, 2):
+			if img.get_pixel(x, y).a > 0.5:
+				if run == 0:
+					start = x
+				run += 2
+				if run > best:
+					best = run
+					best_mid = start + run * 0.5
+			else:
+				run = 0
+		if best > 0:
+			mids.append(best_mid)
+			widths.append(best)
+	if mids.is_empty():
+		return Rect2(ur.position.x, ur.position.y, ur.size.x, ur.size.x)
+	mids.sort()
+	var cx: float = mids[mids.size() / 2]
+	var side := h * 0.38
+	var cy := ur.position.y + h * 0.29
+	return Rect2(cx - side / 2, cy - side / 2, side, side)
 
 
 ## 잘라 낸 인물 그림이면 그려진 영역, 아니면 빈 Rect2
@@ -439,6 +487,7 @@ func passives_of(k: String):
 			var attr: String = t.get("attr", "")
 			var lv := trait_level(k, e[0])
 			var sc: float = (PSV.level_scale_attr if attr != "" else PSV.level_scale)[str(lv)]
+			sc *= float(PSV.get("axis_tier_mul", {}).get(attr, {}).get(str(c.tier), 1.0))      # 축 × 등급 밸런스 (10/31)
 			if t.has("self"):      # 금색 특기 —— 단체 효과와 함께 주인에게만 붙는 장치
 				var sm := {}
 				for key in t.self:

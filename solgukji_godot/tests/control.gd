@@ -67,6 +67,7 @@ func _duel(t: int, p1: String, p2: String, mixed := false) -> Dictionary:
 	var cmd := 0
 	var share := 0.0
 	var blk := 0
+	var cuts := 0
 	var uh := 0
 	for g in games:
 		var x := []
@@ -84,12 +85,13 @@ func _duel(t: int, p1: String, p2: String, mixed := false) -> Dictionary:
 		var fy: String = FORMS[rng.randi() % FORMS.size()]
 		var seed := rng.randi() % 1000000
 		# 1판: x 가 p1(A) · 2판: x 가 p1(B)
-		var r1 := Battle.new(seed).run(DB.auto_place(x, fx), fx, 100, null, DB.auto_place(y, fy), fy, 100, null, "", "", [], {"A": p1, "B": p2})
-		var r2 := Battle.new(seed).run(DB.auto_place(y, fy), fy, 100, null, DB.auto_place(x, fx), fx, 100, null, "", "", [], {"A": p2, "B": p1})
+		var r1 := RtBattle.make(seed).run(DB.auto_place(x, fx), fx, 100, null, DB.auto_place(y, fy), fy, 100, null, "", "", [], {"A": p1, "B": p2})
+		var r2 := RtBattle.make(seed).run(DB.auto_place(y, fy), fy, 100, null, DB.auto_place(x, fx), fx, 100, null, "", "", [], {"A": p2, "B": p1})
 		w += (1.0 if r1.win else (0.5 if r1.draw else 0.0))
 		w += (1.0 if (not r2.win and not r2.draw) else (0.5 if r2.draw else 0.0))
 		share += (r1.stats.ult_dmg / maxf(1, r1.stats.dmg) + r2.stats.ult_dmg / maxf(1, r2.stats.dmg)) / 2
 		blk += r1.stats.blocked + r2.stats.blocked
+		cuts += int(r1.stats.get("ult_cuts", 0)) + int(r2.stats.get("ult_cuts", 0))
 		uh += r1.stats.ult_hits + r2.stats.ult_hits
 		for r in [r1, r2]:
 			for e in r.ev:
@@ -97,7 +99,7 @@ func _duel(t: int, p1: String, p2: String, mixed := false) -> Dictionary:
 					ult += 1
 				if e.get("fx") == "cmd" and e.camp == ("A" if r == r1 else "B"):
 					cmd += 1
-	print("    [%s vs %s] 고유기 피해 비중 %.0f%% · 고유기 타격 중 방진에 막힌 비율 %.0f%%" % [p1, p2, share / games * 100, 100.0 * blk / maxi(1, uh)])
+	print("    [%s vs %s] 고유기 피해 비중 %.0f%% · 고유기 타격 중 방진에 막힌 비율 %.0f%% · 끊긴 고유기 %.2f /판" % [p1, p2, share / games * 100, 100.0 * blk / maxi(1, uh), cuts / (2.0 * games)])
 	var mix := []
 	for k in [5, 6, 7, 8]:
 		mix.append("%s %.1f" % [DB.TIER[k].n, tc.get(k, 0) / (games * 2.0)])

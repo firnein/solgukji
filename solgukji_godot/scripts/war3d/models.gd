@@ -316,9 +316,7 @@ static func general(tag: String) -> ArrayMesh:
 		k.cyl(Vector3(-0.03, 2.17, 0), Vector3(-0.03, 2.21, 0), 0.175, GOLD, 8)
 		k.cyl(Vector3(-0.03, 2.46, 0), Vector3(-0.1, 2.68, 0), 0.025, RED, 5, 0.08)
 		k.box(Vector3(0.05, 2.33, 0), Vector3(0.03, 0.14, 0.2), GOLD)          # 이마 장식
-	# 등 뒤 깃발 —— 장수기
-	k.cyl(Vector3(-0.2, 1.7, 0), Vector3(-0.24, 2.95, 0), 0.015, WOOD, 4)
-	k.quad(Vector3(-0.24, 2.92, 0), Vector3(-0.24, 2.55, 0), Vector3(-0.62, 2.6, 0.02), Vector3(-0.62, 2.9, 0.02), team(0.95), Vector3(-0.4, 2.7, 0.5))
+	# 등 뒤 깃발(장수기)은 10/31 사용자 요청으로 뺐다
 	return k.mesh()
 
 

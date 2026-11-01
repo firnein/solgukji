@@ -100,6 +100,9 @@
 | `scripts/battle_view.gd` | 실시간 재생 감독 — 시간축 배치, 카메라(휠·끌기), 머리표, 아래 부대 카드, 로그 |
 | `tests/selftest.tscn` | 엔진 자가 점검 (헤드리스) |
 | `tests/turns.tscn` · `tests/attr.tscn` | 전투 길이 · 계열(화공 · 수공) 효과 점검 (헤드리스) |
+| `tests/fingerprint.tscn [-- --rt]` | 엔진 지문 —— 고친 뒤에도 같으면 판정이 안 바뀐 것 (헤드리스) |
+| `tests/turns.tscn -- --rt` · `tests/tag.tscn -- --rt` | 실시간 엔진(RtBattle) 전투 길이 · 병종 덱 승률 |
+| `tests/faces.tscn [-- --kind=face\|card\|ult --shot=…]` | 썸네일 셋(조합 · 전투 얼굴 · 고유기) 한눈에 (화면 필요) |
 | `scripts/game/run.gd` | 한 판의 진행 상태 — 원본 `S` · 징집·조합·환전·편성·7일 진행·토벌·대전·토너먼트 · 저장(`user://save.json`) |
 | `scripts/game/settings.gd` | 설정 — 품질(병사 수·AA·그림자·SSAO) · 자동 전투 (`user://settings.cfg`) |
 | `scripts/ui/game_screen.gd` | 게임 화면 — 위 상태줄 · 아래 탭 5개 · 페이지 · 바텀시트 · 알림 · 전투 전환 · 제목 화면 (`scenes/game.tscn`, 시작 장면) |

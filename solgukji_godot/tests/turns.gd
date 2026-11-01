@@ -8,7 +8,8 @@ extends Node
 const FORMS := ["eorin", "hagik", "bongsi", "anwol", "bangwon", "anhaeng", "chuhaeng", "jangsa"]
 var games := 150
 var pol := "smart"
-var mirror := false        # --mirror: 같은 판을 진영만 바꿔 한 번 더 —— A 쪽 승률이 50% 에서 벗어나면 진영 치우침
+var mirror := false
+var rt := false            # --rt: 실시간 엔진(RtBattle) —— 턴 대신 전장 시간(초)도 센다        # --mirror: 같은 판을 진영만 바꿔 한 번 더 —— A 쪽 승률이 50% 에서 벗어나면 진영 치우침
 
 
 func _ready() -> void:
@@ -23,11 +24,14 @@ func _ready() -> void:
 	for k in ["troop", "intTroop", "morale", "regen", "hit50", "hit25", "routSlope", "routMin", "routSame", "cap"]:
 		if args.has(k):
 			DB.K[k] = float(args[k])
+	if args.has("period"):
+		RtBattle.period_base = float(args.period)
 	if args.has("pace"):
 		Battle.pace = float(args.pace)
 	print("턴 배율 %s · pace %s · K: troop %s · intTroop %s · morale %s" % [Battle.turn_mul, Battle.pace, DB.K.troop, DB.K.intTroop, DB.K.morale])
 	pol = str(args.get("pol", "smart"))
 	mirror = args.has("mirror")
+	rt = args.has("rt")
 	var t0 := Time.get_ticks_msec()
 	print("━━ 같은 등급 (%d판)" % games)
 	for t in [3, 4, 5, 6, 7, 8]:
@@ -45,6 +49,7 @@ func _run(ta: int, tb: int) -> void:
 	var hi: Array = DB.by_tier(ta)
 	var lo: Array = DB.by_tier(tb)
 	var turns := []
+	var secs := []
 	var w := 0.0
 	var capped := 0
 	var routs := 0
@@ -65,9 +70,10 @@ func _run(ta: int, tb: int) -> void:
 			var tf := fa
 			fa = fb
 			fb = tf
-		var r := Battle.new(sd).run(DB.auto_place(a, fa), fa, 100, null, DB.auto_place(b, fb), fb, 100, null,
+		var r := (RtBattle.new(sd) if rt else Battle.new(sd)).run(DB.auto_place(a, fa), fa, 100, null, DB.auto_place(b, fb), fb, 100, null,
 			"", "", [], {"A": pol, "B": pol})
 		turns.append(r.turns)
+		secs.append(r.get("len", 0.0))
 		w += 1.0 if r.win else (0.5 if r.draw else 0.0)
 		if r.turns >= roundi(DB.K.cap * Battle.turn_mul): capped += 1
 		for e in r.ev:
@@ -75,7 +81,10 @@ func _run(ta: int, tb: int) -> void:
 				if str(e.t).contains("패주"): routs += 1
 				else: deaths += 1
 	turns.sort()
+	secs.sort()
 	var mean: float = turns.reduce(func(x, y): return x + y) / float(turns.size())
 	print("  %s vs %s: 평균 %.1f턴 (중앙 %d · 10%% %d · 90%% %d) · 시간 끝 %d판 · A 승률 %.0f%% · 무너짐 병력 %d / 패주 %d" % [
 		DB.TIER[ta].n, DB.TIER[tb].n, mean, turns[turns.size() / 2], turns[turns.size() / 10], turns[turns.size() * 9 / 10],
 		capped, w / games * 100, deaths, routs])
+	if rt:
+		print("      전장 시간 평균 %.0f초 (10%% %.0f · 90%% %.0f)" % [secs.reduce(func(x, y): return x + y) / secs.size(), secs[secs.size() / 10], secs[secs.size() * 9 / 10]])

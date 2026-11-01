@@ -88,6 +88,10 @@ const CRISIS_LOSS := 0.35     # 위기 —— 아군 평균 병력 손실이 이
 const CRISIS_UNITS := 5       #        살아 있는 부대가 이만큼 이하면
 static var crisis_amp := 1.3  # 위기에 쓴 고유기 위력 배율 (배수진) —— 점검용으로 바꿀 수 있어 static
 static var cmd_links := true   # 특기–군령 연결 켜기 (비교용)
+## 작전 (덱 주인이 전투 전에 고른다 —— 11/1 덱 감상 전투). 영리가 늘 이기지 않게 작전마다 강점을 하나씩
+static var tac_rush_pts := 2.0     # 공세 군령 —— 군령 포인트를 이만큼 들고 시작 (첫 돌격이 바로)
+static var tac_rush_atk := 0.25    # 공세 군령 —— 돌격의 공격 상승 +이만큼 (맹진처럼)
+static var tac_hold_amp := 1.6     # 위기 고유기 —— 배수진 위력 배율 (영리 · 즉시는 crisis_amp)
 static var breach := 0.0      # 돌격 중인 공격자가 무시하는 적 방진 피해 감소 비율 —— 0 이 기본 (올리면 조작 효과가 사라진다, 기획 문서 참고)
 const CMDS := {
 	"돌격": {"d": "공격 +20% · 방어 -25%", "buffs": [{"stat": "atk", "amt": 0.20}, {"stat": "def", "amt": -0.25}, {"stat": "breach", "amt": 1.0}]},
@@ -141,6 +145,13 @@ class Unit:
 	var gauge := 0.0          # 고유기 게이지 (100 이면 준비)
 	var sk_ch := []           # 기술마다 따로 도는 충전 (1 이면 준비, SK_BANK 까지 모은다)
 	var charges := 0          # 남은 고유기 횟수
+	# 실시간 엔진(RtBattle) —— 전장 위치와 행동 준비. 턴 엔진은 쓰지 않는다
+	var pos := Vector2.ZERO
+	var fwd := Vector2.RIGHT
+	var tgt: Unit = null      # 지금 노리는 적
+	var atb := 0.0            # 행동 준비 (1 이 되면 사거리 안의 적을 친다)
+	var retgt := 0.0          # 다음 대상 다시 고르기까지 (초)
+	var ran := 0.0            # 마지막 공격 뒤 달려온 거리 (기병 돌격)
 
 
 var K: Dictionary
@@ -163,6 +174,7 @@ var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
 var _one := 1.0               # 한 번뿐인 효과(고유기 · 군령 사기)의 세기 배율 —— 그동안 turn_mul
 var _long := 1.0              # 한 번뿐인 효과(고유기 · 전투 시작 · 군령)의 지속 턴 배율 —— 그동안 turn_mul
+var _tm := 0.0                # 전장 시각(초) —— 실시간 엔진만 쓴다. 사건에 tm 으로 적는다
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
 	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
@@ -318,8 +330,8 @@ func eff(u: Unit, stat: String) -> float:
 	if stat == "atk": v *= lm.atk
 	if stat == "def": v *= lm.def
 	if stat == "int": v *= lm.int
-	if stat == "atk" and lm.pri <= 2: v *= 1 + mv(u, "front_atk")
-	if stat == "int" and lm.pri >= 3: v *= 1 + mv(u, "back_int")
+	if stat == "atk" and mv(u, "front_atk") != 0.0 and _is_front(u): v *= 1 + mv(u, "front_atk")
+	if stat == "int" and mv(u, "back_int") != 0.0 and _is_back(u): v *= 1 + mv(u, "back_int")
 	v *= 1 + mv(u, stat)
 	if stat == "atk":
 		if u.troops < u.max * 0.5: v *= 1 + mv(u, "low_atk")
@@ -388,6 +400,48 @@ func pri(u: Unit) -> int:
 	return int(DB.D.LINE[u.line].pri)
 
 
+# ───────── 열 판정 —— 턴 엔진은 진형의 열, 실시간 엔진(RtBattle)은 거리로 바꿔 쓴다 (10/31 사용자: 특기를 거리 기준으로) ─────────
+
+## 거리로 판정하는 엔진인가 (실시간 엔진이 true)
+func _by_distance() -> bool:
+	return false
+
+
+## 같은 열 이웃인가 (번짐 · 휩쓸기 · 반간 · 독전 · 패주 충격)
+func _same_line(a: Unit, b: Unit) -> bool:
+	return a.line == b.line
+
+
+## 앞쪽 묶음 / 뒤쪽 묶음 (us 는 한 진영의 살아 있는 유닛들)
+func _front_of(us: Array) -> Array:
+	if us.is_empty(): return []
+	var mn: int = us.map(pri).min()
+	return us.filter(func(o): return pri(o) == mn)
+
+
+func _back_of(us: Array) -> Array:
+	if us.is_empty(): return []
+	var mx: int = us.map(pri).max()
+	return us.filter(func(o): return pri(o) == mx)
+
+
+## 앞에 섰나 / 뒤에 섰나 (전방 공격 · 후방 책략 특기)
+func _is_front(u: Unit) -> bool:
+	return pri(u) <= 2
+
+
+func _is_back(u: Unit) -> bool:
+	return pri(u) >= 3
+
+
+## 가장 빽빽한 무리의 수 (기술 조건 dense)
+func _dense_max(us: Array) -> int:
+	var g := {}
+	for o in us:
+		g[o.line] = g.get(o.line, 0) + 1
+	return 0 if g.is_empty() else int(g.values().max())
+
+
 func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Array:
 	if spec == "self": return [me]
 	if spec == "allyAll": return allies.filter(func(u): return u.alive)
@@ -443,7 +497,7 @@ func L(cls: String, text: String, extra: Dictionary = {}) -> void:
 	for u in units:
 		snap.append([maxi(0, roundi(u.troops)), roundi(u.morale), 1 if u.alive else 0, _shown_st(u),
 			int(u.gauge), u.charges])     # 내림 —— 100 은 정말 다 찼을 때만
-	var e := {"c": cls, "t": text, "s": snap, "ai": _ai, "ph": _ph, "who": _who, "turn": _turn,
+	var e := {"c": cls, "t": text, "s": snap, "ai": _ai, "ph": _ph, "who": _who, "turn": _turn, "tm": snappedf(_tm, 0.01),
 		"an": act_n, "pts": [pts.A, pts.B], "bd": _bdone == act_n}
 	e.merge(extra)
 	ev.append(e)
@@ -702,7 +756,7 @@ func tick_status() -> void:
 	for sp in spreads:
 		_spread_burn(sp[0], sp[1])
 	for u in passes:                                  # 반간 —— 풀린 혼란이 같은 열 이웃에게 옮겨 간다 (한 번만)
-		var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and o.line == u.line and not has_st(o, "confuse"))
+		var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and _same_line(o, u) and not has_st(o, "confuse"))
 		if cand.is_empty(): continue
 		var t: Unit = cand[rng.randi() % cand.size()]
 		stats.passes += 1
@@ -761,7 +815,7 @@ func _spread_burn(u: Unit, s: Dictionary) -> void:
 	var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and not has_st(o, s.k))
 	if cand.is_empty():
 		return
-	var same := cand.filter(func(o): return o.line == u.line)
+	var same := cand.filter(func(o): return _same_line(o, u))
 	_spread_burn_to(u, s, pick(same if not same.is_empty() else cand))
 
 
@@ -813,7 +867,7 @@ func _blaze(u: Unit) -> void:
 	if s == null:
 		return
 	for t in units:
-		if t.alive and t != u and t.camp == u.camp and t.line == u.line and not has_st(t, "burn"):
+		if t.alive and t != u and t.camp == u.camp and _same_line(t, u) and not has_st(t, "burn"):
 			_spread_burn_to(u, s, t)
 			stats.blazes += 1
 
@@ -859,9 +913,8 @@ func _tide() -> void:
 		var live := units.filter(func(o): return o.camp != u.camp and o.alive)
 		if live.is_empty():
 			continue
-		var mx: int = live.map(pri).max()
 		L("sk", "%s의 군사가 강을 건너 적 후군을 덮친다" % nm(u), {"fx": "skill", "a": u.key, "name": "수공", "kind": "int"})
-		for t in live.filter(func(o): return pri(o) == mx):
+		for t in _back_of(live):
 			stats.tides += 1
 			inflict(u, t, "flood", _water_flood(u), int(DB.PSV.water.flood.dur))
 
@@ -975,7 +1028,7 @@ func _cleave(a: Unit, d: Unit, mult: float, phys: bool) -> void:
 	var r := mv(a, "cleave" if phys else "icleave")
 	if r <= 0 or a.cleaving or a.countering:
 		return
-	var near := units.filter(func(o): return o.alive and o != d and o.camp == d.camp and o.line == d.line)
+	var near := units.filter(func(o): return o.alive and o != d and o.camp == d.camp and _same_line(o, d))
 	if near.is_empty():
 		return
 	a.cleaving = true
@@ -993,10 +1046,8 @@ func _tac_open() -> void:
 		var live := units.filter(func(o): return o.camp != u.camp and o.alive)
 		if live.is_empty():
 			continue
-		var mn: int = live.map(pri).min()
-		var mx: int = live.map(pri).max()
-		var front := live.filter(func(o): return pri(o) == mn)
-		var back := live.filter(func(o): return pri(o) == mx)
+		var front := _front_of(live)
+		var back := _back_of(live)
 		if mv(u, "rush") > 0:
 			L("sk", "%s의 기병이 적 선봉을 들이친다" % nm(u), {"fx": "skill", "a": u.key, "name": "위진", "kind": "phys"})
 			for t in front: _cut(u, t, "def", 0.2 * u.c.atk, "위진")
@@ -1092,9 +1143,8 @@ func _guard_open() -> void:
 		if mv(u, "wall") <= 0 or not u.alive:
 			continue
 		var mine := units.filter(func(o): return o.camp == u.camp and o.alive)
-		var mn: int = mine.map(pri).min()
 		L("sk", "%s의 명으로 전열이 성벽처럼 늘어선다" % nm(u), {"fx": "skill", "a": u.key, "name": "철옹성", "kind": "phys"})
-		for t in mine.filter(func(o): return pri(o) == mn):
+		for t in _front_of(mine):
 			_give_phalanx(t, 2, "철옹성")
 
 
@@ -1124,7 +1174,7 @@ func _rally(u: Unit, amt: float, why: String, log := true) -> void:
 func _turn_start(u: Unit) -> void:
 	if mv(u, "cheer_turn") > 0:      # 독전 —— 차례마다 같은 열 아군 사기 + (턴 배율만큼 나눠 전투 전체로는 같게)
 		for o in units:
-			if o.alive and o.camp == u.camp and o.line == u.line:
+			if o.alive and o.camp == u.camp and _same_line(o, u):
 				_rally(o, mv(u, "cheer_turn") / turn_mul, "", false)
 	if mv(u, "steady") > 0 and not u.steady_used and u.morale < 60:      # 진정 —— 사기가 60 아래로 떨어지면 한 번 추스른다
 		u.steady_used = true
@@ -1211,7 +1261,7 @@ func rout(u: Unit, why: String) -> void:
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
 	for o in units:
 		if not o.alive or o.camp != u.camp: continue
-		o.morale -= (K.routSame if o.line == u.line else K.routOther) * (1.0 - mv(o, "rout_loss"))
+		o.morale -= (K.routSame if _same_line(o, u) else K.routOther) * (1.0 - mv(o, "rout_loss"))
 		if mv(o, "avenge") > 0 and o.avenge_n < 3:
 			o.avenge_n += 1
 		if mv(o, "resolve") > 0:      # 결사 —— 아군이 무너지면 오히려 사기가 오른다
@@ -1236,6 +1286,35 @@ func check_rout() -> void:
 
 func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Array, b_form: String,
 		b_morale: float, b_equip, title := "", foe_name := "", inputs_ := [], policy_ := {}) -> Dictionary:
+	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, policy_)
+	var turn := 0
+	var winner := ""
+	var cap := roundi(K.cap * turn_mul)
+	while turn < cap and winner == "":
+		turn += 1
+		_turn_begin(turn)
+		var order := []
+		for u in units:
+			if not u.alive: continue
+			var sp: float
+			if mv(u, "first") > 0: sp = eff(u, "spd") * 1.25
+			else: sp = eff(u, "spd") * (1 + rnd(-0.15, 0.15))
+			if turn <= roundi(turn_mul) and u.caps.has("기병") and u.c.tag == "기병": sp *= 1.6
+			if u.fast_side: sp *= 1.12
+			order.append([u, sp])
+		order.sort_custom(func(x, y): return x[1] > y[1])
+		for o in order:
+			_act_one(o[0])
+		winner = _turn_end()
+	return _result(winner, turn)
+
+
+var _meta := {}               # run 재료 중 결과에 그대로 돌려줄 것 (진형 · 시너지 · 제목)
+
+
+## 전투 준비 —— 유닛 만들기 · 턴 배율 · 단체 특기 · 전투 시작 효과
+func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Array, b_form: String,
+		b_morale: float, b_equip, title: String, foe_name: String, inputs_: Array, policy_: Dictionary) -> void:
 	inputs = inputs_
 	for cp in policy_:
 		policy[cp] = policy_[cp]
@@ -1259,7 +1338,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	if passives_enabled or fire_enabled:
 		_apply_group_passives()
 		for cp in ["A", "B"]:
-			pts[cp] = minf(PTS_MAX, cmdm[cp].get("pts_start", 0.0))
+			pts[cp] = minf(PTS_MAX, cmdm[cp].get("pts_start", 0.0) + (tac_rush_pts if _tac(cp, 2) == "공세" else 0.0))
+			if _tac(cp, 2) == "공세":
+				cmdm[cp]["assault"] = cmdm[cp].get("assault", 0.0) + tac_rush_atk
 
 	_long = turn_mul                 # 전투 시작 효과는 한 번뿐 —— 지속 턴을 턴 배율만큼
 	if fire_enabled:
@@ -1269,106 +1350,106 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	_tac_open()
 	_guard_open()
 	_long = 1.0
-	var turn := 0
-	var winner := ""
-	var cap := roundi(K.cap * turn_mul)
-	while turn < cap and winner == "":
-		turn += 1
-		_turn = turn
-		_ai += 1
-		_ph = "act"
-		_who = ""
-		L("div", "", {"fx": "turn", "turn": turn})
-		for u in units:
-			for b in u.buffs: b.dur -= 1
-			u.buffs = u.buffs.filter(func(b): return b.dur > 0)
-		var order := []
-		for u in units:
-			if not u.alive: continue
-			var sp: float
-			if mv(u, "first") > 0: sp = eff(u, "spd") * 1.25
-			else: sp = eff(u, "spd") * (1 + rnd(-0.15, 0.15))
-			if turn <= roundi(turn_mul) and u.caps.has("기병") and u.c.tag == "기병": sp *= 1.6
-			if u.fast_side: sp *= 1.12
-			order.append([u, sp])
-		order.sort_custom(func(x, y): return x[1] > y[1])
+	_meta = {"title": title, "foe": foe_name, "aForm": a_form, "bForm": b_form, "aSyn": a_syn, "bSyn": b_syn}
 
-		for o in order:
-			_between()
-			if not o[0].alive:
-				act_n += 1
-				continue
-			_ai += 1
-			_ph = "act"
-			_who = o[0].key
-			act(o[0])
-			check_rout()
-			act_n += 1
-			if act_n % PTS_EVERY == 0:
-				for cp in ["A", "B"]:
-					pts[cp] = minf(PTS_MAX, pts[cp] + (1.0 + cmdm[cp].get("pts_rate", 0.0)) / turn_mul)
-		_ai += 1
-		_ph = "end"
-		_who = ""
 
-		for u in units:
-			if not u.alive: continue
-			var r := u.troops / u.max
-			var tg := 1.0 - mv(u, "shock")
-			if not u.hit50 and r <= 0.5:
-				u.hit50 = true
-				u.morale -= K.hit50 * tg
-			if not u.hit25 and r <= 0.25:
-				u.hit25 = true
-				u.morale -= K.hit25 * tg
-			if u.morale > 30 and u.morale < 100:
-				var rg: float = K.regen * pace * (1.5 if u.regen_up else 1.0)
-				if u.caps.has("유생"): rg *= 2
-				u.morale = minf(100, u.morale + rg)
+## 턴 시작 —— 버프 지속 턴을 하나 줄인다
+func _turn_begin(turn: int) -> void:
+	_turn = turn
+	_ai += 1
+	_ph = "act"
+	_who = ""
+	L("div", "", {"fx": "turn", "turn": turn})
+	for u in units:
+		for b in u.buffs: b.dur -= 1
+		u.buffs = u.buffs.filter(func(b): return b.dur > 0)
+
+
+## 한 유닛의 한 차례 —— 입력 판정 · 행동 · 패주 확인 · 군령 포인트
+func _act_one(u: Unit) -> void:
+	_between()
+	if not u.alive:
+		act_n += 1
+		return
+	_ai += 1
+	_ph = "act"
+	_who = u.key
+	act(u)
+	check_rout()
+	act_n += 1
+	if act_n % PTS_EVERY == 0:
 		for cp in ["A", "B"]:
-			var side := units.filter(func(u): return u.alive and u.camp == cp)
-			if side.is_empty() or not side[0].caps.has("유생"): continue
-			for u in side:
-				if _scorched(u): continue
-				var g := minf(roundf(u.max * 0.045 * pace), u.max - u.troops)
-				if g > 0: u.troops += g
-			L("hl", "대오를 추스른다 — 진영 병력 %.1f%% 회복" % (4.5 * pace), {"fx": "heal", "f": side[0].key})
-		tick_status()
-		check_rout()
-		for cp in ["A", "B"]:
-			var healed := ""
-			for u in units:
-				if not u.alive or u.camp != cp: continue
-				if mv(u, "mregen") > 0:
-					u.morale = minf(200, u.morale + mv(u, "mregen") * pace)
-				if mv(u, "regen") > 0 and u.troops < u.max and not _scorched(u):
-					u.troops = minf(u.max, u.troops + roundf(u.max * mv(u, "regen") * pace))
-					healed = u.key
-			if healed != "":
-				L("hl", "특기로 대오를 추스른다", {"fx": "heal", "f": healed})
-		for u in units:
-			if not u.alive: continue
-			var r := u.troops / u.max
-			var pm := maxf(K.routMin, (30 - u.morale) * K.routSlope) if u.morale <= 30 else 0.0
-			var pt := (rout_hp - r) * rout_hp_slope if r < rout_hp else 0.0
-			if pm <= 0 and pt <= 0: continue
-			var p := 1.0 - (1.0 - pm) * (1.0 - pt)
-			p *= 1.0 + _side_max(_foe(u.camp), "fear")      # 위압 —— 적 진영에서 가장 센 값 하나
-			p *= 1.0 - mv(u, "rout")
-			p *= 1.0 - _buff_sum(u, "calm")
-			if u.caps.has("유생"): p *= 0.5
-			p = 1.0 - pow(1.0 - minf(p, 1.0), 1.0 / turn_mul)     # 턴이 늘어난 만큼 —— 전투 전체로 보면 같은 빈도
-			if rng.randf() < p:
-				if pm >= pt:
-					rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)))
-				else:
-					rout(u, "병력이 꺾여 패주했다 (남은 병력 %d%%)" % roundi(r * 100))
-		var aA := live_count("A")
-		var bA := live_count("B")
-		if aA == 0 and bA == 0: winner = "draw"
-		elif bA == 0: winner = "A"
-		elif aA == 0: winner = "B"
+			pts[cp] = minf(PTS_MAX, pts[cp] + (1.0 + cmdm[cp].get("pts_rate", 0.0)) / turn_mul)
 
+
+## 턴 끝 정산 —— 사기 · 회복 · 상태이상 · 패주. 승부가 났으면 "A" · "B" · "draw"
+func _turn_end() -> String:
+	_ai += 1
+	_ph = "end"
+	_who = ""
+
+	for u in units:
+		if not u.alive: continue
+		var r := u.troops / u.max
+		var tg := 1.0 - mv(u, "shock")
+		if not u.hit50 and r <= 0.5:
+			u.hit50 = true
+			u.morale -= K.hit50 * tg
+		if not u.hit25 and r <= 0.25:
+			u.hit25 = true
+			u.morale -= K.hit25 * tg
+		if u.morale > 30 and u.morale < 100:
+			var rg: float = K.regen * pace * (1.5 if u.regen_up else 1.0)
+			if u.caps.has("유생"): rg *= 2
+			u.morale = minf(100, u.morale + rg)
+	for cp in ["A", "B"]:
+		var side := units.filter(func(u): return u.alive and u.camp == cp)
+		if side.is_empty() or not side[0].caps.has("유생"): continue
+		for u in side:
+			if _scorched(u): continue
+			var g := minf(roundf(u.max * 0.045 * pace), u.max - u.troops)
+			if g > 0: u.troops += g
+		L("hl", "대오를 추스른다 — 진영 병력 %.1f%% 회복" % (4.5 * pace), {"fx": "heal", "f": side[0].key})
+	tick_status()
+	check_rout()
+	for cp in ["A", "B"]:
+		var healed := ""
+		for u in units:
+			if not u.alive or u.camp != cp: continue
+			if mv(u, "mregen") > 0:
+				u.morale = minf(200, u.morale + mv(u, "mregen") * pace)
+			if mv(u, "regen") > 0 and u.troops < u.max and not _scorched(u):
+				u.troops = minf(u.max, u.troops + roundf(u.max * mv(u, "regen") * pace))
+				healed = u.key
+		if healed != "":
+			L("hl", "특기로 대오를 추스른다", {"fx": "heal", "f": healed})
+	for u in units:
+		if not u.alive: continue
+		var r := u.troops / u.max
+		var pm := maxf(K.routMin, (30 - u.morale) * K.routSlope) if u.morale <= 30 else 0.0
+		var pt := (rout_hp - r) * rout_hp_slope if r < rout_hp else 0.0
+		if pm <= 0 and pt <= 0: continue
+		var p := 1.0 - (1.0 - pm) * (1.0 - pt)
+		p *= 1.0 + _side_max(_foe(u.camp), "fear")      # 위압 —— 적 진영에서 가장 센 값 하나
+		p *= 1.0 - mv(u, "rout")
+		p *= 1.0 - _buff_sum(u, "calm")
+		if u.caps.has("유생"): p *= 0.5
+		p = 1.0 - pow(1.0 - minf(p, 1.0), 1.0 / turn_mul)     # 턴이 늘어난 만큼 —— 전투 전체로 보면 같은 빈도
+		if rng.randf() < p:
+			if pm >= pt:
+				rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)))
+			else:
+				rout(u, "병력이 꺾여 패주했다 (남은 병력 %d%%)" % roundi(r * 100))
+	var aA := live_count("A")
+	var bA := live_count("B")
+	if aA == 0 and bA == 0: return "draw"
+	if bA == 0: return "A"
+	if aA == 0: return "B"
+	return ""
+
+
+## 결과 —— 시간이 다 되면 잔존 병력으로 가린다
+func _result(winner: String, turn: int) -> Dictionary:
 	_ai += 1
 	_ph = "end"
 	if winner == "":
@@ -1383,19 +1464,20 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 
 	for u in units:
 		u.last_hit = null       # 순환 참조를 끊어 RefCounted 가 풀리게 한다
+		u.tgt = null
 	var roster := []
 	for u in units:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
-			"item": u.item, "morale": u.morale})
+			"item": u.item, "morale": u.morale, "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills})   # 끝난 뒤 결과표
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))
 	var mvp = null
 	if not mine.is_empty():
 		mvp = {"name": mine[0].c.name, "id": mine[0].c.id, "kills": mine[0].kills, "dmg": roundi(mine[0].dmg)}
-	return {"win": winner == "A", "draw": winner == "draw", "ev": ev, "roster": roster, "title": title,
-		"foe": foe_name, "aForm": a_form, "bForm": b_form, "aSyn": a_syn, "bSyn": b_syn, "mvp": mvp,
+	return {"win": winner == "A", "draw": winner == "draw", "ev": ev, "roster": roster, "title": _meta.title,
+		"foe": _meta.foe, "aForm": _meta.aForm, "bForm": _meta.bForm, "aSyn": _meta.aSyn, "bSyn": _meta.bSyn, "mvp": mvp,
 		"left": live_count("A"), "eLeft": live_count("B"), "turns": turn, "applied": applied, "rejected": rejected, "policy": policy.duplicate(), "stats": stats}
 
 
@@ -1517,18 +1599,14 @@ func _sk_cond(u: Unit, cond: String, foes: Array, allies: Array) -> bool:
 			"foe_hurt":
 				if lf.any(func(o): return o.troops / o.max <= float(v)): return true
 			"dense":
-				var g := {}
-				for o in lf:
-					g[o.line] = g.get(o.line, 0) + 1
-				if not g.is_empty() and g.values().max() >= int(v): return true
+				if _dense_max(lf) >= int(v): return true
 			"front_n":
-				if not lf.is_empty():
-					var mn: int = lf.map(pri).min()
-					if lf.filter(func(o): return pri(o) == mn).size() >= int(v): return true
+				if _front_of(lf).size() >= int(v): return true
 			"foe_n":
 				if lf.size() >= int(v): return true
 			"line":
-				if lf.any(func(o): return o.line == v): return true
+				var lp: int = int(DB.D.LINE[v].pri) if DB.D.LINE.has(v) else 1
+				if lf.any(func(o): return (o.line == v) if not _by_distance() else (_is_front(o) if lp <= 2 else _is_back(o))): return true
 			"no_st":
 				if lf.any(func(o): return not has_st(o, v)): return true
 			"ally_st":
@@ -1557,7 +1635,7 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	_one = turn_mul
 	_long = turn_mul
 	var nm_: String = ul.name
-	var amp := crisis_amp if _crisis(u.camp) else 1.0
+	var amp := (tac_hold_amp if _tac(u.camp, 1) == "위기" else crisis_amp) if _crisis(u.camp) else 1.0
 	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
 		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0})
 	for comp_ in ul.eff:
@@ -1821,6 +1899,12 @@ func _smart(cp: String, ult_t: String, cmd_t: String, seen: Dictionary) -> void:
 		_:
 			if not foe_charging and threat < 50.0:
 				_command(cp, "돌격")
+
+
+## 작전 정책의 한 부분 —— tac:<고유기>:<군령> 에서 i 번째 (아니면 "")
+func _tac(cp: String, i: int) -> String:
+	var p := str(policy.get(cp, ""))
+	return p.split(":")[i] if p.begins_with("tac:") else ""
 
 
 func _ult_ok(u: Unit, ult_t: String) -> bool:

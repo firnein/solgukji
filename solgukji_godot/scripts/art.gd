@@ -6,7 +6,8 @@ extends RefCounted
 const INK := Color("#0a0e18")
 
 
-static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0) -> void:
+## kind —— "card" 조합 · 도감용 (인물 전체) · "face" 전투용 (얼굴 확대) · "ult" 고유기용 (신화 그림, 없으면 얼굴) —— 10/30 사용자: 셋을 나눈다
+static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind := "card") -> void:
 	# 넓이가 없거나(접히는 중인 칸) 화면에서 아주 먼 곳(달아난 부대의 머리표)은 그리지 않는다 —— 좌표가 크면 다각형 분할이 실패한다
 	if r.size.x < 1.0 or r.size.y < 1.0 or absf(r.position.x) > 20000.0 or absf(r.position.y) > 20000.0:
 		return
@@ -18,9 +19,13 @@ static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0) -> void
 	var bot: Color = DB.PAL.ink
 	ci.draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
 		PackedColorArray([top, top.lerp(bot, 0.3), bot, bot]))
-	# 먹 번짐 —— 등급색을 옅게 깐다
-	ci.draw_circle(r.position + Vector2(r.size.x * 0.5, r.size.y * 0.45), minf(r.size.x, r.size.y) * 0.42, Color(tc, 0.09))
-	# 실제 그림 —— 배경이 투명한 그림도 세력색 바탕 위에 얹힌다
+	# 실제 그림 —— 배경이 투명한 그림도 세력색 바탕 위에 얹힌다 (10/30 뒤에 깔던 등급색 원은 뺐다)
+	if kind == "ult" and DB.myth_art(k):
+		_draw_cover(ci, r, DB.myth_art(k))
+		return
+	if tex and kind != "card":
+		_draw_face(ci, r, tex, DB.portrait_face(k))
+		return
 	if tex:
 		var used := DB.portrait_used(k)
 		if used.has_area() and DB.portrait_panel(k):
@@ -153,13 +158,48 @@ static func draw_panel_pop(ci: CanvasItem, r: Rect2, k: String, pop: float) -> b
 	return true
 
 
-## 잘라 낸 인물 —— 그려진 영역 전체가 들어오게 줄이고, 아래쪽 띠(칸 높이의 15%) 위에 발을 붙여 가운데 둔다
+## 잘라 낸 인물 —— 그려진 영역 전체가 들어오게 줄이고, 아래쪽 띠(칸 높이의 8%) 위에 발을 붙여 가운데 둔다
 static func _draw_fit(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> void:
-	var area := Rect2(r.position + Vector2(r.size.x * 0.05, r.size.y * 0.05), Vector2(r.size.x * 0.9, r.size.y * 0.80))
+	var area := Rect2(r.position + Vector2(r.size.x * 0.02, r.size.y * 0.02), Vector2(r.size.x * 0.96, r.size.y * 0.90))     # 10/30 칸을 더 채운다
 	var sc := minf(area.size.x / used.size.x, area.size.y / used.size.y)
 	var sz := used.size * sc
 	var pos := Vector2(area.position.x + (area.size.x - sz.x) / 2, area.end.y - sz.y)
 	ci.draw_texture_rect_region(tex, Rect2(pos, sz), used)
+
+
+## 둥근 얼굴 —— 얼굴 확대 그림을 원 안에만 (점묘 전장의 장수 토큰). 그림이 없으면 세력색 원
+static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String) -> void:
+	var tex := DB.portrait(k)
+	if tex == null:
+		ci.draw_circle(c, r, DB.fac_color(DB.C[k].fac).darkened(0.3))
+		return
+	var face := DB.portrait_face(k)
+	var ts := tex.get_size()
+	var pts := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	for i in 32:
+		var t := TAU * i / 32.0
+		var d := Vector2(cos(t), sin(t))
+		pts.append(c + d * r)
+		uvs.append((face.get_center() + d * face.size.x * 0.5) / ts)
+	ci.draw_colored_polygon(pts, Color(0.12, 0.1, 0.09))
+	ci.draw_polygon(pts, PackedColorArray([Color.WHITE]), uvs, tex)
+
+
+## 얼굴 확대 —— 얼굴 자리(정사각형)를 칸 비율에 맞춰 넓히거나 줄여 꽉 채운다. 그림 밖으로 나간 부분은 잘라 낸다
+static func _draw_face(ci: CanvasItem, r: Rect2, tex: Texture2D, face: Rect2) -> void:
+	var src := face
+	var asp := r.size.x / r.size.y
+	if asp < 1.0:
+		src = Rect2(face.position.x + face.size.x * (1.0 - asp) / 2, face.position.y, face.size.x * asp, face.size.y)
+	else:
+		src = Rect2(face.position.x, face.position.y + face.size.y * (1.0 - 1.0 / asp) * 0.3, face.size.x, face.size.y / asp)
+	var full := Rect2(Vector2.ZERO, tex.get_size())
+	var cl := src.intersection(full)
+	if not cl.has_area():
+		return
+	var sc := r.size / src.size
+	ci.draw_texture_rect_region(tex, Rect2(r.position + (cl.position - src.position) * sc, cl.size * sc), cl)
 
 
 static func _draw_cover(ci: CanvasItem, r: Rect2, tex: Texture2D) -> void:

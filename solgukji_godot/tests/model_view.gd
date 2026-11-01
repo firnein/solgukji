@@ -1,5 +1,5 @@
 extends Node3D
-## 점검용 —— 장수·병사 모델을 한 줄로 세워 찍는다.  -- --shot=경로.png [--t=초 (애니메이션 시각)] [--walk] [--atk=0.5]
+## 점검용 —— 장수·병사 모델을 한 줄로 세워 찍는다.  -- --shot=경로.png [--t=초 (애니메이션 시각)] [--walk] [--atk=0.5] [--near (보병 가까이)]
 
 func _ready() -> void:
 	var a := {}
@@ -46,7 +46,10 @@ func _ready() -> void:
 			_inst(wm[it[2]], Transform3D(b * Basis(Vector3.BACK, wang + arm * 0.5), Vector3(x, 0, z) + b * hand), mat, custom)
 	var cam := Camera3D.new()
 	add_child(cam)
-	cam.look_at_from_position(Vector3(0, 4.2, 10.5), Vector3(0, 1.0, 1.6))
+	if a.has("near"):        # 보병 줄을 가까이
+		cam.look_at_from_position(Vector3(0, 1.9, 7.4), Vector3(0, 0.75, 3.2))
+	else:
+		cam.look_at_from_position(Vector3(0, 4.2, 10.5), Vector3(0, 1.0, 1.6))
 	cam.fov = 45
 	await get_tree().create_timer(float(a.get("t", "0.3"))).timeout
 	await RenderingServer.frame_post_draw

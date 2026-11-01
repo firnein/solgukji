@@ -346,8 +346,8 @@ func war_page() -> Control:
 		bv.add_child(UI.hint("준비 시간이 끝나면 서버가 토벌과 대전을 치른다."))
 	if run.last_spoil != null:
 		bv.add_child(UI.hint("기본패 %d장 획득 — %s" % [run.last_spoil.n, run.last_spoil.src]))
-	if not run.pending_picks.is_empty():
-		bv.add_child(UI.rich("[color=#D9A64B]받을 선택권 %d개 — 다음 준비 시간에 징집 화면에서[/color]" % run.pending_picks.size(), 14))
+	if run.ticket_left() > 0:
+		bv.add_child(UI.rich("[color=#D9A64B]선택권 %d장 — 다음 준비 시간에 징집 화면에서[/color]" % run.ticket_left(), 14))
 	var bp := UI.sect("이번 페이즈 전투", UI.panel(bv))
 	bp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	two.add_child(bp)
@@ -367,10 +367,8 @@ func _dev_step() -> void:
 		gs.act("do_draw")
 	elif not r.picked:
 		gs.act("begin_picks", ["phase", -1])
-	elif not r.pending_picks.is_empty():
-		gs.act("begin_picks", ["pending", 0])
-	elif not r.pick_queue.is_empty():
-		var pl: Array = DB.by_tier(int(r.pick_queue[0].t))
+	elif r.ticket_left() > 0:
+		var pl: Array = DB.by_tier(r.ticket_tiers()[0])
 		pl.sort_custom(func(x, y): return DB.C[x].tr > DB.C[y].tr)
 		gs.act("pick", [pl[randi() % mini(6, pl.size())]])
 	elif r.placed() < 9 and not r.inv.is_empty():

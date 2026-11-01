@@ -1,0 +1,7 @@
+효과음 · 음악 (10/31 사용자: 유치하지 않게) —— 모두 CC0 (출처 표기 의무 없음)
+hit_*.ogg · crit_*.ogg : StarNinjas "20 sword sound effects (attacks and clashes)" https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes
+tap · open · draw · gain · forge* · deny · magic · skill* · ult · rout* : "RPG Sound Pack" https://opengameart.org/content/rpg-sound-pack
+drums · horn · win : William Hector "Horde War Drums loop" https://opengameart.org/content/horde-war-drums-loop (잘라 씀)
+bgm/battle.wav : Emma_MA "Determined Pursuit (epic orchestra loop)" https://opengameart.org/content/determined-pursuit-epic-orchestra-loop
+bgm/menu.ogg : Spring Spring "War Theme" https://opengameart.org/content/war-theme
+예전 합성 소리는 references/sfx_old (tools/scripts/make_sfx.py 로 다시 만들 수 있다)

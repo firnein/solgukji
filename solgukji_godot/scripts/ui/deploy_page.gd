@@ -42,6 +42,15 @@ func build() -> Control:
 		st[1].add_child(b)
 	v.add_child(st[0])
 
+	# 작전 —— 전투는 자동, 이 방침대로 AI 가 고유기 · 군령을 쓴다
+	var tv := UI.vbox(2)
+	tv.add_child(UI.segmented(Run.TACS.keys().map(func(k): return [k, "작전 " + k]), run.tac, func(k):
+		gs.act("set_tac", [k])))
+	var th := UI.lbl(Run.TACS[run.tac].d, 12, DB.PAL.bamboo)
+	th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tv.add_child(th)
+	v.add_child(tv)
+
 	# 편성판 —— 화면 위쪽에 고정 (손패에서 길게 눌러 끌어 올 수 있게)
 	var syn := Battle.fac_syn(run.board, run.form)
 	var bp := UI.vbox(6)

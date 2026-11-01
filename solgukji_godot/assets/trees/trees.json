@@ -1,0 +1,22 @@
+{
+	"fir_sapling": {
+		"h": 1.3,
+		"side": 2.85
+	},
+	"jacaranda_tree": {
+		"h": 19.47,
+		"side": 25.39
+	},
+	"pine_sapling_small": {
+		"h": 1.3,
+		"side": 2.75
+	},
+	"shrub_03": {
+		"h": 0.4,
+		"side": 1.42
+	},
+	"shrub_04": {
+		"h": 0.22,
+		"side": 0.61
+	}
+}

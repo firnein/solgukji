@@ -4,13 +4,14 @@ extends Node
 ## 축 덱: 그 등급에서 그 축 특기(고유 특기 포함)가 붙은 카드 중 6장(많으면 판마다 무작위) + 같은 등급 무작위로 9장.
 ##  ① 축 덱 vs 같은 등급 무작위 —— 그 축을 켰을 때와 껐을 때 (Battle.axis_off, 차이가 축의 몫)
 ##  ② 축 덱 vs 한 등급 위 무작위 —— 등급 격차가 그대로인지
-## 양쪽 영리 AI, 홀수 판은 진영을 바꿔 붙인다.
+## --rt 면 실시간 엔진(RtBattle). 양쪽 영리 AI, 홀수 판은 진영을 바꿔 붙인다.
 
 const FORMS := ["eorin", "hagik", "bongsi", "anwol", "bangwon", "anhaeng", "chuhaeng", "jangsa"]
 const COUNTER := {}       # 맞수 인물 (2026-10-30 축 개편 뒤로는 비워 둔다)
 const NOT_DECK := {}
 var games := 200
 var attr := "물리"
+var rt := false            # --rt: 실시간 엔진
 
 
 func _ready() -> void:
@@ -23,6 +24,11 @@ func _ready() -> void:
 		Battle.auto_turn = false
 		Battle.set_turn_mul(float(args.tmul))
 	attr = str(args.get("attr", "물리"))
+	rt = args.has("rt")
+	if args.has("intt"):          # --intt=3:1,4:0.9,… 실시간 엔진 등급별 책략 배율
+		for kv in str(args.intt).split(","):
+			RtBattle.int_tier[int(kv.split(":")[0])] = float(kv.split(":")[1])
+	if args.has("charge"): RtBattle.cav_charge = float(args.charge)
 	Battle.ults_enabled = not args.has("noult")
 	Battle.counter_charge = args.has("charge")
 	Battle.counter_enabled = not args.has("nocls")
@@ -103,9 +109,9 @@ func _match(t: int, core: Array, tf: int, foe_core: Array, _x: Array) -> Diction
 		var pb := DB.auto_place(b, fb)
 		var r: Dictionary
 		if flip:
-			r = Battle.new(sd).run(pb, fb, 100, null, pa, fa, 100, null, "", "", [], {"A": "smart", "B": "smart"})
+			r = (RtBattle.new(sd) if rt else Battle.new(sd)).run(pb, fb, 100, null, pa, fa, 100, null, "", "", [], {"A": "smart", "B": "smart"})
 		else:
-			r = Battle.new(sd).run(pa, fa, 100, null, pb, fb, 100, null, "", "", [], {"A": "smart", "B": "smart"})
+			r = (RtBattle.new(sd) if rt else Battle.new(sd)).run(pa, fa, 100, null, pb, fb, 100, null, "", "", [], {"A": "smart", "B": "smart"})
 		var won: bool = r.win != flip and not r.draw
 		w += 1.0 if won else (0.5 if r.draw else 0.0)
 		turns += r.turns

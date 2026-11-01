@@ -49,7 +49,7 @@ func _deck(t: int, rng: RandomNumberGenerator) -> Array:
 
 
 func _run(a: Array, b: Array, seed: int, inp: Array, pol: Dictionary) -> Dictionary:
-	return Battle.new(seed).run(DB.auto_place(a, "eorin"), "eorin", 100, null,
+	return RtBattle.make(seed).run(DB.auto_place(a, "eorin"), "eorin", 100, null,
 		DB.auto_place(b, "hagik"), "hagik", 100, null, "", "", inp.duplicate(true), pol)
 
 

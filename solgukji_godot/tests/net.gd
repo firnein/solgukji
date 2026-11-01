@@ -100,11 +100,10 @@ func _play(b: Dictionary, run: Dictionary, room: Dictionary) -> void:
 	if not run.picked:
 		c.send({"t": "cmd", "m": "begin_picks", "a": ["phase", -1]})
 		return
-	if not run.pending_picks.is_empty():
-		c.send({"t": "cmd", "m": "begin_picks", "a": ["pending", 0]})
-		return
-	if not run.pick_queue.is_empty():
-		var pl: Array = DB.by_tier(int(run.pick_queue[0].t))
+	var tk: Dictionary = run.get("tickets", {})
+	var tt: Array = tk.keys().filter(func(x): return int(tk[x]) > 0)
+	if not tt.is_empty():
+		var pl: Array = DB.by_tier(int(tt[0]))
 		pl.sort_custom(func(x, y): return DB.C[x].tr > DB.C[y].tr)
 		c.send({"t": "cmd", "m": "pick", "a": [pl[b.i % mini(6, pl.size())]]})
 		return

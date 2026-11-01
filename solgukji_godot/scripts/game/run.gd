@@ -1,6 +1,6 @@
 class_name Run
 extends RefCounted
-## 한 판의 진행 상태 —— 원본 HTML 의 S 와 진행 규칙(4. 상태 · 5. 조합·환전 · 8. 진행)을 옮겼다.
+## 한 판의 진행 상태 —— 원본 HTML 의 S 와 진행 규칙(4. 상태 · 5. 조합(환전은 뺐다) · 8. 진행)을 옮겼다.
 ## 화면과 떨어져 있어 헤드리스로 점검할 수 있다. 저장은 to_dict / from_dict (user://save.json).
 ##
 ## 원본과 다른 점 —— 전투 결과는 전투를 시작할 때가 아니라 끝날 때 반영한다.
@@ -13,7 +13,6 @@ const DAYNAME := ["월", "화", "수", "목", "금", "토", "일"]
 const ROUNDNM := ["8강", "4강", "결승"]
 const FREE_TIER_CAP := 5      # 무상으로 주는 패의 천장. 초월 이상은 조합으로만 오른다
 const STRIKE_MAX := 4         # 토벌 실패 경고 한도 —— 3일차부터 닿으면 멸망
-const TRADE_PER_PHASE := 5
 const SKILL_LO := 0.98        # 봇 실력 계수
 const SKILL_HI := 1.38
 const SAVE_PATH := "user://save.json"
@@ -26,13 +25,13 @@ var bag := {}                 # 아이템 id -> 개수
 var board := []               # 9칸 —— 카드 id 또는 null
 var equip := []               # 9칸 —— 아이템 id 또는 null
 var form := "eorin"
+var tac := "균형"            # 작전 —— 전투 전에 고른다. 전투 중 AI 가 이 방침으로 고유기 · 군령을 쓴다 (11/1)
 var drawn := false
 var picked := false
 var granted := false
 var quest_done := false
 var pvp_done := false
-var pending_picks := []       # [{t, n, src}]
-var trades := TRADE_PER_PHASE
+var tickets := {}             # 선택권 —— 등급("4") -> 남은 장수. 등급마다 따로 쓴다 (끄고 켜도 남는다)
 var strikes := 0
 var last_draw := []
 var last_item = null
@@ -46,7 +45,6 @@ var over = null               # {win, msg}
 var battle = null             # 진행 중인 전투 {kind, p(재료), inputs, ...} —— 끝나면 null
 var last_result = null        # 마지막 전투 요약 —— 전투 탭에 다시 보여 준다
 var toasts := []              # 화면이 가져가 띄우는 알림 [text, kind]
-var pick_queue := []          # 쓰는 중인 선택권 [{t, n}] —— 하나씩 pick(k) 로 받는다 (끄고 켜도 남는다)
 var mp := false               # 여럿이 하는 판 —— 봇(bots)은 다른 자리의 거울이라 서버가 채운다
 
 
@@ -62,13 +60,13 @@ func new_game(seed_value := -1) -> void:
 	board = _nine()
 	equip = _nine()
 	form = "eorin"
+	tac = "균형"
 	drawn = false
 	picked = false
 	granted = false
 	quest_done = false
 	pvp_done = false
-	pending_picks = []
-	trades = TRADE_PER_PHASE
+	tickets = {}
 	strikes = 0
 	last_draw = []
 	last_item = null
@@ -295,7 +293,7 @@ func recommend_items() -> Array:
 	return eq
 
 
-# ───────── 조합 · 환전 ─────────
+# ───────── 조합 ─────────
 
 static func mat_count(mats: Array) -> Dictionary:
 	var m := {}
@@ -388,15 +386,6 @@ func tier_stock(t: int) -> Dictionary:
 	return o
 
 
-func trade(from: String, want: String) -> bool:
-	if trades <= 0 or DB.C[from].tier != DB.C[want].tier or have(from) < 1:
-		return false
-	take(from)
-	give(want)
-	trades -= 1
-	return true
-
-
 # ───────── 편성 ─────────
 
 func place(i: int, k: String) -> void:
@@ -452,6 +441,19 @@ func auto_deploy() -> void:
 func clear_board() -> void:
 	for i in 9:
 		unplace(i)
+
+
+## 작전 —— 정책 문자열 (Battle tac:<고유기>:<군령>) 과 설명. 셋이 서로 물고 물리게 맞췄다 (11/1 측정, ±5%p)
+const TACS := {
+	"균형": {"pol": "tac:영리:영리", "d": "상대를 보고 돌격 · 방진을 고르고, 고유기는 값어치 있을 때 쓴다"},
+	"맹공": {"pol": "tac:즉시:공세", "d": "군령 포인트를 들고 시작해 바로 돌격, 돌격 공격 +25% · 고유기는 차면 바로"},
+	"굳히기": {"pol": "tac:위기:수비", "d": "돌격 없이 방진 · 재정비로 버틴다 · 고유기는 꺾일 때까지 아껴 배수진 위력 ×1.6"},
+}
+
+
+func set_tac(t: String) -> void:
+	if TACS.has(t):
+		tac = t
 
 
 ## 진형을 바꾸면 같은 칸 번호에 그대로 둔다 (원본과 같다)
@@ -557,7 +559,6 @@ func advance() -> void:
 	quest_done = false
 	pvp_done = false
 	last_result = null
-	trades = TRADE_PER_PHASE
 	last_draw = []
 	last_spoil = null
 	if day > 6:
@@ -588,7 +589,7 @@ func can_next() -> bool:
 # ───────── 전투 —— 시작에 재료를 적고, 끝에 보상 ─────────
 
 func _my_side() -> Dictionary:
-	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": equip.duplicate()}
+	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": equip.duplicate(), "tac": tac}
 
 
 func _bot_side(pv: float, style: String) -> Dictionary:
@@ -632,11 +633,15 @@ func start_tour() -> Dictionary:
 	return battle
 
 
-## 상대 AI —— 대전·토너먼트 상대는 영리(비동기 상대 AI), 토벌의 적은 자동
-static func policy_for(bt: Dictionary, mine: String) -> Dictionary:
+## 정책 —— 각 진영이 고른 작전 (없으면 영리). 토벌의 적은 자동(foe_ai)
+static func policy_for(bt: Dictionary) -> Dictionary:
 	if bt.has("pol"):
 		return bt.pol
-	return {"A": mine, "B": bt.get("foe_ai", "smart")}
+	return {"A": side_pol(bt.a), "B": bt.get("foe_ai", side_pol(bt.b))}
+
+
+static func side_pol(side: Dictionary) -> String:
+	return TACS.get(side.get("tac", ""), {}).get("pol", "smart")
 
 
 ## 진영 뒤집기 —— 사람끼리 대전은 한 번만 계산하고, B 쪽 사람에게는 A·B 를 바꾼 결과를 준다
@@ -651,6 +656,14 @@ static func flip_res(res: Dictionary) -> Dictionary:
 	out.aSyn = _flip(res.bSyn)
 	out.bSyn = _flip(res.aSyn)
 	out.mvp = null
+	if res.has("track"):          # 실시간 엔진 위치 —— 좌우를 바꾼다 (x → -x, 방향각 a → π - a)
+		out.track = res.track.map(func(fr): return [fr[0], fr[1].map(func(p): return [-p[0], p[1], snappedf(wrapf(PI - float(p[2]), -PI, PI), 0.01), p[3], p[4]])])
+		out.terrain = res.get("terrain", []).map(func(z): var o: Dictionary = z.duplicate(); o.x = -int(z.x); return o)
+		for e in out.ev:
+			for sh in e.get("area", []):     # 기술 범위도 좌우를 바꾼다
+				sh.x = -sh.x
+				if sh.has("x2"):
+					sh.x2 = -sh.x2
 	return out
 
 
@@ -682,7 +695,7 @@ static func _flip(v):
 
 ## 전투 계산 —— 화면(BattleView)과 같은 식. 입력과 정책을 받는다
 static func simulate(bt: Dictionary, inputs: Array, policy: Dictionary) -> Dictionary:
-	return Battle.new(bt.seed).run(bt.a.cards, bt.a.form, bt.a.morale, bt.a.equip,
+	return RtBattle.make(bt.seed).run(bt.a.cards, bt.a.form, bt.a.morale, bt.a.equip,
 		bt.b.cards, bt.b.form, bt.b.morale, bt.b.equip, bt.title, bt.foe, inputs, policy)
 
 
@@ -699,7 +712,7 @@ func finish_battle(res: Dictionary) -> void:
 			quest_done = true
 			if res.win:
 				for p in DB.D.QUEST_REWARD[day]:
-					pending_picks.append({"t": int(p.t), "n": int(p.n), "src": "토벌 · " + quest_name()})
+					add_ticket(int(p.t), int(p.n))
 				var n := int(DB.D.QUEST_BASE[day])
 				for i in n:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
@@ -723,11 +736,11 @@ func finish_battle(res: Dictionary) -> void:
 			if res.win:
 				my_w += 1
 				if b: b.l += 1
-				pending_picks.append({"t": 4 if day >= 3 else 3, "n": 1, "src": "대전 승리 · " + bt.foe})
+				add_ticket(4 if day >= 3 else 3, 1)
 			else:
 				my_l += 1
 				if b: b.w += 1
-				pending_picks.append({"t": 3 if day >= 3 else 2, "n": 1, "src": "대전 패배 · " + bt.foe})
+				add_ticket(3 if day >= 3 else 2, 1)
 		"tour":
 			var r: int = tour.round
 			var ms: Array = tour.res[r]
@@ -752,7 +765,7 @@ func resolve_pending() -> Dictionary:
 	if battle == null:
 		return {}
 	var inputs: Array = battle.inputs.duplicate(true)
-	var res := simulate(battle, inputs, policy_for(battle, "auto"))
+	var res := simulate(battle, inputs, policy_for(battle))
 	finish_battle(res)
 	return res
 
@@ -781,7 +794,7 @@ func _tour_board(pl: Dictionary) -> Dictionary:
 func _sim_match(a: Dictionary, b: Dictionary) -> String:
 	var x := _tour_board(a)
 	var y := _tour_board(b)
-	var r := Battle.new(rng.randi() % 1000000).run(x.cards, x.form, x.morale, x.equip, y.cards, y.form, y.morale, y.equip)
+	var r := RtBattle.make(rng.randi() % 1000000).run(x.cards, x.form, x.morale, x.equip, y.cards, y.form, y.morale, y.equip)
 	return a.name if r.win else b.name
 
 
@@ -821,32 +834,52 @@ func tour_foe() -> Dictionary:
 
 # ───────── 선택권 ─────────
 
-## 선택권을 꺼낸다 —— src "phase"(이번 페이즈 선택권) 또는 "pending"(전투 보상 i 번째)
-func begin_picks(src: String, i := -1) -> void:
-	if src == "phase":
-		if picked:
-			return
-		picked = true
-		pick_queue.append_array(pick_list())
-	elif src == "pending" and i >= 0 and i < pending_picks.size():
-		var p: Dictionary = pending_picks.pop_at(i)
-		pick_queue.append({"t": mini(FREE_TIER_CAP, int(p.t)), "n": int(p.n)})
+## 이번 페이즈 선택권을 받는다 —— 등급별 선택권(tickets)에 더한다. src 는 예전 명령 모양을 지키려고 남겨 둠
+func begin_picks(src: String, _i := -1) -> void:
+	if src != "phase" or picked:
+		return
+	picked = true
+	for p in pick_list():
+		add_ticket(int(p.t), int(p.n))
 
 
-## 선택권 하나 —— 맨 앞 선택권의 등급 카드만 받는다
+func add_ticket(t: int, n: int) -> void:
+	var key := str(mini(FREE_TIER_CAP, t))
+	tickets[key] = int(tickets.get(key, 0)) + n
+
+
+## 선택권이 남은 등급 —— 높은 등급 먼저
+func ticket_tiers() -> Array:
+	var ts: Array = tickets.keys().map(func(x): return int(x)).filter(func(t): return int(tickets[str(t)]) > 0)
+	ts.sort()
+	ts.reverse()
+	return ts
+
+
+func ticket_left() -> int:
+	var n := 0
+	for k in tickets:
+		n += int(tickets[k])
+	return n
+
+
+## 선택권 하나 —— 그 카드 등급의 선택권을 쓴다
 func pick(k: String) -> bool:
-	if pick_queue.is_empty() or not DB.C.has(k) or DB.C[k].tier != int(pick_queue[0].t):
+	if not DB.C.has(k):
+		return false
+	var key := str(DB.C[k].tier)
+	if int(tickets.get(key, 0)) <= 0:
 		return false
 	give(k)
-	pick_queue[0].n = int(pick_queue[0].n) - 1
-	if pick_queue[0].n <= 0:
-		pick_queue.pop_front()
+	tickets[key] = int(tickets[key]) - 1
+	if tickets[key] <= 0:
+		tickets.erase(key)
 	return true
 
 
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
-const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "trade": 2,
-	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2}
+const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1,
+	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2}
 
 
 func command(m: String, a: Array):
@@ -860,9 +893,9 @@ func command(m: String, a: Array):
 
 # ───────── 저장 ─────────
 
-const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "drawn", "picked", "granted",
-	"quest_done", "pvp_done", "pending_picks", "trades", "strikes", "last_draw", "last_item", "last_spoil",
-	"tour", "my_w", "my_l", "news", "bots", "over", "battle", "last_result", "pick_queue", "mp"]
+const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
+	"quest_done", "pvp_done", "tickets", "strikes", "last_draw", "last_item", "last_spoil",
+	"tour", "my_w", "my_l", "news", "bots", "over", "battle", "last_result", "mp"]
 
 
 func to_dict() -> Dictionary:
@@ -882,11 +915,14 @@ func from_dict(d: Dictionary) -> void:
 	for dict in [inv, bag]:
 		for k in dict:
 			dict[k] = int(dict[k])
-	for k in ["day", "phase", "trades", "strikes", "my_w", "my_l"]:
+	for k in ["day", "phase", "strikes", "my_w", "my_l"]:
 		set(k, int(get(k)))
-	for p in pending_picks + pick_queue:
-		p.t = int(p.t)
-		p.n = int(p.n)
+	if not d.has("tickets"):
+		tickets = {}
+		for p in d.get("pending_picks", []) + d.get("pick_queue", []):     # 예전 저장 —— 줄 선 선택권을 등급별로
+			add_ticket(int(p.t), int(p.n))
+	for k in tickets:
+		tickets[k] = int(tickets[k])
 	for b in bots:
 		for k in ["w", "l", "strikes", "top"]:
 			b[k] = int(b[k])
@@ -945,25 +981,23 @@ func dev_autoplay() -> void:
 			init_tour()
 		while over == null:
 			var bt := start_tour()
-			finish_battle(simulate(bt, [], policy_for(bt, "auto")))
+			finish_battle(simulate(bt, [], policy_for(bt)))
 			if over == null:
 				tour_advance()
 		return
 	var q := start_quest()
-	finish_battle(simulate(q, [], policy_for(q, "auto")))
+	finish_battle(simulate(q, [], policy_for(q)))
 	if over != null:
 		return
 	_dev_spend()
 	var p := start_pvp()
-	finish_battle(simulate(p, [], policy_for(p, "auto")))
+	finish_battle(simulate(p, [], policy_for(p)))
 	advance()
 
 
 func _dev_spend() -> void:
-	while not pending_picks.is_empty():
-		begin_picks("pending", 0)
-	while not pick_queue.is_empty():
-		var pl: Array = DB.by_tier(int(pick_queue[0].t))
+	while ticket_left() > 0:
+		var pl: Array = DB.by_tier(ticket_tiers()[0])
 		pl.sort_custom(func(a, b): return DB.C[a].tr > DB.C[b].tr)
 		pick(pl[rng.randi() % mini(6, pl.size())])
 	var made := true

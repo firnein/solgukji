@@ -9,7 +9,7 @@ const S := 0.1
 const GAP := 240.0      # 양군 선봉 사이 (px)
 const RS := 78.0        # 열 간격 (px) —— 부대가 앞뒤로 이어지게
 const CS := 118.0       # 좌·중앙·우 간격 (px) —— 옆 부대와 거의 붙은 전열
-const TEAM := {"A": Color("#3f7fd0"), "B": Color("#c8463c")}
+const TEAM := {"A": Color("#3a6aa6"), "B": Color("#a9443a")}     # 10/31 조금 가라앉힌 진영색
 const ST_COL := {"burn": Color("#ff8a3c"), "flood": Color("#4a9ad4"), "confuse": Color("#b57edc"),
 	"bleed": Color("#c4564a"), "plague": Color("#7fa86b"), "seal": Color("#9a9a9a"),
 	"cut_atk": Color("#e0705a"), "cut_int": Color("#7f8fe0"), "cut_def": Color("#e8a84a"), "cut_res": Color("#c46fd0"),     # 위축 · 산란 · 파갑 · 현혹 (수치 깎기, 솔국지 확장)
@@ -60,6 +60,13 @@ var arrows := []
 var orbs := []
 var lights := []
 var rings := []
+var areas := []
+var tzones := []            # 실시간 엔진 지형 (res.terrain) —— 숲 · 강 · 언덕. 좌표는 전장 px
+var _hills := []            # [중심(세계), 반지름(세계)] —— height() 에 둔덕을 더한다
+var terrain_root: Node3D    # 판마다 새로 까는 지형 (나무 · 물길 · 둔덕)
+const HILL_H := 2.2         # 둔덕 높이 (세계 단위)             # 기술 범위 표시 [{n: Decal, t0, life}] —— 땅에 깔렸다 사라진다
+var _disc_tex: Texture2D
+var _band_tex: Texture2D
 var fx_nodes := []
 var auras := {}
 var _soft: Texture2D
@@ -81,6 +88,32 @@ var _cine_back := []        # 연출 전 카메라 [대상, 거리, 높이각]
 var director := true        # 자동 카메라 —— 살아 있는 부대가 화면에 꽉 차게 따라간다
 var _manual := 0.0          # 손으로 카메라를 움직인 뒤 자동 카메라가 쉬는 시간 (실시간)
 const MANUAL_HOLD := 5.0
+var track_mode := false    # 실시간 엔진 전투 —— 부대가 엔진 위치 기록을 따른다 (follow_track)
+var _model_q := -1          # 몸통을 구운 품질 단계
+# 병사 그림 판 (10/31 사용자: 일러스트 병사) —— assets/troops_sprite/<병종>.png 가 있으면 그 병종 병사는 그림으로 그린다 (장수는 3D)
+const SPRITE_DIR := "res://assets/troops_sprite/"
+const SPRITE_H := {"기병": 2.75}   # 그림 판 한 변 (세계 단위, 없으면 1.79) —— 발이 판 아래 끝. 그림 한 칸이 이 크기를 덮는다
+static var sprites_enabled := false   # 지금 그림은 3D 를 찍은 임시라 끈다 —— 일러스트 그림(prompts/병사_스프라이트)이 오면 true
+# 구운 3D 병사 (10/31 사용자: 무료 3D 에셋 —— KayKit CC0) : assets/models/vat/<병종>_mesh.res 가 있으면 그 병종 병사는 이것으로 (그림 판보다 먼저)
+const VAT_DIR := "res://assets/models/vat/"
+static var vat_enabled := true       # 10/31 사용자: Mixamo 실사 병사 (창병부터) —— 구운 병종만 이것으로
+var vat_mat := {}           # 병종 -> 재질
+var vat_mesh := {}          # 병종 -> 메시
+var sprite_mat := {}        # 병종 -> 그림 판 재질
+var _sprite_quad := {}      # 병종 -> 그림 판
+var follow: Squad = null
+var flat: DotView = null    # 점묘 전장 —— 있으면 화면 좌표를 이것이 정한다 (3D 는 계산만)
+var _cam_attr: CameraAttributesPractical      # 먼 곳 흐림 (고품질만)
+const SHOW_BANNERS := false # 부대 깃발 —— 10/31 사용자: 뺀다 (화면이 정신없다)
+const AUTO_MARGIN := 1.04   # 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
+const BASE_YAW := -0.7854     # 기본 구도 —— 아군 7시 · 적 1시 대각선 (리그오브레전드 쪽, 10/31 사용자). 0 이면 아군 6시 · 적 12시
+const AUTO_MIN := 30.0      # 자동 카메라 최소 거리
+# 멀리 보기 (삼국지13) —— 카메라가 이보다 멀면 간단한 효과만: 불꽃 · 흙먼지 같은 작은 입자, 베기 초승달, 평타 화살을 뺀다.
+# 대신 부대 발밑 판이 맞을 때 번쩍이고, 공격 화살표 · 행동 아이콘으로 알린다. 확대하면 자세한 효과가 돌아온다
+const OVERVIEW_DIST := 40.0
+const SMALL_FX := ["spark", "dust", "haze", "trail"]
+var overview := true
+var cfx: CombatFx           # 공격 화살표 · 베기 · 궤적 (scripts/war3d/combat_fx.gd)    # 꾹 눌러 고른 부대 —— 카메라가 계속 따라간다 (끌어서 옮기거나 두 번 누르면 풀림)
 var squad_rings := {}       # 부대 key -> Decal (발밑 진영색 고리)
 var _ring_tex: Texture2D
 
@@ -99,10 +132,14 @@ func _ready() -> void:
 	soldier_mat.set_shader_parameter("team_b", TEAM.B)
 	for tag in Squad.CLS:
 		body_mesh[tag] = Models.body(tag)
+	_load_sprites()
+	_load_vat()
 	weapon_mesh = {"spear": Models.spear(), "sword": Models.sword(), "lance": Models.lance(),
 		"g_glaive": Models.glaive(), "g_saber": Models.saber(), "g_lance": Models.snake_lance()}
 	unit_root = Node3D.new()
 	add_child(unit_root)
+	cfx = CombatFx.new(self)
+	add_child(cfx)
 	fx_root = Node3D.new()
 	add_child(fx_root)
 	var am := MultiMesh.new()
@@ -129,6 +166,7 @@ func _ready() -> void:
 	_soft = g
 	ult = UltFx.new(self)
 	cam = Camera3D.new()
+	cam.attributes = _cam_attr          # 품질 설정이 카메라보다 먼저 만들었으면 붙인다
 	cam.fov = 50
 	cam.far = 2000
 	add_child(cam)
@@ -140,6 +178,20 @@ func _ready() -> void:
 
 ## 지형 높이 —— 격자가 있으면 격자에서 보간한다 (노이즈를 매번 다시 계산하지 않는다)
 func height(x: float, z: float) -> float:
+	return _base_h(x, z) + _bump(x, z)
+
+
+## 언덕 둔덕 —— 가운데 HILL_H, 가장자리로 부드럽게
+func _bump(x: float, z: float) -> float:
+	var h := 0.0
+	for hl in _hills:
+		var d := Vector2(x, z).distance_to(hl[0])
+		if d < hl[1]:
+			h = maxf(h, HILL_H * smoothstep(hl[1], hl[1] * 0.45, d))
+	return h
+
+
+func _base_h(x: float, z: float) -> float:
 	if _hn == 0:
 		return height_exact(x, z)
 	var fx := clampf((x + _hhalf) / _hstep, 0.0, _hn - 0.001)
@@ -167,46 +219,45 @@ func _environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
-	var psm := ProceduralSkyMaterial.new()
-	psm.sky_top_color = Color("#3f6596")
-	psm.sky_horizon_color = Color("#e6cfa6")
-	psm.ground_horizon_color = Color("#9a8a70")
-	psm.ground_bottom_color = Color("#2b2a26")
-	psm.sky_curve = 0.12
-	psm.sun_angle_max = 25
+	# 10/31 사용자: 카툰 느낌을 벗는다 → 실제 하늘 사진(HDRI, Poly Haven CC0 kloofendal_48d_partly_cloudy_puresky). 주변광도 여기서
+	var psm := PanoramaSkyMaterial.new()
+	psm.panorama = load("res://assets/terrain/sky.hdr")
+	psm.energy_multiplier = 0.9
 	sky.sky_material = psm
+	sky.radiance_size = Sky.RADIANCE_SIZE_256
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.75
+	env.ambient_light_energy = 0.62
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.0
+	env.tonemap_exposure = 0.95
 	env.tonemap_white = 6.0
 	env.ssao_enabled = false        # set_quality 가 켠다 (Forward+ 에서만)
 	env.ssao_intensity = 1.6
 	env.ssao_radius = 1.2
 	env.glow_enabled = true
-	env.glow_intensity = 0.55
+	env.glow_intensity = 0.32
 	env.glow_bloom = 0.04
 	env.fog_enabled = true
-	env.fog_light_color = Color("#9fb0bf")
-	env.fog_density = 0.0011
-	env.fog_aerial_perspective = 0.2
+	env.fog_light_color = Color("#a3a59e")
+	env.fog_density = 0.0016
+	env.fog_aerial_perspective = 0.35
 	env.fog_sky_affect = 0.25
 	env.volumetric_fog_enabled = false
 	env.volumetric_fog_density = 0.0012
 	env.volumetric_fog_albedo = Color("#c8d0d8")
 	env.volumetric_fog_length = 220
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
-	env.adjustment_contrast = 1.06
+	env.adjustment_saturation = 0.9
+	env.adjustment_contrast = 1.16
+	env.adjustment_brightness = 0.96
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	_env = env
 	var sun := DirectionalLight3D.new()
 	_sun = sun
-	sun.light_color = Color("#ffd9a8")
-	sun.light_energy = 2.0
+	sun.light_color = Color("#efe2c8")
+	sun.light_energy = 1.8
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 240
 	sun.shadow_blur = 1.5
@@ -219,10 +270,37 @@ func _environment() -> void:
 func set_quality(q: int) -> void:
 	if _env == null:
 		return
+	# 모델 분할이 바뀌었으면 몸통을 다시 굽는다 (다음 setup 부터 —— 장수 몸통은 setup 때 굽는다)
+	if q != _model_q:
+		_model_q = q
+		for tag in Squad.CLS:
+			body_mesh[tag] = Models.body(tag)
+		for bk in body_mesh.keys():
+			if str(bk).begins_with("G:"):
+				body_mesh.erase(bk)
 	var fp := RenderingServer.get_current_rendering_method() == "forward_plus"
 	_env.ssao_enabled = fp and q >= 2
 	_env.volumetric_fog_enabled = fp and q >= 2
 	_env.glow_enabled = q >= 1
+	# 10/31 후처리 (고품질 · Forward+): 간접광(SSIL) · 진한 그늘 · 먼 곳 흐림 —— 실사 땅 · 나무와 맞춘다
+	_env.ssil_enabled = fp and q >= 2
+	_env.ssil_intensity = 0.7
+	_env.ssil_radius = 6.0
+	_env.ssao_intensity = 2.2
+	_env.ssao_radius = 1.6
+	_env.volumetric_fog_density = 0.0018
+	if q >= 2:
+		if _cam_attr == null:
+			_cam_attr = CameraAttributesPractical.new()
+			_cam_attr.dof_blur_far_enabled = true
+			_cam_attr.dof_blur_far_transition = 60.0
+			_cam_attr.dof_blur_amount = 0.05
+		if cam:
+			cam.attributes = _cam_attr
+	else:
+		_cam_attr = null
+		if cam:
+			cam.attributes = null
 	_sun.directional_shadow_max_distance = [140.0, 200.0, 240.0][clampi(q, 0, 2)]
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
@@ -256,13 +334,14 @@ func _terrain() -> void:
 			verts[k] = Vector3(x, y, z)
 			norms[k] = nn
 			var n2 := noise.get_noise_2d(x * 1.7 + 77.0, z * 1.7) * 0.5 + 0.5
-			var c := Color(0.27, 0.38, 0.15).lerp(Color(0.46, 0.48, 0.22), n2)
+			var c := Color(0.28, 0.32, 0.19).lerp(Color(0.42, 0.40, 0.27), n2)       # 10/31 흙빛 도는 풀 (예전 쨍한 연두)
 			var n3 := noise.get_noise_2d(x * 3.1 - 40.0, z * 3.1) * 0.5 + 0.5
 			var trample := (1.0 - smoothstep(22.0, 58.0, absf(x))) * (1.0 - smoothstep(16.0, 34.0, absf(z))) * clampf(n3 * 1.6 - 0.2, 0, 1)
-			c = c.lerp(Color(0.36, 0.30, 0.21), trample * 0.7)
+			c = c.lerp(Color(0.34, 0.28, 0.21), trample * 0.8)
 			var slope := 1.0 - nn.y
 			c = c.lerp(Color(0.42, 0.41, 0.38), smoothstep(0.18, 0.42, slope))
 			c = c.lerp(Color(0.18, 0.26, 0.14), smoothstep(80.0, 200.0, Vector2(x * 0.8, z * 1.5).length()) * 0.5)
+			c.a = clampf(trample * 0.9 + smoothstep(0.15, 0.4, slope) + (n3 - 0.55) * 0.6, 0.0, 1.0)     # 실사 지형의 진흙 비율 (terrain.gdshader)
 			cols[k] = c
 	var idx := PackedInt32Array()
 	for j in N:
@@ -292,6 +371,9 @@ func _terrain() -> void:
 	fn.fractal_octaves = 4
 	tex.noise = fn
 	mat.set_shader_parameter("detail", tex)
+	for t in ["grass", "mud"]:      # 실사 지형 텍스처 (Poly Haven CC0 —— assets/terrain/출처.txt)
+		for part in ["diff", "nor", "rough"]:
+			mat.set_shader_parameter("%s_%s" % [t, part], load("res://assets/terrain/%s_%s.jpg" % [t, part]))
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
 	mi.material_override = mat
@@ -359,8 +441,19 @@ func _scenery() -> void:
 		if outside.call(x, z):
 			leafs[r2.randi() % 3].append(_place(x, z, r2.randf_range(0.7, 1.3)))
 	for i in 3:
-		_scatter(Models.pine(r2), pines[i])
-		_scatter(Models.broadleaf(r2), leafs[i])
+		# 10/31 실사 나무 판 (구운 그림이 없으면 예전 도형 나무)
+		if not _tree_boards(self, "pine", pines[i], r2):
+			_scatter(Models.pine(r2), pines[i], false)       # 10/31 나무 그림자 끔 —— 짙은 얼룩이 산만했다
+		if not _tree_boards(self, "leaf", leafs[i], r2):
+			_scatter(Models.broadleaf(r2), leafs[i], false)
+	# 들판 덤불 —— 실사 덤불 그림을 흩어 깐다 (전장 안은 듬성듬성)
+	var shrubs := []
+	for t in 520:
+		var x := r2.randf_range(-300, 300)
+		var z := r2.randf_range(-200, 200)
+		if outside.call(x, z) or r2.randf() < 0.35:
+			shrubs.append(_place(x, z, r2.randf_range(0.7, 1.6)))
+	_tree_boards(self, "shrub", shrubs, r2)
 	# 바위 —— 전장 안에는 작게
 	var rocks := [[], []]
 	for t in 160:
@@ -414,8 +507,14 @@ func clear() -> void:
 	orbs.clear()
 	lights.clear()
 	rings.clear()
+	for a in areas:
+		if is_instance_valid(a.n):
+			a.n.queue_free()
+	areas.clear()
 	fx_nodes.clear()
 	ult.clear()
+	if cfx:
+		cfx.clear()
 	for i in arrow_mmi.multimesh.instance_count:
 		arrow_mmi.multimesh.set_instance_transform(i, HIDDEN)
 	clock = 0.0
@@ -423,14 +522,22 @@ func clear() -> void:
 
 func setup(res: Dictionary) -> void:
 	clear()
+	track_mode = res.get("rt", false)
+	_build_terrain(res.get("terrain", []))
 	for r in res.roster:
 		var at := slot_pos(r.camp, res.aForm if r.camp == "A" else res.bForm, r.slot)
 		var sq := Squad.new(r, at, rng)
-		sq.pos = at + (Vector2(-160, 0) if r.camp == "A" else Vector2(160, 0))
-		for s in sq.all_figures():
-			s.pos = sq.pos + (s.pos - at)
-		sq.goal = at
-		sq.state = "move"
+		if track_mode:
+			# 실시간 엔진 —— 진형 자리에서 시작해 엔진 위치를 따른다
+			sq.puppet = true
+			sq.pgoal = at
+			sq.pfwd = Vector2(1, 0) if r.camp == "A" else Vector2(-1, 0)
+		else:
+			sq.pos = at + (Vector2(-160, 0) if r.camp == "A" else Vector2(160, 0))
+			for s in sq.all_figures():
+				s.pos = sq.pos + (s.pos - at)
+			sq.goal = at
+			sq.state = "move"
 		squads[r.key] = sq
 		order.append(sq)
 	# 병종별 인스턴스 수를 세고 자리를 나눈다
@@ -439,7 +546,7 @@ func setup(res: Dictionary) -> void:
 	for sq in order:
 		for s in sq.all_figures():
 			var gen: bool = s == sq.general
-			var wk: String = WEAPON.get(sq.tag, "")
+			var wk: String = WEAPON.get(sq.tag, "") if gen or not (sprite_mat.has(sq.tag) or vat_mesh.has(sq.tag)) else ""     # 그림 · 구운 병사는 무기가 몸에 있다
 			var bk: String = sq.tag
 			if gen:
 				bk = "G:" + sq.tag              # 장수는 군마 탄 전용 모델
@@ -453,17 +560,82 @@ func setup(res: Dictionary) -> void:
 				widx = wcount.get(wk, 0)
 				wcount[wk] = widx + 1
 			# [부대, 병사, 병종, 번호, 무기, 무기번호, 장수, 정착(더 이상 안 변함), 기병]
-			entries.append([sq, s, bk, idx, wk, widx, gen, false, sq.cls == "cav" or gen])
+			entries.append([sq, s, bk, idx, wk, widx, gen, false, sq.cls == "cav" or gen, not gen and vat_mesh.has(sq.tag)])
 		banners[sq.key] = _make_banner(sq)
 		squad_rings[sq.key] = _make_ring(sq)
 	_bufs.clear()
 	for tag in count:
-		bodies[tag] = _mm(body_mesh[tag], count[tag])
+		if vat_mesh.has(tag):
+			bodies[tag] = _mm(vat_mesh[tag], count[tag])
+			bodies[tag].material_override = vat_mat[tag]
+		elif sprite_mat.has(tag):
+			bodies[tag] = _mm(_sprite_quad[tag], count[tag])
+			bodies[tag].material_override = sprite_mat[tag]
+			bodies[tag].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		else:
+			bodies[tag] = _mm(body_mesh[tag], count[tag])
 		_bufs[tag] = _new_buf(count[tag])
 	for wk in wcount:
 		weapons[wk] = _mm(weapon_mesh[wk], wcount[wk])
 		_bufs[wk] = _new_buf(wcount[wk])
 	_sync()
+
+
+## 구운 3D 병사 읽기 —— 메시 · 정점 위치/법선 이미지 · 동작 표(json) · 팔레트
+func _load_vat() -> void:
+	vat_mat.clear()
+	vat_mesh.clear()
+	if not vat_enabled:
+		return
+	var sh := load("res://shaders/soldier_vat.gdshader")
+	for tag in Squad.CLS:
+		var base: String = VAT_DIR + tag
+		if not ResourceLoader.exists(base + "_mesh.res") or not FileAccess.file_exists(base + ".json"):
+			continue
+		var info = JSON.parse_string(FileAccess.get_file_as_string(base + ".json"))
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		m.set_shader_parameter("vat_pos", ImageTexture.create_from_image(load(base + "_pos.res")))
+		m.set_shader_parameter("vat_nrm", ImageTexture.create_from_image(load(base + "_nrm.res")))
+		m.set_shader_parameter("palette", load(info.texture))
+		m.set_shader_parameter("team_a", TEAM.A)
+		m.set_shader_parameter("team_b", TEAM.B)
+		m.set_shader_parameter("bright", float(info.get("bright", 1.0)))
+		for c in info.clips:
+			m.set_shader_parameter("clip_" + c, Vector2(info.clips[c][0], info.clips[c][1]))
+		vat_mat[tag] = m
+		vat_mesh[tag] = load(base + "_mesh.res")
+
+
+## 병사 그림 묶음 읽기 —— 있는 병종만 (없으면 그 병종은 3D 모델)
+func _load_sprites() -> void:
+	sprite_mat.clear()
+	if not sprites_enabled:
+		return
+	var sh := load("res://shaders/soldier_sprite.gdshader")
+	for tag in Squad.CLS:
+		var path: String = SPRITE_DIR + tag + ".png"
+		var tex: Texture2D = null
+		if ResourceLoader.exists(path):
+			tex = load(path)
+		elif FileAccess.file_exists(path):
+			var img := Image.load_from_file(path)
+			if img:
+				img.generate_mipmaps()
+				tex = ImageTexture.create_from_image(img)
+		if tex == null:
+			continue
+		var q := QuadMesh.new()
+		var side: float = SPRITE_H.get(tag, 1.79)
+		q.size = Vector2(side, side)
+		q.center_offset = Vector3(0, side * 0.5, 0)
+		_sprite_quad[tag] = q
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		m.set_shader_parameter("atlas", tex)
+		m.set_shader_parameter("team_a", TEAM.A)
+		m.set_shader_parameter("team_b", TEAM.B)
+		sprite_mat[tag] = m
 
 
 func _mm(mesh: Mesh, n: int) -> MultiMeshInstance3D:
@@ -495,7 +667,7 @@ func _make_ring(sq: Squad) -> Decal:
 		g.gradient = gr
 		_ring_tex = g
 	var d := Decal.new()
-	d.texture_albedo = _ring_tex
+	d.texture_albedo = _block_tex()
 	d.modulate = TEAM[sq.camp].lightened(0.1)
 	d.albedo_mix = 0.85
 	d.cull_mask = 1
@@ -594,6 +766,13 @@ func _process_inner(dt: float) -> void:
 		if mv != Vector3.ZERO or Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_E):
 			_manual = MANUAL_HOLD
 		want_t += mv * dt * want_dist * 0.9
+	if follow != null:
+		if follow.state == "gone" or not follow.alive and follow.state != "flee":
+			follow = null
+		elif _cine <= 0:
+			var fp := p3(follow.pos)
+			want_t = Vector3(fp.x, 0, fp.z)
+			_manual = MANUAL_HOLD
 	if _manual > 0:
 		_manual -= dt
 	elif director and _intro <= 0 and _cine <= 0 and not order.is_empty() and Engine.get_process_frames() % 3 == 0:
@@ -642,8 +821,10 @@ func step(dt: float) -> void:
 	_status_fx()
 	ult.step()
 	_fx_step()
+	cfx.step()
 	t = pt("효과갱신", t)
-	_sync()
+	if flat == null:
+		_sync()              # 점묘 전장이면 3D 병사 인스턴스를 맞출 필요가 없다
 	pt("동기화", t)
 
 
@@ -731,6 +912,35 @@ func _air(dt: float) -> void:
 					s.hit_t = clock
 
 
+## 무쌍 (10/31 사용자: 진삼국무쌍처럼 기술을 쓰면 펑펑 쓰러지는 통쾌함) —— 방금 쓰러지기로 정해진 병사들을
+## 친 쪽에서 멀어지는 방향으로 한꺼번에 날린다. power 1 이 기술, 1.6 이 고유기
+func blast(key: String, from_key: String, power: float) -> void:
+	var sq: Squad = squads.get(key)
+	if sq == null:
+		return
+	var f: Squad = squads.get(from_key)
+	var from: Vector2 = f.pos if f and f != sq else sq.pos + sq.fwd * 40.0
+	var n := 0
+	for s in sq.soldiers:
+		if s.alive or s.air > 0.0 or s.die_t < clock - 0.02:
+			continue
+		var d: Vector2 = s.pos - from
+		var dir := d.normalized() if d.length() > 0.1 else Vector2.from_angle(rng.randf() * TAU)
+		dir = dir.rotated(rng.randf_range(-0.7, 0.7))
+		s.vy = (5.0 + rng.randf() * 7.0) * power
+		s.air = 0.01
+		s.kb = dir * (50.0 + rng.randf() * 110.0) * power
+		s.fall = 1.0 if rng.randf() < 0.5 else -1.0
+		s.die_t = clock                # 날아가며 바로 쓰러진다
+		n += 1
+	if n >= 3:
+		_ring(p3(sq.pos, 0.2), Color(1.0, 0.85, 0.55), 0.5)
+		shake = maxf(shake, clampf(0.08 * n / 10.0, 0.05, 0.35) * power)
+		for o in sq.soldiers:          # 살아남은 병사도 움찔
+			if o.alive and o.pos.distance_to(from) < 160.0 and rng.randf() < 0.4:
+				o.hit_t = clock + rng.randf() * 0.2
+
+
 ## 고유기 충격 —— 중심에서 가까운 병사를 공중으로 날린다. power 1 이면 몇 m 뜬다
 func launch(key: String, center: Vector2, radius: float, power: float) -> void:
 	var sq: Squad = squads.get(key)
@@ -751,6 +961,8 @@ func launch(key: String, center: Vector2, radius: float, power: float) -> void:
 
 
 func _separate(dt: float) -> void:
+	if track_mode:
+		return               # 엔진이 이미 겹치지 않게 놓았다
 	for i in order.size():
 		var a: Squad = order[i]
 		if not a.alive:
@@ -765,8 +977,8 @@ func _separate(dt: float) -> void:
 			var d := a.pos - b.pos
 			if d.length() < rad and d.length() > 0.01:
 				var push := d.normalized() * (rad - d.length()) * dt * (1.8 if fighting else 3.0)
-				if a.state != "hold": a.pos += push
-				if b.state != "hold": b.pos -= push
+				if a.state != "hold": a.pos = a.keep_in(a.pos + push)
+				if b.state != "hold": b.pos = b.keep_in(b.pos - push)
 
 
 func p3(p: Vector2, lift := 0.0) -> Vector3:
@@ -856,9 +1068,11 @@ func _sync() -> void:
 		var flash := 0.0
 		var settle := false
 		var atk := 0.0
+		var baked: bool = e[9]           # 구운 병사는 넘어지기 · 몸 기울이기가 동작에 들어 있다
 		if dead:
 			var u := minf(1.0, (clock - s.die_t) / 0.4)
-			b = b * Basis(Vector3.RIGHT, s.fall * u * PI * 0.48)
+			if not baked:
+				b = b * Basis(Vector3.RIGHT, s.fall * u * PI * 0.48)
 			g = 0.42 * u
 			settle = u >= 1.0 and s.air <= 0.0
 		else:
@@ -869,11 +1083,12 @@ func _sync() -> void:
 			var a: float = (clock - s.atk_t0) / Squad.ATTACK_TIME
 			if a >= 0 and a <= 1:
 				atk = a
-				if not cav:
+				if not cav and not baked:
 					b = b * Basis(Vector3.BACK, -0.28 * sin(PI * a))
 			var h: float = (clock - s.hit_t) / 0.3
 			if h >= 0 and h <= 1:
-				b = b * Basis(Vector3.BACK, 0.3 * sin(PI * h))
+				if not baked:
+					b = b * Basis(Vector3.BACK, 0.3 * sin(PI * h))
 				flash = 0.45 * sin(PI * h)          # 맞은 병사만 번쩍인다
 			if sq.cheer and s.slot % 3 == 0:
 				y += maxf(0, sin(clock * 9.0 + s.phase)) * 0.35
@@ -907,7 +1122,7 @@ func _sync() -> void:
 		mmi.multimesh.buffer = bufs[k]
 	for sq in order:
 		var bn: Node3D = banners[sq.key]
-		bn.visible = sq.alive and sq.state != "gone"
+		bn.visible = SHOW_BANNERS and sq.alive and sq.state != "gone"
 		if bn.visible:
 			var at: Vector2 = sq.general.pos if sq.general and sq.general.alive else sq.pos - sq.fwd * (sq.depth() + 6)
 			bn.position = p3(at)
@@ -915,12 +1130,14 @@ func _sync() -> void:
 		var rg: Decal = squad_rings[sq.key]
 		rg.visible = bn.visible
 		if rg.visible:
-			var w: float = (sq.cols * sq.sp + 18.0) * S
-			var dp: float = (sq.depth() + 18.0) * S
+			var w: float = (sq.cols * sq.sp + 10.0) * S
+			var dp: float = (sq.depth() + 10.0) * S
 			rg.size = Vector3(dp, 3.0, w)
 			rg.position = p3(sq.pos - sq.fwd * sq.depth() * 0.5)
 			rg.rotation = Vector3(0, atan2(-sq.fwd.y, sq.fwd.x), 0)
-			rg.modulate.a = 0.75 + 0.25 * sq.glow
+			# 맞으면 번쩍 —— 멀리 볼 때 '맞고 있다' 를 판 하나로 알린다
+			var base_c: Color = TEAM[sq.camp].lightened(0.1)
+			rg.modulate = Color(base_c.lerp(Color(1, 0.95, 0.85), clampf(sq.hurt, 0, 1) * 0.75), 0.85 + 0.15 * maxf(sq.glow, sq.hurt))
 
 
 func _weapon_angle(sq: Squad, s, kind: String, alive: bool) -> float:
@@ -942,6 +1159,9 @@ func _weapon_angle(sq: Squad, s, kind: String, alive: bool) -> float:
 # ───────── 카메라 —— 휠 확대, 오른쪽 끌기 회전, 왼쪽 끌기·WASD 이동, Q/E 회전 ─────────
 
 func _update_cam(dt: float) -> void:
+	if _cam_attr:
+		_cam_attr.dof_blur_far_distance = cam_dist * 1.25 + 10.0       # 초점은 전투 쪽, 그 너머 산 · 숲만 흐리게
+	overview = cam_dist > OVERVIEW_DIST and _cine <= 0
 	var k := 1.0 - exp(-dt * cam_rate)
 	cam_t = cam_t.lerp(want_t, k)
 	cam_yaw = lerp_angle(cam_yaw, want_yaw, k)
@@ -986,12 +1206,15 @@ func _auto_frame() -> void:
 		tv = th / aspect
 	else:
 		th = tv * aspect
-	var res := _fit(all, fw, rt, th, tv)
-	if res[0] > FAR_OK and hot.size() >= 4:
-		res = _fit(hot, fw, rt, th, tv)
-	want_dist = res[0]
-	want_t = Vector3(res[1].x, 0, res[1].y)
-	cam_rate = 1.1
+	var res := _fit(all, fw, rt, th, tv)      # 10/31 싸우는 곳만 당겨 담던 것은 뺐다 —— 늘 전장 전체를 여유 있게
+	var nd := maxf(AUTO_MIN, res[0] * AUTO_MARGIN)
+	# 조금씩 바뀌는 것은 무시한다 —— 화면이 출렁이지 않게 (넓어질 때는 바로, 좁아질 때는 10% 넘게 줄 때만)
+	if nd > want_dist or nd < want_dist * 0.9:
+		want_dist = nd
+	var nt := Vector3(res[1].x, 0, res[1].y)
+	if nt.distance_to(want_t) > want_dist * 0.06:
+		want_t = nt
+	cam_rate = 0.7
 
 
 ## 점들을 다 담는 [거리, 대상]
@@ -1048,6 +1271,7 @@ func _ndc_range(pts: PackedVector2Array, tgt: Vector2, d: float, fw: Vector2, rt
 
 ## 자동 카메라로 돌아간다 (두 번 누르기 · 카메라 맞춤)
 func auto_camera() -> void:
+	follow = null
 	_manual = 0.0
 	director = true
 
@@ -1055,13 +1279,13 @@ func auto_camera() -> void:
 func reset_camera() -> void:
 	# 입장 연출 —— 아군 뒤 낮은 곳에서 시작해 전장 전체로 물러난다
 	cam_t = Vector3(-34, 0, 6)
-	cam_yaw = -0.55
+	cam_yaw = BASE_YAW - 0.55
 	cam_pitch = 0.16
 	cam_dist = 24.0
 	want_t = Vector3(-4, 0, 0)
-	want_yaw = 0.0
-	want_pitch = 0.74 if portrait else 0.55     # 10/30 조금 더 낮게 (삼국지13 처럼 비스듬히)
-	want_dist = 52.0 if portrait else 62.0
+	want_yaw = BASE_YAW
+	want_pitch = 0.88 if portrait else 0.75     # 10/31 더 높이서 내려다본다 (삼국지13)
+	want_dist = 78.0 if portrait else 86.0
 	cam_rate = 0.9
 	_intro = 3.5
 	_manual = 0.0
@@ -1075,14 +1299,35 @@ func cinematic(sq: Squad, dur: float) -> void:
 	_cine = dur
 	var p := p3(sq.pos)
 	want_t = want_t.lerp(Vector3(p.x, 0, p.z), 0.65)
-	want_dist = minf(want_dist, 34.0)
-	want_pitch = clampf(want_pitch - 0.12, 0.3, 1.2)
+	want_dist = minf(want_dist, 52.0)
+	want_pitch = clampf(want_pitch - 0.08, 0.3, 1.2)
 	cam_rate = 3.0
+
+
+## 꾹 누른 부대를 계속 따라간다
+func follow_squad(sq: Squad) -> void:
+	follow = sq
+	focus(sq)
+	want_dist = minf(want_dist, 40.0)
+
+
+## 화면 좌표(논리)에서 가장 가까운 살아 있는 부대 —— 없으면 null
+func squad_at(sp: Vector2, reach := 70.0) -> Squad:
+	var best: Squad = null
+	var bd := reach
+	for sq in order:
+		if not sq.alive:
+			continue
+		var d := to_screen(sq.pos, 0.8).distance_to(sp)
+		if d < bd:
+			bd = d
+			best = sq
+	return best
 
 
 func focus(sq: Squad) -> void:
 	want_t = p3(sq.pos)
-	want_dist = minf(want_dist, 30.0)
+	want_dist = minf(want_dist, 44.0)
 	cam_rate = 4.0
 	_manual = MANUAL_HOLD
 
@@ -1106,6 +1351,8 @@ func camera_input(e: InputEvent) -> void:
 			want_pitch = clampf(want_pitch + rel.y * 0.004, 0.12, 1.42)
 			cam_rate = 6.0
 		elif e.button_mask & (MOUSE_BUTTON_MASK_LEFT | MOUSE_BUTTON_MASK_MIDDLE):
+			if rel.length() > 0.5:
+				follow = null            # 손으로 옮기면 따라가기를 푼다
 			var fw := Vector3(cos(want_yaw), 0, sin(want_yaw))
 			var rt := Vector3(-sin(want_yaw), 0, cos(want_yaw))
 			want_t += (-rt * rel.x + fw * rel.y) * want_dist * 0.0017 * (1.6 if portrait else 1.0)
@@ -1121,6 +1368,8 @@ func pinch(ratio: float, turn: float) -> void:
 
 
 func to_screen(p: Vector2, lift: float) -> Vector2:
+	if flat:
+		return flat.map(p) + Vector2(0, -lift * 2.2)
 	var w := p3(p, lift)
 	if cam.is_position_behind(w):
 		return Vector2(-99999, -99999)
@@ -1130,7 +1379,7 @@ func to_screen(p: Vector2, lift: float) -> Vector2:
 ## 세로 화면 —— 세로 화각을 좁혀 원근 왜곡을 줄인다. 양 날개는 자동 카메라가 거리로 맞춘다
 func set_portrait(on: bool) -> void:
 	if on != portrait and _cine <= 0:
-		want_pitch = 0.74 if on else 0.55
+		want_pitch = 0.88 if on else 0.75
 	portrait = on
 	cam.keep_aspect = Camera3D.KEEP_HEIGHT
 	cam.fov = 62.0 if on else 50.0
@@ -1138,6 +1387,8 @@ func set_portrait(on: bool) -> void:
 
 ## 머리표 투명도 —— 가까이 볼 때 멀리 있는 부대의 표가 지평선에 쌓이지 않게 흐린다
 func label_alpha(p: Vector2) -> float:
+	if flat:
+		return 1.0
 	var d := cam.position.distance_to(p3(p))
 	return 1.0 - smoothstep(cam_dist * 1.5 + 10.0, cam_dist * 2.2 + 25.0, d)
 
@@ -1218,6 +1469,260 @@ func direct(plans: Dictionary) -> void:
 					break
 
 
+## 지형 깔기 —— 숲은 나무 무리 + 짙은 땅, 강은 물길 + 진흙 둑, 언덕은 둔덕 (height 에도 더한다)
+func _build_terrain(zones: Array) -> void:
+	if terrain_root == null:
+		terrain_root = Node3D.new()
+		add_child(terrain_root)
+	for c in terrain_root.get_children():
+		c.queue_free()
+	tzones = zones
+	_hills = []
+	for z in zones:
+		if z.k == "hill":
+			_hills.append([Vector2(z.x, z.y) * S, float(z.r) * S])
+	var r2 := RandomNumberGenerator.new()
+	r2.seed = hash(str(zones))
+	var pines := []
+	var leafs := []
+	for z in zones:
+		match z.k:
+			"forest":
+				var c := Vector2(z.x, z.y)
+				var rr := float(z.r)
+				_ground_disc(c, rr * 1.05, Color(0.16, 0.24, 0.11), 0.75)
+				for t in int(rr / 4.0):
+					var a := r2.randf() * TAU
+					var d := sqrt(r2.randf()) * rr * 0.9
+					var p := (c + Vector2(cos(a), sin(a)) * d) * S
+					var xf := Transform3D(Basis(Vector3.UP, r2.randf() * TAU).scaled(Vector3.ONE * r2.randf_range(0.4, 0.7)), Vector3(p.x, height(p.x, p.y) - 0.05, p.y))
+					(pines if r2.randf() < 0.55 else leafs).append(xf)
+			"river":
+				_river(float(z.x), float(z.w))
+			"hill":
+				_hill_mesh(Vector2(z.x, z.y) * S, float(z.r) * S)
+	if not pines.is_empty() and not _tree_boards(terrain_root, "pine", pines, r2):
+		_scatter_in(terrain_root, Models.pine(r2), pines)
+	if not leafs.is_empty() and not _tree_boards(terrain_root, "leaf", leafs, r2):
+		_scatter_in(terrain_root, Models.broadleaf(r2), leafs)
+
+
+## 부대 발밑 판 —— 둥근 모서리 사각형, 안은 옅게 차고 테두리는 진하게 (10/31 사용자: 부대가 덩어리로 보이게)
+var _block: Texture2D
+func _block_tex() -> Texture2D:
+	if _block:
+		return _block
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var q := Vector2(absf(x - n / 2.0 + 0.5), absf(y - n / 2.0 + 0.5)) / (n / 2.0)
+			var c := Vector2(maxf(q.x - 0.78, 0.0), maxf(q.y - 0.78, 0.0))
+			var d := c.length() + minf(maxf(q.x - 0.78, q.y - 0.78), 0.0) - 0.16      # 둥근 사각형까지의 거리 (안이면 음수)
+			var a := 0.0
+			if d < 0.0:
+				a = 0.22 + 0.7 * clampf(1.0 + d / 0.07, 0, 1)
+			elif d < 0.03:
+				a = 0.9 * (1.0 - d / 0.03)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_block = ImageTexture.create_from_image(img)
+	return _block
+
+
+# ───────── 실사 나무 판 (10/31 사용자: 카툰 · 로우폴리 느낌을 벗는다) ─────────
+## Poly Haven CC0 나무 · 덤불을 구운 그림(tests/bake_trees.tscn → assets/trees)을 세운 판으로 깐다
+const TREE_SET := {"pine": ["pine_sapling_small", "fir_sapling"], "leaf": ["jacaranda_tree"], "shrub": ["shrub_03", "shrub_04"]}
+const TREE_H := {"pine": 8.0, "leaf": 5.6, "shrub": 0.8}     # 배율 1 일 때 세계 높이 (예전 도형 나무와 같게)
+var _tree_info = null
+var _tree_mat := {}
+
+
+## xforms(자리 · 배율)마다 그 종류의 그림 하나를 골라 판으로 세운다. 그림이 없으면 false
+func _tree_boards(parent: Node3D, kind: String, xforms: Array, r: RandomNumberGenerator) -> bool:
+	if _tree_info == null:
+		_tree_info = {}
+		if FileAccess.file_exists("res://assets/trees/trees.json"):
+			_tree_info = JSON.parse_string(FileAccess.get_file_as_string("res://assets/trees/trees.json"))
+	var names: Array = TREE_SET[kind].filter(func(n): return _tree_info.has(n) and ResourceLoader.exists("res://assets/trees/%s.png" % n))
+	if names.is_empty():
+		return false
+	var groups := {}
+	for xf in xforms:
+		var n: String = names[r.randi() % names.size()]
+		if not groups.has(n):
+			groups[n] = []
+		groups[n].append(xf)
+	for n in groups:
+		var info: Dictionary = _tree_info[n]
+		var side: float = info.side
+		if not _tree_mat.has(n):
+			var m := ShaderMaterial.new()
+			m.shader = load("res://shaders/tree_billboard.gdshader")
+			m.set_shader_parameter("tex", load("res://assets/trees/%s.png" % n))
+			_tree_mat[n] = m
+		var q := QuadMesh.new()
+		q.size = Vector2(side, side)
+		q.center_offset = Vector3(0, side * 0.5, 0)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = q
+		var list: Array = groups[n]
+		mm.instance_count = list.size()
+		for i in list.size():
+			var xf: Transform3D = list[i]
+			var k: float = TREE_H[kind] * xf.basis.x.length() / float(info.h)
+			mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3.ONE * k), xf.origin))
+			var g := r.randf_range(0.82, 1.06)
+			mm.set_instance_custom_data(i, Color(g * r.randf_range(0.95, 1.05), g, g * r.randf_range(0.9, 1.02), 1))
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = _tree_mat[n]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		parent.add_child(mi)
+	return true
+
+
+func _scatter_in(parent: Node3D, mesh: Mesh, xforms: Array) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = xforms.size()
+	for i in xforms.size():
+		mm.set_instance_transform(i, xforms[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = _vc_mat()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF      # 전장 안 나무는 그림자 없이 (바닥이 얼룩져 산만했다)
+	parent.add_child(mi)
+
+
+## 땅에 색을 깐다 (데칼 —— 둔덕 위에도 붙는다)
+func _ground_disc(c: Vector2, r: float, col: Color, a: float) -> void:
+	if _disc_tex == null:
+		_disc_tex = _grad_tex(GradientTexture2D.FILL_RADIAL, Vector2(0.5, 0.5), Vector2(1.0, 0.5))
+	var g := GradientTexture2D.new()
+	g.fill = GradientTexture2D.FILL_RADIAL
+	g.fill_from = Vector2(0.5, 0.5)
+	g.fill_to = Vector2(1.0, 0.5)
+	var gr := Gradient.new()
+	gr.offsets = PackedFloat32Array([0.0, 0.7, 1.0])
+	gr.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.8), Color(1, 1, 1, 0)])
+	g.gradient = gr
+	var d := Decal.new()
+	d.texture_albedo = g
+	d.modulate = Color(col, a)
+	d.position = p3(c)
+	d.size = Vector3(r * 2 * S, 30, r * 2 * S)
+	d.upper_fade = 0.3
+	d.lower_fade = 0.3
+	terrain_root.add_child(d)
+
+
+## 강 —— 전장을 위아래로 가로지르는 물길 (x 중심 · 반폭 w, px)
+func _river(x: float, w: float) -> void:
+	var bank := Decal.new()
+	var g := GradientTexture2D.new()
+	g.fill = GradientTexture2D.FILL_LINEAR
+	g.fill_from = Vector2(0, 0.5)
+	g.fill_to = Vector2(1, 0.5)
+	var gr := Gradient.new()
+	gr.offsets = PackedFloat32Array([0.0, 0.25, 0.75, 1.0])
+	gr.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.9), Color(1, 1, 1, 0)])
+	g.gradient = gr
+	bank.texture_albedo = g
+	bank.modulate = Color(0.33, 0.27, 0.18, 0.9)
+	bank.position = p3(Vector2(x, 0))
+	bank.size = Vector3(w * 2.8 * S, 30, 80)
+	terrain_root.add_child(bank)
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(w * 2 * S, 80)
+	var mi := MeshInstance3D.new()
+	mi.mesh = pm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.20, 0.45, 0.62, 0.82)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.roughness = 0.25
+	m.metallic = 0.0
+	m.emission_enabled = true
+	m.emission = Color(0.10, 0.26, 0.38)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(x * S, height(x * S, 0) + 0.12, 0)
+	terrain_root.add_child(mi)
+
+
+## 언덕 —— 둥근 둔덕 (height 의 _bump 와 같은 모양). 땅보다 조금 밝은 풀색
+func _hill_mesh(c: Vector2, r: float) -> void:
+	var rings := 10
+	var segs := 36
+	var verts := PackedVector3Array()
+	var cols := PackedColorArray()
+	for i in rings + 1:
+		var rr := r * float(i) / rings
+		for j in segs:
+			var a := TAU * j / segs
+			var x := c.x + cos(a) * rr
+			var z := c.y + sin(a) * rr
+			verts.append(Vector3(x, height(x, z) + 0.02, z))
+			var u := _bump(x, z) / HILL_H
+			cols.append(Color(0.29, 0.31, 0.19).lerp(Color(0.43, 0.41, 0.28), u))       # 10/31 흙빛으로
+	var idx := PackedInt32Array()
+	for i in rings:
+		for j in segs:
+			var a := i * segs + j
+			var b := i * segs + (j + 1) % segs
+			var cc := (i + 1) * segs + j
+			var d := (i + 1) * segs + (j + 1) % segs
+			idx.append_array([a, cc, b, b, cc, d])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_INDEX] = idx
+	var st := SurfaceTool.new()
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	st.create_from(m, 0)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = _vc_mat()
+	terrain_root.add_child(mi)
+
+
+## 실시간 엔진 —— 위치 기록 track([[시각, [[x, y, 방향각, 대상 번호, 맞닿음] × 유닛]], …])을 t 초에 맞춰 잇는다.
+## order 는 roster 순서와 같다
+func follow_track(track: Array, t: float) -> void:
+	if track.is_empty():
+		return
+	var lo := 0
+	var hi := track.size() - 1
+	while lo < hi:
+		var mid := (lo + hi + 1) / 2
+		if float(track[mid][0]) <= t:
+			lo = mid
+		else:
+			hi = mid - 1
+	var a: Array = track[lo]
+	var b: Array = track[mini(lo + 1, track.size() - 1)]
+	var span: float = float(b[0]) - float(a[0])
+	var u := clampf((t - float(a[0])) / span, 0.0, 1.0) if span > 0.0 else 0.0
+	for i in mini(order.size(), a[1].size()):
+		var sq: Squad = order[i]
+		if not sq.puppet:
+			continue
+		var fa: Array = a[1][i]
+		var fb: Array = b[1][i]
+		sq.pgoal = Vector2(fa[0], fa[1]).lerp(Vector2(fb[0], fb[1]), u)
+		sq.pfwd = Vector2.from_angle(lerp_angle(float(fa[2]), float(fb[2]), u))
+		var ti := int(fa[3])
+		sq.ptgt = order[ti] if ti >= 0 and ti < order.size() else null
+		sq.ptouch = int(fa[4]) == 1
+		if sq.ptgt == null:
+			sq.face_to = null
+
+
 func _attacker_of_side(sq: Squad) -> Squad:
 	var best: Squad = null
 	var bd := 1e9
@@ -1258,7 +1763,7 @@ func _contact_fx(a: Squad, d: Squad, dust: bool) -> void:
 		_particles(p + Vector3(0, -0.9, 0), "dust", Color("#a89270"))
 
 
-func volley(akey: String, dkeys: Array, light := false) -> void:
+func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 	var a: Squad = squads.get(akey)
 	if a == null:
 		return
@@ -1270,7 +1775,14 @@ func volley(akey: String, dkeys: Array, light := false) -> void:
 		if d == null:
 			continue
 		var targets := d.soldiers.filter(func(s): return s.alive)
-		for i in mini(8 if light else 22, shooters.size() + 6):
+		if emph:
+			cfx.trace(a, d, "shoot", Color(1.0, 0.86, 0.45))
+		elif not light:
+			cfx.acted(a, d, "shoot")
+		var nshot := 6 if light else (18 if emph else 10)
+		if overview and not emph:
+			nshot = 0 if light else 3       # 멀리 볼 때 평타 화살은 거의 안 날린다 (공격 화살표가 알린다)
+		for i in mini(nshot, shooters.size() + 6):       # 평타 화살은 적게
 			var p0 := p3(shooters[rng.randi() % shooters.size()].pos, 1.5)
 			var tp: Vector2 = targets[rng.randi() % targets.size()].pos if not targets.is_empty() else d.pos
 			var p1 := p3(tp + Vector2(rng.randf_range(-8, 8), rng.randf_range(-8, 8)), 0.1)
@@ -1292,6 +1804,8 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 		var d: Squad = squads.get(dk)
 		if d == null:
 			continue
+		if not light:
+			cfx.acted(a, d, "cast")          # 책략은 띠 없이 (이름표 아이콘 · 공격 화살표만)
 		for i in 1 if light else 2:
 			var orb := MeshInstance3D.new()
 			var sm := SphereMesh.new()
@@ -1314,16 +1828,19 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 				"st": "" if light else st, "col": col, "light": light})
 
 
-func clash(akey: String, dkey: String) -> void:
+## 근접 타격 —— emph(기술 · 고유기 · 치명타)일 때만 베기 · 불꽃. 평타는 공격 화살표 · 아이콘만 (10/31 사용자: 산만하다)
+func clash(akey: String, dkey: String, emph := false) -> void:
 	var a: Squad = squads.get(akey)
 	var d: Squad = squads.get(dkey)
 	if a == null or d == null:
 		return
+	if not emph:
+		cfx.acted(a, d, "melee")
+		return
+	cfx.slash(a, d)
 	var dir := (a.pos - d.pos).normalized()
 	var p := p3(d.pos + dir * d.depth() * 0.5 + Vector2(0, rng.randf_range(-20, 20)), 1.1)
 	_particles(p, "spark", Color("#fff2b0"))
-	if rng.randf() < 0.5:
-		_particles(p + Vector3(0, -0.9, 0), "dust", Color("#a89270"))
 
 
 func apply(key: String, troops: float, morale: float, from_key: String) -> void:
@@ -1426,6 +1943,8 @@ func _pmaterial(add: bool) -> StandardMaterial3D:
 
 ## 파티클 한 번 터뜨리기 —— 종류별 설정표
 func _particles(pos: Vector3, kind: String, col: Color, loop := false) -> CPUParticles3D:
+	if overview and not loop and SMALL_FX.has(kind):
+		return null              # 멀리 볼 때는 작은 입자를 뺀다
 	var cfg := {
 		"fire": [28, 0.9, 2.0, 5.0, 25.0, Vector3(0, 2.5, 0), 0.5, 1.1, true, 1.4],
 		"smoke": [10, 2.2, 0.8, 1.6, 20.0, Vector3(0, 0.6, 0), 1.2, 2.4, false, 1.4],
@@ -1527,6 +2046,55 @@ func _ring(pos: Vector3, col: Color, life: float) -> void:
 	rings.append({"n": r, "t0": clock, "life": life, "m": m, "col": col})
 
 
+## 기술 범위 —— 엔진이 사건에 적은 모양(원 · 띠)을 땅에 잠깐 깐다. shape 좌표는 전장 px
+func area_mark(shape: Dictionary, col: Color, life := 1.1) -> void:
+	if flat:
+		flat.add_area(shape, col, life)      # 점묘 전장은 2D 로 그린다
+		return
+	if _disc_tex == null:
+		_disc_tex = _grad_tex(GradientTexture2D.FILL_RADIAL, Vector2(0.5, 0.5), Vector2(1.0, 0.5))
+		_band_tex = _grad_tex(GradientTexture2D.FILL_LINEAR, Vector2(0.5, 0.0), Vector2(0.5, 1.0), true)
+	var d := Decal.new()
+	d.modulate = Color(col, 0.0)
+	d.albedo_mix = 1.0
+	d.upper_fade = 0.3
+	d.lower_fade = 0.3
+	d.distance_fade_enabled = false
+	if shape.k == "line":
+		var a := Vector2(shape.x, shape.y)
+		var b := Vector2(shape.x2, shape.y2)
+		var mid := p3((a + b) / 2)
+		d.texture_albedo = _band_tex
+		d.position = mid
+		d.size = Vector3(a.distance_to(b) * S, 30, float(shape.w) * 2 * S)
+		d.rotation.y = -(b - a).angle()
+	else:
+		d.texture_albedo = _disc_tex
+		d.position = p3(Vector2(shape.x, shape.y))
+		var r: float = float(shape.r) * 2 * S
+		d.size = Vector3(r, 30, r)
+	fx_root.add_child(d)
+	areas.append({"n": d, "t0": clock, "life": life, "peak": 0.45 if shape.get("r", 0) >= 200 else 0.7})
+
+
+func _grad_tex(fill: int, from: Vector2, to: Vector2, band := false) -> GradientTexture2D:
+	var g := GradientTexture2D.new()
+	g.width = 128
+	g.height = 128
+	g.fill = fill
+	g.fill_from = from
+	g.fill_to = to
+	var gr := Gradient.new()
+	if band:      # 띠 —— 가운데 옅게 차고 양 가장자리가 밝다
+		gr.offsets = PackedFloat32Array([0.0, 0.06, 0.14, 0.5, 0.86, 0.94, 1.0])
+		gr.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.22), Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.22), Color(1, 1, 1, 0.9), Color(1, 1, 1, 0)])
+	else:         # 원 —— 안은 옅게, 테두리는 밝게
+		gr.offsets = PackedFloat32Array([0.0, 0.8, 0.92, 0.97, 1.0])
+		gr.colors = PackedColorArray([Color(1, 1, 1, 0.14), Color(1, 1, 1, 0.24), Color(1, 1, 1, 0.95), Color(1, 1, 1, 0.5), Color(1, 1, 1, 0)])
+	g.gradient = gr
+	return g
+
+
 func _burst(p: Vector3, st: String, col: Color) -> void:
 	match st:
 		"burn":
@@ -1588,7 +2156,7 @@ func _fx_step() -> void:
 		var p := _arc(a, u)
 		var q := _arc(a, minf(1.0, u + 0.02))
 		var dir := (q - p).normalized()
-		mm.set_instance_transform(i, Transform3D(Basis.looking_at(dir, Vector3.UP), p))
+		mm.set_instance_transform(i, Transform3D(Basis.looking_at(dir, Vector3.UP).scaled(Vector3.ONE * 2.2), p))     # 10/31 화살을 크게 (멀리서도 보이게)
 		mm.set_instance_custom_data(i, Color(0, 0, 0, 0))
 	# 책략 구슬
 	var ok := []
@@ -1614,6 +2182,15 @@ func _fx_step() -> void:
 		l.n.light_energy = l.e * (1.0 - u) * (0.85 + 0.15 * sin(clock * 30.0))
 		lk.append(l)
 	lights = lk
+	var ak := []
+	for a in areas:
+		var au: float = (clock - a.t0) / a.life
+		if au >= 1.0:
+			a.n.queue_free()
+			continue
+		a.n.modulate.a = (minf(1.0, au * 5.0) if au < 0.6 else (1.0 - au) / 0.4) * a.peak
+		ak.append(a)
+	areas = ak
 	var rk := []
 	for r in rings:
 		var u: float = (clock - r.t0) / r.life

@@ -16,7 +16,6 @@ const MODES := {
 	"test": {"n": "점검", "prep": 1.0, "watch": 0.5},
 }
 const SEATS := 8
-const POL := {"A": "auto", "B": "auto"}
 
 var server                    # MatchServer —— send(peer, msg)
 var code := ""
@@ -231,8 +230,8 @@ func _battles() -> void:
 			continue
 		var r: Run = s.run
 		var q := r.start_quest()
-		q.pol = POL
-		var res := Run.simulate(q, [], POL)
+		q.pol = Run.policy_for(q)
+		var res := Run.simulate(q, [], q.pol)
 		r.finish_battle(res)
 		s.battles.append({"title": q.title, "res": res, "kind": "quest"})
 		if r.over != null and mode == "test":
@@ -260,8 +259,9 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 	var rx: Run = x.run
 	var ry: Run = y.run
 	var bt := {"kind": "pvp", "a": rx._my_side(), "b": ry._my_side(), "seed": rng.randi() % 1000000,
-		"title": "대전 · %s" % y.name, "foe": y.name, "inputs": [], "pol": POL}
-	var res := Run.simulate(bt, [], POL)
+		"title": "대전 · %s" % y.name, "foe": y.name, "inputs": []}
+	bt.pol = Run.policy_for(bt)        # 각자 고른 작전
+	var res := Run.simulate(bt, [], bt.pol)
 	rx.battle = bt
 	rx.finish_battle(res)
 	x.battles.append({"title": bt.title, "res": res, "kind": "pvp"})
@@ -279,8 +279,9 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 	var rx: Run = x.run
 	var bt := {"kind": "pvp", "a": rx._my_side(), "b": _bot_side(b), "seed": rng.randi() % 1000000,
-		"title": "대전 · %s" % b.name, "foe": b.name, "inputs": [], "pol": POL}
-	var res := Run.simulate(bt, [], POL)
+		"title": "대전 · %s" % b.name, "foe": b.name, "inputs": []}
+	bt.pol = Run.policy_for(bt)        # 각자 고른 작전
+	var res := Run.simulate(bt, [], bt.pol)
 	rx.battle = bt
 	rx.finish_battle(res)
 	if res.win:
@@ -370,8 +371,9 @@ func _tour_round() -> void:
 		var a: Dictionary = L[m * 2]
 		var b: Dictionary = L[m * 2 + 1]
 		var bt := {"kind": "tour", "a": _side_of(a), "b": _side_of(b), "seed": rng.randi() % 1000000,
-			"title": "%s · %s" % [Run.ROUNDNM[r], b.name], "foe": b.name, "inputs": [], "pol": POL}
-		var res := Run.simulate(bt, [], POL)
+			"title": "%s · %s" % [Run.ROUNDNM[r], b.name], "foe": b.name, "inputs": []}
+		bt.pol = Run.policy_for(bt)
+		var res := Run.simulate(bt, [], bt.pol)
 		var w: Dictionary = a if res.win else b
 		var sa: Dictionary = seats[a.seat]
 		var sb: Dictionary = seats[b.seat]

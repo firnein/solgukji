@@ -25,6 +25,7 @@ const CLS := {"창병": "melee", "도적": "melee", "기병": "cav", "궁병": "
 ## 등급별 병사 인형 수 —— 기병은 절반, 지략 계열은 호위대까지 쳐서 절반 남짓
 const COUNT := {1: 36, 2: 44, 3: 54, 4: 64, 5: 72, 6: 80, 7: 88, 8: 96}
 static var count_scale := 1.0   # 품질 설정 —— 모바일은 병사 수를 줄인다 (Settings)
+const DENSITY := 2.4            # 10/31 사용자: 더 바글바글하게 · 군집을 더 크게 —— 병사 수 배율
 ## 이동 속도 (px/초) —— 기병은 돌격 때 더 빨라진다
 const SPEED := {"창병": 62.0, "도적": 80.0, "기병": 95.0, "궁병": 55.0,
 	"책사": 50.0, "유생": 50.0, "술사": 52.0, "모사": 52.0}
@@ -33,9 +34,11 @@ const SOLDIER_TURN := 7.0   # 병사가 고개를 돌리는 속도
 const CONTACT_GAP := 2.0    # 맞닿은 두 대열 앞줄 사이 (px)
 const DUEL_RANKS := 2       # 맞붙으면 일대일로 흩어지는 앞줄 수 (10/30 4 → 2: 대열이 덩어리로 남게)
 const DUEL_DIST := 7.0      # 일대일로 붙은 두 병사 사이 (px)
-const LOOSE_IN := 0.6       # 맞붙으면 초당 이만큼 흐트러진다 (10/30 1.2 → 0.6)
+const LOOSE_IN := 0.25      # 맞붙으면 초당 이만큼 흐트러진다 (10/30 1.2 → 0.6, 10/31 0.25 —— 대열이 덩어리로 남게)
 const LOOSE_OUT := 0.22     # 떨어지면 초당 이만큼 대열을 되찾는다 (약 4~5초)
 const ATTACK_TIME := 0.38   # 한 번 찌르거나 휘두르는 시간
+const ARENA := Rect2(-460, -280, 920, 560)   # 전장 —— 부대 중심이 이 밖으로 나가지 않는다 (진형 끝 x 276 · 등장 436 · y 118)
+const FLEE_OUT := 110.0     # 패주하는 부대는 전장 밖으로 이만큼까지만 달아난다
 
 
 class Soldier:
@@ -105,6 +108,16 @@ var glow := 0.0
 var hurt := 0.0
 var cheer := false
 var loose := 0.0          # 흐트러짐 0~1
+# 지금 하는 일 (CombatFx 가 적는다) —— melee · shoot · cast, 친 시각, 친 상대. 공격 화살표 · 이름표 아이콘이 읽는다
+var act_kind := ""
+var act_t := -99.0
+var act_tgt: Squad = null
+# 실시간 엔진(RtBattle)의 위치 기록을 따라간다 —— War3D.follow_track 이 채운다. 판정이 위치로 나므로 화면이 제멋대로 움직이면 안 된다
+var puppet := false
+var pgoal := Vector2.ZERO
+var pfwd := Vector2.RIGHT
+var ptgt: Squad = null
+var ptouch := false
 var _rk := 1              # 이번 프레임의 줄 수 (매번 세지 않도록)
 var _figs: Array = []     # 병사 + 장수 (한 번 만들어 계속 쓴다)
 var _slice := 0           # 가만히 선 부대는 병사를 네 조로 나눠 번갈아 움직인다
@@ -126,19 +139,19 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	home = at
 	pos = at
 	fwd = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
-	var n: int = maxi(12, roundi(COUNT[tier] * count_scale))
+	var n: int = maxi(12, roundi(COUNT[tier] * count_scale * DENSITY))
 	match cls:
 		"cav":
 			n = maxi(12, n / 2)
-			sp = 11.5
-			cols = 8
+			sp = 10.5
+			cols = 11
 		"caster":
 			n = maxi(12, int(n * 0.45))
-			sp = 7.5
-			cols = 7
+			sp = 7.0
+			cols = 10
 		_:
-			sp = 6.2
-			cols = 13
+			sp = 5.8
+			cols = 18
 	for i in n:
 		soldiers.append(_new_soldier(i))
 	if tier >= 3:
@@ -232,7 +245,13 @@ func set_target(t: Squad, off: float) -> void:
 func engage_point() -> Vector2:
 	var e := engaged
 	var perp := Vector2(-axis.y, axis.x)
-	return e.pos + axis * (e.depth() * 0.5 + depth() * 0.5 + CONTACT_GAP) + perp * slot_off
+	return keep_in(e.pos + axis * (e.depth() * 0.5 + depth() * 0.5 + CONTACT_GAP) + perp * slot_off)
+
+
+## 전장 안으로 —— 패주하는 부대는 FLEE_OUT 만큼 더 나갈 수 있다
+func keep_in(p: Vector2) -> Vector2:
+	var r := ARENA.grow(FLEE_OUT) if state == "flee" else ARENA
+	return p.clamp(r.position, r.end)
 
 
 func _turn_toward(v: Vector2, dt: float) -> void:
@@ -253,10 +272,12 @@ func update(dt: float, clock: float) -> void:
 		var away := Vector2(-1, 0) if camp == "A" else Vector2(1, 0)
 		pos += away * speed * 1.5 * dt
 		_turn_toward(away, dt * 3.0)
-		fade -= dt * 0.3
+		fade -= dt * (0.3 if keep_in(pos) == pos else 0.9)     # 전장 끝에 닿으면 빨리 사라진다
 		moving = true
 		if fade <= 0:
 			state = "gone"
+	elif puppet:
+		_puppet(dt)
 	else:
 		if engaged and (not engaged.alive or engaged.state == "flee" or engaged.state == "gone"):
 			engaged = null
@@ -289,6 +310,7 @@ func update(dt: float, clock: float) -> void:
 			else:
 				want_dir = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 		_turn_toward(want_dir, dt)
+	pos = keep_in(pos)
 
 	if contact:
 		loose = minf(1.0, loose + dt * LOOSE_IN)
@@ -313,7 +335,11 @@ func update(dt: float, clock: float) -> void:
 		var rk: int
 		if s == general:
 			rk = 99
-			want_p = front - fwd * (_rk * sp + 6)
+			# 10/31 사용자: 말 탄 장수는 선봉 —— 맨 앞 가운데 (맞붙으면 앞줄과 나란히). 책략 부대만 뒤에
+			if cls == "caster":
+				want_p = front - fwd * (_rk * sp + 6)
+			else:
+				want_p = front + fwd * (2.0 if contact else sp * 1.6 + 4.0)
 		else:
 			rk = s.slot / cols
 			var c := s.slot % cols
@@ -411,6 +437,29 @@ func set_troops(t: float, from: Vector2, clock: float, rng: RandomNumberGenerato
 
 
 ## 앞줄 병사를 움찔하게 한다 (돌격 충격 등)
+## 엔진 위치를 따라간다 —— 기록 사이(0.4초)를 부드럽게 잇고, 엔진이 맞닿았다고 하면 그 적과 맞붙는다
+func _puppet(dt: float) -> void:
+	var speed: float = SPEED[tag]
+	var d := pgoal - pos
+	var l := d.length()
+	if l > 0.5:
+		pos += d / l * minf(l, maxf(speed * 1.6, l * 3.0) * dt)
+		moving = l > 4.0
+	if ptouch and ptgt != null and ptgt.alive and ptgt.state != "flee":
+		var ax := pos - ptgt.pos
+		if engaged != ptgt:
+			engaged = ptgt
+			axis = ax.normalized() if ax.length() > 1.0 else axis
+			contact = true
+			impact = true
+		elif ax.length() > 1.0:
+			axis = axis.lerp(ax.normalized(), minf(1.0, dt * 2.0)).normalized()
+	else:
+		engaged = null
+		contact = false
+	_turn_toward(pfwd, dt * 1.5)
+
+
 func stagger(clock: float, rng: RandomNumberGenerator) -> void:
 	for s in soldiers:
 		if s.alive and s.slot / cols < 2:
