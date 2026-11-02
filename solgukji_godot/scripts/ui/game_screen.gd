@@ -1205,11 +1205,15 @@ func card_info(k: String) -> void:
 	_info_row(ag, "[color=#e0806f]어색[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
 	b.add_child(_fold_sec("card_aff", "선호 대열", ag))
 
-	b.add_child(UI.eyebrow("이 카드를 만드는 법"))
+	# 보유 중이면 한 단계 위(이 카드로 만드는 것)를 먼저, 아니면 만드는 법을 먼저 (11/2 사용자)
+	var owned: bool = run.pool().get(k, 0) > 0
+	var make_sec := UI.vbox(10)
+	var up_sec := UI.vbox(10)
+	make_sec.add_child(UI.eyebrow("이 카드를 만드는 법"))
 	if DB.RECOF.has(k):
-		b.add_child(_up_row(k))
+		make_sec.add_child(_up_row(k))
 	else:
-		b.add_child(UI.hint("기본패 — 조합할 수 없고 징집으로만 얻는다."))
+		make_sec.add_child(UI.hint("기본패 — 조합할 수 없고 징집으로만 얻는다."))
 	var one := []
 	var far := {}
 	for o in Run.used_in(k):
@@ -1219,16 +1223,19 @@ func card_info(k: String) -> void:
 			far[DB.C[o].tier] = far.get(DB.C[o].tier, 0) + 1
 	one.sort_custom(func(x, y): return run.miss_count(x) < run.miss_count(y))
 	var can_n := one.filter(func(x): return run.can_forge(x)).size()
-	b.add_child(UI.eyebrow("한 단계 위 · %s %d종%s" % [DB.TIER[mini(8, c.tier + 1)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
+	up_sec.add_child(UI.eyebrow("한 단계 위 · %s %d종%s" % [DB.TIER[mini(8, c.tier + 1)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
 	if one.is_empty():
-		b.add_child(UI.hint("최종 등급이라 위가 없다." if c.tier == 8 else "이 카드를 재료로 쓰는 %s 조합이 없다 — 편성 전용이다." % DB.TIER[c.tier + 1].n))
+		up_sec.add_child(UI.hint("최종 등급이라 위가 없다." if c.tier == 8 else "이 카드를 재료로 쓰는 %s 조합이 없다 — 편성 전용이다." % DB.TIER[c.tier + 1].n))
 	for o in one:
-		b.add_child(_up_row(o))
+		up_sec.add_child(_up_row(o))
 	if not far.is_empty():
 		var parts := []
 		for t in far:
 			parts.append("%s %d종" % [DB.TIER[t].n, far[t]])
-		b.add_child(UI.hint("그 밖에 " + " · ".join(parts) + "에도 재료로 쓰인다."))
+		up_sec.add_child(UI.hint("그 밖에 " + " · ".join(parts) + "에도 재료로 쓰인다."))
+
+	for sec in ([up_sec, make_sec] if owned else [make_sec, up_sec]):
+		b.add_child(sec)
 
 
 ## 접는 칸 —— 머리줄을 누르면 열고 닫는다. 기본은 닫힘, 연 상태는 _open[key] 에 남아 다른 카드에서도 이어진다
@@ -1296,7 +1303,7 @@ func _up_row(out: String) -> Control:
 						card_info(kk)
 						return
 				close_sheet(), "pri", 48)
-		fb.custom_minimum_size = Vector2(84, 48)
+		fb.custom_minimum_size = Vector2(64, 48)
 		fb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(fb)
 	# 갈무리 —— 보유하지 않은 장수도 디테일창에서 바로 (11/2 사용자)
@@ -1305,7 +1312,8 @@ func _up_row(out: String) -> Control:
 		forge_tree.toggle(out)
 		_back_nav = true
 		card_info(_route.get("k", out)), "ghost" if pn else "", 48)
-	pb.custom_minimum_size = Vector2(96, 48)
+	pb.custom_minimum_size = Vector2(72, 48)
+	pb.add_theme_font_size_override("font_size", 14)
 	pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(pb)
 	v.add_child(h)
