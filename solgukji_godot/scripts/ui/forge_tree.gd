@@ -57,11 +57,9 @@ func toggle(k: String) -> void:
 ## 갈무리 칸 —— 조합 탭 맨 위
 func build() -> Control:
 	var v := UI.vbox(8)
-	if pins.is_empty():
-		v.add_child(UI.head("갈무리", ""))
-		v.add_child(UI.hint("만들고 싶은 장수의 조합 시트에서 [갈무리]를 누르면 여기에 재료 나무로 모인다."))
+	if pins.is_empty():          # 11/2 사용자: 갈무리 안내 글은 빼고 공간 확보
+		v.visible = false
 		return v
-	v.add_child(UI.head("갈무리 %d" % pins.size(), "위 장수 ← 아래 재료 · 넓으면 옆으로"))
 	for k in pins:
 		v.add_child(UI.panel(_card(k), 10))
 	return v

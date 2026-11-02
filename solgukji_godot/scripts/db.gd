@@ -47,6 +47,9 @@ func _ready() -> void:
 	_load()
 
 
+const TIER_COL := {1: "#8b929c", 2: "#4fbf5a", 3: "#3f8cff", 4: "#a35cff", 5: "#ff8a1f", 6: "#ff3d3d", 7: "#ff4fc3", 8: "#ffd76e"}
+
+
 func _load() -> void:
 	var f := FileAccess.open("res://data/game.json", FileAccess.READ)
 	D = JSON.parse_string(f.get_as_text())
@@ -81,6 +84,9 @@ func _load() -> void:
 
 	for t in D.TIER:
 		TIER[int(t)] = {"n": D.TIER[t].n, "c": Color(D.TIER[t].c)}
+	# 솔국지 확장 (11/2 사용자): 등급색을 강함 순서가 한눈에 보이게 —— 회색 → 초록 → 파랑 → 보라 → 주황 → 빨강 → 분홍 → 금 (원본 game.json 색은 그대로 둔다)
+	for t in TIER_COL:
+		TIER[t].c = Color(TIER_COL[t])
 	for t in TIER:
 		var pvs := []
 		for k in C:
@@ -281,7 +287,7 @@ func _build_fonts() -> void:
 # ───────── 조회 ─────────
 
 func tier_color(k: String) -> Color:
-	return Color("#ffd76e") if C[k].tier == 8 else TIER[C[k].tier].c
+	return TIER[C[k].tier].c
 
 
 func fac_color(fac: String) -> Color:

@@ -1350,31 +1350,32 @@ func _toggle(key: String, default := false) -> void:
 
 func _page_forge() -> Control:
 	var v := UI.vbox(14)
-	v.add_child(UI.lbl("조합", 22, DB.PAL.paper, true))
 	v.add_child(forge_tree.build())
-	# 거르기 —— 병종 · 등급 (가로로 넘기는 칩 두 줄)
-	var st := UI.strip(6)
+	# 거르기 —— 병종 · 등급을 기호 · 색 칸 한 줄씩 (11/2 사용자: 글씨를 줄여 공간 확보)
+	var row1 := HBoxContainer.new()
+	row1.add_theme_constant_override("separation", 4)
 	for t in [""] + DB.D.TAGORDER:
 		var n: int = DB.D.RECDEF.filter(func(r): return run.can_forge(r[0]) and (t == "" or DB.C[r[0]].tag == t)).size()
-		st[1].add_child(UI.chip(("전체" if t == "" else t) + (" %d" % n if n > 0 else ""), forge_tag == t, func():
+		row1.add_child(_filter_chip("all" if t == "" else "", DB.ICON.get(t) if t != "" else null, str(n) if n > 0 else "", DB.PAL.paper, forge_tag == t, func():
 			forge_tag = t
 			_forge_more = 0
-			render(), 36))
-	v.add_child(st[0])
-	var st2 := UI.strip(6)
+			render()))
+	v.add_child(row1)
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 4)
 	for t in [0, 2, 3, 4, 5, 6, 7, 8]:
-		st2[1].add_child(UI.chip("모든 등급" if t == 0 else DB.TIER[t].n, forge_tier == t, func():
+		row2.add_child(_filter_chip("all" if t == 0 else DB.TIER[t].n.left(1), null, "", DB.PAL.paper if t == 0 else DB.TIER[t].c, forge_tier == t, func():
 			forge_tier = t
 			_forge_more = 0
-			render(), 36))
-	v.add_child(st2[0])
+			render()))
+	v.add_child(row2)
 	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and (forge_tier == 0 or DB.C[r[0]].tier == forge_tier))
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
 	if not ready.is_empty():
 		var sec := UI.vbox(6)
-		sec.add_child(UI.head("지금 조합 가능 %d" % ready.size(), "버튼 한 번에 조합 ›"))
+		sec.add_child(UI.head("지금 조합 가능 %d" % ready.size(), ""))
 		var rs := UI.strip(8)
 		for r in ready:
 			rs[1].add_child(recipe_card(r[0]))
@@ -1406,7 +1407,7 @@ func _page_forge() -> Control:
 			t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
 		g.add_child(t)
 	var sec2 := UI.vbox(6)
-	sec2.add_child(UI.head(("나머지 %d — 가까운 순" if not ready.is_empty() else "조합법 %d — 가까운 순") % lst.size(), "-n 모자람 · ◆ 유니크"))
+	sec2.add_child(UI.head(("나머지 %d" if not ready.is_empty() else "조합법 %d") % lst.size(), ""))
 	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
 	if lst.size() > show_n:
 		sec2.add_child(UI.btn("더 보기 (%d개 남음)" % (lst.size() - show_n), func():
@@ -1414,6 +1415,43 @@ func _page_forge() -> Control:
 			render(), "ghost", 46))
 	v.add_child(sec2)
 	return v
+
+
+## 거르기 칸 —— 글씨 대신 기호(병종) · 색(등급). 고르면 밝은 테두리, 오른쪽 위 작은 숫자 = 지금 조합 가능 수
+func _filter_chip(txt: String, icon, cnt: String, col: Color, on: bool, cb: Callable) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 34)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var tier_col: bool = icon == null and txt != "all"
+	var bg: Color = Color(col, 0.85) if tier_col else (DB.PAL.ink3 if on else DB.PAL.ink2)
+	var bd: Color = DB.PAL.paper if on else (Color(col, 0.0) if tier_col else DB.PAL.ink4)
+	for st in ["normal", "hover", "pressed"]:
+		var sb := UI.flat(bg, bd, 2 if on else 1, 8, 0)
+		if tier_col and not on:
+			sb.bg_color = Color(col, 0.4)
+		b.add_theme_stylebox_override(st, sb)
+	if icon != null:
+		b.icon = icon
+		b.expand_icon = false
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.add_theme_constant_override("icon_max_width", 16)      # 병종 기호 SVG 가 크게 구워져 있다
+		b.add_theme_color_override("icon_normal_color", DB.PAL.paper if on else DB.PAL.bamboo)
+	else:
+		b.text = "전체" if txt == "all" else txt
+		b.add_theme_font_size_override("font_size", 12)
+		b.clip_text = true
+		b.add_theme_color_override("font_color", Color("#1A1508") if tier_col and on else DB.PAL.paper)
+	if cnt != "":
+		var l := UI.lbl(cnt, 10, DB.PAL.gold, true)
+		l.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		l.offset_left = -12
+		l.offset_top = 1
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(l)
+	b.pressed.connect(func():
+		UI.buzz()
+		cb.call())
+	return b
 
 
 # ───────── 전투 ─────────
