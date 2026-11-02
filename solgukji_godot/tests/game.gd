@@ -10,6 +10,9 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var runs := int(args.get("runs", "20"))
+	if args.has("oldquest"):        # 토벌 고정 편성(황건적) 대신 예전 무작위 —— 비교용
+		DB.QUEST_ROSTERS = []
+	var qtry := {}                  # "일차-단계" -> [도전, 실패]
 	var wins := 0
 	var phases := 0
 	for n in runs:
@@ -18,7 +21,15 @@ func _ready() -> void:
 		var guard := 0
 		while r.over == null and guard < 40:
 			guard += 1
+			var qk := "%d-%d" % [r.day + 1, r.phase + 1]
+			var st0 := r.strikes
+			var done0 := r.quest_done
 			r.dev_autoplay()
+			if not done0 and (r.quest_done or r.strikes > st0 or r.day * 3 + r.phase != 0):
+				var e: Array = qtry.get(qk, [0, 0])
+				e[0] += 1
+				if r.strikes > st0: e[1] += 1
+				qtry[qk] = e
 			var d: Dictionary = JSON.parse_string(JSON.stringify(r.to_dict(), "", false, true))
 			var r2 := Run.new()
 			r2.from_dict(d)
@@ -29,4 +40,10 @@ func _ready() -> void:
 		print("판 %d: %s · %s · %d일차 %s · PV %d · %d승 %d패 · 경고 %d" % [n, "우승" if r.over.win else "탈락",
 			r.over.msg, r.day + 1, Run.PHASE_N[r.phase], r.my_pv(), r.my_w, r.my_l, r.strikes])
 	print("우승 %d / %d · 평균 도달 페이즈 %.1f" % [wins, runs, phases / float(runs)])
+	var ks := qtry.keys()
+	ks.sort_custom(func(a, b): return int(a.split("-")[0]) * 3 + int(a.split("-")[1]) < int(b.split("-")[0]) * 3 + int(b.split("-")[1]))
+	var line := []
+	for k in ks:
+		line.append("%s %d/%d" % [k, qtry[k][0] - qtry[k][1], qtry[k][0]])
+	print("토벌 승/도전: " + " · ".join(line))
 	get_tree().quit()

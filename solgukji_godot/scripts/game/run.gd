@@ -661,18 +661,36 @@ static func bot_equip(cards: Array, p_idx: int, r: RandomNumberGenerator) -> Arr
 	return eq
 
 
+## 토벌 고정 편성 (황건적 소탕, 11/2) —— 없으면 null (예전처럼 PV 로 무작위)
+func quest_roster():
+	if DB.QUEST_ROSTERS.is_empty():
+		return null
+	return DB.QUEST_ROSTERS[day][phase]
+
+
 func quest_name() -> String:
-	return DB.D.QUESTS[day][phase]
+	var q = quest_roster()
+	return q.name if q != null else DB.D.QUESTS[day][phase]
 
 
 func quest_pv() -> int:
-	return int(DB.D.QPV[day][phase] * QUEST_PV_MUL)
+	var q = quest_roster()
+	return int(q.pv) if q != null else int(DB.D.QPV[day][phase] * QUEST_PV_MUL)
 
 
 func start_quest() -> Dictionary:
 	var pv := quest_pv()
-	var styles := ["물리", "지략", "균형"]
-	var foe := _bot_side(pv, styles[rng.randi() % 3])
+	var q = quest_roster()
+	var foe: Dictionary
+	if q != null:
+		# 정해진 황건 편성 —— 장비 없이, 덱에 맞는 작전 (11/2 사용자: 토벌이 너무 어려워졌다)
+		var cards := DB.auto_place(q.cards, q.form)
+		var eq: Array = q.get("equip", [])
+		foe = {"cards": cards, "form": q.form, "morale": int(q.get("morale", 100)),
+			"equip": eq, "tac": recommend_tac(cards)[0]}      # 장비는 맞출 때 auto_place 자리 그대로 (같은 순서라 자리가 같다)
+	else:
+		var styles := ["물리", "지략", "균형"]
+		foe = _bot_side(pv, styles[rng.randi() % 3])
 	battle = {"kind": "quest", "a": _my_side(), "b": foe, "seed": rng.randi() % 1000000,
 		"title": "토벌 · %s" % quest_name(), "foe": quest_name(), "pv": pv, "inputs": []}
 	return battle

@@ -36,6 +36,7 @@ var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유�
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
 var SKILL_COND: Dictionary   # 일반 기술 발동 조건 (data/cards_ext.json skill_cond)
+var QUEST_ROSTERS: Array = []  # 토벌 고정 편성 —— 황건적 소탕 [일차][단계] (data/cards_ext.json quest_rosters, 11/2)
 
 const PHYS_TAGS := ["창병", "기병", "궁병", "도적"]
 const INT_TAGS := ["책사", "유생", "술사", "모사"]
@@ -59,6 +60,7 @@ func _load() -> void:
 		D.STATUS[k] = ext.status[k]
 	CLASS_COUNTER = ext.get("class_counter", {})
 	SKILL_COND = ext.get("skill_cond", {})
+	QUEST_ROSTERS = ext.get("quest_rosters", {}).get("stages", [])
 	D.SKILLPOOL["범용"] = ext.get("skills_ext", []).filter(func(x): return x.has("n"))     # 범용 기술 (누구나 추가 기술로)
 	_build_fonts()
 
@@ -82,7 +84,7 @@ func _load() -> void:
 	for t in TIER:
 		var pvs := []
 		for k in C:
-			if C[k].tier == t:
+			if C[k].tier == t and not is_foe(k):
 				pvs.append(C[k].pv)
 		TIER[t].lo = pvs.min()
 		TIER[t].hi = pvs.max()
@@ -238,7 +240,7 @@ func _build_pools() -> void:
 		for t in TIER:
 			var arr := []
 			for k in C:
-				if C[k].tier != t:
+				if C[k].tier != t or is_foe(k):
 					continue
 				if style == "물리" and not PHYS_TAGS.has(C[k].tag): continue
 				if style == "지략" and not INT_TAGS.has(C[k].tag): continue
@@ -287,6 +289,11 @@ func fac_color(fac: String) -> Color:
 
 
 ## 인물 이름 —— "의절 관우" → "관우". 같은 인물의 여러 등급 카드가 초상 한 장을 나눠 쓴다.
+## 토벌 전용 황건 카드 (11/2, tools/scripts/foe_cards.py) —— 플레이어는 얻지 못한다: 뽑기 · 상점 · 도감 · 무작위 보드에서 빠진다
+func is_foe(k: String) -> bool:
+	return C[k].kind == "foe"
+
+
 func person(k: String) -> String:
 	var parts: PackedStringArray = C[k].name.split(" ")
 	return parts[parts.size() - 1]
@@ -315,7 +322,7 @@ func portrait_base(k: String) -> String:
 		return _portrait_pick[k]
 	var c: Dictionary = C[k]
 	var cands: Array = []
-	if c.tier <= 2:
+	if c.tier <= 2 or c.kind == "foe":
 		cands = ["res://assets/troops/%s" % c.tag]
 	else:
 		var p := "res://assets/portraits/%s" % person(k)
@@ -667,7 +674,7 @@ func by_tier(t: int) -> Array:
 	var order: Array = D.TAGORDER
 	var out := []
 	for k in C:
-		if C[k].tier == t:
+		if C[k].tier == t and not is_foe(k):
 			out.append(k)
 	out.sort_custom(func(a, b):
 		var ta := order.find(C[a].tag)
