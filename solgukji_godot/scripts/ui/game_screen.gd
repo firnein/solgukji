@@ -872,6 +872,9 @@ func _page_head(title: String, sub: String) -> Control:
 
 
 ## 초상 작은 카드 격자 —— 한 줄에 4장
+## 징집 화면의 작은 카드 (11/2 사용자: UI 크기를 줄여 한 줄 5장)
+const SMALL := Vector2(68, 96)
+
 func minis() -> AutoGrid:
 	return UI.grid(78, 6)       # 10/30 66 → 78: 한 줄 5장 → 4장, 초상을 크게
 
@@ -893,12 +896,12 @@ func _ready_mats() -> Dictionary:
 
 
 ## 조합 카드 하나 (가로 띠용) —— 초상 + 아래 버튼. 되면 바로 조합, 안 되면 재료 시트
-func recipe_card(out: String) -> Control:
+func recipe_card(out: String, sz := Vector2(86, 112)) -> Control:
 	var v := UI.vbox(4)
-	v.custom_minimum_size = Vector2(86, 0)
+	v.custom_minimum_size = Vector2(sz.x, 0)
 	var ok := run.can_forge(out)
 	var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-	t.custom_minimum_size = Vector2(86, 112)
+	t.custom_minimum_size = sz
 	t.lit = ok
 	v.add_child(t)
 	var miss := run.miss_count(out)
@@ -907,7 +910,7 @@ func recipe_card(out: String) -> Control:
 			if act("forge", [out]):
 				toast("%s 조합 완료" % DB.C[out].name, "gain")
 		else:
-			recipe_sheet(out), "pri" if ok else "ghost", 34)
+			recipe_sheet(out), "pri" if ok else "ghost", 34 if sz.y >= 112 else 28)
 	b.add_theme_font_size_override("font_size", 13)
 	v.add_child(b)
 	return v
@@ -976,7 +979,7 @@ func _page_draw() -> Control:
 		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 더 이상 농민을 징집하지 않는다. 명장만이 소환된다.", 14), 10))
 
 	# 할 일 —— 기호 타일 한 줄
-	var acts := UI.grid(80, 6)
+	var acts := UI.grid(68, 6)
 	if n > 0:
 		acts.add_child(UI.tile_act("draw", "징집", "기본패 %d장" % n, func(): act("do_draw"), "pri", run.drawn, not can_act()))
 	var pl := run.pick_list()
@@ -996,6 +999,26 @@ func _page_draw() -> Control:
 			func(): picker(t), "gold", false, not can_act()))
 	v.add_child(acts)
 
+	# 보유 카드 —— 초상 격자 (11/2 사용자: 크기를 줄여 한 줄 5장)
+	var p := run.pool()
+	var tot := 0
+	for k in p:
+		tot += p[k]
+	var mats := _ready_mats()
+	var hand := UI.grid(SMALL.x, 6)
+	for k in Run.sort_cards(p.keys()):
+		var t := mtile(k, p[k])
+		t.custom_minimum_size = SMALL
+		if run.on_board(k) > 0:
+			t.badge = "편성 %d" % run.on_board(k)
+			t.badge_col = Color(DB.PAL.ink4, 0.95)
+		t.up = mats.has(k)
+		hand.add_child(t)
+	var hv := UI.vbox(6)
+	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
+	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
+	v.add_child(hv)
+
 	# 보급품 · 소식 —— 한 줄 칩
 	var chips := UI.hbox(6)
 	if run.last_item != null:
@@ -1011,24 +1034,23 @@ func _page_draw() -> Control:
 	if chips.get_child_count() > 0:
 		v.add_child(chips)
 
-	# 보유 카드 —— 징집 화면은 징집 · 선택권 · 내 패만 (11/2 사용자 P안: 조합은 조합 탭이 맡는다. 탭 배지 · ▲ 표시가 신호)
-	var p := run.pool()
-	var tot := 0
-	for k in p:
-		tot += p[k]
-	var mats := _ready_mats()
-	var hand := minis()
-	for k in Run.sort_cards(p.keys()):
-		var t := mtile(k, p[k])
-		if run.on_board(k) > 0:
-			t.badge = "편성 %d" % run.on_board(k)
-			t.badge_col = Color(DB.PAL.ink4, 0.95)
-		t.up = mats.has(k)
-		hand.add_child(t)
-	var hv := UI.vbox(6)
-	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
-	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
-	v.add_child(hv)
+	# 이어지는 조합 —— 가로로 넘긴다 (되는 것 먼저)
+	var near := run.near_recipes(12)
+	if not near.is_empty():
+		near.sort_custom(func(x, y):
+			var a := run.can_forge(x.out)
+			var b2 := run.can_forge(y.out)
+			if a != b2:
+				return a
+			return x.short < y.short)
+		var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
+		var sec := UI.vbox(6)
+		sec.add_child(UI.head("이어지는 조합", ("지금 %d개 가능 · " % ready_n if ready_n else "") + "옆으로 넘기기 ›"))
+		var st := UI.strip(6)
+		for r in near:
+			st[1].add_child(recipe_card(r.out, SMALL))
+		sec.add_child(st[0])
+		v.add_child(sec)
 	return v
 
 

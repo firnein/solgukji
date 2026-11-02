@@ -290,7 +290,7 @@ static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button
 ## 기호 행동 타일 —— 위에 그림, 아래 두 줄(제목 · 설명). 끝낸 일은 ✔ 로 흐리게
 static func tile_act(icon: String, title: String, sub: String, cb: Callable, kind := "", done := false, disabled := false) -> Button:
 	var P := DB.PAL
-	var b := btn("", cb, kind, 80)
+	var b := btn("", cb, kind, 58)      # 11/2 사용자: 80 → 58 (징집 화면을 작게)
 	b.disabled = disabled or done
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if done:
@@ -302,10 +302,10 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var a := 0.45 if b.disabled else 1.0
-	var ic := Icons.View.new("check" if done else icon, Color(P.jade if done else (P.gold if kind == "gold" else P.paper), a), 24)
+	var ic := Icons.View.new("check" if done else icon, Color(P.jade if done else (P.gold if kind == "gold" else P.paper), a), 18)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	for pair in [[title, 14, P.paper, true], [sub, 11, P.bamboo, false]]:
+	for pair in [[title, 13, P.paper, true], [sub, 10, P.bamboo, false]]:
 		var l := lbl(pair[0], pair[1], Color(pair[2], a), pair[3])
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -320,8 +320,8 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 static func icon_chip(icon: String, text: String, col: Color, cb: Callable) -> Button:
 	var P := DB.PAL
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 44)
-	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(col, 0.55), 1, 22, 0))
+	b.custom_minimum_size = Vector2(0, 36)
+	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(col, 0.55), 1, 18, 0))
 	b.add_theme_stylebox_override("hover", flat(P.ink3, col, 1, 22, 0))
 	b.add_theme_stylebox_override("pressed", flat(P.ink4, col, 1, 22, 0))
 	b.pressed.connect(func():
