@@ -1107,20 +1107,38 @@ func picker(t: int) -> void:
 		close_sheet()
 		return
 	var b := open_sheet("%s 선택권 — 남은 %d회" % [DB.TIER[t].n, left])
+	const PICK_TILE := Vector2(54, 80)     # 3장 병종 둘이 한 줄에 들어가는 폭 (휴대폰 세로 논리 폭 ~410)
+	# 병종 묶음을 줄에 채워 넣는다 —— 옆에 자리가 남으면 다음 병종이 같은 줄에 (11/2 사용자: 창병 2 · 기병 2 를 한 줄에)
+	var full: float = (_sheet.size.x if _sheet.size.x > 100 else get_viewport_rect().size.x) - 36
+	var per := maxi(1, int((full + 6) / (PICK_TILE.x + 6)))
+	var row: HBoxContainer = null
+	var used := 0.0
 	for tag in DB.D.TAGORDER:
 		var ks := Run.by_tier_tag(t, tag)
 		if ks.is_empty():
 			continue
-		b.add_child(UI.eyebrow("%s %d" % [tag, ks.size()]))
-		var f := UI.grid(SMALL.x, 6)       # 11/2 사용자: 작은 초상 + 이름, 공방속 없이
+		var cols := mini(ks.size(), per)
+		var gw := cols * (PICK_TILE.x + 6) - 6
+		if row == null or used + 14 + gw > full:
+			row = UI.hbox(14)
+			b.add_child(row)
+			used = -14
+		used += 14 + gw
+		var grp := UI.vbox(4)
+		grp.add_child(UI.eyebrow("%s %d" % [tag, ks.size()]))
+		var f := GridContainer.new()
+		f.columns = cols
+		f.add_theme_constant_override("h_separation", 6)
+		f.add_theme_constant_override("v_separation", 6)
 		for k in ks:
 			var tl := mtile(k, run.pool().get(k, -1), func(id):
 				if act("pick", [id]):
 					toast("%s 획득 · %s" % [DB.C[id].name, DB.TIER[DB.C[id].tier].n], "gain")
 				picker(t))
-			tl.custom_minimum_size = SMALL
+			tl.custom_minimum_size = PICK_TILE
 			f.add_child(tl)
-		b.add_child(f)
+		grp.add_child(f)
+		row.add_child(grp)
 
 
 ## 지금 손댈 수 있는가 —— 온라인은 준비 시간에만
