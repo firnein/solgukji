@@ -525,7 +525,7 @@ func render(new_page := false) -> void:
 	_render_head()
 	_build_tabbar_badges()
 	var keep := _scroll.scroll_vertical
-	var fixed := page == "deploy"
+	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
 	_scroll.visible = not fixed
 	_fixed.visible = fixed
 	for c in _body.get_children():
@@ -973,7 +973,7 @@ func recipe_sheet(out: String) -> void:
 func _page_draw() -> Control:
 	if run.over:
 		return _over_panel()
-	var v := UI.vbox(16)
+	var v := UI.vbox(12)
 	var n := run.draws_n()
 	if run.day == 6:
 		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 더 이상 농민을 징집하지 않는다. 명장만이 소환된다.", 14), 10))
@@ -998,26 +998,6 @@ func _page_draw() -> Control:
 		acts.add_child(UI.tile_act("gift", "%s ×%d" % [DB.TIER[t].n, int(run.tickets[str(t)])], "%d종 중 고르기" % DB.by_tier(t).size(),
 			func(): picker(t), "gold", false, not can_act()))
 	v.add_child(acts)
-
-	# 보유 카드 —— 초상 격자 (11/2 사용자: 크기를 줄여 한 줄 5장)
-	var p := run.pool()
-	var tot := 0
-	for k in p:
-		tot += p[k]
-	var mats := _ready_mats()
-	var hand := UI.grid(SMALL.x, 6)
-	for k in Run.sort_cards(p.keys()):
-		var t := mtile(k, p[k])
-		t.custom_minimum_size = SMALL
-		if run.on_board(k) > 0:
-			t.badge = "편성 %d" % run.on_board(k)
-			t.badge_col = Color(DB.PAL.ink4, 0.95)
-		t.up = mats.has(k)
-		hand.add_child(t)
-	var hv := UI.vbox(6)
-	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
-	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
-	v.add_child(hv)
 
 	# 보급품 · 소식 —— 한 줄 칩
 	var chips := UI.hbox(6)
@@ -1051,7 +1031,47 @@ func _page_draw() -> Control:
 			st[1].add_child(recipe_card(r.out, SMALL))
 		sec.add_child(st[0])
 		v.add_child(sec)
+
+	# 보유 카드 —— 초상 격자 (11/2 사용자: 크기를 줄여 한 줄 5장)
+	var p := run.pool()
+	var tot := 0
+	for k in p:
+		tot += p[k]
+	var mats := _ready_mats()
+	var hand := UI.grid(SMALL.x, 6)
+	for k in Run.sort_cards(p.keys()):
+		var t := mtile(k, p[k])
+		t.custom_minimum_size = SMALL
+		if run.on_board(k) > 0:
+			t.badge = "편성 %d" % run.on_board(k)
+			t.badge_col = Color(DB.PAL.ink4, 0.95)
+		t.up = mats.has(k)
+		hand.add_child(t)
+	# 아래 고정 영역 —— 남은 높이를 다 쓰고 그 안에서만 스크롤 (11/2 사용자: 보유 카드를 하단 일부 영역에 고정)
+	var hv := UI.vbox(6)
+	hv.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
+	var hs := UI.scroll()
+	hs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hs.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
+	hv.add_child(hs)
+	_hand_scroll = hs
+	_restore_hand_scroll.call_deferred(_hand_scroll_y)
+	hs.get_v_scroll_bar().value_changed.connect(func(y): _hand_scroll_y = int(y))
+	v.add_child(hv)
+
 	return v
+
+
+var _hand_scroll: ScrollContainer
+var _hand_scroll_y := 0       # 다시 그려도 보유 패 스크롤 자리를 지킨다
+
+
+func _restore_hand_scroll(y: int) -> void:
+	await get_tree().process_frame
+	if is_instance_valid(_hand_scroll):
+		_hand_scroll.scroll_vertical = y
 
 
 func mini_n(a: int, b: int) -> int:
