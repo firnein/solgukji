@@ -23,7 +23,11 @@ extends RefCounted
 const CLS := {"창병": "melee", "도적": "melee", "기병": "cav", "궁병": "ranged",
 	"책사": "caster", "유생": "caster", "술사": "caster", "모사": "caster"}
 ## 등급별 병사 인형 수 —— 기병은 절반, 지략 계열은 호위대까지 쳐서 절반 남짓
-const COUNT := {1: 36, 2: 44, 3: 54, 4: 64, 5: 72, 6: 80, 7: 88, 8: 96}
+const COUNT := {1: 30, 2: 36, 3: 44, 4: 52, 5: 62, 6: 78, 7: 96, 8: 120}     # 11/2 사용자: 고등급은 군집 규모로 압도 (예전 36 ~ 96)
+## 등급별 병사 몸집 · 간격 배율 —— 초월 위는 정예라 크고 넓게 선다
+const TIER_SIZE := {6: 1.1, 7: 1.2, 8: 1.32}
+## 장수 인형 크기
+const GEN_SIZE := {6: 1.45, 7: 1.6, 8: 1.85}
 static var count_scale := 1.0   # 품질 설정 —— 모바일은 병사 수를 줄인다 (Settings)
 const DENSITY := 1.1            # 11/2 사용자: 한 칸에 바글바글한 게 아니라 군집이 커 보이길 —— 수는 줄이고(2.4 → 1.1) 간격을 넓혀 덩치는 유지
 ## 이동 속도 (px/초) —— 기병은 돌격 때 더 빨라진다
@@ -152,6 +156,7 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 		_:
 			sp = 8.0
 			cols = 14
+	sp *= TIER_SIZE.get(tier, 1.0)
 	for i in n:
 		soldiers.append(_new_soldier(i))
 	if tier >= 3:
@@ -169,7 +174,7 @@ func _new_soldier(i: int) -> Soldier:
 	var s := Soldier.new()
 	s.slot = i
 	s.jit = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * 0.42
-	s.size = _rng.randf_range(0.92, 1.08)
+	s.size = _rng.randf_range(0.92, 1.08) * TIER_SIZE.get(tier, 1.0)
 	s.tint = _rng.randf()
 	s.phase = _rng.randf() * TAU
 	s.fall = 1.0 if _rng.randf() < 0.5 else -1.0

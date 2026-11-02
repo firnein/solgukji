@@ -17,6 +17,7 @@ var RECOF := {}          # 결과 id -> 재료 배열
 var TIER := {}           # 등급(int) -> {n, c, lo, hi}
 var FORM := {}           # 진형 -> {n, sil, mask, slots, grid}
 var BASE: Array = []     # 기본패 8종
+var LINES := {}          # data/lines.json —— 인물 줄기 새 카드 · 조합 · 고유 기술
 var POOLS := {}          # 성향 -> 등급 -> 카드 id 배열
 var ICON := {}           # 병종 -> Texture2D (흰색, modulate 로 칠한다)
 
@@ -47,7 +48,9 @@ func _ready() -> void:
 	_load()
 
 
-const TIER_COL := {1: "#64748b", 2: "#16a34a", 3: "#2563eb", 4: "#7c3aed", 5: "#ea580c", 6: "#e11d48", 7: "#db2777", 8: "#ca8a04"}      # 11/2 사용자: 원랜디 등급색 (흔함 · 안흔함 · 특별함 · 희귀함 · 전설적인 · 초월함 · 영원한), 불멸만 히든조합 분홍 (불멸의 갈색은 신화 금과 겹쳤다)
+## 11/2 사용자 (2차): 고급 · 희귀가 구분되지 않는다 → 흰 · 회 · 초록 · 보라 · 빨강 · 하늘 · 주황 · 금. 색이 가까운 등급은 글꼴(굵기 · 기울임)로도 가른다 (tier_font)
+const TIER_COL := {1: "#f2f2ee", 2: "#9aa1aa", 3: "#2fc24f", 4: "#a64cf2", 5: "#f03c3c", 6: "#45c8f5", 7: "#ff8a1c", 8: "#ffd23a"}
+## 이전 색 (원랜디): {1: "#64748b", 2: "#16a34a", 3: "#2563eb", 4: "#7c3aed", 5: "#ea580c", 6: "#e11d48", 7: "#db2777", 8: "#ca8a04"}      # 11/2 사용자: 원랜디 등급색 (흔함 · 안흔함 · 특별함 · 희귀함 · 전설적인 · 초월함 · 영원한), 불멸만 히든조합 분홍 (불멸의 갈색은 신화 금과 겹쳤다)
 
 
 func _load() -> void:
@@ -65,6 +68,11 @@ func _load() -> void:
 	SKILL_COND = ext.get("skill_cond", {})
 	QUEST_ROSTERS = ext.get("quest_rosters", {}).get("stages", [])
 	D.SKILLPOOL["범용"] = ext.get("skills_ext", []).filter(func(x): return x.has("n"))     # 범용 기술 (누구나 추가 기술로)
+	# 11/2 인물 줄기 · 인연 조합 · 장수 고유 기술 (data/lines.json —— tools/scripts/lines.py 가 만든다)
+	LINES = JSON.parse_string(FileAccess.open("res://data/lines.json", FileAccess.READ).get_as_text())
+	D.CARDDEF.append_array(LINES.cards)
+	for nm in LINES.skills:
+		SKILL_COND[LINES.skills[nm].n] = LINES.skills[nm].get("cond", "always")
 	_build_fonts()
 
 	for r in D.CARDDEF:
@@ -77,6 +85,9 @@ func _load() -> void:
 	set_stat_adjust(ext.get("stat_adjust", {}))
 	for r in D.RECDEF:
 		RECOF[r[0]] = r[1]
+	for k in LINES.recipes:
+		RECOF[k] = LINES.recipes[k]
+	D.RECDEF = RECOF.keys().map(func(k): return [k, RECOF[k]])      # 조합을 돌며 찾는 곳이 새 카드 · 바뀐 재료를 보도록
 	for r in D.ITEMDEF:
 		IT[r[0]] = {"id": r[0], "name": r[1], "grade": r[2], "tag": r[3], "pri": r[4],
 			"pa": float(r[5]), "sec": r[6], "sa": float(r[7]), "rb": float(r[8]), "use": r[9]}
@@ -122,6 +133,11 @@ func _reskill() -> void:
 			c.sk = null
 			c.sks = []
 			continue
+		# 11/2 장수 고유 기술 —— 인물마다 하나 (lines.json skills). 첫 기술로
+		var sig = LINES.skills.get(person(k))
+		if sig != null:
+			c.sk = _build_from(sig, c.tier)
+			continue
 		# 인물에게 지정된 스킬 (계열 인물의 계열 스킬) —— 없으면 남은 병종 스킬을 돌려 쓴다
 		var want: String = PSV.skill.get(person(k), {}).get(c.tag, "")
 		var pool: Array = D.SKILLPOOL[c.tag]
@@ -144,7 +160,8 @@ func _reskill() -> void:
 
 ## 기술 여러 개 (솔국지 확장, 2026-10-30) —— 첫 기술은 원본 배정 그대로, 희귀부터 기술을 더한다 (희귀 · 전설 · 초월 +1, 불멸 · 신화 +2). 기술마다 충전이 따로 돈다.
 ## 더하는 기술은 그 인물 특기의 축(도트 · 둔화 · 혼란 …)에 맞는 것부터, 자기 주 능력치(공격 / 책략)와 같은 종류만.
-const SKILL_EXTRA := {4: 1, 5: 1, 6: 1, 7: 2, 8: 2}
+## 11/2 사용자: 장수마다 특화가 느껴지게 —— 희귀 · 전설은 고유 기술 하나만, 초월 · 불멸 +1, 신화 +2 (예전 4~6 +1 · 7~8 +2)
+const SKILL_EXTRA := {6: 1, 7: 1, 8: 2}
 const AXIS_SKILLS := {"도트": ["화공", "화시난발", "역병"], "둔화": ["수공", "철기유린"], "혼란": ["혹세", "봉계"],
 	"책방깎": ["팔문금쇄", "저주"], "방깎": ["필사돌격", "저격"], "물리": ["횡소천군", "일점돌파", "일제사격"],
 	"책략": ["이간", "밀계"], "공깎": ["후미교란", "철기유린"], "책략깎": ["밀계", "이간"], "철벽": ["철벽방진"],
@@ -169,7 +186,7 @@ func _skill_list(k: String) -> Array:
 			if not want.has(nm): want.append(nm)
 	for nm in D.SKILLPOOL[c.tag].map(func(x): return x.n):
 		if not want.has(nm): want.append(nm)
-	for tg in D.TAGORDER + ["범용"]:
+	for tg in D.TAGORDER:      # 범용 사기 기술(고함 · 고취 …)은 사기 특기를 가진 인물만 (위 want) —— 모두에게 붙어 고유 기술을 덮었다
 		for x in D.SKILLPOOL[tg]:
 			if not want.has(x.n): want.append(x.n)
 	for nm in want:
@@ -198,7 +215,10 @@ const ST_MERGE := {"bleed": "burn", "seal": "confuse"}
 
 func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 	var pool: Array = D.SKILLPOOL[tag]
-	var base: Dictionary = pool[i % pool.size()]
+	return _build_from(pool[i % pool.size()], tier)
+
+
+func _build_from(base: Dictionary, tier: int) -> Dictionary:
 	var m: float = D.SKMUL.get(str(tier), 1.0)
 	var e := {"kind": base.k, "tgt": base.tgt}
 	if base.has("mult"): e.mult = snappedf(base.mult * m, 0.001)
@@ -288,6 +308,22 @@ func _build_fonts() -> void:
 
 func tier_color(k: String) -> Color:
 	return TIER[C[k].tier].c
+
+
+## 등급 글꼴 —— 기본 · 일반은 보통 고딕, 고급 · 희귀는 명조, 전설은 굵은 고딕, 초월은 굵은 기울임, 불멸 · 신화는 더 굵은 기울임
+var _tier_fonts := {}
+func tier_font(t: int) -> Font:
+	if _tier_fonts.is_empty():
+		for i in range(1, 9):
+			var base: Font = font_body if i <= 2 else (font_display if i <= 4 else font_bold)
+			if i >= 6:
+				var fv := FontVariation.new()
+				fv.base_font = font_bold
+				fv.variation_embolden = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.9][i - 1]
+				fv.variation_transform = Transform2D(Vector2(1, 0), Vector2(0.22, 1), Vector2.ZERO)     # 기울임
+				base = fv
+			_tier_fonts[i] = base
+	return _tier_fonts[clampi(t, 1, 8)]
 
 
 func fac_color(fac: String) -> Color:
@@ -770,7 +806,15 @@ func auto_place(cards: Array, form: String) -> Array:
 
 # ───────── 설명문 (원본 skillDesc) ─────────
 
+## 11/2 실시간 엔진에서 실제로 맞는 범위 (resolve_targets 와 맞춘다)
+const TGT_RT := {"front1": "맞붙은 적 1부대", "back1": "적진 가장 뒤 1부대", "back2": "적진 가장 뒤 2부대",
+	"front3": "대상과 그 둘레 3부대", "all": "사거리 안 적 전체", "denseLine": "가장 밀집한 적 무리",
+	"line:후군": "적 후군(뒤쪽 절반, 최대 3부대)", "line:선봉+전군": "적 선봉 · 전군(앞쪽 절반, 최대 3부대)",
+	"allyAll": "아군 전체", "allyFront": "적과 가장 가까운 아군", "self": "자신"}
+
 func tgt_name(t: String) -> String:
+	if TGT_RT.has(t):
+		return TGT_RT[t]
 	if D.TGTNM.has(t):
 		return D.TGTNM[t]
 	if t.begins_with("line:"):
@@ -790,7 +834,7 @@ func skill_desc(c: Dictionary, sk = null) -> String:
 		"phys": p.append("적 %s에 물리 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
 		"int": p.append("적 %s에 책략 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
 	var pc := Battle.pace_for(c.tier)
-	if e.has("morale"): p.append("사기 −%d" % roundi(e.morale * pc))
+	if e.has("morale"): p.append("사기 −%.1f" % (e.morale * pc))
 	if e.has("pierce"): p.append("방어 %s 무시" % pct.call(e.pierce))
 	if e.has("exec"): p.append("병력 %s 이하면 즉시 이탈" % pct.call(e.exec))
 	if e.has("stance"): p.append("자신 반격 %s · %d턴" % [pct.call(e.stance.amt), e.stance.dur])

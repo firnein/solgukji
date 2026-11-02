@@ -59,6 +59,7 @@ static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 �
 static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
 static var axis_off := {}            # 특기 축 끄기 (점검용) —— {"물리": true, …} 이면 그 축의 특기가 붙지 않는다
 static var axis_off_camp := ""       # 축 끄기를 한쪽 진영에만 ("A" · "B", 비우면 양쪽) —— 점검할 덱 쪽만 끄려고
+static var myth_power := 1.3     # 신화 능력치 배율 (속도 제외) —— tests/tier_power.tscn: 신화 1 대 불멸 2 를 65% 안팎으로
 static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
 static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 · 현혹 —— 솔국지 확장)
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
@@ -330,6 +331,7 @@ func eff(u: Unit, stat: String) -> float:
 	var lm: Dictionary = DB.D.LINE[u.line]
 	var af: Dictionary = DB.D.AFF[c.tag]
 	var v: float = c[stat]
+	if c.tier >= 8 and stat != "spd": v *= myth_power      # 11/2 사용자: 신화 한 장이 불멸 · 초월보다 확실히 세게
 	if stat == "atk": v *= lm.atk
 	if stat == "def": v *= lm.def
 	if stat == "int": v *= lm.int
@@ -1564,6 +1566,7 @@ func act(u: Unit) -> void:
 						if e.has("exec") and t.troops > 0 and t.troops / t.max <= e.exec: rout(t, "한 칼에 짓밟혔다")
 						if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
 						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur})
+						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur})
 						if e.has("resDown"): _cut(u, t, "res", -float(e.resDown.amt) * eff(t, "res"), sk.n)      # 책략방어 감소 → 현혹(수치)
 						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
 					if e.has("selfBuff"): add_buff(u, e.selfBuff)
@@ -1581,10 +1584,14 @@ func act(u: Unit) -> void:
 						if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
 						if e.has("resDown"): _cut(u, t, "res", -float(e.resDown.amt) * eff(t, "res"), sk.n)      # 책략방어 감소 → 현혹(수치)
 						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
+						# 11/2 책략 기술의 속도 깎기 (수공 · 혹세의 foeSpd 가 적혀만 있고 쓰이지 않았다)
+						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur})
+						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur})
 						if u.caps.has("모사") and rng.randf() < 0.30: inflict(u, t, "confuse", 1, 1)      # 봉인은 혼란으로 합쳤다
 					if e.has("heal"):
 						for t in allies:
 							if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
+					if e.has("selfBuff"): add_buff(u, e.selfBuff)
 					if e.has("tHeal"):
 						for t in allies:
 							if t.alive: heal_troop(t, e.tHeal, sk.n, u)

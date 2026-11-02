@@ -62,12 +62,12 @@ func _draw() -> void:
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(8, 8), 7, DB.fac_color(c.fac))
 		draw_string(DB.font_display, pr.position + Vector2(1, 12), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 14, 9, Color.WHITE)
-	var fd := DB.font_display
+	var fd := DB.tier_font(c.tier)
 	var nm: String = c.name
 	var fs := 13
 	while fs > 9 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 6:
 		fs -= 1
-	draw_string(fd, Vector2(3, h - 8), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 6, fs, tc.lightened(0.25) if c.tier >= 3 else DB.PAL.paper)
+	draw_string(fd, Vector2(3, h - 8), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 6, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
 	if qty > 0:
 		var s := "×%d" % qty
 		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 8
@@ -107,12 +107,12 @@ func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 	draw_style_box(sb, Rect2(Vector2.ZERO, size))
 	var pr := Rect2(2, 3, w - 4, h - 17)
 	Art.draw_portrait(self, pr, k)
-	var fd := DB.font_display
+	var fd := DB.tier_font(c.tier)
 	var nm: String = DB.person(k) if c.tier > 2 else c.name
 	var fs := 10
 	while fs > 7 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
 		fs -= 1
-	draw_string(fd, Vector2(1, h - 4), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 2, fs, tc.lightened(0.25) if c.tier >= 3 else DB.PAL.paper)
+	draw_string(fd, Vector2(1, h - 4), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 2, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
 	if qty > 1:
 		var s := "%d" % qty
 		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 6

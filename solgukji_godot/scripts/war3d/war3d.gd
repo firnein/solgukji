@@ -727,6 +727,13 @@ func _make_banner(sq: Squad) -> Node3D:
 	tm.emission_energy_multiplier = 0.6
 	tip.material_override = tm
 	tip.position = Vector3(0, 4.45, 0)
+	if sq.tier >= 6:        # 11/2 초월 위는 깃대 꼭대기 술이 등급색으로 빛난다
+		var tcol: Color = DB.TIER[sq.tier].c
+		tm.albedo_color = tcol
+		tm.emission = tcol
+		tm.emission_energy_multiplier = 1.6 + (sq.tier - 6) * 0.8
+		tip.scale = Vector3.ONE * (1.6 + (sq.tier - 6) * 0.5)
+		root.scale = Vector3.ONE * (1.1 + (sq.tier - 6) * 0.12)
 	root.add_child(tip)
 	unit_root.add_child(root)
 	return root
@@ -1094,7 +1101,7 @@ func _sync() -> void:
 			g = -atk
 		if s.air > 0.0:
 			b = b * Basis(Vector3.BACK, s.spin)     # 날아가며 뒤집힌다
-		var sc: float = 1.3 if e[6] else s.size
+		var sc: float = Squad.GEN_SIZE.get(sq.tier, 1.3) if e[6] else s.size
 		b = b * Basis.from_scale(Vector3(sc, sc, sc))
 		var p := Vector3(x, y, z)
 		var r0: float = (0.0 if sq.camp == "A" else 1.0) + s.tint * 0.5
@@ -2128,6 +2135,18 @@ func _status_fx() -> void:
 				em.emission_sphere_radius = 2.6
 				auras[key] = em
 			auras[key].position = p3(sq.pos, 0.6)
+	# 11/2 초월 · 불멸 · 신화 부대는 등급색 기운을 두른다 (신화일수록 크고 짙게)
+	for sq in order:
+		if not sq.alive or sq.tier < 6:
+			continue
+		var key: String = sq.key + "|tier"
+		live[key] = true
+		if not auras.has(key):
+			var em := _particles(p3(sq.pos, 0.3), "magic", DB.TIER[sq.tier].c, true)
+			em.amount = [8, 14, 24][sq.tier - 6]
+			em.emission_sphere_radius = [3.2, 4.2, 5.4][sq.tier - 6]
+			auras[key] = em
+		auras[key].position = p3(sq.pos, 0.3)
 	for key in auras.keys():
 		if not live.has(key):
 			auras[key].queue_free()

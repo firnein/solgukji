@@ -1031,6 +1031,11 @@ func _apply(i: int, quiet := false) -> void:
 		"phys":
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
 				field.clash(e.a, f, e.get("crit", false) or group_of[i].skill != "" or group_of[i].ult != null)
+			# 11/2 불멸 · 신화는 평타에도 적 병사가 튕겨 나간다 (압도적인 파괴력) —— 무거운 소리와 함께
+			if smooth and field.squads.has(e.a) and field.squads[e.a].tier >= 7 and gq.skill == "" and gq.ult == null and idx_of.has(f):
+				_snap(idx_of[f])
+				field.blast(f, e.a, 0.5 if field.squads[e.a].tier == 7 else 0.8)
+				Sfx.play("crit")
 			if e.get("dir", "") == "후방":       # 실시간 엔진 —— 뒤에서 친 타격만 (측면은 잦아서 띄우지 않는다, 10/31)
 				hud.float_text(f, "후방!", Color("#ff5e3a"), 11)
 		"heal":

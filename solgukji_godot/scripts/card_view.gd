@@ -111,7 +111,8 @@ func _draw() -> void:
 	var col: Color = tc.lightened(0.15) if tier >= 6 else DB.PAL.paper
 	var tw := w - m * 2
 	var y := h - fw - 9 * u
-	draw_string(fd, Vector2(m, y), nm, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(fd, nm, int(18 * u), tw), col)
+	var nf := DB.tier_font(tier)
+	draw_string(nf, Vector2(m, y), nm, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(nf, nm, int(18 * u), tw), col)
 	if title != "":
 		draw_string(fb, Vector2(m, y - 19 * u), title, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(fb, title, int(12 * u), tw), Color(col, 0.8))
 

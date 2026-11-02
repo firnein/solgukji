@@ -97,12 +97,12 @@ func _draw() -> void:
 	draw_texture_rect(DB.ICON[c.tag], Rect2(tcen - Vector2(5.5, 5.5), Vector2(11, 11)), false, DB.PAL.paper)
 	var x := pr.end.x + 7
 	var tw := w - x - 6
-	var fd := DB.font_display
+	var fd := DB.tier_font(c.tier)
 	var fb := DB.font_body
 	var fs := 18
 	while fs > 11 and fd.get_string_size(c.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw - (26 if qty > 0 else 0):
 		fs -= 1
-	draw_string(fd, Vector2(x, 25), c.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2) if c.tier >= 3 else DB.PAL.paper)
+	draw_string(fd, Vector2(x, 25), c.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
 	if note != "":
 		draw_string(fb, Vector2(x, h - 12), note, HORIZONTAL_ALIGNMENT_LEFT, tw, 11, note_col if note_col.a > 0 else DB.PAL.bamboo_dim)
 		draw_traits(self, k, Rect2(x, 33, tw, 18))

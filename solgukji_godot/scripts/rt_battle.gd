@@ -41,7 +41,7 @@ const TURN_RATE := 2.5        # 부대가 도는 속도 (라디안/초)
 static var enabled := true    # 게임 · 서버의 전투를 실시간 엔진으로 (false 면 예전 턴 엔진 —— 비교용)
 
 # 지형 (삼국지11) —— 판마다 시드로 좌우 대칭이 되게 깐다. 숲 · 언덕 {k, x, y, r} · 강 {k: "river", x, w(반폭)}
-static var terrain_enabled := true
+static var terrain_enabled := false     # 11/2 사용자: 지형효과 제거 (숲 · 강 · 언덕 —— 판정 · 화면 모두)
 const FOREST := {"def": 0.85, "arrow": 0.8, "burn": 1.5, "move": 0.8}    # 숲 안의 부대: 받는 물리 ×, 떨어진 곳에서 맞는 물리 추가 ×, 화상 ×, 이동 ×
 const RIVER := {"hurt": 1.15, "move": 0.55}                            # 강 안의 부대: 받는 물리 × · 이동 ×
 const HILL := {"hit": 1.15, "range": 1.2, "move": 0.85}                 # 언덕 위에서 아래를 치면 × · 원거리 사거리 × · 이동 ×
@@ -510,11 +510,16 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 	match spec:
 		"front1":
 			return [main]
+		# 11/2 최후열은 설명대로 적진에서 가장 깊은 부대 (사거리 안만 보던 것을 고침 —— 앞 적이 막아도 뒤를 친다)
 		"back1":
-			return [_deepest(me, near)]
+			var d1 := _deepest(me, live)
+			_mark(me, {"k": "circle", "x": roundi(d1.pos.x), "y": roundi(d1.pos.y), "r": 60})
+			return [d1]
 		"back2":
-			var s := near.duplicate()
+			var s := live.duplicate()
 			s.sort_custom(func(a, b): return _depth(me, a) > _depth(me, b))
+			for o in s.slice(0, 2):
+				_mark(me, {"k": "circle", "x": roundi(o.pos.x), "y": roundi(o.pos.y), "r": 60})
 			return s.slice(0, 2)
 		"front3":
 			var s := live.filter(func(o): return o.pos.distance_to(main.pos) <= AREA)
@@ -536,6 +541,15 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 					bc = c
 			_mark(me, {"k": "circle", "x": roundi(bc.pos.x), "y": roundi(bc.pos.y), "r": AREA})
 			return best
+	# 11/2 열 —— 설명대로 적 진영의 앞쪽(선봉 · 전군) / 뒤쪽(후군) 절반, 최대 3부대 (예전엔 나에서 대상으로 뻗은 띠였다)
+	if spec == "line:후군" or spec == "line:선봉+전군":
+		var s := live.duplicate()
+		var back := spec == "line:후군"
+		s.sort_custom(func(a, b): return _depth(me, a) > _depth(me, b) if back else _depth(me, a) < _depth(me, b))
+		s = s.slice(0, mini(3, ceili(s.size() / 2.0)))
+		for o in s:
+			_mark(me, {"k": "circle", "x": roundi(o.pos.x), "y": roundi(o.pos.y), "r": 60})
+		return s
 	if spec.begins_with("line:"):
 		# 줄 —— 나에서 대상으로 뻗은 띠 안의 적 모두
 		var dir := (main.pos - me.pos).normalized()

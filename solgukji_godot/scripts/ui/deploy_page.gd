@@ -393,9 +393,10 @@ class SlotBox extends Control:
 		var tw := size.x - x - 4
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
 		var fs := 14
-		while fs > 10 and DB.font_display.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
+		var tf := DB.tier_font(c.tier)
+		while fs > 10 and tf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
 			fs -= 1
-		draw_string(DB.font_display, Vector2(x, 19), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, DB.tier_color(k).lightened(0.2))
+		draw_string(tf, Vector2(x, 19), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, DB.tier_color(k).lightened(0.2))
 		draw_string(fb, Vector2(x, 34), c.tag, HORIZONTAL_ALIGNMENT_LEFT, tw, 11, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo))
 		draw_string(fb, Vector2(x, 47), Battle.num(c.tr), HORIZONTAL_ALIGNMENT_LEFT, tw, 11, DB.PAL.bamboo_dim)
 		var it = run.item_of_slot(slot)

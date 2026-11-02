@@ -984,14 +984,26 @@ func _page_draw() -> Control:
 	# 11/2 사용자: 타일 아래 설명 글(기본패 14장 · 11종 중 고르기)은 빼고 낮게. 선택권은 타일 하나 —— 고르다 닫아도 「일반 ×2」 같은 타일이 따로 생기지 않고 같은 타일로 다시 연다
 	if n > 0:
 		acts.add_child(UI.tile_act("draw", "징집", "", func(): act("do_draw"), "pri", run.drawn, not can_act()))
+	# 11/2 사용자: 보급(선택권)을 하나로 합치지 말고 등급별 칸으로. 고르지 않고 닫으면 수는 줄지 않는다 (고른 만큼만 줄어든다)
 	var pl := run.pick_list()
-	var left := run.ticket_left()
-	if (not pl.is_empty() and not run.picked) or left > 0:
-		acts.add_child(UI.tile_act("pick", "선택권" + (" %d" % left if left > 0 else ""), "", func():
+	var per_t := {}
+	for k in run.tickets:
+		per_t[int(k)] = int(per_t.get(int(k), 0)) + int(run.tickets[k])
+	if not run.picked:
+		for p in pl:
+			per_t[int(p.t)] = int(per_t.get(int(p.t), 0)) + int(p.n)
+	var tks := per_t.keys().filter(func(t): return per_t[t] > 0)
+	tks.sort()
+	tks.reverse()
+	for t in tks:
+		var tt: int = t
+		var tb := UI.tile_act("pick", "%s %d" % [DB.TIER[tt].n, per_t[tt]], "", func():
 			act("begin_picks", ["phase", -1])
-			if not run.ticket_tiers().is_empty():
-				picker(run.ticket_tiers()[0]), "gold" if left > 0 else "", false, not can_act()))
-	elif not pl.is_empty():
+			picker(tt), "gold", false, not can_act())
+		tb.add_theme_color_override("font_color", DB.TIER[tt].c)
+		UI.tier_mark(tb, tt)
+		acts.add_child(tb)
+	if tks.is_empty() and not pl.is_empty():
 		acts.add_child(UI.tile_act("pick", "선택권", "", func(): pass, "", true, true))
 	var rg := run.grant_list()
 	if not rg.is_empty():

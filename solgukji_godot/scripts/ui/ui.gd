@@ -288,6 +288,19 @@ static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button
 
 
 ## 기호 행동 타일 —— 위에 그림, 아래 두 줄(제목 · 설명). 끝낸 일은 ✔ 로 흐리게
+## 등급 표시 —— 타일 아래에 등급색 띠 (11/2 등급별 보급 칸)
+static func tier_mark(b: Control, t: int) -> void:
+	var r := ColorRect.new()
+	r.color = DB.TIER[t].c
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	r.offset_top = -4
+	r.offset_left = 6
+	r.offset_right = -6
+	r.offset_bottom = -2
+	b.add_child(r)
+
+
 static func tile_act(icon: String, title: String, sub: String, cb: Callable, kind := "", done := false, disabled := false) -> Button:
 	var P := DB.PAL
 	var b := btn("", cb, kind, 58 if sub != "" else 46)      # 11/2 사용자: 80 → 58, 설명 글이 없으면 46
