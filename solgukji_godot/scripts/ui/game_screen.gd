@@ -990,18 +990,30 @@ func _page_draw() -> Control:
 		acts.add_child(UI.tile_act("grant", "배급", " ".join(rg.map(func(p): return "%s%d" % [DB.TIER[mini_n(Run.FREE_TIER_CAP, int(p.t))].n, p.n])), func():
 			for k in act("random_grant"):
 				toast("%s 배급 · %s" % [DB.C[k].name, DB.TIER[DB.C[k].tier].n], "gain"), "", run.granted, not can_act()))
+	# 선택권 —— 등급마다 타일 하나, 할 일 줄 안에 (11/2 사용자: 따로 줄을 만들면 보유 패가 자꾸 아래로 밀렸다)
+	for t in run.ticket_tiers():
+		acts.add_child(UI.tile_act("gift", "%s ×%d" % [DB.TIER[t].n, int(run.tickets[str(t)])], "%d종 중 고르기" % DB.by_tier(t).size(),
+			func(): picker(t), "gold", false, not can_act()))
 	v.add_child(acts)
-	# 선택권 —— 등급마다 버튼 하나, 따로 쓴다
-	var tt := run.ticket_tiers()
-	if not tt.is_empty():
-		var tv := UI.vbox(6)
-		tv.add_child(UI.head("선택권 %d장" % run.ticket_left(), "등급을 눌러 고른다"))
-		var tg := UI.grid(80, 6)
-		for t in tt:
-			tg.add_child(UI.tile_act("gift", "%s ×%d" % [DB.TIER[t].n, int(run.tickets[str(t)])], "%d종 중 고르기" % DB.by_tier(t).size(),
-				func(): picker(t), "gold", false, not can_act()))
-		tv.add_child(tg)
-		v.add_child(tv)
+
+	# 보유 카드 —— 초상 격자
+	var p := run.pool()
+	var tot := 0
+	for k in p:
+		tot += p[k]
+	var mats := _ready_mats()
+	var hand := minis()
+	for k in Run.sort_cards(p.keys()):
+		var t := mtile(k, p[k])
+		if run.on_board(k) > 0:
+			t.badge = "편성 %d" % run.on_board(k)
+			t.badge_col = Color(DB.PAL.ink4, 0.95)
+		t.up = mats.has(k)
+		hand.add_child(t)
+	var hv := UI.vbox(6)
+	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
+	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
+	v.add_child(hv)
 
 	# 보급품 · 소식 —— 한 줄 칩
 	var chips := UI.hbox(6)
@@ -1035,25 +1047,6 @@ func _page_draw() -> Control:
 			st[1].add_child(recipe_card(r.out))
 		sec.add_child(st[0])
 		v.add_child(sec)
-
-	# 보유 카드 —— 초상 격자
-	var p := run.pool()
-	var tot := 0
-	for k in p:
-		tot += p[k]
-	var mats := _ready_mats()
-	var hand := minis()
-	for k in Run.sort_cards(p.keys()):
-		var t := mtile(k, p[k])
-		if run.on_board(k) > 0:
-			t.badge = "편성 %d" % run.on_board(k)
-			t.badge_col = Color(DB.PAL.ink4, 0.95)
-		t.up = mats.has(k)
-		hand.add_child(t)
-	var hv := UI.vbox(6)
-	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
-	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
-	v.add_child(hv)
 	return v
 
 
