@@ -44,6 +44,9 @@ func _draw() -> void:
 	var tc := DB.tier_color(k)
 	var w := size.x
 	var h := size.y
+	if w < 56:
+		_draw_compact(c, tc, w, h)
+		return
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = DB.PAL.ink2
 	sb.border_color = DB.PAL.gold if lit else tc.darkened(0.15)
@@ -92,3 +95,41 @@ func _draw() -> void:
 	if dim:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.5))
 
+
+## 작은 칸 (폭 56 아래 —— 징집 화면 보유 패 8열, 11/2) —— 초상 · 짧은 이름 · 수량 · ▲ 만. 편성 중이면 왼쪽 아래 옥색 점
+func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = DB.PAL.ink2
+	sb.border_color = DB.PAL.gold if lit else tc.darkened(0.1)
+	sb.set_border_width_all(1)
+	sb.border_width_top = 2
+	sb.set_corner_radius_all(5)
+	draw_style_box(sb, Rect2(Vector2.ZERO, size))
+	var pr := Rect2(2, 3, w - 4, h - 17)
+	Art.draw_portrait(self, pr, k)
+	var fd := DB.font_display
+	var nm: String = DB.person(k) if c.tier > 2 else c.name
+	var fs := 10
+	while fs > 7 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
+		fs -= 1
+	draw_string(fd, Vector2(1, h - 4), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 2, fs, tc.lightened(0.25) if c.tier >= 3 else DB.PAL.paper)
+	if qty > 1:
+		var s := "%d" % qty
+		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 6
+		var qr := Rect2(w - qw - 1, 1, qw, 12)
+		var qb := StyleBoxFlat.new()
+		qb.bg_color = Color(DB.PAL.gold, 0.92)
+		qb.set_corner_radius_all(6)
+		draw_style_box(qb, qr)
+		draw_string(DB.font_body, qr.position + Vector2(0, 10), s, HORIZONTAL_ALIGNMENT_CENTER, qw, 9, Color("#1A1508"))
+	if up:
+		var ur := Rect2(w - 13, 14 if qty > 1 else 1, 12, 12)
+		var ub := StyleBoxFlat.new()
+		ub.bg_color = Color(DB.PAL.jade, 0.95)
+		ub.set_corner_radius_all(6)
+		draw_style_box(ub, ur)
+		Icons.draw(self, "up", ur.get_center(), 10, Color.WHITE)
+	if badge != "":
+		draw_circle(Vector2(6, h - 19), 4, Color(DB.PAL.jade, 0.95))
+	if dim:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.5))

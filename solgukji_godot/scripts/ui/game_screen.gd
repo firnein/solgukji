@@ -874,6 +874,7 @@ func _page_head(title: String, sub: String) -> Control:
 ## 초상 작은 카드 격자 —— 한 줄에 4장
 ## 징집 화면의 작은 카드 (11/2 사용자: UI 크기를 줄여 한 줄 5장)
 const SMALL := Vector2(68, 96)
+const HAND_TILE := Vector2(46, 62)     # 보유 패 8열 (11/2)
 
 func minis() -> AutoGrid:
 	return UI.grid(78, 6)       # 10/30 66 → 78: 한 줄 5장 → 4장, 초상을 크게
@@ -1014,53 +1015,66 @@ func _page_draw() -> Control:
 	if chips.get_child_count() > 0:
 		v.add_child(chips)
 
-	# 이어지는 조합 —— 가로로 넘긴다 (되는 것 먼저)
-	var near := run.near_recipes(12)
-	if not near.is_empty():
-		near.sort_custom(func(x, y):
-			var a := run.can_forge(x.out)
-			var b2 := run.can_forge(y.out)
-			if a != b2:
-				return a
-			return x.short < y.short)
-		var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
-		var sec := UI.vbox(6)
-		sec.add_child(UI.head("이어지는 조합", ("지금 %d개 가능 · " % ready_n if ready_n else "") + "옆으로 넘기기 ›"))
-		var st := UI.strip(6)
+	# 조합 —— 가운데 남은 높이를 다 쓰고 세로로 스크롤 (11/2 사용자: 조합에 더 집중, 보유 패는 아래 8열 2줄)
+	var near := run.near_recipes(24)
+	near.sort_custom(func(x, y):
+		var a := run.can_forge(x.out)
+		var b2 := run.can_forge(y.out)
+		if a != b2:
+			return a
+		return x.short < y.short)
+	var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
+	var sec := UI.vbox(6)
+	sec.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sec.add_child(UI.head("조합", ("지금 %d개 가능" % ready_n) if ready_n else "모자란 장수가 적은 순"))
+	var rs := UI.scroll()
+	rs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if near.is_empty():
+		rs.add_child(UI.hint("이어지는 조합이 없다. 징집 · 선택권으로 재료를 모은다."))
+	else:
+		var rcg := UI.grid(SMALL.x, 6)
+		rcg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		for r in near:
-			st[1].add_child(recipe_card(r.out, SMALL))
-		sec.add_child(st[0])
-		v.add_child(sec)
+			rcg.add_child(recipe_card(r.out, SMALL))
+		rs.add_child(rcg)
+	sec.add_child(rs)
+	v.add_child(sec)
 
-	# 보유 카드 —— 초상 격자 (11/2 사용자: 크기를 줄여 한 줄 5장)
+	# 보유 카드 —— 아래 고정 8열 2줄: 윗줄은 장수 · 조합된 병종(그 안에서 스크롤), 맨 아랫줄은 기본 병졸 8종 고정 (11/2 사용자)
 	var p := run.pool()
 	var tot := 0
 	for k in p:
 		tot += p[k]
 	var mats := _ready_mats()
-	var hand := UI.grid(SMALL.x, 6)
-	for k in Run.sort_cards(p.keys()):
-		var t := mtile(k, p[k])
-		t.custom_minimum_size = SMALL
+	var hand_tile := func(k: String, n: int) -> MiniTile:
+		var t := mtile(k, n)
+		t.custom_minimum_size = Vector2(30, HAND_TILE.y)
 		if run.on_board(k) > 0:
-			t.badge = "편성 %d" % run.on_board(k)
-			t.badge_col = Color(DB.PAL.ink4, 0.95)
+			t.badge = "편성"
 		t.up = mats.has(k)
-		hand.add_child(t)
-	# 아래 고정 영역 —— 남은 높이를 다 쓰고 그 안에서만 스크롤 (11/2 사용자: 보유 카드를 하단 일부 영역에 고정)
-	var hv := UI.vbox(6)
-	hv.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
+		t.dim = n <= 0
+		return t
+	var hand := UI.grid(30, 4)
+	hand.max_cols = 8          # 늘 8열 —— 폭에서 칸 수를 셈하면 7열로 떨어졌다
+	for k in Run.sort_cards(p.keys()):
+		if DB.C[k].tier > 1:
+			hand.add_child(hand_tile.call(k, p[k]))
+	var base := UI.grid(30, 4)
+	base.max_cols = 8
+	for k in Run.sort_cards(DB.BASE.duplicate()):
+		base.add_child(hand_tile.call(k, int(p.get(k, 0))))
+	var hv := UI.vbox(4)
+	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 재료 · ● 편성 중"))
 	var hs := UI.scroll()
-	hs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hs.custom_minimum_size.y = HAND_TILE.y
 	hand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hs.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
+	hs.add_child(hand if hand.get_child_count() > 0 else UI.hint("장수가 아직 없다. 기본 병졸을 조합하거나 선택권으로."))
 	hv.add_child(hs)
+	hv.add_child(base)
 	_hand_scroll = hs
 	_restore_hand_scroll.call_deferred(_hand_scroll_y)
 	hs.get_v_scroll_bar().value_changed.connect(func(y): _hand_scroll_y = int(y))
 	v.add_child(hv)
-
 	return v
 
 
