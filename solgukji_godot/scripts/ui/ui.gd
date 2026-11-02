@@ -290,7 +290,7 @@ static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button
 ## 기호 행동 타일 —— 위에 그림, 아래 두 줄(제목 · 설명). 끝낸 일은 ✔ 로 흐리게
 static func tile_act(icon: String, title: String, sub: String, cb: Callable, kind := "", done := false, disabled := false) -> Button:
 	var P := DB.PAL
-	var b := btn("", cb, kind, 58)      # 11/2 사용자: 80 → 58 (징집 화면을 작게)
+	var b := btn("", cb, kind, 58 if sub != "" else 46)      # 11/2 사용자: 80 → 58, 설명 글이 없으면 46
 	b.disabled = disabled or done
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if done:
@@ -306,6 +306,8 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
 	for pair in [[title, 13, P.paper, true], [sub, 10, P.bamboo, false]]:
+		if pair[0] == "":
+			continue
 		var l := lbl(pair[0], pair[1], Color(pair[2], a), pair[3])
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

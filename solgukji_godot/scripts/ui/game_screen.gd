@@ -981,23 +981,23 @@ func _page_draw() -> Control:
 
 	# 할 일 —— 기호 타일 한 줄
 	var acts := UI.grid(68, 6)
+	# 11/2 사용자: 타일 아래 설명 글(기본패 14장 · 11종 중 고르기)은 빼고 낮게. 선택권은 타일 하나 —— 고르다 닫아도 「일반 ×2」 같은 타일이 따로 생기지 않고 같은 타일로 다시 연다
 	if n > 0:
-		acts.add_child(UI.tile_act("draw", "징집", "기본패 %d장" % n, func(): act("do_draw"), "pri", run.drawn, not can_act()))
+		acts.add_child(UI.tile_act("draw", "징집", "", func(): act("do_draw"), "pri", run.drawn, not can_act()))
 	var pl := run.pick_list()
-	if not pl.is_empty():
-		acts.add_child(UI.tile_act("pick", "선택권", " ".join(pl.map(func(p): return "%s%d" % [DB.TIER[p.t].n, p.n])), func():
+	var left := run.ticket_left()
+	if (not pl.is_empty() and not run.picked) or left > 0:
+		acts.add_child(UI.tile_act("pick", "선택권" + (" %d" % left if left > 0 else ""), "", func():
 			act("begin_picks", ["phase", -1])
 			if not run.ticket_tiers().is_empty():
-				picker(run.ticket_tiers()[0]), "", run.picked, not can_act()))
+				picker(run.ticket_tiers()[0]), "gold" if left > 0 else "", false, not can_act()))
+	elif not pl.is_empty():
+		acts.add_child(UI.tile_act("pick", "선택권", "", func(): pass, "", true, true))
 	var rg := run.grant_list()
 	if not rg.is_empty():
-		acts.add_child(UI.tile_act("grant", "배급", " ".join(rg.map(func(p): return "%s%d" % [DB.TIER[mini_n(Run.FREE_TIER_CAP, int(p.t))].n, p.n])), func():
+		acts.add_child(UI.tile_act("grant", "배급", "", func():
 			for k in act("random_grant"):
 				toast("%s 배급 · %s" % [DB.C[k].name, DB.TIER[DB.C[k].tier].n], "gain"), "", run.granted, not can_act()))
-	# 선택권 —— 등급마다 타일 하나, 할 일 줄 안에 (11/2 사용자: 따로 줄을 만들면 보유 패가 자꾸 아래로 밀렸다)
-	for t in run.ticket_tiers():
-		acts.add_child(UI.tile_act("gift", "%s ×%d" % [DB.TIER[t].n, int(run.tickets[str(t)])], "%d종 중 고르기" % DB.by_tier(t).size(),
-			func(): picker(t), "gold", false, not can_act()))
 	v.add_child(acts)
 
 	# 보급품 · 소식 —— 한 줄 칩
@@ -1107,20 +1107,18 @@ func picker(t: int) -> void:
 		close_sheet()
 		return
 	var b := open_sheet("%s 선택권 — 남은 %d회" % [DB.TIER[t].n, left])
-	b.add_child(UI.hint("%d종 중에서 고른다.%s" % [DB.by_tier(t).size(), " 무상으로 받는 패의 천장이다. 초월부터는 조합으로만 오른다." if t >= Run.FREE_TIER_CAP else ""]))
 	for tag in DB.D.TAGORDER:
 		var ks := Run.by_tier_tag(t, tag)
 		if ks.is_empty():
 			continue
-		b.add_child(UI.eyebrow("%s %d종" % [tag, ks.size()]))
-		var f := tiles()
+		b.add_child(UI.eyebrow("%s %d" % [tag, ks.size()]))
+		var f := UI.grid(SMALL.x, 6)       # 11/2 사용자: 작은 초상 + 이름, 공방속 없이
 		for k in ks:
-			var c: Dictionary = DB.C[k]
-			var tl := tile(k, run.pool().get(k, -1), func(id):
+			var tl := mtile(k, run.pool().get(k, -1), func(id):
 				if act("pick", [id]):
 					toast("%s 획득 · %s" % [DB.C[id].name, DB.TIER[DB.C[id].tier].n], "gain")
 				picker(t))
-			tl.note = "공%d 방%d%s 속%d" % [c.atk, c["def"], (" 책%d" % c["int"]) if c["int"] > 0 else "", c.spd]
+			tl.custom_minimum_size = SMALL
 			f.add_child(tl)
 		b.add_child(f)
 
