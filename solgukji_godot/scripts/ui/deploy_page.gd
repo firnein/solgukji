@@ -184,7 +184,7 @@ func _items(v: VBoxContainer) -> void:
 	var bk := run.bag_keys()
 	var iv := UI.grid(170, 8)
 	for id in bk:
-		iv.add_child(gs.item_box(id, run.bag[id]))
+		iv.add_child(gs.item_box(id, run.bag[id], func(): gs._item_sheet(id)))      # 누르면 아이템 시트 (유니크는 들어가는 신화 장수)
 	v.add_child(iv if not bk.is_empty() else UI.hint("보급품이 없다. 페이즈가 넘어가면 하나씩 지급된다."))
 	v.add_child(UI.hint("편성판의 칸을 눌러 장착한다. 유니크는 신화 장수 조합에 쓰이며, 조합 시 그 장수에게 영구히 장착된다."))
 

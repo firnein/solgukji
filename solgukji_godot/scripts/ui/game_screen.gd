@@ -895,10 +895,10 @@ func _ready_mats() -> Dictionary:
 ## 조합 카드 하나 (가로 띠용) —— 초상 + 아래 버튼. 되면 바로 조합, 안 되면 재료 시트
 func recipe_card(out: String) -> Control:
 	var v := UI.vbox(4)
-	v.custom_minimum_size = Vector2(86, 0)
+	v.custom_minimum_size = Vector2(78, 0)
 	var ok := run.can_forge(out)
 	var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-	t.custom_minimum_size = Vector2(86, 112)
+	t.custom_minimum_size = Vector2(78, 104)
 	t.lit = ok
 	v.add_child(t)
 	var miss := run.miss_count(out)
@@ -940,7 +940,7 @@ func recipe_sheet(out: String) -> void:
 	var ni = Run.need_item(out)
 	if ni != null:
 		var have_it: bool = run.bag.get(ni, 0) > 0
-		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 후반 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): pass))
+		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 후반 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
 	var ok := run.can_forge(out)
 	var br := UI.hbox(6)
 	var fb := UI.btn("조합하기" if ok else "재료 부족 %d장" % run.miss_count(out), func():
@@ -996,25 +996,6 @@ func _page_draw() -> Control:
 			func(): picker(t), "gold", false, not can_act()))
 	v.add_child(acts)
 
-	# 보유 카드 —— 초상 격자
-	var p := run.pool()
-	var tot := 0
-	for k in p:
-		tot += p[k]
-	var mats := _ready_mats()
-	var hand := minis()
-	for k in Run.sort_cards(p.keys()):
-		var t := mtile(k, p[k])
-		if run.on_board(k) > 0:
-			t.badge = "편성 %d" % run.on_board(k)
-			t.badge_col = Color(DB.PAL.ink4, 0.95)
-		t.up = mats.has(k)
-		hand.add_child(t)
-	var hv := UI.vbox(6)
-	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
-	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
-	v.add_child(hv)
-
 	# 보급품 · 소식 —— 한 줄 칩
 	var chips := UI.hbox(6)
 	if run.last_item != null:
@@ -1030,23 +1011,48 @@ func _page_draw() -> Control:
 	if chips.get_child_count() > 0:
 		v.add_child(chips)
 
-	# 이어지는 조합 —— 가로로 넘긴다 (되는 것 먼저)
+	# 좌: 보유 카드 · 우: 조합 (11/2 사용자 —— 위아래 대신 좌우로 나눠 내 패를 한눈에)
+	var split := UI.hbox(10)
+	var p := run.pool()
+	var tot := 0
+	for k in p:
+		tot += p[k]
+	var mats := _ready_mats()
+	var hand := minis()
+	for k in Run.sort_cards(p.keys()):
+		var t := mtile(k, p[k])
+		if run.on_board(k) > 0:
+			t.badge = "편성 %d" % run.on_board(k)
+			t.badge_col = Color(DB.PAL.ink4, 0.95)
+		t.up = mats.has(k)
+		hand.add_child(t)
+	var hv := UI.vbox(6)
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.add_child(UI.head("보유 %d장" % tot, "%d PV" % run.my_pv()))
+	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
+	split.add_child(hv)
+
+	# 조합 —— 되는 것 먼저, 그다음 모자란 장수가 적은 순
 	var near := run.near_recipes(12)
-	if not near.is_empty():
-		near.sort_custom(func(x, y):
-			var a := run.can_forge(x.out)
-			var b2 := run.can_forge(y.out)
-			if a != b2:
-				return a
-			return x.short < y.short)
-		var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
-		var sec := UI.vbox(6)
-		sec.add_child(UI.head("이어지는 조합", ("지금 %d개 가능 · " % ready_n if ready_n else "") + "옆으로 넘기기 ›"))
-		var st := UI.strip(8)
+	near.sort_custom(func(x, y):
+		var a := run.can_forge(x.out)
+		var b2 := run.can_forge(y.out)
+		if a != b2:
+			return a
+		return x.short < y.short)
+	var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
+	var sec := UI.vbox(6)
+	sec.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sec.add_child(UI.head("조합", "%d개 가능" % ready_n if ready_n else ""))
+	if near.is_empty():
+		sec.add_child(UI.hint("이어지는 조합이 없다."))
+	else:
+		var rcg := UI.grid(78, 6)
 		for r in near:
-			st[1].add_child(recipe_card(r.out))
-		sec.add_child(st[0])
-		v.add_child(sec)
+			rcg.add_child(recipe_card(r.out))
+		sec.add_child(rcg)
+	split.add_child(sec)
+	v.add_child(split)
 	return v
 
 
@@ -1065,6 +1071,14 @@ func _item_sheet(id: String) -> void:
 	var b := open_sheet(it.name)
 	b.add_child(item_box(id, run.bag.get(id, 0)))
 	b.add_child(UI.hint("%s 전용 · %s. 편성 탭에서 칸을 눌러 장착한다.%s" % [it.tag, it.grade, " 신화 장수 조합 재료이기도 하다." if it.use == "myth" else ""]))
+	# 유니크 —— 이 아이템으로 만드는 신화 장수 (11/2 사용자). 누르면 조합 시트
+	var myth := DB.by_tier(8).filter(func(k): return Run.need_item(k) == id)
+	if not myth.is_empty():
+		b.add_child(UI.eyebrow("이 아이템이 들어가는 신화 장수 %d" % myth.size()))
+		var g := minis()
+		for k in myth:
+			g.add_child(mtile(k, run.pool().get(k, -1), func(x): recipe_sheet(x)))
+		b.add_child(g)
 	b.add_child(UI.btn("편성하러 가기", func():
 		close_sheet()
 		go("deploy"), "pri"))
@@ -1788,6 +1802,7 @@ func _dev_args() -> void:
 		match kv[0]:
 			"card": card_info(kv[1])
 			"recipe": recipe_sheet(kv[1])
+			"item": _item_sheet(kv[1])
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
 			"settings": _settings_sheet()
