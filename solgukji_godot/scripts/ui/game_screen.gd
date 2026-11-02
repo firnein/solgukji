@@ -882,6 +882,23 @@ func mtile(k: String, n := -1, on_tap := Callable()) -> MiniTile:
 	return t
 
 
+## 유령 카드 —— 아직 없는 조합 결과. 되면 금빛 점선 + 「조합」(누르면 바로 조합), 아니면 「-N」(누르면 조합 시트)
+func _ghost_tile(out: String) -> MiniTile:
+	var ok := run.can_forge(out)
+	var t := mtile(out, -1, func(id):
+		if ok:
+			if act("forge", [id]):
+				toast("%s 조합 완료" % DB.C[id].name, "gain")
+		else:
+			recipe_sheet(id))
+	t.ghost = true
+	t.lit = ok
+	var miss := run.miss_count(out)
+	t.badge = "조합" if ok else ("-%d장" % miss if miss > 0 else "◆필요")
+	t.badge_col = Color(DB.PAL.jade, 0.95) if ok else Color(DB.PAL.seal, 0.85)
+	return t
+
+
 ## 지금 조합할 수 있는 상위 카드들의 재료 —— 보유 카드에 ▲ 표시
 func _ready_mats() -> Dictionary:
 	var out := {}
@@ -1011,48 +1028,49 @@ func _page_draw() -> Control:
 	if chips.get_child_count() > 0:
 		v.add_child(chips)
 
-	# 좌: 보유 카드 · 우: 조합 (11/2 사용자 —— 위아래 대신 좌우로 나눠 내 패를 한눈에)
-	var split := UI.hbox(10)
+	# 보유 카드 + 유령 카드 한 격자 (11/2 사용자 —— 좌우로 나눈 건 구렸다. F안)
+	# 지금 조합되거나 한 장만 모자란 조합 결과를, 내 패에서 그 재료 바로 뒤에 점선 카드로 끼운다. 누르면 되면 조합, 아니면 조합 시트
 	var p := run.pool()
 	var tot := 0
 	for k in p:
 		tot += p[k]
 	var mats := _ready_mats()
+	var order: Array = Run.sort_cards(p.keys())
+	var ghosts := {}           # 붙일 보유 카드 -> [조합 결과]
+	var ready_n := 0
+	var miss_n := 0            # 한 장 모자란 유령은 4장까지 (첫날 패보다 유령이 많았다)
+	for r in run.near_recipes(12):
+		var ok := run.can_forge(r.out)
+		if not ok and (run.miss_count(r.out) > 1 or miss_n >= 4):
+			continue
+		miss_n += 0 if ok else 1
+		ready_n += 1 if ok else 0
+		var at := ""
+		for m in DB.RECOF[r.out]:
+			if p.has(m) and (at == "" or order.find(m) > order.find(at)):
+				at = m
+		if at == "":
+			at = order[-1] if not order.is_empty() else ""
+		if at != "":
+			if not ghosts.has(at):
+				ghosts[at] = []
+			ghosts[at].append(r.out)
+	for at in ghosts:
+		ghosts[at].sort_custom(func(x, y): return run.can_forge(x) and not run.can_forge(y))
 	var hand := minis()
-	for k in Run.sort_cards(p.keys()):
+	for k in order:
 		var t := mtile(k, p[k])
 		if run.on_board(k) > 0:
 			t.badge = "편성 %d" % run.on_board(k)
 			t.badge_col = Color(DB.PAL.ink4, 0.95)
 		t.up = mats.has(k)
 		hand.add_child(t)
+		for out in ghosts.get(k, []):
+			hand.add_child(_ghost_tile(out))
 	var hv := UI.vbox(6)
-	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hv.add_child(UI.head("보유 %d장" % tot, "%d PV" % run.my_pv()))
+	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], ("점선 = 조합 %d개 가능 · 누르면 조합" % ready_n) if ready_n else "점선 = 한 장 모자란 조합"))
 	hv.add_child(hand if tot > 0 else UI.hint("보유 카드가 없다. 위의 징집부터."))
-	split.add_child(hv)
-
-	# 조합 —— 되는 것 먼저, 그다음 모자란 장수가 적은 순
-	var near := run.near_recipes(12)
-	near.sort_custom(func(x, y):
-		var a := run.can_forge(x.out)
-		var b2 := run.can_forge(y.out)
-		if a != b2:
-			return a
-		return x.short < y.short)
-	var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
-	var sec := UI.vbox(6)
-	sec.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sec.add_child(UI.head("조합", "%d개 가능" % ready_n if ready_n else ""))
-	if near.is_empty():
-		sec.add_child(UI.hint("이어지는 조합이 없다."))
-	else:
-		var rcg := UI.grid(78, 6)
-		for r in near:
-			rcg.add_child(recipe_card(r.out))
-		sec.add_child(rcg)
-	split.add_child(sec)
-	v.add_child(split)
+	v.add_child(hv)
 	return v
 
 
