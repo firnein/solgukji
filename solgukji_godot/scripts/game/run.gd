@@ -198,7 +198,7 @@ static func by_tier_tag(t: int, tag: String) -> Array:
 func gain_item() -> String:
 	var p := phase_idx()
 	var grade := "일반"
-	if DB.D.UNIQUE_PHASES.has(p):
+	if DB.D.UNIQUE_PHASES.any(func(x): return int(x) == p):      # JSON 숫자는 실수라 has(p) 는 늘 거짓이었다 (11/2)
 		grade = "유니크"           # 정해진 아침에만 확정 지급 (11/2 사용자: 1 · 3 · 5일차 아침)
 	else:
 		var tbl: Dictionary = {}
