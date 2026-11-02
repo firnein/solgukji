@@ -1276,6 +1276,15 @@ func _up_row(out: String) -> Control:
 		fb.custom_minimum_size = Vector2(84, 48)
 		fb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(fb)
+	# 갈무리 —— 보유하지 않은 장수도 디테일창에서 바로 (11/2 사용자)
+	var pn := forge_tree.pinned(out)
+	var pb := UI.btn("갈무리 해제" if pn else "갈무리", func():
+		forge_tree.toggle(out)
+		_back_nav = true
+		card_info(_route.get("k", out)), "ghost" if pn else "", 48)
+	pb.custom_minimum_size = Vector2(96, 48)
+	pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(pb)
 	v.add_child(h)
 	var chips := UI.flow(6)
 	var m := Run.mat_count(DB.RECOF[out])
