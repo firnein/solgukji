@@ -1015,61 +1015,45 @@ func _page_draw() -> Control:
 	if chips.get_child_count() > 0:
 		v.add_child(chips)
 
-	# 조합 —— 가운데 남은 높이를 다 쓰고 세로로 스크롤 (11/2 사용자: 조합에 더 집중, 보유 패는 아래 8열 2줄)
-	var near := run.near_recipes(24)
-	near.sort_custom(func(x, y):
-		var a := run.can_forge(x.out)
-		var b2 := run.can_forge(y.out)
-		if a != b2:
-			return a
-		return x.short < y.short)
-	var ready_n: int = near.filter(func(r): return run.can_forge(r.out)).size()
-	var sec := UI.vbox(6)
-	sec.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	sec.add_child(UI.head("조합", ("지금 %d개 가능" % ready_n) if ready_n else "모자란 장수가 적은 순"))
-	var rs := UI.scroll()
-	rs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	if near.is_empty():
-		rs.add_child(UI.hint("이어지는 조합이 없다. 징집 · 선택권으로 재료를 모은다."))
-	else:
-		var rcg := UI.grid(SMALL.x, 6)
-		rcg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		for r in near:
-			rcg.add_child(recipe_card(r.out, SMALL))
-		rs.add_child(rcg)
-	sec.add_child(rs)
-	v.add_child(sec)
-
-	# 보유 카드 —— 아래 고정 8열 2줄: 윗줄은 장수 · 조합된 병종(그 안에서 스크롤), 맨 아랫줄은 기본 병졸 8종 고정 (11/2 사용자)
+	# 보유 카드만 (11/2 사용자) —— 등급별로 열 수를 달리한다: 초월 위 4열 · 일반~전설 6열 (남은 높이에서 스크롤), 기본 병졸 8종은 맨 아랫줄 8열 고정
 	var p := run.pool()
 	var tot := 0
 	for k in p:
 		tot += p[k]
 	var mats := _ready_mats()
-	var hand_tile := func(k: String, n: int) -> MiniTile:
+	var hand_tile := func(k: String, n: int, h: float) -> MiniTile:
 		var t := mtile(k, n)
-		t.custom_minimum_size = Vector2(30, HAND_TILE.y)
+		t.custom_minimum_size = Vector2(30, h)
 		if run.on_board(k) > 0:
-			t.badge = "편성"
+			t.badge = "편성 %d" % run.on_board(k) if h >= 90 else "편성"
+			t.badge_col = Color(DB.PAL.ink4, 0.95)
 		t.up = mats.has(k)
 		t.dim = n <= 0
 		return t
-	var hand := UI.grid(30, 4)
-	hand.max_cols = 8          # 늘 8열 —— 폭에서 칸 수를 셈하면 7열로 떨어졌다
-	for k in Run.sort_cards(p.keys()):
-		if DB.C[k].tier > 1:
-			hand.add_child(hand_tile.call(k, p[k]))
+	var hv := UI.vbox(6)
+	hv.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
+	var hs := UI.scroll()
+	hs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var inner := UI.vbox(6)
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var keys: Array = Run.sort_cards(p.keys())
+	for grp in [[6, 9, 4, 140.0], [2, 5, 6, 96.0]]:          # [등급 아래, 위, 열, 칸 높이]
+		var g := UI.grid(30, 6 if grp[2] == 4 else 4)
+		g.max_cols = grp[2]
+		for k in keys:
+			if DB.C[k].tier >= grp[0] and DB.C[k].tier <= grp[1]:
+				g.add_child(hand_tile.call(k, p[k], grp[3]))
+		if g.get_child_count() > 0:
+			inner.add_child(g)
+	if inner.get_child_count() == 0:
+		inner.add_child(UI.hint("장수가 아직 없다. 기본 병졸을 조합하거나 선택권으로."))
+	hs.add_child(inner)
+	hv.add_child(hs)
 	var base := UI.grid(30, 4)
 	base.max_cols = 8
 	for k in Run.sort_cards(DB.BASE.duplicate()):
-		base.add_child(hand_tile.call(k, int(p.get(k, 0))))
-	var hv := UI.vbox(4)
-	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 재료 · ● 편성 중"))
-	var hs := UI.scroll()
-	hs.custom_minimum_size.y = HAND_TILE.y
-	hand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hs.add_child(hand if hand.get_child_count() > 0 else UI.hint("장수가 아직 없다. 기본 병졸을 조합하거나 선택권으로."))
-	hv.add_child(hs)
+		base.add_child(hand_tile.call(k, int(p.get(k, 0)), HAND_TILE.y))
 	hv.add_child(base)
 	_hand_scroll = hs
 	_restore_hand_scroll.call_deferred(_hand_scroll_y)
@@ -1325,14 +1309,21 @@ func _up_row(out: String) -> Control:
 	pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(pb)
 	v.add_child(h)
-	var chips := UI.flow(6)
+	var chips := UI.grid(40, 6)     # 재료 4열 —— 재료가 4개면 한 줄 (11/2 사용자)
+	chips.max_cols = 4
 	var m := Run.mat_count(DB.RECOF[out])
 	for q in m:
 		var got := run.have(q)
 		var ok: bool = got >= m[q]
-		var cb := UI.btn("%s %s %d/%d" % ["✔" if ok else "✘", DB.C[q].name, got, m[q]], func(): card_info(q), "", 40)
+		var qn: String = DB.person(q) if DB.C[q].tier > 2 else DB.C[q].name
+		var cb := UI.btn("%s %d/%d" % [qn, got, m[q]], func(): card_info(q), "", 40)      # 기호 없이 색으로 (4열에 이름이 잘렸다)
+		for st in ["normal", "hover", "pressed"]:
+			cb.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color("#8fd4c2") if ok else Color("#e0806f", 0.6), 1, 8, 2))
 		cb.add_theme_color_override("font_color", Color("#8fd4c2") if ok else Color("#e0806f"))
-		cb.add_theme_font_size_override("font_size", 14)
+		cb.add_theme_font_size_override("font_size", 12)
+		cb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		cb.clip_text = true
+		cb.custom_minimum_size.x = 40
 		chips.add_child(cb)
 	var ni = Run.need_item(out)
 	if ni != null:
