@@ -8,7 +8,7 @@ extends RefCounted
 ##   turn: 몇 번째 턴인지 —— 실시간 연출은 이 셋으로 행동을 시간축에 다시 깐다
 ##   s   : 이벤트 직후 모든 유닛의 [병력, 사기, 생존, 상태이상 목록] 스냅샷
 
-const MYTH_AMP := 1.6
+const MYTH_AMP := 1.3     # 신화 장수가 제 유니크를 들면 아이템 효과 배율 (11/2 1.6 → 1.3 하향)
 ## 턴 배율 —— 솔국지 확장 (10/30). 전투를 이만큼 더 많은 턴으로 늘린다 (같은 등급 평균 4~10턴 → 15턴 안팎).
 ## 매 턴 반복되는 것(피해 · 회복 · 상태이상 확률 · 지속 턴)은 pace 로 나눠지거나 턴당 비율이 같아 그대로 둔다.
 ## 한 판에 한 번뿐인 것은 이만큼 키운다 —— 고유기 위력 · 고유기와 전투 시작 효과와 군령의 지속 턴 · 군령 사기.
@@ -59,7 +59,9 @@ static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 �
 static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
 static var axis_off := {}            # 특기 축 끄기 (점검용) —— {"물리": true, …} 이면 그 축의 특기가 붙지 않는다
 static var axis_off_camp := ""       # 축 끄기를 한쪽 진영에만 ("A" · "B", 비우면 양쪽) —— 점검할 덱 쪽만 끄려고
-static var myth_power := 1.3     # 신화 능력치 배율 (속도 제외) —— tests/tier_power.tscn: 신화 1 대 불멸 2 를 65% 안팎으로
+static var myth_power := 1.15    # 신화 능력치 배율 (속도 제외) —— 11/2 사용자: 단순 전투력은 1.15, 대신 위세(data/myth_aura.json)로 판을 바꾼다
+static var aura_enabled := true   # 위세 켜기 (비교용)
+static var aura_camp := ""        # 한쪽 진영만 위세 ("A" · "B", 비우면 양쪽) —— 점검용
 static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
 static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 · 현혹 —— 솔국지 확장)
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
@@ -172,11 +174,14 @@ var pts := {"A": 0.0, "B": 0.0}
 var cmdm := {"A": {}, "B": {}}    # 특기–군령 연결 (data/passives.json catalog 의 cmd) —— 진영 단위
 var _ult_last := {"A": -99, "B": -99}
 var _bdone := -1              # 입력 판정(_between)을 마친 행동 번호 —— 사건에 bd 로 적어 화면이 입력 시점을 고른다
+var _sk_on := false           # 일반 기술 타격 중 (점검 통계)
 var _in_ult := false          # 고유기 타격 중 —— 방진이 이만큼 막는다
 var _one := 1.0               # 한 번뿐인 효과(고유기 · 군령 사기)의 세기 배율 —— 그동안 turn_mul
 var _long := 1.0              # 한 번뿐인 효과(고유기 · 전투 시작 · 군령)의 지속 턴 배율 —— 그동안 turn_mul
+var _myths: Array[Unit] = []   # 위세를 가진 장수 (신화 · 초월 —— 전투 준비 때 모은다)
+var _aura_m: Array[Unit] = []  # 그 가운데 특수 효과(m)를 주는 장수 —— mv() 가 더한다
 var _tm := 0.0                # 전장 시각(초) —— 실시간 엔진만 쓴다. 사건에 tm 으로 적는다
-var stats := {"dmg": 0.0, "ult_dmg": 0.0, "blocked": 0, "ult_hits": 0,    # 점검용
+var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
 	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
 	"tac_amp": 0.0, "cuts": 0.0, "cut_n": 0, "execs": 0, "kills_amp": 0, "chases": 0, "cleaves": 0.0, "awes": 0, "rallied": 0.0,
@@ -357,12 +362,57 @@ func eff(u: Unit, stat: String) -> float:
 		if b.stat == stat: v *= (1 + b.amt)
 	if stat == "atk" or stat == "int": v *= (0.4 + 0.6 * (u.troops / u.max))
 	v *= morale_mul(u)               # 사기 —— 모든 능력치에 (2026-10-30 사용자 결정)
+	if aura_enabled and not _myths.is_empty():
+		v *= _aura_mul(u, stat)
 	v -= u.cut.get(stat, 0.0)        # 위축 · 산란 · 파갑 · 현혹 —— 0 까지
 	return maxf(1, v)
 
 
+## 위세 (신화 · 초월) —— 살아 있는 장수마다 아군 전체(ally, tag 가 있으면 그 병종만) · 적 전체(foe) 배율
+func _aura_mul(u: Unit, stat: String) -> float:
+	var m := 1.0
+	for mu in _myths:
+		if not mu.alive:
+			continue
+		var a: Dictionary = DB.AURA[mu.c.id]
+		if mu.camp == u.camp:
+			if a.has("ally") and _aura_on(mu, a, u):
+				m *= 1.0 + float(a.ally.get(stat, 0.0))
+		elif a.has("foe") and _aura_foe_on(a, u):
+			m *= 1.0 + float(a.foe.get(stat, 0.0))
+	return m
+
+
+## 위세가 이 아군에게 닿는가 —— to: all · front · back · fac · rel · low · tag (11/2 (6))
+func _aura_on(mu: Unit, a: Dictionary, u: Unit) -> bool:
+	match a.get("to", "all"):      # 전열 · 후열은 진형 칸의 열 (11/3 사용자 —— 거리 판정은 맞붙기 전 전원이 후열이 된다)
+		"front": return pri(u) <= 2
+		"back": return pri(u) >= 3
+		"fac": return u.c.fac == mu.c.fac
+		"rel": return u == mu or a.rel.has(DB.person(u.c.id))
+		"low": return u.troops < u.max * 0.5
+		"tag": return u.c.tag == a.tag
+	return not a.has("tag") or u.c.tag == a.tag
+
+
+## 위세가 이 적에게 닿는가 —— foe_to: all · front · back · tag:병종
+func _aura_foe_on(a: Dictionary, u: Unit) -> bool:
+	var ft: String = a.get("foe_to", "all")
+	if ft == "front": return pri(u) <= 2
+	if ft == "back": return pri(u) >= 3
+	if ft.begins_with("tag:"): return u.c.tag == ft.substr(4)
+	return true
+
+
 func mv(u: Unit, k: String) -> float:
-	return u.m.get(k, 0.0)
+	var v: float = u.m.get(k, 0.0)
+	if not _aura_m.is_empty():
+		for mu in _aura_m:
+			if mu.alive and mu.camp == u.camp:
+				var a: Dictionary = DB.AURA[mu.c.id]
+				if a.m.has(k) and _aura_on(mu, a, u):
+					v += float(a.m[k])
+	return v
 
 
 func has_st(u: Unit, k: String) -> bool:
@@ -1351,6 +1401,11 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 		var k = b_cards[i]
 		if k and i < bS.size():
 			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and b_equip[i] else innate_item(k), b_syn))
+	for u in units:
+		if aura_enabled and DB.AURA.has(u.c.id) and (aura_camp == "" or u.camp == aura_camp):
+			_myths.append(u)
+			if DB.AURA[u.c.id].has("m"):
+				_aura_m.append(u)
 	if auto_turn and not units.is_empty():
 		var ts := 0.0
 		for u in units:
@@ -1370,6 +1425,9 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 		_tide()
 	_tac_open()
 	_guard_open()
+	if aura_enabled:
+		for u in _myths:
+			L("sk", "%s의 위세 —— %s" % [nm(u), DB.aura_text(u.c.id)])
 	_long = 1.0
 	_meta = {"title": title, "foe": foe_name, "aForm": a_form, "bForm": b_form, "aSyn": a_syn, "bSyn": b_syn}
 
@@ -1537,20 +1595,22 @@ func act(u: Unit) -> void:
 			u.sk_ch.append(0.5)
 		var r := sk_rate(u)
 		for j in sks.size():
-			u.sk_ch[j] = minf(SK_BANK, u.sk_ch[j] + r)
+			u.sk_ch[j] = minf(float(sks[j].get("cost", 1.0)), u.sk_ch[j] + r)      # 11/3 비용만큼 모은다 (더 모아 두지 않는다)
 	for j in sks.size():
 		if not u.alive or not foes.any(func(o): return o.alive):
 			break
-		if u.sk_ch[j] < 1.0 or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
+		if u.sk_ch[j] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
 			continue
 		sk = sks[j]
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false
-		if ok: u.sk_ch[j] -= 1.0
+		if ok: u.sk_ch[j] -= float(sk.get("cost", 1.0))
 		if ok:
 			used = true
 			u.in_skill = true
+			_sk_on = true
+			stats.sk_n += 1
 			for o in allies:
 				if o != u and o.alive and mv(o, "ally_sk") > 0:      # 연계 —— 아군이 기술을 쓰면 내 기술 충전이 모두 찬다
 					for jj in o.sk_ch.size():
@@ -1603,6 +1663,7 @@ func act(u: Unit) -> void:
 					if e.has("allyBuff"):
 						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff)
 	u.in_skill = false
+	_sk_on = false
 	if not used:
 		var tt := basic_target(u, foes)
 		if not tt.is_empty() and tt[0].alive:
@@ -1631,6 +1692,8 @@ func _sk_cond(u: Unit, cond: String, foes: Array, allies: Array) -> bool:
 				if _front_of(lf).size() >= int(v): return true
 			"foe_n":
 				if lf.size() >= int(v): return true
+			"back_n":      # 11/3 적 후열에 v 부대 이상 (후열을 노리는 기술)
+				if lf.filter(func(o): return _is_back(o)).size() >= int(v): return true
 			"line":
 				var lp: int = int(DB.D.LINE[v].pri) if DB.D.LINE.has(v) else 1
 				if lf.any(func(o): return (o.line == v) if not _by_distance() else (_is_front(o) if lp <= 2 else _is_back(o))): return true
@@ -1783,6 +1846,8 @@ func _scope_hits(scope: String, u: Unit, t: Unit) -> bool:
 
 func _stat(d: Unit, loss: float) -> void:
 	stats.dmg += loss
+	if _sk_on:
+		stats.sk_dmg += loss
 	if _in_ult:
 		stats.ult_dmg += loss
 		stats.ult_hits += 1

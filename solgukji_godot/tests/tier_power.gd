@@ -9,6 +9,9 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var games := int(args.get("games", "40"))
+	Battle.aura_enabled = args.get("aura", "1") != "0"
+	if args.has("myth"):
+		Battle.myth_power = float(args.myth)
 	for m in [[8, 7, 1], [8, 7, 2], [8, 6, 2], [8, 6, 3], [7, 6, 1], [7, 6, 2], [6, 5, 2], [5, 4, 2]]:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 31 + m[0] * 10 + m[2]

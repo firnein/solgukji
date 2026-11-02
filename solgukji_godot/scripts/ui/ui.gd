@@ -451,14 +451,16 @@ static func item_text(id: String, amp := 1.0) -> String:
 	return s
 
 
-## 고유기 한 줄 설명 —— 효과 수치로 만든다
-static func ult_desc(u: Dictionary) -> String:
+## 고유기 한 줄 설명 —— 효과 수치로 만든다. tier 를 주면 타격은 그 등급 전투의 배율(turn_mul)을 곱한 실제 값으로
+## (고유기 피해에는 turn_mul 이 곱해진다 —— 일반 기술 수치와 나란히 비교되게, 11/3)
+static func ult_desc(u: Dictionary, tier := 0) -> String:
+	var tm := Battle.turn_mul_for(tier) if tier > 0 else 1.0
 	var parts := []
 	for comp in u.eff:
 		var tg := DB.tgt_name(str(comp.get("tgt", "")))
 		match comp.t:
 			"hit":
-				var s := "%s %s %d%%" % [tg, "물리" if comp.kind == "phys" else "책략", roundi(comp.mult * 100)]
+				var s := "%s %s %d%%" % [tg, "물리" if comp.kind == "phys" else "책략", roundi(comp.mult * tm * 100)]
 				if comp.has("exec"):
 					s += " · 병력 %d%% 이하 즉사" % roundi(comp.exec * 100)
 				if comp.has("morale"):

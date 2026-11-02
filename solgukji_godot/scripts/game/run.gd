@@ -35,6 +35,8 @@ var tickets := {}             # 선택권 —— 등급("4") -> 남은 장수. �
 var strikes := 0
 var last_draw := []
 var last_item = null
+var uniq_offer := []          # 유니크 보급 —— 고를 수 있는 신화 재료 (고르면 비운다)
+var myth_made := false        # 신화를 이미 만들었다 (한 판에 하나)
 var last_spoil = null         # {n, src} —— 방금 받은 기본패
 var tour = null               # 최종 토너먼트
 var my_w := 0
@@ -70,6 +72,8 @@ func new_game(seed_value := -1) -> void:
 	strikes = 0
 	last_draw = []
 	last_item = null
+	uniq_offer = []
+	myth_made = false
 	last_spoil = null
 	tour = null
 	my_w = 0
@@ -87,9 +91,7 @@ func new_game(seed_value := -1) -> void:
 	give("horse", 3)
 	give("bow", 2)
 	give("strat", 2)
-	var it0 := gain_item()
-	if DB.IT[it0].grade == "유니크":
-		toasts.append(["%s 유니크 보급 도착 · %s" % [DB.IT[it0].name, DB.IT[it0].tag], "gold"])
+	gain_item()
 
 
 func _nine() -> Array:
@@ -216,7 +218,10 @@ func gain_item() -> String:
 				grade = g
 				break
 	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade)
-	# 보급은 지금 세운 군세에 맞는 물건이 온다. 유니크는 특히 그렇다
+	if grade == "유니크":
+		_offer_unique(cand)
+		return ""
+	# 보급은 지금 세운 군세에 맞는 물건이 온다
 	var tags := {}
 	for k in board:
 		if k != null:
@@ -226,12 +231,48 @@ func gain_item() -> String:
 			tags[DB.C[k].tag] = true
 	if not tags.is_empty():
 		var fit := cand.filter(func(k): return tags.has(DB.IT[k].tag))
-		if not fit.is_empty() and (grade == "유니크" or rng.randf() < 0.7):
+		if not fit.is_empty() and rng.randf() < 0.7:
 			cand = fit
 	var id: String = cand[rng.randi() % cand.size()]
 	bag[id] = bag.get(id, 0) + 1
 	last_item = id
 	return id
+
+
+## 유니크 보급 (1 · 3 · 5일차 아침) —— 신화 재료 셋 중 하나를 고른다 (11/2 사용자).
+## 군세와 상관없이 무작위 셋, 가방에 이미 있는 것은 빼고. 신화는 한 판에 하나뿐이라
+## 일찍 받은 것으로 빨리 만들지, 3 · 5일차 보급을 기다릴지가 선택이 된다
+func _offer_unique(cand: Array) -> void:
+	cand = cand.filter(func(k): return not bag.has(k))
+	var out := []
+	while out.size() < 3 and not cand.is_empty():
+		out.append(cand.pop_at(rng.randi() % cand.size()))
+	uniq_offer = out
+	if not out.is_empty():
+		toasts.append(["유니크 보급 도착 · 신화 재료 %d개 중 하나를 고르시오" % out.size(), "gold"])
+
+
+## 유니크 보급에서 하나를 고른다
+func pick_unique(id: String) -> bool:
+	if not uniq_offer.has(id):
+		return false
+	bag[id] = bag.get(id, 0) + 1
+	last_item = id
+	uniq_offer = []
+	return true
+
+
+## 신화는 한 판에 하나만 (11/2 사용자 —— 원랜디 초월처럼). 이미 만들었거나 가지고 있으면 더 못 만든다
+func has_myth() -> bool:
+	if myth_made:
+		return true
+	for k in inv:
+		if DB.C[k].tier >= 8:
+			return true
+	for k in board:
+		if k != null and DB.C[k].tier >= 8:
+			return true
+	return false
 
 
 func bag_keys() -> Array:
@@ -311,6 +352,8 @@ static func need_item(out: String):
 func can_forge(out: String) -> bool:
 	if not DB.RECOF.has(out):
 		return false
+	if DB.C[out].tier >= 8 and has_myth():
+		return false
 	var m := mat_count(DB.RECOF[out])
 	for k in m:
 		if have(k) < m[k]:
@@ -332,6 +375,8 @@ func forge(out: String) -> bool:
 		bag[ni] -= 1
 		if bag[ni] <= 0:
 			bag.erase(ni)
+	if DB.C[out].tier >= 8:
+		myth_made = true
 	give(out)
 	return true
 
@@ -587,9 +632,7 @@ func advance() -> void:
 		over = {"win": true, "msg": "일주일을 살아남았다"}
 		day = 6
 		return
-	var it := gain_item()
-	if DB.IT[it].grade == "유니크":
-		toasts.append(["%s 유니크 보급 도착 · %s" % [DB.IT[it].name, DB.IT[it].tag], "gold"])
+	gain_item()
 	if mp:
 		return
 	for b in bots:
@@ -960,7 +1003,7 @@ func pick(k: String) -> bool:
 
 
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
-const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1,
+const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1,
 	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2}
 
 
@@ -976,7 +1019,7 @@ func command(m: String, a: Array):
 # ───────── 저장 ─────────
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
-	"quest_done", "pvp_done", "tickets", "strikes", "last_draw", "last_item", "last_spoil",
+	"quest_done", "pvp_done", "tickets", "strikes", "last_draw", "last_item", "uniq_offer", "myth_made", "last_spoil",
 	"tour", "my_w", "my_l", "news", "bots", "over", "battle", "last_result", "mp"]
 
 
@@ -1057,6 +1100,8 @@ func dev_autoplay() -> void:
 		begin_picks("phase")
 	if not granted and not grant_list().is_empty():
 		random_grant()
+	if not uniq_offer.is_empty():
+		pick_unique(uniq_offer[0])
 	_dev_spend()
 	if is_tour_phase():
 		if tour == null:
@@ -1079,9 +1124,21 @@ func dev_autoplay() -> void:
 
 func _dev_spend() -> void:
 	while ticket_left() > 0:
+		# 조합에 가장 가까워지는 카드를 고른다 (11/2: 줄기 재편 뒤 아무 카드나 고르면 전설을 못 만든다 —— 사람처럼 노리고 고른다)
 		var pl: Array = DB.by_tier(ticket_tiers()[0])
-		pl.sort_custom(func(a, b): return DB.C[a].tr > DB.C[b].tr)
-		pick(pl[rng.randi() % mini(6, pl.size())])
+		var best := []
+		var best_s := 999
+		for k in pl:
+			var sc := 99
+			for o in used_in(k):
+				if DB.C[o].tier < 8:
+					sc = mini(sc, miss_count(o))
+			if sc < best_s:
+				best_s = sc
+				best = [k]
+			elif sc == best_s:
+				best.append(k)
+		pick(best[rng.randi() % best.size()])
 	var made := true
 	while made:
 		made = false

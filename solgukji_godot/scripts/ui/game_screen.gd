@@ -834,6 +834,12 @@ func item_box(id: String, n := -1, on_tap := Callable(), amp := 1.0) -> Control:
 	v.offset_left = 10
 	v.offset_right = -8
 	v.offset_top = 6
+	if it.grade == "유니크":      # 11/2 썸네일 (assets/items/<이름>.png 이 있으면 그 그림)
+		var th := ItemArt.View.new(id, 60)
+		th.position = Vector2(7, 7)
+		th.size = Vector2(60, 60)
+		b.add_child(th)
+		v.offset_left = 76
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var top := "%s%s" % [it.name, ("  ×%d" % n) if n > 0 else ""]
 	v.add_child(UI.lbl(top, 15, col.lightened(0.2), true))
@@ -926,7 +932,7 @@ func recipe_sheet(out: String) -> void:
 	t0.custom_minimum_size.y = 84
 	b.add_child(t0)
 	if c.sk:
-		b.add_child(UI.hint("『%s』 %s —— %s" % [c.sk.n, DB.cond_text(c.sk.cond), DB.skill_desc(c)]))
+		b.add_child(UI.hint("『%s』 %s —— %s" % [c.sk.n, DB.sk_when(c.sk), DB.skill_desc(c)]))
 	var row := UI.hbox(6)
 	var ml := UI.lbl("재료", 13, DB.PAL.bamboo, true)
 	ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -944,7 +950,11 @@ func recipe_sheet(out: String) -> void:
 	var ni = Run.need_item(out)
 	if ni != null:
 		var have_it: bool = run.bag.get(ni, 0) > 0
-		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 후반 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
+		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 1 · 3 · 5일차 유니크 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
+	if DB.AURA.has(out):
+		b.add_child(UI.hint("위세 — " + DB.aura_text(out) + " (살아 있는 동안)"))
+	if c.tier >= 8 and run.has_myth():
+		b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다 — 이미 신화를 얻었다"))
 	var ok := run.can_forge(out)
 	var br := UI.hbox(6)
 	var fb := UI.btn("조합하기" if ok else "재료 부족 %d장" % run.miss_count(out), func():
@@ -1005,6 +1015,10 @@ func _page_draw() -> Control:
 		acts.add_child(tb)
 	if tks.is_empty() and not pl.is_empty():
 		acts.add_child(UI.tile_act("pick", "선택권", "", func(): pass, "", true, true))
+	if not run.uniq_offer.is_empty():
+		var ub := UI.tile_act("item", "유니크 %d택1" % run.uniq_offer.size(), "", _unique_sheet, "gold", false, not can_act())
+		UI.tier_mark(ub, 8)
+		acts.add_child(ub)
 	var rg := run.grant_list()
 	if not rg.is_empty():
 		acts.add_child(UI.tile_act("grant", "배급", "", func():
@@ -1112,6 +1126,34 @@ func _item_sheet(id: String) -> void:
 		go("deploy"), "pri"))
 
 
+## 유니크 보급 —— 신화 재료 셋 중 하나 (11/2 사용자). 각 재료로 만드는 신화 장수와 그 위세를 함께 보인다
+func _unique_sheet() -> void:
+	if run.uniq_offer.is_empty() or not can_act():
+		close_sheet()
+		return
+	var b := open_sheet("유니크 보급 — 하나를 고른다")
+	b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다. 지금 받은 재료로 빨리 만들지, 3 · 5일차 보급을 기다릴지 고른다."))
+	for id in run.uniq_offer:
+		var iid: String = id
+		var box := UI.vbox(6)
+		box.add_child(item_box(iid))
+		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid):
+			var row := UI.hbox(8)
+			var t := mtile(k, run.pool().get(k, -1), func(x): recipe_sheet(x))
+			t.custom_minimum_size = Vector2(64, 92)
+			row.add_child(t)
+			var txt := UI.hint("%s
+%s" % [DB.C[k].name, DB.aura_text(k)])
+			txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(txt)
+			box.add_child(row)
+		box.add_child(UI.btn("이것을 받는다 — " + DB.IT[iid].name, func():
+			if act("pick_unique", [iid]):
+				toast("%s 획득 · 유니크" % DB.IT[iid].name, "gain")
+			close_sheet(), "pri", 44))
+		b.add_child(UI.panel(box, 10))
+
+
 ## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다
 func picker(t: int) -> void:
 	var left := int(run.tickets.get(str(t), 0))
@@ -1205,6 +1247,10 @@ func card_info(k: String) -> void:
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
 	b.add_child(top)
+	if DB.AURA.has(k):      # 11/2 위세 (신화 · 초월)
+		b.add_child(UI.panel(UI.rich("[b][color=%s]위세[/color][/b]  %s
+[color=#9aa1aa]살아 있는 동안 걸린다 · 여러 장수의 위세는 겹친다%s[/color]" % [
+			DB.tier_color(k).to_html(false), DB.aura_text(k), " · 신화는 한 판에 하나" if c.tier >= 8 else ""], 13), 8))
 	# 고유 특기 —— 접지 않고 바로 보인다 (이름 · 수치)
 	for t in DB.trait_list(k):
 		if t.unique:
@@ -1215,11 +1261,11 @@ func card_info(k: String) -> void:
 	if not c.get("sks", []).is_empty():
 		var sl := []
 		for x in c.sks:
-			sl.append("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.cond_text(x.cond), DB.skill_desc(c, x)])
+			sl.append("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.sk_when(x), DB.skill_desc(c, x)])
 		b.add_child(UI.rich("\n".join(sl), 13))
 	var u = DB.ult_of(k) if c.tier >= 6 else null
 	if u != null:
-		b.add_child(UI.rich("[color=#ffd76e][b]고유기 『%s』[/b][/color]  “%s”\n%s" % [u.name, u.shout, UI.ult_desc(u)], 14))
+		b.add_child(UI.rich("[color=#ffd76e][b]고유기 『%s』[/b][/color]  “%s”\n%s" % [u.name, u.shout, UI.ult_desc(u, c.tier)], 14))
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
@@ -1902,6 +1948,7 @@ func _dev_args() -> void:
 			"item": _item_sheet(kv[1])
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
+			"uniq": _unique_sheet()
 			"settings": _settings_sheet()
 			"pick":
 				act("begin_picks", ["phase", -1])

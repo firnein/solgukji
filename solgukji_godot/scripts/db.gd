@@ -18,6 +18,8 @@ var TIER := {}           # 등급(int) -> {n, c, lo, hi}
 var FORM := {}           # 진형 -> {n, sil, mask, slots, grid}
 var BASE: Array = []     # 기본패 8종
 var LINES := {}          # data/lines.json —— 인물 줄기 새 카드 · 조합 · 고유 기술
+const UNIQUE_MUL := 0.75   # 유니크 아이템 능력치 배율 (11/2 하향)
+var AURA := {}           # data/myth_aura.json —— 신화 위세 (살아 있는 동안 아군·적 전체 배율)
 var POOLS := {}          # 성향 -> 등급 -> 카드 id 배열
 var ICON := {}           # 병종 -> Texture2D (흰색, modulate 로 칠한다)
 
@@ -70,6 +72,8 @@ func _load() -> void:
 	D.SKILLPOOL["범용"] = ext.get("skills_ext", []).filter(func(x): return x.has("n"))     # 범용 기술 (누구나 추가 기술로)
 	# 11/2 인물 줄기 · 인연 조합 · 장수 고유 기술 (data/lines.json —— tools/scripts/lines.py 가 만든다)
 	LINES = JSON.parse_string(FileAccess.open("res://data/lines.json", FileAccess.READ).get_as_text())
+	AURA = JSON.parse_string(FileAccess.open("res://data/myth_aura.json", FileAccess.READ).get_as_text())
+	AURA.erase("_설명")
 	D.CARDDEF.append_array(LINES.cards)
 	for nm in LINES.skills:
 		SKILL_COND[LINES.skills[nm].n] = LINES.skills[nm].get("cond", "always")
@@ -87,11 +91,21 @@ func _load() -> void:
 		RECOF[r[0]] = r[1]
 	for k in LINES.recipes:
 		RECOF[k] = LINES.recipes[k]
+	# 11/2 (5) 줄기 인물의 초월 카드는 적 전용 (토벌 편성이 쓰는 것이 있어 지우지 않는다)
+	for k in LINES.get("retire", []):
+		C[k].kind = "retired"
+		RECOF.erase(k)
+	for k in LINES.get("aura", {}):
+		AURA[k] = LINES.aura[k]
 	D.RECDEF = RECOF.keys().map(func(k): return [k, RECOF[k]])      # 조합을 돌며 찾는 곳이 새 카드 · 바뀐 재료를 보도록
 	for r in D.ITEMDEF:
 		IT[r[0]] = {"id": r[0], "name": r[1], "grade": r[2], "tag": r[3], "pri": r[4],
 			"pa": float(r[5]), "sec": r[6], "sa": float(r[7]), "rb": float(r[8]), "use": r[9]}
 		ITEM_BY_NAME[r[1]] = r[0]
+		if r[2] == "유니크":         # 11/2 사용자: 유니크 능력치 하향 —— 주 · 부 ×0.75, 계략 저항 7 → 5 (전설 레어 0.24 · 0.09 · 3 바로 위)
+			IT[r[0]].pa = snappedf(IT[r[0]].pa * UNIQUE_MUL, 0.01)
+			IT[r[0]].sa = snappedf(IT[r[0]].sa * UNIQUE_MUL, 0.01)
+			IT[r[0]].rb = minf(IT[r[0]].rb, 5.0)
 
 	for t in D.TIER:
 		TIER[int(t)] = {"n": D.TIER[t].n, "c": Color(D.TIER[t].c)}
@@ -111,7 +125,14 @@ func _load() -> void:
 			BASE.append(k)
 
 	ULT = JSON.parse_string(FileAccess.open("res://data/ultimates.json", FileAccess.READ).get_as_text())
+	for p in LINES.get("ults", {}):
+		ULT.list[p] = LINES.ults[p]
 	PSV = JSON.parse_string(FileAccess.open("res://data/passives.json", FileAccess.READ).get_as_text())
+	for p in LINES.get("ladder_from", {}):        # 11/2 (5) 새 인물 —— 닮은 인물의 특기 사다리를 빌린다 (초월까지만)
+		var src: String = LINES.ladder_from[p]
+		PSV.ladder[p] = PSV.ladder.get(src, []).filter(func(e): return int(e[1]) <= 6)
+		if PSV.level.has(src):
+			PSV.level[p] = PSV.level[src]
 	_reskill()
 	_build_forms()
 	_build_pools()
@@ -218,13 +239,64 @@ func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 	return _build_from(pool[i % pool.size()], tier)
 
 
+## 11/3 일반 기술 —— 삼국지13 · 14 참고: 발동은 어렵게(비용 · 엄격한 조건), 효과는 크게.
+## 비용 = 충전 몇 번 분량 (삼국지13 채배 소모처럼 큰 기술일수록 비싸다). 위력 배율은 SK_POWER.
+const SK_POWER := {"mult": 2.1, "morale": 1.8, "heal": 1.8, "status": 1.5, "buff": 1.6, "exec": 1.4, "dur": 1}
+const ULT_OVER := 1.5     # 고유기 한 방은 가장 센 일반 기술의 이만큼 이상 (ult_of)
+const SK_COST := {"front1": 1.6, "back1": 1.6, "front3": 2.0, "back2": 2.0, "denseLine": 2.0, "all": 2.4}
+
+
+func sk_cost(e: Dictionary) -> float:
+	if not e.has("mult"):
+		return 2.0
+	var t: String = e.get("tgt", "front1")
+	return SK_COST.get(t, 2.5)
+
+
+## 발동 조건을 엄격하게 —— '언제나'를 빼고 문턱을 높인다. 남는 것이 없으면 대상 모양으로 정한다
+func strict_cond(cond: String, e: Dictionary) -> String:
+	var out := []
+	for one in cond.split("|"):
+		var kv := one.split(":")
+		var v: String = kv[1] if kv.size() > 1 else ""
+		match kv[0]:
+			"always": continue
+			"hurt", "ally_hurt": out.append("%s:%s" % [kv[0], str(snappedf(float(v) * 0.75, 0.05))])
+			"foe_hurt": out.append("foe_hurt:%s" % str(snappedf(float(v) * 0.8, 0.05)))
+			"dense", "front_n": out.append("%s:%d" % [kv[0], maxi(3, int(v) + 1)])
+			"foe_n": out.append("foe_n:%d" % maxi(4, int(v) + 1))
+			"ally_morale": out.append("ally_morale:%d" % roundi(float(v) * 0.85))
+			_: out.append(one)
+	if out.is_empty():
+		var t: String = e.get("tgt", "front1")
+		if e.has("exec"): out.append("foe_hurt:0.5")
+		elif t == "front1": out.append("front_n:2")
+		elif t in ["back1", "back2", "line:후군"]: out.append("back_n:2")
+		elif t == "all": out.append("foe_n:5")
+		else: out.append("dense:3")
+	return "|".join(out)
+
+
+func _scale_buff(b: Dictionary) -> Dictionary:
+	var o := b.duplicate()
+	if o.has("amt"): o.amt = snappedf(float(o.amt) * SK_POWER.buff, 0.01)
+	if o.has("dur"): o.dur = int(o.dur) + SK_POWER.dur
+	return o
+
+
 func _build_from(base: Dictionary, tier: int) -> Dictionary:
 	var m: float = D.SKMUL.get(str(tier), 1.0)
 	var e := {"kind": base.k, "tgt": base.tgt}
-	if base.has("mult"): e.mult = snappedf(base.mult * m, 0.001)
-	if base.has("morale"): e.morale = snappedf(base.morale * m, 0.1)
-	if base.has("tHeal"): e.tHeal = snappedf(base.tHeal * m, 0.0001)
-	for key in ["exec", "spd", "foeSpd", "resDown", "selfBuff", "allyBuff", "cleanse", "pierce", "stance", "heal", "rally"]:
+	if base.has("mult"): e.mult = snappedf(base.mult * m * SK_POWER.mult, 0.001)
+	if base.has("morale"): e.morale = snappedf(base.morale * m * SK_POWER.morale, 0.1)
+	if base.has("tHeal"): e.tHeal = snappedf(base.tHeal * m * SK_POWER.heal, 0.0001)
+	if base.has("heal"): e.heal = snappedf(float(base.heal) * SK_POWER.heal, 0.1)
+	if base.has("exec"): e.exec = minf(0.35, snappedf(float(base.exec) * SK_POWER.exec, 0.01))
+	if base.has("pierce"): e.pierce = minf(0.6, float(base.pierce) + 0.1)
+	for key in ["spd", "foeSpd", "resDown", "selfBuff", "allyBuff", "stance"]:
+		if base.has(key):
+			e[key] = _scale_buff(base[key])
+	for key in ["cleanse", "rally"]:
 		if base.has(key):
 			e[key] = base[key]
 	if base.has("status"):
@@ -234,9 +306,9 @@ func _build_from(base: Dictionary, tier: int) -> Dictionary:
 			s.dur = 1          # 혼란은 차례를 통째로 날린다 —— 봉인(2턴)에서 온 것도 1턴
 		var ratio: bool = s.k == "burn" or s.k == "flood"
 		e.status = {"k": s.k,
-			"val": snappedf(s.val * m, 0.001 if ratio else 0.1),
+			"val": snappedf(s.val * m * (SK_POWER.status if s.k != "confuse" else 1.0), 0.001 if ratio else 0.1),
 			"dur": int(s.dur) + int(D.SKDUR.get(str(tier), 0))}
-	return {"n": base.n, "eff": e, "psv": null, "cond": str(SKILL_COND.get(base.n, "always"))}
+	return {"n": base.n, "eff": e, "psv": null, "cond": strict_cond(str(SKILL_COND.get(base.n, "always")), e), "cost": sk_cost(e)}
 
 
 func _build_forms() -> void:
@@ -332,8 +404,9 @@ func fac_color(fac: String) -> Color:
 
 ## 인물 이름 —— "의절 관우" → "관우". 같은 인물의 여러 등급 카드가 초상 한 장을 나눠 쓴다.
 ## 토벌 전용 황건 카드 (11/2, tools/scripts/foe_cards.py) —— 플레이어는 얻지 못한다: 뽑기 · 상점 · 도감 · 무작위 보드에서 빠진다
+## 적 전용 —— 원래 적 카드(foe)와, 11/2 줄기 재편으로 플레이어 쪽에서 뺀 카드(retired —— 토벌 편성에는 남고 초상도 그대로)
 func is_foe(k: String) -> bool:
-	return C[k].kind == "foe"
+	return C[k].kind == "foe" or C[k].kind == "retired"
 
 
 func person(k: String) -> String:
@@ -699,6 +772,21 @@ func ult_of(k: String):
 				comp.buff.amt = comp.buff.amt * s
 			if comp.has("status") and comp.status.k in ["burn", "bleed", "flood", "plague"]:
 				comp.status.val = comp.status.val * s
+	# 11/3 사용자: 일반 기술이 고유기보다 세면 안 된다 —— 고유기 한 방(배율 × 그 등급 전투 turn_mul)이
+	# 그 카드의 가장 센 일반 기술의 ULT_OVER 배 아래면 고유기 타격을 그만큼 올린다
+	var um := 0.0
+	for comp in u.eff:
+		if comp.t == "hit":
+			um = maxf(um, float(comp.mult))
+	var sm := 0.0
+	for sk in C[k].get("sks", []):
+		sm = maxf(sm, float(sk.eff.get("mult", 0.0)))
+	var tm := Battle.turn_mul_for(C[k].tier)
+	if um > 0 and sm > 0 and um * tm < sm * ULT_OVER:
+		var f := sm * ULT_OVER / (um * tm)
+		for comp in u.eff:
+			if comp.t == "hit":
+				comp.mult = snappedf(float(comp.mult) * f, 0.01)
 	return u
 
 
@@ -851,6 +939,14 @@ func skill_desc(c: Dictionary, sk = null) -> String:
 
 
 ## 일반 기술 발동 조건 글 —— "자신 병력 60% 이하 또는 …"
+## 기술 발동 안내 —— "적 맨 앞 열에 2부대 이상 · 충전 1.6" (11/3 비용)
+func sk_when(sk: Dictionary) -> String:
+	var t := cond_text(str(sk.get("cond", "always")))
+	if sk.has("cost"):
+		t += " · 충전 %s" % str(snappedf(float(sk.cost), 0.1))
+	return t
+
+
 func cond_text(cond: String) -> String:
 	var out := []
 	for one in cond.split("|"):
@@ -865,6 +961,7 @@ func cond_text(cond: String) -> String:
 			"dense": out.append("한 열에 적 %s부대 이상" % v)
 			"front_n": out.append("적 맨 앞 열에 %s부대 이상" % v)
 			"foe_n": out.append("적 %s부대 이상" % v)
+			"back_n": out.append("적 후열에 %s부대 이상" % v)
 			"line": out.append("적 %s이 있을 때" % v)
 			"no_st": out.append("『%s』 아닌 적이 있을 때" % D.STATUS[v].n)
 			"ally_st": out.append("상태이상 걸린 아군이 있을 때")
@@ -887,3 +984,53 @@ func cls_mul(a: String, d: String, tier := 8) -> float:
 	if CLASS_COUNTER.lose.get(a, []).has(d):
 		return 1.0 - amt
 	return 1.0
+
+
+const AURA_TO := {"all": "아군", "front": "선봉 · 전군 아군", "back": "중군 · 후군 아군", "fac": "같은 세력 아군", "rel": "인연 장수",
+	"low": "병력 절반 아래 아군"}
+const AURA_FOE := {"all": "적", "front": "적 선봉 · 전군", "back": "적 중군 · 후군"}
+## 특수 효과 이름 —— [이름, 백분율로 보이는가]
+const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해", true], "dr": ["받는 물리 피해", false],
+	"idr": ["받는 책략 피해", false], "counter": ["반격 확률", true], "regen": ["턴마다 병력 회복", true],
+	"mregen": ["턴마다 사기 회복", false], "rate": ["기술 발동", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
+	"low_atk": ["병력 절반 아래 공격", true], "kill_amp": ["적을 무너뜨린 뒤 피해", true], "weak_amp": ["약해진 적에게 피해", true],
+	"ignite": ["점화 확률", true], "spread": ["불 번짐", true], "st_amp": ["지속 피해 세기", true], "opener": ["첫 공격 피해", true],
+	"fire_res": ["화공 저항", true]}
+
+
+## 위세 설명 —— "부자동심: 인연 장수 공격 +12% · 방어 +12%"
+func aura_text(k: String) -> String:
+	if not AURA.has(k):
+		return ""
+	var a: Dictionary = AURA[k]
+	var who: String = AURA_TO.get(a.get("to", "all"), "아군")
+	if a.get("to", "") == "tag" or (not a.has("to") and a.has("tag")):
+		who = "아군 " + a.tag
+	var parts := []
+	var mine := []
+	for st in a.get("ally", {}):
+		mine.append(_pct(D.STATNM.get(st, st), a.ally[st]))
+	for mk in a.get("m", {}):
+		var d: Array = AURA_M.get(mk, [mk, true])
+		var v: float = a.m[mk]
+		if mk in ["dr", "idr"]:
+			mine.append(_pct(d[0], -v))
+		elif d[1]:
+			mine.append(_pct(d[0], v))
+		else:
+			mine.append("%s +%s" % [d[0], str(snappedf(v, 0.1))])
+	if not mine.is_empty():
+		parts.append(who + " " + " · ".join(mine))
+	var theirs := []
+	for st in a.get("foe", {}):
+		theirs.append(_pct(D.STATNM.get(st, st), a.foe[st]))
+	if not theirs.is_empty():
+		var ft: String = a.get("foe_to", "all")
+		var fw: String = ("적 " + ft.substr(4)) if ft.begins_with("tag:") else AURA_FOE.get(ft, "적")
+		parts.append(fw + " " + " · ".join(theirs))
+	return "%s: %s" % [a.n, " / ".join(parts)]
+
+
+func _pct(name: String, v: float) -> String:
+	return "%s %s%d%%" % [name, "+" if v > 0 else "−", roundi(absf(v) * 100)]
+
