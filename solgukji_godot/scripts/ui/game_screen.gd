@@ -928,11 +928,23 @@ func recipe_sheet(out: String) -> void:
 	_route_enter("recipe", out)
 	var c: Dictionary = DB.C[out]
 	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
-	var t0 := tile(out, run.pool().get(out, -1))
-	t0.custom_minimum_size.y = 84
-	b.add_child(t0)
-	if c.sk:
-		b.add_child(UI.hint("『%s』 %s —— %s" % [c.sk.n, DB.sk_when(c.sk), DB.skill_desc(c)]))
+	# 11/3 사용자: 이름은 제목과 겹치니 빼고, 일반 기술도 뺀다 —— 초상 오른쪽에 특기판 · 고유 특기 · 위세
+	var tp := UI.hbox(10)
+	var cv := CardView.new().setup(out, Vector2(72, 102))
+	cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	tp.add_child(cv)
+	var rv := UI.vbox(5)
+	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rv.add_child(TraitBoard.new().setup(out))
+	for t in DB.trait_list(out):
+		if t.unique:
+			rv.add_child(UI.rich("[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]
+[color=#8FD4C2]%s[/color]" % [t.name, t.mt], 12))
+	if DB.AURA.has(out):
+		rv.add_child(UI.rich("[b][color=%s]%s[/color] 『%s』[/b]
+[color=#8FD4C2]%s[/color]" % [DB.tier_color(out).to_html(false), "기인" if DB.is_kiin(out) else "위세", DB.AURA[out].n, DB.aura_effect(out)], 12))
+	tp.add_child(rv)
+	b.add_child(UI.panel(tp, 8))
 	var row := UI.hbox(6)
 	var ml := UI.lbl("재료", 13, DB.PAL.bamboo, true)
 	ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -951,8 +963,6 @@ func recipe_sheet(out: String) -> void:
 	if ni != null:
 		var have_it: bool = run.bag.get(ni, 0) > 0
 		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 1 · 3 · 5일차 유니크 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
-	if DB.AURA.has(out):
-		b.add_child(UI.hint("위세 — " + DB.aura_text(out)))
 	if c.tier >= 8 and run.has_myth():
 		b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다 — 이미 신화를 얻었다"))
 	var ok := run.can_forge(out)
