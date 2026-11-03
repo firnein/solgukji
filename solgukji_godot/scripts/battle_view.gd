@@ -1465,6 +1465,72 @@ class Hud extends Control:
 		var tot := 2.5
 		draw_rect(Rect2(r.position + Vector2(4, r.size.y - 5), Vector2((w - 8) * clampf(left / tot, 0, 1), 3)), Color("#ffd257"))
 
+	## 메달 지름 —— 병졸 14 · 고급 · 희귀 20 · 전설 · 기인 23 · 초월 26 · 불멸 29 · 신화 33 (11/3 등급 차등)
+	func _medal_d(sq: Squad) -> float:
+		if sq.tier <= 2:
+			return 14.0
+		if DB.is_kiin(sq.cid):
+			return 23.0
+		return {3: 20.0, 4: 20.0, 5: 23.0, 6: 26.0, 7: 29.0, 8: 33.0}.get(sq.tier, 20.0)
+
+	## 둥근 메달 —— 등급마다 테 · 장식 · 빛. 병졸은 병종 기호만
+	func _medal(pc: Vector2, rr: float, sq: Squad, a: float, ult_ready: bool) -> void:
+		var team: Color = War3D.TEAM[sq.camp]
+		var tc: Color = DB.tier_color(sq.cid)
+		var t := sq.tier
+		var kiin := DB.is_kiin(sq.cid)
+		var clk: float = view.clock
+		if t <= 2:      # 병졸 —— 진영색 작은 원 + 병종 기호
+			draw_circle(pc, rr + 1.5, Color(0, 0, 0, 0.5 * a))
+			draw_circle(pc, rr, Color(team.darkened(0.35), a))
+			var ic: Texture2D = DB.ICON.get(sq.row.tag if "tag" in sq.row else DB.C[sq.cid].tag)
+			if ic:
+				var s2 := rr * 1.3
+				draw_texture_rect(ic, Rect2(pc - Vector2(s2, s2) / 2.0, Vector2(s2, s2)), false, Color(DB.PAL.paper, 0.9 * a))
+			draw_arc(pc, rr, 0, TAU, 24, Color(team.lightened(0.3), a), 1.2)
+			return
+		# 빛 —— 초월은 은은하게, 불멸은 숨 쉬듯, 신화는 강하게 (고유기가 차면 번쩍)
+		if t >= 6:
+			var glow := 0.18 if t == 6 else (0.22 + 0.12 * sin(clk * 2.4) if t == 7 else 0.34 + 0.14 * sin(clk * 3.2))
+			if ult_ready:
+				glow += 0.25 + 0.25 * sin(clk * 10.0)
+			for i in 3:
+				draw_circle(pc, rr + 4.0 + i * 3.0, Color(tc, glow * a / (i + 1.5)))
+		draw_circle(pc, rr + 3.0, Color(0, 0, 0, 0.55 * a))
+		var ring := 3.0 if t >= 8 else (2.5 if t >= 6 else 2.0)
+		draw_circle(pc, rr + ring, Color(Color("#ffd257") if t >= 8 else tc, a))      # 바깥 테 (신화는 금)
+		if t >= 6 and t < 8:
+			draw_arc(pc, rr + ring + 1.6, 0, TAU, 40, Color(tc.lightened(0.3), 0.8 * a), 1.0)      # 두 겹
+		if t == 5 and not kiin:
+			draw_arc(pc, rr + ring + 1.2, 0, TAU, 40, Color("#ffd257", 0.75 * a), 1.0)      # 전설 —— 얇은 금선
+		draw_circle(pc, rr + 0.6, Color(team, a))                                         # 진영색 안쪽 테
+		Art.draw_face_circle(self, pc, rr, sq.cid)
+		# 장식 —— 기인 마름모 하나 · 초월 위 뿔 · 불멸 위아래 · 신화 둘레를 도는 빛 조각
+		var top := pc + Vector2(0, -rr - ring - 1.5)
+		if kiin:
+			_gem(top, 3.2, DB.KIIN_COL, a)
+		elif t == 6:
+			_horn(top, 4.0, tc, a)
+		elif t == 7:
+			_horn(top, 4.5, tc, a)
+			_gem(pc + Vector2(0, rr + ring + 1.5), 3.0, tc, a)
+		elif t >= 8:
+			_horn(top, 5.0, Color("#ffd257"), a)
+			for i in 3:
+				var ang := clk * 1.6 + TAU * i / 3.0
+				var q := pc + Vector2(cos(ang), sin(ang)) * (rr + ring + 3.0)
+				draw_circle(q, 2.0, Color(1.0, 0.92, 0.6, 0.9 * a))
+				draw_circle(q, 3.6, Color(1.0, 0.85, 0.4, 0.3 * a))
+
+	func _gem(p: Vector2, s: float, col: Color, a: float) -> void:
+		draw_colored_polygon(PackedVector2Array([p + Vector2(0, -s), p + Vector2(s, 0), p + Vector2(0, s), p + Vector2(-s, 0)]), Color(col, a))
+		draw_polyline(PackedVector2Array([p + Vector2(0, -s), p + Vector2(s, 0), p + Vector2(0, s), p + Vector2(-s, 0), p + Vector2(0, -s)]), Color(0, 0, 0, 0.6 * a), 1.0)
+
+	func _horn(p: Vector2, s: float, col: Color, a: float) -> void:
+		var pts := PackedVector2Array([p + Vector2(-s, s * 0.4), p + Vector2(-s * 0.45, -s * 0.5), p + Vector2(0, s * 0.1), p + Vector2(s * 0.45, -s * 0.5), p + Vector2(s, s * 0.4)])
+		draw_colored_polygon(pts, Color(col, a))
+		draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0, 0, 0, 0.6 * a), 1.0)
+
 	## 점묘 전장의 장수 토큰 —— 둥근 초상 + 진영색 테 + 병력 숫자 (블라인드삼국식)
 	func _token(sq: Squad, p: Vector2) -> void:
 		if sq.state == "gone":
@@ -1548,21 +1614,21 @@ class Hud extends Control:
 				continue
 			var a: float = sq.fade * view.field.label_alpha(sq.pos)
 			var myth: bool = sq.tier >= 8
-			var art: bool = myth or DB.portrait(sq.cid) != null      # 그림이 있으면 등급과 관계없이 초상을 붙인다
+			var art := true      # 11/3 모든 부대에 둥근 메달 —— 장수는 얼굴, 병졸은 병종 기호 (작게)
 			var team: Color = War3D.TEAM[sq.camp]
 			var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 			# 10/31 사용자: 이름표를 줄인다 —— 글씨 9 · 알약 높이 13 · 초상 16 (신화 19)
 			var fs := 9
 			var nw := fbo.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			var w := clampf(nw + 16, 34, 58)
-			var ps := 30.0 if myth else 26.0      # 11/3 사용자: 얼굴 아이콘이 눈에 안 들어온다 —— 16 → 26 (신화 30), 원형 메달
+			var ps := _medal_d(sq) + 2.0      # 11/3 사용자: 등급마다 크기 · 테 · 빛 차등 (_medal_d · _medal)
 			var r := Rect2(p - Vector2(w / 2, 17), Vector2(w, 22))
 			# 10/31 사용자: 평소에는 작은 초상 + 병력 막대만. 이름 · 사기 · 게이지 · 상태는 따라가는(꾹 누른) 부대와 고유기가 찬 부대만
 			var lvq := view.unit_live(sq.key)
 			var detail: bool = sq == view.field.follow or (sq.tier >= 6 and lvq[1] > 0 and lvq[0] >= 100)
 			if not detail:
 				w = 30.0
-				ps = 24.0 if myth else 20.0
+				ps = _medal_d(sq)
 				r = Rect2(p - Vector2(w / 2, 4), Vector2(w, 9))
 			if art:
 				r = Rect2(r.position - Vector2(ps + 3, 0), r.size + Vector2(ps + 3, 0))     # 초상 자리까지 겹침 판정
@@ -1641,10 +1707,7 @@ class Hud extends Control:
 			if art and a > 0.5:
 				var pr := Rect2(r.position + Vector2(-ps - 3, (11.0 if full else 1.5) - ps * 0.5), Vector2(ps, ps))
 				var pc := pr.get_center()
-				draw_circle(pc, ps * 0.5 + 3.0, Color(0, 0, 0, 0.55 * a))
-				draw_circle(pc, ps * 0.5 + (2.5 if myth else 2.0), Color(DB.tier_color(sq.cid), a))      # 등급색 테
-				draw_circle(pc, ps * 0.5 + 0.6, Color(team, a))                                           # 진영색 안쪽 테
-				Art.draw_face_circle(self, pc, ps * 0.5, sq.cid)
+				_medal(pc, ps * 0.5, sq, a, lvq[1] > 0 and lvq[0] >= 100)
 				if not sq.alive:
 					draw_circle(pc, ps * 0.5, Color(0, 0, 0, 0.6))
 		# 떠오르는 글씨
