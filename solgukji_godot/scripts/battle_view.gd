@@ -475,6 +475,7 @@ func _simulate() -> Dictionary:
 
 ## 게임에서 부른다 —— bt 는 Run.battle (a·b 진영 {cards, form, morale, equip}, seed, title, foe, inputs)
 func play(bt: Dictionary, direct_ := false) -> void:
+	end_clock = 0.0
 	game_mode = true
 	locked = false
 	_auto_btn.disabled = false
@@ -1175,7 +1176,7 @@ func _log(e: Dictionary) -> void:
 
 
 func clock_text() -> String:
-	var s := int(clock)
+	var s := int(end_clock if end_clock > 0.0 else clock)      # 11/3 끝난 뒤에는 시계를 멈춘다 (결과표 시간과 달랐다)
 	return "%d:%02d" % [s / 60, s % 60]
 
 

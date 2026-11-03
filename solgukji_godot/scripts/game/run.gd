@@ -680,6 +680,10 @@ func advance() -> void:
 		over = {"win": true, "msg": "일주일을 살아남았다"}
 		day = 6
 		return
+	# 11/3 사용자: 토벌을 계속 져도 멸망하지 않았다 —— 1 · 2일차에 경고를 다 채우면 3일차에 한 번 더 져야 멸망했다. 3일차에 들어설 때도 본다
+	if strikes >= STRIKE_MAX and day >= 2:
+		over = {"win": false, "msg": "토벌 실패 %d번 —— 세력이 멸망했다" % strikes}
+		return
 	gain_item()
 	if mp:
 		return

@@ -152,6 +152,7 @@ class Unit:
 	var steady_used := false  # 진정 —— 사기 60 아래에서 한 번 추스름을 썼는가
 	var stand_used := false   # 사수 —— 방진 중 병력 1에서 버티기를 썼는가
 	var countering := false   # 반격 중 (점검 통계용)
+	var taken := 0.0          # 받은 병력 피해 합 (결과표 —— 11/3: '처음 − 남은' 은 쓰러진 부대가 모두 최대 병력으로 같아 보였다)
 	var theal := 0.0          # 병력 치료 합 (최대 병력 대비 · 점검용)
 	var charged := false      # 기병 첫 돌격을 했는가 (11/3 병종 역할)
 	var dmg := 0.0
@@ -1729,7 +1730,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
 			"item": u.item, "morale": u.morale, "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills,
-			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
+			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))
@@ -2035,6 +2036,7 @@ func _scope_hits(scope: String, u: Unit, t: Unit) -> bool:
 
 func _stat(d: Unit, loss: float) -> void:
 	stats.dmg += loss
+	d.taken += loss
 	if _sk_on:
 		stats.sk_dmg += loss
 	if _in_ult:

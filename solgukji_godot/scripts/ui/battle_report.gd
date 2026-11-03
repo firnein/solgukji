@@ -16,7 +16,7 @@ static func make(r: Dictionary) -> BattleReport:
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UI.flat(Color(0.06, 0.07, 0.11, 0.94), DB.PAL.ink3, 1, 10, 12))
+	add_theme_stylebox_override("panel", UI.flat(Color(0.06, 0.07, 0.11, 1.0), DB.PAL.ink3, 1, 10, 12))      # 불투명 —— 뒤의 종료 문구가 비쳐 글씨가 겹쳤다
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := UI.vbox(8)
 	add_child(v)
@@ -36,8 +36,10 @@ func _ready() -> void:
 
 
 func _len_text() -> String:
-	var t: float = res.get("len", 0.0)
-	return "%d초" % roundi(t) if t > 0 else "%d턴" % res.turns
+	var t: float = res.get("view_len", res.get("len", 0.0))      # 11/3 화면 시계(위쪽 0:00)와 같은 시간 —— 엔진 시간은 화면에서 늘려 보여 준다
+	if t <= 0:
+		return "%d턴" % res.turns
+	return "%d:%02d" % [int(t) / 60, int(t) % 60]
 
 
 func _fill() -> void:
@@ -84,7 +86,7 @@ func _rows(cp: String) -> Array:
 		if u.camp != cp:
 			continue
 		out.append({"id": u.id, "name": u.name, "tier": u.tier, "tag": u.tag,
-			"dmg": float(u.get("dmg", 0)), "taken": maxf(0.0, u.max - final[i][0]), "heal": float(u.get("heal", 0)),
+			"dmg": float(u.get("dmg", 0)), "taken": float(u.taken) if u.has("taken") else maxf(0.0, u.max - final[i][0]), "heal": float(u.get("heal", 0)),
 			"kills": int(u.get("kills", 0)), "sk": sk.get(u.key, 0), "ult": ul.get(u.key, 0), "alive": final[i][2] == 1})
 	out.sort_custom(func(x, y): return x.dmg > y.dmg)
 	return out

@@ -10,6 +10,7 @@ extends Control
 ## 점검용 인자 (godot ... -- 뒤에):  --gnew=시드 --gplay=페이즈수 --gpage=deploy --gshot=경로.png --after=초 --gsheet=card:c39
 ## (예전 도감·전투 연출 화면은 --tab=… 을 주면 열린다 —— scenes/main.tscn)
 
+const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만
 const TOP_H := 66.0
@@ -66,6 +67,8 @@ var online: Online = null     # 온라인 대전 중이면 있다 (scripts/ui/on
 
 func _ready() -> void:
 	Settings.load_cfg()
+	if not SHOW_DOTS:
+		Settings.dots = false      # 고르는 칸을 숨겼으니 예전에 점묘로 저장했어도 3D 로
 	Sfx.music("menu")
 	if OS.has_feature("testscene"):       # 테스트 APK (build_test_apk.bat) —— 전투 점검 화면으로 바로
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
@@ -533,6 +536,7 @@ func _new_game() -> void:
 	run = Run.new()
 	run.new_game()
 	run.save()
+	forge_tree.clear()          # 11/3 사용자: 이전 판의 갈무리가 남아 있었다
 	_title.visible = false
 	close_sheet()
 	go("draw")
@@ -790,13 +794,14 @@ func _settings_sheet() -> void:
 		row.add_child(bt)
 	b.add_child(row)
 	b.add_child(UI.hint("병사 수 %d%% · 휴대폰은 '낮음'부터 시작합니다. 다음 전투부터 적용됩니다." % roundi(Settings.COUNT_SCALE[Settings.quality] * 100)))
-	b.add_child(UI.eyebrow("전장 표현"))
-	b.add_child(UI.segmented([["3d", "3D (삼국지13)"], ["dots", "점묘 (2D)"]], "dots" if Settings.dots else "3d", func(key):
-		Settings.dots = key == "dots"
-		Settings.save_cfg()
-		if _battle:
-			_battle.apply_style()
-		_settings_sheet()))
+	if SHOW_DOTS:      # 11/3 사용자: 점묘 방식 옵션은 숨긴다 (점검용 --gdots 는 그대로)
+		b.add_child(UI.eyebrow("전장 표현"))
+		b.add_child(UI.segmented([["3d", "3D (삼국지13)"], ["dots", "점묘 (2D)"]], "dots" if Settings.dots else "3d", func(key):
+			Settings.dots = key == "dots"
+			Settings.save_cfg()
+			if _battle:
+				_battle.apply_style()
+			_settings_sheet()))
 	b.add_child(UI.eyebrow("전장 화풍"))
 	b.add_child(UI.segmented([["base", "기본"], ["sumuk", "수묵 (삼국지11 시안)"]], "sumuk" if Settings.sumuk else "base", func(key):
 		Settings.sumuk = key == "sumuk"
@@ -1891,7 +1896,7 @@ func _page_war() -> Control:
 		v.add_child(_bracket())
 	else:
 		v.add_child(_page_head("%s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]],
-			"토벌과 임의 세력 대전을 한 번씩 치른다. 토벌 실패는 경고로 쌓인다 — 현재 %d/%d회." % [run.strikes, Run.STRIKE_MAX]))
+			"토벌과 임의 세력 대전을 한 번씩 치른다. 토벌 실패는 경고로 쌓인다 — 현재 %d/%d회 (다 차면 3일차부터 멸망)." % [run.strikes, Run.STRIKE_MAX]))
 		v.add_child(UI.act("① 토벌 완료" if run.quest_done else "① 토벌 — %s" % run.quest_name(),
 			"다음은 대전이다" if run.quest_done else "적 %d PV · 승리 시 기본패 %d장 · 실패 시 경고" % [run.quest_pv(), DB.D.QUEST_BASE[run.day]],
 			func(): _start("quest"), "warn", run.quest_done or placed == 0))
@@ -2016,6 +2021,8 @@ func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 ## 결과표 —— 화면 가운데, 아래에 [결과 정리] 버튼
 func _show_report(res: Dictionary) -> void:
 	_hide_report()
+	if _battle and _battle.end_clock > 0:
+		res["view_len"] = _battle.end_clock
 	_report = BattleReport.make(res)
 	var w := minf(size.x - 24.0, 460.0)
 	_report.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -2064,12 +2071,22 @@ func _page_line() -> Control:
 	tbl.add_theme_constant_override("v_separation", 4)
 	for hd in ["등급", "PV", "병력", "종수", "보유"]:
 		tbl.add_child(UI.lbl(hd, 13, DB.PAL.bamboo_dim))
-	for t in range(1, 9):
-		var owned := DB.by_tier(t).filter(func(k): return p.has(k)).size()
-		tbl.add_child(UI.lbl(DB.TIER[t].n, 15, DB.TIER[t].c, true))
-		tbl.add_child(UI.lbl("%d~%d" % [DB.TIER[t].lo, DB.TIER[t].hi], 14))
-		tbl.add_child(UI.lbl(Battle.num(DB.C[DB.by_tier(t)[0]].tr), 14))
-		tbl.add_child(UI.lbl(str(DB.by_tier(t).size()), 14))
+	# 11/3 일반 등급이 비어 by_tier(2)[0] 에서 멈춰 계보창이 통째로 비었다 —— 있는 등급만, 기인은 전설 옆에
+	var rows_t: Array = []
+	for t in DB.PLAY_TIERS:
+		rows_t.append(t)
+		if t == 5:
+			rows_t.append(KIIN_T)
+	for t in rows_t:
+		var ks: Array = DB.C.keys().filter(func(k): return DB.is_kiin(k)) if t == KIIN_T else DB.by_tier(t).filter(func(k): return not DB.is_kiin(k))
+		if ks.is_empty():
+			continue
+		var owned := ks.filter(func(k): return p.has(k)).size()
+		var pvs: Array = ks.map(func(k): return int(DB.C[k].pv))
+		tbl.add_child(UI.lbl("기인" if t == KIIN_T else DB.TIER[t].n, 15, DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c, true))
+		tbl.add_child(UI.lbl("%d~%d" % [pvs.min(), pvs.max()], 14))
+		tbl.add_child(UI.lbl(Battle.num(DB.C[ks[0]].tr), 14))
+		tbl.add_child(UI.lbl(str(ks.size()), 14))
 		tbl.add_child(UI.lbl(str(owned) if owned else "—", 14, DB.PAL.jade if owned else DB.PAL.bamboo_dim))
 	var tc := CenterContainer.new()
 	tc.add_child(tbl)
@@ -2085,11 +2102,11 @@ func _page_line() -> Control:
 			if DB.C[k].tier == top_t and (best == "" or p[k] > p[best]):
 				best = k
 		var s := "[color=#C6AC7C]%s[/color]  " % tag
-		for t in range(1, 9):
+		for t in DB.PLAY_TIERS:
 			s += "[color=%s]■[/color]" % (DB.TIER[t].c.to_html(false) if t <= top_t else "33405F")
 		s += "  %s" % (UI.card_bb(best) if best != "" else "—")
 		prog.add_child(UI.rich(s, 15))
-	prog.add_child(UI.hint("여덟 칸이 기본부터 신화까지 — 칸이 비면 아직 그 등급에 닿지 못했다."))
+	prog.add_child(UI.hint("칸이 기본부터 신화까지 — 칸이 비면 아직 그 등급에 닿지 못했다."))
 	v.add_child(UI.sect("계보 진행도", UI.panel(prog)))
 
 	var lv0 := UI.vbox(8)

@@ -37,6 +37,13 @@ func _save() -> void:
 		f.store_string(JSON.stringify(pins))
 
 
+## 새 판 —— 갈무리를 비운다
+func clear() -> void:
+	pins.clear()
+	opened.clear()
+	_save()
+
+
 func pinned(k: String) -> bool:
 	return pins.has(k)
 
