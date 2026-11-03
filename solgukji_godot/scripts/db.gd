@@ -783,7 +783,7 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx",
 				"chase", "open_slow"]:      # 계열 마무리 —— 설명으로 충분
 			continue
-		var v: float = m[k] * scale
+		var v: float = m[k] * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
 		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 11/3: 턴 하나로는 0.0 처럼 보여 '전투 동안' 합으로 적는다 (보통 길이 전투)

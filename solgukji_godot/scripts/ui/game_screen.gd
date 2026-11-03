@@ -1243,26 +1243,23 @@ func card_info(k: String) -> void:
 		st.add_child(uh)
 	# 11/3 사용자: 위세 · 고유기는 초상 오른쪽 (위세 설명 문구는 뺐다)
 	if DB.AURA.has(k):
-		st.add_child(_bar_box("[b][color=%s]%s[/color] 『%s』[/b]\n%s" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n, DB.aura_effect(k)], DB.tier_color(k), 12))
+		st.add_child(_kv_box("[b][color=%s]%s[/color] 『%s』[/b]" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), DB.tier_color(k), 12))
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
-		st.add_child(_bar_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]\n%s" % [u.name, UI.ult_desc(u, c.tier)], Color("#ffd76e"), 12))
+		st.add_child(_kv_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "", UI.ult_desc(u, c.tier), Color("#ffd76e"), 12))
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
 	b.add_child(top)
 	# 고유 특기 —— 접지 않고 바로 보인다 (이름 · 수치)
 	for t in DB.trait_list(k):
 		if t.unique:
-			var ub := "[color=#FFD76E][b]%s[/b][/color]" % t.name
-			if t.mt != "":
-				ub += "\n[color=#8FD4C2]%s[/color]" % t.mt
-			b.add_child(_bar_box(ub, Color("#e8c25a"), 13))
+			b.add_child(_kv_box("[b][color=#e8c25a]고유[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, "", t.mt, Color("#e8c25a"), 13))
 	# 기술 —— 머리말 아래 기술마다 왼쪽 띠 상자
 	if not c.get("sks", []).is_empty():
 		var sk_sec := UI.vbox(6)
 		sk_sec.add_child(UI.eyebrow("기술"))
 		for x in c.sks:
-			sk_sec.add_child(_bar_box("[color=#D9A64B][b]『%s』[/b][/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.sk_when(x), DB.skill_desc(c, x)], DB.PAL.bamboo_dim, 13))
+			sk_sec.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
 		b.add_child(sk_sec)
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
@@ -1336,6 +1333,56 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	v.add_child(hb)
 	v.add_child(body)
 	return v
+
+
+## 효과 · 수치 표 상자 (11/3 사용자: '효과, 수치' 식으로 이쁘게) —— 머리줄(이름 · 부제) 아래 두 칸 표.
+## body 는 "아군 책략 +10% / 적 책략방어 −10%" 처럼 ' · ' · ' / ' 로 나뉜 글 —— 끝의 수치를 오른쪽 칸으로 뗀다
+func _kv_box(head_bb: String, sub: String, body: String, col: Color, fs := 12) -> PanelContainer:
+	var pc := PanelContainer.new()
+	var sb := UI.flat(DB.PAL.ink2, col, 0, 4, 6)
+	sb.border_width_left = 3
+	sb.content_margin_left = 9
+	sb.content_margin_right = 8
+	pc.add_theme_stylebox_override("panel", sb)
+	var v := UI.vbox(3)
+	var h := UI.rich(head_bb + ("  [color=#8D7B5C][font_size=%d]%s[/font_size][/color]" % [fs - 1, sub] if sub != "" else ""), fs + 1)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(h)
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 1)
+	for kv in _kv_split(body):
+		var l := UI.lbl(kv[0], fs, DB.PAL.bamboo)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.add_child(l)
+		var r := UI.lbl(kv[1], fs, Color("#8FD4C2"), true)
+		r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		r.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		g.add_child(r)
+	v.add_child(g)
+	pc.add_child(v)
+	return pc
+
+
+static var _num_re: RegEx
+
+## "적 전체에 책략 319%" → ["적 전체에 책략", "319%"], 끝에 수치가 없으면 ["대상 혼란", ""]
+func _kv_split(text: String) -> Array:
+	if _num_re == null:
+		_num_re = RegEx.create_from_string("([+\\-−×]?\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:%|턴|초|부대|명)?)\\s*$")
+	var out := []
+	for part in text.replace(" / ", " · ").replace("\n", " · ").split(" · "):
+		var s := part.strip_edges()
+		if s == "":
+			continue
+		var m := _num_re.search(s)
+		if m and m.get_start() > 0:
+			out.append([s.substr(0, m.get_start()).strip_edges(), m.get_string(1).replace(" ", "")])
+		else:
+			out.append([s, ""])
+	return out
 
 
 ## 왼쪽에 색 띠가 있는 상자 —— 디테일창의 위세 · 고유기 · 고유 특기 · 기술 (11/3)
