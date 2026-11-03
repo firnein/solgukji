@@ -242,7 +242,7 @@ class TreeView extends Control:
 		if nd.has("item"):
 			var it: Dictionary = DB.IT[nd.item]
 			var l := UI.rich("[center][color=%s]＋%s[/color]\n[color=#8D7B5C]%s[/color][/center]" % [
-				"#d59700" if nd.ok else "#e0806f", it.name, "보유" if nd.ok else "유니크 보급품"], 12)
+				"#d59700" if nd.ok else "#e0806f", it.name, "보유" if nd.ok else "아이템 보급품"], 12)
 			l.custom_minimum_size = Vector2(nw, ForgeTree.NH)
 			v.add_child(l)
 			return v

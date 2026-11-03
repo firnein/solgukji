@@ -945,7 +945,7 @@ func _fill_art(ar: TextureRect) -> void:
 		ar.custom_minimum_size.y = maxf(120.0, ar.custom_minimum_size.y - over - 2)
 	# 얼굴이 있는 위쪽을 기준으로 자른다 (가운데로 자르면 신화 컷의 얼굴이 잘렸다)
 	await get_tree().process_frame
-	if not is_instance_valid(ar) or ar.size.x <= 0:
+	if not is_instance_valid(ar) or ar.size.x <= 0 or not ar.get_meta("crop", false):
 		return
 	var src: Texture2D = ar.get_meta("art")
 	var ts := src.get_size()
@@ -985,12 +985,16 @@ func recipe_sheet(out: String) -> void:
 	tp.add_child(rv)
 	# 11/3 사용자: 남는 위쪽 공간을 신화 컷으로 채운다 (그 인물의 신화 그림이 있으면) —— 높이는 한 프레임 뒤 남는 만큼
 	var art := DB.myth_art(out)
+	var myth := art != null
+	if not myth:
+		art = DB.portrait(out)      # 신화 그림이 없는 장수는 기본 장수 그림을 크게 (11/3 —— 빈 칸으로 나왔다)
 	if art:
 		var ar := TextureRect.new()
 		ar.texture = art
 		ar.set_meta("art", art)
+		ar.set_meta("crop", myth)
 		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED if myth else TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		ar.clip_contents = true
 		ar.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		ar.custom_minimum_size.y = 160
@@ -1214,7 +1218,7 @@ func _unique_sheet() -> void:
 		col.add_child(_kv_grid(UI.item_text(iid), 10))
 		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid):
 			var kk: String = k
-			var art := _art_crop(kk, Vector2(120, 150))
+			var art := _art_crop(kk, Vector2(120, 150), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
 			art.mouse_filter = Control.MOUSE_FILTER_STOP
 			art.gui_input.connect(func(e):
 				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
@@ -1251,9 +1255,9 @@ func _unique_sheet() -> void:
 	b.add_child(row)
 
 
-## 신화 그림 (없으면 기본 초상) 을 상자 비율로 —— 얼굴이 있는 위쪽 기준으로 자른다
-func _art_crop(k: String, box: Vector2) -> TextureRect:
-	var src: Texture2D = DB.myth_art(k)
+## 그림을 상자 비율로 —— 얼굴이 있는 위쪽 기준으로 자른다 (myth 면 신화 그림, 없으면 기본 초상)
+func _art_crop(k: String, box: Vector2, myth := true) -> TextureRect:
+	var src: Texture2D = DB.myth_art(k) if myth else null
 	if src == null:
 		src = DB.portrait(k)
 	var tr := TextureRect.new()
