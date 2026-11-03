@@ -1194,55 +1194,53 @@ func _unique_sheet() -> void:
 		close_sheet()
 		return
 	var b := open_sheet("아이템 보급")
-	b.add_child(UI.hint("신화 재료 하나를 고른다 · 신화는 한 판에 하나"))
-	# 11/3 사용자: 세로가 아니라 가로로 나란히, 장수는 갈무리 창처럼 (초상 · 특기 · 고유 특기 · 위세)
-	var row := UI.hbox(6)
+	# 11/3 사용자: 좁은 칸에 우겨넣지 말고 길게 —— 칸마다 [아이템] [아이템 능력치] [장수], 수치는 모두 '효과 · 수치' 줄
 	for id in run.uniq_offer:
 		var iid: String = id
-		var col := UI.vbox(5)
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var it: Dictionary = DB.IT[iid]
-		var nl := UI.lbl("◆ " + it.name, 13, DB.PAL.gold, true)
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		col.add_child(nl)
-		var sl := UI.lbl(UI.item_text(iid), 10, DB.PAL.bamboo)
-		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		col.add_child(sl)
+		var box := UI.vbox(8)
+		var ih := UI.hbox(10)
+		var th := ItemArt.View.new(iid, 56)
+		th.custom_minimum_size = Vector2(56, 56)
+		th.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		ih.add_child(th)
+		var iv := UI.vbox(2)
+		iv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		iv.add_child(UI.lbl("◆ " + it.name, 16, DB.PAL.gold, true))
+		iv.add_child(_kv_grid(UI.item_text(iid), 12))
+		ih.add_child(iv)
+		box.add_child(ih)
 		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid):
 			var kk: String = k
+			var gh := UI.hbox(10)
 			var cv := CardView.new().setup(kk, Vector2(84, 120))
-			cv.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 			cv.mouse_filter = Control.MOUSE_FILTER_STOP
 			cv.gui_input.connect(func(e):
 				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 					UI.buzz()
 					card_info(kk))
-			col.add_child(cv)
-			col.add_child(TraitBoard.new().setup(kk, 3))
+			gh.add_child(cv)
+			var gv := UI.vbox(4)
+			gv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			gv.add_child(UI.lbl(DB.C[kk].name, 15, DB.tier_color(kk), true))
+			var tb := TraitBoard.new()
+			tb.fixed = true
+			gv.add_child(tb.setup(kk))
 			for t in DB.trait_list(kk):
 				if t.unique:
-					col.add_child(_small_bb("[color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color]" % t.name, t.mt))
+					gv.add_child(UI.rich("[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, 12))
+					gv.add_child(_kv_grid(t.mt, 12))
 			if DB.AURA.has(kk):
-				col.add_child(_small_bb("[color=%s]위세[/color] 『%s』" % [DB.tier_color(kk).to_html(false), DB.AURA[kk].n], DB.aura_effect(kk)))
-		var sp := Control.new()
-		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		col.add_child(sp)
-		col.add_child(UI.btn("받기", func():
+				gv.add_child(UI.rich("[b][color=%s]위세[/color] 『%s』[/b]" % [DB.tier_color(kk).to_html(false), DB.AURA[kk].n], 12))
+				gv.add_child(_kv_grid(DB.aura_effect(kk), 12))
+			gh.add_child(gv)
+			box.add_child(gh)
+		box.add_child(UI.btn("받기 — %s" % it.name, func():
 			if act("pick_unique", [iid]):
 				toast("%s 획득 · 아이템 보급" % it.name, "gain")
-			close_sheet(), "pri", 40))
-		var pc := UI.panel(col, 6)
-		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(pc)
-	b.add_child(row)
-
-
-## 좁은 칸의 머리줄 + 줄 바꿈되는 작은 설명 (아이템 보급 칸)
-func _small_bb(head: String, body: String) -> Control:
-	var r := UI.rich("[b]%s[/b]
-[color=#8FD4C2]%s[/color]" % [head, body.replace(" · ", " · ")], 10)
-	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return r
+			close_sheet(), "pri", 44))
+		b.add_child(UI.panel(box, 10))
 
 
 ## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다
@@ -1463,10 +1461,18 @@ func _kv_box(head_bb: String, sub: String, body: String, col: Color, fs := 12) -
 	var h := UI.rich(head_bb + ("  [color=#8D7B5C][font_size=%d]%s[/font_size][/color]" % [fs - 1, sub] if sub != "" else ""), fs + 1)
 	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_child(h)
+	v.add_child(_kv_grid(body, fs))
+	pc.add_child(v)
+	return pc
+
+
+## 효과 · 수치 두 칸 표 —— 왼쪽 효과(줄 바꿈), 오른쪽 수치(오른쪽 맞춤)
+func _kv_grid(body: String, fs := 12) -> GridContainer:
 	var g := GridContainer.new()
 	g.columns = 2
 	g.add_theme_constant_override("h_separation", 8)
 	g.add_theme_constant_override("v_separation", 1)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for kv in _kv_split(body):
 		var l := UI.lbl(kv[0], fs, DB.PAL.bamboo)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1476,9 +1482,7 @@ func _kv_box(head_bb: String, sub: String, body: String, col: Color, fs := 12) -
 		r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		r.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		g.add_child(r)
-	v.add_child(g)
-	pc.add_child(v)
-	return pc
+	return g
 
 
 static var _num_re: RegEx
@@ -1486,7 +1490,7 @@ static var _num_re: RegEx
 ## "적 전체에 책략 319%" → ["적 전체에 책략", "319%"], 끝에 수치가 없으면 ["대상 혼란", ""]
 func _kv_split(text: String) -> Array:
 	if _num_re == null:
-		_num_re = RegEx.create_from_string("([+\\-−×]?\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:%|턴|초|부대|명)?)\\s*$")
+		_num_re = RegEx.create_from_string("([+\\-−×]?\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:%p|%|턴|초|부대|명)?)\\s*$")
 	var out := []
 	for part in text.replace(" / ", " · ").replace("\n", " · ").split(" · "):
 		var s := part.strip_edges()

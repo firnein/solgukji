@@ -16,6 +16,7 @@ var gap := 2.0
 var _all: Array = []         # 보여 줄 칸 [{name, attr, group}] —— 계열 순서 (접힘이면 가진 것만)
 var _mine := {}              # 이름 -> {lv, ...}
 var _press := Vector2.INF
+var fixed := false           # 펼칠 수 없다 —— 가진 특기만 (아이템 보급 창, 11/3)
 
 
 func setup(id: String, n_cols := 5) -> TraitBoard:
@@ -31,14 +32,16 @@ func setup(id: String, n_cols := 5) -> TraitBoard:
 
 func _rebuild() -> void:
 	_all = all_traits()
-	if not expanded:
+	if not expanded or fixed:
 		_all = _all.filter(func(t): return _mine.has(t.name))
-	var rows := ceili((_all.size() + 1) / float(cols))      # 마지막 칸은 '모두 보기' · '접기'
+	var rows := ceili((_all.size() + (0 if fixed else 1)) / float(cols))      # 마지막 칸은 '모두 보기' · '접기'
 	custom_minimum_size = Vector2(0, rows * (ch + gap) - gap)
 	queue_redraw()
 
 
 func _gui_input(e: InputEvent) -> void:
+	if fixed:
+		return
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
 			_press = e.position
@@ -99,7 +102,9 @@ func _draw() -> void:
 		draw_string(fb, Vector2(x, y), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, f, Color("#F2EEE4") if own else Color(DB.PAL.bamboo_dim, 0.55))
 		if own:
 			draw_string(fb, Vector2(x + nw, y), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, f, Color("#FFD76E"))
-	# 마지막 칸 —— 모두 보기 · 접기
+	# 마지막 칸 —— 모두 보기 · 접기 (펼칠 수 없는 판은 없음)
+	if fixed:
+		return
 	var i := _all.size()
 	var hr := Rect2((cw + gap) * (i % cols), (ch + gap) * (i / cols), cw, ch)
 	var hs := StyleBoxFlat.new()
