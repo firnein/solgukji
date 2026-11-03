@@ -474,35 +474,101 @@ func _build_battle() -> void:
 
 
 func _build_title() -> void:
+	# 11/3 사용자: 타이틀을 이쁘게 —— 신화 일러스트가 천천히 넘어가는 배경 · 금빛 로고 + 낙관 · 영문 이름 · 아래쪽 먹빛 버튼
 	_title = ColorRect.new()
-	_title.color = DB.PAL.ink
+	_title.color = Color("#0b0f1a")
 	_title.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	TouchScroll.block(_title)
 	add_child(_title)
+	var bg := TitleBG.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_title.add_child(bg)
 	var m := MarginContainer.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var side := maxf(32.0, (size.x - 420.0) / 2.0)
+	var side := maxf(30.0, (size.x - 420.0) / 2.0)
 	for s in ["left", "right"]:
 		m.add_theme_constant_override("margin_" + s, int(side))
-	m.add_theme_constant_override("margin_bottom", 48)
+	m.add_theme_constant_override("margin_top", 70)
+	m.add_theme_constant_override("margin_bottom", 40)
 	_title.add_child(m)
-	var v := UI.vbox(12)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	var v := UI.vbox(0)
 	m.add_child(v)
-	var t := UI.lbl("솔국지", 76, DB.PAL.bamboo, true)
+	# 로고 —— 금빛 명조 + 먹 테두리, 오른쪽 위에 붉은 낙관
+	var logo := Control.new()
+	logo.custom_minimum_size = Vector2(0, 112)
+	var t := UI.lbl("솔국지", 84, Color("#f0c869"), true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(t)
-	var s := UI.lbl("삼국지 랜덤 디펜스\n일주일을 살아남아 천하를 얻어라", 15, DB.PAL.bamboo_dim)
-	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(s)
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 36)
-	v.add_child(gap)
+	t.add_theme_constant_override("outline_size", 12)
+	t.add_theme_color_override("font_outline_color", Color("#1a1206"))
+	t.add_theme_constant_override("shadow_offset_x", 0)
+	t.add_theme_constant_override("shadow_offset_y", 4)
+	t.add_theme_constant_override("shadow_outline_size", 18)
+	t.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	logo.add_child(t)
+	var seal := TitleBG.Seal.new()
+	seal.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	seal.position = Vector2(118, 6)
+	logo.add_child(seal)
+	logo.resized.connect(func(): seal.position = Vector2(logo.size.x / 2.0 + 112.0, 8.0))
+	v.add_child(logo)
+	var en := UI.lbl("S O L G U K J I", 17, Color("#e9e3d3"), true)
+	en.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	en.add_theme_constant_override("outline_size", 6)
+	en.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	v.add_child(en)
+	var rule := ColorRect.new()
+	rule.color = Color("#d9a64b", 0.7)
+	rule.custom_minimum_size = Vector2(150, 1)
+	rule.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var rg := Control.new()
+	rg.custom_minimum_size.y = 10
+	v.add_child(rg)
+	v.add_child(rule)
+	var rg2 := Control.new()
+	rg2.custom_minimum_size.y = 8
+	v.add_child(rg2)
+	var sub := UI.lbl("THREE KINGDOMS · RANDOM DEFENSE", 11, Color("#d9a64b"))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_constant_override("outline_size", 4)
+	sub.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	v.add_child(sub)
+	var ko := UI.lbl("일주일을 살아남아 천하를 얻어라", 14, Color("#c6ac7c"))
+	ko.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ko.add_theme_constant_override("outline_size", 5)
+	ko.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+	var rg3 := Control.new()
+	rg3.custom_minimum_size.y = 6
+	v.add_child(rg3)
+	v.add_child(ko)
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(fill)
+	# 버튼 —— 아래쪽, 먹빛 반투명 + 금테
+	var bv := UI.vbox(10)
 	if Run.has_save():
-		v.add_child(UI.btn("이어 하기", _continue, "pri", 58))
-	v.add_child(UI.btn("새 판 시작", _new_game, "" if Run.has_save() else "pri", 58))
-	v.add_child(UI.btn("온라인 대전", _go_online, "gold", 58))
-	v.add_child(UI.btn("설정", _settings_sheet, "ghost", 50))
+		bv.add_child(_title_btn("이어 하기", _continue, true))
+	bv.add_child(_title_btn("새 판 시작", _new_game, not Run.has_save()))
+	bv.add_child(_title_btn("온라인 대전", _go_online, false))
+	var sb := UI.btn("설정", _settings_sheet, "ghost", 44)
+	sb.add_theme_color_override("font_color", Color("#c6ac7c"))
+	bv.add_child(sb)
+	v.add_child(bv)
+
+
+## 타이틀 버튼 —— 주 버튼은 금빛 바탕, 나머지는 먹빛 반투명 + 금테
+func _title_btn(text: String, cb: Callable, main: bool) -> Button:
+	var b := UI.btn(text, cb, "", 56)
+	var bg := Color("#c9952f", 0.92) if main else Color("#0b0f1a", 0.62)
+	var bd := Color("#ffd98a") if main else Color("#d9a64b", 0.7)
+	b.add_theme_stylebox_override("normal", UI.flat(bg, bd, 1, 10, 10))
+	b.add_theme_stylebox_override("hover", UI.flat(bg.lightened(0.08), bd, 1, 10, 10))
+	b.add_theme_stylebox_override("pressed", UI.flat(bg.darkened(0.15), bd, 2, 10, 10))
+	b.add_theme_font_override("font", DB.font_display)
+	b.add_theme_font_size_override("font_size", 19)
+	b.add_theme_color_override("font_color", Color("#1a1206") if main else Color("#f0e6cf"))
+	b.add_theme_color_override("font_hover_color", Color("#1a1206") if main else Color("#ffffff"))
+	return b
 
 
 func _go_online() -> void:
