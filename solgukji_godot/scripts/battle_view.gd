@@ -1465,62 +1465,76 @@ class Hud extends Control:
 		var tot := 2.5
 		draw_rect(Rect2(r.position + Vector2(4, r.size.y - 5), Vector2((w - 8) * clampf(left / tot, 0, 1), 3)), Color("#ffd257"))
 
-	## 메달 지름 —— 병졸 14 · 고급 · 희귀 20 · 전설 · 기인 23 · 초월 26 · 불멸 29 · 신화 33 (11/3 등급 차등)
+	## 강조 순위 —— 진영마다 그 전투에 나온 장수 가운데 등급(같으면 PV) 상위 둘만 1 · 2 (11/3 사용자: 등급마다 크게 하니
+	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
+	var _emph := {}
+
+	func _rank_emph() -> void:
+		_emph.clear()
+		for cp in ["A", "B"]:
+			var gs := []
+			for k in view.field.squads:
+				var q: Squad = view.field.squads[k]
+				if q.camp == cp and q.tier >= 3:
+					gs.append(q)
+			gs.sort_custom(func(x, y):
+				if x.tier != y.tier:
+					return x.tier > y.tier
+				return int(DB.C[x.cid].pv) > int(DB.C[y.cid].pv))
+			for i in mini(2, gs.size()):
+				_emph[gs[i].key] = i + 1
+
+	## 메달 지름 —— 병졸 14 · 장수 22 · 강조 2등 26 · 1등 30
 	func _medal_d(sq: Squad) -> float:
 		if sq.tier <= 2:
 			return 14.0
-		if DB.is_kiin(sq.cid):
-			return 23.0
-		return {3: 20.0, 4: 20.0, 5: 23.0, 6: 26.0, 7: 29.0, 8: 33.0}.get(sq.tier, 20.0)
+		return {1: 30.0, 2: 26.0}.get(_emph.get(sq.key, 0), 22.0)
 
-	## 둥근 메달 —— 등급마다 테 · 장식 · 빛. 병졸은 병종 기호만
+	## 둥근 메달 —— 등급은 테 색으로, 크기 · 빛 · 장식은 강조 1 · 2등만. 고유기가 차면 순위와 상관없이 번쩍. 병졸은 병종 기호만
 	func _medal(pc: Vector2, rr: float, sq: Squad, a: float, ult_ready: bool) -> void:
 		var team: Color = War3D.TEAM[sq.camp]
 		var tc: Color = DB.tier_color(sq.cid)
 		var t := sq.tier
-		var kiin := DB.is_kiin(sq.cid)
+		var em: int = _emph.get(sq.key, 0)
 		var clk: float = view.clock
 		if t <= 2:      # 병졸 —— 진영색 작은 원 + 병종 기호
 			draw_circle(pc, rr + 1.5, Color(0, 0, 0, 0.5 * a))
 			draw_circle(pc, rr, Color(team.darkened(0.35), a))
-			var ic: Texture2D = DB.ICON.get(sq.row.tag if "tag" in sq.row else DB.C[sq.cid].tag)
+			var ic: Texture2D = DB.ICON.get(DB.C[sq.cid].tag)
 			if ic:
 				var s2 := rr * 1.3
 				draw_texture_rect(ic, Rect2(pc - Vector2(s2, s2) / 2.0, Vector2(s2, s2)), false, Color(DB.PAL.paper, 0.9 * a))
 			draw_arc(pc, rr, 0, TAU, 24, Color(team.lightened(0.3), a), 1.2)
 			return
-		# 빛 —— 초월은 은은하게, 불멸은 숨 쉬듯, 신화는 강하게 (고유기가 차면 번쩍)
-		if t >= 6:
-			var glow := 0.18 if t == 6 else (0.22 + 0.12 * sin(clk * 2.4) if t == 7 else 0.34 + 0.14 * sin(clk * 3.2))
-			if ult_ready:
-				glow += 0.25 + 0.25 * sin(clk * 10.0)
+		# 빛 —— 1등만 (신화는 더 강하게), 고유기가 찬 장수는 누구든 번쩍
+		var glow := 0.0
+		if em == 1:
+			glow = 0.36 + 0.14 * sin(clk * 3.0) if t >= 8 else 0.24 + 0.1 * sin(clk * 2.4)
+		if ult_ready:
+			glow += 0.3 + 0.25 * sin(clk * 10.0)
+		if glow > 0.0:
 			for i in 3:
 				draw_circle(pc, rr + 4.0 + i * 3.0, Color(tc, glow * a / (i + 1.5)))
 		draw_circle(pc, rr + 3.0, Color(0, 0, 0, 0.55 * a))
-		var ring := 3.0 if t >= 8 else (2.5 if t >= 6 else 2.0)
-		draw_circle(pc, rr + ring, Color(Color("#ffd257") if t >= 8 else tc, a))      # 바깥 테 (신화는 금)
-		if t >= 6 and t < 8:
-			draw_arc(pc, rr + ring + 1.6, 0, TAU, 40, Color(tc.lightened(0.3), 0.8 * a), 1.0)      # 두 겹
-		if t == 5 and not kiin:
-			draw_arc(pc, rr + ring + 1.2, 0, TAU, 40, Color("#ffd257", 0.75 * a), 1.0)      # 전설 —— 얇은 금선
+		var ring := 3.0 if em == 1 else (2.5 if em == 2 else 2.0)
+		draw_circle(pc, rr + ring, Color(Color("#ffd257") if t >= 8 else tc, a))      # 등급색 테 (신화는 금)
+		if em > 0:
+			draw_arc(pc, rr + ring + 1.6, 0, TAU, 40, Color(tc.lightened(0.3), 0.8 * a), 1.0)      # 강조 —— 두 겹
 		draw_circle(pc, rr + 0.6, Color(team, a))                                         # 진영색 안쪽 테
 		Art.draw_face_circle(self, pc, rr, sq.cid)
-		# 장식 —— 기인 마름모 하나 · 초월 위 뿔 · 불멸 위아래 · 신화 둘레를 도는 빛 조각
 		var top := pc + Vector2(0, -rr - ring - 1.5)
-		if kiin:
-			_gem(top, 3.2, DB.KIIN_COL, a)
-		elif t == 6:
+		if DB.is_kiin(sq.cid):
+			_gem(top, 3.0, DB.KIIN_COL, a)          # 기인 표시는 늘 (작은 마름모)
+		elif em == 1:
+			_horn(top, 5.0, Color("#ffd257") if t >= 8 else tc, a)
+			if t >= 8:      # 신화 —— 둘레를 도는 빛 조각
+				for i in 3:
+					var ang := clk * 1.6 + TAU * i / 3.0
+					var q := pc + Vector2(cos(ang), sin(ang)) * (rr + ring + 3.0)
+					draw_circle(q, 2.0, Color(1.0, 0.92, 0.6, 0.9 * a))
+					draw_circle(q, 3.6, Color(1.0, 0.85, 0.4, 0.3 * a))
+		elif em == 2:
 			_horn(top, 4.0, tc, a)
-		elif t == 7:
-			_horn(top, 4.5, tc, a)
-			_gem(pc + Vector2(0, rr + ring + 1.5), 3.0, tc, a)
-		elif t >= 8:
-			_horn(top, 5.0, Color("#ffd257"), a)
-			for i in 3:
-				var ang := clk * 1.6 + TAU * i / 3.0
-				var q := pc + Vector2(cos(ang), sin(ang)) * (rr + ring + 3.0)
-				draw_circle(q, 2.0, Color(1.0, 0.92, 0.6, 0.9 * a))
-				draw_circle(q, 3.6, Color(1.0, 0.85, 0.4, 0.3 * a))
 
 	func _gem(p: Vector2, s: float, col: Color, a: float) -> void:
 		draw_colored_polygon(PackedVector2Array([p + Vector2(0, -s), p + Vector2(s, 0), p + Vector2(0, s), p + Vector2(-s, 0)]), Color(col, a))
@@ -1606,6 +1620,7 @@ class Hud extends Control:
 		tags.sort_custom(func(x, y): return x[0].y > y[0].y)
 		var placed: Array[Rect2] = []
 		var fbo: Font = DB.font_bold
+		_rank_emph()
 		for t in tags:
 			var p: Vector2 = t[0]
 			var sq: Squad = t[1]
