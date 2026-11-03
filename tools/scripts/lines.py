@@ -22,41 +22,38 @@ E = json.load(open(os.path.join(ROOT, "cards_ext.json"), encoding="utf-8"))
 CARDS = [c for c in G["CARDDEF"] + E["cards"] if c[13] != "foe"]
 BY_ID = {c[0]: c for c in CARDS}
 person = lambda c: c[1].split(" ")[-1]
+ORDER = ["창병", "기병", "궁병", "도적", "책사", "유생", "술사", "모사"]
 BASE = {"창병": "spear", "기병": "horse", "궁병": "bow", "도적": "rogue", "책사": "strat", "유생": "schol", "술사": "occul", "모사": "schem"}
-T2 = {}
-for c in CARDS:
-    if c[2] == 2:
-        T2.setdefault(c[3], []).append(c[0])
 
 # ───────── 인연 (가까운 순) ─────────
 REL = {
     "관우": "장비 유비 조운 주창 요화 마량 황충 마초 화타",
-    "장비": "관우 유비 조운 마초 간옹 미축 황충",
+    "장비": "관우 유비 조운 마초 간옹 미축 황충 관평 간옹 미축",
     "조운": "유비 관우 장비 제갈량 마대 황충 공손찬",
-    "유비": "관우 장비 제갈량 간옹 미축 법정 서서 조운 공손찬",
+    "유비": "관우 장비 제갈량 간옹 미축 법정 서서 조운 공손찬 손상향",
     "제갈량": "유비 방통 강유 서서 사마휘 마량 법정 주유 이적",
     "방통": "제갈량 사마휘 법정 유비 서서",
-    "강유": "제갈량 마대 위연 종회 등애",
+    "강유": "제갈량 마대 위연 종회 등애 장완 요화",
     "마초": "마대 마등 장비 방덕 조운",
     "마대": "마초 마등 위연 강유",
     "황충": "관우 위연 법정 하후연 조운",
     "위연": "황충 마대 강유 제갈량 유비",
-    "법정": "유비 제갈량 방통 황충",
-    "서서": "유비 제갈량 사마휘 방통",
-    "사마휘": "제갈량 방통 서서 유비",
+    "법정": "유비 제갈량 방통 황충 장완 이적",
+    "서서": "유비 제갈량 사마휘 방통 간옹 미축",
+    "사마휘": "제갈량 방통 서서 유비 관로 마량",
     "마량": "제갈량 관우 이적 유비",
     "조조": "하후돈 하후연 순욱 곽가 전위 허저 조인 정욱 가후 사마의",
-    "하후돈": "조조 하후연 조인 전위 허저 이전",
+    "하후돈": "조조 하후연 조인 전위 허저 이전 우금 악진",
     "하후연": "하후돈 조조 황충 장합 하후패",
-    "허저": "전위 조조 마초 하후돈",
-    "전위": "허저 조조 하후돈",
+    "허저": "전위 조조 마초 하후돈 악진 우금",
+    "전위": "허저 조조 하후돈 우금 악진 고순",
     "조인": "조조 하후돈 서황 우금 이전",
     "서황": "장료 조인 관우 우금 악진",
-    "장료": "서황 관우 장합 악진 이전 감녕 손권",
-    "장합": "장료 하후연 사마의 원소 곽회",
+    "장료": "서황 관우 장합 악진 이전 감녕 손권 고순",
+    "장합": "장료 하후연 사마의 원소 곽회 문추 안량",
     "순욱": "조조 곽가 정욱 진군 유엽",
     "곽가": "조조 순욱 정욱 가후 유엽",
-    "가후": "조조 곽가 사마의 장합",
+    "가후": "조조 곽가 사마의 장합 정욱 전위",
     "사마의": "조조 장합 등애 제갈량 곽회",
     "정욱": "조조 순욱 곽가",
     "등애": "종회 사마의 강유",
@@ -64,34 +61,34 @@ REL = {
     "손권": "손책 주유 노숙 여몽 육손 감녕 태사자 주태",
     "손책": "주유 태사자 손권 정보 황개 대교",
     "주유": "손책 노숙 소교 황개 육손 정보 제갈량",
-    "육손": "여몽 손권 주유 노숙",
+    "육손": "여몽 손권 주유 노숙 주환 서성 정봉",
     "여몽": "감녕 능통 손권 노숙 육손 관우",
     "감녕": "능통 여몽 손권 장료",
     "능통": "감녕 여몽 손권",
-    "태사자": "손책 유비 손권",
+    "태사자": "손책 유비 손권 주환",
     "정보": "황개 주유 손책",
     "황개": "정보 주유 손책",
-    "노숙": "주유 손권 제갈량 여몽",
+    "노숙": "주유 손권 제갈량 여몽 장소 대교",
     "대교": "소교 손책 주유",
     "소교": "대교 주유 손책",
-    "주태": "손권 여몽 정봉",
+    "주태": "손권 여몽 정봉 서성 능통",
     "정봉": "주태 서성 정보",
     "엄백호": "손책 능조",
     "장소": "손권 노숙 손책",
-    "여포": "진궁 초선 동탁 장료",
-    "동탁": "여포 초선 원소",
-    "초선": "여포 동탁",
-    "진궁": "여포 조조",
-    "원소": "원술 공손찬 안량 저수 심배 전풍 장합",
+    "여포": "진궁 초선 동탁 장료 고순 화웅",
+    "동탁": "여포 초선 원소 화웅 고순",
+    "초선": "여포 동탁 화웅 고순",
+    "진궁": "여포 조조 고순 원술 화웅",
+    "원소": "원술 공손찬 안량 저수 심배 전풍 장합 문추",
     "원술": "원소 손책 여포",
     "공손찬": "유비 조운 원소",
     "마등": "마초 마대",
     "방덕": "마초 관우",
-    "장각": "장보 장량 좌자 화타",
-    "좌자": "조조 우길 장각 화타",
-    "화타": "관우 조조 좌자",
+    "장각": "장보 장량 좌자 화타 남화노선 장연 관해",
+    "좌자": "조조 우길 장각 화타 관로 남화노선",
+    "화타": "관우 조조 좌자 관로 채문희",
     "우길": "손책 좌자",
-    "장로": "마초 장각",
+    "장로": "마초 장각 장연 관로",
     "관로": "조조 좌자 화타 남화노선",
     "장연": "장각",
     # 11/2 (5) 초월 위세 장수 —— 새 인물
@@ -110,6 +107,20 @@ REL = {
     "전풍": "원소 저수 장합",
 }
 REL = {k: v.split() for k, v in REL.items()}
+
+# ───────── 11/3 일반(2) 등급 삭제 · 덱 압축 (사용자) ─────────
+# 일반 카드(창병대 · 극병대 …)는 적 전용으로 돌리고, 고급은 기본패 넷으로 바로 만든다: 제 병종 2 + 다른 병종 2.
+# 같은 병종 고급끼리 짝(다른 병종 둘)이 겹치지 않게 —— 예전엔 우금 = 이전 같은 똑같은 조합이 있었다
+T3 = {"우금": "궁병 모사", "악진": "기병 도적", "이전": "궁병 유생",
+      "하후패": "궁병 도적", "곽회": "창병 책사", "안량": "창병 도적",
+      "학소": "창병 책사", "여상": "기병 모사",
+      "주창": "창병 유생", "요화": "기병 궁병", "관해": "술사 창병", "능조": "궁병 유생", "마충": "모사 책사",
+      "이적": "유생 술사", "유엽": "모사 궁병",
+      "간옹": "모사 도적", "미축": "창병 술사", "진군": "책사 모사",
+      "장보": "창병 도적", "장량": "기병 책사", "초주": "유생 책사", "오범": "모사 궁병",
+      "심배": "기병 유생"}
+# 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 특기 수 (단체 · 고유 포함)
+TRAIT_MIN = {3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7}
 
 # ───────── 줄기 빈 칸 칭호 ─────────
 TITLE = {
@@ -162,45 +173,45 @@ def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
     return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
 AURA6 = {
     # 창병
-    "주태": AU("십이창흔", "low", m={"dr": 0.15, "rout": 0.3}),
+    "주태": AU("충의방패", "low", m={"dr": 0.15, "rout": 0.3}),
     "방덕": AU("관을 지고", "all", m={"low_atk": 0.2}),
-    "관평": AU("부자동심", "rel", ally={"atk": 0.12, "def": 0.12}),
-    "고순": AU("함진영", "front", m={"dr": 0.1, "counter": 0.1}),
+    "관평": AU("의리지가", "rel", ally={"atk": 0.12, "def": 0.12}),
+    "고순": AU("청렴위엄", "front", m={"dr": 0.1, "counter": 0.1}),
     # 기병
-    "마등": AU("서량의 피", "tag", m={"crit": 0.1}, tag="기병"),
-    "공손찬": AU("백마의종", "tag", ally={"spd": 0.12}, foe={"atk": -0.08}, foe_to="tag:궁병", tag="기병"),
-    "화웅": AU("사수관", foe={"atk": -0.08, "def": -0.05}, foe_to="front"),
-    "문추": AU("하북쌍벽", "fac", m={"kill_amp": 0.3}),
+    "마등": AU("복파의 후예", "tag", m={"crit": 0.1}, tag="기병"),
+    "공손찬": AU("오환토벌", "tag", ally={"spd": 0.12}, foe={"atk": -0.08}, foe_to="tag:궁병", tag="기병"),
+    "화웅": AU("관문의 맹위", foe={"atk": -0.08, "def": -0.05}, foe_to="front"),
+    "문추": AU("명장쌍벽", "fac", m={"kill_amp": 0.3}),
     # 궁병
-    "황개": AU("고육계", "all", m={"ignite": 0.1}),
-    "정보": AU("강동노장", "back", ally={"def": 0.12, "res": 0.08}),
-    "서성": AU("의성의 장벽", "all", m={"idr": 0.1}),
-    "황월영": AU("연노", "back", ally={"atk": 0.1}, m={"rate": 0.04}),
+    "황개": AU("삼대노신", "all", m={"ignite": 0.1}),
+    "정보": AU("정공의 덕망", "back", ally={"def": 0.12, "res": 0.08}),
+    "서성": AU("장강수비", "all", m={"idr": 0.1}),
+    "황월영": AU("기관공방", "back", ally={"atk": 0.1}, m={"rate": 0.04}),
     # 도적
-    "능통": AU("결사호위", "fac", m={"dr": 0.08}),
-    "엄백호": AU("산월", foe={"def": -0.1}, foe_to="back"),
-    "주환": AU("유수 방위", "front", m={"counter": 0.12}),
-    "손상향": AU("궁요희", "all", m={"critd": 0.25}),
+    "능통": AU("충렬의 기개", "fac", m={"dr": 0.08}),
+    "엄백호": AU("오군호걸", foe={"def": -0.1}, foe_to="back"),
+    "주환": AU("견수불퇴", "front", m={"counter": 0.12}),
+    "손상향": AU("백인시비", "all", m={"critd": 0.25}),
     # 책사
-    "방통": AU("연환", "all", m={"spread": 0.2}, foe={"spd": -0.05}),
-    "마량": AU("백미", "rel", ally={"int": 0.12}, m={"rate": 0.04}),
-    "종회": AU("벌촉", "all", m={"weak_amp": 0.15}),
-    "저수": AU("감군", "back", ally={"int": 0.1}, m={"idr": 0.08}),
+    "방통": AU("봉황지재", "all", m={"spread": 0.2}, foe={"spd": -0.05}),
+    "마량": AU("형주명사", "rel", ally={"int": 0.12}, m={"rate": 0.04}),
+    "종회": AU("천하야망", "all", m={"weak_amp": 0.15}),
+    "저수": AU("하북지낭", "back", ally={"int": 0.1}, m={"idr": 0.08}),
     # 유생
-    "대교": AU("강동이교", "all", m={"regen": 0.01}),
-    "소교": AU("경국지색", "all", m={"mregen": 0.5}, foe={"int": -0.06}),
-    "장소": AU("강동문신", "all", m={"stres": 0.2}),
-    "장완": AU("사상", "fac", ally={"def": 0.08, "res": 0.08}),
+    "대교": AU("화용월태", "all", m={"regen": 0.01}),
+    "소교": AU("내조지공", "all", m={"mregen": 0.5}, foe={"int": -0.06}),
+    "장소": AU("원로중신", "all", m={"stres": 0.2}),
+    "장완": AU("촉한지주", "fac", ally={"def": 0.08, "res": 0.08}),
     # 술사
-    "우길": AU("청우", "all", m={"mregen": 0.8, "fire_res": 0.3}),
-    "관로": AU("천기", "all", m={"rate": 0.03}, foe={"spd": -0.05}),
-    "채문희": AU("호가", "low", ally={"atk": 0.15, "int": 0.15}),
-    "남화노선": AU("태평비전", "all", m={"st_amp": 0.2}),
+    "우길": AU("부수치병", "all", m={"mregen": 0.8, "fire_res": 0.3}),
+    "관로": AU("명운예견", "all", m={"rate": 0.03}, foe={"spd": -0.05}),
+    "채문희": AU("귀한지곡", "low", ally={"atk": 0.15, "int": 0.15}),
+    "남화노선": AU("천서가호", "all", m={"st_amp": 0.2}),
     # 모사
-    "정욱": AU("십면매복", "all", m={"opener": 0.15}, foe={"atk": -0.04}),
-    "등애": AU("음평", "all", m={"opener": 0.25}),
-    "원술": AU("옥새", "fac", ally={"atk": 0.08, "int": 0.08}),
-    "전풍": AU("강직", "all", m={"rout": 0.25, "stres": 0.1}),
+    "정욱": AU("동아고수", "all", m={"opener": 0.15}, foe={"atk": -0.04}),
+    "등애": AU("둔전부국", "all", m={"opener": 0.25}),
+    "원술": AU("중가제위", "fac", ally={"atk": 0.08, "int": 0.08}),
+    "전풍": AU("충언역이", "all", m={"rout": 0.25, "stres": 0.1}),
 }
 # 새 인물 특기 —— 성향이 닮은 인물의 특기 사다리(passives.json ladder · level)를 빌린다
 LADDER_FROM = {"관평": "관우", "고순": "전위", "화웅": "마등", "문추": "공손찬", "황월영": "태사자", "주환": "정봉",
@@ -231,88 +242,88 @@ SB = lambda st, a, d=2: {"stat": st, "amt": a, "dur": d}
 ST = lambda k, v, d: {"k": k, "val": v, "dur": d}
 SKILL = {
     # 창병
-    "관우": dict(n="청룡언월", k="phys", tgt="front3", mult=1.45, exec=0.15, morale=6, cond="always"),
-    "장비": dict(n="장판교 일갈", k="phys", tgt="denseLine", mult=1.1, morale=10, spd=SPD(-0.3), cond="dense:2|front_n:2"),
+    "관우": dict(n="참장돌파", k="phys", tgt="front3", mult=1.45, exec=0.15, morale=6, cond="always"),
+    "장비": dict(n="사모돌격", k="phys", tgt="denseLine", mult=1.1, morale=10, spd=SPD(-0.3), cond="dense:2|front_n:2"),
     "허저": dict(n="나신돌격", k="phys", tgt="front1", mult=1.75, pierce=0.3, selfBuff=SB("def", 0.3), cond="always"),
     "서황": dict(n="포위돌파", k="phys", tgt="line:선봉+전군", mult=1.15, spd=SPD(-0.2), cond="front_n:2|always"),
     "주태": dict(n="불사신", k="phys", tgt="front1", mult=1.2, selfBuff=SB("def", 0.45), stance=SPD(0.4), cond="hurt:0.75"),
-    "하후돈": dict(n="발시담정", k="phys", tgt="front1", mult=1.6, morale=8, selfBuff=SB("atk", 0.25), cond="always"),
+    "하후돈": dict(n="혈투돌진", k="phys", tgt="front1", mult=1.6, morale=8, selfBuff=SB("atk", 0.25), cond="always"),
     "조인": dict(n="팔문금쇄진", k="phys", tgt="denseLine", mult=1.0, allyBuff=AB("def", 0.3, "allyFront"), stance=SPD(0.35), cond="hurt:0.8|ally_hurt:0.6"),
-    "전위": dict(n="쌍철극", k="phys", tgt="front3", mult=1.35, selfBuff=SB("def", 0.25), stance=SPD(0.3), cond="always"),
-    "방덕": dict(n="결사항전", k="phys", tgt="front1", mult=1.7, selfBuff=SB("atk", 0.3), cond="always"),
+    "전위": dict(n="호위난격", k="phys", tgt="front3", mult=1.35, selfBuff=SB("def", 0.25), stance=SPD(0.3), cond="always"),
+    "방덕": dict(n="분노참격", k="phys", tgt="front1", mult=1.7, selfBuff=SB("atk", 0.3), cond="always"),
     # 기병
-    "조운": dict(n="단기구주", k="phys", tgt="front1", mult=1.55, pierce=0.4, selfBuff=SB("spd", 0.3), cond="always"),
-    "마초": dict(n="서량철기", k="phys", tgt="line:선봉+전군", mult=1.15, morale=8, spd=SPD(-0.3), cond="front_n:2|always"),
+    "조운": dict(n="용담창술", k="phys", tgt="front1", mult=1.55, pierce=0.4, selfBuff=SB("spd", 0.3), cond="always"),
+    "마초": dict(n="기마창격", k="phys", tgt="line:선봉+전군", mult=1.15, morale=8, spd=SPD(-0.3), cond="front_n:2|always"),
     "장료": dict(n="합비돌격", k="phys", tgt="back1", mult=1.7, morale=12, cond="always"),
     "손책": dict(n="강동평정", k="phys", tgt="front3", mult=1.3, morale=7, selfBuff=SB("atk", 0.2), cond="always"),
     "마대": dict(n="기습참격", k="phys", tgt="back1", mult=1.6, exec=0.2, cond="always"),
-    "장합": dict(n="교변", k="phys", tgt="back2", mult=1.3, spd=SPD(-0.3), cond="always"),
-    "동탁": dict(n="낙양방화", k="phys", tgt="denseLine", mult=1.15, morale=9, status=ST("burn", 0.08, 2), cond="dense:2|always"),
+    "장합": dict(n="측면급습", k="phys", tgt="back2", mult=1.3, spd=SPD(-0.3), cond="always"),
+    "동탁": dict(n="방화약탈", k="phys", tgt="denseLine", mult=1.15, morale=9, status=ST("burn", 0.08, 2), cond="dense:2|always"),
     "원소": dict(n="하북대군", k="phys", tgt="line:선봉+전군", mult=1.1, allyBuff=AB("atk", 0.15), cond="always"),
     "여포": dict(n="방천화극", k="phys", tgt="front3", mult=1.6, exec=0.2, morale=8, cond="always"),
-    "마등": dict(n="서량기병", k="phys", tgt="front1", mult=1.45, spd=SPD(-0.25), cond="always"),
-    "공손찬": dict(n="백마의종", k="phys", tgt="back2", mult=1.3, pierce=0.2, cond="always"),
+    "마등": dict(n="강족기마", k="phys", tgt="front1", mult=1.45, spd=SPD(-0.25), cond="always"),
+    "공손찬": dict(n="기마궁술", k="phys", tgt="back2", mult=1.3, pierce=0.2, cond="always"),
     # 궁병
     "황충": dict(n="정군산 일격", k="phys", tgt="back1", mult=1.85, exec=0.15, cond="always"),
     "태사자": dict(n="신궁연사", k="phys", tgt="back2", mult=1.35, pierce=0.35, cond="always"),
-    "하후연": dict(n="질풍사격", k="phys", tgt="denseLine", mult=1.1, spd=SPD(-0.3), selfBuff=SB("spd", 0.2), cond="dense:2|always"),
-    "손권": dict(n="강동의 활", k="phys", tgt="line:후군", mult=1.15, allyBuff=AB("def", 0.15), cond="always"),
+    "하후연": dict(n="속사난격", k="phys", tgt="denseLine", mult=1.1, spd=SPD(-0.3), selfBuff=SB("spd", 0.2), cond="dense:2|always"),
+    "손권": dict(n="사호연사", k="phys", tgt="line:후군", mult=1.15, allyBuff=AB("def", 0.15), cond="always"),
     "정보": dict(n="화살비", k="phys", tgt="all", mult=0.9, morale=5, cond="foe_n:3|always"),
-    "황개": dict(n="고육화선", k="phys", tgt="denseLine", mult=1.0, status=ST("burn", 0.16, 3), cond="no_st:burn"),
+    "황개": dict(n="화선돌격", k="phys", tgt="denseLine", mult=1.0, status=ST("burn", 0.16, 3), cond="no_st:burn"),
     # 도적
-    "여몽": dict(n="백의도강", k="phys", tgt="line:후군", mult=1.3, status=ST("flood", 0.1, 2), cond="always"),
-    "감녕": dict(n="백기겁영", k="phys", tgt="back1", mult=1.75, morale=10, spd=SPD(-0.25), cond="always"),
-    "능통": dict(n="결사호위", k="phys", tgt="front1", mult=1.5, allyBuff=AB("def", 0.2, "allyFront"), cond="always"),
+    "여몽": dict(n="강상잠행", k="phys", tgt="line:후군", mult=1.3, status=ST("flood", 0.1, 2), cond="always"),
+    "감녕": dict(n="수적약탈", k="phys", tgt="back1", mult=1.75, morale=10, spd=SPD(-0.25), cond="always"),
+    "능통": dict(n="분전구주", k="phys", tgt="front1", mult=1.5, allyBuff=AB("def", 0.2, "allyFront"), cond="always"),
     "정봉": dict(n="설중분전", k="phys", tgt="front3", mult=1.25, selfBuff=SB("atk", 0.25), cond="always"),
-    "위연": dict(n="자오곡 기습", k="phys", tgt="back2", mult=1.4, status=ST("plague", 6, 3), cond="always"),
+    "위연": dict(n="단독돌진", k="phys", tgt="back2", mult=1.4, status=ST("plague", 6, 3), cond="always"),
     "엄백호": dict(n="산월약탈", k="phys", tgt="back1", mult=1.45, morale=6, cond="always"),
     "장연": dict(n="흑산유격", k="phys", tgt="back2", mult=1.25, spd=SPD(-0.25), cond="always"),
     # 책사
-    "제갈량": dict(n="팔진도", k="int", tgt="all", mult=0.95, foeSpd=SPD(-0.3), allyBuff=AB("res", 0.2), cond="foe_n:3|always"),
-    "방통": dict(n="연환계", k="int", tgt="denseLine", mult=0.9, status=ST("burn", 0.14, 3), spd=SPD(-0.25), cond="dense:2|no_st:burn"),
-    "곽가": dict(n="십승십패", k="int", tgt="line:후군", mult=1.2, resDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
-    "육손": dict(n="이릉화공", k="int", tgt="denseLine", mult=0.85, status=ST("burn", 0.18, 3), cond="dense:2|no_st:burn"),
-    "강유": dict(n="구벌중원", k="int", tgt="front3", mult=1.15, morale=8, allyBuff=AB("atk", 0.15, "allyFront"), cond="always"),
-    "주유": dict(n="적벽화공", k="int", tgt="all", mult=0.85, status=ST("burn", 0.12, 3), cond="foe_n:3|no_st:burn"),
-    "마량": dict(n="백미지책", k="int", tgt="back2", mult=1.25, resDown={"amt": -0.3, "dur": 2}, cond="always"),
+    "제갈량": dict(n="동남풍", k="int", tgt="all", mult=0.95, foeSpd=SPD(-0.3), allyBuff=AB("res", 0.2), cond="foe_n:3|always"),
+    "방통": dict(n="철쇄지책", k="int", tgt="denseLine", mult=0.9, status=ST("burn", 0.14, 3), spd=SPD(-0.25), cond="dense:2|no_st:burn"),
+    "곽가": dict(n="선견지명", k="int", tgt="line:후군", mult=1.2, resDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
+    "육손": dict(n="불길매복", k="int", tgt="denseLine", mult=0.85, status=ST("burn", 0.18, 3), cond="dense:2|no_st:burn"),
+    "강유": dict(n="북벌지책", k="int", tgt="front3", mult=1.15, morale=8, allyBuff=AB("atk", 0.15, "allyFront"), cond="always"),
+    "주유": dict(n="적진방화", k="int", tgt="all", mult=0.85, status=ST("burn", 0.12, 3), cond="foe_n:3|no_st:burn"),
+    "마량": dict(n="남만회유", k="int", tgt="back2", mult=1.25, resDown={"amt": -0.3, "dur": 2}, cond="always"),
     "종회": dict(n="벌촉지책", k="int", tgt="line:선봉+전군", mult=1.1, morale=8, cond="always"),
     # 유생
-    "유비": dict(n="인덕지치", k="int", tgt="all", mult=0.75, tHeal=0.08, cleanse=1, allyBuff=AB("res", 0.15), cond="ally_hurt:0.75|ally_st"),
-    "순욱": dict(n="왕좌지재", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("def", 0.2), cond="ally_hurt:0.85"),
+    "유비": dict(n="백성구휼", k="int", tgt="all", mult=0.75, tHeal=0.08, cleanse=1, allyBuff=AB("res", 0.15), cond="ally_hurt:0.75|ally_st"),
+    "순욱": dict(n="천하경략", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("def", 0.2), cond="ally_hurt:0.85"),
     "노숙": dict(n="합종연횡", k="int", tgt="all", mult=0.8, heal=10, rally=True, allyBuff=AB("res", 0.2), cond="ally_morale:90|ally_hurt:0.8"),
     "법정": dict(n="기책보은", k="int", tgt="front3", mult=1.15, morale=8, allyBuff=AB("atk", 0.2, "allyFront"), cond="always"),
     "서서": dict(n="격검유협", k="int", tgt="front3", mult=1.2, allyBuff=AB("def", 0.2, "allyFront"), cond="always"),
-    "사마휘": dict(n="수경천거", k="int", tgt="all", mult=0.7, heal=12, rally=True, allyBuff=AB("res", 0.25), cond="ally_morale:90|ally_hurt:0.8"),
-    "대교": dict(n="강동이교", k="int", tgt="front3", mult=0.7, tHeal=0.1, allyBuff=AB("res", 0.2), cond="ally_hurt:0.75"),
-    "소교": dict(n="경국지색", k="int", tgt="all", mult=0.8, morale=10, heal=8, rally=True, cond="foe_morale|ally_morale:85"),
-    "장소": dict(n="강동문신", k="int", tgt="all", mult=0.7, allyBuff=AB("def", 0.2), cleanse=1, cond="ally_st|ally_hurt:0.7"),
+    "사마휘": dict(n="명사담론", k="int", tgt="all", mult=0.7, heal=12, rally=True, allyBuff=AB("res", 0.25), cond="ally_morale:90|ally_hurt:0.8"),
+    "대교": dict(n="자애치유", k="int", tgt="front3", mult=0.7, tHeal=0.1, allyBuff=AB("res", 0.2), cond="ally_hurt:0.75"),
+    "소교": dict(n="금슬화음", k="int", tgt="all", mult=0.8, morale=10, heal=8, rally=True, cond="foe_morale|ally_morale:85"),
+    "장소": dict(n="직언상소", k="int", tgt="all", mult=0.7, allyBuff=AB("def", 0.2), cleanse=1, cond="ally_st|ally_hurt:0.7"),
     # 술사
-    "장각": dict(n="황천당립", k="int", tgt="all", mult=0.85, status=ST("confuse", 1, 1), morale=8, cond="foe_n:3"),
+    "장각": dict(n="황건봉기", k="int", tgt="all", mult=0.85, status=ST("confuse", 1, 1), morale=8, cond="foe_n:3"),
     "좌자": dict(n="둔갑술", k="int", tgt="front3", mult=1.0, status=ST("confuse", 1, 1), foeSpd=SPD(-0.3), cond="always"),
-    "화타": dict(n="청낭서", k="int", tgt="front3", mult=0.85, tHeal=0.1, cleanse=2, cond="ally_hurt:0.7|ally_st"),
-    "장로": dict(n="오두미도", k="int", tgt="all", mult=0.8, status=ST("plague", 6, 3), cond="no_st:plague"),
+    "화타": dict(n="마비산", k="int", tgt="front3", mult=0.85, tHeal=0.1, cleanse=2, cond="ally_hurt:0.7|ally_st"),
+    "장로": dict(n="귀도주술", k="int", tgt="all", mult=0.8, status=ST("plague", 6, 3), cond="no_st:plague"),
     "우길": dict(n="강동신선", k="int", tgt="front3", mult=1.0, status=ST("confuse", 1, 1), morale=6, cond="always"),
-    "관로": dict(n="천기점괘", k="int", tgt="back2", mult=1.2, resDown={"amt": -0.35, "dur": 2}, cond="always"),
+    "관로": dict(n="주역점복", k="int", tgt="back2", mult=1.2, resDown={"amt": -0.35, "dur": 2}, cond="always"),
     # 모사
-    "조조": dict(n="간웅지략", k="int", tgt="all", mult=1.0, morale=9, allyBuff=AB("atk", 0.15), cond="foe_morale|foe_n:3"),
-    "사마의": dict(n="낭고지계", k="int", tgt="line:후군", mult=1.25, resDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
-    "가후": dict(n="독사지계", k="int", tgt="back2", mult=1.35, status=ST("plague", 8, 3), cond="always"),
+    "조조": dict(n="협천자령", k="int", tgt="all", mult=1.0, morale=9, allyBuff=AB("atk", 0.15), cond="foe_morale|foe_n:3"),
+    "사마의": dict(n="인내지계", k="int", tgt="line:후군", mult=1.25, resDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
+    "가후": dict(n="완성기책", k="int", tgt="back2", mult=1.35, status=ST("plague", 8, 3), cond="always"),
     "초선": dict(n="미인계", k="int", tgt="front3", mult=0.95, status=ST("confuse", 1, 1), morale=10, cond="always"),
-    "정욱": dict(n="십면매복", k="int", tgt="all", mult=1.05, foeSpd=SPD(-0.25), morale=7, cond="foe_n:3|always"),
-    "등애": dict(n="음평기습", k="int", tgt="back1", mult=1.5, morale=10, cond="always"),
-    "원술": dict(n="전국옥새", k="int", tgt="all", mult=0.95, morale=7, allyBuff=AB("def", 0.1), cond="always"),
-    "관평": dict(n="부자동진", k="phys", tgt="front3", mult=1.25, allyBuff=AB("def", 0.15, "allyFront"), cond="always"),
-    "고순": dict(n="함진영", k="phys", tgt="front1", mult=1.6, pierce=0.3, cond="always"),
-    "화웅": dict(n="사수관 일격", k="phys", tgt="front1", mult=1.6, morale=8, cond="always"),
+    "정욱": dict(n="복병기습", k="int", tgt="all", mult=1.05, foeSpd=SPD(-0.25), morale=7, cond="foe_n:3|always"),
+    "등애": dict(n="산도돌파", k="int", tgt="back1", mult=1.5, morale=10, cond="always"),
+    "원술": dict(n="칙령반포", k="int", tgt="all", mult=0.95, morale=7, allyBuff=AB("def", 0.1), cond="always"),
+    "관평": dict(n="수호참격", k="phys", tgt="front3", mult=1.25, allyBuff=AB("def", 0.15, "allyFront"), cond="always"),
+    "고순": dict(n="철갑돌진", k="phys", tgt="front1", mult=1.6, pierce=0.3, cond="always"),
+    "화웅": dict(n="일도양단", k="phys", tgt="front1", mult=1.6, morale=8, cond="always"),
     "문추": dict(n="하북돌기", k="phys", tgt="line:선봉+전군", mult=1.15, morale=6, cond="front_n:2|always"),
     "서성": dict(n="강변사격", k="phys", tgt="back2", mult=1.25, allyBuff=AB("def", 0.12), cond="always"),
     "황월영": dict(n="연노사격", k="phys", tgt="all", mult=0.85, cond="foe_n:3|always"),
-    "주환": dict(n="유수매복", k="phys", tgt="back1", mult=1.6, spd=SPD(-0.2), cond="always"),
-    "손상향": dict(n="궁요검무", k="phys", tgt="back2", mult=1.35, selfBuff=SB("spd", 0.2), cond="always"),
-    "저수": dict(n="감군지책", k="int", tgt="line:후군", mult=1.2, resDown={"amt": -0.25, "dur": 2}, cond="always"),
+    "주환": dict(n="매복기습", k="phys", tgt="back1", mult=1.6, spd=SPD(-0.2), cond="always"),
+    "손상향": dict(n="쌍검난무", k="phys", tgt="back2", mult=1.35, selfBuff=SB("spd", 0.2), cond="always"),
+    "저수": dict(n="분진지책", k="int", tgt="line:후군", mult=1.2, resDown={"amt": -0.25, "dur": 2}, cond="always"),
     "장완": dict(n="안민지책", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("res", 0.15), cond="ally_hurt:0.8"),
     "채문희": dict(n="비분시", k="int", tgt="all", mult=0.75, heal=8, rally=True, morale=6, cond="ally_morale:85|foe_n:3"),
-    "남화노선": dict(n="태평비술", k="int", tgt="front3", mult=1.0, status=ST("confuse", 1, 1), cond="always"),
+    "남화노선": dict(n="선도비술", k="int", tgt="front3", mult=1.0, status=ST("confuse", 1, 1), cond="always"),
     "전풍": dict(n="직간", k="int", tgt="back2", mult=1.3, morale=8, cond="always"),
     "진궁": dict(n="충절지책", k="int", tgt="line:선봉+전군", mult=1.2, resDown={"amt": -0.3, "dur": 2}, morale=7, cond="always"),
 }
@@ -393,6 +404,7 @@ def main():
         new_cards.append(card)
         BY_ID[cid] = card
         retire += [c[0] for c in CARDS if c[2] == 3 and person(c) == p]
+    retire += [c[0] for c in CARDS if c[2] == 2]         # 11/3 일반 등급 삭제 —— 토벌 편성에는 남는다
     for k in retire:
         BY_ID.pop(k, None)
     retire.sort()
@@ -402,30 +414,43 @@ def main():
     for c in allc:
         by_pt.setdefault((person(c), c[2]), c[0])
     used = {}
+    pairs = {}          # 등급 -> 이미 쓴 재료 짝 (11/3 사용자: 조합식이 너무 겹친다 —— 진궁 · 초선이 똑같은 재료였다)
 
-    def pick(c, t, exclude):
-        """c 에 넣을 t 등급 재료 하나 —— 인연 인물 > 같은 세력 같은 병종 > 같은 세력 > 같은 병종 (덜 쓰인 것 먼저)"""
+    def pick(c, t, exclude, mats):
+        """c 에 넣을 t 등급 재료 하나 —— 인연 인물 > 같은 세력 같은 병종 > 같은 세력 > 같은 병종 > 그 밖.
+        많이 쓰인 재료 · 같은 등급 다른 조합과 짝이 겹치는 재료는 벌점 (재료 둘이 같은 조합이 생기지 않게)"""
         p = person(c)
+        rel = REL.get(p, [])
+        pr = pairs.setdefault(c[2], set())
         cands = []
-        for i, r in enumerate(REL.get(p, [])):
-            k = by_pt.get((r, t))
-            if k and k not in exclude:
-                cands.append((0, i + 1.5 * used.get(k, 0), k))      # 인연 순서가 먼저, 너무 겹치면 다음 인연으로
-        if not cands:
-            for x in allc:
-                if x[2] != t or x[0] in exclude or person(x) == p or x[13] in ("myth", "immortal"):
-                    continue
-                rank = 1 if (x[4] == c[4] and x[3] == c[3]) else (2 if x[4] == c[4] else (3 if x[3] == c[3] else 9))
-                if rank < 9:
-                    cands.append((rank, used.get(x[0], 0), x[0]))
+        for x in allc:
+            if x[2] != t or x[0] in exclude or person(x) == p or x[13] in ("myth", "immortal"):
+                continue
+            q = person(x)
+            if q in rel:
+                rank = rel.index(q) * 0.3
+            elif x[4] == c[4] and x[3] == c[3]:
+                rank = 2.5
+            elif x[3] == c[3]:
+                rank = 3
+            elif x[4] == c[4]:
+                rank = 3.5
+            else:
+                rank = 9           # 세력도 병종도 다른 재료는 맛이 없다 —— 거의 쓰지 않는다
+            rank += 1.0 * used.get(x[0], 0)
+            rank += 2.5 * sum(1 for m in mats if frozenset((m, x[0])) in pr)
+            cands.append((rank, x[0]))
         cands.sort()
-        k = cands[0][2]
+        k = cands[0][1]
         used[k] = used.get(k, 0) + 1
         return k
 
     recipes = {}
     for c in sorted(allc, key=lambda x: (x[2], x[0])):
         t = c[2]
+        if t == 3 and person(c) in T3:       # 고급 = 제 병종 2 + 다른 병종 2 (일반 등급 없음)
+            recipes[c[0]] = [BASE[c[3]], BASE[c[3]]] + [BASE[x] for x in T3[person(c)].split()]
+            continue
         if t < 4:
             continue
         p = person(c)
@@ -440,35 +465,40 @@ def main():
         base = BASE[c[3]]
         if t == 4:
             while len(mats) < 2:
-                mats.append(pick(c, 3, ex)); ex.add(mats[-1])
-            mats += [T2[c[3]][len(recipes) % len(T2[c[3]])], base]
+                mats.append(pick(c, 3, ex, mats)); ex.add(mats[-1])
+            other = [BY_ID[m][3] for m in mats if BY_ID[m][3] != c[3]]          # 둘째 기본패 —— 고급 재료의 다른 병종
+            mats += [base, BASE[other[0]] if other else BASE[ORDER[(ORDER.index(c[3]) + 1 + len(recipes)) % 8]]]
         elif t == 5:
             if not prev:
-                mats.append(pick(c, 4, ex)); ex.add(mats[-1])
-            mats.append(pick(c, 4, ex)); ex.add(mats[-1])
+                mats.append(pick(c, 4, ex, mats)); ex.add(mats[-1])
+            mats.append(pick(c, 4, ex, mats)); ex.add(mats[-1])
             while len(mats) < 4:
-                mats.append(pick(c, 3, ex)); ex.add(mats[-1])
+                mats.append(pick(c, 3, ex, mats)); ex.add(mats[-1])
         elif t == 6:         # 초월 —— 제 희귀 + 전설 2 (원랜디 초월처럼). 제 전설이 있으면 그것부터
             mats = []
             ex = {c[0]}
             own4, own5 = by_pt.get((p, 4)), by_pt.get((p, 5))
-            mats.append(own4 if own4 else pick(c, 4, ex)); ex.add(mats[-1])
+            mats.append(own4 if own4 else pick(c, 4, ex, mats)); ex.add(mats[-1])
             if own5:
                 mats.append(own5); ex.add(own5)
             while len(mats) < 3:
-                mats.append(pick(c, 5, ex)); ex.add(mats[-1])
+                mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
         elif t == 7:         # 불멸 —— 제 전설 + 인연 전설 2 + 희귀 1 + 기본 1
             if not prev:
-                mats.append(pick(c, 5, ex)); ex.add(mats[-1])
-            mats.append(pick(c, 5, ex)); ex.add(mats[-1])
-            mats.append(pick(c, 5, ex)); ex.add(mats[-1])
-            mats.append(pick(c, 4, ex)); ex.add(mats[-1])
+                mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
+            mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
+            mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
+            mats.append(pick(c, 4, ex, mats)); ex.add(mats[-1])
             mats.append(base)
         elif t == 8:
             assert prev, c
-            mats.append(pick(c, 5, ex)); ex.add(mats[-1])
+            mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
             mats += [base, base]
         recipes[c[0]] = mats
+        nb = [m for m in mats if m in BY_ID]
+        for i in range(len(nb)):
+            for j in range(i + 1, len(nb)):
+                pairs.setdefault(t, set()).add(frozenset((nb[i], nb[j])))
 
     aura = {}
     for c in allc:
@@ -478,8 +508,9 @@ def main():
             if au.get("to") == "rel":
                 au["rel"] = [person(c)] + REL.get(person(c), [])
             aura[c[0]] = au
+    ladder = fill_ladders(allc)
     out = {"_설명": __doc__.strip(), "cards": new_cards, "recipes": recipes, "skills": SKILL,
-           "retire": retire, "aura": aura, "ults": ULT6, "ladder_from": LADDER_FROM}
+           "retire": retire, "aura": aura, "ults": ULT6, "ladder_from": LADDER_FROM, "ladder": ladder}
     json.dump(out, open(os.path.join(ROOT, "lines.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     # 확인용 —— 관우 줄기
     nm = lambda k: BY_ID[k][1] + str(BY_ID[k][2])
@@ -495,6 +526,72 @@ def main():
     print("새 카드 %d장 · 조합 %d개 · 고유 기술 %d명" % (len(new_cards), len(recipes), len(SKILL)))
     miss = sorted({person(c) for c in allc if c[2] >= 4} - set(SKILL))
     print("고유 기술 없는 인물:", miss)
+    print("특기 사다리를 채운 인물 %d명" % len(out["ladder"]))
+    seen = {}
+    for k, v in recipes.items():
+        key = tuple(sorted(v))
+        if key in seen:
+            print("같은 조합:", nm(k), nm(seen[key]))
+        seen[key] = k
+
+
+def fill_ladders(allc):
+    """11/3 사용자: 장수들이 특기를 더 많이 —— 카드 등급마다 TRAIT_MIN 개가 되도록 특기 사다리를 채운다.
+    ① 그 인물의 뒤 등급 특기를 앞당기고 (고유 특기는 불멸 아래로 내리지 않는다) ② 모자라면 같은 병종 인물들이 많이 가진 특기를 더한다.
+    단체 특기가 없는 인물은 희귀부터 그 병종에 흔한 단체 특기 하나. 결과는 인물 -> 새 사다리 (passives.json ladder 를 덮는다)"""
+    P = json.load(open(os.path.join(ROOT, "passives.json"), encoding="utf-8"))
+    T = P["traits"]
+    uniq = lambda n: T[n].get("unique", False)
+    grp = lambda n: "scope" in T[n] and not uniq(n)
+    tiers, tag_of = {}, {}
+    for c in allc:
+        if c[2] >= 3:
+            tiers.setdefault(person(c), set()).add(c[2])
+            if c[2] >= max(tiers[person(c)]):
+                tag_of[person(c)] = c[3]
+    lad0 = {}
+    for p_ in tiers:
+        if p_ in P["ladder"]:
+            lad0[p_] = [list(e) for e in P["ladder"][p_]]
+        elif p_ in LADDER_FROM:
+            lad0[p_] = [list(e) for e in P["ladder"].get(LADDER_FROM[p_], []) if int(e[1]) <= 6]
+        else:
+            lad0[p_] = []
+    pool, gpool = {}, {}
+    for p_, lad in lad0.items():
+        for e in lad:
+            if uniq(e[0]):
+                continue
+            d = gpool if grp(e[0]) else pool
+            d.setdefault(tag_of[p_], {}).setdefault(e[0], 0)
+            d[tag_of[p_]][e[0]] += 1
+    out = {}
+    for p_, ts in tiers.items():
+        lad = [list(e) for e in lad0[p_]]
+        tg = tag_of[p_]
+        lo = min(ts)
+        if not any(grp(e[0]) for e in lad) and gpool.get(tg):
+            g = max(gpool[tg], key=lambda n: gpool[tg][n])
+            lad.append([g, max(4, lo)])
+        for t in sorted(ts):
+            act = lambda: [e for e in lad if int(e[1]) <= t and (len(e) < 3 or t <= int(e[2]))]
+            need = TRAIT_MIN[t] - len(act())
+            later = sorted([e for e in lad if int(e[1]) > t and len(e) < 3 and (not uniq(e[0]) or t >= 7)], key=lambda e: int(e[1]))
+            for e in later[:max(0, need)]:
+                e[1] = t
+            need = TRAIT_MIN[t] - len(act())
+            if need > 0:
+                have = {e[0] for e in lad}
+                cand = sorted(pool.get(tg, {}).items(), key=lambda kv: -kv[1])
+                for n_, _ in cand:
+                    if need <= 0:
+                        break
+                    if n_ not in have:
+                        lad.append([n_, t])
+                        need -= 1
+        if lad != lad0[p_]:
+            out[p_] = lad
+    return out
 
 
 main()

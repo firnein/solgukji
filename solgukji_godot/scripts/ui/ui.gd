@@ -423,7 +423,7 @@ static func unique_chips(k: String, fs := 13):
 		return null
 	var f := flow(4)
 	for t in ts:
-		var r := rich("[color=#FFF3D0]%s[/color][color=#FFD76E]%d[/color]" % [t.name, t.lv], fs)
+		var r := rich("[color=#FFF3D0]%s[/color]" % t.name, fs)       # 11/3 사용자: 고유 특기에는 레벨을 적지 않는다
 		r.autowrap_mode = TextServer.AUTOWRAP_OFF
 		var pc := PanelContainer.new()
 		pc.add_theme_stylebox_override("panel", flat(Color("#6b5212"), Color("#f0cf6a"), 2, 4, 4))

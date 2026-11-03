@@ -146,7 +146,7 @@ class Unit:
 	var st := []
 	var ult = null            # 고유기 (초월·불멸·신화) —— DB.ult_of 참고
 	var gauge := 0.0          # 고유기 게이지 (100 이면 준비)
-	var sk_ch := []           # 기술마다 따로 도는 충전 (1 이면 준비, SK_BANK 까지 모은다)
+	var sk_ch := []           # 기술 충전 —— 11/3 부터 [0] 하나를 모든 기술이 나눠 쓴다
 	var charges := 0          # 남은 고유기 횟수
 	# 실시간 엔진(RtBattle) —— 전장 위치와 행동 준비. 턴 엔진은 쓰지 않는다
 	var pos := Vector2.ZERO
@@ -1548,7 +1548,8 @@ func _result(winner: String, turn: int) -> Dictionary:
 	for u in units:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
-			"item": u.item, "morale": u.morale, "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills})   # 끝난 뒤 결과표
+			"item": u.item, "morale": u.morale, "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills,
+			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))
@@ -1584,28 +1585,30 @@ func act(u: Unit) -> void:
 	var allies := units.filter(func(o): return o.camp == u.camp)
 	if not foes.any(func(o): return o.alive): return
 	# 고유기 —— 자동 정책이면 준비된 차례에 바로 쓴다 (영리한 AI·사람은 _between 에서 끼어든다)
-	u.gauge = minf(100.0, u.gauge + GAUGE_ACT * (1.2 if u.c.tier >= 8 else 1.0) / turn_mul)
+	u.gauge = minf(100.0, u.gauge + GAUGE_ACT * (1.2 if u.c.tier >= 8 else 1.0) / gauge_div())
 	var sk = null
 	var used := false
 	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동.
-	# 기술은 저마다 따로 충전이 돈다 (2026-10-30 사용자). 충전이 차고 조건이 맞는 기술은 한 차례에 모두 쓴다 (여러 개도)
+	# 11/3 사용자 (빈도 리밸런싱): 기술이 여럿이어도 충전은 하나를 나눠 쓴다 —— 예전엔 기술마다 따로 돌아 신화(기술 3개)는 부대당 한 판에 7.5번 터지고
+	# 피해의 73%가 기술이었다. 이제 기술이 많으면 '더 자주'가 아니라 '고를 것이 많다'. 한 차례에 하나만, 앞 기술(고유 기술)부터 조건을 본다
 	var sks: Array = u.c.get("sks", [])
 	if not sks.is_empty():
-		while u.sk_ch.size() < sks.size():
+		if u.sk_ch.is_empty():
 			u.sk_ch.append(0.5)
-		var r := sk_rate(u)
-		for j in sks.size():
-			u.sk_ch[j] = minf(float(sks[j].get("cost", 1.0)), u.sk_ch[j] + r)      # 11/3 비용만큼 모은다 (더 모아 두지 않는다)
+		var cap := 0.0
+		for x in sks:
+			cap = maxf(cap, float(x.get("cost", 1.0)))
+		u.sk_ch[0] = minf(cap, u.sk_ch[0] + sk_rate(u))      # 가장 비싼 기술 비용만큼 모은다 (더 모아 두지 않는다)
 	for j in sks.size():
-		if not u.alive or not foes.any(func(o): return o.alive):
+		if used or not u.alive or not foes.any(func(o): return o.alive):
 			break
-		if u.sk_ch[j] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
+		if u.sk_ch[0] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
 			continue
 		sk = sks[j]
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false
-		if ok: u.sk_ch[j] -= float(sk.get("cost", 1.0))
+		if ok: u.sk_ch[0] -= float(sk.get("cost", 1.0))
 		if ok:
 			used = true
 			u.in_skill = true
@@ -1859,7 +1862,15 @@ func _charge(d: Unit, a: Unit, loss: float) -> void:
 	if a.countering and not counter_charge:
 		return
 	d.gauge = minf(100.0, d.gauge + GAUGE_HIT * loss / d.max)
-	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / turn_mul)
+	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div())
+
+
+## 고유기 게이지가 차는 속도의 나눗수 —— 11/3: 신화 전투(turn_mul 9.8)는 게이지가 판이 끝날 때쯤에야 차서 고유기가 부대당 0.15번뿐이었다.
+## 턴 배율이 GAUGE_DIV_MAX 를 넘는 등급은 거기서 멈춘다
+const GAUGE_DIV_MAX := 4.5
+
+func gauge_div() -> float:
+	return minf(turn_mul, GAUGE_DIV_MAX)
 
 
 func _buff_sum(u: Unit, stat: String) -> float:

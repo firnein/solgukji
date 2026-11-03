@@ -125,8 +125,9 @@ static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 	var p := r.position
 	for i in ts.size():
 		var t: Dictionary = ts[i]
+		var lvs := "" if t.unique else str(t.lv)       # 11/3 사용자: 고유 특기에는 레벨을 적지 않는다
 		var nw := fb.get_string_size(t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var lw := fb.get_string_size(str(t.lv), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var lw := fb.get_string_size(lvs, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var cw := nw + lw + 9
 		if p.x + cw > r.end.x and p.x > r.position.x:
 			p = Vector2(r.position.x, p.y + ch + gap)
@@ -143,5 +144,5 @@ static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 		sb.set_corner_radius_all(3)
 		ci.draw_style_box(sb, Rect2(p, Vector2(cw, ch)))
 		ci.draw_string(fb, p + Vector2(4, ch - 5), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.paper)
-		ci.draw_string(fb, p + Vector2(5 + nw, ch - 5), str(t.lv), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.gold)
+		ci.draw_string(fb, p + Vector2(5 + nw, ch - 5), lvs, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.gold)
 		p.x += cw + gap

@@ -569,7 +569,30 @@ func pick_list() -> Array:
 		l = [{"t": 6, "n": 1}] if phase == 0 else ([{"t": 5, "n": 1}] if phase == 1 else [{"t": 6, "n": 1}, {"t": 4, "n": 2}])
 	else:
 		l = DB.D.PICKS[day]
-	return l.map(func(p): return {"t": mini(FREE_TIER_CAP, int(p.t)), "n": int(p.n)})
+	return no_empty_tier(l.map(func(p): return {"t": mini(FREE_TIER_CAP, int(p.t)), "n": int(p.n)}))
+
+
+## 11/3 일반 등급 삭제 —— 원본 표(PICKS · QUEST_REWARD)의 일반 선택권은 일반 둘 = 고급 하나, 남는 일반 하나 = 기본 둘로 바꾼다
+## (고급 = 기본 넷, 예전 일반 ≈ 기본 둘 반)
+static func no_empty_tier(l: Array) -> Array:
+	var out := []
+	for p in l:
+		var t := int(p.t)
+		var n := int(p.n)
+		if DB.PLAY_TIERS.has(t):
+			out.append({"t": t, "n": n})
+			continue
+		if n >= 2:
+			out.append({"t": DB.next_tier(t), "n": n / 2})
+		if n % 2 == 1:
+			out.append({"t": 1, "n": 2})
+	var merged := {}
+	for p in out:
+		merged[p.t] = merged.get(p.t, 0) + p.n
+	var keys := merged.keys()
+	keys.sort()
+	keys.reverse()
+	return keys.map(func(t): return {"t": t, "n": merged[t]})
 
 
 func random_grant() -> Array:
@@ -836,7 +859,7 @@ func finish_battle(res: Dictionary) -> void:
 		"quest":
 			quest_done = true
 			if res.win:
-				for p in DB.D.QUEST_REWARD[day]:
+				for p in no_empty_tier(DB.D.QUEST_REWARD[day]):
 					add_ticket(int(p.t), int(p.n))
 				var n := int(DB.D.QUEST_BASE[day])
 				for i in n:
@@ -969,6 +992,10 @@ func begin_picks(src: String, _i := -1) -> void:
 
 
 func add_ticket(t: int, n: int) -> void:
+	if not DB.PLAY_TIERS.has(mini(FREE_TIER_CAP, t)):      # 일반 선택권 → 고급 · 기본 (어디서 들어오든)
+		for p in no_empty_tier([{"t": mini(FREE_TIER_CAP, t), "n": n}]):
+			add_ticket(p.t, p.n)
+		return
 	var key := str(mini(FREE_TIER_CAP, t))
 	tickets[key] = int(tickets.get(key, 0)) + n
 
@@ -1081,6 +1108,21 @@ static func load_saved() -> Run:
 		return null
 	var r := Run.new()
 	r.from_dict(d)
+	# 11/3 일반 등급 삭제 전 저장 —— 가진 일반 카드는 같은 병종 기본패 둘로, 일반 선택권은 바꿔 준다
+	for k in r.inv.keys():
+		if DB.C.has(k) and DB.C[k].tier == 2:
+			var n := int(r.inv[k])
+			r.inv.erase(k)
+			var base: String = DB.BASE.filter(func(b): return DB.C[b].tag == DB.C[k].tag)[0]
+			r.inv[base] = int(r.inv.get(base, 0)) + n * 2
+	for i in r.board.size():
+		if r.board[i] != null and DB.C[r.board[i]].tier == 2:
+			r.board[i] = null
+	if int(r.tickets.get("2", 0)) > 0:
+		var n2 := int(r.tickets["2"])
+		r.tickets.erase("2")
+		for p in no_empty_tier([{"t": 2, "n": n2}]):
+			r.add_ticket(p.t, p.n)
 	return r
 
 

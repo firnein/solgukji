@@ -12,6 +12,14 @@ extends Battle
 
 const TICK := 0.1
 const PERIOD_MUL := {3: 1.75, 4: 0.8, 5: 0.65, 6: 0.55, 7: 0.53, 8: 0.6}   # 등급별 턴 간격 배율 —— 같은 등급 31~38초 (11/1 측정 · 자동 감상 전투라 줄였다)
+const BATTLE_SEC := 35.0                # 같은 등급 감상 전투의 보통 길이 (초) —— 카드 설명의 '전투 동안' 수치용 (11/3)
+
+
+## 그 등급 전투 한 판의 턴 수 (보통 길이 기준)
+static func turns_for(t: float) -> float:
+	return BATTLE_SEC / (period_base * PERIOD_MUL[clampi(roundi(t), 3, 8)])
+
+
 static var period_base := 1.9           # 예전 한 턴에 해당하는 시간 (초) —— 턴 끝 정산 간격 · 행동 간격의 기준. 11/1 2.9→1.9 (감상 전투 35초 안팎)
 const TRACK_EVERY := 0.4      # 위치 기록 간격 (초)
 const ARENA := Rect2(-460, -280, 920, 560)
@@ -158,8 +166,8 @@ const CUT_GAUGE := 30.0        # 끊긴 장수는 게이지가 이만큼 남는�
 var _wind := {}                # 유닛 -> 터질 시각
 ## 11/2 사용자: 후반에 고유기가 연달아 터진다 → 초 단위 간격. 어느 진영이든 직전 고유기에서 ULT_GAP 초,
 ## 같은 진영은 ULT_SIDE_SEC 초가 지나야 다음 고유기 (맞받아치기로 바로 받아치던 것도 없앴다)
-static var ult_gap := 3.5
-static var ult_side_sec := 7.0
+static var ult_gap := 2.5
+static var ult_side_sec := 4.5
 var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
 

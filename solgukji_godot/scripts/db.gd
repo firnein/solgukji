@@ -17,6 +17,7 @@ var RECOF := {}          # 결과 id -> 재료 배열
 var TIER := {}           # 등급(int) -> {n, c, lo, hi}
 var FORM := {}           # 진형 -> {n, sil, mask, slots, grid}
 var BASE: Array = []     # 기본패 8종
+var PLAY_TIERS: Array = []   # 플레이어가 얻을 수 있는 등급 (11/3 일반 등급 삭제 —— 1 · 3 · 4 · …)
 var LINES := {}          # data/lines.json —— 인물 줄기 새 카드 · 조합 · 고유 기술
 const UNIQUE_MUL := 0.75   # 유니크 아이템 능력치 배율 (11/2 하향)
 var AURA := {}           # data/myth_aura.json —— 신화 위세 (살아 있는 동안 아군·적 전체 배율)
@@ -117,8 +118,15 @@ func _load() -> void:
 		for k in C:
 			if C[k].tier == t and not is_foe(k):
 				pvs.append(C[k].pv)
+		if pvs.is_empty():        # 11/3 일반 등급 삭제 —— 플레이어 카드가 없는 등급은 적 전용 카드로 값만 잡는다
+			for k in C:
+				if C[k].tier == t:
+					pvs.append(C[k].pv)
+		else:
+			PLAY_TIERS.append(t)
 		TIER[t].lo = pvs.min()
 		TIER[t].hi = pvs.max()
+	PLAY_TIERS.sort()
 
 	for k in C:
 		if C[k].tier == 1:
@@ -133,6 +141,8 @@ func _load() -> void:
 		PSV.ladder[p] = PSV.ladder.get(src, []).filter(func(e): return int(e[1]) <= 6)
 		if PSV.level.has(src):
 			PSV.level[p] = PSV.level[src]
+	for p in LINES.get("ladder", {}):          # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 수만큼 채운 사다리 (lines.py fill_ladders)
+		PSV.ladder[p] = LINES.ladder[p]
 	_reskill()
 	_build_forms()
 	_build_pools()
@@ -242,7 +252,9 @@ func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 ## 11/3 일반 기술 —— 삼국지13 · 14 참고: 발동은 어렵게(비용 · 엄격한 조건), 효과는 크게.
 ## 비용 = 충전 몇 번 분량 (삼국지13 채배 소모처럼 큰 기술일수록 비싸다). 위력 배율은 SK_POWER.
 const SK_POWER := {"mult": 2.1, "morale": 1.8, "heal": 1.8, "status": 1.5, "buff": 1.6, "exec": 1.4, "dur": 1}
-const ULT_OVER := 1.5     # 고유기 한 방은 가장 센 일반 기술의 이만큼 이상 (ult_of)
+const ULT_OVER := 2.0     # 고유기 한 방은 가장 센 일반 기술의 이만큼 이상 (ult_of) —— 11/3 1.5 → 2.0 (고유기가 클라이맥스)
+## 11/3 등급이 높을수록 충전 속도(RATE 0.25 → 0.45)가 빨라 신화는 부대당 한 판 5번 넘게 터졌다 —— 비용도 등급만큼 올려 2~3번으로
+const SK_COST_TIER := {6: 1.25, 7: 1.45, 8: 1.75}
 const SK_COST := {"front1": 1.6, "back1": 1.6, "front3": 2.0, "back2": 2.0, "denseLine": 2.0, "all": 2.4}
 
 
@@ -308,7 +320,8 @@ func _build_from(base: Dictionary, tier: int) -> Dictionary:
 		e.status = {"k": s.k,
 			"val": snappedf(s.val * m * (SK_POWER.status if s.k != "confuse" else 1.0), 0.001 if ratio else 0.1),
 			"dur": int(s.dur) + int(D.SKDUR.get(str(tier), 0))}
-	return {"n": base.n, "eff": e, "psv": null, "cond": strict_cond(str(SKILL_COND.get(base.n, "always")), e), "cost": sk_cost(e)}
+	return {"n": base.n, "eff": e, "psv": null, "cond": strict_cond(str(SKILL_COND.get(base.n, "always")), e),
+		"cost": snappedf(sk_cost(e) * SK_COST_TIER.get(tier, 1.0), 0.1)}
 
 
 func _build_forms() -> void:
@@ -712,6 +725,7 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해",
 	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "차례마다 같은 열 사기(전투 전체)", "resolve": "아군이 무너지면 사기",
 	"steady": "사기 60 아래에서 한 번 사기", "ult_rally": "아군 고유기 때 아군 전원 사기"}
+const FLOW_LABEL := {"regen": "전투 동안 병력", "mregen": "전투 동안 사기", "mend": "전투 동안 치료", "cheer_hit": "전투 동안 맞힐 때 치료"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt", "rally_kill", "cheer_turn", "resolve", "steady", "ult_rally"]
 
 
@@ -729,10 +743,10 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 		var v: float = m[k] * scale
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
-		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 그 등급 전투의 속도(pace)만큼 줄어 있다
-			v *= Battle.pace_for(tier)
+		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 11/3: 턴 하나로는 0.0 처럼 보여 '전투 동안' 합으로 적는다 (보통 길이 전투)
+			v *= Battle.pace_for(tier) * (1.0 if k == "terror" else RtBattle.turns_for(tier))
 			var pct: bool = k in ["regen", "mend", "cheer_hit"]
-			out.append(("%s%s%.1f%%" if pct else "%s%s%.1f") % [lb, sign, v * 100 if pct else v])
+			out.append(("%s%s%.0f%%" if pct else ("%s%s%.1f" if k == "terror" else "%s%s%.0f")) % [FLOW_LABEL.get(k, lb), sign, v * 100 if pct else v])
 			continue
 		if k in MOD_FLAT:
 			out.append("%s%s%.0f" % [lb, sign, v])
@@ -745,7 +759,7 @@ func passive_text(k: String) -> String:
 	# 특기 이름 뒤에 레벨 —— 개인 특기는 따로 적지 않고 단체만 표시한다. attr(계열)은 내부 분류라 보이지 않는다
 	var lines := []
 	for t in trait_list(k):
-		lines.append("『%s%d』%s %s%s" % [t.name, t.lv, " 단체" if t.group else "", t.d, ("\n   " + t.mt) if t.mt != "" else ""])
+		lines.append("『%s%s』%s %s%s" % [t.name, "" if t.unique else str(t.lv), " 단체" if t.group else "", t.d, ("\n   " + t.mt) if t.mt != "" else ""])
 	return "\n".join(lines)
 
 
@@ -800,6 +814,14 @@ func set_stat_adjust(adj: Dictionary) -> void:
 			C[k][s] = _BASE[k][s] * float(m.get(s, 1.0))
 
 
+## 한 단계 위 등급 —— 플레이어 카드가 없는 등급(11/3 삭제한 일반)은 건너뛴다
+func next_tier(t: int) -> int:
+	for x in PLAY_TIERS:
+		if x > t:
+			return x
+	return mini(8, t + 1)
+
+
 func by_tier(t: int) -> Array:
 	var order: Array = D.TAGORDER
 	var out := []
@@ -843,10 +865,11 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 		var t: int = tiers[lo]
 		if t >= 7:
 			break
-		var cost: int = mid.call(t + 1) - mid.call(t)
+		var nt := next_tier(t)
+		var cost: int = mid.call(nt) - mid.call(t)
 		if spent + cost > pv:
 			break
-		tiers[lo] = t + 1
+		tiers[lo] = nt
 		spent += cost
 	var cards := []
 	for t in tiers:
@@ -998,8 +1021,14 @@ const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해
 	"fire_res": ["화공 저항", true]}
 
 
-## 위세 설명 —— "부자동심: 인연 장수 공격 +12% · 방어 +12%"
+## 위세 설명 —— "의리지가: 인연 장수 공격 +12% · 방어 +12%" (이름 · 효과를 따로 쓰려면 aura_effect)
 func aura_text(k: String) -> String:
+	if not AURA.has(k):
+		return ""
+	return "%s: %s" % [AURA[k].n, aura_effect(k)]
+
+
+func aura_effect(k: String) -> String:
 	if not AURA.has(k):
 		return ""
 	var a: Dictionary = AURA[k]
@@ -1028,7 +1057,7 @@ func aura_text(k: String) -> String:
 		var ft: String = a.get("foe_to", "all")
 		var fw: String = ("적 " + ft.substr(4)) if ft.begins_with("tag:") else AURA_FOE.get(ft, "적")
 		parts.append(fw + " " + " · ".join(theirs))
-	return "%s: %s" % [a.n, " / ".join(parts)]
+	return " / ".join(parts)
 
 
 func _pct(name: String, v: float) -> String:

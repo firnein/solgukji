@@ -952,7 +952,7 @@ func recipe_sheet(out: String) -> void:
 		var have_it: bool = run.bag.get(ni, 0) > 0
 		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 1 · 3 · 5일차 유니크 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
 	if DB.AURA.has(out):
-		b.add_child(UI.hint("위세 — " + DB.aura_text(out) + " (살아 있는 동안)"))
+		b.add_child(UI.hint("위세 — " + DB.aura_text(out)))
 	if c.tier >= 8 and run.has_myth():
 		b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다 — 이미 신화를 얻었다"))
 	var ok := run.can_forge(out)
@@ -1241,31 +1241,29 @@ func card_info(k: String) -> void:
 		uc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		uh.add_child(uc)
 		st.add_child(uh)
-	var gap := Control.new()
-	gap.custom_minimum_size.y = 2
-	st.add_child(gap)
+	# 11/3 사용자: 위세 · 고유기는 초상 오른쪽 (위세 설명 문구는 뺐다)
+	if DB.AURA.has(k):
+		st.add_child(_bar_box("[b][color=%s]위세[/color] 『%s』[/b]\n%s" % [DB.tier_color(k).to_html(false), DB.AURA[k].n, DB.aura_effect(k)], DB.tier_color(k), 12))
+	var u = DB.ult_of(k) if c.tier >= 6 else null
+	if u != null:
+		st.add_child(_bar_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]\n%s" % [u.name, UI.ult_desc(u, c.tier)], Color("#ffd76e"), 12))
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
 	top.add_child(st)
 	b.add_child(top)
-	if DB.AURA.has(k):      # 11/2 위세 (신화 · 초월)
-		b.add_child(UI.panel(UI.rich("[b][color=%s]위세[/color][/b]  %s
-[color=#9aa1aa]살아 있는 동안 걸린다 · 여러 장수의 위세는 겹친다%s[/color]" % [
-			DB.tier_color(k).to_html(false), DB.aura_text(k), " · 신화는 한 판에 하나" if c.tier >= 8 else ""], 13), 8))
 	# 고유 특기 —— 접지 않고 바로 보인다 (이름 · 수치)
 	for t in DB.trait_list(k):
 		if t.unique:
 			var ub := "[color=#FFD76E][b]%s[/b][/color]" % t.name
 			if t.mt != "":
 				ub += "\n[color=#8FD4C2]%s[/color]" % t.mt
-			b.add_child(UI.panel(UI.rich(ub, 14), 8))
+			b.add_child(_bar_box(ub, Color("#e8c25a"), 13))
+	# 기술 —— 머리말 아래 기술마다 왼쪽 띠 상자
 	if not c.get("sks", []).is_empty():
-		var sl := []
+		var sk_sec := UI.vbox(6)
+		sk_sec.add_child(UI.eyebrow("기술"))
 		for x in c.sks:
-			sl.append("[color=#D9A64B]『%s』[/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.sk_when(x), DB.skill_desc(c, x)])
-		b.add_child(UI.rich("\n".join(sl), 13))
-	var u = DB.ult_of(k) if c.tier >= 6 else null
-	if u != null:
-		b.add_child(UI.rich("[color=#ffd76e][b]고유기 『%s』[/b][/color]  “%s”\n%s" % [u.name, u.shout, UI.ult_desc(u, c.tier)], 14))
+			sk_sec.add_child(_bar_box("[color=#D9A64B][b]『%s』[/b][/color]  [color=#8D7B5C]%s[/color]\n%s" % [x.n, DB.sk_when(x), DB.skill_desc(c, x)], DB.PAL.bamboo_dim, 13))
+		b.add_child(sk_sec)
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
@@ -1291,15 +1289,15 @@ func card_info(k: String) -> void:
 	var one := []
 	var far := {}
 	for o in Run.used_in(k):
-		if DB.C[o].tier == c.tier + 1:
+		if DB.C[o].tier == DB.next_tier(c.tier):        # 기본패 → 고급 (11/3 일반 등급 삭제)
 			one.append(o)
 		else:
 			far[DB.C[o].tier] = far.get(DB.C[o].tier, 0) + 1
 	one.sort_custom(func(x, y): return run.miss_count(x) < run.miss_count(y))
 	var can_n := one.filter(func(x): return run.can_forge(x)).size()
-	up_sec.add_child(UI.eyebrow("한 단계 위 · %s %d종%s" % [DB.TIER[mini(8, c.tier + 1)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
+	up_sec.add_child(UI.eyebrow("한 단계 위 · %s %d종%s" % [DB.TIER[DB.next_tier(c.tier)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
 	if one.is_empty():
-		up_sec.add_child(UI.hint("최종 등급이라 위가 없다." if c.tier == 8 else "이 카드를 재료로 쓰는 %s 조합이 없다 — 편성 전용이다." % DB.TIER[c.tier + 1].n))
+		up_sec.add_child(UI.hint("최종 등급이라 위가 없다." if c.tier == 8 else "이 카드를 재료로 쓰는 %s 조합이 없다 — 편성 전용이다." % DB.TIER[DB.next_tier(c.tier)].n))
 	for o in one:
 		up_sec.add_child(_up_row(o))
 	if not far.is_empty():
@@ -1334,6 +1332,19 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	v.add_child(hb)
 	v.add_child(body)
 	return v
+
+
+## 왼쪽에 색 띠가 있는 상자 —— 디테일창의 위세 · 고유기 · 고유 특기 · 기술 (11/3)
+func _bar_box(bb: String, col: Color, fs := 13) -> PanelContainer:
+	var pc := PanelContainer.new()
+	var sb := UI.flat(DB.PAL.ink2, col, 0, 4, 6)
+	sb.border_width_left = 3
+	sb.content_margin_left = 9
+	pc.add_theme_stylebox_override("panel", sb)
+	var r := UI.rich(bb, fs)
+	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pc.add_child(r)
+	return pc
 
 
 ## 상세 시트의 두 칸 표 —— 왼쪽 머리말, 오른쪽 내용 (오른쪽 줄들의 왼끝이 맞는다)
