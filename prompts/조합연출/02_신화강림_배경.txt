@@ -1,0 +1,11 @@
+# 신화 조합 완성 연출 배경 —— 저장: solgukji_godot/assets/fx/forge_8.png (세로 1080×1920, PNG)
+# 게임은 이 그림 위에 금빛 빛줄기 두 겹 · 신화 일러스트(<인물>_신화.png) · "신 화 강 림" 글자를 얹는다. 가운데는 비워 둔다.
+
+Vertical 9:16 mobile game background, 1080x1920. Divine descent scene in Three Kingdoms era (ancient China) style,
+ink-wash painting (sumi-e) blended with luminous digital painting. Parting storm clouds above, a vertical pillar of
+radiant golden light falling from the heavens into the center, golden dragon-shaped clouds coiling at the edges,
+drifting gold dust and petals, faint imperial palace roofs far below in mist.
+The CENTER of the image must be an empty, softly glowing area (no characters, no text, no objects) —
+a hero illustration and title text will be placed there by the game.
+Color palette: imperial gold (#ffd23a), warm white light, deep navy-black shadows at the corners. Majestic, sacred, cinematic.
+No people, no faces, no letters, no watermark, no logo, no UI.

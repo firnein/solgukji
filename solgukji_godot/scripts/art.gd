@@ -9,7 +9,7 @@ const INK := Color("#0a0e18")
 ## kind —— "card" 조합 · 도감용 (인물 전체) · "face" 전투용 (얼굴 확대) · "ult" 고유기용 (신화 그림, 없으면 얼굴) —— 10/30 사용자: 셋을 나눈다
 static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind := "card") -> void:
 	# 넓이가 없거나(접히는 중인 칸) 화면에서 아주 먼 곳(달아난 부대의 머리표)은 그리지 않는다 —— 좌표가 크면 다각형 분할이 실패한다
-	if r.size.x < 1.0 or r.size.y < 1.0 or absf(r.position.x) > 20000.0 or absf(r.position.y) > 20000.0:
+	if r.size.x < 1.0 or r.size.y < 1.0 or absf(r.position.x) > 6000.0 or absf(r.position.y) > 6000.0:
 		return
 	_mip(ci)
 	var c: Dictionary = DB.C[k]

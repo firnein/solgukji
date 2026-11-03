@@ -321,6 +321,10 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 				continue
 			for k in t.m:
 				u.m[k] = u.m.get(k, 0.0) + t.m[k]
+	# 11/3 특기 점검 (tests/trait_probe): 수엄칠군(drown)을 가진 관우에게 수몰을 거는 수단이 없어, 아군에 수공 장수가 없으면 한 번도 발동하지 않았다.
+	# 설명대로 "자신의 수공이 칠군을 잠근다" —— 스스로 맞힐 때 수몰을 건다
+	if u.m.get("drown", 0.0) > 0 and u.m.get("soak", 0.0) <= 0 and _trait_on({"attr": "수공"}, camp):
+		u.m["soak"] = DROWN_SOAK
 	if u.c.tier >= 6 or u.c.kind == "kiin":      # 11/3 기인도 고유기 (초월 세기)
 		u.ult = DB.ult_of(cid)
 		if u.ult:
@@ -426,8 +430,14 @@ func _aura_foe_on(a: Dictionary, u: Unit) -> bool:
 	return true
 
 
+const DROWN_SOAK := 0.2              # 수엄칠군 장수의 침수 확률 (스스로 수몰을 건다)
+static var probe_on := false           # 점검용 (tests/trait_probe) —— mv 로 읽힌 특기 효과 키를 센다
+static var probe := {}
+
 func mv(u: Unit, k: String) -> float:
 	var v: float = u.m.get(k, 0.0)
+	if probe_on and v != 0.0:
+		probe[k] = int(probe.get(k, 0)) + 1
 	if not _aura_m.is_empty():
 		for mu in _aura_m:
 			if mu.alive and mu.camp == u.camp:

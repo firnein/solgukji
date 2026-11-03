@@ -108,11 +108,25 @@ func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 	var pr := Rect2(2, 3, w - 4, h - 17)
 	Art.draw_portrait(self, pr, k)
 	var fd := DB.tier_font(c.tier)
-	var nm: String = DB.person(k) if c.tier > 2 else c.name
+	# 11/3 사용자: 칭호를 떼고 "손권" 만 보이면 다른 카드(벽안 손권)로 오해한다 —— 칭호까지 보이고, 안 들어가면 칭호를 이름 위 작은 줄로
+	var nm: String = c.name
+	var nc := tc.lightened(0.15) if c.tier >= 3 else tc
 	var fs := 10
-	while fs > 7 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
+	while fs > 8 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
 		fs -= 1
-	draw_string(fd, Vector2(1, h - 4), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 2, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
+	if c.tier > 2 and nm.contains(" ") and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
+		var per := DB.person(k)
+		var title := nm.substr(0, nm.length() - per.length()).strip_edges()
+		var ts := 8
+		while ts > 6 and DB.font_body.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x > w - 2:
+			ts -= 1
+		draw_rect(Rect2(1, h - 25, w - 2, 10), Color(DB.PAL.ink2, 0.8))
+		draw_string(DB.font_body, Vector2(1, h - 17), title, HORIZONTAL_ALIGNMENT_CENTER, w - 2, ts, Color(nc, 0.85))
+		nm = per
+		fs = 10
+		while fs > 7 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
+			fs -= 1
+	draw_string(fd, Vector2(1, h - 4), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 2, fs, nc)
 	if qty > 1:
 		var s := "%d" % qty
 		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 6

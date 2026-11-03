@@ -1,0 +1,11 @@
+# 불멸(히든) 조합 완성 연출 배경 —— 저장: solgukji_godot/assets/fx/forge_7.png (세로 1080×1920, PNG)
+# 게임은 이 그림 위에 주황 빛줄기 · 장수 초상 · "불 멸 완 성" 글자를 얹는다. 그래서 가운데(위에서 35~70%)는 비워 두고 어둡게.
+
+Vertical 9:16 mobile game background, 1080x1920. Epic Three Kingdoms era (ancient China) atmosphere,
+ink-wash painting (sumi-e) blended with dramatic digital painting. A dark battlefield sky at dusk,
+swirling orange-amber flames and embers rising from below, faint silhouettes of war banners and spears on distant ridges,
+thin golden calligraphy-like light streaks radiating from the center.
+The CENTER of the image must be an empty, darker vignette area (no characters, no text, no objects) —
+a character portrait and title text will be placed there by the game.
+Color palette: deep charcoal black, burnt orange (#ff8a1c), ember red, a little gold. High contrast, cinematic lighting.
+No people, no faces, no letters, no watermark, no logo, no UI.

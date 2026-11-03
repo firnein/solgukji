@@ -65,8 +65,8 @@ void fragment() {
 	vec3 dyed = team * clamp(0.45 + lum * 1.6, 0.0, 1.4) * (0.85 + 0.3 * v_custom.a);
 	base = mix(base, dyed, COLOR.a);
 	base *= 1.0 - v_custom.g;
-	base = mix(base, vec3(1.0, 0.92, 0.85), v_custom.b);
+	base = mix(base, vec3(1.0, 0.92, 0.85), max(v_custom.b, 0.0));
 	ALBEDO = base;
 	ROUGHNESS = 0.75;
-	EMISSION = team * 0.05 * COLOR.a * (1.0 - v_custom.g * 2.0) + vec3(1.0, 0.9, 0.8) * v_custom.b * 0.6;
+	EMISSION = team * 0.05 * COLOR.a * (1.0 - v_custom.g * 2.0) + vec3(1.0, 0.9, 0.8) * max(v_custom.b, 0.0) * 0.6;
 }

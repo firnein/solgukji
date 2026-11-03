@@ -73,11 +73,26 @@ var _soft: Texture2D
 var _pmat := {}
 var _duel_t := 0.0
 var shake := 0.0
+var focus_sq: Squad = null    # 비네트 집중 —— 이 부대만 밝게 (BattleView.focus)
+var focus_t := 0.0
 var _hs := PackedFloat32Array()   # 지형 높이 격자 —— 지형을 만들 때 채운다
 var _hn := 0
 var _hstep := 1.0
 var _hhalf := 0.0
 var _bufs := {}             # MultiMesh -> 인스턴스 버퍼 (변환 12 + 사용자 4 = 16 float)
+## 11/3 GPU 병사 (사용자: 병사 3~5배) —— 살아 있는 병사는 shaders/soldier_gpu.gdshader 가 부대 값(_sq_tex)으로 그린다.
+## CPU 는 장수 · 쓰러지는 병사만 그린다. 점묘 · 타입2 전장(2D)은 병사 위치가 필요해 예전 방식
+static var gpu_mode := true
+var _gpu := false
+var gpu_mmi := []           # GPU 병사 MultiMeshInstance3D (몸 · 무기)
+var _sq_img: Image
+var _sq_tex: ImageTexture
+var _h_tex: ImageTexture
+var _gpu_mat: ShaderMaterial
+var _flyers := []           # 공중에 뜬 병사 (날아가는 시신) —— _air 가 이것만 돈다
+var _entry_of := {}         # 병사 -> entries 한 줄 (GPU: 쓰러진 병사를 CPU 목록에 넣으려고)
+var _cpu_list := []         # GPU 모드에서 CPU 가 돌보는 줄 —— 장수 · 아직 넘어지는 중인 시신 · 막 되살아나 숨겨야 할 병사
+var _cpu_full := true       # 다음 _sync 는 전체를 한 번 돈다
 var prof := {}              # 점검용 —— 구간별 누적 시간 (마이크로초)
 var dbg_nofx := false       # 점검용 —— 파티클을 만들지 않는다
 var ult: UltFx
@@ -105,9 +120,11 @@ var follow: Squad = null
 var flat: DotView = null    # 점묘 전장 —— 있으면 화면 좌표를 이것이 정한다 (3D 는 계산만)
 var _cam_attr: CameraAttributesPractical      # 먼 곳 흐림 (고품질만)
 const SHOW_BANNERS := false # 부대 깃발 —— 10/31 사용자: 뺀다 (화면이 정신없다)
-const AUTO_MARGIN := 1.04   # 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
+const AUTO_MARGIN := 0.88  # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
 const BASE_YAW := -0.7854     # 기본 구도 —— 아군 7시 · 적 1시 대각선 (리그오브레전드 쪽, 10/31 사용자). 0 이면 아군 6시 · 적 12시
-const AUTO_MIN := 30.0      # 자동 카메라 최소 거리
+const AUTO_MIN := 22.0      # 자동 카메라 최소 거리 (예전 30)
+const CORE_SHARE := 0.75     # 자동 카메라가 담는 부대 몫 (가운데에서 가까운 순)
+const HOT_SHARE := 0.6       # 싸우는 부대가 이만큼 넘으면 그쪽만 담는다 (뒤에 처진 궁병 · 책사 하나 때문에 멀어지지 않게)
 # 멀리 보기 (삼국지13) —— 카메라가 이보다 멀면 간단한 효과만: 불꽃 · 흙먼지 같은 작은 입자, 베기 초승달, 평타 화살을 뺀다.
 # 대신 부대 발밑 판이 맞을 때 번쩍이고, 공격 화살표 · 행동 아이콘으로 알린다. 확대하면 자세한 효과가 돌아온다
 const OVERVIEW_DIST := 40.0
@@ -490,6 +507,19 @@ func slot_pos(camp: String, form: String, slot: int) -> Vector2:
 
 
 func clear() -> void:
+	for m in gpu_mmi:
+		if is_instance_valid(m):
+			m.queue_free()
+	gpu_mmi.clear()
+	_flyers.clear()
+	_cpu_list.clear()
+	focus_sq = null
+	focus_t = 0.0
+	for k in slow_marks:
+		for x in slow_marks[k]:
+			if is_instance_valid(x):
+				x.queue_free()
+	slow_marks.clear()
 	for c in unit_root.get_children():
 		c.queue_free()
 	for c in fx_root.get_children():
@@ -520,7 +550,10 @@ func clear() -> void:
 
 
 func setup(res: Dictionary) -> void:
+	_swirl()                # 11/3 이감 텍스처를 미리 (처음 걸릴 때 프레임이 튀었다)
 	clear()
+	_gpu = gpu_mode and not (Settings.dots or Settings.type2)
+	Squad.gpu = _gpu
 	track_mode = res.get("rt", false)
 	_build_terrain(res.get("terrain", []))
 	for r in res.roster:
@@ -545,7 +578,7 @@ func setup(res: Dictionary) -> void:
 	for sq in order:
 		for s in sq.all_figures():
 			var gen: bool = s == sq.general
-			var wk: String = WEAPON.get(sq.tag, "") if gen or not (sprite_mat.has(sq.tag) or vat_mesh.has(sq.tag)) else ""     # 그림 · 구운 병사는 무기가 몸에 있다
+			var wk: String = WEAPON.get(sq.tag, "") if gen or not (sprite_mat.has(sq.tag) or vat_mesh.has(sq.tag) or cube_mode) else ""     # 그림 · 구운 병사는 무기가 몸에 있다 (큐브는 무기 없음)
 			var bk: String = sq.tag
 			if gen:
 				bk = "G:" + sq.tag              # 장수는 군마 탄 전용 모델
@@ -559,7 +592,7 @@ func setup(res: Dictionary) -> void:
 				widx = wcount.get(wk, 0)
 				wcount[wk] = widx + 1
 			# [부대, 병사, 병종, 번호, 무기, 무기번호, 장수, 정착(더 이상 안 변함), 기병]
-			entries.append([sq, s, bk, idx, wk, widx, gen, false, sq.cls == "cav" or gen, not gen and vat_mesh.has(sq.tag)])
+			entries.append([sq, s, bk, idx, wk, widx, gen, false, sq.cls == "cav" or gen, not gen and vat_mesh.has(sq.tag), false])
 		banners[sq.key] = _make_banner(sq)
 		squad_rings[sq.key] = _make_ring(sq)
 	_bufs.clear()
@@ -571,12 +604,20 @@ func setup(res: Dictionary) -> void:
 			bodies[tag] = _mm(_sprite_quad[tag], count[tag])
 			bodies[tag].material_override = sprite_mat[tag]
 			bodies[tag].cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		elif cube_mode and not tag.begins_with("G:"):
+			bodies[tag] = _mm(_cube_mesh(), count[tag])
 		else:
 			bodies[tag] = _mm(body_mesh[tag], count[tag])
 		_bufs[tag] = _new_buf(count[tag])
 	for wk in wcount:
 		weapons[wk] = _mm(weapon_mesh[wk], wcount[wk])
 		_bufs[wk] = _new_buf(wcount[wk])
+	_entry_of.clear()
+	for e in entries:
+		_entry_of[e[1]] = e
+	_cpu_full = true
+	if _gpu:
+		_gpu_build()
 	_sync()
 
 
@@ -635,6 +676,191 @@ func _load_sprites() -> void:
 		m.set_shader_parameter("team_a", TEAM.A)
 		m.set_shader_parameter("team_b", TEAM.B)
 		sprite_mat[tag] = m
+
+
+## 큐브 병사 (11/3 시험) —— 인형 대신 상자 하나, 무기 없음. 셰이더는 그대로 (UV 0 이라 팔다리 흔들기 없음, 정점 색 흰색 → 전부 세력색)
+static var cube_mode := false
+var _cube: Mesh = null
+func _cube_mesh() -> Mesh:
+	if _cube:
+		return _cube
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.55, 1.5, 0.55)
+	var arr := bm.get_mesh_arrays()
+	var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	for i in v.size():
+		v[i].y += 0.75
+	arr[Mesh.ARRAY_VERTEX] = v
+	var n := v.size()
+	var uv := PackedVector2Array(); uv.resize(n)
+	arr[Mesh.ARRAY_TEX_UV] = uv
+	arr[Mesh.ARRAY_TEX_UV2] = uv
+	var col := PackedColorArray(); col.resize(n); col.fill(Color(0.85, 0.85, 0.85, 1.0))
+	arr[Mesh.ARRAY_COLOR] = col
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	am.surface_set_material(0, body_mesh.values()[0].surface_get_material(0) if not body_mesh.is_empty() else null)
+	_cube = am
+	return am
+
+
+## GPU 병사 만들기 —— 병종 · 무기마다 MultiMesh 하나, 인스턴스마다 (부대 줄, 자리, 씨앗, 옷 밝기) 만 한 번 적는다
+const SQ_COLS := 8
+const CORPSE_LIFE := 4.0      # 시신이 누워 있는 시간 (초) —— 그 뒤 CORPSE_SINK 초 동안 가라앉아 사라진다
+const CORPSE_SINK := 1.6
+var _gidx := {}             # 병사 -> [[MultiMesh, 번호], …] (몸 · 무기)
+func _gpu_build() -> void:
+	if _gpu_mat == null:
+		_gpu_mat = ShaderMaterial.new()
+		_gpu_mat.shader = load("res://shaders/soldier_gpu.gdshader")
+	_gpu_mat.set_shader_parameter("team_a", TEAM.A)
+	_gpu_mat.set_shader_parameter("team_b", TEAM.B)
+	# 높이 —— 지형 격자를 그대로 텍스처로 (언덕 포함)
+	var hn: int = maxi(_hn, 64)
+	var half: float = _hhalf if _hn > 0 else 60.0
+	var step: float = (half * 2.0) / hn
+	var himg := Image.create(hn + 1, hn + 1, false, Image.FORMAT_RF)
+	for j in hn + 1:
+		for i in hn + 1:
+			himg.set_pixel(i, j, Color(height(-half + i * step, -half + j * step), 0, 0))
+	_h_tex = ImageTexture.create_from_image(himg)
+	_gpu_mat.set_shader_parameter("height_tex", _h_tex)
+	_gpu_mat.set_shader_parameter("h_half", half)
+	_gpu_mat.set_shader_parameter("h_size", half * 2.0)
+	_sq_img = Image.create(SQ_COLS, maxi(1, order.size()), false, Image.FORMAT_RGBAF)
+	_sq_tex = ImageTexture.create_from_image(_sq_img)
+	_gpu_mat.set_shader_parameter("squad_tex", _sq_tex)
+	# 병종 · 무기별로 모은다
+	var groups := {}          # 열쇠 -> [[부대 줄, 병사], …]
+	for row in order.size():
+		var sq: Squad = order[row]
+		var wk: String = "" if cube_mode else WEAPON.get(sq.tag, "")
+		for sd in sq.soldiers:
+			if not groups.has(sq.tag): groups[sq.tag] = []
+			groups[sq.tag].append([row, sd])
+			if wk != "":
+				if not groups.has("W:" + wk): groups["W:" + wk] = []
+				groups["W:" + wk].append([row, sd])
+	var big := AABB(Vector3(-120, -20, -120), Vector3(240, 80, 240))
+	_gidx.clear()
+	for row in order.size():
+		var sq0: Squad = order[row]
+		sq0.gpos_slow = sq0.pos
+		sq0.gfwd_slow = sq0.fwd
+		for sd in sq0.soldiers:
+			sd.gseed = rng.randf()
+			sd.slot_old = -1
+			_gidx[sd] = []
+	for key in groups:
+		var lst: Array = groups[key]
+		var weapon: bool = key.begins_with("W:")
+		var mesh: Mesh
+		var mat: ShaderMaterial = _gpu_mat
+		if weapon:
+			var wk: String = key.substr(2)
+			mesh = weapon_mesh[wk]
+			mat = _gpu_mat.duplicate()
+			mat.set_shader_parameter("is_weapon", true)
+			mat.set_shader_parameter("weapon_kind", {"spear": 0, "sword": 1, "lance": 2}.get(wk, 0))
+			mat.set_shader_parameter("hand", HAND[wk])
+			mat.set_shader_parameter("pivot", ARM_PIVOT[wk])
+		else:
+			mesh = _cube_mesh() if cube_mode else body_mesh[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = mesh
+		mm.instance_count = lst.size()
+		var buf := PackedFloat32Array()
+		buf.resize(lst.size() * 16)
+		for i in lst.size():
+			var sd = lst[i][1]
+			_put(buf, i * 16, Basis.IDENTITY, Vector3.ZERO, float(lst[i][0]), _gslot(sd), sd.gseed, sd.move_t)
+			_gidx[sd].append([mm, i])
+		mm.buffer = buf
+		mm.custom_aabb = big
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = mat
+		mi.layers = 2
+		mi.custom_aabb = big
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if weapon else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		unit_root.add_child(mi)
+		gpu_mmi.append(mi)
+	_gpu_sync(0.0)
+
+
+## 병사 자리 값 —— 숨김 −1, 아니면 지금 자리 + (전 자리 + 1) × 1024 (걸어 나오는 중이면 셰이더가 둘 사이를 잇는다)
+static func _gslot(sd) -> float:
+	if not sd.alive:
+		return -1.0
+	return float(sd.slot) + float(sd.slot_old + 1) * 1024.0
+
+
+## 부대끼리 겹치지 않게 (11/3 사용자: 유닛들이 충돌하지 않고 막 겹쳐져 어색하다) —— 부대마다 대열 반폭 · 반깊이를 재고,
+## 이웃 부대가 그 안으로 들어오면 그쪽 축(앞뒤 또는 좌우)으로 대열 간격을 좁힌다. 맞붙은 적은 앞줄이 섞이게 덜 좁힌다.
+## 병사가 사라지지 않고 더 빽빽해진다 (군집). 판정 · 부대 위치는 그대로
+const SQUEEZE_MIN := 0.42
+func _squeeze(dt: float) -> void:
+	var k := 1.0 - exp(-dt * 3.0)
+	for a in order:
+		if not a.alive or a.state == "gone":
+			continue
+		var hw: float = a.cols * a.sp * 0.5 + 2.0           # 반폭 (좌우)
+		var hd: float = a._rk * a.sp * 0.92 * 0.5 + 2.0      # 반깊이 (앞뒤)
+		var want := Vector2.ONE
+		var rgt: Vector2 = a.right()
+		for b in order:
+			if b == a or not b.alive or b.state == "gone":
+				continue
+			var d: Vector2 = b.pos - a.pos
+			var dx: float = absf(d.dot(a.fwd))
+			var dy: float = absf(d.dot(rgt))
+			var bh: float = maxf(b.cols * b.sp * b.gsq.y, b._rk * b.sp * 0.92 * b.gsq.x) * 0.5
+			var foe_touch: bool = b.camp != a.camp and (a.engaged == b or b.engaged == a)
+			var share := 0.62 if foe_touch else 0.5        # 맞붙은 적과는 조금 겹쳐 섞인다
+			if dx > hd + bh or dy > hw + bh:
+				continue
+			if dy * hd > dx * hw:     # 옆으로 붙었다 → 좌우를 좁힌다
+				want.y = minf(want.y, (dy * share) / hw)
+			else:                     # 앞뒤로 붙었다 → 깊이를 좁힌다
+				want.x = minf(want.x, (dx * share) / hd)
+		want = want.clamp(Vector2(SQUEEZE_MIN, SQUEEZE_MIN), Vector2.ONE)
+		a.gsq = a.gsq.lerp(want, k)
+
+
+## 부대 값을 한 줄씩 (부대 수 × 6 칸) —— 매 프레임 이것만 GPU 로
+func _gpu_sync(dt: float) -> void:
+	if _sq_img == null or _sq_img.get_height() < order.size():
+		return
+	_squeeze(dt)
+	var shove_k := exp(-dt * 5.0)
+	var slow_p := 1.0 - exp(-dt * 1.6)       # 늦게 따라오는 위치 · 방향 (뒷줄 · 가장자리 병사가 이쪽에 가깝다)
+	var slow_f := 1.0 - exp(-dt * 1.1)
+	for row in order.size():
+		var sq: Squad = order[row]
+		sq.shove_v *= shove_k
+		sq.gpos_slow = sq.gpos_slow.lerp(sq.pos, slow_p)
+		sq.gfwd_slow = sq.gfwd_slow.lerp(sq.fwd, slow_f).normalized()
+		for sd in sq.moved_figs:
+			for gi in _gidx.get(sd, []):
+				gi[0].set_instance_custom_data(gi[1], Color(row, _gslot(sd), sd.gseed, sd.move_t))
+		sq.moved_figs.clear()
+		var gone: bool = sq.state == "gone"
+		var n_alive: float = 0.0 if gone else float(sq._alive)
+		var ready: bool = sq.contact or (sq.engaged != null and sq.pos.distance_to(sq.engaged.pos) < 140.0)
+		var flags := (1 if sq.armor_broken else 0) + (2 if sq == focus_sq and focus_t > 0.0 else 0)
+		var bfl := clampf(1.0 - (clock - sq.break_t) / 0.3, 0.0, 1.0)
+		_sq_img.set_pixel(0, row, Color(sq.pos.x, sq.pos.y, sq.fwd.x, sq.fwd.y))
+		sq.gfront = lerpf(sq.gfront, (sq._rk - 1) * sq.sp * 0.5, slow_p)
+		_sq_img.set_pixel(1, row, Color(sq.cols, sq.sp, n_alive, sq.gfront))
+		_sq_img.set_pixel(2, row, Color(sq.walk_acc, 1.0 if sq.moving else 0.0, 1.0 if sq.contact else 0.0, sq.fade if sq.state == "flee" else 1.0))
+		_sq_img.set_pixel(3, row, Color(sq.shove_v, sq.hurt, flags, 1.0 if ready else 0.0))
+		_sq_img.set_pixel(4, row, Color(bfl, sq.flee_t if sq.state == "flee" else 0.0, Squad.TIER_SIZE.get(sq.tier, 1.0), 1.0 if sq.cls == "cav" else 0.0))
+		_sq_img.set_pixel(5, row, Color(sq.loose, 1.0 if sq.camp == "B" else 0.0, clock, sq.depth()))
+		_sq_img.set_pixel(6, row, Color(sq.gpos_slow.x, sq.gpos_slow.y, sq.gfwd_slow.x, sq.gfwd_slow.y))
+		_sq_img.set_pixel(7, row, Color(sq.gsq.x, sq.gsq.y, 0.0, 0.0))
+	_sq_tex.update(_sq_img)
 
 
 func _mm(mesh: Mesh, n: int) -> MultiMeshInstance3D:
@@ -815,12 +1041,13 @@ func step(dt: float) -> void:
 				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5 + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-40, 40), 0.5), "haze", Color("#b09a74"))
 	t = pt("효과생성", t)
 	_duel_t -= dt
-	if _duel_t <= 0:
+	if _duel_t <= 0 and not _gpu:
 		_duel_t = 0.3
 		_pair_duels()
 	t = pt("짝짓기", t)
+	_shove()
 	_air(dt)
-	if Engine.get_process_frames() % 2 == 0:
+	if Engine.get_process_frames() % 2 == 0 and not _gpu:
 		_crowd()
 	t = pt("밀치기", t)
 	_separate(dt)
@@ -829,6 +1056,8 @@ func step(dt: float) -> void:
 	_fx_step()
 	cfx.step()
 	t = pt("효과갱신", t)
+	if _gpu:
+		_gpu_sync(dt)
 	if flat == null:
 		_sync()              # 점묘 전장이면 3D 병사 인스턴스를 맞출 필요가 없다
 	pt("동기화", t)
@@ -901,21 +1130,70 @@ func _crowd() -> void:
 						o.pos -= push
 
 
+## 진형 충돌의 무게감 (11/3 사용자) —— 맞닿은 두 부대가 1초 남짓마다 서로 떠민다. 병력이 많은(이기는) 쪽 앞줄은 앞으로 쏠리고,
+## 지는 쪽 앞 세 줄은 뒤로 크게 밀려 대열이 찌그러졌다가 제자리로 걸어 돌아온다 —— 전선 전체가 출렁인다.
+## 화면 연출만 (병사 자리) —— 판정 · 부대 위치(엔진 track)는 그대로다
+const SHOVE_GAP := Vector2(0.8, 1.3)     # 떠밀기 간격 (초)
+const SHOVE_PUSH := 16.0                  # 지는 쪽 앞줄이 밀리는 거리 (px, 병사 간격 약 8)
+func _shove() -> void:
+	for sq in order:
+		var e: Squad = sq.engaged
+		if not (sq.alive and sq.contact and e != null and e.alive):
+			continue
+		if e.engaged == sq and sq.key > e.key:
+			continue        # 서로 붙은 짝은 key 가 작은 쪽이 맡는다
+		if clock < sq.shove_t:
+			continue
+		sq.shove_t = clock + rng.randf_range(SHOVE_GAP.x, SHOVE_GAP.y)
+		var r: float = sq.troops / maxf(1.0, sq.troops + e.troops)        # 0.5 위면 sq 가 민다
+		var tier_w: float = 1.0 + 0.25 * (sq.tier - e.tier)                # 높은 등급은 더 세게 민다
+		var win: Squad = sq if r * tier_w >= 0.5 else e
+		var lose: Squad = e if win == sq else sq
+		var dir: Vector2 = (lose.pos - win.pos).normalized()               # 이기는 쪽 → 지는 쪽
+		var force: float = SHOVE_PUSH * clampf(0.7 + absf(r - 0.5) * 2.0, 0.7, 1.6)
+		if _gpu:
+			lose.shove_v = force
+			win.shove_v = -force * 0.35
+			lose.hurt = maxf(lose.hurt, 0.6)
+		for s2 in ([] if _gpu else lose.soldiers):
+			if not s2.alive or s2.air > 0.0:
+				continue
+			var rk: int = lose.rank_of(s2)
+			if rk > 2:
+				continue
+			s2.pos += dir * force * (1.0 - rk * 0.28) * rng.randf_range(0.7, 1.2)
+			s2.hit_t = clock + rng.randf() * 0.12          # 움찔
+		for s2 in ([] if _gpu else win.soldiers):
+			if not s2.alive or s2.air > 0.0 or win.rank_of(s2) > 1:
+				continue
+			s2.pos += dir * force * 0.35 * rng.randf_range(0.6, 1.1)
+			s2.atk_t0 = clock - rng.randf() * 0.1          # 앞줄이 한꺼번에 내지른다
+		var mid: Vector2 = lose.pos + (win.pos - lose.pos).normalized() * lose.depth() * 0.5
+		if not overview and rng.randf() < 0.6:
+			_particles(p3(mid, 0.4), "dust", Color("#b9a27a"))
+		shake = maxf(shake, 0.06 if overview else 0.12)
+
+
 ## 고유기에 맞아 날아간 병사 —— 포물선으로 떴다가 떨어진다
 func _air(dt: float) -> void:
-	for sq in order:
-		for s in sq.soldiers:
-			if s.air > 0.0 or s.vy > 0.0:
-				s.vy -= 22.0 * dt
-				s.air = maxf(0.0, s.air + s.vy * dt)
-				s.pos += s.kb * dt
-				s.kb *= exp(-dt * 1.5)
-				s.spin += s.fall * dt * 7.0
-				if s.air <= 0.0 and s.vy < 0.0:
-					s.vy = 0.0
-					s.kb = Vector2.ZERO
-					s.spin = 0.0
-					s.hit_t = clock
+	if _flyers.is_empty():
+		return
+	var keep := []
+	for s in _flyers:
+		if s.air > 0.0 or s.vy > 0.0:
+			s.vy -= 22.0 * dt
+			s.air = maxf(0.0, s.air + s.vy * dt)
+			s.pos += s.kb * dt
+			s.kb *= exp(-dt * 1.5)
+			s.spin += s.fall * dt * 7.0
+			if s.air <= 0.0 and s.vy < 0.0:
+				s.vy = 0.0
+				s.kb = Vector2.ZERO
+				s.spin = 0.0
+				s.hit_t = clock
+			else:
+				keep.append(s)
+	_flyers = keep
 
 
 ## 무쌍 (10/31 사용자: 진삼국무쌍처럼 기술을 쓰면 펑펑 쓰러지는 통쾌함) —— 방금 쓰러지기로 정해진 병사들을
@@ -933,18 +1211,23 @@ func blast(key: String, from_key: String, power: float) -> void:
 		var d: Vector2 = s.pos - from
 		var dir := d.normalized() if d.length() > 0.1 else Vector2.from_angle(rng.randf() * TAU)
 		dir = dir.rotated(rng.randf_range(-0.7, 0.7))
-		s.vy = (5.0 + rng.randf() * 7.0) * power
+		s.vy = (5.0 + rng.randf() * 7.0) * minf(power, 2.4)          # 높이는 적당히, 날아가는 거리를 키운다
 		s.air = 0.01
 		s.kb = dir * (50.0 + rng.randf() * 110.0) * power
 		s.fall = 1.0 if rng.randf() < 0.5 else -1.0
 		s.die_t = clock                # 날아가며 바로 쓰러진다
+		_flyers.append(s)
 		n += 1
 	if n >= 3:
-		_ring(p3(sq.pos, 0.2), Color(1.0, 0.85, 0.55), 0.5)
-		shake = maxf(shake, clampf(0.08 * n / 10.0, 0.05, 0.35) * power)
+		shake = maxf(shake, clampf(0.08 * n / 10.0, 0.05, 0.4) * power)
 		for o in sq.soldiers:          # 살아남은 병사도 움찔
 			if o.alive and o.pos.distance_to(from) < 160.0 and rng.randf() < 0.4:
 				o.hit_t = clock + rng.randf() * 0.2
+	# 에이스 · 고유기 (power ≥ 2.5) —— 흙먼지 · 섬광 (11/3 사용자 2차: 날아갔다 돌아오는 게 이상하다 → 산 병사는 날리지 않는다)
+	if power >= 2.5 and n >= 3:
+		var c: Vector2 = sq.pos - sq.fwd * sq.depth() * 0.3
+		_particles(p3(c, 0.5), "dust", Color("#c8b088"))
+		_light(p3(c, 3.0), Color(1.0, 0.8, 0.5), 6.0, 0.3)
 
 
 ## 고유기 충격 —— 중심에서 가까운 병사를 공중으로 날린다. power 1 이면 몇 m 뜬다
@@ -955,14 +1238,16 @@ func launch(key: String, center: Vector2, radius: float, power: float) -> void:
 	for s in sq.soldiers:
 		var d: Vector2 = s.pos - center
 		var l := d.length()
-		if l > radius or s.air > 0.0:
-			continue
+		if l > radius or s.air > 0.0 or s.alive or s.die_t < clock - 0.6:
+			continue        # 이미 다 넘어진 시신은 화면에서 다시 그리지 않으므로 날리지 않는다        # 11/3 사용자: 죽는 병사만 날아간다 (산 병사가 날아갔다 돌아오면 이상하다)
 		var f := (1.0 - l / radius) * power * rng.randf_range(0.6, 1.2)
 		if f < 0.15:
 			continue
-		s.vy = 4.0 + 9.0 * f
+		s.vy = 4.0 + 9.0 * minf(f, 1.8)
 		s.air = 0.01
-		s.kb = (d / maxf(l, 0.1)) * (40.0 + 140.0 * f)
+		s.kb = (d / maxf(l, 0.1)).rotated(rng.randf_range(-0.5, 0.5)) * (40.0 + 140.0 * f)
+		s.hit_t = clock
+		_flyers.append(s)
 		s.fall = 1.0 if rng.randf() < 0.5 else -1.0
 
 
@@ -1027,13 +1312,38 @@ static func _hide(buf: PackedFloat32Array, o: int) -> void:
 ## 병사 → GPU 버퍼. 병종마다 버퍼 하나에 몰아 쓰고 프레임 끝에 한 번만 넘긴다.
 ## 다 쓰러진 시신과 떠나 버린 병사는 한 번 쓴 뒤로 다시 계산하지 않는다(정착).
 ## 사용자 값 4 개는 soldier.gdshader 머리말 참고 (진영+옷 밝기 · 어둡게/공격 · 번쩍 · 걸음 박자)
+var _sync_half := 0
 func _sync() -> void:
+	_sync_half = 1 - _sync_half
 	var bufs := {}
 	for k in _bufs:
 		bufs[k] = _bufs[k]
-	for e in entries:
+	var lst: Array = entries
+	if _gpu and not _cpu_full:
+		for sq0 in order:
+			for f in sq0.changed_figs:
+				var ce = _entry_of.get(f)
+				if ce != null and not _cpu_list.has(ce):
+					_cpu_list.append(ce)
+			sq0.changed_figs.clear()
+		lst = _cpu_list
+	for e in lst:
 		var sq: Squad = e[0]
 		var s = e[1]
+		if _gpu and not e[6] and s.alive:
+			if not e[10]:          # 살아 있는 병사는 GPU 가 그린다 —— CPU 쪽은 한 번 숨겨 둔다
+				var hb0: PackedFloat32Array = bufs[e[2]]
+				_hide(hb0, e[3] * 16)
+				bufs[e[2]] = hb0
+				if e[4] != "":
+					var wb0: PackedFloat32Array = bufs[e[4]]
+					_hide(wb0, e[5] * 16)
+					bufs[e[4]] = wb0
+				e[10] = true
+				e[7] = false
+				s.drawn = Vector3(1e9, 0, 0)
+			continue
+		e[10] = false
 		if e[7]:
 			if s.alive and sq.state != "gone":
 				e[7] = false            # 보충병으로 되살아났다
@@ -1055,9 +1365,15 @@ func _sync() -> void:
 			continue
 		var walking: bool = s.walk != s.walk_drawn
 		s.walk_drawn = s.walk
+		var broken: bool = not dead and sq.armor_broken      # 11/3 파갑 · 쇄갑 —— 갑옷이 녹슬고 금 간 색으로
+		var bflash: float = 0.0 if dead else clampf(1.0 - (clock - sq.break_t) / 0.3, 0.0, 1.0)      # 파갑이 터진 순간 (짧고 옅게)
+		var spot: bool = not dead and sq == focus_sq and focus_t > 0.0                               # 비네트 집중 부대
 		# 그대로 서 있고 동작도 없으면 지난번 값을 그대로 둔다
 		var anim: bool = dead or clock - s.atk_t0 < Squad.ATTACK_TIME or clock - s.hit_t < 0.3 or sq.cheer \
-			or (s.spawn_t >= 0 and clock - s.spawn_t < 0.5) or s.air > 0.0 or walking != s.drawn_mv
+			or (s.spawn_t >= 0 and clock - s.spawn_t < 0.5) or s.air > 0.0 or walking != s.drawn_mv or broken != s.drawn_br or bflash > 0.0 or spot
+		# 11/3 병사 2,000명 —— 동작 없이 자리만 옮기는 병사는 두 조로 나눠 한 프레임씩 번갈아 쓴다 (동기화 시간 절반)
+		if not anim and (e[3] & 1) != _sync_half:
+			continue
 		var wang := _weapon_angle(sq, s, wk, not dead) if wk != "" else 0.0
 		# 눈에 띄지 않을 만큼만 움직였으면 건너뛴다 (0.5cm · 0.2도)
 		if not anim and absf(s.pos.x - s.drawn.x) < 0.05 and absf(s.pos.y - s.drawn.y) < 0.05 \
@@ -1066,6 +1382,7 @@ func _sync() -> void:
 		s.drawn = Vector3(s.pos.x, s.pos.y, s.yaw)
 		s.drawn_w = wang
 		s.drawn_mv = walking
+		s.drawn_br = broken
 		var x: float = s.pos.x * S
 		var z: float = s.pos.y * S
 		var y: float = height(x, z) + s.air
@@ -1080,7 +1397,19 @@ func _sync() -> void:
 			if not baked:
 				b = b * Basis(Vector3.RIGHT, s.fall * u * PI * 0.48)
 			g = 0.42 * u
-			settle = u >= 1.0 and s.air <= 0.0
+			# 11/4 사용자: 시신이 사라지게 —— CORPSE_LIFE 초 뒤 땅으로 가라앉아 없어진다 (병사 5,000명이면 시신이 땅을 덮었다)
+			var sink := clampf((clock - s.die_t - CORPSE_LIFE) / CORPSE_SINK, 0.0, 1.0) if s.air <= 0.0 else 0.0
+			y -= sink * 1.6
+			g += 0.25 * sink
+			if sink >= 1.0:
+				_hide(bbuf, o)
+				bufs[e[2]] = bbuf
+				if wk != "":
+					var hb2: PackedFloat32Array = bufs[wk]
+					_hide(hb2, e[5] * 16)
+					bufs[wk] = hb2
+				e[7] = true
+				continue
 		else:
 			var cav: bool = e[8]
 			y += absf(sin(s.walk * 0.9)) * (0.16 if cav else 0.08)
@@ -1106,6 +1435,12 @@ func _sync() -> void:
 		var p := Vector3(x, y, z)
 		var r0: float = (0.0 if sq.camp == "A" else 1.0) + s.tint * 0.5
 		var step_ph: float = fposmod(s.walk * 0.9 / TAU, 1.0) + (0.0 if walking else 2.0)
+		if bflash > 0.0:
+			flash = maxf(flash, 0.4 * bflash)
+		elif spot:
+			flash = maxf(flash, 0.28 + 0.12 * sin(clock * 14.0))       # 주인공 부대만 밝게
+		elif broken and flash <= 0.0:
+			flash = -0.7          # 셰이더: b < 0 이면 갑옷 깨짐
 		_put(bbuf, o, b, p, r0, g, flash, step_ph)
 		bufs[e[2]] = bbuf
 		if wk != "":
@@ -1122,6 +1457,13 @@ func _sync() -> void:
 			_put(wb, e[5] * 16, wbasis, p + b * hand, r0, g, flash, step_ph)
 			bufs[wk] = wb
 		e[7] = settle
+	if _gpu:
+		# 장수는 늘, 시신은 다 넘어질 때까지만, 숨긴 산 병사는 빼고
+		_cpu_list = lst.filter(func(e): return (e[6] and not e[7]) or (not e[1].alive and not e[7]))
+		_cpu_full = false
+		if lst == entries:
+			for sq0 in order:
+				sq0.changed_figs.clear()
 	for k in bufs:
 		_bufs[k] = bufs[k]
 		var mmi: MultiMeshInstance3D = bodies.get(k, weapons.get(k))
@@ -1192,9 +1534,17 @@ func _auto_frame() -> void:
 	var rt := Vector2(-sin(want_yaw), cos(want_yaw))
 	var all := PackedVector2Array()
 	var hot := PackedVector2Array()
-	for sq in order:
-		if not sq.alive or sq.state == "gone":
-			continue
+	# 11/3 사용자: 병사의 바다가 화면을 채우게 —— 맨 끝에 처진 부대까지 다 담지 않고, 가운데에 몰린 부대 75% 만 담는다
+	var live: Array = order.filter(func(q): return q.alive and q.state != "gone")
+	if live.is_empty():
+		return
+	var cen := Vector2.ZERO
+	for sq in live:
+		cen += sq.pos
+	cen /= live.size()
+	live.sort_custom(func(a, b): return a.pos.distance_squared_to(cen) < b.pos.distance_squared_to(cen))
+	live = live.slice(0, maxi(4, ceili(live.size() * CORE_SHARE)))
+	for sq in live:
 		var p: Vector2 = sq.pos * S
 		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 0.8
 		var busy: bool = sq.contact or (sq.engaged != null and sq.moving)
@@ -1212,7 +1562,9 @@ func _auto_frame() -> void:
 		tv = th / aspect
 	else:
 		th = tv * aspect
-	var res := _fit(all, fw, rt, th, tv)      # 10/31 싸우는 곳만 당겨 담던 것은 뺐다 —— 늘 전장 전체를 여유 있게
+	# 11/3 싸움이 한창이면 맞붙은 곳만 바짝 담는다 (뒤에 처진 부대는 화면 끝에 걸쳐도 된다). 개전 · 행군 중엔 전장 전체
+	var hot_on := hot.size() >= all.size() * HOT_SHARE and hot.size() >= 16
+	var res := _fit(hot if hot_on else all, fw, rt, th, tv)
 	var nd := maxf(AUTO_MIN, res[0] * AUTO_MARGIN)
 	# 조금씩 바뀌는 것은 무시한다 —— 화면이 출렁이지 않게 (넓어질 때는 바로, 좁아질 때는 10% 넘게 줄 때만)
 	if nd > want_dist or nd < want_dist * 0.9:
@@ -1290,8 +1642,8 @@ func reset_camera() -> void:
 	cam_dist = 24.0
 	want_t = Vector3(-4, 0, 0)
 	want_yaw = BASE_YAW
-	want_pitch = 0.88 if portrait else 0.75     # 10/31 더 높이서 내려다본다 (삼국지13)
-	want_dist = 78.0 if portrait else 86.0
+	want_pitch = 0.78 if portrait else 0.68     # 10/31 0.88 높이서 → 11/3 조금 눕혀 군단이 겹쳐 두꺼워 보이게
+	want_dist = 62.0 if portrait else 70.0      # 11/3 입장 끝 거리도 당김 (예전 78 · 86)
 	cam_rate = 0.9
 	_intro = 3.5
 	_manual = 0.0
@@ -1385,7 +1737,7 @@ func to_screen(p: Vector2, lift: float) -> Vector2:
 ## 세로 화면 —— 세로 화각을 좁혀 원근 왜곡을 줄인다. 양 날개는 자동 카메라가 거리로 맞춘다
 func set_portrait(on: bool) -> void:
 	if on != portrait and _cine <= 0:
-		want_pitch = 0.88 if on else 0.75
+		want_pitch = 0.78 if on else 0.68
 	portrait = on
 	cam.keep_aspect = Camera3D.KEEP_HEIGHT
 	cam.fov = 62.0 if on else 50.0
@@ -1792,8 +2144,8 @@ func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 		if overview and not emph:
 			nshot = 0 if light else 3       # 멀리 볼 때 평타 화살은 거의 안 날린다 (공격 화살표가 알린다)
 		for i in mini(nshot, shooters.size() + 6):       # 평타 화살은 적게
-			var p0 := p3(shooters[rng.randi() % shooters.size()].pos, 1.5)
-			var tp: Vector2 = targets[rng.randi() % targets.size()].pos if not targets.is_empty() else d.pos
+			var p0 := p3(a.fig_pos(shooters[rng.randi() % shooters.size()]), 1.5)
+			var tp: Vector2 = d.fig_pos(targets[rng.randi() % targets.size()]) if not targets.is_empty() else d.pos
 			var p1 := p3(tp + Vector2(rng.randf_range(-8, 8), rng.randf_range(-8, 8)), 0.1)
 			var dist := p0.distance_to(p1)
 			arrows.append({"p0": p0, "p1": p1, "t0": clock + rng.randf() * 0.2, "dur": 0.55 + dist / 75.0,
@@ -2120,7 +2472,125 @@ func _burst(p: Vector3, st: String, col: Color) -> void:
 			_light(p, col, 2.5, 0.5)
 
 
+## 11/3 이감 (둔화 · 수몰) —— 발 묶인 부대 발밑에 물빛 소용돌이가 돈다. 파갑 —— 갑옷 깨짐 표시 켜기
+var slow_marks := {}          # 부대 key -> [소용돌이 Decal, 마법진 Decal, 물방울 입자]
+var _swirl_tex: Texture2D = null
+func _slow_marks() -> void:
+	for sq in order:
+		var br: bool = sq.alive and sq.statuses.has("cut_def")
+		if br and not sq.armor_broken:
+			sq.break_t = clock        # 파갑 —— 병사가 잠깐 옅게 번쩍만 (11/3 사용자 2차: 기믹 티를 내지 않는다)
+		sq.armor_broken = br
+		var on: bool = sq.alive and sq.state != "gone" and sq.statuses.has("flood")
+		var m: Array = slow_marks.get(sq.key, [])
+		if on and m.is_empty():
+			m = [_slow_decal(_swirl(), 0.0)]
+			slow_marks[sq.key] = m
+		if m.is_empty():
+			continue
+		if not on:
+			for x in m:
+				if is_instance_valid(x): x.queue_free()
+			slow_marks.erase(sq.key)
+			continue
+		# 11/3 사용자 2차: 발밑 장식이 전장을 지저분하게 만든다 —— 부대 발밑 크기로 작고 옅게, 발광 없이
+		var r: float = (maxf(sq.cols * sq.sp, sq.depth()) * 0.9 + 6.0) * S
+		var d0: Decal = m[0]
+		d0.size = Vector3(r, 4.0, r)
+		d0.position = p3(sq.pos - sq.fwd * sq.depth() * 0.5)
+		d0.rotation.y = fposmod(clock * 0.8, TAU)
+		d0.modulate.a = 0.2
+
+
+func _slow_decal(tex: Texture2D, energy: float) -> Decal:
+	var d := Decal.new()
+	d.texture_albedo = tex
+	if energy > 0.0:
+		d.texture_emission = _premul(tex)      # 발광은 알파로 가려지지 않는다 —— 투명한 곳은 검게 (안 그러면 흰 사각판이 깔린다)
+		d.emission_energy = energy
+	d.modulate = Color("#58b4ff")
+	d.albedo_mix = 1.0
+	d.upper_fade = 0.3
+	d.lower_fade = 0.3
+	d.cull_mask = 1
+	unit_root.add_child(d)
+	return d
+
+
+## 파갑 —— 부대 병사가 0.5초 동안 강하게 번쩍(주황 → 흰빛)하고, 갑옷 파편이 튀고, 고리 · 빛이 터진다
+var on_break := Callable()     # BattleView 가 "파갑!" 글자를 띄운다
+func _armor_break(sq: Squad) -> void:
+	sq.break_t = clock
+	var c := p3(sq.pos - sq.fwd * sq.depth() * 0.5, 1.2)
+	var em := _particles(c, "magic", Color("#ffb347"))
+	em.amount = 28
+	em.emission_sphere_radius = maxf(3.0, sq.cols * sq.sp * S * 0.5)
+	_ring(c, Color("#ffb347"), 0.6)
+	_light(c + Vector3(0, 2, 0), Color("#ffa040"), 5.0, 0.4)
+	if on_break.is_valid():
+		on_break.call(sq.key)
+
+
+var _premul_cache := {}
+func _premul(tex: Texture2D) -> Texture2D:
+	if _premul_cache.has(tex):
+		return _premul_cache[tex]
+	var img := tex.get_image()
+	img.convert(Image.FORMAT_RGBA8)
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(c.r * c.a, c.g * c.a, c.b * c.a, 1.0))
+	var t := ImageTexture.create_from_image(img)
+	_premul_cache[tex] = t
+	return t
+
+
+## 바깥 마법진 —— 두 겹 고리 + 그 사이 눈금(룬 자리) 열둘
+var _rune_tex: Texture2D = null
+func _rune() -> Texture2D:
+	if _rune_tex:
+		return _rune_tex
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var v := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0) / (n / 2.0)
+			var r := v.length()
+			var ang := atan2(v.y, v.x)
+			var a := exp(-pow((r - 0.95) / 0.025, 2.0)) + exp(-pow((r - 0.78) / 0.02, 2.0)) * 0.9
+			if r > 0.8 and r < 0.93:
+				var tick := absf(fposmod(ang * 12.0 / TAU, 1.0) - 0.5)
+				a += clampf((0.08 - tick) * 14.0, 0.0, 1.0) * 0.9
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(a, 0.0, 1.0)))
+	_rune_tex = ImageTexture.create_from_image(img)
+	return _rune_tex
+
+
+## 소용돌이 무늬 —— 바깥 고리 + 안쪽으로 감기는 팔 셋
+func _swirl() -> Texture2D:
+	if _swirl_tex:
+		return _swirl_tex
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var v := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0) / (n / 2.0)
+			var r := v.length()
+			if r > 1.0:
+				img.set_pixel(x, y, Color(1, 1, 1, 0))
+				continue
+			var ang := atan2(v.y, v.x)
+			var arm := pow(0.5 + 0.5 * cos(3.0 * ang + r * 9.0), 6.0)
+			var ring := exp(-pow((r - 0.9) / 0.05, 2.0))
+			var a := clampf(arm * smoothstep(0.1, 0.5, r) * (1.0 - r) * 1.6 + ring * 0.9 + 0.12 * (1.0 - r), 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_swirl_tex = ImageTexture.create_from_image(img)
+	return _swirl_tex
+
+
 func _status_fx() -> void:
+	_slow_marks()
 	var live := {}
 	for sq in order:
 		if not sq.alive:

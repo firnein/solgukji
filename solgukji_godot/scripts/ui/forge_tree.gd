@@ -61,6 +61,45 @@ func toggle(k: String) -> void:
 	gs.render()
 
 
+## 갈무리한 장수를 완성했다 —— 갈무리에서 뺀다 (11/3 사용자)
+func done(k: String) -> void:
+	if pins.has(k):
+		pins.erase(k)
+		opened.erase(k)
+		_save()
+		gs.toast("%s 완성 — 갈무리에서 뺐다" % DB.C[k].name, "gain")
+
+
+## 모두 펴기 / 모두 접기 (11/3 사용자) —— 펼 수 있는 재료 경로를 모두 연다
+func open_all(root: String) -> void:
+	if all_open(root):
+		opened.erase(root)
+	else:
+		var o := {}
+		_collect_paths(_node(root, 1, 0, root, "", true), o)
+		opened[root] = o
+	gs.render()
+
+
+func all_open(root: String) -> bool:
+	var o := {}
+	_collect_paths(_node(root, 1, 0, root, "", true), o)
+	if o.is_empty():
+		return false
+	var cur: Dictionary = opened.get(root, {})
+	for p in o:
+		if not cur.has(p):
+			return false
+	return true
+
+
+func _collect_paths(nd: Dictionary, o: Dictionary) -> void:
+	for c in nd.kids:
+		if c.has("k") and not c.ok and DB.RECOF.has(c.k) and not c.kids.is_empty():
+			o[c.path] = true
+		_collect_paths(c, o)
+
+
 ## 갈무리 칸 —— 조합 탭 맨 위
 func build() -> Control:
 	var v := UI.vbox(8)
@@ -122,11 +161,22 @@ func _card(root: String) -> Control:
 	all.disabled = not can or not gs.can_act()
 	all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(all)
-	var x := UI.btn("갈무리 해제", func(): toggle(root), "ghost", 40)
-	x.custom_minimum_size.x = 110
+	var ao := all_open(root)
+	var ob := UI.btn("모두 접기" if ao else "모두 펴기", func(): open_all(root), "", 40)
+	ob.custom_minimum_size.x = 92
+	ob.disabled = not ao and _chain_paths_empty(root)
+	row.add_child(ob)
+	var x := UI.btn("해제", func(): toggle(root), "ghost", 40)
+	x.custom_minimum_size.x = 64
 	row.add_child(x)
 	v.add_child(row)
 	return v
+
+
+func _chain_paths_empty(root: String) -> bool:
+	var o := {}
+	_collect_paths(_node(root, 1, 0, root, "", true), o)
+	return o.is_empty()
 
 
 ## 지금 트리 안에서 하나라도 조합할 수 있는가

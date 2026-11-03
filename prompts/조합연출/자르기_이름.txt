@@ -1,0 +1,5 @@
+조합 완성 연출 배경 (11/3)
+- 01_불멸완성_배경.txt → solgukji_godot/assets/fx/forge_7.png
+- 02_신화강림_배경.txt → solgukji_godot/assets/fx/forge_8.png
+그림이 없어도 연출은 돈다 (어둠 + 등급색 빛줄기). 넣으면 빛줄기 뒤에 75% 밝기로 깔린다.
+불멸 장수 그림은 기본 초상, 신화는 고유기 컷인 그림(assets/portraits/<인물>_신화.png)을 쓴다 —— 남은 신화 그림은 prompts/등급별/4_신화/.

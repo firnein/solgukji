@@ -304,8 +304,14 @@ func _advance() -> void:
 		if s.human:
 			if not s.dead:
 				s.run.advance()
+				# 11/4 점검: Run.advance 가 3일차에 들어설 때 경고 4회면 멸망시킨다 (11/3) —— 방도 같이 처리해야 한다
+				if s.run.over != null and not s.run.over.win:
+					if mode == "test":
+						s.run.over = null       # 점검 모드는 멸망하지 않는다
+					else:
+						s.dead = true
 		else:
-			s.bot.pv += (22 + day * 4 + (4 if phase == 2 else 0)) * s.bot.skill * rng.randf_range(0.9, 1.1)
+			s.bot.pv += Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
 		s.battles = []
 	_mirror()
 	_stage("prep")

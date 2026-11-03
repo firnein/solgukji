@@ -2,7 +2,7 @@
 // INSTANCE_CUSTOM:
 //   r = 진영 + 옷 밝기×0.5   (아군 0~0.5, 적 1~1.5)
 //   g = 시신이면 어둡게(0~0.42), 살아 있으면 -공격 진행(0~1)
-//   b = 번쩍(피격)
+//   b = 번쩍(피격). 음수면 갑옷 깨짐 (파갑 · 쇄갑, 11/3) —— 쇠붙이가 녹슬고 금 간 색, 옷감도 바랜다
 //   a = 걸음 박자(0~1). 서 있으면 2 를 더한다
 // 팔다리는 UV.x(부위)와 UV2(축 자리 x, y)로 모델 좌표 Z 축을 돌며 흔든다 (Models · MeshKit.joint).
 // 작은 화면에서도 진영이 읽히게 옷감은 세력색으로 아주 살짝 빛나고, 윤곽에 약한 테두리 빛을 준다.
@@ -54,10 +54,20 @@ void fragment() {
 	base *= mix(1.0, 0.82 + 0.36 * v_custom.a, COLOR.a);   // 같은 부대라도 옷 색이 조금씩 다르다
 	float alive = 1.0 - v_custom.g * 2.0;
 	base *= 1.0 - v_custom.g;
-	base = mix(base, vec3(1.0, 0.92, 0.85), v_custom.b);
+	float brk = clamp(-v_custom.b, 0.0, 1.0);
+	float fl = max(v_custom.b, 0.0);
+	if (brk > 0.0) {
+		// 쇠붙이(옷감이 아닌 곳)는 녹 · 그을음, 금 간 무늬는 모델 좌표로 (병사마다 달라 보이게 옷 밝기로 밀어 준다)
+		vec3 rust = vec3(0.30, 0.13, 0.06) * (0.7 + 0.6 * vc.r);
+		float crack = step(0.82, fract(sin(dot(floor(UV * 9.0 + v_custom.a * 13.0), vec2(12.9898, 78.233))) * 43758.5453));
+		vec3 broken = mix(rust, vec3(0.05), crack * 0.8);
+		base = mix(base, broken, brk * (1.0 - COLOR.a) * 0.85);
+		base = mix(base, base * vec3(0.72, 0.62, 0.55), brk * COLOR.a * 0.6);     // 옷감도 바래고 그을린다
+	}
+	base = mix(base, vec3(1.0, 0.92, 0.85), fl);
 	ALBEDO = base;
-	ROUGHNESS = mix(0.8, 0.45, step(0.6, vc.b) * (1.0 - COLOR.a));   // 쇠붙이는 조금 반짝인다
-	EMISSION = team * team_glow * COLOR.a * clamp(alive, 0.0, 1.0) + vec3(1.0, 0.9, 0.8) * v_custom.b * 0.6;
+	ROUGHNESS = mix(0.8, mix(0.45, 0.95, brk), step(0.6, vc.b) * (1.0 - COLOR.a));   // 쇠붙이는 조금 반짝인다 (깨지면 윤기가 없다)
+	EMISSION = team * team_glow * COLOR.a * clamp(alive, 0.0, 1.0) + vec3(1.0, 0.9, 0.8) * fl * 0.6 + vec3(0.9, 0.35, 0.1) * brk * 0.08 * (0.6 + 0.4 * sin(TIME * 5.0));
 	RIM = 0.2 * clamp(alive, 0.0, 1.0);     // 세면 작은 병사가 빛 덩어리로 뭉개진다
 	RIM_TINT = 0.3;
 }

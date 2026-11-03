@@ -197,6 +197,11 @@ static func by_tier_tag(t: int, tag: String) -> Array:
 	return DB.by_tier(t).filter(func(k): return DB.C[k].tag == tag)
 
 
+## 선택권 · 배급으로 받을 수 있는 카드 —— 기인은 조합으로만 (11/3 사용자: 전설 선택권에 기인이 나오지 않게)
+static func pickable(t: int, tag := "") -> Array:
+	return DB.by_tier(t).filter(func(k): return not DB.is_kiin(k) and (tag == "" or DB.C[k].tag == tag))
+
+
 # ───────── 아이템 ─────────
 
 func gain_item() -> String:
@@ -317,23 +322,33 @@ func equipped_count() -> int:
 	return equip.filter(func(e): return e != null).size()
 
 
-## 가방에서 병종이 맞는 최상 등급을 고른다. 유니크 재료는 장착하지 않고 조합용으로 남긴다
+## 가방에서 병종이 맞는 최상 등급을 고른다. 유니크 재료는 신화를 아직 만들 수 있을 때만 조합용으로 남긴다
+## (11/3 사용자: 자동 편성이 상위 아이템을 끼우지 않는다 —— 신화는 한 판에 하나라, 만든 뒤 남은 유니크는 늘 가방에 묵었다)
 func recommend_items() -> Array:
 	var used := {}
 	var eq := _nine()
 	var order := ["유니크", "레어", "매직", "일반"]
+	var keep_uniq := not has_myth()
 	var slots := []
 	for i in 9:
-		if board[i] != null and DB.C[board[i]].kind != "myth":
+		if board[i] != null and innate_item(board[i]) == null:
 			slots.append(i)
-	slots.sort_custom(func(a, b): return DB.C[board[a]].tier > DB.C[board[b]].tier)
+	slots.sort_custom(func(a, b):
+		if DB.C[board[a]].tier != DB.C[board[b]].tier:
+			return DB.C[board[a]].tier > DB.C[board[b]].tier
+		return DB.C[board[a]].pv > DB.C[board[b]].pv)
 	for i in slots:
 		var k: String = board[i]
 		var cand: Array = bag.keys().filter(func(it): return DB.IT[it].tag == DB.C[k].tag \
-			and bag[it] - used.get(it, 0) > 0 and DB.IT[it].use != "myth")
+			and bag[it] - used.get(it, 0) > 0 and not (keep_uniq and DB.IT[it].use == "myth"))
 		if cand.is_empty():
 			continue
-		cand.sort_custom(func(a, b): return order.find(DB.IT[a].grade) < order.find(DB.IT[b].grade))
+		cand.sort_custom(func(a, b):
+			var ga := order.find(DB.IT[a].grade)
+			var gb := order.find(DB.IT[b].grade)
+			if ga != gb:
+				return ga < gb
+			return DB.IT[a].pa + DB.IT[a].sa > DB.IT[b].pa + DB.IT[b].sa)
 		eq[i] = cand[0]
 		used[cand[0]] = used.get(cand[0], 0) + 1
 	return eq
@@ -626,7 +641,9 @@ func random_grant() -> Array:
 	var got := []
 	for p in DB.D.RANDOM_GRANT[day]:
 		var t := mini(FREE_TIER_CAP, int(p.t))
-		var src: Array = DB.by_tier(t).filter(func(x): return DB.C[x].tier < 8)
+		var src: Array = pickable(t).filter(func(x): return DB.C[x].tier < 8)
+		if src.is_empty():
+			continue
 		for i in int(p.n):
 			var k: String = src[rng.randi() % src.size()]
 			give(k)
@@ -641,8 +658,14 @@ func grant_list() -> Array:
 
 # ───────── 진행 ─────────
 
+## 봇 성장 (페이즈마다) —— 11/4 사용자: 대전이 거의 늘 이긴다 → 봇을 더 강하게. 예전 22 + 일차×4 (+저녁 4) 의 약 1.6~1.75배
+## (2일차 저녁 봇 약 180 → 약 310 PV, 7일차 끝 약 890 → 약 1,570 PV, 실력 계수 평균 1.27 기준). 서버(room.gd)도 이것을 쓴다
+static func bot_pv_gain(d: int, p: int) -> float:
+	return 28 + d * 5.5 + (5 if p == 2 else 0)
+
+
 func _bot_pv_gain(d: int, p: int) -> float:
-	return 22 + d * 4 + (4 if p == 2 else 0)
+	return bot_pv_gain(d, p)
 
 
 ## 봇 등용 소식 —— 실제로 편성 가능한 최고 등급이 올라갔을 때만 알린다
@@ -763,6 +786,12 @@ func quest_roster():
 	return DB.QUEST_ROSTERS[day][phase]
 
 
+## 11/3 수입을 약 70% 로 줄이며 (DB.ECON) 토벌 황건 편성은 예전 수입에 맞춘 그대로라 —— 적 사기로 낮춘다 (사기는 모든 능력치에, 70 → 0.88배)
+const QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
+func quest_morale_mul() -> float:
+	return float(QUEST_MORALE[clampi(day, 0, 6)]) if DB.ECON_ON else 1.0
+
+
 func quest_name() -> String:
 	var q = quest_roster()
 	return q.name if q != null else DB.D.QUESTS[day][phase]
@@ -781,7 +810,7 @@ func start_quest() -> Dictionary:
 		# 정해진 황건 편성 —— 장비 없이, 덱에 맞는 작전 (11/2 사용자: 토벌이 너무 어려워졌다)
 		var cards := DB.auto_place(q.cards, q.form)
 		var eq: Array = q.get("equip", [])
-		foe = {"cards": cards, "form": q.form, "morale": int(q.get("morale", 100)),
+		foe = {"cards": cards, "form": q.form, "morale": int(int(q.get("morale", 100)) * quest_morale_mul()),
 			"equip": eq, "tac": recommend_tac(cards)[0]}      # 장비는 맞출 때 auto_place 자리 그대로 (같은 순서라 자리가 같다)
 	else:
 		var styles := ["물리", "지략", "균형"]
@@ -1054,7 +1083,7 @@ func ticket_left() -> int:
 
 ## 선택권 하나 —— 그 카드 등급의 선택권을 쓴다
 func pick(k: String) -> bool:
-	if not DB.C.has(k):
+	if not DB.C.has(k) or DB.is_kiin(k) or DB.is_foe(k):
 		return false
 	var key := str(DB.C[k].tier)
 	if int(tickets.get(key, 0)) <= 0:
@@ -1243,7 +1272,7 @@ func _dev_spend() -> void:
 	var chain := _dev_chain()
 	while ticket_left() > 0:
 		# 조합에 가장 가까워지는 카드를 고른다 (11/2: 줄기 재편 뒤 아무 카드나 고르면 전설을 못 만든다 —— 사람처럼 노리고 고른다)
-		var pl: Array = DB.by_tier(ticket_tiers()[0])
+		var pl: Array = pickable(ticket_tiers()[0])
 		var best := []
 		var best_s := 999
 		for k in pl:

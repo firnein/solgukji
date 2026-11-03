@@ -5,6 +5,7 @@ extends RefCounted
 
 const PATH := "user://settings.cfg"
 const QUALITY_N := ["낮음", "중간", "높음"]
+const FULL_COUNT_DEBUG := true
 const COUNT_SCALE := [0.4, 0.65, 1.0]     # 병사 수 배율 (Squad.count_scale)
 const SHADOW := [1024, 2048, 4096]
 const RES_SCALE := [0.75, 0.9, 1.0]      # 전장 3D 해상도 (화면 실제 픽셀 대비) —— 낮으면 병사가 뿌옇다
@@ -16,6 +17,7 @@ static var sfx_vol := 0.8      # 효과음 크기 (0 끔 ~ 1)
 static var bgm_vol := 0.5      # 배경 음악 크기
 static var dots := false      # 전장 표현 —— 3D(삼국지13식, 11/1 사용자: 기본으로 되돌림) / 점묘(블라인드삼국식 2D)
 static var sumuk := false      # 전장 화풍 —— 수묵(삼국지11 시안) 후처리 (10/31)
+static var type2 := false      # 전장 표현 '타입2' —— 삼국지11 식 지도판 · 병사 인형 · 성씨 깃발 (11/3, scripts/field/type2_view.gd)
 static var _loaded := false
 
 
@@ -31,6 +33,7 @@ static func load_cfg() -> void:
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
 		bgm_vol = float(cf.get_value("sound", "bgm", 0.5))
 		sumuk = bool(cf.get_value("gfx", "sumuk", false))
+		type2 = bool(cf.get_value("gfx", "type2", false))
 		dots = false     # 11/3 사용자: 점묘 옵션을 숨겼다 —— 저장값과 상관없이 3D (점검용 --gdots / --dots 로만 켠다)
 	if quality < 0:
 		quality = 0 if OS.has_feature("mobile") else 2
@@ -45,12 +48,15 @@ static func save_cfg() -> void:
 	cf.set_value("sound", "sfx", sfx_vol)
 	cf.set_value("sound", "bgm", bgm_vol)
 	cf.set_value("gfx", "sumuk", sumuk)
+	cf.set_value("gfx", "type2", type2)
 	cf.set_value("gfx", "dots_v2", dots)
 	cf.save(PATH)
 
 
 static func apply() -> void:
 	Squad.count_scale = COUNT_SCALE[quality]
+	if FULL_COUNT_DEBUG and (OS.is_debug_build() or not OS.has_feature("mobile")):
+		Squad.count_scale = 1.0     # 11/3 사용자: PC · 디버그 · 테스트 빌드는 품질과 상관없이 병사를 다 풀어 놓는다 (릴리스 휴대폰만 품질대로)
 
 
 ## 전장 뷰포트에 품질을 건다 (BattleView 가 만든 SubViewport)

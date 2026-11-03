@@ -23,13 +23,17 @@ extends RefCounted
 const CLS := {"창병": "melee", "도적": "melee", "기병": "cav", "궁병": "ranged",
 	"책사": "caster", "유생": "caster", "술사": "caster", "모사": "caster"}
 ## 등급별 병사 인형 수 —— 기병은 절반, 지략 계열은 호위대까지 쳐서 절반 남짓
-const COUNT := {1: 30, 2: 36, 3: 44, 4: 52, 5: 62, 6: 78, 7: 96, 8: 120}     # 11/2 사용자: 고등급은 군집 규모로 압도 (예전 36 ~ 96)
+const COUNT := {1: 64, 2: 68, 3: 72, 4: 80, 5: 90, 6: 105, 7: 125, 8: 150}     # 11/3 사용자: 병사 수 자체가 너무 적다 —— 일반 60~80 · 신화 150 (예전 30 ~ 120)
 ## 등급별 병사 몸집 · 간격 배율 —— 초월 위는 정예라 크고 넓게 선다
 const TIER_SIZE := {6: 1.1, 7: 1.2, 8: 1.32}
 ## 장수 인형 크기
 const GEN_SIZE := {6: 1.45, 7: 1.6, 8: 1.85}
 static var count_scale := 1.0   # 품질 설정 —— 모바일은 병사 수를 줄인다 (Settings)
-const DENSITY := 1.1            # 11/2 사용자: 한 칸에 바글바글한 게 아니라 군집이 커 보이길 —— 수는 줄이고(2.4 → 1.1) 간격을 넓혀 덩치는 유지
+## 11/3 GPU 병사 (War3D._gpu) —— 살아 있는 병사는 셰이더가 대열 자리에 그리므로 병사마다 걷기 계산을 하지 않는다.
+## 병력이 줄면 뒷자리(slot 큰 쪽)부터 지우고(대열이 뒤에서 줄어든다), 쓰러지는 병사는 앞줄 자리에 놓아 CPU 가 넘어뜨린다
+static var gpu := false
+const CPU_SHARE := 0.33         # GPU 가 아닐 때(점묘 · 타입2) 병사 수 배율 —— 예전 수(약 1,700명)로
+static var DENSITY := 3.5            # 11/3 GPU 병사 —— 후반 대전 약 5,000명 (예전 1.15 ≈ 1,700명). 2D 전장(점묘 · 타입2)은 CPU 라 CPU_SHARE 만큼만 —— 11/3 사용자: 1,000~2,000명이 바글바글한 '병사의 바다' 로 (11/2 의 1.1 · 넓은 간격에서 수를 늘리고 간격을 좁힘)
 ## 이동 속도 (px/초) —— 기병은 돌격 때 더 빨라진다
 const SPEED := {"창병": 62.0, "도적": 80.0, "기병": 95.0, "궁병": 55.0,
 	"책사": 50.0, "유생": 50.0, "술사": 52.0, "모사": 52.0}
@@ -48,6 +52,9 @@ const FLEE_OUT := 110.0     # 패주하는 부대는 전장 밖으로 이만큼�
 class Soldier:
 	var pos: Vector2
 	var slot := 0             # 대열 안 자리 (재정렬하면 바뀐다)
+	var slot_old := -1        # GPU —— 걸어 나오기 전 자리 (-1 이면 없음)
+	var move_t := -99.0       # GPU —— 자리를 옮기기 시작한 시각
+	var gseed := 0.0          # GPU —— 병사 씨앗
 	var jit: Vector2          # 자리마다 조금씩 어긋나게
 	var alive := true
 	var die_t := -1.0         # 쓰러지는 시각
@@ -70,6 +77,7 @@ class Soldier:
 	var wander_t := 0.0       # 다음에 자리를 살짝 바꿀 시각
 	var walk_drawn := 0.0     # 마지막으로 그린 걸음 —— 바뀌었으면 걷는 중
 	var drawn_mv := false
+	var drawn_br := false     # 마지막으로 그린 '갑옷 깨짐(파갑)' —— 바뀌면 다시 쓴다
 	var air := 0.0            # 공중에 뜬 높이 (m) —— 고유기에 날아간다
 	var vy := 0.0             # 위로 솟는 속도 (m/초)
 	var spin := 0.0           # 날아가며 뒤집힌 각
@@ -110,6 +118,9 @@ var alive := true
 var fade := 1.0
 var glow := 0.0
 var hurt := 0.0
+var shove_t := 0.0          # 다음 전선 떠밀기 시각 (War3D._shove)
+var break_t := -99.0        # 파갑이 터진 시각 (번쩍)
+var armor_broken := false   # 파갑 · 쇄갑을 맞아 방어가 깎였다 (War3D 가 병사 갑옷을 녹슨 색으로)
 var cheer := false
 var loose := 0.0          # 흐트러짐 0~1
 # 지금 하는 일 (CombatFx 가 적는다) —— melee · shoot · cast, 친 시각, 친 상대. 공격 화살표 · 이름표 아이콘이 읽는다
@@ -124,6 +135,17 @@ var ptgt: Squad = null
 var ptouch := false
 var _rk := 1              # 이번 프레임의 줄 수 (매번 세지 않도록)
 var _figs: Array = []     # 병사 + 장수 (한 번 만들어 계속 쓴다)
+var _alive := 0           # 살아 있는 병사 수 (set_troops 가 맞춘다 —— 매번 세지 않는다)
+var walk_acc := 0.0       # GPU 병사 걸음 박자 —— 부대가 움직인 거리
+var shove_v := 0.0        # GPU 병사 떠밀기 (+ 뒤로 · − 앞으로, px) —— War3D 가 넣고 줄인다
+var flee_t := 0.0         # 패주한 지 몇 초
+var changed_figs := []    # GPU —— 이번에 쓰러지거나 되살아난 병사 (War3D._sync 가 가져간다)
+var moved_figs := []      # GPU —— 자리가 바뀐(쓰러져 숨기거나 앞으로 걸어 나온) 병사 (War3D._gpu_sync 가 인스턴스 값을 고친다)
+var cell := []            # GPU —— 대열 칸 -> 병사 (빈칸 null). 앞줄이 쓰러지면 그 열 뒷사람들이 한 칸씩 걸어 나온다
+var gpos_slow := Vector2.ZERO   # GPU —— 늦게 따라오는 부대 위치 · 방향 (병사마다 섞어 대열이 휘고 늘어진다)
+var gfwd_slow := Vector2.RIGHT
+var gsq := Vector2.ONE      # GPU —— 대열 압축 (앞뒤, 좌우). 옆 부대와 겹치지 않게 그쪽 방향으로 좁힌다
+var gfront := 0.0         # GPU —— 앞줄 오프셋을 부드럽게 (줄 수가 바뀔 때 대열이 툭 튀지 않게)
 var _slice := 0           # 가만히 선 부대는 병사를 네 조로 나눠 번갈아 움직인다
 var _rng: RandomNumberGenerator
 
@@ -143,22 +165,27 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	home = at
 	pos = at
 	fwd = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
-	var n: int = maxi(12, roundi(COUNT[tier] * count_scale * DENSITY))
+	var n: int = clampi(roundi(COUNT[tier] * count_scale * DENSITY * (1.0 if gpu else CPU_SHARE)), 12, 900)     # GPU 칸 번호는 1024 안 (셰이더 인코딩)
 	match cls:
 		"cav":
-			n = maxi(12, n / 2)
-			sp = 14.0
+			n = maxi(12, int(n * 0.75))
+			sp = 12.0
 			cols = 9
 		"caster":
-			n = maxi(12, int(n * 0.45))
-			sp = 9.5
+			n = maxi(12, int(n * 0.7))
+			sp = 8.5
 			cols = 7
 		_:
-			sp = 8.0
+			sp = 7.0
 			cols = 14
 	sp *= TIER_SIZE.get(tier, 1.0)
+	cols = maxi(cols, roundi(sqrt(n) * (1.5 if cls == "cav" else 1.35)))      # 11/3 병사가 많으면 넓적한 방진으로 (14열 고정이면 긴 뱀이 된다)
 	for i in n:
 		soldiers.append(_new_soldier(i))
+	_alive = n
+	cell = soldiers.duplicate()
+	cell.resize(ceili(float(n) / cols) * cols)
+	_gpu_rows = ceili(float(n) / cols)
 	if tier >= 3:
 		general = _new_soldier(0)
 	_figs = soldiers.duplicate()
@@ -189,14 +216,23 @@ func all_figures() -> Array:
 
 
 func alive_count() -> int:
-	var n := 0
-	for s in soldiers:
-		if s.alive: n += 1
-	return n
+	return _alive
 
 
 func ranks() -> int:
+	if gpu and not cell.is_empty():
+		return _gpu_rows
 	return maxi(1, ceili(float(maxi(1, alive_count())) / cols))
+
+
+var _gpu_rows := 1
+func _recount_rows() -> void:
+	var last := -1
+	for i in range(cell.size() - 1, -1, -1):
+		if cell[i] != null:
+			last = i
+			break
+	_gpu_rows = maxi(1, last / cols + 1)
 
 
 func depth() -> float:
@@ -222,8 +258,41 @@ func _desired(s: Soldier) -> Vector2:
 	return front - fwd * (rk * sp * 0.92) + right() * lateral + s.jit
 
 
+## 병사가 지금 서 있는 자리 —— GPU 병사는 위치를 따로 갖지 않으므로 대열 자리로 (화살 · 쓰러질 자리 계산용)
+func fig_pos(s: Soldier) -> Vector2:
+	if gpu and s.alive and s != general:
+		return gpu_pos(s.slot) + s.jit * 0.6
+	return s.pos
+
+
+## GPU 병사가 그려지는 자리 (셰이더 soldier_gpu 의 대열 · 늦게 따라오기 · 압축 · 물결을 평균 병사로)
+func gpu_pos(slot: int) -> Vector2:
+	var rows: float = maxf(1.0, _gpu_rows)
+	var rk := slot / cols
+	var c := slot % cols
+	var half := (cols - 1) / 2.0
+	var edge := absf(c - half) / maxf(half, 1.0)
+	var lag := clampf(1.0 - (rk / rows) * 0.7 - edge * 0.25 - 0.15, 0.08, 1.0)
+	var p0 := gpos_slow.lerp(pos, lag)
+	var f0 := gfwd_slow.lerp(fwd, lag).normalized()
+	var r0 := Vector2(-f0.y, f0.x)
+	var lx := -(rk * sp * 0.92) * gsq.x
+	var ly := (c - half + (0.5 if rk % 2 == 1 else 0.0)) * sp * gsq.y
+	return p0 + f0 * (gfront * gsq.x + lx) + r0 * ly
+
+
+## 대열 자리 (어긋남 없이) —— 셰이더(soldier_gpu)와 같은 식
+func slot_pos(slot: int) -> Vector2:
+	var front := pos + fwd * (_rk - 1) * sp * 0.5 * gsq.x
+	var rk := slot / cols
+	var c := slot % cols
+	return front - fwd * (rk * sp * 0.92 * gsq.x) + right() * ((c - (cols - 1) / 2.0 + (0.5 if rk % 2 == 1 else 0.0)) * sp * gsq.y)
+
+
 ## 살아남은 병사로 대열을 다시 짠다 —— 앞줄부터 채우되, 지금 서 있는 자리와 가까운 순서를 지킨다
 func relayout() -> void:
+	if gpu:
+		return              # GPU 는 자리가 고정 (살아 있는 수만큼 앞에서부터 그린다)
 	var live := soldiers.filter(func(s): return s.alive)
 	live.sort_custom(func(a, b): return a.slot < b.slot)
 	for i in live.size():
@@ -270,6 +339,7 @@ func _turn_toward(v: Vector2, dt: float) -> void:
 func update(dt: float, clock: float) -> void:
 	if state == "gone":
 		return
+	var pos0 := pos
 	var speed: float = SPEED[tag]
 	moving = false
 	_rk = ranks()
@@ -316,6 +386,9 @@ func update(dt: float, clock: float) -> void:
 				want_dir = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 		_turn_toward(want_dir, dt)
 	pos = keep_in(pos)
+	walk_acc += pos.distance_to(pos0) * 0.55
+	if state == "flee":
+		flee_t += dt
 
 	if contact:
 		loose = minf(1.0, loose + dt * LOOSE_IN)
@@ -331,9 +404,12 @@ func update(dt: float, clock: float) -> void:
 	var calm: bool = not moving and not contact and state != "flee" and not cheer and loose <= 0.0
 	_slice = (_slice + 1) % 4
 	var sdt := dt * 4.0 if calm else dt
-	for s: Soldier in _figs:
+	var figs: Array = _figs if not gpu else ([general] if general else [])     # GPU —— 병사는 셰이더가, 여기선 장수만
+	for s: Soldier in figs:
 		if not s.alive or s.air > 0.0:
 			continue            # 공중에 뜬 병사는 War3D._air 가 움직인다
+		if gpu and s != general:
+			continue            # GPU 병사 —— 셰이더가 대열 자리에 그린다
 		if calm and (s.slot & 3) != _slice:
 			continue
 		var want_p: Vector2
@@ -413,6 +489,9 @@ func set_troops(t: float, from: Vector2, clock: float, rng: RandomNumberGenerato
 	troops = clampf(t, 0, max)
 	var n := soldiers.size()
 	var want := 0 if troops <= 0 else maxi(1, ceili(n * troops / max))
+	if gpu:
+		_set_troops_gpu(want, from, clock, rng)
+		return
 	var live := soldiers.filter(func(s): return s.alive)
 	if live.size() > want:
 		live.sort_custom(func(a, b): return a.pos.distance_squared_to(from) < b.pos.distance_squared_to(from))
@@ -424,6 +503,7 @@ func set_troops(t: float, from: Vector2, clock: float, rng: RandomNumberGenerato
 		for i in range(kill, mini(kill + 4, live.size())):
 			live[i].hit_t = clock + rng.randf() * 0.4
 		relayout()
+		_alive = want
 	elif live.size() < want:
 		# 회복 —— 쓰러진 자리에서 다시 일어서는 대신 뒤에서 보충병이 들어온다
 		var dead := soldiers.filter(func(s): return not s.alive)
@@ -435,10 +515,111 @@ func set_troops(t: float, from: Vector2, clock: float, rng: RandomNumberGenerato
 			s.pos = pos - fwd * (depth() + 20)
 			s.yaw = fwd.angle()
 		relayout()
+		_alive = soldiers.filter(func(x): return x.alive).size()
 	if troops <= 0 and general and general.alive:
 		general.alive = false
 		general.die_t = clock + 0.5
 	hurt = 1.0
+
+
+## GPU 병사 (11/3 사용자: 싸움은 앞에서 나는데 뒤에서부터 사라졌다) —— 적과 가까운 앞줄 병사가 쓰러지고,
+## 그 열의 뒷사람들이 한 칸씩 앞으로 걸어 나와 빈자리를 메운다. 뒷줄은 자연스럽게 들쭉날쭉해진다
+func _set_troops_gpu(want: int, from: Vector2, clock: float, rng: RandomNumberGenerator) -> void:
+	if want <= 0 and _alive > 0:
+		# 전멸 · 패주 끝 —— 제자리에서 한꺼번에 쓰러진다 (한 명씩 고르면 수백 명 × 칸 전체라 프레임이 튄다)
+		for i in cell.size():
+			var v = cell[i]
+			if v == null:
+				continue
+			v.pos = gpu_pos(i) + v.jit * 0.6
+			v.yaw = fwd.angle()
+			v.alive = false
+			v.die_t = clock + rng.randf() * 0.6
+			v.air = 0.0
+			cell[i] = null
+			changed_figs.append(v)
+			moved_figs.append(v)
+		_alive = 0
+		_recount_rows()
+	elif _alive > want:
+		for _k in _alive - want:
+			var v := _pick_victim(from, rng)
+			if v == null:
+				break
+			var vs: int = v.slot
+			v.pos = gpu_pos(vs) + v.jit * 0.6
+			v.yaw = fwd.angle()
+			v.alive = false
+			v.die_t = clock + rng.randf() * 0.5
+			v.air = 0.0
+			cell[vs] = null
+			changed_figs.append(v)
+			moved_figs.append(v)
+			_close_column(vs, clock)
+			_alive -= 1
+		_recount_rows()
+	elif _alive < want:
+		# 회복 —— 보충병이 뒤에서 걸어 들어와 가장 앞쪽 빈칸(앞줄까지 비어 버린 열이면 그 열 맨 앞)에 선다
+		for sd in soldiers:
+			if _alive >= want:
+				break
+			if sd.alive:
+				continue
+			var at := cell.find(null)
+			if at < 0:
+				break
+			sd.alive = true
+			sd.die_t = -1
+			sd.spawn_t = clock
+			sd.slot = at
+			sd.slot_old = mini(at + cols * 3, 1023)
+			sd.move_t = clock
+			cell[at] = sd
+			changed_figs.append(sd)
+			moved_figs.append(sd)
+			_alive += 1
+		_recount_rows()
+	if troops <= 0 and general and general.alive:
+		general.alive = false
+		general.die_t = clock + 0.5
+		changed_figs.append(general)
+	hurt = 1.0
+
+
+## 쓰러질 병사 —— 맨 앞에 선 병사들(열마다 가장 앞) 가운데 적과 가까운 셋 중 하나
+func _pick_victim(from: Vector2, rng: RandomNumberGenerator) -> Soldier:
+	var cand := []
+	for c in cols:
+		for r in cell.size() / cols:
+			var sd = cell[r * cols + c]
+			if sd != null:
+				cand.append(sd)
+				break
+	if cand.is_empty():
+		return null
+	cand.sort_custom(func(x, y): return slot_pos(x.slot).distance_squared_to(from) < slot_pos(y.slot).distance_squared_to(from))
+	return cand[rng.randi() % mini(3, cand.size())]
+
+
+## 빈칸 뒤의 같은 열 병사들이 한 칸씩 앞으로 (뒤로 갈수록 조금씩 늦게 출발)
+func _close_column(vs: int, clock: float) -> void:
+	var c := vs % cols
+	var r := vs / cols
+	var rows := cell.size() / cols
+	var k := 0
+	for rr in range(r + 1, rows):
+		var sd = cell[rr * cols + c]
+		if sd == null:
+			continue
+		var to := (rr - 1 - k) * cols + c
+		if cell[to] != null:
+			continue
+		cell[rr * cols + c] = null
+		cell[to] = sd
+		sd.slot_old = sd.slot
+		sd.slot = to
+		sd.move_t = clock + (rr - r) * 0.08
+		moved_figs.append(sd)
 
 
 ## 앞줄 병사를 움찔하게 한다 (돌격 충격 등)

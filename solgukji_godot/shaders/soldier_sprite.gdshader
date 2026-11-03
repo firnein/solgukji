@@ -58,7 +58,7 @@ void fragment() {
 	float lum = max(col.r, col.b);
 	col = mix(col, team * lum * 1.35, mag);
 	col *= 1.0 - v_custom.g * 1.3;
-	col = mix(col, vec3(1.0, 0.92, 0.85), v_custom.b);
+	col = mix(col, vec3(1.0, 0.92, 0.85), max(v_custom.b, 0.0));
 	ALBEDO = col;
 	ROUGHNESS = 0.9;
 	SPECULAR = 0.1;

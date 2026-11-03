@@ -58,6 +58,25 @@ const TIER_COL := {1: "#f2f2ee", 2: "#9aa1aa", 3: "#2fc24f", 4: "#a64cf2", 5: "#
 ## 이전 색 (원랜디): {1: "#64748b", 2: "#16a34a", 3: "#2563eb", 4: "#7c3aed", 5: "#ea580c", 6: "#e11d48", 7: "#db2777", 8: "#ca8a04"}      # 11/2 사용자: 원랜디 등급색 (흔함 · 안흔함 · 특별함 · 희귀함 · 전설적인 · 초월함 · 영원한), 불멸만 히든조합 분홍 (불멸의 갈색은 신화 금과 겹쳤다)
 
 
+## 11/3 사용자: "배급이 너무 많아 결핍이 없다 · 4~5일차에 풀덱 · 화요일 아침에 신화" —— 수입을 약 75% 로, 뒤 일차일수록 더 줄인다 (기본패 환산 누적 142 · 286 · 490 · 738 · 1164 · 1674 · 2244 → 108 · 222 · 392 · 580 · 854 · 1270 · 1676).
+## 신화 한 장 = 기본패 약 125장인데 첫날 수입이 142장이라 화요일 아침에 신화가 됐다 → 첫날 108장, 풀덱(약 800장)은 5일차 끝 무렵.
+## 원본 game.json 은 그대로 두고 불러온 뒤 덮어쓴다. ECON_ON = false 면 예전 수치
+const ECON_ON := true
+const ECON := {
+	"DRAWS": [11, 10, 9, 8, 7, 6, 5],                     # 예전 14 · 13 · 12 · 11 · 10 · 9 · 8
+	"QUEST_BASE": [6, 7, 8, 8, 9, 10, 11],                # 예전 7 · 9 · 12 · 14 · 17 · 20 · 23
+	"PVP_BASE": {"win": 5, "lose": 3},                    # 예전 7 · 4
+	"QUEST_REWARD": [[{"t": 3, "n": 2}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}, {"t": 3, "n": 1}],
+		[{"t": 5, "n": 1}], [{"t": 5, "n": 1}, {"t": 3, "n": 1}], [{"t": 5, "n": 1}, {"t": 4, "n": 1}]],
+	"RANDOM_GRANT": [[], [], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}, {"t": 5, "n": 1}], [{"t": 5, "n": 1}, {"t": 4, "n": 1}]],
+}
+func _apply_econ() -> void:
+	if not ECON_ON:
+		return
+	for key in ECON:
+		D[key] = ECON[key].duplicate(true)
+
+
 func _load() -> void:
 	var f := FileAccess.open("res://data/game.json", FileAccess.READ)
 	D = JSON.parse_string(f.get_as_text())
@@ -81,6 +100,7 @@ func _load() -> void:
 	D.ITEMDEF.append_array(LINES.get("items", []))
 	for nm in LINES.skills:
 		SKILL_COND[LINES.skills[nm].n] = LINES.skills[nm].get("cond", "always")
+	_apply_econ()
 	_build_fonts()
 
 	for r in D.CARDDEF:

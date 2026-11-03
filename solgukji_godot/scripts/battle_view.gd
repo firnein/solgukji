@@ -63,6 +63,12 @@ var rout_wait := {}         # 유닛 번호 -> true —— 병력이 다 흘러�
 var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 (점검용)
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
 const SLOW := 0.25          # 슬로모션 배속
+## 11/3 임팩트 프리즈 —— 큰 한 방이 꽂히는 순간 화면 시간을 거의 멈춘다 (판정 · 결과와 상관없는 연출 시계만).
+## Engine.time_scale 을 건드리면 UI 트윈 · 소리까지 멎어 화면 시계(clock)만 늦춘다
+var freeze_t := 0.0          # 남은 프리즈 (실시간 초)
+var _freeze_cd := 0.0        # 너무 잦지 않게 —— 다음 프리즈까지 (실시간 초)
+var _ace_cd := 0.0           # 에이스(불멸 · 신화) 기술 줌인 간격
+const FREEZE_SPD := 0.04
 const ULT_DELAY := 0.36     # 고유기 발동 뒤 피해가 터지기까지 (전장 시간 —— 슬로모션 중이라 실제로는 약 1.6초)
 var dbg_nolog := false      # 점검용 —— 전투 기록을 쓰지 않는다
 ## 전투 중 개입 —— 탭할 때마다 (시드 + 입력 전부)로 처음부터 다시 계산하고, 입력 앞부분은 그대로 둔 채 뒤만 바꾼다
@@ -92,6 +98,12 @@ var _rscale := 1.0         # 3D 해상도 / 논리 크기
 var _touches := {}          # 손가락 번호 -> 위치 (두 손가락 확대·회전)
 var _pinch := []            # [거리, 각도]
 var dots: DotView          # 점묘 전장 (scripts/field/dot_view.gd)
+var type2: Type2View       # 타입2 전장 (scripts/field/type2_view.gd)
+var spot: ColorRect        # 집중 비네트
+var spot_t := 0.0          # 남은 집중 시간 (실시간 초)
+var spot_len := 0.0
+var spot_sq: Squad = null
+const SPOT_SHADER := preload("res://shaders/spotlight.gdshader")
 var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 중) —— 방진 버튼을 깜빡인다
 var warn_key := ""
 var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이름
@@ -136,6 +148,12 @@ func _ready() -> void:
 	dots.field = field
 	dots.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage.add_child(dots)
+	# 타입2 전장 (Settings.type2, 11/3) —— 삼국지11 식. 점묘와 같은 자리에 들어간다
+	type2 = Type2View.new()
+	type2.view = self
+	type2.field = field
+	type2.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(type2)
 	# 가장자리를 살짝 어둡게 —— 눈이 가운데 싸움으로 간다
 	var vg := GradientTexture2D.new()
 	vg.width = 128
@@ -154,6 +172,15 @@ func _ready() -> void:
 	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage.add_child(vig)
+	# 11/3 사용자: 에이스 · 신화 기술의 집중 비네트 —— 시전 부대 둘레만 밝고 나머지 전장은 어둡게 (셰이더 한 장, 평소엔 숨김)
+	spot = ColorRect.new()
+	spot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spot.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var sm := ShaderMaterial.new()
+	sm.shader = SPOT_SHADER
+	spot.material = sm
+	spot.visible = false
+	stage.add_child(spot)
 	hud = Hud.new()
 	hud.view = self
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -518,11 +545,18 @@ func _pace_for(_kind: String) -> void:
 ## 전장 화풍 —— 수묵(삼국지11 시안)이면 3D 화면 위에 먹선 · 종이 후처리를 입힌다 (Settings.sumuk)
 func apply_style() -> void:
 	if dots:
-		dots.visible = Settings.dots
-		field.flat = dots if Settings.dots else null
-		port.render_target_update_mode = SubViewport.UPDATE_DISABLED if Settings.dots else SubViewport.UPDATE_ALWAYS
-		_box.visible = not Settings.dots
-	if Settings.sumuk:
+		var t2: bool = Settings.type2 and type2 != null
+		var flat_on: bool = Settings.dots or t2
+		if field._gpu and flat_on:
+			flat_on = false           # GPU 병사로 시작한 전투는 병사 위치를 CPU 가 모른다 —— 2D 화풍은 다음 전투부터 (11/4 점검)
+			t2 = false
+		dots.visible = flat_on and not t2
+		if type2:
+			type2.visible = t2
+		field.flat = (type2 if t2 else dots) if flat_on else null
+		port.render_target_update_mode = SubViewport.UPDATE_DISABLED if flat_on else SubViewport.UPDATE_ALWAYS
+		_box.visible = not flat_on
+	if Settings.sumuk and not Settings.type2:
 		var m := ShaderMaterial.new()
 		m.shader = load("res://shaders/sumuk.gdshader")
 		_box.material = m
@@ -643,7 +677,9 @@ func _begin() -> void:
 	field.setup(res)
 	fit_camera()
 	apply_style()
-	if Settings.dots:
+	if Settings.type2 and type2:
+		type2.setup()
+	elif Settings.dots:
 		dots.setup()
 	hud.reset()
 	log_box.clear()
@@ -828,7 +864,13 @@ func _process_inner(dt: float) -> void:
 		return
 	if slow_t > 0:
 		slow_t -= dt
+	_freeze_cd -= dt
+	_ace_cd -= dt
+	_spot_step(dt)
 	var spd := speed * (SLOW if slow_t > 0 else 1.0)
+	if freeze_t > 0:
+		freeze_t -= dt
+		spd *= FREEZE_SPD
 	field.time_scale = spd
 	field.active = is_visible_in_tree()
 	var d := dt * spd
@@ -949,6 +991,12 @@ func _start_group(g: Dictionary) -> void:
 		field.skill_fx(g.who)
 		hud.skill_banner(g.who, g.skill)
 		field.skill_hit_fx(g.targets, g.kind == "spell")
+		# 11/3 에이스(불멸 · 신화) 장수 기술 —— 카메라가 잠깐 다가간다 (6초에 한 번까지, 직접 보고 있는 부대가 없을 때)
+		var asq: Squad = field.squads.get(g.who)
+		if asq and asq.tier >= 7 and _ace_cd <= 0 and speed > 0 and field.follow == null:
+			_ace_cd = 6.0
+			field.cinematic(asq, 1.1)
+			spotlight(asq, 0.75)
 	match g.kind:
 		"melee":
 			if _rt():
@@ -968,6 +1016,50 @@ func _start_group(g: Dictionary) -> void:
 			_release(g, clock)
 
 
+## 집중 비네트 (11/3 사용자) —— 0.12초에 어두워져 잠깐 머물고 0.3초에 걸쳐 걷힌다. 시전 부대 병사는 그동안 밝게(War3D.focus_sq)
+func spotlight(sq: Squad, dur: float) -> void:
+	spot_sq = sq
+	spot_len = dur
+	spot_t = dur
+	field.focus_sq = sq
+	field.focus_t = dur
+
+
+func _spot_step(dt: float) -> void:
+	if spot == null:
+		return
+	if spot_t <= 0.0 or spot_sq == null:
+		spot.visible = false
+		field.focus_t = 0.0
+		return
+	spot_t -= dt
+	field.focus_t = spot_t
+	var el := spot_len - spot_t
+	var a := clampf(el / 0.12, 0, 1) * clampf(spot_t / 0.3, 0, 1)
+	var p := field.to_screen(spot_sq.pos, 1.0)
+	var sz := spot.size
+	if sz.x < 1 or p.x < -9999:
+		spot.visible = false
+		return
+	spot.visible = true
+	var m: ShaderMaterial = spot.material
+	m.set_shader_parameter("center", p / sz)
+	m.set_shader_parameter("aspect", sz.x / sz.y)
+	m.set_shader_parameter("radius", 0.2)
+	m.set_shader_parameter("strength", 0.62 * a)
+	m.set_shader_parameter("glow", DB.TIER[spot_sq.tier].c if spot_sq.tier >= 6 else Color(1, 0.85, 0.5))
+
+
+## 임팩트 프리즈 + 카메라 흔들림 (11/3). dur 실시간 초, kick 흔들림 세기
+func impact(dur: float, kick: float) -> void:
+	if _freeze_cd > 0 or speed <= 0:
+		return
+	freeze_t = dur
+	_freeze_cd = dur + 0.25
+	field.shake = maxf(field.shake, kick)
+	hud.flash(Color(1, 0.92, 0.75))        # 꽂히는 순간 화면이 하얗게 번쩍
+
+
 ## 고유기 —— 슬로모션 + 화면 가운데 초상 컷인 + 카메라가 다가간 뒤 대형 이펙트와 함께 터진다
 func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
@@ -976,6 +1068,7 @@ func _start_ult(g: Dictionary) -> void:
 		slow_t = 1.45
 	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false))
 	field.cinematic(sq, 2.2)
+	spotlight(sq, 1.3)
 	field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
 	g.min_t = clock + ULT_DELAY
 	if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty() and not _rt():
@@ -1027,7 +1120,13 @@ func _apply(i: int, quiet := false) -> void:
 	var gq: Dictionary = group_of[i]
 	if (e.get("fx") == "phys" or e.get("fx") == "int") and (gq.skill != "" or gq.ult != null) and idx_of.has(f) and smooth:
 		_snap(idx_of[f])
-		field.blast(f, from, 1.6 if gq.ult != null else 1.0)
+		# 11/3 사용자: 에이스 장수의 무쌍만이 전장을 지배하도록 —— 날리기 · 프리즈 · 흔들림을 예전의 약 3배로 (일반 장수 기술은 그대로)
+		var ace: bool = field.squads.has(gq.who) and field.squads[gq.who].tier >= 7
+		field.blast(f, from, 4.5 if gq.ult != null else (3.0 if ace else 1.0))
+		if gq.ult != null:
+			impact(0.24, 1.5)
+		elif ace:
+			impact(0.15, 1.0)
 	match e.get("fx", ""):
 		"phys":
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
@@ -1278,10 +1377,10 @@ class Hud extends Control:
 			var a := clampf(t / 0.08, 0, 1) * clampf((1.0 - t) / 0.25, 0, 1)
 			var sc := lerpf(1.25, 1.0, ease(clampf(t / 0.14, 0, 1), 0.4))
 			var fd := DB.font_display
-			var fs := 12
+			var fs := 15          # 11/3 사용자: 기술명이 안 읽힌다 (12 → 15, 외곽선 두껍게)
 			var tw := fd.get_string_size(b.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			var w := tw + 22.0
-			var h := 19.0
+			var w := tw + 24.0
+			var h := 23.0
 			draw_set_transform(p + Vector2(0, -34 - t * 8), 0, Vector2.ONE * sc)
 			var box := Rect2(Vector2(-w / 2, -h / 2), Vector2(w, h))
 			var sb := StyleBoxFlat.new()
@@ -1293,8 +1392,8 @@ class Hud extends Control:
 			var team: Color = War3D.TEAM[b.camp]
 			draw_rect(Rect2(box.position + Vector2(2, 2), Vector2(4, h - 4)), Color(team.lightened(0.2), a))
 			draw_rect(Rect2(box.end - Vector2(6, h - 2), Vector2(4, h - 4)), Color(team.lightened(0.2), a))
-			draw_string_outline(fd, Vector2(-w / 2, 4.5), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 3, Color(0, 0, 0, 0.8 * a))
-			draw_string(fd, Vector2(-w / 2, 4.5), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color("#ffe6a8", a))
+			draw_string_outline(fd, Vector2(-w / 2, 5.5), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 5, Color(0, 0, 0, a))
+			draw_string(fd, Vector2(-w / 2, 5.5), b.name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color("#ffe6a8", a))
 			draw_set_transform(Vector2.ZERO)
 		banners_sk = keep
 
@@ -1320,7 +1419,7 @@ class Hud extends Control:
 			return
 		var mine: bool = sq.camp == "A"
 		var col: Color
-		var fs := 11                     # 10/31 사용자: 숫자가 화면을 덮는다 → 작게 (예전 15)
+		var fs := 14                     # 10/31 작게(15 → 11) → 11/3 사용자: 군단 사이에서 안 읽힌다 → 14 + 두꺼운 외곽선 (작은 타격은 그대로 모아서 띄운다)
 		var text := "-" + Battle.num(amount)
 		match kind:
 			"phys":
@@ -1329,20 +1428,20 @@ class Hud extends Control:
 				col = Color("#e3a2ff") if mine else Color("#d8c4ff")
 			"fire":
 				col = Color("#ff7a2e") if mine else Color("#ffa040")
-				fs = 12
+				fs = 15
 			"water":
 				col = Color("#3fa0ff") if mine else Color("#7cc4ff")
-				fs = 12
+				fs = 15
 			"heal":
 				col = Color("#8FD4C2")
 				text = "+" + Battle.num(amount)
-				fs = 10
+				fs = 13
 			_:
 				col = Color("#ffb070")
-				fs = 9
+				fs = 12
 		if crit:
 			col = Color("#ffd257") if not mine else Color("#ff6a4a")
-			fs = 17
+			fs = 22
 		if not crit:
 			for f in floats:
 				if f.key == key and f.get("num", false) and not f.crit and f.kind == kind and view.clock - f.t0 < 0.9:
@@ -1386,7 +1485,10 @@ class Hud extends Control:
 		stamp_t = 0.0
 
 	func _to_screen(p: Vector2, lift := 3.3) -> Vector2:
-		return view.field.to_screen(p, lift)
+		var q: Vector2 = view.field.to_screen(p, lift)
+		if absf(q.x) > 6000.0 or absf(q.y) > 6000.0:
+			return Vector2(-99999, -99999)      # 카메라 바로 옆 · 뒤 —— 아주 큰 좌표는 다각형 분할을 깨뜨린다 (11/3)
+		return q
 
 	func _process(dt: float) -> void:
 		if stamp_info:
@@ -1536,11 +1638,19 @@ class Hud extends Control:
 		elif em == 2:
 			_horn(top, 4.0, tc, a)
 
+	## 화면 밖(카메라 뒤 −99999 등) 좌표면 다각형 분할이 실패해 오류가 쏟아진다 (11/3) —— 그리지 않는다
+	func _on_screen(p: Vector2) -> bool:
+		return absf(p.x) < 8000.0 and absf(p.y) < 8000.0
+
 	func _gem(p: Vector2, s: float, col: Color, a: float) -> void:
+		if not _on_screen(p) or s < 0.5:
+			return
 		draw_colored_polygon(PackedVector2Array([p + Vector2(0, -s), p + Vector2(s, 0), p + Vector2(0, s), p + Vector2(-s, 0)]), Color(col, a))
 		draw_polyline(PackedVector2Array([p + Vector2(0, -s), p + Vector2(s, 0), p + Vector2(0, s), p + Vector2(-s, 0), p + Vector2(0, -s)]), Color(0, 0, 0, 0.6 * a), 1.0)
 
 	func _horn(p: Vector2, s: float, col: Color, a: float) -> void:
+		if not _on_screen(p) or s < 0.5:
+			return
 		var pts := PackedVector2Array([p + Vector2(-s, s * 0.4), p + Vector2(-s * 0.45, -s * 0.5), p + Vector2(0, s * 0.1), p + Vector2(s * 0.45, -s * 0.5), p + Vector2(s, s * 0.4)])
 		draw_colored_polygon(pts, Color(col, a))
 		draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0, 0, 0, 0.6 * a), 1.0)
@@ -1603,7 +1713,8 @@ class Hud extends Control:
 					var r := 5.0 if i % 2 == 0 else 2.2
 					var t := -PI / 2 + i * PI / 5
 					pts.append(c + Vector2(cos(t), sin(t)) * r)
-				draw_colored_polygon(pts, wc)
+				if _on_screen(c):
+					draw_colored_polygon(pts, wc)
 		draw_set_transform(Vector2.ZERO)
 
 	func _draw_all() -> void:
@@ -1739,7 +1850,8 @@ class Hud extends Control:
 				_draw_number(f, u, col)
 				continue
 			var p := _to_screen(f.p, 6.5) + Vector2(0, -20 - f.n * 16 - u * 26)
-			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 5, Color(0, 0, 0, col.a * 0.85))
+			draw_string_outline(fd, p - Vector2(80, -2), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 10, Color(0, 0, 0, col.a * 0.35))
+			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 6, Color(0, 0, 0, col.a))
 			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
 		floats = keep
 		_draw_skill_banners()
@@ -1810,12 +1922,13 @@ class Hud extends Control:
 		draw_set_transform(p, 0, Vector2.ONE * sc)
 		var w := 160.0
 		var nf: Font = fd if crit else DB.font_bold
-		draw_string_outline(nf, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, 6 if crit else 5, Color(0.05, 0.03, 0.02, col.a * 0.92))
+		draw_string_outline(nf, Vector2(-w / 2, 2), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, 12 if crit else 10, Color(0, 0, 0, col.a * 0.35))     # 번진 그림자
+		draw_string_outline(nf, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, 7 if crit else 6, Color(0.03, 0.02, 0.01, col.a))
 		draw_string(nf, Vector2(-w / 2, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, col)
 		if crit:
 			var lc := Color(1, 0.95, 0.8, col.a)
-			draw_string_outline(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 10, 3, Color(0.4, 0.05, 0, col.a * 0.9))
-			draw_string(DB.font_body, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 10, lc)
+			draw_string_outline(DB.font_bold, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 12, 5, Color(0.35, 0.03, 0, col.a))
+			draw_string(DB.font_bold, Vector2(-w / 2, -f.fs - 2), "치명타!", HORIZONTAL_ALIGNMENT_CENTER, w, 12, lc)
 		draw_set_transform(Vector2.ZERO)
 
 	## 고유기 컷인 —— 어두워진 화면, 비스듬한 먹띠, 미끄러져 들어오는 초상, 도장처럼 박히는 기술명, 외침

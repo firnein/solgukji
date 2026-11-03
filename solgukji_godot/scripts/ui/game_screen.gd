@@ -580,6 +580,8 @@ func _new_game() -> void:
 # ───────── 그리기 ─────────
 
 func go(pg: String) -> void:
+	if pg == "more":
+		pg = "rank"         # '기록' 탭은 순위 · 계보 화면 (페이지 이름이 아니다)
 	if page != "deploy":
 		_scroll_keep[page] = _scroll.scroll_vertical
 	if pg in ["line", "rank"]:
@@ -688,7 +690,12 @@ func changed() -> void:
 func act(m: String, a := []):
 	var r = run.command(m, a.duplicate())
 	match m:
-		"forge": Sfx.play("forge" if r else "deny")
+		"forge":
+			Sfx.play("forge" if r else "deny")
+			if r and forge_tree.pinned(str(a[0])):      # 11/3 사용자: 갈무리한 장수를 완성하면 갈무리에서 뺀다
+				forge_tree.done(str(a[0]))
+			if r and DB.C[str(a[0])].tier >= 7:        # 11/3 사용자: 히든(불멸) 이상 완성 연출
+				_forge_fanfare(str(a[0]))
 		"do_draw", "pick", "random_grant": Sfx.play("draw")
 	if online != null:
 		online.send_cmd(m, a)
@@ -838,8 +845,10 @@ func _settings_sheet() -> void:
 				_battle.apply_style()
 			_settings_sheet()))
 	b.add_child(UI.eyebrow("전장 화풍"))
-	b.add_child(UI.segmented([["base", "기본"], ["sumuk", "수묵 (삼국지11 시안)"]], "sumuk" if Settings.sumuk else "base", func(key):
+	var style_now := "type2" if Settings.type2 else ("sumuk" if Settings.sumuk else "base")
+	b.add_child(UI.segmented([["base", "기본 3D"], ["sumuk", "수묵"], ["type2", "타입2 (삼국지11)"]], style_now, func(key):
 		Settings.sumuk = key == "sumuk"
+		Settings.type2 = key == "type2"
 		Settings.save_cfg()
 		if _battle:
 			_battle.apply_style()
@@ -1364,7 +1373,7 @@ func picker(t: int) -> void:
 	var row: HBoxContainer = null
 	var used := 0.0
 	for tag in DB.D.TAGORDER:
-		var ks := Run.by_tier_tag(t, tag)
+		var ks := Run.pickable(t, tag)
 		if ks.is_empty():
 			continue
 		var cols := mini(ks.size(), per)
@@ -1733,6 +1742,8 @@ func _forge_goals(lst: Array) -> Array:
 			continue
 		if DB.is_kiin(out) and run.kiin_made.has(out):
 			continue
+		if _owns_person_at(out):      # 11/3 사용자: 이미 가진 장수(같은 인물의 같은 · 위 등급)는 추천하지 않는다
+			continue
 		var miss := run.miss_count(out)
 		if miss <= 0 or miss > 2:
 			continue
@@ -1753,6 +1764,28 @@ func _forge_goals(lst: Array) -> Array:
 		if out_.size() >= 4:
 			break
 	return out_
+
+
+## 히든(불멸) 이상 완성 연출 (scripts/ui/forge_fanfare.gd). 모두 조합으로 여러 장이 잇달아 나오면 가장 높은 것 하나만
+var _fanfare: ForgeFanfare = null
+func _forge_fanfare(k: String) -> void:
+	if is_instance_valid(_fanfare):
+		if DB.C[_fanfare.k].tier >= DB.C[k].tier:
+			return
+		_fanfare.queue_free()
+	_fanfare = ForgeFanfare.new()
+	_fanfare.k = k
+	add_child(_fanfare)
+
+
+## 같은 인물의 이 등급 이상 카드를 이미 가지고 있는가 (손패 · 편성 모두)
+func _owns_person_at(out: String) -> bool:
+	var p := DB.person(out)
+	var t: int = DB.C[out].tier
+	for k in run.pool():
+		if DB.C[k].tier >= t and DB.C[k].tier >= 3 and DB.person(k) == p:
+			return true
+	return false
 
 
 ## 모자란 재료 이름 (짧게)
@@ -2237,6 +2270,10 @@ func _dev_args() -> void:
 	for s in OS.get_cmdline_user_args():
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		a[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	if a.has("gcube"):       # 점검용 —— 큐브 병사
+		War3D.cube_mode = a.gcube != "0"
+	if a.has("gdens"):       # 점검용 —— 병사 밀도 (Squad.DENSITY)
+		Squad.DENSITY = float(a.gdens)
 	if a.has("gq"):
 		Settings.quality = int(a.gq)
 		Settings.apply()
@@ -2302,6 +2339,8 @@ func _dev_args() -> void:
 		_title.visible = true
 	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
 		Settings.dots = a.gdots != "0"
+	if a.has("gtype2"):          # 점검용 —— 타입2 전장 (저장하지 않는다)
+		Settings.type2 = a.gtype2 != "0"
 	if a.has("gsumuk"):          # 점검용 —— 수묵 화풍으로 (저장하지 않는다)
 		Settings.sumuk = a.gsumuk != "0"
 		if _battle:
@@ -2327,6 +2366,37 @@ func _dev_args() -> void:
 			_on_battle_close()
 			print("전투 정리: %s · 길이 %.1f초(배율 %.2f) · 토벌 %s · 대전 %s · 경고 %d · 선택권 %d · 저장 %s" % [run.last_result.title, _battle.end_clock, _battle.pace,
 				run.quest_done, run.pvp_done, run.strikes, run.ticket_left(), Run.has_save()])
+	if a.has("gfps"):        # --gfps=초 --gbattle=… —— vsync 끄고 전투 중 평균 · 최저 fps (11/3 연출 부하 점검)
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		await get_tree().create_timer(2.0).timeout
+		var fr := 0
+		var worst := 0.0
+		var t0 := Time.get_ticks_usec()
+		var last := t0
+		while Time.get_ticks_usec() - t0 < int(float(a.gfps) * 1e6):
+			await get_tree().process_frame
+			var now := Time.get_ticks_usec()
+			worst = maxf(worst, (now - last) / 1000.0)
+			last = now
+			fr += 1
+		var men := 0
+		if _battle and _battle.field:
+			for sq in _battle.field.order:
+				men += sq.soldiers.size()
+		if _battle and _battle.field:
+			var pf: Dictionary = _battle.field.prof
+			var nfr: int = maxi(1, pf.get("_frames", 1))
+			var parts := []
+			for k in pf:
+				if k != "_frames":
+					parts.append([k, pf[k] / 1000.0 / nfr])
+			parts.sort_custom(func(x, y): return x[1] > y[1])
+			print("  프레임당 ms: " + " · ".join(parts.slice(0, 9).map(func(x): return "%s %.2f" % [x[0], x[1]])))
+		print("병사 %d명 · fps 평균 %.0f · 가장 느린 프레임 %.1fms (%d프레임)" % [men, fr / ((Time.get_ticks_usec() - t0) / 1e6), worst, fr])
+		get_tree().quit()
+		return
+	if a.has("gfanfare"):      # --gfanfare=c177 —— 불멸 · 신화 완성 연출만 띄워 본다
+		_forge_fanfare(str(a.gfanfare))
 	if a.has("gtouch"):
 		await _touch_test()
 		get_tree().quit()

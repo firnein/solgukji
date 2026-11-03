@@ -368,7 +368,7 @@ func _dev_step() -> void:
 	elif not r.picked:
 		gs.act("begin_picks", ["phase", -1])
 	elif r.ticket_left() > 0:
-		var pl: Array = DB.by_tier(r.ticket_tiers()[0])
+		var pl: Array = Run.pickable(r.ticket_tiers()[0])
 		pl.sort_custom(func(x, y): return DB.C[x].tr > DB.C[y].tr)
 		gs.act("pick", [pl[randi() % mini(6, pl.size())]])
 	elif r.placed() < 9 and not r.inv.is_empty():
