@@ -493,41 +493,10 @@ func _build_title() -> void:
 	_title.add_child(m)
 	var v := UI.vbox(0)
 	m.add_child(v)
-	# 로고 —— 금빛 명조 + 먹 테두리, 오른쪽 위에 붉은 낙관
-	var logo := Control.new()
-	logo.custom_minimum_size = Vector2(0, 112)
-	var t := UI.lbl("솔국지", 84, Color("#f0c869"), true)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.add_theme_constant_override("outline_size", 12)
-	t.add_theme_color_override("font_outline_color", Color("#1a1206"))
-	t.add_theme_constant_override("shadow_offset_x", 0)
-	t.add_theme_constant_override("shadow_offset_y", 4)
-	t.add_theme_constant_override("shadow_outline_size", 18)
-	t.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
-	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	logo.add_child(t)
-	var seal := TitleBG.Seal.new()
-	seal.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	seal.position = Vector2(118, 6)
-	logo.add_child(seal)
-	logo.resized.connect(func(): seal.position = Vector2(logo.size.x / 2.0 + 112.0, 8.0))
+	# 로고 (11/3 사용자: 한글을 빼고 붓으로 휘갈긴 영문) —— 먹 붓질 띠 위에 금빛 붓글씨 'Solgukji', 오른쪽 위에 붉은 낙관
+	var logo := TitleBG.Logo.new()
+	logo.custom_minimum_size = Vector2(0, 150)
 	v.add_child(logo)
-	var en := UI.lbl("S O L G U K J I", 17, Color("#e9e3d3"), true)
-	en.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	en.add_theme_constant_override("outline_size", 6)
-	en.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
-	v.add_child(en)
-	var rule := ColorRect.new()
-	rule.color = Color("#d9a64b", 0.7)
-	rule.custom_minimum_size = Vector2(150, 1)
-	rule.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var rg := Control.new()
-	rg.custom_minimum_size.y = 10
-	v.add_child(rg)
-	v.add_child(rule)
-	var rg2 := Control.new()
-	rg2.custom_minimum_size.y = 8
-	v.add_child(rg2)
 	var sub := UI.lbl("THREE KINGDOMS · RANDOM DEFENSE", 11, Color("#d9a64b"))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_constant_override("outline_size", 4)

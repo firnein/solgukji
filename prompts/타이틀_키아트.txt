@@ -1,0 +1,31 @@
+타이틀 키 아트 —— 결과는 solgukji_godot/assets/title/keyart.png (1024x1536) 로 두면 타이틀 배경이 된다.
+참조 이미지로 prompts/등급별/4_신화 의 관우 · 장비 · 조운 · 조조 · 여포 · 손권 신화 그림을 함께 붙이면 얼굴이 맞는다.
+
+ONE epic KEY ART illustration for the title screen of a mobile Three Kingdoms (late Han dynasty China) strategy card game,
+like the box cover art of the "Romance of the Three Kingdoms" game series. A grand, cinematic battle panorama, not a portrait.
+
+COMPOSITION (portrait 1024x1536):
+- TOP 25%: open dramatic sky only —— storm clouds torn by golden sunset light, a few war banners and flying arrows, NO characters,
+  NO important detail there (the game logo will be placed on top of it).
+- MIDDLE 50%: the heroes, layered in depth like a movie poster:
+  * front and largest, slightly right of center: Guan Yu on a red horse (Red Hare), green robe and armor, very long black beard,
+    deep red face, raising the Green Dragon crescent glaive, charging toward the viewer.
+  * left, a little behind: Zhao Yun on a white horse in white-silver armor with green trim, silver spear thrust forward.
+  * right, a little behind: Zhang Fei on foot or on a black horse, wild bristly beard, roaring, serpent spear.
+  * far back, small, on a hill under the banners: Cao Cao (Wei, blue-black armor) and Sun Quan (Wu, red armor) on horseback
+    watching, and Lu Bu on a red horse with long pheasant-tail plumes on his helmet, the rival on the opposite side.
+- BOTTOM 25%: a sea of soldiers and cavalry charging forward, dust, sparks, spears and flags of three colors
+  (Shu green, Wei blue, Wu red) —— darker and simpler toward the bottom edge (game buttons will sit there).
+- Strong diagonal motion from back-left to front-right: horses galloping, capes and banners whipping in the wind.
+
+STYLE:
+- Premium anime / Korean mobile game key art, realistic-leaning proportions (NOT chibi), painterly but sharp,
+  rich detail on the heroes, softer atmospheric haze on the army behind them.
+- Lighting: warm golden-orange sunset rim light from behind the heroes, cool blue-grey shadows, embers and dust in the air.
+- Palette: gold, crimson, jade green and deep ink blue-black. High contrast, epic and heroic.
+- Each hero keeps their famous traditional look (faces, beards, weapons, colors) so a fan can name them at a glance.
+
+DO NOT:
+- No text, no letters, no logo, no title, no numbers, no watermark, no signature, no frame, no border, no card layout.
+- No panels or collage —— ONE continuous scene.
+- No modern objects.

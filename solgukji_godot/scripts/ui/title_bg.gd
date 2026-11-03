@@ -21,10 +21,19 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_rng.seed = Time.get_ticks_usec()
-	for p in ORDER:
-		var tex: Texture2D = DB._load_portrait("res://assets/portraits/%s_신화" % p)
-		if tex:
-			arts.append(tex)
+	# 키 아트 (prompts/타이틀_키아트.txt 로 뽑아 assets/title/ 에 둔 그림) 가 있으면 그것들만, 없으면 신화 그림
+	var key_arts: Array[Texture2D] = []
+	for f in ["keyart", "keyart2", "keyart3"]:
+		var kt: Texture2D = DB._load_portrait("res://assets/title/" + f)
+		if kt:
+			key_arts.append(kt)
+	if not key_arts.is_empty():
+		arts = key_arts
+	else:
+		for p in ORDER:
+			var tex: Texture2D = DB._load_portrait("res://assets/portraits/%s_신화" % p)
+			if tex:
+				arts.append(tex)
 	idx = _rng.randi() % maxi(1, arts.size())
 	for i in 46:
 		embers.append(_ember(true))
@@ -113,4 +122,56 @@ class Seal extends Control:
 		var f := DB.font_display
 		draw_string(f, Vector2(-size.x / 2.0, -2), "天", HORIZONTAL_ALIGNMENT_CENTER, size.x, 15, Color("#f4e6d0"))
 		draw_string(f, Vector2(-size.x / 2.0, 14), "下", HORIZONTAL_ALIGNMENT_CENTER, size.x, 15, Color("#f4e6d0"))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## 붓글씨 로고 —— 먹 붓질 띠(거친 가장자리) + 금빛 'Solgukji' + 붉은 낙관
+class Logo extends Control:
+	var font: FontFile
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		font = load("res://assets/fonts/KaushanScript-Regular.ttf")
+
+	func _draw() -> void:
+		var c := Vector2(size.x / 2.0, size.y * 0.5)
+		# 먹 붓질 띠 —— 비스듬히, 가장자리를 들쭉날쭉하게
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		var w := minf(size.x * 0.96, 400.0)
+		var top := PackedVector2Array()
+		var bot := PackedVector2Array()
+		for i in 41:
+			var u := i / 40.0
+			var x := c.x - w / 2.0 + w * u
+			var th := 34.0 * sin(PI * pow(u, 0.8)) + 6.0
+			var y := c.y + 8.0 - 10.0 * (u - 0.5)
+			top.append(Vector2(x, y - th - rng.randf_range(0, 5)))
+			bot.append(Vector2(x, y + th * 0.8 + rng.randf_range(0, 6)))
+		bot.reverse()
+		draw_colored_polygon(top + bot, Color(0.03, 0.03, 0.05, 0.82))
+		for i in 6:      # 붓 끝 갈라짐
+			var y0 := c.y - 20.0 + i * 8.0
+			draw_line(Vector2(c.x + w / 2.0 - 30.0, y0), Vector2(c.x + w / 2.0 + rng.randf_range(0, 26), y0 + rng.randf_range(-3, 3)), Color(0.03, 0.03, 0.05, 0.6), 2.0)
+		# 글씨
+		var fs := 74
+		var txt := "Solgukji"
+		var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var p := Vector2(c.x - tw / 2.0, c.y + fs * 0.32)
+		draw_set_transform(c, deg_to_rad(-4.0), Vector2.ONE)
+		var q := p - c
+		draw_string_outline(font, q + Vector2(0, 4), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 14, Color(0, 0, 0, 0.6))
+		draw_string_outline(font, q, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color("#3a2408"))
+		draw_string(font, q, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#f2c75e"))
+		draw_string(font, q + Vector2(0, -1.5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.93, 0.7, 0.35))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		# 낙관
+		var sp := Vector2(c.x + tw / 2.0 - 8.0, c.y - fs * 0.62)
+		draw_set_transform(sp, deg_to_rad(-6.0), Vector2.ONE)
+		var r := Rect2(Vector2(-17, -17), Vector2(34, 34))
+		draw_rect(r, Color("#b5322a"))
+		draw_rect(r.grow(-2.5), Color("#f4e6d0"), false, 1.2)
+		var f := DB.font_display
+		draw_string(f, Vector2(-17, -2), "天", HORIZONTAL_ALIGNMENT_CENTER, 34, 13, Color("#f4e6d0"))
+		draw_string(f, Vector2(-17, 13), "下", HORIZONTAL_ALIGNMENT_CENTER, 34, 13, Color("#f4e6d0"))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
