@@ -1148,6 +1148,9 @@ static func delete_save() -> void:
 
 # ───────── 점검용 —— 사람 대신 단순한 규칙으로 한 페이즈를 진행한다 (tests/game.gd · --gplay) ─────────
 
+static var dev_snap_on := false
+static var dev_snap: Array = []
+
 func dev_autoplay() -> void:
 	if over != null:
 		return
@@ -1180,6 +1183,8 @@ func dev_autoplay() -> void:
 				tour_advance()
 		return
 	var q := start_quest()
+	if dev_snap_on:      # 점검용 —— 토벌 직전 내 편성 (tests/quest_tune --snap)
+		dev_snap.append({"d": day, "p": phase, "a": q.a.duplicate(true)})
 	finish_battle(simulate(q, [], policy_for(q)))
 	if over != null:
 		return

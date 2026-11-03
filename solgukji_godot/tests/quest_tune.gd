@@ -9,6 +9,8 @@ const THEME := ["c22", "c20", "c21", "c32", "c33", "c31", "c69", "c58", "c72", "
 const GEN := {1: ["occul", "rogue", "spear", "bow", "horse"], 2: ["c9", "c6", "c0", "c4", "c1", "c5", "c3", "c2"]}
 var games := 40
 var target := 0.75
+var snaps := {}           # "일차-단계" -> [내 편성]
+var day_target: Array = []
 
 
 func _ready() -> void:
@@ -18,6 +20,15 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	games = int(args.get("games", "40"))
 	target = float(args.get("target", "0.75"))
+	# 11/3 --snap=경로.json —— 원본 QPV 무작위 덱 대신 자동 진행이 실제로 짠 편성을 기준 플레이어로 (일반 등급 삭제 뒤 플레이어가 훨씬 세졌다)
+	if args.has("snap"):
+		for s in JSON.parse_string(FileAccess.open(str(args.snap), FileAccess.READ).get_as_text()):
+			var key := "%d-%d" % [int(s.d), int(s.p)]
+			if not snaps.has(key): snaps[key] = []
+			snaps[key].append(s.a)
+	# --day_target=0.92,0.88,... —— 일차마다 목표 승률
+	if args.has("day_target"):
+		day_target = Array(str(args.day_target).split(",")).map(func(x): return float(x))
 	var out := []
 	for d in DB.QUEST_ROSTERS.size():
 		var row := []
@@ -27,6 +38,8 @@ func _ready() -> void:
 			if args.has("only") and not str(args.only).split(",").has("%d-%d" % [d + 1, p + 1]):
 				row.append(q.duplicate().merged({"k": 0, "win": float(q.get("par_win", 0.0))}))
 				continue
+			if not day_target.is_empty():
+				target = float(day_target[mini(d, day_target.size() - 1)])
 			var tiers := _par_tiers(DB.D.QPV[d][p])
 			var best := {}
 			# ① 같은 등급 분포에서 플레이어가 target 아래로 이기면 → 위 칸부터 한 칸씩 낮춘다
@@ -147,10 +160,16 @@ func _win(cards: Array, form: String, d: int, p: int, morale: int, equip: Array)
 	rng.seed = 7000 + d * 10 + p
 	var w := 0.0
 	var foe := DB.auto_place(cards, form)
+	var sn: Array = snaps.get("%d-%d" % [d, p], [])
 	for i in games:
-		var eb := DB.gen_board(DB.D.QPV[d][p], styles[i % 3], rng)
-		var mine := DB.auto_place(eb.cards, eb.form)
-		var bt := {"a": {"cards": mine, "form": eb.form, "morale": 100, "equip": [], "tac": Run.recommend_tac(mine)[0]},
+		var me: Dictionary
+		if not sn.is_empty():
+			me = sn[i % sn.size()]
+		else:
+			var eb := DB.gen_board(DB.D.QPV[d][p], styles[i % 3], rng)
+			var mine := DB.auto_place(eb.cards, eb.form)
+			me = {"cards": mine, "form": eb.form, "morale": 100, "equip": [], "tac": Run.recommend_tac(mine)[0]}
+		var bt := {"a": me,
 			"b": {"cards": foe, "form": form, "morale": morale, "equip": equip, "tac": Run.recommend_tac(foe)[0]},
 			"seed": rng.randi() % 1000000, "title": "", "foe": ""}
 		var r := Run.simulate(bt, [], Run.policy_for(bt))

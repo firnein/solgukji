@@ -10,6 +10,7 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var runs := int(args.get("runs", "20"))
+	Run.dev_snap_on = args.has("snap")      # --snap=경로.json —— 토벌 직전 편성을 모은다 (quest_tune --snap 이 기준 덱으로 쓴다)
 	if args.has("oldquest"):        # 토벌 고정 편성(황건적) 대신 예전 무작위 —— 비교용
 		DB.QUEST_ROSTERS = []
 	var qtry := {}                  # "일차-단계" -> [도전, 실패]
@@ -43,6 +44,11 @@ func _ready() -> void:
 		print("판 %d: %s · %s · %d일차 %s · PV %d · %d승 %d패 · 경고 %d · 신화 %s" % [n, "우승" if r.over.win else "탈락",
 			r.over.msg, r.day + 1, Run.PHASE_N[r.phase], r.my_pv(), r.my_w, r.my_l, r.strikes, myth_at if myth_at != "" else "없음"])
 	print("우승 %d / %d · 평균 도달 페이즈 %.1f" % [wins, runs, phases / float(runs)])
+	if args.has("snap"):
+		var sf := FileAccess.open(str(args.snap), FileAccess.WRITE)
+		sf.store_string(JSON.stringify(Run.dev_snap))
+		sf.close()
+		print("편성 %d개 저장: %s" % [Run.dev_snap.size(), args.snap])
 	var ks := qtry.keys()
 	ks.sort_custom(func(a, b): return int(a.split("-")[0]) * 3 + int(a.split("-")[1]) < int(b.split("-")[0]) * 3 + int(b.split("-")[1]))
 	var line := []
