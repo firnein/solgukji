@@ -11,6 +11,8 @@ const ORDER := ["관우", "조조", "여포", "제갈량", "손권", "조운", "
 	"하후돈", "장각", "감녕", "곽가", "태사자", "동탁", "하후연", "위연", "순욱"]
 
 var arts: Array[Texture2D] = []
+var grid: Array[Texture2D] = []      # 11/3 사용자: 아홉 프레임 —— 관우 · 장비 · 조조 · 하후돈 · 제갈량 · 여포 · 손권 · 손책 · 사마의
+const GRID9 := ["관우", "조조", "손권", "장비", "제갈량", "손책", "하후돈", "여포", "사마의"]
 var idx := 0
 var t := 0.0
 var embers := []
@@ -30,6 +32,12 @@ func _ready() -> void:
 	if not key_arts.is_empty():
 		arts = key_arts
 	else:
+		for p in GRID9:
+			var gt: Texture2D = DB._load_portrait("res://assets/portraits/%s_신화" % p)
+			if gt:
+				grid.append(gt)
+	if grid.size() < 9 and key_arts.is_empty():
+		grid.clear()
 		for p in ORDER:
 			var tex: Texture2D = DB._load_portrait("res://assets/portraits/%s_신화" % p)
 			if tex:
@@ -62,16 +70,22 @@ func _process(dt: float) -> void:
 func _draw() -> void:
 	var sz := size
 	draw_rect(Rect2(Vector2.ZERO, sz), INK)
-	if not arts.is_empty():
+	if not grid.is_empty():
+		_grid9()
+	elif not arts.is_empty():
 		var a0 := clampf((t - HOLD) / FADE, 0.0, 1.0)
 		_art(arts[idx], t / (HOLD + FADE), 1.0)
 		if a0 > 0.0:
 			_art(arts[(idx + 1) % arts.size()], 0.0, a0)
-	# 위 · 아래 먹빛 —— 로고와 버튼이 읽히게
-	draw_rect(Rect2(0, 0, sz.x, sz.y * 0.2), INK)      # 그림 맨 위 카드 틀(금선)을 가린다
-	_vgrad(0.2, 0.44, INK, Color(INK, 0.0))
-	_vgrad(0.5, 0.72, Color(INK, 0.0), Color(INK, 0.86))
-	draw_rect(Rect2(0, sz.y * 0.72, sz.x, sz.y * 0.28), Color(INK, 0.86))
+	# 위 · 아래 먹빛 —— 로고와 버튼이 읽히게 (아홉 프레임은 옅게 —— 윗줄 · 아랫줄도 보이게)
+	if not grid.is_empty():
+		_vgrad(0.0, 0.34, Color(INK, 0.78), Color(INK, 0.15))
+		_vgrad(0.6, 1.0, Color(INK, 0.1), Color(INK, 0.8))
+	else:
+		draw_rect(Rect2(0, 0, sz.x, sz.y * 0.2), INK)      # 그림 맨 위 카드 틀(금선)을 가린다
+		_vgrad(0.2, 0.44, INK, Color(INK, 0.0))
+		_vgrad(0.5, 0.72, Color(INK, 0.0), Color(INK, 0.86))
+		draw_rect(Rect2(0, sz.y * 0.72, sz.x, sz.y * 0.28), Color(INK, 0.86))
 	# 양옆 가장자리
 	var side := minf(70.0, sz.x * 0.16)
 	_hgrad(0.0, side, Color(INK, 0.7), Color(INK, 0.0))
@@ -82,6 +96,39 @@ func _draw() -> void:
 		var fl := 0.55 + 0.45 * sin(e.ph * 1.7)
 		draw_circle(p, e.r * 2.6, Color(1.0, 0.62, 0.22, 0.10 * fl))
 		draw_circle(p, e.r, Color(1.0, 0.86, 0.5, 0.75 * fl))
+
+
+## 아홉 프레임 —— 비스듬히 기운 3×3 격자, 칸마다 얼굴 쪽을 잘라 천천히 흐르고, 한 칸씩 돌아가며 밝아진다
+func _grid9() -> void:
+	var sz := size
+	var c := sz / 2.0
+	var gw := sz.x * 1.32
+	var gh := sz.y * 1.08
+	var gap := 7.0
+	var cw := (gw - gap * 2.0) / 3.0
+	var ch := (gh - gap * 2.0) / 3.0
+	var hot := int(t / 1.4) % 9
+	draw_set_transform(c, deg_to_rad(-7.0), Vector2.ONE)
+	for i in 9:
+		var col := i % 3
+		var row := i / 3
+		var drift := sin(t * 0.25 + i * 1.7) * 10.0 + (row - 1) * 0.0
+		var r := Rect2(-gw / 2.0 + col * (cw + gap), -gh / 2.0 + row * (ch + gap) + (col - 1) * 18.0, cw, ch)
+		var tex := grid[i]
+		var ts := tex.get_size()
+		# 칸 비율로 자른다 —— 가운데 가로, 얼굴이 있는 위쪽 (조금씩 흐른다)
+		var rw := ts.x * 0.86
+		var rh := minf(ts.y * 0.8, rw * ch / cw)
+		rw = rh * cw / ch
+		var src := Rect2((ts.x - rw) / 2.0 + drift, ts.y * 0.06 + absf(drift) * 0.5, rw, rh)
+		draw_rect(r.grow(2.0), Color("#d9a64b", 0.85))
+		draw_texture_rect_region(tex, r, src)
+		var lit := 1.0 if i == hot else 0.0
+		var a := clampf(1.0 - fmod(t, 1.4) / 1.4, 0.0, 1.0) * lit
+		draw_rect(r, Color(INK, 0.38 - 0.3 * a))
+		if a > 0.0:
+			draw_rect(r.grow(2.0), Color(1.0, 0.85, 0.45, 0.8 * a), false, 2.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## 그림을 화면에 꽉 (가운데 가로 · 위쪽 기준 세로), u(0~1) 만큼 다가가며
