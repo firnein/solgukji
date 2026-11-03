@@ -442,9 +442,20 @@ func tier_stock(t: int) -> Dictionary:
 
 # ───────── 편성 ─────────
 
+## 같은 인물이 이미 앉은 칸 (i 는 빼고) —— 없으면 -1. 11/3 솔국지 확장: 같은 인물은 한 부대만 (등급이 달라도)
+func dup_slot(i: int, k: String) -> int:
+	for j in 9:
+		if j != i and board[j] != null and DB.person(board[j]) == DB.person(k) and DB.C[k].tier >= 3:
+			return j
+	return -1
+
+
 func place(i: int, k: String) -> void:
 	if i < 0 or i > 8 or inv.get(k, 0) <= 0:
 		return
+	var dj := dup_slot(i, k)      # 같은 인물이 다른 칸에 있으면 그 카드를 손패로 돌리고 이 칸에 앉힌다
+	if dj >= 0:
+		unplace(dj)
 	var prev = board[i]
 	board[i] = null
 	if prev != null:
@@ -486,9 +497,16 @@ func auto_deploy() -> void:
 			all.append(k)
 	all.sort_custom(func(a, b): return DB.C[a].tr > DB.C[b].tr)
 	inv = {}
-	for k in all.slice(9):
-		give(k)
-	board = DB.auto_place(all.slice(0, 9), form)
+	var pick9 := []
+	var seen := {}
+	for k in all:                      # 같은 인물은 한 부대만 (병졸 · 기본패는 여럿 가능)
+		var p: String = DB.person(k) if DB.C[k].tier >= 3 else ""
+		if pick9.size() < 9 and (p == "" or not seen.has(p)):
+			pick9.append(k)
+			if p != "": seen[p] = true
+		else:
+			give(k)
+	board = DB.auto_place(pick9, form)
 	equip = recommend_items()
 
 

@@ -1439,6 +1439,52 @@ func _toggle(key: String, default := false) -> void:
 
 const KIIN_T := 9      # 등급 거르기의 기인 칸
 
+## 추천 목표 —— 지금 못 만들지만 1~2장만 모자란 조합. 점수 = 등급 · 가진 재료 수 − 모자란 수 (같은 인물은 하나)
+func _forge_goals(lst: Array) -> Array:
+	var cand := []
+	for r in lst:
+		var out: String = r[0]
+		if run.can_forge(out) or DB.C[out].tier < 3:
+			continue
+		if DB.C[out].tier >= 8 and run.has_myth():
+			continue
+		if DB.is_kiin(out) and run.kiin_made.has(out):
+			continue
+		var miss := run.miss_count(out)
+		if miss <= 0 or miss > 2:
+			continue
+		var own := 0
+		for m in DB.RECOF[out]:
+			if DB.C.has(str(m)) and run.have(str(m)) > 0 and DB.C[str(m)].tier >= 3:
+				own += DB.C[str(m)].tier
+		cand.append([DB.C[out].tier * 10 + own * 2 - miss * 12, out])
+	cand.sort_custom(func(a, b): return a[0] > b[0])
+	var out_ := []
+	var seen := {}
+	for c in cand:
+		var p := DB.person(c[1])
+		if seen.has(p):
+			continue
+		seen[p] = true
+		out_.append(c[1])
+		if out_.size() >= 4:
+			break
+	return out_
+
+
+## 모자란 재료 이름 (짧게)
+func _missing(out: String) -> Array:
+	var need := Run.mat_count(DB.RECOF[out])
+	var miss := []
+	for m in need:
+		var lack: int = int(need[m]) - (run.have(str(m)) if DB.C.has(str(m)) else 0)
+		if lack > 0 and DB.C.has(str(m)):
+			miss.append(DB.person(str(m)) + ("×%d" % lack if lack > 1 else ""))
+	var ni = Run.need_item(out)
+	if ni != null and run.bag.get(ni, 0) <= 0:
+		miss.append(DB.IT[ni].name)
+	return miss
+
 func _tier_match(k: String, t: int) -> bool:
 	if t == 0:
 		return true
@@ -1470,6 +1516,27 @@ func _page_forge() -> Control:
 			render()))
 	v.add_child(row2)
 	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
+	# 11/3 추천 목표 —— 조합식이 170개가 넘어 무엇을 노릴지 고르기 어렵다: 재료가 1~2장 모자란 것 가운데 높은 등급 · 가진 재료가 많은 것 4개 (인물 하나씩)
+	var rec := _forge_goals(lst)
+	if not rec.is_empty():
+		var gsec := UI.vbox(6)
+		gsec.add_child(UI.head("추천 목표", ""))
+		var gs_ := UI.strip(8)
+		for out in rec:
+			var gv := UI.vbox(3)
+			gv.custom_minimum_size = Vector2(86, 0)
+			var gt := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
+			gt.custom_minimum_size = Vector2(86, 112)
+			gt.badge = "-%d" % run.miss_count(out)
+			gt.badge_col = Color(DB.PAL.seal, 0.9)
+			gv.add_child(gt)
+			var ml := UI.lbl("· ".join(_missing(out)), 11, DB.PAL.bamboo)
+			ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			ml.custom_minimum_size.x = 86
+			gv.add_child(ml)
+			gs_[1].add_child(gv)
+		gsec.add_child(gs_[0])
+		v.add_child(gsec)
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
@@ -1482,14 +1549,14 @@ func _page_forge() -> Control:
 		sec.add_child(rs[0])
 		v.add_child(sec)
 	# 나머지 —— 가까운 순 (모자란 장수 적은 것 먼저, 같으면 높은 등급)
-	lst = lst.filter(func(r): return not run.can_forge(r[0]))
+	lst = lst.filter(func(r): return not run.can_forge(r[0]) and not rec.has(r[0]))
 	lst.sort_custom(func(x, y):
 		var a := run.miss_count(x[0])
 		var b2 := run.miss_count(y[0])
 		if a != b2:
 			return a < b2
 		return DB.C[x[0]].tier > DB.C[y[0]].tier)
-	var show_n := 40 + _forge_more
+	var show_n := 16 + _forge_more      # 11/3 처음엔 가까운 16개만 (나머지는 더 보기)
 	var g := minis()
 	for i in mini_n(show_n, lst.size()):
 		var out: String = lst[i][0]

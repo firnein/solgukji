@@ -24,7 +24,7 @@ const OPEN_RT := 0.8        # 실시간 엔진 —— 엔진 0초가 화면 이 
 const STEP := 0.6
 const MELEE_WAIT := 6.0
 const PVP_LEN := 52.0       # 대전·토너먼트 목표 길이(초, 1배속) —— 행동 간격을 벌려 맞춘다. 끝맺음까지 50~60초
-const QUEST_SPEED := 1.0    # 11/2 사용자: 기본 배속은 모두 1배속 (토벌도) —— 위 띠에서 바꾼다
+const QUEST_SPEED := 2.0    # 11/3 사용자: 기본 배속 2배속 (토벌 · 대전 모두) —— 위 띠에서 바꾼다
 var pace := 1.0             # 행동 간격 배율 (STEP · 턴 끝 정산에 곱한다)
 var target_len := 0.0       # 0 이면 늘리지 않는다
 
@@ -385,7 +385,7 @@ func _set_speed(s: float) -> void:
 
 func _unhandled_input(e: InputEvent) -> void:
 	if is_visible_in_tree() and e is InputEventKey and e.pressed and e.keycode == KEY_SPACE:
-		_set_speed(1.0 if speed == 0.0 else 0.0)
+		_set_speed(QUEST_SPEED if speed == 0.0 else 0.0)
 
 
 # ───────── 카메라 ─────────
@@ -490,7 +490,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	res = _simulate()
 	_pace_for(str(bt.get("kind", "")))
 	_begin()
-	_set_speed(QUEST_SPEED if bt.get("kind", "") == "quest" else 1.0)
+	_set_speed(QUEST_SPEED)
 
 
 ## 온라인 —— 서버가 계산한 결과(사람끼리 대전이면 내 쪽이 A 가 되게 뒤집은 것)를 그대로 재생한다
@@ -506,7 +506,7 @@ func play_res(r: Dictionary, kind := "") -> void:
 	res = r
 	_pace_for(kind)
 	_begin()
-	_set_speed(QUEST_SPEED if kind == "quest" else 1.0)
+	_set_speed(QUEST_SPEED)
 
 
 ## 모든 전투를 1배속 기준 50~60초에 맞춘다 (토벌은 2배속으로 보니 25~30초)

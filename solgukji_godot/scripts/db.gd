@@ -919,6 +919,9 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 		var ok := src.filter(func(k): return C[k].tier < 8)
 		if ok.is_empty():
 			ok = src
+		var fresh := ok.filter(func(k): return C[k].tier < 3 or not cards.any(func(x): return person(x) == person(k)))      # 같은 인물은 한 부대만
+		if not fresh.is_empty():
+			ok = fresh
 		cards.append(ok[rng.randi() % ok.size()])
 	return {"cards": cards, "form": STYLE_FORM[style]}
 
