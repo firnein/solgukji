@@ -461,7 +461,7 @@ func _build_battle() -> void:
 		if run.battle != null and online == null:
 			run.battle.inputs = inputs.duplicate(true)
 			run.save())
-	_battle_done = UI.btn("결과 정리  ▶", _on_battle_close, "pri", 58)
+	_battle_done = UI.btn("종료", _on_battle_close, "pri", 58)      # 11/3 사용자: '결과 정리' → '종료'
 	_battle_done.add_theme_font_override("font", DB.font_display)
 	_battle_done.add_theme_font_size_override("font_size", 20)
 	_battle_done.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -2034,8 +2034,15 @@ func _show_report(res: Dictionary) -> void:
 	_battle_done.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_battle_done.offset_left = -130
 	_battle_done.offset_right = 130
-	_battle_done.offset_top = -150
-	_battle_done.offset_bottom = -92
+	_battle_done.offset_top = -250      # 11/3 사용자: 아래 장수 칸을 덮지 않게 위로 —— 결과표가 자리 잡으면 그 바로 아래로
+	_battle_done.offset_bottom = -192
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _report == null or not is_instance_valid(_report):
+		return
+	var top := _report.get_global_rect().end.y + 10.0 - _battle_layer.get_global_rect().end.y
+	_battle_done.offset_top = minf(top, -228.0)
+	_battle_done.offset_bottom = _battle_done.offset_top + 58.0
 
 
 func _hide_report() -> void:

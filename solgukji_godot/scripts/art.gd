@@ -185,6 +185,10 @@ static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String) ->
 	var tex: Texture2D = ft if ft else DB.portrait(k)
 	if tex == null:
 		ci.draw_circle(c, r, DB.fac_color(DB.C[k].fac).darkened(0.3))
+		var ic: Texture2D = DB.ICON.get(DB.C[k].tag)      # 병졸 · 그림 없는 카드 —— 병종 기호 (결과표에 빈 원으로 나왔다)
+		if ic:
+			var s := r * 1.1
+			ci.draw_texture_rect(ic, Rect2(c - Vector2(s, s) / 2.0, Vector2(s, s)), false, Color(DB.PAL.paper, 0.85))
 		return
 	var face := Rect2(Vector2.ZERO, tex.get_size()) if ft else DB.portrait_face(k)
 	var ts := tex.get_size()
