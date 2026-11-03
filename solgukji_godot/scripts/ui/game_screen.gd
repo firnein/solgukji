@@ -403,6 +403,18 @@ func _fit_sheet(animate: bool) -> void:
 		_slide_sheet(0.0, 0.24)
 	elif _sheet_tw == null or not _sheet_tw.is_running():
 		_put_sheet(0.0)
+	# 11/3 사용자: 창 크기가 자꾸 변한다 —— 좁은 칸의 줄 바꿈 글씨는 폭이 정해지기 전 첫 프레임에 높이를 크게 잡는다.
+	# 자리를 잡은 뒤 한 번 더 재서 맞춘다 (미끄러지는 중이면 끝난 높이로)
+	for i in 2:
+		await get_tree().process_frame
+	if not _sheet.visible:
+		return
+	var body2: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
+	var h2 := minf(max_h, head_h + body2 + sa.size.y + 4)
+	if absf(h2 - _sheet_h) > 1.5:
+		var dy := _sheet.offset_bottom
+		_sheet_h = h2
+		_put_sheet(dy)
 
 
 func _build_tabbar_badges() -> void:
@@ -1235,7 +1247,7 @@ func _unique_sheet() -> void:
 			art.gui_input.connect(func(e):
 				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 					UI.buzz()
-					card_info(kk))
+					recipe_sheet(kk))      # 11/3 사용자: 디테일이 아니라 간략창으로
 			col.add_child(art)
 			var gn := UI.lbl(DB.C[kk].name, 12, DB.tier_color(kk), true)
 			gn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1281,11 +1293,18 @@ func _art_crop(k: String, box: Vector2, myth := true) -> TextureRect:
 	tr.clip_contents = true
 	if src == null:
 		return tr
+	var at := AtlasTexture.new()
+	at.atlas = src
+	if not myth or DB.myth_art(k) == null:
+		# 기본 초상(투명 바탕) —— 그려진 영역만 잘라 상자 안에 비율 그대로 꽉 (그림마다 여백이 달라 크기가 들쭉날쭉했다)
+		var ur := DB.portrait_used(k)
+		at.region = ur if ur.has_area() else Rect2(Vector2.ZERO, src.get_size())
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.texture = at
+		return tr
 	var ts := src.get_size()
 	var rh := minf(ts.y, ts.x * box.y / box.x)
 	var rw := ts.x if rh < ts.y else ts.y * box.x / box.y
-	var at := AtlasTexture.new()
-	at.atlas = src
 	at.region = Rect2((ts.x - rw) / 2.0, clampf(ts.y * 0.04, 0.0, ts.y - rh), rw, rh)
 	tr.texture = at
 	return tr
