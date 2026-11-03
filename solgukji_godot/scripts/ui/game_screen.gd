@@ -935,6 +935,27 @@ func _fill_art(ar: TextureRect) -> void:
 	var body_h: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
 	ar.custom_minimum_size.y = maxf(160.0, ar.custom_minimum_size.y + max_h - head_h - body_h - sa.size.y - 8)
 	_fit_sheet(false)
+	# 11/3 사용자: 딱 맞게 —— 한 번 더 재서 스크롤이 생길 만큼 넘쳤으면 그만큼 줄인다
+	for i in 3:
+		await get_tree().process_frame
+	if not is_instance_valid(ar):
+		return
+	var over: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y - _sheet_scroll.size.y
+	if over > 0.5:
+		ar.custom_minimum_size.y = maxf(120.0, ar.custom_minimum_size.y - over - 2)
+	# 얼굴이 있는 위쪽을 기준으로 자른다 (가운데로 자르면 신화 컷의 얼굴이 잘렸다)
+	await get_tree().process_frame
+	if not is_instance_valid(ar) or ar.size.x <= 0:
+		return
+	var src: Texture2D = ar.get_meta("art")
+	var ts := src.get_size()
+	var rh := minf(ts.y, ts.x * ar.custom_minimum_size.y / ar.size.x)
+	var rw := ts.x if rh < ts.y else ts.y * ar.size.x / ar.custom_minimum_size.y
+	var at := AtlasTexture.new()
+	at.atlas = src
+	at.region = Rect2((ts.x - rw) / 2.0, clampf(ts.y * 0.04, 0.0, ts.y - rh), rw, rh)
+	ar.texture = at
+	ar.stretch_mode = TextureRect.STRETCH_SCALE
 
 
 func recipe_sheet(out: String) -> void:
@@ -967,6 +988,7 @@ func recipe_sheet(out: String) -> void:
 	if art:
 		var ar := TextureRect.new()
 		ar.texture = art
+		ar.set_meta("art", art)
 		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		ar.clip_contents = true
@@ -992,7 +1014,7 @@ func recipe_sheet(out: String) -> void:
 	var ni = Run.need_item(out)
 	if ni != null:
 		var have_it: bool = run.bag.get(ni, 0) > 0
-		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 1 · 3 · 5일차 유니크 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
+		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 1 · 3 · 5일차 아이템 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
 	if c.tier >= 8 and run.has_myth():
 		b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다 — 이미 신화를 얻었다"))
 	var ok := run.can_forge(out)
@@ -1056,7 +1078,7 @@ func _page_draw() -> Control:
 	if tks.is_empty() and not pl.is_empty():
 		acts.add_child(UI.tile_act("pick", "선택권", "", func(): pass, "", true, true))
 	if not run.uniq_offer.is_empty():
-		var ub := UI.tile_act("item", "유니크 %d택1" % run.uniq_offer.size(), "", _unique_sheet, "gold", false, not can_act())
+		var ub := UI.tile_act("item", "보급", "", _unique_sheet, "gold", false, not can_act())
 		UI.tier_mark(ub, 8)
 		acts.add_child(ub)
 	var rg := run.grant_list()
@@ -1171,27 +1193,56 @@ func _unique_sheet() -> void:
 	if run.uniq_offer.is_empty() or not can_act():
 		close_sheet()
 		return
-	var b := open_sheet("유니크 보급 — 하나를 고른다")
-	b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다. 지금 받은 재료로 빨리 만들지, 3 · 5일차 보급을 기다릴지 고른다."))
+	var b := open_sheet("아이템 보급")
+	b.add_child(UI.hint("신화 재료 하나를 고른다 · 신화는 한 판에 하나"))
+	# 11/3 사용자: 세로가 아니라 가로로 나란히, 장수는 갈무리 창처럼 (초상 · 특기 · 고유 특기 · 위세)
+	var row := UI.hbox(6)
 	for id in run.uniq_offer:
 		var iid: String = id
-		var box := UI.vbox(6)
-		box.add_child(item_box(iid))
+		var col := UI.vbox(5)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var it: Dictionary = DB.IT[iid]
+		var nl := UI.lbl("◆ " + it.name, 13, DB.PAL.gold, true)
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(nl)
+		var sl := UI.lbl(UI.item_text(iid), 10, DB.PAL.bamboo)
+		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(sl)
 		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid):
-			var row := UI.hbox(8)
-			var t := mtile(k, run.pool().get(k, -1), func(x): recipe_sheet(x))
-			t.custom_minimum_size = Vector2(64, 92)
-			row.add_child(t)
-			var txt := UI.hint("%s
-%s" % [DB.C[k].name, DB.aura_text(k)])
-			txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			row.add_child(txt)
-			box.add_child(row)
-		box.add_child(UI.btn("이것을 받는다 — " + DB.IT[iid].name, func():
+			var kk: String = k
+			var cv := CardView.new().setup(kk, Vector2(84, 120))
+			cv.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			cv.mouse_filter = Control.MOUSE_FILTER_STOP
+			cv.gui_input.connect(func(e):
+				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+					UI.buzz()
+					card_info(kk))
+			col.add_child(cv)
+			col.add_child(TraitBoard.new().setup(kk, 3))
+			for t in DB.trait_list(kk):
+				if t.unique:
+					col.add_child(_small_bb("[color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color]" % t.name, t.mt))
+			if DB.AURA.has(kk):
+				col.add_child(_small_bb("[color=%s]위세[/color] 『%s』" % [DB.tier_color(kk).to_html(false), DB.AURA[kk].n], DB.aura_effect(kk)))
+		var sp := Control.new()
+		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		col.add_child(sp)
+		col.add_child(UI.btn("받기", func():
 			if act("pick_unique", [iid]):
-				toast("%s 획득 · 유니크" % DB.IT[iid].name, "gain")
-			close_sheet(), "pri", 44))
-		b.add_child(UI.panel(box, 10))
+				toast("%s 획득 · 아이템 보급" % it.name, "gain")
+			close_sheet(), "pri", 40))
+		var pc := UI.panel(col, 6)
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(pc)
+	b.add_child(row)
+
+
+## 좁은 칸의 머리줄 + 줄 바꿈되는 작은 설명 (아이템 보급 칸)
+func _small_bb(head: String, body: String) -> Control:
+	var r := UI.rich("[b]%s[/b]
+[color=#8FD4C2]%s[/color]" % [head, body.replace(" · ", " · ")], 10)
+	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return r
 
 
 ## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다

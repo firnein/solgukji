@@ -252,7 +252,7 @@ func _offer_unique(cand: Array) -> void:
 		out.append(cand.pop_at(rng.randi() % cand.size()))
 	uniq_offer = out
 	if not out.is_empty():
-		toasts.append(["유니크 보급 도착 · 신화 재료 %d개 중 하나를 고르시오" % out.size(), "gold"])
+		toasts.append(["아이템 보급 도착 · %d개 중 하나를 고르시오" % out.size(), "gold"])
 
 
 ## 유니크 보급에서 하나를 고른다
