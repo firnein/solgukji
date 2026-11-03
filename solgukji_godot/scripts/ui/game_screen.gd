@@ -36,6 +36,7 @@ var _scroll: ScrollContainer
 var _body: MarginContainer
 var _fixed: MarginContainer   # 스크롤하지 않는 페이지 (편성 —— 편성판을 고정하고 손패만 스크롤)
 var _sheet_mask: ColorRect
+var _sheet_art: TextureRect      # 조합 시트 위 빈 공간의 신화 그림
 var _sheet: PanelContainer
 var _sheet_body: VBoxContainer
 var _sheet_title: Label
@@ -266,6 +267,14 @@ func _build_sheet() -> void:
 			close_sheet())
 	TouchScroll.block(_sheet_mask)
 	add_child(_sheet_mask)
+	# 11/3 사용자: 장수정보간략창(조합 시트) 위의 빈 공간에 신화 그림 —— 어두운 막 위, 시트 아래. 누르면 막처럼 닫힌다
+	_sheet_art = TextureRect.new()
+	_sheet_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_sheet_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_sheet_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_sheet_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sheet_art.visible = false
+	add_child(_sheet_art)
 	_sheet = PanelContainer.new()
 	var sb := UI.flat(DB.PAL.ink2, DB.PAL.bamboo_dim, 0, 0, 0)
 	sb.corner_radius_top_left = 18
@@ -355,6 +364,15 @@ func _put_sheet(dy: float) -> void:
 	_sheet.offset_top = -_sheet_h + dy
 	_sheet.offset_bottom = dy
 	_sheet_mask.color.a = 0.55 * clampf(1.0 - dy / maxf(1.0, _sheet_h), 0, 1)
+	if _sheet_art.texture != null and _sheet.visible:
+		var sa := _safe_insets()
+		var top_y := sa.position.y + TOP_H + 8.0      # 위 띠(날짜 · 병력) 아래부터
+		var bot_y := size.y - _sheet_h + dy - 12.0
+		var side := maxf(16.0, (size.x - MAX_W) / 2.0 + 16.0)
+		_sheet_art.position = Vector2(side, top_y)
+		_sheet_art.size = Vector2(size.x - side * 2.0, maxf(0.0, bot_y - top_y))
+		_sheet_art.visible = bot_y - top_y > 90.0
+		_sheet_art.modulate.a = clampf(1.0 - dy / maxf(1.0, _sheet_h), 0, 1)
 
 
 func _slide_sheet(to: float, dur: float, then := Callable()) -> void:
@@ -644,6 +662,8 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	_sheet_title.add_theme_font_size_override("font_size", 24 if col.a > 0 else 19)
 	for c in _sheet_body.get_children():
 		c.queue_free()
+	_sheet_art.texture = null
+	_sheet_art.visible = false
 	_sheet_mask.visible = true
 	_sheet.visible = true
 	_sheet_scroll.scroll_vertical = 0
@@ -662,6 +682,8 @@ func close_sheet() -> void:
 		return
 	_slide_sheet(_sheet_h, 0.2, func():
 		_sheet_mask.visible = false
+		_sheet_art.visible = false
+		_sheet_art.texture = null
 		_sheet.visible = false)
 
 
@@ -968,6 +990,7 @@ func recipe_sheet(out: String) -> void:
 	_route_enter("recipe", out)
 	var c: Dictionary = DB.C[out]
 	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
+	_sheet_art.texture = DB.myth_art(out)      # 그 인물의 신화 그림이 있으면 시트 위 빈 공간에 (_put_sheet 가 자리를 잡는다)
 	# 11/3 사용자: 이름은 제목과 겹치니 빼고, 일반 기술도 뺀다 —— 초상 오른쪽에 특기판 · 고유 특기 · 위세
 	var tp := UI.hbox(10)
 	var cv := CardView.new().setup(out, Vector2(72, 102))
@@ -1321,21 +1344,6 @@ func card_info(k: String) -> void:
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
 	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
-	# 11/3 사용자: 디테일창의 남는 위쪽 공간을 신화 그림으로 (그 인물의 신화 그림이 있을 때만) —— 높이는 한 프레임 뒤 남는 만큼
-	var art := DB.myth_art(k)
-	if art:
-		var ar := TextureRect.new()
-		ar.texture = art
-		ar.set_meta("art", art)
-		ar.set_meta("crop", true)
-		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		ar.clip_contents = true
-		ar.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		ar.custom_minimum_size.y = 0
-		ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(ar)
-		_fill_art.call_deferred(ar)
 	var top := UI.hbox(12)
 	var big := CardView.new().setup(k, Vector2(132, 188))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
