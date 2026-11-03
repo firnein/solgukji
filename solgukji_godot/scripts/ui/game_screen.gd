@@ -924,6 +924,19 @@ func recipe_card(out: String, sz := Vector2(86, 112)) -> Control:
 
 
 ## 조합 시트 —— 제목은 등급색 장수 이름. 결과 카드(특기 칸) · 재료 한 줄(가진 수/필요 수) · 조합 + 상세 버튼 한 줄
+## 갈무리 창의 신화 컷 —— 시트가 화면의 최대 높이까지 차도록 그림 높이를 늘린다
+func _fill_art(ar: TextureRect) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(ar):
+		return
+	var sa := _safe_insets()
+	var max_h := (size.y - sa.position.y) * 0.88
+	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
+	var body_h: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
+	ar.custom_minimum_size.y = maxf(160.0, ar.custom_minimum_size.y + max_h - head_h - body_h - sa.size.y - 8)
+	_fit_sheet(false)
+
+
 func recipe_sheet(out: String) -> void:
 	_route_enter("recipe", out)
 	var c: Dictionary = DB.C[out]
@@ -932,6 +945,11 @@ func recipe_sheet(out: String) -> void:
 	var tp := UI.hbox(10)
 	var cv := CardView.new().setup(out, Vector2(72, 102))
 	cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	cv.mouse_filter = Control.MOUSE_FILTER_STOP          # 11/3 사용자: 초상을 누르면 디테일창
+	cv.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+			UI.buzz()
+			card_info(out))
 	tp.add_child(cv)
 	var rv := UI.vbox(5)
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -944,6 +962,18 @@ func recipe_sheet(out: String) -> void:
 		rv.add_child(UI.rich("[b][color=%s]%s[/color] 『%s』[/b]
 [color=#8FD4C2]%s[/color]" % [DB.tier_color(out).to_html(false), "기인" if DB.is_kiin(out) else "위세", DB.AURA[out].n, DB.aura_effect(out)], 12))
 	tp.add_child(rv)
+	# 11/3 사용자: 남는 위쪽 공간을 신화 컷으로 채운다 (그 인물의 신화 그림이 있으면) —— 높이는 한 프레임 뒤 남는 만큼
+	var art := DB.myth_art(out)
+	if art:
+		var ar := TextureRect.new()
+		ar.texture = art
+		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		ar.clip_contents = true
+		ar.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		ar.custom_minimum_size.y = 160
+		b.add_child(ar)
+		_fill_art.call_deferred(ar)
 	b.add_child(UI.panel(tp, 8))
 	var row := UI.hbox(6)
 	var ml := UI.lbl("재료", 13, DB.PAL.bamboo, true)
@@ -1237,12 +1267,14 @@ func card_info(k: String) -> void:
 		st.add_child(_fold_kv("card_ult", "[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "", UI.ult_desc(u, c.tier), Color("#ffd76e")))
 	top.add_child(st)
 	b.add_child(top)
+	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
+	b.add_child(folds)
 	# 기술 —— 접힌 칸 하나에 기술마다 효과 · 수치 표
 	if not c.get("sks", []).is_empty():
 		var sk_v := UI.vbox(6)
 		for x in c.sks:
 			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-		b.add_child(_fold_sec("card_skills", "기술 %d" % c.sks.size(), sk_v))
+		folds.add_child(_fold_sec("card_skills", "기술 %d" % c.sks.size(), sk_v))
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
@@ -1250,17 +1282,17 @@ func card_info(k: String) -> void:
 		for t in tl.filter(func(x): return not x.unique):
 			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "\n"), ("\n[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
 			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "\n[color=#8D7B5C]단체[/color]" if t.group else ""], body)
-		b.add_child(_fold_sec("card_traits", "특기 %d" % tl.filter(func(x): return not x.unique).size(), tg))
+		folds.add_child(_fold_sec("card_traits", "특기 %d" % tl.filter(func(x): return not x.unique).size(), tg))
 	var ag := _info_grid()
 	_info_row(ag, "[color=#8fd4c2]선호[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref")])
 	_info_row(ag, "[color=#e0806f]어색[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
-	b.add_child(_fold_sec("card_aff", "선호 대열", ag))
+	folds.add_child(_fold_sec("card_aff", "선호 대열", ag))
 
 	# 보유 중이면 한 단계 위(이 카드로 만드는 것)를 먼저, 아니면 만드는 법을 먼저 (11/2 사용자)
 	var owned: bool = run.pool().get(k, 0) > 0
 	var make_sec := UI.vbox(10)
 	var up_sec := UI.vbox(10)
-	make_sec.add_child(UI.eyebrow("이 카드를 만드는 법"))
+	make_sec.add_child(UI.eyebrow("장수 조합법"))
 	if DB.RECOF.has(k):
 		make_sec.add_child(_up_row(k))
 	else:
@@ -1277,20 +1309,19 @@ func card_info(k: String) -> void:
 	if DB.is_kiin(k):
 		up_sec.add_child(UI.eyebrow("기인"))
 		up_sec.add_child(UI.hint("한 판에 1장만 만들 수 있고, 다른 조합의 재료로 쓰이지 않는다."))
-	else:
-		up_sec.add_child(UI.eyebrow("한 단계 위 · %s %d종%s" % [DB.TIER[DB.next_tier(c.tier)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
-	if one.is_empty() and not DB.is_kiin(k):
-		up_sec.add_child(UI.hint("최종 등급이라 위가 없다." if c.tier == 8 else "이 카드를 재료로 쓰는 %s 조합이 없다 — 편성 전용이다." % DB.TIER[DB.next_tier(c.tier)].n))
+	elif not one.is_empty():         # 11/3 사용자: 다음 단계가 없으면 아예 적지 않는다
+		up_sec.add_child(UI.eyebrow("다음 단계 · %s %d종%s" % [DB.TIER[DB.next_tier(c.tier)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
 	for o in one:
 		up_sec.add_child(_up_row(o))
-	if not far.is_empty():
+	if not far.is_empty() and not one.is_empty():
 		var parts := []
 		for t in far:
 			parts.append("%s %d종" % [DB.TIER[t].n, far[t]])
 		up_sec.add_child(UI.hint("그 밖에 " + " · ".join(parts) + "에도 재료로 쓰인다."))
 
 	for sec in ([up_sec, make_sec] if owned else [make_sec, up_sec]):
-		b.add_child(sec)
+		if sec.get_child_count() > 0:
+			b.add_child(sec)
 
 
 ## 접는 칸 —— 머리줄을 누르면 열고 닫는다. 기본은 닫힘, 연 상태는 _open[key] 에 남아 다른 카드에서도 이어진다
@@ -1299,7 +1330,7 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	var hb := Button.new()
 	hb.flat = true
 	hb.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	hb.custom_minimum_size.y = 36
+	hb.custom_minimum_size.y = 30
 	hb.add_theme_font_override("font", DB.font_display)
 	hb.add_theme_font_size_override("font_size", 14)
 	hb.add_theme_color_override("font_color", DB.PAL.bamboo)
