@@ -25,6 +25,7 @@ static var period_base := 1.9           # 예전 한 턴에 해당하는 시간 
 const TRACK_EVERY := 0.4      # 위치 기록 간격 (초)
 const ARENA := Rect2(-460, -280, 920, 560)
 const BODY := 28.0            # 부대 반지름 (px) —— 이보다 가까이 겹치지 않는다
+static var ALLY_SEP := 2.7     # 아군 부대끼리 떨어지는 거리 (BODY 배) —— 11/3 2.0 → 2.7: 가운데 한 덩어리로 뭉쳐 누가 누군지 안 보였다
 const CONTACT := 64.0         # 근접 공격이 닿는 중심 거리
 const GAP := 240.0            # 양군 선봉 사이 · 열 간격 · 옆 간격 (War3D 와 같다)
 const RS := 78.0
@@ -483,7 +484,7 @@ func _separate() -> void:
 			var b := units[j]
 			if not b.alive:
 				continue
-			var lim := BODY * 2.0 if a.camp == b.camp else CONTACT - 6.0
+			var lim := BODY * ALLY_SEP if a.camp == b.camp else CONTACT - 6.0
 			var d := a.pos - b.pos
 			var l := d.length()
 			if l < lim:

@@ -1060,7 +1060,7 @@ func _apply(i: int, quiet := false) -> void:
 				field.squads[e.a].glow = 1.0
 		"cmd":
 			var col: Color = {"돌격": Color("#ff8a4a"), "방진": Color("#6fb0ff"), "재정비": Color("#8FD4C2")}.get(e.name, Color.WHITE)
-			hud.announce("%s 군령 『%s』 —— %s" % ["아군" if e.camp == "A" else "적", e.name, Battle.CMDS[e.name].d], col)
+			hud.announce("%s 군령 『%s』" % ["아군" if e.camp == "A" else "적", e.name], col)      # 11/3 설명까지 붙이면 화면 밖으로 잘렸다
 			field.cmd_fx(e.camp, col)
 		"status", "cleanse", "debuff":
 			pass          # 상태이상 · 해제 · 수치 깎기 —— 머리표 배지로 보인다

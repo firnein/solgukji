@@ -1,6 +1,7 @@
 extends Node
 ## 정산 간격 비교 —— 실행: godot --headless --path . res://tests/settle_cmp.tscn [-- --games=30]
 ## 같은 시드 · 같은 덱을 RtBattle.SETTLE 0.2초(나눠 정산)와 999(턴 끝에만 —— 예전)로 돌려 승패 · 길이 · 패주 수를 비교한다
+## --ally=2.0 —— 정산 대신 아군 간격 ALLY_SEP 를 그 값(예전)과 지금 값으로 비교
 const FORMS := ["eorin", "hagik", "bongsi", "anwol", "bangwon", "anhaeng", "chuhaeng", "jangsa"]
 
 func _ready() -> void:
@@ -13,8 +14,12 @@ func _ready() -> void:
 	for t in [3, 4, 5, 6, 7, 8]:
 		var pool: Array = DB.by_tier(t)
 		var res := {}
+		var cur_sep := RtBattle.ALLY_SEP
 		for st in [999.0, 0.2]:
-			RtBattle.SETTLE = st
+			if args.has("ally"):
+				RtBattle.ALLY_SEP = float(args.ally) if st > 1.0 else cur_sep
+			else:
+				RtBattle.SETTLE = st
 			var rng := RandomNumberGenerator.new()
 			rng.seed = 900 + t
 			var out := []
