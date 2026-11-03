@@ -854,7 +854,7 @@ func cleanse(u: Unit) -> bool:
 	return true
 
 
-func tick_status() -> void:
+func tick_status(frac := 1.0, final := true) -> void:
 	var spreads := []
 	var passes := []
 	for u in units:
@@ -862,26 +862,32 @@ func tick_status() -> void:
 		for s in u.st:
 			match s.k:
 				"burn":
+					var bv: float = s.val * frac
 					if scheme_enabled and has_st(u, "confuse") and _side_max(_foe(u.camp), "confuse_burn") > 0:
-						u.troops -= s.val          # 팔진화계 —— 혼란된 적의 화상이 두 배로 탄다
-						stats.burn += s.val
-					u.troops -= s.val
-					stats.burn += s.val
+						u.troops -= bv          # 팔진화계 —— 혼란된 적의 화상이 두 배로 탄다
+						stats.burn += bv
+					u.troops -= bv
+					stats.burn += bv
 					var tr := _side_max(_foe(u.camp), "terror")
 					if tr > 0:
-						u.morale -= tr * pace
-						stats.terror += tr * pace
-					if s.get("sp", 0.0) > 0 and rng.randf() < s.sp:
+						u.morale -= tr * pace * frac
+						stats.terror += tr * pace * frac
+					if s.get("sp", 0.0) > 0 and rng.randf() < 1.0 - pow(1.0 - float(s.sp), frac):
 						spreads.append([u, s])
-					L("st", "%s 불길에 휩싸인다 — 병력 %s 손실" % [ga(nm(u)), num(s.val)], {"fx": "tick", "f": u.key, "st": "burn", "n": s.val})
+					if final:
+						L("st", "%s 불길에 휩싸인다 — 병력 %s 손실" % [ga(nm(u)), num(s.val)], {"fx": "tick", "f": u.key, "st": "burn", "n": s.val})
 				"flood":
 					pass       # 둔화 —— 피해 없이 느려지기만 한다 (eff 의 _flood_slow)
 				"bleed":
-					u.troops -= s.val
-					L("st", "%s의 상처가 벌어진다 — 병력 %s 손실" % [nm(u), num(s.val)], {"fx": "tick", "f": u.key, "st": "bleed", "n": s.val})
+					u.troops -= s.val * frac
+					if final:
+						L("st", "%s의 상처가 벌어진다 — 병력 %s 손실" % [nm(u), num(s.val)], {"fx": "tick", "f": u.key, "st": "bleed", "n": s.val})
 				"plague":
-					u.morale -= s.val
-					L("st", "%s의 군세에 역병이 돈다 — 사기 %d 감소" % [nm(u), roundi(s.val)], {"fx": "tick", "f": u.key, "st": "plague", "m": s.val})
+					u.morale -= s.val * frac
+					if final:
+						L("st", "%s의 군세에 역병이 돈다 — 사기 %d 감소" % [nm(u), roundi(s.val)], {"fx": "tick", "f": u.key, "st": "plague", "m": s.val})
+		if not final:
+			continue
 		for s in u.st: s.dur -= 1
 		for s in u.st:
 			if s.k == "confuse" and s.dur <= 0 and not s.get("passed", false) and scheme_enabled \
@@ -890,6 +896,8 @@ func tick_status() -> void:
 		u.st = u.st.filter(func(s): return s.dur > 0)
 	for sp in spreads:
 		_spread_burn(sp[0], sp[1])
+	if not final:
+		return
 	for u in passes:                                  # 반간 —— 풀린 혼란이 같은 열 이웃에게 옮겨 간다 (한 번만)
 		var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and _same_line(o, u) and not has_st(o, "confuse"))
 		if cand.is_empty(): continue
@@ -1628,6 +1636,12 @@ func _act_one(u: Unit) -> void:
 
 ## 턴 끝 정산 —— 사기 · 회복 · 상태이상 · 패주. 승부가 났으면 "A" · "B" · "draw"
 func _turn_end() -> String:
+	return _settle(1.0, true)
+
+
+## 정산 —— 턴 끝의 흐름(사기 · 회복 · 지속 피해 · 패주)을 frac(그 턴의 몫)만큼. 11/3 사용자: 실시간 엔진은 0.2초마다 나눠
+## 부른다 (RtBattle.SETTLE). 지속 시간 줄이기 · 기록 문구는 턴 경계(final)에서만. 턴제는 frac 1 로 한 번 —— 예전과 같다
+func _settle(frac: float, final: bool) -> String:
 	_ai += 1
 	_ph = "end"
 	_who = ""
@@ -1643,7 +1657,7 @@ func _turn_end() -> String:
 			u.hit25 = true
 			u.morale -= K.hit25 * tg
 		if u.morale > 30 and u.morale < 100:
-			var rg: float = K.regen * pace * (1.5 if u.regen_up else 1.0)
+			var rg: float = K.regen * pace * frac * (1.5 if u.regen_up else 1.0)
 			if u.caps.has("유생"): rg *= 2
 			u.morale = minf(100, u.morale + rg)
 	for cp in ["A", "B"]:
@@ -1651,21 +1665,22 @@ func _turn_end() -> String:
 		if side.is_empty() or not side[0].caps.has("유생"): continue
 		for u in side:
 			if _scorched(u): continue
-			var g := minf(roundf(u.max * 0.045 * pace), u.max - u.troops)
+			var g := minf(u.max * 0.045 * pace * frac, u.max - u.troops)
 			if g > 0: u.troops += g
-		L("hl", "대오를 추스른다 — 진영 병력 %.1f%% 회복" % (4.5 * pace), {"fx": "heal", "f": side[0].key})
-	tick_status()
+		if final:
+			L("hl", "대오를 추스른다 — 진영 병력 %.1f%% 회복" % (4.5 * pace), {"fx": "heal", "f": side[0].key})
+	tick_status(frac, final)
 	check_rout()
 	for cp in ["A", "B"]:
 		var healed := ""
 		for u in units:
 			if not u.alive or u.camp != cp: continue
 			if mv(u, "mregen") > 0:
-				u.morale = minf(200, u.morale + mv(u, "mregen") * pace)
+				u.morale = minf(200, u.morale + mv(u, "mregen") * pace * frac)
 			if mv(u, "regen") > 0 and u.troops < u.max and not _scorched(u):
-				u.troops = minf(u.max, u.troops + roundf(u.max * mv(u, "regen") * pace))
+				u.troops = minf(u.max, u.troops + u.max * mv(u, "regen") * pace * frac)
 				healed = u.key
-		if healed != "":
+		if healed != "" and final:
 			L("hl", "특기로 대오를 추스른다", {"fx": "heal", "f": healed})
 	for u in units:
 		if not u.alive: continue
@@ -1678,7 +1693,7 @@ func _turn_end() -> String:
 		p *= 1.0 - mv(u, "rout")
 		p *= 1.0 - _buff_sum(u, "calm")
 		if u.caps.has("유생"): p *= 0.5
-		p = 1.0 - pow(1.0 - minf(p, 1.0), 1.0 / turn_mul)     # 턴이 늘어난 만큼 —— 전투 전체로 보면 같은 빈도
+		p = 1.0 - pow(1.0 - minf(p, 1.0), frac / turn_mul)     # 턴이 늘어난 만큼 · 나눠 부른 몫만큼 —— 전투 전체로 보면 같은 빈도
 		if rng.randf() < p:
 			if pm >= pt:
 				rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)))

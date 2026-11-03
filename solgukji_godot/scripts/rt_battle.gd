@@ -11,6 +11,7 @@ extends Battle
 ## 같은 시드 · 같은 입력이면 같은 결과 (서버 판정 · 재계산 그대로). 화면은 위치 기록(track)을 따라 움직인다.
 
 const TICK := 0.1
+static var SETTLE := 0.2       # 정산(사기 · 회복 · 지속 피해 · 패주)을 나눠 하는 간격 (초) —— 11/3 사용자: 턴 끝에 한꺼번에 툭 바뀌던 것을 촘촘히
 const PERIOD_MUL := {3: 1.75, 4: 0.8, 5: 0.65, 6: 0.55, 7: 0.53, 8: 0.6}   # 등급별 턴 간격 배율 —— 같은 등급 31~38초 (11/1 측정 · 자동 감상 전투라 줄였다)
 const BATTLE_SEC := 35.0                # 같은 등급 감상 전투의 보통 길이 (초) —— 카드 설명의 '전투 동안' 수치용 (11/3)
 
@@ -91,6 +92,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	var winner := ""
 	var cap_t: float = K.cap * turn_mul * period
 	var next_end := period
+	var next_set := SETTLE
+	var last_set := 0.0
 	_record()
 	while _tm < cap_t and winner == "":
 		_tm += TICK
@@ -117,10 +120,16 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 					break
 		if _tm >= next_end - 0.001:
 			next_end += period
-			winner = _turn_end()
+			winner = _settle((_tm - last_set) / period, true)      # 턴 경계 —— 남은 몫 + 지속 시간 줄이기
+			last_set = _tm
+			next_set = _tm + SETTLE
 			if winner == "":
 				turn += 1
 				_turn_begin(turn)
+		elif _tm >= next_set - 0.001:
+			winner = _settle((_tm - last_set) / period, false)     # 11/3 0.2초마다 흐름만 나눠서 (실시간처럼)
+			last_set = _tm
+			next_set = _tm + SETTLE
 		elif live_count("A") == 0 or live_count("B") == 0:
 			winner = "draw" if live_count("A") + live_count("B") == 0 else ("A" if live_count("B") == 0 else "B")
 		if _tm >= _next_track - 0.001:
