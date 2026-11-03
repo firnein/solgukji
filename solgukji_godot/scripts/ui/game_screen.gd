@@ -1194,53 +1194,85 @@ func _unique_sheet() -> void:
 		close_sheet()
 		return
 	var b := open_sheet("아이템 보급")
-	# 11/3 사용자: 좁은 칸에 우겨넣지 말고 길게 —— 칸마다 [아이템] [아이템 능력치] [장수], 수치는 모두 '효과 · 수치' 줄
+	# 11/3 사용자: 스크롤 없이 가로 세 칸, 칸은 위아래로 길게 —— [아이템] [아이템 능력치] [장수(신화 그림)], 수치는 '효과 · 수치' 줄
+	var row := UI.hbox(5)
 	for id in run.uniq_offer:
 		var iid: String = id
 		var it: Dictionary = DB.IT[iid]
-		var box := UI.vbox(8)
-		var ih := UI.hbox(10)
-		var th := ItemArt.View.new(iid, 56)
-		th.custom_minimum_size = Vector2(56, 56)
-		th.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var col := UI.vbox(4)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var ih := UI.hbox(4)
+		var th := ItemArt.View.new(iid, 30)
+		th.custom_minimum_size = Vector2(30, 30)
 		ih.add_child(th)
-		var iv := UI.vbox(2)
-		iv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		iv.add_child(UI.lbl("◆ " + it.name, 16, DB.PAL.gold, true))
-		iv.add_child(_kv_grid(UI.item_text(iid), 12))
-		ih.add_child(iv)
-		box.add_child(ih)
+		var nl := UI.lbl(it.name, 12, DB.PAL.gold, true)
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ih.add_child(nl)
+		col.add_child(ih)
+		col.add_child(_kv_grid(UI.item_text(iid), 10))
 		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid):
 			var kk: String = k
-			var gh := UI.hbox(10)
-			var cv := CardView.new().setup(kk, Vector2(84, 120))
-			cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-			cv.mouse_filter = Control.MOUSE_FILTER_STOP
-			cv.gui_input.connect(func(e):
+			var art := _art_crop(kk, Vector2(120, 150))
+			art.mouse_filter = Control.MOUSE_FILTER_STOP
+			art.gui_input.connect(func(e):
 				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 					UI.buzz()
 					card_info(kk))
-			gh.add_child(cv)
-			var gv := UI.vbox(4)
-			gv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			gv.add_child(UI.lbl(DB.C[kk].name, 15, DB.tier_color(kk), true))
+			col.add_child(art)
+			var gn := UI.lbl(DB.C[kk].name, 12, DB.tier_color(kk), true)
+			gn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			gn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			col.add_child(gn)
 			var tb := TraitBoard.new()
 			tb.fixed = true
-			gv.add_child(tb.setup(kk))
+			col.add_child(tb.setup(kk, 3))
 			for t in DB.trait_list(kk):
 				if t.unique:
-					gv.add_child(UI.rich("[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, 12))
-					gv.add_child(_kv_grid(t.mt, 12))
+					col.add_child(UI.rich("[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, 10))
+					col.add_child(_kv_grid(t.mt, 10))
 			if DB.AURA.has(kk):
-				gv.add_child(UI.rich("[b][color=%s]위세[/color] 『%s』[/b]" % [DB.tier_color(kk).to_html(false), DB.AURA[kk].n], 12))
-				gv.add_child(_kv_grid(DB.aura_effect(kk), 12))
-			gh.add_child(gv)
-			box.add_child(gh)
-		box.add_child(UI.btn("받기 — %s" % it.name, func():
+				col.add_child(UI.rich("[b][color=%s]위세[/color] 『%s』[/b]" % [DB.tier_color(kk).to_html(false), DB.AURA[kk].n], 10))
+				col.add_child(_kv_grid(DB.aura_effect(kk), 10))
+		var sp := Control.new()
+		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		col.add_child(sp)
+		col.add_child(UI.btn("받기", func():
 			if act("pick_unique", [iid]):
 				toast("%s 획득 · 아이템 보급" % it.name, "gain")
-			close_sheet(), "pri", 44))
-		b.add_child(UI.panel(box, 10))
+			close_sheet(), "pri", 38))
+		var pc := UI.panel(col, 5)
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pc.size_flags_stretch_ratio = 1.0
+		pc.custom_minimum_size.x = 0
+		pc.clip_contents = true
+		row.add_child(pc)
+	b.add_child(row)
+
+
+## 신화 그림 (없으면 기본 초상) 을 상자 비율로 —— 얼굴이 있는 위쪽 기준으로 자른다
+func _art_crop(k: String, box: Vector2) -> TextureRect:
+	var src: Texture2D = DB.myth_art(k)
+	if src == null:
+		src = DB.portrait(k)
+	var tr := TextureRect.new()
+	tr.custom_minimum_size = Vector2(0, box.y)          # 폭은 칸에 맞춘다 (최소 폭이 있으면 셋째 칸이 화면 밖으로 밀렸다)
+	tr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	tr.clip_contents = true
+	if src == null:
+		return tr
+	var ts := src.get_size()
+	var rh := minf(ts.y, ts.x * box.y / box.x)
+	var rw := ts.x if rh < ts.y else ts.y * box.x / box.y
+	var at := AtlasTexture.new()
+	at.atlas = src
+	at.region = Rect2((ts.x - rw) / 2.0, clampf(ts.y * 0.04, 0.0, ts.y - rh), rw, rh)
+	tr.texture = at
+	return tr
 
 
 ## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다
