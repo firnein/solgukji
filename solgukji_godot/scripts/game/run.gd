@@ -1158,7 +1158,17 @@ func dev_autoplay() -> void:
 	if not granted and not grant_list().is_empty():
 		random_grant()
 	if not uniq_offer.is_empty():
-		pick_unique(uniq_offer[0])
+		# 11/3 신화에 가장 가까운 유니크를 고른다 (예전엔 첫 번째 —— 신화를 한 번도 못 만들었다)
+		var bu: String = uniq_offer[0]
+		var bs := 999
+		for id in uniq_offer:
+			for k in DB.C:
+				if DB.C[k].tier >= 8 and not DB.is_foe(k) and need_item(k) == id:
+					var s := _chain_miss(k)
+					if s < bs:
+						bs = s
+						bu = id
+		pick_unique(bu)
 	_dev_spend()
 	if is_tour_phase():
 		if tour == null:
@@ -1179,7 +1189,31 @@ func dev_autoplay() -> void:
 	advance()
 
 
+## 점검용 —— 신화 줄기(신화 · 그 불멸 · 그 전설)까지 모자란 재료 수
+func _chain_miss(m: String) -> int:
+	var n := miss_count(m)
+	for x in DB.RECOF.get(m, []):
+		if DB.C.has(str(x)) and have(str(x)) <= 0 and DB.RECOF.has(str(x)):
+			n += miss_count(str(x))
+	return n
+
+
+## 점검용 —— 가방의 유니크로 만들 신화와 그 아래 줄기 재료 (선택권에서 먼저 고른다)
+func _dev_chain() -> Dictionary:
+	var out := {}
+	if has_myth():
+		return out
+	for k in DB.C:
+		if DB.C[k].tier >= 8 and not DB.is_foe(k) and need_item(k) != null and bag.has(need_item(k)):
+			for x in DB.RECOF.get(k, []):
+				out[str(x)] = true
+				for y in DB.RECOF.get(str(x), []):
+					out[str(y)] = true
+	return out
+
+
 func _dev_spend() -> void:
+	var chain := _dev_chain()
 	while ticket_left() > 0:
 		# 조합에 가장 가까워지는 카드를 고른다 (11/2: 줄기 재편 뒤 아무 카드나 고르면 전설을 못 만든다 —— 사람처럼 노리고 고른다)
 		var pl: Array = DB.by_tier(ticket_tiers()[0])
@@ -1190,6 +1224,8 @@ func _dev_spend() -> void:
 			for o in used_in(k):
 				if DB.C[o].tier < 8:
 					sc = mini(sc, miss_count(o))
+			if chain.has(k) and have(k) <= 0:
+				sc -= 2
 			if sc < best_s:
 				best_s = sc
 				best = [k]

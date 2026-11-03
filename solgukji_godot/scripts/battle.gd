@@ -72,12 +72,12 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 ## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
 ## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
 static var tag_roles := true
-const ROLE := {"charge": 2.0, "horse_after": 0.9, "bow_cover": 1.35, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 1.15,
-	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 1.6, "schol_heal": 2.0, "occul_heal": 0.3, "occul_status": 1.8, "occul_int": 1.2,
-	"schem_morale": 1.4, "schem_int": 1.3}
+const ROLE := {"charge": 2.0, "horse_after": 0.8, "horse_all": 0.9, "int_guard": 0.8, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 1.05,
+	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 1.6, "schol_heal": 2.5, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.8, "occul_int": 1.35,
+	"schem_morale": 2.2, "schem_int": 1.75}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
 const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
-const CHARGE := {3: 1.5, 4: 1.5, 5: 1.7, 6: 1.9, 7: 2.0, 8: 2.0}
+const CHARGE := {3: 1.15, 4: 1.15, 5: 1.3, 6: 1.45, 7: 1.7, 8: 1.9}
 ## 창병 피해 배율 —— 낮은 등급일수록 선호 자리 보너스(공격 ×1.22)가 커 더 낮춘다
 const SPEAR_ATK := {3: 0.45, 4: 0.45, 5: 0.5, 6: 0.55, 7: 0.6, 8: 0.65}
 const INT_TAG := ["책사", "유생", "술사", "모사"]
@@ -207,7 +207,7 @@ var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0
 var _oath_used := {"A": false, "B": false}
 var _kiin_u := {}              # 11/3 기인 —— 기능 키 -> 유닛 배열
 var _kiin_used := {}           # "키:진영" -> 쓴 횟수
-var _ult_null := false         # 서성 의성가성 —— 이번 고유기는 피해가 없다
+var _ult_null := false         # 서성 장강방벽 —— 이번 고유기는 피해가 없다
 const KIIN_MID_TURN := 10      # 좌자 · 초선 —— 중반 한 번 더
 ## 덱 연쇄 —— 진영별 특기 연쇄 횟수 (결과표 · 전투 중 강조). 1 · 3 · 6 · 10 · 15 · 20 · 30 · 50 번째에 사건을 남긴다
 var chains := {"A": {}, "B": {}}
@@ -320,7 +320,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 				continue
 			for k in t.m:
 				u.m[k] = u.m.get(k, 0.0) + t.m[k]
-	if u.c.tier >= 6:
+	if u.c.tier >= 6 or u.c.kind == "kiin":      # 11/3 기인도 고유기 (초월 세기)
 		u.ult = DB.ult_of(cid)
 		if u.ult:
 			u.charges = ULT_CHARGES.get(u.c.tier, 1)
@@ -717,9 +717,14 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
 	if not tag_roles:
 		return 1.0
+	var g := 1.0
+	if phys and d.c.tag in ["유생", "술사", "모사"]:      # 지원 책략계는 물리에 덜 맞는다 (후열이 먼저 무너져 3장 덱 승률 21~42%)
+		g = ROLE.int_guard
+	if a.c.tag == "기병":
+		g *= ROLE.horse_all
 	if not phys and INT_TAG.has(a.c.tag):
-		return _role_tag(a, d, phys) * INT_LOW.get(a.c.tier, 1.0)
-	return _role_tag(a, d, phys)
+		return _role_tag(a, d, phys) * INT_LOW.get(a.c.tier, 1.0) * g
+	return _role_tag(a, d, phys) * g
 
 
 func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
@@ -746,6 +751,8 @@ func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
 			if not phys: return ROLE.schem_int
 		"술사":
 			if not phys: return ROLE.occul_int
+		"유생":
+			if not phys: return ROLE.schol_int
 	return 1.0
 
 
@@ -1550,7 +1557,7 @@ func _kiin_open() -> void:
 			if not back.is_empty():
 				back[0].morale -= 40.0
 				inflict(sx, back[0], "confuse", 1, 2)
-				L("sk", "%s 적 후열 %s 습격했다" % [ga(nm(sx)), eul(nm(back[0]))], {"fx": "skill", "a": sx.key, "name": "궁요희", "kind": "phys"})
+				L("sk", "%s 적 후열 %s 습격했다" % [ga(nm(sx)), eul(nm(back[0]))], {"fx": "skill", "a": sx.key, "name": "백인시비", "kind": "phys"})
 		var gh := _kv(cp, "morale_crash")  # 난무 가후 —— 적 전원 사기 −25
 		if gh:
 			for o in units:
@@ -1568,7 +1575,7 @@ func _kiin_wave() -> void:
 		var zz := _kv(cp, "seal")
 		if zz:
 			for o in foes: inflict(zz, o, "seal", 1, 1)
-			L("sk", "%s의 둔갑 —— 적의 기술이 막혔다" % nm(zz), {"fx": "skill", "a": zz.key, "name": "척반농조", "kind": "int"})
+			L("sk", "%s의 둔갑 —— 적의 기술이 막혔다" % nm(zz), {"fx": "skill", "a": zz.key, "name": "봉인부적", "kind": "int"})
 		var cs := _kv(cp, "turncoat")
 		if cs and not foes.is_empty() and not mid:
 			foes.sort_custom(func(x, y): return x.slot < y.slot)
@@ -1889,7 +1896,7 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	_ult_null = ss != null and int(_kiin_used.get("ult_block:" + ss.camp, 0)) < 2      # 두 번까지
 	if _ult_null:
 		_kiin_used["ult_block:" + ss.camp] = int(_kiin_used.get("ult_block:" + ss.camp, 0)) + 1
-		L("sk", "%s의 의성가성 —— 가짜 성벽이 고유기를 받아 낸다" % nm(ss), {"fx": "skill", "a": ss.key, "name": "의성가성", "kind": "phys"})
+		L("sk", "%s의 장강방벽 —— 고유기를 받아 낸다" % nm(ss), {"fx": "skill", "a": ss.key, "name": "장강방벽", "kind": "phys"})
 	var nm_: String = ul.name
 	var amp := (tac_hold_amp if _tac(u.camp, 1) == "위기" else crisis_amp) if _crisis(u.camp) else 1.0
 	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],

@@ -28,7 +28,7 @@ func _ready() -> void:
 		var sks := []
 		for sk in c.get("sks", []):
 			sks.append("%s{%s,c%.1f}" % [sk.n, sk.cond, sk.cost])
-		var u = DB.ult_of(k) if c.tier >= 6 else null
+		var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 		var tr := []
 		for t in DB.trait_list(k):
 			tr.append("%s%d%s%s" % [t.name, t.lv, "G" if t.group else "", "*" if t.unique else ""])

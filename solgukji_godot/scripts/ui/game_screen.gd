@@ -1244,7 +1244,7 @@ func card_info(k: String) -> void:
 	# 11/3 사용자: 위세 · 고유기는 초상 오른쪽 (위세 설명 문구는 뺐다)
 	if DB.AURA.has(k):
 		st.add_child(_bar_box("[b][color=%s]%s[/color] 『%s』[/b]\n%s" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n, DB.aura_effect(k)], DB.tier_color(k), 12))
-	var u = DB.ult_of(k) if c.tier >= 6 else null
+	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
 		st.add_child(_bar_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]\n%s" % [u.name, UI.ult_desc(u, c.tier)], Color("#ffd76e"), 12))
 	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
@@ -1585,6 +1585,18 @@ func _page_war() -> Control:
 		v.add_child(UI.act("① 토벌 완료" if run.quest_done else "① 토벌 — %s" % run.quest_name(),
 			"다음은 대전이다" if run.quest_done else "적 %d PV · 승리 시 기본패 %d장 · 실패 시 경고" % [run.quest_pv(), DB.D.QUEST_BASE[run.day]],
 			func(): _start("quest"), "warn", run.quest_done or placed == 0))
+		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
+		var qr = run.quest_roster()
+		if qr != null and not run.quest_done and run.board.has(DB.kiin_card("wind_slow")):
+			var pv := UI.vbox(6)
+			pv.add_child(UI.rich("[b][color=%s]점괘[/color][/b]  관로가 이번 토벌의 적진을 내다본다" % DB.KIIN_COL.to_html(false), 13))
+			var qg := minis()
+			var qs: Array = qr.cards.duplicate()
+			qs.sort_custom(func(x, y): return DB.C[x].tier > DB.C[y].tier)
+			for k in qs:
+				qg.add_child(mtile(k, -1, func(id): card_info(id)))
+			pv.add_child(qg)
+			v.add_child(UI.panel(pv, 10))
 		v.add_child(UI.act("② 대전 완료" if run.pvp_done else "② 대전 — 임의 세력",
 			"토벌을 먼저 끝내야 열린다" if not run.quest_done else "승리 시 기본패 %d장 · 패배해도 %d장" % [DB.D.PVP_BASE.win, DB.D.PVP_BASE.lose],
 			func(): _start("pvp"), "pri", run.pvp_done or placed == 0 or not run.quest_done))

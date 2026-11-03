@@ -414,7 +414,7 @@ const KIIN_TEXT := {"guard": "병력 70% 아래 아군이 받는 피해의 절�
 	"ambush": "개전에 적 후열 하나를 습격 (사기 −40 · 혼란 2턴)", "form_x2": "아군 진형 보너스 3배",
 	"death_gauge": "쓰러지면 아군 전원 고유기 게이지 +70 · 사기 +15", "ticket": "이기면 그날 보급 등급 선택권 +1",
 	"aura_half": "적 위세 효과 절반", "revive": "처음 무너진 아군 2부대를 병력 40%로 일으켜 세운다",
-	"seal": "개전과 중반에 적 전원 기술 봉인", "wind_slow": "적 고유기 기 모으기 +1초",
+	"seal": "개전과 중반에 적 전원 기술 봉인", "wind_slow": "적 고유기 기 모으기 +1초 · 편성에 있으면 토벌 적 편성을 미리 본다",
 	"turncoat": "개전에 적 하나를 혼란 —— 혼란된 적은 제 편을 친다", "morale_crash": "개전에 적 전원 사기 −18"}
 
 ## 11/3 기인 —— 한 판에 각 1장, 전설 옆 단계의 기능 장수 (data/lines.json KIIN)
@@ -802,7 +802,7 @@ func ult_of(k: String):
 	if base == null:
 		return null
 	var u: Dictionary = base.duplicate(true)
-	u.first = u.get("first", ULT.first[str(C[k].tier)])
+	u.first = u.get("first", ULT.first.get(str(C[k].tier), ULT.first["6"]))      # 기인(전설 등급)은 초월 값
 	u.cd = u.get("cd", ULT.cd)
 	for comp in u.eff:
 		if comp.has("status"):
@@ -1052,7 +1052,7 @@ const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해
 	"low_atk": ["병력 절반 아래 공격", true], "kill_amp": ["적을 무너뜨린 뒤 피해", true], "weak_amp": ["약해진 적에게 피해", true],
 	"ignite": ["점화 확률", true], "spread": ["불 번짐", true], "st_amp": ["지속 피해 세기", true], "opener": ["첫 공격 피해", true],
 	"fire_res": ["화공 저항", true], "cleave": ["같은 열 이웃에게 물리 피해", true], "icleave": ["같은 열 이웃에게 책략 피해", true],
-	"fear": ["적 패주 확률", true]}
+	"fear": ["적을 패주시킬 확률", true]}
 const AURA_HIDE := ["turncoat"]      # 기인 설명(KIIN_TEXT)이 대신 적는 키
 
 
