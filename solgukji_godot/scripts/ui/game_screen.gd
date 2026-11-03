@@ -1207,60 +1207,32 @@ func card_info(k: String) -> void:
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
 	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
-	var top := UI.hbox(14)
+	var top := UI.hbox(12)
 	var big := CardView.new().setup(k, Vector2(132, 188))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	top.add_child(big)
-	# 초상 오른쪽 —— 능력치 (등급 · 병종 · 세력 · PV · 병력은 테두리색 · 기호로 안다)
+	# 초상 오른쪽 (11/3 사용자: 초상과 높이를 맞춘다) —— 능력치 다섯 칸 · 특기판 · 접힌 고유 특기 · 위세 · 고유기
 	var st := UI.vbox(6)
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var sg := GridContainer.new()
-	sg.columns = 4
-	sg.add_theme_constant_override("h_separation", 6)
-	sg.add_theme_constant_override("v_separation", 6)
-	# 공격은 하나로 —— 책략이 더 높은 장수는 책략 값을 파랑으로, 아니면 물리 공격을 빨강으로
-	var magic: bool = c["int"] > c.atk
-	for pair in [["공격", c["int"] if magic else c.atk], ["방어", c["def"]], ["책방", c.res], ["속도", c.spd]]:
-		var sv := UI.stat(str(int(pair[1])), pair[0])
-		if pair[0] == "공격":
-			(sv.get_child(0) as Label).add_theme_color_override("font_color", Color("#6fa8ff") if magic else Color("#ff6b5a"))
-			(sv.get_child(1) as Label).text = "책략 공격" if magic else "물리 공격"
-		var sp := UI.panel(sv, 2)
-		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sg.add_child(sp)
-	sg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	st.add_child(sg)
-	# 특기판 —— 모든 특기 칸, 가진 것만 계열 색
+	st.custom_minimum_size.y = 188
+	st.add_child(_stat_row(c))
 	st.add_child(TraitBoard.new().setup(k))
-	var uc = UI.unique_chips(k)
-	if uc != null:
-		var uh := UI.hbox(6)
-		var ul := UI.lbl("고유", 12, Color("#e8c25a"), true)
-		ul.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		uh.add_child(ul)
-		uc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		uh.add_child(uc)
-		st.add_child(uh)
-	# 11/3 사용자: 위세 · 고유기는 초상 오른쪽 (위세 설명 문구는 뺐다)
-	if DB.AURA.has(k):
-		st.add_child(_kv_box("[b][color=%s]%s[/color] 『%s』[/b]" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), DB.tier_color(k), 12))
-	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
-	if u != null:
-		st.add_child(_kv_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "", UI.ult_desc(u, c.tier), Color("#ffd76e"), 12))
-	st.add_child(UI.rich("[b][color=%s]보유 %d장[/color][/b]" % ["#8fd4c2" if p.get(k, 0) > 0 else "#e0806f", p.get(k, 0)], 14))
-	top.add_child(st)
-	b.add_child(top)
-	# 고유 특기 —— 접지 않고 바로 보인다 (이름 · 수치)
 	for t in DB.trait_list(k):
 		if t.unique:
-			b.add_child(_kv_box("[b][color=#e8c25a]고유[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, "", t.mt, Color("#e8c25a"), 13))
-	# 기술 —— 머리말 아래 기술마다 왼쪽 띠 상자
+			st.add_child(_fold_kv("card_uq", "[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, "", t.mt, Color("#e8c25a")))
+	if DB.AURA.has(k):
+		st.add_child(_fold_kv("card_aura", "[b][color=%s]%s[/color] 『%s』[/b]" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), DB.tier_color(k)))
+	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	if u != null:
+		st.add_child(_fold_kv("card_ult", "[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "", UI.ult_desc(u, c.tier), Color("#ffd76e")))
+	top.add_child(st)
+	b.add_child(top)
+	# 기술 —— 접힌 칸 하나에 기술마다 효과 · 수치 표
 	if not c.get("sks", []).is_empty():
-		var sk_sec := UI.vbox(6)
-		sk_sec.add_child(UI.eyebrow("기술"))
+		var sk_v := UI.vbox(6)
 		for x in c.sks:
-			sk_sec.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-		b.add_child(sk_sec)
+			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+		b.add_child(_fold_sec("card_skills", "기술 %d" % c.sks.size(), sk_v))
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
@@ -1268,7 +1240,7 @@ func card_info(k: String) -> void:
 		for t in tl.filter(func(x): return not x.unique):
 			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "\n"), ("\n[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
 			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "\n[color=#8D7B5C]단체[/color]" if t.group else ""], body)
-		b.add_child(_fold_sec("card_traits", "특기 설명", tg))
+		b.add_child(_fold_sec("card_traits", "특기 %d" % tl.filter(func(x): return not x.unique).size(), tg))
 	var ag := _info_grid()
 	_info_row(ag, "[color=#8fd4c2]선호[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref")])
 	_info_row(ag, "[color=#e0806f]어색[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
@@ -1333,6 +1305,57 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	v.add_child(hb)
 	v.add_child(body)
 	return v
+
+
+## 능력치 한 줄 —— 공 · 책 · 방 · 책방 · 속. 주 공격(물리 / 책략)만 색으로 (11/3 사용자)
+func _stat_row(c: Dictionary) -> Control:
+	var magic: bool = c["int"] > c.atk
+	var g := GridContainer.new()
+	g.columns = 5
+	g.add_theme_constant_override("h_separation", 4)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for pair in [["공", c.atk, not magic, Color("#ff6b5a")], ["책", c["int"], magic, Color("#6fa8ff")], ["방", c["def"], false, null],
+			["책방", c.res, false, null], ["속", c.spd, false, null]]:
+		var v := UI.vbox(0)
+		var a := UI.lbl(str(int(pair[1])), 16, pair[3] if pair[2] else DB.PAL.paper, true)
+		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var l := UI.lbl(pair[0], 10, DB.PAL.bamboo_dim)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(a)
+		v.add_child(l)
+		var pc := UI.panel(v, 2)
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.add_child(pc)
+	return g
+
+
+## 접히는 효과 · 수치 상자 —— 머리줄(이름)을 누르면 표가 열린다. 기본은 접힘, 연 상태는 _open[key] 로 다른 카드에서도 이어진다
+func _fold_kv(key: String, head_bb: String, sub: String, body: String, col: Color) -> Control:
+	var box := _kv_box(head_bb, sub, body, col, 12)
+	var v: VBoxContainer = box.get_child(0)
+	var head: RichTextLabel = v.get_child(0)
+	var grid: Control = v.get_child(1)
+	var arrow := UI.lbl("", 15, DB.PAL.bamboo)
+	var hr := UI.hbox(4)
+	v.remove_child(head)
+	hr.add_child(head)
+	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hr.add_child(arrow)
+	v.add_child(hr)
+	v.move_child(hr, 0)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var upd := func():
+		var on: bool = _open.get(key, false)
+		grid.visible = on
+		arrow.text = "▾" if on else "▸"
+	box.mouse_filter = Control.MOUSE_FILTER_STOP
+	box.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+			UI.buzz()
+			_open[key] = not _open.get(key, false)
+			upd.call())
+	upd.call()
+	return box
 
 
 ## 효과 · 수치 표 상자 (11/3 사용자: '효과, 수치' 식으로 이쁘게) —— 머리줄(이름 · 부제) 아래 두 칸 표.
@@ -1472,7 +1495,17 @@ func _up_row(out: String) -> Control:
 	var ni = Run.need_item(out)
 	if ni != null:
 		var ok: bool = run.bag.get(ni, 0) > 0
-		chips.add_child(UI.lbl("%s ◆%s %d/1" % ["✔" if ok else "✘", DB.IT[ni].name, run.bag.get(ni, 0)], 14, Color("#d59700") if ok else Color("#e0806f")))
+		# 유니크 재료도 재료 칸처럼 (11/3 —— 글씨가 칸 밖으로 삐져나왔다). 누르면 아이템 시트
+		var ib := UI.btn("◆%s %d/1" % [DB.IT[ni].name, run.bag.get(ni, 0)], func(): _item_sheet(ni), "", 40)
+		var icol := Color("#d59700") if ok else Color("#e0806f")
+		for st in ["normal", "hover", "pressed"]:
+			ib.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color(icol, 0.8), 1, 8, 2))
+		ib.add_theme_color_override("font_color", icol)
+		ib.add_theme_font_size_override("font_size", 12)
+		ib.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		ib.clip_text = true
+		ib.custom_minimum_size.x = 40
+		chips.add_child(ib)
 	v.add_child(chips)
 	return UI.panel(v, 10)
 
