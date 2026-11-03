@@ -528,6 +528,9 @@ func _load_portrait(base: String) -> Texture2D:
 				if img and img.is_compressed():
 					img.decompress()
 		if img:
+			# 11/3 사용자: 일러스트가 선명하지 않다 —— 600~900px 그림을 70px 칸에 줄이면 밉맵 없이 지글거린다. 밉맵 + 선형 밉맵 거르기(project.godot)
+			if not img.has_mipmaps() and maxi(img.get_width(), img.get_height()) > 96:
+				img.generate_mipmaps()
 			tex = ImageTexture.create_from_image(img)
 			# 네 귀퉁이가 투명하면 잘라 낸 인물 그림으로 보고, 그려진 영역만 기억해 둔다
 			if img.detect_alpha() != Image.ALPHA_NONE:

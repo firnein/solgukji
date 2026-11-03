@@ -1554,14 +1554,14 @@ class Hud extends Control:
 			var fs := 9
 			var nw := fbo.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			var w := clampf(nw + 16, 34, 58)
-			var ps := 19.0 if myth else 16.0
+			var ps := 30.0 if myth else 26.0      # 11/3 사용자: 얼굴 아이콘이 눈에 안 들어온다 —— 16 → 26 (신화 30), 원형 메달
 			var r := Rect2(p - Vector2(w / 2, 17), Vector2(w, 22))
 			# 10/31 사용자: 평소에는 작은 초상 + 병력 막대만. 이름 · 사기 · 게이지 · 상태는 따라가는(꾹 누른) 부대와 고유기가 찬 부대만
 			var lvq := view.unit_live(sq.key)
 			var detail: bool = sq == view.field.follow or (sq.tier >= 6 and lvq[1] > 0 and lvq[0] >= 100)
 			if not detail:
 				w = 30.0
-				ps = 13.0
+				ps = 24.0 if myth else 20.0
 				r = Rect2(p - Vector2(w / 2, 4), Vector2(w, 9))
 			if art:
 				r = Rect2(r.position - Vector2(ps + 3, 0), r.size + Vector2(ps + 3, 0))     # 초상 자리까지 겹침 판정
@@ -1639,10 +1639,13 @@ class Hud extends Control:
 			# 초상 —— 이름표 왼쪽. 테두리는 등급색 (신화는 조금 크게)
 			if art and a > 0.5:
 				var pr := Rect2(r.position + Vector2(-ps - 3, (11.0 if full else 1.5) - ps * 0.5), Vector2(ps, ps))
-				draw_rect(pr.grow(2 if myth else 1.5), Color(DB.tier_color(sq.cid), a))
-				Art.draw_portrait(self, pr, sq.cid, 0.0, "face")
+				var pc := pr.get_center()
+				draw_circle(pc, ps * 0.5 + 3.0, Color(0, 0, 0, 0.55 * a))
+				draw_circle(pc, ps * 0.5 + (2.5 if myth else 2.0), Color(DB.tier_color(sq.cid), a))      # 등급색 테
+				draw_circle(pc, ps * 0.5 + 0.6, Color(team, a))                                           # 진영색 안쪽 테
+				Art.draw_face_circle(self, pc, ps * 0.5, sq.cid)
 				if not sq.alive:
-					draw_rect(pr, Color(0, 0, 0, 0.6))
+					draw_circle(pc, ps * 0.5, Color(0, 0, 0, 0.6))
 		# 떠오르는 글씨
 		var keep := []
 		for f in floats:

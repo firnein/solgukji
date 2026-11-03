@@ -11,6 +11,7 @@ static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind :=
 	# 넓이가 없거나(접히는 중인 칸) 화면에서 아주 먼 곳(달아난 부대의 머리표)은 그리지 않는다 —— 좌표가 크면 다각형 분할이 실패한다
 	if r.size.x < 1.0 or r.size.y < 1.0 or absf(r.position.x) > 20000.0 or absf(r.position.y) > 20000.0:
 		return
+	_mip(ci)
 	var c: Dictionary = DB.C[k]
 	var tex := DB.portrait(k)
 	var fc := DB.fac_color(c.fac)
@@ -171,8 +172,15 @@ static func _draw_fit(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> 
 	ci.draw_texture_rect_region(tex, Rect2(pos, sz), used)
 
 
+## 11/3 사용자: 일러스트가 선명하지 않다 —— 큰 그림을 작게 줄일 때 밉맵으로 거른다 (프로젝트 전체 설정은 3D 쪽에서 멈춰 그리는 칸에만)
+static func _mip(ci: CanvasItem) -> void:
+	if ci.texture_filter != CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS:
+		ci.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
+
 ## 둥근 얼굴 —— 얼굴 확대 그림을 원 안에만 (점묘 전장의 장수 토큰). 그림이 없으면 세력색 원
 static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String) -> void:
+	_mip(ci)
 	var ft := DB.face_tex(k)
 	var tex: Texture2D = ft if ft else DB.portrait(k)
 	if tex == null:
