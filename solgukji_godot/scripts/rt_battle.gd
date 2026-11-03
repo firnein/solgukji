@@ -183,7 +183,7 @@ func _interrupt_ult(u: Unit) -> void:
 	if _wind.has(u):
 		return
 	var fast := false
-	var wait := WIND
+	var wait := WIND + (1.0 if _kv(_foe(u.camp), "wind_slow") else 0.0)      # 점복 관로 —— 적 고유기 기 모으기 +1초
 	_wind[u] = _tm + wait
 	_ult_t = _tm + wait
 	_ult_side_t[u.camp] = _tm + wait
@@ -206,6 +206,11 @@ func _interrupt_ult(u: Unit) -> void:
 	_who = u.key
 	L("sk", "%s 『%s』 기를 모은다%s" % [ga(nm(u)), u.ult.name, ""],
 		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "fast": fast})
+	var zh := _kv(_foe(u.camp), "ult_cut")      # 매복 주환 —— 적 고유기 기 모으기를 한 번 끊고 게이지를 비운다
+	if zh and int(_kiin_used.get("ult_cut:" + zh.camp, 0)) < 2:      # 두 번까지
+		_kiin_used["ult_cut:" + zh.camp] = int(_kiin_used.get("ult_cut:" + zh.camp, 0)) + 1
+		_cut_wind(u, zh)
+		u.gauge = 0.0
 
 
 ## 기 모으기가 끝난 고유기를 터뜨린다 (유닛 순서대로 —— 같은 시각이면 결정적으로)

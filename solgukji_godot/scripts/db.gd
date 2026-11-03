@@ -17,6 +17,8 @@ var RECOF := {}          # 결과 id -> 재료 배열
 var TIER := {}           # 등급(int) -> {n, c, lo, hi}
 var FORM := {}           # 진형 -> {n, sil, mask, slots, grid}
 var BASE: Array = []     # 기본패 8종
+var KIIN_BY_KEY := {}         # 기인 기능 키 -> 카드 id
+var MYTH_ITEMS := {}          # 플레이어가 만들 수 있는 신화의 유니크 재료 id
 var PLAY_TIERS: Array = []   # 플레이어가 얻을 수 있는 등급 (11/3 일반 등급 삭제 —— 1 · 3 · 4 · …)
 var LINES := {}          # data/lines.json —— 인물 줄기 새 카드 · 조합 · 고유 기술
 const UNIQUE_MUL := 0.75   # 유니크 아이템 능력치 배율 (11/2 하향)
@@ -76,6 +78,7 @@ func _load() -> void:
 	AURA = JSON.parse_string(FileAccess.open("res://data/myth_aura.json", FileAccess.READ).get_as_text())
 	AURA.erase("_설명")
 	D.CARDDEF.append_array(LINES.cards)
+	D.ITEMDEF.append_array(LINES.get("items", []))
 	for nm in LINES.skills:
 		SKILL_COND[LINES.skills[nm].n] = LINES.skills[nm].get("cond", "always")
 	_build_fonts()
@@ -98,6 +101,8 @@ func _load() -> void:
 		RECOF.erase(k)
 	for k in LINES.get("aura", {}):
 		AURA[k] = LINES.aura[k]
+		if LINES.aura[k].has("kiin"):
+			KIIN_BY_KEY[LINES.aura[k].kiin] = k
 	D.RECDEF = RECOF.keys().map(func(k): return [k, RECOF[k]])      # 조합을 돌며 찾는 곳이 새 카드 · 바뀐 재료를 보도록
 	for r in D.ITEMDEF:
 		IT[r[0]] = {"id": r[0], "name": r[1], "grade": r[2], "tag": r[3], "pri": r[4],
@@ -107,6 +112,9 @@ func _load() -> void:
 			IT[r[0]].pa = snappedf(IT[r[0]].pa * UNIQUE_MUL, 0.01)
 			IT[r[0]].sa = snappedf(IT[r[0]].sa * UNIQUE_MUL, 0.01)
 			IT[r[0]].rb = minf(IT[r[0]].rb, 5.0)
+	for k in C:
+		if C[k].tier >= 8 and not is_foe(k) and C[k].need != "" and ITEM_BY_NAME.has(C[k].need):
+			MYTH_ITEMS[ITEM_BY_NAME[C[k].need]] = true
 
 	for t in D.TIER:
 		TIER[int(t)] = {"n": D.TIER[t].n, "c": Color(D.TIER[t].c)}
@@ -392,7 +400,32 @@ func _build_fonts() -> void:
 # ───────── 조회 ─────────
 
 func tier_color(k: String) -> Color:
-	return TIER[C[k].tier].c
+	return KIIN_COL if C[k].kind == "kiin" else TIER[C[k].tier].c
+
+
+## 등급 이름 —— 기인은 따로 (능력치 계산은 전설 등급 그대로)
+func tier_name(k: String) -> String:
+	return "기인" if C[k].kind == "kiin" else TIER[C[k].tier].n
+
+
+const KIIN_TEXT := {"guard": "병력 70% 아래 아군이 받는 피해의 절반을 대신 받는다", "no_charge": "적 기병의 첫 돌격을 막는다",
+	"no_form": "적 진형 보너스를 없앤다", "charge_up": "아군 기병의 첫 돌격 피해 +50%", "ult_block": "적 고유기 두 번을 막아 낸다",
+	"ult_cut": "적이 고유기 기를 모으면 두 번까지 끊고 게이지를 비운다", "heal_cut": "적 회복 −50% · 이기면 기본패 +2",
+	"ambush": "개전에 적 후열 하나를 습격 (사기 −40 · 혼란 2턴)", "form_x2": "아군 진형 보너스 3배",
+	"death_gauge": "쓰러지면 아군 전원 고유기 게이지 +70 · 사기 +15", "ticket": "이기면 그날 보급 등급 선택권 +1",
+	"aura_half": "적 위세 효과 절반", "revive": "처음 무너진 아군 2부대를 병력 40%로 일으켜 세운다",
+	"seal": "개전과 중반에 적 전원 기술 봉인", "wind_slow": "적 고유기 기 모으기 +1초",
+	"turncoat": "개전에 적 하나를 혼란 —— 혼란된 적은 제 편을 친다", "morale_crash": "개전에 적 전원 사기 −18"}
+
+## 11/3 기인 —— 한 판에 각 1장, 전설 옆 단계의 기능 장수 (data/lines.json KIIN)
+const KIIN_COL := Color("#2ee6c0")
+func is_kiin(k) -> bool:
+	return k != null and C.has(k) and C[k].kind == "kiin"
+
+
+## 기능 키(guard · revive …)를 가진 기인 카드 id (없으면 "")
+func kiin_card(key: String) -> String:
+	return KIIN_BY_KEY.get(key, "")
 
 
 ## 등급 글꼴 —— 기본 · 일반은 보통 고딕, 고급 · 희귀는 명조, 전설은 굵은 고딕, 초월은 굵은 기울임, 불멸 · 신화는 더 굵은 기울임
@@ -1018,7 +1051,9 @@ const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해
 	"mregen": ["턴마다 사기 회복", false], "rate": ["기술 발동", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
 	"low_atk": ["병력 절반 아래 공격", true], "kill_amp": ["적을 무너뜨린 뒤 피해", true], "weak_amp": ["약해진 적에게 피해", true],
 	"ignite": ["점화 확률", true], "spread": ["불 번짐", true], "st_amp": ["지속 피해 세기", true], "opener": ["첫 공격 피해", true],
-	"fire_res": ["화공 저항", true]}
+	"fire_res": ["화공 저항", true], "cleave": ["같은 열 이웃에게 물리 피해", true], "icleave": ["같은 열 이웃에게 책략 피해", true],
+	"fear": ["적 패주 확률", true]}
+const AURA_HIDE := ["turncoat"]      # 기인 설명(KIIN_TEXT)이 대신 적는 키
 
 
 ## 위세 설명 —— "의리지가: 인연 장수 공격 +12% · 방어 +12%" (이름 · 효과를 따로 쓰려면 aura_effect)
@@ -1040,6 +1075,8 @@ func aura_effect(k: String) -> String:
 	for st in a.get("ally", {}):
 		mine.append(_pct(D.STATNM.get(st, st), a.ally[st]))
 	for mk in a.get("m", {}):
+		if mk in AURA_HIDE:
+			continue
 		var d: Array = AURA_M.get(mk, [mk, true])
 		var v: float = a.m[mk]
 		if mk in ["dr", "idr"]:
@@ -1057,6 +1094,8 @@ func aura_effect(k: String) -> String:
 		var ft: String = a.get("foe_to", "all")
 		var fw: String = ("적 " + ft.substr(4)) if ft.begins_with("tag:") else AURA_FOE.get(ft, "적")
 		parts.append(fw + " " + " · ".join(theirs))
+	if a.has("kiin"):
+		parts.append(KIIN_TEXT.get(a.kiin, ""))
 	return " / ".join(parts)
 
 

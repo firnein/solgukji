@@ -205,6 +205,10 @@ var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0
 	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
 	"mends": 0.0, "moved": 0, "oaths": 0}
 var _oath_used := {"A": false, "B": false}
+var _kiin_u := {}              # 11/3 기인 —— 기능 키 -> 유닛 배열
+var _kiin_used := {}           # "키:진영" -> 쓴 횟수
+var _ult_null := false         # 서성 의성가성 —— 이번 고유기는 피해가 없다
+const KIIN_MID_TURN := 10      # 좌자 · 초선 —— 중반 한 번 더
 ## 덱 연쇄 —— 진영별 특기 연쇄 횟수 (결과표 · 전투 중 강조). 1 · 3 · 6 · 10 · 15 · 20 · 30 · 50 번째에 사건을 남긴다
 var chains := {"A": {}, "B": {}}
 const CHAIN_MARKS := [1, 3, 6, 10, 15, 20, 30, 50]
@@ -391,11 +395,12 @@ func _aura_mul(u: Unit, stat: String) -> float:
 		if not mu.alive:
 			continue
 		var a: Dictionary = DB.AURA[mu.c.id]
+		var h := 0.5 if _kv(_foe(mu.camp), "aura_half") else 1.0      # 연합 노숙 —— 적 위세 절반
 		if mu.camp == u.camp:
 			if a.has("ally") and _aura_on(mu, a, u):
-				m *= 1.0 + float(a.ally.get(stat, 0.0))
+				m *= 1.0 + float(a.ally.get(stat, 0.0)) * h
 		elif a.has("foe") and _aura_foe_on(a, u):
-			m *= 1.0 + float(a.foe.get(stat, 0.0))
+			m *= 1.0 + float(a.foe.get(stat, 0.0)) * h
 	return m
 
 
@@ -427,7 +432,7 @@ func mv(u: Unit, k: String) -> float:
 			if mu.alive and mu.camp == u.camp:
 				var a: Dictionary = DB.AURA[mu.c.id]
 				if a.m.has(k) and _aura_on(mu, a, u):
-					v += float(a.m[k])
+					v += float(a.m[k]) * (0.5 if _kv(_foe(mu.camp), "aura_half") else 1.0)
 	return v
 
 
@@ -601,7 +606,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var dmg := A * (A / (A + Dv)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * op * (1.0 - mv(d, "dr")) * _amp_once(a)
 	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
-		dmg *= 1.0 - _buff_sum(d, "uguard")
+		dmg *= (1.0 - _buff_sum(d, "uguard")) * (0.0 if _ult_null else 1.0)
 	var fm := _fire_mul(a, d)
 	var wm := 1.0
 	var tm := _tac_mul(a, d)
@@ -610,7 +615,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		dmg *= 1.0 - float(DB.PSV.guard.dr)        # 방진 —— 받는 물리 피해 감소
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
 	dmg *= _role_mul(a, d, true)
-	var loss := _stand(d, maxf(1, roundf(dmg * K.troop * pace * _one)))
+	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.troop * pace * _one))))
 	if tag_roles and a.c.tag == "도적" and not a.countering:      # 도적 —— 맞힌 적의 고유기 게이지 · 기술 충전을 깎는다
 		d.gauge = maxf(0.0, d.gauge - ROLE.rogue_gauge)
 		if not d.sk_ch.is_empty():
@@ -674,7 +679,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 		dmg *= 1.0 + mv(a, "sk_amp")           # 신산 —— 기술의 책략 피해
 	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
-		dmg *= 1.0 - _buff_sum(d, "uguard")
+		dmg *= (1.0 - _buff_sum(d, "uguard")) * (0.0 if _ult_null else 1.0)
 	var fm := _fire_mul(a, d)
 	var wm := 1.0
 	var tm := _tac_mul(a, d)
@@ -684,7 +689,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
 	dmg *= _role_mul(a, d, false)
 	var aoe: float = K.aoe if spread >= 3 else 1.0
-	var loss := _stand(d, maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe * _one)))
+	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe * _one))))
 	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
@@ -724,7 +729,9 @@ func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
 		"기병":
 			if phys and not a.charged and not a.countering:
 				a.charged = true
-				return CHARGE.get(a.c.tier, ROLE.charge)
+				if _kv(d.camp, "no_charge"):       # 함진 고순 —— 적 기병 첫 돌격 막음
+					return ROLE.horse_after
+				return CHARGE.get(a.c.tier, ROLE.charge) * (1.5 if _kv(a.camp, "charge_up") else 1.0)      # 서량 마등
 			return ROLE.horse_after
 		"궁병":
 			if units.any(func(o): return o.alive and o.camp == a.camp and o.c.tag == "창병"):
@@ -757,6 +764,8 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if not d.alive or _scorched(d): return
 	if virtue_enabled and _side_max(_foe(d.camp), "starve") > 0:
 		ratio *= 1.0 - float(DB.PSV.virtue.starve)      # 단량 —— 적이 군량을 끊었다
+	if _kv(_foe(d.camp), "heal_cut"):      # 흑산 장연 —— 적 회복 −50%
+		ratio *= 0.5
 	if tag_roles and src:      # 치료는 유생 전담 (술사는 상태이상)
 		ratio *= ROLE.schol_heal if src.c.tag == "유생" else (ROLE.occul_heal if src.c.tag == "술사" else 1.0)
 	var g := minf(roundf(d.max * ratio * pace * _one), d.max - d.troops)
@@ -1379,6 +1388,13 @@ func _douse(d: Unit) -> void:
 
 func rout(u: Unit, why: String) -> void:
 	if not u.alive: return
+	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
+	if ht and ht != u and int(_kiin_used.get("revive:" + u.camp, 0)) < 2:
+		_kiin_used["revive:" + u.camp] = int(_kiin_used.get("revive:" + u.camp, 0)) + 1
+		u.troops = maxf(u.troops, roundf(u.max * 0.4))
+		u.morale = maxf(u.morale, 60.0)
+		L("hl", "%s의 기사회생 —— %s 다시 일어선다" % [nm(ht), ga(nm(u))], {"fx": "heal", "f": u.key, "n": u.troops})
+		return
 	if virtue_enabled and not _oath_used[u.camp] and _side_max(u.camp, "oath") > 0:      # 도원결의 —— 진영에서 한 번, 무너질 부대를 일으켜 세운다
 		_oath_used[u.camp] = true
 		stats.oaths += 1
@@ -1388,6 +1404,12 @@ func rout(u: Unit, why: String) -> void:
 		L("hl", "도원의 맹세 —— %s 다시 일어선다" % ga(nm(u)), {"fx": "heal", "f": u.key, "n": u.troops})
 		return
 	u.alive = false
+	if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].get("kiin", "") == "death_gauge":      # 유계 곽가 —— 쓰러지면 아군 전원 고유기 게이지 +50
+		for o in units:
+			if o.alive and o.camp == u.camp:
+				o.gauge = minf(100.0, o.gauge + 70.0)
+				o.morale += 15.0
+		L("sk", "%s의 유계 —— 남긴 계책이 펼쳐진다" % nm(u), {"fx": "skill", "a": u.key, "name": "유계", "kind": "int"})
 	if fire_enabled and has_st(u, "burn") and _side_max(_foe(u.camp), "blaze") > 0:
 		_blaze(u)
 	_tac_rout(u)
@@ -1464,6 +1486,10 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 		if k and i < bS.size():
 			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and b_equip[i] else innate_item(k), b_syn))
 	for u in units:
+		if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].has("kiin"):
+			var kk: String = DB.AURA[u.c.id].kiin
+			if not _kiin_u.has(kk): _kiin_u[kk] = []
+			_kiin_u[kk].append(u)
 		if aura_enabled and DB.AURA.has(u.c.id) and (aura_camp == "" or u.camp == aura_camp):
 			_myths.append(u)
 			if DB.AURA[u.c.id].has("m"):
@@ -1489,14 +1515,84 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 	_guard_open()
 	if aura_enabled:
 		for u in _myths:
-			L("sk", "%s의 위세 —— %s" % [nm(u), DB.aura_text(u.c.id)])
+			L("sk", "%s의 %s —— %s" % [nm(u), "기인" if DB.is_kiin(u.c.id) else "위세", DB.aura_text(u.c.id)])
+	_kiin_open()
 	_long = 1.0
 	_meta = {"title": title, "foe": foe_name, "aForm": a_form, "bForm": b_form, "aSyn": a_syn, "bSyn": b_syn}
+
+
+## 11/3 기인 —— 살아 있는 그 기능의 유닛 (없으면 null)
+func _kv(cp: String, key: String) -> Unit:
+	for u in _kiin_u.get(key, []):
+		if u.alive and u.camp == cp:
+			return u
+	return null
+
+
+## 전투 시작 기인 —— 진형 보너스 · 습격 · 사기 · 봉인 · 이간
+func _kiin_open() -> void:
+	if _kiin_u.is_empty():
+		return
+	for cp in ["A", "B"]:
+		var fo := _foe(cp)
+		var mine := units.filter(func(o): return o.camp == cp)
+		if _kv(fo, "no_form"):           # 교변 장합 —— 적 진형 보너스 없음
+			for u in mine: u.boon = null
+		elif _kv(cp, "form_x2"):         # 단복 서서 —— 아군 진형 보너스 2배
+			for u in mine:
+				if u.boon:
+					u.boon = u.boon.duplicate()
+					u.boon.v = float(u.boon.v) * 3.0
+		var sx := _kv(cp, "ambush")       # 궁요 손상향 —— 적 후열 하나 습격
+		if sx:
+			var back := units.filter(func(o): return o.camp == fo and o.alive)
+			back.sort_custom(func(x, y): return pri(x) > pri(y))
+			if not back.is_empty():
+				back[0].morale -= 40.0
+				inflict(sx, back[0], "confuse", 1, 2)
+				L("sk", "%s 적 후열 %s 습격했다" % [ga(nm(sx)), eul(nm(back[0]))], {"fx": "skill", "a": sx.key, "name": "궁요희", "kind": "phys"})
+		var gh := _kv(cp, "morale_crash")  # 난무 가후 —— 적 전원 사기 −25
+		if gh:
+			for o in units:
+				if o.alive and o.camp == fo: o.morale -= 18.0
+			L("sk", "%s의 난무 —— 적진이 흔들린다" % nm(gh), {"fx": "skill", "a": gh.key, "name": "난무", "kind": "int"})
+	_kiin_wave()
+
+
+## 좌자 봉인 · 초선 이간 —— 개전 (좌자는 KIIN_MID_TURN 에 한 번 더 —— 초선은 개전만)
+func _kiin_wave() -> void:
+	var mid := _turn >= KIIN_MID_TURN
+	for cp in ["A", "B"]:
+		var fo := _foe(cp)
+		var foes := units.filter(func(o): return o.camp == fo and o.alive)
+		var zz := _kv(cp, "seal")
+		if zz:
+			for o in foes: inflict(zz, o, "seal", 1, 1)
+			L("sk", "%s의 둔갑 —— 적의 기술이 막혔다" % nm(zz), {"fx": "skill", "a": zz.key, "name": "척반농조", "kind": "int"})
+		var cs := _kv(cp, "turncoat")
+		if cs and not foes.is_empty() and not mid:
+			foes.sort_custom(func(x, y): return x.slot < y.slot)
+			inflict(cs, foes[_turn % foes.size()], "confuse", 1, 1)      # 하나만 (둘이면 판이 기울었다 —— 값어치 88~91%)
+			L("sk", "%s의 이간 —— 적이 서로를 의심한다" % nm(cs), {"fx": "skill", "a": cs.key, "name": "양호상쟁", "kind": "int"})
+
+
+## 전위 호위 —— 병력 절반 아래 아군이 받는 피해의 40%를 대신 받는다
+func _kiin_guard(d: Unit, loss: float) -> float:
+	var g := _kv(d.camp, "guard")
+	if g == null or g == d or d.troops >= d.max * 0.7:
+		return loss
+	var share := roundf(loss * 0.5)
+	if g.troops <= share + 1:
+		return loss
+	g.troops -= share
+	return loss - share
 
 
 ## 턴 시작 —— 버프 지속 턴을 하나 줄인다
 func _turn_begin(turn: int) -> void:
 	_turn = turn
+	if turn == KIIN_MID_TURN and not _kiin_u.is_empty():
+		_kiin_wave()
 	_ai += 1
 	_ph = "act"
 	_who = ""
@@ -1789,6 +1885,11 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	_in_ult = true
 	_one = turn_mul
 	_long = turn_mul
+	var ss := _kv(_foe(u.camp), "ult_block")      # 의성 서성 —— 적의 첫 고유기 한 번은 피해가 없다
+	_ult_null = ss != null and int(_kiin_used.get("ult_block:" + ss.camp, 0)) < 2      # 두 번까지
+	if _ult_null:
+		_kiin_used["ult_block:" + ss.camp] = int(_kiin_used.get("ult_block:" + ss.camp, 0)) + 1
+		L("sk", "%s의 의성가성 —— 가짜 성벽이 고유기를 받아 낸다" % nm(ss), {"fx": "skill", "a": ss.key, "name": "의성가성", "kind": "phys"})
 	var nm_: String = ul.name
 	var amp := (tac_hold_amp if _tac(u.camp, 1) == "위기" else crisis_amp) if _crisis(u.camp) else 1.0
 	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
@@ -1832,6 +1933,7 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 					if comp.has("status"):
 						inflict(u, t, comp.status.k, comp.status.val, int(comp.status.dur))
 	_in_ult = false
+	_ult_null = false
 	_one = 1.0
 	_long = 1.0
 

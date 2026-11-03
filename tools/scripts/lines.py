@@ -119,6 +119,43 @@ T3 = {"우금": "궁병 모사", "악진": "기병 도적", "이전": "궁병 �
       "간옹": "모사 도적", "미축": "창병 술사", "진군": "책사 모사",
       "장보": "창병 도적", "장량": "기병 책사", "초주": "유생 책사", "오범": "모사 궁병",
       "심배": "기병 유생"}
+def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
+    return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
+
+
+# ───────── 11/3 기인 (사용자 결정) —— 한 판에 각 1장, 능력치는 전설 ×0.85, 가치는 기능 ─────────
+# 그 인물의 다른 등급 카드는 모두 적 전용(retire). 조합 = 희귀 2 (pref 인물 먼저) + 고급 1 + 제 병종 기본
+# 효과 = 위세 문법(to · ally · m · foe · foe_to) + kiin 키 (battle.gd 가 따로 처리하는 기능)
+KIIN_MUL = 0.9
+KIIN = {
+    "조인": ("철벽 조인", "창병", "위", "하후돈 조조 이전 우금", AU("철통방어", "front", m={"dr": 0.2})),
+    "전위": ("호위 전위", "창병", "위", "조조 허저 악진", dict(AU("주군수호", ally={"def": 0.05}), kiin="guard")),
+    "고순": ("함진 고순", "창병", "군", "여포 진궁 장료", dict(AU("함진불패", "front", m={"counter": 0.2}), kiin="no_charge")),
+    "공손찬": ("백마 공손찬", "기병", "군", "유비 조운 원소", AU("백마의종", foe={"spd": -0.45, "atk": -0.1}, foe_to="tag:궁병")),
+    "장합": ("교변 장합", "기병", "위", "장료 하후연 원소 사마의", dict(AU("임기응변", ally={"spd": 0.12, "atk": 0.05}), kiin="no_form")),
+    "마등": ("서량 마등", "기병", "군", "마초 마대 방덕", dict(AU("서량군마", "tag", ally={"atk": 0.1}, tag="기병"), kiin="charge_up")),
+    "황월영": ("기관 황월영", "궁병", "촉", "제갈량 마량 사마휘", AU("목우유마", "back", ally={"spd": 0.35})),
+    "서성": ("의성 서성", "궁병", "오", "정봉 손권 주태", dict(AU("의성가성", m={"idr": 0.08}), kiin="ult_block")),
+    "주환": ("매복 주환", "도적", "오", "손권 육손 주태", dict(AU("유수방비", m={"opener": 0.2}), kiin="ult_cut")),
+    "장연": ("흑산 장연", "도적", "군", "장각 관해 장보", dict(AU("군량약탈", foe={"def": -0.1}), kiin="heal_cut")),
+    "손상향": ("궁요 손상향", "도적", "오", "유비 손권 손책", dict(AU("궁요희", m={"crit": 0.06}), kiin="ambush")),
+    "방통": ("봉추 방통", "책사", "촉", "제갈량 사마휘 법정 마량", AU("연환", m={"cleave": 0.1, "icleave": 0.1})),
+    "서서": ("단복 서서", "책사", "촉", "유비 제갈량 사마휘", dict(AU("진형간파", ally={"def": 0.06}), kiin="form_x2")),
+    "곽가": ("유계 곽가", "책사", "위", "조조 순욱 정욱", dict(AU("유계", ally={"int": 0.06}), kiin="death_gauge")),
+    "미축": ("거상 미축", "유생", "촉", "유비 간옹 손상향", dict(AU("거상재물", ally={"def": 0.05}), kiin="ticket")),
+    "사마휘": ("수경 사마휘", "유생", "군", "제갈량 방통 서서 관로", AU("수경천거", m={"rate": 0.07})),
+    "노숙": ("연합 노숙", "유생", "오", "주유 손권 제갈량", dict(AU("손유동맹", ally={"res": 0.1}), kiin="aura_half")),
+    "화타": ("신의 화타", "술사", "군", "관로 채문희 관우", dict(AU("기사회생"), kiin="revive")),
+    "좌자": ("둔갑 좌자", "술사", "군", "우길 관로 남화노선", dict(AU("척반농조"), kiin="seal")),
+    "관로": ("점복 관로", "술사", "군", "좌자 남화노선 우길", dict(AU("천기누설", foe={"spd": -0.1}), kiin="wind_slow")),
+    "초선": ("폐월 초선", "모사", "군", "여포 동탁 화웅", dict(AU("양호상쟁", m={"turncoat": 1}), kiin="turncoat")),
+    "가후": ("난무 가후", "모사", "위", "조조 장합 전풍", dict(AU("난무", m={"fear": 0.15}), kiin="morale_crash")),
+}
+# 신화는 한 판에 하나 —— 군주 · 최상위 12명만 (11/3). 나머지 인물은 불멸이 끝 (신화 카드는 적 전용)
+MYTH12 = ["유비", "조조", "손권", "제갈량", "사마의", "주유", "관우", "장비", "조운", "여포", "손책", "장각"]
+NEW_MYTH = {"사마의": ("선제 사마의", "호부", AU("응시호보", ally={"int": 0.08}, foe={"spd": -0.08}))}
+NEW_ITEMS = [["u01", "호부", "유니크", "모사", "int", 0.32, "res", 0.16, 7, "myth"]]
+
 # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 특기 수 (단체 · 고유 포함)
 TRAIT_MIN = {3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7}
 HEALERS = {"화타"}
@@ -170,8 +207,6 @@ NEW6 = {
 #         regen 병력 회복 · mregen 사기 회복 · rate 기술 발동 · rout 패주 저항 · stres 상태이상 저항 · low_atk 위기 공격 ·
 #         kill_amp 격파 뒤 피해 · weak_amp 약해진 적에게 · ignite 점화 · spread 불 번짐 · st_amp 지속 피해 · opener 첫 공격 · fire_res 화공 저항)
 #  foe  : 적 능력치 배율, foe_to 적 범위 (all · front · back · tag:병종)
-def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
-    return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
 AURA6 = {
     # 창병
     "주태": AU("충의방패", "low", m={"dr": 0.15, "rout": 0.3}),
@@ -406,6 +441,35 @@ def main():
         BY_ID[cid] = card
         retire += [c[0] for c in CARDS if c[2] == 3 and person(c) == p]
     retire += [c[0] for c in CARDS if c[2] == 2]         # 11/3 일반 등급 삭제 —— 토벌 편성에는 남는다
+    # 11/3 기인 —— 그 인물의 다른 카드는 모두 빼고 기인 한 장
+    retire += [c[0] for c in CARDS if person(c) in KIIN]
+    for c in [c for c in new_cards if person(c) in KIIN]:
+        new_cards.remove(c)
+        BY_ID.pop(c[0], None)
+    for i, (p, (title, tag, fac, pref, _au)) in enumerate(KIIN.items()):
+        st = [round(x * KIIN_MUL) for x in avg[(tag, 5)]]
+        st[4] = round(avg[(tag, 5)][4])
+        cid = "K%02d" % (i + 1)
+        card = [cid, title, 5, tag, fac] + st + [std[5][0], std[5][1], {"n": "", "eff": {}, "psv": None}, "kiin", ""]
+        new_cards.append(card)
+        BY_ID[cid] = card
+        REL[p] = pref.split() + [r for r in REL.get(p, []) if r not in pref.split()]
+    # 신화 12명 —— 나머지 신화 카드는 적 전용, 사마의 신화는 새로
+    for c in list(BY_ID.values()):
+        if c[2] == 8 and person(c) not in MYTH12:
+            retire.append(c[0])
+            if c in new_cards:
+                new_cards.remove(c)
+    for p, (title, item, _au) in NEW_MYTH.items():
+        ref = BY_ID[per[p][7][0]]
+        a0, a1 = avg[(ref[3], 7)], avg[(ref[3], 8)]
+        st = [round(ref[5 + j] * a1[j] / a0[j]) if a0[j] > 0 else ref[5 + j] for j in range(5)]
+        st[4] = ref[9]
+        n += 1
+        cid = "L%02d" % n
+        card = [cid, title, 8, ref[3], ref[4]] + st + [std[8][0], std[8][1], {"n": "", "eff": {}, "psv": None}, "myth", item]
+        new_cards.append(card)
+        BY_ID[cid] = card
     for k in retire:
         BY_ID.pop(k, None)
     retire.sort()
@@ -425,7 +489,7 @@ def main():
         pr = pairs.setdefault(c[2], set())
         cands = []
         for x in allc:
-            if x[2] != t or x[0] in exclude or person(x) == p or x[13] in ("myth", "immortal"):
+            if x[2] != t or x[0] in exclude or person(x) == p or x[13] in ("myth", "immortal", "kiin"):
                 continue
             q = person(x)
             if q in rel:
@@ -449,6 +513,13 @@ def main():
     recipes = {}
     for c in sorted(allc, key=lambda x: (x[2], x[0])):
         t = c[2]
+        if c[13] == "kiin":                  # 기인 = 희귀 2 (인연) + 고급 1 + 제 병종 기본
+            mats, ex = [], {c[0]}
+            for _ in range(2):
+                mats.append(pick(c, 4, ex, mats)); ex.add(mats[-1])
+            mats.append(pick(c, 3, ex, mats)); ex.add(mats[-1])
+            recipes[c[0]] = mats + [BASE[c[3]]]
+            continue
         if t == 3 and person(c) in T3:       # 고급 = 제 병종 2 + 다른 병종 2 (일반 등급 없음)
             recipes[c[0]] = [BASE[c[3]], BASE[c[3]]] + [BASE[x] for x in T3[person(c)].split()]
             continue
@@ -509,9 +580,14 @@ def main():
             if au.get("to") == "rel":
                 au["rel"] = [person(c)] + REL.get(person(c), [])
             aura[c[0]] = au
+    for c in allc:
+        if c[13] == "kiin":
+            aura[c[0]] = KIIN[person(c)][4]
+        if c[2] == 8 and person(c) in NEW_MYTH:
+            aura[c[0]] = NEW_MYTH[person(c)][2]
     ladder = fill_ladders(allc)
     out = {"_설명": __doc__.strip(), "cards": new_cards, "recipes": recipes, "skills": SKILL,
-           "retire": retire, "aura": aura, "ults": ULT6, "ladder_from": LADDER_FROM, "ladder": ladder}
+           "retire": retire, "aura": aura, "ults": ULT6, "ladder_from": LADDER_FROM, "ladder": ladder, "items": NEW_ITEMS}
     json.dump(out, open(os.path.join(ROOT, "lines.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     # 확인용 —— 관우 줄기
     nm = lambda k: BY_ID[k][1] + str(BY_ID[k][2])
@@ -520,7 +596,7 @@ def main():
             k = by_pt.get((p_, t))
             if k:
                 print(nm(k), "=", " + ".join(nm(m) for m in recipes[k]))
-    print("초월 %d명 · 적 전용으로 돌린 원본 %d장" % (len(aura), len(retire)))
+    print("위세 %d장 (초월 · 기인 · 새 신화) · 적 전용으로 돌린 원본 %d장" % (len(aura), len(retire)))
     for t in (3, 4, 5):
         xs = [c for c in allc if c[2] == t]
         print("등급 %d: %d장 —— %s" % (t, len(xs), " ".join(c[1] for c in xs)))

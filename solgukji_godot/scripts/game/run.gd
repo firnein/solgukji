@@ -37,6 +37,7 @@ var last_draw := []
 var last_item = null
 var uniq_offer := []          # 유니크 보급 —— 고를 수 있는 신화 재료 (고르면 비운다)
 var myth_made := false        # 신화를 이미 만들었다 (한 판에 하나)
+var kiin_made: Array = []     # 만든 기인 (11/3 —— 한 판에 각 1장)
 var last_spoil = null         # {n, src} —— 방금 받은 기본패
 var tour = null               # 최종 토너먼트
 var my_w := 0
@@ -74,6 +75,7 @@ func new_game(seed_value := -1) -> void:
 	last_item = null
 	uniq_offer = []
 	myth_made = false
+	kiin_made = []
 	last_spoil = null
 	tour = null
 	my_w = 0
@@ -219,6 +221,7 @@ func gain_item() -> String:
 				break
 	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade)
 	if grade == "유니크":
+		cand = cand.filter(func(k): return DB.MYTH_ITEMS.has(k))      # 11/3 플레이어가 만들 수 있는 신화(12명)의 재료만
 		_offer_unique(cand)
 		return ""
 	# 보급은 지금 세운 군세에 맞는 물건이 온다
@@ -354,6 +357,8 @@ func can_forge(out: String) -> bool:
 		return false
 	if DB.C[out].tier >= 8 and has_myth():
 		return false
+	if DB.is_kiin(out) and (kiin_made.has(out) or have(out) > 0):      # 기인은 한 판에 각 1장
+		return false
 	var m := mat_count(DB.RECOF[out])
 	for k in m:
 		if have(k) < m[k]:
@@ -377,6 +382,8 @@ func forge(out: String) -> bool:
 			bag.erase(ni)
 	if DB.C[out].tier >= 8:
 		myth_made = true
+	if DB.is_kiin(out):
+		kiin_made.append(out)
 	give(out)
 	return true
 
@@ -855,6 +862,14 @@ func finish_battle(res: Dictionary) -> void:
 	battle = null
 	last_result = {"title": bt.title, "win": res.win, "draw": res.draw, "left": res.left, "eLeft": res.eLeft,
 		"turns": res.turns, "mvp": res.mvp.name if res.mvp else "", "kind": bt.kind}
+	if res.win and bt.kind in ["quest", "pvp"]:      # 11/3 전투 밖 기인 —— 편성에 있으면 이길 때마다
+		if board.has(DB.kiin_card("ticket")):          # 거상 미축: 그날 보급 등급 선택권 +1
+			add_ticket(pick_list()[0].t if not pick_list().is_empty() else 3, 1)
+			toasts.append(["거상 미축의 재물 —— 선택권 +1", "gold"])
+		if board.has(DB.kiin_card("heal_cut")):        # 흑산 장연: 약탈 —— 기본패 +2
+			for i in 2:
+				give(DB.BASE[rng.randi() % DB.BASE.size()])
+			toasts.append(["흑산 장연의 약탈 —— 기본패 +2", "gold"])
 	match bt.kind:
 		"quest":
 			quest_done = true
@@ -1046,7 +1061,7 @@ func command(m: String, a: Array):
 # ───────── 저장 ─────────
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
-	"quest_done", "pvp_done", "tickets", "strikes", "last_draw", "last_item", "uniq_offer", "myth_made", "last_spoil",
+	"quest_done", "pvp_done", "tickets", "strikes", "last_draw", "last_item", "uniq_offer", "myth_made", "kiin_made", "last_spoil",
 	"tour", "my_w", "my_l", "news", "bots", "over", "battle", "last_result", "mp"]
 
 

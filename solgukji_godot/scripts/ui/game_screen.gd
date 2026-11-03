@@ -1023,7 +1023,7 @@ func _page_draw() -> Control:
 	if not rg.is_empty():
 		acts.add_child(UI.tile_act("grant", "배급", "", func():
 			for k in act("random_grant"):
-				toast("%s 배급 · %s" % [DB.C[k].name, DB.TIER[DB.C[k].tier].n], "gain"), "", run.granted, not can_act()))
+				toast("%s 배급 · %s" % [DB.C[k].name, DB.tier_name(k)], "gain"), "", run.granted, not can_act()))
 	v.add_child(acts)
 
 	# 보급품 · 소식 —— 한 줄 칩
@@ -1105,7 +1105,7 @@ func mini_n(a: int, b: int) -> int:
 func _news_sheet() -> void:
 	var b := open_sheet("전황 소식")
 	for nw in run.news:
-		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.TIER[DB.C[nw.unit].tier].n], 15))
+		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit)], 15))
 
 
 func _item_sheet(id: String) -> void:
@@ -1187,7 +1187,7 @@ func picker(t: int) -> void:
 		for k in ks:
 			var tl := mtile(k, run.pool().get(k, -1), func(id):
 				if act("pick", [id]):
-					toast("%s 획득 · %s" % [DB.C[id].name, DB.TIER[DB.C[id].tier].n], "gain")
+					toast("%s 획득 · %s" % [DB.C[id].name, DB.tier_name(id)], "gain")
 				picker(t))
 			tl.custom_minimum_size = PICK_TILE
 			f.add_child(tl)
@@ -1243,7 +1243,7 @@ func card_info(k: String) -> void:
 		st.add_child(uh)
 	# 11/3 사용자: 위세 · 고유기는 초상 오른쪽 (위세 설명 문구는 뺐다)
 	if DB.AURA.has(k):
-		st.add_child(_bar_box("[b][color=%s]위세[/color] 『%s』[/b]\n%s" % [DB.tier_color(k).to_html(false), DB.AURA[k].n, DB.aura_effect(k)], DB.tier_color(k), 12))
+		st.add_child(_bar_box("[b][color=%s]%s[/color] 『%s』[/b]\n%s" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n, DB.aura_effect(k)], DB.tier_color(k), 12))
 	var u = DB.ult_of(k) if c.tier >= 6 else null
 	if u != null:
 		st.add_child(_bar_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]\n%s" % [u.name, UI.ult_desc(u, c.tier)], Color("#ffd76e"), 12))
@@ -1295,8 +1295,12 @@ func card_info(k: String) -> void:
 			far[DB.C[o].tier] = far.get(DB.C[o].tier, 0) + 1
 	one.sort_custom(func(x, y): return run.miss_count(x) < run.miss_count(y))
 	var can_n := one.filter(func(x): return run.can_forge(x)).size()
-	up_sec.add_child(UI.eyebrow("한 단계 위 · %s %d종%s" % [DB.TIER[DB.next_tier(c.tier)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
-	if one.is_empty():
+	if DB.is_kiin(k):
+		up_sec.add_child(UI.eyebrow("기인"))
+		up_sec.add_child(UI.hint("한 판에 1장만 만들 수 있고, 다른 조합의 재료로 쓰이지 않는다."))
+	else:
+		up_sec.add_child(UI.eyebrow("한 단계 위 · %s %d종%s" % [DB.TIER[DB.next_tier(c.tier)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
+	if one.is_empty() and not DB.is_kiin(k):
 		up_sec.add_child(UI.hint("최종 등급이라 위가 없다." if c.tier == 8 else "이 카드를 재료로 쓰는 %s 조합이 없다 — 편성 전용이다." % DB.TIER[DB.next_tier(c.tier)].n))
 	for o in one:
 		up_sec.add_child(_up_row(o))
@@ -1433,6 +1437,16 @@ func _toggle(key: String, default := false) -> void:
 	render()
 
 
+const KIIN_T := 9      # 등급 거르기의 기인 칸
+
+func _tier_match(k: String, t: int) -> bool:
+	if t == 0:
+		return true
+	if t == KIIN_T:
+		return DB.is_kiin(k)
+	return DB.C[k].tier == t and not DB.is_kiin(k)
+
+
 func _page_forge() -> Control:
 	var v := UI.vbox(14)
 	v.add_child(forge_tree.build())
@@ -1448,13 +1462,14 @@ func _page_forge() -> Control:
 	v.add_child(row1)
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 4)
-	for t in [0, 2, 3, 4, 5, 6, 7, 8]:
-		row2.add_child(_filter_chip("all" if t == 0 else DB.TIER[t].n.left(1), null, "", DB.PAL.paper if t == 0 else DB.TIER[t].c, forge_tier == t, func():
+	for t in [0, 3, 4, 5, KIIN_T, 6, 7, 8]:        # 11/3 일반 없음 · 기인(9)은 전설 옆
+		var tn: String = "all" if t == 0 else ("기" if t == KIIN_T else DB.TIER[t].n.left(1))
+		row2.add_child(_filter_chip(tn, null, "", DB.PAL.paper if t == 0 else (DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c), forge_tier == t, func():
 			forge_tier = t
 			_forge_more = 0
 			render()))
 	v.add_child(row2)
-	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and (forge_tier == 0 or DB.C[r[0]].tier == forge_tier))
+	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
