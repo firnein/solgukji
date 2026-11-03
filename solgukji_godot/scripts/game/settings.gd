@@ -31,7 +31,7 @@ static func load_cfg() -> void:
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
 		bgm_vol = float(cf.get_value("sound", "bgm", 0.5))
 		sumuk = bool(cf.get_value("gfx", "sumuk", false))
-		dots = bool(cf.get_value("gfx", "dots_v2", false))     # 11/1 키를 바꿔 예전 저장(점묘 기본)을 3D 로
+		dots = false     # 11/3 사용자: 점묘 옵션을 숨겼다 —— 저장값과 상관없이 3D (점검용 --gdots / --dots 로만 켠다)
 	if quality < 0:
 		quality = 0 if OS.has_feature("mobile") else 2
 	apply()
