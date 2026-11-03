@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Dong Zhuo  [CAVALRY, Independent] —— same person as reference #1
+   FACE: huge fat bloated face, tiny piggy eyes sunk in fat, bulbous red nose, thick greasy lips, triple chin, sweaty ruddy skin, greedy cruel leer.
+   SIGNATURE: HEAD gaudy black-gold cap; FACIAL HAIR thick curly black beard; MARK obese, triple chin.
+   COLORS: his own colors as described (independent).
+2. Ma Teng  [CAVALRY, Independent] —— same person as reference #2
+   FACE: big weathered MAN's face, warm deep-set eyes in sun wrinkles, broad nose, big bushy grey beard, sun-browned skin, fur Qiang hat, fatherly frontier lord.
+   SIGNATURE: HEAD fur Qiang hat; FACIAL HAIR big bushy grey beard; MARK fur-trimmed brown armor.
+   COLORS: his own colors as described (independent).
+3. Wen Chou  [CAVALRY, Independent] —— same person as reference #3
+   FACE: rough lumpy face, thick brow ridge, angry bloodshot glare, flat broad nose, thick drooping mustache, scowling mouth.
+   SIGNATURE: HEAD yellow-gold helmet with a tall red tassel; FACIAL HAIR thick drooping mustache, no beard; MARK long spear lowered for a charge, yellow-gold armor.
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
+4. Sima Hui  [SCHOLAR, Independent] —— same person as reference #4
+   FACE: long serene face, bright clear eyes in kind wrinkles, small nose, gentle knowing smile, smooth old skin, saintly calm hermit.
+   SIGNATURE: HEAD simple hermit cap; FACIAL HAIR long silky white beard; MARK round jade mirror disk.
+   COLORS: white, pale blue and silver (hermit).
+5. Shen Pei  [SCHEMER, Independent] —— same person as reference #5
+   FACE: broad ruddy square face, thick bushy GREY eyebrows, big round BULGING glaring eyes (not narrow), wide flat nose, short bristly grey goatee only (no long beard), deep frown lines, stubborn clenched jaw.
+   SIGNATURE: HEAD bald crown with a small grey topknot tied in a yellow cloth (no hat); FACIAL HAIR short bristly grey goatee; MARK high collar, sealed scroll gripped in a fist.
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
+6. Yan Liang  [CAVALRY, Independent] —— same person as reference #6
+   FACE: broad fierce MAN's face, thick single unibrow, small mean eyes, flat wide nose, thick full black beard, arrogant sneer.
+   SIGNATURE: HEAD gold-crested helmet; FACIAL HAIR thick full black beard; MARK embroidered robe over gold armor, big blade, unibrow.
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).

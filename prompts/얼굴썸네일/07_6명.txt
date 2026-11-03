@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Zhang Liao  [CAVALRY, Wei] —— same person as reference #1
+   FACE: hard square MAN's face, deep-set narrow cold eyes under heavy straight brows, scar across the left cheek, straight nose, square-cut short black beard and mustache, tanned skin, grim silent commander.
+   SIGNATURE: HEAD dark steel helmet with cheek guards and a tall purple-black plume; FACIAL HAIR square-cut short black beard and mustache; MARK scar across the left cheek, crescent-bladed halberd, black horse.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Zhang He  [CAVALRY, Wei] —— same person as reference #2
+   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
+   SIGNATURE: HEAD helmet split half yellow and half blue; FACIAL HAIR thin neat mustache; MARK armor split yellow and blue, long spear.
+   COLORS: split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao).
+3. Dian Wei  [SPEARMAN, Wei] —— same person as reference #3
+   FACE: massive square ape-like face, heavy brow ridge, small deep-set fierce eyes, wide flat nose, thick lips, dark skin covered in scars, terrifying brute.
+   SIGNATURE: HEAD shaved head with a tiny topknot; FACIAL HAIR dark stubble; MARK giant, a heavy iron halberd in each hand.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+4. Cheng Yu  [SCHEMER, Wei] —— same person as reference #4
+   FACE: very long stern face, deep furrowed brow, piercing narrow eyes, long nose, long white beard, cold grim mouth, harsh old official.
+   SIGNATURE: HEAD tall black hat; FACIAL HAIR long white beard; MARK ambush map with ten little flags.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+5. Cao Ren  [SPEARMAN, Wei] —— same person as reference #5
+   FACE: huge square head, small hard eyes under a heavy brow, wide nose, broad GREYING beard, ruddy skin, immovable defender.
+   SIGNATURE: HEAD heavy round helmet with the visor raised; FACIAL HAIR broad greying beard; MARK man-tall tower shield, crouched guarding stance.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+6. Cao Cao  [SCHEMER, Wei] —— same person as reference #6
+   FACE: short wiry build, sharp narrow eyes with a dangerous glint, short trimmed black beard, thin hooked nose, sly confident half-smile, intense charisma.
+   SIGNATURE: HEAD official crown hat; FACIAL HAIR short trimmed black beard; MARK straight Yitian sword, short cape.
+   COLORS: Wei blue: navy, deep blue and steel with silver.

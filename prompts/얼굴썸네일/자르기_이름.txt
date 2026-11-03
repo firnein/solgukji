@@ -1,0 +1,73 @@
+얼굴 썸네일 —— 이름 순서 = 이름표 번호 순서. D:\Sol 에서 시트마다:
+  1. 참조 이미지를 만든다 (아래 '참조' 명령) → 프롬프트 txt 와 함께 붙여 넣어 뽑는다
+  2. 시트를 references/얼굴썸네일/<txt 와 같은 이름>.png 로 두고 '자르기' 명령 → solgukji_godot/assets/faces/
+  3. solgukji_godot 에서 Godot --import 한 번. 게임은 faces 그림이 있으면 전투 머리표에 그것을 쓴다.
+
+[01_6명.txt]  1 간옹 · 2 강유 · 3 관우 · 4 관평 · 5 마대 · 6 마량
+  참조:   python -I tools/scripts/make_ref_sheet.py "간옹,강유,관우,관평,마대,마량" prompts/얼굴썸네일/참조_01.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/01_6명.png "간옹,강유,관우,관평,마대,마량" solgukji_godot/assets/faces
+
+[02_6명.txt]  1 마초 · 2 미축 · 3 방통 · 4 법정 · 5 서서 · 6 요화
+  참조:   python -I tools/scripts/make_ref_sheet.py "마초,미축,방통,법정,서서,요화" prompts/얼굴썸네일/참조_02.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/02_6명.png "마초,미축,방통,법정,서서,요화" solgukji_godot/assets/faces
+
+[03_6명.txt]  1 위연 · 2 유비 · 3 이적 · 4 장비 · 5 장완 · 6 제갈량
+  참조:   python -I tools/scripts/make_ref_sheet.py "위연,유비,이적,장비,장완,제갈량" prompts/얼굴썸네일/참조_03.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/03_6명.png "위연,유비,이적,장비,장완,제갈량" solgukji_godot/assets/faces
+
+[04_6명.txt]  1 조운 · 2 주창 · 3 초주 · 4 황월영 · 5 황충 · 6 가후
+  참조:   python -I tools/scripts/make_ref_sheet.py "조운,주창,초주,황월영,황충,가후" prompts/얼굴썸네일/참조_04.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/04_6명.png "조운,주창,초주,황월영,황충,가후" solgukji_godot/assets/faces
+
+[05_6명.txt]  1 곽가 · 2 곽회 · 3 등애 · 4 방덕 · 5 사마의 · 6 서황
+  참조:   python -I tools/scripts/make_ref_sheet.py "곽가,곽회,등애,방덕,사마의,서황" prompts/얼굴썸네일/참조_05.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/05_6명.png "곽가,곽회,등애,방덕,사마의,서황" solgukji_godot/assets/faces
+
+[06_6명.txt]  1 순욱 · 2 악진 · 3 여상 · 4 우금 · 5 유엽 · 6 이전
+  참조:   python -I tools/scripts/make_ref_sheet.py "순욱,악진,여상,우금,유엽,이전" prompts/얼굴썸네일/참조_06.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/06_6명.png "순욱,악진,여상,우금,유엽,이전" solgukji_godot/assets/faces
+
+[07_6명.txt]  1 장료 · 2 장합 · 3 전위 · 4 정욱 · 5 조인 · 6 조조
+  참조:   python -I tools/scripts/make_ref_sheet.py "장료,장합,전위,정욱,조인,조조" prompts/얼굴썸네일/참조_07.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/07_6명.png "장료,장합,전위,정욱,조인,조조" solgukji_godot/assets/faces
+
+[08_6명.txt]  1 종회 · 2 진군 · 3 채문희 · 4 하후돈 · 5 하후연 · 6 하후패
+  참조:   python -I tools/scripts/make_ref_sheet.py "종회,진군,채문희,하후돈,하후연,하후패" prompts/얼굴썸네일/참조_08.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/08_6명.png "종회,진군,채문희,하후돈,하후연,하후패" solgukji_godot/assets/faces
+
+[09_6명.txt]  1 학소 · 2 허저 · 3 감녕 · 4 노숙 · 5 능조 · 6 능통
+  참조:   python -I tools/scripts/make_ref_sheet.py "학소,허저,감녕,노숙,능조,능통" prompts/얼굴썸네일/참조_09.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/09_6명.png "학소,허저,감녕,노숙,능조,능통" solgukji_godot/assets/faces
+
+[10_6명.txt]  1 대교 · 2 마충 · 3 서성 · 4 소교 · 5 손권 · 6 손상향
+  참조:   python -I tools/scripts/make_ref_sheet.py "대교,마충,서성,소교,손권,손상향" prompts/얼굴썸네일/참조_10.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/10_6명.png "대교,마충,서성,소교,손권,손상향" solgukji_godot/assets/faces
+
+[11_6명.txt]  1 손책 · 2 엄백호 · 3 여몽 · 4 오범 · 5 육손 · 6 장소
+  참조:   python -I tools/scripts/make_ref_sheet.py "손책,엄백호,여몽,오범,육손,장소" prompts/얼굴썸네일/참조_11.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/11_6명.png "손책,엄백호,여몽,오범,육손,장소" solgukji_godot/assets/faces
+
+[12_6명.txt]  1 정보 · 2 정봉 · 3 주유 · 4 주태 · 5 주환 · 6 태사자
+  참조:   python -I tools/scripts/make_ref_sheet.py "정보,정봉,주유,주태,주환,태사자" prompts/얼굴썸네일/참조_12.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/12_6명.png "정보,정봉,주유,주태,주환,태사자" solgukji_godot/assets/faces
+
+[13_6명.txt]  1 황개 · 2 고순 · 3 공손찬 · 4 관로 · 5 관해 · 6 남화노선
+  참조:   python -I tools/scripts/make_ref_sheet.py "황개,고순,공손찬,관로,관해,남화노선" prompts/얼굴썸네일/참조_13.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/13_6명.png "황개,고순,공손찬,관로,관해,남화노선" solgukji_godot/assets/faces
+
+[14_6명.txt]  1 동탁 · 2 마등 · 3 문추 · 4 사마휘 · 5 심배 · 6 안량
+  참조:   python -I tools/scripts/make_ref_sheet.py "동탁,마등,문추,사마휘,심배,안량" prompts/얼굴썸네일/참조_14.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/14_6명.png "동탁,마등,문추,사마휘,심배,안량" solgukji_godot/assets/faces
+
+[15_6명.txt]  1 여포 · 2 우길 · 3 원소 · 4 원술 · 5 장각 · 6 장량
+  참조:   python -I tools/scripts/make_ref_sheet.py "여포,우길,원소,원술,장각,장량" prompts/얼굴썸네일/참조_15.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/15_6명.png "여포,우길,원소,원술,장각,장량" solgukji_godot/assets/faces
+
+[16_6명.txt]  1 장로 · 2 장보 · 3 장연 · 4 저수 · 5 전풍 · 6 좌자
+  참조:   python -I tools/scripts/make_ref_sheet.py "장로,장보,장연,저수,전풍,좌자" prompts/얼굴썸네일/참조_16.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/16_6명.png "장로,장보,장연,저수,전풍,좌자" solgukji_godot/assets/faces
+
+[17_4명.txt]  1 진궁 · 2 초선 · 3 화웅 · 4 화타
+  참조:   python -I tools/scripts/make_ref_sheet.py "진궁,초선,화웅,화타" prompts/얼굴썸네일/참조_17.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/17_4명.png "진궁,초선,화웅,화타" solgukji_godot/assets/faces
+

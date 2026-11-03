@@ -1,0 +1,49 @@
+A sheet of 4 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 4 fill the first 4 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Chen Gong  [SCHEMER, Independent] —— same person as reference #1
+   FACE: lean long face, prominent cheekbones, piercing defiant eyes, straight nose, thin firm lips, pale stern skin, proud raised chin.
+   SIGNATURE: HEAD plain black headscarf; FACIAL HAIR neat long black beard; MARK cut rope tied around one wrist, sword at the hip, crimson-black robe.
+   COLORS: crimson red and black.
+2. Diaochan  [SCHEMER, Independent] —— same person as reference #2
+   FACE: delicate oval face, large melancholic almond eyes, small nose, red rosebud lips, porcelain skin, sorrowful seductive beauty.
+   SIGNATURE: HAIR elaborate updo with flowers and dangling hair ornaments; MARK folded fan hiding half her face, long pink silk ribbons.
+   COLORS: her own colors as described (independent).
+3. Hua Xiong  [CAVALRY, Independent] —— same person as reference #3
+   FACE: huge broad face, small cruel eyes, crooked nose, wild bushy black beard, wide boastful grin with gapped teeth, scar across one cheek.
+   SIGNATURE: HEAD bare head with wild black hair tied back by a leather strap; FACIAL HAIR wild bushy black beard; MARK tiger-skin cape over black armor, huge broad saber.
+   COLORS: his own colors as described (independent): black, dark red and tiger orange (the army of Dong Zhuo).
+4. Hua Tuo  [SORCERER, Independent] —— same person as reference #4
+   FACE: old man with a surprisingly youthful glowing face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, short white beard, square cloth cap.
+   SIGNATURE: HEAD square cloth cap (fangjin); FACIAL HAIR short white beard; MARK blue cloth medicine bag hanging on his arm, acupuncture needles.
+   COLORS: his own colors as described (independent).

@@ -472,6 +472,13 @@ func myth_art(k: String) -> Texture2D:
 	return _load_portrait("res://assets/portraits/%s_신화" % person(k))
 
 
+## 전투용 원형 얼굴 썸네일 (11/3) —— assets/faces/<인물>.png 가 있으면 (prompts/얼굴썸네일 로 그린 메달). 없으면 null
+func face_tex(k: String) -> Texture2D:
+	if C[k].tier <= 2 or C[k].kind == "foe":
+		return null
+	return _load_portrait("res://assets/faces/%s" % person(k))
+
+
 func portrait(k: String) -> Texture2D:
 	var base := portrait_base(k)
 	return _portrait_cache.get(base) if base != "" else null

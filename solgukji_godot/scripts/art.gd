@@ -23,6 +23,10 @@ static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind :=
 	if kind == "ult" and DB.myth_art(k):
 		_draw_cover(ci, r, DB.myth_art(k))
 		return
+	var ft := DB.face_tex(k) if kind != "card" else null      # 전용 얼굴 메달이 있으면 그것을 통째로
+	if ft:
+		_draw_face(ci, r, ft, Rect2(Vector2.ZERO, ft.get_size()))
+		return
 	if tex and kind != "card":
 		_draw_face(ci, r, tex, DB.portrait_face(k))
 		return
@@ -169,11 +173,12 @@ static func _draw_fit(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> 
 
 ## 둥근 얼굴 —— 얼굴 확대 그림을 원 안에만 (점묘 전장의 장수 토큰). 그림이 없으면 세력색 원
 static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String) -> void:
-	var tex := DB.portrait(k)
+	var ft := DB.face_tex(k)
+	var tex: Texture2D = ft if ft else DB.portrait(k)
 	if tex == null:
 		ci.draw_circle(c, r, DB.fac_color(DB.C[k].fac).darkened(0.3))
 		return
-	var face := DB.portrait_face(k)
+	var face := Rect2(Vector2.ZERO, tex.get_size()) if ft else DB.portrait_face(k)
 	var ts := tex.get_size()
 	var pts := PackedVector2Array()
 	var uvs := PackedVector2Array()

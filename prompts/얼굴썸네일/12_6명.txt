@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Cheng Pu  [ARCHER, Wu] —— same person as reference #1
+   FACE: long dignified old face, calm wise eyes, straight nose, long white beard, upright stern mouth, weathered skin, veteran elder.
+   SIGNATURE: HEAD red cloth cap with a short tassel; FACIAL HAIR long white beard; MARK snake-headed serpent spear, bow slung on his back.
+   COLORS: Wu red: crimson, red, orange and gold.
+2. Ding Feng  [ROGUE, Wu] —— same person as reference #2
+   FACE: grizzled old face, grey stubble, squinting cheerful eyes in wrinkles, broken nose, gap-toothed laugh, fur hat.
+   SIGNATURE: HEAD fur hat; FACIAL HAIR grey stubble; MARK a short sword in each hand.
+   COLORS: Wu red: crimson, red, orange and gold.
+3. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #3
+   FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, clean-shaven, pale skin, noble masculine bearing.
+   SIGNATURE: HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword, guqin zither.
+   COLORS: Wu red: crimson, red, orange and gold.
+4. Zhou Tai  [SPEARMAN, Wu] —— same person as reference #4
+   FACE: expressionless stone-like face, cropped hair, many crisscrossing scars and bandages, dull steady eyes, flat nose, closed mouth, stoic guardian.
+   SIGNATURE: HEAD cropped hair with bandages wrapped around the head; FACIAL HAIR no beard; MARK crisscrossing scars and bandages everywhere.
+   COLORS: Wu red: crimson, red, orange and gold.
+5. Zhu Huan  [ROGUE, Wu] —— same person as reference #5
+   FACE: narrow sly face, sharp side-glancing eyes, one raised eyebrow, thin nose, confident half-smile, short pointed chin beard.
+   SIGNATURE: HEAD red cloth wrapped around the head like a bandana; FACIAL HAIR short pointed chin beard; MARK short sword hidden behind the back, light leather armor.
+   COLORS: Wu red: crimson, red, orange and gold.
+6. Taishi Ci  [ARCHER, Wu] —— same person as reference #6
+   FACE: MAN with a strong square jaw, bright honest eyes, straight thick brows, straight nose, long handsome flowing beard, tanned skin, heroic loyal expression.
+   SIGNATURE: HEAD no helmet, long tied-back hair; FACIAL HAIR long handsome flowing beard; MARK a short halberd in one hand, Sun Ce's captured helmet in the other, bow on his back.
+   COLORS: Wu red: crimson, red, orange and gold.

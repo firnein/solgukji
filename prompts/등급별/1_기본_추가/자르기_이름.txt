@@ -7,3 +7,6 @@
 
 [02_새인물_5명.txt]  1 황월영 · 2 손상향 · 3 장완 · 4 채문희 · 5 남화노선
   자르기: python -I tools/scripts/slice_sheet.py 시트.png "황월영,손상향,장완,채문희,남화노선" solgukji_godot/assets/portraits
+
+[03_화웅_재작업.txt]  1 화웅  (01 시트에서 오른팔이 두 개로 그려져 다시)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "화웅" solgukji_godot/assets/portraits

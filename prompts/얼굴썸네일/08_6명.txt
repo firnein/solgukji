@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Zhong Hui  [STRATEGIST, Wei] —— same person as reference #1
+   FACE: young MAN, narrow angular face with a sharp chin, arrogant upturned eyes, thin nose, sneering smile, clean-shaven, pale skin, ambitious smug genius.
+   SIGNATURE: HEAD high topknot held by a gold hair crown; FACIAL HAIR clean-shaven; MARK arrogant raised chin, forged letter and brush.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Chen Qun  [SCHOLAR, Wei] —— same person as reference #2
+   FACE: neat narrow face, squinting bureaucratic eyes, neat thin goatee, small mouth, pale indoor skin, meticulous official.
+   SIGNATURE: HEAD official hat with side flaps; FACIAL HAIR neat thin goatee; MARK thick law book and brush.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+3. Cai Wenji  [SCHOLAR, Wei] —— same person as reference #3
+   FACE: adult WOMAN with an oval face, sad gentle downturned eyes, thin arched brows, small closed mouth, melancholic dignified expression.
+   SIGNATURE: HEAD long black hair with thin nomad braids and a fur-trimmed cap; FACIAL HAIR none; MARK long reed flute, small guqin on her back, fur collar.
+   COLORS: Wei blue: navy, deep blue and steel with silver, with a white nomad fur collar.
+4. Xiahou Dun  [SPEARMAN, Wei] —— same person as reference #4
+   FACE: brutal square face, black eyepatch over the left eye, one furious bloodshot eye, broad nose, short thick black beard, snarling mouth with bared teeth, battle scars, fearsome expression.
+   SIGNATURE: HEAD neat tidy topknot; FACIAL HAIR short thick black beard; MARK black eyepatch over the LEFT eye, single-edged heavy blade.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+5. Xiahou Yuan  [ARCHER, Wei] —— same person as reference #5
+   FACE: gaunt long MAN's face with hollow cheeks, wide wild eyes, hooked thin nose, long thin drooping mustache and long thin goatee, huge toothy reckless grin, sun-browned skin, restless hyper energy.
+   SIGNATURE: HEAD NO helmet, shaggy shoulder-length hair under a blue cloth headband; FACIAL HAIR long thin drooping mustache and a long thin goatee; MARK gaunt hollow cheeks, huge toothy grin, longbow, shooting from a galloping horse.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+6. Xiahou Ba  [CAVALRY, Wei] —— same person as reference #6
+   FACE: eager teenage BOY-soldier (clearly male), short spiky hair, square chin, wide excited eyes, thick brows, open toothy grin.
+   SIGNATURE: HEAD short spiky hair, no helmet; FACIAL HAIR no beard; MARK his late father's battered longbow on his back, a green Shu ribbon tied on his blue armor.
+   COLORS: Wei blue: navy, deep blue and steel with silver.

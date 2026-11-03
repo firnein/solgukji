@@ -29,6 +29,8 @@ GENDER: every character on THIS sheet is an adult MAN. Men read as men at a glan
 masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
 no long eyelashes, no blush, no rosy lips, no soft baby face.
 
+ANATOMY: every character has exactly TWO arms and TWO hands, each holding at most one thing —— never draw an extra arm, an extra hand or a duplicated weapon.
+
 LAYOUT:
 - Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
 - Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
@@ -53,7 +55,7 @@ CHARACTERS
    SIGNATURE (unique to him on this sheet): HEAD plain round iron helmet with cheek guards; FACIAL HAIR short neat square black beard; MARK tall rectangular iron shield, short halberd.
    COLORS: his own colors as described (independent): dark iron grey with crimson trims (the army of Lu Bu).
 3. Hua Xiong  [CAVALRY, Independent]
-   DESIGN: Hua Xiong, the giant Xiliang vanguard of Dong Zhuo, brutal and boastful, tiger skin over black armor, a huge broad saber on the shoulder.
+   DESIGN: Hua Xiong, the giant Xiliang vanguard of Dong Zhuo, brutal and boastful, tiger skin over black armor. His RIGHT hand rests a huge broad saber on his RIGHT shoulder; his LEFT hand holds the reins low in front of him. Exactly two arms.
    LOOK: 30s, enormous, wild black beard, wide grinning mouth, scarred cheek.
    FACE: huge broad face, small cruel eyes, crooked nose, wild bushy black beard, wide boastful grin with gapped teeth, scar across one cheek.
    BUILD: giant, the biggest rider on the sheet, thick neck.
