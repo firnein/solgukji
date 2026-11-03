@@ -2063,52 +2063,9 @@ func _on_battle_close() -> void:
 # ───────── 계보 ─────────
 
 func _page_line() -> Control:
+	# 11/3 사용자: 계보는 '조합 목록'(병종별 장수) 하나만 —— 등급표 · 진행도 · 신화 경로는 뺐다
 	var v := UI.vbox(16)
 	var p := run.pool()
-	var tbl := GridContainer.new()
-	tbl.columns = 5
-	tbl.add_theme_constant_override("h_separation", 18)
-	tbl.add_theme_constant_override("v_separation", 4)
-	for hd in ["등급", "PV", "병력", "종수", "보유"]:
-		tbl.add_child(UI.lbl(hd, 13, DB.PAL.bamboo_dim))
-	# 11/3 일반 등급이 비어 by_tier(2)[0] 에서 멈춰 계보창이 통째로 비었다 —— 있는 등급만, 기인은 전설 옆에
-	var rows_t: Array = []
-	for t in DB.PLAY_TIERS:
-		rows_t.append(t)
-		if t == 5:
-			rows_t.append(KIIN_T)
-	for t in rows_t:
-		var ks: Array = DB.C.keys().filter(func(k): return DB.is_kiin(k)) if t == KIIN_T else DB.by_tier(t).filter(func(k): return not DB.is_kiin(k))
-		if ks.is_empty():
-			continue
-		var owned := ks.filter(func(k): return p.has(k)).size()
-		var pvs: Array = ks.map(func(k): return int(DB.C[k].pv))
-		tbl.add_child(UI.lbl("기인" if t == KIIN_T else DB.TIER[t].n, 15, DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c, true))
-		tbl.add_child(UI.lbl("%d~%d" % [pvs.min(), pvs.max()], 14))
-		tbl.add_child(UI.lbl(Battle.num(DB.C[ks[0]].tr), 14))
-		tbl.add_child(UI.lbl(str(ks.size()), 14))
-		tbl.add_child(UI.lbl(str(owned) if owned else "—", 14, DB.PAL.jade if owned else DB.PAL.bamboo_dim))
-	var tc := CenterContainer.new()
-	tc.add_child(tbl)
-	v.add_child(UI.sect("등급", UI.panel(tc)))
-	var prog := UI.vbox(4)
-	for tag in DB.D.TAGORDER:
-		var own: Array = p.keys().filter(func(k): return DB.C[k].tag == tag)
-		var top_t := 0
-		for k in own:
-			top_t = maxi(top_t, DB.C[k].tier)
-		var best := ""
-		for k in own:
-			if DB.C[k].tier == top_t and (best == "" or p[k] > p[best]):
-				best = k
-		var s := "[color=#C6AC7C]%s[/color]  " % tag
-		for t in DB.PLAY_TIERS:
-			s += "[color=%s]■[/color]" % (DB.TIER[t].c.to_html(false) if t <= top_t else "33405F")
-		s += "  %s" % (UI.card_bb(best) if best != "" else "—")
-		prog.add_child(UI.rich(s, 15))
-	prog.add_child(UI.hint("칸이 기본부터 신화까지 — 칸이 비면 아직 그 등급에 닿지 못했다."))
-	v.add_child(UI.sect("계보 진행도", UI.panel(prog)))
-
 	var lv0 := UI.vbox(8)
 	for tag in DB.D.TAGORDER:
 		var key: String = "line:" + tag
@@ -2122,16 +2079,17 @@ func _page_line() -> Control:
 		if not open:
 			continue
 		var lv := UI.vbox(8)
-		for t in range(8, 0, -1):
-			var ks := Run.by_tier_tag(t, tag)
+		var rows_t := [8, 7, 6, KIIN_T, 5, 4, 3, 1]
+		for t in rows_t:
+			var ks: Array = Run.by_tier_tag(5 if t == KIIN_T else t, tag).filter(func(k): return DB.is_kiin(k) == (t == KIIN_T))
 			if ks.is_empty():
 				continue
-			lv.add_child(UI.lbl(DB.TIER[t].n, 14, DB.TIER[t].c, true))
+			lv.add_child(UI.lbl("기인" if t == KIIN_T else DB.TIER[t].n, 14, DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c, true))
 			var f := UI.flow(6)
 			for k in ks:
 				var c: Dictionary = DB.C[k]
 				var has: bool = p.get(k, 0) > 0
-				var b := UI.btn("%s%s%s" % [c.name, "★" if c.kind == "myth" else "", (" ×%d" % p[k]) if has else ""], func(): card_info(k), "", 42)
+				var b := UI.btn("%s%s%s" % [c.name, "★" if c.kind == "myth" else "", (" ×%d" % p[k]) if has else ""], func(): recipe_sheet(k) if DB.RECOF.has(k) else card_info(k), "", 42)
 				b.add_theme_font_size_override("font_size", 14)
 				b.add_theme_color_override("font_color", DB.tier_color(k) if has else Color(DB.PAL.paper, 0.55))
 				if has:
@@ -2139,29 +2097,7 @@ func _page_line() -> Control:
 				f.add_child(b)
 			lv.add_child(f)
 		lv0.add_child(UI.panel(lv))
-	v.add_child(UI.sect("병종 계보 — 눌러서 펼친다", lv0))
-
-	# 신화 —— 재료 등급 구성으로 묶은 경로
-	var g := {}
-	for k in DB.by_tier(8):
-		var ts: Array = DB.RECOF[k].map(func(x): return DB.C[x].tier)
-		ts.sort()
-		ts.reverse()
-		var key := " + ".join(ts.map(func(t): return DB.TIER[t].n))
-		if not g.has(key):
-			g[key] = []
-		g[key].append(k)
-	var mv := UI.vbox(10)
-	mv.add_child(UI.hint("모든 신화는 유니크 아이템을 함께 소모하며, 그 아이템은 완성된 장수에게 영구히 장착된다. 불멸을 거치지 않는 경로도 있다. 이름을 누르면 상세."))
-	for key in g:
-		var pv := UI.vbox(8)
-		pv.add_child(UI.lbl("%s — %d종" % [key, g[key].size()], 15, DB.PAL.bamboo, true))
-		for k in g[key]:
-			var r := UI.rich("[url=%s]%s[/url]  [color=#8D7B5C]%s · %d PV[/color]\n%s" % [k, UI.card_bb(k), DB.C[k].tag, DB.C[k].pv, mats_bb(k)], 14)
-			r.meta_clicked.connect(func(m): card_info(str(m)))
-			pv.add_child(r)
-		mv.add_child(UI.panel(pv, 12))
-	v.add_child(UI.sect("신화 %d종 — 경로 %d갈래" % [DB.by_tier(8).size(), g.size()], mv))
+	v.add_child(UI.sect("조합 목록", lv0))
 	return v
 
 
