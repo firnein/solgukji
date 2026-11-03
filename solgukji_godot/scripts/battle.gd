@@ -68,6 +68,20 @@ static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 ·
 static var counter_charge := false   # 반격을 맞은 쪽도 고유기 게이지가 차는가 —— 차면 반격이 적 고유기를 앞당겨 철벽이 손해를 봤다(10/29 측정)
 static var scheme_enabled := true    # 계략 계열 켜기 (혼란 걸기 · 키우기 · 옮기기 · 미인계)
 static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 · 도원결의 · 단량)
+## 11/3 8병종 역할 (사용자: 병종이 제 역할을 못 한다 —— tests/tag_role.tscn: 창병이 탱커 · 딜러를 겸하고 도적은 하는 일이 없었다)
+## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
+## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
+static var tag_roles := true
+const ROLE := {"charge": 2.0, "horse_after": 0.9, "bow_cover": 1.35, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 1.15,
+	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 1.6, "schol_heal": 2.0, "occul_heal": 0.3, "occul_status": 1.8, "occul_int": 1.2,
+	"schem_morale": 1.4, "schem_int": 1.3}
+## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
+const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
+const CHARGE := {3: 1.5, 4: 1.5, 5: 1.7, 6: 1.9, 7: 2.0, 8: 2.0}
+## 창병 피해 배율 —— 낮은 등급일수록 선호 자리 보너스(공격 ×1.22)가 커 더 낮춘다
+const SPEAR_ATK := {3: 0.45, 4: 0.45, 5: 0.5, 6: 0.55, 7: 0.6, 8: 0.65}
+const INT_TAG := ["책사", "유생", "술사", "모사"]
+
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
@@ -138,6 +152,8 @@ class Unit:
 	var steady_used := false  # 진정 —— 사기 60 아래에서 한 번 추스름을 썼는가
 	var stand_used := false   # 사수 —— 방진 중 병력 1에서 버티기를 썼는가
 	var countering := false   # 반격 중 (점검 통계용)
+	var theal := 0.0          # 병력 치료 합 (최대 병력 대비 · 점검용)
+	var charged := false      # 기병 첫 돌격을 했는가 (11/3 병종 역할)
 	var dmg := 0.0
 	var mdmg := 0.0
 	var heal := 0.0
@@ -593,7 +609,12 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if _phalanx(d):
 		dmg *= 1.0 - float(DB.PSV.guard.dr)        # 방진 —— 받는 물리 피해 감소
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
+	dmg *= _role_mul(a, d, true)
 	var loss := _stand(d, maxf(1, roundf(dmg * K.troop * pace * _one)))
+	if tag_roles and a.c.tag == "도적" and not a.countering:      # 도적 —— 맞힌 적의 고유기 게이지 · 기술 충전을 깎는다
+		d.gauge = maxf(0.0, d.gauge - ROLE.rogue_gauge)
+		if not d.sk_ch.is_empty():
+			d.sk_ch[0] = maxf(0.0, d.sk_ch[0] - ROLE.rogue_charge)
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
 	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
 	if a.countering:
@@ -661,6 +682,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	if _phalanx(d):
 		dmg *= 1.0 - float(DB.PSV.guard.int_dr)    # 방진 —— 받는 책략 피해 감소
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
+	dmg *= _role_mul(a, d, false)
 	var aoe: float = K.aoe if spread >= 3 else 1.0
 	var loss := _stand(d, maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe * _one)))
 	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
@@ -686,8 +708,43 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 		inflict(a, d, "confuse", 1, int(DB.PSV.scheme.dur))
 
 
+## 병종 역할 배율 (tag_roles) —— 준 피해에 곱한다
+func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
+	if not tag_roles:
+		return 1.0
+	if not phys and INT_TAG.has(a.c.tag):
+		return _role_tag(a, d, phys) * INT_LOW.get(a.c.tier, 1.0)
+	return _role_tag(a, d, phys)
+
+
+func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
+	match a.c.tag:
+		"창병":
+			return SPEAR_ATK.get(a.c.tier, 0.6)
+		"기병":
+			if phys and not a.charged and not a.countering:
+				a.charged = true
+				return CHARGE.get(a.c.tier, ROLE.charge)
+			return ROLE.horse_after
+		"궁병":
+			if units.any(func(o): return o.alive and o.camp == a.camp and o.c.tag == "창병"):
+				return ROLE.bow_cover
+		"도적":
+			if INT_TAG.has(d.c.tag): return ROLE.rogue_vs_int * ROLE.rogue_all
+			if d.c.tag == "궁병": return ROLE.rogue_vs_bow * ROLE.rogue_all
+			return ROLE.rogue_all
+		"책사":
+			if not phys: return ROLE.strat_int
+		"모사":
+			if not phys: return ROLE.schem_int
+		"술사":
+			if not phys: return ROLE.occul_int
+	return 1.0
+
+
 func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> void:
 	var a: float = amt * pace * _one * (K.aoe if spread >= 3 else 1.0) * morale_guard(src, d)
+	if tag_roles and src and src.c.tag == "모사": a *= ROLE.schem_morale
 	if src: a *= 1.0 + mv(src, "mdeal")
 	a *= 1.0 - mv(d, "mshield")
 	d.morale -= a
@@ -700,10 +757,14 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if not d.alive or _scorched(d): return
 	if virtue_enabled and _side_max(_foe(d.camp), "starve") > 0:
 		ratio *= 1.0 - float(DB.PSV.virtue.starve)      # 단량 —— 적이 군량을 끊었다
+	if tag_roles and src:      # 치료는 유생 전담 (술사는 상태이상)
+		ratio *= ROLE.schol_heal if src.c.tag == "유생" else (ROLE.occul_heal if src.c.tag == "술사" else 1.0)
 	var g := minf(roundf(d.max * ratio * pace * _one), d.max - d.troops)
 	if g <= 0: return
 	d.troops += g
-	if src: src.heal += g / 300.0
+	if src:
+		src.heal += g / 300.0
+		src.theal += g / d.max      # 점검용 —— 병력 치료만 (최대 병력 대비)
 	L("hl", "『%s』에 %s의 대오가 정비된다 — 병력 +%s" % [who, nm(d), num(g)],
 		{"fx": "heal", "f": d.key, "n": g})
 	if virtue_enabled and _side_max(d.camp, "moved") > 0:
@@ -734,6 +795,7 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 			{"fx": "resist", "f": d.key, "st": kind})
 		return
 	var stx: float = (1 + a.ts.v) if a and a.ts and a.ts.stat == "stx" else 1.0
+	if tag_roles and a and a.c.tag == "술사": stx *= ROLE.occul_status
 	var ext := (1 if a and a.caps.has("책사") else 0) + (1 if a and a.caps.has("술사") else 0)
 	var resist := 1.0 if a and a.caps.has("술사") else (morale_guard(a, d) if d.c.tier >= K.guardFrom else 1.0)
 	var scale: float = d.max * pace if kind in ["burn", "flood", "bleed"] else (pace if kind == "plague" else 1.0)
@@ -1549,7 +1611,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
 			"item": u.item, "morale": u.morale, "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills,
-			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
+			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))

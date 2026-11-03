@@ -28,7 +28,8 @@ const CONTACT := 64.0         # 근접 공격이 닿는 중심 거리
 const GAP := 240.0            # 양군 선봉 사이 · 열 간격 · 옆 간격 (War3D 와 같다)
 const RS := 78.0
 const CS := 118.0
-const SPEED := {"창병": 62.0, "도적": 80.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
+const TAUNT_R := 160.0
+const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
 static var bow_range := 250.0      # 궁병 사거리 (점검 장면이 바꿔 볼 수 있게 static)
 static var cast_range := 220.0     # 지략 계열(책략으로 치는 유닛) 사거리
 static var melee_reach := 130.0    # 근접 공격이 닿는 중심 거리 —— 맞닿음보다 넓어 아군 너머 둘째 줄도 친다 (10/31: 64 면 근접이 막혀 유닛당 11초 놀았다)
@@ -429,6 +430,9 @@ func _choose(u: Unit, foes: Array) -> Unit:
 			w = 0.6 if u.c.tag == "도적" else 0.75
 		if u.tgt == o:
 			w *= 0.8            # 노리던 적을 쉽게 바꾸지 않는다
+		# 11/3 창병 도발 —— 가까이 온 근접 적은 창병부터 친다 (도적은 흘려 지나간다)
+		if Battle.tag_roles and o.c.tag == "창병" and not _ranged(u) and u.c.tag != "도적" and d < TAUNT_R:
+			w *= 0.5
 		if not _ranged(u):
 			# 근접은 아군이 이미 몰려 싸우는 적보다 빈 적을 (줄 서서 놀지 않게)
 			var crowd := 0

@@ -18,7 +18,7 @@ func _ready() -> void:
 		var pool: Array = DB.by_tier(t).filter(func(k): return not DB.is_foe(k))
 		var acc := {}
 		for tg in tags:
-			acc[tg] = {"n": 0, "dmg": 0.0, "mdmg": 0.0, "heal": 0.0, "kills": 0.0, "alive": 0.0, "left": 0.0, "front": 0.0, "w": 0.0, "wn": 0}
+			acc[tg] = {"n": 0, "dmg": 0.0, "mdmg": 0.0, "theal": 0.0, "kills": 0.0, "alive": 0.0, "left": 0.0, "front": 0.0, "w": 0.0, "wn": 0}
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 1000 + t
 		for g in games:
@@ -32,7 +32,7 @@ func _ready() -> void:
 			var r := RtBattle.make(rng.randi()).run(DB.auto_place(a, fa), fa, 100, null, DB.auto_place(b, fb), fb, 100, null, "", "", [], {"A": "smart", "B": "smart"})
 			for cp in ["A", "B"]:
 				var mine: Array = r.roster.filter(func(x): return x.camp == cp)
-				var avg := {"dmg": 0.0, "mdmg": 0.0, "heal": 0.0, "kills": 0.0}
+				var avg := {"dmg": 0.0, "mdmg": 0.0, "theal": 0.0, "kills": 0.0}
 				for x in mine:
 					for key in avg: avg[key] += float(x[key]) / mine.size()
 				for x in mine:
@@ -65,6 +65,6 @@ func _ready() -> void:
 		for tg in tags:
 			var e: Dictionary = acc[tg]
 			if e.n == 0: continue
-			print("%s  %5.2f %5.2f %5.2f %5.2f  %3d%%  %3d%%  %3d%%   %3d%%" % [tg, e.dmg / e.n, e.mdmg / e.n, e.heal / e.n, e.kills / e.n,
+			print("%s  %5.2f %5.2f %5.2f %5.2f  %3d%%  %3d%%  %3d%%   %3d%%" % [tg, e.dmg / e.n, e.mdmg / e.n, e.theal / e.n, e.kills / e.n,
 				roundi(100 * e.alive / e.n), roundi(100 * e.left / e.n), roundi(100 * e.front / e.n), roundi(100 * e.w / maxf(1, e.wn))])
 	get_tree().quit()
