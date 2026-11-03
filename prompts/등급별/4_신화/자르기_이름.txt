@@ -110,3 +110,7 @@
 [27_초선.txt]  1 월하미인 초선
   참조:   python -I tools/scripts/make_ref_sheet.py "초선" prompts/등급별/4_신화/참조_27.png
   자르기: python -I tools/scripts/slice_panels.py 시트.png "초선_신화" solgukji_godot/assets/portraits
+
+[28_사마의.txt]  1 선제 사마의
+  참조:   python -I tools/scripts/make_ref_sheet.py "사마의" prompts/등급별/4_신화/참조_28.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "사마의_신화" solgukji_godot/assets/portraits

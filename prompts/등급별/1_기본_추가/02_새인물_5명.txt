@@ -1,0 +1,75 @@
+A character design sheet of 5 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: on THIS sheet characters 1, 2 and 4 (Huang Yueying, Sun Shangxiang, Cai Wenji) are adult WOMEN; characters 3 and 5 are adult MEN. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the first 5 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Huang Yueying  [ARCHER, Shu]
+   DESIGN: Huang Yueying, the clever wife of Zhuge Liang and an inventor, plain practical woman (not glamorous), on foot, holding a wooden repeating crossbow of her own design, small gears and tools hanging at the belt.
+   LOOK: late 20s woman, plain face, freckles, sun-darkened skin, light yellow-brown hair in a thick practical braid.
+   FACE: adult WOMAN with a plain broad face, freckles, sun-darkened skin, bright clever eyes, slightly crooked knowing smile.
+   BUILD: short and sturdy woman.
+   SIGNATURE (unique to her on this sheet): HEAD thick yellow-brown braid over one shoulder with a carpenter's pencil stuck in it; FACIAL HAIR none; MARK wooden repeating crossbow, belt of gears and tools.
+   COLORS: Shu green: green, jade and earthy gold.
+2. Sun Shangxiang  [ROGUE, Wu]
+   DESIGN: Sun Shangxiang, the fierce martial princess of Wu who kept armed maids, short red battle robe over light armor, on foot, two short swords crossed, ready to spring.
+   LOOK: about 20, bold grin, sharp bright eyes, hair in two high buns.
+   FACE: adult young WOMAN with a heart-shaped face, bold toothy grin, sharp lively eyes, straight brows, fearless expression.
+   BUILD: slim athletic woman, light on her feet.
+   SIGNATURE (unique to her on this sheet): HEAD two high hair buns tied with red ribbons; FACIAL HAIR none; MARK two short swords crossed, short red battle robe.
+   COLORS: Wu red: crimson, red, orange and gold.
+3. Jiang Wan  [SCHOLAR, Shu]
+   DESIGN: Jiang Wan, the calm steady minister who carried on the government of Zhuge Liang, plain green official robe, on foot, holding a thick ledger and an official seal.
+   LOOK: 40s, calm round face, neat short beard, quiet reliable eyes.
+   FACE: calm round face, gentle level eyes, soft eyebrows, short neat beard and mustache, small calm smile, steady trustworthy expression.
+   BUILD: medium build, slightly soft, very steady stance.
+   SIGNATURE (unique to him on this sheet): HEAD small square scholar's cap; FACIAL HAIR short neat beard and mustache; MARK thick ledger and official seal.
+   COLORS: Shu green: green, jade and earthy gold.
+4. Cai Wenji  [SCHOLAR, Wei]
+   DESIGN: Cai Wenji, the great poet and musician who returned from the Xiongnu, Han robe with a nomad fur collar, on foot, holding a long nomad reed flute (hujia), a small guqin slung on her back.
+   LOOK: early 30s woman, elegant but sorrowful, long black hair partly braided in nomad style.
+   FACE: adult WOMAN with an oval face, sad gentle downturned eyes, thin arched brows, small closed mouth, melancholic dignified expression.
+   BUILD: slender woman, tall.
+   SIGNATURE (unique to her on this sheet): HEAD long black hair with thin nomad braids and a fur-trimmed cap; FACIAL HAIR none; MARK long reed flute, small guqin on her back, fur collar.
+   COLORS: Wei blue: navy, deep blue and steel with silver, with a white nomad fur collar.
+5. Nanhua Laoxian  [SORCERER, Independent]
+   DESIGN: Nanhua Laoxian, the legendary old immortal who gave Zhang Jiao the Taiping book, white and pale green hermit robe, on foot, holding a glowing bamboo scroll, a gourd at the waist.
+   LOOK: extremely old man, bald high domed forehead, very long white eyebrows hanging to his cheeks, white beard to the knees, kind mysterious smile.
+   FACE: very old MAN with a huge bald domed forehead, long white eyebrows drooping past his cheeks, tiny twinkling eyes, round rosy nose, kind mysterious smile, white beard flowing to the knees.
+   BUILD: small and round old man, short legs.
+   SIGNATURE (unique to him on this sheet): HEAD completely bald high domed head; FACIAL HAIR white beard flowing down to the knees; MARK long drooping white eyebrows, glowing bamboo scroll, gourd.
+   COLORS: white, pale green and pale gold (hermit).
