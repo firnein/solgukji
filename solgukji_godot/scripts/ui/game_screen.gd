@@ -924,7 +924,7 @@ func recipe_card(out: String, sz := Vector2(86, 112)) -> Control:
 
 
 ## 조합 시트 —— 제목은 등급색 장수 이름. 결과 카드(특기 칸) · 재료 한 줄(가진 수/필요 수) · 조합 + 상세 버튼 한 줄
-## 갈무리 창의 신화 컷 —— 시트가 화면의 최대 높이까지 차도록 그림 높이를 늘린다
+## 디테일창의 신화 그림 —— 시트가 화면의 최대 높이까지 차도록 그림 높이를 늘린다 (남는 공간이 없으면 감춘다)
 func _fill_art(ar: TextureRect) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(ar):
@@ -933,7 +933,10 @@ func _fill_art(ar: TextureRect) -> void:
 	var max_h := (size.y - sa.position.y) * 0.88
 	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
 	var body_h: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
-	ar.custom_minimum_size.y = maxf(160.0, ar.custom_minimum_size.y + max_h - head_h - body_h - sa.size.y - 8)
+	ar.custom_minimum_size.y = maxf(0.0, ar.custom_minimum_size.y + max_h - head_h - body_h - sa.size.y - 8)
+	if ar.custom_minimum_size.y < 90.0:      # 남는 공간이 거의 없으면 그리지 않는다
+		ar.visible = false
+		return
 	_fit_sheet(false)
 	# 11/3 사용자: 딱 맞게 —— 한 번 더 재서 스크롤이 생길 만큼 넘쳤으면 그만큼 줄인다
 	for i in 3:
@@ -942,7 +945,10 @@ func _fill_art(ar: TextureRect) -> void:
 		return
 	var over: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y - _sheet_scroll.size.y
 	if over > 0.5:
-		ar.custom_minimum_size.y = maxf(120.0, ar.custom_minimum_size.y - over - 2)
+		ar.custom_minimum_size.y = maxf(0.0, ar.custom_minimum_size.y - over - 2)
+		if ar.custom_minimum_size.y < 90.0:
+			ar.visible = false
+			return
 	# 얼굴이 있는 위쪽을 기준으로 자른다 (가운데로 자르면 신화 컷의 얼굴이 잘렸다)
 	await get_tree().process_frame
 	if not is_instance_valid(ar) or ar.size.x <= 0 or not ar.get_meta("crop", false):
@@ -983,23 +989,6 @@ func recipe_sheet(out: String) -> void:
 		rv.add_child(UI.rich("[b][color=%s]%s[/color] 『%s』[/b]
 [color=#8FD4C2]%s[/color]" % [DB.tier_color(out).to_html(false), "기인" if DB.is_kiin(out) else "위세", DB.AURA[out].n, DB.aura_effect(out)], 12))
 	tp.add_child(rv)
-	# 11/3 사용자: 남는 위쪽 공간을 신화 컷으로 채운다 (그 인물의 신화 그림이 있으면) —— 높이는 한 프레임 뒤 남는 만큼
-	var art := DB.myth_art(out)
-	var myth := art != null
-	if not myth:
-		art = DB.portrait(out)      # 신화 그림이 없는 장수는 기본 장수 그림을 크게 (11/3 —— 빈 칸으로 나왔다)
-	if art:
-		var ar := TextureRect.new()
-		ar.texture = art
-		ar.set_meta("art", art)
-		ar.set_meta("crop", myth)
-		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED if myth else TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ar.clip_contents = true
-		ar.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		ar.custom_minimum_size.y = 160
-		b.add_child(ar)
-		_fill_art.call_deferred(ar)
 	b.add_child(UI.panel(tp, 8))
 	var row := UI.hbox(6)
 	var ml := UI.lbl("재료", 13, DB.PAL.bamboo, true)
@@ -1332,6 +1321,21 @@ func card_info(k: String) -> void:
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
 	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
+	# 11/3 사용자: 디테일창의 남는 위쪽 공간을 신화 그림으로 (그 인물의 신화 그림이 있을 때만) —— 높이는 한 프레임 뒤 남는 만큼
+	var art := DB.myth_art(k)
+	if art:
+		var ar := TextureRect.new()
+		ar.texture = art
+		ar.set_meta("art", art)
+		ar.set_meta("crop", true)
+		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		ar.clip_contents = true
+		ar.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		ar.custom_minimum_size.y = 0
+		ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(ar)
+		_fill_art.call_deferred(ar)
 	var top := UI.hbox(12)
 	var big := CardView.new().setup(k, Vector2(132, 188))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
