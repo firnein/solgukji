@@ -804,11 +804,10 @@ func quest_roster():
 ## 11/3 수입을 약 70% 로 줄이며 (DB.ECON) 토벌 황건 편성은 예전 수입에 맞춘 그대로라 —— 적 사기로 낮춘다 (사기는 모든 능력치에, 70 → 0.88배)
 const QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
 func quest_morale_mul() -> float:
-	return (float(QUEST_MORALE[clampi(day, 0, 6)]) if DB.ECON_ON else 1.0) * (MYTH_FOE_MORALE if myth_on_board() else 1.0)
+	return float(QUEST_MORALE[clampi(day, 0, 6)]) if DB.ECON_ON else 1.0      # 11/4 사용자: 토벌은 내 패와 상관없이 고정
 
 
-## 11/4 사용자: 신화를 만들면 토벌 · 대전이 너무 쉬워진다 —— 신화가 편성에 있으면 토벌 적 사기 · 대전 봇 PV 를 올린다
-const MYTH_FOE_MORALE := 1.35
+## 11/4 사용자: 신화를 만들면 대전이 너무 쉬워진다 —— 신화가 편성에 있으면 대전 봇 PV 를 올린다 (토벌은 고정)
 const MYTH_BOT_PV := 1.3
 
 func myth_on_board() -> bool:

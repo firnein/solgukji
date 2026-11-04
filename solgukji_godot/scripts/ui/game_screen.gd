@@ -1429,7 +1429,7 @@ func card_info(k: String) -> void:
 		st.add_child(_fold_kv("card_aura", "[b][color=%s]%s[/color] 『%s』[/b]" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), DB.tier_color(k)))
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
-		st.add_child(_fold_kv("card_ult", "[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "", UI.ult_desc(u, c.tier), Color("#ffd76e")))
+		st.add_child(_fold_kv("card_ult", "[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e")))
 	top.add_child(st)
 	b.add_child(top)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다

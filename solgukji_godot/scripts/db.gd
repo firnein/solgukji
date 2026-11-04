@@ -872,7 +872,37 @@ func ult_of(k: String):
 		for comp in u.eff:
 			if comp.t == "hit":
 				comp.mult = snappedf(float(comp.mult) * f, 0.01)
+	u.wait = ult_wait(k, u)
 	return u
+
+
+## 고유기 대기 시간 (11/4 사용자: 병종이 아니라 장수마다) —— 전투 시작 뒤 이 초가 지나야 쓴다.
+## 고유기 세기 점수(타격 배율 × 대상 수 + 상태 · 버프 · 회복 · 사기)가 클수록 늦게: 10 ~ 26초. ULT_WAIT 에 적은 장수는 그 값
+const ULT_WAIT := {"여포": 22.0}      # 측정으로 따로 맞춘 장수 (신화 여포는 기병 첫 돌격으로 10초 안에 터지던 장수)
+const TGT_N := {"front1": 1.0, "back1": 1.0, "front3": 2.2, "back2": 1.8, "denseLine": 2.2, "all": 3.5,
+	"line:후군": 2.0, "line:선봉+전군": 2.0}
+
+func ult_score(u: Dictionary) -> float:
+	var sc := 0.0
+	for comp in u.eff:
+		var n: float = TGT_N.get(str(comp.get("tgt", "front1")), 2.0)
+		if comp.t == "hit":
+			sc += float(comp.get("mult", 0.0)) * n
+		if comp.has("status"):
+			sc += 1.2 * n
+		if comp.has("buff"):
+			sc += absf(float(comp.buff.amt)) * 3.0 * n
+		if comp.has("heal"):
+			sc += float(comp.heal) * 8.0 * n
+		if comp.has("morale"):
+			sc += float(comp.morale) * 0.04 * n
+	return sc
+
+
+func ult_wait(k: String, u: Dictionary) -> float:
+	if ULT_WAIT.has(person(k)):
+		return ULT_WAIT[person(k)]
+	return clampf(8.0 + ult_score(u) * 0.9, 10.0, 26.0)
 
 
 ## 능력치 보정 (솔국지 확장, data/cards_ext.json stat_adjust) —— 원본 HTML 수치(game.json)는 그대로 두고 곱한다.

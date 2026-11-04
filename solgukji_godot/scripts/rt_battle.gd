@@ -183,11 +183,9 @@ var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
 
 
-## 11/4 사용자: 어떤 장수는 고유기가 너무 빨리 터져 판을 뒤집는다 (기병 · 신화 —— 신화 여포는 14판 중 10판이 10초 안) → 전투 시작 뒤 이 초까지는 고유기 없음
-static var ult_min_t := 14.0
-
+## 11/4 사용자: 고유기 대기 시간은 장수마다 (DB.ult_of 가 고유기 세기로 정한 wait 초 —— 센 고유기일수록 늦게). 그 전에는 쓰지 않는다
 func can_ult(u: Unit) -> bool:
-	if _tm < ult_min_t:
+	if u.ult != null and _tm < float(u.ult.get("wait", 14.0)):
 		return false
 	if _wind.size() > 0 or _tm - _ult_t < ult_gap or _tm - _ult_side_t[u.camp] < ult_side_sec:
 		return false

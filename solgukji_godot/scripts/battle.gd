@@ -2060,7 +2060,7 @@ func _charge(d: Unit, a: Unit, loss: float) -> void:
 	if a.countering and not counter_charge:
 		return
 	d.gauge = minf(100.0, d.gauge + GAUGE_HIT * loss / d.max)
-	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div() * (0.5 if a.c.tag == "기병" else 1.0))      # 11/4 기병은 첫 돌격 · 잦은 타격으로 게이지가 너무 빨리 찼다
+	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div())
 
 
 ## 고유기 게이지가 차는 속도의 나눗수 —— 11/3: 신화 전투(turn_mul 9.8)는 게이지가 판이 끝날 때쯤에야 차서 고유기가 부대당 0.15번뿐이었다.
