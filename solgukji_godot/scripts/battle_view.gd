@@ -710,6 +710,7 @@ func _begin() -> void:
 	running = true
 	Sfx.music("battle")
 	Sfx.play("drums")
+	Sfx.play("shout", 0.0)      # 11/4 개전 함성
 	# 지형 (실시간 엔진) —— 이번 판에 무엇이 깔렸고 무슨 효과인지 한 줄로
 	var tz: Array = res.get("terrain", [])
 	if not tz.is_empty():
@@ -1184,15 +1185,23 @@ func _apply(i: int, quiet := false) -> void:
 ## 소리 —— 사건 종류마다 (Sfx 가 잦은 소리는 건너뛴다)
 func _sound(e: Dictionary) -> void:
 	match e.get("fx", ""):
-		"phys": Sfx.play("crit" if e.get("crit", false) else "hit")
+		"phys":      # 11/4 사용자: 병장기 소리 —— 칼 소리와 병장기 부딪침을 섞는다
+			Sfx.play("crit" if e.get("crit", false) else "hit")
+			Sfx.play("clash", -2.0, 0.1)
 		"int": pass      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
 		"skill": if e.get("kind", "") == "phys": Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
 		"ult":
-			Sfx.play("horn", -2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
+			Sfx.play("horn", -2.0)
+			Sfx.play("shout", 2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
 			Sfx.play("crit", 2.0)
-		"rout": Sfx.play("rout")
+		"rout":
+			Sfx.play("rout")
+			Sfx.play("shout", -4.0)      # 적을 무너뜨린 함성
 		"heal": Sfx.play("heal")
-		"cmd": Sfx.play("horn")
+		"cmd":
+			Sfx.play("horn")
+			if e.get("name", "") == "돌격":
+				Sfx.play("shout")      # 함성
 		"debuff": Sfx.play("debuff")
 		"status", "tick":
 			match str(e.get("st", "")):
