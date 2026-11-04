@@ -555,7 +555,8 @@ func _set_troops_gpu(want: int, from: Vector2, clock: float, rng: RandomNumberGe
 			cell[vs] = null
 			changed_figs.append(v)
 			moved_figs.append(v)
-			_close_column(vs, clock)
+			if (from - pos).dot(fwd) > (from - pos).length() * 0.5:      # 정면에서 맞았을 때만 뒷사람이 앞으로 메운다
+				_close_column(vs, clock)
 			_alive -= 1
 		_recount_rows()
 	elif _alive < want:
@@ -586,19 +587,24 @@ func _set_troops_gpu(want: int, from: Vector2, clock: float, rng: RandomNumberGe
 	hurt = 1.0
 
 
-## 쓰러질 병사 —— 맨 앞에 선 병사들(열마다 가장 앞) 가운데 적과 가까운 셋 중 하나
+## 쓰러질 병사 —— 11/4 사용자: HP 가 아니라 군집처럼. 공격이 온 쪽(from)에 가까운 병사부터 —— 오른쪽에서 맞으면 오른쪽이 깎인다.
+## 살아 있는 모든 병사 가운데 가까운 다섯 중 하나 (한 점만 파이지 않게 조금 흩는다)
 func _pick_victim(from: Vector2, rng: RandomNumberGenerator) -> Soldier:
-	var cand := []
-	for c in cols:
-		for r in cell.size() / cols:
-			var sd = cell[r * cols + c]
-			if sd != null:
-				cand.append(sd)
-				break
-	if cand.is_empty():
+	var best := []
+	for i in cell.size():
+		var sd = cell[i]
+		if sd == null:
+			continue
+		var d := slot_pos(i).distance_squared_to(from)
+		if best.size() < 5:
+			best.append([d, sd])
+			best.sort_custom(func(x, y): return x[0] < y[0])
+		elif d < best[4][0]:
+			best[4] = [d, sd]
+			best.sort_custom(func(x, y): return x[0] < y[0])
+	if best.is_empty():
 		return null
-	cand.sort_custom(func(x, y): return slot_pos(x.slot).distance_squared_to(from) < slot_pos(y.slot).distance_squared_to(from))
-	return cand[rng.randi() % mini(3, cand.size())]
+	return best[rng.randi() % best.size()][1]
 
 
 ## 빈칸 뒤의 같은 열 병사들이 한 칸씩 앞으로 (뒤로 갈수록 조금씩 늦게 출발)
