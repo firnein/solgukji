@@ -62,17 +62,21 @@ def mix(dst, src, at, gain):
 
 
 def volley(rng, shoot, passby, heavy):
-    n = int(SR * 1.0)
+    # 11/4 사용자: "휘휘휙" —— 화살 여러 발이 연달아 날아가는 소리가 주인공, 시위는 뒤에 작게
+    n = int(SR * 1.3)
     out = np.zeros(n)
-    for j in range(5 + int(rng.integers(0, 3))):          # 시위 5~7발, 0.25초 안에 엇갈려
+    for j in range(4 + int(rng.integers(0, 3))):          # 시위 4~6발, 0.2초 안에, 작게
         s = shoot[rng.integers(len(shoot))]
-        mix(out, s, int(rng.uniform(0, 0.25) * SR), rng.uniform(0.5, 1.0))
-    for j in range(3 + int(rng.integers(0, 2))):          # 화살 지나가는 쉭 3~4, 조금 뒤에
-        src = heavy if rng.random() < 0.35 else passby
+        mix(out, s, int(rng.uniform(0, 0.2) * SR), rng.uniform(0.25, 0.45))
+    for j in range(14 + int(rng.integers(0, 6))):         # 화살 쉭 14~19발, 0.05~0.75초에 걸쳐 겹쳐서
+        src = heavy if rng.random() < 0.3 else passby
         s = src[rng.integers(len(src))]
-        mix(out, s, int(rng.uniform(0.08, 0.4) * SR), rng.uniform(0.35, 0.6))
+        # 높이를 조금씩 다르게 (재생 속도 0.85~1.25) —— 같은 쉭이 겹쳐 들리지 않게
+        rate = rng.uniform(0.85, 1.25)
+        s = np.interp(np.arange(0, len(s), rate), np.arange(len(s)), s)
+        mix(out, s, int(rng.uniform(0.05, 0.75) * SR), rng.uniform(0.5, 1.0))
     out /= (np.abs(out).max() + 1e-9)
-    return fade(out * 0.9, 0.002, 0.15)
+    return fade(out * 0.9, 0.002, 0.2)
 
 
 def write(path, s):
