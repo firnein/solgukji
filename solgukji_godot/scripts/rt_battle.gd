@@ -31,6 +31,12 @@ const GAP := 300.0      # 양군 선봉 사이 (11/4 240 → 300)
 const RS := 150.0      # 11/4 사용자: 대열 칸 자체를 키운다 —— 앞뒤 열 간격 78 → 150 (깊은 부대가 앞뒤로 겹쳐 번졌다)
 const CS := 220.0      # 좌 · 중앙 · 우 간격 (11/4 118 → 175 → 220, RtBattle · War3D 같게)
 const TAUNT_R := 160.0
+## 11/5 사용자: 병사가 적으면 진형을 촘촘하게 시작 —— 양군 병력 합이 LAY_FULL 아래면 열 · 좌우 간격을 √(합 / LAY_FULL) 배 (최소 LAY_MIN),
+## 선봉 사이(GAP)는 그 30% 만큼만 줄인다. 1일차(합 1.5만) 0.62 · 3일차(6만) 0.63~0.7 · 후반(15만 이상) 1
+static var compact_enabled := true
+const LAY_FULL := 150000.0
+const LAY_MIN := 0.62
+var lay := 1.0
 const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
 static var bow_range := 250.0      # 궁병 사거리 (점검 장면이 바꿔 볼 수 있게 static)
 static var cast_range := 220.0     # 지략 계열(책략으로 치는 유닛) 사거리
@@ -72,6 +78,13 @@ static func make(seed_value: int) -> Battle:
 func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Array, b_form: String,
 		b_morale: float, b_equip, title := "", foe_name := "", inputs_ := [], policy_ := {}) -> Dictionary:
 	_make_terrain(rng.seed)
+	lay = 1.0
+	if compact_enabled:
+		var tr := 0.0
+		for k in a_cards + b_cards:
+			if k != null and DB.C.has(str(k)):
+				tr += float(DB.C[str(k)].tr)
+		lay = clampf(sqrt(tr / LAY_FULL), LAY_MIN, 1.0)
 	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, policy_)
 	for i in units.size():
 		_idx[units[i]] = i
@@ -140,6 +153,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	r["track"] = track
 	r["terrain"] = terrain
 	r["rt"] = true
+	r["lay"] = lay
 	r["len"] = snappedf(_tm, 0.1)
 	return r
 
@@ -153,8 +167,8 @@ func _interval(u: Unit) -> float:
 ## 유닛을 만들 때 바로 진형 자리에 세운다 —— 전투 시작 효과(위진 · 철옹성 · 수공 …)도 거리로 판정하므로
 func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, slot: int, item, syn: Dictionary) -> Unit:
 	var u := super.mk_unit(cid, slot_info, camp, morale, slot, item, syn)
-	var x: float = GAP / 2 + slot_info.row * RS
-	u.pos = Vector2(-x if camp == "A" else x, (slot_info.col - 1) * CS)
+	var x: float = GAP / 2 * (0.7 + 0.3 * lay) + slot_info.row * RS * lay
+	u.pos = Vector2(-x if camp == "A" else x, (slot_info.col - 1) * CS * lay)
 	u.fwd = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 	return u
 

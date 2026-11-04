@@ -7,7 +7,9 @@ extends RefCounted
 
 var gs: GameScreen
 var sel := ""                 # 손패에서 고른 카드 (칸을 누르면 그 자리에 놓는다)
-var seg := "hand"             # 아래 나눔 탭 —— hand · syn · item
+var seg := ""                 # 아래 나눔 탭 —— hand · syn · item. "" = 닫힘 (11/5 사용자: 기본 닫힌 채, 누르면 열림)
+const LOWER_H := 168.0
+var _slide_up := false        # 방금 열었다 —— 올라오는 연출        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
 
 
 func build() -> Control:
@@ -42,12 +44,7 @@ func build() -> Control:
 		st[1].add_child(b)
 	v.add_child(st[0])
 
-	# 작전 —— 전투는 자동, 이 방침대로 AI 가 고유기 · 군령을 쓴다
-	var tv := UI.vbox(2)
-	var rec := Run.recommend_tac(run.board)
-	tv.add_child(UI.segmented(Run.TACS.keys().map(func(k): return [k, ("작전 " + k) + (" ★" if k == rec[0] else "")]), run.tac, func(k):
-		gs.act("set_tac", [k])))
-	v.add_child(tv)      # 11/4 사용자: 징집 · 조합처럼 설명 글은 빼고 공간 확보 (★ = 덱에 맞는 추천)
+	# 11/5 사용자: 작전(군령) 고르기 삭제. 진형 우대 띠도 삭제 (우대 칸 옥빛 강조만 남김)
 
 	# 편성판 —— 화면 위쪽에 고정 (손패에서 길게 눌러 끌어 올 수 있게)
 	var syn := Battle.fac_syn(run.board, run.form)
@@ -55,8 +52,17 @@ func build() -> Control:
 	var hd := UI.hbox(6)
 	var hl := UI.vbox(0)
 	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hl.add_child(UI.lbl("%s  ·  %d/9칸" % [f.n, run.placed()], 16, DB.PAL.paper, true))
-	hl.add_child(UI.lbl("%s명 · 사기 %d · 장착 %d" % [Battle.num(roundi(run.board_power() * syn.troop)), mini(200, run.my_morale() + int(syn.morale)), run.equipped_count()], 12, DB.PAL.bamboo))
+	# 11/5 사용자: '어린진 · 9/9칸' 대신 '어린진 / 진형 우대 효과'
+	var bn0 = DB.D.FORMBOON.get(run.form)
+	var eff_txt := ("%s %s +%d%%" % [" · ".join(bn0.tags), DB.D.STATNM.get(bn0.stat, "스킬 발동"), roundi(float(bn0.v) * 100)]) if bn0 else ""
+	# 11/5 사용자 2차: '방원진' / '효과 (설명)' 두 줄
+	# 11/5 사용자 3차: 세 줄 —— 진형 이름 / 효과 / 설명(옛 이야기를 들려주는 듯한 명조 기울임)
+	hl.add_child(UI.lbl(f.n, 17, DB.PAL.paper, true))
+	hl.add_child(UI.lbl(eff_txt, 12, Color("#E8C25A"), true))
+	if bn0:
+		var lore := UI.lbl("「%s」" % bn0.d, 12, Color("#C6AC7C"))
+		lore.add_theme_font_override("font", _lore_font())
+		hl.add_child(lore)
 	hd.add_child(hl)
 	var ab := UI.btn("자동 편성", func():
 		sel = ""
@@ -92,28 +98,46 @@ func build() -> Control:
 			box.page = self
 			box.slot = si
 			box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			grid.add_child(box)
+	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	bp.add_child(grid)
-	v.add_child(UI.panel(bp, 8))
+	var bpp := UI.panel(bp, 8)
+	bpp.size_flags_vertical = Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
+	bp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(bpp)
 
 	# 아래 —— [손패 | 진형 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
 	var keys := Run.sort_cards(run.inv.keys())
 	var n_items := 0
 	for id in run.bag:
 		n_items += run.bag[id]
-	v.add_child(UI.segmented([["hand", "손패 %d" % keys.size()], ["syn", "진형"], ["item", "보급품 %d" % n_items]], seg, func(k):
-		seg = k
-		gs.render()))
+	# 11/5 사용자: 기본 닫힌 채 —— 탭을 누르면 열리고, 열린 탭을 다시 누르면 닫힌다. 열려도 높이는 LOWER_H (예전의 절반쯤)
 	var hand := HandDrop.new()
 	hand.page = self
-	hand.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	hand.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var hv := UI.vbox(6)
+	hand.add_child(hv)
+	var tabs := UI.segmented([["hand", "손패 %d" % keys.size()], ["syn", "진형"], ["item", "보급품 %d" % n_items]], seg, func(k):
+		var was := seg
+		seg = "" if seg == k else k
+		_slide_up = was == "" and seg != ""
+		gs.render())
+	v.add_child(hand)
+	if seg == "":
+		hv.add_child(tabs)      # 닫힘 —— 탭만 맨 아래에
+		return v
 	var sc := UI.scroll()
-	hand.add_child(sc)
-	var lower := UI.vbox(10)
+	sc.custom_minimum_size.y = LOWER_H
+	hv.add_child(sc)
+	hv.add_child(tabs)          # 열림 —— 탭은 그대로 맨 아래, 내용이 그 위로 올라온다
+	if _slide_up:
+		_slide_up = false
+		sc.custom_minimum_size.y = 0
+		sc.create_tween().tween_property(sc, "custom_minimum_size:y", LOWER_H, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var lower := UI.vbox(6)
 	lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(lower)
-	v.add_child(hand)
 	match seg:
 		"hand": _hand(lower, keys)
 		"syn": _syn(lower, syn)
@@ -137,23 +161,36 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 			gs.render(), "ghost", 40))
 		hv.add_child(sh)
 
-	var fl := UI.grid(56, 5)      # 11/4 사용자: 징집 페이지처럼 한 줄 6칸 작은 칸 격자
-	fl.max_cols = 6
+	# 11/5 사용자: 손패는 목록으로, 높은 등급부터 (Run.sort_cards). 줄을 누르면 고르고, 고른 줄을 다시 누르면 상세. 길게 눌러 칸으로 끈다
+	var bn = DB.D.FORMBOON.get(run.form)
 	for k in keys:
-		var t := gs.mtile(k, run.inv[k], func(id):
-			if sel == id:
-				gs.card_info(id)
-			else:
-				sel = id
-				gs.render())
-		t.drag_data = {"card": k, "from": -1}
-		t.custom_minimum_size = Vector2(56, 84)
-		if k == sel:
-			t.mark = "sel"
-		fl.add_child(t)
+		var row := HandRow.new()
+		row.page = self
+		row.k = k
+		row.qty = run.inv[k]
+		row.boon = bn != null and bn.tags.has(DB.C[k].tag)
+		row.on = k == sel
+		hv.add_child(row)
 	if keys.is_empty():
 		hv.add_child(UI.hint("손패가 비었다 — 모두 편성했다."))
-	hv.add_child(fl)
+
+
+## 진형 설명 글꼴 —— 나눔명조를 기울인다 (기울임 글꼴 파일이 없어 FontVariation 의 기울기로)
+static var _lore: FontVariation = null
+static func _lore_font() -> Font:
+	if _lore == null:
+		_lore = FontVariation.new()
+		_lore.base_font = DB.font_display
+		_lore.variation_transform = Transform2D(Vector2(1, 0), Vector2(0.22, 1), Vector2.ZERO)
+	return _lore
+
+
+func hand_tap(k: String) -> void:
+	if sel == k:
+		gs.card_info(k)
+	else:
+		sel = k
+		gs.render()
 
 
 ## 진형 탭 —— 진형 우대(이 진형에서 힘을 받는 병종)와 선호 · 어색 칸 설명. 세력 · 병종 시너지는 10/30 에 없앴다
@@ -176,13 +213,75 @@ func _syn(v: VBoxContainer, _syn_unused: Dictionary) -> void:
 	v.add_child(UI.rich("[color=#8fd4c2]■[/color] 선호  [color=#e0806f]■[/color] 어색", 13))
 
 
+## 11/5 사용자: 보급품은 등급별로 나열, 높은 등급일수록 크게 (징집창처럼) —— 유니크 한 줄에 하나(효과 전부, 줄바꿈), 레어 둘, 매직 · 일반 셋
 func _items(v: VBoxContainer) -> void:
 	var run: Run = gs.run
 	var bk := run.bag_keys()
-	var iv := UI.grid(170, 8)
-	for id in bk:
-		iv.add_child(gs.item_box(id, run.bag[id], func(): gs._item_sheet(id)))      # 누르면 아이템 시트 (유니크는 들어가는 신화 장수)
-	v.add_child(iv if not bk.is_empty() else UI.hint("보급품이 없다. 페이즈가 넘어가면 하나씩 지급된다."))
+	if bk.is_empty():
+		v.add_child(UI.hint("보급품이 없다. 페이즈가 넘어가면 하나씩 지급된다."))
+		return
+	var cols := {"유니크": 1, "레어": 2, "매직": 3, "일반": 3}
+	for g in ["유니크", "레어", "매직", "일반"]:
+		var ids: Array = bk.filter(func(x): return DB.IT[x].grade == g)
+		if ids.is_empty():
+			continue
+		var n := 0
+		for id in ids:
+			n += run.bag[id]
+		v.add_child(UI.lbl("%s %d" % [g, n], 12, Color(DB.D.IGRADE[g]).lightened(0.2), true))
+		var gr := GridContainer.new()
+		gr.columns = cols[g]
+		gr.add_theme_constant_override("h_separation", 6)
+		gr.add_theme_constant_override("v_separation", 6)
+		for id in ids:
+			gr.add_child(_item_card(id, run.bag[id], g))
+		v.add_child(gr)
+
+
+func _item_card(id: String, n: int, g: String) -> Control:
+	var it: Dictionary = DB.IT[id]
+	var col := UI.item_col(id)
+	var big := g == "유니크"
+	var mid := g == "레어"
+	var b := PanelContainer.new()
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, col, 2 if big else 1, 8, 6))
+	b.mouse_filter = Control.MOUSE_FILTER_STOP
+	b.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+			UI.buzz()
+			gs._item_sheet(id))      # 누르면 아이템 시트 (유니크는 들어가는 신화 장수)
+	var h := UI.hbox(8)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ts := 56 if big else (36 if mid else 26)
+	var th := ItemArt.View.new(id, ts)
+	th.custom_minimum_size = Vector2(ts, ts)
+	th.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	th.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(th)
+	var tv := UI.vbox(1)
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var nl := UI.lbl("%s%s" % [it.name, ("  ×%d" % n) if n > 1 else ""], 16 if big else (13 if mid else 12), col.lightened(0.2), true)
+	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nl.clip_text = true
+	tv.add_child(nl)
+	var et := UI.item_text(id)
+	if big:
+		et += "  · 신화 조합 재료" if it.use == "myth" else ""
+		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == id):
+			et += "\n→ %s" % DB.C[k].name
+	else:
+		et = et.replace(" · ", "\n")
+	var el := UI.lbl(et, 13 if big else 11, DB.PAL.bamboo)
+	el.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART     # 효과를 자르지 않는다
+	tv.add_child(el)
+	for c in tv.get_children():
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(tv)
+	b.add_child(h)
+	return b
 
 
 
@@ -376,7 +475,16 @@ class SlotBox extends Control:
 		elif page.sel != "":
 			var z2 := DB.aff_of(DB.C[page.sel].tag, s.line, s.side)
 			border = DB.PAL.jade if z2 == "pref" else (DB.PAL.seal if z2 == "bad" else DB.PAL.gold)
-		var sb := UI.flat(bg, border, 2, 8, 0)
+		# 11/5 사용자: 진형 우대(FORMBOON —— 어린진이면 창병 · 유생 방어 +14%) 받는 장수를 눈에 띄게. 자리 선호(선봉 · 중군)와는 다르다
+		var bn = DB.D.FORMBOON.get(run.form)
+		var boon: bool = k != null and bn != null and bn.tags.has(DB.C[k].tag)
+		if boon:
+			bg = DB.PAL.ink3.lerp(DB.PAL.gold, 0.16)
+			border = DB.PAL.gold
+		var sb := UI.flat(bg, border, 3 if boon else 2, 8, 0)
+		if boon:
+			sb.shadow_color = Color(DB.PAL.gold, 0.55)
+			sb.shadow_size = 6
 		if s.line == "선봉":
 			sb.border_width_top = 4
 		draw_style_box(sb, r)
@@ -385,23 +493,109 @@ class SlotBox extends Control:
 			draw_string(DB.font_display, Vector2(0, size.y * 0.5 + 6), "＋", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Color(DB.PAL.bamboo_dim, 0.7))
 			draw_string(fb, Vector2(0, size.y - 7), UI.pos_name(s.line, s.col), HORIZONTAL_ALIGNMENT_CENTER, size.x, 11, DB.PAL.bamboo_dim)
 			return
+		# 11/5 사용자: 칸을 크게 —— [초상] 이름 / 병종 / 병력, 그 아래 아이템(가운데), 맨 아래 진형 버프 설명
 		var c: Dictionary = DB.C[k]
-		var ph := size.y - 22
-		var pr := Rect2(5, 5, minf(ph * 0.75, size.x * 0.4), ph)
+		var bot := 15.0 if boon else 0.0           # 진형 버프 줄
+		var ith := 15.0                             # 아이템 줄
+		var ph := size.y - 10 - ith - bot
+		var pr := Rect2(5, 5, minf(ph * 0.75, size.x * 0.42), ph)
 		Art.draw_portrait(self, pr, k)
-		var x := pr.end.x + 5
+		var x := pr.end.x + 6
 		var tw := size.x - x - 4
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
-		var fs := 14
+		var fs := 16 if size.y >= 96 else 14
 		var tf := DB.tier_font(c.tier)
 		while fs > 10 and tf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
 			fs -= 1
-		draw_string(tf, Vector2(x, 19), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, DB.tier_color(k).lightened(0.2))
-		draw_string(fb, Vector2(x, 34), c.tag, HORIZONTAL_ALIGNMENT_LEFT, tw, 11, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo))
-		draw_string(fb, Vector2(x, 47), Battle.num(c.tr), HORIZONTAL_ALIGNMENT_LEFT, tw, 11, DB.PAL.bamboo_dim)
+		var ty := pr.position.y + minf(ph * 0.3, 22.0)
+		var gap := clampf(ph * 0.26, 13.0, 20.0)
+		draw_string(tf, Vector2(x, ty), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, DB.tier_color(k).lightened(0.2))
+		draw_string(fb, Vector2(x, ty + gap), c.tag, HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo))
+		draw_string(fb, Vector2(x, ty + gap * 2), Battle.num(c.tr) + "명", HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.bamboo_dim)
 		var it = run.item_of_slot(slot)
 		var itxt: String = "빈 슬롯" if it == null else DB.IT[it].name + (" 🔒" if Run.innate_item(k) != null else "")
-		draw_string(fb, Vector2(5, size.y - 5), itxt, HORIZONTAL_ALIGNMENT_LEFT, size.x - 10, 10, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		draw_string(fb, Vector2(4, size.y - 6 - bot), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, 11, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		if boon:      # 맨 아래 진형 버프 —— 금빛 띠 (이름을 가리지 않는다)
+			var rr := Rect2(3, size.y - bot - 2, size.x - 6, bot - 1)
+			draw_style_box(UI.flat(Color(DB.PAL.gold, 0.9), DB.PAL.gold, 0, 5, 0), rr)
+			var txt := "%s %s +%d%%" % [DB.FORM[run.form].n, DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100)]
+			draw_string(DB.font_bold, rr.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 10, Color("#1A1508"))
+
+
+## 손패 한 줄 (11/5) —— [초상] 이름(등급색) / 병종 · 등급 · 병력, 진형 우대면 금빛 칩, ×수. 누르면 page.hand_tap, 길게 눌러 끈다
+class HandRow extends PanelContainer:
+	var page: DeployPage
+	var k := ""
+	var qty := 1
+	var boon := false
+	var on := false
+	var _press := Vector2.INF
+	var _held := 0.0
+	var _dragging := false
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		custom_minimum_size.y = 50
+		var tc := DB.tier_color(k)
+		add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else tc.darkened(0.3), 2 if on else 1, 8, 4))
+		var h := UI.hbox(8)
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var t := MiniTile.new().setup(k, -1)
+		t.custom_minimum_size = Vector2(34, 44)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(t)
+		var c: Dictionary = DB.C[k]
+		var tv := UI.vbox(0)
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tv.add_child(UI.lbl(c.name, 14, tc.lightened(0.2), true))
+		tv.add_child(UI.lbl("%s · %s · %s명" % [c.tag, DB.tier_name(k), Battle.num(c.tr)], 11, DB.PAL.bamboo))
+		h.add_child(tv)
+		if boon:
+			var bn: Dictionary = DB.D.FORMBOON[page.gs.run.form]
+			var pc := PanelContainer.new()
+			pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.gold, DB.PAL.gold, 0, 7, 3))
+			pc.add_child(UI.lbl("%s+%d%%" % [DB.D.STATNM.get(bn.stat, "발동"), roundi(float(bn.v) * 100)], 10, Color("#1A1508"), true))
+			pc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(pc)
+		if qty > 1:
+			var q := UI.lbl("×%d" % qty, 13, DB.PAL.gold, true)
+			q.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			q.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(q)
+		for ch in [tv] + tv.get_children():
+			ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(h)
+
+	func _gui_input(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed:
+				_press = e.position
+				_held = 0.0
+				_dragging = false
+			else:
+				if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14:
+					UI.buzz()
+					page.hand_tap(k)
+				_press = Vector2.INF
+		elif e is InputEventMouseMotion and _press != Vector2.INF and e.position.distance_to(_press) >= 14:
+			_press = Vector2.INF
+
+	func _process(dt: float) -> void:
+		if _press == Vector2.INF or _dragging:
+			return
+		_held += dt
+		if _held >= CardTile.HOLD:
+			_dragging = true
+			_press = Vector2.INF
+			var pv := MiniTile.new().setup(k, -1)
+			pv.size = Vector2(56, 84)
+			pv.modulate = Color(1, 1, 1, 0.85)
+			var holder := Control.new()
+			holder.add_child(pv)
+			pv.position = -pv.size / 2
+			force_drag({"card": k, "from": -1}, holder)
 
 
 ## 손패 상자 —— 칸에서 끌어 오면 내린다

@@ -1,0 +1,7 @@
+낮은 등급 장면 일러스트 —— 신화 그림(<인물>_신화.png)이 쓰이는 곳(고유기 컷인 · 조합 시트 배경 · 카드 상세)에서
+신화 아래 카드(고급 ~ 불멸)는 <인물>_장면.png 를 먼저 쓴다. 없으면 신화 그림 그대로.
+
+1. NN_<인물>.txt 프롬프트와 그 인물의 assets/portraits/<인물>_신화.png 를 함께 넣어 뽑는다.
+2. 결과를 solgukji_godot/assets/portraits/<인물>_장면.png 로 저장 (1024x1536, 자르기 없음).
+3. solgukji_godot 에서 Godot --headless --import 를 한 번 돌린다 (APK 에 들어가게).
+다시 만들기: python -I tools/scripts/make_scene_prompts.py

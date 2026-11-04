@@ -116,6 +116,8 @@ const MARCH_SPD := 1.0      # 맞닿기 전(다가오기만 하는 개전 구간
 const LEAD_ON := 0.58       # 병력 비율이 이만큼 넘으면 '우세'
 const LEAD_OFF := 0.5
 var _met := false           # 양군이 한 번이라도 맞닿았다
+var _duels := {}            # 일기토를 띄운 장수 짝 (11/5)
+var _duel_cd := 0.0
 var _lead := 0              # 1 아군 우세 · -1 적 우세 · 0 미정
 var _turns_n := 0           # '전세 역전' 띄운 횟수 (한 판 둘까지)
 var _kill_cd := 0.0         # 격파 카메라 당김 간격
@@ -738,13 +740,8 @@ func _begin() -> void:
 		if tz.any(func(z): return z.k == "hill"): parts.append("언덕(사거리 · 내려치기 +)")
 		tline = "지형 —— " + " · ".join(parts)
 	# 11/4 연출 점검: 내가 고른 작전이 전투에서 어떻게 작용하는지 보이지 않았다 —— 개전에 한 줄, 지형은 2초 뒤
-	if TAC_LINE.has(_tac):
-		hud.announce(TAC_LINE[_tac], Color("#ffe6a8"))
-		if tline != "":
-			get_tree().create_timer(2.0).timeout.connect(func():
-				if running and not finished:
-					hud.announce(tline, Color("#c9d6a3")))
-	elif tline != "":
+	# 11/5 사용자: 작전 · 군령 표시를 뺀다 (개전 작전 한 줄 삭제)
+	if tline != "":
 		hud.announce(tline, Color("#c9d6a3"))
 	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
 
@@ -896,6 +893,7 @@ func _process_inner(dt: float) -> void:
 	if slow_t > 0:
 		slow_t -= dt
 	_freeze_cd -= dt
+	# 11/5 사용자: 일기토 문구는 뺀다 (아무 효과가 없는데 기대하게 된다)
 	_ace_cd -= dt
 	_kill_cd -= dt
 	_spot_step(dt)
@@ -907,6 +905,7 @@ func _process_inner(dt: float) -> void:
 	if not _met:
 		if field.order.any(func(q): return q.contact):
 			_met = true
+			_first_clash()
 		elif clock > 0.3 and speed > 0:
 			spd *= MARCH_SPD
 	field.time_scale = spd
@@ -1095,6 +1094,42 @@ func _start_group(g: Dictionary) -> void:
 
 
 ## 집중 비네트 (11/3 사용자) —— 0.12초에 어두워져 잠깐 머물고 0.3초에 걸쳐 걷힌다. 시전 부대 병사는 그동안 밝게(War3D.focus_sq)
+## 첫 격돌 (11/5 사용자: 초중반이 허전하다) —— 양군이 처음 맞닿는 순간 띠 · 짧은 멈춤 · 흔들림 · 함성 · 북
+func _first_clash() -> void:
+	if finished or not is_visible_in_tree():
+		return
+	hud.announce("선봉 격돌!", Color("#ffd28a"))
+	impact(0.12, 1.4)
+	Sfx.play("shout", 2.0)
+	Sfx.play("drums")
+	for q in field.order:
+		if q.contact and q.engaged != null:
+			field.clash(q.key, q.engaged.key, true)
+
+
+## 일기토 —— 장수(고급 이상)끼리 맞붙고 두 장수가 가까우면 한 번 이름을 띄우고 짧게 비춘다. 짝마다 한 번, 한 판 셋까지, 6초 간격
+func _duel_step() -> void:
+	if not _met or finished or _duel_cd > 0.0 or _duels.size() >= 3 or freeze_t > 0.0 or hud.cut != null:
+		return
+	for q in field.order:
+		var e: Squad = q.engaged
+		if q.camp != "A" or not q.contact or e == null or not e.alive or q.general == null or e.general == null:
+			continue
+		if not q.general.alive or not e.general.alive or maxi(q.tier, e.tier) < 4:
+			continue
+		var k: String = q.key + "|" + e.key
+		if _duels.has(k) or q.general.pos.distance_to(e.general.pos) > 60.0:
+			continue
+		_duels[k] = true
+		_duel_cd = 6.0
+		hud.announce("일기토 —— %s  대  %s" % [DB.person(q.cid), DB.person(e.cid)], Color("#ffe6a8"))
+		spotlight(q if q.tier >= e.tier else e, 1.4)
+		impact(0.1, 0.9)
+		Sfx.play("swing", 2.0, 0.1)
+		Sfx.play("clash", 3.0)
+		return
+
+
 func spotlight(sq: Squad, dur: float) -> void:
 	spot_sq = sq
 	spot_len = dur
@@ -1217,10 +1252,14 @@ func _apply(i: int, quiet := false) -> void:
 			impact(0.24, 1.5)
 		elif ace:
 			impact(0.15, 1.0)
+	if e.has("mn") and field.squads.has(e.get("a", "")):      # 잔기술 (11/5) —— 쓴 부대 위에 이름 + 종류별 이펙트 (War3D.minor_fx)
+		hud.float_text(e.a, e.mn, Color("#b9a0ff") if e.fx == "int" else Color("#f0d79a"), 12)
+		if smooth:
+			field.minor_fx(str(e.get("mk", "")), e.a, f)
 	match e.get("fx", ""):
 		"phys":
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
-				field.clash(e.a, f, e.get("crit", false) or group_of[i].skill != "" or group_of[i].ult != null)
+				field.clash(e.a, f, e.get("crit", false) or e.has("mn") or group_of[i].skill != "" or group_of[i].ult != null)
 			# 11/2 불멸 · 신화는 평타에도 적 병사가 튕겨 나간다 (압도적인 파괴력) —— 무거운 소리와 함께
 			if smooth and field.squads.has(e.a) and field.squads[e.a].tier >= 7 and gq.skill == "" and gq.ult == null and idx_of.has(f):
 				_snap(idx_of[f])
@@ -1250,7 +1289,7 @@ func _apply(i: int, quiet := false) -> void:
 				field.squads[e.a].glow = 1.0
 		"cmd":
 			var col: Color = {"돌격": Color("#ff8a4a"), "방진": Color("#6fb0ff"), "재정비": Color("#8FD4C2")}.get(e.name, Color.WHITE)
-			hud.announce("%s 군령 『%s』" % ["아군" if e.camp == "A" else "적", e.name], col)      # 11/3 설명까지 붙이면 화면 밖으로 잘렸다
+			# 11/5 사용자: 군령 알림 글은 뺀다 (진영 빛만)
 			field.cmd_fx(e.camp, col)
 		"status", "cleanse", "debuff":
 			pass          # 상태이상 · 해제 · 수치 깎기 —— 머리표 배지로 보인다

@@ -684,8 +684,127 @@ func _flush_toasts() -> void:
 		if seen.has(t[0]):      # 같은 알림이 겹쳐 쌓이면 하나만 (11/4)
 			continue
 		seen[t[0]] = true
-		toast(t[0], t[1])
+		if t[1] == "gold":      # 11/5 사용자: 보급 도착 같은 알림은 화면 가운데 띠로
+			Sfx.play("gain")
+			var parts: PackedStringArray = str(t[0]).split(" · ", true, 1)
+			band(parts[0], DB.PAL.gold, parts[1] if parts.size() > 1 else "")
+		else:
+			toast(t[0], t[1])
 	run.toasts.clear()
+	_auto_unique.call_deferred()
+
+
+# ───────── 가운데 띠 알림 (11/5 사용자) ─────────
+var _bands: Array = []
+var _band_busy := false
+
+## 화면 가운데 가로 띠 —— 큰 글씨 한 줄 + 작은 둘째 줄. 여러 개면 차례로
+func band(text: String, col: Color = DB.PAL.gold, sub := "") -> void:
+	_bands.append([text, col, sub])
+	if not _band_busy:
+		_next_band()
+
+
+func _next_band() -> void:
+	if _bands.is_empty():
+		_band_busy = false
+		return
+	_band_busy = true
+	var e: Array = _bands.pop_front()
+	var col: Color = e[1]
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#0d1220", 0.9)
+	sb.border_color = Color(col, 0.85)
+	sb.border_width_top = 2
+	sb.border_width_bottom = 2
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	sb.shadow_color = Color(col, 0.25)
+	sb.shadow_size = 14
+	p.add_theme_stylebox_override("panel", sb)
+	p.anchor_left = 0
+	p.anchor_right = 1
+	p.anchor_top = 0.42
+	p.anchor_bottom = 0.42
+	var v := UI.vbox(2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := UI.lbl(str(e[0]), 22, col.lightened(0.25), true)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_constant_override("outline_size", 5)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	v.add_child(l)
+	if str(e[2]) != "":
+		var l2 := UI.lbl(str(e[2]), 14, DB.PAL.paper)
+		l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(l2)
+	p.add_child(v)
+	add_child(p)
+	var h := p.get_combined_minimum_size().y
+	p.offset_left = 0
+	p.offset_right = 0
+	p.offset_top = -h / 2.0
+	p.offset_bottom = h / 2.0
+	p.pivot_offset = Vector2(size.x / 2.0, h / 2.0)
+	p.scale = Vector2(1.0, 0.05)
+	p.modulate.a = 0.0
+	l.modulate.a = 0.0
+	var tw := p.create_tween()
+	tw.tween_property(p, "modulate:a", 1.0, 0.1)
+	tw.parallel().tween_property(p, "scale:y", 1.0, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 1.0, 0.12)
+	tw.tween_interval(1.5)
+	tw.tween_property(p, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(func():
+		p.queue_free()
+		_next_band())
+
+
+## 아이템 보급이 오면 고르기 창을 바로 연다 (11/5 사용자) —— 전투 · 다른 창 중이면 끝난 뒤 다음 그리기 때
+var _uniq_seen := ""
+func _auto_unique() -> void:
+	if run == null or run.uniq_offer.is_empty():
+		_uniq_seen = ""
+		return
+	var key := str(run.uniq_offer)
+	if key == _uniq_seen or battle_visible() or _sheet.visible or not can_act() or (_title != null and _title.visible):
+		return
+	_uniq_seen = key
+	_unique_sheet()
+
+
+## 선택권으로 고른 순간 (11/5 사용자: 썼다는 느낌) —— 고른 카드가 가운데서 튀어 올랐다가 위로 빨려 들어가고, 띠로 이름 · 남은 수
+func _pick_fx(id: String, left: int, tier_name: String) -> void:
+	UI.buzz(25)
+	Sfx.play("gain")
+	var tc := DB.tier_color(id)
+	var cv := CardView.new().setup(id, Vector2(132, 188))
+	cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cv.size = Vector2(132, 188)
+	cv.pivot_offset = cv.size / 2.0
+	cv.position = Vector2(size.x / 2.0 - 66, size.y * 0.42 - 60 - 188)      # 가운데 띠 바로 위
+	cv.scale = Vector2(0.3, 0.3)
+	add_child(cv)
+	var glow := ColorRect.new()
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.color = Color(tc, 0.0)
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(glow)
+	move_child(glow, cv.get_index())
+	var gt := glow.create_tween()
+	gt.tween_property(glow, "color:a", 0.22, 0.06)
+	gt.tween_property(glow, "color:a", 0.0, 0.35)
+	gt.tween_callback(glow.queue_free)
+	var tw := cv.create_tween()
+	tw.tween_property(cv, "scale", Vector2(1.12, 1.12), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(cv, "scale", Vector2.ONE, 0.1)
+	tw.tween_interval(0.55)
+	tw.tween_property(cv, "position:y", cv.position.y - 140, 0.3).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(cv, "scale", Vector2(0.35, 0.35), 0.3).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(cv, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(cv.queue_free)
+	band("%s 획득" % DB.C[id].name, tc, ("%s 선택권 남은 %d회" % [tier_name, left]) if left > 0 else ("%s 선택권 모두 사용" % tier_name))
 
 
 func changed() -> void:
@@ -1400,8 +1519,10 @@ func picker(t: int) -> void:
 		for k in ks:
 			var tl := mtile(k, run.pool().get(k, -1), func(id):
 				if act("pick", [id]):
-					toast("%s 획득 · %s" % [DB.C[id].name, DB.tier_name(id)], "gain")
-				picker(t))
+					picker(t)
+					_pick_fx(id, int(run.tickets.get(str(t), 0)), DB.TIER[t].n)
+				else:
+					picker(t))
 			tl.custom_minimum_size = PICK_TILE
 			f.add_child(tl)
 		grp.add_child(f)
@@ -1443,11 +1564,15 @@ func card_info(k: String) -> void:
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
 	b.add_child(folds)
 	# 기술 —— 접힌 칸 하나에 기술마다 효과 · 수치 표
-	if not c.get("sks", []).is_empty():
+	# 11/5 사용자: 잔기술을 따로 부르지 않는다 —— 자주 쓰는 기술로 기술 목록 맨 앞에 (발동: "평타 3번에 한 번")
+	var mk := Battle.minor_kind(k)
+	if not c.get("sks", []).is_empty() or mk != "":
 		var sk_v := UI.vbox(6)
-		for x in c.sks:
+		if mk != "":
+			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.MINOR[mk].n, "평타 %d번에 한 번" % int(Battle.MINOR[mk].every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
+		for x in c.get("sks", []):
 			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-		folds.add_child(_fold_sec("card_skills", "기술 %d" % c.sks.size(), sk_v))
+		folds.add_child(_fold_sec("card_skills", "기술 %d" % (c.get("sks", []).size() + (1 if mk != "" else 0)), sk_v))
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
@@ -1628,6 +1753,28 @@ func _kv_split(text: String) -> Array:
 	return out
 
 
+## 잔기술 설명 (Battle.MINOR · minor_kind) —— "평타 3번에 한 번 · 책략 피해 ×0.90 · 화상"
+static func minor_desc(k: String, with_every := true) -> String:
+	var mk := Battle.minor_kind(k)
+	var m: Dictionary = Battle.MINOR[mk]
+	var phys: bool = (m.kind == "phys") if m.has("kind") else DB.C[k]["int"] <= DB.C[k].atk
+	var parts := ["평타 %d번에 한 번" % int(m.every)] if with_every else []
+	parts.append("%s%s 피해 ×%.2f" % ["적 후열에 " if m.get("back", false) else "", "물리" if phys else "책략", float(m.mult)])
+	if m.has("st"):
+		parts.append("%s %d턴" % [DB.D.STATUS[m.st[0]].n, int(m.st[2])])
+	if m.has("extra"):
+		parts.append("한 번 더 ×%.1f" % float(m.extra))
+	if m.has("self"):
+		parts.append("자신 %s %+d%%(%d턴)" % [DB.D.STATNM.get(m.self.stat, m.self.stat), roundi(float(m.self.amt) * 100), int(m.self.dur)])
+	if m.has("foe"):
+		parts.append("맞은 적 %s %+d%%(%d턴)" % [DB.D.STATNM.get(m.foe.stat, m.foe.stat), roundi(float(m.foe.amt) * 100), int(m.foe.dur)])
+	if m.has("morale"):
+		parts.append("적 사기 −%d" % int(m.morale))
+	if m.has("mend"):
+		parts.append("가장 지친 아군 병력 +%d%% · 사기 +%d" % [roundi(float(m.mend) * 100), int(m.get("cheer", 0))])
+	return " · ".join(parts)
+
+
 ## 왼쪽에 색 띠가 있는 상자 —— 디테일창의 위세 · 고유기 · 고유 특기 · 기술 (11/3)
 func _bar_box(bb: String, col: Color, fs := 13) -> PanelContainer:
 	var pc := PanelContainer.new()
@@ -1769,6 +1916,14 @@ func _forge_goals(lst: Array) -> Array:
 	cand.sort_custom(func(a, b): return a[0] > b[0])
 	var out_ := []
 	var seen := {}
+	# 11/5 사용자: 신화 장수가 없는데 신화 아이템(유니크)을 가지고 있으면 추천 1번은 그 신화 장수 (재료가 몇 장 모자라든)
+	if not run.has_myth():
+		for k in DB.by_tier(8):
+			var it = Run.need_item(k)
+			if it != null and run.bag.get(it, 0) > 0 and DB.RECOF.has(k) and not DB.is_foe(k) and (forge_tag == "" or DB.C[k].tag == forge_tag):
+				out_.append(k)
+				seen[DB.person(k)] = true
+				break
 	for c in cand:
 		var p := DB.person(c[1])
 		if seen.has(p):
@@ -1857,13 +2012,9 @@ func _page_forge() -> Control:
 			gv.custom_minimum_size = Vector2(86, 0)
 			var gt := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
 			gt.custom_minimum_size = Vector2(86, 112)
-			gt.badge = "-%d" % run.miss_count(out)
+			gt.badge = "-%d" % run.miss_count(out) if run.miss_count(out) > 0 else "조합"
 			gt.badge_col = Color(DB.PAL.seal, 0.9)
-			gv.add_child(gt)
-			var ml := UI.lbl("· ".join(_missing(out)), 11, DB.PAL.bamboo)
-			ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			ml.custom_minimum_size.x = 86
-			gv.add_child(ml)
+			gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
 			gs_[1].add_child(gv)
 		gsec.add_child(gs_[0])
 		v.add_child(gsec)
@@ -2013,6 +2164,7 @@ func _page_war() -> Control:
 				go("draw"), "pri"))
 	if not run.is_tour_phase() and placed > 0:
 		var fv := FormationView.new().setup(run.board, run.form)
+		fv.on_medal = func(k): card_info(k)      # 11/5 사용자: 메달을 누르면 장수 상세
 		fv.custom_minimum_size.y = 180
 		fv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var fp := UI.panel(fv, 0)
@@ -2326,6 +2478,8 @@ func _dev_args() -> void:
 		for i in int(a.get("gplay", "0")):
 			run.dev_autoplay()
 		_title.visible = false
+		if a.has("gseg"):
+			deploy.seg = str(a.gseg)      # 점검용 —— 편성 아래 칸 (hand · syn · item)
 		go(a.get("gpage", "draw"))
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
@@ -2372,6 +2526,7 @@ func _dev_args() -> void:
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
 			"uniq": _unique_sheet()
+			"pickfx": _pick_fx(kv[1], 2, "전설")      # 점검용 —— 선택권 고른 연출
 			"settings": _settings_sheet()
 			"pick":
 				act("begin_picks", ["phase", -1])

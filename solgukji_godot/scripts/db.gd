@@ -287,7 +287,8 @@ const ULT_POWER := 0.8     # 11/4 사용자: 고유기 타격 · 회복 · 사�
 const ULT_OVER := 1.7     # 고유기 한 방은 가장 센 일반 기술의 이만큼 이상 (ult_of) —— 11/3 1.5 → 2.0 (고유기가 클라이맥스)
 ## 11/3 등급이 높을수록 충전 속도(RATE 0.25 → 0.45)가 빨라 신화는 부대당 한 판 5번 넘게 터졌다 —— 비용도 등급만큼 올려 2~3번으로
 const SK_COST_TIER := {6: 1.25, 7: 1.45, 8: 1.75}
-const SK_COST := {"front1": 1.6, "back1": 1.6, "front3": 2.0, "back2": 2.0, "denseLine": 2.0, "all": 2.4}
+const SK_COST := {"front1": 1.1, "back1": 1.1,      # 11/5 사용자: 일반 기술 몇몇은 잘 터지게 —— 한 부대만 치는 기술은 싸게 (1.6 → 1.1)
+	"front3": 2.0, "back2": 2.0, "denseLine": 2.0, "all": 2.4}
 
 
 func sk_cost(e: Dictionary) -> float:
@@ -305,19 +306,20 @@ func strict_cond(cond: String, e: Dictionary) -> String:
 		var v: String = kv[1] if kv.size() > 1 else ""
 		match kv[0]:
 			"always": continue
-			"hurt", "ally_hurt": out.append("%s:%s" % [kv[0], str(snappedf(float(v) * 0.75, 0.05))])
-			"foe_hurt": out.append("foe_hurt:%s" % str(snappedf(float(v) * 0.8, 0.05)))
-			"dense", "front_n": out.append("%s:%d" % [kv[0], maxi(3, int(v) + 1)])
-			"foe_n": out.append("foe_n:%d" % maxi(4, int(v) + 1))
-			"ally_morale": out.append("ally_morale:%d" % roundi(float(v) * 0.85))
+			# 11/5 사용자: 조건이 까다로워 일반 기술이 거의 안 터졌다 (희귀 · 전설 한 판 1.4회) —— 원본 조건 그대로, 수만 조금 엄하게
+			"hurt", "ally_hurt": out.append("%s:%s" % [kv[0], str(snappedf(float(v) * 0.95, 0.05))])
+			"foe_hurt": out.append("foe_hurt:%s" % str(snappedf(float(v), 0.05)))
+			"dense", "front_n": out.append("%s:%d" % [kv[0], maxi(2, int(v))])
+			"foe_n": out.append("foe_n:%d" % maxi(3, int(v)))
+			"ally_morale": out.append("ally_morale:%d" % roundi(float(v)))
 			_: out.append(one)
 	if out.is_empty():
 		var t: String = e.get("tgt", "front1")
-		if e.has("exec"): out.append("foe_hurt:0.5")
-		elif t == "front1": out.append("front_n:2")
-		elif t in ["back1", "back2", "line:후군"]: out.append("back_n:2")
-		elif t == "all": out.append("foe_n:5")
-		else: out.append("dense:3")
+		if e.has("exec"): out.append("foe_hurt:0.6")
+		elif t == "front1": out.append("always")
+		elif t in ["back1", "back2", "line:후군"]: out.append("back_n:1")
+		elif t == "all": out.append("foe_n:3")
+		else: out.append("dense:2")
 	return "|".join(out)
 
 
@@ -490,9 +492,15 @@ func person(k: String) -> String:
 ## 없으면 null 을 돌려주고, 그리는 쪽에서 수묵 실루엣 플레이스홀더를 쓴다.
 ## 임포트 없이 파일을 떨궈 넣기만 하면 바뀌도록 Image 로 직접 읽는다. 파일이 없으면(내보낸 앱) 임포트된 텍스처를 쓴다.
 ## 신화 그림 (<인물>_신화.png) —— 고유기 컷인에 쓴다. 등급과 관계없이 그 인물의 신화 그림이 있으면 (없으면 null)
+## 11/5 사용자: 신화 아래 등급(고급 ~ 불멸)이 신화 그림을 쓰는 곳(고유기 컷인 · 조합 시트 배경 · 카드 상세)에서는 같은 장면을 수수하게 그린
+## <인물>_장면.png 를 먼저 쓴다 (prompts/등급별/5_장면). 없으면 지금처럼 신화 그림
 func myth_art(k: String) -> Texture2D:
 	if C[k].tier <= 2:
 		return null
+	if C[k].tier < 8:
+		var low := _load_portrait("res://assets/portraits/%s_장면" % person(k))
+		if low != null:
+			return low
 	return _load_portrait("res://assets/portraits/%s_신화" % person(k))
 
 

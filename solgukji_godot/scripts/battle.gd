@@ -118,6 +118,8 @@ const CMDS := {
 
 
 class Unit:
+	var strat_aura := 0.0     # 책략 오라 세기 (이웃 책사 · 모사, _settle 마다 갱신)
+	var minor_n := -1         # 잔기술 차례 세기 (-1 = 아직 시작 전)
 	var c: Dictionary
 	var line: String
 	var side: String
@@ -403,8 +405,138 @@ func eff(u: Unit, stat: String) -> float:
 	v *= morale_mul(u)               # 사기 —— 모든 능력치에 (2026-10-30 사용자 결정)
 	if aura_enabled and not _myths.is_empty():
 		v *= _aura_mul(u, stat)
+	if u.strat_aura > 0.0 and STRAT_AURA.has(stat):
+		v *= 1.0 + STRAT_AURA[stat] * u.strat_aura
 	v -= u.cut.get(stat, 0.0)        # 위축 · 산란 · 파갑 · 현혹 —— 0 까지
 	return maxf(1, v)
+
+
+## 책략 오라 (11/4 지시서: 책사 · 모사가 기술 쿨타임 중에도 무기력하지 않게) —— 살아 있는 책사 · 모사 이웃(같은 열 · 실시간은 가까운 거리,
+## 자기 자신 포함)이 있으면 방어 +4% · 책략방어 +5%. 둘 이상은 1.6 배까지만. 정산마다 한 번 센다 (eff 가 매번 세지 않게)
+## 잔기술 3차 (11/5 사용자: 병종이 아니라 장수 특징으로 —— 책략계 평타가 약해 무기력하다. 일정 차례마다 가벼운 불 · 독병 · 거짓 정보 ·
+## 랜스 돌격 · 암습 · 단도 던지기 같은 기본기). 장수(고급 이상)마다 하나, 특기 축(도트 → 화계, 혼란 → 거짓 정보 …)으로 고르고
+## 축이 없으면 병종 기본기. 평타 every 번에 한 번 평타 대신 쓴다. 충전 · 비용 · 조건 없음, 난수 없음.
+## 타격 사건에 이름(mn) · 종류(mk)만 붙인다 —— 화면이 종류별 이펙트를 그린다 (War3D.minor_fx)
+##   mult 위력 · back 적 후열을 노린다 · kind phys/int 타격 종류(없으면 장수 주 능력치) · st [상태, 세기, 턴] · foe / self 짧은 능력치(턴)
+##   morale 적 사기 − · extra 같은 적에게 한 번 더 · mend/cheer 가장 지친 아군 병력 + / 사기 +
+static var minor_enabled := true
+const MINOR := {
+	"fire": {"n": "화계", "every": 3, "mult": 0.9, "kind": "int", "st": ["burn", 0.05, 2]},
+	"poison": {"n": "독병", "every": 3, "mult": 0.7, "st": ["plague", 3.0, 2], "foe": {"stat": "atk", "amt": -0.06, "dur": 2}},
+	"rumor": {"n": "거짓 정보", "every": 5, "mult": 0.6, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 3.0},
+	"curse": {"n": "저주", "every": 3, "mult": 1.0, "kind": "int", "foe": {"stat": "res", "amt": -0.1, "dur": 2}},
+	"thunder": {"n": "낙뢰", "every": 4, "mult": 1.5, "kind": "int"},
+	"cheer": {"n": "격려", "every": 3, "mult": 0.9, "mend": 0.01, "cheer": 4.0},
+	"guard": {"n": "방벽", "every": 3, "mult": 1.0, "self": {"stat": "def", "amt": 0.1, "dur": 2}},
+	"lance": {"n": "창기 돌격", "every": 4, "mult": 1.6, "kind": "phys", "morale": 3.0},
+	"ambush": {"n": "암습", "every": 3, "mult": 1.4, "kind": "phys", "back": true},
+	"dagger": {"n": "단도 던지기", "every": 3, "mult": 0.8, "kind": "phys", "back": true, "st": ["bleed", 0.04, 2]},
+	"thrust": {"n": "찌르기", "every": 3, "mult": 1.3, "kind": "phys", "foe": {"stat": "def", "amt": -0.05, "dur": 2}},
+	"volley": {"n": "연사", "every": 3, "mult": 1.0, "kind": "phys", "extra": 0.6}}
+const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "둔화": "poison", "책략깎": "curse", "책방깎": "curse",
+	"인덕": "cheer", "사기": "cheer", "철벽": "guard"}
+const MINOR_TAG := {"창병": "thrust", "기병": "lance", "궁병": "volley", "도적": "ambush", "책사": "fire", "유생": "cheer",
+	"술사": "thunder", "모사": "rumor"}
+static var _minor_cache := {}
+var _minor_nm := ""
+var _minor_mk := ""
+
+
+## 이 카드의 잔기술 종류 —— 특기 축(카드 등급에서 열린 첫 축) → 병종. 술사의 책략깎 · 책방깎은 낙뢰, 도적이 책략형이면 단도
+static func minor_kind(k: String) -> String:
+	if _minor_cache.has(k):
+		return _minor_cache[k]
+	var c: Dictionary = DB.C[k]
+	var out := ""
+	if c.tier >= 3:
+		for e in DB.PSV.ladder.get(DB.person(k), []):
+			if c.tier < int(e[1]) or (e.size() > 2 and c.tier > int(e[2])):
+				continue
+			var a: String = DB.PSV.traits.get(e[0], {}).get("attr", "")
+			if MINOR_AXIS.has(a):
+				out = MINOR_AXIS[a]
+				break
+		if out == "":
+			out = MINOR_TAG.get(c.tag, "")
+		if out == "curse" and c.tag == "술사":
+			out = "thunder"
+		if out == "ambush" and c["int"] > c.atk:
+			out = "dagger"
+	_minor_cache[k] = out
+	return out
+
+
+## 이번 평타가 잔기술인가 —— [정의, 종류] 또는 []
+func _minor(u: Unit) -> Array:
+	if not minor_enabled or has_st(u, "seal"):
+		return []
+	var mk := minor_kind(u.c.id)
+	if mk == "":
+		return []
+	var m: Dictionary = MINOR[mk]
+	if u.minor_n < 0:
+		u.minor_n = u.slot % int(m.every)      # 부대마다 차례를 어긋나게
+	u.minor_n += 1
+	if u.minor_n < int(m.every):
+		return []
+	u.minor_n = 0
+	return [m, mk]
+
+
+## 잔기술 한 번 —— 타격(대상은 back 이면 적 후열) + 덧붙임. 상태이상은 inflict(저항 판정 · 기록 포함)
+func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies: Array) -> void:
+	if m.get("back", false):
+		var bt := resolve_targets("back1", foes, u, allies)
+		if not bt.is_empty() and bt[0].alive:
+			t = bt[0]
+	var phys: bool = (m.kind == "phys") if m.has("kind") else u.c.int <= u.c.atk
+	var tl := clampf(0.8 + 0.1 * (u.c.tier - 3), 0.8, 1.3)      # 등급이 높을수록 조금 세게
+	_minor_nm = m.n
+	_minor_mk = mk
+	if phys: phys_hit(u, t, float(m.mult) * tl)
+	else: int_hit(u, t, float(m.mult) * tl, 1)
+	_minor_nm = ""
+	_minor_mk = ""
+	if m.has("self"):
+		u.buffs.append({"stat": m.self.stat, "amt": float(m.self.amt), "dur": int(m.self.dur)})
+	if t.alive:
+		if m.has("st"):
+			var st: Array = m.st
+			inflict(u, t, st[0], float(st[1]) * (1.0 if st[0] == "confuse" else tl), int(st[2]))
+		if m.has("foe"):
+			t.buffs.append({"stat": m.foe.stat, "amt": float(m.foe.amt), "dur": int(m.foe.dur)})
+		if m.has("morale"):
+			t.morale = maxf(0.0, t.morale - float(m.morale))
+		if m.has("extra"):
+			if phys: phys_hit(u, t, float(m.extra) * tl, true)
+			else: int_hit(u, t, float(m.extra) * tl, 1)
+	if m.has("cheer") or m.has("mend"):
+		var low: Unit = null
+		for o in allies:
+			if o.alive and (low == null or o.troops / o.max < low.troops / low.max):
+				low = o
+		if low != null:
+			if m.has("cheer"):
+				low.morale = minf(200.0, low.morale + float(m.cheer))
+			if m.has("mend") and not _scorched(low):
+				low.troops = minf(low.max, low.troops + roundf(low.max * float(m.mend)))
+
+
+static var strat_aura_enabled := false     # 11/4 사용자: 밸런스는 나중에 —— 꺼 둔다
+const STRAT_TAGS := ["책사", "모사"]
+const STRAT_AURA := {"def": 0.04, "res": 0.05}
+func _strat_step() -> void:
+	if not strat_aura_enabled:
+		return
+	for u in units:
+		u.strat_aura = 0.0
+		if not u.alive:
+			continue
+		var n := 0
+		for o in units:
+			if o.alive and o.camp == u.camp and STRAT_TAGS.has(o.c.tag) and (o == u or _same_line(o, u)):
+				n += 1
+		u.strat_aura = 0.0 if n == 0 else (1.0 if n == 1 else 1.6)
 
 
 ## 위세 (신화 · 초월) —— 살아 있는 장수마다 아군 전체(ally, tag 가 있으면 그 병종만) · 적 전체(foe) 배율
@@ -601,6 +733,10 @@ func L(cls: String, text: String, extra: Dictionary = {}) -> void:
 	var e := {"c": cls, "t": text, "s": snap, "ai": _ai, "ph": _ph, "who": _who, "turn": _turn, "tm": snappedf(_tm, 0.01),
 		"an": act_n, "pts": [pts.A, pts.B], "bd": _bdone == act_n}
 	e.merge(extra)
+	if _minor_nm != "" and (e.get("fx") == "phys" or e.get("fx") == "int"):      # 잔기술 이름 · 종류는 그 타격 사건에
+		e["mn"] = _minor_nm
+		e["mk"] = _minor_mk
+		_minor_nm = ""
 	ev.append(e)
 
 
@@ -1707,6 +1843,7 @@ func _turn_end() -> String:
 ## 정산 —— 턴 끝의 흐름(사기 · 회복 · 지속 피해 · 패주)을 frac(그 턴의 몫)만큼. 11/3 사용자: 실시간 엔진은 0.2초마다 나눠
 ## 부른다 (RtBattle.SETTLE). 지속 시간 줄이기 · 기록 문구는 턴 경계(final)에서만. 턴제는 frac 1 로 한 번 —— 예전과 같다
 func _settle(frac: float, final: bool) -> String:
+	_strat_step()
 	_ai += 1
 	_ph = "end"
 	_who = ""
@@ -1917,7 +2054,10 @@ func act(u: Unit) -> void:
 	if not used:
 		var tt := basic_target(u, foes)
 		if not tt.is_empty() and tt[0].alive:
-			if u.c.int > u.c.atk: int_hit(u, tt[0], 1, 1)
+			var mn := _minor(u)
+			if not mn.is_empty():
+				_do_minor(u, tt[0], mn[0], mn[1], foes, allies)
+			elif u.c.int > u.c.atk: int_hit(u, tt[0], 1, 1)
 			else: phys_hit(u, tt[0], 1)
 
 

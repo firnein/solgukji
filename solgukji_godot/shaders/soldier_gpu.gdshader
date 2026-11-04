@@ -23,6 +23,10 @@ uniform float h_size = 60.0;
 uniform vec3 team_a : source_color = vec3(0.25, 0.5, 0.82);
 uniform vec3 team_b : source_color = vec3(0.78, 0.27, 0.23);
 uniform float team_glow = 0.05;
+// 11/4 피아식별 —— 탑뷰에서 아군 · 적군이 한눈에: 진영 윤곽빛(림) + 옷감 밝힘. 아군 하늘빛 · 적군 주홍빛
+uniform vec3 rim_a : source_color = vec3(0.35, 0.75, 1.0);
+uniform vec3 rim_b : source_color = vec3(1.0, 0.42, 0.22);
+uniform float rim_power = 0.55;
 // 무기 판 —— is_weapon 이면 손에 쥔 무기 (몸과 같은 자리 · 같은 팔 각)
 uniform bool is_weapon = false;
 uniform int weapon_kind = 0;        // 0 창 · 1 칼 · 2 기병창
@@ -141,6 +145,19 @@ void vertex() {
 	float hurt = step(0.5, t3.y) * step(rk, 1.5) * step(0.78, hash(seed * 4.1 + hslot)) * pow(1.0 - hit_ph, 2.0);
 	p -= fwd * 5.0 * hurt;
 	p += rgt * (hash(seed * 4.7 + hslot) - 0.5) * 4.0 * hurt;
+	// 전선 (11/4) —— 맞붙은 적과의 면 너머로 FRONT_MIX 칸 넘게 못 들어간다. 넘친 병사는 면 앞에 밀착해 옆으로 비킨다 (밀고 밀리는 앞줄)
+	vec4 t8 = sq(row, 8);
+	vec4 t9 = sq(row, 9);
+	if (t9.x > 0.5 && t4.y <= 0.0) {
+		vec2 fn = t8.zw;
+		float sd = dot(p - t8.xy, fn);
+		float lim = t9.y * (0.35 + 0.9 * hash(seed * 23.3));
+		if (sd > lim) {
+			float over = sd - lim;
+			p -= fn * over * 0.92;
+			p += vec2(-fn.y, fn.x) * (hash(seed * 24.7) - 0.5) * min(over, sp * 3.0) * 0.6;
+		}
+	}
 	// 패주 —— 흩어지며 달아난다
 	float flee = t4.y;
 	vec2 look = rot(fwd, sin(clock * 0.7 + seed * 50.0) * (fighting ? 0.45 : 0.22) + (hash(seed * 31.0) - 0.5) * 0.35);
@@ -244,7 +261,7 @@ void vertex() {
 	float flags = t3.z;
 	float bflash = t4.x;
 	if (bflash > 0.0) flash = max(flash, 0.18 * bflash);
-	else if (mod(flags, 4.0) >= 2.0) flash = max(flash, 0.28 + 0.12 * sin(TIME * 14.0));
+	else if (mod(flags, 4.0) >= 2.0) flash = max(flash, 0.14);     // 비네트 집중 부대 —— 깜빡이지 않고 고르게 밝힘 (11/5 번쩍임)
 	else if (mod(flags, 2.0) >= 1.0 && flash <= 0.0) flash = -0.7;
 	v_custom = vec4(t5.y, sq(row, 7).z, flash, hash(seed * 11.0));
 }
@@ -259,9 +276,11 @@ vec3 hue_rot(vec3 c, float a) {
 }
 
 void fragment() {
-	vec3 team = hue_rot(mix(team_a, team_b, v_custom.r), v_custom.g);
+	vec3 team = hue_rot(mix(team_a, team_b, v_custom.r), v_custom.g * 0.6);     // 병종 색조는 진영색을 넘지 않게 약하게
 	vec3 vc = pow(COLOR.rgb, vec3(2.2));
-	vec3 base = mix(vc, vc * team, COLOR.a);
+	// 11/5 사용자 "피아식별 어려움": 옷감은 거의 진영색 그대로 (원래 옷 명암만 조금) —— 화면 톤을 낮춘 만큼 옷감은 진하게
+	float lum = dot(vc, vec3(0.299, 0.587, 0.114));
+	vec3 base = mix(vc, team * (0.8 + 0.5 * lum), COLOR.a);
 	base *= mix(1.0, 0.82 + 0.36 * v_custom.a, COLOR.a);
 	float brk = clamp(-v_custom.b, 0.0, 1.0);
 	float fl = max(v_custom.b, 0.0);
@@ -277,7 +296,10 @@ void fragment() {
 	// 11/4 저녁 사용자 "전투 전에도 반짝": 구운 병사는 밝은 정점 색(갑옷 · 살색)이 많아 '쇠' 판정(b > 0.6)으로 번들거려 햇빛 반사가 글리터처럼 깜빡였다 —— 거칠게
 	ROUGHNESS = use_vat ? 0.92 : mix(0.8, mix(0.45, 0.95, brk), step(0.6, vc.b) * (1.0 - COLOR.a));
 	SPECULAR = use_vat ? 0.12 : 0.5;
-	EMISSION = team * team_glow * COLOR.a + vec3(1.0, 0.9, 0.8) * fl * 0.6;
+	// 11/5 사용자 "병사들이 또 번쩍번쩍": 법선 기준 윤곽빛(프레넬)은 작은 병사 · 얇은 무기 판에서 프레임마다 법선이 바뀌어 반짝였다 ——
+	// 각도와 무관한 고정 진영빛(옷감만)으로 바꾼다
+	vec3 rim = mix(rim_a, rim_b, v_custom.r);
+	EMISSION = team * team_glow * COLOR.a + vec3(1.0, 0.9, 0.8) * fl * 0.6 + rim * rim_power * 0.16 * COLOR.a * float(!is_weapon);
 	RIM = 0.2;
 	RIM_TINT = 0.3;
 }

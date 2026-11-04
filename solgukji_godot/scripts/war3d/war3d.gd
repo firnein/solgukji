@@ -9,7 +9,7 @@ const S := 0.1
 const GAP := 300.0      # 양군 선봉 사이 (11/4 240 → 300)
 const RS := 150.0      # 11/4 사용자: 대열 칸 자체를 키운다 —— 앞뒤 열 간격 78 → 150 (깊은 부대가 앞뒤로 겹쳐 번졌다)        # 열 간격 (px) —— 부대가 앞뒤로 이어지게
 const CS := 220.0      # 좌 · 중앙 · 우 간격 (11/4 118 → 175 → 220, RtBattle · War3D 같게)
-const TEAM := {"A": Color("#3a6aa6"), "B": Color("#a9443a")}     # 10/31 조금 가라앉힌 진영색
+const TEAM := {"A": Color("#2f6fd0"), "B": Color("#c43a2e")}     # 11/5 사용자 "피아식별 어려움" —— 파랑 · 빨강을 분명하게 (화면 톤은 차분하게 낮춘 대신)     # 10/31 조금 가라앉힌 진영색
 const ST_COL := {"burn": Color("#ff8a3c"), "flood": Color("#4a9ad4"), "confuse": Color("#b57edc"),
 	"bleed": Color("#c4564a"), "plague": Color("#7fa86b"), "seal": Color("#9a9a9a"),
 	"cut_atk": Color("#e0705a"), "cut_int": Color("#7f8fe0"), "cut_def": Color("#e8a84a"), "cut_res": Color("#c46fd0"),     # 위축 · 산란 · 파갑 · 현혹 (수치 깎기, 솔국지 확장)
@@ -118,7 +118,8 @@ var vat_mat := {}           # 병종 -> 재질
 var vat_mesh := {}          # 병종 -> 메시
 ## 11/4 저녁: GPU 병사 셰이더(soldier_gpu)의 VAT 모드로 그리는 병종 —— 기병(Quaternius 말, assets/models/vat/기병_*). vat_enabled 와 무관
 ## 11/4 저녁: 병종 -> 굽기 이름 (책사 굽기 하나를 지략 넷이 같이 쓴다). "군마" 는 장수 군마 (Models.general 인형 아래 겹쳐 그린다)
-const GPU_VAT_MAP := {"기병": "기병", "창병": "창병", "도적": "도적", "궁병": "궁병", "책사": "책사", "모사": "책사", "술사": "책사", "유생": "책사", "군마": "군마"}
+## 11/5 사용자: 기병을 빼고 원래 도형 모델로 —— 보병 · 궁병 · 도적 · 지략 병종은 코드 도형 병사, 기병 · 장수 군마만 구운 모델
+const GPU_VAT_MAP := {"기병": "기병", "군마": "군마"}
 var gvat := {}              # 병종 -> {mesh, pos, nrm, clips}
 var gh_mmi: MultiMeshInstance3D = null     # 장수 군마 (구운 말, soldier_vat 셰이더 —— CPU 장수와 같은 인스턴스 데이터)
 var _gh_idx := {}           # 장수 인형 -> 군마 인스턴스 번호
@@ -143,7 +144,8 @@ const DIRECTOR_R := 170.0      # 보는 부대 둘레 이만큼(px) 안의 부�
 const CORE_SHARE := 0.25     # 자동 카메라가 담는 부대 몫 (가운데에서 가까운 순) —— 11/4 저녁 북적임: 0.75 → 0.25, 가장 뜨거운 곳 둘레 4~5부대만 담아 화면을 병사로 채운다 (양 끝 부대는 잘려도 된다)
 const HOT_SHARE := 0.6       # 싸우는 부대가 이만큼 넘으면 그쪽만 담는다 (뒤에 처진 궁병 · 책사 하나 때문에 멀어지지 않게)
 ## 11/4 연출 점검: 적이 다 같은 붉은색이라 부대가 구분되지 않았다 —— 병종마다 진영색을 조금 돌린다 (라디안, GPU 병사 셰이더 hue_rot)
-const CLS_HUE := {"cav": 0.16, "ranged": -0.22, "caster": 0.3}      # 처음 0.3 · -0.28 · 0.55 는 청록 · 자홍이 너무 튀었다
+const RING_VIVID := {"A": Color("#3fa0ff"), "B": Color("#ff5533")}     # 발밑 판 · 윤곽빛의 선명한 진영색 (11/4 피아식별)
+const CLS_HUE := {"cav": 0.0, "ranged": 0.0, "caster": 0.0}      # 11/5 병종 색조 돌리기 끔 —— 아군이 보라 · 적이 분홍으로 번져 피아가 헷갈렸다 (병종은 모양으로)      # 처음 0.3 · -0.28 · 0.55 는 청록 · 자홍이 너무 튀었다
 # 멀리 보기 (삼국지13) —— 카메라가 이보다 멀면 간단한 효과만: 불꽃 · 흙먼지 같은 작은 입자, 베기 초승달, 평타 화살을 뺀다.
 # 대신 부대 발밑 판이 맞을 때 번쩍이고, 공격 화살표 · 행동 아이콘으로 알린다. 확대하면 자세한 효과가 돌아온다
 const OVERVIEW_DIST := 40.0
@@ -258,24 +260,24 @@ func _environment() -> void:
 	# 10/31 사용자: 카툰 느낌을 벗는다 → 실제 하늘 사진(HDRI, Poly Haven CC0 kloofendal_48d_partly_cloudy_puresky). 주변광도 여기서
 	var psm := PanoramaSkyMaterial.new()
 	psm.panorama = load("res://assets/terrain/sky.hdr")
-	psm.energy_multiplier = 0.9
+	psm.energy_multiplier = 0.8      # 11/5 사용자: 전체 톤을 차분하게
 	sky.sky_material = psm
 	sky.radiance_size = Sky.RADIANCE_SIZE_256
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.5
+	env.ambient_light_energy = 0.45
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.95
+	env.tonemap_exposure = 0.9
 	env.tonemap_white = 6.0
 	env.ssao_enabled = false        # set_quality 가 켠다 (Forward+ 에서만)
 	env.ssao_intensity = 1.6
 	env.ssao_radius = 1.2
 	env.glow_enabled = true
-	env.glow_intensity = 0.32
+	env.glow_intensity = 0.22
 	env.glow_bloom = 0.04
 	env.fog_enabled = true
-	env.fog_light_color = Color("#a3a59e")
-	env.fog_density = 0.0016
+	env.fog_light_color = Color("#9a9c94")
+	env.fog_density = 0.0021
 	env.fog_aerial_perspective = 0.35
 	env.fog_sky_affect = 0.25
 	env.volumetric_fog_enabled = false
@@ -283,8 +285,8 @@ func _environment() -> void:
 	env.volumetric_fog_albedo = Color("#c8d0d8")
 	env.volumetric_fog_length = 220
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.0
-	env.adjustment_contrast = 1.04
+	env.adjustment_saturation = 0.86      # 11/5 차분하게 —— 풀밭 · 하늘의 채도를 낮춘다 (진영색은 병사 쪽에서 더 진하게)
+	env.adjustment_contrast = 1.0
 	env.adjustment_brightness = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -293,7 +295,7 @@ func _environment() -> void:
 	var sun := DirectionalLight3D.new()
 	_sun = sun
 	sun.light_color = Color("#efe2c8")
-	sun.light_energy = 1.8
+	sun.light_energy = 1.6
 	sun.shadow_enabled = not OS.get_cmdline_user_args().has("--gnoshadow")      # 점검용 --gnoshadow
 	sun.directional_shadow_max_distance = 240
 	sun.shadow_blur = 1.5
@@ -521,10 +523,10 @@ func _scenery() -> void:
 
 # ───────── 부대 배치 ─────────
 
-func slot_pos(camp: String, form: String, slot: int) -> Vector2:
+func slot_pos(camp: String, form: String, slot: int, lay := 1.0) -> Vector2:
 	var s: Dictionary = DB.FORM[form].slots[slot]
-	var x: float = GAP / 2 + s.row * RS
-	return Vector2(-x if camp == "A" else x, (s.col - 1) * CS)
+	var x: float = GAP / 2 * (0.7 + 0.3 * lay) + s.row * RS * lay      # RtBattle.mk_unit 과 같게 (lay —— 작은 군대는 촘촘히, 11/5)
+	return Vector2(-x if camp == "A" else x, (s.col - 1) * CS * lay)
 
 
 func clear() -> void:
@@ -533,6 +535,7 @@ func clear() -> void:
 			m.queue_free()
 	gpu_mmi.clear()
 	_flyers.clear()
+	_fronts.clear()
 	_cpu_list.clear()
 	focus_sq = null
 	focus_t = 0.0
@@ -562,6 +565,8 @@ func clear() -> void:
 			a.n.queue_free()
 	areas.clear()
 	fx_nodes.clear()
+	fires.clear()
+	_burning.clear()
 	ult.clear()
 	if cfx:
 		cfx.clear()
@@ -578,7 +583,7 @@ func setup(res: Dictionary) -> void:
 	track_mode = res.get("rt", false)
 	_build_terrain(res.get("terrain", []))
 	for r in res.roster:
-		var at := slot_pos(r.camp, res.aForm if r.camp == "A" else res.bForm, r.slot)
+		var at := slot_pos(r.camp, res.aForm if r.camp == "A" else res.bForm, r.slot, float(res.get("lay", 1.0)))
 		var sq := Squad.new(r, at, rng)
 		if track_mode:
 			# 실시간 엔진 —— 진형 자리에서 시작해 엔진 위치를 따른다
@@ -619,6 +624,7 @@ func setup(res: Dictionary) -> void:
 			entries.append([sq, s, bk, idx, wk, widx, gen, false, sq.cls == "cav" or gen, not gen and vat_mesh.has(sq.tag), false])
 		banners[sq.key] = _make_banner(sq)
 		squad_rings[sq.key] = _make_ring(sq)
+	_make_camps()
 	_bufs.clear()
 	for tag in count:
 		if vat_mesh.has(tag):
@@ -774,7 +780,7 @@ func _cube_mesh() -> Mesh:
 
 
 ## GPU 병사 만들기 —— 병종 · 무기마다 MultiMesh 하나, 인스턴스마다 (부대 줄, 자리, 씨앗, 옷 밝기) 만 한 번 적는다
-const SQ_COLS := 8
+const SQ_COLS := 10
 const CORPSE_LIFE := 4.0      # 시신이 누워 있는 시간 (초) —— 그 뒤 CORPSE_SINK 초 동안 가라앉아 사라진다
 const CORPSE_SINK := 1.6
 var _gidx := {}             # 병사 -> [[MultiMesh, 번호], …] (몸 · 무기)
@@ -906,11 +912,80 @@ func _squeeze(dt: float) -> void:
 		a.gsq = a.gsq.lerp(want, k)
 
 
+## 전선 (11/4 지시서: 맞붙는 순간 병사가 전선에서 밀고 밀린다) —— 맞붙은 두 부대 사이에 면을 하나 두고, 병사는 그 면 너머로
+## FRONT_MIX 칸 이상 들어가지 못한다(셰이더가 면 앞에 쌓는다 —— 앞줄이 밀착해 '전선'이 선으로 보인다).
+## 면은 병력이 많은 쪽에서 적 쪽으로 천천히 밀리고, 떠밀기(_shove)마다 짧게 출렁인다. 스프링이 아니라 속도 · 마찰 (튀지 않게)
+const FRONT_MIX := 0.9          # 면 너머로 섞여 들어가는 깊이 (병사 간격 배수)
+const FRONT_PUSH_MAX := 22.0    # 우세한 쪽이 면을 밀어 넣는 최대 거리 (px)
+var _fronts := {}               # "작은key|큰key" -> {x: 밀린 거리(작은 key 쪽에서 적 쪽 +), v: 속도}
+
+
+func _pair_key(a: Squad, b: Squad) -> String:
+	return a.key + "|" + b.key if a.key < b.key else b.key + "|" + a.key
+
+
+func _front_step(dt: float) -> void:
+	var live := {}
+	for a in order:
+		var b: Squad = a.engaged
+		if not (a.alive and a.contact and b != null and b.alive) or a.state == "gone":
+			continue
+		var k := _pair_key(a, b)
+		if live.has(k):
+			continue
+		live[k] = true
+		var f: Dictionary = _fronts.get(k, {"x": 0.0, "v": 0.0})
+		var lo: Squad = a if a.key < b.key else b
+		var hi: Squad = b if lo == a else a
+		var r: float = lo.troops / maxf(1.0, lo.troops + hi.troops)
+		var tw: float = 1.0 + 0.2 * (lo.tier - hi.tier)
+		var target := clampf((r * tw - 0.5) * 2.0, -1.0, 1.0) * FRONT_PUSH_MAX
+		# 목표로 가는 가속은 한도 안 · 마찰로 줄어든다
+		var acc: float = clampf((target - float(f.x)) * 3.0, -60.0, 60.0) - float(f.v) * 2.2
+		f.v += acc * dt
+		f.x += f.v * dt
+		_fronts[k] = f
+	for k in _fronts.keys():
+		if not live.has(k):
+			_fronts.erase(k)
+
+
+## 떠밀기 한 번 —— 이기는 쪽에서 지는 쪽으로 면에 속도를 준다
+func _front_kick(win: Squad, lose: Squad, force: float) -> void:
+	var k := _pair_key(win, lose)
+	if not _fronts.has(k):
+		return
+	var sign := 1.0 if win.key < lose.key else -1.0
+	_fronts[k].v += sign * force * 2.6
+
+
+## 이 부대가 보는 전선 —— [면 위의 점, 적 쪽 방향] 또는 null
+func _front_of(sq: Squad):
+	var e: Squad = sq.engaged
+	if not (sq.alive and sq.contact and e != null and e.alive):
+		return null
+	var f = _fronts.get(_pair_key(sq, e))
+	if f == null:
+		return null
+	var n: Vector2 = e.pos - sq.pos
+	var dist := n.length()
+	if dist < 1.0:
+		return null
+	n /= dist
+	# 두 대열 앞 끝의 가운데 (겹쳐 있어도 가운데) + 밀린 거리
+	var hd_a: float = sq._rk * sq.sp * 0.92 * 0.5 * sq.gsq.x
+	var hd_b: float = e._rk * e.sp * 0.92 * 0.5 * e.gsq.x
+	var mid := (sq.pos + n * hd_a + e.pos - n * hd_b) * 0.5
+	var sign := 1.0 if sq.key < e.key else -1.0
+	return [mid + n * float(f.x) * sign, n]
+
+
 ## 부대 값을 한 줄씩 (부대 수 × 6 칸) —— 매 프레임 이것만 GPU 로
 func _gpu_sync(dt: float) -> void:
 	if _sq_img == null or _sq_img.get_height() < order.size():
 		return
 	_squeeze(dt)
+	_front_step(dt)
 	var shove_k := exp(-dt * 5.0)
 	var slow_p := 1.0 - exp(-dt * 1.6)       # 늦게 따라오는 위치 · 방향 (뒷줄 · 가장자리 병사가 이쪽에 가깝다)
 	var slow_f := 1.0 - exp(-dt * 1.1)
@@ -919,7 +994,10 @@ func _gpu_sync(dt: float) -> void:
 		sq.shove_v *= shove_k
 		# 11/4 사용자: 이동할 때 대열이 길게 늘어진다 (기병 특히) —— 뒷줄이 따라오는 속도를 올린다 (기병은 뭉친 채로 달린다)
 		var fk: float = 7.0 if sq.cls == "cav" else 3.5
-		sq.gpos_slow = sq.gpos_slow.lerp(sq.pos, 1.0 - exp(-dt * fk))
+		var gfol := Vector2.ZERO
+		if sq.general and sq.general.alive and sq.state != "flee":
+			gfol = sq.right() * (sq.general.pos - sq.pos).dot(sq.right()) * 0.22     # 병사는 장수를 좌우로 느슨하게 따른다 (11/4)
+		sq.gpos_slow = sq.gpos_slow.lerp(sq.pos + gfol, 1.0 - exp(-dt * fk))
 		sq.gfwd_slow = sq.gfwd_slow.lerp(sq.fwd, 1.0 - exp(-dt * fk * 0.7)).normalized()
 		for sd in sq.moved_figs:
 			for gi in _gidx.get(sd, []):
@@ -939,6 +1017,12 @@ func _gpu_sync(dt: float) -> void:
 		_sq_img.set_pixel(5, row, Color(sq.loose, 1.0 if sq.camp == "B" else 0.0, clock, sq.depth()))
 		_sq_img.set_pixel(6, row, Color(sq.gpos_slow.x, sq.gpos_slow.y, sq.gfwd_slow.x, sq.gfwd_slow.y))
 		_sq_img.set_pixel(7, row, Color(sq.gsq.x, sq.gsq.y, CLS_HUE.get(sq.cls, 0.0), sq.move_s))
+		var fr = _front_of(sq)
+		if fr != null:
+			_sq_img.set_pixel(8, row, Color(fr[0].x, fr[0].y, fr[1].x, fr[1].y))
+			_sq_img.set_pixel(9, row, Color(1.0, FRONT_MIX * sq.sp, 0.0, 0.0))
+		else:
+			_sq_img.set_pixel(9, row, Color(0.0, 0.0, 0.0, 0.0))
 	_sq_tex.update(_sq_img)
 
 
@@ -980,6 +1064,110 @@ func _make_ring(sq: Squad) -> Decal:
 	d.distance_fade_enabled = false
 	unit_root.add_child(d)
 	return d
+
+
+## 진영 뒤 본진 (11/5 사용자: 초중반 전투가 허전하다 —— 화면만, 판정과 무관) —— 대열 뒤에 큰 진영 깃발 줄 · 북 · 예비대 실루엣.
+## 예비대는 정지한 캡슐 병사(그림자 없음, MultiMesh 한 번)라 거의 공짜. 본진이 작은 군대 뒤의 빈 땅을 채운다
+const CAMP_BACK := 70.0        # 가장 뒤 부대에서 이만큼(px) 뒤에 깃발 줄
+const CAMP_RESERVE := 64       # 진영마다 예비대 실루엣 수
+func _make_camps() -> void:
+	for camp in ["A", "B"]:
+		var sqs: Array = order.filter(func(q): return q.camp == camp)
+		if sqs.is_empty():
+			continue
+		var fwd: Vector2 = sqs[0].fwd
+		var rt := Vector2(-fwd.y, fwd.x)
+		var back := INF
+		var lo := INF
+		var hi := -INF
+		for q in sqs:
+			back = minf(back, q.home.dot(fwd) - q.depth() * 0.5)
+			lo = minf(lo, q.home.dot(rt))
+			hi = maxf(hi, q.home.dot(rt))
+		lo -= 40.0
+		hi += 40.0
+		var line := back - CAMP_BACK
+		var col: Color = TEAM[camp]
+		# 깃발 줄 —— 크고 높게, 진영색
+		var nf := clampi(int((hi - lo) / 45.0), 4, 9)
+		for i in nf:
+			var a := lerpf(lo, hi, (i + 0.5) / nf)
+			var at: Vector2 = fwd * (line + (8.0 if i % 2 == 0 else -6.0)) + rt * a
+			var fl := _camp_flag(col, 1.35 if i % 3 == 1 else 1.1)
+			fl.position = p3(at)
+			fl.rotation.y = -fwd.angle() + PI * 0.5
+			unit_root.add_child(fl)
+		# 북 둘 (가운데 양옆)
+		for sgn in [-1.0, 1.0]:
+			var dr := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.42
+			cm.bottom_radius = 0.42
+			cm.height = 0.55
+			dr.mesh = cm
+			var dm := StandardMaterial3D.new()
+			dm.albedo_color = Color(0.45, 0.16, 0.1)
+			dr.material_override = dm
+			dr.position = p3(fwd * (line + 18.0) + rt * ((lo + hi) * 0.5 + sgn * 26.0), 0.5)
+			dr.rotation.z = PI * 0.5
+			unit_root.add_child(dr)
+		# 예비대 실루엣 —— 깃발 줄 뒤에 성긴 몇 줄
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		var cap := CapsuleMesh.new()
+		cap.radius = 0.2
+		cap.height = 1.05
+		cap.radial_segments = 6
+		cap.rings = 2
+		mm.mesh = cap
+		mm.instance_count = CAMP_RESERVE
+		var per := 16
+		for i in CAMP_RESERVE:
+			var r := i / per
+			var c := i % per
+			var a := lerpf(lo + 20.0, hi - 20.0, (c + 0.5 + (0.5 if r % 2 else 0.0)) / per)
+			var at: Vector2 = fwd * (line - 14.0 - r * 9.0 + rng.randf_range(-2.5, 2.5)) + rt * (a + rng.randf_range(-3.0, 3.0))
+			mm.set_instance_transform(i, Transform3D(Basis(), p3(at, 0.52)))
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var rm := StandardMaterial3D.new()
+		rm.albedo_color = col.darkened(0.35)
+		rm.roughness = 0.95
+		mi.material_override = rm
+		unit_root.add_child(mi)
+
+
+func _camp_flag(col: Color, k: float) -> Node3D:
+	var root := Node3D.new()
+	var pole := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.045
+	cm.bottom_radius = 0.06
+	cm.height = 6.2
+	cm.radial_segments = 6
+	pole.mesh = cm
+	pole.position = Vector3(0, 3.1, 0)
+	var pm := StandardMaterial3D.new()
+	pm.albedo_color = Color(0.28, 0.2, 0.12)
+	pole.material_override = pm
+	root.add_child(pole)
+	var flag := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(1.1, 2.6)       # 세로로 긴 진영기
+	plane.orientation = PlaneMesh.FACE_Z
+	plane.subdivide_width = 8
+	plane.subdivide_depth = 4
+	flag.mesh = plane
+	flag.position = Vector3(0.55, 4.8, 0)
+	var fm := ShaderMaterial.new()
+	fm.shader = load("res://shaders/flag.gdshader")
+	fm.set_shader_parameter("color", col)
+	fm.set_shader_parameter("phase", rng.randf() * TAU)
+	flag.material_override = fm
+	root.add_child(flag)
+	root.scale = Vector3.ONE * k
+	return root
 
 
 func _make_banner(sq: Squad) -> Node3D:
@@ -1236,8 +1424,7 @@ func _shove() -> void:
 		var dir: Vector2 = (lose.pos - win.pos).normalized()               # 이기는 쪽 → 지는 쪽
 		var force: float = SHOVE_PUSH * clampf(0.7 + absf(r - 0.5) * 2.0, 0.7, 1.6)
 		if _gpu:
-			lose.shove_v = force
-			win.shove_v = -force * 0.35
+			_front_kick(win, lose, force)       # 11/4 전선이 밀린다 (병사 오프셋을 한 번에 바꾸면 스프링처럼 튀었다)
 			lose.hurt = maxf(lose.hurt, 0.6)
 		for s2 in ([] if _gpu else lose.soldiers):
 			if not s2.alive or s2.air > 0.0:
@@ -1453,7 +1640,7 @@ func _sync() -> void:
 		var bflash: float = 0.0 if dead else clampf(1.0 - (clock - sq.break_t) / 0.3, 0.0, 1.0)      # 파갑이 터진 순간 (짧고 옅게)
 		var spot: bool = not dead and sq == focus_sq and focus_t > 0.0                               # 비네트 집중 부대
 		# 그대로 서 있고 동작도 없으면 지난번 값을 그대로 둔다
-		var anim: bool = dead or clock - s.atk_t0 < Squad.ATTACK_TIME or clock - s.hit_t < 0.3 or sq.cheer \
+		var anim: bool = dead or e[6] or clock - s.atk_t0 < Squad.ATTACK_TIME or clock - s.hit_t < 0.3 or sq.cheer \
 			or (s.spawn_t >= 0 and clock - s.spawn_t < 0.5) or s.air > 0.0 or walking != s.drawn_mv or broken != s.drawn_br or bflash > 0.0 or spot
 		# 11/3 병사 2,000명 —— 동작 없이 자리만 옮기는 병사는 두 조로 나눠 한 프레임씩 번갈아 쓴다 (동기화 시간 절반)
 		if not anim and (e[3] & 1) != _sync_half:
@@ -1520,6 +1707,17 @@ func _sync() -> void:
 			sc *= 1.0 + 0.3 * fu
 			y += 0.25 * fu
 			b = b * Basis(Vector3.UP, sin(clock * 9.0) * 0.6 * fu)
+		if e[6] and not dead:
+			# 11/4 지시서: 장수의 존재감 —— 숨쉬기(크기 맥동), 가속에 따른 기울기(앞뒤 · 좌우)
+			var fwd2 := Vector2.from_angle(s.yaw)
+			var ac: Vector2 = sq.gacc
+			var pitch := clampf(ac.dot(fwd2) / 220.0, -0.22, 0.22)
+			var roll := clampf(ac.dot(Vector2(-fwd2.y, fwd2.x)) / 220.0, -0.18, 0.18)
+			b = b * Basis(Vector3.BACK, -pitch) * Basis(Vector3.RIGHT, roll)
+			sc *= 1.0 + 0.035 * sin(clock * 2.2 + s.phase) * (1.0 if sq.gvel.length() < 10.0 else 0.4)
+			var pl := clampf(1.0 - (clock - sq.cast_t) / 1.2, 0.0, 1.0)
+			if pl > 0.0:
+				g = -2.0 - pl            # soldier.gdshader: g < -1.5 이면 스킬 펄스 (금빛 윤곽 · 진영빛)
 		b = b * Basis.from_scale(Vector3(sc, sc, sc))
 		var p := Vector3(x, y, z)
 		var r0: float = (0.0 if sq.camp == "A" else 1.0) + s.tint * 0.5
@@ -1527,7 +1725,7 @@ func _sync() -> void:
 		if bflash > 0.0:
 			flash = maxf(flash, 0.4 * bflash)
 		elif spot:
-			flash = maxf(flash, 0.28 + 0.12 * sin(clock * 14.0))       # 주인공 부대만 밝게
+			flash = maxf(flash, 0.14)       # 주인공 부대만 밝게 (깜빡임 없이, 11/5)
 		elif broken and flash <= 0.0:
 			flash = -0.7          # 셰이더: b < 0 이면 갑옷 깨짐
 		_put(bbuf, o, b, p, r0, g, flash, step_ph)
@@ -1578,7 +1776,8 @@ func _sync() -> void:
 			rg.rotation = Vector3(0, atan2(-sq.fwd.y, sq.fwd.x), 0)
 			# 맞으면 번쩍 —— 멀리 볼 때 '맞고 있다' 를 판 하나로 알린다
 			var base_c: Color = TEAM[sq.camp].lightened(0.1)
-			rg.modulate = Color(base_c.lerp(Color(1, 0.95, 0.85), clampf(sq.hurt, 0, 1) * 0.75), 0.85 + 0.15 * maxf(sq.glow, sq.hurt))
+			var vivid: Color = RING_VIVID[sq.camp]       # 11/4 피아식별 —— 발밑 판을 선명한 진영색으로
+			rg.modulate = Color(vivid.lerp(Color(1, 0.95, 0.85), clampf(sq.hurt, 0, 1) * 0.5), 0.95)
 
 
 func _weapon_angle(sq: Squad, s, kind: String, alive: bool) -> float:
@@ -1634,6 +1833,19 @@ func _auto_frame() -> void:
 	var live: Array = order.filter(func(q): return q.alive and q.state != "gone")
 	if live.is_empty():
 		return
+	# 11/5 사용자 "1일차 카메라 무브 이상함": 달아나는 부대를 쫓아 빈 풀밭으로 넘어갔다 —— 패주 부대는 담지 않는다
+	var steady: Array = live.filter(func(q): return q.state != "flee")
+	if not steady.is_empty():
+		live = steady
+	var tot0 := 0
+	for q in live:
+		tot0 += q.alive_count()
+	# 작은 군대(초반)는 감독 카메라(뜨거운 부대 하나 따라가기)를 끄고 전장 전체를 차분히 담는다 ——
+	# 부대 하나를 고를 때마다 휙 넘어가고, 맞붙는 순간 확 당겼다가 다시 확 물러났다
+	var small_army := tot0 < SMALL_ARMY
+	if small_army:
+		_frame_small(live, fw, rt)
+		return
 	# 11/4 저녁 북적임 —— '감독' 카메라: 가장 뜨거운 부대 하나를 골라(DIRECTOR_HOLD 초 동안 유지) 그 부대 · 맞붙은 상대 · 그 둘레
 	# DIRECTOR_R 안의 부대만 담는다. 세로 화면에 가로로 긴 전열을 다 담으면 병사가 점이 됐다 —— 양 끝은 잘려도 된다
 	if _dir_sq == null or not _dir_sq.alive or _dir_sq.state == "gone" or clock > _dir_until:
@@ -1683,6 +1895,56 @@ func _auto_frame() -> void:
 	if nt.distance_to(want_t) > want_dist * 0.06:
 		want_t = nt
 	cam_rate = 0.7
+
+
+## 작은 군대 카메라 (11/5) —— 가장 큰 싸움 한 무리를 9초씩 붙잡고, 거리 · 자리를 천천히 바꾼다
+## (넓어질 때도 15% 넘게 벗어날 때만, 좁아질 때는 25% 넘게 줄 때만 —— 출렁이지 않게)
+const SMALL_ARMY := 700          # 화면에 담을 양군 병사가 이보다 적으면 작은 군대 카메라
+const SMALL_HOLD := 9.0           # 한 무리를 붙잡는 시간 (감독 카메라 5초보다 길게)
+const SMALL_R := 95.0           # 고른 부대 둘레 이만큼(px) 안의 부대를 함께 담는다
+func _frame_small(live: Array, fw: Vector2, rt: Vector2) -> void:
+	# 싸움이 여러 곳으로 갈라지면 전체를 담을 때 병사가 점이 된다 —— 가장 큰 싸움 한 무리를 오래 붙잡는다
+	if _dir_sq == null or not _dir_sq.alive or _dir_sq.state == "gone" or _dir_sq.state == "flee" or clock > _dir_until:
+		var best: Squad = null
+		var bh := -INF
+		for sq in live:
+			var n := 0.0
+			for o in live:
+				if o.pos.distance_to(sq.pos) < SMALL_R:
+					n += o.alive_count() * (1.6 if o.contact else 1.0)      # 둘레에 싸우는 병사가 많은 곳
+			if sq == _dir_sq:
+				n *= 1.35      # 보던 곳을 쉽게 놓지 않는다
+			if n > bh:
+				bh = n
+				best = sq
+		_dir_sq = best
+		_dir_until = clock + SMALL_HOLD
+	var cen: Vector2 = _dir_sq.pos
+	if _dir_sq.engaged != null and _dir_sq.engaged.alive:
+		cen = (cen + _dir_sq.engaged.pos) * 0.5
+	live = live.filter(func(q): return q == _dir_sq or q == _dir_sq.engaged or q.pos.distance_to(cen) < SMALL_R)
+	var pts := PackedVector2Array()
+	for sq in live:
+		var p: Vector2 = sq.pos * S
+		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 1.2
+		for o in [rt * r, -rt * r, fw * r, -fw * r]:
+			pts.append(p + o)
+	var vp := get_viewport().get_visible_rect().size
+	var aspect := vp.x / maxf(vp.y, 1.0)
+	var th := tan(deg_to_rad(cam.fov) / 2)
+	var tv := th
+	if cam.keep_aspect == Camera3D.KEEP_WIDTH:
+		tv = th / aspect
+	else:
+		th = tv * aspect
+	var res := _fit(pts, fw, rt, th, tv)
+	var nd := clampf(res[0] * 0.78, AUTO_MIN, 44.0)
+	if nd > want_dist * 1.15 or nd < want_dist * 0.75:
+		want_dist = nd
+	var nt := Vector3(res[1].x, 0, res[1].y)
+	if nt.distance_to(want_t) > want_dist * 0.12:
+		want_t = nt
+	cam_rate = 0.45
 
 
 ## 점들을 다 담는 [거리, 대상]
@@ -1762,6 +2024,7 @@ func reset_camera() -> void:
 
 ## 고유기 카메라 —— 장수 쪽으로 다가갔다가 끝나면 원래 자리로 돌아간다
 func cinematic(sq: Squad, dur: float, shoulder := false) -> void:
+	sq.cast_t = clock          # 장수 금빛 펄스 (고유기 · 에이스 기술)
 	if _cine <= 0:
 		_cine_back = [want_t, want_dist, want_pitch, want_yaw]
 	_cine = dur
@@ -2013,7 +2276,7 @@ func _block_tex() -> Texture2D:
 			var d := c.length() + minf(maxf(q.x - 0.78, q.y - 0.78), 0.0) - 0.16      # 둥근 사각형까지의 거리 (안이면 음수)
 			var a := 0.0
 			if d < 0.0:
-				a = 0.22 + 0.7 * clampf(1.0 + d / 0.07, 0, 1)
+				a = 0.3 + 0.62 * clampf(1.0 + d / 0.07, 0, 1)
 			elif d < 0.03:
 				a = 0.9 * (1.0 - d / 0.03)
 			img.set_pixel(x, y, Color(1, 1, 1, a))
@@ -2286,6 +2549,101 @@ func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 				"h": 2.5 + dist * 0.2, "puff": not light and i % 5 == 0})
 
 
+## 잔기술 이펙트 (11/5 사용자: 화계는 정말 불이 붙게, 제갈량 고유기 번개처럼 다양하게) —— UltFx 부품을 작게 쓴다.
+## 점광(OmniLight)은 쓰지 않는다 (번쩍거림). 맞은 부대 d 둘레에 몇 군데
+func minor_fx(mk: String, akey: String, dkey: String) -> void:
+	var a: Squad = squads.get(akey)
+	var d: Squad = squads.get(dkey)
+	if a == null or d == null or overview:
+		return
+	var wd := maxf(15.0, d.cols * d.sp * 0.32)
+	var spots := []
+	for i in 3:
+		spots.append(p3(d.pos + d.right() * rng.randf_range(-wd, wd) + d.fwd * rng.randf_range(-8.0, 8.0)))
+	var dir: Vector3 = (p3(d.pos) - p3(a.pos)).normalized()
+	match mk:
+		"fire":      # 불화살이 날아가 대열에 불이 붙는다 —— 불길 · 불씨 · 연기 · 그을음
+			_talismans(a, d, Color("#ff8a3c"), 3)
+			for i in spots.size():
+				var p: Vector3 = spots[i]
+				var at2: Vector2 = d.pos + d.right() * rng.randf_range(-wd, wd) + d.fwd * rng.randf_range(-8.0, 8.0)
+				ult.at(0.45 + i * 0.08, func():
+					_particles(p + Vector3(0, 0.2, 0), "fire", Color("#ff7a2a"))
+					if i < 2:
+						fire_patch(at2, 4.0, 0.7))      # 땅에 붙은 불 —— 4초
+		"poison":    # 독병이 날아가 깨지며 초록 안개
+			_talismans(a, d, Color("#5f9a3a"), 1)
+			ult.at(0.5, func():
+				for p in spots.slice(0, 2):
+					_particles(p + Vector3(0, 0.5, 0), "mist", Color("#7fd06b"))
+				_particles(spots[0] + Vector3(0, 0.6, 0), "splash", Color("#6fbf4a")))
+		"rumor":     # 거짓 정보 —— 적진 위 보랏빛 소용돌이 (서로 엉킨다)
+			ult.at(0.2, func():
+				ult._spiral(p3(d.pos), Color("#b07cff"))
+				_particles(p3(d.pos, 1.5), "magic", Color("#c08cff")))
+			d.stagger(clock, rng)
+		"curse":
+			_talismans(a, d, Color("#8a5ab8"), 3)
+			ult.at(0.5, func(): _particles(p3(d.pos, 1.2), "haze", Color("#5a3a7a")))
+		"thunder":   # 낙뢰 하나 (고유기 번개를 작게 —— 점광 없이)
+			var p: Vector3 = spots[0]
+			ult.at(0.15, func(): ult._bolt(p, Color("#a8d8ff"), true))
+		"cheer":
+			_particles(p3(a.pos, 0.6), "heal", Color("#8ff0c8"))
+		"guard":
+			ult._shock(p3(a.pos), Color("#9fc4e8"), 10.0)
+		"lance":     # 창기 돌격 —— 흙먼지 · 충격파 · 적이 휘청
+			ult._shock(spots[0], Color("#ffd257"), 12.0)
+			_particles(spots[0] + Vector3(0, 0.3, 0), "dust", Color("#b8a07a"))
+			_particles(spots[0] + Vector3(0, 1.0, 0), "spark", Color("#fff2b0"))
+			d.stagger(clock, rng)
+			shake = maxf(shake, 0.25)
+		"ambush":    # 암습 —— 검은 연기에서 검기
+			_particles(spots[0] + Vector3(0, 1.0, 0), "smoke", Color("#1a1424"))
+			ult._crescent(spots[0] + Vector3(0, 1.1, 0), dir, Color("#c9b8ff"))
+		"dagger":    # 단도 —— 작은 칼날이 날아간다
+			_talismans(a, d, Color("#d8dde6"), 3)
+			ult.at(0.45, func(): _particles(spots[0] + Vector3(0, 1.0, 0), "spark", Color("#ffffff")))
+		"thrust":
+			ult._crescent(spots[0] + Vector3(0, 1.0, 0), dir, Color("#ffe6a0"))
+			_particles(spots[0] + Vector3(0, 1.0, 0), "spark", Color("#fff2b0"))
+		"volley":
+			volley(akey, [dkey], true)
+
+
+var _tal_mat := {}
+var _tal_mesh: QuadMesh = null
+func _talismans(a: Squad, d: Squad, col: Color, n: int) -> void:
+	if overview and n < 3:
+		return
+	if _tal_mesh == null:
+		_tal_mesh = QuadMesh.new()
+		_tal_mesh.size = Vector2(0.34, 0.52)
+	var key := col.to_html(false)
+	if not _tal_mat.has(key):
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(col.lerp(Color("#f3e6c4"), 0.35), 0.95)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_tal_mat[key] = m
+	var wa := a.cols * a.sp * 0.35
+	var wd := maxf(20.0, d.cols * d.sp * 0.3)
+	for i in n:
+		var t := MeshInstance3D.new()
+		t.mesh = _tal_mesh
+		t.material_override = _tal_mat[key]
+		t.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		fx_root.add_child(t)
+		var p0 := p3(a.pos + a.right() * rng.randf_range(-wa, wa), 1.6)
+		var p1 := p3(d.pos + d.right() * rng.randf_range(-wd, wd) + Vector2(rng.randf_range(-10, 10), rng.randf_range(-10, 10)), 0.9)
+		t.position = p0
+		t.visible = false
+		orbs.append({"n": t, "p0": p0, "p1": p1, "t0": clock + i * 0.09, "dur": 0.5 + p0.distance_to(p1) / 70.0, "st": "", "col": col,
+			"light": true, "tal": true, "mark": i == 0, "at": d.pos, "r": wd * 1.6})
+
+
 func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 	var a: Squad = squads.get(akey)
 	if a == null:
@@ -2303,8 +2661,11 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 			cfx.acted(a, d, "cast")          # 책략은 띠 없이 (이름표 아이콘 · 공격 화살표만)
 		# 11/4 저녁 사용자 "번쩍거림" (프레임 간 섬광 지도): 발광 구슬(반지름 0.22, 투구 크기)이 병사 위를 휙휙 지나며 한 프레임씩 보라 원반으로 찍혔다
 		# —— 자유 시전(light)은 구슬 없이(구슬 대신 작은 안개만), 실제 책략은 구슬 하나 · 작게 · 덜 밝게
+		# 11/5 사용자 "책략계 병사들이 무엇을 하는지 시인성이 너무 떨어짐" —— 빛나지 않는(무광 · 발광 없음) 부적 몇 장이 포물선으로 날아가
+		# 맞은 부대 발밑에 옅은 진영빛 원이 번졌다 사라진다. 발광 · 점광이 없어 번쩍이지 않는다
+		_talismans(a, d, col, 2 if light else 4)
 		if light:
-			continue      # 자유 시전은 아무 효과 없음 (발광 안개도 병사 위에서 번쩍였다)
+			continue
 		for i in 1:
 			var orb := MeshInstance3D.new()
 			var sm := SphereMesh.new()
@@ -2379,6 +2740,8 @@ func heal_fx(key: String) -> void:
 
 
 func skill_fx(key: String) -> void:
+	if squads.has(key):
+		squads[key].cast_t = clock
 	var sq: Squad = squads.get(key)
 	if sq == null:
 		return
@@ -2623,6 +2986,65 @@ func _burst(p: Vector3, st: String, col: Color) -> void:
 ## 11/3 이감 (둔화 · 수몰) —— 발 묶인 부대 발밑에 물빛 소용돌이가 돈다. 파갑 —— 갑옷 깨짐 표시 켜기
 var slow_marks := {}          # 부대 key -> [소용돌이 Decal, 마법진 Decal, 물방울 입자]
 var _swirl_tex: Texture2D = null
+## 땅에 붙은 불 (11/5 사용자: 화계는 정말 필드에 불이 붙어 있게) —— 계속 타오르는 불길 · 불씨 · 연기 + 그을음. life 초 뒤 꺼진다
+## 화상 걸린 부대는 부대를 따라다니는 불(burning)이 붙는다 —— 화상이 풀리면 꺼진다. 점광은 쓰지 않는다
+var fires := []               # {n: [입자…], until, sq(따라감, 없으면 null)}
+var _burning := {}            # 부대 key -> fires 항목
+func fire_patch(at: Vector2, life: float, k := 1.0) -> Dictionary:
+	if overview and k < 1.0:
+		return {}
+	var p := p3(at)
+	var f := _particles(p + Vector3(0, 0.15, 0), "fire", Color("#ff7a2a"), true)
+	var e := _particles(p + Vector3(0, 0.9, 0), "ember", Color("#ffb04a"), true)
+	var sm := _particles(p + Vector3(0, 2.2, 0), "smoke", Color("#2e2925"), true)
+	var ns := []
+	for x in [f, e, sm]:
+		if x != null:
+			ns.append(x)
+	if f:
+		f.amount = int(18 * k)
+		f.emission_sphere_radius = 1.6 * k
+		f.scale_amount_min = 0.35 * k
+		f.scale_amount_max = 0.8 * k
+	if e:
+		e.amount = int(8 * k)
+	if sm:
+		sm.amount = int(4 * k)
+	ult._scorch(p)
+	var rec := {"n": ns, "until": clock + life, "sq": null, "off": Vector2.ZERO}
+	fires.append(rec)
+	return rec
+
+
+func _fire_step() -> void:
+	# 화상 걸린 부대 —— 따라다니는 불
+	for sq in order:
+		var on: bool = sq.alive and sq.state != "gone" and sq.statuses.has("burn")
+		if on and not _burning.has(sq.key):
+			var r := fire_patch(sq.pos, 9999.0, 0.8)
+			if not r.is_empty():
+				r.sq = sq
+				_burning[sq.key] = r
+		elif not on and _burning.has(sq.key):
+			_burning[sq.key].until = clock
+			_burning.erase(sq.key)
+	var keep := []
+	for r in fires:
+		if r.sq != null and not r.n.is_empty() and is_instance_valid(r.n[0]):
+			for x in r.n:
+				var y: float = x.position.y - height(x.position.x, x.position.z)
+				var q := p3(r.sq.pos + r.sq.fwd * 6.0)
+				x.position = Vector3(q.x, q.y + y, q.z)
+		if clock >= r.until:
+			for x in r.n:
+				if is_instance_valid(x):
+					x.emitting = false
+					fx_nodes.append([x, clock + 3.0])
+			continue
+		keep.append(r)
+	fires = keep
+
+
 func _slow_marks() -> void:
 	for sq in order:
 		var br: bool = sq.alive and sq.statuses.has("cut_def")
@@ -2739,6 +3161,7 @@ func _swirl() -> Texture2D:
 
 func _status_fx() -> void:
 	_slow_marks()
+	_fire_step()
 	var live := {}
 	for sq in order:
 		if not sq.alive:
@@ -2801,6 +3224,16 @@ func _fx_step() -> void:
 	var ok := []
 	for o in orbs:
 		var u: float = (clock - o.t0) / o.dur
+		if o.get("tal", false):
+			if u >= 1.0:
+				pass      # 11/5 사용자: 맞은 부대 발밑 원은 그리지 않는다
+				o.n.queue_free()
+				continue
+			o.n.visible = u > 0.0
+			o.n.position = o.p0.lerp(o.p1, maxf(0, u)) + Vector3(0, sin(maxf(0, u) * PI) * 4.0, 0)
+			o.n.rotation.z = u * 9.0
+			ok.append(o)
+			continue
 		if u >= 1.0:
 			if o.light:
 				_particles(o.p1, "magic", o.col)

@@ -1,0 +1,39 @@
+ONE card illustration of a single Three Kingdoms general for a mobile card game —— a LOWER-RARITY (Legendary / Transcendent tier)
+version of the attached MYTHIC illustration. It must clearly read as the SAME person in the SAME scene, but visibly less
+splendid, so players feel "this is the same hero, but not yet at their peak".
+
+REFERENCE (attached image): the attached image is this general's MYTHIC card. Keep EXACTLY: the face, eye shape, brows,
+facial hair, hairstyle and headwear, skin tone, age, body build, main colors and signature weapon or item.
+Keep ROUGHLY: the camera angle, head direction, crop and weapon placement (a similar composition, not a copy) ——
+the camera may sit a little farther back (chest-up to waist-up) so the face dominates a bit less.
+
+WHAT MAKES IT LOWER TIER (apply all):
+- ARMOR AND GEAR: a plainer, earlier version of the same outfit —— lacquered leather, iron scales and cloth instead of
+  heavy gilded engraved plate; little or no gold, no fur collar, no gems; worn but clean, fewer layers.
+- EFFECTS: NO legendary effects at all —— no lightning, no magic fire aura, no glowing eyes, no spirit dragons or beasts,
+  no floating embers swarm. Only natural light, a little dust or smoke at most.
+- EXPRESSION: still determined and dangerous, but restrained —— a focused stare rather than an overwhelming killing roar.
+- LIGHT AND COLOR: softer, lower-contrast lighting with the same color family as the LIGHT line but less saturated;
+  no burning rim light, the background a simple muted gradient or soft blurred battlefield.
+- FRAME: a thin plain bronze/silver card frame (NOT dark gold, no ornaments).
+
+STYLE: premium anime card illustration, realistic-leaning proportions (not chibi), clean sharp face, same rendering
+quality as the reference —— lower rarity comes from the gear, effects and lighting, NOT from worse drawing.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao (same rules as the reference).
+
+LAYOUT:
+- Image 1024x1536 portrait. ONE single card illustration filling the whole image inside the card frame.
+- No text anywhere: no name, no title, no number, no banner, no caption, no signature, no watermark.
+
+SAVE AS: solgukji_godot/assets/portraits/주유_장면.png   (the game uses it automatically for cards below Mythic)
+
+CHARACTERS
+1. Zhou Yu  [STRATEGIST, Wu] —— same person as the attached mythic image
+   IDENTITY: handsome, long flowing hair, clean-shaven. FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, clean-shaven, pale skin, noble masculine bearing. BUILD: tall and graceful.
+   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword, guqin zither.
+   COLORS: Wu red: crimson, red, orange and gold.
+   SCENE (paint this setting softly behind them, the character in front and naturally lit, no guardian beasts): the grand commander of Red Cliffs, sword drawn before the burning enemy fleet.
+   COMPOSITION: front bust with the head tilted a little, chin up, hands out of the frame, long hair and the cape blowing across the lower part of the panel, a burning fleet far behind.
+   BACKGROUND COLOR: background in cold misty dawn (only behind them, the character stays naturally lit).
+   EXPRESSION: elegant proud disdain, a faint cool smile, a beautiful but merciless gaze.
+   MUST SHOW (clearly, large and well lit): long flowing hair held by a red crown band; clean-shaven; and if they fit the composition: elegant sword, guqin zither.

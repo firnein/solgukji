@@ -7,6 +7,7 @@ extends RefCounted
 ##   shadow 검은 연기 · whirlwind 회전 충격파 · roar 겹겹 충격파+화면 흔들림
 ## 모든 고유기 공통: 장수 발밑에 도는 법진 → 터지는 순간 화면 섬광 · 큰 충격파 고리 · 맞은 부대 병사가 공중으로 날아간다
 ##   (날리는 세기는 LAUNCH —— 물리 계열일수록 세다)
+const MAGIC := ["thunder", "poison", "illusion", "aura", "heal", "firestorm"]      # 술법 계열 —— 법진 · 빛기둥 · 섬광
 const LAUNCH := {"slash": 0.95, "charge": 1.0, "whirlwind": 0.9, "roar": 0.7, "thunder": 0.75, "firestorm": 0.55,
 	"shadow": 0.5, "illusion": 0.35, "poison": 0.25, "arrowstorm": 0.3}
 
@@ -52,11 +53,13 @@ func play(vfx: String, akey: String, foes: Array, allies: Array, delay: float) -
 		return
 	var ap := w.p3(a.pos)
 	var col := _col(vfx)
-	# 기 모으기 —— 장수 발밑에 도는 법진, 빛 고리와 기둥
-	_circle(ap, col, 22.0, delay + 0.7)
-	_pillar(ap, col, delay + 0.4, 0.6)
-	w._ring(ap + Vector3(0, 0.2, 0), col, delay + 0.3)
-	w._light(ap + Vector3(0, 3, 0), col, 5.0, delay + 0.5)
+	# 기 모으기 —— 11/5 사용자 "고유기가 다 비슷하다": 법진 · 빛기둥은 술법 계열만. 무장 계열은 흙먼지 · 기합 고리
+	if MAGIC.has(vfx):
+		_circle(ap, col, 22.0, delay + 0.7)
+		_pillar(ap, col, delay + 0.4, 0.6)
+	else:
+		w._particles(ap + Vector3(0, 0.3, 0), "dust", Color("#b8a07a"))
+		_shock(ap, col, 9.0)
 	match vfx:
 		"charge", "whirlwind":
 			trails[akey] = w.clock + delay + 2.5
@@ -81,32 +84,37 @@ func _impact(vfx: String, akey: String, foes: Array, allies: Array, col: Color) 
 	for k in allies:
 		if w.squads.has(k):
 			apos.append(w.p3(w.squads[k].pos))
-	w.shake = maxf(w.shake, 0.7)
-	w.ult_flash.emit(col)
-	# 공통 —— 맞은 부대마다 큰 충격파와 병사 날리기
+	# 공통은 병사 날리기만. 섬광은 술법 계열, 큰 충격파는 무장 돌진 계열(charge · roar · whirlwind), 흔들림 세기도 종류마다
+	w.shake = maxf(w.shake, {"roar": 1.0, "charge": 0.9, "thunder": 0.8, "whirlwind": 0.7, "slash": 0.6}.get(vfx, 0.4))
+	if MAGIC.has(vfx):
+		w.ult_flash.emit(col)
 	var lp: float = LAUNCH.get(vfx, 0.0)
 	for k in foes:
 		var d: Squad = w.squads.get(k)
 		if d == null:
 			continue
 		var dp := w.p3(d.pos)
-		_shock(dp, col, 16.0)
-		w._ring(dp + Vector3(0, 0.25, 0), col, 0.9)
+		if vfx in ["charge", "roar", "whirlwind"]:
+			_shock(dp, col, 16.0)
 		if lp > 0.0:
 			var c: Vector2 = d.pos + (a.pos - d.pos).normalized() * d.depth() * 0.3 if a else d.pos
 			w.launch(k, c, 55.0, lp)
 	match vfx:
-		"slash":
+		"slash":      # 검기 셋이 엇갈려 지나간다
 			for p in fpos:
 				_crescent(p + Vector3(0, 1.3, 0), (p - ap).normalized(), col)
 				var pp: Vector3 = p
 				at(0.1, func(): _crescent(pp + Vector3(0, 1.8, 0), (pp - ap).normalized().rotated(Vector3.UP, 0.5), col.lightened(0.3)))
+				at(0.2, func(): _crescent(pp + Vector3(0, 0.9, 0), (pp - ap).normalized().rotated(Vector3.UP, -0.6), col))
 				_cut(p, (p - ap).normalized())
 				w._particles(p + Vector3(0, 1, 0), "spark", col)
 				w._ring(p + Vector3(0, 0.2, 0), col, 0.6)
 				w._light(p + Vector3(0, 2, 0), col, 6.0, 0.35)
-		"charge":
+		"charge":     # 장수에서 적까지 흙먼지 길이 깔린다
 			for p in fpos:
+				for i in 6:
+					var q: Vector3 = ap.lerp(p, (i + 1) / 7.0)
+					at(i * 0.04, func(): w._particles(q + Vector3(0, 0.3, 0), "dust", Color("#b8a07a")))
 				w._ring(p + Vector3(0, 0.2, 0), col, 0.8)
 				w._particles(p + Vector3(0, 0.3, 0), "dust", Color("#b8a07a"))
 				w._particles(p + Vector3(0, 1, 0), "spark", col)
@@ -132,26 +140,33 @@ func _impact(vfx: String, akey: String, foes: Array, allies: Array, col: Color) 
 					w._particles(p + o, "fire", Color("#ff7a2a"))
 				w._particles(p + Vector3(0, 2.5, 0), "smoke", Color("#2e2925"))
 				w._particles(p + Vector3(0, 1, 0), "ember", Color("#ffb04a"))
-				w._light(p + Vector3(0, 3, 0), Color("#ff8a3c"), 9.0, 1.6)
 				_pillar(p, Color("#ff6a20"), 0.9, 1.0)
 				_scorch(p)
+			for k in foes:      # 땅에 붙은 불 —— 맞은 부대 자리마다 셋, 6초
+				var d: Squad = w.squads.get(k)
+				if d == null:
+					continue
+				for i in 3:
+					w.fire_patch(d.pos + Vector2(w.rng.randf_range(-35, 35), w.rng.randf_range(-25, 25)), 6.0, 1.1)
 		"thunder":
 			for p in fpos:
 				_circle(p, col, 18.0, 0.9)
-				for i in 5:
-					at(i * 0.09, func(): _bolt(p + Vector3(w.rng.randf_range(-3, 3), 0, w.rng.randf_range(-3, 3)), col))
-		"poison":
+				for i in 8:      # 낙뢰가 연달아 (첫 줄기만 점광)
+					at(i * 0.11, func(): _bolt(p + Vector3(w.rng.randf_range(-4, 4), 0, w.rng.randf_range(-4, 4)), col, i > 0))
+		"poison":     # 독안개가 3초 동안 피어오른다
 			for p in fpos:
 				_circle(p, col, 18.0, 1.4)
-				for i in 2:
-					w._particles(p + Vector3(w.rng.randf_range(-3, 3), 0.5, w.rng.randf_range(-3, 3)), "mist", col)
-				w._light(p + Vector3(0, 2, 0), col, 3.0, 1.2)
-		"illusion":
+				for i in 6:
+					var pp: Vector3 = p + Vector3(w.rng.randf_range(-4, 4), 0.5, w.rng.randf_range(-4, 4))
+					at(i * 0.5, func(): w._particles(pp, "mist", col))
+		"illusion":   # 소용돌이 · 적이 휘청이며 엉킨다
 			for p in fpos:
 				_spiral(p, col)
 				_circle(p, col, 20.0, 1.2)
-				w._particles(p + Vector3(0, 1.5, 0), "magic", col)
-				w._light(p + Vector3(0, 2, 0), col, 4.0, 0.9)
+				w._particles(p + Vector3(0, 1.5, 0), "haze", col)
+			for k in foes:
+				if w.squads.has(k):
+					w.squads[k].stagger(w.clock, w.rng)
 		"aura", "heal":
 			for p in apos:
 				_circle(p, col, 16.0, 1.4)
@@ -160,13 +175,15 @@ func _impact(vfx: String, akey: String, foes: Array, allies: Array, col: Color) 
 				w._ring(p + Vector3(0, 0.2, 0), col, 0.9)
 			for p in fpos:
 				w._particles(p + Vector3(0, 1, 0), "spark", col)
-		"shadow":
+		"shadow":     # 장수가 연기로 사라지고, 적마다 차례로 검은 검기가 번뜩인다
 			if a:
 				w._particles(ap + Vector3(0, 1, 0), "smoke", Color("#1a1424"))
-			for p in fpos:
-				w._particles(p + Vector3(0, 1, 0), "smoke", Color("#1a1424"))
-				_crescent(p + Vector3(0, 1.1, 0), (p - ap).normalized(), col)
-				w._light(p + Vector3(0, 2, 0), col, 4.0, 0.4)
+			for i in fpos.size():
+				var p: Vector3 = fpos[i]
+				at(i * 0.14, func():
+					w._particles(p + Vector3(0, 1, 0), "smoke", Color("#1a1424"))
+					_crescent(p + Vector3(0, 1.1, 0), (p - ap).normalized(), col)
+					_crescent(p + Vector3(0, 1.4, 0), (p - ap).normalized().rotated(Vector3.UP, 1.4), col))
 		"whirlwind":
 			for i in 3:
 				at(i * 0.12, func(): w._ring(ap + Vector3(0, 0.3 + i * 0.4, 0), col, 0.7))
@@ -266,7 +283,7 @@ func _spiral(p: Vector3, col: Color) -> void:
 
 
 ## 낙뢰 —— 하늘에서 지그재그로 꺾여 내려오는 줄기. 섬광과 불꽃을 함께 터뜨린다
-func _bolt(p: Vector3, col: Color) -> void:
+func _bolt(p: Vector3, col: Color, lite := false) -> void:
 	var k := MeshKit.new()
 	var pts := []
 	var top := p + Vector3(w.rng.randf_range(-4, 4), 42, w.rng.randf_range(-4, 4))
@@ -281,10 +298,11 @@ func _bolt(p: Vector3, col: Color) -> void:
 		k.cyl(pts[i], pts[i + 1], 0.4, Color(1, 1, 1, 0.25), 5)
 	var mi := _spawn(k.mesh(), col.lightened(0.4), Vector3.ZERO, 0.28, "bolt")
 	mi.position = Vector3.ZERO
-	w._light(p + Vector3(0, 4, 0), col, 16.0, 0.3)
+	if not lite:      # 잔기술 낙뢰(lite)는 점광 · 고리 없이, 흔들림도 작게 (11/5 번쩍거림)
+		w._light(p + Vector3(0, 4, 0), col, 16.0, 0.3)
+		w._ring(p + Vector3(0, 0.2, 0), col, 0.5)
 	w._particles(p + Vector3(0, 0.5, 0), "spark", col.lightened(0.5))
-	w._ring(p + Vector3(0, 0.2, 0), col, 0.5)
-	w.shake = maxf(w.shake, 0.4)
+	w.shake = maxf(w.shake, 0.15 if lite else 0.4)
 
 
 func _scorch(p: Vector3) -> void:
