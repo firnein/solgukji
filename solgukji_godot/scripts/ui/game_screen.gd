@@ -457,6 +457,11 @@ func _build_battle() -> void:
 	_battle.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_battle_layer.add_child(_battle)
 	_battle.ended.connect(_on_battle_ended)
+	_battle.info_requested.connect(func(cid):
+		if DB.RECOF.has(cid) and not DB.is_foe(cid):
+			recipe_sheet(cid)
+		else:
+			card_info(cid))
 	_battle.inputs_changed.connect(func(inputs):
 		if run.battle != null and online == null:
 			run.battle.inputs = inputs.duplicate(true)
@@ -720,6 +725,10 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	if not was:
 		Sfx.play("open")
 	_sheet_title.text = title
+	if _battle_layer != null and _battle_layer.visible:      # 전투 위에서도 시트가 보이게 맨 앞으로
+		move_child(_sheet_mask, -1)
+		move_child(_sheet_art, -1)
+		move_child(_sheet, -1)
 	_sheet_title.add_theme_color_override("font_color", col if col.a > 0 else DB.PAL.paper)
 	_sheet_title.add_theme_font_size_override("font_size", 24 if col.a > 0 else 19)
 	for c in _sheet_body.get_children():
@@ -1206,8 +1215,11 @@ func _page_draw() -> Control:
 	hs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var inner := UI.vbox(6)
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inner.alignment = BoxContainer.ALIGNMENT_END      # 11/4 사용자: 낮은 등급만 있을 때도 아래(기본 병졸 줄 쪽)부터 채운다
 	var keys: Array = Run.sort_cards(p.keys())
-	for grp in [[6, 9, 3, 172.0], [2, 5, 4, 126.0]]:          # [등급 아래, 위, 열, 칸 높이] —— 11/4 사용자: 카드를 크게 (초월 위 4 → 3열 · 아래 6 → 4열)
+	# 11/4 사용자: 등급마다 줄을 나눈다 —— 초월 위 4열 · 전설(기인) 4열 · 희귀 6열 · 고급 6열 [등급 아래, 위, 열, 칸 높이]
+	for grp in [[6, 9, 4, 140.0], [5, 5, 4, 126.0], [4, 4, 6, 96.0], [2, 3, 6, 96.0]]:
 		var g := UI.grid(30, 6)
 		g.max_cols = grp[2]
 		for k in keys:

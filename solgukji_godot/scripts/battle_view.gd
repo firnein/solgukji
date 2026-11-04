@@ -85,6 +85,7 @@ var smooth := true          # false 면 예전처럼 이벤트 순간에 한꺼�
 var ambient := {}           # key -> 다음 자유 사격·시전 시각 (궁병·지략 계열)
 ## 게임 모드 —— 게임 화면(GameScreen)이 덱을 주고 띄운다. 연습용 단계 고르기·새 전투는 숨긴다
 signal ended(res: Dictionary, inputs: Array)
+signal info_requested(cid: String)      # 11/4 사용자: 아래 장수 칸을 누르면 장수정보간략창
 signal inputs_changed(inputs: Array)
 var game_mode := false
 var end_clock := 0.0        # 점검용 —— 전투가 끝난 전장 시각(초, 1배속 기준)
@@ -2052,6 +2053,9 @@ class MiniCard extends Control:
 				view.request_ult(sq.key)
 			else:
 				view.focus(sq)
+				if sq.tier > 2 and DB.C.has(sq.cid):
+					UI.buzz()
+					view.info_requested.emit(sq.cid)
 
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
