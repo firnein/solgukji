@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>솔국지 현황 11/5</title>
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--ink:#e8e2d2;--dim:#a99c80;--gold:#e0b45a;--jade:#7fd0bd;--seal:#e0806f;--line:#2a3348}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 "Noto Sans KR","Malgun Gothic",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:28px;margin:0 0 4px;color:var(--gold)}
+h2{font-size:21px;margin:44px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold)}
+h3{font-size:16px;margin:24px 0 8px;color:var(--jade)}
+p,li{color:var(--ink)}
+.sub{color:var(--dim);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:12px 0}
+.shots figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px}
+.shots img{width:100%;display:block;border-radius:4px}
+figcaption{font-size:12.5px;color:var(--dim);margin-top:6px;line-height:1.45}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1d2538;color:var(--gold);font-weight:600}
+code{background:#222b3f;padding:1px 5px;border-radius:4px;font-size:13px;color:#d9d0b8}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.flow span{background:#222b3f;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:13.5px}
+.flow b{color:var(--dim)}
+.risk{border-left:4px solid var(--seal)}
+.ok{border-left:4px solid var(--jade)}
+.tag{display:inline-block;font-size:12px;border-radius:4px;padding:0 6px;margin-right:6px}
+.t-hi{background:#5a2a24;color:#ffb3a6}.t-mid{background:#4a3d1e;color:#f2d38a}.t-lo{background:#203a35;color:#a6e6d6}
+@media (max-width:600px){h1{font-size:23px}.shots{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<h1>솔국지 현황 보고 — 2026-11-05</h1>
+<p class="sub">다른 모델 · 다른 작업자에게 넘기는 문서. 이 문서만으로 게임의 흐름과 현재 약점을 파악할 수 있게 썼다. 커밋 <code>95d488d</code> (main) · APK <code>build/solgukji.apk</code> (디버그 서명) · 스크린샷은 <code>docs/report_1105/</code>.</p>
+
+<div class="card">
+<b>한 줄 요약</b> — 휴대폰 세로 화면용 삼국지 오토배틀러. 7일(월~일) × 하루 3페이즈 동안 장수 카드를 모으고 조합해 9칸 진형을 짠 뒤, 결정론적 실시간 엔진이 계산한 전투를 3D 로 <b>관전</b>한다. 플레이어의 선택은 덱 구성 · 조합 · 진형 · 아이템에 있고, 전투 중 개입은 기본으로 꺼져 있다(자동 관전).
+</div>
+
+<h2>1. 한 판의 흐름</h2>
+<div class="flow"><span>월 오전</span><b>→</b><span>징집 · 선택권 · 배급</span><b>→</b><span>조합</span><b>→</b><span>편성</span><b>→</b><span>① 토벌(PvE)</span><b>→</b><span>② 대전(봇 PvP)</span><b>→</b><span>다음 페이즈</span><b>…</b><span>일요일 저녁 토너먼트 8강 · 4강 · 결승</span></div>
+<ul>
+<li><b>페이즈</b>: 하루 오전 · 오후 · 저녁, 7일이면 21페이즈. 페이즈마다 패를 받고(징집 · 선택권 · 배급) → 조합 → 편성 → 토벌 → 대전.</li>
+<li><b>토벌</b>: 정해진 적 편성(황건 · 장연 · 엄백호 …)과 싸운다. 지면 경고 1. 경고 4(<code>Run.STRIKE_MAX</code>)가 쌓이면 3일차부터 멸망(탈락).</li>
+<li><b>대전</b>: 토벌 뒤 열린다. 봇 세력과 싸워 PV(세력 점수)가 오르내린다. 봇은 날마다 <code>28 + 일차×5.5</code> PV 씩 자란다.</li>
+<li><b>토너먼트</b>: 일요일 저녁, PV 순위로 시딩한 8강 단판. 지면 그대로 끝.</li>
+<li><b>아이템 보급</b>: 1 · 3 · 5일차 아침에 유니크(신화 재료) 셋 중 하나를 고른다. 화면 가운데 띠 알림이 뜨고 고르기 창이 바로 열린다. 일반 · 매직 · 레어는 페이즈마다 지급.</li>
+</ul>
+<div class="shots">
+<figure><img src="report_1105/01_title.png"><figcaption>타이틀 — 이어 하기 · 새 판 · 온라인 대전(같은 엔진, 서버가 판정하고 기기는 재생)</figcaption></figure>
+<figure><img src="report_1105/02_d1_supply.png"><figcaption>1일차 아침 — 유니크 보급이 자동으로 열린다. 아이템마다 그것으로 만드는 신화 장수 · 위세를 함께 보여 준다</figcaption></figure>
+<figure><img src="report_1105/03_draw.png"><figcaption>징집 탭 — 위에 선택권(등급별 타일), 가운데 보유 패(등급 높은 순), 아래 병종 필터. '편성 1' 은 출전 중</figcaption></figure>
+<figure><img src="report_1105/04_forge.png"><figcaption>조합 탭 — 맨 위 갈무리 트리, 추천 목표(신화 아이템이 있으면 그 신화가 1번), 지금 조합 가능한 카드 띠</figcaption></figure>
+</div>
+
+<h2>2. 카드 · 등급 · 조합</h2>
+<table>
+<tr><th>등급</th><th>이름</th><th>평균 병력</th><th>얻는 법</th><th>전투 특징</th></tr>
+<tr><td>1</td><td>기본(병졸)</td><td>100</td><td>징집 · 배급</td><td>장수 없음, 병종 그림 카드</td></tr>
+<tr><td>3</td><td>고급</td><td>900</td><td>징집 · 선택권 · 조합</td><td>장수 인형 등장, 잔기술(자주 쓰는 기술)만</td></tr>
+<tr><td>4</td><td>희귀</td><td>2,700</td><td>선택권 · 조합</td><td>고유 기술 1</td></tr>
+<tr><td>5</td><td>전설</td><td>8,500</td><td>선택권(무상 천장) · 조합</td><td>고유 기술 1</td></tr>
+<tr><td>6</td><td>초월</td><td>25,000</td><td>조합만</td><td>기술 2, 고유기</td></tr>
+<tr><td>7</td><td>불멸(히든)</td><td>47,000</td><td>조합만</td><td>기술 2, 고유기, 완성 연출</td></tr>
+<tr><td>8</td><td>신화</td><td>70,000</td><td>조합 + 유니크 아이템, 한 판에 하나</td><td>기술 3, 고유기, 위세(진영 버프)</td></tr>
+<tr><td>—</td><td>기인</td><td>—</td><td>조합만</td><td>특수 위세(예: 처음 무너진 아군 2부대를 일으켜 세움)</td></tr>
+</table>
+<p>병종 8종: 창병 · 기병 · 궁병 · 도적(물리) / 책사 · 유생 · 술사 · 모사(책략). 같은 인물이 등급별로 여러 장(예: 손권 → 벽안 손권 → 오대계 손권)이고, 아래 등급 카드 몇 장 + 재료로 위 등급을 만든다. 특기는 인물별 사다리(<code>data/passives.json</code>)로 등급이 오르며 열린다.</p>
+<div class="shots">
+<figure><img src="report_1105/09_card.png"><figcaption>카드 상세 — 능력치 5칸, 특기판, 기술(자주 쓰는 기술이 맨 앞 '평타 3번에 한 번'), 특기 · 선호 대열 접기</figcaption></figure>
+<figure><img src="report_1105/10_rank.png"><figcaption>기록 탭 — 순위(PV) · 계보</figcaption></figure>
+</div>
+
+<h2>3. 편성 · 진형</h2>
+<ul>
+<li>9칸(좌 · 중앙 · 우 × 선봉 · 전군 · 중군 · 후군) 중 진형마다 쓰는 칸이 다르다. 진형 8종(봉시 · 어린 · 방원 · 학익 · 안행 · 언월 · 추행 · 장사).</li>
+<li><b>진형 우대</b>(<code>FORMBOON</code>): 진형마다 두 병종이 능력치를 받는다. 예) 어린진 → 창병 · 유생 방어 +14%. 받는 장수 칸은 금빛 바탕 · 아래 띠로 표시.</li>
+<li><b>자리 선호 · 어색</b>(<code>AFF</code>): 병종마다 좋아하는 열이 있다(옥빛 테 = 선호, 붉은 테 = 어색).</li>
+<li><b>군단 효과</b>: 장수의 단체 특기(같은 이름은 센 것 + 두 번째 절반) · 신화 위세 · 기인 효과. 전투 탭 위에 '장수 『특기』 효과' 형식으로 나열.</li>
+<li>예전의 작전(균형 · 맹공 · 굳히기)과 군령 화면은 11/5 에 삭제. 엔진은 기본 작전 '균형'으로 군령을 그대로 쓴다(화면 표시만 없앰).</li>
+</ul>
+<div class="shots">
+<figure><img src="report_1105/05_deploy.png"><figcaption>편성(아래 탭 닫힘) — 칸이 크게: 초상 · 이름 · 병종 · 병력 / 아이템 / 진형 우대 띠. 머리는 진형 이름 · 효과 · 「설명」(명조 기울임)</figcaption></figure>
+<figure><img src="report_1105/06_deploy_hand.png"><figcaption>손패를 열면 아래에서 올라온다 — 등급 높은 순 목록, 길게 눌러 칸으로 끈다</figcaption></figure>
+<figure><img src="report_1105/07_deploy_item.png"><figcaption>보급품 — 등급별, 유니크는 크게 · 효과 전부 · 들어가는 신화 장수</figcaption></figure>
+<figure><img src="report_1105/16_deploy_late.png"><figcaption>4일차 저녁 편성 — 신화 · 불멸 장수가 섞인 후반 덱</figcaption></figure>
+<figure><img src="report_1105/08_war_tab.png"><figcaption>전투 탭(2일차) — 토벌 · 대전 버튼, 진형 · 군단 효과 목록, 아래 진영 메달(누르면 장수 상세)</figcaption></figure>
+<figure><img src="report_1105/15_war_late.png"><figcaption>전투 탭(4일차) — 군단 효과가 늘어난 모습(공세 · 결속 · 보급 · 후원 · 와룡 · 위세 · 기인)</figcaption></figure>
+</div>
+
+<h2>4. 전투</h2>
+<h3>구조</h3>
+<ul>
+<li><b>엔진</b>: <code>scripts/rt_battle.gd</code>(실시간, <code>battle.gd</code> 상속). 시드 + 덱 + 입력이 같으면 사건 기록이 완전히 같다(결정론). 온라인은 서버가 판정, 기기는 재생.</li>
+<li><b>화면</b>: <code>battle_view.gd</code>(흐름 · HUD · 연출) + <code>war3d/war3d.gd</code>(3D). 엔진 결과를 재생할 뿐 판정에 끼지 않는다.</li>
+<li><b>병사</b>: GPU MultiMesh 로 한 판 최대 약 1,900명. 기병만 구운 말 모델(VAT), 나머지는 코드 도형 병사. 병사 수는 카드 PV 비례, 병력 12,000 아래 부대는 덜 그린다.</li>
+<li><b>행동</b>: 행동 준비(ATB)가 차면 평타. 일반 기술은 부대마다 충전 하나를 나눠 쓰고(등급별 RATE), 비용 · 조건이 맞으면 평타 대신 발동. 고유기(초월 이상)는 게이지 100 + 진영 간격.</li>
+<li><b>자주 쓰는 기술(내부 이름 잔기술)</b>: 고급 이상 장수마다 하나, 평타 3~5번에 한 번 꼭 나간다. 장수 특기 축으로 고른다 — 화계(화상) · 독병 · 거짓 정보(혼란) · 저주 · 낙뢰 · 격려 · 방벽, 축이 없으면 병종 기본기(찌르기 · 창기 돌격 · 연사 · 암습/단도). 책략계 평타가 약해 무기력하던 것을 덜려고 넣었다.</li>
+<li><b>배치</b>: 양군 병력 합이 15만 아래면 진형 간격을 √비율로 좁혀 시작(최소 0.62배) — 작은 초반 전투가 빨리, 빽빽하게 맞붙는다.</li>
+<li><b>카메라</b>: 큰 군대는 '감독' 카메라(가장 뜨거운 부대 하나를 5초씩), 담을 병사 700 아래면 가장 큰 싸움 한 무리를 9초씩 천천히. 패주 부대는 따라가지 않는다.</li>
+</ul>
+<h3>장면</h3>
+<div class="shots">
+<figure><img src="report_1105/11_b_d1_0.png"><figcaption>1일차 토벌 개전 — 진형 간격이 좁아 양군이 가깝다(위 띠: 보급 알림)</figcaption></figure>
+<figure><img src="report_1105/11_b_d1_1.png"><figcaption>1일차 맞붙음 — 아군 파랑 · 적 빨강, 장수 메달 · 상태 배지 · 피해 숫자</figcaption></figure>
+<figure><img src="report_1105/11_b_d1_2.png"><figcaption>1일차 후반 — 작은 군대 카메라가 한 무리를 따라간다</figcaption></figure>
+<figure><img src="report_1105/12_b_d2_0.png"><figcaption>2일차 토벌 — 양군이 맞붙기 시작</figcaption></figure>
+<figure><img src="report_1105/12_b_d2_1.png"><figcaption>2일차 — 난전, 기술 · 자주 쓰는 기술 이름이 부대 위에 뜬다</figcaption></figure>
+<figure><img src="report_1105/12_b_d2_2.png"><figcaption>전투 결과표 — 장수별 피해 · 받은 피해 · 기술 횟수</figcaption></figure>
+<figure><img src="report_1105/13_b_late_0.png"><figcaption>4일차(병력 6만 대 4만) — 대군, 연쇄(점화 ×6) 표시</figcaption></figure>
+<figure><img src="report_1105/13_b_late_1.png"><figcaption>고유기 순간의 어깨 카메라 — <b>카메라가 병사 사이로 파고들어 창병이 화면을 덮는다(약점 참고)</b></figcaption></figure>
+<figure><img src="report_1105/13_b_late_2.png"><figcaption>4일차 — 맞붙은 덩어리, 부대마다 진영색 발밑 판</figcaption></figure>
+<figure><img src="report_1105/14_result.png"><figcaption>승전 결과표(4배속으로 끝까지)</figcaption></figure>
+</div>
+<h3>연출 (11/5 기준)</h3>
+<ul>
+<li>첫 격돌 「선봉 격돌!」 띠 · 짧은 멈춤 · 흔들림 · 함성/북. 일기토 문구는 효과가 없어 삭제.</li>
+<li>자주 쓰는 기술마다 종류별 이펙트: 화계 → 불화살 + <b>땅에 4초 붙는 불</b>, 낙뢰(제갈량 고유기 번개의 작은 판), 독병 초록 안개, 거짓 정보 보랏빛 소용돌이, 창기 돌격 충격파 · 휘청, 암습 검은 연기 · 검기. 화상 걸린 부대에는 따라다니는 불.</li>
+<li>고유기: 법진 · 빛기둥 · 섬광은 술법 계열(낙뢰 · 독 · 환영 · 빛 · 회복 · 화공)만. 화공은 6초 불바다, 낙뢰 8연타, 그림자는 적마다 차례로 검기, 돌격은 흙먼지 길.</li>
+<li>번쩍임 대책: 점광(OmniLight)은 고유기 첫 낙뢰 등 극소수만. 병사 윤곽빛(각도 의존 프레넬)은 고정 진영빛으로 교체.</li>
+<li>톤: 채도 0.86 · 노출 0.9 · 빛 낮춤으로 차분하게, 대신 병사 옷감은 진영색(#2f6fd0 / #c43a2e) 그대로.</li>
+</ul>
+
+<h2>5. 지표</h2>
+<table>
+<tr><th>항목</th><th>값</th><th>측정</th></tr>
+<tr><td>결정성</td><td>30판 실패 0</td><td><code>tests/determinism.tscn</code></td></tr>
+<tr><td>자동 플레이 20판</td><td>우승 1 · 평균 도달 페이즈 13.3 / 21 (대부분 3~5일차 토벌 경고 4로 탈락)</td><td><code>tests/game.tscn</code></td></tr>
+<tr><td>일반 기술 발동(부대당 한 판)</td><td>희귀 1.7 · 전설 2.1 · 초월 4.4 · 신화 4.3회 (11/5 조건 완화 · 한 부대 기술 비용 1.6→1.1 전: 1.4 · 1.5 · 4.0 · 4.3)</td><td>등급별 10판 임시 측정</td></tr>
+<tr><td>자주 쓰는 기술</td><td>고급 약 2 · 희귀 5 · 초월 11회 (병종판 측정, 장수판은 비슷)</td><td>임시 측정</td></tr>
+<tr><td>판 길이</td><td>등급 3~5 약 28~36초, 6~8 약 44~59초</td><td>임시 측정</td></tr>
+<tr><td>fps (PC)</td><td>병사 1,166명 평균 219, 1,910명 122~128</td><td><code>--gfps=8</code></td></tr>
+</table>
+
+<h2>6. 약점 · 함께 고민할 것</h2>
+<div class="card risk"><span class="tag t-hi">높음</span><b>난이도 곡선 / 탈락률</b> — 자동 플레이 20판 중 우승 1~2. 대부분 3~5일차에 토벌 경고 4로 멸망한다. 자동 플레이 AI 가 서툰 탓도 있지만, 사람도 같은 벽을 만날 가능성이 크다. 토벌 적 사기 곡선(<code>QUEST_MORALE</code>), 경고 규칙, 경제(<code>DB.ECON</code>)를 같이 봐야 한다. 사용자는 "밸런스는 나중에"라고 해서 보류 중.</div>
+<div class="card risk"><span class="tag t-hi">높음</span><b>관전형 전투의 몰입</b> — 전투 중 개입이 없어서 볼거리가 곧 재미다. 초반(고급 · 희귀)은 기술이 한 판 1~2번뿐이라 평타 숫자만 오가기 쉽다. 자주 쓰는 기술 · 첫 격돌 · 땅 불 · 촘촘한 진형으로 보강했지만, 실제 손맛은 휴대폰에서 확인이 필요하다.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>책략계 존재감</b> — 책략 평타가 약하고, 신화 조조 같은 책략 장수가 무기력하게 물러나는 판이 있었다. 자주 쓰는 기술(화계 · 독병 · 거짓 정보 · 낙뢰)로 보완했지만 수치 검증은 아직이다.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>속도 능력치가 보이지 않는다</b> — 속도는 개전 순서, 공격 간격(최대 약 25%), 이동 증감에만 쓰여서 체감이 약하다. 수몰(이감)의 속도 감소도 화면에서 느끼기 어렵다. 삭제할지 키울지 결정 대기.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>고유기 어깨 카메라 파고듦</b> — 스크린샷 13_b_late_1 처럼 장수 뒤 낮은 카메라가 빽빽한 병사 사이로 들어가 큰 창병이 화면을 덮는다. 카메라 거리 · 높이를 병사 밀도에 맞춰야 한다(<code>War3D.cinematic</code> shoulder).</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>번쩍임 재발 위험</b> — 발광 재질 · 점광 · 각도 의존 빛을 넣을 때마다 '번쩍번쩍' 지적이 나왔다. 새 이펙트는 무광 · 점광 없이 만드는 것이 원칙.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span><b>휴대폰 성능 미검증</b> — GPU 병사 · 땅 불(입자 반복) · 고유기 이펙트는 PC 에서만 쟀다. 저사양 기기에서 프레임 확인 필요.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span><b>온라인 메시지 크기</b> — 전투 기록이 53~112KB. 사건마다 전 부대 상태 스냅숏이 붙는다. 자주 쓰는 기술은 사건을 늘리지 않도록 타격 사건에 이름만 붙였다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span><b>온보딩 없음</b> — 첫 판에 징집 · 선택권 · 조합 · 편성 · 진형 우대를 한꺼번에 만난다. 안내가 없다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span><b>그림 공백</b> — 신화 아래 등급용 장면 일러스트(<code>&lt;인물&gt;_장면.png</code>)는 경로 · 프롬프트(<code>prompts/등급별/5_장면</code>, 29명)만 있고 그림은 아직 없다. 지금은 신화 그림을 그대로 쓴다. APK 는 디버그 서명뿐(배포용 키 없음).</div>
+
+<h2>7. 오늘(11/5) 바뀐 것</h2>
+<ul>
+<li>피아식별: 진영색 파랑 · 빨강, 옷감 진영색, 병종 색조 돌리기 끔 / 화면 톤 차분하게.</li>
+<li>가운데 띠 알림, 아이템 보급 자동 열기, 선택권 고른 연출(카드 튀어오름 + 띠).</li>
+<li>편성: 작전(군령) 삭제, 아래 탭 맨 아래 고정, 손패 목록, 보급품 등급별, 칸 확대, 진형 우대 표시, 머리 3줄. 전투 탭: 진형 · 군단 효과 목록, 메달 → 장수 상세.</li>
+<li>전투: 자주 쓰는 기술(장수 특징), 일반 기술 조건 완화 · 한 부대 기술 비용 인하, 땅 불, 고유기 차별화, 첫 격돌, 본진 깃발, 기병 외 도형 병사, 작은 군대 카메라 · 촘촘한 진형.</li>
+<li>세부 기록: 저장소 맨 위 <code>작업현황.md</code> ⑭~㉛.</li>
+</ul>
+
+<h2>8. 다음 작업자를 위한 지도</h2>
+<table>
+<tr><th>파일</th><th>내용</th></tr>
+<tr><td><code>scripts/game/run.gd</code></td><td>한 판 상태 · 페이즈 · 경제 · 토벌/대전/토너먼트 · 봇 성장</td></tr>
+<tr><td><code>scripts/battle.gd</code> · <code>rt_battle.gd</code></td><td>전투 판정(결정론). <code>MINOR</code>/<code>minor_kind</code> 자주 쓰는 기술, <code>lay</code> 촘촘한 진형</td></tr>
+<tr><td><code>scripts/db.gd</code></td><td>카드 · 기술 생성(<code>_reskill</code>, <code>strict_cond</code>, <code>SK_COST</code>), 그림 경로</td></tr>
+<tr><td><code>scripts/battle_view.gd</code></td><td>전투 화면 흐름 · HUD · 소리 · 첫 격돌</td></tr>
+<tr><td><code>scripts/war3d/war3d.gd</code> · <code>ult_fx.gd</code></td><td>3D 전장 · 카메라 · 병사 · 이펙트(<code>minor_fx</code>, <code>fire_patch</code>) · 고유기 연출</td></tr>
+<tr><td><code>scripts/ui/*.gd</code></td><td>화면(징집 · 조합 · 편성 <code>deploy_page</code> · 전투 탭 <code>formation_view</code> · 카드 상세 <code>game_screen</code>)</td></tr>
+<tr><td><code>data/*.json</code></td><td>카드 · 진형 · 기술 풀 · 특기 사다리 · 고유기</td></tr>
+</table>
+<div class="card ok">
+<b>점검 방법</b> (<code>solgukji_godot</code> 에서, Godot 4.4.1 콘솔판)<br>
+결정성 <code>--headless --path . res://tests/determinism.tscn</code> · 자동 플레이 <code>res://tests/game.tscn</code><br>
+스크린샷 <code>--path . --resolution 540x960 -- --gnew=시드 --gplay=페이즈수 --gpage=draw|forge|deploy|war|rank --gseg=hand|item --gbattle=quest|pvp --gsheet=card:c39 --gshot=파일.png --after=초 --frames=N --every=초</code><br>
+fps <code>--gfps=초</code> · APK <code>--headless --export-debug "Android" ../build/solgukji.apk</code>
+</div>
+</main>
+</body>
+</html>
