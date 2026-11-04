@@ -27,6 +27,7 @@ const COUNT := {1: 34, 2: 38, 3: 43, 4: 57, 5: 80, 6: 109, 7: 137, 8: 172}     #
 ## 11/4 사용자: 압도적인 스케일 —— 병사를 작게 · 간격도 그만큼 (넓은 땅 위의 큰 군세로 보이게)
 const SCALE_BODY := 0.72
 const SCALE_SP := 0.78
+const MAX_W := 104.0     # 부대 폭 상한 (px) —— 옆 부대 간격 118 안
 const PER_PV := 3.9      # PV 1 당 병사 수 (11/4)
 ## 등급별 병사 몸집 · 간격 배율 —— 초월 위는 정예라 크고 넓게 선다
 const TIER_SIZE := {6: 1.1, 7: 1.2, 8: 1.32}
@@ -188,6 +189,9 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	sp *= TIER_SIZE.get(tier, 1.0) * SCALE_SP
 	# 11/4 사용자: 토탈워 삼국처럼 넓고 얇은 가로줄 —— 폭을 √n × 2.4 (기병 2.6), 깊이는 그만큼 얕게 (예전 × 1.35 · 1.5)
 	cols = maxi(cols, roundi(sqrt(n) * (2.6 if cls == "cav" else 2.4)))
+	# 11/4 사용자: 개전하자마자 대열이 쭈그러들었다 —— 옆 부대 간격(RtBattle.CS 118)보다 넓으면 War3D._squeeze 가 좌우를 반 아래로 좁힌다.
+	# 폭을 옆 간격 안으로 묶는다 (넓은 가로줄은 엔진 부대 간격을 키워야 가능)
+	cols = mini(cols, maxi(4, int(MAX_W / sp)))
 	for i in n:
 		soldiers.append(_new_soldier(i))
 	_alive = n
