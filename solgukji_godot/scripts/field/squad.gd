@@ -399,7 +399,7 @@ func update(dt: float, clock: float) -> void:
 				want_dir = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 		_turn_toward(want_dir, dt)
 	pos = keep_in(pos)
-	walk_acc += pos.distance_to(pos0) * 0.55
+	walk_acc += pos.distance_to(pos0) * 0.25      # 11/4 저녁 사용자: 1배속인데 배속 돌린 듯 —— 걸음 박자 0.55 → 0.25 (창병 초당 4.9걸음 → 2.2)
 	if state == "flee":
 		flee_t += dt
 
@@ -484,7 +484,7 @@ func update(dt: float, clock: float) -> void:
 		if d.length() < 0.6:
 			stepv = d
 		s.pos += stepv
-		s.walk += stepv.length() * 0.55
+		s.walk += stepv.length() * 0.25
 		# 바라보는 쪽 —— 걷고 있으면 걷는 쪽, 서 있으면 적 쪽 (없으면 대열 방향)
 		var look := fwd
 		if stepv.length() > speed * 0.35 * sdt and state != "hold" or state == "flee":

@@ -112,7 +112,7 @@ var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이�
 var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 그 부대를 따라간다
 const LONG_PRESS := 0.45
 # 11/4 연출 점검 —— 리듬
-const MARCH_SPD := 1.5      # 맞닿기 전(다가오기만 하는 개전 구간)은 이만큼 빠르게
+const MARCH_SPD := 1.0      # 맞닿기 전(다가오기만 하는 개전 구간) 배속 —— 11/4 저녁 사용자: 1배속인데 배속 돌린 듯 어색하다 → 1.0 (끔)
 const LEAD_ON := 0.58       # 병력 비율이 이만큼 넘으면 '우세'
 const LEAD_OFF := 0.5
 var _met := false           # 양군이 한 번이라도 맞닿았다
@@ -1141,7 +1141,7 @@ func impact(dur: float, kick: float) -> void:
 ## 휘두르는 소리 —— 실제 시간으로 세 번 (슬로모션과 상관없이)
 func _swing_sounds() -> void:
 	for i in 3:
-		get_tree().create_timer(0.05 + i * 0.3).timeout.connect(func(): Sfx.play("hit", 3.0, 0.12))      # 칼 · 창 휘두르는 소리
+		get_tree().create_timer(0.05 + i * 0.3).timeout.connect(func(): Sfx.play("swing", 2.0, 0.1))      # 칼 · 창 휘두르는 소리 (11/4 Still North Media 녹음)
 	get_tree().create_timer(0.95).timeout.connect(func(): Sfx.play("crit_%d" % (1 + randi() % 4), 4.0))
 
 

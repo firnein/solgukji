@@ -209,8 +209,8 @@ var _oath_used := {"A": false, "B": false}
 ## 11/4 연출 점검 —— 승부가 갈린 뒤 평타만 30초 넘게 이어지던 '정리 시간'을 끊는다.
 ## 총붕괴: 한쪽이 부대 5/9 이상을 잃거나 병력이 처음의 30% 아래면 남은 부대 사기가 초마다 크게 깎여 줄줄이 무너진다.
 ## 결전: 45초가 넘으면 양군 사기 회복이 멈추고 조금씩 깎인다 —— 약한 쪽부터 무너진다.
-const COLLAPSE_LOST := 5.0 / 9.0
-const COLLAPSE_TROOPS := 0.3
+const COLLAPSE_TROOPS := 0.3    # 남은 병력이 처음의 이 비율 아래이고
+const COLLAPSE_VS_FOE := 0.5    # 적 병력의 이 비율에도 못 미치면 총붕괴 (부대 수는 보지 않는다 —— 신화 한 부대가 군세의 반일 수 있다)
 const COLLAPSE_MORALE := 45.0   # 한 턴(period)마다 깎이는 사기
 const COLLAPSE_ROUT := 3.0      # 총붕괴 진영의 패주 확률 배율
 const COLLAPSE_HOLD_TIER := 7   # 이 등급부터(불멸 · 신화)는 총붕괴에 휩쓸리지 않는다 —— 9부대 중 신화 하나가 남아도 버틴다
@@ -1482,19 +1482,21 @@ func _check_collapse(frac: float) -> void:
 			continue
 		if _collapsed[_foe(cp)]:
 			continue
+		# 11/4 사용자: 부대 수가 아니라 병력(군세)으로 —— 신화 한 부대가 남아 전황을 뒤집을 수 있으면 붕괴가 아니다.
+		# 남은 병력이 처음의 30% 아래이고, 적 병력의 절반에도 못 미칠 때만
 		var total := 0
-		var alive := 0
 		var tr := 0.0
+		var foe_tr := 0.0
 		for u in units:
-			if u.camp != cp: continue
+			if u.camp != cp:
+				if u.alive: foe_tr += u.troops
+				continue
 			total += 1
 			if u.alive:
-				alive += 1
 				tr += u.troops
-		if total < 3 or alive == 0:
+		if total < 3 or tr <= 0.0:
 			continue
-		var lost := total - alive
-		if lost >= ceili(total * COLLAPSE_LOST) or tr < _start_troops[cp] * COLLAPSE_TROOPS:
+		if tr < _start_troops[cp] * COLLAPSE_TROOPS and tr < foe_tr * COLLAPSE_VS_FOE:
 			_collapsed[cp] = true
 			stats["collapse_" + cp] = snappedf(_tm, 0.1)
 			L("rt", "%s 총붕괴 —— 남은 부대가 줄줄이 무너진다" % ("아군" if cp == "A" else "적군"), {"fx": "collapse", "camp": cp})
