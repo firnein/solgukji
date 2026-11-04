@@ -39,7 +39,7 @@ const KIT := {
 		"clips": [["idle", "Idle", 4, true], ["walk", "Walking_A", 8, true], ["attack", "Spellcast_Shoot", 6, false],
 			["hit", "Hit_A", 4, false], ["death", "Death_A", 6, false], ["cheer", "Cheer", 4, true]]},
 	# 장수 군마 —— 기수 없이 안장만 (장수 인형은 코드 모델, War3D 가 같은 자리에 겹쳐 그린다)
-	"군마": {"glb": "res://assets_src/quaternius/Horse.glb", "height": 2.25, "yaw": PI * 0.5, "target_tris": 1100, "saddle": true, "color_mul": 0.75,
+	"군마": {"glb": "res://assets_src/quaternius/Horse.glb", "height": 2.25, "yaw": PI * 0.5, "target_tris": 1100, "saddle": false, "color_mul": 0.75,      # 안장은 장수 인형의 다리와 겹쳐 번쩍였다(z-fight) —— 뺀다
 		"clips": [["idle", "Idle", 6, true], ["walk", "Gallop", 8, true], ["attack", "Idle", 2, false],
 			["hit", "Idle_HitReact_Left", 4, false], ["death", "Death", 6, false], ["cheer", "Idle_2", 6, true]]},
 	"창병_kaykit": {"src": "Knight", "parts": ["Knight_Body", "Knight_Head", "Knight_ArmLeft", "Knight_ArmRight", "Knight_LegLeft", "Knight_LegRight"],

@@ -162,19 +162,31 @@ void vertex() {
 	vec3 v = VERTEX;
 	vec3 nrm = NORMAL;
 	if (use_vat && !is_weapon) {
-		// 구운 동작: 맞으면 맞기 · 앞줄 싸움은 공격 · 움직이면 달리기(걸음 박자) · 아니면 서 있기
+		// 구운 동작: 앞줄 싸움은 공격(서 있기와 섞어 들어가고 나온다) · 움직이면 달리기(걸음 박자) · 아니면 서 있기
+		// 11/4 저녁 사용자 "번쩍번쩍": 맞을 때마다 맞기 동작으로 뚝 바뀌고 공격이 뚝 끊겨 수백 명이 깜빡였다 —— 맞기 동작은 안 쓰고(몸 젖힘만), 공격은 섞는다
 		vec2 clip = clip_idle;
 		float f = fract(clock * 0.3 + seed * 3.0) * clip.y;
 		bool loop = true;
-		if (hurt > 0.0) { clip = clip_hit; f = hit_ph * (clip.y - 1.0); loop = false; }
-		else if (fighting3 && uu < 1.0) { clip = clip_attack; f = uu * (clip.y - 1.0); loop = false; }
-		else if (moving) { clip = clip_walk; f = fract(ph / 6.2831) * clip.y; }
+		float blend = 0.0;      // 서 있기 → 이 동작 섞는 비율
+		if (moving) { clip = clip_walk; f = fract(ph / 6.2831) * clip.y; blend = 1.0; }
+		else if (fighting3 && uu < 1.0) { clip = clip_attack; f = uu * (clip.y - 1.0); loop = false; blend = smoothstep(0.0, 0.15, uu) * (1.0 - smoothstep(0.82, 1.0, uu)); }
+		else { blend = 1.0; }
 		float f0 = floor(f);
 		float fr = f - f0;
 		float f1 = loop ? mod(f0 + 1.0, clip.y) : min(f0 + 1.0, clip.y - 1.0);
 		int id = VERTEX_ID;
 		v = mix(texelFetch(vat_pos, ivec2(id, int(clip.x + f0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip.x + f1)), 0).xyz, fr);
-		nrm = normalize(mix(texelFetch(vat_nrm, ivec2(id, int(clip.x + f0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip.x + f1)), 0).xyz, fr));
+		nrm = mix(texelFetch(vat_nrm, ivec2(id, int(clip.x + f0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip.x + f1)), 0).xyz, fr);
+		if (blend < 0.999) {
+			float fi = fract(clock * 0.3 + seed * 3.0) * clip_idle.y;
+			float i0 = floor(fi);
+			float i1 = mod(i0 + 1.0, clip_idle.y);
+			vec3 vi = mix(texelFetch(vat_pos, ivec2(id, int(clip_idle.x + i0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip_idle.x + i1)), 0).xyz, fi - i0);
+			vec3 ni = mix(texelFetch(vat_nrm, ivec2(id, int(clip_idle.x + i0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip_idle.x + i1)), 0).xyz, fi - i0);
+			v = mix(vi, v, blend);
+			nrm = mix(ni, nrm, blend);
+		}
+		nrm = normalize(nrm);
 	} else {
 	// 팔 —— 힘 모을 때 뒤로, 내지를 때 크게 앞으로, 맞으면 휘청
 	float arm = -1.0 * wu + 1.7 * sk - 0.8 * hurt;
