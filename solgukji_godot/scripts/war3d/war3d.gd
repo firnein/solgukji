@@ -2292,7 +2292,7 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 	if not light:
 		a.glow = 1.0
 		_particles(p3(a.pos, 1.6), "magic", col)
-		_light(p3(a.pos, 3.0), col, 2.5, 0.6)
+		pass      # 11/4 저녁: 시전 점광 제거 (병사 위를 스치며 번쩍였다)
 	for dk in dkeys:
 		var d: Squad = squads.get(dk)
 		if d == null:
@@ -2307,12 +2307,7 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 			orb.mesh = sm
 			orb.material_override = _glow_mat(col)
 			orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			if not light:
-				var ol := OmniLight3D.new()
-				ol.light_color = col
-				ol.light_energy = 1.6
-				ol.omni_range = 6
-				orb.add_child(ol)
+			# 11/4 저녁: 구슬의 점광 제거 —— 날아가며 병사 투구를 하얗게 태워 전장이 번쩍였다 (구슬 자체는 발광 재질)
 			fx_root.add_child(orb)
 			var p0 := p3(a.pos + Vector2(rng.randf_range(-15, 15), 0), 2.0)
 			var p1 := p3(d.pos + Vector2(rng.randf_range(-20, 20), rng.randf_range(-15, 15)), 0.8)
@@ -2381,7 +2376,7 @@ func skill_fx(key: String) -> void:
 		return
 	sq.glow = 1.0
 	_ring(p3(sq.pos, 0.15), DB.PAL.gold, 0.8)
-	_light(p3(sq.pos, 2.5), DB.PAL.gold, 2.0, 0.7)
+	_light(p3(sq.pos, 2.5), DB.PAL.gold, 0.7, 0.5)      # 11/4 저녁 2.0 → 0.7
 
 
 ## 기술이 떨어지는 곳 —— 맞는 부대마다 땅에 번지는 고리 · 빛 (물리는 금빛 흙먼지, 책략은 보랏빛)
@@ -2392,7 +2387,7 @@ func skill_hit_fx(keys: Array, magic: bool) -> void:
 		if t == null or not t.alive:
 			continue
 		_ring(p3(t.pos, 0.2), col, 1.0)
-		_light(p3(t.pos, 3.0), col, 2.4, 0.6)
+		_light(p3(t.pos, 3.0), col, 0.8, 0.4)      # 11/4 저녁 2.4 → 0.8
 		if not dbg_nofx:
 			_particles(p3(t.pos, 0.6), "magic" if magic else "dust", col)
 
@@ -2606,7 +2601,7 @@ func _burst(p: Vector3, st: String, col: Color) -> void:
 		"burn":
 			_particles(p, "fire", col)
 			_particles(p + Vector3(0, 1.5, 0), "smoke", Color("#3a3530"))
-			_light(p + Vector3(0, 1.5, 0), Color("#ff9a4a"), 4.0, 1.0)
+			_light(p + Vector3(0, 1.5, 0), Color("#ff9a4a"), 1.5, 0.8)      # 11/4 저녁 4.0 → 1.5
 		"flood":
 			_particles(p, "splash", Color("#3d86c6"))
 			_ring(p + Vector3(0, -0.6, 0), col, 0.9)
@@ -2614,7 +2609,7 @@ func _burst(p: Vector3, st: String, col: Color) -> void:
 			_particles(p, "mist", col)
 		_:
 			_particles(p, "magic", col)
-			_light(p, col, 2.5, 0.5)
+			_light(p, col, 0.8, 0.4)      # 11/4 저녁 2.5 → 0.8
 
 
 ## 11/3 이감 (둔화 · 수몰) —— 발 묶인 부대 발밑에 물빛 소용돌이가 돈다. 파갑 —— 갑옷 깨짐 표시 켜기

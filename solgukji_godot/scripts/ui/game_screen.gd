@@ -2407,6 +2407,11 @@ func _dev_args() -> void:
 			_battle.field.want_dist = float(cv[0])
 			if cv.size() > 1:
 				_battle.field.want_pitch = float(cv[1])
+		if a.has("gstill"):      # 점검용 —— 자동 카메라를 멈춘다 (프레임 간 차이로 깜빡임 찾기)
+			await get_tree().create_timer(float(a.gstill)).timeout
+			_battle.field.director = false
+			_battle.field.follow = null
+			_battle.field._manual = 1e9
 		if a.has("gclose"):
 			# 끝나면 1초 뒤 결과 정리를 누른 것처럼 —— 저장·보상 흐름 점검
 			await _battle.ended
