@@ -206,6 +206,19 @@ var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0
 	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
 	"mends": 0.0, "moved": 0, "oaths": 0}
 var _oath_used := {"A": false, "B": false}
+## 11/4 연출 점검 —— 승부가 갈린 뒤 평타만 30초 넘게 이어지던 '정리 시간'을 끊는다.
+## 총붕괴: 한쪽이 부대 5/9 이상을 잃거나 병력이 처음의 30% 아래면 남은 부대 사기가 초마다 크게 깎여 줄줄이 무너진다.
+## 결전: 45초가 넘으면 양군 사기 회복이 멈추고 조금씩 깎인다 —— 약한 쪽부터 무너진다.
+const COLLAPSE_LOST := 5.0 / 9.0
+const COLLAPSE_TROOPS := 0.3
+const COLLAPSE_MORALE := 45.0   # 한 턴(period)마다 깎이는 사기
+const COLLAPSE_ROUT := 3.0      # 총붕괴 진영의 패주 확률 배율
+const DECISIVE_T := 45.0
+const DECISIVE_MORALE := 12.0
+const ROUT_SPREAD := 1.5        # 패주 전염 (K.routSame · routOther 배율) —— 한 번 무너지면 줄줄이
+var _collapsed := {"A": false, "B": false}
+var _decisive := false
+var _start_troops := {"A": 0.0, "B": 0.0}
 var _kiin_u := {}              # 11/3 기인 —— 기능 키 -> 유닛 배열
 var _kiin_used := {}           # "키:진영" -> 쓴 횟수
 var _ult_null := false         # 서성 장강방벽 —— 이번 고유기는 피해가 없다
@@ -1442,7 +1455,7 @@ func rout(u: Unit, why: String) -> void:
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
 	for o in units:
 		if not o.alive or o.camp != u.camp: continue
-		o.morale -= (K.routSame if _same_line(o, u) else K.routOther) * (1.0 - mv(o, "rout_loss"))
+		o.morale -= (K.routSame if _same_line(o, u) else K.routOther) * ROUT_SPREAD * (1.0 - mv(o, "rout_loss"))
 		if mv(o, "avenge") > 0 and o.avenge_n < 3:
 			o.avenge_n += 1
 		if mv(o, "resolve") > 0:      # 결사 —— 아군이 무너지면 오히려 사기가 오른다
@@ -1453,6 +1466,44 @@ func rout(u: Unit, why: String) -> void:
 			if o.alive and o.camp == lh.camp:
 				_rally(o, mv(lh, "rally_kill"), "함성")
 	L("rt", "%s의 군세가 %s" % [nm(u), why], {"fx": "rout", "f": u.key})
+
+
+## 총붕괴 · 결전 판정 (정산마다) —— 전투 끝을 당긴다 (위 상수 설명)
+func _check_collapse(frac: float) -> void:
+	if _start_troops.A <= 0.0:
+		for u in units:
+			_start_troops[u.camp] += u.max
+	for cp in ["A", "B"]:
+		if _collapsed[cp]:
+			for u in units:
+				if u.alive and u.camp == cp:
+					u.morale -= COLLAPSE_MORALE * frac
+			continue
+		if _collapsed[_foe(cp)]:
+			continue
+		var total := 0
+		var alive := 0
+		var tr := 0.0
+		for u in units:
+			if u.camp != cp: continue
+			total += 1
+			if u.alive:
+				alive += 1
+				tr += u.troops
+		if total < 3 or alive == 0:
+			continue
+		var lost := total - alive
+		if lost >= ceili(total * COLLAPSE_LOST) or tr < _start_troops[cp] * COLLAPSE_TROOPS:
+			_collapsed[cp] = true
+			stats["collapse_" + cp] = snappedf(_tm, 0.1)
+			L("rt", "%s 총붕괴 —— 남은 부대가 줄줄이 무너진다" % ("아군" if cp == "A" else "적군"), {"fx": "collapse", "camp": cp})
+	if _tm > DECISIVE_T:
+		if not _decisive:
+			_decisive = true
+			L("div", "해가 기운다 —— 결전. 양군의 사기가 흔들린다", {"fx": "decisive"})
+		for u in units:
+			if u.alive and not _collapsed[u.camp]:
+				u.morale -= DECISIVE_MORALE * frac
 
 
 func check_rout() -> void:
@@ -1667,10 +1718,11 @@ func _settle(frac: float, final: bool) -> String:
 		if not u.hit25 and r <= 0.25:
 			u.hit25 = true
 			u.morale -= K.hit25 * tg
-		if u.morale > 30 and u.morale < 100:
+		if u.morale > 30 and u.morale < 100 and not _collapsed[u.camp] and not _decisive:
 			var rg: float = K.regen * pace * frac * (1.5 if u.regen_up else 1.0)
 			if u.caps.has("유생"): rg *= 2
 			u.morale = minf(100, u.morale + rg)
+	_check_collapse(frac)
 	for cp in ["A", "B"]:
 		var side := units.filter(func(u): return u.alive and u.camp == cp)
 		if side.is_empty() or not side[0].caps.has("유생"): continue
@@ -1704,6 +1756,7 @@ func _settle(frac: float, final: bool) -> String:
 		p *= 1.0 - mv(u, "rout")
 		p *= 1.0 - _buff_sum(u, "calm")
 		if u.caps.has("유생"): p *= 0.5
+		if _collapsed[u.camp]: p *= COLLAPSE_ROUT
 		p = 1.0 - pow(1.0 - minf(p, 1.0), frac / turn_mul)     # 턴이 늘어난 만큼 · 나눠 부른 몫만큼 —— 전투 전체로 보면 같은 빈도
 		if rng.randf() < p:
 			if pm >= pt:

@@ -11,7 +11,7 @@
 //   4: 파갑 번쩍(0~1), 패주 시간(초, 0 이면 아님), 몸집 배율, 기병(0/1)
 //   5: 흐트러짐(loose), 진영(0 아군 · 1 적), 시계(초), 대열 깊이(px)
 //   6: 늦게 따라오는 위치 x, y · 방향 x, y (병사마다 섞는다 —— 대열이 휘고 늘어진다)
-//   7: 대열 압축 앞뒤, 좌우 (War3D._squeeze —— 옆 부대와 겹치지 않게), 0, 0
+//   7: 대열 압축 앞뒤, 좌우 (War3D._squeeze —— 옆 부대와 겹치지 않게), 병종 색상 돌림(라디안), 0
 // INSTANCE_CUSTOM (11/3 개정): r = 부대 줄, g = 자리 (음수 숨김 · 자리 + (전 자리+1)×1024), b = 씨앗, a = 자리 옮기기 시작 시각
 shader_type spatial;
 render_mode cull_disabled;
@@ -198,11 +198,20 @@ void vertex() {
 	if (bflash > 0.0) flash = max(flash, 0.18 * bflash);
 	else if (mod(flags, 4.0) >= 2.0) flash = max(flash, 0.28 + 0.12 * sin(TIME * 14.0));
 	else if (mod(flags, 2.0) >= 1.0 && flash <= 0.0) flash = -0.7;
-	v_custom = vec4(t5.y, 0.0, flash, hash(seed * 11.0));
+	v_custom = vec4(t5.y, sq(row, 7).z, flash, hash(seed * 11.0));
+}
+
+// 색상 돌리기 (YIQ) —— 11/4 병종마다 진영색을 조금 다르게 (적이 다 같은 붉은색이라 부대가 구분되지 않았다)
+vec3 hue_rot(vec3 c, float a) {
+	vec3 yiq = vec3(dot(c, vec3(0.299, 0.587, 0.114)), dot(c, vec3(0.596, -0.274, -0.322)), dot(c, vec3(0.211, -0.523, 0.312)));
+	float ca = cos(a);
+	float sa = sin(a);
+	yiq.yz = vec2(ca * yiq.y - sa * yiq.z, sa * yiq.y + ca * yiq.z);
+	return clamp(vec3(yiq.x + 0.956 * yiq.y + 0.621 * yiq.z, yiq.x - 0.272 * yiq.y - 0.647 * yiq.z, yiq.x - 1.106 * yiq.y + 1.703 * yiq.z), 0.0, 1.0);
 }
 
 void fragment() {
-	vec3 team = mix(team_a, team_b, v_custom.r);
+	vec3 team = hue_rot(mix(team_a, team_b, v_custom.r), v_custom.g);
 	vec3 vc = pow(COLOR.rgb, vec3(2.2));
 	vec3 base = mix(vc, vc * team, COLOR.a);
 	base *= mix(1.0, 0.82 + 0.36 * v_custom.a, COLOR.a);

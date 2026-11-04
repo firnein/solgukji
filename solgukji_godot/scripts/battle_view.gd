@@ -111,6 +111,18 @@ var warn_key := ""
 var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이름
 var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 그 부대를 따라간다
 const LONG_PRESS := 0.45
+# 11/4 연출 점검 —— 리듬
+const MARCH_SPD := 1.5      # 맞닿기 전(다가오기만 하는 개전 구간)은 이만큼 빠르게
+const LEAD_ON := 0.58       # 병력 비율이 이만큼 넘으면 '우세'
+const LEAD_OFF := 0.5
+var _met := false           # 양군이 한 번이라도 맞닿았다
+var _lead := 0              # 1 아군 우세 · -1 적 우세 · 0 미정
+var _turns_n := 0           # '전세 역전' 띄운 횟수 (한 판 둘까지)
+var _kill_cd := 0.0         # 격파 카메라 당김 간격
+var _tac := ""              # 내 작전 (Run.TACS 키) —— 개전 한 줄
+const TAC_LINE := {"균형": "작전 『균형』 —— 상대를 보고 돌격 · 방진을 고른다",
+	"맹공": "작전 『맹공』 —— 바로 돌격, 돌격 공격 +25%",
+	"굳히기": "작전 『굳히기』 —— 방진으로 버티다 배수진 고유기 ×1.6"}
 
 
 
@@ -520,6 +532,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	inputs = bt.get("inputs", []).duplicate(true)
 	res = _simulate()
 	_pace_for(str(bt.get("kind", "")))
+	_tac = str(bt.a.get("tac", ""))
 	_begin()
 	_set_speed(QUEST_SPEED)
 
@@ -536,6 +549,7 @@ func play_res(r: Dictionary, kind := "") -> void:
 	inputs = []
 	res = r
 	_pace_for(kind)
+	_tac = ""
 	_begin()
 	_set_speed(QUEST_SPEED)
 
@@ -698,6 +712,10 @@ func _begin() -> void:
 		cards_bar.add_child(mc)
 	_shift = 0.0
 	warn_until = -1.0
+	_met = false
+	_lead = 0
+	_turns_n = 0
+	_kill_cd = 0.0
 	live_e = res.ev[0]
 	live_i = 0
 	_build_timeline()
@@ -713,12 +731,22 @@ func _begin() -> void:
 	Sfx.play("shout", 0.0)      # 11/4 개전 함성
 	# 지형 (실시간 엔진) —— 이번 판에 무엇이 깔렸고 무슨 효과인지 한 줄로
 	var tz: Array = res.get("terrain", [])
+	var tline := ""
 	if not tz.is_empty():
 		var parts := []
 		if tz.any(func(z): return z.k == "river"): parts.append("강(이동 느림 · 받는 피해 +)")
 		if tz.any(func(z): return z.k == "forest"): parts.append("숲(화살 막음 · 화공 번짐)")
 		if tz.any(func(z): return z.k == "hill"): parts.append("언덕(사거리 · 내려치기 +)")
-		hud.announce("지형 —— " + " · ".join(parts), Color("#c9d6a3"))
+		tline = "지형 —— " + " · ".join(parts)
+	# 11/4 연출 점검: 내가 고른 작전이 전투에서 어떻게 작용하는지 보이지 않았다 —— 개전에 한 줄, 지형은 2초 뒤
+	if TAC_LINE.has(_tac):
+		hud.announce(TAC_LINE[_tac], Color("#ffe6a8"))
+		if tline != "":
+			get_tree().create_timer(2.0).timeout.connect(func():
+				if running and not finished:
+					hud.announce(tline, Color("#c9d6a3")))
+	elif tline != "":
+		hud.announce(tline, Color("#c9d6a3"))
 	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
 
 
@@ -870,11 +898,18 @@ func _process_inner(dt: float) -> void:
 		slow_t -= dt
 	_freeze_cd -= dt
 	_ace_cd -= dt
+	_kill_cd -= dt
 	_spot_step(dt)
 	var spd := speed * (SLOW if slow_t > 0 else 1.0)
 	if freeze_t > 0:
 		freeze_t -= dt
 		spd *= FREEZE_SPD
+	# 11/4 개전 대기 —— 맞닿기 전까지는 빠르게 흘린다 (대열 칸을 키운 뒤 다가오기만 하는 3초가 길었다)
+	if not _met:
+		if field.order.any(func(q): return q.contact):
+			_met = true
+		elif clock > 0.3 and speed > 0:
+			spd *= MARCH_SPD
 	field.time_scale = spd
 	field.active = is_visible_in_tree()
 	var d := dt * spd
@@ -902,6 +937,7 @@ func _process_inner(dt: float) -> void:
 	while not due.is_empty() and due[0][0] <= clock:
 		_apply(due.pop_front()[1])
 	_drain_step(d)
+	_lead_step()
 	var pts := cmd_points()
 	pts_label.text = "군령\n%s" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
 	for b in cmd_btns:
@@ -918,6 +954,38 @@ func _process_inner(dt: float) -> void:
 		elif clock >= finish_t:
 			_finish()
 	hud.queue_redraw()
+
+
+## 전환점 (11/4 연출 점검) —— 화면에 보이는 병력 비율이 뒤집히는 순간 "전세 역전!" (한 판 둘까지)
+func _lead_step() -> void:
+	if finished or clock < 3.0:
+		return
+	var tA := 0.0
+	var tB := 0.0
+	for u in shown.size():
+		if cur[u][0] > 0.0:
+			if res.roster[u].camp == "A": tA += shown[u][0]
+			else: tB += shown[u][0]
+	if tA + tB <= 0.0:
+		return
+	var r := tA / (tA + tB)
+	var now := 1 if r >= LEAD_ON else (-1 if r <= 1.0 - LEAD_ON else 0)
+	if now == 0 or now == _lead:
+		return
+	var was := _lead
+	_lead = now
+	if was == 0 or _turns_n >= 2:
+		return
+	_turns_n += 1
+	if now == 1:
+		hud.announce("전세 역전!", Color("#ffd257"))
+		hud.flash(Color(1.0, 0.85, 0.4))
+		Sfx.play("horn", 2.0)
+		Sfx.play("shout", 0.0)
+	else:
+		hud.announce("전세가 기운다…", Color("#ff7a66"))
+		Sfx.play("rout", -4.0)
+	impact(0.12, 0.8)
 
 
 ## 궁병·지략 계열은 제 차례 사이에도 쉬지 않고 쏘고 던진다 (피해는 엔진 이벤트 때만 들어간다)
@@ -993,11 +1061,17 @@ func _start_group(g: Dictionary) -> void:
 		return
 	if g.skill != "":
 		field.skill_fx(g.who)
-		hud.skill_banner(g.who, g.skill)
+		var asq: Squad = field.squads.get(g.who)
+		# 11/4 연출 점검: 5일차 한 판에 기술 현판 45~89장 —— 현판은 초월 이상과 진영 상위 둘(hud._emph)만, 나머지는 작은 글씨
+		var star: bool = asq != null and (asq.tier >= 6 or hud._emph.get(g.who, 0) > 0)
+		if star:
+			hud.skill_banner(g.who, g.skill)
+		else:
+			hud.float_text(g.who, g.skill, Color("#e8d6a8"), 11)
 		field.skill_hit_fx(g.targets, g.kind == "spell")
 		# 11/3 에이스(불멸 · 신화) 장수 기술 —— 카메라가 잠깐 다가간다 (6초에 한 번까지, 직접 보고 있는 부대가 없을 때)
-		var asq: Squad = field.squads.get(g.who)
-		if asq and asq.tier >= 7 and _ace_cd <= 0 and speed > 0 and field.follow == null:
+		# 11/4 고유기 없는 초반(2일차)에도 '내 장수' 순간이 있도록 —— 진영 1등 장수도
+		if asq and (asq.tier >= 7 or hud._emph.get(g.who, 0) == 1) and _ace_cd <= 0 and speed > 0 and field.follow == null:
 			_ace_cd = 6.0
 			field.cinematic(asq, 1.1)
 			spotlight(asq, 0.75)
@@ -1171,7 +1245,7 @@ func _apply(i: int, quiet := false) -> void:
 		"chain":
 			hud.chain(e)
 			if e.camp == "A" and e.n >= 3:
-				Sfx.play("horn", -6.0)
+				Sfx.play("horn", -6.0 + minf(6.0, float(e.n)))      # 11/4 횟수가 쌓일수록 크게
 			if e.get("a", "") != "" and field.squads.has(e.a):
 				field.squads[e.a].glow = 1.0
 		"cmd":
@@ -1180,6 +1254,14 @@ func _apply(i: int, quiet := false) -> void:
 			field.cmd_fx(e.camp, col)
 		"status", "cleanse", "debuff":
 			pass          # 상태이상 · 해제 · 수치 깎기 —— 머리표 배지로 보인다
+		"collapse":       # 11/4 총붕괴 —— 큰 띠 · 섬광 · 뿔나팔, 카메라가 뒤로 물러나 무너지는 전장을 담는다
+			var mine: bool = e.camp == "A"
+			hud.announce("아군 총붕괴!" if mine else "적군 총붕괴!", Color("#ff7a66") if mine else Color("#ffd257"))
+			hud.flash(Color(0.9, 0.3, 0.2) if mine else Color(1.0, 0.85, 0.4))
+			impact(0.2, 1.2)
+			field.pull_back(2.5)
+		"decisive":
+			hud.announce("결전 —— 양군의 사기가 흔들린다", Color("#e8d6a8"))
 
 
 ## 소리 —— 사건 종류마다 (Sfx 가 잦은 소리는 건너뛴다)
@@ -1197,6 +1279,10 @@ func _sound(e: Dictionary) -> void:
 		"rout":
 			Sfx.play("rout")
 			Sfx.play("shout", -4.0)      # 적을 무너뜨린 함성
+		"collapse":
+			Sfx.play("horn", 3.0)
+			Sfx.play("shout", 3.0)
+			Sfx.play("rout", 2.0)
 		"heal": Sfx.play("heal")
 		"cmd":
 			Sfx.play("horn")
@@ -1223,7 +1309,10 @@ func _damage_number(i: int, e: Dictionary, f: String) -> void:
 	match fx:
 		"phys", "int":
 			var k: String = "fire" if e.get("fire", false) else ("water" if e.get("water", false) else fx)
-			hud.damage(f, n, k, e.get("crit", false))     # 불타는(화공) · 잠긴(수공) 적을 더 세게 친 타격
+			# 11/4 연출 점검: 평타 치명타마다 큰 숫자가 찍혀 겹쳐 쌓였다 —— 크게 찍는 것은 기술 · 고유기 · 불멸 이상의 치명타만
+			var gq: Dictionary = group_of[i]
+			var big: bool = gq.skill != "" or gq.ult != null or (field.squads.has(gq.who) and field.squads[gq.who].tier >= 7)
+			hud.damage(f, n, k, e.get("crit", false) and big)     # 불타는(화공) · 잠긴(수공) 적을 더 세게 친 타격
 		"heal":
 			hud.damage(f, n, "heal", false)
 		"tick":
@@ -1282,6 +1371,14 @@ func _do_rout(u: int) -> void:
 	_snap(u)
 	var sq: Squad = field.squads.get(key)
 	hud.float_text(key, "궤멸" if sq and sq.troops <= 0 else "패주!", Color("#ff6b57"), 16)
+	# 11/4 격파 연출 —— 적 장수가 무너지면 메달이 깨지며 "격파!", 카메라가 그쪽으로 잠깐 당겨진다 (4초에 한 번)
+	if sq and sq.camp == "B" and not finished:
+		hud.kill_mark(sq)
+		if sq.tier >= 3:
+			impact(0.1, 0.5)
+		if _kill_cd <= 0 and speed > 0 and field.follow == null and sq.tier >= 3 and field._cine <= 0:
+			_kill_cd = 4.0
+			field.cinematic(sq, 0.7)
 	field.rout(key)
 
 
@@ -1363,6 +1460,74 @@ class Hud extends Control:
 		floats.clear()
 		stamp_info = null
 		chains_fx.clear()
+		kills.clear()
+		chain_pop = null
+
+	## 격파 (11/4) —— 무너진 적 장수 자리에 메달이 크게 찍혔다가 금이 가며 떨어진다
+	var kills := []
+
+	func kill_mark(sq: Squad) -> void:
+		kills.append({"p": sq.pos, "cid": sq.cid, "name": DB.person(sq.cid) if sq.tier > 2 else sq.row.name,
+			"tier": sq.tier, "t0": view.clock, "r": randf_range(-0.5, 0.5)})
+
+	func _draw_kills() -> void:
+		const LIFE := 1.1
+		var keep := []
+		for k in kills:
+			var t: float = view.clock - k.t0
+			if t > LIFE:
+				continue
+			keep.append(k)
+			var p := _to_screen(k.p, 6.0)
+			if p.x < -9999:
+				continue
+			var u := t / LIFE
+			var a := clampf(t / 0.08, 0, 1) * clampf((LIFE - t) / 0.3, 0, 1)
+			var sc := lerpf(1.6, 1.0, ease(clampf(t / 0.18, 0, 1), 0.4))
+			var r := 22.0 if k.tier >= 3 else 14.0
+			var drop := ease(clampf((t - 0.5) / 0.6, 0, 1), 2.0) * 26.0
+			draw_set_transform(p + Vector2(0, -30 + drop), lerpf(0.0, k.r, ease(clampf((t - 0.5) / 0.6, 0, 1), 2.0)), Vector2.ONE * sc)
+			draw_circle(Vector2.ZERO, r + 3.0, Color(0, 0, 0, 0.6 * a))
+			draw_circle(Vector2.ZERO, r + 2.0, Color(DB.tier_color(k.cid), a))
+			draw_circle(Vector2.ZERO, r + 0.6, Color(War3D.TEAM.B, a))
+			if k.tier >= 3:
+				Art.draw_face_circle(self, Vector2.ZERO, r, k.cid)
+			else:
+				draw_circle(Vector2.ZERO, r, Color(0.3, 0.1, 0.08, a))
+			draw_circle(Vector2.ZERO, r, Color(0.25, 0.02, 0.0, 0.12 * a + 0.45 * u * u))      # 떨어지며 어두워진다
+			# 금 —— 비스듬한 꺾인 선, 0.25초 뒤에 간다
+			if t > 0.25:
+				var ca := clampf((t - 0.25) / 0.1, 0, 1) * a
+				var pts := PackedVector2Array([Vector2(-r * 0.55, -r * 0.9), Vector2(-r * 0.1, -r * 0.2), Vector2(-r * 0.35, r * 0.15), Vector2(r * 0.25, r * 0.95)])
+				draw_polyline(pts, Color(0.05, 0.02, 0.0, ca), 3.0)
+				draw_polyline(pts, Color(1.0, 0.9, 0.7, ca), 1.2)
+			draw_set_transform(Vector2.ZERO)
+			var fd := DB.font_display
+			var tp := p + Vector2(-80, -30 - r * sc - 12 - u * 10)
+			draw_string_outline(fd, tp, "격파!", HORIZONTAL_ALIGNMENT_CENTER, 160, 20, 6, Color(0, 0, 0, a))
+			draw_string(fd, tp, "격파!", HORIZONTAL_ALIGNMENT_CENTER, 160, 20, Color("#ffd257", a))
+		kills = keep
+
+	## 아군 연쇄 큰 알림 (11/4) —— 화면 위 가운데에 "연쇄 ×n" 이 쾅 찍힌다 (3회부터)
+	var chain_pop = null
+
+	func _draw_chain_pop() -> void:
+		if chain_pop == null:
+			return
+		var t: float = view.clock - chain_pop.t0
+		if t > 1.1:
+			chain_pop = null
+			return
+		var a := clampf(t / 0.06, 0, 1) * clampf((1.1 - t) / 0.3, 0, 1)
+		var sc := lerpf(2.2, 1.0, ease(clampf(t / 0.16, 0, 1), 0.35))
+		var n: int = chain_pop.n
+		var txt := "%s 연쇄 ×%d" % [chain_pop.name, n]
+		var fs := 22 + mini(n, 10)
+		var fd := DB.font_display
+		draw_set_transform(Vector2(size.x / 2, 112), 0, Vector2.ONE * sc)
+		draw_string_outline(fd, Vector2(-200, 0), txt, HORIZONTAL_ALIGNMENT_CENTER, 400, fs, 8, Color(0.2, 0.08, 0, a))
+		draw_string(fd, Vector2(-200, 0), txt, HORIZONTAL_ALIGNMENT_CENTER, 400, fs, Color("#ffd257").lerp(Color.WHITE, 0.3 * (1.0 - clampf(t / 0.3, 0, 1))) * Color(1, 1, 1, a))
+		draw_set_transform(Vector2.ZERO)
 
 	var ann = null
 	var _flash := Color(0, 0, 0, 0)
@@ -1433,7 +1598,7 @@ class Hud extends Control:
 				n += 1
 		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n})
 
-	const SMALL_HIT := 0.04          # 이보다 작은 타격은 모아서 띄운다 (부대 최대 병력 대비)
+	const SMALL_HIT := 0.06          # 이보다 작은 타격은 모아서 띄운다 (부대 최대 병력 대비) —— 11/4 0.04 → 0.06 (숫자가 겹쳐 쌓였다)
 	const SMALL_HIT_FAR := 0.1       # 멀리 볼 때 (War3D.overview) —— 큰 타격만
 	var _small := {}                 # 부대 key + 종류 -> 아직 띄우지 않은 피해 합
 
@@ -1480,7 +1645,10 @@ class Hud extends Control:
 			# 작은 타격(부대 병력의 SMALL_HIT 아래)은 바로 띄우지 않고 모았다가 넘치면 한 번에
 			var sk: String = key + kind
 			var acc: float = _small.get(sk, 0.0) + amount
-			if acc < sq.max * (SMALL_HIT_FAR if view.field.overview else SMALL_HIT):
+			var thr: float = SMALL_HIT_FAR if view.field.overview else SMALL_HIT
+			if kind == "tick":
+				thr *= 2.0      # 11/4 화상 · 침수 지속 피해 "-64" 가 부대마다 동시에 떠서 화면을 덮었다 —— 더 모아서
+			if acc < sq.max * thr:
 				_small[sk] = acc
 				return
 			_small.erase(sk)
@@ -1535,6 +1703,10 @@ class Hud extends Control:
 	func chain(e: Dictionary) -> void:
 		chains_fx = chains_fx.filter(func(c): return not (c.camp == e.camp and c.name == e.name))
 		chains_fx.append({"camp": e.camp, "name": e.name, "n": e.n, "t0": view.clock})
+		if e.camp == "A" and int(e.n) >= 3:
+			chain_pop = {"name": e.name, "n": int(e.n), "t0": view.clock}
+			if int(e.n) >= 5:
+				flash(Color(1.0, 0.85, 0.4))
 		var mine := chains_fx.filter(func(c): return c.camp == e.camp)
 		if mine.size() > 3:
 			chains_fx.erase(mine[0])
@@ -1570,7 +1742,9 @@ class Hud extends Control:
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
 		_draw_all()
+		_draw_kills()
 		_draw_chains()
+		_draw_chain_pop()
 		_draw_warn()
 		view.field.pt("머리표", t0)
 

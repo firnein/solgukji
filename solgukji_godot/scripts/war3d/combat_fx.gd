@@ -123,7 +123,8 @@ func step() -> void:
 	var clock := w.clock
 	# ① 공격 화살표
 	for sq: Squad in w.order:
-		var on: bool = sq.alive and sq.state != "flee" and sq.act_tgt != null and sq.act_tgt.alive and clock - sq.act_t < ATTACK_HOLD
+		# 11/4 연출 점검: 원거리 · 책략 화살표가 5일차엔 8~10줄로 전장을 갈랐다 —— 땅 화살표는 근접만 (사격은 화살 · 구슬이 알린다)
+		var on: bool = sq.alive and sq.state != "flee" and sq.act_tgt != null and sq.act_tgt.alive and clock - sq.act_t < ATTACK_HOLD and sq.act_kind == "melee"
 		var d: Decal = _marks.get(sq.key)
 		if not on:
 			if d:
@@ -142,7 +143,8 @@ func step() -> void:
 		var ln := v.length()
 		var melee: bool = sq.act_kind == "melee"
 		var start := 14.0 if melee else 30.0
-		var stop := maxf(start + 10.0, ln - t.depth() * 0.4 - 6.0)
+		# 11/4 연출 점검: 멀리 있는 상대로 달려갈 때 긴 쐐기가 전장을 갈랐다 —— 짧은 토막(최대 70px)으로 방향만
+		var stop := minf(maxf(start + 10.0, ln - t.depth() * 0.4 - 6.0), start + 70.0)
 		var a := sq.pos + v / maxf(ln, 0.01) * start
 		var b := sq.pos + v / maxf(ln, 0.01) * stop
 		var mid := (a + b) * 0.5
@@ -153,7 +155,7 @@ func step() -> void:
 		var u := (clock - sq.act_t) / ATTACK_HOLD
 		var team: Color = War3D.TEAM[sq.camp].lightened(0.35)
 		var col := team.lerp(Color(1.0, 0.55, 0.25), 0.55) if melee else team
-		d.modulate = Color(col, (1.0 - u * u) * (0.95 if melee else 0.7))
+		d.modulate = Color(col, (1.0 - u * u) * (0.6 if melee else 0.7))      # 11/4 0.95 → 0.6 옅게
 	# ② 베기 · 별
 	var keep := []
 	for s in _sprites:

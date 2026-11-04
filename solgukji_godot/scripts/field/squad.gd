@@ -124,6 +124,7 @@ var fade := 1.0
 var glow := 0.0
 var flourish_t := -1.0     # 11/4 고유기 —— 이 시각까지 장수가 무기를 크게 휘두른다 (War3D._weapon_angle)
 var hurt := 0.0
+var hurt_at := -99.0        # 마지막으로 병력을 잃은 시각 —— 자동 카메라가 '뜨거운 곳'을 고르는 데 쓴다 (11/4)
 var shove_t := 0.0          # 다음 전선 떠밀기 시각 (War3D._shove)
 var break_t := -99.0        # 파갑이 터진 시각 (번쩍)
 var armor_broken := false   # 파갑 · 쇄갑을 맞아 방어가 깎였다 (War3D 가 병사 갑옷을 녹슨 색으로)

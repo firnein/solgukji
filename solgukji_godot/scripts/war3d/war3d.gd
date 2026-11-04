@@ -132,6 +132,8 @@ const BASE_YAW := -0.7854     # 기본 구도 —— 아군 7시 · 적 1시 대
 const AUTO_MIN := 22.0      # 자동 카메라 최소 거리 (예전 30)
 const CORE_SHARE := 0.75     # 자동 카메라가 담는 부대 몫 (가운데에서 가까운 순)
 const HOT_SHARE := 0.6       # 싸우는 부대가 이만큼 넘으면 그쪽만 담는다 (뒤에 처진 궁병 · 책사 하나 때문에 멀어지지 않게)
+## 11/4 연출 점검: 적이 다 같은 붉은색이라 부대가 구분되지 않았다 —— 병종마다 진영색을 조금 돌린다 (라디안, GPU 병사 셰이더 hue_rot)
+const CLS_HUE := {"cav": 0.16, "ranged": -0.22, "caster": 0.3}      # 처음 0.3 · -0.28 · 0.55 는 청록 · 자홍이 너무 튀었다
 # 멀리 보기 (삼국지13) —— 카메라가 이보다 멀면 간단한 효과만: 불꽃 · 흙먼지 같은 작은 입자, 베기 초승달, 평타 화살을 뺀다.
 # 대신 부대 발밑 판이 맞을 때 번쩍이고, 공격 화살표 · 행동 아이콘으로 알린다. 확대하면 자세한 효과가 돌아온다
 const OVERVIEW_DIST := 40.0
@@ -868,7 +870,7 @@ func _gpu_sync(dt: float) -> void:
 		_sq_img.set_pixel(4, row, Color(bfl, sq.flee_t if sq.state == "flee" else 0.0, Squad.TIER_SIZE.get(sq.tier, 1.0), 1.0 if sq.cls == "cav" else 0.0))
 		_sq_img.set_pixel(5, row, Color(sq.loose, 1.0 if sq.camp == "B" else 0.0, clock, sq.depth()))
 		_sq_img.set_pixel(6, row, Color(sq.gpos_slow.x, sq.gpos_slow.y, sq.gfwd_slow.x, sq.gfwd_slow.y))
-		_sq_img.set_pixel(7, row, Color(sq.gsq.x, sq.gsq.y, 0.0, 0.0))
+		_sq_img.set_pixel(7, row, Color(sq.gsq.x, sq.gsq.y, CLS_HUE.get(sq.cls, 0.0), 0.0))
 	_sq_tex.update(_sq_img)
 
 
@@ -1566,7 +1568,7 @@ func _auto_frame() -> void:
 	for sq in live:
 		var p: Vector2 = sq.pos * S
 		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 0.8
-		var busy: bool = sq.contact or (sq.engaged != null and sq.moving)
+		var busy: bool = sq.contact or (sq.engaged != null and sq.moving) or clock - sq.hurt_at < 2.0      # 11/4 최근 2초에 병력을 잃은 곳도 '뜨거운 곳'
 		for o in [rt * r, -rt * r, fw * r, -fw * r]:
 			all.append(p + o)
 			if busy:
@@ -2256,8 +2258,21 @@ func apply(key: String, troops: float, morale: float, from_key: String) -> void:
 	if f and f != sq:
 		from = f.pos
 	if absf(troops - sq.troops) > 0.5:
+		if troops < sq.troops:
+			sq.hurt_at = clock
 		sq.set_troops(troops, from, clock, rng)
 	sq.morale = morale
+
+
+## 총붕괴 (11/4) —— 카메라가 dur 초 동안 뒤로 물러나 무너지는 전장 전체를 담는다
+func pull_back(dur: float) -> void:
+	if _cine <= 0:
+		_cine_back = [want_t, want_dist, want_pitch, want_yaw]
+	_cine = dur
+	want_dist = maxf(want_dist, 76.0)
+	want_pitch = maxf(want_pitch + 0.06, 0.72)      # 숄더뷰 도중이면 낮은 각이 남는다 —— 내려다보는 각으로
+	want_yaw = base_yaw()
+	cam_rate = 2.0
 
 
 ## 군령 —— 그 진영 부대마다 발밑에 고리가 퍼진다
