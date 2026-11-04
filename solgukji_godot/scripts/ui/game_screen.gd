@@ -596,7 +596,7 @@ func render(new_page := false) -> void:
 	_render_head()
 	_build_tabbar_badges()
 	var keep := _scroll.scroll_vertical
-	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
+	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null) or (page == "war" and run.over == null and online == null and not run.is_tour_phase() and run.last_result == null)      # 전투 탭 —— 진영 그림이 남는 공간을 채운다 (11/4)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
 	_scroll.visible = not fixed
 	_fixed.visible = fixed
 	for c in _body.get_children():
@@ -1973,11 +1973,18 @@ func _page_war() -> Control:
 				func(): _start("tour"), "warn", placed == 0))
 		v.add_child(_bracket())
 	else:
-		v.add_child(_page_head("%s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]],
-			"토벌과 임의 세력 대전을 한 번씩 치른다. 토벌 실패는 경고로 쌓인다 — 현재 %d/%d회 (다 차면 3일차부터 멸망)." % [run.strikes, Run.STRIKE_MAX]))
-		v.add_child(UI.act("① 토벌 완료" if run.quest_done else "① 토벌 — %s" % run.quest_name(),
-			"다음은 대전이다" if run.quest_done else "적 %d PV · 승리 시 기본패 %d장 · 실패 시 경고" % [run.quest_pv(), DB.D.QUEST_BASE[run.day]],
-			func(): _start("quest"), "warn", run.quest_done or placed == 0))
+		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
+		v.add_child(UI.lbl("%s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]], 20, DB.PAL.paper, true))
+		var row := UI.hbox(8)
+		var qa := UI.act("토벌 완료" if run.quest_done else "① 토벌", "" if run.quest_done else run.quest_name(),
+			func(): _start("quest"), "warn", run.quest_done or placed == 0)
+		qa.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(qa)
+		var pa := UI.act("대전 완료" if run.pvp_done else "② 대전", "" if run.pvp_done else ("임의 세력" if run.quest_done else "토벌 뒤"),
+			func(): _start("pvp"), "pri", run.pvp_done or placed == 0 or not run.quest_done)
+		pa.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(pa)
+		v.add_child(row)
 		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
 		var qr = run.quest_roster()
 		if qr != null and not run.quest_done and run.board.has(DB.kiin_card("wind_slow")):
@@ -1990,9 +1997,6 @@ func _page_war() -> Control:
 				qg.add_child(mtile(k, -1, func(id): card_info(id)))
 			pv.add_child(qg)
 			v.add_child(UI.panel(pv, 10))
-		v.add_child(UI.act("② 대전 완료" if run.pvp_done else "② 대전 — 임의 세력",
-			"토벌을 먼저 끝내야 열린다" if not run.quest_done else "승리 시 기본패 %d장 · 패배해도 %d장" % [DB.D.PVP_BASE.win, DB.D.PVP_BASE.lose],
-			func(): _start("pvp"), "pri", run.pvp_done or placed == 0 or not run.quest_done))
 		if placed == 0:
 			v.add_child(UI.btn("편성이 비어 있다 — 편성하러 가기", func(): go("deploy"), "gold"))
 		if run.last_result != null:
@@ -2003,7 +2007,14 @@ func _page_war() -> Control:
 				run.advance()
 				run.save()
 				go("draw"), "pri"))
-	v.add_child(UI.hint("전투는 자동으로 흘러간다 —— 고유기 · 군령은 AI 가 알아서 쓴다. 덱과 배치가 승부를 가른다. 두 손가락으로 확대·회전, 한 손가락으로 이동. 직접 지휘는 설정 또는 전투 중 ⋯ 메뉴에서 켠다."))
+	if not run.is_tour_phase() and placed > 0:
+		var fv := FormationView.new().setup(run.board, run.form)
+		fv.custom_minimum_size.y = 180
+		fv.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var fp := UI.panel(fv, 0)
+		fp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		v.add_child(fp)
 	return v
 
 

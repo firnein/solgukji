@@ -217,59 +217,62 @@ func drop_hand(data: Dictionary) -> void:
 
 
 func slot_sheet(i: int) -> void:
+	# 11/4 사용자: 편성 페이지처럼 정리 —— 제목 '좌 · 전군 배치', 칸 능력 한 줄, 선호 · 어색은 병종 칩, 설명 글 · 기술 글 뺌, 손패는 6칸 작은 격자
 	var run: Run = gs.run
 	var s: Dictionary = DB.FORM[run.form].slots[i]
 	var line: String = s.line
 	var ln: Dictionary = DB.D.LINE[line]
 	var cur = run.board[i]
-	var b := gs.open_sheet("%s 배치" % UI.pos_name(line, s.col))
-	b.add_child(UI.hint("%s · %s — 공격 %d%% · 방어 %d%% · 책략 %d%% · 피격 %d순위" % [line, s.side, roundi(ln.atk * 100), roundi(ln["def"] * 100), roundi(ln["int"] * 100), ln.pri]))
-	var pref := []
-	var bad := []
+	var side: String = ["좌", "중앙", "우"][clampi(int(s.col), 0, 2)]
+	var b := gs.open_sheet("%s · %s 배치" % [side, line])
+	b.add_child(UI.rich("[color=#8D7B5C]공격[/color] %d%%   [color=#8D7B5C]방어[/color] %d%%   [color=#8D7B5C]책략[/color] %d%%   [color=#8D7B5C]피격[/color] %d순위" % [
+		roundi(ln.atk * 100), roundi(ln["def"] * 100), roundi(ln["int"] * 100), ln.pri], 13))
+	var zr := UI.flow(5)
 	for t in DB.D.TAGORDER:
 		var z := DB.aff_of(t, line, s.side)
-		if z == "pref":
-			pref.append("%s(%s)" % [t, UI.aff_desc(t, "pref")])
-		elif z == "bad":
-			bad.append("%s(%s)" % [t, UI.aff_desc(t, "bad")])
-	b.add_child(UI.rich("[color=#8fd4c2]선호[/color] %s\n[color=#e0806f]어색[/color] %s" % [", ".join(pref) if pref else "없음", ", ".join(bad) if bad else "없음"], 14))
+		if z == "":
+			continue
+		var col := DB.PAL.jade if z == "pref" else DB.PAL.seal
+		var chip := UI.lbl(("▲ " if z == "pref" else "▼ ") + t, 12, col.lightened(0.25), true)
+		var pc := PanelContainer.new()
+		pc.add_theme_stylebox_override("panel", UI.flat(Color(col, 0.18), col, 1, 10, 4))
+		pc.add_child(chip)
+		zr.add_child(pc)
+	b.add_child(zr)
 	if cur != null:
-		var c: Dictionary = DB.C[cur]
 		var cv := UI.vbox(8)
 		cv.add_child(gs.tile(cur))
 		var inn = Run.innate_item(cur)
 		var it = run.item_of_slot(i)
 		var iv := UI.hbox(8)
 		if inn != null:
-			iv.add_child(UI.hint("🔒 %s 내장 — 탈착할 수 없다 · 효과 ×%s" % [DB.IT[inn].name, Battle.MYTH_AMP]))
+			iv.add_child(UI.hint("🔒 %s 내장" % DB.IT[inn].name))
 		else:
-			var ib := UI.btn("아이템: %s" % DB.IT[it].name if it != null else "아이템 장착", func(): item_sheet(i), "", 46)
+			var ib := UI.btn("아이템: %s" % DB.IT[it].name if it != null else "아이템 장착", func(): item_sheet(i), "", 42)
 			ib.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			iv.add_child(ib)
 		var ub := UI.btn("내리기", func():
 			gs.close_sheet()
-			gs.act("unplace", [i]), "ghost", 46)
+			gs.act("unplace", [i]), "ghost", 42)
 		ub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		iv.add_child(ub)
 		cv.add_child(iv)
-		if c.sk:
-			cv.add_child(UI.hint("『%s』 %s —— %s" % [c.sk.n, DB.sk_when(c.sk), DB.skill_desc(c)]))
-		b.add_child(UI.panel(cv, 10))
+		b.add_child(UI.panel(cv, 8))
 	var keys := Run.sort_cards(run.inv.keys())
 	if keys.is_empty():
-		b.add_child(UI.hint("배치할 카드가 없다."))
 		return
-	b.add_child(UI.eyebrow("손패에서 고르기"))
-	var f := gs.tiles()
+	b.add_child(UI.eyebrow("손패"))
+	var f := UI.grid(56, 5)
+	f.max_cols = 6
 	for k in keys:
-		var t := gs.tile(k, run.inv[k], func(id):
+		var t := gs.mtile(k, run.inv[k], func(id):
 			gs.close_sheet()
 			gs.act("place", [i, id]))
+		t.custom_minimum_size = Vector2(56, 84)
 		var z := DB.aff_of(DB.C[k].tag, line, s.side)
 		if z != "":
-			t.mark = z
-			t.note = "%s · %s" % ["선호" if z == "pref" else "어색", UI.aff_desc(DB.C[k].tag, z)]
-			t.note_col = DB.PAL.jade if z == "pref" else DB.PAL.seal
+			t.badge = "▲" if z == "pref" else "▼"
+			t.badge_col = Color(DB.PAL.jade, 0.95) if z == "pref" else Color(DB.PAL.seal, 0.95)
 		f.add_child(t)
 	b.add_child(f)
 
