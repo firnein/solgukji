@@ -120,12 +120,13 @@ var follow: Squad = null
 var flat: DotView = null    # 점묘 전장 —— 있으면 화면 좌표를 이것이 정한다 (3D 는 계산만)
 var _cam_attr: CameraAttributesPractical      # 먼 곳 흐림 (고품질만)
 const SHOW_BANNERS := false # 부대 깃발 —— 10/31 사용자: 뺀다 (화면이 정신없다)
-const AUTO_MARGIN := 0.72   # 11/4 사용자: 압도적인 스케일 —— 멀리서 넓게 (0.88) · # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
+const AUTO_MARGIN := 0.7   # 11/4 사용자: 압도적인 스케일 —— 멀리서 넓게 (0.88) · # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
 ## 11/4 사용자: 세로 화면에서 대각선 구도는 화면 대부분이 배경 —— 세로일 때는 아군 6시 · 적 12시로 (싸움 줄이 화면 세로를 채운다)
 const PORTRAIT_YAW := 0.0      # 11/4 사용자: 좌우로 나눈다 —— 아군 왼쪽 · 적 오른쪽, 맞붙는 줄이 화면 세로를 채운다 (0 이면 아군 아래 · 적 위)
 func base_yaw() -> float:
 	return 0.0      # 11/4 군주의 시야 —— 늘 아군 뒤에서 적 쪽 (세로 · 가로 모두)
-const LORD_PITCH := 0.52
+const LORD_PITCH := 0.46      # 개전 —— 군주의 시야 (우리 군 바로 뒤 낮게)
+const WALL_PITCH := 0.68      # 교전 —— 성벽 위 시점
 
 const BASE_YAW := -0.7854     # 기본 구도 —— 아군 7시 · 적 1시 대각선 (리그오브레전드 쪽, 10/31 사용자). 0 이면 아군 6시 · 적 12시
 const AUTO_MIN := 22.0      # 자동 카메라 최소 거리 (예전 30)
@@ -1016,6 +1017,16 @@ func _process_inner(dt: float) -> void:
 	if _manual > 0:
 		_manual -= dt
 	elif director and _intro <= 0 and _cine <= 0 and not order.is_empty() and Engine.get_process_frames() % 3 == 0:
+		# 11/4 사용자 (C안): 개전은 군주의 시야(낮게), 맞붙은 부대가 늘수록 성벽 위 시점(높게)으로 천천히
+		var live := 0
+		var touch := 0
+		for q in order:
+			if q.alive:
+				live += 1
+				if q.contact:
+					touch += 1
+		var hot := clampf(float(touch) / maxf(1.0, live * 0.4), 0.0, 1.0)
+		want_pitch = lerpf(want_pitch, lerpf(LORD_PITCH, WALL_PITCH, hot), 0.04)
 		_auto_frame()       # 세 프레임에 한 번 —— 카메라는 어차피 천천히 따라간다
 	_update_cam(dt)
 	for n in fx_nodes:
