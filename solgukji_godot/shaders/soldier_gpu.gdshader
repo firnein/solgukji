@@ -98,11 +98,17 @@ void vertex() {
 	bool moving0 = t2.y > 0.5;
 	// 군중 —— 늘 조금씩 움직인다. 걸을 때는 앞뒤로 처지고, 싸울 때는 크게 흔들린다
 	float wt = clock * (fighting ? 1.3 : 0.5) + seed * 40.0;
-	float wamp = (fighting ? 0.8 + 1.4 * loose : (moving0 ? 0.55 : 0.35)) * mix(0.5, 1.0, min(squeeze.x, squeeze.y));
+	float wamp = (fighting ? 1.1 + 1.4 * loose : (moving0 ? 0.6 : 0.5)) * mix(0.5, 1.0, min(squeeze.x, squeeze.y));      // 11/4 저녁 북적임: 더 크게 움직인다
 	vec2 wander = vec2(sin(wt * 1.7 + seed * 13.0) + 0.5 * sin(wt * 0.6 + seed * 3.0), cos(wt * 1.3 + seed * 29.0)) * sp * wamp;
 	p += wander;
 	if (moving0) p -= fwd * hash(seed * 15.3) * sp * 1.6 * (0.4 + rk / rows);      // 걸음이 느린 병사는 처진다
 	if (contact && rk < 3.0) p += fwd * sp * (1.0 - rk * 0.3) * (0.4 + loose * 1.2) * (0.6 + 0.8 * hash(seed * 21.1));  // 앞줄이 불룩하게 밀고 들어간다
+	// 11/4 저녁 북적임 —— 앞 세 줄의 4할은 대열을 벗어나 전선에서 뒤엉켜 싸운다 (제자리를 느리게 돌며 적 쪽으로 더 깊이)
+	float brawl = hash(seed * 23.9);
+	if (contact && rk < 3.0 && brawl < 0.4) {
+		float ba = brawl * 15.7 + clock * (0.5 + brawl) * (hash(seed * 27.1) - 0.5);
+		p += rot(vec2(1.0, 0.0), ba) * sp * (1.0 + 2.0 * hash(seed * 29.3)) + fwd * sp * (0.8 + 1.4 * hash(seed * 31.7));
+	}
 	// 공격 (11/3 사용자: 물리 유닛이 어색하다) —— 앞 세 줄이 제 박자로: 뒤로 젖혀 힘을 모았다가(windup) 몸을 던져 내지르고(strike) 천천히 돌아온다
 	bool fighting3 = contact && rk < 3.0;
 	float period = (0.9 + hash(seed * 5.7) * 1.0) * (1.0 + rk * 0.35);

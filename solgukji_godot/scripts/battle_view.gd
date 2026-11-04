@@ -995,7 +995,7 @@ func _ambient_fire() -> void:
 			continue
 		if clock < ambient.get(sq.key, 0.0):
 			continue
-		ambient[sq.key] = clock + rng.randf_range(2.2, 3.6)
+		ambient[sq.key] = clock + rng.randf_range(1.4, 2.4)      # 11/4 저녁 북적임: 자유 사격 더 잦게 (2.2~3.6)
 		var p: Array = plans.get(sq.key, [])
 		if p.is_empty() or not field.squads.has(p[0][1]) or not field.squads[p[0][1]].alive:
 			continue
@@ -1367,10 +1367,9 @@ func _do_rout(u: int) -> void:
 	var sq: Squad = field.squads.get(key)
 	hud.float_text(key, "궤멸" if sq and sq.troops <= 0 else "패주!", Color("#ff6b57"), 16)
 	# 11/4 격파 연출 —— 적 장수가 무너지면 메달이 깨지며 "격파!", 카메라가 그쪽으로 잠깐 당겨진다 (4초에 한 번)
-	if sq and sq.camp == "B" and not finished:
+	if sq and sq.camp == "B" and not finished and sq.tier >= 3:      # 병졸 부대는 메달 연출 없이 (큰 검은 원만 남았다)
 		hud.kill_mark(sq)
-		if sq.tier >= 3:
-			impact(0.1, 0.5)
+		impact(0.1, 0.5)
 		if _kill_cd <= 0 and speed > 0 and field.follow == null and sq.tier >= 3 and field._cine <= 0:
 			_kill_cd = 4.0
 			field.cinematic(sq, 0.7)

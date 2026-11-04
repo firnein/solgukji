@@ -27,8 +27,8 @@ const COUNT := {1: 34, 2: 38, 3: 43, 4: 57, 5: 80, 6: 109, 7: 137, 8: 172}     #
 ## 11/4 사용자: 압도적인 스케일 —— 병사를 작게 · 간격도 그만큼 (넓은 땅 위의 큰 군세로 보이게)
 const SCALE_BODY := 0.72
 const SCALE_SP := 1.0      # 11/4 사용자: 간격만 넓히면 밀려 번진다 —— 간격은 보통으로, 대신 대열 칸(RS · CS)을 키웠다
-const MAX_W := 205.0     # 부대 폭 상한 (px) —— 옆 부대 간격(CS 220) 안
-const PER_PV := 3.9      # PV 1 당 병사 수 (11/4)
+const MAX_W := 220.0     # 11/4 저녁 북적임: 옆 부대와 맞닿게 (205 → 220 = CS)     # 부대 폭 상한 (px) —— 옆 부대 간격(CS 220) 안
+const PER_PV := 5.5      # PV 1 당 병사 수 (11/4 3.9 → 저녁 5.5: 북적이게 —— 전장이 성글었다)
 ## 등급별 병사 몸집 · 간격 배율 —— 초월 위는 정예라 크고 넓게 선다
 const TIER_SIZE := {6: 1.1, 7: 1.2, 8: 1.32}
 ## 장수 인형 크기
@@ -174,7 +174,7 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	fwd = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 	# 11/4 사용자: 병사 수는 PV 에 비례 (신화 PV 155 ≈ 600명 → 1 PV ≈ 3.9명: 고급 약 22 · 희귀 52 · 전설 150 · 초월 350 · 불멸 470명)
 	var pv: float = float(DB.C[r.id].pv) if r.has("id") and DB.C.has(r.id) else float(COUNT[tier])
-	var n: int = clampi(roundi(pv * PER_PV * count_scale * (1.0 if gpu else CPU_SHARE)), 12, 900)     # GPU 칸 번호는 1024 안 (셰이더 인코딩)
+	var n: int = clampi(roundi(pv * PER_PV * count_scale * (1.0 if gpu else CPU_SHARE)), 12, 1000)     # GPU 칸 번호는 1024 안 (셰이더 인코딩)
 	match cls:
 		"cav":
 			n = maxi(12, int(n * 0.75))

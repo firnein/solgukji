@@ -102,6 +102,8 @@ var _cine := 0.0            # 고유기 카메라 연출이 남은 시간 (실�
 var _cine_back := []        # 연출 전 카메라 [대상, 거리, 높이각]
 var director := true        # 자동 카메라 —— 살아 있는 부대가 화면에 꽉 차게 따라간다
 var _manual := 0.0          # 손으로 카메라를 움직인 뒤 자동 카메라가 쉬는 시간 (실시간)
+var _dir_sq: Squad = null    # 감독 카메라가 보는 부대 (11/4 저녁)
+var _dir_until := 0.0
 const MANUAL_HOLD := 5.0
 var track_mode := false    # 실시간 엔진 전투 —— 부대가 엔진 위치 기록을 따른다 (follow_track)
 var _model_q := -1          # 몸통을 구운 품질 단계
@@ -120,7 +122,7 @@ var follow: Squad = null
 var flat: DotView = null    # 점묘 전장 —— 있으면 화면 좌표를 이것이 정한다 (3D 는 계산만)
 var _cam_attr: CameraAttributesPractical      # 먼 곳 흐림 (고품질만)
 const SHOW_BANNERS := false # 부대 깃발 —— 10/31 사용자: 뺀다 (화면이 정신없다)
-const AUTO_MARGIN := 0.88   # 11/4 사용자: 압도적인 스케일 —— 멀리서 넓게 (0.88) · # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
+const AUTO_MARGIN := 0.72   # 11/4 저녁 북적임: 조금 더 바짝 (0.88 → 0.82)   # 11/4 사용자: 압도적인 스케일 —— 멀리서 넓게 (0.88) · # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
 ## 11/4 사용자: 세로 화면에서 대각선 구도는 화면 대부분이 배경 —— 세로일 때는 아군 6시 · 적 12시로 (싸움 줄이 화면 세로를 채운다)
 const PORTRAIT_YAW := 0.0      # 11/4 사용자: 좌우로 나눈다 —— 아군 왼쪽 · 적 오른쪽, 맞붙는 줄이 화면 세로를 채운다 (0 이면 아군 아래 · 적 위)
 func base_yaw() -> float:
@@ -130,7 +132,9 @@ const WALL_PITCH := 0.68      # 교전 —— 성벽 위 시점
 
 const BASE_YAW := -0.7854     # 기본 구도 —— 아군 7시 · 적 1시 대각선 (리그오브레전드 쪽, 10/31 사용자). 0 이면 아군 6시 · 적 12시
 const AUTO_MIN := 22.0      # 자동 카메라 최소 거리 (예전 30)
-const CORE_SHARE := 0.75     # 자동 카메라가 담는 부대 몫 (가운데에서 가까운 순)
+const DIRECTOR_HOLD := 5.0    # 감독 카메라가 한 곳을 보는 시간 (전장 초)
+const DIRECTOR_R := 170.0      # 보는 부대 둘레 이만큼(px) 안의 부대까지 담는다
+const CORE_SHARE := 0.25     # 자동 카메라가 담는 부대 몫 (가운데에서 가까운 순) —— 11/4 저녁 북적임: 0.75 → 0.25, 가장 뜨거운 곳 둘레 4~5부대만 담아 화면을 병사로 채운다 (양 끝 부대는 잘려도 된다)
 const HOT_SHARE := 0.6       # 싸우는 부대가 이만큼 넘으면 그쪽만 담는다 (뒤에 처진 궁병 · 책사 하나 때문에 멀어지지 않게)
 ## 11/4 연출 점검: 적이 다 같은 붉은색이라 부대가 구분되지 않았다 —— 병종마다 진영색을 조금 돌린다 (라디안, GPU 병사 셰이더 hue_rot)
 const CLS_HUE := {"cav": 0.16, "ranged": -0.22, "caster": 0.3}      # 처음 0.3 · -0.28 · 0.55 는 청록 · 자홍이 너무 튀었다
@@ -1048,9 +1052,9 @@ func step(dt: float) -> void:
 			_on_impact(sq)
 		# 맞닿은 줄에서는 쉬지 않고 쇠붙이가 부딪치고 흙먼지가 인다
 		if sq.contact and sq.engaged and sq.alive:
-			if rng.randf() < dt * 3.5:
-				_contact_fx(sq, sq.engaged, rng.randf() < 0.3)
-			if rng.randf() < dt * 0.9:
+			if rng.randf() < dt * 5.0:      # 11/4 저녁 북적임 3.5 → 5
+				_contact_fx(sq, sq.engaged, rng.randf() < 0.4)
+			if rng.randf() < dt * 1.6:
 				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5 + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-40, 40), 0.5), "haze", Color("#b09a74"))
 	t = pt("효과생성", t)
 	_duel_t -= dt
@@ -1559,12 +1563,26 @@ func _auto_frame() -> void:
 	var live: Array = order.filter(func(q): return q.alive and q.state != "gone")
 	if live.is_empty():
 		return
-	var cen := Vector2.ZERO
-	for sq in live:
-		cen += sq.pos
-	cen /= live.size()
-	live.sort_custom(func(a, b): return a.pos.distance_squared_to(cen) < b.pos.distance_squared_to(cen))
-	live = live.slice(0, maxi(4, ceili(live.size() * CORE_SHARE)))
+	# 11/4 저녁 북적임 —— '감독' 카메라: 가장 뜨거운 부대 하나를 골라(DIRECTOR_HOLD 초 동안 유지) 그 부대 · 맞붙은 상대 · 그 둘레
+	# DIRECTOR_R 안의 부대만 담는다. 세로 화면에 가로로 긴 전열을 다 담으면 병사가 점이 됐다 —— 양 끝은 잘려도 된다
+	if _dir_sq == null or not _dir_sq.alive or _dir_sq.state == "gone" or clock > _dir_until:
+		var best: Squad = null
+		var bh := -1.0
+		for sq in live:
+			var h: float = sq.hurt * 2.0 + (1.0 if sq.contact else 0.0) + maxf(0.0, 2.0 - (clock - sq.hurt_at)) + sq.tier * 0.08
+			if sq.engaged != null and sq.engaged.alive:
+				h += 0.5 + sq.engaged.hurt
+			if _dir_sq == sq:
+				h += 0.6      # 지금 보던 곳은 조금 더 붙잡는다 (휙휙 바뀌지 않게)
+			if h > bh:
+				bh = h
+				best = sq
+		_dir_sq = best
+		_dir_until = clock + DIRECTOR_HOLD
+	var cen: Vector2 = _dir_sq.pos
+	if _dir_sq.engaged != null and _dir_sq.engaged.alive:
+		cen = (cen + _dir_sq.engaged.pos) * 0.5
+	live = live.filter(func(q): return q == _dir_sq or q == _dir_sq.engaged or q.pos.distance_to(cen) < DIRECTOR_R)
 	for sq in live:
 		var p: Vector2 = sq.pos * S
 		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 0.8
@@ -1663,7 +1681,7 @@ func reset_camera() -> void:
 	cam_dist = 24.0
 	want_t = Vector3(-4, 0, 0)
 	want_yaw = base_yaw()
-	want_pitch = 0.78 if portrait else 0.68     # 11/4 롤백 —— 예전 높이각 —— 우리 군 뒤 낮은 곳에서 적진 쪽을 바라본다 (예전 내려다보기 0.92 · 0.8) (0.78 · 0.68) · 10/31 0.88 높이서 → 11/3 조금 눕혀 군단이 겹쳐 두꺼워 보이게
+	want_pitch = 0.66 if portrait else 0.6     # 11/4 저녁 북적임: 조금 눕혀 가까운 병사는 크게 · 먼 병사는 작게 (0.78 · 0.68) · 11/4 롤백 —— 예전 높이각 —— 우리 군 뒤 낮은 곳에서 적진 쪽을 바라본다 (예전 내려다보기 0.92 · 0.8) (0.78 · 0.68) · 10/31 0.88 높이서 → 11/3 조금 눕혀 군단이 겹쳐 두꺼워 보이게
 	want_dist = 62.0 if portrait else 70.0      # 11/3 입장 끝 거리도 당김 (예전 78 · 86)
 	cam_rate = 0.9
 	_intro = 3.5
@@ -2185,7 +2203,7 @@ func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 			cfx.trace(a, d, "shoot", Color(1.0, 0.86, 0.45))
 		elif not light:
 			cfx.acted(a, d, "shoot")
-		var nshot := 6 if light else (18 if emph else 10)
+		var nshot := 10 if light else (18 if emph else 12)      # 11/4 저녁 북적임: 하늘에 화살이 더
 		if overview and not emph:
 			nshot = 0 if light else 3       # 멀리 볼 때 평타 화살은 거의 안 날린다 (공격 화살표가 알린다)
 		for i in mini(nshot, shooters.size() + 6):       # 평타 화살은 적게
@@ -2269,7 +2287,7 @@ func pull_back(dur: float) -> void:
 	if _cine <= 0:
 		_cine_back = [want_t, want_dist, want_pitch, want_yaw]
 	_cine = dur
-	want_dist = maxf(want_dist, 76.0)
+	want_dist = maxf(want_dist, 56.0)      # 감독 카메라(바짝)에서 물러나는 정도
 	want_pitch = maxf(want_pitch + 0.06, 0.72)      # 숄더뷰 도중이면 낮은 각이 남는다 —— 내려다보는 각으로
 	want_yaw = base_yaw()
 	cam_rate = 2.0
