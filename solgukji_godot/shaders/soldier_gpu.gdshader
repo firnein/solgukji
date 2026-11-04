@@ -274,7 +274,9 @@ void fragment() {
 	}
 	base = mix(base, vec3(1.0, 0.92, 0.85), fl);
 	ALBEDO = base;
-	ROUGHNESS = mix(0.8, mix(0.45, 0.95, brk), step(0.6, vc.b) * (1.0 - COLOR.a));
+	// 11/4 저녁 사용자 "전투 전에도 반짝": 구운 병사는 밝은 정점 색(갑옷 · 살색)이 많아 '쇠' 판정(b > 0.6)으로 번들거려 햇빛 반사가 글리터처럼 깜빡였다 —— 거칠게
+	ROUGHNESS = use_vat ? 0.92 : mix(0.8, mix(0.45, 0.95, brk), step(0.6, vc.b) * (1.0 - COLOR.a));
+	SPECULAR = use_vat ? 0.12 : 0.5;
 	EMISSION = team * team_glow * COLOR.a + vec3(1.0, 0.9, 0.8) * fl * 0.6;
 	RIM = 0.2;
 	RIM_TINT = 0.3;

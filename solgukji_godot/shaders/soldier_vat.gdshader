@@ -67,6 +67,7 @@ void fragment() {
 	base *= 1.0 - v_custom.g;
 	base = mix(base, vec3(1.0, 0.92, 0.85), max(v_custom.b, 0.0));
 	ALBEDO = base;
-	ROUGHNESS = 0.75;
+	ROUGHNESS = 0.92;
+	SPECULAR = 0.12;
 	EMISSION = team * 0.05 * COLOR.a * (1.0 - v_custom.g * 2.0) + vec3(1.0, 0.9, 0.8) * max(v_custom.b, 0.0) * 0.6;
 }
