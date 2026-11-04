@@ -39,7 +39,7 @@ func _ready() -> void:
 	if ResourceLoader.exists(bp):
 		bg = load(bp)
 	_rng.seed = hash(k)
-	Sfx.play("ult")
+	Sfx.play("horn")      # 11/4 마법 같은 ult.wav 대신 뿔나팔
 	if Settings.haptics and OS.has_feature("mobile"):
 		Input.vibrate_handheld(60 if tier >= 8 else 35)
 

@@ -1170,7 +1170,7 @@ func _apply(i: int, quiet := false) -> void:
 		"chain":
 			hud.chain(e)
 			if e.camp == "A" and e.n >= 3:
-				Sfx.play("skill")
+				Sfx.play("horn", -6.0)
 			if e.get("a", "") != "" and field.squads.has(e.a):
 				field.squads[e.a].glow = 1.0
 		"cmd":
@@ -1185,8 +1185,8 @@ func _apply(i: int, quiet := false) -> void:
 func _sound(e: Dictionary) -> void:
 	match e.get("fx", ""):
 		"phys": Sfx.play("crit" if e.get("crit", false) else "hit")
-		"int": Sfx.play("magic")
-		"skill": Sfx.play("crit" if e.get("kind", "") == "phys" else "skill")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
+		"int": pass      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
+		"skill": if e.get("kind", "") == "phys": Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
 		"ult":
 			Sfx.play("horn", -2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
 			Sfx.play("crit", 2.0)
