@@ -76,7 +76,7 @@ void vertex() {
 	float rows = max(1.0, t5.w / max(sp, 0.01));
 	// 병사마다 반응이 다르다 —— 뒷줄 · 가장자리일수록 늦게 따라온다 (돌 때 대열이 휘고, 움직이면 늘어지고, 멈추면 모인다)
 	float edge = abs(slot - rk * cols - half_c) / max(half_c, 1.0);
-	float lag = clamp(1.0 - (rk / rows) * 0.7 - edge * 0.25 - hash(seed * 12.7) * 0.3, 0.08, 1.0);
+	float lag = clamp(1.0 - (rk / rows) * 0.35 - edge * 0.12 - hash(seed * 12.7) * 0.15, 0.45, 1.0);      // 11/4 뒷줄이 덜 처지게 (대열이 길게 늘어졌다)
 	vec2 pos = mix(t6.xy, t0.xy, lag);
 	vec2 fwd = normalize(mix(t6.zw, t0.zw, lag) + vec2(1e-5, 0.0));
 	vec2 rgt = vec2(-fwd.y, fwd.x);

@@ -847,8 +847,10 @@ func _gpu_sync(dt: float) -> void:
 	for row in order.size():
 		var sq: Squad = order[row]
 		sq.shove_v *= shove_k
-		sq.gpos_slow = sq.gpos_slow.lerp(sq.pos, slow_p)
-		sq.gfwd_slow = sq.gfwd_slow.lerp(sq.fwd, slow_f).normalized()
+		# 11/4 사용자: 이동할 때 대열이 길게 늘어진다 (기병 특히) —— 뒷줄이 따라오는 속도를 올린다 (기병은 뭉친 채로 달린다)
+		var fk: float = 7.0 if sq.cls == "cav" else 3.5
+		sq.gpos_slow = sq.gpos_slow.lerp(sq.pos, 1.0 - exp(-dt * fk))
+		sq.gfwd_slow = sq.gfwd_slow.lerp(sq.fwd, 1.0 - exp(-dt * fk * 0.7)).normalized()
 		for sd in sq.moved_figs:
 			for gi in _gidx.get(sd, []):
 				gi[0].set_instance_custom_data(gi[1], Color(row, _gslot(sd), sd.gseed, sd.move_t))
