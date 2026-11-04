@@ -6,9 +6,9 @@ extends Node3D
 ## 병사는 병종마다 MultiMesh 하나로 그린다 (GPU 인스턴싱). 시신·피격 번쩍임은 INSTANCE_CUSTOM 으로 넘긴다.
 
 const S := 0.1
-const GAP := 240.0      # 양군 선봉 사이 (px)
-const RS := 78.0        # 열 간격 (px) —— 부대가 앞뒤로 이어지게
-const CS := 175.0       # 좌·중앙·우 간격 (px) —— 11/4 118 → 175: 넓은 가로줄 대열 (RtBattle.CS 와 같다)
+const GAP := 300.0      # 양군 선봉 사이 (11/4 240 → 300)
+const RS := 150.0      # 11/4 사용자: 대열 칸 자체를 키운다 —— 앞뒤 열 간격 78 → 150 (깊은 부대가 앞뒤로 겹쳐 번졌다)        # 열 간격 (px) —— 부대가 앞뒤로 이어지게
+const CS := 220.0      # 좌 · 중앙 · 우 간격 (11/4 118 → 175 → 220, RtBattle · War3D 같게)
 const TEAM := {"A": Color("#3a6aa6"), "B": Color("#a9443a")}     # 10/31 조금 가라앉힌 진영색
 const ST_COL := {"burn": Color("#ff8a3c"), "flood": Color("#4a9ad4"), "confuse": Color("#b57edc"),
 	"bleed": Color("#c4564a"), "plague": Color("#7fa86b"), "seal": Color("#9a9a9a"),
