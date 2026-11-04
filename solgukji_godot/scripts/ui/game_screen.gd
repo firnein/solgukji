@@ -1733,10 +1733,16 @@ const KIIN_T := 9      # 등급 거르기의 기인 칸
 
 ## 추천 목표 —— 지금 못 만들지만 1~2장만 모자란 조합. 점수 = 등급 · 가진 재료 수 − 모자란 수 (같은 인물은 하나)
 func _forge_goals(lst: Array) -> Array:
+	# 11/4 사용자: 후반에도 이전 · 악진 같은 고급이 추천에 나온다 —— 가진 최고 등급보다 한 단계 넘게 낮은 등급은 빼고 (기인은 전설로 친다)
+	var top := 3
+	for k in run.pool():
+		if DB.C[k].tier >= 3:
+			top = maxi(top, DB.C[k].tier)
+	var min_t := maxi(3, top - 1)
 	var cand := []
 	for r in lst:
 		var out: String = r[0]
-		if run.can_forge(out) or DB.C[out].tier < 3:
+		if run.can_forge(out) or DB.C[out].tier < min_t:
 			continue
 		if DB.C[out].tier >= 8 and run.has_myth():
 			continue
