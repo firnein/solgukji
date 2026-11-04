@@ -1986,35 +1986,12 @@ class Hud extends Control:
 				var since: float = view.clock - sq.act_t
 				if since < CombatFx.ATTACK_HOLD and sq.alive:
 					_act_icon(pill.position + Vector2(w + 7, 6.5), sq.act_kind, a * (1.0 - since / CombatFx.ATTACK_HOLD * 0.6))
-			# 병력 막대
+			# 11/4 저녁 사용자: 전장에는 메달 초상만 —— 병력 · 사기 · 고유기 막대는 뜻이 불분명해 그리지 않는다 (아래 장수 칸에 있다).
+			# br 은 행동 아이콘 · 상태 배지 자리 기준으로만 쓴다
 			var br := Rect2(r.position.x + 3, bar_y, w - 6, 3)
-			draw_rect(br.grow(1), Color(0, 0, 0, 0.65 * a))
-			var hp := clampf(sq.troops / sq.max, 0, 1)
-			var hc := team.lightened(0.2)
-			if hp < 0.3:
-				hc = hc.lerp(Color("#ffd257"), 0.5 + 0.5 * sin(view.clock * 8.0))
-			draw_rect(Rect2(br.position, Vector2(br.size.x * hp, 3)), Color(hc, a))
-			draw_rect(Rect2(br.position, Vector2(br.size.x * hp, 1)), Color(1, 1, 1, 0.35 * a))
-			# 사기 (자세히 볼 때만)
-			if full:
-				var mr := Rect2(br.position + Vector2(0, 4), Vector2(br.size.x, 1.5))
-				draw_rect(mr, Color(0, 0, 0, 0.6 * a))
-				draw_rect(Rect2(mr.position, Vector2(mr.size.x * clampf(sq.morale / 200.0, 0, 1), 2)),
-					Color(DB.PAL.gold if sq.morale > 30 else Color("#a05a2a"), a))
-			elif sq.alive and view.clock - sq.act_t < CombatFx.ATTACK_HOLD:
-				# 작은 이름표 —— 행동 아이콘은 막대 오른쪽
-				_act_icon(Vector2(br.end.x + 6, br.position.y + 1.5), sq.act_kind, a * (1.0 - (view.clock - sq.act_t) / CombatFx.ATTACK_HOLD * 0.6))
-			# 고유기 게이지 —— 초월·불멸·신화. 적 게이지도 보여 준다 (읽고 방진으로 받으라고)
-			var lv := view.unit_live(sq.key)
-			if full and sq.tier >= 6 and lv[1] > 0:
-				var gb := Rect2(br.position + Vector2(0, 6), Vector2(br.size.x, 2))
-				draw_rect(gb.grow(1), Color(0, 0, 0, 0.6 * a))
-				var fullg: bool = lv[0] >= 100
-				var gc := Color("#ffd257") if fullg else Color("#b8902e")
-				if fullg:
-					gc = gc.lerp(Color.WHITE, 0.4 + 0.4 * sin(view.clock * 10.0))
-				draw_rect(Rect2(gb.position, Vector2(gb.size.x * clampf(lv[0] / 100.0, 0, 1), 2)), Color(gc, a))
-			var x := br.position.x + br.size.x + 5
+			if not full and sq.alive and view.clock - sq.act_t < CombatFx.ATTACK_HOLD:
+				_act_icon(Vector2(br.position.x + 6, br.position.y + 1.5), sq.act_kind, a * (1.0 - (view.clock - sq.act_t) / CombatFx.ATTACK_HOLD * 0.6))
+			var x := br.position.x + (br.size.x + 5 if full else 14.0)
 			# 상태 —— 색 동그라미에 첫 글자 (방 · 감 · 화 …)
 			for st in (sq.statuses.slice(0, 2) if full else []):          # 상태는 둘까지만, 자세히 볼 때만 (10/31)
 				var sd: Dictionary = DB.D.STATUS[st]
