@@ -72,7 +72,7 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 ## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
 ## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
 static var tag_roles := true
-const ROLE := {"charge": 2.0, "horse_after": 0.8, "horse_all": 0.9, "int_guard": 0.8, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 1.05,
+const ROLE := {"charge": 2.0, "horse_after": 0.8, "horse_all": 0.9, "int_guard": 0.8, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
 	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 1.6, "schol_heal": 2.5, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.8, "occul_int": 1.35,
 	"schem_morale": 2.2, "schem_int": 1.75}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다

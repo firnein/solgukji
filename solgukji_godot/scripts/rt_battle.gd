@@ -418,6 +418,13 @@ func _move() -> void:
 				if side == 0.0:
 					side = 1.0 if u.slot % 2 == 0 else -1.0
 				dir = (dir + Vector2(-dir.y, dir.x) * side * 0.55 * signf(dir.x if dir.x != 0 else 1.0)).normalized()
+			# 11/4 사용자: 도적은 측면으로 크게 돌아 적 후열에 붙는다 —— 적 무리 옆 바깥 길목(적 폭 + 여유)을 지나 노리는 적 뒤로
+			if u.c.tag == "도적" and dist > 90.0:
+				var way = _flank_way(u, t, foes)
+				if way != null:
+					var wv: Vector2 = way - u.pos
+					if wv.length() > 20.0:
+						dir = wv.normalized()
 			# 앞을 아군이 막고 있으면 옆으로 돌아간다
 			for al in units:
 				if al == u or not al.alive or al.camp != u.camp:
@@ -435,6 +442,22 @@ func _move() -> void:
 			u.ran += step
 		_turn_to(u, to)
 	_separate()
+
+
+## 도적 우회 길목 —— 아직 노리는 적보다 앞(우리 쪽)에 있으면 적 무리 옆 바깥 점, 지나갔으면 null (곧장 친다)
+var _flank := {}        # 유닛 -> 돌아갈 쪽 (+1 · -1), 처음 한 번 정한다
+func _flank_way(u: Unit, t: Unit, foes: Array):
+	var ahead := 1.0 if u.camp == "A" else -1.0       # A 는 +x 로 나아간다
+	if (t.pos.x - u.pos.x) * ahead < 40.0:
+		return null
+	var c := _centroid(foes)
+	if not _flank.has(u):
+		var sd := signf(u.pos.y - c.y)
+		_flank[u] = sd if sd != 0.0 else (1.0 if u.slot % 2 == 0 else -1.0)
+	var half := 0.0
+	for o in foes:
+		half = maxf(half, absf(o.pos.y - c.y))
+	return Vector2(t.pos.x - ahead * 30.0, c.y + _flank[u] * (half + 110.0))
 
 
 func _choose(u: Unit, foes: Array) -> Unit:

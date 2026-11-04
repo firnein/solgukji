@@ -1066,7 +1066,7 @@ func impact(dur: float, kick: float) -> void:
 ## 휘두르는 소리 —— 실제 시간으로 세 번 (슬로모션과 상관없이)
 func _swing_sounds() -> void:
 	for i in 3:
-		get_tree().create_timer(0.05 + i * 0.3).timeout.connect(func(): Sfx.play("skill_2", 2.0, 0.15))
+		get_tree().create_timer(0.05 + i * 0.3).timeout.connect(func(): Sfx.play("hit", 3.0, 0.12))      # 칼 · 창 휘두르는 소리
 	get_tree().create_timer(0.95).timeout.connect(func(): Sfx.play("crit_%d" % (1 + randi() % 4), 4.0))
 
 
@@ -1186,8 +1186,10 @@ func _sound(e: Dictionary) -> void:
 	match e.get("fx", ""):
 		"phys": Sfx.play("crit" if e.get("crit", false) else "hit")
 		"int": Sfx.play("magic")
-		"skill": Sfx.play("skill")
-		"ult": Sfx.play("ult")
+		"skill": Sfx.play("crit" if e.get("kind", "") == "phys" else "skill")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
+		"ult":
+			Sfx.play("horn", -2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
+			Sfx.play("crit", 2.0)
 		"rout": Sfx.play("rout")
 		"heal": Sfx.play("heal")
 		"cmd": Sfx.play("horn")
