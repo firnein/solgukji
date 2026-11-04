@@ -29,7 +29,7 @@ static var ALLY_SEP := 2.7     # 아군 부대끼리 떨어지는 거리 (BODY �
 const CONTACT := 64.0         # 근접 공격이 닿는 중심 거리
 const GAP := 240.0            # 양군 선봉 사이 · 열 간격 · 옆 간격 (War3D 와 같다)
 const RS := 78.0
-const CS := 118.0
+const CS := 175.0      # 11/4 사용자 3번: 옆 부대 간격을 넓혀 넓고 얇은 대열 (118)
 const TAUNT_R := 160.0
 const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
 static var bow_range := 250.0      # 궁병 사거리 (점검 장면이 바꿔 볼 수 있게 static)
@@ -160,7 +160,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 
 
 # ───────── 열 대신 거리 (10/31 사용자: 특기를 거리 기준으로) ─────────
-const NEAR_R := 110.0          # 이 안이면 '같은 열 이웃'
+const NEAR_R := 160.0          # 이 안이면 '같은 열 이웃'
 const FRONT_R := 170.0         # 가장 가까운 적이 이 안이면 '앞에 섰다'
 const BACK_R := 230.0          # 가장 가까운 적이 이 밖이면 '뒤에 섰다'
 

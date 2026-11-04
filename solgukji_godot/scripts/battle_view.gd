@@ -2147,10 +2147,12 @@ class MiniCard extends Control:
 		draw_string(DB.font_body, Vector2(x, 31), state, HORIZONTAL_ALIGNMENT_LEFT, tw, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
 		draw_rect(Rect2(3, bar_y, w - 6, 4), DB.PAL.ink)
 		draw_rect(Rect2(3, bar_y, (w - 6) * clampf(sq.troops / sq.max, 0, 1), 4), War3D.TEAM.A)
+		# 사기 —— 100 이 가득 (예전 /200 이라 평소에 반만 차 보였다), 넘치면 밝게, 30 아래면 붉게 (11/4)
 		draw_rect(Rect2(3, bar_y + 6, w - 6, 2), DB.PAL.ink)
-		draw_rect(Rect2(3, bar_y + 6, (w - 6) * clampf(sq.morale / 200.0, 0, 1), 2), DB.PAL.gold)
+		var mc: Color = Color("#ff6b57") if sq.morale < 30 else (Color("#fff0b0") if sq.morale > 100 else DB.PAL.gold)
+		draw_rect(Rect2(3, bar_y + 6, (w - 6) * clampf(sq.morale / 100.0, 0, 1), 2), mc)
 		var lv := view.unit_live(sq.key)
-		if sq.tier >= 6:
+		if sq.tier >= 6 or DB.is_kiin(sq.cid):
 			draw_rect(Rect2(3, bar_y + 10, w - 6, 3), DB.PAL.ink)
 			draw_rect(Rect2(3, bar_y + 10, (w - 6) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
 			for i in lv[1]:
