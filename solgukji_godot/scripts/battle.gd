@@ -213,6 +213,7 @@ const COLLAPSE_LOST := 5.0 / 9.0
 const COLLAPSE_TROOPS := 0.3
 const COLLAPSE_MORALE := 45.0   # 한 턴(period)마다 깎이는 사기
 const COLLAPSE_ROUT := 3.0      # 총붕괴 진영의 패주 확률 배율
+const COLLAPSE_HOLD_TIER := 7   # 이 등급부터(불멸 · 신화)는 총붕괴에 휩쓸리지 않는다 —— 9부대 중 신화 하나가 남아도 버틴다
 const DECISIVE_T := 45.0
 const DECISIVE_MORALE := 12.0
 const ROUT_SPREAD := 1.5        # 패주 전염 (K.routSame · routOther 배율) —— 한 번 무너지면 줄줄이
@@ -1476,7 +1477,7 @@ func _check_collapse(frac: float) -> void:
 	for cp in ["A", "B"]:
 		if _collapsed[cp]:
 			for u in units:
-				if u.alive and u.camp == cp:
+				if u.alive and u.camp == cp and u.c.tier < COLLAPSE_HOLD_TIER:      # 불멸 · 신화는 홀로 남아도 버틴다 (11/4 사용자)
 					u.morale -= COLLAPSE_MORALE * frac
 			continue
 		if _collapsed[_foe(cp)]:
@@ -1756,7 +1757,7 @@ func _settle(frac: float, final: bool) -> String:
 		p *= 1.0 - mv(u, "rout")
 		p *= 1.0 - _buff_sum(u, "calm")
 		if u.caps.has("유생"): p *= 0.5
-		if _collapsed[u.camp]: p *= COLLAPSE_ROUT
+		if _collapsed[u.camp] and u.c.tier < COLLAPSE_HOLD_TIER: p *= COLLAPSE_ROUT
 		p = 1.0 - pow(1.0 - minf(p, 1.0), frac / turn_mul)     # 턴이 늘어난 만큼 · 나눠 부른 몫만큼 —— 전투 전체로 보면 같은 빈도
 		if rng.randf() < p:
 			if pm >= pt:

@@ -7,3 +7,5 @@ bgm/menu.ogg : Spring Spring "War Theme" https://opengameart.org/content/war-the
 예전 합성 소리는 references/sfx_old (tools/scripts/make_sfx.py 로 다시 만들 수 있다)
 clash_*.ogg : "Medieval Sound Effects - Weapon Impacts" (CC0) https://opengameart.org/content/medieval-sound-effects-weapon-impacts (0.6초씩 잘라 씀, 11/4)
 shout_*.ogg : "Crowd Shouting/Speaking Ambience" (CC0) https://opengameart.org/content/crowd-shoutingspeaking-ambience (4초씩 잘라 씀, 11/4)
+arrow_*.wav : tools/scripts/make_arrow_sfx.py 로 합성 (시위 튕김 + 화살 쉭, 11/4) —— 출처 없음
+shout_*.ogg 는 11/4 사용자 요청으로 전투에서 쓰지 않는다 (비명처럼 들린다)

@@ -727,8 +727,7 @@ func _begin() -> void:
 	finish_t = -1.0
 	running = true
 	Sfx.music("battle")
-	Sfx.play("drums")
-	Sfx.play("shout", 0.0)      # 11/4 개전 함성
+	Sfx.play("drums")      # 11/4 사용자: 함성(shout)은 비명처럼 들려 전투에서 뺀다
 	# 지형 (실시간 엔진) —— 이번 판에 무엇이 깔렸고 무슨 효과인지 한 줄로
 	var tz: Array = res.get("terrain", [])
 	var tline := ""
@@ -981,7 +980,6 @@ func _lead_step() -> void:
 		hud.announce("전세 역전!", Color("#ffd257"))
 		hud.flash(Color(1.0, 0.85, 0.4))
 		Sfx.play("horn", 2.0)
-		Sfx.play("shout", 0.0)
 	else:
 		hud.announce("전세가 기운다…", Color("#ff7a66"))
 		Sfx.play("rout", -4.0)
@@ -1003,6 +1001,7 @@ func _ambient_fire() -> void:
 			continue
 		if sq.cls == "ranged":
 			field.volley(sq.key, [p[0][1]], true)
+			Sfx.play("arrow", -7.0)      # 자유 사격은 작게
 		else:
 			field.cast(sq.key, [p[0][1]], "", true)
 
@@ -1086,6 +1085,7 @@ func _start_group(g: Dictionary) -> void:
 				pending.append(g)
 		"volley":
 			field.volley(g.who, g.targets, false, g.skill != "")
+			Sfx.play("arrow", 2.0 if g.skill != "" else 0.0)      # 11/4 사용자: 궁병 화살 소리 (시위 + 쉭, tools/scripts/make_arrow_sfx.py)
 			_release(g, clock + 0.72)
 		"spell":
 			field.cast(g.who, g.targets, g.st)
@@ -1273,21 +1273,16 @@ func _sound(e: Dictionary) -> void:
 		"int": pass      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
 		"skill": if e.get("kind", "") == "phys": Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
 		"ult":
-			Sfx.play("horn", -2.0)
-			Sfx.play("shout", 2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
+			Sfx.play("horn", -2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
 			Sfx.play("crit", 2.0)
 		"rout":
 			Sfx.play("rout")
-			Sfx.play("shout", -4.0)      # 적을 무너뜨린 함성
 		"collapse":
 			Sfx.play("horn", 3.0)
-			Sfx.play("shout", 3.0)
 			Sfx.play("rout", 2.0)
 		"heal": Sfx.play("heal")
 		"cmd":
 			Sfx.play("horn")
-			if e.get("name", "") == "돌격":
-				Sfx.play("shout")      # 함성
 		"debuff": Sfx.play("debuff")
 		"status", "tick":
 			match str(e.get("st", "")):
