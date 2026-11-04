@@ -120,7 +120,7 @@ var follow: Squad = null
 var flat: DotView = null    # 점묘 전장 —— 있으면 화면 좌표를 이것이 정한다 (3D 는 계산만)
 var _cam_attr: CameraAttributesPractical      # 먼 곳 흐림 (고품질만)
 const SHOW_BANNERS := false # 부대 깃발 —— 10/31 사용자: 뺀다 (화면이 정신없다)
-const AUTO_MARGIN := 0.88  # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
+const AUTO_MARGIN := 0.88   # 11/4 사용자: 압도적인 스케일 —— 멀리서 넓게 (0.88) · # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
 ## 11/4 사용자: 세로 화면에서 대각선 구도는 화면 대부분이 배경 —— 세로일 때는 아군 6시 · 적 12시로 (싸움 줄이 화면 세로를 채운다)
 const PORTRAIT_YAW := 0.0
 func base_yaw() -> float:
@@ -1657,8 +1657,9 @@ func reset_camera() -> void:
 	cam_dist = 24.0
 	want_t = Vector3(-4, 0, 0)
 	want_yaw = base_yaw()
-	want_pitch = 0.78 if portrait else 0.68     # 10/31 0.88 높이서 → 11/3 조금 눕혀 군단이 겹쳐 두꺼워 보이게
-	want_dist = 62.0 if portrait else 70.0      # 11/3 입장 끝 거리도 당김 (예전 78 · 86)
+	want_pitch = 0.92 if portrait else 0.8     # 11/4 더 높이서 내려다본다 (0.78 · 0.68) · 10/31 0.88 높이서 → 11/3 조금 눕혀 군단이 겹쳐 두꺼워 보이게
+	want_dist = 88.0 if portrait else 100.0      # 11/4 사용자: 멀리 · 높이서 (62 · 70 에서)
+	want_dist = want_dist      # 11/3 입장 끝 거리도 당김 (예전 78 · 86)
 	cam_rate = 0.9
 	_intro = 3.5
 	_manual = 0.0
@@ -1774,7 +1775,7 @@ func to_screen(p: Vector2, lift: float) -> Vector2:
 ## 세로 화면 —— 세로 화각을 좁혀 원근 왜곡을 줄인다. 양 날개는 자동 카메라가 거리로 맞춘다
 func set_portrait(on: bool) -> void:
 	if on != portrait and _cine <= 0:
-		want_pitch = 0.78 if on else 0.68
+		want_pitch = 0.92 if on else 0.8
 	portrait = on
 	if _cine <= 0:
 		want_yaw = base_yaw()

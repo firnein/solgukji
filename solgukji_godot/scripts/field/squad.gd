@@ -24,6 +24,9 @@ const CLS := {"창병": "melee", "도적": "melee", "기병": "cav", "궁병": "
 	"책사": "caster", "유생": "caster", "술사": "caster", "모사": "caster"}
 ## 등급별 병사 인형 수 —— 기병은 절반, 지략 계열은 호위대까지 쳐서 절반 남짓
 const COUNT := {1: 34, 2: 38, 3: 43, 4: 57, 5: 80, 6: 109, 7: 137, 8: 172}     # 11/4 사용자: 높은 장수일수록 큰 군세 —— DENSITY 3.5 를 곱해 고급 150 · 희귀 200 · 전설 280 · 초월 380 · 불멸 480 · 신화 600명 (11/3 은 252~525 로 차이가 2배뿐)
+## 11/4 사용자: 압도적인 스케일 —— 병사를 작게 · 간격도 그만큼 (넓은 땅 위의 큰 군세로 보이게)
+const SCALE_BODY := 0.72
+const SCALE_SP := 0.78
 const PER_PV := 3.9      # PV 1 당 병사 수 (11/4)
 ## 등급별 병사 몸집 · 간격 배율 —— 초월 위는 정예라 크고 넓게 선다
 const TIER_SIZE := {6: 1.1, 7: 1.2, 8: 1.32}
@@ -182,8 +185,9 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 		_:
 			sp = 7.0
 			cols = 14
-	sp *= TIER_SIZE.get(tier, 1.0)
-	cols = maxi(cols, roundi(sqrt(n) * (1.5 if cls == "cav" else 1.35)))      # 11/3 병사가 많으면 넓적한 방진으로 (14열 고정이면 긴 뱀이 된다)
+	sp *= TIER_SIZE.get(tier, 1.0) * SCALE_SP
+	# 11/4 사용자: 토탈워 삼국처럼 넓고 얇은 가로줄 —— 폭을 √n × 2.4 (기병 2.6), 깊이는 그만큼 얕게 (예전 × 1.35 · 1.5)
+	cols = maxi(cols, roundi(sqrt(n) * (2.6 if cls == "cav" else 2.4)))
 	for i in n:
 		soldiers.append(_new_soldier(i))
 	_alive = n
@@ -205,7 +209,7 @@ func _new_soldier(i: int) -> Soldier:
 	var s := Soldier.new()
 	s.slot = i
 	s.jit = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * 0.42
-	s.size = _rng.randf_range(0.92, 1.08) * TIER_SIZE.get(tier, 1.0)
+	s.size = _rng.randf_range(0.92, 1.08) * TIER_SIZE.get(tier, 1.0) * SCALE_BODY
 	s.tint = _rng.randf()
 	s.phase = _rng.randf() * TAU
 	s.fall = 1.0 if _rng.randf() < 0.5 else -1.0
