@@ -995,7 +995,7 @@ func _ambient_fire() -> void:
 			continue
 		if clock < ambient.get(sq.key, 0.0):
 			continue
-		ambient[sq.key] = clock + rng.randf_range(1.4, 2.4)      # 11/4 저녁 북적임: 자유 사격 더 잦게 (2.2~3.6)
+		ambient[sq.key] = clock + rng.randf_range(2.2, 3.6)      # 11/4 저녁 북적임으로 1.4~2.4 까지 줄였다가 번쩍거림으로 되돌림
 		var p: Array = plans.get(sq.key, [])
 		if p.is_empty() or not field.squads.has(p[0][1]) or not field.squads[p[0][1]].alive:
 			continue

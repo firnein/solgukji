@@ -669,6 +669,8 @@ func setup(res: Dictionary) -> void:
 ## GPU VAT 병종 읽기 (기병) —— 메시(서 있기 첫 프레임: CPU 쓰러짐용 몸통으로도 쓴다) · 위치/법선 이미지 · 동작 표
 func _load_gvat() -> void:
 	gvat.clear()
+	if OS.get_cmdline_user_args().has("--gnovat"):      # 점검용 —— 구운 병사 끄고 코드 병사로 (비교)
+		return
 	var cache := {}
 	for tag in GPU_VAT_MAP:
 		var name_: String = GPU_VAT_MAP[tag]
@@ -2299,13 +2301,19 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 			continue
 		if not light:
 			cfx.acted(a, d, "cast")          # 책략은 띠 없이 (이름표 아이콘 · 공격 화살표만)
-		for i in 1 if light else 2:
+		# 11/4 저녁 사용자 "번쩍거림" (프레임 간 섬광 지도): 발광 구슬(반지름 0.22, 투구 크기)이 병사 위를 휙휙 지나며 한 프레임씩 보라 원반으로 찍혔다
+		# —— 자유 시전(light)은 구슬 없이(구슬 대신 작은 안개만), 실제 책략은 구슬 하나 · 작게 · 덜 밝게
+		if light:
+			continue      # 자유 시전은 아무 효과 없음 (발광 안개도 병사 위에서 번쩍였다)
+		for i in 1:
 			var orb := MeshInstance3D.new()
 			var sm := SphereMesh.new()
-			sm.radius = 0.22
-			sm.height = 0.44
+			sm.radius = 0.13
+			sm.height = 0.26
 			orb.mesh = sm
-			orb.material_override = _glow_mat(col)
+			var gm := _glow_mat(col)
+			gm.emission_energy_multiplier = 1.0
+			orb.material_override = gm
 			orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			# 11/4 저녁: 구슬의 점광 제거 —— 날아가며 병사 투구를 하얗게 태워 전장이 번쩍였다 (구슬 자체는 발광 재질)
 			fx_root.add_child(orb)
