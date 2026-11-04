@@ -122,7 +122,7 @@ var _cam_attr: CameraAttributesPractical      # 먼 곳 흐림 (고품질만)
 const SHOW_BANNERS := false # 부대 깃발 —— 10/31 사용자: 뺀다 (화면이 정신없다)
 const AUTO_MARGIN := 0.88   # 11/4 사용자: 압도적인 스케일 —— 멀리서 넓게 (0.88) · # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
 ## 11/4 사용자: 세로 화면에서 대각선 구도는 화면 대부분이 배경 —— 세로일 때는 아군 6시 · 적 12시로 (싸움 줄이 화면 세로를 채운다)
-const PORTRAIT_YAW := 0.0
+const PORTRAIT_YAW := -PI / 2.0      # 11/4 사용자: 좌우로 나눈다 —— 아군 왼쪽 · 적 오른쪽, 맞붙는 줄이 화면 세로를 채운다 (0 이면 아군 아래 · 적 위)
 func base_yaw() -> float:
 	return PORTRAIT_YAW if portrait else BASE_YAW
 
