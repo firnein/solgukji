@@ -117,8 +117,11 @@ static var vat_enabled := false      # 11/2 사용자: 창병 원래대로 —�
 var vat_mat := {}           # 병종 -> 재질
 var vat_mesh := {}          # 병종 -> 메시
 ## 11/4 저녁: GPU 병사 셰이더(soldier_gpu)의 VAT 모드로 그리는 병종 —— 기병(Quaternius 말, assets/models/vat/기병_*). vat_enabled 와 무관
-const GPU_VAT := ["기병"]
+## 11/4 저녁: 병종 -> 굽기 이름 (책사 굽기 하나를 지략 넷이 같이 쓴다). "군마" 는 장수 군마 (Models.general 인형 아래 겹쳐 그린다)
+const GPU_VAT_MAP := {"기병": "기병", "창병": "창병", "도적": "도적", "궁병": "궁병", "책사": "책사", "모사": "책사", "술사": "책사", "유생": "책사", "군마": "군마"}
 var gvat := {}              # 병종 -> {mesh, pos, nrm, clips}
+var gh_mmi: MultiMeshInstance3D = null     # 장수 군마 (구운 말, soldier_vat 셰이더 —— CPU 장수와 같은 인스턴스 데이터)
+var _gh_idx := {}           # 장수 인형 -> 군마 인스턴스 번호
 var sprite_mat := {}        # 병종 -> 그림 판 재질
 var _sprite_quad := {}      # 병종 -> 그림 판
 var follow: Squad = null
@@ -593,16 +596,19 @@ func setup(res: Dictionary) -> void:
 	# 병종별 인스턴스 수를 세고 자리를 나눈다
 	var count := {}
 	var wcount := {}
+	_gh_idx.clear()
 	for sq in order:
 		for s in sq.all_figures():
 			var gen: bool = s == sq.general
-			var wk: String = WEAPON.get(sq.tag, "") if gen or not (sprite_mat.has(sq.tag) or vat_mesh.has(sq.tag) or cube_mode) else ""     # 그림 · 구운 병사는 무기가 몸에 있다 (큐브는 무기 없음)
+			var wk: String = WEAPON.get(sq.tag, "") if gen or not (sprite_mat.has(sq.tag) or vat_mesh.has(sq.tag) or gvat.has(sq.tag) or cube_mode) else ""     # 그림 · 구운 병사는 무기가 몸에 있다 (큐브는 무기 없음)
 			var bk: String = sq.tag
 			if gen:
 				bk = "G:" + sq.tag              # 장수는 군마 탄 전용 모델
 				wk = Models.general_weapon(sq.tag)
 				if not body_mesh.has(bk):
-					body_mesh[bk] = Models.general(sq.tag)
+					body_mesh[bk] = Models.general(sq.tag, not gvat.has("군마"))      # 구운 군마가 있으면 인형만 (말은 gh_mmi)
+				if gvat.has("군마"):
+					_gh_idx[s] = _gh_idx.size()
 			var idx: int = count.get(bk, 0)
 			count[bk] = idx + 1
 			var widx := -1
@@ -630,6 +636,27 @@ func setup(res: Dictionary) -> void:
 	for wk in wcount:
 		weapons[wk] = _mm(weapon_mesh[wk], wcount[wk])
 		_bufs[wk] = _new_buf(wcount[wk])
+	# 장수 군마 (구운 말) —— 장수 인형과 같은 변환 · 인스턴스 데이터를 _sync 가 함께 쓴다
+	if gh_mmi != null and is_instance_valid(gh_mmi):
+		gh_mmi.queue_free()
+	gh_mmi = null
+	if gvat.has("군마") and not _gh_idx.is_empty():
+		var g: Dictionary = gvat["군마"]
+		gh_mmi = _mm(g.mesh, _gh_idx.size())
+		var m := ShaderMaterial.new()
+		m.shader = load("res://shaders/soldier_vat.gdshader")
+		m.set_shader_parameter("vat_pos", g.pos)
+		m.set_shader_parameter("vat_nrm", g.nrm)
+		var white := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		white.fill(Color.WHITE)
+		m.set_shader_parameter("palette", ImageTexture.create_from_image(white))
+		m.set_shader_parameter("team_a", TEAM.A)
+		m.set_shader_parameter("team_b", TEAM.B)
+		for c in g.clips:
+			m.set_shader_parameter("clip_" + c, Vector2(g.clips[c][0], g.clips[c][1]))
+		gh_mmi.material_override = m
+		bodies["GH"] = gh_mmi
+		_bufs["GH"] = _new_buf(_gh_idx.size())
 	_entry_of.clear()
 	for e in entries:
 		_entry_of[e[1]] = e
@@ -642,14 +669,22 @@ func setup(res: Dictionary) -> void:
 ## GPU VAT 병종 읽기 (기병) —— 메시(서 있기 첫 프레임: CPU 쓰러짐용 몸통으로도 쓴다) · 위치/법선 이미지 · 동작 표
 func _load_gvat() -> void:
 	gvat.clear()
-	for tag in GPU_VAT:
-		var base: String = VAT_DIR + tag
-		if not ResourceLoader.exists(base + "_mesh.res") or not FileAccess.file_exists(base + ".json"):
+	var cache := {}
+	for tag in GPU_VAT_MAP:
+		var name_: String = GPU_VAT_MAP[tag]
+		if not cache.has(name_):
+			var base: String = VAT_DIR + name_
+			if not ResourceLoader.exists(base + "_mesh.res") or not FileAccess.file_exists(base + ".json"):
+				cache[name_] = null
+			else:
+				var info = JSON.parse_string(FileAccess.get_file_as_string(base + ".json"))
+				cache[name_] = {"mesh": load(base + "_mesh.res"), "pos": ImageTexture.create_from_image(load(base + "_pos.res")),
+					"nrm": ImageTexture.create_from_image(load(base + "_nrm.res")), "clips": info.clips}
+		if cache[name_] == null:
 			continue
-		var info = JSON.parse_string(FileAccess.get_file_as_string(base + ".json"))
-		gvat[tag] = {"mesh": load(base + "_mesh.res"), "pos": ImageTexture.create_from_image(load(base + "_pos.res")),
-			"nrm": ImageTexture.create_from_image(load(base + "_nrm.res")), "clips": info.clips}
-		body_mesh[tag] = gvat[tag].mesh
+		gvat[tag] = cache[name_]
+		if Squad.CLS.has(tag):
+			body_mesh[tag] = gvat[tag].mesh      # CPU 쓰러짐 몸통도 구운 메시(서 있기 첫 프레임)
 
 
 ## 구운 3D 병사 읽기 —— 메시 · 정점 위치/법선 이미지 · 동작 표(json) · 팔레트
@@ -766,7 +801,7 @@ func _gpu_build() -> void:
 	var groups := {}          # 열쇠 -> [[부대 줄, 병사], …]
 	for row in order.size():
 		var sq: Squad = order[row]
-		var wk: String = "" if cube_mode else WEAPON.get(sq.tag, "")
+		var wk: String = "" if cube_mode or gvat.has(sq.tag) else WEAPON.get(sq.tag, "")      # 구운 병종은 무기가 몸에 있다
 		for sd in sq.soldiers:
 			if not groups.has(sq.tag): groups[sq.tag] = []
 			groups[sq.tag].append([row, sd])
@@ -1492,6 +1527,10 @@ func _sync() -> void:
 			flash = -0.7          # 셰이더: b < 0 이면 갑옷 깨짐
 		_put(bbuf, o, b, p, r0, g, flash, step_ph)
 		bufs[e[2]] = bbuf
+		if e[6] and _gh_idx.has(s):
+			var hb: PackedFloat32Array = bufs["GH"]
+			_put(hb, _gh_idx[s] * 16, b, p, r0, g, flash, step_ph)
+			bufs["GH"] = hb
 		if wk != "":
 			var wb: PackedFloat32Array = bufs[wk]
 			var hand: Vector3 = HAND[wk]

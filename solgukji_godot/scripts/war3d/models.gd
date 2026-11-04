@@ -164,6 +164,21 @@ static func sword() -> ArrayMesh:
 	return k.mesh()
 
 
+## 활 —— 손잡이가 원점, 활대는 ±Y, 시위는 -X 쪽 (구운 궁병의 왼손에 붙인다)
+static func bow() -> ArrayMesh:
+	var k := MeshKit.new()
+	var prev := Vector3.ZERO
+	for i in 9:
+		var a := lerpf(-1.2, 1.2, i / 8.0)
+		var q := Vector3(cos(a) * 0.22 - 0.22, sin(a) * 0.62, 0)
+		if i > 0:
+			k.cyl(prev, q, 0.02, WOOD.darkened(0.2), 4)
+		prev = q
+	k.cyl(Vector3(cos(1.2) * 0.22 - 0.22, sin(1.2) * 0.62, 0), Vector3(cos(1.2) * 0.22 - 0.22, -sin(1.2) * 0.62, 0), 0.006, PAPER, 3)
+	k.cyl(Vector3(0, -0.06, 0), Vector3(0, 0.06, 0), 0.028, LEATHER, 4)
+	return k.mesh()
+
+
 static func lance() -> ArrayMesh:
 	var k := MeshKit.new()
 	k.cyl(Vector3(0, -0.9, 0), Vector3(0, 2.9, 0), 0.026, WOOD, 4)
@@ -260,9 +275,10 @@ static func general_weapon(tag: String) -> String:
 	return ""
 
 
-static func general(tag: String) -> ArrayMesh:
+static func general(tag: String, with_horse := true) -> ArrayMesh:
 	var k := MeshKit.new()
-	_warhorse(k)
+	if with_horse:
+		_warhorse(k)      # 11/4 저녁: 구운 군마(assets/models/vat/군마)가 있으면 War3D 가 말을 따로 겹쳐 그린다
 	var caster: bool = Squad.CLS.get(tag, "") == "caster"
 	# 다리 —— 등자에 건 채로 움직이지 않는다
 	for z in [-0.2, 0.2]:

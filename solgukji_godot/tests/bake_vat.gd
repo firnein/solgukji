@@ -10,7 +10,7 @@ const HEIGHT := 1.45
 ## 병종 -> 원본 · 쓸 몸 조각 · 붙일 것 · 동작
 const KIT := {
 	# Mixamo (10/31 사용자가 받음 —— assets_src/mixamo/<병종>/character.fbx + 동작 fbx, 원본은 깃 · APK 제외)
-	"창병": {"mixamo": "창병", "weapon": "spear", "target_tris": 1600, "dye": 0.55, "bright": 1.9,
+	"창병_mixamo": {"mixamo": "창병", "weapon": "spear", "target_tris": 1600, "dye": 0.55, "bright": 1.9,
 		"clips": [["idle", "idle", 6, true], ["walk", "walk", 10, true], ["attack", "attack", 8, false],
 			["hit", "hit", 5, false], ["death", "death", 8, false], ["cheer", "cheer", 6, true]]},
 	# Quaternius "Ultimate Animated Animal Pack" 말 (CC0, assets_src/quaternius/Horse.glb —— poly.pizza 에서 받음, 11/4 저녁 사용자: 무료 모델 에셋)
@@ -18,6 +18,29 @@ const KIT := {
 	"기병": {"glb": "res://assets_src/quaternius/Horse.glb", "height": 2.05, "yaw": PI * 0.5, "target_tris": 1100,
 		"rider_bone": "Torso2", "rider_dy": -0.12, "ride_scale": 1.0, "color_mul": 0.8,
 		"clips": [["idle", "Idle", 6, true], ["walk", "Gallop", 8, true], ["attack", "Attack_Headbutt", 6, false],
+			["hit", "Idle_HitReact_Left", 4, false], ["death", "Death", 6, false], ["cheer", "Idle_2", 6, true]]},
+	# ── 11/4 저녁 사용자 "2 적용": 보병 몸통을 KayKit(CC0) 사람으로 —— GPU 병사 셰이더 VAT 모드(soldier_gpu use_vat).
+	# bake_colors: 팔레트 색을 정점 색으로 굽고 UV 는 비운다(셰이더가 COLOR 만 쓴다). 투구 · 삿갓 · 관 · 무기는 코드 조각을 뼈에 붙인다
+	# (고대 중국풍: 둥근 쇠투구+붉은 술, 삿갓, 관모). 책사 굽기 하나를 책사 · 모사 · 술사 · 유생이 같이 쓴다 (War3D.GPU_VAT_MAP)
+	"창병": {"src": "Knight", "parts": ["Knight_Body", "Knight_Head", "Knight_ArmLeft", "Knight_ArmRight", "Knight_LegLeft", "Knight_LegRight"],
+		"helmet": "steel", "weapon": "spear", "bake_colors": true, "dye_rest": 0.75, "target_tris": 1500,
+		"clips": [["idle", "Idle", 4, true], ["walk", "Walking_A", 8, true], ["attack", "1H_Melee_Attack_Stab", 6, false],
+			["hit", "Hit_A", 4, false], ["death", "Death_A", 6, false], ["cheer", "Cheer", 4, true]]},
+	"도적": {"src": "Rogue_Hooded", "tex": "rogue", "parts": ["Rogue_Body", "Rogue_Head_Hooded", "Rogue_ArmLeft", "Rogue_ArmRight", "Rogue_LegLeft", "Rogue_LegRight"],
+		"weapon": "sword", "bake_colors": true, "dye_rest": 0.65, "target_tris": 1500,
+		"clips": [["idle", "Idle", 4, true], ["walk", "Walking_A", 8, true], ["attack", "1H_Melee_Attack_Slice_Diagonal", 6, false],
+			["hit", "Hit_A", 4, false], ["death", "Death_A", 6, false], ["cheer", "Cheer", 4, true]]},
+	"궁병": {"src": "Rogue", "tex": "rogue", "parts": ["Rogue_Body", "Rogue_Head", "Rogue_ArmLeft", "Rogue_ArmRight", "Rogue_LegLeft", "Rogue_LegRight"],
+		"hat": "satgat", "hat_mesh": "Rogue_Head", "weapon": "bow", "bake_colors": true, "dye_rest": 0.65, "target_tris": 1500,
+		"clips": [["idle", "Idle", 4, true], ["walk", "Walking_A", 8, true], ["attack", "2H_Ranged_Shoot", 6, false],
+			["hit", "Hit_A", 4, false], ["death", "Death_A", 6, false], ["cheer", "Cheer", 4, true]]},
+	"책사": {"src": "Mage", "parts": ["Mage_Body", "Mage_Head", "Mage_ArmLeft", "Mage_ArmRight", "Mage_LegLeft", "Mage_LegRight"],
+		"hat": "gwan", "hat_mesh": "Mage_Head", "bake_colors": true, "dye_rest": 0.7, "target_tris": 1500,
+		"clips": [["idle", "Idle", 4, true], ["walk", "Walking_A", 8, true], ["attack", "Spellcast_Shoot", 6, false],
+			["hit", "Hit_A", 4, false], ["death", "Death_A", 6, false], ["cheer", "Cheer", 4, true]]},
+	# 장수 군마 —— 기수 없이 안장만 (장수 인형은 코드 모델, War3D 가 같은 자리에 겹쳐 그린다)
+	"군마": {"glb": "res://assets_src/quaternius/Horse.glb", "height": 2.25, "yaw": PI * 0.5, "target_tris": 1100, "saddle": true, "color_mul": 0.75,
+		"clips": [["idle", "Idle", 6, true], ["walk", "Gallop", 8, true], ["attack", "Idle", 2, false],
 			["hit", "Idle_HitReact_Left", 4, false], ["death", "Death", 6, false], ["cheer", "Idle_2", 6, true]]},
 	"창병_kaykit": {"src": "Knight", "parts": ["Knight_Body", "Knight_Head", "Knight_ArmLeft", "Knight_ArmRight", "Knight_LegLeft", "Knight_LegRight"],
 		"rigid": ["Knight_Cape", "Round_Shield"], "helmet": "steel", "weapon": "spear",
@@ -94,7 +117,7 @@ func _bake(tag: String, kit: Dictionary) -> void:
 				arr[Mesh.ARRAY_TEX_UV] = null      # 팔레트 안 씀 (CPU 쓰러짐 셰이더의 부위 번호 0 = 몸통)
 				pieces.append({"a": arr, "kind": "skin", "mi": mi, "keep_color": true})
 	else:
-		tex = (load("res://assets_src/kaykit/%s_texture.png" % kit.src.to_lower()) as Texture2D).get_image()
+		tex = (load("res://assets_src/kaykit/%s_texture.png" % kit.get("tex", kit.src.to_lower())) as Texture2D).get_image()
 	tex.decompress()
 	# 쓸 조각 —— 스킨 메시 · 뼈에 붙은 단단한 조각 · 우리가 붙이는 투구 · 무기
 	for n in kit.get("parts", []):
@@ -121,10 +144,39 @@ func _bake(tag: String, kit: Dictionary) -> void:
 		var hm: MeshInstance3D = _mesh(ch, kit.src + "_Helmet")
 		var hb: AABB = hm.transform * hm.get_aabb()
 		pieces.append({"a": _arrays(_helmet(hb)), "kind": "bone", "bone": sk.find_bone("head"), "local": Transform3D(), "keep_color": true})
-	if kit.get("weapon", "") == "spear":
-		var m := Models.spear()
-		var hand := sk.find_bone("handslot.r") if mx == "" else sk.find_bone("mixamorig_RightHand")
-		pieces.append({"a": _scaled(m.surface_get_arrays(0), inv), "kind": "bone", "bone": hand, "local": Transform3D(Basis(), Vector3(0, -0.5 * inv, 0)), "keep_color": true})     # 창 자루가 손 뼈의 +Y 로 (칼과 같은 방향)
+	if kit.get("hat", "") != "":
+		# 삿갓(궁병) · 관모(책사) —— 머리 조각 상자(머리 뼈 기준)에 맞춘다
+		var hm: MeshInstance3D = _mesh(ch, kit.hat_mesh)
+		var hb: AABB = hm.get_aabb()      # 스킨 머리 조각의 상자 —— 뼈대(캐릭터) 좌표
+		var ha: Array = _arrays(_hat(kit.hat, hb))
+		var hinv: Transform3D = sk.get_bone_global_pose(sk.find_bone("head")).affine_inverse()      # 서 있기 첫 프레임 머리 뼈 기준으로
+		var hv: PackedVector3Array = ha[Mesh.ARRAY_VERTEX]
+		var hn: PackedVector3Array = ha[Mesh.ARRAY_NORMAL]
+		for i in hv.size():
+			hv[i] = hinv * hv[i]
+			hn[i] = (hinv.basis * hn[i]).normalized()
+		ha[Mesh.ARRAY_VERTEX] = hv
+		ha[Mesh.ARRAY_NORMAL] = hn
+		pieces.append({"a": ha, "kind": "bone", "bone": sk.find_bone("head"), "local": Transform3D(), "keep_color": true})
+	var wpn: String = kit.get("weapon", "")
+	if wpn != "":
+		var m: ArrayMesh
+		var off := 0.0
+		match wpn:
+			"spear":
+				m = Models.spear()
+				off = -0.5      # 창 자루가 손 뼈의 +Y 로 (칼과 같은 방향)
+			"sword":
+				m = Models.sword()
+			"bow":
+				m = Models.bow()
+		var hand := sk.find_bone("handslot.l" if wpn == "bow" else "handslot.r") if mx == "" else sk.find_bone("mixamorig_RightHand")
+		pieces.append({"a": _scaled(m.surface_get_arrays(0), inv), "kind": "bone", "bone": hand, "local": Transform3D(Basis(), Vector3(0, off * inv, 0)), "keep_color": true})
+	if kit.get("saddle", false):
+		var sk2 := MeshKit.new()
+		sk2.box(Vector3(-0.05, 1.56, 0), Vector3(0.6, 0.05, 0.56), Models.team(0.7))
+		sk2.box(Vector3(-0.05, 1.4, 0), Vector3(0.55, 0.3, 0.52), Models.team(0.55))
+		_attach_design(pieces, sk2.mesh().surface_get_arrays(0), sk, ap, kit, sk.find_bone("Torso2"), sc, lo)
 	if kit.has("rider_bone"):
 		# 코드 기수 + 안장 (Models._rider · _horse 의 안장) —— 완성 좌표(미터, +X 앞, 발끝 원점)로 그려 둔 것을
 		# 서 있기 첫 프레임의 등뼈 자세로 역변환해 붙인다. 그러면 달릴 때 등을 따라 들썩인다
@@ -174,11 +226,19 @@ func _bake(tag: String, kit: Dictionary) -> void:
 				cols.append(pc[i])              # 우리 메시: 정점 색 그대로 (알파 = 세력색)
 				uv2s.append(Vector2.ZERO)
 			else:
-				uv2s.append(Vector2(1, 0))
 				var t := tex.get_pixelv(Vector2i(clampi(int(uv.x * tex.get_width()), 0, tex.get_width() - 1), clampi(int(uv.y * tex.get_height()), 0, tex.get_height() - 1)))
 				var red := t.r > 0.55 and t.r > t.g * 1.7 and t.r > t.b * 1.7
-				# Mixamo 인물은 빨간 칸이 없다 —— 갑옷 전체를 진영색으로 반쯤 물들인다 (kit.dye)
-				cols.append(Color(1, 1, 1, float(kit.get("dye", 1.0 if red else 0.0)) if mx != "" else (1.0 if red else 0.0)))
+				var dye_a: float = float(kit.get("dye", 1.0 if red else 0.0)) if mx != "" else (1.0 if red else 0.0)
+				if kit.get("bake_colors", false):
+					# GPU VAT: 팔레트 색을 정점 색으로 (UV 는 비운다 —— soldier_gpu 는 COLOR 만 쓰고, CPU 쓰러짐 셰이더의 부위 번호 0)
+					uv2s.append(Vector2.ZERO)
+					uvs[uvs.size() - 1] = Vector2.ZERO
+					# 빨간 칸(옷)은 진영색으로, 나머지(갑옷 · 두건 · 로브)도 kit.dye_rest 만큼 물들인다 —— 멀리서 아군 · 적이 갈리게 (11/4 저녁: 은빛 갑옷이 양쪽 다 하얬다)
+					cols.append(Color(t.r, t.g, t.b, maxf(dye_a, float(kit.get("dye_rest", 0.0)))))
+				else:
+					uv2s.append(Vector2(1, 0))
+					# Mixamo 인물은 빨간 칸이 없다 —— 갑옷 전체를 진영색으로 반쯤 물들인다 (kit.dye)
+					cols.append(Color(1, 1, 1, dye_a))
 		var pi = p.a[Mesh.ARRAY_INDEX]
 		if pi:
 			for j in pi:
@@ -275,7 +335,7 @@ func _bake(tag: String, kit: Dictionary) -> void:
 	var f := FileAccess.open(OUT + tag + ".json", FileAccess.WRITE)
 	# 팔레트 텍스처는 게임 폴더로 옮긴다 (assets_src 는 APK 에서 뺀다)
 	var pal: String = OUT + (tag + "_texture.png" if mx != "" else (kit.get("src", "none").to_lower() + "_texture.png"))
-	if glb != "":
+	if glb != "" or kit.get("bake_colors", false):
 		pal = ""
 	elif mx != "":
 		var small := tex.duplicate()
@@ -323,6 +383,47 @@ func _pose(p: Dictionary, sk: Skeleton3D, normal := false) -> PackedVector3Array
 	return out
 
 
+## 완성 좌표(미터, +X 앞, 발끝 원점)로 그린 조각을 서 있기 첫 프레임의 뼈 자세로 역변환해 붙인다 —— 그 뼈를 따라 움직인다
+func _attach_design(pieces: Array, ra: Array, sk: Skeleton3D, ap: AnimationPlayer, kit: Dictionary, bone_i: int, sc: float, lo: float) -> void:
+	var rv: PackedVector3Array = ra[Mesh.ARRAY_VERTEX]
+	var rn: PackedVector3Array = ra[Mesh.ARRAY_NORMAL]
+	ap.play(kit.clips[0][1])
+	ap.seek(0.0, true)
+	var to_char: Transform3D = (sk.get_parent() as Node3D).transform * sk.transform
+	var inv0: Transform3D = (to_char * sk.get_bone_global_pose(bone_i)).affine_inverse()
+	var rot0 := Basis(Vector3.UP, float(kit.get("yaw", PI * 0.5)))
+	for i in rv.size():
+		rv[i] = inv0 * (rot0.inverse() * rv[i] / sc + Vector3(0, lo, 0))
+		rn[i] = (inv0.basis * (rot0.inverse() * rn[i])).normalized()
+	ra[Mesh.ARRAY_VERTEX] = rv
+	ra[Mesh.ARRAY_NORMAL] = rn
+	ra[Mesh.ARRAY_TEX_UV] = null
+	ra[Mesh.ARRAY_TEX_UV2] = null
+	pieces.append({"a": ra, "kind": "bone", "bone": bone_i, "local": Transform3D(), "keep_color": true})
+
+
+## 삿갓(satgat) · 관모(gwan) —— 머리 조각 상자 hb(머리 뼈 기준)에 맞춘다
+func _hat(kind: String, hb: AABB) -> ArrayMesh:
+	var k := MeshKit.new()
+	k.detail = 0.6
+	var c := hb.get_center()
+	var r := maxf(hb.size.x, hb.size.z) * 0.5
+	var top := hb.position.y + hb.size.y
+	match kind:
+		"satgat":
+			# 넓은 삿갓 —— 머리 위 낮은 원뿔, 짚색
+			var o := Vector3(c.x, top - hb.size.y * 0.2, c.z)
+			k.cone(o, o + Vector3(0, r * 0.75, 0), r * 1.45, Color(0.72, 0.6, 0.36, 0.4), 12)      # 알파 0.4: 짚색에 진영색을 조금 (위에서 봐도 아군 · 적이 갈리게)      # 처음 2.2r 은 위에서 보면 원반이 병사를 다 덮었다
+			k.cone(o + Vector3(0, -0.01, 0), o + Vector3(0, r * 0.04, 0), r * 1.5, Color(0.5, 0.4, 0.22, 0), 12)
+		"gwan":
+			# 관모 —— 머리 위 검은 통 + 가로 날개
+			var o := Vector3(c.x, top - hb.size.y * 0.15, c.z)
+			k.cyl(o, o + Vector3(0, r * 0.85, 0), r * 0.6, Models.DARK, 8, r * 0.5)      # 통은 낮게 (처음 1.3 은 실크해트 같았다)
+			k.box(o + Vector3(0, r * 0.85, 0), Vector3(r * 1.7, r * 0.14, r * 0.6), Models.DARK)
+			k.cyl(o, o + Vector3(0, r * 0.12, 0), r * 0.95, Models.DARK, 8)
+	return k.mesh()
+
+
 ## 둥근 쇠 투구 + 붉은 술 —— 원래 투구 상자 hb(머리 뼈 기준)에 맞춘다
 func _helmet(hb: AABB) -> ArrayMesh:
 	var k := MeshKit.new()
@@ -332,7 +433,7 @@ func _helmet(hb: AABB) -> ArrayMesh:
 	var s := r / 0.17
 	var y0 := hb.position.y + hb.size.y * 0.42
 	var o := Vector3(c.x, y0, c.z)
-	k.lathe(o, [Vector2(0.17 * s, 0), Vector2(0.162 * s, 0.07 * s), Vector2(0.14 * s, 0.14 * s), Vector2(0.1 * s, 0.2 * s), Vector2(0.045 * s, 0.24 * s), Vector2(0.0, 0.255 * s)], [Models.STEEL.darkened(0.15), Models.STEEL], 14)
+	k.lathe(o, [Vector2(0.17 * s, 0), Vector2(0.162 * s, 0.07 * s), Vector2(0.14 * s, 0.14 * s), Vector2(0.1 * s, 0.2 * s), Vector2(0.045 * s, 0.24 * s), Vector2(0.0, 0.255 * s)], [Models.team(0.62), Models.team(0.85)], 14)      # 11/4 저녁: 투구를 진영색으로 —— 위에서 보면 투구가 병사의 전부라 은빛이면 아군 · 적이 안 갈렸다
 	k.lathe(o - Vector3(0, 0.01 * s, 0), [Vector2(0.162 * s, 0), Vector2(0.19 * s, 0.015 * s), Vector2(0.185 * s, 0.03 * s)], [Models.GOLD], 14)
 	k.limb(o + Vector3(0, 0.24 * s, 0), o + Vector3(0, 0.36 * s, -0.08 * s), 0.014 * s, 0.04 * s, Models.RED, 6)
 	k.blob(o + Vector3(0, 0.38 * s, -0.11 * s), Vector3(0.04 * s, 0.04 * s, 0.07 * s), Models.RED, 8, 5)

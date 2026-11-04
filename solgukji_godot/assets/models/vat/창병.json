@@ -1,40 +1,40 @@
 {
-	"bright": 1.9,
+	"bright": 1.0,
 	"clips": {
 		"attack": [
-			16,
-			8,
+			12,
+			6,
 			false
 		],
 		"cheer": [
-			37,
-			6,
+			28,
+			4,
 			true
 		],
 		"death": [
-			29,
-			8,
+			22,
+			6,
 			false
 		],
 		"hit": [
-			24,
-			5,
+			18,
+			4,
 			false
 		],
 		"idle": [
 			0,
-			6,
+			4,
 			true
 		],
 		"walk": [
-			6,
-			10,
+			4,
+			8,
 			true
 		]
 	},
-	"frames": 43,
-	"src": "창병",
-	"texture": "res://assets/models/vat/창병_texture.png",
-	"tris": 2104,
-	"verts": 2379
+	"frames": 32,
+	"src": "Knight",
+	"texture": "",
+	"tris": 1500,
+	"verts": 2269
 }

@@ -1,0 +1,40 @@
+{
+	"bright": 1.0,
+	"clips": {
+		"attack": [
+			12,
+			6,
+			false
+		],
+		"cheer": [
+			28,
+			4,
+			true
+		],
+		"death": [
+			22,
+			6,
+			false
+		],
+		"hit": [
+			18,
+			4,
+			false
+		],
+		"idle": [
+			0,
+			4,
+			true
+		],
+		"walk": [
+			4,
+			8,
+			true
+		]
+	},
+	"frames": 32,
+	"src": "Rogue",
+	"texture": "",
+	"tris": 1499,
+	"verts": 2016
+}
