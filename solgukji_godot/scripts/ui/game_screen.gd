@@ -596,7 +596,7 @@ func render(new_page := false) -> void:
 	_render_head()
 	_build_tabbar_badges()
 	var keep := _scroll.scroll_vertical
-	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null) or (page == "war" and run.over == null and online == null and not run.is_tour_phase() and run.last_result == null)      # 전투 탭 —— 진영 그림이 남는 공간을 채운다 (11/4)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
+	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null) or (page == "war" and run.over == null and online == null and not run.is_tour_phase())      # 전투 탭 —— 진영 그림이 남는 공간을 채운다 (11/4)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
 	_scroll.visible = not fixed
 	_fixed.visible = fixed
 	for c in _body.get_children():
@@ -967,7 +967,7 @@ func _page_head(title: String, sub: String) -> Control:
 ## 초상 작은 카드 격자 —— 한 줄에 4장
 ## 징집 화면의 작은 카드 (11/2 사용자: UI 크기를 줄여 한 줄 5장)
 const SMALL := Vector2(68, 96)
-const HAND_TILE := Vector2(46, 62)     # 보유 패 8열 (11/2)
+const HAND_TILE := Vector2(46, 72)     # 보유 패 8열 (11/2 · 11/4 높이 62 → 72)
 
 func minis() -> AutoGrid:
 	return UI.grid(78, 6)       # 10/30 66 → 78: 한 줄 5장 → 4장, 초상을 크게
@@ -1207,8 +1207,8 @@ func _page_draw() -> Control:
 	var inner := UI.vbox(6)
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var keys: Array = Run.sort_cards(p.keys())
-	for grp in [[6, 9, 4, 140.0], [2, 5, 6, 96.0]]:          # [등급 아래, 위, 열, 칸 높이]
-		var g := UI.grid(30, 6 if grp[2] == 4 else 4)
+	for grp in [[6, 9, 3, 172.0], [2, 5, 4, 126.0]]:          # [등급 아래, 위, 열, 칸 높이] —— 11/4 사용자: 카드를 크게 (초월 위 4 → 3열 · 아래 6 → 4열)
+		var g := UI.grid(30, 6)
 		g.max_cols = grp[2]
 		for k in keys:
 			if DB.C[k].tier >= grp[0] and DB.C[k].tier <= grp[1]:
@@ -2019,17 +2019,35 @@ func _page_war() -> Control:
 
 
 func _result_panel() -> Control:
+	# 11/4 사용자: 레이아웃 정리 —— 왼쪽 큰 결과 글자, 오른쪽 전투 이름, 아래 한 줄에 잔존 · 수훈 · 보상 칩
 	var r: Dictionary = run.last_result
-	var col := "#8fd4c2" if r.win else "#e0806f"
-	var s := "[font_size=19][b][color=%s]%s[/color][/b][/font_size]  %s\n잔존 %d부대 대 %d부대 · %d턴" % [
-		col, "무승부" if r.draw else ("승리" if r.win else "패배"), r.title, r.left, r.eLeft, r.turns]
+	var col := Color("#8fd4c2") if r.win else Color("#e0806f")
+	var v := UI.vbox(8)
+	var h := UI.hbox(10)
+	var big := UI.lbl("무승부" if r.draw else ("승리" if r.win else "패배"), 24, col, true)
+	big.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(big)
+	var tl := UI.lbl(str(r.title), 14, DB.PAL.bamboo)
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(tl)
+	v.add_child(h)
+	var chips := UI.flow(6)
+	var add := func(txt: String, c: Color):
+		var pc := PanelContainer.new()
+		pc.add_theme_stylebox_override("panel", UI.flat(Color(c, 0.14), Color(c, 0.6), 1, 10, 5))
+		pc.add_child(UI.lbl(txt, 12, c.lightened(0.2), true))
+		chips.add_child(pc)
+	add.call("잔존 %d : %d" % [r.left, r.eLeft], DB.PAL.bamboo)
 	if r.mvp != "":
-		s += " · 수훈갑 %s" % r.mvp
+		add.call("수훈 %s" % r.mvp, DB.PAL.gold)
 	if run.last_spoil != null:
-		s += "\n[color=#C6AC7C]기본패 %d장 획득[/color]" % run.last_spoil.n
+		add.call("기본패 +%d" % run.last_spoil.n, DB.PAL.jade)
 	if run.ticket_left() > 0:
-		s += "\n[color=#D9A64B]선택권 %d장 — 징집 탭에서[/color]" % run.ticket_left()
-	return UI.panel(UI.rich(s, 15), 14)
+		add.call("선택권 %d" % run.ticket_left(), Color("#d9a64b"))
+	v.add_child(chips)
+	return UI.panel(v, 12)
 
 
 func _bracket() -> Control:

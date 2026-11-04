@@ -72,8 +72,7 @@ func _draw() -> void:
 		var y := sz.y * (i + 0.5) / 6.0
 		draw_line(Vector2(0, y), Vector2(sz.x, y), Color(1, 1, 1, 0.025), 1.0)
 	draw_string(DB.font_bold, Vector2(0, 16), "▲ 적", HORIZONTAL_ALIGNMENT_CENTER, sz.x, 11, Color(DB.PAL.seal, 0.8))
-	for e in layout():
-		_squad(e[0], e[1], e[2], e[3])
+	pass      # 11/4 사용자: 병졸 그림은 그리지 않고 장수 원형 얼굴만 (Medals)
 
 
 ## 칸마다 [중심, 카드, 칸 크기, 번호] —— 뒤 줄부터 (앞 줄이 위에 겹치게)
@@ -124,13 +123,13 @@ class Medals extends Control:
 			var c: Vector2 = e[0]
 			var k: String = e[1]
 			var cell: float = e[2]
-			var r := clampf(cell * 0.16, 11.0, 18.0)
-			var mc := c + Vector2(0, -cell * 0.62)
+			var r := clampf(cell * 0.3, 18.0, 34.0)
+			var mc := c + Vector2(0, -8.0)
 			draw_circle(mc, r + 3.0, Color(0, 0, 0, 0.55))
 			draw_circle(mc, r + 2.0, DB.tier_color(k))
 			draw_circle(mc, r + 0.6, Color("#4f8be0"))
 			Art.draw_face_circle(self, mc, r, k)
 			var nm: String = DB.person(k) if DB.C[k].tier > 2 else DB.C[k].name
 			var f: Font = DB.font_bold
-			draw_string_outline(f, Vector2(mc.x - 50, mc.y + r + 14), nm, HORIZONTAL_ALIGNMENT_CENTER, 100, 11, 4, Color(0, 0, 0, 0.8))
-			draw_string(f, Vector2(mc.x - 50, mc.y + r + 14), nm, HORIZONTAL_ALIGNMENT_CENTER, 100, 11, DB.tier_color(k).lightened(0.3))
+			draw_string_outline(f, Vector2(mc.x - 60, mc.y + r + 17), nm, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, 4, Color(0, 0, 0, 0.8))
+			draw_string(f, Vector2(mc.x - 60, mc.y + r + 17), nm, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, DB.tier_color(k).lightened(0.3))
