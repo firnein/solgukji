@@ -586,8 +586,13 @@ def main():
         if c[2] == 8 and person(c) in NEW_MYTH:
             aura[c[0]] = NEW_MYTH[person(c)][2]
     ladder = fill_ladders(allc)
+    # 11/4 사용자: 전설은 네임드 장수만 있으니 접두어 없이 이름만 ('의절 관우' → '관우'). 기인은 따로 등급이라 칭호를 둔다
+    rename = {c[0]: person(c) for c in allc if c[2] == 5 and c[13] != "kiin" and " " in c[1]}
+    for c in new_cards:
+        if c[0] in rename:
+            c[1] = rename[c[0]]
     out = {"_설명": __doc__.strip(), "cards": new_cards, "recipes": recipes, "skills": SKILL,
-           "retire": retire, "aura": aura, "ults": ULT6, "ladder_from": LADDER_FROM, "ladder": ladder, "items": NEW_ITEMS}
+           "retire": retire, "aura": aura, "ults": ULT6, "ladder_from": LADDER_FROM, "ladder": ladder, "items": NEW_ITEMS, "rename": rename}
     json.dump(out, open(os.path.join(ROOT, "lines.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     # 확인용 —— 관우 줄기
     nm = lambda k: BY_ID[k][1] + str(BY_ID[k][2])

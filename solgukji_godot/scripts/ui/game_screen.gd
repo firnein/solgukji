@@ -1669,8 +1669,8 @@ func _up_row(out: String) -> Control:
 					_back_nav = true
 					card_info(_route.k)
 					return
-				for kk in DB.C:
-					if DB.C[kk].name == me:
+				for kk in DB.C:      # 이름이 같은 카드가 여러 등급에 있을 수 있다 (11/4 전설 이름만) —— 플레이어 카드만
+					if DB.C[kk].name == me and not DB.is_foe(kk):
 						card_info(kk)
 						return
 				close_sheet(), "pri", 48)

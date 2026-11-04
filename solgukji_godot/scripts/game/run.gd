@@ -251,7 +251,15 @@ func gain_item() -> String:
 ## 군세와 상관없이 무작위 셋, 가방에 이미 있는 것은 빼고. 신화는 한 판에 하나뿐이라
 ## 일찍 받은 것으로 빨리 만들지, 3 · 5일차 보급을 기다릴지가 선택이 된다
 func _offer_unique(cand: Array) -> void:
-	cand = cand.filter(func(k): return not bag.has(k))
+	# 11/4 사용자: 가진 유니크는 나오지 않게 —— 가방에 있는 것 + 신화 조합에 써서 장수에게 붙은 것(가진 신화의 재료)
+	var owned := {}
+	for k in bag:
+		owned[k] = true
+	for k in pool():
+		var inn = innate_item(k)
+		if inn != null:
+			owned[inn] = true
+	cand = cand.filter(func(k): return not owned.has(k))
 	var out := []
 	while out.size() < 3 and not cand.is_empty():
 		out.append(cand.pop_at(rng.randi() % cand.size()))
@@ -328,7 +336,7 @@ func recommend_items() -> Array:
 	var used := {}
 	var eq := _nine()
 	var order := ["유니크", "레어", "매직", "일반"]
-	var keep_uniq := not has_myth()
+	var keep_uniq := false      # 11/4 사용자: 자동 배치에 유니크를 먼저 끼운다 (끼워도 가방에 남아 신화 조합에 쓸 수 있다 —— 조합하면 그 칸은 비운다)
 	var slots := []
 	for i in 9:
 		if board[i] != null and innate_item(board[i]) == null:
@@ -395,6 +403,13 @@ func forge(out: String) -> bool:
 		bag[ni] -= 1
 		if bag[ni] <= 0:
 			bag.erase(ni)
+		var left := int(bag.get(ni, 0))      # 조합에 쓴 유니크를 끼고 있던 칸은 비운다 (가방 수보다 많이 끼지 않게)
+		for i in 9:
+			if equip[i] == ni:
+				if left > 0:
+					left -= 1
+				else:
+					equip[i] = null
 	if DB.C[out].tier >= 8:
 		myth_made = true
 	if DB.is_kiin(out):
@@ -733,7 +748,7 @@ func _my_side() -> Dictionary:
 
 
 func _bot_side(pv: float, style: String) -> Dictionary:
-	return bot_side(pv * BOT_PV_MUL, style, phase_idx(), rng)
+	return bot_side(pv * BOT_PV_MUL * (MYTH_BOT_PV if myth_on_board() else 1.0), style, phase_idx(), rng)
 
 
 ## 봇 · 토벌 적 군세 —— 11/2 사용자: 너무 허접하다 → 장비를 끼우고(그 때 보급 등급으로, 사람보다 조금 많이) 덱에 맞는 작전을 쓴다
@@ -789,7 +804,15 @@ func quest_roster():
 ## 11/3 수입을 약 70% 로 줄이며 (DB.ECON) 토벌 황건 편성은 예전 수입에 맞춘 그대로라 —— 적 사기로 낮춘다 (사기는 모든 능력치에, 70 → 0.88배)
 const QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
 func quest_morale_mul() -> float:
-	return float(QUEST_MORALE[clampi(day, 0, 6)]) if DB.ECON_ON else 1.0
+	return (float(QUEST_MORALE[clampi(day, 0, 6)]) if DB.ECON_ON else 1.0) * (MYTH_FOE_MORALE if myth_on_board() else 1.0)
+
+
+## 11/4 사용자: 신화를 만들면 토벌 · 대전이 너무 쉬워진다 —— 신화가 편성에 있으면 토벌 적 사기 · 대전 봇 PV 를 올린다
+const MYTH_FOE_MORALE := 1.35
+const MYTH_BOT_PV := 1.3
+
+func myth_on_board() -> bool:
+	return board.any(func(k): return k != null and DB.C[k].tier >= 8)
 
 
 func quest_name() -> String:

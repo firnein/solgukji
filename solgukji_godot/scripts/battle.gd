@@ -1776,7 +1776,7 @@ func act(u: Unit) -> void:
 	var allies := units.filter(func(o): return o.camp == u.camp)
 	if not foes.any(func(o): return o.alive): return
 	# 고유기 —— 자동 정책이면 준비된 차례에 바로 쓴다 (영리한 AI·사람은 _between 에서 끼어든다)
-	u.gauge = minf(100.0, u.gauge + GAUGE_ACT * (1.2 if u.c.tier >= 8 else 1.0) / gauge_div())
+	u.gauge = minf(100.0, u.gauge + GAUGE_ACT / gauge_div())      # 11/4 신화 1.2배 뺌 (너무 빨랐다)
 	var sk = null
 	var used := false
 	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동.
@@ -2060,7 +2060,7 @@ func _charge(d: Unit, a: Unit, loss: float) -> void:
 	if a.countering and not counter_charge:
 		return
 	d.gauge = minf(100.0, d.gauge + GAUGE_HIT * loss / d.max)
-	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div())
+	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div() * (0.5 if a.c.tag == "기병" else 1.0))      # 11/4 기병은 첫 돌격 · 잦은 타격으로 게이지가 너무 빨리 찼다
 
 
 ## 고유기 게이지가 차는 속도의 나눗수 —— 11/3: 신화 전투(turn_mul 9.8)는 게이지가 판이 끝날 때쯤에야 차서 고유기가 부대당 0.15번뿐이었다.

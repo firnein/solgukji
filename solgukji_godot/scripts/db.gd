@@ -116,6 +116,9 @@ func _load() -> void:
 	for k in LINES.recipes:
 		RECOF[k] = LINES.recipes[k]
 	# 11/2 (5) 줄기 인물의 초월 카드는 적 전용 (토벌 편성이 쓰는 것이 있어 지우지 않는다)
+	for k in LINES.get("rename", {}):        # 11/4 전설은 접두어 없이 이름만
+		if C.has(k):
+			C[k].name = LINES.rename[k]
 	for k in LINES.get("retire", []):
 		C[k].kind = "retired"
 		RECOF.erase(k)
@@ -279,8 +282,9 @@ func _build_skill(tag: String, i: int, tier: int) -> Dictionary:
 
 ## 11/3 일반 기술 —— 삼국지13 · 14 참고: 발동은 어렵게(비용 · 엄격한 조건), 효과는 크게.
 ## 비용 = 충전 몇 번 분량 (삼국지13 채배 소모처럼 큰 기술일수록 비싸다). 위력 배율은 SK_POWER.
-const SK_POWER := {"mult": 2.1, "morale": 1.8, "heal": 1.8, "status": 1.5, "buff": 1.6, "exec": 1.4, "dur": 1}
-const ULT_OVER := 2.0     # 고유기 한 방은 가장 센 일반 기술의 이만큼 이상 (ult_of) —— 11/3 1.5 → 2.0 (고유기가 클라이맥스)
+const SK_POWER := {"mult": 1.7, "morale": 1.5, "heal": 1.5, "status": 1.3, "buff": 1.4, "exec": 1.25, "dur": 1}      # 11/4 사용자: 기술 · 고유기 위력을 낮춘다 (2.1 · 1.8 · 1.8 · 1.5 · 1.6 · 1.4 에서)
+const ULT_POWER := 0.8     # 11/4 사용자: 고유기 타격 · 회복 · 사기 전체 배율 (ult_of)
+const ULT_OVER := 1.7     # 고유기 한 방은 가장 센 일반 기술의 이만큼 이상 (ult_of) —— 11/3 1.5 → 2.0 (고유기가 클라이맥스)
 ## 11/3 등급이 높을수록 충전 속도(RATE 0.25 → 0.45)가 빨라 신화는 부대당 한 판 5번 넘게 터졌다 —— 비용도 등급만큼 올려 2~3번으로
 const SK_COST_TIER := {6: 1.25, 7: 1.45, 8: 1.75}
 const SK_COST := {"front1": 1.6, "back1": 1.6, "front3": 2.0, "back2": 2.0, "denseLine": 2.0, "all": 2.4}
@@ -849,6 +853,10 @@ func ult_of(k: String):
 				comp.buff.amt = comp.buff.amt * s
 			if comp.has("status") and comp.status.k in ["burn", "bleed", "flood", "plague"]:
 				comp.status.val = comp.status.val * s
+	for comp in u.eff:
+		for key in ["mult", "heal", "morale"]:
+			if comp.has(key):
+				comp[key] = comp[key] * ULT_POWER
 	# 11/3 사용자: 일반 기술이 고유기보다 세면 안 된다 —— 고유기 한 방(배율 × 그 등급 전투 turn_mul)이
 	# 그 카드의 가장 센 일반 기술의 ULT_OVER 배 아래면 고유기 타격을 그만큼 올린다
 	var um := 0.0
