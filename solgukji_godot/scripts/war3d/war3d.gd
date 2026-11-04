@@ -2522,7 +2522,7 @@ func _slow_marks() -> void:
 		if br and not sq.armor_broken:
 			sq.break_t = clock        # 파갑 —— 병사가 잠깐 옅게 번쩍만 (11/3 사용자 2차: 기믹 티를 내지 않는다)
 		sq.armor_broken = br
-		var on: bool = sq.alive and sq.state != "gone" and sq.statuses.has("flood")
+		var on := false      # 11/4 사용자: 수몰 발밑 소용돌이(마법진처럼 보였다)는 뺀다 —— 상태는 머리표 배지로
 		var m: Array = slow_marks.get(sq.key, [])
 		if on and m.is_empty():
 			m = [_slow_decal(_swirl(), 0.0)]
