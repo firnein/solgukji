@@ -866,15 +866,7 @@ func _settings_sheet() -> void:
 		if _battle:
 			_battle.apply_style()
 		_settings_sheet()))
-	var cb := CheckButton.new()
-	cb.text = "직접 지휘 (전투 중 고유기·군령 버튼을 보인다 —— 꺼도 AI 가 알아서 쓴다)"
-	cb.button_pressed = Settings.direct
-	cb.custom_minimum_size = Vector2(0, 52)
-	cb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	cb.toggled.connect(func(on):
-		Settings.direct = on
-		Settings.save_cfg())
-	b.add_child(cb)
+	# 11/4 사용자: 직접 지휘 개념은 없앤다 —— 전투는 늘 AI 가 고유기 · 군령을 쓴다
 	# 소리 크기 —— 끔 · 작게 · 보통 · 크게
 	for which in (["sfx", "bgm"] if Sfx.ENABLED else []):
 		var cur: float = Settings.sfx_vol if which == "sfx" else Settings.bgm_vol
@@ -2104,7 +2096,7 @@ func _start(kind: String) -> void:
 	_hide_report()
 	_battle_layer.visible = true
 	Settings.apply_port(_battle.port)
-	_battle.play(bt, Settings.direct)
+	_battle.play(bt, false)
 
 
 ## 온라인 —— 서버가 계산한 결과를 재생만 한다

@@ -62,6 +62,7 @@ var loss_times := []        # 유닛별 병력 손실이 예정된 행동 시각
 var rout_wait := {}         # 유닛 번호 -> true —— 병력이 다 흘러간 뒤 무너뜨린다
 var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 (점검용)
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
+const CUT_T := 0.95          # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95: 뒤이어 숄더뷰 휘두르기를 보여 준다
 const SLOW := 0.25          # 슬로모션 배속
 ## 11/3 임팩트 프리즈 —— 큰 한 방이 꽂히는 순간 화면 시간을 거의 멈춘다 (판정 · 결과와 상관없는 연출 시계만).
 ## Engine.time_scale 을 건드리면 UI 트윈 · 소리까지 멎어 화면 시계(clock)만 늦춘다
@@ -357,12 +358,13 @@ func _build_side() -> void:
 	auto_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auto_btn.toggled.connect(set_direct)
 	_auto_btn = auto_btn
+	auto_btn.visible = false      # 11/4 사용자: 직접 지휘 개념은 없앤다
 	v.add_child(auto_btn)
 	v.add_child(UI.btn("결과로 건너뛰기", func():
 		set_side_visible(false)
 		skip(), "ghost", 46))
 	var hint := Label.new()
-	hint.text = "장수 카드가 금빛이면 눌러 고유기 · 군령은 포인트 2\n두 손가락: 확대·회전 · 한 손가락: 이동\nPC: 휠 확대 · 오른쪽 끌기·Q/E 회전 · WASD 이동 · 스페이스 일시정지"
+	hint.text = "장수 칸을 누르면 장수 정보\n두 손가락: 확대·회전 · 한 손가락: 이동\nPC: 휠 확대 · 오른쪽 끌기·Q/E 회전 · WASD 이동 · 스페이스 일시정지"
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", DB.PAL.bamboo_dim)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -656,7 +658,7 @@ func request_cmd(name_: String) -> void:
 
 ## 직접 지휘 켜기 · 끄기 —— 버튼만 보이고 숨긴다. 내 쪽 AI(영리)는 그대로 돌고, 누르면 그보다 먼저 쓴다
 func set_direct(on: bool) -> void:
-	direct = on and not locked
+	direct = false and on and not locked      # 11/4 직접 지휘 없음 (점검 화면 main.gd 만 battle.direct 를 직접 켠다)
 	if _cmd_row:
 		_cmd_row.visible = direct
 
@@ -1061,14 +1063,26 @@ func impact(dur: float, kick: float) -> void:
 	hud.flash(Color(1, 0.92, 0.75))        # 꽂히는 순간 화면이 하얗게 번쩍
 
 
+## 휘두르는 소리 —— 실제 시간으로 세 번 (슬로모션과 상관없이)
+func _swing_sounds() -> void:
+	for i in 3:
+		get_tree().create_timer(0.05 + i * 0.3).timeout.connect(func(): Sfx.play("skill_2", 2.0, 0.15))
+	get_tree().create_timer(0.95).timeout.connect(func(): Sfx.play("crit_%d" % (1 + randi() % 4), 4.0))
+
+
 ## 고유기 —— 슬로모션 + 화면 가운데 초상 컷인 + 카메라가 다가간 뒤 대형 이펙트와 함께 터진다
 func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
 	var u: Dictionary = g.ult
 	if speed > 0:
-		slow_t = 1.45
+		slow_t = 2.0      # 11/4 휘두르기 · 날리기까지 슬로모션
 	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false))
-	field.cinematic(sq, 2.2)
+	# 11/4 사용자: 숄더뷰로 다가가 장수가 무기를 크게 휘두르고(효과 · 소리), 적이 날아간 뒤 원래 카메라로
+	field.cinematic(sq, 3.0, true)
+	get_tree().create_timer(CUT_T * 0.7).timeout.connect(func():
+		if is_instance_valid(sq):
+			field.flourish(sq, 1.3)
+			_swing_sounds())
 	spotlight(sq, 1.3)
 	field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
 	g.min_t = clock + ULT_DELAY
@@ -1496,7 +1510,7 @@ class Hud extends Control:
 			stamp_t += dt
 		if cut:
 			cut.t += dt
-			if cut.t > 1.6:
+			if cut.t > CUT_T:
 				cut = null
 		_flash_t += dt
 		if ann:
@@ -1935,7 +1949,7 @@ class Hud extends Control:
 	## 고유기 컷인 —— 어두워진 화면, 비스듬한 먹띠, 미끄러져 들어오는 초상, 도장처럼 박히는 기술명, 외침
 	func _draw_cut() -> void:
 		var t: float = cut.t
-		var fade := clampf(t / 0.12, 0, 1) * clampf((1.6 - t) / 0.3, 0, 1)
+		var fade := clampf(t / 0.12, 0, 1) * clampf((CUT_T - t) / 0.25, 0, 1)
 		if fade <= 0.01:
 			return
 		var foe: bool = cut.camp == "B"

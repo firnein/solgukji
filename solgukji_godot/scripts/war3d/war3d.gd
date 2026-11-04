@@ -984,6 +984,8 @@ func _process_inner(dt: float) -> void:
 			want_t = _cine_back[0]
 			want_dist = _cine_back[1]
 			want_pitch = _cine_back[2]
+			if _cine_back.size() > 3:
+				want_yaw = _cine_back[3]
 			cam_rate = 2.5
 	if active:
 		var mv := Vector3.ZERO
@@ -1431,6 +1433,11 @@ func _sync() -> void:
 		if s.air > 0.0:
 			b = b * Basis(Vector3.BACK, s.spin)     # 날아가며 뒤집힌다
 		var sc: float = Squad.GEN_SIZE.get(sq.tier, 1.3) if e[6] else s.size
+		if e[6] and clock < sq.flourish_t:      # 11/4 고유기 —— 휘두르는 동안 장수가 커지고 떠올라 병사 위로 보인다
+			var fu := clampf((sq.flourish_t - clock) / 0.25, 0.0, 1.0) * clampf(1.0 - (sq.flourish_t - clock - 1.05) / 0.25, 0.0, 1.0)
+			sc *= 1.0 + 0.3 * fu
+			y += 0.25 * fu
+			b = b * Basis(Vector3.UP, sin(clock * 9.0) * 0.6 * fu)
 		b = b * Basis.from_scale(Vector3(sc, sc, sc))
 		var p := Vector3(x, y, z)
 		var r0: float = (0.0 if sq.camp == "A" else 1.0) + s.tint * 0.5
@@ -1489,6 +1496,9 @@ func _sync() -> void:
 
 
 func _weapon_angle(sq: Squad, s, kind: String, alive: bool) -> float:
+	if alive and s == sq.general and clock < sq.flourish_t:      # 고유기 —— 크게 휘두른다 (돌리고 · 내려치고)
+		var u := sq.flourish_t - clock
+		return sin(u * 15.0) * 2.4 - 0.9
 	var front: bool = alive and (s == sq.general or sq.rank_of(s) < 2)
 	var ready: bool = front and (sq.contact or (sq.engaged != null and sq.pos.distance_to(sq.engaged.pos) < 140.0))
 	var a := clampf((clock - s.atk_t0) / Squad.ATTACK_TIME, 0, 1)
@@ -1651,15 +1661,37 @@ func reset_camera() -> void:
 
 
 ## 고유기 카메라 —— 장수 쪽으로 다가갔다가 끝나면 원래 자리로 돌아간다
-func cinematic(sq: Squad, dur: float) -> void:
+func cinematic(sq: Squad, dur: float, shoulder := false) -> void:
 	if _cine <= 0:
-		_cine_back = [want_t, want_dist, want_pitch]
+		_cine_back = [want_t, want_dist, want_pitch, want_yaw]
 	_cine = dur
+	if shoulder:
+		# 11/4 사용자: 고유기는 장수 어깨 너머로 —— 장수 바로 뒤 · 조금 옆에서 적 쪽을 본다
+		var gp: Vector2 = sq.general.pos if sq.general and sq.general.alive else sq.pos
+		var p := p3(gp)
+		want_t = Vector3(p.x, 0, p.z) + Vector3(sq.fwd.x, 0, sq.fwd.y) * 2.5
+		want_yaw = sq.fwd.angle() + 0.42
+		want_dist = 15.0
+		want_pitch = 0.36
+		cam_rate = 6.0
+		return
 	var p := p3(sq.pos)
 	want_t = want_t.lerp(Vector3(p.x, 0, p.z), 0.65)
 	want_dist = minf(want_dist, 52.0)
 	want_pitch = clampf(want_pitch - 0.08, 0.3, 1.2)
 	cam_rate = 3.0
+
+
+## 고유기 무기 휘두르기 —— dur 초 동안 장수 무기가 크게 돌고 불꽃 · 빛이 튄다
+func flourish(sq: Squad, dur: float) -> void:
+	sq.flourish_t = clock + dur
+	var gp: Vector2 = sq.general.pos if sq.general and sq.general.alive else sq.pos
+	var c := p3(gp, 1.6)
+	_light(c, Color(1.0, 0.85, 0.5), 7.0, dur)
+	for i in 3:
+		var a := TAU * i / 3.0
+		_particles(c + Vector3(cos(a), 0.3 * i, sin(a)) * 0.8, "spark", Color("#fff2b0"))
+	_particles(p3(gp, 0.3), "dust", Color("#c8b088"))
 
 
 ## 꾹 누른 부대를 계속 따라간다

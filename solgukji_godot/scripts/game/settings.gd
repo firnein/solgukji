@@ -28,7 +28,7 @@ static func load_cfg() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(PATH) == OK:
 		quality = int(cf.get_value("gfx", "quality", -1))
-		direct = bool(cf.get_value("play", "direct", false))
+		direct = false      # 11/4 직접 지휘 없앰
 		haptics = bool(cf.get_value("play", "haptics", true))
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
 		bgm_vol = float(cf.get_value("sound", "bgm", 0.5))
