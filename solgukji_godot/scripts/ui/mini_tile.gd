@@ -14,6 +14,10 @@ var lit := false          # 금빛 테두리 (지금 조합 가능)
 var up := false             # 오른쪽 위 ▲ —— 지금 조합 가능한 상위 카드의 재료
 var dim := false            # 흐리게 (없는 카드)
 var _press := Vector2.INF
+var drag_data = null        # 있으면 길게 눌러(0.35초) 끌 수 있다 (편성 손패, 11/4)
+var mark := ""              # "sel" —— 고른 카드 (금테)
+var _held := 0.0
+var _dragging := false
 
 
 func setup(id: String, n := -1) -> MiniTile:
@@ -28,13 +32,31 @@ func _gui_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
 			_press = e.position
+			_held = 0.0
+			_dragging = false
 		else:
-			if _press != Vector2.INF and e.position.distance_to(_press) < 14:
+			if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14:
 				UI.buzz()
 				tapped.emit(k)
 			_press = Vector2.INF
 	elif e is InputEventMouseMotion and _press != Vector2.INF and e.position.distance_to(_press) >= 14:
 		_press = Vector2.INF
+
+
+func _process(dt: float) -> void:
+	if drag_data == null or _press == Vector2.INF or _dragging:
+		return
+	_held += dt
+	if _held >= CardTile.HOLD:
+		_dragging = true
+		_press = Vector2.INF
+		var pv := MiniTile.new().setup(k, -1)
+		pv.size = size
+		pv.modulate = Color(1, 1, 1, 0.85)
+		var holder := Control.new()
+		holder.add_child(pv)
+		pv.position = -size / 2
+		force_drag(drag_data, holder)
 
 
 func _draw() -> void:
@@ -49,11 +71,12 @@ func _draw() -> void:
 		return
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = DB.PAL.ink2
-	sb.border_color = DB.PAL.gold if lit else tc.darkened(0.15)
-	sb.set_border_width_all(2 if lit else 1)
+	var on := lit or mark == "sel"
+	sb.border_color = DB.PAL.gold if on else tc.darkened(0.15)
+	sb.set_border_width_all(2 if on else 1)
 	sb.border_width_top = 3
 	sb.set_corner_radius_all(8)
-	if lit:
+	if on:
 		sb.shadow_color = Color(DB.PAL.gold, 0.35)
 		sb.shadow_size = 4
 	draw_style_box(sb, Rect2(Vector2.ZERO, size))

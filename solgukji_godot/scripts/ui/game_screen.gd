@@ -674,7 +674,11 @@ func toast(text: String, kind := "") -> void:
 
 
 func _flush_toasts() -> void:
+	var seen := {}
 	for t in run.toasts:
+		if seen.has(t[0]):      # 같은 알림이 겹쳐 쌓이면 하나만 (11/4)
+			continue
+		seen[t[0]] = true
 		toast(t[0], t[1])
 	run.toasts.clear()
 

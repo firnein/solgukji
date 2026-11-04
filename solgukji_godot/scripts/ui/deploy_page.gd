@@ -21,7 +21,7 @@ func build() -> Control:
 		var fm: Dictionary = DB.FORM[key]
 		var on: bool = key == run.form
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(104, 48)
+		b.custom_minimum_size = Vector2(92, 40)
 		b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else DB.PAL.ink4, 2 if on else 1, 10, 8))
 		b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, DB.PAL.gold if on else DB.PAL.bamboo_dim, 2 if on else 1, 10, 8))
 		b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 2, 10, 8))
@@ -35,8 +35,8 @@ func build() -> Control:
 		mini.offset_right = -6
 		mini.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(mini)
-		var tl := UI.lbl(fm.n, 15, DB.PAL.gold if on else DB.PAL.paper, true)
-		tl.position = Vector2(10, 13)
+		var tl := UI.lbl(fm.n, 14, DB.PAL.gold if on else DB.PAL.paper, true)
+		tl.position = Vector2(9, 10)
 		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(tl)
 		st[1].add_child(b)
@@ -47,11 +47,7 @@ func build() -> Control:
 	var rec := Run.recommend_tac(run.board)
 	tv.add_child(UI.segmented(Run.TACS.keys().map(func(k): return [k, ("작전 " + k) + (" ★" if k == rec[0] else "")]), run.tac, func(k):
 		gs.act("set_tac", [k])))
-	var th := UI.rich("[color=#C6AC7C]%s[/color]
-[color=#8D7B5C]★ 추천 —— 물리 %d · 지략 %d → %s[/color]" % [Run.TACS[run.tac].d, rec[1], rec[2],
-		{"맹공": "돌격이 물리 덱을 키운다", "굳히기": "지략 덱은 버티며 책략을 쌓는 편이 낫다", "균형": "고르게 섞여 균형이 무난하다"}[rec[0]]], 12)
-	tv.add_child(th)
-	v.add_child(tv)
+	v.add_child(tv)      # 11/4 사용자: 징집 · 조합처럼 설명 글은 빼고 공간 확보 (★ = 덱에 맞는 추천)
 
 	# 편성판 —— 화면 위쪽에 고정 (손패에서 길게 눌러 끌어 올 수 있게)
 	var syn := Battle.fac_syn(run.board, run.form)
@@ -140,17 +136,18 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 			sel = ""
 			gs.render(), "ghost", 40))
 		hv.add_child(sh)
-	else:
-		hv.add_child(UI.hint("눌러 고른 뒤 칸을 누르거나, 길게 눌러 칸으로 끈다. 칸을 길게 눌러 이리로 끌면 내린다."))
-	var fl := gs.tiles()
+
+	var fl := UI.grid(56, 5)      # 11/4 사용자: 징집 페이지처럼 한 줄 6칸 작은 칸 격자
+	fl.max_cols = 6
 	for k in keys:
-		var t := gs.tile(k, run.inv[k], func(id):
+		var t := gs.mtile(k, run.inv[k], func(id):
 			if sel == id:
 				gs.card_info(id)
 			else:
 				sel = id
 				gs.render())
 		t.drag_data = {"card": k, "from": -1}
+		t.custom_minimum_size = Vector2(56, 84)
 		if k == sel:
 			t.mark = "sel"
 		fl.add_child(t)
@@ -176,7 +173,7 @@ func _syn(v: VBoxContainer, _syn_unused: Dictionary) -> void:
 		f.n, bn.d if bn else "", " · ".join(bn.tags) if bn else "", DB.D.STATNM.get(bn.stat, "스킬 발동률") if bn else "",
 		roundi(bn.v * 100) if bn else 0, "#8fd4c2" if bn_n else "#e0806f", bn_n], 14)
 	v.add_child(UI.sect("진형 우대", UI.panel(boon)))
-	v.add_child(UI.rich("[color=#8fd4c2]■[/color] 선호  [color=#e0806f]■[/color] 어색 — 칸 테두리 색. 물리 공격은 최전열부터 닿는다.", 13))
+	v.add_child(UI.rich("[color=#8fd4c2]■[/color] 선호  [color=#e0806f]■[/color] 어색", 13))
 
 
 func _items(v: VBoxContainer) -> void:
@@ -186,7 +183,7 @@ func _items(v: VBoxContainer) -> void:
 	for id in bk:
 		iv.add_child(gs.item_box(id, run.bag[id], func(): gs._item_sheet(id)))      # 누르면 아이템 시트 (유니크는 들어가는 신화 장수)
 	v.add_child(iv if not bk.is_empty() else UI.hint("보급품이 없다. 페이즈가 넘어가면 하나씩 지급된다."))
-	v.add_child(UI.hint("편성판의 칸을 눌러 장착한다. 유니크는 신화 장수 조합에 쓰이며, 조합 시 그 장수에게 영구히 장착된다."))
+
 
 
 ## 칸 누름 —— 고른 카드가 있으면 놓고, 없으면 칸 시트
