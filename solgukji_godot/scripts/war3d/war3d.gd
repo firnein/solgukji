@@ -294,7 +294,7 @@ func _environment() -> void:
 	_sun = sun
 	sun.light_color = Color("#efe2c8")
 	sun.light_energy = 1.8
-	sun.shadow_enabled = true
+	sun.shadow_enabled = not OS.get_cmdline_user_args().has("--gnoshadow")      # 점검용 --gnoshadow
 	sun.directional_shadow_max_distance = 240
 	sun.shadow_blur = 1.5
 	add_child(sun)
