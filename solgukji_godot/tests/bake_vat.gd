@@ -435,8 +435,8 @@ func _helmet(hb: AABB) -> ArrayMesh:
 	var o := Vector3(c.x, y0, c.z)
 	k.lathe(o, [Vector2(0.17 * s, 0), Vector2(0.162 * s, 0.07 * s), Vector2(0.14 * s, 0.14 * s), Vector2(0.1 * s, 0.2 * s), Vector2(0.045 * s, 0.24 * s), Vector2(0.0, 0.255 * s)], [Models.team(0.62), Models.team(0.85)], 14)      # 11/4 저녁: 투구를 진영색으로 —— 위에서 보면 투구가 병사의 전부라 은빛이면 아군 · 적이 안 갈렸다
 	k.lathe(o - Vector3(0, 0.01 * s, 0), [Vector2(0.162 * s, 0), Vector2(0.19 * s, 0.015 * s), Vector2(0.185 * s, 0.03 * s)], [Models.GOLD], 14)
-	k.limb(o + Vector3(0, 0.24 * s, 0), o + Vector3(0, 0.36 * s, -0.08 * s), 0.014 * s, 0.04 * s, Models.RED, 6)
-	k.blob(o + Vector3(0, 0.38 * s, -0.11 * s), Vector3(0.04 * s, 0.04 * s, 0.07 * s), Models.RED, 8, 5)
+	# 붉은 술은 뺐다 (11/4 저녁 사용자: "빨간 깔때기") —— 꼭지에 작은 쇠 장식만
+	k.lathe(o + Vector3(0, 0.25 * s, 0), [Vector2(0.03 * s, 0), Vector2(0.02 * s, 0.03 * s), Vector2(0.0, 0.045 * s)], [Models.GOLD], 8)
 	return k.mesh()
 
 

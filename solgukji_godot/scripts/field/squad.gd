@@ -114,6 +114,7 @@ var impact := false       # 이번 프레임에 막 부딪쳤다 (기병 돌격 
 var face_to = null        # 상대가 없을 때 바라볼 곳 (Vector2 또는 null)
 var state := "hold"       # hold / move / flee / gone
 var moving := false
+var move_s := 0.0           # moving 을 부드럽게 따라가는 값(0~1) —— 구운 병사가 걷기 ↔ 서기 자세를 섞는 데 쓴다 (11/4 저녁: 뚝뚝 바뀌어 깜빡였다)
 
 var troops: float
 var max: float
@@ -399,6 +400,7 @@ func update(dt: float, clock: float) -> void:
 				want_dir = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 		_turn_toward(want_dir, dt)
 	pos = keep_in(pos)
+	move_s = move_toward(move_s, 1.0 if moving else 0.0, dt * 4.0)
 	walk_acc += pos.distance_to(pos0) * 0.25      # 11/4 저녁 사용자: 1배속인데 배속 돌린 듯 —— 걸음 박자 0.55 → 0.25 (창병 초당 4.9걸음 → 2.2)
 	if state == "flee":
 		flee_t += dt

@@ -936,7 +936,7 @@ func _gpu_sync(dt: float) -> void:
 		_sq_img.set_pixel(4, row, Color(bfl, sq.flee_t if sq.state == "flee" else 0.0, Squad.TIER_SIZE.get(sq.tier, 1.0), 1.0 if sq.cls == "cav" else 0.0))
 		_sq_img.set_pixel(5, row, Color(sq.loose, 1.0 if sq.camp == "B" else 0.0, clock, sq.depth()))
 		_sq_img.set_pixel(6, row, Color(sq.gpos_slow.x, sq.gpos_slow.y, sq.gfwd_slow.x, sq.gfwd_slow.y))
-		_sq_img.set_pixel(7, row, Color(sq.gsq.x, sq.gsq.y, CLS_HUE.get(sq.cls, 0.0), 0.0))
+		_sq_img.set_pixel(7, row, Color(sq.gsq.x, sq.gsq.y, CLS_HUE.get(sq.cls, 0.0), sq.move_s))
 	_sq_tex.update(_sq_img)
 
 

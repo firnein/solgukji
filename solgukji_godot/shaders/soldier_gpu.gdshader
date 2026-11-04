@@ -11,7 +11,7 @@
 //   4: 파갑 번쩍(0~1), 패주 시간(초, 0 이면 아님), 몸집 배율, 기병(0/1)
 //   5: 흐트러짐(loose), 진영(0 아군 · 1 적), 시계(초), 대열 깊이(px)
 //   6: 늦게 따라오는 위치 x, y · 방향 x, y (병사마다 섞는다 —— 대열이 휘고 늘어진다)
-//   7: 대열 압축 앞뒤, 좌우 (War3D._squeeze —— 옆 부대와 겹치지 않게), 병종 색상 돌림(라디안), 0
+//   7: 대열 압축 앞뒤, 좌우 (War3D._squeeze —— 옆 부대와 겹치지 않게), 병종 색상 돌림(라디안), 움직임 섞기(0~1, Squad.move_s)
 // INSTANCE_CUSTOM (11/3 개정): r = 부대 줄, g = 자리 (음수 숨김 · 자리 + (전 자리+1)×1024), b = 씨앗, a = 자리 옮기기 시작 시각
 shader_type spatial;
 render_mode cull_disabled;
@@ -164,27 +164,30 @@ void vertex() {
 	if (use_vat && !is_weapon) {
 		// 구운 동작: 앞줄 싸움은 공격(서 있기와 섞어 들어가고 나온다) · 움직이면 달리기(걸음 박자) · 아니면 서 있기
 		// 11/4 저녁 사용자 "번쩍번쩍": 맞을 때마다 맞기 동작으로 뚝 바뀌고 공격이 뚝 끊겨 수백 명이 깜빡였다 —— 맞기 동작은 안 쓰고(몸 젖힘만), 공격은 섞는다
-		vec2 clip = clip_idle;
-		float f = fract(clock * 0.3 + seed * 3.0) * clip.y;
-		bool loop = true;
-		float blend = 0.0;      // 서 있기 → 이 동작 섞는 비율
-		if (moving) { clip = clip_walk; f = fract(ph / 6.2831) * clip.y; blend = 1.0; }
-		else if (fighting3 && uu < 1.0) { clip = clip_attack; f = uu * (clip.y - 1.0); loop = false; blend = smoothstep(0.0, 0.15, uu) * (1.0 - smoothstep(0.82, 1.0, uu)); }
-		else { blend = 1.0; }
-		float f0 = floor(f);
-		float fr = f - f0;
-		float f1 = loop ? mod(f0 + 1.0, clip.y) : min(f0 + 1.0, clip.y - 1.0);
 		int id = VERTEX_ID;
-		v = mix(texelFetch(vat_pos, ivec2(id, int(clip.x + f0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip.x + f1)), 0).xyz, fr);
-		nrm = mix(texelFetch(vat_nrm, ivec2(id, int(clip.x + f0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip.x + f1)), 0).xyz, fr);
-		if (blend < 0.999) {
-			float fi = fract(clock * 0.3 + seed * 3.0) * clip_idle.y;
-			float i0 = floor(fi);
-			float i1 = mod(i0 + 1.0, clip_idle.y);
-			vec3 vi = mix(texelFetch(vat_pos, ivec2(id, int(clip_idle.x + i0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip_idle.x + i1)), 0).xyz, fi - i0);
-			vec3 ni = mix(texelFetch(vat_nrm, ivec2(id, int(clip_idle.x + i0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip_idle.x + i1)), 0).xyz, fi - i0);
-			v = mix(vi, v, blend);
-			nrm = mix(ni, nrm, blend);
+		// 서 있기 (바탕)
+		float fi = fract(clock * 0.3 + seed * 3.0) * clip_idle.y;
+		float i0 = floor(fi);
+		float i1 = mod(i0 + 1.0, clip_idle.y);
+		v = mix(texelFetch(vat_pos, ivec2(id, int(clip_idle.x + i0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip_idle.x + i1)), 0).xyz, fi - i0);
+		nrm = mix(texelFetch(vat_nrm, ivec2(id, int(clip_idle.x + i0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip_idle.x + i1)), 0).xyz, fi - i0);
+		// 공격 (앞줄, 들어가고 나올 때 섞는다)
+		if (fighting3 && uu < 1.0) {
+			float fa = uu * (clip_attack.y - 1.0);
+			float a0 = floor(fa);
+			float a1 = min(a0 + 1.0, clip_attack.y - 1.0);
+			float wa = smoothstep(0.0, 0.15, uu) * (1.0 - smoothstep(0.82, 1.0, uu));
+			v = mix(v, mix(texelFetch(vat_pos, ivec2(id, int(clip_attack.x + a0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip_attack.x + a1)), 0).xyz, fa - a0), wa);
+			nrm = mix(nrm, mix(texelFetch(vat_nrm, ivec2(id, int(clip_attack.x + a0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip_attack.x + a1)), 0).xyz, fa - a0), wa);
+		}
+		// 걷기 · 달리기 —— 부대의 움직임 값(0~1, 부드럽게 변한다)만큼 섞는다. 멈추고 서는 순간 자세가 뚝 바뀌지 않게
+		float mv_s = max(sq(row, 7).w, flee > 0.0 ? 1.0 : 0.0);
+		if (mv_s > 0.001) {
+			float fw2 = fract(ph / 6.2831) * clip_walk.y;
+			float w0 = floor(fw2);
+			float w1 = mod(w0 + 1.0, clip_walk.y);
+			v = mix(v, mix(texelFetch(vat_pos, ivec2(id, int(clip_walk.x + w0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip_walk.x + w1)), 0).xyz, fw2 - w0), mv_s);
+			nrm = mix(nrm, mix(texelFetch(vat_nrm, ivec2(id, int(clip_walk.x + w0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip_walk.x + w1)), 0).xyz, fw2 - w0), mv_s);
 		}
 		nrm = normalize(nrm);
 	} else {
@@ -237,7 +240,7 @@ void vertex() {
 	VERTEX = hide ? vec3(0.0, -500.0, 0.0) : o + wp;
 	NORMAL = on;
 	// 번쩍 —— 맞으면 흰빛, 파갑이 터진 순간 · 집중(주인공 부대)도 밝게, 파갑 상태는 음수(녹슨 갑옷)
-	float flash = hurt * 0.35;
+	float flash = hurt * (use_vat ? 0.12 : 0.35);      // 11/4 저녁: 구운 병사는 몸이 커서 하얀 번쩍임이 눈에 띄었다
 	float flags = t3.z;
 	float bflash = t4.x;
 	if (bflash > 0.0) flash = max(flash, 0.18 * bflash);
