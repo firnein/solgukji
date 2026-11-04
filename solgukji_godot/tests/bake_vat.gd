@@ -13,6 +13,12 @@ const KIT := {
 	"창병": {"mixamo": "창병", "weapon": "spear", "target_tris": 1600, "dye": 0.55, "bright": 1.9,
 		"clips": [["idle", "idle", 6, true], ["walk", "walk", 10, true], ["attack", "attack", 8, false],
 			["hit", "hit", 5, false], ["death", "death", 8, false], ["cheer", "cheer", 6, true]]},
+	# Quaternius "Ultimate Animated Animal Pack" 말 (CC0, assets_src/quaternius/Horse.glb —— poly.pizza 에서 받음, 11/4 저녁 사용자: 무료 모델 에셋)
+	# 재질이 색만 있는 모델 —— 정점 색으로 굽고, 코드 기수(Models._rider) · 안장을 등뼈(Torso2)에 붙인다. GPU 병사 셰이더(soldier_gpu)의 VAT 모드로 그린다
+	"기병": {"glb": "res://assets_src/quaternius/Horse.glb", "height": 2.05, "yaw": PI * 0.5, "target_tris": 1100,
+		"rider_bone": "Torso2", "rider_dy": -0.12, "ride_scale": 1.0, "color_mul": 0.8,
+		"clips": [["idle", "Idle", 6, true], ["walk", "Gallop", 8, true], ["attack", "Attack_Headbutt", 6, false],
+			["hit", "Idle_HitReact_Left", 4, false], ["death", "Death", 6, false], ["cheer", "Idle_2", 6, true]]},
 	"창병_kaykit": {"src": "Knight", "parts": ["Knight_Body", "Knight_Head", "Knight_ArmLeft", "Knight_ArmRight", "Knight_LegLeft", "Knight_LegRight"],
 		"rigid": ["Knight_Cape", "Round_Shield"], "helmet": "steel", "weapon": "spear",
 		"clips": [["idle", "Idle", 4, true], ["walk", "Walking_A", 8, true], ["attack", "1H_Melee_Attack_Stab", 6, false],
@@ -36,8 +42,11 @@ func _bake(tag: String, kit: Dictionary) -> void:
 	var ch: Node3D
 	var tex: Image
 	var pieces := []          # [{arrays, kind: "skin" | "bone", mi, bone}]
+	var glb: String = kit.get("glb", "")
 	if mx != "":
 		ch = (load("res://assets_src/mixamo/%s/character.fbx" % mx) as PackedScene).instantiate()
+	elif glb != "":
+		ch = (load(glb) as PackedScene).instantiate()
 	else:
 		ch = (load("res://assets_src/kaykit/%s.glb" % kit.src) as PackedScene).instantiate()
 	add_child(ch)
@@ -66,6 +75,24 @@ func _bake(tag: String, kit: Dictionary) -> void:
 		if tex == null:
 			tex = Image.create(4, 4, false, Image.FORMAT_RGBA8)
 			tex.fill(Color(0.6, 0.6, 0.6))
+	elif glb != "":
+		# 재질마다 면이 나뉘어 있고 색만 있다 —— 면마다 조각, 정점 색 = 재질 albedo (알파 0: 진영색 안 입힘)
+		tex = Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		tex.fill(Color(0.6, 0.6, 0.6))
+		for mi in sk.find_children("*", "MeshInstance3D", true, false):
+			for s in mi.mesh.get_surface_count():
+				var arr: Array = mi.mesh.surface_get_arrays(s)
+				var mat = mi.get_active_material(s)
+				var col := Color(0.6, 0.6, 0.6, 0)
+				if mat is BaseMaterial3D:
+					var cm: float = float(kit.get("color_mul", 1.0))
+					col = Color(mat.albedo_color.r * cm, mat.albedo_color.g * cm, mat.albedo_color.b * cm, 0.0)
+				var pc := PackedColorArray()
+				pc.resize(arr[Mesh.ARRAY_VERTEX].size())
+				pc.fill(col)
+				arr[Mesh.ARRAY_COLOR] = pc
+				arr[Mesh.ARRAY_TEX_UV] = null      # 팔레트 안 씀 (CPU 쓰러짐 셰이더의 부위 번호 0 = 몸통)
+				pieces.append({"a": arr, "kind": "skin", "mi": mi, "keep_color": true})
 	else:
 		tex = (load("res://assets_src/kaykit/%s_texture.png" % kit.src.to_lower()) as Texture2D).get_image()
 	tex.decompress()
@@ -87,7 +114,7 @@ func _bake(tag: String, kit: Dictionary) -> void:
 			for v in _pose(p, sk):
 				lo = minf(lo, v.y)
 				hi = maxf(hi, v.y)
-	var sc := HEIGHT / (hi - lo)
+	var sc: float = float(kit.get("height", HEIGHT)) / (hi - lo)
 	var inv := 1.0 / sc
 	if kit.get("helmet", "") != "":
 		# 원래 투구 자리에 우리 투구를 씌운다 (원래 투구 메시의 상자 —— 머리 뼈 기준)
@@ -98,6 +125,36 @@ func _bake(tag: String, kit: Dictionary) -> void:
 		var m := Models.spear()
 		var hand := sk.find_bone("handslot.r") if mx == "" else sk.find_bone("mixamorig_RightHand")
 		pieces.append({"a": _scaled(m.surface_get_arrays(0), inv), "kind": "bone", "bone": hand, "local": Transform3D(Basis(), Vector3(0, -0.5 * inv, 0)), "keep_color": true})     # 창 자루가 손 뼈의 +Y 로 (칼과 같은 방향)
+	if kit.has("rider_bone"):
+		# 코드 기수 + 안장 (Models._rider · _horse 의 안장) —— 완성 좌표(미터, +X 앞, 발끝 원점)로 그려 둔 것을
+		# 서 있기 첫 프레임의 등뼈 자세로 역변환해 붙인다. 그러면 달릴 때 등을 따라 들썩인다
+		var rk := MeshKit.new()
+		var dy: float = float(kit.get("rider_dy", 0.0))
+		var rs: float = float(kit.get("ride_scale", 1.0))
+		rk.box(Vector3(-0.05, 1.46 + dy, 0), Vector3(0.55, 0.05, 0.52) * rs, Models.team(0.7))
+		rk.box(Vector3(-0.05, 1.3 + dy, 0), Vector3(0.5, 0.3, 0.48) * rs, Models.team(0.55))
+		Models._rider(rk)
+		var ra: Array = rk.mesh().surface_get_arrays(0)
+		var rv: PackedVector3Array = ra[Mesh.ARRAY_VERTEX]
+		var rn: PackedVector3Array = ra[Mesh.ARRAY_NORMAL]
+		var bone_i := sk.find_bone(kit.rider_bone)
+		ap.play(kit.clips[0][1])
+		ap.seek(0.0, true)
+		var to_char: Transform3D = (sk.get_parent() as Node3D).transform * sk.transform
+		var xf0: Transform3D = to_char * sk.get_bone_global_pose(bone_i)
+		var rot0 := Basis(Vector3.UP, float(kit.get("yaw", PI * 0.5)))
+		var inv0 := xf0.affine_inverse()
+		for i in rv.size():
+			var vv: Vector3 = rv[i]
+			# 완성 좌표 → 굽기 전 좌표: rot⁻¹ · /sc · +lo → 뼈 로컬
+			var pre := rot0.inverse() * vv / sc + Vector3(0, lo, 0)
+			rv[i] = inv0 * pre
+			rn[i] = (inv0.basis * (rot0.inverse() * rn[i])).normalized()
+		ra[Mesh.ARRAY_VERTEX] = rv
+		ra[Mesh.ARRAY_NORMAL] = rn
+		ra[Mesh.ARRAY_TEX_UV] = null
+		ra[Mesh.ARRAY_TEX_UV2] = null
+		pieces.append({"a": ra, "kind": "bone", "bone": bone_i, "local": Transform3D(), "keep_color": true})
 	# 정점 묶기 (조각 차례대로) —— UV · 색(알파 = 세력색)
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
@@ -160,7 +217,7 @@ func _bake(tag: String, kit: Dictionary) -> void:
 	uv2s = uv2s2
 	cols = cols2
 	# 프레임 굽기
-	var rot := Basis(Vector3.UP, PI * 0.5)       # KayKit 은 +Z 를 본다 → +X
+	var rot := Basis(Vector3.UP, float(kit.get("yaw", PI * 0.5)))       # KayKit 은 +Z 를 본다 → +X (kit.yaw 로 바꿀 수 있다)
 	var frames_pos := []
 	var frames_nrm := []
 	var table := {}
@@ -191,8 +248,9 @@ func _bake(tag: String, kit: Dictionary) -> void:
 			frames_pos.append(pos)
 			frames_nrm.append(nrm)
 	var nv := keep_v.size()          # 줄이고 남긴 정점 수
-	var img_p := Image.create(nv, frames_pos.size(), false, Image.FORMAT_RGBAF)
-	var img_n := Image.create(nv, frames_pos.size(), false, Image.FORMAT_RGBAF)
+	# 11/4 저녁: 반정밀(RGBAH) —— 2m 안에서 1mm 정밀도면 충분, 파일이 반으로 (기병 2.8MB → 1.4MB)
+	var img_p := Image.create(nv, frames_pos.size(), false, Image.FORMAT_RGBAH)
+	var img_n := Image.create(nv, frames_pos.size(), false, Image.FORMAT_RGBAH)
 	for r in frames_pos.size():
 		for i in nv:
 			var v: Vector3 = frames_pos[r][i]
@@ -216,15 +274,17 @@ func _bake(tag: String, kit: Dictionary) -> void:
 	ResourceSaver.save(img_n, OUT + tag + "_nrm.res")
 	var f := FileAccess.open(OUT + tag + ".json", FileAccess.WRITE)
 	# 팔레트 텍스처는 게임 폴더로 옮긴다 (assets_src 는 APK 에서 뺀다)
-	var pal: String = OUT + (tag + "_texture.png" if mx != "" else kit.src.to_lower() + "_texture.png")
-	if mx != "":
+	var pal: String = OUT + (tag + "_texture.png" if mx != "" else (kit.get("src", "none").to_lower() + "_texture.png"))
+	if glb != "":
+		pal = ""
+	elif mx != "":
 		var small := tex.duplicate()
 		if small.get_width() > 1024:
 			small.resize(1024, 1024 * small.get_height() / small.get_width())
 		small.save_png(ProjectSettings.globalize_path(pal))
 	else:
 		DirAccess.copy_absolute(ProjectSettings.globalize_path("res://assets_src/kaykit/%s_texture.png" % kit.src.to_lower()), ProjectSettings.globalize_path(pal))
-	f.store_string(JSON.stringify({"src": kit.get("src", mx), "verts": nv, "tris": idx.size() / 3, "frames": frames_pos.size(), "clips": table, "texture": pal, "bright": kit.get("bright", 1.0)}, "\t"))
+	f.store_string(JSON.stringify({"src": kit.get("src", mx if mx != "" else glb), "verts": nv, "tris": idx.size() / 3, "frames": frames_pos.size(), "clips": table, "texture": pal, "bright": kit.get("bright", 1.0)}, "\t"))
 	print("구움 %s: 정점 %d · 삼각형 %d · 프레임 %d" % [tag, nv, idx.size() / 3, frames_pos.size()])
 	ch.queue_free()
 	await get_tree().process_frame

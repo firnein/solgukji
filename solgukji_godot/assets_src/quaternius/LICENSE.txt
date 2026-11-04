@@ -1,0 +1,3 @@
+Horse.glb : Quaternius "Ultimate Animated Animal Pack" 의 말 (CC0 1.0 —— https://creativecommons.org/publicdomain/zero/1.0/)
+  https://quaternius.com/packs/ultimateanimatedanimals.html · 내려받음: https://poly.pizza/m/qvTrSG9pZF (11/4)
+  tests/bake_vat.gd 가 assets/models/vat/기병_* 로 굽는다 (GPU 병사 셰이더 VAT 모드)

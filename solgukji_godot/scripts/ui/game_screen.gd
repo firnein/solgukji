@@ -2398,7 +2398,12 @@ func _dev_args() -> void:
 		if a.has("gcam"):       # 점검용 카메라 —— 거리:높이각
 			var cv: PackedStringArray = str(a.gcam).split(":")
 			await get_tree().create_timer(4.0).timeout
-			_battle.field.focus(_battle.field.order[0])
+			var fsq: Squad = _battle.field.order[0]
+			for q in _battle.field.order:      # --gtag=기병 —— 그 병종 부대를 본다
+				if q.tag == str(a.get("gtag", "")):
+					fsq = q
+					break
+			_battle.field.follow_squad(fsq)
 			_battle.field.want_dist = float(cv[0])
 			if cv.size() > 1:
 				_battle.field.want_pitch = float(cv[1])

@@ -28,6 +28,17 @@ uniform bool is_weapon = false;
 uniform int weapon_kind = 0;        // 0 창 · 1 칼 · 2 기병창
 uniform vec3 hand = vec3(0.16, 0.74, 0.24);
 uniform vec2 pivot = vec2(0.0, 1.0);
+// VAT 모드 (11/4 저녁 —— Quaternius 말 등 구운 모델): 팔다리 부위 회전 대신 프레임마다 정점 위치 · 법선을 텍스처에서 읽는다
+// (tests/bake_vat.gd —— 가로 정점 번호, 세로 프레임). 동작 [시작 줄, 프레임 수]
+uniform bool use_vat = false;
+uniform sampler2D vat_pos : filter_nearest, repeat_disable;
+uniform sampler2D vat_nrm : filter_nearest, repeat_disable;
+uniform vec2 clip_idle = vec2(0.0, 6.0);
+uniform vec2 clip_walk = vec2(6.0, 8.0);
+uniform vec2 clip_attack = vec2(14.0, 6.0);
+uniform vec2 clip_hit = vec2(20.0, 4.0);
+uniform vec2 clip_death = vec2(24.0, 6.0);
+uniform vec2 clip_cheer = vec2(30.0, 6.0);
 
 const float S = 0.1;
 const float ATTACK_TIME = 0.35;
@@ -150,6 +161,21 @@ void vertex() {
 	// 팔다리 흔들기 (soldier.gdshader 와 같은 부위 규칙). 무기는 팔(4) 과 같이 돈다
 	vec3 v = VERTEX;
 	vec3 nrm = NORMAL;
+	if (use_vat && !is_weapon) {
+		// 구운 동작: 맞으면 맞기 · 앞줄 싸움은 공격 · 움직이면 달리기(걸음 박자) · 아니면 서 있기
+		vec2 clip = clip_idle;
+		float f = fract(clock * 0.3 + seed * 3.0) * clip.y;
+		bool loop = true;
+		if (hurt > 0.0) { clip = clip_hit; f = hit_ph * (clip.y - 1.0); loop = false; }
+		else if (fighting3 && uu < 1.0) { clip = clip_attack; f = uu * (clip.y - 1.0); loop = false; }
+		else if (moving) { clip = clip_walk; f = fract(ph / 6.2831) * clip.y; }
+		float f0 = floor(f);
+		float fr = f - f0;
+		float f1 = loop ? mod(f0 + 1.0, clip.y) : min(f0 + 1.0, clip.y - 1.0);
+		int id = VERTEX_ID;
+		v = mix(texelFetch(vat_pos, ivec2(id, int(clip.x + f0)), 0).xyz, texelFetch(vat_pos, ivec2(id, int(clip.x + f1)), 0).xyz, fr);
+		nrm = normalize(mix(texelFetch(vat_nrm, ivec2(id, int(clip.x + f0)), 0).xyz, texelFetch(vat_nrm, ivec2(id, int(clip.x + f1)), 0).xyz, fr));
+	} else {
 	// 팔 —— 힘 모을 때 뒤로, 내지를 때 크게 앞으로, 맞으면 휘청
 	float arm = -1.0 * wu + 1.7 * sk - 0.8 * hurt;
 	bool ready = fighting3 || (t3.w > 0.5 && rk < 3.0);
@@ -186,6 +212,7 @@ void vertex() {
 			v.xy = UV2 + rot(d, a);
 			nrm.xy = rot(nrm.xy, a);
 		}
+	}
 	}
 	// 몸 전체 —— 내지를 때 앞으로 숙이고, 힘 모을 때 젖히고, 맞으면 뒤로 꺾인다 (무기도 같이). 기병은 작게
 	float tilt = (0.12 * wu - 0.34 * sk + 0.55 * hurt) * (cav > 0.5 ? 0.35 : 1.0);

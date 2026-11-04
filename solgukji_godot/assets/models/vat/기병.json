@@ -1,0 +1,40 @@
+{
+	"bright": 1.0,
+	"clips": {
+		"attack": [
+			14,
+			6,
+			false
+		],
+		"cheer": [
+			30,
+			6,
+			true
+		],
+		"death": [
+			24,
+			6,
+			false
+		],
+		"hit": [
+			20,
+			4,
+			false
+		],
+		"idle": [
+			0,
+			6,
+			true
+		],
+		"walk": [
+			6,
+			8,
+			true
+		]
+	},
+	"frames": 36,
+	"src": "res://assets_src/quaternius/Horse.glb",
+	"texture": "",
+	"tris": 2346,
+	"verts": 4896
+}

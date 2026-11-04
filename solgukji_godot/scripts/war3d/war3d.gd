@@ -116,6 +116,9 @@ const VAT_DIR := "res://assets/models/vat/"
 static var vat_enabled := false      # 11/2 사용자: 창병 원래대로 —— 구운 병사(KayKit) 끔, 모든 병종 도형 모델
 var vat_mat := {}           # 병종 -> 재질
 var vat_mesh := {}          # 병종 -> 메시
+## 11/4 저녁: GPU 병사 셰이더(soldier_gpu)의 VAT 모드로 그리는 병종 —— 기병(Quaternius 말, assets/models/vat/기병_*). vat_enabled 와 무관
+const GPU_VAT := ["기병"]
+var gvat := {}              # 병종 -> {mesh, pos, nrm, clips}
 var sprite_mat := {}        # 병종 -> 그림 판 재질
 var _sprite_quad := {}      # 병종 -> 그림 판
 var follow: Squad = null
@@ -305,6 +308,8 @@ func set_quality(q: int) -> void:
 		_model_q = q
 		for tag in Squad.CLS:
 			body_mesh[tag] = Models.body(tag)
+		for tag in gvat:
+			body_mesh[tag] = gvat[tag].mesh
 		for bk in body_mesh.keys():
 			if str(bk).begins_with("G:"):
 				body_mesh.erase(bk)
@@ -634,10 +639,24 @@ func setup(res: Dictionary) -> void:
 	_sync()
 
 
+## GPU VAT 병종 읽기 (기병) —— 메시(서 있기 첫 프레임: CPU 쓰러짐용 몸통으로도 쓴다) · 위치/법선 이미지 · 동작 표
+func _load_gvat() -> void:
+	gvat.clear()
+	for tag in GPU_VAT:
+		var base: String = VAT_DIR + tag
+		if not ResourceLoader.exists(base + "_mesh.res") or not FileAccess.file_exists(base + ".json"):
+			continue
+		var info = JSON.parse_string(FileAccess.get_file_as_string(base + ".json"))
+		gvat[tag] = {"mesh": load(base + "_mesh.res"), "pos": ImageTexture.create_from_image(load(base + "_pos.res")),
+			"nrm": ImageTexture.create_from_image(load(base + "_nrm.res")), "clips": info.clips}
+		body_mesh[tag] = gvat[tag].mesh
+
+
 ## 구운 3D 병사 읽기 —— 메시 · 정점 위치/법선 이미지 · 동작 표(json) · 팔레트
 func _load_vat() -> void:
 	vat_mat.clear()
 	vat_mesh.clear()
+	_load_gvat()
 	if not vat_enabled:
 		return
 	var sh := load("res://shaders/soldier_vat.gdshader")
@@ -779,6 +798,14 @@ func _gpu_build() -> void:
 			mat.set_shader_parameter("pivot", ARM_PIVOT[wk])
 		else:
 			mesh = _cube_mesh() if cube_mode else body_mesh[key]
+			if not cube_mode and gvat.has(key):
+				var g: Dictionary = gvat[key]
+				mat = _gpu_mat.duplicate()
+				mat.set_shader_parameter("use_vat", true)
+				mat.set_shader_parameter("vat_pos", g.pos)
+				mat.set_shader_parameter("vat_nrm", g.nrm)
+				for c in g.clips:
+					mat.set_shader_parameter("clip_" + c, Vector2(g.clips[c][0], g.clips[c][1]))
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
