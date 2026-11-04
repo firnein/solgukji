@@ -1114,8 +1114,11 @@ func step(dt: float) -> void:
 			_on_impact(sq)
 		# 맞닿은 줄에서는 쉬지 않고 쇠붙이가 부딪치고 흙먼지가 인다
 		if sq.contact and sq.engaged and sq.alive:
-			if rng.randf() < dt * 5.0:      # 11/4 저녁 북적임 3.5 → 5
-				_contact_fx(sq, sq.engaged, rng.randf() < 0.4)
+			# 11/4 저녁 사용자 "반짝거린다 —— 파티클 같은 것": 전선의 불꽃이 초당 5번 × 부대 수라 쉴 새 없이 반짝였다 → 불꽃은 초당 1.2, 먼지는 따로 2.5
+			if rng.randf() < dt * 1.2:
+				_contact_fx(sq, sq.engaged, false)
+			if rng.randf() < dt * 2.5:
+				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5 + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-30, 30), 0.2), "dust", Color("#a89270"))
 			if rng.randf() < dt * 1.6:
 				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5 + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-40, 40), 0.5), "haze", Color("#b09a74"))
 	t = pt("효과생성", t)
@@ -2451,7 +2454,7 @@ func _particles(pos: Vector3, kind: String, col: Color, loop := false) -> CPUPar
 	var cfg := {
 		"fire": [28, 0.9, 2.0, 5.0, 25.0, Vector3(0, 2.5, 0), 0.5, 1.1, true, 1.4],
 		"smoke": [10, 2.2, 0.8, 1.6, 20.0, Vector3(0, 0.6, 0), 1.2, 2.4, false, 1.4],
-		"spark": [10, 0.35, 4.0, 8.0, 70.0, Vector3(0, -9, 0), 0.07, 0.14, true, 0.4],
+		"spark": [6, 0.3, 4.0, 8.0, 70.0, Vector3(0, -9, 0), 0.06, 0.11, true, 0.4],      # 11/4 저녁 10 → 6, 조금 작게
 		"dust": [6, 1.4, 0.5, 1.4, 90.0, Vector3(0, 0.3, 0), 0.9, 1.8, false, 1.0],
 		"splash": [22, 0.8, 3.0, 6.0, 35.0, Vector3(0, -9, 0), 0.05, 0.1, false, 1.0],
 		"mist": [10, 2.2, 0.2, 0.7, 90.0, Vector3(0, 0.15, 0), 1.6, 2.8, false, 2.2],
