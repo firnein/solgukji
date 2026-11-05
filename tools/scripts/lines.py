@@ -130,6 +130,11 @@ ROSTER3 = {
     "촉": "요화 오의 왕평 주창 이적 간옹 초주 마속",
     "오": "능조 한당 마충 장흠 감택 제갈근 오범 보즐",
     "군": "기령 안량 장임 관해 허유 진림 장보 심배"}
+# 11/5 사용자: 이름값 구간 —— 고급 · 희귀는 어느 정도 알려진 장수, 전설부터는 많이 알려진 장수, 그 위(초월 · 불멸 · 신화)는 칭호판.
+# 한 인물은 한 구간에만 (주태도 희귀가 있으면 안 된다)
+TRANS_UP = ["황개", "방덕", "관평", "화웅", "문추", "대교", "소교", "등애", "종회", "원술", "장소", "우길"]   # 초월 장수 → 전설(이름만)부터. 희귀판 없음
+TRANS_DOWN = ["마량", "정욱", "저수", "전풍", "장완", "채문희", "엄백호", "남화노선"]                    # 이름값이 애매 → 희귀 구간으로 (초월 · 위세 뺌)
+NO_RARE = ["주태", "마대", "정보", "능통", "정봉"] + TRANS_UP                                            # 전설이 있으니 희귀판을 뺀다
 # 희귀 비용 다양화 (11/5) —— 비용 = 기본패 환산. 고급 1장 = 기본패 4장
 RARE_SHAPE = {7: (1, 3), 8: (1, 4), 9: (2, 1), 10: (2, 2), 11: (2, 3), 12: (3, 0), 13: (3, 1)}
 RARE_SOLO_COSTS = [7, 8, 9, 10, 11, 12, 13]       # 줄기 없는 희귀 —— 병종마다 고르게 돈다
@@ -142,7 +147,11 @@ ADD4 = {"우금": ("창병", "위"), "곽회": ("기병", "위"), "학소": ("�
         "반장": ("기병", "오"), "제갈각": ("책사", "오"), "우번": ("술사", "오"), "여범": ("모사", "오"),
         "고람": ("창병", "군"), "황조": ("궁병", "군"), "장만성": ("도적", "군"), "공융": ("유생", "군"),
         # 11/5 촉 희귀가 모자랐다 (7명 · 재료 자리 43 · 같은 세력 58%) —— 촉 전설이 많은 창 · 기 · 유 쪽에
-        "관흥": ("창병", "촉"), "오반": ("기병", "촉"), "비의": ("유생", "촉")}
+        "관흥": ("창병", "촉"), "오반": ("기병", "촉"), "비의": ("유생", "촉"),
+        # 11/5 이름값 구간 정리로 빠진 희귀 17명을 채운다 —— 어느 정도 알려진 장수 (황건 · 남만 · 기인 인물 제외)
+        "문빙": ("창병", "위"), "주연": ("창병", "오"), "왕쌍": ("창병", "위"), "조홍": ("기병", "위"), "한수": ("기병", "군"),
+        "진무": ("궁병", "오"), "하제": ("궁병", "오"), "이각": ("도적", "군"), "황권": ("책사", "촉"), "순유": ("책사", "위"),
+        "도겸": ("유생", "군"), "길평": ("술사", "위"), "이의": ("술사", "촉"), "이유": ("모사", "군")}
 def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
     return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
 
@@ -399,6 +408,21 @@ SKILL = {
     "관흥": dict(n="청룡계승", k="phys", tgt="front3", mult=1.25, morale=6, cond="always"),
     "오반": dict(n="촉한기병", k="phys", tgt="front1", mult=1.45, spd=SPD(-0.2), cond="always"),
     "비의": dict(n="경국안민", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("def", 0.15), cond="ally_hurt:0.85"),
+    # 11/5 이름값 구간 정리로 든 희귀 14명
+    "문빙": dict(n="강릉수비", k="phys", tgt="front1", mult=1.3, selfBuff=SB("def", 0.2), cond="always"),
+    "주연": dict(n="송곳대열", k="phys", tgt="front3", mult=1.15, morale=5, cond="always"),
+    "왕쌍": dict(n="대가산전", k="phys", tgt="front1", mult=1.55, cond="always"),
+    "조홍": dict(n="호표기돌격", k="phys", tgt="line:선봉+전군", mult=1.1, spd=SPD(-0.15), cond="front_n:2|always"),
+    "한수": dict(n="서량연합", k="phys", tgt="front1", mult=1.3, allyBuff=AB("atk", 0.1), cond="always"),
+    "진무": dict(n="연노난사", k="phys", tgt="back2", mult=1.2, cond="always"),
+    "하제": dict(n="산월토벌", k="phys", tgt="denseLine", mult=1.05, morale=5, cond="dense:2|always"),
+    "이각": dict(n="장안약탈", k="phys", tgt="back1", mult=1.4, morale=6, cond="always"),
+    "황권": dict(n="익주방략", k="int", tgt="front3", mult=1.05, allyBuff=AB("def", 0.12, "allyFront"), cond="always"),
+    "순유": dict(n="군사기책", k="int", tgt="back2", mult=1.2, resDown={"amt": -0.2, "dur": 2}, cond="always"),
+    "도겸": dict(n="서주양보", k="int", tgt="all", mult=0.7, tHeal=0.05, allyBuff=AB("res", 0.12), cond="ally_hurt:0.85"),
+    "길평": dict(n="독약처방", k="int", tgt="front3", mult=0.9, status=ST("plague", 5, 3), cond="no_st:plague"),
+    "이의": dict(n="천명예언", k="int", tgt="back2", mult=1.0, resDown={"amt": -0.25, "dur": 2}, cond="always"),
+    "이유": dict(n="짐독계", k="int", tgt="front3", mult=0.95, status=ST("plague", 6, 3), morale=5, cond="always"),
     "공융": dict(n="공문가훈", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("res", 0.15), cond="ally_hurt:0.85"),
     "화웅": dict(n="일도양단", k="phys", tgt="front1", mult=1.6, morale=8, cond="always"),
     "문추": dict(n="하북돌기", k="phys", tgt="line:선봉+전군", mult=1.15, morale=6, cond="front_n:2|always"),
@@ -507,7 +531,7 @@ def main():
     have4 = {person(c) for c in BY_ID.values() if c[2] == 4 and c[13] != "foe"}
     for i, ref in enumerate(sorted(six, key=lambda c: c[0])):
         p = person(ref)
-        if p in have4:
+        if p in have4 or p in NO_RARE:
             continue
         a0, a1 = avg[(ref[3], 6)], avg[(ref[3], 4)]
         st = [round(ref[5 + j] * a1[j] / a0[j]) if a0[j] > 0 else ref[5 + j] for j in range(5)]
@@ -519,6 +543,32 @@ def main():
         # 11/5 사용자: 고급이 도적에 쏠리고 조합에 같은 재료가 너무 많이 든다 —— 예전엔 이름이 겹친다며 그 인물의 고급 카드를
         # 적 전용으로 돌렸지만(고급 모사가 심배 하나만 남았다), 이제 남겨 고급 → 희귀 → 초월 줄기로 잇는다 (기인 인물은 아래에서 뺀다)
     retire += [c[0] for c in CARDS if c[2] == 2]         # 11/3 일반 등급 삭제 —— 토벌 편성에는 남는다
+    # 이름값 구간 (11/5) —— ① TRANS_UP 의 전설판 (초월 카드 × 병종 전설/초월 평균 비, 이름만)
+    for i_, p_ in enumerate(TRANS_UP):
+        ref = next(c for c in BY_ID.values() if c[2] == 6 and c[13] != "foe" and person(c) == p_)
+        if any(c[2] == 5 and c[13] != "foe" and person(c) == p_ for c in BY_ID.values()):
+            continue
+        a0, a1 = avg[(ref[3], 6)], avg[(ref[3], 5)]
+        st = [round(ref[5 + j] * a1[j] / a0[j]) if a0[j] > 0 else ref[5 + j] for j in range(5)]
+        st[4] = ref[9]
+        card = ["E%02d" % (i_ + 1), p_, 5, ref[3], ref[4]] + st + [std[5][0], std[5][1], {"n": "", "eff": {}, "psv": None}, "", ""]
+        new_cards.append(card)
+        BY_ID[card[0]] = card
+    orig_ids = {c[0] for c in CARDS}
+    def _drop(c):
+        if c[0] in orig_ids:
+            retire.append(c[0])
+        elif c in new_cards:
+            new_cards.remove(c)
+        BY_ID.pop(c[0], None)
+    # ② NO_RARE 의 희귀판 빼기 · ③ TRANS_DOWN 의 초월 빼기 (희귀판은 남는다)
+    for c in list(BY_ID.values()):
+        if c[13] == "foe":
+            continue
+        if c[2] == 4 and person(c) in NO_RARE:
+            _drop(c)
+        elif c[2] == 6 and person(c) in TRANS_DOWN:
+            _drop(c)
     # 희귀 더하기 (ADD4)
     have4 = {person(c) for c in BY_ID.values() if c[2] == 4 and c[13] != "foe" and c[0] not in retire}
     for i_, (p_, (tag_, fac_)) in enumerate(ADD4.items()):
@@ -712,15 +762,13 @@ def main():
             mats.append(pick(c, 4, ex, mats)); ex.add(mats[-1])
             while len(mats) < 4:
                 mats.append(pick(c, 3, ex, mats)); ex.add(mats[-1])
-        elif t == 6:         # 초월 —— 제 희귀 + 전설 2 (원랜디 초월처럼). 제 전설이 있으면 그것부터
+        elif t == 6:         # 초월 —— 11/5 이름값 구간: 제 전설 + 전설 1 + 희귀 1 (비용은 예전 '제 희귀 + 전설 2' 와 같다)
             mats = []
             ex = {c[0]}
-            own4, own5 = by_pt.get((p, 4)), by_pt.get((p, 5))
-            mats.append(own4 if own4 else pick(c, 4, ex, mats)); ex.add(mats[-1])
-            if own5:
-                mats.append(own5); ex.add(own5)
-            while len(mats) < 3:
-                mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
+            own5 = by_pt.get((p, 5))
+            mats.append(own5 if own5 else pick(c, 5, ex, mats)); ex.add(mats[-1])
+            mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
+            mats.append(pick(c, 4, ex, mats)); ex.add(mats[-1])
         elif t == 7:         # 불멸 —— 제 전설 + 인연 전설 2 + 희귀 1 + 기본 1
             if not prev:
                 mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])

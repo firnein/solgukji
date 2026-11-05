@@ -1337,6 +1337,23 @@ static func load_saved() -> Run:
 				if r.board[i] == k:
 					r.board[i] = imm[0] if not imm.is_empty() else null
 			r.myth_made = false
+	# 11/5 이름값 구간 정리 —— 빠진 희귀(전설이 있는 인물의 희귀판)는 희귀 선택권으로, 빠진 초월(희귀 구간으로 내린 인물)은
+	# 같은 인물의 희귀 + 전설 보급 둘로 (초월 = 제 희귀 + 전설 2 였다)
+	for k in r.inv.keys() + r.board.filter(func(x): return x != null):
+		if not DB.C.has(k) or DB.C[k].kind != "retired" or not (DB.C[k].tier == 4 or DB.C[k].tier == 6):
+			continue
+		var nk := int(r.inv.get(k, 0)) + r.board.count(k)
+		r.inv.erase(k)
+		for i in r.board.size():
+			if r.board[i] == k:
+				r.board[i] = null
+		if DB.C[k].tier == 4:
+			r.add_ticket(4, nk)
+		else:
+			var rare: Array = DB.by_tier(4).filter(func(x): return DB.person(x) == DB.person(k))
+			if not rare.is_empty():
+				r.give(rare[0], nk)
+			r.add_ticket(5, 2 * nk)
 	# 11/5 고급 명단 정리 —— 명단에서 빠진 고급(적 전용)은 같은 병종 기본패 넷으로 (고급 = 기본패 4장)
 	for k in r.inv.keys():
 		if DB.C.has(k) and DB.C[k].tier == 3 and DB.C[k].kind == "retired":
