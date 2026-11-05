@@ -1527,7 +1527,7 @@ class Hud extends Control:
 			draw_circle(Vector2.ZERO, r + 2.0, Color(DB.tier_color(k.cid), a))
 			draw_circle(Vector2.ZERO, r + 0.6, Color(War3D.TEAM.B, a))
 			if k.tier >= 3:
-				Art.draw_face_circle(self, Vector2.ZERO, r, k.cid)
+				Art.draw_face_circle(self, Vector2.ZERO, r, k.cid, a)
 			else:
 				draw_circle(Vector2.ZERO, r, Color(0.3, 0.1, 0.08, a))
 			draw_circle(Vector2.ZERO, r, Color(0.25, 0.02, 0.0, 0.12 * a + 0.45 * u * u))      # 떨어지며 어두워진다
@@ -1570,9 +1570,11 @@ class Hud extends Control:
 	var _flash_t := 9.0
 
 	## 고유기 섬광 —— 화면 전체가 그 빛으로 번쩍였다가 0.35초에 걸쳐 걷힌다
+	var _flash_k := 1.0
 	func flash(col: Color) -> void:
 		_flash = col
 		_flash_t = 0.0
+		_flash_k = 0.22 if view.field.flat != null else 1.0      # 11/6 타입2: 번쩍임을 옅은 물듦으로
 
 	func announce(text: String, col: Color) -> void:
 		ann = {"text": text, "col": col, "t": 0.0}
@@ -1671,7 +1673,7 @@ class Hud extends Control:
 			fs = 22
 		if not crit:
 			for f in floats:
-				if f.key == key and f.get("num", false) and not f.crit and f.kind == kind and view.clock - f.t0 < 0.9:
+				if f.key == key and f.get("num", false) and not f.crit and f.kind == kind and view.clock - f.t0 < 0.9 and view.clock - f.get("born", f.t0) < 1.6:      # 11/6 계속 맞는 부대 위 숫자가 몇 초씩 안 사라지고 커지기만 했다
 					f.amount += amount
 					f.text = ("+" if kind == "heal" else "-") + Battle.num(f.amount)
 					f.t0 = view.clock - 0.05
@@ -1695,7 +1697,7 @@ class Hud extends Control:
 			if f.key == key and view.clock - f.t0 < 0.6:
 				n += 1
 		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "kind": kind, "amount": amount,
-			"pop": view.clock, "n": n % 3, "jx": randf_range(-22, 22), "crit": crit, "num": true})
+			"pop": view.clock, "n": n % 3, "jx": randf_range(-22, 22), "crit": crit, "num": true, "born": view.clock})
 
 	var cut = null           # 고유기 컷인 {k, name, shout, camp, col, t}
 	var _brush := PackedVector2Array()
@@ -1915,6 +1917,7 @@ class Hud extends Control:
 		draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0, 0, 0, 0.6 * a), 1.0)
 
 	## 점묘 전장의 장수 토큰 —— 둥근 초상 + 진영색 테 + 병력 숫자 (블라인드삼국식)
+	var _tok_sb: StyleBoxFlat = null
 	func _token(sq: Squad, p: Vector2) -> void:
 		if sq.state == "gone":
 			return
@@ -1925,7 +1928,7 @@ class Hud extends Control:
 			ring = ring.lerp(Color(1, 1, 1), sq.hurt * 0.7)
 		draw_circle(p, r + 2.5, Color(0, 0, 0, 0.55 * a))
 		draw_circle(p, r + 1.5, Color(ring, a))
-		Art.draw_face_circle(self, p, r, sq.cid)
+		Art.draw_face_circle(self, p, r, sq.cid, a)
 		draw_arc(p, r + 0.2, 0, TAU, 32, Color(ring, a), 2.0)
 		if not sq.alive:
 			draw_circle(p, r, Color(0, 0, 0, 0.6))
@@ -1935,16 +1938,68 @@ class Hud extends Control:
 		var fb: Font = DB.font_bold
 		var tw := fb.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10
 		var br := Rect2(p + Vector2(-tw / 2, r + 3), Vector2(tw, 14))
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.05, 0.07, 0.12, 0.85 * a)
-		sb.border_color = Color(ring, 0.6 * a)
-		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(3)
-		draw_style_box(sb, br)
+		if _tok_sb == null:      # 11/6 메달마다 매 프레임 StyleBoxFlat 을 새로 만들었다 —— 하나를 고쳐 쓴다
+			_tok_sb = StyleBoxFlat.new()
+			_tok_sb.set_border_width_all(1)
+			_tok_sb.set_corner_radius_all(3)
+		_tok_sb.bg_color = Color(0.05, 0.07, 0.12, 0.85 * a)
+		_tok_sb.border_color = Color(ring, 0.6 * a)
+		draw_style_box(_tok_sb, br)
 		draw_string(fb, br.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, tw, 10, Color(0.92, 0.95, 1.0, a))
 		var since: float = view.clock - sq.act_t
 		if since < CombatFx.ATTACK_HOLD and sq.alive:
 			_act_icon(p + Vector2(r + 4, -r + 2), sq.act_kind, a)
+
+	## 2D 전장 메달 자리 —— 가까이 붙은 메달끼리 살짝 밀어낸다 (11/6 점검: 근접전에서 메달이 겹쳐 얼굴 · 병력이 가려졌다).
+	## 화면에만 적용, 최대 22px, 부드럽게 따라간다 (튀지 않게)
+	var _tok_off := {}
+	const TOK_GAP := 38.0
+	func _flat_token_pos(tags: Array) -> Dictionary:
+		var base := {}
+		var want := {}
+		var keys := []
+		for t in tags:
+			var sq: Squad = t[1]
+			var p: Vector2 = view.field.to_screen(sq.pos, 0.0)
+			base[sq.key] = p
+			want[sq.key] = p
+			keys.append(sq.key)
+		for _it in 4:
+			for i in keys.size():
+				for j in range(i + 1, keys.size()):
+					var a: Vector2 = want[keys[i]]
+					var b: Vector2 = want[keys[j]]
+					var d := b - a
+					var l := d.length()
+					if l < TOK_GAP:
+						var dir := d / l if l > 0.01 else Vector2(1, 0).rotated(i * 1.3)
+						var push := dir * (TOK_GAP - l) * 0.5
+						want[keys[i]] = a - push
+						want[keys[j]] = b + push
+		var out := {}
+		for k in keys:
+			var off: Vector2 = (want[k] - base[k]).limit_length(22.0)
+			_tok_off[k] = (_tok_off.get(k, Vector2.ZERO) as Vector2).lerp(off, 0.15)
+			out[k] = base[k] + _tok_off[k]
+		return out
+
+	## 2D 전장 글씨 자리 —— 처음 뜰 때 이미 떠 있는 글씨와 겹치면 위로 한 칸씩 (정해진 뒤에는 그대로)
+	func _settle_dy(f: Dictionary, p: Vector2, w: float, h: float) -> float:
+		if f.has("dy"):
+			return f.dy
+		var dy := 0.0
+		for _k in 5:
+			var r := Rect2(p + Vector2(-w / 2, -h + dy), Vector2(w, h))
+			var hit := false
+			for o in floats:
+				if not is_same(o, f) and o.has("rect") and (o.rect as Rect2).intersects(r):
+					hit = true
+					break
+			if not hit:
+				break
+			dy -= h * 0.9
+		f.dy = dy
+		return dy
 
 	## 행동 아이콘 —— 주황 동그라미 위에 흰 그림
 	func _act_icon(c: Vector2, kind: String, a: float) -> void:
@@ -1987,15 +2042,21 @@ class Hud extends Control:
 				var sp := _to_screen(sq.pos, 5.0)
 				if sp.x > -9999 and view.field.label_alpha(sq.pos) > 0.02:
 					tags.append([sp, sq])
-		tags.sort_custom(func(x, y): return x[0].y > y[0].y)
+		if view.field.flat != null:      # 11/6 내려다보는 지도: 화면 아래(가까운) 부대가 위에 오도록 —— 위에서부터 그린다
+			tags.sort_custom(func(x, y): return x[0].y < y[0].y)
+		else:
+			tags.sort_custom(func(x, y): return x[0].y > y[0].y)
 		var placed: Array[Rect2] = []
 		var fbo: Font = DB.font_bold
+		var tok_pos := {}
 		_rank_emph()
 		for t in tags:
 			var p: Vector2 = t[0]
 			var sq: Squad = t[1]
 			if view.field.flat != null:
-				_token(sq, view.field.to_screen(sq.pos, 0.0))
+				if tok_pos.is_empty():
+					tok_pos = _flat_token_pos(tags)
+				_token(sq, tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0)))
 				continue
 			var a: float = sq.fade * view.field.label_alpha(sq.pos)
 			var myth: bool = sq.tier >= 8
@@ -2086,6 +2147,11 @@ class Hud extends Control:
 				_draw_number(f, u, col)
 				continue
 			var p := _to_screen(f.p, 6.5) + Vector2(0, -20 - f.n * 16 - u * 26)
+			if view.field.flat != null:      # 2D 전장 —— 메달 밀어낸 만큼 따라가고, 겹치면 위로
+				p += _tok_off.get(f.key, Vector2.ZERO)
+				var tw: float = fd.get_string_size(f.text, HORIZONTAL_ALIGNMENT_LEFT, -1, f.fs).x + 6.0
+				p.y += _settle_dy(f, p + Vector2(0, u * 26), tw, f.fs * 1.2)
+				f.rect = Rect2(p + Vector2(-tw / 2, -f.fs * 1.2), Vector2(tw, f.fs * 1.2))
 			draw_string_outline(fd, p - Vector2(80, -2), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 10, Color(0, 0, 0, col.a * 0.35))
 			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 6, Color(0, 0, 0, col.a))
 			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
@@ -2093,7 +2159,7 @@ class Hud extends Control:
 		_draw_skill_banners()
 		if _flash_t < 0.35:
 			var fa := (1.0 - _flash_t / 0.35)
-			draw_rect(Rect2(Vector2.ZERO, size), Color(_flash.lerp(Color.WHITE, 0.55), 0.55 * fa * fa))
+			draw_rect(Rect2(Vector2.ZERO, size), Color(_flash.lerp(Color.WHITE, 0.55 * _flash_k), 0.55 * fa * fa * _flash_k))
 		# 위쪽 —— 시계와 세력 균형
 		var tA := 0.0
 		var tB := 0.0
@@ -2145,17 +2211,26 @@ class Hud extends Control:
 		var base := _to_screen(f.p, 4.0)
 		if base.x < -9999:
 			return
+		var flat: bool = view.field.flat != null
+		if flat:      # 11/6 타입2 · 점묘: 숫자가 초상 메달을 덮었다 —— 메달 위로 띄우고 조금 크게
+			base = view.field.to_screen(f.p, 0.0) + (_tok_off.get(f.key, Vector2.ZERO) as Vector2) + Vector2(0, -24)
 		var fd := DB.font_display
 		var crit: bool = f.crit
 		var t: float = view.clock - f.t0
-		var p := base + Vector2(f.jx, -f.n * 16 - ease(u, 0.5) * (34 if crit else 24))
+		var p := base + Vector2(f.jx * (0.6 if flat else 1.0), -f.n * (19 if flat else 16) - ease(u, 0.5) * (34 if crit else 24))
+		if flat:
+			var tw: float = DB.font_bold.get_string_size(f.text, HORIZONTAL_ALIGNMENT_LEFT, -1, f.fs).x * 1.18 + 6.0
+			var th: float = f.fs * 1.25
+			var p0 := base + Vector2(f.jx * 0.6, -f.n * 19)
+			p.y += _settle_dy(f, p0, tw, th)
+			f.rect = Rect2(p + Vector2(-tw / 2, -th), Vector2(tw, th))
 		var sc := 1.0
 		if crit:
 			sc = lerpf(1.9, 1.0, ease(clampf(t / 0.14, 0, 1), 0.4))       # 쾅 찍혔다가 자리를 잡는다
 			p += Vector2(randf_range(-2, 2), randf_range(-2, 2)) * clampf(1.0 - t / 0.25, 0, 1)
 		else:
 			sc = lerpf(1.35, 1.0, ease(clampf((view.clock - f.pop) / 0.12, 0, 1), 0.4))   # 합쳐질 때마다 톡 튄다
-		draw_set_transform(p, 0, Vector2.ONE * sc)
+		draw_set_transform(p, 0, Vector2.ONE * sc * (1.18 if flat else 1.0))
 		var w := 160.0
 		var nf: Font = fd if crit else DB.font_bold
 		draw_string_outline(nf, Vector2(-w / 2, 2), f.text, HORIZONTAL_ALIGNMENT_CENTER, w, f.fs, 12 if crit else 10, Color(0, 0, 0, col.a * 0.35))     # 번진 그림자

@@ -6,22 +6,41 @@ extends DotView
 ## 판정 · 움직임은 그대로(Squad · RtBattle), 그리기만 바꾼다 —— DotView 를 물려받아 War3D.flat 자리에 들어간다
 ## (이름표 · 피해 숫자 · 기술 범위는 DotView 처럼 map() 을 따라온다).
 
-const TILT := 0.62             # 세로 눌림 —— 비스듬히 내려다본 지도
-const FIG := 15.0              # 병사 인형 크기 (px, 화면 —— 배율 1 기준)
+const TILT := 1.25             # 세로 배율 —— 11/6 사용자 "더 넓게": 세로 화면을 다 쓰도록 앞뒤 거리를 늘린다 (0.62 눌림 → 1.25 늘림)
+const FIG := 17.0              # 병사 인형 크기 (px, 화면 —— 배율 1 기준) —— 11/6 보는 맛: 15 → 17
 const T2_SPREAD := 1.35        # 부대 안 병사 사이 (점묘보다 촘촘하게 —— 삼국지11 의 부대 덩어리)
 const HEX := 34.0              # 육각 한 칸 (전장 px)
+const CLONES := 3              # 11/6 사용자: 병사를 더 많이 —— 계산하는 병사 하나를 인형 셋으로 그린다 (계산 · 판정은 그대로)
+const CLONES_SMALL := 5        # 병사가 SMALL_SQ 명보다 적은 부대(1일차 등)는 다섯 —— 메달만 보이고 병사가 안 보였다 (11/6 점검)
+const SMALL_SQ := 12
+const CLONE_OFF := [Vector2(0, 0), Vector2(0.62, 0.42), Vector2(-0.58, 0.5), Vector2(0.1, 0.85), Vector2(-0.3, -0.45)]     # 인형 크기 대비 자리
 const TEAM_A := Color("#3f78c8")
 const TEAM_B := Color("#c8483a")
 
-var _bg: Texture2D
 var _fig_tex: Texture2D
+var _ground: ColorRect          # 바닥 —— 셰이더 지도 (shaders/type2_ground.gdshader, 11/6)
+var _under: Under               # 병사 아래 층 —— 부대 바닥 · 흙먼지 · 상태 칸 · 기술 범위
+var _mid_y := 0.0
 
 
 func _ready() -> void:
 	super._ready()
 	_fig_tex = _make_fig()
 	_mm.texture = _fig_tex
-	_bg = _make_bg()
+	_ground = ColorRect.new()
+	_ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ground.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/type2_ground.gdshader")
+	_ground.material = mat
+	add_child(_ground)
+	move_child(_ground, 0)
+	_under = Under.new()
+	_under.v = self
+	_under.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_under.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_under)
+	move_child(_under, 1)
 
 
 func setup() -> void:
@@ -29,11 +48,17 @@ func setup() -> void:
 	for sq: Squad in field.order:
 		var base := TEAM_A if sq.camp == "A" else TEAM_B
 		_col[sq.key] = base.lightened(0.06 * (sq.row.slot % 3)) if sq.tier < 6 else base.lerp(DB.TIER[sq.tier].c, 0.25)
+	var ys := 0.0
+	for sq: Squad in field.order:
+		ys += sq.pos.y
+	_mid_y = ys / maxf(1.0, field.order.size())
+	_reset_feel()
+	_setup_tac()
 
 
 ## 전장 px → 화면 px —— DotView 처럼 아군 아래 · 적 위, 세로를 TILT 만큼 눌러 비스듬히
 func map(p: Vector2) -> Vector2:
-	var d := p - _center
+	var d := p - _center - _jit
 	return size * 0.5 + Vector2(d.y, -d.x * TILT) * _scale
 
 
@@ -41,87 +66,156 @@ func _fit(now := false) -> void:
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
 	for sq: Squad in field.order:
-		if not sq.alive or sq.state == "gone":
+		if not sq.alive or sq.state == "gone" or sq.state == "flee":
 			continue
-		var r := maxf(sq.depth(), sq.cols * sq.sp) * 0.6 * T2_SPREAD + 26.0
+		var r := maxf(sq.depth(), sq.cols * sq.sp) * 0.3 * T2_SPREAD      # 11/6 사용자: 더 넓게 —— 부대 한가운데만 담고 화면을 꽉 채운다
 		lo = lo.min(sq.pos - Vector2(r, r))
 		hi = hi.max(sq.pos + Vector2(r, r))
 	if lo.x == INF:
 		return
 	var span := hi - lo
-	var s := minf((size.x - MARGIN * 2) / maxf(span.y, 1.0), (size.y - MARGIN * 2 - 60) / maxf(span.x * TILT, 1.0))
+	var s := minf((size.x - 40.0 * 2) / maxf(span.y, 1.0), (size.y - 75.0 * 2) / maxf(span.x * TILT, 1.0))
 	_want_scale = clampf(s, 0.35, 3.0)
 	_want_center = (lo + hi) * 0.5
+	_base_scale = _want_scale
+	if _focus_on():
+		_want_scale = clampf(_base_scale * float(_focus.mul), 0.35, 4.0)
+		_want_center = _focus.c
 	if now:
 		_scale = _want_scale
 		_center = _want_center
 
 
 func _process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
 	super._process(dt)
-	if visible and Engine.get_process_frames() % 2 == 1:
-		queue_redraw()        # 깃발 · 이름판이 부대를 따라가야 한다
+	if not visible or field == null:
+		return
+	field.pt("타입2 병사", t0)
+	_feel_step(dt)
+	var mat: ShaderMaterial = _ground.material
+	mat.set_shader_parameter("center", _center + _jit)
+	mat.set_shader_parameter("scl", _scale)
+	mat.set_shader_parameter("tilt", TILT)
+	mat.set_shader_parameter("vsize", size)
+	mat.set_shader_parameter("mid_y", _mid_y)
+	mat.set_shader_parameter("hex", HEX)
+	if Engine.get_process_frames() % 2 == 1:
+		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다
+	if _fx_layer and (not _fx.is_empty() or Engine.get_process_frames() % 10 == 0):
+		_fx_layer.queue_redraw()
+	if _label_layer and field.clock - _intro_t0 < INTRO_T + 0.5:
+		_label_layer.queue_redraw()
+	elif _label_layer and _label_layer.visible:
+		_label_layer.visible = false      # 다 보여 줬다 —— 다음 전투에서 다시 켠다
+
+
+func _area_spread() -> float:
+	return T2_SPREAD
+
+
+func _area_alpha() -> float:
+	return 0.7
+
+
+func _clones(sq: Squad) -> int:
+	return CLONES_SMALL if sq.soldiers.size() < SMALL_SQ else CLONES
 
 
 ## 병사 인형 —— 진영색, 맞으면 흰빛, 쓰러지면 눕고 바랜다. 위에 있을수록(멀수록) 먼저 그려 겹침 순서를 맞춘다
+var _buf := PackedFloat32Array()
+static var UNIT_C := _unit_circle(16)
+
+
+static func _unit_circle(n: int) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for k in n:
+		out.append(Vector2(cos(TAU * k / n), sin(TAU * k / n)))
+	return out
+
+
 func _draw_dots() -> void:
 	var mm := _mm.multimesh
-	var figs := []
-	for sq: Squad in field.order:
-		for s in sq.soldiers:
-			figs.append([sq, s])
+	# 11/6 병사 1,000명 넘게 매번 정렬하던 것을 부대 단위 정렬로 (후반 fps 68 → ?) —— 부대끼리 겹침 순서만 맞으면 충분하다
+	var sqs: Array = field.order.duplicate()
+	sqs.sort_custom(func(a, b): return map(a.pos).y < map(b.pos).y)
+	var nfig := 0
 	var sparks := 0
-	for sq: Squad in field.order:
+	for sq: Squad in sqs:
+		nfig += sq.soldiers.size()
 		if sq.alive and sq.contact and sq.engaged != null:
 			sparks += 8
-	var total := figs.size() + sparks
+	var total := nfig * CLONES_SMALL + sparks
 	if mm.instance_count < total:
 		mm.instance_count = total + 64
+	if _buf.size() != mm.instance_count * 12:
+		_buf.resize(mm.instance_count * 12)
 	var clock := field.clock
-	var pts := []
-	for f in figs:
-		var sq: Squad = f[0]
-		var s = f[1]
-		var off: Vector2 = (s.pos - sq.pos) * T2_SPREAD + s.jit * 1.2
-		pts.append([map(sq.pos + off), sq, s])
-	pts.sort_custom(func(a, b): return a[0].y < b[0].y)
+	# 11/6 인스턴스마다 set_instance_* 를 부르던 것을 버퍼 한 번에 (2D 변환 8 + 색 4). 남는 칸은 visible_instance_count 로 감춘다
 	var i := 0
 	var sz := FIG * clampf(_scale * 1.15, 0.6, 1.8)
-	for e in pts:
-		var p: Vector2 = e[0]
-		var sq: Squad = e[1]
-		var s = e[2]
-		var c: Color = _col.get(sq.key, Color.WHITE)
-		var rot := 0.0
-		var h: float = sz * (1.25 if s == sq.general else 1.0) * s.size
-		if not s.alive:
-			var dt: float = clock - s.die_t if s.die_t >= 0 else 99.0
-			if s.die_t < 0 or dt > 2.0 or sq.state == "gone":
-				mm.set_instance_transform_2d(i, Transform2D(0, Vector2.ZERO, 0, Vector2(-9999, -9999)))
-				i += 1
-				continue
-			rot = s.fall * minf(1.0, dt / 0.35) * PI * 0.5
-			c = c.darkened(0.45)
-			c.a = clampf(1.0 - (dt - 1.2) / 0.8, 0, 1)
-		elif sq.state == "flee":
-			c.a = sq.fade
-		if sq.armor_broken and s.alive:
-			c = c.lerp(Color("#7a4a2a"), 0.35)      # 파갑 —— 갑옷이 녹슨 빛
-		if clock - s.hit_t < 0.25 and clock >= s.hit_t:
-			c = c.lerp(Color(1, 1, 1), 0.65)
-		if s.air > 0.0:
-			p.y -= s.air * 6.0 * _scale
-			rot = s.spin
-		# 걸음 —— 위아래로 살짝, 공격 —— 앞으로 기운다
-		if s.alive:
-			p.y -= absf(sin(s.walk * 0.9)) * 1.4
-			var a: float = (clock - s.atk_t0) / Squad.ATTACK_TIME
-			if a >= 0 and a <= 1:
-				rot = (-0.35 if sq.camp == "A" else 0.35) * sin(PI * a)
+	for sq: Squad in sqs:
+		if sq.state == "gone":
+			continue
+		var base_c: Color = _col.get(sq.key, Color.WHITE)
 		var flip := -1.0 if (sq.camp == "B") else 1.0
-		mm.set_instance_transform_2d(i, Transform2D(rot, Vector2(h * flip, h), 0, p + Vector2(0, -h * 0.5)))
-		mm.set_instance_color(i, c)
-		i += 1
+		var ncl := _clones(sq)
+		var lean := -0.35 if sq.camp == "A" else 0.35
+		var back_s := (map(sq.pos - sq.fwd * 10.0) - map(sq.pos)) / 10.0      # 화면에서 '뒤로' 1px 당
+		for s in sq.soldiers:
+			var rot := 0.0
+			var c := base_c
+			if not s.alive:
+				if s.die_t < 0:
+					continue
+				var dt: float = clock - s.die_t
+				if dt > 2.0:
+					continue
+				rot = s.fall * minf(1.0, dt / 0.35) * PI * 0.5
+				c = c.darkened(0.45)
+				c.a = clampf(1.0 - (dt - 1.2) / 0.8, 0, 1)
+			elif sq.state == "flee":
+				c.a = sq.fade
+			if sq.armor_broken and s.alive:
+				c = c.lerp(Color("#7a4a2a"), 0.35)      # 파갑 —— 갑옷이 녹슨 빛
+			if clock - s.hit_t < 0.15 and clock >= s.hit_t:
+				c = c.lerp(Color(1, 1, 1), 0.3)      # 맞은 빛은 옅고 짧게 —— 무리 전체가 번쩍거렸다
+			var p := map(sq.pos + (s.pos - sq.pos) * T2_SPREAD + s.jit * 1.2)
+			if not s.alive:      # 맞아 쓰러지며 뒤로 밀려난다
+				p += back_s * 9.0 * ease(minf(1.0, (clock - s.die_t) / 0.3), 0.4)
+			elif clock - s.hit_t < 0.18 and clock >= s.hit_t:      # 맞으면 움찔 뒤로
+				p += back_s * 3.0 * sin(PI * (clock - s.hit_t) / 0.18)
+			if s.air > 0.0:
+				p.y -= s.air * 6.0 * _scale
+				rot = s.spin
+			if s.alive:      # 걸음 —— 위아래로 살짝, 공격 —— 앞으로 기운다
+				p.y -= absf(sin(s.walk * 0.9)) * 1.4
+				var a: float = (clock - s.atk_t0) / Squad.ATTACK_TIME
+				if a >= 0 and a <= 1:
+					rot = lean * sin(PI * a)
+			var gen: bool = s == sq.general
+			var h: float = sz * (1.25 if gen else 1.0) * s.size
+			var cr := cos(rot)
+			var sr := sin(rot)
+			for ci in (1 if gen else ncl):
+				var hc := h * (1.0 if ci == 0 else 0.92)
+				var o: Vector2 = CLONE_OFF[ci] * sz + Vector2(0, -hc * 0.5)
+				var cc := c if ci == 0 else c.darkened(0.06 * ci)
+				var b := i * 12
+				var sx := hc * flip
+				_buf[b] = cr * sx
+				_buf[b + 1] = -sr * hc
+				_buf[b + 2] = 0.0
+				_buf[b + 3] = p.x + o.x
+				_buf[b + 4] = sr * sx
+				_buf[b + 5] = cr * hc
+				_buf[b + 6] = 0.0
+				_buf[b + 7] = p.y + o.y
+				_buf[b + 8] = cc.r
+				_buf[b + 9] = cc.g
+				_buf[b + 10] = cc.b
+				_buf[b + 11] = cc.a
+				i += 1
 	# 전선 불꽃
 	for sq: Squad in field.order:
 		if not (sq.alive and sq.contact and sq.engaged != null):
@@ -132,146 +226,108 @@ func _draw_dots() -> void:
 		for j in 8:
 			var ph := fposmod(_t * 3.0 + j * 0.41 + float(sq.row.slot) * 0.13, 1.0)
 			var at: Vector2 = mid + perp * (fposmod(j * 37.3 + floor(_t * 3.0 + j * 0.41) * 11.0, 1.0) - 0.5) * sq.cols * sq.sp
-			var sp := 5.0 * (1.0 - ph)
-			mm.set_instance_transform_2d(i, Transform2D(ph * 3.0, Vector2(sp, sp), 0, map(at) + Vector2(0, -ph * 10.0 - 6.0)))
-			mm.set_instance_color(i, Color(1, 0.95, 0.7, 1.0 - ph))
+			var sp := 4.5 * (1.0 - ph) * clampf(_scale, 0.7, 1.6)
+			var q := map(at) + Vector2(0, -ph * 10.0 - 6.0)
+			var r := ph * 3.0
+			var b := i * 12
+			_buf[b] = cos(r) * sp
+			_buf[b + 1] = -sin(r) * sp
+			_buf[b + 2] = 0.0
+			_buf[b + 3] = q.x
+			_buf[b + 4] = sin(r) * sp
+			_buf[b + 5] = cos(r) * sp
+			_buf[b + 6] = 0.0
+			_buf[b + 7] = q.y
+			_buf[b + 8] = 1.0
+			_buf[b + 9] = 0.9
+			_buf[b + 10] = 0.65
+			_buf[b + 11] = 0.85 * (1.0 - ph)
 			i += 1
-	for j in range(i, mm.instance_count):
-		mm.set_instance_transform_2d(j, Transform2D(0, Vector2.ZERO, 0, Vector2(-9999, -9999)))
+	mm.buffer = _buf
+	mm.visible_instance_count = i
 
 
-## 바탕 —— 채색 지도 + 육각 격자 + 상태 칸, 그리고 깃발 · 이름판 (병사 인형은 MultiMesh 가 위에 그린다 → 깃발은 따로 위 층)
+## 바닥은 셰이더(_ground), 부대 바닥 · 상태는 Under 층이 그린다 (11/6 깃발 뺌 —— 사용자: 깃발 같은 건 빼고 넓게) —— 이 노드는 아무것도 그리지 않는다
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("#5f7a4a"))
-	if _bg:
-		var ts := _bg.get_size() * 1.6 * maxf(_scale, 0.5)
-		var o := map(Vector2.ZERO)
-		var x0 := fposmod(o.x, ts.x) - ts.x
-		var y0 := fposmod(o.y, ts.y) - ts.y
-		var y := y0
-		while y < size.y:
-			var x := x0
-			while x < size.x:
-				draw_texture_rect(_bg, Rect2(Vector2(x, y), ts), false)
-				x += ts.x
-			y += ts.y
-	_draw_hex()
-	_draw_status_hex()
-	_draw_areas()
+	pass
 
 
-## 육각 격자 —— 전장 좌표의 육각을 눌린 화면으로. 화면 안쪽만
-func _draw_hex() -> void:
-	var w := HEX * sqrt(3.0)
-	var hc := Color(0.1, 0.12, 0.06, 0.13)
-	var inv_c := _center
-	var half := size * 0.5 / maxf(_scale, 0.01)
-	var lo := inv_c - Vector2(half.y / TILT, half.x) - Vector2(HEX * 2, w)
-	var hi := inv_c + Vector2(half.y / TILT, half.x) + Vector2(HEX * 2, w)
-	var row := int(floor(lo.x / (HEX * 1.5)))
-	while row * HEX * 1.5 < hi.x:
-		var cx: float = row * HEX * 1.5
-		var col := int(floor(lo.y / w))
-		while col * w < hi.y:
-			var cy: float = col * w + (w * 0.5 if row % 2 != 0 else 0.0)
-			var pts := PackedVector2Array()
-			for k in 7:
-				var a := PI / 3.0 * k
-				pts.append(map(Vector2(cx + cos(a) * HEX, cy + sin(a) * HEX)))
-			draw_polyline(pts, hc, 1.0)
-			col += 1
-		row += 1
+class Under extends Control:
+	var v: Type2View
+	func _draw() -> void:
+		if v != null and v.field != null:
+			v._draw_under(self)
+
+
+## 병사 아래 —— 부대 바닥(진영색 타원, 아군 · 적 덩어리가 한눈에) · 걷는 부대 뒤 흙먼지 · 상태 칸 · 기술 범위
+func _draw_under(ci: CanvasItem) -> void:
+	var t0 := Time.get_ticks_usec()
+	_draw_under_inner(ci)
+	field.pt("타입2 바닥", t0)
+
+
+func _draw_under_inner(ci: CanvasItem) -> void:
+	for sq: Squad in field.order:
+		if not sq.alive or sq.state == "gone":
+			continue
+		var fade: float = sq.fade if sq.state == "flee" else 1.0
+		var team := TEAM_A if sq.camp == "A" else TEAM_B
+		var hd := sq.depth() * 0.5 * T2_SPREAD + 7.0
+		var hw := sq.cols * sq.sp * 0.5 * T2_SPREAD + 7.0
+		var c := sq.pos - sq.fwd * (hd - 7.0)
+		var rt := sq.right()
+		var mc := map(c)      # 지도는 1차 변환 —— 축 둘만 옮기고 원은 조합한다 (map 을 점마다 부르지 않게)
+		var ex := map(c + sq.fwd * hd) - mc
+		var ey := map(c + rt * hw) - mc
+		var pts := PackedVector2Array()
+		pts.resize(UNIT_C.size())
+		for k in UNIT_C.size():
+			pts[k] = mc + ex * UNIT_C[k].x + ey * UNIT_C[k].y
+		ci.draw_colored_polygon(pts, Color(team, 0.2 * fade))
+		pts.append(pts[0])
+		ci.draw_polyline(pts, Color(team.lightened(0.25), 0.55 * fade), 1.6)
+		_boon_ring(ci, pts, sq, fade)
+		# 전선 먼지 —— 맞붙은 자리에 흙먼지가 계속 인다 (11/6 보는 맛)
+		if sq.contact and sq.engaged != null and is_instance_valid(sq.engaged):
+			var mid: Vector2 = sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5
+			var perp := Vector2(-sq.axis.y, sq.axis.x)
+			for j in 4:
+				var ph := fposmod(_t * 0.9 + j * 0.25 + sq.row.slot * 0.17, 1.0)
+				var at: Vector2 = mid + perp * (fposmod(j * 0.29 + sq.row.slot * 0.11, 1.0) - 0.5) * sq.cols * sq.sp * T2_SPREAD
+				ci.draw_circle(map(at), (5.0 + ph * 12.0) * clampf(_scale, 0.6, 1.8), Color(0.74, 0.66, 0.5, 0.26 * sin(PI * ph)))
+		# 흙먼지 —— 움직이는 부대 뒤로 뭉게뭉게
+		if sq.moving and sq.state != "flee":
+			for j in 5:
+				var ph := fposmod(_t * 1.4 + j * 0.2, 1.0)
+				var at: Vector2 = c - sq.fwd * (hd + 4.0 + ph * 22.0) + rt * (fposmod(j * 0.37, 1.0) - 0.5) * hw * 1.4
+				ci.draw_circle(map(at), (3.0 + ph * 7.0) * clampf(_scale, 0.6, 1.6), Color(0.72, 0.64, 0.48, 0.32 * (1.0 - ph)))
+	_draw_tac_under(ci)
+	_draw_status_hex(ci)
+	_draw_areas(ci)
 
 
 ## 부대 발밑 상태 칸 —— 삼국지11 처럼 칸에 불 · 물을 칠한다
-func _hex_at(p: Vector2, col: Color, fill_a: float) -> void:
+func _hex_at(ci: CanvasItem, p: Vector2, col: Color, fill_a: float) -> void:
 	var pts := PackedVector2Array()
 	for k in 6:
 		var a := PI / 3.0 * k
 		pts.append(map(p + Vector2(cos(a), sin(a)) * HEX * 1.4))
-	draw_colored_polygon(pts, Color(col, fill_a))
+	ci.draw_colored_polygon(pts, Color(col, fill_a * 0.6))
 	pts.append(pts[0])
-	draw_polyline(pts, Color(col, minf(1.0, fill_a * 3.0)), 2.0)
+	ci.draw_polyline(pts, Color(col, minf(0.5, fill_a * 2.0)), 1.2)      # 11/6 옅게 —— 화상 칸이 화면을 덮었다
 
 
-func _draw_status_hex() -> void:
+func _draw_status_hex(ci: CanvasItem) -> void:
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone":
 			continue
 		var c := sq.pos - sq.fwd * sq.depth() * 0.5
 		if sq.statuses.has("burn"):
-			_hex_at(c, Color("#ff7a2a"), 0.22 + 0.08 * sin(_t * 8.0 + sq.row.slot))
+			_hex_at(ci, c, Color("#ff7a2a"), 0.22 + 0.08 * sin(_t * 8.0 + sq.row.slot))
 		if sq.statuses.has("flood"):
-			_hex_at(c, Color("#3d8fe0"), 0.24 + 0.06 * sin(_t * 3.0))       # 이감 —— 물에 발이 묶였다
+			_hex_at(ci, c, Color("#3d8fe0"), 0.24 + 0.06 * sin(_t * 3.0))       # 이감 —— 물에 발이 묶였다
 		if sq.statuses.has("confuse"):
-			_hex_at(c, Color("#b57edc"), 0.18)
-
-
-## 깃발 · 이름판 —— 병사 인형(MultiMesh) 위에 오도록 따로 그리는 층
-class Overlay extends Control:
-	var v: Type2View
-	func _draw() -> void:
-		if v == null or v.field == null:
-			return
-		var items := []
-		for sq: Squad in v.field.order:
-			if sq.alive and sq.state != "gone":
-				items.append(sq)
-		items.sort_custom(func(a, b): return v.map(a.pos).y < v.map(b.pos).y)
-		for sq: Squad in items:
-			_flag(sq)
-
-	func _flag(sq: Squad) -> void:
-		var back := sq.pos - sq.fwd * (sq.depth() * 0.5 * Type2View.T2_SPREAD + 8.0)
-		var base := v.map(back)
-		var s := clampf(v._scale * 1.1, 0.7, 1.6)
-		var pole := 34.0 * s
-		var top := base + Vector2(0, -pole)
-		var col: Color = Type2View.TEAM_A if sq.camp == "A" else Type2View.TEAM_B
-		var tc: Color = DB.TIER[sq.tier].c
-		var fade: float = sq.fade if sq.state == "flee" else 1.0
-		draw_line(base, top, Color(0.18, 0.12, 0.08, fade), 2.0)
-		# 깃발 —— 바람에 살짝 흔들리는 사각, 등급색 테두리, 가운데 성씨 한 글자
-		var fw := 20.0 * s
-		var fh := 22.0 * s
-		var dir := 1.0 if sq.camp == "A" else -1.0
-		var wav := sin(v._t * 4.0 + sq.row.slot) * 2.0 * s
-		var p0 := top
-		var p1 := top + Vector2(fw * dir, wav)
-		var p2 := top + Vector2(fw * dir, fh + wav)
-		var p3 := top + Vector2(0, fh)
-		draw_colored_polygon(PackedVector2Array([p0, p1, p2, p3]), Color(col.darkened(0.15), fade))
-		draw_polyline(PackedVector2Array([p0, p1, p2, p3, p0]), Color(tc, fade), 2.0 if sq.tier >= 6 else 1.2)
-		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.tag
-		var ch := nm.left(1)
-		var fs := int(15 * s)
-		var cpos := (p0 + p2) * 0.5
-		draw_string_outline(DB.font_display, cpos + Vector2(-fs * 0.5, fs * 0.36), ch, HORIZONTAL_ALIGNMENT_CENTER, fs, fs, 3, Color(0, 0, 0, 0.6 * fade))
-		draw_string(DB.font_display, cpos + Vector2(-fs * 0.5, fs * 0.36), ch, HORIZONTAL_ALIGNMENT_CENTER, fs, fs, Color(1, 0.97, 0.88, fade))
-		# 이름 · 병력은 전투 화면의 이름표(초상 + 막대)가 따라온다 —— 겹치지 않게 깃발만
-		if sq.armor_broken:      # 파갑 —— 금 간 방패 표시
-			var sc := p1 + Vector2(6.0 * s * dir, 4.0 * s)
-			draw_circle(sc, 5.5 * s, Color("#e8a84a", fade))
-			draw_line(sc + Vector2(-2, -4) * s, sc + Vector2(1, 0) * s, Color(0.1, 0.05, 0, fade), 1.5)
-			draw_line(sc + Vector2(1, 0) * s, sc + Vector2(-1, 4) * s, Color(0.1, 0.05, 0, fade), 1.5)
-
-
-var _over: Overlay
-
-func _enter_tree() -> void:
-	if _over == null:
-		_over = Overlay.new()
-		_over.v = self
-		_over.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_over.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_over.z_index = 1
-		add_child.call_deferred(_over)
-
-
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_DRAW and _over:
-		_over.queue_redraw()
+			_hex_at(ci, c, Color("#b57edc"), 0.18)
 
 
 ## 병사 인형 그림 —— 흰색(진영색을 곱한다): 머리 · 투구 술 · 몸 · 창. 오른쪽을 본다
@@ -321,29 +377,565 @@ func _make_fig() -> Texture2D:
 	return ImageTexture.create_from_image(out)
 
 
-## 채색 지도 바탕 —— 풀빛 · 흙빛 얼룩 (값 노이즈 두 겹). 한 번 만들어 깐다
-func _make_bg() -> Texture2D:
-	var n := 128
-	var noise := FastNoiseLite.new()
-	noise.seed = 11
-	noise.frequency = 0.035
-	noise.fractal_octaves = 3
-	var img := Image.create(n, n, false, Image.FORMAT_RGB8)
-	var grass := Color("#6d8a4f")
-	var grass2 := Color("#86a05a")
-	var soil := Color("#a08a5c")
-	for y in n:
-		for x in n:
-			# 이음매 없이 —— 네 귀퉁이를 섞는다
-			var u := float(x) / n
-			var w := float(y) / n
-			var v1 := noise.get_noise_2d(x, y)
-			var v2 := noise.get_noise_2d(x - n, y)
-			var v3 := noise.get_noise_2d(x, y - n)
-			var v4 := noise.get_noise_2d(x - n, y - n)
-			var v := lerpf(lerpf(v1, v2, u), lerpf(v3, v4, u), w)
-			var c := grass.lerp(grass2, clampf(v * 1.5 + 0.5, 0, 1))
-			if v > 0.28:
-				c = c.lerp(soil, clampf((v - 0.28) * 3.0, 0, 0.8))
-			img.set_pixel(x, y, c)
-	return ImageTexture.create_from_image(img)
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAW and _under:
+		_under.queue_redraw()      # 기술 범위가 떠 있으면 DotView 가 매 프레임 다시 그린다
+
+
+# ───────── 2D 연출 (11/6 사용자: 타입2 면 번쩍이는 것들과 기존 연출을 손봐야) ─────────
+# 3D 연출(입자 · 점광 · 법진)은 타입2 에서 보이지 않고 부하만 냈다 —— War3D.minor_fx · UltFx.play · fire_patch 가
+# 타입2 면 여기로 넘긴다. 번쩍임 없이: 화면 섬광 대신 퍼지는 고리 · 짧은 번개 · 땅에 남는 불 · 옅은 안개.
+
+class FxLayer extends Control:
+	var v: Type2View
+	func _draw() -> void:
+		if v != null and v.field != null:
+			v._draw_fx(self)
+
+
+var _fx := []                  # {k, p, q, col, t0, life, r, s}
+var _fx_layer: FxLayer
+var _frng := RandomNumberGenerator.new()
+
+
+class LabelLayer extends Control:
+	var v: Type2View
+	func _draw() -> void:
+		if v != null and v.field != null:
+			v._draw_tac_top(self)
+
+
+var _label_layer: LabelLayer
+
+
+func _ensure_fx_layer() -> void:
+	if _label_layer == null:      # 진형 이름 —— 전투 HUD(이름표 메달)보다 위 (시작 몇 초만)
+		_label_layer = LabelLayer.new()
+		_label_layer.v = self
+		_label_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_label_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_label_layer.z_index = 5
+		add_child(_label_layer)
+	if _fx_layer == null:
+		_fx_layer = FxLayer.new()
+		_fx_layer.v = self
+		_fx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fx_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(_fx_layer)      # 병사(_mm) 위, 전투 HUD 아래
+
+
+func fx(k: String, p: Vector2, col: Color, life: float, delay := 0.0, r := 30.0, q := Vector2.ZERO) -> void:
+	_ensure_fx_layer()
+	if _fx.size() > 160:
+		return
+	_fx.append({"k": k, "p": p, "q": q, "col": col, "t0": field.clock + delay, "life": life, "r": r, "s": _frng.randf() * 100.0})
+
+
+## 부대가 보이는 한가운데 (병사는 T2_SPREAD 만큼 넓혀 그린다) · 그 둘레 한 점
+func vis_c(sq: Squad) -> Vector2:
+	return sq.pos - sq.fwd * sq.depth() * 0.5 * T2_SPREAD
+
+
+func vis_spot(sq: Squad) -> Vector2:
+	var wd := maxf(10.0, sq.cols * sq.sp * 0.4 * T2_SPREAD)
+	return vis_c(sq) + sq.right() * _frng.randf_range(-wd, wd) + sq.fwd * _frng.randf_range(-10.0, 10.0)
+
+
+func fx_minor(mk: String, a: Squad, d: Squad) -> void:
+	var ap := vis_c(a)
+	var dp := vis_c(d)
+	match mk:
+		"fire":
+			for i in 3:
+				fx("proj", vis_spot(d), Color("#ff8a3c"), 0.45, i * 0.06, 0.0, ap)
+			for i in 2:
+				fx("fire", vis_spot(d), Color("#ff7a2a"), 4.0, 0.45, 9.0)
+		"poison":
+			fx("proj", dp, Color("#7fd06b"), 0.45, 0.0, 0.0, ap)
+			for i in 2:
+				fx("mist", vis_spot(d), Color("#7fd06b"), 2.2, 0.45, 22.0)
+		"rumor":
+			fx("spiral", dp, Color("#b07cff"), 1.2, 0.1, 26.0)
+			d.stagger(field.clock, field.rng)
+		"curse":
+			for i in 3:
+				fx("proj", vis_spot(d), Color("#a070d0"), 0.45, i * 0.07, 0.0, ap)
+			fx("mist", dp, Color("#5a3a7a"), 1.6, 0.5, 24.0)
+		"thunder":
+			fx("bolt", vis_spot(d), Color("#a8d8ff"), 0.35, 0.15)
+			fx("ring", dp, Color("#a8d8ff"), 0.5, 0.15, 22.0)
+		"cheer":
+			fx("heal", ap, Color("#8ff0c8"), 1.2, 0.0, 22.0)
+		"guard":
+			fx("ring", ap, Color("#9fc4e8"), 0.7, 0.0, 26.0)
+		"lance":
+			fx("ring", dp, Color("#ffd257"), 0.55, 0.0, 26.0)
+			fx("dust", dp, Color("#b8a07a"), 0.9, 0.0, 18.0)
+			d.stagger(field.clock, field.rng)
+		"ambush":
+			var sp := vis_spot(d)
+			fx("mist", sp, Color("#1a1424"), 1.0, 0.0, 16.0)
+			fx("slash", sp, Color("#c9b8ff"), 0.4, 0.1, 18.0, ap)
+		"dagger":
+			for i in 3:
+				fx("proj", vis_spot(d), Color("#e8ecf2"), 0.4, i * 0.05, 0.0, ap)
+			fx("burst", dp, Color("#ffffff"), 0.35, 0.45, 14.0)
+		"thrust":
+			var sp := vis_spot(d)
+			fx("slash", sp, Color("#ffe6a0"), 0.35, 0.0, 16.0, ap)
+			fx("burst", sp, Color("#fff2b0"), 0.3, 0.05, 12.0)
+		"volley":
+			for i in 6:
+				fx("proj", vis_spot(d), Color("#e8dcc0"), 0.5, i * 0.04, 0.0, ap)
+
+
+## 고유기 —— 기 모으기(술법은 빛고리, 무장은 흙먼지) 뒤 delay 에 종류별로 터진다
+func fx_ult_charge(a: Squad, col: Color, magic: bool) -> void:
+	var ap := vis_c(a)
+	focus(ap, 1.9, 1.6, 3)
+	if magic:
+		fx("ring", ap, col, 0.9, 0.0, 40.0)
+		fx("ring", ap, col, 0.9, 0.25, 30.0)
+	else:
+		fx("dust", ap, Color("#b8a07a"), 0.9, 0.0, 26.0)
+		fx("ring", ap, col, 0.5, 0.0, 22.0)
+
+
+func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> void:
+	var ap := vis_c(a) if a else Vector2.ZERO
+	var ds := []
+	for k in foes:
+		if field.squads.has(k):
+			ds.append(field.squads[k])
+	if not ds.is_empty():      # 맞는 쪽으로 카메라를 옮기고 흔든다
+		var cen := Vector2.ZERO
+		for d: Squad in ds:
+			cen += vis_c(d)
+		focus(cen / ds.size(), 1.6 if ds.size() > 2 else 1.85, 1.8, 3)
+		shake(9.0 if vfx in ["roar", "charge", "thunder", "whirlwind", "firestorm"] else 6.0)
+	for i in ds.size():
+		var d: Squad = ds[i]
+		var dp := vis_c(d)
+		match vfx:
+			"slash":
+				for j in 3:
+					fx("slash", vis_spot(d), col, 0.4, j * 0.1, 26.0, ap)
+				fx("burst", dp, col, 0.4, 0.0, 22.0)
+			"charge":
+				for j in 6:
+					fx("dust", ap.lerp(dp, (j + 1) / 7.0), Color("#b8a07a"), 1.0, j * 0.04, 16.0)
+				fx("ring", dp, col, 0.7, 0.25, 48.0)
+			"firestorm":
+				for j in 3:
+					fx("fire", vis_spot(d), Color("#ff7a2a"), 6.0, j * 0.12, 13.0)
+				fx("ring", dp, col, 0.7, 0.0, 44.0)
+			"thunder":
+				for j in 8:
+					fx("bolt", vis_spot(d), col, 0.35, j * 0.11)
+				fx("ring", dp, col, 0.6, 0.0, 40.0)
+			"poison":
+				for j in 6:
+					fx("mist", vis_spot(d), col, 2.6, j * 0.4, 26.0)
+			"illusion":
+				fx("spiral", dp, col, 1.6, 0.0, 40.0)
+				d.stagger(field.clock, field.rng)
+			"shadow":
+				fx("mist", dp, Color("#1a1424"), 1.2, i * 0.14, 24.0)
+				fx("slash", vis_spot(d), col, 0.4, i * 0.14, 26.0, ap)
+				fx("slash", vis_spot(d), col.lightened(0.3), 0.4, i * 0.14 + 0.08, 22.0, ap)
+			"arrowstorm":
+				for j in 10:
+					fx("proj", vis_spot(d), col, 0.55, j * 0.05, 0.0, ap)
+				fx("burst", dp, col, 0.4, 0.55, 26.0)
+			"roar", "whirlwind":
+				fx("ring", dp, col, 0.7, 0.0, 52.0)
+				fx("burst", dp, col, 0.45, 0.0, 30.0)
+				fx("dust", dp, Color("#b8a07a"), 1.0, 0.0, 24.0)
+			_:
+				fx("ring", dp, col, 0.6, 0.0, 40.0)
+				fx("burst", dp, col, 0.4, 0.0, 24.0)
+	if vfx in ["aura", "heal"]:
+		for k in allies:
+			if field.squads.has(k):
+				fx("heal", vis_c(field.squads[k]), col, 1.4, 0.0, 28.0)
+				fx("ring", vis_c(field.squads[k]), col, 0.8, 0.0, 34.0)
+
+
+## 화면 위 타원 (전장의 원을 지도 배율로)
+func _ell(ci: CanvasItem, c: Vector2, rad: float, col: Color, width := 0.0) -> void:
+	var pts := PackedVector2Array()
+	for k in 24:
+		var a := TAU * k / 24.0
+		pts.append(map(c + Vector2(cos(a), sin(a)) * rad))
+	if width <= 0.0:
+		ci.draw_colored_polygon(pts, col)
+	else:
+		pts.append(pts[0])
+		ci.draw_polyline(pts, col, width)
+
+
+func _draw_fx(ci: CanvasItem) -> void:
+	var now := field.clock
+	var keep := []
+	var zs := clampf(_scale, 0.6, 1.8)
+	for e in _fx:
+		var u: float = (now - e.t0) / e.life
+		if u >= 1.0:
+			continue
+		keep.append(e)
+		if u < 0.0:
+			continue
+		var col: Color = e.col
+		var p: Vector2 = e.p
+		var sp := map(p)
+		match e.k:
+			"ring":      # 퍼지는 고리
+				_ell(ci, p, e.r * (0.3 + 0.7 * ease(u, 0.4)), Color(col, 0.75 * (1.0 - u)), 2.5)
+			"burst":     # 사방으로 튀는 획
+				for j in 8:
+					var a: float = TAU * j / 8.0 + e.s
+					var d0 := Vector2(cos(a), sin(a) * 0.8)
+					var l0: float = e.r * zs * (0.3 + 0.7 * u)
+					ci.draw_line(sp + d0 * l0 * 0.5, sp + d0 * l0, Color(col, 1.0 - u), 2.0)
+			"bolt":      # 하늘에서 내리꽂는 번개 —— 짧게, 화면 섬광 없이
+				var top := sp + Vector2(sin(e.s) * 20.0, -170.0 * zs)
+				var pts := PackedVector2Array([top])
+				for j in range(1, 7):
+					pts.append(top.lerp(sp, j / 7.0) + Vector2(sin(e.s * 3.1 + j * 2.3) * 9.0 * zs, 0))
+				pts.append(sp)
+				var al := 1.0 - u
+				ci.draw_polyline(pts, Color(col, 0.35 * al), 6.0)
+				ci.draw_polyline(pts, Color(1, 1, 1, 0.9 * al), 1.8)
+				_ell(ci, p, 10.0 * (1.0 + u), Color(col, 0.35 * al))
+			"fire":      # 땅에 붙은 불 —— 그을음 위에 너울대는 불꽃 셋
+				var al := clampf(u * 8.0, 0, 1) * clampf((1.0 - u) * 5.0, 0, 1)
+				_ell(ci, p, e.r * 1.1, Color(0.12, 0.08, 0.05, 0.35 * al))
+				for j in 3:
+					var ph: float = _t * (5.0 + j) + e.s + j * 2.1
+					var base := sp + Vector2((j - 1) * e.r * 0.55 * zs, 0)
+					var h: float = e.r * zs * (1.0 + 0.3 * sin(ph))
+					var w: float = e.r * zs * 0.38
+					ci.draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0), base + Vector2(sin(ph) * w * 0.4, -h), base + Vector2(w, 0)]), Color(1.0, 0.45, 0.12, 0.8 * al))
+					ci.draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.5, 0), base + Vector2(sin(ph) * w * 0.3, -h * 0.6), base + Vector2(w * 0.5, 0)]), Color(1.0, 0.82, 0.35, 0.85 * al))
+			"mist":      # 피어오르는 안개
+				var al := sin(PI * u)
+				for j in 4:
+					var o: Vector2 = Vector2(cos(e.s + j * 1.7), sin(e.s + j * 1.7)) * e.r * 0.5
+					_ell(ci, p + o + Vector2(u * 6.0, 0), e.r * (0.5 + 0.4 * u), Color(col, 0.18 * al))
+			"slash":     # 검기 —— 날아온 쪽에 수직으로 그어지는 호
+				var dir: Vector2 = (sp - map(e.q)).normalized() if e.q != Vector2.ZERO else Vector2.RIGHT
+				var rad: float = e.r * zs
+				var a0 := dir.angle() - PI * 0.4
+				var a1 := a0 + PI * 0.8 * ease(clampf(u * 2.5, 0, 1), 0.4)
+				ci.draw_arc(sp - dir * rad * 0.6, rad, a0, a1, 16, Color(col, 0.9 * (1.0 - u)), 3.5)
+				ci.draw_arc(sp - dir * rad * 0.6, rad, a0, a1, 16, Color(1, 1, 1, 0.7 * (1.0 - u)), 1.2)
+			"proj":      # 날아가는 화살 · 부적 · 단도 —— 짧은 꼬리
+				var from := map(e.q)
+				var at := from.lerp(sp, u)
+				var back := from.lerp(sp, maxf(0.0, u - 0.18))
+				ci.draw_line(back, at, Color(col, 0.55), 2.0)
+				ci.draw_circle(at, 2.6 * zs, col)
+			"spiral":    # 소용돌이 (혼란)
+				for j in 3:
+					var a0: float = _t * 4.0 + j * TAU / 3.0
+					ci.draw_arc(sp, e.r * zs * (0.4 + 0.25 * j) * (1.0 - u * 0.3), a0, a0 + 2.0, 12, Color(col, 0.7 * sin(PI * u)), 2.0)
+			"dust":      # 흙먼지
+				for j in 3:
+					var o: Vector2 = Vector2(cos(e.s + j * 2.1), sin(e.s + j * 2.1)) * e.r * 0.4
+					_ell(ci, p + o, e.r * (0.4 + 0.6 * u), Color(col, 0.3 * (1.0 - u)))
+			"heal":      # 떠오르는 초록 십자
+				for j in 4:
+					var c := sp + Vector2(sin(e.s + j * 1.9) * e.r * zs * 0.8, -u * 30.0 * zs - j * 6.0)
+					var hc := Color(col, sin(PI * u))
+					ci.draw_line(c + Vector2(-4, 0), c + Vector2(4, 0), hc, 2.0)
+					ci.draw_line(c + Vector2(0, -4), c + Vector2(0, 4), hc, 2.0)
+	_fx = keep
+
+
+# ───────── 전황 읽기 (11/6 탑뷰 강점: 진형 · 사거리 · 전술 화살표) ─────────
+# 모두 그리기만 한다 —— 판정 · 결정성과 무관. 위치는 Squad(재생 결과), 진형은 res.aForm / bForm.
+
+const BOON_COL := Color("#E8C25A")
+const INTRO_T := 4.0            # 전투 시작 뒤 진형 윤곽 · 이름을 보여 주는 시간
+var _form := {}                 # "A"/"B" -> 진형 키
+var _boon := {}                 # 부대 key -> true (진형 우대를 받는 병종)
+var _intro_t0 := 0.0
+
+
+func _setup_tac() -> void:
+	_form.clear()
+	_boon.clear()
+	var res: Dictionary = view.res if view != null and view.res is Dictionary else {}
+	_form["A"] = str(res.get("aForm", ""))
+	_form["B"] = str(res.get("bForm", ""))
+	for sq: Squad in field.order:
+		var bn = DB.D.FORMBOON.get(_form.get(sq.camp, ""))
+		if bn != null and bn.tags.has(sq.tag):
+			_boon[sq.key] = true
+	_intro_t0 = field.clock
+	_ensure_fx_layer()
+	_label_layer.visible = true
+
+
+func _intro_alpha() -> float:
+	var t := field.clock - _intro_t0
+	return clampf(t / 0.35, 0, 1) * clampf((INTRO_T - t) / 0.9, 0, 1)
+
+
+## 병사 아래 층 —— 진형 윤곽(시작), 사거리 부채꼴 · 책략 실(행동할 때), 전술 화살표(움직일 때)
+func _draw_tac_under(ci: CanvasItem) -> void:
+	var lv := tac_level()
+	if lv <= 0:
+		return
+	# 1) 진형 윤곽 —— 같은 편 부대들을 감싸는 선 (시작 몇 초)
+	var ia := _intro_alpha()
+	if ia > 0.01:
+		for camp in ["A", "B"]:
+			var pts := PackedVector2Array()
+			for sq: Squad in field.order:
+				if sq.camp == camp and sq.alive:
+					pts.append(map(vis_c(sq)))
+			if pts.size() >= 3:
+				var hull := Geometry2D.convex_hull(pts)
+				var team := TEAM_A if camp == "A" else TEAM_B
+				ci.draw_colored_polygon(hull, Color(team, 0.08 * ia))
+				_dashed(ci, hull, Color(BOON_COL, 0.75 * ia), 2.0)
+			for sq: Squad in field.order:      # 우대 받는 부대끼리 금빛으로 잇는다
+				if sq.camp == camp and sq.alive and _boon.has(sq.key):
+					ci.draw_circle(map(vis_c(sq)), 4.0, Color(BOON_COL, 0.9 * ia))
+	var now := field.clock
+	for sq: Squad in field.order:
+		if not sq.alive or sq.state == "gone":
+			continue
+		var team := TEAM_A if sq.camp == "A" else TEAM_B
+		var c := vis_c(sq)
+		# 2) 사거리 · 책략 —— 쏘거나 시전한 직후 1.2초
+		var since := now - sq.act_t
+		if lv >= 1 and since < 1.2 and sq.act_tgt != null and is_instance_valid(sq.act_tgt) and sq.act_kind in ["shoot", "cast"]:
+			var tp := vis_c(sq.act_tgt)
+			var al := 1.0 - since / 1.2
+			if sq.act_kind == "shoot":
+				if lv >= 2:
+					_fan(ci, c, tp, RtBattle.bow_range, Color(team.lightened(0.3), al))
+			else:
+				var cc := Color("#b48cff")
+				if lv >= 2:
+					_fan(ci, c, tp, RtBattle.cast_range, Color(cc, al * 0.8))
+				# 책략 실 —— 시전자에서 대상까지 흐르는 보랏빛 점선
+				var a := map(c)
+				var b := map(tp)
+				var n := int(a.distance_to(b) / 16.0)
+				var dc := Color(cc, 0.85 * al)
+				for j in n:
+					var f := fposmod(j / float(maxi(1, n)) + now * 1.4, 1.0)
+					ci.draw_rect(Rect2(a.lerp(b, f) - Vector2(1.5, 1.5), Vector2(3, 3)), dc)      # 원보다 싸다 (11/6 부하)
+				_ell(ci, tp, 18.0, Color(cc, 0.6 * al), 1.5)
+		# 3) 전술 화살표 —— 상대에게 다가가는 중 (맞닿기 전), 패주는 뒤로 회색
+		if lv < 2:
+			continue
+		if sq.state == "flee":
+			var back := c - sq.fwd * 70.0
+			_arrow(ci, map(c), map(back), Color(0.75, 0.75, 0.75, 0.35 * sq.fade), 4.0)
+		elif not sq.contact and _foe_of(sq) != null and (sq.moving or sq.state == "move"):
+			var tp := vis_c(_foe_of(sq))
+			var d := c.distance_to(tp)
+			if d > 60.0:      # 방향만 —— 끝까지 그으면 화살표가 전장을 가로질러 얽혔다 (11/6 점검)
+				var a := map(c + (tp - c).normalized() * 26.0)
+				var b := map(c + (tp - c).normalized() * minf(d - 24.0, 95.0))
+				_arrow(ci, a, b, Color(team.lightened(0.35), 0.42), 5.0)
+
+
+## 다가가는 상대 —— 재생 부대(puppet)는 ptgt, 아니면 engaged
+func _foe_of(sq: Squad) -> Squad:
+	if sq.engaged != null and is_instance_valid(sq.engaged) and sq.engaged.alive:
+		return sq.engaged
+	if sq.puppet and sq.ptgt != null and is_instance_valid(sq.ptgt) and sq.ptgt.alive:
+		return sq.ptgt
+	return null
+
+
+## 우대 금테 —— 부대 바닥 타원 둘레 (계속)
+func _boon_ring(ci: CanvasItem, pts: PackedVector2Array, sq: Squad, fade: float) -> void:
+	if _boon.has(sq.key) and tac_level() >= 1:
+		ci.draw_polyline(pts, Color(BOON_COL, 0.6 * fade), 1.6)      # 큰 부대는 타원이 커서 굵은 금테가 화면을 덮었다 (11/6 점검)
+
+
+## 진형 이름 · 우대 효과 —— 각 편 무리 바깥(아군 아래 · 적 위)에 (시작 몇 초)
+func _draw_tac_top(ci: CanvasItem) -> void:
+	if tac_level() <= 0:
+		return
+	var ia := _intro_alpha()
+	if ia <= 0.01:
+		return
+	for camp in ["A", "B"]:
+		var fk: String = _form.get(camp, "")
+		if fk == "" or not DB.FORM.has(fk):
+			continue
+		var lo := INF
+		var hi := -INF
+		var sx := 0.0
+		var n := 0
+		for sq: Squad in field.order:
+			if sq.camp == camp and sq.alive:
+				var p := map(vis_c(sq))
+				lo = minf(lo, p.y)
+				hi = maxf(hi, p.y)
+				sx += p.x
+				n += 1
+		if n == 0:
+			continue
+		var y := minf(hi + 44.0, size.y - 30.0) if camp == "A" else maxf(lo - 52.0, 120.0)      # 위쪽 시계 · 병력 막대와 겹치지 않게
+		var x := sx / n
+		var nm: String = DB.FORM[fk].n
+		var bn = DB.D.FORMBOON.get(fk)
+		var sub := ("%s %s +%d%%" % [" · ".join(bn.tags), DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100)]) if bn else ""
+		var fd := DB.font_display
+		var w := 300.0
+		var tc := Color("#a9c8f0") if camp == "A" else Color("#f0aaa2")
+		# 받침 —— 부대 · 이름표 위에 겹쳐도 읽히게
+		var bw: float = maxf(fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x, DB.font_bold.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x) + 28.0
+		var plate := StyleBoxFlat.new()
+		plate.bg_color = Color(0.04, 0.05, 0.08, 0.62 * ia)
+		plate.border_color = Color(BOON_COL, 0.45 * ia)
+		plate.set_border_width_all(1)
+		plate.set_corner_radius_all(4)
+		ci.draw_style_box(plate, Rect2(x - bw / 2, y - 24, bw, 48 if sub != "" else 30))
+		ci.draw_string_outline(fd, Vector2(x - w / 2, y), nm, HORIZONTAL_ALIGNMENT_CENTER, w, 22, 6, Color(0, 0, 0, 0.75 * ia))
+		ci.draw_string(fd, Vector2(x - w / 2, y), nm, HORIZONTAL_ALIGNMENT_CENTER, w, 22, Color(tc.lightened(0.3), ia))
+		if sub != "":
+			ci.draw_string_outline(DB.font_bold, Vector2(x - w / 2, y + 18), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 12, 4, Color(0, 0, 0, 0.75 * ia))
+			ci.draw_string(DB.font_bold, Vector2(x - w / 2, y + 18), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(BOON_COL, ia))
+
+
+func _dashed(ci: CanvasItem, poly: PackedVector2Array, col: Color, wd: float) -> void:
+	for i in poly.size() - 1:
+		var a := poly[i]
+		var b := poly[i + 1]
+		var l := a.distance_to(b)
+		var k := 0.0
+		while k < l:
+			ci.draw_line(a.lerp(b, k / l), a.lerp(b, minf(l, k + 8.0) / l), col, wd)
+			k += 14.0
+
+
+## 사거리 부채꼴 —— 대상 쪽으로 ±22°, 안은 아주 옅게 · 끝 호만 조금 진하게
+func _fan(ci: CanvasItem, c: Vector2, tp: Vector2, reach: float, col: Color) -> void:
+	var dir := (tp - c).normalized()
+	var a0 := dir.angle() - 0.38
+	var mc := map(c)
+	var ex := map(c + Vector2(reach, 0)) - mc
+	var ey := map(c + Vector2(0, reach)) - mc
+	var pts := PackedVector2Array([mc])
+	var arc := PackedVector2Array()
+	for k in 9:
+		var a := a0 + 0.76 * k / 8.0
+		var q := mc + ex * cos(a) + ey * sin(a)
+		pts.append(q)
+		arc.append(q)
+	ci.draw_colored_polygon(pts, Color(col, 0.07 * col.a))
+	ci.draw_polyline(arc, Color(col, 0.45 * col.a), 1.5)
+
+
+## 전술 화살표 —— 굵은 몸통 + 삼각 머리
+func _arrow(ci: CanvasItem, a: Vector2, b: Vector2, col: Color, wd: float) -> void:
+	var d := b - a
+	var l := d.length()
+	if l < 8.0:
+		return
+	var u := d / l
+	var nrm := Vector2(-u.y, u.x)
+	var head := minf(14.0, l * 0.4)
+	ci.draw_line(a, b - u * head, col, wd)
+	ci.draw_colored_polygon(PackedVector2Array([b, b - u * head + nrm * head * 0.6, b - u * head - nrm * head * 0.6]), col)
+
+
+# ───────── 보는 맛 (11/6 사용자: 탑뷰로 바꾸니 보는 맛이 다 사라졌다) ─────────
+# 카메라가 사건으로 다가간다(첫 격돌 · 장수 격파 · 고유기), 부딪치면 흔들리고 흙먼지가 인다.
+# 번쩍임(화면 섬광 · 흰빛)은 쓰지 않는다 —— 움직임 · 먼지 · 흔들림으로.
+
+var _focus := {}               # {c: 전장 자리, mul: 배율, until, pri}
+var _base_scale := 1.0
+var _jit := Vector2.ZERO       # 흔들림 (전장 px)
+var _shake := 0.0
+var _was_contact := {}
+var _was_alive := {}
+var _clashed := false
+var _focus_free := 0.0
+
+
+func tac_level() -> int:
+	if view != null and view.speed == 0.0:
+		return 2      # 일시정지 —— 다 보여 준다
+	return Settings.tac_info
+
+
+func _focus_on() -> bool:
+	return not _focus.is_empty() and field != null and field.clock < float(_focus.until)
+
+
+## 그 자리로 다가간다 —— pri 가 높은 장면이 진행 중이면 끼어들지 않는다 (고유기 3 > 격돌 2 > 격파 1)
+func focus(c: Vector2, mul: float, dur: float, pri := 1) -> void:
+	if _focus_on() and int(_focus.pri) > pri:
+		return
+	if pri < 3 and field.clock < _focus_free:      # 고유기 말고는 숨 돌릴 틈을 둔다 —— 카메라가 계속 튀었다 (11/6 점검)
+		return
+	_focus_free = field.clock + dur + 3.5
+	_focus = {"c": c, "mul": mul, "until": field.clock + dur, "pri": pri}
+	_want_scale = clampf(_base_scale * mul, 0.35, 4.0)
+	_want_center = c
+
+
+func shake(amt: float) -> void:
+	_shake = maxf(_shake, amt)
+
+
+func _feel_step(dt: float) -> void:
+	# 다가가거나 돌아올 때는 빠르게 (DotView 의 느린 따라가기 위에 한 번 더)
+	var fast := _focus_on() or absf(_scale - _want_scale) > _base_scale * 0.08
+	if fast:
+		var k := 1.0 - exp(-dt * 3.2)
+		_scale = lerpf(_scale, _want_scale, k)
+		_center = _center.lerp(_want_center, k)
+	if not _focus.is_empty() and not _focus_on():
+		_focus = {}
+		_fit()
+	# 흔들림
+	_shake = maxf(0.0, _shake - dt * 22.0)
+	_jit = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake / maxf(_scale, 0.3) if _shake > 0.05 else Vector2.ZERO
+	# 부딪침 · 격파 감지
+	var first := Vector2.INF
+	for sq: Squad in field.order:
+		var on := sq.contact and sq.alive and sq.engaged != null
+		if on and not _was_contact.get(sq.key, false):
+			var en: Squad = sq.engaged
+			var mid: Vector2 = en.pos + sq.axis * en.depth() * 0.5
+			var cav: bool = sq.tag == "기병"
+			fx("ring", mid, Color("#e8d3a0"), 0.5, 0.0, 34.0 if cav else 24.0)
+			fx("dust", mid, Color("#b8a07a"), 1.1, 0.0, 30.0 if cav else 20.0)
+			fx("burst", mid, Color("#ffe2a0"), 0.35, 0.0, 18.0)
+			shake(5.0 if cav else 2.5)
+			if first == Vector2.INF:
+				first = mid
+		_was_contact[sq.key] = on
+		if _was_alive.get(sq.key, true) and not sq.alive:
+			var c := vis_c(sq)
+			fx("ring", c, Color("#ffffff"), 0.6, 0.0, 40.0)
+			fx("dust", c, Color("#8a7a62"), 1.4, 0.0, 34.0)
+			shake(6.0 if sq.tier >= 4 else 3.0)
+			if sq.tier >= 6:      # 초월 이상 장수가 무너질 때만 다가간다
+				focus(c, 1.6, 1.3, 1)
+		_was_alive[sq.key] = sq.alive
+	if first != Vector2.INF and not _clashed:
+		_clashed = true
+		focus(first, 1.7, 1.8, 2)      # 첫 격돌 —— 부딪치는 자리로
+		shake(7.0)
+
+
+func _reset_feel() -> void:
+	_focus = {}
+	_jit = Vector2.ZERO
+	_shake = 0.0
+	_was_contact.clear()
+	_was_alive.clear()
+	_clashed = false
+	_focus_free = 0.0

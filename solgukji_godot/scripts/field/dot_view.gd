@@ -164,7 +164,10 @@ func add_area(shape: Dictionary, col: Color, life: float) -> void:
 
 
 ## 범위 —— 원(안은 옅게, 테두리는 진하게 · 오래 남는 예고는 테두리가 안쪽으로 조여든다) · 띠
-func _draw_areas() -> void:
+func _draw_areas(ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
+	var spread := _area_spread()
 	var keep := []
 	for a in _areas:
 		var u: float = (field.clock - a.t0) / a.life
@@ -177,15 +180,24 @@ func _draw_areas() -> void:
 		if sh.k == "line":
 			var p0 := map(Vector2(sh.x, sh.y))
 			var p1 := map(Vector2(sh.x2, sh.y2))
-			draw_line(p0, p1, Color(col, 0.18 * al), float(sh.w) * 2.0 * _scale * SPREAD * 0.5)
+			ci.draw_line(p0, p1, Color(col, 0.18 * al), float(sh.w) * 2.0 * _scale * spread * 0.5)
 			continue
 		var c := map(Vector2(sh.x, sh.y))
-		var r: float = float(sh.r) * _scale * SPREAD * 0.6
-		draw_circle(c, r, Color(col, 0.16 * al))
-		draw_arc(c, r, 0, TAU, 40, Color(col, 0.85 * al), 2.5)
+		var r: float = float(sh.r) * _scale * spread * 0.6
+		ci.draw_circle(c, r, Color(col, 0.16 * al * _area_alpha()))
+		ci.draw_arc(c, r, 0, TAU, 40, Color(col, 0.85 * al * _area_alpha()), 2.5)
 		if a.life > 1.5:
-			draw_arc(c, r * (1.0 - u), 0, TAU, 40, Color(col, 0.6 * al), 2.0)       # 조여드는 고리 —— 터지는 때를 알린다
+			ci.draw_arc(c, r * (1.0 - u), 0, TAU, 40, Color(col, 0.6 * al), 2.0)       # 조여드는 고리 —— 터지는 때를 알린다
 	_areas = keep
+
+
+## 범위 원을 넓혀 그리는 배율 · 진하기 (타입2 가 덮어쓴다 —— 11/6 점묘 배율 2.3 으로 그려 원이 1.7배 컸다)
+func _area_spread() -> float:
+	return SPREAD
+
+
+func _area_alpha() -> float:
+	return 1.0
 
 
 ## 배경 —— 어두운 바탕에 옅은 격자

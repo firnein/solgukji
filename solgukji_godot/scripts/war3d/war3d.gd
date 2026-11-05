@@ -2565,7 +2565,13 @@ const MINOR_FX := {"vanguard": "lance", "duel": "lance", "lone_ride": "ambush", 
 func minor_fx(mk: String, akey: String, dkey: String) -> void:
 	var a: Squad = squads.get(akey)
 	var d: Squad = squads.get(dkey)
-	if a == null or d == null or overview:
+	if a == null or d == null:
+		return
+	if flat != null:      # 11/6 타입2 · 점묘 —— 2D 연출로 (3D 입자는 보이지 않고 부하만 낸다)
+		if flat.has_method("fx_minor"):
+			flat.fx_minor(mk, a, d)
+		return
+	if overview:
 		return
 	var wd := maxf(15.0, d.cols * d.sp * 0.32)
 	var spots := []
@@ -3018,6 +3024,10 @@ var _swirl_tex: Texture2D = null
 var fires := []               # {n: [입자…], until, sq(따라감, 없으면 null)}
 var _burning := {}            # 부대 key -> fires 항목
 func fire_patch(at: Vector2, life: float, k := 1.0) -> Dictionary:
+	if flat != null:      # 2D 전장 —— 화상은 발밑 칸이 보여 준다, 짧은 불만 2D 로
+		if life < 100.0 and flat.has_method("fx"):
+			flat.fx("fire", at, Color("#ff7a2a"), life, 0.0, 10.0 * k)
+		return {}
 	if overview and k < 1.0:
 		return {}
 	var p := p3(at)

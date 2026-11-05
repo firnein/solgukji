@@ -58,6 +58,8 @@ func _ready() -> void:
 	vp.add_child(view)
 	view.ended.connect(func(res, _inp): _report([res], "관전 결과"))
 	await get_tree().process_frame
+	Settings.load_cfg()      # 11/6 사용자: 실험실에서 전투 설정(화풍 · 품질)을 바꿀 수 없다 —— 게임 설정을 읽고 가운데 열에서 바꾼다
+	Settings.apply()
 	Settings.apply_port(view.port)
 	_random("A", 7)
 	_random("B", 7)
@@ -286,6 +288,40 @@ func _mid_col() -> Control:
 	seed_rand.button_pressed = true
 	r.add_child(seed_rand)
 	v.add_child(r)
+	# 전장 화풍 · 품질 (게임 설정과 같은 파일에 저장 —— 3D ↔ 2D 는 다음 관전부터)
+	var rs := HBoxContainer.new()
+	var stl := Label.new()
+	stl.text = "화풍"
+	rs.add_child(stl)
+	var style := OptionButton.new()
+	for nm in ["기본 3D", "수묵", "타입2 (삼국지11)", "점묘 (2D)"]:
+		style.add_item(nm)
+	style.selected = 2 if Settings.type2 else (1 if Settings.sumuk else (3 if Settings.dots else 0))
+	style.item_selected.connect(func(i):
+		Settings.sumuk = i == 1
+		Settings.type2 = i == 2
+		Settings.dots = i == 3
+		Settings.save_cfg()
+		view.apply_style())
+	rs.add_child(style)
+	var ql := Label.new()
+	ql.text = "  품질"
+	rs.add_child(ql)
+	var qual := OptionButton.new()
+	for nm in Settings.QUALITY_N:
+		qual.add_item(nm)
+	qual.selected = clampi(Settings.quality, 0, 2)
+	qual.item_selected.connect(func(i):
+		Settings.quality = i
+		Settings.apply()
+		Settings.apply_port(view.port)
+		Settings.save_cfg())
+	rs.add_child(qual)
+	var hint := Label.new()
+	hint.text = "  (3D↔2D 는 다음 관전부터)"
+	hint.add_theme_color_override("font_color", Color("#8a8f9a"))
+	rs.add_child(hint)
+	v.add_child(rs)
 	var r2 := HBoxContainer.new()
 	var watch := Button.new()
 	watch.text = "관전 ▶"

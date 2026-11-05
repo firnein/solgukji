@@ -51,8 +51,12 @@ func play(vfx: String, akey: String, foes: Array, allies: Array, delay: float) -
 	var a: Squad = w.squads.get(akey)
 	if a == null:
 		return
-	var ap := w.p3(a.pos)
 	var col := _col(vfx)
+	if w.flat != null and w.flat.has_method("fx_ult"):      # 11/6 타입2 —— 2D 연출 (병사 날리기는 그대로, 섬광은 술법만 옅게)
+		w.flat.fx_ult_charge(a, col, MAGIC.has(vfx))
+		at(delay, func(): _impact_flat(vfx, akey, foes, allies, col))
+		return
+	var ap := w.p3(a.pos)
 	# 기 모으기 —— 11/5 사용자 "고유기가 다 비슷하다": 법진 · 빛기둥은 술법 계열만. 무장 계열은 흙먼지 · 기합 고리
 	if MAGIC.has(vfx):
 		_circle(ap, col, 22.0, delay + 0.7)
@@ -64,6 +68,19 @@ func play(vfx: String, akey: String, foes: Array, allies: Array, delay: float) -
 		"charge", "whirlwind":
 			trails[akey] = w.clock + delay + 2.5
 	at(delay, func(): _impact(vfx, akey, foes, allies, col))
+
+
+func _impact_flat(vfx: String, akey: String, foes: Array, allies: Array, col: Color) -> void:
+	var a: Squad = w.squads.get(akey)
+	if MAGIC.has(vfx):
+		w.ult_flash.emit(col)
+	var lp: float = LAUNCH.get(vfx, 0.0)
+	for k in foes:
+		var d: Squad = w.squads.get(k)
+		if d != null and lp > 0.0:
+			var c: Vector2 = d.pos + (a.pos - d.pos).normalized() * d.depth() * 0.3 if a else d.pos
+			w.launch(k, c, 55.0, lp)
+	w.flat.fx_ult(vfx, a, foes, allies, col)
 
 
 func _col(vfx: String) -> Color:

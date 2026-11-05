@@ -710,8 +710,15 @@ func band(text: String, col: Color = DB.PAL.gold, sub := "") -> void:
 		_next_band()
 
 
+var _band_node: Control = null
+## 전투 화면이 열리면 떠 있던 띠를 감춘다 (남은 띠는 전투가 끝난 뒤)
+func _hide_band() -> void:
+	if is_instance_valid(_band_node):
+		_band_node.visible = false
+
+
 func _next_band() -> void:
-	if _bands.is_empty():
+	if _bands.is_empty() or battle_visible():      # 11/6 전투 중에는 띠를 띄우지 않는다 (진형 표시 · 전장을 가렸다) —— 전투가 끝나면 이어서
 		_band_busy = false
 		return
 	_band_busy = true
@@ -746,6 +753,7 @@ func _next_band() -> void:
 		v.add_child(l2)
 	p.add_child(v)
 	add_child(p)
+	_band_node = p
 	var h := p.get_combined_minimum_size().y
 	p.offset_left = 0
 	p.offset_right = 0
@@ -998,6 +1006,13 @@ func _settings_sheet() -> void:
 		if _battle:
 			_battle.apply_style()
 		_settings_sheet()))
+	if Settings.type2:      # 11/6 타입2 전황 표시 단계 (일시정지하면 늘 자세히)
+		b.add_child(UI.eyebrow("전황 표시 (타입2)"))
+		b.add_child(UI.segmented([["0", "끔"], ["1", "간단"], ["2", "자세히"]], str(Settings.tac_info), func(key):
+			Settings.tac_info = int(key)
+			Settings.save_cfg()
+			_settings_sheet()))
+		b.add_child(UI.hint("간단: 진형 소개 · 진형 우대 금테 · 책략 실. 자세히: 사거리 · 진격 화살표까지. 일시정지하면 자세히 보입니다."))
 	# 11/4 사용자: 직접 지휘 개념은 없앤다 —— 전투는 늘 AI 가 고유기 · 군령을 쓴다
 	# 소리 크기 —— 끔 · 작게 · 보통 · 크게
 	for which in (["sfx", "bgm"] if Sfx.ENABLED else []):
@@ -2246,6 +2261,7 @@ func _start(kind: String) -> void:
 	_battle_done.visible = false
 	_hide_report()
 	_battle_layer.visible = true
+	_hide_band()
 	Settings.apply_port(_battle.port)
 	_battle.play(bt, false)
 
@@ -2258,12 +2274,19 @@ func show_battle(res: Dictionary, last: bool, kind := "") -> void:
 	_hide_report()
 	_battle_done.text = "결과 정리  ▶" if last else "다음 전투  ▶"
 	_battle_layer.visible = true
+	_hide_band()
 	Settings.apply_port(_battle.port)
 	_battle.play_res(res, kind)
 
 
 func hide_battle() -> void:
 	_battle_layer.visible = false
+	_resume_bands()
+
+
+func _resume_bands() -> void:
+	if not _band_busy and not _bands.is_empty():
+		_next_band.call_deferred()
 
 
 func battle_visible() -> bool:
@@ -2326,6 +2349,7 @@ func _on_battle_close() -> void:
 	run.save()
 	PlayLog.after_battle(run)
 	_battle_layer.visible = false
+	_resume_bands()
 	if run.last_spoil != null and run.last_result.kind != "tour":
 		toast("기본패 %d장 획득 — %s" % [run.last_spoil.n, run.last_spoil.src], "gain")
 	go("war")

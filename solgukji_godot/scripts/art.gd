@@ -179,16 +179,16 @@ static func _mip(ci: CanvasItem) -> void:
 
 
 ## 둥근 얼굴 —— 얼굴 확대 그림을 원 안에만 (점묘 전장의 장수 토큰). 그림이 없으면 세력색 원
-static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String) -> void:
+static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String, a := 1.0) -> void:      # a —— 투명도 (11/6 격파 메달이 테만 사라지고 얼굴은 남았다)
 	_mip(ci)
 	var ft := DB.face_tex(k)
 	var tex: Texture2D = ft if ft else DB.portrait(k)
 	if tex == null:
-		ci.draw_circle(c, r, DB.fac_color(DB.C[k].fac).darkened(0.3))
+		ci.draw_circle(c, r, Color(DB.fac_color(DB.C[k].fac).darkened(0.3), a))
 		var ic: Texture2D = DB.ICON.get(DB.C[k].tag)      # 병졸 · 그림 없는 카드 —— 병종 기호 (결과표에 빈 원으로 나왔다)
 		if ic:
 			var s := r * 1.1
-			ci.draw_texture_rect(ic, Rect2(c - Vector2(s, s) / 2.0, Vector2(s, s)), false, Color(DB.PAL.paper, 0.85))
+			ci.draw_texture_rect(ic, Rect2(c - Vector2(s, s) / 2.0, Vector2(s, s)), false, Color(DB.PAL.paper, 0.85 * a))
 		return
 	var face := Rect2(Vector2.ZERO, tex.get_size()) if ft else DB.portrait_face(k)
 	var ts := tex.get_size()
@@ -199,8 +199,8 @@ static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String) ->
 		var d := Vector2(cos(t), sin(t))
 		pts.append(c + d * r)
 		uvs.append((face.get_center() + d * face.size.x * 0.5) / ts)
-	ci.draw_colored_polygon(pts, Color(0.12, 0.1, 0.09))
-	ci.draw_polygon(pts, PackedColorArray([Color.WHITE]), uvs, tex)
+	ci.draw_colored_polygon(pts, Color(0.12, 0.1, 0.09, a))
+	ci.draw_polygon(pts, PackedColorArray([Color(1, 1, 1, a)]), uvs, tex)
 
 
 ## 얼굴 확대 —— 얼굴 자리(정사각형)를 칸 비율에 맞춰 넓히거나 줄여 꽉 채운다. 그림 밖으로 나간 부분은 잘라 낸다
