@@ -1203,8 +1203,15 @@ static func load_saved() -> Run:
 			r.inv.erase(k)
 			var base: String = DB.BASE.filter(func(b): return DB.C[b].tag == DB.C[k].tag)[0]
 			r.inv[base] = int(r.inv.get(base, 0)) + n * 2
+	# 11/5 고급 명단 정리 —— 명단에서 빠진 고급(적 전용)은 같은 병종 기본패 넷으로 (고급 = 기본패 4장)
+	for k in r.inv.keys():
+		if DB.C.has(k) and DB.C[k].tier == 3 and DB.C[k].kind == "retired":
+			var n3 := int(r.inv[k])
+			r.inv.erase(k)
+			var b3: String = DB.BASE.filter(func(b): return DB.C[b].tag == DB.C[k].tag)[0]
+			r.inv[b3] = int(r.inv.get(b3, 0)) + n3 * 4
 	for i in r.board.size():
-		if r.board[i] != null and DB.C[r.board[i]].tier == 2:
+		if r.board[i] != null and (DB.C[r.board[i]].tier == 2 or DB.C[r.board[i]].kind == "retired"):
 			r.board[i] = null
 	if int(r.tickets.get("2", 0)) > 0:
 		var n2 := int(r.tickets["2"])

@@ -47,3 +47,9 @@
 [12_하위6_기본_15명.txt] 12. 하위 (기본) 6 — 15장 · 다시 뽑기 (상징 장면 · 얼굴 개성)  ※ 촉 초록 옷 있음 → `--hole` 없이
   python -I tools/scripts/slice_panels.py 시트.png "유비,관우,장비,제갈량,황충,강유,방통,법정,마량,이적,간옹,미축,요화,주창,초주" solgukji_godot/assets/portraits
   (칸 안이 배경 없이 인물만 오려진 모양이면) python -I tools/scripts/slice_sheet.py 시트.png "유비,관우,장비,제갈량,황충,강유,방통,법정,마량,이적,간옹,미축,요화,주창,초주" solgukji_godot/assets/portraits
+
+[13_고급신규_14명.txt] 13. 고급 새 인물 — 14장 (11/5 고급 · 희귀 명단 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
+  python -I tools/scripts/slice_panels.py 시트.png "주건평,동소,오의,왕평,마속,한당,장흠,감택,제갈근,보즐,기령,장임,허유,진림" solgukji_godot/assets/portraits
+
+[14_희귀신규_12명.txt] 14. 희귀 새 인물 — 12장 (11/5 고급 · 희귀 명단 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
+  python -I tools/scripts/slice_panels.py 시트.png "장패,엄안,장포,맹달,반장,제갈각,우번,여범,고람,황조,장만성,공융" solgukji_godot/assets/portraits

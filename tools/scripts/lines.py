@@ -121,9 +121,19 @@ T3 = {"우금": "궁병 모사", "악진": "기병 도적", "이전": "궁병 �
       "심배": "기병 유생",
       # 11/5 되살린 고급 (초월 장수의 고급판 —— 고급 → 희귀 → 초월 줄기)
       "마량": "기병 창병", "우길": "궁병 유생", "저수": "창병 책사", "전풍": "궁병 도적"}
-# 11/5 사용자: 고급이 도적(5) · 술사(5)에 쏠리고 궁병 · 유생이 2 —— 인물에 맞게 병종을 옮겨 고르게 (창 4 · 기 3 · 궁 3 · 도 3 · 책 3 · 유 3 · 술 4 · 모 3)
-# 마충(오 무장, 관우를 사로잡음) 도적 → 궁병 · 능조(오 무장, 능통의 아버지) 도적 → 창병 · 초주(촉 유학자) 술사 → 유생
-TAG3 = {"마충": "궁병", "능조": "창병", "초주": "유생"}
+# 11/5 사용자: 고급 · 희귀 명단 정리 —— 고급이 도적 · 술사에 쏠리고(오나라 고급은 셋뿐) 조합에 같은 재료가 너무 많이 들었다.
+# 고급은 세력 4 × 병종 8 격자에 한 명씩 (이 명단 밖의 고급은 적 전용, 없는 인물은 새 카드 —— 그림은 나중에 새로 그린다).
+# 순서 = ORDER (창병 · 기병 · 궁병 · 도적 · 책사 · 유생 · 술사 · 모사). 능력치는 그 병종 고급 평균 (옮긴 인물은 옛 병종 평균 대비 비율)
+ROSTER3 = {
+    "위": "이전 하후패 여상 악진 유엽 진군 주건평 동소",
+    "촉": "요화 오의 왕평 주창 이적 간옹 초주 마속",
+    "오": "능조 한당 마충 장흠 감택 제갈근 오범 보즐",
+    "군": "기령 안량 장임 관해 허유 진림 장보 심배"}
+# 희귀에 더할 인물 (병종, 세력) —— 초월 장수의 희귀판이 없는 칸을 채운다. 고급에서 올라온 인물(우금 · 곽회 · 학소)은 그 능력치 비율을 잇는다
+ADD4 = {"우금": ("창병", "위"), "곽회": ("기병", "위"), "학소": ("궁병", "위"), "장패": ("도적", "위"),
+        "엄안": ("궁병", "촉"), "장포": ("도적", "촉"), "맹달": ("모사", "촉"),
+        "반장": ("기병", "오"), "제갈각": ("책사", "오"), "우번": ("술사", "오"), "여범": ("모사", "오"),
+        "고람": ("창병", "군"), "황조": ("궁병", "군"), "장만성": ("도적", "군"), "공융": ("유생", "군")}
 def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
     return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
 
@@ -360,6 +370,22 @@ SKILL = {
     "원술": dict(n="칙령반포", k="int", tgt="all", mult=0.95, morale=7, allyBuff=AB("def", 0.1), cond="always"),
     "관평": dict(n="수호참격", k="phys", tgt="front3", mult=1.25, allyBuff=AB("def", 0.15, "allyFront"), cond="always"),
     "고순": dict(n="철갑돌진", k="phys", tgt="front1", mult=1.6, pierce=0.3, cond="always"),
+    # 11/5 희귀 명단 정리로 새로 든 인물 (ADD4)
+    "우금": dict(n="엄정군율", k="phys", tgt="front3", mult=1.2, allyBuff=AB("def", 0.15, "allyFront"), cond="always"),
+    "곽회": dict(n="옹량방어", k="phys", tgt="front1", mult=1.4, selfBuff=SB("def", 0.2), cond="always"),
+    "학소": dict(n="진창노격", k="phys", tgt="back2", mult=1.3, pierce=0.2, cond="always"),
+    "장패": dict(n="태산유격", k="phys", tgt="back1", mult=1.5, morale=6, cond="always"),
+    "엄안": dict(n="노장궁술", k="phys", tgt="back1", mult=1.6, exec=0.1, cond="always"),
+    "장포": dict(n="부전자전", k="phys", tgt="back1", mult=1.5, spd=SPD(-0.2), cond="always"),
+    "맹달": dict(n="반복지계", k="int", tgt="back2", mult=1.2, morale=8, cond="always"),
+    "반장": dict(n="맥성포박", k="phys", tgt="back1", mult=1.5, spd=SPD(-0.3), cond="always"),
+    "제갈각": dict(n="동흥대첩", k="int", tgt="denseLine", mult=1.0, morale=7, cond="dense:2|always"),
+    "우번": dict(n="역경점술", k="int", tgt="back2", mult=1.15, resDown={"amt": -0.25, "dur": 2}, cond="always"),
+    "여범": dict(n="강동재략", k="int", tgt="all", mult=0.9, morale=7, cond="foe_n:3|always"),
+    "고람": dict(n="하북철벽", k="phys", tgt="front1", mult=1.4, selfBuff=SB("def", 0.25), cond="always"),
+    "황조": dict(n="강하저격", k="phys", tgt="back1", mult=1.7, cond="always"),
+    "장만성": dict(n="남양봉기", k="phys", tgt="back2", mult=1.3, morale=6, cond="always"),
+    "공융": dict(n="공문가훈", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("res", 0.15), cond="ally_hurt:0.85"),
     "화웅": dict(n="일도양단", k="phys", tgt="front1", mult=1.6, morale=8, cond="always"),
     "문추": dict(n="하북돌기", k="phys", tgt="line:선봉+전군", mult=1.15, morale=6, cond="front_n:2|always"),
     "서성": dict(n="강변사격", k="phys", tgt="back2", mult=1.25, allyBuff=AB("def", 0.12), cond="always"),
@@ -385,18 +411,35 @@ def main():
     for c in CARDS:
         avg.setdefault((c[3], c[2]), []).append(c[5:10])
     avg = {k: [statistics.mean(x[i] for x in v) for i in range(5)] for k, v in avg.items()}
-    # 고급 병종 옮기기 (TAG3) —— 능력치는 옛 병종 고급 평균 대비 비율을 새 병종 고급 평균에 곱한다 (속도는 새 병종 평균)
-    moved3 = []
-    for c in CARDS:
-        if c[2] == 3 and c[13] != "foe" and person(c) in TAG3 and c[3] != TAG3[person(c)]:
-            a0, a1 = avg[(c[3], 3)], avg[(TAG3[person(c)], 3)]
-            for j in range(4):
-                c[5 + j] = round(c[5 + j] * a1[j] / a0[j]) if a0[j] > 0 else round(a1[j])
-            c[9] = round(a1[4])
-            c[3] = TAG3[person(c)]
-            moved3.append(c)
     std = {t: (int(statistics.median([c[10] for c in CARDS if c[2] == t])), int(statistics.median([c[11] for c in CARDS if c[2] == t]))) for t in range(4, 9)}
-
+    # 고급 명단 (ROSTER3) —— 있는 카드는 병종을 맞추고, 없는 인물은 새로, 명단 밖은 적 전용
+    want3 = {}
+    for f_, names in ROSTER3.items():
+        for i_, p_ in enumerate(names.split()):
+            want3[p_] = (ORDER[i_], f_)
+    std3 = (int(statistics.median([c[10] for c in CARDS if c[2] == 3])), int(statistics.median([c[11] for c in CARDS if c[2] == 3])))
+    moved3, retire3, have3 = [], [], {}
+    for c in CARDS:
+        if c[2] != 3 or c[13] == "foe":
+            continue
+        p_ = person(c)
+        if p_ not in want3 or p_ in have3:
+            retire3.append(c[0])
+            continue
+        tag_, fac_ = want3[p_]
+        have3[p_] = c
+        if c[3] != tag_:
+            a0, a1 = avg[(c[3], 3)], avg[(tag_, 3)]
+            for j_ in range(4):
+                c[5 + j_] = round(c[5 + j_] * a1[j_] / a0[j_]) if a0[j_] > 0 else round(a1[j_])
+            c[9] = round(a1[4])
+            c[3] = tag_
+            moved3.append(c)
+    old3 = {person(c): c for c in CARDS if c[2] == 3 and c[13] != "foe"}      # 희귀로 올리는 인물의 옛 고급 능력치
+    for i_, (p_, (tag_, fac_)) in enumerate(sorted((p, v) for p, v in want3.items() if p not in have3)):
+        card = ["G%02d" % (i_ + 1), p_, 3, tag_, fac_] + [round(x) for x in avg[(tag_, 3)]] + [std3[0], std3[1], {"n": "", "eff": {}, "psv": None}, "", ""]
+        moved3.append(card)
+        BY_ID[card[0]] = card
     new_cards = list(moved3)      # 같은 id 로 내보내 원본 카드를 덮어쓴다 (DB 는 뒤에 온 것을 쓴다)
     n = 0
     for p, ts in per.items():
@@ -425,7 +468,7 @@ def main():
     # 희귀 · 초월 줄기 카드는 만들되(뒤 카드 능력치 기준 · 번호 유지) 내보내지 않고, 원본 희귀 · 초월 카드는 적 전용으로 돌린다
     # (토벌 편성이 쓰는 것이 있다). 새로 만든 전설 카드는 칭호 없이 이름만 (「자효 조인」 같은 맛없는 접두를 피한다)
     chain = {p for p, ts in per.items() if max(ts) >= 7}
-    retire = [c[0] for c in CARDS if c[2] in (4, 6) and person(c) in chain]
+    retire = [c[0] for c in CARDS if c[2] in (4, 6) and person(c) in chain] + retire3
     for c in [c for c in new_cards if c[2] in (4, 6)]:
         new_cards.remove(c)
         del BY_ID[c[0]]
@@ -462,6 +505,21 @@ def main():
         # 11/5 사용자: 고급이 도적에 쏠리고 조합에 같은 재료가 너무 많이 든다 —— 예전엔 이름이 겹친다며 그 인물의 고급 카드를
         # 적 전용으로 돌렸지만(고급 모사가 심배 하나만 남았다), 이제 남겨 고급 → 희귀 → 초월 줄기로 잇는다 (기인 인물은 아래에서 뺀다)
     retire += [c[0] for c in CARDS if c[2] == 2]         # 11/3 일반 등급 삭제 —— 토벌 편성에는 남는다
+    # 희귀 더하기 (ADD4)
+    have4 = {person(c) for c in BY_ID.values() if c[2] == 4 and c[13] != "foe" and c[0] not in retire}
+    for i_, (p_, (tag_, fac_)) in enumerate(ADD4.items()):
+        if p_ in have4:
+            continue
+        a1 = avg[(tag_, 4)]
+        if p_ in old3:
+            o = old3[p_]
+            a0 = avg[(o[3], 3)]
+            st = [round(o[5 + j_] * a1[j_] / a0[j_]) if a0[j_] > 0 else round(a1[j_]) for j_ in range(4)] + [round(a1[4])]
+        else:
+            st = [round(x) for x in a1]
+        card = ["H%02d" % (i_ + 1), p_, 4, tag_, fac_] + st + [std[4][0], std[4][1], {"n": "", "eff": {}, "psv": None}, "", ""]
+        new_cards.append(card)
+        BY_ID[card[0]] = card
     # 11/3 기인 —— 그 인물의 다른 카드는 모두 빼고 기인 한 장
     retire += [c[0] for c in CARDS if person(c) in KIIN]
     for c in [c for c in new_cards if person(c) in KIIN]:
@@ -534,6 +592,31 @@ def main():
         k = cands[0][1]
         used[k] = used.get(k, 0) + 1
         return k
+
+    # 고급 조합 짝 (T3) —— 제 병종 2 + 다른 병종 2. 명단을 바꿔 짝이 없거나 제 병종이 끼었거나, 같은 병종 고급끼리 겹치면 고른다
+    t3c = sorted([c for c in allc if c[2] == 3 and c[13] != "foe"], key=lambda c: c[0])
+    pair_of, tag_use = {}, {}
+    for c in t3c:
+        pr_ = T3.get(person(c), "").split()
+        if len(pr_) == 2 and c[3] not in pr_ and frozenset(pr_) not in {frozenset(x) for q, x in pair_of.items() if BY_ID[q][3] == c[3]}:
+            pair_of[c[0]] = pr_
+            for x in pr_: tag_use[x] = tag_use.get(x, 0) + 1
+    for c in t3c:
+        if c[0] in pair_of:
+            continue
+        taken = {frozenset(x) for q, x in pair_of.items() if BY_ID[q][3] == c[3]}
+        best = None
+        for a_ in ORDER:
+            for b_ in ORDER:
+                if a_ >= b_ or c[3] in (a_, b_) or frozenset((a_, b_)) in taken:
+                    continue
+                sc = tag_use.get(a_, 0) + tag_use.get(b_, 0)
+                if best is None or sc < best[0]:
+                    best = (sc, [a_, b_])
+        pair_of[c[0]] = best[1]
+        for x in best[1]: tag_use[x] = tag_use.get(x, 0) + 1
+    for c in t3c:
+        T3[person(c)] = " ".join(pair_of[c[0]])
 
     recipes = {}
     for c in sorted(allc, key=lambda x: (x[2], x[0])):
