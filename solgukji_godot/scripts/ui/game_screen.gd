@@ -1902,34 +1902,9 @@ func _toggle(key: String, default := false) -> void:
 
 const KIIN_T := 9      # 등급 거르기의 기인 칸
 
-## 추천 목표 —— 지금 못 만들지만 1~2장만 모자란 조합. 점수 = 등급 · 가진 재료 수 − 모자란 수 (같은 인물은 하나)
+## 추천 목표 —— 점수는 Run.forge_goals (덱이 얻는 전력 − 모자란 재료를 구하는 수고 + 줄기 · 병종 맞춤, 11/5 사용자: 플레이에 도움이 되게)
 func _forge_goals(lst: Array) -> Array:
-	# 11/4 사용자: 후반에도 이전 · 악진 같은 고급이 추천에 나온다 —— 가진 최고 등급보다 한 단계 넘게 낮은 등급은 빼고 (기인은 전설로 친다)
-	var top := 3
-	for k in run.pool():
-		if DB.C[k].tier >= 3:
-			top = maxi(top, DB.C[k].tier)
-	var min_t := maxi(3, top - 1)
-	var cand := []
-	for r in lst:
-		var out: String = r[0]
-		if run.can_forge(out) or DB.C[out].tier < min_t:
-			continue
-		if DB.C[out].tier >= 8 and run.has_myth():
-			continue
-		if DB.is_kiin(out) and run.kiin_made.has(out):
-			continue
-		if _owns_person_at(out):      # 11/3 사용자: 이미 가진 장수(같은 인물의 같은 · 위 등급)는 추천하지 않는다
-			continue
-		var miss := run.miss_count(out)
-		if miss <= 0 or miss > 2:
-			continue
-		var own := 0
-		for m in DB.RECOF[out]:
-			if DB.C.has(str(m)) and run.have(str(m)) > 0 and DB.C[str(m)].tier >= 3:
-				own += DB.C[str(m)].tier
-		cand.append([DB.C[out].tier * 10 + own * 2 - miss * 12, out])
-	cand.sort_custom(func(a, b): return a[0] > b[0])
+	var cand: Array = run.forge_goals(lst.map(func(r): return r[0]), 4).map(func(k): return [0, k])
 	var out_ := []
 	var seen := {}
 	# 11/5 사용자: 신화 장수가 없는데 신화 아이템(유니크)을 가지고 있으면 추천 1번은 그 신화 장수 (재료가 몇 장 모자라든)
@@ -2496,6 +2471,7 @@ func _dev_args() -> void:
 		Settings.apply()
 	if a.has("gnew"):
 		PlayLog.enabled = false        # 점검 실행은 플레이 기록에 섞지 않는다
+		Run.dev_immortal = true        # 11/5 사용자: 자동 진행은 멸망하지 않는다
 		run = Run.new()
 		run.new_game(int(a.gnew))
 		for i in int(a.get("gplay", "0")):

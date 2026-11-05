@@ -107,7 +107,7 @@ func build() -> Control:
 	bp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(bpp)
 
-	# 아래 —— [손패 | 진형 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
+	# 아래 —— [보유 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
 	var keys := Run.sort_cards(run.inv.keys())
 	var n_items := 0
 	for id in run.bag:
@@ -118,7 +118,8 @@ func build() -> Control:
 	hand.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var hv := UI.vbox(6)
 	hand.add_child(hv)
-	var tabs := UI.segmented([["hand", "손패 %d" % keys.size()], ["syn", "진형"], ["item", "보급품 %d" % n_items]], seg, func(k):
+	# 11/5 사용자: '손패' → '보유', 진형 탭 버튼 제거 (진형 설명은 위 편성판 머리에 있다)
+	var tabs := UI.segmented([["hand", "보유 %d" % keys.size()], ["item", "보급품 %d" % n_items]], seg, func(k):
 		var was := seg
 		seg = "" if seg == k else k
 		_slide_up = was == "" and seg != ""
@@ -172,7 +173,7 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 		row.on = k == sel
 		hv.add_child(row)
 	if keys.is_empty():
-		hv.add_child(UI.hint("손패가 비었다 — 모두 편성했다."))
+		hv.add_child(UI.hint("보유한 카드가 없다 — 모두 편성했다."))
 
 
 ## 진형 설명 글꼴 —— 나눔명조를 기울인다 (기울임 글꼴 파일이 없어 FontVariation 의 기울기로)

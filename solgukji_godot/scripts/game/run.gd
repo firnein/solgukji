@@ -430,6 +430,104 @@ func miss_count(out: String) -> int:
 	return miss
 
 
+## 추천 목표 (11/5 사용자: 플레이에 도움이 되게) —— 점수 = 덱이 얻는 전력 − 모자란 재료를 구하는 수고 + 줄기 · 병종 맞춤
+##   덱 이득: 결과 전력값(pv). 편성이 꽉 찼으면 가장 약한 편성 장수 대신 들어간다고 보고 그만큼 뺀다.
+##            편성에 앉은 카드가 재료로 빠지면(남는 장이 없으면) 그 전력도 뺀다 (같은 인물의 승급은 빼지 않는다).
+##   수고: 모자란 재료마다 —— 기본 1 · 고급 3 · 희귀 6 · 전설 12(무작위 보급뿐) · 그 위는 만들어야 해서 20,
+##         그 등급 선택권이 있으면 고를 수 있어 1/3, 지금 바로 조합되는 재료면 2. 유니크가 없으면 40 (2 · 4 · 6일차 보급뿐)
+##   맞춤: 편성 장수와 같은 인물(승급) +18 · 편성에 많은 병종 +6 · 진형 우대 병종 +4
+##   빼는 것: 이미 만들 수 있는 것(따로 띄운다) · 같은 인물을 이미 그 등급 이상으로 가진 것 · 만든 기인 ·
+##            신화를 가졌으면 신화 · 가진 최고 등급보다 한 단계 넘게 낮은 것 · 수고가 GOAL_EFFORT 를 넘는 것
+const GOAL_EFFORT := 14.0
+const GOAL_MISS := {1: 1.0, 3: 3.0, 4: 6.0, 5: 12.0}
+
+
+func goal_effort(out: String) -> float:
+	var m := mat_count(DB.RECOF.get(out, []))
+	var e := 0.0
+	for q in m:
+		var short: int = int(m[q]) - have(q)
+		if short <= 0 or not DB.C.has(q):
+			continue
+		var t: int = DB.C[q].tier
+		var per: float = GOAL_MISS.get(t, 20.0)
+		if int(tickets.get(str(mini(FREE_TIER_CAP, t)), 0)) >= short and not (LEGEND_RANDOM and t == 5):
+			per /= 3.0
+		if DB.RECOF.has(q) and can_forge(q):
+			per = minf(per, 2.0)
+		e += per * short
+	var ni = need_item(out)
+	if ni != null and bag.get(ni, 0) <= 0:
+		e += 40.0
+	return e
+
+
+func goal_score(out: String) -> float:
+	var c: Dictionary = DB.C[out]
+	var gain := float(c.pv)
+	var placed_ := board.filter(func(k): return k != null)
+	var p := DB.person(out)
+	var upgrade := placed_.any(func(k): return DB.person(k) == p)
+	if placed_.size() >= 9 and not upgrade:
+		var weakest := 1 << 30
+		for k in placed_:
+			weakest = mini(weakest, int(DB.C[k].pv))
+		gain -= weakest
+	var m := mat_count(DB.RECOF.get(out, []))
+	for q in m:
+		if DB.C.has(q) and on_board(q) > 0 and DB.person(q) != p:
+			var spare := int(inv.get(q, 0))
+			var from_board := mini(on_board(q), maxi(0, m[q] - spare))
+			gain -= float(DB.C[q].pv) * from_board
+	var fit := 0.0
+	if upgrade:
+		fit += 18.0
+	var tc := {}
+	for k in placed_:
+		tc[DB.C[k].tag] = int(tc.get(DB.C[k].tag, 0)) + 1
+	if int(tc.get(c.tag, 0)) >= 2:
+		fit += 6.0
+	var bn = DB.D.FORMBOON.get(form)
+	if bn and bn.tags.has(c.tag):
+		fit += 4.0
+	return gain + fit - goal_effort(out) * 6.0
+
+
+func forge_goals(keys: Array, limit := 4) -> Array:
+	var top := 3
+	for k in pool():
+		if DB.C[k].tier >= 3:
+			top = maxi(top, DB.C[k].tier)
+	var min_t := maxi(3, top - 1)      # 11/4 사용자: 가진 최고 등급보다 한 단계 넘게 낮은 등급은 빼고
+	var cand := []
+	for out in keys:
+		if not DB.RECOF.has(out) or DB.is_foe(out) or can_forge(out) or DB.C[out].tier < min_t:
+			continue
+		if DB.C[out].tier >= 8 and has_myth():
+			continue
+		if DB.is_kiin(out) and (kiin_made.has(out) or have(out) > 0):
+			continue
+		var p := DB.person(out)
+		var t: int = DB.C[out].tier
+		if pool().keys().any(func(k): return DB.C[k].tier >= t and DB.C[k].tier >= 3 and DB.person(k) == p):
+			continue
+		if goal_effort(out) > GOAL_EFFORT:
+			continue
+		cand.append([goal_score(out), out])
+	cand.sort_custom(func(a, b): return a[0] > b[0])
+	var out_ := []
+	var seen := {}
+	for c in cand:
+		var p := DB.person(c[1])
+		if seen.has(p):
+			continue
+		seen[p] = true
+		out_.append(c[1])
+		if out_.size() >= limit:
+			break
+	return out_
+
+
 ## 연관 조합 —— 지금 손패로 얼마나 가까운지 순으로
 func near_recipes(limit := 12) -> Array:
 	var out := []
@@ -719,7 +817,7 @@ func advance() -> void:
 		day = 6
 		return
 	# 11/3 사용자: 토벌을 계속 져도 멸망하지 않았다 —— 1 · 2일차에 경고를 다 채우면 3일차에 한 번 더 져야 멸망했다. 3일차에 들어설 때도 본다
-	if strikes >= STRIKE_MAX and day >= 2:
+	if strikes >= STRIKE_MAX and day >= 2 and not dev_immortal:
 		over = {"win": false, "msg": "토벌 실패 %d번 —— 세력이 멸망했다" % strikes}
 		return
 	gain_item()
@@ -965,7 +1063,7 @@ func finish_battle(res: Dictionary) -> void:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
 				last_spoil = {"n": nl, "src": "토벌 패배 · " + quest_name()}
 				strikes += 1       # 어느 페이즈든 토벌 실패는 경고로 쌓인다
-				if strikes >= STRIKE_MAX and day >= 2:
+				if strikes >= STRIKE_MAX and day >= 2 and not dev_immortal:
 					over = {"win": false, "msg": "%s 실패 — %d번의 패배로 세력이 멸망했다" % [quest_name(), STRIKE_MAX]}
 			if not mp:
 				for b in bots:
@@ -1297,6 +1395,7 @@ func dev_autoplay() -> void:
 	if dev_log and over != null: PlayLog.over(self)
 
 
+static var dev_immortal := false   # 점검용 —— 자동 진행(--gplay · 봇 기준선)은 멸망하지 않는다 (11/5 사용자). 경고는 그대로 쌓인다
 static var dev_log := false      # 점검용 —— 봇 자동 진행도 플레이 기록(PlayLog)에 남긴다 (사람 플레이와 비교할 기준선, tests/play_log_bot)
 
 

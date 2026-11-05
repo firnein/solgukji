@@ -71,7 +71,19 @@ const ECON := {
 		[{"t": 5, "n": 1}], [{"t": 5, "n": 1}, {"t": 3, "n": 1}], [{"t": 5, "n": 1}, {"t": 4, "n": 1}]],
 	"RANDOM_GRANT": [[], [], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}, {"t": 5, "n": 1}], [{"t": 5, "n": 1}, {"t": 4, "n": 1}]],
 }
+## 진형 우대 고침 (11/5 사용자: 모든 진형의 특색이 올바른지 · 전력에 영향을 주는지 —— tests/form_check.tscn).
+## 같은 덱으로 진형만 바꿔 보니 장사진이 가장 약하고(승률 33 · 35%) 우대 병종을 넣어도 이득이 없었다. 안행진은 우대 병종이 오히려 손해,
+## 학익진의 '발동 +7%' 는 거의 힘이 없었다 —— 원본 FORMBOON 위에 덮어쓴다
+const FORMBOON_FIX := {
+	"hagik": {"stat": "atk", "v": 0.12},       # 궁병 · 도적 발동 +7% → 공격 +12% (날개가 사계를 넓힌다)
+	"anhaeng": {"stat": "atk", "v": 0.14, "d": "사선으로 파고든다"},     # 도적 · 기병 속도 +14% → 공격 +14%
+	"jangsa": {"v": 0.28},                     # 책사 · 술사 책략 +15% → +28%
+}
+
+
 func _apply_econ() -> void:
+	for k in FORMBOON_FIX:
+		D.FORMBOON[k].merge(FORMBOON_FIX[k], true)
 	if not ECON_ON:
 		return
 	for key in ECON:

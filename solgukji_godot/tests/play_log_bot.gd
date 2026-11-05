@@ -12,6 +12,7 @@ func _ready() -> void:
 	var s0 := int(args.get("seed", "1"))
 	PlayLog.dir = "user://playlog_bot"
 	Run.dev_log = true
+	Run.dev_immortal = not args.has("mortal")      # 11/5 사용자: 봇은 멸망하지 않는다 (--mortal 이면 예전처럼)
 	for g in games:
 		var r := Run.new()
 		r.new_game(s0 + g)
