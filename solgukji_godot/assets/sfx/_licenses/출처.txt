@@ -9,4 +9,4 @@ clash_*.ogg : "Medieval Sound Effects - Weapon Impacts" (CC0) https://opengamear
 shout_*.ogg : "Crowd Shouting/Speaking Ambience" (CC0) https://opengameart.org/content/crowd-shoutingspeaking-ambience (4초씩 잘라 씀, 11/4)
 arrow_*.wav · swing_*.wav : Still North Media "Medieval Sound Effects - Weapon Textures" (CC0) https://opengameart.org/content/medieval-sound-effects-weapon-textures
   —— English Longbow Shoot · Scythian Recurve Arrow Passby · Katana Swing 테이크를 tools/scripts/make_arrow_sfx.py 로 잘라 섞음 (11/4)
-shout_*.ogg 는 11/4 사용자 요청으로 전투에서 쓰지 않는다 (비명처럼 들린다)
+shout_*.ogg 는 11/5 삭제 (사용자: 함성이 불쾌하다)

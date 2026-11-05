@@ -2384,10 +2384,11 @@ func _standings() -> Control:
 		nl.custom_minimum_size = Vector2(22, 0)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		h.add_child(nl)
-		var fl := UI.lbl(r.fac, 14, Color.WHITE, true)
-		fl.add_theme_stylebox_override("normal", UI.flat(DB.fac_color(r.fac), DB.fac_color(r.fac), 0, 4, 4))
-		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(fl)
+		if r.me:      # 11/5 사용자: 봇 플레이어의 세력 표기 · PV 는 순위에서 뺀다
+			var fl := UI.lbl(r.fac, 14, Color.WHITE, true)
+			fl.add_theme_stylebox_override("normal", UI.flat(DB.fac_color(r.fac), DB.fac_color(r.fac), 0, 4, 4))
+			fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			h.add_child(fl)
 		var nv := UI.vbox(0)
 		nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nv.add_child(UI.lbl(r.name, 16, DB.PAL.gold if r.me else DB.PAL.paper, true))
@@ -2396,9 +2397,10 @@ func _standings() -> Control:
 		el.clip_text = true
 		nv.add_child(el)
 		h.add_child(nv)
-		var pl := UI.lbl("멸망" if r.dead else "%d PV" % r.pv, 16, DB.PAL.seal if r.dead else DB.PAL.bamboo, true)
-		pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(pl)
+		if r.me or r.dead:
+			var pl := UI.lbl("멸망" if r.dead else "%d PV" % r.pv, 16, DB.PAL.seal if r.dead else DB.PAL.bamboo, true)
+			pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			h.add_child(pl)
 		var pnl := UI.panel(h, 10)
 		if r.me:
 			pnl.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink3, DB.PAL.gold, 1, 8, 10))

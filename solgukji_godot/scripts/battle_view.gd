@@ -24,7 +24,7 @@ const OPEN_RT := 0.8        # 실시간 엔진 —— 엔진 0초가 화면 이 
 const STEP := 0.6
 const MELEE_WAIT := 6.0
 const PVP_LEN := 52.0       # 대전·토너먼트 목표 길이(초, 1배속) —— 행동 간격을 벌려 맞춘다. 끝맺음까지 50~60초
-const QUEST_SPEED := 2.0    # 11/3 사용자: 기본 배속 2배속 (토벌 · 대전 모두) —— 위 띠에서 바꾼다
+const QUEST_SPEED := 1.25   # 11/3 사용자: 기본 배속 2배속 → 11/5 1.25배속 (토벌 · 대전 모두) —— 위 띠에서 바꾼다
 var pace := 1.0             # 행동 간격 배율 (STEP · 턴 끝 정산에 곱한다)
 var target_len := 0.0       # 0 이면 늘리지 않는다
 
@@ -283,11 +283,11 @@ func _build_top() -> Control:
 	var sp := HBoxContainer.new()
 	sp.add_theme_constant_override("separation", 2)
 	seg.add_child(sp)
-	for s in [0.0, 1.0, 2.0, 4.0]:
+	for s in [0.0, 1.0, 1.25, 2.0]:      # 11/5 사용자: 1 · 1.25 · 2배속 (4배속 뺌)
 		var b := Button.new()
-		b.text = "❚❚" if s == 0.0 else "%d×" % s
+		b.text = "❚❚" if s == 0.0 else ("%s×" % str(s) if s != floorf(s) else "%d×" % s)
 		b.toggle_mode = true
-		b.button_pressed = s == 1.0
+		b.button_pressed = s == QUEST_SPEED
 		b.custom_minimum_size = Vector2(40, 38)
 		b.add_theme_font_size_override("font_size", 14)
 		b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
@@ -1098,14 +1098,13 @@ func _start_group(g: Dictionary) -> void:
 
 
 ## 집중 비네트 (11/3 사용자) —— 0.12초에 어두워져 잠깐 머물고 0.3초에 걸쳐 걷힌다. 시전 부대 병사는 그동안 밝게(War3D.focus_sq)
-## 첫 격돌 (11/5 사용자: 초중반이 허전하다) —— 양군이 처음 맞닿는 순간 띠 · 짧은 멈춤 · 흔들림 · 함성 · 북
+## 첫 격돌 (11/5 사용자: 초중반이 허전하다) —— 양군이 처음 맞닿는 순간 띠 · 짧은 멈춤 · 흔들림 · 북
 func _first_clash() -> void:
 	if finished or not is_visible_in_tree():
 		return
 	hud.announce("선봉 격돌!", Color("#ffd28a"))
 	impact(0.12, 1.4)
-	Sfx.play("shout", 2.0)
-	Sfx.play("drums")
+	Sfx.play("drums")      # 11/5 사용자: 함성은 불쾌하다 —— 소리 파일까지 뺐다
 	for q in field.order:
 		if q.contact and q.engaged != null:
 			field.clash(q.key, q.engaged.key, true)
@@ -1836,8 +1835,12 @@ class Hud extends Control:
 		var t := sq.tier
 		var em: int = _emph.get(sq.key, 0)
 		var clk: float = view.clock
+		var tring: Color = MEDAL_TEAM[sq.camp]
+		if sq.camp == "B":      # 적 —— 둘레의 가시 넷 (색을 못 가려도 모양으로)
+			_spikes(pc, rr + (2.0 if t <= 2 else 4.5), 3.5 if t <= 2 else 5.5, tring, a)
 		if t <= 2:      # 병졸 —— 진영색 작은 원 + 병종 기호
-			draw_circle(pc, rr + 1.5, Color(0, 0, 0, 0.5 * a))
+			draw_circle(pc, rr + 2.5, Color(0, 0, 0, 0.5 * a))
+			draw_circle(pc, rr + 1.8, Color(tring, a))
 			draw_circle(pc, rr, Color(team.darkened(0.35), a))
 			var ic: Texture2D = DB.ICON.get(DB.C[sq.cid].tag)
 			if ic:
@@ -1854,14 +1857,17 @@ class Hud extends Control:
 		if glow > 0.0:
 			for i in 3:
 				draw_circle(pc, rr + 4.0 + i * 3.0, Color(tc, glow * a / (i + 1.5)))
-		draw_circle(pc, rr + 3.0, Color(0, 0, 0, 0.55 * a))
+		# 11/5 사용자: 메달만으로 피아식별 —— 바깥 굵은 테 = 진영색(아군 파랑 · 적 빨강), 그 안 가는 테 = 등급색, 적은 가시 넷.
+		# (예전엔 바깥 테가 등급색이라 전설 빨강 · 초월 하늘색이 진영색과 섞였고, 진영색은 안쪽 0.6px 뿐이었다)
 		var ring := 3.0 if em == 1 else (2.5 if em == 2 else 2.0)
-		draw_circle(pc, rr + ring, Color(Color("#ffd257") if t >= 8 else tc, a))      # 등급색 테 (신화는 금)
+		draw_circle(pc, rr + ring + 4.0, Color(0, 0, 0, 0.55 * a))
+		draw_circle(pc, rr + ring + 3.2, Color(tring, a))                                    # 진영색 굵은 테
+		draw_circle(pc, rr + ring, Color(Color("#ffd257") if t >= 8 else tc, a))            # 등급색 가는 테 (신화는 금)
 		if em > 0:
-			draw_arc(pc, rr + ring + 1.6, 0, TAU, 40, Color(tc.lightened(0.3), 0.8 * a), 1.0)      # 강조 —— 두 겹
-		draw_circle(pc, rr + 0.6, Color(team, a))                                         # 진영색 안쪽 테
+			draw_arc(pc, rr + ring + 4.6, 0, TAU, 40, Color(tc.lightened(0.3), 0.8 * a), 1.0)      # 강조 —— 두 겹
+		draw_circle(pc, rr + 0.6, Color(0, 0, 0, 0.5 * a))
 		Art.draw_face_circle(self, pc, rr, sq.cid)
-		var top := pc + Vector2(0, -rr - ring - 1.5)
+		var top := pc + Vector2(0, -rr - ring - 4.5)
 		if DB.is_kiin(sq.cid):
 			_gem(top, 3.0, DB.KIIN_COL, a)          # 기인 표시는 늘 (작은 마름모)
 		elif em == 1:
@@ -1878,6 +1884,22 @@ class Hud extends Control:
 	## 화면 밖(카메라 뒤 −99999 등) 좌표면 다각형 분할이 실패해 오류가 쏟아진다 (11/3) —— 그리지 않는다
 	func _on_screen(p: Vector2) -> bool:
 		return absf(p.x) < 8000.0 and absf(p.y) < 8000.0
+
+	## 메달 진영색 —— 3D 진영색(TEAM)보다 밝게: 작은 테에서도 파랑 · 빨강이 또렷하게
+	const MEDAL_TEAM := {"A": Color("#3d8bff"), "B": Color("#ff4a3d")}
+
+	## 적 메달 가시 —— 비스듬한 네 방향 (위 · 아래의 등급 장식과 겹치지 않게)
+	func _spikes(pc: Vector2, r0: float, len_: float, col: Color, a: float) -> void:
+		if not _on_screen(pc):
+			return
+		for i in 4:
+			var ang := PI / 4.0 + i * PI / 2.0
+			var d := Vector2(cos(ang), sin(ang))
+			var n := Vector2(-d.y, d.x)
+			var base := pc + d * (r0 - 1.0)
+			var pts := PackedVector2Array([base + n * 3.2, pc + d * (r0 + len_), base - n * 3.2])
+			draw_colored_polygon(pts, Color(col, a))
+			draw_polyline(pts, Color(0, 0, 0, 0.55 * a), 1.0)
 
 	func _gem(p: Vector2, s: float, col: Color, a: float) -> void:
 		if not _on_screen(p) or s < 0.5:
