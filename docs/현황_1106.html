@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>솔국지 현황 11/6</title>
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--ink:#e8e2d2;--dim:#a99c80;--gold:#e0b45a;--jade:#7fd0bd;--seal:#e0806f;--line:#2a3348}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 "Noto Sans KR","Malgun Gothic",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:28px;margin:0 0 4px;color:var(--gold)}
+h2{font-size:21px;margin:44px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold)}
+h3{font-size:16px;margin:24px 0 8px;color:var(--jade)}
+.sub{color:var(--dim);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:12px 0}
+.shots figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px}
+.shots img{width:100%;display:block;border-radius:4px}
+figcaption{font-size:12.5px;color:var(--dim);margin-top:6px;line-height:1.45}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1d2538;color:var(--gold);font-weight:600}
+code{background:#222b3f;padding:1px 5px;border-radius:4px;font-size:13px;color:#d9d0b8}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.flow span{background:#222b3f;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:13.5px}
+.flow b{color:var(--dim)}
+.risk{border-left:4px solid var(--seal)}
+.ok{border-left:4px solid var(--jade)}
+.tag{display:inline-block;font-size:12px;border-radius:4px;padding:0 6px;margin-right:6px}
+.t-hi{background:#5a2a24;color:#ffb3a6}.t-mid{background:#4a3d1e;color:#f2d38a}.t-lo{background:#203a35;color:#a6e6d6}
+@media (max-width:600px){h1{font-size:23px}.shots{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<h1>솔국지 현황 보고 — 2026-11-06</h1>
+<p class="sub">다른 모델 · 다른 작업자에게 넘기는 문서. 게임 전체 흐름 · 카드 · 편성 · 전투 구조는 <code>docs/현황_1105.html</code> 에 자세히 있고, 이 문서는 그 위에 <b>오늘 바뀐 것(타입2 탑뷰 전장 개편)</b>과 지금의 약점을 정리한다. 커밋 <code>079f821</code> (main) · APK <code>build/solgukji.apk</code> (디버그 서명, 142MB).</p>
+
+<h2>1. 한눈에</h2>
+<div class="card">
+<p>솔국지는 Godot 4.4.1 세로 화면 삼국지 오토배틀러다. 하루 3페이즈(오전 · 오후 · 저녁)마다 카드를 모으고(징집 · 조합 · 보급) 3×3 진형에 편성한 뒤, 전투는 <b>자동</b>으로 진행되고 플레이어는 관전한다. 판정은 결정적 엔진(<code>battle.gd</code> + <code>rt_battle.gd</code>)이 끝까지 계산하고, 화면(<code>battle_view.gd</code>)은 그 결과를 재생만 한다.</p>
+<div class="flow"><span>타이틀</span><b>→</b><span>보급 · 징집</span><b>→</b><span>조합(대장간)</span><b>→</b><span>편성 (진형 · 칸 · 보급품)</span><b>→</b><span>전투 관전</span><b>→</b><span>결과 · 보상</span><b>→</b><span>다음 페이즈</span></div>
+<p>전투 화면은 세 가지 화풍 중 하나: <b>기본 3D</b>(GPU 병사 ~5,000명, 삼국지13 느낌) · 수묵 · <b>타입2</b>(삼국지11 식 탑뷰 지도). 오늘은 타입2 를 주 화면 후보로 키웠다.</p>
+</div>
+<div class="shots">
+<figure><img src="report_1106/01_title.png"><figcaption>타이틀</figcaption></figure>
+<figure><img src="report_1106/02_deploy.png"><figcaption>편성 탭 위에 <b>아이템 보급</b> 고르기 창이 자동으로 열린 모습 (보급이 오면 바로 뜬다)</figcaption></figure>
+<figure><img src="report_1106/04_settings.png"><figcaption>설정 —— 품질 · 전장 화풍(기본 3D / 수묵 / 타입2) · <b>전황 표시(타입2)</b> 끔 · 간단 · 자세히</figcaption></figure>
+</div>
+
+<h2>2. 오늘의 핵심 —— 타입2(탑뷰) 전장</h2>
+<h3>왜 탑뷰인가</h3>
+<div class="card">
+<ul>
+<li>세로 휴대폰 화면에서 <b>전황이 한눈에</b> 읽힌다 (3D 는 피아식별 · 책략계 존재감이 약점이었다).</li>
+<li>3D 렌더를 끄므로 <b>휴대폰 발열 · 프레임</b>에 유리하다.</li>
+<li>이 게임의 핵심인 <b>편성 · 진형</b>을 전투에서 그대로 보여 줄 수 있다.</li>
+</ul>
+<p>사용자 피드백 흐름: "가시성" 요청 → 깃발 제거 · 넓게 · 정보 표시 추가 → <b>"보는 맛이 다 사라졌다"</b> → 카메라 연출 · 타격감 복구 + 정보 표시를 단계 설정으로. 즉 <b>읽기 쉬움과 보는 재미의 균형</b>이 지금 타입2 의 핵심 과제다.</p>
+</div>
+<div class="shots">
+<figure><img src="report_1106/05_t2_0.png"><figcaption>0:01 진형 소개 —— 양쪽 무리를 금빛 점선으로 감싸고 진형 이름 · 우대 효과(어린진 / 창병 · 유생 방어 +14%). 4초 뒤 사라짐</figcaption></figure>
+<figure><img src="report_1106/05_t2_1.png"><figcaption>0:02 진격 —— 부대 바닥 진영색 타원, 우대 부대는 금테, 책략 부대에서 대상으로 흐르는 보랏빛 점선(책략 실)</figcaption></figure>
+<figure><img src="report_1106/05_t2_2.png"><figcaption>0:04 교전 직전</figcaption></figure>
+<figure><img src="report_1106/05_t2_3.png"><figcaption>0:06 <b>첫 격돌 —— 카메라가 부딪치는 자리로 1.7배 다가간다</b>. 병사 인형 무리가 크게 보이고 흙먼지 · 불티 · 흔들림</figcaption></figure>
+<figure><img src="report_1106/06_t2late_0.png"><figcaption>12일차 후반 대전 (계산 병사 1,219명 · 인형 약 3,600개)</figcaption></figure>
+<figure><img src="report_1106/06_t2late_1.png"><figcaption>후반 대전 —— 반격 연쇄 등 큰 글씨는 HUD 공용</figcaption></figure>
+<figure><img src="report_1106/07_t2d1.png"><figcaption>1일차 작은 군대 —— 병사가 적은 부대는 인형을 5배로 그린다. 진격 화살표 · 화계 불꽃(아래)</figcaption></figure>
+<figure><img src="report_1106/08_3d.png"><figcaption>비교: 같은 전투의 기본 3D 화면</figcaption></figure>
+<figure><img src="report_1106/09_result.png"><figcaption>전투 결과표</figcaption></figure>
+</div>
+
+<h3>타입2 구조 (그리기만 바꾼다 —— 판정 · 결정성 무관)</h3>
+<table>
+<tr><th>층 (아래 → 위)</th><th>무엇</th><th>코드</th></tr>
+<tr><td>바닥</td><td>셰이더 지도: 풀빛 얼룩 · 흙밭(고랑) · 굽은 흙길 · 양옆 숲 · 옅은 육각 격자 · 가장자리 어둡게. CPU 부담 없음</td><td><code>shaders/type2_ground.gdshader</code></td></tr>
+<tr><td>Under</td><td>부대 바닥 타원 · 우대 금테 · 전선 흙먼지 · 이동 흙먼지 · 진형 윤곽 · 사거리 부채꼴 · 책략 실 · 진격 화살표 · 상태 칸(화상 · 수몰 · 혼란) · 기술 범위</td><td><code>Type2View._draw_under</code>, <code>_draw_tac_under</code></td></tr>
+<tr><td>병사</td><td>MultiMesh 2D 인형. 계산 병사 1명 = 인형 3개(작은 부대 5개). 버퍼 한 번에 넘김, 부대 단위 정렬</td><td><code>Type2View._draw_dots</code></td></tr>
+<tr><td>FxLayer</td><td>2D 연출: 고리 · 튀는 획 · 번개 · 땅에 붙은 불 · 안개 · 검기 · 투사체 · 소용돌이 · 흙먼지 · 회복 십자</td><td><code>Type2View.fx / fx_minor / fx_ult / _draw_fx</code></td></tr>
+<tr><td>HUD</td><td>초상 메달(서로 밀어내기) · 피해 숫자(겹치면 위로) · 기술명 · 컷인 (3D 와 공용)</td><td><code>battle_view.gd</code> Hud <code>_token</code>, <code>_draw_number</code></td></tr>
+<tr><td>LabelLayer</td><td>진형 이름 · 우대 효과 (시작 4초만, HUD 위)</td><td><code>_draw_tac_top</code></td></tr>
+</table>
+<div class="card">
+<p><b>왜 CPU 병사인가</b>: 3D 의 GPU 병사는 셰이더가 공식으로 위치를 계산해 게임 코드가 병사 위치를 모른다. 타입2 는 병사마다 위치 · 생사 · 피격 시각이 필요해 CPU 병사(<code>Squad.soldiers</code>)를 쓴다(그림은 GPU 인스턴싱). 그래서 계산 병사 수는 3D 의 1/3(<code>Squad.CPU_SHARE 0.33</code>)이고, 보이는 수는 복제로 늘렸다. 3D ↔ 2D 화풍 전환은 다음 전투부터 적용된다.</p>
+<p><b>3D 연출 우회</b>: 타입2 면 <code>War3D.minor_fx</code> · <code>UltFx.play</code> · <code>fire_patch</code> 가 2D 연출로 넘긴다(3D 입자는 보이지 않고 부하만 냈다). 병사 날리기(<code>launch</code>)는 그대로.</p>
+<p><b>카메라 연출</b> (<code>Type2View.focus / shake / _feel_step</code>): 첫 격돌(1.7배 · 1.8초) · 고유기(시전자 1.9배 → 맞는 쪽) · 초월 이상 장수 격파. 고유기 외에는 한 번 다가간 뒤 3.5초 쉰다.</p>
+</div>
+
+<h2>3. 오늘 바뀐 것 전체</h2>
+<table>
+<tr><th>영역</th><th>변경</th></tr>
+<tr><td>성능 · 휴대폰</td><td>디버그 APK 에서 품질 '낮음'이 먹지 않던 버그 수정 (<code>Settings.FULL_COUNT_DEBUG</code> 가 휴대폰 디버그에도 병사 100% 를 강제했다) —— 사용자가 겪은 후반 프레임 드랍의 원인</td></tr>
+<tr><td>타입2 화면</td><td>셰이더 지도 · 부대 바닥 · 깃발 제거 · 세로 1.25배로 넓게(TILT) · 메달 겹침 순서 · 범위 원 크기 버그(점묘 배율로 1.7배 크게 그려짐) 수정</td></tr>
+<tr><td>타입2 연출</td><td>2D 고유기 · 잔기술 · 화계 연출, 화면 섬광 22% · 피격 흰빛 약하게(번쩍임 대책), 카메라 다가가기 · 흔들림, 부딪침 먼지 · 불티, 맞으면 움찔 · 밀려 쓰러짐, 인형 15 → 17</td></tr>
+<tr><td>전황 표시</td><td>진형 소개 · 우대 금테 · 책략 실 · 사거리 부채꼴 · 진격 화살표 · 설정 <code>Settings.tac_info</code> (0 끔 · 1 간단(기본) · 2 자세히, 일시정지면 자세히)</td></tr>
+<tr><td>HUD 공용</td><td>피해 숫자 합치기를 처음 뜬 뒤 1.6초까지만 (계속 맞는 부대 위 숫자가 안 사라지고 커지기만 했다) · 격파 메달 얼굴도 흐려지게(<code>Art.draw_face_circle</code> 에 투명도) · 메달 상자 객체 재사용</td></tr>
+<tr><td>알림</td><td>전투 화면이 열리면 중앙 알림 띠(보급 도착 등)를 감추고, 남은 띠는 전투 뒤에</td></tr>
+<tr><td>전투 실험실</td><td><code>tests/battle_lab.gd</code> 가 게임 설정을 읽고, 가운데 열에서 화풍 · 품질을 고른다 (사용자: 실험실에서 전투 설정을 못 바꾼다)</td></tr>
+<tr><td>깃 동기화</td><td>다른 PC 의 커밋 18개를 받아 왔다 (책사계 강화 · 잔기술 인물별 55종 · 일반 기술 약하게 · 자주 · 신화 11명 · 기본 1.25배속 · 명단 정리 · 보급 조정 · 전투 실험실 · 플레이 기록 등)</td></tr>
+</table>
+
+<h2>4. 지표</h2>
+<table>
+<tr><th>항목</th><th>값</th><th>비고</th></tr>
+<tr><td>결정성</td><td>30판 실패 0</td><td><code>tests/determinism.tscn</code></td></tr>
+<tr><td>타입2 후반 fps (PC, 계산 병사 1,219)</td><td>86(오늘 시작) → 68(연출 추가 후) → <b>94</b></td><td>같은 전투 기본 3D: 105 (병사 3,692)</td></tr>
+<tr><td>타입2 프레임당 비용</td><td>HUD 메달 ~2.0ms · 병사 1.3ms · Under 1.1ms · 부대 갱신 1.3ms</td><td><code>--gfps=초</code> 가 구간별 ms 를 찍는다</td></tr>
+<tr><td>자동 플레이 20판</td><td>우승 0 · 평균 도달 8.2 페이즈</td><td>어제 1 · 13.3. 오늘 받은 커밋 18개의 밸런스 변경 영향으로 보임 (화면 작업은 판정 무관)</td></tr>
+</table>
+
+<h2>5. 약점 · 같이 고민할 것</h2>
+<div class="card risk"><span class="tag t-hi">높음</span><b>난이도 급등</b> —— 자동 플레이 우승 0/20, 3~4일차 멸망. 받아온 밸런스 커밋(보급 · 기술 약화 · 책사 강화 등) 중 무엇이 원인인지 분리 필요. 사용자는 "밸런스는 나중"이라 했지만 이 정도면 플레이 자체가 막힌다.</div>
+<div class="card risk"><span class="tag t-hi">높음</span><b>타입2 의 '보는 맛'</b> —— 정보를 더하면 장면이 죽고, 장면을 살리면 정보가 묻힌다. 지금은 카메라 연출 + 타격감 + 단계 설정으로 균형을 잡았지만, 사용자가 직접 보고 판단해야 한다. 다음 후보: 고유기 순간만 3D 로 넘어가 기존 연출 재사용(작업 큼).</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>휴대폰 성능 미검증</b> —— PC 94fps 는 확인했지만 휴대폰 실측이 없다. 타입2 의 병목은 GDScript(HUD 메달 · 병사 버퍼 채우기)라 휴대폰에서 더 무겁다. 휴대폰은 '낮음'(병사 40%) 이 기본.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>근접전 글씨 겹침</b> —— 메달 밀어내기 · 글씨 위로 피하기를 넣었지만 큰 난전에선 기술명 · 숫자가 여전히 몰린다.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>부대 바닥 타원</b> —— 큰 부대(2만 이상)는 타원이 길고 비스듬해 화면을 많이 덮는다. 진형이 흐트러진 뒤의 실제 병사 분포와도 어긋난다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span><b>고유기 카메라 확인 부족</b> —— 연속 스크린샷에 고유기 다가가기 장면이 잘 안 잡혔다. 흔들림 · 다가가기 세기는 실제 플레이로 조정해야 한다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span><b>배포</b> —— 저장소가 비공개 · APK 는 깃에 없음(<code>build/</code> 무시) · 디버그 서명만. GitHub 릴리스 업로드는 <code>gh</code> 설치 완료, 로그인 대기.</div>
+
+<h2>6. 코드 지도 · 점검 방법</h2>
+<table>
+<tr><th>파일</th><th>역할</th></tr>
+<tr><td><code>scripts/field/type2_view.gd</code></td><td>타입2 전장 전부 (지도 맞춤 · 병사 · 바닥 · 2D 연출 · 전황 표시 · 카메라 연출)</td></tr>
+<tr><td><code>scripts/field/dot_view.gd</code></td><td>2D 전장 바탕 클래스 (점묘). 범위 원 <code>_draw_areas(ci)</code></td></tr>
+<tr><td><code>shaders/type2_ground.gdshader</code></td><td>타입2 바닥 지도</td></tr>
+<tr><td><code>scripts/battle_view.gd</code></td><td>전투 재생 · HUD (메달 · 숫자 · 컷인 · 섬광)</td></tr>
+<tr><td><code>scripts/war3d/war3d.gd</code>, <code>ult_fx.gd</code></td><td>3D 전장 · 연출. 타입2 면 2D 로 넘기는 분기</td></tr>
+<tr><td><code>scripts/game/settings.gd</code></td><td>품질 · 화풍 · <code>tac_info</code></td></tr>
+<tr><td><code>tests/battle_lab.gd</code></td><td>전투 실험실 (<code>tools/전투실험실.bat</code>)</td></tr>
+</table>
+<div class="card ok">
+<p>스크린샷: <code>godot --path solgukji_godot --resolution 540x960 -- --gnew=시드 --gplay=페이즈 --gbattle=quest --gtype2=1 --gshot=파일.png --after=초 --frames=N --every=초</code></p>
+<p>성능: <code>... --gbattle=quest --gtype2=1 --gfps=12</code> (평균 fps · 가장 느린 프레임 · 구간별 ms)</p>
+<p>결정성: <code>godot --headless --path solgukji_godot res://tests/determinism.tscn</code> · 자동 플레이: <code>res://tests/game.tscn</code></p>
+<p>APK: <code>godot --headless --path solgukji_godot --export-debug "Android" ../build/solgukji.apk</code> (릴리스 키 없음)</p>
+<p>새 class_name 이 든 커밋을 받은 뒤엔 <code>--headless --import</code> 를 한 번 돌려야 스크립트가 컴파일된다 (오늘 PlayLog 미선언 오류).</p>
+</div>
+</main>
+</body>
+</html>
