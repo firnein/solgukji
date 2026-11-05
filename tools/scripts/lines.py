@@ -114,13 +114,16 @@ REL = {k: v.split() for k, v in REL.items()}
 T3 = {"우금": "궁병 모사", "악진": "기병 도적", "이전": "궁병 유생",
       "하후패": "궁병 도적", "곽회": "창병 책사", "안량": "창병 도적",
       "학소": "창병 책사", "여상": "기병 모사",
-      "주창": "창병 유생", "요화": "기병 궁병", "관해": "술사 창병", "능조": "궁병 유생", "마충": "모사 책사",
+      "주창": "창병 유생", "요화": "기병 궁병", "관해": "술사 창병", "능조": "도적 술사", "마충": "모사 책사",
       "이적": "유생 술사", "유엽": "모사 궁병",
       "간옹": "모사 도적", "미축": "창병 술사", "진군": "책사 모사",
-      "장보": "창병 도적", "장량": "기병 책사", "초주": "유생 책사", "오범": "모사 궁병",
+      "장보": "창병 도적", "장량": "기병 책사", "초주": "술사 기병", "오범": "모사 궁병",
       "심배": "기병 유생",
       # 11/5 되살린 고급 (초월 장수의 고급판 —— 고급 → 희귀 → 초월 줄기)
       "마량": "기병 창병", "우길": "궁병 유생", "저수": "창병 책사", "전풍": "궁병 도적"}
+# 11/5 사용자: 고급이 도적(5) · 술사(5)에 쏠리고 궁병 · 유생이 2 —— 인물에 맞게 병종을 옮겨 고르게 (창 4 · 기 3 · 궁 3 · 도 3 · 책 3 · 유 3 · 술 4 · 모 3)
+# 마충(오 무장, 관우를 사로잡음) 도적 → 궁병 · 능조(오 무장, 능통의 아버지) 도적 → 창병 · 초주(촉 유학자) 술사 → 유생
+TAG3 = {"마충": "궁병", "능조": "창병", "초주": "유생"}
 def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
     return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
 
@@ -382,9 +385,19 @@ def main():
     for c in CARDS:
         avg.setdefault((c[3], c[2]), []).append(c[5:10])
     avg = {k: [statistics.mean(x[i] for x in v) for i in range(5)] for k, v in avg.items()}
+    # 고급 병종 옮기기 (TAG3) —— 능력치는 옛 병종 고급 평균 대비 비율을 새 병종 고급 평균에 곱한다 (속도는 새 병종 평균)
+    moved3 = []
+    for c in CARDS:
+        if c[2] == 3 and c[13] != "foe" and person(c) in TAG3 and c[3] != TAG3[person(c)]:
+            a0, a1 = avg[(c[3], 3)], avg[(TAG3[person(c)], 3)]
+            for j in range(4):
+                c[5 + j] = round(c[5 + j] * a1[j] / a0[j]) if a0[j] > 0 else round(a1[j])
+            c[9] = round(a1[4])
+            c[3] = TAG3[person(c)]
+            moved3.append(c)
     std = {t: (int(statistics.median([c[10] for c in CARDS if c[2] == t])), int(statistics.median([c[11] for c in CARDS if c[2] == t]))) for t in range(4, 9)}
 
-    new_cards = []
+    new_cards = list(moved3)      # 같은 id 로 내보내 원본 카드를 덮어쓴다 (DB 는 뒤에 온 것을 쓴다)
     n = 0
     for p, ts in per.items():
         top = max(ts)
