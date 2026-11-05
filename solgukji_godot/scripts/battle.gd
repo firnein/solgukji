@@ -425,7 +425,7 @@ static var minor_enabled := true
 const MINOR := {
 	"fire": {"n": "화계", "every": 3, "mult": 0.9, "kind": "int", "st": ["burn", 0.05, 2]},
 	"poison": {"n": "독병", "every": 3, "mult": 0.7, "st": ["plague", 3.0, 2], "foe": {"stat": "atk", "amt": -0.06, "dur": 2}},
-	"rumor": {"n": "거짓 정보", "every": 5, "mult": 0.6, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 3.0},
+	"rumor": {"n": "유언비어", "every": 5, "mult": 0.6, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 3.0},
 	"curse": {"n": "저주", "every": 3, "mult": 1.0, "kind": "int", "foe": {"stat": "res", "amt": -0.1, "dur": 2}},
 	"thunder": {"n": "낙뢰", "every": 4, "mult": 1.5, "kind": "int"},
 	"cheer": {"n": "격려", "every": 3, "mult": 0.9, "mend": 0.01, "cheer": 4.0},
@@ -434,7 +434,14 @@ const MINOR := {
 	"ambush": {"n": "암습", "every": 3, "mult": 1.4, "kind": "phys", "back": true},
 	"dagger": {"n": "단도 던지기", "every": 3, "mult": 0.8, "kind": "phys", "back": true, "st": ["bleed", 0.04, 2]},
 	"thrust": {"n": "찌르기", "every": 3, "mult": 1.3, "kind": "phys", "foe": {"stat": "def", "amt": -0.05, "dur": 2}},
-	"volley": {"n": "연사", "every": 3, "mult": 1.0, "kind": "phys", "extra": 0.6}}
+	"volley": {"n": "연사", "every": 3, "mult": 1.0, "kind": "phys", "extra": 0.6},
+	# 11/5 사용자: 장비가 거짓 정보(책략 피해)를 쓴다 —— 책략 잔기술을 무장(공격 ≥ 책략)이 받으면 같은 축의 무력판으로 (MINOR_PHYS)
+	"fire_arrow": {"n": "불화살", "every": 3, "mult": 0.9, "kind": "phys", "st": ["burn", 0.04, 2]},                  # 화계의 무력판 (적벽 · 박망파의 불화살)
+	"roar": {"n": "일갈", "every": 5, "mult": 0.7, "kind": "phys", "st": ["confuse", 1.0, 1], "morale": 4.0},          # 거짓 정보의 무력판 (장판교의 일갈)
+	"shatter": {"n": "방패 깨기", "every": 3, "mult": 1.0, "kind": "phys", "foe": {"stat": "def", "amt": -0.1, "dur": 2}},   # 저주의 무력판
+	"spark": {"n": "도술 일격", "every": 4, "mult": 1.3, "kind": "phys"},          # 낙뢰의 무력판 (드물다)
+	"awe": {"n": "위압", "every": 3, "mult": 0.9, "kind": "phys", "morale": 3.0, "foe": {"stat": "atk", "amt": -0.08, "dur": 2}}}   # 독병의 무력판 —— 위세로 적을 움츠리게 (관우의 위진화하)
+const MINOR_PHYS := {"fire": "fire_arrow", "rumor": "roar", "curse": "shatter", "thunder": "spark", "poison": "awe"}
 const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "둔화": "poison", "책략깎": "curse", "책방깎": "curse",
 	"인덕": "cheer", "사기": "cheer", "철벽": "guard"}
 const MINOR_TAG := {"창병": "thrust", "기병": "lance", "궁병": "volley", "도적": "ambush", "책사": "fire", "유생": "cheer",
@@ -464,6 +471,8 @@ static func minor_kind(k: String) -> String:
 			out = "thunder"
 		if out == "ambush" and c["int"] > c.atk:
 			out = "dagger"
+		if MINOR_PHYS.has(out) and c.atk >= c["int"]:      # 무장은 책략 잔기술 대신 무력판 (책략 0 이면 피해가 1 이었다)
+			out = MINOR_PHYS[out]
 	_minor_cache[k] = out
 	return out
 

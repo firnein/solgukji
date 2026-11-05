@@ -2609,6 +2609,21 @@ func minor_fx(mk: String, akey: String, dkey: String) -> void:
 			_particles(spots[0] + Vector3(0, 1.0, 0), "spark", Color("#fff2b0"))
 		"volley":
 			volley(akey, [dkey], true)
+		"fire_arrow":    # 불화살 —— 화살비에 불씨
+			volley(akey, [dkey], true)
+			ult.at(0.6, func(): _particles(spots[0] + Vector3(0, 0.3, 0), "fire", Color("#ff7a2a")))
+		"awe":       # 위압 —— 금빛 충격파가 적진을 누른다
+			ult._shock(spots[0], Color("#ffe08a"), 12.0)
+			d.stagger(clock, rng)
+		"roar":      # 일갈 —— 장수 둘레 충격파, 적이 휘청
+			ult._shock(p3(a.pos), Color("#ffd28a"), 14.0)
+			d.stagger(clock, rng)
+			shake = maxf(shake, 0.2)
+		"shatter":   # 방패 깨기 —— 검기와 파편
+			ult._crescent(spots[0] + Vector3(0, 1.0, 0), dir, Color("#d8dde6"))
+			_particles(spots[0] + Vector3(0, 0.8, 0), "spark", Color("#ffffff"))
+		"spark":
+			ult._crescent(spots[0] + Vector3(0, 1.0, 0), dir, Color("#a8d8ff"))
 
 
 var _tal_mat := {}

@@ -1324,6 +1324,19 @@ static func load_saved() -> Run:
 			r.inv.erase(k)
 			var base: String = DB.BASE.filter(func(b): return DB.C[b].tag == DB.C[k].tag)[0]
 			r.inv[base] = int(r.inv.get(base, 0)) + n * 2
+	# 11/5 신화 명단 정리 —— 빠진 신화(장비 · 조운 · 손책, 적 전용)는 같은 인물의 불멸로 돌려주고 신화를 다시 만들 수 있게
+	for k in r.inv.keys() + r.board.filter(func(x): return x != null):
+		if DB.C.has(k) and DB.C[k].tier == 8 and DB.C[k].kind == "retired":
+			var imm: Array = DB.by_tier(7).filter(func(x): return DB.person(x) == DB.person(k))
+			if r.inv.has(k):
+				var n8 := int(r.inv[k])
+				r.inv.erase(k)
+				if not imm.is_empty():
+					r.give(imm[0], n8)
+			for i in r.board.size():
+				if r.board[i] == k:
+					r.board[i] = imm[0] if not imm.is_empty() else null
+			r.myth_made = false
 	# 11/5 고급 명단 정리 —— 명단에서 빠진 고급(적 전용)은 같은 병종 기본패 넷으로 (고급 = 기본패 4장)
 	for k in r.inv.keys():
 		if DB.C.has(k) and DB.C[k].tier == 3 and DB.C[k].kind == "retired":
