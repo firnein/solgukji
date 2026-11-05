@@ -2555,7 +2555,11 @@ func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 const MINOR_FX := {"vanguard": "lance", "duel": "lance", "lone_ride": "ambush", "xiliang": "lance", "white_horse": "volley", "cleave": "lance",
 	"conquer": "lance", "tiger": "volley", "raid": "ambush", "plunder": "thrust", "last_stand": "guard", "ambush_shot": "volley",
 	"surprise": "ambush", "plan": "curse", "secret": "dagger", "omen": "thunder", "proclaim": "rumor", "remonstrate": "curse",
-	"diplomacy": "rumor", "supply": "cheer", "recommend": "cheer", "zither": "cheer", "heal_bone": "cheer", "benevolence": "cheer"}
+	"diplomacy": "rumor", "supply": "cheer", "recommend": "cheer", "zither": "cheer", "heal_bone": "cheer", "benevolence": "cheer",
+	"rescue": "guard", "sword_dance": "ambush", "hefei": "lance", "divine_bow": "volley", "forced_march": "lance", "hold_fort": "guard",
+	"repeat_xbow": "volley", "old_general": "thrust", "trap_camp": "lance", "discipline": "guard", "multitude": "lance", "imperial_seal": "rumor",
+	"bodyguard": "thrust", "eye": "lance", "bare": "lance", "sow": "rumor", "taoist_book": "thunder", "haunt": "curse", "yellow": "rumor",
+	"ten_ambush": "ambush", "plum": "cheer"}
 
 
 func minor_fx(mk: String, akey: String, dkey: String) -> void:

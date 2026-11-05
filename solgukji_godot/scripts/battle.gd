@@ -466,7 +466,29 @@ const MINOR_STORY := {
 	"recommend": {"n": "인재 천거", "every": 3, "mult": 0.6, "cheer": 6.0},                          # 순욱 · 수경 선생
 	"zither": {"n": "금음", "every": 3, "mult": 0.6, "kind": "int", "cheer": 5.0, "foe": {"stat": "spd", "amt": -0.06, "dur": 2}},   # 이교의 거문고 · 호가십팔박
 	"heal_bone": {"n": "괄골요독", "every": 3, "mult": 0.4, "mend": 0.03},                           # 관우의 뼈를 긁어 독을 뺀 화타
-	"benevolence": {"n": "인의", "every": 3, "mult": 0.6, "mend": 0.015, "cheer": 6.0}}
+	"benevolence": {"n": "인의", "every": 3, "mult": 0.6, "mend": 0.015, "cheer": 6.0},
+	# 11/5 2차 —— 위압 · 방벽 · 유언비어 묶음도 나눈다
+	"rescue": {"n": "주군 호위", "every": 3, "mult": 1.1, "kind": "phys", "mend": 0.01, "cheer": 3.0},                       # 몸에 상처 열두 곳 —— 손권을 구한 주태 · 능통
+	"sword_dance": {"n": "검무", "every": 3, "mult": 1.2, "kind": "phys", "extra": 0.4},                                     # 칼 찬 시녀를 거느린 손상향
+	"hefei": {"n": "합비 돌격", "every": 4, "mult": 1.6, "kind": "phys", "back": true, "morale": 5.0},                       # 팔백 기로 십만을 친 장료
+	"divine_bow": {"n": "신궁", "every": 3, "mult": 1.6, "kind": "phys", "back": true},                                      # 태사자의 활
+	"forced_march": {"n": "질풍 급습", "every": 3, "mult": 1.3, "kind": "phys", "self": {"stat": "spd", "amt": 0.12, "dur": 2}},   # 사흘에 오백 리, 엿새에 천 리
+	"hold_fort": {"n": "농성", "every": 3, "mult": 0.9, "self": {"stat": "def", "amt": 0.15, "dur": 2}},                     # 진창의 학소 · 번성의 조인 · 업성의 심배
+	"repeat_xbow": {"n": "연노", "every": 3, "mult": 0.8, "kind": "phys", "extra": 0.6},                                     # 황월영의 연노
+	"old_general": {"n": "노익장", "every": 3, "mult": 1.5, "kind": "phys", "self": {"stat": "atk", "amt": 0.08, "dur": 2}},     # 늙어서 더 굳센 황충 · 정보
+	"trap_camp": {"n": "함진영", "every": 3, "mult": 1.5, "kind": "phys", "foe": {"stat": "def", "amt": -0.08, "dur": 2}},      # 고순의 함진영 —— 치면 반드시 깨뜨린다
+	"discipline": {"n": "엄정한 군율", "every": 3, "mult": 1.1, "kind": "phys", "self": {"stat": "def", "amt": 0.08, "dur": 2}, "foe": {"stat": "atk", "amt": -0.05, "dur": 2}},   # 주아부에 비긴 서황 · 우금의 군기
+	"multitude": {"n": "하북 대군", "every": 3, "mult": 1.0, "kind": "phys", "cheer": 4.0},
+	"imperial_seal": {"n": "전국옥새", "every": 4, "mult": 0.8, "kind": "int", "cheer": 4.0, "morale": 3.0},                 # 옥새를 쥐고 황제를 칭한 원술
+	"bodyguard": {"n": "쌍철극", "every": 3, "mult": 1.4, "kind": "phys", "self": {"stat": "def", "amt": 0.1, "dur": 2}},      # 조조를 지킨 악래 전위
+	"eye": {"n": "발시담정", "every": 4, "mult": 1.5, "kind": "phys", "morale": 5.0, "self": {"stat": "atk", "amt": 0.1, "dur": 2}},   # 화살 박힌 눈을 삼킨 하후돈
+	"bare": {"n": "나의 출전", "every": 3, "mult": 1.7, "kind": "phys", "self": {"stat": "def", "amt": -0.08, "dur": 2}},     # 갑옷을 벗고 마초와 싸운 허저
+	"sow": {"n": "이간계", "every": 5, "mult": 0.7, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 3.0},               # 마초와 한수를 갈라놓은 가후
+	"taoist_book": {"n": "태평요술", "every": 3, "mult": 1.2, "kind": "int", "foe": {"stat": "res", "amt": -0.06, "dur": 2}},
+	"haunt": {"n": "원혼", "every": 4, "mult": 1.0, "kind": "int", "morale": 4.0, "foe": {"stat": "res", "amt": -0.08, "dur": 2}},   # 손책을 괴롭힌 우길의 혼
+	"yellow": {"n": "창천이사", "every": 5, "mult": 0.8, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 4.0},          # 푸른 하늘은 이미 죽었다
+	"ten_ambush": {"n": "십면매복", "every": 4, "mult": 1.0, "kind": "int", "back": true, "morale": 4.0},
+	"plum": {"n": "망매지갈", "every": 3, "mult": 0.8, "kind": "int", "cheer": 6.0}}                                          # 매실 숲 이야기로 목마름을 잊게 한 조조
 const MINOR_PERSON := {
 	"하후패": "vanguard", "안량": "vanguard", "오의": "vanguard", "한당": "vanguard", "반장": "vanguard", "오반": "vanguard", "곽회": "vanguard",
 	"화웅": "duel", "문추": "duel", "마초": "duel", "조운": "lone_ride", "마대": "xiliang", "마등": "xiliang", "공손찬": "white_horse",
@@ -480,7 +502,13 @@ const MINOR_PERSON := {
 	"허유": "secret", "맹달": "secret", "주건평": "omen", "우번": "omen", "진림": "proclaim", "공융": "proclaim", "전풍": "remonstrate",
 	"제갈근": "diplomacy", "감택": "diplomacy", "마량": "diplomacy", "노숙": "diplomacy", "여범": "diplomacy",
 	"미축": "supply", "간옹": "supply", "진군": "supply", "비의": "supply", "순욱": "recommend", "사마휘": "recommend",
-	"대교": "zither", "소교": "zither", "채문희": "zither", "화타": "heal_bone", "유비": "benevolence"}
+	"대교": "zither", "소교": "zither", "채문희": "zither", "화타": "heal_bone", "유비": "benevolence",
+	"관평": "last_stand", "능조": "vanguard", "능통": "rescue", "주태": "rescue", "손상향": "sword_dance", "여상": "volley",
+	"장료": "hefei", "태사자": "divine_bow", "하후연": "forced_march", "학소": "hold_fort", "조인": "hold_fort", "이전": "hold_fort", "심배": "hold_fort",
+	"황월영": "repeat_xbow", "황충": "old_general", "정보": "old_general", "고순": "trap_camp", "서황": "discipline", "우금": "discipline",
+	"악진": "vanguard", "요화": "vanguard", "원소": "multitude", "원술": "imperial_seal", "장소": "remonstrate", "장완": "supply",
+	"전위": "bodyguard", "하후돈": "eye", "허저": "bare", "가후": "sow", "관로": "omen", "초주": "omen", "남화노선": "taoist_book",
+	"우길": "haunt", "장각": "yellow", "저수": "remonstrate", "정욱": "ten_ambush", "조조": "plum", "진궁": "plan"}
 const MINOR_PHYS := {"fire": "fire_arrow", "rumor": "roar", "curse": "shatter", "thunder": "spark", "poison": "awe"}
 const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "둔화": "poison", "책략깎": "curse", "책방깎": "curse",
 	"인덕": "cheer", "사기": "cheer", "철벽": "guard"}
