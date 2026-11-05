@@ -1585,7 +1585,7 @@ func card_info(k: String) -> void:
 	if not c.get("sks", []).is_empty() or mk != "":
 		var sk_v := UI.vbox(6)
 		if mk != "":
-			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.MINOR[mk].n, "평타 %d번에 한 번" % int(Battle.MINOR[mk].every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
+			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
 		for x in c.get("sks", []):
 			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
 		folds.add_child(_fold_sec("card_skills", "기술 %d" % (c.get("sks", []).size() + (1 if mk != "" else 0)), sk_v))
@@ -1772,7 +1772,7 @@ func _kv_split(text: String) -> Array:
 ## 잔기술 설명 (Battle.MINOR · minor_kind) —— "평타 3번에 한 번 · 책략 피해 ×0.90 · 화상"
 static func minor_desc(k: String, with_every := true) -> String:
 	var mk := Battle.minor_kind(k)
-	var m: Dictionary = Battle.MINOR[mk]
+	var m: Dictionary = Battle.minor_def(mk)
 	var phys: bool = (m.kind == "phys") if m.has("kind") else DB.C[k]["int"] <= DB.C[k].atk
 	var parts := ["평타 %d번에 한 번" % int(m.every)] if with_every else []
 	parts.append("%s%s 피해 ×%.2f" % ["적 후열에 " if m.get("back", false) else "", "물리" if phys else "책략", float(m.mult)])
@@ -1786,8 +1786,12 @@ static func minor_desc(k: String, with_every := true) -> String:
 		parts.append("맞은 적 %s %+d%%(%d턴)" % [DB.D.STATNM.get(m.foe.stat, m.foe.stat), roundi(float(m.foe.amt) * 100), int(m.foe.dur)])
 	if m.has("morale"):
 		parts.append("적 사기 −%d" % int(m.morale))
-	if m.has("mend"):
-		parts.append("가장 지친 아군 병력 +%d%% · 사기 +%d" % [roundi(float(m.mend) * 100), int(m.get("cheer", 0))])
+	if m.has("mend") and m.has("cheer"):
+		parts.append("가장 지친 아군 병력 +%s%% · 사기 +%d" % [str(snappedf(float(m.mend) * 100, 0.1)), int(m.cheer)])
+	elif m.has("mend"):
+		parts.append("가장 지친 아군 병력 +%s%%" % str(snappedf(float(m.mend) * 100, 0.1)))
+	elif m.has("cheer"):
+		parts.append("가장 지친 아군 사기 +%d" % int(m.cheer))
 	return " · ".join(parts)
 
 

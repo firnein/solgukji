@@ -2551,6 +2551,13 @@ func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 
 ## 잔기술 이펙트 (11/5 사용자: 화계는 정말 불이 붙게, 제갈량 고유기 번개처럼 다양하게) —— UltFx 부품을 작게 쓴다.
 ## 점광(OmniLight)은 쓰지 않는다 (번쩍거림). 맞은 부대 d 둘레에 몇 군데
+## 인물 잔기술(Battle.MINOR_STORY) → 빌려 쓰는 연출
+const MINOR_FX := {"vanguard": "lance", "duel": "lance", "lone_ride": "ambush", "xiliang": "lance", "white_horse": "volley", "cleave": "lance",
+	"conquer": "lance", "tiger": "volley", "raid": "ambush", "plunder": "thrust", "last_stand": "guard", "ambush_shot": "volley",
+	"surprise": "ambush", "plan": "curse", "secret": "dagger", "omen": "thunder", "proclaim": "rumor", "remonstrate": "curse",
+	"diplomacy": "rumor", "supply": "cheer", "recommend": "cheer", "zither": "cheer", "heal_bone": "cheer", "benevolence": "cheer"}
+
+
 func minor_fx(mk: String, akey: String, dkey: String) -> void:
 	var a: Squad = squads.get(akey)
 	var d: Squad = squads.get(dkey)
@@ -2561,6 +2568,7 @@ func minor_fx(mk: String, akey: String, dkey: String) -> void:
 	for i in 3:
 		spots.append(p3(d.pos + d.right() * rng.randf_range(-wd, wd) + d.fwd * rng.randf_range(-8.0, 8.0)))
 	var dir: Vector3 = (p3(d.pos) - p3(a.pos)).normalized()
+	mk = MINOR_FX.get(mk, mk)      # 인물 잔기술은 가까운 연출을 빌린다
 	match mk:
 		"fire":      # 불화살이 날아가 대열에 불이 붙는다 —— 불길 · 불씨 · 연기 · 그을음
 			_talismans(a, d, Color("#ff8a3c"), 3)

@@ -441,6 +441,46 @@ const MINOR := {
 	"shatter": {"n": "방패 깨기", "every": 3, "mult": 1.0, "kind": "phys", "foe": {"stat": "def", "amt": -0.1, "dur": 2}},   # 저주의 무력판
 	"spark": {"n": "도술 일격", "every": 4, "mult": 1.3, "kind": "phys"},          # 낙뢰의 무력판 (드물다)
 	"awe": {"n": "위압", "every": 3, "mult": 0.9, "kind": "phys", "morale": 3.0, "foe": {"stat": "atk", "amt": -0.08, "dur": 2}}}   # 독병의 무력판 —— 위세로 적을 움츠리게 (관우의 위진화하)
+## 11/5 사용자: 격려가 69명에게 몰렸다 —— 인물마다 연의 일화로 나눈다 (MINOR_PERSON 이 축 · 병종보다 먼저)
+const MINOR_STORY := {
+	"vanguard": {"n": "선봉 돌파", "every": 3, "mult": 1.4, "kind": "phys", "morale": 3.0},
+	"duel": {"n": "일기토", "every": 4, "mult": 1.7, "kind": "phys", "self": {"stat": "atk", "amt": 0.08, "dur": 2}},           # 사수관 · 백마 · 반하의 일기토
+	"lone_ride": {"n": "단기 돌파", "every": 3, "mult": 1.3, "kind": "phys", "back": true, "self": {"stat": "spd", "amt": 0.1, "dur": 2}},   # 장판파
+	"xiliang": {"n": "서량 철기", "every": 3, "mult": 1.3, "kind": "phys", "foe": {"stat": "spd", "amt": -0.1, "dur": 2}},
+	"white_horse": {"n": "백마의종", "every": 3, "mult": 1.0, "kind": "phys", "back": true, "extra": 0.5},
+	"cleave": {"n": "방천화극", "every": 4, "mult": 1.5, "kind": "phys", "extra": 0.4},
+	"conquer": {"n": "소패왕의 돌격", "every": 3, "mult": 1.4, "kind": "phys", "morale": 4.0},
+	"tiger": {"n": "사호", "every": 3, "mult": 1.5, "kind": "phys", "back": true},                  # 범을 쏘아 잡은 손권
+	"raid": {"n": "강상 기습", "every": 3, "mult": 1.4, "kind": "phys", "back": true, "morale": 2.0},   # 수적 · 설중분전 · 백의도강
+	"plunder": {"n": "약탈", "every": 3, "mult": 1.2, "kind": "phys", "morale": 4.0, "foe": {"stat": "atk", "amt": -0.05, "dur": 2}},
+	"last_stand": {"n": "결사 항전", "every": 3, "mult": 1.1, "kind": "phys", "self": {"stat": "def", "amt": 0.12, "dur": 2}},   # 관을 지고 나선 방덕
+	"ambush_shot": {"n": "매복 사격", "every": 3, "mult": 1.5, "kind": "phys", "back": true},        # 낙봉파 · 현산의 매복
+	"surprise": {"n": "우회 기습", "every": 3, "mult": 1.4, "kind": "phys", "back": true, "st": ["bleed", 0.03, 2]},   # 자오곡
+	"plan": {"n": "계책", "every": 3, "mult": 1.1, "kind": "int", "foe": {"stat": "def", "amt": -0.06, "dur": 2}},
+	"secret": {"n": "밀고", "every": 4, "mult": 1.2, "kind": "int", "back": true, "morale": 3.0},      # 오소를 알린 허유
+	"omen": {"n": "점괘", "every": 3, "mult": 0.9, "kind": "int", "foe": {"stat": "res", "amt": -0.1, "dur": 2}},
+	"proclaim": {"n": "격문", "every": 4, "mult": 0.7, "kind": "int", "morale": 6.0},                 # 원소를 위해 쓴 진림의 격문
+	"remonstrate": {"n": "간언", "every": 3, "mult": 0.9, "kind": "int", "morale": 3.0, "foe": {"stat": "res", "amt": -0.08, "dur": 2}},
+	"diplomacy": {"n": "설득", "every": 3, "mult": 0.6, "kind": "int", "foe": {"stat": "atk", "amt": -0.08, "dur": 2}},   # 손유 동맹 · 거짓 항복서
+	"supply": {"n": "군량 보급", "every": 3, "mult": 0.5, "mend": 0.02, "cheer": 3.0},
+	"recommend": {"n": "인재 천거", "every": 3, "mult": 0.6, "cheer": 6.0},                          # 순욱 · 수경 선생
+	"zither": {"n": "금음", "every": 3, "mult": 0.6, "kind": "int", "cheer": 5.0, "foe": {"stat": "spd", "amt": -0.06, "dur": 2}},   # 이교의 거문고 · 호가십팔박
+	"heal_bone": {"n": "괄골요독", "every": 3, "mult": 0.4, "mend": 0.03},                           # 관우의 뼈를 긁어 독을 뺀 화타
+	"benevolence": {"n": "인의", "every": 3, "mult": 0.6, "mend": 0.015, "cheer": 6.0}}
+const MINOR_PERSON := {
+	"하후패": "vanguard", "안량": "vanguard", "오의": "vanguard", "한당": "vanguard", "반장": "vanguard", "오반": "vanguard", "곽회": "vanguard",
+	"화웅": "duel", "문추": "duel", "마초": "duel", "조운": "lone_ride", "마대": "xiliang", "마등": "xiliang", "공손찬": "white_horse",
+	"여포": "cleave", "손책": "conquer", "손권": "tiger",
+	"정봉": "raid", "장흠": "raid", "주환": "raid", "여몽": "raid", "엄백호": "raid",
+	"장연": "plunder", "장만성": "plunder", "관해": "plunder", "주창": "plunder", "장패": "plunder",
+	"방덕": "last_stand", "고람": "last_stand", "기령": "last_stand", "관흥": "last_stand",
+	"황조": "ambush_shot", "엄안": "ambush_shot", "장임": "ambush_shot", "왕평": "ambush_shot",
+	"위연": "surprise", "장포": "surprise", "장합": "surprise",
+	"이적": "plan", "유엽": "plan", "서서": "plan", "강유": "plan", "제갈각": "plan", "마속": "plan", "동소": "plan", "보즐": "plan",
+	"허유": "secret", "맹달": "secret", "주건평": "omen", "우번": "omen", "진림": "proclaim", "공융": "proclaim", "전풍": "remonstrate",
+	"제갈근": "diplomacy", "감택": "diplomacy", "마량": "diplomacy", "노숙": "diplomacy", "여범": "diplomacy",
+	"미축": "supply", "간옹": "supply", "진군": "supply", "비의": "supply", "순욱": "recommend", "사마휘": "recommend",
+	"대교": "zither", "소교": "zither", "채문희": "zither", "화타": "heal_bone", "유비": "benevolence"}
 const MINOR_PHYS := {"fire": "fire_arrow", "rumor": "roar", "curse": "shatter", "thunder": "spark", "poison": "awe"}
 const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "둔화": "poison", "책략깎": "curse", "책방깎": "curse",
 	"인덕": "cheer", "사기": "cheer", "철벽": "guard"}
@@ -457,7 +497,9 @@ static func minor_kind(k: String) -> String:
 		return _minor_cache[k]
 	var c: Dictionary = DB.C[k]
 	var out := ""
-	if c.tier >= 3:
+	if c.tier >= 3 and MINOR_PERSON.has(DB.person(k)):
+		out = MINOR_PERSON[DB.person(k)]
+	elif c.tier >= 3:
 		for e in DB.PSV.ladder.get(DB.person(k), []):
 			if c.tier < int(e[1]) or (e.size() > 2 and c.tier > int(e[2])):
 				continue
@@ -477,6 +519,11 @@ static func minor_kind(k: String) -> String:
 	return out
 
 
+## 잔기술 정의 —— 축 · 병종 잔기술(MINOR) 또는 인물 잔기술(MINOR_STORY)
+static func minor_def(mk: String) -> Dictionary:
+	return MINOR[mk] if MINOR.has(mk) else MINOR_STORY.get(mk, {})
+
+
 ## 이번 평타가 잔기술인가 —— [정의, 종류] 또는 []
 func _minor(u: Unit) -> Array:
 	if not minor_enabled or has_st(u, "seal"):
@@ -484,7 +531,7 @@ func _minor(u: Unit) -> Array:
 	var mk := minor_kind(u.c.id)
 	if mk == "":
 		return []
-	var m: Dictionary = MINOR[mk]
+	var m: Dictionary = minor_def(mk)
 	if u.minor_n < 0:
 		u.minor_n = u.slot % int(m.every)      # 부대마다 차례를 어긋나게
 	u.minor_n += 1
