@@ -1228,7 +1228,7 @@ func recipe_sheet(out: String) -> void:
 	var ni = Run.need_item(out)
 	if ni != null:
 		var have_it: bool = run.bag.get(ni, 0) > 0
-		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 1 · 3 · 5일차 아이템 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
+		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 2 · 4 · 6일차 아이템 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
 	if c.tier >= 8 and run.has_myth():
 		b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다 — 이미 신화를 얻었다"))
 	var ok := run.can_forge(out)
@@ -1283,9 +1283,11 @@ func _page_draw() -> Control:
 	tks.reverse()
 	for t in tks:
 		var tt: int = t
-		var tb := UI.tile_act("pick", "%s %d" % [DB.TIER[tt].n, per_t[tt]], "", func():
+		var rnd := Run.LEGEND_RANDOM and tt == 5      # 11/5 사용자: 전설 보급은 무작위 —— 누르면 바로 받는다 (고르는 창 없음)
+		var tb := UI.tile_act("grant" if rnd else "pick", "%s %d" % [DB.TIER[tt].n, per_t[tt]], "", func():
 			act("begin_picks", ["phase", -1])
-			picker(tt), "gold", false, not can_act())
+			if not rnd:
+				picker(tt), "gold", false, not can_act())
 		tb.add_theme_color_override("font_color", DB.TIER[tt].c)
 		UI.tier_mark(tb, tt)
 		acts.add_child(tb)

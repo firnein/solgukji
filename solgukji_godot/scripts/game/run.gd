@@ -208,7 +208,7 @@ func gain_item() -> String:
 	var p := phase_idx()
 	var grade := "일반"
 	if DB.D.UNIQUE_PHASES.any(func(x): return int(x) == p):      # JSON 숫자는 실수라 has(p) 는 늘 거짓이었다 (11/2)
-		grade = "유니크"           # 정해진 아침에만 확정 지급 (11/2 사용자: 1 · 3 · 5일차 아침)
+		grade = "유니크"           # 정해진 아침에만 확정 지급 (11/2 사용자: 1 · 3 · 5일차 아침 → 11/5 2 · 4 · 6일차 아침, DB.ECON)
 	else:
 		var tbl: Dictionary = {}
 		for d in DB.D.DROP:
@@ -247,7 +247,7 @@ func gain_item() -> String:
 	return id
 
 
-## 유니크 보급 (1 · 3 · 5일차 아침) —— 신화 재료 셋 중 하나를 고른다 (11/2 사용자).
+## 유니크 보급 (2 · 4 · 6일차 아침) —— 신화 재료 셋 중 하나를 고른다 (11/2 사용자).
 ## 군세와 상관없이 무작위 셋, 가방에 이미 있는 것은 빼고. 신화는 한 판에 하나뿐이라
 ## 일찍 받은 것으로 빨리 만들지, 3 · 5일차 보급을 기다릴지가 선택이 된다
 func _offer_unique(cand: Array) -> void:
@@ -954,6 +954,16 @@ func finish_battle(res: Dictionary) -> void:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
 				last_spoil = {"n": n, "src": "토벌 · " + quest_name()}
 			else:
+				# 11/5 사용자: 져도 보급 위험이 너무 크지 않게 —— 기본패 절반 + 보상 중 가장 높은 등급 한 장을 한 등급 낮춰서
+				var top := 0
+				for p in DB.D.QUEST_REWARD[day]:
+					top = maxi(top, int(p.t))
+				if top > 0:
+					add_ticket(top - 1, 1)
+				var nl := int(ceil(int(DB.D.QUEST_BASE[day]) / 2.0))
+				for i in nl:
+					give(DB.BASE[rng.randi() % DB.BASE.size()])
+				last_spoil = {"n": nl, "src": "토벌 패배 · " + quest_name()}
 				strikes += 1       # 어느 페이즈든 토벌 실패는 경고로 쌓인다
 				if strikes >= STRIKE_MAX and day >= 2:
 					over = {"win": false, "msg": "%s 실패 — %d번의 패배로 세력이 멸망했다" % [quest_name(), STRIKE_MAX]}
@@ -1079,7 +1089,20 @@ func begin_picks(src: String, _i := -1) -> void:
 		add_ticket(int(p.t), int(p.n))
 
 
+## 11/5 사용자: 전설 보급은 고르지 않고 무작위 —— 전설 선택권이 들어오면 바로 무작위 전설로 (기인 제외). 받은 카드는 last_legend · 알림
+const LEGEND_RANDOM := true
+var last_legend: Array = []
+
+
 func add_ticket(t: int, n: int) -> void:
+	if LEGEND_RANDOM and mini(FREE_TIER_CAP, t) == 5:
+		var src: Array = pickable(5)
+		for i in n:
+			var k: String = src[rng.randi() % src.size()]
+			give(k)
+			last_legend.append(k)
+			toasts.append(["전설 보급 —— %s" % DB.C[k].name, "gain"])
+		return
 	if not DB.PLAY_TIERS.has(mini(FREE_TIER_CAP, t)):      # 일반 선택권 → 고급 · 기본 (어디서 들어오든)
 		for p in no_empty_tier([{"t": mini(FREE_TIER_CAP, t), "n": n}]):
 			add_ticket(p.t, p.n)
