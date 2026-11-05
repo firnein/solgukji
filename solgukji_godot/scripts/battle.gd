@@ -73,10 +73,12 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 ## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
 static var tag_roles := true
 const ROLE := {"charge": 2.0, "horse_after": 0.8, "horse_all": 0.9, "int_guard": 0.8, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
-	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 1.6, "schol_heal": 2.5, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.8, "occul_int": 1.35,
-	"schem_morale": 2.2, "schem_int": 1.75}
+	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 2.5, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.8, "occul_int": 1.55,
+	"schem_morale": 2.2, "schem_int": 2.0}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
 const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
+## 높은 등급 책사 책략 배율 —— 11/5 사용자: 책사계가 너무 약하다 (불멸 책사 피해 0.44 · 팀 평균 1.0)
+const STRAT_HI := {7: 1.6, 8: 1.6}
 const CHARGE := {3: 1.15, 4: 1.15, 5: 1.3, 6: 1.45, 7: 1.7, 8: 1.9}
 ## 창병 피해 배율 —— 낮은 등급일수록 선호 자리 보너스(공격 ×1.22)가 커 더 낮춘다
 const SPEAR_ATK := {3: 0.45, 4: 0.45, 5: 0.5, 6: 0.55, 7: 0.6, 8: 0.65}
@@ -879,7 +881,7 @@ func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
 	if not tag_roles:
 		return 1.0
 	var g := 1.0
-	if phys and d.c.tag in ["유생", "술사", "모사"]:      # 지원 책략계는 물리에 덜 맞는다 (후열이 먼저 무너져 3장 덱 승률 21~42%)
+	if phys and INT_TAG.has(d.c.tag):      # 책략계는 물리에 덜 맞는다 (후열이 먼저 무너져 3장 덱 승률 21~42%) —— 11/5 책사도 (생존 26~33%)
 		g = ROLE.int_guard
 	if a.c.tag == "기병":
 		g *= ROLE.horse_all
@@ -907,7 +909,7 @@ func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
 			if d.c.tag == "궁병": return ROLE.rogue_vs_bow * ROLE.rogue_all
 			return ROLE.rogue_all
 		"책사":
-			if not phys: return ROLE.strat_int
+			if not phys: return ROLE.strat_int * STRAT_HI.get(a.c.tier, 1.0)
 		"모사":
 			if not phys: return ROLE.schem_int
 		"술사":
