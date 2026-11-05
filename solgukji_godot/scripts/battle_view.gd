@@ -41,6 +41,7 @@ var speed_btns := []
 var res: Dictionary
 var rng := RandomNumberGenerator.new()
 var speed := 1.0
+var speed_sec := {}       # 배속마다 본 실제 초 (플레이 기록 —— PlayLog)
 var clock := 0.0
 var running := false
 var finished := false
@@ -520,6 +521,7 @@ func _simulate() -> Dictionary:
 ## 게임에서 부른다 —— bt 는 Run.battle (a·b 진영 {cards, form, morale, equip}, seed, title, foe, inputs)
 func play(bt: Dictionary, direct_ := false) -> void:
 	end_clock = 0.0
+	speed_sec = {}
 	game_mode = true
 	locked = false
 	_auto_btn.disabled = false
@@ -890,6 +892,8 @@ func _process(dt: float) -> void:
 func _process_inner(dt: float) -> void:
 	if not running:
 		return
+	var sk := str(speed)
+	speed_sec[sk] = float(speed_sec.get(sk, 0.0)) + dt
 	if slow_t > 0:
 		slow_t -= dt
 	_freeze_cd -= dt

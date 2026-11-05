@@ -1250,21 +1250,32 @@ func dev_autoplay() -> void:
 		if tour == null:
 			init_tour()
 		while over == null:
-			var bt := start_tour()
-			finish_battle(simulate(bt, [], policy_for(bt)))
+			_dev_fight(start_tour())
 			if over == null:
 				tour_advance()
 		return
 	var q := start_quest()
 	if dev_snap_on:      # 점검용 —— 토벌 직전 내 편성 (tests/quest_tune --snap)
 		dev_snap.append({"d": day, "p": phase, "a": q.a.duplicate(true)})
-	finish_battle(simulate(q, [], policy_for(q)))
+	_dev_fight(q)
 	if over != null:
 		return
 	_dev_spend()
-	var p := start_pvp()
-	finish_battle(simulate(p, [], policy_for(p)))
+	_dev_fight(start_pvp())
+	if dev_log: PlayLog.phase_end(self)
 	advance()
+	if dev_log and over != null: PlayLog.over(self)
+
+
+static var dev_log := false      # 점검용 —— 봇 자동 진행도 플레이 기록(PlayLog)에 남긴다 (사람 플레이와 비교할 기준선, tests/play_log_bot)
+
+
+func _dev_fight(bt: Dictionary) -> void:
+	if dev_log: PlayLog.battle_start(self, bt)
+	var res := simulate(bt, [], policy_for(bt))
+	if dev_log: PlayLog.battle_end(self, bt, res, 0.0, [], {})
+	finish_battle(res)
+	if dev_log: PlayLog.after_battle(self)
 
 
 ## 점검용 —— 신화 줄기(신화 · 그 불멸 · 그 전설)까지 모자란 재료 수

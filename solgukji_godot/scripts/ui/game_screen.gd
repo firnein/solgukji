@@ -560,9 +560,11 @@ func _continue() -> void:
 		return
 	run = r
 	_title.visible = false
+	PlayLog.ensure(run, "resume")
 	if run.battle != null:
 		# 전투 도중 꺼졌다 —— 적어 둔 입력으로 마무리한다
 		var res := run.resolve_pending()
+		PlayLog.note(run, "pending_resolved", {"win": bool(res.win)})
 		run.save()
 		toast("지난 전투를 마무리했습니다 — %s" % ("승리" if res.win else "패배"), "news")
 		go("war")
@@ -576,6 +578,7 @@ func _new_game() -> void:
 	run = Run.new()
 	run.new_game()
 	run.save()
+	PlayLog.new_game(run)
 	forge_tree.clear()          # 11/3 사용자: 이전 판의 갈무리가 남아 있었다
 	_title.visible = false
 	close_sheet()
@@ -587,6 +590,8 @@ func _new_game() -> void:
 func go(pg: String) -> void:
 	if pg == "more":
 		pg = "rank"         # '기록' 탭은 순위 · 계보 화면 (페이지 이름이 아니다)
+	if online == null and pg != page:
+		PlayLog.page(run, pg)
 	if page != "deploy":
 		_scroll_keep[page] = _scroll.scroll_vertical
 	if pg in ["line", "rank"]:
@@ -817,6 +822,8 @@ func changed() -> void:
 ## (서버가 같은 명령을 판정해 상태를 돌려보낸다 —— 난수 상태가 같아 결과도 같다)
 func act(m: String, a := []):
 	var r = run.command(m, a.duplicate())
+	if online == null:
+		PlayLog.act(run, m, a, r)
 	match m:
 		"forge":
 			Sfx.play("forge" if r else "deny")
@@ -2159,8 +2166,11 @@ func _page_war() -> Control:
 		if run.can_next():
 			var nxt: String = "%s요일 오전" % Run.DAYNAME[mini(6, run.day + 1)] if run.phase == 2 else Run.PHASE_N[run.phase + 1]
 			v.add_child(UI.act("다음 페이즈로", nxt, func():
+				PlayLog.phase_end(run)
 				run.advance()
 				run.save()
+				if run.over != null:
+					PlayLog.over(run)
 				go("draw"), "pri"))
 	if not run.is_tour_phase() and placed > 0:
 		var fv := FormationView.new().setup(run.board, run.form)
@@ -2242,6 +2252,7 @@ func _start(kind: String) -> void:
 		"pvp": bt = run.start_pvp()
 		"tour": bt = run.start_tour()
 	run.save()
+	PlayLog.battle_start(run, bt)
 	close_sheet()
 	_battle_res = null
 	_battle_done.visible = false
@@ -2321,9 +2332,11 @@ func _on_battle_close() -> void:
 		return
 	if _battle_res == null:
 		return
+	PlayLog.battle_end(run, run.battle, _battle_res, _battle.end_clock, _battle.inputs, _battle.speed_sec)
 	run.finish_battle(_battle_res)
 	_battle_res = null
 	run.save()
+	PlayLog.after_battle(run)
 	_battle_layer.visible = false
 	if run.last_spoil != null and run.last_result.kind != "tour":
 		toast("기본패 %d장 획득 — %s" % [run.last_spoil.n, run.last_spoil.src], "gain")
@@ -2473,6 +2486,7 @@ func _dev_args() -> void:
 		Settings.quality = int(a.gq)
 		Settings.apply()
 	if a.has("gnew"):
+		PlayLog.enabled = false        # 점검 실행은 플레이 기록에 섞지 않는다
 		run = Run.new()
 		run.new_game(int(a.gnew))
 		for i in int(a.get("gplay", "0")):
