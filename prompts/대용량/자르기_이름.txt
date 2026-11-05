@@ -51,5 +51,5 @@
 [13_고급신규_14명.txt] 13. 고급 새 인물 — 14장 (11/5 고급 · 희귀 명단 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
   python -I tools/scripts/slice_panels.py 시트.png "주건평,동소,오의,왕평,마속,한당,장흠,감택,제갈근,보즐,기령,장임,허유,진림" solgukji_godot/assets/portraits
 
-[14_희귀신규_12명.txt] 14. 희귀 새 인물 — 12장 (11/5 고급 · 희귀 명단 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "장패,엄안,장포,맹달,반장,제갈각,우번,여범,고람,황조,장만성,공융" solgukji_godot/assets/portraits
+[14_희귀신규_15명.txt] 14. 희귀 새 인물 — 15장 (11/5 고급 · 희귀 명단 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
+  python -I tools/scripts/slice_panels.py 시트.png "장패,엄안,장포,맹달,반장,제갈각,우번,여범,고람,황조,장만성,관흥,오반,비의,공융" solgukji_godot/assets/portraits

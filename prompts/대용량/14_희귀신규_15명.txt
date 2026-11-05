@@ -40,7 +40,7 @@ ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with 
 Do not draw the bracket tags, ★ marks or line labels as text.
 
 
-Image size 1024x1536 portrait. Grid of 12 characters: 4 columns x 3 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
+Image size 1024x1536 portrait. Grid of 15 characters: 4 columns x 4 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 장패) [ROGUE] Zang Ba, former Taishan bandit chief turned Wei general, swinging twin axes.
@@ -109,9 +109,27 @@ Banner under each panel: only its number.
    SPLENDOR: FINE.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
-12. (card: 공융) [SCHOLAR] Kong Rong, descendant of Confucius, offering the biggest pear to his brother, scholar robe.
-   FACTION: independent warlord, own colors.
-   FACE: refined elderly face, long white beard, gentle proud eyes, faint smile.
+12. (card: 관흥) [SPEARMAN] Guan Xing, young son of Guan Yu carrying his father's green dragon spirit, long glaive, green headscarf.
+   FACTION: Shu colors: green, jade and earthy gold.
+   FACE: young man with a long dignified face like his father, sharp phoenix eyes, thin first beard, earnest frown.
    SPLENDOR: FINE.
    SHOT: low angle looking up, heroic stance.
    LIGHT: snowy winter, white and icy blue.
+13. (card: 오반) [CAVALRY] Wu Ban, Shu cavalry officer charging with a spear in the Yiling campaign.
+   FACTION: Shu colors: green, jade and earthy gold.
+   FACE: square-jawed middle-aged man, short thick beard, bold wide eyes, battle-worn cheeks.
+   SPLENDOR: FINE.
+   SHOT: side profile, face clearly lit and large in frame.
+   LIGHT: midday desert glare, bleached sand and hard shadows.
+14. (card: 비의) [SCHOLAR] Fei Yi, calm Shu chancellor reading memorials while playing go, scholar robe and hat.
+   FACTION: Shu colors: green, jade and earthy gold.
+   FACE: mild round face, gentle smiling eyes, neat short beard, relaxed easy smile.
+   SPLENDOR: FINE.
+   SHOT: over-the-shoulder glance back at the viewer.
+   LIGHT: blazing sunset backlight, orange rim light, long shadows.
+15. (card: 공융) [SCHOLAR] Kong Rong, descendant of Confucius, offering the biggest pear to his brother, scholar robe.
+   FACTION: independent warlord, own colors.
+   FACE: refined elderly face, long white beard, gentle proud eyes, faint smile.
+   SPLENDOR: FINE.
+   SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
+   LIGHT: lamp-lit interior, warm amber light and deep brown shadows.

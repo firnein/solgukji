@@ -133,7 +133,9 @@ ROSTER3 = {
 ADD4 = {"우금": ("창병", "위"), "곽회": ("기병", "위"), "학소": ("궁병", "위"), "장패": ("도적", "위"),
         "엄안": ("궁병", "촉"), "장포": ("도적", "촉"), "맹달": ("모사", "촉"),
         "반장": ("기병", "오"), "제갈각": ("책사", "오"), "우번": ("술사", "오"), "여범": ("모사", "오"),
-        "고람": ("창병", "군"), "황조": ("궁병", "군"), "장만성": ("도적", "군"), "공융": ("유생", "군")}
+        "고람": ("창병", "군"), "황조": ("궁병", "군"), "장만성": ("도적", "군"), "공융": ("유생", "군"),
+        # 11/5 촉 희귀가 모자랐다 (7명 · 재료 자리 43 · 같은 세력 58%) —— 촉 전설이 많은 창 · 기 · 유 쪽에
+        "관흥": ("창병", "촉"), "오반": ("기병", "촉"), "비의": ("유생", "촉")}
 def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
     return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
 
@@ -385,6 +387,9 @@ SKILL = {
     "고람": dict(n="하북철벽", k="phys", tgt="front1", mult=1.4, selfBuff=SB("def", 0.25), cond="always"),
     "황조": dict(n="강하저격", k="phys", tgt="back1", mult=1.7, cond="always"),
     "장만성": dict(n="남양봉기", k="phys", tgt="back2", mult=1.3, morale=6, cond="always"),
+    "관흥": dict(n="청룡계승", k="phys", tgt="front3", mult=1.25, morale=6, cond="always"),
+    "오반": dict(n="촉한기병", k="phys", tgt="front1", mult=1.45, spd=SPD(-0.2), cond="always"),
+    "비의": dict(n="경국안민", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("def", 0.15), cond="ally_hurt:0.85"),
     "공융": dict(n="공문가훈", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("res", 0.15), cond="ally_hurt:0.85"),
     "화웅": dict(n="일도양단", k="phys", tgt="front1", mult=1.6, morale=8, cond="always"),
     "문추": dict(n="하북돌기", k="phys", tgt="line:선봉+전군", mult=1.15, morale=6, cond="front_n:2|always"),
