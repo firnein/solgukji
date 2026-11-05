@@ -14,6 +14,7 @@
 원본 game.json · cards_ext.json 은 그대로 두고 DB 가 불러올 때 덮어쓴다.
 """
 import json, os, statistics
+from collections import Counter
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "solgukji_godot", "data")
 G = json.load(open(os.path.join(ROOT, "game.json"), encoding="utf-8"))
@@ -129,6 +130,12 @@ ROSTER3 = {
     "촉": "요화 오의 왕평 주창 이적 간옹 초주 마속",
     "오": "능조 한당 마충 장흠 감택 제갈근 오범 보즐",
     "군": "기령 안량 장임 관해 허유 진림 장보 심배"}
+# 희귀 비용 다양화 (11/5) —— 비용 = 기본패 환산. 고급 1장 = 기본패 4장
+RARE_SHAPE = {7: (1, 3), 8: (1, 4), 9: (2, 1), 10: (2, 2), 11: (2, 3), 12: (3, 0), 13: (3, 1)}
+RARE_SOLO_COSTS = [7, 8, 9, 10, 11, 12, 13]       # 줄기 없는 희귀 —— 병종마다 고르게 돈다
+RARE_LINE_COSTS = [8, 9, 10, 11, 12]              # 줄기 희귀 —— 평균은 단독 희귀와 같게 (웃돈은 능력치 쪽에서 덜 오르는 것으로)
+RARE_PREMIUM = 1                                  # 줄기 희귀의 재료 웃돈 (비용에는 들지만 능력치에는 들지 않는다)
+RARE_SCALE = 0.4                                  # 비용 1당 능력치 · 병력 ±4% (전력은 두 배율의 곱이라 비용과 비슷하게 따라간다)
 # 희귀에 더할 인물 (병종, 세력) —— 초월 장수의 희귀판이 없는 칸을 채운다. 고급에서 올라온 인물(우금 · 곽회 · 학소)은 그 능력치 비율을 잇는다
 ADD4 = {"우금": ("창병", "위"), "곽회": ("기병", "위"), "학소": ("궁병", "위"), "장패": ("도적", "위"),
         "엄안": ("궁병", "촉"), "장포": ("도적", "촉"), "맹달": ("모사", "촉"),
@@ -561,6 +568,32 @@ def main():
     retire.sort()
 
     allc = list(BY_ID.values())
+    # 11/5 사용자: 희귀 조합을 획일적으로 두지 말고 다양하게 —— 비용(기본패 환산)을 희귀마다 다르게, 능력치 · 병력 · 전력값은 비용을 따라간다.
+    # 줄기 희귀(같은 인물 전설 · 초월이 있음)는 재료 웃돈 RARE_PREMIUM (비싸지만 능력치는 그만큼 오르지 않는다)
+    # 비용 → 모양: RARE_SHAPE (고급 수, 기본 수). 재료는 5장을 넘기지 않는다
+    rare_cost = {}
+    upper = {(person(x), x[2]) for x in allc if x[2] in (5, 6) and x[13] != "foe"}
+    r4 = sorted([x for x in allc if x[2] == 4 and x[13] != "foe"], key=lambda x: (x[3], x[0]))
+    by_tag4 = {}
+    for x in r4:
+        by_tag4.setdefault(x[3], []).append(x)
+    for tag_, xs in by_tag4.items():
+        line_ = [x for x in xs if (person(x), 5) in upper or (person(x), 6) in upper]
+        solo_ = [x for x in xs if x not in line_]
+        for i_, x in enumerate(line_):
+            rare_cost[x[0]] = RARE_LINE_COSTS[(i_ + ORDER.index(tag_)) % len(RARE_LINE_COSTS)]
+        for i_, x in enumerate(solo_):
+            rare_cost[x[0]] = RARE_SOLO_COSTS[(i_ * 2 + ORDER.index(tag_)) % len(RARE_SOLO_COSTS)]
+    for x in r4:
+        c_ = rare_cost[x[0]]
+        eff_ = c_ - (RARE_PREMIUM if x[0] in [y[0] for y in r4 if (person(y), 5) in upper or (person(y), 6) in upper] else 0)
+        f_ = 1.0 + RARE_SCALE * (eff_ - 10) / 10.0
+        for j_ in (5, 6, 7, 8):
+            x[j_] = round(x[j_] * f_)
+        x[10] = int(round(x[10] * f_ / 100.0) * 100)
+        x[11] = max(1, round(x[11] * f_ * f_))
+        if not any(y is x for y in new_cards):
+            new_cards.append(x)
     by_pt = {}
     for c in allc:
         by_pt.setdefault((person(c), c[2]), c[0])
@@ -626,6 +659,7 @@ def main():
         T3[person(c)] = " ".join(pair_of[c[0]])
 
     recipes = {}
+    base_use = {}
     for c in sorted(allc, key=lambda x: (x[2], x[0])):
         t = c[2]
         if c[13] == "kiin":                  # 기인 = 희귀 2 (인연) + 고급 1 + 제 병종 기본
@@ -651,10 +685,27 @@ def main():
             ex.add(prev)
         base = BASE[c[3]]
         if t == 4:
-            while len(mats) < 2:
+            n3, nb = RARE_SHAPE[rare_cost[c[0]]]
+            while len(mats) < n3:
                 mats.append(pick(c, 3, ex, mats)); ex.add(mats[-1])
-            other = [BY_ID[m][3] for m in mats if BY_ID[m][3] != c[3]]          # 둘째 기본패 —— 고급 재료의 다른 병종
-            mats += [base, BASE[other[0]] if other else BASE[ORDER[(ORDER.index(c[3]) + 1 + len(recipes)) % 8]]]
+            # 기본패 —— 제 병종 먼저, 나머지는 같은 병종 희귀와 재료가 거의 같아지지 않는 병종 (예전: 고급 재료의 다른 병종 → 11쌍이 3/4 겹쳤다)
+            sibs = [recipes[q] for q in recipes if BY_ID[q][2] == 4 and BY_ID[q][3] == c[3]]
+            bases = [base] if nb > 0 else []
+            while len(bases) < nb:
+                best_, bs_ = None, None
+                for tg_ in ORDER:
+                    cand_ = mats + bases + [BASE[tg_]]
+                    clash = 0
+                    for sm in sibs:
+                        if len(sm) == n3 + nb:
+                            share = sum((Counter(sm) & Counter(cand_)).values())
+                            clash += 1 if share >= len(cand_) else 0
+                    sc_ = clash * 100 + base_use.get(tg_, 0) + (50 if BASE[tg_] in bases and tg_ != c[3] else 0)
+                    if bs_ is None or sc_ < bs_:
+                        best_, bs_ = tg_, sc_
+                bases.append(BASE[best_])
+                base_use[best_] = base_use.get(best_, 0) + 1
+            mats += bases
         elif t == 5:
             if not prev:
                 mats.append(pick(c, 4, ex, mats)); ex.add(mats[-1])
