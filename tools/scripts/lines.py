@@ -118,7 +118,9 @@ T3 = {"우금": "궁병 모사", "악진": "기병 도적", "이전": "궁병 �
       "이적": "유생 술사", "유엽": "모사 궁병",
       "간옹": "모사 도적", "미축": "창병 술사", "진군": "책사 모사",
       "장보": "창병 도적", "장량": "기병 책사", "초주": "유생 책사", "오범": "모사 궁병",
-      "심배": "기병 유생"}
+      "심배": "기병 유생",
+      # 11/5 되살린 고급 (초월 장수의 고급판 —— 고급 → 희귀 → 초월 줄기)
+      "마량": "기병 창병", "우길": "궁병 유생", "저수": "창병 책사", "전풍": "궁병 도적"}
 def AU(n, to="all", ally=None, m=None, foe=None, foe_to=None, tag=None):
     return {k: v for k, v in dict(n=n, to=to, ally=ally or {}, m=m or {}, foe=foe or {}, foe_to=foe_to, tag=tag).items() if v}
 
@@ -444,7 +446,8 @@ def main():
         card = [cid, p, 4, ref[3], ref[4]] + st + [std[4][0], std[4][1], {"n": "", "eff": {}, "psv": None}, "", ""]
         new_cards.append(card)
         BY_ID[cid] = card
-        retire += [c[0] for c in CARDS if c[2] == 3 and person(c) == p]
+        # 11/5 사용자: 고급이 도적에 쏠리고 조합에 같은 재료가 너무 많이 든다 —— 예전엔 이름이 겹친다며 그 인물의 고급 카드를
+        # 적 전용으로 돌렸지만(고급 모사가 심배 하나만 남았다), 이제 남겨 고급 → 희귀 → 초월 줄기로 잇는다 (기인 인물은 아래에서 뺀다)
     retire += [c[0] for c in CARDS if c[2] == 2]         # 11/3 일반 등급 삭제 —— 토벌 편성에는 남는다
     # 11/3 기인 —— 그 인물의 다른 카드는 모두 빼고 기인 한 장
     retire += [c[0] for c in CARDS if person(c) in KIIN]
@@ -484,6 +487,8 @@ def main():
     for c in allc:
         by_pt.setdefault((person(c), c[2]), c[0])
     used = {}
+    # 11/5 사용자: 조합에 같은 재료가 너무 많이 든다 —— 재료 한 장이 그 등급 평균보다 많이 쓰이지 않게 상한 (넘으면 후보에서 뒤로)
+    cap = {3: 6, 4: 6, 5: 5}
     pairs = {}          # 등급 -> 이미 쓴 재료 짝 (11/3 사용자: 조합식이 너무 겹친다 —— 진궁 · 초선이 똑같은 재료였다)
 
     def pick(c, t, exclude, mats):
@@ -507,8 +512,10 @@ def main():
                 rank = 3.5
             else:
                 rank = 9           # 세력도 병종도 다른 재료는 맛이 없다 —— 거의 쓰지 않는다
-            rank += 1.0 * used.get(x[0], 0)
-            rank += 2.5 * sum(1 for m in mats if frozenset((m, x[0])) in pr)
+            rank += 2.0 * used.get(x[0], 0)
+            if used.get(x[0], 0) >= cap.get(t, 99):
+                rank += 50
+            rank += 6.0 * sum(1 for m in mats if frozenset((m, x[0])) in pr)
             cands.append((rank, x[0]))
         cands.sort()
         k = cands[0][1]
@@ -570,7 +577,9 @@ def main():
         elif t == 8:
             assert prev, c
             mats.append(pick(c, 5, ex, mats)); ex.add(mats[-1])
-            mats += [base, base]
+            # 11/5 같은 기본패 둘 → 제 병종 + 함께 넣은 전설의 병종 (같으면 다음 병종)
+            t2 = BY_ID[mats[-1]][3]
+            mats += [base, BASE[t2 if t2 != c[3] else ORDER[(ORDER.index(c[3]) + 1) % 8]]]
         recipes[c[0]] = mats
         nb = [m for m in mats if m in BY_ID]
         for i in range(len(nb)):

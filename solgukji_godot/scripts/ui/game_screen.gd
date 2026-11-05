@@ -1342,8 +1342,9 @@ func _page_draw() -> Control:
 	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	inner.alignment = BoxContainer.ALIGNMENT_END      # 11/4 사용자: 낮은 등급만 있을 때도 아래(기본 병졸 줄 쪽)부터 채운다
 	var keys: Array = Run.sort_cards(p.keys())
-	# 11/4 사용자: 등급마다 줄을 나눈다 —— 초월 위 4열 · 전설(기인) 4열 · 희귀 6열 · 고급 6열 [등급 아래, 위, 열, 칸 높이]
-	for grp in [[6, 9, 4, 140.0], [5, 5, 4, 126.0], [4, 4, 6, 96.0], [2, 3, 6, 96.0]]:
+	# 11/4 사용자: 등급마다 줄을 나눈다 [등급 아래, 위, 열, 칸 높이]
+	# 11/5 사용자: 전설 · 초월 · 불멸 · 신화가 같은 칸 크기를 쓰지 말 것 —— 등급이 높을수록 크게 (신화 2열 · 불멸 3열 · 초월 4열 · 전설 5열)
+	for grp in [[8, 9, 2, 212.0], [7, 7, 3, 168.0], [6, 6, 4, 138.0], [5, 5, 5, 114.0], [4, 4, 6, 96.0], [2, 3, 6, 90.0]]:
 		var g := UI.grid(30, 6)
 		g.max_cols = grp[2]
 		for k in keys:
