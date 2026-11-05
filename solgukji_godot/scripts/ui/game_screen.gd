@@ -958,6 +958,12 @@ func _menu() -> void:
 		Run.delete_save()
 		_new_game(), "warn"))
 	b.add_child(UI.btn("설정", _settings_sheet, "ghost"))
+	if OS.has_feature("pc"):      # 11/5 사용자: 친구들에게 플레이 기록을 받으려고 —— 휴대폰은 앱 폴더라 열 수 없다
+		var dir := ProjectSettings.globalize_path(PlayLog.dir).replace("/", "\\")
+		b.add_child(UI.btn("플레이 기록 폴더 열기", func():
+			DirAccess.make_dir_recursive_absolute(PlayLog.dir)
+			OS.shell_open(dir), "ghost"))
+		b.add_child(UI.hint("판마다 .jsonl 파일이 하나씩 쌓입니다. 이 파일들을 보내 주세요.\n%s" % dir))
 	b.add_child(UI.hint("행동할 때마다 자동으로 저장됩니다. 전투 도중 앱을 꺼도 다음에 열면 그 전투를 마무리합니다."))
 
 
