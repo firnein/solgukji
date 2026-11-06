@@ -2414,6 +2414,8 @@ func _page_war() -> Control:
 			for k in qs:
 				qg.add_child(mtile(k, -1, func(id): card_info(id)))
 			pv.add_child(qg)
+			if run.quest_horde_n() > 0:
+				pv.add_child(UI.hint("그 밖에 황건 잡병 %d부대가 몰려온다" % run.quest_horde_n()))
 			v.add_child(UI.panel(pv, 10))
 		if placed == 0:
 			v.add_child(UI.btn("편성이 비어 있다 — 편성하러 가기", func(): go("deploy"), "gold"))

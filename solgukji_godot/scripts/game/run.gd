@@ -903,6 +903,15 @@ func quest_roster():
 const QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
 ## 11/6 밸런스: 토벌 고정 편성 병력 배율 —— 3일차부터 병력이 두 배 넘게 뛰어(자동 진행 병력비 0.44, 승률 18%) 일차마다 줄인다
 const QUEST_TR := [1.0, 0.95, 0.5, 0.5, 0.52, 0.55, 0.6]
+## 11/7 사용자: 황건적은 물량이 많았다 —— 진형이 4행 5열(20칸)로 늘어난 만큼 토벌 적은 우두머리 9부대 + 잡병 부대로 몰려온다.
+## 잡병은 우두머리 편성의 가장 낮은 등급보다 두 등급 아래 (DB.horde_rabble) —— 내 장수가 쓸어 버리는 맛. 일차마다 늘어 4일차부터 20칸을 다 채운다
+## (자동 진행 12판: 7 · 9 부대였을 때 2 · 3일차 토벌 승이 28/36 → 22/36 · 12/33 → 8/30 으로 떨어져 5 · 7 로)
+const QUEST_HORDE := [5, 5, 7, 11, 11, 11, 11]
+static var horde_enabled := true      # 점검용 —— 끄면 예전 9부대
+func quest_horde_n() -> int:
+	return int(QUEST_HORDE[clampi(day, 0, 6)]) if horde_enabled else 0
+
+
 func quest_morale_mul() -> float:
 	return float(QUEST_MORALE[clampi(day, 0, 6)]) if DB.ECON_ON else 1.0      # 11/4 사용자: 토벌은 내 패와 상관없이 고정
 
@@ -932,7 +941,15 @@ func start_quest() -> Dictionary:
 		# 정해진 황건 편성 —— 장비 없이, 덱에 맞는 작전 (11/2 사용자: 토벌이 너무 어려워졌다)
 		var cards := DB.auto_place(q.cards, q.form)
 		var eq: Array = q.get("equip", [])
-		foe = {"cards": cards, "form": q.form, "morale": int(int(q.get("morale", 100)) * quest_morale_mul()),
+		var form: String = q.form
+		var hn := quest_horde_n()
+		if hn > 0 and DB.FORM.has(DB.HORDE_PFX + form):
+			cards.append_array(DB.horde_rabble(q.cards, hn, rng))      # 대군 진형 9 번 칸부터 —— 우두머리 자리는 그대로
+			form = DB.HORDE_PFX + form
+			if not eq.is_empty():
+				eq = eq.duplicate()
+				eq.resize(cards.size())
+		foe = {"cards": cards, "form": form, "morale": int(int(q.get("morale", 100)) * quest_morale_mul()),
 			"equip": eq, "tac": recommend_tac(cards)[0], "tr_mul": float(QUEST_TR[clampi(day, 0, 6)])}      # 장비는 맞출 때 auto_place 자리 그대로 (같은 순서라 자리가 같다)
 	else:
 		var styles := ["물리", "지략", "균형"]

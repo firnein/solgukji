@@ -441,6 +441,51 @@ func _build_forms() -> void:
 		f.slots = slots
 		f.grid = grid
 		FORM[k] = f
+	for k in FORM.keys():
+		_build_horde(k)
+
+
+## 11/7 사용자: 황건적은 물량이 많았다 —— 토벌 적 전용 '대군' 진형 (horde_<진형>). 4행 5열 전 칸.
+## 0~8 번 칸은 원래 진형 그대로(우두머리 장수들이 같은 모양으로 선다), 9 번부터는 빈 칸을 앞 줄 · 가운데부터 채운다 (잡병이 앞을 메운다).
+## 플레이어 진형 띠에는 나오지 않는다 (foe)
+const HORDE_PFX := "horde_"
+func _build_horde(k: String) -> void:
+	var b: Dictionary = FORM[k]
+	var f: Dictionary = b.duplicate(true)
+	var rows: int = b.mask.size()
+	var extra := []
+	for ri in rows:
+		for ci in FORM_COLS:
+			if int(b.grid[ri][ci]) < 0:
+				extra.append([ri, ci])
+	extra.sort_custom(func(x, y): return x[0] < y[0] if x[0] != y[0] else absi(x[1] - FORM_MID) < absi(y[1] - FORM_MID))
+	for e in extra:
+		f.grid[e[0]][e[1]] = f.slots.size()
+		f.slots.append({"line": D.LINES[e[0]], "row": e[0], "col": e[1], "side": "중앙" if e[1] == FORM_MID else "측면"})
+	var full := []
+	for ri in rows:
+		full.append("X".repeat(FORM_COLS))
+	f.mask = full
+	f.foe = true
+	FORM[HORDE_PFX + k] = f
+
+
+## 대군 잡병 —— 토벌 우두머리 편성(cards)의 가장 낮은 등급보다 두 등급 아래 황건 병사를 n 부대. 앞에 설 병종부터 (대군 진형의 9 번 칸부터 앞 줄 순서)
+const HORDE_POOL := {1: ["spear", "rogue", "horse", "bow", "occul"], 2: ["c0", "c1", "c6", "c2", "c3", "c4", "c5", "c9"]}
+func horde_rabble(cards: Array, n: int, rng: RandomNumberGenerator) -> Array:
+	var lo := 9
+	for k in cards:
+		if k != null:
+			lo = mini(lo, int(C[k].tier))
+	var t := clampi(lo - 2, 1, 7)
+	var pool: Array = HORDE_POOL.get(t, ["y%d0" % t, "y%d1" % t, "y%d2" % t, "y%d3" % t, "y%d4" % t])
+	pool = pool.filter(func(k): return C.has(k))
+	var out := []
+	for i in n:
+		out.append(pool[rng.randi() % pool.size()])
+	var fw: Dictionary = D.FRONT_WANT
+	out.sort_custom(func(a, b): return fw[C[a].tag] > fw[C[b].tag])
+	return out
 
 
 func _build_pools() -> void:
@@ -1068,9 +1113,9 @@ func auto_place(cards: Array, form: String) -> Array:
 			return C[a].tier > C[b].tier
 		return fw[C[a].tag] > fw[C[b].tag])
 	var out := []
-	out.resize(9)
+	out.resize(maxi(9, f.slots.size()))
 	var used := []
-	used.resize(9)
+	used.resize(out.size())
 	used.fill(false)
 	for k in order:
 		var best := -1

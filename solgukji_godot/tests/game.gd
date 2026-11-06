@@ -13,7 +13,9 @@ func _ready() -> void:
 	Run.dev_snap_on = args.has("snap")      # --snap=경로.json —— 토벌 직전 편성을 모은다 (quest_tune --snap 이 기준 덱으로 쓴다)
 	if args.has("oldquest"):        # 토벌 고정 편성(황건적) 대신 예전 무작위 —— 비교용
 		DB.QUEST_ROSTERS = []
-	var qtry := {}                  # "일차-단계" -> [도전, 실패]
+	if args.has("nohorde"):         # 11/7 토벌 대군(잡병 추가) 끄기 —— 비교용
+		Run.horde_enabled = false
+	var qtry := {}                # "일차-단계" -> [도전, 실패]
 	var wins := 0
 	var phases := 0
 	for n in runs:

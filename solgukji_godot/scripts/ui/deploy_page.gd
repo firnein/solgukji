@@ -22,6 +22,8 @@ func build() -> Control:
 	var st := UI.strip(6)
 	for key in DB.FORM:
 		var fm: Dictionary = DB.FORM[key]
+		if fm.get("foe", false):      # 토벌 적 전용 대군 진형
+			continue
 		var on: bool = key == run.form
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(92, 40)
