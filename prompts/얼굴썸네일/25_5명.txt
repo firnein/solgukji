@@ -1,0 +1,53 @@
+A sheet of 5 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 5 fill the first 5 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Zhang Ren  [ARCHER, Independent] —— same person as reference #1
+   FACE: stern middle-aged face, thin straight beard, cold focused eyes, set jaw.
+   SIGNATURE: HEAD plain leather cap; FACIAL HAIR thin straight beard; MARK longbow, cold focused eyes.
+   COLORS: his own colors as described (independent).
+2. Chen Lin  [SCHOLAR, Independent] —— same person as reference #2
+   FACE: intense bookish man, ink-stained fingers, thin beard, burning eyes, open mouth mid-recital.
+   SIGNATURE: HEAD scholar cap; FACIAL HAIR thin beard; MARK writing brush and a long unrolled scroll, ink-stained fingers.
+   COLORS: his own colors as described (independent).
+3. Han Sui  [CAVALRY, Independent] —— same person as reference #3
+   FACE: old sly face, long grey beard, cunning half-closed eyes, scar on the cheek.
+   SIGNATURE: HEAD fur-trimmed western cap; FACIAL HAIR long grey beard; MARK cheek scar, western cavalry saber.
+   COLORS: his own colors as described (independent).
+4. Xu You  [STRATEGIST, Independent] —— same person as reference #4
+   FACE: gaunt sly face, long thin mustache curling at the ends, crooked smirk, raised eyebrow.
+   SIGNATURE: HEAD loose scholar hood; FACIAL HAIR long thin curling mustache; MARK map of the Wuchao granary, crooked smirk.
+   COLORS: his own colors as described (independent).
+5. Huang Zu  [ARCHER, Independent] —— same person as reference #5
+   FACE: aging heavy-jowled face, droopy mustache, cruel narrowed eyes, sneer.
+   SIGNATURE: HEAD old bronze helmet; FACIAL HAIR droopy mustache; MARK longbow, cruel narrowed eyes.
+   COLORS: his own colors as described (independent).

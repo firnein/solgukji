@@ -71,9 +71,13 @@ def main():
     opts = [a for a in sys.argv[1:] if a.startswith("--")]
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     hole_g = 168
+    plate_g = 105      # 이름표 판 초록의 밝기 상한 (11/7 1_기본_추가 04~13 시트는 판이 밝아 g≈123 —— --plate=140)
     for o in opts:
         if o.startswith("--hole="):
             hole_g = int(o.split("=", 1)[1])
+        if o.startswith("--plate="):
+            plate_g = int(o.split("=", 1)[1])
+    big = 2.2 if "--big" in opts else 1.0      # 11/7 인물이 적어 크게 그린 시트(13_새인물_2명) —— 이름표도 크다
     src, names, out = args[0], args[1].split(","), args[2]
     preview = args[3] if len(args) > 3 else None
     im = Image.open(src).convert("RGB")
@@ -90,14 +94,14 @@ def main():
     fg = ~bg
     # 이름표 —— 짙은 초록 판 + 안쪽 흰 글씨. 발끝과 붙어 있을 수 있어 색으로 따로 찾는다
     r, g, bb = (rgb[..., i].astype(int) for i in range(3))
-    plate = (g < 105) & (g > r + 5) & (g > bb + 5) & (r > 25)
+    plate = (g < plate_g) & (g > r + 5) & (g > bb + 5) & (r > 25)
     plab, pcomps = components(plate)
     # 이름표 조각 —— 짙은 초록 판 안에 흰 글씨. 글자가 판을 가로질러 하나가 두 조각으로 갈라지는 일이 있어
     # 먼저 느슨하게 조각을 모아 같은 높이에서 겹치거나 맞붙은 것을 합친 뒤, 합친 판의 크기로 이름표를 가린다.
     pieces = []
     for c in pcomps:
         hh, ww = c["y1"] - c["y0"] + 1, c["x1"] - c["x0"] + 1
-        if 16 <= hh <= 90 and 30 <= ww <= 320:
+        if 16 <= hh <= 90 * big and 30 <= ww <= 320 * big:
             region = rgb[c["y0"]:c["y1"] + 1, c["x0"]:c["x1"] + 1].reshape(-1, 3).astype(int)
             text = (region.min(axis=1) > 190).mean()
             if 0.01 < text < 0.4:      # 번호만 쓴 이름표(대용량 시트)는 흰 글씨가 적다
@@ -116,7 +120,7 @@ def main():
             m["cx"] = (m["x0"] + m["x1"]) / 2
             m["n"] += c["n"]
     # 촉 시트는 높이 16~45 · 너비 50~160, Gemini 1024px 시트는 50×150 안팎 —— 시트마다 조금씩 달라 넉넉히 잡는다
-    labels = [m for m in merged if 50 <= m["x1"] - m["x0"] + 1 <= 320 and m["x1"] - m["x0"] + 1 > (m["y1"] - m["y0"] + 1) * 2]
+    labels = [m for m in merged if 50 <= m["x1"] - m["x0"] + 1 <= 320 * big and m["x1"] - m["x0"] + 1 > (m["y1"] - m["y0"] + 1) * 2]
     # 옷의 짙은 초록 조각이 이름표처럼 잡히는 일이 있다 —— 이름표 너비 중앙값의 절반이 안 되면 버린다
     if labels:
         mw = float(np.median([m["x1"] - m["x0"] + 1 for m in labels]))
@@ -139,9 +143,38 @@ def main():
             cur = [c]
     rows.append(cur)
     ordered = [c for row in rows for c in sorted(row, key=lambda c: c["cx"])]
+    # 11/7 이웃끼리 맞붙은 덩어리(기병 말 · 창이 옆 인물에 닿음) —— 같은 줄 두 이름표 사이 경계선 양쪽에 3000px 넘게 걸치면 경계선에서 나눈다
+    next_id = lab.max() + 1
+    split_any = False
+    for row in rows:
+        row_s = sorted(row, key=lambda c: c["cx"])
+        top = max(0, int(min(c["y0"] for c in row_s)) - 700)
+        bot = int(max(c["y1"] for c in row_s))
+        for a, b in zip(row_s, row_s[1:]):
+            mid = int((a["x1"] + b["x0"]) / 2)
+            band = lab[top:bot + 1]
+            for cid in np.unique(band[:, max(0, mid - 1):mid + 1]):
+                if cid == 0:
+                    continue
+                m = band == cid
+                left = m[:, :mid].sum()
+                right = m[:, mid:].sum()
+                if left > 3000 and right > 3000:
+                    sub = band[:, mid:]
+                    sub[sub == cid] = next_id
+                    next_id += 1
+                    split_any = True
+    if split_any:
+        lab_new = lab
+        comps = []
+        for cid in np.unique(lab_new):
+            if cid == 0:
+                continue
+            ys, xs = np.nonzero(lab_new == cid)
+            comps.append({"id": int(cid), "n": len(ys), "y0": ys.min(), "y1": ys.max(), "x0": xs.min(), "x1": xs.max(), "cy": ys.mean(), "cx": xs.mean()})
     anchors = np.array([(c["y0"] - 85.0, c["cx"]) for c in ordered])   # 캐릭터 몸통 쯤
     label_ids = set()
-    owner = np.zeros(len(comps) + 1, dtype=np.int32) - 1
+    owner = np.zeros(int(lab.max()) + 2, dtype=np.int32) - 1
     for c in comps:
         if c["id"] in label_ids or c["n"] < 25:
             continue
@@ -157,6 +190,9 @@ def main():
         ids = np.nonzero(owner == i)[0]
         # 본체(가장 큰 덩어리)에서 40px 넘게 떨어진 작은 조각은 버린다 —— 패널 밖 먼지가 캔버스를 키우지 않게
         cs = {c["id"]: c for c in comps}
+        if len(ids) == 0:      # 11/7 덩어리를 하나도 못 받은 인물 —— 멈추지 않고 알린다
+            print(f"{nm}: 덩어리 없음 - 건너뜀")
+            continue
         main_c = max((cs[k] for k in ids), key=lambda c: c["n"])
         ids = [k for k in ids if cs[k]["n"] >= 3000 or (cs[k]["y0"] <= main_c["y1"] + 40 and cs[k]["y1"] >= main_c["y0"] - 40
                                                       and cs[k]["x0"] <= main_c["x1"] + 40 and cs[k]["x1"] >= main_c["x0"] - 40)]

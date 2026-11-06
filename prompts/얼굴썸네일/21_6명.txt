@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Zang Ba  [ROGUE, Wei] —— same person as reference #1
+   FACE: burly bearded bandit with a shaved head, broken nose, fierce toothy grin.
+   SIGNATURE: HEAD shaved bald head with a bandit headband; FACIAL HAIR thick beard; MARK twin axes, broken nose.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Cao Hong  [CAVALRY, Wei] —— same person as reference #2
+   FACE: hearty broad face, short thick beard, loyal earnest eyes, wide grin.
+   SIGNATURE: HEAD iron helmet; FACIAL HAIR short thick beard; MARK long spear, loyal wide grin.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+3. Zhu Jianping  [SORCERER, Wei] —— same person as reference #3
+   FACE: thin elderly man, long wispy white goatee, squinting knowing eyes, hollow cheeks, mysterious smile.
+   SIGNATURE: HEAD plain dark scholar cap; FACIAL HAIR long wispy white goatee; MARK bamboo divination slips in hand, squinting eyes.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+4. Kan Ze  [STRATEGIST, Wu] —— same person as reference #4
+   FACE: thin bony face, big earnest eyes, sparse beard, patched robe, determined lips.
+   SIGNATURE: HEAD plain cloth cap; FACIAL HAIR sparse beard; MARK patched robe, a folded letter in hand.
+   COLORS: Wu red: crimson, red, orange and gold.
+5. Ling Cao  [SPEARMAN, Wu] —— same person as reference #5
+   FACE: lean middle-aged man, thin mustache, bold forward-leaning eyes.
+   SIGNATURE: HEAD red helmet; FACIAL HAIR thin mustache; MARK long spear thrust forward, bold eyes.
+   COLORS: Wu red: crimson, red, orange and gold.
+6. Ma Zhong  [ARCHER, Wu] —— same person as reference #6
+   FACE: coarse square face, heavy brows, scruffy beard, cunning narrow eyes.
+   SIGNATURE: HEAD red headscarf; FACIAL HAIR scruffy beard; MARK bow and a coiled rope at the belt.
+   COLORS: Wu red: crimson, red, orange and gold.

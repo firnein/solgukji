@@ -71,3 +71,36 @@
   참조:   python -I tools/scripts/make_ref_sheet.py "진궁,초선,화웅,화타" prompts/얼굴썸네일/참조_17.png
   자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/17_4명.png "진궁,초선,화웅,화타" solgukji_godot/assets/faces
 
+# ── 11/7 새 인물 (1_기본_추가 04~13) —— make_face_prompts.py --missing 으로 이어 붙임
+[18_6명.txt]  1 관흥 · 2 마속 · 3 맹달 · 4 비의 · 5 엄안 · 6 오반
+  참조:   python -I tools/scripts/make_ref_sheet.py "관흥,마속,맹달,비의,엄안,오반" prompts/얼굴썸네일/참조_18.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/18_6명.png "관흥,마속,맹달,비의,엄안,오반" solgukji_godot/assets/faces
+
+[19_6명.txt]  1 오의 · 2 왕평 · 3 요화 · 4 이의 · 5 장포 · 6 황권
+  참조:   python -I tools/scripts/make_ref_sheet.py "오의,왕평,요화,이의,장포,황권" prompts/얼굴썸네일/참조_19.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/19_6명.png "오의,왕평,요화,이의,장포,황권" solgukji_godot/assets/faces
+
+[20_6명.txt]  1 길평 · 2 동소 · 3 문빙 · 4 순유 · 5 악진 · 6 왕쌍
+  참조:   python -I tools/scripts/make_ref_sheet.py "길평,동소,문빙,순유,악진,왕쌍" prompts/얼굴썸네일/참조_20.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/20_6명.png "길평,동소,문빙,순유,악진,왕쌍" solgukji_godot/assets/faces
+
+[21_6명.txt]  1 장패 · 2 조홍 · 3 주건평 · 4 감택 · 5 능조 · 6 마충
+  참조:   python -I tools/scripts/make_ref_sheet.py "장패,조홍,주건평,감택,능조,마충" prompts/얼굴썸네일/참조_21.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/21_6명.png "장패,조홍,주건평,감택,능조,마충" solgukji_godot/assets/faces
+
+[22_6명.txt]  1 반장 · 2 보즐 · 3 여범 · 4 우번 · 5 장흠 · 6 제갈각
+  참조:   python -I tools/scripts/make_ref_sheet.py "반장,보즐,여범,우번,장흠,제갈각" prompts/얼굴썸네일/참조_22.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/22_6명.png "반장,보즐,여범,우번,장흠,제갈각" solgukji_godot/assets/faces
+
+[23_6명.txt]  1 제갈근 · 2 주연 · 3 진무 · 4 하제 · 5 한당 · 6 고람
+  참조:   python -I tools/scripts/make_ref_sheet.py "제갈근,주연,진무,하제,한당,고람" prompts/얼굴썸네일/참조_23.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/23_6명.png "제갈근,주연,진무,하제,한당,고람" solgukji_godot/assets/faces
+
+[24_6명.txt]  1 공융 · 2 기령 · 3 도겸 · 4 이각 · 5 이유 · 6 장만성
+  참조:   python -I tools/scripts/make_ref_sheet.py "공융,기령,도겸,이각,이유,장만성" prompts/얼굴썸네일/참조_24.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/24_6명.png "공융,기령,도겸,이각,이유,장만성" solgukji_godot/assets/faces
+
+[25_5명.txt]  1 장임 · 2 진림 · 3 한수 · 4 허유 · 5 황조
+  참조:   python -I tools/scripts/make_ref_sheet.py "장임,진림,한수,허유,황조" prompts/얼굴썸네일/참조_25.png
+  자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/25_5명.png "장임,진림,한수,허유,황조" solgukji_godot/assets/faces
+

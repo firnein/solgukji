@@ -8,6 +8,7 @@
 """
 import os
 import re
+import sys
 
 SRC = ["prompts/등급별/1_기본", "prompts/등급별/1_기본_재작업", "prompts/등급별/1_기본_추가"]
 OUT = "prompts/얼굴썸네일"
@@ -100,16 +101,29 @@ def main():
                     key=lambda p: (FAC_ORDER.get(re.search(r", (\w+)\]", info[p][0]).group(1) if re.search(r", (\w+)\]", info[p][0]) else "", 9), p))
     missing = sorted(have - set(people))
     os.makedirs(OUT, exist_ok=True)
-    for f in os.listdir(OUT):
-        if re.match(r"\d\d_\d명\.txt", f):
-            os.remove(os.path.join(OUT, f))
+    # --missing (11/7): 얼굴 그림(assets/faces/<인물>.png)이 아직 없는 인물만, 기존 시트 번호 뒤에 이어서 (이미 뽑은 시트 · 안내는 그대로 두고 덧붙인다)
+    only_new = "--missing" in sys.argv
+    start = 0
+    if only_new:
+        faces_have = {f[:-4] for f in os.listdir("solgukji_godot/assets/faces") if f.endswith(".png")}
+        also = []      # --also=악진,요화 —— 얼굴은 있지만 초상을 다시 그린 인물 (얼굴도 다시)
+        for a in sys.argv:
+            if a.startswith("--also="):
+                also = a.split("=", 1)[1].split(",")
+        people = [p for p in people if p not in faces_have or p in also]
+        nums = [int(f[:2]) for f in os.listdir(OUT) if re.match(r"\d\d_\d명\.txt", f)]
+        start = max(nums) if nums else 0
+    else:
+        for f in os.listdir(OUT):
+            if re.match(r"\d\d_\d명\.txt", f):
+                os.remove(os.path.join(OUT, f))
     guide = ["얼굴 썸네일 —— 이름 순서 = 이름표 번호 순서. D:\\Sol 에서 시트마다:",
              "  1. 참조 이미지를 만든다 (아래 '참조' 명령) → 프롬프트 txt 와 함께 붙여 넣어 뽑는다",
              "  2. 시트를 references/얼굴썸네일/<txt 와 같은 이름>.png 로 두고 '자르기' 명령 → solgukji_godot/assets/faces/",
              "  3. solgukji_godot 에서 Godot --import 한 번. 게임은 faces 그림이 있으면 전투 머리표에 그것을 쓴다.", ""]
     for n in range(0, len(people), PER):
         grp = people[n:n + PER]
-        k = n // PER + 1
+        k = n // PER + 1 + start
         fn = "%02d_%d명.txt" % (k, len(grp))
         n_ = len(grp)
         lines = [HEAD.replace("6 round", "%d round" % n_).replace("(1 to 6)", "(1 to %d)" % n_)
@@ -131,6 +145,9 @@ def main():
         guide.append("")
     if missing:
         guide.append("설명 줄을 찾지 못해 뺀 인물: " + " ".join(missing))
+    if only_new and os.path.exists(os.path.join(OUT, "자르기_이름.txt")):
+        old = open(os.path.join(OUT, "자르기_이름.txt"), encoding="utf-8").read().rstrip("\n")
+        guide = [old, "", "# ── 11/7 새 인물 (1_기본_추가 04~13) —— make_face_prompts.py --missing 으로 이어 붙임"] + guide[5:]
     open(os.path.join(OUT, "자르기_이름.txt"), "w", encoding="utf-8").write("\n".join(guide) + "\n")
     print("%d명 · 시트 %d장 → %s" % (len(people), -(-len(people) // PER), OUT))
     if missing:

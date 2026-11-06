@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Kong Rong  [SCHOLAR, Independent] —— same person as reference #1
+   FACE: refined elderly face, long white beard, gentle proud eyes, faint smile.
+   SIGNATURE: HEAD high scholar cap; FACIAL HAIR long white beard; MARK a pear held out in one hand.
+   COLORS: his own colors as described (independent).
+2. Ji Ling  [SPEARMAN, Independent] —— same person as reference #2
+   FACE: huge brutish man, thick neck, bushy unkempt beard, flat nose, glaring eyes.
+   SIGNATURE: HEAD heavy iron helmet; FACIAL HAIR bushy unkempt beard; MARK three-pointed halberd.
+   COLORS: his own colors as described (independent).
+3. Tao Qian  [SCHOLAR, Independent] —— same person as reference #3
+   FACE: frail kind old face, long white beard, tired gentle eyes.
+   SIGNATURE: HEAD tall governor's cap; FACIAL HAIR long white beard; MARK the seal of Xu province held out with both hands.
+   COLORS: his own colors as described (independent).
+4. Li Jue  [ROGUE, Independent] —— same person as reference #4
+   FACE: cruel coarse face, scraggly beard, greedy narrow eyes, crooked teeth.
+   SIGNATURE: HEAD dented helmet; FACIAL HAIR scraggly beard; MARK curved blade and a torch, crooked teeth.
+   COLORS: his own colors as described (independent).
+5. Li Ru  [SCHEMER, Independent] —— same person as reference #5
+   FACE: thin sharp face, pointed beard, cold calculating eyes, sly smile.
+   SIGNATURE: HEAD dark official's cap; FACIAL HAIR pointed beard; MARK a wine cup offered with a cold smile.
+   COLORS: his own colors as described (independent).
+6. Zhang Mancheng  [ROGUE, Independent] —— same person as reference #6
+   FACE: wild-eyed rough peasant face, yellow headband, ragged beard, shouting mouth.
+   SIGNATURE: HEAD yellow headband; FACIAL HAIR ragged beard; MARK curved blade and a torch.
+   COLORS: his own colors as described (independent).

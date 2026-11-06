@@ -200,14 +200,22 @@ func _draw_dots() -> void:
 	# 11/6 병사 1,000명 넘게 매번 정렬하던 것을 부대 단위 정렬로 (후반 fps 68 → ?) —— 부대끼리 겹침 순서만 맞으면 충분하다
 	var sqs: Array = field.order.duplicate()
 	sqs.sort_custom(func(a, b): return map(a.pos).y < map(b.pos).y)
+	var gpu_on0: bool = _gmm != null
 	var nfig := 0
 	var sparks := 0
+	var clock0 := field.clock
 	for sq: Squad in sqs:
-		nfig += sq.soldiers.size()
+		if gpu_on0:      # GPU 전투 —— CPU 는 장수 · 쓰러지는 병사만 (병사 4천 명을 매 프레임 훑지 않는다)
+			var dl: Array = _dying.get(sq.key, [])
+			if not dl.is_empty() and Engine.get_process_frames() % 30 == 0:
+				_dying[sq.key] = dl.filter(func(x): return x.die_t >= 0 and clock0 - x.die_t <= 2.0 and not x.alive)
+			nfig += 1 + _dying.get(sq.key, []).size()
+		else:
+			nfig += sq.soldiers.size()
 		if sq.alive and sq.contact and sq.engaged != null:
 			sparks += 8 if load_lv == 0 else 3
-	var total := nfig * CLONES_SMALL + sparks
-	if mm.instance_count < total:
+	var total := nfig * (1 if gpu_on0 else CLONES_SMALL) + sparks
+	if mm.instance_count < total or mm.instance_count > total * 2 + 256:      # 버퍼를 꼭 필요한 만큼만 (매 프레임 통째로 올린다)
 		mm.instance_count = total + 64
 	if _buf.size() != mm.instance_count * STRIDE:
 		_buf.resize(mm.instance_count * STRIDE)
@@ -230,7 +238,10 @@ func _draw_dots() -> void:
 		var df: Vector2 = map(sq.pos + sq.fwd * hs) - map(sq.pos)
 		var shape: float = FORM_SHAPE.get(sq.tag, 1.0)
 		dr *= shape
-		for s in sq.soldiers:
+		var figs_cpu: Array = sq.soldiers
+		if gpu_on:
+			figs_cpu = ([sq.general] if sq.general else []) + _dying.get(sq.key, [])
+		for s in figs_cpu:
 			if gpu_on and s.alive and s != sq.general:
 				continue      # GPU 병사 —— 셰이더가 그린다
 			var rot := 0.0
@@ -1180,6 +1191,7 @@ func _build_gpu() -> void:
 		_gmm.queue_free()
 		_gmm = null
 	_gi.clear()
+	_dying.clear()
 	gpu_count = 0
 	if not field._gpu or field._sq_tex == null:
 		return
@@ -1229,6 +1241,15 @@ func _build_gpu() -> void:
 	gpu_count = lst.size()
 
 
+var _dying := {}                # 부대 key -> 쓰러지는 병사 (CPU 가 눕히며 그린다, 2초 뒤 빠진다)
+
+
 func gpu_moved(sd, row: int, slot: float, seed: float, mt: float) -> void:
 	if _gmm != null and _gi.has(sd):
 		_gmm.multimesh.set_instance_custom_data(_gi[sd], Color(row, slot, seed, mt))
+	if not sd.alive and row < field.order.size():
+		var k: String = field.order[row].key
+		if not _dying.has(k):
+			_dying[k] = []
+		if not _dying[k].has(sd):
+			_dying[k].append(sd)

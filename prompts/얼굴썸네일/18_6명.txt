@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Guan Xing  [SPEARMAN, Shu] —— same person as reference #1
+   FACE: young man with a long dignified face like his father, sharp phoenix eyes, thin first beard, earnest frown.
+   SIGNATURE: HEAD green headscarf; FACIAL HAIR thin first beard; MARK green dragon glaive (smaller than his father's), phoenix eyes.
+   COLORS: Shu green: green, jade and earthy gold.
+2. Ma Su  [SCHEMER, Shu] —— same person as reference #2
+   FACE: young narrow handsome man with arrogant raised chin, thin mustache, sharp eyebrows, haughty smirk.
+   SIGNATURE: HEAD silk scholar hood; FACIAL HAIR thin mustache only; MARK map scroll held high, arrogant raised chin.
+   COLORS: Shu green: green, jade and earthy gold.
+3. Meng Da  [SCHEMER, Shu] —— same person as reference #3
+   FACE: handsome but shifty face, darting eyes, thin mustache, nervous smile.
+   SIGNATURE: HEAD dark green official's hood; FACIAL HAIR thin mustache; MARK letter hidden behind his back, darting eyes.
+   COLORS: Shu green: green, jade and earthy gold.
+4. Fei Yi  [SCHOLAR, Shu] —— same person as reference #4
+   FACE: mild round face, gentle smiling eyes, neat short beard, relaxed easy smile.
+   SIGNATURE: HEAD scholar cap; FACIAL HAIR neat short beard; MARK go board under the arm, mild smile.
+   COLORS: Shu green: green, jade and earthy gold.
+5. Yan Yan  [ARCHER, Shu] —— same person as reference #5
+   FACE: very old man with long white beard and eyebrows, deep wrinkles, fierce youthful eyes.
+   SIGNATURE: HEAD old iron helmet; FACIAL HAIR long white beard and eyebrows; MARK great bow, deep wrinkles.
+   COLORS: Shu green: green, jade and earthy gold.
+6. Wu Ban  [CAVALRY, Shu] —— same person as reference #6
+   FACE: square-jawed middle-aged man, short thick beard, bold wide eyes, battle-worn cheeks.
+   SIGNATURE: HEAD iron helmet; FACIAL HAIR short thick beard; MARK long spear, bold wide eyes.
+   COLORS: Shu green: green, jade and earthy gold.

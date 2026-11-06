@@ -1,0 +1,57 @@
+A sheet of 6 round FACE MEDALLIONS of Three Kingdoms (late Han dynasty China) characters for the battle screen of a mobile
+card game. In battle each medallion is shown very small (about 48 pixels) as the unit's token, so the face must read instantly.
+
+REFERENCE (attached image): numbered portraits of the SAME characters. Medallion k is the character numbered k in the reference.
+Keep each identity EXACTLY as in the reference: the same face shape, eye shape, brows, nose, mouth, facial hair, skin tone,
+age, hairstyle and headwear, main colors. Do not redesign, beautify or age them. Only the crop changes.
+
+STYLE (same as the reference): cute SD chibi drawing, clean dark-brown ink outlines, flat soft colors with simple two-tone cel
+shading, light paper texture. Not glossy, not painterly, not realistic.
+
+MEDALLION:
+- Each character is drawn inside ONE solid round medallion: a filled circle of flat warm paper color (#E9E3D3) with NO border
+  ring, no frame, no rim, no shadow. Everything of the character stays INSIDE the circle; nothing pokes out of it.
+- HEAD-AND-SHOULDERS ONLY: the head is big and centered, the face (brows to chin) fills about the middle half of the circle,
+  the top of the shoulders and the collar show at the bottom edge. No hands, no weapons, no props in front of the face.
+- Tall helmets, crowns, plumes and hair buns are allowed but are cut by the circle edge at the top —— keep the eyes and the
+  mouth well inside, a little above the circle center.
+- FRONT VIEW or a slight 3/4 turn, eyes looking at the viewer, a calm battle-ready expression that fits the character
+  (fierce, cold, cheerful, sly, serene). Clear eyes with a catchlight; the expression must read at a tiny size.
+- Strong readable silhouette: the headwear and facial hair from the SIGNATURE line are the first thing you see.
+EVERY CHARACTER LOOKS DIFFERENT: no two medallions share the same headgear, hairstyle or facial hair —— follow each
+SIGNATURE line exactly. Same faction colors must never make them look like twins.
+GENDER: follow the reference exactly. Women stay women, men stay men; young men are young MEN, never girls.
+
+LAYOUT:
+- Image 1536x1024 landscape. A fixed grid of 3 columns x 2 rows = 6 equal slots, reading order left to right, top to bottom.
+- Medallions 1 to 6 fill the first 6 slots in order; leave any remaining slot empty.
+- One medallion per slot, all medallions the SAME size (about 400 pixels across), centered in the slot.
+- Flat light green paper background (#9BCF88) over the whole sheet outside the medallions. Wide even gaps between medallions.
+- Under each medallion a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark.
+
+CHARACTERS
+1. Ji Ping  [SORCERER, Wei] —— same person as reference #1
+   FACE: thin middle-aged face, tight lips, nervous determined eyes, physician cap.
+   SIGNATURE: HEAD physician's cap; FACIAL HAIR clean-shaven, tight lips; MARK medicine bowl with faint green vapor.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Dong Zhao  [SCHEMER, Wei] —— same person as reference #2
+   FACE: plump middle-aged face, small sly eyes, thin mustache, double chin, smug closed-mouth smile.
+   SIGNATURE: HEAD tall black official's cap; FACIAL HAIR thin mustache only; MARK jade seal and a rolled memorial.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+3. Wen Pin  [SPEARMAN, Wei] —— same person as reference #3
+   FACE: square weathered face, heavy brows, short beard, calm stubborn eyes.
+   SIGNATURE: HEAD iron helmet; FACIAL HAIR short beard; MARK long spear planted, heavy brows.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+4. Xun You  [STRATEGIST, Wei] —— same person as reference #4
+   FACE: calm gentle face, thin beard, modest downcast eyes, faint smile.
+   SIGNATURE: HEAD scholar cap; FACIAL HAIR thin beard; MARK city plan scroll, modest downcast eyes.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+5. Yue Jin  [ROGUE, Wei] —— same person as reference #5
+   FACE: short stocky man, sharp narrow eyes, short beard, eager fierce grin.
+   SIGNATURE: HEAD light helmet; FACIAL HAIR short beard; MARK twin short sabers, eager grin.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+6. Wang Shuang  [SPEARMAN, Wei] —— same person as reference #6
+   FACE: big brutish man, thick black beard, wild bulging eyes, snarling mouth.
+   SIGNATURE: HEAD heavy helmet; FACIAL HAIR thick black beard; MARK meteor hammer on a chain and a big saber.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
