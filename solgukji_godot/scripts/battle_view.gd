@@ -249,6 +249,7 @@ func _ready() -> void:
 		cmd_btns.append(b)
 	cards_bar = UI.grid(64, 5)
 	cards_bar.max_cols = 5
+	cards_bar.center_last = true      # 11/7 9장이면 5 + 4 —— 둘째 줄이 왼쪽으로 쏠리지 않게
 	dv.add_child(cards_bar)
 
 	_build_side()
