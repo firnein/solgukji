@@ -6,6 +6,7 @@
 shader_type canvas_item;
 
 uniform sampler2D squad_tex : filter_nearest;
+uniform sampler2D tag_tex : filter_nearest;      // 11/7 부대 줄 -> 병종 인형 칸 (아틀라스 9칸 중, 0~1)
 uniform vec2 center;            // 화면 가운데 전장 자리 (흔들림 포함)
 uniform float scl = 1.0;
 uniform float tilt = 1.25;
@@ -141,6 +142,7 @@ void vertex() {
 	if (fighting3) sp2.y -= abs(sin(clock * 5.0 + seed * 17.0)) * 1.6;        // 싸우는 병사는 들썩인다
 	float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);      // 화면 위(먼) 병사는 작게
 	float h = fig * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep;
+	h *= max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5);      // 병종 크기 (기병 크게)
 	float camp = t5.y;
 	float flip = camp > 0.5 ? -1.0 : 1.0;
 	if (fighting3 && hash(seed * 51.7 + floor(clock * 0.8 + seed * 3.0)) < 0.18) flip = -flip;      // 난전에선 가끔 옆 · 뒤를 돌아본다
@@ -151,10 +153,10 @@ void vertex() {
 	if (mod(t3.z, 2.0) >= 1.0) team = mix(team, vec3(0.48, 0.29, 0.16), 0.35);      // 파갑 —— 녹슨 빛
 	float row_shade = 1.0 - 0.06 * mod(row, 3.0);
 	tint = vec4(team * row_shade, t2.w);
-	atlas_x = 0.0;
+	atlas_x = texelFetch(tag_tex, ivec2(0, int(row)), 0).r;
 }
 
 void fragment() {
-	vec4 t = texture(TEXTURE, vec2(UV.x * 0.5 + atlas_x, UV.y));
+	vec4 t = texture(TEXTURE, vec2(UV.x / 9.0 + atlas_x, UV.y));
 	COLOR = t * tint;
 }

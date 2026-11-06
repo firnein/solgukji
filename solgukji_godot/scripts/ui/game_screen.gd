@@ -2824,6 +2824,15 @@ func _dev_args() -> void:
 		_title.visible = true
 	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
 		Settings.dots = a.gdots != "0"
+	if a.has("gatlas"):         # 점검용 —— 탑뷰 병사 인형 아틀라스를 그림 파일로 (--gatlas=경로.png)
+		var tv := Type2View.new()
+		var at: Texture2D = tv._make_atlas()
+		var im: Image = at.get_image()
+		im.resize(im.get_width() * 4, im.get_height() * 4, Image.INTERPOLATE_NEAREST)
+		im.save_png(str(a.gatlas))
+		tv.free()
+		get_tree().quit()
+		return
 	if a.has("gmul"):           # 점검용 —— 탑뷰 병사 배율 (기본 1.5)
 		War3D.gpu_mul_t2 = float(a.gmul)
 	if a.has("gpintest"):       # 점검용 —— --gpintest=장수id : 갈무리한 뒤 그 재료를 선택권으로 뽑고(실제 타일 탭) 화면이 바로 갱신되는지

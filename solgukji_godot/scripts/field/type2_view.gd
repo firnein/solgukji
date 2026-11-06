@@ -309,7 +309,7 @@ func _draw_dots() -> void:
 				_buf[b + 9] = cc.g
 				_buf[b + 10] = cc.b
 				_buf[b + 11] = cc.a
-				_buf[b + 12] = 0.0 if one else 0.5
+				_buf[b + 12] = _cell(sq.tag) if one else 8.0 / ATLAS_N
 				i += 1
 	# 전선 불꽃
 	for sq: Squad in field.order:
@@ -442,20 +442,25 @@ void vertex() {
 	tint = COLOR;
 }
 void fragment() {
-	vec4 t = texture(TEXTURE, vec2(UV.x * 0.5 + atlas_x, UV.y));
+	vec4 t = texture(TEXTURE, vec2(UV.x / 9.0 + atlas_x, UV.y));
 	COLOR = t * tint;
 }
 """
+const ATLAS_N := 9             # 11/7 사용자 '병종별 모델링 차이' —— 0~7 병종 인형(DB.D.TAGORDER 순), 8 묶음
+
+
+func _cell(tag: String) -> float:
+	var i: int = DB.D.TAGORDER.find(tag)
+	return float(maxi(i, 0)) / ATLAS_N
 
 
 ## 아틀라스 64 × 32 —— 왼쪽 32: 장수 한 명(예전 인형), 오른쪽 32: 단순한 인형 여섯 묶음(뒤 줄 셋 · 앞 줄 셋, 머리 · 몸 · 창 한 줄)
 func _make_atlas() -> Texture2D:
-	var one: Image = (_make_fig() as ImageTexture).get_image()
 	var n := 48
-	one.resize(n, n, Image.INTERPOLATE_NEAREST)
-	var img := Image.create(n * 2, n, false, Image.FORMAT_RGBA8)
+	var img := Image.create(n * ATLAS_N, n, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	img.blit_rect(one, Rect2i(0, 0, n, n), Vector2i(0, 0))
+	for ti in DB.D.TAGORDER.size():
+		img.blit_rect(_make_tag_fig(str(DB.D.TAGORDER[ti]), n), Rect2i(0, 0, n, n), Vector2i(n * ti, 0))
 	var pack := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	pack.fill(Color(0, 0, 0, 0))
 	var body := Color(1, 1, 1, 1)
@@ -506,8 +511,159 @@ func _make_atlas() -> Texture2D:
 				if q.x >= 0 and q.y >= 0 and q.x < n and q.y < n and pack.get_pixel(q.x, q.y).a > 0.5:
 					out.set_pixel(x, y, Color(0.06, 0.05, 0.04, 0.8))
 					break
-	img.blit_rect(out, Rect2i(0, 0, n, n), Vector2i(n, 0))
+	img.blit_rect(out, Rect2i(0, 0, n, n), Vector2i(n * 8, 0))
 	return ImageTexture.create_from_image(img)
+
+
+## 병종 인형 (11/7 사용자: 병종별로 약간의 모델링 차이) —— 흰 칸은 진영색이 곱해지고, 어두운 칸 · 살 · 무기는 그대로 남는다.
+## 실루엣으로 읽히게: 창병 긴 창 + 둥근 방패 · 기병 말 위 · 궁병 활 · 도적 두건 + 쌍단검(낮은 자세) · 책사 도포 + 깃털 부채 ·
+## 유생 각진 관 + 두루마리 · 술사 뾰족 모자 + 구슬 지팡이 · 모사 높은 관 + 넓은 소매 + 책
+func _make_tag_fig(tag: String, n: int) -> Image:
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var W := Color(1, 1, 1, 1)                     # 옷 (진영색)
+	var D := Color(0.30, 0.28, 0.25, 1)            # 투구 · 다리 · 띠
+	var S := Color(0.97, 0.85, 0.71, 1)            # 살
+	var WD := Color(0.58, 0.44, 0.29, 1)           # 나무 (창대 · 활 · 지팡이)
+	var MT := Color(0.86, 0.87, 0.92, 1)           # 쇠 (날)
+	var PA := Color(0.95, 0.92, 0.80, 1)           # 종이 · 깃털
+	var HR := Color(0.62, 0.46, 0.33, 1)           # 말
+	var robe := tag in ["책사", "유생", "술사", "모사"]
+	var cav := tag == "기병"
+	var low := tag == "도적"
+	# 몸의 기준 —— 기병은 말 위라 위로 작게, 도적은 낮게
+	var hx := 0.46
+	var hy := 0.13 if cav else (0.30 if low else 0.22)
+	var hr := 0.075 if cav else 0.085
+	var b0 := hy + hr + 0.01                         # 몸 시작
+	var b1 := (0.48 if cav else (0.74 if low else 0.70))
+	if robe:
+		b1 = 0.90
+	for y in n:
+		for x in n:
+			var fx := (x + 0.5) / n
+			var fy := (y + 0.5) / n
+			var c := Color(0, 0, 0, 0)
+			# ── 뒤쪽 소품 (몸보다 먼저)
+			if tag == "창병" and absf((fx - 0.70) - (0.55 - fy) * 0.12) < 0.018 and fy > 0.02 and fy < 0.93:
+				c = WD                                   # 창대
+			if tag == "궁병" and absf(Vector2(fx - 0.50, fy - 0.42).length() - 0.26) < 0.02 and fx > 0.62:
+				c = WD                                   # 활
+			if tag == "궁병" and absf(fx - 0.70) < 0.008 and fy > 0.22 and fy < 0.62:
+				c = PA                                   # 시위
+			if tag == "궁병" and absf((fx - 0.33) - (fy - 0.30) * 0.25) < 0.035 and fy > 0.28 and fy < 0.55:
+				c = D                                    # 화살통
+			if tag == "술사" and absf(fx - 0.74) < 0.016 and fy > 0.12 and fy < 0.95:
+				c = WD                                   # 지팡이
+			if cav:
+				# 말 —— 몸통 · 목 · 머리 · 다리 · 꼬리 (오른쪽을 본다)
+				if Vector2((fx - 0.48) / 0.34, (fy - 0.62) / 0.12).length() < 1.0:
+					c = HR
+				if absf((fx - 0.78) - (0.60 - fy) * 0.55) < 0.05 and fy > 0.40 and fy < 0.62:
+					c = HR
+				if Vector2((fx - 0.88) / 0.08, (fy - 0.40) / 0.05).length() < 1.0:
+					c = HR
+				for lx in [0.24, 0.34, 0.62, 0.72]:
+					if absf(fx - lx) < 0.025 and fy > 0.66 and fy < 0.95:
+						c = D
+				if absf((fx - 0.12) + (fy - 0.62) * 0.6) < 0.025 and fy > 0.58 and fy < 0.80:
+					c = D                                # 꼬리
+				if Vector2((fx - 0.48) / 0.14, (fy - 0.53) / 0.05).length() < 1.0:
+					c = W                                # 안장 천 (진영색)
+			# ── 몸
+			var t := (fy - b0) / maxf(b1 - b0, 0.01)
+			var half := (0.10 + t * (0.10 if robe else 0.07)) * (1.15 if tag == "모사" else 1.0) * (1.15 if low else 1.0)
+			if t >= 0.0 and t <= 1.0 and absf(fx - hx) < half:
+				c = W
+			if tag == "모사" and t > 0.15 and t < 0.6 and absf(fx - hx) < half + 0.07:
+				c = W                                    # 넓은 소매
+			# 띠
+			if t > 0.38 and t < 0.46 and absf(fx - hx) < half and not robe:
+				c = D
+			# 다리 (도포는 발만)
+			if not cav:
+				var l0 := b1
+				var l1 := 0.96
+				if robe:
+					l0 = 0.90
+				var spread := 0.09 if low else 0.06
+				if fy >= l0 and fy < l1 and (absf(fx - (hx - spread)) < 0.035 or absf(fx - (hx + spread)) < 0.035):
+					c = D
+			# ── 머리 · 머리쓰개
+			if Vector2(fx - hx, fy - hy).length() < hr:
+				c = S
+			match tag:
+				"창병", "기병":
+					if Vector2(fx - hx, fy - (hy - 0.025)).length() < hr * 1.08 and fy < hy - 0.005:
+						c = D                            # 투구
+					if absf(fx - hx) < 0.012 and fy > hy - hr - 0.07 and fy < hy - hr + 0.01:
+						c = Color(0.85, 0.2, 0.15, 1)    # 술
+				"궁병":
+					if absf(fy - (hy - 0.035)) < 0.025 and absf(fx - hx) < hr * 1.05:
+						c = D                            # 머리띠
+				"도적":
+					if Vector2(fx - hx, fy - (hy - 0.01)).length() < hr * 1.3 and Vector2(fx - (hx + 0.03), fy - (hy + 0.02)).length() > hr * 0.75:
+						c = D                            # 두건 (얼굴만 드러남)
+				"책사":
+					if absf(fy - (hy - hr - 0.01)) < 0.025 and absf(fx - hx) < hr * 0.8:
+						c = D                            # 작은 관
+				"유생":
+					if fy > hy - hr - 0.07 and fy < hy - hr * 0.5 and absf(fx - hx) < hr * 0.9:
+						c = D                            # 각진 관
+				"술사":
+					var tt := (fy - (hy - hr - 0.16)) / 0.16
+					if tt >= 0.0 and tt <= 1.0 and absf(fx - hx) < hr * 1.2 * tt and fy < hy - hr * 0.3:
+						c = W                            # 뾰족 모자 (진영색)
+				"모사":
+					if fy > hy - hr - 0.11 and fy < hy - hr * 0.4 and absf(fx - hx) < hr * (0.7 + 0.5 * (fy - (hy - hr - 0.11)) / 0.11):
+						c = D                            # 높은 관
+			# ── 앞쪽 소품 (몸 위)
+			if cav:
+				if absf((fx - (0.50 + (0.30 - fy) * 1.6))) < 0.015 and fy > 0.12 and fy < 0.42:
+					c = WD                               # 기병창 (앞으로 비스듬히)
+				if Vector2(fx - 0.86, fy - 0.10).length() < 0.03:
+					c = MT
+			match tag:
+				"창병":
+					if absf((fx - 0.75) - (0.55 - 0.03) * 0.12) < 0.04 and fy > 0.0 and fy < 0.07:
+						c = MT                           # 창날
+					var sh := Vector2((fx - 0.31) / 0.12, (fy - 0.50) / 0.15).length()
+					if sh < 1.0:
+						c = D if sh > 0.75 else W        # 둥근 방패 (테 + 진영색)
+				"도적":
+					for dx in [-0.21, 0.21]:
+						if absf((fx - (hx + dx)) - (fy - 0.60) * (0.7 if dx > 0 else -0.7)) < 0.025 and fy > 0.44 and fy < 0.70:
+							c = D if fy > 0.64 else MT   # 쌍단검 (자루 + 날)
+				"책사":
+					if Vector2((fx - 0.72) / 0.11, (fy - 0.42) / 0.13).length() < 1.0 and fx > 0.64:
+						c = PA                           # 깃털 부채
+					if absf(fx - 0.66) < 0.012 and fy > 0.48 and fy < 0.60:
+						c = WD
+				"유생":
+					if absf(fy - 0.52) < 0.04 and fx > 0.50 and fx < 0.78:
+						c = PA                           # 두루마리
+					if absf(fy - 0.52) < 0.04 and (absf(fx - 0.50) < 0.015 or absf(fx - 0.78) < 0.015):
+						c = WD
+				"술사":
+					if Vector2(fx - 0.74, fy - 0.10).length() < 0.05:
+						c = Color(0.75, 0.9, 1.0, 1)     # 지팡이 구슬
+				"모사":
+					if fx > 0.20 and fx < 0.34 and fy > 0.46 and fy < 0.60:
+						c = D if absf(fx - 0.27) < 0.012 else PA      # 책
+			if c.a > 0.0:
+				img.set_pixel(x, y, c)
+	# 윤곽 —— 작게 그려도 형체가 읽히게
+	var out := img.duplicate()
+	for y in n:
+		for x in n:
+			if img.get_pixel(x, y).a > 0.5:
+				continue
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var q: Vector2i = Vector2i(x, y) + d
+				if q.x >= 0 and q.y >= 0 and q.x < n and q.y < n and img.get_pixel(q.x, q.y).a > 0.5:
+					out.set_pixel(x, y, Color(0.06, 0.05, 0.04, 0.85))
+					break
+	return out
 
 
 func _make_fig() -> Texture2D:
@@ -1340,7 +1496,8 @@ func _reset_feel() -> void:
 # ───────── GPU 병사 (11/6 목표: 휴대폰에서도 품질이 떨어지지 않는 대군) ─────────
 # War3D 가 GPU 병사 모드면(타입2 도 기본), 살아 있는 병졸은 shaders/type2_gpu.gdshader 가 부대 데이터(squad_tex)로 자리를 계산해 그린다.
 # CPU 는 병사마다 위치 계산 · 버퍼 쓰기를 하지 않는다 —— 쓰러지거나 자리를 옮긴 병사만 gpu_moved 로 그 인스턴스 값을 고친다.
-const GPU_FIG := 0.8            # GPU 병사 인형 크기 (장수 인형 대비)
+const GPU_FIG := 1.0            # GPU 병사 인형 크기 (장수 인형 대비) —— 11/7 병종 모양이 읽히게 0.8 → 1.0
+const TAG_SIZE := {"기병": 1.35, "도적": 0.92}      # 병종 인형 크기 (기병은 말이 있어 크게)
 var _gmm: MultiMeshInstance2D = null
 var _gi := {}                   # Soldier -> 인스턴스 번호
 var gpu_count := 0
@@ -1391,6 +1548,10 @@ func _build_gpu() -> void:
 	var gm := ShaderMaterial.new()
 	gm.shader = load("res://shaders/type2_gpu.gdshader")
 	gm.set_shader_parameter("squad_tex", field._sq_tex)
+	var timg := Image.create(1, maxi(1, field.order.size()), false, Image.FORMAT_RGF)
+	for row in field.order.size():
+		timg.set_pixel(0, row, Color(_cell(field.order[row].tag), float(TAG_SIZE.get(field.order[row].tag, 1.0)), 0))
+	gm.set_shader_parameter("tag_tex", ImageTexture.create_from_image(timg))
 	gm.set_shader_parameter("tilt", TILT)
 	gm.set_shader_parameter("spread", T2_SPREAD)
 	gm.set_shader_parameter("team_a", TEAM_A)
