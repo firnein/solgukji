@@ -705,7 +705,8 @@ func _render_head() -> void:
 		run.my_pv(), run.rank(), "#e0806f" if run.strikes >= 2 else "#8D7B5C", run.strikes, Run.STRIKE_MAX])
 
 
-func toast(text: String, kind := "") -> void:
+## life: 글이 떠 있는 시간(초). 11/7 보급 알림은 2초
+func toast(text: String, kind := "", life := 2.6) -> void:
 	Sfx.play({"gain": "gain", "bad": "deny", "gold": "gain"}.get(kind, "draw"))
 	var p := PanelContainer.new()
 	var col: Color = {"gold": DB.PAL.gold, "news": DB.PAL.bamboo, "gain": DB.PAL.jade, "bad": DB.PAL.seal}.get(kind, DB.PAL.bamboo_dim)
@@ -726,7 +727,7 @@ func toast(text: String, kind := "") -> void:
 	p.modulate.a = 0.0
 	var tw := p.create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.15)
-	tw.tween_interval(2.6)
+	tw.tween_interval(life)
 	tw.tween_property(p, "modulate:a", 0.0, 0.35)
 	tw.tween_callback(p.queue_free)
 
@@ -737,10 +738,8 @@ func _flush_toasts() -> void:
 		if seen.has(t[0]):      # 같은 알림이 겹쳐 쌓이면 하나만 (11/4)
 			continue
 		seen[t[0]] = true
-		if t[1] == "gold":      # 11/5 사용자: 보급 도착 같은 알림은 화면 가운데 띠로
-			Sfx.play("gain")
-			var parts: PackedStringArray = str(t[0]).split(" · ", true, 1)
-			band(parts[0], DB.PAL.gold, parts[1] if parts.size() > 1 else "")
+		if t[1] == "gold":      # 11/5 사용자: 보급 도착 같은 알림은 화면 가운데 띠로 → 11/7 가운데 띠가 편성판 · 전장을 2초 넘게 덮었다 —— 아래 알림 자리(독 위)에 한 줄 · 2초, 다른 알림과 같이 쌓인다
+			toast(t[0], "gold", 2.0)
 		else:
 			toast(t[0], t[1])
 	run.toasts.clear()
