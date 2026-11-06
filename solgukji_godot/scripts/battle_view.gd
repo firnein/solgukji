@@ -1268,7 +1268,7 @@ func _apply(i: int, quiet := false) -> void:
 		elif ace:
 			impact(0.15, 1.0)
 	if e.has("mn") and field.squads.has(e.get("a", "")):      # 잔기술 (11/5) —— 쓴 부대 위에 이름 + 종류별 이펙트 (War3D.minor_fx)
-		hud.float_text(e.a, e.mn, Color("#b9a0ff") if e.fx == "int" else Color("#f0d79a"), 12)
+		hud.float_text(e.a, e.mn, Color("#b9a0ff") if e.fx == "int" else Color("#f0d79a"), 12, true)      # 11/6 #16 B등급: 부대마다 하나만
 		if smooth:
 			field.minor_fx(str(e.get("mk", "")), e.a, f)
 	match e.get("fx", ""):
@@ -1361,7 +1361,9 @@ func _damage_number(i: int, e: Dictionary, f: String) -> void:
 			# 11/4 연출 점검: 평타 치명타마다 큰 숫자가 찍혀 겹쳐 쌓였다 —— 크게 찍는 것은 기술 · 고유기 · 불멸 이상의 치명타만
 			var gq: Dictionary = group_of[i]
 			var big: bool = gq.skill != "" or gq.ult != null or (field.squads.has(gq.who) and field.squads[gq.who].tier >= 7)
-			hud.damage(f, n, k, e.get("crit", false) and big)     # 불타는(화공) · 잠긴(수공) 적을 더 세게 친 타격
+			if Settings.dmg_numbers == 0 and not big and not e.get("crit", false):      # 11/6 #16 C등급(평타)은 '큰 것만' 에서 숨긴다
+				return
+			hud.damage(f, n, k, e.get("crit", false) and big, Settings.dmg_numbers == 2)     # 불타는(화공) · 잠긴(수공) 적을 더 세게 친 타격
 		"heal":
 			hud.damage(f, n, "heal", false)
 		"tick":
@@ -1638,10 +1640,12 @@ class Hud extends Control:
 			draw_set_transform(Vector2.ZERO)
 		banners_sk = keep
 
-	func float_text(key: String, text: String, col: Color, fs: int) -> void:
+	func float_text(key: String, text: String, col: Color, fs: int, replace := false) -> void:
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
 			return
+		if replace:
+			floats = floats.filter(func(f): return f.key != key or f.get("num", false))
 		var n := 0
 		for f in floats:
 			if f.key == key and view.clock - f.t0 < 0.8:
@@ -1654,7 +1658,7 @@ class Hud extends Control:
 
 	## 피해 숫자 —— 적이 입은 피해는 흰색, 아군이 입은 피해는 붉은색, 책략은 보랏빛, 회복은 초록.
 	## 치명타는 금빛으로 크게 찍혔다가 자리를 잡고 "치명타!" 가 붙는다.
-	func damage(key: String, amount: float, kind: String, crit: bool) -> void:
+	func damage(key: String, amount: float, kind: String, crit: bool, every := false) -> void:
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
 			return
@@ -1695,7 +1699,7 @@ class Hud extends Control:
 			# 작은 타격(부대 병력의 SMALL_HIT 아래)은 바로 띄우지 않고 모았다가 넘치면 한 번에
 			var sk: String = key + kind
 			var acc: float = _small.get(sk, 0.0) + amount
-			var thr: float = SMALL_HIT_FAR if view.field.overview else SMALL_HIT
+			var thr: float = (SMALL_HIT_FAR if view.field.overview else SMALL_HIT) * (0.0 if every else 1.0)
 			if kind == "tick":
 				thr *= 2.0      # 11/4 화상 · 침수 지속 피해 "-64" 가 부대마다 동시에 떠서 화면을 덮었다 —— 더 모아서
 			if acc < sq.max * thr:
@@ -1796,7 +1800,44 @@ class Hud extends Control:
 		_draw_chains()
 		_draw_chain_pop()
 		_draw_warn()
+		_draw_threats()
 		view.field.pt("머리표", t0)
+
+	## 11/6 #16 A등급 위험 신호 —— 화면 오른쪽 위 고정 칸: 적 고유기 준비(이름) · 아군 장수 병력 30% 아래(이름). 카메라 · 메달과 무관하게 늘 같은 자리
+	var _threat_seen := {}
+	func _draw_threats() -> void:
+		var items := []
+		for sq: Squad in view.field.order:
+			if not sq.alive or sq.tier < 3:
+				continue
+			var nm: String = DB.person(sq.cid) if DB.C.has(sq.cid) else sq.row.name
+			if sq.camp == "B" and sq.tier >= 6:
+				var lv := view.unit_live(sq.key)
+				if lv[1] > 0 and lv[0] >= 100.0:
+					if not _threat_seen.has("u" + sq.key):
+						_threat_seen["u" + sq.key] = view.clock
+					if view.clock - float(_threat_seen["u" + sq.key]) < 3.0:
+						items.append(["적 고유기 준비 · %s" % nm, Color("#ff6a4a")])
+				else:
+					_threat_seen.erase("u" + sq.key)
+			if sq.camp == "A" and sq.troops / sq.max < 0.3 and sq.troops > 0:
+				if not _threat_seen.has("h" + sq.key):
+					_threat_seen["h" + sq.key] = view.clock
+				if view.clock - float(_threat_seen["h" + sq.key]) < 3.0:
+					items.append(["%s 위태롭다" % nm, Color("#ffb070")])
+		var y := 104.0
+		var fd := DB.font_display
+		for it in items.slice(0, 3):
+			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
+			var r := Rect2(size.x - w - 10.0, y, w, 22.0)
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.06, 0.05, 0.04, 0.85)
+			sb.border_color = Color(it[1], 0.5 + 0.5 * sin(view.clock * 8.0))
+			sb.set_border_width_all(1)
+			sb.set_corner_radius_all(4)
+			draw_style_box(sb, r)
+			draw_string(fd, r.position + Vector2(11, 16), it[0], HORIZONTAL_ALIGNMENT_LEFT, w - 22.0, 13, it[1])
+			y += 26.0
 
 	## 적 고유기 예고 띠 —— 화면 위쪽 가운데에 크게, 남은 초가 줄어든다
 	func _draw_warn() -> void:
@@ -2429,8 +2470,9 @@ class MiniCard extends Control:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = DB.PAL.ink2
 		sb.set_corner_radius_all(6)
-		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 else 1)
-		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if sq.hurt > 0.05 else tc)
+		var danger: bool = sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3      # 11/6 #16 위험 신호
+		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 1)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		Art.draw_portrait(self, Rect2(4, 4, 34, 46), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
 		var fb := DB.font_body
@@ -2479,8 +2521,9 @@ class MiniCard extends Control:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = DB.PAL.ink2
 		sb.set_corner_radius_all(6)
-		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 else 1)
-		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if sq.hurt > 0.05 else tc)
+		var danger: bool = sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3      # 11/6 #16 위험 신호
+		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 1)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		var bar_y := h - 16
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)

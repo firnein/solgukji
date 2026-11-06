@@ -201,6 +201,7 @@ func _deepest_forgeable(nd: Dictionary, depth: int, best: Array) -> void:
 ## 모두 조합 —— 가장 깊은 재료부터 되는 것을 하나씩 조합하고, 트리를 다시 잰다. 맨 위 장수가 나오면 멈춘다
 func forge_chain(root: String) -> void:
 	var made := []
+	gs._forge_quiet = true      # 11/6 #17 한 장마다 연출하지 않고 끝에 셔플로
 	for _i in 40:
 		if gs.run.can_forge(root):
 			if gs.act("forge", [root]):
@@ -211,10 +212,13 @@ func forge_chain(root: String) -> void:
 		if best[0] == null or not gs.act("forge", [best[0]]):
 			break
 		made.append(best[0])
+	gs._forge_quiet = false
 	if made.is_empty():
 		gs.toast("지금 조합할 수 있는 재료가 없다")
 	else:
 		gs.toast("조합 %d번 — %s" % [made.size(), " → ".join(made.map(func(x): return DB.C[x].name))], "gain")
+		if DB.C[made[made.size() - 1]].tier < 7:      # 불멸 이상은 ForgeFanfare 가 이미 떴다
+			ForgeFx.play_chain(gs, made)
 
 
 func is_open(root: String, path: String) -> bool:

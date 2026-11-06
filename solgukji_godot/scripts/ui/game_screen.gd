@@ -839,6 +839,8 @@ func act(m: String, a := []):
 				forge_tree.done(str(a[0]))
 			if r and DB.C[str(a[0])].tier >= 7:        # 11/3 사용자: 히든(불멸) 이상 완성 연출
 				_forge_fanfare(str(a[0]))
+			elif r and not _forge_quiet:               # 11/6 #17 조합 연출 —— 재료가 모여 하나로 (모두 조합은 forge_tree 가 묶어서)
+				ForgeFx.play_one(self, str(a[0]), DB.RECOF.get(str(a[0]), []))
 		"do_draw", "pick", "random_grant": Sfx.play("draw")
 	if online != null:
 		online.send_cmd(m, a)
@@ -1007,6 +1009,12 @@ func _settings_sheet() -> void:
 		if _battle:
 			_battle.apply_style()
 		_settings_sheet()))
+	b.add_child(UI.eyebrow("피해 숫자"))      # 11/6 #16 정보 계층 —— 평타 숫자는 소음이 되기 쉽다
+	b.add_child(UI.segmented([["0", "큰 것만"], ["1", "모아서"], ["2", "모두"]], str(Settings.dmg_numbers), func(key):
+		Settings.dmg_numbers = int(key)
+		Settings.save_cfg()
+		_settings_sheet()))
+	b.add_child(UI.hint("큰 것만: 기술 · 고유기 · 치명타 숫자만. 모아서: 작은 타격은 합쳐서. 모두: 전부."))
 	b.add_child(UI.eyebrow("전투 카메라 연출"))      # 11/6 사용자: 불필요한 카메라 무빙 자제
 	b.add_child(UI.segmented([["0", "끔"], ["1", "적게"], ["2", "보통"]], str(Settings.cam_fx), func(key):
 		Settings.cam_fx = int(key)
@@ -1525,6 +1533,7 @@ func _art_crop(k: String, box: Vector2, myth := true) -> TextureRect:
 
 
 ## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다
+var _forge_quiet := false     # 모두 조합 중 —— 한 장마다 연출하지 않고 끝에 묶어서 (ForgeFx.play_chain)
 var _pick_last := ""          # 방금 고른 카드 —— 다시 그려도 금테로 남긴다 (11/6 #3)
 var _pick_scroll := 0
 var _sheet_full := false      # 시트를 화면 높이 거의 끝까지 (선택권)
@@ -2715,6 +2724,12 @@ func _dev_args() -> void:
 		print("병사 %d명 · fps 평균 %.0f · 가장 느린 프레임 %.1fms (%d프레임)" % [men, fr / ((Time.get_ticks_usec() - t0) / 1e6), worst, fr])
 		get_tree().quit()
 		return
+	if a.has("gforgefx"):      # --gforgefx=c11,c12,c94 —— 조합 연출 (여럿이면 모두 조합 셔플)
+		var ks: Array = Array(str(a.gforgefx).split(","))
+		if ks.size() == 1:
+			ForgeFx.play_one(self, ks[0], DB.RECOF.get(ks[0], []))
+		else:
+			ForgeFx.play_chain(self, ks)
 	if a.has("gfanfare"):      # --gfanfare=c177 —— 불멸 · 신화 완성 연출만 띄워 본다
 		_forge_fanfare(str(a.gfanfare))
 	if a.has("gtouch"):

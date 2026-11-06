@@ -50,6 +50,10 @@ func _fill() -> void:
 	_tabs = nt
 	for c in _body.get_children():
 		c.queue_free()
+	if camp == "A":      # 11/6 #16 덱 설계 요약 —— "내 덱의 무엇이 통했는지" 한 줄 (데일리 진행의 확인 순간)
+		var ds := _deck_summary()
+		if ds != "":
+			_body.add_child(UI.rich(ds, 13))
 	var ch: Dictionary = res.get("chains", {}).get(camp, {})
 	if not ch.is_empty():
 		var names := ch.keys()
@@ -67,6 +71,41 @@ func _fill() -> void:
 	for r in rows:
 		_body.add_child(Row.make(r, top_d, top_t))
 	_body.add_child(UI.rich("[color=#%s]■[/color] 준 피해   [color=#c0503f]■[/color] 받은 피해   ·   격파 · 기술 · 고유기" % DB.PAL.gold.to_html(false), 11))
+
+
+## 내 덱 설계 요약 —— 위세(살았는지) · 가장 많이 터진 연쇄 · 고유기 횟수 · 격파 수
+func _deck_summary() -> String:
+	var final: Array = res.ev[res.ev.size() - 1].s
+	var auras := []
+	var ults := 0
+	var kills := 0
+	for e in res.ev:
+		if e.get("fx") == "ult" and str(e.get("a", "")).begins_with("A"):
+			ults += 1
+	for i in res.roster.size():
+		var u: Dictionary = res.roster[i]
+		if u.camp != "A":
+			continue
+		kills += int(u.get("kills", 0))
+		if DB.AURA.has(u.id):
+			auras.append("[color=#%s]『%s』[/color]%s" % [DB.tier_color(u.id).to_html(false), DB.AURA[u.id].n, "" if final[i][2] == 1 else "(무너짐)"])
+	var parts := []
+	if not auras.is_empty():
+		parts.append("위세 " + " ".join(auras.slice(0, 3)))
+	var ch: Dictionary = res.get("chains", {}).get("A", {})
+	if not ch.is_empty():
+		var best := ""
+		for k in ch:
+			if best == "" or int(ch[k]) > int(ch[best]):
+				best = k
+		parts.append("연쇄 [b]%s[/b] ×%d" % [best, int(ch[best])])
+	if ults > 0:
+		parts.append("고유기 %d회" % ults)
+	if kills > 0:
+		parts.append("격파 %d" % kills)
+	if parts.is_empty():
+		return ""
+	return "[color=#ffd257]내 덱[/color]  " + "  ·  ".join(parts)
 
 
 ## 진영의 장수들 —— 준 피해 순. 받은 피해는 처음 병력 − 남은 병력, 기술 · 고유기는 사건 기록에서 센다
