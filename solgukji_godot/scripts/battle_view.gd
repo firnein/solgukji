@@ -1581,6 +1581,7 @@ class Hud extends Control:
 	var stamp_t := 0.0
 
 	func reset() -> void:
+		_medal_cache.clear()      # 전투마다 다시 굽는다 (등급 · 진영이 바뀐다)
 		floats.clear()
 		stamp_info = null
 		chains_fx.clear()
@@ -2064,6 +2065,75 @@ class Hud extends Control:
 
 	## 점묘 전장의 장수 토큰 —— 둥근 초상 + 진영색 테 + 병력 숫자 (블라인드삼국식)
 	var _tok_sb: StyleBoxFlat = null
+	var _medal_cache := {}
+
+	## 메달 그림 —— 얼굴(원) + 등급 고리 + 진영 고리 + 검은 테 + 아군▲ · 적▼. 가장자리는 덮인 비율로 부드럽게
+	func _medal_tex(sq: Squad, r: float) -> Texture2D:
+		var key: String = sq.cid + sq.camp + str(r)
+		if _medal_cache.has(key):
+			return _medal_cache[key]
+		var R := r + 9.0
+		var n := int(ceil(R * 2.0))
+		var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		var ring: Color = TOK_TEAM[sq.camp]
+		var tcol: Color = DB.tier_color(sq.cid)
+		var k: String = sq.cid
+		var ft := DB.face_tex(k)
+		var tex: Texture2D = ft if ft else DB.portrait(k)
+		var crop: Image = null
+		if tex != null:
+			var src: Image = tex.get_image()
+			if src != null:
+				if src.is_compressed():
+					src.decompress()
+				var face := Rect2(Vector2.ZERO, tex.get_size()) if ft else DB.portrait_face(k)
+				var fr := Rect2i(face).intersection(Rect2i(Vector2i.ZERO, src.get_size()))
+				if fr.size.x > 0 and fr.size.y > 0:
+					crop = src.get_region(fr)
+					crop.convert(Image.FORMAT_RGBA8)
+					crop.resize(int(r * 2.0), int(r * 2.0), Image.INTERPOLATE_BILINEAR)
+		var ic: Image = null
+		if crop == null and DB.ICON.get(sq.tag) != null:
+			ic = (DB.ICON[sq.tag] as Texture2D).get_image()
+			if ic.is_compressed():
+				ic.decompress()
+			ic.convert(Image.FORMAT_RGBA8)
+			ic.resize(int(r * 1.1), int(r * 1.1), Image.INTERPOLATE_BILINEAR)
+		var c := Vector2(R, R)
+		var tri := PackedVector2Array([c + Vector2(-5, -r - 3), c + Vector2(5, -r - 3), c + Vector2(0, -r - 9)]) if sq.camp == "A" else PackedVector2Array([c + Vector2(-5, r + 3), c + Vector2(5, r + 3), c + Vector2(0, r + 9)])
+		for y in n:
+			for x in n:
+				var q := Vector2(x + 0.5, y + 0.5)
+				var d := q.distance_to(c)
+				var col := Color(0, 0, 0, 0)
+				if d <= r + 5.5:
+					col = Color(0, 0, 0, 0.7 * clampf(r + 5.5 - d, 0, 1))
+				if d <= r + 4.5:
+					col = col.blend(Color(ring, clampf(r + 4.5 - d, 0, 1)))
+				if d <= r + 1.7:
+					col = col.blend(Color(tcol, clampf(r + 1.7 - d, 0, 1)))
+				if d <= r + 0.5:
+					var fc := Color(0.16, 0.15, 0.14, 1)
+					if crop != null:
+						var fx := clampi(int(q.x - (R - r)), 0, crop.get_width() - 1)
+						var fy := clampi(int(q.y - (R - r)), 0, crop.get_height() - 1)
+						fc = Color(0.12, 0.1, 0.09, 1).blend(crop.get_pixel(fx, fy))
+					elif ic != null:
+						var ix := int(q.x - (R - r * 0.55))
+						var iy := int(q.y - (R - r * 0.55))
+						if ix >= 0 and iy >= 0 and ix < ic.get_width() and iy < ic.get_height():
+							var ip := ic.get_pixel(ix, iy)
+							fc = fc.blend(Color(DB.PAL.paper, ip.a * 0.85))
+					fc.a = clampf(r + 0.5 - d, 0, 1)
+					col = col.blend(fc)
+				if Geometry2D.is_point_in_polygon(q, tri):
+					col = col.blend(ring)
+				if col.a > 0.0:
+					img.set_pixel(x, y, col)
+		var t := ImageTexture.create_from_image(img)
+		_medal_cache[key] = t
+		return t
 	const TOK_TEAM := {"A": Color("#2f86ff"), "B": Color("#ff3b30")}
 	func _token(sq: Squad, p: Vector2) -> void:
 		if sq.state == "gone":
@@ -2074,15 +2144,12 @@ class Hud extends Control:
 		var ring: Color = TOK_TEAM[sq.camp]
 		if sq.hurt > 0.05:
 			ring = ring.lerp(Color(1, 1, 1), sq.hurt * 0.6)
-		var tcol: Color = DB.tier_color(sq.cid)
-		draw_circle(p, r + 5.0, Color(0, 0, 0, 0.7 * a))
-		draw_circle(p, r + 4.0, Color(ring, a))
-		draw_circle(p, r + 1.2, Color(tcol, a))
-		Art.draw_face_circle(self, p, r, sq.cid, a)
-		if sq.camp == "B":      # 적은 아래쪽에 작은 뿔(▼) —— 색을 못 가려도 모양으로
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-5, r + 3), p + Vector2(5, r + 3), p + Vector2(0, r + 9)]), Color(ring, a))
-		else:                   # 아군은 위쪽에 작은 깃(▲)
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-5, -r - 3), p + Vector2(5, -r - 3), p + Vector2(0, -r - 9)]), Color(ring, a))
+		# 11/6 목표(휴대폰 대군): 메달은 전투 시작 때 그림 한 장으로 구워 두고 매 프레임 한 번만 찍는다 (원 · 고리 · 얼굴 다각형 · 뿔을 매번 그리던 것이 프레임당 약 2ms)
+		var mt := _medal_tex(sq, r)
+		var R := r + 9.0
+		draw_texture_rect(mt, Rect2(p - Vector2(R, R), Vector2(R, R) * 2.0), false, Color(1, 1, 1, a))
+		if sq.hurt > 0.05:      # 맞을 때만 고리를 흰빛으로 덧그린다
+			draw_arc(p, r + 2.6, 0, TAU, 24, Color(1, 1, 1, sq.hurt * 0.6 * a), 3.0)
 		if not sq.alive:
 			draw_circle(p, r, Color(0, 0, 0, 0.6))
 		# 병력 —— 5.3K 처럼
