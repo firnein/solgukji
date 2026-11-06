@@ -2875,7 +2875,17 @@ func _dev_args() -> void:
 		while Time.get_ticks_usec() - t0 < int(float(a.gfps) * 1e6):
 			await get_tree().process_frame
 			var now := Time.get_ticks_usec()
-			worst = maxf(worst, (now - last) / 1000.0)
+			var ftm := (now - last) / 1000.0
+			var pf_now: Dictionary = _battle.field.prof.duplicate() if _battle and _battle.field else {}
+			if ftm > 16.0:      # 점검 —— 느린 프레임이 언제인지 (전투 시계) · 그 프레임에 무거웠던 구간
+				var dl := []
+				for kk in pf_now:
+					if kk != "_frames":
+						dl.append([kk, (pf_now[kk] - _pf_prev.get(kk, 0)) / 1000.0])
+				dl.sort_custom(func(x, y): return x[1] > y[1])
+				print("  느린 프레임 %.1fms · 전투 %.2f초 · %s · 컷인 %s" % [ftm, _battle.clock if _battle else -1.0, " ".join(dl.slice(0, 3).map(func(x): return "%s %.1f" % [x[0], x[1]])), str(_battle.hud.cut != null)])
+			_pf_prev = pf_now
+			worst = maxf(worst, ftm)
 			last = now
 			fr += 1
 		var men := 0
@@ -2919,6 +2929,9 @@ func _dev_args() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(a.gshot if nf == 1 else str(a.gshot).replace(".png", "_%d.png" % i))
 		get_tree().quit()
+
+
+var _pf_prev := {}
 
 
 ## 손가락 점검 (--gtouch) —— 버튼 위에서 끌면 스크롤만 되고 버튼은 눌리지 않는지, 그냥 누르면 눌리는지

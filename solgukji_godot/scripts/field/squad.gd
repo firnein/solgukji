@@ -619,10 +619,11 @@ func _set_troops_gpu(want: int, from: Vector2, clock: float, rng: RandomNumberGe
 		_alive = 0
 		_recount_rows()
 	elif _alive > want:
-		for _k in _alive - want:
-			var v := _pick_victim(from, rng)
-			if v == null:
-				break
+		# 11/6 쓰러질 병사를 한 번에 고른다 —— 한 명마다 칸 전체를 훑어(최대 1,000칸 × 수십 명) 프레임이 20ms 넘게 튀었다
+		var victims := _pick_victims(_alive - want, from, rng)
+		for v in victims:
+			if not v.alive:
+				continue
 			var vs: int = v.slot
 			v.pos = gpu_pos(vs) + v.jit * 0.6
 			v.yaw = fwd.angle()
@@ -666,6 +667,28 @@ func _set_troops_gpu(want: int, from: Vector2, clock: float, rng: RandomNumberGe
 
 ## 쓰러질 병사 —— 11/4 사용자: HP 가 아니라 군집처럼. 공격이 온 쪽(from)에 가까운 병사부터 —— 오른쪽에서 맞으면 오른쪽이 깎인다.
 ## 살아 있는 모든 병사 가운데 가까운 다섯 중 하나 (한 점만 파이지 않게 조금 흩는다)
+## 적과 가까운 쪽부터 k 명 (가까운 k+4 명 안에서 조금 섞는다 —— 예전 '가장 가까운 다섯 중 하나'와 비슷하게)
+func _pick_victims(k: int, from: Vector2, rng: RandomNumberGenerator) -> Array:
+	var ds := []
+	for i in cell.size():
+		var sd = cell[i]
+		if sd != null:
+			ds.append([slot_pos(i).distance_squared_to(from), sd])
+	if ds.is_empty():
+		return []
+	ds.sort_custom(func(x, y): return x[0] < y[0])
+	var win := mini(ds.size(), k + 4)
+	for i in mini(k, win):
+		var j := i + rng.randi() % maxi(1, mini(5, win - i))
+		var t = ds[i]
+		ds[i] = ds[j]
+		ds[j] = t
+	var out := []
+	for i in mini(k, ds.size()):
+		out.append(ds[i][1])
+	return out
+
+
 func _pick_victim(from: Vector2, rng: RandomNumberGenerator) -> Soldier:
 	var best := []
 	for i in cell.size():

@@ -738,6 +738,12 @@ func _begin() -> void:
 	elif Settings.dots:
 		dots.setup()
 	hud.reset()
+	# 11/6 컷인 초상을 처음 그릴 때 큰 그림을 불러오느라 프레임이 튀었다 —— 고유기가 있는 장수 그림을 미리 읽어 둔다
+	for q in field.order:
+		if DB.C.has(q.cid) and (q.tier >= 6 or DB.is_kiin(q.cid)):
+			DB.portrait(q.cid)
+			DB.face_tex(q.cid)
+			DB.myth_art(q.cid)
 	log_box.clear()
 	title_label.text = res.title
 	for c in cards_bar.get_children():
