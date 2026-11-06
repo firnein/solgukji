@@ -15,6 +15,8 @@ const CLONES_SMALL := 2        # 병사가 SMALL_SQ 명보다 적은 부대(1일
 const PACK := 12               # 묶음 그림 하나에 든 인형 수 (4 × 3)
 const STRIDE := 16             # 멀티메시 버퍼 한 칸 —— 변환 8 + 색 4 + 사용자 4 (x: 아틀라스 왼쪽 0 = 장수 한 명, 0.5 = 묶음)
 const SMALL_SQ := 12
+const SIDE_PAD := 28.0         # 11/7 전장 가로 여백 (화면 px) —— 메달 반지름 26 + 2
+const SCALE_MIN := 0.3         # 11/7 대군 20칸(폭 약 1020)이 논리 폭 400 에 들어오려면 0.34 쯤 —— 예전 하한 0.35 에 걸려 잘렸다
 const CLONE_OFF := [Vector2(0, 0), Vector2(0.62, 0.42), Vector2(-0.58, 0.5), Vector2(0.1, 0.85), Vector2(-0.3, -0.45)]     # 인형 크기 대비 자리 (예전)
 const CLONE_GRID := [Vector2(0, 0), Vector2(0.5, 0.5), Vector2(-0.5, 0.5), Vector2(0.5, -0.5), Vector2(-0.5, -0.5)]   # 대열 반 칸 단위 (오른쪽, 앞) —— 명세 1단계
 ## 1단계-3: 병종별 대열 모양 —— 가로 간격 배율. 창병 밀집, 궁병 산개, 책략계 호위 간격 (병사 수 · 판정은 그대로)
@@ -82,14 +84,18 @@ func _fit(now := false) -> void:
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone" or sq.state == "flee":
 			continue
-		var r := maxf(sq.depth(), sq.hw * 2.0) * 0.3 * T2_SPREAD      # 11/6 사용자: 더 넓게 —— 부대 한가운데만 담고 화면을 꽉 채운다
-		lo = lo.min(sq.pos - Vector2(r, r))
-		hi = hi.max(sq.pos + Vector2(r, r))
+		var r := maxf(sq.depth(), sq.hw * 2.0) * 0.3 * T2_SPREAD      # 11/6 사용자: 더 넓게 —— 부대 한가운데만 담고 화면을 꽉 채운다 (앞뒤)
+		# 11/7 대군(4행 5열 · 열 간격 210 → 폭 840): 좌우(화면 가로 = 전장 y)는 부대 몸통 전체(hw)를 담는다 —— 논리 폭 400 휴대폰에서 양 끝 부대가 화면 밖으로 나갔다.
+		# 판정 · 자리는 그대로, 배율만 줄어든다 (3열 진형은 전과 거의 같다)
+		var rw := sq.hw * T2_SPREAD
+		lo = lo.min(sq.pos - Vector2(r, rw))
+		hi = hi.max(sq.pos + Vector2(r, rw))
 	if lo.x == INF:
 		return
 	var span := hi - lo
-	var s := minf((size.x - 40.0 * 2) / maxf(span.y, 1.0), (size.y - 75.0 * 2) / maxf(span.x * TILT, 1.0))
-	_want_scale = clampf(s, 0.35, 3.0)
+	# 가로 여백 28 = 메달 반지름 26 + 2 (끝 부대의 메달까지 안에) —— 세로 여백 75 는 위 상태줄 · 아래 카드 줄 몫
+	var s := minf((size.x - SIDE_PAD * 2) / maxf(span.y, 1.0), (size.y - 75.0 * 2) / maxf(span.x * TILT, 1.0))
+	_want_scale = clampf(s, SCALE_MIN, 3.0)
 	_want_center = (lo + hi) * 0.5
 	_base_scale = _want_scale
 	if _focus_on():

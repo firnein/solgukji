@@ -1,5 +1,5 @@
 extends Node
-## 편성 · 전투 화면 캡처 (11/7 UI 정리) —— 실행: godot --path . --resolution 540x1200 res://tests/ui_shots.tscn -- --out=폴더 [--tag=이름] [--play=9] [--kind=quest|pvp]
+## 편성 · 전투 화면 캡처 (11/7 UI 정리) —— 실행: godot --path . --resolution 540x1200 res://tests/ui_shots.tscn -- --out=폴더 [--tag=이름] [--play=9] [--kind=quest|pvp] [--after=6 | --after=2,5,9] [--toasts=1]
 ## 자동 진행으로 그 페이즈까지 간 판을 편성 화면(맨 위 · 아래로 넘김)과 전투(6초 뒤)로 찍는다. 처음 뜨는 보급 시트는 닫는다.
 
 func _ready() -> void:
@@ -23,9 +23,9 @@ func _ready() -> void:
 	gs.go("deploy")
 	await get_tree().create_timer(0.6).timeout
 	gs.close_sheet()
-	gs.toasts_clear() if gs.has_method("toasts_clear") else null
-	for c in gs._toast_box.get_children():
-		c.queue_free()
+	if not args.has("toasts"):      # --toasts=1 이면 알림(보급 도착 등)을 지우지 않고 그대로 찍는다 (11/7 알림 자리 점검)
+		for c in gs._toast_box.get_children():
+			c.queue_free()
 	await get_tree().create_timer(0.6).timeout
 	var y := 0
 	for i in 4:
@@ -36,8 +36,13 @@ func _ready() -> void:
 			break
 		y += int(gs._scroll.size.y * 0.8)
 	gs._start(str(args.get("kind", "quest")))
-	await get_tree().create_timer(float(args.get("after", "6"))).timeout
-	await _shot("%s/%s_%s.png" % [out, args.get("kind", "quest"), tag])
+	# --after=6 은 전투 6초 뒤 한 장. --after=2,5,9 처럼 쉼표로 여러 시점을 주면 quest_태그_t2.png · _t5 · _t9 로 (11/7 대군 양 끝 점검 —— 카메라 초점 전후를 같이)
+	var ats := str(args.get("after", "6")).split(",", false)
+	var t := 0.0
+	for a in ats:
+		await get_tree().create_timer(float(a) - t).timeout
+		t = float(a)
+		await _shot("%s/%s_%s%s.png" % [out, args.get("kind", "quest"), tag, ("_t%s" % a) if ats.size() > 1 else ""])
 	get_tree().quit()
 
 
