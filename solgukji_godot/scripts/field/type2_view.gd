@@ -13,7 +13,10 @@ const HEX := 34.0              # 육각 한 칸 (전장 px)
 const CLONES := 3              # 11/6 사용자: 병사를 더 많이 —— 계산하는 병사 하나를 인형 셋으로 그린다 (계산 · 판정은 그대로)
 const CLONES_SMALL := 5        # 병사가 SMALL_SQ 명보다 적은 부대(1일차 등)는 다섯 —— 메달만 보이고 병사가 안 보였다 (11/6 점검)
 const SMALL_SQ := 12
-const CLONE_OFF := [Vector2(0, 0), Vector2(0.62, 0.42), Vector2(-0.58, 0.5), Vector2(0.1, 0.85), Vector2(-0.3, -0.45)]     # 인형 크기 대비 자리
+const CLONE_OFF := [Vector2(0, 0), Vector2(0.62, 0.42), Vector2(-0.58, 0.5), Vector2(0.1, 0.85), Vector2(-0.3, -0.45)]     # 인형 크기 대비 자리 (예전)
+const CLONE_GRID := [Vector2(0, 0), Vector2(0.5, 0.5), Vector2(-0.5, 0.5), Vector2(0.5, -0.5), Vector2(-0.5, -0.5)]   # 대열 반 칸 단위 (오른쪽, 앞) —— 명세 1단계
+## 1단계-3: 병종별 대열 모양 —— 가로 간격 배율. 창병 밀집, 궁병 산개, 책략계 호위 간격 (병사 수 · 판정은 그대로)
+const FORM_SHAPE := {"창병": 0.9, "기병": 1.05, "궁병": 1.25, "도적": 1.1, "책사": 1.15, "유생": 1.15, "술사": 1.15, "모사": 1.15}
 const TEAM_A := Color("#3f78c8")
 const TEAM_B := Color("#c8483a")
 
@@ -105,7 +108,7 @@ func _process(dt: float) -> void:
 	mat.set_shader_parameter("camp_b", _camp_x("B"))
 	if Engine.get_process_frames() % 2 == 1:
 		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다
-	if _fx_layer and (not _fx.is_empty() or Engine.get_process_frames() % 10 == 0):
+	if _fx_layer and (not _fx.is_empty() or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다
 		_fx_layer.queue_redraw()
 	if _label_layer and field.clock - _intro_t0 < INTRO_T + 0.5:
 		_label_layer.queue_redraw()
@@ -182,6 +185,12 @@ func _draw_dots() -> void:
 		var ncl := _clones(sq)
 		var lean := -0.35 if sq.camp == "A" else 0.35
 		var back_s := (map(sq.pos - sq.fwd * 10.0) - map(sq.pos)) / 10.0      # 화면에서 '뒤로' 1px 당
+		# 1단계(명세): 복제 인형은 랜덤 오프셋이 아니라 대열 격자의 빈 칸(병사 사이 중간점)에 —— 대열이 촘촘한 직사각형으로 보인다
+		var hs: float = sq.sp * T2_SPREAD * 0.5
+		var dr: Vector2 = map(sq.pos + sq.right() * hs) - map(sq.pos)
+		var df: Vector2 = map(sq.pos + sq.fwd * hs) - map(sq.pos)
+		var shape: float = FORM_SHAPE.get(sq.tag, 1.0)
+		dr *= shape
 		for s in sq.soldiers:
 			var rot := 0.0
 			var c := base_c
@@ -208,18 +217,23 @@ func _draw_dots() -> void:
 			if s.air > 0.0:
 				p.y -= s.air * 6.0 * _scale
 				rot = s.spin
+			var bob := 0.0
 			if s.alive:      # 걸음 —— 위아래로 살짝, 공격 —— 앞으로 기운다
-				p.y -= absf(sin(s.walk * 0.9)) * 1.4
+				bob = s.walk * 0.9
+				p.y -= absf(sin(bob)) * 1.4
 				var a: float = (clock - s.atk_t0) / Squad.ATTACK_TIME
 				if a >= 0 and a <= 1:
 					rot = lean * sin(PI * a)
 			var gen: bool = s == sq.general
-			var h: float = sz * (1.25 if gen else 1.0) * s.size
+			var dep: float = 0.82 + 0.18 * clampf(p.y / maxf(size.y, 1.0), 0.0, 1.0)      # 1단계-2: 화면 위(먼) 부대는 작게
+			var h: float = sz * (1.25 if gen else 1.0) * s.size * dep
 			var cr := cos(rot)
 			var sr := sin(rot)
 			for ci in (1 if gen else ncl):
-				var hc := h * (1.0 if ci == 0 else 0.92)
-				var o: Vector2 = CLONE_OFF[ci] * sz + Vector2(0, -hc * 0.5)
+				var hc := h * (1.0 if ci == 0 else 0.94)
+				var o: Vector2 = (dr * CLONE_GRID[ci].x + df * CLONE_GRID[ci].y) + Vector2(0, -hc * 0.5)
+				if ci > 0 and s.alive:
+					o.y -= absf(sin(bob + ci * 0.9)) * 1.4 - absf(sin(bob)) * 1.4      # 복제마다 걸음 위상을 어긋나게
 				var cc := c if ci == 0 else c.darkened(0.06 * ci)
 				var b := i * 12
 				var sx := hc * flip
@@ -597,7 +611,30 @@ func _ell(ci: CanvasItem, c: Vector2, rad: float, col: Color, width := 0.0) -> v
 		ci.draw_polyline(pts, col, width)
 
 
+## 1단계-4: 군기 —— 부대 뒤 가운데에 세력색 깃발(전설 이상 둘). 바람에 흔들리는 사인 파형. 11/6에 뺀 성씨 깃발 대신 글자 없이 작게
+func _draw_flags(ci: CanvasItem) -> void:
+	var zs := clampf(_scale, 0.6, 1.8)
+	for sq: Squad in field.order:
+		if not sq.alive or sq.state == "gone" or sq.state == "flee" or sq.tier <= 2:
+			continue
+		var team := TEAM_A if sq.camp == "A" else TEAM_B
+		var fac_c: Color = DB.fac_color(sq.row.fac) if "fac" in sq.row else team
+		var n := 2 if sq.tier >= 5 else 1
+		for j in n:
+			var at: Vector2 = sq.pos - sq.fwd * (sq.depth() * 0.5 * T2_SPREAD + 6.0) + sq.right() * ((j - (n - 1) * 0.5) * 14.0)
+			var base := map(at)
+			var h := 26.0 * zs
+			var top := base + Vector2(0, -h)
+			ci.draw_line(base, top, Color(0.25, 0.2, 0.15, 0.9), 1.5 * zs)
+			var w := 11.0 * zs
+			var wave := sin(_t * 4.0 + sq.row.slot * 0.7 + j) * 2.5 * zs
+			var pts := PackedVector2Array([top, top + Vector2(w, 3.0 * zs + wave), top + Vector2(0, 9.0 * zs)])
+			ci.draw_colored_polygon(pts, Color(fac_c.lerp(team, 0.45), 0.95))
+			ci.draw_polyline(pts + PackedVector2Array([top]), Color(0, 0, 0, 0.35), 1.0)
+
+
 func _draw_fx(ci: CanvasItem) -> void:
+	_draw_flags(ci)
 	var now := field.clock
 	var keep := []
 	var zs := clampf(_scale, 0.6, 1.8)
