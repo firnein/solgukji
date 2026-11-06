@@ -2438,6 +2438,12 @@ class MiniCard extends Control:
 			draw_rect(Rect2(4, 67, (size.x - 8) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
 			for i in lv[1]:
 				draw_circle(Vector2(size.x - 8 - i * 7, 8), 2.5, Color("#ffd257"))
+		if sq.tier >= 6 and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive:      # 11/6 #14 게이지는 찼는데 차례(대기 · 간격 · 조건)를 기다리는 중
+			var pb := StyleBoxFlat.new()
+			pb.bg_color = Color("#d9a64b", 0.5 + 0.3 * sin(view.clock * 6.0))
+			pb.set_corner_radius_all(4)
+			draw_style_box(pb, Rect2(size.x - 30, size.y - 16, 26, 12))
+			draw_string(DB.font_body, Vector2(size.x - 30, size.y - 6), "준비", HORIZONTAL_ALIGNMENT_CENTER, 26, 9, Color("#1A1508"))
 		if view.direct and view.ult_ready(sq.key):       # 직접 지휘일 때만 '눌러라' 금테
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
 			var rb := StyleBoxFlat.new()

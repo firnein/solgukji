@@ -167,6 +167,7 @@ class Unit:
 	var st := []
 	var ult = null            # 고유기 (초월·불멸·신화) —— DB.ult_of 참고
 	var gauge := 0.0          # 고유기 게이지 (100 이면 준비)
+	var ult_ready_t := -1.0   # 게이지가 100 에 닿은 시각 (실시간 엔진) —— 먼저 찬 부대가 먼저 쓴다 (11/6 #14)
 	var sk_ch := []           # 기술 충전 —— 11/3 부터 [0] 하나를 모든 기술이 나눠 쓴다
 	var charges := 0          # 남은 고유기 횟수
 	# 실시간 엔진(RtBattle) —— 전장 위치와 행동 준비. 턴 엔진은 쓰지 않는다
@@ -2464,10 +2465,18 @@ func _smart(cp: String, ult_t: String, cmd_t: String, seen: Dictionary) -> void:
 	var foe_charging: bool = seen.charging
 	if cmd_t != "공세" and pts[cp] >= CMD_COST and not _side_has(cp, "uguard") and (foe_charging or threat >= 75.0):
 		_command(cp, "방진")
+	# 11/6 사용자 #14 "책사 고유기가 거의 안 터진다": units 순서(선봉부터)에서 첫 번째 가능한 부대를 쓰고 끝내 뒷줄 책사는 늘 밀렸다
+	# → 게이지가 먼저 찬 부대부터, 같으면 등급이 높은 부대
+	var ready := []
 	for u in units:
 		if u.camp == cp and can_ult(u) and _ult_ok(u, ult_t):
-			_interrupt_ult(u)
-			break
+			ready.append(u)
+	if not ready.is_empty():
+		ready.sort_custom(func(x, y):
+			if x.ult_ready_t != y.ult_ready_t:
+				return (x.ult_ready_t if x.ult_ready_t >= 0.0 else 1e9) < (y.ult_ready_t if y.ult_ready_t >= 0.0 else 1e9)
+			return x.c.tier > y.c.tier)
+		_interrupt_ult(ready[0])
 	if pts[cp] < CMD_COST:
 		return
 	match cmd_t:
@@ -2605,9 +2614,14 @@ func _ult_worth(u: Unit) -> bool:
 			wide = true
 	if support:
 		return hurt > 0.3 or low_morale >= mine.size() * 0.4      # 아군이 꺾였을 때 아껴 둔 회복·격려
-	if wide:
-		return foes.size() >= 4                                    # 적이 아직 많을 때 광역기
+	if wide:      # 11/6 사용자 #14 "책사 고유기가 거의 안 터진다": '적 4부대 이상' 이라 게이지가 찰 무렵엔 영영 못 썼다 → 맞힐 수 있는 적 2 이상이거나 적이 3 이하로 줄었으면
+		return _ult_reach_n(u, foes) >= 2 or foes.size() <= 3
 	return true                                                    # 단일 대상은 바로
+
+
+## 광역 고유기가 지금 맞힐 수 있는 적 수 —— 턴 엔진은 자리가 없어 전부, 실시간 엔진은 사거리 안만 (RtBattle 이 덮어쓴다)
+func _ult_reach_n(_u: Unit, foes: Array) -> int:
+	return foes.size()
 
 
 func _pick_cmd(cp: String) -> String:

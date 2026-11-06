@@ -1678,27 +1678,40 @@ func card_info(k: String) -> void:
 		make_sec.add_child(_up_row(k))
 	else:
 		make_sec.add_child(UI.hint("기본패 — 조합할 수 없고 징집으로만 얻는다."))
-	var one := []
-	var far := {}
+	# 11/6 사용자 #1 "전설에서 상위 조합이 안 나온다": 예전엔 바로 위 등급 조합이 있어야만 보였다 (초월 재료가 아닌 전설 23명은 불멸 · 신화 재료인데도 빈칸)
+	# → ① 같은 인물의 다음 칭호판(승급)을 먼저, ② 재료로 쓰이는 조합을 등급별로 모두 (등급마다 4종까지, 모자란 수 적은 순)
+	var own := []
+	var by_t := {}
+	var person_ := DB.person(k)
 	for o in Run.used_in(k):
-		if DB.C[o].tier == DB.next_tier(c.tier):        # 기본패 → 고급 (11/3 일반 등급 삭제)
-			one.append(o)
+		if DB.person(o) == person_ and DB.C[o].tier > c.tier:
+			own.append(o)
 		else:
-			far[DB.C[o].tier] = far.get(DB.C[o].tier, 0) + 1
-	one.sort_custom(func(x, y): return run.miss_count(x) < run.miss_count(y))
-	var can_n := one.filter(func(x): return run.can_forge(x)).size()
+			if not by_t.has(DB.C[o].tier):
+				by_t[DB.C[o].tier] = []
+			by_t[DB.C[o].tier].append(o)
+	own.sort_custom(func(x, y): return DB.C[x].tier < DB.C[y].tier)
+	var ts := by_t.keys()
+	ts.sort()
 	if DB.is_kiin(k):
 		up_sec.add_child(UI.eyebrow("기인"))
-		up_sec.add_child(UI.hint("한 판에 1장만 만들 수 있고, 다른 조합의 재료로 쓰이지 않는다."))
-	elif not one.is_empty():         # 11/3 사용자: 다음 단계가 없으면 아예 적지 않는다
-		up_sec.add_child(UI.eyebrow("다음 단계 · %s %d종%s" % [DB.TIER[DB.next_tier(c.tier)].n, one.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
-	for o in one:
-		up_sec.add_child(_up_row(o))
-	if not far.is_empty() and not one.is_empty():
-		var parts := []
-		for t in far:
-			parts.append("%s %d종" % [DB.TIER[t].n, far[t]])
-		up_sec.add_child(UI.hint("그 밖에 " + " · ".join(parts) + "에도 재료로 쓰인다."))
+		up_sec.add_child(UI.hint("같은 기인은 한 판에 한 장. 다른 기인은 여러 장 둘 수 있다. 다른 조합의 재료로 쓰이지 않는다."))
+	elif own.is_empty() and ts.is_empty() and c.tier >= 3:
+		up_sec.add_child(UI.eyebrow("최종 단계"))
+		up_sec.add_child(UI.hint("이 장수는 더 올라가는 길이 없고 다른 조합의 재료로도 쓰이지 않는다 — 완성형."))
+	if not own.is_empty():
+		up_sec.add_child(UI.eyebrow("승급 · 같은 인물의 %s" % " · ".join(own.map(func(o): return DB.TIER[DB.C[o].tier].n))))
+		for o in own:
+			up_sec.add_child(_up_row(o))
+	for t in ts:
+		var lst_: Array = by_t[t]
+		lst_.sort_custom(func(x, y): return run.miss_count(x) < run.miss_count(y))
+		var can_n := lst_.filter(func(x): return run.can_forge(x)).size()
+		up_sec.add_child(UI.eyebrow("%s 조합 재료 · %d종%s" % [DB.TIER[t].n, lst_.size(), " — %d종 지금 조합 가능" % can_n if can_n > 0 else ""]))
+		for o in lst_.slice(0, 4):
+			up_sec.add_child(_up_row(o))
+		if lst_.size() > 4:
+			up_sec.add_child(UI.hint("그 밖에 %d종 더 (조합 탭에서 %s 등급으로 거르면 모두 보인다)" % [lst_.size() - 4, DB.TIER[t].n]))
 
 	for sec in ([up_sec, make_sec] if owned else [make_sec, up_sec]):
 		if sec.get_child_count() > 0:
@@ -2064,10 +2077,19 @@ func _page_forge() -> Control:
 	v.add_child(row2)
 	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
 	# 11/3 추천 목표 —— 조합식이 170개가 넘어 무엇을 노릴지 고르기 어렵다: 재료가 1~2장 모자란 것 가운데 높은 등급 · 가진 재료가 많은 것 4개 (인물 하나씩)
-	var rec := _forge_goals(lst)
-	if not rec.is_empty():
+	# 11/6 사용자 #8 "추천 목표가 안 나오는 경우가 많다": 필터를 거친 목록만 넘겨 비었다 → 전체로 계산하고 필터에 걸린 것은 수만 알린다
+	var rec_all := _forge_goals(DB.D.RECDEF)
+	var rec: Array = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
+	var hidden_n := rec_all.size() - rec.size()
+	var far_goal := false
+	if rec_all.is_empty():      # 수고 한도 안에 아무것도 없다 —— 가장 가까운 목표 하나는 보인다
+		rec_all = run.forge_goals(DB.D.RECDEF.map(func(r): return r[0]), 1, 1e9)
+		rec = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
+		hidden_n = rec_all.size() - rec.size()
+		far_goal = not rec.is_empty()
+	if not rec.is_empty() or hidden_n > 0:
 		var gsec := UI.vbox(6)
-		gsec.add_child(UI.head("추천 목표", ""))
+		gsec.add_child(UI.head("추천 목표" if not far_goal else "가장 가까운 목표", ("필터에 숨은 추천 %d" % hidden_n) if hidden_n > 0 else ""))
 		var gs_ := UI.strip(8)
 		for out in rec:
 			var gv := UI.vbox(3)
@@ -2078,7 +2100,10 @@ func _page_forge() -> Control:
 			gt.badge_col = Color(DB.PAL.seal, 0.9)
 			gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
 			gs_[1].add_child(gv)
-		gsec.add_child(gs_[0])
+		if not rec.is_empty():
+			gsec.add_child(gs_[0])
+		if rec.is_empty() and hidden_n > 0:
+			gsec.add_child(UI.hint("지금 필터(병종 · 등급)에 맞는 추천이 없습니다. 필터를 '모두'로 두면 %d개가 보입니다." % hidden_n))
 		v.add_child(gsec)
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))

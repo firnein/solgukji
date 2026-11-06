@@ -116,6 +116,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		for u in units:
 			if not u.alive:
 				continue
+			if u.gauge >= 100.0 and u.ult_ready_t < 0.0:
+				u.ult_ready_t = _tm
 			u.atb = minf(1.0 if _ranged(u) else melee_bank, u.atb + TICK / _interval(u))
 			if u.atb >= 1.0 and not _ready_to_hit(u):
 				var wk := "wait_r" if _ranged(u) else "wait_m"      # 점검용 —— 준비가 다 찼는데 닿는 적이 없어 노는 시간
@@ -199,11 +201,30 @@ var _ult_side_t := {"A": -99.0, "B": -99.0}
 
 ## 11/4 사용자: 고유기 대기 시간은 장수마다 (DB.ult_of 가 고유기 세기로 정한 wait 초 —— 센 고유기일수록 늦게). 그 전에는 쓰지 않는다
 func can_ult(u: Unit) -> bool:
+	var full: bool = u.ult != null and u.charges > 0 and u.gauge >= 100.0 and u.alive      # 점검용 —— 찼는데 막힌 이유를 센다 (11/6 #14)
 	if u.ult != null and _tm < float(u.ult.get("wait", 14.0)):
+		if full: stats["ult_blk_wait"] = stats.get("ult_blk_wait", 0) + 1
 		return false
-	if _wind.size() > 0 or _tm - _ult_t < ult_gap or _tm - _ult_side_t[u.camp] < ult_side_sec:
+	# 11/6 #14: 기 모으기는 진영마다 하나씩 (예전엔 어느 쪽이든 하나만 —— 처리량이 반이었다). 전체 간격 ult_gap 은 그대로
+	for w in _wind:
+		if w.camp == u.camp:
+			if full: stats["ult_blk_wind"] = stats.get("ult_blk_wind", 0) + 1
+			return false
+	if _tm - _ult_t < ult_gap or _tm - _ult_side_t[u.camp] < ult_side_sec:
+		if full: stats["ult_blk_gap"] = stats.get("ult_blk_gap", 0) + 1
 		return false
-	return super.can_ult(u)
+	var ok := super.can_ult(u)
+	if full and not ok: stats["ult_blk_base"] = stats.get("ult_blk_base", 0) + 1
+	return ok
+
+
+func _ult_reach_n(u: Unit, foes: Array) -> int:
+	var reach: float = (cast_range if u.c.int > u.c.atk else melee_reach * 1.6) + 40.0
+	var n := 0
+	for f in foes:
+		if f.alive and u.pos.distance_to(f.pos) <= reach:
+			n += 1
+	return n
 
 
 func _interrupt_ult(u: Unit) -> void:
@@ -212,9 +233,10 @@ func _interrupt_ult(u: Unit) -> void:
 	var fast := false
 	var wait := WIND + (1.0 if _kv(_foe(u.camp), "wind_slow") else 0.0)      # 점복 관로 —— 적 고유기 기 모으기 +1초
 	_wind[u] = _tm + wait
-	_ult_t = _tm + wait
-	_ult_side_t[u.camp] = _tm + wait
+	_ult_t = _tm                  # 11/6 #14: 간격(ult_gap · ult_side_sec)은 기를 모으기 시작한 때부터 센다 (예전엔 터진 뒤부터 —— 기 모으기 2.5초가 간격에 더해져 한 판에 몇 번 못 썼다)
+	_ult_side_t[u.camp] = _tm
 	u.gauge = 0.0                 # 다시 누를 수 없게 (터지거나 끊길 때 정리)
+	u.ult_ready_t = -1.0
 	_ult_last[u.camp] = act_n
 	# 맞을 곳 미리 보기 —— 지금 자리 기준으로 고유기 대상들을 원으로
 	var foes := units.filter(func(o): return o.camp != u.camp)

@@ -493,7 +493,7 @@ func goal_score(out: String) -> float:
 	return gain + fit - goal_effort(out) * 6.0
 
 
-func forge_goals(keys: Array, limit := 4) -> Array:
+func forge_goals(keys: Array, limit := 4, max_effort := GOAL_EFFORT) -> Array:
 	var top := 3
 	for k in pool():
 		if DB.C[k].tier >= 3:
@@ -511,7 +511,7 @@ func forge_goals(keys: Array, limit := 4) -> Array:
 		var t: int = DB.C[out].tier
 		if pool().keys().any(func(k): return DB.C[k].tier >= t and DB.C[k].tier >= 3 and DB.person(k) == p):
 			continue
-		if goal_effort(out) > GOAL_EFFORT:
+		if goal_effort(out) > max_effort:
 			continue
 		cand.append([goal_score(out), out])
 	cand.sort_custom(func(a, b): return a[0] > b[0])
