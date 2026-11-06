@@ -659,7 +659,7 @@ static func recommend_tac(cards: Array) -> Array:
 	for k in cards:
 		if k == null or not DB.C.has(k):
 			continue
-		if DB.C[k].atk >= DB.C[k]["int"]:
+		if DB.PHYS_TAGS.has(DB.C[k].tag):      # 11/6 #15 책략 능력치 통합 —— 성향은 병종으로
 			ph += 1
 		else:
 			it += 1
@@ -1046,7 +1046,7 @@ func finish_battle(res: Dictionary) -> void:
 			quest_done = true
 			if res.win:
 				for p in no_empty_tier(DB.D.QUEST_REWARD[day]):
-					add_ticket(int(p.t), int(p.n))
+					add_ticket(int(p.t), int(p.n), true)      # 11/6 #6 전투 보상의 희귀는 랜덤권
 				var n := int(DB.D.QUEST_BASE[day])
 				for i in n:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
@@ -1057,7 +1057,7 @@ func finish_battle(res: Dictionary) -> void:
 				for p in DB.D.QUEST_REWARD[day]:
 					top = maxi(top, int(p.t))
 				if top > 0:
-					add_ticket(top - 1, 1)
+					add_ticket(top - 1, 1, true)
 				var nl := int(ceil(int(DB.D.QUEST_BASE[day]) / 2.0))
 				for i in nl:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
@@ -1080,11 +1080,11 @@ func finish_battle(res: Dictionary) -> void:
 			if res.win:
 				my_w += 1
 				if b: b.l += 1
-				add_ticket(4 if day >= 3 else 3, 1)
+				add_ticket(4 if day >= 3 else 3, 1, true)      # 11/6 #6 대전 보상의 희귀는 랜덤권
 			else:
 				my_l += 1
 				if b: b.w += 1
-				add_ticket(3 if day >= 3 else 2, 1)
+				add_ticket(3 if day >= 3 else 2, 1, true)
 		"tour":
 			var r: int = tour.round
 			var ms: Array = tour.res[r]
@@ -1192,14 +1192,16 @@ const LEGEND_RANDOM := true
 var last_legend: Array = []
 
 
-func add_ticket(t: int, n: int) -> void:
-	if LEGEND_RANDOM and mini(FREE_TIER_CAP, t) == 5:
-		var src: Array = pickable(5)
+## random: 11/6 사용자 #6 —— 전투 보상(토벌 · 대전)의 희귀는 고르지 않고 무작위 '희귀 랜덤권'. 징집 선택권의 희귀는 고르는 채로
+func add_ticket(t: int, n: int, random := false) -> void:
+	var tt := mini(FREE_TIER_CAP, t)
+	if (LEGEND_RANDOM and tt == 5) or (random and tt == 4):
+		var src: Array = pickable(tt)
 		for i in n:
 			var k: String = src[rng.randi() % src.size()]
 			give(k)
 			last_legend.append(k)
-			toasts.append(["전설 보급 —— %s" % DB.C[k].name, "gain"])
+			toasts.append(["%s 보급 —— %s" % [DB.TIER[tt].n, DB.C[k].name], "gain"])
 		return
 	if not DB.PLAY_TIERS.has(mini(FREE_TIER_CAP, t)):      # 일반 선택권 → 고급 · 기본 (어디서 들어오든)
 		for p in no_empty_tier([{"t": mini(FREE_TIER_CAP, t), "n": n}]):

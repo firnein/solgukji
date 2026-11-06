@@ -617,7 +617,7 @@ class FormMini extends Control:
 	func _draw() -> void:
 		var cs := 6.0
 		var gap := 2.0
-		var oy := (size.y - (cs * 4 + gap * 3)) / 2
+		var oy := (size.y - (cs * mask.size() + gap * (mask.size() - 1))) / 2
 		for ri in mask.size():
 			var row: String = mask[ri]
 			for ci in row.length():

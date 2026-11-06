@@ -17,7 +17,7 @@ static var sfx_vol := 0.8      # 효과음 크기 (0 끔 ~ 1)
 static var bgm_vol := 0.5      # 배경 음악 크기
 static var dots := false      # 전장 표현 —— 3D(삼국지13식, 11/1 사용자: 기본으로 되돌림) / 점묘(블라인드삼국식 2D)
 static var sumuk := false      # 전장 화풍 —— 수묵(삼국지11 시안) 후처리 (10/31)
-static var type2 := false      # 전장 표현 '타입2' —— 삼국지11 식 지도판 · 병사 인형 · 성씨 깃발 (11/3, scripts/field/type2_view.gd)
+static var type2 := true       # 전장 표현 '타입2' —— 삼국지11 식 지도판 · 병사 인형 (11/3, scripts/field/type2_view.gd). 11/6 사용자: 기본 전투 화면 (3D · 수묵은 설정에 남긴다)
 static var cam_fx := 1         # 전투 카메라 연출 —— 0 끔 · 1 적게(아군 고유기 · 적 신화 고유기 · 장수 격파) · 2 보통(첫 격돌 · 모든 고유기). 11/6 사용자
 static var tac_info := 1       # 타입2 전황 표시 —— 0 끔 · 1 간단(진형 소개 · 우대 금테 · 책략 실) · 2 자세히(+ 사거리 · 전술 화살표). 11/6
 static var _loaded := false
@@ -35,7 +35,9 @@ static func load_cfg() -> void:
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
 		bgm_vol = float(cf.get_value("sound", "bgm", 0.5))
 		sumuk = bool(cf.get_value("gfx", "sumuk", false))
-		type2 = bool(cf.get_value("gfx", "type2", false))
+		type2 = bool(cf.get_value("gfx", "type2", true))
+		if not cf.has_section_key("gfx", "type2_default"):      # 11/6 한 번은 타입2로 옮긴다 (예전 저장값이 3D 여도). 그 뒤 고른 값은 지킨다
+			type2 = true
 		tac_info = int(cf.get_value("gfx", "tac_info", 1))
 		cam_fx = int(cf.get_value("gfx", "cam_fx", 1))
 		dots = false     # 11/3 사용자: 점묘 옵션을 숨겼다 —— 저장값과 상관없이 3D (점검용 --gdots / --dots 로만 켠다)
@@ -53,6 +55,7 @@ static func save_cfg() -> void:
 	cf.set_value("sound", "bgm", bgm_vol)
 	cf.set_value("gfx", "sumuk", sumuk)
 	cf.set_value("gfx", "type2", type2)
+	cf.set_value("gfx", "type2_default", 2)
 	cf.set_value("gfx", "tac_info", tac_info)
 	cf.set_value("gfx", "cam_fx", cam_fx)
 	cf.set_value("gfx", "dots_v2", dots)
