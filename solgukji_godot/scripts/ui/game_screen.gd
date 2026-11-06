@@ -1562,16 +1562,17 @@ func picker(t: int) -> void:
 	var gap := 6.0
 	# 갈무리 장수의 재료 —— 직접 재료뿐 아니라 그 아래 재료(재료의 재료)까지 (11/6 사용자)
 	var pins: Array = forge_tree.pins
+	# 갈무리 장수의 재료(아래 재료까지) —— 갈무리 트리와 같은 계산으로 '아직 모자람(true) / 다 모음(false)'
+	# 11/7 사용자 점검: 재료를 뽑아 필요한 수를 채운 뒤에도 '재료' 배지가 그대로였다 → 다 모은 재료는 '확보'
 	var mats := {}
-	var stack: Array = []
+	var walk := func(nd: Dictionary, f: Callable) -> void:
+		for c in nd.get("kids", []):
+			if c.has("k"):
+				var short: bool = not c.ok
+				mats[c.k] = bool(mats.get(c.k, false)) or short
+			f.call(c, f)
 	for pk in pins:
-		stack.append_array(DB.RECOF.get(pk, []))
-	while not stack.is_empty():
-		var m := str(stack.pop_back())
-		if mats.has(m):
-			continue
-		mats[m] = true
-		stack.append_array(DB.RECOF.get(m, []))
+		walk.call(forge_tree._node(pk, 1, 0, pk, "", true), walk)
 	var on_pick := func(id):
 		_pick_scroll = _sheet_scroll.scroll_vertical
 		if act("pick", [id]):
@@ -1592,8 +1593,8 @@ func picker(t: int) -> void:
 			tl.badge = "갈무리"
 			tl.badge_col = Color(DB.PAL.gold, 0.95)
 		elif mats.has(k):
-			tl.badge = "재료"
-			tl.badge_col = Color(DB.PAL.jade, 0.95)
+			tl.badge = "재료" if mats[k] else "확보"
+			tl.badge_col = Color(DB.PAL.jade, 0.95) if mats[k] else Color(DB.PAL.ink4, 0.95)
 		return tl      # 11/6 사용자: 마지막으로 뽑은 장수에 금띠가 남던 것은 뺀다
 	var avail_h: float = vp.y * 0.98 - 120.0      # 시트 머리 · 아래 여백
 	if t <= 2:
@@ -2823,6 +2824,9 @@ func _dev_args() -> void:
 		Settings.dots = a.gdots != "0"
 	if a.has("gmul"):           # 점검용 —— 탑뷰 병사 배율 (기본 1.5)
 		War3D.gpu_mul_t2 = float(a.gmul)
+	if a.has("gpintest"):       # 점검용 —— --gpintest=장수id : 갈무리한 뒤 그 재료를 선택권으로 뽑고(실제 타일 탭) 화면이 바로 갱신되는지
+		await get_tree().process_frame
+		await _pin_pick_test(str(a.gpintest))
 	if a.has("gperf"):          # 점검용 —— 성능 표시 켜기 (저장하지 않는다)
 		Settings.perf_hud = a.gperf != "0"
 	if a.has("gtype2"):          # 점검용 —— 타입2 전장 (저장하지 않는다)
@@ -2934,6 +2938,63 @@ func _dev_args() -> void:
 
 
 var _pf_prev := {}
+
+
+func _tiles_of(root: Node, k: String, out: Array) -> void:
+	for c in root.get_children():
+		if c is MiniTile and c.k == k and c.is_inside_tree():
+			out.append(c)
+		_tiles_of(c, k, out)
+
+
+func _pin_report(tag: String, root_k: String, m: String) -> void:
+	var sheet_t := []
+	_tiles_of(_sheet_body, m, sheet_t)
+	var all_t := []
+	_tiles_of(self, m, all_t)
+	var page_t := all_t.filter(func(x): return not _sheet_body.is_ancestor_of(x))
+	var nd := forge_tree._node(root_k, 1, 0, root_k, "", true)
+	var kid_have := -1
+	for c in nd.kids:
+		if c.get("k", "") == m:
+			kid_have = int(c.have)
+	print("PINTEST %s | 보유 %d | 선택권 타일 %s | 화면 보유 타일 %s | 갈무리 트리 재료 보유 %d · 조합 가능 %s" % [tag, run.have(m),
+		str(sheet_t.map(func(x): return "%d/%s" % [x.qty, x.badge])), str(page_t.map(func(x): return x.qty)), kid_have, str(run.can_forge(root_k))])
+
+
+func _pin_pick_test(root_k: String) -> void:
+	if root_k == "auto":      # 재료에 희귀(선택권으로 뽑을 수 있는) 장수가 든 전설 하나
+		for rk in DB.RECOF:
+			if DB.C[rk].tier == 5 and DB.RECOF[rk].any(func(q): return DB.C[str(q)].tier == 4 and Run.pickable(4).has(str(q))):
+				root_k = rk
+				break
+	if not forge_tree.pinned(root_k):
+		forge_tree.toggle(root_k)
+	var m := ""
+	for q in DB.RECOF.get(root_k, []):
+		var tq: int = DB.C[str(q)].tier
+		if tq <= 4 and Run.pickable(tq).has(str(q)):
+			m = str(q)
+			break
+	if m == "":
+		print("PINTEST 재료 중 선택권으로 뽑을 수 있는 것이 없다: ", DB.RECOF.get(root_k, []))
+		return
+	var t: int = DB.C[m].tier
+	print("PINTEST 갈무리 %s(%s) · 재료 %s(%s, %s 선택권) · 재료 목록 %s" % [DB.C[root_k].name, root_k, DB.C[m].name, m, DB.TIER[t].n, str(DB.RECOF[root_k])])
+	go("draw")
+	run.tickets[str(t)] = 2
+	picker(t)
+	await get_tree().process_frame
+	_pin_report("뽑기 전", root_k, m)
+	var ts := []
+	_tiles_of(_sheet_body, m, ts)
+	if ts.is_empty():
+		print("PINTEST 선택권 창에서 재료 타일을 못 찾았다")
+		return
+	ts[0].tapped.emit(m)      # 실제 탭과 같은 길 (on_pick)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_pin_report("뽑은 뒤", root_k, m)
 
 
 ## 손가락 점검 (--gtouch) —— 버튼 위에서 끌면 스크롤만 되고 버튼은 눌리지 않는지, 그냥 누르면 눌리는지
