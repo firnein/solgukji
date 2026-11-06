@@ -261,7 +261,7 @@ var _ult_side_t := {"A": -99.0, "B": -99.0}
 ## 11/4 사용자: 고유기 대기 시간은 장수마다 (DB.ult_of 가 고유기 세기로 정한 wait 초 —— 센 고유기일수록 늦게). 그 전에는 쓰지 않는다
 func can_ult(u: Unit) -> bool:
 	var full: bool = u.ult != null and u.charges > 0 and u.gauge >= 100.0 and u.alive      # 점검용 —— 찼는데 막힌 이유를 센다 (11/6 #14)
-	if u.ult != null and _tm < float(u.ult.get("wait", 14.0)):
+	if u.ult != null and _tm < float(u.ult.get("wait", 14.0)) * _tw(u, "wait"):      # 11/7 기질 배율 (맹장 0.9 · 분노 0.85 · 지략 1.1)
 		if full: stats["ult_blk_wait"] = stats.get("ult_blk_wait", 0) + 1
 		return false
 	# 11/6 #14: 기 모으기는 진영마다 하나씩 (예전엔 어느 쪽이든 하나만 —— 처리량이 반이었다). 전체 간격 ult_gap 은 그대로
@@ -275,6 +275,26 @@ func can_ult(u: Unit) -> bool:
 	var ok := super.can_ult(u)
 	if full and not ok: stats["ult_blk_base"] = stats.get("ult_blk_base", 0) + 1
 	return ok
+
+
+## 11/7 기질 조건 —— 실시간: TEMPER_FREE 초가 지나면 풀린다 · 맞닿음은 발자국 틈 · 사거리 안의 약한 적
+func _ult_free_now() -> bool:
+	return _tm >= TEMPER_FREE
+
+
+func _touching_foe(u: Unit) -> bool:
+	for o in units:
+		if o.alive and o.camp != u.camp and _gap(u, o) <= TOUCH + 2.0:
+			return true
+	return false
+
+
+func _foe_low_in_reach(u: Unit, foes: Array) -> bool:
+	var reach := _reach(u) + 2.0
+	for o in foes:
+		if o.troops / o.max < 0.7 and _gap(u, o) <= reach:
+			return true
+	return false
 
 
 func _ult_reach_n(u: Unit, foes: Array) -> int:

@@ -55,6 +55,7 @@ static var rout_hp := 0.3          # 병력이 이 비율 아래면 턴 끝마�
 static var rout_hp_slope := 1.5    # (rout_hp - 남은 비율) × 이만큼 —— 10% 남으면 30%
 static var ults_enabled := true     # 고유기 켜기 (밸런스 비교용으로 끌 수 있다)
 static var passives_enabled := true  # 특기(개인·단체) 켜기
+static var temper_enabled := true    # 11/7 고유기 기질 —— 장수별 게이지 원천 · 발동 조건 (끄면 모두 같은 원천 · 시간 대기만)
 static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 —— 비교용으로 끌 수 있다)
 static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
 static var axis_off := {}            # 특기 축 끄기 (점검용) —— {"물리": true, …} 이면 그 축의 특기가 붙지 않는다
@@ -98,6 +99,19 @@ static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 �
 const GAUGE_ACT := 30.0       # 제 차례마다
 const GAUGE_HIT := 80.0       # 병력을 잃은 비율 × 이만큼
 const GAUGE_DEAL := 6.0       # 때릴 때마다
+## 11/7 고유기 기질(temper) —— 사용자: 발동 조건을 단순 시간 대기만이 아니라 장수별로. 장수마다 기질 하나 (data/ultimates.json "temper", 없으면 temper_of 규칙):
+##   맹장 = 때릴 때 차고 적을 무너뜨리면 더, 맞닿은 적이 있을 때 쓴다 · 수호 = 맞을 때 · 아군이 잃을 때 차고 아군이 다쳤을 때 쓴다
+##   지략 = 차례마다 꾸준히 + 상태이상을 걸 때, 맞힐 적이 둘 이상일 때 · 저격 = 때릴 때 · 적을 무너뜨릴 때, 병력 60% 아래 적이 사거리 안일 때
+##   분노 = 맞을 때 · 아군이 잃을 때 · 아군이 무너지면 크게, 아군이 무너졌거나 자기 병력 70% 아래일 때
+## 값: act 차례 배율 · deal 때릴 때 배율 · hit 맞을 때 배율 · ally 아군이 잃은 비율 × GAUGE_HIT 의 몫 · kill 적을 무너뜨리면 + · fall 아군이 무너지면 + · status 상태이상 걸면 + · wait 대기 시간 배율
+const TEMPER := {
+	"맹장": {"act": 0.6, "deal": 2.2, "hit": 1.0, "ally": 0.0, "kill": 25.0, "fall": 0.0, "status": 0.0, "wait": 0.9},
+	"수호": {"act": 1.0, "deal": 0.6, "hit": 1.8, "ally": 0.8, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 1.0},     # 11/7 측정: 0.8 · 1.6 · 0.5 · 30 에선 불멸 · 신화 수호가 19~22% 만 터졌다
+	"지략": {"act": 1.4, "deal": 0.8, "hit": 0.6, "ally": 0.0, "kill": 0.0, "fall": 0.0, "status": 12.0, "wait": 1.1},
+	"저격": {"act": 1.0, "deal": 2.0, "hit": 0.8, "ally": 0.0, "kill": 40.0, "fall": 0.0, "status": 0.0, "wait": 1.0},     # 11/7 측정: 0.8 · 1.6 · 35 에선 26~44% · 첫 발동 30초
+	"분노": {"act": 0.6, "deal": 1.2, "hit": 1.4, "ally": 0.6, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 0.85},
+}
+const TEMPER_FREE := 22.0     # 전투 이 초(턴 엔진은 6턴)가 지나면 기질 발동 조건 없이 —— 쓰지도 못하고 끝나지 않게
 const ULT_CHARGES := {6: 1, 7: 1, 8: 1}   # 초월·불멸·신화 모두 전투당 1번
 const SK_BANK := 2.0       # 일반 기술 충전 상한 —— 조건이 안 맞는 동안 두 번까지 모아 둔다
 const ULT_SIDE_GAP := 4       # 같은 진영 고유기 사이 최소 행동 수
@@ -170,6 +184,7 @@ class Unit:
 	var ult = null            # 고유기 (초월·불멸·신화) —— DB.ult_of 참고
 	var gauge := 0.0          # 고유기 게이지 (100 이면 준비)
 	var ult_ready_t := -1.0   # 게이지가 100 에 닿은 시각 (실시간 엔진) —— 먼저 찬 부대가 먼저 쓴다 (11/6 #14)
+	var temper := ""          # 고유기 기질 (11/7, TEMPER 의 열쇠. 고유기가 없으면 빈 글)
 	var sk_ch := []           # 기술 충전 —— 11/3 부터 [0] 하나를 모든 기술이 나눠 쓴다
 	var charges := 0          # 남은 고유기 횟수
 	# 실시간 엔진(RtBattle) —— 전장 위치와 행동 준비. 턴 엔진은 쓰지 않는다
@@ -357,6 +372,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 		u.ult = DB.ult_of(cid)
 		if u.ult:
 			u.charges = ULT_CHARGES.get(u.c.tier, 1)
+			u.temper = temper_of(u)
 	return u
 
 
@@ -1102,6 +1118,8 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp})
 	L("st", "%s 『%s』에 걸렸다 — %d턴" % [ga(nm(d)), DB.D.STATUS[kind].n, t],
 		{"fx": "status", "f": d.key, "st": kind})
+	if temper_enabled and a and a.alive and a.camp != d.camp and not _in_ult:      # 11/7 지략 —— 상태이상을 걸 때마다 찬다
+		_gauge_add(a, _tw(a, "status"))
 
 
 func cleanse(u: Unit) -> bool:
@@ -1688,6 +1706,12 @@ func rout(u: Unit, why: String) -> void:
 		_blaze(u)
 	_tac_rout(u)
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
+	if temper_enabled:      # 11/7 기질 —— 적을 무너뜨린 맹장 · 저격은 기세가 오르고, 아군이 무너지면 수호 · 분노가 끓는다
+		if u.last_hit and u.last_hit.camp != u.camp and u.last_hit.alive:
+			_gauge_add(u.last_hit, _tw(u.last_hit, "kill"))
+		for o in units:
+			if o.alive and o.camp == u.camp and o != u:
+				_gauge_add(o, _tw(o, "fall"))
 	for o in units:
 		if not o.alive or o.camp != u.camp: continue
 		o.morale -= (K.routSame if _same_line(o, u) else K.routOther) * ROUT_SPREAD * (1.0 - mv(o, "rout_loss"))
@@ -2067,7 +2091,7 @@ func act(u: Unit) -> void:
 	var allies := units.filter(func(o): return o.camp == u.camp)
 	if not foes.any(func(o): return o.alive): return
 	# 고유기 —— 자동 정책이면 준비된 차례에 바로 쓴다 (영리한 AI·사람은 _between 에서 끼어든다)
-	u.gauge = minf(100.0, u.gauge + GAUGE_ACT / gauge_div())      # 11/4 신화 1.2배 뺌 (너무 빨랐다)
+	u.gauge = minf(100.0, u.gauge + GAUGE_ACT / gauge_div() * _tw(u, "act"))      # 11/4 신화 1.2배 뺌 (너무 빨랐다). 11/7 기질 배율
 	var sk = null
 	var used := false
 	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동.
@@ -2353,8 +2377,14 @@ func _stat(d: Unit, loss: float) -> void:
 func _charge(d: Unit, a: Unit, loss: float) -> void:
 	if a.countering and not counter_charge:
 		return
-	d.gauge = minf(100.0, d.gauge + GAUGE_HIT * loss / d.max)
-	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div())
+	d.gauge = minf(100.0, d.gauge + GAUGE_HIT * loss / d.max * _tw(d, "hit"))
+	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div() * _tw(a, "deal"))
+	if temper_enabled:      # 11/7 수호 · 분노 —— 아군이 병력을 잃으면 함께 찬다
+		for o in units:
+			if o != d and o.alive and o.camp == d.camp and o.temper != "":
+				var w := _tw(o, "ally")
+				if w > 0.0:
+					o.gauge = minf(100.0, o.gauge + GAUGE_HIT * loss / d.max * w)
 
 
 ## 고유기 게이지가 차는 속도의 나눗수 —— 11/3: 신화 전투(turn_mul 9.8)는 게이지가 판이 끝날 때쯤에야 차서 고유기가 부대당 0.15번뿐이었다.
@@ -2511,6 +2541,8 @@ func _tac(cp: String, i: int) -> String:
 
 
 func _ult_ok(u: Unit, ult_t: String) -> bool:
+	if not _temper_ok(u):
+		return false
 	match ult_t:
 		"즉시":
 			return true
@@ -2603,6 +2635,101 @@ func _ult_phys(u: Unit) -> bool:
 		if comp.t == "hit" and comp.kind == "phys":
 			return true
 	return false
+
+
+## 11/7 기질 —— 고유기 데이터의 "temper" 가 있으면 그것, 없으면 규칙: 아군 회복 · 강화만 하면 수호, 책략계 병종이면 지략,
+## 궁병 · 도적은 저격, 타격 없이 적 상태이상만 걸면 지략, 그 밖은 맹장
+func temper_of(u: Unit) -> String:
+	if u.ult == null:
+		return ""
+	return temper_name(u.c, u.ult)
+
+
+## 카드 · 고유기 데이터만으로 기질 이름 (화면도 쓴다 —— 디테일창)
+static func temper_name(c: Dictionary, ult: Dictionary) -> String:
+	var t := str(ult.get("temper", ""))
+	if TEMPER.has(t):
+		return t
+	var ally_only := true
+	var foe_status := false
+	var hit := false
+	for comp in ult.eff:
+		if comp.t == "hit":
+			hit = true
+			ally_only = false
+		elif comp.t == "foe":
+			ally_only = false
+			if comp.has("status"):
+				foe_status = true
+	if ally_only:
+		return "수호"
+	if is_caster(c):
+		return "지략"
+	if c.tag == "궁병" or c.tag == "도적":
+		return "저격"
+	if foe_status and not hit:
+		return "지략"
+	return "맹장"
+
+
+## 기질 한 줄 설명 (디테일창 · 카드)
+const TEMPER_DESC := {
+	"맹장": "때릴수록 기가 빨리 찬다. 적과 맞닿으면 쓴다",
+	"수호": "맞거나 아군이 다칠수록 기가 찬다. 아군이 다쳤을 때 쓴다",
+	"지략": "차례마다 꾸준히, 상태이상을 걸면 더 찬다. 맞힐 적이 둘 넘으면 쓴다",
+	"저격": "때리고 적을 무너뜨릴수록 기가 찬다. 약해진 적이 사거리 안이면 쓴다",
+	"분노": "맞거나 아군이 무너질수록 기가 빨리 찬다. 아군이 무너지거나 병력 70% 아래면 쓴다",
+}
+
+
+## 기질 가중치 —— 기질이 없거나(고유기 없음) 꺼져 있으면 배율 1 · 덧셈 0
+func _tw(u: Unit, key: String) -> float:
+	if not temper_enabled or u.temper == "" or not TEMPER.has(u.temper):
+		return 1.0 if key in ["act", "deal", "hit", "wait"] else 0.0
+	return float(TEMPER[u.temper][key])
+
+
+func _gauge_add(u: Unit, v: float) -> void:
+	if v > 0.0 and u.alive and u.ult != null and u.charges > 0:
+		u.gauge = minf(100.0, u.gauge + v)
+
+
+## 기질 발동 조건 (영리 AI · 자동 판단에만 —— 사람이 직접 누르는 것은 그대로). TEMPER_FREE 가 지나면 조건 없이
+func _temper_ok(u: Unit) -> bool:
+	if not temper_enabled or u.temper == "" or _ult_free_now():
+		return true
+	var foes := units.filter(func(o): return o.alive and o.camp != u.camp)
+	var mine := units.filter(func(o): return o.alive and o.camp == u.camp)
+	match u.temper:
+		"맹장":
+			return _touching_foe(u)
+		"수호":
+			var hurt := 0.0
+			for o in mine:
+				hurt += 1.0 - o.troops / o.max
+			return hurt / maxf(1, mine.size()) > 0.10 or _crisis(u.camp)
+		"지략":
+			return _ult_reach_n(u, foes) >= 2 or foes.size() <= 3
+		"저격":
+			return _foe_low_in_reach(u, foes)
+		"분노":
+			return u.troops / u.max < 0.7 or units.any(func(o): return o.camp == u.camp and not o.alive)
+	return true
+
+
+## 기질 조건이 풀리는 때 —— 실시간 엔진은 TEMPER_FREE 초 (RtBattle 이 덮어쓴다), 턴 엔진은 6턴
+func _ult_free_now() -> bool:
+	return _turn > 6
+
+
+## 맞닿은 적이 있는가 —— 턴 엔진은 자리가 없어 늘 참 (RtBattle 이 덮어쓴다)
+func _touching_foe(_u: Unit) -> bool:
+	return true
+
+
+## 병력 60% 아래인 적이 사거리 안에 있는가 (RtBattle 이 사거리로 덮어쓴다)
+func _foe_low_in_reach(_u: Unit, foes: Array) -> bool:
+	return foes.any(func(o): return o.troops / o.max < 0.7)
 
 
 func _ult_worth(u: Unit) -> bool:
