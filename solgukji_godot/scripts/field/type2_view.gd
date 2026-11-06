@@ -59,7 +59,7 @@ func setup() -> void:
 	super.setup()
 	for sq: Squad in field.order:
 		var base := TEAM_A if sq.camp == "A" else TEAM_B
-		_col[sq.key] = base.lightened(0.06 * (sq.row.slot % 3)) if sq.tier < 6 else base.lerp(DB.TIER[sq.tier].c, 0.25)
+		_col[sq.key] = base.lightened(0.06 * (int(sq.row.slot) % 3)) if sq.tier < 6 else base.lerp(DB.TIER[sq.tier].c, 0.25)
 	var ys := 0.0
 	for sq: Squad in field.order:
 		ys += sq.pos.y
