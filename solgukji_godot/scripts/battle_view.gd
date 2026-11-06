@@ -63,7 +63,7 @@ var loss_times := []        # 유닛별 병력 손실이 예정된 행동 시각
 var rout_wait := {}         # 유닛 번호 -> true —— 병력이 다 흘러간 뒤 무너뜨린다
 var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 (점검용)
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
-const CUT_T := 0.95          # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95: 뒤이어 숄더뷰 휘두르기를 보여 준다
+const CUT_T := 1.8           # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95, 11/6 사용자: 초상 · 글이 너무 빨리 사라진다 → 1.8 (터지는 순간은 컷인이 걷힌 뒤)
 const SLOW := 0.25          # 슬로모션 배속
 ## 11/3 임팩트 프리즈 —— 큰 한 방이 꽂히는 순간 화면 시간을 거의 멈춘다 (판정 · 결과와 상관없는 연출 시계만).
 ## Engine.time_scale 을 건드리면 UI 트윈 · 소리까지 멎어 화면 시계(clock)만 늦춘다
@@ -71,7 +71,7 @@ var freeze_t := 0.0          # 남은 프리즈 (실시간 초)
 var _freeze_cd := 0.0        # 너무 잦지 않게 —— 다음 프리즈까지 (실시간 초)
 var _ace_cd := 0.0           # 에이스(불멸 · 신화) 기술 줌인 간격
 const FREEZE_SPD := 0.04
-const ULT_DELAY := 0.36     # 고유기 발동 뒤 피해가 터지기까지 (전장 시간 —— 슬로모션 중이라 실제로는 약 1.6초)
+const ULT_DELAY := 0.52     # 고유기 발동 뒤 피해가 터지기까지 (전장 시간 —— 슬로모션 중이라 실제로는 약 2.1초, 컷인 1.8초가 걷힌 뒤 맞는 순간을 보여 준다 11/6)
 var dbg_nolog := false      # 점검용 —— 전투 기록을 쓰지 않는다
 ## 전투 중 개입 —— 탭할 때마다 (시드 + 입력 전부)로 처음부터 다시 계산하고, 입력 앞부분은 그대로 둔 채 뒤만 바꾼다
 var _p := {}                # 지금 전투의 재료 (덱·진형·시드)
@@ -88,6 +88,7 @@ var ambient := {}           # key -> 다음 자유 사격·시전 시각 (궁병
 ## 게임 모드 —— 게임 화면(GameScreen)이 덱을 주고 띄운다. 연습용 단계 고르기·새 전투는 숨긴다
 signal ended(res: Dictionary, inputs: Array)
 signal info_requested(cid: String)      # 11/4 사용자: 아래 장수 칸을 누르면 장수정보간략창
+signal unit_requested(key: String)      # 11/6 사용자: 전투 중 꾹 누르면 '전투장수창' (재료 · 갈무리 대신 전투 능력치)
 signal inputs_changed(inputs: Array)
 var game_mode := false
 var end_clock := 0.0        # 점검용 —— 전투가 끝난 전장 시각(초, 1배속 기준)
@@ -511,6 +512,38 @@ func new_battle() -> void:
 	inputs = []
 	res = _simulate()
 	_begin()
+
+
+## 전투장수창용 —— 같은 재료로 엔진을 '준비'만 시켜(유닛 · 단체 특기 · 전투 시작 효과) 시작 능력치를 잰다. 재생에는 손대지 않는다.
+## {atk: [기본, 실제], def, spd, line, side, item, boon} · 재료가 없으면(온라인 재생) 빈 사전
+func start_stats(key: String) -> Dictionary:
+	if _p.is_empty() or not _p.has("a"):
+		return {}
+	Battle.tr_mul = {"A": float(_p.get("tra", 1.0)), "B": float(_p.get("trb", 1.0))}
+	var tm := Battle.turn_mul
+	var bt: Battle = RtBattle.make(_p.seed)
+	bt._setup(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
+		_p.title, _p.foe, [], _p.policy)
+	Battle.tr_mul = {"A": 1.0, "B": 1.0}
+	Battle.turn_mul = tm      # 준비가 정적 턴 배율을 다시 정한다 —— 같은 값이지만 되돌려 둔다
+	var out := {}
+	for u in bt.units:
+		if u.key == key:
+			var cut: Dictionary = u.cut.duplicate()
+			var full := {}
+			for st in ["atk", "def", "spd"]:
+				full[st] = bt.eff(u, st)
+			u.cut = {}      # 깎임(위축 · 파갑 …)을 빼고 한 번 더 —— 늘어난 몫과 깎인 몫을 따로 보여 준다
+			for st in ["atk", "def", "spd"]:
+				out[st] = [float(u.c[st]), full[st], bt.eff(u, st)]      # [기본, 실제, 깎임 전]
+			u.cut = cut
+			out["line"] = u.line
+			out["side"] = u.side
+			out["item"] = u.item
+			out["boon"] = u.boon
+			out["tr"] = u.max
+			break
+	return out
 
 
 func _simulate() -> Dictionary:
@@ -970,7 +1003,9 @@ func _process_inner(dt: float) -> void:
 			finish_t = clock + 1.0
 		elif clock >= finish_t:
 			_finish()
-	hud.queue_redraw()
+	var t2v = field.flat if field.flat != null and field.flat.get("load_lv") != null else null
+	if t2v == null or int(t2v.load_lv) < 2 or Engine.get_process_frames() % 2 == 0:
+		hud.queue_redraw()      # 11/6 부하 조절 2단계면 HUD 를 30Hz 로
 
 
 ## 전환점 (11/4 연출 점검) —— 화면에 보이는 병력 비율이 뒤집히는 순간 "전세 역전!" (한 판 둘까지)
@@ -1203,8 +1238,10 @@ func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
 	var u: Dictionary = g.ult
 	if speed > 0:
-		slow_t = 2.0      # 11/4 휘두르기 · 날리기까지 슬로모션
-	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false))
+		slow_t = 2.8      # 11/4 휘두르기 · 날리기까지 슬로모션 (11/6 컷인이 길어져 2.0 → 2.8)
+	var ud = DB.ult_of(sq.cid) if DB.C.has(sq.cid) else null      # 효과 문구는 카드의 고유기 정의에서 (사건 쪽 사전에는 eff 가 없다)
+	var desc := _ult_short(ud, sq.tier) if ud != null and ud.has("eff") else ""
+	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false), desc)
 	# 11/4 사용자: 숄더뷰로 다가가 장수가 무기를 크게 휘두르고(효과 · 소리), 적이 날아간 뒤 원래 카메라로
 	field.cinematic(sq, 3.0, true)
 	get_tree().create_timer(CUT_T * 0.7).timeout.connect(func():
@@ -1220,6 +1257,40 @@ func _start_ult(g: Dictionary) -> void:
 		pending.append(g)
 	else:
 		_release(g, clock + ULT_DELAY)
+
+
+## 컷인 아래 한 줄 효과 —— 대상 설명은 빼고 수치만: "피해 423% · 사기 −2 · 화상" (11/6 사용자)
+func _ult_short(u: Dictionary, tier: int) -> String:
+	var tm := Battle.turn_mul_for(tier) if tier > 0 else 1.0
+	var parts := []
+	for comp in u.eff:
+		var s := ""
+		match str(comp.get("t", "")):
+			"hit":
+				s = "피해 %d%%" % roundi(float(comp.mult) * tm * 100)
+				if comp.has("morale"):
+					s += " · 사기 −%d" % roundi(float(comp.morale) * Battle.burst())
+				if comp.has("status"):
+					s += " · " + str(DB.D.STATUS.get(comp.status.k, {}).get("n", comp.status.k))
+				if comp.has("exec"):
+					s += " · 즉사"
+			"ally":
+				if comp.has("heal"):
+					s = "아군 병력 +%.0f%%" % (float(comp.heal) * Battle.burst() * 100)
+				elif comp.has("buff"):
+					s = "아군 %s %+d%%" % [DB.D.STATNM.get(comp.buff.stat, comp.buff.stat), roundi(float(comp.buff.amt) * 100)]
+				elif comp.has("morale"):
+					s = "아군 사기 +%d" % roundi(float(comp.morale) * Battle.burst())
+			"foe":
+				if comp.has("status"):
+					s = str(DB.D.STATUS.get(comp.status.k, {}).get("n", comp.status.k))
+				elif comp.has("buff"):
+					s = "적 %s %+d%%" % [DB.D.STATNM.get(comp.buff.stat, comp.buff.stat), roundi(float(comp.buff.amt) * 100)]
+				elif comp.has("morale"):
+					s = "적 사기 −%d" % roundi(float(comp.morale) * Battle.burst())
+		if s != "" and not parts.has(s):
+			parts.append(s)
+	return " · ".join(parts)
 
 
 func _release(g: Dictionary, t0: float) -> void:
@@ -1721,9 +1792,9 @@ class Hud extends Control:
 	var cut = null           # 고유기 컷인 {k, name, shout, camp, col, t}
 	var _brush := PackedVector2Array()
 
-	func ult_cutin(sq: Squad, nm: String, shout: String, crisis := false) -> void:
+	func ult_cutin(sq: Squad, nm: String, shout: String, crisis := false, desc := "") -> void:
 		cut = {"k": sq.cid, "who": sq.row.name, "name": nm, "shout": shout, "camp": sq.camp, "crisis": crisis,
-			"col": DB.tier_color(sq.cid), "t": 0.0}
+			"col": DB.tier_color(sq.cid), "t": 0.0, "desc": desc}
 		# 붓질 띠의 거친 가장자리 —— 매번 조금씩 다르게
 		_brush = PackedVector2Array()
 		var r := RandomNumberGenerator.new()
@@ -1993,18 +2064,25 @@ class Hud extends Control:
 
 	## 점묘 전장의 장수 토큰 —— 둥근 초상 + 진영색 테 + 병력 숫자 (블라인드삼국식)
 	var _tok_sb: StyleBoxFlat = null
+	const TOK_TEAM := {"A": Color("#2f86ff"), "B": Color("#ff3b30")}
 	func _token(sq: Squad, p: Vector2) -> void:
 		if sq.state == "gone":
 			return
 		var a: float = sq.fade
 		var r := 15.0 if sq.tier < 7 else 17.0
-		var ring: Color = War3D.TEAM[sq.camp].lightened(0.35)
+		# 11/6 사용자: 메달 피아식별 —— 바깥 굵은 진영 고리(아군 파랑 · 적 빨강, 채도 높게) + 안쪽 가는 등급 고리 + 검은 테
+		var ring: Color = TOK_TEAM[sq.camp]
 		if sq.hurt > 0.05:
-			ring = ring.lerp(Color(1, 1, 1), sq.hurt * 0.7)
-		draw_circle(p, r + 2.5, Color(0, 0, 0, 0.55 * a))
-		draw_circle(p, r + 1.5, Color(ring, a))
+			ring = ring.lerp(Color(1, 1, 1), sq.hurt * 0.6)
+		var tcol: Color = DB.tier_color(sq.cid)
+		draw_circle(p, r + 5.0, Color(0, 0, 0, 0.7 * a))
+		draw_circle(p, r + 4.0, Color(ring, a))
+		draw_circle(p, r + 1.2, Color(tcol, a))
 		Art.draw_face_circle(self, p, r, sq.cid, a)
-		draw_arc(p, r + 0.2, 0, TAU, 32, Color(ring, a), 2.0)
+		if sq.camp == "B":      # 적은 아래쪽에 작은 뿔(▼) —— 색을 못 가려도 모양으로
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-5, r + 3), p + Vector2(5, r + 3), p + Vector2(0, r + 9)]), Color(ring, a))
+		else:                   # 아군은 위쪽에 작은 깃(▲)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(-5, -r - 3), p + Vector2(5, -r - 3), p + Vector2(0, -r - 9)]), Color(ring, a))
 		if not sq.alive:
 			draw_circle(p, r, Color(0, 0, 0, 0.6))
 		# 병력 —— 5.3K 처럼
@@ -2012,13 +2090,13 @@ class Hud extends Control:
 		var txt := ("%.1fK" % (n / 1000.0)) if n >= 1000 else str(roundi(n))
 		var fb: Font = DB.font_bold
 		var tw := fb.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10
-		var br := Rect2(p + Vector2(-tw / 2, r + 3), Vector2(tw, 14))
+		var br := Rect2(p + Vector2(-tw / 2, r + (9 if sq.camp == "B" else 5)), Vector2(tw, 14))
 		if _tok_sb == null:      # 11/6 메달마다 매 프레임 StyleBoxFlat 을 새로 만들었다 —— 하나를 고쳐 쓴다
 			_tok_sb = StyleBoxFlat.new()
 			_tok_sb.set_border_width_all(1)
 			_tok_sb.set_corner_radius_all(3)
-		_tok_sb.bg_color = Color(0.05, 0.07, 0.12, 0.85 * a)
-		_tok_sb.border_color = Color(ring, 0.6 * a)
+		_tok_sb.bg_color = Color(ring.darkened(0.62), 0.92 * a)      # 병력 띠도 진영색 바탕
+		_tok_sb.border_color = Color(ring, 0.9 * a)
 		draw_style_box(_tok_sb, br)
 		draw_string(fb, br.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, tw, 10, Color(0.92, 0.95, 1.0, a))
 		var since: float = view.clock - sq.act_t
@@ -2235,6 +2313,16 @@ class Hud extends Control:
 		if _flash_t < 0.35:
 			var fa := (1.0 - _flash_t / 0.35)
 			draw_rect(Rect2(Vector2.ZERO, size), Color(_flash.lerp(Color.WHITE, 0.55 * _flash_k), 0.55 * fa * fa * _flash_k))
+		if Settings.perf_hud:      # 11/6 휴대폰 실측용 성능 표시
+			var men := 0
+			for q in view.field.order:
+				men += q.soldiers.size()
+			var t2 = view.field.flat
+			var figs: int = int(t2.drawn_figs) * Type2View.PACK if t2 != null and t2.get("drawn_figs") != null else men
+			var lv: int = int(t2.load_lv) if t2 != null and t2.get("load_lv") != null else 0
+			var pt := "fps %d · 계산 %d · 보이는 %d · 조절 %d" % [Engine.get_frames_per_second(), men, figs, lv]
+			draw_string_outline(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.9))
+			draw_string(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#9fe8b8"))
 		# 위쪽 —— 시계와 세력 균형
 		var tA := 0.0
 		var tB := 0.0
@@ -2405,6 +2493,15 @@ class Hud extends Control:
 			var wb := Rect2(Vector2(tx + tw / 2 - wsz.x / 2 - 10, by + 50), Vector2(wsz.x + 20, 26))
 			draw_rect(wb, Color(accent, 0.85 * fade))
 			draw_string(DB.font_body, wb.position + Vector2(10, 19), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, fade))
+			# 11/6 사용자: 고유기명 아래 효과 —— "적 전체 피해 320% · 화상"
+			var desc: String = cut.get("desc", "")
+			if desc != "":
+				var dfs := 15
+				while dfs > 11 and DB.font_bold.get_string_size(desc, HORIZONTAL_ALIGNMENT_LEFT, -1, dfs).x > tw:
+					dfs -= 1
+				var dy := wb.end.y + 22
+				draw_string_outline(DB.font_bold, Vector2(tx, dy), desc, HORIZONTAL_ALIGNMENT_CENTER, tw, dfs, 6, Color(0, 0, 0, 0.85 * fade))
+				draw_string(DB.font_bold, Vector2(tx, dy), desc, HORIZONTAL_ALIGNMENT_CENTER, tw, dfs, Color("#ffe6a8", fade * nt))
 
 	func _text(f: Font, p: Vector2, s: String, al: int, w: float, fs: int, col: Color) -> void:
 		draw_string_outline(f, p, s, al, w, fs, 5, Color(0, 0, 0, 0.8 * col.a))
@@ -2455,9 +2552,9 @@ class MiniCard extends Control:
 	func _process(_dt: float) -> void:
 		if _down_ms >= 0 and not _long_fired and Time.get_ticks_msec() - _down_ms >= BattleView.LONG_PRESS * 1000:
 			_long_fired = true
-			if sq.tier > 2 and DB.C.has(sq.cid):
+			if DB.C.has(sq.cid):
 				UI.buzz(30)
-				view.info_requested.emit(sq.cid)
+				view.unit_requested.emit(sq.key)
 		_process_card()
 
 	func _draw() -> void:
@@ -2474,7 +2571,7 @@ class MiniCard extends Control:
 		sb.bg_color = DB.PAL.ink2
 		sb.set_corner_radius_all(6)
 		var danger: bool = sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3      # 11/6 #16 위험 신호
-		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 1)
+		sb.set_border_width_all(3 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 2)      # 11/6 사용자: 프로필 테두리를 더 구별되게 (등급색 2px)
 		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		Art.draw_portrait(self, Rect2(4, 4, 34, 46), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")

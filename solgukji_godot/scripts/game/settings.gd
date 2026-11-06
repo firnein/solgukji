@@ -20,6 +20,7 @@ static var sumuk := false      # 전장 화풍 —— 수묵(삼국지11 시안)
 static var type2 := true       # 전장 표현 '타입2' —— 삼국지11 식 지도판 · 병사 인형 (11/3, scripts/field/type2_view.gd). 11/6 사용자: 기본 전투 화면 (3D · 수묵은 설정에 남긴다)
 static var dmg_numbers := 1    # 피해 숫자 —— 0 큰 것만(기술 · 고유기 · 치명타) · 1 모아서 · 2 모두 (11/6 #16)
 static var cam_fx := 1         # 전투 카메라 연출 —— 0 끔 · 1 적게(아군 고유기 · 적 신화 고유기 · 장수 격파) · 2 보통(첫 격돌 · 모든 고유기). 11/6 사용자
+static var perf_hud := false   # 성능 표시 —— 전투 왼쪽 위에 fps · 계산 병사 · 보이는 인형 · 부하 조절 단계 (휴대폰 실측용, 11/6 목표)
 static var tac_info := 1       # 타입2 전황 표시 —— 0 끔 · 1 간단(진형 소개 · 우대 금테 · 책략 실) · 2 자세히(+ 사거리 · 전술 화살표). 11/6
 static var _loaded := false
 
@@ -40,6 +41,7 @@ static func load_cfg() -> void:
 		if not cf.has_section_key("gfx", "type2_default"):      # 11/6 한 번은 타입2로 옮긴다 (예전 저장값이 3D 여도). 그 뒤 고른 값은 지킨다
 			type2 = true
 		tac_info = int(cf.get_value("gfx", "tac_info", 1))
+		perf_hud = bool(cf.get_value("gfx", "perf_hud", false))
 		cam_fx = int(cf.get_value("gfx", "cam_fx", 1))
 		dmg_numbers = int(cf.get_value("gfx", "dmg_numbers", 1))
 		dots = false     # 11/3 사용자: 점묘 옵션을 숨겼다 —— 저장값과 상관없이 3D (점검용 --gdots / --dots 로만 켠다)
@@ -59,6 +61,7 @@ static func save_cfg() -> void:
 	cf.set_value("gfx", "type2", type2)
 	cf.set_value("gfx", "type2_default", 2)
 	cf.set_value("gfx", "tac_info", tac_info)
+	cf.set_value("gfx", "perf_hud", perf_hud)
 	cf.set_value("gfx", "cam_fx", cam_fx)
 	cf.set_value("gfx", "dmg_numbers", dmg_numbers)
 	cf.set_value("gfx", "dots_v2", dots)
@@ -69,6 +72,8 @@ static func apply() -> void:
 	Squad.count_scale = COUNT_SCALE[quality]
 	if FULL_COUNT_DEBUG and not OS.has_feature("mobile"):
 		Squad.count_scale = 1.0     # 11/3: PC 는 품질과 상관없이 병사를 다 풀어 놓는다. 11/6 사용자: 휴대폰은 디버그 APK 라도 품질대로 (전엔 디버그면 '낮음'이 먹지 않아 후반 프레임 드랍)
+	if type2:
+		Squad.count_scale = 1.0     # 11/6 목표 '휴대폰에서도 품질이 떨어지지 않는 대군': 타입2 는 병사 수를 품질로 줄이지 않는다 —— 무거우면 부수 연출을 줄인다 (Type2View 부하 조절)
 
 
 ## 전장 뷰포트에 품질을 건다 (BattleView 가 만든 SubViewport)

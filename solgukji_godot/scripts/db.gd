@@ -374,20 +374,21 @@ func _build_from(base: Dictionary, tier: int) -> Dictionary:
 		"cost": snappedf(sk_cost(e) * SK_COST_TIER.get(tier, 1.0), 0.1)}
 
 
-## 11/6 사용자 #9: 진형을 5행까지 —— 원본 4행 마스크를 5행 × 3열(9칸 그대로)로 덮어쓴다. 다섯째 줄 '본진'(pri 5).
 ## 줄 배율 · 선호 자리도 덧붙인다 (LINE · AFF). 적 · 토벌 편성도 같은 진형 데이터를 쓴다
-const FORM5 := {
-	"eorin":    [".X.", "XXX", "XXX", ".X.", ".X."],     # 어린진 —— 비늘이 겹치고 꼬리가 길다
-	"hagik":    ["X.X", "X.X", "XXX", ".X.", ".X."],     # 학익진 —— 두 날개 뒤에 몸통
-	"bongsi":   [".X.", "X.X", "X.X", "XXX", ".X."],     # 봉시진 —— 화살촉
-	"anwol":    ["XXX", "X.X", "X.X", ".X.", ".X."],     # 안월진 —— 초승달 뒤로 꼬리
-	"bangwon":  [".X.", "X.X", "XXX", "X.X", ".X."],     # 방원진 —— 원
-	"anhaeng":  ["XX.", "XX.", ".X.", ".XX", ".XX"],     # 안행진 —— 사선
-	"chuhaeng": [".X.", ".X.", "XXX", "XXX", ".X."],     # 추행진 —— 송곳
-	"jangsa":   [".X.", ".X.", ".X.", "XXX", "XXX"],     # 장사진 —— 긴 뱀
+## 11/6 사용자: 진형 4행 5열 (9칸 그대로). 5열 —— 좌익 · 좌 · 중앙 · 우 · 우익. 가운데 열(2)만 '중앙', 나머지는 '측면'.
+## (오전의 5행 × 3열 '본진' 안은 거둔다 —— 줄은 원본 4줄: 선봉 · 전군 · 중군 · 후군)
+const FORM45 := {
+	"eorin":    ["..X..", ".XXX.", ".XXX.", ".X.X."],     # 어린진 —— 비늘이 겹친 물고기
+	"hagik":    ["X...X", "XX.XX", "..X..", ".X.X."],     # 학익진 —— 앞으로 벌린 두 날개
+	"bongsi":   ["..X..", ".X.X.", "X.X.X", ".XXX."],     # 봉시진 —— 화살촉
+	"anwol":    ["X...X", "X...X", ".XXX.", ".X.X."],     # 안월진 —— 초승달
+	"bangwon":  [".XXX.", "X...X", "X...X", ".X.X."],     # 방원진 —— 둥근 고리
+	"anhaeng":  ["XX...", "XXX..", "..XX.", "...XX"],     # 안행진 —— 사선
+	"chuhaeng": ["..X..", "..X..", ".XXX.", "XX.XX"],     # 추행진 —— 송곳
+	"jangsa":   ["XXX..", "..X..", "..XXX", "...XX"],     # 장사진 —— 굽이치는 뱀
 }
-const LINE5 := {"pri": 5, "atk": 0.7, "def": 0.8, "int": 1.35}      # 본진 —— 후군보다 더 뒤 (수치는 후군의 연장, 후속 밸런스 검토)
-const AFF5 := {"유생": [["본진", "중앙"], ["본진", "측면"]], "모사": [["본진", "중앙"], ["본진", "측면"]], "술사": [["본진", "측면"], ["본진", "중앙"]], "책사": [["본진", "중앙"]]}
+const FORM_COLS := 5
+const FORM_MID := 2
 
 
 ## 11/6 사용자 #15: 마법 개념 삭제 —— 공격 = 공 · 책 중 높은 쪽, 방어 = 방 · 책방 중 높은 쪽. int · res 칸은 같은 값을 둔다 (옛 코드가 읽어도 같게).
@@ -414,17 +415,10 @@ func merge_stats() -> void:
 				PSV[g].d = str(PSV[g].d).replace(a[0], a[1])
 
 
-func _apply_rows5() -> void:
-	for k in FORM5:
+func _apply_rows5() -> void:      # 이름은 그대로 —— 진형 4행 5열을 덮어쓴다
+	for k in FORM45:
 		if D.FORM.has(k):
-			D.FORM[k].mask = FORM5[k].duplicate()
-	if not D.LINES.has("본진"):
-		D.LINES.append("본진")
-	D.LINE["본진"] = LINE5.duplicate()
-	for tag in AFF5:
-		if D.AFF.has(tag):
-			for z in AFF5[tag]:
-				D.AFF[tag].pref.append(z)
+			D.FORM[k].mask = FORM45[k].duplicate()
 
 
 func _build_forms() -> void:
@@ -440,7 +434,7 @@ func _build_forms() -> void:
 				if s[ci] == "X":
 					row.append(slots.size())
 					slots.append({"line": D.LINES[ri], "row": ri, "col": ci,
-						"side": "중앙" if ci == 1 else "측면"})
+						"side": "중앙" if ci == FORM_MID else "측면"})
 				else:
 					row.append(-1)
 			grid.append(row)

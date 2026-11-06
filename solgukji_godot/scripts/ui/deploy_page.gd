@@ -80,13 +80,13 @@ func build() -> Control:
 	hd.add_child(cb)
 	bp.add_child(hd)
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 1 + DB.FORM_COLS      # 11/6 진형 4행 5열
 	grid.add_theme_constant_override("h_separation", 5)
 	grid.add_theme_constant_override("v_separation", 5)
 	var face := UI.lbl("▲적", 11, DB.PAL.seal)
 	face.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	grid.add_child(face)
-	for col in ["좌", "중앙", "우"]:
+	for col in ["좌익", "좌", "중앙", "우", "우익"]:
 		var cl := UI.lbl(col, 11, DB.PAL.bamboo_dim)
 		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -329,7 +329,7 @@ func slot_sheet(i: int) -> void:
 	var line: String = s.line
 	var ln: Dictionary = DB.D.LINE[line]
 	var cur = run.board[i]
-	var side: String = ["좌", "중앙", "우"][clampi(int(s.col), 0, 2)]
+	var side: String = ["좌익", "좌", "중앙", "우", "우익"][clampi(int(s.col), 0, 4)]
 	var b := gs.open_sheet("%s · %s 배치" % [side, line])
 	b.add_child(UI.rich("[color=#8D7B5C]공격[/color] %d%% (책략계 %d%%)   [color=#8D7B5C]방어[/color] %d%%   [color=#8D7B5C]피격[/color] %d순위" % [
 		roundi(ln.atk * 100), roundi(ln["int"] * 100), roundi(ln["def"] * 100), ln.pri], 13))
@@ -410,7 +410,7 @@ func item_sheet(i: int) -> void:
 
 ## 편성판 한 칸 —— 누르면 칸 시트(또는 고른 카드를 놓는다), 길게 누르면 끌어서 옮기기·내리기
 class SlotBox extends Control:
-	const SZ := Vector2(92, 72)
+	const SZ := Vector2(66, 84)      # 11/6 진형 5열 —— 좁고 높게 (초상 위 · 글 아래)
 	var page: DeployPage
 	var slot := -1
 	var _press := Vector2.INF
@@ -500,8 +500,11 @@ class SlotBox extends Control:
 			draw_string(DB.font_display, Vector2(0, size.y * 0.5 + 6), "＋", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Color(DB.PAL.bamboo_dim, 0.7))
 			draw_string(fb, Vector2(0, size.y - 7), UI.pos_name(s.line, s.col), HORIZONTAL_ALIGNMENT_CENTER, size.x, 11, DB.PAL.bamboo_dim)
 			return
-		# 11/5 사용자: 칸을 크게 —— [초상] 이름 / 병종 / 병력, 그 아래 아이템(가운데), 맨 아래 진형 버프 설명
 		var c: Dictionary = DB.C[k]
+		if size.x < 120:      # 11/6 5열 —— 좁은 칸: 초상 / 이름 / 병종 · 병력 / 아이템 / 진형 버프
+			_draw_narrow(k, c, z, boon, bn, run)
+			return
+		# 11/5 사용자: 칸을 크게 —— [초상] 이름 / 병종 / 병력, 그 아래 아이템(가운데), 맨 아래 진형 버프 설명
 		var bot := 15.0 if boon else 0.0           # 진형 버프 줄
 		var ith := 15.0                             # 아이템 줄
 		var ph := size.y - 10 - ith - bot
@@ -527,6 +530,34 @@ class SlotBox extends Control:
 			draw_style_box(UI.flat(Color(DB.PAL.gold, 0.9), DB.PAL.gold, 0, 5, 0), rr)
 			var txt := "%s %s +%d%%" % [DB.FORM[run.form].n, DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100)]
 			draw_string(DB.font_bold, rr.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 10, Color("#1A1508"))
+
+
+	func _draw_narrow(k: String, c: Dictionary, z: String, boon: bool, bn, run: Run) -> void:
+		var fb := DB.font_body
+		var bot := 13.0 if boon else 0.0
+		var ith := 12.0
+		var txt_h := 25.0
+		var ph := maxf(16.0, size.y - 8 - ith - bot - txt_h)
+		var pw := minf(size.x - 8, ph * 1.05)
+		var pr := Rect2((size.x - pw) / 2, 4, pw, ph)
+		Art.draw_portrait(self, pr, k)
+		var nm: String = DB.person(k) if c.tier > 2 else c.name
+		var tf := DB.tier_font(c.tier)
+		var fs := 13
+		while fs > 9 and tf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 6:
+			fs -= 1
+		var y := pr.end.y + 12
+		draw_string(tf, Vector2(3, y), nm, HORIZONTAL_ALIGNMENT_CENTER, size.x - 6, fs, DB.tier_color(k).lightened(0.2))
+		var info := "%s %s" % [c.tag, Battle.num(c.tr)]
+		draw_string(fb, Vector2(2, y + 12), info, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 10, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo_dim))
+		var it = run.item_of_slot(slot)
+		var itxt: String = "빈 슬롯" if it == null else DB.IT[it].name
+		draw_string(fb, Vector2(2, size.y - 5 - bot), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 9, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		if boon:
+			var rr := Rect2(2, size.y - bot - 2, size.x - 4, bot)
+			draw_style_box(UI.flat(Color(DB.PAL.gold, 0.9), DB.PAL.gold, 0, 4, 0), rr)
+			var bt := "%s +%d%%" % [DB.D.STATNM.get(bn.stat, "발동"), roundi(float(bn.v) * 100)]
+			draw_string(DB.font_bold, rr.position + Vector2(0, 10), bt, HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 9, Color("#1A1508"))
 
 
 ## 손패 한 줄 (11/5) —— [초상] 이름(등급색) / 병종 · 등급 · 병력, 진형 우대면 금빛 칩, ×수. 누르면 page.hand_tap, 길게 눌러 끈다

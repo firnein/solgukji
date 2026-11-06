@@ -512,4 +512,4 @@ static func aff_zones(tag: String, which: String) -> String:
 
 
 static func pos_name(line: String, col: int) -> String:
-	return ("좌" if col == 0 else "우" if col == 2 else "") + line
+	return ["좌익 ", "좌", "", "우", "우익 "][clampi(col, 0, 4)] + line      # 11/6 5열

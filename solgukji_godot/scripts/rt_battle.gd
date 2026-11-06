@@ -29,7 +29,7 @@ static var ALLY_SEP := 2.7     # 아군 부대끼리 떨어지는 거리 (BODY �
 const CONTACT := 64.0         # 근접 공격이 닿는 중심 거리
 const GAP := 300.0      # 양군 선봉 사이 (11/4 240 → 300)
 const RS := 150.0      # 11/4 사용자: 대열 칸 자체를 키운다 —— 앞뒤 열 간격 78 → 150 (깊은 부대가 앞뒤로 겹쳐 번졌다)
-const CS := 220.0      # 좌 · 중앙 · 우 간격 (11/4 118 → 175 → 220, RtBattle · War3D 같게)
+const CS := 165.0      # 열 간격 (11/4 118 → 175 → 220, 11/6 5열로 165 —— 전체 폭 440 → 660, RtBattle · War3D 같게)
 const TAUNT_R := 160.0
 ## 11/5 사용자: 병사가 적으면 진형을 촘촘하게 시작 —— 양군 병력 합이 LAY_FULL 아래면 열 · 좌우 간격을 √(합 / LAY_FULL) 배 (최소 LAY_MIN),
 ## 선봉 사이(GAP)는 그 30% 만큼만 줄인다. 1일차(합 1.5만) 0.62 · 3일차(6만) 0.63~0.7 · 후반(15만 이상) 1
@@ -170,7 +170,7 @@ func _interval(u: Unit) -> float:
 func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, slot: int, item, syn: Dictionary) -> Unit:
 	var u := super.mk_unit(cid, slot_info, camp, morale, slot, item, syn)
 	var x: float = GAP / 2 * (0.7 + 0.3 * lay) + slot_info.row * RS * lay
-	u.pos = Vector2(-x if camp == "A" else x, (slot_info.col - 1) * CS * lay)
+	u.pos = Vector2(-x if camp == "A" else x, (slot_info.col - DB.FORM_MID) * CS * lay)
 	u.fwd = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
 	return u
 

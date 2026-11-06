@@ -10,15 +10,17 @@ const TILT := 1.25             # 세로 배율 —— 11/6 사용자 "더 넓게
 const FIG := 17.0              # 병사 인형 크기 (px, 화면 —— 배율 1 기준) —— 11/6 보는 맛: 15 → 17
 const T2_SPREAD := 1.35        # 부대 안 병사 사이 (점묘보다 촘촘하게 —— 삼국지11 의 부대 덩어리)
 const HEX := 34.0              # 육각 한 칸 (전장 px)
-const CLONES := 3              # 11/6 사용자: 병사를 더 많이 —— 계산하는 병사 하나를 인형 셋으로 그린다 (계산 · 판정은 그대로)
-const CLONES_SMALL := 5        # 병사가 SMALL_SQ 명보다 적은 부대(1일차 등)는 다섯 —— 메달만 보이고 병사가 안 보였다 (11/6 점검)
+const CLONES := 1              # 11/6 3차(목표: 휴대폰에서도 품질 그대로 대군): 묶음(단순한 인형 열둘) 하나 = 병사 하나 —— 화면 병사 수 4배, 그리는 칸은 1/3
+const CLONES_SMALL := 2        # 병사가 SMALL_SQ 명보다 적은 부대(1일차 등)
+const PACK := 12               # 묶음 그림 하나에 든 인형 수 (4 × 3)
+const STRIDE := 16             # 멀티메시 버퍼 한 칸 —— 변환 8 + 색 4 + 사용자 4 (x: 아틀라스 왼쪽 0 = 장수 한 명, 0.5 = 묶음)
 const SMALL_SQ := 12
 const CLONE_OFF := [Vector2(0, 0), Vector2(0.62, 0.42), Vector2(-0.58, 0.5), Vector2(0.1, 0.85), Vector2(-0.3, -0.45)]     # 인형 크기 대비 자리 (예전)
 const CLONE_GRID := [Vector2(0, 0), Vector2(0.5, 0.5), Vector2(-0.5, 0.5), Vector2(0.5, -0.5), Vector2(-0.5, -0.5)]   # 대열 반 칸 단위 (오른쪽, 앞) —— 명세 1단계
 ## 1단계-3: 병종별 대열 모양 —— 가로 간격 배율. 창병 밀집, 궁병 산개, 책략계 호위 간격 (병사 수 · 판정은 그대로)
 const FORM_SHAPE := {"창병": 0.9, "기병": 1.05, "궁병": 1.25, "도적": 1.1, "책사": 1.15, "유생": 1.15, "술사": 1.15, "모사": 1.15}
-const TEAM_A := Color("#3f78c8")
-const TEAM_B := Color("#c8483a")
+const TEAM_A := Color("#4a8ae8")      # 11/6 묶음 인형은 작아서 색이 탁해진다 —— 밝게
+const TEAM_B := Color("#ec4f3c")
 
 var _fig_tex: Texture2D
 var _ground: ColorRect          # 바닥 —— 셰이더 지도 (shaders/type2_ground.gdshader, 11/6)
@@ -28,8 +30,14 @@ var _mid_y := 0.0
 
 func _ready() -> void:
 	super._ready()
-	_fig_tex = _make_fig()
+	_fig_tex = _make_atlas()
 	_mm.texture = _fig_tex
+	_mm.multimesh.instance_count = 0
+	_mm.multimesh.use_custom_data = true
+	var fm := ShaderMaterial.new()
+	fm.shader = Shader.new()
+	fm.shader.code = FIG_SHADER
+	_mm.material = fm
 	_ground = ColorRect.new()
 	_ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ground.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -90,8 +98,31 @@ func _fit(now := false) -> void:
 		_center = _want_center
 
 
+## 부하 조절 (11/6 목표) —— 실제 프레임 시간을 지켜보다 무거우면 단계를 올린다. 병사 수는 줄이지 않는다.
+## 0 그대로 · 1 전선 먼지 · 이동 먼지 · 불티를 줄이고 바닥 층을 3프레임마다 · 2 + 2D 연출 상한 낮춤 · HUD 를 30Hz 로
+var load_lv := 0
+var _ft := 1.0 / 60.0
+var _lv_hold := 0.0
+var drawn_figs := 0            # 지난 프레임에 그린 인형 수 (묶음 × PACK) —— 성능 표시용
+
+
+func _load_step(dt: float) -> void:
+	var real := Performance.get_monitor(Performance.TIME_PROCESS)
+	_ft = lerpf(_ft, maxf(dt, real), 0.05)
+	_lv_hold -= dt
+	if _lv_hold > 0.0:
+		return
+	if _ft > 1.0 / 40.0 and load_lv < 2:
+		load_lv += 1
+		_lv_hold = 2.0
+	elif _ft < 1.0 / 57.0 and load_lv > 0:
+		load_lv -= 1
+		_lv_hold = 4.0
+
+
 func _process(dt: float) -> void:
 	var t0 := Time.get_ticks_usec()
+	_load_step(dt)
 	super._process(dt)
 	if not visible or field == null:
 		return
@@ -106,8 +137,8 @@ func _process(dt: float) -> void:
 	mat.set_shader_parameter("hex", HEX)
 	mat.set_shader_parameter("camp_a", _camp_x("A"))
 	mat.set_shader_parameter("camp_b", _camp_x("B"))
-	if Engine.get_process_frames() % 2 == 1:
-		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다
+	if Engine.get_process_frames() % (2 if load_lv == 0 else 3) == 1:
+		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다 (무거우면 3프레임마다)
 	if _fx_layer and (not _fx.is_empty() or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다
 		_fx_layer.queue_redraw()
 	if _label_layer and field.clock - _intro_t0 < INTRO_T + 0.5:
@@ -167,12 +198,12 @@ func _draw_dots() -> void:
 	for sq: Squad in sqs:
 		nfig += sq.soldiers.size()
 		if sq.alive and sq.contact and sq.engaged != null:
-			sparks += 8
+			sparks += 8 if load_lv == 0 else 3
 	var total := nfig * CLONES_SMALL + sparks
 	if mm.instance_count < total:
 		mm.instance_count = total + 64
-	if _buf.size() != mm.instance_count * 12:
-		_buf.resize(mm.instance_count * 12)
+	if _buf.size() != mm.instance_count * STRIDE:
+		_buf.resize(mm.instance_count * STRIDE)
 	var clock := field.clock
 	# 11/6 인스턴스마다 set_instance_* 를 부르던 것을 버퍼 한 번에 (2D 변환 8 + 색 4). 남는 칸은 visible_instance_count 로 감춘다
 	var i := 0
@@ -200,7 +231,7 @@ func _draw_dots() -> void:
 				var dt: float = clock - s.die_t
 				if dt > 2.0:
 					continue
-				rot = s.fall * minf(1.0, dt / 0.35) * PI * 0.5
+				rot = s.fall * minf(1.0, dt / 0.35) * PI * (0.5 if s == sq.general else 0.18)
 				c = c.darkened(0.45)
 				c.a = clampf(1.0 - (dt - 1.2) / 0.8, 0, 1)
 			elif sq.state == "flee":
@@ -230,13 +261,13 @@ func _draw_dots() -> void:
 			var cr := cos(rot)
 			var sr := sin(rot)
 			for ci in (1 if gen else ncl):
-				var hc := h * (1.0 if ci == 0 else 0.94)
+				var hc := h * (1.0 if ci == 0 else 0.94) * (1.0 if gen else PACK_H)
 				var o: Vector2 = (dr * CLONE_GRID[ci].x + df * CLONE_GRID[ci].y) + Vector2(0, -hc * 0.5)
 				if ci > 0 and s.alive:
 					o.y -= absf(sin(bob + ci * 0.9)) * 1.4 - absf(sin(bob)) * 1.4      # 복제마다 걸음 위상을 어긋나게
 				var cc := c if ci == 0 else c.darkened(0.06 * ci)
-				var b := i * 12
-				var sx := hc * flip
+				var b := i * STRIDE
+				var sx := hc * flip * (1.0 if gen else PACK_W)
 				_buf[b] = cr * sx
 				_buf[b + 1] = -sr * hc
 				_buf[b + 2] = 0.0
@@ -249,6 +280,7 @@ func _draw_dots() -> void:
 				_buf[b + 9] = cc.g
 				_buf[b + 10] = cc.b
 				_buf[b + 11] = cc.a
+				_buf[b + 12] = 0.0 if gen else 0.5
 				i += 1
 	# 전선 불꽃
 	for sq: Squad in field.order:
@@ -257,13 +289,13 @@ func _draw_dots() -> void:
 		var en: Squad = sq.engaged
 		var mid: Vector2 = en.pos + sq.axis * en.depth() * 0.5
 		var perp := Vector2(-sq.axis.y, sq.axis.x)
-		for j in 8:
+		for j in (8 if load_lv == 0 else 3):
 			var ph := fposmod(_t * 3.0 + j * 0.41 + float(sq.row.slot) * 0.13, 1.0)
 			var at: Vector2 = mid + perp * (fposmod(j * 37.3 + floor(_t * 3.0 + j * 0.41) * 11.0, 1.0) - 0.5) * sq.cols * sq.sp
 			var sp := 4.5 * (1.0 - ph) * clampf(_scale, 0.7, 1.6)
 			var q := map(at) + Vector2(0, -ph * 10.0 - 6.0)
 			var r := ph * 3.0
-			var b := i * 12
+			var b := i * STRIDE
 			_buf[b] = cos(r) * sp
 			_buf[b + 1] = -sin(r) * sp
 			_buf[b + 2] = 0.0
@@ -276,9 +308,11 @@ func _draw_dots() -> void:
 			_buf[b + 9] = 0.9
 			_buf[b + 10] = 0.65
 			_buf[b + 11] = 0.85 * (1.0 - ph)
+			_buf[b + 12] = 0.0
 			i += 1
 	mm.buffer = _buf
 	mm.visible_instance_count = i
+	drawn_figs = i
 
 
 ## 바닥은 셰이더(_ground), 부대 바닥 · 상태는 Under 층이 그린다 (11/6 깃발 뺌 —— 사용자: 깃발 같은 건 빼고 넓게) —— 이 노드는 아무것도 그리지 않는다
@@ -323,7 +357,7 @@ func _draw_under_inner(ci: CanvasItem) -> void:
 		ci.draw_polyline(pts, Color(team.lightened(0.25 + 0.6 * hl), (0.55 + 0.45 * hl) * fade), 1.6 + 2.4 * hl)
 		_boon_ring(ci, pts, sq, fade)
 		# 전선 먼지 —— 맞붙은 자리에 흙먼지가 계속 인다 (11/6 보는 맛)
-		if sq.contact and sq.engaged != null and is_instance_valid(sq.engaged):
+		if load_lv == 0 and sq.contact and sq.engaged != null and is_instance_valid(sq.engaged):
 			var mid: Vector2 = sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5
 			var perp := Vector2(-sq.axis.y, sq.axis.x)
 			for j in 4:
@@ -331,7 +365,7 @@ func _draw_under_inner(ci: CanvasItem) -> void:
 				var at: Vector2 = mid + perp * (fposmod(j * 0.29 + sq.row.slot * 0.11, 1.0) - 0.5) * sq.cols * sq.sp * T2_SPREAD
 				ci.draw_circle(map(at), (5.0 + ph * 12.0) * clampf(_scale, 0.6, 1.8), Color(0.74, 0.66, 0.5, 0.26 * sin(PI * ph)))
 		# 흙먼지 —— 움직이는 부대 뒤로 뭉게뭉게
-		if sq.moving and sq.state != "flee":
+		if load_lv == 0 and sq.moving and sq.state != "flee":
 			for j in 5:
 				var ph := fposmod(_t * 1.4 + j * 0.2, 1.0)
 				var at: Vector2 = c - sq.fwd * (hd + 4.0 + ph * 22.0) + rt * (fposmod(j * 0.37, 1.0) - 0.5) * hw * 1.4
@@ -366,6 +400,85 @@ func _draw_status_hex(ci: CanvasItem) -> void:
 
 
 ## 병사 인형 그림 —— 흰색(진영색을 곱한다): 머리 · 투구 술 · 몸 · 창. 오른쪽을 본다
+const PACK_W := 1.7            # 묶음 칸 가로 배율 (인형 크기 대비)
+const PACK_H := 1.35
+const FIG_SHADER := """
+shader_type canvas_item;
+varying float atlas_x;
+varying vec4 tint;
+void vertex() {
+	atlas_x = INSTANCE_CUSTOM.x;
+	tint = COLOR;
+}
+void fragment() {
+	vec4 t = texture(TEXTURE, vec2(UV.x * 0.5 + atlas_x, UV.y));
+	COLOR = t * tint;
+}
+"""
+
+
+## 아틀라스 64 × 32 —— 왼쪽 32: 장수 한 명(예전 인형), 오른쪽 32: 단순한 인형 여섯 묶음(뒤 줄 셋 · 앞 줄 셋, 머리 · 몸 · 창 한 줄)
+func _make_atlas() -> Texture2D:
+	var one: Image = (_make_fig() as ImageTexture).get_image()
+	var n := 48
+	one.resize(n, n, Image.INTERPOLATE_NEAREST)
+	var img := Image.create(n * 2, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	img.blit_rect(one, Rect2i(0, 0, n, n), Vector2i(0, 0))
+	var pack := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	pack.fill(Color(0, 0, 0, 0))
+	var body := Color(1, 1, 1, 1)
+	var dark := Color(0.32, 0.3, 0.27, 1)
+	var skin := Color(0.96, 0.84, 0.7, 1)
+	var spear := Color(0.6, 0.47, 0.3, 1)
+	# [가운데 x, 발 y, 키] —— 뒤 줄은 위로 · 조금 작게, 앞 줄은 반 칸 비켜서
+	var men := [[5.5, 15.0, 11.0], [17.5, 14.0, 11.0], [29.5, 15.0, 11.0], [41.5, 14.5, 11.0],
+		[11.0, 30.5, 12.0], [23.0, 31.0, 12.0], [35.0, 30.0, 12.0], [44.5, 31.0, 12.0],
+		[5.5, 46.5, 13.0], [17.5, 47.0, 13.0], [29.5, 46.0, 13.0], [41.5, 47.0, 13.0]]
+	for m in men:
+		var cx: float = m[0]
+		var fy: float = m[1]
+		var h: float = m[2]
+		var hy := fy - h      # 머리 꼭대기
+		for y in range(int(hy) - 3, int(fy) + 1):
+			for x in range(int(cx) - 5, int(cx) + 6):
+				if x < 0 or y < 0 or x >= n or y >= n:
+					continue
+				var px := x + 0.5
+				var py := y + 0.5
+				var col := Color(0, 0, 0, 0)
+				# 창 —— 오른쪽으로 비스듬히 위로
+				if absf((px - (cx + 3.2)) + (py - (hy + h * 0.4)) * 0.18) < 0.6 and py > hy - 3 and py < fy - 1:
+					col = spear
+				# 몸 (사다리꼴)
+				var t := (py - (hy + h * 0.32)) / (h * 0.5)
+				if t >= 0.0 and t <= 1.0 and absf(px - cx) < 1.6 + t * 1.3:
+					col = body
+				# 다리
+				if py > hy + h * 0.82 and py <= fy and (absf(px - (cx - 1.0)) < 0.7 or absf(px - (cx + 1.0)) < 0.7):
+					col = dark
+				# 머리
+				if Vector2(px - cx, py - (hy + h * 0.2)).length() < h * 0.17:
+					col = skin
+				if Vector2(px - cx, py - (hy + h * 0.13)).length() < h * 0.18 and py < hy + h * 0.15:
+					col = dark      # 투구
+				if col.a > 0.0:
+					pack.set_pixel(x, y, col)
+	# 윤곽
+	var out := pack.duplicate()
+	for y in n:
+		for x in n:
+			if pack.get_pixel(x, y).a > 0.5:
+				continue
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var q: Vector2i = Vector2i(x, y) + d
+				if q.x >= 0 and q.y >= 0 and q.x < n and q.y < n and pack.get_pixel(q.x, q.y).a > 0.5:
+					out.set_pixel(x, y, Color(0.06, 0.05, 0.04, 0.8))
+					break
+	img.blit_rect(out, Rect2i(0, 0, n, n), Vector2i(n, 0))
+	return ImageTexture.create_from_image(img)
+
+
 func _make_fig() -> Texture2D:
 	var n := 32
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
@@ -461,7 +574,7 @@ func _ensure_fx_layer() -> void:
 
 func fx(k: String, p: Vector2, col: Color, life: float, delay := 0.0, r := 30.0, q := Vector2.ZERO) -> void:
 	_ensure_fx_layer()
-	if _fx.size() > 160:
+	if _fx.size() > (160 if load_lv < 2 else 60):
 		return
 	_fx.append({"k": k, "p": p, "q": q, "col": col, "t0": field.clock + delay, "life": life, "r": r, "s": _frng.randf() * 100.0})
 
@@ -552,7 +665,7 @@ func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> vo
 		for d: Squad in ds:
 			cen += vis_c(d)
 		if a == null or a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:
-			focus(cen / ds.size(), 1.6 if ds.size() > 2 else 1.85, 1.8, 3)
+			focus(cen / ds.size(), 1.7 if ds.size() > 2 else 2.0, 2.2, 4)      # 11/6 사용자: 고유기가 맞는 순간으로 카메라 (기 모으기보다 우선)
 		shake((9.0 if vfx in ["roar", "charge", "thunder", "whirlwind", "firestorm"] else 6.0) * (1.0 if Settings.cam_fx >= 2 else 0.6))
 	# 명세 3단계 '폭발': 한 프레임 강한 섬광, 연출은 화면 1/3 크기, 맞는 부대 전원이 앞줄부터 밀린다, 땅에 흔적 5초
 	if not ds.is_empty() and view != null and view.hud != null:

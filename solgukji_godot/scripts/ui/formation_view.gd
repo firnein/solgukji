@@ -3,7 +3,7 @@ extends Control
 ## 전투 탭의 내 진영 미리 보기 (11/4 사용자: 남는 공간에 지금 배치된 병종을 그린다) ——
 ## 진형 칸 자리대로 병종 병사 그림(assets/troops_sprite, 첫 칸 = 서 있는 모습) 몇 명 + 장수 얼굴 메달 · 이름. 위쪽이 적 방향.
 
-const COLS := 3
+const COLS := 5      # 11/6 진형 4행 5열
 var cards: Array = []        # 9칸 카드 id (null 은 빈칸)
 var form := ""
 var t := 0.0
@@ -58,8 +58,8 @@ func _ready() -> void:
 	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ov.use_parent_material = false
 	add_child(ov)
-	# 11/5 사용자: 맨 위 진형 우대 한 줄, 그 아래 '군단 효과' —— 장수 『특기』 효과 (단체 특기 · 위세 · 기인)
-	var lines := []
+	# 11/6 사용자: 버프 설명창 —— 장수와 효과를 셀로 나눠 눈에 잘 띄게 (2열 표: 왼쪽 장수 · 오른쪽 『특기』 효과)
+	var rows := []      # [왼쪽 BBCode, 오른쪽 BBCode, 왼쪽 바탕색]
 	var bn = DB.D.FORMBOON.get(form)
 	if bn != null and DB.FORM.has(form):
 		var who := []
@@ -67,21 +67,24 @@ func _ready() -> void:
 			if k != null and bn.tags.has(DB.C[k].tag):
 				who.append(DB.person(k) if DB.C[k].tier > 2 else DB.C[k].name)
 		if not who.is_empty():
-			lines.append("[color=#E8C25A][b]진형[/b][/color] [color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s %s +%d%%[/color] [color=#8D7B5C](%s)[/color]" % [
-				DB.FORM[form].n, " · ".join(bn.tags), DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100), ", ".join(who)])
-	var bl := team_buffs(cards)
-	if not bl.is_empty():
-		lines.append("[color=#3F9A94][b]군단 효과[/b][/color]")
-		for b in bl:
-			lines.append("  [color=%s][b]%s[/b][/color] [color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [
-				DB.tier_color(b.k).lightened(0.2).to_html(false), b.who, b.name, b.text,
-				"" if b.kind == "단체" else " [color=#8D7B5C](%s)[/color]" % b.kind])
-	if not lines.is_empty():
+			rows.append(["[color=#1A1508][b]%s[/b][/color]" % ", ".join(who),
+				"[color=#E8C25A][b]진형『%s』[/b][/color] [color=#8FD4C2]%s %s +%d%%[/color]" % [DB.FORM[form].n, " · ".join(bn.tags), DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100)],
+				Color("#C9A246")])
+	for b in team_buffs(cards):
+		var tc: Color = DB.tier_color(b.k)
+		rows.append(["[color=#F4EBD6][b]%s[/b][/color]" % b.who,
+			"[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [b.name, b.text, "" if b.kind == "단체" else " [color=#8D7B5C](%s)[/color]" % b.kind],
+			tc.darkened(0.45)])
+	if not rows.is_empty():
+		var bb := "[table=2]"
+		for r in rows:
+			bb += "[cell bg=#%s border=#2a3348 padding=6,3,6,3]%s[/cell][cell bg=#151b29 border=#2a3348 padding=6,3,6,3]%s[/cell]" % [(r[2] as Color).to_html(false), r[0], r[1]]
+		bb += "[/table]"
 		_buf_lbl = UI.rich("", 13)
 		_buf_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_buf_lbl.position = Vector2(8, 6)
-		_buf_lbl.add_theme_constant_override("line_separation", 1)
-		_buf_lbl.append_text(char(10).join(lines))
+		_buf_lbl.append_text("[color=#3F9A94][b]군단 효과[/b][/color]
+" + bb)
 		add_child(_buf_lbl)
 	resized.connect(func():
 		if _buf_lbl != null:

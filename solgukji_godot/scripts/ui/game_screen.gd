@@ -462,6 +462,7 @@ func _build_battle() -> void:
 			recipe_sheet(cid)
 		else:
 			card_info(cid))
+	_battle.unit_requested.connect(battle_unit_sheet)
 	_battle.inputs_changed.connect(func(inputs):
 		if run.battle != null and online == null:
 			run.battle.inputs = inputs.duplicate(true)
@@ -1005,6 +1006,7 @@ func _settings_sheet() -> void:
 	b.add_child(UI.segmented([["base", "기본 3D"], ["sumuk", "수묵"], ["type2", "타입2 (삼국지11)"]], style_now, func(key):
 		Settings.sumuk = key == "sumuk"
 		Settings.type2 = key == "type2"
+		Settings.apply()
 		Settings.save_cfg()
 		if _battle:
 			_battle.apply_style()
@@ -1028,6 +1030,12 @@ func _settings_sheet() -> void:
 			Settings.save_cfg()
 			_settings_sheet()))
 		b.add_child(UI.hint("간단: 진형 소개 · 진형 우대 금테 · 책략 실. 자세히: 사거리 · 진격 화살표까지. 일시정지하면 자세히 보입니다."))
+	b.add_child(UI.eyebrow("성능 표시"))      # 11/6 휴대폰 실측용
+	b.add_child(UI.segmented([["0", "끔"], ["1", "켬"]], "1" if Settings.perf_hud else "0", func(key):
+		Settings.perf_hud = key == "1"
+		Settings.save_cfg()
+		_settings_sheet()))
+	b.add_child(UI.hint("전투 왼쪽 위에 fps · 계산 병사 · 보이는 인형 수 · 부하 조절 단계를 띄웁니다. 타입2 는 품질과 상관없이 병사 수를 그대로 둡니다."))
 	# 11/4 사용자: 직접 지휘 개념은 없앤다 —— 전투는 늘 AI 가 고유기 · 군령을 쓴다
 	# 소리 크기 —— 끔 · 작게 · 보통 · 크게
 	for which in (["sfx", "bgm"] if Sfx.ENABLED else []):
@@ -1376,7 +1384,8 @@ func _page_draw() -> Control:
 	var keys: Array = Run.sort_cards(p.keys())
 	# 11/4 사용자: 등급마다 줄을 나눈다 [등급 아래, 위, 열, 칸 높이]
 	# 11/5 사용자: 전설 · 초월 · 불멸 · 신화가 같은 칸 크기를 쓰지 말 것 —— 등급이 높을수록 크게 (신화 2열 · 불멸 3열 · 초월 4열 · 전설 5열)
-	for grp in [[8, 9, 2, 212.0], [7, 7, 3, 168.0], [6, 6, 4, 138.0], [5, 5, 5, 114.0], [4, 4, 6, 96.0], [2, 3, 6, 90.0]]:
+	# 11/6 사용자: 신화 · 불멸은 한 줄을 같이 쓰고(같은 묶음), 전설보다 조금 크게 한 줄에 넷 · 초월은 전설과 같은 다섯 줄에 조금 크게
+	for grp in [[7, 9, 4, 136.0], [6, 6, 5, 120.0], [5, 5, 5, 114.0], [4, 4, 6, 96.0], [2, 3, 6, 90.0]]:
 		var g := UI.grid(30, 6)
 		g.max_cols = grp[2]
 		for k in keys:
@@ -1547,75 +1556,127 @@ func picker(t: int) -> void:
 		return
 	var was_open := _sheet.visible
 	var b := open_sheet("%s 선택권 — 남은 %d회" % [DB.TIER[t].n, left])
-	_sheet_full = true      # 11/6 사용자 2차: 타일이 너무 작다 → 전체 화면 높이 · 4열 큰 타일 · 병종 묶음 (위 8병종 단추로 바로 가기)
-	var full: float = (_sheet.size.x if _sheet.size.x > 100 else get_viewport_rect().size.x) - 36
-	var cols := 4
-	var gap := 8.0
-	var tw := floorf((full - gap * (cols - 1)) / cols)
-	var th := tw * 1.42
+	_sheet_full = true      # 11/6 사용자 2차: 타일이 너무 작다 → 전체 화면 높이 · 큰 타일 · 병종 묶음
+	var vp := get_viewport_rect().size
+	var full: float = (_sheet.size.x if _sheet.size.x > 100 else vp.x) - 36
+	var gap := 6.0
+	# 갈무리 장수의 재료 —— 직접 재료뿐 아니라 그 아래 재료(재료의 재료)까지 (11/6 사용자)
 	var pins: Array = forge_tree.pins
 	var mats := {}
+	var stack: Array = []
 	for pk in pins:
-		for m in DB.RECOF.get(pk, []):
-			mats[str(m)] = true
-	var groups := {}
-	var jump := UI.hbox(4)
-	for tag in DB.D.TAGORDER:
-		var ks := Run.pickable(t, tag)
-		if ks.is_empty():
+		stack.append_array(DB.RECOF.get(pk, []))
+	while not stack.is_empty():
+		var m := str(stack.pop_back())
+		if mats.has(m):
 			continue
-		var grp := UI.vbox(6)
-		grp.add_child(UI.eyebrow("%s %d" % [tag, ks.size()]))
-		var g := GridContainer.new()
-		g.columns = cols
-		g.add_theme_constant_override("h_separation", int(gap))
-		g.add_theme_constant_override("v_separation", 8)
-		for k in ks:
-			var tl := mtile(k, run.pool().get(k, -1), func(id):
-				_pick_scroll = _sheet_scroll.scroll_vertical
-				if act("pick", [id]):
-					_pick_last = id
-					var left2 := int(run.tickets.get(str(t), 0))
-					_pick_fx(id, left2, DB.TIER[t].n)
-					if left2 > 0:
-						picker(t)
-					else:
-						close_sheet()
-						_hand_scroll_y = 0
-						render()
-				else:
-					picker(t))
-			tl.custom_minimum_size = Vector2(tw, th)
-			if pins.has(k):
-				tl.badge = "갈무리"
-				tl.badge_col = Color(DB.PAL.gold, 0.95)
-			elif mats.has(k):
-				tl.badge = "재료"
-				tl.badge_col = Color(DB.PAL.jade, 0.95)
-			if k == _pick_last:
-				tl.mark = "sel"
-			g.add_child(tl)
-		grp.add_child(g)
-		groups[tag] = grp
-		var jb := Button.new()
-		jb.custom_minimum_size = Vector2(0, 36)
-		jb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		jb.icon = DB.ICON.get(tag)
-		jb.expand_icon = true
-		jb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		jb.tooltip_text = tag
-		jb.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink2, DB.PAL.ink4, 1, 8, 4))
-		jb.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, DB.PAL.bamboo_dim, 1, 8, 4))
-		jb.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, 8, 4))
-		jb.pressed.connect(func():
-			UI.buzz()
-			var gp: Control = groups[tag]
-			_sheet_scroll.scroll_vertical = int(gp.position.y))
-		jump.add_child(jb)
-	b.add_child(jump)
-	for tag in groups:
-		b.add_child(groups[tag])
-	b.add_child(UI.hint("위 병종 단추를 누르면 그 묶음으로 갑니다. 길게 누르면 디테일창. 갈무리한 장수는 금색, 그 재료는 옥빛."))
+		mats[m] = true
+		stack.append_array(DB.RECOF.get(m, []))
+	var on_pick := func(id):
+		_pick_scroll = _sheet_scroll.scroll_vertical
+		if act("pick", [id]):
+			var left2 := int(run.tickets.get(str(t), 0))
+			_pick_fx(id, left2, DB.TIER[t].n)
+			if left2 > 0:
+				picker(t)
+			else:
+				close_sheet()
+				_hand_scroll_y = 0
+				render()
+		else:
+			picker(t)
+	var make_tile := func(k: String, w: float, h: float) -> Control:
+		var tl := mtile(k, run.pool().get(k, -1), on_pick)
+		tl.custom_minimum_size = Vector2(w, h)
+		if pins.has(k):
+			tl.badge = "갈무리"
+			tl.badge_col = Color(DB.PAL.gold, 0.95)
+		elif mats.has(k):
+			tl.badge = "재료"
+			tl.badge_col = Color(DB.PAL.jade, 0.95)
+		return tl      # 11/6 사용자: 마지막으로 뽑은 장수에 금띠가 남던 것은 뺀다
+	var avail_h: float = vp.y * 0.98 - 120.0      # 시트 머리 · 아래 여백
+	if t <= 2:
+		# 기본 —— 두 줄에 넷씩: 위 물리(창 · 기 · 궁 · 도), 아래 책략(책 · 유 · 술 · 모). 병종 글자는 빼서 자리를 넓힌다
+		var tw := floorf((full - gap * 3) / 4)
+		for row in [DB.PHYS_TAGS, DB.INT_TAGS]:
+			var g := GridContainer.new()
+			g.columns = 4
+			g.add_theme_constant_override("h_separation", int(gap))
+			g.add_theme_constant_override("v_separation", int(gap))
+			for tag in row:
+				for k in Run.pickable(t, tag):
+					g.add_child(make_tile.call(k, tw, tw * 1.35))
+			b.add_child(g)
+	elif t <= 4:
+		# 고급 · 희귀 —— 병종 한 줄씩(왼쪽 병종 기호), 8병종이 한 화면에. 고급은 넷, 희귀는 여섯 칸
+		var cols := 4 if t == 3 else 6
+		var icon_w := 26.0
+		var tw := floorf((full - icon_w - gap * cols) / cols)
+		var nrow := 0
+		for tag in DB.D.TAGORDER:
+			nrow += maxi(1, ceili(Run.pickable(t, tag).size() / float(cols))) if not Run.pickable(t, tag).is_empty() else 0
+		var th := clampf((avail_h - gap * nrow) / maxf(1, nrow), 64.0, tw * 1.5)
+		for tag in DB.D.TAGORDER:
+			var ks := Run.pickable(t, tag)
+			if ks.is_empty():
+				continue
+			var row := UI.hbox(int(gap))
+			var ic := TextureRect.new()
+			ic.texture = DB.ICON.get(tag)
+			ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			ic.custom_minimum_size = Vector2(icon_w, th)
+			ic.modulate = Color(DB.PAL.bamboo, 0.85)
+			row.add_child(ic)
+			var g := GridContainer.new()
+			g.columns = cols
+			g.add_theme_constant_override("h_separation", int(gap))
+			g.add_theme_constant_override("v_separation", int(gap))
+			for k in ks:
+				g.add_child(make_tile.call(k, tw, th))
+			row.add_child(g)
+			b.add_child(row)
+	else:
+		# 전설 이상 —— 넷씩 큰 타일, 병종 묶음 + 위 8병종 바로 가기
+		var cols := 4
+		var tw := floorf((full - gap * (cols - 1)) / cols)
+		var th := tw * 1.42
+		var groups := {}
+		var jump := UI.hbox(4)
+		for tag in DB.D.TAGORDER:
+			var ks := Run.pickable(t, tag)
+			if ks.is_empty():
+				continue
+			var grp := UI.vbox(6)
+			grp.add_child(UI.eyebrow("%s %d" % [tag, ks.size()]))
+			var g := GridContainer.new()
+			g.columns = cols
+			g.add_theme_constant_override("h_separation", int(gap))
+			g.add_theme_constant_override("v_separation", 8)
+			for k in ks:
+				g.add_child(make_tile.call(k, tw, th))
+			grp.add_child(g)
+			groups[tag] = grp
+			var jb := Button.new()
+			jb.custom_minimum_size = Vector2(0, 36)
+			jb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			jb.icon = DB.ICON.get(tag)
+			jb.expand_icon = true
+			jb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			jb.tooltip_text = tag
+			jb.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink2, DB.PAL.ink4, 1, 8, 4))
+			jb.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, DB.PAL.bamboo_dim, 1, 8, 4))
+			jb.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, 8, 4))
+			jb.pressed.connect(func():
+				UI.buzz()
+				var gp: Control = groups[tag]
+				_sheet_scroll.scroll_vertical = int(gp.position.y))
+			jump.add_child(jb)
+		b.add_child(jump)
+		for tag in groups:
+			b.add_child(groups[tag])
+		b.add_child(UI.hint("위 병종 단추를 누르면 그 묶음으로 갑니다. 길게 누르면 디테일창. 갈무리한 장수는 금색, 그 재료(아래 재료까지)는 옥빛."))
 	if was_open:
 		_restore_sheet_scroll.call_deferred(_pick_scroll)
 
@@ -1775,6 +1836,107 @@ func _stat_row(c: Dictionary) -> Control:
 		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		g.add_child(pc)
 	return g
+
+
+## 전투장수창 (11/6 사용자) —— 전투 중 꾹 눌러 연다. 이미 만든 장수라 재료 · 갈무리는 빼고 전투 요소만:
+## 병력 · 사기 · 상태, 공격 · 방어 · 속도 = 기본 수치 + (버프로 늘어난 만큼, 다른 색), 기술 · 고유기 · 특기
+func battle_unit_sheet(key: String) -> void:
+	var sq: Squad = _battle.field.squads.get(key) if _battle and _battle.field else null
+	if sq == null or not DB.C.has(sq.cid):
+		return
+	var k: String = sq.cid
+	var c: Dictionary = DB.C[k]
+	var tc := DB.tier_color(k)
+	var b := open_sheet(c.name, tc.lightened(0.2))
+	var ss: Dictionary = _battle.start_stats(key)
+	var top := UI.hbox(12)
+	var big := CardView.new().setup(k, Vector2(96, 136))
+	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	top.add_child(big)
+	var right := UI.vbox(6)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var camp := "아군" if sq.camp == "A" else "적군"
+	var pos := ""
+	var fk := str(_battle.res.get("aForm" if sq.camp == "A" else "bForm", ""))
+	var si := int(key.substr(1))
+	if DB.FORM.has(fk) and si >= 0 and si < DB.FORM[fk].slots.size():
+		var sl: Dictionary = DB.FORM[fk].slots[si]
+		pos = UI.pos_name(str(sl.line), int(sl.col))
+	right.add_child(UI.rich("[color=%s][b]%s[/b][/color]  [color=#C6AC7C]%s · %s%s[/color]" % [
+		War3D.TEAM[sq.camp].lightened(0.3).to_html(false), camp, DB.tier_name(k), c.tag, (" · " + pos) if pos != "" else ""], 13))
+	var state := ("%s / %s명" % [Battle.num(sq.troops), Battle.num(sq.max)]) if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
+	right.add_child(UI.rich("[color=#8D7B5C]병력[/color] [b]%s[/b]   [color=#8D7B5C]사기[/color] [b]%d[/b]" % [state, roundi(sq.morale)], 14))
+	if not sq.statuses.is_empty():
+		var names := []
+		for st in sq.statuses:
+			names.append(str(DB.D.STATUS.get(st, {}).get("n", st)))
+		right.add_child(UI.rich("[color=#8D7B5C]상태[/color] [color=#ff9a7a]%s[/color]" % " · ".join(names), 13))
+	# 공격 · 방어 · 속도 —— 큰 숫자 = 기본, 옆 작은 숫자 = 버프로 늘어난 값(더한 결과가 아니라 늘어난 만큼만)
+	var g := GridContainer.new()
+	g.columns = 3
+	g.add_theme_constant_override("h_separation", 4)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for pair in [["공격", "atk"], ["방어", "def"], ["속도", "spd"]]:
+		var base: float = float(c[pair[1]])
+		var got: float = ss[pair[1]][1] if ss.has(pair[1]) else base
+		var raw: float = ss[pair[1]][2] if ss.has(pair[1]) else base
+		var d := roundi(raw - base)          # 버프로 늘어난 만큼 (초록)
+		var cutv := roundi(raw - got)        # 적 효과로 깎인 만큼 (빨강)
+		var v := UI.vbox(0)
+		var bb := "[center][b][font_size=17]%d[/font_size][/b]" % roundi(base)
+		if d != 0:
+			bb += " [color=%s][font_size=13]%s%d[/font_size][/color]" % ["#7fe0a8" if d > 0 else "#ff7a6a", "+" if d > 0 else "−", absi(d)]
+		if cutv > 0:
+			bb += " [color=#ff7a6a][font_size=13]−%d[/font_size][/color]" % cutv
+		bb += "[/center]"
+		var a := UI.rich(bb, 13)
+		a.fit_content = true
+		var l := UI.lbl(pair[0], 10, DB.PAL.bamboo_dim)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(a)
+		v.add_child(l)
+		var pc := UI.panel(v, 2)
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.add_child(pc)
+	right.add_child(g)
+	if ss.is_empty():
+		right.add_child(UI.hint("온라인 재생은 버프 수치를 계산하지 않는다 —— 기본 수치만."))
+	else:
+		var why := []
+		var lm: Dictionary = DB.D.LINE.get(ss.line, {})
+		if not lm.is_empty():
+			why.append("%s 공격 ×%.2f · 방어 ×%.2f" % [ss.line, float(lm["int"] if Battle.is_caster(c) else lm.atk), float(lm["def"])])
+		var z := DB.aff_of(c.tag, ss.line, ss.side)
+		if z != "":
+			why.append("자리 %s" % ("선호" if z == "pref" else "어색"))
+		if ss.boon:
+			why.append("진형 우대 %s +%d%%" % [DB.D.STATNM.get(ss.boon.stat, ss.boon.stat), roundi(float(ss.boon.v) * 100)])
+		if ss.item:
+			why.append("보급품 %s" % DB.IT[ss.item].name)
+		right.add_child(UI.rich("[color=#7fe0a8]＋늘어난 값[/color] [color=#8D7B5C]%s · 단체 특기 · 위세 · 사기[/color]  [color=#ff7a6a]−깎인 값[/color] [color=#8D7B5C]적 효과 (전투 시작 기준)[/color]" % " · ".join(why), 11))
+	top.add_child(right)
+	b.add_child(top)
+	# 고유기
+	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	if u != null:
+		b.add_child(_kv_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e"), 13))
+	# 기술 (자주 쓰는 기술 + 일반 기술)
+	var mk := Battle.minor_kind(k)
+	if mk != "":
+		b.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
+	for x in c.get("sks", []):
+		b.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+	# 특기 —— 이름 · 레벨 · 수치 한 줄씩
+	var tl := DB.trait_list(k)
+	if not tl.is_empty():
+		var tg := _info_grid()
+		for t in tl:
+			_info_row(tg, "[color=%s][b]%s[/b][/color][color=#D9A64B]%s[/color]" % ["#FFD76E" if t.unique else "#8FD4C2", t.name, "" if t.unique else str(t.lv)],
+				"[color=#8FD4C2]%s[/color]" % (t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0)))
+		b.add_child(UI.eyebrow("특기 %d" % tl.size()))
+		b.add_child(tg)
+	if DB.AURA.has(k):
+		b.add_child(_kv_box("[b][color=%s]%s[/color] 『%s』[/b]" % [tc.to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), tc, 13))
 
 
 ## 접히는 효과 · 수치 상자 —— 머리줄(이름)을 누르면 표가 열린다. 기본은 접힘, 연 상태는 _open[key] 로 다른 카드에서도 이어진다
@@ -2645,6 +2807,9 @@ func _dev_args() -> void:
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
 			"uniq": _unique_sheet()
+			"pick":      # 점검용 —— --gsheet=pick:등급 (선택권을 2장 쥐여 주고 연다)
+				run.tickets[kv[1]] = maxi(2, int(run.tickets.get(kv[1], 0)))
+				picker(int(kv[1]))
 			"pickfx": _pick_fx(kv[1], 2, "전설")      # 점검용 —— 선택권 고른 연출
 			"settings": _settings_sheet()
 			"pick":
@@ -2656,6 +2821,8 @@ func _dev_args() -> void:
 		_title.visible = true
 	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
 		Settings.dots = a.gdots != "0"
+	if a.has("gperf"):          # 점검용 —— 성능 표시 켜기 (저장하지 않는다)
+		Settings.perf_hud = a.gperf != "0"
 	if a.has("gtype2"):          # 점검용 —— 타입2 전장 (저장하지 않는다)
 		Settings.type2 = a.gtype2 != "0"
 	if a.has("gsumuk"):          # 점검용 —— 수묵 화풍으로 (저장하지 않는다)
@@ -2669,6 +2836,9 @@ func _dev_args() -> void:
 			_battle._set_speed(float(a.speed))
 		if a.has("gmenu"):
 			_battle.toggle_menu()
+		if a.has("gunit"):      # 점검용 —— --gunit=A0 : 3초 뒤 전투장수창
+			await get_tree().create_timer(3.0).timeout
+			battle_unit_sheet(str(a.gunit))
 		if a.has("gcam"):       # 점검용 카메라 —— 거리:높이각
 			var cv: PackedStringArray = str(a.gcam).split(":")
 			await get_tree().create_timer(4.0).timeout
