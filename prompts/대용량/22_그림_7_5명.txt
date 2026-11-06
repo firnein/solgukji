@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 주연) [SPEARMAN] Zhu Ran, Wu general who held Jiangling, spear lowered in a tight wedge formation.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, lean sharp face, thin mustache, red lacquered helmet.
    FACE: lean sharp face, thin mustache, focused narrow eyes, firm mouth.
    SPLENDOR: FINE.
+   SCENE: holding Jiangling for months with a tight wedge of spearmen on the walls.
    SHOT: low angle looking up, heroic stance.
    LIGHT: golden autumn leaves, ochre and rust.
 2. (card: 왕쌍) [SPEARMAN] Wang Shuang, fierce Wei champion swinging a huge saber and a meteor hammer on a chain.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 30s, huge brutish man, thick black beard, wild eyes, heavy helmet.
    FACE: big brutish man, thick black beard, wild bulging eyes, snarling mouth.
    SPLENDOR: FINE.
+   SCENE: swinging a meteor hammer on a chain at the gates of Chencang.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: spring peach blossoms, pink petals and soft green.
 3. (card: 조홍) [CAVALRY] Cao Hong, Cao Cao's cousin who gave his horse to save him, mounted with a spear.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, hearty broad face, short thick beard, iron helmet.
    FACE: hearty broad face, short thick beard, loyal earnest eyes, wide grin.
    SPLENDOR: FINE.
+   SCENE: giving his horse to Cao Cao in the burning retreat at Xingyang.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: moonlit night, deep indigo and silver.
 4. (card: 한수) [CAVALRY] Han Sui, wily old Liang warlord riding with Ma Chao's western cavalry.
    FACTION: independent warlord, own colors.
+   LOOK: 60s, sly old face, long grey beard, cheek scar, fur-trimmed western cap.
    FACE: old sly face, long grey beard, cunning half-closed eyes, scar on the cheek.
    SPLENDOR: FINE.
+   SCENE: riding beside Ma Chao's western cavalry at Tong Pass.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
 5. (card: 진무) [ARCHER] Chen Wu, loyal Wu officer drawing a heavy bow from a river boat.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 30s, tanned rugged face, short beard, red headscarf.
    FACE: tanned rugged face, short beard, steady eyes, strong jaw.
    SPLENDOR: FINE.
+   SCENE: drawing a heavy bow from a river boat at Ruxu.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: snowy winter, white and icy blue.

@@ -39,19 +39,22 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 2 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 능조) [SPEARMAN] Ling Cao, Wu officer and father of Ling Tong (now a spearman) with a long spear on a river bank.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, lean, thin mustache, bold eyes, red helmet.
    FACE: lean middle-aged man, thin mustache, bold forward-leaning eyes.
    SPLENDOR: PLAIN.
+   SCENE: charging a river bank at Xiakou with a long spear ahead of his men.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: misty river morning, silver and jade.
 2. (card: 마충) [ARCHER] Ma Zhong, Wu officer who captured Guan Yu (now an archer) drawing a bow, a coiled rope at his belt.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, coarse square face, heavy brows, scruffy beard, red headscarf.
    FACE: coarse square face, heavy brows, scruffy beard, cunning narrow eyes.
    SPLENDOR: PLAIN.
+   SCENE: drawing a bow on the Maicheng road, coiled rope at his belt.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: golden autumn leaves, ochre and rust.

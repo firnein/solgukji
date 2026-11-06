@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 길평) [SORCERER] Ji Ping, imperial physician mixing a secret poison into medicine, faint green vapor.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, thin face, tight lips, nervous eyes, physician's cap.
    FACE: thin middle-aged face, tight lips, nervous determined eyes, physician cap.
    SPLENDOR: FINE.
+   SCENE: mixing poison into medicine by candlelight in the imperial infirmary.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: golden autumn leaves, ochre and rust.
 2. (card: 이의) [SORCERER] Li Yi, hermit seer of Shu drawing omens on paper, faint glowing brushstrokes.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: very old hermit, long white eyebrows, bald crown, serene eyes.
    FACE: very old hermit, long white eyebrows, serene distant eyes, bald crown.
    SPLENDOR: FINE.
+   SCENE: drawing omens on paper in a mountain hut, brushstrokes glowing faintly.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: spring peach blossoms, pink petals and soft green.
 3. (card: 이유) [SCHEMER] Li Ru, Dong Zhuo's ruthless schemer offering a cup of poisoned wine.
    FACTION: independent warlord, own colors.
+   LOOK: 30s, thin sharp face, pointed beard, cold eyes, dark official's cap.
    FACE: thin sharp face, pointed beard, cold calculating eyes, sly smile.
    SPLENDOR: FINE.
+   SCENE: offering a cup of poisoned wine in the deposed emperor's chamber.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: moonlit night, deep indigo and silver.
 4. (card: 악진) [ROGUE] Yue Jin, small but fierce Wei raider (now a rogue) sprinting with twin short sabers, light lamellar, first to scale the walls.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 30s, short stocky, sharp narrow eyes, short beard, light helmet.
    FACE: short stocky man, sharp narrow eyes, short beard, eager fierce grin.
    SPLENDOR: PLAIN.
+   SCENE: first over the walls at Nanpi with twin sabers, ladder behind him.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 5. (card: 요화) [SPEARMAN] Liao Hua, long-serving Shu veteran (now a spearman) planted with a long spear, old-fashioned armor.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 50s, weathered loyal face, grey-streaked beard, old-fashioned helmet.
    FACE: weathered loyal face, grey-streaked beard, steady patient eyes.
    SPLENDOR: PLAIN.
+   SCENE: standing guard with a long spear on the Shu frontier at dusk.
    SHOT: low angle looking up, heroic stance.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.

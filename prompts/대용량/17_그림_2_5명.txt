@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 한당) [CAVALRY] Han Dang, veteran Wu cavalry officer since the days of Sun Jian, riding with a curved saber.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: old, grey braided beard, deep wrinkles, worn red helmet.
    FACE: old grizzled warrior, grey braided beard, deep wrinkles, one squinting eye, stern grin.
    SPLENDOR: PLAIN.
+   SCENE: charging across the Yangtze bank beside Sun Jian's old banners.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: snowy winter, white and icy blue.
 2. (card: 장흠) [ROGUE] Jiang Qin, former river pirate turned Wu officer, crouching on a boat rail with twin short blades.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 30s, wild shoulder-length hair, thin goatee, forearm tattoos.
    FACE: lean wiry man, wild shoulder-length hair tied loosely, thin goatee, cocky grin, tattooed forearms.
    SPLENDOR: PLAIN.
+   SCENE: crouching on the rail of a river pirate boat at dusk, blades drawn.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: midday desert glare, bleached sand and hard shadows.
 3. (card: 감택) [STRATEGIST] Kan Ze, poor scholar turned Wu strategist, carrying the fake surrender letter of Huang Gai, white feather fan.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, thin, sparse beard, patched scholar robe, cloth cap.
    FACE: thin bony face, big earnest eyes, sparse beard, patched robe, determined lips.
    SPLENDOR: PLAIN.
+   SCENE: delivering Huang Gai's fake surrender letter into Cao Cao's camp at night.
    SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 4. (card: 제갈근) [SCHOLAR] Zhuge Jin, gentle Wu diplomat (elder brother of Zhuge Liang) in a crimson scholar robe holding a diplomatic tablet.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 50s, long horse-like face, neat long beard, crimson scholar cap.
    FACE: long horse-like face, kind droopy eyes, neat long beard, warm patient smile.
    SPLENDOR: PLAIN.
+   SCENE: bowing as an envoy in a Shu audience hall, diplomatic tablet in hand.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 5. (card: 보즐) [SCHEMER] Bu Zhi, calm Wu administrator-schemer in a dark red high collar, moving a go stone.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, square composed face, trimmed beard, dark red official's cap.
    FACE: composed square face, trimmed short beard, half-lidded calculating eyes, faint smile.
    SPLENDOR: PLAIN.
+   SCENE: placing a go stone in a quiet Wu garden pavilion.
    SHOT: low angle looking up, heroic stance.
    LIGHT: misty river morning, silver and jade.

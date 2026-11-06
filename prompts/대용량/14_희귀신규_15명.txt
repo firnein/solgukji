@@ -39,97 +39,126 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 15 characters: 4 columns x 4 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 장패) [ROGUE] Zang Ba, former Taishan bandit chief turned Wei general, swinging twin axes.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 30s, shaved head, burly, broken nose, bandit headband.
    FACE: burly bearded bandit with a shaved head, broken nose, fierce toothy grin.
    SPLENDOR: FINE.
+   SCENE: swinging twin axes on the rocky slopes of Mount Tai.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
 2. (card: 엄안) [ARCHER] Yan Yan, old Shu veteran archer drawing a great bow despite his age.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: very old, long white beard and eyebrows, deep wrinkles, old iron helmet.
    FACE: very old man with long white beard and eyebrows, deep wrinkles, fierce youthful eyes.
    SPLENDOR: FINE.
+   SCENE: the old general of Ba commanding the wall at Jiangzhou, bow drawn.
    SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
    LIGHT: snowy winter, white and icy blue.
 3. (card: 장포) [ROGUE] Zhang Bao, son of Zhang Fei, quick raider with a serpent spear held low, light armor.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: young, round fierce eyes, thick brows, short stubble, green headscarf.
    FACE: young man with round fierce eyes and thick brows like his father, short stubble, wide grin.
    SPLENDOR: FINE.
+   SCENE: charging down from Hanzhong with his father's serpent spear.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: midday desert glare, bleached sand and hard shadows.
 4. (card: 맹달) [SCHEMER] Meng Da, twice-turned defector in a dark green robe, hiding a letter behind his back.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, handsome shifty face, thin mustache, dark green official's hood.
    FACE: handsome but shifty face, darting eyes, thin mustache, nervous smile.
    SPLENDOR: FINE.
+   SCENE: hiding a secret letter behind his back in the fortress of Shangyong.
    SHOT: low angle looking up, heroic stance.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 5. (card: 반장) [CAVALRY] Pan Zhang, Wu officer who captured Guan Yu at Maicheng, riding with a rope lasso and a saber.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, coarse face, heavy brow, scruffy beard, gold earring, red helmet.
    FACE: rough coarse face, heavy brow, scruffy beard, greedy grin, gold earring.
    SPLENDOR: FINE.
+   SCENE: tightening a rope lasso on the Maicheng road at night.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 6. (card: 제갈각) [STRATEGIST] Zhuge Ke, brilliant arrogant young Wu strategist at the Battle of Dongxing, white feather fan pointed forward.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: young, high forehead, confident smirk, crimson scholar cap.
    FACE: young sharp-featured face, high forehead, confident smirk, quick bright eyes.
    SPLENDOR: FINE.
+   SCENE: directing the ambush at Dongxing on a snowy embankment, fan pointed forward.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: misty river morning, silver and jade.
 7. (card: 우번) [SORCERER] Yu Fan, blunt Wu scholar of the Book of Changes, casting yarrow stalks with glowing trigrams.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 60s, gaunt, wild grey hair, scowling brows, no cap.
    FACE: gaunt elderly face, wild grey hair, scowling brows, mouth open mid-rant.
    SPLENDOR: FINE.
+   SCENE: casting yarrow stalks on a river boat, trigrams glowing over the water.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 8. (card: 여범) [SCHEMER] Lu Fan, Wu treasurer-schemer in rich crimson silk, counting gold on an abacus.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, well-fed smiling face, neat mustache, rich silk cap.
    FACE: well-fed smiling face, neat mustache, shrewd narrow eyes, rosy cheeks.
    SPLENDOR: FINE.
+   SCENE: counting gold on an abacus in a Wu treasury.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: golden autumn leaves, ochre and rust.
 9. (card: 고람) [SPEARMAN] Gao Lan, heavy general of Yuan Shao with a long halberd and a tower shield.
    FACTION: independent warlord, own colors.
+   LOOK: 40s, wide flat face, short thick beard, heavy helmet and tower shield.
    FACE: stocky man, wide flat face, short thick beard, steady unimpressed eyes.
    SPLENDOR: FINE.
+   SCENE: holding the line at Guandu behind a wall of shields.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: spring peach blossoms, pink petals and soft green.
 10. (card: 황조) [ARCHER] Huang Zu, Jiangxia commander whose archers shot Sun Jian, aiming from behind a river wall.
    FACTION: independent warlord, own colors.
+   LOOK: 50s, heavy jowls, droopy mustache, old bronze helmet.
    FACE: aging heavy-jowled face, droopy mustache, cruel narrowed eyes, sneer.
    SPLENDOR: FINE.
+   SCENE: ordering archers from behind the river wall at Jiangxia as a lord falls below.
    SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
    LIGHT: moonlit night, deep indigo and silver.
 11. (card: 장만성) [ROGUE] Zhang Mancheng, Yellow Turban rebel leader with a yellow headband and a curved blade.
    FACTION: independent warlord, own colors.
+   LOOK: 30s, rough peasant face, ragged beard, yellow headband.
    FACE: wild-eyed rough peasant face, yellow headband, ragged beard, shouting mouth.
    SPLENDOR: FINE.
+   SCENE: leading torch-bearing rebels through the fields of Nanyang at night.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
 12. (card: 관흥) [SPEARMAN] Guan Xing, young son of Guan Yu carrying his father's green dragon spirit, long glaive, green headscarf.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: young, long dignified face, phoenix eyes, thin first beard, green headscarf.
    FACE: young man with a long dignified face like his father, sharp phoenix eyes, thin first beard, earnest frown.
    SPLENDOR: FINE.
+   SCENE: carrying his father's green dragon glaive at the river crossing of Yiling.
    SHOT: low angle looking up, heroic stance.
    LIGHT: snowy winter, white and icy blue.
 13. (card: 오반) [CAVALRY] Wu Ban, Shu cavalry officer charging with a spear in the Yiling campaign.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 40s, square jaw, short thick beard, iron helmet.
    FACE: square-jawed middle-aged man, short thick beard, bold wide eyes, battle-worn cheeks.
    SPLENDOR: FINE.
+   SCENE: charging with a spear through the burning camps of Yiling.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: midday desert glare, bleached sand and hard shadows.
 14. (card: 비의) [SCHOLAR] Fei Yi, calm Shu chancellor reading memorials while playing go, scholar robe and hat.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 40s, mild round face, neat short beard, scholar cap.
    FACE: mild round face, gentle smiling eyes, neat short beard, relaxed easy smile.
    SPLENDOR: FINE.
+   SCENE: reading memorials while playing go in the Chengdu chancellery.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 15. (card: 공융) [SCHOLAR] Kong Rong, descendant of Confucius, offering the biggest pear to his brother, scholar robe.
    FACTION: independent warlord, own colors.
+   LOOK: 60s, refined face, long white beard, high scholar cap.
    FACE: refined elderly face, long white beard, gentle proud eyes, faint smile.
    SPLENDOR: FINE.
+   SCENE: offering the biggest pear to his elder brother under a courtyard pear tree.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.

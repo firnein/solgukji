@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 우번) [SORCERER] Yu Fan, blunt Wu scholar of the Book of Changes, casting yarrow stalks with glowing trigrams.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 60s, gaunt, wild grey hair, scowling brows, no cap.
    FACE: gaunt elderly face, wild grey hair, scowling brows, mouth open mid-rant.
    SPLENDOR: FINE.
+   SCENE: casting yarrow stalks on a river boat, trigrams glowing over the water.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 2. (card: 여범) [SCHEMER] Lu Fan, Wu treasurer-schemer in rich crimson silk, counting gold on an abacus.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, well-fed smiling face, neat mustache, rich silk cap.
    FACE: well-fed smiling face, neat mustache, shrewd narrow eyes, rosy cheeks.
    SPLENDOR: FINE.
+   SCENE: counting gold on an abacus in a Wu treasury.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: golden autumn leaves, ochre and rust.
 3. (card: 고람) [SPEARMAN] Gao Lan, heavy general of Yuan Shao with a long halberd and a tower shield.
    FACTION: independent warlord, own colors.
+   LOOK: 40s, wide flat face, short thick beard, heavy helmet and tower shield.
    FACE: stocky man, wide flat face, short thick beard, steady unimpressed eyes.
    SPLENDOR: FINE.
+   SCENE: holding the line at Guandu behind a wall of shields.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: spring peach blossoms, pink petals and soft green.
 4. (card: 황조) [ARCHER] Huang Zu, Jiangxia commander whose archers shot Sun Jian, aiming from behind a river wall.
    FACTION: independent warlord, own colors.
+   LOOK: 50s, heavy jowls, droopy mustache, old bronze helmet.
    FACE: aging heavy-jowled face, droopy mustache, cruel narrowed eyes, sneer.
    SPLENDOR: FINE.
+   SCENE: ordering archers from behind the river wall at Jiangxia as a lord falls below.
    SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
    LIGHT: moonlit night, deep indigo and silver.
 5. (card: 장만성) [ROGUE] Zhang Mancheng, Yellow Turban rebel leader with a yellow headband and a curved blade.
    FACTION: independent warlord, own colors.
+   LOOK: 30s, rough peasant face, ragged beard, yellow headband.
    FACE: wild-eyed rough peasant face, yellow headband, ragged beard, shouting mouth.
    SPLENDOR: FINE.
+   SCENE: leading torch-bearing rebels through the fields of Nanyang at night.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.

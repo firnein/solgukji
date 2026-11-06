@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 주건평) [SORCERER] Zhu Jianping, Wei physiognomist reading faces, holding a bamboo divination slip, faint glowing eyes.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: elderly, long wispy white goatee, plain dark scholar cap.
    FACE: thin elderly man, long wispy white goatee, squinting knowing eyes, hollow cheeks, mysterious smile.
    SPLENDOR: PLAIN.
+   SCENE: reading the fortune in Cao Pi's face at a quiet Wei court banquet, divination slips on the table.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 2. (card: 동소) [SCHEMER] Dong Zhao, Wei court schemer in a navy high-collared robe, sealing a secret memorial with a jade seal.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: middle-aged, plump, thin mustache, tall official's cap.
    FACE: plump middle-aged face, small sly eyes, thin mustache, double chin, smug closed-mouth smile.
    SPLENDOR: PLAIN.
+   SCENE: sealing a secret memorial by lamplight in a Wei ministry office.
    SHOT: low angle looking up, heroic stance.
    LIGHT: golden autumn leaves, ochre and rust.
 3. (card: 오의) [CAVALRY] Wu Yi, Shu cavalry general (brother-in-law of Liu Bei) on horseback holding a lance.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: middle-aged, full black beard, iron helmet with a short plume.
    FACE: broad-faced middle-aged man, full black beard, calm steady eyes, sturdy build.
    SPLENDOR: PLAIN.
+   SCENE: riding at the head of Shu cavalry across the Hanzhong plain.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: spring peach blossoms, pink petals and soft green.
 4. (card: 왕평) [ARCHER] Wang Ping, illiterate but sharp Shu general of the Wudang Flying Army, drawing a crossbow, mountain tribal cloak.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 40s, short spiky beard, chin scar, mountain tribal headcloth.
    FACE: weathered rugged face, short spiky beard, narrowed vigilant eyes, scar on the chin, tanned skin.
    SPLENDOR: PLAIN.
+   SCENE: holding the camp at Jieting with crossbows while Ma Su's hill falls behind him.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: moonlit night, deep indigo and silver.
 5. (card: 마속) [SCHEMER] Ma Su, proud young Shu strategist pointing at a hilltop map with overconfidence, scroll in hand.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: young, thin mustache, sharp eyebrows, silk scholar hood.
    FACE: young narrow handsome man with arrogant raised chin, thin mustache, sharp eyebrows, haughty smirk.
    SPLENDOR: PLAIN.
+   SCENE: pointing proudly at a hilltop camp at Jieting, ignoring the water below.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.

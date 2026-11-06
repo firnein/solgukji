@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 엄안) [ARCHER] Yan Yan, old Shu veteran archer drawing a great bow despite his age.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: very old, long white beard and eyebrows, deep wrinkles, old iron helmet.
    FACE: very old man with long white beard and eyebrows, deep wrinkles, fierce youthful eyes.
    SPLENDOR: FINE.
+   SCENE: the old general of Ba commanding the wall at Jiangzhou, bow drawn.
    SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
    LIGHT: snowy winter, white and icy blue.
 2. (card: 장포) [ROGUE] Zhang Bao, son of Zhang Fei, quick raider with a serpent spear held low, light armor.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: young, round fierce eyes, thick brows, short stubble, green headscarf.
    FACE: young man with round fierce eyes and thick brows like his father, short stubble, wide grin.
    SPLENDOR: FINE.
+   SCENE: charging down from Hanzhong with his father's serpent spear.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: midday desert glare, bleached sand and hard shadows.
 3. (card: 맹달) [SCHEMER] Meng Da, twice-turned defector in a dark green robe, hiding a letter behind his back.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 30s, handsome shifty face, thin mustache, dark green official's hood.
    FACE: handsome but shifty face, darting eyes, thin mustache, nervous smile.
    SPLENDOR: FINE.
+   SCENE: hiding a secret letter behind his back in the fortress of Shangyong.
    SHOT: low angle looking up, heroic stance.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 4. (card: 반장) [CAVALRY] Pan Zhang, Wu officer who captured Guan Yu at Maicheng, riding with a rope lasso and a saber.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, coarse face, heavy brow, scruffy beard, gold earring, red helmet.
    FACE: rough coarse face, heavy brow, scruffy beard, greedy grin, gold earring.
    SPLENDOR: FINE.
+   SCENE: tightening a rope lasso on the Maicheng road at night.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 5. (card: 제갈각) [STRATEGIST] Zhuge Ke, brilliant arrogant young Wu strategist at the Battle of Dongxing, white feather fan pointed forward.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: young, high forehead, confident smirk, crimson scholar cap.
    FACE: young sharp-featured face, high forehead, confident smirk, quick bright eyes.
    SPLENDOR: FINE.
+   SCENE: directing the ambush at Dongxing on a snowy embankment, fan pointed forward.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: misty river morning, silver and jade.

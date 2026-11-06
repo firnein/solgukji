@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 기령) [SPEARMAN] Ji Ling, heavy general of Yuan Shu wielding a huge three-pointed blade halberd.
    FACTION: independent warlord, own colors.
+   LOOK: huge, bushy unkempt beard, flat nose, heavy iron helmet.
    FACE: huge brutish man, thick neck, bushy unkempt beard, flat nose, glaring eyes.
    SPLENDOR: PLAIN.
+   SCENE: swinging a three-pointed halberd at the gates of Xuzhou against Lu Bu's camp.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 2. (card: 장임) [ARCHER] Zhang Ren, loyal Yi province general setting the ambush at Fallen Phoenix Slope, drawing a longbow.
    FACTION: independent warlord, own colors.
+   LOOK: 40s, thin straight beard, cold eyes, plain leather cap.
    FACE: stern middle-aged face, thin straight beard, cold focused eyes, set jaw.
    SPLENDOR: PLAIN.
+   SCENE: setting the ambush at Fallen Phoenix Slope, bows drawn in the bamboo.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: golden autumn leaves, ochre and rust.
 3. (card: 허유) [STRATEGIST] Xu You, arrogant defector strategist pointing smugly, holding a map of the Wuchao granary.
    FACTION: independent warlord, own colors.
+   LOOK: middle-aged, long thin curling mustache, crooked smirk, loose scholar hood.
    FACE: gaunt sly face, long thin mustache curling at the ends, crooked smirk, raised eyebrow.
    SPLENDOR: PLAIN.
+   SCENE: pointing smugly at a map of the Wuchao granary in Cao Cao's tent.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: spring peach blossoms, pink petals and soft green.
 4. (card: 진림) [SCHOLAR] Chen Lin, famous writer of the war proclamation, brush in hand, long scroll of fiery text.
    FACTION: independent warlord, own colors.
+   LOOK: 40s, intense bookish face, thin beard, ink-stained fingers, scholar cap.
    FACE: intense bookish man, ink-stained fingers, thin beard, burning eyes, open mouth mid-recital.
    SPLENDOR: PLAIN.
+   SCENE: reciting the fiery proclamation against Cao Cao with a long scroll unrolled.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: moonlit night, deep indigo and silver.
 5. (card: 장패) [ROGUE] Zang Ba, former Taishan bandit chief turned Wei general, swinging twin axes.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 30s, shaved head, burly, broken nose, bandit headband.
    FACE: burly bearded bandit with a shaved head, broken nose, fierce toothy grin.
    SPLENDOR: FINE.
+   SCENE: swinging twin axes on the rocky slopes of Mount Tai.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.

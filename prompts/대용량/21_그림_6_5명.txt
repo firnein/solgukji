@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 관흥) [SPEARMAN] Guan Xing, young son of Guan Yu carrying his father's green dragon spirit, long glaive, green headscarf.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: young, long dignified face, phoenix eyes, thin first beard, green headscarf.
    FACE: young man with a long dignified face like his father, sharp phoenix eyes, thin first beard, earnest frown.
    SPLENDOR: FINE.
+   SCENE: carrying his father's green dragon glaive at the river crossing of Yiling.
    SHOT: low angle looking up, heroic stance.
    LIGHT: snowy winter, white and icy blue.
 2. (card: 오반) [CAVALRY] Wu Ban, Shu cavalry officer charging with a spear in the Yiling campaign.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 40s, square jaw, short thick beard, iron helmet.
    FACE: square-jawed middle-aged man, short thick beard, bold wide eyes, battle-worn cheeks.
    SPLENDOR: FINE.
+   SCENE: charging with a spear through the burning camps of Yiling.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: midday desert glare, bleached sand and hard shadows.
 3. (card: 비의) [SCHOLAR] Fei Yi, calm Shu chancellor reading memorials while playing go, scholar robe and hat.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 40s, mild round face, neat short beard, scholar cap.
    FACE: mild round face, gentle smiling eyes, neat short beard, relaxed easy smile.
    SPLENDOR: FINE.
+   SCENE: reading memorials while playing go in the Chengdu chancellery.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 4. (card: 공융) [SCHOLAR] Kong Rong, descendant of Confucius, offering the biggest pear to his brother, scholar robe.
    FACTION: independent warlord, own colors.
+   LOOK: 60s, refined face, long white beard, high scholar cap.
    FACE: refined elderly face, long white beard, gentle proud eyes, faint smile.
    SPLENDOR: FINE.
+   SCENE: offering the biggest pear to his elder brother under a courtyard pear tree.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 5. (card: 문빙) [SPEARMAN] Wen Pin, steadfast Wei general guarding Jiangling, long spear planted, river fortress behind.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, square weathered face, heavy brows, short beard, iron helmet.
    FACE: square weathered face, heavy brows, short beard, calm stubborn eyes.
    SPLENDOR: FINE.
+   SCENE: holding the river fortress of Jiangling against a siege.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: pale dawn, cool blue-grey and soft pink.

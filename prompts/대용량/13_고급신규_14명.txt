@@ -39,91 +39,118 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 14 characters: 4 columns x 4 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 주건평) [SORCERER] Zhu Jianping, Wei physiognomist reading faces, holding a bamboo divination slip, faint glowing eyes.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: elderly, long wispy white goatee, plain dark scholar cap.
    FACE: thin elderly man, long wispy white goatee, squinting knowing eyes, hollow cheeks, mysterious smile.
    SPLENDOR: PLAIN.
+   SCENE: reading the fortune in Cao Pi's face at a quiet Wei court banquet, divination slips on the table.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 2. (card: 동소) [SCHEMER] Dong Zhao, Wei court schemer in a navy high-collared robe, sealing a secret memorial with a jade seal.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: middle-aged, plump, thin mustache, tall official's cap.
    FACE: plump middle-aged face, small sly eyes, thin mustache, double chin, smug closed-mouth smile.
    SPLENDOR: PLAIN.
+   SCENE: sealing a secret memorial by lamplight in a Wei ministry office.
    SHOT: low angle looking up, heroic stance.
    LIGHT: golden autumn leaves, ochre and rust.
 3. (card: 오의) [CAVALRY] Wu Yi, Shu cavalry general (brother-in-law of Liu Bei) on horseback holding a lance.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: middle-aged, full black beard, iron helmet with a short plume.
    FACE: broad-faced middle-aged man, full black beard, calm steady eyes, sturdy build.
    SPLENDOR: PLAIN.
+   SCENE: riding at the head of Shu cavalry across the Hanzhong plain.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: spring peach blossoms, pink petals and soft green.
 4. (card: 왕평) [ARCHER] Wang Ping, illiterate but sharp Shu general of the Wudang Flying Army, drawing a crossbow, mountain tribal cloak.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 40s, short spiky beard, chin scar, mountain tribal headcloth.
    FACE: weathered rugged face, short spiky beard, narrowed vigilant eyes, scar on the chin, tanned skin.
    SPLENDOR: PLAIN.
+   SCENE: holding the camp at Jieting with crossbows while Ma Su's hill falls behind him.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: moonlit night, deep indigo and silver.
 5. (card: 마속) [SCHEMER] Ma Su, proud young Shu strategist pointing at a hilltop map with overconfidence, scroll in hand.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: young, thin mustache, sharp eyebrows, silk scholar hood.
    FACE: young narrow handsome man with arrogant raised chin, thin mustache, sharp eyebrows, haughty smirk.
    SPLENDOR: PLAIN.
+   SCENE: pointing proudly at a hilltop camp at Jieting, ignoring the water below.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: heavy rain storm, dark teal, flashes of lightning.
 6. (card: 한당) [CAVALRY] Han Dang, veteran Wu cavalry officer since the days of Sun Jian, riding with a curved saber.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: old, grey braided beard, deep wrinkles, worn red helmet.
    FACE: old grizzled warrior, grey braided beard, deep wrinkles, one squinting eye, stern grin.
    SPLENDOR: PLAIN.
+   SCENE: charging across the Yangtze bank beside Sun Jian's old banners.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: snowy winter, white and icy blue.
 7. (card: 장흠) [ROGUE] Jiang Qin, former river pirate turned Wu officer, crouching on a boat rail with twin short blades.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 30s, wild shoulder-length hair, thin goatee, forearm tattoos.
    FACE: lean wiry man, wild shoulder-length hair tied loosely, thin goatee, cocky grin, tattooed forearms.
    SPLENDOR: PLAIN.
+   SCENE: crouching on the rail of a river pirate boat at dusk, blades drawn.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: midday desert glare, bleached sand and hard shadows.
 8. (card: 감택) [STRATEGIST] Kan Ze, poor scholar turned Wu strategist, carrying the fake surrender letter of Huang Gai, white feather fan.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, thin, sparse beard, patched scholar robe, cloth cap.
    FACE: thin bony face, big earnest eyes, sparse beard, patched robe, determined lips.
    SPLENDOR: PLAIN.
+   SCENE: delivering Huang Gai's fake surrender letter into Cao Cao's camp at night.
    SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 9. (card: 제갈근) [SCHOLAR] Zhuge Jin, gentle Wu diplomat (elder brother of Zhuge Liang) in a crimson scholar robe holding a diplomatic tablet.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 50s, long horse-like face, neat long beard, crimson scholar cap.
    FACE: long horse-like face, kind droopy eyes, neat long beard, warm patient smile.
    SPLENDOR: PLAIN.
+   SCENE: bowing as an envoy in a Shu audience hall, diplomatic tablet in hand.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 10. (card: 보즐) [SCHEMER] Bu Zhi, calm Wu administrator-schemer in a dark red high collar, moving a go stone.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, square composed face, trimmed beard, dark red official's cap.
    FACE: composed square face, trimmed short beard, half-lidded calculating eyes, faint smile.
    SPLENDOR: PLAIN.
+   SCENE: placing a go stone in a quiet Wu garden pavilion.
    SHOT: low angle looking up, heroic stance.
    LIGHT: misty river morning, silver and jade.
 11. (card: 기령) [SPEARMAN] Ji Ling, heavy general of Yuan Shu wielding a huge three-pointed blade halberd.
    FACTION: independent warlord, own colors.
+   LOOK: huge, bushy unkempt beard, flat nose, heavy iron helmet.
    FACE: huge brutish man, thick neck, bushy unkempt beard, flat nose, glaring eyes.
    SPLENDOR: PLAIN.
+   SCENE: swinging a three-pointed halberd at the gates of Xuzhou against Lu Bu's camp.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: pale dawn, cool blue-grey and soft pink.
 12. (card: 장임) [ARCHER] Zhang Ren, loyal Yi province general setting the ambush at Fallen Phoenix Slope, drawing a longbow.
    FACTION: independent warlord, own colors.
+   LOOK: 40s, thin straight beard, cold eyes, plain leather cap.
    FACE: stern middle-aged face, thin straight beard, cold focused eyes, set jaw.
    SPLENDOR: PLAIN.
+   SCENE: setting the ambush at Fallen Phoenix Slope, bows drawn in the bamboo.
    SHOT: over-the-shoulder glance back at the viewer.
    LIGHT: golden autumn leaves, ochre and rust.
 13. (card: 허유) [STRATEGIST] Xu You, arrogant defector strategist pointing smugly, holding a map of the Wuchao granary.
    FACTION: independent warlord, own colors.
+   LOOK: middle-aged, long thin curling mustache, crooked smirk, loose scholar hood.
    FACE: gaunt sly face, long thin mustache curling at the ends, crooked smirk, raised eyebrow.
    SPLENDOR: PLAIN.
+   SCENE: pointing smugly at a map of the Wuchao granary in Cao Cao's tent.
    SHOT: close framing, a few foreground objects only at the panel edges, face fully visible.
    LIGHT: spring peach blossoms, pink petals and soft green.
 14. (card: 진림) [SCHOLAR] Chen Lin, famous writer of the war proclamation, brush in hand, long scroll of fiery text.
    FACTION: independent warlord, own colors.
+   LOOK: 40s, intense bookish face, thin beard, ink-stained fingers, scholar cap.
    FACE: intense bookish man, ink-stained fingers, thin beard, burning eyes, open mouth mid-recital.
    SPLENDOR: PLAIN.
+   SCENE: reciting the fiery proclamation against Cao Cao with a long scroll unrolled.
    SHOT: quiet seated or kneeling moment, calm body, 3/4 view.
    LIGHT: moonlit night, deep indigo and silver.

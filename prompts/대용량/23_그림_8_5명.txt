@@ -39,37 +39,46 @@ SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer g
 ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
 Do not draw the bracket tags, ★ marks or line labels as text.
 
-
 Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
 Banner under each panel: only its number.
 
 1. (card: 하제) [ARCHER] He Qi, Wu general who pacified the Shanyue hills, aiming a crossbow in bright armor.
    FACTION: Wu colors: crimson, red, orange and gold.
+   LOOK: 40s, proud handsome face, neat mustache, richly gilded helmet.
    FACE: proud handsome middle-aged face, neat mustache, confident smirk, rich gilded armor.
    SPLENDOR: FINE.
+   SCENE: pacifying the Shanyue hills in bright gilded armor, crossbow raised.
    SHOT: slight high angle, half-body, looking up at the viewer.
    LIGHT: midday desert glare, bleached sand and hard shadows.
 2. (card: 이각) [ROGUE] Li Jue, Dong Zhuo's brutal remnant general looting Chang'an, curved blade and torch.
    FACTION: independent warlord, own colors.
+   LOOK: 40s, cruel coarse face, scraggly beard, crooked teeth, dented helmet.
    FACE: cruel coarse face, scraggly beard, greedy narrow eyes, crooked teeth.
    SPLENDOR: FINE.
+   SCENE: looting Chang'an by torchlight with Dong Zhuo's remnant troops.
    SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
    LIGHT: blazing sunset backlight, orange rim light, long shadows.
 3. (card: 황권) [STRATEGIST] Huang Quan, cautious Shu advisor holding a map of Yi province, feather fan lowered.
    FACTION: Shu colors: green, jade and earthy gold.
+   LOOK: 40s, serious long face, neat black beard, scholar cap.
    FACE: serious long face, neat black beard, thoughtful worried brows.
    SPLENDOR: FINE.
+   SCENE: studying a map of Yi province in a Chengdu hall, fan lowered.
    SHOT: 3/4 view, mid-stride, weight on the front foot.
    LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
 4. (card: 순유) [STRATEGIST] Xun You, Cao Cao's quiet military planner pointing at a flooded city plan.
    FACTION: Wei colors: navy, deep blue and steel with silver.
+   LOOK: 40s, calm gentle face, thin beard, modest eyes, scholar cap.
    FACE: calm gentle face, thin beard, modest downcast eyes, faint smile.
    SPLENDOR: FINE.
+   SCENE: pointing at a plan to flood Xiapi in Cao Cao's tent.
    SHOT: low angle looking up, heroic stance.
    LIGHT: misty river morning, silver and jade.
 5. (card: 도겸) [SCHOLAR] Tao Qian, elderly governor of Xu province offering his seal to Liu Bei.
    FACTION: independent warlord, own colors.
+   LOOK: 70s, frail kind face, long white beard, tall governor's cap.
    FACE: frail kind old face, long white beard, tired gentle eyes.
    SPLENDOR: FINE.
+   SCENE: offering the seal of Xu province to Liu Bei in a sickbed hall.
    SHOT: side profile, face clearly lit and large in frame.
    LIGHT: pale dawn, cool blue-grey and soft pink.
