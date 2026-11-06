@@ -730,6 +730,13 @@ func stagger(clock: float, rng: RandomNumberGenerator) -> void:
 			s.hit_t = clock + rng.randf() * 0.2
 
 
+## 명세 3단계: 고유기에 맞은 부대 —— 앞줄부터 줄마다 0.05초씩 늦게 전원이 움찔 (파동처럼 밀린다)
+func knock_wave(clock: float, rng: RandomNumberGenerator, per_rank := 0.05) -> void:
+	for s in soldiers:
+		if s.alive:
+			s.hit_t = clock + (s.slot / cols) * per_rank + rng.randf() * 0.03
+
+
 func rout(clock: float, rng: RandomNumberGenerator) -> void:
 	alive = false
 	engaged = null

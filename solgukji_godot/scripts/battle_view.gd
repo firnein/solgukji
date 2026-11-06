@@ -1571,10 +1571,10 @@ class Hud extends Control:
 
 	## 고유기 섬광 —— 화면 전체가 그 빛으로 번쩍였다가 0.35초에 걸쳐 걷힌다
 	var _flash_k := 1.0
-	func flash(col: Color) -> void:
+	func flash(col: Color, big := false) -> void:
 		_flash = col
 		_flash_t = 0.0
-		_flash_k = 0.22 if view.field.flat != null else 1.0      # 11/6 타입2: 번쩍임을 옅은 물듦으로
+		_flash_k = (0.5 if big else 0.22) if view.field.flat != null else 1.0      # 11/6 타입2: 번쩍임을 옅은 물듦으로. 고유기 폭발(big)은 세게 (명세 3단계)
 
 	func announce(text: String, col: Color) -> void:
 		ann = {"text": text, "col": col, "t": 0.0}

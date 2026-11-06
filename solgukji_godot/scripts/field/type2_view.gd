@@ -529,6 +529,10 @@ func fx_ult_charge(a: Squad, col: Color, magic: bool) -> void:
 	var ap := vis_c(a)
 	if a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:      # 적게 모드: 아군 고유기 · 적 신화 고유기만
 		focus(ap, 1.9, 1.6, 3)
+	# 명세 3단계 '예고': 화면 가장자리 비네트 + 시전자 둘레 고리가 조여든다
+	fx("vignette", ap, col, 2.6, 0.0, 0.0)
+	fx("inring", ap, col, 2.2, 0.0, 90.0)
+	fx("inring", ap, col, 2.2, 0.6, 70.0)
 	if magic:
 		fx("ring", ap, col, 0.9, 0.0, 40.0)
 		fx("ring", ap, col, 0.9, 0.25, 30.0)
@@ -550,26 +554,35 @@ func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> vo
 		if a == null or a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:
 			focus(cen / ds.size(), 1.6 if ds.size() > 2 else 1.85, 1.8, 3)
 		shake((9.0 if vfx in ["roar", "charge", "thunder", "whirlwind", "firestorm"] else 6.0) * (1.0 if Settings.cam_fx >= 2 else 0.6))
+	# 명세 3단계 '폭발': 한 프레임 강한 섬광, 연출은 화면 1/3 크기, 맞는 부대 전원이 앞줄부터 밀린다, 땅에 흔적 5초
+	if not ds.is_empty() and view != null and view.hud != null:
+		view.hud.flash(col, true)
+	for d: Squad in ds:
+		d.knock_wave(field.clock, field.rng)
 	for i in ds.size():
 		var d: Squad = ds[i]
 		var dp := vis_c(d)
+		fx("scar", dp, Color(0.1, 0.08, 0.06), 5.0, 0.3, 46.0)
 		match vfx:
 			"slash":
-				for j in 3:
-					fx("slash", vis_spot(d), col, 0.4, j * 0.1, 26.0, ap)
-				fx("burst", dp, col, 0.4, 0.0, 22.0)
+				for j in 5:
+					fx("slash", vis_spot(d), col, 0.5, j * 0.08, 70.0, ap)
+				fx("burst", dp, col, 0.5, 0.0, 90.0)
+				fx("shock", dp, col, 0.6, 0.0, 110.0)
 			"charge":
-				for j in 6:
-					fx("dust", ap.lerp(dp, (j + 1) / 7.0), Color("#b8a07a"), 1.0, j * 0.04, 16.0)
-				fx("ring", dp, col, 0.7, 0.25, 48.0)
+				for j in 10:
+					fx("dust", ap.lerp(dp, (j + 1) / 11.0), Color("#b8a07a"), 1.1, j * 0.03, 28.0)
+				fx("shock", dp, col, 0.7, 0.2, 130.0)
+				fx("burst", dp, Color("#fff2b0"), 0.4, 0.2, 60.0)
 			"firestorm":
-				for j in 3:
-					fx("fire", vis_spot(d), Color("#ff7a2a"), 6.0, j * 0.12, 13.0)
-				fx("ring", dp, col, 0.7, 0.0, 44.0)
+				for j in 5:
+					fx("fire", vis_spot(d), Color("#ff7a2a"), 6.0, j * 0.1, 22.0)
+				fx("pillar", dp, Color("#ff8a3c"), 0.9, 0.0, 120.0)
+				fx("shock", dp, Color("#ffb060"), 0.7, 0.0, 120.0)
 			"thunder":
-				for j in 8:
-					fx("bolt", vis_spot(d), col, 0.35, j * 0.11)
-				fx("ring", dp, col, 0.6, 0.0, 40.0)
+				for j in 12:
+					fx("bolt", vis_spot(d), col, 0.4, j * 0.07)
+				fx("shock", dp, col, 0.6, 0.0, 120.0)
 			"poison":
 				for j in 6:
 					fx("mist", vis_spot(d), col, 2.6, j * 0.4, 26.0)
@@ -589,8 +602,8 @@ func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> vo
 				fx("burst", dp, col, 0.45, 0.0, 30.0)
 				fx("dust", dp, Color("#b8a07a"), 1.0, 0.0, 24.0)
 			_:
-				fx("ring", dp, col, 0.6, 0.0, 40.0)
-				fx("burst", dp, col, 0.4, 0.0, 24.0)
+				fx("shock", dp, col, 0.6, 0.0, 110.0)
+				fx("burst", dp, col, 0.5, 0.0, 70.0)
 	if vfx in ["aura", "heal"]:
 		for k in allies:
 			if field.squads.has(k):
@@ -649,6 +662,27 @@ func _draw_fx(ci: CanvasItem) -> void:
 		var p: Vector2 = e.p
 		var sp := map(p)
 		match e.k:
+			"vignette":  # 고유기 예고 —— 화면 가장자리가 어두워지고 색이 물든다 (명세 3단계)
+				var al := sin(PI * u) * 0.55
+				var r := Rect2(Vector2.ZERO, size)
+				var th := size.y * 0.22
+				ci.draw_rect(Rect2(0, 0, size.x, th), Color(col.darkened(0.6), al), true)
+				ci.draw_rect(Rect2(0, size.y - th, size.x, th), Color(col.darkened(0.6), al), true)
+				ci.draw_rect(Rect2(0, 0, size.x * 0.12, size.y), Color(col.darkened(0.6), al * 0.8), true)
+				ci.draw_rect(Rect2(size.x * 0.88, 0, size.x * 0.12, size.y), Color(col.darkened(0.6), al * 0.8), true)
+			"inring":    # 조여드는 고리 (예고)
+				_ell(ci, p, e.r * (1.0 - 0.85 * ease(u, 0.6)), Color(col, 0.9 * u), 2.0 + 2.0 * u)
+			"shock":     # 충격파 —— 두 겹 고리가 크게 퍼진다 (폭발)
+				_ell(ci, p, e.r * ease(u, 0.3), Color(col, 0.8 * (1.0 - u)), 5.0 * (1.0 - u) + 1.5)
+				_ell(ci, p, e.r * 0.7 * ease(u, 0.3), Color(1, 1, 1, 0.6 * (1.0 - u)), 2.0)
+			"pillar":    # 불기둥 (화염 고유기)
+				var al := sin(PI * u)
+				var w: float = e.r * zs * 0.35 * (0.6 + 0.4 * u)
+				var h: float = e.r * zs * 1.6 * ease(clampf(u * 1.6, 0, 1), 0.4)
+				ci.draw_colored_polygon(PackedVector2Array([sp + Vector2(-w, 0), sp + Vector2(-w * 0.3, -h), sp + Vector2(w * 0.3, -h * 0.9), sp + Vector2(w, 0)]), Color(1.0, 0.45, 0.12, 0.75 * al))
+				ci.draw_colored_polygon(PackedVector2Array([sp + Vector2(-w * 0.5, 0), sp + Vector2(0, -h * 0.75), sp + Vector2(w * 0.5, 0)]), Color(1.0, 0.85, 0.4, 0.85 * al))
+			"scar":      # 땅 흔적 —— 검흔 · 그을음, 천천히 바랜다 (여운)
+				_ell(ci, p, e.r, Color(col, 0.35 * (1.0 - u)))
 			"ring":      # 퍼지는 고리
 				_ell(ci, p, e.r * (0.3 + 0.7 * ease(u, 0.4)), Color(col, 0.75 * (1.0 - u)), 2.5)
 			"burst":     # 사방으로 튀는 획
