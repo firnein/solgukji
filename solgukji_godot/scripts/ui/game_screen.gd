@@ -1718,7 +1718,9 @@ func card_info(k: String) -> void:
 		st.add_child(_fold_kv("card_aura", "[b][color=%s]%s[/color] 『%s』[/b]" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), DB.tier_color(k)))
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
-		st.add_child(_fold_kv("card_ult", "[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e")))
+		var ub := _fold_kv("card_ult", "[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e"))
+		_temper_line(ub, c, u)      # 11/7 기질 —— 접혀 있어도 보이게 머리줄 바로 아래
+		st.add_child(ub)
 	top.add_child(st)
 	b.add_child(top)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
@@ -1921,7 +1923,9 @@ func battle_unit_sheet(key: String) -> void:
 	# 고유기
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
-		b.add_child(_kv_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e"), 13))
+		var ub := _kv_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e"), 13)
+		_temper_line(ub, c, u, 12)      # 11/7 기질
+		b.add_child(ub)
 	# 기술 (자주 쓰는 기술 + 일반 기술)
 	var mk := Battle.minor_kind(k)
 	if mk != "":
@@ -1939,6 +1943,22 @@ func battle_unit_sheet(key: String) -> void:
 		b.add_child(tg)
 	if DB.AURA.has(k):
 		b.add_child(_kv_box("[b][color=%s]%s[/color] 『%s』[/b]" % [tc.to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), tc, 13))
+
+
+## 11/7 고유기 기질 (사용자: 플레이어가 알 수 있게) —— 고유기 상자 머리줄 바로 아래에 기질 색 표지 + 한 줄 (무엇으로 기가 차고 언제 쓰는지).
+## 규칙 배정이든 수동 지정이든 Battle.temper_name 이 실제 기질을 준다. 접혀 있어도 보인다
+const TEMPER_COL := {"맹장": "#E07A5A", "수호": "#6FA8E8", "지략": "#B48CFF", "저격": "#8FD47A", "분노": "#FF9A3C"}
+func _temper_line(box: PanelContainer, c: Dictionary, u: Dictionary, fs := 12) -> void:
+	var t := Battle.temper_name(c, u)
+	if t == "":
+		return
+	var col: String = TEMPER_COL.get(t, "#C6AC7C")
+	var r := UI.rich("[color=%s][b]◆ 기질 %s[/b][/color]  [color=#8D7B5C]%s[/color]" % [col, t, Battle.TEMPER_DESC.get(t, "")], fs)
+	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v: VBoxContainer = box.get_child(0)
+	v.add_child(r)
+	v.move_child(r, 1)
 
 
 ## 접히는 효과 · 수치 상자 —— 머리줄(이름)을 누르면 표가 열린다. 기본은 접힘, 연 상태는 _open[key] 로 다른 카드에서도 이어진다
