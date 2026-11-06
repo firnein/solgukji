@@ -72,6 +72,9 @@
   자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/17_4명.png "진궁,초선,화웅,화타" solgukji_godot/assets/faces
 
 # ── 11/7 새 인물 (1_기본_추가 04~13) —— make_face_prompts.py --missing 으로 이어 붙임
+#   실제 적용(11/7): 시트를 prompts/얼굴썸네일/<번호>.png 로 두고 slice_faces.py 로 잘랐다 (원형 메달 전용 · 자르기 줄의 slice_sheet.py 가 아님)
+#     python -I tools/scripts/slice_faces.py prompts/얼굴썸네일/19.png "오의,왕평,요화,이의,장포,황권" solgukji_godot/assets/faces
+#   18~25 모두 적용 완료 (얼굴 143명)
 [18_6명.txt]  1 관흥 · 2 마속 · 3 맹달 · 4 비의 · 5 엄안 · 6 오반
   참조:   python -I tools/scripts/make_ref_sheet.py "관흥,마속,맹달,비의,엄안,오반" prompts/얼굴썸네일/참조_18.png
   자르기: python -I tools/scripts/slice_sheet.py references/얼굴썸네일/18_6명.png "관흥,마속,맹달,비의,엄안,오반" solgukji_godot/assets/faces
