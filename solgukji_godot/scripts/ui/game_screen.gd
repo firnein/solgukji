@@ -11,6 +11,7 @@ extends Control
 ## (예전 도감·전투 연출 화면은 --tab=… 을 주면 열린다 —— scenes/main.tscn)
 
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
+const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만
 const TOP_H := 66.0
@@ -244,7 +245,7 @@ func _build_tabbar() -> Control:
 		tb.tapped.connect(func(k):
 			UI.buzz()
 			if k == "more":
-				go("rank" if page == "line" or page == "rank" else _open.get("more_page", "rank"))
+				go("rank" if page in ["line", "rank", "update"] else _open.get("more_page", "rank"))
 			elif k == page:
 				_scroll_to_top()
 			else:
@@ -442,7 +443,7 @@ func _build_tabbar_badges() -> void:
 			war_todo = not r.quest_done or not r.pvp_done or r.can_next()
 	_tabs.war.badge = 0 if war_todo else -1
 	for k in _tabs:
-		_tabs[k].on = k == page or (k == "more" and page in ["line", "rank"])
+		_tabs[k].on = k == page or (k == "more" and page in ["line", "rank", "update"])
 		_tabs[k].queue_redraw()
 
 
@@ -528,6 +529,11 @@ func _build_title() -> void:
 	var sb := UI.btn("설정", _settings_sheet, "ghost", 44)
 	sb.add_theme_color_override("font_color", Color("#c6ac7c"))
 	bv.add_child(sb)
+	# 11/7 버전 · 업데이트 내역 (data/changelog.json)
+	var vb := UI.btn("v%s · 업데이트 내역" % CHANGELOG.version(), _update_sheet, "ghost", 36)
+	vb.add_theme_font_size_override("font_size", 13)
+	vb.add_theme_color_override("font_color", Color("#8d7b5c"))
+	bv.add_child(vb)
 	v.add_child(bv)
 
 
@@ -595,7 +601,7 @@ func go(pg: String) -> void:
 		PlayLog.page(run, pg)
 	if page != "deploy":
 		_scroll_keep[page] = _scroll.scroll_vertical
-	if pg in ["line", "rank"]:
+	if pg in ["line", "rank", "update"]:
 		_open["more_page"] = pg
 	page = pg
 	render(true)
@@ -622,6 +628,7 @@ func render(new_page := false) -> void:
 		"war": pg = _page_war()
 		"line": pg = _page_more(_page_line())
 		"rank": pg = _page_more(_page_rank())
+		"update": pg = _page_more(_page_update())
 	pg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if fixed:
 		_fixed.add_child(pg)
@@ -637,12 +644,52 @@ func _restore_scroll(v: int) -> void:
 	_scroll.scroll_vertical = v
 
 
-## 기록 탭 —— 위에 [순위 | 계보] 나눔 탭
+## 기록 탭 —— 위에 [순위 | 계보 | 업데이트] 나눔 탭
 func _page_more(body: Control) -> Control:
 	var v := UI.vbox(16)
-	v.add_child(UI.segmented([["rank", "순위"], ["line", "계보"]], page, func(k): go(k)))
+	v.add_child(UI.segmented([["rank", "순위"], ["line", "계보"], ["update", "업데이트"]], page, func(k): go(k)))
 	v.add_child(body)
 	return v
+
+
+## 업데이트 내역 (11/7) —— data/changelog.json 의 버전별 변경. 제목 화면에선 시트로, 게임 안에선 기록 탭 안 페이지로 같은 내용
+func _changelog_body() -> Control:
+	var v := UI.vbox(14)
+	var vs := CHANGELOG.versions()
+	if vs.is_empty():
+		v.add_child(UI.hint("업데이트 내역이 없습니다."))
+		return v
+	for i in vs.size():
+		var ver: Dictionary = vs[i]
+		var b := UI.vbox(6)
+		var head := UI.hbox(8)
+		head.add_child(UI.lbl("v%s" % str(ver.get("ver", "?")), 20, DB.PAL.gold, true))
+		var d := UI.lbl(str(ver.get("date", "")), 13, DB.PAL.bamboo_dim)
+		d.size_flags_vertical = Control.SIZE_SHRINK_END
+		head.add_child(d)
+		if i == 0:
+			var now := UI.lbl("지금 버전", 12, DB.PAL.jade)
+			now.size_flags_vertical = Control.SIZE_SHRINK_END
+			head.add_child(now)
+		b.add_child(head)
+		var t := UI.lbl(str(ver.get("title", "")), 15, DB.PAL.paper)
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.add_child(t)
+		b.add_child(UI.rich(CHANGELOG.bb(ver), 14))
+		v.add_child(UI.panel(b))
+	return v
+
+
+func _page_update() -> Control:
+	var v := UI.vbox(10)
+	v.add_child(_page_head("업데이트 내역", "지금 버전 v%s · 빌드마다 바뀐 것" % CHANGELOG.version()))
+	v.add_child(_changelog_body())
+	return v
+
+
+func _update_sheet() -> void:
+	var b := open_sheet("업데이트 내역 · v%s" % CHANGELOG.version())
+	b.add_child(_changelog_body())
 
 
 func _render_head() -> void:

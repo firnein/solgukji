@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>솔국지 업데이트 내역</title>
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--ink:#e8e2d2;--dim:#a99c80;--gold:#e0b45a;--jade:#7fd0bd;--seal:#e0806f;--line:#2a3348}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 "Noto Sans KR","Malgun Gothic",sans-serif}
+main{max-width:860px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:28px;margin:0 0 4px;color:var(--gold)}
+.sub{color:var(--dim);margin:0 0 18px}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 24px}
+.toc a{background:#222b3f;border:1px solid var(--line);border-radius:6px;padding:3px 10px;color:var(--ink);text-decoration:none;font-size:13.5px}
+.ver{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:14px 0}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
+h2{font-size:24px;margin:0;color:var(--gold)}
+.date,.code{color:var(--dim);font-size:13px}
+.tag{display:inline-block;font-size:12px;border-radius:4px;padding:0 7px;border:1px solid var(--jade);color:var(--jade)}
+.title{margin:4px 0 6px;color:var(--ink);font-weight:600}
+h3{font-size:15px;margin:14px 0 4px;color:var(--jade)}
+ul{margin:0;padding-left:20px}
+li{margin:2px 0}
+.foot{color:var(--dim);font-size:13px;margin-top:30px}
+</style>
+</head>
+<body>
+<main>
+<h1>솔국지 업데이트 내역</h1>
+<p class="sub">지금 버전 <b>1.0a</b> · 2026-11-07 · 원본 <code>solgukji_godot/data/changelog.json</code> (게임 안 '기록 › 업데이트' 탭과 같은 내용)</p>
+<nav class="toc"><a href="#v1.0a">1.0a</a></nav>
+<section class="ver" id="v1.0a"><div class="head"><h2>1.0a</h2><span class="tag now">지금 버전</span><span class="date">2026-11-07</span><span class="code">code 2</span></div><p class="title">버전 체계 시작 · 전투 손맛 · 토벌 대군</p><h3>전투</h3><ul><li>군집 강체 —— 부대 발자국이 서로 뚫고 들어가지 않는다 (엔진 · 화면)</li><li>전투 길이 재조정 —— 초월 36 · 불멸 38 · 신화 36초 (한 등급 위 100% 그대로)</li><li>고유기 기질 5종 —— 맹장(때리면) · 수호(맞거나 아군이 다치면) · 지략(시간 · 상태이상) · 저격(무너뜨리면) · 분노(아군이 무너지면). 장수마다 기가 차는 계기와 쓰는 때가 다르다</li><li>고유기 재사용 —— 전투당 최대 3회, 쓸수록 기가 천천히 찬다 (×0.7ⁿ)</li><li>장수 카드 · 전투 중 장수 상세에 기질 이름 + 한 줄 설명</li></ul><h3>토벌</h3><ul><li>4일차부터 황건 대군 —— 우두머리 9부대 + 잡병 부대 (일차별 5 · 5 · 7 · 11, 4행 5열 20칸) · 적 전용 대군 진형</li></ul><h3>화면</h3><ul><li>타입2 바닥 지도가 전투마다 달라진다 (땅 색 · 얼룩 · 숲 · 옆길 · 개울 · 바위)</li><li>탑뷰 병종별 인형 —— 창병 · 기병(1.35배) · 궁병 · 도적 · 책사 · 유생 · 술사 · 모사</li><li>편성판이 9:20 휴대폰에서 오른쪽으로 넘쳐 &#x27;해제&#x27; · 우익 칸이 잘리던 것 고침</li><li>전투 아래 장수 카드 5 + 4 줄에서 둘째 줄을 가운데로</li><li>제목 화면 &#x27;설정&#x27;을 눌러도 창이 안 보이던 것 고침</li></ul><h3>밸런스</h3><ul><li>초월 조합 비용 67 → 48 (인연 전설 재료 → 인연 희귀)</li><li>4 ~ 7일차 희귀 · 전설 배급 축소 (7일 누적 1,747 → 1,220) · 봇 성장 · 토벌 병력 맞춤</li></ul><h3>온라인</h3><ul><li>타입2 화면이 서버 전투를 재생하다 멈추던 것 고침</li></ul><h3>그 밖에</h3><ul><li>버전 체계 시작 (1.0a → 1.0b …) · 기록 탭과 제목 화면에 &#x27;업데이트 내역&#x27;</li></ul></section>
+<p class="foot">이 파일은 <code>tools/scripts/release.py</code> 가 만든다. 손으로 고치지 말고 changelog.json 을 고친 뒤 다시 돌린다.</p>
+</main>
+</body>
+</html>
