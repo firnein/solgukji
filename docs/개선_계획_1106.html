@@ -1,0 +1,369 @@
+<title>솔국지 개선 실행 계획</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;800&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 레이아웃: 본문 한 줄(76자 안팎) · 실행 카드는 머리(번호·분류·단계) + 정의 목록 · 측정은 표 */
+:root {
+  --bg: #f2f4f1; --surface: #ffffff; --fg: #1b2320; --muted: #5b6862; --line: #d6ddd8;
+  --accent: #2f7a66; --accent-soft: #e1eee8; --warn: #a8432f; --warn-soft: #f6e4de; --gold: #94701d; --gold-soft: #f4ecd9;
+  --display: "Noto Serif KR", "Batang", serif;
+  --body: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --mono: "IBM Plex Mono", "Consolas", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131816; --surface: #1b221f; --fg: #e2e8e4; --muted: #98a69e; --line: #2c3732;
+    --accent: #6cc3a8; --accent-soft: #1e3931; --warn: #e48b74; --warn-soft: #3a231f; --gold: #d8b56a; --gold-soft: #33291a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131816; --surface: #1b221f; --fg: #e2e8e4; --muted: #98a69e; --line: #2c3732;
+  --accent: #6cc3a8; --accent-soft: #1e3931; --warn: #e48b74; --warn-soft: #3a231f; --gold: #d8b56a; --gold-soft: #33291a;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.7;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 72px; }
+main { max-width: 800px; margin: 0 auto; display: grid; gap: 44px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.35; margin: 0; }
+h1 { font-size: 30px; font-weight: 800; }
+h2 { font-size: 22px; font-weight: 800; padding-bottom: 8px; border-bottom: 2px solid var(--fg); }
+h3 { font-size: 17px; font-weight: 600; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: grid; gap: 6px; }
+section { display: grid; gap: 16px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; color: var(--accent); font-weight: 600; }
+.meta { color: var(--muted); font-size: 13px; display: grid; gap: 4px; }
+.lead { font-size: 16px; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 560px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px; }
+.card header { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: baseline; }
+.card header h3 { flex: 1 1 260px; min-width: 0; }
+.pill { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.s1 { background: var(--accent); color: var(--surface); }
+.s2 { background: var(--accent-soft); color: var(--accent); }
+.s3 { background: var(--gold-soft); color: var(--gold); }
+.s4 { background: var(--warn-soft); color: var(--warn); }
+.cat { border: 1px solid var(--line); color: var(--muted); }
+.found { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; }
+dl { margin: 0; display: grid; grid-template-columns: 92px 1fr; gap: 6px 14px; }
+dt { color: var(--muted); font-size: 13px; padding-top: 1px; }
+dd { margin: 0; min-width: 0; }
+@media (max-width: 500px) { dl { grid-template-columns: 1fr; gap: 2px; } dd { margin-bottom: 8px; } }
+.deep { border: 2px solid var(--fg); }
+.qs { list-style: none; padding: 0; gap: 12px; }
+.qs li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; display: grid; gap: 4px; }
+.qs li strong { font-family: var(--display); }
+.note { font-size: 13px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+</style>
+
+<main>
+  <header style="display:grid;gap:10px">
+    <div class="eyebrow">솔국지 · 프로토타입 개선</div>
+    <h1>사용자 메모 17건 실행 계획</h1>
+    <div class="meta">
+      <span>2026-11-06 · 기준 커밋 <code>26e255c</code> (11/6 타입2 전장 개편 포함) · 이 문서는 계획이며 코드는 바꾸지 않았다</span>
+      <span>확인 방법: 코드 읽기, 데이터 집계, 헤드리스 전투 측정(불멸·초월 무작위 덱 80판), 자동 진행 4판 84페이즈, 타입2 전투 화면 캡처</span>
+    </div>
+    <p class="lead">밸런스 수치는 범위 밖입니다. 수치가 걸리는 지점은 “후속 밸런스 검토 필요”로만 표시했습니다. 최종 지향점이 데일리 진행이라는 점을 기준으로, 전투가 스킵 대상이 되지 않고 덱을 맞춘 보상감이 남는 쪽으로 정리했습니다.</p>
+    <div class="legend"><span>단계 표식:</span><span class="pill s1">1차 바로 수정</span><span class="pill s2">2차 로직 점검</span><span class="pill s3">3차 시스템 정리</span><span class="pill s4">4차 연출 설계</span></div>
+  </header>
+
+  <section>
+    <h2>먼저 확인된 사실</h2>
+    <div class="found"><strong>#1 전설 상위 조합:</strong> 데이터 문제가 아니라 화면 문제입니다. 기명 전설 48명은 모두 위 조합의 재료로 쓰이고, 46명은 같은 인물의 초월·불멸로 이어집니다. 그런데 디테일창은 바로 위 등급(초월) 조합이 하나라도 있어야 “다음 단계” 칸과 “그 밖에 불멸 n종” 줄을 보여 줍니다. 초월 재료가 아닌 전설 23명은 불멸·신화 재료인데도 아무것도 안 보입니다. 11/5 초월이 23 → 15명으로 줄면서 늘었습니다.</div>
+    <div class="found"><strong>#14 책사 고유기:</strong> 책사만의 문제가 아니라 고유기 전반의 발동률이 낮고, 그중 책사가 가장 낮습니다. 균형 작전에서 창병 42% · 기병 40%인데 책사 5% · 유생 9%입니다. 대기 시간 차이(13~16초)는 작아서 원인은 게이지 충전 방식과 사용 조건 쪽입니다.</div>
+    <div class="found"><strong>#8 추천 목표:</strong> 자동 진행 84페이즈에서 한 번도 비지 않았습니다. 화면은 등급·병종 필터를 거친 목록만 추천 계산에 넘기므로, 필터와 “가진 최고 등급보다 한 단계 넘게 낮은 등급 제외” 규칙이 겹칠 때 비는 것으로 봅니다.</div>
+    <div class="found"><strong>#12 메달 피아식별:</strong> 메달 코드는 그대로입니다. 그림이 없는 장수의 대체 원을 세력색(촉 초록 · 오 빨강 · 위 파랑)으로 칠해서, 아군 오나라 장수가 “파란 테 안의 빨간 원”으로 보입니다. 11/5에 그림 없는 장수 40명을 넣으며 크게 늘었습니다.</div>
+    <div class="tbl"><table>
+      <thead><tr><th>고유기 발동률 (가진 부대 중 한 번이라도 쓴 비율)</th><th>균형</th><th>맹공 (차면 바로)</th><th>굳히기 (위기 때만)</th></tr></thead>
+      <tbody>
+        <tr><td>창병</td><td class="n">42%</td><td class="n">9%</td><td class="n">50%</td></tr>
+        <tr><td>기병</td><td class="n">40%</td><td class="n">9%</td><td class="n">0%</td></tr>
+        <tr><td>궁병</td><td class="n">11%</td><td class="n">4%</td><td class="n">29%</td></tr>
+        <tr><td>도적</td><td class="n">16%</td><td class="n">7%</td><td class="n">0%</td></tr>
+        <tr><td><strong>책사</strong></td><td class="n"><strong>5%</strong></td><td class="n"><strong>4%</strong></td><td class="n">13%</td></tr>
+        <tr><td>유생</td><td class="n">9%</td><td class="n">11%</td><td class="n">12%</td></tr>
+        <tr><td>술사</td><td class="n">12%</td><td class="n">10%</td><td class="n">20%</td></tr>
+        <tr><td>모사</td><td class="n">15%</td><td class="n">11%</td><td class="n">28%</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">초월·불멸 무작위 9장 덱 80판, 작전은 게임과 같이 덱에 맞는 작전 자동 선택. 표본이 작은 칸(굳히기 도적 4부대 등)은 참고만.</p>
+  </section>
+
+  <section>
+    <h2>A. 항목 분류와 의존 관계</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>분류</th><th>항목</th><th>의존</th></tr></thead>
+      <tbody>
+        <tr><td>데이터 · 조합 구조</td><td>#1 전설 상위 조합 · #9 진형 5행</td><td>#9 는 #5(타입2 진형 표시) · 전투 배치와 함께</td></tr>
+        <tr><td>선택권 · 징집 · 보상 UI · 로직</td><td>#2 갈무리 표기 · #3 포커스 · #4 8병종 한 화면 · #6 희귀 랜덤권 · #7 기본병 위로 · #8 추천 목표</td><td>#2 · #3 · #4 는 같은 선택권 화면을 고치므로 한 번에. #6 은 #4 이후</td></tr>
+        <tr><td>전투 화면 · 카메라 · 가독성</td><td>#5 타입2 기본 · #10 카메라 · #11 프로필 강조 · #12 메달 · #13 바닥</td><td>#10~#13 은 타입2 기준으로 고치므로 #5 결정이 먼저</td></tr>
+        <tr><td>전투 피드백 · 연출</td><td>#16 전투 인지 설계 · #17 조합 획득 연출</td><td>#16 은 #10 · #11 · #12 · #14 위에 쌓인다</td></tr>
+        <tr><td>시스템 용어 · 규칙</td><td>#15 마법 · 책략 · 책략방어 정리</td><td>#14 · #16 의 표시 문구, 진형 우대(책략 +28% 등), 특기 · 아이템 전체에 걸림</td></tr>
+        <tr><td>조사 필요</td><td>#3 포커스(재현 조건) · #8 추천(사람 플레이 상태) · #14 고유기(게이지 흐름)</td><td>플레이 기록(PlayLog)에 항목 추가 후 판단</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>B. 항목별 실행 카드</h2>
+
+    <article class="card deep">
+      <header><span class="pill s2">2차</span><span class="pill cat">데이터 · UI</span><h3>#1 전설에서 상위 조합이 안 나온다 — 심화</h3></header>
+      <dl>
+        <dt>의도</dt><dd>전설을 만든 뒤 “이 장수로 무엇을 더 노릴 수 있는지”가 안 보인다.</dd>
+        <dt>판정</dt><dd><strong>UI 노출 문제.</strong> 연결 부재도, 도달 가능한 목표 부족도 아니다. 전설 48명 전원이 위 조합 재료이고 46명은 같은 인물의 초월 · 불멸로 이어진다. 초월=종착, 불멸=최종 전제는 그대로 둔다.</dd>
+        <dt>파일</dt><dd><code>scripts/ui/game_screen.gd</code> card_info 의 “다음 단계” 블록 (<code>DB.next_tier(c.tier)</code> 로 바로 위 등급만 세고, <code>far</code> 줄은 <code>one</code> 이 비면 숨김)</dd>
+        <dt>원인</dt><dd><code>next_tier(5)</code> = 초월(6). 초월 조합에 안 쓰이는 전설 23명은 <code>one</code> 이 비어, 불멸 · 신화 쓰임까지 통째로 숨는다.</dd>
+        <dt>제안</dt><dd>“다음 단계”를 등급별로 나눠 보인다. <strong>① 같은 인물의 다음 칭호판</strong>(초월 · 불멸)을 맨 위에, <strong>② 재료로 쓰이는 조합</strong>을 등급별 개수와 함께. <code>far</code> 줄을 <code>one</code> 과 무관하게 표시.</dd>
+        <dt>리스크</dt><dd>시트가 길어진다. ①은 펼친 채, ②는 접어 둔다.</dd>
+        <dt>검증</dt><dd>전설 48명 전수: 디테일창에 위 조합이 1개 이상 보이는지 자동 점검(UI 함수가 돌려주는 목록 길이). 예: 와호 사마의 · 금범 감녕.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">선택권 UI</span><h3>#2 고급 · 희귀 선택권에서 갈무리 장수 표기</h3></header>
+      <dl>
+        <dt>의도</dt><dd>노리는 장수의 재료를 선택권에서 바로 알아보고 싶다.</dd>
+        <dt>파일</dt><dd><code>game_screen.gd</code> picker · <code>scripts/ui/forge_tree.gd</code> (<code>pinned()</code>)</dd>
+        <dt>확인</dt><dd>지금 선택권 타일에는 갈무리 관련 표시가 없다. 갈무리 대상 자체와, 갈무리 대상의 재료(트리 안 카드) 두 가지가 표기 후보.</dd>
+        <dt>제안</dt><dd>타일 귀퉁이에 갈무리 표식. 갈무리 장수 본인은 금색 핀, 그 재료는 작은 “재료” 배지. forge_tree 에서 “갈무리 트리에 든 카드 집합”을 돌려주는 함수를 하나 추가.</dd>
+        <dt>리스크</dt><dd>갈무리가 여러 개면 대부분 타일에 배지가 붙어 의미가 흐려진다 → 직접 재료(한 단계 아래)만.</dd>
+        <dt>검증</dt><dd>전설 하나 갈무리 → 고급 · 희귀 선택권에서 해당 재료 타일에만 배지.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">선택권 UI · 조사</span><h3>#3 선택 시 포커스가 이동하지 않음</h3></header>
+      <dl>
+        <dt>파일</dt><dd><code>game_screen.gd</code> picker (고르면 <code>picker(t)</code> 로 시트를 다시 만든다) · <code>_pick_fx</code></dd>
+        <dt>가설</dt><dd>고른 뒤 시트 내용을 통째로 다시 그려서 ① 고른 카드에 시선이 머물 표시가 없고 ② 남은 선택권이 있는지 · 다음에 무엇을 할지로 이어지는 흐름이 없다. “포커스”가 스크롤 위치인지, 고른 카드 강조인지, 다음 행동 버튼인지 재현 확인 필요.</dd>
+        <dt>제안</dt><dd>다시 그리기 전 스크롤 위치 저장 · 복원(보유 패에서 이미 쓰는 방식 <code>_restore_hand_scroll</code>), 방금 고른 타일에 “획득” 표시 0.6초, 선택권이 0이 되면 시트를 닫고 보유 패의 새 카드 위치로 스크롤.</dd>
+        <dt>검증</dt><dd>희귀 선택권 3장 연속 선택: 스크롤 유지 · 고른 카드 표시 · 마지막 선택 뒤 보유 패에서 그 카드가 보이는지.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">선택권 UI</span><h3>#4 선택권 화면에 8병종을 한 번에</h3></header>
+      <dl>
+        <dt>현재</dt><dd>병종 묶음을 줄에 채워 넣는 방식이라, 고급 32장(병종 4) · 희귀 40장(병종 5~6)이 3~4줄로 늘어나 스크롤이 생긴다.</dd>
+        <dt>제안</dt><dd><strong>병종 8열 고정 격자</strong>: 열 = 병종(머리에 아이콘), 행 = 그 병종 장수. 타일을 초상 + 이름만으로 줄여(약 44×60) 360폭에 8열이 들어가게. 희귀는 최대 6행.</dd>
+        <dt>리스크</dt><dd>타일이 작아 특기 칸이 안 보인다 → 길게 누르면 장수정보간략창.</dd>
+        <dt>검증</dt><dd>360×800 · 400×860 화면에서 고급 · 희귀 · 전설 선택권이 스크롤 없이 한 화면.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s3">3차</span><span class="pill cat">전투 화면</span><h3>#5 타입2를 기본 전투 화면으로</h3></header>
+      <dl>
+        <dt>파일</dt><dd><code>scripts/game/settings.gd</code> (<code>type2 := false</code>, 설정 파일 <code>gfx/type2</code>) · <code>battle_view.gd</code> · <code>scripts/field/type2_view.gd</code></dd>
+        <dt>제안</dt><dd>기본값을 true 로, 기존 설정 파일에 값이 저장된 사용자도 한 번은 타입2로 옮기는 설정 버전 올림. 3D 화면을 설정에 남길지는 확인 질문 1.</dd>
+        <dt>리스크</dt><dd>#10 · #12 · #13 을 먼저 고치지 않으면 기본 화면의 첫인상이 나빠진다 → 3차에 배치. 저사양 폰 성능은 11/6 기록상 후반 94fps.</dd>
+        <dt>검증</dt><dd>새 설치 · 기존 설정 있는 설치 둘 다 첫 전투가 타입2.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s3">3차</span><span class="pill cat">보상 로직</span><h3>#6 희귀 선택권 일부를 희귀 랜덤권으로</h3></header>
+      <dl>
+        <dt>파일</dt><dd><code>scripts/db.gd</code> ECON(PICKS · QUEST_REWARD · RANDOM_GRANT) · <code>run.gd</code> add_ticket (전설은 이미 <code>LEGEND_RANDOM</code> 으로 무작위)</dd>
+        <dt>제안</dt><dd>전설과 같은 구조로 “희귀 랜덤권” 종류를 추가해, 받는 즉시 무작위 희귀 지급. 어떤 출처(징집 선택권 · 토벌 보상 · 대전 보상)의 몇 장을 바꿀지는 확인 질문 2. 개수 자체는 그대로 두고 종류만 나눈다.</dd>
+        <dt>리스크</dt><dd>희귀가 40명이라 특정 희귀를 노리기 어려워진다. #2 · 추천과 함께 “랜덤으로 받은 희귀가 어디에 쓰이는지” 알림이 필요. <em>획득 기대값 변화는 후속 밸런스 검토 필요.</em></dd>
+        <dt>검증</dt><dd>바꾼 출처에서 선택 창 없이 지급 · 알림. 자동 진행 판에서 희귀 지급 총량 동일.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">징집 UI</span><h3>#7 징집 페이즈에서 기본병을 맨 위 줄로</h3></header>
+      <dl>
+        <dt>파일</dt><dd><code>game_screen.gd</code> _page_draw (보유 패 스크롤 아래에 기본병 8열 격자를 붙인다)</dd>
+        <dt>제안</dt><dd>기본병 격자를 보유 패 머리 바로 아래로 옮긴다. 보유 패 정렬은 지금처럼 아래부터 채우던 것을 위에서부터로.</dd>
+        <dt>리스크</dt><dd>11/4 “낮은 등급만 있을 때 아래부터 채운다”는 결정과 충돌 → 함께 바꾼다.</dd>
+        <dt>검증</dt><dd>1일차 · 5일차 징집 화면 캡처.</dd>
+      </dl>
+    </article>
+
+    <article class="card deep">
+      <header><span class="pill s2">2차</span><span class="pill cat">조합 UI · 조사</span><h3>#8 추천 목표가 자주 비어 있다 — 심화</h3></header>
+      <dl>
+        <dt>현재 규칙</dt><dd><code>Run.forge_goals</code>: 이미 만들 수 있는 것 · 같은 인물을 이미 그 등급 이상 보유 · 만든 기인 · 신화 보유 시 신화 · 가진 최고 등급보다 한 단계 넘게 낮은 것 · 구하는 수고가 14 넘는 것을 뺀다.</dd>
+        <dt>측정</dt><dd>자동 진행 4판 84페이즈 모두 추천 1개 이상. 계산 자체는 비지 않는다.</dd>
+        <dt>가설</dt><dd><strong>① 필터 겹침</strong>: 화면이 등급 · 병종 필터를 거친 목록만 넘긴다. 전설 보유 중 “고급” 필터면 전부 제외. <strong>② 사람의 손패</strong>: 봇은 재료를 바로 써 버리지만 사람은 쌓아 두어, 모자란 재료가 많은 상태(수고 14 초과)가 많을 수 있다. <strong>③ 갱신 시점</strong>: 조합 뒤 필터가 남은 채 다시 그려질 때.</dd>
+        <dt>제안</dt><dd>추천은 필터와 무관하게 전체 목록으로 계산하고, 필터에 걸려 안 보이면 “필터 때문에 숨김 2개” 한 줄. 정말 비면 “재료가 모자란 목표뿐 — 가장 가까운 것” 1개를 수고 한도 없이 보인다. 플레이 기록에 조합 탭 진입 시 필터 상태 · 추천 수를 남겨 친구 플레이로 원인을 확정.</dd>
+        <dt>검증</dt><dd>필터 조합 8×8 전수로 추천 수 0인 경우가 “필터 숨김” 안내로 바뀌는지. 친구 플레이 기록에서 빈 추천 비율.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s3">3차</span><span class="pill cat">데이터 · 전투 · UI</span><h3>#9 진형을 5행까지</h3></header>
+      <dl>
+        <dt>현재</dt><dd>진형 8종 모두 4행 × 3열 마스크에 9칸(<code>game.json</code> FORM). 행 이름 = 선봉 · 전군 · 중군 · 후군(LINES), 행마다 공격 · 방어 · 책략 배율(LINE), 병종 선호 자리(AFF)가 행 이름에 걸려 있다.</dd>
+        <dt>영향 범위</dt><dd>FORM · LINES · LINE · AFF 데이터, 자동 배치(<code>DB.auto_place</code>), 실시간 전투 배치 거리(<code>rt_battle.gd</code> 의 행 × 간격), 편성판 UI(<code>deploy_page.gd</code> 4행 격자 · 진형 미니맵), 타입2 진형 윤곽, 토벌 고정 편성, 봇 편성.</dd>
+        <dt>제안</dt><dd>원본 FORM 은 두고 확장에서 5행 마스크를 덮어쓴다. 다섯째 행 이름과 그 행의 배율 · 선호 병종은 새로 정해야 한다(확인 질문 3). 칸 수 9는 유지 — 행이 늘면 진형 모양 차이가 커지는 효과.</dd>
+        <dt>리스크</dt><dd>배치 거리가 늘어 첫 격돌이 늦어지고 후열 사거리 계산이 달라진다. <em>후속 밸런스 검토 필요.</em> 편성판이 세로로 길어져 휴대폰 화면을 더 차지.</dd>
+        <dt>검증</dt><dd>진형 8종 × 자동 배치 9장 · 실시간 전투 첫 격돌 시각 비교 · 편성판 캡처 · <code>tests/form_check</code>.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">카메라</span><h3>#10 불필요한 카메라 무빙 자제</h3></header>
+      <dl>
+        <dt>파일</dt><dd><code>type2_view.gd</code> focus · shake (첫 격돌 1.7배 · 고유기 1.9배 · 다중 대상 1.6~1.85배 · 장수 격파 1.6배, 흔들림 2.5~7) · 3D 쪽 <code>war3d.gd</code> 감독 카메라</dd>
+        <dt>제안</dt><dd>확대는 <strong>아군 고유기 · 적 신화 고유기 · 장수 격파</strong> 세 사건만, 그것도 같은 사건이 3초 안에 겹치면 한 번. 첫 격돌 확대 · 일반 타격 흔들림은 끈다. 설정에 “카메라 연출 끔/적게/보통”.</dd>
+        <dt>리스크</dt><dd>연출이 줄면 #16 의 “무슨 일이 일어나는지” 문제가 커질 수 있다 → 카메라 대신 화면 고정 위치의 알림으로 옮긴다(#16).</dd>
+        <dt>검증</dt><dd>40초 전투 녹화에서 확대 횟수 · 흔들림 횟수 세기(전 → 후).</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">전투 UI</span><h3>#11 하단 장수 프로필을 누르면 그 장수 강조</h3></header>
+      <dl>
+        <dt>현재</dt><dd>누르면 <code>view.focus(sq)</code>(3D 카메라 따라가기)와 장수정보간략창이 함께 열린다. 타입2에서는 3D 따라가기가 보이지 않고, 정보창이 전장을 덮는다.</dd>
+        <dt>제안</dt><dd>한 번 누르면 전장에서 그 부대 메달에 고리 펄스 2초 + 부대 바닥 타원 밝게(타입2 <code>_draw_under</code>), 카메라는 움직이지 않음. 정보창은 길게 누르기 또는 두 번째 탭.</dd>
+        <dt>검증</dt><dd>타입2 · 3D 각각 프로필 탭 → 강조만, 길게 → 정보창.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">전투 UI</span><h3>#12 메달만으로 피아식별이 다시 어려워짐</h3></header>
+      <dl>
+        <dt>원인</dt><dd>그림 없는 장수의 대체 원이 세력색(<code>scripts/art.gd</code> draw_face_circle → <code>DB.fac_color</code>). 오나라 빨강 · 위나라 파랑이 진영 테(아군 파랑 · 적 빨강)와 정면으로 겹친다. 타입2는 메달이 작고 숫자 · 글자가 그 위에 쌓여 테 · 가시가 더 묻힌다.</dd>
+        <dt>제안</dt><dd>① 전장 메달의 대체 원은 중립색(먹색)으로, 세력색은 쓰지 않는다. ② 타입2에서 진영 테 두께 · 적 가시 크기를 배율에 맞춰 키운다. ③ 피해 숫자는 메달 위쪽 고정 칸으로(겹침 회피는 11/6에 일부 들어감).</dd>
+        <dt>검증</dt><dd>그림 없는 장수만으로 덱을 짜 양쪽 진영 메달 캡처 · 흑백으로 바꿔도 가시로 구별되는지.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s1">1차</span><span class="pill cat">전투 화면</span><h3>#13 바닥 타일링의 의미가 불분명</h3></header>
+      <dl>
+        <dt>현재</dt><dd><code>shaders/type2_ground.gdshader</code>: 풀빛 얼룩 · 흙밭 · 굽은 길 · 양옆 숲 · 옅은 육각 격자. 전투 규칙은 연속 좌표라 육각 칸 · 길 · 숲이 판정과 무관(지형 효과는 11/2에 꺼짐).</dd>
+        <dt>제안</dt><dd>의미 없는 정보는 뺀다: 육각 격자 · 길 · 흙밭을 끄고 단색에 가까운 바닥 + 가장자리 어둡게. 대신 바닥에 의미를 준다면 <strong>양 진영 진지선</strong>(시작 위치 옅은 띠)과 <strong>전선</strong>(맞닿은 곳)만.</dd>
+        <dt>검증</dt><dd>전후 캡처를 나란히 · 부대 덩어리 대비가 올라가는지.</dd>
+      </dl>
+    </article>
+
+    <article class="card deep">
+      <header><span class="pill s2">2차</span><span class="pill cat">전투 규칙 · 조사</span><h3>#14 책사 쪽 고유기가 거의 발동하지 않는다 — 심화</h3></header>
+      <dl>
+        <dt>판정</dt><dd>버그성 조건 문제가 크다. 대기 시간(병종 평균 13~16초)은 원인이 아니다. 아래 넷이 겹친다.</dd>
+        <dt>원인 가설</dt><dd>
+          <ol>
+            <li><strong>게이지 충전이 앞줄에 유리</strong> — 차례마다 30, 잃은 병력 비율 × 80, 때릴 때마다 6 (<code>battle.gd</code> GAUGE_*). 후열 책사는 맞는 일이 적어 늦게 찬다.</li>
+            <li><strong>광역 조건</strong> — 균형 작전(<code>_ult_worth</code>)은 광역 고유기를 적 4부대 이상일 때만 쓴다. 책사 고유기 7개 모두 광역. 게이지가 찰 무렵 적이 3부대 이하로 줄어 영영 못 쓴다.</li>
+            <li><strong>진영 순번</strong> — 같은 진영 고유기 사이 4.5초 · 전체 2.5초 간격, 바람잡이(wind-up) 중 다른 고유기 금지(<code>rt_battle.gd</code> can_ult). 게이지가 빨리 찬 앞줄이 순번을 먼저 가져간다.</li>
+            <li><strong>작전 자동 선택</strong> — 책략 장수가 많은 덱은 “굳히기”(위기 때만 고유기)가 붙는다(<code>Run.recommend_tac</code>).</li>
+          </ol>
+          “맹공”(차면 바로)에서도 4~11%인 것은 맹공 판이 빨리 끝나 대기 시간 전에 승부가 나는 탓으로 본다(확인 필요).</dd>
+        <dt>확인 방법</dt><dd>전투 사건에 부대별 게이지 표본(1초 간격)과 “쓸 수 있었는데 막힌 이유”(대기 · 간격 · 가치 판단 · 작전)를 남기는 점검 장면을 추가. 같은 시드로 조건을 하나씩 끄고 발동률 비교: 광역 4부대 조건, 진영 간격, 굳히기.</dd>
+        <dt>제안 (수치 제외)</dt><dd>광역 조건을 “적 수”가 아니라 “맞힐 수 있는 적 수(사거리 · 범위 안)”로, 남은 적이 적어지면 조건을 풀기. 고유기가 차 있는데 막혔으면 화면에 “대기 중” 표시. 게이지 충전식 자체 조정은 <em>후속 밸런스 검토 필요.</em></dd>
+        <dt>검증</dt><dd>같은 측정(80판)으로 병종별 발동률 재측정 · 책사가 다른 병종과 비슷한 수준인지.</dd>
+      </dl>
+    </article>
+
+    <article class="card deep">
+      <header><span class="pill s3">3차</span><span class="pill cat">시스템 규칙</span><h3>#15 마법 개념 삭제 · 책략 / 책략방어 제거 — 심화</h3></header>
+      <dl>
+        <dt>영향 범위</dt><dd>
+          <ul>
+            <li><strong>카드 능력치</strong>: 5칸(공 · 방 · 책 · 책방 · 속) 중 2칸. 원본 <code>game.json</code> CARDDEF 와 확장 카드 전부.</li>
+            <li><strong>피해 계산</strong>: <code>int_hit</code> · <code>phys_hit</code> 두 경로, 책략 전용 배율(<code>int_mul</code> · <code>int_tier</code> · <code>int_troop</code> · 병종 역할 <code>strat_int</code> 등), 사기 · 줄별 책략 배율(LINE.int).</li>
+            <li><strong>기술 · 고유기 · 잔기술</strong>: 종류 phys/int (코드 25곳 · 데이터 수십 곳), 책략방어 깎기(resDown).</li>
+            <li><strong>특기</strong>: 책략 치명(icrit) · 책략 피해 감소(idr) · 책략방어 관통(rpierce) · 병력 절반 아래 책략(int_low) 등 — <code>passives.json</code> 의 “책략” 45곳.</li>
+            <li><strong>아이템 · 위세 · 진형 우대</strong>: 주 · 부 능력치가 int/res 인 아이템, 위세의 int/res, 장사진 책략 +28% · 방원진 책략방어 +16%.</li>
+            <li><strong>화면</strong>: 디테일창 능력치 칸, 툴팁 · 설명문(책략 피해 · 책략방어 문구), 결과표, 장비 설명.</li>
+            <li><strong>판단 로직</strong>: 덱 성향(공격 ≥ 책략으로 물리/지략 판단), 작전 추천, 봇 스타일(물리 · 지략 · 균형), 잔기술 무력판 선택.</li>
+          </ul></dd>
+        <dt>정의 두 가지</dt><dd><strong>A. 표현 통일</strong> — 계산은 그대로, 화면 용어만 “피해 · 방어”로. 비용 작음, 그러나 책사가 왜 방어 높은 적에게 강한지 설명 불가. <strong>B. 계산 통합</strong> — 공격 1개 · 방어 1개로 줄이고 피해 경로를 하나로. 책략계는 “원거리 · 범위 · 상태이상” 같은 역할로만 구분. 메모의 “모두 그냥 피해로 통일”은 B로 읽힌다(확인 질문 4).</dd>
+        <dt>B의 이행 원칙</dt><dd>① 원본 데이터는 두고 로드 시 덮어쓴다(지금 방식). ② 공격 = 그 카드의 주 능력치(공 · 책 중 높은 쪽), 방어 = 방어(책략방어는 버림 또는 평균 — 선택). ③ 특기 · 아이템의 int/res 계열은 같은 의미의 atk/def 계열로 1:1 대응표를 먼저 만든다. ④ 숫자는 옮기기만 하고 배율 조정은 하지 않는다. ⑤ <em>통합 후 병종 승률이 크게 흔들리는 것은 필연 — 후속 밸런스 검토 필요.</em></dd>
+        <dt>리스크</dt><dd>가장 큰 변경. 책사 · 유생 · 술사 · 모사의 전투 정체성이 “원거리 마법 피해”에서 역할로 바뀐다. 3D · 타입2 연출 중 “책략 = 보라 구슬” 같은 표현도 정리 대상.</dd>
+        <dt>검증</dt><dd>대응표 누락 0(정적 검사), 전투 결정성 테스트(<code>tests/determinism</code>), 병종 역할 측정(<code>tests/tag_role</code>)으로 변화 폭만 기록.</dd>
+      </dl>
+    </article>
+
+    <article class="card deep">
+      <header><span class="pill s4">4차</span><span class="pill cat">전투 인지 설계</span><h3>#16 전투에서 무엇을 하는지 안 보인다 — 심화</h3></header>
+      <dl>
+        <dt>지금 화면</dt><dd>타입2 캡처 기준: 피해 숫자 · “치명타” · “패주” · 잔기술 이름 · 연쇄 배지가 메달 위에 동시에 쌓이고, 장수 메달 20여 개가 비슷한 무게로 흩어져 있다. 중요한 사건과 사소한 타격이 같은 크기 · 같은 자리에 나온다.</dd>
+        <dt>무엇이 중요한가</dt><dd>
+          <div class="tbl"><table>
+            <thead><tr><th>등급</th><th>사건</th><th>보여 줄 곳</th></tr></thead>
+            <tbody>
+              <tr><td class="n">S</td><td>고유기 발동 · 장수 격파 · 총붕괴 · 신화 위세 발동</td><td>화면 중앙 띠 1줄 + 해당 메달 강조 (카메라는 S만)</td></tr>
+              <tr><td class="n">A</td><td>덱 연쇄(특기 연쇄 n회) · 위험 신호(아군 장수 병력 30% 아래 · 적 고유기 충전 완료)</td><td>화면 가장자리 고정 칸 · 하단 프로필 테두리</td></tr>
+              <tr><td class="n">B</td><td>잔기술 · 일반기술 · 치명타 · 상태이상 걸림</td><td>그 부대 위 짧은 이름표 (한 부대에 동시 1개)</td></tr>
+              <tr><td class="n">C</td><td>평타 피해 숫자</td><td>합산 막대 또는 표시 안 함 (설정)</td></tr>
+            </tbody>
+          </table></div></dd>
+        <dt>정보 계층</dt><dd>화면 중앙 = S, 부대 = B, 하단 프로필 = 각 장수 상태(고유기 게이지 · 위험 · 격파), 전투 로그 = 전부. 지금은 모두가 부대 위에 몰려 있다.</dd>
+        <dt>덱 결과 확인</dt><dd>데일리 진행에서 보상감은 “내 덱의 설계가 통했다”를 확인하는 순간. ① 전투 시작 3초에 내 덱의 핵심(위세 · 연쇄 축 · 신화)을 띠로 소개, ② 그 축이 실제로 발동할 때마다 같은 색 · 같은 문구로 표시해 연결, ③ 끝나면 결과표 맨 위에 “연쇄 『침수』 ×47 — 적 병력 38% 를 깎음”처럼 덱 설계 단위 요약.</dd>
+        <dt>반복 속도와 보상감</dt><dd>
+          <ul>
+            <li><strong>관전</strong>: 지금 방식(1 · 1.25 · 2배속).</li>
+            <li><strong>하이라이트</strong>: S · A 사건 앞뒤 2초만 이어 붙여 15초 안팎으로 재생 (엔진이 결정적이라 사건 시각을 알고 있음).</li>
+            <li><strong>요약</strong>: 결과표만 + 덱 설계 요약 3줄. 데일리 반복 때 기본, 처음 보는 덱 · 신화 첫 출전 · 토너먼트는 관전을 기본으로.</li>
+          </ul></dd>
+        <dt>리스크</dt><dd>하이라이트 · 요약은 스킵을 공식화하는 것처럼 보일 수 있다 → “요약으로 보기”를 기본 버튼이 아니라 두 번째 선택지로. 정보 계층을 바꾸면 11/4~11/6 연출 결정 다수(현판 · 연쇄 팝업 · 타격 숫자)를 다시 맞춰야 한다.</dd>
+        <dt>검증</dt><dd>40초 전투를 처음 보는 사람에게 보여 주고 “누가 이겼고, 내 덱의 어떤 장치가 통했는지” 말하게 하기. 플레이 기록의 배속 사용 비율 · 전투 중 이탈(스킵) 비율 전후 비교.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <header><span class="pill s4">4차</span><span class="pill cat">연출</span><h3>#17 조합 성공 연출을 선택권 획득과 다르게 · 모두 조합 시 카드 셔플</h3></header>
+      <dl>
+        <dt>현재</dt><dd>조합 성공은 토스트 한 줄, 불멸 이상만 <code>scripts/ui/forge_fanfare.gd</code> 큰 연출. 선택권 획득은 <code>_pick_fx</code>(카드가 날아와 띠). 모두 조합(<code>forge_tree.gd</code> forge_chain)은 여러 장이 잇달아 나와도 가장 높은 것 하나만 연출.</dd>
+        <dt>제안</dt><dd>
+          <ul>
+            <li><strong>조합 단일</strong>: 재료 카드들이 가운데로 모여 겹치고 → 빛 → 결과 카드가 뒤집혀 나온다. 선택권은 “한 장이 날아옴”, 조합은 “여럿이 하나로”라는 모양 차이.</li>
+            <li><strong>모두 조합</strong>: 재료 카드 묶음이 셔플되듯 섞이고, 단계마다 결과 카드가 한 장씩 위로 쌓이며 마지막에 최고 등급이 뒤집혀 공개. 1장당 0.35초, 5장 넘으면 가속, 탭하면 끝으로 건너뜀.</li>
+            <li>등급별 무게: 고급 · 희귀는 짧게, 전설 이상 금빛, 불멸 · 신화는 지금 팬페어 유지.</li>
+          </ul></dd>
+        <dt>리스크</dt><dd>조합을 자주 하는 페이즈에서 연출이 길면 타임어택을 방해 → 탭으로 건너뛰기 필수, 설정에서 끌 수 있게.</dd>
+        <dt>검증</dt><dd>모두 조합으로 고급 → 희귀 → 전설 3단계 완성 녹화, 총 연출 시간 2초 이내 · 탭으로 즉시 종료.</dd>
+      </dl>
+    </article>
+  </section>
+
+  <section>
+    <h2>C. 빠른 수정과 설계 필요 분리</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>구분</th><th>항목</th><th>이유</th></tr></thead>
+      <tbody>
+        <tr><td>지금 바로 수정</td><td>#3 포커스 · #4 8병종 한 화면 · #7 기본병 위로 · #10 카메라 억제 · #11 프로필 강조 · #12 메달 대체 원 · #13 바닥 단순화 · #2 갈무리 표기</td><td>화면 한 곳에서 끝나고 규칙 · 수치와 무관</td></tr>
+        <tr><td>데이터 · 규칙 확인 후 수정</td><td>#1 다음 단계 표시 · #8 추천 필터 · #14 고유기 조건</td><td>원인을 측정으로 좁혔고, 마지막 확인(점검 장면 · 플레이 기록)만 남음</td></tr>
+        <tr><td>설계 · 방향 확정 필요</td><td>#5 타입2 기본 · #6 희귀 랜덤권 · #9 진형 5행 · #15 마법 · 책략 정리 · #16 전투 인지 · #17 조합 연출</td><td>사용자 결정이 먼저 필요하고, #9 · #15 는 후속 밸런스 검토가 따라온다</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>D. 구현 순서</h2>
+    <ol>
+      <li><strong>1차 · 저위험 · 가시성</strong> — #3 · #4 · #7 · #2 (선택권 · 징집), #10 · #11 · #12 · #13 (전투 화면). <em>완료 기준:</em> 360×800 캡처에서 선택권 스크롤 없음, 피아가 메달만으로 구별(흑백 포함), 40초 전투 확대 3회 이하.</li>
+      <li><strong>2차 · 로직 점검 · 버그성</strong> — #1 다음 단계 표시, #8 추천(필터 분리 + 플레이 기록 항목), #14 고유기 점검 장면 + 조건 수정. <em>완료 기준:</em> 전설 48명 모두 위 조합 표시, 필터 조합 전수에서 “빈 추천” 대신 안내, 책사 고유기 발동률이 다른 병종과 같은 범위.</li>
+      <li><strong>3차 · 시스템 정리</strong> — #5 타입2 기본, #6 희귀 랜덤권, #15 마법 · 책략 정리(결정 시), #9 진형 5행(결정 시). <em>완료 기준:</em> 대응표 누락 0 · 결정성 테스트 통과 · 병종 역할 측정 기록(밸런스 판단은 별도).</li>
+      <li><strong>4차 · 연출 · 보상감</strong> — #16 정보 계층 · 덱 설계 요약 · 하이라이트, #17 조합 연출. <em>완료 기준:</em> 처음 보는 사람이 전투 뒤 “내 덱의 무엇이 통했는지” 답할 수 있음, 조합 연출 탭 건너뛰기.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>E. 확인 질문</h2>
+    <ol class="qs">
+      <li><strong>1. #5 타입2 기본화</strong><span>3D 전장은 설정에서 고를 수 있게 남길까요, 아니면 타입2만 두고 3D 는 정리할까요?</span></li>
+      <li><strong>2. #6 희귀 랜덤권</strong><span>어느 출처의 희귀를 랜덤으로 바꿀까요? 징집 선택권 · 토벌 보상 · 대전 보상 중, 그리고 그 출처의 전부인지 절반인지 알려 주세요.</span></li>
+      <li><strong>3. #9 진형 5행</strong><span>다섯째 행의 이름(예: 선봉 앞 “척후”, 후군 뒤 “본진”)과 위치를 정해 주세요. 칸 수는 9로 두고 행만 늘리는 것이 맞나요? 적군 · 토벌 편성도 같이 바꾸나요?</span></li>
+      <li><strong>4. #15 “모두 그냥 피해로 통일”</strong><span>화면 용어만 통일하는 것인지(A), 책략 · 책략방어 능력치와 별도 피해 계산을 실제로 없애는 것인지(B) 확인 부탁드립니다. B라면 책략방어 값은 버릴지, 방어와 평균 낼지도 정해야 합니다.</span></li>
+      <li><strong>5. #16 요약 · 하이라이트</strong><span>데일리 진행에서 기본 보기를 관전 · 하이라이트 · 요약 중 무엇으로 둘까요? 신화 첫 출전이나 토너먼트처럼 관전을 강제할 순간이 있나요?</span></li>
+      <li><strong>6. #17 모두 조합 연출</strong><span>셔플 후 한 장씩 순차 공개, 동시 공개, 결과만 크게 중 어느 쪽에 가깝나요? 연출 총 길이의 상한(예: 2초)이 있나요?</span></li>
+      <li><strong>7. #3 포커스</strong><span>“포커스가 이동하지 않는다”가 스크롤이 위로 튀는 것, 고른 카드가 표시되지 않는 것, 다음 할 일로 넘어가지 않는 것 중 어느 쪽인가요?</span></li>
+    </ol>
+  </section>
+</main>
