@@ -48,43 +48,4 @@
   python -I tools/scripts/slice_panels.py 시트.png "유비,관우,장비,제갈량,황충,강유,방통,법정,마량,이적,간옹,미축,요화,주창,초주" solgukji_godot/assets/portraits
   (칸 안이 배경 없이 인물만 오려진 모양이면) python -I tools/scripts/slice_sheet.py 시트.png "유비,관우,장비,제갈량,황충,강유,방통,법정,마량,이적,간옹,미축,요화,주창,초주" solgukji_godot/assets/portraits
 
-[13_고급신규_14명.txt] 13. 고급 새 인물 — 14장 (11/5 고급 · 희귀 명단 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "주건평,동소,오의,왕평,마속,한당,장흠,감택,제갈근,보즐,기령,장임,허유,진림" solgukji_godot/assets/portraits
-
-[14_희귀신규_15명.txt] 14. 희귀 새 인물 — 15장 (11/5 고급 · 희귀 명단 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "장패,엄안,장포,맹달,반장,제갈각,우번,여범,고람,황조,장만성,관흥,오반,비의,공융" solgukji_godot/assets/portraits
-
-[15_희귀신규2_14명.txt] 15. 희귀 새 인물 2 — 14장 (11/5 이름값 구간 정리)  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "문빙,주연,왕쌍,조홍,한수,진무,하제,이각,황권,순유,도겸,길평,이의,이유" solgukji_godot/assets/portraits
-
-# ── 11/6 사용자: 그림이 없거나(새 인물 40) 병종이 바뀐(악진 · 요화 · 능조 · 마충) 장수를 5명씩 —— 13 · 14 · 15 를 5명 단위로 다시 묶은 것 (같은 인물은 한쪽만 뽑으면 된다)
-
-[16_그림_1_5명.txt] 16_그림_1_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "주건평,동소,오의,왕평,마속" solgukji_godot/assets/portraits
-
-[17_그림_2_5명.txt] 17_그림_2_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "한당,장흠,감택,제갈근,보즐" solgukji_godot/assets/portraits
-
-[18_그림_3_5명.txt] 18_그림_3_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "기령,장임,허유,진림,장패" solgukji_godot/assets/portraits
-
-[19_그림_4_5명.txt] 19_그림_4_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "엄안,장포,맹달,반장,제갈각" solgukji_godot/assets/portraits
-
-[20_그림_5_5명.txt] 20_그림_5_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "우번,여범,고람,황조,장만성" solgukji_godot/assets/portraits
-
-[21_그림_6_5명.txt] 21_그림_6_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "관흥,오반,비의,공융,문빙" solgukji_godot/assets/portraits
-
-[22_그림_7_5명.txt] 22_그림_7_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "주연,왕쌍,조홍,한수,진무" solgukji_godot/assets/portraits
-
-[23_그림_8_5명.txt] 23_그림_8_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "하제,이각,황권,순유,도겸" solgukji_godot/assets/portraits
-
-[24_그림_9_5명.txt] 24_그림_9_5명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "길평,이의,이유,악진,요화" solgukji_godot/assets/portraits
-
-[25_그림_10_2명.txt] 25_그림_10_2명  ※ 촉 초록 옷 있음 → `--hole` 없이
-  python -I tools/scripts/slice_panels.py 시트.png "능조,마충" solgukji_godot/assets/portraits
+# 11/6 새 인물 그림은 기본 스타일로 —— prompts/등급별/1_기본_추가/04~13_새인물_*.txt (대용량 13~25 는 스타일이 달라 뺐다)

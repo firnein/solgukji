@@ -1,0 +1,77 @@
+A character design sheet of 5 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character on THIS sheet is an adult MAN. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+ANATOMY: every character has exactly TWO arms and TWO hands, each holding at most one thing —— never draw an extra arm, an extra hand or a duplicated weapon.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the first 5 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Ji Ping  [SORCERER, Wei]
+   DESIGN: Ji Ping, imperial physician mixing a secret poison into medicine, faint green vapor. On foot.
+   LOOK: 40s, thin face, tight lips, nervous eyes, physician's cap.
+   FACE: thin middle-aged face, tight lips, nervous determined eyes, physician cap.
+   BUILD: thin.
+   SIGNATURE (unique to him on this sheet): HEAD physician's cap; FACIAL HAIR clean-shaven, tight lips; MARK medicine bowl with faint green vapor.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+2. Li Yi  [SORCERER, Shu]
+   DESIGN: Li Yi, hermit seer of Shu drawing omens on paper, faint glowing brushstrokes. On foot.
+   LOOK: very old hermit, long white eyebrows, bald crown, serene eyes.
+   FACE: very old hermit, long white eyebrows, serene distant eyes, bald crown.
+   BUILD: very old, small.
+   SIGNATURE (unique to him on this sheet): HEAD bald crown; FACIAL HAIR long white eyebrows and a thin white beard; MARK brush and omen paper with faint glow.
+   COLORS: Shu green: green, jade and earthy gold.
+3. Li Ru  [SCHEMER, Independent]
+   DESIGN: Li Ru, Dong Zhuo's ruthless schemer offering a cup of poisoned wine. On foot.
+   LOOK: 30s, thin sharp face, pointed beard, cold eyes, dark official's cap.
+   FACE: thin sharp face, pointed beard, cold calculating eyes, sly smile.
+   BUILD: thin, sharp.
+   SIGNATURE (unique to him on this sheet): HEAD dark official's cap; FACIAL HAIR pointed beard; MARK a wine cup offered with a cold smile.
+   COLORS: his own colors as described (independent).
+4. Yue Jin  [ROGUE, Wei]
+   DESIGN: Yue Jin, small but fierce Wei raider sprinting with twin short sabers, light lamellar, first to scale the walls. On foot.
+   LOOK: 30s, short stocky, sharp narrow eyes, short beard, light helmet.
+   FACE: short stocky man, sharp narrow eyes, short beard, eager fierce grin.
+   BUILD: short and stocky.
+   SIGNATURE (unique to him on this sheet): HEAD light helmet; FACIAL HAIR short beard; MARK twin short sabers, eager grin.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+5. Liao Hua  [SPEARMAN, Shu]
+   DESIGN: Liao Hua, long-serving Shu veteran planted with a long spear, old-fashioned armor. On foot.
+   LOOK: 50s, weathered loyal face, grey-streaked beard, old-fashioned helmet.
+   FACE: weathered loyal face, grey-streaked beard, steady patient eyes.
+   BUILD: weathered, medium.
+   SIGNATURE (unique to him on this sheet): HEAD old-fashioned helmet; FACIAL HAIR grey-streaked beard; MARK long spear planted, patient eyes.
+   COLORS: Shu green: green, jade and earthy gold.

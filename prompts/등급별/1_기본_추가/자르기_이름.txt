@@ -10,3 +10,36 @@
 
 [03_화웅_재작업.txt]  1 화웅  (01 시트에서 오른팔이 두 개로 그려져 다시)
   자르기: python -I tools/scripts/slice_sheet.py 시트.png "화웅" solgukji_godot/assets/portraits
+
+# ── 11/6 새 인물 43 + 병종 바뀐 4 (악진 · 요화 · 능조 · 마충) —— 기본 스타일 시트 04~13
+
+[04_새인물_5명.txt]  1 주건평 · 2 동소 · 3 오의 · 4 왕평 · 5 마속
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "주건평,동소,오의,왕평,마속" solgukji_godot/assets/portraits
+
+[05_새인물_5명.txt]  1 한당 · 2 장흠 · 3 감택 · 4 제갈근 · 5 보즐
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "한당,장흠,감택,제갈근,보즐" solgukji_godot/assets/portraits
+
+[06_새인물_5명.txt]  1 기령 · 2 장임 · 3 허유 · 4 진림 · 5 장패
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "기령,장임,허유,진림,장패" solgukji_godot/assets/portraits
+
+[07_새인물_5명.txt]  1 엄안 · 2 장포 · 3 맹달 · 4 반장 · 5 제갈각
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "엄안,장포,맹달,반장,제갈각" solgukji_godot/assets/portraits
+
+[08_새인물_5명.txt]  1 우번 · 2 여범 · 3 고람 · 4 황조 · 5 장만성
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "우번,여범,고람,황조,장만성" solgukji_godot/assets/portraits
+
+[09_새인물_5명.txt]  1 관흥 · 2 오반 · 3 비의 · 4 공융 · 5 문빙
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "관흥,오반,비의,공융,문빙" solgukji_godot/assets/portraits
+
+[10_새인물_5명.txt]  1 주연 · 2 왕쌍 · 3 조홍 · 4 한수 · 5 진무
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "주연,왕쌍,조홍,한수,진무" solgukji_godot/assets/portraits
+
+[11_새인물_5명.txt]  1 하제 · 2 이각 · 3 황권 · 4 순유 · 5 도겸
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "하제,이각,황권,순유,도겸" solgukji_godot/assets/portraits
+
+[12_새인물_5명.txt]  1 길평 · 2 이의 · 3 이유 · 4 악진 · 5 요화
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "길평,이의,이유,악진,요화" solgukji_godot/assets/portraits
+
+[13_새인물_2명.txt]  1 능조 · 2 마충
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "능조,마충" solgukji_godot/assets/portraits
+

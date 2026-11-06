@@ -1,0 +1,78 @@
+A character design sheet of 5 Three Kingdoms (late Han dynasty China) generals for a mobile card game.
+These are the BASE designs: every later, fancier version of each character will be copied from this sheet, so each
+character must be clear, simple and instantly recognizable.
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed.
+- Small calm-to-lively poses: standing, holding the signature weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY characters are ALWAYS on horseback (see MOUNTED), never standing on foot. Their panel may be a little wider.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple armor in the character's colors —— cloth, leather, dull iron,
+simple trims, no gold ornaments, no capes (unless the character's own DESIGN names a cape or cloak), no glowing effects. Iconic features (beards, eyepatch, headbands, signature
+weapons, hats) are ALREADY present here, because later versions must keep them.
+
+FACES AND SILHOUETTES MUST ALL DIFFER:
+- Draw FACE exactly and exaggerate it a little, like a caricature: face shape, eyes, brows, nose, mouth, facial hair, age.
+- Follow BUILD: heights and body shapes really differ (giant, fat, tiny, hunched, slender). Ages really differ (smooth young
+  vs. wrinkled old). Not everyone is handsome. No same-face syndrome, no generic cute face.
+- The signature weapon or item and the hairstyle/headwear make each silhouette unique even as a black shape.
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Same faction colors must never make them look like twins: vary
+the armor shape, helmet, cape and silhouette. Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character on THIS sheet is an adult MAN. Men read as men at a glance ——
+masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear. Young men are young MEN, never girls:
+no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+ANATOMY: every character has exactly TWO arms and TWO hands, each holding at most one thing —— never draw an extra arm, an extra hand or a duplicated weapon.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the first 5 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Yan Yan  [ARCHER, Shu]
+   DESIGN: Yan Yan, old Shu veteran archer drawing a great bow despite his age. On foot.
+   LOOK: very old, long white beard and eyebrows, deep wrinkles, old iron helmet.
+   FACE: very old man with long white beard and eyebrows, deep wrinkles, fierce youthful eyes.
+   BUILD: old but upright, broad shoulders.
+   SIGNATURE (unique to him on this sheet): HEAD old iron helmet; FACIAL HAIR long white beard and eyebrows; MARK great bow, deep wrinkles.
+   COLORS: Shu green: green, jade and earthy gold.
+2. Zhang Bao  [ROGUE, Shu]
+   DESIGN: Zhang Bao, son of Zhang Fei, quick raider with a serpent spear held low, light armor. On foot.
+   LOOK: young, round fierce eyes, thick brows, short stubble, green headscarf.
+   FACE: young man with round fierce eyes and thick brows like his father, short stubble, wide grin.
+   BUILD: young, stocky.
+   SIGNATURE (unique to him on this sheet): HEAD green headscarf over short wild hair; FACIAL HAIR short stubble; MARK serpent-headed spear, round fierce eyes.
+   COLORS: Shu green: green, jade and earthy gold.
+3. Meng Da  [SCHEMER, Shu]
+   DESIGN: Meng Da, twice-turned defector in a dark green robe, hiding a letter behind his back. On foot.
+   LOOK: 30s, handsome shifty face, thin mustache, dark green official's hood.
+   FACE: handsome but shifty face, darting eyes, thin mustache, nervous smile.
+   BUILD: slim, handsome.
+   SIGNATURE (unique to him on this sheet): HEAD dark green official's hood; FACIAL HAIR thin mustache; MARK letter hidden behind his back, darting eyes.
+   COLORS: Shu green: green, jade and earthy gold.
+4. Pan Zhang  [CAVALRY, Wu]
+   DESIGN: Pan Zhang, Wu officer who captured Guan Yu at Maicheng, riding with a rope lasso and a saber.
+   LOOK: 40s, coarse face, heavy brow, scruffy beard, gold earring, red helmet.
+   FACE: rough coarse face, heavy brow, scruffy beard, greedy grin, gold earring.
+   BUILD: thick, coarse.
+   SIGNATURE (unique to him on this sheet): HEAD red helmet; FACIAL HAIR scruffy beard; MARK rope lasso and saber, gold earring.
+   COLORS: Wu red: crimson, red, orange and gold.
+   MOUNTED: riding a brown horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
+5. Zhuge Ke  [STRATEGIST, Wu]
+   DESIGN: Zhuge Ke, brilliant arrogant young Wu strategist at the Battle of Dongxing, white feather fan pointed forward. On foot.
+   LOOK: young, high forehead, confident smirk, crimson scholar cap.
+   FACE: young sharp-featured face, high forehead, confident smirk, quick bright eyes.
+   BUILD: young, slim.
+   SIGNATURE (unique to him on this sheet): HEAD crimson scholar cap; FACIAL HAIR clean-shaven; MARK white feather fan pointed forward, high forehead.
+   COLORS: Wu red: crimson, red, orange and gold.
