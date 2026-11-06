@@ -83,6 +83,7 @@ var _bufs := {}             # MultiMesh -> 인스턴스 버퍼 (변환 12 + 사�
 ## 11/3 GPU 병사 (사용자: 병사 3~5배) —— 살아 있는 병사는 shaders/soldier_gpu.gdshader 가 부대 값(_sq_tex)으로 그린다.
 ## CPU 는 장수 · 쓰러지는 병사만 그린다. 점묘 · 타입2 전장(2D)은 병사 위치가 필요해 예전 방식
 static var gpu_mode := true
+static var gpu_mul_t2 := 0.0     # 점검용 —— 탑뷰 병사 배율 강제 (--gmul=2)
 var _gpu := false
 var gpu_mmi := []           # GPU 병사 MultiMeshInstance3D (몸 · 무기)
 var _sq_img: Image
@@ -580,7 +581,7 @@ func setup(res: Dictionary) -> void:
 	clear()
 	_gpu = gpu_mode and not Settings.dots      # 11/6 타입2 도 GPU 병사 (Type2View 가 같은 부대 데이터로 2D 에 그린다)
 	Squad.gpu = _gpu
-	Squad.gpu_mul = 1.5 if (_gpu and Settings.type2) else 1.0      # 11/6 목표: 탑뷰 GPU 병사는 1.5배
+	Squad.gpu_mul = (gpu_mul_t2 if gpu_mul_t2 > 0.0 else 1.5) if (_gpu and Settings.type2) else 1.0      # 11/6 목표: 탑뷰 GPU 병사는 1.5배 (점검 --gmul)
 	track_mode = res.get("rt", false)
 	_build_terrain(res.get("terrain", []))
 	for r in res.roster:

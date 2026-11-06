@@ -2821,6 +2821,8 @@ func _dev_args() -> void:
 		_title.visible = true
 	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
 		Settings.dots = a.gdots != "0"
+	if a.has("gmul"):           # 점검용 —— 탑뷰 병사 배율 (기본 1.5)
+		War3D.gpu_mul_t2 = float(a.gmul)
 	if a.has("gperf"):          # 점검용 —— 성능 표시 켜기 (저장하지 않는다)
 		Settings.perf_hud = a.gperf != "0"
 	if a.has("gtype2"):          # 점검용 —— 타입2 전장 (저장하지 않는다)
