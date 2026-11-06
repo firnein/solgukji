@@ -514,8 +514,11 @@ func new_battle() -> void:
 
 
 func _simulate() -> Dictionary:
-	return RtBattle.make(_p.seed).run(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
+	Battle.tr_mul = {"A": float(_p.get("tra", 1.0)), "B": float(_p.get("trb", 1.0))}
+	var r: Dictionary = RtBattle.make(_p.seed).run(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
 		_p.title, _p.foe, inputs.duplicate(true), _p.policy)
+	Battle.tr_mul = {"A": 1.0, "B": 1.0}
+	return r
 
 
 ## 게임에서 부른다 —— bt 는 Run.battle (a·b 진영 {cards, form, morale, equip}, seed, title, foe, inputs)
@@ -532,7 +535,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	_p = {"a": bt.a.cards, "fa": bt.a.form, "ma": bt.a.morale, "ea": bt.a.equip,
 		"b": bt.b.cards, "fb": bt.b.form, "mb": bt.b.morale, "eb": bt.b.equip,
 		"seed": bt.seed, "title": bt.title, "foe": bt.foe,
-		"policy": Run.policy_for(bt)}
+		"policy": Run.policy_for(bt), "tra": float(bt.a.get("tr_mul", 1.0)), "trb": float(bt.b.get("tr_mul", 1.0))}
 	inputs = bt.get("inputs", []).duplicate(true)
 	res = _simulate()
 	_pace_for(str(bt.get("kind", "")))

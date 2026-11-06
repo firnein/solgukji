@@ -774,7 +774,7 @@ func grant_list() -> Array:
 ## 봇 성장 (페이즈마다) —— 11/4 사용자: 대전이 거의 늘 이긴다 → 봇을 더 강하게. 예전 22 + 일차×4 (+저녁 4) 의 약 1.6~1.75배
 ## (2일차 저녁 봇 약 180 → 약 310 PV, 7일차 끝 약 890 → 약 1,570 PV, 실력 계수 평균 1.27 기준). 서버(room.gd)도 이것을 쓴다
 static func bot_pv_gain(d: int, p: int) -> float:
-	return 28 + d * 5.5 + (5 if p == 2 else 0)
+	return 24 + d * 4.7 + (4 if p == 2 else 0)      # 11/6 밸런스: 자동 진행 기준 2일차 대전 승률 13% · 3일차 0% → 약 0.85배
 
 
 func _bot_pv_gain(d: int, p: int) -> float:
@@ -851,7 +851,7 @@ func _bot_side(pv: float, style: String) -> Dictionary:
 
 ## 봇 · 토벌 적 군세 —— 11/2 사용자: 너무 허접하다 → 장비를 끼우고(그 때 보급 등급으로, 사람보다 조금 많이) 덱에 맞는 작전을 쓴다
 const BOT_PV_MUL := 1.08
-const QUEST_PV_MUL := 1.2
+const QUEST_PV_MUL := 1.05      # 11/6 밸런스: 3일차 토벌 병력비 0.43 → 1.2 에서 내림
 static func bot_side(pv: float, style: String, p_idx: int, r: RandomNumberGenerator) -> Dictionary:
 	var eb := DB.gen_board(pv, style, r)
 	var cards := DB.auto_place(eb.cards, eb.form)
@@ -901,6 +901,8 @@ func quest_roster():
 
 ## 11/3 수입을 약 70% 로 줄이며 (DB.ECON) 토벌 황건 편성은 예전 수입에 맞춘 그대로라 —— 적 사기로 낮춘다 (사기는 모든 능력치에, 70 → 0.88배)
 const QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
+## 11/6 밸런스: 토벌 고정 편성 병력 배율 —— 3일차부터 병력이 두 배 넘게 뛰어(자동 진행 병력비 0.44, 승률 18%) 일차마다 줄인다
+const QUEST_TR := [1.0, 0.95, 0.5, 0.5, 0.52, 0.55, 0.6]
 func quest_morale_mul() -> float:
 	return float(QUEST_MORALE[clampi(day, 0, 6)]) if DB.ECON_ON else 1.0      # 11/4 사용자: 토벌은 내 패와 상관없이 고정
 
@@ -931,7 +933,7 @@ func start_quest() -> Dictionary:
 		var cards := DB.auto_place(q.cards, q.form)
 		var eq: Array = q.get("equip", [])
 		foe = {"cards": cards, "form": q.form, "morale": int(int(q.get("morale", 100)) * quest_morale_mul()),
-			"equip": eq, "tac": recommend_tac(cards)[0]}      # 장비는 맞출 때 auto_place 자리 그대로 (같은 순서라 자리가 같다)
+			"equip": eq, "tac": recommend_tac(cards)[0], "tr_mul": float(QUEST_TR[clampi(day, 0, 6)])}      # 장비는 맞출 때 auto_place 자리 그대로 (같은 순서라 자리가 같다)
 	else:
 		var styles := ["물리", "지략", "균형"]
 		foe = _bot_side(pv, styles[rng.randi() % 3])
@@ -1021,8 +1023,11 @@ static func _flip(v):
 
 ## 전투 계산 —— 화면(BattleView)과 같은 식. 입력과 정책을 받는다
 static func simulate(bt: Dictionary, inputs: Array, policy: Dictionary) -> Dictionary:
-	return RtBattle.make(bt.seed).run(bt.a.cards, bt.a.form, bt.a.morale, bt.a.equip,
+	Battle.tr_mul = {"A": float(bt.a.get("tr_mul", 1.0)), "B": float(bt.b.get("tr_mul", 1.0))}
+	var r := RtBattle.make(bt.seed).run(bt.a.cards, bt.a.form, bt.a.morale, bt.a.equip,
 		bt.b.cards, bt.b.form, bt.b.morale, bt.b.equip, bt.title, bt.foe, inputs, policy)
+	Battle.tr_mul = {"A": 1.0, "B": 1.0}
+	return r
 
 
 ## 전투가 끝났다 —— 보상·경고·토너먼트 진행

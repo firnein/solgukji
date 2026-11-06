@@ -77,7 +77,8 @@ const ECON := {
 const FORMBOON_FIX := {
 	"hagik": {"stat": "atk", "v": 0.12},       # 궁병 · 도적 발동 +7% → 공격 +12% (날개가 사계를 넓힌다)
 	"anhaeng": {"stat": "atk", "v": 0.14, "d": "사선으로 파고든다"},     # 도적 · 기병 속도 +14% → 공격 +14%
-	"jangsa": {"v": 0.28},                     # 책사 · 술사 책략 +15% → +28%
+	"jangsa": {"v": 0.32},                     # 책사 · 술사 책략 +15% → +28% → 11/6 +32% (불멸 무작위 덱 승률 45%, 가장 낮았다)
+	"chuhaeng": {"stat": "atk", "v": 0.14, "d": "송곳이 틈을 낸다"},      # 11/6 도적 · 모사 속도 +13% → 공격 +14% (우대 덱 15% —— 속도는 힘이 안 됐다)
 }
 
 
@@ -392,12 +393,13 @@ const AFF5 := {"유생": [["본진", "중앙"], ["본진", "측면"]], "모사":
 ## 11/6 사용자 #15: 마법 개념 삭제 —— 공격 = 공 · 책 중 높은 쪽, 방어 = 방 · 책방 중 높은 쪽. int · res 칸은 같은 값을 둔다 (옛 코드가 읽어도 같게).
 ## 원본 game.json 은 그대로. 능력치 보정(stat_adjust)이 끝난 뒤에 합친다. 화면 용어도 공격 · 방어로 (STATNM · MOD_LABEL · 특기 설명문)
 const TXT_ALIAS := [["책략방어", "방어"], ["책방", "방어"], ["책략 피해", "피해"], ["책략 치명타", "치명타"], ["물리 피해", "피해"], ["책략을", "공격을"], ["책략이", "공격이"], ["책략 +", "공격 +"], ["책략 −", "공격 −"], ["책략 -", "공격 -"]]
+const MERGE_DEF_W := 0.5      # 방어 = 방 + (책방 − 방) × 이만큼 (책방이 더 클 때)
 func merge_stats() -> void:
 	for k in C:
 		var c: Dictionary = C[k]
 		c.atk = maxf(float(c.atk), float(c["int"]))
 		c["int"] = c.atk
-		c["def"] = maxf(float(c["def"]), float(c.res))
+		c["def"] = maxf(float(c["def"]), lerpf(float(c["def"]), float(c.res), MERGE_DEF_W))      # 11/6 밸런스: 책방을 다 받으면 책략계 3장 덱 승률 60~75% —— 절반만
 		c.res = c["def"]
 	D.STATNM["int"] = "공격"
 	D.STATNM["res"] = "방어"
@@ -978,7 +980,7 @@ func ult_score(u: Dictionary) -> float:
 func ult_wait(k: String, u: Dictionary) -> float:
 	if ULT_WAIT.has(person(k)):
 		return ULT_WAIT[person(k)]
-	return clampf(8.0 + ult_score(u) * 0.9, 10.0, 26.0)
+	return clampf(6.0 + ult_score(u) * 0.7, 8.0, 18.0)      # 11/6 밸런스: 대기 10~26초가 판 길이(약 38초)의 절반 → 8~18초
 
 
 ## 능력치 보정 (솔국지 확장, data/cards_ext.json stat_adjust) —— 원본 HTML 수치(game.json)는 그대로 두고 곱한다.

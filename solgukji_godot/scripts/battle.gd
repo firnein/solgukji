@@ -59,6 +59,7 @@ static var fire_enabled := true      # 화공 계열 켜기 (솔국지 확장 �
 static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규칙 포함)
 static var axis_off := {}            # 특기 축 끄기 (점검용) —— {"물리": true, …} 이면 그 축의 특기가 붙지 않는다
 static var axis_off_camp := ""       # 축 끄기를 한쪽 진영에만 ("A" · "B", 비우면 양쪽) —— 점검할 덱 쪽만 끄려고
+static var tr_mul := {"A": 1.0, "B": 1.0}      # 진영 병력 배율 —— Run.simulate · BattleView 가 전투 전에 넣고 뒤에 되돌린다 (11/6)
 static var myth_power := 1.15    # 신화 능력치 배율 (속도 제외) —— 11/2 사용자: 단순 전투력은 1.15, 대신 위세(data/myth_aura.json)로 판을 바꾼다
 static var aura_enabled := true   # 위세 켜기 (비교용)
 static var aura_camp := ""        # 한쪽 진영만 위세 ("A" · "B", 비우면 양쪽) —— 점검용
@@ -72,8 +73,9 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 ## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
 ## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
 static var tag_roles := true
-const ROLE := {"charge": 2.0, "horse_after": 0.8, "horse_all": 0.9, "int_guard": 0.8, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
-	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 2.5, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.8, "occul_int": 1.55,
+## 11/6 밸런스: 기병 3장 덱 30% → 돌격 뒤 배율 0.8 → 0.9 · 전체 0.9 → 1.0, 책략계 피격 감면(int_guard)은 방어 통합으로 대신
+const ROLE := {"charge": 2.0, "horse_after": 0.9, "horse_all": 1.0, "int_guard": 1.0, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
+	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 1.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
 	"schem_morale": 2.2, "schem_int": 2.0}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
 const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
@@ -323,6 +325,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	u.item = item
 	u.ts = syn.tag.get(u.c.tag)
 	var tr: float = u.c.tr * syn.troop * (1.0 + u.ts.v if u.ts and u.ts.stat == "troop" else 1.0)
+	tr *= float(tr_mul.get(camp, 1.0))      # 11/6 밸런스: 진영 병력 배율 (토벌 고정 편성을 일차에 맞춰 줄인다 —— Run.QUEST_TR)
 	u.troops = roundf(tr)
 	u.max = roundf(tr)
 	u.morale = minf(200, morale + syn.morale)

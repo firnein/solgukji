@@ -194,7 +194,7 @@ var _wind := {}                # 유닛 -> 터질 시각
 ## 11/2 사용자: 후반에 고유기가 연달아 터진다 → 초 단위 간격. 어느 진영이든 직전 고유기에서 ULT_GAP 초,
 ## 같은 진영은 ULT_SIDE_SEC 초가 지나야 다음 고유기 (맞받아치기로 바로 받아치던 것도 없앴다)
 static var ult_gap := 2.5
-static var ult_side_sec := 4.5
+static var ult_side_sec := 3.0      # 11/6 밸런스: 같은 진영 고유기 간격 4.5 → 3.0
 var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
 
