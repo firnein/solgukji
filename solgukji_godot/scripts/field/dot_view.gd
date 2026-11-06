@@ -69,7 +69,7 @@ func _fit(now := false) -> void:
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone":
 			continue
-		var r := maxf(sq.depth(), sq.cols * sq.sp) * 0.6 * SPREAD + 10.0
+		var r := maxf(sq.depth(), sq.hw * 2.0) * 0.6 * SPREAD + 10.0
 		lo = lo.min(sq.pos - Vector2(r, r))
 		hi = hi.max(sq.pos + Vector2(r, r))
 	if lo.x == INF:
@@ -146,11 +146,11 @@ func _draw_dots() -> void:
 		if not (sq.alive and sq.contact and sq.engaged != null):
 			continue
 		var e: Squad = sq.engaged
-		var mid: Vector2 = e.pos + sq.axis * e.depth() * 0.5
+		var mid: Vector2 = e.pos + sq.axis * e.edge(sq.axis)
 		var perp := Vector2(-sq.axis.y, sq.axis.x)
 		for j in 10:
 			var ph := fposmod(_t * 3.0 + j * 0.37 + float(sq.row.slot) * 0.13, 1.0)
-			var at: Vector2 = mid + perp * (fposmod(j * 37.3 + floor(_t * 3.0 + j * 0.37) * 11.0, 1.0) - 0.5) * sq.cols * sq.sp
+			var at: Vector2 = mid + perp * (fposmod(j * 37.3 + floor(_t * 3.0 + j * 0.37) * 11.0, 1.0) - 0.5) * sq.hw * 2.0
 			var sp := SPARK * (1.0 - ph)
 			mm.set_instance_transform_2d(i, Transform2D(0, Vector2(sp, sp), 0, map(at) + Vector2(0, -ph * 6.0)))
 			mm.set_instance_color(i, Color(1, 1, 0.92, 1.0 - ph))

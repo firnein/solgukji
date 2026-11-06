@@ -12,7 +12,7 @@ func _ready() -> void:
 	if args.has("far"): RtBattle.far_mul = float(args.far)
 	if args.has("near"): RtBattle.near_mul = float(args.near)
 	if args.has("bank"): RtBattle.melee_bank = float(args.bank)
-	if args.has("reach"): RtBattle.melee_reach = float(args.reach)
+	if args.has("reach"): RtBattle.melee_gap = float(args.reach)
 	if args.has("intm"): RtBattle.int_mul = float(args.intm)
 	if args.has("intt"):          # --intt=3:1,4:0.9,… 등급별 책략 배율
 		for kv in str(args.intt).split(","):

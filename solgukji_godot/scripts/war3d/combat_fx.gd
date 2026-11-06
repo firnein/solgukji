@@ -77,7 +77,7 @@ func slash(a: Squad, d: Squad) -> void:
 	if _busy() or w.overview:
 		return                   # 멀리 볼 때는 초승달 대신 발밑 판 번쩍임
 	var dir := (a.pos - d.pos).normalized()
-	var at := d.pos + dir * d.depth() * 0.5 + Vector2(-dir.y, dir.x) * w.rng.randf_range(-25, 25)
+	var at := d.pos + dir * d.edge(dir) + Vector2(-dir.y, dir.x) * w.rng.randf_range(-25, 25)
 	var p := w.p3(at, 1.6)
 	# 10/31 사용자: 잘 안 보인다 → 카메라 거리만큼 키워 화면에서 늘 크게 · 어두운 테두리 위에 밝은 궤적 · 휘두르듯 돌며 0.55초 · 번갈아 X 자로
 	var k := clampf(w.cam.global_position.distance_to(p) / 28.0, 0.9, 3.2)     # 10/31 사용자: 너무 진하다 → 작게 · 한 겹 · 옅게
@@ -144,7 +144,7 @@ func step() -> void:
 		var melee: bool = sq.act_kind == "melee"
 		var start := 14.0 if melee else 30.0
 		# 11/4 연출 점검: 멀리 있는 상대로 달려갈 때 긴 쐐기가 전장을 갈랐다 —— 짧은 토막(최대 70px)으로 방향만
-		var stop := minf(maxf(start + 10.0, ln - t.depth() * 0.4 - 6.0), start + 70.0)
+		var stop := minf(maxf(start + 10.0, ln - t.edge(v / maxf(ln, 0.01)) * 0.8 - 6.0), start + 70.0)
 		var a := sq.pos + v / maxf(ln, 0.01) * start
 		var b := sq.pos + v / maxf(ln, 0.01) * stop
 		var mid := (a + b) * 0.5

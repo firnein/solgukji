@@ -78,7 +78,7 @@ func _impact_flat(vfx: String, akey: String, foes: Array, allies: Array, col: Co
 	for k in foes:
 		var d: Squad = w.squads.get(k)
 		if d != null and lp > 0.0:
-			var c: Vector2 = d.pos + (a.pos - d.pos).normalized() * d.depth() * 0.3 if a else d.pos
+			var c: Vector2 = d.pos + (a.pos - d.pos).normalized() * d.edge((a.pos - d.pos).normalized()) * 0.6 if a else d.pos
 			w.launch(k, c, 55.0, lp)
 	w.flat.fx_ult(vfx, a, foes, allies, col)
 
@@ -114,7 +114,7 @@ func _impact(vfx: String, akey: String, foes: Array, allies: Array, col: Color) 
 		if vfx in ["charge", "roar", "whirlwind"]:
 			_shock(dp, col, 16.0)
 		if lp > 0.0:
-			var c: Vector2 = d.pos + (a.pos - d.pos).normalized() * d.depth() * 0.3 if a else d.pos
+			var c: Vector2 = d.pos + (a.pos - d.pos).normalized() * d.edge((a.pos - d.pos).normalized()) * 0.6 if a else d.pos
 			w.launch(k, c, 55.0, lp)
 	match vfx:
 		"slash":      # 검기 셋이 엇갈려 지나간다

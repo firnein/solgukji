@@ -584,9 +584,15 @@ func setup(res: Dictionary) -> void:
 	Squad.gpu_mul = (gpu_mul_t2 if gpu_mul_t2 > 0.0 else 1.5) if (_gpu and Settings.type2) else 1.0      # 11/6 목표: 탑뷰 GPU 병사는 1.5배 (점검 --gmul)
 	track_mode = res.get("rt", false)
 	_build_terrain(res.get("terrain", []))
+	var lay_v := float(res.get("lay", 1.0))
+	if res.has("arena"):      # 11/7 군집 강체 —— 엔진이 정한 전장 범위 (진형 · 발자국에 맞춤)
+		var ar: Array = res.arena
+		Squad.arena = Rect2(float(ar[0]), float(ar[1]), float(ar[2]), float(ar[3]))
+	else:
+		Squad.arena = Squad.ARENA
 	for r in res.roster:
-		var at := slot_pos(r.camp, res.aForm if r.camp == "A" else res.bForm, r.slot, float(res.get("lay", 1.0)))
-		var sq := Squad.new(r, at, rng)
+		var at := slot_pos(r.camp, res.aForm if r.camp == "A" else res.bForm, r.slot, lay_v)
+		var sq := Squad.new(r, at, rng, lay_v)
 		if track_mode:
 			# 실시간 엔진 —— 진형 자리에서 시작해 엔진 위치를 따른다
 			sq.puppet = true
@@ -824,6 +830,7 @@ func _gpu_build() -> void:
 		var sq0: Squad = order[row]
 		sq0.gpos_slow = sq0.pos
 		sq0.gfwd_slow = sq0.fwd
+		sq0.gfront = sq0.hd()      # 11/7 처음부터 앞줄이 발자국 앞끝에 (0 에서 천천히 따라오며 대열이 미끄러지던 것)
 		for sd in sq0.soldiers:
 			sd.gseed = rng.randf()
 			sd.slot_old = -1
@@ -887,6 +894,10 @@ static func _gslot(sd) -> float:
 ## 병사가 사라지지 않고 더 빽빽해진다 (군집). 판정 · 부대 위치는 그대로
 const SQUEEZE_MIN := 0.42
 func _squeeze(dt: float) -> void:
+	if track_mode:      # 11/7 군집 강체 —— 엔진이 발자국끼리 겹치지 않게 놓으므로 대열을 좁힐 일이 없다 (좁혔다 펴지며 길이가 확 늘던 것)
+		for a in order:
+			a.gsq = Vector2.ONE
+		return
 	var k := 1.0 - exp(-dt * 3.0)
 	for a in order:
 		if not a.alive or a.state == "gone":
@@ -975,8 +986,8 @@ func _front_of(sq: Squad):
 		return null
 	n /= dist
 	# 두 대열 앞 끝의 가운데 (겹쳐 있어도 가운데) + 밀린 거리
-	var hd_a: float = sq._rk * sq.sp * 0.92 * 0.5 * sq.gsq.x
-	var hd_b: float = e._rk * e.sp * 0.92 * 0.5 * e.gsq.x
+	var hd_a: float = sq.edge(n)
+	var hd_b: float = e.edge(n)
 	var mid := (sq.pos + n * hd_a + e.pos - n * hd_b) * 0.5
 	var sign := 1.0 if sq.key < e.key else -1.0
 	return [mid + n * float(f.x) * sign, n]
@@ -1013,7 +1024,7 @@ func _gpu_sync(dt: float) -> void:
 		var flags := (1 if sq.armor_broken else 0) + (2 if sq == focus_sq and focus_t > 0.0 else 0)
 		var bfl := clampf(1.0 - (clock - sq.break_t) / 0.3, 0.0, 1.0)
 		_sq_img.set_pixel(0, row, Color(sq.pos.x, sq.pos.y, sq.fwd.x, sq.fwd.y))
-		sq.gfront = lerpf(sq.gfront, (sq._rk - 1) * sq.sp * 0.5, slow_p)
+		sq.gfront = lerpf(sq.gfront, sq.hd(), slow_p)      # 앞줄 = 발자국 앞끝 (병력이 줄면 뒤에서부터 줄어든다)
 		_sq_img.set_pixel(1, row, Color(sq.cols, sq.sp, n_alive, sq.gfront))
 		_sq_img.set_pixel(2, row, Color(sq.walk_acc, 1.0 if sq.moving else 0.0, 1.0 if sq.contact else 0.0, sq.fade if sq.state == "flee" else 1.0))
 		_sq_img.set_pixel(3, row, Color(sq.shove_v, sq.hurt, flags, 1.0 if ready else 0.0))
@@ -1024,9 +1035,9 @@ func _gpu_sync(dt: float) -> void:
 		var fr = _front_of(sq)
 		if fr != null:
 			_sq_img.set_pixel(8, row, Color(fr[0].x, fr[0].y, fr[1].x, fr[1].y))
-			_sq_img.set_pixel(9, row, Color(1.0, FRONT_MIX * sq.sp, 0.0, 0.0))
+			_sq_img.set_pixel(9, row, Color(1.0, FRONT_MIX * sq.sp, sq.spr, 0.0))
 		else:
-			_sq_img.set_pixel(9, row, Color(0.0, 0.0, 0.0, 0.0))
+			_sq_img.set_pixel(9, row, Color(0.0, 0.0, sq.spr, 0.0))      # z = 줄 간격 (11/7 강체 —— 가로 간격 sp 와 따로)
 	_sq_tex.update(_sq_img)
 
 
@@ -1312,9 +1323,9 @@ func step(dt: float) -> void:
 			if rng.randf() < dt * 1.2:
 				_contact_fx(sq, sq.engaged, false)
 			if rng.randf() < dt * 2.5:
-				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5 + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-30, 30), 0.2), "dust", Color("#a89270"))
+				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.edge(sq.axis) + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-30, 30), 0.2), "dust", Color("#a89270"))
 			if rng.randf() < dt * 1.6:
-				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5 + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-40, 40), 0.5), "haze", Color("#b09a74"))
+				_particles(p3(sq.engaged.pos + sq.axis * sq.engaged.edge(sq.axis) + Vector2(-sq.axis.y, sq.axis.x) * rng.randf_range(-40, 40), 0.5), "haze", Color("#b09a74"))
 	t = pt("효과생성", t)
 	_duel_t -= dt
 	if _duel_t <= 0 and not _gpu:
@@ -1443,7 +1454,7 @@ func _shove() -> void:
 				continue
 			s2.pos += dir * force * 0.35 * rng.randf_range(0.6, 1.1)
 			s2.atk_t0 = clock - rng.randf() * 0.1          # 앞줄이 한꺼번에 내지른다
-		var mid: Vector2 = lose.pos + (win.pos - lose.pos).normalized() * lose.depth() * 0.5
+		var mid: Vector2 = lose.pos + dir * -lose.edge(dir)
 		if not overview and rng.randf() < 0.6:
 			_particles(p3(mid, 0.4), "dust", Color("#b9a27a"))
 		shake = maxf(shake, 0.06 if overview else 0.12)
@@ -1500,7 +1511,7 @@ func blast(key: String, from_key: String, power: float) -> void:
 				o.hit_t = clock + rng.randf() * 0.2
 	# 에이스 · 고유기 (power ≥ 2.5) —— 흙먼지 · 섬광 (11/3 사용자 2차: 날아갔다 돌아오는 게 이상하다 → 산 병사는 날리지 않는다)
 	if power >= 2.5 and n >= 3:
-		var c: Vector2 = sq.pos - sq.fwd * sq.depth() * 0.3
+		var c: Vector2 = sq.pos
 		_particles(p3(c, 0.5), "dust", Color("#c8b088"))
 		_light(p3(c, 3.0), Color(1.0, 0.8, 0.5), 6.0, 0.3)
 
@@ -1767,16 +1778,16 @@ func _sync() -> void:
 		var bn: Node3D = banners[sq.key]
 		bn.visible = SHOW_BANNERS and sq.alive and sq.state != "gone"
 		if bn.visible:
-			var at: Vector2 = sq.general.pos if sq.general and sq.general.alive else sq.pos - sq.fwd * (sq.depth() + 6)
+			var at: Vector2 = sq.general.pos if sq.general and sq.general.alive else sq.pos - sq.fwd * (sq.hd() + 6)
 			bn.position = p3(at)
 			bn.rotation = Vector3(0, atan2(-sq.fwd.y, sq.fwd.x) + PI, 0)
 		var rg: Decal = squad_rings[sq.key]
 		rg.visible = bn.visible
 		if rg.visible:
-			var w: float = (sq.cols * sq.sp + 10.0) * S
+			var w: float = (sq.hw * 2.0 + 10.0) * S
 			var dp: float = (sq.depth() + 10.0) * S
 			rg.size = Vector3(dp, 3.0, w)
-			rg.position = p3(sq.pos - sq.fwd * sq.depth() * 0.5)
+			rg.position = p3(sq.pos)      # 11/7 pos 가 발자국 한가운데
 			rg.rotation = Vector3(0, atan2(-sq.fwd.y, sq.fwd.x), 0)
 			# 맞으면 번쩍 —— 멀리 볼 때 '맞고 있다' 를 판 하나로 알린다
 			var base_c: Color = TEAM[sq.camp].lightened(0.1)
@@ -1872,7 +1883,7 @@ func _auto_frame() -> void:
 	live = live.filter(func(q): return q == _dir_sq or q == _dir_sq.engaged or q.pos.distance_to(cen) < DIRECTOR_R)
 	for sq in live:
 		var p: Vector2 = sq.pos * S
-		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 0.8
+		var r := maxf(sq.depth(), sq.hw * 2.0) * S * 0.5 + 0.8
 		var busy: bool = sq.contact or (sq.engaged != null and sq.moving) or clock - sq.hurt_at < 2.0      # 11/4 최근 2초에 병력을 잃은 곳도 '뜨거운 곳'
 		for o in [rt * r, -rt * r, fw * r, -fw * r]:
 			all.append(p + o)
@@ -1930,7 +1941,7 @@ func _frame_small(live: Array, fw: Vector2, rt: Vector2) -> void:
 	var pts := PackedVector2Array()
 	for sq in live:
 		var p: Vector2 = sq.pos * S
-		var r := maxf(sq.depth(), sq.cols * sq.sp) * S * 0.5 + 1.2
+		var r := maxf(sq.depth(), sq.hw * 2.0) * S * 0.5 + 1.2
 		for o in [rt * r, -rt * r, fw * r, -fw * r]:
 			pts.append(p + o)
 	var vp := get_viewport().get_visible_rect().size
@@ -2519,7 +2530,7 @@ func _on_impact(sq: Squad) -> void:
 
 
 func _contact_fx(a: Squad, d: Squad, dust: bool) -> void:
-	var p := p3(d.pos + a.axis * d.depth() * 0.5 + Vector2(-a.axis.y, a.axis.x) * rng.randf_range(-30, 30), 1.1)
+	var p := p3(d.pos + a.axis * d.edge(a.axis) + Vector2(-a.axis.y, a.axis.x) * rng.randf_range(-30, 30), 1.1)
 	_particles(p, "spark", Color("#fff2b0"))
 	if dust:
 		_particles(p + Vector3(0, -0.9, 0), "dust", Color("#a89270"))
@@ -2584,7 +2595,7 @@ func minor_fx(mk: String, akey: String, dkey: String) -> void:
 		return
 	if overview:
 		return
-	var wd := maxf(15.0, d.cols * d.sp * 0.32)
+	var wd := maxf(15.0, d.hw * 0.64)
 	var spots := []
 	for i in 3:
 		spots.append(p3(d.pos + d.right() * rng.randf_range(-wd, wd) + d.fwd * rng.randf_range(-8.0, 8.0)))
@@ -2672,8 +2683,8 @@ func _talismans(a: Squad, d: Squad, col: Color, n: int) -> void:
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		_tal_mat[key] = m
-	var wa := a.cols * a.sp * 0.35
-	var wd := maxf(20.0, d.cols * d.sp * 0.3)
+	var wa := a.hw * 0.7
+	var wd := maxf(20.0, d.hw * 0.6)
 	for i in n:
 		var t := MeshInstance3D.new()
 		t.mesh = _tal_mesh
@@ -2752,7 +2763,7 @@ func clash(akey: String, dkey: String, emph := false) -> void:
 		return
 	cfx.slash(a, d)
 	var dir := (a.pos - d.pos).normalized()
-	var p := p3(d.pos + dir * d.depth() * 0.5 + Vector2(0, rng.randf_range(-20, 20)), 1.1)
+	var p := p3(d.pos + dir * d.edge(dir) + Vector2(0, rng.randf_range(-20, 20)), 1.1)
 	_particles(p, "spark", Color("#fff2b0"))
 
 
@@ -3130,10 +3141,10 @@ func _slow_marks() -> void:
 			slow_marks.erase(sq.key)
 			continue
 		# 11/3 사용자 2차: 발밑 장식이 전장을 지저분하게 만든다 —— 부대 발밑 크기로 작고 옅게, 발광 없이
-		var r: float = (maxf(sq.cols * sq.sp, sq.depth()) * 0.9 + 6.0) * S
+		var r: float = (maxf(sq.hw * 2.0, sq.depth()) * 0.9 + 6.0) * S
 		var d0: Decal = m[0]
 		d0.size = Vector3(r, 4.0, r)
-		d0.position = p3(sq.pos - sq.fwd * sq.depth() * 0.5)
+		d0.position = p3(sq.pos)
 		d0.rotation.y = fposmod(clock * 0.8, TAU)
 		d0.modulate.a = 0.2
 
@@ -3157,10 +3168,10 @@ func _slow_decal(tex: Texture2D, energy: float) -> Decal:
 var on_break := Callable()     # BattleView 가 "파갑!" 글자를 띄운다
 func _armor_break(sq: Squad) -> void:
 	sq.break_t = clock
-	var c := p3(sq.pos - sq.fwd * sq.depth() * 0.5, 1.2)
+	var c := p3(sq.pos, 1.2)
 	var em := _particles(c, "magic", Color("#ffb347"))
 	em.amount = 28
-	em.emission_sphere_radius = maxf(3.0, sq.cols * sq.sp * S * 0.5)
+	em.emission_sphere_radius = maxf(3.0, sq.hw * S)
 	_ring(c, Color("#ffb347"), 0.6)
 	_light(c + Vector3(0, 2, 0), Color("#ffa040"), 5.0, 0.4)
 	if on_break.is_valid():

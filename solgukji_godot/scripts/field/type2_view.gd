@@ -8,7 +8,7 @@ extends DotView
 
 const TILT := 1.25             # 세로 배율 —— 11/6 사용자 "더 넓게": 세로 화면을 다 쓰도록 앞뒤 거리를 늘린다 (0.62 눌림 → 1.25 늘림)
 const FIG := 17.0              # 병사 인형 크기 (px, 화면 —— 배율 1 기준) —— 11/6 보는 맛: 15 → 17
-const T2_SPREAD := 1.35        # 부대 안 병사 사이 (점묘보다 촘촘하게 —— 삼국지11 의 부대 덩어리)
+const T2_SPREAD := 1.0         # 11/7 군집 강체: 병사는 엔진 발자국을 그대로 채운다 (넓혀 그리던 1.35 는 RtBattle.FP_SPREAD 로 발자국에 들어갔다)
 const HEX := 34.0              # 육각 한 칸 (전장 px)
 const CLONES := 1              # 11/6 3차(목표: 휴대폰에서도 품질 그대로 대군): 묶음(단순한 인형 열둘) 하나 = 병사 하나 —— 화면 병사 수 4배, 그리는 칸은 1/3
 const CLONES_SMALL := 2        # 병사가 SMALL_SQ 명보다 적은 부대(1일차 등)
@@ -64,6 +64,7 @@ func setup() -> void:
 	for sq: Squad in field.order:
 		ys += sq.pos.y
 	_mid_y = ys / maxf(1.0, field.order.size())
+	_roll_ground()
 	_reset_feel()
 	_setup_tac()
 	_build_gpu()
@@ -81,7 +82,7 @@ func _fit(now := false) -> void:
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone" or sq.state == "flee":
 			continue
-		var r := maxf(sq.depth(), sq.cols * sq.sp) * 0.3 * T2_SPREAD      # 11/6 사용자: 더 넓게 —— 부대 한가운데만 담고 화면을 꽉 채운다
+		var r := maxf(sq.depth(), sq.hw * 2.0) * 0.3 * T2_SPREAD      # 11/6 사용자: 더 넓게 —— 부대 한가운데만 담고 화면을 꽉 채운다
 		lo = lo.min(sq.pos - Vector2(r, r))
 		hi = hi.max(sq.pos + Vector2(r, r))
 	if lo.x == INF:
@@ -188,6 +189,8 @@ func _clones(sq: Squad) -> int:
 ## 병사 인형 —— 진영색, 맞으면 흰빛, 쓰러지면 눕고 바랜다. 위에 있을수록(멀수록) 먼저 그려 겹침 순서를 맞춘다
 var _buf := PackedFloat32Array()
 static var UNIT_C := _unit_circle(16)
+## 발자국 판 꼭짓점 (앞 x · 오른쪽 y, 반폭 단위) —— 앞끝 두 점이 먼저 (앞끝 선을 긋는다), 모서리는 깎았다
+const FOOT_C := [Vector2(1, -0.8), Vector2(1, 0.8), Vector2(0.8, 1), Vector2(-0.8, 1), Vector2(-1, 0.8), Vector2(-1, -0.8), Vector2(-0.8, -1), Vector2(0.8, -1)]
 
 
 static func _unit_circle(n: int) -> PackedVector2Array:
@@ -313,11 +316,11 @@ func _draw_dots() -> void:
 		if not (sq.alive and sq.contact and sq.engaged != null):
 			continue
 		var en: Squad = sq.engaged
-		var mid: Vector2 = en.pos + sq.axis * en.depth() * 0.5
+		var mid: Vector2 = en.pos + sq.axis * en.edge(sq.axis)      # 맞닿은 가장자리
 		var perp := Vector2(-sq.axis.y, sq.axis.x)
 		for j in (8 if load_lv == 0 else 3):
 			var ph := fposmod(_t * 3.0 + j * 0.41 + float(sq.row.slot) * 0.13, 1.0)
-			var at: Vector2 = mid + perp * (fposmod(j * 37.3 + floor(_t * 3.0 + j * 0.41) * 11.0, 1.0) - 0.5) * sq.cols * sq.sp
+			var at: Vector2 = mid + perp * (fposmod(j * 37.3 + floor(_t * 3.0 + j * 0.41) * 11.0, 1.0) - 0.5) * sq.hw * 2.0
 			var sp := 4.5 * (1.0 - ph) * clampf(_scale, 0.7, 1.6)
 			var q := map(at) + Vector2(0, -ph * 10.0 - 6.0)
 			var r := ph * 3.0
@@ -366,29 +369,31 @@ func _draw_under_inner(ci: CanvasItem) -> void:
 			continue
 		var fade: float = sq.fade if sq.state == "flee" else 1.0
 		var team := TEAM_A if sq.camp == "A" else TEAM_B
-		var hd := sq.depth() * 0.5 * T2_SPREAD + 7.0
-		var hw := sq.cols * sq.sp * 0.5 * T2_SPREAD + 7.0
-		var c := sq.pos - sq.fwd * (hd - 7.0)
+		# 11/7 군집 강체 —— 부대 발자국(엔진이 겹치지 않게 놓는 직사각형)을 모서리를 깎은 판으로. 앞끝은 밝은 선 (어디를 보는지)
+		var hd := sq.hd() + 4.0
+		var hw := sq.hw + 4.0
+		var c := sq.pos
 		var rt := sq.right()
-		var mc := map(c)      # 지도는 1차 변환 —— 축 둘만 옮기고 원은 조합한다 (map 을 점마다 부르지 않게)
+		var mc := map(c)      # 지도는 1차 변환 —— 축 둘만 옮기고 꼭짓점은 조합한다 (map 을 점마다 부르지 않게)
 		var ex := map(c + sq.fwd * hd) - mc
 		var ey := map(c + rt * hw) - mc
 		var pts := PackedVector2Array()
-		pts.resize(UNIT_C.size())
-		for k in UNIT_C.size():
-			pts[k] = mc + ex * UNIT_C[k].x + ey * UNIT_C[k].y
+		pts.resize(FOOT_C.size())
+		for k in FOOT_C.size():
+			pts[k] = mc + ex * FOOT_C[k].x + ey * FOOT_C[k].y
 		var hl: float = view.hud.highlight_k(sq.key) if view != null and view.hud != null else 0.0      # 11/6 #11 아래 프로필을 누른 부대
-		ci.draw_colored_polygon(pts, Color(team.lightened(hl * 0.5), (0.2 + 0.35 * hl) * fade))
-		pts.append(pts[0])
-		ci.draw_polyline(pts, Color(team.lightened(0.25 + 0.6 * hl), (0.55 + 0.45 * hl) * fade), 1.6 + 2.4 * hl)
-		_boon_ring(ci, pts, sq, fade)
+		# 11/7 사용자: 장수(부대)를 감싸는 판 · 테두리 선은 뺀다 —— 아래 프로필을 눌러 강조할 때만 잠깐 보인다
+		if hl > 0.01:
+			ci.draw_colored_polygon(pts, Color(team.lightened(hl * 0.5), 0.35 * hl * fade))
+			pts.append(pts[0])
+			ci.draw_polyline(pts, Color(team.lightened(0.85), hl * fade), 1.6 + 2.4 * hl)
 		# 전선 먼지 —— 맞붙은 자리에 흙먼지가 계속 인다 (11/6 보는 맛)
 		if load_lv == 0 and sq.contact and sq.engaged != null and is_instance_valid(sq.engaged):
-			var mid: Vector2 = sq.engaged.pos + sq.axis * sq.engaged.depth() * 0.5
+			var mid: Vector2 = sq.engaged.pos + sq.axis * sq.engaged.edge(sq.axis)
 			var perp := Vector2(-sq.axis.y, sq.axis.x)
 			for j in 4:
 				var ph := fposmod(_t * 0.9 + j * 0.25 + sq.row.slot * 0.17, 1.0)
-				var at: Vector2 = mid + perp * (fposmod(j * 0.29 + sq.row.slot * 0.11, 1.0) - 0.5) * sq.cols * sq.sp * T2_SPREAD
+				var at: Vector2 = mid + perp * (fposmod(j * 0.29 + sq.row.slot * 0.11, 1.0) - 0.5) * sq.hw * 2.0 * T2_SPREAD
 				ci.draw_circle(map(at), (5.0 + ph * 12.0) * clampf(_scale, 0.6, 1.8), Color(0.74, 0.66, 0.5, 0.26 * sin(PI * ph)))
 		# 흙먼지 —— 움직이는 부대 뒤로 뭉게뭉게
 		if load_lv == 0 and sq.moving and sq.state != "flee":
@@ -416,7 +421,7 @@ func _draw_status_hex(ci: CanvasItem) -> void:
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone":
 			continue
-		var c := sq.pos - sq.fwd * sq.depth() * 0.5
+		var c := sq.pos
 		if sq.statuses.has("burn"):
 			_hex_at(ci, c, Color("#ff7a2a"), 0.22 + 0.08 * sin(_t * 8.0 + sq.row.slot))
 		if sq.statuses.has("flood"):
@@ -707,12 +712,13 @@ func fx(k: String, p: Vector2, col: Color, life: float, delay := 0.0, r := 30.0,
 
 ## 부대가 보이는 한가운데 (병사는 T2_SPREAD 만큼 넓혀 그린다) · 그 둘레 한 점
 func vis_c(sq: Squad) -> Vector2:
-	return sq.pos - sq.fwd * sq.depth() * 0.5 * T2_SPREAD
+	return sq.pos      # 11/7 강체: pos 가 발자국 한가운데
 
 
 func vis_spot(sq: Squad) -> Vector2:
-	var wd := maxf(10.0, sq.cols * sq.sp * 0.4 * T2_SPREAD)
-	return vis_c(sq) + sq.right() * _frng.randf_range(-wd, wd) + sq.fwd * _frng.randf_range(-10.0, 10.0)
+	var wd := maxf(10.0, sq.hw * 0.8)
+	var dd := maxf(6.0, sq.hd() * 0.6)
+	return vis_c(sq) + sq.right() * _frng.randf_range(-wd, wd) + sq.fwd * _frng.randf_range(-dd, dd)
 
 
 func fx_minor(mk: String, a: Squad, d: Squad) -> void:
@@ -900,7 +906,7 @@ func _draw_flags(ci: CanvasItem) -> void:
 		var fac_c: Color = DB.fac_color(sq.row.fac) if "fac" in sq.row else team
 		var n := 2 if sq.tier >= 5 else 1
 		for j in n:
-			var at: Vector2 = sq.pos - sq.fwd * (sq.depth() * 0.5 * T2_SPREAD + 6.0) + sq.right() * ((j - (n - 1) * 0.5) * 14.0)
+			var at: Vector2 = sq.pos - sq.fwd * (sq.hd() + 6.0) + sq.right() * ((j - (n - 1) * 0.5) * 14.0)
 			var base := map(at)
 			var h := 26.0 * zs
 			var top := base + Vector2(0, -h)
@@ -1296,7 +1302,7 @@ func _feel_step(dt: float) -> void:
 		var on := sq.contact and sq.alive and sq.engaged != null
 		if on and not _was_contact.get(sq.key, false):
 			var en: Squad = sq.engaged
-			var mid: Vector2 = en.pos + sq.axis * en.depth() * 0.5
+			var mid: Vector2 = en.pos + sq.axis * en.edge(sq.axis)
 			var cav: bool = sq.tag == "기병"
 			fx("ring", mid, Color("#e8d3a0"), 0.5, 0.0, 34.0 if cav else 24.0)
 			fx("dust", mid, Color("#b8a07a"), 1.1, 0.0, 30.0 if cav else 20.0)
@@ -1430,3 +1436,29 @@ func fx_cast(a: Squad, dkeys: Array, col: Color) -> void:
 		var d: Squad = field.squads.get(dk)
 		if d != null:
 			fx("proj", vis_c(d), col, 0.55, 0.0, 0.0, ap)
+
+
+
+## 11/7 사용자 '전투 지형에 약간의 랜덤성' —— 바닥 지도만 전투마다 다르게 (판정과 무관). 같은 전투(시드)는 같은 땅
+const GROUNDS := [      # [풀 어두운, 풀 밝은, 흙 얼룩] —— 초원 · 마른 들 · 늦가을 · 짙은 숲가
+	[Color(0.36, 0.45, 0.27), Color(0.47, 0.55, 0.31), 0.0],
+	[Color(0.45, 0.46, 0.30), Color(0.56, 0.54, 0.36), 0.6],
+	[Color(0.44, 0.42, 0.26), Color(0.57, 0.50, 0.30), 0.35],
+	[Color(0.29, 0.40, 0.25), Color(0.38, 0.49, 0.29), 0.1],
+]
+func _roll_ground() -> void:
+	var r := RandomNumberGenerator.new()
+	var sd = view._p.get("seed") if view != null and view.get("_p") is Dictionary else null
+	r.seed = hash(str(sd) + "바닥") if sd != null else hash(str(field.order.map(func(q): return q.cid)))
+	var g: Array = GROUNDS[r.randi() % GROUNDS.size()]
+	var m: ShaderMaterial = _ground.material
+	m.set_shader_parameter("seed_off", Vector2(r.randf_range(-4000, 4000), r.randf_range(-4000, 4000)))
+	m.set_shader_parameter("grass_lo", g[0])
+	m.set_shader_parameter("grass_hi", g[1])
+	m.set_shader_parameter("soil_amt", float(g[2]) + r.randf_range(0.0, 0.3))
+	m.set_shader_parameter("forest_amt", r.randf_range(0.42, 0.6))
+	m.set_shader_parameter("forest_side", r.randf_range(220.0, 340.0))
+	var side := 1.0 if r.randf() < 0.5 else -1.0
+	m.set_shader_parameter("road_y", _mid_y + side * r.randf_range(260.0, 380.0) if r.randf() < 0.6 else 9999.0)
+	m.set_shader_parameter("creek_y", _mid_y - side * r.randf_range(300.0, 420.0) if r.randf() < 0.4 else 9999.0)
+	m.set_shader_parameter("rock_amt", r.randf_range(0.0, 1.0) if r.randf() < 0.7 else 0.0)

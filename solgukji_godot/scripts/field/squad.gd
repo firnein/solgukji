@@ -27,7 +27,8 @@ const COUNT := {1: 34, 2: 38, 3: 43, 4: 57, 5: 80, 6: 109, 7: 137, 8: 172}     #
 ## 11/4 사용자: 압도적인 스케일 —— 병사를 작게 · 간격도 그만큼 (넓은 땅 위의 큰 군세로 보이게)
 const SCALE_BODY := 0.72
 const SCALE_SP := 1.0      # 11/4 사용자: 간격만 넓히면 밀려 번진다 —— 간격은 보통으로, 대신 대열 칸(RS · CS)을 키웠다
-const MAX_W := 220.0     # 11/4 저녁 북적임: 옆 부대와 맞닿게 (205 → 220 = CS)     # 부대 폭 상한 (px) —— 옆 부대 간격(CS 220) 안
+## 11/7 군집 강체 —— 부대 발자국(반폭 hw · 반깊이 hd0)은 엔진(RtBattle.footprint)이 정한다. 병사 수 n 은 품질에 따라 다르지만
+## 대열은 늘 발자국을 꽉 채운다 (cols · 가로 간격 sp · 줄 간격 spr 을 발자국에서 거꾸로 푼다). pos 는 발자국 한가운데, 앞줄은 pos + fwd × hd()
 const FEW_TROOPS := 12000.0     # 이 병력 아래 부대는 병사를 덜 그린다 (11/5)
 const PER_PV := 5.5      # PV 1 당 병사 수 (11/4 3.9 → 저녁 5.5: 북적이게 —— 전장이 성글었다)
 ## 등급별 병사 몸집 · 간격 배율 —— 초월 위는 정예라 크고 넓게 선다
@@ -52,7 +53,8 @@ const DUEL_DIST := 7.0      # 일대일로 붙은 두 병사 사이 (px)
 const LOOSE_IN := 0.25      # 맞붙으면 초당 이만큼 흐트러진다 (10/30 1.2 → 0.6, 10/31 0.25 —— 대열이 덩어리로 남게)
 const LOOSE_OUT := 0.22     # 떨어지면 초당 이만큼 대열을 되찾는다 (약 4~5초)
 const ATTACK_TIME := 0.38   # 한 번 찌르거나 휘두르는 시간
-const ARENA := Rect2(-560, -480, 1120, 960)   # 11/7 RtBattle.ARENA 와 같게 (넓힘) —— 전장 —— 부대 중심이 이 밖으로 나가지 않는다 (진형 끝 x 276 · 등장 436 · y 118)
+const ARENA := Rect2(-560, -480, 1120, 960)   # 기본 전장 —— 실시간 엔진은 판마다 res.arena 를 준다 (War3D.setup 이 arena 에 넣는다)
+static var arena := ARENA
 const FLEE_OUT := 110.0     # 패주하는 부대는 전장 밖으로 이만큼까지만 달아난다
 
 
@@ -99,7 +101,10 @@ var cid: String
 var tag: String
 var tier: int
 var cls: String
-var sp: float             # 병사 간격
+var sp: float             # 병사 가로 간격 (= 2 hw / cols)
+var spr: float            # 줄 간격 (= 2 hd0 / 처음 줄 수)
+var hw := 28.0            # 발자국 반폭 (엔진과 같은 식)
+var hd0 := 28.0           # 발자국 반깊이 (병력 가득일 때)
 var cols: int
 var soldiers: Array[Soldier] = []
 var general: Soldier = null
@@ -161,7 +166,7 @@ var _slice := 0           # 가만히 선 부대는 병사를 네 조로 나눠 
 var _rng: RandomNumberGenerator
 
 
-func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
+func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator, lay := 1.0) -> void:
 	_rng = rng
 	row = r
 	key = r.key
@@ -185,21 +190,17 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	match cls:
 		"cav":
 			n = maxi(5, int(n * 0.75))
-			sp = 12.0
-			cols = 9
 		"caster":
 			n = maxi(5, int(n * 0.7))
-			sp = 8.5
-			cols = 7
-		_:
-			sp = 7.0
-			cols = 14
-	sp *= TIER_SIZE.get(tier, 1.0) * SCALE_SP
-	# 11/4 사용자: 토탈워 삼국처럼 넓고 얇은 가로줄 —— 폭을 √n × 2.4 (기병 2.6), 깊이는 그만큼 얕게 (예전 × 1.35 · 1.5)
-	cols = maxi(mini(cols, ceili(n / 2.0)), roundi(sqrt(n) * (2.6 if cls == "cav" else 2.4)))     # 작은 부대는 한 줄로 길게 늘어서지 않게 (11/5)
-	# 11/4 사용자: 개전하자마자 대열이 쭈그러들었다 —— 옆 부대 간격(RtBattle.CS 118)보다 넓으면 War3D._squeeze 가 좌우를 반 아래로 좁힌다.
-	# 폭을 옆 간격 안으로 묶는다 (넓은 가로줄은 엔진 부대 간격을 키워야 가능)
-	cols = mini(cols, maxi(4, int(MAX_W / sp)))
+	# 11/7 군집 강체 —— 발자국은 엔진과 같은 식으로, 대열은 그 발자국을 채운다 (칸이 정사각에 가깝게 열 수를 고른다)
+	var card: Dictionary = DB.C[r.id] if r.has("id") and DB.C.has(r.id) else {"pv": COUNT[tier], "tag": tag, "tier": tier}
+	var fp := RtBattle.footprint(card, max, lay)
+	hw = fp.x
+	hd0 = fp.y
+	cols = clampi(roundi(sqrt(n * hw / hd0)), 1, n)
+	var rows0 := ceili(float(n) / cols)
+	sp = 2.0 * hw / cols
+	spr = 2.0 * hd0 / rows0
 	for i in n:
 		soldiers.append(_new_soldier(i))
 	_alive = n
@@ -255,8 +256,19 @@ func _recount_rows() -> void:
 	_gpu_rows = maxi(1, last / cols + 1)
 
 
+## 발자국 반깊이 —— 병력에 비례해 뒤에서부터 줄어든다 (엔진 RtBattle._depth_update 와 같은 식)
+func hd() -> float:
+	return maxf(hd0 * clampf(troops / maxf(1.0, max), 0.0, 1.0), RtBattle.HD_MIN)
+
+
+## 발자국 깊이 (앞끝 ~ 뒤끝)
 func depth() -> float:
-	return ranks() * sp
+	return hd() * 2.0
+
+
+## 발자국이 dir 방향으로 뻗은 반폭 —— 그 방향의 가장자리는 pos + dir × edge(dir)
+func edge(dir: Vector2) -> float:
+	return hd() * absf(dir.dot(fwd)) + hw * absf(dir.dot(right()))
 
 
 func right() -> Vector2:
@@ -267,15 +279,15 @@ func rank_of(s: Soldier) -> int:
 	return 99 if s == general else s.slot / cols
 
 
-## 대열 자리 → 월드 좌표. 대열의 "중심"이 pos, 앞줄(rank 0)이 앞쪽 끝이다.
+## 대열 자리 → 월드 좌표. pos 가 발자국 한가운데, 앞줄(rank 0)은 앞끝 바로 안쪽
 func _desired(s: Soldier) -> Vector2:
-	var front := pos + fwd * (_rk - 1) * sp * 0.5
+	var front := pos + fwd * hd()
 	if s == general:
-		return front - fwd * (_rk * sp + 6)
+		return (pos - fwd * (hd() + 6.0)) if cls == "caster" else (front + fwd * (sp * 1.6 + 4.0))
 	var c := s.slot % cols
 	var rk := s.slot / cols
 	var lateral := (c - (cols - 1) / 2.0 + (0.5 if rk % 2 == 1 else 0.0)) * sp   # 줄마다 반 칸 엇갈림
-	return front - fwd * (rk * sp * 0.92) + right() * lateral + s.jit
+	return front - fwd * ((rk + 0.5) * spr) + right() * lateral + s.jit
 
 
 ## 장수 (11/4 지시서: 삼탈워처럼 장수와 병사를 분리) —— 장수는 대열에 박힌 칸이 아니라 제 반경 안을 누비는 지휘관이다.
@@ -288,12 +300,11 @@ var g_charging := 0.0         # 돌진 남은 시간
 var cast_t := -99.0           # 기술 · 고유기를 쓴 시각 (장수 금빛 펄스)
 func _move_general(g: Soldier, dt: float, clock: float, front: Vector2) -> void:
 	var rgt := right()
-	var hw: float = cols * sp * 0.5 * gsq.y
 	var ph: float = g.phase + clock * 0.35
 	var tgt: Vector2
 	var low: bool = troops < max * 0.3
 	if cls == "caster" or low:
-		tgt = front - fwd * (_rk * sp * gsq.x + 10.0) + rgt * sin(ph) * hw * 0.5        # 대열 뒤 (책략 · 패색)
+		tgt = pos - fwd * (hd() + 10.0) + rgt * sin(ph) * hw * 0.5        # 대열 뒤 (책략 · 패색)
 	elif contact and engaged:
 		if clock >= g_charge_t:
 			g_charge_t = clock + _rng.randf_range(4.5, 8.0)
@@ -325,28 +336,29 @@ func fig_pos(s: Soldier) -> Vector2:
 	return s.pos
 
 
-## GPU 병사가 그려지는 자리 (셰이더 soldier_gpu 의 대열 · 늦게 따라오기 · 압축 · 물결을 평균 병사로)
+## GPU 병사가 그려지는 자리 (셰이더 soldier_gpu · type2_gpu 의 대열 · 늦게 따라오기를 평균 병사로)
+## 11/7 강체: 뒷줄이 늦는 몫을 작게 (0.8~1) —— 대열이 발자국 밖으로 늘어지지 않는다
 func gpu_pos(slot: int) -> Vector2:
 	var rows: float = maxf(1.0, _gpu_rows)
 	var rk := slot / cols
 	var c := slot % cols
 	var half := (cols - 1) / 2.0
-	var edge := absf(c - half) / maxf(half, 1.0)
-	var lag := clampf(1.0 - (rk / rows) * 0.7 - edge * 0.25 - 0.15, 0.08, 1.0)
+	var edge_k := absf(c - half) / maxf(half, 1.0)
+	var lag := clampf(1.0 - (rk / rows) * 0.12 - edge_k * 0.05 - 0.03, 0.8, 1.0)
 	var p0 := gpos_slow.lerp(pos, lag)
 	var f0 := gfwd_slow.lerp(fwd, lag).normalized()
 	var r0 := Vector2(-f0.y, f0.x)
-	var lx := -(rk * sp * 0.92) * gsq.x
-	var ly := (c - half + (0.5 if rk % 2 == 1 else 0.0)) * sp * gsq.y
-	return p0 + f0 * (gfront * gsq.x + lx) + r0 * ly
+	var lx := -((rk + 0.5) * spr)
+	var ly := (c - half + (0.5 if rk % 2 == 1 else 0.0)) * sp
+	return p0 + f0 * (gfront + lx) + r0 * ly
 
 
-## 대열 자리 (어긋남 없이) —— 셰이더(soldier_gpu)와 같은 식
+## 대열 자리 (어긋남 없이) —— 셰이더(soldier_gpu · type2_gpu)와 같은 식
 func slot_pos(slot: int) -> Vector2:
-	var front := pos + fwd * (_rk - 1) * sp * 0.5 * gsq.x
+	var front := pos + fwd * hd()
 	var rk := slot / cols
 	var c := slot % cols
-	return front - fwd * (rk * sp * 0.92 * gsq.x) + right() * ((c - (cols - 1) / 2.0 + (0.5 if rk % 2 == 1 else 0.0)) * sp * gsq.y)
+	return front - fwd * ((rk + 0.5) * spr) + right() * ((c - (cols - 1) / 2.0 + (0.5 if rk % 2 == 1 else 0.0)) * sp)
 
 
 ## 살아남은 병사로 대열을 다시 짠다 —— 앞줄부터 채우되, 지금 서 있는 자리와 가까운 순서를 지킨다
@@ -379,12 +391,12 @@ func set_target(t: Squad, off: float) -> void:
 func engage_point() -> Vector2:
 	var e := engaged
 	var perp := Vector2(-axis.y, axis.x)
-	return keep_in(e.pos + axis * (e.depth() * 0.5 + depth() * 0.5 + CONTACT_GAP) + perp * slot_off)
+	return keep_in(e.pos + axis * (e.edge(axis) + edge(axis) + CONTACT_GAP) + perp * slot_off)
 
 
 ## 전장 안으로 —— 패주하는 부대는 FLEE_OUT 만큼 더 나갈 수 있다
 func keep_in(p: Vector2) -> Vector2:
-	var r := ARENA.grow(FLEE_OUT) if state == "flee" else ARENA
+	var r := arena.grow(FLEE_OUT) if state == "flee" else arena
 	return p.clamp(r.position, r.end)
 
 
@@ -472,7 +484,7 @@ func update(dt: float, clock: float) -> void:
 	hurt = maxf(0, hurt - dt * 2.5)
 	var enemy_at = engaged.pos if engaged else face_to
 	# 대열 자리 계산에 쓰는 값은 부대마다 한 번만
-	var front := pos + fwd * (_rk - 1) * sp * 0.5
+	var front := pos + fwd * hd()
 	var rgt := right()
 	var half := (cols - 1) / 2.0
 	var calm: bool = not moving and not contact and state != "flee" and not cheer and loose <= 0.0
@@ -495,13 +507,13 @@ func update(dt: float, clock: float) -> void:
 			rk = 99
 			# 10/31 사용자: 말 탄 장수는 선봉 —— 맨 앞 가운데 (맞붙으면 앞줄과 나란히). 책략 부대만 뒤에
 			if cls == "caster":
-				want_p = front - fwd * (_rk * sp + 6)
+				want_p = pos - fwd * (hd() + 6.0)
 			else:
 				want_p = front + fwd * (2.0 if contact else sp * 1.6 + 4.0)
 		else:
 			rk = s.slot / cols
 			var c := s.slot % cols
-			want_p = front - fwd * (rk * sp * 0.92) + rgt * ((c - half + (0.5 if rk & 1 else 0.0)) * sp) + s.jit
+			want_p = front - fwd * ((rk + 0.5) * spr) + rgt * ((c - half + (0.5 if rk & 1 else 0.0)) * sp) + s.jit
 		var grid_p := want_p
 		var fighting: bool = contact and rk < DUEL_RANKS
 		var pressing: bool = contact and not fighting and s != general     # 뒷줄 —— 앞으로 밀고 든다
@@ -589,7 +601,7 @@ func set_troops(t: float, from: Vector2, clock: float, rng: RandomNumberGenerato
 			s.alive = true
 			s.die_t = -1
 			s.spawn_t = clock
-			s.pos = pos - fwd * (depth() + 20)
+			s.pos = pos - fwd * (hd() + 20)
 			s.yaw = fwd.angle()
 		relayout()
 		_alive = soldiers.filter(func(x): return x.alive).size()
@@ -759,7 +771,7 @@ func _puppet(dt: float) -> void:
 	else:
 		engaged = null
 		contact = false
-	_turn_toward(pfwd, dt * 1.5)
+	_turn_toward(pfwd, dt * 2.5)      # 11/7 강체: 엔진(2.5 rad/s)보다 빠르게 따라 돈다 —— 발자국이 엔진과 어긋나 이웃과 겹쳐 보이지 않게
 
 
 func stagger(clock: float, rng: RandomNumberGenerator) -> void:

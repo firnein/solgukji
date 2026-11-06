@@ -179,6 +179,12 @@ class Unit:
 	var atb := 0.0            # 행동 준비 (1 이 되면 사거리 안의 적을 친다)
 	var retgt := 0.0          # 다음 대상 다시 고르기까지 (초)
 	var ran := 0.0            # 마지막 공격 뒤 달려온 거리 (기병 돌격)
+	# 11/7 군집 강체 (RtBattle) —— 대열 발자국 · 속도
+	var hw := 28.0            # 발자국 반폭 (좌우)
+	var hd := 28.0            # 발자국 반깊이 (앞뒤) —— 병력에 따라 뒤에서부터 줄어든다
+	var hd0 := 28.0           # 처음 반깊이
+	var vel := Vector2.ZERO   # 속도 (px/초)
+	var block_t := 0.0        # 앞이 막힌 채 지난 시간 (초)
 
 
 var K: Dictionary

@@ -23,10 +23,54 @@ static func turns_for(t: float) -> float:
 
 static var period_base := 1.9           # 예전 한 턴에 해당하는 시간 (초) —— 턴 끝 정산 간격 · 행동 간격의 기준. 11/1 2.9→1.9 (감상 전투 35초 안팎)
 const TRACK_EVERY := 0.4      # 위치 기록 간격 (초)
-const ARENA := Rect2(-560, -480, 1120, 960)     # 11/7 사용자: 진형 열을 늘린 만큼 넓게 (예전 세로 ±280 —— 5열 진형 끝 열이 시작부터 안으로 밀렸다)
-const BODY := 28.0            # 부대 반지름 (px) —— 이보다 가까이 겹치지 않는다
-static var ALLY_SEP := 2.7     # 아군 부대끼리 떨어지는 거리 (BODY 배) —— 11/3 2.0 → 2.7: 가운데 한 덩어리로 뭉쳐 누가 누군지 안 보였다
-const CONTACT := 64.0         # 근접 공격이 닿는 중심 거리
+const ARENA := Rect2(-560, -480, 1120, 960)     # 기본 전장 (실제 판은 arena —— 진형 자리 · 발자국에 맞춰 run() 이 정한다)
+var arena := ARENA
+const BODY := 28.0            # (예전 원형 부대 반지름 —— 지금은 발자국(hw · hd)을 쓴다)
+const CONTACT := 64.0         # (예전 맞닿음 중심 거리 —— 화면 호환용, 판정은 TOUCH 틈)
+
+# ───────── 군집 강체 (11/7 사용자: 군집은 다른 군집을 뚫고 들어갈 수 없다 —— 기본 물리의 느낌) ─────────
+## 부대마다 대열 발자국(앞뒤 반깊이 hd · 좌우 반폭 hw 의 직사각형, 방향 fwd)을 둔다. 크기는 병사 수(PV · 병력)로 정하되 진형 칸(CS · RS)에 맞게 상한.
+## 움직임은 속도 벡터(가속 ACC_T · 감속 DEC_T 초), 돌기는 TURN_RATE —— 옆 부대를 더 파고드는 회전은 줄인다.
+## 틱마다 발자국끼리 겹치지 않게 푼다(_solve, SOLVE_ITERS 번) —— 아군은 ALLY_GAP 틈, 맞붙은 적은 FOE_MIX 만큼만 파고든다. 병력이 많은 쪽이 덜 밀린다(떠밀기).
+## 맞닿음(TOUCH) · 근접 사거리(melee_gap) · 원거리 사거리는 모두 발자국 가장자리 사이 틈(_gap)으로 잰다.
+## 병력이 줄면 깊이가 뒤에서부터 줄어든다(앞줄 고정). 앞이 막힌 부대는 막은 부대를 비켜 옆으로 흘러간다(_steer) —— 예비대가 측면으로 돈다.
+const FP_SPREAD := 1.35       # 병사 간격 배율 (Type2View 가 넓혀 그리던 값을 발자국에 넣었다)
+const FP_SP := {"기병": 12.0, "책사": 8.5, "유생": 8.5, "술사": 8.5, "모사": 8.5}     # 병사 간격 (px) —— 그 밖은 7.0
+const FP_RATIO := {"기병": 2.0, "책사": 2.0, "유생": 2.0, "술사": 2.0, "모사": 2.0}   # 폭 : 깊이 —— 그 밖은 2.6 (넓고 얇은 가로줄)
+const FP_TIER := {6: 1.1, 7: 1.2, 8: 1.32}       # 초월 위는 정예라 넓게 선다 (Squad.TIER_SIZE 와 같게)
+const FP_PER_PV := 5.5        # PV 1 당 기준 병사 수 (Squad.PER_PV 와 같게)
+const FP_FEW := 12000.0       # 이 병력 아래 부대는 작게 (Squad.FEW_TROOPS)
+const CELL_W := 0.86          # 발자국 폭 상한 —— 열 간격(CS · lay)의 비율. 옆 부대와 틈 약 30px
+const CELL_D := 0.80          # 깊이 상한 —— 행 간격(RS · lay)의 비율
+const TOUCH := 6.0            # 가장자리 틈이 이 안이면 맞닿음(묶임)
+static var melee_gap := 70.0  # 근접 공격이 닿는 가장자리 틈 —— 예전 중심 거리 130 과 같은 몫(130 − 반지름 28 × 2 ≈ 74): 앞 부대 바로 뒤의 작은 둘째 줄은 앞 부대 너머로 친다. 22 로 두면 전투가 20~30% 길어졌다 (11/7 측정)
+static var ALLY_SEP := 2.7         # (예전 값 —— 점검 장면 호환용)
+const AREA_GAP := 40.0        # '둘레' 범위 기술(front3 · denseLine) —— 대상 발자국과 틈이 이 안인 적
+const ALLY_GAP := 8.0         # 아군 발자국 사이 최소 틈
+const FOE_MIX := 6.0          # 맞붙은 적끼리 이만큼은 파고든다 (앞줄이 섞인다)
+const SOLVE_ITERS := 3
+const ACC_T := 0.6            # 멈춤 → 제 속도까지 (초)
+const DEC_T := 0.4            # 제 속도 → 멈춤 (초)
+const HD_MIN := 6.0
+const LOOK := 60.0            # 앞을 살피는 거리 (px) —— 이 안에 막은 부대가 있으면 비켜 간다
+static var rigid_probe := false     # 점검 (tests/rigid_check) —— 풀고 난 뒤 남은 겹침 · 막힌 시간 · 측면으로 돈 시간을 stats 에 센다
+
+
+## 부대 발자국 (반폭, 반깊이) —— 엔진 · 화면이 같은 식을 쓴다 (품질 설정과 무관하게 결정적)
+static func footprint(c: Dictionary, max_troops: float, lay: float) -> Vector2:
+	var tag := str(c.get("tag", ""))
+	var few := sqrt(clampf(max_troops / FP_FEW, 0.3, 1.0))
+	var n := float(c.get("pv", 20)) * FP_PER_PV * few
+	if tag == "기병":
+		n *= 0.75
+	elif FP_SP.has(tag):
+		n *= 0.7
+	var sp: float = FP_SP.get(tag, 7.0) * FP_TIER.get(int(c.get("tier", 3)), 1.0) * FP_SPREAD
+	var ratio: float = FP_RATIO.get(tag, 2.6)
+	var area := n * sp * sp
+	var w := minf(sqrt(area * ratio), CS * lay * CELL_W)
+	var d := minf(area / w, RS * lay * CELL_D)
+	return Vector2(maxf(w, 44.0) * 0.5, maxf(d, 18.0) * 0.5)
 const GAP := 300.0      # 양군 선봉 사이 (11/4 240 → 300)
 const RS := 150.0      # 11/4 사용자: 대열 칸 자체를 키운다 —— 앞뒤 열 간격 78 → 150 (깊은 부대가 앞뒤로 겹쳐 번졌다)
 const CS := 210.0      # 열 간격 (11/4 118 → 175 → 220, 11/6 5열로 165, 11/7 사용자 '더 넓은 범위로' 210 —— 전체 폭 840, RtBattle · War3D 같게)
@@ -41,7 +85,7 @@ var lay := 1.0
 const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
 static var bow_range := 250.0      # 궁병 사거리 (점검 장면이 바꿔 볼 수 있게 static)
 static var cast_range := 220.0     # 지략 계열(책략으로 치는 유닛) 사거리
-static var melee_reach := 130.0    # 근접 공격이 닿는 중심 거리 —— 맞닿음보다 넓어 아군 너머 둘째 줄도 친다 (10/31: 64 면 근접이 막혀 유닛당 11초 놀았다)
+static var melee_reach := 130.0    # (예전 근접 중심 거리 —— 11/7 강체부터 판정은 melee_gap 틈. 점검 장면 호환용으로 남김)
 static var melee_bank := 2.0       # 근접은 행동 준비를 이만큼 모아 둔다 —— 걸어가는 동안 쌓았다가 닿자마자 몰아 친다
 static var int_mul := 0.6          # 책략 피해 배율 —— 후열이 안전해진 만큼 (고유기 제외). 등급별 INT_TIER 를 곱한다
 static var int_tier := {3: 1.5, 4: 1.35, 5: 0.85, 6: 0.7, 7: 0.75, 8: 0.8}   # 공격자 카드 등급별 책략 배율 (10/31 측정 —— 낮은 등급 지략이 약하고 높은 등급이 세다)
@@ -89,6 +133,15 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, policy_)
 	for i in units.size():
 		_idx[units[i]] = i
+	# 전장 범위 —— 진형 자리 · 발자국에 맞춘다 (앞뒤로 반 행, 옆으로 한 열 남짓 여유: 예비대가 측면으로 돌 자리)
+	var xh := 0.0
+	var yh := 0.0
+	for u in units:
+		xh = maxf(xh, absf(u.pos.x) + u.hd)
+		yh = maxf(yh, absf(u.pos.y) + u.hw)
+	xh += RS * lay * 0.5
+	yh += CS * lay * 0.9
+	arena = Rect2(-xh, -yh, xh * 2.0, yh * 2.0)
 	# 처음 행동 준비 —— 빠른 유닛이 먼저 (예전 턴 순서의 속도 정렬). 선제 특기 · 첫 턴 기병은 바로
 	for u in units:
 		var sp := eff(u, "spd") * (1 + rnd(-0.15, 0.15))
@@ -157,6 +210,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	r["terrain"] = terrain
 	r["rt"] = true
 	r["lay"] = lay
+	r["arena"] = [roundi(arena.position.x), roundi(arena.position.y), roundi(arena.size.x), roundi(arena.size.y)]
 	r["len"] = snappedf(_tm, 0.1)
 	return r
 
@@ -173,6 +227,10 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	var x: float = GAP / 2 * (0.7 + 0.3 * lay) + slot_info.row * RS * lay
 	u.pos = Vector2(-x if camp == "A" else x, (slot_info.col - DB.FORM_MID) * CS * lay)
 	u.fwd = Vector2(1, 0) if camp == "A" else Vector2(-1, 0)
+	var fp := footprint(u.c, u.max, lay)
+	u.hw = fp.x
+	u.hd0 = fp.y
+	u.hd = fp.y
 	return u
 
 
@@ -220,10 +278,10 @@ func can_ult(u: Unit) -> bool:
 
 
 func _ult_reach_n(u: Unit, foes: Array) -> int:
-	var reach: float = (cast_range if is_caster(u.c) else melee_reach * 1.6) + 40.0
+	var reach: float = (cast_range if is_caster(u.c) else melee_gap + 90.0) + 40.0      # 발자국 틈 기준
 	var n := 0
 	for f in foes:
-		if f.alive and u.pos.distance_to(f.pos) <= reach:
+		if f.alive and _gap(u, f) <= reach:
 			n += 1
 	return n
 
@@ -338,17 +396,18 @@ func _is_back(u: Unit) -> bool:
 func _dense_max(us: Array) -> int:
 	var best := 0
 	for c in us:
-		best = maxi(best, us.filter(func(o): return o.pos.distance_to(c.pos) <= AREA).size())
+		best = maxi(best, us.filter(func(o): return o == c or _gap(o, c) <= AREA_GAP).size())
 	return best
 
 
+## 사거리 —— 발자국 가장자리 사이 틈 (11/7 강체: 중심 거리가 아니라 대열 앞끝에서 적 대열까지)
 func _reach(u: Unit) -> float:
 	var hill := HILL.range if _in(u.pos, "hill") else 1.0
 	if u.c.tag == "궁병":
 		return bow_range * hill
 	if is_caster(u.c):
 		return cast_range * hill
-	return melee_reach
+	return melee_gap
 
 
 ## 지형 만들기 —— 전투 rng 와 따로 돌린다 (지형 때문에 판정 난수가 밀리지 않게)
@@ -411,7 +470,33 @@ func _foes_of(u: Unit) -> Array:
 func _ready_to_hit(u: Unit) -> bool:
 	if has_st(u, "confuse"):
 		return true            # 혼란은 제자리에서 차례를 날리거나 제 편을 친다 (Battle.act)
-	return u.tgt != null and u.tgt.alive and u.pos.distance_to(u.tgt.pos) <= _reach(u) + 2.0
+	return u.tgt != null and u.tgt.alive and _gap(u, u.tgt) <= _reach(u) + 2.0
+
+
+# ───────── 발자국 기하 ─────────
+
+static func _rt(u: Unit) -> Vector2:
+	return Vector2(-u.fwd.y, u.fwd.x)
+
+
+## 발자국이 dir 방향으로 뻗은 반폭
+static func _extent(u: Unit, dir: Vector2) -> float:
+	return u.hd * absf(dir.dot(u.fwd)) + u.hw * absf(dir.dot(Vector2(-u.fwd.y, u.fwd.x)))
+
+
+## 두 발자국 가장자리 사이 틈 (겹치면 음수 —— 가장 얕게 파고든 깊이). 네 축(두 부대의 앞뒤 · 좌우)으로 재는 분리축 판정
+func _gap(a: Unit, b: Unit) -> float:
+	var d := b.pos - a.pos
+	var best := -INF
+	for ax in [a.fwd, _rt(a), b.fwd, _rt(b)]:
+		var sep := absf(d.dot(ax)) - _extent(a, ax) - _extent(b, ax)
+		if sep > best:
+			best = sep
+	return best
+
+
+func _speed(u: Unit) -> float:
+	return SPEED.get(u.c.tag, 55.0) * clampf(eff(u, "spd") / maxf(1.0, float(u.c.spd)), 0.5, 1.5) * _terrain_move(u)
 
 
 # ───────── 움직임 ─────────
@@ -423,62 +508,137 @@ func _move() -> void:
 		u.retgt -= TICK
 		var foes := _foes_of(u)
 		if foes.is_empty():
+			u.vel = Vector2.ZERO
 			continue
-		# 맞닿은 적이 있으면 묶인다 —— 가장 가까운 맞닿은 적을 상대 (원거리도 붙으면 맞받아 싸운다)
+		# 맞닿은 적이 있으면 묶인다 —— 발자국이 맞닿은(틈 TOUCH 안) 적 가운데 가장 가까운 적을 상대 (원거리도 붙으면 맞받아 싸운다)
 		var pin: Unit = null
-		var pd := CONTACT + 4.0
+		var pd := TOUCH + 2.0
 		for o in foes:
-			var d := u.pos.distance_to(o.pos)
-			if d <= pd:
-				pd = d
+			var g := _gap(u, o)
+			if g <= pd:
+				pd = g
 				pin = o
 		# 기병 · 도적은 맞닿아도 묶이지 않고 노리던 후열로 파고든다
 		var slip: bool = (u.c.tag == "기병" or u.c.tag == "도적") and u.tgt != null and u.tgt.alive and pin != u.tgt
 		if slip:
 			pin = null
-		if pin != null and (u.tgt == null or not u.tgt.alive or u.pos.distance_to(u.tgt.pos) > _reach(u)):
+		if pin != null and (u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
 			u.tgt = pin
 		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0:
 			u.tgt = _choose(u, foes)
 			u.retgt = 0.5
+		var sp := _speed(u)
 		if has_st(u, "confuse"):
+			u.vel = u.vel.move_toward(Vector2.ZERO, sp / DEC_T * TICK)
+			u.pos += u.vel * TICK
 			continue
 		var t := u.tgt
 		var to := t.pos - u.pos
 		var dist := to.length()
-		var want := _reach(u) - 4.0
-		if pin == null and dist > want:
+		var gap := _gap(u, t)
+		var want := TOUCH if not _ranged(u) else _reach(u) - 4.0
+		var desired := Vector2.ZERO
+		if pin == null and gap > want:
 			var dir := to / maxf(dist, 0.001)
 			# 기병은 적 무리를 돌아 옆 · 뒤로 파고든다 (멀 때만)
-			if u.c.tag == "기병" and dist > 170.0:
+			if u.c.tag == "기병" and gap > 150.0:
 				var side := signf(u.pos.y - _centroid(foes).y)
 				if side == 0.0:
 					side = 1.0 if u.slot % 2 == 0 else -1.0
 				dir = (dir + Vector2(-dir.y, dir.x) * side * 0.55 * signf(dir.x if dir.x != 0 else 1.0)).normalized()
 			# 11/4 사용자: 도적은 측면으로 크게 돌아 적 후열에 붙는다 —— 적 무리 옆 바깥 길목(적 폭 + 여유)을 지나 노리는 적 뒤로
-			if u.c.tag == "도적" and dist > 90.0:
+			if u.c.tag == "도적" and gap > 70.0:
 				var way = _flank_way(u, t, foes)
 				if way != null:
 					var wv: Vector2 = way - u.pos
 					if wv.length() > 20.0:
 						dir = wv.normalized()
-			# 앞을 아군이 막고 있으면 옆으로 돌아간다
-			for al in units:
-				if al == u or not al.alive or al.camp != u.camp:
-					continue
-				var v := al.pos - u.pos
-				var ahead := v.dot(dir)
-				var lat := v.cross(dir)
-				if ahead > 0.0 and ahead < 75.0 and absf(lat) < 50.0:
-					var perp := Vector2(-dir.y, dir.x)
-					dir = (dir + perp * (-signf(lat) if lat != 0.0 else 1.0) * 0.9).normalized()
-					break
-			var sp: float = SPEED.get(u.c.tag, 55.0) * clampf(eff(u, "spd") / maxf(1.0, float(u.c.spd)), 0.5, 1.5) * _terrain_move(u)
-			var step := minf(sp * TICK, dist - want)
-			u.pos += dir * step
-			u.ran += step
+			dir = _steer(u, dir, t)
+			if dir != Vector2.ZERO:
+				desired = dir * minf(sp, (gap - want) / TICK)      # 노리는 적 앞에서 멈춘다 (파고들지 않게)
+		else:
+			u.block_t = 0.0
+		# 속도 —— 가속 · 감속 시간을 두어 미끄러지거나 순간이동하지 않는다
+		var acc := sp / (ACC_T if desired.length() > u.vel.length() else DEC_T)
+		u.vel = u.vel.move_toward(desired, acc * TICK)
+		var step := u.vel * TICK
+		u.pos += step
+		if desired != Vector2.ZERO:
+			u.ran += step.length()
 		_turn_to(u, to)
-	_separate()
+	_depth_update()
+	_solve()
+
+
+## 앞이 막혔으면 비켜 간다 —— 진행 방향 LOOK 안에 다른 부대(아군 · 노리지 않는 적)가 있으면 그 옆으로. 양쪽 가운데 더 트인 쪽으로,
+## 오래 막힐수록 더 옆으로 (예비대가 전선 뒤에서 기다리지 않고 측면으로 흘러 나간다). 원거리는 3초까지는 제자리에서 기다린다
+func _steer(u: Unit, dir: Vector2, t: Unit) -> Vector2:
+	var blocker := _blocker(u, dir, t, LOOK)
+	if blocker == null:
+		u.block_t = 0.0
+		return dir
+	u.block_t += TICK
+	if rigid_probe:
+		stats["block_t"] = stats.get("block_t", 0.0) + TICK
+	if _ranged(u) and u.block_t < 3.0:
+		return Vector2.ZERO
+	var perp := Vector2(-dir.y, dir.x)
+	var free_p := _free_run(u, perp, t)
+	var free_m := _free_run(u, -perp, t)
+	var side := 0.0
+	if absf(free_p - free_m) > 8.0:
+		side = 1.0 if free_p > free_m else -1.0
+	else:
+		var lat := (t.pos - u.pos).dot(perp)
+		side = signf(lat) if absf(lat) > 4.0 else (1.0 if u.slot % 2 == 0 else -1.0)
+	if maxf(free_p, free_m) < 6.0:
+		return Vector2.ZERO        # 양옆도 막혔다 —— 기다린다 (앞이 열리면 간다)
+	var k := clampf(0.7 + u.block_t * 0.4, 0.7, 1.6)
+	return (dir * 0.6 + perp * side * k).normalized()
+
+
+## 진행 방향 dir 로 look 안에서 가장 먼저 걸리는 부대 (노리는 적 t 는 뺀다)
+func _blocker(u: Unit, dir: Vector2, t: Unit, look: float) -> Unit:
+	var perp := Vector2(-dir.y, dir.x)
+	var eu := _extent(u, dir)
+	var pu := _extent(u, perp)
+	var best: Unit = null
+	var bd := INF
+	for o in units:
+		if o == u or o == t or not o.alive:
+			continue
+		var v := o.pos - u.pos
+		var ahead := v.dot(dir)
+		if ahead <= 0.0:
+			continue
+		var eo := _extent(o, dir)
+		if ahead - eu - eo > look:
+			continue
+		if absf(v.dot(perp)) >= pu + _extent(o, perp) + 4.0:
+			continue
+		if ahead < bd:
+			bd = ahead
+			best = o
+	return best
+
+
+## 그 방향으로 막히지 않고 갈 수 있는 거리 (최대 LOOK · 4)
+func _free_run(u: Unit, dir: Vector2, t: Unit) -> float:
+	var b := _blocker(u, dir, t, LOOK * 4.0)
+	if b == null:
+		return LOOK * 4.0
+	return maxf(0.0, (b.pos - u.pos).dot(dir) - _extent(u, dir) - _extent(b, dir))
+
+
+## 병력이 줄면 깊이가 뒤에서부터 줄어든다 —— 앞줄은 그 자리 (맞닿은 전선이 유지된다)
+func _depth_update() -> void:
+	for u in units:
+		if not u.alive:
+			continue
+		var nh := maxf(u.hd0 * clampf(u.troops / maxf(1.0, u.max), 0.0, 1.0), HD_MIN)
+		if absf(nh - u.hd) > 0.01:
+			u.pos += u.fwd * (u.hd - nh)
+			u.hd = nh
 
 
 ## 도적 우회 길목 —— 아직 노리는 적보다 앞(우리 쪽)에 있으면 적 무리 옆 바깥 점, 지나갔으면 null (곧장 친다)
@@ -493,8 +653,8 @@ func _flank_way(u: Unit, t: Unit, foes: Array):
 		_flank[u] = sd if sd != 0.0 else (1.0 if u.slot % 2 == 0 else -1.0)
 	var half := 0.0
 	for o in foes:
-		half = maxf(half, absf(o.pos.y - c.y))
-	return Vector2(t.pos.x - ahead * 30.0, c.y + _flank[u] * (half + 110.0))
+		half = maxf(half, absf(o.pos.y - c.y) + o.hw)
+	return Vector2(t.pos.x - ahead * 30.0, c.y + _flank[u] * (half + u.hw + 60.0))
 
 
 func _choose(u: Unit, foes: Array) -> Unit:
@@ -502,15 +662,20 @@ func _choose(u: Unit, foes: Array) -> Unit:
 	var bs := INF
 	var lane: bool = not _ranged(u) and u.c.tag != "기병" and u.c.tag != "도적"
 	for o in foes:
-		var d := u.pos.distance_to(o.pos)
-		if lane:      # 앞 열 우선 —— 진형 폭만큼 전선이 넓게 선다
-			d = Vector2(o.pos.x - u.pos.x, (o.pos.y - u.pos.y) * LANE_W).length()
+		var d := maxf(0.0, _gap(u, o))
+		if lane:      # 앞 열 우선 —— 진형 폭만큼 전선이 넓게 선다 (옆 거리는 무겁게)
+			d = maxf(0.0, Vector2(o.pos.x - u.pos.x, (o.pos.y - u.pos.y) * LANE_W).length() - u.hd - o.hd)
 		var w := 1.0
 		# 기병 · 도적은 원거리 · 지략 부대를 노린다 (멀리 돌아가더라도)
 		if (u.c.tag == "기병" or u.c.tag == "도적") and _ranged(o):
 			w = 0.6 if u.c.tag == "도적" else 0.75
 		if u.tgt == o:
 			w *= 0.8            # 노리던 적을 쉽게 바꾸지 않는다
+		# 11/7 강체: 앞이 막힌 지 1초가 넘은 근접 부대는 길이 트인 적을 고른다 (예비대가 전선 뒤에서 기다리지 않고 측면의 적에게 간다)
+		if lane and u.block_t > 1.0:
+			var dv: Vector2 = o.pos - u.pos
+			if dv.length() > 1.0 and _blocker(u, dv.normalized(), o, LOOK * 2.0) != null:
+				w *= 1.6
 		# 11/3 창병 도발 —— 가까이 온 근접 적은 창병부터 친다 (도적은 흘려 지나간다)
 		if Battle.tag_roles and o.c.tag == "창병" and not _ranged(u) and u.c.tag != "도적" and d < TAUNT_R:
 			w *= 0.5
@@ -518,7 +683,7 @@ func _choose(u: Unit, foes: Array) -> Unit:
 			# 근접은 아군이 이미 몰려 싸우는 적보다 빈 적을 (줄 서서 놀지 않게)
 			var crowd := 0
 			for al in units:
-				if al != u and al.alive and al.camp == u.camp and not _ranged(al) and al.pos.distance_to(o.pos) <= CONTACT + 8.0:
+				if al != u and al.alive and al.camp == u.camp and not _ranged(al) and _gap(al, o) <= TOUCH + 4.0:
 					crowd += 1
 			w *= 1.0 + 0.35 * crowd
 		if d * w < bs:
@@ -534,31 +699,97 @@ func _centroid(us: Array) -> Vector2:
 	return c / maxf(1, us.size())
 
 
+## 돌기 —— TURN_RATE 까지. 돌아서 옆 부대를 더 파고들게 되면 반 · 반의 반만 돌고, 그래도 파고들면 이번 틱은 멈춘다 (대열이 이웃을 쓸고 지나가지 않게)
 func _turn_to(u: Unit, v: Vector2) -> void:
 	if v.length() < 0.001:
 		return
-	u.fwd = Vector2.from_angle(rotate_toward(u.fwd.angle(), v.angle(), TURN_RATE * TICK))
+	var a0 := u.fwd.angle()
+	var a1 := rotate_toward(a0, v.angle(), TURN_RATE * TICK)
+	if absf(a1 - a0) < 0.0001:
+		return
+	var near := []
+	var reach := u.hw + u.hd + 4.0
+	for o in units:
+		if o != u and o.alive and u.pos.distance_to(o.pos) < reach + o.hw + o.hd:
+			near.append(o)
+	var pen0 := _pen_sum(u, near)
+	var f0 := u.fwd
+	for k in [1.0, 0.5, 0.25]:
+		u.fwd = Vector2.from_angle(lerp_angle(a0, a1, k))
+		if near.is_empty() or _pen_sum(u, near) <= pen0 + 0.5:
+			return
+	u.fwd = f0
 
 
-## 겹치지 않게 —— 가까운 두 부대를 반씩 민다. 맞닿은 적끼리는 CONTACT 보다 가까워지지 않는다
-func _separate() -> void:
-	for i in units.size():
-		var a := units[i]
-		if not a.alive:
-			continue
-		for j in range(i + 1, units.size()):
-			var b := units[j]
-			if not b.alive:
-				continue
-			var lim := BODY * ALLY_SEP if a.camp == b.camp else CONTACT - 6.0
-			var d := a.pos - b.pos
-			var l := d.length()
-			if l < lim:
-				var n := d / l if l > 0.01 else Vector2(0, 1 if i % 2 == 0 else -1)
-				var push := n * (lim - l) * 0.5
-				a.pos += push
-				b.pos -= push
-		a.pos = a.pos.clamp(ARENA.position, ARENA.end)
+## 이웃 발자국에 파고든 깊이의 합 (아군은 틈 0, 적은 FOE_MIX 까지는 봐 준다)
+func _pen_sum(u: Unit, near: Array) -> float:
+	var s := 0.0
+	for o in near:
+		var g := _gap(u, o)
+		var allow: float = 0.0 if o.camp == u.camp else FOE_MIX
+		if g < -allow:
+			s += -allow - g
+	return s
+
+
+## 겹치지 않게 (11/7 강체) —— 발자국끼리 분리축 판정으로 겹친 만큼 민다. 아군은 ALLY_GAP 틈을 두고, 적은 FOE_MIX 까지만 파고든다.
+## 병력이 많은 쪽이 덜 밀린다(떠밀기 —— 큰 군세가 작은 부대를 밀어낸다). 몇 번 되풀이해 연쇄 겹침까지 푼다. 밀린 쪽은 그쪽으로 가던 속도를 잃는다
+func _solve() -> void:
+	var live: Array = units.filter(func(o): return o.alive)
+	var pre := {}
+	for u in live:
+		pre[u] = u.pos
+	for it in SOLVE_ITERS:
+		for i in live.size():
+			var a: Unit = live[i]
+			for j in range(i + 1, live.size()):
+				var b: Unit = live[j]
+				var want: float = ALLY_GAP if a.camp == b.camp else -FOE_MIX
+				var d: Vector2 = b.pos - a.pos
+				if d.length() > a.hw + a.hd + b.hw + b.hd + want:
+					continue
+				var best := -INF
+				var bn := Vector2.ZERO
+				for ax in [a.fwd, _rt(a), b.fwd, _rt(b)]:
+					var proj := d.dot(ax)
+					var sep := absf(proj) - _extent(a, ax) - _extent(b, ax)
+					if sep > best:
+						best = sep
+						bn = ax if proj >= 0.0 else -ax
+				if best >= want:
+					continue
+				var push := want - best
+				var ma := a.troops + 1.0
+				var mb := b.troops + 1.0
+				a.pos -= bn * push * (mb / (ma + mb))
+				b.pos += bn * push * (ma / (ma + mb))
+		for u in live:
+			_clamp_arena(u)
+	if rigid_probe:      # 남은 겹침 —— 풀고도 1px 넘게 파고든 쌍 (연쇄 겹침이 다 안 풀린 경우)
+		for i in live.size():
+			for j in range(i + 1, live.size()):
+				var want_ij: float = ALLY_GAP if live[i].camp == live[j].camp else -FOE_MIX
+				var pen: float = want_ij - _gap(live[i], live[j])
+				if pen > 1.0:
+					stats["pen_n"] = stats.get("pen_n", 0) + 1
+					stats["pen_max"] = maxf(float(stats.get("pen_max", 0.0)), pen)
+		for u in live:
+			if absf(u.pos.y) > CS * lay * 1.5 + u.hw * 0.5:
+				stats["flank_t"] = stats.get("flank_t", 0.0) + TICK      # 진형 바깥 옆으로 돈 시간 (유닛 합)
+	for u in live:
+		var corr: Vector2 = u.pos - pre[u]
+		if corr.length() > 0.01:
+			var n := corr.normalized()
+			var into: float = u.vel.dot(n)
+			if into < 0.0:
+				u.vel -= n * into        # 막힌 쪽으로 가던 속도는 버린다 (벽에 대고 미끄러지듯)
+
+
+func _clamp_arena(u: Unit) -> void:
+	var ex := _extent(u, Vector2.RIGHT)
+	var ey := _extent(u, Vector2.DOWN)
+	u.pos.x = clampf(u.pos.x, arena.position.x + ex, arena.end.x - ex)
+	u.pos.y = clampf(u.pos.y, arena.position.y + ey, arena.end.y - ey)
 
 
 func _record() -> void:
@@ -568,7 +799,7 @@ func _record() -> void:
 		var ti := -1
 		if u.tgt != null and u.tgt.alive:
 			ti = _idx[u.tgt]
-		var touch := 1 if ti >= 0 and u.pos.distance_to(u.tgt.pos) <= CONTACT + 4.0 else 0
+		var touch := 1 if ti >= 0 and _gap(u, u.tgt) <= TOUCH + 3.0 else 0
 		fr.append([roundi(u.pos.x), roundi(u.pos.y), snappedf(u.fwd.angle(), 0.01), ti, touch])
 	track.append([snappedf(_tm, 0.01), fr])
 
@@ -594,7 +825,7 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 	var live := foes.filter(func(u): return u.alive)
 	if live.is_empty(): return []
 	var reach := INF if _in_ult else _reach(me) + 2.0
-	var near := live.filter(func(o): return me.pos.distance_to(o.pos) <= reach)
+	var near := live.filter(func(o): return _gap(me, o) <= reach)
 	var main: Unit = me.tgt if me.tgt != null and me.tgt.alive and near.has(me.tgt) else null
 	if main == null:
 		main = _nearest(me.pos, near if not near.is_empty() else live)
@@ -615,8 +846,8 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 				_mark(me, {"k": "circle", "x": roundi(o.pos.x), "y": roundi(o.pos.y), "r": 60})
 			return s.slice(0, 2)
 		"front3":
-			var s := live.filter(func(o): return o.pos.distance_to(main.pos) <= AREA)
-			s.sort_custom(func(a, b): return a.pos.distance_to(main.pos) < b.pos.distance_to(main.pos))
+			var s := live.filter(func(o): return o == main or _gap(o, main) <= AREA_GAP)
+			s.sort_custom(func(a, b): return (-1.0 if a == main else _gap(a, main)) < (-1.0 if b == main else _gap(b, main)))
 			_mark(me, {"k": "circle", "x": roundi(main.pos.x), "y": roundi(main.pos.y), "r": AREA})
 			return s.slice(0, 3)
 		"all":
@@ -628,7 +859,7 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 			var best: Array = [main]
 			var bc: Unit = main
 			for c in near:
-				var g := live.filter(func(o): return o.pos.distance_to(c.pos) <= AREA)
+				var g := live.filter(func(o): return o == c or _gap(o, c) <= AREA_GAP)
 				if g.size() > best.size():
 					best = g
 					bc = c
@@ -647,10 +878,11 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 		# 줄 —— 나에서 대상으로 뻗은 띠 안의 적 모두
 		var dir := (main.pos - me.pos).normalized()
 		var ln := me.pos.distance_to(main.pos) + 80.0
+		var perp := Vector2(-dir.y, dir.x)
 		var s := live.filter(func(o):
 			var v: Vector2 = o.pos - me.pos
 			var along := v.dot(dir)
-			return along >= -10.0 and along <= ln and absf(v.cross(dir)) <= LINE_W)
+			return along >= -10.0 and along <= ln + _extent(o, dir) and absf(v.cross(dir)) <= LINE_W + _extent(o, perp))
 		var tip := me.pos + dir * ln
 		_mark(me, {"k": "line", "x": roundi(me.pos.x), "y": roundi(me.pos.y), "x2": roundi(tip.x), "y2": roundi(tip.y), "w": LINE_W})
 		return s if not s.is_empty() else [main]
@@ -703,7 +935,7 @@ func _deepest(me: Unit, us: Array) -> Unit:
 ## 옆 · 뒤에서 친 물리 피해 +, 떨어진 곳(활 · 고유기)에서 맞으면 반격하지 않는다
 func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0) -> void:
 	var v := (a.pos - d.pos)
-	var far := v.length() > melee_reach + 6.0
+	var far := _gap(a, d) > melee_gap + 6.0
 	var m := mult
 	var dir := ""
 	if v.length() > 0.1 and not _in_ult:
@@ -747,7 +979,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	if not terrain.is_empty() and _in(a.pos, "hill") and not _in(d.pos, "hill"):
 		m *= HILL.hit
 	if not _in_ult:      # 11/6 #15 책략 배율(int_mul · int_tier)은 쓰지 않는다 —— 거리 배율만
-		if a.pos.distance_to(d.pos) > melee_reach + 6.0:
+		if _gap(a, d) > melee_gap + 6.0:
 			m *= far_mul
 	super.int_hit(a, d, m, spread)
 	if _in_ult and _wind.has(d) and d.camp != a.camp:

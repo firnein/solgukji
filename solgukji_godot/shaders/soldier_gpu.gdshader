@@ -85,13 +85,15 @@ void vertex() {
 	float slot0 = old1 > 0.0 ? old1 - 1.0 : slot;
 	float cols = max(t1.x, 1.0);
 	float sp = t1.y;
+	float spr = sq(row, 9).z;      // 11/7 강체: 줄 간격 (가로 간격과 따로, 발자국 깊이를 채운다)
+	if (spr <= 0.0) spr = sp;
 	float rk = floor(slot / cols);
 	float rk0 = floor(slot0 / cols);
 	float half_c = (cols - 1.0) * 0.5;
-	float rows = max(1.0, t5.w / max(sp, 0.01));
+	float rows = max(1.0, t5.w / max(spr, 0.01));
 	// 병사마다 반응이 다르다 —— 뒷줄 · 가장자리일수록 늦게 따라온다 (돌 때 대열이 휘고, 움직이면 늘어지고, 멈추면 모인다)
 	float edge = abs(slot - rk * cols - half_c) / max(half_c, 1.0);
-	float lag = clamp(1.0 - (rk / rows) * 0.35 - edge * 0.12 - hash(seed * 12.7) * 0.15, 0.45, 1.0);      // 11/4 뒷줄이 덜 처지게 (대열이 길게 늘어졌다)
+	float lag = clamp(1.0 - (rk / rows) * 0.12 - edge * 0.05 - hash(seed * 12.7) * 0.06, 0.8, 1.0);      // 11/7 강체: 뒷줄 지연을 작게 (발자국 밖으로 늘어지지 않게)
 	vec2 pos = mix(t6.xy, t0.xy, lag);
 	vec2 fwd = normalize(mix(t6.zw, t0.zw, lag) + vec2(1e-5, 0.0));
 	vec2 rgt = vec2(-fwd.y, fwd.x);
@@ -100,8 +102,8 @@ void vertex() {
 	vec2 jit = rot(vec2(1.0, 0.0), hash(seed * 7.1) * 6.2831) * hash(seed * 3.3) * sp * 0.75 * min(squeeze.x, squeeze.y);
 	float c = slot - rk * cols;
 	float c0 = slot0 - rk0 * cols;
-	vec2 l1 = vec2(-(rk * sp * 0.92), (c - half_c + mod(rk, 2.0) * 0.5) * sp);
-	vec2 l0 = vec2(-(rk0 * sp * 0.92), (c0 - half_c + mod(rk0, 2.0) * 0.5) * sp);
+	vec2 l1 = vec2(-((rk + 0.5) * spr), (c - half_c + mod(rk, 2.0) * 0.5) * sp);
+	vec2 l0 = vec2(-((rk0 + 0.5) * spr), (c0 - half_c + mod(rk0, 2.0) * 0.5) * sp);
 	vec2 lc = mix(l0, l1, move_k) * squeeze;
 	lc.x += sin(lc.y * 0.09 + row * 1.7 + clock * 0.35) * sp * 0.9;       // 줄이 물결친다
 	lc.y += sin(lc.x * 0.11 + row * 2.3) * sp * 0.5;
@@ -116,7 +118,7 @@ void vertex() {
 	float wamp = (fighting ? 1.1 + 1.4 * loose : (moving0 ? 0.6 : 0.5)) * mix(0.5, 1.0, min(squeeze.x, squeeze.y));      // 11/4 저녁 북적임: 더 크게 움직인다
 	vec2 wander = vec2(sin(wt * 1.7 + seed * 13.0) + 0.5 * sin(wt * 0.6 + seed * 3.0), cos(wt * 1.3 + seed * 29.0)) * sp * wamp;
 	p += wander;
-	if (moving0) p -= fwd * hash(seed * 15.3) * sp * 1.6 * (0.4 + rk / rows);      // 걸음이 느린 병사는 처진다
+	if (moving0) p -= fwd * hash(seed * 15.3) * sp * 0.9 * (0.4 + rk / rows);      // 걸음이 느린 병사는 처진다
 	if (contact && rk < 3.0) p += fwd * sp * (1.0 - rk * 0.3) * (0.4 + loose * 1.2) * (0.6 + 0.8 * hash(seed * 21.1));  // 앞줄이 불룩하게 밀고 들어간다
 	// 11/4 저녁 북적임 —— 앞 세 줄의 4할은 대열을 벗어나 전선에서 뒤엉켜 싸운다 (제자리를 느리게 돌며 적 쪽으로 더 깊이)
 	float brawl = hash(seed * 23.9);
