@@ -788,6 +788,15 @@ def main():
             for j in range(i + 1, len(nb)):
                 pairs.setdefault(t, set()).add(frozenset((nb[i], nb[j])))
 
+    # 11/7 사용자: 초월 · 기인이 버려지고 신화 · 불멸로만 덱을 짠다 —— 같은 비용이면 불멸 쪽이 늘 이겼다 (tests/budget_mix:
+    # 불멸4 + 희귀5 대 초월5 + 기인3 + 전설1 이 95%). 초월의 두 번째 재료(인연 전설)를 인연 희귀로 —— 기본패 환산 약 67 → 약 48.
+    # 다른 조합을 다 만든 뒤에 바꿔서 불멸 · 신화 재료 고르기(사용 횟수)는 예전 그대로다
+    for c in sorted(allc, key=lambda x: x[0]):
+        if c[2] == 6 and c[13] != "kiin" and c[0] in recipes and len(recipes[c[0]]) == 3:
+            mats = recipes[c[0]]
+            ex = {c[0]} | set(mats)
+            mats[1] = pick(c, 4, ex, [mats[0], mats[2]])
+
     aura = {}
     for c in allc:
         if c[2] == 6 and c[13] != "foe":
