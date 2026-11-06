@@ -66,9 +66,13 @@ func build() -> Control:
 	# 11/5 사용자 2차: '방원진' / '효과 (설명)' 두 줄
 	# 11/5 사용자 3차: 세 줄 —— 진형 이름 / 효과 / 설명(옛 이야기를 들려주는 듯한 명조 기울임)
 	hl.add_child(UI.lbl(f.n, 17, DB.PAL.paper, true))
-	hl.add_child(UI.lbl(eff_txt, 12, Color("#E8C25A"), true))
+	# 11/7 UI 정리: 효과 · 설명 줄은 줄바꿈 —— 한 줄로 두면 최소 폭이 커져 9:20 휴대폰(논리 폭 400)에서 편성판이 오른쪽으로 넘쳐 '해제' · 우익 칸이 잘렸다
+	var effl := UI.lbl(eff_txt, 12, Color("#E8C25A"), true)
+	effl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hl.add_child(effl)
 	if bn0:
 		var lore := UI.lbl("「%s」" % bn0.d, 12, Color("#C6AC7C"))
+		lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lore.add_theme_font_override("font", _lore_font())
 		hl.add_child(lore)
 	hd.add_child(hl)
@@ -412,7 +416,7 @@ func item_sheet(i: int) -> void:
 
 ## 편성판 한 칸 —— 누르면 칸 시트(또는 고른 카드를 놓는다), 길게 누르면 끌어서 옮기기·내리기
 class SlotBox extends Control:
-	const SZ := Vector2(66, 84)      # 11/6 진형 5열 —— 좁고 높게 (초상 위 · 글 아래)
+	const SZ := Vector2(60, 84)      # 11/6 진형 5열 —— 좁고 높게 (초상 위 · 글 아래). 11/7 66 → 60: 줄 이름 28 + 칸 5개 + 간격 · 여백이 논리 폭 400 을 넘어 9:20 휴대폰에서 편성판이 오른쪽으로 넘쳤다 (넓으면 칸은 늘어난다)
 	var page: DeployPage
 	var slot := -1
 	var _press := Vector2.INF
