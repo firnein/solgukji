@@ -863,7 +863,8 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 		Sfx.play("open")
 	_sheet_title.text = title
 	_sheet_full = false
-	if _battle_layer != null and _battle_layer.visible:      # 전투 위에서도 시트가 보이게 맨 앞으로
+	# 전투 위에서도 시트가 보이게 맨 앞으로 —— 11/7 제목 화면도 (시트보다 나중에 붙어 위를 덮어, 제목의 '설정'이 열려도 안 보였다)
+	if (_battle_layer != null and _battle_layer.visible) or (is_instance_valid(_title) and _title.visible):
 		move_child(_sheet_mask, -1)
 		move_child(_sheet_art, -1)
 		move_child(_sheet, -1)
