@@ -15,6 +15,8 @@ func _ready() -> void:
 		var have := 0
 		var fired := 0
 		var n_ult := 0
+		var twice := 0
+		var thrice := 0
 		var first_t := 0.0
 		var len_sum := 0.0
 		var tp := {}      # 기질 -> [보유, 발동, 첫 발동 합]
@@ -47,10 +49,15 @@ func _ready() -> void:
 						fired += 1
 						n_ult += int(cnt[u.key])
 						first_t += float(ft[u.key])
+						if int(cnt[u.key]) >= 2:
+							twice += 1
+						if int(cnt[u.key]) >= 3:
+							thrice += 1
 						tp[tk][1] += 1
 						tp[tk][2] += float(ft[u.key])
-		print("등급 %d (%d판): 전투 %.1f초 · 고유기 보유 부대 %d 중 발동 %d (%.0f%%) · 발동 부대당 %.2f번 · 첫 발동 평균 %.1f초" % [
-			t, games, len_sum / games, have, fired, 100.0 * fired / maxf(1, have), float(n_ult) / maxf(1, fired), first_t / maxf(1, fired)])
+		print("등급 %d (%d판): 전투 %.1f초 · 고유기 보유 부대 %d 중 발동 %d (%.0f%%) · 발동 부대당 %.2f번 · 첫 발동 평균 %.1f초 · 2회 이상 %.0f%% · 3회 %.0f%%" % [
+			t, games, len_sum / games, have, fired, 100.0 * fired / maxf(1, have), float(n_ult) / maxf(1, fired), first_t / maxf(1, fired),
+			100.0 * twice / maxf(1, have), 100.0 * thrice / maxf(1, have)])
 		var parts := []
 		for tk in tp:
 			parts.append("%s %d명 발동 %.0f%% 첫 %.1f초" % [tk, tp[tk][0], 100.0 * tp[tk][1] / maxf(1, tp[tk][0]), tp[tk][2] / maxf(1, tp[tk][1])])

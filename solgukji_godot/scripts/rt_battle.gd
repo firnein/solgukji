@@ -277,6 +277,13 @@ func can_ult(u: Unit) -> bool:
 	return ok
 
 
+## 11/7 재사용 체감 —— 다음 발동은 (장수 대기 × 기질 배율) × reult_wait 초가 지나야
+func _reult_ok(u: Unit) -> bool:
+	if u.ult_n == 0:
+		return true
+	return _tm - u.ult_tm >= float(u.ult.get("wait", 14.0)) * _tw(u, "wait") * reult_wait
+
+
 ## 11/7 기질 조건 —— 실시간: TEMPER_FREE 초가 지나면 풀린다 · 맞닿음은 발자국 틈 · 사거리 안의 약한 적
 func _ult_free_now() -> bool:
 	return _tm >= TEMPER_FREE

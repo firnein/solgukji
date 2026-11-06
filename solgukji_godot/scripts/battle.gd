@@ -112,7 +112,11 @@ const TEMPER := {
 	"분노": {"act": 0.6, "deal": 1.2, "hit": 1.4, "ally": 0.6, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 0.85},
 }
 const TEMPER_FREE := 22.0     # 전투 이 초(턴 엔진은 6턴)가 지나면 기질 발동 조건 없이 —— 쓰지도 못하고 끝나지 않게
-const ULT_CHARGES := {6: 1, 7: 1, 8: 1}   # 초월·불멸·신화 모두 전투당 1번
+const ULT_CHARGES := {6: 3, 7: 3, 8: 3}   # 11/7 사용자: 한 전투에서 다시 쓸 수 있되 쓸수록 어렵게 (예전 1번) —— 3번 상한
+## 11/7 고유기 재사용 체감 —— 쓴 뒤 게이지 0 에서 다시 모으되 n번 쓴 장수는 기 모이는 속도 × reult_decay^n, 다음 발동은 제 대기 시간 × reult_wait 가 지나야.
+## 목표(사용자): 두 번째 발동은 가끔(장수 20~30%), 세 번째는 거의 없음, 전투 길이 35초 안팎. 사람이 누르는 can_ult 도 같은 규칙
+static var reult_decay := 0.7      # 11/7 측정: 2회 이상 발동 초월 9 · 불멸 4 · 신화 3%, 3회 0~1% —— 두 번째를 제 속도로 해도 같았다(전투 36~42초에 첫 발동 22~25초라 시간이 한계). 목표 20~30% 는 사용자 결정
+static var reult_wait := 0.5
 const SK_BANK := 2.0       # 일반 기술 충전 상한 —— 조건이 안 맞는 동안 두 번까지 모아 둔다
 const ULT_SIDE_GAP := 4       # 같은 진영 고유기 사이 최소 행동 수
 const PTS_EVERY := 6          # 행동 6번마다 군령 포인트 1
@@ -185,6 +189,9 @@ class Unit:
 	var gauge := 0.0          # 고유기 게이지 (100 이면 준비)
 	var ult_ready_t := -1.0   # 게이지가 100 에 닿은 시각 (실시간 엔진) —— 먼저 찬 부대가 먼저 쓴다 (11/6 #14)
 	var temper := ""          # 고유기 기질 (11/7, TEMPER 의 열쇠. 고유기가 없으면 빈 글)
+	var ult_n := 0            # 이 전투에서 고유기를 쓴 횟수 (11/7 재사용 체감 —— 쓸수록 게이지가 느리게 찬다)
+	var ult_tm := -99.0       # 마지막으로 고유기를 쓴 시각 (실시간 엔진, 초)
+	var ult_turn := -99       # 마지막으로 고유기를 쓴 턴 (턴 엔진)
 	var sk_ch := []           # 기술 충전 —— 11/3 부터 [0] 하나를 모든 기술이 나눠 쓴다
 	var charges := 0          # 남은 고유기 횟수
 	# 실시간 엔진(RtBattle) —— 전장 위치와 행동 준비. 턴 엔진은 쓰지 않는다
@@ -2091,7 +2098,7 @@ func act(u: Unit) -> void:
 	var allies := units.filter(func(o): return o.camp == u.camp)
 	if not foes.any(func(o): return o.alive): return
 	# 고유기 —— 자동 정책이면 준비된 차례에 바로 쓴다 (영리한 AI·사람은 _between 에서 끼어든다)
-	u.gauge = minf(100.0, u.gauge + GAUGE_ACT / gauge_div() * _tw(u, "act"))      # 11/4 신화 1.2배 뺌 (너무 빨랐다). 11/7 기질 배율
+	_gain(u, GAUGE_ACT / gauge_div() * _tw(u, "act"))      # 11/4 신화 1.2배 뺌 (너무 빨랐다). 11/7 기질 배율 · 재사용 감쇠
 	var sk = null
 	var used := false
 	# 일반 기술 (솔국지 확장) —— 원본은 차례마다 확률로 발동. 이제 그 확률만큼 충전이 쌓이고, 다 찬 채로 조건(cards_ext skill_cond)이 맞는 차례에 비용 없이 발동.
@@ -2227,6 +2234,9 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	var ul: Dictionary = u.ult
 	u.charges -= 1
 	u.gauge = 0.0
+	u.ult_n += 1          # 11/7 재사용 체감 —— 이제부터 게이지가 느리게 찬다
+	u.ult_tm = _tm
+	u.ult_turn = _turn
 	_ult_last[u.camp] = act_n
 	var cheer := _side_max(u.camp, "ult_rally")      # 고무 —— 아군이 고유기를 쓰면 아군 전원 사기 +
 	if cheer > 0:
@@ -2377,14 +2387,14 @@ func _stat(d: Unit, loss: float) -> void:
 func _charge(d: Unit, a: Unit, loss: float) -> void:
 	if a.countering and not counter_charge:
 		return
-	d.gauge = minf(100.0, d.gauge + GAUGE_HIT * loss / d.max * _tw(d, "hit"))
-	a.gauge = minf(100.0, a.gauge + GAUGE_DEAL / gauge_div() * _tw(a, "deal"))
+	_gain(d, GAUGE_HIT * loss / d.max * _tw(d, "hit"))
+	_gain(a, GAUGE_DEAL / gauge_div() * _tw(a, "deal"))
 	if temper_enabled:      # 11/7 수호 · 분노 —— 아군이 병력을 잃으면 함께 찬다
 		for o in units:
 			if o != d and o.alive and o.camp == d.camp and o.temper != "":
 				var w := _tw(o, "ally")
 				if w > 0.0:
-					o.gauge = minf(100.0, o.gauge + GAUGE_HIT * loss / d.max * w)
+					_gain(o, GAUGE_HIT * loss / d.max * w)
 
 
 ## 고유기 게이지가 차는 속도의 나눗수 —— 11/3: 신화 전투(turn_mul 9.8)는 게이지가 판이 끝날 때쯤에야 차서 고유기가 부대당 0.15번뿐이었다.
@@ -2405,7 +2415,7 @@ func _buff_sum(u: Unit, stat: String) -> float:
 
 func can_ult(u: Unit) -> bool:
 	return ults_enabled and u.alive and u.ult != null and u.charges > 0 and u.gauge >= 100.0 \
-		and not has_st(u, "seal") and act_n - _ult_last[u.camp] >= ULT_SIDE_GAP * turn_mul
+		and not has_st(u, "seal") and act_n - _ult_last[u.camp] >= ULT_SIDE_GAP * turn_mul and _reult_ok(u)
 
 
 ## 행동 사이 —— 이번 행동 번호에 걸린 입력을 처리하고, 영리한 AI 가 판단한다
@@ -2691,7 +2701,19 @@ func _tw(u: Unit, key: String) -> float:
 
 func _gauge_add(u: Unit, v: float) -> void:
 	if v > 0.0 and u.alive and u.ult != null and u.charges > 0:
-		u.gauge = minf(100.0, u.gauge + v)
+		_gain(u, v)
+
+
+## 게이지 더하기 —— 11/7 재사용 체감: n번 쓴 장수는 reult_decay^n 배로 느리게 찬다
+func _gain(u: Unit, v: float) -> void:
+	if v <= 0.0:
+		return
+	u.gauge = minf(100.0, u.gauge + v * (pow(reult_decay, u.ult_n) if u.ult_n > 0 else 1.0))      # n번 쓴 장수는 reult_decay^n 배로 (쓸수록 어렵게)
+
+
+## 다시 쓸 수 있는가 —— 턴 엔진: 쓴 지 3턴 (RtBattle 은 대기 시간 × reult_wait 초로 덮어쓴다)
+func _reult_ok(u: Unit) -> bool:
+	return u.ult_n == 0 or _turn - u.ult_turn >= 3
 
 
 ## 기질 발동 조건 (영리 AI · 자동 판단에만 —— 사람이 직접 누르는 것은 그대로). TEMPER_FREE 가 지나면 조건 없이
