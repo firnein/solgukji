@@ -18,8 +18,20 @@ func _ready() -> void:
 	trials = int(args.get("trials", "40"))
 	if args.get("ult", "1") == "0":
 		Battle.ults_enabled = false
-	for o in str(args.get("off", "")).split(",", false):     # 비교용: --off=passives,dash,counter,fire,water,aim
-		Battle.set(o + "_enabled", false)
+	for o in str(args.get("off", "")).split(",", false):     # 비교용: --off=passives,counter,fire,water,temper,aura,cut,guard,scheme,virtue
+		match o:     # static var 는 문자열 이름(set)으로 못 세우므로 이름별 직접 대입
+			"passives": Battle.passives_enabled = false
+			"counter": Battle.counter_enabled = false
+			"fire": Battle.fire_enabled = false
+			"water": Battle.water_enabled = false
+			"temper": Battle.temper_enabled = false
+			"aura": Battle.aura_enabled = false
+			"cut": Battle.cut_enabled = false
+			"guard": Battle.guard_enabled = false
+			"scheme": Battle.scheme_enabled = false
+			"virtue": Battle.virtue_enabled = false
+			"minor": Battle.minor_enabled = false
+			_: push_warning("--off 에 모르는 이름: " + o)
 	var t0 := Time.get_ticks_msec()
 	var out := FileAccess.open("res://tests/out_balance.csv", FileAccess.WRITE)
 	out.store_line("tier,id,name,tag,fac,stat_sum,stat_z,win_rate")
