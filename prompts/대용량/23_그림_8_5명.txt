@@ -1,0 +1,75 @@
+A character sheet of chibi Three Kingdoms (ancient China) characters, super-deformed proportions (about 2.5 to 3 heads tall)
+but with mature, characterful faces (not babyish). Each character is drawn inside its own vertical rounded-rectangle panel;
+weapons, plumes and banners may stick out above the panel.
+Very detailed ink line art with fine hatching, rich watercolor and colored-pencil texture, intricate armor and costume patterns,
+warm and consistent style across all characters (same style as the attached reference sheet if one is attached).
+EVERY PANEL IS A DIFFERENT ILLUSTRATION, like separate key arts from different stories —— NOT the same photo with a
+different person. Never repeat the template "front-facing character, waist up, centered, battlefield with banners behind".
+Each panel follows its own SHOT (camera distance, angle, pose) and LIGHT (time, weather, color palette) lines, and its SCENE place.
+Panel background colors follow the LIGHT line, NOT the faction color —— neighboring panels must have clearly different
+background colors and brightness. Draw a battlefield with banners ONLY when the SCENE is a battle.
+Personality first: each face and body language shows who they are (arrogant, gentle, crazed, sly, weary, joyful ...).
+FACES MUST BE UNIQUE: never reuse one face —— no generic handsome anime face, no same-face syndrome. Draw each FACE line
+exactly and EXAGGERATE it like a caricature (face shape, eyes, brows, nose, mouth, skin, age lines, scars, expression).
+Each character must be recognizable at thumbnail size even with the costume covered. Ages really differ (smooth young skin
+vs. deep wrinkles), and not everyone is beautiful —— some are ugly, fat, gaunt or brutish.
+GENDER: every character is an adult MAN, except the women Diaochan, Da Qiao and Xiao Qiao. Men must read as men at a glance —— a
+masculine jaw and brow, a thicker neck, an Adam's apple, broad shoulders, male hairstyles and headwear. Young or handsome men are
+young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft round baby face.
+IMPACT BY RANK: MYTHIC and ORNATE characters show their most famous legendary moment from SCENE at full drama —— intense
+expression, signature gesture, strong effects (aura, flames, storm, flying debris, light) that may burst out of the panel.
+FINE: a recognizable episode with moderate drama. PLAIN: a quieter portrait with a simple hint of the place.
+CHARACTER FIRST: these are character cards. The character is always the main subject and fills most of the panel
+(at least 2/3 of the panel height, head-to-knees or closer). The face is always visible, large and detailed —— never a tiny
+figure in a landscape, never a pure silhouette, never hidden. SHOT changes the angle and pose, NOT the size of the character.
+The background is a supporting backdrop behind the character.
+Background: flat light green paper (#9BCF88) around the panels. Panels are arranged in a clean, evenly spaced grid with WIDE gaps.
+Characters, weapons, capes and banners must NOT overlap or touch the neighboring panels or banners.
+Below each panel, a dark green brush-stroke banner with ONLY the panel NUMBER in large white digits (1, 2, 3 ...). No other text,
+no names, no title, no frame, no watermark.
+
+TROOP CLASS must be obvious from silhouette, pose and main prop:
+SPEARMAN heavy armor, long polearm, planted stance / CAVALRY the rider is the subject, only the horse head or mane peeks in /
+ARCHER bow in hand, quiver / ROGUE light armor, agile, short blades / STRATEGIST flowing robe, white feather fan /
+SCHOLAR scholar robe and hat, book or tablet, no weapon drawn / SORCERER Taoist robe, staff or talismans, faint glowing magic /
+SCHEMER dark robe, high collar, sly, scroll or chess piece.
+★ICONIC characters: their famous look and signature weapon come FIRST, the class is only a small hint.
+FACTION gives costume colors. LOOK gives each face —— every character must look clearly different (age, face, hair, facial hair, build).
+SPLENDOR (rank of the card): PLAIN worn practical gear / FINE polished officer gear, a few gold accents /
+ORNATE gold filigree, embroidered silk, flowing cape / MYTHIC gilded armor with dragon or phoenix motifs, golden aura, panel edged in faint gold.
+Do not draw the bracket tags, ★ marks or line labels as text.
+
+
+Image size 1024x1536 portrait. Grid of 5 characters: 3 columns x 2 rows (a short last row is centered). medium vertical panels, character fills most of the panel.
+Banner under each panel: only its number.
+
+1. (card: 하제) [ARCHER] He Qi, Wu general who pacified the Shanyue hills, aiming a crossbow in bright armor.
+   FACTION: Wu colors: crimson, red, orange and gold.
+   FACE: proud handsome middle-aged face, neat mustache, confident smirk, rich gilded armor.
+   SPLENDOR: FINE.
+   SHOT: slight high angle, half-body, looking up at the viewer.
+   LIGHT: midday desert glare, bleached sand and hard shadows.
+2. (card: 이각) [ROGUE] Li Jue, Dong Zhuo's brutal remnant general looting Chang'an, curved blade and torch.
+   FACTION: independent warlord, own colors.
+   FACE: cruel coarse face, scraggly beard, greedy narrow eyes, crooked teeth.
+   SPLENDOR: FINE.
+   SHOT: dynamic diagonal action pose, cloth and hair swept by motion.
+   LIGHT: blazing sunset backlight, orange rim light, long shadows.
+3. (card: 황권) [STRATEGIST] Huang Quan, cautious Shu advisor holding a map of Yi province, feather fan lowered.
+   FACTION: Shu colors: green, jade and earthy gold.
+   FACE: serious long face, neat black beard, thoughtful worried brows.
+   SPLENDOR: FINE.
+   SHOT: 3/4 view, mid-stride, weight on the front foot.
+   LIGHT: lamp-lit interior, warm amber light and deep brown shadows.
+4. (card: 순유) [STRATEGIST] Xun You, Cao Cao's quiet military planner pointing at a flooded city plan.
+   FACTION: Wei colors: navy, deep blue and steel with silver.
+   FACE: calm gentle face, thin beard, modest downcast eyes, faint smile.
+   SPLENDOR: FINE.
+   SHOT: low angle looking up, heroic stance.
+   LIGHT: misty river morning, silver and jade.
+5. (card: 도겸) [SCHOLAR] Tao Qian, elderly governor of Xu province offering his seal to Liu Bei.
+   FACTION: independent warlord, own colors.
+   FACE: frail kind old face, long white beard, tired gentle eyes.
+   SPLENDOR: FINE.
+   SHOT: side profile, face clearly lit and large in frame.
+   LIGHT: pale dawn, cool blue-grey and soft pink.

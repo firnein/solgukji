@@ -394,7 +394,7 @@ func _fit_sheet(animate: bool) -> void:
 	if not _sheet.visible:
 		return
 	var sa := _safe_insets()
-	var max_h := (size.y - sa.position.y) * 0.88
+	var max_h := (size.y - sa.position.y) * (0.98 if _sheet_full else 0.88)      # 11/6 사용자: 선택권은 전체 화면처럼 크게
 	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
 	var body_h: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
 	_sheet_h = minf(max_h, head_h + body_h + sa.size.y + 4)
@@ -859,6 +859,7 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	if not was:
 		Sfx.play("open")
 	_sheet_title.text = title
+	_sheet_full = false
 	if _battle_layer != null and _battle_layer.visible:      # 전투 위에서도 시트가 보이게 맨 앞으로
 		move_child(_sheet_mask, -1)
 		move_child(_sheet_art, -1)
@@ -1526,6 +1527,7 @@ func _art_crop(k: String, box: Vector2, myth := true) -> TextureRect:
 ## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다
 var _pick_last := ""          # 방금 고른 카드 —— 다시 그려도 금테로 남긴다 (11/6 #3)
 var _pick_scroll := 0
+var _sheet_full := false      # 시트를 화면 높이 거의 끝까지 (선택권)
 
 
 ## 선택권 화면 (11/6 #4: 8병종을 한 화면에 —— 열 = 병종, 행 = 그 병종 장수. #2: 갈무리 장수 · 그 재료 표시. #3: 고른 뒤 스크롤 · 금테 유지)
@@ -1536,46 +1538,30 @@ func picker(t: int) -> void:
 		return
 	var was_open := _sheet.visible
 	var b := open_sheet("%s 선택권 — 남은 %d회" % [DB.TIER[t].n, left])
+	_sheet_full = true      # 11/6 사용자 2차: 타일이 너무 작다 → 전체 화면 높이 · 4열 큰 타일 · 병종 묶음 (위 8병종 단추로 바로 가기)
 	var full: float = (_sheet.size.x if _sheet.size.x > 100 else get_viewport_rect().size.x) - 36
-	var gap := 4.0
-	var tw := floorf((full - gap * 7) / 8.0)
-	var th := tw * 1.45 + 4.0
+	var cols := 4
+	var gap := 8.0
+	var tw := floorf((full - gap * (cols - 1)) / cols)
+	var th := tw * 1.42
 	var pins: Array = forge_tree.pins
 	var mats := {}
 	for pk in pins:
 		for m in DB.RECOF.get(pk, []):
 			mats[str(m)] = true
-	var g := GridContainer.new()
-	g.columns = 8
-	g.add_theme_constant_override("h_separation", int(gap))
-	g.add_theme_constant_override("v_separation", 6)
-	var cols := []
-	var rows := 0
+	var groups := {}
+	var jump := UI.hbox(4)
 	for tag in DB.D.TAGORDER:
 		var ks := Run.pickable(t, tag)
-		cols.append(ks)
-		rows = maxi(rows, ks.size())
-	for tag in DB.D.TAGORDER:
-		var hd := Control.new()
-		hd.custom_minimum_size = Vector2(tw, 18)
-		var ic := TextureRect.new()
-		ic.texture = DB.ICON.get(tag)
-		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		ic.modulate = DB.PAL.bamboo
-		hd.add_child(ic)
-		hd.tooltip_text = tag
-		g.add_child(hd)
-	for r in rows:
-		for ci in 8:
-			var ks: Array = cols[ci]
-			if r >= ks.size():
-				var sp := Control.new()
-				sp.custom_minimum_size = Vector2(tw, th)
-				g.add_child(sp)
-				continue
-			var k: String = ks[r]
+		if ks.is_empty():
+			continue
+		var grp := UI.vbox(6)
+		grp.add_child(UI.eyebrow("%s %d" % [tag, ks.size()]))
+		var g := GridContainer.new()
+		g.columns = cols
+		g.add_theme_constant_override("h_separation", int(gap))
+		g.add_theme_constant_override("v_separation", 8)
+		for k in ks:
 			var tl := mtile(k, run.pool().get(k, -1), func(id):
 				_pick_scroll = _sheet_scroll.scroll_vertical
 				if act("pick", [id]):
@@ -1600,8 +1586,27 @@ func picker(t: int) -> void:
 			if k == _pick_last:
 				tl.mark = "sel"
 			g.add_child(tl)
-	b.add_child(g)
-	b.add_child(UI.hint("길게 누르면 디테일창. 갈무리한 장수는 금색, 그 재료는 옥빛으로 표시됩니다."))
+		grp.add_child(g)
+		groups[tag] = grp
+		var jb := Button.new()
+		jb.custom_minimum_size = Vector2(0, 36)
+		jb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		jb.icon = DB.ICON.get(tag)
+		jb.expand_icon = true
+		jb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		jb.tooltip_text = tag
+		jb.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink2, DB.PAL.ink4, 1, 8, 4))
+		jb.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, DB.PAL.bamboo_dim, 1, 8, 4))
+		jb.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, 8, 4))
+		jb.pressed.connect(func():
+			UI.buzz()
+			var gp: Control = groups[tag]
+			_sheet_scroll.scroll_vertical = int(gp.position.y))
+		jump.add_child(jb)
+	b.add_child(jump)
+	for tag in groups:
+		b.add_child(groups[tag])
+	b.add_child(UI.hint("위 병종 단추를 누르면 그 묶음으로 갑니다. 길게 누르면 디테일창. 갈무리한 장수는 금색, 그 재료는 옥빛."))
 	if was_open:
 		_restore_sheet_scroll.call_deferred(_pick_scroll)
 

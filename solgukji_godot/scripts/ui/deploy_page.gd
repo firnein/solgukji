@@ -9,7 +9,8 @@ var gs: GameScreen
 var sel := ""                 # 손패에서 고른 카드 (칸을 누르면 그 자리에 놓는다)
 var seg := ""                 # 아래 나눔 탭 —— hand · syn · item. "" = 닫힘 (11/5 사용자: 기본 닫힌 채, 누르면 열림)
 const LOWER_H := 168.0
-var _slide_up := false        # 방금 열었다 —— 올라오는 연출        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
+var _slide_up := false        # 방금 열었다 —— 올라오는 연출
+var _form_scroll := 0         # 진형 띠 가로 스크롤 —— 진형을 골라 다시 그려도 그 자리에 (11/6 사용자)        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
 
 
 func build() -> Control:
@@ -43,6 +44,11 @@ func build() -> Control:
 		b.add_child(tl)
 		st[1].add_child(b)
 	v.add_child(st[0])
+	var sc0: ScrollContainer = st[0]
+	sc0.get_h_scroll_bar().value_changed.connect(func(x): _form_scroll = int(x))
+	(func():
+		if is_instance_valid(sc0):
+			sc0.scroll_horizontal = _form_scroll).call_deferred()
 
 	# 11/5 사용자: 작전(군령) 고르기 삭제. 진형 우대 띠도 삭제 (우대 칸 옥빛 강조만 남김)
 

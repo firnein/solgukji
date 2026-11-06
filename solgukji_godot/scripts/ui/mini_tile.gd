@@ -85,6 +85,7 @@ func _draw() -> void:
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(8, 8), 7, DB.fac_color(c.fac))
 		draw_string(DB.font_display, pr.position + Vector2(1, 12), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 14, 9, Color.WHITE)
+	_tag_icon(c, pr.end - Vector2(10, 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼
 	var fd := DB.tier_font(c.tier)
 	var nm: String = c.name
 	var fs := 13
@@ -120,6 +121,17 @@ func _draw() -> void:
 
 
 ## 작은 칸 (폭 56 아래 —— 징집 화면 보유 패 8열, 11/2) —— 초상 · 짧은 이름 · 수량 · ▲ 만. 편성 중이면 왼쪽 아래 옥색 점
+## 병종 심볼 —— 그림 오른쪽 아래 먹색 원 안에 (11/6 사용자)
+func _tag_icon(c: Dictionary, p: Vector2, r: float) -> void:
+	var ic: Texture2D = DB.ICON.get(c.tag)
+	if ic == null:
+		return
+	draw_circle(p, r + 1.0, Color(0, 0, 0, 0.55))
+	draw_circle(p, r, Color(DB.PAL.ink, 0.92))
+	var s := r * 1.5
+	draw_texture_rect(ic, Rect2(p - Vector2(s, s) / 2.0, Vector2(s, s)), false, DB.PAL.paper)
+
+
 func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = DB.PAL.ink2
@@ -130,6 +142,7 @@ func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 	draw_style_box(sb, Rect2(Vector2.ZERO, size))
 	var pr := Rect2(2, 3, w - 4, h - 17)
 	Art.draw_portrait(self, pr, k)
+	_tag_icon(c, pr.end - Vector2(7, 7), 6.0)
 	var fd := DB.tier_font(c.tier)
 	# 11/3 사용자: 칭호를 떼고 "손권" 만 보이면 다른 카드(벽안 손권)로 오해한다 —— 칭호까지 보이고, 안 들어가면 칭호를 이름 위 작은 줄로
 	var nm: String = c.name
