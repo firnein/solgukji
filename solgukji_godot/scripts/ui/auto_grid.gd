@@ -7,6 +7,7 @@ extends Container
 var min_w := 168.0
 var sep := 8
 var max_cols := 0          # 0 이면 제한 없음
+var center_last := false   # 11/7 덜 찬 마지막 줄을 가운데로 (전투 아래 장수 카드 5 + 4)
 
 
 func cols_for(w: float) -> int:
@@ -51,8 +52,10 @@ func _notification(what: int) -> void:
 			var rh := 0.0
 			for j in range(i, mini(i + n, kids.size())):
 				rh = maxf(rh, kids[j].get_combined_minimum_size().y)
+			var in_row := mini(i + n, kids.size()) - i
+			var x0 := (n - in_row) * (cw + sep) / 2.0 if center_last else 0.0
 			for j in range(i, mini(i + n, kids.size())):
-				fit_child_in_rect(kids[j], Rect2((j - i) * (cw + sep), y, cw, rh))
+				fit_child_in_rect(kids[j], Rect2(x0 + (j - i) * (cw + sep), y, cw, rh))
 			y += rh + sep
 			i += n
 	elif what == NOTIFICATION_RESIZED:
