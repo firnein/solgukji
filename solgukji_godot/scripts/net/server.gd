@@ -11,9 +11,11 @@ extends Node
 ##   leave                 방에서 나가기
 ##   start                 방장이 시작 (빈자리는 봇)
 ##   cmd {m, a}            징집·조합·편성 명령 (Run.COMMANDS)
-##   ready {on}            준비 완료
+##   ready {on, sno}       준비 완료 —— sno 는 받은 방 정보의 stage_no (지난 단계의 준비는 버린다)
+##   alone {go}            혼자 남았을 때의 답 —— go 가 참이면 봇만 상대로 계속, 아니면 방을 닫는다
 ## 32KB 가 넘는 메시지는 gzip 바이너리로 보낸다.
-## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list} · toast {text, kind} · error {msg} · left
+## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list, stage, stage_no, seen} · toast {text, kind} · error {msg} · left
+## 방 진행(아침 · 점심 · 저녁 단계)은 room.gd.
 
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -157,19 +159,17 @@ func _handle(id: int, d: Dictionary) -> void:
 				rooms[p.room].on_cmd(id, str(d.get("m", "")), a if a is Array else [])
 		"ready":
 			if rooms.has(p.room):
-				rooms[p.room].on_ready(id, bool(d.get("on", true)))
+				rooms[p.room].on_ready(id, bool(d.get("on", true)), int(d.get("sno", -1)))
+		"alone":
+			if rooms.has(p.room):
+				rooms[p.room].on_alone(id, bool(d.get("go", true)))
 
 
 func _leave(id: int) -> void:
 	var p: Dictionary = peers[id]
 	if rooms.has(p.room):
-		var r: Room = rooms[p.room]
-		r.remove_peer(id)
-		if r.started:
-			# 진행 중인 방에서 스스로 나가면 자리를 AI 에게 넘기고 토큰을 끊는다
-			for s in r.seats:
-				if s.human and s.token == p.token:
-					s.token = ""
+		# 진행 중인 방에서 스스로 나가면 자리를 봇에게 넘기고 토큰을 끊는다 (Room.on_leave)
+		rooms[p.room].on_leave(id)
 	p.room = ""
 
 

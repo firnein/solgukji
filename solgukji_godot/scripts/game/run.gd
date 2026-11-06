@@ -1417,25 +1417,7 @@ static var dev_snap: Array = []
 func dev_autoplay() -> void:
 	if over != null:
 		return
-	if not drawn and draws_n() > 0:
-		do_draw()
-	if not picked:
-		begin_picks("phase")
-	if not granted and not grant_list().is_empty():
-		random_grant()
-	if not uniq_offer.is_empty():
-		# 11/3 신화에 가장 가까운 유니크를 고른다 (예전엔 첫 번째 —— 신화를 한 번도 못 만들었다)
-		var bu: String = uniq_offer[0]
-		var bs := 999
-		for id in uniq_offer:
-			for k in DB.C:
-				if DB.C[k].tier >= 8 and not DB.is_foe(k) and need_item(k) == id:
-					var s := _chain_miss(k)
-					if s < bs:
-						bs = s
-						bu = id
-		pick_unique(bu)
-	_dev_spend()
+	bot_prepare()
 	if is_tour_phase():
 		if tour == null:
 			init_tour()
@@ -1455,6 +1437,35 @@ func dev_autoplay() -> void:
 	if dev_log: PlayLog.phase_end(self)
 	advance()
 	if dev_log and over != null: PlayLog.over(self)
+
+
+## 봇 플레이 —— 사람 대신 이 판의 자산으로 한 단계를 준비한다: 징집 · 선택권 · 배급 · 유니크 보급 · 조합 · 편성.
+## 점검용 자동 진행(dev_autoplay)과 온라인 방(room.gd)의 무응답 플레이어 대행이 같이 쓴다 (11/7 멀티플레이).
+## full 이 false 면 '행동은 했지만 끝내지 못한' 사람 몫만 채운다 —— 공짜 징집 · 배급과 빈 편성판. 선택권 · 조합은 그대로 둔다
+func bot_prepare(full := true) -> void:
+	if not drawn and draws_n() > 0:
+		do_draw()
+	if not picked:
+		begin_picks("phase")
+	if not granted and not grant_list().is_empty():
+		random_grant()
+	if not full:
+		if placed() == 0:
+			auto_deploy()
+		return
+	if not uniq_offer.is_empty():
+		# 11/3 신화에 가장 가까운 유니크를 고른다 (예전엔 첫 번째 —— 신화를 한 번도 못 만들었다)
+		var bu: String = uniq_offer[0]
+		var bs := 999
+		for id in uniq_offer:
+			for k in DB.C:
+				if DB.C[k].tier >= 8 and not DB.is_foe(k) and need_item(k) == id:
+					var s := _chain_miss(k)
+					if s < bs:
+						bs = s
+						bu = id
+		pick_unique(bu)
+	_dev_spend()
 
 
 static var dev_immortal := false   # 점검용 —— 자동 진행(--gplay · 봇 기준선)은 멸망하지 않는다 (11/5 사용자). 경고는 그대로 쌓인다

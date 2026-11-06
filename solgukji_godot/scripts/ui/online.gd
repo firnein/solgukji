@@ -3,8 +3,11 @@ extends Node
 ## 온라인 대전 —— 집 PC 서버(MatchServer)에 붙는다. 게임 화면(GameScreen)은 그대로 쓰고,
 ## 행동(act)은 서버에도 보내며, 서버가 돌려준 상태(Run)로 화면을 바꾼다.
 ## 접속 시트(주소·이름·방 목록·방 만들기·코드로 참가) → 대기실(코드·자리·시작) → 게임.
-## 전투는 서버가 계산해 보낸 결과를 차례로 재생한다(1단계 —— 자동 전투). 다 보면 '준비 완료'를 보낸다.
-## 끊기면 3초마다 다시 붙는다 —— 토큰이 같아 진행 중인 자리로 돌아간다.
+## 하루는 아침(징집·조합·편성) → 점심(토벌 보기) → 저녁 준비(상대 이름·전적을 보고 편성) → 저녁(대전 보기) 네 단계 (room.gd, 11/7).
+## 명령은 아침 · 저녁 준비에만 보낼 수 있다. '준비 완료'는 방 정보의 stage_no 를 실어 보낸다 —— 늦게 간 준비는 서버가 버린다.
+## 전투는 서버가 계산해 보낸 결과를 차례로 재생한다(1단계 —— 자동 전투). 다 봐야 '준비 완료'가 된다 (건너뛰기 없음, 결정 ⑦).
+## 끊기면 3초마다 다시 붙는다 —— 토큰이 같아 진행 중인 자리로 돌아가 그 단계부터 이어간다 (이미 다 본 전투는 목록만 받는다).
+## 사람이 나 혼자 남으면(다른 사람 모두 멸망·퇴장) 서버가 묻는다 —— 계속할지, 방을 닫을지.
 
 var gs: GameScreen
 var net: NetClient
@@ -13,7 +16,10 @@ var room := {}                # 서버가 준 방 정보 (Room.info)
 var in_game := false
 var stage_end := 0.0          # 이 기기 시계로 지금 단계가 끝나는 시각
 var watch := []               # 남은 볼 전투 [{title, res}]
-var last_battles := []        # 이번 페이즈 전투 (다시 보기)
+var last_battles := []        # 이번 단계 전투 (다시 보기)
+var _seen_all := false        # 이번 단계의 전투를 다 봤다 —— 그래야 '준비 완료'를 누를 수 있다
+var _stage_no := -1           # 마지막으로 받은 단계 번호 —— 바뀌면 본 기록을 지운다
+var _asked_alone := false     # 혼자 남았다는 물음을 띄웠다
 var lobby: Control
 var _status := "접속 전"
 var dev_auto := false         # 점검용 —— 준비 시간에 알아서 징집·선택권·조합·편성·준비 (--gauto)
@@ -139,24 +145,39 @@ func _on_msg(d: Dictionary) -> void:
 			r.from_dict(d.run)
 			gs.run = r
 			stage_end = Room.now() + float(room.remain)
+			if int(room.get("stage_no", 0)) != _stage_no:
+				# 새 단계 —— 본 기록을 지운다. 전투는 battles 메시지로 따로 온다
+				_stage_no = int(room.get("stage_no", 0))
+				_seen_all = false
+				if not (str(room.stage) in Room.WATCH_STAGES):
+					watch = []
 			if not in_game:
 				in_game = true
 				_hide_lobby()
 				gs.close_sheet()
 				gs._title.visible = false
 				gs.go("draw")
+				_maybe_ask_alone()
 				if dev_auto:
 					_dev_step()
 				return
 			if not gs.battle_visible():
 				gs.render()
+			_maybe_ask_alone()
 			if dev_auto:
 				_dev_step()
 		"battles":
 			last_battles = d.list
-			watch = d.list.duplicate()
-			if not gs.battle_visible():
-				watch_next()
+			if bool(d.get("seen", false)):
+				# 재접속 —— 끊기기 전에 다 본 전투. 목록만 두고 다시 보지 않는다
+				watch = []
+				_seen_all = true
+				if not gs.battle_visible():
+					gs.render()
+			else:
+				watch = d.list.duplicate()
+				if not gs.battle_visible():
+					watch_next()
 		"toast":
 			gs.toast(str(d.text), str(d.kind))
 		"error":
@@ -171,8 +192,13 @@ func send_cmd(m: String, a: Array) -> void:
 	net.send({"t": "cmd", "m": m, "a": a})
 
 
+## '준비 완료' —— 지금 단계 번호를 실어 보낸다 (지난 단계의 준비가 다음 단계에 섞이지 않게)
+func send_ready(on: bool) -> void:
+	net.send({"t": "ready", "on": on, "sno": int(room.get("stage_no", -1))})
+
+
 func can_act() -> bool:
-	return in_game and room.get("stage", "") == "prep" and gs.run != null and gs.run.over == null
+	return in_game and (str(room.get("stage", "")) in Room.ACT_STAGES) and gs.run != null and gs.run.over == null
 
 
 func me() -> Dictionary:
@@ -185,14 +211,38 @@ func remain() -> float:
 	return maxf(0.0, stage_end - Room.now())
 
 
+const STAGE_SHORT := {"morning": "아침", "noon": "점심", "evening_prep": "저녁 준비", "evening": "저녁"}
+
+
 func clock_text() -> String:
 	var st: String = room.get("stage", "")
 	var r := int(ceil(remain()))
-	match st:
-		"prep": return "  ·  준비 %d:%02d" % [r / 60, r % 60]
-		"watch": return "  ·  관전 %d:%02d" % [r / 60, r % 60]
-		"over": return "  ·  끝"
+	if st == "over":
+		return "  ·  끝"
+	if STAGE_SHORT.has(st):
+		return "  ·  %d일차 %s %d:%02d" % [int(room.get("day_no", 0)), STAGE_SHORT[st], r / 60, r % 60]
 	return ""
+
+
+## 혼자 남았다 —— 서버가 물으면 한 번만 시트를 띄운다 (답하면 room.alone 이 "go" 로 바뀌거나 방이 끝난다)
+func _maybe_ask_alone() -> void:
+	if str(room.get("alone", "")) != "ask":
+		_asked_alone = false
+		return
+	if _asked_alone:
+		return
+	_asked_alone = true
+	if dev_auto:
+		net.send({"t": "alone", "go": true})
+		return
+	var b := gs.open_sheet("혼자 남았다")
+	b.add_child(UI.hint("다른 사람이 모두 멸망했거나 방을 나갔다. 남은 날은 봇만 상대하게 된다. 계속할까요?"))
+	b.add_child(UI.btn("계속한다 — 봇만 상대로 끝까지", func():
+		net.send({"t": "alone", "go": true})
+		gs.close_sheet(), "pri", 56))
+	b.add_child(UI.btn("그만둔다 — 방을 닫는다", func():
+		net.send({"t": "alone", "go": false})
+		gs.close_sheet(), "warn", 56))
 
 
 # ───────── 전투 재생 ─────────
@@ -201,9 +251,10 @@ func watch_next() -> void:
 	if watch.is_empty():
 		if gs.battle_visible():
 			gs.hide_battle()
-			# 다 봤으면 준비 완료 —— 다시 누르면 취소된다
-			if room.get("stage", "") == "watch":
-				net.send({"t": "ready", "on": true})
+			# 다 봤으면 준비 완료 —— 다시 누르면 취소된다 (결정 ⑦: 끝까지 본 뒤에만)
+			_seen_all = true
+			if str(room.get("stage", "")) in Room.WATCH_STAGES:
+				send_ready(true)
 		gs.go("war")
 		return
 	var b: Dictionary = watch.pop_front()
@@ -285,51 +336,99 @@ func _update_clock_label() -> void:
 
 func _stage_text() -> String:
 	var r := int(ceil(remain()))
-	match room.get("stage", ""):
-		"prep": return "준비 시간 %d:%02d — 징집·조합·편성을 마치고 '준비 완료'. 모두 준비되면 바로 전투" % [r / 60, r % 60]
-		"watch": return "전투 결과 %d:%02d — 다 보면 '준비 완료'. 모두 준비되면 다음 페이즈" % [r / 60, r % 60]
+	var t := "%d:%02d" % [r / 60, r % 60]
+	match str(room.get("stage", "")):
+		"morning": return "아침 %s — 징집·조합·편성을 마치고 '준비 완료'. 모두 준비되면 바로 점심(토벌)" % t
+		"noon": return "점심 %s — 토벌을 끝까지 보면 '준비 완료'. 모두 보면 저녁 상대가 정해진다" % t
+		"evening_prep": return "저녁 준비 %s — 상대를 보고 편성·작전을 고친 뒤 '준비 완료'. 모두 준비되면 대전" % t
+		"evening":
+			if int(room.get("tour_round", -1)) >= 0:
+				return "토너먼트 %s — %s을 끝까지 보면 '준비 완료'. 모두 보면 다음 라운드" % [t, Run.ROUNDNM[int(room.tour_round)]]
+			return "저녁 %s — 대전을 끝까지 보면 '준비 완료'. 모두 보면 다음 날 아침" % t
 		"over": return "판이 끝났다"
 	return ""
+
+
+## 상대 줄 —— 이름 · 전적만 (PV 는 보이지 않는다, 결정 ⑥)
+func _foe_panel() -> Control:
+	var f: Dictionary = room.foe
+	var v := UI.vbox(4)
+	var tag := ""
+	if f.human and not f.online:
+		tag = "  [color=#e0806f]끊김 — 봇 대행[/color]"
+	v.add_child(UI.rich("[font_size=18][b]%s[/b][/font_size]  [color=#8D7B5C]%s[/color]%s" % [f.name, f.epi, tag], 16))
+	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], 14))
+	var st: String = str(room.get("stage", ""))
+	if st == "evening_prep":
+		v.add_child(UI.hint("편성 탭에서 진형·작전을 고칠 수 있다. 상대의 편성은 보이지 않는다."))
+	return UI.sect("오늘 저녁 상대", UI.panel(v))
 
 
 func war_page() -> Control:
 	var run: Run = gs.run
 	var v := UI.vbox(16)
-	if run.over != null and room.get("stage", "") == "over":
+	var st: String = str(room.get("stage", ""))
+	if run.over != null and st == "over":
 		v.add_child(gs._over_panel())
 		return v
 	var head := UI.vbox(6)
-	head.add_child(UI.rich("[font_size=20][b]%s요일 %s[/b][/font_size]   [color=#8D7B5C]온라인 방 %s · %s[/color]" % [
-		Run.DAYNAME[run.day], Run.PHASE_N[run.phase], room.code, room.mode_n]))
+	head.add_child(UI.rich("[font_size=20][b]%d일차 · %s[/b][/font_size]   [color=#C6AC7C]%s요일 %s[/color]   [color=#8D7B5C]방 %s · %s[/color]" % [
+		int(room.get("day_no", 0)), STAGE_SHORT.get(st, room.get("stage_n", "")), Run.DAYNAME[run.day], Run.PHASE_N[run.phase], room.code, room.mode_n]))
 	_clock_lbl = UI.lbl(_stage_text(), 16, DB.PAL.gold)
 	_clock_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	head.add_child(_clock_lbl)
 	if run.over != null:
 		head.add_child(UI.rich("[color=#e0806f][b]%s[/b][/color] — %s. 남은 판은 관전한다." % ["우승" if run.over.win else "탈락", run.over.msg]))
 	v.add_child(UI.panel(head))
+	if str(room.get("alone", "")) == "ask":
+		var av := UI.vbox(6)
+		av.add_child(UI.rich("[color=#D9A64B][b]혼자 남았다[/b][/color] — 다른 사람이 모두 멸망했거나 나갔다. 남은 날은 봇만 상대한다."))
+		var ah := UI.hbox(8)
+		var b1 := UI.btn("계속한다", func(): net.send({"t": "alone", "go": true}), "pri", 48)
+		var b2 := UI.btn("방을 닫는다", func(): net.send({"t": "alone", "go": false}), "warn", 48)
+		b1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ah.add_child(b1)
+		ah.add_child(b2)
+		av.add_child(ah)
+		v.add_child(UI.panel(av))
 	var my: Dictionary = me()
-	if not my.is_empty() and room.stage != "over":
+	if not my.is_empty() and st != "over" and not my.dead:
 		var rd: bool = my.ready
-		var b := UI.act("준비 취소" if rd else "준비 완료",
-			"다른 사람을 기다리는 중" if rd else ("토벌과 대전이 시작된다" if room.stage == "prep" else "다음 페이즈로"),
-			func(): net.send({"t": "ready", "on": not rd}), "ghost" if rd else "pri")
+		var watching: bool = st in Room.WATCH_STAGES
+		var disabled: bool = watching and not rd and not _seen_all and not last_battles.is_empty()
+		var sub := "다른 사람을 기다리는 중"
+		if not rd:
+			match st:
+				"morning": sub = "점심 토벌로"
+				"noon": sub = "전투를 끝까지 보면" if disabled else "저녁 상대 선정으로"
+				"evening_prep": sub = "대전 시작"
+				"evening": sub = "전투를 끝까지 보면" if disabled else "다음으로"
+		var b := UI.act("준비 취소" if rd else "준비 완료", sub, func(): send_ready(not rd), "ghost" if rd else "pri", disabled)
 		v.add_child(b)
+		if watching and not watch.is_empty():
+			v.add_child(UI.btn("남은 전투 보기 (%d)" % watch.size(), func(): watch_next(), "gold", 48))
+	if room.get("foe") != null and st in ["evening_prep", "evening"]:
+		v.add_child(_foe_panel())
 	# 자리
 	var sv := UI.vbox(4)
 	for i in room.seats.size():
-		var st: Dictionary = room.seats[i]
-		var mark := "✔" if st.ready and st.human else ("·" if st.human else "봇")
-		var col := "#8fd4c2" if st.ready and st.human else "#8D7B5C"
-		var who := "[b]%s[/b]%s" % [st.name, " (나)" if i == int(room.you) else ""]
-		var tag := "" if st.online or not st.human else "  [color=#e0806f]끊김 — AI 대행[/color]"
-		if st.dead:
+		var s2: Dictionary = room.seats[i]
+		var mark := "✔" if s2.ready and s2.human else ("·" if s2.human else "봇")
+		var col := "#8fd4c2" if s2.ready and s2.human else "#8D7B5C"
+		var who := "[b]%s[/b]%s" % [s2.name, " (나)" if i == int(room.you) else ""]
+		var tag := "" if s2.online or not s2.human else "  [color=#e0806f]끊김 — 봇 대행[/color]"
+		if s2.dead:
 			tag += "  [color=#e0806f]멸망[/color]"
-		sv.add_child(UI.rich("[color=%s]%s[/color]  %s  [color=#C6AC7C]%d PV[/color]%s" % [col, mark, who, st.pv, tag], 15))
+		var vs := ""
+		if str(s2.get("foe", "")) != "" and st in ["evening_prep", "evening"]:
+			vs = "  [color=#8D7B5C]vs %s[/color]" % s2.foe
+		sv.add_child(UI.rich("[color=%s]%s[/color]  %s  [color=#C6AC7C]%d PV[/color]%s%s" % [col, mark, who, s2.pv, vs, tag], 15))
 	var two := UI.vbox(16)
 	var sp := UI.sect("자리 — 사람 %d · 봇 %d" % [room.seats.filter(func(x): return x.human).size(), room.seats.filter(func(x): return not x.human).size()], UI.panel(sv))
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	two.add_child(sp)
-	# 이번 페이즈 전투
+	# 이번 단계 전투
 	var bv := UI.vbox(6)
 	for x in last_battles:
 		var res: Dictionary = x.res
@@ -343,35 +442,43 @@ func war_page() -> Control:
 			watch_next(), "ghost", 44))
 		bv.add_child(h)
 	if last_battles.is_empty():
-		bv.add_child(UI.hint("준비 시간이 끝나면 서버가 토벌과 대전을 치른다."))
+		match st:
+			"morning": bv.add_child(UI.hint("아침이 끝나면 서버가 각자의 토벌을 치러 보낸다."))
+			"evening_prep": bv.add_child(UI.hint("준비가 끝나면 서버가 대전을 치러 보낸다."))
+			_: bv.add_child(UI.hint("이번 단계에 볼 전투가 없다 — 관전 중."))
 	if run.last_spoil != null:
 		bv.add_child(UI.hint("기본패 %d장 획득 — %s" % [run.last_spoil.n, run.last_spoil.src]))
 	if run.ticket_left() > 0:
-		bv.add_child(UI.rich("[color=#D9A64B]선택권 %d장 — 다음 준비 시간에 징집 화면에서[/color]" % run.ticket_left(), 14))
-	var bp := UI.sect("이번 페이즈 전투", UI.panel(bv))
+		bv.add_child(UI.rich("[color=#D9A64B]선택권 %d장 — 다음 아침에 징집 화면에서[/color]" % run.ticket_left(), 14))
+	var bp := UI.sect("이번 단계 전투", UI.panel(bv))
 	bp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	two.add_child(bp)
 	v.add_child(two)
 	if run.tour != null:
 		v.add_child(gs._bracket())
-	v.add_child(UI.hint("온라인 1단계 — 전투는 양쪽 모두 자동(고유기·군령을 AI 가). 준비 시간에 편성을 끝내지 못하면 서버가 자동 편성한다. 접속이 끊기면 AI 가 대신 진행하고, 다시 들어오면 넘겨받는다."))
+	v.add_child(UI.hint("온라인 1단계 — 전투는 양쪽 모두 자동(고유기·군령을 AI 가)이고 끝까지 본다. 아침·저녁 준비에 편성을 끝내지 못하면 서버가 채운다. 접속이 끊기면 봇이 대신 진행하고, 다시 들어오면 그 단계부터 이어간다."))
 	return v
 
 
-## 점검용 자동 플레이 —— 상태가 올 때마다 한 걸음
+## 점검용 자동 플레이 —— 상태가 올 때마다 한 걸음 (아침: 징집 → 선택권 → 편성 → 준비 · 저녁 준비: 빈 편성 채우고 준비)
 func _dev_step() -> void:
 	var r: Run = gs.run
 	if not can_act():
 		return
-	if not r.drawn and r.draws_n() > 0:
-		gs.act("do_draw")
-	elif not r.picked:
-		gs.act("begin_picks", ["phase", -1])
-	elif r.ticket_left() > 0:
-		var pl: Array = Run.pickable(r.ticket_tiers()[0])
-		pl.sort_custom(func(x, y): return DB.C[x].tr > DB.C[y].tr)
-		gs.act("pick", [pl[randi() % mini(6, pl.size())]])
-	elif r.placed() < 9 and not r.inv.is_empty():
+	var st: String = str(room.get("stage", ""))
+	if st == "morning":
+		if not r.drawn and r.draws_n() > 0:
+			gs.act("do_draw")
+			return
+		elif not r.picked:
+			gs.act("begin_picks", ["phase", -1])
+			return
+		elif r.ticket_left() > 0:
+			var pl: Array = Run.pickable(r.ticket_tiers()[0])
+			pl.sort_custom(func(x, y): return DB.C[x].tr > DB.C[y].tr)
+			gs.act("pick", [pl[randi() % mini(6, pl.size())]])
+			return
+	if r.placed() < 9 and not r.inv.is_empty():
 		gs.act("auto_deploy")
 	elif not me().get("ready", true):
-		net.send({"t": "ready", "on": true})
+		send_ready(true)

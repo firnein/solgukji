@@ -94,6 +94,7 @@ var game_mode := false
 var end_clock := 0.0        # 점검용 —— 전투가 끝난 전장 시각(초, 1배속 기준)
 var locked := false         # 온라인 1단계 —— 서버가 준 결과를 재생만 한다 (고유기·군령 입력 없음)
 var _auto_btn: CheckButton
+var _skip_btn: Button        # 결과로 건너뛰기 —— 온라인 재생(locked)에서는 숨긴다 (11/7 결정 ⑦)
 var _dev_row: Control
 var _side: Control
 var _side_mask: ColorRect
@@ -377,9 +378,10 @@ func _build_side() -> void:
 	_auto_btn = auto_btn
 	auto_btn.visible = false      # 11/4 사용자: 직접 지휘 개념은 없앤다
 	v.add_child(auto_btn)
-	v.add_child(UI.btn("결과로 건너뛰기", func():
+	_skip_btn = UI.btn("결과로 건너뛰기", func():
 		set_side_visible(false)
-		skip(), "ghost", 46))
+		skip(), "ghost", 46)
+	v.add_child(_skip_btn)
 	var hint := Label.new()
 	hint.text = "장수 칸을 누르면 장수 정보\n두 손가락: 확대·회전 · 한 손가락: 이동\nPC: 휠 확대 · 오른쪽 끌기·Q/E 회전 · WASD 이동 · 스페이스 일시정지"
 	hint.add_theme_font_size_override("font_size", 12)
@@ -561,6 +563,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	speed_sec = {}
 	game_mode = true
 	locked = false
+	_skip_btn.visible = true
 	_auto_btn.disabled = false
 	_auto_btn.text = "직접 지휘 (고유기·군령 버튼)"
 	_auto_btn.set_pressed_no_signal(direct_)
@@ -582,6 +585,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 func play_res(r: Dictionary, kind := "") -> void:
 	game_mode = true
 	locked = true
+	_skip_btn.visible = false
 	_dev_row.visible = false
 	_auto_btn.disabled = true
 	_auto_btn.text = "온라인 1단계 — 양쪽 모두 자동 전투"
@@ -1542,8 +1546,8 @@ func clock_text() -> String:
 
 ## 결과로 —— 남은 행동을 연출 없이 한꺼번에 적용한다
 func skip() -> void:
-	if not running or finished:
-		return
+	if not running or finished or locked:
+		return                   # 온라인 재생은 끝까지 본다 —— 건너뛰기 없음 (11/7 사용자 결정 ⑦)
 	var rest := []
 	for d in due:
 		rest.append(d[1])
