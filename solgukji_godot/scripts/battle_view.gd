@@ -739,11 +739,16 @@ func _begin() -> void:
 		dots.setup()
 	hud.reset()
 	# 11/6 컷인 초상을 처음 그릴 때 큰 그림을 불러오느라 프레임이 튀었다 —— 고유기가 있는 장수 그림을 미리 읽어 둔다
+	hud.prewarm.clear()
+	hud.prewarm_txt.clear()
 	for q in field.order:
 		if DB.C.has(q.cid) and (q.tier >= 6 or DB.is_kiin(q.cid)):
-			DB.portrait(q.cid)
-			DB.face_tex(q.cid)
-			DB.myth_art(q.cid)
+			for tx in [DB.portrait(q.cid), DB.face_tex(q.cid), DB.myth_art(q.cid)]:
+				if tx != null:
+					hud.prewarm.append(tx)      # 첫 그리기 때 안 보이게 한 번 찍어 그래픽카드에 미리 올린다 (컷인 첫 프레임 10ms)
+			var ud = DB.ult_of(q.cid)
+			if ud != null:      # 컷인 큰 글씨도 —— 처음 쓰는 크기 · 글자는 그 자리에서 글리프를 만든다
+				hud.prewarm_txt.append(["『%s』" % ud.name, "“%s”" % str(ud.get("shout", "")), _ult_short(ud, q.tier) if ud.has("eff") else "", str(q.row.name)])
 	log_box.clear()
 	title_label.text = res.title
 	for c in cards_bar.get_children():
@@ -989,9 +994,12 @@ func _process_inner(dt: float) -> void:
 		if clock >= g.min_t and (field.arrived(g.who) or clock >= g.wait):
 			pending.erase(g)
 			_release(g, clock)
+	t0 = field.pt("감독·묶음", t0)
 	while not due.is_empty() and due[0][0] <= clock:
 		_apply(due.pop_front()[1])
+	t0 = field.pt("감독·사건", t0)
 	_drain_step(d)
+	t0 = field.pt("감독·흘림", t0)
 	_lead_step()
 	var pts := cmd_points()
 	pts_label.text = "군령\n%s" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
@@ -1873,8 +1881,31 @@ class Hud extends Control:
 			if mine and t < 0.6:
 				_text(DB.font_body, Vector2(x + tw + 6, y + h * 0.5 + 4), "연쇄!", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(col, a * (1.0 - t / 0.6)))
 
+	var prewarm: Array = []
+	var prewarm_txt: Array = []
+
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
+		if not prewarm.is_empty():
+			for tx in prewarm:
+				draw_texture_rect(tx, Rect2(0, 0, 2, 2), false, Color(1, 1, 1, 0.003))
+			prewarm.clear()
+		if not prewarm_txt.is_empty():
+			var fd := DB.font_display
+			var inv := Color(1, 1, 1, 0.003)
+			for e in prewarm_txt:
+				for twk in [0.92, 0.56]:      # 세로 · 가로 화면의 컷인 글씨 폭 (_draw_cut 과 같은 맞춤)
+					var tw: float = size.x * twk
+					var tfs := 64
+					while tfs > 30 and fd.get_string_size(e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > tw:
+						tfs -= 2
+					draw_string_outline(fd, Vector2(-9999, -9999), e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, 12, inv)
+					draw_string(fd, Vector2(-9999, -9999), e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, inv)
+				for fs in [20, 24]:
+					draw_string(fd, Vector2(-9999, -9999), e[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, inv)
+				draw_string(DB.font_bold, Vector2(-9999, -9999), e[2], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
+				draw_string(DB.font_body, Vector2(-9999, -9999), e[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
+			prewarm_txt.clear()
 		_draw_all()
 		_draw_kills()
 		_draw_chains()

@@ -2528,6 +2528,13 @@ func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 	var a: Squad = squads.get(akey)
 	if a == null:
 		return
+	if flat != null and flat.has_method("fx_volley"):      # 11/6 탑뷰 —— 3D 화살 대신 2D (병사 수천 명을 걸러 고르지 않는다)
+		for dk in dkeys:
+			var d0: Squad = squads.get(dk)
+			if d0 != null and not light:
+				cfx.acted(a, d0, "shoot")
+		flat.fx_volley(a, dkeys, emph)
+		return
 	var shooters := a.soldiers.filter(func(s): return s.alive)
 	if shooters.is_empty():
 		return
@@ -2685,6 +2692,15 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 	if a == null:
 		return
 	var col: Color = ST_COL.get(st, Color("#c9a2ff"))
+	if flat != null and flat.has_method("fx_cast"):      # 11/6 탑뷰 —— 2D 부적
+		if not light:
+			a.glow = 1.0
+		for dk in dkeys:
+			var d0: Squad = squads.get(dk)
+			if d0 != null and not light:
+				cfx.acted(a, d0, "cast")
+		flat.fx_cast(a, dkeys, col)
+		return
 	if not light:
 		a.glow = 1.0
 		_particles(p3(a.pos, 1.6), "magic", col)
@@ -2729,6 +2745,9 @@ func clash(akey: String, dkey: String, emph := false) -> void:
 		return
 	if not emph:
 		cfx.acted(a, d, "melee")
+		return
+	if flat != null and flat.has_method("fx"):      # 탑뷰 —— 2D 검기
+		flat.fx("slash", flat.vis_spot(d), Color("#fff2b0"), 0.35, 0.0, 18.0, flat.vis_c(a))
 		return
 	cfx.slash(a, d)
 	var dir := (a.pos - d.pos).normalized()
@@ -2782,6 +2801,9 @@ func skill_fx(key: String) -> void:
 	if sq == null:
 		return
 	sq.glow = 1.0
+	if flat != null and flat.has_method("fx"):
+		flat.fx("ring", flat.vis_c(sq), DB.PAL.gold, 0.6, 0.0, 26.0)
+		return
 	_ring(p3(sq.pos, 0.15), DB.PAL.gold, 0.8)
 	_light(p3(sq.pos, 2.5), DB.PAL.gold, 0.7, 0.5)      # 11/4 저녁 2.0 → 0.7
 
@@ -2792,6 +2814,9 @@ func skill_hit_fx(keys: Array, magic: bool) -> void:
 	for k in keys:
 		var t: Squad = squads.get(k)
 		if t == null or not t.alive:
+			continue
+		if flat != null and flat.has_method("fx"):
+			flat.fx("burst", flat.vis_c(t), col, 0.4, 0.0, 20.0)
 			continue
 		_ring(p3(t.pos, 0.2), col, 1.0)
 		_light(p3(t.pos, 3.0), col, 0.8, 0.4)      # 11/4 저녁 2.4 → 0.8

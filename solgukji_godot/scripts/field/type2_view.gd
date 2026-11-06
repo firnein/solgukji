@@ -1253,3 +1253,26 @@ func gpu_moved(sd, row: int, slot: float, seed: float, mt: float) -> void:
 			_dying[k] = []
 		if not _dying[k].has(sd):
 			_dying[k].append(sd)
+
+
+## 탑뷰 화살 · 부적 (War3D.volley · cast 가 넘긴다) —— 몇 발만, 병사를 고르지 않고 부대 둘레에서
+func fx_volley(a: Squad, dkeys: Array, emph := false) -> void:
+	if load_lv >= 2 and not emph:
+		return
+	var ap := vis_c(a)
+	for dk in dkeys:
+		var d: Squad = field.squads.get(dk)
+		if d == null:
+			continue
+		for i in (6 if emph else 3):
+			fx("proj", vis_spot(d), Color("#e8dcc0"), 0.5, i * 0.05, 0.0, ap + a.right() * _frng.randf_range(-20, 20))
+
+
+func fx_cast(a: Squad, dkeys: Array, col: Color) -> void:
+	if load_lv >= 2:
+		return
+	var ap := vis_c(a)
+	for dk in dkeys:
+		var d: Squad = field.squads.get(dk)
+		if d != null:
+			fx("proj", vis_c(d), col, 0.55, 0.0, 0.0, ap)
