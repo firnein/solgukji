@@ -331,8 +331,8 @@ func slot_sheet(i: int) -> void:
 	var cur = run.board[i]
 	var side: String = ["좌", "중앙", "우"][clampi(int(s.col), 0, 2)]
 	var b := gs.open_sheet("%s · %s 배치" % [side, line])
-	b.add_child(UI.rich("[color=#8D7B5C]공격[/color] %d%%   [color=#8D7B5C]방어[/color] %d%%   [color=#8D7B5C]책략[/color] %d%%   [color=#8D7B5C]피격[/color] %d순위" % [
-		roundi(ln.atk * 100), roundi(ln["def"] * 100), roundi(ln["int"] * 100), ln.pri], 13))
+	b.add_child(UI.rich("[color=#8D7B5C]공격[/color] %d%% (책략계 %d%%)   [color=#8D7B5C]방어[/color] %d%%   [color=#8D7B5C]피격[/color] %d순위" % [
+		roundi(ln.atk * 100), roundi(ln["int"] * 100), roundi(ln["def"] * 100), ln.pri], 13))
 	var zr := UI.flow(5)
 	for t in DB.D.TAGORDER:
 		var z := DB.aff_of(t, line, s.side)

@@ -376,42 +376,68 @@ func is_signature(u: Unit) -> bool:
 # ───────── 실효 수치 ─────────
 
 func eff(u: Unit, stat: String) -> float:
+	stat = S(stat)      # 11/6 #15 int → atk · res → def
 	var c := u.c
 	var lm: Dictionary = DB.D.LINE[u.line]
 	var af: Dictionary = DB.D.AFF[c.tag]
 	var v: float = c[stat]
+	var caster := is_caster(c)
 	if c.tier >= 8 and stat != "spd": v *= myth_power      # 11/2 사용자: 신화 한 장이 불멸 · 초월보다 확실히 세게
-	if stat == "atk": v *= lm.atk
+	if stat == "atk": v *= (lm.int if caster else lm.atk)      # 책략계는 예전 책략 줄 배율(뒤에서 세다)
 	if stat == "def": v *= lm.def
-	if stat == "int": v *= lm.int
 	if stat == "atk" and mv(u, "front_atk") != 0.0 and _is_front(u): v *= 1 + mv(u, "front_atk")
-	if stat == "int" and mv(u, "back_int") != 0.0 and _is_back(u): v *= 1 + mv(u, "back_int")
+	if stat == "atk" and mv(u, "back_int") != 0.0 and _is_back(u): v *= 1 + mv(u, "back_int")
 	v *= 1 + mv(u, stat)
 	if stat == "atk":
 		if u.troops < u.max * 0.5: v *= 1 + mv(u, "low_atk")
 		v *= 1 + mv(u, "avenge") * u.avenge_n
 	var zone := DB.aff_of(c.tag, u.line, u.side)
-	if zone == "pref" and af.b.has(stat): v *= af.b[stat]
-	if zone == "bad" and af.p.has(stat): v *= af.p[stat]
+	if zone == "pref": v *= _sm(af.b, stat)
+	if zone == "bad": v *= _sm(af.p, stat)
 	if u.item:
 		var it: Dictionary = DB.IT[u.item]
 		var amp := MYTH_AMP if is_signature(u) else 1.0
-		if it.pri == stat: v *= (1 + it.pa * amp)
-		if it.sec == stat: v *= (1 + it.sa * amp)
+		if S(it.pri) == stat: v *= (1 + it.pa * amp)
+		if S(it.sec) == stat: v *= (1 + it.sa * amp)
 	if stat == "atk": v *= u.syn_atk
 	if stat == "spd": v *= u.syn_spd * _flood_slow(u)
-	if u.ts and u.ts.stat == stat: v *= (1 + u.ts.v)
-	if u.boon and u.boon.stat == stat: v *= (1 + u.boon.v)
+	if u.ts and S(u.ts.stat) == stat: v *= (1 + u.ts.v)
+	if u.boon and S(u.boon.stat) == stat: v *= (1 + u.boon.v)
 	for b in u.buffs:
-		if b.stat == stat: v *= (1 + b.amt)
-	if stat == "atk" or stat == "int": v *= (0.4 + 0.6 * (u.troops / u.max))
+		if S(b.stat) == stat: v *= (1 + b.amt)
+	if stat == "atk": v *= (0.4 + 0.6 * (u.troops / u.max))
 	v *= morale_mul(u)               # 사기 —— 모든 능력치에 (2026-10-30 사용자 결정)
 	if aura_enabled and not _myths.is_empty():
 		v *= _aura_mul(u, stat)
-	if u.strat_aura > 0.0 and STRAT_AURA.has(stat):
-		v *= 1.0 + STRAT_AURA[stat] * u.strat_aura
-	v -= u.cut.get(stat, 0.0)        # 위축 · 산란 · 파갑 · 현혹 —— 0 까지
+	if u.strat_aura > 0.0 and stat == "def":
+		v *= 1.0 + (STRAT_AURA.def + STRAT_AURA.res) * u.strat_aura
+	v -= u.cut.get(stat, 0.0) + u.cut.get(STAT_INV.get(stat, "_"), 0.0)        # 위축 · 산란 · 파갑 · 현혹 —— 0 까지
 	return maxf(1, v)
+
+
+## 11/6 사용자 #15 "마법 개념 삭제 · 모두 그냥 피해로 통일 · 책략 / 책략방어 제거"
+## 카드의 공격 = 공 · 책 중 높은 쪽, 방어 = 방 · 책방 중 높은 쪽 (DB.merge_stats). 피해 경로는 phys_hit 하나.
+## 옛 데이터(특기 · 아이템 · 위세 · 기술 · 진형 우대)의 int · res 와 책략 전용 키는 아래 별칭으로 공격 · 방어 쪽에 합친다.
+## 책략계 병종(INT_TAG)은 '원거리 · 범위 · 상태이상' 역할로만 남고, 줄 배율은 예전 책략 줄 배율(LINE.int)을 공격에 쓴다
+const STAT_ALIAS := {"int": "atk", "res": "def"}
+const STAT_INV := {"atk": "int", "def": "res"}
+const MV_ALIAS := {"atk": "int", "def": "res", "crit": "icrit", "dr": "idr", "cleave": "icleave", "cut_atk": "cut_int", "cut_def": "cut_res"}
+static func S(stat: String) -> String:
+	return STAT_ALIAS.get(stat, stat)
+static func is_caster(c: Dictionary) -> bool:
+	return INT_TAG.has(c.tag)
+## 사전에서 stat 과 그 옛 별칭을 합쳐 읽는다 (더하는 값)
+static func _sv(d: Dictionary, stat: String, dflt := 0.0) -> float:
+	var v := float(d.get(stat, dflt))
+	if STAT_INV.has(stat) and d.has(STAT_INV[stat]):
+		v = (v if d.has(stat) else 0.0) + float(d[STAT_INV[stat]])
+	return v
+## 곱하는 값 —— 둘 다 있으면 곱
+static func _sm(d: Dictionary, stat: String) -> float:
+	var v := float(d.get(stat, 1.0))
+	if STAT_INV.has(stat) and d.has(STAT_INV[stat]):
+		v *= float(d[STAT_INV[stat]])
+	return v
 
 
 ## 책략 오라 (11/4 지시서: 책사 · 모사가 기술 쿨타임 중에도 무기력하지 않게) —— 살아 있는 책사 · 모사 이웃(같은 열 · 실시간은 가까운 거리,
@@ -540,9 +566,9 @@ static func minor_kind(k: String) -> String:
 			out = MINOR_TAG.get(c.tag, "")
 		if out == "curse" and c.tag == "술사":
 			out = "thunder"
-		if out == "ambush" and c["int"] > c.atk:
+		if out == "ambush" and is_caster(c):
 			out = "dagger"
-		if MINOR_PHYS.has(out) and c.atk >= c["int"]:      # 무장은 책략 잔기술 대신 무력판 (책략 0 이면 피해가 1 이었다)
+		if MINOR_PHYS.has(out) and not is_caster(c):      # 무장은 책략 잔기술 대신 무력판 (책략 0 이면 피해가 1 이었다)
 			out = MINOR_PHYS[out]
 	_minor_cache[k] = out
 	return out
@@ -576,7 +602,7 @@ func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies:
 		var bt := resolve_targets("back1", foes, u, allies)
 		if not bt.is_empty() and bt[0].alive:
 			t = bt[0]
-	var phys: bool = (m.kind == "phys") if m.has("kind") else u.c.int <= u.c.atk
+	var phys: bool = (m.kind == "phys") if m.has("kind") else not is_caster(u.c)
 	var tl := clampf(0.8 + 0.1 * (u.c.tier - 3), 0.8, 1.3)      # 등급이 높을수록 조금 세게
 	_minor_nm = m.n
 	_minor_mk = mk
@@ -626,6 +652,10 @@ func _strat_step() -> void:
 		u.strat_aura = 0.0 if n == 0 else (1.0 if n == 1 else 1.6)
 
 
+static func _sv_m(d: Dictionary, k: String) -> float:
+	return float(d.get(k, 0.0)) + (float(d.get(MV_ALIAS[k], 0.0)) if MV_ALIAS.has(k) else 0.0)
+
+
 ## 위세 (신화 · 초월) —— 살아 있는 장수마다 아군 전체(ally, tag 가 있으면 그 병종만) · 적 전체(foe) 배율
 func _aura_mul(u: Unit, stat: String) -> float:
 	var m := 1.0
@@ -636,9 +666,9 @@ func _aura_mul(u: Unit, stat: String) -> float:
 		var h := 0.5 if _kv(_foe(mu.camp), "aura_half") else 1.0      # 연합 노숙 —— 적 위세 절반
 		if mu.camp == u.camp:
 			if a.has("ally") and _aura_on(mu, a, u):
-				m *= 1.0 + float(a.ally.get(stat, 0.0)) * h
+				m *= 1.0 + _sv(a.ally, stat) * h
 		elif a.has("foe") and _aura_foe_on(a, u):
-			m *= 1.0 + float(a.foe.get(stat, 0.0)) * h
+			m *= 1.0 + _sv(a.foe, stat) * h
 	return m
 
 
@@ -668,15 +698,15 @@ static var probe_on := false           # 점검용 (tests/trait_probe) —— mv
 static var probe := {}
 
 func mv(u: Unit, k: String) -> float:
-	var v: float = u.m.get(k, 0.0)
+	var v: float = u.m.get(k, 0.0) + (float(u.m.get(MV_ALIAS[k], 0.0)) if MV_ALIAS.has(k) else 0.0)      # 11/6 #15 책략 전용 키를 합친다
 	if probe_on and v != 0.0:
 		probe[k] = int(probe.get(k, 0)) + 1
 	if not _aura_m.is_empty():
 		for mu in _aura_m:
 			if mu.alive and mu.camp == u.camp:
 				var a: Dictionary = DB.AURA[mu.c.id]
-				if a.m.has(k) and _aura_on(mu, a, u):
-					v += float(a.m[k]) * (0.5 if _kv(_foe(mu.camp), "aura_half") else 1.0)
+				if (a.m.has(k) or (MV_ALIAS.has(k) and a.m.has(MV_ALIAS[k]))) and _aura_on(mu, a, u):
+					v += _sv_m(a.m, k) * (0.5 if _kv(_foe(mu.camp), "aura_half") else 1.0)
 	return v
 
 
@@ -806,7 +836,7 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 
 
 func basic_target(u: Unit, foes: Array) -> Array:
-	var back: bool = (u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or u.c.int > u.c.atk
+	var back: bool = (u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or is_caster(u.c)
 	return resolve_targets("back1" if back else "front1", foes, u, [])
 
 
@@ -847,11 +877,17 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var A := eff(a, "atk")
 	var Dv := eff(d, "def")
 	if pierce > 0: Dv *= (1 - pierce)
+	Dv *= 1.0 - mv(a, "rpierce")
+	if a.ts and a.ts.stat == "brk": Dv *= (1 - a.ts.v)
 	var crit: bool = rng.randf() < DB.PSV.base_crit + mv(a, "crit")
 	var cm: float = (DB.PSV.base_critd + mv(a, "critd")) if crit else 1.0
 	var op := 1.0 if a.opens >= roundi(turn_mul) else 1.0 + mv(a, "opener")
 	a.opens += 1
 	var dmg := A * (A / (A + Dv)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * op * (1.0 - mv(d, "dr")) * _amp_once(a)
+	if d.troops / d.max <= 0.5:
+		dmg *= 1.0 + mv(a, "int_low")          # 기책 —— 병력 절반 아래인 적에게
+	if a.in_skill:
+		dmg *= 1.0 + mv(a, "sk_amp")           # 신산 —— 기술 피해
 	dmg *= 1.0 - _guard(a, d)
 	if _in_ult:
 		dmg *= (1.0 - _buff_sum(d, "uguard")) * (0.0 if _ult_null else 1.0)
@@ -873,7 +909,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if a.countering:
 		stats.counter_dmg += loss
 	if not _in_ult:
-		stats.phys += loss
+		if _hit_kind == "int": stats.intd += loss
+		else: stats.phys += loss
 		if _phalanx(d): stats.ph_taken += loss
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
@@ -882,8 +919,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	a.dmg += loss
 	d.last_hit = a
 	_charge(d, a, loss)
-	L(a.camp, "%s%s %s 들이쳤다 — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), num(loss)],
-		{"fx": "phys", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
+	L(a.camp, "%s%s %s %s — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), "쳤다" if _hit_kind == "int" else "들이쳤다", num(loss)],
+		{"fx": _hit_kind, "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
 	_soak(a, d)
 	_tac_hit(a, d, true)
@@ -914,52 +951,18 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 
 
 func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
-	var I := eff(a, "int")
-	var R := eff(d, "res")
-	R *= 1.0 - mv(a, "rpierce")
-	if a.ts and a.ts.stat == "brk": R *= (1 - a.ts.v)
-	var crit: bool = rng.randf() < mv(a, "icrit")
-	var cm: float = (DB.PSV.base_critd + mv(a, "critd")) if crit else 1.0
-	var dmg := I * (I / (I + R)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * (1.0 - mv(d, "idr")) * _amp_once(a)
-	if d.troops / d.max <= 0.5:
-		dmg *= 1.0 + mv(a, "int_low")          # 기책 —— 병력 절반 아래인 적에게
-	if a.in_skill:
-		dmg *= 1.0 + mv(a, "sk_amp")           # 신산 —— 기술의 책략 피해
-	dmg *= 1.0 - _guard(a, d)
-	if _in_ult:
-		dmg *= (1.0 - _buff_sum(d, "uguard")) * (0.0 if _ult_null else 1.0)
-	var fm := _fire_mul(a, d)
-	var wm := 1.0
-	var tm := _tac_mul(a, d)
-	var sm := _scheme_mul(a, d)
-	if _phalanx(d):
-		dmg *= 1.0 - float(DB.PSV.guard.int_dr)    # 방진 —— 받는 책략 피해 감소
-	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
-	dmg *= _role_mul(a, d, false)
-	var aoe: float = K.aoe if spread >= 3 else 1.0
-	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.intTroop * int_troop * pace * aoe * _one))))
-	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
-	stats.fire_amp += loss * (1.0 - 1.0 / fm)
-	stats.water_amp += loss * (1.0 - 1.0 / wm)
-	stats.tac_amp += loss * (1.0 - 1.0 / tm)
-	if not _in_ult: stats.intd += loss
-	_stat(d, loss)
-	_charge(d, a, loss)
-	d.troops -= loss
-	a.dmg += loss
-	d.last_hit = a
-	L("mo", "%s%s의 계략이 %s의 진을 흔들었다 — 병력 %s 손실" % ["치명타! " if crit else "", nm(a), nm(d), num(loss)],
-		{"fx": "int", "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
-	_ignite(a, d)
-	_soak(a, d)
-	_tac_hit(a, d, false)
-	_after_hit(a, d)
-	_cleave(a, d, mult, false)
+	# 11/6 사용자 #15: 책략 피해 경로를 없앤다 —— 계산은 phys_hit 와 같다 (공격 vs 방어). 범위(aoe) · 반격 없음 · 반목(sow)만 남긴다.
+	# 사건 종류는 "int" 로 남겨 화면이 책략 연출(보랏빛 숫자 · 투사체)을 그대로 쓴다
+	_hit_kind = "int"
+	phys_hit(a, d, mult * (K.aoe if spread >= 3 else 1.0), true, 0.0)
+	_hit_kind = "phys"
 	if scheme_enabled and d.alive and d.troops > 0 and mv(a, "sow") > 0 and rng.randf() < mv(a, "sow"):     # 반목 —— 책략이 맞으면 혼란
 		stats.confuses += 1
 		_chain(a.camp, "반목", a.key)
 		inflict(a, d, "confuse", 1, int(DB.PSV.scheme.dur))
 
+
+var _hit_kind := "phys"      # phys_hit 가 기록할 사건 종류 (int_hit 가 바꾼다)
 
 ## 병종 역할 배율 (tag_roles) —— 준 피해에 곱한다
 func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
@@ -970,9 +973,7 @@ func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
 		g = ROLE.int_guard
 	if a.c.tag == "기병":
 		g *= ROLE.horse_all
-	if not phys and INT_TAG.has(a.c.tag):
-		return _role_tag(a, d, phys) * INT_LOW.get(a.c.tier, 1.0) * g
-	return _role_tag(a, d, phys) * g
+	return _role_tag(a, d, phys) * g      # 11/6 #15 책략 전용 배율(INT_LOW · strat_int …)은 쓰지 않는다 —— 피해 경로가 하나
 
 
 func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
@@ -1345,6 +1346,7 @@ const CUT_ST := {"atk": "cut_atk", "int": "cut_int", "def": "cut_def", "res": "c
 
 ## 수치로 깎는다 (위축 · 산란 · 파갑 · 현혹) —— 전투 끝까지 쌓이고 0 까지. 명경(stres)이 막을 수 있다
 func _cut(a: Unit, d: Unit, stat: String, amt: float, why: String) -> void:
+	stat = S(stat)      # 11/6 #15
 	if not cut_enabled or not d.alive or amt <= 0:
 		return
 	if mv(d, "stres") > 0 and rng.randf() < mv(d, "stres"):
@@ -1400,7 +1402,7 @@ func _tac_hit(a: Unit, d: Unit, phys: bool) -> void:
 	if d.troops <= 0 or not d.alive or a.cleaving:
 		return
 	if mv(a, "cut_atk") > 0:
-		_cut(a, d, "atk", _cut_amt(a, "cut_atk", a.c.atk >= a.c["int"]), "위축")
+		_cut(a, d, "atk", _cut_amt(a, "cut_atk", not is_caster(a.c)), "위축")
 	if phys:
 		if mv(a, "cut_def") > 0:
 			_cut(a, d, "def", _cut_amt(a, "cut_def", true), "파갑")
@@ -1491,7 +1493,7 @@ func _do_chase() -> void:
 		stats.chases += 1
 		_chain(k.camp, "추격", k.key)
 		L("sk", "%s 달아나는 적을 몰아친다" % ga(nm(k)), {"fx": "skill", "a": k.key, "name": "추격", "kind": "phys"})
-		if k.c["int"] > k.c.atk: int_hit(k, tt[0], 1, 1)
+		if is_caster(k.c): int_hit(k, tt[0], 1, 1)
 		else: phys_hit(k, tt[0], 1, true)
 
 
@@ -2046,7 +2048,7 @@ func act(u: Unit) -> void:
 				stats.turncoats += 1
 				_chain(_foe(u.camp), "미인계")
 				L("st", "혼란에 빠진 %s 제 편 %s 들이친다" % [ga(nm(u)), eul(nm(t))], {"fx": "status", "f": u.key, "st": "confuse"})
-				if u.c.int > u.c.atk: int_hit(u, t, 1, 1)
+				if is_caster(u.c): int_hit(u, t, 1, 1)
 				else: phys_hit(u, t, 1, true)
 				return
 		L("st", "%s 혼란에 빠져 움직이지 못한다" % ga(nm(u)), {"fx": "status", "f": u.key, "st": "confuse"})
@@ -2144,7 +2146,7 @@ func act(u: Unit) -> void:
 			var mn := _minor(u)
 			if not mn.is_empty():
 				_do_minor(u, tt[0], mn[0], mn[1], foes, allies)
-			elif u.c.int > u.c.atk: int_hit(u, tt[0], 1, 1)
+			elif is_caster(u.c): int_hit(u, tt[0], 1, 1)
 			else: phys_hit(u, tt[0], 1)
 
 

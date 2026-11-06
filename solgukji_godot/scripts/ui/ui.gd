@@ -460,7 +460,7 @@ static func ult_desc(u: Dictionary, tier := 0) -> String:
 		var tg := DB.tgt_name(str(comp.get("tgt", "")))
 		match comp.t:
 			"hit":
-				var s := "%s %s %d%%" % [tg, "물리" if comp.kind == "phys" else "책략", roundi(comp.mult * tm * 100)]
+				var s := "%s 피해 %d%%" % [tg, roundi(comp.mult * tm * 100)]
 				if comp.has("exec"):
 					s += " · 병력 %d%% 이하 즉사" % roundi(comp.exec * 100)
 				if comp.has("morale"):

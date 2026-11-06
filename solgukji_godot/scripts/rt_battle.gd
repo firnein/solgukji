@@ -219,7 +219,7 @@ func can_ult(u: Unit) -> bool:
 
 
 func _ult_reach_n(u: Unit, foes: Array) -> int:
-	var reach: float = (cast_range if u.c.int > u.c.atk else melee_reach * 1.6) + 40.0
+	var reach: float = (cast_range if is_caster(u.c) else melee_reach * 1.6) + 40.0
 	var n := 0
 	for f in foes:
 		if f.alive and u.pos.distance_to(f.pos) <= reach:
@@ -345,7 +345,7 @@ func _reach(u: Unit) -> float:
 	var hill := HILL.range if _in(u.pos, "hill") else 1.0
 	if u.c.tag == "궁병":
 		return bow_range * hill
-	if u.c.int > u.c.atk:
+	if is_caster(u.c):
 		return cast_range * hill
 	return melee_reach
 
@@ -400,7 +400,7 @@ func _burn_mul(a: Unit, d: Unit) -> float:
 
 
 func _ranged(u: Unit) -> bool:
-	return u.c.tag == "궁병" or u.c.int > u.c.atk
+	return u.c.tag == "궁병" or is_caster(u.c)
 
 
 func _foes_of(u: Unit) -> Array:
@@ -666,7 +666,7 @@ func _mark(me: Unit, shape: Dictionary) -> void:
 
 
 func basic_target(u: Unit, foes: Array) -> Array:
-	var back: bool = (u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or u.c.int > u.c.atk
+	var back: bool = (u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or is_caster(u.c)
 	return resolve_targets("back1" if back else "front1", foes, u, [])
 
 
@@ -742,8 +742,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	var m := mult
 	if not terrain.is_empty() and _in(a.pos, "hill") and not _in(d.pos, "hill"):
 		m *= HILL.hit
-	if not _in_ult:
-		m *= int_mul * float(int_tier.get(int(a.c.tier), 1.0))
+	if not _in_ult:      # 11/6 #15 책략 배율(int_mul · int_tier)은 쓰지 않는다 —— 거리 배율만
 		if a.pos.distance_to(d.pos) > melee_reach + 6.0:
 			m *= far_mul
 	super.int_hit(a, d, m, spread)

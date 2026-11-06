@@ -187,6 +187,7 @@ func _load() -> void:
 			PSV.level[p] = PSV.level[src]
 	for p in LINES.get("ladder", {}):          # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 수만큼 채운 사다리 (lines.py fill_ladders)
 		PSV.ladder[p] = LINES.ladder[p]
+	merge_stats()      # 11/6 #15 책략 · 책략방어 통합
 	_reskill()
 	_build_forms()
 	_build_pools()
@@ -250,7 +251,7 @@ func _skill_list(k: String) -> Array:
 	var n: int = SKILL_EXTRA.get(c.tier, 0)
 	if n <= 0:
 		return out
-	var kind := "int" if c["int"] > c.atk else "phys"
+	var kind := "int" if INT_TAGS.has(c.tag) else "phys"      # 11/6 #15 능력치 통합 —— 병종으로
 	var want := []
 	# 아군 사기를 북돋는 특기(함성 · 독전 · 고무)를 가진 인물은 사기 기술을 먼저 받는다
 	if PSV.ladder.get(person(k), []).any(func(e): return e[0] in ["함성", "독전", "고무"] and c.tier >= int(e[1])):
@@ -386,6 +387,29 @@ const FORM5 := {
 }
 const LINE5 := {"pri": 5, "atk": 0.7, "def": 0.8, "int": 1.35}      # 본진 —— 후군보다 더 뒤 (수치는 후군의 연장, 후속 밸런스 검토)
 const AFF5 := {"유생": [["본진", "중앙"], ["본진", "측면"]], "모사": [["본진", "중앙"], ["본진", "측면"]], "술사": [["본진", "측면"], ["본진", "중앙"]], "책사": [["본진", "중앙"]]}
+
+
+## 11/6 사용자 #15: 마법 개념 삭제 —— 공격 = 공 · 책 중 높은 쪽, 방어 = 방 · 책방 중 높은 쪽. int · res 칸은 같은 값을 둔다 (옛 코드가 읽어도 같게).
+## 원본 game.json 은 그대로. 능력치 보정(stat_adjust)이 끝난 뒤에 합친다. 화면 용어도 공격 · 방어로 (STATNM · MOD_LABEL · 특기 설명문)
+const TXT_ALIAS := [["책략방어", "방어"], ["책방", "방어"], ["책략 피해", "피해"], ["책략 치명타", "치명타"], ["물리 피해", "피해"], ["책략을", "공격을"], ["책략이", "공격이"], ["책략 +", "공격 +"], ["책략 −", "공격 −"], ["책략 -", "공격 -"]]
+func merge_stats() -> void:
+	for k in C:
+		var c: Dictionary = C[k]
+		c.atk = maxf(float(c.atk), float(c["int"]))
+		c["int"] = c.atk
+		c["def"] = maxf(float(c["def"]), float(c.res))
+		c.res = c["def"]
+	D.STATNM["int"] = "공격"
+	D.STATNM["res"] = "방어"
+	for tn in PSV.traits:
+		var t: Dictionary = PSV.traits[tn]
+		if t.has("d"):
+			for a in TXT_ALIAS:
+				t.d = str(t.d).replace(a[0], a[1])
+	for g in ["fire", "water", "dash", "guard", "scheme", "virtue"]:
+		if PSV.has(g) and PSV[g] is Dictionary and PSV[g].has("d"):
+			for a in TXT_ALIAS:
+				PSV[g].d = str(PSV[g].d).replace(a[0], a[1])
 
 
 func _apply_rows5() -> void:
@@ -821,13 +845,13 @@ func passive_hits(g: Dictionary, owner_k: String, k: String) -> bool:
 	return false
 
 
-const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "책략방어", "spd": "속도", "troop": "병력",
-	"morale": "시작 사기", "crit": "치명타 확률", "critd": "치명타 피해", "icrit": "책략 치명타", "rate": "스킬 발동",
-	"dr": "받는 물리 피해 -", "idr": "받는 책략 피해 -", "rout": "패주 확률 -", "shock": "큰 손실 충격 -",
+const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "res": "방어", "spd": "속도", "troop": "병력",      # 11/6 #15 책략 → 공격 · 책략방어 → 방어
+	"morale": "시작 사기", "crit": "치명타 확률", "critd": "치명타 피해", "icrit": "치명타 확률", "rate": "스킬 발동",
+	"dr": "받는 피해 -", "idr": "받는 피해 -", "rout": "패주 확률 -", "shock": "큰 손실 충격 -",
 	"counter": "반격", "stres": "상태이상 저항", "low_atk": "절반 이하 공격", "avenge": "아군 이탈마다 공격",
 	"opener": "첫 공격 피해", "first": "선공", "regen": "턴마다 병력", "mregen": "턴마다 사기",
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
-	"rpierce": "적 책략방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 책략", "foe_morale": "적 시작 사기 -",
+	"rpierce": "적 방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 공격", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
 	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
 	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항", "fire_hit": "불길 추가 피해", "water_hit": "물살 추가 피해",
@@ -836,11 +860,11 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "책략", "res": "�
 	"phalanx": "방진 확률", "counter_hit": "반격 피해", "phalanx_amp": "방진 중 반격 피해",
 	"sow": "혼란 확률", "jolt": "맞힐 때 적 사기 -", "confuse_amp": "혼란·봉인된 적에게 피해",
 	"mend": "차례마다 치료", "cheer_hit": "맞힐 때 아군 치료",
-	"kill_amp": "적을 무너뜨린 뒤 다음 공격 피해", "cleave": "같은 열 이웃에게 피해", "icleave": "같은 열 이웃에게 책략 피해",
-	"int_low": "절반 아래 적에게 책략 피해", "sk_amp": "기술 책략 피해", "ally_sk": "아군 기술 때 충전",
-	"cut_atk": "맞힐 때 적 공격 −(내 공격의)", "cut_int": "맞힐 때 적 책략 −(내 책략의)", "cut_def": "맞힐 때 적 방어 −(내 공격의)",
-	"cut_res": "맞힐 때 적 책방 −(내 책략의)", "first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
-	"open_cut_int": "시작에 적 후군 책략 −(내 책략의)", "open_cut_res": "시작에 적 전원 책방 −(내 책략의)",
+	"kill_amp": "적을 무너뜨린 뒤 다음 공격 피해", "cleave": "같은 열 이웃에게 피해", "icleave": "같은 열 이웃에게 피해",
+	"int_low": "절반 아래 적에게 피해", "sk_amp": "기술 피해", "ally_sk": "아군 기술 때 충전",
+	"cut_atk": "맞힐 때 적 공격 −(내 공격의)", "cut_int": "맞힐 때 적 공격 −(내 공격의)", "cut_def": "맞힐 때 적 방어 −(내 공격의)",
+	"cut_res": "맞힐 때 적 방어 −(내 공격의)", "first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
+	"open_cut_int": "시작에 적 후군 공격 −(내 공격의)", "open_cut_res": "시작에 적 전원 방어 −(내 공격의)",
 	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해",
 	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "차례마다 같은 열 사기(전투 전체)", "resolve": "아군이 무너지면 사기",
 	"steady": "사기 60 아래에서 한 번 사기", "ult_rally": "아군 고유기 때 아군 전원 사기"}
@@ -1169,12 +1193,12 @@ const AURA_TO := {"all": "아군", "front": "선봉 · 전군 아군", "back": "
 	"low": "병력 절반 아래 아군"}
 const AURA_FOE := {"all": "적", "front": "적 선봉 · 전군", "back": "적 중군 · 후군"}
 ## 특수 효과 이름 —— [이름, 백분율로 보이는가]
-const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해", true], "dr": ["받는 물리 피해", false],
-	"idr": ["받는 책략 피해", false], "counter": ["반격 확률", true], "regen": ["턴마다 병력 회복", true],
+const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해", true], "dr": ["받는 피해", false],
+	"idr": ["받는 피해", false], "counter": ["반격 확률", true], "regen": ["턴마다 병력 회복", true],
 	"mregen": ["턴마다 사기 회복", false], "rate": ["기술 발동", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
 	"low_atk": ["병력 절반 아래 공격", true], "kill_amp": ["적을 무너뜨린 뒤 피해", true], "weak_amp": ["약해진 적에게 피해", true],
 	"ignite": ["점화 확률", true], "spread": ["불 번짐", true], "st_amp": ["지속 피해 세기", true], "opener": ["첫 공격 피해", true],
-	"fire_res": ["화공 저항", true], "cleave": ["같은 열 이웃에게 물리 피해", true], "icleave": ["같은 열 이웃에게 책략 피해", true],
+	"fire_res": ["화공 저항", true], "cleave": ["같은 열 이웃에게 피해", true], "icleave": ["같은 열 이웃에게 피해", true],
 	"fear": ["적을 패주시킬 확률", true]}
 const AURA_HIDE := ["turncoat"]      # 기인 설명(KIIN_TEXT)이 대신 적는 키
 

@@ -1747,15 +1747,14 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	return v
 
 
-## 능력치 한 줄 —— 공 · 책 · 방 · 책방 · 속. 주 공격(물리 / 책략)만 색으로 (11/3 사용자)
+## 능력치 한 줄 —— 공 · 방 · 속 (11/6 #15 책략 · 책략방어 통합). 책략계는 공격을 푸른색으로 (원거리 · 범위)
 func _stat_row(c: Dictionary) -> Control:
-	var magic: bool = c["int"] > c.atk
+	var magic: bool = DB.INT_TAGS.has(c.tag)
 	var g := GridContainer.new()
-	g.columns = 5
+	g.columns = 3
 	g.add_theme_constant_override("h_separation", 4)
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for pair in [["공", c.atk, not magic, Color("#ff6b5a")], ["책", c["int"], magic, Color("#6fa8ff")], ["방", c["def"], false, null],
-			["책방", c.res, false, null], ["속", c.spd, false, null]]:
+	for pair in [["공격", c.atk, true, Color("#6fa8ff") if magic else Color("#ff6b5a")], ["방어", c["def"], false, null], ["속도", c.spd, false, null]]:
 		var v := UI.vbox(0)
 		var a := UI.lbl(str(int(pair[1])), 16, pair[3] if pair[2] else DB.PAL.paper, true)
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1860,7 +1859,7 @@ static func minor_desc(k: String, with_every := true) -> String:
 	var m: Dictionary = Battle.minor_def(mk)
 	var phys: bool = (m.kind == "phys") if m.has("kind") else DB.C[k]["int"] <= DB.C[k].atk
 	var parts := ["평타 %d번에 한 번" % int(m.every)] if with_every else []
-	parts.append("%s%s 피해 ×%.2f" % ["적 후열에 " if m.get("back", false) else "", "물리" if phys else "책략", float(m.mult)])
+	parts.append("%s피해 ×%.2f" % ["적 후열에 " if m.get("back", false) else "", float(m.mult)])
 	if m.has("st"):
 		parts.append("%s %d턴" % [DB.D.STATUS[m.st[0]].n, int(m.st[2])])
 	if m.has("extra"):
