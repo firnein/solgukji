@@ -1838,8 +1838,14 @@ class Hud extends Control:
 		var em: int = _emph.get(sq.key, 0)
 		var clk: float = view.clock
 		var tring: Color = MEDAL_TEAM[sq.camp]
+		var fl: float = 1.35 if view.field.flat != null else 1.0      # 11/6 타입2는 메달이 작아 테 · 가시를 키운다
 		if sq.camp == "B":      # 적 —— 둘레의 가시 넷 (색을 못 가려도 모양으로)
-			_spikes(pc, rr + (2.0 if t <= 2 else 4.5), 3.5 if t <= 2 else 5.5, tring, a)
+			_spikes(pc, rr + (2.0 if t <= 2 else 4.5 * fl), (3.5 if t <= 2 else 5.5) * fl, tring, a)
+		var hl := highlight_k(sq.key)      # 11/6 #11 아래 프로필을 누른 부대 —— 흰 고리가 퍼진다
+		if hl > 0.0:
+			var ph := fposmod(clk * 1.6, 1.0)
+			draw_arc(pc, rr + 6.0 + ph * 14.0, 0, TAU, 40, Color(1, 1, 1, hl * (1.0 - ph) * a), 2.5)
+			draw_arc(pc, rr + 5.0, 0, TAU, 40, Color(1, 1, 0.85, 0.9 * hl * a), 2.0)
 		if t <= 2:      # 병졸 —— 진영색 작은 원 + 병종 기호
 			draw_circle(pc, rr + 2.5, Color(0, 0, 0, 0.5 * a))
 			draw_circle(pc, rr + 1.8, Color(tring, a))
@@ -1862,8 +1868,8 @@ class Hud extends Control:
 		# 11/5 사용자: 메달만으로 피아식별 —— 바깥 굵은 테 = 진영색(아군 파랑 · 적 빨강), 그 안 가는 테 = 등급색, 적은 가시 넷.
 		# (예전엔 바깥 테가 등급색이라 전설 빨강 · 초월 하늘색이 진영색과 섞였고, 진영색은 안쪽 0.6px 뿐이었다)
 		var ring := 3.0 if em == 1 else (2.5 if em == 2 else 2.0)
-		draw_circle(pc, rr + ring + 4.0, Color(0, 0, 0, 0.55 * a))
-		draw_circle(pc, rr + ring + 3.2, Color(tring, a))                                    # 진영색 굵은 테
+		draw_circle(pc, rr + ring + 4.0 * fl, Color(0, 0, 0, 0.55 * a))
+		draw_circle(pc, rr + ring + 3.2 * fl, Color(tring, a))                                    # 진영색 굵은 테
 		draw_circle(pc, rr + ring, Color(Color("#ffd257") if t >= 8 else tc, a))            # 등급색 가는 테 (신화는 금)
 		if em > 0:
 			draw_arc(pc, rr + ring + 4.6, 0, TAU, 40, Color(tc.lightened(0.3), 0.8 * a), 1.0)      # 강조 —— 두 겹
@@ -1889,6 +1895,19 @@ class Hud extends Control:
 
 	## 메달 진영색 —— 3D 진영색(TEAM)보다 밝게: 작은 테에서도 파랑 · 빨강이 또렷하게
 	const MEDAL_TEAM := {"A": Color("#3d8bff"), "B": Color("#ff4a3d")}
+
+	## 11/6 #11 아래 프로필을 누른 부대 강조 —— 2초 동안 1 → 0
+	var _hl := {}
+	func highlight(key: String, dur := 2.0) -> void:
+		_hl[key] = view.clock + dur
+	func highlight_k(key: String) -> float:
+		if not _hl.has(key):
+			return 0.0
+		var left: float = float(_hl[key]) - view.clock
+		if left <= 0.0:
+			_hl.erase(key)
+			return 0.0
+		return clampf(left / 0.6, 0.0, 1.0)
 
 	## 적 메달 가시 —— 비스듬한 네 방향 (위 · 아래의 등급 장식과 겹치지 않게)
 	func _spikes(pc: Vector2, r0: float, len_: float, col: Color, a: float) -> void:
@@ -2348,7 +2367,7 @@ class MiniCard extends Control:
 
 	var _last := []
 
-	func _process(_dt: float) -> void:
+	func _process_card() -> void:
 		var lv := view.unit_live(sq.key)
 		var ready := view.ult_ready(sq.key)
 		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], ready]
@@ -2356,16 +2375,34 @@ class MiniCard extends Control:
 			_last = now
 			queue_redraw()
 
+	var _down_ms := -1
+	var _long_fired := false
+
+	## 11/6 #11: 한 번 누르면 전장의 그 부대를 강조(카메라는 움직이지 않음), 길게 누르면 디테일창
 	func _gui_input(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			if view.direct and view.ult_ready(sq.key):
-				UI.buzz(20)
-				view.request_ult(sq.key)
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed:
+				_down_ms = Time.get_ticks_msec()
+				_long_fired = false
 			else:
-				view.focus(sq)
-				if sq.tier > 2 and DB.C.has(sq.cid):
-					UI.buzz()
-					view.info_requested.emit(sq.cid)
+				if _down_ms >= 0 and not _long_fired:
+					if view.direct and view.ult_ready(sq.key):
+						UI.buzz(20)
+						view.request_ult(sq.key)
+					else:
+						UI.buzz()
+						view.hud.highlight(sq.key)
+						if view.field.flat == null:
+							view.focus(sq)
+				_down_ms = -1
+
+	func _process(_dt: float) -> void:
+		if _down_ms >= 0 and not _long_fired and Time.get_ticks_msec() - _down_ms >= BattleView.LONG_PRESS * 1000:
+			_long_fired = true
+			if sq.tier > 2 and DB.C.has(sq.cid):
+				UI.buzz(30)
+				view.info_requested.emit(sq.cid)
+		_process_card()
 
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()

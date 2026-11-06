@@ -183,8 +183,8 @@ static func draw_face_circle(ci: CanvasItem, c: Vector2, r: float, k: String, a 
 	_mip(ci)
 	var ft := DB.face_tex(k)
 	var tex: Texture2D = ft if ft else DB.portrait(k)
-	if tex == null:
-		ci.draw_circle(c, r, Color(DB.fac_color(DB.C[k].fac).darkened(0.3), a))
+	if tex == null:      # 11/6 사용자 "메달만으로 피아식별 어려움": 그림 없는 장수의 대체 원은 세력색(오 빨강 · 위 파랑)이 진영 테와 섞였다 → 먹색
+		ci.draw_circle(c, r, Color(0.16, 0.15, 0.14, a))
 		var ic: Texture2D = DB.ICON.get(DB.C[k].tag)      # 병졸 · 그림 없는 카드 —— 병종 기호 (결과표에 빈 원으로 나왔다)
 		if ic:
 			var s := r * 1.1

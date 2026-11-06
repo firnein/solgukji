@@ -1006,6 +1006,12 @@ func _settings_sheet() -> void:
 		if _battle:
 			_battle.apply_style()
 		_settings_sheet()))
+	b.add_child(UI.eyebrow("전투 카메라 연출"))      # 11/6 사용자: 불필요한 카메라 무빙 자제
+	b.add_child(UI.segmented([["0", "끔"], ["1", "적게"], ["2", "보통"]], str(Settings.cam_fx), func(key):
+		Settings.cam_fx = int(key)
+		Settings.save_cfg()
+		_settings_sheet()))
+	b.add_child(UI.hint("적게: 아군 고유기 · 적 신화 고유기 · 장수 격파 때만 다가갑니다. 보통: 첫 격돌 · 모든 고유기에도."))
 	if Settings.type2:      # 11/6 타입2 전황 표시 단계 (일시정지하면 늘 자세히)
 		b.add_child(UI.eyebrow("전황 표시 (타입2)"))
 		b.add_child(UI.segmented([["0", "끔"], ["1", "간단"], ["2", "자세히"]], str(Settings.tac_info), func(key):
@@ -1357,7 +1363,7 @@ func _page_draw() -> Control:
 	var inner := UI.vbox(6)
 	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	inner.alignment = BoxContainer.ALIGNMENT_END      # 11/4 사용자: 낮은 등급만 있을 때도 아래(기본 병졸 줄 쪽)부터 채운다
+	inner.alignment = BoxContainer.ALIGNMENT_BEGIN    # 11/6 사용자: 기본병 줄이 맨 위로 갔으니 위에서부터 채운다
 	var keys: Array = Run.sort_cards(p.keys())
 	# 11/4 사용자: 등급마다 줄을 나눈다 [등급 아래, 위, 열, 칸 높이]
 	# 11/5 사용자: 전설 · 초월 · 불멸 · 신화가 같은 칸 크기를 쓰지 말 것 —— 등급이 높을수록 크게 (신화 2열 · 불멸 3열 · 초월 4열 · 전설 5열)
@@ -1372,12 +1378,12 @@ func _page_draw() -> Control:
 	if inner.get_child_count() == 0:
 		inner.add_child(UI.hint("장수가 아직 없다. 기본 병졸을 조합하거나 선택권으로."))
 	hs.add_child(inner)
-	hv.add_child(hs)
-	var base := UI.grid(30, 4)
+	var base := UI.grid(30, 4)      # 11/6 사용자: 기본병 8종은 맨 윗줄에 (조합 재료의 출발점이라 먼저 본다)
 	base.max_cols = 8
 	for k in Run.sort_cards(DB.BASE.duplicate()):
 		base.add_child(hand_tile.call(k, int(p.get(k, 0)), HAND_TILE.y))
 	hv.add_child(base)
+	hv.add_child(hs)
 	_hand_scroll = hs
 	_restore_hand_scroll.call_deferred(_hand_scroll_y)
 	hs.get_v_scroll_bar().value_changed.connect(func(y): _hand_scroll_y = int(y))
@@ -1518,46 +1524,92 @@ func _art_crop(k: String, box: Vector2, myth := true) -> TextureRect:
 
 
 ## 선택권 —— 그 등급 선택권으로 한 장씩 고른다. 그 등급을 다 쓰면 닫는다
+var _pick_last := ""          # 방금 고른 카드 —— 다시 그려도 금테로 남긴다 (11/6 #3)
+var _pick_scroll := 0
+
+
+## 선택권 화면 (11/6 #4: 8병종을 한 화면에 —— 열 = 병종, 행 = 그 병종 장수. #2: 갈무리 장수 · 그 재료 표시. #3: 고른 뒤 스크롤 · 금테 유지)
 func picker(t: int) -> void:
 	var left := int(run.tickets.get(str(t), 0))
 	if left <= 0 or not can_act():
 		close_sheet()
 		return
+	var was_open := _sheet.visible
 	var b := open_sheet("%s 선택권 — 남은 %d회" % [DB.TIER[t].n, left])
-	const PICK_TILE := Vector2(54, 80)     # 3장 병종 둘이 한 줄에 들어가는 폭 (휴대폰 세로 논리 폭 ~410)
-	# 병종 묶음을 줄에 채워 넣는다 —— 옆에 자리가 남으면 다음 병종이 같은 줄에 (11/2 사용자: 창병 2 · 기병 2 를 한 줄에)
 	var full: float = (_sheet.size.x if _sheet.size.x > 100 else get_viewport_rect().size.x) - 36
-	var per := maxi(1, int((full + 6) / (PICK_TILE.x + 6)))
-	var row: HBoxContainer = null
-	var used := 0.0
+	var gap := 4.0
+	var tw := floorf((full - gap * 7) / 8.0)
+	var th := tw * 1.45 + 4.0
+	var pins: Array = forge_tree.pins
+	var mats := {}
+	for pk in pins:
+		for m in DB.RECOF.get(pk, []):
+			mats[str(m)] = true
+	var g := GridContainer.new()
+	g.columns = 8
+	g.add_theme_constant_override("h_separation", int(gap))
+	g.add_theme_constant_override("v_separation", 6)
+	var cols := []
+	var rows := 0
 	for tag in DB.D.TAGORDER:
 		var ks := Run.pickable(t, tag)
-		if ks.is_empty():
-			continue
-		var cols := mini(ks.size(), per)
-		var gw := cols * (PICK_TILE.x + 6) - 6
-		if row == null or used + 14 + gw > full:
-			row = UI.hbox(14)
-			b.add_child(row)
-			used = -14
-		used += 14 + gw
-		var grp := UI.vbox(4)
-		grp.add_child(UI.eyebrow("%s %d" % [tag, ks.size()]))
-		var f := GridContainer.new()
-		f.columns = cols
-		f.add_theme_constant_override("h_separation", 6)
-		f.add_theme_constant_override("v_separation", 6)
-		for k in ks:
+		cols.append(ks)
+		rows = maxi(rows, ks.size())
+	for tag in DB.D.TAGORDER:
+		var hd := Control.new()
+		hd.custom_minimum_size = Vector2(tw, 18)
+		var ic := TextureRect.new()
+		ic.texture = DB.ICON.get(tag)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		ic.modulate = DB.PAL.bamboo
+		hd.add_child(ic)
+		hd.tooltip_text = tag
+		g.add_child(hd)
+	for r in rows:
+		for ci in 8:
+			var ks: Array = cols[ci]
+			if r >= ks.size():
+				var sp := Control.new()
+				sp.custom_minimum_size = Vector2(tw, th)
+				g.add_child(sp)
+				continue
+			var k: String = ks[r]
 			var tl := mtile(k, run.pool().get(k, -1), func(id):
+				_pick_scroll = _sheet_scroll.scroll_vertical
 				if act("pick", [id]):
-					picker(t)
-					_pick_fx(id, int(run.tickets.get(str(t), 0)), DB.TIER[t].n)
+					_pick_last = id
+					var left2 := int(run.tickets.get(str(t), 0))
+					_pick_fx(id, left2, DB.TIER[t].n)
+					if left2 > 0:
+						picker(t)
+					else:
+						close_sheet()
+						_hand_scroll_y = 0
+						render()
 				else:
 					picker(t))
-			tl.custom_minimum_size = PICK_TILE
-			f.add_child(tl)
-		grp.add_child(f)
-		row.add_child(grp)
+			tl.custom_minimum_size = Vector2(tw, th)
+			if pins.has(k):
+				tl.badge = "갈무리"
+				tl.badge_col = Color(DB.PAL.gold, 0.95)
+			elif mats.has(k):
+				tl.badge = "재료"
+				tl.badge_col = Color(DB.PAL.jade, 0.95)
+			if k == _pick_last:
+				tl.mark = "sel"
+			g.add_child(tl)
+	b.add_child(g)
+	b.add_child(UI.hint("길게 누르면 디테일창. 갈무리한 장수는 금색, 그 재료는 옥빛으로 표시됩니다."))
+	if was_open:
+		_restore_sheet_scroll.call_deferred(_pick_scroll)
+
+
+func _restore_sheet_scroll(y: int) -> void:
+	await get_tree().process_frame
+	if _sheet.visible:
+		_sheet_scroll.scroll_vertical = y
 
 
 ## 지금 손댈 수 있는가 —— 온라인은 준비 시간에만

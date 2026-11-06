@@ -44,6 +44,7 @@ func _ready() -> void:
 
 
 func setup() -> void:
+	_camp_cache.clear()
 	super.setup()
 	for sq: Squad in field.order:
 		var base := TEAM_A if sq.camp == "A" else TEAM_B
@@ -100,6 +101,8 @@ func _process(dt: float) -> void:
 	mat.set_shader_parameter("vsize", size)
 	mat.set_shader_parameter("mid_y", _mid_y)
 	mat.set_shader_parameter("hex", HEX)
+	mat.set_shader_parameter("camp_a", _camp_x("A"))
+	mat.set_shader_parameter("camp_b", _camp_x("B"))
 	if Engine.get_process_frames() % 2 == 1:
 		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다
 	if _fx_layer and (not _fx.is_empty() or Engine.get_process_frames() % 10 == 0):
@@ -108,6 +111,23 @@ func _process(dt: float) -> void:
 		_label_layer.queue_redraw()
 	elif _label_layer and _label_layer.visible:
 		_label_layer.visible = false      # 다 보여 줬다 —— 다음 전투에서 다시 켠다
+
+
+## 진영 시작선 (전장 x) —— 바닥에 옅은 진지선을 긋는다 (11/6 사용자: 바닥 타일링 의미 불분명 → 의미 있는 선만)
+var _camp_cache := {}
+func _camp_x(cp: String) -> float:
+	if _camp_cache.has(cp):
+		return _camp_cache[cp]
+	var s := 0.0
+	var n := 0
+	for sq: Squad in field.order:
+		if sq.camp == cp:
+			s += sq.pos.x
+			n += 1
+	if n == 0:
+		return 0.0
+	_camp_cache[cp] = s / n
+	return _camp_cache[cp]
 
 
 func _area_spread() -> float:
@@ -283,9 +303,10 @@ func _draw_under_inner(ci: CanvasItem) -> void:
 		pts.resize(UNIT_C.size())
 		for k in UNIT_C.size():
 			pts[k] = mc + ex * UNIT_C[k].x + ey * UNIT_C[k].y
-		ci.draw_colored_polygon(pts, Color(team, 0.2 * fade))
+		var hl: float = view.hud.highlight_k(sq.key) if view != null and view.hud != null else 0.0      # 11/6 #11 아래 프로필을 누른 부대
+		ci.draw_colored_polygon(pts, Color(team.lightened(hl * 0.5), (0.2 + 0.35 * hl) * fade))
 		pts.append(pts[0])
-		ci.draw_polyline(pts, Color(team.lightened(0.25), 0.55 * fade), 1.6)
+		ci.draw_polyline(pts, Color(team.lightened(0.25 + 0.6 * hl), (0.55 + 0.45 * hl) * fade), 1.6 + 2.4 * hl)
 		_boon_ring(ci, pts, sq, fade)
 		# 전선 먼지 —— 맞붙은 자리에 흙먼지가 계속 인다 (11/6 보는 맛)
 		if sq.contact and sq.engaged != null and is_instance_valid(sq.engaged):
@@ -492,7 +513,8 @@ func fx_minor(mk: String, a: Squad, d: Squad) -> void:
 ## 고유기 —— 기 모으기(술법은 빛고리, 무장은 흙먼지) 뒤 delay 에 종류별로 터진다
 func fx_ult_charge(a: Squad, col: Color, magic: bool) -> void:
 	var ap := vis_c(a)
-	focus(ap, 1.9, 1.6, 3)
+	if a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:      # 적게 모드: 아군 고유기 · 적 신화 고유기만
+		focus(ap, 1.9, 1.6, 3)
 	if magic:
 		fx("ring", ap, col, 0.9, 0.0, 40.0)
 		fx("ring", ap, col, 0.9, 0.25, 30.0)
@@ -511,8 +533,9 @@ func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> vo
 		var cen := Vector2.ZERO
 		for d: Squad in ds:
 			cen += vis_c(d)
-		focus(cen / ds.size(), 1.6 if ds.size() > 2 else 1.85, 1.8, 3)
-		shake(9.0 if vfx in ["roar", "charge", "thunder", "whirlwind", "firestorm"] else 6.0)
+		if a == null or a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:
+			focus(cen / ds.size(), 1.6 if ds.size() > 2 else 1.85, 1.8, 3)
+		shake((9.0 if vfx in ["roar", "charge", "thunder", "whirlwind", "firestorm"] else 6.0) * (1.0 if Settings.cam_fx >= 2 else 0.6))
 	for i in ds.size():
 		var d: Squad = ds[i]
 		var dp := vis_c(d)
@@ -874,12 +897,15 @@ func _focus_on() -> bool:
 
 
 ## 그 자리로 다가간다 —— pri 가 높은 장면이 진행 중이면 끼어들지 않는다 (고유기 3 > 격돌 2 > 격파 1)
+## 11/6 사용자 "불필요한 카메라 무빙 자제": Settings.cam_fx 0 이면 다가가지 않고, 1 이면 pri 3(고유기 · 격파 중 중요한 것)만, 어떤 장면이든 3초 안에 겹치면 한 번
 func focus(c: Vector2, mul: float, dur: float, pri := 1) -> void:
+	if Settings.cam_fx == 0 or (Settings.cam_fx == 1 and pri < 3):
+		return
 	if _focus_on() and int(_focus.pri) > pri:
 		return
-	if pri < 3 and field.clock < _focus_free:      # 고유기 말고는 숨 돌릴 틈을 둔다 —— 카메라가 계속 튀었다 (11/6 점검)
+	if field.clock < _focus_free:      # 숨 돌릴 틈 —— 카메라가 계속 튀었다 (11/6 점검)
 		return
-	_focus_free = field.clock + dur + 3.5
+	_focus_free = field.clock + dur + 3.0
 	_focus = {"c": c, "mul": mul, "until": field.clock + dur, "pri": pri}
 	_want_scale = clampf(_base_scale * mul, 0.35, 4.0)
 	_want_center = c
@@ -913,7 +939,8 @@ func _feel_step(dt: float) -> void:
 			fx("ring", mid, Color("#e8d3a0"), 0.5, 0.0, 34.0 if cav else 24.0)
 			fx("dust", mid, Color("#b8a07a"), 1.1, 0.0, 30.0 if cav else 20.0)
 			fx("burst", mid, Color("#ffe2a0"), 0.35, 0.0, 18.0)
-			shake(5.0 if cav else 2.5)
+			if Settings.cam_fx >= 2:
+				shake(5.0 if cav else 2.5)
 			if first == Vector2.INF:
 				first = mid
 		_was_contact[sq.key] = on
@@ -921,14 +948,15 @@ func _feel_step(dt: float) -> void:
 			var c := vis_c(sq)
 			fx("ring", c, Color("#ffffff"), 0.6, 0.0, 40.0)
 			fx("dust", c, Color("#8a7a62"), 1.4, 0.0, 34.0)
-			shake(6.0 if sq.tier >= 4 else 3.0)
-			if sq.tier >= 6:      # 초월 이상 장수가 무너질 때만 다가간다
-				focus(c, 1.6, 1.3, 1)
+			shake((6.0 if sq.tier >= 4 else 3.0) * (1.0 if Settings.cam_fx >= 2 else 0.5))
+			if sq.tier >= 6:      # 초월 이상 장수가 무너질 때만 다가간다 (적게 모드에서도 —— pri 3)
+				focus(c, 1.6, 1.3, 3)
 		_was_alive[sq.key] = sq.alive
 	if first != Vector2.INF and not _clashed:
 		_clashed = true
-		focus(first, 1.7, 1.8, 2)      # 첫 격돌 —— 부딪치는 자리로
-		shake(7.0)
+		focus(first, 1.7, 1.8, 2)      # 첫 격돌 —— 부딪치는 자리로 (보통 모드에서만)
+		if Settings.cam_fx >= 2:
+			shake(7.0)
 
 
 func _reset_feel() -> void:
