@@ -745,6 +745,18 @@ func _begin() -> void:
 	# 11/5 사용자: 작전 · 군령 표시를 뺀다 (개전 작전 한 줄 삭제)
 	if tline != "":
 		hud.announce(tline, Color("#c9d6a3"))
+	# 명세 4단계: 전투 시작에 내 덱의 핵심(위세 · 기인)을 한 줄로 —— 데일리 진행에서 "내 덱 설계가 통했는지" 확인하는 출발점
+	var core := []
+	for sq: Squad in field.order:
+		if sq.camp != "A" or not DB.C.has(sq.cid):
+			continue
+		if DB.AURA.has(sq.cid):
+			core.append("%s『%s』" % ["기인 " if DB.is_kiin(sq.cid) else "", DB.AURA[sq.cid].n])
+	if not core.is_empty():
+		var line := "내 덱 —— " + " · ".join(core.slice(0, 4))
+		get_tree().create_timer(1.3).timeout.connect(func():
+			if running and not finished:
+				hud.announce(line, DB.PAL.gold))
 	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
 
 

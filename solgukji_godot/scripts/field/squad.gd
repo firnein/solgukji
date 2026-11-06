@@ -148,6 +148,7 @@ var _alive := 0           # 살아 있는 병사 수 (set_troops 가 맞춘다 �
 var walk_acc := 0.0       # GPU 병사 걸음 박자 —— 부대가 움직인 거리
 var shove_v := 0.0        # GPU 병사 떠밀기 (+ 뒤로 · − 앞으로, px) —— War3D 가 넣고 줄인다
 var flee_t := 0.0         # 패주한 지 몇 초
+var vel := Vector2.ZERO    # 부대 속도 —— 명세 2단계: 가속 0.6초 · 감속 0.4초 (판정 좌표는 엔진이 쥐고, 보이는 자리만 부드럽게)
 var changed_figs := []    # GPU —— 이번에 쓰러지거나 되살아난 병사 (War3D._sync 가 가져간다)
 var moved_figs := []      # GPU —— 자리가 바뀐(쓰러져 숨기거나 앞으로 걸어 나온) 병사 (War3D._gpu_sync 가 인스턴스 값을 고친다)
 var cell := []            # GPU —— 대열 칸 -> 병사 (빈칸 null). 앞줄이 쓰러지면 그 열 뒷사람들이 한 칸씩 걸어 나온다
@@ -402,8 +403,9 @@ func update(dt: float, clock: float) -> void:
 	moving = false
 	_rk = ranks()
 	if state == "flee":
-		var away := Vector2(-1, 0) if camp == "A" else Vector2(1, 0)
-		pos += away * speed * 1.5 * dt
+		var away := (Vector2(-1, 0) if camp == "A" else Vector2(1, 0)).rotated(sin(flee_t * 1.3 + float(row.slot)) * 0.35)      # 2단계: 직선이 아니라 S 자로
+		vel = vel.move_toward(away * speed * 1.5, speed * 2.5 * dt)
+		pos += vel * dt
 		_turn_toward(away, dt * 3.0)
 		fade -= dt * (0.3 if keep_in(pos) == pos else 0.9)     # 전장 끝에 닿으면 빨리 사라진다
 		moving = true
@@ -428,15 +430,27 @@ func update(dt: float, clock: float) -> void:
 				var sp_now := speed
 				if cls == "cav" and engaged and d.length() > 60.0:
 					sp_now *= 1.9            # 돌격
-				pos += d.normalized() * minf(sp_now * dt, d.length())
+				# 2단계: 속도 벡터로 —— 멈춘 상태에서 0.6초에 걸쳐 가속, 목표 가까이에서 0.4초에 걸쳐 감속 (미끄러짐 · 순간이동 없이)
+				var want_v: Vector2 = d.normalized() * minf(sp_now, d.length() / 0.4)
+				var acc: float = sp_now / (0.6 if want_v.length() > vel.length() else 0.4)
+				vel = vel.move_toward(want_v, acc * dt)
+				var step: Vector2 = vel * dt
+				if step.length() >= d.length():
+					step = d
+					vel = Vector2.ZERO
+				pos += step
 				moving = true
 				if not engaged:
 					want_dir = d
 			elif engaged and not contact:
 				contact = true
 				impact = true
+				vel = Vector2.ZERO
 			elif not engaged:
 				goal = null
+				vel = Vector2.ZERO
+		else:
+			vel = Vector2.ZERO
 		if want_dir == Vector2.ZERO:
 			if face_to != null:
 				want_dir = face_to - pos
@@ -509,7 +523,7 @@ func update(dt: float, clock: float) -> void:
 		if fighting or pressing:
 			s.free = (s.pos - grid_p).limit_length(sp * 6.0)
 		elif loose > 0.0:
-			want_p = grid_p + s.free * loose + s.wander
+			want_p = grid_p + s.free * loose * (1.0 - 0.5 * float(rk) / maxf(1.0, float(_rk))) + s.wander      # 2단계: 앞줄이 많이 흩어지고 뒷줄은 자리를 지킨다
 		else:
 			s.free = Vector2.ZERO
 		if fighting:
