@@ -66,6 +66,7 @@ func setup() -> void:
 	_mid_y = ys / maxf(1.0, field.order.size())
 	_reset_feel()
 	_setup_tac()
+	_build_gpu()
 
 
 ## 전장 px → 화면 px —— DotView 처럼 아군 아래 · 적 위, 세로를 TILT 만큼 눌러 비스듬히
@@ -128,6 +129,12 @@ func _process(dt: float) -> void:
 		return
 	field.pt("타입2 병사", t0)
 	_feel_step(dt)
+	if _gmm != null:
+		var gm: ShaderMaterial = _gmm.material
+		gm.set_shader_parameter("center", _center + _jit)
+		gm.set_shader_parameter("scl", _scale)
+		gm.set_shader_parameter("vsize", size)
+		gm.set_shader_parameter("fig", FIG * clampf(_scale * 1.15, 0.6, 1.8) * GPU_FIG)
 	var mat: ShaderMaterial = _ground.material
 	mat.set_shader_parameter("center", _center + _jit)
 	mat.set_shader_parameter("scl", _scale)
@@ -205,6 +212,7 @@ func _draw_dots() -> void:
 	if _buf.size() != mm.instance_count * STRIDE:
 		_buf.resize(mm.instance_count * STRIDE)
 	var clock := field.clock
+	var gpu_on: bool = _gmm != null
 	# 11/6 인스턴스마다 set_instance_* 를 부르던 것을 버퍼 한 번에 (2D 변환 8 + 색 4). 남는 칸은 visible_instance_count 로 감춘다
 	var i := 0
 	var sz := FIG * clampf(_scale * 1.15, 0.6, 1.8)
@@ -223,6 +231,8 @@ func _draw_dots() -> void:
 		var shape: float = FORM_SHAPE.get(sq.tag, 1.0)
 		dr *= shape
 		for s in sq.soldiers:
+			if gpu_on and s.alive and s != sq.general:
+				continue      # GPU 병사 —— 셰이더가 그린다
 			var rot := 0.0
 			var c := base_c
 			if not s.alive:
@@ -231,7 +241,7 @@ func _draw_dots() -> void:
 				var dt: float = clock - s.die_t
 				if dt > 2.0:
 					continue
-				rot = s.fall * minf(1.0, dt / 0.35) * PI * (0.5 if s == sq.general else 0.18)
+				rot = s.fall * minf(1.0, dt / 0.35) * PI * (0.5 if s == sq.general or gpu_on else 0.18)
 				c = c.darkened(0.45)
 				c.a = clampf(1.0 - (dt - 1.2) / 0.8, 0, 1)
 			elif sq.state == "flee":
@@ -260,14 +270,17 @@ func _draw_dots() -> void:
 			var h: float = sz * (1.25 if gen else 1.0) * s.size * dep
 			var cr := cos(rot)
 			var sr := sin(rot)
-			for ci in (1 if gen else ncl):
-				var hc := h * (1.0 if ci == 0 else 0.94) * (1.0 if gen else PACK_H)
+			var one: bool = gen or gpu_on      # GPU 전투의 쓰러지는 병사는 한 명짜리 인형
+			if gpu_on and not gen:
+				h *= GPU_FIG
+			for ci in (1 if one else ncl):
+				var hc := h * (1.0 if ci == 0 else 0.94) * (1.0 if one else PACK_H)
 				var o: Vector2 = (dr * CLONE_GRID[ci].x + df * CLONE_GRID[ci].y) + Vector2(0, -hc * 0.5)
 				if ci > 0 and s.alive:
 					o.y -= absf(sin(bob + ci * 0.9)) * 1.4 - absf(sin(bob)) * 1.4      # 복제마다 걸음 위상을 어긋나게
 				var cc := c if ci == 0 else c.darkened(0.06 * ci)
 				var b := i * STRIDE
-				var sx := hc * flip * (1.0 if gen else PACK_W)
+				var sx := hc * flip * (1.0 if one else PACK_W)
 				_buf[b] = cr * sx
 				_buf[b + 1] = -sr * hc
 				_buf[b + 2] = 0.0
@@ -280,7 +293,7 @@ func _draw_dots() -> void:
 				_buf[b + 9] = cc.g
 				_buf[b + 10] = cc.b
 				_buf[b + 11] = cc.a
-				_buf[b + 12] = 0.0 if gen else 0.5
+				_buf[b + 12] = 0.0 if one else 0.5
 				i += 1
 	# 전선 불꽃
 	for sq: Squad in field.order:
@@ -1151,3 +1164,71 @@ func _reset_feel() -> void:
 	_was_alive.clear()
 	_clashed = false
 	_focus_free = 0.0
+
+
+# ───────── GPU 병사 (11/6 목표: 휴대폰에서도 품질이 떨어지지 않는 대군) ─────────
+# War3D 가 GPU 병사 모드면(타입2 도 기본), 살아 있는 병졸은 shaders/type2_gpu.gdshader 가 부대 데이터(squad_tex)로 자리를 계산해 그린다.
+# CPU 는 병사마다 위치 계산 · 버퍼 쓰기를 하지 않는다 —— 쓰러지거나 자리를 옮긴 병사만 gpu_moved 로 그 인스턴스 값을 고친다.
+const GPU_FIG := 0.8            # GPU 병사 인형 크기 (장수 인형 대비)
+var _gmm: MultiMeshInstance2D = null
+var _gi := {}                   # Soldier -> 인스턴스 번호
+var gpu_count := 0
+
+
+func _build_gpu() -> void:
+	if _gmm != null:
+		_gmm.queue_free()
+		_gmm = null
+	_gi.clear()
+	gpu_count = 0
+	if not field._gpu or field._sq_tex == null:
+		return
+	var lst := []
+	for row in field.order.size():
+		var sq: Squad = field.order[row]
+		for sd in sq.soldiers:
+			if sd != sq.general:
+				lst.append([row, sd])
+	if lst.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_2D
+	mm.use_colors = false
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2(1, 1)
+	mm.mesh = q
+	mm.instance_count = lst.size()
+	var buf := PackedFloat32Array()
+	buf.resize(lst.size() * 12)
+	for i in lst.size():
+		var row: int = lst[i][0]
+		var sd = lst[i][1]
+		var b := i * 12
+		buf[b] = 1.0
+		buf[b + 5] = 1.0
+		buf[b + 8] = float(row)
+		buf[b + 9] = War3D._gslot(sd)
+		buf[b + 10] = sd.gseed
+		buf[b + 11] = sd.move_t
+		_gi[sd] = i
+	mm.buffer = buf
+	_gmm = MultiMeshInstance2D.new()
+	_gmm.multimesh = mm
+	_gmm.texture = _fig_tex
+	var gm := ShaderMaterial.new()
+	gm.shader = load("res://shaders/type2_gpu.gdshader")
+	gm.set_shader_parameter("squad_tex", field._sq_tex)
+	gm.set_shader_parameter("tilt", TILT)
+	gm.set_shader_parameter("spread", T2_SPREAD)
+	gm.set_shader_parameter("team_a", TEAM_A)
+	gm.set_shader_parameter("team_b", TEAM_B)
+	_gmm.material = gm
+	add_child(_gmm)
+	move_child(_gmm, _mm.get_index())      # 바닥 위 · 장수(CPU 인형) 아래
+	gpu_count = lst.size()
+
+
+func gpu_moved(sd, row: int, slot: float, seed: float, mt: float) -> void:
+	if _gmm != null and _gi.has(sd):
+		_gmm.multimesh.set_instance_custom_data(_gi[sd], Color(row, slot, seed, mt))

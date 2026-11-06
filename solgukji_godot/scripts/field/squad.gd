@@ -34,6 +34,7 @@ const PER_PV := 5.5      # PV 1 당 병사 수 (11/4 3.9 → 저녁 5.5: 북적�
 const TIER_SIZE := {6: 1.1, 7: 1.2, 8: 1.32}
 ## 장수 인형 크기
 const GEN_SIZE := {6: 1.45, 7: 1.6, 8: 1.85}
+static var gpu_mul := 1.0       # 11/6 타입2 GPU 병사 —— 2D 는 정점 비용이 아주 작아 병사를 더 둔다 (War3D.setup)
 static var count_scale := 1.0   # 품질 설정 —— 모바일은 병사 수를 줄인다 (Settings)
 ## 11/3 GPU 병사 (War3D._gpu) —— 살아 있는 병사는 셰이더가 대열 자리에 그리므로 병사마다 걷기 계산을 하지 않는다.
 ## 병력이 줄면 뒷자리(slot 큰 쪽)부터 지우고(대열이 뒤에서 줄어든다), 쓰러지는 병사는 앞줄 자리에 놓아 CPU 가 넘어뜨린다
@@ -180,7 +181,7 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator) -> void:
 	# 11/5 사용자 "초반 전투에서 병력이 얼마 없는데 병력이 많은 것처럼 병사들이 위치" —— 병력(고급 500 · 희귀 900 · 전설 2,700)이 적은 부대는
 	# 병사도 덜 그린다: 병력 12,000 아래는 √(병력 / 12,000) 배 (최소 0.55). 전설(8,500) 0.84 · 초월 이상은 그대로
 	var few := sqrt(clampf(float(r.get("max", 12000.0)) / FEW_TROOPS, 0.3, 1.0))
-	var n: int = clampi(roundi(pv * PER_PV * few * count_scale * (1.0 if gpu else CPU_SHARE)), 5, 1000)     # GPU 칸 번호는 1024 안 (셰이더 인코딩)
+	var n: int = clampi(roundi(pv * PER_PV * few * count_scale * (gpu_mul if gpu else CPU_SHARE)), 5, 1000)     # GPU 칸 번호는 1024 안 (셰이더 인코딩)
 	match cls:
 		"cav":
 			n = maxi(5, int(n * 0.75))

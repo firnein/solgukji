@@ -604,9 +604,8 @@ func apply_style() -> void:
 	if dots:
 		var t2: bool = Settings.type2 and type2 != null
 		var flat_on: bool = Settings.dots or t2
-		if field._gpu and flat_on:
-			flat_on = false           # GPU 병사로 시작한 전투는 병사 위치를 CPU 가 모른다 —— 2D 화풍은 다음 전투부터 (11/4 점검)
-			t2 = false
+		if field._gpu and flat_on and not t2:
+			flat_on = false           # GPU 병사로 시작한 전투는 병사 위치를 CPU 가 모른다 —— 점묘는 다음 전투부터 (11/4 점검). 타입2 는 GPU 병사를 직접 그린다 (11/6)
 		dots.visible = flat_on and not t2
 		if type2:
 			type2.visible = t2
@@ -2385,7 +2384,7 @@ class Hud extends Control:
 			for q in view.field.order:
 				men += q.soldiers.size()
 			var t2 = view.field.flat
-			var figs: int = int(t2.drawn_figs) * Type2View.PACK if t2 != null and t2.get("drawn_figs") != null else men
+			var figs: int = (int(t2.drawn_figs) * (1 if t2.gpu_count > 0 else Type2View.PACK) + int(t2.gpu_count)) if t2 != null and t2.get("drawn_figs") != null else men
 			var lv: int = int(t2.load_lv) if t2 != null and t2.get("load_lv") != null else 0
 			var pt := "fps %d · 계산 %d · 보이는 %d · 조절 %d" % [Engine.get_frames_per_second(), men, figs, lv]
 			draw_string_outline(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.9))

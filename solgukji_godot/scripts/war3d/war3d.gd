@@ -578,8 +578,9 @@ func clear() -> void:
 func setup(res: Dictionary) -> void:
 	_swirl()                # 11/3 이감 텍스처를 미리 (처음 걸릴 때 프레임이 튀었다)
 	clear()
-	_gpu = gpu_mode and not (Settings.dots or Settings.type2)
+	_gpu = gpu_mode and not Settings.dots      # 11/6 타입2 도 GPU 병사 (Type2View 가 같은 부대 데이터로 2D 에 그린다)
 	Squad.gpu = _gpu
+	Squad.gpu_mul = 1.5 if (_gpu and Settings.type2) else 1.0      # 11/6 목표: 탑뷰 GPU 병사는 1.5배
 	track_mode = res.get("rt", false)
 	_build_terrain(res.get("terrain", []))
 	for r in res.roster:
@@ -1002,6 +1003,8 @@ func _gpu_sync(dt: float) -> void:
 		for sd in sq.moved_figs:
 			for gi in _gidx.get(sd, []):
 				gi[0].set_instance_custom_data(gi[1], Color(row, _gslot(sd), sd.gseed, sd.move_t))
+			if flat != null and flat.has_method("gpu_moved"):
+				flat.gpu_moved(sd, row, _gslot(sd), sd.gseed, sd.move_t)
 		sq.moved_figs.clear()
 		var gone: bool = sq.state == "gone"
 		var n_alive: float = 0.0 if gone else float(sq._alive)
