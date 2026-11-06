@@ -114,6 +114,20 @@ void vertex() {
 	}
 	float flee = t4.y;
 	if (flee > 0.0) p += rot(vec2(1.0, 0.0), hash(seed * 9.7) * 6.2831) * flee * 18.0;
+	// 11/7 사용자 "하나하나가 살아 움직이듯" —— 병사마다 제 박자로
+	float walk0 = t2.x * (0.8 + 0.4 * hash(seed * 6.1)) + seed * 6.2831;
+	if (moving0) p += rgt * sin(walk0 * 0.45) * sp * 0.35;                    // 걸을 때 좌우로 흔들리며 간다 (발 맞추지 않는다)
+	if (!contact && !moving0) {                                              // 서 있을 때 —— 가끔 한두 걸음 자리를 고쳐 선다
+		float shuf = floor(clock * 0.35 + hash(seed * 33.1) * 9.0);
+		vec2 to = rot(vec2(1.0, 0.0), hash(seed + shuf * 1.37) * 6.2831) * sp * 0.6 * step(0.55, hash(seed * 3.9 + shuf));
+		p += to * smoothstep(0.0, 0.4, fract(clock * 0.35 + hash(seed * 33.1) * 9.0));
+	}
+	if (fighting3) {                                                         // 맞붙은 앞줄 —— 짝을 지어 밀고 빠지고, 옆으로 피한다
+		float duel = clock * (1.6 + hash(seed * 41.3) * 1.4) + seed * 50.0;
+		p += fwd * sin(duel) * sp * 0.9 * (1.0 - rk * 0.25);
+		p += rgt * sin(duel * 0.7 + seed * 9.0) * sp * 0.7;
+	}
+	if (contact && rk >= 3.0) p += rgt * sin(clock * 2.1 + seed * 31.0) * sp * 0.35;    // 뒷줄은 앞을 보려 들썩인다
 	// 2D 지도로 —— 부대 한가운데(t0.xy)에서 spread 만큼 넓히고 Type2View.map 과 같은 식으로 화면 px
 	p = t0.xy + (p - t0.xy) * spread;
 	vec2 d = p - center;
@@ -121,12 +135,14 @@ void vertex() {
 	// 걸음 —— 위아래로 살짝
 	bool moving = moving0 || flee > 0.0 || move_k < 1.0;
 	float walk = (t2.x + (move_k < 1.0 ? clock * 6.0 : 0.0)) * (0.8 + 0.4 * hash(seed * 6.1)) + seed * 6.2831;
-	sp2.y -= abs(sin(walk * 0.9)) * 1.4 * (moving ? 1.0 : 0.0);
+	sp2.y -= abs(sin(walk * 0.9)) * 2.4 * (moving ? 1.0 : 0.0);           // 걸음 —— 위아래로 (11/7 1.4 → 2.4)
+	if (fighting3) sp2.y -= abs(sin(clock * 5.0 + seed * 17.0)) * 1.6;        // 싸우는 병사는 들썩인다
 	float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);      // 화면 위(먼) 병사는 작게
 	float h = fig * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep;
 	float camp = t5.y;
 	float flip = camp > 0.5 ? -1.0 : 1.0;
-	float lean = (camp > 0.5 ? 0.35 : -0.35) * sk;      // 내지를 때 앞으로 기운다
+	if (fighting3 && hash(seed * 51.7 + floor(clock * 0.8 + seed * 3.0)) < 0.18) flip = -flip;      // 난전에선 가끔 옆 · 뒤를 돌아본다
+	float lean = (camp > 0.5 ? 0.45 : -0.45) * sk + (moving ? sin(walk * 0.9) * 0.08 : 0.0) + hurt * (camp > 0.5 ? -0.5 : 0.5);      // 내지르면 앞으로, 걸으면 좌우로, 맞으면 뒤로 젖힌다
 	vec2 lv = rot(VERTEX * vec2(h * flip, h), lean);
 	VERTEX = hide ? vec2(-99999.0) : sp2 + lv + vec2(0.0, -h * 0.5);
 	vec3 team = camp > 0.5 ? team_b : team_a;

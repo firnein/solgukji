@@ -148,6 +148,8 @@ func _process(dt: float) -> void:
 		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다 (무거우면 3프레임마다)
 	if _fx_layer and (not _fx.is_empty() or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다
 		_fx_layer.queue_redraw()
+		if _fx_add:
+			_fx_add.queue_redraw()
 	if _label_layer and field.clock - _intro_t0 < INTRO_T + 0.5:
 		_label_layer.queue_redraw()
 	elif _label_layer and _label_layer.visible:
@@ -560,9 +562,13 @@ func _notification(what: int) -> void:
 
 class FxLayer extends Control:
 	var v: Type2View
+	var add := false
 	func _draw() -> void:
 		if v != null and v.field != null:
-			v._draw_fx(self)
+			if add:
+				v._draw_fx_add(self)
+			else:
+				v._draw_fx(self)
 
 
 var _fx := []                  # {k, p, q, col, t0, life, r, s}
@@ -578,6 +584,92 @@ class LabelLayer extends Control:
 
 
 var _label_layer: LabelLayer
+var _fx_add: FxLayer
+var _sprs := {}
+
+
+func _spr(nm: String) -> Texture2D:
+	if not _sprs.has(nm):
+		_sprs[nm] = load("res://assets/fx/kenney/%s.png" % nm) if ResourceLoader.exists("res://assets/fx/kenney/%s.png" % nm) else null
+	return _sprs[nm]
+
+
+## 스프라이트 하나 —— 가운데 c, 크기 sz(px), 회전 rot
+func _spr_at(ci: CanvasItem, nm: String, c: Vector2, sz: float, col: Color, rot := 0.0, stretch := Vector2.ONE) -> void:
+	var t := _spr(nm)
+	if t == null or sz < 1.0:
+		return
+	ci.draw_set_transform(c, rot, stretch)
+	ci.draw_texture_rect(t, Rect2(Vector2(-sz, -sz) * 0.5, Vector2(sz, sz)), false, col)
+	ci.draw_set_transform(Vector2.ZERO)
+
+
+## 더하기 층 —— 빛나는 것만 (불꽃 · 불벽 · 불덩이 · 불기둥 · 검기 · 충격파 · 튀는 불티 · 번개 빛 · 소용돌이 · 회복 빛)
+func _draw_fx_add(ci: CanvasItem) -> void:
+	var now := field.clock
+	var zs := clampf(_scale, 0.6, 1.8)
+	var fl := ["flame_02", "flame_03", "flame_04"]
+	for e in _fx:
+		var u: float = (now - e.t0) / e.life
+		if u < 0.0 or u >= 1.0:
+			continue
+		var col: Color = e.col
+		var p: Vector2 = e.p
+		var sp := map(p)
+		match e.k:
+			"fire":
+				var al := clampf(u * 8.0, 0, 1) * clampf((1.0 - u) * 5.0, 0, 1)
+				for j in 3:
+					var ph: float = _t * (6.0 + j) + e.s + j * 2.1
+					var base := sp + Vector2((j - 1) * e.r * 0.5 * zs, 0)
+					var h: float = e.r * zs * (2.0 + 0.4 * sin(ph))
+					_spr_at(ci, fl[(int(_t * 10.0 + j + e.s)) % 3], base + Vector2(0, -h * 0.4), h, Color(1.0, 0.5, 0.15, 0.8 * al), sin(ph) * 0.12, Vector2(0.7, 1.0))
+				_spr_at(ci, "light_02", sp, e.r * zs * 3.0, Color(1.0, 0.45, 0.1, 0.35 * al))
+			"firewall":
+				var dir: Vector2 = (p - e.q).normalized() if e.q != p else Vector2.RIGHT
+				var perp := Vector2(-dir.y, dir.x)
+				var front: Vector2 = p - dir * e.r + dir * e.r * 2.0 * ease(u, 0.6)
+				var al := clampf(u * 6.0, 0, 1) * clampf((1.0 - u) * 3.0, 0, 1)
+				for j in 11:
+					var f := (j / 10.0 - 0.5) * 2.0
+					var bp := map(front + perp * f * e.r * 1.1)
+					var ph: float = _t * 9.0 + j * 1.7 + e.s
+					var h: float = e.r * zs * (0.75 + 0.2 * sin(ph)) * (1.0 - absf(f) * 0.35)
+					_spr_at(ci, fl[(j + int(_t * 12.0)) % 3], bp + Vector2(0, -h * 0.4), h, Color(1.0, 0.45, 0.12, 0.9 * al), sin(ph) * 0.15, Vector2(0.75, 1.0))
+				_spr_at(ci, "light_02", map(front), e.r * zs * 3.2, Color(1.0, 0.4, 0.1, 0.4 * al))
+			"fireball":
+				var from := map(e.q)
+				for j in 5:
+					var bu := maxf(0.0, u - j * 0.04)
+					var bp := from.lerp(sp, bu) + Vector2(0, -sin(PI * bu) * 90.0 * zs)
+					_spr_at(ci, "fire_01" if j == 0 else "smoke_04", bp, e.r * zs * (2.4 - j * 0.3), Color(1.0, 0.55, 0.15, 0.9 - j * 0.16), _t * 4.0 + j)
+				if u > 0.9:
+					_spr_at(ci, "muzzle_02", sp, e.r * zs * 5.0, Color(1.0, 0.6, 0.2, (1.0 - u) * 9.0), e.s)
+			"pillar":
+				var al := sin(PI * u)
+				var h: float = e.r * zs * 2.0 * ease(clampf(u * 1.6, 0, 1), 0.4)
+				_spr_at(ci, "flame_03", sp + Vector2(0, -h * 0.45), h, Color(1.0, 0.5, 0.15, 0.9 * al), 0.0, Vector2(0.45, 1.0))
+				_spr_at(ci, "light_02", sp, e.r * zs * 2.6, Color(1.0, 0.5, 0.15, 0.5 * al))
+			"pillar_c":
+				var al := sin(PI * u)
+				_spr_at(ci, "light_02", sp + Vector2(0, -e.r * zs * 0.8), e.r * zs * 2.4, Color(col, 0.6 * al), 0.0, Vector2(0.35, 1.0))
+				_spr_at(ci, "magic_03", sp, e.r * zs * 1.6, Color(col, 0.7 * al), _t * 1.5)
+			"slash":
+				var dir: Vector2 = (sp - map(e.q)).normalized() if e.q != Vector2.ZERO else Vector2.RIGHT
+				var al := 1.0 - u
+				_spr_at(ci, ["slash_01", "slash_02", "slash_03"][int(e.s) % 3], sp, e.r * zs * (1.6 + 0.6 * u), Color(col, 0.95 * al), dir.angle() + PI * 0.5)
+			"shock":
+				_spr_at(ci, "circle_05", sp, e.r * zs * 2.2 * ease(u, 0.3), Color(col, 0.7 * (1.0 - u)), 0.0, Vector2(1.0, 1.0 / TILT * 0.8))
+			"burst":
+				_spr_at(ci, ["spark_01", "spark_04"][int(e.s) % 2], sp, e.r * zs * (1.2 + 1.2 * u), Color(col, 1.0 - u), e.s)
+			"bigbolt", "bolt":
+				var al := 1.0 - u
+				_spr_at(ci, "light_02", sp, (60.0 if e.k == "bigbolt" else 26.0) * zs, Color(col.lightened(0.3), 0.8 * al))
+				_spr_at(ci, "star_06", sp, (44.0 if e.k == "bigbolt" else 18.0) * zs, Color(1, 1, 1, al), e.s)
+			"spiral":
+				_spr_at(ci, "twirl_01", sp, e.r * zs * 2.2, Color(col, 0.75 * sin(PI * u)), -_t * 3.0, Vector2(1.0, 0.8))
+			"heal":
+				_spr_at(ci, "magic_05", sp + Vector2(0, -u * 30.0 * zs), e.r * zs * 1.4, Color(col, 0.8 * sin(PI * u)), _t)
 
 
 func _ensure_fx_layer() -> void:
@@ -594,11 +686,21 @@ func _ensure_fx_layer() -> void:
 		_fx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_fx_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		add_child(_fx_layer)      # 병사(_mm) 위, 전투 HUD 아래
+		# 11/7 빛나는 연출(불 · 검기 · 충격파 · 번개 빛)은 더하기(Add) 섞기 층에 Kenney CC0 스프라이트로 (assets/fx/kenney)
+		_fx_add = FxLayer.new()
+		_fx_add.v = self
+		_fx_add.add = true
+		_fx_add.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fx_add.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var am := CanvasItemMaterial.new()
+		am.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		_fx_add.material = am
+		add_child(_fx_add)
 
 
 func fx(k: String, p: Vector2, col: Color, life: float, delay := 0.0, r := 30.0, q := Vector2.ZERO) -> void:
 	_ensure_fx_layer()
-	if _fx.size() > (160 if load_lv < 2 else 60):
+	if _fx.size() > (320 if load_lv < 2 else 120):      # 11/7 고유기 연출이 커져 칸을 늘렸다
 		return
 	_fx.append({"k": k, "p": p, "q": q, "col": col, "t0": field.clock + delay, "life": life, "r": r, "s": _frng.randf() * 100.0})
 
@@ -662,10 +764,19 @@ func fx_minor(mk: String, a: Squad, d: Squad) -> void:
 
 
 ## 고유기 —— 기 모으기(술법은 빛고리, 무장은 흙먼지) 뒤 delay 에 종류별로 터진다
-func fx_ult_charge(a: Squad, col: Color, magic: bool) -> void:
+func fx_ult_charge(a: Squad, col: Color, magic: bool, foes: Array = []) -> void:
 	var ap := vis_c(a)
 	if a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:      # 적게 모드: 아군 고유기 · 적 신화 고유기만
-		focus(ap, 1.9, 1.6, 3)
+		# 11/7 맞는 순간에 카메라가 이미 그 자리에 있도록 —— 기 모으기부터 시전자와 맞을 적을 함께 담는다
+		var pts := [ap]
+		for k in foes:
+			if field.squads.has(k):
+				pts.append(vis_c(field.squads[k]))
+		var cen := Vector2.ZERO
+		for q in pts:
+			cen += q
+		cen /= pts.size()
+		focus(cen.lerp(ap, 0.25) if pts.size() > 1 else ap, 1.5 if pts.size() > 2 else 1.8, 3.4, 4)
 	# 명세 3단계 '예고': 화면 가장자리 비네트 + 시전자 둘레 고리가 조여든다
 	fx("vignette", ap, col, 2.6, 0.0, 0.0)
 	fx("inring", ap, col, 2.2, 0.0, 90.0)
@@ -703,7 +814,7 @@ func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> vo
 		match vfx:
 			"slash":
 				for j in 5:
-					fx("slash", vis_spot(d), col, 0.5, j * 0.08, 70.0, ap)
+					fx("slash", vis_spot(d), col, 0.75, j * 0.1, 80.0, ap)
 				fx("burst", dp, col, 0.5, 0.0, 90.0)
 				fx("shock", dp, col, 0.6, 0.0, 110.0)
 			"charge":
@@ -711,41 +822,59 @@ func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> vo
 					fx("dust", ap.lerp(dp, (j + 1) / 11.0), Color("#b8a07a"), 1.1, j * 0.03, 28.0)
 				fx("shock", dp, col, 0.7, 0.2, 130.0)
 				fx("burst", dp, Color("#fff2b0"), 0.4, 0.2, 60.0)
-			"firestorm":
-				for j in 5:
-					fx("fire", vis_spot(d), Color("#ff7a2a"), 6.0, j * 0.1, 22.0)
-				fx("pillar", dp, Color("#ff8a3c"), 0.9, 0.0, 120.0)
-				fx("shock", dp, Color("#ffb060"), 0.7, 0.0, 120.0)
-			"thunder":
-				for j in 12:
-					fx("bolt", vis_spot(d), col, 0.4, j * 0.07)
-				fx("shock", dp, col, 0.6, 0.0, 120.0)
-			"poison":
-				for j in 6:
-					fx("mist", vis_spot(d), col, 2.6, j * 0.4, 26.0)
-			"illusion":
-				fx("spiral", dp, col, 1.6, 0.0, 40.0)
-				d.stagger(field.clock, field.rng)
-			"shadow":
-				fx("mist", dp, Color("#1a1424"), 1.2, i * 0.14, 24.0)
-				fx("slash", vis_spot(d), col, 0.4, i * 0.14, 26.0, ap)
-				fx("slash", vis_spot(d), col.lightened(0.3), 0.4, i * 0.14 + 0.08, 22.0, ap)
-			"arrowstorm":
+			"firestorm":      # 11/7 사용자 '주유 적벽대화처럼 눈에 띄게' —— 불덩이가 날아가 꽂히고, 불벽이 적진을 휩쓸고, 불바다가 남는다
+				for j in 4:
+					fx("fireball", vis_spot(d), Color("#ff7a2a"), 0.7, j * 0.09, 26.0, ap + a.right() * _frng.randf_range(-40, 40) if a else ap)
+				fx("firewall", dp, Color("#ff6a20"), 2.2, 0.55, 150.0, ap)
 				for j in 10:
-					fx("proj", vis_spot(d), col, 0.55, j * 0.05, 0.0, ap)
-				fx("burst", dp, col, 0.4, 0.55, 26.0)
-			"roar", "whirlwind":
-				fx("ring", dp, col, 0.7, 0.0, 52.0)
-				fx("burst", dp, col, 0.45, 0.0, 30.0)
-				fx("dust", dp, Color("#b8a07a"), 1.0, 0.0, 24.0)
+					fx("fire", vis_spot(d) + Vector2(_frng.randf_range(-30, 30), _frng.randf_range(-30, 30)), Color("#ff7a2a"), 7.0, 0.6 + j * 0.06, 26.0)
+				fx("pillar", dp, Color("#ff8a3c"), 1.2, 0.6, 200.0)
+				fx("shock", dp, Color("#ffb060"), 0.8, 0.6, 180.0)
+				fx("scar", dp, Color(0.12, 0.05, 0.02), 8.0, 0.8, 90.0)
+			"thunder":        # 하늘이 어두워지고 굵은 낙뢰가 잇달아 —— 맞은 자리마다 충격 고리
+				for j in 6:
+					fx("bigbolt", vis_spot(d), col, 0.85, j * 0.14, 0.0)
+				for j in 8:
+					fx("bolt", vis_spot(d), col, 0.4, 0.1 + j * 0.08)
+				fx("shock", dp, col, 0.7, 0.0, 170.0)
+				fx("scar", dp, Color(0.05, 0.08, 0.15), 6.0, 0.2, 80.0)
+			"poison":         # 짙은 독안개가 적진을 덮고 오래 머문다
+				for j in 10:
+					fx("mist", vis_spot(d) + Vector2(_frng.randf_range(-40, 40), _frng.randf_range(-40, 40)), col, 4.0, j * 0.25, 55.0)
+				fx("shock", dp, col, 0.8, 0.0, 150.0)
+			"illusion":       # 보랏빛 소용돌이가 적진을 감고 적이 비틀거린다
+				fx("spiral", dp, col, 2.4, 0.0, 120.0)
+				fx("spiral", dp, col.lightened(0.3), 2.0, 0.3, 80.0)
+				fx("shock", dp, col, 0.8, 0.0, 150.0)
+				d.stagger(field.clock, field.rng)
+			"shadow":         # 검은 연기가 터지고 사방에서 검기가 번뜩인다
+				fx("mist", dp, Color("#1a1424"), 1.6, i * 0.14, 70.0)
+				for j in 6:
+					fx("slash", vis_spot(d), col if j % 2 == 0 else col.lightened(0.3), 0.45, i * 0.14 + j * 0.07, 70.0, dp + Vector2(cos(j * 1.05), sin(j * 1.05)) * 80.0)
+			"arrowstorm":     # 하늘을 덮는 화살비
+				for j in 26:
+					fx("proj", vis_spot(d) + Vector2(_frng.randf_range(-30, 30), _frng.randf_range(-30, 30)), col, 0.6, j * 0.025, 0.0, ap + a.right() * _frng.randf_range(-60, 60) if a else ap)
+				fx("burst", dp, col, 0.5, 0.6, 90.0)
+				fx("shock", dp, col, 0.6, 0.6, 140.0)
+			"roar", "whirlwind":      # 큰 충격파가 두 겹으로 퍼지고 흙먼지가 인다
+				fx("shock", dp, col, 0.8, 0.0, 200.0)
+				fx("shock", dp, col, 0.8, 0.2, 140.0)
+				fx("burst", dp, col, 0.5, 0.0, 100.0)
+				for j in 5:
+					fx("dust", vis_spot(d), Color("#b8a07a"), 1.2, j * 0.05, 50.0)
 			_:
 				fx("shock", dp, col, 0.6, 0.0, 110.0)
 				fx("burst", dp, col, 0.5, 0.0, 70.0)
 	if vfx in ["aura", "heal"]:
 		for k in allies:
 			if field.squads.has(k):
-				fx("heal", vis_c(field.squads[k]), col, 1.4, 0.0, 28.0)
-				fx("ring", vis_c(field.squads[k]), col, 0.8, 0.0, 34.0)
+				var q := vis_c(field.squads[k])
+				fx("pillar_c", q, col, 1.4, 0.0, 120.0)
+				fx("heal", q, col, 1.8, 0.0, 60.0)
+				fx("shock", q, col, 0.9, 0.0, 110.0)
+	# 화면 전체가 고유기 색으로 잠깐 물든다 (섬광이 아니라 천천히 물들었다 걷힌다)
+	if vfx in ["firestorm", "thunder", "poison", "illusion", "shadow"]:
+		fx("tint", Vector2.ZERO, {"firestorm": Color("#ff5a1a"), "thunder": Color("#1a2a55"), "poison": Color("#2f5a1a"), "illusion": Color("#4a2a6a"), "shadow": Color("#0a0610")}[vfx], 2.0, 0.0, 0.0)
 
 
 ## 화면 위 타원 (전장의 원을 지도 배율로)
@@ -812,14 +941,46 @@ func _draw_fx(ci: CanvasItem) -> void:
 			"shock":     # 충격파 —— 두 겹 고리가 크게 퍼진다 (폭발)
 				_ell(ci, p, e.r * ease(u, 0.3), Color(col, 0.8 * (1.0 - u)), 5.0 * (1.0 - u) + 1.5)
 				_ell(ci, p, e.r * 0.7 * ease(u, 0.3), Color(1, 1, 1, 0.6 * (1.0 - u)), 2.0)
+			"fireball":  # 날아가 꽂히는 불덩이 —— 꼬리를 끌며 포물선
+				var from := map(e.q)
+				var at := from.lerp(sp, u) + Vector2(0, -sin(PI * u) * 90.0 * zs)
+				for j in 6:
+					var bu := maxf(0.0, u - j * 0.035)
+					var bp := from.lerp(sp, bu) + Vector2(0, -sin(PI * bu) * 90.0 * zs)
+					ci.draw_circle(bp, e.r * zs * 0.5 * (1.0 - j * 0.14), Color(1.0, 0.45 + j * 0.05, 0.1, 0.6 * (1.0 - j * 0.15)))
+				ci.draw_circle(at, e.r * zs * 0.55, Color(1.0, 0.85, 0.4, 0.95))
+			"firewall":  # 불벽 —— 시전자 쪽에서 적진을 넘어 휩쓸고 지나간다
+				var dir: Vector2 = (p - e.q).normalized() if e.q != p else Vector2.RIGHT
+				var perp := Vector2(-dir.y, dir.x)
+				var front: Vector2 = p - dir * e.r + dir * e.r * 2.0 * ease(u, 0.6)
+				var al := clampf(u * 6.0, 0, 1) * clampf((1.0 - u) * 3.0, 0, 1)
+				pass      # 불벽 불꽃은 더하기 층 스프라이트로
+			"bigbolt":   # 굵은 낙뢰 —— 하늘 끝에서 꺾이며 떨어지고, 맞은 자리에 빛 웅덩이
+				var top := sp + Vector2(sin(e.s) * 40.0, -320.0 * zs)      # 맞는 자리 위 높은 곳에서 (화면 맨 위가 아니라 —— 위쪽 적에게 떨어지면 HUD 밑에 숨었다)
+				var pts := PackedVector2Array([top])
+				for j in range(1, 9):
+					pts.append(top.lerp(sp, j / 9.0) + Vector2(sin(e.s * 2.3 + j * 1.9) * 22.0 * zs, 0))
+				pts.append(sp)
+				var al := 1.0 - u
+				ci.draw_polyline(pts, Color(col, 0.3 * al), 16.0 * zs)
+				ci.draw_polyline(pts, Color(col.lightened(0.4), 0.7 * al), 6.0 * zs)
+				ci.draw_polyline(pts, Color(1, 1, 1, al), 2.5)
+				_ell(ci, p, 30.0 * (1.0 + u), Color(col, 0.45 * al))
+			"pillar_c":  # 빛기둥 (회복 · 위세) —— 땅에서 솟는 옅은 기둥
+				var al := sin(PI * u)
+				var w: float = e.r * zs * 0.3
+				var h: float = e.r * zs * 2.2 * ease(clampf(u * 2.0, 0, 1), 0.4)
+				ci.draw_rect(Rect2(sp + Vector2(-w, -h), Vector2(w * 2.0, h)), Color(col, 0.22 * al))
+				ci.draw_rect(Rect2(sp + Vector2(-w * 0.35, -h), Vector2(w * 0.7, h)), Color(col.lightened(0.5), 0.35 * al))
+			"tint":      # 화면 전체가 고유기 색으로 잠깐 물든다
+				ci.draw_rect(Rect2(Vector2.ZERO, size), Color(col, 0.28 * sin(PI * minf(1.0, u * 1.3))))
 			"pillar":    # 불기둥 (화염 고유기)
 				var al := sin(PI * u)
 				var w: float = e.r * zs * 0.35 * (0.6 + 0.4 * u)
 				var h: float = e.r * zs * 1.6 * ease(clampf(u * 1.6, 0, 1), 0.4)
-				ci.draw_colored_polygon(PackedVector2Array([sp + Vector2(-w, 0), sp + Vector2(-w * 0.3, -h), sp + Vector2(w * 0.3, -h * 0.9), sp + Vector2(w, 0)]), Color(1.0, 0.45, 0.12, 0.75 * al))
-				ci.draw_colored_polygon(PackedVector2Array([sp + Vector2(-w * 0.5, 0), sp + Vector2(0, -h * 0.75), sp + Vector2(w * 0.5, 0)]), Color(1.0, 0.85, 0.4, 0.85 * al))
+				pass      # 11/7 불꽃 그림은 더하기 층(_draw_fx_add) 스프라이트로
 			"scar":      # 땅 흔적 —— 검흔 · 그을음, 천천히 바랜다 (여운)
-				_ell(ci, p, e.r, Color(col, 0.35 * (1.0 - u)))
+				_spr_at(ci, "scorch_02", sp, e.r * zs * 2.2, Color(0, 0, 0, 0.5 * (1.0 - u)), e.s)
 			"ring":      # 퍼지는 고리
 				_ell(ci, p, e.r * (0.3 + 0.7 * ease(u, 0.4)), Color(col, 0.75 * (1.0 - u)), 2.5)
 			"burst":     # 사방으로 튀는 획
@@ -840,19 +1001,12 @@ func _draw_fx(ci: CanvasItem) -> void:
 				_ell(ci, p, 10.0 * (1.0 + u), Color(col, 0.35 * al))
 			"fire":      # 땅에 붙은 불 —— 그을음 위에 너울대는 불꽃 셋
 				var al := clampf(u * 8.0, 0, 1) * clampf((1.0 - u) * 5.0, 0, 1)
-				_ell(ci, p, e.r * 1.1, Color(0.12, 0.08, 0.05, 0.35 * al))
-				for j in 3:
-					var ph: float = _t * (5.0 + j) + e.s + j * 2.1
-					var base := sp + Vector2((j - 1) * e.r * 0.55 * zs, 0)
-					var h: float = e.r * zs * (1.0 + 0.3 * sin(ph))
-					var w: float = e.r * zs * 0.38
-					ci.draw_colored_polygon(PackedVector2Array([base + Vector2(-w, 0), base + Vector2(sin(ph) * w * 0.4, -h), base + Vector2(w, 0)]), Color(1.0, 0.45, 0.12, 0.8 * al))
-					ci.draw_colored_polygon(PackedVector2Array([base + Vector2(-w * 0.5, 0), base + Vector2(sin(ph) * w * 0.3, -h * 0.6), base + Vector2(w * 0.5, 0)]), Color(1.0, 0.82, 0.35, 0.85 * al))
+				_spr_at(ci, "scorch_01", sp, e.r * zs * 2.4, Color(0, 0, 0, 0.45 * al), e.s)      # 그을음 (불꽃은 더하기 층)
 			"mist":      # 피어오르는 안개
 				var al := sin(PI * u)
-				for j in 4:
-					var o: Vector2 = Vector2(cos(e.s + j * 1.7), sin(e.s + j * 1.7)) * e.r * 0.5
-					_ell(ci, p + o + Vector2(u * 6.0, 0), e.r * (0.5 + 0.4 * u), Color(col, 0.18 * al))
+				for j in 3:
+					var o: Vector2 = Vector2(cos(e.s + j * 1.7), sin(e.s + j * 1.7)) * e.r * 0.45
+					_spr_at(ci, ["smoke_01", "smoke_04", "smoke_07"][j], map(p + o) + Vector2(u * 8.0, -u * 10.0), e.r * zs * (1.2 + 0.6 * u), Color(col, 0.42 * al), e.s + j + u * 0.6)
 			"slash":     # 검기 —— 날아온 쪽에 수직으로 그어지는 호
 				var dir: Vector2 = (sp - map(e.q)).normalized() if e.q != Vector2.ZERO else Vector2.RIGHT
 				var rad: float = e.r * zs

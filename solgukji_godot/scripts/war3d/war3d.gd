@@ -8,7 +8,7 @@ extends Node3D
 const S := 0.1
 const GAP := 300.0      # 양군 선봉 사이 (11/4 240 → 300)
 const RS := 150.0      # 11/4 사용자: 대열 칸 자체를 키운다 —— 앞뒤 열 간격 78 → 150 (깊은 부대가 앞뒤로 겹쳐 번졌다)        # 열 간격 (px) —— 부대가 앞뒤로 이어지게
-const CS := 165.0      # 열 간격 —— RtBattle.CS 와 같게 (11/6 5열 165)
+const CS := 210.0      # 열 간격 —— RtBattle.CS 와 같게 (11/7 210)
 const TEAM := {"A": Color("#2f6fd0"), "B": Color("#c43a2e")}     # 11/5 사용자 "피아식별 어려움" —— 파랑 · 빨강을 분명하게 (화면 톤은 차분하게 낮춘 대신)     # 10/31 조금 가라앉힌 진영색
 const ST_COL := {"burn": Color("#ff8a3c"), "flood": Color("#4a9ad4"), "confuse": Color("#b57edc"),
 	"bleed": Color("#c4564a"), "plague": Color("#7fa86b"), "seal": Color("#9a9a9a"),

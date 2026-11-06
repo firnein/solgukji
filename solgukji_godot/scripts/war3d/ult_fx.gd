@@ -53,7 +53,7 @@ func play(vfx: String, akey: String, foes: Array, allies: Array, delay: float) -
 		return
 	var col := _col(vfx)
 	if w.flat != null and w.flat.has_method("fx_ult"):      # 11/6 타입2 —— 2D 연출 (병사 날리기는 그대로, 섬광은 술법만 옅게)
-		w.flat.fx_ult_charge(a, col, MAGIC.has(vfx))
+		w.flat.fx_ult_charge(a, col, MAGIC.has(vfx), foes)
 		at(delay, func(): _impact_flat(vfx, akey, foes, allies, col))
 		return
 	var ap := w.p3(a.pos)

@@ -23,13 +23,14 @@ static func turns_for(t: float) -> float:
 
 static var period_base := 1.9           # 예전 한 턴에 해당하는 시간 (초) —— 턴 끝 정산 간격 · 행동 간격의 기준. 11/1 2.9→1.9 (감상 전투 35초 안팎)
 const TRACK_EVERY := 0.4      # 위치 기록 간격 (초)
-const ARENA := Rect2(-460, -280, 920, 560)
+const ARENA := Rect2(-560, -480, 1120, 960)     # 11/7 사용자: 진형 열을 늘린 만큼 넓게 (예전 세로 ±280 —— 5열 진형 끝 열이 시작부터 안으로 밀렸다)
 const BODY := 28.0            # 부대 반지름 (px) —— 이보다 가까이 겹치지 않는다
 static var ALLY_SEP := 2.7     # 아군 부대끼리 떨어지는 거리 (BODY 배) —— 11/3 2.0 → 2.7: 가운데 한 덩어리로 뭉쳐 누가 누군지 안 보였다
 const CONTACT := 64.0         # 근접 공격이 닿는 중심 거리
 const GAP := 300.0      # 양군 선봉 사이 (11/4 240 → 300)
 const RS := 150.0      # 11/4 사용자: 대열 칸 자체를 키운다 —— 앞뒤 열 간격 78 → 150 (깊은 부대가 앞뒤로 겹쳐 번졌다)
-const CS := 165.0      # 열 간격 (11/4 118 → 175 → 220, 11/6 5열로 165 —— 전체 폭 440 → 660, RtBattle · War3D 같게)
+const CS := 210.0      # 열 간격 (11/4 118 → 175 → 220, 11/6 5열로 165, 11/7 사용자 '더 넓은 범위로' 210 —— 전체 폭 840, RtBattle · War3D 같게)
+const LANE_W := 1.7    # 11/7 근접 부대가 적을 고를 때 옆(가로) 거리를 이만큼 무겁게 —— 자기 앞 열의 적부터 (다들 가운데로 몰리지 않게)
 const TAUNT_R := 160.0
 ## 11/5 사용자: 병사가 적으면 진형을 촘촘하게 시작 —— 양군 병력 합이 LAY_FULL 아래면 열 · 좌우 간격을 √(합 / LAY_FULL) 배 (최소 LAY_MIN),
 ## 선봉 사이(GAP)는 그 30% 만큼만 줄인다. 1일차(합 1.5만) 0.62 · 3일차(6만) 0.63~0.7 · 후반(15만 이상) 1
@@ -499,8 +500,11 @@ func _flank_way(u: Unit, t: Unit, foes: Array):
 func _choose(u: Unit, foes: Array) -> Unit:
 	var best: Unit = null
 	var bs := INF
+	var lane: bool = not _ranged(u) and u.c.tag != "기병" and u.c.tag != "도적"
 	for o in foes:
 		var d := u.pos.distance_to(o.pos)
+		if lane:      # 앞 열 우선 —— 진형 폭만큼 전선이 넓게 선다
+			d = Vector2(o.pos.x - u.pos.x, (o.pos.y - u.pos.y) * LANE_W).length()
 		var w := 1.0
 		# 기병 · 도적은 원거리 · 지략 부대를 노린다 (멀리 돌아가더라도)
 		if (u.c.tag == "기병" or u.c.tag == "도적") and _ranged(o):

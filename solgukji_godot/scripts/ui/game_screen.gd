@@ -2842,6 +2842,13 @@ func _dev_args() -> void:
 			_battle._set_speed(float(a.speed))
 		if a.has("gmenu"):
 			_battle.toggle_menu()
+		if a.has("gultfx"):     # 점검용 —— --gultfx=firestorm : 3초 뒤 아군 첫 부대가 그 고유기 연출을 적 셋에게
+			await get_tree().create_timer(3.0).timeout
+			var fa := _battle.field.order.filter(func(q): return q.camp == "A" and q.alive)
+			var fb := _battle.field.order.filter(func(q): return q.camp == "B" and q.alive)
+			if not fa.is_empty() and not fb.is_empty():
+				fb.sort_custom(func(x, y): return x.pos.distance_to(fa[0].pos) < y.pos.distance_to(fa[0].pos))      # 실제 고유기처럼 가까운 적
+				_battle.field.ult.play(str(a.gultfx), fa[0].key, fb.slice(0, 3).map(func(q): return q.key), fa.map(func(q): return q.key), 0.4)
 		if a.has("gunit"):      # 점검용 —— --gunit=A0 : 3초 뒤 전투장수창
 			await get_tree().create_timer(3.0).timeout
 			battle_unit_sheet(str(a.gunit))
