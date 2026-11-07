@@ -102,6 +102,8 @@ static func act(run, m: String, a: Array, r) -> void:
 		"pick", "forge", "pick_unique":
 			d["card"] = card(str(a[0])) if not a.is_empty() else []
 			d["ok"] = bool(r)
+			if m == "forge" and bool(r) and not a.is_empty():
+				d["got"] = [card(str(a[0]))]      # 조합 결과 카드
 		"place":
 			d["card"] = card(str(a[1]))
 	_put(run, "act", d)
@@ -201,4 +203,4 @@ static func over(run) -> void:
 		return
 	_put(run, "over", {"win": bool(run.over.win), "msg": str(run.over.msg), "w": run.my_w, "l": run.my_l,
 		"rank": run.rank(), "my_pv": run.my_pv(), "deck": side(run.board),
-		"tour": run.tour_rank() if run.tour != null else ""})
+		"tour": ("우승" if bool(run.over.win) else run.tour_rank()) if run.tour != null else ""})

@@ -2187,6 +2187,13 @@ class Hud extends Control:
 	var _tok_sb: StyleBoxFlat = null
 	var _medal_cache := {}
 
+	## 큰 그림을 작게 줄인다 —— 한 번에 쌍선형으로 줄이면 픽셀을 건너뛰어 계단 · 지글거림이 생긴다 (11/8 사용자: 메달 밉맵 깨짐).
+	## 절반씩 두 배 가까이까지 줄인 뒤 란초스로 마무리 (구울 때 한 번뿐이라 비용 · 메모리 증가 없음)
+	static func _shrink(img: Image, n: int) -> void:
+		while img.get_width() >= n * 4:
+			img.resize(img.get_width() / 2, img.get_height() / 2, Image.INTERPOLATE_BILINEAR)
+		img.resize(n, n, Image.INTERPOLATE_LANCZOS)
+
 	## 메달 그림 —— 얼굴(원) + 등급 고리 + 진영 고리 + 검은 테 + 아군▲ · 적▼. 가장자리는 덮인 비율로 부드럽게
 	func _medal_tex(sq: Squad, r: float) -> Texture2D:
 		var key: String = sq.cid + sq.camp + str(r)
@@ -2212,14 +2219,14 @@ class Hud extends Control:
 				if fr.size.x > 0 and fr.size.y > 0:
 					crop = src.get_region(fr)
 					crop.convert(Image.FORMAT_RGBA8)
-					crop.resize(int(r * 2.0), int(r * 2.0), Image.INTERPOLATE_BILINEAR)
+					_shrink(crop, int(r * 2.0))
 		var ic: Image = null
 		if crop == null and DB.ICON.get(sq.tag) != null:
 			ic = (DB.ICON[sq.tag] as Texture2D).get_image()
 			if ic.is_compressed():
 				ic.decompress()
 			ic.convert(Image.FORMAT_RGBA8)
-			ic.resize(int(r * 1.1), int(r * 1.1), Image.INTERPOLATE_BILINEAR)
+			_shrink(ic, int(r * 1.1))
 		var c := Vector2(R, R)
 		var tri := PackedVector2Array([c + Vector2(-5, -r - 3), c + Vector2(5, -r - 3), c + Vector2(0, -r - 9)]) if sq.camp == "A" else PackedVector2Array([c + Vector2(-5, r + 3), c + Vector2(5, r + 3), c + Vector2(0, r + 9)])
 		for y in n:
