@@ -1479,17 +1479,24 @@ func _page_draw() -> Control:
 	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	inner.alignment = BoxContainer.ALIGNMENT_BEGIN    # 11/6 사용자: 기본병 줄이 맨 위로 갔으니 위에서부터 채운다
 	var keys: Array = Run.sort_cards(p.keys())
-	# 11/4 사용자: 등급마다 줄을 나눈다 [등급 아래, 위, 열, 칸 높이]
-	# 11/5 사용자: 전설 · 초월 · 불멸 · 신화가 같은 칸 크기를 쓰지 말 것 —— 등급이 높을수록 크게 (신화 2열 · 불멸 3열 · 초월 4열 · 전설 5열)
-	# 11/6 사용자: 신화 · 불멸은 한 줄을 같이 쓰고(같은 묶음), 전설보다 조금 크게 한 줄에 넷 · 초월은 전설과 같은 다섯 줄에 조금 크게
-	# 11/7 사용자: 장수 카드 전반 축소 —— 신화 · 불멸 4열 112 · 초월 5열 100 · 전설 6열 84 · 희귀 6열 80 · 일반 · 고급 7열 72
-	#   (칭호까지 이름이 긴 신화 · 불멸 · 초월은 열을 늘리지 않고 높이만 낮춘다 —— 폭 56 아래는 작은 칸 그리기)
-	for grp in [[7, 9, 4, 112.0], [6, 6, 5, 100.0], [5, 5, 6, 84.0], [4, 4, 6, 80.0], [2, 3, 7, 72.0]]:
+	# 11/4 사용자: 등급마다 줄을 나눈다. 11/5 · 11/6 사용자: 등급이 높을수록 크게. 11/7 사용자: 장수 카드 전반 축소
+	# 11/7 사용자: 등급 줄 —— 맨 위 한 줄 [신화 | 불멸], 그 아래 [초월 | 기인], 그 아래 전설은 별도 공간, 희귀 · 고급 · 일반은 지금처럼.
+	#   신화 · 불멸 · 초월 · 기인은 더 이상 재료가 아닌 '완성된 장수' 라 「완성된 장수 접기」로 숨긴다 (_open.draw_fold —— 다시 그려도 유지).
+	#   목표: 전설 · 희귀 같은 재료로 어떤 상위패를 노릴 수 있는지 빠르게 보이게 (65a490f 가 조합 페이지에 잘못 넣었던 등급 묶음을 가진 카드로 옮겼다)
+	var by := {}      # 등급(1~8) · "기인" -> 가진 카드 (sort_cards 순서 —— 병종 · 이름)
+	for k in keys:
+		var key = "기인" if DB.is_kiin(k) else int(DB.C[k].tier)
+		if not by.has(key):
+			by[key] = []
+		by[key].append(k)
+	_hand_done(inner, by, p, hand_tile)
+	# 전설 6열 84 · 희귀 6열 80 · 고급 · 일반 7열 72 —— 지금처럼 등급마다 한 묶음 (기인은 위 [초월 | 기인] 줄로 올라갔다. 폭 56 아래는 작은 칸 그리기)
+	for grp in [[[5], 6, 84.0], [[4], 6, 80.0], [[3, 2], 7, 72.0]]:
 		var g := UI.grid(30, 6)
-		g.max_cols = grp[2]
-		for k in keys:
-			if DB.C[k].tier >= grp[0] and DB.C[k].tier <= grp[1]:
-				g.add_child(hand_tile.call(k, p[k], grp[3]))
+		g.max_cols = grp[1]
+		for t in grp[0]:
+			for k in by.get(t, []):
+				g.add_child(hand_tile.call(k, p[k], grp[2]))
 		if g.get_child_count() > 0:
 			inner.add_child(g)
 	if inner.get_child_count() == 0:
@@ -1506,6 +1513,106 @@ func _page_draw() -> Control:
 	hs.get_v_scroll_bar().value_changed.connect(func(y): _hand_scroll_y = int(y))
 	v.add_child(hv)
 	return v
+
+
+## 징집 보유 목록의 '완성된 장수' (11/7 사용자) —— [신화 | 불멸] · [초월 | 기인] 두 줄과 「완성된 장수 접기」.
+## 65a490f 가 조합 페이지에 만든 등급 묶음(_forge_group)을 조합법 대신 가진 카드로 옮겼다 —— 카드 뜻은 그대로 (×N · 편성 · ▲ 지금 조합 재료 · 누르면 디테일).
+## 줄마다 [등급, 이름, 칸 최소 폭, 칸 높이, 금테] 둘. 신화는 금테 · 조금 큰 칸(86×112 —— 불멸 74×100), 초월 · 기인 64×92 (칭호 붙은 이름이 한 줄에 드는 폭)
+const DONE_ROWS := [[[8, "신화", 86.0, 112.0, true], [7, "불멸", 74.0, 100.0, false]], [[6, "초월", 64.0, 92.0, false], ["기인", "기인", 64.0, 92.0, false]]]
+
+func _hand_done(inner: VBoxContainer, by: Dictionary, p: Dictionary, hand_tile: Callable) -> void:
+	var counts := []      # [이름, 색, 장수]
+	var total := 0
+	for row in DONE_ROWS:
+		for sp in row:
+			var n := 0
+			for k in by.get(sp[0], []):
+				n += int(p[k])
+			counts.append([sp[1], _done_col(sp[0]), n])
+			total += n
+	if total == 0:
+		return
+	var fold: bool = _open.get("draw_fold", false)      # 접은 상태를 _open.draw_fold 에 남긴다 (다시 그려도 유지 · 점검 --gopen=draw_fold)
+	inner.add_child(_done_toggle(fold, counts))
+	if fold:
+		return
+	var sa := _safe_insets()
+	var w := minf(size.x - sa.position.x - sa.size.x - 28.0, MAX_W)      # 보유 목록 폭 (_layout 의 좌우 여백 14)
+	for row in DONE_ROWS:
+		var r := _done_row(row, by, p, hand_tile, w)
+		if r != null:
+			inner.add_child(r)
+
+
+func _done_col(key) -> Color:
+	return DB.KIIN_COL if key is String else DB.TIER[key].c
+
+
+## 「완성된 장수 접기 ▴ · 펼치기 ▾」 —— 옆에 등급별 장수 수를 등급색으로 (접어도 무엇을 숨겼는지 보인다)
+func _done_toggle(fold: bool, counts: Array) -> Button:
+	var b := UI.btn("", func(): _toggle("draw_fold"), "ghost", 28)
+	var hb := UI.hbox(8)
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var items := [["완성된 장수 펼치기 ▾" if fold else "완성된 장수 접기 ▴", DB.PAL.bamboo]]
+	for c in counts:
+		if c[2] > 0:
+			items.append(["%s %d" % [c[0], c[2]], c[1]])
+	for it in items:
+		var l := UI.lbl(it[0], 12, it[1])
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.size_flags_vertical = Control.SIZE_FILL
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(l)
+	b.add_child(hb)
+	return b
+
+
+## 등급 줄 한 줄 —— 한 등급이 비면 다른 등급이 폭을 다 쓰고, 둘 다 비면 그리지 않는다.
+## 둘 다 있으면 줄 수가 가장 적게 열을 나눈다: 왼쪽은 제 카드가 들어갈 폭만, 오른쪽이 나머지 폭 (신화는 한 판에 한 장 —— 반 폭으로 나누면 반이 빈다)
+func _done_row(row: Array, by: Dictionary, p: Dictionary, hand_tile: Callable, w: float) -> Control:
+	var a: Array = by.get(row[0][0], [])
+	var b: Array = by.get(row[1][0], [])
+	if a.is_empty() and b.is_empty():
+		return null
+	var h := UI.hbox(6)
+	if a.is_empty() or b.is_empty():
+		var one := _done_group(row[0] if b.is_empty() else row[1], a if b.is_empty() else b, p, hand_tile)
+		one.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(one)
+		return h
+	var need := func(c: int, cw: float) -> float: return c * cw + (c - 1) * 5.0 + 10.0      # 칸 c 개 + 사이 5 + 상자 안 여백 5 × 2
+	var ca := 1
+	for nr in range(1, maxi(a.size(), b.size()) + 1):      # 줄 수 nr 로 둘 다 들어가는 가장 작은 nr
+		ca = ceili(a.size() / float(nr))
+		if need.call(ca, row[0][2]) + 6.0 + need.call(ceili(b.size() / float(nr)), row[1][2]) <= w:
+			break
+	var left := _done_group(row[0], a, p, hand_tile)
+	left.custom_minimum_size.x = need.call(ca, row[0][2])
+	h.add_child(left)
+	var right := _done_group(row[1], b, p, hand_tile)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(right)
+	return h
+
+
+## 등급 줄의 한 칸 —— 머리줄(등급 이름 · 장수 수) + 칸 안에서 줄을 바꾸는 격자 (반 폭에 카드가 많아도 옆으로 넘기지 않고 한눈에). 신화는 금테
+func _done_group(sp: Array, ks: Array, p: Dictionary, hand_tile: Callable) -> PanelContainer:
+	var col := _done_col(sp[0])
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(DB.PAL.gold, 0.9) if sp[4] else Color(col, 0.45), 2 if sp[4] else 1, 8, 5))
+	var v := UI.vbox(3)
+	var n := 0
+	for k in ks:
+		n += int(p[k])
+	v.add_child(UI.rich("[b][color=%s]%s[/color][/b] [color=#8D7B5C]%d[/color]" % [col.to_html(false), sp[1], n], 11))
+	var g := UI.grid(sp[2], 5)
+	for k in ks:
+		g.add_child(hand_tile.call(k, int(p[k]), sp[3]))
+	v.add_child(g)
+	pc.add_child(v)
+	return pc
 
 
 var _hand_scroll: ScrollContainer
@@ -2996,6 +3103,12 @@ func _dev_args() -> void:
 		if a.has("gseg"):
 			deploy.seg = str(a.gseg)      # 점검용 —— 편성 아래 칸 (hand · syn · item)
 		go(a.get("gpage", "draw"))
+	if a.has("ggive") and run != null:      # 점검용 —— --ggive=c177,c160:2,K01 : 카드를 손패에 쥐여 준다 (징집 등급 줄 점검, 11/7 · 저장하지 않는다)
+		for s in str(a.ggive).split(",", false):
+			var kn := s.split(":")
+			if DB.C.has(kn[0]):
+				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
+		render()
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
 			_open[key] = true
@@ -3202,8 +3315,18 @@ func _dev_args() -> void:
 		return
 	if a.has("gshot"):
 		await get_tree().create_timer(float(a.get("after", "1.0"))).timeout
+		if a.has("gquiet"):      # 점검용 —— 찍기 전에 시트 · 띠 · 알림을 걷는다 (tests/ui_shots 처럼, 11/7)
+			close_sheet()
+			_bands.clear()
+			_hide_band()
+			for c in _toast_box.get_children():
+				c.queue_free()
+			await get_tree().create_timer(0.4).timeout
 		if a.has("scroll"):
 			_scroll.scroll_vertical = int(a.scroll)
+			await get_tree().process_frame
+		if a.has("ghand") and is_instance_valid(_hand_scroll):      # 점검용 —— 징집 보유 목록을 이 위치까지 내린다 (큰 수면 맨 아래, 11/7)
+			_hand_scroll.scroll_vertical = int(a.ghand)
 			await get_tree().process_frame
 		# --frames=N --every=초 —— 연속 장면을 경로_0.png, 경로_1.png … 로
 		var nf := int(a.get("frames", "1"))
