@@ -5,9 +5,12 @@ extends Node
 ##   2) 보급표대로 다 이겼을 때 일차별 수입 (기본패 환산 누적)
 ##   3) 자동 진행 —— 일차 끝마다 편성 9칸의 등급 구성 · 그때까지 만든 카드 수(등급별)
 ##      --win=1 은 전투를 다 이긴 것으로 친다 (잘하는 사람에 가깝게). --econ=0 은 예전 보급(DB.ECON 끔)
+##   --botpv=1 (11/8) 일차 끝 봇 PV 표 —— 봇 7명의 최고 · 중간 · 최저와 자동 진행 내 PV (페이즈 끝 = 다음 페이즈 성장 앞)
 
 var cost := {}
 var bot_mul := 1.0
+var bot_tab := false
+var bot_sum := []        # 일차 -> [최고 합, 중간 합, 최저 합, 내 PV 합, 판 수]
 
 
 func _cost(k: String) -> float:
@@ -43,6 +46,9 @@ func _ready() -> void:
 			[{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}]]
 		DB.D.QUEST_REWARD = [[{"t": 3, "n": 2}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 4, "n": 1}], [{"t": 5, "n": 1}], [{"t": 5, "n": 1}], [{"t": 5, "n": 1}]]
 		DB.D.RANDOM_GRANT = [[], [], [{"t": 4, "n": 1}], [], [], [], []]
+	bot_tab = args.get("botpv", "0") == "1"
+	for d in 7:
+		bot_sum.append([0.0, 0.0, 0.0, 0.0, 0])
 	if args.has("botmul"):      # 봇 성장 배율 (4일차부터) —— 점검용, 페이즈마다 는 몫에 곱한다
 		bot_mul = float(args.botmul)
 	if args.has("save"):      # --save=경로 —— 저장 파일의 보유 패(손패 + 편성) 비용 합 · 등급 구성 (사람 플레이가 수입을 얼마나 장수로 바꿨는지)
@@ -170,12 +176,44 @@ func _ready() -> void:
 		var sd: Array = stat[d]
 		print("%d일 끝 | 토벌 %d/%d · 대전 %d/%d · 편성 PV %d · 보유 비용 %d | 편성: %s | 만든 누적: %s" % [d + 1, sd[0], sd[1], sd[2], sd[3],
 			sd[4] / runs, sd[5] / runs, " ".join(bl), " ".join(ml)])
+	if bot_tab:
+		print("── 일차 끝 봇 PV (봇 7명 최고 · 중간 · 최저, 판 평균) · 자동 진행 내 PV ──")
+		for d in 7:
+			var b: Array = bot_sum[d]
+			if b[4] > 0:
+				var n := float(b[4])
+				print("%d일 끝 | 봇 최고 %4d · 중간 %4d · 최저 %4d | 내 PV %4d (최고/내 %.2f · 중간/내 %.2f)" % [d + 1, b[0] / n, b[1] / n, b[2] / n,
+					b[3] / n, b[0] / maxf(1.0, b[3]), b[1] / maxf(1.0, b[3])])
 	get_tree().quit()
+
+
+## 일차 마지막 페이즈 끝 (다음 페이즈 성장 앞) 봇 PV 를 적는다
+func _note_bots(r: Run) -> void:
+	if r.phase != 2 and not (r.day == 6 and r.phase == 1):
+		return
+	var pv: Array = r.bots.map(func(b): return float(b.pv))
+	pv.sort()
+	var row: Array = bot_sum[r.day]
+	row[0] += pv[pv.size() - 1]
+	row[1] += pv[pv.size() / 2]
+	row[2] += pv[0]
+	row[3] += float(r.my_pv())
+	row[4] += 1
 
 
 ## Run.dev_autoplay 와 같은 한 페이즈 —— force_win 이면 전투 결과를 이긴 것으로
 func _phase(r: Run, force_win: bool) -> void:
 	if not force_win:
+		if bot_tab and not r.is_tour_phase() and r.over == null:
+			# dev_autoplay 와 같은 순서 —— 봇 PV 를 advance(성장) 앞에서 적으려고 풀어 쓴다
+			r.bot_prepare()
+			r._dev_fight(r.start_quest())
+			if r.over == null:
+				r._dev_spend()
+				r._dev_fight(r.start_pvp())
+				_note_bots(r)
+				r.advance()
+			return
 		r.dev_autoplay()
 		return
 	if not r.drawn and r.draws_n() > 0:
@@ -195,6 +233,8 @@ func _phase(r: Run, force_win: bool) -> void:
 	r._dev_spend()
 	r.start_pvp()
 	r.finish_battle(_won())
+	if bot_tab:
+		_note_bots(r)
 	r.advance()
 
 
