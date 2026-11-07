@@ -1758,16 +1758,7 @@ func card_info(k: String) -> void:
 	st.custom_minimum_size.y = 188
 	st.add_child(_stat_row(c))
 	st.add_child(TraitBoard.new().setup(k))
-	for t in DB.trait_list(k):
-		if t.unique:
-			st.add_child(_fold_kv("card_uq", "[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, "", t.mt, Color("#e8c25a")))
-	if DB.AURA.has(k):
-		st.add_child(_fold_kv("card_aura", "[b][color=%s]%s[/color] 『%s』[/b]" % [DB.tier_color(k).to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), DB.tier_color(k)))
-	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
-	if u != null:
-		var ub := _fold_kv("card_ult", "[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e"))
-		_temper_line(ub, c, u)      # 11/7 기질 —— 접혀 있어도 보이게 머리줄 바로 아래
-		st.add_child(ub)
+	_ability_rows(st, k, 12)      # 11/7 사용자: 고유 특기 · 위세 · 고유기(+기질)는 『』 글줄 대신 특기판과 같은 칸
 	top.add_child(st)
 	b.add_child(top)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
@@ -1967,74 +1958,154 @@ func battle_unit_sheet(key: String) -> void:
 		right.add_child(UI.rich("[color=#7fe0a8]＋늘어난 값[/color] [color=#8D7B5C]%s · 단체 특기 · 위세 · 사기[/color]  [color=#ff7a6a]−깎인 값[/color] [color=#8D7B5C]적 효과 (전투 시작 기준)[/color]" % " · ".join(why), 11))
 	top.add_child(right)
 	b.add_child(top)
-	# 고유기
-	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
-	if u != null:
-		var ub := _kv_box("[b][color=#ffd76e]고유기[/color] 『%s』[/b]" % u.name, "%d초부터" % roundi(u.wait), UI.ult_desc(u, c.tier), Color("#ffd76e"), 13)
-		_temper_line(ub, c, u, 12)      # 11/7 기질
-		b.add_child(ub)
+	# 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸 (11/7 사용자)
+	_ability_rows(b, k, 13)
 	# 기술 (자주 쓰는 기술 + 일반 기술)
 	var mk := Battle.minor_kind(k)
 	if mk != "":
 		b.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
 	for x in c.get("sks", []):
 		b.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-	# 특기 —— 이름 · 레벨 · 수치 한 줄씩
-	var tl := DB.trait_list(k)
+	# 특기 —— 이름 · 레벨 · 수치 한 줄씩 (고유 특기는 위 칸에)
+	var tl := DB.trait_list(k).filter(func(x): return not x.unique)
 	if not tl.is_empty():
 		var tg := _info_grid()
 		for t in tl:
-			_info_row(tg, "[color=%s][b]%s[/b][/color][color=#D9A64B]%s[/color]" % ["#FFD76E" if t.unique else "#8FD4C2", t.name, "" if t.unique else str(t.lv)],
+			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]" % [t.name, int(t.lv)],
 				"[color=#8FD4C2]%s[/color]" % (t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0)))
 		b.add_child(UI.eyebrow("특기 %d" % tl.size()))
 		b.add_child(tg)
-	if DB.AURA.has(k):
-		b.add_child(_kv_box("[b][color=%s]%s[/color] 『%s』[/b]" % [tc.to_html(false), "기인" if DB.is_kiin(k) else "위세", DB.AURA[k].n], "", DB.aura_effect(k), tc, 13))
 
 
-## 11/7 고유기 기질 (사용자: 플레이어가 알 수 있게) —— 고유기 상자 머리줄 바로 아래에 기질 색 표지 + 한 줄 (무엇으로 기가 차고 언제 쓰는지).
-## 규칙 배정이든 수동 지정이든 Battle.temper_name 이 실제 기질을 준다. 접혀 있어도 보인다
+## 11/7 고유기 기질 (사용자: 플레이어가 알 수 있게) —— 기질 색 · 기호(Icons). 규칙 배정이든 수동 지정이든 Battle.temper_name 이 실제 기질을 준다
 const TEMPER_COL := {"맹장": "#E07A5A", "수호": "#6FA8E8", "지략": "#B48CFF", "저격": "#8FD47A", "분노": "#FF9A3C"}
-func _temper_line(box: PanelContainer, c: Dictionary, u: Dictionary, fs := 12) -> void:
+const TEMPER_ICON := {"맹장": "blade", "수호": "shield", "지략": "news", "저격": "target", "분노": "flame"}
+## 고유 특기 · 위세 · 고유기 칸의 계열 색 (기인은 DB.KIIN_COL)
+const ABILITY_COL := {"uq": Color("#e8c25a"), "aura": Color("#b48cff"), "ult": Color("#ff9d5c")}
+
+
+## 고유 특기 · 위세(기인) · 고유기 + 기질 칸을 차례로 넣는다 —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양 (11/7 사용자)
+func _ability_rows(into: Container, k: String, fs := 12, narrow := false) -> void:
+	var c: Dictionary = DB.C[k]
+	for t in DB.trait_list(k):
+		if t.unique:
+			into.add_child(_ability_tile("고유 특기", t.name, t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0), ABILITY_COL.uq, fs, "", narrow))
+	if DB.AURA.has(k):
+		var kiin: bool = DB.is_kiin(k)
+		into.add_child(_ability_tile("기인" if kiin else "위세", DB.AURA[k].n, DB.aura_effect(k), DB.KIIN_COL if kiin else ABILITY_COL.aura, fs, "", narrow))
+	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	if u != null:
+		into.add_child(_ability_tile("고유기", u.name, UI.ult_desc(u, c.tier), ABILITY_COL.ult, fs, "%d초부터" % roundi(u.wait), narrow))
+		var tb := _temper_box(c, u, fs - 1, narrow)
+		if tb != null:
+			into.add_child(tb)
+
+
+## 11/7 사용자: 『』 글줄 나열("상단 괄호 · 하단 괄호") 대신 특기판(TraitBoard)과 같은 칸 ——
+## [계열 색 이름 칸: 작은 계열 글 + 이름] [짧은 효과 칸: 수치는 옥색]. narrow 면 이름 칸 아래에 효과 칸 (보급 팝업의 좁은 세로 칸).
+## sub 는 효과 끝의 작은 글 (고유기 "12초부터")
+func _ability_tile(kind: String, name_: String, effect: String, col: Color, fs := 12, sub := "", narrow := false) -> Control:
+	var chip := PanelContainer.new()
+	chip.add_theme_stylebox_override("panel", UI.flat(col.darkened(0.5), col.lightened(0.15), 1, 4, 3))
+	chip.mouse_filter = Control.MOUSE_FILTER_PASS
+	var kl := UI.lbl(kind, fs - 3, Color(col.lightened(0.5), 0.95))
+	var nl := UI.lbl(name_, fs + 1, Color("#F2EEE4"), true)
+	var body := _hl(effect) + ((("\n" if narrow else "  ") + "[color=#8D7B5C][font_size=%d]%s[/font_size][/color]" % [fs - 2, sub]) if sub != "" else "")      # 좁은 칸에선 부제를 새 줄에
+	var eff := UI.rich(body, fs - 1)
+	eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	eff.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var ep := PanelContainer.new()
+	ep.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(col, 0.4), 1, 4, 5))
+	ep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ep.add_child(eff)
+	if narrow:
+		var ch := UI.hbox(5)
+		kl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ch.add_child(kl)
+		ch.add_child(nl)
+		chip.add_child(ch)
+		var v := UI.vbox(2)
+		v.add_child(chip)
+		v.add_child(ep)
+		return v
+	var cv := UI.vbox(0)
+	cv.alignment = BoxContainer.ALIGNMENT_CENTER
+	kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cv.add_child(kl)
+	cv.add_child(nl)
+	chip.add_child(cv)
+	chip.custom_minimum_size.x = 84
+	var h := UI.hbox(6)
+	h.add_child(chip)
+	h.add_child(ep)
+	return h
+
+
+static var _hl_re: RegEx
+
+## 효과 글의 수치만 옥색으로 —— "아군 사기 +7 공격 +40% · 피해 706%" 의 +7 · +40% · 706% 를 [color=#8FD4C2] 로 (칸 안에서 '효과 · 수치'가 읽히게).
+## 부호가 붙은 수, 단위(% · 턴 · 초 · 부대 · 명)가 붙은 수만 —— "후열 2체" 같은 대상 수는 그대로
+func _hl(text: String) -> String:
+	if _hl_re == null:
+		_hl_re = RegEx.create_from_string("([+\\-−×]\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:%p|%|턴|초|부대|명)?|\\d[\\d,]*(?:\\.\\d+)?\\s?(?:%p|%|턴|초|부대|명))")
+	return _hl_re.sub(text.replace(" / ", " · "), "[color=#8FD4C2]$1[/color]", true)
+
+
+## 11/7 기질 설명 공간 (사용자: 글줄 나열 대신 따로 작은 칸) —— 왼쪽 기질 색 표지(기호 · 이름), 오른쪽 두 줄: 기가 차는 때 · 쓰는 때
+## (Battle.TEMPER_DESC 의 두 문장). narrow 면 표지를 한 줄로 위에, 설명 두 줄을 아래에 (보급 팝업)
+func _temper_box(c: Dictionary, u: Dictionary, fs := 11, narrow := false) -> Control:
 	var t := Battle.temper_name(c, u)
 	if t == "":
-		return
-	var col: String = TEMPER_COL.get(t, "#C6AC7C")
-	var r := UI.rich("[color=%s][b]◆ 기질 %s[/b][/color]  [color=#8D7B5C]%s[/color]" % [col, t, Battle.TEMPER_DESC.get(t, "")], fs)
-	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var v: VBoxContainer = box.get_child(0)
-	v.add_child(r)
-	v.move_child(r, 1)
-
-
-## 접히는 효과 · 수치 상자 —— 머리줄(이름)을 누르면 표가 열린다. 기본은 접힘, 연 상태는 _open[key] 로 다른 카드에서도 이어진다
-func _fold_kv(key: String, head_bb: String, sub: String, body: String, col: Color) -> Control:
-	var box := _kv_box(head_bb, sub, body, col, 12)
-	var v: VBoxContainer = box.get_child(0)
-	var head: RichTextLabel = v.get_child(0)
-	var grid: Control = v.get_child(1)
-	var arrow := UI.lbl("", 15, DB.PAL.bamboo)
-	var hr := UI.hbox(4)
-	v.remove_child(head)
-	hr.add_child(head)
-	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hr.add_child(arrow)
-	v.add_child(hr)
-	v.move_child(hr, 0)
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var upd := func():
-		var on: bool = _open.get(key, false)
-		grid.visible = on
-		arrow.text = "▾" if on else "▸"
-	box.mouse_filter = Control.MOUSE_FILTER_STOP
-	box.gui_input.connect(func(e):
-		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-			UI.buzz()
-			_open[key] = not _open.get(key, false)
-			upd.call())
-	upd.call()
-	return box
+		return null
+	var col := Color(TEMPER_COL.get(t, "#C6AC7C"))
+	var ss: PackedStringArray = str(Battle.TEMPER_DESC.get(t, "")).split(". ")
+	var fill: String = ss[0] if ss.size() > 0 else ""
+	var when: String = ss[1] if ss.size() > 1 else ""
+	var ic := Icons.View.new(TEMPER_ICON.get(t, "pick"), col.lightened(0.25), 16)
+	var nl := UI.lbl(t, fs + 1, col.lightened(0.3), true)
+	var cap := UI.lbl("기질", fs - 2, Color(col.lightened(0.3), 0.8))
+	var tag := PanelContainer.new()
+	tag.add_theme_stylebox_override("panel", UI.flat(col.darkened(0.6), Color(col, 0.9), 1, 6, 4))
+	var dv := UI.vbox(1)
+	dv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dv.alignment = BoxContainer.ALIGNMENT_CENTER
+	for pair in [["차는 때", fill], ["쓰는 때", when]]:
+		if pair[1] == "":
+			continue
+		var r := UI.rich("[color=#8D7B5C]%s[/color]  [color=#C6AC7C]%s[/color]" % [pair[0], pair[1]], fs)
+		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		dv.add_child(r)
+	var outer := PanelContainer.new()
+	outer.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(col, 0.35), 1, 6, 5))
+	if narrow:
+		var th := UI.hbox(4)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		th.add_child(ic)
+		th.add_child(cap)
+		th.add_child(nl)
+		tag.add_child(th)
+		var v := UI.vbox(3)
+		v.add_child(tag)
+		v.add_child(dv)
+		outer.add_child(v)
+		return outer
+	var tv := UI.vbox(0)
+	tv.alignment = BoxContainer.ALIGNMENT_CENTER
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tv.add_child(cap)
+	tv.add_child(ic)
+	tv.add_child(nl)
+	tag.add_child(tv)
+	tag.custom_minimum_size.x = 60
+	var h := UI.hbox(8)
+	h.add_child(tag)
+	h.add_child(dv)
+	outer.add_child(h)
+	return outer
 
 
 ## 효과 · 수치 표 상자 (11/3 사용자: '효과, 수치' 식으로 이쁘게) —— 머리줄(이름 · 부제) 아래 두 칸 표.
@@ -2928,9 +2999,15 @@ func _dev_args() -> void:
 			if not fa.is_empty() and not fb.is_empty():
 				fb.sort_custom(func(x, y): return x.pos.distance_to(fa[0].pos) < y.pos.distance_to(fa[0].pos))      # 실제 고유기처럼 가까운 적
 				_battle.field.ult.play(str(a.gultfx), fa[0].key, fb.slice(0, 3).map(func(q): return q.key), fa.map(func(q): return q.key), 0.4)
-		if a.has("gunit"):      # 점검용 —— --gunit=A0 : 3초 뒤 전투장수창
+		if a.has("gunit"):      # 점검용 —— --gunit=A0 : 3초 뒤 전투장수창 (ult 면 고유기가 있는 아군 첫 부대)
 			await get_tree().create_timer(3.0).timeout
-			battle_unit_sheet(str(a.gunit))
+			var uk := str(a.gunit)
+			if uk == "ult":
+				for q in _battle.field.order:
+					if q.camp == "A" and DB.C.has(q.cid) and (DB.C[q.cid].tier >= 6 or DB.is_kiin(q.cid)):      # 기인은 전설 등급 값이지만 고유기가 있다
+						uk = q.key
+						break
+			battle_unit_sheet(uk)
 		if a.has("gcam"):       # 점검용 카메라 —— 거리:높이각
 			var cv: PackedStringArray = str(a.gcam).split(":")
 			await get_tree().create_timer(4.0).timeout

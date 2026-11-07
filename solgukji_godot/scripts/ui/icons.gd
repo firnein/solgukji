@@ -53,6 +53,26 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(-8, 0) * u, c + Vector2(-2, 6) * u, c + Vector2(9, -7) * u]), col, w * 1.2)
 		"up":        # 위로 (상위 조합 재료)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(-6, 3) * u, c + Vector2(0, -4) * u, c + Vector2(6, 3) * u]), col, w * 1.2)
+		# 11/7 고유기 기질 기호 (디테일창 · 전투장수창 · 보급 팝업의 기질 칸) —— 맹장 칼 · 수호 방패 · 저격 과녁 · 분노 불꽃 (지략은 두루마리 "news")
+		"blade":     # 칼 —— 날은 왼쪽 아래에서 오른쪽 위로, 코등이 · 자루
+			ci.draw_line(c + Vector2(-3, 3) * u, c + Vector2(8, -8) * u, col, w * 1.4)
+			ci.draw_line(c + Vector2(-7, -1) * u, c + Vector2(-1, 5) * u, col, w)
+			ci.draw_line(c + Vector2(-4, 4) * u, c + Vector2(-8, 8) * u, col, w * 1.2)
+		"shield":    # 방패 —— 위가 평평하고 아래가 뾰족한 모양, 가운데 세로줄
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-8, -7) * u, c + Vector2(8, -7) * u, c + Vector2(8, 0) * u, c + Vector2(0, 9) * u,
+				c + Vector2(-8, 0) * u, c + Vector2(-8, -7) * u]), col, w)
+			ci.draw_line(c + Vector2(0, -5) * u, c + Vector2(0, 6) * u, col, w * 0.8)
+		"target":    # 과녁 —— 큰 원 · 작은 원 · 십자
+			ci.draw_arc(c, 8 * u, 0, TAU, 20, col, w)
+			ci.draw_arc(c, 3.2 * u, 0, TAU, 12, col, w * 0.9)
+			ci.draw_line(c + Vector2(-10, 0) * u, c + Vector2(-5.5, 0) * u, col, w * 0.8)
+			ci.draw_line(c + Vector2(5.5, 0) * u, c + Vector2(10, 0) * u, col, w * 0.8)
+			ci.draw_line(c + Vector2(0, -10) * u, c + Vector2(0, -5.5) * u, col, w * 0.8)
+			ci.draw_line(c + Vector2(0, 5.5) * u, c + Vector2(0, 10) * u, col, w * 0.8)
+		"flame":     # 불꽃 —— 바깥 불길 한 줄, 안쪽 작은 불길
+			ci.draw_polyline(PackedVector2Array([c + Vector2(0, -9) * u, c + Vector2(5, -3) * u, c + Vector2(7, 3) * u, c + Vector2(4, 8) * u,
+				c + Vector2(0, 9) * u, c + Vector2(-4, 8) * u, c + Vector2(-7, 3) * u, c + Vector2(-5, -3) * u, c + Vector2(-2, -1) * u, c + Vector2(0, -9) * u]), col, w)
+			ci.draw_arc(c + Vector2(0, 4) * u, 3 * u, PI * 0.1, PI * 0.9, 8, col, w * 0.8)
 
 
 ## 기호 하나짜리 컨트롤 —— 버튼·칩 안에 넣는다
