@@ -94,7 +94,13 @@ const CHARGE_RUN := 120.0
 static var near_mul := 1.5         # 맞닿아 친 물리 피해 배율 (삼국지11 —— 근접이 세다)
 static var far_mul := 0.85          # 떨어진 곳(활 · 책략)에서 친 피해 배율 —— 근접은 맞닿아야만 쳐서 덜 치므로 맞춘다
 const AREA := 95.0            # 둘레 범위 (front3 · denseLine)
-const ALL_R := 320.0          # '적 전체' 기술이 닿는 거리 (고유기는 전장 전체)
+const ALL_R := 320.0          # '적 전체' 기술이 닿는 거리 (고유기는 아래 ult_all_r)
+## 11/7 고유기 밸런스 2차 (사용자: "고유기가 거의 모든 범위에 효과가 있다") —— 고유기의 '적 전체'(all)는 전장 전체가 아니라
+## 노리는 적(맞붙은 적 · 없으면 가장 가까운 적) 둘레 반지름 ult_all_r 안의 적. 가장자리가 원에 걸치면 맞는다. 0 이면 예전처럼 전장 전체
+## 측정(같은 등급 30판, 반지름은 노리는 적 한가운데에서 발자국 가장자리까지): 신화 '적 전체' 고유기 번당 맞는 부대 5.7~6.2 → 3.3~3.6 (300 이면 2.4~2.9 · 220 이면 1.9 로 너무 좁다),
+## 신화 고유기 한 번 평균 증발 12.0 → 9.9% (한 방 상한과 함께)
+static var ult_all_r := 380.0
+static var ult_all_n := 0     # 그 가운데 가까운 순으로 최대 이만큼 (0 이면 제한 없음)
 const LINE_W := 45.0          # 줄 범위의 반폭
 const SIDE := 0.15            # 옆에서 친 피해 +
 const REAR := 0.30            # 뒤에서 친 피해 +
@@ -277,11 +283,11 @@ func can_ult(u: Unit) -> bool:
 	return ok
 
 
-## 11/7 재사용 체감 —— 다음 발동은 (장수 대기 × 기질 배율) × reult_wait 초가 지나야
+## 11/7 재사용 체감 —— 다음 발동은 (장수 대기 × 기질 배율) × reult_wait 초가 지나야 (11/7 2차: 수호 · 분노는 reult_temper 배율)
 func _reult_ok(u: Unit) -> bool:
 	if u.ult_n == 0:
 		return true
-	return _tm - u.ult_tm >= float(u.ult.get("wait", 14.0)) * _tw(u, "wait") * reult_wait
+	return _tm - u.ult_tm >= float(u.ult.get("wait", 14.0)) * _tw(u, "wait") * float(reult_temper.get(u.temper, reult_wait))
 
 
 ## 11/7 기질 조건 —— 실시간: TEMPER_FREE 초가 지나면 풀린다 · 맞닿음은 발자국 틈 · 사거리 안의 약한 적
@@ -879,8 +885,10 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 			return s.slice(0, 3)
 		"all":
 			if _in_ult:
-				_mark(me, {"k": "circle", "x": roundi(_centroid(live).x), "y": roundi(_centroid(live).y), "r": 300})
-				return live
+				if ult_all_r <= 0.0 and ult_all_n <= 0:
+					_mark(me, {"k": "circle", "x": roundi(_centroid(live).x), "y": roundi(_centroid(live).y), "r": 300})
+					return live
+				return _ult_area(me, main, live)
 			return live.filter(func(o): return me.pos.distance_to(o.pos) <= ALL_R)
 		"denseLine":
 			var best: Array = [main]
@@ -914,6 +922,26 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 		_mark(me, {"k": "line", "x": roundi(me.pos.x), "y": roundi(me.pos.y), "x2": roundi(tip.x), "y2": roundi(tip.y), "w": LINE_W})
 		return s if not s.is_empty() else [main]
 	return [main]
+
+
+## 고유기 '적 전체' 범위 (11/7 2차) —— 노리는 적 둘레 반지름 ult_all_r 안 (발자국 가장자리가 걸치면), 가까운 순으로 ult_all_n 까지.
+## 기 모으기 예고(_interrupt_ult) · 실제 터짐 · 사람이 누른 고유기 모두 이 함수 —— 같은 규칙
+func _ult_area(me: Unit, main: Unit, live: Array) -> Array:
+	var c := main.pos
+	var s := live.filter(func(o):
+		if o == main or ult_all_r <= 0.0:
+			return true
+		var v: Vector2 = c - o.pos
+		return v.length() - _extent(o, v.normalized()) <= ult_all_r)
+	s.sort_custom(func(a, b): return a.pos.distance_squared_to(c) < b.pos.distance_squared_to(c))
+	if ult_all_n > 0 and s.size() > ult_all_n:
+		s = s.slice(0, ult_all_n)
+	var r := ult_all_r
+	if r <= 0.0:
+		for o in s:
+			r = maxf(r, o.pos.distance_to(c))
+	_mark(me, {"k": "circle", "x": roundi(c.x), "y": roundi(c.y), "r": roundi(r + 40.0)})
+	return s
 
 
 ## 기본 공격 —— 예전 규칙(궁병 · 도적 · 책략 유닛은 후열을 노린다)을 사거리 안에서: 닿는 적 가운데 적진 가장 깊은 적

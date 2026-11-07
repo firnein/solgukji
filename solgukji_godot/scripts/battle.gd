@@ -117,6 +117,18 @@ const ULT_CHARGES := {6: 3, 7: 3, 8: 3}   # 11/7 사용자: 한 전투에서 다
 ## 목표(사용자): 두 번째 발동은 가끔(장수 20~30%), 세 번째는 거의 없음, 전투 길이 35초 안팎. 사람이 누르는 can_ult 도 같은 규칙
 static var reult_decay := 0.7      # 11/7 측정: 2회 이상 발동 초월 9 · 불멸 4 · 신화 3%, 3회 0~1% —— 두 번째를 제 속도로 해도 같았다(전투 36~42초에 첫 발동 22~25초라 시간이 한계). 목표 20~30% 는 사용자 결정
 static var reult_wait := 0.5
+## 11/7 고유기 밸런스 2차 (사용자: "발동이 잦은 장수가 많다(주태 등) · 고유기 한 방으로 게임이 그냥 끝난다(신화 주유) · 거의 모든 범위에 효과가 있다")
+## 고유기 한 방 상한 —— 고유기 한 번이 한 부대에서 앗는 병력은 그 부대 최대 병력의 이 몫까지 (쓴 장수 등급별, 기인은 초월 값). 처형 · 화상 같은 지속 피해는 따로.
+## 높은 등급 고유기가 낮은 등급 부대(희귀 · 기인)를 한 번에 지우던 것 (리그전 덱: 한 부대 30% 넘게 7% · 50% 넘게 3% · 최대 100%)
+## 측정(리그전 덱 40판): 한 부대 30% 넘게 7 → 2% · 50% 넘게 3 → 0% · 최대 100 → 30% · 고유기 한 번에 무너진 부대 0.22 → 0.12. 같은 등급끼리는 거의 걸리지 않는다(30% 넘는 피해 0~2%)
+static var ult_cap := {6: 0.25, 7: 0.25, 8: 0.3}
+## 기질별 재발동 대기 배율 —— 없으면 reult_wait. 수호 · 분노는 아군이 다칠수록 기가 차서 늘 먼저 차 있고, 같은 진영 고유기 순번(먼저 찬 장수부터)만 기다리다
+## 판 후반에 거듭 터졌다 (기준 60판: 주태(초월) 보유 부대당 1.27번 · 2회 이상 36%, 하후돈 · 마초 · 장비(불멸) 0.96~1.22번 —— 등급 평균 0.65 · 0.53).
+## 재사용 감쇠를 0.55 로 낮추거나 쓴 뒤 아군 피해로 받는 기를 절반으로 해도 주태는 그대로였다(1.26번 · 31%) —— 기가 아니라 시간으로 막는다
+## 측정(30판 짝 비교): 수호 ×2.5 · 분노 ×2.0 —— 주태 1.26 → 1.08번 · 2회 이상 31 → 13% · 재발동 간격 24 → 35초, 하후돈 2회 이상 18 → 5%. 다른 기질 · 등급 평균은 그대로
+static var reult_temper := {"수호": 2.5, "분노": 2.0}
+var _ult_by: Unit = null       # 지금 고유기를 쓰는 장수 (상한 등급)
+var _ult_taken := {}           # 이번 고유기에 부대마다 잃은 병력 (상한용)
 const SK_BANK := 2.0       # 일반 기술 충전 상한 —— 조건이 안 맞는 동안 두 번까지 모아 둔다
 const ULT_SIDE_GAP := 4       # 같은 진영 고유기 사이 최소 행동 수
 const PTS_EVERY := 6          # 행동 6번마다 군령 포인트 1
@@ -933,6 +945,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
 	dmg *= _role_mul(a, d, true)
 	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.troop * pace * _one))))
+	if _in_ult and _ult_by != null and not ult_cap.is_empty():
+		loss = _ult_clamp(d, loss)
 	if tag_roles and a.c.tag == "도적" and not a.countering:      # 도적 —— 맞힌 적의 고유기 게이지 · 기술 충전을 깎는다
 		d.gauge = maxf(0.0, d.gauge - ROLE.rogue_gauge)
 		if not d.sk_ch.is_empty():
@@ -2243,6 +2257,8 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 			if o.alive and o.camp == u.camp:
 				_rally(o, cheer, "고무")
 	_in_ult = true
+	_ult_by = u
+	_ult_taken = {}
 	_one = turn_mul
 	_long = turn_mul
 	var ss := _kv(_foe(u.camp), "ult_block")      # 의성 서성 —— 적의 첫 고유기 한 번은 피해가 없다
@@ -2293,6 +2309,7 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 					if comp.has("status"):
 						inflict(u, t, comp.status.k, comp.status.val, int(comp.status.dur))
 	_in_ult = false
+	_ult_by = null
 	_ult_null = false
 	_one = 1.0
 	_long = 1.0
@@ -2708,6 +2725,20 @@ func _gain(u: Unit, v: float) -> void:
 	if v <= 0.0:
 		return
 	u.gauge = minf(100.0, u.gauge + v * (pow(reult_decay, u.ult_n) if u.ult_n > 0 else 1.0))      # n번 쓴 장수는 reult_decay^n 배로 (쓸수록 어렵게)
+
+
+## 고유기 한 방 상한 (11/7 2차) —— 이번 고유기에 이 부대가 잃는 병력은 최대 병력 × ult_cap[쓴 장수 등급] 까지.
+## 사람이 누른 고유기 · AI 고유기 모두 _do_ult 를 지나므로 같다. 고유기 중 받은 반격(쓴 장수가 잃는 병력)에도 같은 상한
+func _ult_clamp(d: Unit, loss: float) -> float:
+	var cap := float(ult_cap.get(clampi(int(_ult_by.c.tier), 6, 8), 0.0))
+	if cap <= 0.0:
+		return loss
+	var got: float = _ult_taken.get(d, 0.0)
+	var out := clampf(cap * d.max - got, 0.0, loss)
+	_ult_taken[d] = got + out
+	if out < loss:
+		stats["ult_capped"] = int(stats.get("ult_capped", 0)) + 1
+	return out
 
 
 ## 다시 쓸 수 있는가 —— 턴 엔진: 쓴 지 3턴 (RtBattle 은 대기 시간 × reult_wait 초로 덮어쓴다)
