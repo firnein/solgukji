@@ -68,7 +68,17 @@ func setup() -> void:
 	for sq: Squad in field.order:
 		ys += sq.pos.y
 	_mid_y = ys / maxf(1.0, field.order.size())
+	var men := 0
+	for sq: Squad in field.order:
+		men += sq.soldiers.size()
+	_lv_floor = _floor_for(men)
+	load_lv = _lv_floor      # 지난 전투의 단계를 이어 쓰지 않는다 (작은 전투가 큰 전투 단계로 시작했다)
+	_ft = 1.0 / 60.0
+	_lv_hold = 2.0           # 처음 2초는 셰이더 · 노드 준비로 튀므로 보지 않는다
+	_down_hold = 4.0
 	_roll_ground()
+	var gm0: ShaderMaterial = _ground.material
+	gm0.set_shader_parameter("detail", 0.0 if _lv_floor >= 3 else 1.0)      # 대군이면 바닥 잡음을 2옥타브로 (전투 내내 같아 깜빡이지 않는다)
 	_reset_feel()
 	_setup_tac()
 	_build_gpu()
@@ -108,26 +118,87 @@ func _fit(now := false) -> void:
 		_center = _want_center
 
 
-## 부하 조절 (11/6 목표) —— 실제 프레임 시간을 지켜보다 무거우면 단계를 올린다. 병사 수는 줄이지 않는다.
-## 0 그대로 · 1 전선 먼지 · 이동 먼지 · 불티를 줄이고 바닥 층을 3프레임마다 · 2 + 2D 연출 상한 낮춤 · HUD 를 30Hz 로
+## 부하 조절 (11/6 목표 · 11/7 병사 수 기준 추가) —— 실제 프레임 시간을 지켜보다 무거우면 단계를 올리고, 병사가 많은 전투는 처음부터
+## 올린 단계로 시작한다(바닥 단계). 계산 · 판정 병사 수는 줄이지 않는다 (settings.gd 11/6 원칙) —— 그리는 인스턴스 · 부수 연출만 줄인다.
+## 0 그대로 · 1 전선 먼지 · 이동 먼지 · 불티를 줄이고 바닥 층을 3프레임마다 · 2 + 2D 연출 상한 낮춤 · HUD 를 30Hz 로(battle_view) · 화살 · 부적 연출 끔
+## 3 + 겹쳐 보이는 부대(화면 병사 간격 < LOD_PX)의 안쪽 병사를 2명당 1명만 그린다(셰이더 lod 1) · GPU 병사 동작 30Hz(War3D._gpu_sync 를
+##     두 프레임에 한 번) · 군기 하나씩 · 바닥 층 4프레임마다 · 연출 층 30Hz
+## 4 + 모든 부대의 안쪽 병사 2명당 1명(lod 2)
+## 바닥 단계 (병사 수, LOD_MEN): PC 8,000 → 3 · 12,000 → 4, 휴대폰은 더 일찍 6,000 → 3 · 9,000 → 4. 프레임 시간이 무거우면 그 위로 더 올라간다.
+## 바닥 단계 3 이상이면 바닥 잡음도 2옥타브 (setup), 3D 전장이면 병사 그림자를 끈다 (War3D._gpu_build)
+const LOD_MEN := [[8000, 12000], [6000, 9000]]     # [PC, 휴대폰] × [3단계, 4단계] 문턱 (전투의 병사 수)
+const LOD_PX := 4.0                                 # 화면에서 병사 간격이 이 px 보다 좁으면 '겹친 부대'
+const LV_MAX := 4
+const LV_UP := [1.0 / 40.0, 1.0 / 52.0]            # [PC, 휴대폰] 프레임 시간이 이보다 길면 한 단계 올린다 (휴대폰은 60fps 를 지키려 일찍)
+const LV_DOWN := 1.0 / 57.0                         # 이보다 짧으면 한 단계 내린다 (바닥 단계까지)
 var load_lv := 0
+var _lv_floor := 0             # 이 전투의 바닥 단계 (병사 수로 setup 이 정한다)
 var _ft := 1.0 / 60.0
 var _lv_hold := 0.0
+var _down_hold := 4.0          # 내린 뒤 곧 다시 올리면(오르내림 반복) 다음 내리기를 두 배씩 늦춘다 (최대 30초)
+var _down_at := -99.0
 var drawn_figs := 0            # 지난 프레임에 그린 인형 수 (묶음 × PACK) —— 성능 표시용
+var gpu_shown := 0             # 지난 프레임에 그린 GPU 병사 인스턴스 수 (LOD 로 줄인 뒤) —— 성능 표시 · 점검용
+static var force_lv := -1      # 점검용 (tests/perf_probe --lv=N) —— 부하 조절 단계를 고정한다 (-1 이면 자동)
+static var lod_on := true      # 점검용 (--lod=0) —— 병사 수 LOD 끔 (전후 비교)
+static var mobile_test := false     # 점검용 (--mobile=1) —— PC 에서 휴대폰 문턱으로
+
+
+static func _mobile() -> bool:
+	return mobile_test or OS.has_feature("mobile")
+
+
+## 병사 수로 바닥 단계를 정한다 (setup)
+func _floor_for(men: int) -> int:
+	var th: Array = LOD_MEN[1 if _mobile() else 0]
+	if men >= int(th[1]):
+		return 4
+	if men >= int(th[0]):
+		return 3
+	return 0
 
 
 func _load_step(dt: float) -> void:
 	var real := Performance.get_monitor(Performance.TIME_PROCESS)
-	_ft = lerpf(_ft, maxf(dt, real), 0.05)
+	_ft = lerpf(_ft, minf(maxf(dt, real), 1.0 / 15.0), 0.05)      # 한 프레임 튐(셰이더 준비 · 고유기 컷인)이 단계를 끌어올리지 않게 상한
+	if force_lv >= 0:
+		load_lv = force_lv
+		return
 	_lv_hold -= dt
 	if _lv_hold > 0.0:
 		return
-	if _ft > 1.0 / 40.0 and load_lv < 2:
+	var now := Time.get_ticks_msec() / 1000.0
+	if _ft > float(LV_UP[1 if _mobile() else 0]) and load_lv < LV_MAX:
 		load_lv += 1
 		_lv_hold = 2.0
-	elif _ft < 1.0 / 57.0 and load_lv > 0:
+		if now - _down_at < 6.0:      # 방금 내렸다가 다시 올린다 —— 다음 내리기를 늦춘다 (먼지 · HUD 가 몇 초마다 켜졌다 꺼지지 않게)
+			_down_hold = minf(_down_hold * 2.0, 30.0)
+	elif _ft < LV_DOWN and load_lv > _lv_floor:
 		load_lv -= 1
-		_lv_hold = 4.0
+		_lv_hold = _down_hold
+		_down_at = now
+
+
+## 셰이더 LOD 단계 (0 · 1 · 2) —— 부하 단계 3 → 1, 4 → 2
+func _lod() -> int:
+	if not lod_on:
+		return 0
+	return 2 if load_lv >= 4 else (1 if load_lv >= 3 else 0)
+
+
+## 이 부대가 LOD 로 솎아지는가 (셰이더와 같은 기준)
+func _thinned(sq: Squad) -> bool:
+	var l := _lod()
+	return l >= 2 or (l >= 1 and sq.sp * _scale < LOD_PX)
+
+
+## 이 부대에서 그려지는 GPU 병사 수 (성능 표시 '보이는' —— 셰이더처럼 앞 두 줄 · 맨 뒷줄 · 양 끝 열을 뺀 안쪽의 반을 뺀다, 근사)
+func _shown_of(sq: Squad) -> int:
+	if not _thinned(sq):
+		return sq._alive
+	var rows := sq.ranks()
+	var inner := float(maxi(0, sq.cols - 2) * maxi(0, rows - 3)) / maxf(1.0, float(sq.cols * rows))
+	return sq._alive - int(sq._alive * inner * 0.5)
 
 
 func _process(dt: float) -> void:
@@ -144,6 +215,8 @@ func _process(dt: float) -> void:
 		gm.set_shader_parameter("scl", _scale)
 		gm.set_shader_parameter("vsize", size)
 		gm.set_shader_parameter("fig", FIG * clampf(_scale * 1.15, FIG_MIN, 1.8) * GPU_FIG)
+		gm.set_shader_parameter("lod", float(_lod()))
+		gm.set_shader_parameter("lod_px", LOD_PX)
 		gm.set_shader_parameter("scatter", scatter)
 	var mat: ShaderMaterial = _ground.material
 	mat.set_shader_parameter("center", _center + _jit)
@@ -154,9 +227,9 @@ func _process(dt: float) -> void:
 	mat.set_shader_parameter("hex", HEX)
 	mat.set_shader_parameter("camp_a", _camp_x("A"))
 	mat.set_shader_parameter("camp_b", _camp_x("B"))
-	if Engine.get_process_frames() % (2 if load_lv == 0 else 3) == 1:
-		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다 (무거우면 3프레임마다)
-	if _fx_layer and (not _fx.is_empty() or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다
+	if Engine.get_process_frames() % (2 if load_lv == 0 else (3 if load_lv < 3 else 4)) == 1:
+		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다 (무거우면 3 · 4프레임마다)
+	if _fx_layer and ((not _fx.is_empty() and load_lv < 3) or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다 (3단계부터 연출도 30Hz)
 		_fx_layer.queue_redraw()
 		if _fx_add:
 			_fx_add.queue_redraw()
@@ -256,8 +329,8 @@ func _draw_dots() -> void:
 		if gpu_on:
 			figs_cpu = ([sq.general] if sq.general else []) + _dying.get(sq.key, [])
 		for s in figs_cpu:
-			if gpu_on and s.alive and s != sq.general:
-				continue      # GPU 병사 —— 셰이더가 그린다
+			if gpu_on and (s.alive or s.gdie) and s != sq.general:
+				continue      # GPU 병사 —— 셰이더가 그린다 (11/7 쓰러지는 병사도. 날아가는 병사만 여기서)
 			var rot := 0.0
 			var c := base_c
 			if not s.alive:
@@ -351,6 +424,13 @@ func _draw_dots() -> void:
 	mm.buffer = _buf
 	mm.visible_instance_count = i
 	drawn_figs = i
+	if gpu_on:      # 보이는 GPU 병사 수 (LOD 로 솎은 부대는 그만큼 뺀다) —— 성능 표시 '보이는' 은 battle_view 가 gpu_count 를 읽는다
+		var shown := 0
+		for sq: Squad in field.order:
+			if sq.state != "gone":
+				shown += _shown_of(sq)
+		gpu_shown = shown
+		gpu_count = maxi(1, shown)
 
 
 ## 바닥은 셰이더(_ground), 부대 바닥 · 상태는 Under 층이 그린다 (11/6 깃발 뺌 —— 사용자: 깃발 같은 건 빼고 넓게) —— 이 노드는 아무것도 그리지 않는다
@@ -722,8 +802,8 @@ func _make_fig() -> Texture2D:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_DRAW and _under:
-		_under.queue_redraw()      # 기술 범위가 떠 있으면 DotView 가 매 프레임 다시 그린다
+	if what == NOTIFICATION_DRAW and _under and (load_lv < 3 or Engine.get_process_frames() % 2 == 0):
+		_under.queue_redraw()      # 기술 범위가 떠 있으면 DotView 가 매 프레임 다시 그린다 (3단계부터 두 프레임에 한 번)
 
 
 # ───────── 2D 연출 (11/6 사용자: 타입2 면 번쩍이는 것들과 기존 연출을 손봐야) ─────────
@@ -1069,7 +1149,7 @@ func _draw_flags(ci: CanvasItem) -> void:
 			continue
 		var team := TEAM_A if sq.camp == "A" else TEAM_B
 		var fac_c: Color = DB.fac_color(sq.row.fac) if "fac" in sq.row else team
-		var n := 2 if sq.tier >= 5 else 1
+		var n := 2 if sq.tier >= 5 and load_lv < 3 else 1      # 부하 3단계부터 군기 하나씩 (그리기 호출을 줄인다)
 		for j in n:
 			var at: Vector2 = sq.pos - sq.fwd * (sq.hd() + 6.0) + sq.right() * ((j - (n - 1) * 0.5) * 14.0)
 			var base := map(at)
@@ -1080,7 +1160,8 @@ func _draw_flags(ci: CanvasItem) -> void:
 			var wave := sin(_t * 4.0 + sq.row.slot * 0.7 + j) * 2.5 * zs
 			var pts := PackedVector2Array([top, top + Vector2(w, 3.0 * zs + wave), top + Vector2(0, 9.0 * zs)])
 			ci.draw_colored_polygon(pts, Color(fac_c.lerp(team, 0.45), 0.95))
-			ci.draw_polyline(pts + PackedVector2Array([top]), Color(0, 0, 0, 0.35), 1.0)
+			if load_lv < 3:
+				ci.draw_polyline(pts + PackedVector2Array([top]), Color(0, 0, 0, 0.35), 1.0)
 
 
 func _draw_fx(ci: CanvasItem) -> void:
@@ -1509,7 +1590,8 @@ const GPU_FIG := 1.0            # GPU 병사 인형 크기 (장수 인형 대비
 const TAG_SIZE := {"기병": 1.35, "도적": 0.92}      # 병종 인형 크기 (기병은 말이 있어 크게)
 var _gmm: MultiMeshInstance2D = null
 var _gi := {}                   # Soldier -> 인스턴스 번호
-var gpu_count := 0
+var gpu_count := 0              # 보이는 GPU 병사 수 (LOD 뒤, _draw_dots 가 센다) —— battle_view 성능 표시가 읽는다
+var gpu_total := 0              # GPU 병사 인스턴스 수 (전투 전체)
 
 
 func _build_gpu() -> void:
@@ -1569,15 +1651,26 @@ func _build_gpu() -> void:
 	add_child(_gmm)
 	move_child(_gmm, _mm.get_index())      # 바닥 위 · 장수(CPU 인형) 아래
 	gpu_count = lst.size()
+	gpu_total = gpu_count
+	gpu_shown = gpu_count
 
 
 var _dying := {}                # 부대 key -> 쓰러지는 병사 (CPU 가 눕히며 그린다, 2초 뒤 빠진다)
 
 
 func gpu_moved(sd, row: int, slot: float, seed: float, mt: float) -> void:
+	# 11/7 쓰러지는 병사는 셰이더가 그 자리(sd.pos)에서 눕힌다 —— r = -(줄 + 1), g = (x+1500)·3000 + (y+1500), a = 쓰러지는 시각.
+	# 고유기에 날아가는 병사(air · kb)는 CPU 가 그린다 (War3D.blast · launch 가 moved_figs 에 다시 넣는다)
+	var gdie: bool = not sd.alive and sd.die_t >= 0.0 and sd.air <= 0.0 and sd.vy <= 0.0 and sd.kb == Vector2.ZERO
 	if _gmm != null and _gi.has(sd):
-		_gmm.multimesh.set_instance_custom_data(_gi[sd], Color(row, slot, seed, mt))
-	if not sd.alive and row < field.order.size():
+		if gdie:
+			var xi := clampf(floor(sd.pos.x + 1500.0), 0.0, 2999.0)
+			var yi := clampf(floor(sd.pos.y + 1500.0), 0.0, 2999.0)
+			_gmm.multimesh.set_instance_custom_data(_gi[sd], Color(-(row + 1.0), xi * 3000.0 + yi, seed, sd.die_t))
+		else:
+			_gmm.multimesh.set_instance_custom_data(_gi[sd], Color(row, slot, seed, mt))
+	sd.gdie = gdie
+	if not sd.alive and not gdie and row < field.order.size():
 		var k: String = field.order[row].key
 		if not _dying.has(k):
 			_dying[k] = []

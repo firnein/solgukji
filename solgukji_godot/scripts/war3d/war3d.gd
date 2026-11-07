@@ -84,6 +84,7 @@ var _bufs := {}             # MultiMesh -> 인스턴스 버퍼 (변환 12 + 사�
 ## CPU 는 장수 · 쓰러지는 병사만 그린다. 점묘 · 타입2 전장(2D)은 병사 위치가 필요해 예전 방식
 static var gpu_mode := true
 static var gpu_mul_t2 := 0.0     # 점검용 —— 탑뷰 병사 배율 강제 (--gmul=2)
+var _gs_dt := 0.0                # 11/7 _gpu_sync 를 건너뛴 프레임의 시간 (부하 3단계 30Hz)
 var _gpu := false
 var gpu_mmi := []           # GPU 병사 MultiMeshInstance3D (몸 · 무기)
 var _sq_img: Image
@@ -876,10 +877,21 @@ func _gpu_build() -> void:
 		mi.material_override = mat
 		mi.layers = 2
 		mi.custom_aabb = big
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if weapon else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		# 11/7 부하: 병사가 많으면(Type2View.LOD_MEN 의 첫 문턱 —— PC 8,000 · 휴대폰 6,000) 3D 병사 그림자를 끈다 (병사 수는 그대로)
+		var many: bool = _gpu_men_total() >= int(Type2View.LOD_MEN[1 if Type2View._mobile() else 0][0])
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if (weapon or many) else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		unit_root.add_child(mi)
 		gpu_mmi.append(mi)
+	_gs_dt = 0.0
 	_gpu_sync(0.0)
+
+
+## 전투의 병사 수 (장수 제외) —— 부하 조절 문턱용
+func _gpu_men_total() -> int:
+	var n := 0
+	for sq in order:
+		n += sq.soldiers.size()
+	return n
 
 
 ## 병사 자리 값 —— 숨김 −1, 아니면 지금 자리 + (전 자리 + 1) × 1024 (걸어 나오는 중이면 셰이더가 둘 사이를 잇는다)
@@ -1033,11 +1045,12 @@ func _gpu_sync(dt: float) -> void:
 		_sq_img.set_pixel(6, row, Color(sq.gpos_slow.x, sq.gpos_slow.y, sq.gfwd_slow.x, sq.gfwd_slow.y))
 		_sq_img.set_pixel(7, row, Color(sq.gsq.x, sq.gsq.y, CLS_HUE.get(sq.cls, 0.0), sq.move_s))
 		var fr = _front_of(sq)
+		var gone_f := 1.0 if gone else 0.0      # 9.w = 부대가 사라졌다 (타입2 셰이더가 쓰러지는 병사까지 함께 지운다, 11/7)
 		if fr != null:
 			_sq_img.set_pixel(8, row, Color(fr[0].x, fr[0].y, fr[1].x, fr[1].y))
-			_sq_img.set_pixel(9, row, Color(1.0, FRONT_MIX * sq.sp, sq.spr, 0.0))
+			_sq_img.set_pixel(9, row, Color(1.0, FRONT_MIX * sq.sp, sq.spr, gone_f))
 		else:
-			_sq_img.set_pixel(9, row, Color(0.0, 0.0, sq.spr, 0.0))      # z = 줄 간격 (11/7 강체 —— 가로 간격 sp 와 따로)
+			_sq_img.set_pixel(9, row, Color(0.0, 0.0, sq.spr, gone_f))      # z = 줄 간격 (11/7 강체 —— 가로 간격 sp 와 따로)
 	_sq_tex.update(_sq_img)
 
 
@@ -1344,7 +1357,13 @@ func step(dt: float) -> void:
 	cfx.step()
 	t = pt("효과갱신", t)
 	if _gpu:
-		_gpu_sync(dt)
+		# 11/7 타입2 부하 3단계부터 GPU 병사 동작을 30Hz 로 —— 부대 값 줄(squad_tex)을 두 프레임에 한 번 올린다 (사이 시간은 모아 넘긴다).
+		# 셰이더 시계(5.z)도 이 줄에 있어 걸음 · 찌르기가 30Hz 로 움직인다. 병사 수 · 판정은 그대로
+		_gs_dt += dt
+		var t2v := flat as Type2View
+		if t2v == null or t2v.load_lv < 3 or Engine.get_process_frames() % 2 == 0:
+			_gpu_sync(_gs_dt)
+			_gs_dt = 0.0
 	if flat == null:
 		_sync()              # 점묘 전장이면 3D 병사 인스턴스를 맞출 필요가 없다
 	pt("동기화", t)
@@ -1503,6 +1522,8 @@ func blast(key: String, from_key: String, power: float) -> void:
 		s.fall = 1.0 if rng.randf() < 0.5 else -1.0
 		s.die_t = clock                # 날아가며 바로 쓰러진다
 		_flyers.append(s)
+		if _gpu:
+			sq.moved_figs.append(s)      # 11/7 타입2는 쓰러지는 병사를 GPU 가 그린다 —— 날아가는 병사는 CPU 로 되돌린다 (Type2View.gpu_moved)
 		n += 1
 	if n >= 3:
 		shake = maxf(shake, clampf(0.08 * n / 10.0, 0.05, 0.4) * power)
@@ -1534,6 +1555,8 @@ func launch(key: String, center: Vector2, radius: float, power: float) -> void:
 		s.kb = (d / maxf(l, 0.1)).rotated(rng.randf_range(-0.5, 0.5)) * (40.0 + 140.0 * f)
 		s.hit_t = clock
 		_flyers.append(s)
+		if _gpu:
+			sq.moved_figs.append(s)      # 11/7 날아가는 병사는 CPU 가 그린다 (타입2 GPU 쓰러짐에서 뺀다)
 		s.fall = 1.0 if rng.randf() < 0.5 else -1.0
 
 
