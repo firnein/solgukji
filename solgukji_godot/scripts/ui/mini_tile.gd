@@ -49,7 +49,7 @@ func set_pin(s: bool, r: bool) -> void:
 
 ## 갈무리 덧칸 —— 타일 위에 얹혀 ★ 과 테두리를 도는 빛만 그린다. 많은 칸에 얹혀도 가볍게: 점 29개짜리 색 선 하나 + 별 하나
 class PinFx extends Control:
-	const SPEED := 2.4          # 초당 라디안 —— 한 바퀴 2.6초
+	const SPEED := 1.2          # 초당 라디안 —— 한 바퀴 약 5.2초 (11/8 사용자: 천천히)
 	const STAR_COL := Color("#FFD94A")
 	var star := true
 	var ring := true
