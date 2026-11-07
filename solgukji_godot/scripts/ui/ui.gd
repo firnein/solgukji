@@ -303,20 +303,26 @@ static func tier_mark(b: Control, t: int) -> void:
 
 static func tile_act(icon: String, title: String, sub: String, cb: Callable, kind := "", done := false, disabled := false) -> Button:
 	var P := DB.PAL
-	var b := btn("", cb, kind, 58 if sub != "" else 46)      # 11/2 사용자: 80 → 58, 설명 글이 없으면 46
+	var low := sub == ""      # 11/7 사용자: 설명 글이 없으면 기호 · 제목을 옆으로 나란히 한 줄 (징집 페이지 선택권 묶음이 세로로 너무 컸다 —— 46 → 34)
+	var b := btn("", cb, kind, 58 if not low else 34)      # 11/2 사용자: 80 → 58
 	b.disabled = disabled or done
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if done:
 		b.add_theme_stylebox_override("disabled", flat(Color(P.ink2, 0.6), P.ink3, 1, 10, 6))
-	var v := vbox(1)
+	var v: BoxContainer
+	if low:
+		v = hbox(3)
+	else:
+		v = vbox(1)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 4
+	v.offset_left = 6 if low else 4
 	v.offset_right = -4
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var a := 0.45 if b.disabled else 1.0
-	var ic := Icons.View.new("check" if done else icon, Color(P.jade if done else (P.gold if kind == "gold" else P.paper), a), 18)
+	var ic := Icons.View.new("check" if done else icon, Color(P.jade if done else (P.gold if kind == "gold" else P.paper), a), 16 if low else 18)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
 	for pair in [[title, 13, P.paper, true], [sub, 10, P.bamboo, false]]:
 		if pair[0] == "":
@@ -326,6 +332,10 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		l.clip_text = true
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if low:
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			l.size_flags_vertical = Control.SIZE_FILL
+			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		v.add_child(l)
 	b.add_child(v)
 	return b
