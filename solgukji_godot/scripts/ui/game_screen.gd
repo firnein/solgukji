@@ -20,8 +20,6 @@ const TAB_H := 62.0
 var run: Run
 var page := "draw"
 var forge_tag := ""
-var forge_tier := 0           # 조합 등급 거르기 (0 = 모두)
-var _forge_more := 0
 var _open := {}               # 접는 묶음 -> 펼침 여부
 var _scroll_keep := {}        # 페이지 -> 스크롤 위치
 
@@ -2282,7 +2280,7 @@ func _toggle(key: String, default := false) -> void:
 	render()
 
 
-const KIIN_T := 9      # 등급 거르기의 기인 칸
+const KIIN_T := 9      # 기인 칸 (계보 줄 —— 등급 수 바깥의 자리)
 
 ## 추천 목표 —— 점수는 Run.forge_goals (덱이 얻는 전력 − 모자란 재료를 구하는 수고 + 줄기 · 병종 맞춤, 11/5 사용자: 플레이에 도움이 되게)
 func _forge_goals(lst: Array) -> Array:
@@ -2343,65 +2341,85 @@ func _missing(out: String) -> Array:
 		miss.append(DB.IT[ni].name)
 	return miss
 
-func _tier_match(k: String, t: int) -> bool:
-	if t == 0:
-		return true
-	if t == KIIN_T:
-		return DB.is_kiin(k)
-	return DB.C[k].tier == t and not DB.is_kiin(k)
-
-
 func _page_forge() -> Control:
-	var v := UI.vbox(14)
+	var v := UI.vbox(12)
 	v.add_child(forge_tree.build())
-	# 거르기 —— 병종 · 등급을 기호 · 색 칸 한 줄씩 (11/2 사용자: 글씨를 줄여 공간 확보)
+	# 거르기 —— 병종을 기호 칸 한 줄 (11/2 사용자: 글씨를 줄여 공간 확보). 11/7 사용자: 등급 칸은 뺐다 —— 아래 등급 묶음이 그 몫을 한다
 	var row1 := HBoxContainer.new()
 	row1.add_theme_constant_override("separation", 4)
 	for t in [""] + DB.D.TAGORDER:
 		var n: int = DB.D.RECDEF.filter(func(r): return run.can_forge(r[0]) and (t == "" or DB.C[r[0]].tag == t)).size()
 		row1.add_child(_filter_chip("all" if t == "" else "", DB.ICON.get(t) if t != "" else null, str(n) if n > 0 else "", DB.PAL.paper, forge_tag == t, func():
 			forge_tag = t
-			_forge_more = 0
 			render()))
 	v.add_child(row1)
-	var row2 := HBoxContainer.new()
-	row2.add_theme_constant_override("separation", 4)
-	for t in [0, 3, 4, 5, KIIN_T, 6, 7, 8]:        # 11/3 일반 없음 · 기인(9)은 전설 옆
-		var tn: String = "all" if t == 0 else ("기" if t == KIIN_T else DB.TIER[t].n.left(1))
-		row2.add_child(_filter_chip(tn, null, "", DB.PAL.paper if t == 0 else (DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c), forge_tier == t, func():
-			forge_tier = t
-			_forge_more = 0
-			render()))
-	v.add_child(row2)
-	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
+	var lst: Array = DB.D.RECDEF.filter(func(r): return forge_tag == "" or DB.C[r[0]].tag == forge_tag)
+	# 11/7 사용자: 등급 묶음 —— 맨 위 한 줄 [신화 | 불멸], 그 아래 [초월 | 기인] 은 재료가 아닌 '완성된 장수' 라 접을 수 있고(_open.forge_fold),
+	#   그 아래 전설은 별도 공간에 모두 펼친다. 목표: 전설 · 희귀 재료로 어떤 상위패를 노릴 수 있는지 빠르게 인지.
+	#   묶음마다 그 등급의 조합법(결과 카드)을 가까운 순(모자란 장수 적은 것 먼저)으로
+	var by := {}      # 등급(3~8 · "기인") -> 결과 카드들
+	for r in lst:
+		var k: String = r[0]
+		var key = "기인" if DB.is_kiin(k) else int(DB.C[k].tier)
+		if not by.has(key):
+			by[key] = []
+		by[key].append(k)
+	for key in by:
+		by[key].sort_custom(func(x, y):
+			var a := run.miss_count(x)
+			var b2 := run.miss_count(y)
+			if a != b2:
+				return a < b2
+			return DB.C[x].name < DB.C[y].name)
+	var done_open: bool = not _open.get("forge_fold", false)      # 접은 상태를 _open.forge_fold 에 남긴다 (다시 그려도 유지 · 점검 --gopen=forge_fold)
+	var tg := UI.btn(("완성된 장수 접기 ▴" if done_open else "완성된 장수 펼치기 ▾") + "   신화 %d · 불멸 %d · 초월 %d · 기인 %d" % [
+		by.get(8, []).size(), by.get(7, []).size(), by.get(6, []).size(), by.get("기인", []).size()], func(): _toggle("forge_fold"), "ghost", 32)
+	tg.add_theme_font_size_override("font_size", 13)
+	v.add_child(tg)
+	if done_open:
+		var r1 := UI.hbox(6)
+		r1.add_child(_forge_group("신화", DB.TIER[8].c, by.get(8, []), Vector2(70, 98), true))      # 칸 폭 64 = 칭호 붙은 이름(경국지색 소교)이 한 줄에 들어가는 최소, 신화는 조금 더
+		r1.add_child(_forge_group("불멸", DB.TIER[7].c, by.get(7, []), Vector2(64, 88), false))
+		v.add_child(r1)
+		var r2 := UI.hbox(6)
+		r2.add_child(_forge_group("초월", DB.TIER[6].c, by.get(6, []), Vector2(64, 88), false))
+		r2.add_child(_forge_group("기인", DB.KIIN_COL, by.get("기인", []), Vector2(64, 88), false))
+		v.add_child(r2)
+	# 전설 —— 별도 공간, 접지 않고 모두 (6열)
+	var leg: Array = by.get(5, [])
+	var lsec := UI.vbox(6)
+	var leg_ok: int = leg.filter(func(k): return run.can_forge(k)).size()
+	lsec.add_child(UI.head("전설 %d" % leg.size(), ("지금 조합 가능 %d" % leg_ok) if leg_ok > 0 else ""))
+	if leg.is_empty():
+		lsec.add_child(UI.hint("이 병종의 전설 조합법이 없다."))
+	else:
+		lsec.add_child(_forge_grid(leg, 80.0))
+	v.add_child(lsec)
 	# 11/3 추천 목표 —— 조합식이 170개가 넘어 무엇을 노릴지 고르기 어렵다: 재료가 1~2장 모자란 것 가운데 높은 등급 · 가진 재료가 많은 것 4개 (인물 하나씩)
 	# 11/6 사용자 #8 "추천 목표가 안 나오는 경우가 많다": 필터를 거친 목록만 넘겨 비었다 → 전체로 계산하고 필터에 걸린 것은 수만 알린다
 	var rec_all := _forge_goals(DB.D.RECDEF)
-	var rec: Array = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
+	var rec: Array = rec_all.filter(func(o): return forge_tag == "" or DB.C[o].tag == forge_tag)
 	var hidden_n := rec_all.size() - rec.size()
 	var far_goal := false
 	if rec_all.is_empty():      # 수고 한도 안에 아무것도 없다 —— 가장 가까운 목표 하나는 보인다
 		rec_all = run.forge_goals(DB.D.RECDEF.map(func(r): return r[0]), 1, 1e9)
-		rec = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
+		rec = rec_all.filter(func(o): return forge_tag == "" or DB.C[o].tag == forge_tag)
 		hidden_n = rec_all.size() - rec.size()
 		far_goal = not rec.is_empty()
 	if not rec.is_empty() or hidden_n > 0:
 		var gsec := UI.vbox(6)
-		gsec.add_child(UI.head("추천 목표" if not far_goal else "가장 가까운 목표", ("필터에 숨은 추천 %d" % hidden_n) if hidden_n > 0 else ""))
+		gsec.add_child(UI.head("추천 목표" if not far_goal else "가장 가까운 목표", ("거르기에 숨은 추천 %d" % hidden_n) if hidden_n > 0 else ""))
 		var gs_ := UI.strip(8)
 		for out in rec:
-			var gv := UI.vbox(3)
-			gv.custom_minimum_size = Vector2(86, 0)
 			var gt := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-			gt.custom_minimum_size = Vector2(86, 112)
+			gt.custom_minimum_size = Vector2(72, 96)      # 11/7 카드 축소 (86×112 → 72×96)
 			gt.badge = "-%d" % run.miss_count(out) if run.miss_count(out) > 0 else "조합"
 			gt.badge_col = Color(DB.PAL.seal, 0.9)
-			gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
-			gs_[1].add_child(gv)
+			gs_[1].add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
 		if not rec.is_empty():
 			gsec.add_child(gs_[0])
 		if rec.is_empty() and hidden_n > 0:
-			gsec.add_child(UI.hint("지금 필터(병종 · 등급)에 맞는 추천이 없습니다. 필터를 '모두'로 두면 %d개가 보입니다." % hidden_n))
+			gsec.add_child(UI.hint("지금 병종 거르기에 맞는 추천이 없습니다. '전체'로 두면 %d개가 보입니다." % hidden_n))
 		v.add_child(gsec)
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))
@@ -2411,43 +2429,67 @@ func _page_forge() -> Control:
 		sec.add_child(UI.head("지금 조합 가능 %d" % ready.size(), ""))
 		var rs := UI.strip(8)
 		for r in ready:
-			rs[1].add_child(recipe_card(r[0]))
+			rs[1].add_child(recipe_card(r[0], Vector2(72, 96)))      # 11/7 카드 축소
 		sec.add_child(rs[0])
 		v.add_child(sec)
-	# 나머지 —— 가까운 순 (모자란 장수 적은 것 먼저, 같으면 높은 등급)
-	lst = lst.filter(func(r): return not run.can_forge(r[0]) and not rec.has(r[0]))
-	lst.sort_custom(func(x, y):
-		var a := run.miss_count(x[0])
-		var b2 := run.miss_count(y[0])
-		if a != b2:
-			return a < b2
-		return DB.C[x[0]].tier > DB.C[y[0]].tier)
-	var show_n := 16 + _forge_more      # 11/3 처음엔 가까운 16개만 (나머지는 더 보기)
-	var g := minis()
-	for i in mini_n(show_n, lst.size()):
-		var out: String = lst[i][0]
-		var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-		var miss := run.miss_count(out)
-		t.lit = run.can_forge(out)
-		if t.lit:
-			t.badge = "조합"
-			t.badge_col = Color(DB.PAL.jade, 0.95)
-		elif miss > 0:
-			t.badge = "-%d" % miss
-			t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
-		else:
-			t.badge = "◆"
-			t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
-		g.add_child(t)
+	# 희귀 · 고급 —— 전설의 재료. 11/7 사용자: '더 보기' 없이 모두 펼친다 (가까운 순)
+	var low: Array = by.get(4, []) + by.get(3, []) + by.get(2, [])
 	var sec2 := UI.vbox(6)
-	sec2.add_child(UI.head(("나머지 %d" if not ready.is_empty() else "조합법 %d") % lst.size(), ""))
-	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
-	if lst.size() > show_n:
-		sec2.add_child(UI.btn("더 보기 (%d개 남음)" % (lst.size() - show_n), func():
-			_forge_more += 40
-			render(), "ghost", 46))
+	sec2.add_child(UI.head("희귀 · 고급 %d" % low.size(), ""))
+	if low.is_empty():
+		sec2.add_child(UI.hint("이 조건의 조합법이 없다."))
+	else:
+		sec2.add_child(_forge_grid(low, 80.0))
 	v.add_child(sec2)
 	return v
+
+
+## 등급 묶음 한 칸 (11/7) —— 머리줄(등급 이름 · 수 · 지금 조합 가능 수) + 가로로 넘기는 띠. 신화는 금테 · 조금 큰 칸 · 조금 넓게
+func _forge_group(name: String, col: Color, ks: Array, sz: Vector2, gold: bool) -> Control:
+	var pc := PanelContainer.new()
+	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pc.size_flags_stretch_ratio = 1.08 if gold else 1.0
+	pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(DB.PAL.gold, 0.85) if gold else Color(col, 0.5), 2 if gold else 1, 8, 6))
+	var v := UI.vbox(4)
+	var ready: int = ks.filter(func(k): return run.can_forge(k)).size()
+	v.add_child(UI.rich("[b][color=%s]%s[/color][/b] [color=#8D7B5C]%d[/color]%s" % [col.to_html(false), name, ks.size(),
+		("   [color=#8fd4c2]조합 %d[/color]" % ready) if ready > 0 else ""], 12))
+	if ks.is_empty():
+		v.add_child(UI.hint("없음"))
+	else:
+		var st := UI.strip(4)
+		for k in ks:
+			st[1].add_child(_forge_tile(k, sz))
+		v.add_child(st[0])
+	pc.add_child(v)
+	return pc
+
+
+## 조합법 결과 카드 격자 (11/7) —— 6열 · 낮은 칸, 모두 펼친다
+func _forge_grid(ks: Array, h: float) -> AutoGrid:
+	var g := UI.grid(56, 4)
+	g.max_cols = 6
+	for k in ks:
+		g.add_child(_forge_tile(k, Vector2(30, h)))
+	return g
+
+
+## 조합법 결과 카드 한 장 —— 금테(지금 조합 가능) · 왼쪽 아래 배지(조합 · -모자란 수 · ◆ 아이템 필요). 누르면 조합 시트
+func _forge_tile(out: String, sz: Vector2) -> MiniTile:
+	var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
+	t.custom_minimum_size = sz
+	var miss := run.miss_count(out)
+	t.lit = run.can_forge(out)
+	if t.lit:
+		t.badge = "조합"
+		t.badge_col = Color(DB.PAL.jade, 0.95)
+	elif miss > 0:
+		t.badge = "-%d" % miss
+		t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
+	else:
+		t.badge = "◆"
+		t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
+	return t
 
 
 ## 거르기 칸 —— 글씨 대신 기호(병종) · 색(등급). 고르면 밝은 테두리, 오른쪽 위 작은 숫자 = 지금 조합 가능 수
