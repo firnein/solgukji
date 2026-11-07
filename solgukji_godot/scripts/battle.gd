@@ -65,7 +65,7 @@ static var myth_power := 1.15    # 신화 능력치 배율 (속도 제외) —�
 static var aura_enabled := true   # 위세 켜기 (비교용)
 static var aura_camp := ""        # 한쪽 진영만 위세 ("A" · "B", 비우면 양쪽) —— 점검용
 static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
-static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 · 현혹 —— 솔국지 확장)
+static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 —— 솔국지 확장)
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
 static var counter_charge := false   # 반격을 맞은 쪽도 고유기 게이지가 차는가 —— 차면 반격이 적 고유기를 앞당겨 철벽이 손해를 봤다(10/29 측정)
 static var scheme_enabled := true    # 계략 계열 켜기 (혼란 걸기 · 키우기 · 옮기기 · 미인계)
@@ -168,7 +168,7 @@ class Unit:
 	var opens := 0            # 첫 공격 보너스를 쓴 횟수 (기신·강행·습격) —— 턴 배율만큼 나눠 쓴다
 	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
 	var cut_used := false     # 쇄갑 —— 첫 물리 공격의 큰 파갑을 썼는가
-	var cut := {"atk": 0.0, "int": 0.0, "def": 0.0, "res": 0.0}   # 수치 깎기 (위축 · 산란 · 파갑 · 현혹) —— 전투 끝까지 쌓이고 0 까지
+	var cut := {"atk": 0.0, "int": 0.0, "def": 0.0}   # 수치 깎기 (위축 · 산란 · 파갑) —— 전투 끝까지 쌓이고 0 까지
 	var kill_amp := 0.0       # 기세 —— 적을 무너뜨린 뒤 다음 공격 피해 +
 	var chase_turn := -1      # 추격 —— 이 턴에 한 번 더 쳤다
 	var in_skill := false     # 기술을 쓰는 중 (신산)
@@ -408,7 +408,7 @@ func is_signature(u: Unit) -> bool:
 # ───────── 실효 수치 ─────────
 
 func eff(u: Unit, stat: String) -> float:
-	stat = S(stat)      # 11/6 #15 int → atk · res → def
+	stat = S(stat)      # 11/6 #15 int → atk
 	var c := u.c
 	var lm: Dictionary = DB.D.LINE[u.line]
 	var af: Dictionary = DB.D.AFF[c.tag]
@@ -442,18 +442,19 @@ func eff(u: Unit, stat: String) -> float:
 	if aura_enabled and not _myths.is_empty():
 		v *= _aura_mul(u, stat)
 	if u.strat_aura > 0.0 and stat == "def":
-		v *= 1.0 + (STRAT_AURA.def + STRAT_AURA.res) * u.strat_aura
-	v -= u.cut.get(stat, 0.0) + u.cut.get(STAT_INV.get(stat, "_"), 0.0)        # 위축 · 산란 · 파갑 · 현혹 —— 0 까지
+		v *= 1.0 + STRAT_AURA_DEF * u.strat_aura
+	v -= u.cut.get(stat, 0.0) + u.cut.get(STAT_INV.get(stat, "_"), 0.0)        # 위축 · 산란 · 파갑 —— 0 까지
 	return maxf(1, v)
 
 
 ## 11/6 사용자 #15 "마법 개념 삭제 · 모두 그냥 피해로 통일 · 책략 / 책략방어 제거"
 ## 카드의 공격 = 공 · 책 중 높은 쪽, 방어 = 방 · 책방 중 높은 쪽 (DB.merge_stats). 피해 경로는 phys_hit 하나.
-## 옛 데이터(특기 · 아이템 · 위세 · 기술 · 진형 우대)의 int · res 와 책략 전용 키는 아래 별칭으로 공격 · 방어 쪽에 합친다.
+## 옛 데이터(특기 · 아이템 · 위세 · 기술 · 진형 우대)의 int 와 책략 전용 키는 아래 별칭으로 공격 쪽에 합친다.
+## 책략방어(res)는 11/7 데이터에서 지웠다 —— 방어(def)로 옮기고, 한 효과에 둘이 같이 있으면 큰 값 하나만 남겼다 (tools/scripts/extract.py drop_res)
 ## 책략계 병종(INT_TAG)은 '원거리 · 범위 · 상태이상' 역할로만 남고, 줄 배율은 예전 책략 줄 배율(LINE.int)을 공격에 쓴다
-const STAT_ALIAS := {"int": "atk", "res": "def"}
-const STAT_INV := {"atk": "int", "def": "res"}
-const MV_ALIAS := {"atk": "int", "def": "res", "crit": "icrit", "dr": "idr", "cleave": "icleave", "cut_atk": "cut_int", "cut_def": "cut_res"}
+const STAT_ALIAS := {"int": "atk"}
+const STAT_INV := {"atk": "int"}
+const MV_ALIAS := {"atk": "int", "crit": "icrit", "dr": "idr", "cleave": "icleave", "cut_atk": "cut_int"}
 static func S(stat: String) -> String:
 	return STAT_ALIAS.get(stat, stat)
 static func is_caster(c: Dictionary) -> bool:
@@ -473,7 +474,7 @@ static func _sm(d: Dictionary, stat: String) -> float:
 
 
 ## 책략 오라 (11/4 지시서: 책사 · 모사가 기술 쿨타임 중에도 무기력하지 않게) —— 살아 있는 책사 · 모사 이웃(같은 열 · 실시간은 가까운 거리,
-## 자기 자신 포함)이 있으면 방어 +4% · 책략방어 +5%. 둘 이상은 1.6 배까지만. 정산마다 한 번 센다 (eff 가 매번 세지 않게)
+## 자기 자신 포함)이 있으면 방어 +5% (11/7 방어 4% · 책략방어 5% 를 큰 값 하나로). 둘 이상은 1.6 배까지만. 정산마다 한 번 센다 (eff 가 매번 세지 않게)
 ## 잔기술 3차 (11/5 사용자: 병종이 아니라 장수 특징으로 —— 책략계 평타가 약해 무기력하다. 일정 차례마다 가벼운 불 · 독병 · 거짓 정보 ·
 ## 랜스 돌격 · 암습 · 단도 던지기 같은 기본기). 장수(고급 이상)마다 하나, 특기 축(도트 → 화계, 혼란 → 거짓 정보 …)으로 고르고
 ## 축이 없으면 병종 기본기. 평타 every 번에 한 번 평타 대신 쓴다. 충전 · 비용 · 조건 없음, 난수 없음.
@@ -485,7 +486,7 @@ const MINOR := {
 	"fire": {"n": "화계", "every": 3, "mult": 0.9, "kind": "int", "st": ["burn", 0.05, 2]},
 	"poison": {"n": "독병", "every": 3, "mult": 0.7, "st": ["plague", 3.0, 2], "foe": {"stat": "atk", "amt": -0.06, "dur": 2}},
 	"rumor": {"n": "유언비어", "every": 5, "mult": 0.6, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 3.0},
-	"curse": {"n": "저주", "every": 3, "mult": 1.0, "kind": "int", "foe": {"stat": "res", "amt": -0.1, "dur": 2}},
+	"curse": {"n": "저주", "every": 3, "mult": 1.0, "kind": "int", "foe": {"stat": "def", "amt": -0.1, "dur": 2}},
 	"thunder": {"n": "낙뢰", "every": 4, "mult": 1.5, "kind": "int"},
 	"cheer": {"n": "격려", "every": 3, "mult": 0.9, "mend": 0.01, "cheer": 4.0},
 	"guard": {"n": "방벽", "every": 3, "mult": 1.0, "self": {"stat": "def", "amt": 0.1, "dur": 2}},
@@ -517,9 +518,9 @@ const MINOR_STORY := {
 	"surprise": {"n": "우회 기습", "every": 3, "mult": 1.4, "kind": "phys", "back": true, "st": ["bleed", 0.03, 2]},   # 자오곡
 	"plan": {"n": "계책", "every": 3, "mult": 1.1, "kind": "int", "foe": {"stat": "def", "amt": -0.06, "dur": 2}},
 	"secret": {"n": "밀고", "every": 4, "mult": 1.2, "kind": "int", "back": true, "morale": 3.0},      # 오소를 알린 허유
-	"omen": {"n": "점괘", "every": 3, "mult": 0.9, "kind": "int", "foe": {"stat": "res", "amt": -0.1, "dur": 2}},
+	"omen": {"n": "점괘", "every": 3, "mult": 0.9, "kind": "int", "foe": {"stat": "def", "amt": -0.1, "dur": 2}},
 	"proclaim": {"n": "격문", "every": 4, "mult": 0.7, "kind": "int", "morale": 6.0},                 # 원소를 위해 쓴 진림의 격문
-	"remonstrate": {"n": "간언", "every": 3, "mult": 0.9, "kind": "int", "morale": 3.0, "foe": {"stat": "res", "amt": -0.08, "dur": 2}},
+	"remonstrate": {"n": "간언", "every": 3, "mult": 0.9, "kind": "int", "morale": 3.0, "foe": {"stat": "def", "amt": -0.08, "dur": 2}},
 	"diplomacy": {"n": "설득", "every": 3, "mult": 0.6, "kind": "int", "foe": {"stat": "atk", "amt": -0.08, "dur": 2}},   # 손유 동맹 · 거짓 항복서
 	"supply": {"n": "군량 보급", "every": 3, "mult": 0.5, "mend": 0.02, "cheer": 3.0},
 	"recommend": {"n": "인재 천거", "every": 3, "mult": 0.6, "cheer": 6.0},                          # 순욱 · 수경 선생
@@ -543,8 +544,8 @@ const MINOR_STORY := {
 	"eye": {"n": "발시담정", "every": 4, "mult": 1.5, "kind": "phys", "morale": 5.0, "self": {"stat": "atk", "amt": 0.1, "dur": 2}},   # 화살 박힌 눈을 삼킨 하후돈
 	"bare": {"n": "나의 출전", "every": 3, "mult": 1.7, "kind": "phys", "self": {"stat": "def", "amt": -0.08, "dur": 2}},     # 갑옷을 벗고 마초와 싸운 허저
 	"sow": {"n": "이간계", "every": 5, "mult": 0.7, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 3.0},               # 마초와 한수를 갈라놓은 가후
-	"taoist_book": {"n": "태평요술", "every": 3, "mult": 1.2, "kind": "int", "foe": {"stat": "res", "amt": -0.06, "dur": 2}},
-	"haunt": {"n": "원혼", "every": 4, "mult": 1.0, "kind": "int", "morale": 4.0, "foe": {"stat": "res", "amt": -0.08, "dur": 2}},   # 손책을 괴롭힌 우길의 혼
+	"taoist_book": {"n": "태평요술", "every": 3, "mult": 1.2, "kind": "int", "foe": {"stat": "def", "amt": -0.06, "dur": 2}},
+	"haunt": {"n": "원혼", "every": 4, "mult": 1.0, "kind": "int", "morale": 4.0, "foe": {"stat": "def", "amt": -0.08, "dur": 2}},   # 손책을 괴롭힌 우길의 혼
 	"yellow": {"n": "창천이사", "every": 5, "mult": 0.8, "kind": "int", "st": ["confuse", 1.0, 1], "morale": 4.0},          # 푸른 하늘은 이미 죽었다
 	"ten_ambush": {"n": "십면매복", "every": 4, "mult": 1.0, "kind": "int", "back": true, "morale": 4.0},
 	"plum": {"n": "망매지갈", "every": 3, "mult": 0.8, "kind": "int", "cheer": 6.0}}                                          # 매실 숲 이야기로 목마름을 잊게 한 조조
@@ -569,7 +570,7 @@ const MINOR_PERSON := {
 	"전위": "bodyguard", "하후돈": "eye", "허저": "bare", "가후": "sow", "관로": "omen", "초주": "omen", "남화노선": "taoist_book",
 	"우길": "haunt", "장각": "yellow", "저수": "remonstrate", "정욱": "ten_ambush", "조조": "plum", "진궁": "plan"}
 const MINOR_PHYS := {"fire": "fire_arrow", "rumor": "roar", "curse": "shatter", "thunder": "spark", "poison": "awe"}
-const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "둔화": "poison", "책략깎": "curse", "책방깎": "curse",
+const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "둔화": "poison", "책략깎": "curse", "방깎": "curse",
 	"인덕": "cheer", "사기": "cheer", "철벽": "guard"}
 const MINOR_TAG := {"창병": "thrust", "기병": "lance", "궁병": "volley", "도적": "ambush", "책사": "fire", "유생": "cheer",
 	"술사": "thunder", "모사": "rumor"}
@@ -578,7 +579,7 @@ var _minor_nm := ""
 var _minor_mk := ""
 
 
-## 이 카드의 잔기술 종류 —— 특기 축(카드 등급에서 열린 첫 축) → 병종. 술사의 책략깎 · 책방깎은 낙뢰, 도적이 책략형이면 단도
+## 이 카드의 잔기술 종류 —— 특기 축(카드 등급에서 열린 첫 축) → 병종. 술사의 책략깎 · 방깎은 낙뢰, 도적이 책략형이면 단도
 static func minor_kind(k: String) -> String:
 	if _minor_cache.has(k):
 		return _minor_cache[k]
@@ -669,7 +670,7 @@ func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies:
 
 static var strat_aura_enabled := false     # 11/4 사용자: 밸런스는 나중에 —— 꺼 둔다
 const STRAT_TAGS := ["책사", "모사"]
-const STRAT_AURA := {"def": 0.04, "res": 0.05}
+const STRAT_AURA_DEF := 0.05      # 방어 +5% (11/7 방어 0.04 · 책략방어 0.05 를 큰 값 하나로)
 func _strat_step() -> void:
 	if not strat_aura_enabled:
 		return
@@ -1374,11 +1375,11 @@ func _st_of(u: Unit, k: String):
 	return null
 
 
-const CUT_NAME := {"atk": "공격", "int": "책략", "def": "방어", "res": "책략방어"}
-const CUT_ST := {"atk": "cut_atk", "int": "cut_int", "def": "cut_def", "res": "cut_res"}   # 화면 상태 이름 (위축 · 산란 · 파갑 · 현혹)
+const CUT_NAME := {"atk": "공격", "int": "책략", "def": "방어"}
+const CUT_ST := {"atk": "cut_atk", "int": "cut_int", "def": "cut_def"}   # 화면 상태 이름 (위축 · 산란 · 파갑 —— 현혹(책략방어)은 11/7 파갑으로 합쳤다)
 
 
-## 수치로 깎는다 (위축 · 산란 · 파갑 · 현혹) —— 전투 끝까지 쌓이고 0 까지. 명경(stres)이 막을 수 있다
+## 수치로 깎는다 (위축 · 산란 · 파갑) —— 전투 끝까지 쌓이고 0 까지. 명경(stres)이 막을 수 있다
 func _cut(a: Unit, d: Unit, stat: String, amt: float, why: String) -> void:
 	stat = S(stat)      # 11/6 #15
 	if not cut_enabled or not d.alive or amt <= 0:
@@ -1431,7 +1432,7 @@ func _amp_once(a: Unit) -> float:
 	return m
 
 
-## 맞힌 뒤 —— 위축 · 산란 · 파갑 · 현혹 · 쇄갑 · 위압(사기 낮은 적 혼란) · 일기당천(깎인 적 처형)
+## 맞힌 뒤 —— 위축 · 산란 · 파갑(현혹 포함) · 쇄갑 · 위압(사기 낮은 적 혼란) · 일기당천(깎인 적 처형)
 func _tac_hit(a: Unit, d: Unit, phys: bool) -> void:
 	if d.troops <= 0 or not d.alive or a.cleaving:
 		return
@@ -1446,8 +1447,6 @@ func _tac_hit(a: Unit, d: Unit, phys: bool) -> void:
 	else:
 		if mv(a, "cut_int") > 0:
 			_cut(a, d, "int", _cut_amt(a, "cut_int", false), "산란")
-		if mv(a, "cut_res") > 0:
-			_cut(a, d, "res", _cut_amt(a, "cut_res", false), "현혹")
 	if scheme_enabled and has_st(d, "confuse") and mv(a, "confuse_break") > 0:      # 경국(초선) —— 혼란된 적의 방어가 무너진다
 		_cut(a, d, "def", 0.06 * maxf(a.c.atk, a.c["int"]) / turn_mul, "경국")
 	if mv(a, "awe") > 0 and d.morale <= 60 and rng.randf() < mv(a, "awe"):      # 위압 —— 꺾인 적은 겁에 질려 차례를 날린다
@@ -1478,7 +1477,7 @@ func _cleave(a: Unit, d: Unit, mult: float, phys: bool) -> void:
 	a.cleaving = false
 
 
-## 전투 시작 —— 위진(장료, 적 선봉 방어) · 기선(적 선봉 공격) · 이간(적 후군 책략) · 요언(적 전원 책략방어) · 수계(적 전원 둔화)
+## 전투 시작 —— 위진(장료, 적 선봉 방어) · 기선(적 선봉 공격) · 이간(적 후군 책략) · 요언(적 전원 방어) · 수계(적 전원 둔화)
 func _tac_open() -> void:
 	for u in units:
 		var live := units.filter(func(o): return o.camp != u.camp and o.alive)
@@ -1493,8 +1492,8 @@ func _tac_open() -> void:
 			for t in front: _cut(u, t, "atk", mv(u, "open_cut_atk") * maxf(u.c.atk, u.c["int"]), "기선")
 		if mv(u, "open_cut_int") > 0:
 			for t in back: _cut(u, t, "int", mv(u, "open_cut_int") * u.c["int"], "이간")
-		if mv(u, "open_cut_res") > 0:
-			for t in live: _cut(u, t, "res", mv(u, "open_cut_res") * u.c["int"], "요언")
+		if mv(u, "open_cut_def") > 0:
+			for t in live: _cut(u, t, "def", mv(u, "open_cut_def") * u.c["int"], "요언")
 		if water_enabled and mv(u, "open_slow") > 0:
 			L("sk", "%s 둑을 터뜨려 적진을 늦춘다" % ga(nm(u)), {"fx": "skill", "a": u.key, "name": "수계", "kind": "int"})
 			for t in live: inflict(u, t, "flood", 1, 1)
@@ -2143,7 +2142,7 @@ func act(u: Unit) -> void:
 						if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
 						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur})
 						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur})
-						if e.has("resDown"): _cut(u, t, "res", -float(e.resDown.amt) * eff(t, "res"), sk.n)      # 책략방어 감소 → 현혹(수치)
+						if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
 						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
 					if e.has("selfBuff"): add_buff(u, e.selfBuff)
 					if e.has("heal"):      # 범용 사기 기술 (진두지휘 · 고함)
@@ -2158,7 +2157,7 @@ func act(u: Unit) -> void:
 						if not t.alive: continue
 						int_hit(u, t, e.mult, ts.size())
 						if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
-						if e.has("resDown"): _cut(u, t, "res", -float(e.resDown.amt) * eff(t, "res"), sk.n)      # 책략방어 감소 → 현혹(수치)
+						if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
 						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
 						# 11/2 책략 기술의 속도 깎기 (수공 · 혹세의 foeSpd 가 적혀만 있고 쓰이지 않았다)
 						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur})
