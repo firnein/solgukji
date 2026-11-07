@@ -20,6 +20,7 @@ const TAB_H := 62.0
 var run: Run
 var page := "draw"
 var forge_tag := ""
+var forge_tier := 0           # 조합 등급 거르기 (0 = 모두)
 var _open := {}               # 접는 묶음 -> 펼침 여부
 var _scroll_keep := {}        # 페이지 -> 스크롤 위치
 
@@ -1478,17 +1479,24 @@ func _page_draw() -> Control:
 	inner.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	inner.alignment = BoxContainer.ALIGNMENT_BEGIN    # 11/6 사용자: 기본병 줄이 맨 위로 갔으니 위에서부터 채운다
 	var keys: Array = Run.sort_cards(p.keys())
-	# 11/4 사용자: 등급마다 줄을 나눈다 [등급 아래, 위, 열, 칸 높이]
-	# 11/5 사용자: 전설 · 초월 · 불멸 · 신화가 같은 칸 크기를 쓰지 말 것 —— 등급이 높을수록 크게 (신화 2열 · 불멸 3열 · 초월 4열 · 전설 5열)
-	# 11/6 사용자: 신화 · 불멸은 한 줄을 같이 쓰고(같은 묶음), 전설보다 조금 크게 한 줄에 넷 · 초월은 전설과 같은 다섯 줄에 조금 크게
-	# 11/7 사용자: 장수 카드 전반 축소 —— 신화 · 불멸 4열 112 · 초월 5열 100 · 전설 6열 84 · 희귀 6열 80 · 일반 · 고급 7열 72
-	#   (칭호까지 이름이 긴 신화 · 불멸 · 초월은 열을 늘리지 않고 높이만 낮춘다 —— 폭 56 아래는 작은 칸 그리기)
-	for grp in [[7, 9, 4, 112.0], [6, 6, 5, 100.0], [5, 5, 6, 84.0], [4, 4, 6, 80.0], [2, 3, 7, 72.0]]:
+	# 11/4 사용자: 등급마다 줄을 나눈다. 11/5 · 11/6 사용자: 등급이 높을수록 크게. 11/7 사용자: 장수 카드 전반 축소
+	# 11/7 사용자: 등급 줄 —— 맨 위 한 줄 [신화 | 불멸], 그 아래 [초월 | 기인], 그 아래 전설은 별도 공간, 희귀 · 고급 · 일반은 지금처럼.
+	#   신화 · 불멸 · 초월 · 기인은 더 이상 재료가 아닌 '완성된 장수' 라 「완성된 장수 접기」로 숨긴다 (_open.draw_fold —— 다시 그려도 유지).
+	#   목표: 전설 · 희귀 같은 재료로 어떤 상위패를 노릴 수 있는지 빠르게 보이게 (65a490f 가 조합 페이지에 잘못 넣었던 등급 묶음을 가진 카드로 옮겼다)
+	var by := {}      # 등급(1~8) · "기인" -> 가진 카드 (sort_cards 순서 —— 병종 · 이름)
+	for k in keys:
+		var key = "기인" if DB.is_kiin(k) else int(DB.C[k].tier)
+		if not by.has(key):
+			by[key] = []
+		by[key].append(k)
+	_hand_done(inner, by, p, hand_tile)
+	# 전설 6열 84 · 희귀 6열 80 · 고급 · 일반 7열 72 —— 지금처럼 등급마다 한 묶음 (기인은 위 [초월 | 기인] 줄로 올라갔다. 폭 56 아래는 작은 칸 그리기)
+	for grp in [[[5], 6, 84.0], [[4], 6, 80.0], [[3, 2], 7, 72.0]]:
 		var g := UI.grid(30, 6)
-		g.max_cols = grp[2]
-		for k in keys:
-			if DB.C[k].tier >= grp[0] and DB.C[k].tier <= grp[1]:
-				g.add_child(hand_tile.call(k, p[k], grp[3]))
+		g.max_cols = grp[1]
+		for t in grp[0]:
+			for k in by.get(t, []):
+				g.add_child(hand_tile.call(k, p[k], grp[2]))
 		if g.get_child_count() > 0:
 			inner.add_child(g)
 	if inner.get_child_count() == 0:
@@ -1505,6 +1513,106 @@ func _page_draw() -> Control:
 	hs.get_v_scroll_bar().value_changed.connect(func(y): _hand_scroll_y = int(y))
 	v.add_child(hv)
 	return v
+
+
+## 징집 보유 목록의 '완성된 장수' (11/7 사용자) —— [신화 | 불멸] · [초월 | 기인] 두 줄과 「완성된 장수 접기」.
+## 65a490f 가 조합 페이지에 만든 등급 묶음(_forge_group)을 조합법 대신 가진 카드로 옮겼다 —— 카드 뜻은 그대로 (×N · 편성 · ▲ 지금 조합 재료 · 누르면 디테일).
+## 줄마다 [등급, 이름, 칸 최소 폭, 칸 높이, 금테] 둘. 신화는 금테 · 조금 큰 칸(86×112 —— 불멸 74×100), 초월 · 기인 64×92 (칭호 붙은 이름이 한 줄에 드는 폭)
+const DONE_ROWS := [[[8, "신화", 86.0, 112.0, true], [7, "불멸", 74.0, 100.0, false]], [[6, "초월", 64.0, 92.0, false], ["기인", "기인", 64.0, 92.0, false]]]
+
+func _hand_done(inner: VBoxContainer, by: Dictionary, p: Dictionary, hand_tile: Callable) -> void:
+	var counts := []      # [이름, 색, 장수]
+	var total := 0
+	for row in DONE_ROWS:
+		for sp in row:
+			var n := 0
+			for k in by.get(sp[0], []):
+				n += int(p[k])
+			counts.append([sp[1], _done_col(sp[0]), n])
+			total += n
+	if total == 0:
+		return
+	var fold: bool = _open.get("draw_fold", false)      # 접은 상태를 _open.draw_fold 에 남긴다 (다시 그려도 유지 · 점검 --gopen=draw_fold)
+	inner.add_child(_done_toggle(fold, counts))
+	if fold:
+		return
+	var sa := _safe_insets()
+	var w := minf(size.x - sa.position.x - sa.size.x - 28.0, MAX_W)      # 보유 목록 폭 (_layout 의 좌우 여백 14)
+	for row in DONE_ROWS:
+		var r := _done_row(row, by, p, hand_tile, w)
+		if r != null:
+			inner.add_child(r)
+
+
+func _done_col(key) -> Color:
+	return DB.KIIN_COL if key is String else DB.TIER[key].c
+
+
+## 「완성된 장수 접기 ▴ · 펼치기 ▾」 —— 옆에 등급별 장수 수를 등급색으로 (접어도 무엇을 숨겼는지 보인다)
+func _done_toggle(fold: bool, counts: Array) -> Button:
+	var b := UI.btn("", func(): _toggle("draw_fold"), "ghost", 28)
+	var hb := UI.hbox(8)
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var items := [["완성된 장수 펼치기 ▾" if fold else "완성된 장수 접기 ▴", DB.PAL.bamboo]]
+	for c in counts:
+		if c[2] > 0:
+			items.append(["%s %d" % [c[0], c[2]], c[1]])
+	for it in items:
+		var l := UI.lbl(it[0], 12, it[1])
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.size_flags_vertical = Control.SIZE_FILL
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(l)
+	b.add_child(hb)
+	return b
+
+
+## 등급 줄 한 줄 —— 한 등급이 비면 다른 등급이 폭을 다 쓰고, 둘 다 비면 그리지 않는다.
+## 둘 다 있으면 줄 수가 가장 적게 열을 나눈다: 왼쪽은 제 카드가 들어갈 폭만, 오른쪽이 나머지 폭 (신화는 한 판에 한 장 —— 반 폭으로 나누면 반이 빈다)
+func _done_row(row: Array, by: Dictionary, p: Dictionary, hand_tile: Callable, w: float) -> Control:
+	var a: Array = by.get(row[0][0], [])
+	var b: Array = by.get(row[1][0], [])
+	if a.is_empty() and b.is_empty():
+		return null
+	var h := UI.hbox(6)
+	if a.is_empty() or b.is_empty():
+		var one := _done_group(row[0] if b.is_empty() else row[1], a if b.is_empty() else b, p, hand_tile)
+		one.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(one)
+		return h
+	var need := func(c: int, cw: float) -> float: return c * cw + (c - 1) * 5.0 + 10.0      # 칸 c 개 + 사이 5 + 상자 안 여백 5 × 2
+	var ca := 1
+	for nr in range(1, maxi(a.size(), b.size()) + 1):      # 줄 수 nr 로 둘 다 들어가는 가장 작은 nr
+		ca = ceili(a.size() / float(nr))
+		if need.call(ca, row[0][2]) + 6.0 + need.call(ceili(b.size() / float(nr)), row[1][2]) <= w:
+			break
+	var left := _done_group(row[0], a, p, hand_tile)
+	left.custom_minimum_size.x = need.call(ca, row[0][2])
+	h.add_child(left)
+	var right := _done_group(row[1], b, p, hand_tile)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(right)
+	return h
+
+
+## 등급 줄의 한 칸 —— 머리줄(등급 이름 · 장수 수) + 칸 안에서 줄을 바꾸는 격자 (반 폭에 카드가 많아도 옆으로 넘기지 않고 한눈에). 신화는 금테
+func _done_group(sp: Array, ks: Array, p: Dictionary, hand_tile: Callable) -> PanelContainer:
+	var col := _done_col(sp[0])
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(DB.PAL.gold, 0.9) if sp[4] else Color(col, 0.45), 2 if sp[4] else 1, 8, 5))
+	var v := UI.vbox(3)
+	var n := 0
+	for k in ks:
+		n += int(p[k])
+	v.add_child(UI.rich("[b][color=%s]%s[/color][/b] [color=#8D7B5C]%d[/color]" % [col.to_html(false), sp[1], n], 11))
+	var g := UI.grid(sp[2], 5)
+	for k in ks:
+		g.add_child(hand_tile.call(k, int(p[k]), sp[3]))
+	v.add_child(g)
+	pc.add_child(v)
+	return pc
 
 
 var _hand_scroll: ScrollContainer
@@ -1608,8 +1716,8 @@ func _unique_sheet() -> void:
 		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_child(sp)
 		col.add_child(UI.btn("받기", func():
-			if act("pick_unique", [iid]):
-				toast("%s 획득 · 아이템 보급" % it.name, "gain")
+			if act("pick_unique", [iid]):      # 11/7 사용자: 아래 알림("○○ 획득 · 아이템 보급")은 뺐다 —— 가운데 띠(_item_band)만. 얻는 소리는 남긴다
+				Sfx.play("gain")
 			close_sheet(), "pri", 38))
 		var pc := UI.panel(col, 5)
 		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2361,7 +2469,7 @@ func _toggle(key: String, default := false) -> void:
 	render()
 
 
-const KIIN_T := 9      # 기인 칸 (계보 줄 —— 등급 수 바깥의 자리)
+const KIIN_T := 9      # 기인 칸 —— 등급 거르기 · 계보 줄 (등급 수 바깥의 자리)
 
 ## 추천 목표 —— 점수는 Run.forge_goals (덱이 얻는 전력 − 모자란 재료를 구하는 수고 + 줄기 · 병종 맞춤, 11/5 사용자: 플레이에 도움이 되게)
 func _forge_goals(lst: Array) -> Array:
@@ -2422,10 +2530,18 @@ func _missing(out: String) -> Array:
 		miss.append(DB.IT[ni].name)
 	return miss
 
+func _tier_match(k: String, t: int) -> bool:
+	if t == 0:
+		return true
+	if t == KIIN_T:
+		return DB.is_kiin(k)
+	return DB.C[k].tier == t and not DB.is_kiin(k)
+
+
 func _page_forge() -> Control:
-	var v := UI.vbox(12)
+	var v := UI.vbox(14)
 	v.add_child(forge_tree.build())
-	# 거르기 —— 병종을 기호 칸 한 줄 (11/2 사용자: 글씨를 줄여 공간 확보). 11/7 사용자: 등급 칸은 뺐다 —— 아래 등급 묶음이 그 몫을 한다
+	# 거르기 —— 병종 · 등급을 기호 · 색 칸 한 줄씩 (11/2 사용자: 글씨를 줄여 공간 확보)
 	var row1 := HBoxContainer.new()
 	row1.add_theme_constant_override("separation", 4)
 	for t in [""] + DB.D.TAGORDER:
@@ -2434,73 +2550,43 @@ func _page_forge() -> Control:
 			forge_tag = t
 			render()))
 	v.add_child(row1)
-	var lst: Array = DB.D.RECDEF.filter(func(r): return forge_tag == "" or DB.C[r[0]].tag == forge_tag)
-	# 11/7 사용자: 등급 묶음 —— 맨 위 한 줄 [신화 | 불멸], 그 아래 [초월 | 기인] 은 재료가 아닌 '완성된 장수' 라 접을 수 있고(_open.forge_fold),
-	#   그 아래 전설은 별도 공간에 모두 펼친다. 목표: 전설 · 희귀 재료로 어떤 상위패를 노릴 수 있는지 빠르게 인지.
-	#   묶음마다 그 등급의 조합법(결과 카드)을 가까운 순(모자란 장수 적은 것 먼저)으로
-	var by := {}      # 등급(3~8 · "기인") -> 결과 카드들
-	for r in lst:
-		var k: String = r[0]
-		var key = "기인" if DB.is_kiin(k) else int(DB.C[k].tier)
-		if not by.has(key):
-			by[key] = []
-		by[key].append(k)
-	for key in by:
-		by[key].sort_custom(func(x, y):
-			var a := run.miss_count(x)
-			var b2 := run.miss_count(y)
-			if a != b2:
-				return a < b2
-			return DB.C[x].name < DB.C[y].name)
-	var done_open: bool = not _open.get("forge_fold", false)      # 접은 상태를 _open.forge_fold 에 남긴다 (다시 그려도 유지 · 점검 --gopen=forge_fold)
-	var tg := UI.btn(("완성된 장수 접기 ▴" if done_open else "완성된 장수 펼치기 ▾") + "   신화 %d · 불멸 %d · 초월 %d · 기인 %d" % [
-		by.get(8, []).size(), by.get(7, []).size(), by.get(6, []).size(), by.get("기인", []).size()], func(): _toggle("forge_fold"), "ghost", 32)
-	tg.add_theme_font_size_override("font_size", 13)
-	v.add_child(tg)
-	if done_open:
-		var r1 := UI.hbox(6)
-		r1.add_child(_forge_group("신화", DB.TIER[8].c, by.get(8, []), Vector2(70, 98), true))      # 칸 폭 64 = 칭호 붙은 이름(경국지색 소교)이 한 줄에 들어가는 최소, 신화는 조금 더
-		r1.add_child(_forge_group("불멸", DB.TIER[7].c, by.get(7, []), Vector2(64, 88), false))
-		v.add_child(r1)
-		var r2 := UI.hbox(6)
-		r2.add_child(_forge_group("초월", DB.TIER[6].c, by.get(6, []), Vector2(64, 88), false))
-		r2.add_child(_forge_group("기인", DB.KIIN_COL, by.get("기인", []), Vector2(64, 88), false))
-		v.add_child(r2)
-	# 전설 —— 별도 공간, 접지 않고 모두 (6열)
-	var leg: Array = by.get(5, [])
-	var lsec := UI.vbox(6)
-	var leg_ok: int = leg.filter(func(k): return run.can_forge(k)).size()
-	lsec.add_child(UI.head("전설 %d" % leg.size(), ("지금 조합 가능 %d" % leg_ok) if leg_ok > 0 else ""))
-	if leg.is_empty():
-		lsec.add_child(UI.hint("이 병종의 전설 조합법이 없다."))
-	else:
-		lsec.add_child(_forge_grid(leg, 80.0))
-	v.add_child(lsec)
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 4)
+	for t in [0, 3, 4, 5, KIIN_T, 6, 7, 8]:        # 11/3 일반 없음 · 기인(9)은 전설 옆
+		var tn: String = "all" if t == 0 else ("기" if t == KIIN_T else DB.TIER[t].n.left(1))
+		row2.add_child(_filter_chip(tn, null, "", DB.PAL.paper if t == 0 else (DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c), forge_tier == t, func():
+			forge_tier = t
+			render()))
+	v.add_child(row2)
+	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
 	# 11/3 추천 목표 —— 조합식이 170개가 넘어 무엇을 노릴지 고르기 어렵다: 재료가 1~2장 모자란 것 가운데 높은 등급 · 가진 재료가 많은 것 4개 (인물 하나씩)
 	# 11/6 사용자 #8 "추천 목표가 안 나오는 경우가 많다": 필터를 거친 목록만 넘겨 비었다 → 전체로 계산하고 필터에 걸린 것은 수만 알린다
 	var rec_all := _forge_goals(DB.D.RECDEF)
-	var rec: Array = rec_all.filter(func(o): return forge_tag == "" or DB.C[o].tag == forge_tag)
+	var rec: Array = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
 	var hidden_n := rec_all.size() - rec.size()
 	var far_goal := false
 	if rec_all.is_empty():      # 수고 한도 안에 아무것도 없다 —— 가장 가까운 목표 하나는 보인다
 		rec_all = run.forge_goals(DB.D.RECDEF.map(func(r): return r[0]), 1, 1e9)
-		rec = rec_all.filter(func(o): return forge_tag == "" or DB.C[o].tag == forge_tag)
+		rec = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
 		hidden_n = rec_all.size() - rec.size()
 		far_goal = not rec.is_empty()
 	if not rec.is_empty() or hidden_n > 0:
 		var gsec := UI.vbox(6)
-		gsec.add_child(UI.head("추천 목표" if not far_goal else "가장 가까운 목표", ("거르기에 숨은 추천 %d" % hidden_n) if hidden_n > 0 else ""))
+		gsec.add_child(UI.head("추천 목표" if not far_goal else "가장 가까운 목표", ("필터에 숨은 추천 %d" % hidden_n) if hidden_n > 0 else ""))
 		var gs_ := UI.strip(8)
 		for out in rec:
+			var gv := UI.vbox(3)
+			gv.custom_minimum_size = Vector2(86, 0)
 			var gt := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-			gt.custom_minimum_size = Vector2(72, 96)      # 11/7 카드 축소 (86×112 → 72×96)
+			gt.custom_minimum_size = Vector2(86, 112)
 			gt.badge = "-%d" % run.miss_count(out) if run.miss_count(out) > 0 else "조합"
 			gt.badge_col = Color(DB.PAL.seal, 0.9)
-			gs_[1].add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
+			gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
+			gs_[1].add_child(gv)
 		if not rec.is_empty():
 			gsec.add_child(gs_[0])
 		if rec.is_empty() and hidden_n > 0:
-			gsec.add_child(UI.hint("지금 병종 거르기에 맞는 추천이 없습니다. '전체'로 두면 %d개가 보입니다." % hidden_n))
+			gsec.add_child(UI.hint("지금 필터(병종 · 등급)에 맞는 추천이 없습니다. 필터를 '모두'로 두면 %d개가 보입니다." % hidden_n))
 		v.add_child(gsec)
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))
@@ -2510,67 +2596,39 @@ func _page_forge() -> Control:
 		sec.add_child(UI.head("지금 조합 가능 %d" % ready.size(), ""))
 		var rs := UI.strip(8)
 		for r in ready:
-			rs[1].add_child(recipe_card(r[0], Vector2(72, 96)))      # 11/7 카드 축소
+			rs[1].add_child(recipe_card(r[0]))
 		sec.add_child(rs[0])
 		v.add_child(sec)
-	# 희귀 · 고급 —— 전설의 재료. 11/7 사용자: '더 보기' 없이 모두 펼친다 (가까운 순)
-	var low: Array = by.get(4, []) + by.get(3, []) + by.get(2, [])
+	# 나머지 —— 가까운 순 (모자란 장수 적은 것 먼저, 같으면 높은 등급)
+	lst = lst.filter(func(r): return not run.can_forge(r[0]) and not rec.has(r[0]))
+	lst.sort_custom(func(x, y):
+		var a := run.miss_count(x[0])
+		var b2 := run.miss_count(y[0])
+		if a != b2:
+			return a < b2
+		return DB.C[x[0]].tier > DB.C[y[0]].tier)
+	# 11/7 사용자: 조합 페이즈의 나머지는 모두 펼쳐 둔다 —— 11/3 의 '가까운 16개 + 더 보기' 를 걷었다
+	var g := minis()
+	for r in lst:
+		var out: String = r[0]
+		var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
+		var miss := run.miss_count(out)
+		t.lit = run.can_forge(out)
+		if t.lit:
+			t.badge = "조합"
+			t.badge_col = Color(DB.PAL.jade, 0.95)
+		elif miss > 0:
+			t.badge = "-%d" % miss
+			t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
+		else:
+			t.badge = "◆"
+			t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
+		g.add_child(t)
 	var sec2 := UI.vbox(6)
-	sec2.add_child(UI.head("희귀 · 고급 %d" % low.size(), ""))
-	if low.is_empty():
-		sec2.add_child(UI.hint("이 조건의 조합법이 없다."))
-	else:
-		sec2.add_child(_forge_grid(low, 80.0))
+	sec2.add_child(UI.head(("나머지 %d" if not ready.is_empty() else "조합법 %d") % lst.size(), ""))
+	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
 	v.add_child(sec2)
 	return v
-
-
-## 등급 묶음 한 칸 (11/7) —— 머리줄(등급 이름 · 수 · 지금 조합 가능 수) + 가로로 넘기는 띠. 신화는 금테 · 조금 큰 칸 · 조금 넓게
-func _forge_group(name: String, col: Color, ks: Array, sz: Vector2, gold: bool) -> Control:
-	var pc := PanelContainer.new()
-	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pc.size_flags_stretch_ratio = 1.08 if gold else 1.0
-	pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(DB.PAL.gold, 0.85) if gold else Color(col, 0.5), 2 if gold else 1, 8, 6))
-	var v := UI.vbox(4)
-	var ready: int = ks.filter(func(k): return run.can_forge(k)).size()
-	v.add_child(UI.rich("[b][color=%s]%s[/color][/b] [color=#8D7B5C]%d[/color]%s" % [col.to_html(false), name, ks.size(),
-		("   [color=#8fd4c2]조합 %d[/color]" % ready) if ready > 0 else ""], 12))
-	if ks.is_empty():
-		v.add_child(UI.hint("없음"))
-	else:
-		var st := UI.strip(4)
-		for k in ks:
-			st[1].add_child(_forge_tile(k, sz))
-		v.add_child(st[0])
-	pc.add_child(v)
-	return pc
-
-
-## 조합법 결과 카드 격자 (11/7) —— 6열 · 낮은 칸, 모두 펼친다
-func _forge_grid(ks: Array, h: float) -> AutoGrid:
-	var g := UI.grid(56, 4)
-	g.max_cols = 6
-	for k in ks:
-		g.add_child(_forge_tile(k, Vector2(30, h)))
-	return g
-
-
-## 조합법 결과 카드 한 장 —— 금테(지금 조합 가능) · 왼쪽 아래 배지(조합 · -모자란 수 · ◆ 아이템 필요). 누르면 조합 시트
-func _forge_tile(out: String, sz: Vector2) -> MiniTile:
-	var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-	t.custom_minimum_size = sz
-	var miss := run.miss_count(out)
-	t.lit = run.can_forge(out)
-	if t.lit:
-		t.badge = "조합"
-		t.badge_col = Color(DB.PAL.jade, 0.95)
-	elif miss > 0:
-		t.badge = "-%d" % miss
-		t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
-	else:
-		t.badge = "◆"
-		t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
-	return t
 
 
 ## 거르기 칸 —— 글씨 대신 기호(병종) · 색(등급). 고르면 밝은 테두리, 오른쪽 위 작은 숫자 = 지금 조합 가능 수
@@ -2632,8 +2690,9 @@ func _page_war() -> Control:
 				run.tour_advance()
 				changed(), "pri", 60))
 		else:
-			v.add_child(UI.act("출진" if placed > 0 else "편성이 비어 있다", "%d/9칸 · %s명" % [placed, Battle.num(run.board_power())],
-				func(): _start("tour"), "warn", placed == 0))
+			# 11/7 사용자: 큰 두 줄 버튼(UI.act) 대신 토벌 · 대전과 같은 한 줄 '출진 · 9/9칸 · 76,500명'
+			v.add_child(_war_btn("출진" if placed > 0 else "편성이 비어 있다", ("%d/9칸 · %s명" % [placed, Battle.num(run.board_power())]) if placed > 0 else "",
+				false, placed == 0, func(): _start("tour"), "warn"))
 		v.add_child(_bracket())
 	else:
 		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
@@ -3044,6 +3103,12 @@ func _dev_args() -> void:
 		if a.has("gseg"):
 			deploy.seg = str(a.gseg)      # 점검용 —— 편성 아래 칸 (hand · syn · item)
 		go(a.get("gpage", "draw"))
+	if a.has("ggive") and run != null:      # 점검용 —— --ggive=c177,c160:2,K01 : 카드를 손패에 쥐여 준다 (징집 등급 줄 점검, 11/7 · 저장하지 않는다)
+		for s in str(a.ggive).split(",", false):
+			var kn := s.split(":")
+			if DB.C.has(kn[0]):
+				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
+		render()
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
 			_open[key] = true
@@ -3111,6 +3176,17 @@ func _dev_args() -> void:
 				if not run.ticket_tiers().is_empty():
 					picker(run.ticket_tiers()[0])
 			"online": _go_online()
+	if a.has("gtake"):      # 점검용 —— 열린 보급 팝업(--gsheet=unique)의 첫 '받기' 를 누른 것처럼. 앞서 뜬 알림 · 띠는 걷고 누른다 (11/7 받기 뒤 아래 알림 없이 가운데 띠만 뜨는지)
+		await get_tree().create_timer(0.4).timeout
+		for c in _toast_box.get_children():
+			c.queue_free()
+		_bands.clear()
+		if is_instance_valid(_band_node):
+			_band_node.queue_free()
+		_band_busy = false
+		var tb := _find_btn(_sheet, "받기")
+		if tb != null:
+			tb.pressed.emit()
 	if a.has("gtitle"):
 		_title.visible = true
 	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
@@ -3239,8 +3315,18 @@ func _dev_args() -> void:
 		return
 	if a.has("gshot"):
 		await get_tree().create_timer(float(a.get("after", "1.0"))).timeout
+		if a.has("gquiet"):      # 점검용 —— 찍기 전에 시트 · 띠 · 알림을 걷는다 (tests/ui_shots 처럼, 11/7)
+			close_sheet()
+			_bands.clear()
+			_hide_band()
+			for c in _toast_box.get_children():
+				c.queue_free()
+			await get_tree().create_timer(0.4).timeout
 		if a.has("scroll"):
 			_scroll.scroll_vertical = int(a.scroll)
+			await get_tree().process_frame
+		if a.has("ghand") and is_instance_valid(_hand_scroll):      # 점검용 —— 징집 보유 목록을 이 위치까지 내린다 (큰 수면 맨 아래, 11/7)
+			_hand_scroll.scroll_vertical = int(a.ghand)
 			await get_tree().process_frame
 		# --frames=N --every=초 —— 연속 장면을 경로_0.png, 경로_1.png … 로
 		var nf := int(a.get("frames", "1"))
