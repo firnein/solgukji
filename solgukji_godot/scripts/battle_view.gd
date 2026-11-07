@@ -2621,10 +2621,25 @@ class MiniCard extends Control:
 	var sq: Squad
 	var view: BattleView
 
+	## 11/7 카드 높이 —— 막대 세 줄에 글자(병 · 사 · 기)를 붙이느라 58 → 64 (넓은 카드는 병종 줄이 있어 70). 아래 독 두 줄이면 12px 자란다
+	const H_SMALL := 64.0
+	const H_WIDE := 70.0
+	## 막대 색 —— 병력 파랑(위 세력 띠와 같은 진영색) · 사기 옥색 · 고유기 금색(전투장수창 『고유기』 #ffd76e 계열).
+	## 11/7 사용자: 사기 · 고유기가 둘 다 금색이라 어느 막대가 무엇인지 안 보였다
+	const MORALE_COL := Color("#6fd6a6")
+	const ULT_COL := Color("#d9a64b")
+	const ULT_FULL := Color("#ffd76e")
+
 	func _ready() -> void:
-		custom_minimum_size = Vector2(64, 58)
+		custom_minimum_size = Vector2(64, H_SMALL)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		tooltip_text = sq.row.name
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_RESIZED:      # 폭이 정해진 뒤 그 칸 모양(좁은 · 넓은)에 맞는 높이로 —— 격자가 한 번 더 자리를 잡는다
+			var want := H_WIDE if size.x >= 90 else H_SMALL
+			if custom_minimum_size.y != want:
+				custom_minimum_size.y = want
 
 	var _last := []
 
@@ -2632,9 +2647,13 @@ class MiniCard extends Control:
 		var lv := view.unit_live(sq.key)
 		var ready := view.ult_ready(sq.key)
 		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], ready]
-		if now != _last or ready:
+		if now != _last or ready or _waiting(lv):
 			_last = now
 			queue_redraw()
+
+	## 11/6 #14 게이지는 찼는데 차례(대기 · 간격 · 조건)를 기다리는 중 —— 「준비」 가 깜빡인다
+	func _waiting(lv: Array) -> bool:
+		return sq.tier >= 6 and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive
 
 	var _down_ms := -1
 	var _long_fired := false
@@ -2670,6 +2689,7 @@ class MiniCard extends Control:
 		_draw_card()
 		view.field.pt("아래카드", t0)
 
+	## 넓은 카드 (폭 90 이상 —— 가로 · PC 창) —— 초상 · 이름 · 병종 · 병력, 아래에 글자 붙은 막대 세 줄
 	func _draw_card() -> void:
 		if size.x < 90:
 			_draw_small()
@@ -2682,30 +2702,14 @@ class MiniCard extends Control:
 		sb.set_border_width_all(3 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 2)      # 11/6 사용자: 프로필 테두리를 더 구별되게 (등급색 2px)
 		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
-		Art.draw_portrait(self, Rect2(4, 4, 34, 46), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
+		Art.draw_portrait(self, Rect2(4, 4, 34, 38), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
 		var fb := DB.font_body
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		draw_string(DB.font_display, Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))
-		draw_string(fb, Vector2(41, 31), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo_dim)
+		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo_dim)
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
-		draw_string(fb, Vector2(41, 45), state, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
-		draw_rect(Rect2(4, 55, size.x - 8, 5), DB.PAL.ink)
-		draw_rect(Rect2(4, 55, (size.x - 8) * clampf(sq.troops / sq.max, 0, 1), 5), War3D.TEAM.A)
-		draw_rect(Rect2(4, 62, size.x - 8, 3), DB.PAL.ink)
-		draw_rect(Rect2(4, 62, (size.x - 8) * clampf(sq.morale / 200.0, 0, 1), 3), DB.PAL.gold)
-		# 고유기 게이지와 남은 횟수
-		var lv := view.unit_live(sq.key)
-		if sq.tier >= 6:
-			draw_rect(Rect2(4, 67, size.x - 8, 3), DB.PAL.ink)
-			draw_rect(Rect2(4, 67, (size.x - 8) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
-			for i in lv[1]:
-				draw_circle(Vector2(size.x - 8 - i * 7, 8), 2.5, Color("#ffd257"))
-		if sq.tier >= 6 and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive:      # 11/6 #14 게이지는 찼는데 차례(대기 · 간격 · 조건)를 기다리는 중
-			var pb := StyleBoxFlat.new()
-			pb.bg_color = Color("#d9a64b", 0.5 + 0.3 * sin(view.clock * 6.0))
-			pb.set_corner_radius_all(4)
-			draw_style_box(pb, Rect2(size.x - 30, size.y - 16, 26, 12))
-			draw_string(DB.font_body, Vector2(size.x - 30, size.y - 6), "준비", HORIZONTAL_ALIGNMENT_CENTER, 26, 9, Color("#1A1508"))
+		draw_string(fb, Vector2(41, 41), state, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
+		_bar_rows(4.0, 44.0, size.x - 8.0, 8.0, 8)
 		if view.direct and view.ult_ready(sq.key):       # 직접 지휘일 때만 '눌러라' 금테
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
 			var rb := StyleBoxFlat.new()
@@ -2720,11 +2724,11 @@ class MiniCard extends Control:
 		if not sq.alive:
 			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
 
-	## 작은 카드 —— 초상 · 이름 · 병력, 아래에 병력·사기·고유기 막대
+	## 작은 카드 (휴대폰 세로 —— 폭 약 73) —— 초상 · 이름 · 병력, 아래에 글자 붙은 막대 세 줄.
+	## 11/7 사용자: 고유기 남은 횟수 구슬이 이름 옆(위 오른쪽)에 떠서 세 글자 이름과 겹쳤다 → 기 막대 끝으로 (이름 줄과 다른 줄이라 어떤 길이에도 안 겹친다)
 	func _draw_small() -> void:
 		var tc := DB.tier_color(sq.cid)
 		var w := size.x
-		var h := size.y
 		var ready := view.direct and view.ult_ready(sq.key)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = DB.PAL.ink2
@@ -2733,7 +2737,7 @@ class MiniCard extends Control:
 		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 1)
 		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
-		var bar_y := h - 16
+		var bar_y := 39.0
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
 		Art.draw_portrait(self, pr, sq.cid, 0.0, "ult" if ready else "face")
 		var x := pr.end.x + 3
@@ -2744,19 +2748,8 @@ class MiniCard extends Control:
 			fs -= 1
 		draw_string(DB.font_display, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
-		draw_string(DB.font_body, Vector2(x, 31), state, HORIZONTAL_ALIGNMENT_LEFT, tw, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
-		draw_rect(Rect2(3, bar_y, w - 6, 4), DB.PAL.ink)
-		draw_rect(Rect2(3, bar_y, (w - 6) * clampf(sq.troops / sq.max, 0, 1), 4), War3D.TEAM.A)
-		# 사기 —— 100 이 가득 (예전 /200 이라 평소에 반만 차 보였다), 넘치면 밝게, 30 아래면 붉게 (11/4)
-		draw_rect(Rect2(3, bar_y + 6, w - 6, 2), DB.PAL.ink)
-		var mc: Color = Color("#ff6b57") if sq.morale < 30 else (Color("#fff0b0") if sq.morale > 100 else DB.PAL.gold)
-		draw_rect(Rect2(3, bar_y + 6, (w - 6) * clampf(sq.morale / 100.0, 0, 1), 2), mc)
-		var lv := view.unit_live(sq.key)
-		if sq.tier >= 6 or DB.is_kiin(sq.cid):
-			draw_rect(Rect2(3, bar_y + 10, w - 6, 3), DB.PAL.ink)
-			draw_rect(Rect2(3, bar_y + 10, (w - 6) * clampf(lv[0] / 100.0, 0, 1), 3), Color("#d9a64b") if lv[1] > 0 else Color("#555"))
-			for i in lv[1]:
-				draw_circle(Vector2(w - 6 - i * 6, 6), 2.3, Color("#ffd257"))
+		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
+		_bar_rows(3.0, bar_y, w - 6.0, 8.0, 8)
 		if ready:
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
 			var rb := StyleBoxFlat.new()
@@ -2766,10 +2759,50 @@ class MiniCard extends Control:
 			rb.set_border_width_all(3)
 			rb.set_corner_radius_all(6)
 			draw_style_box(rb, Rect2(Vector2.ZERO, size))
-			draw_string_outline(DB.font_display, Vector2(0, 44), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, 4, Color(0, 0, 0, 0.9))
-			draw_string(DB.font_display, Vector2(0, 44), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color("#ffd257"))
+			draw_string_outline(DB.font_display, Vector2(0, 50), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, 4, Color(0, 0, 0, 0.9))
+			draw_string(DB.font_display, Vector2(0, 50), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color("#ffd257"))
 		if not sq.alive:
 			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
+
+	## 막대 세 줄 (11/7 사용자: 막대 뜻을 한눈에) —— 줄마다 왼쪽에 글자(병 · 사 · 기), 굵기 병력 5 · 사기 2 · 고유기 3, 색은 파랑 · 옥색 · 금색.
+	## 고유기 줄 끝에 남은 횟수 구슬(최대 3, 11/7 재사용) —— 차례를 기다리는 중이면 막대 자리에 「준비」 가 깜빡인다 (11/6 #14).
+	## x0 · y0 왼쪽 위, bw 전체 폭, pitch 줄 간격, lfs 글자 크기
+	func _bar_rows(x0: float, y0: float, bw: float, pitch: float, lfs: int) -> void:
+		var fb := DB.font_bold
+		var bx := x0 + lfs + 3.0
+		var bw2 := bw - (lfs + 3.0)
+		var y := y0
+		# 병력 —— 굵게 · 진영 파랑
+		draw_string(fb, Vector2(x0, y + pitch - 2.0), "병", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, Color("#9cc4ff"))
+		draw_rect(Rect2(bx, y + 2.0, bw2, 5), DB.PAL.ink)
+		draw_rect(Rect2(bx, y + 2.0, bw2 * clampf(sq.troops / sq.max, 0, 1), 5), War3D.TEAM.A)
+		# 사기 —— 가늘게 · 옥색. 100 이 가득 (예전 /200 이라 평소에 반만 차 보였다), 넘치면 밝게, 30 아래면 붉게 (11/4)
+		y += pitch
+		var mc: Color = Color("#ff6b57") if sq.morale < 30 else (Color("#c2f7df") if sq.morale > 100 else MORALE_COL)
+		draw_string(fb, Vector2(x0, y + pitch - 2.0), "사", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, MORALE_COL)
+		draw_rect(Rect2(bx, y + 3.0, bw2, 2), DB.PAL.ink)
+		draw_rect(Rect2(bx, y + 3.0, bw2 * clampf(sq.morale / 100.0, 0, 1), 2), mc)
+		# 고유기 —— 금색 · 끝에 남은 횟수 구슬 (6급 이상 · 기인만. 횟수가 다 떨어지면 회색)
+		y += pitch
+		if sq.tier >= 6 or DB.is_kiin(sq.cid):
+			var lv := view.unit_live(sq.key)
+			var n: int = lv[1]
+			draw_string(fb, Vector2(x0, y + pitch - 2.0), "기", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, ULT_FULL if n > 0 else Color("#777"))
+			var gw := bw2 - (n * 7.0 + 3.0 if n > 0 else 0.0)
+			if _waiting(lv):
+				var pb := StyleBoxFlat.new()
+				pb.bg_color = Color("#d9a64b", 0.6 + 0.3 * sin(view.clock * 6.0))
+				pb.set_corner_radius_all(3)
+				draw_style_box(pb, Rect2(bx, y, gw, pitch))
+				draw_string(fb, Vector2(bx, y + pitch - 1.5), "준비", HORIZONTAL_ALIGNMENT_CENTER, gw, lfs, Color("#1A1508"))
+			else:
+				draw_rect(Rect2(bx, y + 2.5, gw, 3), DB.PAL.ink)
+				var gc: Color = (ULT_FULL if lv[0] >= 100.0 else ULT_COL) if n > 0 else Color("#555")
+				draw_rect(Rect2(bx, y + 2.5, gw * clampf(lv[0] / 100.0, 0, 1), 3), gc)
+			for i in n:
+				var c := Vector2(bx + gw + 6.0 + i * 7.0, y + 4.0)
+				draw_circle(c, 3.2, Color(0, 0, 0, 0.7))
+				draw_circle(c, 2.4, Color("#ffd257"))
 
 	func _glow_text(t: String) -> void:
 		draw_string_outline(DB.font_display, Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, 4, Color(0, 0, 0, 0.9))
