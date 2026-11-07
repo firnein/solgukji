@@ -962,6 +962,7 @@ func start_quest() -> Dictionary:
 	else:
 		var styles := ["물리", "지략", "균형"]
 		foe = _bot_side(pv, styles[rng.randi() % 3])
+	if not DB.quest_trait(day).is_empty(): foe["trait"] = DB.quest_trait(day)      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
 	battle = {"kind": "quest", "a": _my_side(), "b": foe, "seed": rng.randi() % 1000000,
 		"title": "토벌 · %s" % quest_name(), "foe": quest_name(), "pv": pv, "inputs": []}
 	return battle
@@ -1049,9 +1050,11 @@ static func _flip(v):
 ## 전투 계산 —— 화면(BattleView)과 같은 식. 입력과 정책을 받는다
 static func simulate(bt: Dictionary, inputs: Array, policy: Dictionary) -> Dictionary:
 	Battle.tr_mul = {"A": float(bt.a.get("tr_mul", 1.0)), "B": float(bt.b.get("tr_mul", 1.0))}
+	Battle.side_trait = {"A": bt.a.get("trait", {}), "B": bt.b.get("trait", {})}      # 11/8 토벌 우두머리 성질
 	var r := RtBattle.make(bt.seed).run(bt.a.cards, bt.a.form, bt.a.morale, bt.a.equip,
 		bt.b.cards, bt.b.form, bt.b.morale, bt.b.equip, bt.title, bt.foe, inputs, policy)
 	Battle.tr_mul = {"A": 1.0, "B": 1.0}
+	Battle.side_trait = {"A": {}, "B": {}}
 	return r
 
 

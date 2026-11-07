@@ -523,11 +523,13 @@ func start_stats(key: String) -> Dictionary:
 	if _p.is_empty() or not _p.has("a"):
 		return {}
 	Battle.tr_mul = {"A": float(_p.get("tra", 1.0)), "B": float(_p.get("trb", 1.0))}
+	Battle.side_trait = {"A": {}, "B": _p.get("tb", {})}      # 11/8 토벌 우두머리 성질
 	var tm := Battle.turn_mul
 	var bt: Battle = RtBattle.make(_p.seed)
 	bt._setup(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
 		_p.title, _p.foe, [], _p.policy)
 	Battle.tr_mul = {"A": 1.0, "B": 1.0}
+	Battle.side_trait = {"A": {}, "B": {}}
 	Battle.turn_mul = tm      # 준비가 정적 턴 배율을 다시 정한다 —— 같은 값이지만 되돌려 둔다
 	var out := {}
 	for u in bt.units:
@@ -551,9 +553,11 @@ func start_stats(key: String) -> Dictionary:
 
 func _simulate() -> Dictionary:
 	Battle.tr_mul = {"A": float(_p.get("tra", 1.0)), "B": float(_p.get("trb", 1.0))}
+	Battle.side_trait = {"A": {}, "B": _p.get("tb", {})}      # 11/8 토벌 우두머리 성질 (직접 지휘 다시 계산도 같은 값 —— Run.simulate 와 같다)
 	var r: Dictionary = RtBattle.make(_p.seed).run(_p.a, _p.fa, _p.get("ma", 100), _p.get("ea"), _p.b, _p.fb, _p.get("mb", 100), _p.get("eb"),
 		_p.title, _p.foe, inputs.duplicate(true), _p.policy)
 	Battle.tr_mul = {"A": 1.0, "B": 1.0}
+	Battle.side_trait = {"A": {}, "B": {}}
 	return r
 
 
@@ -572,7 +576,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	_p = {"a": bt.a.cards, "fa": bt.a.form, "ma": bt.a.morale, "ea": bt.a.equip,
 		"b": bt.b.cards, "fb": bt.b.form, "mb": bt.b.morale, "eb": bt.b.equip,
 		"seed": bt.seed, "title": bt.title, "foe": bt.foe,
-		"policy": Run.policy_for(bt), "tra": float(bt.a.get("tr_mul", 1.0)), "trb": float(bt.b.get("tr_mul", 1.0))}
+		"policy": Run.policy_for(bt), "tra": float(bt.a.get("tr_mul", 1.0)), "trb": float(bt.b.get("tr_mul", 1.0)), "tb": bt.b.get("trait", {})}
 	inputs = bt.get("inputs", []).duplicate(true)
 	res = _simulate()
 	_pace_for(str(bt.get("kind", "")))

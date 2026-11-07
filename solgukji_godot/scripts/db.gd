@@ -41,6 +41,8 @@ var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
+var GUARD: Dictionary = {}    # 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 · 토벌 우두머리 성질 (data/cards_ext.json class_guard) —— 없으면 막 0 · 깎기 없음
+var bot_mix := true           # 11/8 봇 덱 병종 섞기 (gen_board —— 같은 병종 3장까지 · 물리 · 책략 각 3장 이상). 끄면 예전 몰빵 그대로 (비교용)
 var SKILL_COND: Dictionary   # 일반 기술 발동 조건 (data/cards_ext.json skill_cond)
 var QUEST_ROSTERS: Array = []  # 토벌 고정 편성 —— 황건적 소탕 [일차][단계] (data/cards_ext.json quest_rosters, 11/2)
 
@@ -110,6 +112,7 @@ func _load() -> void:
 	for k in ext.get("status", {}):
 		D.STATUS[k] = ext.status[k]
 	CLASS_COUNTER = ext.get("class_counter", {})
+	GUARD = ext.get("class_guard", {})
 	SKILL_COND = ext.get("skill_cond", {})
 	QUEST_ROSTERS = ext.get("quest_rosters", {}).get("stages", [])
 	D.SKILLPOOL["범용"] = ext.get("skills_ext", []).filter(func(x): return x.has("n"))     # 범용 기술 (누구나 추가 기술로)
@@ -1098,10 +1101,14 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 		tiers[lo] = nt
 		spent += cost
 	var cards := []
-	for t in tiers:
+	var mix_tags := _mix_tags(style, rng) if bot_mix else []
+	for i in tiers.size():
+		var t: int = tiers[i]
 		var src: Array = POOLS[style].get(t, [])
 		if src.is_empty():
 			src = POOLS["균형"][t]
+		if bot_mix:
+			src = _mix_src(t, str(mix_tags[i]))
 		var ok := src.filter(func(k): return C[k].tier < 8)
 		if ok.is_empty():
 			ok = src
@@ -1110,6 +1117,40 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 			ok = fresh
 		cards.append(ok[rng.randi() % ok.size()])
 	return {"cards": cards, "form": STYLE_FORM[style]}
+
+
+## 11/8 봇 덱 병종 (docs/역할_재설계_1108.md 7.2) —— 몰빵이면 몰빵 카운터가 정답이 되어 '고루'의 가치가 흐려진다.
+## 같은 병종 3장까지 · 물리 · 책략 각 3장 이상, 성향은 몰빵 대신 쏠림 (물리 6:3 · 지략 3:6 · 균형 5:4). 칸마다 섞어 높은 등급이 한 병종에 몰리지 않게
+const BOT_MIX_PHYS := {"물리": 6, "지략": 3, "균형": 5}
+func _mix_tags(style: String, rng: RandomNumberGenerator) -> Array:
+	var n_phys: int = BOT_MIX_PHYS.get(style, 5)
+	var out := []
+	for grp in [[PHYS_TAGS, n_phys], [INT_TAGS, 9 - n_phys]]:
+		var cnt := {}
+		for i in int(grp[1]):
+			var cand: Array = grp[0].filter(func(x): return int(cnt.get(x, 0)) < 3)
+			var tg: String = cand[rng.randi() % cand.size()]
+			cnt[tg] = int(cnt.get(tg, 0)) + 1
+			out.append(tg)
+	for i in range(out.size() - 1, 0, -1):
+		var j := rng.randi() % (i + 1)
+		var x = out[i]
+		out[i] = out[j]
+		out[j] = x
+	return out
+
+
+## 그 등급의 그 병종 (없으면 같은 피해 종류, 그래도 없으면 아무나) —— 신화는 뺀다
+func _mix_src(t: int, tag: String) -> Array:
+	var all_: Array = POOLS["균형"].get(t, []).filter(func(k): return C[k].tier < 8)
+	var same := all_.filter(func(k): return C[k].tag == tag)
+	if not same.is_empty():
+		return same
+	var kind: Array = INT_TAGS if INT_TAGS.has(tag) else PHYS_TAGS
+	var near := all_.filter(func(k): return kind.has(C[k].tag))
+	if not near.is_empty():
+		return near
+	return all_ if not all_.is_empty() else POOLS["균형"].get(t, [])
 
 
 func auto_place(cards: Array, form: String) -> Array:
@@ -1224,6 +1265,48 @@ func cond_text(cond: String) -> String:
 
 
 ## 병종 상성 배율 —— 공격 병종 a 가 수비 병종 d 를 칠 때 (1 ± amt)
+## 11/8 피해 종류 —— "phys" 물리 · "int" 책략 (class_guard.kind, 없으면 책략계 병종이면 책략)
+func dmg_kind(tag: String) -> String:
+	return str(GUARD.get("kind", {}).get(tag, "int" if INT_TAGS.has(tag) else "phys"))
+
+
+## 병종 기본 막 {phys: 갑옷, int: 결계}
+func guard_of(tag: String) -> Dictionary:
+	return {"phys": float(GUARD.get("armor", {}).get(tag, 0.0)), "int": float(GUARD.get("ward", {}).get(tag, 0.0))}
+
+
+## 카드 한 줄 —— "물리 피해 · 갑옷 30%" / "책략 피해 · 결계 30%" / "물리 피해" (막을 끄면 빈 글)
+func guard_text(tag: String) -> String:
+	if GUARD.is_empty() or not Battle.shield_enabled:
+		return ""
+	var g := guard_of(tag)
+	var s := "%s 피해" % ("책략" if dmg_kind(tag) == "int" else "물리")
+	if g.phys > 0:
+		s += " · 갑옷 %d%%" % roundi(g.phys * 100)
+	if g["int"] > 0:
+		s += " · 결계 %d%%" % roundi(g["int"] * 100)
+	return s
+
+
+## 11/8 토벌 일차별 우두머리 성질 (class_guard.quest[일차], 0 = 1일차) —— 없는 날은 빈 사전
+func quest_trait(day: int) -> Dictionary:
+	var q: Array = GUARD.get("quest", [])
+	if q.is_empty():
+		return {}
+	var t: Dictionary = q[clampi(day, 0, q.size() - 1)]
+	return t.duplicate() if str(t.get("t", "")) != "" else {}
+
+
+## 토벌 성질 한 줄 —— "철갑 · 물리 −45%" / "부적 · 책략 −45%" / "철갑 앞 · 부적 뒤 60%"
+func trait_text(t: Dictionary) -> String:
+	var v := roundi(float(t.get("v", 0.0)) * 100)
+	match str(t.get("t", "")):
+		"armor": return "철갑 · 물리 −%d%%" % v
+		"ward": return "부적 · 책략 −%d%%" % v
+		"mix": return "철갑 앞 · 부적 뒤 %d%%" % v
+	return ""
+
+
 func cls_mul(a: String, d: String, tier := 8) -> float:
 	if CLASS_COUNTER.is_empty():
 		return 1.0

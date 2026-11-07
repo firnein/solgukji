@@ -1,5 +1,5 @@
 extends Node
-## 진행 점검 —— 실행: godot --headless --path . res://tests/game.tscn [-- --runs=20]
+## 진행 점검 —— 실행: godot --headless --path . res://tests/game.tscn [-- --runs=20] [--noshield]
 ## 사람 대신 Run.dev_autoplay 의 단순한 규칙으로 한 판을 끝까지 돈다 (징집 → 선택권 → 조합 → 자동 편성 →
 ## 토벌 → 대전 → 다음 페이즈 … → 토너먼트). 페이즈마다 저장했다가 다시 읽어 이어 간다.
 
@@ -15,6 +15,9 @@ func _ready() -> void:
 		DB.QUEST_ROSTERS = []
 	if args.has("nohorde"):         # 11/7 토벌 대군(잡병 추가) 끄기 —— 비교용
 		Run.horde_enabled = false
+	if args.has("noshield"):        # 11/8 갑옷 · 결계 · 깎기 · 토벌 성질 · 봇 덱 섞기 끄기 —— 비교용
+		Battle.shield_enabled = false
+		DB.bot_mix = false
 	var qtry := {}                # "일차-단계" -> [도전, 실패]
 	var wins := 0
 	var phases := 0
