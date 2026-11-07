@@ -1927,6 +1927,9 @@ func card_info(k: String) -> void:
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	st.custom_minimum_size.y = 188
 	st.add_child(_stat_row(c))
+	var gt := DB.guard_text(c.tag)      # 11/8 피해 종류 · 병종 갑옷 · 결계 한 줄 ("물리 피해 · 갑옷 30%")
+	if gt != "":
+		st.add_child(UI.lbl(gt, 12, Color("#6fa8ff") if DB.dmg_kind(c.tag) == "int" else Color("#ff8a6a")))
 	st.add_child(TraitBoard.new().setup(k))
 	_ability_rows(st, k, 12)      # 11/7 사용자: 고유 특기 · 위세 · 고유기(+기질)는 『』 글줄 대신 특기판과 같은 칸
 	top.add_child(st)
@@ -2701,6 +2704,9 @@ func _page_war() -> Control:
 		row.add_child(_war_btn("① 토벌", run.quest_name(), run.quest_done, placed == 0, func(): _start("quest"), "warn"))
 		row.add_child(_war_btn("② 대전", "임의 세력" if run.quest_done else "토벌 뒤", run.pvp_done, placed == 0 or not run.quest_done, func(): _start("pvp"), "pri"))
 		v.add_child(row)
+		var qt := DB.quest_trait(run.day)      # 11/8 토벌 우두머리 성질 —— 그날 아침부터 미리 보인다 (docs/역할_재설계_1108.md 7.3)
+		if not qt.is_empty() and not run.quest_done and Battle.shield_enabled:
+			v.add_child(UI.hint("오늘 토벌 우두머리 —— %s" % DB.trait_text(qt)))
 		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
 		var qr = run.quest_roster()
 		if qr != null and not run.quest_done and run.board.has(DB.kiin_card("wind_slow")):

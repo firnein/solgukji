@@ -41,6 +41,7 @@ var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
+var GUARD: Dictionary = {}    # 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 · 토벌 우두머리 성질 (data/cards_ext.json class_guard) —— 없으면 막 0 · 깎기 없음
 var SKILL_COND: Dictionary   # 일반 기술 발동 조건 (data/cards_ext.json skill_cond)
 var QUEST_ROSTERS: Array = []  # 토벌 고정 편성 —— 황건적 소탕 [일차][단계] (data/cards_ext.json quest_rosters, 11/2)
 
@@ -110,6 +111,7 @@ func _load() -> void:
 	for k in ext.get("status", {}):
 		D.STATUS[k] = ext.status[k]
 	CLASS_COUNTER = ext.get("class_counter", {})
+	GUARD = ext.get("class_guard", {})
 	SKILL_COND = ext.get("skill_cond", {})
 	QUEST_ROSTERS = ext.get("quest_rosters", {}).get("stages", [])
 	D.SKILLPOOL["범용"] = ext.get("skills_ext", []).filter(func(x): return x.has("n"))     # 범용 기술 (누구나 추가 기술로)
@@ -1224,6 +1226,48 @@ func cond_text(cond: String) -> String:
 
 
 ## 병종 상성 배율 —— 공격 병종 a 가 수비 병종 d 를 칠 때 (1 ± amt)
+## 11/8 피해 종류 —— "phys" 물리 · "int" 책략 (class_guard.kind, 없으면 책략계 병종이면 책략)
+func dmg_kind(tag: String) -> String:
+	return str(GUARD.get("kind", {}).get(tag, "int" if INT_TAGS.has(tag) else "phys"))
+
+
+## 병종 기본 막 {phys: 갑옷, int: 결계}
+func guard_of(tag: String) -> Dictionary:
+	return {"phys": float(GUARD.get("armor", {}).get(tag, 0.0)), "int": float(GUARD.get("ward", {}).get(tag, 0.0))}
+
+
+## 카드 한 줄 —— "물리 피해 · 갑옷 30%" / "책략 피해 · 결계 30%" / "물리 피해" (막을 끄면 빈 글)
+func guard_text(tag: String) -> String:
+	if GUARD.is_empty() or not Battle.shield_enabled:
+		return ""
+	var g := guard_of(tag)
+	var s := "%s 피해" % ("책략" if dmg_kind(tag) == "int" else "물리")
+	if g.phys > 0:
+		s += " · 갑옷 %d%%" % roundi(g.phys * 100)
+	if g["int"] > 0:
+		s += " · 결계 %d%%" % roundi(g["int"] * 100)
+	return s
+
+
+## 11/8 토벌 일차별 우두머리 성질 (class_guard.quest[일차], 0 = 1일차) —— 없는 날은 빈 사전
+func quest_trait(day: int) -> Dictionary:
+	var q: Array = GUARD.get("quest", [])
+	if q.is_empty():
+		return {}
+	var t: Dictionary = q[clampi(day, 0, q.size() - 1)]
+	return t.duplicate() if str(t.get("t", "")) != "" else {}
+
+
+## 토벌 성질 한 줄 —— "철갑 · 물리 −45%" / "부적 · 책략 −45%" / "철갑 앞 · 부적 뒤 60%"
+func trait_text(t: Dictionary) -> String:
+	var v := roundi(float(t.get("v", 0.0)) * 100)
+	match str(t.get("t", "")):
+		"armor": return "철갑 · 물리 −%d%%" % v
+		"ward": return "부적 · 책략 −%d%%" % v
+		"mix": return "철갑 앞 · 부적 뒤 %d%%" % v
+	return ""
+
+
 func cls_mul(a: String, d: String, tier := 8) -> float:
 	if CLASS_COUNTER.is_empty():
 		return 1.0

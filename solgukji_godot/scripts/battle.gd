@@ -88,6 +88,10 @@ const SPEAR_ATK := {3: 0.45, 4: 0.45, 5: 0.5, 6: 0.55, 7: 0.6, 8: 0.65}
 const INT_TAG := ["책사", "유생", "술사", "모사"]
 
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
+## 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 (docs/역할_재설계_1108.md 9.1, 수치는 data/cards_ext.json class_guard → DB.GUARD)
+static var shield_enabled := true    # 끄면 예전 판정 그대로 (지문 비교 · 점검용)
+static var side_trait := {"A": {}, "B": {}}    # 토벌 우두머리 성질 {t: armor · ward · mix, v} —— tr_mul 처럼 Run.simulate · BattleView 가 전투 전에 넣고 뒤에 되돌린다
+static var guard_over := {}          # 점검용 병종 막 덮어쓰기 {병종: 값} (--guard=창병:0.3,…) —— 물리 병종은 갑옷, 책략 병종은 결계
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
@@ -181,6 +185,8 @@ class Unit:
 	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
 	var cut_used := false     # 쇄갑 —— 첫 물리 공격의 큰 파갑을 썼는가
 	var cut := {"atk": 0.0, "int": 0.0, "def": 0.0}   # 수치 깎기 (위축 · 산란 · 파갑) —— 전투 끝까지 쌓이고 0 까지
+	var shield := {"phys": 0.0, "int": 0.0}   # 11/8 갑옷(받는 물리 피해 −) · 결계(받는 책략 피해 −) —— 병종 기본, 토벌 우두머리는 그날 성질
+	var shred := {"phys": {"v": 0.0, "t": 0, "by": ""}, "int": {"v": 0.0, "t": 0, "by": ""}}   # 갑옷 · 결계 깎기 (값 · 남은 턴 · 출처 부대 키) —— 종류별 가장 센 하나. 출처를 Unit 으로 들면 순환 참조가 생겨 키로
 	var kill_amp := 0.0       # 기세 —— 적을 무너뜨린 뒤 다음 공격 피해 +
 	var chase_turn := -1      # 추격 —— 이 턴에 한 번 더 쳤다
 	var in_skill := false     # 기술을 쓰는 중 (신산)
@@ -251,7 +257,7 @@ var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0
 	"tac_amp": 0.0, "cuts": 0.0, "cut_n": 0, "execs": 0, "kills_amp": 0, "chases": 0, "cleaves": 0.0, "awes": 0, "rallied": 0.0,
 	"phalanx": 0, "counters": 0, "counter_dmg": 0.0, "stands": 0, "phys": 0.0, "intd": 0.0, "ph_taken": 0.0,
 	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
-	"mends": 0.0, "moved": 0, "oaths": 0}
+	"mends": 0.0, "moved": 0, "oaths": 0, "shreds": 0}
 var _oath_used := {"A": false, "B": false}
 ## 11/4 연출 점검 —— 승부가 갈린 뒤 평타만 30초 넘게 이어지던 '정리 시간'을 끊는다.
 ## 총붕괴: 한쪽이 부대 5/9 이상을 잃거나 병력이 처음의 30% 아래면 남은 부대 사기가 초마다 크게 깎여 줄줄이 무너진다.
@@ -382,17 +388,59 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 			if not _trait_on(t, camp):
 				continue
 			for k in t.m:
-				u.m[k] = u.m.get(k, 0.0) + t.m[k]
+				var mk: String = _shred_key(t.name, k) if shield_enabled else k      # 11/8 방어 깎기 특기 → 갑옷 · 결계 깎기 키
+				u.m[mk] = u.m.get(mk, 0.0) + t.m[k]
 	# 11/3 특기 점검 (tests/trait_probe): 수엄칠군(drown)을 가진 관우에게 수몰을 거는 수단이 없어, 아군에 수공 장수가 없으면 한 번도 발동하지 않았다.
 	# 설명대로 "자신의 수공이 칠군을 잠근다" —— 스스로 맞힐 때 수몰을 건다
 	if u.m.get("drown", 0.0) > 0 and u.m.get("soak", 0.0) <= 0 and _trait_on({"attr": "수공"}, camp):
 		u.m["soak"] = DROWN_SOAK
+	if shield_enabled:
+		_set_shield(u, camp, slot)
 	if u.c.tier >= 6 or u.c.kind == "kiin":      # 11/3 기인도 고유기 (초월 세기)
 		u.ult = DB.ult_of(cid)
 		if u.ult:
 			u.charges = ULT_CHARGES.get(u.c.tier, 1)
 			u.temper = temper_of(u)
 	return u
+
+
+## 11/8 병종 갑옷 · 결계 —— 점검 덮어쓰기(guard_over)가 먼저. 토벌 우두머리(B 진영 고정 편성 9부대 —— 잡병은 9번 칸부터)는
+## 그날 성질로 바꿔 쓴다 (더하지 않는다): armor 갑옷만 · ward 결계만 · mix 선봉 · 전군 줄은 갑옷, 중군 · 후군 줄은 결계
+func _set_shield(u: Unit, camp: String, slot: int) -> void:
+	var tag: String = u.c.tag
+	if guard_over.has(tag):
+		var gv := float(guard_over[tag])
+		u.shield = {"phys": 0.0 if INT_TAG.has(tag) else gv, "int": gv if INT_TAG.has(tag) else 0.0}
+	else:
+		u.shield = DB.guard_of(tag)
+	var tr: Dictionary = side_trait.get(camp, {})
+	if camp != "B" or slot >= 9 or str(tr.get("t", "")) == "":
+		return
+	var t := str(tr.t)
+	var v := float(tr.get("v", 0.0))
+	if t == "mix":
+		t = "armor" if u.line in ["선봉", "전군"] else "ward"
+	u.shield = {"phys": v if t == "armor" else 0.0, "int": v if t == "ward" else 0.0}
+
+
+## 점검 인자 --guard=창병:0.3,기병:0.15,… → guard_over (병종: 막)
+static func guard_arg(s: String) -> Dictionary:
+	var out := {}
+	for kv in s.split(",", false):
+		var p := kv.split(":")
+		if p.size() == 2:
+			out[p[0].strip_edges()] = float(p[1])
+	return out
+
+
+## 11/8 방어 깎기 특기 키 → 갑옷 · 결계 깎기 키 (켬 = 1, 수치는 엔진 등급표 class_guard.shred).
+## passives.json 이 아직 예전 키라 특기 이름으로 가른다 —— 현혹(책략이 맞을 때) · 요언(개전 적 전원)은 결계, 나머지는 갑옷.
+## 2단계에서 데이터 키를 shred · first_shred · wshred · open_wshred 로 바꾸면 그대로 지나간다
+const SHRED_KEY := {"cut_def": "shred", "first_cut": "first_shred", "open_cut_def": "open_wshred"}
+static func _shred_key(tn: String, k: String) -> String:
+	if k == "cut_def" and tn == "현혹":
+		return "wshred"
+	return SHRED_KEY.get(k, k)
 
 
 ## 특기 켜짐 —— 축(attr)이 axis_off 에 있으면 끈다. 철벽 · 인덕은 guard_enabled · virtue_enabled 로도 끈다
@@ -929,6 +977,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var op := 1.0 if a.opens >= roundi(turn_mul) else 1.0 + mv(a, "opener")
 	a.opens += 1
 	var dmg := A * (A / (A + Dv)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * op * (1.0 - mv(d, "dr")) * _amp_once(a)
+	if shield_enabled:
+		dmg *= 1.0 - _shield(d, dmg_kind(a))      # 11/8 갑옷 · 결계 —— 피해 종류는 때리는 장수의 병종 (평타 · 기술 · 고유기 · 잔기술 · 반격 모두 여기로 온다)
 	if d.troops / d.max <= 0.5:
 		dmg *= 1.0 + mv(a, "int_low")          # 기책 —— 병력 절반 아래인 적에게
 	if a.in_skill:
@@ -994,7 +1044,10 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			phys_hit(d, a, cmul, true)
 			d.countering = false
 			if ph and mv(d, "phalanx_break") > 0 and a.alive:            # 일신시담 —— 방진 중 되받아치면 적 방어를 크게 깎는다
-				_cut(d, a, "def", 0.15 * d.c.atk, "일신시담")
+				if shield_enabled:
+					_shred(d, a, "phys", _shred_v(d) * _gv("shred_big", 1.5), int(_gv("shred_dur", 3)), "일신시담")      # 11/8 갑옷을 크게 벗긴다
+				else:
+					_cut(d, a, "def", 0.15 * d.c.atk, "일신시담")
 
 
 func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
@@ -1010,6 +1063,57 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 
 
 var _hit_kind := "phys"      # phys_hit 가 기록할 사건 종류 (int_hit 가 바꾼다)
+
+
+# ───────── 11/8 피해 두 갈래 · 갑옷 · 결계 · 깎기 (docs/역할_재설계_1108.md 3장) ─────────
+
+## 피해 종류 —— 때리는 장수의 병종 ("phys" 물리 · "int" 책략). 기술의 kind · _hit_kind 는 연출에만
+func dmg_kind(u: Unit) -> String:
+	return DB.dmg_kind(u.c.tag)
+
+
+## 받는 쪽의 막 —— 병종(또는 우두머리 성질) 막 − 걸린 깎기, 0 ~ cap
+func _shield(d: Unit, k: String) -> float:
+	var s: Dictionary = d.shred[k]
+	return clampf(float(d.shield[k]) - (float(s.v) if int(s.t) > 0 else 0.0), 0.0, _gv("cap", 0.75))
+
+
+static func _gv(k: String, dflt: float) -> float:
+	return float(DB.GUARD.get(k, dflt))
+
+
+## 깎는 양 —— 장수 등급표 (1단계는 등급만, 장수별 레벨 차이는 2단계)
+static func _shred_v(a: Unit) -> float:
+	return float(DB.GUARD.get("shred", {}).get(str(a.c.tier), 0.0))
+
+
+## 갑옷(k = "phys") · 결계("int") 깎기 —— 대상마다 종류별 가장 센 하나. 난수를 쓰지 않는다.
+## 지금 걸린 값 이하면 다른 출처는 무시(같은 값은 먼저 건 것 유지), 같은 출처는 남은 턴만 갱신. 더 크면 바꿔 끼운다 (출처 a.key —— 기여 계산용)
+func _shred(a: Unit, d: Unit, k: String, v: float, dur: int, why: String) -> void:
+	if not cut_enabled or not d.alive or v <= 0.0 or dur <= 0:
+		return
+	var s: Dictionary = d.shred[k]
+	if int(s.t) > 0 and v <= float(s.v):
+		if s.by == a.key:
+			s.t = maxi(int(s.t), dur)
+		return
+	s.v = v
+	s.t = dur
+	s.by = a.key
+	stats.shreds += 1
+	if float(d.shield[k]) > 0.0:      # 막이 없는 적은 기록만 줄인다 (걸린 것은 같다)
+		L("st", "『%s』 %s의 %s −%d%%" % [why, nm(d), "갑옷" if k == "phys" else "결계", roundi(v * 100)],
+			{"fx": "debuff", "f": d.key, "st": "shred_" + k, "n": v})
+
+
+## 깎기 남은 턴 —— 턴 끝마다 (실시간 엔진은 period 마다) tick_status 가 부른다
+func _shred_tick() -> void:
+	if not shield_enabled:
+		return
+	for u in units:
+		for k in u.shred:
+			if int(u.shred[k].t) > 0:
+				u.shred[k].t = int(u.shred[k].t) - 1
 
 ## 병종 역할 배율 (tag_roles) —— 준 피해에 곱한다
 func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
@@ -1196,6 +1300,7 @@ func tick_status(frac := 1.0, final := true) -> void:
 		_spread_burn(sp[0], sp[1])
 	if not final:
 		return
+	_shred_tick()      # 11/8 갑옷 · 결계 깎기
 	for u in passes:                                  # 반간 —— 풀린 혼란이 같은 열 이웃에게 옮겨 간다 (한 번만)
 		var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and _same_line(o, u) and not has_st(o, "confuse"))
 		if cand.is_empty(): continue
@@ -1422,6 +1527,8 @@ func _debuffed(d: Unit) -> bool:
 	for k in d.cut:
 		if d.cut[k] > 0:
 			return true
+	if shield_enabled and (int(d.shred.phys.t) > 0 or int(d.shred["int"].t) > 0):      # 11/8 갑옷 · 결계 깎기
+		return true
 	return false
 
 
@@ -1452,7 +1559,15 @@ func _tac_hit(a: Unit, d: Unit, phys: bool) -> void:
 		return
 	if mv(a, "cut_atk") > 0:
 		_cut(a, d, "atk", _cut_amt(a, "cut_atk", not is_caster(a.c)), "위축")
-	if phys:
+	if phys and shield_enabled:      # 11/8 갑옷 · 결계 깎기 —— 수치는 등급표, 특기 키는 켬/끔만 (깎기 특기를 둘 가진 장수도 한 번)
+		if mv(a, "shred") > 0:
+			_shred(a, d, "phys", _shred_v(a), int(_gv("shred_dur", 3)), "파갑")
+		if mv(a, "first_shred") > 0 and not a.cut_used:
+			a.cut_used = true
+			_shred(a, d, "phys", _shred_v(a) * _gv("shred_big", 1.5), int(_gv("shred_big_dur", 6)), "쇄갑")
+		if mv(a, "wshred") > 0:
+			_shred(a, d, "int", _shred_v(a), int(_gv("shred_dur", 3)), "현혹")
+	elif phys:
 		if mv(a, "cut_def") > 0:
 			_cut(a, d, "def", _cut_amt(a, "cut_def", true), "파갑")
 		if mv(a, "first_cut") > 0 and not a.cut_used:
@@ -1468,7 +1583,7 @@ func _tac_hit(a: Unit, d: Unit, phys: bool) -> void:
 		_chain(a.camp, "위압", a.key)
 		inflict(a, d, "confuse", 1, int(DB.PSV.scheme.dur))
 	var ex := mv(a, "exec_break")
-	if ex > 0 and d.cut.def > 0 and d.troops / d.max <= ex:      # 비장(여포) —— 방어가 깎인 적을 베어 넘긴다
+	if ex > 0 and (int(d.shred.phys.t) > 0 if shield_enabled else d.cut.def > 0) and d.troops / d.max <= ex:      # 비장(여포) —— 방어(11/8 갑옷)가 깎인 적을 베어 넘긴다
 		stats.execs += 1
 		_chain(a.camp, "비장", a.key)
 		rout(d, "한 칼에 베였다")
@@ -1501,13 +1616,17 @@ func _tac_open() -> void:
 		var back := _back_of(live)
 		if mv(u, "rush") > 0:
 			L("sk", "%s의 기병이 적 선봉을 들이친다" % nm(u), {"fx": "skill", "a": u.key, "name": "위진", "kind": "phys"})
-			for t in front: _cut(u, t, "def", 0.2 * u.c.atk, "위진")
+			for t in front:
+				if shield_enabled: _shred(u, t, "phys", _shred_v(u) * _gv("shred_big", 1.5), int(_gv("shred_big_dur", 6)), "위진")      # 11/8 적 선봉 갑옷을 크게
+				else: _cut(u, t, "def", 0.2 * u.c.atk, "위진")
 		if mv(u, "open_cut_atk") > 0:
 			for t in front: _cut(u, t, "atk", mv(u, "open_cut_atk") * maxf(u.c.atk, u.c["int"]), "기선")
 		if mv(u, "open_cut_int") > 0:
 			for t in back: _cut(u, t, "int", mv(u, "open_cut_int") * u.c["int"], "이간")
 		if mv(u, "open_cut_def") > 0:
 			for t in live: _cut(u, t, "def", mv(u, "open_cut_def") * u.c["int"], "요언")
+		if mv(u, "open_wshred") > 0:      # 11/8 요언 —— 적 전원 결계를 크게 (shield_enabled 면 open_cut_def 가 이 키로 바뀐다)
+			for t in live: _shred(u, t, "int", _shred_v(u) * _gv("shred_big", 1.5), int(_gv("shred_big_dur", 6)), "요언")
 		if water_enabled and mv(u, "open_slow") > 0:
 			L("sk", "%s 둑을 터뜨려 적진을 늦춘다" % ga(nm(u)), {"fx": "skill", "a": u.key, "name": "수계", "kind": "int"})
 			for t in live: inflict(u, t, "flood", 1, 1)
@@ -1556,6 +1675,8 @@ func _shown_st(u: Unit) -> Array:
 	for k in u.cut:
 		if u.cut[k] > 0:
 			out.append(CUT_ST[k])
+	if shield_enabled and int(u.shred.phys.t) > 0 and float(u.shield.phys) > 0.0 and not out.has("cut_def"):
+		out.append("cut_def")      # 11/8 갑옷 깨짐 —— 제 아이콘은 3단계, 지금은 파갑 표지를 같이 쓴다
 	return out
 
 
