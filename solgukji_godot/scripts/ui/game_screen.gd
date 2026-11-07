@@ -2460,16 +2460,10 @@ func _page_war() -> Control:
 		v.add_child(_bracket())
 	else:
 		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
-		v.add_child(UI.lbl("%s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]], 20, DB.PAL.paper, true))
+		# 11/7 사용자: '목요일 오전' 글은 머리띠에 이미 있어 뺀다. 큰 두 줄 버튼(UI.act 64) 은 한 줄(46)로, 끝난 것은 완료 표시만 작게
 		var row := UI.hbox(8)
-		var qa := UI.act("토벌 완료" if run.quest_done else "① 토벌", "" if run.quest_done else run.quest_name(),
-			func(): _start("quest"), "warn", run.quest_done or placed == 0)
-		qa.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(qa)
-		var pa := UI.act("대전 완료" if run.pvp_done else "② 대전", "" if run.pvp_done else ("임의 세력" if run.quest_done else "토벌 뒤"),
-			func(): _start("pvp"), "pri", run.pvp_done or placed == 0 or not run.quest_done)
-		pa.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(pa)
+		row.add_child(_war_btn("① 토벌", run.quest_name(), run.quest_done, placed == 0, func(): _start("quest"), "warn"))
+		row.add_child(_war_btn("② 대전", "임의 세력" if run.quest_done else "토벌 뒤", run.pvp_done, placed == 0 or not run.quest_done, func(): _start("pvp"), "pri"))
 		v.add_child(row)
 		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
 		var qr = run.quest_roster()
@@ -2490,24 +2484,58 @@ func _page_war() -> Control:
 		if run.last_result != null:
 			v.add_child(_result_panel())
 		if run.can_next():
-			var nxt: String = "%s요일 오전" % Run.DAYNAME[mini(6, run.day + 1)] if run.phase == 2 else Run.PHASE_N[run.phase + 1]
-			v.add_child(UI.act("다음 페이즈로", nxt, func():
+			# 11/7 사용자: '금요일 오전' 같은 다음 페이즈 이름은 빼고 한 줄 버튼으로
+			v.add_child(UI.btn("다음 페이즈로  ▶", func():
 				PlayLog.phase_end(run)
 				run.advance()
 				run.save()
 				if run.over != null:
 					PlayLog.over(run)
-				go("draw"), "pri"))
+				go("draw"), "pri", 50))
 	if not run.is_tour_phase() and placed > 0:
+		# 11/7 사용자: 군단 효과는 그림 밖 칩 흐름(접으면 6개 + '+N 더', 펼치면 2열 표)으로 —— 효과가 많은 덱도 줄바꿈될 뿐 메달 줄을 누르지 않는다
+		var fx := FormationView.effects_box(run.board, run.form, _open.get("war:fx", false), func(): _toggle("war:fx"), func(k): card_info(k))
+		if fx != null:
+			v.add_child(fx)
 		var fv := FormationView.new().setup(run.board, run.form)
 		fv.on_medal = func(k): card_info(k)      # 11/5 사용자: 메달을 누르면 장수 상세
-		fv.custom_minimum_size.y = 180
 		fv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var fp := UI.panel(fv, 0)
 		fp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.add_child(fp)
+	if not run.is_tour_phase():
+		# 11/7: 전투 탭은 고정 페이지(render 의 fixed —— 진영 그림이 남는 공간을 채운다)라 내용이 길면(점괘 · 펼친 효과 표) 아래가 잘리고
+		# 내릴 수도 없었다 —— 탭 안에 제 스크롤을 둔다. 짧으면 안쪽 VBox 가 창을 채우고(진영 그림이 남는 공간), 길면 손가락으로 내린다
+		var sc := UI.scroll()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		sc.add_child(v)
+		return sc
 	return v
+
+
+## 전투 탭 행동 버튼 (11/7 사용자) —— 한 줄 '① 토벌 · 백파적'. 끝났으면 작은 '✓ 토벌 완료' 표시만(누를 수 없다), 못 하면 흐리게
+func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callable, kind: String) -> Button:
+	var P := DB.PAL
+	if done:
+		var d := UI.btn("✓ %s 완료" % title.substr(2), func(): pass, "", 34)
+		d.disabled = true
+		d.add_theme_font_size_override("font_size", 13)
+		d.add_theme_color_override("font_disabled_color", Color(P.jade, 0.9))
+		d.add_theme_stylebox_override("disabled", UI.flat(Color(P.jade, 0.08), Color(P.jade, 0.4), 1, 17, 0))
+		var sb: StyleBoxFlat = d.get_theme_stylebox("disabled")
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		return d
+	var b := UI.btn("%s · %s" % [title, sub] if sub != "" else title, cb, kind, 46)
+	b.disabled = disabled
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_font_size_override("font_size", 15)
+	b.add_theme_font_override("font", DB.font_display)
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	return b
 
 
 func _result_panel() -> Control:
