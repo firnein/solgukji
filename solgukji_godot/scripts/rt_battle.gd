@@ -94,7 +94,7 @@ const CHARGE_RUN := 120.0
 static var near_mul := 1.5         # 맞닿아 친 물리 피해 배율 (삼국지11 —— 근접이 세다)
 static var far_mul := 0.85          # 떨어진 곳(활 · 책략)에서 친 피해 배율 —— 근접은 맞닿아야만 쳐서 덜 치므로 맞춘다
 const AREA := 95.0            # 둘레 범위 (front3 · denseLine)
-const ALL_R := 320.0          # '적 전체' 기술이 닿는 거리 (고유기는 아래 ult_all_r)
+static var all_r := 320.0   # '적 전체' 기술이 닿는 거리 (고유기는 아래 ult_all_r)
 ## 11/7 고유기 밸런스 2차 (사용자: "고유기가 거의 모든 범위에 효과가 있다") —— 고유기의 '적 전체'(all)는 전장 전체가 아니라
 ## 노리는 적(맞붙은 적 · 없으면 가장 가까운 적) 둘레 반지름 ult_all_r 안의 적. 가장자리가 원에 걸치면 맞는다. 0 이면 예전처럼 전장 전체
 ## 측정(같은 등급 30판, 반지름은 노리는 적 한가운데에서 발자국 가장자리까지): 신화 '적 전체' 고유기 번당 맞는 부대 5.7~6.2 → 3.3~3.6 (300 이면 2.4~2.9 · 220 이면 1.9 로 너무 좁다),
@@ -106,6 +106,8 @@ const SIDE := 0.15            # 옆에서 친 피해 +
 const REAR := 0.30            # 뒤에서 친 피해 +
 const TURN_RATE := 2.5        # 부대가 도는 속도 (라디안/초)
 
+static var probe_rogue_flank := true    # 11/8 점검 (tests/mono_league --off=우회) —— 끄면 도적이 적 무리 옆으로 크게 돌지 않고 곧장 간다
+static var probe_back_basic := true     # 11/8 점검 (--off=후열평타) —— 끄면 책략계 · 궁병 · 도적의 평타도 맞붙은 · 가까운 적을 친다 (front1)
 static var enabled := true    # 게임 · 서버의 전투를 실시간 엔진으로 (false 면 예전 턴 엔진 —— 비교용)
 
 # 지형 (삼국지11) —— 판마다 시드로 좌우 대칭이 되게 깐다. 숲 · 언덕 {k, x, y, r} · 강 {k: "river", x, w(반폭)}
@@ -438,9 +440,9 @@ func _dense_max(us: Array) -> int:
 func _reach(u: Unit) -> float:
 	var hill := HILL.range if _in(u.pos, "hill") else 1.0
 	if u.c.tag == "궁병":
-		return bow_range * hill
+		return bow_range * hill * Battle.class_tune("range", u.c.tag, u.c.tier)
 	if is_caster(u.c):
-		return cast_range * hill
+		return cast_range * hill * Battle.class_tune("range", u.c.tag, u.c.tier)      # 11/8 병종 사거리 배율 (class_guard.range)
 	return melee_gap
 
 
@@ -581,7 +583,7 @@ func _move() -> void:
 					side = 1.0 if u.slot % 2 == 0 else -1.0
 				dir = (dir + Vector2(-dir.y, dir.x) * side * 0.55 * signf(dir.x if dir.x != 0 else 1.0)).normalized()
 			# 11/4 사용자: 도적은 측면으로 크게 돌아 적 후열에 붙는다 —— 적 무리 옆 바깥 길목(적 폭 + 여유)을 지나 노리는 적 뒤로
-			if u.c.tag == "도적" and gap > 70.0:
+			if u.c.tag == "도적" and gap > 70.0 and probe_rogue_flank:
 				var way = _flank_way(u, t, foes)
 				if way != null:
 					var wv: Vector2 = way - u.pos
@@ -890,7 +892,7 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 					_mark(me, {"k": "circle", "x": roundi(_centroid(live).x), "y": roundi(_centroid(live).y), "r": 300})
 					return live
 				return _ult_area(me, main, live)
-			return live.filter(func(o): return me.pos.distance_to(o.pos) <= ALL_R)
+			return live.filter(func(o): return me.pos.distance_to(o.pos) <= all_r)
 		"denseLine":
 			var best: Array = [main]
 			var bc: Unit = main
@@ -958,7 +960,7 @@ func _mark(me: Unit, shape: Dictionary) -> void:
 
 
 func basic_target(u: Unit, foes: Array) -> Array:
-	var back: bool = (u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or is_caster(u.c)
+	var back: bool = probe_back_basic and ((u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or is_caster(u.c))
 	return resolve_targets("back1" if back else "front1", foes, u, [])
 
 

@@ -75,16 +75,17 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 ## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
 static var tag_roles := true
 ## 11/6 밸런스: 기병 3장 덱 30% → 돌격 뒤 배율 0.8 → 0.9 · 전체 0.9 → 1.0, 책략계 피격 감면(int_guard)은 방어 통합으로 대신
-const ROLE := {"charge": 2.0, "horse_after": 0.9, "horse_all": 1.0, "int_guard": 1.0, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
+## (11/8 ROLE · CHARGE · SPEAR_ATK 는 점검 장면 tests/mono_league 가 바꿔 볼 수 있게 static var)
+static var ROLE := {"charge": 2.0, "horse_after": 0.9, "horse_all": 1.0, "int_guard": 1.0, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
 	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 1.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
 	"schem_morale": 2.2, "schem_int": 2.0}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
 const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
 ## 높은 등급 책사 책략 배율 —— 11/5 사용자: 책사계가 너무 약하다 (불멸 책사 피해 0.44 · 팀 평균 1.0)
 const STRAT_HI := {7: 1.6, 8: 1.6}
-const CHARGE := {3: 1.15, 4: 1.15, 5: 1.3, 6: 1.45, 7: 1.7, 8: 1.9}
+static var CHARGE := {3: 1.15, 4: 1.15, 5: 1.3, 6: 1.45, 7: 1.7, 8: 1.9}
 ## 창병 피해 배율 —— 낮은 등급일수록 선호 자리 보너스(공격 ×1.22)가 커 더 낮춘다
-const SPEAR_ATK := {3: 0.45, 4: 0.45, 5: 0.5, 6: 0.55, 7: 0.6, 8: 0.65}
+static var SPEAR_ATK := {3: 0.45, 4: 0.45, 5: 0.5, 6: 0.55, 7: 0.6, 8: 0.65}
 const INT_TAG := ["책사", "유생", "술사", "모사"]
 
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
@@ -92,6 +93,9 @@ static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 �
 static var shield_enabled := true    # 끄면 예전 판정 그대로 (지문 비교 · 점검용)
 static var side_trait := {"A": {}, "B": {}}    # 토벌 우두머리 성질 {t: armor · ward · mix, v} —— tr_mul 처럼 Run.simulate · BattleView 가 전투 전에 넣고 뒤에 되돌린다
 static var guard_over := {}          # 점검용 병종 막 덮어쓰기 {병종: 값} (--guard=창병:0.3,…) —— 물리 병종은 갑옷, 책략 병종은 결계
+## 11/8 병종 균형 —— 병종 단위 배율 (data/cards_ext.json class_guard 의 dmg 준 피해(건 화상 · 출혈 포함) · taken 받는 피해 · range 원거리 사거리: {병종: 배율 또는 {등급: 배율}}).
+## 점검 장면은 tune_over 로 덮어쓴다 (--set=dmg:창병:1.2 → {"dmg": {"창병": 1.2}})
+static var tune_over := {}
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
@@ -1083,6 +1087,14 @@ static func _gv(k: String, dflt: float) -> float:
 	return float(DB.GUARD.get(k, dflt))
 
 
+## 병종 배율 —— 점검 덮어쓰기 → class_guard 순으로 찾고 없으면 1. 값이 등급표면 그 등급 값
+static func class_tune(key: String, tag: String, tier: int) -> float:
+	var v = tune_over.get(key, {}).get(tag, DB.GUARD.get(key, {}).get(tag, 1.0))
+	if v is Dictionary:
+		return float(v.get(str(tier), 1.0))
+	return float(v)
+
+
 ## 깎는 양 —— 장수 등급표 (1단계는 등급만, 장수별 레벨 차이는 2단계)
 static func _shred_v(a: Unit) -> float:
 	return float(DB.GUARD.get("shred", {}).get(str(a.c.tier), 0.0))
@@ -1125,7 +1137,7 @@ func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
 		g = ROLE.int_guard
 	if a.c.tag == "기병":
 		g *= ROLE.horse_all
-	return _role_tag(a, d, phys) * g      # 11/6 #15 책략 전용 배율(INT_LOW · strat_int …)은 쓰지 않는다 —— 피해 경로가 하나
+	return _role_tag(a, d, phys) * g * class_tune("dmg", a.c.tag, a.c.tier) * class_tune("taken", d.c.tag, d.c.tier)      # 11/6 #15 책략 전용 배율(INT_LOW · strat_int …)은 쓰지 않는다 —— 피해 경로가 하나. 11/8 병종 배율
 
 
 func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
@@ -1225,7 +1237,8 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	elif kind == "flood" and water_enabled:
 		fire = 1.0 - minf(0.9, mv(d, "flood_res"))
 	var amp := 1.0 + (mv(a, "st_amp") if a and kind in ["burn", "flood", "bleed", "plague"] else 0.0)     # 요술
-	var v := maxf(1, roundf(val * scale * stx * resist * fire * amp))
+	var cd := class_tune("dmg", a.c.tag, a.c.tier) if a and kind in ["burn", "bleed"] else 1.0      # 11/8 병종 배율 —— 지속 피해(화상 · 출혈)도 건 장수 병종의 준 피해 배율을 받는다
+	var v := maxf(1, roundf(val * scale * stx * resist * fire * amp * cd))
 	var t := roundi((maxi(dur, 1) + ext) * _long)
 	if kind == "flood":
 		_steam(d)
