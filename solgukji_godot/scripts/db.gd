@@ -42,6 +42,7 @@ var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유�
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
 var GUARD: Dictionary = {}    # 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 · 토벌 우두머리 성질 (data/cards_ext.json class_guard) —— 없으면 막 0 · 깎기 없음
+var bot_mix := true           # 11/8 봇 덱 병종 섞기 (gen_board —— 같은 병종 3장까지 · 물리 · 책략 각 3장 이상). 끄면 예전 몰빵 그대로 (비교용)
 var SKILL_COND: Dictionary   # 일반 기술 발동 조건 (data/cards_ext.json skill_cond)
 var QUEST_ROSTERS: Array = []  # 토벌 고정 편성 —— 황건적 소탕 [일차][단계] (data/cards_ext.json quest_rosters, 11/2)
 
@@ -1100,10 +1101,14 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 		tiers[lo] = nt
 		spent += cost
 	var cards := []
-	for t in tiers:
+	var mix_tags := _mix_tags(style, rng) if bot_mix else []
+	for i in tiers.size():
+		var t: int = tiers[i]
 		var src: Array = POOLS[style].get(t, [])
 		if src.is_empty():
 			src = POOLS["균형"][t]
+		if bot_mix:
+			src = _mix_src(t, str(mix_tags[i]))
 		var ok := src.filter(func(k): return C[k].tier < 8)
 		if ok.is_empty():
 			ok = src
@@ -1112,6 +1117,40 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 			ok = fresh
 		cards.append(ok[rng.randi() % ok.size()])
 	return {"cards": cards, "form": STYLE_FORM[style]}
+
+
+## 11/8 봇 덱 병종 (docs/역할_재설계_1108.md 7.2) —— 몰빵이면 몰빵 카운터가 정답이 되어 '고루'의 가치가 흐려진다.
+## 같은 병종 3장까지 · 물리 · 책략 각 3장 이상, 성향은 몰빵 대신 쏠림 (물리 6:3 · 지략 3:6 · 균형 5:4). 칸마다 섞어 높은 등급이 한 병종에 몰리지 않게
+const BOT_MIX_PHYS := {"물리": 6, "지략": 3, "균형": 5}
+func _mix_tags(style: String, rng: RandomNumberGenerator) -> Array:
+	var n_phys: int = BOT_MIX_PHYS.get(style, 5)
+	var out := []
+	for grp in [[PHYS_TAGS, n_phys], [INT_TAGS, 9 - n_phys]]:
+		var cnt := {}
+		for i in int(grp[1]):
+			var cand: Array = grp[0].filter(func(x): return int(cnt.get(x, 0)) < 3)
+			var tg: String = cand[rng.randi() % cand.size()]
+			cnt[tg] = int(cnt.get(tg, 0)) + 1
+			out.append(tg)
+	for i in range(out.size() - 1, 0, -1):
+		var j := rng.randi() % (i + 1)
+		var x = out[i]
+		out[i] = out[j]
+		out[j] = x
+	return out
+
+
+## 그 등급의 그 병종 (없으면 같은 피해 종류, 그래도 없으면 아무나) —— 신화는 뺀다
+func _mix_src(t: int, tag: String) -> Array:
+	var all_: Array = POOLS["균형"].get(t, []).filter(func(k): return C[k].tier < 8)
+	var same := all_.filter(func(k): return C[k].tag == tag)
+	if not same.is_empty():
+		return same
+	var kind: Array = INT_TAGS if INT_TAGS.has(tag) else PHYS_TAGS
+	var near := all_.filter(func(k): return kind.has(C[k].tag))
+	if not near.is_empty():
+		return near
+	return all_ if not all_.is_empty() else POOLS["균형"].get(t, [])
 
 
 func auto_place(cards: Array, form: String) -> Array:
