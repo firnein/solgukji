@@ -1,16 +1,19 @@
 class_name FormationView
 extends Control
 ## 전투 탭의 내 진영 미리 보기 (11/4 사용자: 남는 공간에 지금 배치된 병종을 그린다) ——
-## 진형 칸 자리대로 병종 병사 그림(assets/troops_sprite, 첫 칸 = 서 있는 모습) 몇 명 + 장수 얼굴 메달 · 이름. 위쪽이 적 방향.
+## 진형 칸 자리대로 장수 얼굴 메달 · 이름. 위쪽이 적 방향.
+## 11/7 사용자: 군단 효과(진형 · 단체 특기 · 위세 · 기인)는 이 그림 안에 그리지 않는다 —— 효과가 많은 덱(11줄)에서 표가 그림을 다 먹어
+##   메달 줄이 서로 겹쳤고, RichTextLabel [table] 은 오른쪽이 잘렸다. 대신 effects_box() 가 칩 흐름(HFlowContainer, 접으면 몇 개만 + '+N')
+##   · 펼치면 컨테이너 2열 표를 만들어 전투 탭이 그림 위에 따로 놓는다. 어떤 덱이든 줄바꿈될 뿐 무너지지 않는다.
 
 const COLS := 5      # 11/6 진형 4행 5열
+const FX_SHOW := 6   # 접었을 때 보이는 효과 칩 수 (540 폭에서 두 줄쯤)
 var cards: Array = []        # 9칸 카드 id (null 은 빈칸)
 var form := ""
 var t := 0.0
 var _sprites := {}
 var _mat: ShaderMaterial
 var on_medal := Callable()     # 11/5 사용자: 메달을 누르면 그 장수 상세 —— 카드 id 를 넘긴다
-var _buf_lbl: RichTextLabel     # 11/5 사용자: 위쪽에 지금 받는 버프 목록 · 수치 · (부여 장수)
 
 const SHADER := """
 shader_type canvas_item;
@@ -27,7 +30,13 @@ void fragment() {
 func setup(board: Array, form_key: String) -> FormationView:
 	cards = board
 	form = form_key
+	custom_minimum_size.y = min_h()
 	return self
+
+
+## 메달 줄이 겹치지 않는 높이 —— 줄마다 92(메달 · 이름 · 다음 줄 우대 표) + 위 '▲ 적' 표시 여백 (효과 표는 밖에 있으니 늘 같은 높이)
+func min_h() -> float:
+	return _rows() * 92.0 + 36.0
 
 
 func _gui_input(e: InputEvent) -> void:
@@ -58,41 +67,169 @@ func _ready() -> void:
 	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ov.use_parent_material = false
 	add_child(ov)
-	# 11/6 사용자: 버프 설명창 —— 장수와 효과를 셀로 나눠 눈에 잘 띄게 (2열 표: 왼쪽 장수 · 오른쪽 『특기』 효과)
-	var rows := []      # [왼쪽 BBCode, 오른쪽 BBCode, 왼쪽 바탕색]
-	var bn = DB.D.FORMBOON.get(form)
-	if bn != null and DB.FORM.has(form):
+
+
+# ───────── 군단 효과 (11/7) ─────────
+
+## 진영이 받는 효과 줄 —— 진형 우대가 맨 앞, 그 뒤 단체 특기 · 위세 · 기인 (team_buffs 순서).
+## [{kind, name, text(자세히), brief(칩 한 토막), who, k(부여 장수, 진형은 ""), col}]
+static func effect_rows(board: Array, form_key: String) -> Array:
+	var rows := []
+	var bn = DB.D.FORMBOON.get(form_key)
+	if bn != null and DB.FORM.has(form_key):
 		var who := []
-		for k in cards:
+		for k in board:
 			if k != null and bn.tags.has(DB.C[k].tag):
 				who.append(DB.person(k) if DB.C[k].tier > 2 else DB.C[k].name)
 		if not who.is_empty():
-			rows.append(["[color=#1A1508][b]%s[/b][/color]" % ", ".join(who),
-				"[color=#E8C25A][b]진형『%s』[/b][/color] [color=#8FD4C2]%s %s +%d%%[/color]" % [DB.FORM[form].n, " · ".join(bn.tags), DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100)],
-				Color("#C9A246")])
-	for b in team_buffs(cards):
-		var tc: Color = DB.tier_color(b.k)
-		rows.append(["[color=#F4EBD6][b]%s[/b][/color]" % b.who,
-			"[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [b.name, b.text, "" if b.kind == "단체" else " [color=#8D7B5C](%s)[/color]" % b.kind],
-			tc.darkened(0.45)])
-	if not rows.is_empty():
-		var bb := "[table=2]"
+			var stat: String = DB.D.STATNM.get(bn.stat, "스킬 발동")
+			var val := "+%d%%" % roundi(float(bn.v) * 100)
+			rows.append({"kind": "진형", "name": DB.FORM[form_key].n, "text": "%s %s %s" % [" · ".join(bn.tags), stat, val],
+				"brief": "%s %s" % [stat, val], "who": ", ".join(who), "k": "", "col": DB.PAL.gold})
+	for b in team_buffs(board):
+		rows.append({"kind": b.kind, "name": b.name, "text": b.text, "brief": _brief(b.text), "who": b.who, "k": b.k, "col": DB.tier_color(b.k)})
+	return rows
+
+
+## 칩에 넣을 한 토막 —— 첫 항목만 ("아군 방어 +5% / 병력 70% 아래 …" → "아군 방어 +5%")
+static func _brief(text: String) -> String:
+	var s := text.get_slice(" / ", 0).get_slice(" · ", 0).strip_edges()
+	return s if s != "" else text
+
+
+## 군단 효과 상자 —— 머리줄(개수 · 펼치기/접기) + 접으면 칩 흐름(FX_SHOW 개 + '+N 더'), 펼치면 장수 | 효과 2열 표.
+## on_toggle 은 펼침 상태를 바꾸는 쪽(전투 탭 _open), on_card 는 칩 · 줄을 누르면 부여 장수 상세. 효과가 없으면 null
+static func effects_box(board: Array, form_key: String, open: bool, on_toggle: Callable, on_card: Callable) -> Control:
+	var rows := effect_rows(board, form_key)
+	if rows.is_empty():
+		return null
+	var P := DB.PAL
+	var v := UI.vbox(6)
+	var head := UI.hbox(8)
+	var title := UI.lbl("군단 효과 %d" % rows.size(), 14, P.bamboo, true)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(title)
+	var tg := Button.new()
+	tg.text = "접기 ▴" if open else "펼치기 ▾"
+	tg.custom_minimum_size = Vector2(0, 28)
+	tg.add_theme_font_size_override("font_size", 12)
+	tg.add_theme_color_override("font_color", P.bamboo)
+	tg.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), P.ink4, 1, 14, 0))
+	tg.add_theme_stylebox_override("hover", UI.flat(P.ink3, P.bamboo_dim, 1, 14, 0))
+	tg.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.bamboo, 1, 14, 0))
+	_pad(tg, 10, 3)
+	tg.pressed.connect(func():
+		UI.buzz()
+		on_toggle.call())
+	head.add_child(tg)
+	v.add_child(head)
+	if open:
+		var tbl := UI.vbox(2)
 		for r in rows:
-			bb += "[cell bg=#%s border=#2a3348 padding=6,3,6,3]%s[/cell][cell bg=#151b29 border=#2a3348 padding=6,3,6,3]%s[/cell]" % [(r[2] as Color).to_html(false), r[0], r[1]]
-		bb += "[/table]"
-		_buf_lbl = UI.rich("", 13)
-		_buf_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_buf_lbl.position = Vector2(8, 6)
-		_buf_lbl.append_text("[color=#3F9A94][b]군단 효과[/b][/color]
-" + bb)
-		add_child(_buf_lbl)
-	resized.connect(func():
-		if _buf_lbl != null:
-			_buf_lbl.size.x = size.x - 16)
+			tbl.add_child(_row(r, on_card))
+		v.add_child(tbl)
+	else:
+		var flow := UI.flow(6)
+		var n_show := rows.size() if rows.size() <= FX_SHOW + 1 else FX_SHOW      # 하나만 남으면 '+1 더' 대신 그냥 보여 준다
+		for i in n_show:
+			flow.add_child(_chip(rows[i], on_card))
+		if rows.size() > n_show:
+			var more := Button.new()
+			more.text = "+%d 더" % (rows.size() - n_show)
+			more.custom_minimum_size = Vector2(0, 28)
+			more.add_theme_font_size_override("font_size", 12)
+			more.add_theme_color_override("font_color", P.bamboo)
+			more.add_theme_stylebox_override("normal", UI.flat(P.ink3, P.ink4, 1, 14, 0))
+			more.add_theme_stylebox_override("hover", UI.flat(P.ink4, P.bamboo_dim, 1, 14, 0))
+			more.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.bamboo, 1, 14, 0))
+			_pad(more, 10, 3)
+			more.pressed.connect(func():
+				UI.buzz()
+				on_toggle.call())
+			flow.add_child(more)
+		v.add_child(flow)
+	return UI.panel(v, 10)
+
+
+## 효과 칩 —— 『이름』 한 토막, 부여 장수 등급색 테 · 길면 … (한 칩은 폭 230 까지)
+static func _chip(r: Dictionary, on_card: Callable) -> Button:
+	var col: Color = r.col
+	var b := Button.new()
+	var txt: String = "%s『%s』 %s" % ["진형" if r.kind == "진형" else "", r.name, r.brief]
+	b.text = txt
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var tw: float = DB.font_body.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	b.custom_minimum_size = Vector2(minf(tw + 22.0, 230.0), 28)
+	b.add_theme_font_size_override("font_size", 12)
+	b.add_theme_color_override("font_color", col.lightened(0.35))
+	b.add_theme_color_override("font_hover_color", col.lightened(0.5))
+	b.add_theme_color_override("font_pressed_color", Color("#1A1508"))
+	b.add_theme_stylebox_override("normal", UI.flat(Color(col, 0.16), Color(col, 0.7), 1, 14, 0))
+	b.add_theme_stylebox_override("hover", UI.flat(Color(col, 0.28), col, 1, 14, 0))
+	b.add_theme_stylebox_override("pressed", UI.flat(col, col, 1, 14, 0))
+	_pad(b, 10, 3)
+	var k: String = r.k
+	b.pressed.connect(func():
+		if k != "" and on_card.is_valid():
+			UI.buzz()
+			on_card.call(k))
+	return b
+
+
+## 펼친 표의 한 줄 —— 왼쪽 부여 장수(등급색 바탕, 고정 폭) · 오른쪽 『이름』 효과 (남는 폭, 줄바꿈)
+static func _row(r: Dictionary, on_card: Callable) -> Control:
+	var col: Color = r.col
+	var h := UI.hbox(0)
+	var left := PanelContainer.new()
+	left.custom_minimum_size.x = 118
+	left.add_theme_stylebox_override("panel", UI.flat(col.darkened(0.45) if r.kind != "진형" else Color("#C9A246"), Color("#2a3348"), 1, 0, 0))
+	_pad(left, 6, 3)
+	var who := UI.lbl(r.who, 12, Color("#1A1508") if r.kind == "진형" else Color("#F4EBD6"))
+	who.add_theme_font_override("font", DB.font_bold)
+	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	who.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	who.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left.add_child(who)
+	h.add_child(left)
+	var right := PanelContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_theme_stylebox_override("panel", UI.flat(Color("#151b29"), Color("#2a3348"), 1, 0, 0))
+	_pad(right, 6, 3)
+	var bb: String
+	if r.kind == "진형":
+		bb = "[color=#E8C25A][b]진형『%s』[/b][/color] [color=#8FD4C2]%s[/color]" % [r.name, r.text]
+	else:
+		bb = "[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [r.name, r.text, "" if r.kind == "단체" else " [color=#8D7B5C](%s)[/color]" % r.kind]
+	var txt := UI.rich(bb, 12)
+	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right.add_child(txt)
+	h.add_child(right)
+	if r.k != "" and on_card.is_valid():
+		var k: String = r.k
+		for p in [left, right]:
+			var pc: Control = p
+			pc.gui_input.connect(func(e: InputEvent):
+				# 칸 안에서 뗐을 때만 —— 끌어 내리면 TouchScroll 이 화면 밖 '떼기'를 넣어 취소한다
+				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed and Rect2(Vector2.ZERO, pc.size).has_point(e.position):
+					UI.buzz()
+					on_card.call(k))
+	return h
+
+
+static func _pad(c: Control, x: int, y: int) -> void:
+	for st in ["normal", "hover", "pressed", "panel"]:
+		if c.has_theme_stylebox_override(st):
+			var sb: StyleBoxFlat = c.get_theme_stylebox(st)
+			sb.content_margin_left = x
+			sb.content_margin_right = x
+			sb.content_margin_top = y
+			sb.content_margin_bottom = y
 
 
 ## 진영 전체가 받는 버프 —— 단체 특기(같은 이름은 센 것 + 두 번째 절반, 전투와 같다) · 위세 · 기인.
-## [{kind, name, text, who, col}] (11/5 사용자: 전투 탭 위에 버프 목록 · 수치 · 부여 장수명)
+## [{kind, name, text, who, col, k}] (11/5 사용자: 전투 탭 위에 버프 목록 · 수치 · 부여 장수명)
 static func team_buffs(board: Array) -> Array:
 	var ks: Array = board.filter(func(x): return x != null)
 	var groups := {}         # 이름 -> [[배율, 카드], …]
@@ -153,9 +290,7 @@ func _draw() -> void:
 		var y := sz.y * (i + 0.5) / 6.0
 		draw_line(Vector2(0, y), Vector2(sz.x, y), Color(1, 1, 1, 0.025), 1.0)
 	var y0 := _rows_top()
-	draw_string(DB.font_bold, Vector2(0, y0 - 6), "▲ 적", HORIZONTAL_ALIGNMENT_CENTER, sz.x, 11, Color(DB.PAL.seal, 0.8))
-	if _buf_lbl != null:
-		draw_line(Vector2(8, _buf_h() + 4), Vector2(sz.x - 8, _buf_h() + 4), Color(1, 1, 1, 0.06), 1.0)
+	draw_string(DB.font_bold, Vector2(0, y0 - 22), "▲ 적", HORIZONTAL_ALIGNMENT_CENTER, sz.x, 11, Color(DB.PAL.seal, 0.8))
 	pass      # 11/4 사용자: 병졸 그림은 그리지 않고 장수 원형 얼굴만 (Medals)
 
 
@@ -182,7 +317,7 @@ func layout() -> Array:
 	return out
 
 
-## 메달 줄 —— 아래쪽에 촘촘히 (11/5 사용자), 위는 버프 목록
+## 메달 줄 —— 효과 표가 밖으로 나간 뒤(11/7)는 남는 높이 가운데에 (11/5 에는 위 버프 표 아래 촘촘히 두었다)
 func _rows() -> int:
 	var rows := 1
 	if DB.FORM.has(form):
@@ -191,17 +326,13 @@ func _rows() -> int:
 	return rows
 
 
-func _buf_h() -> float:
-	return _buf_lbl.get_content_height() + 6.0 if _buf_lbl != null else 0.0
-
-
 func _row_h(rows: int) -> float:
-	return clampf((size.y - _buf_h() - 24.0) / rows, 40.0, 74.0)
+	return clampf((size.y - 36.0) / rows, 40.0, 92.0)
 
 
 func _rows_top() -> float:
 	var rows := _rows()
-	return maxf(_buf_h() + 20.0, size.y - _row_h(rows) * rows - 4.0)
+	return maxf(36.0, (size.y - _row_h(rows) * rows) * 0.5 + 10.0)
 
 
 func _squad(c: Vector2, k: String, cell: float, seed_: int) -> void:
@@ -249,6 +380,6 @@ class Medals extends Control:
 			if pref:
 				var txt := "%s+%d%%" % [DB.D.STATNM.get(bn.stat, "발동"), roundi(float(bn.v) * 100)]
 				var tw := DB.font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8
-				var tr := Rect2(mc.x + r * 0.3, mc.y - r - 6, tw, 14)
+				var tr := Rect2(mc.x + r * 0.3, mc.y - r - 2, tw, 14)      # 11/7 메달 위 테두리에 걸치게 —— 윗줄 이름과 겹치지 않게
 				draw_style_box(UI.flat(DB.PAL.gold, DB.PAL.gold, 0, 7, 0), tr)
 				draw_string(DB.font_bold, tr.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, tw, 10, Color("#1A1508"))
