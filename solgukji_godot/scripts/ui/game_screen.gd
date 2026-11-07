@@ -1502,7 +1502,11 @@ func _unique_sheet() -> void:
 		return
 	var b := open_sheet("아이템 보급")
 	# 11/3 사용자: 스크롤 없이 가로 세 칸, 칸은 위아래로 길게 —— [아이템] [아이템 능력치] [장수(신화 그림)], 수치는 '효과 · 수치' 줄
+	# 11/7 사용자: 팝업을 화면 높이 88% 까지 키우고(_fit_sheet 의 상한) 장수의 병종 · 고유기 · 기질도 함께
 	var row := UI.hbox(5)
+	var sa := _safe_insets()
+	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
+	row.custom_minimum_size.y = maxf(300.0, (size.y - sa.position.y) * 0.88 - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
 	for id in run.uniq_offer:
 		var iid: String = id
 		var it: Dictionary = DB.IT[iid]
@@ -1532,16 +1536,22 @@ func _unique_sheet() -> void:
 			gn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			gn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			col.add_child(gn)
+			# 11/7 사용자: 이 재료로 만드는 장수의 병종 —— 기호 + 이름
+			var tr := UI.hbox(4)
+			tr.alignment = BoxContainer.ALIGNMENT_CENTER
+			var ti := TextureRect.new()
+			ti.texture = DB.ICON.get(DB.C[kk].tag)
+			ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			ti.custom_minimum_size = Vector2(14, 14)
+			ti.modulate = DB.PAL.bamboo
+			tr.add_child(ti)
+			tr.add_child(UI.lbl("%s · %s" % [DB.C[kk].tag, DB.tier_name(kk)], 11, DB.PAL.bamboo))
+			col.add_child(tr)
 			var tb := TraitBoard.new()
 			tb.fixed = true
 			col.add_child(tb.setup(kk, 3))
-			for t in DB.trait_list(kk):
-				if t.unique:
-					col.add_child(UI.rich("[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]" % t.name, 10))
-					col.add_child(_kv_grid(t.mt, 10))
-			if DB.AURA.has(kk):
-				col.add_child(UI.rich("[b][color=%s]위세[/color] 『%s』[/b]" % [DB.tier_color(kk).to_html(false), DB.AURA[kk].n], 10))
-				col.add_child(_kv_grid(DB.aura_effect(kk), 10))
+			_ability_rows(col, kk, 10, true)      # 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸 (좁은 세로 칸)
 		var sp := Control.new()
 		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_child(sp)
@@ -2949,6 +2959,10 @@ func _dev_args() -> void:
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
 			"uniq": _unique_sheet()
+			"unique":      # 점검용 —— 보급 팝업을 억지로 연다 (--gsheet=unique:i81+i72+i89, 비우면 신화 재료 앞 셋)
+				var ids: Array = Array(kv[1].split("+")) if kv.size() > 1 and kv[1] != "" else DB.MYTH_ITEMS.keys().slice(0, 3)
+				run.uniq_offer = ids
+				_unique_sheet()
 			"pick":      # 점검용 —— --gsheet=pick:등급 (선택권을 2장 쥐여 주고 연다)
 				run.tickets[kv[1]] = maxi(2, int(run.tickets.get(kv[1], 0)))
 				picker(int(kv[1]))
