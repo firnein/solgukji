@@ -1087,9 +1087,9 @@ func _ult_warn(e: Dictionary) -> void:
 	if field.squads.has(e.a):
 		field.skill_fx(e.a)
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
-	if mine:
-		hud.announce("%s 『%s』 기를 모은다 —— %.1f초" % [who, e.name, wait], Color("#9cc8ff"))
-	else:
+	# 11/7 사용자: "기를 모은다 —— 2.5초" 글 대신 작은 장수 이름 · 붓글씨 기술명 · 차오르는 고리 · 「운기」 (Hud.charge_start —— 아군은 늘, 적은 직접 지휘 때만 보인다)
+	hud.charge_start(e.a, who, e.name, wait, mine)
+	if not mine:
 		warn_until = clock + wait
 		warn_key = e.a
 		if direct:
@@ -1101,6 +1101,7 @@ func _ult_cut(e: Dictionary) -> void:
 	var f: String = e.get("f", "")
 	if f == warn_key:
 		warn_until = -1.0
+	hud.charge_end(f)      # 기 모으기 표시도 걷는다
 	# 11/2 사용자: 맞받아치기 · 끊었다 같은 큰 글씨는 이상하다 → 띄우지 않는다
 	if field.squads.has(f):
 		field.squads[f].hurt = 1.0
@@ -1255,6 +1256,7 @@ func _swing_sounds() -> void:
 func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
 	var u: Dictionary = g.ult
+	hud.charge_end(g.who)      # 기 모으기 표시는 컷인이 뜨면 걷는다
 	if speed > 0:
 		slow_t = 2.8      # 11/4 휘두르기 · 날리기까지 슬로모션 (11/6 컷인이 길어져 2.0 → 2.8)
 	var ud = DB.ult_of(sq.cid) if DB.C.has(sq.cid) else null      # 효과 문구는 카드의 고유기 정의에서 (사건 쪽 사전에는 eff 가 없다)
@@ -1605,6 +1607,7 @@ class Hud extends Control:
 		chains_fx.clear()
 		kills.clear()
 		chain_pop = null
+		charges.clear()
 
 	## 격파 (11/4) —— 무너진 적 장수 자리에 메달이 크게 찍혔다가 금이 가며 떨어진다
 	var kills := []
@@ -1908,6 +1911,8 @@ class Hud extends Control:
 					draw_string(fd, Vector2(-9999, -9999), e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, inv)
 				for fs in [20, 24]:
 					draw_string(fd, Vector2(-9999, -9999), e[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, inv)
+				draw_string(fd, Vector2(-9999, -9999), e[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, inv)      # 11/7 기 모으기 표시의 기술명
+				draw_string(fd, Vector2(-9999, -9999), CHARGE_WORD + "기", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, inv)
 				draw_string(DB.font_bold, Vector2(-9999, -9999), e[2], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
 				draw_string(DB.font_body, Vector2(-9999, -9999), e[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
 			prewarm_txt.clear()
@@ -1915,7 +1920,7 @@ class Hud extends Control:
 		_draw_kills()
 		_draw_chains()
 		_draw_chain_pop()
-		_draw_warn()
+		_draw_charges()
 		_draw_threats()
 		view.field.pt("머리표", t0)
 
@@ -1955,24 +1960,92 @@ class Hud extends Control:
 			draw_string(fd, r.position + Vector2(11, 16), it[0], HORIZONTAL_ALIGNMENT_LEFT, w - 22.0, 13, it[1])
 			y += 26.0
 
-	## 적 고유기 예고 띠 —— 화면 위쪽 가운데에 크게, 남은 초가 줄어든다
-	func _draw_warn() -> void:
-		var left: float = view.warn_until - view.clock
-		if left <= 0.0 or not view.direct:      # 자동 감상에선 적 고유기 예고 띠를 띄우지 않는다
-			return
-		var pulse := 0.5 + 0.5 * sin(view.clock * 12.0)
-		var w := size.x - 40.0
-		var r := Rect2(20, 70, w, 30)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.35, 0.03, 0.02, 0.86)
-		sb.border_color = Color(1.0, 0.35, 0.25).lerp(Color.WHITE, pulse * 0.4)
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(6)
-		draw_style_box(sb, r)
+	## 고유기 기 모으기 표시 (11/7 사용자: "○○ 『기술명』 기를 모은다 —— 2.5초" 글이 밋밋하다) —— 화면 위 가운데에
+	## 작은 장수 이름 / 붓글씨(font_display) 『기술명』 / 왼쪽에 차오르는 금빛 고리(남은 초 대신, 안에 "기") / 오른쪽에 진영색 「운기」 낙관.
+	## 아군은 늘, 적은 직접 지휘 때만 (방진으로 받으라는 신호 —— 붉은 테가 깜빡인다). 고리는 전장 시계로 wait 초에 걸쳐 차고, 다 차면 잠깐 번쩍인다.
+	## 문구 후보: 운기(運氣) · 기합 · 천지가 숨을 멈춘다 · 일촉즉발 · 필살 —— 짧고 고리 옆에 붙기 좋은 「운기」 로. 전장 메달 둘레에도 같은 고리 (_token · _medal)
+	const CHARGE_WORD := "운기"
+	const CHARGE_HOLD := 0.35      # 다 찬 뒤 머무는 시간 (전장 초)
+	var charges := {}              # 부대 key -> {who, name, t0, wait, mine}
+	var _charge_rows := 0          # 지금 보이는 줄 수 —— 안내문(ann)을 그 아래로 내린다
+
+	func charge_start(key: String, who: String, nm: String, wait: float, mine: bool) -> void:
+		charges[key] = {"who": who, "name": nm, "t0": view.clock, "wait": maxf(wait, 0.1), "mine": mine}
+
+	func charge_end(key: String) -> void:
+		charges.erase(key)
+
+	## 차오른 비율 0~1. 모으는 중이 아니면 -1
+	func charge_k(key: String) -> float:
+		if not charges.has(key):
+			return -1.0
+		var c: Dictionary = charges[key]
+		return clampf((view.clock - c.t0) / c.wait, 0.0, 1.0)
+
+	func _draw_charges() -> void:
 		var fd := DB.font_display
-		draw_string(fd, r.position + Vector2(0, 21), "적 %s —— %.1f" % [view.warn_name, left], HORIZONTAL_ALIGNMENT_CENTER, w, 18, Color("#ffe0d0"))
-		var tot := 2.5
-		draw_rect(Rect2(r.position + Vector2(4, r.size.y - 5), Vector2((w - 8) * clampf(left / tot, 0, 1), 3)), Color("#ffd257"))
+		var fb := DB.font_bold
+		var y := 62.0
+		_charge_rows = 0
+		for key in charges.keys():
+			var c: Dictionary = charges[key]
+			var t: float = view.clock - c.t0
+			if t > c.wait + CHARGE_HOLD:
+				charges.erase(key)
+				continue
+			if (not c.mine and not view.direct) or _charge_rows >= 2:
+				continue
+			var u := clampf(t / c.wait, 0.0, 1.0)
+			var a := clampf(t / 0.12, 0, 1) * clampf((c.wait + CHARGE_HOLD - t) / 0.25, 0, 1)
+			var title := "『%s』" % c.name
+			var tfs := 22
+			while tfs > 14 and fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > size.x - 140.0:
+				tfs -= 1
+			var tw := fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x
+			var R := 11.0
+			var bw := fd.get_string_size(CHARGE_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0
+			var total := R * 2.0 + 9.0 + tw + 9.0 + bw
+			var x0 := (size.x - total) / 2.0
+			var tx := x0 + R * 2.0 + 9.0
+			var cy := y + 26.0
+			# 받침 —— 옅은 먹. 적은 붉은 테가 깜빡인다 (방진!)
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.03, 0.03, 0.05, 0.55 * a)
+			sb.set_corner_radius_all(8)
+			if c.mine:
+				sb.border_color = Color(MEDAL_TEAM.A, 0.35 * a)
+				sb.set_border_width_all(1)
+			else:
+				var pulse := 0.5 + 0.5 * sin(view.clock * 12.0)
+				sb.border_color = Color(Color(1.0, 0.35, 0.25).lerp(Color.WHITE, pulse * 0.4), a)
+				sb.set_border_width_all(2)
+			draw_style_box(sb, Rect2(x0 - 12.0, y, total + 24.0, 42.0))
+			# 장수 이름 —— 작게, 기술명 위
+			var who: String = c.who if c.mine else "적 · " + c.who
+			draw_string_outline(fb, Vector2(tx, y + 12.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 4, Color(0, 0, 0, 0.8 * a))
+			draw_string(fb, Vector2(tx, y + 12.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#9cc8ff" if c.mine else "#ffb3a6", a))
+			# 기술명 —— 붓글씨. 다 차면 금빛으로
+			var tcol := Color("#eaf3ff") if c.mine else Color("#ffe0d8")
+			if u >= 1.0:
+				tcol = tcol.lerp(Color("#ffd257"), 0.6)
+			draw_string_outline(fd, Vector2(tx, y + 35.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, 6, Color(0, 0, 0, 0.9 * a))
+			draw_string(fd, Vector2(tx, y + 35.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, Color(tcol, a))
+			# 고리 —— 금빛이 시계 방향으로 찬다. 안에 "기". 다 차면 번쩍
+			var rc := Vector2(x0 + R, cy)
+			draw_circle(rc, R + 3.5, Color(0, 0, 0, 0.5 * a))
+			draw_arc(rc, R, 0.0, TAU, 40, Color(1, 1, 1, 0.18 * a), 3.0)
+			if u > 0.0:
+				var gc := Color("#ffd257") if u < 1.0 else Color("#ffd257").lerp(Color.WHITE, 0.5 + 0.5 * sin(view.clock * 25.0))
+				draw_arc(rc, R, -PI / 2.0, -PI / 2.0 + TAU * u, 40, Color(gc, a), 3.5)
+			if u >= 1.0:
+				draw_circle(rc, R - 2.0, Color(1.0, 0.9, 0.5, 0.35 * a))
+			draw_string(fd, Vector2(rc.x - R, cy + 4.0), "기", HORIZONTAL_ALIGNMENT_CENTER, R * 2.0, 11, Color("#ffe6a8", a))
+			# 「운기」 낙관 —— 기술명 오른쪽, 진영색 바탕
+			var bb := Rect2(Vector2(tx + tw + 9.0, cy - 9.0), Vector2(bw, 18.0))
+			draw_rect(bb, Color(Color("#2f6fd0") if c.mine else Color("#c8463c"), 0.9 * a))
+			draw_string(fd, bb.position + Vector2(0, 13.5), CHARGE_WORD, HORIZONTAL_ALIGNMENT_CENTER, bw, 11, Color(DB.PAL.paper, a))
+			y += 46.0
+			_charge_rows += 1
 
 	## 강조 순위 —— 진영마다 그 전투에 나온 장수 가운데 등급(같으면 PV) 상위 둘만 1 · 2 (11/3 사용자: 등급마다 크게 하니
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
@@ -2042,6 +2115,12 @@ class Hud extends Control:
 		draw_circle(pc, rr + ring, Color(Color("#ffd257") if t >= 8 else tc, a))            # 등급색 가는 테 (신화는 금)
 		if em > 0:
 			draw_arc(pc, rr + ring + 4.6, 0, TAU, 40, Color(tc.lightened(0.3), 0.8 * a), 1.0)      # 강조 —— 두 겹
+		var ck := charge_k(sq.key)      # 11/7 기 모으는 중 —— 테 바깥에 금빛 고리가 찬다
+		if ck >= 0.0:
+			var cr := rr + ring + 4.0 * fl + 4.0
+			draw_arc(pc, cr, 0.0, TAU, 40, Color(0, 0, 0, 0.45 * a), 4.0)
+			if ck > 0.0:
+				draw_arc(pc, cr, -PI / 2.0, -PI / 2.0 + TAU * ck, 40, Color("#ffd257", a), 2.5)
 		draw_circle(pc, rr + 0.6, Color(0, 0, 0, 0.5 * a))
 		Art.draw_face_circle(self, pc, rr, sq.cid)
 		var top := pc + Vector2(0, -rr - ring - 4.5)
@@ -2189,6 +2268,11 @@ class Hud extends Control:
 		var mt := _medal_tex(sq, r)
 		var R := r + 9.0
 		draw_texture_rect(mt, Rect2(p - Vector2(R, R), Vector2(R, R) * 2.0), false, Color(1, 1, 1, a))
+		var ck := charge_k(sq.key)      # 11/7 기 모으는 중 —— 메달 바깥에 금빛 고리가 찬다 (위 HUD 고리와 같은 박자)
+		if ck >= 0.0:
+			draw_arc(p, r + 10.0, 0.0, TAU, 36, Color(0, 0, 0, 0.45 * a), 4.0)
+			if ck > 0.0:
+				draw_arc(p, r + 10.0, -PI / 2.0, -PI / 2.0 + TAU * ck, 36, Color("#ffd257", a), 2.5)
 		if sq.hurt > 0.05:      # 맞을 때만 고리를 흰빛으로 덧그린다
 			draw_arc(p, r + 2.6, 0, TAU, 24, Color(1, 1, 1, sq.hurt * 0.6 * a), 3.0)
 		if not sq.alive:
@@ -2455,7 +2539,7 @@ class Hud extends Control:
 			var afs := 20
 			while afs > 12 and DB.font_display.get_string_size(ann.text, HORIZONTAL_ALIGNMENT_LEFT, -1, afs).x > size.x - 24:
 				afs -= 1         # 세로 화면에서 폭을 넘지 않게
-			_text(DB.font_display, Vector2(0, 84), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))
+			_text(DB.font_display, Vector2(0, 84 + 46 * _charge_rows), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))      # 11/7 기 모으기 표시가 있으면 그 아래
 		if cut:
 			_draw_cut()
 		# 결과 낙관
