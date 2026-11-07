@@ -223,8 +223,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 
 ## 행동 간격 —— 한 턴(period)에 한 번이 기준, 빠르면 조금 짧게 (±25%)
 func _interval(u: Unit) -> float:
-	var s := eff(u, "spd") / maxf(1.0, float(u.c.spd))
-	return period / clampf(0.75 + 0.25 * s * (float(u.c.spd) / 75.0), 0.8, 1.25)
+	var fl := _flood_slow(u)      # 수몰 이감은 속도 반영이 1/4 뿐인 간격식에 묻히지 않게 따로 곱한다 (11/8 —— 이동은 eff 로 그대로)
+	var s := eff(u, "spd") / fl / maxf(1.0, float(u.c.spd))
+	return period / clampf(0.75 + 0.25 * s * (float(u.c.spd) / 75.0), 0.8, 1.25) / fl
 
 
 ## 유닛을 만들 때 바로 진형 자리에 세운다 —— 전투 시작 효과(위진 · 철옹성 · 수공 …)도 거리로 판정하므로
@@ -1012,7 +1013,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			m *= HILL.hit
 	if not _in_ult:
 		m *= far_mul if far else near_mul
-		if a.c.tag == "기병" and a.ran >= CHARGE_RUN and not far and not a.countering:
+		if a.c.tag == "기병" and a.ran >= CHARGE_RUN and not far and not a.countering and not (water_enabled and has_st(a, "flood")):     # 수몰된 기병은 돌격을 못 한다 (11/8 수공 제어 전담)
 			m *= cav_charge
 			stats["charges"] = stats.get("charges", 0) + 1
 	if not a.countering:

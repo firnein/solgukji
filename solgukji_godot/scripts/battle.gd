@@ -970,6 +970,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		{"fx": _hit_kind, "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
 	_soak(a, d)
+	_wash(a)
 	_tac_hit(a, d, true)
 	_after_hit(a, d)
 	_cleave(a, d, mult, true)
@@ -1123,7 +1124,7 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	var v := maxf(1, roundf(val * scale * stx * resist * fire * amp))
 	var t := roundi((maxi(dur, 1) + ext) * _long)
 	if kind == "flood":
-		_douse(d)
+		_steam(d)
 	var old = null
 	for s in d.st:
 		if s.k == kind: old = s
@@ -1332,7 +1333,7 @@ func _scorched(d: Unit) -> bool:
 func _flood_slow(u: Unit) -> float:
 	if not water_enabled or not has_st(u, "flood"):
 		return 1.0
-	var sl := minf(0.7, float(DB.PSV.water.slow) + _side_max(_foe(u.camp), "flood_slow"))
+	var sl := minf(float(DB.PSV.water.get("slow_cap", 0.7)), float(DB.PSV.water.slow) + _side_max(_foe(u.camp), "flood_slow"))
 	return 1.0 - sl * (1.0 - minf(1.0, mv(u, "flood_res")))
 
 
@@ -1680,8 +1681,8 @@ func _give_moved(u: Unit) -> void:
 		_give_phalanx(u, dur, "인의")
 
 
-## 수몰이 걸리면 불이 꺼진다
-func _douse(d: Unit) -> void:
+## 증기 —— 주유의 수륙병진: 수몰된 부대의 불길이 더 거세진다 (화공의 맞수가 아니라 짝). 수몰이 불을 끄지는 않는다 (11/8 수공 제어 전담)
+func _steam(d: Unit) -> void:
 	if fire_enabled and water_enabled and _side_max(_foe(d.camp), "steam") > 0:
 		for x in d.st:
 			if x.k == "burn":
@@ -1689,13 +1690,38 @@ func _douse(d: Unit) -> void:
 				stats.steams += 1
 				_chain(_foe(d.camp), "증기")
 				L("st", "묶인 %s의 진영에 불길이 더 거세진다" % nm(d), {"fx": "status", "f": d.key, "st": "burn"})
+
+
+## 수공 장수인가 —— 수몰을 걸거나 · 깔거나 · 막는 특기를 가진 부대
+func _is_water(u: Unit) -> bool:
+	for k in ["soak", "tide", "drown", "flood_slow", "flood_res", "open_slow"]:
+		if u.m.get(k, 0.0) > 0:
+			return true
+	return false
+
+
+## 물길 정화 —— 수공 장수가 공격할 때마다 가장 가까운 아군(자신 포함) 한 부대의 화상을 씻는다 (적 화공의 맞수)
+func _wash(a: Unit) -> void:
+	if not water_enabled or not _is_water(a):
 		return
-	for x in d.st:
+	var best: Unit = null
+	var bd := 1e18
+	for o in units:
+		if o.camp != a.camp or not o.alive or not has_st(o, "burn"):
+			continue
+		var dd := o.pos.distance_squared_to(a.pos)
+		if dd < bd:
+			bd = dd
+			best = o
+	if best == null:
+		return
+	for x in best.st:
 		if x.k == "burn":
-			d.st.erase(x)
-			stats.doused += 1
-			L("st", "%s의 불길이 물에 꺼졌다" % nm(d), {"fx": "cleanse", "f": d.key, "st": "burn"})
-			return
+			best.st.erase(x)
+			break
+	stats.doused += 1
+	_chain(a.camp, "물길 정화", a.key)
+	L("st", "%s의 물길이 %s의 불길을 꺼뜨렸다" % [nm(a), nm(best)], {"fx": "cleanse", "f": best.key, "st": "burn"})
 
 
 func rout(u: Unit, why: String) -> void:
