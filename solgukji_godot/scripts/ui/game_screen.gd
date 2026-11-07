@@ -1609,8 +1609,8 @@ func _unique_sheet() -> void:
 		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_child(sp)
 		col.add_child(UI.btn("받기", func():
-			if act("pick_unique", [iid]):
-				toast("%s 획득 · 아이템 보급" % it.name, "gain")
+			if act("pick_unique", [iid]):      # 11/7 사용자: 아래 알림("○○ 획득 · 아이템 보급")은 뺐다 —— 가운데 띠(_item_band)만. 얻는 소리는 남긴다
+				Sfx.play("gain")
 			close_sheet(), "pri", 38))
 		var pc := UI.panel(col, 5)
 		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2583,8 +2583,9 @@ func _page_war() -> Control:
 				run.tour_advance()
 				changed(), "pri", 60))
 		else:
-			v.add_child(UI.act("출진" if placed > 0 else "편성이 비어 있다", "%d/9칸 · %s명" % [placed, Battle.num(run.board_power())],
-				func(): _start("tour"), "warn", placed == 0))
+			# 11/7 사용자: 큰 두 줄 버튼(UI.act) 대신 토벌 · 대전과 같은 한 줄 '출진 · 9/9칸 · 76,500명'
+			v.add_child(_war_btn("출진" if placed > 0 else "편성이 비어 있다", ("%d/9칸 · %s명" % [placed, Battle.num(run.board_power())]) if placed > 0 else "",
+				false, placed == 0, func(): _start("tour"), "warn"))
 		v.add_child(_bracket())
 	else:
 		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
@@ -3062,6 +3063,17 @@ func _dev_args() -> void:
 				if not run.ticket_tiers().is_empty():
 					picker(run.ticket_tiers()[0])
 			"online": _go_online()
+	if a.has("gtake"):      # 점검용 —— 열린 보급 팝업(--gsheet=unique)의 첫 '받기' 를 누른 것처럼. 앞서 뜬 알림 · 띠는 걷고 누른다 (11/7 받기 뒤 아래 알림 없이 가운데 띠만 뜨는지)
+		await get_tree().create_timer(0.4).timeout
+		for c in _toast_box.get_children():
+			c.queue_free()
+		_bands.clear()
+		if is_instance_valid(_band_node):
+			_band_node.queue_free()
+		_band_busy = false
+		var tb := _find_btn(_sheet, "받기")
+		if tb != null:
+			tb.pressed.emit()
 	if a.has("gtitle"):
 		_title.visible = true
 	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
