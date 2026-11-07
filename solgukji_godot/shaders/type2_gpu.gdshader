@@ -3,6 +3,9 @@
 // CPU 는 부대마다 한 줄만 넘기고, 병사가 쓰러지거나 자리를 옮길 때만 그 인스턴스 값을 고친다 (Type2View.gpu_moved).
 // 쓰러지는 병사 · 장수는 CPU 가 그린다 (Type2View._draw_dots).
 // INSTANCE_CUSTOM: r = 부대 줄, g = 자리 (음수 숨김 · 자리 + (전 자리+1)×1024), b = 씨앗, a = 자리 옮기기 시작 시각
+// 11/7 흐트러뜨리기 (사용자: 군집 강체 뒤 너무 뭉쳐 보인다) —— 판정 · 부대 자리 · 발자국은 그대로, 보이는 배치만:
+//   자리 어긋남을 원반에 고르게(√) · 느린 잡음의 봉우리에서 골짜기로 밀어 틈과 무리를 만든다(clump) · 가장자리 병사가 들쭉날쭉(rag)
+//   · 병사마다 옷 밝기 · 서 있을 때 몇은 딴 데를 본다. 걸을 때 · 맞붙어 흐트러질수록(loose) 더 크게
 shader_type canvas_item;
 
 uniform sampler2D squad_tex : filter_nearest;
@@ -15,6 +18,7 @@ uniform float spread = 1.35;    // Type2View.T2_SPREAD —— 부대 안 병사 
 uniform float fig = 17.0;       // 인형 키 (화면 px)
 uniform vec3 team_a : source_color = vec3(0.29, 0.54, 0.91);
 uniform vec3 team_b : source_color = vec3(0.93, 0.31, 0.24);
+uniform float scatter = 1.0;    // 흐트러짐 세기 (0 이면 흐트러뜨리기 전 배치 —— Type2View.scatter)
 
 varying vec4 tint;
 varying float atlas_x;
@@ -24,6 +28,15 @@ vec4 sq(float row, int col) {
 }
 
 float hash(float n) { return fract(sin(n * 91.3458) * 47453.5453); }
+float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+// 값 잡음 (0~1, 부드럽게) —— 대열 안 뭉침 · 틈 무늬
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), u.x), mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), u.x), u.y);
+}
 
 vec2 rot(vec2 v, float a) {
 	float c = cos(a);
@@ -65,7 +78,8 @@ void vertex() {
 	vec2 fwd = normalize(mix(t6.zw, t0.zw, lag) + vec2(1e-5, 0.0));
 	vec2 rgt = vec2(-fwd.y, fwd.x);
 	vec2 front = pos + fwd * t1.w * squeeze.x;
-	vec2 jit = rot(vec2(1.0, 0.0), hash(seed * 7.1) * 6.2831) * hash(seed * 3.3) * sp * 0.75 * min(squeeze.x, squeeze.y);
+	// 자리 어긋남 —— 원반에 고르게 (√: 예전엔 가운데로 몰렸다), 흐트러뜨리면 조금 더 멀리
+	vec2 jit = rot(vec2(1.0, 0.0), hash(seed * 7.1) * 6.2831) * sqrt(hash(seed * 3.3)) * sp * (0.75 + 0.2 * scatter) * min(squeeze.x, squeeze.y);
 	float c = slot - rk * cols;
 	float c0 = slot0 - rk0 * cols;
 	vec2 l1 = vec2(-((rk + 0.5) * spr), (c - half_c + mod(rk, 2.0) * 0.5) * sp);
@@ -73,11 +87,29 @@ void vertex() {
 	vec2 lc = mix(l0, l1, move_k) * squeeze;
 	lc.x += sin(lc.y * 0.09 + row * 1.7 + clock * 0.35) * sp * 0.9;
 	lc.y += sin(lc.x * 0.11 + row * 2.3) * sp * 0.5;
-	vec2 p = front + fwd * lc.x + rgt * lc.y + jit;
 	bool contact = t2.z > 0.5;
-	bool fighting = contact && rk < 2.0;
-	float loose = t5.x;
 	bool moving0 = t2.y > 0.5;
+	float loose = t5.x;
+	// 뭉침과 틈 —— 느린 잡음(부대마다 다른 무늬)의 봉우리에서 골짜기로 병사를 민다: 봉우리 자리는 비어 땅이 보이고 골짜기에 무리가 진다.
+	// 걸을 때 · 맞붙어 흐트러질수록(loose) 더 크게. 잡음은 대열 자리(lc)로 재므로 자리를 옮기는 병사는 부드럽게 따라간다
+	vec2 nq = lc / (sp * 6.0) + vec2(row * 3.1, row * 7.7);
+	float n0 = vnoise(nq);
+	vec2 grad = vec2(vnoise(nq + vec2(0.3, 0.0)) - n0, vnoise(nq + vec2(0.0, 0.3)) - n0) / 0.3;
+	vec2 clump = -grad * sp * 2.0 * scatter * (moving0 ? 1.2 : 1.0) * (1.0 + 0.6 * loose);
+	// 발자국 밖으로는 조금만 (옆 부대와 겹쳐 보이지 않게) —— 가장자리는 아래 rag 가 들쭉날쭉하게 한다
+	vec2 q0 = lc + clump;
+	float hwf = (half_c + 0.75) * sp;
+	q0 = clamp(q0, vec2(-t5.w - sp * 0.6, -hwf - sp * 0.6), vec2(sp * 0.6, hwf + sp * 0.6));
+	clump = q0 - lc;
+	// 가장자리 —— 양 끝 열 · 맨 뒷줄은 몇 명씩 밖으로 비어져 나오고(맞붙으면 옆으로 더 번진다), 맞붙기 전 앞줄은 몇이 한 발 앞에 선다.
+	// 병력이 줄어 맨 뒷줄이 바뀌거나 맞붙기 시작할 때 튀지 않게 부드럽게
+	float rkf = mix(rk0, rk, move_k);
+	float lastk = smoothstep(rows - 2.0, rows - 1.0, rkf + 0.5);
+	float sidek = step(cols - 1.0, c + 0.5) + step(c, 0.5);
+	vec2 rag = vec2(-lastk * hash(seed * 43.7) * spr * 1.1, (c < 0.5 ? -1.0 : 1.0) * sidek * hash(seed * 47.3) * sp * (1.1 + 0.8 * loose));
+	rag.x += (1.0 - smoothstep(0.0, 1.0, rkf)) * (1.0 - smoothstep(0.0, 0.3, loose)) * step(0.5, hash(seed * 53.9)) * hash(seed * 57.1) * sp * 0.8;
+	vec2 p = front + fwd * (lc.x + clump.x + rag.x * scatter) + rgt * (lc.y + clump.y + rag.y * scatter) + jit;
+	bool fighting = contact && rk < 2.0;
 	float wt = clock * (fighting ? 1.3 : 0.5) + seed * 40.0;
 	float wamp = (fighting ? 1.1 + 1.4 * loose : (moving0 ? 0.6 : 0.5)) * mix(0.5, 1.0, min(squeeze.x, squeeze.y));
 	p += vec2(sin(wt * 1.7 + seed * 13.0) + 0.5 * sin(wt * 0.6 + seed * 3.0), cos(wt * 1.3 + seed * 29.0)) * sp * wamp;
@@ -146,13 +178,15 @@ void vertex() {
 	float camp = t5.y;
 	float flip = camp > 0.5 ? -1.0 : 1.0;
 	if (fighting3 && hash(seed * 51.7 + floor(clock * 0.8 + seed * 3.0)) < 0.18) flip = -flip;      // 난전에선 가끔 옆 · 뒤를 돌아본다
+	if (!contact && !moving0 && hash(seed * 61.3) < 0.07 * scatter) flip = -flip;                 // 서 있을 땐 몇이 딴 데를 본다
 	float lean = (camp > 0.5 ? 0.45 : -0.45) * sk + (moving ? sin(walk * 0.9) * 0.08 : 0.0) + hurt * (camp > 0.5 ? -0.5 : 0.5);      // 내지르면 앞으로, 걸으면 좌우로, 맞으면 뒤로 젖힌다
 	vec2 lv = rot(VERTEX * vec2(h * flip, h), lean);
 	VERTEX = hide ? vec2(-99999.0) : sp2 + lv + vec2(0.0, -h * 0.5);
 	vec3 team = camp > 0.5 ? team_b : team_a;
 	if (mod(t3.z, 2.0) >= 1.0) team = mix(team, vec3(0.48, 0.29, 0.16), 0.35);      // 파갑 —— 녹슨 빛
 	float row_shade = 1.0 - 0.06 * mod(row, 3.0);
-	tint = vec4(team * row_shade, t2.w);
+	float man_shade = 1.0 - (0.16 * hash(seed * 9.9) - 0.08) * scatter;      // 병사마다 옷 밝기 (무리가 한 덩어리로 보이지 않게)
+	tint = vec4(team * row_shade * man_shade, t2.w);
 	atlas_x = texelFetch(tag_tex, ivec2(0, int(row)), 0).r;
 }
 

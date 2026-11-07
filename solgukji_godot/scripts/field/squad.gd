@@ -221,7 +221,7 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator, lay := 1.0) -
 func _new_soldier(i: int) -> Soldier:
 	var s := Soldier.new()
 	s.slot = i
-	s.jit = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * 0.42
+	s.jit = Vector2.from_angle(_rng.randf() * TAU) * sqrt(_rng.randf()) * sp * 0.5      # 11/7 흐트러뜨리기: 원반에 고르게(√) · 조금 더 멀리 (0.42 → 0.5)
 	s.size = _rng.randf_range(0.92, 1.08) * TIER_SIZE.get(tier, 1.0) * SCALE_BODY
 	s.tint = _rng.randf()
 	s.phase = _rng.randf() * TAU
@@ -520,7 +520,7 @@ func update(dt: float, clock: float) -> void:
 		# 서 있어도 꼼지락거린다 —— 싸울 때는 더 크게, 더 자주
 		if clock >= s.wander_t:
 			s.wander_t = clock + _rng.randf_range(0.4, 1.2) * (1.0 if fighting else 3.0)
-			s.wander = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * (0.6 if fighting else 0.3)
+			s.wander = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * (0.6 if fighting else 0.4)      # 11/7 흐트러뜨리기: 서 있을 때 0.3 → 0.4
 		want_p += s.wander
 		if fighting and s.duel != null and s.duel.alive:
 			# 일대일 —— 마주 선 적 병사 앞에 선다. 여럿이 한 적에 붙으면 병사마다 다른 각도로 에워싼다

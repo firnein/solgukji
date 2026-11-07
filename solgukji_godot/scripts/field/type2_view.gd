@@ -8,7 +8,9 @@ extends DotView
 
 const TILT := 1.25             # 세로 배율 —— 11/6 사용자 "더 넓게": 세로 화면을 다 쓰도록 앞뒤 거리를 늘린다 (0.62 눌림 → 1.25 늘림)
 const FIG := 17.0              # 병사 인형 크기 (px, 화면 —— 배율 1 기준) —— 11/6 보는 맛: 15 → 17
+const FIG_MIN := 0.5           # 인형 크기 배율 하한 (배율 × 1.15 를 이 아래로 내리지 않는다) —— 11/7 대군을 멀리서 볼 때 0.6 → 0.5: 겹침을 줄인다 (간격은 2.6px 인데 인형이 10px 였다)
 const T2_SPREAD := 1.0         # 11/7 군집 강체: 병사는 엔진 발자국을 그대로 채운다 (넓혀 그리던 1.35 는 RtBattle.FP_SPREAD 로 발자국에 들어갔다)
+static var scatter := 1.0      # 11/7 흐트러짐 세기 (셰이더 scatter —— 점검용 tests/perf_probe --gscatter=0 이면 흐트러뜨리기 전 배치)
 const HEX := 34.0              # 육각 한 칸 (전장 px)
 const CLONES := 1              # 11/6 3차(목표: 휴대폰에서도 품질 그대로 대군): 묶음(단순한 인형 열둘) 하나 = 병사 하나 —— 화면 병사 수 4배, 그리는 칸은 1/3
 const CLONES_SMALL := 2        # 병사가 SMALL_SQ 명보다 적은 부대(1일차 등)
@@ -141,7 +143,8 @@ func _process(dt: float) -> void:
 		gm.set_shader_parameter("center", _center + _jit)
 		gm.set_shader_parameter("scl", _scale)
 		gm.set_shader_parameter("vsize", size)
-		gm.set_shader_parameter("fig", FIG * clampf(_scale * 1.15, 0.6, 1.8) * GPU_FIG)
+		gm.set_shader_parameter("fig", FIG * clampf(_scale * 1.15, FIG_MIN, 1.8) * GPU_FIG)
+		gm.set_shader_parameter("scatter", scatter)
 	var mat: ShaderMaterial = _ground.material
 	mat.set_shader_parameter("center", _center + _jit)
 	mat.set_shader_parameter("scl", _scale)
@@ -234,7 +237,7 @@ func _draw_dots() -> void:
 	var gpu_on: bool = _gmm != null
 	# 11/6 인스턴스마다 set_instance_* 를 부르던 것을 버퍼 한 번에 (2D 변환 8 + 색 4). 남는 칸은 visible_instance_count 로 감춘다
 	var i := 0
-	var sz := FIG * clampf(_scale * 1.15, 0.6, 1.8)
+	var sz := FIG * clampf(_scale * 1.15, FIG_MIN, 1.8)
 	for sq: Squad in sqs:
 		if sq.state == "gone":
 			continue
