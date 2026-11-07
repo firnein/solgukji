@@ -18,7 +18,7 @@ func build() -> Control:
 	var v := UI.vbox(10)
 	var f: Dictionary = DB.FORM[run.form]
 
-	# 진형 —— 가로로 넘기는 띠
+	# 진형 —— 가로로 넘기는 띠. 11/7 사용자: 이름만 (미니 격자를 붙이니 칩 폭이 모자라 레이아웃이 무너졌다). 효과 줄은 아래 편성판 머리에 한 줄
 	var st := UI.strip(6)
 	for key in DB.FORM:
 		var fm: Dictionary = DB.FORM[key]
@@ -26,24 +26,19 @@ func build() -> Control:
 			continue
 		var on: bool = key == run.form
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(92, 40)
+		b.text = fm.n
+		b.custom_minimum_size = Vector2(76, 40)
+		b.add_theme_font_override("font", DB.font_display)
+		b.add_theme_font_size_override("font_size", 14)
+		for cn in ["font_color", "font_hover_color", "font_focus_color"]:
+			b.add_theme_color_override(cn, DB.PAL.gold if on else DB.PAL.paper)
+		b.add_theme_color_override("font_pressed_color", DB.PAL.gold)
 		b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else DB.PAL.ink4, 2 if on else 1, 10, 8))
 		b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, DB.PAL.gold if on else DB.PAL.bamboo_dim, 2 if on else 1, 10, 8))
 		b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 2, 10, 8))
 		b.pressed.connect(func():
 			UI.buzz()
 			gs.act("set_form", [key]))
-		var mini := FormMini.new()
-		mini.mask = fm.mask
-		mini.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-		mini.offset_left = -34
-		mini.offset_right = -6
-		mini.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(mini)
-		var tl := UI.lbl(fm.n, 14, DB.PAL.gold if on else DB.PAL.paper, true)
-		tl.position = Vector2(9, 10)
-		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(tl)
 		st[1].add_child(b)
 	v.add_child(st[0])
 	var sc0: ScrollContainer = st[0]
@@ -651,18 +646,3 @@ class HandDrop extends PanelContainer:
 
 	func _drop_data(_p: Vector2, data) -> void:
 		page.drop_hand(data)
-
-
-## 진형 미리보기 —— 4행 3열 점
-class FormMini extends Control:
-	var mask: Array = []
-
-	func _draw() -> void:
-		var cs := 6.0
-		var gap := 2.0
-		var oy := (size.y - (cs * mask.size() + gap * (mask.size() - 1))) / 2
-		for ri in mask.size():
-			var row: String = mask[ri]
-			for ci in row.length():
-				var on := row[ci] == "X"
-				draw_rect(Rect2(ci * (cs + gap), oy + ri * (cs + gap), cs, cs), DB.PAL.bamboo if on else Color(DB.PAL.ink4, 0.6))
