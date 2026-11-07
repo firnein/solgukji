@@ -5,13 +5,15 @@
   1) export_presets.cfg 의 version/name · version/code 를 맨 앞 항목에 맞추고
   2) docs/업데이트_내역.html 을 다시 만들고
   3) build/version.txt 에 버전 이름을 적는다 (build_apk.bat 이 APK 파일 이름에 쓴다)
+  4) data/servers.json 의 「Dev」 서버 주소를 이 PC 의 LAN IPv4 로 고친다 (온라인 대전 접속 시트의 기본 서버.
+     기본 경로 인터페이스의 주소 → 안 되면 ipconfig → 그래도 못 찾으면 그대로. 아이피가 같으면 파일을 쓰지 않고, 바뀌면 한 줄 알린다)
 
 쓰는 법
   python tools/scripts/release.py                 동기화만
   python tools/scripts/release.py --next "제목"   다음 버전(1.0a → 1.0b … 1.0z → 1.1a) 항목을 맨 앞에 비워서 추가한 뒤 동기화
-  python tools/scripts/release.py --check         changelog 가 export_presets 와 맞는지만 본다 (틀리면 종료 코드 1)
+  python tools/scripts/release.py --check         changelog 가 export_presets 와 맞는지만 본다 (틀리면 종료 코드 1). servers.json 은 손대지 않는다
 """
-import json, re, sys, html, pathlib
+import json, re, sys, html, pathlib, socket, subprocess, ipaddress
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")   # 윈도우 콘솔(cp949)에서 한글 · 기호 출력
@@ -21,6 +23,8 @@ CHANGELOG = ROOT / "solgukji_godot" / "data" / "changelog.json"
 PRESETS = ROOT / "solgukji_godot" / "export_presets.cfg"
 HTML = ROOT / "docs" / "업데이트_내역.html"
 VERSION_TXT = ROOT / "build" / "version.txt"
+SERVERS = ROOT / "solgukji_godot" / "data" / "servers.json"
+DEV = "Dev"      # 집 PC 서버 —— 빌드할 때 이 PC 의 주소로 맞춘다
 
 
 def load():
@@ -132,6 +136,90 @@ li{{margin:2px 0}}
     HTML.write_text(page, encoding="utf-8", newline="\n")
 
 
+def _usable_ip(ip: str) -> bool:
+    """접속 주소로 쓸 수 있는 IPv4 —— 루프백(127.) · 링크 로컬(169.254.) · 0.0.0.0 · 멀티캐스트는 뺀다"""
+    try:
+        a = ipaddress.IPv4Address(ip)
+    except ValueError:
+        return False
+    return not (a.is_loopback or a.is_link_local or a.is_unspecified or a.is_multicast)
+
+
+def route_ip():
+    """기본 경로(공유기로 나가는 인터페이스)의 IPv4 —— UDP 소켓을 바깥 주소로 connect 만 하면 운영체제가 경로를 골라
+    내 쪽 주소가 정해진다 (UDP 의 connect 는 패킷을 보내지 않는다). 연결이 없으면 None"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 53))
+        ip = s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+    return ip if _usable_ip(ip) else None
+
+
+def ipconfig_ip():
+    """ipconfig 에서 기본 게이트웨이(IPv4)가 있는 어댑터의 IPv4 (한국어 · 영어 출력). 없으면 None"""
+    try:
+        raw = subprocess.run(["ipconfig"], capture_output=True, timeout=15).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    txt = None
+    for enc in ("utf-8", "oem", "cp949"):      # 콘솔 코드 페이지 —— 한국어 윈도우는 cp949, chcp 65001 이면 utf-8
+        try:
+            txt = raw.decode(enc)
+            break
+        except (UnicodeDecodeError, LookupError):
+            continue
+    if txt is None:
+        txt = raw.decode("utf-8", errors="replace")
+    v4 = r"\d{1,3}(?:\.\d{1,3}){3}"
+    for block in re.split(r"\r?\n(?=\S)", txt):      # 어댑터마다 —— 머리줄("이더넷 어댑터 이더넷:")만 들여쓰지 않는다
+        ips = [ip for ip in re.findall(r"IPv4[^:\n]*:\s*(" + v4 + ")", block) if _usable_ip(ip)]
+        lines = block.splitlines()
+        gw = []
+        for i, ln in enumerate(lines):
+            if "게이트웨이" in ln or "Gateway" in ln:
+                vals = [ln.split(":", 1)[1]] if ":" in ln else []
+                for nx in lines[i + 1:]:      # IPv6 게이트웨이가 먼저 오면 IPv4 는 다음 줄에 이어진다
+                    if not nx.strip() or " : " in nx or ". :" in nx:
+                        break
+                    vals.append(nx)
+                gw = [v.strip() for v in vals if re.fullmatch(v4, v.strip())]
+                break
+        if ips and gw:
+            return ips[0]
+    return None
+
+
+def sync_servers():
+    """servers.json 의 Dev 주소에서 호스트만 이 PC 의 LAN IPv4 로 바꾼다 (스킴 · 포트는 그대로). 바뀐 때만 파일을 쓴다.
+    돌려주는 값: 출력할 한 줄 (그대로거나 Dev 가 없으면 None)"""
+    rel = SERVERS.relative_to(ROOT)
+    if not SERVERS.exists():
+        return f"{rel} 이 없다 —— {DEV} 서버 주소는 건너뜀"
+    try:
+        d = json.loads(SERVERS.read_text(encoding="utf-8"))
+    except ValueError as e:
+        raise SystemExit(f"{rel} 을 읽지 못했다: {e}")
+    servers = d.get("servers", []) if isinstance(d, dict) else []
+    dev = next((s for s in servers if isinstance(s, dict) and s.get("name") == DEV), None)
+    if dev is None:
+        return None
+    old = str(dev.get("url", ""))
+    ip = route_ip() or ipconfig_ip()
+    if ip is None:
+        return f"{DEV} 서버 주소: 이 PC 의 IPv4 를 찾지 못해 그대로 둔다 ({old})"
+    m = re.fullmatch(r"(wss?://)([^/:]+)(:\d+)?(/.*)?", old)
+    new = f"{m[1]}{ip}{m[3] or ''}{m[4] or ''}" if m else f"ws://{ip}:7777"
+    if new == old:
+        return None
+    dev["url"] = new
+    SERVERS.write_text(json.dumps(d, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    return f"{DEV} 서버 주소 {old} → {new} ({rel})"
+
+
 def main(argv):
     d = load()
     if "--next" in argv:
@@ -157,6 +245,9 @@ def main(argv):
     VERSION_TXT.parent.mkdir(parents=True, exist_ok=True)
     VERSION_TXT.write_text(cur["ver"], encoding="ascii")
     print(f"버전 {cur['ver']} (code {cur['code']}) —— export_presets.cfg {'고침' if changed else '그대로'} · {HTML.relative_to(ROOT)} 생성")
+    note = sync_servers()
+    if note:
+        print(note)
     return 0
 
 

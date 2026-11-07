@@ -2,15 +2,20 @@ class_name Online
 extends Node
 ## 온라인 대전 —— 집 PC 서버(MatchServer)에 붙는다. 게임 화면(GameScreen)은 그대로 쓰고,
 ## 행동(act)은 서버에도 보내며, 서버가 돌려준 상태(Run)로 화면을 바꾼다.
-## 접속 시트(주소·이름·방 목록·방 만들기·코드로 참가) → 대기실(코드·자리·시작) → 게임.
+## 접속 시트(서버·이름·방 목록·방 만들기·코드로 참가) → 대기실(코드·자리·시작) → 게임.
+## 서버는 콤보로 고른다 —— data/servers.json 의 서버(Dev = 집 PC, 빌드 때 그 PC 의 아이피로 고쳐진다) + 「직접 입력…」. 고른 것은 user://net.cfg 에 남는다 (11/7).
 ## 하루는 아침(징집·조합·편성) → 점심(토벌 보기) → 저녁 준비(상대 이름·전적을 보고 편성) → 저녁(대전 보기) 네 단계 (room.gd, 11/7).
 ## 명령은 아침 · 저녁 준비에만 보낼 수 있다. '준비 완료'는 방 정보의 stage_no 를 실어 보낸다 —— 늦게 간 준비는 서버가 버린다.
 ## 전투는 서버가 계산해 보낸 결과를 차례로 재생한다(1단계 —— 자동 전투). 다 봐야 '준비 완료'가 된다 (건너뛰기 없음, 결정 ⑦).
 ## 끊기면 3초마다 다시 붙는다 —— 토큰이 같아 진행 중인 자리로 돌아가 그 단계부터 이어간다 (이미 다 본 전투는 목록만 받는다).
 ## 사람이 나 혼자 남으면(다른 사람 모두 멸망·퇴장) 서버가 묻는다 —— 계속할지, 방을 닫을지.
 
+const SERVERS := "res://data/servers.json"      # 서버 목록 —— 콤보에 이 순서대로 (Dev 주소는 build_apk.bat 의 release.py 가 이 PC 의 LAN IPv4 로 고친다)
+const CUSTOM := "직접 입력…"
+
 var gs: GameScreen
-var net: NetClient
+var net: PickNet
+var servers := []             # 콤보의 서버 [{name, url}] (data/servers.json)
 var rooms := []
 var room := {}                # 서버가 준 방 정보 (Room.info)
 var in_game := false
@@ -25,14 +30,17 @@ var _status := "접속 전"
 var dev_auto := false         # 점검용 —— 준비 시간에 알아서 징집·선택권·조합·편성·준비 (--gauto)
 var _retry := -1.0
 var _leaving := false
-var _url_edit: LineEdit
+var _url_pick: OptionButton   # 서버 콤보 —— servers 뒤에 「직접 입력…」
+var _url_edit: LineEdit       # 직접 입력 칸 —— 「직접 입력…」을 골랐을 때만 보인다
 var _name_edit: LineEdit
 var _code_edit: LineEdit
 var _tick := 0.0
 
 
 func _ready() -> void:
-	net = NetClient.new()
+	servers = load_servers()
+	net = PickNet.new()
+	_load_pick()
 	add_child(net)
 	net.message.connect(_on_msg)
 	net.opened.connect(func():
@@ -67,15 +75,123 @@ func _process(dt: float) -> void:
 
 # ───────── 접속 시트 ─────────
 
+## net.cfg 에 고른 서버도 남기는 접속기 —— NetClient.save_cfg() 는 파일을 새로 써서 주소 · 이름 · 토큰 말고는 지운다.
+## 그 파일을 쓸 때마다(접속 · 인사) 고른 서버 이름(server —— "" 이면 직접 입력)과 직접 친 주소(custom)를 덧붙인다
+class PickNet extends NetClient:
+	var server := ""
+	var custom := ""
+
+	func save_cfg() -> void:
+		super()
+		var cf := ConfigFile.new()
+		cf.load(CFG)
+		cf.set_value("net", "server", server)
+		cf.set_value("net", "custom", custom)
+		cf.save(CFG)
+
+
+## 서버 목록 (data/servers.json) —— 이름 · 주소가 다 있는 것만, 적힌 순서대로
+static func load_servers() -> Array:
+	var out := []
+	if not FileAccess.file_exists(SERVERS):
+		return out
+	var d = JSON.parse_string(FileAccess.get_file_as_string(SERVERS))
+	if typeof(d) != TYPE_DICTIONARY or typeof(d.get("servers")) != TYPE_ARRAY:
+		return out
+	for s in d.servers:
+		if typeof(s) == TYPE_DICTIONARY and str(s.get("name", "")) != "" and str(s.get("url", "")) != "":
+			out.append({"name": str(s.name), "url": str(s.url)})
+	return out
+
+
+## 지난번 고른 서버 —— net.cfg 의 server 가 목록에 있으면 그것 ("" 이면 직접 입력).
+## 콤보 전에 저장된 파일(주소만 있다)은 그 주소가 목록에 있으면 그 서버, 없으면 직접 입력에 그 주소. 처음이면 맨 앞 서버(Dev)
+func _load_pick() -> void:
+	var cf := ConfigFile.new()
+	var ok := cf.load(NetClient.CFG) == OK
+	net.custom = str(cf.get_value("net", "custom", "")) if ok else ""
+	if ok and cf.has_section_key("net", "server"):
+		var nm := str(cf.get_value("net", "server"))
+		if nm == "" or _server_index(nm) >= 0:
+			net.server = nm
+			return
+	if ok and cf.has_section_key("net", "url"):
+		for s in servers:
+			if s.url == net.url:
+				net.server = s.name
+				return
+		net.server = ""
+		if net.custom == "":
+			net.custom = net.url
+		return
+	net.server = servers[0].name if not servers.is_empty() else ""
+
+
+func _server_index(nm: String) -> int:
+	for i in servers.size():
+		if servers[i].name == nm:
+			return i
+	return -1
+
+
+## 접속할 주소 —— 고른 서버의 주소, 직접 입력이면 친 주소
+func _picked_url() -> String:
+	var i := _server_index(net.server)
+	return servers[i].url if i >= 0 else net.custom.strip_edges()
+
+
+## 서버 콤보 —— servers.json 순서대로 "이름 · 주소", 맨 끝에 「직접 입력…」. 직접 입력을 고르면 아래 주소 칸이 열린다
+func _server_pick() -> OptionButton:
+	var P := DB.PAL
+	var ob := OptionButton.new()
+	ob.custom_minimum_size = Vector2(0, 48)
+	ob.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ob.fit_to_longest_item = false      # 긴 주소가 시트 폭을 밀지 않게 —— 넘치면 … 로 줄인다
+	ob.clip_text = true
+	ob.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	ob.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE      # 떼야 열린다 —— 시트를 끌다가 목록이 열리지 않게 (끌면 TouchScroll 이 누름을 취소)
+	ob.add_theme_font_size_override("font_size", 16)
+	var open_sb := UI.flat(P.ink4, P.bamboo, 1, 8, 10)      # 목록이 열린 동안 —— 버튼의 밝은 눌림 색 대신
+	ob.add_theme_stylebox_override("pressed", open_sb)
+	ob.add_theme_stylebox_override("hover_pressed", open_sb)
+	ob.add_theme_color_override("font_pressed_color", P.paper)
+	ob.add_theme_color_override("font_hover_pressed_color", P.paper)
+	for s in servers:
+		ob.add_item("%s · %s" % [s.name, s.url])
+	ob.add_item(CUSTOM)
+	var i := _server_index(net.server)
+	ob.select(i if i >= 0 else servers.size())
+	# 펼친 목록 —— 시트와 같은 색, 손가락으로 고르기 좋게 줄을 넉넉히
+	var pm := ob.get_popup()
+	pm.add_theme_stylebox_override("panel", UI.flat(P.ink2, P.bamboo_dim, 1, 8, 6))
+	pm.add_theme_stylebox_override("hover", UI.flat(P.ink4, P.ink4, 0, 6, 6))
+	pm.add_theme_font_size_override("font_size", 16)
+	pm.add_theme_constant_override("v_separation", 20)
+	pm.add_theme_constant_override("item_start_padding", 10)
+	pm.add_theme_constant_override("item_end_padding", 14)
+	pm.add_theme_color_override("font_color", P.paper)
+	pm.add_theme_color_override("font_hover_color", P.paper)
+	ob.item_selected.connect(func(idx: int):
+		net.server = servers[idx].name if idx < servers.size() else ""
+		_url_edit.visible = net.server == ""
+		gs._fit_sheet(false))
+	return ob
+
+
 func connect_sheet() -> void:
 	var b := gs.open_sheet("온라인 대전")
-	b.add_child(UI.hint("집 PC 에서 server.bat 을 띄우고, 그 PC 의 주소를 넣는다. 같은 와이파이면 ws://192.168.x.x:7777, 밖에서는 공유기 포트포워딩 주소나 Cloudflare 터널 주소(wss://…)."))
+	b.add_child(UI.hint("Dev = 집 PC 서버(server.bat), 같은 와이파이에서.\n밖에서는 「직접 입력…」에 포트포워딩 · 터널 주소(wss://…)."))      # 문장마다 줄을 나눈다 —— 「직접 입력…」이 줄 끝에서 갈라지지 않게
 	var row := UI.vbox(4)
-	row.add_child(UI.lbl("서버 주소", 14, DB.PAL.bamboo))
+	row.add_child(UI.lbl("서버", 14, DB.PAL.bamboo))
+	_url_pick = _server_pick()
+	row.add_child(_url_pick)
 	_url_edit = LineEdit.new()
-	_url_edit.text = net.url
+	_url_edit.text = net.custom
+	_url_edit.placeholder_text = "ws://주소:7777  ·  wss://…"
 	_url_edit.custom_minimum_size = Vector2(0, 48)
 	_url_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_url_edit.visible = _server_index(net.server) < 0
+	_url_edit.text_changed.connect(func(tx: String): net.custom = tx.strip_edges())      # 시트를 다시 그려도(접속 끊김 등) 친 주소가 남게
 	row.add_child(_url_edit)
 	b.add_child(row)
 	var row2 := UI.vbox(4)
@@ -89,9 +205,14 @@ func connect_sheet() -> void:
 	b.add_child(row2)
 	b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", func():
 		net.player = _name_edit.text.strip_edges()
+		var u := _picked_url()
+		if u == "":
+			_status = "주소를 넣어 주세요"
+			connect_sheet()
+			return
 		_status = "접속 중…"
 		_leaving = false
-		net.connect_to(_url_edit.text)
+		net.connect_to(u)
 		connect_sheet(), "pri"))
 	b.add_child(UI.lbl(_status, 14, DB.PAL.jade if net.is_open() else DB.PAL.bamboo_dim))
 	if not net.is_open():
