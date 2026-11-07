@@ -6,7 +6,7 @@ extends Control
 
 signal tapped(k: String)
 
-const SIZE := Vector2(168, 78)
+const SIZE := Vector2(160, 76)     # 11/7 사용자: 카드 축소 —— 특기 칸 두 줄(33 + 18×2 + 3)이 들어가는 최소 높이가 76
 const HOLD := 0.35
 
 var k := ""
