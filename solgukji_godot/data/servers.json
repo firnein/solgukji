@@ -1,0 +1,9 @@
+{
+  "note": "온라인 대전 서버 목록 —— 접속 시트의 콤보에 이 순서대로 나온다 (맨 끝에 「직접 입력…」). Dev 는 집 PC 서버: build_apk.bat 이 부르는 tools/scripts/release.py 가 빌드할 때 이 PC 의 LAN IPv4 로 주소를 고친다.",
+  "servers": [
+    {
+      "name": "Dev",
+      "url": "ws://192.168.55.87:7777"
+    }
+  ]
+}
