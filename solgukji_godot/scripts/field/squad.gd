@@ -92,6 +92,7 @@ class Soldier:
 	var spin := 0.0           # 날아가며 뒤집힌 각
 	var kb := Vector2.ZERO    # 밀려나는 속도 (px/초)
 	var free := Vector2.ZERO  # 싸우며 대열 자리에서 벗어난 만큼 —— loose 만큼 남는다
+	var gdie := false         # 11/7 타입2 GPU 가 그 자리에서 눕히는 중 (CPU 가 그리지 않는다, Type2View.gpu_moved)
 
 
 var key: String
@@ -221,7 +222,7 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator, lay := 1.0) -
 func _new_soldier(i: int) -> Soldier:
 	var s := Soldier.new()
 	s.slot = i
-	s.jit = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * 0.42
+	s.jit = Vector2.from_angle(_rng.randf() * TAU) * sqrt(_rng.randf()) * sp * 0.5      # 11/7 흐트러뜨리기: 원반에 고르게(√) · 조금 더 멀리 (0.42 → 0.5)
 	s.size = _rng.randf_range(0.92, 1.08) * TIER_SIZE.get(tier, 1.0) * SCALE_BODY
 	s.tint = _rng.randf()
 	s.phase = _rng.randf() * TAU
@@ -520,7 +521,7 @@ func update(dt: float, clock: float) -> void:
 		# 서 있어도 꼼지락거린다 —— 싸울 때는 더 크게, 더 자주
 		if clock >= s.wander_t:
 			s.wander_t = clock + _rng.randf_range(0.4, 1.2) * (1.0 if fighting else 3.0)
-			s.wander = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * (0.6 if fighting else 0.3)
+			s.wander = Vector2.from_angle(_rng.randf() * TAU) * _rng.randf() * sp * (0.6 if fighting else 0.4)      # 11/7 흐트러뜨리기: 서 있을 때 0.3 → 0.4
 		want_p += s.wander
 		if fighting and s.duel != null and s.duel.alive:
 			# 일대일 —— 마주 선 적 병사 앞에 선다. 여럿이 한 적에 붙으면 병사마다 다른 각도로 에워싼다
@@ -632,7 +633,7 @@ func _set_troops_gpu(want: int, from: Vector2, clock: float, rng: RandomNumberGe
 		_recount_rows()
 	elif _alive > want:
 		# 11/6 쓰러질 병사를 한 번에 고른다 —— 한 명마다 칸 전체를 훑어(최대 1,000칸 × 수십 명) 프레임이 20ms 넘게 튀었다
-		var victims := _pick_victims(_alive - want, from, rng)
+		var victims := _pick_victims(_alive - want, from, clock, rng)
 		for v in victims:
 			if not v.alive:
 				continue
@@ -680,24 +681,45 @@ func _set_troops_gpu(want: int, from: Vector2, clock: float, rng: RandomNumberGe
 ## 쓰러질 병사 —— 11/4 사용자: HP 가 아니라 군집처럼. 공격이 온 쪽(from)에 가까운 병사부터 —— 오른쪽에서 맞으면 오른쪽이 깎인다.
 ## 살아 있는 모든 병사 가운데 가까운 다섯 중 하나 (한 점만 파이지 않게 조금 흩는다)
 ## 적과 가까운 쪽부터 k 명 (가까운 k+4 명 안에서 조금 섞는다 —— 예전 '가장 가까운 다섯 중 하나'와 비슷하게)
-func _pick_victims(k: int, from: Vector2, rng: RandomNumberGenerator) -> Array:
-	var ds := []
-	for i in cell.size():
-		var sd = cell[i]
-		if sd != null:
-			ds.append([slot_pos(i).distance_squared_to(from), sd])
-	if ds.is_empty():
-		return []
-	ds.sort_custom(func(x, y): return x[0] < y[0])
-	var win := mini(ds.size(), k + 4)
-	for i in mini(k, win):
-		var j := i + rng.randi() % maxi(1, mini(5, win - i))
-		var t = ds[i]
-		ds[i] = ds[j]
-		ds[j] = t
+## 11/7 성능: 흘림(BattleView._drain_step)이 매 프레임 한두 명씩 부른다 —— 칸 전체(최대 1,000)를 매번 훑고 정렬하면 병사 만 명 전투에서
+## 프레임당 1ms 를 넘었다. 같은 쪽(from · 부대 자리가 24px 안)에서 1초 안에 또 맞으면 지난 정렬을 이어 쓴다 (앞으로 메운 병사의 순서가
+## 조금 어긋날 뿐, 보이는 것만). 판정과 무관
+var _vc := []                 # [[거리², Soldier], …] 가까운 순
+var _vc_i := 0                # 다음에 쓸 칸
+var _vc_from := Vector2(1e9, 1e9)
+var _vc_pos := Vector2(1e9, 1e9)
+var _vc_t := -99.0
+func _pick_victims(k: int, from: Vector2, clock: float, rng: RandomNumberGenerator) -> Array:
 	var out := []
-	for i in mini(k, ds.size()):
-		out.append(ds[i][1])
+	if _vc.is_empty() or _vc_i + k + 4 > _vc.size() or clock - _vc_t > 1.0 \
+			or _vc_from.distance_squared_to(from) > 24.0 * 24.0 or _vc_pos.distance_squared_to(pos) > 24.0 * 24.0:
+		_vc = []
+		var front := pos + fwd * hd()
+		var rgt := right()
+		var half := (cols - 1) / 2.0
+		for i in cell.size():
+			var sd = cell[i]
+			if sd != null:
+				var rk := i / cols
+				var c := i % cols
+				var p := front - fwd * ((rk + 0.5) * spr) + rgt * ((c - half + (0.5 if rk & 1 else 0.0)) * sp)      # slot_pos 를 풀어 쓴다 (호출 비용)
+				_vc.append([p.distance_squared_to(from), sd])
+		if _vc.is_empty():
+			return out
+		_vc.sort_custom(func(x, y): return x[0] < y[0])
+		_vc_i = 0
+		_vc_from = from
+		_vc_pos = pos
+		_vc_t = clock
+	while out.size() < k and _vc_i < _vc.size():
+		var j := _vc_i + rng.randi() % mini(5, _vc.size() - _vc_i)      # 가까운 다섯 안에서 섞는다
+		var t = _vc[_vc_i]
+		_vc[_vc_i] = _vc[j]
+		_vc[j] = t
+		var sd = _vc[_vc_i][1]
+		_vc_i += 1
+		if sd.alive:
+			out.append(sd)
 	return out
 
 

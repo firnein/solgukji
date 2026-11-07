@@ -20,6 +20,7 @@ uniform float soil_amt = 0.0;            // 흙 · 마른 땅 얼룩
 uniform float road_y = 9999.0;           // 옆길 (전장 y, 9999 면 없음)
 uniform float creek_y = 9999.0;          // 개울 (전장 y, 9999 면 없음)
 uniform float rock_amt = 0.0;            // 바위 · 덤불 흩뿌림
+uniform float detail = 1.0;              // 11/7 부하: 0 이면 잡음을 2옥타브로 (대군 전투 —— Type2View.setup 이 정해 전투 내내 같다). 화면 전체 픽셀마다 도는 셰이더라 휴대폰 GPU 몫이 크다
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -31,12 +32,13 @@ float noise(vec2 p) {
 float fbm(vec2 p) {
 	float v = 0.0;
 	float a = 0.5;
-	for (int i = 0; i < 4; i++) {
+	int oct = detail > 0.5 ? 4 : 2;
+	for (int i = 0; i < oct; i++) {
 		v += a * noise(p);
 		p = p * 2.03 + vec2(17.0, 9.0);
 		a *= 0.5;
 	}
-	return v;
+	return detail > 0.5 ? v : v * 1.25;      // 2옥타브 합(0.75)을 4옥타브(0.9375)와 같은 범위로
 }
 float hexdist(vec2 p) {
 	p = abs(p);
