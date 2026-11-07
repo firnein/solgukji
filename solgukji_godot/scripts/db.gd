@@ -246,8 +246,9 @@ func _reskill() -> void:
 ## 더하는 기술은 그 인물 특기의 축(도트 · 둔화 · 혼란 …)에 맞는 것부터, 자기 주 능력치(공격 / 책략)와 같은 종류만.
 ## 11/2 사용자: 장수마다 특화가 느껴지게 —— 희귀 · 전설은 고유 기술 하나만, 초월 · 불멸 +1, 신화 +2 (예전 4~6 +1 · 7~8 +2)
 const SKILL_EXTRA := {6: 1, 7: 1, 8: 2}
+## 11/7 책방깎(팔문금쇄 · 저주)은 방깎으로 합쳤다 —— 무장은 필사돌격 · 저격, 책략계는 팔문금쇄 · 저주를 그대로 받는다 (종류가 맞는 것만)
 const AXIS_SKILLS := {"도트": ["화공", "화시난발", "역병"], "둔화": ["수공", "철기유린"], "혼란": ["혹세", "봉계"],
-	"책방깎": ["팔문금쇄", "저주"], "방깎": ["필사돌격", "저격"], "물리": ["횡소천군", "일점돌파", "일제사격"],
+	"방깎": ["필사돌격", "저격", "팔문금쇄", "저주"], "물리": ["횡소천군", "일점돌파", "일제사격"],
 	"책략": ["이간", "밀계"], "공깎": ["후미교란", "철기유린"], "책략깎": ["밀계", "이간"], "철벽": ["철벽방진"],
 	"인덕": ["격려", "독려", "인덕"], "사기": ["진두지휘", "격문", "고함", "고취", "격려", "독려"]}
 
@@ -362,7 +363,7 @@ func _build_from(base: Dictionary, tier: int) -> Dictionary:
 	if base.has("heal"): e.heal = snappedf(float(base.heal) * SK_POWER.heal, 0.1)
 	if base.has("exec"): e.exec = minf(0.35, snappedf(float(base.exec) * SK_POWER.exec, 0.01))
 	if base.has("pierce"): e.pierce = minf(0.6, float(base.pierce) + 0.1)
-	for key in ["spd", "foeSpd", "resDown", "selfBuff", "allyBuff", "stance"]:
+	for key in ["spd", "foeSpd", "defDown", "selfBuff", "allyBuff", "stance"]:
 		if base.has(key):
 			e[key] = _scale_buff(base[key])
 	for key in ["cleanse", "rally"]:
@@ -399,8 +400,9 @@ const FORM_MID := 2
 
 
 ## 11/6 사용자 #15: 마법 개념 삭제 —— 공격 = 공 · 책 중 높은 쪽, 방어 = 방 · 책방 중 높은 쪽. int · res 칸은 같은 값을 둔다 (옛 코드가 읽어도 같게).
-## 원본 game.json 은 그대로. 능력치 보정(stat_adjust)이 끝난 뒤에 합친다. 화면 용어도 공격 · 방어로 (STATNM · MOD_LABEL · 특기 설명문)
-const TXT_ALIAS := [["책략방어", "방어"], ["책방", "방어"], ["책략 피해", "피해"], ["책략 치명타", "치명타"], ["물리 피해", "피해"], ["책략을", "공격을"], ["책략이", "공격이"], ["책략 +", "공격 +"], ["책략 −", "공격 −"], ["책략 -", "공격 -"]]
+## 능력치 보정(stat_adjust)이 끝난 뒤에 합친다. 화면 용어도 공격 · 방어로 (STATNM · MOD_LABEL · 특기 설명문)
+## 11/7 책략방어(res)는 데이터에서 지웠다 (효과는 방어로, 같이 있으면 큰 값 하나만 —— tools/scripts/extract.py drop_res). 카드 res 칸만 남아 방어와 같은 값
+const TXT_ALIAS := [["책략 피해", "피해"], ["책략 치명타", "치명타"], ["물리 피해", "피해"], ["책략을", "공격을"], ["책략이", "공격이"], ["책략 +", "공격 +"], ["책략 −", "공격 −"], ["책략 -", "공격 -"]]
 const MERGE_DEF_W := 0.5      # 방어 = 방 + (책방 − 방) × 이만큼 (책방이 더 클 때) —— 0.3 으로 내려도 유생 · 술사 3장 덱 70% 그대로 (11/6): 원인은 방어가 아니다
 func merge_stats() -> void:
 	for k in C:
@@ -410,7 +412,6 @@ func merge_stats() -> void:
 		c["def"] = maxf(float(c["def"]), lerpf(float(c["def"]), float(c.res), MERGE_DEF_W))      # 11/6 밸런스: 책방을 다 받으면 책략계 3장 덱 승률 60~75% —— 절반만
 		c.res = c["def"]
 	D.STATNM["int"] = "공격"
-	D.STATNM["res"] = "방어"
 	for tn in PSV.traits:
 		var t: Dictionary = PSV.traits[tn]
 		if t.has("d"):
@@ -813,7 +814,7 @@ func passives_of(k: String):
 			var attr: String = t.get("attr", "")
 			var lv := trait_level(k, e[0])
 			var sc: float = (PSV.level_scale_attr if attr != "" else PSV.level_scale)[str(lv)]
-			sc *= float(PSV.get("axis_tier_mul", {}).get(attr, {}).get(str(c.tier), 1.0))      # 축 × 등급 밸런스 (10/31)
+			sc *= float(t.get("tier_mul", PSV.get("axis_tier_mul", {}).get(attr, {})).get(str(c.tier), 1.0))      # 축 × 등급 밸런스 (10/31) —— 특기에 tier_mul 이 있으면 그것 (현혹 · 요언, 11/7)
 			if t.has("self"):      # 금색 특기 —— 단체 효과와 함께 주인에게만 붙는 장치
 				var sm := {}
 				for key in t.self:
@@ -859,9 +860,9 @@ func trait_list(k: String) -> Array:
 	return out
 
 
-## 특기 칸 색 —— 축마다 (2026-10-30: 물리 · 책략 · 도트 · 공깎 · 책략깎 · 방깎 · 책방깎 · 둔화 · 혼란 · 철벽 · 인덕), 축 없는 개인은 회황, 단체는 청록
+## 특기 칸 색 —— 축마다 (2026-10-30: 물리 · 책략 · 도트 · 공깎 · 책략깎 · 방깎 · 둔화 · 혼란 · 철벽 · 인덕 —— 책방깎은 11/7 방깎으로 합쳤다), 축 없는 개인은 회황, 단체는 청록
 const TRAIT_COL := {"물리": Color("#c98a2e"), "책략": Color("#3f7fc0"), "도트": Color("#c8553d"),
-	"공깎": Color("#b0504a"), "책략깎": Color("#5a6fc0"), "방깎": Color("#a8893c"), "책방깎": Color("#8a5ab8"),
+	"공깎": Color("#b0504a"), "책략깎": Color("#5a6fc0"), "방깎": Color("#a8893c"),
 	"둔화": Color("#3f9aa8"), "혼란": Color("#9a5ab0"), "철벽": Color("#6f8aa6"), "인덕": Color("#4f9a5a"), "사기": Color("#d6b84a"),
 	"": Color("#8a8668"), "단체": Color("#3f9a94")}
 
@@ -893,7 +894,7 @@ func passive_hits(g: Dictionary, owner_k: String, k: String) -> bool:
 	return false
 
 
-const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "res": "방어", "spd": "속도", "troop": "병력",      # 11/6 #15 책략 → 공격 · 책략방어 → 방어
+const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "속도", "troop": "병력",      # 11/6 #15 책략 → 공격 (책략방어는 11/7 데이터에서 방어로)
 	"morale": "시작 사기", "crit": "치명타 확률", "critd": "치명타 피해", "icrit": "치명타 확률", "rate": "스킬 발동",
 	"dr": "받는 피해 -", "idr": "받는 피해 -", "rout": "패주 확률 -", "shock": "큰 손실 충격 -",
 	"counter": "반격", "stres": "상태이상 저항", "low_atk": "절반 이하 공격", "avenge": "아군 이탈마다 공격",
@@ -911,8 +912,8 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "res": "�
 	"kill_amp": "적을 무너뜨린 뒤 다음 공격 피해", "cleave": "같은 열 이웃에게 피해", "icleave": "같은 열 이웃에게 피해",
 	"int_low": "절반 아래 적에게 피해", "sk_amp": "기술 피해", "ally_sk": "아군 기술 때 충전",
 	"cut_atk": "맞힐 때 적 공격 −(내 공격의)", "cut_int": "맞힐 때 적 공격 −(내 공격의)", "cut_def": "맞힐 때 적 방어 −(내 공격의)",
-	"cut_res": "맞힐 때 적 방어 −(내 공격의)", "first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
-	"open_cut_int": "시작에 적 후군 공격 −(내 공격의)", "open_cut_res": "시작에 적 전원 방어 −(내 공격의)",
+	"first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
+	"open_cut_int": "시작에 적 후군 공격 −(내 공격의)", "open_cut_def": "시작에 적 전원 방어 −(내 공격의)",
 	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해",
 	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "차례마다 같은 열 사기(전투 전체)", "resolve": "아군이 무너지면 사기",
 	"steady": "사기 60 아래에서 한 번 사기", "ult_rally": "아군 고유기 때 아군 전원 사기"}
@@ -1183,7 +1184,7 @@ func skill_desc(c: Dictionary, sk = null) -> String:
 	if e.has("cleanse"): p.append("아군 상태이상 %d종 해제" % e.cleanse)
 	if e.has("spd"): p.append("대상 속도 %s" % pct.call(e.spd.amt))
 	if e.has("foeSpd"): p.append("대상 속도 %s" % pct.call(e.foeSpd.amt))
-	if e.has("resDown"): p.append("대상 책략방어 %s" % pct.call(e.resDown.amt))
+	if e.has("defDown"): p.append("대상 방어 %s" % pct.call(e.defDown.amt))
 	if e.has("selfBuff"): p.append("자신 %s %s" % [D.STATNM[e.selfBuff.stat], pct.call(e.selfBuff.amt)])
 	if e.has("allyBuff"): p.append("%s %s %s" % [tgt_name(e.allyBuff.tgt), D.STATNM[e.allyBuff.stat], pct.call(e.allyBuff.amt)])
 	return " · ".join(p)

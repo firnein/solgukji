@@ -177,7 +177,7 @@ KIIN = {
     "곽가": ("유계 곽가", "책사", "위", "조조 순욱 정욱", dict(AU("유계", ally={"int": 0.06}), kiin="death_gauge")),
     "미축": ("거상 미축", "유생", "촉", "유비 간옹 손상향", dict(AU("거상재물", ally={"def": 0.05}), kiin="ticket")),
     "사마휘": ("수경 사마휘", "유생", "군", "제갈량 방통 서서 관로", AU("인재추천", m={"rate": 0.07})),
-    "노숙": ("연합 노숙", "유생", "오", "주유 손권 제갈량", dict(AU("손유동맹", ally={"res": 0.1}), kiin="aura_half")),
+    "노숙": ("연합 노숙", "유생", "오", "주유 손권 제갈량", dict(AU("손유동맹", ally={"def": 0.1}), kiin="aura_half")),
     "화타": ("신의 화타", "술사", "군", "관로 채문희 관우", dict(AU("기사회생"), kiin="revive")),
     "좌자": ("둔갑 좌자", "술사", "군", "우길 관로 남화노선", dict(AU("봉인부적"), kiin="seal")),
     "관로": ("점복 관로", "술사", "군", "좌자 남화노선 우길", dict(AU("점괘예견", foe={"spd": -0.1}), kiin="wind_slow")),
@@ -194,7 +194,7 @@ TITLE_FIX = {"철벽 조인": "천인 조인", "호위 전위": "악래 전위",
 # 빠진 셋은 불멸이 마지막 단계 (불멸도 충분히 센 장수). 장료(강동의 악몽 · 위세 소아지제) · 감녕(백기겁영 · 위세 방울소리)은 원본 신화 카드를 되살린다
 MYTH12 = ["유비", "조조", "손권", "제갈량", "사마의", "주유", "관우", "장료", "감녕", "여포", "장각"]
 NEW_MYTH = {"사마의": ("선제 사마의", "호부", AU("응시호보", ally={"int": 0.08}, foe={"spd": -0.08}))}
-NEW_ITEMS = [["u01", "호부", "유니크", "모사", "int", 0.32, "res", 0.16, 7, "myth"]]
+NEW_ITEMS = [["u01", "호부", "유니크", "모사", "int", 0.32, "def", 0.16, 7, "myth"]]
 
 # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 특기 수 (단체 · 고유 포함)
 TRAIT_MIN = {3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8}      # 11/3 (2) 사용자: 특기를 더 —— 한 개씩 더
@@ -242,7 +242,7 @@ NEW6 = {
 }
 # 위세 —— 살아 있는 동안. (11/2 (6) 사용자: 병종 특화만이면 재미없다 → 범위 · 효과를 장수마다 다르게)
 #  to   : 아군 범위 —— all 전체 · front 진형 선봉·전군 · back 진형 중군·후군 · fac 같은 세력 · rel 인연 장수(REL 표 + 자신) · low 병력 절반 아래 · tag 그 병종
-#  ally : 아군 능력치 배율 { atk def int res spd }
+#  ally : 아군 능력치 배율 { atk def int spd }  (책략방어 res 는 11/7 방어로 합쳤다 —— 같이 있으면 큰 값 하나만)
 #  m    : 아군 특수 효과 (battle.gd mv 키 —— crit 치명타 · critd 치명 피해 · dr/idr 받는 물리/책략 피해 감소 · counter 반격 ·
 #         regen 병력 회복 · mregen 사기 회복 · rate 기술 발동 · rout 패주 저항 · stres 상태이상 저항 · low_atk 위기 공격 ·
 #         kill_amp 격파 뒤 피해 · weak_amp 약해진 적에게 · ignite 점화 · spread 불 번짐 · st_amp 지속 피해 · opener 첫 공격 · fire_res 화공 저항)
@@ -260,7 +260,7 @@ AURA6 = {
     "문추": AU("명장쌍벽", "fac", m={"kill_amp": 0.3}),
     # 궁병
     "황개": AU("삼대노신", "all", m={"ignite": 0.1}),
-    "정보": AU("정공의 덕망", "back", ally={"def": 0.12, "res": 0.08}),
+    "정보": AU("정공의 덕망", "back", ally={"def": 0.12}),
     "서성": AU("장강수비", "all", m={"idr": 0.1}),
     "황월영": AU("기관공방", "back", ally={"atk": 0.1}, m={"rate": 0.04}),
     # 도적
@@ -277,7 +277,7 @@ AURA6 = {
     "대교": AU("화용월태", "all", m={"regen": 0.01}),
     "소교": AU("내조지공", "all", m={"mregen": 0.5}, foe={"int": -0.06}),
     "장소": AU("원로중신", "all", m={"stres": 0.2}),
-    "장완": AU("촉한지주", "fac", ally={"def": 0.08, "res": 0.08}),
+    "장완": AU("촉한지주", "fac", ally={"def": 0.08}),
     # 술사
     "우길": AU("부수치병", "all", m={"mregen": 0.8, "fire_res": 0.3}),
     "관로": AU("명운예견", "all", m={"rate": 0.03}, foe={"spd": -0.05}),
@@ -302,8 +302,8 @@ ULT6 = {
     "황월영": dict(name="원융노", shout="열 발이 한 번에 나갑니다.", vfx="arrowstorm", eff=[dict(t="hit", kind="phys", mult=1.1, tgt="all"), dict(t="hit", kind="phys", mult=0.8, tgt="back2")]),
     "주환": dict(name="유수 역습", shout="물러서는 척하다 친다!", vfx="charge", eff=[dict(t="hit", kind="phys", mult=1.8, tgt="back1"), dict(t="ally", tgt="self", buff=dict(stat="def", amt=0.3, dur=2))]),
     "손상향": dict(name="궁요희의 칼춤", shout="여인이라 얕보지 마라!", vfx="charge", eff=[dict(t="hit", kind="phys", mult=1.6, tgt="back2"), dict(t="ally", tgt="self", buff=dict(stat="spd", amt=0.3, dur=2))]),
-    "저수": dict(name="감군지략", shout="군을 나누어 치면 이깁니다.", vfx="aura", eff=[dict(t="foe", tgt="all", buff=dict(stat="res", amt=-0.25, dur=2)), dict(t="hit", kind="int", mult=1.0, tgt="all")]),
-    "장완": dict(name="사상의 다스림", shout="나라의 근본은 백성입니다.", vfx="heal", eff=[dict(t="ally", tgt="allyAll", heal=0.2, morale=10), dict(t="ally", tgt="allyAll", buff=dict(stat="res", amt=0.2, dur=2))]),
+    "저수": dict(name="감군지략", shout="군을 나누어 치면 이깁니다.", vfx="aura", eff=[dict(t="foe", tgt="all", buff=dict(stat="def", amt=-0.25, dur=2)), dict(t="hit", kind="int", mult=1.0, tgt="all")]),
+    "장완": dict(name="사상의 다스림", shout="나라의 근본은 백성입니다.", vfx="heal", eff=[dict(t="ally", tgt="allyAll", heal=0.2, morale=10), dict(t="ally", tgt="allyAll", buff=dict(stat="def", amt=0.2, dur=2))]),
     "관로": dict(name="천기누설", shout="그대의 운은 오늘 다했소.", vfx="aura", eff=[dict(t="foe", tgt="all", morale=12, buff=dict(stat="spd", amt=-0.25, dur=2)), dict(t="hit", kind="int", mult=0.9, tgt="back2")]),
     "채문희": dict(name="호가십팔박", shout="슬픈 곡조가 전장에 퍼집니다.", vfx="aura", eff=[dict(t="ally", tgt="allyAll", heal=0.15, morale=12), dict(t="foe", tgt="all", morale=8)]),
     "남화노선": dict(name="태평요술 전수", shout="하늘의 책을 펼치노라.", vfx="aura", eff=[dict(t="hit", kind="int", mult=1.1, tgt="all"), dict(t="foe", tgt="front3", status=dict(k="confuse", val=1, dur=1))]),
@@ -355,22 +355,22 @@ SKILL = {
     "엄백호": dict(n="산월약탈", k="phys", tgt="back1", mult=1.45, morale=6, cond="always"),
     "장연": dict(n="흑산유격", k="phys", tgt="back2", mult=1.25, spd=SPD(-0.25), cond="always"),
     # 책사
-    "제갈량": dict(n="동남풍", k="int", tgt="all", mult=0.95, foeSpd=SPD(-0.3), allyBuff=AB("res", 0.2), cond="foe_n:3|always"),
+    "제갈량": dict(n="동남풍", k="int", tgt="all", mult=0.95, foeSpd=SPD(-0.3), allyBuff=AB("def", 0.2), cond="foe_n:3|always"),
     "방통": dict(n="철쇄지책", k="int", tgt="denseLine", mult=0.9, status=ST("burn", 0.14, 3), spd=SPD(-0.25), cond="dense:2|no_st:burn"),
-    "곽가": dict(n="선견지명", k="int", tgt="line:후군", mult=1.2, resDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
+    "곽가": dict(n="선견지명", k="int", tgt="line:후군", mult=1.2, defDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
     "육손": dict(n="불길매복", k="int", tgt="denseLine", mult=0.85, status=ST("burn", 0.18, 3), cond="dense:2|no_st:burn"),
     "강유": dict(n="북벌지책", k="int", tgt="front3", mult=1.15, morale=8, allyBuff=AB("atk", 0.15, "allyFront"), cond="always"),
     "주유": dict(n="적진방화", k="int", tgt="all", mult=0.85, status=ST("burn", 0.12, 3), cond="foe_n:3|no_st:burn"),
-    "마량": dict(n="남만회유", k="int", tgt="back2", mult=1.25, resDown={"amt": -0.3, "dur": 2}, cond="always"),
+    "마량": dict(n="남만회유", k="int", tgt="back2", mult=1.25, defDown={"amt": -0.3, "dur": 2}, cond="always"),
     "종회": dict(n="벌촉지책", k="int", tgt="line:선봉+전군", mult=1.1, morale=8, cond="always"),
     # 유생
-    "유비": dict(n="백성구휼", k="int", tgt="all", mult=0.75, tHeal=0.08, cleanse=1, allyBuff=AB("res", 0.15), cond="ally_hurt:0.75|ally_st"),
+    "유비": dict(n="백성구휼", k="int", tgt="all", mult=0.75, tHeal=0.08, cleanse=1, allyBuff=AB("def", 0.15), cond="ally_hurt:0.75|ally_st"),
     "순욱": dict(n="천하경략", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("def", 0.2), cond="ally_hurt:0.85"),
-    "노숙": dict(n="합종연횡", k="int", tgt="all", mult=0.8, heal=10, rally=True, allyBuff=AB("res", 0.2), cond="ally_morale:90|ally_hurt:0.8"),
+    "노숙": dict(n="합종연횡", k="int", tgt="all", mult=0.8, heal=10, rally=True, allyBuff=AB("def", 0.2), cond="ally_morale:90|ally_hurt:0.8"),
     "법정": dict(n="기책보은", k="int", tgt="front3", mult=1.15, morale=8, allyBuff=AB("atk", 0.2, "allyFront"), cond="always"),
     "서서": dict(n="격검유협", k="int", tgt="front3", mult=1.2, allyBuff=AB("def", 0.2, "allyFront"), cond="always"),
-    "사마휘": dict(n="명사담론", k="int", tgt="all", mult=0.7, heal=12, rally=True, allyBuff=AB("res", 0.25), cond="ally_morale:90|ally_hurt:0.8"),
-    "대교": dict(n="자애치유", k="int", tgt="front3", mult=0.7, tHeal=0.1, allyBuff=AB("res", 0.2), cond="ally_hurt:0.75"),
+    "사마휘": dict(n="명사담론", k="int", tgt="all", mult=0.7, heal=12, rally=True, allyBuff=AB("def", 0.25), cond="ally_morale:90|ally_hurt:0.8"),
+    "대교": dict(n="자애치유", k="int", tgt="front3", mult=0.7, tHeal=0.1, allyBuff=AB("def", 0.2), cond="ally_hurt:0.75"),
     "소교": dict(n="금슬화음", k="int", tgt="all", mult=0.8, morale=10, heal=8, rally=True, cond="foe_morale|ally_morale:85"),
     "장소": dict(n="직언상소", k="int", tgt="all", mult=0.7, allyBuff=AB("def", 0.2), cleanse=1, cond="ally_st|ally_hurt:0.7"),
     # 술사
@@ -379,10 +379,10 @@ SKILL = {
     "화타": dict(n="마비산", k="int", tgt="front3", mult=0.85, tHeal=0.1, cleanse=2, cond="ally_hurt:0.7|ally_st"),
     "장로": dict(n="귀도주술", k="int", tgt="all", mult=0.8, status=ST("plague", 6, 3), cond="no_st:plague"),
     "우길": dict(n="강동신선", k="int", tgt="front3", mult=1.0, status=ST("confuse", 1, 1), morale=6, cond="always"),
-    "관로": dict(n="주역점복", k="int", tgt="back2", mult=1.2, resDown={"amt": -0.35, "dur": 2}, cond="always"),
+    "관로": dict(n="주역점복", k="int", tgt="back2", mult=1.2, defDown={"amt": -0.35, "dur": 2}, cond="always"),
     # 모사
     "조조": dict(n="협천자령", k="int", tgt="all", mult=1.0, morale=9, allyBuff=AB("atk", 0.15), cond="foe_morale|foe_n:3"),
-    "사마의": dict(n="인내지계", k="int", tgt="line:후군", mult=1.25, resDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
+    "사마의": dict(n="인내지계", k="int", tgt="line:후군", mult=1.25, defDown={"amt": -0.3, "dur": 2}, morale=8, cond="always"),
     "가후": dict(n="완성기책", k="int", tgt="back2", mult=1.35, status=ST("plague", 8, 3), cond="always"),
     "초선": dict(n="미인계", k="int", tgt="front3", mult=0.95, status=ST("confuse", 1, 1), morale=10, cond="always"),
     "정욱": dict(n="복병기습", k="int", tgt="all", mult=1.05, foeSpd=SPD(-0.25), morale=7, cond="foe_n:3|always"),
@@ -400,7 +400,7 @@ SKILL = {
     "맹달": dict(n="반복지계", k="int", tgt="back2", mult=1.2, morale=8, cond="always"),
     "반장": dict(n="맥성포박", k="phys", tgt="back1", mult=1.5, spd=SPD(-0.3), cond="always"),
     "제갈각": dict(n="동흥대첩", k="int", tgt="denseLine", mult=1.0, morale=7, cond="dense:2|always"),
-    "우번": dict(n="역경점술", k="int", tgt="back2", mult=1.15, resDown={"amt": -0.25, "dur": 2}, cond="always"),
+    "우번": dict(n="역경점술", k="int", tgt="back2", mult=1.15, defDown={"amt": -0.25, "dur": 2}, cond="always"),
     "여범": dict(n="강동재략", k="int", tgt="all", mult=0.9, morale=7, cond="foe_n:3|always"),
     "고람": dict(n="하북철벽", k="phys", tgt="front1", mult=1.4, selfBuff=SB("def", 0.25), cond="always"),
     "황조": dict(n="강하저격", k="phys", tgt="back1", mult=1.7, cond="always"),
@@ -418,24 +418,24 @@ SKILL = {
     "하제": dict(n="산월토벌", k="phys", tgt="denseLine", mult=1.05, morale=5, cond="dense:2|always"),
     "이각": dict(n="장안약탈", k="phys", tgt="back1", mult=1.4, morale=6, cond="always"),
     "황권": dict(n="익주방략", k="int", tgt="front3", mult=1.05, allyBuff=AB("def", 0.12, "allyFront"), cond="always"),
-    "순유": dict(n="군사기책", k="int", tgt="back2", mult=1.2, resDown={"amt": -0.2, "dur": 2}, cond="always"),
-    "도겸": dict(n="서주양보", k="int", tgt="all", mult=0.7, tHeal=0.05, allyBuff=AB("res", 0.12), cond="ally_hurt:0.85"),
+    "순유": dict(n="군사기책", k="int", tgt="back2", mult=1.2, defDown={"amt": -0.2, "dur": 2}, cond="always"),
+    "도겸": dict(n="서주양보", k="int", tgt="all", mult=0.7, tHeal=0.05, allyBuff=AB("def", 0.12), cond="ally_hurt:0.85"),
     "길평": dict(n="독약처방", k="int", tgt="front3", mult=0.9, status=ST("plague", 5, 3), cond="no_st:plague"),
-    "이의": dict(n="천명예언", k="int", tgt="back2", mult=1.0, resDown={"amt": -0.25, "dur": 2}, cond="always"),
+    "이의": dict(n="천명예언", k="int", tgt="back2", mult=1.0, defDown={"amt": -0.25, "dur": 2}, cond="always"),
     "이유": dict(n="짐독계", k="int", tgt="front3", mult=0.95, status=ST("plague", 6, 3), morale=5, cond="always"),
-    "공융": dict(n="공문가훈", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("res", 0.15), cond="ally_hurt:0.85"),
+    "공융": dict(n="공문가훈", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("def", 0.15), cond="ally_hurt:0.85"),
     "화웅": dict(n="일도양단", k="phys", tgt="front1", mult=1.6, morale=8, cond="always"),
     "문추": dict(n="하북돌기", k="phys", tgt="line:선봉+전군", mult=1.15, morale=6, cond="front_n:2|always"),
     "서성": dict(n="강변사격", k="phys", tgt="back2", mult=1.25, allyBuff=AB("def", 0.12), cond="always"),
     "황월영": dict(n="연노사격", k="phys", tgt="all", mult=0.85, cond="foe_n:3|always"),
     "주환": dict(n="매복기습", k="phys", tgt="back1", mult=1.6, spd=SPD(-0.2), cond="always"),
     "손상향": dict(n="쌍검난무", k="phys", tgt="back2", mult=1.35, selfBuff=SB("spd", 0.2), cond="always"),
-    "저수": dict(n="분진지책", k="int", tgt="line:후군", mult=1.2, resDown={"amt": -0.25, "dur": 2}, cond="always"),
-    "장완": dict(n="안민지책", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("res", 0.15), cond="ally_hurt:0.8"),
+    "저수": dict(n="분진지책", k="int", tgt="line:후군", mult=1.2, defDown={"amt": -0.25, "dur": 2}, cond="always"),
+    "장완": dict(n="안민지책", k="int", tgt="all", mult=0.7, tHeal=0.06, allyBuff=AB("def", 0.15), cond="ally_hurt:0.8"),
     "채문희": dict(n="비분시", k="int", tgt="all", mult=0.75, heal=8, rally=True, morale=6, cond="ally_morale:85|foe_n:3"),
     "남화노선": dict(n="선도비술", k="int", tgt="front3", mult=1.0, status=ST("confuse", 1, 1), cond="always"),
     "전풍": dict(n="직간", k="int", tgt="back2", mult=1.3, morale=8, cond="always"),
-    "진궁": dict(n="충절지책", k="int", tgt="line:선봉+전군", mult=1.2, resDown={"amt": -0.3, "dur": 2}, morale=7, cond="always"),
+    "진궁": dict(n="충절지책", k="int", tgt="line:선봉+전군", mult=1.2, defDown={"amt": -0.3, "dur": 2}, morale=7, cond="always"),
 }
 
 

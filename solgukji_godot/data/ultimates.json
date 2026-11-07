@@ -303,7 +303,7 @@
      "t": "foe",
      "tgt": "all",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": -0.3,
       "dur": 2
      }
@@ -488,7 +488,7 @@
      "tgt": "allyAll",
      "morale": 20,
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": 0.4,
       "dur": 2
      }
@@ -619,7 +619,7 @@
      "t": "foe",
      "tgt": "all",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": -0.4,
       "dur": 2
      }
@@ -715,7 +715,7 @@
      "t": "ally",
      "tgt": "allyAll",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": 0.3,
       "dur": 2
      }
@@ -851,7 +851,7 @@
      "t": "ally",
      "tgt": "allyAll",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": 0.3,
       "dur": 3
      }
@@ -1144,7 +1144,7 @@
      "t": "ally",
      "tgt": "allyAll",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": 0.25,
       "dur": 2
      }
@@ -1230,20 +1230,11 @@
      "t": "ally",
      "tgt": "allyAll",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": 0.35,
       "dur": 2
      },
      "morale": 15
-    },
-    {
-     "t": "ally",
-     "tgt": "allyAll",
-     "buff": {
-      "stat": "def",
-      "amt": 0.2,
-      "dur": 2
-     }
     }
    ]
   },

@@ -442,7 +442,7 @@
    {
     "n": "",
     "eff": {},
-    "psv": "allyRes"
+    "psv": "allyDef"
    },
    "immortal",
    ""
@@ -3882,7 +3882,7 @@
     "dur": 2
    },
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.2,
     "dur": 2,
     "tgt": "allyAll"
@@ -3910,7 +3910,7 @@
    "k": "int",
    "tgt": "line:후군",
    "mult": 1.2,
-   "resDown": {
+   "defDown": {
     "amt": -0.3,
     "dur": 2
    },
@@ -3960,7 +3960,7 @@
    "k": "int",
    "tgt": "back2",
    "mult": 1.25,
-   "resDown": {
+   "defDown": {
     "amt": -0.3,
     "dur": 2
    },
@@ -3982,7 +3982,7 @@
    "tHeal": 0.08,
    "cleanse": 1,
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.15,
     "dur": 2,
     "tgt": "allyAll"
@@ -4011,7 +4011,7 @@
    "heal": 10,
    "rally": true,
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.2,
     "dur": 2,
     "tgt": "allyAll"
@@ -4053,7 +4053,7 @@
    "heal": 12,
    "rally": true,
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.25,
     "dur": 2,
     "tgt": "allyAll"
@@ -4067,7 +4067,7 @@
    "mult": 0.7,
    "tHeal": 0.1,
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.2,
     "dur": 2,
     "tgt": "allyAll"
@@ -4166,7 +4166,7 @@
    "k": "int",
    "tgt": "back2",
    "mult": 1.2,
-   "resDown": {
+   "defDown": {
     "amt": -0.35,
     "dur": 2
    },
@@ -4191,7 +4191,7 @@
    "k": "int",
    "tgt": "line:후군",
    "mult": 1.25,
-   "resDown": {
+   "defDown": {
     "amt": -0.3,
     "dur": 2
    },
@@ -4370,7 +4370,7 @@
    "k": "int",
    "tgt": "back2",
    "mult": 1.15,
-   "resDown": {
+   "defDown": {
     "amt": -0.25,
     "dur": 2
    },
@@ -4536,7 +4536,7 @@
    "k": "int",
    "tgt": "back2",
    "mult": 1.2,
-   "resDown": {
+   "defDown": {
     "amt": -0.2,
     "dur": 2
    },
@@ -4549,7 +4549,7 @@
    "mult": 0.7,
    "tHeal": 0.05,
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.12,
     "dur": 2,
     "tgt": "allyAll"
@@ -4573,7 +4573,7 @@
    "k": "int",
    "tgt": "back2",
    "mult": 1.0,
-   "resDown": {
+   "defDown": {
     "amt": -0.25,
     "dur": 2
    },
@@ -4599,7 +4599,7 @@
    "mult": 0.7,
    "tHeal": 0.06,
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.15,
     "dur": 2,
     "tgt": "allyAll"
@@ -4670,7 +4670,7 @@
    "k": "int",
    "tgt": "line:후군",
    "mult": 1.2,
-   "resDown": {
+   "defDown": {
     "amt": -0.25,
     "dur": 2
    },
@@ -4683,7 +4683,7 @@
    "mult": 0.7,
    "tHeal": 0.06,
    "allyBuff": {
-    "stat": "res",
+    "stat": "def",
     "amt": 0.15,
     "dur": 2,
     "tgt": "allyAll"
@@ -4725,7 +4725,7 @@
    "k": "int",
    "tgt": "line:선봉+전군",
    "mult": 1.2,
-   "resDown": {
+   "defDown": {
     "amt": -0.3,
     "dur": 2
    },
@@ -4897,8 +4897,7 @@
    "n": "정공의 덕망",
    "to": "back",
    "ally": {
-    "def": 0.12,
-    "res": 0.08
+    "def": 0.12
    }
   },
   "c132": {
@@ -5132,7 +5131,7 @@
    "n": "손유동맹",
    "to": "all",
    "ally": {
-    "res": 0.1
+    "def": 0.1
    },
    "kiin": "aura_half"
   },
@@ -5357,7 +5356,7 @@
      "t": "foe",
      "tgt": "all",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": -0.25,
       "dur": 2
      }
@@ -5385,7 +5384,7 @@
      "t": "ally",
      "tgt": "allyAll",
      "buff": {
-      "stat": "res",
+      "stat": "def",
       "amt": 0.2,
       "dur": 2
      }
@@ -8143,7 +8142,7 @@
    "모사",
    "int",
    0.32,
-   "res",
+   "def",
    0.16,
    7,
    "myth"
