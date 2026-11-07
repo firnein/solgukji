@@ -14,7 +14,7 @@ const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만
-const TOP_H := 66.0
+const TOP_H := 58.0          # 11/7 사용자: DAY 네비게이터 축소 (66 → 58)
 const TAB_H := 62.0
 
 var run: Run
@@ -32,6 +32,9 @@ var _sub_lbl: Label
 var _pow_lbl: Label
 var _info_lbl: RichTextLabel
 var _phase_bar: Control
+var _news_btn: Button         # 11/7 ☰ 아래 '소식' (소식 수 뱃지)
+var _news_badge: Label
+var _clock_lbl: Label         # 온라인 단계 시계 (진행 막대 오른쪽)
 var _tabs := {}
 var _tabbar: Control
 var _scroll: ScrollContainer
@@ -191,41 +194,76 @@ func _build_top() -> Control:
 	sb.border_width_bottom = 1
 	sb.content_margin_left = 14
 	sb.content_margin_right = 6
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 6
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
 	bar.add_theme_stylebox_override("panel", sb)
 	bar.custom_minimum_size = Vector2(0, TOP_H)
 	_top = bar
-	var v := UI.vbox(5)
-	bar.add_child(v)
 	var row := UI.hbox(8)
-	v.add_child(row)
-	var lv := UI.vbox(0)
+	bar.add_child(row)
+	# 11/7 사용자: DAY 네비게이터 축소 —— 날짜 · 페이즈를 작은 글씨 한 줄에, 21칸 진행 막대는 그 아래 왼쪽 칸 폭만큼 가늘게(4)
+	var lv := UI.vbox(3)
 	lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_day_lbl = UI.lbl("", 17, DB.PAL.paper, true)
+	lv.alignment = BoxContainer.ALIGNMENT_CENTER
+	var dl := UI.hbox(6)
+	_day_lbl = UI.lbl("", 14, DB.PAL.paper, true)
 	_sub_lbl = UI.lbl("", 12, DB.PAL.bamboo)
 	_sub_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_sub_lbl.clip_text = true
-	lv.add_child(_day_lbl)
-	lv.add_child(_sub_lbl)
+	_sub_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sub_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_sub_lbl.size_flags_vertical = Control.SIZE_FILL
+	dl.add_child(_day_lbl)
+	dl.add_child(_sub_lbl)
+	lv.add_child(dl)
+	var bl := UI.hbox(6)
+	_phase_bar = PhaseBar.new()
+	_phase_bar.custom_minimum_size = Vector2(60, 4)
+	_phase_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_phase_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bl.add_child(_phase_bar)
+	_clock_lbl = UI.lbl("", 11, DB.PAL.bamboo)      # 온라인 단계 시계 —— 막대 오른쪽 (혼자 하기에선 숨김)
+	_clock_lbl.visible = false
+	bl.add_child(_clock_lbl)
+	lv.add_child(bl)
 	row.add_child(lv)
 	var rv := UI.vbox(0)
-	_pow_lbl = UI.lbl("", 17, DB.PAL.paper, true)
+	rv.alignment = BoxContainer.ALIGNMENT_CENTER
+	_pow_lbl = UI.lbl("", 15, DB.PAL.paper, true)
 	_pow_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	rv.add_child(_pow_lbl)
-	_info_lbl = UI.rich("", 12)
+	_info_lbl = UI.rich("", 11)
 	_info_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_info_lbl.custom_minimum_size = Vector2(150, 0)
+	_info_lbl.custom_minimum_size = Vector2(140, 0)
 	rv.add_child(_info_lbl)
 	row.add_child(rv)
-	var mb := UI.btn("☰", _menu, "ghost", 44)
-	mb.custom_minimum_size = Vector2(44, 44)
+	# ☰ 과 그 아래 '소식' (11/7 사용자: 징집 페이지 칩 줄에서 머리띠로) —— 소식 수 뱃지, 누르면 전황 소식 시트
+	var mv := UI.vbox(2)
+	var mb := UI.btn("☰", _menu, "ghost", 26)
+	mb.custom_minimum_size = Vector2(46, 26)
 	mb.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-	mb.add_theme_font_size_override("font_size", 22)
-	row.add_child(mb)
-	_phase_bar = PhaseBar.new()
-	_phase_bar.custom_minimum_size = Vector2(0, 6)
-	v.add_child(_phase_bar)
+	mb.add_theme_font_size_override("font_size", 20)
+	mv.add_child(mb)
+	_news_btn = UI.btn("소식", _news_sheet, "ghost", 22)
+	_news_btn.custom_minimum_size = Vector2(46, 22)
+	_news_btn.add_theme_font_size_override("font_size", 11)
+	for st in ["normal", "hover", "pressed", "disabled"]:
+		_news_btn.add_theme_stylebox_override(st, UI.flat(Color(0, 0, 0, 0), Color(DB.PAL.ink4, 0.5 if st == "disabled" else 1.0), 1, 6, 2))
+	_news_btn.add_theme_color_override("font_color", DB.PAL.bamboo)
+	_news_btn.add_theme_color_override("font_pressed_color", DB.PAL.paper)
+	_news_badge = UI.lbl("", 9, Color("#1A1508"), true)
+	_news_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_news_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_news_badge.add_theme_stylebox_override("normal", UI.flat(DB.PAL.seal, DB.PAL.seal, 0, 7, 0))
+	_news_badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_news_badge.offset_left = -19
+	_news_badge.offset_right = -1
+	_news_badge.offset_top = -5
+	_news_badge.offset_bottom = 9
+	_news_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_news_btn.add_child(_news_badge)
+	mv.add_child(_news_btn)
+	row.add_child(mv)
 	return bar
 
 
@@ -695,14 +733,42 @@ func _update_sheet() -> void:
 func _render_head() -> void:
 	_day_lbl.text = "DAY %d · %s요일" % [run.day + 1, Run.DAYNAME[run.day]]
 	_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else Run.PHASE_N[run.phase])
+	_clock_lbl.visible = online != null
 	if online != null:
-		_sub_lbl.text += online.clock_text()
+		_clock_lbl.text = online.clock_text().strip_edges().trim_prefix("·").strip_edges()      # "  ·  4일차 아침 3:20" → "4일차 아침 3:20"
 	_phase_bar.cur = run.phase_idx()
 	_phase_bar.queue_redraw()
 	_pow_lbl.text = "%s명" % Battle.num(run.board_power())
 	_info_lbl.clear()
 	_info_lbl.append_text("[right][color=#C6AC7C]%d PV[/color] · [color=#D9A64B]%d위[/color] · [color=%s]경고 %d/%d[/color][/right]" % [
 		run.my_pv(), run.rank(), "#e0806f" if run.strikes >= 2 else "#8D7B5C", run.strikes, Run.STRIKE_MAX])
+	# 소식 버튼 (11/7) —— 소식 수 뱃지, 없으면 흐리게
+	var nn := run.news.size()
+	_news_btn.disabled = nn == 0
+	_news_badge.visible = nn > 0
+	_news_badge.text = str(nn)
+	_item_band()
+
+
+## 아이템을 얻은 순간 가운데 띠 한 번 (11/7 사용자: 징집 페이지에 늘 자리를 차지하던 '아이템 이름 · 효과' 칩 대신).
+## 다시 그릴 때마다 가방을 재 보고, 마지막 아이템이 바뀌었거나 가방이 늘었으면 띠. 새 판 · 이어 하기 · 온라인 입장은 기준만 다시 잡는다
+## (온라인은 서버 상태마다 Run 이 새 객체라 객체가 아니라 내용으로 비교한다)
+var _item_run: Run = null
+var _item_online := false
+var _item_seen = null
+var _bag_seen := 0
+func _item_band() -> void:
+	var n := 0
+	for id in run.bag:
+		n += int(run.bag[id])
+	var fresh: bool = run != _item_run and (online == null or not _item_online)
+	_item_run = run
+	_item_online = online != null
+	if not fresh and run.last_item != null and (run.last_item != _item_seen or n > _bag_seen):
+		var it: Dictionary = DB.IT[run.last_item]
+		band("%s 획득" % it.name, UI.item_col(run.last_item), "%s · %s" % [it.tag, UI.item_text(run.last_item)])
+	_item_seen = run.last_item
+	_bag_seen = n
 
 
 func toast(text: String, kind := "") -> void:
@@ -1346,13 +1412,13 @@ func recipe_sheet(out: String) -> void:
 func _page_draw() -> Control:
 	if run.over:
 		return _over_panel()
-	var v := UI.vbox(12)
+	var v := UI.vbox(8)
 	var n := run.draws_n()
 	if run.day == 6:
 		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 더 이상 농민을 징집하지 않는다. 명장만이 소환된다.", 14), 10))
 
-	# 할 일 —— 기호 타일 한 줄
-	var acts := UI.grid(68, 6)
+	# 할 일 —— 기호 타일 한 줄 (11/7 사용자: 세로로 너무 컸다 —— 기호 · 제목을 옆으로 나란히 높이 34, 한 줄 최대 5칸)
+	var acts := UI.grid(70, 4)
 	# 11/2 사용자: 타일 아래 설명 글(기본패 14장 · 11종 중 고르기)은 빼고 낮게. 선택권은 타일 하나 —— 고르다 닫아도 「일반 ×2」 같은 타일이 따로 생기지 않고 같은 타일로 다시 연다
 	if n > 0:
 		acts.add_child(UI.tile_act("draw", "징집", "", func(): act("do_draw"), "pri", run.drawn, not can_act()))
@@ -1390,26 +1456,10 @@ func _page_draw() -> Control:
 				toast("%s 배급 · %s" % [DB.C[k].name, DB.tier_name(k)], "gain"), "", run.granted, not can_act()))
 	v.add_child(acts)
 
-	# 보급품 · 소식 —— 한 줄 칩
-	var chips := UI.hbox(6)
-	if run.last_item != null:
-		var it: Dictionary = DB.IT[run.last_item]
-		var ic := UI.icon_chip("item", "%s · %s" % [it.name, UI.item_text(run.last_item)], UI.item_col(run.last_item), func(): _item_sheet(run.last_item))
-		ic.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		ic.size_flags_stretch_ratio = 2.0
-		chips.add_child(ic)
-	if not run.news.is_empty():
-		var nc := UI.icon_chip("news", "소식 %d" % run.news.size(), DB.PAL.bamboo, _news_sheet)
-		nc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		chips.add_child(nc)
-	if chips.get_child_count() > 0:
-		v.add_child(chips)
+	# 11/7 사용자: '아이템 이름 · 효과' 칩은 획득 순간 가운데 띠(_item_band)로, '소식 N' 칩은 머리띠 ☰ 아래 버튼으로 —— 칩 줄은 없다
 
 	# 보유 카드만 (11/2 사용자) —— 등급별로 열 수를 달리한다: 초월 위 4열 · 일반~전설 6열 (남은 높이에서 스크롤), 기본 병졸 8종은 맨 아랫줄 8열 고정
 	var p := run.pool()
-	var tot := 0
-	for k in p:
-		tot += p[k]
 	var mats := _ready_mats()
 	var hand_tile := func(k: String, n: int, h: float) -> MiniTile:
 		var t := mtile(k, n)
@@ -1422,7 +1472,7 @@ func _page_draw() -> Control:
 		return t
 	var hv := UI.vbox(6)
 	hv.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hv.add_child(UI.head("보유 %d장 · %d PV" % [tot, run.my_pv()], "▲ 지금 조합 재료"))
+	# 11/7 사용자: "보유 N장 · PV" · "▲ 지금 조합 재료" 머리줄은 뺐다 (타일의 ▲ 표시는 그대로)
 	var hs := UI.scroll()
 	hs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var inner := UI.vbox(6)
@@ -1473,6 +1523,8 @@ func mini_n(a: int, b: int) -> int:
 
 func _news_sheet() -> void:
 	var b := open_sheet("전황 소식")
+	if run.news.is_empty():
+		b.add_child(UI.hint("아직 소식이 없다 —— 다른 세력이 장수를 등용하면 여기에 쌓인다."))
 	for nw in run.news:
 		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit)], 15))
 
@@ -2882,6 +2934,9 @@ func _dev_args() -> void:
 				run.tickets[kv[1]] = maxi(2, int(run.tickets.get(kv[1], 0)))
 				picker(int(kv[1]))
 			"pickfx": _pick_fx(kv[1], 2, "전설")      # 점검용 —— 선택권 고른 연출
+			"itemfx":      # 점검용 —— 아이템을 하나 얻고 가운데 띠가 뜨는지 (11/7, 저장하지 않는다)
+				run.gain_item()
+				render()
 			"settings": _settings_sheet()
 			"pick":
 				act("begin_picks", ["phase", -1])
@@ -3211,8 +3266,8 @@ class PhaseBar extends Control:
 
 	func _draw() -> void:
 		var n := 21
-		var gap := 2.0
-		var dgap := 6.0
+		var gap := 1.5      # 11/7 머리띠 축소 —— 막대가 왼쪽 칸 폭(≈180)만 쓰니 틈을 줄인다 (2 · 6 → 1.5 · 4)
+		var dgap := 4.0
 		var w := (size.x - gap * (n - 1) - (dgap - gap) * 6) / n
 		var x := 0.0
 		for i in n:
