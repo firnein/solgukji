@@ -1,22 +1,34 @@
 class_name DeployPage
 extends RefCounted
 ## 편성 —— 진형 고르기 · 9칸 편성판 · 손패. 원본 rDeploy · openSlot · openItem.
-## 세로 화면: 위에 진형 띠와 편성판을 고정하고, 아래 [손패 | 진형 | 보급품] 만 스크롤한다.
+## 세로 화면: 위에 진형 띠와 편성판, 맨 아래 [보유 | 보급품] 탭. 탭을 열면 그 안만 스크롤한다.
+## 11/7 사용자: 탭을 열어도 편성판 칸이 찌그러지지 않게 —— 페이지 전체를 세로 스크롤 상자(PageScroll)에 넣고, 열리면 편성판 높이를
+## 닫힌 때 그대로 고정한 채 아래 칸(LOWER_H)만큼 넘치게 한다. 넘친 만큼 페이지가 위로 밀려 올라가(진형 띠가 위로 숨는다) 끌어 내리면 다시 보인다.
 ## 놓는 법 셋: ① 손패 카드를 길게 눌러 칸으로 끈다 ② 손패 카드를 눌러 고르고 칸을 누른다
 ## ③ 칸을 눌러 목록에서 고른다. 칸을 길게 눌러 다른 칸으로 끌면 자리를 바꾸고, 아래 목록으로 끌면 내린다.
 
 var gs: GameScreen
 var sel := ""                 # 손패에서 고른 카드 (칸을 누르면 그 자리에 놓는다)
 var seg := ""                 # 아래 나눔 탭 —— hand · syn · item. "" = 닫힘 (11/5 사용자: 기본 닫힌 채, 누르면 열림)
-const LOWER_H := 168.0
+const LOWER_H := 168.0        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
+const SEP := 10.0             # 진형 띠 · 편성판 · 아래 칸 사이 간격
 var _slide_up := false        # 방금 열었다 —— 올라오는 연출
-var _form_scroll := 0         # 진형 띠 가로 스크롤 —— 진형을 골라 다시 그려도 그 자리에 (11/6 사용자)        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
+var _form_scroll := 0         # 진형 띠 가로 스크롤 —— 진형을 골라 다시 그려도 그 자리에 (11/6 사용자)
+var _page_scroll := -1        # 탭을 연 채 페이지 세로 스크롤 —— 카드를 놓아 다시 그려도 그 자리에. -1 = 맨 아래 (아래 칸이 다 보이게)
 
 
 func build() -> Control:
 	var run: Run = gs.run
-	var v := UI.vbox(10)
 	var f: Dictionary = DB.FORM[run.form]
+	# 11/7 사용자: 페이지 전체가 세로 스크롤 상자 —— 닫힌 때는 꼭 맞아 스크롤이 없고, 열리면 아래 칸만큼 넘친다 (편성판 높이는 아래 fit 이 고정)
+	var root := PageScroll.new()
+	root.want = _page_scroll
+	root.anim = _slide_up
+	_slide_up = false
+	var v := UI.vbox(int(SEP))
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(v)
 
 	# 진형 —— 가로로 넘기는 띠. 11/7 사용자: 이름만 (미니 격자를 붙이니 칩 폭이 모자라 레이아웃이 무너졌다). 효과 줄은 아래 편성판 머리에 한 줄
 	var st := UI.strip(6)
@@ -49,7 +61,7 @@ func build() -> Control:
 
 	# 11/5 사용자: 작전(군령) 고르기 삭제. 진형 우대 띠도 삭제 (우대 칸 옥빛 강조만 남김)
 
-	# 편성판 —— 화면 위쪽에 고정 (손패에서 길게 눌러 끌어 올 수 있게)
+	# 편성판 —— 화면 위쪽 (손패에서 길게 눌러 끌어 올 수 있게)
 	var syn := Battle.fac_syn(run.board, run.form)
 	var bp := UI.vbox(6)
 	var hd := UI.hbox(6)
@@ -130,30 +142,40 @@ func build() -> Control:
 		var was := seg
 		seg = "" if seg == k else k
 		_slide_up = was == "" and seg != ""
+		_page_scroll = -1      # 열고 닫을 때는 맨 아래부터 (그 자리를 지키는 건 연 채로 다시 그릴 때만)
 		gs.render())
 	v.add_child(hand)
-	if seg == "":
-		hv.add_child(tabs)      # 닫힘 —— 탭만 맨 아래에
-		return v
-	var sc := UI.scroll()
-	sc.custom_minimum_size.y = LOWER_H
-	hv.add_child(sc)
-	hv.add_child(tabs)          # 열림 —— 탭은 그대로 맨 아래, 내용이 그 위로 올라온다
-	if _slide_up:
-		_slide_up = false
-		sc.custom_minimum_size.y = 0
-		sc.create_tween().tween_property(sc, "custom_minimum_size:y", LOWER_H, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	var lower := UI.vbox(6)
-	lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(lower)
-	match seg:
-		"hand": _hand(lower, keys)
-		"syn": _syn(lower, syn)
-		"item": _items(lower)
-	var pad := Control.new()
-	pad.custom_minimum_size = Vector2(0, 12)
-	lower.add_child(pad)
-	return v
+	if seg != "":
+		var sc := UI.scroll()
+		sc.custom_minimum_size.y = LOWER_H
+		hv.add_child(sc)
+		var lower := UI.vbox(6)
+		lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sc.add_child(lower)
+		match seg:
+			"hand": _hand(lower, keys)
+			"syn": _syn(lower, syn)
+			"item": _items(lower)
+		var pad := Control.new()
+		pad.custom_minimum_size = Vector2(0, 12)
+		lower.add_child(pad)
+		# 11/7 사용자: 아래 칸 높이는 LOWER_H 까지 —— 다만 맨 아래로 밀렸을 때 편성판 격자가 위로 잘리지 않을 만큼만 (= 격자 위에 있는 진형 띠 · 편성판 머리글 높이).
+		# 줄바꿈 글줄(효과 · 설명)의 높이는 정렬 때 정해지니 bp 가 정렬될 때마다 다시 잰다 (같은 프레임 안에서 끝나 튀지 않는다). 8 = 편성판 panel 여백, 5 = 격자 v_separation, 6 = hv 간격
+		bp.sort_children.connect(func():
+			if is_instance_valid(sc) and is_instance_valid(grid):
+				var above := sc0.get_combined_minimum_size().y + SEP + 8 + grid.position.y + face.get_combined_minimum_size().y + 5
+				sc.custom_minimum_size.y = clampf(above - 6, 112.0, LOWER_H))
+	hv.add_child(tabs)          # 탭은 늘 맨 아래 —— 열리면 내용이 그 위에 온다
+	# 11/7 사용자: 편성판 높이 고정 —— 열린 때 편성판 최소 높이 = 페이지 높이 − 진형 띠 − 탭 − 간격 둘 = 닫힌 때 편성판이 차지하던 높이.
+	# 그래서 열어도 칸 크기 · 비율이 그대로고, 넘친 아래 칸만큼 페이지가 스크롤된다 (닫힌 때는 0 —— EXPAND_FILL 이 남는 공간을 채운다)
+	var fit := func():
+		if not is_instance_valid(root) or not is_instance_valid(bpp):
+			return
+		var h := root.size.y - sc0.get_combined_minimum_size().y - tabs.get_combined_minimum_size().y - SEP * 2
+		bpp.custom_minimum_size.y = maxf(0.0, h) if seg != "" else 0.0
+	root.resized.connect(fit)
+	root.get_v_scroll_bar().value_changed.connect(func(_x): _page_scroll = root.want)
+	return root
 
 
 func _hand(hv: VBoxContainer, keys: Array) -> void:
@@ -646,3 +668,50 @@ class HandDrop extends PanelContainer:
 
 	func _drop_data(_p: Vector2, data) -> void:
 		page.drop_hand(data)
+
+
+## 페이지 세로 스크롤 상자 (11/7) —— 레이아웃이 끝나는 바로 그때(SORT_CHILDREN 뒤) 스크롤을 맞춰, 다시 그려도 한 프레임도 튀지 않는다.
+## (call_deferred 로 맞추면 스크롤 범위가 아직 안 잡혀 0 으로 잘린다.) 세로 막대는 숨긴다 —— 보이면 그 폭만큼 편성판이 좁아져 칸 폭이 바뀐다.
+## want: 맞출 자리 (-1 = 맨 아래) · 사용자가 끌면 그 자리를 따라간다 · anim: 열리는 연출 —— 0 에서 맨 아래로 0.18초
+class PageScroll extends ScrollContainer:
+	var want := -1
+	var anim := false
+	var _t := -1.0            # 연출 진행 (0~1). -1 = 연출 없음 · 끝남
+	var _mine := false        # 지금 바꾸는 건 내 쪽 (사용자 끌기가 아니다)
+
+	func _init() -> void:
+		horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		TouchScroll.add(self)
+		get_v_scroll_bar().value_changed.connect(func(x):
+			if not _mine:
+				want = int(x))
+
+	func _notification(what: int) -> void:
+		if what != NOTIFICATION_SORT_CHILDREN:
+			return
+		if anim:
+			anim = false
+			_t = 0.0              # 연출이 시작되기 전(같은 프레임의 다음 정렬)에도 0 에 붙들어 둔다 —— 아니면 맨 아래로 튀었다가 연출이 시작된다
+			_put(0)
+			var tw := create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+			tw.tween_method(_step, 0.0, 1.0, 0.18)
+			tw.tween_callback(func(): _t = -1.0)
+			return
+		if _t >= 0.0:
+			_step(_t)             # 연출 중에 레이아웃이 바뀌어도 그 비율 자리에
+			return
+		_put(_max() if want < 0 else mini(want, _max()))
+
+	func _step(t: float) -> void:
+		_t = t
+		_put(int(roundf(t * _max())))
+
+	func _put(y: int) -> void:
+		_mine = true
+		scroll_vertical = y
+		_mine = false
+
+	func _max() -> int:
+		var b := get_v_scroll_bar()
+		return int(maxf(0.0, b.max_value - b.page))
