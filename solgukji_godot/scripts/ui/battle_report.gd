@@ -2,11 +2,21 @@ class_name BattleReport
 extends PanelContainer
 ## 전투 결과표 —— 덱이 잘 굴렀는지 보는 화면 (롤토체스 피해 집계). 11/1 덱 감상 전투.
 ## 장수마다 준 피해 · 받은 피해 막대와 격파 · 기술 · 고유기 횟수. 아군 / 적을 바꿔 본다.
+## 11/7 사용자: 토벌 대군(적 20부대)은 표가 화면을 넘쳐 [종료] 버튼이 줄 위에 겹치고 내릴 수도 없었다 ——
+##   머리줄 · 아군/적군 탭 · 범례는 고정하고 장수 줄만 스크롤(UI.scroll = 손가락 끌기 TouchScroll).
+##   표 높이는 두 진영 중 긴 쪽에 맞추되 max_h(보여 주는 쪽이 화면에 맞춰 준다)를 넘지 않는다 —— 탭을 바꿔도 표 · 버튼이 움직이지 않게.
+##   긴 이름('동오덕왕 엄백호')은 … 으로 줄이고, 수치는 막대 오른쪽 끝에 테두리 글씨로 (짧은 막대 위에 겹쳐 읽기 어려웠다).
+
+const ROW_H := 40.0
+const ROW_SEP := 4.0
+const LINE_H := 24.0      # 덱 요약 · 덱 연쇄 한 줄 (어림)
 
 var res: Dictionary
 var camp := "A"
+var max_h := 700.0        # 표 전체(머리줄 ~ 범례) 최대 높이
 var _body: VBoxContainer
 var _tabs: Control
+var _scroll: ScrollContainer
 
 
 static func make(r: Dictionary) -> BattleReport:
@@ -26,13 +36,35 @@ func _ready() -> void:
 	var sub := UI.lbl("잔존 %d 대 %d · %s" % [res.left, res.eLeft, _len_text()], 13, DB.PAL.bamboo_dim)
 	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	sub.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(sub)
 	v.add_child(head)
 	_tabs = Control.new()
 	v.add_child(_tabs)
-	_body = UI.vbox(4)
-	v.add_child(_body)
+	_scroll = UI.scroll()
+	v.add_child(_scroll)
+	_body = UI.vbox(int(ROW_SEP))
+	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(_body)
+	v.add_child(UI.rich("[color=#%s]■[/color] 준 피해   [color=#c0503f]■[/color] 받은 피해   ·   격파 · 기술 · 고유기" % DB.PAL.gold.to_html(false), 11))
 	_fill()
+	await get_tree().process_frame      # 한 번 자리 잡은 뒤 —— 표 틀(머리줄 · 탭 · 범례 · 여백) 높이를 재고 줄 칸 높이를 정한다
+	if not is_inside_tree():
+		return
+	var chrome := size.y - _scroll.size.y
+	var want := maxf(_body.size.y, _est_h("B" if camp == "A" else "A"))      # 지금 진영은 잰 값, 다른 진영은 어림
+	_scroll.custom_minimum_size.y = clampf(want, 80.0, maxf(80.0, max_h - chrome))
+
+
+## 진영의 줄 높이 어림 —— 장수 줄 + 요약 · 연쇄 글줄
+func _est_h(cp: String) -> float:
+	var n := _rows(cp).size()
+	var lines := 0
+	if cp == "A" and _deck_summary() != "":
+		lines += 2
+	if not res.get("chains", {}).get(cp, {}).is_empty():
+		lines += 1
+	return n * ROW_H + maxi(0, n - 1) * ROW_SEP + lines * (LINE_H + ROW_SEP)
 
 
 func _len_text() -> String:
@@ -48,6 +80,7 @@ func _fill() -> void:
 		_fill())
 	_tabs.replace_by(nt)
 	_tabs = nt
+	_scroll.scroll_vertical = 0      # 탭을 바꾸면 맨 위부터
 	for c in _body.get_children():
 		c.queue_free()
 	if camp == "A":      # 11/6 #16 덱 설계 요약 —— "내 덱의 무엇이 통했는지" 한 줄 (데일리 진행의 확인 순간)
@@ -70,7 +103,11 @@ func _fill() -> void:
 		top_t = maxf(top_t, r.taken)
 	for r in rows:
 		_body.add_child(Row.make(r, top_d, top_t))
-	_body.add_child(UI.rich("[color=#%s]■[/color] 준 피해   [color=#c0503f]■[/color] 받은 피해   ·   격파 · 기술 · 고유기" % DB.PAL.gold.to_html(false), 11))
+
+
+## 점검용 —— 줄 칸을 그 위치로 내린다 (tests/ui_shots --rscroll)
+func scroll_to(y: int) -> void:
+	_scroll.scroll_vertical = y
 
 
 ## 내 덱 설계 요약 —— 위세(살았는지) · 가장 많이 터진 연쇄 · 고유기 횟수 · 격파 수
@@ -132,6 +169,8 @@ func _rows(cp: String) -> Array:
 
 
 class Row extends Control:
+	const NAME_W := 92.0      # 이름 칸 —— 넘치면 … (11/7: '동오덕왕 엄백호' 가 막대 밑으로 들어갔다)
+	const CNT_W := 74.0       # 오른쪽 격파 · 기술 · 고유기 칸
 	var r: Dictionary
 	var top_d: float
 	var top_t: float
@@ -141,7 +180,8 @@ class Row extends Control:
 		o.r = r_
 		o.top_d = td
 		o.top_t = tt
-		o.custom_minimum_size = Vector2(0, 40)
+		o.custom_minimum_size = Vector2(0, ROW_H)
+		o.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return o
 
 	func _draw() -> void:
@@ -152,18 +192,26 @@ class Row extends Control:
 		if not r.alive:
 			draw_circle(Vector2(18, 20), 16, Color(0, 0, 0, 0.5))
 		var x0 := 42.0
-		var nw := 72.0
-		draw_string(DB.font_display, Vector2(x0, 17), r.name, HORIZONTAL_ALIGNMENT_LEFT, nw, 13, Color(P.paper, a))
-		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, nw, 10, P.bamboo_dim)
-		var bx := x0 + nw + 4
-		var bw := size.x - bx - 96
+		draw_string(DB.font_display, Vector2(x0, 17), _fit(DB.font_display, r.name, 13, NAME_W), HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 13, Color(P.paper, a))
+		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 10, P.bamboo_dim)
+		var bx := x0 + NAME_W + 6
+		var bw := size.x - bx - CNT_W - 8
 		_bar(Vector2(bx, 7), bw, r.dmg / top_d, P.gold, Battle.num(r.dmg))
 		_bar(Vector2(bx, 23), bw, r.taken / top_t, Color("#c0503f"), Battle.num(r.taken))
-		var tx := size.x - 90
 		var s := "%d · %d · %d" % [r.kills, r.sk, r.ult]
-		draw_string(DB.font_display, Vector2(tx, 25), s, HORIZONTAL_ALIGNMENT_RIGHT, 88, 13, P.paper if r.kills + r.sk + r.ult > 0 else P.bamboo_dim)
+		draw_string(DB.font_display, Vector2(size.x - CNT_W, 25), s, HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, 13, P.paper if r.kills + r.sk + r.ult > 0 else P.bamboo_dim)
+
+	## 칸에 들어가게 뒤를 … 으로
+	static func _fit(f: Font, s: String, fs: int, w: float) -> String:
+		if f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= w:
+			return s
+		var t := s
+		while t.length() > 1 and f.get_string_size(t + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w:
+			t = t.substr(0, t.length() - 1)
+		return t + "…"
 
 	func _bar(p: Vector2, w: float, f: float, col: Color, txt: String) -> void:
 		draw_rect(Rect2(p, Vector2(w, 10)), Color(1, 1, 1, 0.06))
 		draw_rect(Rect2(p, Vector2(w * clampf(f, 0, 1), 10)), col)
-		draw_string(DB.font_body, p + Vector2(3, 9), txt, HORIZONTAL_ALIGNMENT_LEFT, w, 9, Color(1, 1, 1, 0.9))
+		draw_string_outline(DB.font_body, p + Vector2(0, 9), txt, HORIZONTAL_ALIGNMENT_RIGHT, w - 3, 9, 3, Color(0, 0, 0, 0.8))
+		draw_string(DB.font_body, p + Vector2(0, 9), txt, HORIZONTAL_ALIGNMENT_RIGHT, w - 3, 9, Color(1, 1, 1, 0.92))

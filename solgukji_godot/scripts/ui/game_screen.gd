@@ -2654,31 +2654,37 @@ func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 	_battle_done.visible = true
 
 
-## 결과표 —— 화면 가운데, 아래에 [결과 정리] 버튼
+## 결과표 —— 화면 가운데, 아래에 [종료] 버튼.
+## 11/7 사용자: 토벌 대군(적 20부대)은 표가 화면 아래로 넘쳐 내릴 수도 없었다 —— 표 높이를 위 시계 아래(REPORT_TOP)부터
+## 아래 장수 칸 · 버튼 위(REPORT_BOT)까지로 묶고, 그 안에서 장수 줄만 스크롤한다(BattleReport.max_h). 버튼은 표 바로 아래 고정
+const REPORT_TOP := 110.0      # 위 띠 · 병력 막대 · 시계(0:29) 아래 (논리 좌표 —— 400×889 기준)
+const REPORT_BOT := 236.0      # 아래 장수 칸(≈135) + [종료] 버튼(56) + 틈
 func _show_report(res: Dictionary) -> void:
 	_hide_report()
 	if _battle and _battle.end_clock > 0:
 		res["view_len"] = _battle.end_clock
 	_report = BattleReport.make(res)
 	var w := minf(size.x - 24.0, 460.0)
+	_report.max_h = maxf(240.0, _battle_layer.size.y - REPORT_TOP - REPORT_BOT)
 	_report.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_report.offset_left = -w / 2
 	_report.offset_right = w / 2
-	_report.offset_top = 96
+	_report.offset_top = REPORT_TOP
 	_battle_layer.add_child(_report)
 	_battle_layer.move_child(_battle_done, -1)
 	_battle_done.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_battle_done.offset_left = -130
 	_battle_done.offset_right = 130
-	_battle_done.offset_top = -250      # 11/3 사용자: 아래 장수 칸을 덮지 않게 위로 —— 결과표가 자리 잡으면 그 바로 아래로
-	_battle_done.offset_bottom = -192
+	_battle_done.offset_top = -(REPORT_BOT - 10.0)      # 11/3 사용자: 아래 장수 칸을 덮지 않게 위로 —— 결과표가 자리 잡으면 그 바로 아래로
+	_battle_done.offset_bottom = _battle_done.offset_top + 56.0
 	await get_tree().process_frame
 	await get_tree().process_frame
+	await get_tree().process_frame      # 표가 두 진영 중 긴 쪽에 맞춰 높이를 정한 뒤(BattleReport._ready 의 한 프레임)
 	if _report == null or not is_instance_valid(_report):
 		return
 	var top := _report.get_global_rect().end.y + 10.0 - _battle_layer.get_global_rect().end.y
-	_battle_done.offset_top = minf(top, -228.0)
-	_battle_done.offset_bottom = _battle_done.offset_top + 58.0
+	_battle_done.offset_top = minf(top, -(REPORT_BOT - 10.0))
+	_battle_done.offset_bottom = _battle_done.offset_top + 56.0
 
 
 func _hide_report() -> void:
