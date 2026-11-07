@@ -16,6 +16,9 @@ var dim := false            # 흐리게 (없는 카드)
 var _press := Vector2.INF
 var drag_data = null        # 있으면 길게 눌러(0.35초) 끌 수 있다 (편성 손패, 11/4)
 var mark := ""              # "sel" —— 고른 카드 (금테)
+var star := false           # 11/7 갈무리 표시 —— 12시 방향 노란 ★ (갈무리한 장수 · 그 재료)
+var ring := false           # 11/7 갈무리 표시 —— 테두리를 빙글빙글 도는 금빛 하이라이트 (아직 더 모아야 하는 재료)
+var _fx: PinFx = null       # ★ · 도는 테를 그리는 덧칸
 var _held := 0.0
 var _dragging := false
 
@@ -26,6 +29,86 @@ func setup(id: String, n := -1) -> MiniTile:
 	custom_minimum_size = Vector2(78, 112)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	return self
+
+
+## 11/7 사용자: '갈무리된 재료' 표현 통일 —— 창마다 다르던 금색 · 옥빛 테두리 · "갈무리" 뱃지 대신 카드 12시 방향 노란 ★ 과
+## 테두리를 도는 금빛 하이라이트. 그리기는 작은 덧칸(PinFx)이 맡아 타일 본체(초상)는 매 프레임 다시 그리지 않는다
+func set_pin(s: bool, r: bool) -> void:
+	star = s
+	ring = r
+	if not s and not r:
+		if _fx != null:
+			_fx.queue_free()
+			_fx = null
+		return
+	if _fx == null:
+		_fx = PinFx.new()
+		add_child(_fx)
+	_fx.setup(s, r)
+
+
+## 갈무리 덧칸 —— 타일 위에 얹혀 ★ 과 테두리를 도는 빛만 그린다. 많은 칸에 얹혀도 가볍게: 점 29개짜리 색 선 하나 + 별 하나
+class PinFx extends Control:
+	const SPEED := 2.4          # 초당 라디안 —— 한 바퀴 2.6초
+	const STAR_COL := Color("#FFD94A")
+	var star := true
+	var ring := true
+	var col: Color = DB.PAL.gold
+	var _t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	func setup(s: bool, r: bool) -> void:
+		star = s
+		ring = r
+		set_process(r)
+		queue_redraw()
+
+	func _process(dt: float) -> void:
+		if not is_visible_in_tree():
+			return
+		_t += dt
+		queue_redraw()
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		if w < 2.0 or h < 2.0:
+			return
+		if ring:
+			# 모서리 둥근 네모 테두리를 점 41개로 —— 점마다 '빛 머리'에서 얼마나 뒤에 있는지(각도)로 밝기를 정해
+			# 밝은 머리 둘(맞은편)과 꼬리가 시계 방향으로 돈다 (머리는 거의 흰 금빛, 꼬리는 1.5라디안쯤 가며 사라지고 나머지는 옅은 금테)
+			var inset := 1.5
+			var rad := maxf(1.0, (8.0 if w >= 56.0 else 5.0) - inset)      # 타일의 모서리 반지름(8 · 작은 칸 5)에 맞춘다
+			var rect := Rect2(inset, inset, w - inset * 2.0, h - inset * 2.0)
+			var corners := [Vector2(rect.end.x - rad, rect.position.y + rad), Vector2(rect.end.x - rad, rect.end.y - rad),
+				Vector2(rect.position.x + rad, rect.end.y - rad), Vector2(rect.position.x + rad, rect.position.y + rad)]
+			var cen := rect.get_center()
+			var head := fmod(_t * SPEED, TAU)
+			var pts := PackedVector2Array()
+			var cols := PackedColorArray()
+			for ci in 4:
+				var a0 := -PI / 2.0 + ci * PI / 2.0
+				for j in 10:
+					var p: Vector2 = corners[ci] + Vector2.from_angle(a0 + j * (PI / 2.0) / 9.0) * rad
+					pts.append(p)
+					var behind := fposmod(head - (p - cen).angle(), PI)      # 가까운 머리 뒤로 얼마나 (0 = 머리, 머리는 맞은편에 하나 더)
+					var b := exp(-behind * 2.2)
+					cols.append(Color(col.lightened(0.85 * b), 0.3 + 0.7 * b))
+			pts.append(pts[0])
+			cols.append(cols[0])
+			draw_polyline_colors(pts, cols, 3.0, true)
+		if star:
+			# 12시 방향 노란 별 —— 테두리 위에 걸치게, 어두운 윤곽선
+			var c := Vector2(w / 2.0, 1.0)
+			var sp := PackedVector2Array()
+			for i in 10:
+				sp.append(c + Vector2.from_angle(-PI / 2.0 + i * PI / 5.0) * (7.0 if i % 2 == 0 else 3.0))
+			draw_colored_polygon(sp, STAR_COL)
+			sp.append(sp[0])
+			draw_polyline(sp, Color("#4A3608"), 1.2, true)
 
 
 func _gui_input(e: InputEvent) -> void:

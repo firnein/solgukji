@@ -18,6 +18,7 @@ var drag_data = null        # 있으면 길게 눌러 끌 수 있다
 var _press := Vector2.INF
 var _held := 0.0
 var _dragging := false
+var _fx: MiniTile.PinFx = null   # 11/7 갈무리 표시 덧칸 (★ · 도는 테) —— MiniTile 과 같은 표현
 
 
 func setup(id: String, n := -1, sz := SIZE) -> CardTile:
@@ -27,6 +28,19 @@ func setup(id: String, n := -1, sz := SIZE) -> CardTile:
 	size = sz
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	return self
+
+
+## 11/7 갈무리 표시 —— 12시 방향 노란 ★(star) · 테두리를 도는 금빛 하이라이트(ring). MiniTile.set_pin 과 같다
+func set_pin(s: bool, r: bool) -> void:
+	if not s and not r:
+		if _fx != null:
+			_fx.queue_free()
+			_fx = null
+		return
+	if _fx == null:
+		_fx = MiniTile.PinFx.new()
+		add_child(_fx)
+	_fx.setup(s, r)
 
 
 func _gui_input(e: InputEvent) -> void:

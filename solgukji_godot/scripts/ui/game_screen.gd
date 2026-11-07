@@ -1647,12 +1647,11 @@ func picker(t: int) -> void:
 	var make_tile := func(k: String, w: float, h: float) -> Control:
 		var tl := mtile(k, run.pool().get(k, -1), on_pick)
 		tl.custom_minimum_size = Vector2(w, h)
+		# 11/7 사용자: 갈무리 표현 통일 —— 갈무리한 장수 · 아직 모자란 재료는 12시 ★ + 테두리를 도는 금빛, 다 모은 재료는 ★ 만 (뱃지 글은 뺀다)
 		if pins.has(k):
-			tl.badge = "갈무리"
-			tl.badge_col = Color(DB.PAL.gold, 0.95)
+			tl.set_pin(true, true)
 		elif mats.has(k):
-			tl.badge = "재료" if mats[k] else "확보"
-			tl.badge_col = Color(DB.PAL.jade, 0.95) if mats[k] else Color(DB.PAL.ink4, 0.95)
+			tl.set_pin(true, bool(mats[k]))
 		return tl      # 11/6 사용자: 마지막으로 뽑은 장수에 금띠가 남던 것은 뺀다
 	var avail_h: float = vp.y * 0.98 - 120.0      # 시트 머리 · 아래 여백
 	if t <= 2:
@@ -1668,13 +1667,14 @@ func picker(t: int) -> void:
 					g.add_child(make_tile.call(k, tw, tw * 1.35))
 			b.add_child(g)
 	elif t <= 4:
-		# 고급 · 희귀 —— 병종 한 줄씩(왼쪽 병종 기호), 8병종이 한 화면에. 고급은 넷, 희귀는 여섯 칸
-		var cols := 4 if t == 3 else 6
+		# 고급 · 희귀 —— 병종 한 줄씩(왼쪽 병종 기호), 8병종이 한 화면에. 11/7 사용자: 고급도 희귀와 같은 칸 크기 (여섯 칸 · 높이는 희귀 줄 수 기준)
+		var cols := 6
 		var icon_w := 26.0
 		var tw := floorf((full - icon_w - gap * cols) / cols)
 		var nrow := 0
 		for tag in DB.D.TAGORDER:
-			nrow += maxi(1, ceili(Run.pickable(t, tag).size() / float(cols))) if not Run.pickable(t, tag).is_empty() else 0
+			var n4 := Run.pickable(4, tag).size()
+			nrow += maxi(1, ceili(n4 / float(cols))) if n4 > 0 else 0
 		var th := clampf((avail_h - gap * nrow) / maxf(1, nrow), 64.0, tw * 1.5)
 		for tag in DB.D.TAGORDER:
 			var ks := Run.pickable(t, tag)
@@ -1735,7 +1735,7 @@ func picker(t: int) -> void:
 		b.add_child(jump)
 		for tag in groups:
 			b.add_child(groups[tag])
-		b.add_child(UI.hint("위 병종 단추를 누르면 그 묶음으로 갑니다. 길게 누르면 디테일창. 갈무리한 장수는 금색, 그 재료(아래 재료까지)는 옥빛."))
+		b.add_child(UI.hint("위 병종 단추를 누르면 그 묶음으로 갑니다. 길게 누르면 디테일창. 갈무리한 장수와 그 재료(아래 재료까지)는 ★ · 테두리를 도는 금빛, 다 모은 재료는 ★ 만."))
 	if was_open:
 		_restore_sheet_scroll.call_deferred(_pick_scroll)
 
@@ -2944,6 +2944,11 @@ func _dev_args() -> void:
 					if r.host == want or want == "1":
 						code = r.code
 			online.net.send({"t": "join", "code": code})
+	if a.has("gpin"):
+		# 점검용 —— --gpin=c186,c150 : 갈무리한 것처럼 (선택권 창의 갈무리 ★ · 재료 표시 점검). 파일에 저장하지 않는다 (다른 점검과 공유되는 user://)
+		for k in str(a.gpin).split(","):
+			if DB.RECOF.has(k) and not forge_tree.pins.has(k):
+				forge_tree.pins.push_front(k)
 	if a.has("gsheet"):
 		# 쉼표로 여러 시트를 차례로 열 수 있다 (카드 시트 길 점검: --gsheet=card:c39,recipe:c11)
 		var parts: PackedStringArray = str(a.gsheet).split(",")
