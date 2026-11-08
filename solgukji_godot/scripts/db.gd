@@ -200,6 +200,7 @@ func _load() -> void:
 		PSV.ladder[p] = LINES.ladder[p]
 	merge_stats()      # 11/6 #15 책략 · 책략방어 통합
 	_reskill()
+	_apply_roles()      # 11/9 원랜디식 역할 재배치 —— 기술 고르기(_reskill) 뒤에 (사다리가 바뀌어도 카드 기술은 그대로)
 	_build_forms()
 	_build_pools()
 	_build_icons()
@@ -802,6 +803,42 @@ func _load_image(path: String) -> Image:
 ## 개인 특기 m 은 등급 배율을 곱해 둔다. 단체 특기는 엔진이 scale 을 곱해 쓴다 (겹침 판정 때문).
 var _psv_cache := {}
 
+## 11/9 원랜디식 역할 재배치 (passives.json role, tools/scripts/role_assign.py) —— 불멸은 몸과 화력, 기인은 대체 못 하는 역할.
+## immortal_drop: 불멸(7) 카드에서만 역할 특기를 빼고 (사다리 구간을 ~6 · 8~ 로 쪼갠다 —— 신화 · 아래 등급은 그대로) 같은 레벨의 화력 특기를 붙인다.
+## kiin: 기인 카드(전설 등급 5)에 대표 특기가 없으면 붙인다 (기인 인물은 기인 카드 하나뿐). 세기 배율은 passives_of 가 곱한다
+func _apply_roles() -> void:
+	var r: Dictionary = PSV.get("role", {})
+	for p in r.get("immortal_drop", {}):
+		var lad: Array = PSV.ladder.get(p, [])
+		for pair in r.immortal_drop[p]:
+			var out := []
+			for e in lad:
+				var hi := int(e[2]) if e.size() > 2 else 99
+				if e[0] != pair[0] or int(e[1]) > 7 or hi < 7:
+					out.append(e)
+					continue
+				if int(e[1]) <= 6:
+					out.append([e[0], e[1], 6])
+				if hi >= 8:
+					out.append([e[0], 8] if hi == 99 else [e[0], 8, hi])
+			out.append([pair[1], 7, 7])
+			var lv = PSV.level.get(p, {}).get(pair[0], {}).get("7")
+			if lv != null:
+				var lvp: Dictionary = PSV.level[p].duplicate(true)      # ladder_from 이 레벨 표를 함께 쓸 수 있어 복사해 고친다
+				var lt: Dictionary = lvp.get(pair[1], {})
+				lt["7"] = lv
+				lvp[pair[1]] = lt
+				PSV.level[p] = lvp
+			lad = out
+		PSV.ladder[p] = lad
+	for p in r.get("kiin", {}):
+		var t: String = r.kiin[p][0]
+		var lad: Array = PSV.ladder.get(p, [])
+		if not lad.any(func(e): return e[0] == t and int(e[1]) <= 5 and (e.size() < 3 or int(e[2]) >= 5)):
+			lad.append([t, 5, 5])
+			PSV.ladder[p] = lad
+
+
 func passives_of(k: String):
 	if _psv_cache.has(k):
 		return _psv_cache[k]
@@ -810,6 +847,7 @@ func passives_of(k: String):
 	var lad = PSV.ladder.get(person(k)) if c.tier >= 3 else null
 	if lad != null:
 		out = {"traits": [], "groups": []}
+		var kr: Array = PSV.get("role", {}).get("kiin", {}).get(person(k), ["", 1.0])
 		for e in lad:
 			if c.tier < int(e[1]) or (e.size() > 2 and c.tier > int(e[2])):
 				continue
@@ -818,6 +856,8 @@ func passives_of(k: String):
 			var lv := trait_level(k, e[0])
 			var sc: float = (PSV.level_scale_attr if attr != "" else PSV.level_scale)[str(lv)]
 			sc *= float(t.get("tier_mul", PSV.get("axis_tier_mul", {}).get(attr, {})).get(str(c.tier), 1.0))      # 축 × 등급 밸런스 (10/31) —— 특기에 tier_mul 이 있으면 그것 (현혹 · 요언, 11/7)
+			if c.get("kind", "") == "kiin" and str(kr[0]) == e[0]:      # 11/9 기인 대표 역할 —— 세기 배율
+				sc *= float(kr[1])
 			if t.has("self"):      # 금색 특기 —— 단체 효과와 함께 주인에게만 붙는 장치
 				var sm := {}
 				for key in t.self:
@@ -844,13 +884,40 @@ func trait_level(k: String, name_: String) -> int:
 
 
 ## 카드의 특기 —— 사다리 순서로 [{name, lv, group, d, mt(수치 요약)}]
+## 11/9 갑옷 · 결계 깎기 양 (막 −) —— class_guard.shred 등급표, 기인 카드는 kiin 값 (없으면 등급 값)
+func shred_val(k: String) -> float:
+	var sh: Dictionary = GUARD.get("shred", {})
+	var t := str(C[k].tier)
+	return float(sh.get("kiin", sh.get(t, 0.0)) if is_kiin(k) else sh.get(t, 0.0))
+
+
+## 깎기 특기 수치 한 줄 —— 현혹 · 요언은 결계, 나머지는 갑옷 (Battle._shred_key 와 같은 규칙)
+func shred_text(k: String, nm: String, m: Dictionary) -> String:
+	if not Battle.shield_enabled or not GUARD.has("shred"):
+		return ""
+	var v := roundi(shred_val(k) * 100)
+	var big := roundi(shred_val(k) * float(GUARD.get("shred_big", 1.5)) * 100)
+	if m.has("open_cut_def"):
+		return "시작에 적 전원 결계 −%d%%p" % big
+	var w := "결계" if nm == "현혹" else "갑옷"
+	if m.has("first_cut"):
+		return "첫 공격 적 %s −%d%%p" % [w, big]
+	if m.has("cut_def"):
+		return "맞힐 때 적 %s −%d%%p" % [w, v]
+	return ""
+
+
 func trait_list(k: String) -> Array:
 	var ps = passives_of(k)
 	if ps == null:
 		return []
 	var by := {}
 	for t in ps.traits:
-		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": t.d, "mt": mods_text(t.m, 1.0, C[k].tier)}
+		var tmt := mods_text(t.m, 1.0, C[k].tier)
+		var st := shred_text(k, t.name, t.m)
+		if st != "":
+			tmt = (tmt + " · " if tmt != "" else "") + st
+		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": t.d, "mt": tmt}
 	for g in ps.groups:
 		var gmt := mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)
 		if by.has(g.name) and by[g.name].mt != "":      # 금색 —— 주인 장치 수치도 함께
@@ -860,6 +927,7 @@ func trait_list(k: String) -> Array:
 	for e in PSV.ladder[person(k)]:
 		if by.has(e[0]):
 			out.append(by[e[0]])
+			by.erase(e[0])      # 11/9 역할 재배치로 한 특기가 등급 구간 둘로 쪼개져 있다 —— 한 번만
 	return out
 
 
@@ -934,6 +1002,8 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break",
 				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx",
 				"chase", "open_slow"]:      # 계열 마무리 —— 설명으로 충분
+			continue
+		if k in ["cut_def", "first_cut", "open_cut_def"] and Battle.shield_enabled and GUARD.has("shred"):      # 11/9 갑옷 · 결계 깎기 —— 수치는 엔진 등급표 (trait_list 가 shred_text 로 적는다)
 			continue
 		var v: float = m[k] * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)
 		var lb: String = MOD_LABEL.get(k, k)
