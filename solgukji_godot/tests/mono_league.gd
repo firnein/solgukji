@@ -22,6 +22,7 @@ var by_tag := {}
 var phys_sh: Array = []
 var int_sh: Array = []
 var tier0 := 7
+var last_tags: Array = []      # 기준9 의 병종 줄 (신화K 가 맞춘다)
 var tiers := {}      # 등급 → [pool, by_tag, phys_sh, int_sh] (덱 이름 뒤 @등급 으로 다른 등급 덱을 섞는다)
 const FIGHT := ["창병", "기병", "궁병", "도적", "책사", "술사"]      # 전투 병종
 const SUPPORT := ["유생", "모사"]      # 지원 병종 (유생 치료 · 사기 · 버프, 모사 약화 · 제어)
@@ -65,10 +66,15 @@ func _ready() -> void:
 			for g in games:
 				var da := DB.auto_place(_deck(ab[0], rng), "eorin")
 				var db := DB.auto_place(_deck(ab[1], rng), "eorin")
+				if g == 0 and args.has("show"):      # --show → 첫 판 덱 병종
+					print("  %s: %s / %s: %s" % [ab[0], _tags(da), ab[1], _tags(db)])
 				var sd := rng.randi() % 1000000
 				var r1 := RtBattle.make(sd).run(da, "eorin", 100, null, db, "eorin", 100, null, "", "", [], {"A": "smart", "B": "smart"})
 				var r2 := RtBattle.make(sd).run(db, "eorin", 100, null, da, "eorin", 100, null, "", "", [], {"A": "smart", "B": "smart"})
 				s += (1.0 if r1.win else (0.5 if r1.draw else 0.0)) + (1.0 if (not r2.win and not r2.draw) else (0.5 if r2.draw else 0.0))
+				if g == 0 and args.has("show"):      # 첫 판 길이 · 남은 부대 (병종 병력%)
+					print("  " + " ".join(r1.roster.map(func(x): return "%s%s 피해%d 사기피해%d 남은사기%d" % [x.camp, x.tag, x.dmg, roundi(x.mdmg), roundi(x.morale)])))
+					print("  %.0f초 이김 %s · 남음 %s" % [float(r1.get("len", 0.0)), r1.win, " ".join(r1.roster.filter(func(x): return x.alive).map(func(x): return "%s%s%d" % [x.camp, x.tag, roundi(100.0 * x.left / maxf(1, x.max))]))])
 			print("맞대결 %s 대 %s : %d%%" % [ab[0], ab[1], roundi(s / (games * 2.0) * 100)])
 		print("끝 (%.0f초)" % ((Time.get_ticks_msec() - t0) / 1000.0))
 		get_tree().quit()
@@ -137,6 +143,17 @@ func _ready() -> void:
 	get_tree().quit()
 
 
+## 덱 병종 줄 (자리 배치 결과 —— 원소가 사전이면 key, 문자열이면 그대로)
+func _tags(d) -> String:
+	var out := []
+	for x in d:
+		if x == null:
+			continue
+		var k = x.get("key", x.get("k", "")) if x is Dictionary else x
+		out.append(DB.C[k].tag if DB.C.has(k) else str(k))
+	return " ".join(out)
+
+
 ## 그 등급 카드 풀로 바꾼다 (처음 쓸 때 만든다)
 func _use(t: int) -> void:
 	if not tiers.has(t):
@@ -168,8 +185,28 @@ func _deck(spec: String, rng: RandomNumberGenerator) -> Array:
 	var out := []
 	var fight := pool.filter(func(k): return DB.C[k].tag in FIGHT)
 	var sup := pool.filter(func(k): return DB.C[k].tag in SUPPORT)
-	if name_ == "전투9":
+	if name_ == "기준9":      # 신화 칸 측정의 기준 —— 그 등급 무작위 9 (병종 줄을 기억해 신화K 가 같은 병종으로 짠다)
 		for i in 9:
+			_add(out, pool, rng)
+		last_tags = out.map(func(k): return DB.C[k].tag)
+		return out
+	if name_.begins_with("신화"):      # 신화K = 바로 앞 기준9 와 같은 병종 줄, K 칸을 한 등급 위 같은 병종으로 · 신화K비 = 같은 비용 (불멸 95 · 신화 126 → 마지막 칸을 비운다)
+		var cost := name_.ends_with("비")
+		var kk := int(name_.trim_prefix("신화").trim_suffix("비"))
+		var tags: Array = last_tags.duplicate()
+		if cost:
+			tags.pop_back()
+		var up_t := (int(at[1]) if at.size() > 1 else tier0) + 1
+		var hi: Array = DB.by_tier(up_t).filter(func(k): return not DB.is_kiin(k))
+		for i in tags.size():
+			if i < kk:
+				var same := hi.filter(func(k): return DB.C[k].tag == tags[i])
+				_add(out, same if not same.is_empty() else hi, rng)
+			else:
+				_add(out, by_tag.get(tags[i], pool), rng)
+		return out
+	if name_.begins_with("전투"):      # 전투N = 전투 병종 N 장만 (N < 9 면 덱이 작다 —— 높은 등급 몇 장의 힘을 잴 때)
+		for i in int(name_.trim_prefix("전투")):
 			_add(out, fight, rng)
 		return out
 	if name_ == "지원6" or name_.begins_with("섞음"):
