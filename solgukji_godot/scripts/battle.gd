@@ -290,6 +290,9 @@ var _kiin_u := {}              # 11/3 기인 —— 기능 키 -> 유닛 배열
 var _kiin_used := {}           # "키:진영" -> 쓴 횟수
 var _paeup := {}               # 11/8 패업(霸業) —— "효과키:진영" -> 신화 유닛 (전투 전 편성으로 정한다. 기인 kiin 과 따로)
 var _paeup_used := {}          # "효과키:진영" -> 쓴 횟수
+var _stolen := {}             # 11/9 협천자 —— 빼앗긴 적 위세 장수 -> 빼앗은 쪽 진영
+var _omen := {}               # 11/9 천문 —— 기를 모으는 적 장수 -> 그 고유기가 칠 아군 칸 키들
+var _pass_busy := false       # 오관참장 돌진 중 (연쇄로 또 돌진하지 않게)
 var _paeup_log := []           # 결과 기록 —— [{camp, id, n, on, have, need}]
 const PAEUP_ST := ["burn", "flood", "plague", "seal", "confuse"]      # 태평요술이 세는 상태이상 (출혈은 빼다 —— 설계 문서 4.2)
 var _ult_null := false         # 서성 장강방벽 —— 이번 고유기는 피해가 없다
@@ -521,6 +524,8 @@ func eff(u: Unit, stat: String) -> float:
 		v *= _aura_mul(u, stat)
 	if u.strat_aura > 0.0 and stat == "def":
 		v *= 1.0 + STRAT_AURA_DEF * u.strat_aura
+	if stat == "atk" and not _paeup.is_empty():
+		v *= _paeup_atk(u)      # 손권 제왕술 · 여포 무쌍
 	v -= u.cut.get(stat, 0.0) + u.cut.get(STAT_INV.get(stat, "_"), 0.0)        # 위축 · 산란 · 파갑 —— 0 까지
 	return maxf(1, v)
 
@@ -774,9 +779,10 @@ func _aura_mul(u: Unit, stat: String) -> float:
 		if not mu.alive:
 			continue
 		var a: Dictionary = DB.AURA[mu.c.id]
-		var h := 0.5 if _kv(_foe(mu.camp), "aura_half") else 1.0      # 연합 노숙 —— 적 위세 절반
-		if mu.camp == u.camp:
-			if a.has("ally") and _aura_on(mu, a, u):
+		var mc := _acamp(mu)
+		var h := 0.5 if _kv(_foe(mc), "aura_half") else 1.0      # 연합 노숙 —— 적 위세 절반
+		if mc == u.camp:
+			if a.has("ally") and not _no_ally(u) and _aura_on(mu, a, u):
 				m *= 1.0 + _sv(a.ally, stat) * h
 		elif a.has("foe") and _aura_foe_on(a, u):
 			m *= 1.0 + _sv(a.foe, stat) * h
@@ -814,10 +820,10 @@ func mv(u: Unit, k: String) -> float:
 		probe[k] = int(probe.get(k, 0)) + 1
 	if not _aura_m.is_empty():
 		for mu in _aura_m:
-			if mu.alive and mu.camp == u.camp:
+			if mu.alive and _acamp(mu) == u.camp and not _no_ally(u):
 				var a: Dictionary = DB.AURA[mu.c.id]
 				if (a.m.has(k) or (MV_ALIAS.has(k) and a.m.has(MV_ALIAS[k]))) and _aura_on(mu, a, u):
-					v += _sv_m(a.m, k) * (0.5 if _kv(_foe(mu.camp), "aura_half") else 1.0)
+					v += _sv_m(a.m, k) * (0.5 if _kv(_foe(_acamp(mu)), "aura_half") else 1.0)
 	return v
 
 
@@ -1002,6 +1008,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if a.in_skill:
 		dmg *= 1.0 + mv(a, "sk_amp")           # 신산 —— 기술 피해
 	dmg *= 1.0 - _guard(a, d)
+	dmg *= _omen_mul(a, d)      # 제갈량 천문
 	if _in_ult:
 		dmg *= (1.0 - _buff_sum(d, "uguard")) * (0.0 if _ult_null else 1.0)
 	var fm := _fire_mul(a, d)
@@ -1045,6 +1052,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	a.dmg += loss
 	d.last_hit = a
 	_charge(d, a, loss)
+	_paeup_snipe(a, d)
 	L(a.camp, "%s%s %s %s — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), "쳤다" if _hit_kind == "int" else "들이쳤다", num(loss)],
 		{"fx": _hit_kind, "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
@@ -1221,6 +1229,7 @@ func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> voi
 
 func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if not d.alive or _scorched(d): return
+	if _no_ally(d) and src != d: return      # 여포 무쌍 —— 아군의 치료를 받지 않는다
 	if virtue_enabled and _side_max(_foe(d.camp), "starve") > 0:
 		ratio *= 1.0 - float(DB.PSV.virtue.starve)      # 단량 —— 적이 군량을 끊었다
 	if _kv(_foe(d.camp), "heal_cut"):      # 흑산 장연 —— 적 회복 −50%
@@ -1240,6 +1249,7 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 
 
 func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
+	if _no_ally(d) and src != d: return      # 여포 무쌍
 	var b := d.morale
 	d.morale = minf(200, d.morale + amt * pace * _one)
 	var g := d.morale - b
@@ -1250,6 +1260,7 @@ func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
 
 
 func add_buff(u: Unit, b: Dictionary) -> void:
+	if _no_ally(u) and b.amt > 0 and not u.in_skill and not (_in_ult and _ult_by == u): return      # 여포 무쌍 —— 아군이 거는 버프를 받지 않는다
 	u.buffs.append({"stat": b.stat, "amt": float(b.amt), "dur": roundi(int(b.dur) * _long)})
 	var up: bool = b.amt > 0
 	L("sk", "%s의 %s %s · %s%d%%" % [nm(u), ga(DB.D.STATNM.get(b.stat, b.stat)), "올랐다" if up else "꺾였다",
@@ -1912,14 +1923,23 @@ func _paeup_setup() -> void:
 		var pa: Dictionary = DB.AURA[u.c.id].paeup
 		var cond := str(pa.cond)
 		var have := 0
-		for o in units:
-			if o != u and o.camp == u.camp and paeup_counts(o.c.id, cond):
-				have += 1
+		if cond != "none":
+			for o in units:
+				if o != u and o.camp == u.camp and paeup_counts(o.c.id, cond):
+					have += 1
 		var on := have >= int(pa.need)
+		var dtxt := str(pa.get("d", ""))
+		if on and str(pa.fx) == "steal_aura":      # 협천자 —— 적 위세 하나를 빼앗는다 (없으면 불발)
+			var vic = _paeup_steal_pick(u)
+			if vic == null:
+				on = false
+			else:
+				_stolen[vic] = u.camp
+				dtxt = "적 %s의 위세 『%s』를 빼앗아 아군 편으로 쓴다" % [nm(vic), str(DB.AURA[vic.c.id].n)]
 		if on:
 			_paeup[str(pa.fx) + ":" + u.camp] = u
-		_paeup_log.append({"camp": u.camp, "id": u.c.id, "key": u.key, "who": nm(u), "n": str(pa.n), "d": str(pa.get("d", "")), "fx": str(pa.fx),
-			"what": "화상" if cond == "burn" else "상태이상", "on": on, "have": have, "need": int(pa.need)})
+		_paeup_log.append({"camp": u.camp, "id": u.c.id, "key": u.key, "who": nm(u), "n": str(pa.n), "d": dtxt, "fx": str(pa.fx),
+			"what": str(pa.get("what", "화상" if cond == "burn" else "상태이상")), "on": on, "have": have, "need": int(pa.need)})
 
 
 ## 이 카드가 패업 조건(cond)에 들어가는가
@@ -1986,6 +2006,154 @@ func _paeup_burn(u: Unit) -> void:
 	_spread_burn_to(u, s, best)
 
 
+## 11/9 패업 2차 —— 조조 협천자 · 관우 오관참장 · 제갈량 천문 · 감녕 백기야습 · 장료 위진소요진 · 손권 제왕술 · 여포 무쌍
+## 시간 · 거리가 들어가는 것(감녕 · 장료 · 손권 · 천문)은 실시간 엔진(RtBattle)에서만 움직인다. 난수 없이 슬롯 · 시각으로만 고른다 (결정성)
+
+## 패업 효과가 켜져 있는가 (이 진영의 신화가 살아 있어야 한다) —— 켜졌으면 그 신화
+func _pa(fx: String, cp: String):
+	var z = _paeup.get(fx + ":" + cp)
+	return z if z != null and z.alive else null
+
+
+func _pa_use(fx: String, cp: String, cap: int) -> bool:
+	var k := fx + ":" + cp
+	if int(_paeup_used.get(k, 0)) >= cap:
+		return false
+	_paeup_used[k] = int(_paeup_used.get(k, 0)) + 1
+	return true
+
+
+## 위세를 빼앗은 쪽으로 본 이 위세 장수의 진영 (협천자)
+func _acamp(mu: Unit) -> String:
+	return str(_stolen.get(mu, mu.camp))
+
+
+## 협천자 —— 훔칠 적 위세 장수 (신화 · 초월 먼저, 등급 높은 순 · 칸 번호 순). 없으면 null
+func _paeup_steal_pick(u: Unit):
+	var best = null
+	for v in _myths:
+		if v.camp == u.camp or _stolen.has(v):
+			continue
+		if best == null or v.c.tier > best.c.tier or (v.c.tier == best.c.tier and v.slot < best.slot):
+			best = v
+	return best
+
+
+## 여포 무쌍 —— 아군의 치료 · 버프 · 위세를 받지 않는 여포인가
+func _no_ally(u: Unit) -> bool:
+	return not _paeup.is_empty() and _paeup.get("peerless:" + u.camp) == u
+
+
+## 공격 배율 —— 손권 제왕술(공격하지 않는다 → 0) · 여포 무쌍(쓰러진 아군마다 +12%, 최대 +60%)
+func _paeup_atk(u: Unit) -> float:
+	if _paeup.get("crown:" + u.camp) == u:
+		return 0.0
+	if _paeup.get("peerless:" + u.camp) == u:
+		return 1.0 + minf(0.6, 0.12 * float(_paeup_used.get("peerless_n:" + u.camp, 0)))
+	return 1.0
+
+
+## 감녕 백기야습 —— 개전 8초 동안 숨는다 (적의 목표가 되지 않는다)
+func _hidden(u: Unit) -> bool:
+	return u.alive and not _paeup.is_empty() and _by_distance() and _tm < 8.0 and _paeup.get("hide:" + u.camp) == u
+
+
+## 장료 위진소요진 —— 적이 거리를 두 배로 치는 장료인가
+func _pa_wei(o: Unit) -> bool:
+	return not _paeup.is_empty() and o.alive and _paeup.get("wei_aura:" + o.camp) == o
+
+
+## 실시간 틱 —— 장료 위진소요진(둘레 250 안 적 사기 초당 −2) · 손권 제왕술(15초마다 고유기 장수 하나의 기를 가득)
+func _paeup_tick(dt: float) -> void:
+	if _paeup.is_empty():
+		return
+	for cp in ["A", "B"]:
+		var z = _pa("wei_aura", cp)
+		if z != null:
+			var hit := false
+			for o in units:
+				if o.alive and o.camp != cp and o.pos.distance_to(z.pos) <= 250.0:
+					o.morale -= 2.0 * dt
+					hit = true
+			if hit and _pa_use("wei_aura_log", cp, 1):
+				L("sk", "%s의 위진소요진 —— 둘레의 적이 기세에 눌린다" % nm(z), {"fx": "skill", "a": z.key, "name": "위진소요진", "kind": "phys"})
+		var sq = _pa("crown", cp)
+		if sq != null:
+			var n := int(_paeup_used.get("crown_n:" + cp, 0))
+			if _tm >= 15.0 * float(n + 1):
+				_paeup_used["crown_n:" + cp] = n + 1
+				var last := str(_paeup_used.get("crown_last:" + cp, ""))
+				var best: Unit = null
+				for o in units:
+					if o.alive and o.camp == cp and o != sq and o.ult != null and o.charges > 0 and o.key != last and (best == null or o.gauge < best.gauge):
+						best = o
+				if best != null:
+					best.gauge = 100.0
+					_paeup_used["crown_last:" + cp] = best.key
+					L("sk", "%s의 제왕술 —— %s 대도독으로 세워 기를 가득 채운다" % [nm(sq), nm(best)], {"fx": "skill", "a": sq.key, "name": "제왕술", "kind": "int"})
+
+
+## 감녕 백기야습 —— 숨은 동안 처음 닿은 고유기 장수의 기를 0 으로 (기 모으는 중이면 취소)
+func _paeup_snipe(a: Unit, d: Unit) -> void:
+	if _paeup.is_empty() or a.countering or a.camp == d.camp or not _hidden(a) or d.ult == null:
+		return
+	if not _pa_use("hide_hit", a.camp, 1):
+		return
+	d.gauge = 0.0
+	_paeup_unwind(d)
+	L("sk", "%s의 백기야습 —— %s의 기가 흩어진다" % [nm(a), nm(d)], {"fx": "skill", "a": a.key, "name": "백기야습", "kind": "phys"})
+
+
+## 기 모으기 취소 (실시간 엔진이 덮어쓴다)
+func _paeup_unwind(_d: Unit) -> void:
+	pass
+
+
+## 제갈량 천문 —— 적이 기를 모으기 시작하면 그 고유기가 칠 아군(keys)이 받는 피해를 절반으로 (전투당 처음 세 번)
+func _paeup_omen(caster: Unit, keys: Array) -> void:
+	var cp := _foe(caster.camp)
+	var z = _pa("omen", cp)
+	if z == null or not _pa_use("omen", cp, 3):
+		return
+	_omen[caster] = keys
+	L("sk", "%s의 천문 —— %s의 기운을 읽어 아군이 받을 피해를 줄인다" % [nm(z), nm(caster)], {"fx": "skill", "a": z.key, "name": "천문", "kind": "int"})
+
+
+func _omen_mul(a: Unit, d: Unit) -> float:
+	if not _omen.is_empty() and _in_ult and _omen.has(a) and _omen[a].has(d.key):
+		return 0.5
+	return 1.0
+
+
+## 쓰러짐에 반응하는 패업 —— 여포 무쌍(아군이 쓰러질 때마다 공격 +) · 관우 오관참장(무너뜨린 뒤 가장 가까운 적으로 돌진)
+func _paeup_fall(u: Unit) -> void:
+	if _paeup.is_empty():
+		return
+	var lb = _pa("peerless", u.camp)
+	if lb != null and lb != u:
+		_paeup_used["peerless_n:" + u.camp] = int(_paeup_used.get("peerless_n:" + u.camp, 0)) + 1
+		if int(_paeup_used["peerless_n:" + u.camp]) <= 5:
+			L("sk", "%s의 무쌍 —— %s 쓰러지자 분노가 쌓인다 (공격 +%d%%)" % [nm(lb), nm(u), roundi(minf(0.6, 0.12 * int(_paeup_used["peerless_n:" + u.camp])) * 100)], {"fx": "skill", "a": lb.key, "name": "무쌍", "kind": "phys"})
+	var lh = u.last_hit
+	if lh != null and lh.camp != u.camp and lh.alive and _pa("pass5", lh.camp) == lh and not _pass_busy:
+		var seq := int(_paeup_used.get("pass5_n:" + lh.camp, 0))
+		var last_t := float(_paeup_used.get("pass5_t:" + lh.camp, -99.0))
+		var now := _tm if _by_distance() else float(_turn) * 3.0
+		seq = mini(5, seq + 1) if now - last_t <= 10.0 else 0
+		_paeup_used["pass5_n:" + lh.camp] = seq
+		_paeup_used["pass5_t:" + lh.camp] = now
+		var best: Unit = null
+		for o in units:
+			if o.alive and o.camp != lh.camp and o != u and (best == null or (lh.pos.distance_to(o.pos) < lh.pos.distance_to(best.pos)) or (lh.pos.distance_to(o.pos) == lh.pos.distance_to(best.pos) and o.slot < best.slot)):
+				best = o
+		if best != null:
+			var mult: float = float(CHARGE.get(lh.c.tier, ROLE.charge)) * (1.0 + 0.15 * seq)
+			L("sk", "%s의 오관참장 —— 곧바로 %s에게 돌진한다 (연속 %d · 돌진 피해 +%d%%)" % [nm(lh), nm(best), seq + 1, seq * 15], {"fx": "skill", "a": lh.key, "name": "오관참장", "kind": "phys"})
+			_pass_busy = true
+			phys_hit(lh, best, mult, true)
+			_pass_busy = false
+
+
 func rout(u: Unit, why: String) -> void:
 	if not u.alive: return
 	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
@@ -2014,6 +2182,7 @@ func rout(u: Unit, why: String) -> void:
 		_blaze(u)
 	if fire_enabled and has_st(u, "burn"):
 		_paeup_burn(u)
+	_paeup_fall(u)
 	_tac_rout(u)
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
 	if temper_enabled:      # 11/7 기질 —— 적을 무너뜨린 맹장 · 저격은 기세가 오르고, 아군이 무너지면 수호 · 분노가 끓는다
