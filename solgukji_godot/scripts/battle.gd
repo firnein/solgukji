@@ -1108,9 +1108,9 @@ static func class_tune(key: String, tag: String, tier: int) -> float:
 	return float(v)
 
 
-## 깎는 양 —— 장수 등급표 (1단계는 등급만, 장수별 레벨 차이는 2단계)
+## 깎는 양 —— 장수 등급표 (1단계는 등급만, 장수별 레벨 차이는 2단계). 11/9 기인은 기인 값 (DB.shred_val)
 static func _shred_v(a: Unit) -> float:
-	return float(DB.GUARD.get("shred", {}).get(str(a.c.tier), 0.0))
+	return DB.shred_val(a.c.id)
 
 
 ## 갑옷(k = "phys") · 결계("int") 깎기 —— 대상마다 종류별 가장 센 하나. 난수를 쓰지 않는다.
