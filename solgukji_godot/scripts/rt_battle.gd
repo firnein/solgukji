@@ -1016,8 +1016,13 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if not _in_ult:
 		m *= far_mul if far else near_mul
 		if a.c.tag == "기병" and a.ran >= CHARGE_RUN and not far and not a.countering and not (water_enabled and has_st(a, "flood")):     # 수몰된 기병은 돌격을 못 한다 (11/8 수공 제어 전담)
-			m *= cav_charge
-			stats["charges"] = stats.get("charges", 0) + 1
+			if d.c.tag == "창병" and _front(d, a):      # 11/8 창병 정면은 돌격을 막는다 (창벽)
+				m *= engage_v("brace", 1.0)
+			else:
+				m *= cav_charge
+				stats["charges"] = stats.get("charges", 0) + 1
+		if a.c.tag == "창병" and a.ran >= SPEAR_RUN and not far and not a.countering:      # 11/8 창병은 붙는 순간이 힘
+			m *= engage_v("spear_impact", 1.0)
 	if not a.countering:
 		a.ran = 0.0
 	var n0 := ev.size()
@@ -1030,6 +1035,53 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			if ev[i].get("fx") == "phys" and ev[i].get("a") == a.key and ev[i].get("f") == d.key:
 				ev[i]["dir"] = dir
 				break
+
+
+# ───────── 11/8 맞붙음 상성 (class_guard.engage) ─────────
+const SPEAR_RUN := 60.0      # 창병이 이만큼 걸어와 친 첫 공격이 '붙는 순간'
+
+## a 가 d 의 정면(앞 60도 안)에 있는가
+static func _front(d: Unit, a: Unit) -> bool:
+	var v := a.pos - d.pos
+	return v.length() < 0.1 or absf(d.fwd.angle_to(v)) <= PI / 3.0
+
+
+## 원거리(궁병 · 책략계)가 근접 적에게 맞닿아 묶였는가
+func _pinned(u: Unit) -> bool:
+	if not _ranged(u):
+		return false
+	for o in units:
+		if o.alive and o.camp != u.camp and not _ranged(o) and _gap(u, o) <= TOUCH + 2.0:
+			return true
+	return false
+
+
+## 실제 자리에서 생기는 상성 —— 묶인 원거리는 덜 치고 더 맞는다 · 창병 정면의 도적 · 묶이지 않은 후열을 노리는 도적 · 창병 없는 궁병과 꺾인 적을 노리는 기병
+func _engage_mul(a: Unit, d: Unit) -> float:
+	if not counter_enabled or a.camp == d.camp:
+		return 1.0
+	var m := 1.0
+	var pa := _pinned(a)
+	var pd := _pinned(d)
+	if pa:
+		m *= engage_v("pin_atk", 1.0)
+	if pd:
+		m *= engage_v("pin_taken", 1.0)
+	match a.c.tag:
+		"도적":
+			if d.c.tag == "창병" and _front(d, a):
+				m /= engage_v("rogue_front", 1.0)
+			elif _ranged(d) and not pd:
+				m *= engage_v("rogue_free", 1.0)
+		"창병":
+			if d.c.tag == "도적" and _front(a, d):
+				m *= engage_v("rogue_front", 1.0)
+		"기병":
+			if d.c.tag == "궁병" and not units.any(func(o): return o.alive and o.camp == d.camp and o.c.tag == "창병"):
+				m *= engage_v("horse_bow", 1.0)
+			if d.morale < 60.0:
+				m *= engage_v("horse_low", 1.0)
+	return m
 
 
 func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:

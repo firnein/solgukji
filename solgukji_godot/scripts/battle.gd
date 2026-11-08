@@ -77,7 +77,7 @@ static var tag_roles := true
 ## 11/6 밸런스: 기병 3장 덱 30% → 돌격 뒤 배율 0.8 → 0.9 · 전체 0.9 → 1.0, 책략계 피격 감면(int_guard)은 방어 통합으로 대신
 ## (11/8 ROLE · CHARGE · SPEAR_ATK 는 점검 장면 tests/mono_league 가 바꿔 볼 수 있게 static var)
 ## 11/8 병종 균형: 유생 치료 schol_heal 1.6 → 0.6 (몰빵 리그전 유생 덱 84% —— 치료가 분발 · 인의 방진을 내내 켰다. 분발 재발동 대기 moved_cd 와 함께).
-##   병종마다 등급별 준 피해 · 받는 피해 · 사거리 배율은 data/cards_ext.json class_guard 의 dmg · taken · range (class_tune)
+##   병종마다 준 피해 · 받는 피해 · 사거리 배율(등급 무관 한 값)은 data/cards_ext.json class_guard 의 dmg · taken · range (class_tune), 지원 등급 성장은 sup, 맞붙음 상성은 engage
 static var ROLE := {"charge": 2.0, "horse_after": 0.9, "horse_all": 1.0, "int_guard": 1.0, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
 	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 0.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
 	"schem_morale": 2.2, "schem_int": 2.0}
@@ -1143,7 +1143,23 @@ func _role_mul(a: Unit, d: Unit, phys: bool) -> float:
 		g = ROLE.int_guard
 	if a.c.tag == "기병":
 		g *= ROLE.horse_all
-	return _role_tag(a, d, phys) * g * class_tune("dmg", a.c.tag, a.c.tier) * class_tune("taken", d.c.tag, d.c.tier)      # 11/6 #15 책략 전용 배율(INT_LOW · strat_int …)은 쓰지 않는다 —— 피해 경로가 하나. 11/8 병종 배율
+	return _role_tag(a, d, phys) * g * class_tune("dmg", a.c.tag, a.c.tier) * class_tune("taken", d.c.tag, d.c.tier) * _engage_mul(a, d)      # 11/6 #15 책략 전용 배율(INT_LOW · strat_int …)은 쓰지 않는다 —— 피해 경로가 하나. 11/8 병종 배율
+
+
+## 11/8 맞붙음 상성 —— 실제 자리에서 생기는 상성 (묶인 원거리 · 창병 정면의 도적 · 묶이지 않은 후열을 노리는 도적). 자리가 없는 턴제 엔진은 1, 실시간 엔진(RtBattle)이 덮어쓴다
+func _engage_mul(_a: Unit, _d: Unit) -> float:
+	return 1.0
+
+
+## 11/8 맞붙음 · 지원 값 (class_guard.engage) —— 점검 덮어쓰기(tune_over.engage) 먼저
+static func engage_v(k: String, dflt: float) -> float:
+	return float(tune_over.get("engage", {}).get(k, DB.GUARD.get("engage", {}).get(k, dflt)))
+
+
+## 11/8 지원 병종 등급 성장 —— 유생 치료 · 모사 사기 깎기가 등급마다 class_guard.sup[병종] 씩 커진다 (전설 = 1, 등급표 없이 한 값)
+static func sup_mul(tag: String, tier: int) -> float:
+	var step := float(tune_over.get("sup", {}).get(tag, DB.GUARD.get("sup", {}).get(tag, 0.0)))
+	return maxf(0.5, 1.0 + step * (tier - 5))
 
 
 func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
@@ -1160,9 +1176,7 @@ func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
 		"궁병":
 			if units.any(func(o): return o.alive and o.camp == a.camp and o.c.tag == "창병"):
 				return ROLE.bow_cover
-		"도적":
-			if INT_TAG.has(d.c.tag): return ROLE.rogue_vs_int * ROLE.rogue_all
-			if d.c.tag == "궁병": return ROLE.rogue_vs_bow * ROLE.rogue_all
+		"도적":      # 11/8 후열 가산(rogue_vs_int 1.7 · rogue_vs_bow 1.3)은 맞붙음 상성(engage.rogue_free —— 묶이지 않은 후열)과 병종 상성표로 합쳤다
 			return ROLE.rogue_all
 		"책사":
 			if not phys: return ROLE.strat_int * STRAT_HI.get(a.c.tier, 1.0)
@@ -1177,7 +1191,7 @@ func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
 
 func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> void:
 	var a: float = amt * pace * _one * (K.aoe if spread >= 3 else 1.0) * morale_guard(src, d)
-	if tag_roles and src and src.c.tag == "모사": a *= ROLE.schem_morale
+	if tag_roles and src and src.c.tag == "모사": a *= ROLE.schem_morale * sup_mul("모사", src.c.tier)      # 11/8 지원 등급 성장
 	if src: a *= 1.0 + mv(src, "mdeal")
 	a *= 1.0 - mv(d, "mshield")
 	d.morale -= a
@@ -1193,7 +1207,7 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if _kv(_foe(d.camp), "heal_cut"):      # 흑산 장연 —— 적 회복 −50%
 		ratio *= 0.5
 	if tag_roles and src:      # 치료는 유생 전담 (술사는 상태이상)
-		ratio *= ROLE.schol_heal if src.c.tag == "유생" else (ROLE.occul_heal if src.c.tag == "술사" else 1.0)
+		ratio *= ROLE.schol_heal * sup_mul("유생", src.c.tier) if src.c.tag == "유생" else (ROLE.occul_heal if src.c.tag == "술사" else 1.0)      # 11/8 지원 등급 성장
 	var g := minf(roundf(d.max * ratio * pace * _one), d.max - d.troops)
 	if g <= 0: return
 	d.troops += g
