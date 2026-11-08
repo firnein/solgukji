@@ -175,6 +175,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		_tm += TICK
 		_move()
 		_fire_winds()
+		_paeup_tick(TICK)
 		for u in units:
 			if not u.alive:
 				continue
@@ -345,6 +346,7 @@ func _interrupt_ult(u: Unit) -> void:
 			if t.alive and not warn.any(func(w): return w.k == t.key):
 				warn.append({"k": t.key, "x": roundi(t.pos.x), "y": roundi(t.pos.y), "r": 60})
 	_in_ult = false
+	_paeup_omen(u, warn.map(func(w): return w.k))
 	_ai += 1
 	_ph = "act"
 	_who = u.key
@@ -367,6 +369,17 @@ func _fire_winds() -> void:
 			u.gauge = CUT_GAUGE
 			continue
 		super._interrupt_ult(u)
+		_omen.erase(u)
+
+
+func _paeup_unwind(d: Unit) -> void:
+	if _wind.has(d):
+		_cut_wind_quiet(d)
+
+
+func _cut_wind_quiet(d: Unit) -> void:
+	_wind.erase(d)
+	d.gauge = 0.0
 
 
 ## 기 모으던 장수가 적 고유기에 맞았다 —— 끊긴다
@@ -500,13 +513,13 @@ func _ranged(u: Unit) -> bool:
 
 
 func _foes_of(u: Unit) -> Array:
-	return units.filter(func(o): return o.alive and o.camp != u.camp)
+	return units.filter(func(o): return o.alive and o.camp != u.camp and not _hidden(o))      # 감녕 백기야습 —— 숨은 동안은 목표가 되지 않는다
 
 
 func _ready_to_hit(u: Unit) -> bool:
 	if has_st(u, "confuse"):
 		return true            # 혼란은 제자리에서 차례를 날리거나 제 편을 친다 (Battle.act)
-	return u.tgt != null and u.tgt.alive and _gap(u, u.tgt) <= _reach(u) + 2.0
+	return u.tgt != null and u.tgt.alive and not _hidden(u.tgt) and _gap(u, u.tgt) <= _reach(u) + 2.0
 
 
 # ───────── 발자국 기하 ─────────
@@ -560,7 +573,7 @@ func _move() -> void:
 			pin = null
 		if pin != null and (u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
 			u.tgt = pin
-		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0:
+		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0 or _hidden(u.tgt):
 			u.tgt = _choose(u, foes)
 			u.retgt = 0.5
 		var sp := _speed(u)
@@ -701,6 +714,8 @@ func _choose(u: Unit, foes: Array) -> Unit:
 		var d := maxf(0.0, _gap(u, o))
 		if lane:      # 앞 열 우선 —— 진형 폭만큼 전선이 넓게 선다 (옆 거리는 무겁게)
 			d = maxf(0.0, Vector2(o.pos.x - u.pos.x, (o.pos.y - u.pos.y) * LANE_W).length() - u.hd - o.hd)
+		if _pa_wei(o):
+			d = (d + 30.0) * 2.0      # 장료 위진소요진 —— 거리를 두 배로 쳐서 덜 노려진다
 		var w := 1.0
 		# 기병 · 도적은 원거리 · 지략 부대를 노린다 (멀리 돌아가더라도)
 		if (u.c.tag == "기병" or u.c.tag == "도적") and _ranged(o):
@@ -858,7 +873,7 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 			if dist[i] <= mn + 30.0:
 				out.append(al[i])
 		return out
-	var live := foes.filter(func(u): return u.alive)
+	var live := foes.filter(func(u): return u.alive and not _hidden(u))
 	if live.is_empty(): return []
 	var reach := INF if _in_ult else _reach(me) + 2.0
 	var near := live.filter(func(o): return _gap(me, o) <= reach)
