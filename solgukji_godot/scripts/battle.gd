@@ -61,8 +61,9 @@ static var water_enabled := true     # 수공 계열 켜기 (수몰 이감 규�
 static var axis_off := {}            # 특기 축 끄기 (점검용) —— {"물리": true, …} 이면 그 축의 특기가 붙지 않는다
 static var axis_off_camp := ""       # 축 끄기를 한쪽 진영에만 ("A" · "B", 비우면 양쪽) —— 점검할 덱 쪽만 끄려고
 static var tr_mul := {"A": 1.0, "B": 1.0}      # 진영 병력 배율 —— Run.simulate · BattleView 가 전투 전에 넣고 뒤에 되돌린다 (11/6)
-static var myth_power := 1.15    # 신화 능력치 배율 (속도 제외) —— 11/2 사용자: 단순 전투력은 1.15, 대신 위세(data/myth_aura.json)로 판을 바꾼다
+static var myth_power := 1.0     # 신화 능력치 배율 (속도 제외) —— 11/2 사용자: 단순 전투력은 1.15, 대신 위세(data/myth_aura.json)로 판을 바꾼다. 11/8 신화 몸값: 1.0 (카드 수치만으로 불멸의 공격 ×1.17 · 방어 ×1.21)
 static var aura_enabled := true   # 위세 켜기 (비교용)
+static var myth_troop := 0.75    # 11/8 신화 몸값 —— 신화 병력 배율 (mk_unit). 카드 병력 70000 → 52500 (불멸 47000 의 ×1.12, 예전 ×1.49)
 static var paeup_enabled := true   # 11/8 패업 켜기 (비교용 —— 끄면 모두 불발)
 static var aura_camp := ""        # 한쪽 진영만 위세 ("A" · "B", 비우면 양쪽) —— 점검용
 static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
@@ -386,6 +387,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	u.item = item
 	u.ts = syn.tag.get(u.c.tag)
 	var tr: float = u.c.tr * syn.troop * (1.0 + u.ts.v if u.ts and u.ts.stat == "troop" else 1.0)
+	if u.c.tier >= 8: tr *= myth_troop
 	tr *= float(tr_mul.get(camp, 1.0))      # 11/6 밸런스: 진영 병력 배율 (토벌 고정 편성을 일차에 맞춰 줄인다 —— Run.QUEST_TR)
 	u.troops = roundf(tr)
 	u.max = roundf(tr)

@@ -801,6 +801,11 @@ func _load_image(path: String) -> Image:
 ## 특기 —— {self: {name, d, m}, group: {name, d, scope, scale} 또는 null}. 고급 미만은 null.
 ## 개인 특기 m 은 등급 배율을 곱해 둔다. 단체 특기는 엔진이 scale 을 곱해 쓴다 (겹침 판정 때문).
 var _psv_cache := {}
+## 11/8 신화 몸값 —— 신화(8등급) 특기 세기 배율 (불멸 → 신화 격차만. 다른 등급 사이는 그대로). 점검 도구가 바꾸면 set_myth_trait 로 (캐시를 비운다)
+var myth_trait := 0.4      # 측정 (기준9 대 신화1, 병력 0.75 · 능력치 1.0): 1.0 → 신화1 73% · 0.7 → 68 · 0.5 → 70 · 0.3 → 63 · 0 → 58 (위세 몫 약 7%p)
+func set_myth_trait(v: float) -> void:
+	myth_trait = v
+	_psv_cache.clear()
 
 func passives_of(k: String):
 	if _psv_cache.has(k):
@@ -818,6 +823,8 @@ func passives_of(k: String):
 			var lv := trait_level(k, e[0])
 			var sc: float = (PSV.level_scale_attr if attr != "" else PSV.level_scale)[str(lv)]
 			sc *= float(t.get("tier_mul", PSV.get("axis_tier_mul", {}).get(attr, {})).get(str(c.tier), 1.0))      # 축 × 등급 밸런스 (10/31) —— 특기에 tier_mul 이 있으면 그것 (현혹 · 요언, 11/7)
+			if c.tier >= 8:
+				sc *= myth_trait
 			if t.has("self"):      # 금색 특기 —— 단체 효과와 함께 주인에게만 붙는 장치
 				var sm := {}
 				for key in t.self:
