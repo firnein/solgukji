@@ -6,10 +6,11 @@ extends Node
 ## 결과: 상성표(행 덱의 승률) · 리그 평균 · 상대별 승률 폭(가장 높은 − 가장 낮은)
 ## 11/8 병종 균형 원인 찾기 —— 기능을 끄거나 값을 바꿔 같은 리그를 다시 잰다 (덱 · 시드는 그대로라 차이가 그 기능의 몫):
 ##   --off=고유기,특기,역할,상성,인덕,잔기술,위세,계략,철벽,화공,수공,깎기,기질,치료(유생 치료),기술(일반 기술),우대(진형 우대),자리(선호 자리 배율),줄(줄 배율),책줄(책략계 줄 배율만),우회(도적 크게 돌기),후열평타(평타로 가장 깊은 적 치기)
-##   --set=cast:220,bow:250,gap:70,near:1.5,far:0.85,bank:2,charge:1.6,allr:320,heal:1.6 (유생 치료 배율)
-##     cnt:0.25 (병종 상성 세기) · 병종 배율 (Battle.tune_over): dmg:병종:배율 (준 피해) · taken:병종:배율 (받는 피해) · range:병종:배율 (원거리 사거리)
+##   --set=cast:220,bow:250,gap:70,near:1.5,far:0.85,bank:2,charge:1.6,allr:320,heal:1.6 (유생 치료 배율),movedcd:0 (분발 재발동 대기 턴)
+##     cnt:0.25 (병종 상성 세기) · cnti:0.25 (책략계가 끼는 상성 세기만) · 병종 배율 (Battle.tune_over): dmg:병종:배율 (준 피해) · taken:병종:배율 (받는 피해) · range:병종:배율 (원거리 사거리)
 ##   --stat → 덱마다 전투 길이(초) · 한 판 치료(최대 병력 몫 합) · 끝에 남은 부대 수
 ##   --axis=물리,책략,도트,공깎,책략깎,방깎,둔화,혼란,철벽,인덕,사기,없음 → 그 축의 특기를 양쪽 모두 끈다
+##   --seed=700 → 덱 뽑기 · 전투 시드 바탕 (같은 값끼리는 덱이 같다 —— 다른 값으로 과적합을 본다)
 ##   --ev → 덱마다 준 피해의 출처(평타 · 기술 · 잔기술 · 고유기 · 지속 피해) 몫과 한 판 기술 횟수 · 기술 한 번에 맞힌 적 수 (사건 기록으로 센다)
 
 const DECKS := ["창병6", "기병6", "궁병6", "도적6", "책사6", "모사6", "술사6", "유생6", "물리9", "책략9", "고루", "고루0"]
@@ -26,6 +27,7 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var games := int(args.get("games", "8"))
+	var seed0 := int(args.get("seed", "700"))      # 덱 뽑기 · 전투 시드의 바탕 (바꾸면 다른 덱으로 다시 잰다)
 	var tier := int(args.get("tier", "7"))
 	var names: Array = Array(str(args.get("decks", ",".join(DECKS))).split(","))
 	if args.has("noshield"):
@@ -59,7 +61,7 @@ func _ready() -> void:
 	for i in names.size():
 		for j in range(i + 1, names.size()):
 			var rng := RandomNumberGenerator.new()
-			rng.seed = 700 + i * 31 + j
+			rng.seed = seed0 + i * 31 + j
 			var s := 0.0
 			for g in games:
 				var da := DB.auto_place(_deck(names[i], rng), "eorin")
@@ -240,6 +242,10 @@ func _knobs(off: String, set_: String) -> String:
 			"charge": RtBattle.cav_charge = v
 			"allr": RtBattle.all_r = v
 			"heal": Battle.ROLE.schol_heal = v
+			"movedcd": Battle.moved_cd = int(v)
+			"cnti":     # 책략계가 끼는 상성 세기만 (등급별 int_amt 를 모두 이 값으로)
+				for t in DB.CLASS_COUNTER.int_amt:
+					DB.CLASS_COUNTER.int_amt[t] = v
 			"cnt":      # 병종 상성 세기 (등급별 책략 상성도 같은 비율로)
 				var r := v / float(DB.CLASS_COUNTER.amt)
 				DB.CLASS_COUNTER.amt = v

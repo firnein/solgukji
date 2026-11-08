@@ -76,8 +76,10 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 static var tag_roles := true
 ## 11/6 밸런스: 기병 3장 덱 30% → 돌격 뒤 배율 0.8 → 0.9 · 전체 0.9 → 1.0, 책략계 피격 감면(int_guard)은 방어 통합으로 대신
 ## (11/8 ROLE · CHARGE · SPEAR_ATK 는 점검 장면 tests/mono_league 가 바꿔 볼 수 있게 static var)
+## 11/8 병종 균형: 유생 치료 schol_heal 1.6 → 0.6 (몰빵 리그전 유생 덱 84% —— 치료가 분발 · 인의 방진을 내내 켰다. 분발 재발동 대기 moved_cd 와 함께).
+##   병종마다 등급별 준 피해 · 받는 피해 · 사거리 배율은 data/cards_ext.json class_guard 의 dmg · taken · range (class_tune)
 static var ROLE := {"charge": 2.0, "horse_after": 0.9, "horse_all": 1.0, "int_guard": 1.0, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
-	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 1.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
+	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 0.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
 	"schem_morale": 2.2, "schem_int": 2.0}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
 const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
@@ -96,6 +98,9 @@ static var guard_over := {}          # 점검용 병종 막 덮어쓰기 {병종
 ## 11/8 병종 균형 —— 병종 단위 배율 (data/cards_ext.json class_guard 의 dmg 준 피해(건 화상 · 출혈 포함) · taken 받는 피해 · range 원거리 사거리: {병종: 배율 또는 {등급: 배율}}).
 ## 점검 장면은 tune_over 로 덮어쓴다 (--set=dmg:창병:1.2 → {"dmg": {"창병": 1.2}})
 static var tune_over := {}
+## 11/8 분발 재발동 대기 (턴) —— 0 이면 예전처럼 치료받을 때마다 분발 · 인의 방진을 늘려 준다.
+## 1 이상이면 분발은 새로 일어날 때만 걸리고(늘리지 않는다) 끝난 뒤 이만큼 지나야 다시 —— 여러 유생이 치료를 겹쳐 분발 · 방진이 내내 켜지던 것을 끊는다
+static var moved_cd := 4
 
 ## 전투 중 개입 —— 고유기 직접 발동과 군령.
 ## 입력은 [행동 번호, 진영, 종류, 값]. 같은 시드 + 같은 입력이면 언제나 같은 결과다(결정적).
@@ -196,6 +201,7 @@ class Unit:
 	var in_skill := false     # 기술을 쓰는 중 (신산)
 	var cleaving := false     # 휩쓸기 · 파상 피해 중 (다시 번지지 않게)
 	var steady_used := false  # 진정 —— 사기 60 아래에서 한 번 추스름을 썼는가
+	var moved_next := -999    # 11/8 분발을 다시 받을 수 있는 턴 (moved_cd)
 	var stand_used := false   # 사수 —— 방진 중 병력 1에서 버티기를 썼는가
 	var countering := false   # 반격 중 (점검 통계용)
 	var taken := 0.0          # 받은 병력 피해 합 (결과표 —— 11/3: '처음 − 남은' 은 쓰러진 부대가 모두 최대 병력으로 같아 보였다)
@@ -1803,9 +1809,13 @@ func _give_moved(u: Unit) -> void:
 	var found := false
 	for b in u.buffs:
 		if b.get("moved", false):
-			b.dur = maxi(b.dur, dur)
+			if moved_cd <= 0:
+				b.dur = maxi(b.dur, dur)
 			found = true
+	if moved_cd > 0 and (found or _turn < u.moved_next):
+		return          # 11/8 분발 중이거나 끝난 뒤 대기 중 —— 늘리지도 (인의) 방진을 다시 치지도 않는다
 	if not found:
+		u.moved_next = _turn + dur + moved_cd
 		var amt: float = DB.PSV.virtue.moved
 		u.buffs.append({"stat": "atk", "amt": amt, "dur": dur, "moved": true})
 		u.buffs.append({"stat": "int", "amt": amt, "dur": dur, "moved": true})
