@@ -1517,8 +1517,8 @@ func _page_draw() -> Control:
 
 ## 징집 보유 목록의 '완성된 장수' (11/7 사용자) —— [신화 | 불멸] · [초월 | 기인] 두 줄과 「완성된 장수 접기」.
 ## 65a490f 가 조합 페이지에 만든 등급 묶음(_forge_group)을 조합법 대신 가진 카드로 옮겼다 —— 카드 뜻은 그대로 (×N · 편성 · ▲ 지금 조합 재료 · 누르면 디테일).
-## 줄마다 [등급, 이름, 칸 최소 폭, 칸 높이, 금테] 둘. 신화는 금테 · 조금 큰 칸(86×112 —— 불멸 74×100), 초월 · 기인 64×92 (칭호 붙은 이름이 한 줄에 드는 폭)
-const DONE_ROWS := [[[8, "신화", 86.0, 112.0, true], [7, "불멸", 74.0, 100.0, false]], [[6, "초월", 64.0, 92.0, false], ["기인", "기인", 64.0, 92.0, false]]]
+## 줄마다 [등급, 이름, 칸 최소 폭, 칸 높이, 금테] 둘. 신화는 금테 · 조금 큰 칸(86×112 —— 불멸 74×100), 초월 · 기인도 74×100 (11/9 불멸과 같게, 칭호 붙은 이름이 한 줄에 드는 폭)
+const DONE_ROWS := [[[8, "신화", 86.0, 112.0, true], [7, "불멸", 74.0, 100.0, false]], [[6, "초월", 74.0, 100.0, false], ["기인", "기인", 74.0, 100.0, false]]]      # 11/9 초월 · 기인 칸을 불멸 줄과 같게 (아래 등급처럼 보이지 않게)
 
 func _hand_done(inner: VBoxContainer, by: Dictionary, p: Dictionary, hand_tile: Callable) -> void:
 	var counts := []      # [이름, 색, 장수]
@@ -1928,8 +1928,17 @@ func card_info(k: String) -> void:
 	st.custom_minimum_size.y = 188
 	st.add_child(_stat_row(c))
 	var gt := DB.guard_text(c.tag)      # 11/8 피해 종류 · 병종 갑옷 · 결계 한 줄 ("물리 피해 · 갑옷 30%")
-	if gt != "":
-		st.add_child(UI.lbl(gt, 12, Color("#6fa8ff") if DB.dmg_kind(c.tag) == "int" else Color("#ff8a6a")))
+	var rc := DB.role_chip(k)      # 11/9 대표 역할 칩 (기인) + 피해 종류 한 줄
+	if gt != "" or not rc.is_empty():
+		var gh := UI.hbox(6)
+		if not rc.is_empty():
+			var rp := PanelContainer.new()
+			rp.add_theme_stylebox_override("panel", UI.flat(Color(rc.col).darkened(0.4), Color(rc.col).lightened(0.2), 1, 3, 2))
+			rp.add_child(UI.lbl("역할 " + str(rc.t), 12, Color.WHITE, true))
+			gh.add_child(rp)
+		if gt != "":
+			gh.add_child(UI.lbl(gt, 12, DB.kind_col(c.tag)))
+		st.add_child(gh)
 	st.add_child(TraitBoard.new().setup(k))
 	_ability_rows(st, k, 12)      # 11/7 사용자: 고유 특기 · 위세 · 고유기(+기질)는 『』 글줄 대신 특기판과 같은 칸
 	top.add_child(st)
@@ -2166,6 +2175,10 @@ func _ability_rows(into: Container, k: String, fs := 12, narrow := false) -> voi
 	if DB.AURA.has(k):
 		var kiin: bool = DB.is_kiin(k)
 		into.add_child(_ability_tile("기인" if kiin else "위세", DB.AURA[k].n, DB.aura_effect(k), DB.KIIN_COL if kiin else ABILITY_COL.aura, fs, "", narrow))
+	if DB.AURA.has(k) and DB.AURA[k].has("paeup"):      # 11/9 패업 —— 이름 · 조건 · 효과 (판정은 Battle._paeup_setup)
+		var pa: Dictionary = DB.AURA[k].paeup
+		var cw := "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"
+		into.add_child(_ability_tile("패업", str(pa.n), "아군에 %s 자신 외 %d명 이상이면 —— %s" % [cw, int(pa.need), str(pa.get("d", ""))], Color("#d96a8a"), fs, "", narrow))
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
 		into.add_child(_ability_tile("고유기", u.name, UI.ult_desc(u, c.tier), ABILITY_COL.ult, fs, "%d초부터" % roundi(u.wait), narrow))

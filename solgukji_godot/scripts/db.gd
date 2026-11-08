@@ -1347,6 +1347,26 @@ func dmg_kind(tag: String) -> String:
 	return str(GUARD.get("kind", {}).get(tag, "int" if INT_TAGS.has(tag) else "phys"))
 
 
+## 11/9 카드 표지 —— 대표 역할 두 글자 칩 (기인만 데이터가 있다: passives.json role.kiin[인물][2]). 없으면 빈 사전. 색은 docs/역할_재설계_1108.md 4절
+const ROLE_CHIP := {"방깎": ["방깎", "#a8893c"], "결계 깨기": ["파계", "#5a6fc0"], "공깎": ["공깎", "#b0504a"], "둔화": ["둔화", "#3f9aa8"],
+	"기절": ["기절", "#9a5ab0"], "보딜": ["보딜", "#c98a2e"], "광역": ["광역", "#3f7fc0"], "도트": ["도트", "#c8553d"],
+	"철벽": ["철벽", "#6f8aa6"], "치료": ["지원", "#4f9a5a"], "지원": ["지원", "#4f9a5a"]}
+
+func role_chip(k: String) -> Dictionary:
+	if not is_kiin(k):
+		return {}
+	var kr: Array = PSV.get("role", {}).get("kiin", {}).get(person(k), [])
+	if kr.size() < 3 or not ROLE_CHIP.has(str(kr[2])):
+		return {}
+	var e: Array = ROLE_CHIP[str(kr[2])]
+	return {"t": e[0], "col": Color(e[1])}
+
+
+## 피해 종류 색 —— 물리 주황 · 책략 파랑 (카드 병종 기호 테두리 · 디테일창 글)
+func kind_col(tag: String) -> Color:
+	return Color("#6fa8ff") if dmg_kind(tag) == "int" else Color("#ff8a6a")
+
+
 ## 병종 기본 막 {phys: 갑옷, int: 결계}
 func guard_of(tag: String) -> Dictionary:
 	return {"phys": float(GUARD.get("armor", {}).get(tag, 0.0)), "int": float(GUARD.get("ward", {}).get(tag, 0.0))}

@@ -169,6 +169,7 @@ func _draw() -> void:
 		draw_circle(pr.position + Vector2(8, 8), 7, DB.fac_color(c.fac))
 		draw_string(DB.font_display, pr.position + Vector2(1, 12), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 14, 9, Color.WHITE)
 	_tag_icon(c, pr.end - Vector2(10, 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼
+	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 2, pr.end.y - 15), 10)      # 11/9 대표 역할 칩
 	var fd := DB.tier_font(c.tier)
 	var nm: String = c.name
 	var fs := 13
@@ -209,7 +210,7 @@ func _tag_icon(c: Dictionary, p: Vector2, r: float) -> void:
 	var ic: Texture2D = DB.ICON.get(c.tag)
 	if ic == null:
 		return
-	draw_circle(p, r + 1.0, Color(0, 0, 0, 0.55))
+	draw_circle(p, r + 1.5, DB.kind_col(c.tag))      # 11/9 피해 종류 —— 테두리 색 (물리 주황 · 책략 파랑)
 	draw_circle(p, r, Color(DB.PAL.ink, 0.92))
 	var s := r * 1.5
 	draw_texture_rect(ic, Rect2(p - Vector2(s, s) / 2.0, Vector2(s, s)), false, DB.PAL.paper)

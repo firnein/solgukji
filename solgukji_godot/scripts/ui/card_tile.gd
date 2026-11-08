@@ -107,8 +107,10 @@ func _draw() -> void:
 		draw_string(DB.font_display, pr.position + Vector2(1, 13), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color.WHITE)
 	# 병종 기호 —— 초상 오른쪽 위
 	var tcen := Vector2(pr.end.x - 8, pr.position.y + 8)
-	draw_circle(tcen, 8.5, Color(DB.PAL.ink, 0.85))
+	draw_circle(tcen, 9.5, DB.kind_col(c.tag))      # 11/9 피해 종류 —— 병종 기호 테두리 (물리 주황 · 책략 파랑)
+	draw_circle(tcen, 8.5, Color(DB.PAL.ink, 0.92))
 	draw_texture_rect(DB.ICON[c.tag], Rect2(tcen - Vector2(5.5, 5.5), Vector2(11, 11)), false, DB.PAL.paper)
+	draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 14), 10)      # 11/9 대표 역할 칩
 	var x := pr.end.x + 7
 	var tw := w - x - 6
 	var fd := DB.tier_font(c.tier)
@@ -160,3 +162,19 @@ static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 		ci.draw_string(fb, p + Vector2(4, ch - 5), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.paper)
 		ci.draw_string(fb, p + Vector2(5 + nw, ch - 5), lvs, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.gold)
 		p.x += cw + gap
+
+
+## 11/9 대표 역할 두 글자 칩 (기인만 —— DB.role_chip). p 는 칩 왼쪽 위
+static func draw_role_chip(ci: CanvasItem, id: String, p: Vector2, fs := 10) -> void:
+	var rc := DB.role_chip(id)
+	if rc.is_empty():
+		return
+	var fb := DB.font_body
+	var cw := fb.get_string_size(rc.t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 7
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(rc.col).darkened(0.35)
+	sb.border_color = Color(rc.col).lightened(0.2)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3)
+	ci.draw_style_box(sb, Rect2(p, Vector2(cw, fs + 4)))
+	ci.draw_string(fb, p + Vector2(3.5, fs + 1), rc.t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
