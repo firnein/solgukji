@@ -3,6 +3,8 @@ extends Node
 ##   [-- --games=8 --tier=7 --decks=창병6,술사6,물리9,책략9,고루 --noshield --guard=창병:0.3,기병:0.15,술사:0.3,책사:0.15]
 ## 같은 등급 카드로만 짜서 비용을 맞춘다 (budget_mix 처럼 판마다 덱을 새로 뽑고, 같은 시드로 자리를 바꿔 두 번).
 ## 덱: <병종>6 = 그 병종 6 + 무작위 3 · 물리9 / 책략9 = 그 피해 종류만 · 고루 = 병종마다 1 + 무작위 1 (갑옷 깎기 · 결계 깎기 장수 각 1 먼저) · 고루0 = 고루에서 깎기 장수를 뺀 것
+## 11/8 덱 이름 뒤 @등급 → 그 등급 카드 (예: 지원6@8 대 전투9 = 한 등급 위 지원 덱 대 전투 덱) · <병종>N = 그 병종 N + 무작위 · 전투9 = 창 · 기 · 궁 · 도적 · 책사 · 술사만
+##   지원6 = 유생 · 모사 6 + 전투 3 · 섞음N = 유생 · 모사 N + 전투 나머지 · --pairs=A:B,C:D → 그 맞대결만 (앞 덱 승률)
 ## 결과: 상성표(행 덱의 승률) · 리그 평균 · 상대별 승률 폭(가장 높은 − 가장 낮은)
 ## 11/8 병종 균형 원인 찾기 —— 기능을 끄거나 값을 바꿔 같은 리그를 다시 잰다 (덱 · 시드는 그대로라 차이가 그 기능의 몫):
 ##   --off=고유기,특기,역할,상성,인덕,잔기술,위세,계략,철벽,화공,수공,깎기,기질,치료(유생 치료),기술(일반 기술),우대(진형 우대),자리(선호 자리 배율),줄(줄 배율),책줄(책략계 줄 배율만),우회(도적 크게 돌기),후열평타(평타로 가장 깊은 적 치기)
@@ -19,6 +21,10 @@ var pool: Array = []
 var by_tag := {}
 var phys_sh: Array = []
 var int_sh: Array = []
+var tier0 := 7
+var tiers := {}      # 등급 → [pool, by_tag, phys_sh, int_sh] (덱 이름 뒤 @등급 으로 다른 등급 덱을 섞는다)
+const FIGHT := ["창병", "기병", "궁병", "도적", "책사", "술사"]      # 전투 병종
+const SUPPORT := ["유생", "모사"]      # 지원 병종 (유생 치료 · 사기 · 버프, 모사 약화 · 제어)
 
 
 func _ready() -> void:
@@ -39,16 +45,8 @@ func _ready() -> void:
 		knob += " · 축 끔 " + ax
 	var stat := args.has("stat")
 	var evs := args.has("ev")
-	pool = DB.by_tier(tier).filter(func(k): return not DB.is_kiin(k))
-	for k in pool:
-		var tg: String = DB.C[k].tag
-		if not by_tag.has(tg):
-			by_tag[tg] = []
-		by_tag[tg].append(k)
-		if _phys_shred(k):
-			phys_sh.append(k)
-		if _int_shred(k):
-			int_sh.append(k)
+	tier0 = tier
+	_use(tier)
 	print("── 리그전 등급 %d (%s) · 막 %s · 판 %d × 자리 2 · 갑옷 깎기 %d명 · 결계 깎기 %d명 %s%s" % [tier, DB.TIER[tier].n,
 		"끔" if not Battle.shield_enabled else ("켬" if Battle.guard_over.is_empty() else str(Battle.guard_over)), games, phys_sh.size(), int_sh.size(),
 		"" if names.size() == DECKS.size() else str(names), knob])
@@ -58,6 +56,23 @@ func _ready() -> void:
 		w[a] = {}
 		st[a] = {"n": 0, "len": 0.0, "heal": 0.0, "left": 0.0, "basic": 0.0, "sk": 0.0, "minor": 0.0, "ult": 0.0, "dot": 0.0, "casts": 0.0, "tgts": 0.0}
 	var t0 := Time.get_ticks_msec()
+	if args.has("pairs"):      # --pairs=지원6@8:전투9,… → 그 맞대결만 (앞 덱의 승률)
+		for pr in str(args.pairs).split(",", false):
+			var ab := pr.split(":")
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed0 + hash(pr) % 1000
+			var s := 0.0
+			for g in games:
+				var da := DB.auto_place(_deck(ab[0], rng), "eorin")
+				var db := DB.auto_place(_deck(ab[1], rng), "eorin")
+				var sd := rng.randi() % 1000000
+				var r1 := RtBattle.make(sd).run(da, "eorin", 100, null, db, "eorin", 100, null, "", "", [], {"A": "smart", "B": "smart"})
+				var r2 := RtBattle.make(sd).run(db, "eorin", 100, null, da, "eorin", 100, null, "", "", [], {"A": "smart", "B": "smart"})
+				s += (1.0 if r1.win else (0.5 if r1.draw else 0.0)) + (1.0 if (not r2.win and not r2.draw) else (0.5 if r2.draw else 0.0))
+			print("맞대결 %s 대 %s : %d%%" % [ab[0], ab[1], roundi(s / (games * 2.0) * 100)])
+		print("끝 (%.0f초)" % ((Time.get_ticks_msec() - t0) / 1000.0))
+		get_tree().quit()
+		return
 	for i in names.size():
 		for j in range(i + 1, names.size()):
 			var rng := RandomNumberGenerator.new()
@@ -122,8 +137,48 @@ func _ready() -> void:
 	get_tree().quit()
 
 
-func _deck(name_: String, rng: RandomNumberGenerator) -> Array:
+## 그 등급 카드 풀로 바꾼다 (처음 쓸 때 만든다)
+func _use(t: int) -> void:
+	if not tiers.has(t):
+		var pl := DB.by_tier(t).filter(func(k): return not DB.is_kiin(k))
+		var bt := {}
+		var ps := []
+		var is_ := []
+		for k in pl:
+			var tg: String = DB.C[k].tag
+			if not bt.has(tg):
+				bt[tg] = []
+			bt[tg].append(k)
+			if _phys_shred(k):
+				ps.append(k)
+			if _int_shred(k):
+				is_.append(k)
+		tiers[t] = [pl, bt, ps, is_]
+	pool = tiers[t][0]
+	by_tag = tiers[t][1]
+	phys_sh = tiers[t][2]
+	int_sh = tiers[t][3]
+
+
+## 덱 이름 —— 이름@등급 이면 그 등급 카드로 (없으면 --tier). 전투9 = 전투 병종만 · 지원6 = 유생 · 모사 6 + 전투 3 · 섞음N = 지원 N + 전투 나머지 · <병종>N = 그 병종 N + 무작위
+func _deck(spec: String, rng: RandomNumberGenerator) -> Array:
+	var at := spec.split("@")
+	_use(int(at[1]) if at.size() > 1 else tier0)
+	var name_: String = at[0]
 	var out := []
+	var fight := pool.filter(func(k): return DB.C[k].tag in FIGHT)
+	var sup := pool.filter(func(k): return DB.C[k].tag in SUPPORT)
+	if name_ == "전투9":
+		for i in 9:
+			_add(out, fight, rng)
+		return out
+	if name_ == "지원6" or name_.begins_with("섞음"):
+		var ns := 6 if name_ == "지원6" else int(name_.trim_prefix("섞음"))
+		for i in ns:      # 유생 · 모사 번갈아
+			_add(out, by_tag.get(SUPPORT[i % 2], sup), rng)
+		while out.size() < 9:
+			_add(out, fight, rng)
+		return out
 	if name_ == "물리9" or name_ == "책략9":
 		var src := pool.filter(func(k): return DB.dmg_kind(DB.C[k].tag) == ("phys" if name_ == "물리9" else "int"))
 		for i in 9:
@@ -140,19 +195,22 @@ func _deck(name_: String, rng: RandomNumberGenerator) -> Array:
 		while out.size() < 9:
 			_add(out, pool.filter(func(k): return not no_sh or not (phys_sh.has(k) or int_sh.has(k))), rng)
 	else:
-		var tg := name_.trim_suffix("6")
-		for i in 6:
+		var n := int(name_.right(1))
+		var tg := name_.left(name_.length() - 1)
+		for i in n:
 			_add(out, by_tag.get(tg, []), rng)
 		while out.size() < 9:
 			_add(out, pool, rng)
 	return out
 
 
-## 같은 인물은 한 장만 (모자라면 겹쳐도)
+## 같은 인물은 한 장만 —— 실제 게임처럼(Run.dup_slot: 고급 이상 같은 인물은 한 칸만). 그 병종에 고를 인물이 없으면 다른 병종으로 채운다 (11/8 지휘: 예전엔 겹쳐 넣어 신화 위세 · 단체 특기가 몇 배로 쌓였다)
 func _add(out: Array, src: Array, rng: RandomNumberGenerator) -> void:
 	if src.is_empty():
 		src = pool
 	var cand := src.filter(func(k): return not out.any(func(x): return DB.person(x) == DB.person(k)))
+	if cand.is_empty():
+		cand = pool.filter(func(k): return not out.any(func(x): return DB.person(x) == DB.person(k)))
 	if cand.is_empty():
 		cand = src
 	out.append(cand[rng.randi() % cand.size()])
@@ -244,12 +302,12 @@ func _knobs(off: String, set_: String) -> String:
 			"heal": Battle.ROLE.schol_heal = v
 			"movedcd": Battle.moved_cd = int(v)
 			"cnti":     # 책략계가 끼는 상성 세기만 (등급별 int_amt 를 모두 이 값으로)
-				for t in DB.CLASS_COUNTER.int_amt:
+				for t in DB.CLASS_COUNTER.get("int_amt", {}):
 					DB.CLASS_COUNTER.int_amt[t] = v
 			"cnt":      # 병종 상성 세기 (등급별 책략 상성도 같은 비율로)
 				var r := v / float(DB.CLASS_COUNTER.amt)
 				DB.CLASS_COUNTER.amt = v
-				for t in DB.CLASS_COUNTER.int_amt:
+				for t in DB.CLASS_COUNTER.get("int_amt", {}):
 					DB.CLASS_COUNTER.int_amt[t] = float(DB.CLASS_COUNTER.int_amt[t]) * r
 			_:
 				push_error("모르는 --set: " + p[0])
