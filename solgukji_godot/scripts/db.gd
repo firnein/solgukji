@@ -184,7 +184,7 @@ func _load() -> void:
 	PLAY_TIERS.sort()
 
 	for k in C:
-		if C[k].tier == 1:
+		if C[k].tier == 1 and not is_foe(k):      # 11/9 황건 잡병(y1x, 적 전용)은 기본패가 아니다
 			BASE.append(k)
 
 	ULT = JSON.parse_string(FileAccess.open("res://data/ultimates.json", FileAccess.READ).get_as_text())
@@ -484,14 +484,14 @@ func _build_horde(k: String) -> void:
 
 
 ## 대군 잡병 —— 토벌 우두머리 편성(cards)의 가장 낮은 등급보다 두 등급 아래 황건 병사를 n 부대. 앞에 설 병종부터 (대군 진형의 9 번 칸부터 앞 줄 순서)
-const HORDE_POOL := {1: ["spear", "rogue", "horse", "bow", "occul"], 2: ["c0", "c1", "c6", "c2", "c3", "c4", "c5", "c9"]}
+## 11/9 사용자: 기본 · 일반 등급 플레이어 부대(창병 · 궁병 · 기병 …)가 섞여 나왔다 —— 1 · 2 등급도 황건 잡병(y1x · y2x, 적 전용)으로
 func horde_rabble(cards: Array, n: int, rng: RandomNumberGenerator) -> Array:
 	var lo := 9
 	for k in cards:
 		if k != null:
 			lo = mini(lo, int(C[k].tier))
 	var t := clampi(lo - 2, 1, 7)
-	var pool: Array = HORDE_POOL.get(t, ["y%d0" % t, "y%d1" % t, "y%d2" % t, "y%d3" % t, "y%d4" % t])
+	var pool: Array = ["y%d0" % t, "y%d1" % t, "y%d2" % t, "y%d3" % t, "y%d4" % t]
 	pool = pool.filter(func(k): return C.has(k))
 	var out := []
 	for i in n:
