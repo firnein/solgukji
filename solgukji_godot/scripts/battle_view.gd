@@ -812,6 +812,16 @@ func _begin() -> void:
 		get_tree().create_timer(1.3).timeout.connect(func():
 			if running and not finished:
 				hud.announce(line, DB.PAL.gold))
+	# 11/9 패업 —— 개전에 발동 · 불발을 가운데 띠 한 줄로 (엔진 기록 res.paeup: 진영 · 이름 · 발동 · 조건 장수 수)
+	var pl := []
+	for pp in res.get("paeup", []):
+		pl.append("%s 패업『%s』 %s (%d/%d)" % ["아군" if str(pp.camp).begins_with("A") else "적", pp.n, "발동" if pp.on else "불발", int(pp.have), int(pp.need)])
+	if not pl.is_empty():
+		var pline := " · ".join(pl)
+		var pon: bool = res.paeup.any(func(pp): return pp.on)
+		get_tree().create_timer(2.6).timeout.connect(func():
+			if running and not finished:
+				hud.announce(pline, Color("#ff9ab4") if pon else DB.PAL.bamboo))
 	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
 
 
@@ -2101,6 +2111,7 @@ class Hud extends Control:
 				var s2 := rr * 1.3
 				draw_texture_rect(ic, Rect2(pc - Vector2(s2, s2) / 2.0, Vector2(s2, s2)), false, Color(DB.PAL.paper, 0.9 * a))
 			draw_arc(pc, rr, 0, TAU, 24, Color(team.lightened(0.3), a), 1.2)
+			_guard_mark(pc, rr, sq, a)
 			return
 		# 빛 —— 1등만 (신화는 더 강하게), 고유기가 찬 장수는 누구든 번쩍
 		var glow := 0.0
@@ -2140,6 +2151,34 @@ class Hud extends Control:
 					draw_circle(q, 3.6, Color(1.0, 0.85, 0.4, 0.3 * a))
 		elif em == 2:
 			_horn(top, 4.0, tc, a)
+		_guard_mark(pc, rr, sq, a)
+
+	## 11/9 적 갑옷(방패) · 결계(소용돌이) 표지 —— 메달 오른쪽 아래. 깎인 동안(상태 cut_def · cut_res)은 붉은 테 + 금 간 선. 아군 · 막 없는 부대는 없다
+	func _guard_mark(pc: Vector2, rr: float, sq: Squad, a: float) -> void:
+		if sq.camp != "B" or not sq.alive:
+			return
+		var sh: Array = sq.row.get("sh", [0.0, 0.0])
+		var ward: bool = float(sh[0]) <= 0.0 and float(sh[1]) > 0.0
+		if float(sh[0]) <= 0.0 and not ward:
+			return
+		var broken: bool = sq.statuses.has("cut_res" if ward else "cut_def")
+		var s := maxf(4.0, rr * 0.42)
+		var c := pc + Vector2(rr * 0.78, rr * 0.78)
+		var base := Color("#6fa8ff") if ward else Color("#d8c27a")
+		var rim := Color("#ff5a4a") if broken else base
+		draw_circle(c, s + 2.0, Color(0, 0, 0, 0.6 * a))
+		if ward:
+			draw_circle(c, s + 1.0, Color(0.05, 0.08, 0.16, 0.92 * a))
+			for i in 2:      # 소용돌이 —— 반지름이 커지는 두 호
+				var r0 := s * (0.35 + 0.35 * i)
+				draw_arc(c, r0, i * PI, i * PI + PI * 1.5, 12, Color(rim, a), 1.4)
+		else:
+			var pts := PackedVector2Array([c + Vector2(-s, -s * 0.85), c + Vector2(s, -s * 0.85), c + Vector2(s, s * 0.05), c + Vector2(0, s * 1.1), c + Vector2(-s, s * 0.05)])
+			draw_colored_polygon(pts, Color(0.12, 0.1, 0.06, 0.92 * a))
+			pts.append(pts[0])
+			draw_polyline(pts, Color(rim, a), 1.4)
+		if broken:      # 금 —— 대각선 지그재그
+			draw_polyline(PackedVector2Array([c + Vector2(-s * 0.2, -s * 0.9), c + Vector2(s * 0.15, -s * 0.2), c + Vector2(-s * 0.15, s * 0.1), c + Vector2(s * 0.2, s * 0.9)]), Color(1, 0.9, 0.85, a), 1.3)
 
 	## 화면 밖(카메라 뒤 −99999 등) 좌표면 다각형 분할이 실패해 오류가 쏟아진다 (11/3) —— 그리지 않는다
 	func _on_screen(p: Vector2) -> bool:
@@ -2286,6 +2325,7 @@ class Hud extends Control:
 				draw_arc(p, r + 10.0, -PI / 2.0, -PI / 2.0 + TAU * ck, 36, Color("#ffd257", a), 2.5)
 		if sq.hurt > 0.05:      # 맞을 때만 고리를 흰빛으로 덧그린다
 			draw_arc(p, r + 2.6, 0, TAU, 24, Color(1, 1, 1, sq.hurt * 0.6 * a), 3.0)
+		_guard_mark(p, r, sq, a)      # 11/9 적 갑옷 · 결계 표지
 		if not sq.alive:
 			draw_circle(p, r, Color(0, 0, 0, 0.6))
 		# 병력 —— 5.3K 처럼

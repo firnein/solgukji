@@ -210,6 +210,7 @@ class Unit:
 	var theal := 0.0          # 병력 치료 합 (최대 병력 대비 · 점검용)
 	var charged := false      # 기병 첫 돌격을 했는가 (11/3 병종 역할)
 	var dmg := 0.0
+	var gain := 0.0           # 11/9 결과창 역할 기여 —— 내가 건 갑옷 · 결계 깎기로 아군이 더 넣은 피해 (기록만, 판정에 안 쓴다)
 	var mdmg := 0.0
 	var heal := 0.0
 	var kills := 0
@@ -1018,6 +1019,17 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		d.gauge = maxf(0.0, d.gauge - ROLE.rogue_gauge)
 		if not d.sk_ch.is_empty():
 			d.sk_ch[0] = maxf(0.0, d.sk_ch[0] - ROLE.rogue_charge)
+	if shield_enabled:      # 11/9 깎기 기여 기록 —— 깎기가 없었다면 막 그대로였을 몫과의 차이를 건 장수에게
+		var gk := dmg_kind(a)
+		var gs: Dictionary = d.shred[gk]
+		if int(gs.t) > 0 and str(gs.by) != "":
+			var gb := clampf(float(d.shield[gk]), 0.0, _gv("cap", 0.75))
+			var gc := _shield(d, gk)
+			if gc < gb:
+				for gu in units:
+					if gu.key == gs.by:
+						gu.gain += loss * (1.0 - (1.0 - gb) / (1.0 - gc))
+						break
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
 	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
 	if a.countering:
@@ -1718,6 +1730,8 @@ func _shown_st(u: Unit) -> Array:
 			out.append(CUT_ST[k])
 	if shield_enabled and int(u.shred.phys.t) > 0 and float(u.shield.phys) > 0.0 and not out.has("cut_def"):
 		out.append("cut_def")      # 11/8 갑옷 깨짐 —— 제 아이콘은 3단계, 지금은 파갑 표지를 같이 쓴다
+	if shield_enabled and int(u.shred["int"].t) > 0 and float(u.shield["int"]) > 0.0:
+		out.append("cut_res")      # 11/9 결계 깨짐 —— 화면 표지 (기록만)
 	return out
 
 
@@ -2354,7 +2368,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 	for u in units:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
-			"item": u.item, "morale": u.morale, "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills,
+			"item": u.item, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills,
 			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
