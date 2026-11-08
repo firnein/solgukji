@@ -7,6 +7,9 @@ const PATH := "user://settings.cfg"
 const QUALITY_N := ["낮음", "중간", "높음"]
 const FULL_COUNT_DEBUG := true
 const COUNT_SCALE := [0.4, 0.65, 1.0]     # 병사 수 배율 (Squad.count_scale)
+## 11/9 병사 표시 예산 —— 전투 전체에서 화면에 그리는 병사 수 상한 [PC, 휴대폰]. 넘으면 그만큼만 그리고 남은 인형을 크게 · 짙게 (type2_view.gd). 판정 · 병력은 그대로
+const DRAW_BUDGET := [9000, 5000]
+const DRAW_GROW_MAX := 1.35     # 예산으로 줄인 비율이 클 때 인형 최대 배율
 const SHADOW := [1024, 2048, 4096]
 const RES_SCALE := [0.75, 0.9, 1.0]      # 전장 3D 해상도 (화면 실제 픽셀 대비) —— 낮으면 병사가 뿌옇다
 

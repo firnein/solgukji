@@ -26,6 +26,11 @@ uniform vec3 team_b : source_color = vec3(0.93, 0.31, 0.24);
 uniform float scatter = 1.0;    // 흐트러짐 세기 (0 이면 흐트러뜨리기 전 배치 —— Type2View.scatter)
 uniform float lod = 0.0;        // 0 다 그림 · 1 겹친 부대만 안쪽 2명당 1명 · 2 모든 부대
 uniform float lod_px = 4.0;     // 화면 병사 간격이 이보다 좁으면 '겹친 부대'
+// 11/9 병사 표시 예산 —— 전투 전체에서 그리는 병사 수 상한(휴대폰 5천 · PC 9천)을 넘으면 모든 부대에서 같은 비율(keep)만 그린다 (씨앗 순 —— 쓰러지는 병사도 같은 기준).
+//   줄인 만큼 남은 병사 인형을 키우고(grow, 최대 1.35배) 진영색을 짙게(dark 0~1) 해 대군이 엷어 보이지 않게 한다. 판정 · 병력 · 엔진 위치는 그대로
+uniform float keep = 1.0;
+uniform float grow = 1.0;
+uniform float dark = 0.0;
 
 varying vec4 tint;
 varying float atlas_x;
@@ -75,7 +80,7 @@ void vertex() {
 	if (dying) {
 		// 쓰러지는 병사 —— 죽은 자리에 고정, 시각이 되면 넘어진다. 부대가 사라졌으면(gone, 9.w) 같이 사라진다
 		float u = clock - ic.a;
-		hide = sq(row, 9).w > 0.5 || u > 2.0;
+		hide = sq(row, 9).w > 0.5 || u > 2.0 || seed > keep;
 		float xi = floor(ic.g / 3000.0);
 		vec2 p = vec2(xi - 1500.0, ic.g - xi * 3000.0 - 1500.0);
 		vec2 fwd0 = normalize(t0.zw + vec2(1e-5, 0.0));
@@ -85,7 +90,7 @@ void vertex() {
 		vec2 d = p - center;
 		sp2 = vsize * 0.5 + vec2(d.y, -d.x * tilt) * scl;
 		float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);
-		h = fig * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep * max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5);
+		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep * max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5);
 		float fall = hash(seed * 11.9) < 0.5 ? 1.0 : -1.0;
 		rotz = fall * clamp(u / 0.35, 0.0, 1.0) * 3.14159 * 0.5 * (u > 0.0 ? 1.0 : 0.0);
 		shade = u > 0.0 ? 0.55 : 1.0;
@@ -94,7 +99,7 @@ void vertex() {
 		vec4 t6 = sq(row, 6);
 		vec2 squeeze = sq(row, 7).xy;
 		float g = ic.g;
-		hide = hide || g < 0.0 || seed > t2.w;
+		hide = hide || g < 0.0 || seed > t2.w || seed > keep;
 		g = max(g, 0.0);
 		float old1 = floor(g / 1024.0);
 		float slot = g - old1 * 1024.0;
@@ -215,7 +220,7 @@ void vertex() {
 		sp2.y -= abs(sin(walk * 0.9)) * 2.4 * (moving ? 1.0 : 0.0);           // 걸음 —— 위아래로 (11/7 1.4 → 2.4)
 		if (fighting3) sp2.y -= abs(sin(clock * 5.0 + seed * 17.0)) * 1.6;        // 싸우는 병사는 들썩인다
 		float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);      // 화면 위(먼) 병사는 작게
-		h = fig * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep;
+		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep;
 		h *= max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5);      // 병종 크기 (기병 크게)
 		if (fighting3 && hash(seed * 51.7 + floor(clock * 0.8 + seed * 3.0)) < 0.18) flip = -flip;      // 난전에선 가끔 옆 · 뒤를 돌아본다
 		if (!contact && !moving0 && hash(seed * 61.3) < 0.07 * scatter) flip = -flip;                 // 서 있을 땐 몇이 딴 데를 본다
@@ -225,6 +230,7 @@ void vertex() {
 	VERTEX = hide ? vec2(-99999.0) : sp2 + lv + vec2(0.0, -h * 0.5);
 	vec3 team = camp > 0.5 ? team_b : team_a;
 	if (mod(t3.z, 2.0) >= 1.0) team = mix(team, vec3(0.48, 0.29, 0.16), 0.35);      // 파갑 —— 녹슨 빛
+	team = mix(vec3(dot(team, vec3(0.3, 0.59, 0.11))), team, 1.0 + 0.3 * dark) * (1.0 - 0.2 * dark);      // 많이 줄였을수록 진영색을 짙게 (채도 +30% · 밝기 -20% 까지)
 	float row_shade = 1.0 - 0.06 * mod(row, 3.0);
 	float man_shade = 1.0 - (0.16 * hash(seed * 9.9) - 0.08) * scatter;      // 병사마다 옷 밝기 (무리가 한 덩어리로 보이지 않게)
 	tint = vec4(team * row_shade * man_shade * shade, (dying ? 1.0 : t2.w) * alpha);

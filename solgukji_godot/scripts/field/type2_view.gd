@@ -71,7 +71,8 @@ func setup() -> void:
 	var men := 0
 	for sq: Squad in field.order:
 		men += sq.soldiers.size()
-	_lv_floor = _floor_for(men)
+	_set_budget()
+	_lv_floor = _floor_for(men)      # 바닥 단계는 전투 병사 수 그대로 (먼지 · 바닥 · 30Hz 같은 부수 비용은 병사 수를 따른다)
 	load_lv = _lv_floor      # 지난 전투의 단계를 이어 쓰지 않는다 (작은 전투가 큰 전투 단계로 시작했다)
 	_ft = 1.0 / 60.0
 	_lv_hold = 2.0           # 처음 2초는 셰이더 · 노드 준비로 튀므로 보지 않는다
@@ -141,11 +142,30 @@ var drawn_figs := 0            # 지난 프레임에 그린 인형 수 (묶음 �
 var gpu_shown := 0             # 지난 프레임에 그린 GPU 병사 인스턴스 수 (LOD 로 줄인 뒤) —— 성능 표시 · 점검용
 static var force_lv := -1      # 점검용 (tests/perf_probe --lv=N) —— 부하 조절 단계를 고정한다 (-1 이면 자동)
 static var lod_on := true      # 점검용 (--lod=0) —— 병사 수 LOD 끔 (전후 비교)
+static var budget_on := true   # 점검용 (--budget=0) —— 병사 표시 예산 끔 (전후 비교)
+var draw_keep := 1.0           # 예산 때문에 그리는 병사 비율 (1 = 다 그림) —— 전투마다 setup 이 정한다
+var draw_grow := 1.0           # 줄인 비율에 따른 인형 배율 (1~1.35)
+var draw_dark := 0.0           # 줄인 비율에 따른 진영색 짙기 (0~1)
 static var mobile_test := false     # 점검용 (--mobile=1) —— PC 에서 휴대폰 문턱으로
 
 
 static func _mobile() -> bool:
 	return mobile_test or OS.has_feature("mobile")
+
+
+## 11/9 병사 표시 예산 (setup) —— 그릴 병사(장수 뺀 전체)가 상한을 넘으면 모든 부대에서 같은 비율만 그린다 (부대 몫 = 원래 그릴 수 × 비율).
+## 줄인 비율 r = 1 - keep 이 클수록 인형 최대 1.35배 · 진영색 짙게 (r 0.7 에서 최대, 부드럽게). 부하 조절 단계는 이 뒤 남은 병사 기준으로 (_shown_of)
+func _set_budget() -> void:
+	var drawn := 0
+	for sq: Squad in field.order:
+		drawn += maxi(0, sq.soldiers.size() - (1 if sq.general != null else 0))
+	var cap := int(Settings.DRAW_BUDGET[1 if _mobile() else 0])
+	draw_keep = 1.0
+	if budget_on and drawn > cap:
+		draw_keep = float(cap) / float(drawn)
+	var k := smoothstep(0.0, 0.7, 1.0 - draw_keep)
+	draw_grow = 1.0 + (Settings.DRAW_GROW_MAX - 1.0) * k
+	draw_dark = k
 
 
 ## 병사 수로 바닥 단계를 정한다 (setup)
@@ -183,6 +203,8 @@ func _load_step(dt: float) -> void:
 func _lod() -> int:
 	if not lod_on:
 		return 0
+	if draw_keep < 1.0 and load_lv <= _lv_floor:      # 예산이 이미 병사를 솎았다 —— 바닥 단계의 LOD 는 겹치지 않게 쉰다 (프레임이 더 무거워 바닥을 넘을 때만 그 위에)
+		return 0
 	return 2 if load_lv >= 4 else (1 if load_lv >= 3 else 0)
 
 
@@ -194,11 +216,12 @@ func _thinned(sq: Squad) -> bool:
 
 ## 이 부대에서 그려지는 GPU 병사 수 (성능 표시 '보이는' —— 셰이더처럼 앞 두 줄 · 맨 뒷줄 · 양 끝 열을 뺀 안쪽의 반을 뺀다, 근사)
 func _shown_of(sq: Squad) -> int:
+	var alive := int(sq._alive * draw_keep)      # 예산이 먼저 —— LOD 는 남은 병사에서 (바닥 단계에서는 쉰다, _lod)
 	if not _thinned(sq):
-		return sq._alive
+		return alive
 	var rows := sq.ranks()
 	var inner := float(maxi(0, sq.cols - 2) * maxi(0, rows - 3)) / maxf(1.0, float(sq.cols * rows))
-	return sq._alive - int(sq._alive * inner * 0.5)
+	return alive - int(alive * inner * 0.5)
 
 
 func _process(dt: float) -> void:
@@ -217,6 +240,9 @@ func _process(dt: float) -> void:
 		gm.set_shader_parameter("fig", FIG * clampf(_scale * 1.15, FIG_MIN, 1.8) * GPU_FIG)
 		gm.set_shader_parameter("lod", float(_lod()))
 		gm.set_shader_parameter("lod_px", LOD_PX)
+		gm.set_shader_parameter("keep", draw_keep)
+		gm.set_shader_parameter("grow", draw_grow)
+		gm.set_shader_parameter("dark", draw_dark)
 		gm.set_shader_parameter("scatter", scatter)
 	var mat: ShaderMaterial = _ground.material
 	mat.set_shader_parameter("center", _center + _jit)
