@@ -18,6 +18,11 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	games = int(args.get("games", "150"))
+	if args.has("myth"):                  # 11/8 신화 배율 능력치:병력:특기 (예전 값 1.15:1:1 과 견주기)
+		var mp: PackedStringArray = str(args.myth).split(":")
+		Battle.myth_power = float(mp[0])
+		if mp.size() > 1: Battle.myth_troop = float(mp[1])
+		if mp.size() > 2: DB.set_myth_trait(float(mp[2]))
 	if args.has("tmul"):                  # 턴 배율 (Battle.turn_mul) 바꿔 보기
 		Battle.auto_turn = false
 		Battle.set_turn_mul(float(args.tmul))

@@ -1,6 +1,6 @@
 extends Node
 ## 사람 플레이 기록 다시 치르기 (11/8 사용자 기록으로 난이도를 다시 맞추려고 만듦)
-## 실행: godot --headless --path . res://tests/replay_log.tscn -- --log=기록.jsonl [--k=12 --rows=1 --direct=1]
+## 실행: godot --headless --path . res://tests/replay_log.tscn -- --log=기록.jsonl [--k=12 --rows=1 --direct=1 --myth=1.15:1:1]
 ##   미리 재 볼 값 (없으면 지금 run.gd 값): --late=봇 성장 일차 배율 7개 --skill=하한,상한 --qtr=토벌 병력 배율 7개 --q0=첫 토벌 병력 배율
 ##     --horde=일차별 잡병 부대 수 7개 --h0=첫 토벌 잡병 부대 수
 ##   시험: --qprobe=병력 배수들 --qmor=사기 배수들 (토벌) · --probe=봇 PV / 내 PV 들 (대전) · --at=1-1,4-2 그 페이즈만 · --only=quest|pvp|none
@@ -111,6 +111,11 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	k_runs = int(args.get("k", "12"))
+	if args.has("myth"):      # 11/8 신화 배율 능력치:병력:특기 (예전 값 1.15:1:1 과 견주기)
+		var mp: PackedStringArray = str(args.myth).split(":")
+		Battle.myth_power = float(mp[0])
+		if mp.size() > 1: Battle.myth_troop = float(mp[1])
+		if mp.size() > 2: DB.set_myth_trait(float(mp[2]))
 	rows = args.get("rows", "0") == "1"
 	direct = args.get("direct", "0") == "1"
 	var floats := func(key: String) -> Array:
