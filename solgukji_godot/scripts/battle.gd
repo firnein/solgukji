@@ -1631,7 +1631,7 @@ func _tac_open() -> void:
 		if mv(u, "rush") > 0:
 			L("sk", "%s의 기병이 적 선봉을 들이친다" % nm(u), {"fx": "skill", "a": u.key, "name": "위진", "kind": "phys"})
 			for t in front:
-				if shield_enabled: _shred(u, t, "phys", _shred_v(u) * _gv("shred_big", 1.5), int(_gv("shred_big_dur", 6)), "위진")      # 11/8 적 선봉 갑옷을 크게
+				if shield_enabled: _shred(u, t, "phys", _shred_v(u) * _gv("shred_big", 1.5), roundi(_gv("shred_big_dur", 6) * _long), "위진")      # 11/8 적 선봉 갑옷을 크게 —— 지속은 다른 시작 효과처럼 턴 배율만큼 (6턴 × turn_mul)
 				else: _cut(u, t, "def", 0.2 * u.c.atk, "위진")
 		if mv(u, "open_cut_atk") > 0:
 			for t in front: _cut(u, t, "atk", mv(u, "open_cut_atk") * maxf(u.c.atk, u.c["int"]), "기선")
@@ -1640,7 +1640,7 @@ func _tac_open() -> void:
 		if mv(u, "open_cut_def") > 0:
 			for t in live: _cut(u, t, "def", mv(u, "open_cut_def") * u.c["int"], "요언")
 		if mv(u, "open_wshred") > 0:      # 11/8 요언 —— 적 전원 결계를 크게 (shield_enabled 면 open_cut_def 가 이 키로 바뀐다)
-			for t in live: _shred(u, t, "int", _shred_v(u) * _gv("shred_big", 1.5), int(_gv("shred_big_dur", 6)), "요언")
+			for t in live: _shred(u, t, "int", _shred_v(u) * _gv("shred_big", 1.5), roundi(_gv("shred_big_dur", 6) * _long), "요언")      # 지속은 턴 배율만큼 (위진과 같게)
 		if water_enabled and mv(u, "open_slow") > 0:
 			L("sk", "%s 둑을 터뜨려 적진을 늦춘다" % ga(nm(u)), {"fx": "skill", "a": u.key, "name": "수계", "kind": "int"})
 			for t in live: inflict(u, t, "flood", 1, 1)
