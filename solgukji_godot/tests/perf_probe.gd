@@ -42,6 +42,8 @@ func _ready() -> void:
 		t2s.set("lod_on", args.lod != "0")
 	if args.has("gscatter"):
 		t2s.set("scatter", float(args.gscatter))
+	if args.has("budget"):
+		t2s.set("budget_on", args.budget != "0")
 	if args.has("mobile"):
 		t2s.set("mobile_test", args.mobile != "0")
 	var gs: GameScreen = load("res://scenes/game.tscn").instantiate()
