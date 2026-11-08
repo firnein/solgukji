@@ -63,6 +63,7 @@ static var axis_off_camp := ""       # 축 끄기를 한쪽 진영에만 ("A" ·
 static var tr_mul := {"A": 1.0, "B": 1.0}      # 진영 병력 배율 —— Run.simulate · BattleView 가 전투 전에 넣고 뒤에 되돌린다 (11/6)
 static var myth_power := 1.15    # 신화 능력치 배율 (속도 제외) —— 11/2 사용자: 단순 전투력은 1.15, 대신 위세(data/myth_aura.json)로 판을 바꾼다
 static var aura_enabled := true   # 위세 켜기 (비교용)
+static var paeup_enabled := true   # 11/8 패업 켜기 (비교용 —— 끄면 모두 불발)
 static var aura_camp := ""        # 한쪽 진영만 위세 ("A" · "B", 비우면 양쪽) —— 점검용
 static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
 static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 —— 솔국지 확장)
@@ -285,6 +286,10 @@ var _decisive := false
 var _start_troops := {"A": 0.0, "B": 0.0}
 var _kiin_u := {}              # 11/3 기인 —— 기능 키 -> 유닛 배열
 var _kiin_used := {}           # "키:진영" -> 쓴 횟수
+var _paeup := {}               # 11/8 패업(霸業) —— "효과키:진영" -> 신화 유닛 (전투 전 편성으로 정한다. 기인 kiin 과 따로)
+var _paeup_used := {}          # "효과키:진영" -> 쓴 횟수
+var _paeup_log := []           # 결과 기록 —— [{camp, id, n, on, have, need}]
+const PAEUP_ST := ["burn", "flood", "plague", "seal", "confuse"]      # 태평요술이 세는 상태이상 (출혈은 빼다 —— 설계 문서 4.2)
 var _ult_null := false         # 서성 장강방벽 —— 이번 고유기는 피해가 없다
 const KIIN_MID_TURN := 10      # 좌자 · 초선 —— 중반 한 번 더
 ## 덱 연쇄 —— 진영별 특기 연쇄 횟수 (결과표 · 전투 중 강조). 1 · 3 · 6 · 10 · 15 · 20 · 30 · 50 번째에 사건을 남긴다
@@ -1270,7 +1275,7 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 		old.dur = maxi(old.dur, t)
 		old.sp = maxf(old.get("sp", 0.0), sp)
 	else:
-		if d.st.size() >= 2:
+		if d.st.size() >= _st_cap(d):
 			var w = d.st[0]
 			for s in d.st:
 				if s.dur <= w.dur: w = s
@@ -1406,7 +1411,7 @@ func _spread_burn_to(u: Unit, s: Dictionary, t: Unit) -> void:
 	var res := mv(t, "flood_res") if water else mv(t, "fire_res")
 	var weak := 0.0 if water else mv(t, "fire_weak")
 	var v := maxf(1, roundf(s.val / u.max * t.max * float(DB.PSV.water.flow_val if water else DB.PSV.fire.spread_val) * (1.0 + weak) * (1.0 - minf(0.9, res))))
-	if t.st.size() >= 2:
+	if t.st.size() >= _st_cap(t):
 		var w = t.st[0]
 		for x in t.st:
 			if x.dur <= w.dur: w = x
@@ -1882,6 +1887,89 @@ func _wash(a: Unit) -> void:
 	L("st", "%s의 물길이 %s의 불길을 꺼뜨렸다" % [nm(a), nm(best)], {"fx": "cleanse", "f": best.key, "st": "burn"})
 
 
+## 11/8 패업(霸業) —— 신화의 덱 조건 (data/myth_aura.json 의 paeup). 전투 전 편성만 보고 정한다 (결정성 · 온라인 재현)
+## cond: status = 상태이상(PAEUP_ST)을 거는 장수 · burn = 화상을 거는 장수, 자신 외 need 명 이상
+func _paeup_setup() -> void:
+	for u in units:
+		if not paeup_enabled or not aura_enabled or not DB.AURA.has(u.c.id) or not DB.AURA[u.c.id].has("paeup") or (aura_camp != "" and u.camp != aura_camp):
+			continue
+		var pa: Dictionary = DB.AURA[u.c.id].paeup
+		var cond := str(pa.cond)
+		var have := 0
+		for o in units:
+			if o != u and o.camp == u.camp and paeup_counts(o.c.id, cond):
+				have += 1
+		var on := have >= int(pa.need)
+		if on:
+			_paeup[str(pa.fx) + ":" + u.camp] = u
+		_paeup_log.append({"camp": u.camp, "id": u.c.id, "key": u.key, "who": nm(u), "n": str(pa.n), "d": str(pa.get("d", "")), "fx": str(pa.fx),
+			"what": "화상" if cond == "burn" else "상태이상", "on": on, "have": have, "need": int(pa.need)})
+
+
+## 이 카드가 패업 조건(cond)에 들어가는가
+static func paeup_counts(cid: String, cond: String) -> bool:
+	var ks := st_kinds_of(cid)
+	if cond == "burn":
+		return ks.has("burn")
+	return PAEUP_ST.any(func(k): return ks.has(k))
+
+
+## 카드가 거는 상태이상 종류 (정적) —— 특기 축(도트 → 화상 · 둔화 → 수몰 · 혼란 → 혼란) + 잔기술 · 기술 · 고유기의 status
+static var _stk_cache := {}
+static func st_kinds_of(cid: String) -> Dictionary:
+	if _stk_cache.has(cid):
+		return _stk_cache[cid]
+	var out := {}
+	var ps = DB.passives_of(cid)
+	if ps != null:
+		for t in ps.traits + ps.groups:
+			match str(t.attr):
+				"도트": out["burn"] = true
+				"둔화": out["flood"] = true
+				"혼란": out["confuse"] = true
+	var mk := minor_kind(cid)
+	if mk != "" and minor_def(mk).has("st"):
+		out[str(minor_def(mk).st[0])] = true
+	for sk in DB.C[cid].get("sks", []):
+		if sk.has("eff") and sk.eff.has("status"):
+			out[str(sk.eff.status.k)] = true
+	if DB.C[cid].tier >= 6 or DB.C[cid].kind == "kiin":
+		var ul = DB.ult_of(cid)
+		if ul:
+			for comp in ul.eff:
+				if comp.has("status"):
+					out[str(comp.status.k)] = true
+	_stk_cache[cid] = out
+	return out
+
+
+## 한 부대가 동시에 걸리는 상태이상 한도 —— 2, 적 진영에 태평요술(장각 패업)이 발동했으면 3
+func _st_cap(d: Unit) -> int:
+	return 3 if _paeup.has("st_cap:" + _foe(d.camp)) else 2
+
+
+## 적벽연소(주유 패업) —— 화상 걸린 적이 쓰러지면 남은 화상이 병력이 가장 많은 적 한 부대로 옮겨붙는다 (전투당 2번, 세기 spread_val)
+func _paeup_burn(u: Unit) -> void:
+	var key := "rout_burn:" + _foe(u.camp)
+	var zy = _paeup.get(key)
+	if zy == null or int(_paeup_used.get(key, 0)) >= 2:
+		return
+	var s = null
+	for x in u.st:
+		if x.k == "burn": s = x
+	if s == null:
+		return
+	var best: Unit = null
+	for t in units:
+		if t.alive and t != u and t.camp == u.camp and not has_st(t, "burn") and (best == null or t.troops > best.troops):
+			best = t
+	if best == null:
+		return
+	_paeup_used[key] = int(_paeup_used.get(key, 0)) + 1
+	L("sk", "%s의 적벽연소 —— 쓰러진 %s의 불길이 %s에게 옮겨붙는다" % [nm(zy), nm(u), nm(best)], {"fx": "skill", "a": zy.key, "name": "적벽연소", "kind": "int"})
+	_spread_burn_to(u, s, best)
+
+
 func rout(u: Unit, why: String) -> void:
 	if not u.alive: return
 	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
@@ -1908,6 +1996,8 @@ func rout(u: Unit, why: String) -> void:
 		L("sk", "%s의 유계 —— 남긴 계책이 펼쳐진다" % nm(u), {"fx": "skill", "a": u.key, "name": "유계", "kind": "int"})
 	if fire_enabled and has_st(u, "burn") and _side_max(_foe(u.camp), "blaze") > 0:
 		_blaze(u)
+	if fire_enabled and has_st(u, "burn"):
+		_paeup_burn(u)
 	_tac_rout(u)
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
 	if temper_enabled:      # 11/7 기질 —— 적을 무너뜨린 맹장 · 저격은 기세가 오르고, 아군이 무너지면 수호 · 분노가 끓는다
@@ -2036,6 +2126,7 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 			_myths.append(u)
 			if DB.AURA[u.c.id].has("m"):
 				_aura_m.append(u)
+	_paeup_setup()
 	if auto_turn and not units.is_empty():
 		var ts := 0.0
 		for u in units:
@@ -2058,6 +2149,9 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 	if aura_enabled:
 		for u in _myths:
 			L("sk", "%s의 %s —— %s" % [nm(u), "기인" if DB.is_kiin(u.c.id) else "위세", DB.aura_text(u.c.id)])
+		for p in _paeup_log:      # 개전 뒤 공개 —— 발동 · 불발 한 줄
+			L("sk", "%s의 패업 『%s』 %s (%s 장수 %d/%d)%s" % [p.who, p.n, "발동" if p.on else "불발", p.what, p.have, p.need, " —— " + p.d if p.on else ""],
+				{"fx": "skill", "a": p.key, "name": p.n, "kind": "int"} if p.on else {})
 	_kiin_open()
 	_long = 1.0
 	_meta = {"title": title, "foe": foe_name, "aForm": a_form, "bForm": b_form, "aSyn": a_syn, "bSyn": b_syn}
@@ -2268,7 +2362,8 @@ func _result(winner: String, turn: int) -> Dictionary:
 		mvp = {"name": mine[0].c.name, "id": mine[0].c.id, "kills": mine[0].kills, "dmg": roundi(mine[0].dmg)}
 	return {"win": winner == "A", "draw": winner == "draw", "ev": ev, "roster": roster, "title": _meta.title,
 		"foe": _meta.foe, "aForm": _meta.aForm, "bForm": _meta.bForm, "aSyn": _meta.aSyn, "bSyn": _meta.bSyn, "mvp": mvp,
-		"left": live_count("A"), "eLeft": live_count("B"), "turns": turn, "applied": applied, "rejected": rejected, "policy": policy.duplicate(), "stats": stats, "chains": chains}
+		"left": live_count("A"), "eLeft": live_count("B"), "turns": turn, "applied": applied, "rejected": rejected, "policy": policy.duplicate(), "stats": stats, "chains": chains,
+		"paeup": _paeup_log.map(func(p): return {"camp": p.camp, "id": p.id, "n": p.n, "on": p.on, "have": p.have, "need": p.need, "used": int(_paeup_used.get(p.fx + ":" + p.camp, 0))})}
 
 
 func live_count(cp: String) -> int:
