@@ -7,7 +7,8 @@ extends Node
 ##   지원6 = 유생 · 모사 6 + 전투 3 · 섞음N = 유생 · 모사 N + 전투 나머지 · --pairs=A:B,C:D → 그 맞대결만 (앞 덱 승률)
 ## 결과: 상성표(행 덱의 승률) · 리그 평균 · 상대별 승률 폭(가장 높은 − 가장 낮은)
 ## 11/8 병종 균형 원인 찾기 —— 기능을 끄거나 값을 바꿔 같은 리그를 다시 잰다 (덱 · 시드는 그대로라 차이가 그 기능의 몫):
-##   --off=고유기,특기,역할,상성,인덕,잔기술,위세,계략,철벽,화공,수공,깎기,기질,치료(유생 치료),기술(일반 기술),우대(진형 우대),자리(선호 자리 배율),줄(줄 배율),책줄(책략계 줄 배율만),우회(도적 크게 돌기),후열평타(평타로 가장 깊은 적 치기)
+##   --off=고유기,특기,역할,상성,인덕,잔기술,위세,계략,철벽,화공,수공,깎기,기질,치료(유생 치료),기술(일반 기술),우대(진형 우대),자리(선호 자리 배율),줄(줄 배율),책줄(책략계 줄 배율만),우회(도적 크게 돌기),후열평타(평타로 가장 깊은 적 치기),패업
+##   --myth=1.0:0.8:0.6 → 신화 능력치 · 병력 · 특기 배율 · 덱 장각O · 장각X · 주유O · 주유X (패업 조건 맞춤 · 못 맞춤, 신화 1 + 불멸 7)
 ##   --set=cast:220,bow:250,gap:70,near:1.5,far:0.85,bank:2,charge:1.6,allr:320,heal:1.6 (유생 치료 배율),movedcd:0 (분발 재발동 대기 턴)
 ##     cnt:0.25 (병종 상성 세기) · cnti:0.25 (책략계가 끼는 상성 세기만) · 병종 배율 (Battle.tune_over): dmg:병종:배율 (준 피해) · taken:병종:배율 (받는 피해) · range:병종:배율 (원거리 사거리)
 ##   --stat → 덱마다 전투 길이(초) · 한 판 치료(최대 병력 몫 합) · 끝에 남은 부대 수
@@ -24,6 +25,7 @@ var int_sh: Array = []
 var tier0 := 7
 var last_tags: Array = []      # 기준9 의 병종 줄 (신화K 가 맞춘다)
 var tiers := {}      # 등급 → [pool, by_tag, phys_sh, int_sh] (덱 이름 뒤 @등급 으로 다른 등급 덱을 섞는다)
+const PAEUP_DECK := {"장각": "c192", "주유": "c195"}      # 11/8 패업 측정 덱 —— 장각O · 장각X · 주유O · 주유X (불멸 7칸 + 신화 1칸)
 const FIGHT := ["창병", "기병", "궁병", "도적", "책사", "술사"]      # 전투 병종
 const SUPPORT := ["유생", "모사"]      # 지원 병종 (유생 치료 · 사기 · 버프, 모사 약화 · 제어)
 
@@ -40,6 +42,12 @@ func _ready() -> void:
 	if args.has("noshield"):
 		Battle.shield_enabled = false
 	Battle.guard_over = Battle.guard_arg(str(args.get("guard", "")))
+	if args.has("myth"):      # --myth=능력치:병력 → 신화 배율 (Battle.myth_power · myth_troop) 덮어쓰기
+		var mp := str(args.myth).split(":")
+		Battle.myth_power = float(mp[0])
+		if mp.size() > 1: Battle.myth_troop = float(mp[1])
+		if mp.size() > 2: DB.set_myth_trait(float(mp[2]))
+	print("신화 배율 능력치 %.2f · 병력 %.2f · 특기 %.2f" % [Battle.myth_power, Battle.myth_troop, DB.myth_trait])
 	var knob := _knobs(str(args.get("off", "")), str(args.get("set", "")))
 	for ax in str(args.get("axis", "")).split(",", false):      # 특기 축 끄기 (양쪽) —— 없음 = 축이 없는 특기(단체 특기 대부분)
 		Battle.axis_off["" if ax == "없음" else ax] = true
@@ -63,6 +71,7 @@ func _ready() -> void:
 			var rng := RandomNumberGenerator.new()
 			rng.seed = seed0 + hash(pr) % 1000
 			var s := 0.0
+			var pq := {"n": 0, "on": 0, "used": 0, "st3": 0}
 			for g in games:
 				var da := DB.auto_place(_deck(ab[0], rng), "eorin")
 				var db := DB.auto_place(_deck(ab[1], rng), "eorin")
@@ -72,10 +81,18 @@ func _ready() -> void:
 				var r1 := RtBattle.make(sd).run(da, "eorin", 100, null, db, "eorin", 100, null, "", "", [], {"A": "smart", "B": "smart"})
 				var r2 := RtBattle.make(sd).run(db, "eorin", 100, null, da, "eorin", 100, null, "", "", [], {"A": "smart", "B": "smart"})
 				s += (1.0 if r1.win else (0.5 if r1.draw else 0.0)) + (1.0 if (not r2.win and not r2.draw) else (0.5 if r2.draw else 0.0))
+				for r in [r1, r2]:      # 패업 —— 발동 판 · 적벽연소 옮김 횟수 · 상태이상 3개가 한 부대에 겹친 판
+					for p in r.get("paeup", []):
+						pq.n += 1
+						pq.on += 1 if p.on else 0
+						pq.used += p.used
+					if r.ev.any(func(e): return e.c == "st" and e.s.any(func(x): return x[3].filter(func(k): return k in ["burn", "flood", "plague", "seal", "confuse", "bleed"]).size() >= 3)):
+						pq.st3 += 1
 				if g == 0 and args.has("show"):      # 첫 판 길이 · 남은 부대 (병종 병력%)
 					print("  " + " ".join(r1.roster.map(func(x): return "%s%s 피해%d 사기피해%d 남은사기%d" % [x.camp, x.tag, x.dmg, roundi(x.mdmg), roundi(x.morale)])))
 					print("  %.0f초 이김 %s · 남음 %s" % [float(r1.get("len", 0.0)), r1.win, " ".join(r1.roster.filter(func(x): return x.alive).map(func(x): return "%s%s%d" % [x.camp, x.tag, roundi(100.0 * x.left / maxf(1, x.max))]))])
-			print("맞대결 %s 대 %s : %d%%" % [ab[0], ab[1], roundi(s / (games * 2.0) * 100)])
+			print("맞대결 %s 대 %s : %d%%%s" % [ab[0], ab[1], roundi(s / (games * 2.0) * 100),
+				"" if pq.n == 0 else "   (패업 발동 %d/%d · 적벽연소 옮김 %d번 · 상태이상 3겹 %d/%d판)" % [pq.on, pq.n, pq.used, pq.st3, games * 2]])
 		print("끝 (%.0f초)" % ((Time.get_ticks_msec() - t0) / 1000.0))
 		get_tree().quit()
 		return
@@ -205,6 +222,18 @@ func _deck(spec: String, rng: RandomNumberGenerator) -> Array:
 			else:
 				_add(out, by_tag.get(tags[i], pool), rng)
 		return out
+	if PAEUP_DECK.has(name_.left(2)) and name_.length() >= 3:      # 11/8 패업 —— 장각O = 신화 장각 + 조건 장수 3 + 조건 밖 4 (신화1비 와 같은 8칸) · X = 조건 밖 7 (불발) · 뒤에 9 = 9칸 (신화1 처럼)
+		var cid: String = PAEUP_DECK[name_.left(2)]
+		var cond := str(DB.AURA[cid].paeup.cond)
+		var hit: Array = pool.filter(func(k): return Battle.paeup_counts(k, cond))
+		var miss: Array = pool.filter(func(k): return not Battle.paeup_counts(k, cond))
+		out.append(cid)
+		var nh := int(DB.AURA[cid].paeup.need) if name_.substr(2, 1) == "O" else 0
+		for i in nh:
+			_add(out, hit, rng)
+		while out.size() < (9 if name_.ends_with("9") else 8):
+			_add(out, miss, rng)
+		return out
 	if name_.begins_with("전투"):      # 전투N = 전투 병종 N 장만 (N < 9 면 덱이 작다 —— 높은 등급 몇 장의 힘을 잴 때)
 		for i in int(name_.trim_prefix("전투")):
 			_add(out, fight, rng)
@@ -288,6 +317,7 @@ func _knobs(off: String, set_: String) -> String:
 			"인덕": Battle.virtue_enabled = false
 			"잔기술": Battle.minor_enabled = false
 			"위세": Battle.aura_enabled = false
+			"패업": Battle.paeup_enabled = false
 			"계략": Battle.scheme_enabled = false
 			"철벽": Battle.guard_enabled = false
 			"화공": Battle.fire_enabled = false
