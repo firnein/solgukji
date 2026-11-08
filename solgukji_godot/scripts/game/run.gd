@@ -13,8 +13,8 @@ const DAYNAME := ["월", "화", "수", "목", "금", "토", "일"]
 const ROUNDNM := ["8강", "4강", "결승"]
 const FREE_TIER_CAP := 5      # 무상으로 주는 패의 천장. 초월 이상은 조합으로만 오른다
 const STRIKE_MAX := 4         # 토벌 실패 경고 한도 —— 3일차부터 닿으면 멸망
-const SKILL_LO := 1.08        # 봇 실력 계수 (11/2 난이도 상승: 0.98 ~ 1.38 → 1.08 ~ 1.45)
-const SKILL_HI := 1.45
+const SKILL_LO := 1.15        # 봇 실력 계수 (11/2 난이도 상승: 0.98 ~ 1.38 → 1.08 ~ 1.45, 11/9 폭을 좁혀 1.15 ~ 1.35 —— 평균은 거의 그대로, 너무 센 봇을 줄인다)
+const SKILL_HI := 1.35
 const SAVE_PATH := "user://save.json"
 
 var rng := RandomNumberGenerator.new()
@@ -781,7 +781,9 @@ static func bot_pv_gain(d: int, p: int) -> float:
 
 ## 11/7 4일차부터 보급을 줄인 만큼 봇 성장도 줄인다 —— 일차 끝 봇 PV 가 예전의 0.94 · 0.86 · 0.80 · 0.78 배
 ## (자동 진행 편성 PV 가 새 보급에서 예전의 0.95 · 0.86 · 0.77 · 0.77 배, tests/supply_check --econ=new)
-const BOT_LATE := [1.0, 1.0, 1.0, 0.8, 0.62, 0.6, 0.7]
+## 11/9 사용자: 봇 대전도 너무 쉽다 —— tests/replay_log(11/8 사람 기록, k=8)로 일차마다 봇 PV / 내 편성 PV 를 0.9 ~ 1.15 에 맞춘다.
+##   대전 승률 1~7일 71 · 63 · 58 · 79 · 54 · 71 · 81% (예전 값 78 · 14 · 14 · 11 · 14 · 56 · 46% —— 그때는 되살리기가 1-1 에서 어긋나 장비 없는 덱)
+const BOT_LATE := [1.6, 0.45, 1.04, 0.8, 0.25, 0.87, 0.55]
 
 
 func _bot_pv_gain(d: int, p: int) -> float:
