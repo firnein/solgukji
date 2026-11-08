@@ -52,8 +52,31 @@ class OrigRun extends Run:
 	func _bot_pv_gain(d: int, p: int) -> float:
 		return (24 + d * 4.7 + (4 if p == 2 else 0)) * float(LATE[clampi(d, 0, 6)])
 
+	## 기록 뒤에 바뀐 봇 덱 짜기를 그때대로 —— 봇 병종 섞기(11/8 새벽) 전, 기인이 전설 칸 풀에 있고 초월 PV 범위가 예전 몸(11/9 set_branch 전)
+	static var _old_pools := {}
+	static var _old_t6 := []
+
 	func _bot_side(pv: float, style: String) -> Dictionary:
-		return Run.bot_side(pv * PV_MUL * (MYTH if myth_on_board() else 1.0), style, phase_idx(), rng)
+		if _old_pools.is_empty():
+			for st in ["물리", "지략", "균형"]:
+				_old_pools[st] = {}
+				for t in DB.TIER:
+					var arr := []
+					for k in DB.C:
+						if DB.C[k].tier != t or DB.is_foe(k): continue
+						if st == "물리" and not DB.PHYS_TAGS.has(DB.C[k].tag): continue
+						if st == "지략" and not DB.INT_TAGS.has(DB.C[k].tag): continue
+						arr.append(k)
+					_old_pools[st][t] = arr
+			var pvs := []
+			for k in DB._branch_src:
+				if DB.C[k].tier == 6 and not DB.is_kiin(k): pvs.append(DB._branch_src[k].pv)
+			_old_t6 = [pvs.min(), pvs.max()] if not pvs.is_empty() else [DB.TIER[6].lo, DB.TIER[6].hi]
+		var keep := [DB.POOLS, DB.TIER[6].lo, DB.TIER[6].hi, DB.bot_mix]
+		DB.POOLS = _old_pools; DB.TIER[6].lo = _old_t6[0]; DB.TIER[6].hi = _old_t6[1]; DB.bot_mix = false
+		var out := Run.bot_side(pv * PV_MUL * (MYTH if myth_on_board() else 1.0), style, phase_idx(), rng)
+		DB.POOLS = keep[0]; DB.TIER[6].lo = keep[1]; DB.TIER[6].hi = keep[2]; DB.bot_mix = keep[3]
+		return out
 
 	func quest_horde_n() -> int:
 		return int(HORDE[clampi(day, 0, 6)])
@@ -61,10 +84,39 @@ class OrigRun extends Run:
 	func quest_morale_mul() -> float:
 		return float(MORALE[clampi(day, 0, 6)])
 
+	## 11/9 토벌 적 구성(황건 잡병 y1x · y2x)을 바꾸기 전 모양 —— 첫 토벌 편성의 일반 부대 · 1 · 2 등급 잡병 풀
+	const ROSTER_11 := ["c22", "c9", "c6", "c0", "c4", "c1", "c5", "c3", "c2"]
+	const HORDE_POOL := {1: ["spear", "rogue", "horse", "bow", "occul"], 2: ["c0", "c1", "c6", "c2", "c3", "c4", "c5", "c9"]}
+
 	func start_quest() -> Dictionary:
-		var bt: Dictionary = super.start_quest()
-		bt.b.tr_mul = float(TR[clampi(day, 0, 6)])
-		return bt
+		var q = quest_roster()
+		if q == null:
+			var bt0: Dictionary = super.start_quest()
+			bt0.b.tr_mul = float(TR[clampi(day, 0, 6)])
+			return bt0
+		var src: Array = ROSTER_11 if day == 0 and phase == 0 else q.cards
+		var cards := DB.auto_place(src, q.form)
+		var form: String = q.form
+		var hn := quest_horde_n()
+		if hn > 0 and DB.FORM.has(DB.HORDE_PFX + form):
+			var lo := 9
+			for k in src:
+				lo = mini(lo, int(DB.C[k].tier))
+			var t := clampi(lo - 2, 1, 7)
+			var pool: Array = HORDE_POOL.get(t, ["y%d0" % t, "y%d1" % t, "y%d2" % t, "y%d3" % t, "y%d4" % t])
+			var out := []
+			for i in hn:
+				out.append(pool[rng.randi() % pool.size()])
+			var fw: Dictionary = DB.D.FRONT_WANT
+			out.sort_custom(func(a, b): return fw[DB.C[a].tag] > fw[DB.C[b].tag])
+			cards.append_array(out)
+			form = DB.HORDE_PFX + form
+		var foe := {"cards": cards, "form": form, "morale": int(int(q.get("morale", 100)) * quest_morale_mul()),
+			"equip": [], "tac": recommend_tac(cards)[0], "tr_mul": float(TR[clampi(day, 0, 6)])}
+		if not DB.quest_trait(day).is_empty(): foe["trait"] = DB.quest_trait(day)
+		battle = {"kind": "quest", "a": _my_side(), "b": foe, "seed": rng.randi() % 1000000,
+			"title": "토벌 · %s" % quest_name(), "foe": quest_name(), "pv": quest_pv(), "inputs": []}
+		return battle
 
 
 ## 지금 값의 판 —— 옵션으로 준 값이 있으면 그것으로 (상수를 바꾸기 전에 미리 재 본다)

@@ -184,7 +184,7 @@ func _load() -> void:
 	PLAY_TIERS.sort()
 
 	for k in C:
-		if C[k].tier == 1:
+		if C[k].tier == 1 and not is_foe(k):      # 11/9 황건 잡병(y1x, 적 전용)은 기본패가 아니다
 			BASE.append(k)
 
 	ULT = JSON.parse_string(FileAccess.open("res://data/ultimates.json", FileAccess.READ).get_as_text())
@@ -199,6 +199,7 @@ func _load() -> void:
 	for p in LINES.get("ladder", {}):          # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 수만큼 채운 사다리 (lines.py fill_ladders)
 		PSV.ladder[p] = LINES.ladder[p]
 	merge_stats()      # 11/6 #15 책략 · 책략방어 통합
+	set_branch(BRANCH_TR, BRANCH_ST)      # 11/9 초월 · 기인 몸을 불멸 평균의 0.75 · 0.88 / 0.7 · 0.85 로
 	_reskill()
 	_apply_roles()      # 11/9 원랜디식 역할 재배치 —— 기술 고르기(_reskill) 뒤에 (사다리가 바뀌어도 카드 기술은 그대로)
 	_build_forms()
@@ -483,14 +484,14 @@ func _build_horde(k: String) -> void:
 
 
 ## 대군 잡병 —— 토벌 우두머리 편성(cards)의 가장 낮은 등급보다 두 등급 아래 황건 병사를 n 부대. 앞에 설 병종부터 (대군 진형의 9 번 칸부터 앞 줄 순서)
-const HORDE_POOL := {1: ["spear", "rogue", "horse", "bow", "occul"], 2: ["c0", "c1", "c6", "c2", "c3", "c4", "c5", "c9"]}
+## 11/9 사용자: 기본 · 일반 등급 플레이어 부대(창병 · 궁병 · 기병 …)가 섞여 나왔다 —— 1 · 2 등급도 황건 잡병(y1x · y2x, 적 전용)으로
 func horde_rabble(cards: Array, n: int, rng: RandomNumberGenerator) -> Array:
 	var lo := 9
 	for k in cards:
 		if k != null:
 			lo = mini(lo, int(C[k].tier))
 	var t := clampi(lo - 2, 1, 7)
-	var pool: Array = HORDE_POOL.get(t, ["y%d0" % t, "y%d1" % t, "y%d2" % t, "y%d3" % t, "y%d4" % t])
+	var pool: Array = ["y%d0" % t, "y%d1" % t, "y%d2" % t, "y%d3" % t, "y%d4" % t]
 	pool = pool.filter(func(k): return C.has(k))
 	var out := []
 	for i in n:
@@ -508,6 +509,7 @@ func _build_pools() -> void:
 			for k in C:
 				if C[k].tier != t or is_foe(k):
 					continue
+				if is_kiin(k): continue      # 11/9 기인 몸이 불멸 0.7 급이라 봇의 전설 칸에서 뺀다
 				if style == "물리" and not PHYS_TAGS.has(C[k].tag): continue
 				if style == "지략" and not INT_TAGS.has(C[k].tag): continue
 				arr.append(k)
@@ -1118,6 +1120,68 @@ func set_stat_adjust(adj: Dictionary) -> void:
 		var m: Dictionary = adj.get(C[k].tag, {}).get(str(C[k].tier), {})
 		for s in _BASE[k]:
 			C[k][s] = _BASE[k][s] * float(m.get(s, 1.0))
+
+
+## 11/9 사용자: 기인 · 초월은 여전히 너무 낮은 병력 —— 같은 병종 불멸 평균의 이만큼으로 몸(병력 · 공격 · 방어)과 PV 를 맞춘다.
+## 불멸과 같은 급은 아니다 (11/8 동급화 0.9 · 0.95 는 거절): 초월 병력 0.75 · 능력치 0.88, 기인 병력 0.7 · 능력치 0.85.
+## 카드 사이 차이는 비율로 남긴다. 위세 · 기인 기능 · 고유기 · 기술 · 등급 번호(초월 6 · 기인 5)는 그대로.
+## PV 는 몸에 맞게 √(병력 배율 × 능력치 배율) —— 초월 약 0.81 · 기인 약 0.77 (불멸 PV 평균 대비). 병력 배율 0 이면 끈다 (예전 몸)
+const BRANCH_TR := 0.75     # 초월 병력
+const BRANCH_ST := 0.88     # 초월 공격 · 방어
+const BRANCH_KIIN_TR := 0.7
+const BRANCH_KIIN_ST := 0.85
+var _branch_src := {}       # 바꾸기 전 원래 값 (다시 부를 때 그것에서 계산)
+
+func set_branch(tr_mul: float, st_mul: float, ktr := BRANCH_KIIN_TR, kst := BRANCH_KIIN_ST) -> void:
+	var grp := func(k: String) -> String:
+		if is_foe(k): return ""
+		if is_kiin(k): return "kiin"
+		return "6" if C[k].tier == 6 else ("7" if C[k].tier == 7 else "")
+	if _branch_src.is_empty():
+		for k in C:
+			if grp.call(k) in ["6", "kiin"]:
+				_branch_src[k] = {"tr": C[k].tr, "pv": C[k].pv, "atk": C[k].atk, "def": C[k]["def"],
+					"b_atk": _BASE[k].atk, "b_int": _BASE[k]["int"], "b_def": _BASE[k]["def"], "b_res": _BASE[k].res}
+	# 병종마다 평균 (불멸 · 초월 · 기인) —— [병력, PV, 공격, 방어, 수]
+	var avg := {}
+	for k in C:
+		var g: String = grp.call(k)
+		if g == "":
+			continue
+		var src: Dictionary = _branch_src.get(k, {"tr": C[k].tr, "pv": C[k].pv, "atk": C[k].atk, "def": C[k]["def"]})
+		var key: String = g + ":" + str(C[k].tag)
+		var a: Array = avg.get(key, [0.0, 0.0, 0.0, 0.0, 0])
+		a[0] += float(src.tr); a[1] += float(src.pv); a[2] += float(src.atk); a[3] += float(src["def"]); a[4] += 1
+		avg[key] = a
+	for k in _branch_src:
+		var s: Dictionary = _branch_src[k]
+		var c: Dictionary = C[k]
+		var mine: Array = avg[grp.call(k) + ":" + str(c.tag)]
+		var im: Array = avg.get("7:" + str(c.tag), [])
+		if tr_mul <= 0.0 or im.is_empty():
+			c.tr = s.tr; c.pv = s.pv; c.atk = s.atk; c["int"] = s.atk; c["def"] = s["def"]; c.res = s["def"]
+			_BASE[k].atk = s.b_atk; _BASE[k]["int"] = s.b_int; _BASE[k]["def"] = s.b_def; _BASE[k].res = s.b_res
+			continue
+		var n: float = mine[4]
+		var kn := is_kiin(k)
+		var tm: float = ktr if kn else tr_mul
+		var sm: float = kst if kn else st_mul
+		var fo: float = sm * (im[2] / im[4]) / (mine[2] / n)
+		var fd: float = sm * (im[3] / im[4]) / (mine[3] / n)
+		c.tr = int(roundf(float(s.tr) * tm * (im[0] / im[4]) / (mine[0] / n) / 100.0) * 100)
+		c.pv = maxi(1, roundi(float(s.pv) * sqrt(tm * sm) * (im[1] / im[4]) / (mine[1] / n)))
+		c.atk = roundf(s.atk * fo); c["int"] = c.atk
+		c["def"] = roundf(s["def"] * fd); c.res = c["def"]
+		_BASE[k].atk = s.b_atk * fo; _BASE[k]["int"] = s.b_int * fo; _BASE[k]["def"] = s.b_def * fd; _BASE[k].res = s.b_res * fd
+	# 등급 PV 범위 (봇 덱 짜기) —— 기인은 따로라 전설 범위에 넣지 않는다
+	for t in [5, 6]:
+		var pvs := []
+		for k in C:
+			if C[k].tier == t and not is_foe(k) and not is_kiin(k):
+				pvs.append(C[k].pv)
+		if not pvs.is_empty() and TIER.has(t):
+			TIER[t].lo = pvs.min()
+			TIER[t].hi = pvs.max()
 
 
 ## 한 단계 위 등급 —— 플레이어 카드가 없는 등급(11/3 삭제한 일반)은 건너뛴다
