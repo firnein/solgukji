@@ -191,6 +191,7 @@ func _load() -> void:
 	for p in LINES.get("ults", {}):
 		ULT.list[p] = LINES.ults[p]
 	PSV = JSON.parse_string(FileAccess.open("res://data/passives.json", FileAccess.READ).get_as_text())
+	D.STATUS.flood.d = "물에 잠겨 이동 · 공격이 %d%% 느려지고 기병은 돌격하지 못한다 (제방은 느려짐을 줄이고 격류는 더한다)" % roundi(float(PSV.water.slow) * 100)      # 11/9 수공 제어 전담 —— 지속 피해 없이 이감 + 돌격 봉쇄 (원본 설명 '병력이 잠기고' 는 옛 규칙)
 	for p in LINES.get("ladder_from", {}):        # 11/2 (5) 새 인물 —— 닮은 인물의 특기 사다리를 빌린다 (초월까지만)
 		var src: String = LINES.ladder_from[p]
 		PSV.ladder[p] = PSV.ladder.get(src, []).filter(func(e): return int(e[1]) <= 6)

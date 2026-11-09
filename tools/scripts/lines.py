@@ -193,7 +193,9 @@ TITLE_FIX = {"철벽 조인": "천인 조인", "호위 전위": "악래 전위",
 # 11/5 사용자: 신화는 늘리지 않고 장비 · 조운 · 손책을 빼고 장료 · 감녕을 넣는다 (11명 —— 위 · 촉 · 오 셋씩, 병종마다 하나 이상).
 # 빠진 셋은 불멸이 마지막 단계 (불멸도 충분히 센 장수). 장료(강동의 악몽 · 위세 소아지제) · 감녕(백기겁영 · 위세 방울소리)은 원본 신화 카드를 되살린다
 MYTH12 = ["유비", "조조", "손권", "제갈량", "사마의", "주유", "관우", "장료", "감녕", "여포", "장각"]
-NEW_MYTH = {"사마의": ("선제 사마의", "호부", AU("응시호보", ally={"int": 0.08}, foe={"spd": -0.08}))}
+NEW_MYTH = {"사마의": ("선제 사마의", "호부", {**AU("응시호보", ally={"int": 0.08}, foe={"spd": -0.08}),
+    "paeup": {"n": "후발제인", "cond": "tag:창병,유생", "need": 2, "what": "창병 · 유생", "fx": "late",      # 11/9 패업 —— lines.json 에 같은 값 (battle.gd _paeup_late_tick)
+              "d": "개전 12초 동안 아군이 받는 피해 -25% —— 버틴 뒤 아군 전원 공격 +20% (15초)"}})}
 NEW_ITEMS = [["u01", "호부", "유니크", "모사", "int", 0.32, "def", 0.16, 7, "myth"]]
 
 # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 특기 수 (단체 · 고유 포함)
@@ -920,9 +922,55 @@ def fill_ladders(allc):
                     if n_ not in have:
                         lad.append([n_, t])
                         need -= 1
-        if lad != lad0[p_]:
-            out[p_] = lad
-    return out
+        out[p_] = lad
+    if TRIM_FILLER:
+        trim_filler(out, lad0, tiers, T)
+    return {p_: lad for p_, lad in out.items() if lad != lad0[p_]}
+
+
+# 11/9 특기 정리 (축소판) —— 위 ②에서 '같은 병종 인물들이 많이 가진 특기'로 억지로 채운 특기(그 인물의 원래 사다리에 없던 것)는,
+# 최고 등급 특기가 TRIM_MIN 개 이상인 인물에서 뺀다. 고유(금색) · 원래 사다리 특기 · FILL_KEEP(역할 재설계 부록 A 가 보조로 남긴 것)은 그대로.
+# 되돌리려면 TRIM_FILLER = False 로 두고 이 스크립트를 다시 돌린다. 뺀 목록: docs/특기_정리_1109.md (이 함수가 쓴다)
+TRIM_FILLER = True
+TRIM_MIN = 6
+TRIM_FLOOR = 4      # 이 이하로는 줄이지 않는다 (4개로 맞추려고 무리하지 않는다)
+FILL_KEEP = {"정보": ["위축"]}
+
+
+def trim_filler(out, lad0, tiers, T):
+    act = lambda lad, t: [e for e in lad if int(e[1]) <= t and (len(e) < 3 or t <= int(e[2]))]
+    rows = []
+    for p_, lad in out.items():
+        top = max(tiers[p_])
+        if len(act(lad, top)) < TRIM_MIN:
+            continue
+        base = {e[0] for e in lad0[p_]}
+        drop = [e for e in lad if e[0] not in base and not T[e[0]].get("unique", False) and e[0] not in FILL_KEEP.get(p_, [])]
+        before = len(act(lad, top))
+        drop.sort(key=lambda e: -int(e[1]))      # 늦게 붙은 것부터 —— 최고 등급 특기가 TRIM_FLOOR 아래로 내려가지 않게만
+        drop = drop[:max(0, before - TRIM_FLOOR)]
+        if not drop:
+            continue
+        out[p_] = [e for e in lad if e not in drop]
+        rows.append((p_, top, before, len(act(out[p_], top)), drop))
+    rows.sort(key=lambda r: (-r[1], r[0]))
+    docs = os.path.join(ROOT, "..", "..", "docs", "특기_정리_1109.md")
+    L_ = ["# 장수 특기 정리 (축소판, 11/9)", "",
+          "`tools/scripts/lines.py` 의 `trim_filler` 가 만든 목록 (이 파일도 같은 스크립트가 쓴다). 11/3 `fill_ladders` 가 등급마다 최소 특기 수(TRAIT_MIN 5 · 6 · 7 · 8)를 맞추려고",
+          "**같은 병종 인물들이 많이 가진 특기를 억지로 붙인 것**(그 인물의 원래 사다리 `passives.json ladder` 에 없던 특기) 가운데, 최고 등급 특기가 %d개 이상인 인물에서만 뺐다." % TRIM_MIN,
+          "고유(금색) 특기 · 원래 사다리에 있던 특기(대표 특기 포함) · 역할 재설계 부록 A 가 보조로 남긴 것(FILL_KEEP: %s)은 건드리지 않았다. 최고 등급 특기가 %d개 아래로는 줄이지 않았고(늦게 붙은 것부터 뺌), 4개로 맞추려고 더 뺀 것은 없다." % (", ".join("%s %s" % (k, "·".join(v)) for k, v in FILL_KEEP.items()), TRIM_FLOOR),
+          "", "**되돌리기**: `lines.py` 의 `TRIM_FILLER = False` 로 바꾸고 `python -I tools/scripts/lines.py` 를 다시 돌리면 `data/lines.json` 의 `ladder` 가 11/3 채움 그대로 돌아온다.",
+          "(뺀 특기는 카드 등급 5 = 전설 이상에서만 붙어 있었다 —— 채움이 5개부터 일어난다.)",
+          "건드리지 않은 것(다음 후보): ① TRAIT_MIN 을 맞추려고 뒤 등급 특기를 앞 등급으로 앞당긴 것(69개) ② 원래 사다리 안의 범용 특기(사기 축 함성 · 독전 · 결사 · 진정 · 고무, 후원 · 귀모 …)의 겹침 —— 대표 특기를 정한 뒤 손볼 것.", "",
+          "| 인물 | 최고 등급 | 특기 수 | 뺀 특기 (붙던 등급) |", "|---|---|---|---|"]
+    n = 0
+    for p_, top, b, a, drop in rows:
+        L_.append("| %s | %d | %d → %d | %s |" % (p_, top, b, a, " · ".join("%s(%s)" % (e[0], e[1]) for e in drop)))
+        n += len(drop)
+    L_ += ["", "합계: %d명 · 특기 %d개" % (len(rows), n)]
+    with open(docs, "w", encoding="utf-8") as f_:
+        f_.write(chr(10).join(L_) + chr(10))
+    print("특기 정리: %d명 · %d개 뺌 (docs/특기_정리_1109.md)" % (len(rows), n))
 
 
 main()

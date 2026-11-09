@@ -23,6 +23,10 @@ uniform float h_size = 60.0;
 uniform vec3 team_a : source_color = vec3(0.25, 0.5, 0.82);
 uniform vec3 team_b : source_color = vec3(0.78, 0.27, 0.23);
 uniform float team_glow = 0.05;
+// 11/9 병사 그리는 예산 (war3d._set_draw_budget) —— 상한을 넘으면 모든 부대에서 keep 비율만 그리고(씨앗 순), 남은 병사를 grow 배로 키우고 진영색을 dark(0~1) 만큼 짙게
+uniform float keep = 1.0;
+uniform float grow = 1.0;
+uniform float dark = 0.0;
 // 11/4 피아식별 —— 탑뷰에서 아군 · 적군이 한눈에: 진영 윤곽빛(림) + 옷감 밝힘. 아군 하늘빛 · 적군 주홍빛
 uniform vec3 rim_a : source_color = vec3(0.35, 0.75, 1.0);
 uniform vec3 rim_b : source_color = vec3(1.0, 0.42, 0.22);
@@ -77,7 +81,7 @@ void vertex() {
 	float clock = t5.z;
 	// 자리 —— 음수면 쓰러졌다(숨김). 아니면 지금 자리 + (전 자리 + 1) × 1024, 걸어 나오는 중이면 두 자리 사이를 잇는다
 	float g = ic.g;
-	bool hide = g < 0.0 || t1.z <= 0.0 || seed > t2.w;      // 패주로 사라질 때는 씨앗 순으로 하나씩
+	bool hide = g < 0.0 || t1.z <= 0.0 || seed > t2.w || seed > keep;      // 패주로 사라질 때는 씨앗 순으로 하나씩
 	g = max(g, 0.0);
 	float old1 = floor(g / 1024.0);
 	float slot = g - old1 * 1024.0;
@@ -175,7 +179,7 @@ void vertex() {
 	vec3 wp = vec3(p.x * S, 0.0, p.y * S);
 	vec2 huv = (wp.xz + h_half) / h_size;
 	wp.y = texture(height_tex, huv).r + abs(sin(ph)) * (cav > 0.5 ? 0.16 : 0.08) * mv + 0.07 * sk;
-	float size = t4.z * (0.92 + 0.16 * hash(seed * 8.3));
+	float size = t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * grow;
 
 	// 팔다리 흔들기 (soldier.gdshader 와 같은 부위 규칙). 무기는 팔(4) 과 같이 돈다
 	vec3 v = VERTEX;
@@ -279,6 +283,7 @@ vec3 hue_rot(vec3 c, float a) {
 
 void fragment() {
 	vec3 team = hue_rot(mix(team_a, team_b, v_custom.r), v_custom.g * 0.6);     // 병종 색조는 진영색을 넘지 않게 약하게
+	team = mix(vec3(dot(team, vec3(0.3, 0.59, 0.11))), team, 1.0 + 0.3 * dark) * (1.0 - 0.2 * dark);      // 예산으로 많이 줄였을수록 진영색을 짙게 (type2_gpu 와 같은 값)
 	vec3 vc = pow(COLOR.rgb, vec3(2.2));
 	// 11/5 사용자 "피아식별 어려움": 옷감은 거의 진영색 그대로 (원래 옷 명암만 조금) —— 화면 톤을 낮춘 만큼 옷감은 진하게
 	float lum = dot(vc, vec3(0.299, 0.587, 0.114));

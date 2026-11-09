@@ -466,11 +466,17 @@ static func item_text(id: String, amp := 1.0) -> String:
 static func ult_desc(u: Dictionary, tier := 0) -> String:
 	var tm := Battle.turn_mul_for(tier) if tier > 0 else 1.0
 	var parts := []
+	var cap := float(Battle.ult_cap.get(clampi(tier, 6, 8), 0.0)) if tier > 0 else 0.0      # 11/7 한 방 상한 —— 한 부대가 이번 고유기에 잃는 병력은 최대 병력의 이만큼까지 (한 번만 적는다)
 	for comp in u.eff:
 		var tg := DB.tgt_name(str(comp.get("tgt", "")))
+		if str(comp.get("tgt", "")) == "all" and comp.t != "ally":      # 11/7 고유기의 '적 전체' 는 전장 전체가 아니라 노리는 적 둘레 (RtBattle.ult_all_r)
+			tg = "노리는 적 둘레 전체"
 		match comp.t:
 			"hit":
 				var s := "%s 피해 %d%%" % [tg, roundi(comp.mult * tm * 100)]
+				if cap > 0.0:
+					s += " (한 부대 최대 병력의 %d%%까지)" % roundi(cap * 100)
+					cap = 0.0
 				if comp.has("exec"):
 					s += " · 병력 %d%% 이하 즉사" % roundi(comp.exec * 100)
 				if comp.has("morale"):

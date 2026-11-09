@@ -500,6 +500,7 @@ func _terrain_move(u: Unit) -> float:
 	if _in(u.pos, "forest"): m *= FOREST.move
 	if _in(u.pos, "river"): m *= RIVER.move
 	if _in(u.pos, "hill"): m *= HILL.move
+	if _in_sea(u): m *= SEA_SLOW      # 주유 적벽 불바다 —— 안의 적은 느려진다
 	return m
 
 
