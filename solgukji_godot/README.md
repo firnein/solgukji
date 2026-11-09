@@ -180,7 +180,7 @@ Godot 의 ScrollContainer 는 손가락이 처음 닿은 버튼·패널이 입�
 1. 처음 한 번 `powershell -ExecutionPolicy Bypass -File ..\tools\scripts\setup_android.ps1` —— JDK 17 · Android SDK(build-tools 34 · android-34) · Godot 내보내기 템플릿 · 디버그 키를 `../tools/` 아래에 포터블로 받는다 (약 3GB, 시스템 설치 없음). `tools/_sc_` 때문에 Godot 설정·템플릿은 `tools/editor_data/` 에 있다.
 2. `build_apk.bat` → `../build/solgukji.apk` (arm64, 디버그 서명). 휴대폰에서 USB 디버깅을 켜고 `..\tools\android\sdk\platform-tools\adb install -r ..\build\solgukji.apk`, 또는 파일을 옮겨 설치.
 - 렌더러는 Mobile (SSAO·볼류메트릭 안개 없음). 품질 낮음 = 병사 40% · MSAA 끔 · 그림자 2분할. 휴대폰은 처음에 '낮음'.
-- 글꼴은 동봉한 나눔고딕·나눔명조(OFL). 초상은 내보낸 앱에선 임포트된 텍스처로 읽는다.
+- 글꼴은 동봉한 나눔고딕·송명(OFL). 초상은 내보낸 앱에선 임포트된 텍스처로 읽는다.
 - 내보내기 설정: `export_presets.cfg` (패키지 `com.solgukji.game`, `data/*.json` 포함, `tests/` 제외, 세로 고정, 권한: 인터넷·진동).
 
 ### 릴리스 서명 (스토어용)
@@ -236,4 +236,4 @@ Godot.exe --path . -- --tab=1 --level=2 --shot=out.png --after=3
 `--lumps=초` 병사가 얼마나 몰려서 쓰러지는지 측정 (예: `--seed=12 --lumps=90` 과 `--seed=12 --nosmooth --lumps=90` 비교).
 
 ## 글꼴
-`assets/fonts/NanumMyeongjo-ExtraBold.ttf` (제목) · `NanumGothic-Regular/Bold.ttf` (본문) — SIL Open Font License (`OFL.txt`, `OFL-NanumGothic.txt`). 나눔에 없는 글자만 시스템 글꼴로 넘긴다.
+`assets/fonts/SongMyung-Regular.ttf` (제목, 살짝 굵게 `DB.font_display`) · `NanumGothic-Regular/Bold.ttf` (본문) — SIL Open Font License (`OFL.txt`, `OFL-NanumGothic.txt`, `OFL-SongMyung.txt`). 나눔에 없는 글자만 시스템 글꼴로 넘긴다.

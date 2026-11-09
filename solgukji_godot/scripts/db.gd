@@ -536,7 +536,7 @@ func _build_icons() -> void:
 
 
 func _build_fonts() -> void:
-	# 본문은 동봉한 나눔고딕, 제목은 나눔명조 (둘 다 OFL) —— 휴대폰에도 같은 글꼴이 나오도록 동봉한다.
+	# 본문은 동봉한 나눔고딕, 제목은 송명 SongMyung (둘 다 OFL) —— 휴대폰에도 같은 글꼴이 나오도록 동봉한다.
 	# 한자·기호처럼 나눔에 없는 글자는 시스템 글꼴로 넘긴다
 	var sys := SystemFont.new()
 	sys.font_names = PackedStringArray(["Malgun Gothic", "Noto Sans CJK KR", "Apple SD Gothic Neo", "Segoe UI Symbol", "Segoe UI"])
@@ -546,9 +546,13 @@ func _build_fonts() -> void:
 	var bold: FontFile = load("res://assets/fonts/NanumGothic-Bold.ttf")
 	bold.fallbacks = [sys]
 	font_bold = bold
-	var disp: FontFile = load("res://assets/fonts/NanumMyeongjo-ExtraBold.ttf")
+	# 제목 글꼴 —— 송명 단일 굵기를 살짝 굵게 (가는 획이 작은 글자에서 옅어지지 않도록). 되돌리려면 font_display = disp 한 줄
+	var disp: FontFile = load("res://assets/fonts/SongMyung-Regular.ttf")
 	disp.fallbacks = [body]
-	font_display = disp
+	var dv := FontVariation.new()
+	dv.base_font = disp
+	dv.variation_embolden = 0.3
+	font_display = dv
 
 
 # ───────── 조회 ─────────

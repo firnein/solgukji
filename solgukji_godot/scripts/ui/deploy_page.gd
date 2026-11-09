@@ -205,7 +205,7 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 		hv.add_child(UI.hint("보유한 카드가 없다 — 모두 편성했다."))
 
 
-## 진형 설명 글꼴 —— 나눔명조를 기울인다 (기울임 글꼴 파일이 없어 FontVariation 의 기울기로)
+## 진형 설명 글꼴 —— 제목 글꼴(송명)을 기울인다 (기울임 글꼴 파일이 없어 FontVariation 의 기울기로)
 static var _lore: FontVariation = null
 static func _lore_font() -> Font:
 	if _lore == null:

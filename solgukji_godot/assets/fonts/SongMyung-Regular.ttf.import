@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bb6fcsak7bws"
-path="res://.godot/imported/NanumMyeongjo-ExtraBold.ttf-6a1a25084e1f3e5fe14ade43ad9df82e.fontdata"
+uid="uid://blrjb26iw20q8"
+path="res://.godot/imported/SongMyung-Regular.ttf-273a659b0395938238c38ac5d56fb9c1.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/NanumMyeongjo-ExtraBold.ttf"
-dest_files=["res://.godot/imported/NanumMyeongjo-ExtraBold.ttf-6a1a25084e1f3e5fe14ade43ad9df82e.fontdata"]
+source_file="res://assets/fonts/SongMyung-Regular.ttf"
+dest_files=["res://.godot/imported/SongMyung-Regular.ttf-273a659b0395938238c38ac5d56fb9c1.fontdata"]
 
 [params]
 
