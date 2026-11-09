@@ -27,6 +27,7 @@ func setup(id: String, n := -1, sz := SIZE) -> CardTile:
 	custom_minimum_size = sz
 	size = sz
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	TierDeco.attach_shimmer(self, id, func(s: Vector2) -> Rect2: return Rect2(8, 5, s.y * 0.78, s.y - 10))      # 11/9 신화 빛줄기 (초상 칸 위)
 	return self
 
 
@@ -102,6 +103,8 @@ func _draw() -> void:
 	# 초상
 	var pr := Rect2(8, 5, h * 0.78, h - 10)
 	Art.draw_portrait(self, pr, k)
+	if TierDeco.rank(k) != TierDeco.NONE:      # 11/9 기인 · 초월 · 불멸 · 신화 —— 등급 장식
+		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.MINI, 6.0, 1.0, 1.0, true, pr.get_center().x)      # 윗변 장식은 초상 위 (이름 글자 · 병종 기호 사이 —— 12시 ★ 은 타일 가운데라 안 겹친다)
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(9, 9), 8, DB.fac_color(c.fac))
 		draw_string(DB.font_display, pr.position + Vector2(1, 13), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color.WHITE)

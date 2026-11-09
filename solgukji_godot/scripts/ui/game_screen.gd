@@ -3131,12 +3131,22 @@ func _dev_args() -> void:
 		_title.visible = false
 		if a.has("gseg"):
 			deploy.seg = str(a.gseg)      # 점검용 —— 편성 아래 칸 (hand · syn · item)
+		if a.has("gftier"):
+			forge_tier = int(a.gftier)      # 점검용 —— 조합 탭 등급 거르기 (6 초월 · 7 불멸 · 8 신화 · 9 기인, 11/9)
 		go(a.get("gpage", "draw"))
 	if a.has("ggive") and run != null:      # 점검용 —— --ggive=c177,c160:2,K01 : 카드를 손패에 쥐여 준다 (징집 등급 줄 점검, 11/7 · 저장하지 않는다)
 		for s in str(a.ggive).split(",", false):
 			var kn := s.split(":")
 			if DB.C.has(kn[0]):
 				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
+		render()
+	if a.has("gboard") and run != null:      # 점검용 —— --gboard=K01,N01,L02 : 카드를 쥐여 주고 편성판 0번 칸부터 앉힌다 (전투 아래 카드 · 편성 칸의 등급 장식 점검, 11/9 · 저장하지 않는다)
+		var bi := 0
+		for kb in str(a.gboard).split(",", false):
+			if DB.C.has(kb) and bi < 9:
+				run.give(kb)
+				run.place(bi, kb)
+				bi += 1
 		render()
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
