@@ -1,0 +1,58 @@
+A character design sheet of 4 nameless "rank-and-file" soldiers of the Three Kingdoms era (late Han dynasty China) for a mobile
+card game. They are the plain starter cards, drawn the same way as our general portraits but ANONYMOUS: ordinary faces, no famous features.
+Each one is the clear, simple, instantly readable picture of its TROOP TYPE; it must match the soldier sprites of the same type
+(same helmet, weapon and clothes as described).
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed. (Same hand as our Three Kingdoms general portraits.)
+- Small calm-to-lively poses: standing, holding the weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot. Their panel may be a little wider.
+- NO GREEN on the characters themselves (no green cloth, trims or items) —— green is the background and gets erased by the cutting tool.
+- All characters are adult MEN (or monsters). No famous generals' features: these are nameless soldiers.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple gear, no gold ornaments, no capes (unless named), no glowing effects
+(except the small orange orb of the Taoist's staff). Colors: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Draw each FACE exactly and exaggerate it a little, like a caricature
+(face shape, eyes, brows, nose, mouth, age). Follow BUILD. No same-face syndrome, no generic cute face.
+Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 2 columns x 2 rows = 4 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 4 fill the 4 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no ids, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+
+1. Nameless Strategist  [STRATEGIST, card troop "책사"]
+   DESIGN: an anonymous staff officer: wide-sleeved scholar robe reaching the ground, cloth belt, a tall black official cap, a white feather fan held in the right hand at the chest.
+   FACE: slim calm face, long narrow eyes, high forehead, composed small smile, pale skin.
+   BUILD: slim, upright, medium height.
+   SIGNATURE (unique on this sheet): HEAD tall black official cap; FACIAL HAIR small neat mustache; MARK white feather fan, wide sleeves, long robe to the ground.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+2. Nameless Schemer  [SCHEMER, card troop "모사"]
+   DESIGN: an anonymous court plotter: dark-trimmed robe with a short cape over the shoulders, a small black court cap, a rolled paper scroll in the right hand held to the chest, glancing sideways.
+   FACE: sly face, narrow sideways-glancing eyes, thin arched eyebrows, small crooked smirk, pale skin.
+   BUILD: slim, a little stooped.
+   SIGNATURE (unique on this sheet): HEAD small black court cap; FACIAL HAIR small pointed goatee; MARK short shoulder cape, rolled paper scroll held to the chest.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+3. Nameless Sorcerer  [SORCERER, card troop "술사"]
+   DESIGN: an anonymous Taoist mystic: loose plain robe, a dark pointed hood, a cord belt with a small gourd, bare ankles and straw sandals, a tall wooden staff with a small glowing-orange orb on top in the right hand and a yellowed talisman paper held up in the left hand.
+   FACE: thin old face, deep-set calm eyes with long drooping eyebrows, hollow cheeks, faint knowing smile, ruddy skin.
+   BUILD: thin and slightly hunched.
+   SIGNATURE (unique on this sheet): HEAD dark pointed hood; FACIAL HAIR thin long grey beard; MARK tall staff with an orange orb (orange, not magenta), talisman paper in the other hand, gourd on the belt.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+4. Nameless Scholar  [SCHOLAR, card troop "유생"]
+   DESIGN: an anonymous Confucian student: long plain robe, cloth belt, a soft black scholar cap, a bamboo scroll held open in both hands, reciting with his mouth slightly open.
+   FACE: young smooth earnest face, round bright eyes, soft eyebrows, small nose, clean skin.
+   BUILD: young and slim, a little short.
+   SIGNATURE (unique on this sheet): HEAD soft black scholar cap; FACIAL HAIR clean-shaven; MARK open bamboo scroll in both hands, plain long robe.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.

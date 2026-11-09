@@ -1,0 +1,38 @@
+토벌 적 55장 —— 이름 순서 = 이름표 번호 순서. 시트는 references/토벌적_시트/<txt 와 같은 이름>.png 로 두고 D:\Sol 에서
+  python -I tools/scripts/slice_cards.py 토벌적   → references/토벌적_시트/잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_cards.py 토벌적 --apply
+  (--apply 는 solgukji_godot/assets/foes/<카드 id>.png 로 복사한다. 폴더가 없으면 만든다.) 한 장씩 자를 때는 아래 명령.
+  자를 때 한 변 512 px 로 줄인다 (--max). 크기를 바꾸려면 make_troop_foe_prompts.py 의 MAX_SIDE 를 고치고 다시 실행.
+  그리는 순서: 01 → 07 (일반, 앞 등급 시트를 참조로 붙이면 등급 차이가 이어진다) → 08 ~ 11 (정예, 같은 등급 일반 시트를 참조로).
+
+[01_1등급.txt]  1 황건 잡병(y10) · 2 황건 기마졸(y11) · 3 황건 활잡이(y12) · 4 황건 졸개(y13) · 5 태평도 신도(y14)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y10,y11,y12,y13,y14" solgukji_godot/assets/foes --hole=155 --max=512
+
+[02_2등급.txt]  1 황건 장창대(y20) · 2 황건 기마대(y21) · 3 황건 궁대(y22) · 4 황건 무뢰배(y23) · 5 태평도 부적사(y24)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y20,y21,y22,y23,y24" solgukji_godot/assets/foes --hole=155 --max=512
+
+[03_3등급.txt]  1 황건 창두(y30) · 2 황건 마적(y31) · 3 황건 궁두(y32) · 4 황건 역사(y33) · 5 태평도 제주(y34)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y30,y31,y32,y33,y34" solgukji_godot/assets/foes --hole=155 --max=512
+
+[04_4등급.txt]  1 황건 소방수(y40) · 2 황건 철기(y41) · 3 황건 신궁(y42) · 4 흑산 두령(y43) · 5 태평도 대제주(y44)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y40,y41,y42,y43,y44" solgukji_godot/assets/foes --hole=155 --max=512
+
+[05_5등급.txt]  1 황건 대방수(y50) · 2 황건 효기(y51) · 3 황건 사수장(y52) · 4 흑산 대두령(y53) · 5 태평도 방사(y54)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y50,y51,y52,y53,y54" solgukji_godot/assets/foes --hole=155 --max=512
+
+[06_6등급.txt]  1 황천 역사장(y60) · 2 황천 철기장(y61) · 3 황천 궁장(y62) · 4 황천 야차(y63) · 5 태평도 대현사(y64)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y60,y61,y62,y63,y64" solgukji_godot/assets/foes --hole=155 --max=512
+
+[07_7등급.txt]  1 황천 신장(y70) · 2 황천 신기장(y71) · 3 황천 신궁장(y72) · 4 황천 귀왕(y73) · 5 태평도 천사(y74)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y70,y71,y72,y73,y74" solgukji_godot/assets/foes --hole=155 --max=512
+
+[08_4등급_정예.txt]  1 황건 방패장(y45) · 2 흑산 돌기대(y46) · 3 흑산 노수(y47) · 4 백파 자객(y48) · 5 태평도 법사(y49)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y45,y46,y47,y48,y49" solgukji_godot/assets/foes --hole=155 --max=512
+
+[09_5등급_정예.txt]  1 황건 방진장(y55) · 2 흑산 철기대(y56) · 3 흑산 강궁대(y57) · 4 백파 결사대(y58) · 5 태평도 도사(y59)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y55,y56,y57,y58,y59" solgukji_godot/assets/foes --hole=155 --max=512
+
+[10_6등급_정예.txt]  1 황천 금강역사(y65) · 2 황천 흑기대(y66) · 3 황천 뇌궁수(y67) · 4 황천 살수(y68) · 5 태평도 천관(y69)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y65,y66,y67,y68,y69" solgukji_godot/assets/foes --hole=155 --max=512
+
+[11_7등급_정예.txt]  1 황천 호법신장(y75) · 2 황천 뇌기장(y76) · 3 황천 벽력궁(y77) · 4 황천 흑살귀(y78) · 5 태평도 대성사(y79)
+  자르기: python -I tools/scripts/slice_sheet.py 시트.png "y75,y76,y77,y78,y79" solgukji_godot/assets/foes --hole=155 --max=512
