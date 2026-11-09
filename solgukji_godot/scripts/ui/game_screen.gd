@@ -3278,6 +3278,44 @@ func _dev_args() -> void:
 						uk = q.key
 						break
 			battle_unit_sheet(uk)
+		if a.has("glong"):      # 점검용 —— 전장 메달 꾹 누르기 입력 시뮬레이션 (11/9): --glong=A0 (부대 key) · soldier(병졸 첫 부대) · cid:y(카드 id 앞머리) · --glongat=dx,dy (메달에서 비껴 누르기)
+			await get_tree().create_timer(float(a.get("glongwait", "3.0"))).timeout
+			var lk := str(a.glong)
+			var lsq: Squad = _battle.field.squads.get(lk)
+			if lk == "soldier":
+				for q in _battle.field.order:
+					if q.tier <= 2 and q.alive:
+						lsq = q
+						break
+			elif lk.begins_with("cid:"):      # --glong=cid:y —— 카드 id 가 y 로 시작하는 첫 부대 (토벌 잡병)
+				for q in _battle.field.order:
+					if str(q.cid).begins_with(lk.substr(4)) and q.alive:
+						lsq = q
+						break
+			if lsq == null:
+				print("glong: 부대 %s 없음" % lk)
+			else:
+				var off := Vector2.ZERO
+				if a.has("glongat"):
+					var oc: PackedStringArray = str(a.glongat).split(",")
+					off = Vector2(float(oc[0]), float(oc[1]))
+				var lp: Vector2 = _battle.field.to_screen(lsq.pos, 0.0) + (_battle.hud._tok_off.get(lsq.key, Vector2.ZERO) as Vector2) + off
+				var lg: Vector2 = _battle.stage.get_global_rect().position + lp
+				var lxf := get_tree().root.get_final_transform()
+				var lm := InputEventMouseButton.new()
+				lm.button_index = MOUSE_BUTTON_LEFT
+				lm.pressed = true
+				lm.position = lxf * lg
+				lm.global_position = lm.position
+				Input.parse_input_event(lm)
+				await get_tree().create_timer(0.8).timeout
+				var lu := InputEventMouseButton.new()
+				lu.button_index = MOUSE_BUTTON_LEFT
+				lu.pressed = false
+				lu.position = lm.position
+				lu.global_position = lm.position
+				Input.parse_input_event(lu)
+				print("glong: %s(%s · %s) 메달 %s 눌렀다 · 시트 %s" % [lsq.key, lsq.row.name, lsq.camp, str(lp), _sheet.visible])
 		if a.has("gcam"):       # 점검용 카메라 —— 거리:높이각
 			var cv: PackedStringArray = str(a.gcam).split(":")
 			await get_tree().create_timer(4.0).timeout

@@ -112,7 +112,7 @@ const SPOT_SHADER := preload("res://shaders/spotlight.gdshader")
 var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 중) —— 방진 버튼을 깜빡인다
 var warn_key := ""
 var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이름
-var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 그 부대를 따라간다
+var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 — 2D 전장은 그 메달의 전투장수창(unit_requested), 3D 는 그 부대를 따라간다
 const LONG_PRESS := 0.45
 # 11/4 연출 점검 —— 리듬
 const MARCH_SPD := 1.0      # 맞닿기 전(다가오기만 하는 개전 구간) 배속 —— 11/4 저녁 사용자: 1배속인데 배속 돌린 듯 어색하다 → 1.0 (끔)
@@ -146,6 +146,7 @@ func _ready() -> void:
 	stage = Control.new()
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.clip_contents = true
+	stage.gui_input.connect(_flat_input)      # 11/9 2D 전장(타입2 · 점묘)은 3D 상자가 숨어 입력이 이리로 온다 —— 꾹 누르기만 본다
 	col.add_child(stage)
 	_box = SubViewportContainer.new()
 	_box.stretch = false
@@ -476,16 +477,27 @@ func _stage_input(e: InputEvent) -> void:
 		field.auto_camera()
 		hud.announce("자동 카메라", DB.PAL.bamboo)
 		return
-	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-		_press = [e.position, Time.get_ticks_msec()] if e.pressed and _touches.size() < 2 else []
-	elif e is InputEventMouseMotion and not _press.is_empty() and e.position.distance_to(_press[0]) > 14:
-		_press = []
+	_track_press(e)
 	if e is InputEventMagnifyGesture:
 		field.pinch(1.0 / e.factor, 0.0)
 		return
 	if e is InputEventMouseMotion and _touches.size() >= 2:
 		return
 	field.camera_input(e)
+
+
+## 꾹 누르기 기록 —— 왼쪽 버튼(손가락)을 누른 자리 · 시각. 14px 넘게 움직이면 취소
+func _track_press(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		_press = [e.position, Time.get_ticks_msec()] if e.pressed and _touches.size() < 2 else []
+	elif e is InputEventMouseMotion and not _press.is_empty() and e.position.distance_to(_press[0]) > 14:
+		_press = []
+
+
+## 2D 전장(field.flat)에서 오는 입력 —— 카메라는 없고(자동 맞춤) 꾹 누르기로 메달의 전투장수창만 연다 (11/9 사용자)
+func _flat_input(e: InputEvent) -> void:
+	if field != null and field.flat != null:
+		_track_press(e)
 
 
 # ───────── 전투 준비 ─────────
@@ -955,12 +967,19 @@ func _build_timeline(rebuild := false) -> void:
 func _process(dt: float) -> void:
 	var tv := Time.get_ticks_usec()
 	if not _press.is_empty() and Time.get_ticks_msec() - _press[1] >= LONG_PRESS * 1000:
-		var sq := field.squad_at(_press[0]) if field else null
+		var pp: Vector2 = _press[0]
 		_press = []
-		if sq:
-			field.follow_squad(sq)
-			UI.buzz(30)
-			hud.announce("%s 따라가기" % sq.row.name, DB.PAL.gold)
+		if field and field.flat != null:      # 2D 전장 —— 그려진 메달 자리에서 고른다. 아군 · 적군 모두 전투장수창 (11/9 사용자)
+			var mq: Squad = hud.medal_at(pp)
+			if mq and DB.C.has(mq.cid):
+				UI.buzz(30)
+				unit_requested.emit(mq.key)
+		else:
+			var sq := field.squad_at(pp) if field else null
+			if sq:
+				field.follow_squad(sq)
+				UI.buzz(30)
+				hud.announce("%s 따라가기" % sq.row.name, DB.PAL.gold)
 	_process_inner(dt)
 	if field:
 		field.pt("[화면전체]", tv)
@@ -2473,6 +2492,26 @@ class Hud extends Control:
 			_tok_off[k] = (_tok_off.get(k, Vector2.ZERO) as Vector2).lerp(off, 0.15)
 			out[k] = base[k] + _tok_off[k]
 		return out
+
+	## 2D 전장에서 화면 위치 sp 에 있는 메달(부대) —— 그리는 자리(밀어낸 _tok_off 까지)와 같은 곳에서 고른다 (11/9 꾹 누르기 → 전투장수창).
+	## 선택 반경은 메달 반지름 + MEDAL_PICK_PAD, 겹치면 더 가까운 쪽(같으면 화면 아래 = 위에 그려진 쪽). 빈 곳이면 null
+	const MEDAL_PICK_PAD := 13.0
+	func medal_at(sp: Vector2) -> Squad:
+		var best: Squad = null
+		var bd := INF
+		var by := -INF
+		for sq in view.field.order:
+			if sq.state == "gone" or sq.fade < 0.2:
+				continue
+			var p: Vector2 = view.field.to_screen(sq.pos, 0.0) + (_tok_off.get(sq.key, Vector2.ZERO) as Vector2)
+			var d := p.distance_to(sp)
+			if d > (15.0 if sq.tier < 7 else 17.0) + MEDAL_PICK_PAD:
+				continue
+			if d < bd - 0.5 or (absf(d - bd) <= 0.5 and p.y > by):
+				bd = d
+				by = p.y
+				best = sq
+		return best
 
 	## 2D 전장 글씨 자리 —— 처음 뜰 때 이미 떠 있는 글씨와 겹치면 위로 한 칸씩 (정해진 뒤에는 그대로)
 	func _settle_dy(f: Dictionary, p: Vector2, w: float, h: float) -> float:
