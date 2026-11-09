@@ -364,7 +364,7 @@ func slot_sheet(i: int) -> void:
 		var col := DB.PAL.jade if z == "pref" else DB.PAL.seal
 		var chip := UI.lbl(("▲ " if z == "pref" else "▼ ") + t, 12, col.lightened(0.25), true)
 		var pc := PanelContainer.new()
-		pc.add_theme_stylebox_override("panel", UI.flat(Color(col, 0.18), col, 1, 10, 4))
+		pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink3, Color(0, 0, 0, 0), 0, UI.R, 4))      # 11/9 색 테두리 칩 → 먹색 칩 (선호 옥 · 어색 인장은 글자색으로만)
 		pc.add_child(chip)
 		zr.add_child(pc)
 	b.add_child(zr)

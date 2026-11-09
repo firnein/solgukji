@@ -115,9 +115,9 @@ static func effects_box(board: Array, form_key: String, open: bool, on_toggle: C
 	tg.custom_minimum_size = Vector2(0, 28)
 	tg.add_theme_font_size_override("font_size", 12)
 	tg.add_theme_color_override("font_color", P.bamboo)
-	tg.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), P.ink4, 1, 14, 0))
-	tg.add_theme_stylebox_override("hover", UI.flat(P.ink3, P.bamboo_dim, 1, 14, 0))
-	tg.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.bamboo, 1, 14, 0))
+	tg.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), Color(P.paper, 0.16), 1, UI.R, 0))
+	tg.add_theme_stylebox_override("hover", UI.flat(P.ink3, Color(P.paper, 0.28), 1, UI.R, 0))
+	tg.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.gold, 1, UI.R, 0))
 	_pad(tg, 10, 3)
 	tg.pressed.connect(func():
 		UI.buzz()
@@ -125,9 +125,11 @@ static func effects_box(board: Array, form_key: String, open: bool, on_toggle: C
 	head.add_child(tg)
 	v.add_child(head)
 	if open:
-		var tbl := UI.vbox(2)
-		for r in rows:
-			tbl.add_child(_row(r, on_card))
+		var tbl := UI.vbox(0)
+		for i in rows.size():
+			if i > 0:
+				tbl.add_child(UI.hair())      # 11/9 줄 사이는 구분선
+			tbl.add_child(_row(rows[i], on_card))
 		v.add_child(tbl)
 	else:
 		var flow := UI.flow(6)
@@ -140,9 +142,9 @@ static func effects_box(board: Array, form_key: String, open: bool, on_toggle: C
 			more.custom_minimum_size = Vector2(0, 28)
 			more.add_theme_font_size_override("font_size", 12)
 			more.add_theme_color_override("font_color", P.bamboo)
-			more.add_theme_stylebox_override("normal", UI.flat(P.ink3, P.ink4, 1, 14, 0))
-			more.add_theme_stylebox_override("hover", UI.flat(P.ink4, P.bamboo_dim, 1, 14, 0))
-			more.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.bamboo, 1, 14, 0))
+			more.add_theme_stylebox_override("normal", UI.flat(P.ink3, Color(0, 0, 0, 0), 0, UI.R, 0))
+			more.add_theme_stylebox_override("hover", UI.flat(P.ink4, Color(0, 0, 0, 0), 0, UI.R, 0))
+			more.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.gold, 1, UI.R, 0))
 			_pad(more, 10, 3)
 			more.pressed.connect(func():
 				UI.buzz()
@@ -152,9 +154,9 @@ static func effects_box(board: Array, form_key: String, open: bool, on_toggle: C
 	return UI.panel(v, 10)
 
 
-## 효과 칩 —— 『이름』 한 토막, 부여 장수 등급색 테 · 길면 … (한 칩은 폭 230 까지)
+## 효과 칩 —— 『이름』 한 토막. 11/9: 부여 장수 등급색 테두리 칩 줄(무지개)을 걷고 한 가지 먹색 칩 + 종이색 글 (진형만 금 글자) · 길면 … (한 칩은 폭 230 까지)
 static func _chip(r: Dictionary, on_card: Callable) -> Button:
-	var col: Color = r.col
+	var P := DB.PAL
 	var b := Button.new()
 	var txt: String = "%s『%s』 %s" % ["진형" if r.kind == "진형" else "", r.name, r.brief]
 	b.text = txt
@@ -163,12 +165,13 @@ static func _chip(r: Dictionary, on_card: Callable) -> Button:
 	var tw: float = DB.font_body.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	b.custom_minimum_size = Vector2(minf(tw + 22.0, 230.0), 28)
 	b.add_theme_font_size_override("font_size", 12)
-	b.add_theme_color_override("font_color", col.lightened(0.35))
-	b.add_theme_color_override("font_hover_color", col.lightened(0.5))
-	b.add_theme_color_override("font_pressed_color", Color("#1A1508"))
-	b.add_theme_stylebox_override("normal", UI.flat(Color(col, 0.16), Color(col, 0.7), 1, 14, 0))
-	b.add_theme_stylebox_override("hover", UI.flat(Color(col, 0.28), col, 1, 14, 0))
-	b.add_theme_stylebox_override("pressed", UI.flat(col, col, 1, 14, 0))
+	var fc: Color = P.gold if r.kind == "진형" else P.paper
+	b.add_theme_color_override("font_color", fc)
+	b.add_theme_color_override("font_hover_color", fc)
+	b.add_theme_color_override("font_pressed_color", fc)
+	b.add_theme_stylebox_override("normal", UI.flat(P.ink3, Color(0, 0, 0, 0), 0, UI.R, 0))
+	b.add_theme_stylebox_override("hover", UI.flat(P.ink4, Color(0, 0, 0, 0), 0, UI.R, 0))
+	b.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.gold, 1, UI.R, 0))
 	_pad(b, 10, 3)
 	var k: String = r.k
 	b.pressed.connect(func():
@@ -184,9 +187,9 @@ static func _row(r: Dictionary, on_card: Callable) -> Control:
 	var h := UI.hbox(0)
 	var left := PanelContainer.new()
 	left.custom_minimum_size.x = 118
-	left.add_theme_stylebox_override("panel", UI.flat(col.darkened(0.45) if r.kind != "진형" else Color("#C9A246"), Color("#2a3348"), 1, 0, 0))
-	_pad(left, 6, 3)
-	var who := UI.lbl(r.who, 12, Color("#1A1508") if r.kind == "진형" else Color("#F4EBD6"))
+	left.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
+	_pad(left, 2, 6)
+	var who := UI.lbl(r.who, 12, DB.PAL.gold if r.kind == "진형" else col.lightened(0.3))      # 부여 장수는 등급색 글자 (바탕 덩어리는 걷음)
 	who.add_theme_font_override("font", DB.font_bold)
 	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	who.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -195,8 +198,8 @@ static func _row(r: Dictionary, on_card: Callable) -> Control:
 	h.add_child(left)
 	var right := PanelContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.add_theme_stylebox_override("panel", UI.flat(Color("#151b29"), Color("#2a3348"), 1, 0, 0))
-	_pad(right, 6, 3)
+	right.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
+	_pad(right, 6, 6)
 	var bb: String
 	if r.kind == "진형":
 		bb = "[color=#E8C25A][b]진형『%s』[/b][/color] [color=#8FD4C2]%s[/color]" % [r.name, r.text]
