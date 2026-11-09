@@ -185,7 +185,6 @@ class Unit:
 	var caps := {}
 	var regen_up := false
 	var fast_side := false
-	var boon = null
 	var buffs := []
 	var alive := true
 	var hit50 := false
@@ -343,8 +342,8 @@ static func fac_syn(cards: Array, form: String) -> Dictionary:
 		fc[c.fac] = fc.get(c.fac, 0) + 1
 		tc[c.tag] = tc.get(c.tag, 0) + 1
 	var out := {"morale": 0.0, "atk": 1.0, "spd": 1.0, "troop": 1.0, "list": [], "tag": {},
-		"tagList": [], "caps": {}, "boon": DB.D.FORMBOON.get(form)}
-	if not synergy_enabled:      # 10/30 세력 · 병종 시너지 없앰 —— 진형 우대(boon)만 남는다
+		"tagList": [], "caps": {}}
+	if not synergy_enabled:      # 10/30 세력 · 병종 시너지 없앰 (11/9 진형 우대도 없앰 —— 빈 값을 돌려준다)
 		return out
 	for f in fc:
 		var s = DB.D.SYN.get(f)
@@ -402,8 +401,6 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	u.caps = syn.caps
 	u.regen_up = syn.get("regenUp", false)
 	u.fast_side = syn.get("fastSide", false)
-	var boon = syn.boon
-	u.boon = boon if boon and boon.tags.has(u.c.tag) else null
 	var ps = DB.passives_of(cid)
 	if ps != null:
 		for t in ps.traits:
@@ -516,7 +513,6 @@ func eff(u: Unit, stat: String) -> float:
 	if stat == "atk": v *= u.syn_atk
 	if stat == "spd": v *= u.syn_spd * _flood_slow(u)
 	if u.ts and S(u.ts.stat) == stat: v *= (1 + u.ts.v)
-	if u.boon and S(u.boon.stat) == stat: v *= (1 + u.boon.v)
 	for b in u.buffs:
 		if S(b.stat) == stat: v *= (1 + b.amt)
 	if stat == "atk": v *= (0.4 + 0.6 * (u.troops / u.max))
@@ -839,7 +835,6 @@ func sk_rate(u: Unit) -> float:
 	if u.item:
 		r += DB.IT[u.item].rb / 100.0 * (MYTH_AMP if is_signature(u) else 1.0)
 	if u.ts and u.ts.stat == "rate": r += u.ts.v
-	if u.boon and u.boon.stat == "rate": r += u.boon.v
 	return r + mv(u, "rate")
 
 
@@ -2467,20 +2462,14 @@ func _kv(cp: String, key: String) -> Unit:
 	return null
 
 
-## 전투 시작 기인 —— 진형 보너스 · 습격 · 사기 · 봉인 · 이간
+## 전투 시작 기인 —— 습격 · 사기 · 봉인 · 이간
 func _kiin_open() -> void:
 	if _kiin_u.is_empty():
 		return
 	for cp in ["A", "B"]:
 		var fo := _foe(cp)
-		var mine := units.filter(func(o): return o.camp == cp)
-		if _kv(fo, "no_form"):           # 교변 장합 —— 적 진형 보너스 없음
-			for u in mine: u.boon = null
-		elif _kv(cp, "form_x2"):         # 단복 서서 —— 아군 진형 보너스 2배
-			for u in mine:
-				if u.boon:
-					u.boon = u.boon.duplicate()
-					u.boon.v = float(u.boon.v) * 3.0
+		# 11/9 진형 우대(FORMBOON) 삭제 —— 기인 no_form(교변 장합 · 적 진형 보너스 없음) · form_x2(단복 서서 · 아군 진형 보너스 ×3)는 걸 곳이 없어 아무 일도 안 한다
+		# (데이터 · 설명은 그대로 둠 —— 되살리려면 docs 작업현황 51 참고)
 		var sx := _kv(cp, "ambush")       # 궁요 손상향 —— 적 후열 하나 습격
 		if sx:
 			var back := units.filter(func(o): return o.camp == fo and o.alive)
