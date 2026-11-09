@@ -757,14 +757,10 @@ func toast(text: String, kind := "") -> void:
 	Sfx.play({"gain": "gain", "bad": "deny", "gold": "gain"}.get(kind, "draw"))
 	var p := PanelContainer.new()
 	var col: Color = {"gold": DB.PAL.gold, "news": DB.PAL.bamboo, "gain": DB.PAL.jade, "bad": DB.PAL.seal}.get(kind, DB.PAL.bamboo_dim)
-	var sb := UI.flat(Color("#1b2236", 0.97), Color(col, 0.6), 1, 12, 12)
-	sb.border_width_left = 4
-	sb.border_color = col
-	sb.shadow_color = Color(0, 0, 0, 0.4)
-	sb.shadow_size = 8
+	var sb := UI.flat(Color("#1b2236", 0.97), Color(col, 0.35), 1, UI.R, 12)      # 11/9: 왼쪽 굵은 색 띠 · 그림자 걷음 —— 얇은 선 하나
 	p.add_theme_stylebox_override("panel", sb)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := UI.lbl(text, 15, col.lightened(0.3))
+	var l := UI.lbl(text, 15, DB.PAL.seal.lightened(0.35) if kind == "bad" else DB.PAL.paper)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(l)
@@ -825,12 +821,10 @@ func _next_band() -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#0d1220", 0.9)
 	sb.border_color = Color(col, 0.85)
-	sb.border_width_top = 2
-	sb.border_width_bottom = 2
+	sb.border_width_top = 1
+	sb.border_width_bottom = 1
 	sb.content_margin_top = 10
 	sb.content_margin_bottom = 10
-	sb.shadow_color = Color(col, 0.25)
-	sb.shadow_size = 14
 	p.add_theme_stylebox_override("panel", sb)
 	p.anchor_left = 0
 	p.anchor_right = 1
@@ -1298,27 +1292,16 @@ func recipe_sheet(out: String) -> void:
 	rv.add_child(TraitBoard.new().setup(out))
 	var chips := _ability_items(out)
 	var ult = DB.ult_of(out) if c.tier >= 6 or DB.is_kiin(out) else null
-	if ult != null:      # 11/9 사용자: 초상 옆 빈 공간 정리 —— 기질 칸은 오른쪽(능력치 · 특기판 아래), 나머지는 아래 폭 전체 2열
-		var tn := Battle.temper_name(c, ult)
-		if tn != "":
-			var tchip := _ability_card({"kind": "기질", "name": tn, "effect": "", "col": Color(TEMPER_COL.get(tn, "#C6AC7C")), "sub": "", "icon": TEMPER_ICON.get(tn, "pick")}, 12, true)
-			tchip.gui_input.connect(func(e):
-				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-					UI.buzz()
-					card_info(out))
-			rv.add_child(tchip)
+	var open_detail := func(): card_info(out)      # 줄을 누르면 디테일창
+	if ult != null:      # 11/9 사용자: 초상 옆 빈 공간 정리 —— 기질은 오른쪽(능력치 · 특기판 아래), 나머지는 아래 폭 전체 한 장 패널
+		var ti := _temper_item(c, ult)
+		if not ti.is_empty():
+			rv.add_child(UI.hair())
+			rv.add_child(_ability_panel([ti], 12, false, true, open_detail, false))
 	tp.add_child(rv)
 	b.add_child(UI.panel(tp, 10))
 	if not chips.is_empty():
-		var cb := UI.vbox(6)
-		_ability_layout(cb, chips, false, func(it):
-			var cc := _ability_card(it, 12, true)
-			cc.gui_input.connect(func(e):      # 칸을 누르면 디테일창
-				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-					UI.buzz()
-					card_info(out))
-			return cc)
-		b.add_child(cb)
+		b.add_child(_ability_panel(chips, 12, false, true, open_detail))
 		b.add_child(UI.hint("자세한 설명은 상세(디테일창)에서 보세요"))
 	var row := UI.hbox(6)
 	var ml := UI.lbl("재료", 13, DB.PAL.bamboo, true)
@@ -1889,11 +1872,9 @@ func card_info(k: String) -> void:
 	var rc := DB.role_chip(k)      # 11/9 대표 역할 칩 (기인) + 피해 종류 한 줄
 	if gt != "" or not rc.is_empty():
 		var gh := UI.hbox(6)
-		if not rc.is_empty():
-			var rp := PanelContainer.new()
-			rp.add_theme_stylebox_override("panel", UI.flat(Color(rc.col).darkened(0.4), Color(rc.col).lightened(0.2), 1, 3, 2))
-			rp.add_child(UI.lbl("역할 " + str(rc.t), 12, Color.WHITE, true))
-			gh.add_child(rp)
+		if not rc.is_empty():      # 역할 칩의 색 칠한 상자는 걷고 글자만 (11/9)
+			gh.add_child(UI.lbl("역할", 12, DB.PAL.bamboo_dim))
+			gh.add_child(UI.lbl(str(rc.t), 12, DB.PAL.paper, true))
 		if gt != "":
 			gh.add_child(UI.lbl(gt, 12, DB.kind_col(c.tag)))
 		st.add_child(gh)
@@ -1915,19 +1896,19 @@ func card_info(k: String) -> void:
 	# 11/5 사용자: 잔기술을 따로 부르지 않는다 —— 자주 쓰는 기술로 기술 목록 맨 앞에 (발동: "평타 3번에 한 번")
 	var mk := Battle.minor_kind(k)
 	if not c.get("sks", []).is_empty() or mk != "":
-		var sk_v := UI.vbox(6)
+		var sk_items := []
 		if mk != "":
-			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
+			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
 		for x in c.get("sks", []):
-			sk_v.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-		folds.add_child(_fold_sec("card_skills", "기술 %d" % (c.get("sks", []).size() + (1 if mk != "" else 0)), sk_v))
+			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+		folds.add_child(_fold_sec("card_skills", "기술 %d" % (c.get("sks", []).size() + (1 if mk != "" else 0)), _kv_stack(sk_items)))
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
 		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
 		var tg := _info_grid()
 		for t in tl.filter(func(x): return not x.unique):
 			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "\n"), ("\n[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
-			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "\n[color=#8D7B5C]단체[/color]" if t.group else ""], body)
+			_info_row(tg, "[b]%s[/b][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "\n[color=#8D7B5C]단체[/color]" if t.group else ""], body)
 		var tv := UI.vbox(6)      # 11/9 사용자: 특기 펼치기 버튼 제거 —— 늘 펼쳐 둔다
 		tv.add_child(UI.eyebrow("특기 %d" % tl.filter(func(x): return not x.unique).size()))
 		tv.add_child(tg)
@@ -2015,25 +1996,27 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	return v
 
 
-## 능력치 한 줄 —— 공 · 방 · 속 (11/6 #15 책략 · 책략방어 통합). 책략계는 공격을 푸른색으로 (원거리 · 범위)
+## 능력치 한 줄 —— 공 · 방 · 속 (11/6 #15 책략 · 책략방어 통합). 책략계는 공격을 푸른색으로 (원거리 · 범위).
+## 11/9: 칸마다 테두리 상자 대신 숫자 셋을 가는 세로선으로 나눈다
 func _stat_row(c: Dictionary) -> Control:
 	var magic: bool = DB.INT_TAGS.has(c.tag)
-	var g := GridContainer.new()
-	g.columns = 3
-	g.add_theme_constant_override("h_separation", 4)
-	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var h := UI.hbox(0)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var i := 0
 	for pair in [["공격", c.atk, true, Color("#6fa8ff") if magic else Color("#ff6b5a")], ["방어", c["def"], false, null], ["속도", c.spd, false, null]]:
+		if i > 0:
+			h.add_child(UI.hair(true))
+		i += 1
 		var v := UI.vbox(0)
-		var a := UI.lbl(str(int(pair[1])), 16, pair[3] if pair[2] else DB.PAL.paper, true)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var a := UI.lbl(str(int(pair[1])), 18, pair[3] if pair[2] else DB.PAL.paper, true)
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		var l := UI.lbl(pair[0], 10, DB.PAL.bamboo_dim)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(a)
 		v.add_child(l)
-		var pc := UI.panel(v, 2)
-		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.add_child(pc)
-	return g
+		h.add_child(v)
+	return h
 
 
 ## 전투장수창 (11/6 사용자) —— 전투 중 꾹 눌러 연다. 이미 만든 장수라 재료 · 갈무리는 빼고 전투 요소만:
@@ -2118,120 +2101,166 @@ func battle_unit_sheet(key: String) -> void:
 	_ability_rows(b, k, 13)
 	# 기술 (자주 쓰는 기술 + 일반 기술)
 	var mk := Battle.minor_kind(k)
+	var bsk := []
 	if mk != "":
-		b.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
+		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
 	for x in c.get("sks", []):
-		b.add_child(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+	if not bsk.is_empty():
+		b.add_child(_kv_stack(bsk))
 	# 특기 —— 이름 · 레벨 · 수치 한 줄씩 (고유 특기는 위 칸에)
 	var tl := DB.trait_list(k).filter(func(x): return not x.unique)
 	if not tl.is_empty():
 		var tg := _info_grid()
 		for t in tl:
-			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]" % [t.name, int(t.lv)],
+			_info_row(tg, "[b]%s[/b][color=#D9A64B]%d[/color]" % [t.name, int(t.lv)],
 				"[color=#8FD4C2]%s[/color]" % (t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0)))
 		b.add_child(UI.eyebrow("특기 %d" % tl.size()))
 		b.add_child(tg)
 
 
-## 11/7 고유기 기질 (사용자: 플레이어가 알 수 있게) —— 기질 색 · 기호(Icons). 규칙 배정이든 수동 지정이든 Battle.temper_name 이 실제 기질을 준다
-const TEMPER_COL := {"맹장": "#E07A5A", "수호": "#6FA8E8", "지략": "#B48CFF", "저격": "#8FD47A", "분노": "#FF9A3C"}
+## 11/7 고유기 기질 (사용자: 플레이어가 알 수 있게) —— 기호(Icons). 11/9 색은 걷었다
 const TEMPER_ICON := {"맹장": "blade", "수호": "shield", "지략": "news", "저격": "target", "분노": "flame"}
-## 고유 특기 · 위세 · 패업 · 고유기 칸의 계열 색 (기인은 DB.KIIN_COL)
-const ABILITY_COL := {"uq": Color("#e8c25a"), "aura": Color("#b48cff"), "ult": Color("#ff9d5c"), "paeup": Color("#d96a8a")}
+## 고유 특기 · 위세(기인) · 패업 · 고유기 줄의 기호 —— 11/9 사용자: 종류를 색 카드가 아니라 작은 기호 + 옅은 라벨로 (작업현황 ㊽)
+const ABILITY_ICON := {"고유 특기": "seal", "위세": "banner", "기인": "banner", "패업": "crown", "고유기": "burst"}
 
 
-## 고유 특기 · 위세(기인) · 패업 · 고유기 항목을 차례로 모은다 —— {kind, name, effect, col, sub} (디테일창 · 갈무리창이 같이 쓴다)
+## 고유 특기 · 위세(기인) · 패업 · 고유기 항목을 차례로 모은다 —— {kind, name, effect, icon, sub, gold} (디테일창 · 갈무리창이 같이 쓴다)
 func _ability_items(k: String) -> Array:
 	var c: Dictionary = DB.C[k]
 	var out := []
 	for t in DB.trait_list(k):
 		if t.unique:
-			out.append({"kind": "고유 특기", "name": t.name, "effect": t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0), "col": ABILITY_COL.uq, "sub": ""})
+			out.append({"kind": "고유 특기", "name": t.name, "effect": t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0), "icon": ABILITY_ICON["고유 특기"], "sub": "", "gold": true})
 	if DB.AURA.has(k):
 		var kiin: bool = DB.is_kiin(k)
-		out.append({"kind": "기인" if kiin else "위세", "name": DB.AURA[k].n, "effect": DB.aura_effect(k), "col": DB.KIIN_COL if kiin else ABILITY_COL.aura, "sub": ""})
+		var kd := "기인" if kiin else "위세"
+		out.append({"kind": kd, "name": DB.AURA[k].n, "effect": DB.aura_effect(k), "icon": ABILITY_ICON[kd], "sub": ""})
 	if DB.AURA.has(k) and DB.AURA[k].has("paeup"):      # 11/9 패업 —— 이름 · 조건 · 효과 (판정은 Battle._paeup_setup)
 		var pa: Dictionary = DB.AURA[k].paeup
 		var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
 		var pe: String = str(pa.get("d", "")) if str(pa.cond) == "none" else "아군에 %s 자신 외 %d명 이상이면 —— %s" % [cw, int(pa.need), str(pa.get("d", ""))]      # 조건 없는 패업은 설명만 (11/9)
-		out.append({"kind": "패업", "name": str(pa.n), "effect": pe, "col": ABILITY_COL.paeup, "sub": ""})
+		out.append({"kind": "패업", "name": str(pa.n), "effect": pe, "icon": ABILITY_ICON["패업"], "sub": ""})
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
-		out.append({"kind": "고유기", "name": u.name, "effect": UI.ult_desc(u, c.tier), "col": ABILITY_COL.ult, "sub": "%d초부터" % roundi(u.wait)})
+		out.append({"kind": "고유기", "name": u.name, "effect": UI.ult_desc(u, c.tier), "icon": ABILITY_ICON["고유기"], "sub": "%d초부터" % roundi(u.wait)})
 	return out
 
 
-## 항목을 한 줄에 둘씩 —— 홀수면 마지막은 한 줄 전체. 폭이 좁으면(휴대폰 세로 보급 팝업 · 아주 좁은 창) 한 줄에 하나로 접는다.
-## mk 는 항목 하나를 칸으로 만드는 함수 (Callable(item) -> Control)
-func _ability_layout(into: Container, items: Array, narrow: bool, mk: Callable) -> void:
-	var two := not narrow and minf(size.x, MAX_W) >= 340.0
-	var i := 0
-	while i < items.size():
-		if two and i + 1 < items.size():
-			var h := UI.hbox(6)
-			for j in 2:
-				var cc: Control = mk.call(items[i + j])
-				cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				cc.custom_minimum_size.x = 0
-				h.add_child(cc)
-			into.add_child(h)
-			i += 2
-		else:
-			var cc: Control = mk.call(items[i])
-			cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			into.add_child(cc)
-			i += 1
-
-
-## 고유 특기 · 위세(기인) · 패업 · 고유기 + 기질 —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양 (11/7 사용자).
-## 11/9 사용자: 세로로 쭉 나열하지 말고 보기 좋게 —— 색 띠 카드를 2열로(고유 특기 | 위세 / 패업 | 고유기), 기질은 한 줄 띠. narrow 면 1열
+## 고유 특기 · 위세(기인) · 패업 · 고유기 (+ 기질) —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양.
+## 11/9 사용자: 색 카드 나열이 'AI 티' —— 한 장의 패널 안에서 얇은 구분선으로 줄을 나눈다. narrow(휴대폰 세로 보급 팝업)면 줄 안을 위아래로 쌓는다
 func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_temper := true) -> void:
 	var c: Dictionary = DB.C[k]
 	var its := _ability_items(k)
-	_ability_layout(into, its, narrow, func(it): return _ability_card(it, fs))
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null and with_temper:
-		var tb := _temper_box(c, u, fs - 1, narrow)
-		if tb != null:
-			into.add_child(tb)
+		var ti := _temper_item(c, u)
+		if not ti.is_empty():
+			its.append(ti)
+	if not its.is_empty():
+		into.add_child(_ability_panel(its, fs, narrow))
 
 
-## 색 띠 카드 하나 —— 왼쪽 굵은 색 띠, 위에 작은 계열 글 + 이름(굵게), 아래 효과(수치는 옥색). simple 이면 효과 없이 이름 칸만 (갈무리창)
-func _ability_card(it: Dictionary, fs := 12, simple := false) -> PanelContainer:
-	var col: Color = it.col
-	var pc := PanelContainer.new()
-	var sb := UI.flat(col.darkened(0.7), Color(col, 0.8), 1, 5, 6)
-	sb.border_width_left = 4
-	sb.content_margin_left = 9
-	pc.add_theme_stylebox_override("panel", sb)
-	pc.mouse_filter = Control.MOUSE_FILTER_PASS
-	var v := UI.vbox(2)
-	var head := UI.hbox(5)
-	var kl := UI.lbl(str(it.kind), fs - 2, Color(col.lightened(0.55), 0.95))
+## 기질 한 줄 항목 —— 규칙 배정이든 수동 지정이든 Battle.temper_name 이 실제 기질을 준다 (11/7). 없으면 {}
+func _temper_item(c: Dictionary, u: Dictionary) -> Dictionary:
+	var t := Battle.temper_name(c, u)
+	if t == "":
+		return {}
+	var ss: PackedStringArray = str(Battle.TEMPER_DESC.get(t, "")).split(". ")
+	var eff := []
+	for pair in [["차는 때", ss[0] if ss.size() > 0 else ""], ["쓰는 때", ss[1] if ss.size() > 1 else ""]]:
+		if pair[1] != "":
+			eff.append("[color=#8D7B5C]%s[/color]  %s" % [pair[0], pair[1]])
+	return {"kind": "기질", "name": t, "effect": "
+".join(eff), "raw": true, "icon": TEMPER_ICON.get(t, "pick"), "sub": ""}
+
+
+## 능력 패널 —— 줄 사이는 hairline. simple 이면 이름만 한 줄씩 (갈무리창), on_tap 이 있으면 줄을 눌러 호출. bg=false 면 바탕 없이 줄만
+func _ability_panel(items: Array, fs := 12, narrow := false, simple := false, on_tap := Callable(), bg := false) -> Control:
+	var outer := PanelContainer.new()
+	outer.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2 if bg else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, UI.R, 0))
+	outer.mouse_filter = Control.MOUSE_FILTER_PASS
+	var col := UI.vbox(0)
+	for i in items.size():
+		if i > 0:
+			col.add_child(UI.hair())
+		col.add_child(_ability_row(items[i], fs, narrow, simple, on_tap))
+	outer.add_child(col)
+	return outer
+
+
+## 능력 한 줄 —— 왼쪽 기호 + 옅은 라벨, 이름(크고 종이색 · 고유 특기만 금), 아래 효과(한 단계 작고 옅게, 수치만 옥색)
+func _ability_row(it: Dictionary, fs: int, narrow: bool, simple: bool, on_tap: Callable) -> Control:
+	var P := DB.PAL
+	var m := MarginContainer.new()
+	var vm := 6 if simple else 8
+	m.add_theme_constant_override("margin_top", vm)
+	m.add_theme_constant_override("margin_bottom", vm)
+	if on_tap.is_valid():
+		m.mouse_filter = Control.MOUSE_FILTER_STOP
+		m.gui_input.connect(func(e):
+			if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+				UI.buzz()
+				on_tap.call())
+	else:
+		m.mouse_filter = Control.MOUSE_FILTER_PASS
+	var ic := Icons.View.new(str(it.icon), P.bamboo_dim, fs + 2)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var kl := UI.lbl(str(it.kind), fs - 1, P.bamboo_dim)
 	kl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	head.add_child(kl)
-	if str(it.get("sub", "")) != "":
-		var sl := UI.lbl(str(it.sub), fs - 3, Color("#8D7B5C"))
-		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		head.add_child(sl)
-	v.add_child(head)
-	var nrow := UI.hbox(5)
-	if str(it.get("icon", "")) != "":
-		var ic := Icons.View.new(str(it.icon), col.lightened(0.25), fs + 4)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		nrow.add_child(ic)
-	var nl := UI.lbl(str(it.name), fs + (3 if simple else 2), Color("#F2EEE4"), true)
+	var nl := UI.lbl(str(it.name), fs + (2 if simple else 3), P.gold if it.get("gold", false) else P.paper, true)
 	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nrow.add_child(nl)
-	v.add_child(nrow)
+	var sl: Label = null
+	if str(it.get("sub", "")) != "":
+		sl = UI.lbl(str(it.sub), fs - 2, P.bamboo_dim)
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var eff: RichTextLabel = null
 	if not simple and str(it.get("effect", "")) != "":
-		var eff := UI.rich(_hl(str(it.effect)), fs - 1)
+		eff = UI.rich(str(it.effect) if it.get("raw", false) else _hl(str(it.effect)), fs - 1)
+		eff.add_theme_color_override("default_color", P.bamboo)
 		eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.add_child(eff)
-	pc.add_child(v)
-	return pc
+	if narrow and not simple:
+		var v := UI.vbox(3)
+		var hd := UI.hbox(5)
+		hd.add_child(ic)
+		hd.add_child(kl)
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hd.add_child(sp)
+		if sl != null:
+			hd.add_child(sl)
+		v.add_child(hd)
+		v.add_child(nl)
+		if eff != null:
+			v.add_child(eff)
+		m.add_child(v)
+		return m
+	var lab := HBoxContainer.new()      # 라벨 칸 —— 모든 줄의 이름 왼끝이 맞는다
+	lab.add_theme_constant_override("separation", 5)
+	lab.custom_minimum_size.x = 80
+	lab.add_child(ic)
+	lab.add_child(kl)
+	var lm := MarginContainer.new()
+	lm.add_theme_constant_override("margin_top", 3)
+	lm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lm.add_child(lab)
+	var h := UI.hbox(8)
+	lm.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	h.add_child(lm)
+	var rv := UI.vbox(2)
+	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var nr := UI.hbox(6)
+	nr.add_child(nl)
+	if sl != null:
+		sl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		nr.add_child(sl)
+	rv.add_child(nr)
+	if eff != null:
+		rv.add_child(eff)
+	h.add_child(rv)
+	m.add_child(h)
+	return m
 
 
 static var _hl_re: RegEx
@@ -2244,77 +2273,55 @@ func _hl(text: String) -> String:
 	return _hl_re.sub(text.replace(" / ", " · "), "[color=#8FD4C2]$1[/color]", true)
 
 
-## 11/7 기질 설명 공간 (사용자: 글줄 나열 대신 따로 작은 칸) —— 왼쪽 기질 색 표지(기호 · 이름), 오른쪽 두 줄: 기가 차는 때 · 쓰는 때
-## (Battle.TEMPER_DESC 의 두 문장). narrow 면 표지를 한 줄로 위에, 설명 두 줄을 아래에 (보급 팝업)
-func _temper_box(c: Dictionary, u: Dictionary, fs := 11, narrow := false) -> Control:
-	var t := Battle.temper_name(c, u)
-	if t == "":
+## 기질 설명 —— 구분선 아래 기호 · 라벨 · 이름, 그 아래 두 줄 (차는 때 · 쓰는 때). 디테일창의 초상 옆 칸 (상자 없음)
+func _temper_box(c: Dictionary, u: Dictionary, fs := 11, _narrow := false) -> Control:
+	var ti := _temper_item(c, u)
+	if ti.is_empty():
 		return null
-	var col := Color(TEMPER_COL.get(t, "#C6AC7C"))
-	var ss: PackedStringArray = str(Battle.TEMPER_DESC.get(t, "")).split(". ")
-	var fill: String = ss[0] if ss.size() > 0 else ""
-	var when: String = ss[1] if ss.size() > 1 else ""
-	var ic := Icons.View.new(TEMPER_ICON.get(t, "pick"), col.lightened(0.25), 16)
-	var nl := UI.lbl(t, fs + 1, col.lightened(0.3), true)
-	var cap := UI.lbl("기질", fs - 2, Color(col.lightened(0.3), 0.8))
-	var tag := PanelContainer.new()
-	tag.add_theme_stylebox_override("panel", UI.flat(col.darkened(0.6), Color(col, 0.9), 1, 6, 4))
-	var dv := UI.vbox(1)
-	dv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	dv.alignment = BoxContainer.ALIGNMENT_CENTER
-	for pair in [["차는 때", fill], ["쓰는 때", when]]:
-		if pair[1] == "":
-			continue
-		var r := UI.rich("[color=#8D7B5C]%s[/color]  [color=#C6AC7C]%s[/color]" % [pair[0], pair[1]], fs)
-		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		dv.add_child(r)
-	var outer := PanelContainer.new()
-	outer.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(col, 0.35), 1, 6, 5))
-	if narrow:
-		var th := UI.hbox(4)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		th.add_child(ic)
-		th.add_child(cap)
-		th.add_child(nl)
-		tag.add_child(th)
-		var v := UI.vbox(3)
-		v.add_child(tag)
-		v.add_child(dv)
-		outer.add_child(v)
-		return outer
-	var tv := UI.vbox(0)
-	tv.alignment = BoxContainer.ALIGNMENT_CENTER
-	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tv.add_child(cap)
-	tv.add_child(ic)
-	tv.add_child(nl)
-	tag.add_child(tv)
-	tag.custom_minimum_size.x = 60
-	var h := UI.hbox(8)
-	h.add_child(tag)
-	h.add_child(dv)
-	outer.add_child(h)
-	return outer
+	var P := DB.PAL
+	var v := UI.vbox(4)
+	v.add_child(UI.hair())
+	var hd := UI.hbox(5)
+	var ic := Icons.View.new(str(ti.icon), P.bamboo_dim, fs + 4)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(ic)
+	var kl := UI.lbl("기질", fs, P.bamboo_dim)
+	kl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(kl)
+	hd.add_child(UI.lbl(str(ti.name), fs + 3, P.paper, true))
+	v.add_child(hd)
+	var eff := UI.rich(str(ti.effect), fs)
+	eff.add_theme_color_override("default_color", P.bamboo)
+	eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_child(eff)
+	return v
 
 
 ## 효과 · 수치 표 상자 (11/3 사용자: '효과, 수치' 식으로 이쁘게) —— 머리줄(이름 · 부제) 아래 두 칸 표.
 ## body 는 "아군 책략 +10% / 적 책략방어 −10%" 처럼 ' · ' · ' / ' 로 나뉜 글 —— 끝의 수치를 오른쪽 칸으로 뗀다
-func _kv_box(head_bb: String, sub: String, body: String, col: Color, fs := 12) -> PanelContainer:
-	var pc := PanelContainer.new()
-	var sb := UI.flat(DB.PAL.ink2, col, 0, 4, 6)
-	sb.border_width_left = 3
-	sb.content_margin_left = 9
-	sb.content_margin_right = 8
-	pc.add_theme_stylebox_override("panel", sb)
+func _kv_box(head_bb: String, sub: String, body: String, _col: Color, fs := 12) -> Control:
 	var v := UI.vbox(3)
 	var h := UI.rich(head_bb + ("  [color=#8D7B5C][font_size=%d]%s[/font_size][/color]" % [fs - 1, sub] if sub != "" else ""), fs + 1)
 	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_child(h)
 	v.add_child(_kv_grid(body, fs))
-	pc.add_child(v)
+	return v
+
+
+## 효과 · 수치 표 여럿을 한 장 패널에 —— 사이는 hairline (11/9: 기술마다 따로 상자를 두지 않는다)
+func _kv_stack(items: Array) -> Control:
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var col := UI.vbox(0)
+	for i in items.size():
+		if i > 0:
+			col.add_child(UI.hair())
+		var m := MarginContainer.new()
+		m.add_theme_constant_override("margin_top", 8)
+		m.add_theme_constant_override("margin_bottom", 8)
+		m.add_child(items[i])
+		col.add_child(m)
+	pc.add_child(col)
 	return pc
 
 
@@ -2380,19 +2387,6 @@ static func minor_desc(k: String, with_every := true) -> String:
 	elif m.has("cheer"):
 		parts.append("가장 지친 아군 사기 +%d" % int(m.cheer))
 	return " · ".join(parts)
-
-
-## 왼쪽에 색 띠가 있는 상자 —— 디테일창의 위세 · 고유기 · 고유 특기 · 기술 (11/3)
-func _bar_box(bb: String, col: Color, fs := 13) -> PanelContainer:
-	var pc := PanelContainer.new()
-	var sb := UI.flat(DB.PAL.ink2, col, 0, 4, 6)
-	sb.border_width_left = 3
-	sb.content_margin_left = 9
-	pc.add_theme_stylebox_override("panel", sb)
-	var r := UI.rich(bb, fs)
-	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pc.add_child(r)
-	return pc
 
 
 ## 상세 시트의 두 칸 표 —— 왼쪽 머리말, 오른쪽 내용 (오른쪽 줄들의 왼끝이 맞는다)
@@ -2659,13 +2653,8 @@ func _filter_chip(txt: String, icon, cnt: String, col: Color, on: bool, cb: Call
 	b.custom_minimum_size = Vector2(0, 34)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var tier_col: bool = icon == null and txt != "all"
-	var bg: Color = Color(col, 0.85) if tier_col else (DB.PAL.ink3 if on else DB.PAL.ink2)
-	var bd: Color = DB.PAL.paper if on else (Color(col, 0.0) if tier_col else DB.PAL.ink4)
-	for st in ["normal", "hover", "pressed"]:
-		var sb := UI.flat(bg, bd, 2 if on else 1, 8, 0)
-		if tier_col and not on:
-			sb.bg_color = Color(col, 0.4)
-		b.add_theme_stylebox_override(st, sb)
+	for st in ["normal", "hover", "pressed"]:      # 11/9: 등급색 덩어리 칩 → 먹색 칩 + 등급색 글자, 고른 것만 금 얇은 선
+		b.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else Color(0, 0, 0, 0), 1 if on else 0, UI.R, 0))
 	if icon != null:
 		b.icon = icon
 		b.expand_icon = false
@@ -2676,7 +2665,8 @@ func _filter_chip(txt: String, icon, cnt: String, col: Color, on: bool, cb: Call
 		b.text = "전체" if txt == "all" else txt
 		b.add_theme_font_size_override("font_size", 12)
 		b.clip_text = true
-		b.add_theme_color_override("font_color", Color("#1A1508") if tier_col and on else DB.PAL.paper)
+		b.add_theme_color_override("font_color", col.lightened(0.15) if tier_col else DB.PAL.paper)
+		b.add_theme_color_override("font_hover_color", col.lightened(0.3) if tier_col else DB.PAL.paper)
 	if cnt != "":
 		var l := UI.lbl(cnt, 10, DB.PAL.gold, true)
 		l.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -2720,7 +2710,7 @@ func _page_war() -> Control:
 		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
 		# 11/7 사용자: '목요일 오전' 글은 머리띠에 이미 있어 뺀다. 큰 두 줄 버튼(UI.act 64) 은 한 줄(46)로, 끝난 것은 완료 표시만 작게
 		var row := UI.hbox(8)
-		row.add_child(_war_btn("① 토벌", run.quest_name(), run.quest_done, placed == 0, func(): _start("quest"), "warn"))
+		row.add_child(_war_btn("① 토벌", run.quest_name(), run.quest_done, placed == 0, func(): _start("quest"), "pri"))
 		row.add_child(_war_btn("② 대전", "임의 세력" if run.quest_done else "토벌 뒤", run.pvp_done, placed == 0 or not run.quest_done, func(): _start("pvp"), "pri"))
 		v.add_child(row)
 		var qt := DB.quest_trait(run.day)      # 11/8 토벌 우두머리 성질 —— 그날 아침부터 미리 보인다 (docs/역할_재설계_1108.md 7.3)
@@ -2814,20 +2804,16 @@ func _result_panel() -> Control:
 	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(tl)
 	v.add_child(h)
-	var chips := UI.flow(6)
-	var add := func(txt: String, c: Color):
-		var pc := PanelContainer.new()
-		pc.add_theme_stylebox_override("panel", UI.flat(Color(c, 0.14), Color(c, 0.6), 1, 10, 5))
-		pc.add_child(UI.lbl(txt, 12, c.lightened(0.2), true))
-		chips.add_child(pc)
-	add.call("잔존 %d : %d" % [r.left, r.eLeft], DB.PAL.bamboo)
+	var parts := ["잔존 %d : %d" % [r.left, r.eLeft]]      # 11/9: 색 칩 줄 → 한 줄 글 (구분점)
 	if r.mvp != "":
-		add.call("수훈 %s" % r.mvp, DB.PAL.gold)
+		parts.append("수훈 %s" % r.mvp)
 	if run.last_spoil != null:
-		add.call("기본패 +%d" % run.last_spoil.n, DB.PAL.jade)
+		parts.append("기본패 +%d" % run.last_spoil.n)
 	if run.ticket_left() > 0:
-		add.call("선택권 %d" % run.ticket_left(), Color("#d9a64b"))
-	v.add_child(chips)
+		parts.append("선택권 %d" % run.ticket_left())
+	var pl := UI.lbl("  ·  ".join(parts), 13, DB.PAL.bamboo)
+	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(pl)
 	return UI.panel(v, 12)
 
 

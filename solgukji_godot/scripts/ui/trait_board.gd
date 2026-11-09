@@ -1,6 +1,6 @@
 class_name TraitBoard
 extends Control
-## 특기판 —— 기본은 이 카드가 가진 일반 특기만 칸으로 늘어놓는다(이름 + 레벨, 계열 색). 판을 누르면 게임의 모든 일반 특기를
+## 특기판 —— 기본은 이 카드가 가진 일반 특기만 칸으로 늘어놓는다(이름 + 레벨, 한 가지 먹색 —— 11/9 계열 색은 걷음). 판을 누르면 게임의 모든 일반 특기를
 ## 계열 순서로 펼치고(가진 것만 색, 없는 것은 어둡게 이름만), 다시 누르면 접는다. 펼침 상태는 다른 카드에서도 이어진다.
 ## 고유 특기는 여기 넣지 않는다 (UI.unique_chips 로 따로). 칸 수는 cols, 높이는 줄 수로 정해진다.
 
@@ -79,17 +79,10 @@ func _draw() -> void:
 	for i in _all.size():
 		var t: Dictionary = _all[i]
 		var r := Rect2((cw + gap) * (i % cols), (ch + gap) * (i / cols), cw, ch)
-		var col := DB.trait_col(t)
 		var own: bool = _mine.has(t.name)
-		var sb := StyleBoxFlat.new()
-		sb.set_corner_radius_all(3)
-		sb.set_border_width_all(1)
-		if own:
-			sb.bg_color = col.darkened(0.35)
-			sb.border_color = col.lightened(0.25)
-		else:
-			sb.bg_color = DB.PAL.ink2
-			sb.border_color = Color(col, 0.28)
+		var sb := StyleBoxFlat.new()      # 11/9 사용자: 계열마다 색을 칠한 칩 줄이 'AI 티' —— 가진 특기는 먹색 면 + 종이색 글 + 금 레벨, 없는 것은 옅게. 테두리 없음
+		sb.set_corner_radius_all(2)
+		sb.bg_color = DB.PAL.ink4 if own else Color(DB.PAL.ink3, 0.45)
 		draw_style_box(sb, r)
 		var lv := str(_mine[t.name].lv) if own else ""
 		var f := fs
@@ -99,16 +92,16 @@ func _draw() -> void:
 		var lw := fb.get_string_size(lv, HORIZONTAL_ALIGNMENT_LEFT, -1, f).x
 		var x := r.position.x + (cw - nw - lw) / 2
 		var y := r.position.y + ch / 2 + f * 0.36
-		draw_string(fb, Vector2(x, y), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, f, Color("#F2EEE4") if own else Color(DB.PAL.bamboo_dim, 0.55))
+		draw_string(fb, Vector2(x, y), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, f, DB.PAL.paper if own else Color(DB.PAL.bamboo_dim, 0.55))
 		if own:
-			draw_string(fb, Vector2(x + nw, y), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, f, Color("#FFD76E"))
+			draw_string(fb, Vector2(x + nw, y), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, f, DB.PAL.gold)
 	# 마지막 칸 —— 모두 보기 · 접기 (펼칠 수 없는 판은 없음)
 	if fixed:
 		return
 	var i := _all.size()
 	var hr := Rect2((cw + gap) * (i % cols), (ch + gap) * (i / cols), cw, ch)
 	var hs := StyleBoxFlat.new()
-	hs.set_corner_radius_all(3)
+	hs.set_corner_radius_all(2)
 	hs.bg_color = Color(DB.PAL.ink3, 0.6)
 	draw_style_box(hs, hr)
 	var label := "접기 ▴" if expanded else "모두 ▾"
