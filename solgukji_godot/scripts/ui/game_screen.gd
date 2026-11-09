@@ -2193,9 +2193,10 @@ func _temper_item(c: Dictionary, u: Dictionary) -> Dictionary:
 
 
 ## 능력 패널 —— 줄 사이는 hairline. simple 이면 이름만 한 줄씩 (갈무리창), on_tap 이 있으면 줄을 눌러 호출. bg=false 면 바탕 없이 줄만
-func _ability_panel(items: Array, fs := 12, narrow := false, simple := false, on_tap := Callable(), bg := false) -> Control:
+func _ability_panel(items: Array, fs := 12, narrow := false, simple := false, on_tap := Callable(), bg := true) -> Control:
 	var outer := PanelContainer.new()
-	outer.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2 if bg else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, UI.R, 0))
+	# 11/9 사용자: 능력 패널에 아주 옅은 바탕을 준다 (시트 바탕과 구분선만으로는 밋밋했다)
+	outer.add_theme_stylebox_override("panel", UI.flat(Color(DB.PAL.ink3, 0.55) if bg else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, UI.R, 4 if bg else 0))
 	outer.mouse_filter = Control.MOUSE_FILTER_PASS
 	var col := UI.vbox(0)
 	for i in items.size():
