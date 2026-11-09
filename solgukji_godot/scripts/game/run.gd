@@ -783,7 +783,7 @@ static func bot_pv_gain(d: int, p: int) -> float:
 ## (자동 진행 편성 PV 가 새 보급에서 예전의 0.95 · 0.86 · 0.77 · 0.77 배, tests/supply_check --econ=new)
 ## 11/9 사용자: 봇 대전도 너무 쉽다 —— tests/replay_log(11/8 사람 기록, k=8)로 일차마다 봇 PV / 내 편성 PV 를 0.9 ~ 1.15 에 맞춘다.
 ##   대전 승률 1~7일 71 · 63 · 58 · 79 · 54 · 71 · 81% (예전 값 78 · 14 · 14 · 11 · 14 · 56 · 46% —— 그때는 되살리기가 1-1 에서 어긋나 장비 없는 덱)
-const BOT_LATE := [1.6, 0.45, 1.04, 0.8, 0.25, 0.87, 0.55]
+static var BOT_LATE := [1.6, 0.45, 1.04, 0.8, 0.25, 0.87, 0.55]
 
 
 func _bot_pv_gain(d: int, p: int) -> float:
@@ -909,16 +909,22 @@ func quest_roster():
 
 
 ## 11/3 수입을 약 70% 로 줄이며 (DB.ECON) 토벌 황건 편성은 예전 수입에 맞춘 그대로라 —— 적 사기로 낮춘다 (사기는 모든 능력치에, 70 → 0.88배)
-const QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
+static var QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
 ## 11/6 밸런스: 토벌 고정 편성 병력 배율 —— 3일차부터 병력이 두 배 넘게 뛰어(자동 진행 병력비 0.44, 승률 18%) 일차마다 줄인다
 ## 11/7 4일차부터 보급을 줄인 만큼(편성 PV 0.95 · 0.86 · 0.77 · 0.77 배) 4~7일차를 낮춘다 —— 예전 0.5 · 0.52 · 0.55 · 0.6
 ## 11/9 사용자: 토벌이 여전히 너무 쉽다 —— 적이 황건 잡병으로 바뀐 뒤 tests/replay_log(11/8 사람 기록, 1-2 까지 되살린 덱)로 다시:
 ##   남은 병력 첫 토벌 35% · 1~7일 60 · 52 · 62 · 41 · 52 · 54 · 50% (기준 첫 토벌 30~60 · 그 뒤 40~65), 병사 최대 8.4천
-const QUEST_TR := [0.25, 0.75, 0.75, 0.48, 0.24, 0.1, 0.07]
+static var QUEST_TR := [0.2, 0.75, 0.68, 0.43, 0.22, 0.085, 0.06]
+## 11/9 2차: 잡병을 질로 올리면서(DROP · FLOOR) 총 병력이 늘지 않게 3~7일차를 낮춤 (적 병력 총합이 예전의 +10% 안).
+##   diff_probe 대역(자동 진행 편성 PV × 일차별 사람 배율)으로 토벌 남은 병력 첫 토벌 21% · 1~7일 51 · 37 · 40 · 31 · 43 · 44 · 33% (예전 대역 68 · 53 · 57 · 46 · 47 · 45 · 40)
 ## 11/7 사용자: 황건적은 물량이 많았다 —— 진형이 4행 5열(20칸)로 늘어난 만큼 토벌 적은 우두머리 9부대 + 잡병 부대로 몰려온다.
 ## 잡병은 우두머리 편성의 가장 낮은 등급보다 두 등급 아래 (DB.horde_rabble) —— 내 장수가 쓸어 버리는 맛. 일차마다 늘어 4일차부터 20칸을 다 채운다
 ## (자동 진행 12판: 7 · 9 부대였을 때 2 · 3일차 토벌 승이 28/36 → 22/36 · 12/33 → 8/30 으로 떨어져 5 · 7 로)
-const QUEST_HORDE := [5, 5, 7, 11, 11, 11, 11]
+static var QUEST_HORDE := [5, 5, 7, 11, 11, 11, 11]
+## 11/9 사용자: 후반에도 낮은 등급 잡병이 20칸 중 11칸을 채워 의미 없이 쓸려 나간다 (잡병 병력이 적 전체의 4~9%) ——
+## 잡병 등급 = 우두머리 가장 낮은 등급 − DROP, 단 일차별 FLOOR 아래로는 안 내려간다 (DB.horde_rabble). 일차가 오를수록 3 → 5 등급 황건 · 황천 정예
+static var QUEST_RABBLE_DROP := [1, 1, 1, 1, 1, 1, 1]
+static var QUEST_RABBLE_FLOOR := [2, 3, 4, 4, 4, 5, 5]
 static var horde_enabled := true      # 점검용 —— 끄면 예전 9부대
 func quest_horde_n() -> int:
 	return int(QUEST_HORDE[clampi(day, 0, 6)]) if horde_enabled else 0
@@ -956,7 +962,7 @@ func start_quest() -> Dictionary:
 		var form: String = q.form
 		var hn := quest_horde_n()
 		if hn > 0 and DB.FORM.has(DB.HORDE_PFX + form):
-			cards.append_array(DB.horde_rabble(q.cards, hn, rng))      # 대군 진형 9 번 칸부터 —— 우두머리 자리는 그대로
+			cards.append_array(DB.horde_rabble(q.cards, hn, rng, int(QUEST_RABBLE_DROP[clampi(day, 0, 6)]), int(QUEST_RABBLE_FLOOR[clampi(day, 0, 6)])))      # 대군 진형 9 번 칸부터 —— 우두머리 자리는 그대로
 			form = DB.HORDE_PFX + form
 			if not eq.is_empty():
 				eq = eq.duplicate()

@@ -483,16 +483,20 @@ func _build_horde(k: String) -> void:
 	FORM[HORDE_PFX + k] = f
 
 
-## 대군 잡병 —— 토벌 우두머리 편성(cards)의 가장 낮은 등급보다 두 등급 아래 황건 병사를 n 부대. 앞에 설 병종부터 (대군 진형의 9 번 칸부터 앞 줄 순서)
+## 대군 잡병 —— 토벌 우두머리 편성(cards)의 가장 낮은 등급보다 drop 등급 아래(최소 floor_t) 황건 병사를 n 부대. 앞에 설 병종부터 (대군 진형의 9 번 칸부터 앞 줄 순서)
 ## 11/9 사용자: 기본 · 일반 등급 플레이어 부대(창병 · 궁병 · 기병 …)가 섞여 나왔다 —— 1 · 2 등급도 황건 잡병(y1x · y2x, 적 전용)으로
-func horde_rabble(cards: Array, n: int, rng: RandomNumberGenerator) -> Array:
+## 11/9 사용자: 후반에도 낮은 등급 잡병이 20칸 중 11칸을 채워 의미 없이 쓸려 나간다 —— 일차별 하한(Run.QUEST_RABBLE_FLOOR)으로 올리고, 4등급부터는 정예(y<등급>5~9)도 섞는다
+func horde_rabble(cards: Array, n: int, rng: RandomNumberGenerator, drop := 2, floor_t := 1) -> Array:
 	var lo := 9
 	for k in cards:
 		if k != null:
 			lo = mini(lo, int(C[k].tier))
-	var t := clampi(lo - 2, 1, 7)
-	var pool: Array = ["y%d0" % t, "y%d1" % t, "y%d2" % t, "y%d3" % t, "y%d4" % t]
-	pool = pool.filter(func(k): return C.has(k))
+	var t := clampi(maxi(lo - drop, floor_t), 1, 7)
+	var pool: Array = []
+	for i in 10:
+		var id := "y%d%d" % [t, i]
+		if C.has(id):
+			pool.append(id)
 	var out := []
 	for i in n:
 		out.append(pool[rng.randi() % pool.size()])

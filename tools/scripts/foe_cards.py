@@ -31,6 +31,25 @@ for t, names in NAMES.items():
         av = [round(sum(c[j] for c in L) / len(L)) for j in range(5, 12)]
         out.append(["y%d%d" % (t, i), nm, t, tag, "군"] + av[:5] + [L[0][10], av[6], None, "foe", ""])
 
+# 11/9 사용자: 토벌이 너무 쉽다 —— 고등급 토벌 전용 정예. 같은 등급 같은 병종 평균 × ELITE_MUL (공격 · 방어 · 책략 · 지휘, 속도 · 병력 · PV 는 그대로), 특기 없음.
+# id 는 y<등급><5~9>. 잡병 대군(DB.horde_rabble)이 등급이 오른 뒤 y<등급>0~9 를 섞어 쓴다
+ELITE_MUL = 1.12
+ELITE = {
+    4: ["황건 방패장", "흑산 돌기대", "흑산 노수", "백파 자객", "태평도 법사"],
+    5: ["황건 방진장", "흑산 철기대", "흑산 강궁대", "백파 결사대", "태평도 도사"],
+    6: ["황천 금강역사", "황천 흑기대", "황천 뇌궁수", "황천 살수", "태평도 천관"],
+    7: ["황천 호법신장", "황천 뇌기장", "황천 벽력궁", "황천 흑살귀", "태평도 대성사"],
+}
+for t, names in ELITE.items():
+    for i, (tag, nm) in enumerate(zip(TAGS, names)):
+        base_c = [c for c in out if c[0] == "y%d%d" % (t, i)][0]
+        c = list(base_c)
+        c[0] = "y%d%d" % (t, i + 5)
+        c[1] = nm
+        for j in range(5, 9):
+            c[j] = round(c[j] * ELITE_MUL)
+        out.append(c)
+
 E["cards"] = [c for c in E["cards"] if c[13] != "foe"] + out
 open(EXT, "w", encoding="utf-8", newline="\n").write(json.dumps(E, ensure_ascii=False, indent=1) + "\n")
 for c in out:

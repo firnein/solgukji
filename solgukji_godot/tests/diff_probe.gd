@@ -10,6 +10,8 @@ extends Node
 ## 자동 진행(다 이김)이 일차 끝에 짠 편성 PV (tests/supply_check --win=1)
 const MY_END := [81.0, 154.0, 187.0, 237.0, 325.0, 394.0, 417.0]
 const STYLES := ["물리", "지략", "균형"]
+var men := false
+var k0 := 0.75      # 1-1(첫 토벌)만 따로 —— 사람 기록 첫 토벌 35% 남음에 맞춘 값
 
 
 func _my_pv(d: int, p: int) -> float:
@@ -50,6 +52,16 @@ func _troops(cards: Array, mul: float) -> float:
 	return s
 
 
+## 전장에 그려질 병사 수 [내 편, 적] —— replay_log 와 같은 셈 (Squad, 품질 배율 1)
+func _men(rs: Dictionary) -> Array:
+	var rng := RandomNumberGenerator.new()
+	var n := [0, 0]
+	for row in rs.get("roster", []):
+		var sq := Squad.new(row, Vector2.ZERO, rng, float(rs.get("lay", 1.0)))
+		n[0 if row.camp == "A" else 1] += sq.soldiers.size()
+	return n
+
+
 func _left(res: Dictionary, camp: String) -> float:
 	var l := 0
 	var m := 0
@@ -70,6 +82,15 @@ func _ready() -> void:
 	var k := _list(str(args.get("k", "1.0")))
 	var kp := _list(str(args.get("kp", "1.0")))
 	var seed0 := int(args.get("seed", "1"))
+	k0 = float(args.get("k0", "0.75"))
+	men = args.has("men")
+	# 값 미리 재 보기 (run.gd 값을 덮는다): --qtr=7개 --qmor=7개 --horde=7개 --rdrop=7개 --rfloor=7개
+	if args.has("qtr"): Run.QUEST_TR = _list(str(args.qtr))
+	if args.has("qmor"): Run.QUEST_MORALE = _list(str(args.qmor))
+	if args.has("horde"): Run.QUEST_HORDE = _list(str(args.horde)).map(func(x): return int(x))
+	if args.has("rdrop"): Run.QUEST_RABBLE_DROP = _list(str(args.rdrop)).map(func(x): return int(x))
+	if args.has("rfloor"): Run.QUEST_RABBLE_FLOOR = _list(str(args.rfloor)).map(func(x): return int(x))
+	if args.has("late"): Run.BOT_LATE = _list(str(args.late))
 	var dr := str(args.get("days", "1-7")).split("-")
 	var d0 := int(dr[0]) - 1
 	var d1 := int(dr[dr.size() - 1]) - 1
@@ -143,6 +164,8 @@ func _quest(d0: int, d1: int, games: int, k: Array, seed0: int, phases: Array) -
 		var dfl := 0.0
 		var dn := 0
 		var dlen := 0.0
+		var dmen := [0.0, 0.0]
+		var dfmax := 0.0
 		for ps in phases:
 			var p := int(ps)
 			var rng := RandomNumberGenerator.new()
@@ -153,7 +176,7 @@ func _quest(d0: int, d1: int, games: int, k: Array, seed0: int, phases: Array) -
 				r.day = d
 				r.phase = p
 				var bt := r.start_quest()
-				var eb := DB.gen_board(_my_pv(d, p) * _kd(k, d), STYLES[i % 3], rng)
+				var eb := DB.gen_board(_my_pv(d, p) * (k0 if d == 0 and p == 0 else _kd(k, d)), STYLES[i % 3], rng)
 				var mine := DB.auto_place(eb.cards, eb.form)
 				bt.a = {"cards": mine, "form": eb.form, "morale": 100, "equip": [], "tac": Run.recommend_tac(mine)[0]}
 				var res := Run.simulate(bt, [], Run.policy_for(bt))
@@ -161,8 +184,15 @@ func _quest(d0: int, d1: int, games: int, k: Array, seed0: int, phases: Array) -
 				dl += _left(res, "A")
 				dfl += _left(res, "B")
 				dlen += float(res.get("len", 0.0))
+				if men:
+					var m := _men(res)
+					dmen[0] += m[0]
+					dmen[1] += m[1]
+				for u in res.get("roster", []):
+					if u.camp == "B":
+						dfmax += float(u.max)
 				dn += 1
-		print("QUEST %d일 | 승 %3.0f%% | 내 남은 병력 %3.0f%% | 적 남은 %3.0f%% | %4.1f초 | n=%d" % [d + 1, dw / dn * 100, dl / dn * 100, dfl / dn * 100, dlen / dn, dn])
+		print("QUEST %d일 | 승 %3.0f%% | 내 남은 병력 %3.0f%% | 적 남은 %3.0f%% | %4.1f초 | 적 병력 %5.0f | 병사 내 %4.0f 적 %4.0f | n=%d" % [d + 1, dw / dn * 100, dl / dn * 100, dfl / dn * 100, dlen / dn, dfmax / dn, dmen[0] / dn, dmen[1] / dn, dn])
 		tot_w += dw
 		tot_l += dl
 		tot_n += dn
