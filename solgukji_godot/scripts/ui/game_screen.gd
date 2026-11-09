@@ -3369,9 +3369,9 @@ func _why_lost(res: Dictionary) -> String:
 	if out.is_empty():
 		var pct := roundi(b_left / maxf(1.0, n_b) * 100.0)      # 적이 남긴 병력 비율 —— 60% 이상이면 완패
 		if pct >= 60:
-			out.append("적이 병력 %d%% 를 남긴 완패 —— 등급보다 조합 · 진형 상성을 확인하자." % pct)
+			out.append("적이 병력 %d%% 를 남긴 완패 —— 등급보다 조합 · 편성 구성을 다시 확인하자." % pct)
 		else:
-			out.append("아깝게 졌다(적 %d%% 남음) —— 편성 탭에서 진형과 앞줄 · 뒷줄을 바꿔 보자." % pct)
+			out.append("아깝게 졌다(적 %d%% 남음) —— 편성 탭에서 앞줄 · 뒷줄 배치를 바꿔 보자." % pct)
 	return "
 ".join(out.slice(0, 2))
 
