@@ -46,8 +46,8 @@ func _ready() -> void:
 		if r.over.win:
 			wins += 1
 		phases += r.day * 3 + r.phase
-		print("판 %d: %s · %s · %d일차 %s · PV %d · %d승 %d패 · 경고 %d · 신화 %s" % [n, "우승" if r.over.win else "탈락",
-			r.over.msg, r.day + 1, Run.PHASE_N[r.phase], r.my_pv(), r.my_w, r.my_l, r.strikes, myth_at if myth_at != "" else "없음"])
+		print("판 %d: %s · %s · %d일차 %s · PV %d · %d승 %d패 · 경고 %d · 민심 %d · 신화 %s" % [n, "우승" if r.over.win else "탈락",
+			r.over.msg, r.day + 1, Run.PHASE_N[r.phase], r.my_pv(), r.my_w, r.my_l, r.strikes, r.hp, myth_at if myth_at != "" else "없음"])
 	print("우승 %d / %d · 평균 도달 페이즈 %.1f" % [wins, runs, phases / float(runs)])
 	if args.has("snap"):
 		var sf := FileAccess.open(str(args.snap), FileAccess.WRITE)

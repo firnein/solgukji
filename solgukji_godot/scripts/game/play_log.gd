@@ -47,7 +47,7 @@ static func ensure(run, kind := "resume") -> bool:
 	_seed = sd
 	_phase_t0 = _now()
 	page_time = {}
-	_put(run, kind, {"seed": sd, "os": OS.get_name(), "ver": ProjectSettings.get_setting("application/config/version", "")})
+	_put(run, kind, {"seed": sd, "os": OS.get_name(), "ver": Changelog.version()})      # 11/9 첫 유저 기록의 ver 가 비어 있었다 (project.godot 에 version 없음) —— changelog 맨 앞 버전
 	return true
 
 
@@ -163,7 +163,8 @@ static func battle_end(run, bt, res: Dictionary, view_len: float, inputs: Array,
 static func after_battle(run) -> void:
 	if not ensure(run):
 		return
-	_put(run, "reward", {"strikes": run.strikes, "w": run.my_w, "l": run.my_l, "tickets": run.tickets.duplicate(),
+	## 11/9 민심(hp) 기록 —— reward · phase_end · over
+	_put(run, "reward", {"strikes": run.strikes, "hp": run.hp, "hp_loss": run.last_hp_loss, "w": run.my_w, "l": run.my_l, "tickets": run.tickets.duplicate(),
 		"spoil": run.last_spoil, "inv_n": _inv_n(run)})
 	if run.over != null:
 		over(run)
@@ -192,7 +193,7 @@ static func phase_end(run) -> void:
 	_put(run, "phase_end", {"sec": snappedf(_now() - _phase_t0, 0.1), "page_sec": page_time.duplicate(),
 		"deck": side(run.board), "form": run.form, "tac": run.tac, "my_pv": run.my_pv(), "inv_n": _inv_n(run), "inv_tiers": tiers,
 		"bag_n": run.bag.values().reduce(func(s, x): return s + int(x), 0), "equip": run.equipped_count(),
-		"tickets": run.tickets.duplicate(), "strikes": run.strikes, "w": run.my_w, "l": run.my_l, "rank": run.rank(),
+		"tickets": run.tickets.duplicate(), "strikes": run.strikes, "hp": run.hp, "w": run.my_w, "l": run.my_l, "rank": run.rank(),
 		"bot_pv": bots, "myth": run.myth_made})
 	_phase_t0 = _now()
 	page_time = {}
@@ -201,6 +202,6 @@ static func phase_end(run) -> void:
 static func over(run) -> void:
 	if not ensure(run) or run.over == null:
 		return
-	_put(run, "over", {"win": bool(run.over.win), "msg": str(run.over.msg), "w": run.my_w, "l": run.my_l,
+	_put(run, "over", {"win": bool(run.over.win), "msg": str(run.over.msg), "hp": run.hp, "w": run.my_w, "l": run.my_l,
 		"rank": run.rank(), "my_pv": run.my_pv(), "deck": side(run.board),
 		"tour": ("우승" if bool(run.over.win) else run.tour_rank()) if run.tour != null else ""})

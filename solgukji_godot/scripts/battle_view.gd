@@ -14,8 +14,10 @@ extends Control
 ## 한 명씩 계속 쓰러진다. 병력이 다해 무너지는 패주는 남은 병사가 다 쓰러진 뒤에 표시한다.
 ## 다음 이벤트가 오기 전에 따라잡으므로 최종 값은 엔진과 같다 (_finish 에서 확인한다).
 ##
-## 화면(휴대폰 세로): 위 띠(제목 · 배속 · ⋯ 메뉴) / 전장 / 아래 독(군령 + 아군 장수 카드 격자).
-## ⋯ 메뉴는 오른쪽에서 열린다 —— 자동 전투 · 결과로 · 전투 기록.
+## 화면(휴대폰 세로): 위 띠(제목 · 배속 · [한마디] · [결과로] · ⋯ 메뉴) / 전장 / 아래 독(아군 장수 카드 격자).
+## ⋯ 메뉴는 오른쪽에서 열린다 —— 진행(배속 · 결과로 건너뛰기) · 전투 기록 (11/9 정리).
+## 온라인 재생(locked)은 서버 결과를 그대로 재생한다 —— '결과로' 로 끝까지 건너뛸 수 있고, 그러면 본 것으로 친다 (11/9 사용자).
+## 한마디(say_cb): 온라인이면 위 띠에 [한마디] 가 보이고, 받은 한마디는 전장 왼쪽 위에 작은 줄로 잠시 뜬다 (say_line).
 ## 3D 는 화면 실제 해상도(× 품질 배율)로 그린다 —— 논리 크기로 그리면 휴대폰에서 흐리다.
 
 const LEVELS := [["초반 · 1일차", 60], ["중반 · 4일차", 300], ["후반 · 6일차", 700], ["신화전", -1]]
@@ -76,13 +78,11 @@ var dbg_nolog := false      # 점검용 —— 전투 기록을 쓰지 않는다
 ## 전투 중 개입 —— 탭할 때마다 (시드 + 입력 전부)로 처음부터 다시 계산하고, 입력 앞부분은 그대로 둔 채 뒤만 바꾼다
 var _p := {}                # 지금 전투의 재료 (덱·진형·시드)
 var inputs := []            # 플레이어 입력 [행동 번호, "A", 종류, 값]
-var direct := false         # 직접 지휘 —— 고유기 · 군령 버튼을 보인다. 꺼져 있어도 내 쪽은 영리한 AI 가 쓴다 (11/1 덱 감상 전투)
+var direct := false         # 직접 지휘 —— 고유기 버튼을 보인다. 꺼져 있어도 내 쪽은 영리한 AI 가 쓴다 (11/1 덱 감상 전투)
 var _cmd_row: Control
 var live_e = null           # 화면에 마지막으로 반영된 사건 —— 게이지·포인트 표시용
 var live_i := 0
 var _shift := 0.0           # 개입을 바로 보여 주려고 당긴 시간 합
-var cmd_btns := []
-var pts_label: Label
 var smooth := true          # false 면 예전처럼 이벤트 순간에 한꺼번에 깎는다 (비교용)
 var ambient := {}           # key -> 다음 자유 사격·시전 시각 (궁병·지략 계열)
 ## 게임 모드 —— 게임 화면(GameScreen)이 덱을 주고 띄운다. 연습용 단계 고르기·새 전투는 숨긴다
@@ -90,11 +90,19 @@ signal ended(res: Dictionary, inputs: Array)
 signal info_requested(cid: String)      # 11/4 사용자: 아래 장수 칸을 누르면 장수정보간략창
 signal unit_requested(key: String)      # 11/6 사용자: 전투 중 꾹 누르면 '전투장수창' (재료 · 갈무리 대신 전투 능력치)
 signal inputs_changed(inputs: Array)
+signal quick_requested(index: int)      # 11/9 사용자: 전투 중 퀵 메시지 —— 말풍선 목록에서 고른 번호 (quick_list 의 순서)
+var quick_list: Array = []              # 미리 적힌 퀵 메시지 글 (게임 화면 · 온라인이 채운다) —— 비어 있으면 말풍선 버튼이 숨는다
+var _quick_btn: Button
+var _quick_grid: GridContainer
 var game_mode := false
 var end_clock := 0.0        # 점검용 —— 전투가 끝난 전장 시각(초, 1배속 기준)
-var locked := false         # 온라인 1단계 —— 서버가 준 결과를 재생만 한다 (고유기·군령 입력 없음)
+var locked := false         # 온라인 1단계 —— 서버가 준 결과를 재생만 한다 (고유기 입력 없음)
 var _auto_btn: CheckButton
-var _skip_btn: Button        # 결과로 건너뛰기 —— 온라인 재생(locked)에서는 숨긴다 (11/7 결정 ⑦)
+var _skip_btn: Button        # 결과로 건너뛰기 (⋯ 메뉴) —— 온라인 재생에서도 보인다 (11/9 사용자: 리플레이를 나갈 방법이 없었다)
+var _skip_top: Button        # 위 띠의 '결과로' —— 온라인 재생(locked)에서만
+var _say_btn: Button         # 위 띠의 '한마디' —— say_cb 가 있을 때(온라인)만
+var say_cb := Callable()     # 한마디 시트를 여는 함수 (Online.quick_sheet) —— 게임 화면이 전투를 띄울 때 넣는다
+var _say_box: VBoxContainer  # 받은 한마디 줄 (전장 왼쪽 위)
 var _dev_row: Control
 var _side: Control
 var _side_mask: ColorRect
@@ -208,8 +216,16 @@ func _ready() -> void:
 	stage.add_child(hud)
 	field.ult_flash.connect(hud.flash)
 	stage.resized.connect(fit_port)
+	# 11/9 사용자: 전투를 보는 중에도 다른 사람의 한마디가 보여야 한다 —— 전장 왼쪽 위에 작은 줄, 4초 뒤 사라진다
+	_say_box = UI.vbox(4)
+	_say_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_say_box.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_say_box.offset_left = 10
+	_say_box.offset_top = 48      # 위 띠 바로 아래의 병력 막대 · 알림(announce) 아래
+	_say_box.offset_right = 290
+	stage.add_child(_say_box)
 
-	# 아래 독 —— 군령 줄 + 아군 장수 카드 격자 (금빛이면 눌러 고유기)
+	# 아래 독 —— 아군 장수 카드 격자 (금빛이면 눌러 고유기). 11/9 사용자: 군령은 없어진 기능 —— 점수 · 버튼 줄을 뺐다 (_cmd_row 는 빈 줄로 남긴다)
 	var dock := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#0f1424")
@@ -228,27 +244,7 @@ func _ready() -> void:
 	row.add_theme_constant_override("separation", 6)
 	dv.add_child(row)
 	_cmd_row = row
-	row.visible = direct
-	pts_label = Label.new()
-	pts_label.add_theme_font_size_override("font_size", 13)
-	pts_label.add_theme_color_override("font_color", DB.PAL.bamboo)
-	pts_label.custom_minimum_size = Vector2(64, 0)
-	pts_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pts_label.size_flags_vertical = Control.SIZE_FILL
-	row.add_child(pts_label)
-	for nm in Battle.CMDS:
-		var b := Button.new()
-		b.text = nm
-		b.tooltip_text = "군령 2 · " + Battle.CMDS[nm].d
-		b.custom_minimum_size = Vector2(0, 44)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_override("font", DB.font_display)
-		b.add_theme_font_size_override("font_size", 16)
-		b.pressed.connect(func():
-			UI.buzz(12)
-			request_cmd(nm))
-		row.add_child(b)
-		cmd_btns.append(b)
+	row.visible = false
 	cards_bar = UI.grid(64, 5)
 	cards_bar.max_cols = 5
 	cards_bar.center_last = true      # 11/7 9장이면 5 + 4 —— 둘째 줄이 왼쪽으로 쏠리지 않게
@@ -283,26 +279,27 @@ func _build_top() -> Control:
 	title_label.size_flags_vertical = Control.SIZE_FILL
 	h.add_child(title_label)
 	var seg := PanelContainer.new()
-	seg.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, DB.PAL.ink3, 1, 10, 3))
+	seg.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(0, 0, 0, 0), 0, UI.R, 3))      # 11/9 규칙: 테두리 없는 먹색 면, 고른 배속만 금 얇은 선
 	var sp := HBoxContainer.new()
 	sp.add_theme_constant_override("separation", 2)
 	seg.add_child(sp)
 	for s in [0.0, 1.0, 1.25, 2.0]:      # 11/5 사용자: 1 · 1.25 · 2배속 (4배속 뺌)
-		var b := Button.new()
-		b.text = "❚❚" if s == 0.0 else ("%s×" % str(s) if s != floorf(s) else "%d×" % s)
-		b.toggle_mode = true
-		b.button_pressed = s == QUEST_SPEED
-		b.custom_minimum_size = Vector2(40, 38)
-		b.add_theme_font_size_override("font_size", 14)
-		b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-		b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.bamboo, DB.PAL.bamboo, 0, 8, 4))
-		b.add_theme_stylebox_override("hover_pressed", UI.flat(DB.PAL.bamboo, DB.PAL.bamboo, 0, 8, 4))
-		b.pressed.connect(func():
-			UI.buzz()
-			_set_speed(s))
-		speed_btns.append([b, s])
-		sp.add_child(b)
+		sp.add_child(_speed_btn(s, 38, 14))
 	h.add_child(seg)
+	# 11/9 사용자: 온라인 —— 한마디(미리 적힌 글) · 결과로 건너뛰기 (리플레이를 나갈 방법). 둘 다 온라인에서만 보인다
+	_say_btn = _bar_btn("한마디", func():
+		UI.buzz()
+		if say_cb.is_valid():
+			say_cb.call()
+		elif not quick_list.is_empty():
+			set_side_visible(true))
+	_say_btn.visible = false
+	h.add_child(_say_btn)
+	_skip_top = _bar_btn("결과로 ▶", func():
+		UI.buzz()
+		skip())
+	_skip_top.visible = false
+	h.add_child(_skip_top)
 	var mb := Button.new()
 	mb.text = "⋯"
 	mb.custom_minimum_size = Vector2(44, 40)
@@ -313,7 +310,68 @@ func _build_top() -> Control:
 	return bar
 
 
-## ⋯ 메뉴 —— 오른쪽에서 열린다. 자동 전투 · 결과로 · 전투 기록 (점검 화면에서는 단계 고르기 · 새 전투)
+## 위 띠의 작은 글 버튼 —— 테두리 없는 먹색 면 (11/9 규칙)
+func _bar_btn(text: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(0, 38)
+	b.add_theme_font_size_override("font_size", 13)
+	b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3, Color(0, 0, 0, 0), 0, UI.R, 8))
+	b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink4, Color(0, 0, 0, 0), 0, UI.R, 8))
+	b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 8))
+	b.pressed.connect(cb)
+	return b
+
+
+## 배속 버튼 하나 —— 위 띠와 ⋯ 메뉴가 같은 목록(speed_btns)을 써서 어느 쪽을 눌러도 함께 바뀐다. 고른 것만 금 얇은 선
+func _speed_btn(s: float, h: int, fs: int) -> Button:
+	var b := Button.new()
+	b.text = "❚❚" if s == 0.0 else ("%s×" % str(s) if s != floorf(s) else "%d×" % s)
+	b.toggle_mode = true
+	b.button_pressed = s == QUEST_SPEED
+	b.custom_minimum_size = Vector2(38, h)
+	b.add_theme_font_size_override("font_size", fs)
+	b.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, UI.R, 4))
+	b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, Color(0, 0, 0, 0), 0, UI.R, 4))
+	b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink3, DB.PAL.gold, 1, UI.R, 4))
+	b.add_theme_stylebox_override("hover_pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 4))
+	b.add_theme_color_override("font_color", DB.PAL.bamboo)
+	b.add_theme_color_override("font_pressed_color", DB.PAL.paper)
+	b.add_theme_color_override("font_hover_pressed_color", DB.PAL.paper)
+	b.pressed.connect(func():
+		UI.buzz()
+		_set_speed(s))
+	speed_btns.append([b, s])
+	return b
+
+
+## 받은 퀵 메시지 —— 전장 위쪽에 "누구: 글" 한 줄이 3초 떠 있다 흐려진다 (11/9 사용자). say_line 은 같은 것의 옛 이름
+func say_line(who: String, text: String) -> void:
+	show_quick(who, text)
+
+
+func show_quick(who: String, text: String) -> void:
+	if _say_box == null:
+		return
+	var pc := PanelContainer.new()
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_theme_stylebox_override("panel", UI.flat(Color(DB.PAL.ink, 0.82), Color(0, 0, 0, 0), 0, UI.R, 6))
+	pc.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var r := UI.rich("[color=#D9A64B][b]%s[/b][/color]  %s" % [who, text], 13)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.autowrap_mode = TextServer.AUTOWRAP_OFF
+	pc.add_child(r)
+	_say_box.add_child(pc)
+	while _say_box.get_child_count() > 4:
+		_say_box.get_child(0).free()
+	var tw := pc.create_tween()
+	tw.tween_interval(3.0)
+	tw.tween_property(pc, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(pc.queue_free)
+
+
+## ⋯ 메뉴 —— 오른쪽에서 열린다. 진행(배속 · 결과로 건너뛰기) · 전투 기록. 점검 화면(main.gd)에서만 단계 고르기 · 새 전투 줄 (game_mode 가 아닐 때)
+## 11/9 사용자: 전투 기록실 정리 —— 묶음마다 머리말 + 구분선(hairline), 글자 크기 13 으로 통일, 상자는 테두리 없는 먹색 면
 func _build_side() -> void:
 	_side_mask = ColorRect.new()
 	_side_mask.color = Color(0, 0, 0, 0.45)
@@ -325,10 +383,7 @@ func _build_side() -> void:
 	TouchScroll.block(_side_mask)
 	add_child(_side_mask)
 	var panel := PanelContainer.new()
-	var psb := UI.flat(DB.PAL.ink2, DB.PAL.bamboo_dim, 0, 0, 14)
-	psb.border_width_left = 1
-	psb.corner_radius_top_left = 16
-	psb.corner_radius_bottom_left = 16
+	var psb := UI.flat(DB.PAL.ink2, Color(0, 0, 0, 0), 0, 0, 14)      # 테두리 · 둥근 모서리 없이 (11/9 규칙)
 	panel.add_theme_stylebox_override("panel", psb)
 	panel.anchor_left = 1
 	panel.anchor_right = 1
@@ -345,14 +400,18 @@ func _build_side() -> void:
 	var top := HBoxContainer.new()
 	var tl := UI.lbl("전투 메뉴", 18, DB.PAL.paper, true)
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	top.add_child(tl)
 	var x := UI.btn("✕", func(): set_side_visible(false), "ghost", 44)
 	x.custom_minimum_size = Vector2(44, 44)
 	x.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	top.add_child(x)
 	v.add_child(top)
+	v.add_child(UI.hair())
 
+	# 점검 화면(전투 실험실)에서만 —— 단계 고르기 · 새 전투. 게임에서는 play · play_res 가 숨긴다
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
 	level_pick = OptionButton.new()
 	for l in LEVELS:
 		level_pick.add_item(l[0])
@@ -360,20 +419,26 @@ func _build_side() -> void:
 	level_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	level_pick.custom_minimum_size = Vector2(0, 44)
 	row.add_child(level_pick)
-	var nb := Button.new()
-	nb.text = "새 전투"
-	nb.custom_minimum_size = Vector2(0, 44)
-	nb.pressed.connect(func():
+	var nb := UI.btn("새 전투", func():
 		set_side_visible(false)
-		new_battle())
+		new_battle(), "", 44)
 	row.add_child(nb)
 	v.add_child(row)
 	_dev_row = row
 
+	# 진행 —— 배속(위 띠와 함께 바뀐다) · 결과로 건너뛰기
+	v.add_child(UI.eyebrow("진행"))
+	var spd := HBoxContainer.new()
+	spd.add_theme_constant_override("separation", 4)
+	for sv in [0.0, 1.0, 1.25, 2.0]:
+		var sb2 := _speed_btn(sv, 42, 14)
+		sb2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spd.add_child(sb2)
+	v.add_child(spd)
 	var auto_btn := CheckButton.new()
-	auto_btn.text = "직접 지휘 (고유기·군령 버튼)"
+	auto_btn.text = "직접 지휘 (고유기 버튼)"
 	auto_btn.button_pressed = direct
-	auto_btn.custom_minimum_size = Vector2(0, 48)
+	auto_btn.custom_minimum_size = Vector2(0, 44)
 	auto_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auto_btn.toggled.connect(set_direct)
 	_auto_btn = auto_btn
@@ -381,23 +446,59 @@ func _build_side() -> void:
 	v.add_child(auto_btn)
 	_skip_btn = UI.btn("결과로 건너뛰기", func():
 		set_side_visible(false)
-		skip(), "ghost", 46)
+		skip(), "ghost", 44)
 	v.add_child(_skip_btn)
-	var hint := Label.new()
-	hint.text = "장수 칸을 누르면 장수 정보\n두 손가락: 확대·회전 · 한 손가락: 이동\nPC: 휠 확대 · 오른쪽 끌기·Q/E 회전 · WASD 이동 · 스페이스 일시정지"
-	hint.add_theme_font_size_override("font_size", 12)
-	hint.add_theme_color_override("font_color", DB.PAL.bamboo_dim)
+	var hint := UI.lbl("두 손가락 확대·회전 · 한 손가락 이동 · 장수 칸을 꾹 누르면 전투 능력치", 11, DB.PAL.bamboo_dim)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hint)
+	v.add_child(UI.hair())
+
+	# 말풍선 —— 퀵 메시지 (quick_list 가 있을 때만). 누르면 2열 목록이 펴지고, 고르면 quick_requested 가 나간다
+	_quick_btn = UI.btn("말풍선", func():
+		_quick_grid.visible = not _quick_grid.visible, "ghost", 44)
+	v.add_child(_quick_btn)
+	_quick_grid = GridContainer.new()
+	_quick_grid.columns = 2
+	_quick_grid.add_theme_constant_override("h_separation", 4)
+	_quick_grid.add_theme_constant_override("v_separation", 4)
+	_quick_grid.visible = false
+	v.add_child(_quick_grid)
+	v.add_child(UI.hair())
+
+	# 전투 기록 —— 먹색 면 상자 안에서 스크롤, 글자 13
 	v.add_child(UI.eyebrow("전투 기록"))
+	var lp := PanelContainer.new()
+	lp.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink, Color(0, 0, 0, 0), 0, UI.R, 8))
+	lp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	log_box = RichTextLabel.new()
 	log_box.bbcode_enabled = true
 	log_box.scroll_following = true
 	log_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	log_box.add_theme_font_size_override("normal_font_size", 13)
 	log_box.add_theme_font_size_override("bold_font_size", 13)
+	log_box.add_theme_constant_override("line_separation", 3)
 	TouchScroll.add(log_box)
-	v.add_child(log_box)
+	lp.add_child(log_box)
+	v.add_child(lp)
+
+
+## 퀵 메시지 버튼 · 목록을 quick_list 에 맞춘다 (전투를 띄울 때마다)
+func _refresh_quick() -> void:
+	if quick_list.is_empty() and "--gquick" in OS.get_cmdline_user_args():      # 점검용 —— 퀵 메시지 목록 모양 보기
+		quick_list = ["잘 싸웠다", "한 판 더", "좋은 수다", "방심했다", "대단하군", "다음엔 이긴다"]
+	var has := not quick_list.is_empty()
+	_quick_btn.visible = has
+	_quick_grid.visible = false
+	for c in _quick_grid.get_children():
+		c.queue_free()
+	for i in quick_list.size():
+		var b := UI.btn(str(quick_list[i]), func():
+			set_side_visible(false)
+			quick_requested.emit(i), "ghost", 40)
+		b.add_theme_font_size_override("font_size", 13)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_quick_grid.add_child(b)
+	_say_btn.visible = say_cb.is_valid() or has
 
 
 func _fit_side() -> void:
@@ -580,8 +681,10 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	game_mode = true
 	locked = false
 	_skip_btn.visible = true
+	_skip_top.visible = false
+	_refresh_quick()
 	_auto_btn.disabled = false
-	_auto_btn.text = "직접 지휘 (고유기·군령 버튼)"
+	_auto_btn.text = "직접 지휘 (고유기 버튼)"
 	_auto_btn.set_pressed_no_signal(direct_)
 	_dev_row.visible = false
 	set_direct(direct_)
@@ -597,16 +700,37 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	_set_speed(QUEST_SPEED)
 
 
-## 온라인 —— 서버가 계산한 결과(사람끼리 대전이면 내 쪽이 A 가 되게 뒤집은 것)를 그대로 재생한다
-func play_res(r: Dictionary, kind := "") -> void:
+## 온라인 —— 서버가 계산한 결과(사람끼리 대전이면 내 쪽이 A 가 되게 뒤집은 것)를 그대로 재생한다.
+## 11/9 사용자: 재생 중 전투장수창의 버프 수치가 비어 있었다(_p 가 빈 사전) —— 서버가 결과에 실은 재료(res.bp: 양쪽 편성 · 장비 · 진형 · 사기 · 병력 배율 · 작전)로
+## _p 를 혼자 할 때(play)와 같은 꼴로 채운다. start_stats 가 그것으로 같은 엔진을 '준비'만 시켜 같은 수치를 낸다. 재생 자체는 서버 결과 그대로
+## params(선택) —— 서버가 전투마다 실은 재료. 평평한 꼴 {a, fa, ma, ea, b, fb, mb, eb, seed, title, foe, policy, tra, trb, tb}(play 가 _p 에 넣는 것과 같다)
+## 이거나 res.bp 같은 {a:{cards,form,morale,equip}, b:{…}, seed, pol} 꼴 둘 다 받는다. 없으면 res.bp, 그것도 없으면 빈 재료(전투장수창 버프 수치만 빈다)
+func play_res(r: Dictionary, kind := "", params := {}) -> void:
+	end_clock = 0.0
+	speed_sec = {}
 	game_mode = true
 	locked = true
-	_skip_btn.visible = false
+	_skip_btn.visible = true       # 11/9 사용자: 리플레이를 나갈 방법 —— 결과로 건너뛰면 본 것으로 친다
+	_skip_top.visible = true
+	_refresh_quick()
 	_dev_row.visible = false
 	_auto_btn.disabled = true
 	_auto_btn.text = "온라인 1단계 — 양쪽 모두 자동 전투"
 	set_direct(false)
 	_p = {}
+	var bp = params if not params.is_empty() else r.get("bp")
+	if bp is Dictionary and bp.get("a") is Array and bp.has("fa") and bp.has("seed"):
+		_p = bp.duplicate()
+		_p.title = str(_p.get("title", r.get("title", "")))
+		_p.foe = str(_p.get("foe", r.get("foe", "")))
+		_p.policy = _p.get("policy", {"A": "smart", "B": "smart"})
+	elif bp is Dictionary and bp.has("a") and bp.has("b"):
+		var pa: Dictionary = bp.a
+		var pb: Dictionary = bp.b
+		_p = {"a": pa.get("cards", []), "fa": str(pa.get("form", "eorin")), "ma": float(pa.get("morale", 100)), "ea": pa.get("equip"),
+			"b": pb.get("cards", []), "fb": str(pb.get("form", "eorin")), "mb": float(pb.get("morale", 100)), "eb": pb.get("equip"),
+			"seed": int(bp.get("seed", 0)), "title": str(r.get("title", "")), "foe": str(r.get("foe", "")),
+			"policy": bp.get("pol", {"A": "smart", "B": "smart"}), "tra": float(pa.get("tr_mul", 1.0)), "trb": float(pb.get("tr_mul", 1.0)), "tb": pb.get("trait", {})}
 	inputs = []
 	res = r
 	_pace_for(kind)
@@ -1039,15 +1163,6 @@ func _process_inner(dt: float) -> void:
 	_drain_step(d)
 	t0 = field.pt("감독·흘림", t0)
 	_lead_step()
-	var pts := cmd_points()
-	pts_label.text = "군령\n%s" % ("●".repeat(int(pts)) + "○".repeat(int(Battle.PTS_MAX) - int(pts)))
-	for b in cmd_btns:
-		b.disabled = locked or pts < Battle.CMD_COST
-		# 적이 기를 모으는 동안 방진 버튼을 금빛으로 깜빡인다
-		if direct and b.text == "방진" and clock < warn_until and not b.disabled:
-			b.modulate = Color.WHITE.lerp(Color("#ffd257"), 0.5 + 0.5 * sin(clock * 14.0))
-		else:
-			b.modulate = Color.WHITE
 	field.pt("감독", t0)
 	if not finished and gi >= groups.size() and pending.is_empty() and due.is_empty() and not _draining():
 		if finish_t < 0:
@@ -1579,10 +1694,11 @@ func clock_text() -> String:
 	return "%d:%02d" % [s / 60, s % 60]
 
 
-## 결과로 —— 남은 행동을 연출 없이 한꺼번에 적용한다
+## 결과로 —— 남은 행동을 연출 없이 한꺼번에 적용한다.
+## 온라인 재생(locked)도 된다 (11/9 사용자: 리플레이를 나갈 방법이 없었다) —— 끝나면 ended 가 나가 결과표 · [종료] 가 뜨고, 닫으면 본 것으로 친다 (Online.watch_next)
 func skip() -> void:
-	if not running or finished or locked:
-		return                   # 온라인 재생은 끝까지 본다 —— 건너뛰기 없음 (11/7 사용자 결정 ⑦)
+	if not running or finished:
+		return
 	var rest := []
 	for d in due:
 		rest.append(d[1])

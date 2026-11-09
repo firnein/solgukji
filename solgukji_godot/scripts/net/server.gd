@@ -13,8 +13,9 @@ extends Node
 ##   cmd {m, a}            징집·조합·편성 명령 (Run.COMMANDS)
 ##   ready {on, sno}       준비 완료 —— sno 는 받은 방 정보의 stage_no (지난 단계의 준비는 버린다)
 ##   alone {go}            혼자 남았을 때의 답 —— go 가 참이면 봇만 상대로 계속, 아니면 방을 닫는다
+##   say {i}               한마디 —— Room.QUICK_MSGS 의 번호 (자유 입력 없음, 2초에 한 번). 방의 모두에게 say 로 뿌린다 (11/9)
 ## 32KB 가 넘는 메시지는 gzip 바이너리로 보낸다.
-## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list, stage, stage_no, seen} · toast {text, kind} · error {msg} · left
+## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list, stage, stage_no, seen} · toast {text, kind, news?} · say {who, text} · error {msg} · left
 ## 방 진행(아침 · 점심 · 저녁 단계)은 room.gd.
 
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -136,6 +137,9 @@ func _handle(id: int, d: Dictionary) -> void:
 				send(id, {"t": "error", "msg": "그런 방이 없다: %s" % code})
 				return
 			var r: Room = rooms[code]
+			# 11/9 사용자: 다른 방에 있다가 들어가면 먼저 나간다 (진행 중이던 방은 자리를 봇에게). 이미 들어 있는 방이면 그 자리로 그대로
+			if p.room != "" and p.room != code:
+				_leave(id)
 			if r.reattach(id, p.token):
 				p.room = code
 				return
@@ -163,6 +167,10 @@ func _handle(id: int, d: Dictionary) -> void:
 		"alone":
 			if rooms.has(p.room):
 				rooms[p.room].on_alone(id, bool(d.get("go", true)))
+		"say":
+			# 11/9 사용자: 한마디 —— 미리 적힌 글(Room.QUICK)의 번호. 방이 2초에 한 번으로 거른다
+			if rooms.has(p.room):
+				rooms[p.room].on_say(id, int(d.get("i", -1)))
 
 
 func _leave(id: int) -> void:
