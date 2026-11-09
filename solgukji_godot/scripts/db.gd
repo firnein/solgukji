@@ -614,7 +614,7 @@ func person(k: String) -> String:
 	return parts[parts.size() - 1]
 
 
-## 초상 —— assets/portraits/<인물>.png, 병사 카드는 assets/troops/<병종>.png 를 찾는다.
+## 초상 —— assets/portraits/<인물>.png, 병사 카드는 assets/troops/<병종>.png (prompts/기본패), 토벌 적 카드는 assets/foes/<id>.png (prompts/토벌적) 를 찾는다.
 ## 높은 등급 카드는 등급 그림을 먼저 찾고 없으면 한 단계씩 내려간다: 신화 → <인물>_신화 → _불멸 → _초월 → <인물>, 불멸 → _불멸 → _초월 → <인물>, 초월 → _초월 → <인물>.
 ## (일러스트를 등급 구간마다 따로 뽑는다 —— prompts/삼국지_일러스트_프롬프트.md)
 ## 없으면 null 을 돌려주고, 그리는 쪽에서 수묵 실루엣 플레이스홀더를 쓴다.
@@ -650,7 +650,10 @@ func portrait_base(k: String) -> String:
 		return _portrait_pick[k]
 	var c: Dictionary = C[k]
 	var cands: Array = []
-	if c.tier <= 2 or c.kind == "foe":
+	if c.kind == "foe":
+		# 11/9 토벌 전용 적(y10~y79) —— assets/foes/<카드 id>.png (prompts/토벌적) 를 먼저 찾고, 없으면 병졸 그림(병종), 그것도 없으면 병종 기호
+		cands = ["res://assets/foes/%s" % k, "res://assets/troops/%s" % c.tag]
+	elif c.tier <= 2:
 		cands = ["res://assets/troops/%s" % c.tag]
 	else:
 		var p := "res://assets/portraits/%s" % person(k)
