@@ -39,6 +39,10 @@ func _ready() -> void:
 	sub.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(sub)
 	v.add_child(head)
+	if not res.win and str(res.get("why", "")) != "":      # 11/9 패배 사유 (game_screen._why_lost)
+		var wl := UI.lbl(str(res.why), 13, DB.PAL.paper)
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(wl)
 	_tabs = Control.new()
 	v.add_child(_tabs)
 	_scroll = UI.scroll()

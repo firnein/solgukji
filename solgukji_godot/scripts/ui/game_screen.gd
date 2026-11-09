@@ -16,6 +16,13 @@ const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 �
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const EmotePop := preload("res://scripts/ui/emote_pop.gd")      # 11/10 받은 한마디 이모티콘 팝업 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
+## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
+const COACH_STEPS := [
+	["draw", "1/4  징집", "매일 장수 카드를 받는다. 여기서 뽑는다."],
+	["forge", "2/4  조합  —  꼭 알아 둘 것", "같은 장수 · 같은 카드를 모아 조합 탭에서 한 등급 위로 올린다. 1성 9장 그대로는 토벌에서 전멸한다."],
+	["deploy", "3/4  편성", "가진 장수를 9칸에 배치한다. 앞줄과 뒷줄 자리를 살피자."],
+	["war", "4/4  전투", "출진하면 자동으로 싸운다(조작 없음). 지면 민심이 깎이고, 0 이 되면 멸망한다. 출진 전에 조합부터."],
+]
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const STAT_ICON := 22.0       # 능력치 아이콘(칼 · 방패 · 신발) 크기 —— 14 아래로는 선이 뭉개진다 (11/9)
 const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만
@@ -69,6 +76,9 @@ var _battle_res = null
 var _title: Control
 var deploy: DeployPage
 var forge_tree: ForgeTree     # 조합 탭 맨 위 갈무리 트리 (scripts/ui/forge_tree.gd)
+var _coach: Coach = null          # 11/9 첫 판 안내 말풍선 (scripts/ui/coach.gd)
+var _coach_i := -1                # -1 꺼짐 · 0~ 4단계 안내 중 · -2 '조합할 수 있다' 한 줄
+var _coach_shown := -9
 var online: Online = null     # 온라인 대전 중이면 있다 (scripts/ui/online.gd)
 
 
@@ -673,6 +683,11 @@ func go(pg: String) -> void:
 		_scroll_keep[page] = _scroll.scroll_vertical
 	if pg in ["line", "rank", "update"]:
 		_open["more_page"] = pg
+	if pg == "forge" and not Settings.coach_forge:      # 조합 탭을 직접 열었으면 더는 알릴 필요 없다
+		Settings.coach_forge = true
+		Settings.save_cfg()
+		if _coach_i == -2:
+			_coach_clear()
 	page = pg
 	render(true)
 
@@ -710,6 +725,7 @@ func render(new_page := false) -> void:
 		var want: int = _scroll_keep.get(page, 0) if new_page else keep
 		_restore_scroll.call_deferred(want)
 	_flush_toasts()
+	_coach_tick()
 
 
 func _restore_scroll(v: int) -> void:
@@ -1336,6 +1352,83 @@ func _settings_sheet() -> void:
 		Settings.haptics = on
 		Settings.save_cfg())
 	b.add_child(vb)
+	if run != null and online == null:
+		b.add_child(UI.btn("첫 판 안내 다시 보기", func():
+			Settings.coach_done = false
+			Settings.save_cfg()
+			_coach_clear()
+			_coach_i = 0
+			close_sheet()
+			go("draw"), "ghost", 44))
+
+
+# ───────── 첫 판 안내 (11/9) ─────────
+
+func _coach_clear() -> void:
+	if _coach != null and is_instance_valid(_coach):
+		_coach.queue_free()
+	_coach = null
+	_coach_shown = -9
+	if _coach_i == -2:
+		_coach_i = -1
+
+
+func _coach_tick() -> void:
+	if run == null or online != null or _title.visible or run.over != null:
+		return
+	if _coach_i == -1 and not Settings.coach_done and run.day == 0 and run.my_w + run.my_l == 0 and run.battle == null:
+		_coach_i = 0
+	elif _coach_i == -1 and not Settings.coach_forge and run.day <= 1 and page != "forge" and can_act() and _tabs.forge.badge > 0:
+		_coach_i = -2
+	if _coach_i == -1 or _coach_shown == _coach_i:
+		return
+	_coach_shown = _coach_i
+	if _coach != null and is_instance_valid(_coach):
+		_coach.queue_free()
+	await get_tree().process_frame      # 탭 자리가 잡힌 뒤
+	if _coach_i != _coach_shown or _title.visible:
+		return
+	var key := "forge" if _coach_i == -2 else str(COACH_STEPS[_coach_i][0])
+	var tb: Control = _tabs[key]
+	var aim := Vector2(tb.global_position.x + tb.size.x / 2.0, _tabbar.global_position.y)
+	var w := minf(size.x - 24.0, 340.0)
+	var c: Coach
+	if _coach_i == -2:
+		c = Coach.make("조합할 수 있다", "같은 카드를 모아 한 등급 위 장수로 올릴 수 있다. 조합 탭을 눌러 보자.", aim, true, false, w)
+		c.next.connect(func():
+			Settings.coach_forge = true
+			Settings.save_cfg()
+			_coach_clear()
+			go("forge"))
+	else:
+		var st: Array = COACH_STEPS[_coach_i]
+		var last := _coach_i == COACH_STEPS.size() - 1
+		c = Coach.make(str(st[1]), str(st[2]), aim, last, not last, w)
+		c.next.connect(func():
+			if last:
+				_coach_finish()
+				return
+			_coach_i += 1
+			_coach_clear_node()
+			go(str(COACH_STEPS[_coach_i][0])))
+		c.skip.connect(_coach_finish)
+	_coach = c
+	add_child(c)
+	move_child(c, _sheet_mask.get_index())      # 설정 · 카드 시트 · 전투 화면은 위로 덮는다
+
+
+func _coach_clear_node() -> void:
+	if _coach != null and is_instance_valid(_coach):
+		_coach.queue_free()
+	_coach = null
+
+
+func _coach_finish() -> void:
+	Settings.coach_done = true
+	Settings.coach_forge = true      # 조합은 방금 알렸다
+	Settings.save_cfg()
+	_coach_i = -1
+	_coach_clear()
 
 
 # ───────── 카드 · 아이템 부품 ─────────
@@ -3111,6 +3204,11 @@ func _result_panel() -> Control:
 	if not r.win and run.last_hp_loss > 0:      # 11/10 연출은 지나가니 깎인 만큼은 결과 줄에도 남긴다 (온라인 결과 칸과 같은 글)
 		parts.append("민심 −%d" % run.last_hp_loss)
 	v.add_child(UI.result_line(parts))
+	if not r.win and str(r.get("why", "")) != "":      # 11/9 패배 사유 (민심 깎인 양은 위 결과 줄에 이미 있다)
+		v.add_child(UI.hair())
+		var wl := UI.lbl(str(r.why), 13, DB.PAL.paper)
+		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(wl)
 	return UI.panel(v, 12)
 
 
@@ -3237,10 +3335,47 @@ func battle_visible() -> bool:
 	return _battle_layer.visible
 
 
+## 11/9 패배 사유 —— 결과 로스터(등급 · 병력)로 어림한다. 의미 있는 것 두 줄까지 (병력 → 등급 → 낮은 등급 비율 → 빈 칸). 판정과 무관한 안내 글
+func _why_lost(res: Dictionary) -> String:
+	var n_a := 0.0
+	var n_b := 0.0
+	var t_a := 0.0
+	var t_b := 0.0
+	var c_a := 0
+	var c_b := 0
+	var low := 0
+	for u in res.get("roster", []):
+		if u.camp == "A":
+			n_a += float(u.max)
+			t_a += float(u.tier)
+			c_a += 1
+			if int(u.tier) <= 2:
+				low += 1
+		else:
+			n_b += float(u.max)
+			t_b += float(u.tier)
+			c_b += 1
+	var out: Array = []
+	if n_b > n_a * 1.15 and n_a > 0:
+		out.append("적 병력 %s명 대 아군 %s명 —— 머릿수에서 밀렸다." % [Battle.num(int(n_b)), Battle.num(int(n_a))])
+	if c_a > 0 and c_b > 0 and t_b / c_b - t_a / c_a >= 0.5:
+		out.append("적 평균 %.1f등급 대 내 %.1f등급 —— 조합 탭에서 등급을 올리자." % [t_b / c_b, t_a / c_a])
+	if c_a > 0 and low >= 3 and low * 3 >= c_a:
+		out.append("%s · %s 카드가 %d/%d장 —— 같은 카드를 모아 조합하면 강해진다." % [DB.TIER[1].n, DB.TIER[2].n, low, c_a])
+	if c_a < 9:
+		out.append("편성 %d칸만 채웠다 —— 9칸을 모두 채우자." % c_a)
+	if out.is_empty():
+		out.append("병력 · 등급은 비슷했다 —— 편성 탭에서 진형과 앞줄 · 뒷줄을 바꿔 보자.")
+	return "
+".join(out.slice(0, 2))
+
+
 func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 	if _dev_bonus_r >= 0.0:      # 점검 전용 —— 온라인은 재생이 결과를 다시 계산하니 여기서 서버가 준 것(dev_fake_room)과 같게 고친다
 		_dev_force_bonus(res)
 	_battle_res = res
+	if not res.win:
+		res["why"] = _why_lost(res)      # 11/9 패배 사유 —— 결과표 · 전투 탭 결과에 한두 줄
 	_plan_hp_fx(res)
 	_plan_bonus_fx(res)
 	if online != null:
@@ -3429,7 +3564,10 @@ func _on_battle_close() -> void:
 		return
 	PlayLog.battle_end(run, run.battle, _battle_res, _battle.end_clock, _battle.inputs, _battle.speed_sec)
 	var hp0 := run.hp
+	var why := str(_battle_res.get("why", ""))
 	run.finish_battle(_battle_res)
+	if why != "" and run.last_result != null:
+		run.last_result["why"] = why
 	if _dev_hploss > 0:      # 점검용 --ghploss : 연출한 만큼만 깎인 것으로 맞춘다
 		run.hp = maxi(0, hp0 - _dev_hploss)
 		run.last_hp_loss = _dev_hploss
