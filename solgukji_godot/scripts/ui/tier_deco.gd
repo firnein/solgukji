@@ -276,6 +276,8 @@ class Shimmer extends Control:
 	var _scroll_found := false
 	var _live := false           # 이번 프레임에 그려야 하나 (지나가는 중이거나 big)
 	var _acc := 0.0
+	var _chk := 0.0
+	var _vis := false
 
 	func _init(k := "", is_big := false, cb := Callable()) -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -300,7 +302,11 @@ class Shimmer extends Control:
 		return gr.intersects(get_viewport_rect())
 
 	func _process(dt: float) -> void:
-		if not is_visible_in_tree() or not _on_screen():
+		_chk -= dt
+		if _chk <= 0.0:      # 보이는지(화면 · 스크롤 안) 확인은 0.2~0.3초마다만 —— 격자 칸이 많아도 프레임마다 도는 일은 거의 없다
+			_chk = 0.2 + float(_phase) * 0.02
+			_vis = is_visible_in_tree() and _on_screen()
+		if not _vis:
 			return
 		_t += dt
 		var inb := fmod(_t + _phase, PERIOD) < SWEEP
