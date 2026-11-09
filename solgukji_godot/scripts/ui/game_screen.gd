@@ -3344,6 +3344,7 @@ func _why_lost(res: Dictionary) -> String:
 	var c_a := 0
 	var c_b := 0
 	var low := 0
+	var b_left := 0.0
 	for u in res.get("roster", []):
 		if u.camp == "A":
 			n_a += float(u.max)
@@ -3355,6 +3356,7 @@ func _why_lost(res: Dictionary) -> String:
 			n_b += float(u.max)
 			t_b += float(u.tier)
 			c_b += 1
+			b_left += maxf(0.0, float(u.left))
 	var out: Array = []
 	if n_b > n_a * 1.15 and n_a > 0:
 		out.append("적 병력 %s명 대 아군 %s명 —— 머릿수에서 밀렸다." % [Battle.num(int(n_b)), Battle.num(int(n_a))])
@@ -3365,7 +3367,11 @@ func _why_lost(res: Dictionary) -> String:
 	if c_a < 9:
 		out.append("편성 %d칸만 채웠다 —— 9칸을 모두 채우자." % c_a)
 	if out.is_empty():
-		out.append("병력 · 등급은 비슷했다 —— 편성 탭에서 진형과 앞줄 · 뒷줄을 바꿔 보자.")
+		var pct := roundi(b_left / maxf(1.0, n_b) * 100.0)      # 적이 남긴 병력 비율 —— 60% 이상이면 완패
+		if pct >= 60:
+			out.append("적이 병력 %d%% 를 남긴 완패 —— 등급보다 조합 · 진형 상성을 확인하자." % pct)
+		else:
+			out.append("아깝게 졌다(적 %d%% 남음) —— 편성 탭에서 진형과 앞줄 · 뒷줄을 바꿔 보자." % pct)
 	return "
 ".join(out.slice(0, 2))
 
