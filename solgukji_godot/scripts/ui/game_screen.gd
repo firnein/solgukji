@@ -1941,9 +1941,12 @@ func card_info(k: String) -> void:
 			gh.add_child(UI.lbl(gt, 12, DB.kind_col(c.tag)))
 		st.add_child(gh)
 	st.add_child(TraitBoard.new().setup(k))
-	_ability_rows(st, k, 12)      # 11/7 사용자: 고유 특기 · 위세 · 고유기(+기질)는 『』 글줄 대신 특기판과 같은 칸
 	top.add_child(st)
 	b.add_child(top)
+	# 11/9 사용자: 고유 특기 · 위세 · 패업 · 고유기 · 기질은 초상 옆 좁은 칸에 세로로 쌓지 않고 폭 전체 카드 격자로 (2열 · 기질은 띠)
+	var ab := UI.vbox(6)
+	_ability_rows(ab, k, 12)
+	b.add_child(ab)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
 	b.add_child(folds)
 	# 기술 —— 접힌 칸 하나에 기술마다 효과 · 수치 표
@@ -2163,71 +2166,102 @@ func battle_unit_sheet(key: String) -> void:
 ## 11/7 고유기 기질 (사용자: 플레이어가 알 수 있게) —— 기질 색 · 기호(Icons). 규칙 배정이든 수동 지정이든 Battle.temper_name 이 실제 기질을 준다
 const TEMPER_COL := {"맹장": "#E07A5A", "수호": "#6FA8E8", "지략": "#B48CFF", "저격": "#8FD47A", "분노": "#FF9A3C"}
 const TEMPER_ICON := {"맹장": "blade", "수호": "shield", "지략": "news", "저격": "target", "분노": "flame"}
-## 고유 특기 · 위세 · 고유기 칸의 계열 색 (기인은 DB.KIIN_COL)
-const ABILITY_COL := {"uq": Color("#e8c25a"), "aura": Color("#b48cff"), "ult": Color("#ff9d5c")}
+## 고유 특기 · 위세 · 패업 · 고유기 칸의 계열 색 (기인은 DB.KIIN_COL)
+const ABILITY_COL := {"uq": Color("#e8c25a"), "aura": Color("#b48cff"), "ult": Color("#ff9d5c"), "paeup": Color("#d96a8a")}
 
 
-## 고유 특기 · 위세(기인) · 고유기 + 기질 칸을 차례로 넣는다 —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양 (11/7 사용자)
-func _ability_rows(into: Container, k: String, fs := 12, narrow := false) -> void:
+## 고유 특기 · 위세(기인) · 패업 · 고유기 항목을 차례로 모은다 —— {kind, name, effect, col, sub} (디테일창 · 갈무리창이 같이 쓴다)
+func _ability_items(k: String) -> Array:
 	var c: Dictionary = DB.C[k]
+	var out := []
 	for t in DB.trait_list(k):
 		if t.unique:
-			into.add_child(_ability_tile("고유 특기", t.name, t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0), ABILITY_COL.uq, fs, "", narrow))
+			out.append({"kind": "고유 특기", "name": t.name, "effect": t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0), "col": ABILITY_COL.uq, "sub": ""})
 	if DB.AURA.has(k):
 		var kiin: bool = DB.is_kiin(k)
-		into.add_child(_ability_tile("기인" if kiin else "위세", DB.AURA[k].n, DB.aura_effect(k), DB.KIIN_COL if kiin else ABILITY_COL.aura, fs, "", narrow))
+		out.append({"kind": "기인" if kiin else "위세", "name": DB.AURA[k].n, "effect": DB.aura_effect(k), "col": DB.KIIN_COL if kiin else ABILITY_COL.aura, "sub": ""})
 	if DB.AURA.has(k) and DB.AURA[k].has("paeup"):      # 11/9 패업 —— 이름 · 조건 · 효과 (판정은 Battle._paeup_setup)
 		var pa: Dictionary = DB.AURA[k].paeup
 		var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
 		var pe: String = str(pa.get("d", "")) if str(pa.cond) == "none" else "아군에 %s 자신 외 %d명 이상이면 —— %s" % [cw, int(pa.need), str(pa.get("d", ""))]      # 조건 없는 패업은 설명만 (11/9)
-		into.add_child(_ability_tile("패업", str(pa.n), pe, Color("#d96a8a"), fs, "", narrow))
+		out.append({"kind": "패업", "name": str(pa.n), "effect": pe, "col": ABILITY_COL.paeup, "sub": ""})
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
-		into.add_child(_ability_tile("고유기", u.name, UI.ult_desc(u, c.tier), ABILITY_COL.ult, fs, "%d초부터" % roundi(u.wait), narrow))
+		out.append({"kind": "고유기", "name": u.name, "effect": UI.ult_desc(u, c.tier), "col": ABILITY_COL.ult, "sub": "%d초부터" % roundi(u.wait)})
+	return out
+
+
+## 항목을 한 줄에 둘씩 —— 홀수면 마지막은 한 줄 전체. 폭이 좁으면(휴대폰 세로 보급 팝업 · 아주 좁은 창) 한 줄에 하나로 접는다.
+## mk 는 항목 하나를 칸으로 만드는 함수 (Callable(item) -> Control)
+func _ability_layout(into: Container, items: Array, narrow: bool, mk: Callable) -> void:
+	var two := not narrow and minf(size.x, MAX_W) >= 340.0
+	var i := 0
+	while i < items.size():
+		if two and i + 1 < items.size():
+			var h := UI.hbox(6)
+			for j in 2:
+				var cc: Control = mk.call(items[i + j])
+				cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				cc.custom_minimum_size.x = 0
+				h.add_child(cc)
+			into.add_child(h)
+			i += 2
+		else:
+			var cc: Control = mk.call(items[i])
+			cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			into.add_child(cc)
+			i += 1
+
+
+## 고유 특기 · 위세(기인) · 패업 · 고유기 + 기질 —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양 (11/7 사용자).
+## 11/9 사용자: 세로로 쭉 나열하지 말고 보기 좋게 —— 색 띠 카드를 2열로(고유 특기 | 위세 / 패업 | 고유기), 기질은 한 줄 띠. narrow 면 1열
+func _ability_rows(into: Container, k: String, fs := 12, narrow := false) -> void:
+	var c: Dictionary = DB.C[k]
+	var its := _ability_items(k)
+	_ability_layout(into, its, narrow, func(it): return _ability_card(it, fs))
+	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	if u != null:
 		var tb := _temper_box(c, u, fs - 1, narrow)
 		if tb != null:
 			into.add_child(tb)
 
 
-## 11/7 사용자: 『』 글줄 나열("상단 괄호 · 하단 괄호") 대신 특기판(TraitBoard)과 같은 칸 ——
-## [계열 색 이름 칸: 작은 계열 글 + 이름] [짧은 효과 칸: 수치는 옥색]. narrow 면 이름 칸 아래에 효과 칸 (보급 팝업의 좁은 세로 칸).
-## sub 는 효과 끝의 작은 글 (고유기 "12초부터")
-func _ability_tile(kind: String, name_: String, effect: String, col: Color, fs := 12, sub := "", narrow := false) -> Control:
-	var chip := PanelContainer.new()
-	chip.add_theme_stylebox_override("panel", UI.flat(col.darkened(0.5), col.lightened(0.15), 1, 4, 3))
-	chip.mouse_filter = Control.MOUSE_FILTER_PASS
-	var kl := UI.lbl(kind, fs - 3, Color(col.lightened(0.5), 0.95))
-	var nl := UI.lbl(name_, fs + 1, Color("#F2EEE4"), true)
-	var body := _hl(effect) + ((("\n" if narrow else "  ") + "[color=#8D7B5C][font_size=%d]%s[/font_size][/color]" % [fs - 2, sub]) if sub != "" else "")      # 좁은 칸에선 부제를 새 줄에
-	var eff := UI.rich(body, fs - 1)
-	eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	eff.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var ep := PanelContainer.new()
-	ep.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(col, 0.4), 1, 4, 5))
-	ep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ep.add_child(eff)
-	if narrow:
-		var ch := UI.hbox(5)
-		kl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		ch.add_child(kl)
-		ch.add_child(nl)
-		chip.add_child(ch)
-		var v := UI.vbox(2)
-		v.add_child(chip)
-		v.add_child(ep)
-		return v
-	var cv := UI.vbox(0)
-	cv.alignment = BoxContainer.ALIGNMENT_CENTER
-	kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cv.add_child(kl)
-	cv.add_child(nl)
-	chip.add_child(cv)
-	chip.custom_minimum_size.x = 84
-	var h := UI.hbox(6)
-	h.add_child(chip)
-	h.add_child(ep)
-	return h
+## 색 띠 카드 하나 —— 왼쪽 굵은 색 띠, 위에 작은 계열 글 + 이름(굵게), 아래 효과(수치는 옥색). simple 이면 효과 없이 이름 칸만 (갈무리창)
+func _ability_card(it: Dictionary, fs := 12, simple := false) -> PanelContainer:
+	var col: Color = it.col
+	var pc := PanelContainer.new()
+	var sb := UI.flat(col.darkened(0.7), Color(col, 0.8), 1, 5, 6)
+	sb.border_width_left = 4
+	sb.content_margin_left = 9
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_PASS
+	var v := UI.vbox(2)
+	var head := UI.hbox(5)
+	var kl := UI.lbl(str(it.kind), fs - 2, Color(col.lightened(0.55), 0.95))
+	kl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(kl)
+	if str(it.get("sub", "")) != "":
+		var sl := UI.lbl(str(it.sub), fs - 3, Color("#8D7B5C"))
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		head.add_child(sl)
+	v.add_child(head)
+	var nrow := UI.hbox(5)
+	if str(it.get("icon", "")) != "":
+		var ic := Icons.View.new(str(it.icon), col.lightened(0.25), fs + 4)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		nrow.add_child(ic)
+	var nl := UI.lbl(str(it.name), fs + (3 if simple else 2), Color("#F2EEE4"), true)
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nrow.add_child(nl)
+	v.add_child(nrow)
+	if not simple and str(it.get("effect", "")) != "":
+		var eff := UI.rich(_hl(str(it.effect)), fs - 1)
+		eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(eff)
+	pc.add_child(v)
+	return pc
 
 
 static var _hl_re: RegEx
@@ -3343,6 +3377,12 @@ func _dev_args() -> void:
 			for c in _toast_box.get_children():
 				c.queue_free()
 			await get_tree().create_timer(0.4).timeout
+		if a.has("gnoband"):      # 점검용 —— 시트는 둔 채 가운데 띠 · 알림만 걷는다 (--gsheet 와 함께, 11/9)
+			_bands.clear()
+			_hide_band()
+			for c in _toast_box.get_children():
+				c.queue_free()
+			await get_tree().create_timer(0.5).timeout
 		if a.has("scroll"):
 			_scroll.scroll_vertical = int(a.scroll)
 			await get_tree().process_frame
