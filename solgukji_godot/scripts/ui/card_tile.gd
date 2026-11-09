@@ -132,7 +132,7 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.55))
 
 
-## 특기 칸 —— 네모 안에 이름 + 레벨(금색), 계열 색(DB.trait_col). 칸이 모자라면 마지막에 +n
+## 특기 칸 —— 네모 안에 이름 + 레벨(금색), 먹색 (11/9 계열 색 걷음). 칸이 모자라면 마지막에 +n
 static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 	var ts := DB.trait_list(id)
 	var fb := DB.font_body
@@ -153,11 +153,8 @@ static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
 			ci.draw_string(fb, q, more, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.bamboo)
 			return
 		var sb := StyleBoxFlat.new()
-		var tc := DB.trait_col(t)
-		sb.bg_color = Color("#6b5212") if t.unique else tc.darkened(0.55)
-		sb.border_color = Color("#e8c25a") if t.unique else tc
-		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(3)
+		sb.bg_color = Color(DB.PAL.gold, 0.28) if t.unique else DB.PAL.ink4      # 11/9 색 칩 → 먹색 면 (고유 특기만 금빛)
+		sb.set_corner_radius_all(2)
 		ci.draw_style_box(sb, Rect2(p, Vector2(cw, ch)))
 		ci.draw_string(fb, p + Vector2(4, ch - 5), t.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.paper)
 		ci.draw_string(fb, p + Vector2(5 + nw, ch - 5), lvs, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.gold)
@@ -172,9 +169,7 @@ static func draw_role_chip(ci: CanvasItem, id: String, p: Vector2, fs := 10) -> 
 	var fb := DB.font_body
 	var cw := fb.get_string_size(rc.t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 7
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(rc.col).darkened(0.35)
-	sb.border_color = Color(rc.col).lightened(0.2)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
+	sb.bg_color = DB.PAL.ink4
+	sb.set_corner_radius_all(2)
 	ci.draw_style_box(sb, Rect2(p, Vector2(cw, fs + 4)))
-	ci.draw_string(fb, p + Vector2(3.5, fs + 1), rc.t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+	ci.draw_string(fb, p + Vector2(3.5, fs + 1), rc.t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.paper)
