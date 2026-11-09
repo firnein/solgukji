@@ -13,6 +13,7 @@ extends Control
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
+const STAT_ICON := 22.0       # 능력치 아이콘(칼 · 방패 · 신발) 크기 —— 14 아래로는 선이 뭉개진다 (11/9)
 const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만
 const TOP_H := 58.0          # 11/7 사용자: DAY 네비게이터 축소 (66 → 58)
 const TAB_H := 62.0
@@ -2015,25 +2016,47 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	return v
 
 
-## 능력치 한 줄 —— 공 · 방 · 속 (11/6 #15 책략 · 책략방어 통합). 책략계는 공격을 푸른색으로 (원거리 · 범위)
+## 능력치 한 줄 —— 칼 공격 · 방패 방어 · 신발 속도 (11/9 글자 라벨 → 심볼 아이콘, 사용자: 텍스트가 너무 많다). 책략계는 공격을 푸른색으로 (원거리 · 범위)
 func _stat_row(c: Dictionary) -> Control:
 	var magic: bool = DB.INT_TAGS.has(c.tag)
 	var g := GridContainer.new()
 	g.columns = 3
 	g.add_theme_constant_override("h_separation", 4)
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for pair in [["공격", c.atk, true, Color("#6fa8ff") if magic else Color("#ff6b5a")], ["방어", c["def"], false, null], ["속도", c.spd, false, null]]:
-		var v := UI.vbox(0)
-		var a := UI.lbl(str(int(pair[1])), 16, pair[3] if pair[2] else DB.PAL.paper, true)
+	for pair in [["blade", "공격", c.atk, true, Color("#6fa8ff") if magic else Color("#ff6b5a")], ["shield", "방어", c["def"], false, null], ["boot", "속도", c.spd, false, null]]:
+		var a := UI.lbl(str(int(pair[2])), 18, pair[4] if pair[3] else DB.PAL.paper, true)
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var l := UI.lbl(pair[0], 10, DB.PAL.bamboo_dim)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(a)
-		v.add_child(l)
-		var pc := UI.panel(v, 2)
-		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.add_child(pc)
+		a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.add_child(_stat_cell(pair[0], pair[1], pair[4] if pair[3] else DB.PAL.bamboo_dim.lightened(0.15), a))
 	return g
+
+
+## 능력치 한 칸 —— 아이콘 + 숫자. 아이콘이 처음이어도 알 수 있게 누르면(PC 는 올려 두면) 이름이 잠깐 뜬다 (칼 = 공격 · 방패 = 방어 · 신발 = 속도)
+func _stat_cell(icon: String, nm: String, col: Color, num: Control) -> PanelContainer:
+	var h := UI.hbox(5)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	var iv := Icons.View.new(icon, col, STAT_ICON)
+	iv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var nl := UI.lbl(nm, 13, col, true)
+	nl.custom_minimum_size.x = STAT_ICON
+	nl.visible = false
+	h.add_child(iv)
+	h.add_child(nl)
+	h.add_child(num)
+	var pc := UI.panel(h, 4)
+	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pc.tooltip_text = nm
+	pc.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+			var gen := int(pc.get_meta("gen", 0)) + 1
+			pc.set_meta("gen", gen)
+			iv.visible = false
+			nl.visible = true
+			get_tree().create_timer(1.5).timeout.connect(func():
+				if is_instance_valid(pc) and int(pc.get_meta("gen", 0)) == gen:
+					iv.visible = true
+					nl.visible = false))
+	return pc
 
 
 ## 전투장수창 (11/6 사용자) —— 전투 중 꾹 눌러 연다. 이미 만든 장수라 재료 · 갈무리는 빼고 전투 요소만:
@@ -2074,14 +2097,13 @@ func battle_unit_sheet(key: String) -> void:
 	g.columns = 3
 	g.add_theme_constant_override("h_separation", 4)
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for pair in [["공격", "atk"], ["방어", "def"], ["속도", "spd"]]:
-		var base: float = float(c[pair[1]])
-		var got: float = ss[pair[1]][1] if ss.has(pair[1]) else base
-		var raw: float = ss[pair[1]][2] if ss.has(pair[1]) else base
+	for pair in [["blade", "공격", "atk"], ["shield", "방어", "def"], ["boot", "속도", "spd"]]:
+		var base: float = float(c[pair[2]])
+		var got: float = ss[pair[2]][1] if ss.has(pair[2]) else base
+		var raw: float = ss[pair[2]][2] if ss.has(pair[2]) else base
 		var d := roundi(raw - base)          # 버프로 늘어난 만큼 (초록)
 		var cutv := roundi(raw - got)        # 적 효과로 깎인 만큼 (빨강)
-		var v := UI.vbox(0)
-		var bb := "[center][b][font_size=17]%d[/font_size][/b]" % roundi(base)
+		var bb := "[center][b][font_size=18]%d[/font_size][/b]" % roundi(base)
 		if d != 0:
 			bb += " [color=%s][font_size=13]%s%d[/font_size][/color]" % ["#7fe0a8" if d > 0 else "#ff7a6a", "+" if d > 0 else "−", absi(d)]
 		if cutv > 0:
@@ -2089,13 +2111,8 @@ func battle_unit_sheet(key: String) -> void:
 		bb += "[/center]"
 		var a := UI.rich(bb, 13)
 		a.fit_content = true
-		var l := UI.lbl(pair[0], 10, DB.PAL.bamboo_dim)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(a)
-		v.add_child(l)
-		var pc := UI.panel(v, 2)
-		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.add_child(pc)
+		a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.add_child(_stat_cell(pair[0], pair[1], (Color("#6fa8ff") if DB.INT_TAGS.has(c.tag) else Color("#ff6b5a")) if pair[2] == "atk" else DB.PAL.bamboo_dim.lightened(0.15), a))
 	right.add_child(g)
 	if ss.is_empty():
 		right.add_child(UI.hint("온라인 재생은 버프 수치를 계산하지 않는다 —— 기본 수치만."))
