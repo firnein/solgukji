@@ -2178,8 +2178,9 @@ func _ability_rows(into: Container, k: String, fs := 12, narrow := false) -> voi
 		into.add_child(_ability_tile("기인" if kiin else "위세", DB.AURA[k].n, DB.aura_effect(k), DB.KIIN_COL if kiin else ABILITY_COL.aura, fs, "", narrow))
 	if DB.AURA.has(k) and DB.AURA[k].has("paeup"):      # 11/9 패업 —— 이름 · 조건 · 효과 (판정은 Battle._paeup_setup)
 		var pa: Dictionary = DB.AURA[k].paeup
-		var cw := "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"
-		into.add_child(_ability_tile("패업", str(pa.n), "아군에 %s 자신 외 %d명 이상이면 —— %s" % [cw, int(pa.need), str(pa.get("d", ""))], Color("#d96a8a"), fs, "", narrow))
+		var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
+		var pe: String = str(pa.get("d", "")) if str(pa.cond) == "none" else "아군에 %s 자신 외 %d명 이상이면 —— %s" % [cw, int(pa.need), str(pa.get("d", ""))]      # 조건 없는 패업은 설명만 (11/9)
+		into.add_child(_ability_tile("패업", str(pa.n), pe, Color("#d96a8a"), fs, "", narrow))
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
 		into.add_child(_ability_tile("고유기", u.name, UI.ult_desc(u, c.tier), ABILITY_COL.ult, fs, "%d초부터" % roundi(u.wait), narrow))

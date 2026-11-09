@@ -1010,6 +1010,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		dmg *= 1.0 + mv(a, "sk_amp")           # 신산 —— 기술 피해
 	dmg *= 1.0 - _guard(a, d)
 	dmg *= _omen_mul(a, d)      # 제갈량 천문
+	dmg *= _late_mul(d)         # 사마의 후발제인
 	if _in_ult:
 		dmg *= (1.0 - _buff_sum(d, "uguard")) * (0.0 if _ult_null else 1.0)
 	var fm := _fire_mul(a, d)
@@ -1054,6 +1055,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	d.last_hit = a
 	_charge(d, a, loss)
 	_paeup_snipe(a, d)
+	_paeup_kin(d)
 	L(a.camp, "%s%s %s %s — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), "쳤다" if _hit_kind == "int" else "들이쳤다", num(loss)],
 		{"fx": _hit_kind, "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
 	_ignite(a, d)
@@ -1962,6 +1964,10 @@ func _paeup_setup() -> void:
 
 ## 이 카드가 패업 조건(cond)에 들어가는가
 static func paeup_counts(cid: String, cond: String) -> bool:
+	if cond.begins_with("fac:"):      # 세력 —— 유비 한실부흥 (촉)
+		return str(DB.C[cid].fac) == cond.substr(4)
+	if cond.begins_with("tag:"):      # 병종 —— 사마의 후발제인 (창병 · 유생)
+		return cond.substr(4).split(",").has(str(DB.C[cid].tag))
 	var ks := st_kinds_of(cid)
 	if cond == "burn":
 		return ks.has("burn")
@@ -1997,35 +2003,26 @@ static func st_kinds_of(cid: String) -> Dictionary:
 	return out
 
 
-## 한 부대가 동시에 걸리는 상태이상 한도 —— 2, 적 진영에 태평요술(장각 패업)이 발동했으면 3
-func _st_cap(d: Unit) -> int:
-	return 3 if _paeup.has("st_cap:" + _foe(d.camp)) else 2
+## 한 부대가 동시에 걸리는 상태이상 한도 —— 2 (11/9 장각의 옛 시험판 태평요술(한도 3)은 황천당립(부활)로 바꿨다)
+func _st_cap(_d: Unit) -> int:
+	return 2
 
 
-## 적벽연소(주유 패업) —— 화상 걸린 적이 쓰러지면 남은 화상이 병력이 가장 많은 적 한 부대로 옮겨붙는다 (전투당 2번, 세기 spread_val)
-func _paeup_burn(u: Unit) -> void:
-	var key := "rout_burn:" + _foe(u.camp)
-	var zy = _paeup.get(key)
-	if zy == null or int(_paeup_used.get(key, 0)) >= 2:
-		return
-	var s = null
-	for x in u.st:
-		if x.k == "burn": s = x
-	if s == null:
-		return
-	var best: Unit = null
-	for t in units:
-		if t.alive and t != u and t.camp == u.camp and not has_st(t, "burn") and (best == null or t.troops > best.troops):
-			best = t
-	if best == null:
-		return
-	_paeup_used[key] = int(_paeup_used.get(key, 0)) + 1
-	L("sk", "%s의 적벽연소 —— 쓰러진 %s의 불길이 %s에게 옮겨붙는다" % [nm(zy), nm(u), nm(best)], {"fx": "skill", "a": zy.key, "name": "적벽연소", "kind": "int"})
-	_spread_burn_to(u, s, best)
-
+## 11/9 패업 3차 —— 유비 한실부흥 · 사마의 후발제인 · 주유 적벽 불바다 · 장각 황천당립
+## 불바다 · 후발제인은 시간이 들어가 실시간 엔진(RtBattle)에서만 움직인다. 난수 없이 시각 · 슬롯으로만 정한다 (결정성)
 
 ## 11/9 패업 2차 —— 조조 협천자 · 관우 오관참장 · 제갈량 천문 · 감녕 백기야습 · 장료 위진소요진 · 손권 제왕술 · 여포 무쌍
 ## 시간 · 거리가 들어가는 것(감녕 · 장료 · 손권 · 천문)은 실시간 엔진(RtBattle)에서만 움직인다. 난수 없이 슬롯 · 시각으로만 고른다 (결정성)
+
+const LATE_T := 12.0      # 사마의 후발제인 —— 버티는 시간(초)
+const LATE_DR := 0.25     # 버티는 동안 아군이 받는 피해 −
+const LATE_ATK := 0.20    # 버틴 뒤 아군 전원 공격 +
+const SEA_T0 := 10.0      # 주유 불바다 —— 깔리는 시각(초)
+const SEA_LEN := 15.0     # 불바다가 타는 시간
+const SEA_R := 230.0      # 불바다 반지름 (깔릴 때 적 진영 중심)
+const SEA_EVERY := 2.5    # 불바다가 적에게 화상을 거는 간격
+const SEA_SLOW := 0.7     # 불바다 안 적의 이동 배율
+var _fire_sea := {}       # 진영 -> {x, y, t1, next} (그 진영 주유가 깐 불바다)
 
 ## 패업 효과가 켜져 있는가 (이 진영의 신화가 살아 있어야 한다) —— 켜졌으면 그 신화
 func _pa(fx: String, cp: String):
@@ -2095,6 +2092,8 @@ func _paeup_tick(dt: float) -> void:
 					hit = true
 			if hit and _pa_use("wei_aura_log", cp, 1):
 				L("sk", "%s의 위진소요진 —— 둘레의 적이 기세에 눌린다" % nm(z), {"fx": "skill", "a": z.key, "name": "위진소요진", "kind": "phys"})
+		_paeup_late_tick(cp)
+		_paeup_sea_tick(cp)
 		var sq = _pa("crown", cp)
 		if sq != null:
 			var n := int(_paeup_used.get("crown_n:" + cp, 0))
@@ -2172,6 +2171,106 @@ func _paeup_fall(u: Unit) -> void:
 			_pass_busy = false
 
 
+## 사마의 후발제인 —— 버티는 동안(개전 LATE_T 초) 아군이 받는 피해 −25%
+func _late_mul(d: Unit) -> float:
+	if _paeup.is_empty() or not _by_distance() or _tm >= LATE_T or _pa("late", d.camp) == null:
+		return 1.0
+	return 1.0 - LATE_DR
+
+
+## 후발제인 틱 —— 버틴 시간이 끝나면 아군 전원 공격 +20% (한 번, 15초)
+func _paeup_late_tick(cp: String) -> void:
+	var z = _pa("late", cp)
+	if z == null or _tm < LATE_T or not _pa_use("late_go", cp, 1):
+		return
+	for o in units:
+		if o.alive and o.camp == cp and not _no_ally(o):
+			o.buffs.append({"stat": "atk", "amt": LATE_ATK, "dur": 15})
+	L("sk", "%s의 후발제인 —— 버텨 낸 군세가 일제히 반격에 나선다 (아군 전원 공격 +%d%%)" % [nm(z), roundi(LATE_ATK * 100)], {"fx": "skill", "a": z.key, "name": "후발제인", "kind": "int"})
+
+
+## 주유 적벽 불바다 —— 개전 SEA_T0 초에 적 진영 한가운데가 불바다가 된다 (SEA_LEN 초, 주유가 살아 있는 동안). 그 안의 적은 SEA_EVERY 초마다 화상이 걸리고 이동이 느려진다
+func _paeup_sea_tick(cp: String) -> void:
+	var z = _pa("fire_sea", cp)
+	var sea: Dictionary = _fire_sea.get(cp, {})
+	if z == null or (not sea.is_empty() and _tm > float(sea.t1)):
+		if not sea.is_empty():
+			_fire_sea.erase(cp)
+			L("sk", "%s의 불바다가 잦아든다" % nm(z) if z != null else "불바다가 잦아든다")
+		return
+	var foes := units.filter(func(o): return o.alive and o.camp != cp)
+	if foes.is_empty():
+		return
+	if sea.is_empty():
+		if _tm < SEA_T0 or not _pa_use("fire_sea_go", cp, 1):
+			return
+		var c := Vector2.ZERO
+		for o in foes:
+			c += o.pos
+		c /= float(foes.size())
+		sea = {"x": c.x, "y": c.y, "t1": _tm + SEA_LEN, "next": _tm}
+		_fire_sea[cp] = sea
+		L("sk", "%s의 적벽 불바다 —— 적진 한가운데가 불길에 잠긴다" % nm(z), {"fx": "skill", "a": z.key, "name": "불바다", "kind": "int", "area": [{"k": "circle", "x": roundi(c.x), "y": roundi(c.y), "r": roundi(SEA_R)}]})
+	if _tm < float(sea.next):
+		return
+	sea.next = _tm + SEA_EVERY
+	var burned := []
+	for o in foes:
+		if _in_sea(o) and not has_st(o, "burn"):
+			inflict(z, o, "burn", _fire_burn(z), int(DB.PSV.fire.burn.dur))
+			burned.append(o)
+	if not burned.is_empty():
+		L("sk", "불바다가 %s을(를) 휘감는다" % ", ".join(burned.map(func(o): return nm(o))), {"fx": "skill", "a": z.key, "name": "불바다", "kind": "int", "area": [{"k": "circle", "x": roundi(sea.x), "y": roundi(sea.y), "r": roundi(SEA_R)}]})
+
+
+## 이 부대가 상대 진영 주유의 불바다 안인가 (발자국이 반지름에 걸치면 안 —— 여유 60)
+func _in_sea(u: Unit) -> bool:
+	if _fire_sea.is_empty():
+		return false
+	var sea: Dictionary = _fire_sea.get(_foe(u.camp), {})
+	if sea.is_empty() or _pa("fire_sea", _foe(u.camp)) == null or _tm > float(sea.t1):
+		return false
+	return u.pos.distance_to(Vector2(sea.x, sea.y)) <= SEA_R + 60.0
+
+
+## 유비 한실부흥 —— 촉 아군 부대의 병력이 30% 아래로 떨어지면 유비가 일으켜 세운다 (병력 +15% · 사기 +10, 부대마다 한 번 · 전투당 3번)
+func _paeup_kin(d: Unit) -> void:
+	if _paeup.is_empty() or not d.alive or d.troops <= 0.0 or d.troops > d.max * 0.3 or str(d.c.fac) != "촉":
+		return
+	var z = _pa("kin", d.camp)
+	if z == null or _paeup_used.has("kin_u:" + d.key) or _no_ally(d) or _scorched(d):
+		return
+	if not _pa_use("kin", d.camp, 3):
+		return
+	_paeup_used["kin_u:" + d.key] = 1
+	var ratio := 0.15 * (0.5 if _kv(_foe(d.camp), "heal_cut") else 1.0)
+	var g := minf(roundf(d.max * ratio), d.max - d.troops)
+	d.troops += g
+	d.morale = minf(200.0, d.morale + 10.0)
+	z.heal += g / 300.0
+	L("hl", "%s의 한실부흥 —— 의형제 %s을(를) 일으켜 세운다 — 병력 +%s" % [nm(z), nm(d), num(g)], {"fx": "heal", "f": d.key, "n": g})
+
+
+## 장각 황천당립 —— 무너질 아군 부대를 일으켜 세운다. 병력 15% + 적 상태이상 부대 하나마다 +10% (최대 45%), 부대마다 한 번 · 전투당 2번.
+## 상태이상을 건 덱일수록 크게 일어선다 (장각 본인이 무너질 때도 한 번 쓴다)
+func _paeup_revive(u: Unit) -> bool:
+	if _paeup.is_empty() or _paeup_used.has("rev_u:" + u.key):
+		return false
+	var z = _pa("revive", u.camp)
+	if z == null or not _pa_use("revive", u.camp, 2):
+		return false
+	_paeup_used["rev_u:" + u.key] = 1
+	var n := 0
+	for o in units:
+		if o.alive and o.camp != u.camp and o.st.any(func(x): return PAEUP_ST.has(x.k)):
+			n += 1
+	var ratio := minf(0.45, 0.15 + 0.10 * float(n))
+	u.troops = maxf(u.troops, roundf(u.max * ratio))
+	u.morale = maxf(u.morale, 60.0)
+	L("hl", "%s의 황천당립 —— %s 다시 일어선다 (병력 %d%% · 상태이상에 걸린 적 %d부대)" % [nm(z), ga(nm(u)), roundi(ratio * 100), n], {"fx": "heal", "f": u.key, "n": u.troops})
+	return true
+
+
 func rout(u: Unit, why: String) -> void:
 	if not u.alive: return
 	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
@@ -2189,6 +2288,8 @@ func rout(u: Unit, why: String) -> void:
 		u.morale = maxf(u.morale, 60.0)
 		L("hl", "도원의 맹세 —— %s 다시 일어선다" % ga(nm(u)), {"fx": "heal", "f": u.key, "n": u.troops})
 		return
+	if _paeup_revive(u):      # 장각 황천당립 —— 무너질 부대가 다시 일어선다
+		return
 	u.alive = false
 	if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].get("kiin", "") == "death_gauge":      # 유계 곽가 —— 쓰러지면 아군 전원 고유기 게이지 +50
 		for o in units:
@@ -2198,8 +2299,6 @@ func rout(u: Unit, why: String) -> void:
 		L("sk", "%s의 유계 —— 남긴 계책이 펼쳐진다" % nm(u), {"fx": "skill", "a": u.key, "name": "유계", "kind": "int"})
 	if fire_enabled and has_st(u, "burn") and _side_max(_foe(u.camp), "blaze") > 0:
 		_blaze(u)
-	if fire_enabled and has_st(u, "burn"):
-		_paeup_burn(u)
 	_paeup_fall(u)
 	_tac_rout(u)
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
