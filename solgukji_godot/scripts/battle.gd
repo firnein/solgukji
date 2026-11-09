@@ -210,6 +210,7 @@ class Unit:
 	var theal := 0.0          # 병력 치료 합 (최대 병력 대비 · 점검용)
 	var charged := false      # 기병 첫 돌격을 했는가 (11/3 병종 역할)
 	var dmg := 0.0
+	var dot := 0.0            # 11/9 내가 건 화상 · 출혈이 낸 지속 피해 합 (dmg 에도 들어간다 —— 결과창 준 피해. 기록만, 판정에 안 쓴다)
 	var gain := 0.0           # 11/9 결과창 역할 기여 —— 내가 건 갑옷 · 결계 깎기로 아군이 더 넣은 피해 (기록만, 판정에 안 쓴다)
 	var mdmg := 0.0
 	var heal := 0.0
@@ -1296,6 +1297,8 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	for s in d.st:
 		if s.k == kind: old = s
 	if old:
+		if v > old.val and a:
+			old.by = a.key      # 더 센 쪽이 덮어쓰면 출처도 그쪽 (지속 피해 기록)
 		old.val = maxf(old.val, v)
 		old.dur = maxi(old.dur, t)
 		old.sp = maxf(old.get("sp", 0.0), sp)
@@ -1305,7 +1308,7 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 			for s in d.st:
 				if s.dur <= w.dur: w = s
 			d.st.erase(w)
-		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp})
+		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp, "by": a.key if a else ""})
 	L("st", "%s 『%s』에 걸렸다 — %d턴" % [ga(nm(d)), DB.D.STATUS[kind].n, t],
 		{"fx": "status", "f": d.key, "st": kind})
 	if temper_enabled and a and a.alive and a.camp != d.camp and not _in_ult:      # 11/7 지략 —— 상태이상을 걸 때마다 찬다
@@ -1320,6 +1323,21 @@ func cleanse(u: Unit) -> bool:
 	return true
 
 
+## 지속 피해(화상 · 출혈) 한 틱 —— 병력을 깎고, 실제로 깎인 만큼(남은 병력 한도)을 건 장수의 준 피해(dmg · dot)와 맞은 쪽의 받은 피해(taken)에 적는다
+func _dot_hit(u: Unit, s: Dictionary, amt: float) -> void:
+	var real := maxf(0.0, minf(amt, u.troops))
+	u.troops -= amt
+	u.taken += real
+	var by := str(s.get("by", ""))
+	if by == "" or real <= 0.0:
+		return
+	for g in units:
+		if g.key == by:
+			g.dmg += real
+			g.dot += real
+			return
+
+
 func tick_status(frac := 1.0, final := true) -> void:
 	var spreads := []
 	var passes := []
@@ -1330,9 +1348,9 @@ func tick_status(frac := 1.0, final := true) -> void:
 				"burn":
 					var bv: float = s.val * frac
 					if scheme_enabled and has_st(u, "confuse") and _side_max(_foe(u.camp), "confuse_burn") > 0:
-						u.troops -= bv          # 팔진화계 —— 혼란된 적의 화상이 두 배로 탄다
+						_dot_hit(u, s, bv)          # 팔진화계 —— 혼란된 적의 화상이 두 배로 탄다
 						stats.burn += bv
-					u.troops -= bv
+					_dot_hit(u, s, bv)
 					stats.burn += bv
 					var tr := _side_max(_foe(u.camp), "terror")
 					if tr > 0:
@@ -1345,7 +1363,7 @@ func tick_status(frac := 1.0, final := true) -> void:
 				"flood":
 					pass       # 둔화 —— 피해 없이 느려지기만 한다 (eff 의 _flood_slow)
 				"bleed":
-					u.troops -= s.val * frac
+					_dot_hit(u, s, s.val * frac)
 					if final:
 						L("st", "%s의 상처가 벌어진다 — 병력 %s 손실" % [nm(u), num(s.val)], {"fx": "tick", "f": u.key, "st": "bleed", "n": s.val})
 				"plague":
@@ -1441,7 +1459,7 @@ func _spread_burn_to(u: Unit, s: Dictionary, t: Unit) -> void:
 		for x in t.st:
 			if x.dur <= w.dur: w = x
 		t.st.erase(w)
-	t.st.append({"k": s.k, "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5})
+	t.st.append({"k": s.k, "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5, "by": s.get("by", "")})
 	if water:
 		stats.flows += 1
 		_chain(_foe(t.camp), "물길")
@@ -2537,7 +2555,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 	for u in units:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
-			"item": u.item, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "heal": roundi(u.heal), "kills": u.kills,
+			"item": u.item, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "dot": roundi(u.dot), "heal": roundi(u.heal), "kills": u.kills,
 			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)

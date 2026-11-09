@@ -162,7 +162,7 @@ func _rows(cp: String) -> Array:
 		if u.camp != cp:
 			continue
 		out.append({"id": u.id, "name": u.name, "tier": u.tier, "tag": u.tag,
-			"dmg": float(u.get("dmg", 0)), "taken": float(u.taken) if u.has("taken") else maxf(0.0, u.max - final[i][0]), "heal": float(u.get("heal", 0)),
+			"dmg": float(u.get("dmg", 0)), "dot": float(u.get("dot", 0)), "taken": float(u.taken) if u.has("taken") else maxf(0.0, u.max - final[i][0]), "heal": float(u.get("heal", 0)),
 			"kills": int(u.get("kills", 0)), "gain": float(u.get("gain", 0)), "sk": sk.get(u.key, 0), "ult": ul.get(u.key, 0), "alive": final[i][2] == 1})
 	out.sort_custom(func(x, y): return x.dmg > y.dmg)
 	return out
@@ -196,7 +196,7 @@ class Row extends Control:
 		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 10, P.bamboo_dim)
 		var bx := x0 + NAME_W + 6
 		var bw := size.x - bx - CNT_W - 8
-		_bar(Vector2(bx, 7), bw, r.dmg / top_d, P.gold, Battle.num(r.dmg))
+		_bar(Vector2(bx, 7), bw, r.dmg / top_d, P.gold, Battle.num(r.dmg) if r.get("dot", 0.0) <= 0.0 else "화상 · 출혈 %s  %s" % [Battle.num(r.dot), Battle.num(r.dmg)])      # 11/9 지속 피해(건 장수에게 기록)는 준 피해 안에 들어 있다 —— 막대 글에 몫을 밝힌다
 		_bar(Vector2(bx, 23), bw, r.taken / top_t, Color("#c0503f"), Battle.num(r.taken))
 		if r.get("gain", 0.0) > 0.0:      # 11/9 역할 기여 —— 이 장수의 깎기로 아군이 더 넣은 피해 (엔진 기록 gain)
 			draw_string(DB.font_body, Vector2(size.x - CNT_W, 12), "깎기 +" + Battle.num(r.gain), HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, 10, Color("#d8c27a", a))
