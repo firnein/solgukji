@@ -208,6 +208,8 @@ def sync_servers():
     if dev is None:
         return None
     old = str(dev.get("url", ""))
+    if dev.get("lock"):      # 11/9 집 PC 서버 주소를 고정 —— 다른 PC 에서 빌드해도 덮어쓰지 않는다
+        return None
     ip = route_ip() or ipconfig_ip()
     if ip is None:
         return f"{DEV} 서버 주소: 이 PC 의 IPv4 를 찾지 못해 그대로 둔다 ({old})"
