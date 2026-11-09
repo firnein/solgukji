@@ -722,9 +722,9 @@ func _render_head() -> void:
 	_phase_bar.cur = run.phase_idx()
 	_phase_bar.queue_redraw()
 	_pow_lbl.text = "%s명" % Battle.num(run.board_power())
+	# 11/9 사용자: 상단의 PV · 순위 · 경고 줄은 뺀다 (경고 · 순위는 기록 탭에서 본다)
 	_info_lbl.clear()
-	_info_lbl.append_text("[right][color=#C6AC7C]%d PV[/color] · [color=#D9A64B]%d위[/color] · [color=%s]경고 %d/%d[/color][/right]" % [
-		run.my_pv(), run.rank(), "#e0806f" if run.strikes >= 2 else "#8D7B5C", run.strikes, Run.STRIKE_MAX])
+	_info_lbl.visible = false
 	# 소식 버튼 (11/7) —— 소식 수 뱃지, 없으면 흐리게
 	var nn := run.news.size()
 	_news_btn.disabled = nn == 0
@@ -1605,10 +1605,12 @@ func _unique_sheet() -> void:
 	var b := open_sheet("아이템 보급")
 	# 11/3 사용자: 스크롤 없이 가로 세 칸, 칸은 위아래로 길게 —— [아이템] [아이템 능력치] [장수(신화 그림)], 수치는 '효과 · 수치' 줄
 	# 11/7 사용자: 팝업을 화면 높이 88% 까지 키우고(_fit_sheet 의 상한) 장수의 병종 · 고유기 · 기질도 함께
+	# 11/9 사용자: '받기' 까지 스크롤 없이 한눈에 —— 시트를 선택권처럼 98% 로, 그림 150 → 120, 패업 줄은 뺀다 (그림을 누르면 간략창에서 본다)
+	_sheet_full = true
 	var row := UI.hbox(5)
 	var sa := _safe_insets()
 	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
-	row.custom_minimum_size.y = maxf(300.0, (size.y - sa.position.y) * 0.88 - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
+	row.custom_minimum_size.y = maxf(300.0, (size.y - sa.position.y) * 0.98 - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
 	for id in run.uniq_offer:
 		var iid: String = id
 		var it: Dictionary = DB.IT[iid]
@@ -1627,7 +1629,7 @@ func _unique_sheet() -> void:
 		col.add_child(_kv_grid(UI.item_text(iid), 10))
 		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid):
 			var kk: String = k
-			var art := _art_crop(kk, Vector2(120, 150), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
+			var art := _art_crop(kk, Vector2(120, 120), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
 			art.mouse_filter = Control.MOUSE_FILTER_STOP
 			art.gui_input.connect(func(e):
 				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
@@ -1653,7 +1655,7 @@ func _unique_sheet() -> void:
 			var tb := TraitBoard.new()
 			tb.fixed = true
 			col.add_child(tb.setup(kk, 3))
-			_ability_rows(col, kk, 10, true)      # 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸 (좁은 세로 칸)
+			_ability_rows(col, kk, 10, true, true, ["패업"])      # 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸 (좁은 세로 칸). 패업은 뺀다 (11/9)
 		var sp := Control.new()
 		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_child(sp)
@@ -2166,9 +2168,9 @@ func _ability_items(k: String) -> Array:
 
 ## 고유 특기 · 위세(기인) · 패업 · 고유기 (+ 기질) —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양.
 ## 11/9 사용자: 색 카드 나열이 'AI 티' —— 한 장의 패널 안에서 얇은 구분선으로 줄을 나눈다. narrow(휴대폰 세로 보급 팝업)면 줄 안을 위아래로 쌓는다
-func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_temper := true) -> void:
+func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_temper := true, skip: Array = []) -> void:
 	var c: Dictionary = DB.C[k]
-	var its := _ability_items(k)
+	var its := _ability_items(k).filter(func(it): return not skip.has(str(it.get("kind", ""))))      # skip: 뺄 종류 (보급 팝업은 패업, 11/9)
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null and with_temper:
 		var ti := _temper_item(c, u)
