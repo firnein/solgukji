@@ -25,6 +25,8 @@ static var dmg_numbers := 1    # 피해 숫자 —— 0 큰 것만(기술 · 고
 static var cam_fx := 1         # 전투 카메라 연출 —— 0 끔 · 1 적게(아군 고유기 · 적 신화 고유기 · 장수 격파) · 2 보통(첫 격돌 · 모든 고유기). 11/6 사용자
 static var perf_hud := false   # 성능 표시 —— 전투 왼쪽 위에 fps · 계산 병사 · 보이는 인형 · 부하 조절 단계 (휴대폰 실측용, 11/6 목표)
 static var tac_info := 1       # 타입2 전황 표시 —— 0 끔 · 1 간단(진형 소개 · 우대 금테 · 책략 실) · 2 자세히(+ 사거리 · 전술 화살표). 11/6
+## 11/9 사용자: 3D 전장(기본 3D · 수묵)은 점검하지 않으므로 설정에서 숨기고 늘 타입2 로 시작한다. 되살리려면 true —— 선택칸이 다시 보이고 저장된 값을 지킨다 (코드 · 점검 인자 --gtype2 · --gsumuk 는 그대로)
+const SHOW_3D := false
 static var _loaded := false
 
 
@@ -47,6 +49,9 @@ static func load_cfg() -> void:
 		perf_hud = bool(cf.get_value("gfx", "perf_hud", false))
 		cam_fx = int(cf.get_value("gfx", "cam_fx", 1))
 		dmg_numbers = int(cf.get_value("gfx", "dmg_numbers", 1))
+		if not SHOW_3D:      # 저장된 설정에 3D · 수묵이 켜져 있던 사용자도 타입2 로 (다음 저장 때 파일도 바뀐다)
+			type2 = true
+			sumuk = false
 		dots = false     # 11/3 사용자: 점묘 옵션을 숨겼다 —— 저장값과 상관없이 3D (점검용 --gdots / --dots 로만 켠다)
 	if quality < 0:
 		quality = 0 if OS.has_feature("mobile") else 2

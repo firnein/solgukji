@@ -1114,16 +1114,17 @@ func _settings_sheet() -> void:
 			if _battle:
 				_battle.apply_style()
 			_settings_sheet()))
-	b.add_child(UI.eyebrow("전장 화풍"))
-	var style_now := "type2" if Settings.type2 else ("sumuk" if Settings.sumuk else "base")
-	b.add_child(UI.segmented([["base", "기본 3D"], ["sumuk", "수묵"], ["type2", "타입2 (삼국지11)"]], style_now, func(key):
-		Settings.sumuk = key == "sumuk"
-		Settings.type2 = key == "type2"
-		Settings.apply()
-		Settings.save_cfg()
-		if _battle:
-			_battle.apply_style()
-		_settings_sheet()))
+	if Settings.SHOW_3D:      # 11/9 3D · 수묵 선택은 숨겼다 (Settings.SHOW_3D) —— 늘 타입2
+		b.add_child(UI.eyebrow("전장 화풍"))
+		var style_now := "type2" if Settings.type2 else ("sumuk" if Settings.sumuk else "base")
+		b.add_child(UI.segmented([["base", "기본 3D"], ["sumuk", "수묵"], ["type2", "타입2 (삼국지11)"]], style_now, func(key):
+			Settings.sumuk = key == "sumuk"
+			Settings.type2 = key == "type2"
+			Settings.apply()
+			Settings.save_cfg()
+			if _battle:
+				_battle.apply_style()
+			_settings_sheet()))
 	b.add_child(UI.eyebrow("피해 숫자"))      # 11/6 #16 정보 계층 —— 평타 숫자는 소음이 되기 쉽다
 	b.add_child(UI.segmented([["0", "큰 것만"], ["1", "모아서"], ["2", "모두"]], str(Settings.dmg_numbers), func(key):
 		Settings.dmg_numbers = int(key)
