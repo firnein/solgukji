@@ -96,15 +96,5 @@ func _score(deck: Array, use_p: bool) -> float:
 	return s
 
 
-func _best_form(deck: Array) -> String:
-	var best := "eorin"
-	var bn := -1
-	for f in FORMS:
-		var n := 0
-		for k in deck:
-			if DB.D.FORMBOON[f].tags.has(DB.C[k].tag):
-				n += 1
-		if n > bn:
-			bn = n
-			best = f
-	return best
+func _best_form(_deck: Array) -> String:
+	return "eorin"      # 11/9 진형 우대 삭제 —— 예전에는 우대 병종이 가장 많이 걸리는 진형을 골랐다
