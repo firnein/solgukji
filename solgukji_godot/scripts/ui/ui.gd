@@ -4,6 +4,8 @@ extends RefCounted
 ## 스크롤은 UI.scroll() 로 만든다 (TouchScroll 이 버튼 위에서 끌어도 스크롤되게 한다).
 
 const BTN_H := 50
+const R := 4                      # 모서리 반지름 —— 상자 · 버튼 · 칩 모두 이 크기 (11/9, 알약 · 큰 둥근 모서리 금지)
+const HAIR := Color(0.914, 0.89, 0.827, 0.10)      # 구분선(hairline) —— 종이색 10%
 
 
 static func theme() -> Theme:
@@ -11,25 +13,27 @@ static func theme() -> Theme:
 	var th := Theme.new()
 	th.default_font = DB.font_body
 	th.default_font_size = 15
-	th.set_stylebox("panel", "PanelContainer", flat(P.ink2, P.ink3, 1, 8, 12))
-	th.set_stylebox("normal", "Button", flat(P.ink3, P.ink4, 1, 8, 10))
-	th.set_stylebox("hover", "Button", flat(P.ink4, P.bamboo_dim, 1, 8, 10))
-	th.set_stylebox("pressed", "Button", flat(P.bamboo, P.bamboo, 1, 8, 10))
-	th.set_stylebox("hover_pressed", "Button", flat(P.bamboo, P.gold, 1, 8, 10))
-	th.set_stylebox("disabled", "Button", flat(Color(P.ink3, 0.5), P.ink3, 1, 8, 10))
+	# 11/9 사용자: AI 티를 걷는다 —— 상자는 테두리 없는 먹색 면 + 작은 모서리, 선택 · 눌림에만 금 얇은 선 (작업현황 ㊽ 규칙)
+	var none := Color(0, 0, 0, 0)
+	th.set_stylebox("panel", "PanelContainer", flat(P.ink2, none, 0, R, 12))
+	th.set_stylebox("normal", "Button", flat(P.ink3, none, 0, R, 10))
+	th.set_stylebox("hover", "Button", flat(P.ink4, none, 0, R, 10))
+	th.set_stylebox("pressed", "Button", flat(P.ink4, P.gold, 1, R, 10))
+	th.set_stylebox("hover_pressed", "Button", flat(P.ink4, P.gold, 1, R, 10))
+	th.set_stylebox("disabled", "Button", flat(Color(P.ink3, 0.5), none, 0, R, 10))
 	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	th.set_color("font_color", "Button", P.paper)
 	th.set_color("font_hover_color", "Button", P.paper)
-	th.set_color("font_pressed_color", "Button", Color("#1A1508"))
-	th.set_color("font_hover_pressed_color", "Button", Color("#1A1508"))
+	th.set_color("font_pressed_color", "Button", P.paper)
+	th.set_color("font_hover_pressed_color", "Button", P.paper)
 	th.set_color("font_disabled_color", "Button", Color(P.paper, 0.35))
 	th.set_color("font_color", "Label", P.paper)
 	th.set_color("default_color", "RichTextLabel", P.paper)
 	th.set_font_size("normal_font_size", "RichTextLabel", 14)
 	th.set_font("normal_font", "RichTextLabel", DB.font_body)
 	th.set_font("bold_font", "RichTextLabel", DB.font_bold)
-	th.set_stylebox("normal", "OptionButton", flat(P.ink3, P.ink4, 1, 8, 10))
-	th.set_stylebox("hover", "OptionButton", flat(P.ink4, P.bamboo_dim, 1, 8, 10))
+	th.set_stylebox("normal", "OptionButton", flat(P.ink3, none, 0, R, 10))
+	th.set_stylebox("hover", "OptionButton", flat(P.ink4, none, 0, R, 10))
 	# 스크롤 막대 —— 손가락으로 잡을 수 있게 굵게
 	var grab := flat(P.ink4, P.ink4, 0, 6, 0)
 	grab.content_margin_left = 6
@@ -51,8 +55,8 @@ static func theme() -> Theme:
 	thin_h.content_margin_bottom = 2
 	th.set_stylebox("grabber", "HScrollBar", thin_h)
 	th.set_stylebox("scroll", "HScrollBar", StyleBoxEmpty.new())
-	th.set_stylebox("normal", "LineEdit", flat(P.ink, P.ink4, 1, 8, 10))
-	th.set_stylebox("focus", "LineEdit", flat(P.ink, P.bamboo, 1, 8, 10))
+	th.set_stylebox("normal", "LineEdit", flat(P.ink, P.ink4, 1, R, 10))
+	th.set_stylebox("focus", "LineEdit", flat(P.ink, P.bamboo_dim, 1, R, 10))
 	th.set_font_size("font_size", "LineEdit", 16)
 	th.set_font_size("font_size", "CheckButton", 15)
 	return th
@@ -63,9 +67,21 @@ static func flat(bg: Color, border: Color, bw := 1, rad := 6, pad := 8) -> Style
 	sb.bg_color = bg
 	sb.border_color = border
 	sb.set_border_width_all(bw)
-	sb.set_corner_radius_all(rad)
+	sb.set_corner_radius_all(mini(rad, R))      # 11/9 모서리는 R 까지만 (예전 8 · 10 · 14 알약은 모두 R)
 	sb.set_content_margin_all(pad)
 	return sb
+
+
+## 구분선 —— 한 장의 패널 안에서 줄을 나눈다 (상자를 겹치지 않고)
+static func hair(vertical := false) -> ColorRect:
+	var r := ColorRect.new()
+	r.color = HAIR
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if vertical:
+		r.custom_minimum_size = Vector2(1, 0)
+	else:
+		r.custom_minimum_size = Vector2(0, 1)
+	return r
 
 
 static func lbl(text: String, fs := 15, col := Color(0, 0, 0, 0), display := false) -> Label:
@@ -110,18 +126,17 @@ static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> Button:
 	b.pressed.connect(func():
 		buzz()
 		cb.call())
+	var none := Color(0, 0, 0, 0)
 	match kind:
-		"pri":
-			b.add_theme_stylebox_override("normal", flat(DB.PAL.jade.darkened(0.25), DB.PAL.jade, 1, 8, 10))
-			b.add_theme_stylebox_override("hover", flat(DB.PAL.jade.darkened(0.1), DB.PAL.jade, 1, 8, 10))
-		"warn":
-			b.add_theme_stylebox_override("normal", flat(DB.PAL.seal.darkened(0.3), DB.PAL.seal, 1, 8, 10))
-			b.add_theme_stylebox_override("hover", flat(DB.PAL.seal.darkened(0.15), DB.PAL.seal, 1, 8, 10))
-		"gold":
-			b.add_theme_stylebox_override("normal", flat(DB.PAL.gold.darkened(0.45), DB.PAL.gold, 1, 8, 10))
-			b.add_theme_stylebox_override("hover", flat(DB.PAL.gold.darkened(0.3), DB.PAL.gold, 1, 8, 10))
+		"pri", "gold":      # 주 행동은 금 한 가지 —— 먹금 바탕 + 금 얇은 선 (옥색 바탕은 걷었다 —— 옥색은 수치 강조에만)
+			b.add_theme_stylebox_override("normal", flat(DB.PAL.gold.darkened(0.72), Color(DB.PAL.gold, 0.85), 1, R, 10))
+			b.add_theme_stylebox_override("hover", flat(DB.PAL.gold.darkened(0.6), DB.PAL.gold, 1, R, 10))
+		"warn":      # 인장 붉음 —— 경고 · 위험
+			b.add_theme_stylebox_override("normal", flat(DB.PAL.seal.darkened(0.35), none, 0, R, 10))
+			b.add_theme_stylebox_override("hover", flat(DB.PAL.seal.darkened(0.2), none, 0, R, 10))
 		"ghost":
-			b.add_theme_stylebox_override("normal", flat(Color(0, 0, 0, 0), DB.PAL.ink4, 1, 8, 10))
+			b.add_theme_stylebox_override("normal", flat(none, Color(DB.PAL.paper, 0.16), 1, R, 10))
+			b.add_theme_stylebox_override("hover", flat(Color(DB.PAL.paper, 0.05), Color(DB.PAL.paper, 0.28), 1, R, 10))
 	return b
 
 
@@ -154,7 +169,7 @@ static func act(title: String, sub: String, cb: Callable, kind := "", disabled :
 
 static func panel(child: Control, pad := 12) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", flat(DB.PAL.ink2, DB.PAL.ink3, 1, 8, pad))
+	p.add_theme_stylebox_override("panel", flat(DB.PAL.ink2, Color(0, 0, 0, 0), 0, R, pad))
 	p.add_child(child)
 	return p
 
@@ -194,23 +209,24 @@ static func buzz(ms := 8) -> void:
 		Input.vibrate_handheld(ms)
 
 
-## 알약 모양 선택지 —— 필터·탭에 쓴다
+## 선택지 —— 필터 · 탭에 쓴다. 고른 것은 금 얇은 선, 나머지는 테두리 없는 먹색 (알약 · 색 칠한 칩 아님)
 static func chip(text: String, on: bool, cb: Callable, h := 40) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, h)
 	b.add_theme_font_size_override("font_size", 14)
 	var P := DB.PAL
-	var r := int(h / 2)
+	var none := Color(0, 0, 0, 0)
 	if on:
-		b.add_theme_stylebox_override("normal", flat(P.bamboo, P.bamboo, 1, r, 14))
-		b.add_theme_stylebox_override("hover", flat(P.bamboo, P.gold, 1, r, 14))
-		b.add_theme_color_override("font_color", Color("#1A1508"))
-		b.add_theme_color_override("font_hover_color", Color("#1A1508"))
+		b.add_theme_stylebox_override("normal", flat(P.ink3, P.gold, 1, R, 14))
+		b.add_theme_stylebox_override("hover", flat(P.ink4, P.gold, 1, R, 14))
+		b.add_theme_color_override("font_color", P.paper)
+		b.add_theme_color_override("font_hover_color", P.paper)
 	else:
-		b.add_theme_stylebox_override("normal", flat(P.ink2, P.ink4, 1, r, 14))
-		b.add_theme_stylebox_override("hover", flat(P.ink3, P.bamboo_dim, 1, r, 14))
-	b.add_theme_stylebox_override("pressed", flat(P.ink4, P.bamboo, 1, r, 14))
+		b.add_theme_stylebox_override("normal", flat(P.ink2, none, 0, R, 14))
+		b.add_theme_stylebox_override("hover", flat(P.ink3, none, 0, R, 14))
+		b.add_theme_color_override("font_color", P.bamboo)
+	b.add_theme_stylebox_override("pressed", flat(P.ink4, P.gold, 1, R, 14))
 	for st in ["normal", "hover", "pressed"]:
 		var sb: StyleBoxFlat = b.get_theme_stylebox(st)
 		sb.content_margin_top = 4
@@ -225,7 +241,7 @@ static func chip(text: String, on: bool, cb: Callable, h := 40) -> Button:
 static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 	var P := DB.PAL
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", flat(P.ink2, P.ink3, 1, 12, 4))
+	p.add_theme_stylebox_override("panel", flat(P.ink2, Color(0, 0, 0, 0), 0, R, 3))
 	var h := hbox(4)
 	p.add_child(h)
 	for it in items:
@@ -236,10 +252,11 @@ static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.add_theme_font_size_override("font_size", 15)
 		b.add_theme_font_override("font", DB.font_display)
-		b.add_theme_stylebox_override("normal", flat(P.ink4 if on else Color(0, 0, 0, 0), P.ink4 if on else Color(0, 0, 0, 0), 0, 9, 6))
-		b.add_theme_stylebox_override("hover", flat(P.ink4 if on else P.ink3, P.ink4, 0, 9, 6))
-		b.add_theme_stylebox_override("pressed", flat(P.ink4, P.ink4, 0, 9, 6))
+		b.add_theme_stylebox_override("normal", flat(P.ink4 if on else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 3, 6))
+		b.add_theme_stylebox_override("hover", flat(P.ink4 if on else P.ink3, Color(0, 0, 0, 0), 0, 3, 6))
+		b.add_theme_stylebox_override("pressed", flat(P.ink4, Color(0, 0, 0, 0), 0, 3, 6))
 		b.add_theme_color_override("font_color", P.paper if on else P.bamboo_dim)
+		b.add_theme_color_override("font_hover_color", P.paper)
 		b.add_theme_color_override("font_pressed_color", P.paper)
 		var key: String = it[0]
 		b.pressed.connect(func():
@@ -254,9 +271,9 @@ static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button
 	var P := DB.PAL
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(0, 52)
-	b.add_theme_stylebox_override("normal", flat(P.ink2, P.ink3, 1, 10, 12))
-	b.add_theme_stylebox_override("hover", flat(P.ink3, P.ink4, 1, 10, 12))
-	b.add_theme_stylebox_override("pressed", flat(P.ink3, P.bamboo_dim, 1, 10, 12))
+	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(0, 0, 0, 0), 0, R, 12))
+	b.add_theme_stylebox_override("hover", flat(P.ink3, Color(0, 0, 0, 0), 0, R, 12))
+	b.add_theme_stylebox_override("pressed", flat(P.ink3, Color(0, 0, 0, 0), 0, R, 12))
 	b.pressed.connect(func():
 		buzz()
 		cb.call())
@@ -308,7 +325,7 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 	b.disabled = disabled or done
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if done:
-		b.add_theme_stylebox_override("disabled", flat(Color(P.ink2, 0.6), P.ink3, 1, 10, 6))
+		b.add_theme_stylebox_override("disabled", flat(Color(P.ink2, 0.6), Color(0, 0, 0, 0), 0, R, 6))
 	var v: BoxContainer
 	if low:
 		v = hbox(3)
@@ -346,9 +363,9 @@ static func icon_chip(icon: String, text: String, col: Color, cb: Callable) -> B
 	var P := DB.PAL
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(0, 36)
-	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(col, 0.55), 1, 18, 0))
-	b.add_theme_stylebox_override("hover", flat(P.ink3, col, 1, 22, 0))
-	b.add_theme_stylebox_override("pressed", flat(P.ink4, col, 1, 22, 0))
+	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(0, 0, 0, 0), 0, R, 0))
+	b.add_theme_stylebox_override("hover", flat(P.ink3, Color(0, 0, 0, 0), 0, R, 0))
+	b.add_theme_stylebox_override("pressed", flat(P.ink4, Color(0, 0, 0, 0), 0, R, 0))
 	b.pressed.connect(func():
 		buzz()
 		cb.call())
@@ -436,7 +453,7 @@ static func unique_chips(k: String, fs := 13):
 		var r := rich("[color=#FFF3D0]%s[/color]" % t.name, fs)       # 11/3 사용자: 고유 특기에는 레벨을 적지 않는다
 		r.autowrap_mode = TextServer.AUTOWRAP_OFF
 		var pc := PanelContainer.new()
-		pc.add_theme_stylebox_override("panel", flat(Color("#6b5212"), Color("#f0cf6a"), 2, 4, 4))
+		pc.add_theme_stylebox_override("panel", flat(Color(DB.PAL.gold, 0.16), DB.PAL.gold, 1, R, 4))
 		pc.mouse_filter = Control.MOUSE_FILTER_PASS
 		pc.add_child(r)
 		f.add_child(pc)

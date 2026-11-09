@@ -53,6 +53,24 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(-8, 0) * u, c + Vector2(-2, 6) * u, c + Vector2(9, -7) * u]), col, w * 1.2)
 		"up":        # 위로 (상위 조합 재료)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(-6, 3) * u, c + Vector2(0, -4) * u, c + Vector2(6, 3) * u]), col, w * 1.2)
+		# 11/9 능력 종류 기호 (색 카드 대신 기호로 가른다) —— 고유 특기 인장 · 위세 깃발 · 패업 관 · 고유기 터짐
+		"seal":      # 인장 —— 네모 테두리, 안쪽 작은 네모
+			ci.draw_rect(Rect2(c - Vector2(8, 8) * u, Vector2(16, 16) * u), col, false, w)
+			ci.draw_rect(Rect2(c - Vector2(3.2, 3.2) * u, Vector2(6.4, 6.4) * u), col)
+		"banner":    # 깃발 —— 깃대와 늘어진 깃
+			ci.draw_line(c + Vector2(-6, -9) * u, c + Vector2(-6, 9) * u, col, w)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-6, -8) * u, c + Vector2(8, -8) * u, c + Vector2(4, -3) * u, c + Vector2(8, 2) * u,
+				c + Vector2(-6, 2) * u]), col, w)
+		"crown":     # 관 —— 뾰족 셋
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-8, 6) * u, c + Vector2(-8, -4) * u, c + Vector2(-3.5, 1) * u, c + Vector2(0, -7) * u,
+				c + Vector2(3.5, 1) * u, c + Vector2(8, -4) * u, c + Vector2(8, 6) * u, c + Vector2(-8, 6) * u]), col, w)
+		"burst":     # 터짐 —— 여덟 뾰족 별
+			var bp := PackedVector2Array()
+			for i in 16:
+				var br := (10.0 if i % 2 == 0 else 4.2) * u
+				bp.append(c + Vector2.from_angle(-PI / 2 + i * PI / 8) * br)
+			bp.append(bp[0])
+			ci.draw_polyline(bp, col, w * 0.9)
 		# 11/7 고유기 기질 기호 (디테일창 · 전투장수창 · 보급 팝업의 기질 칸) —— 맹장 칼 · 수호 방패 · 저격 과녁 · 분노 불꽃 (지략은 두루마리 "news")
 		"blade":     # 칼 —— 날은 왼쪽 아래에서 오른쪽 위로, 코등이 · 자루
 			ci.draw_line(c + Vector2(-3, 3) * u, c + Vector2(8, -8) * u, col, w * 1.4)
