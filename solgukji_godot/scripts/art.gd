@@ -227,8 +227,8 @@ static func _draw_cover(ci: CanvasItem, r: Rect2, tex: Texture2D) -> void:
 	ci.draw_texture_rect_region(tex, r, src)
 
 
-## 고등급 장식 —— 불멸은 빗살 문양, 신화는 반짝이는 금박
-static func draw_tier_fx(ci: CanvasItem, r: Rect2, k: String, t: float) -> void:
+## 고등급 장식 —— 불멸 이상은 초상 위 빗살 문양 (정적). 신화의 반짝이는 금박은 움직이므로 TierDeco.Shimmer 덧칸이 그린다 (11/9)
+static func draw_tier_fx(ci: CanvasItem, r: Rect2, k: String) -> void:
 	var tier: int = DB.C[k].tier
 	var tc := DB.tier_color(k)
 	if tier >= 7:
@@ -240,13 +240,3 @@ static func draw_tier_fx(ci: CanvasItem, r: Rect2, k: String, t: float) -> void:
 			for seg in Geometry2D.intersect_polyline_with_polygon(line, poly):
 				ci.draw_polyline(seg, Color(tc, 0.07), 1.0)
 			x += step
-	if tier >= 8:
-		var h := hash(k)
-		for i in 6:
-			var px := r.position.x + float((h >> (i * 4)) & 15) / 15.0 * r.size.x
-			var py := r.position.y + float((h >> (i * 4 + 2)) & 15) / 15.0 * r.size.y * 0.8
-			var a := 0.5 + 0.5 * sin(t * 3.0 + i * 1.7)
-			var s := 2.0 + 3.0 * a
-			var col := Color("#ffe9a8", a * 0.9)
-			ci.draw_line(Vector2(px - s, py), Vector2(px + s, py), col, 1.2)
-			ci.draw_line(Vector2(px, py - s), Vector2(px, py + s), col, 1.2)
