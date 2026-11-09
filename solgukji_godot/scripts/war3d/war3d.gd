@@ -799,6 +799,7 @@ func _gpu_build() -> void:
 		_gpu_mat.shader = load("res://shaders/soldier_gpu.gdshader")
 	_gpu_mat.set_shader_parameter("team_a", TEAM.A)
 	_gpu_mat.set_shader_parameter("team_b", TEAM.B)
+	_set_draw_budget()
 	# 높이 —— 지형 격자를 그대로 텍스처로 (언덕 포함)
 	var hn: int = maxi(_hn, 64)
 	var half: float = _hhalf if _hn > 0 else 60.0
@@ -884,6 +885,23 @@ func _gpu_build() -> void:
 		gpu_mmi.append(mi)
 	_gs_dt = 0.0
 	_gpu_sync(0.0)
+
+
+## 11/9 병사 그리는 예산 (타입2 와 같은 방식, Type2View._set_budget) —— 그릴 병사(장수 뺀 전체)가 상한을 넘으면 모든 부대에서 같은 비율(씨앗 순)만 그린다.
+## 줄인 비율이 클수록 남은 인형을 최대 DRAW_GROW_MAX 배로 키우고 진영색을 짙게 한다. 판정 · 병력 · 엔진 위치는 그대로
+var draw_keep := 1.0
+func _set_draw_budget() -> void:
+	var drawn := 0
+	for sq in order:
+		drawn += maxi(0, sq.soldiers.size() - (1 if sq.general != null else 0))
+	var cap := int(Settings.DRAW_BUDGET[1 if Type2View._mobile() else 0])
+	draw_keep = 1.0
+	if Type2View.budget_on and drawn > cap:
+		draw_keep = float(cap) / float(drawn)
+	var k := smoothstep(0.0, 0.7, 1.0 - draw_keep)
+	_gpu_mat.set_shader_parameter("keep", draw_keep)
+	_gpu_mat.set_shader_parameter("grow", 1.0 + (Settings.DRAW_GROW_MAX - 1.0) * k)
+	_gpu_mat.set_shader_parameter("dark", k)
 
 
 ## 전투의 병사 수 (장수 제외) —— 부하 조절 문턱용
