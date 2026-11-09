@@ -1318,23 +1318,17 @@ func _draw_fx(ci: CanvasItem) -> void:
 # ───────── 전황 읽기 (11/6 탑뷰 강점: 진형 · 사거리 · 전술 화살표) ─────────
 # 모두 그리기만 한다 —— 판정 · 결정성과 무관. 위치는 Squad(재생 결과), 진형은 res.aForm / bForm.
 
-const BOON_COL := Color("#E8C25A")
+const FORM_COL := Color("#D8D2C0")      # 진형 윤곽 · 이름판 —— 11/9 진형 우대(금빛 BOON_COL) 삭제로 금빛을 걷고 옅은 종이색
 const INTRO_T := 4.0            # 전투 시작 뒤 진형 윤곽 · 이름을 보여 주는 시간
 var _form := {}                 # "A"/"B" -> 진형 키
-var _boon := {}                 # 부대 key -> true (진형 우대를 받는 병종)
 var _intro_t0 := 0.0
 
 
 func _setup_tac() -> void:
 	_form.clear()
-	_boon.clear()
 	var res: Dictionary = view.res if view != null and view.res is Dictionary else {}
 	_form["A"] = str(res.get("aForm", ""))
 	_form["B"] = str(res.get("bForm", ""))
-	for sq: Squad in field.order:
-		var bn = DB.D.FORMBOON.get(_form.get(sq.camp, ""))
-		if bn != null and bn.tags.has(sq.tag):
-			_boon[sq.key] = true
 	_intro_t0 = field.clock
 	_ensure_fx_layer()
 	_label_layer.visible = true
@@ -1362,10 +1356,7 @@ func _draw_tac_under(ci: CanvasItem) -> void:
 				var hull := Geometry2D.convex_hull(pts)
 				var team := TEAM_A if camp == "A" else TEAM_B
 				ci.draw_colored_polygon(hull, Color(team, 0.08 * ia))
-				_dashed(ci, hull, Color(BOON_COL, 0.75 * ia), 2.0)
-			for sq: Squad in field.order:      # 우대 받는 부대끼리 금빛으로 잇는다
-				if sq.camp == camp and sq.alive and _boon.has(sq.key):
-					ci.draw_circle(map(vis_c(sq)), 4.0, Color(BOON_COL, 0.9 * ia))
+				_dashed(ci, hull, Color(FORM_COL, 0.7 * ia), 2.0)
 	var now := field.clock
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone":
@@ -1417,13 +1408,7 @@ func _foe_of(sq: Squad) -> Squad:
 	return null
 
 
-## 우대 금테 —— 부대 바닥 타원 둘레 (계속)
-func _boon_ring(ci: CanvasItem, pts: PackedVector2Array, sq: Squad, fade: float) -> void:
-	if _boon.has(sq.key) and tac_level() >= 1:
-		ci.draw_polyline(pts, Color(BOON_COL, 0.6 * fade), 1.6)      # 큰 부대는 타원이 커서 굵은 금테가 화면을 덮었다 (11/6 점검)
-
-
-## 진형 이름 · 우대 효과 —— 각 편 무리 바깥(아군 아래 · 적 위)에 (시작 몇 초)
+## 진형 이름 —— 각 편 무리 바깥(아군 아래 · 적 위)에 (시작 몇 초)
 func _draw_tac_top(ci: CanvasItem) -> void:
 	if tac_level() <= 0:
 		return
@@ -1450,24 +1435,19 @@ func _draw_tac_top(ci: CanvasItem) -> void:
 		var y := minf(hi + 44.0, size.y - 30.0) if camp == "A" else maxf(lo - 52.0, 120.0)      # 위쪽 시계 · 병력 막대와 겹치지 않게
 		var x := sx / n
 		var nm: String = DB.FORM[fk].n
-		var bn = DB.D.FORMBOON.get(fk)
-		var sub := ("%s %s +%d%%" % [" · ".join(bn.tags), DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100)]) if bn else ""
 		var fd := DB.font_display
 		var w := 300.0
 		var tc := Color("#a9c8f0") if camp == "A" else Color("#f0aaa2")
 		# 받침 —— 부대 · 이름표 위에 겹쳐도 읽히게
-		var bw: float = maxf(fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x, DB.font_bold.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x) + 28.0
+		var bw: float = fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 28.0
 		var plate := StyleBoxFlat.new()
 		plate.bg_color = Color(0.04, 0.05, 0.08, 0.62 * ia)
-		plate.border_color = Color(BOON_COL, 0.45 * ia)
+		plate.border_color = Color(FORM_COL, 0.45 * ia)
 		plate.set_border_width_all(1)
 		plate.set_corner_radius_all(4)
-		ci.draw_style_box(plate, Rect2(x - bw / 2, y - 24, bw, 48 if sub != "" else 30))
+		ci.draw_style_box(plate, Rect2(x - bw / 2, y - 24, bw, 30))
 		ci.draw_string_outline(fd, Vector2(x - w / 2, y), nm, HORIZONTAL_ALIGNMENT_CENTER, w, 22, 6, Color(0, 0, 0, 0.75 * ia))
 		ci.draw_string(fd, Vector2(x - w / 2, y), nm, HORIZONTAL_ALIGNMENT_CENTER, w, 22, Color(tc.lightened(0.3), ia))
-		if sub != "":
-			ci.draw_string_outline(DB.font_bold, Vector2(x - w / 2, y + 18), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 12, 4, Color(0, 0, 0, 0.75 * ia))
-			ci.draw_string(DB.font_bold, Vector2(x - w / 2, y + 18), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color(BOON_COL, ia))
 
 
 func _dashed(ci: CanvasItem, poly: PackedVector2Array, col: Color, wd: float) -> void:

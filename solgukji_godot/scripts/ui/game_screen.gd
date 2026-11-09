@@ -1116,7 +1116,7 @@ func _settings_sheet() -> void:
 			Settings.tac_info = int(key)
 			Settings.save_cfg()
 			_settings_sheet()))
-		b.add_child(UI.hint("간단: 진형 소개 · 진형 우대 금테 · 책략 실. 자세히: 사거리 · 진격 화살표까지. 일시정지하면 자세히 보입니다."))
+		b.add_child(UI.hint("간단: 진형 소개 · 책략 실. 자세히: 사거리 · 진격 화살표까지. 일시정지하면 자세히 보입니다."))
 	b.add_child(UI.eyebrow("성능 표시"))      # 11/6 휴대폰 실측용
 	b.add_child(UI.segmented([["0", "끔"], ["1", "켬"]], "1" if Settings.perf_hud else "0", func(key):
 		Settings.perf_hud = key == "1"
@@ -2107,8 +2107,6 @@ func battle_unit_sheet(key: String) -> void:
 		var z := DB.aff_of(c.tag, ss.line, ss.side)
 		if z != "":
 			why.append("자리 %s" % ("선호" if z == "pref" else "어색"))
-		if ss.boon:
-			why.append("진형 우대 %s +%d%%" % [DB.D.STATNM.get(ss.boon.stat, ss.boon.stat), roundi(float(ss.boon.v) * 100)])
 		if ss.item:
 			why.append("보급품 %s" % DB.IT[ss.item].name)
 		right.add_child(UI.rich("[color=#7fe0a8]＋늘어난 값[/color] [color=#8D7B5C]%s · 단체 특기 · 위세 · 사기[/color]  [color=#ff7a6a]−깎인 값[/color] [color=#8D7B5C]적 효과 (전투 시작 기준)[/color]" % " · ".join(why), 11))
@@ -3130,7 +3128,7 @@ func _dev_args() -> void:
 			run.dev_autoplay()
 		_title.visible = false
 		if a.has("gseg"):
-			deploy.seg = str(a.gseg)      # 점검용 —— 편성 아래 칸 (hand · syn · item)
+			deploy.seg = str(a.gseg)      # 점검용 —— 편성 아래 칸 (hand · item)
 		go(a.get("gpage", "draw"))
 	if a.has("ggive") and run != null:      # 점검용 —— --ggive=c177,c160:2,K01 : 카드를 손패에 쥐여 준다 (징집 등급 줄 점검, 11/7 · 저장하지 않는다)
 		for s in str(a.ggive).split(",", false):
