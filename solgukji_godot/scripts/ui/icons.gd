@@ -62,6 +62,12 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(-8, -7) * u, c + Vector2(8, -7) * u, c + Vector2(8, 0) * u, c + Vector2(0, 9) * u,
 				c + Vector2(-8, 0) * u, c + Vector2(-8, -7) * u]), col, w)
 			ci.draw_line(c + Vector2(0, -5) * u, c + Vector2(0, 6) * u, col, w * 0.8)
+		"boot":      # 신발(속도) —— 옆에서 본 부츠: 목 · 발등 · 앞코는 오른쪽, 꽉 찬 밑창 (작은 크기에서 'ㄴ' 자로 뭉개지지 않게)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-6, -9) * u, c + Vector2(1.5, -9) * u, c + Vector2(1.5, -2.5) * u, c + Vector2(6, -0.5) * u,
+				c + Vector2(9.5, 2) * u, c + Vector2(9.5, 4.5) * u]), col, w)
+			ci.draw_line(c + Vector2(-6, -9) * u, c + Vector2(-6, 4.5) * u, col, w)
+			ci.draw_line(c + Vector2(-6, -4.5) * u, c + Vector2(1.5, -4.5) * u, col, w * 0.7)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-8, 4) * u, c + Vector2(10.5, 4) * u, c + Vector2(10.5, 9) * u, c + Vector2(-8, 9) * u]), col)
 		"target":    # 과녁 —— 큰 원 · 작은 원 · 십자
 			ci.draw_arc(c, 8 * u, 0, TAU, 20, col, w)
 			ci.draw_arc(c, 3.2 * u, 0, TAU, 12, col, w * 0.9)
