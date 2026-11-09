@@ -40,7 +40,6 @@ var _scroll: ScrollContainer
 var _body: MarginContainer
 var _fixed: MarginContainer   # 스크롤하지 않는 페이지 (편성 —— 편성판을 고정하고 손패만 스크롤)
 var _sheet_mask: ColorRect
-var _sheet_art: TextureRect      # 조합 시트 위 빈 공간의 신화 그림
 var _sheet: PanelContainer
 var _sheet_body: VBoxContainer
 var _sheet_title: Label
@@ -309,13 +308,6 @@ func _build_sheet() -> void:
 	TouchScroll.block(_sheet_mask)
 	add_child(_sheet_mask)
 	# 11/3 사용자: 장수정보간략창(조합 시트) 위의 빈 공간에 신화 그림 —— 어두운 막 위, 시트 아래. 누르면 막처럼 닫힌다
-	_sheet_art = TextureRect.new()
-	_sheet_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_sheet_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_sheet_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_sheet_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_sheet_art.visible = false
-	add_child(_sheet_art)
 	_sheet = PanelContainer.new()
 	var sb := UI.flat(DB.PAL.ink2, DB.PAL.bamboo_dim, 0, 0, 0)
 	sb.corner_radius_top_left = 18
@@ -405,15 +397,6 @@ func _put_sheet(dy: float) -> void:
 	_sheet.offset_top = -_sheet_h + dy
 	_sheet.offset_bottom = dy
 	_sheet_mask.color.a = 0.55 * clampf(1.0 - dy / maxf(1.0, _sheet_h), 0, 1)
-	if _sheet_art.texture != null and _sheet.visible:
-		var sa := _safe_insets()
-		var top_y := sa.position.y + TOP_H + 8.0      # 위 띠(날짜 · 병력) 아래부터
-		var bot_y := size.y - _sheet_h + dy - 12.0
-		var side := maxf(16.0, (size.x - MAX_W) / 2.0 + 16.0)
-		_sheet_art.position = Vector2(side, top_y)
-		_sheet_art.size = Vector2(size.x - side * 2.0, maxf(0.0, bot_y - top_y))
-		_sheet_art.visible = bot_y - top_y > 90.0
-		_sheet_art.modulate.a = clampf(1.0 - dy / maxf(1.0, _sheet_h), 0, 1)
 
 
 func _slide_sheet(to: float, dur: float, then := Callable()) -> void:
@@ -978,14 +961,11 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	# 전투 위에서도 시트가 보이게 맨 앞으로 —— 11/7 제목 화면도 (시트보다 나중에 붙어 위를 덮어, 제목의 '설정'이 열려도 안 보였다)
 	if (_battle_layer != null and _battle_layer.visible) or (is_instance_valid(_title) and _title.visible):
 		move_child(_sheet_mask, -1)
-		move_child(_sheet_art, -1)
 		move_child(_sheet, -1)
 	_sheet_title.add_theme_color_override("font_color", col if col.a > 0 else DB.PAL.paper)
 	_sheet_title.add_theme_font_size_override("font_size", 24 if col.a > 0 else 19)
 	for c in _sheet_body.get_children():
 		c.queue_free()
-	_sheet_art.texture = null
-	_sheet_art.visible = false
 	_sheet_mask.visible = true
 	_sheet.visible = true
 	_sheet_scroll.scroll_vertical = 0
@@ -1004,8 +984,6 @@ func close_sheet() -> void:
 		return
 	_slide_sheet(_sheet_h, 0.2, func():
 		_sheet_mask.visible = false
-		_sheet_art.visible = false
-		_sheet_art.texture = null
 		_sheet.visible = false)
 
 
@@ -1296,51 +1274,13 @@ func recipe_card(out: String, sz := Vector2(86, 112)) -> Control:
 
 
 ## 조합 시트 —— 제목은 등급색 장수 이름. 결과 카드(특기 칸) · 재료 한 줄(가진 수/필요 수) · 조합 + 상세 버튼 한 줄
-## 디테일창의 신화 그림 —— 시트가 화면의 최대 높이까지 차도록 그림 높이를 늘린다 (남는 공간이 없으면 감춘다)
-func _fill_art(ar: TextureRect) -> void:
-	await get_tree().process_frame
-	if not is_instance_valid(ar):
-		return
-	var sa := _safe_insets()
-	var max_h := (size.y - sa.position.y) * 0.88
-	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
-	var body_h: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
-	ar.custom_minimum_size.y = maxf(0.0, ar.custom_minimum_size.y + max_h - head_h - body_h - sa.size.y - 8)
-	if ar.custom_minimum_size.y < 90.0:      # 남는 공간이 거의 없으면 그리지 않는다
-		ar.visible = false
-		return
-	_fit_sheet(false)
-	# 11/3 사용자: 딱 맞게 —— 한 번 더 재서 스크롤이 생길 만큼 넘쳤으면 그만큼 줄인다
-	for i in 3:
-		await get_tree().process_frame
-	if not is_instance_valid(ar):
-		return
-	var over: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y - _sheet_scroll.size.y
-	if over > 0.5:
-		ar.custom_minimum_size.y = maxf(0.0, ar.custom_minimum_size.y - over - 2)
-		if ar.custom_minimum_size.y < 90.0:
-			ar.visible = false
-			return
-	# 얼굴이 있는 위쪽을 기준으로 자른다 (가운데로 자르면 신화 컷의 얼굴이 잘렸다)
-	await get_tree().process_frame
-	if not is_instance_valid(ar) or ar.size.x <= 0 or not ar.get_meta("crop", false):
-		return
-	var src: Texture2D = ar.get_meta("art")
-	var ts := src.get_size()
-	var rh := minf(ts.y, ts.x * ar.custom_minimum_size.y / ar.size.x)
-	var rw := ts.x if rh < ts.y else ts.y * ar.size.x / ar.custom_minimum_size.y
-	var at := AtlasTexture.new()
-	at.atlas = src
-	at.region = Rect2((ts.x - rw) / 2.0, clampf(ts.y * 0.04, 0.0, ts.y - rh), rw, rh)
-	ar.texture = at
-	ar.stretch_mode = TextureRect.STRETCH_SCALE
-
-
 func recipe_sheet(out: String) -> void:
+	if not DB.RECOF.has(out):      # 조합법이 없는 카드(기본패 · 황건 전설 등)는 디테일창으로
+		card_info(out)
+		return
 	_route_enter("recipe", out)
 	var c: Dictionary = DB.C[out]
 	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
-	_sheet_art.texture = DB.myth_art(out)      # 그 인물의 신화 그림이 있으면 시트 위 빈 공간에 (_put_sheet 가 자리를 잡는다)
 	# 11/3 사용자: 이름은 제목과 겹치니 빼고, 일반 기술도 뺀다.
 	# 11/9 사용자: 시트를 더 크게 —— 큰 초상 + 능력치 · 특기판, 그 아래 고유 특기 · 위세 · 패업 · 고유기 · 기질을 디테일창과 같은 색 띠 칸으로 이름만 (설명은 디테일창에서)
 	var tp := UI.hbox(12)
@@ -1356,14 +1296,19 @@ func recipe_sheet(out: String) -> void:
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rv.add_child(_stat_row(c))
 	rv.add_child(TraitBoard.new().setup(out))
-	tp.add_child(rv)
-	b.add_child(UI.panel(tp, 10))
 	var chips := _ability_items(out)
 	var ult = DB.ult_of(out) if c.tier >= 6 or DB.is_kiin(out) else null
-	if ult != null:
+	if ult != null:      # 11/9 사용자: 초상 옆 빈 공간 정리 —— 기질 칸은 오른쪽(능력치 · 특기판 아래), 나머지는 아래 폭 전체 2열
 		var tn := Battle.temper_name(c, ult)
 		if tn != "":
-			chips.append({"kind": "기질", "name": tn, "effect": "", "col": Color(TEMPER_COL.get(tn, "#C6AC7C")), "sub": "", "icon": TEMPER_ICON.get(tn, "pick")})
+			var tchip := _ability_card({"kind": "기질", "name": tn, "effect": "", "col": Color(TEMPER_COL.get(tn, "#C6AC7C")), "sub": "", "icon": TEMPER_ICON.get(tn, "pick")}, 12, true)
+			tchip.gui_input.connect(func(e):
+				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+					UI.buzz()
+					card_info(out))
+			rv.add_child(tchip)
+	tp.add_child(rv)
+	b.add_child(UI.panel(tp, 10))
 	if not chips.is_empty():
 		var cb := UI.vbox(6)
 		_ability_layout(cb, chips, false, func(it):
@@ -1953,11 +1898,16 @@ func card_info(k: String) -> void:
 			gh.add_child(UI.lbl(gt, 12, DB.kind_col(c.tag)))
 		st.add_child(gh)
 	st.add_child(TraitBoard.new().setup(k))
+	# 11/9 사용자: 초상 옆 빈 공간 정리 —— 오른쪽에는 능력치 · 특기판 · 기질 띠(좁은 모양)를 쌓고, 고유 특기 · 위세 · 패업 · 고유기는 아래 폭 전체 카드 격자로
+	var ult0 = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	if ult0 != null:
+		var tb0 := _temper_box(c, ult0, 11, true)
+		if tb0 != null:
+			st.add_child(tb0)
 	top.add_child(st)
 	b.add_child(top)
-	# 11/9 사용자: 고유 특기 · 위세 · 패업 · 고유기 · 기질은 초상 옆 좁은 칸에 세로로 쌓지 않고 폭 전체 카드 격자로 (2열 · 기질은 띠)
 	var ab := UI.vbox(6)
-	_ability_rows(ab, k, 12)
+	_ability_rows(ab, k, 12, false, false)
 	b.add_child(ab)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
 	b.add_child(folds)
@@ -1978,7 +1928,15 @@ func card_info(k: String) -> void:
 		for t in tl.filter(func(x): return not x.unique):
 			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "\n"), ("\n[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
 			_info_row(tg, "[color=#8FD4C2][b]%s[/b][/color][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "\n[color=#8D7B5C]단체[/color]" if t.group else ""], body)
-		folds.add_child(_fold_sec("card_traits", "특기 %d" % tl.filter(func(x): return not x.unique).size(), tg))
+		var tv := UI.vbox(6)      # 11/9 사용자: 특기 펼치기 버튼 제거 —— 늘 펼쳐 둔다
+		tv.add_child(UI.eyebrow("특기 %d" % tl.filter(func(x): return not x.unique).size()))
+		tv.add_child(tg)
+		var tm := MarginContainer.new()
+		tm.add_theme_constant_override("margin_top", 8)
+		tm.add_theme_constant_override("margin_left", 4)
+		tm.add_theme_constant_override("margin_bottom", 8)
+		tm.add_child(tv)
+		folds.add_child(tm)
 	var ag := _info_grid()
 	_info_row(ag, "[color=#8fd4c2]선호[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "pref"), UI.aff_desc(c.tag, "pref")])
 	_info_row(ag, "[color=#e0806f]어색[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
@@ -2227,12 +2185,12 @@ func _ability_layout(into: Container, items: Array, narrow: bool, mk: Callable) 
 
 ## 고유 특기 · 위세(기인) · 패업 · 고유기 + 기질 —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양 (11/7 사용자).
 ## 11/9 사용자: 세로로 쭉 나열하지 말고 보기 좋게 —— 색 띠 카드를 2열로(고유 특기 | 위세 / 패업 | 고유기), 기질은 한 줄 띠. narrow 면 1열
-func _ability_rows(into: Container, k: String, fs := 12, narrow := false) -> void:
+func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_temper := true) -> void:
 	var c: Dictionary = DB.C[k]
 	var its := _ability_items(k)
 	_ability_layout(into, its, narrow, func(it): return _ability_card(it, fs))
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
-	if u != null:
+	if u != null and with_temper:
 		var tb := _temper_box(c, u, fs - 1, narrow)
 		if tb != null:
 			into.add_child(tb)
