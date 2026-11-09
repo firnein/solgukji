@@ -1,0 +1,59 @@
+A character design sheet of 4 nameless "rank-and-file" soldiers of the Three Kingdoms era (late Han dynasty China) for a mobile
+card game. They are the plain starter cards, drawn the same way as our general portraits but ANONYMOUS: ordinary faces, no famous features.
+Each one is the clear, simple, instantly readable picture of its TROOP TYPE; it must match the soldier sprites of the same type
+(same helmet, weapon and clothes as described).
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed. (Same hand as our Three Kingdoms general portraits.)
+- Small calm-to-lively poses: standing, holding the weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot. Their panel may be a little wider.
+- NO GREEN on the characters themselves (no green cloth, trims or items) —— green is the background and gets erased by the cutting tool.
+- All characters are adult MEN (or monsters). No famous generals' features: these are nameless soldiers.
+
+OUTFIT LEVEL (BASE): plain practical clothes and simple gear, no gold ornaments, no capes (unless named), no glowing effects
+(except the small orange orb of the Taoist's staff). Colors: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Draw each FACE exactly and exaggerate it a little, like a caricature
+(face shape, eyes, brows, nose, mouth, age). Follow BUILD. No same-face syndrome, no generic cute face.
+Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 2 columns x 2 rows = 4 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 4 fill the 4 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no ids, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+
+1. Nameless Spearman  [SPEARMAN, card troop "창병"]
+   DESIGN: an anonymous foot soldier of the spear corps: round iron helmet with a small red horsehair tassel, dull iron lamellar vest over a padded coat, dark trousers, leather boots, a LONG spear (about twice his height) held upright with both hands, a small oval wooden shield on the left arm.
+   FACE: plain honest round face, small steady eyes, short thick eyebrows, snub nose, closed firm mouth, tanned skin.
+   BUILD: sturdy, solid, medium height.
+   SIGNATURE (unique on this sheet): HEAD round iron helmet with a small red horsehair tassel; FACIAL HAIR clean-shaven; MARK very long spear taller than twice his height, small oval shield on the left arm.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+2. Nameless Cavalry  [CAVALRY, card troop "기병"]
+   DESIGN: an anonymous cavalry trooper: round iron helmet with a small tassel, lamellar vest, boots in the stirrups, a long lance held upright in one hand, riding a brown war horse.
+   FACE: lean weathered face, sharp narrow eyes, straight nose, a small confident smile, windburned cheeks.
+   BUILD: athletic rider build.
+   SIGNATURE (unique on this sheet): HEAD round iron helmet with a small tassel and cheek flaps; FACIAL HAIR faint stubble on the chin; MARK long lance with a small pennant, brown war horse with a plain saddle blanket.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+   MOUNTED: riding a brown war horse —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
+3. Nameless Archer  [ARCHER, card troop "궁병"]
+   DESIGN: an anonymous archer: soft leather cap with a cloth headband, light padded coat, leather belt, a quiver of arrows on his back, boots, a recurve bow held lowered in the left hand and one arrow in the right.
+   FACE: narrow alert face, keen slightly squinting eyes, thin straight nose, relaxed half-smile, sun-browned skin.
+   BUILD: lean archer build, a bit tall.
+   SIGNATURE (unique on this sheet): HEAD soft leather cap with a cloth headband; FACIAL HAIR thin short mustache; MARK recurve bow, quiver of arrows with feathered ends over the shoulder.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.
+4. Nameless Rogue  [ROGUE, card troop "도적"]
+   DESIGN: an anonymous bandit-raider: dark hood and a cloth face mask covering mouth and nose, eyes visible, light dark-grey clothes, leather bracers, soft boots, a single broad curved saber (dao) in the right hand and a short dagger tucked in the belt, crouched and ready.
+   FACE: only the eyes show: narrow wary eyes with thin eyebrows, a small scar across one brow, tanned skin.
+   BUILD: lean, agile, slightly crouched.
+   SIGNATURE (unique on this sheet): HEAD dark hood pulled low; FACIAL HAIR hidden behind the cloth mask; MARK face mask, curved dao saber in hand, dagger in the belt, leather arm bracers.
+   COLORS: natural dull colors only: iron grey, leather brown, undyed cloth, dark navy or maroon cloth, skin. A different main cloth color for each character on the sheet.

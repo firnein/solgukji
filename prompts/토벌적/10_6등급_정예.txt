@@ -1,0 +1,79 @@
+A character design sheet of 5 NAMELESS enemy soldiers for a mobile Three Kingdoms (late Han dynasty China) card game. They are the
+Yellow Turban rebels and their allies that the player fights in the "subjugation" mode: a ladder of 7 levels that must visibly GROW in
+gear, size and menace, from ragged peasants to underworld demon generals.
+THIS SHEET: the ELITE troops of level 6 (UNDERWORLD).
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed. (Same hand as our Three Kingdoms general portraits.)
+- Small calm-to-lively poses: standing, holding the weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot. Their panel may be a little wider.
+- NO GREEN on the characters themselves (no green cloth, trims or items) —— green is the background and gets erased by the cutting tool.
+- All characters are adult MEN (or monsters). No famous generals' features: these are nameless soldiers.
+
+THE 7-LEVEL LADDER (this sheet is level 6):
+  Level 1 RABBLE —— ragged peasant rebels: undyed hemp rags and patched brown tunics, a plain yellow cloth strip tied on the head or arm as the ONLY uniform, bare feet or straw sandals, farm tools and sharpened bamboo as weapons, NO armor, NO metal helmets. Thin, hungry, scared-but-shouting.
+  Level 2 MILITIA —— rough Yellow Turban militia: yellow headband and rough yellow-dyed tunic, scraps of leather or straw armor, a crude wooden shield, cheap iron weapon tips, patched cloth. Still clearly peasants, but now organized.
+  Level 3 VETERAN —— veteran rebels and small captains: yellow headscarf over a crude patchwork leather-and-iron vest, a simple iron cap wrapped in yellow cloth, proper weapons, a small talisman paper strip tied on the clothes. Tougher and cleaner than level 2, and some of them are bigger brutes.
+  Level 4 ARMY —— the organized rebel army: yellow-dyed cloth over REAL lamellar armor, iron helmets with a yellow cloth crest, talisman paper tags on the armor, banner poles on the back. Black Mountain bandits (Heishan) wear black fur and dark leather instead of yellow; White Wave bandits (Baipo) wear white and pale grey.
+  Level 5 HEAVY —— heavy troops of the cult and the bandit kings: heavy thick armor with shoulder guards, yellow cloaks and mantles, painted yellow face markings (Taiping sigils), many talismans, tall banners. The first hint of the uncanny: a talisman that glows faintly yellow.
+  Level 6 UNDERWORLD —— Yellow Springs (the underworld) spirit warriors: UNCANNY: pale ashen skin with dark cracks, blackened iron armor with yellow-gold sigils glowing through the seams, hollow glowing yellow eyes, small flat yellow spirit-flame wisps, long tattered yellow sashes floating, skull and bone ornaments. Scary, but still a cute flat-colored chibi.
+  Level 7 DEMON GENERAL —— underworld demon generals and Taiping sages: GRAND AND TERRIFYING: giant looming figures, much bigger than anything else on the sheet, ornate gold-and-black armor, horned or winged helmets or demon-face breastplates, spirit-flame aura, floating talisman discs behind them like a halo. Still a flat-colored sticker-style chibi, never realistic.
+Slot order on EVERY sheet is the same troop types: 1 SPEARMAN, 2 CAVALRY, 3 ARCHER, 4 ROGUE, 5 SORCERER.
+
+OUTFIT LEVEL (THIS SHEET, level 6 UNDERWORLD): UNCANNY: pale ashen skin with dark cracks, blackened iron armor with yellow-gold sigils glowing through the seams, hollow glowing yellow eyes, small flat yellow spirit-flame wisps, long tattered yellow sashes floating, skull and bone ornaments. Scary, but still a cute flat-colored chibi.
+Colors: blackened iron, ash grey, ochre yellow glow. Size: very large and heavy, clearly bigger than level 5. These are ELITES: noticeably tougher and more imposing than the regular level-6 troops.
+
+OPTIONAL REFERENCE: if an image is attached, it is the REGULAR level-6 sheet: slot k there is the same troop type as slot k here.
+These are the ELITE versions: tougher and bigger than the regulars, clearly different people with different headgear and weapons, but the
+same side and level of gear.
+
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Draw each FACE exactly and exaggerate it a little, like a caricature
+(face shape, eyes, brows, nose, mouth, age). Follow BUILD. No same-face syndrome, no generic cute face.
+Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the 5 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no ids, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+
+1. 황천 금강역사 (y65)  [SPEARMAN, level 6 ELITE]
+   DESIGN: an underworld vajra guardian: a giant muscular ashen-skinned body, bare chest with golden sigil tattoos glowing, a crown of flat golden flame, a giant spiked iron club, small yellow flames at the feet, beads round the neck.
+   FACE: huge round angry eyes, flared nostrils, open roaring mouth.
+   BUILD: gigantic and thick.
+   SIGNATURE (unique on this sheet): HEAD flame crown over a topknot; FACIAL HAIR none; MARK giant spiked club, glowing chest tattoos, giant fists.
+   COLORS: blackened iron, ash grey, ochre yellow glow.
+2. 황천 흑기대 (y66)  [CAVALRY, level 6 ELITE]
+   DESIGN: an underworld black-banner cavalry rider: all-black armor and cloth, a long black banner on his back with a golden sigil, a skull-shaped face plate, a long lance, riding a ghostly horse with bone armor.
+   FACE: hidden behind a skull faceplate with two glowing yellow eyes.
+   BUILD: tall and dark.
+   SIGNATURE (unique on this sheet): HEAD black iron helm with a black horsehair plume and a skull faceplate; FACIAL HAIR none visible; MARK long black banner with a gold sigil on his back, skull faceplate.
+   COLORS: blackened iron, ash grey, ochre yellow glow.
+   MOUNTED: riding a skeletal black horse with exposed rib armor plates and glowing yellow eyes —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
+3. 황천 뇌궁수 (y67)  [ARCHER, level 6 ELITE]
+   DESIGN: an underworld thunder archer: crackling flat yellow-white lightning zigzags coil around his bow, a tattered storm-cloud cloak, an arrow made of lightning, ashen face, hair standing on end.
+   FACE: wild glowing eyes, manic grin.
+   BUILD: lean and wired.
+   SIGNATURE (unique on this sheet): HEAD wild upright flame-like hair with a metal circlet; FACIAL HAIR none; MARK lightning-wrapped bow, lightning arrow, storm cloak.
+   COLORS: blackened iron, ash grey, ochre yellow glow.
+4. 황천 살수 (y68)  [ROGUE, level 6 ELITE]
+   DESIGN: an underworld assassin-reaper: a hooded black cloak with torn edges, a half-face skull mask, a long curved reaper blade, trailing yellow ghost-fire footprints, drifting low over the ground.
+   FACE: skull half-mask with one glowing yellow eye.
+   BUILD: slender and low.
+   SIGNATURE (unique on this sheet): HEAD deep black hood with a thin gold chain; FACIAL HAIR none; MARK long curved reaper blade, ghost-fire footprints, torn cloak.
+   COLORS: blackened iron, ash grey, ochre yellow glow.
+5. 태평도 천관 (y69)  [SORCERER, level 6 ELITE]
+   DESIGN: a Taiping Way celestial official: a long ceremonial robe of yellow and black with a court tablet held before the chest, a tall official hat with two flame-shaped wings, a floating scroll of decrees beside him, eerie glowing eyes.
+   FACE: gaunt grey face, hollow glowing eyes.
+   BUILD: tall and gaunt.
+   SIGNATURE (unique on this sheet): HEAD tall court hat with two flame-shaped wings; FACIAL HAIR long thin white mustache; MARK court tablet, floating decree scroll, robe with glowing sigils.
+   COLORS: blackened iron, ash grey, ochre yellow glow.

@@ -1,0 +1,78 @@
+A character design sheet of 5 NAMELESS enemy soldiers for a mobile Three Kingdoms (late Han dynasty China) card game. They are the
+Yellow Turban rebels and their allies that the player fights in the "subjugation" mode: a ladder of 7 levels that must visibly GROW in
+gear, size and menace, from ragged peasants to underworld demon generals.
+THIS SHEET: the regular troops of level 4 (ARMY).
+
+STYLE:
+- Cute SD chibi, about 2.5 heads tall: big head, small body, short limbs, FULL BODY from head to feet, standing on the ground.
+- Clean dark-brown ink outlines, flat soft colors with simple two-tone cel shading, light paper texture. Gentle and readable,
+  like a hand-drawn sticker. Not glossy, not painterly, not detailed. (Same hand as our Three Kingdoms general portraits.)
+- Small calm-to-lively poses: standing, holding the weapon or item, a slight turn or a small gesture.
+- Each character stands on a soft round blot of darker green watercolor (its panel), slightly bigger than the character.
+  The blot is the only background: no scenery, no ground details, no props besides the character's own items.
+- CAVALRY are ALWAYS on horseback (see MOUNTED), never on foot. Their panel may be a little wider.
+- NO GREEN on the characters themselves (no green cloth, trims or items) —— green is the background and gets erased by the cutting tool.
+- All characters are adult MEN (or monsters). No famous generals' features: these are nameless soldiers.
+
+THE 7-LEVEL LADDER (this sheet is level 4):
+  Level 1 RABBLE —— ragged peasant rebels: undyed hemp rags and patched brown tunics, a plain yellow cloth strip tied on the head or arm as the ONLY uniform, bare feet or straw sandals, farm tools and sharpened bamboo as weapons, NO armor, NO metal helmets. Thin, hungry, scared-but-shouting.
+  Level 2 MILITIA —— rough Yellow Turban militia: yellow headband and rough yellow-dyed tunic, scraps of leather or straw armor, a crude wooden shield, cheap iron weapon tips, patched cloth. Still clearly peasants, but now organized.
+  Level 3 VETERAN —— veteran rebels and small captains: yellow headscarf over a crude patchwork leather-and-iron vest, a simple iron cap wrapped in yellow cloth, proper weapons, a small talisman paper strip tied on the clothes. Tougher and cleaner than level 2, and some of them are bigger brutes.
+  Level 4 ARMY —— the organized rebel army: yellow-dyed cloth over REAL lamellar armor, iron helmets with a yellow cloth crest, talisman paper tags on the armor, banner poles on the back. Black Mountain bandits (Heishan) wear black fur and dark leather instead of yellow; White Wave bandits (Baipo) wear white and pale grey.
+  Level 5 HEAVY —— heavy troops of the cult and the bandit kings: heavy thick armor with shoulder guards, yellow cloaks and mantles, painted yellow face markings (Taiping sigils), many talismans, tall banners. The first hint of the uncanny: a talisman that glows faintly yellow.
+  Level 6 UNDERWORLD —— Yellow Springs (the underworld) spirit warriors: UNCANNY: pale ashen skin with dark cracks, blackened iron armor with yellow-gold sigils glowing through the seams, hollow glowing yellow eyes, small flat yellow spirit-flame wisps, long tattered yellow sashes floating, skull and bone ornaments. Scary, but still a cute flat-colored chibi.
+  Level 7 DEMON GENERAL —— underworld demon generals and Taiping sages: GRAND AND TERRIFYING: giant looming figures, much bigger than anything else on the sheet, ornate gold-and-black armor, horned or winged helmets or demon-face breastplates, spirit-flame aura, floating talisman discs behind them like a halo. Still a flat-colored sticker-style chibi, never realistic.
+Slot order on EVERY sheet is the same troop types: 1 SPEARMAN, 2 CAVALRY, 3 ARCHER, 4 ROGUE, 5 SORCERER.
+
+OUTFIT LEVEL (THIS SHEET, level 4 ARMY): yellow-dyed cloth over REAL lamellar armor, iron helmets with a yellow cloth crest, talisman paper tags on the armor, banner poles on the back. Black Mountain bandits (Heishan) wear black fur and dark leather instead of yellow; White Wave bandits (Baipo) wear white and pale grey.
+Colors: yellow and iron grey; black fur for Heishan; white for Baipo. Size: solid soldier build. 
+
+OPTIONAL REFERENCE: if an image is attached, it is the sheet of the previous level (level 3): slot k there is the same troop type as slot k here.
+Make this level a clear step up in gear and menace, but every character here is a NEW individual, not the same person.
+
+EVERY CHARACTER LOOKS DIFFERENT: on one sheet no two characters share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). Draw each FACE exactly and exaggerate it a little, like a caricature
+(face shape, eyes, brows, nose, mouth, age). Follow BUILD. No same-face syndrome, no generic cute face.
+Only characters with a MOUNTED line ride a horse; everyone else is ON FOOT.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 5 columns x 1 rows = 5 equal slots, reading order left to right, top to bottom.
+- Natural proportions in every slot: never stretch, squash or shorten a character to fit the slot; leave empty background instead.
+- Characters 1 to 5 fill the 5 slots in order.
+- Flat light green paper background (#9BCF88) over the whole sheet. Wide even gaps between panels; nothing crosses into a neighbor.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 5) in big white digits.
+- No other text anywhere: no names, no ids, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+
+1. 황건 소방수 (y40)  [SPEARMAN, level 4]
+   DESIGN: a Yellow Turban small-banner leader: yellow-dyed lamellar armor over a yellow tunic, an iron helmet with a short yellow cloth crest, a long iron-bladed spear, a small yellow banner on a pole tied to his back, talisman tags on the chest plate.
+   FACE: disciplined stern face, firm mouth, thin eyebrows, clear eyes.
+   BUILD: tall and upright.
+   SIGNATURE (unique on this sheet): HEAD iron helmet with a short yellow cloth crest; FACIAL HAIR short trimmed mustache; MARK yellow banner pole on the back, spear, talisman tags on the chest.
+   COLORS: yellow and iron grey; black fur for Heishan; white for Baipo.
+2. 황건 철기 (y41)  [CAVALRY, level 4]
+   DESIGN: a Yellow Turban iron cavalryman on a horse armored with iron barding on head and chest under a yellow caparison, yellow lamellar armor, an iron helmet with a yellow plume, a long lance.
+   FACE: broad stern face, thick dark brows, steady eyes.
+   BUILD: broad rider.
+   SIGNATURE (unique on this sheet): HEAD iron helmet with a yellow horsehair plume and a face guard; FACIAL HAIR none, clean-shaven; MARK lance with a yellow pennant, horse barding with yellow cloth.
+   COLORS: yellow and iron grey; black fur for Heishan; white for Baipo.
+   MOUNTED: riding a black horse in iron barding with a yellow cloth caparison —— a small chubby chibi horse, rider AND whole horse visible from ears to hooves, both standing on the blot.
+3. 황건 신궁 (y42)  [ARCHER, level 4]
+   DESIGN: a Yellow Turban master archer: light yellow lamellar vest, a yellow cloth hood tied under the chin with a small iron cap on top, a long composite bow with an arrow nocked, a quiver with yellow-fletched arrows, a thumb ring.
+   FACE: calm sharp eyes with a catchlight, small smile, high cheekbones.
+   BUILD: slim and graceful.
+   SIGNATURE (unique on this sheet): HEAD yellow cloth hood tied under the chin with an iron cap on top; FACIAL HAIR thin long mustache; MARK long composite bow, thumb ring, yellow-fletched arrows.
+   COLORS: yellow and iron grey; black fur for Heishan; white for Baipo.
+4. 흑산 두령 (y43)  [ROGUE, level 4]
+   DESIGN: a Black Mountain bandit chief: black wolf-fur mantle over dark leather armor, two short curved sabers crossed at the chest, a bone-and-tooth necklace. NO yellow on him: black, dark brown and bone only.
+   FACE: wild scarred face with a long scar from brow to cheek, fierce glare, bared teeth.
+   BUILD: big, hunched and wolfish.
+   SIGNATURE (unique on this sheet): HEAD black bandana with a wolf tail hanging from it; FACIAL HAIR wild bushy black beard; MARK wolf-fur mantle, two short sabers, bone necklace.
+   COLORS: yellow and iron grey; black fur for Heishan; white for Baipo.
+5. 태평도 대제주 (y44)  [SORCERER, level 4]
+   DESIGN: a Taiping Way chief libation priest: a long yellow robe with a black-trimmed cape and a wide sash covered in talisman paper, holding a staff topped by a bronze ring with small bells and a talisman in the other hand, a small flat talisman floating beside him.
+   FACE: serene stern face, narrow raised eyes, long nose.
+   BUILD: tall and thin.
+   SIGNATURE (unique on this sheet): HEAD tall yellow ceremonial cap with a black rim; FACIAL HAIR long thin grey beard; MARK ring-and-bells staff, talisman fluttering beside him, talisman-covered sash.
+   COLORS: yellow and iron grey; black fur for Heishan; white for Baipo.

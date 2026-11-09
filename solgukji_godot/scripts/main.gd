@@ -153,7 +153,7 @@ func _detail_bb(k: String) -> String:
 	if not used.is_empty():
 		s += "[color=#8D7B5C]재료로 쓰임[/color]  " + ", ".join(used.slice(0, 8)) + ("…" if used.size() > 8 else "") + "\n"
 	var pb := DB.portrait_base(k)
-	var want := ("assets/portraits/%s%s" % [DB.person(k), ["", "", "", "", "", "", "_초월", "_불멸", "_신화"][c.tier]]) if c.tier > 2 else "assets/troops/%s" % c.tag
+	var want := ("assets/foes/%s" % k) if c.kind == "foe" else (("assets/portraits/%s%s" % [DB.person(k), ["", "", "", "", "", "", "_초월", "_불멸", "_신화"][c.tier]]) if c.tier > 2 else "assets/troops/%s" % c.tag)
 	s += "\n[color=#5d6a88]초상 파일: %s[/color]" % (("%s (쓰는 그림: %s)" % [want, pb.trim_prefix("res://")]) if pb != "" else "%s (없음 · 플레이스홀더)" % want)
 	return s
 

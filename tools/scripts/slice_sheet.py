@@ -9,9 +9,11 @@
 
 실행: python -I slice_sheet.py 시트.png "주창,요화,..." 출력폴더 [미리보기.png] [--hole=168]
 이름은 시트의 읽는 순서(위 줄부터, 왼쪽부터)로 준다.
+--max=N: 잘린 정사각 그림의 한 변이 N 을 넘으면 N 으로 줄인다 (휴대폰 용량 —— 병졸 · 토벌 적은 512 권장, 11/9). 기본은 줄이지 않는다.
 --hole: 사방이 막힌 초록(무기와 몸 사이 등)을 바탕으로 칠 밝기(g 평균). 기본 168 —— 촉 시트의 초록 옷(g≤161)을 지키는 값.
         초록 옷이 없는 시트(위·오)는 155 로 낮추면 다리·창 사이에 갇힌 얼룩까지 지운다.
 """
+import os
 import sys
 from collections import deque
 
@@ -77,8 +79,13 @@ def main():
             hole_g = int(o.split("=", 1)[1])
         if o.startswith("--plate="):
             plate_g = int(o.split("=", 1)[1])
+    max_side = 0
+    for o in opts:
+        if o.startswith("--max="):
+            max_side = int(o.split("=", 1)[1])
     big = 2.2 if "--big" in opts else 1.0      # 11/7 인물이 적어 크게 그린 시트(13_새인물_2명) —— 이름표도 크다
     src, names, out = args[0], args[1].split(","), args[2]
+    os.makedirs(out, exist_ok=True)
     preview = args[3] if len(args) > 3 else None
     im = Image.open(src).convert("RGB")
     rgb = np.asarray(im)
@@ -213,6 +220,8 @@ def main():
         side = int(max(fig.width, fig.height) * 1.24)
         canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
         canvas.paste(fig, ((side - fig.width) // 2, side - fig.height - int(side * 0.04)), fig)
+        if max_side and side > max_side:
+            canvas = canvas.resize((max_side, max_side), Image.LANCZOS)
         canvas.save(f"{out}/{nm}.png")
         tiles.append((nm, canvas))
         print(f"{nm}: 덩어리 {len(ids)}개 · {fig.width}x{fig.height} → {side}x{side}")
