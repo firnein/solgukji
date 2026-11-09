@@ -36,7 +36,7 @@ func connect_to(u: String) -> Error:
 	url = u.strip_edges()
 	if not url.contains("://"):
 		url = "ws://" + url
-	if url.count(":") < 2:
+	if url.begins_with("ws://") and url.count(":") < 2:      # wss:// (터널) 은 443 기본 포트 그대로
 		url += ":7777"
 	ws = WebSocketPeer.new()
 	ws.inbound_buffer_size = 1 << 24      # 전투 결과(사건 수백 개)를 통째로 받는다

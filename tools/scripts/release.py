@@ -25,6 +25,7 @@ HTML = ROOT / "docs" / "업데이트_내역.html"
 VERSION_TXT = ROOT / "build" / "version.txt"
 SERVERS = ROOT / "solgukji_godot" / "data" / "servers.json"
 DEV = "Dev"      # 집 PC 서버 —— 빌드할 때 이 PC 의 주소로 맞춘다
+HOME_NET = "192.168.55."      # 집 공유기 망 —— 사무실 등 다른 망에서 빌드하면 Dev 주소를 건드리지 않는다
 
 
 def load():
@@ -213,7 +214,9 @@ def sync_servers():
     ip = route_ip() or ipconfig_ip()
     if ip is None:
         return f"{DEV} 서버 주소: 이 PC 의 IPv4 를 찾지 못해 그대로 둔다 ({old})"
-    m = re.fullmatch(r"(wss?://)([^/:]+)(:\d+)?(/.*)?", old)
+    if not ip.startswith(HOME_NET):
+        return f"{DEV} 서버 주소: 집 망({HOME_NET}x)이 아닌 PC({ip}) 라 그대로 둔다 ({old})"
+    m =re.fullmatch(r"(wss?://)([^/:]+)(:\d+)?(/.*)?", old)
     new = f"{m[1]}{ip}{m[3] or ''}{m[4] or ''}" if m else f"ws://{ip}:7777"
     if new == old:
         return None

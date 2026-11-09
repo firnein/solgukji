@@ -1,10 +1,14 @@
 {
-  "note": "온라인 대전 서버 목록 —— 접속 시트의 콤보에 이 순서대로 나온다 (맨 끝에 「직접 입력…」). Dev 는 집 PC 서버: build_apk.bat 이 부르는 tools/scripts/release.py 가 빌드할 때 이 PC 의 LAN IPv4 로 주소를 고친다. 11/9: Dev 는 사용자가 원격으로 켠 집 PC 서버(192.168.55.149) —— lock 이 true 면 release.py 가 주소를 건드리지 않는다 (빌드하는 PC 가 달라도 안 바뀐다).",
+  "note": "온라인 대전 서버 목록 —— 접속 시트의 콤보에 이 순서대로 나온다 (맨 끝에 「직접 입력…」). Dev 는 집 PC 서버: build_apk.bat 이 부르는 tools/scripts/release.py 가 빌드할 때 이 PC 의 LAN IPv4 로 주소를 고친다. 11/9: Dev 는 사용자가 원격으로 켠 집 PC 서버(192.168.55.149) —— lock 이 true 면 release.py 가 주소를 건드리지 않는다 (빌드하는 PC 가 달라도 안 바뀐다). 'Dev 밖(터널)' 은 집 PC 의 tunnel.bat (Cloudflare 임시 터널) 주소 —— 터널을 다시 켜면 바뀐다.",
   "servers": [
     {
       "name": "Dev",
       "url": "ws://192.168.55.149:7777",
       "lock": true
+    },
+    {
+      "name": "Dev 밖(터널)",
+      "url": "wss://demanding-prepaid-survivor-ministers.trycloudflare.com"
     }
   ]
 }
