@@ -863,7 +863,11 @@ func _bot_side(pv: float, style: String) -> Dictionary:
 ## 봇 · 토벌 적 군세 —— 11/2 사용자: 너무 허접하다 → 장비를 끼우고(그 때 보급 등급으로, 사람보다 조금 많이) 덱에 맞는 작전을 쓴다
 const BOT_PV_MUL := 1.08
 const QUEST_PV_MUL := 1.05      # 11/6 밸런스: 3일차 토벌 병력비 0.43 → 1.2 에서 내림
+## 11/9 사용자: 첫날 아침 봇 대전은 늘 조합 안 된 1등급 병사뿐이었다 —— 봇 PV 가 0 에서 시작해서. 첫 대전만 바닥을 둔다 (약 9칸 중 4칸이 3등급, 이후는 성장 그대로)
+const BOT_OPEN_PV := 32.0
 static func bot_side(pv: float, style: String, p_idx: int, r: RandomNumberGenerator) -> Dictionary:
+	if p_idx <= 0:
+		pv = maxf(pv, BOT_OPEN_PV)
 	var eb := DB.gen_board(pv, style, r)
 	var cards := DB.auto_place(eb.cards, eb.form)
 	return {"cards": cards, "form": eb.form, "morale": 100, "equip": bot_equip(cards, p_idx, r), "tac": recommend_tac(cards)[0]}
