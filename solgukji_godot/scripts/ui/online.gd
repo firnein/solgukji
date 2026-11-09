@@ -217,10 +217,23 @@ func connect_sheet() -> void:
 	b.add_child(UI.lbl(_status, 14, DB.PAL.jade if net.is_open() else DB.PAL.bamboo_dim))
 	if not net.is_open():
 		return
+	# 11/9 사용자: 세션이 연결돼 있으면 다른 방으로 갈 수 없었다 —— 지금 방을 보여 주고 나갈 수 있게, 다른 방에 들어가면 지금 방은 자동으로 나간다
+	if not room.is_empty():
+		b.add_child(UI.eyebrow("지금 방"))
+		var cur := UI.hbox(8)
+		var cl := UI.lbl("%s  ·  %s · %d명%s" % [str(room.get("code", "")), str(room.get("mode_n", "")), (room.get("seats", []) as Array).size(), " · 진행 중" if in_game else " · 대기 중"], 15, DB.PAL.paper)
+		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		cur.add_child(cl)
+		cur.add_child(UI.btn("나가기", leave_room, "warn"))
+		b.add_child(cur)
+		b.add_child(UI.hint("나가면 내 자리는 AI 가 이어받는다. 다른 방을 만들거나 들어가도 지금 방에서는 나간다."))
 	b.add_child(UI.eyebrow("방 만들기"))
 	var mk := UI.hbox()
 	for m in ["fast", "normal"]:
-		var bt := UI.btn(Room.MODES[m].n, func(): net.send({"t": "create", "mode": m}), "gold")
+		var bt := UI.btn(Room.MODES[m].n, func():
+			_drop_room()
+			net.send({"t": "create", "mode": m}), "gold")
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		mk.add_child(bt)
 	b.add_child(mk)
@@ -232,15 +245,46 @@ func connect_sheet() -> void:
 	_code_edit.custom_minimum_size = Vector2(0, 48)
 	_code_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cr.add_child(_code_edit)
-	cr.add_child(UI.btn("참가", func(): net.send({"t": "join", "code": _code_edit.text.to_upper()})))
+	cr.add_child(UI.btn("참가", func():
+		_drop_room()
+		net.send({"t": "join", "code": _code_edit.text.to_upper()})))
 	b.add_child(cr)
 	b.add_child(UI.eyebrow("열린 방 — %d개" % rooms.size()))
 	for r in rooms:
-		var rb := UI.btn("%s  ·  %s 방장 · %d명 · %s" % [r.code, r.host, r.n, r.mode_n], func(): net.send({"t": "join", "code": r.code}))
+		if not room.is_empty() and str(r.code) == str(room.get("code", "")):
+			continue      # 지금 있는 방은 목록에서 뺀다
+		var rb := UI.btn("%s  ·  %s 방장 · %d명 · %s" % [r.code, r.host, r.n, r.mode_n], func():
+			_drop_room()
+			net.send({"t": "join", "code": r.code}))
 		rb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		rb.clip_text = true
 		b.add_child(rb)
 	b.add_child(UI.btn("새로 고침", func(): net.send({"t": "list"}), "ghost"))
+
+
+## 지금 방을 떠난다 (연결은 둔다) —— 서버는 leave 를 받으면 left · rooms 를 보낸다. 혼자 하던 판이 저장돼 있으면 그것으로 돌아간다 (11/9)
+func leave_room() -> void:
+	net.send({"t": "leave"})
+	_drop_room()
+	_status = "방에서 나왔다"
+	connect_sheet()
+
+
+## 다른 방으로 옮기기 전 —— 클라이언트 쪽 방 상태를 비운다 (서버는 create · join 때 지금 방에서 먼저 뺀다)
+func _drop_room() -> void:
+	if room.is_empty() and not in_game:
+		return
+	room = {}
+	in_game = false
+	watch = []
+	_stage_no = -1
+	_seen_all = false
+	_asked_alone = false
+	_hide_lobby()
+	gs.hide_battle()
+	if Run.has_save():
+		gs.run = Run.load_saved()
+	gs.render()
 
 
 func _refresh_sheet() -> void:
@@ -304,9 +348,8 @@ func _on_msg(d: Dictionary) -> void:
 		"error":
 			gs.toast(str(d.msg), "bad")
 		"left":
-			room = {}
-			in_game = false
-			_hide_lobby()
+			_drop_room()
+			_refresh_sheet()
 
 
 func send_cmd(m: String, a: Array) -> void:

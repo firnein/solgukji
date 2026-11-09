@@ -5,6 +5,7 @@ extends Node
 ##     --horde=일차별 잡병 부대 수 7개 --h0=첫 토벌 잡병 부대 수
 ##   시험: --qprobe=병력 배수들 --qmor=사기 배수들 (토벌) · --probe=봇 PV / 내 PV 들 (대전) · --at=1-1,4-2 그 페이즈만 · --only=quest|pvp|none
 ##     --check=0 사람 전투 다시 계산 건너뜀 · --men=1 토벌 병사 수 · --rows=1 전투마다
+##     --orig=now 기록이 지금 run.gd 값(11/9 2차 이후)으로 남은 것이면 되살리기도 지금 값으로 (OrigRun 은 11/7 값)
 ## ① 되살리기 —— 기록의 시드로 판을 열고 기록된 명령(징집 · 선택 · 조합 · 편성 …)을 차례로 넣어 사람의 판을 그대로 되살린다.
 ##    기록에는 장비가 개수만 있어서, 보급까지 기록과 같은 난수로 받게 해 사람이 낀 장비를 찾는다.
 ##    봇 성장 · 잡병 수 · 토벌 사기 · 병력 배율은 기록 당시 값(OrigRun)으로 돌려 난수 흐름을 맞춘다 (run.gd 값을 바꿔도 되살리기는 그대로).
@@ -16,6 +17,7 @@ extends Node
 ##    페이즈 끝 봇 PV 최고 · 중간과 기록의 내 PV 의 비.
 
 var k_runs := 12
+var orig_now := false   # --orig=now 기록이 지금 run.gd 값으로 남은 것이면 (11/9 2차 값 이후 기록) 되살리기도 지금 값으로
 var rows := false
 var direct := false
 var only := "all"       # 지금 값으로 치를 전투 —— all · quest · pvp · none (none 이면 봇 PV 만)
@@ -169,6 +171,7 @@ func _ready() -> void:
 		if mp.size() > 1: Battle.myth_troop = float(mp[1])
 		if mp.size() > 2: DB.set_myth_trait(float(mp[2]))
 	rows = args.get("rows", "0") == "1"
+	orig_now = str(args.get("orig", "")) == "now"
 	direct = args.get("direct", "0") == "1"
 	var floats := func(key: String) -> Array:
 		return Array(str(args[key]).split(",")).map(func(x): return float(x)) if args.has(key) else []
@@ -246,7 +249,9 @@ func _ids(cards: Array, foe: bool) -> Array:
 
 ## 기록만으로 짠 전투 (장비 없음) —— 토벌 병력 배율은 기록 당시 값
 func _direct_bt(e: Dictionary) -> Dictionary:
-	var tr := float(OrigRun.TR[clampi(int(e.day), 0, 6)]) if str(e.kind) == "quest" else 1.0
+	var tr := 1.0
+	if str(e.kind) == "quest":
+		tr = float(Run.QUEST_TR[clampi(int(e.day), 0, 6)]) if orig_now else float(OrigRun.TR[clampi(int(e.day), 0, 6)])
 	return {"kind": str(e.kind), "seed": int(e.seed), "title": str(e.title), "foe": "", "inputs": [],
 		"a": {"cards": _ids(e.me.cards, false), "form": str(e.form), "morale": int(e.morale), "equip": [], "tac": str(e.tac)},
 		"b": {"cards": _ids(e.foe.cards, true), "form": str(e.foe_form), "morale": int(e.foe_morale), "equip": [], "tac": str(e.foe_tac), "tr_mul": tr}}
@@ -404,7 +409,7 @@ func _replay(evs: Array) -> void:
 		if str(e.ev) == "start":
 			sd = str(e.seed).to_int()
 			break
-	var r := OrigRun.new()
+	var r: Run = Run.new() if orig_now else OrigRun.new()
 	r.new_game(sd)
 	var xs := []
 	for i in k_runs:

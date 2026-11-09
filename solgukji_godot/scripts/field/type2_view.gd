@@ -1729,11 +1729,17 @@ func fx_cast(a: Squad, dkeys: Array, col: Color) -> void:
 
 
 ## 11/7 사용자 '전투 지형에 약간의 랜덤성' —— 바닥 지도만 전투마다 다르게 (판정과 무관). 같은 전투(시드)는 같은 땅
-const GROUNDS := [      # [풀 어두운, 풀 밝은, 흙 얼룩] —— 초원 · 마른 들 · 늦가을 · 짙은 숲가
-	[Color(0.36, 0.45, 0.27), Color(0.47, 0.55, 0.31), 0.0],
-	[Color(0.45, 0.46, 0.30), Color(0.56, 0.54, 0.36), 0.6],
-	[Color(0.44, 0.42, 0.26), Color(0.57, 0.50, 0.30), 0.35],
-	[Color(0.29, 0.40, 0.25), Color(0.38, 0.49, 0.29), 0.1],
+## 11/9 사용자 '전투맵은 매판 다양하게' —— 땅빛 4 → 8 (초원 · 마른 들 · 늦가을 · 짙은 숲가 · 황토 벌판 · 습지 · 붉은 황야 · 눈밭),
+##   지형 요소도 늘림: 가로지르는 강(여울) · 호수 · 밭이랑 · 숲 치우침 · 숲 양 폭 넓힘. 물은 강 · 개울 · 호수 가운데 하나만 (없을 수도)
+const GROUNDS := [      # [풀 어두운, 풀 밝은, 흙 얼룩, 나무 어두운, 나무 밝은, 눈]
+	[Color(0.36, 0.45, 0.27), Color(0.47, 0.55, 0.31), 0.0, Color(0.20, 0.30, 0.17), Color(0.32, 0.43, 0.22), 0.0],      # 초원
+	[Color(0.45, 0.46, 0.30), Color(0.56, 0.54, 0.36), 0.6, Color(0.24, 0.31, 0.17), Color(0.38, 0.44, 0.22), 0.0],      # 마른 들
+	[Color(0.44, 0.42, 0.26), Color(0.57, 0.50, 0.30), 0.35, Color(0.36, 0.26, 0.14), Color(0.56, 0.38, 0.18), 0.0],     # 늦가을 (단풍)
+	[Color(0.29, 0.40, 0.25), Color(0.38, 0.49, 0.29), 0.1, Color(0.14, 0.24, 0.14), Color(0.24, 0.36, 0.19), 0.0],      # 짙은 숲가
+	[Color(0.52, 0.46, 0.30), Color(0.63, 0.56, 0.36), 0.9, Color(0.30, 0.34, 0.18), Color(0.44, 0.46, 0.24), 0.0],      # 황토 벌판
+	[Color(0.30, 0.40, 0.33), Color(0.40, 0.50, 0.37), 0.15, Color(0.17, 0.28, 0.20), Color(0.27, 0.40, 0.26), 0.0],     # 습지
+	[Color(0.48, 0.38, 0.27), Color(0.60, 0.46, 0.30), 0.7, Color(0.28, 0.28, 0.16), Color(0.42, 0.40, 0.22), 0.0],      # 붉은 황야
+	[Color(0.74, 0.76, 0.76), Color(0.86, 0.87, 0.86), 0.0, Color(0.22, 0.28, 0.26), Color(0.36, 0.42, 0.40), 1.0],      # 눈밭
 ]
 func _roll_ground() -> void:
 	var r := RandomNumberGenerator.new()
@@ -1744,10 +1750,30 @@ func _roll_ground() -> void:
 	m.set_shader_parameter("seed_off", Vector2(r.randf_range(-4000, 4000), r.randf_range(-4000, 4000)))
 	m.set_shader_parameter("grass_lo", g[0])
 	m.set_shader_parameter("grass_hi", g[1])
-	m.set_shader_parameter("soil_amt", float(g[2]) + r.randf_range(0.0, 0.3))
-	m.set_shader_parameter("forest_amt", r.randf_range(0.42, 0.6))
-	m.set_shader_parameter("forest_side", r.randf_range(220.0, 340.0))
+	m.set_shader_parameter("soil_amt", (float(g[2]) + r.randf_range(0.0, 0.3)) * (0.0 if g[5] > 0.5 else 1.0))
+	m.set_shader_parameter("tree_lo", g[3])
+	m.set_shader_parameter("tree_hi", g[4])
+	m.set_shader_parameter("snow", g[5])
+	m.set_shader_parameter("forest_amt", r.randf_range(0.34, 0.72))      # 숲 적게 ~ 많이 (예전 0.42 ~ 0.6)
+	m.set_shader_parameter("forest_side", r.randf_range(180.0, 380.0))
+	m.set_shader_parameter("forest_bias", r.randf_range(-1.0, 1.0) if r.randf() < 0.5 else 0.0)
 	var side := 1.0 if r.randf() < 0.5 else -1.0
-	m.set_shader_parameter("road_y", _mid_y + side * r.randf_range(260.0, 380.0) if r.randf() < 0.6 else 9999.0)
-	m.set_shader_parameter("creek_y", _mid_y - side * r.randf_range(300.0, 420.0) if r.randf() < 0.4 else 9999.0)
+	# 물 —— 강(진영 사이를 가로지름) · 개울(옆으로) · 호수 가운데 하나만, 없을 수도
+	var water := r.randf()
+	m.set_shader_parameter("river_x", 9999.0)
+	m.set_shader_parameter("creek_y", 9999.0)
+	m.set_shader_parameter("lake", Vector2(9999.0, 9999.0))
+	if water < 0.22:
+		m.set_shader_parameter("river_x", r.randf_range(-70.0, 70.0))
+		m.set_shader_parameter("river_w", r.randf_range(18.0, 34.0))
+	elif water < 0.50:
+		m.set_shader_parameter("creek_y", _mid_y - side * r.randf_range(300.0, 420.0))
+	elif water < 0.68:
+		m.set_shader_parameter("lake", Vector2(r.randf_range(-250.0, 250.0), _mid_y - side * r.randf_range(330.0, 460.0)))
+		m.set_shader_parameter("lake_r", r.randf_range(90.0, 160.0))
+	# 길 · 밭 —— 물과 반대쪽에
+	m.set_shader_parameter("road_y", _mid_y + side * r.randf_range(260.0, 380.0) if r.randf() < 0.5 else 9999.0)
+	var farm: bool = r.randf() < 0.35 and g[5] < 0.5
+	m.set_shader_parameter("farm_amt", r.randf_range(0.6, 1.0) if farm else 0.0)
+	m.set_shader_parameter("farm_side", side * r.randf_range(240.0, 330.0) if farm else 9999.0)
 	m.set_shader_parameter("rock_amt", r.randf_range(0.0, 1.0) if r.randf() < 0.7 else 0.0)

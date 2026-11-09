@@ -2280,7 +2280,7 @@ class Hud extends Control:
 		return "F%s%s%s@%s" % [sq.camp, DB.tier_color(sq.cid).to_html(false), str(r), str(S)]
 
 	func _face_key(sq: Squad, r: float, S: float) -> String:
-		return "f%s%s@%s%s" % [sq.cid, str(r), str(S), sq.tag if sq.tier <= 2 else ""]
+		return "f%s%s%s@%s%s" % [sq.camp, sq.cid, str(r), str(S), sq.tag if sq.tier <= 2 else ""]      # 바탕이 진영색이라 진영도 키에 (11/9)
 
 	func _medal_tex(sq: Squad, r: float, S := 1.0) -> Array:
 		var fid := Engine.get_process_frames()
@@ -2371,11 +2371,11 @@ class Hud extends Control:
 					_shrink(crop, int(round(rp * 2.0)))
 		var disc := Image.create(m, m, false, Image.FORMAT_RGBA8)
 		if crop != null:
-			disc.fill(Color(0.12, 0.1, 0.09, 1))
+			disc.fill(TOK_BG[sq.camp])
 			var o := Vector2i(int(round(half - crop.get_width() / 2.0)), int(round(half - crop.get_height() / 2.0)))
 			disc.blend_rect(crop, Rect2i(Vector2i.ZERO, crop.get_size()), o)
 		else:
-			disc.fill(Color(0.16, 0.15, 0.14, 1))
+			disc.fill(TOK_BG[sq.camp].lightened(0.08))
 			if DB.ICON.get(sq.tag) != null:
 				var ikey := "i%s@%s" % [sq.tag, str(rp)]      # 병종 기호는 같은 병종끼리 한 번만 줄이고 색을 입힌다
 				if not _medal_cache.has(ikey):
@@ -2413,11 +2413,15 @@ class Hud extends Control:
 		_medal_cache[key] = mk
 		return mk
 	const TOK_TEAM := {"A": Color("#2f86ff"), "B": Color("#ff3b30")}
+	## 타입2 메달 얼굴 반지름(논리 px) —— 등급마다: 병졸 11 · 일반 12.5 · 희귀 13.5 · 영웅 14.5 · 전설 16 · 기인 17.5 · 신화 19 (11/9 사용자)
+	const TOK_R := {1: 11.0, 2: 11.0, 3: 12.5, 4: 13.5, 5: 14.5, 6: 16.0, 7: 17.5, 8: 19.0}
+	## 메달 얼굴 뒤 바탕 —— 진영색을 어둡게 (11/9 사용자: 아군 · 적군 바탕색 구분). 그림이 비치는 초상 · 병종 기호 뒤에서도 피아가 보인다
+	const TOK_BG := {"A": Color("#17315e"), "B": Color("#5a1713")}
 	func _token(sq: Squad, p: Vector2) -> void:
 		if sq.state == "gone":
 			return
 		var a: float = sq.fade
-		var r := 15.0 if sq.tier < 7 else 17.0
+		var r: float = TOK_R.get(clampi(sq.tier, 1, 8), 15.0)      # 11/9 사용자: 메달 크기가 등급을 따르지 않았다 (7등급 전까지 전부 15) —— 등급마다 한 단씩
 		# 11/6 사용자: 메달 피아식별 —— 바깥 굵은 진영 고리(아군 파랑 · 적 빨강, 채도 높게) + 안쪽 가는 등급 고리 + 검은 테
 		var ring: Color = TOK_TEAM[sq.camp]
 		if sq.hurt > 0.05:

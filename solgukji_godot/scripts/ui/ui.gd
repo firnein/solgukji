@@ -55,8 +55,8 @@ static func theme() -> Theme:
 	thin_h.content_margin_bottom = 2
 	th.set_stylebox("grabber", "HScrollBar", thin_h)
 	th.set_stylebox("scroll", "HScrollBar", StyleBoxEmpty.new())
-	th.set_stylebox("normal", "LineEdit", flat(P.ink, P.ink4, 1, R, 10))
-	th.set_stylebox("focus", "LineEdit", flat(P.ink, P.bamboo_dim, 1, R, 10))
+	th.set_stylebox("normal", "LineEdit", flat(P.ink3, none, 0, R, 10))      # 11/9 사용자: 온라인 팝업 입력 칸 —— 상자 규칙(먹색 면 · 테두리 없음)으로, 초점만 가는 선
+	th.set_stylebox("focus", "LineEdit", flat(P.ink3, P.bamboo_dim, 1, R, 10))
 	th.set_font_size("font_size", "LineEdit", 16)
 	th.set_font_size("font_size", "CheckButton", 15)
 	return th

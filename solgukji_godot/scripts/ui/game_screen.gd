@@ -3023,7 +3023,7 @@ func _page_line() -> Control:
 # ───────── 순위 ─────────
 
 func _standings() -> Control:
-	var rows := [{"name": "나", "epi": "%d승 %d패%s" % [run.my_w, run.my_l, (" · 경고 %d" % run.strikes) if run.strikes else ""],
+	var rows := [{"name": "나", "epi": "%d승 %d패 · 민심 %d" % [run.my_w, run.my_l, run.hp],
 		"fac": "촉", "pv": run.my_pv(), "me": true, "dead": run.over != null and not run.over.win}]
 	for b in run.bots:
 		rows.append({"name": b.name, "epi": b.epi, "fac": b.fac, "pv": roundi(b.pv), "me": false, "dead": false})
@@ -3036,11 +3036,7 @@ func _standings() -> Control:
 		nl.custom_minimum_size = Vector2(22, 0)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		h.add_child(nl)
-		if r.me:      # 11/5 사용자: 봇 플레이어의 세력 표기 · PV 는 순위에서 뺀다
-			var fl := UI.lbl(r.fac, 14, Color.WHITE, true)
-			fl.add_theme_stylebox_override("normal", UI.flat(DB.fac_color(r.fac), DB.fac_color(r.fac), 0, 4, 4))
-			fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			h.add_child(fl)
+		# 11/5 사용자: 봇 플레이어의 세력 표기 · PV 는 순위에서 뺀다. 11/9 사용자: 내 줄의 '촉' 칩도 뺀다
 		var nv := UI.vbox(0)
 		nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nv.add_child(UI.lbl(r.name, 16, DB.PAL.gold if r.me else DB.PAL.paper, true))
@@ -3066,7 +3062,7 @@ func _page_rank() -> Control:
 	sr.add_child(UI.stat("%d위" % run.rank(), "8인 중"))
 	sr.add_child(UI.stat(str(run.my_pv()), "내 전력"))
 	sr.add_child(UI.stat("%d승 %d패" % [run.my_w, run.my_l], "전적"))
-	sr.add_child(UI.stat("%d / %d" % [run.strikes, Run.STRIKE_MAX], "경고"))
+	sr.add_child(UI.stat("%d" % run.hp, "민심"))      # 11/9 경고 → 민심 (패배마다 깎이고 0 이면 멸망)
 	v.add_child(UI.sect("군웅 할거 · %s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]], UI.panel(sr)))
 	v.add_child(UI.sect("순위", _standings()))
 	var bv := UI.vbox(6)
@@ -3202,6 +3198,7 @@ func _dev_args() -> void:
 				run.gain_item()
 				render()
 			"settings": _settings_sheet()
+			"online": _go_online()      # 점검용 —— 온라인 대전 접속 팝업 (11/9)
 			"pick":
 				act("begin_picks", ["phase", -1])
 				if not run.ticket_tiers().is_empty():
