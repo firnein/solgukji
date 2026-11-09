@@ -2003,12 +2003,12 @@ static func st_kinds_of(cid: String) -> Dictionary:
 	return out
 
 
-## 한 부대가 동시에 걸리는 상태이상 한도 —— 2 (11/9 장각의 옛 시험판 태평요술(한도 3)은 황천당립(부활)로 바꿨다)
+## 한 부대가 동시에 걸리는 상태이상 한도 —— 2 (11/9 장각의 옛 시험판 태평요술(한도 3)은 태평환생(부활)로 바꿨다)
 func _st_cap(_d: Unit) -> int:
 	return 2
 
 
-## 11/9 패업 3차 —— 유비 한실부흥 · 사마의 후발제인 · 주유 적벽 불바다 · 장각 황천당립
+## 11/9 패업 3차 —— 유비 한실부흥 · 사마의 후발제인 · 주유 적벽 불바다 · 장각 태평환생
 ## 불바다 · 후발제인은 시간이 들어가 실시간 엔진(RtBattle)에서만 움직인다. 난수 없이 시각 · 슬롯으로만 정한다 (결정성)
 
 ## 11/9 패업 2차 —— 조조 협천자 · 관우 오관참장 · 제갈량 천문 · 감녕 백기야습 · 장료 위진소요진 · 손권 제왕술 · 여포 무쌍
@@ -2233,9 +2233,9 @@ func _in_sea(u: Unit) -> bool:
 	return u.pos.distance_to(Vector2(sea.x, sea.y)) <= SEA_R + 60.0
 
 
-## 유비 한실부흥 —— 촉 아군 부대의 병력이 30% 아래로 떨어지면 유비가 일으켜 세운다 (병력 +15% · 사기 +10, 부대마다 한 번 · 전투당 3번)
+## 유비 한실부흥 —— 아군 부대의 병력이 30% 아래로 떨어지면 유비가 일으켜 세운다 (병력 +15% · 사기 +10, 부대마다 한 번 · 전투당 3번)
 func _paeup_kin(d: Unit) -> void:
-	if _paeup.is_empty() or not d.alive or d.troops <= 0.0 or d.troops > d.max * 0.3 or str(d.c.fac) != "촉":
+	if _paeup.is_empty() or not d.alive or d.troops <= 0.0 or d.troops > d.max * 0.3:
 		return
 	var z = _pa("kin", d.camp)
 	if z == null or _paeup_used.has("kin_u:" + d.key) or _no_ally(d) or _scorched(d):
@@ -2248,10 +2248,10 @@ func _paeup_kin(d: Unit) -> void:
 	d.troops += g
 	d.morale = minf(200.0, d.morale + 10.0)
 	z.heal += g / 300.0
-	L("hl", "%s의 한실부흥 —— 의형제 %s을(를) 일으켜 세운다 — 병력 +%s" % [nm(z), nm(d), num(g)], {"fx": "heal", "f": d.key, "n": g})
+	L("hl", "%s의 한실부흥 —— 아군 %s을(를) 일으켜 세운다 — 병력 +%s" % [nm(z), nm(d), num(g)], {"fx": "heal", "f": d.key, "n": g})
 
 
-## 장각 황천당립 —— 무너질 아군 부대를 일으켜 세운다. 병력 15% + 적 상태이상 부대 하나마다 +10% (최대 45%), 부대마다 한 번 · 전투당 2번.
+## 장각 태평환생 —— 무너질 아군 부대를 일으켜 세운다. 병력 15% + 적 상태이상 부대 하나마다 +10% (최대 45%), 부대마다 한 번 · 전투당 2번.
 ## 상태이상을 건 덱일수록 크게 일어선다 (장각 본인이 무너질 때도 한 번 쓴다)
 func _paeup_revive(u: Unit) -> bool:
 	if _paeup.is_empty() or _paeup_used.has("rev_u:" + u.key):
@@ -2267,7 +2267,7 @@ func _paeup_revive(u: Unit) -> bool:
 	var ratio := minf(0.45, 0.15 + 0.10 * float(n))
 	u.troops = maxf(u.troops, roundf(u.max * ratio))
 	u.morale = maxf(u.morale, 60.0)
-	L("hl", "%s의 황천당립 —— %s 다시 일어선다 (병력 %d%% · 상태이상에 걸린 적 %d부대)" % [nm(z), ga(nm(u)), roundi(ratio * 100), n], {"fx": "heal", "f": u.key, "n": u.troops})
+	L("hl", "%s의 태평환생 —— %s 다시 일어선다 (병력 %d%% · 상태이상에 걸린 적 %d부대)" % [nm(z), ga(nm(u)), roundi(ratio * 100), n], {"fx": "heal", "f": u.key, "n": u.troops})
 	return true
 
 
@@ -2288,7 +2288,7 @@ func rout(u: Unit, why: String) -> void:
 		u.morale = maxf(u.morale, 60.0)
 		L("hl", "도원의 맹세 —— %s 다시 일어선다" % ga(nm(u)), {"fx": "heal", "f": u.key, "n": u.troops})
 		return
-	if _paeup_revive(u):      # 장각 황천당립 —— 무너질 부대가 다시 일어선다
+	if _paeup_revive(u):      # 장각 태평환생 —— 무너질 부대가 다시 일어선다
 		return
 	u.alive = false
 	if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].get("kiin", "") == "death_gauge":      # 유계 곽가 —— 쓰러지면 아군 전원 고유기 게이지 +50
