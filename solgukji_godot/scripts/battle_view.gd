@@ -1615,7 +1615,8 @@ class Hud extends Control:
 	var stamp_t := 0.0
 
 	func reset() -> void:
-		_medal_cache.clear()      # 전투마다 다시 굽는다 (등급 · 진영이 바뀐다)
+		if _medal_cache.size() > 600:      # 11/9 구운 메달은 (장수 · 진영 · 등급색 · 크기 · 배율)이 키라 전투를 넘어 써도 된다 —— 너무 쌓였을 때만 비운다
+			_medal_cache.clear()
 		floats.clear()
 		stamp_info = null
 		chains_fx.clear()
@@ -2237,17 +2238,103 @@ class Hud extends Control:
 			img.resize(img.get_width() / 2, img.get_height() / 2, Image.INTERPOLATE_BILINEAR)
 		img.resize(n, n, Image.INTERPOLATE_LANCZOS)
 
-	## 메달 그림 —— 얼굴(원) + 등급 고리 + 진영 고리 + 검은 테 + 아군▲ · 적▼. 가장자리는 덮인 비율로 부드럽게
-	func _medal_tex(sq: Squad, r: float) -> Texture2D:
-		var key: String = sq.cid + sq.camp + str(r)
+	## 11/9 사용자: 전투 메달이 또 뿌옇다 (세 번째) —— 원인: 메달을 논리 px(r=15 → 48px)로 구워 두고 그대로 찍었는데, 휴대폰은 논리 폭 400 을
+	## 실제 화면 720~1080px 로 늘려 그린다(stretch canvas_items, 배율 1.8~2.7) → 구운 그림이 업스케일로 뭉개졌다 (글씨 · 호 · 다각형은 화면 해상도로 그려져 또렷해서 메달만 도드라졌다).
+	## 3D · 수묵 전장은 메달을 `_medal`(벡터 + 밉맵 얼굴)로 그려 멀쩡했는데, 3D 를 숨기고 타입2 가 기본이 되면서(Settings.SHOW_3D) 구운 길이 드러났다.
+	## 규칙: 구운 그림은 **화면 픽셀 크기**(논리 크기 × 화면 배율)로 굽고, 찍을 때는 논리 크기 = 굽는 크기 ÷ 배율 + 화면 픽셀에 맞춰 놓는다 (1:1). 화면 배율이 바뀌면(창 크기 · 회전) 다시 굽는다.
+	var _bake_s := 1.0
+
+	## 지금 화면 배율 —— 논리 좌표 1 이 화면 몇 px 인가. 0.25 단위로 맞추고 0.5 ~ 3 안 (PC 가로 창은 1 미만 —— 줄여 그릴 때도 1:1 로 굽는다)
+	func _px_scale() -> float:
+		var sc := get_viewport().get_final_transform().get_scale().x
+		return clampf(snappedf(sc, 0.25), 0.5, 3.0)
+
+	## 메달 그림 두 장 —— [틀(검은 테 + 진영 고리 + 등급 고리 + 아군▲ · 적▼, 가운데는 비어 있다), 얼굴(원)]. 틀을 먼저 찍고 얼굴을 그 위에 찍는다.
+	## 틀은 (진영 · 등급색 · 크기)마다, 얼굴은 장수마다 한 번씩만 굽는다 —— 화면 배율로 굽느라 커진 비용(한 장 약 8ms → 25장이면 첫 프레임이 멈춘다)을 나눠 줄인다.
+	## 얼굴은 안쪽 가장자리 반 픽셀을 틀의 안쪽 가장자리 부드러운 구멍이 덮는다 (한 장으로 굽던 때와 같은 모습). S = 화면 배율(위 11/9)
+	## 한 프레임에 굽는 시간 상한(마이크로초) —— 넘으면 아직 안 구워진 메달은 다음 프레임에 (처음 한 번 몇 프레임 늦게 뜰 뿐 멈추지 않는다). 구운 그림은 전투를 넘어 쓴다
+	const BAKE_US := 6000
+	var _bake_frame := -1
+	var _bake_us := 0
+
+	func _frame_key(sq: Squad, r: float, S: float) -> String:
+		return "F%s%s%s@%s" % [sq.camp, DB.tier_color(sq.cid).to_html(false), str(r), str(S)]
+
+	func _face_key(sq: Squad, r: float, S: float) -> String:
+		return "f%s%s@%s%s" % [sq.cid, str(r), str(S), sq.tag if sq.tier <= 2 else ""]
+
+	func _medal_tex(sq: Squad, r: float, S := 1.0) -> Array:
+		var fid := Engine.get_process_frames()
+		if fid != _bake_frame:
+			_bake_frame = fid
+			_bake_us = 0
+		if _bake_us > BAKE_US and not (_medal_cache.has(_frame_key(sq, r, S)) and _medal_cache.has(_face_key(sq, r, S))):
+			return []
+		var t0 := Time.get_ticks_usec()
+		var out := [_medal_frame(sq, r, S), _medal_face(sq, r, S)]
+		_bake_us += Time.get_ticks_usec() - t0
+		return out
+
+	func _medal_frame(sq: Squad, r: float, S: float) -> Texture2D:
+		var tcol: Color = DB.tier_color(sq.cid)
+		var key := _frame_key(sq, r, S)
 		if _medal_cache.has(key):
 			return _medal_cache[key]
-		var R := r + 9.0
-		var n := int(ceil(R * 2.0))
+		var rp := r * S      # 얼굴 반지름 (화면 px) —— 아래 거리 · 두께는 모두 화면 px
+		var n := int(ceil((r + 9.0) * S * 2.0))
+		n += n % 2      # 가운데가 화면 픽셀 모서리에 오게 짝수
+		var R := n / 2.0
 		var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 		img.fill(Color(0, 0, 0, 0))
 		var ring: Color = TOK_TEAM[sq.camp]
-		var tcol: Color = DB.tier_color(sq.cid)
+		var c := Vector2(R, R)
+		var tri := PackedVector2Array([c + Vector2(-5, -rp - 3 * S) * Vector2(S, 1), c + Vector2(5, -rp - 3 * S) * Vector2(S, 1), c + Vector2(0, -rp - 9 * S)]) if sq.camp == "A" else PackedVector2Array([c + Vector2(-5, rp + 3 * S) * Vector2(S, 1), c + Vector2(5, rp + 3 * S) * Vector2(S, 1), c + Vector2(0, rp + 9 * S)])
+		var ty0 := minf(tri[0].y, tri[2].y) - 1.0
+		var ty1 := maxf(tri[0].y, tri[2].y) + 1.0
+		var ro := rp + 5.5 * S      # 가장 바깥(검은 테) 반지름
+		for y in n:
+			var dy := y + 0.5 - R
+			var in_ty := y + 0.5 >= ty0 and y + 0.5 <= ty1
+			if absf(dy) > ro and not in_ty:
+				continue
+			var hw := sqrt(maxf(ro * ro - dy * dy, 0.0))      # 이 줄에서 바깥 원이 차지하는 가로 반폭
+			if in_ty:
+				hw = maxf(hw, 5.0 * S + 1.0)
+			var x0 := maxi(0, int(floor(R - hw)) - 1)
+			var x1 := mini(n - 1, int(ceil(R + hw)) + 1)
+			for x in range(x0, x1 + 1):
+				var q := Vector2(x + 0.5, y + 0.5)
+				var d := q.distance_to(c)
+				var in_tri := in_ty and Geometry2D.is_point_in_polygon(q, tri)
+				if d > ro and not in_tri:
+					continue
+				if d < rp - 1.0 and not in_tri:      # 얼굴이 덮는 안쪽 —— 비워 둔다
+					continue
+				var col := Color(0, 0, 0, 0)
+				if d <= rp + 5.5 * S:
+					col = Color(0, 0, 0, 0.7 * clampf(rp + 5.5 * S - d, 0, 1))
+				if d <= rp + 4.5 * S:
+					col = col.blend(Color(ring, clampf(rp + 4.5 * S - d, 0, 1)))
+				if d <= rp + 1.7 * S:
+					col = col.blend(Color(tcol, clampf(rp + 1.7 * S - d, 0, 1)))
+				if d < rp + 0.5:      # 안쪽 가장자리 —— 얼굴과 부드럽게 이어지는 반 픽셀
+					col.a *= clampf(d - (rp - 0.5), 0.0, 1.0)
+				if in_tri:
+					col = col.blend(ring)
+				if col.a > 0.0:
+					img.set_pixel(x, y, col)
+		var t := ImageTexture.create_from_image(img)
+		_medal_cache[key] = t
+		return t
+
+	## 둥근 얼굴 —— 장수 얼굴(없으면 병종 기호)을 원 모양으로. 크기 (2 · 올림(rp) + 2) 짝수, 가운데가 틀과 같은 자리
+	func _medal_face(sq: Squad, r: float, S: float) -> Texture2D:
+		var key := _face_key(sq, r, S)
+		if _medal_cache.has(key):
+			return _medal_cache[key]
+		var rp := r * S
+		var m := 2 * int(ceil(rp)) + 2
+		var half := m / 2.0
 		var k: String = sq.cid
 		var ft := DB.face_tex(k)
 		var tex: Texture2D = ft if ft else DB.portrait(k)
@@ -2262,48 +2349,50 @@ class Hud extends Control:
 				if fr.size.x > 0 and fr.size.y > 0:
 					crop = src.get_region(fr)
 					crop.convert(Image.FORMAT_RGBA8)
-					_shrink(crop, int(r * 2.0))
-		var ic: Image = null
-		if crop == null and DB.ICON.get(sq.tag) != null:
-			ic = (DB.ICON[sq.tag] as Texture2D).get_image()
-			if ic.is_compressed():
-				ic.decompress()
-			ic.convert(Image.FORMAT_RGBA8)
-			_shrink(ic, int(r * 1.1))
-		var c := Vector2(R, R)
-		var tri := PackedVector2Array([c + Vector2(-5, -r - 3), c + Vector2(5, -r - 3), c + Vector2(0, -r - 9)]) if sq.camp == "A" else PackedVector2Array([c + Vector2(-5, r + 3), c + Vector2(5, r + 3), c + Vector2(0, r + 9)])
-		for y in n:
-			for x in n:
-				var q := Vector2(x + 0.5, y + 0.5)
-				var d := q.distance_to(c)
-				var col := Color(0, 0, 0, 0)
-				if d <= r + 5.5:
-					col = Color(0, 0, 0, 0.7 * clampf(r + 5.5 - d, 0, 1))
-				if d <= r + 4.5:
-					col = col.blend(Color(ring, clampf(r + 4.5 - d, 0, 1)))
-				if d <= r + 1.7:
-					col = col.blend(Color(tcol, clampf(r + 1.7 - d, 0, 1)))
-				if d <= r + 0.5:
-					var fc := Color(0.16, 0.15, 0.14, 1)
-					if crop != null:
-						var fx := clampi(int(q.x - (R - r)), 0, crop.get_width() - 1)
-						var fy := clampi(int(q.y - (R - r)), 0, crop.get_height() - 1)
-						fc = Color(0.12, 0.1, 0.09, 1).blend(crop.get_pixel(fx, fy))
-					elif ic != null:
-						var ix := int(q.x - (R - r * 0.55))
-						var iy := int(q.y - (R - r * 0.55))
-						if ix >= 0 and iy >= 0 and ix < ic.get_width() and iy < ic.get_height():
-							var ip := ic.get_pixel(ix, iy)
-							fc = fc.blend(Color(DB.PAL.paper, ip.a * 0.85))
-					fc.a = clampf(r + 0.5 - d, 0, 1)
-					col = col.blend(fc)
-				if Geometry2D.is_point_in_polygon(q, tri):
-					col = col.blend(ring)
-				if col.a > 0.0:
-					img.set_pixel(x, y, col)
-		var t := ImageTexture.create_from_image(img)
+					_shrink(crop, int(round(rp * 2.0)))
+		var disc := Image.create(m, m, false, Image.FORMAT_RGBA8)
+		if crop != null:
+			disc.fill(Color(0.12, 0.1, 0.09, 1))
+			var o := Vector2i(int(round(half - crop.get_width() / 2.0)), int(round(half - crop.get_height() / 2.0)))
+			disc.blend_rect(crop, Rect2i(Vector2i.ZERO, crop.get_size()), o)
+		else:
+			disc.fill(Color(0.16, 0.15, 0.14, 1))
+			if DB.ICON.get(sq.tag) != null:
+				var ikey := "i%s@%s" % [sq.tag, str(rp)]      # 병종 기호는 같은 병종끼리 한 번만 줄이고 색을 입힌다
+				if not _medal_cache.has(ikey):
+					var ic0: Image = (DB.ICON[sq.tag] as Texture2D).get_image()
+					if ic0.is_compressed():
+						ic0.decompress()
+					ic0.convert(Image.FORMAT_RGBA8)
+					_shrink(ic0, int(round(rp * 1.1)))
+					for iy in ic0.get_height():
+						for ix in ic0.get_width():
+							ic0.set_pixel(ix, iy, Color(DB.PAL.paper, ic0.get_pixel(ix, iy).a * 0.85))
+					_medal_cache[ikey] = ic0
+				var ic: Image = _medal_cache[ikey]
+				disc.blend_rect(ic, Rect2i(Vector2i.ZERO, ic.get_size()), Vector2i(int(round(half - ic.get_width() / 2.0)), int(round(half - ic.get_height() / 2.0))))
+		var out := Image.create(m, m, false, Image.FORMAT_RGBA8)
+		out.fill(Color(0, 0, 0, 0))
+		var _mm := _medal_mask(m, rp)
+		out.blit_rect_mask(disc, _medal_mask(m, rp), Rect2i(0, 0, m, m), Vector2i.ZERO)
+		var t := ImageTexture.create_from_image(out)
 		_medal_cache[key] = t
 		return t
+
+	## 얼굴 원 모양 마스크 (반지름 rp + 0.5 안쪽만) —— 가장자리는 틀의 부드러운 구멍이 덮는다
+	func _medal_mask(m: int, rp: float) -> Image:
+		var key := "m%d_%s" % [m, str(rp)]
+		if _medal_cache.has(key):
+			return _medal_cache[key]
+		var mk := Image.create(m, m, false, Image.FORMAT_RGBA8)
+		mk.fill(Color(0, 0, 0, 0))
+		var h := m / 2.0
+		for y in m:
+			for x in m:
+				if Vector2(x + 0.5 - h, y + 0.5 - h).length() <= rp + 0.5:
+					mk.set_pixel(x, y, Color(1, 1, 1, 1))
+		_medal_cache[key] = mk
+		return mk
 	const TOK_TEAM := {"A": Color("#2f86ff"), "B": Color("#ff3b30")}
 	func _token(sq: Squad, p: Vector2) -> void:
 		if sq.state == "gone":
@@ -2315,9 +2404,15 @@ class Hud extends Control:
 		if sq.hurt > 0.05:
 			ring = ring.lerp(Color(1, 1, 1), sq.hurt * 0.6)
 		# 11/6 목표(휴대폰 대군): 메달은 전투 시작 때 그림 한 장으로 구워 두고 매 프레임 한 번만 찍는다 (원 · 고리 · 얼굴 다각형 · 뿔을 매번 그리던 것이 프레임당 약 2ms)
-		var mt := _medal_tex(sq, r)
-		var R := r + 9.0
-		draw_texture_rect(mt, Rect2(p - Vector2(R, R), Vector2(R, R) * 2.0), false, Color(1, 1, 1, a))
+		var S := _px_scale()      # 11/9 화면 배율에 맞춰 굽고 1:1 로 찍는다 (위 _bake_s 설명)
+		if not is_equal_approx(S, _bake_s):
+			_medal_cache.clear()
+			_bake_s = S
+		var mts := _medal_tex(sq, r, S)
+		for mt in mts:      # 틀 → 얼굴 (둘 다 가운데가 p)
+			var msz := Vector2(mt.get_size()) / S      # 논리 크기 = 구운 화면 px ÷ 배율
+			var mpos := ((p * S - Vector2(mt.get_size()) * 0.5).round()) / S      # 화면 픽셀 칸에 맞춘다 —— 반 픽셀 걸치면 또 번진다
+			draw_texture_rect(mt, Rect2(mpos, msz), false, Color(1, 1, 1, a))
 		var ck := charge_k(sq.key)      # 11/7 기 모으는 중 —— 메달 바깥에 금빛 고리가 찬다 (위 HUD 고리와 같은 박자)
 		if ck >= 0.0:
 			draw_arc(p, r + 10.0, 0.0, TAU, 36, Color(0, 0, 0, 0.45 * a), 4.0)
