@@ -354,8 +354,33 @@ func slot_sheet(i: int) -> void:
 	var cur = run.board[i]
 	var side: String = ["좌익", "좌", "중앙", "우", "우익"][clampi(int(s.col), 0, 4)]
 	var b := gs.open_sheet("%s · %s 배치" % [side, line])
-	b.add_child(UI.rich("[color=#8D7B5C]공격[/color] %d%% (책략계 %d%%)   [color=#8D7B5C]방어[/color] %d%%   [color=#8D7B5C]피격[/color] %d순위" % [
-		roundi(ln.atk * 100), roundi(ln["int"] * 100), roundi(ln["def"] * 100), ln.pri], 13))
+	# 11/9 사용자: 텍스트가 너무 많다 —— 공격 · 방어 · 피격 글자를 칼 · 방패 · 과녁 기호로 (능력치 줄과 같은 기호 · 색)
+	var sr := UI.hbox(5)
+	sr.alignment = BoxContainer.ALIGNMENT_CENTER
+	var _ico := func(icon: String, col: Color, tip: String) -> Control:
+		var iv := Icons.View.new(icon, col, 20.0)
+		iv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		iv.mouse_filter = Control.MOUSE_FILTER_PASS
+		iv.tooltip_text = tip
+		return iv
+	var _num := func(t: String, col: Color) -> Control:
+		var l := UI.lbl(t, 15, col, true)
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return l
+	sr.add_child(_ico.call("blade", Color("#ff6b5a"), "공격"))
+	sr.add_child(_num.call("%d%%" % roundi(ln.atk * 100), DB.PAL.paper))
+	sr.add_child(_num.call("(책략 %d%%)" % roundi(ln["int"] * 100), Color("#6fa8ff")))
+	var sp := Control.new()
+	sp.custom_minimum_size.x = 8
+	sr.add_child(sp)
+	sr.add_child(_ico.call("shield", DB.PAL.bamboo.lightened(0.15), "방어"))
+	sr.add_child(_num.call("%d%%" % roundi(ln["def"] * 100), DB.PAL.paper))
+	var sp2 := Control.new()
+	sp2.custom_minimum_size.x = 8
+	sr.add_child(sp2)
+	sr.add_child(_ico.call("target", DB.PAL.bamboo.lightened(0.15), "피격 순위"))
+	sr.add_child(_num.call("%d순위" % int(ln.pri), DB.PAL.paper))
+	b.add_child(sr)
 	var zr := UI.flow(5)
 	for t in DB.D.TAGORDER:
 		var z := DB.aff_of(t, line, s.side)
