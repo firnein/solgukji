@@ -1341,9 +1341,10 @@ func recipe_sheet(out: String) -> void:
 	var c: Dictionary = DB.C[out]
 	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
 	_sheet_art.texture = DB.myth_art(out)      # 그 인물의 신화 그림이 있으면 시트 위 빈 공간에 (_put_sheet 가 자리를 잡는다)
-	# 11/3 사용자: 이름은 제목과 겹치니 빼고, 일반 기술도 뺀다 —— 초상 오른쪽에 특기판 · 고유 특기 · 위세
-	var tp := UI.hbox(10)
-	var cv := CardView.new().setup(out, Vector2(72, 102))
+	# 11/3 사용자: 이름은 제목과 겹치니 빼고, 일반 기술도 뺀다.
+	# 11/9 사용자: 시트를 더 크게 —— 큰 초상 + 능력치 · 특기판, 그 아래 고유 특기 · 위세 · 패업 · 고유기 · 기질을 디테일창과 같은 색 띠 칸으로 이름만 (설명은 디테일창에서)
+	var tp := UI.hbox(12)
+	var cv := CardView.new().setup(out, Vector2(112, 160))
 	cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	cv.mouse_filter = Control.MOUSE_FILTER_STOP          # 11/3 사용자: 초상을 누르면 디테일창
 	cv.gui_input.connect(func(e):
@@ -1351,18 +1352,29 @@ func recipe_sheet(out: String) -> void:
 			UI.buzz()
 			card_info(out))
 	tp.add_child(cv)
-	var rv := UI.vbox(5)
+	var rv := UI.vbox(6)
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rv.add_child(_stat_row(c))
 	rv.add_child(TraitBoard.new().setup(out))
-	for t in DB.trait_list(out):
-		if t.unique:
-			rv.add_child(UI.rich("[b][color=#e8c25a]고유 특기[/color] [color=#FFD76E]『%s』[/color][/b]
-[color=#8FD4C2]%s[/color]" % [t.name, t.mt], 12))
-	if DB.AURA.has(out):
-		rv.add_child(UI.rich("[b][color=%s]%s[/color] 『%s』[/b]
-[color=#8FD4C2]%s[/color]" % [DB.tier_color(out).to_html(false), "기인" if DB.is_kiin(out) else "위세", DB.AURA[out].n, DB.aura_effect(out)], 12))
 	tp.add_child(rv)
-	b.add_child(UI.panel(tp, 8))
+	b.add_child(UI.panel(tp, 10))
+	var chips := _ability_items(out)
+	var ult = DB.ult_of(out) if c.tier >= 6 or DB.is_kiin(out) else null
+	if ult != null:
+		var tn := Battle.temper_name(c, ult)
+		if tn != "":
+			chips.append({"kind": "기질", "name": tn, "effect": "", "col": Color(TEMPER_COL.get(tn, "#C6AC7C")), "sub": "", "icon": TEMPER_ICON.get(tn, "pick")})
+	if not chips.is_empty():
+		var cb := UI.vbox(6)
+		_ability_layout(cb, chips, false, func(it):
+			var cc := _ability_card(it, 12, true)
+			cc.gui_input.connect(func(e):      # 칸을 누르면 디테일창
+				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+					UI.buzz()
+					card_info(out))
+			return cc)
+		b.add_child(cb)
+		b.add_child(UI.hint("자세한 설명은 상세(디테일창)에서 보세요"))
 	var row := UI.hbox(6)
 	var ml := UI.lbl("재료", 13, DB.PAL.bamboo, true)
 	ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
