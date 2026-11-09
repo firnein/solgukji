@@ -530,7 +530,7 @@ func new_battle() -> void:
 
 
 ## 전투장수창용 —— 같은 재료로 엔진을 '준비'만 시켜(유닛 · 단체 특기 · 전투 시작 효과) 시작 능력치를 잰다. 재생에는 손대지 않는다.
-## {atk: [기본, 실제], def, spd, line, side, item, boon} · 재료가 없으면(온라인 재생) 빈 사전
+## {atk: [기본, 실제], def, spd, line, side, item} · 재료가 없으면(온라인 재생) 빈 사전
 func start_stats(key: String) -> Dictionary:
 	if _p.is_empty() or not _p.has("a"):
 		return {}
@@ -557,7 +557,6 @@ func start_stats(key: String) -> Dictionary:
 			out["line"] = u.line
 			out["side"] = u.side
 			out["item"] = u.item
-			out["boon"] = u.boon
 			out["tr"] = u.max
 			break
 	return out

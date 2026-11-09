@@ -9,7 +9,7 @@ extends RefCounted
 
 var gs: GameScreen
 var sel := ""                 # 손패에서 고른 카드 (칸을 누르면 그 자리에 놓는다)
-var seg := ""                 # 아래 나눔 탭 —— hand · syn · item. "" = 닫힘 (11/5 사용자: 기본 닫힌 채, 누르면 열림)
+var seg := ""                 # 아래 나눔 탭 —— hand · item. "" = 닫힘 (11/5 사용자: 기본 닫힌 채, 누르면 열림)
 const LOWER_H := 168.0        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
 const SEP := 10.0             # 진형 띠 · 편성판 · 아래 칸 사이 간격
 var _slide_up := false        # 방금 열었다 —— 올라오는 연출
@@ -59,29 +59,15 @@ func build() -> Control:
 		if is_instance_valid(sc0):
 			sc0.scroll_horizontal = _form_scroll).call_deferred()
 
-	# 11/5 사용자: 작전(군령) 고르기 삭제. 진형 우대 띠도 삭제 (우대 칸 옥빛 강조만 남김)
+	# 11/5 사용자: 작전(군령) 고르기 삭제. 11/9 사용자: 진형 우대(FORMBOON) 삭제 —— 진형은 모양(칸)과 칸 선호로만
 
 	# 편성판 —— 화면 위쪽 (손패에서 길게 눌러 끌어 올 수 있게)
-	var syn := Battle.fac_syn(run.board, run.form)
 	var bp := UI.vbox(6)
 	var hd := UI.hbox(6)
 	var hl := UI.vbox(0)
 	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# 11/5 사용자: '어린진 · 9/9칸' 대신 '어린진 / 진형 우대 효과'
-	var bn0 = DB.D.FORMBOON.get(run.form)
-	var eff_txt := ("%s %s +%d%%" % [" · ".join(bn0.tags), DB.D.STATNM.get(bn0.stat, "스킬 발동"), roundi(float(bn0.v) * 100)]) if bn0 else ""
-	# 11/5 사용자 2차: '방원진' / '효과 (설명)' 두 줄
-	# 11/5 사용자 3차: 세 줄 —— 진형 이름 / 효과 / 설명(옛 이야기를 들려주는 듯한 명조 기울임)
+	# 11/9 사용자: 진형 우대 삭제 —— 머리는 진형 이름만 (예전 '창병 · 유생 방어 +14%' 효과 줄과 「비늘이 서로를 가린다」 설명 줄 삭제)
 	hl.add_child(UI.lbl(f.n, 17, DB.PAL.paper, true))
-	# 11/7 UI 정리: 효과 · 설명 줄은 줄바꿈 —— 한 줄로 두면 최소 폭이 커져 9:20 휴대폰(논리 폭 400)에서 편성판이 오른쪽으로 넘쳐 '해제' · 우익 칸이 잘렸다
-	var effl := UI.lbl(eff_txt, 12, Color("#E8C25A"), true)
-	effl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hl.add_child(effl)
-	if bn0:
-		var lore := UI.lbl("「%s」" % bn0.d, 12, Color("#C6AC7C"))
-		lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		lore.add_theme_font_override("font", _lore_font())
-		hl.add_child(lore)
 	hd.add_child(hl)
 	var ab := UI.btn("자동 편성", func():
 		sel = ""
@@ -154,7 +140,6 @@ func build() -> Control:
 		sc.add_child(lower)
 		match seg:
 			"hand": _hand(lower, keys)
-			"syn": _syn(lower, syn)
 			"item": _items(lower)
 		var pad := Control.new()
 		pad.custom_minimum_size = Vector2(0, 12)
@@ -192,27 +177,15 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 		hv.add_child(sh)
 
 	# 11/5 사용자: 손패는 목록으로, 높은 등급부터 (Run.sort_cards). 줄을 누르면 고르고, 고른 줄을 다시 누르면 상세. 길게 눌러 칸으로 끈다
-	var bn = DB.D.FORMBOON.get(run.form)
 	for k in keys:
 		var row := HandRow.new()
 		row.page = self
 		row.k = k
 		row.qty = run.inv[k]
-		row.boon = bn != null and bn.tags.has(DB.C[k].tag)
 		row.on = k == sel
 		hv.add_child(row)
 	if keys.is_empty():
 		hv.add_child(UI.hint("보유한 카드가 없다 — 모두 편성했다."))
-
-
-## 진형 설명 글꼴 —— 제목 글꼴(송명)을 기울인다 (기울임 글꼴 파일이 없어 FontVariation 의 기울기로)
-static var _lore: FontVariation = null
-static func _lore_font() -> Font:
-	if _lore == null:
-		_lore = FontVariation.new()
-		_lore.base_font = DB.font_display
-		_lore.variation_transform = Transform2D(Vector2(1, 0), Vector2(0.22, 1), Vector2.ZERO)
-	return _lore
 
 
 func hand_tap(k: String) -> void:
@@ -221,26 +194,6 @@ func hand_tap(k: String) -> void:
 	else:
 		sel = k
 		gs.render()
-
-
-## 진형 탭 —— 진형 우대(이 진형에서 힘을 받는 병종)와 선호 · 어색 칸 설명. 세력 · 병종 시너지는 10/30 에 없앴다
-func _syn(v: VBoxContainer, _syn_unused: Dictionary) -> void:
-	var run: Run = gs.run
-	var f: Dictionary = DB.FORM[run.form]
-	var tcnt := {}
-	for k in run.board:
-		if k != null:
-			tcnt[DB.C[k].tag] = tcnt.get(DB.C[k].tag, 0) + 1
-	var bn = DB.D.FORMBOON.get(run.form)
-	var bn_n := 0
-	if bn:
-		for t in bn.tags:
-			bn_n += tcnt.get(t, 0)
-	var boon := UI.rich("[b][color=#C6AC7C]%s[/color][/b] — %s\n%s에게 %s +%d%%  [color=%s]현재 %d명 해당[/color]" % [
-		f.n, bn.d if bn else "", " · ".join(bn.tags) if bn else "", DB.D.STATNM.get(bn.stat, "스킬 발동률") if bn else "",
-		roundi(bn.v * 100) if bn else 0, "#8fd4c2" if bn_n else "#e0806f", bn_n], 14)
-	v.add_child(UI.sect("진형 우대", UI.panel(boon)))
-	v.add_child(UI.rich("[color=#8fd4c2]■[/color] 선호  [color=#e0806f]■[/color] 어색", 13))
 
 
 ## 11/5 사용자: 보급품은 등급별로 나열, 높은 등급일수록 크게 (징집창처럼) —— 유니크 한 줄에 하나(효과 전부, 줄바꿈), 레어 둘, 매직 · 일반 셋
@@ -530,16 +483,8 @@ class SlotBox extends Control:
 		elif page.sel != "":
 			var z2 := DB.aff_of(DB.C[page.sel].tag, s.line, s.side)
 			border = DB.PAL.jade if z2 == "pref" else (DB.PAL.seal if z2 == "bad" else DB.PAL.gold)
-		# 11/5 사용자: 진형 우대(FORMBOON —— 어린진이면 창병 · 유생 방어 +14%) 받는 장수를 눈에 띄게. 자리 선호(선봉 · 중군)와는 다르다
-		var bn = DB.D.FORMBOON.get(run.form)
-		var boon: bool = k != null and bn != null and bn.tags.has(DB.C[k].tag)
-		if boon:
-			bg = DB.PAL.ink3.lerp(DB.PAL.gold, 0.16)
-			border = DB.PAL.gold
-		var sb := UI.flat(bg, border, 3 if boon else 2, 8, 0)
-		if boon:
-			sb.shadow_color = Color(DB.PAL.gold, 0.55)
-			sb.shadow_size = 6
+		# 11/9 사용자: 진형 우대(금빛 바탕 · 테 · '방어+14%' 리본) 삭제 —— 테 색은 자리 선호(옥빛) · 어색(붉음)뿐
+		var sb := UI.flat(bg, border, 2, 8, 0)
 		if s.line == "선봉":
 			sb.border_width_top = 4
 		draw_style_box(sb, r)
@@ -550,12 +495,11 @@ class SlotBox extends Control:
 			return
 		var c: Dictionary = DB.C[k]
 		if size.x < 120:      # 11/6 5열 —— 좁은 칸: 초상 / 이름 / 병종 · 병력 / 아이템 / 진형 버프
-			_draw_narrow(k, c, z, boon, bn, run)
+			_draw_narrow(k, c, z, run)
 			return
-		# 11/5 사용자: 칸을 크게 —— [초상] 이름 / 병종 / 병력, 그 아래 아이템(가운데), 맨 아래 진형 버프 설명
-		var bot := 15.0 if boon else 0.0           # 진형 버프 줄
+		# 11/5 사용자: 칸을 크게 —— [초상] 이름 / 병종 / 병력, 그 아래 아이템(가운데)
 		var ith := 15.0                             # 아이템 줄
-		var ph := size.y - 10 - ith - bot
+		var ph := size.y - 10 - ith
 		var pr := Rect2(5, 5, minf(ph * 0.75, size.x * 0.42), ph)
 		Art.draw_portrait(self, pr, k)
 		var x := pr.end.x + 6
@@ -572,20 +516,14 @@ class SlotBox extends Control:
 		draw_string(fb, Vector2(x, ty + gap * 2), Battle.num(c.tr) + "명", HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.bamboo_dim)
 		var it = run.item_of_slot(slot)
 		var itxt: String = "빈 슬롯" if it == null else DB.IT[it].name + (" 🔒" if Run.innate_item(k) != null else "")
-		draw_string(fb, Vector2(4, size.y - 6 - bot), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, 11, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
-		if boon:      # 맨 아래 진형 버프 —— 금빛 띠 (이름을 가리지 않는다)
-			var rr := Rect2(3, size.y - bot - 2, size.x - 6, bot - 1)
-			draw_style_box(UI.flat(Color(DB.PAL.gold, 0.9), DB.PAL.gold, 0, 5, 0), rr)
-			var txt := "%s %s +%d%%" % [DB.FORM[run.form].n, DB.D.STATNM.get(bn.stat, "스킬 발동"), roundi(float(bn.v) * 100)]
-			draw_string(DB.font_bold, rr.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 10, Color("#1A1508"))
+		draw_string(fb, Vector2(4, size.y - 6), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, 11, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
 
 
-	func _draw_narrow(k: String, c: Dictionary, z: String, boon: bool, bn, run: Run) -> void:
+	func _draw_narrow(k: String, c: Dictionary, z: String, run: Run) -> void:
 		var fb := DB.font_body
-		var bot := 13.0 if boon else 0.0
 		var ith := 12.0
 		var txt_h := 25.0
-		var ph := maxf(16.0, size.y - 8 - ith - bot - txt_h)
+		var ph := maxf(16.0, size.y - 8 - ith - txt_h)
 		var pw := minf(size.x - 8, ph * 1.05)
 		var pr := Rect2((size.x - pw) / 2, 4, pw, ph)
 		Art.draw_portrait(self, pr, k)
@@ -600,20 +538,14 @@ class SlotBox extends Control:
 		draw_string(fb, Vector2(2, y + 12), info, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 10, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo_dim))
 		var it = run.item_of_slot(slot)
 		var itxt: String = "빈 슬롯" if it == null else DB.IT[it].name
-		draw_string(fb, Vector2(2, size.y - 5 - bot), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 9, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
-		if boon:
-			var rr := Rect2(2, size.y - bot - 2, size.x - 4, bot)
-			draw_style_box(UI.flat(Color(DB.PAL.gold, 0.9), DB.PAL.gold, 0, 4, 0), rr)
-			var bt := "%s +%d%%" % [DB.D.STATNM.get(bn.stat, "발동"), roundi(float(bn.v) * 100)]
-			draw_string(DB.font_bold, rr.position + Vector2(0, 10), bt, HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 9, Color("#1A1508"))
+		draw_string(fb, Vector2(2, size.y - 5), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 9, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
 
 
-## 손패 한 줄 (11/5) —— [초상] 이름(등급색) / 병종 · 등급 · 병력, 진형 우대면 금빛 칩, ×수. 누르면 page.hand_tap, 길게 눌러 끈다
+## 손패 한 줄 (11/5) —— [초상] 이름(등급색) / 병종 · 등급 · 병력, ×수. 누르면 page.hand_tap, 길게 눌러 끈다
 class HandRow extends PanelContainer:
 	var page: DeployPage
 	var k := ""
 	var qty := 1
-	var boon := false
 	var on := false
 	var _press := Vector2.INF
 	var _held := 0.0
@@ -637,14 +569,6 @@ class HandRow extends PanelContainer:
 		tv.add_child(UI.lbl(c.name, 14, tc.lightened(0.2), true))
 		tv.add_child(UI.lbl("%s · %s · %s명" % [c.tag, DB.tier_name(k), Battle.num(c.tr)], 11, DB.PAL.bamboo))
 		h.add_child(tv)
-		if boon:
-			var bn: Dictionary = DB.D.FORMBOON[page.gs.run.form]
-			var pc := PanelContainer.new()
-			pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.gold, DB.PAL.gold, 0, 7, 3))
-			pc.add_child(UI.lbl("%s+%d%%" % [DB.D.STATNM.get(bn.stat, "발동"), roundi(float(bn.v) * 100)], 10, Color("#1A1508"), true))
-			pc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			h.add_child(pc)
 		if qty > 1:
 			var q := UI.lbl("×%d" % qty, 13, DB.PAL.gold, true)
 			q.size_flags_vertical = Control.SIZE_SHRINK_CENTER

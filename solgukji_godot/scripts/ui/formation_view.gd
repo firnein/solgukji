@@ -34,7 +34,7 @@ func setup(board: Array, form_key: String) -> FormationView:
 	return self
 
 
-## 메달 줄이 겹치지 않는 높이 —— 줄마다 92(메달 · 이름 · 다음 줄 우대 표) + 위 '▲ 적' 표시 여백 (효과 표는 밖에 있으니 늘 같은 높이)
+## 메달 줄이 겹치지 않는 높이 —— 줄마다 92(메달 · 이름) + 위 '▲ 적' 표시 여백 (효과 표는 밖에 있으니 늘 같은 높이)
 func min_h() -> float:
 	return _rows() * 92.0 + 36.0
 
@@ -71,21 +71,10 @@ func _ready() -> void:
 
 # ───────── 군단 효과 (11/7) ─────────
 
-## 진영이 받는 효과 줄 —— 진형 우대가 맨 앞, 그 뒤 단체 특기 · 위세 · 기인 (team_buffs 순서).
-## [{kind, name, text(자세히), brief(칩 한 토막), who, k(부여 장수, 진형은 ""), col}]
-static func effect_rows(board: Array, form_key: String) -> Array:
+## 진영이 받는 효과 줄 —— 단체 특기 · 위세 · 기인 (team_buffs 순서). 11/9 진형 우대 줄은 삭제 (form_key 는 호출 모양을 지키려 남김)
+## [{kind, name, text(자세히), brief(칩 한 토막), who, k(부여 장수), col}]
+static func effect_rows(board: Array, _form_key: String) -> Array:
 	var rows := []
-	var bn = DB.D.FORMBOON.get(form_key)
-	if bn != null and DB.FORM.has(form_key):
-		var who := []
-		for k in board:
-			if k != null and bn.tags.has(DB.C[k].tag):
-				who.append(DB.person(k) if DB.C[k].tier > 2 else DB.C[k].name)
-		if not who.is_empty():
-			var stat: String = DB.D.STATNM.get(bn.stat, "스킬 발동")
-			var val := "+%d%%" % roundi(float(bn.v) * 100)
-			rows.append({"kind": "진형", "name": DB.FORM[form_key].n, "text": "%s %s %s" % [" · ".join(bn.tags), stat, val],
-				"brief": "%s %s" % [stat, val], "who": ", ".join(who), "k": "", "col": DB.PAL.gold})
 	for b in team_buffs(board):
 		rows.append({"kind": b.kind, "name": b.name, "text": b.text, "brief": _brief(b.text), "who": b.who, "k": b.k, "col": DB.tier_color(b.k)})
 	return rows
@@ -154,21 +143,20 @@ static func effects_box(board: Array, form_key: String, open: bool, on_toggle: C
 	return UI.panel(v, 10)
 
 
-## 효과 칩 —— 『이름』 한 토막. 11/9: 부여 장수 등급색 테두리 칩 줄(무지개)을 걷고 한 가지 먹색 칩 + 종이색 글 (진형만 금 글자) · 길면 … (한 칩은 폭 230 까지)
+## 효과 칩 —— 『이름』 한 토막. 11/9: 부여 장수 등급색 테두리 칩 줄(무지개)을 걷고 한 가지 먹색 칩 + 종이색 글 · 길면 … (한 칩은 폭 230 까지)
 static func _chip(r: Dictionary, on_card: Callable) -> Button:
 	var P := DB.PAL
 	var b := Button.new()
-	var txt: String = "%s『%s』 %s" % ["진형" if r.kind == "진형" else "", r.name, r.brief]
+	var txt: String = "『%s』 %s" % [r.name, r.brief]
 	b.text = txt
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var tw: float = DB.font_body.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	b.custom_minimum_size = Vector2(minf(tw + 22.0, 230.0), 28)
 	b.add_theme_font_size_override("font_size", 12)
-	var fc: Color = P.gold if r.kind == "진형" else P.paper
-	b.add_theme_color_override("font_color", fc)
-	b.add_theme_color_override("font_hover_color", fc)
-	b.add_theme_color_override("font_pressed_color", fc)
+	b.add_theme_color_override("font_color", P.paper)
+	b.add_theme_color_override("font_hover_color", P.paper)
+	b.add_theme_color_override("font_pressed_color", P.paper)
 	b.add_theme_stylebox_override("normal", UI.flat(P.ink3, Color(0, 0, 0, 0), 0, UI.R, 0))
 	b.add_theme_stylebox_override("hover", UI.flat(P.ink4, Color(0, 0, 0, 0), 0, UI.R, 0))
 	b.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.gold, 1, UI.R, 0))
@@ -189,7 +177,7 @@ static func _row(r: Dictionary, on_card: Callable) -> Control:
 	left.custom_minimum_size.x = 118
 	left.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
 	_pad(left, 2, 6)
-	var who := UI.lbl(r.who, 12, DB.PAL.gold if r.kind == "진형" else col.lightened(0.3))      # 부여 장수는 등급색 글자 (바탕 덩어리는 걷음)
+	var who := UI.lbl(r.who, 12, col.lightened(0.3))      # 부여 장수는 등급색 글자 (바탕 덩어리는 걷음)
 	who.add_theme_font_override("font", DB.font_bold)
 	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	who.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -200,11 +188,7 @@ static func _row(r: Dictionary, on_card: Callable) -> Control:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
 	_pad(right, 6, 6)
-	var bb: String
-	if r.kind == "진형":
-		bb = "[color=#E8C25A][b]진형『%s』[/b][/color] [color=#8FD4C2]%s[/color]" % [r.name, r.text]
-	else:
-		bb = "[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [r.name, r.text, "" if r.kind == "단체" else " [color=#8D7B5C](%s)[/color]" % r.kind]
+	var bb := "[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [r.name, r.text, "" if r.kind == "단체" else " [color=#8D7B5C](%s)[/color]" % r.kind]
 	var txt := UI.rich(bb, 12)
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.add_child(txt)
@@ -366,12 +350,6 @@ class Medals extends Control:
 			var cell: float = e[2]
 			var r := clampf(cell * 0.3, 18.0, 34.0)
 			var mc := c + Vector2(0, -8.0)
-			var bn = DB.D.FORMBOON.get(fv.form)
-			var pref: bool = bn != null and bn.tags.has(DB.C[k].tag)
-			if pref:      # 11/5 사용자: 진형 우대(어린진 → 창병 · 유생 방어 +14%) 받는 장수를 눈에 띄게 —— 금빛 고리가 숨쉬듯
-				var pa := 0.45 + 0.25 * sin(fv.t * 3.0 + e[3])
-				draw_circle(mc, r + 9.0, Color(DB.PAL.gold, pa * 0.35))
-				draw_arc(mc, r + 6.0, 0, TAU, 40, Color(DB.PAL.gold, 0.6 + pa * 0.4), 2.5, true)
 			draw_circle(mc, r + 3.0, Color(0, 0, 0, 0.55))
 			draw_circle(mc, r + 2.0, DB.tier_color(k))
 			draw_circle(mc, r + 0.6, Color("#4f8be0"))
@@ -380,9 +358,3 @@ class Medals extends Control:
 			var f: Font = DB.font_bold
 			draw_string_outline(f, Vector2(mc.x - 60, mc.y + r + 17), nm, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, 4, Color(0, 0, 0, 0.8))
 			draw_string(f, Vector2(mc.x - 60, mc.y + r + 17), nm, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, DB.tier_color(k).lightened(0.3))
-			if pref:
-				var txt := "%s+%d%%" % [DB.D.STATNM.get(bn.stat, "발동"), roundi(float(bn.v) * 100)]
-				var tw := DB.font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8
-				var tr := Rect2(mc.x + r * 0.3, mc.y - r - 2, tw, 14)      # 11/7 메달 위 테두리에 걸치게 —— 윗줄 이름과 겹치지 않게
-				draw_style_box(UI.flat(DB.PAL.gold, DB.PAL.gold, 0, 7, 0), tr)
-				draw_string(DB.font_bold, tr.position + Vector2(0, 11), txt, HORIZONTAL_ALIGNMENT_CENTER, tw, 10, Color("#1A1508"))
