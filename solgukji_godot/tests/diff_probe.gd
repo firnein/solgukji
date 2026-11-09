@@ -102,6 +102,8 @@ func _ready() -> void:
 			_quest(d0, d1, games, k, seed0, phases)
 		"pvp":
 			_pvp(d0, d1, games, kp, seed0, phases)
+		"tour":
+			_tour(games, kp, seed0)
 	get_tree().quit()
 
 
@@ -224,3 +226,41 @@ func _pvp(d0: int, d1: int, games: int, kp: Array, seed0: int, phases: Array) ->
 				dl += _left(res, "A")
 				dn += 1
 		print("PVP %d일 | 승 %3.0f%% | 내 남은 병력 %3.0f%% | n=%d" % [d + 1, dw / dn * 100, dl / dn * 100, dn])
+
+
+## 토너먼트 어림 —— 7일 끝 편성(사람 대역)이 최고 시드: 1라운드는 가장 약한 봇, 2라운드는 봇 3 · 4위, 결승은 봇 1 · 2위 (init_tour 시드 순서 [0,7,3,4,1,6,2,5] 에 사람이 맨 위일 때. 다른 봇끼리의 승부는 반반)
+func _tour(games: int, kp: Array, seed0: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed0
+	var rw := [0, 0, 0]
+	var rn := [0, 0, 0]
+	var champ := 0
+	for i in games:
+		var r := Run.new()
+		r.new_game(seed0 * 100000 + i)
+		r.day = 6
+		r.phase = 2
+		var bl := r.bots.duplicate()
+		for b in bl:
+			b.pv = _bot_pv(6, 2, b.skill)
+		bl.sort_custom(func(a, b): return a.pv > b.pv)
+		var eb := DB.gen_board(_my_pv(6, 2) * _kd(kp, 6), STYLES[i % 3], rng)
+		var mine := DB.auto_place(eb.cards, eb.form)
+		var opp := [bl[6], bl[2 if rng.randf() < 0.5 else 3], bl[0 if rng.randf() < 0.5 else 1]]
+		var alive := true
+		for rd in 3:
+			if not alive:
+				break
+			var foe: Dictionary = r._bot_side(opp[rd].pv, opp[rd].style)
+			var bt := {"a": {"cards": mine, "form": eb.form, "morale": 100, "equip": [], "tac": Run.recommend_tac(mine)[0]},
+				"b": foe, "seed": rng.randi() % 1000000, "title": "", "foe": ""}
+			var res := Run.simulate(bt, [], Run.policy_for(bt))
+			rn[rd] += 1
+			if res.win:
+				rw[rd] += 1
+			else:
+				alive = false
+		if alive:
+			champ += 1
+	print("TOUR 우승 %3.0f%% | n=%d" % [champ * 100.0 / games, games])
+	print("TOUR 라운드별 %s / %s" % [str(rw), str(rn)])
