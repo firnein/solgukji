@@ -38,12 +38,16 @@ var strikes := 0              # 토벌 실패 횟수 (기록용 —— 11/9 멸�
 const HP_MAX := 100
 ## 11/9 조정 (tests/hp_dist · 오토 90판 + 승률별 모의): 처음 [10..22] 는 능숙한 사람(토벌 80% · 대전 70%)도 44% 가 멸망, 오토는 3~4일차에 전멸이었다.
 ## [4,5,7,9,11,13,15] 로 —— 능숙 ≈ 57 깎임(생존), 보통(65/55%) ≈ 38% 멸망, 토벌 35% 이하는 5~6일차 멸망, 1~2일차 패배는 3~5 로 가볍다
-const HP_QUEST := [4, 5, 7, 9, 11, 13, 15]      # 토벌 패배 기본 피해 (일차별) —— 적 남은 병력 비에 따라 ×0.6 ~ 1.0
+## 11/10 변경(사용자: 날짜가 지날수록 · 남은 적에 비례해 더): 일차별 값을 가파르게, 적 남은 비 계수 0.6 + 0.4 → 0.35 + 1.0. 측정은 작업현황 65절
+const HP_QUEST := [4, 5, 6, 7, 10, 13, 17]      # 토벌 패배 기본 피해 (일차별) —— × (HP_FOE_MIN + HP_FOE_MUL × 적 남은 병력 비)
+const HP_FOE_MIN := 0.35                             # 적이 하나도 안 남은 채 진(무승부에 가까운) 판의 배율
+const HP_FOE_MUL := 1.0                              # 적 남은 비 1.0(완패)이면 배율 1.35
 const HP_PVP_MUL := 0.6                              # 대전 패배는 토벌의 0.6배
 var hp := HP_MAX
 ## 점검용 —— 11/9 이전 사람 기록(패배 보상 감액 규칙)을 되살릴 때(tests/replay_log) 켠다. 보상이 달라지면 되살린 덱이 기록과 달라져 난이도 측정이 틀어진다
 static var legacy_rewards := false
 static var dev_hp_log := []      # 11/9 점검용 —— 패배마다 [일차, 종류, 기본 피해, 적 남은 비, 무승부] (tests/hp_dist)
+static var dev_bonus_log := []   # 11/10 점검용 —— 토벌마다 [일차, 이김, 잔존 비 r, 보너스 기본패, 보너스 선택권, 그날 기본패] (tests/hp_dist)
 var last_hp_loss := 0         # 방금 전투에서 깎인 민심 (결과 화면용)
 var last_draw := []
 var last_item = null
@@ -1107,19 +1111,79 @@ static func simulate(bt: Dictionary, inputs: Array, policy: Dictionary) -> Dicti
 
 
 ## 전투가 끝났다 —— 보상·경고·토너먼트 진행
-## 11/9 패배 → 민심 피해. 크게 질수록(적이 많이 남을수록) 더: base × (0.6 + 0.4 × 적 남은 비). 무승부는 절반. 0 이면 멸망
+## 11/9 패배 → 민심 피해. 크게 질수록(적이 많이 남을수록) 더. 무승부는 절반. 0 이면 멸망
+## 11/10 새 식: base × (HP_FOE_MIN + HP_FOE_MUL × 적 남은 비) (옛 0.6 + 0.4 × 적 남은 비) —— 아슬하게 진 판은 가볍고 완패는 무겁다
 ## 피해량만 따로 —— _hp_hit 와 화면(결과 화면의 「민심 −N」 연출, 전투가 끝나고 결과를 정리하기 전에 미리 보여 준다)이 같은 식을 쓴다
-static func hp_dmg(res: Dictionary, base: float) -> int:
-	var foe_left := 0.0
+static func foe_left_ratio(res: Dictionary) -> float:
 	var mx := 0
 	var left := 0
 	for u in res.get("roster", []):
 		if u.camp == "B":
 			mx += int(u.max)
 			left += maxi(0, int(u.left))
-	if mx > 0:
-		foe_left = clampf(float(left) / float(mx), 0.0, 1.0)
-	return maxi(1, int(round(base * (0.6 + 0.4 * foe_left) * (0.5 if res.get("draw", false) else 1.0))))
+	return clampf(float(left) / float(mx), 0.0, 1.0) if mx > 0 else 0.0
+
+
+## 식 한 곳 —— 점검(tests/hp_dist 모의)도 이걸 부른다
+static func hp_dmg_f(base: float, foe_left: float, draw: bool) -> int:
+	return maxi(1, int(round(base * (HP_FOE_MIN + HP_FOE_MUL * foe_left) * (0.5 if draw else 1.0))))
+
+
+static func hp_dmg(res: Dictionary, base: float) -> int:
+	return hp_dmg_f(base, foe_left_ratio(res), res.get("draw", false))
+
+
+## 11/10 토벌 성과 보너스 —— 이겼을 때만, 내 편 잔존 병력 비 r 로. 못해도 기본 보상은 그대로(11/9 "져도 보상은 그대로 · 민심으로 벌")
+## 기본패 +QUEST_BONUS_BASE × clamp((r − R0) / (1 − R0)) × 그날 기본패 (r ≥ 1.0 이면 최대 +30%, r ≤ 0.3 이면 0). 대승(r ≥ BIG)이고 4일차~ 이면 그날 토벌 선택권의 가장 높은 등급 +1
+## 난수를 쓰지 않는다(선택권을 랜덤권으로 받는 add_ticket 만 기존 방식) —— 보너스가 없는 판은 전과 같은 결과
+const QUEST_BONUS_BASE := 0.30
+const QUEST_BONUS_R0 := 0.30
+const QUEST_BONUS_BIG := 0.70
+const QUEST_BONUS_TICKET_DAY := 3      # 일차 번호(0 = 1일차)가 이 값 이상 = 4일차~
+
+
+## 내 편(camp A) 잔존 병력 비 0~1 (결과 roster 의 left 합 / max 합)
+static func my_left_ratio(res: Dictionary) -> float:
+	var mx := 0
+	var left := 0
+	for u in res.get("roster", []):
+		if u.camp == "A":
+			mx += int(u.max)
+			left += maxi(0, int(u.left))
+	return clampf(float(left) / float(mx), 0.0, 1.0) if mx > 0 else 0.0
+
+
+## {r, base, ticket} —— 이기지 않았으면 base · ticket 0 (r 은 그대로 기록용)
+static func quest_bonus(res: Dictionary, day_i: int) -> Dictionary:
+	var r := my_left_ratio(res)
+	var out := {"r": r, "base": 0, "ticket": 0}
+	if not res.get("win", false) or res.get("draw", false):
+		return out
+	var d := clampi(day_i, 0, 6)
+	var f := clampf((r - QUEST_BONUS_R0) / (1.0 - QUEST_BONUS_R0), 0.0, 1.0)
+	out.base = int(round(float(DB.D.QUEST_BASE[d]) * QUEST_BONUS_BASE * f))
+	if r >= QUEST_BONUS_BIG and d >= QUEST_BONUS_TICKET_DAY:
+		out.ticket = 1
+	return out
+
+
+## 그날 토벌 선택권의 가장 높은 등급 (일반 선택권은 no_empty_tier 로 바꾼 뒤)
+static func quest_top_tier(day_i: int) -> int:
+	var top := 0
+	for p in no_empty_tier(DB.D.QUEST_REWARD[clampi(day_i, 0, 6)]):
+		top = maxi(top, int(p.t))
+	return top
+
+
+## 보너스 알림 글 「토벌 대승! 보너스 기본패 +M · 선택권 +1」 —— 기본패 · 선택권 둘 다 0 이면 빈 글. 가운데 띠(gold 알림)는 " · " 앞을 큰 글씨로 쓴다
+## 대승(r ≥ QUEST_BONUS_BIG)이 아닌 좋은 성과는 "토벌 선전!"
+static func quest_bonus_text(base: int, ticket: int, big := true) -> String:
+	if base <= 0 and ticket <= 0:
+		return ""
+	var head := ("토벌 대승! 보너스" if big else "토벌 선전! 보너스") + (" 기본패 +%d" % base if base > 0 else "")
+	if ticket > 0:
+		return head + " · 선택권 +%d" % ticket
+	return head
 
 
 ## 이 전투 결과(아직 finish_battle 전)로 민심이 얼마나 깎일지 —— 이기면 · 토너먼트면 0 (화면 전용, 상태는 건드리지 않는다)
@@ -1134,15 +1198,7 @@ func hp_preview(bt: Dictionary, res: Dictionary) -> int:
 
 func _hp_hit(res: Dictionary, base: float, what: String) -> void:
 	var dmg := hp_dmg(res, base)
-	var foe_left := 0.0
-	var mx := 0
-	var left := 0
-	for u in res.get("roster", []):
-		if u.camp == "B":
-			mx += int(u.max)
-			left += maxi(0, int(u.left))
-	if mx > 0:
-		foe_left = clampf(float(left) / float(mx), 0.0, 1.0)
+	var foe_left := foe_left_ratio(res)
 	hp = maxi(0, hp - dmg)
 	last_hp_loss = dmg
 	if dev_log or dev_immortal:
@@ -1189,6 +1245,24 @@ func finish_battle(res: Dictionary) -> void:
 				for i in n:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
 				last_spoil = {"n": n, "src": ("토벌 · " if res.win else "토벌 패배 · ") + quest_name()}
+				if not legacy_rewards:
+					# 11/10 토벌 성과 보너스 —— 기본 보상을 다 준 뒤에 얹는다(보너스가 없는 판은 난수 순서가 전과 같다). 알림은 혼자 하기만 여기서
+					# (온라인은 서버 알림이 단계 끝에야 가니, 결과를 보는 순간 클라이언트가 last_spoil 로 직접 띄운다)
+					var bb := quest_bonus(res, day)
+					last_spoil["perf_r"] = snappedf(float(bb.r), 0.001)
+					if dev_immortal:
+						dev_bonus_log.append([day, bool(res.win), float(bb.r), int(bb.base), int(bb.ticket), int(DB.D.QUEST_BASE[day])])
+					if res.win:
+						last_spoil["bonus"] = int(bb.base)
+						last_spoil["bonus_ticket"] = int(bb.ticket)
+						if not mp:
+							var bt_txt := quest_bonus_text(int(bb.base), int(bb.ticket), float(bb.r) >= QUEST_BONUS_BIG)
+							if bt_txt != "":
+								toasts.append([bt_txt, "gold"])
+						for i in int(bb.base):
+							give(DB.BASE[rng.randi() % DB.BASE.size()])
+						if int(bb.ticket) > 0:
+							add_ticket(quest_top_tier(day), 1, true)
 			if not res.win:
 				strikes += 1       # 기록용
 				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]), quest_name())

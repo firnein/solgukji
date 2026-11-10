@@ -168,6 +168,7 @@ static func battle_end_data(bt, res: Dictionary, view_len: float, inputs: Array,
 		"troops_max": mx.A, "foe_troops_max": mx.B,
 		"left_ratio": snappedf(float(left.A) / maxf(1.0, float(mx.A)), 0.001),
 		"foe_left_ratio": snappedf(float(left.B) / maxf(1.0, float(mx.B)), 0.001),
+		"perf_r": snappedf(Run.my_left_ratio(res), 0.001),      # 11/10 토벌 성과 보너스가 쓰는 내 잔존 병력 비 (left_ratio 와 같다 · 분석용)
 		"turns": res.get("turns", 0), "view_sec": snappedf(view_len, 0.1),
 		"mvp": res.mvp.name if res.get("mvp") else "", "ult_inputs": ult, "cmd_inputs": cmd, "speeds": speeds,
 		"chains": res.get("chains", {}), "units": units}
@@ -183,8 +184,13 @@ static func after_battle(run) -> void:
 
 
 static func reward_data(run) -> Dictionary:
-	return {"strikes": run.strikes, "hp": run.hp, "hp_loss": run.last_hp_loss, "w": run.my_w, "l": run.my_l, "tickets": run.tickets.duplicate(),
+	var d := {"strikes": run.strikes, "hp": run.hp, "hp_loss": run.last_hp_loss, "w": run.my_w, "l": run.my_l, "tickets": run.tickets.duplicate(),
 		"spoil": run.last_spoil, "inv_n": _inv_n(run)}
+	if run.last_spoil is Dictionary and (run.last_spoil as Dictionary).has("perf_r"):      # 11/10 토벌 성과 보너스 (분석용 추가 필드)
+		d["bonus_base"] = int(run.last_spoil.get("bonus", 0))
+		d["bonus_ticket"] = int(run.last_spoil.get("bonus_ticket", 0))
+		d["perf_r"] = float(run.last_spoil.perf_r)
+	return d
 
 
 static func _inv_n(run) -> int:

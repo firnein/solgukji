@@ -811,14 +811,12 @@ func _result_panel(x: Dictionary) -> Control:
 	if mvp is Dictionary and str(mvp.get("name", "")) != "":
 		parts.append("수훈 %s" % mvp.name)
 	if run.last_spoil != null and str(x.get("kind", "")) != "tour":
-		parts.append("기본패 +%d" % int(run.last_spoil.n))
+		parts.append(UI.spoil_bb(run.last_spoil))      # 11/10 토벌 성과 보너스는 금색 "(대승 +M)" (서버 mirror 의 last_spoil)
 	if run.ticket_left() > 0:
 		parts.append("선택권 %d" % run.ticket_left())
 	if not win and int(run.last_hp_loss) > 0:
 		parts.append("민심 −%d" % int(run.last_hp_loss))
-	var pl := UI.lbl("  ·  ".join(parts), 13, DB.PAL.bamboo)
-	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(pl)
+	v.add_child(UI.result_line(parts))
 	if run.over != null:
 		v.add_child(UI.rich("[color=%s][b]%s[/b][/color] — %s. 남은 판은 관전한다." % ["#8fd4c2" if run.over.win else "#e0806f", "우승" if run.over.win else "탈락", run.over.msg], 13))
 	return UI.panel(v, 12)
@@ -993,8 +991,11 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 		var q := run.start_quest()
 		q.pol = Run.policy_for(q)
 		var res := Run.simulate(q, [], q.pol)
+		if gs._dev_bonus_r >= 0.0:      # 점검: --gbonus=0.85 로 이긴 것으로 (서버 대신 여기서 보너스를 계산해 mirror 처럼 last_spoil 에 둔다)
+			gs._dev_force_bonus(res)
+		run.mp = true      # 서버의 Run 처럼 —— 보너스 알림은 클라이언트(GameScreen)가 직접 띄운다
 		run.finish_battle(res)
-		var prm := {"a": q.a.cards, "fa": q.a.form, "ma": q.a.morale, "ea": q.a.equip, "b": q.b.cards, "fb": q.b.form, "mb": q.b.morale, "eb": q.b.equip,
+		var prm :={"a": q.a.cards, "fa": q.a.form, "ma": q.a.morale, "ea": q.a.equip, "b": q.b.cards, "fb": q.b.form, "mb": q.b.morale, "eb": q.b.equip,
 			"seed": q.seed, "title": q.title, "foe": q.foe, "policy": q.pol, "tra": float(q.a.get("tr_mul", 1.0)), "trb": float(q.b.get("tr_mul", 1.0)), "tb": q.b.get("trait", {})}
 		last_battles = [{"title": q.title, "res": res, "kind": "quest", "params": prm}]
 		_last_watched = last_battles[0]

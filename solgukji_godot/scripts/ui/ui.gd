@@ -113,6 +113,27 @@ static func rich(bb: String, fs := 14) -> RichTextLabel:
 	return r
 
 
+## 결과 정리 줄의 기본패 조각 (11/10) —— "기본패 +N", 토벌 성과 보너스가 있으면 금색으로 "(대승 +M)" · 선택권도 늘었으면 "(대승 +M · 선택권 +1)". 보너스는 Run.last_spoil 의 bonus · bonus_ticket · perf_r
+static func spoil_bb(sp) -> String:
+	var s := "기본패 +%d" % int(sp.n)
+	var b := int(sp.get("bonus", 0))
+	var t := int(sp.get("bonus_ticket", 0))
+	if b > 0 or t > 0:
+		var tag := "대승" if float(sp.get("perf_r", 0.0)) >= Run.QUEST_BONUS_BIG else "선전"
+		var inner := "%s +%d" % [tag, b] if b > 0 else tag
+		if t > 0:
+			inner += " · 선택권 +%d" % t
+		s += " [color=#%s](%s)[/color]" % [DB.PAL.gold.to_html(false), inner]
+	return s
+
+
+## 결과 정리 줄 —— 조각을 "  ·  " 로 잇는다 (BBCode 가능). 기본 글자색은 bamboo
+static func result_line(parts: Array) -> RichTextLabel:
+	var r := rich("[color=#%s]%s[/color]" % [DB.PAL.bamboo.to_html(false), "  ·  ".join(parts)], 13)
+	r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return r
+
+
 static func eyebrow(text: String) -> Label:
 	var l := lbl(text, 14, DB.PAL.bamboo, true)
 	return l

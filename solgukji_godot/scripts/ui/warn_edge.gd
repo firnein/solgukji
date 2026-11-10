@@ -6,6 +6,8 @@ extends Control
 const RED := Color("#e02a1c")
 
 var phase := 0.0          # 0..1
+var soft := -1.0          # 0 이상이면 이 투명도로 그린다 (11/10 민심이 얼마 안 남았을 때의 옅은 비네트 —— show_soft)
+var depth := 0.22         # 안쪽으로 번지는 깊이 (짧은 변 비율)
 
 
 func _ready() -> void:
@@ -15,7 +17,18 @@ func _ready() -> void:
 
 
 func show_phase(p: float) -> void:
+	soft = -1.0
+	depth = 0.22
 	phase = p
+	if not visible:
+		visible = true
+	queue_redraw()
+
+
+## 민심 위험 비네트 —— 5초 경고와 같은 가장자리 그림을 훨씬 옅게 (a = 투명도 · 보통 0.06~0.18). 소리 없음
+func show_soft(a: float) -> void:
+	soft = a
+	depth = 0.17
 	if not visible:
 		visible = true
 	queue_redraw()
@@ -35,8 +48,8 @@ func _process(_dt: float) -> void:
 func _draw() -> void:
 	var w := size.x
 	var h := size.y
-	var a := 0.14 + 0.52 * pow(1.0 - phase, 2.0)      # 비프 순간 0.66 → 다음 비프 직전 0.14
-	var d := minf(w, h) * 0.22                        # 안쪽으로 번지는 깊이
+	var a := soft if soft >= 0.0 else 0.14 + 0.52 * pow(1.0 - phase, 2.0)      # 비프 순간 0.66 → 다음 비프 직전 0.14
+	var d := minf(w, h) * depth                       # 안쪽으로 번지는 깊이
 	var s := Color(RED, a)
 	var z := Color(RED, 0.0)
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, d), Vector2(0, d)]), PackedColorArray([s, s, z, z]))

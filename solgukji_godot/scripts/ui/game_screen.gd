@@ -11,6 +11,7 @@ extends Control
 ## (예전 도감·전투 연출 화면은 --tab=… 을 주면 열린다 —— scenes/main.tscn)
 
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
+const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # 11/10 민심 위험 비네트에 다시 쓴다 (5초 경고와 같은 가장자리 그림, class_name 없이)
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const EmotePop := preload("res://scripts/ui/emote_pop.gd")      # 11/10 받은 한마디 이모티콘 팝업 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
@@ -852,6 +853,9 @@ var _hp_fx: Control = null    # 결과 화면의 민심 줄
 var _battle_last := true      # 온라인: 지금 보는 전투가 이번 단계의 마지막인지
 var _battle_kind := ""
 var _dev_hploss := 0          # 점검용 --ghploss
+var _bonus_plan := {}         # 이번 전투 결과 화면에서 보일 토벌 성과 보너스 줄 {base, ticket, big} (11/10)
+var _bonus_key := ""          # 온라인에서 같은 보너스 알림을 다시 보기마다 반복하지 않게
+var _dev_bonus_r := -1.0      # 점검용 --gbonus : 이 잔존 비로 이긴 것으로
 func _hp_sync() -> void:
 	if _hp_gauge == null or run == null:
 		return
@@ -867,6 +871,40 @@ func _hp_sync() -> void:
 		return
 	_hp_shown = hp
 	_hp_gauge.drop_to(hp)
+
+
+## 민심 위험 알림 (11/10 사용자: 민심이 얼마 남지 않았을 때 지속적으로 위험하다는 것을 알려줌) ——
+## 게이지가 보이는 값(_hp_gauge.value)이 HpGauge.LOW(30) 이하인 동안 어느 탭에서나 화면 가장자리에 아주 옅은 붉은 비네트가 느리게 맥동한다(주기 2초 · 투명도 0.06~0.18),
+## 15 이하는 더 짙고 빠르게(1.2초 · 0.10~0.26). 게이지 옆 「위험」 글자는 HpGauge 가 그린다. 입력은 막지 않고 소리는 없다.
+## 전투 화면(BattleView) · 타이틀 · 판이 끝난 뒤에는 끈다. 온라인 5초 경고(붉은 가장자리 + 비프)가 켜져 있으면 5초 경고가 우선 —— 위험 비네트는 그동안 끈다
+const DANGER_HP := 15.0
+var _danger_fx: Control = null
+var _danger_t := 0.0
+
+
+func _process(dt: float) -> void:
+	_danger_tick(dt)
+
+
+func _danger_tick(dt: float) -> void:
+	var on := false
+	var hp := 100.0
+	if _hp_gauge != null and run != null and run.over == null and (_title == null or not _title.visible) and not (_battle_layer != null and _battle_layer.visible):
+		hp = _hp_gauge.value
+		on = hp <= HpGauge.LOW
+	if on and online != null and is_instance_valid(online._warn_fx) and online._warn_fx.visible:
+		on = false      # 5초 경고가 우선
+	if not on:
+		if _danger_fx != null and is_instance_valid(_danger_fx) and _danger_fx.visible:
+			_danger_fx.hide_now()
+		return
+	if _danger_fx == null or not is_instance_valid(_danger_fx):
+		_danger_fx = WarnEdge.new()
+		add_child(_danger_fx)
+	var crit := hp <= DANGER_HP
+	_danger_t += dt
+	var s := 0.5 + 0.5 * sin(_danger_t * TAU / (1.2 if crit else 2.0))
+	_danger_fx.show_soft(lerpf(0.10, 0.26, s) if crit else lerpf(0.06, 0.18, s))
 
 
 func _hp_hold() -> bool:
@@ -3003,14 +3041,12 @@ func _result_panel() -> Control:
 	if r.mvp != "":
 		parts.append("수훈 %s" % r.mvp)
 	if run.last_spoil != null:
-		parts.append("기본패 +%d" % run.last_spoil.n)
+		parts.append(UI.spoil_bb(run.last_spoil))      # 11/10 토벌 성과 보너스는 금색 "(대승 +M)"
 	if run.ticket_left() > 0:
 		parts.append("선택권 %d" % run.ticket_left())
 	if not r.win and run.last_hp_loss > 0:      # 11/10 연출은 지나가니 깎인 만큼은 결과 줄에도 남긴다 (온라인 결과 칸과 같은 글)
 		parts.append("민심 −%d" % run.last_hp_loss)
-	var pl := UI.lbl("  ·  ".join(parts), 13, DB.PAL.bamboo)
-	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(pl)
+	v.add_child(UI.result_line(parts))
 	return UI.panel(v, 12)
 
 
@@ -3135,8 +3171,11 @@ func battle_visible() -> bool:
 
 
 func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
+	if _dev_bonus_r >= 0.0:      # 점검 전용 —— 온라인은 재생이 결과를 다시 계산하니 여기서 서버가 준 것(dev_fake_room)과 같게 고친다
+		_dev_force_bonus(res)
 	_battle_res = res
 	_plan_hp_fx(res)
+	_plan_bonus_fx(res)
 	UI.buzz(30)
 	await get_tree().create_timer(1.4).timeout      # 승전 · 패전 도장을 먼저 보이고
 	if not _battle_layer.visible or not is_same(_battle.res, res):     # 같은 전투인지 —— 내용 비교(!=)는 큰 결과에 느리다
@@ -3152,13 +3191,15 @@ const REPORT_TOP := 110.0      # 위 띠 · 병력 막대 · 시계(0:29) 아래
 const REPORT_BOT := 236.0      # 아래 장수 칸(≈135) + [종료] 버튼(56) + 틈
 func _show_report(res: Dictionary) -> void:
 	var plan := _hp_plan
+	var bplan := _bonus_plan
 	_hp_plan = {}
+	_bonus_plan = {}
 	_hide_report()
 	if _battle and _battle.end_clock > 0:
 		res["view_len"] = _battle.end_clock
 	_report = BattleReport.make(res)
 	var w := minf(size.x - 24.0, 460.0)
-	var fx_h := (HP_FX_H + 6.0) if not plan.is_empty() else 0.0      # 민심 줄이 들어갈 자리만큼 표를 줄인다
+	var fx_h := (HP_FX_H + 6.0) if (not plan.is_empty() or not bplan.is_empty()) else 0.0      # 민심 줄(패배) · 보너스 줄(승리)이 들어갈 자리만큼 표를 줄인다
 	_report.max_h = maxf(240.0, _battle_layer.size.y - REPORT_TOP - REPORT_BOT - fx_h)
 	_report.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_report.offset_left = -w / 2
@@ -3178,6 +3219,8 @@ func _show_report(res: Dictionary) -> void:
 		return
 	if not plan.is_empty():
 		_place_hp_fx(plan, _report.position.y + _report.size.y + 6.0)
+	elif not bplan.is_empty():
+		_place_bonus_fx(bplan, _report.position.y + _report.size.y + 6.0)
 	var top := _report.get_global_rect().end.y + 10.0 - _battle_layer.get_global_rect().end.y + fx_h
 	_battle_done.offset_top = minf(top, -(REPORT_BOT - 10.0))
 	_battle_done.offset_bottom = _battle_done.offset_top + 56.0
@@ -3225,6 +3268,72 @@ func _place_hp_fx(plan: Dictionary, top: float) -> void:
 	fx.offset_bottom = top + HP_FX_H
 	_battle_layer.add_child(fx)
 	_hp_fx = fx
+
+
+# ───────── 토벌 성과 보너스 (11/10) ─────────
+## 이긴 토벌의 잔존 병력 비가 높으면 기본패(대승이면 선택권까지)를 더 받는다 —— 결과표 아래 같은 자리(패배의 민심 줄과 겹치지 않는다)에 금색 한 줄.
+## 혼자 하기는 결과를 정리하기 전이라 Run.quest_bonus 로 미리 계산(finish_battle 이 같은 함수를 쓴다), 온라인은 서버가 계산해 mirror 한 run.last_spoil.
+## 알림(가운데 띠)은 혼자 하기는 finish_battle 의 gold 알림, 온라인은 서버 알림이 단계 끝에야 가니 여기서 한 번만 직접 (서버는 mp 일 때 알림을 안 보낸다)
+func _plan_bonus_fx(res: Dictionary) -> void:
+	_bonus_plan = {}
+	if run == null or not res.get("win", false) or res.get("draw", false):
+		return
+	var base := 0
+	var tk := 0
+	var r := 0.0
+	if online == null:
+		if run.battle == null or str(run.battle.get("kind", "")) != "quest" or Run.legacy_rewards:
+			return
+		var b := Run.quest_bonus(res, run.day)
+		base = int(b.base)
+		tk = int(b.ticket)
+		r = float(b.r)
+	else:
+		if _battle_kind != "quest" or not _battle_last or run.last_spoil == null:
+			return
+		base = int(run.last_spoil.get("bonus", 0))
+		tk = int(run.last_spoil.get("bonus_ticket", 0))
+		r = float(run.last_spoil.get("perf_r", 0.0))
+	if base <= 0 and tk <= 0:
+		return
+	var big := r >= Run.QUEST_BONUS_BIG
+	_bonus_plan = {"base": base, "ticket": tk, "big": big}
+	if online != null:
+		var key := "%d:%d:%d:%d" % [run.day, run.phase, base, tk]
+		if key != _bonus_key:
+			_bonus_key = key
+			var parts: PackedStringArray = Run.quest_bonus_text(base, tk, big).split(" · ", true, 1)
+			band(parts[0], DB.PAL.gold, parts[1] if parts.size() > 1 else "")
+
+
+func _place_bonus_fx(plan: Dictionary, top: float) -> void:
+	var w := minf(size.x - 24.0, 460.0)
+	var fx := BonusFx.new()
+	fx.setup(int(plan.base), int(plan.ticket), bool(plan.big))
+	fx.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	fx.offset_left = -w / 2
+	fx.offset_right = w / 2
+	fx.offset_top = top
+	fx.offset_bottom = top + HP_FX_H
+	_battle_layer.add_child(fx)
+	_hp_fx = fx      # 민심 줄과 같은 자리 · 같이 걷는다 (_hide_report)
+
+
+## 점검용 --gbonus=0.85 —— 이 잔존 비로 이긴 것으로 결과를 고친다(내 편 병력 비 · 적 전멸). --gbattle 이 없으면 토벌을 바로 시작(--speed 8). 끝까지 보려면 --gclose
+func _dev_force_bonus(res: Dictionary) -> void:
+	res["win"] = true
+	res["draw"] = false
+	var left := 0
+	for u in res.get("roster", []):
+		if u.camp == "A":
+			u["left"] = int(round(float(u.max) * _dev_bonus_r))
+			u["alive"] = int(u.left) > 0
+			left += int(u.left)
+		else:
+			u["left"] = 0
+			u["alive"] = false
+	res["left"] = left
+	res["eLeft"] = 0
 
 
 ## 점검용 --ghploss=N (전투 없이) —— 빈 전투 화면에 민심 줄만 띄우고, 끝나면 결과를 정리한 것처럼 메인으로 돌아가 머리띠가 줄어드는 모습을 본다
@@ -3436,6 +3545,11 @@ func _dev_args() -> void:
 		_dev_hploss = int(a.ghploss)
 		if not a.has("gbattle"):
 			_dev_hp_demo(_dev_hploss)
+	if a.has("gbonus") and run != null:      # 점검용 —— --gbonus=0.85 : 잔존 85% 로 이긴 토벌의 결과 연출 (토벌을 바로 시작 · 8배속)
+		_dev_bonus_r = clampf(float(a.gbonus), 0.0, 1.0)
+		if not a.has("gbattle") and not a.has("gsheet"):      # --gsheet=onwar:noon 과 함께면 온라인 재생이 그 전투를 보인다
+			a["gbattle"] = "quest"
+			a["speed"] = a.get("speed", "8")
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
 			_open[key] = true
@@ -3941,6 +4055,7 @@ class PhaseBar extends Control:
 class HpGauge extends Control:
 	signal tapped
 	const LOW := 30.0
+	const DANGER := 15.0     # 11/10 이 이하는 「위험」 이 더 짙고 빠르게
 	var value := 100.0       # 보이는 값 (줄어드는 중이면 중간 값)
 	var trail := 100.0       # 잃은 몫을 보이는 꼬리 (value 이상)
 	var flash := 0.0
@@ -3968,7 +4083,12 @@ class HpGauge extends Control:
 					tapped.emit()
 				_press = Vector2.INF
 
+	## 위험일 때 「위험」 글자 자리 —— 숫자와 겹치지 않게 조금 넓힌다 (온라인은 병력 줄이 없어 칸이 좁다)
+	func _fit(target: float) -> void:
+		custom_minimum_size = Vector2(112.0 if target <= LOW else 92.0, 24)
+
 	func set_now(v: float) -> void:
+		_fit(v)
 		if _tw != null:
 			_tw.kill()
 		value = v
@@ -3977,6 +4097,7 @@ class HpGauge extends Control:
 		queue_redraw()
 
 	func drop_to(v: float) -> void:
+		_fit(v)
 		if _tw != null:
 			_tw.kill()
 		_from = value
@@ -4010,6 +4131,19 @@ class HpGauge extends Control:
 		Icons.draw(self, "heart", Vector2(8, 9), 15, txt)
 		draw_string(DB.font_bold, Vector2(19, 13), "민심", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.bamboo_dim.lerp(hot, flash * 0.8))
 		draw_string(DB.font_bold, Vector2(0, 14), str(int(round(v))), HORIZONTAL_ALIGNMENT_RIGHT, size.x, 15, txt)
+		if low:      # 11/10 사용자: 민심이 얼마 안 남았으면 계속 위험하다고 알린다 —— 「위험」 인장 붉음. 15 이하는 더 짙고(바탕 알) 빠르게(1초)
+			var crit := v <= DANGER
+			var wp := 0.5 + 0.5 * sin(_t * TAU / (1.0 if crit else 2.0))
+			var wa := lerpf(0.75, 1.0, wp) if crit else lerpf(0.55, 0.95, wp)
+			var wx := 47.0
+			if crit:
+				var pill := StyleBoxFlat.new()
+				pill.bg_color = Color(P.seal.darkened(0.45), lerpf(0.55, 0.85, wp))
+				pill.border_color = Color(hot, wa)
+				pill.set_border_width_all(1)
+				pill.set_corner_radius_all(3)
+				draw_style_box(pill, Rect2(wx - 4, 1, 30, 15))
+			draw_string(DB.font_bold, Vector2(wx, 13), "위험", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(hot.lightened(0.15) if crit else hot, wa))
 		var by := size.y - 4.0
 		draw_rect(Rect2(0, by, size.x, 3), P.ink3)
 		if trail > v:
@@ -4087,6 +4221,57 @@ class HpLossFx extends Control:
 		draw_style_box(sb, box)
 		draw_string(DB.font_bold, Vector2(-34, 8), "−%d" % loss, HORIZONTAL_ALIGNMENT_CENTER, 68, 22, Color(hot, s))
 		draw_set_transform(Vector2.ZERO)
+
+
+## 결과 화면의 토벌 성과 보너스 줄 (11/10) —— 금색 한 줄: 왼쪽 「토벌 대승!」(송명) · 오른쪽 「기본패 +M · 선택권 +1」. 금빛이 한 번 쓸고 지나간다(약 0.8초). 입력은 막지 않는다
+class BonusFx extends Control:
+	const DUR := 1.3
+	var base := 0
+	var ticket := 0
+	var big := true
+	var _t := 0.0
+	var _chime := false
+
+	func setup(b: int, t: int, is_big: bool) -> void:
+		base = b
+		ticket = t
+		big = is_big
+		custom_minimum_size = Vector2(0, 46)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(dt: float) -> void:
+		_t += dt
+		if _t >= 0.12 and not _chime:
+			_chime = true
+			Sfx.play("gain")
+		queue_redraw()
+		if _t > DUR + 0.2:
+			set_process(false)
+
+	func _draw() -> void:
+		var P := DB.PAL
+		var a := clampf(_t / 0.14, 0.0, 1.0)
+		var w := size.x
+		var h := size.y
+		draw_rect(Rect2(0, 0, w, h), Color(0.058, 0.078, 0.14, 0.94 * a))
+		draw_rect(Rect2(0, 0, w, 1), Color(P.gold, 0.8 * a))
+		draw_rect(Rect2(0, h - 1, w, 1), Color(P.gold, 0.8 * a))
+		var head := "토벌 대승!" if big else "토벌 선전!"
+		var f: Font = DB.title_font(20)
+		draw_string(f, Vector2(16, h / 2 + 8), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(P.gold.lightened(0.2), a))
+		var parts := []
+		if base > 0:
+			parts.append("기본패 +%d" % base)
+		if ticket > 0:
+			parts.append("선택권 +%d" % ticket)
+		draw_string(DB.font_bold, Vector2(0, h / 2 + 6), "  ·  ".join(parts), HORIZONTAL_ALIGNMENT_RIGHT, w - 16.0, 16, Color(P.paper, a))
+		# 금빛이 한 번 쓸고 지나간다 (왼쪽 → 오른쪽, 기운 띠)
+		var u := clampf((_t - 0.1) / 0.8, 0.0, 1.0)
+		if u > 0.0 and u < 1.0:
+			var x := lerpf(-60.0, w + 20.0, ease(u, -1.6))
+			var al := 0.30 * sin(u * PI)
+			var pts := PackedVector2Array([Vector2(x, 0), Vector2(x + 34, 0), Vector2(x + 14, h), Vector2(x - 20, h)])
+			draw_colored_polygon(pts, Color(P.gold.lightened(0.35), al))
 
 
 ## 아래 탭 하나 —— 그림 + 이름, 할 일이 있으면 빨간 점(badge 0) 또는 숫자
