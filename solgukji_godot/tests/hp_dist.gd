@@ -60,4 +60,40 @@ func _ready() -> void:
 				hs += x.hp
 				if x.z > 0: dd += 1
 		print("== 토벌 승률 %.0f~%.0f%%: %d판 · 평균 hp %.1f · 사망 %d" % [band[0] * 100, minf(band[1], 1.0) * 100, c, hs / maxf(1.0, float(c)), dd])
+	_bonus_table(Run.dev_bonus_log)
 	get_tree().quit()
+
+
+## 11/10 토벌 성과 보너스 —— 일차별 토벌 수 · 이김 · 대승 · 평균 r · 이긴 판의 평균 보너스 기본패 · 선택권 · 기본 보상(기본패) 대비 %
+## 행: [일차, 이김, r, 보너스 기본패, 보너스 선택권, 그날 기본패]. 오토는 대부분 지니 이긴 판이 적다(표본 주의)
+static func _bonus_table(log: Array) -> void:
+	print("== 토벌 보너스 (오토 진행 · 이긴 판만 보너스) 일차 | 토벌 | 이김 | 대승 | 이긴 판 평균 r | 이긴 판 평균 기본패 +n | 선택권 합 | 토벌 전체 기본패 대비")
+	var tb := 0
+	var tt := 0
+	var tbase := 0
+	for d in 7:
+		var n := 0
+		var w := 0
+		var big := 0
+		var rs := 0.0
+		var bs := 0
+		var ts := 0
+		var base := 0
+		for x in log:
+			if int(x[0]) != d:
+				continue
+			n += 1
+			base += int(x[5])
+			if x[1]:
+				w += 1
+				rs += float(x[2])
+				bs += int(x[3])
+				ts += int(x[4])
+				if float(x[2]) >= Run.QUEST_BONUS_BIG:
+					big += 1
+		tb += bs
+		tt += ts
+		tbase += base
+		if n > 0:
+			print("   %d일차 | %d | %d | %d | %.2f | %.2f | %d | +%.1f%%" % [d + 1, n, w, big, rs / maxf(1.0, float(w)), bs / maxf(1.0, float(w)), ts, bs * 100.0 / maxf(1.0, float(base))])
+	print("   합계 : 보너스 기본패 %d · 선택권 %d · 토벌 기본패 합 %d (+%.1f%%)" % [tb, tt, tbase, tb * 100.0 / maxf(1.0, float(tbase))])
