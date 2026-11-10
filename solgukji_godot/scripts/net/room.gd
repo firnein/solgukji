@@ -52,6 +52,7 @@ var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b �
 var tour = null               # {round, list:[{name, seat}], res:[[{a, b, w}]], next}
 var rng := RandomNumberGenerator.new()
 var empty_since := -1.0
+var rlog: RoomLog = null      # 사람마다 플레이 기록 (11/10) —— 부수 효과일 뿐, 없어도(점검 방 · 쓰기 실패) 방은 그대로 간다
 
 
 func _init(srv, room_code: String, m: String) -> void:
@@ -106,10 +107,12 @@ func _unique(n: String) -> String:
 	return out
 
 
-func remove_peer(peer: int) -> void:
+func remove_peer(peer: int, why := "disconnect") -> void:
 	var i := seat_of(peer)
 	if i < 0:
 		return
+	if started and rlog != null and seats[i].run != null:
+		rlog.event(i, seats[i].run, why)
 	if not started:
 		seats.remove_at(i)
 		if host == peer:
@@ -128,7 +131,7 @@ func remove_peer(peer: int) -> void:
 ## 스스로 나간 사람 —— 진행 중이면 자리를 봇에게 영구히 넘긴다 (토큰을 끊어 돌아오지 못한다)
 func on_leave(peer: int) -> void:
 	var i := seat_of(peer)
-	remove_peer(peer)
+	remove_peer(peer, "leave")
 	if i >= 0 and started:
 		seats[i].token = ""
 		var it := {"who": seats[i].name, "text": "방을 떠났다 — 자리는 봇이 이어받는다"}
@@ -144,6 +147,8 @@ func reattach(peer: int, token: String) -> bool:
 			s.peer = peer
 			empty_since = -1.0
 			if started:
+				if rlog != null:
+					rlog.event(_idx(s), s.run, "reconnect")
 				if stage in WATCH_STAGES and s.watched:
 					s.ready = true       # 끊기기 전에 다 봤다 —— 다시 보지 않아도 된다
 				var it := {"who": s.name, "text": "%s이(가) 돌아왔다" % s.name}
@@ -204,6 +209,9 @@ func start() -> void:
 		r.new_game(rng.randi())
 		r.mp = true
 		s.run = r
+	if RoomLog.wanted(mode):
+		rlog = RoomLog.new()
+		rlog.open(self)
 	_mirror()
 	_stage("morning")
 
@@ -230,6 +238,8 @@ func _stage(st: String) -> void:
 			s.ready = false
 			s.acted = false
 			s.watched = false
+	if rlog != null:
+		rlog.on_stage(self)
 	push_all()
 
 
@@ -263,6 +273,7 @@ func on_alone(peer: int, go: bool) -> void:
 			s.run.over = {"win": false, "msg": "다른 사람이 모두 떠나 방을 닫았다"}
 	stage = "over"
 	stage_no += 1
+	_log_end()
 	push_all()
 
 
@@ -291,6 +302,8 @@ func on_ready(peer: int, on: bool, sno := -1) -> void:
 	if sno >= 0 and sno != stage_no:
 		return                   # 지난 단계의 '준비 완료' —— 버린다
 	seats[i].ready = on
+	if rlog != null:
+		rlog.ready(i, seats[i].run, on)
 	if on and stage in WATCH_STAGES:
 		seats[i].watched = true
 	push_all()
@@ -303,6 +316,8 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 	var r: Run = seats[i].run
 	var ok = r.command(m, a)
 	seats[i].acted = true
+	if rlog != null:
+		rlog.act(i, r, m, a, ok)
 	# 11/9 사용자: 다른 사람의 소식도 와야 한다 —— 전설(6) 이상을 조합 · 선택권으로 등용하면 방의 다른 사람에게 소식 + 알림
 	if ok and m in ["forge", "pick"] and not a.is_empty() and DB.C.has(str(a[0])) and int(DB.C[str(a[0])].tier) >= 6:
 		var it := {"who": seats[i].name, "unit": str(a[0])}
@@ -315,6 +330,8 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 func _fill(s: Dictionary, full_if_idle := true) -> void:
 	var r: Run = s.run
 	var idle: bool = s.peer < 0 or (full_if_idle and not s.acted)
+	if rlog != null and idle:      # 행동은 했지만 못 끝낸 사람의 빈 편성 채우기는 적지 않는다 —— 봇이 통째로 대신한 것만
+		rlog.event(_idx(s), r, "bot_fill", {"disconnected": s.peer < 0})
 	r.bot_prepare(idle)
 
 
@@ -346,8 +363,13 @@ func _quests() -> void:
 		s.battles.append({"title": q.title, "res": res, "kind": "quest", "params": _params(q, false)})
 		if r.over != null and mode == "test":
 			r.over = null          # 점검 모드는 멸망하지 않는다 —— 토너먼트까지 가 본다
+		if rlog != null:
+			var si := _idx(s)
+			rlog.battle(si, r, q, res, str(q.title), false, s.peer < 0)
+			rlog.reward(si, r)
 		if r.over != null:
 			s.dead = true
+			_log_over(s)
 			_fallen(s)
 	var qpv := float(DB.D.QPV[day][phase])
 	for s in seats:
@@ -469,6 +491,10 @@ func _pvps() -> void:
 			_pvp_bot(b, a)
 		# 봇끼리는 싸우지 않는다
 	pairs = []
+	if mode != "test":      # 대전에서 민심이 바닥난 사람 —— 끝 줄은 지금 적는다 (점검 방은 다음 날 아침에 over 를 지우고 계속 가므로 적지 않는다)
+		for s in humans():
+			if s.run.over != null:
+				_log_over(s)
 
 
 func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
@@ -490,6 +516,12 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 	ry.battle = bt2
 	ry.finish_battle(flipped)
 	y.battles.append({"title": bt2.title, "res": flipped, "kind": "pvp", "params": _params(bt, true, bt2.title, x.name)})
+	if rlog != null:
+		var bt3 := {"kind": "pvp", "title": bt2.title, "seed": bt.seed, "a": bt.b, "b": bt.a}      # y 기준 —— 내가 a
+		rlog.battle(_idx(x), rx, bt, res, y.name, true, x.peer < 0)
+		rlog.reward(_idx(x), rx)
+		rlog.battle(_idx(y), ry, bt3, flipped, x.name, true, y.peer < 0)
+		rlog.reward(_idx(y), ry)
 
 
 func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
@@ -505,6 +537,9 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 	else:
 		b.bot.w += 1
 	x.battles.append({"title": bt.title, "res": res, "kind": "pvp", "params": _params(bt, false)})
+	if rlog != null:
+		rlog.battle(_idx(x), rx, bt, res, b.name, false, x.peer < 0)
+		rlog.reward(_idx(x), rx)
 
 
 func _bot_side(b: Dictionary) -> Dictionary:
@@ -513,6 +548,10 @@ func _bot_side(b: Dictionary) -> Dictionary:
 
 ## 다음 날 아침
 func _advance() -> void:
+	if rlog != null:
+		for s in humans():
+			if not s.dead:
+				rlog.phase_end(_idx(s), s.run, s.peer < 0)
 	phase += 1
 	if phase > 2:
 		phase = 0
@@ -528,6 +567,7 @@ func _advance() -> void:
 						s.run.over = null       # 점검 모드는 멸망하지 않는다
 					else:
 						s.dead = true
+						_log_over(s)
 						_fallen(s)
 		else:
 			s.bot.pv += Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
@@ -612,8 +652,12 @@ func _tour_round() -> void:
 			fr.title = "%s · %s" % [Run.ROUNDNM[r], a.name]
 			fr.foe = a.name
 			sb.battles.append({"title": fr.title, "res": fr, "kind": "tour", "params": _params(bt, true, fr.title, a.name)})
+			if rlog != null:
+				rlog.battle(_idx(sb), sb.run, {"kind": "tour", "title": fr.title, "seed": bt.seed, "a": bt.b, "b": bt.a}, fr, a.name, sa.human, sb.peer < 0)
 		if sa.human:
 			sa.battles.append({"title": bt.title, "res": res, "kind": "tour", "params": _params(bt, false)})
+			if rlog != null:
+				rlog.battle(_idx(sa), sa.run, bt, res, b.name, sb.human, sa.peer < 0)
 		for pair in [[sa, b, w == a], [sb, a, w == b]]:
 			var s: Dictionary = pair[0]
 			if not s.human:
@@ -631,6 +675,9 @@ func _tour_round() -> void:
 	tour.res[r] = ms
 	tour.next = ms.map(func(x): return x.a if x.w == x.a.name else x.b)
 	_tour_view()
+	for s in humans():
+		if s.run.over != null:
+			_log_over(s)
 
 
 ## 사람마다 Run.tour 를 채운다 —— 화면(_bracket)이 그대로 그린다
@@ -689,6 +736,7 @@ func _finish() -> void:
 			s.run.over = {"win": false, "msg": "토너먼트가 끝났다"}
 	stage = "over"
 	stage_no += 1
+	_log_end()
 	push_all()
 
 
@@ -771,6 +819,30 @@ func on_say(peer: int, i: int) -> void:
 	for o in humans():
 		if o.peer >= 0:
 			server.send(o.peer, {"t": "say", "who": s.name, "text": QUICK_MSGS[i]})
+
+
+# ───────── 기록 (RoomLog) ─────────
+
+func _idx(s: Dictionary) -> int:
+	for i in seats.size():
+		if is_same(seats[i], s):
+			return i
+	return -1
+
+
+func _log_over(s: Dictionary) -> void:
+	if rlog != null and s.run != null:
+		rlog.over(_idx(s), s.run)
+
+
+## 판이 끝났다(토너먼트 결승 뒤 · 혼자 남아 방을 닫음) —— 아직 끝 줄이 없는 사람에게 적고 파일을 닫는다
+func _log_end() -> void:
+	if rlog == null:
+		return
+	rlog.on_stage(self)
+	for s in humans():
+		_log_over(s)
+	rlog.close_all()
 
 
 # ───────── 보내기 ─────────
