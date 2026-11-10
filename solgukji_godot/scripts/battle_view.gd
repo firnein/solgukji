@@ -16,7 +16,7 @@ extends Control
 ##
 ## 화면(휴대폰 세로): 위 띠(제목 · 배속 · [한마디] · [결과로] · ⋯ 메뉴) / 전장 / 아래 독(아군 장수 카드 격자).
 ## ⋯ 메뉴는 오른쪽에서 열린다 —— 진행(배속 · 결과로 건너뛰기) · 전투 기록 (11/9 정리).
-## 온라인 재생(locked)은 서버 결과를 그대로 재생한다 —— '결과로' 로 끝까지 건너뛸 수 있고, 그러면 본 것으로 친다 (11/9 사용자).
+## 온라인 재생(locked)은 서버 결과를 그대로 재생한다 —— 11/10 사용자: 멀티플레이에서 전투 스킵은 없다 ('결과로' 버튼은 숨기고 skip() 도 막는다).
 ## 한마디(say_cb): 온라인이면 위 띠에 [한마디] 가 보이고, 받은 한마디는 전장 왼쪽 위에 작은 줄로 잠시 뜬다 (say_line).
 ## 3D 는 화면 실제 해상도(× 품질 배율)로 그린다 —— 논리 크기로 그리면 휴대폰에서 흐리다.
 
@@ -709,8 +709,8 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 	speed_sec = {}
 	game_mode = true
 	locked = true
-	_skip_btn.visible = true       # 11/9 사용자: 리플레이를 나갈 방법 —— 결과로 건너뛰면 본 것으로 친다
-	_skip_top.visible = true
+	_skip_btn.visible = false      # 11/10 사용자: 멀티플레이에서 전투 스킵은 없어야 한다 (11/9 에 넣었던 '결과로' 를 뺀다)
+	_skip_top.visible = false
 	_refresh_quick()
 	_dev_row.visible = false
 	_auto_btn.disabled = true
@@ -1696,6 +1696,8 @@ func clock_text() -> String:
 ## 결과로 —— 남은 행동을 연출 없이 한꺼번에 적용한다.
 ## 온라인 재생(locked)도 된다 (11/9 사용자: 리플레이를 나갈 방법이 없었다) —— 끝나면 ended 가 나가 결과표 · [종료] 가 뜨고, 닫으면 본 것으로 친다 (Online.watch_next)
 func skip() -> void:
+	if locked:      # 11/10 온라인 재생(서버 결과)은 건너뛸 수 없다
+		return
 	if not running or finished:
 		return
 	var rest := []
