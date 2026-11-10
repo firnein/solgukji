@@ -120,7 +120,38 @@ func _ready() -> void:
 	_build_title()
 	resized.connect(_layout)
 	_layout()
+	_warm_start()
 	_dev_args()
+
+
+## 11/10 초상 미리 읽기 —— 처음 조합 탭을 열 때 140여 장의 초상을 한꺼번에 읽어 PC 에서 1초 가까이 멈췄다 (작업현황 60).
+## 게임을 켜자마자(타이틀에 있는 동안) 조합 탭에 나오는 장수 · 재료의 그림을 작업 스레드로 조금씩 올려 둔다. 판이 정해지면(render 첫 호출)
+## 지금 내가 가진 카드 → 추천 → 조합 순서(조합 탭이 보이는 순서) 로 앞에 끼워 넣는다. DB.warm_portraits 참고
+var _warm_run: Run = null
+
+
+func _warm_start() -> void:
+	if OS.get_cmdline_user_args().has("--nowarm"):
+		DB.warm_enabled = false
+	var outs: Array = DB.D.RECDEF.map(func(r): return r[0])
+	DB.warm_portraits(outs)
+	var mats: Array = []
+	for o in outs:
+		mats.append_array(DB.RECOF.get(o, []))
+	DB.warm_portraits(mats)
+
+
+func _warm_for_run() -> void:
+	var first: Array = run.pool().keys()
+	first.append_array(_forge_goals(DB.D.RECDEF))
+	var rest: Array = DB.D.RECDEF.map(func(r): return r[0])
+	rest.sort_custom(func(x, y):
+		var a := run.miss_count(x)
+		var b := run.miss_count(y)
+		if a != b:
+			return a < b
+		return DB.C[x].tier > DB.C[y].tier)
+	DB.warm_portraits(first + rest, true)
 
 
 ## 화면 크기·노치 —— 안전 영역 안쪽에 그리고, 넓은 창에서는 글줄 폭을 줄인다
@@ -620,6 +651,8 @@ func go(pg: String) -> void:
 		pg = "rank"         # '기록' 탭은 순위 · 계보 화면 (페이지 이름이 아니다)
 	if online == null and pg != page:
 		PlayLog.page(run, pg)
+	if page == "forge" and pg != "forge":
+		_open.erase("forge:more")      # 조합 탭을 떠나면 '더 보기' 는 접는다 (다시 올 때 타일을 적게 만든다)
 	if page != "deploy":
 		_scroll_keep[page] = _scroll.scroll_vertical
 	if pg in ["line", "rank", "update"]:
@@ -631,6 +664,9 @@ func go(pg: String) -> void:
 func render(new_page := false) -> void:
 	if run == null:
 		return
+	if run != _warm_run:
+		_warm_run = run
+		_warm_for_run()
 	_render_head()
 	_build_tabbar_badges()
 	var keep := _scroll.scroll_vertical
@@ -2592,16 +2628,25 @@ func _tier_match(k: String, t: int) -> bool:
 	return DB.C[k].tier == t and not DB.is_kiin(k)
 
 
+const FORGE_STEP := 18      # 「더 보기」 로 프레임마다 덧붙이는 타일 수
+const FORGE_FIRST := 36      # 조합 탭 '나머지' 에 처음 만드는 타일 수 (11/10 —— 더 보기 전)
+
+
 func _page_forge() -> Control:
 	var v := UI.vbox(14)
 	v.add_child(forge_tree.build())
 	# 거르기 —— 병종 · 등급을 기호 · 색 칸 한 줄씩 (11/2 사용자: 글씨를 줄여 공간 확보)
 	var row1 := HBoxContainer.new()
 	row1.add_theme_constant_override("separation", 4)
+	var can_now := {}      # 11/10 지금 되는 조합 —— 칸마다 191번씩 다시 묻지 않고 한 번만 (조합 탭 열 때 걸리는 시간)
+	for r in DB.D.RECDEF:
+		if run.can_forge(r[0]):
+			can_now[r[0]] = true
 	for t in [""] + DB.D.TAGORDER:
-		var n: int = DB.D.RECDEF.filter(func(r): return run.can_forge(r[0]) and (t == "" or DB.C[r[0]].tag == t)).size()
+		var n: int = DB.D.RECDEF.filter(func(r): return can_now.has(r[0]) and (t == "" or DB.C[r[0]].tag == t)).size()
 		row1.add_child(_filter_chip("all" if t == "" else "", DB.ICON.get(t) if t != "" else null, str(n) if n > 0 else "", DB.PAL.paper, forge_tag == t, func():
 			forge_tag = t
+			_open.erase("forge:more")
 			render()))
 	v.add_child(row1)
 	var row2 := HBoxContainer.new()
@@ -2610,6 +2655,7 @@ func _page_forge() -> Control:
 		var tn: String = "all" if t == 0 else ("기" if t == KIIN_T else DB.TIER[t].n.left(1))
 		row2.add_child(_filter_chip(tn, null, "", DB.PAL.paper if t == 0 else (DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c), forge_tier == t, func():
 			forge_tier = t
+			_open.erase("forge:more")
 			render()))
 	v.add_child(row2)
 	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
@@ -2643,7 +2689,7 @@ func _page_forge() -> Control:
 			gsec.add_child(UI.hint("지금 필터(병종 · 등급)에 맞는 추천이 없습니다. 필터를 '모두'로 두면 %d개가 보입니다." % hidden_n))
 		v.add_child(gsec)
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
-	var ready: Array = lst.filter(func(r): return run.can_forge(r[0]))
+	var ready: Array = lst.filter(func(r): return can_now.has(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
 	if not ready.is_empty():
 		var sec := UI.vbox(6)
@@ -2654,35 +2700,65 @@ func _page_forge() -> Control:
 		sec.add_child(rs[0])
 		v.add_child(sec)
 	# 나머지 —— 가까운 순 (모자란 장수 적은 것 먼저, 같으면 높은 등급)
-	lst = lst.filter(func(r): return not run.can_forge(r[0]) and not rec.has(r[0]))
+	lst = lst.filter(func(r): return not can_now.has(r[0]) and not rec.has(r[0]))
+	var miss_of := {}      # 11/10 모자란 수를 비교할 때마다 다시 세지 않고 한 번만 (정렬이 약 10ms 걸렸다)
+	for r in lst:
+		miss_of[r[0]] = run.miss_count(r[0])
 	lst.sort_custom(func(x, y):
-		var a := run.miss_count(x[0])
-		var b2 := run.miss_count(y[0])
+		var a: int = miss_of[x[0]]
+		var b2: int = miss_of[y[0]]
 		if a != b2:
 			return a < b2
 		return DB.C[x[0]].tier > DB.C[y[0]].tier)
-	# 11/7 사용자: 조합 페이즈의 나머지는 모두 펼쳐 둔다 —— 11/3 의 '가까운 16개 + 더 보기' 를 걷었다
+	# 11/7 사용자: 조합 페이즈의 나머지는 모두 펼쳐 둔다 —— 11/3 의 '가까운 16개 + 더 보기' 를 걷었다.
+	# 11/10 사용자: 처음 조합 탭을 열면 프레임이 떨어진다 → 타일 200개를 한 번에 만들고 그리는 일(글꼴 · 그림 처음 쓰기)이 크다. 가까운 순 처음 36장만 만들고
+	# 나머지는 「더 보기」 로 (거르기를 바꾸거나 다른 탭에 다녀오면 다시 접힌다. 먼저 볼 줄 —— 갈무리 · 추천 · 지금 조합 가능 —— 은 그대로 다 보인다)
+	var more_open: bool = _open.get("forge:more", false)
+	var shown_n: int = lst.size() if (more_open or lst.size() < FORGE_FIRST + 12) else FORGE_FIRST      # 몇 장 안 남으면 단추 없이 다 보인다
 	var g := minis()
-	for r in lst:
-		var out: String = r[0]
-		var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-		var miss := run.miss_count(out)
-		t.lit = run.can_forge(out)
-		if t.lit:
-			t.badge = "조합"
-			t.badge_col = Color(DB.PAL.jade, 0.95)
-		elif miss > 0:
-			t.badge = "-%d" % miss
-			t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
-		else:
-			t.badge = "◆"
-			t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
-		g.add_child(t)
+	for r in lst.slice(0, shown_n):
+		g.add_child(_forge_tile(r[0]))
 	var sec2 := UI.vbox(6)
 	sec2.add_child(UI.head(("나머지 %d" if not ready.is_empty() else "조합법 %d") % lst.size(), ""))
 	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
+	if shown_n < lst.size():
+		var rest: Array = lst.slice(shown_n)
+		var mb := UI.btn("더 보기  (+%d)" % rest.size(), func(): pass, "ghost", 40)
+		mb.pressed.connect(func(): _forge_more(g, mb, rest))
+		sec2.add_child(mb)
 	v.add_child(sec2)
 	return v
+
+
+## 조합 탭 '나머지' 타일 한 장 —— 지금 조합 가능이면 옥색 '조합', 아니면 모자란 수 (-1 붉음 · -2 이상 먹색) · 재료 다 있고 아이템만 없으면 ◆
+func _forge_tile(out: String) -> MiniTile:
+	var t := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
+	var miss := run.miss_count(out)
+	t.lit = run.can_forge(out)
+	if t.lit:
+		t.badge = "조합"
+		t.badge_col = Color(DB.PAL.jade, 0.95)
+	elif miss > 0:
+		t.badge = "-%d" % miss
+		t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
+	else:
+		t.badge = "◆"
+		t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)
+	return t
+
+
+## 「더 보기」 —— 남은 타일을 한 번에 만들면 그 프레임이 멈칫하므로(약 150장) 프레임마다 FORGE_STEP 장씩 격자에 덧붙인다. 상태(_open)는 이 탭에 있는 동안만 (go 가 지운다)
+func _forge_more(g: Control, btn: Button, rest: Array) -> void:
+	_open["forge:more"] = true
+	btn.queue_free()
+	var i := 0
+	while i < rest.size():
+		if not is_instance_valid(g) or not g.is_inside_tree() or page != "forge":
+			return      # 그 사이 페이지가 다시 그려졌다 —— 새 페이지가 이미 다 펼쳐져 있다
+		for j in range(i, mini(i + FORGE_STEP, rest.size())):
+			g.add_child(_forge_tile(rest[j][0]))
+		i += FORGE_STEP
+		await get_tree().process_frame
 
 
 ## 거르기 칸 —— 글씨 대신 기호(병종) · 색(등급). 고르면 밝은 테두리, 오른쪽 위 작은 숫자 = 지금 조합 가능 수
