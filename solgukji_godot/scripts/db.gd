@@ -557,14 +557,29 @@ func tier_name(k: String) -> String:
 	return "기인" if C[k].kind == "kiin" else TIER[C[k].tier].n
 
 
+## 11/10 새 기인 효과 두 가지의 수치 —— 여기만 고치면 전투 · 설명 글이 같이 바뀐다 (효과 설명 · 되돌리는 법은 작업현황 54)
+const KIIN_MATCHUP_DR := 0.20      # 교변 장합 —— 상성이 불리한 공격에 아군이 받는 피해 −20%
+const KIIN_SHARE := 0.20           # 단복 서서 —— 아군이 받는 피해 중 가까운 아군이 나눠 받는 몫 20%
+const KIIN_SHARE_N := 2            # 단복 서서 —— 나눠 받는 가장 가까운 아군 부대 수 (최대)
+
 const KIIN_TEXT := {"guard": "병력 70% 아래 아군이 받는 피해의 절반을 대신 받는다", "no_charge": "적 기병의 첫 돌격을 막는다",
-	"no_form": "적 진형 보너스를 없앤다", "charge_up": "아군 기병의 첫 돌격 피해 +50%", "ult_block": "적 고유기 두 번을 막아 낸다",
+	"charge_up": "아군 기병의 첫 돌격 피해 +50%", "ult_block": "적 고유기 두 번을 막아 낸다",
 	"ult_cut": "적이 고유기 기를 모으면 두 번까지 끊고 게이지를 비운다", "heal_cut": "적 회복 −50% · 이기면 기본패 +2",
-	"ambush": "개전에 적 후열 하나를 습격 (사기 −40 · 혼란 2턴)", "form_x2": "아군 진형 보너스 3배",
+	"ambush": "개전에 적 후열 하나를 습격 (사기 −40 · 혼란 2턴)",
 	"death_gauge": "쓰러지면 아군 전원 고유기 게이지 +70 · 사기 +15", "ticket": "이기면 그날 보급 등급 선택권 +1",
 	"aura_half": "적 위세 효과 절반", "revive": "처음 무너진 아군 2부대를 병력 40%로 일으켜 세운다",
 	"seal": "개전과 중반에 적 전원 기술 봉인", "wind_slow": "적 고유기 기 모으기 +1초 · 편성에 있으면 토벌 적 편성을 미리 본다",
 	"turncoat": "개전에 적 하나를 혼란 —— 혼란된 적은 제 편을 친다", "morale_crash": "개전에 적 전원 사기 −18"}
+
+
+## 기인 기능 설명 —— 수치가 상수(KIIN_MATCHUP_DR · KIIN_SHARE · KIIN_SHARE_N)에서 오는 두 개는 여기서 만들고 나머지는 KIIN_TEXT
+func kiin_text(key: String) -> String:
+	match key:
+		"matchup_dr":
+			return "상성이 불리한 공격에 아군이 받는 피해 −%d%%" % roundi(KIIN_MATCHUP_DR * 100.0)
+		"share":
+			return "아군이 받는 피해의 %d%%를 가까운 아군 %d부대가 나눠 받는다" % [roundi(KIIN_SHARE * 100.0), KIIN_SHARE_N]
+	return KIIN_TEXT.get(key, "")
 
 ## 11/3 기인 —— 한 판에 각 1장, 전설 옆 단계의 기능 장수 (data/lines.json KIIN)
 const KIIN_COL := Color("#2ee6c0")
@@ -1538,7 +1553,7 @@ func aura_effect(k: String) -> String:
 		var fw: String = ("적 " + ft.substr(4)) if ft.begins_with("tag:") else AURA_FOE.get(ft, "적")
 		parts.append(fw + " " + " · ".join(theirs))
 	if a.has("kiin"):
-		parts.append(KIIN_TEXT.get(a.kiin, ""))
+		parts.append(kiin_text(a.kiin))
 	return " / ".join(parts)
 
 
