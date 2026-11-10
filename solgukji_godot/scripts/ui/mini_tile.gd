@@ -1,5 +1,6 @@
 class_name MiniTile
 extends Control
+const TierDeco := preload("res://scripts/ui/tier_deco.gd")      # 11/10 class_name 캐시(.godot)와 무관하게 쓰려고 preload (캐시가 낡으면 "TierDeco not declared" 파스 오류)
 ## 초상 위주의 작은 카드 —— 휴대폰 세로에서 한 줄에 4장. 보유 카드·조합 격자·재료에 쓴다.
 ## 위: 초상(등급색 테두리 · 세력 점 · 장수 배지) / 아래: 이름. 왼쪽 아래 알약 배지(조합 · -2 · 2/3 …).
 ## 짧게 누르면 tapped, 끌면 목록이 스크롤된다.

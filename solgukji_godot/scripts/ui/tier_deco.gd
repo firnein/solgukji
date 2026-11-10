@@ -1,4 +1,3 @@
-class_name TierDeco
 extends RefCounted
 ## 등급 장식 (11/9 사용자: 기 · 초 · 불 · 신의 프로필을 더 화려하게) —— 카드 초상 타일(CardView · MiniTile · CardTile · 편성 칸 · 전투 아래 카드)이 같이 쓴다.
 ## 규칙: 일반 카드(1~5등급, 기인 아닌 것)는 장식이 없다. 위 등급일수록 장식이 커진다 —— 네 단계가 서로 달라야 한다.
@@ -77,7 +76,7 @@ class Baked extends RefCounted:
 		var sz: Vector2 = args[2]
 		var sc: float = args[7]
 		var sub := SubViewport.new()
-		sub.size = Vector2i(ceili((sz.x + TierDeco.BAKE_M * 2.0) * sc), ceili((sz.y + TierDeco.BAKE_M * 2.0) * sc))
+		sub.size = Vector2i(ceili((sz.x + BAKE_M * 2.0) * sc), ceili((sz.y + BAKE_M * 2.0) * sc))
 		sub.transparent_bg = true
 		sub.disable_3d = true
 		sub.gui_disable_input = true
@@ -107,8 +106,8 @@ class Painter extends Control:
 	func _draw() -> void:
 		var sc: float = args[7]
 		var sz: Vector2 = args[2]
-		draw_set_transform(Vector2(TierDeco.BAKE_M, TierDeco.BAKE_M) * sc, 0.0, Vector2(sc, sc))
-		TierDeco.paint(self, Rect2(Vector2.ZERO, sz), args[0], args[1], args[3], args[4], args[5], args[6], args[8])
+		draw_set_transform(Vector2(BAKE_M, BAKE_M) * sc, 0.0, Vector2(sc, sc))
+		(load("res://scripts/ui/tier_deco.gd") as GDScript).paint(self, Rect2(Vector2.ZERO, sz), args[0], args[1], args[3], args[4], args[5], args[6], args[8])
 
 
 ## 타일 위에 장식을 직접 그린다(구울 때 · 구워지기 전). r 타일 전체 · sz 크기 단계 · rad 타일 테두리 모서리 반지름 · bw 타일 테두리 두께 · u 크기 배율(큰 카드는 폭/150, 나머지 1) · top_free 윗변 가운데를 써도 되는가

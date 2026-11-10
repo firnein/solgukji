@@ -1,5 +1,6 @@
 class_name CardView
 extends Control
+const TierDeco := preload("res://scripts/ui/tier_deco.gd")      # 11/10 class_name 캐시(.godot)와 무관하게 쓰려고 preload (캐시가 낡으면 "TierDeco not declared" 파스 오류)
 ## 카드 한 장 —— 등급별 테두리, 세력 배지, 병종 아이콘, 초상, 칭호·이름 두 줄. (등급·병력·PV 는 테두리와 상세 정보로 안다)
 ## 기인 · 초월 · 불멸 · 신화는 등급 장식(TierDeco)이 붙고, 신화는 빛줄기가 지나간다 (11/9 —— 움직이는 것은 Shimmer 덧칸 하나, 카드 본체는 다시 그리지 않는다).
 

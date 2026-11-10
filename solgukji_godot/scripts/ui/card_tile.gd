@@ -1,5 +1,6 @@
 class_name CardTile
 extends Control
+const TierDeco := preload("res://scripts/ui/tier_deco.gd")      # 11/10 class_name 캐시(.godot)와 무관하게 쓰려고 preload (캐시가 낡으면 "TierDeco not declared" 파스 오류)
 ## 작은 카드 —— 손패·조합·선택권 목록에 쓴다. 왼쪽 초상(오른쪽 위 병종 기호), 등급색 띠, 등급색 이름, 특기 칸(이름+레벨).
 ## 등급은 이름 색과 띠로 알 수 있어 따로 적지 않는다. 병력 · PV 는 상세에서.
 ## 탭하면 tapped. drag_data 를 주면 길게 눌러(0.35초) 끌 수 있다 —— 짧게 끌면 목록이 스크롤된다.
