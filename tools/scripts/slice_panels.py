@@ -8,8 +8,14 @@ slice_sheet.py 는 인물만 오려 내는데, 패널 안이 배경 그림으로
   2. 줄마다 그림 화소 수를 세어 긴 덩어리(패널)와 짧은 덩어리(이름표)를 가른다. 패널 줄 띠마다 열도 같은 식으로 가른다.
   3. 패널 사각형을 잘라, 가장자리에서 시작해 바탕색과 닿아 있는 화소만 넘쳐 채워 투명하게 한다 (패널 속 초록은 남는다).
 
-실행: python -I slice_panels.py 시트.png "이름,이름,..." 출력폴더 [미리보기.png]
+실행: python -I slice_panels.py 시트.png "이름,이름,..." 출력폴더 [미리보기.png] [--rim N] [--bottom F]
 이름은 읽는 순서(위 줄부터, 왼쪽부터).
+
+옵션 (11/10 —— v2 시트 자르기 고침. 없으면 예전 동작 그대로)
+  --rim N     바탕으로 지우는 범위를 패널 가장자리 N픽셀 안쪽으로 한정한다 (권장 12). 연한 하늘 · 안개가 시트의 연두 바탕과 닮으면
+              넘쳐 채우기가 가장자리에서 그림 속까지 파 먹어 투명 구멍이 났다 (초월 시트).
+  --bottom F  패널 높이의 F 비율(0~1)을 아래에서 잘라 낸다. 시트의 번호 이름표(붓질 도장)가 패널 아래쪽 그림을 덮는 시트용
+              (기인 · 초월은 약 0.12, 불멸은 약 0.10). 이름표가 패널 밖에 있는 시트(초월 04 · 불멸 03 · 08 · 신화)에는 쓰지 않는다.
 """
 import sys
 
@@ -34,9 +40,18 @@ def runs(v: np.ndarray, min_len: int):
     return out
 
 
+def opt(name):
+    """--name 값 (없으면 None)"""
+    if name not in sys.argv:
+        return None
+    return float(sys.argv[sys.argv.index(name) + 1])
+
+
 def main():
-    src, names, out = sys.argv[1], sys.argv[2].split(","), sys.argv[3]
-    preview = sys.argv[4] if len(sys.argv) > 4 else None
+    args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and not (i > 1 and sys.argv[i - 1] in ("--rim", "--bottom"))]
+    src, names, out = args[0], args[1].split(","), args[2]
+    preview = args[3] if len(args) > 3 else None
+    rim_n, bottom_f = opt("--rim"), opt("--bottom")
     rgb = np.asarray(Image.open(src).convert("RGB")).astype(int)
     h, w, _ = rgb.shape
     corners = np.array([rgb[4, 4], rgb[4, w - 5], rgb[h - 5, 4], rgb[h - 5, w - 5]])
@@ -75,6 +90,11 @@ def main():
         crop = rgb[y0:y1, x0:x1]
         d = np.abs(crop - bgc).sum(axis=2)
         cand = (d < 90) | ((crop[..., 1] > crop[..., 0] + 15) & (crop[..., 1] > crop[..., 2] + 30) & (crop[..., 1] > 170))   # 바탕 + 패널 둘레 연두 번짐
+        if rim_n:      # 가장자리 띠 안쪽만 바탕 후보 —— 그림 속 연한 하늘이 번지지 않게
+            n = int(rim_n)
+            rim = np.zeros_like(cand)
+            rim[:n, :], rim[-n:, :], rim[:, :n], rim[:, -n:] = True, True, True, True
+            cand &= rim
         # 가장자리에서 넘쳐 채운다 —— 패널 바깥 바탕만 투명
         bg = np.zeros_like(cand)
         bg[0, :], bg[-1, :], bg[:, 0], bg[:, -1] = cand[0, :], cand[-1, :], cand[:, 0], cand[:, -1]
@@ -100,6 +120,8 @@ def main():
                 break
         ys = np.nonzero(rgba[..., 3].max(axis=1))[0]
         rgba = rgba[: ys.max() + 1]
+        if bottom_f:      # 번호 도장이 그림 아래를 덮은 만큼 자른다
+            rgba = rgba[: int(rgba.shape[0] * (1.0 - bottom_f))]
         im = Image.fromarray(rgba, "RGBA")
         im.save(f"{out}/{nm}.png")
         tiles.append((nm, im))
