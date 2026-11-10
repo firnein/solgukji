@@ -262,6 +262,9 @@ func _build_top() -> Control:
 	_pow_lbl = UI.lbl("", 15, DB.PAL.paper, true)
 	_pow_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	rv.add_child(_pow_lbl)
+	_hp_gauge = HpGauge.new()      # 11/10 사용자: 민심(체력)이 어디에도 안 보인다 —— 모든 탭의 머리띠 오른쪽에 늘 보인다
+	_hp_gauge.tapped.connect(func(): toast("민심은 체력 —— 패배마다 깎이고, 0 이 되면 멸망한다"))
+	rv.add_child(_hp_gauge)
 	_info_lbl = UI.rich("", 11)
 	_info_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_info_lbl.custom_minimum_size = Vector2(140, 0)
@@ -770,6 +773,7 @@ func _render_head() -> void:
 		_pow_lbl.visible = true
 		_pow_lbl.text = "%s명" % Battle.num(run.board_power())
 	_phase_bar.queue_redraw()
+	_hp_sync()
 	# 11/9 사용자: 상단의 PV · 순위 · 경고 줄은 뺀다 (경고 · 순위는 기록 탭에서 본다)
 	_info_lbl.clear()
 	_info_lbl.visible = false
@@ -800,6 +804,40 @@ func _item_band() -> void:
 		band("%s 획득" % it.name, UI.item_col(run.last_item), "%s · %s" % [it.tag, UI.item_text(run.last_item)])
 	_item_seen = run.last_item
 	_bag_seen = n
+
+
+## 머리띠 민심 게이지 (11/10) —— 보이는 값 _hp_shown 을 기억해 두었다가 run.hp 가 그보다 낮아지면 한 번 붉게 번쩍이며 줄어든다.
+## 전투를 보는 동안(결과 화면이 따로 「민심 −N」 을 보인다) · 온라인에서 서버가 먼저 깎아 보낸 판을 다 보기 전에는 값을 붙잡아 둔다 (미리 알려 주지 않게)
+var _hp_gauge: HpGauge
+var _hp_shown := -1
+var _hp_run: Run = null
+var _hp_online := false
+var _hp_plan := {}            # 이번 전투 결과 화면에서 보일 「민심 −N」 {prev, loss}
+var _hp_fx: Control = null    # 결과 화면의 민심 줄
+var _battle_last := true      # 온라인: 지금 보는 전투가 이번 단계의 마지막인지
+var _battle_kind := ""
+var _dev_hploss := 0          # 점검용 --ghploss
+func _hp_sync() -> void:
+	if _hp_gauge == null or run == null:
+		return
+	var fresh: bool = _hp_shown < 0 or (run != _hp_run and (online == null or not _hp_online)) or _hp_online != (online != null)
+	_hp_run = run
+	_hp_online = online != null
+	var hp := clampi(run.hp, 0, Run.HP_MAX)
+	if fresh or hp > _hp_shown:
+		_hp_shown = hp
+		_hp_gauge.set_now(hp)
+		return
+	if hp == _hp_shown or _hp_hold():
+		return
+	_hp_shown = hp
+	_hp_gauge.drop_to(hp)
+
+
+func _hp_hold() -> bool:
+	if _battle_layer != null and _battle_layer.visible:
+		return true
+	return online != null and online.in_game and str(online.room.get("stage", "")) in Room.WATCH_STAGES and not online._seen_all
 
 
 func toast(text: String, kind := "") -> void:
@@ -3308,6 +3346,10 @@ func _dev_args() -> void:
 			"online": _go_online()      # 점검용 —— 온라인 대전 접속 팝업 (11/9)
 			"onwar":      # 점검용 —— 서버 없이 온라인 전투 탭 (--gsheet=onwar:noon | morning | evening_prep | evening, 11/9)
 				if online == null:
+	if a.has("ghp") and run != null:      # 점검용 —— --ghp=25 : 민심을 이 값으로 두고 시작 (머리띠 게이지 색 점검, 11/10)
+		run.hp = clampi(int(a.ghp), 0, Run.HP_MAX)
+		_hp_shown = run.hp
+		_hp_gauge.set_now(run.hp)
 					online = Online.new()
 					online.gs = self
 					add_child(online)
@@ -3794,6 +3836,87 @@ class TabButton extends Control:
 						else:
 							draw_rect(Rect2(p - Vector2(2.6, 2.6), Vector2(5.2, 5.2)), col, false, 1.2)
 			"war":       # 엇갈린 칼 두 자루
+## 머리띠 민심 게이지 (11/10) —— 하트 · "민심" · 숫자 + 가는 막대. 평소 종이색 + 금 한 가지, 30 이하만 인장 붉음(맥동은 약하게),
+## 60 안팎은 변화 없음. 줄어들 때만 한 번 붉게 번쩍이고 잃은 몫이 붉은 꼬리로 줄어든다. 누르면 tapped (한 줄 설명)
+class HpGauge extends Control:
+	signal tapped
+	const LOW := 30.0
+	var value := 100.0       # 보이는 값 (줄어드는 중이면 중간 값)
+	var trail := 100.0       # 잃은 몫을 보이는 꼬리 (value 이상)
+	var flash := 0.0
+	var _t := 0.0
+	var _from := 100.0
+	var _to := 100.0
+	var _tw: Tween
+	var _press := Vector2.INF
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(92, 24)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _process(dt: float) -> void:
+		_t += dt
+		if value <= LOW:
+			queue_redraw()      # 낮을 때만 천천히 맥동
+
+	func _gui_input(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed:
+				_press = e.position
+			else:
+				if _press != Vector2.INF and Rect2(Vector2.ZERO, size).has_point(e.position):
+					tapped.emit()
+				_press = Vector2.INF
+
+	func set_now(v: float) -> void:
+		if _tw != null:
+			_tw.kill()
+		value = v
+		trail = v
+		flash = 0.0
+		queue_redraw()
+
+	func drop_to(v: float) -> void:
+		if _tw != null:
+			_tw.kill()
+		_from = value
+		_to = v
+		trail = value
+		flash = 1.0
+		_tw = create_tween()
+		_tw.tween_method(_step, 0.0, 1.0, 1.4)
+
+	func _step(u: float) -> void:
+		flash = pow(1.0 - clampf(u / 0.75, 0.0, 1.0), 1.5)
+		value = lerpf(_from, _to, ease(clampf((u - 0.1) / 0.5, 0.0, 1.0), 0.4))
+		trail = lerpf(_from, _to, clampf((u - 0.35) / 0.55, 0.0, 1.0))
+		if u >= 1.0:
+			value = _to
+			trail = _to
+			flash = 0.0
+		queue_redraw()
+
+	func _draw() -> void:
+		var P := DB.PAL
+		var v := clampf(value, 0.0, 100.0)
+		var low := v <= LOW
+		var hot: Color = P.seal.lightened(0.3)
+		var txt: Color = (hot if low else P.paper).lerp(hot, flash)
+		var bar: Color = (P.seal if low else P.gold).lerp(hot, flash)
+		if low:
+			var pulse := 0.84 + 0.16 * sin(_t * TAU / 2.8)
+			txt.a = pulse
+			bar.a = pulse
+		Icons.draw(self, "heart", Vector2(8, 9), 15, txt)
+		draw_string(DB.font_bold, Vector2(19, 13), "민심", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.bamboo_dim.lerp(hot, flash * 0.8))
+		draw_string(DB.font_bold, Vector2(0, 14), str(int(round(v))), HORIZONTAL_ALIGNMENT_RIGHT, size.x, 15, txt)
+		var by := size.y - 4.0
+		draw_rect(Rect2(0, by, size.x, 3), P.ink3)
+		if trail > v:
+			draw_rect(Rect2(size.x * v / 100.0, by, size.x * (trail - v) / 100.0, 3), Color(hot, 0.9))
+		draw_rect(Rect2(0, by, size.x * v / 100.0, 3), bar)
+
+
 				for sgn in [-1.0, 1.0]:
 					var a := c + Vector2(-9 * sgn, 9)
 					var b := c + Vector2(9 * sgn, -9)

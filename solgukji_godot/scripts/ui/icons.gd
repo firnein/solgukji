@@ -71,6 +71,12 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 				bp.append(c + Vector2.from_angle(-PI / 2 + i * PI / 8) * br)
 			bp.append(bp[0])
 			ci.draw_polyline(bp, col, w * 0.9)
+		"heart":     # 민심(마음) —— 아래가 뾰족한 하트 한 줄 (11/10 머리띠 민심 게이지)
+			var hrt := PackedVector2Array()
+			for i in 25:
+				var ht := TAU * i / 24.0
+				hrt.append(c + Vector2(16.0 * pow(sin(ht), 3.0), -2.5 - (13.0 * cos(ht) - 5.0 * cos(2.0 * ht) - 2.0 * cos(3.0 * ht) - cos(4.0 * ht))) * 0.56 * u)
+			ci.draw_polyline(hrt, col, w)
 		# 11/7 고유기 기질 기호 (디테일창 · 전투장수창 · 보급 팝업의 기질 칸) —— 맹장 칼 · 수호 방패 · 저격 과녁 · 분노 불꽃 (지략은 두루마리 "news")
 		"blade":     # 칼 —— 날은 왼쪽 아래에서 오른쪽 위로, 코등이 · 자루
 			ci.draw_line(c + Vector2(-3, 3) * u, c + Vector2(8, -8) * u, col, w * 1.4)
