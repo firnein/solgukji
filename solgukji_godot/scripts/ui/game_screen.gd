@@ -775,11 +775,44 @@ func _render_head() -> void:
 	_info_lbl.clear()
 	_info_lbl.visible = false
 	# 소식 버튼 (11/7) —— 소식 수 뱃지, 없으면 흐리게
-	var nn := run.news.size()
-	_news_btn.disabled = nn == 0
-	_news_badge.visible = nn > 0
-	_news_badge.text = str(nn)
+	# 11/10 사용자: 소식 레드닷이 사라지지 않았다 → 안 읽은 소식 수 (소식 시트를 열면 읽음, 새 소식이 오면 다시 켜진다)
+	_news_btn.disabled = run.news.is_empty()
+	var unread := _news_unread()
+	_news_badge.visible = unread > 0
+	_news_badge.text = str(unread)
 	_item_band()
+
+
+## 안 읽은 소식 —— 항목의 id(서버 · 솔로 Run 이 매기는 늘어나는 번호)가 읽은 기준(_news_seen_id)보다 큰 것.
+## 판이 바뀌면(새 판 · 이어 하기 → Run 객체가 바뀜 · 온라인 입장/방이 바뀜) 기준을 지금 가장 큰 번호로 다시 잡는다
+## (온라인은 서버 상태마다 Run 이 새 객체라 객체가 아니라 방 코드로 비교한다). id 가 없는 옛 항목은 읽은 것으로 본다
+var _news_run: Run = null
+var _news_room := ""
+var _news_seen_id := 0
+func _news_max_id() -> int:
+	var m := 0
+	for nw in run.news:
+		m = maxi(m, int(nw.get("id", 0)))
+	return m
+
+
+func _news_unread() -> int:
+	var on := online != null and online.in_game and not online.room.is_empty()
+	var rc := str(online.room.get("code", "")) if on else ""
+	if on:
+		if rc != _news_room:
+			_news_room = rc
+			_news_run = null
+			_news_seen_id = _news_max_id()
+	elif _news_room != "" or run != _news_run:
+		_news_room = ""
+		_news_run = run
+		_news_seen_id = _news_max_id()
+	var n := 0
+	for nw in run.news:
+		if int(nw.get("id", 0)) > _news_seen_id:
+			n += 1
+	return n
 
 
 ## 아이템을 얻은 순간 가운데 띠 한 번 (11/7 사용자: 징집 페이지에 늘 자리를 차지하던 '아이템 이름 · 효과' 칩 대신).
@@ -1622,6 +1655,8 @@ func mini_n(a: int, b: int) -> int:
 
 
 func _news_sheet() -> void:
+	_news_seen_id = maxi(_news_seen_id, _news_max_id())      # 연 순간 읽음 처리 (11/10)
+	_render_head()
 	var b := open_sheet("전황 소식")
 	if run.news.is_empty():
 		b.add_child(UI.hint("아직 소식이 없다 —— 다른 세력이 장수를 등용하면 여기에 쌓인다."))
@@ -1631,9 +1666,15 @@ func _news_sheet() -> void:
 			var tx := str(nw.get("text", ""))
 			if tx.begins_with(who):
 				who = ""
-			b.add_child(UI.rich(("[b]%s[/b] " % who if who != "" else "") + tx, 15))
+			b.add_child(UI.rich(("[b]%s[/b] " % who if who != "" else "") + tx + _news_when(nw), 15))
 			continue
-		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit)], 15))
+		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]%s" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit), _news_when(nw)], 15))
+
+
+## 소식 옆의 시점 —— 「(3일차 아침)」 옅은 글씨. 옛 항목(when 없음)은 없다 (11/10)
+func _news_when(nw: Dictionary) -> String:
+	var w := str(nw.get("when", ""))
+	return " [color=#8D7B5C](%s)[/color]" % w if w != "" else ""
 
 
 func _item_sheet(id: String) -> void:
@@ -3265,6 +3306,13 @@ func _dev_args() -> void:
 			if DB.C.has(kn[0]):
 				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
 		render()
+	if a.has("gnewsadd") and run != null:      # 점검용 —— 첫 그리기 뒤에 새 소식 N 건이 온 것처럼 (안 읽은 소식 뱃지 · 소식 시트의 시점 글, 11/10 · 저장하지 않는다)
+		for ni in int(a.gnewsadd):
+			run.news_seq += 1
+			run.news.push_front({"who": "관우팬%d" % ni, "unit": ["c177", "K12", "L12"][ni % 3], "id": run.news_seq, "when": run.when_text()})
+		run.news.push_front({"who": "솔", "unit": "", "text": "방을 떠났다 — 자리는 봇이 이어받는다", "id": run.news_seq + 1, "when": "3일차 아침"})
+		run.news_seq += 1
+		render()
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
 			_open[key] = true
@@ -3327,6 +3375,7 @@ func _dev_args() -> void:
 			"itemfx":      # 점검용 —— 아이템을 하나 얻고 가운데 띠가 뜨는지 (11/7, 저장하지 않는다)
 				run.gain_item()
 				render()
+			"news": _news_sheet()      # 점검용 —— 전황 소식 시트 (읽음 처리 포함)
 			"settings": _settings_sheet()
 			"online": _go_online()      # 점검용 —— 온라인 대전 접속 팝업 (11/9)
 			"onwar":      # 점검용 —— 서버 없이 온라인 전투 탭 (--gsheet=onwar:noon | morning | evening_prep | evening, 11/9)

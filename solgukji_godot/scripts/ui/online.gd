@@ -459,18 +459,28 @@ func _on_msg(d: Dictionary) -> void:
 				var tx := str(it.get("text", ""))
 				var who := str(it.get("who", ""))
 				var unit := str(it.get("unit", ""))
-				if tx != "":
+				var nid := int(it.get("id", 0))
+				if bool(it.get("hot", false)) and who != "" and DB.C.has(unit):
+					gs.urgent(who, unit)
+				elif tx != "":
 					gs.toast(tx, str(it.get("kind", "news")))
 				if gs.run == null:
 					continue
 				var dup := false
 				for nw in gs.run.news:
-					if unit != "" and str(nw.get("who", "")) == who and str(nw.get("unit", "")) == unit:
+					if nid > 0 and int(nw.get("id", 0)) == nid:
+						dup = true
+					elif unit != "" and str(nw.get("who", "")) == who and str(nw.get("unit", "")) == unit:
 						dup = true
 					elif unit == "" and tx != "" and str(nw.get("text", "")) == tx:
 						dup = true
 				if not dup and (tx != "" or unit != ""):
-					gs.run.news.push_front({"who": who, "unit": unit, "text": tx})
+					var item := {"who": who, "unit": unit, "text": tx}
+					if nid > 0:
+						item["id"] = nid
+					if it.has("when"):
+						item["when"] = str(it.when)
+					gs.run.news.push_front(item)
 					gs.run.news = gs.run.news.slice(0, 12)
 			if gs.run != null:
 				gs._render_head()

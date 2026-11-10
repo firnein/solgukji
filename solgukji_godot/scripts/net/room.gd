@@ -36,6 +36,7 @@ const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합
 const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
 const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
+const STAGE_SHORT := {"morning": "아침", "noon": "점심", "evening_prep": "저녁 준비", "evening": "저녁"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
 
 var server                    # MatchServer —— send(peer, msg)
 var code := ""
@@ -55,6 +56,8 @@ var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b �
 var tour = null               # {round, list:[{name, seat}], res:[[{a, b, w}]], next}
 var rng := RandomNumberGenerator.new()
 var empty_since := -1.0
+var news_seq := 0             # 소식 항목 번호 —— _news_add 가 1씩 올려 붙인다 (휴대폰이 안 읽은 소식을 가른다)
+var _news_stage := ""         # _advance 중에는 아직 stage 가 지난 단계라 시점을 '아침'으로 못박는다
 var rlog: RoomLog = null      # 사람마다 플레이 기록 (11/10) —— 부수 효과일 뿐, 없어도(점검 방 · 쓰기 실패) 방은 그대로 간다
 
 
@@ -82,6 +85,12 @@ func seat_of(peer: int) -> int:
 
 func day_no() -> int:
 	return day * 3 + phase + 1
+
+
+## 소식의 시점 글 —— "3일차 아침" (day_no · 지금 단계)
+func when_text() -> String:
+	var st := _news_stage if _news_stage != "" else stage
+	return "%d일차 %s" % [day_no(), STAGE_SHORT.get(st, "")] if STAGE_SHORT.has(st) else ""
 
 
 # ───────── 대기실 ─────────
@@ -573,6 +582,7 @@ func _advance() -> void:
 	if phase > 2:
 		phase = 0
 		day += 1
+	_news_stage = "morning"      # 이 아래에서 생기는 소식(멸망 · 봇 등용)의 시점은 새 날의 아침
 	for s in seats:
 		s.foe = null
 		if s.human:
@@ -602,6 +612,7 @@ func _advance() -> void:
 		s.run.toasts.clear()
 	for it in news:
 		_announce("%s가 %s을(를) 등용했습니다" % [it.who, DB.C[it.unit].name], it)
+	_news_stage = ""
 	_check_alone()
 
 
@@ -804,6 +815,13 @@ func _fallen(s: Dictionary) -> void:
 
 ## 소식을 모든 사람의 Run.news 에 넣는다 (except 는 뺀다) —— 머리띠 '소식' 뱃지 · 전황 소식 시트가 그대로 쓴다
 func _news_add(it: Dictionary, except = null) -> void:
+	if not it.has("id"):
+		news_seq += 1
+		it["id"] = news_seq
+	if not it.has("when"):
+		var w := when_text()
+		if w != "":
+			it["when"] = w
 	for s in humans():
 		if s == except or s.run == null:
 			continue
@@ -816,7 +834,7 @@ func _news_add(it: Dictionary, except = null) -> void:
 func _announce(text: String, it = null, except = null, hot := false) -> void:
 	var e := {"text": text, "kind": "news"}
 	if it is Dictionary:
-		for k in ["who", "unit"]:
+		for k in ["who", "unit", "id", "when"]:
 			if it.has(k):
 				e[k] = it[k]
 	if hot:
