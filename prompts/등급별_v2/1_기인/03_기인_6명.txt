@@ -28,7 +28,7 @@ RANK RULES (checklist —— every panel must obey all of these):
 
 GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
 - The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
-- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- Nothing important within 12% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
 - The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
 
 EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——

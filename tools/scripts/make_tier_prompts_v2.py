@@ -135,7 +135,7 @@ def load_hints():
 
 HEAD_ZONE = """GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
 - The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between {z0}% and {z1}% of the {unit} height, horizontally centered, never off to a side.
-- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- Nothing important within {side}% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
 - The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect."""
 
 REFERENCE = """REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
@@ -475,7 +475,7 @@ def sheet_text(key, chunk, ident, roles, hints):
     if not solo:
         head = "A sheet of %d Three Kingdoms (late Han dynasty China) characters. " % n + head
     parts = [head, "", SOLO_REFERENCE if solo else REFERENCE, "", RANK[key], "",
-             HEAD_ZONE.format(z0=z0, z1=z1, unit=unit), "", DISTINCT, gender_line(women), "",
+             HEAD_ZONE.format(z0=z0, z1=z1, unit=unit, side=12 if key == "kiin" else 8), "", DISTINCT, gender_line(women), "",
              SOLO_LAYOUT if solo else layout(n, PER[key]), "", "CHARACTERS"]
     ents = [entry(i + 1, c["person"], ident[c["person"]], key, roles, hints) for i, c in enumerate(chunk)]
     return "\n".join(parts) + "\n" + "\n".join(ents) + "\n"
