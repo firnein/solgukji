@@ -192,7 +192,7 @@ class Row extends Control:
 		if not r.alive:
 			draw_circle(Vector2(18, 20), 16, Color(0, 0, 0, 0.5))
 		var x0 := 42.0
-		draw_string(DB.font_display, Vector2(x0, 17), _fit(DB.font_display, r.name, 13, NAME_W), HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 13, Color(P.paper, a))
+		draw_string(DB.title_font(13), Vector2(x0, 17), _fit(DB.title_font(13), r.name, 13, NAME_W), HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 13, Color(P.paper, a))
 		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 10, P.bamboo_dim)
 		var bx := x0 + NAME_W + 6
 		var bw := size.x - bx - CNT_W - 8
@@ -201,7 +201,7 @@ class Row extends Control:
 		if r.get("gain", 0.0) > 0.0:      # 11/9 역할 기여 —— 이 장수의 깎기로 아군이 더 넣은 피해 (엔진 기록 gain)
 			draw_string(DB.font_body, Vector2(size.x - CNT_W, 12), "깎기 +" + Battle.num(r.gain), HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, 10, Color("#d8c27a", a))
 		var s := "%d · %d · %d" % [r.kills, r.sk, r.ult]
-		draw_string(DB.font_display, Vector2(size.x - CNT_W, 25), s, HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, 13, P.paper if r.kills + r.sk + r.ult > 0 else P.bamboo_dim)
+		draw_string(DB.title_font(13), Vector2(size.x - CNT_W, 25), s, HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, 13, P.paper if r.kills + r.sk + r.ult > 0 else P.bamboo_dim)
 
 	## 칸에 들어가게 뒤를 … 으로
 	static func _fit(f: Font, s: String, fs: int, w: float) -> String:

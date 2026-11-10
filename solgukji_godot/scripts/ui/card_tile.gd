@@ -108,7 +108,7 @@ func _draw() -> void:
 		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.MINI, 6.0, 1.0, 1.0, true, pr.get_center().x)      # 윗변 장식은 초상 위 (이름 글자 · 병종 기호 사이 —— 12시 ★ 은 타일 가운데라 안 겹친다)
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(9, 9), 8, DB.fac_color(c.fac))
-		draw_string(DB.font_display, pr.position + Vector2(1, 13), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color.WHITE)
+		draw_string(DB.title_font(10), pr.position + Vector2(1, 13), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color.WHITE)
 	# 병종 기호 —— 초상 오른쪽 위
 	var tcen := Vector2(pr.end.x - 8, pr.position.y + 8)
 	draw_circle(tcen, 9.5, DB.kind_col(c.tag))      # 11/9 피해 종류 —— 병종 기호 테두리 (물리 주황 · 책략 파랑)
@@ -117,11 +117,11 @@ func _draw() -> void:
 	draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 14), 10)      # 11/9 대표 역할 칩
 	var x := pr.end.x + 7
 	var tw := w - x - 6
-	var fd := DB.tier_font(c.tier)
 	var fb := DB.font_body
 	var fs := 18
-	while fs > 11 and fd.get_string_size(c.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw - (26 if qty > 0 else 0):
+	while fs > 11 and DB.tier_font(c.tier, fs).get_string_size(c.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw - (26 if qty > 0 else 0):
 		fs -= 1
+	var fd := DB.tier_font(c.tier, fs)      # 11/10 줄어든 크기(18 미만)에서는 고급 · 희귀도 굵은 고딕
 	draw_string(fd, Vector2(x, 25), c.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
 	if note != "":
 		draw_string(fb, Vector2(x, h - 12), note, HORIZONTAL_ALIGNMENT_LEFT, tw, 11, note_col if note_col.a > 0 else DB.PAL.bamboo_dim)

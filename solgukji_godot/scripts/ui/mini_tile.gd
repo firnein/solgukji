@@ -168,10 +168,10 @@ func _draw() -> void:
 		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.MINI, 8.0, float(bwv), 1.0, not star)
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(8, 8), 7, DB.fac_color(c.fac))
-		draw_string(DB.font_display, pr.position + Vector2(1, 12), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 14, 9, Color.WHITE)
+		draw_string(DB.title_font(9), pr.position + Vector2(1, 12), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 14, 9, Color.WHITE)
 	_tag_icon(c, pr.end - Vector2(10, 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼
 	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 2, pr.end.y - 15), 10)      # 11/9 대표 역할 칩
-	var fd := DB.tier_font(c.tier)
+	var fd := DB.tier_font(c.tier, 13)
 	var nm: String = c.name
 	var fs := 13
 	while fs > 9 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 6:
@@ -231,7 +231,7 @@ func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 	if rk != TierDeco.NONE:
 		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.TINY, 5.0, 1.0, 1.0, not star)
 	_tag_icon(c, pr.end - Vector2(7, 7), 6.0)
-	var fd := DB.tier_font(c.tier)
+	var fd := DB.tier_font(c.tier, 10)
 	# 11/3 사용자: 칭호를 떼고 "손권" 만 보이면 다른 카드(벽안 손권)로 오해한다 —— 칭호까지 보이고, 안 들어가면 칭호를 이름 위 작은 줄로
 	var nm: String = c.name
 	var nc := tc.lightened(0.15) if c.tier >= 3 else tc
