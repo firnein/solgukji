@@ -8,6 +8,7 @@ extends Node
 ##       사람끼리 이틀 연속 붙지 않는가(11/7 결정 ②) · 어제 상대와 다시 붙지 않는가(결정 ①) · 오류 메시지가 없는가.
 
 const PORT := 7791
+const LOG_DIR := "user://playlog_online_net"
 
 var server: MatchServer
 var bots := []                # [{c: NetClient, name, state, room, …}]
@@ -26,6 +27,11 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var n := int(args.get("players", "3"))
+	RoomLog.test_ok = true                       # 11/10 온라인 기록 —— 점검 방도 이 점검에서는 남기고 끝에 파일을 본다
+	RoomLog.dir = LOG_DIR
+	DirAccess.make_dir_recursive_absolute(LOG_DIR)
+	for fn in DirAccess.get_files_at(LOG_DIR):
+		DirAccess.remove_absolute(LOG_DIR + "/" + fn)
 	server = MatchServer.new()
 	server.port = PORT
 	add_child(server)
@@ -187,6 +193,7 @@ func _report(el: float, all_done: bool) -> void:
 				if (fl[dn - 1] in human_names) and (fl[dn] in human_names):
 					hh_streak += 1
 					errors.append("%s: 사람과 이틀 연속 붙었다 (%d일차 %s · %d일차 %s)" % [nm, dn - 1, fl[dn - 1], dn, fl[dn]])
+	_check_logs()
 	print("서버 점검 %.1f초 · 모두 끝 %s · 사람끼리 대전 %d건(양쪽 집계) · 재접속 %s · 오류 %d" % [el, all_done, pairs,
 		bots.size() > 1 and bots[1].back, errors.size()])
 	print("  단계 횟수(첫 플레이어): %s" % str(stage_count))
@@ -194,3 +201,43 @@ func _report(el: float, all_done: bool) -> void:
 	print("  가장 큰 메시지 %.0f KB" % (server.max_msg / 1024.0))
 	for e in errors.slice(0, 10):
 		print("  ", e)
+
+
+## 온라인 기록 (11/10) —— 사람 수만큼 파일 · 줄마다 올바른 JSON · 이름 · 토큰 없음 (over 줄은 tests/room_log.tscn -- --full 이 본다 —— 이 점검의 가짜 플레이어는 첫 대전 패배 때 끝낸다)
+func _check_logs() -> void:
+	var files := Array(DirAccess.get_files_at(LOG_DIR)).filter(func(f): return f.ends_with(".jsonl"))
+	var lines_n := 0
+	var kinds := {}
+	var overs := 0
+	var bad := 0
+	var names := []
+	var hh := 0
+	for fn in files:
+		var lines := FileAccess.get_file_as_string(LOG_DIR + "/" + fn).split("
+", false)
+		lines_n += lines.size()
+		var last = null
+		for ln in lines:
+			var d = JSON.parse_string(ln)
+			if typeof(d) != TYPE_DICTIONARY or not d.has("ev"):
+				bad += 1
+				continue
+			last = d
+			kinds[d.ev] = int(kinds.get(d.ev, 0)) + 1
+			if d.ev == "start":
+				names.append(d.get("player", ""))
+			if d.ev == "battle_end" and d.get("foe_human", false):
+				hh += 1
+			for c in bots:
+				if ln.contains(c.c.token) and c.c.token != "":
+					errors.append("기록에 토큰이 있다: %s" % fn)
+		if last != null and last.ev == "over":
+			overs += 1
+	if files.size() != bots.size():
+		errors.append("기록 파일 %d개 (사람 %d명)" % [files.size(), bots.size()])
+	if bad > 0:
+		errors.append("올바르지 않은 기록 줄 %d" % bad)
+	for nm in human_names:
+		if not names.has(nm):
+			errors.append("기록에 이름 %s 가 없다" % nm)
+	print("  온라인 기록: 파일 %d개 · %d줄 · 끝 줄 있는 것 %d · 사람끼리 대전 줄 %d · 줄 종류 %s" % [files.size(), lines_n, overs, hh, str(kinds)])
