@@ -120,7 +120,38 @@ func _ready() -> void:
 	_build_title()
 	resized.connect(_layout)
 	_layout()
+	_warm_start()
 	_dev_args()
+
+
+## 11/10 초상 미리 읽기 —— 처음 조합 탭을 열 때 140여 장의 초상을 한꺼번에 읽어 PC 에서 1초 가까이 멈췄다 (작업현황 60).
+## 게임을 켜자마자(타이틀에 있는 동안) 조합 탭에 나오는 장수 · 재료의 그림을 작업 스레드로 조금씩 올려 둔다. 판이 정해지면(render 첫 호출)
+## 지금 내가 가진 카드 → 추천 → 조합 순서(조합 탭이 보이는 순서) 로 앞에 끼워 넣는다. DB.warm_portraits 참고
+var _warm_run: Run = null
+
+
+func _warm_start() -> void:
+	if OS.get_cmdline_user_args().has("--nowarm"):
+		DB.warm_enabled = false
+	var outs: Array = DB.D.RECDEF.map(func(r): return r[0])
+	DB.warm_portraits(outs)
+	var mats: Array = []
+	for o in outs:
+		mats.append_array(DB.RECOF.get(o, []))
+	DB.warm_portraits(mats)
+
+
+func _warm_for_run() -> void:
+	var first: Array = run.pool().keys()
+	first.append_array(_forge_goals(DB.D.RECDEF))
+	var rest: Array = DB.D.RECDEF.map(func(r): return r[0])
+	rest.sort_custom(func(x, y):
+		var a := run.miss_count(x)
+		var b := run.miss_count(y)
+		if a != b:
+			return a < b
+		return DB.C[x].tier > DB.C[y].tier)
+	DB.warm_portraits(first + rest, true)
 
 
 ## 화면 크기·노치 —— 안전 영역 안쪽에 그리고, 넓은 창에서는 글줄 폭을 줄인다
@@ -633,6 +664,9 @@ func render(new_page := false) -> void:
 		return
 	_render_head()
 	_build_tabbar_badges()
+	if run != _warm_run:
+		_warm_run = run
+		_warm_for_run()
 	var keep := _scroll.scroll_vertical
 	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null) or (page == "war" and run.over == null and online == null and not run.is_tour_phase())      # 전투 탭 —— 진영 그림이 남는 공간을 채운다 (11/4)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
 	_scroll.visible = not fixed

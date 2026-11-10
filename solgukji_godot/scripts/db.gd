@@ -38,6 +38,8 @@ var _portrait_used := {}     # 배경이 투명한 그림 -> 실제로 그려진
 var _portrait_panel := {}    # 패널째 잘린 그림(그려진 영역이 거의 꽉 찬 사각형) —— 칸을 꽉 채워 그린다
 var _portrait_face := {}     # 그림 -> 얼굴 자리 (그림 속 정사각형 Rect2) —— 전투용 썸네일 (10/30)
 var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등급 그림이 없으면 기본 그림)
+## 11/10 점검용 —— 초상 읽기에 든 시간(마이크로초 합)을 구간별로 센다 (tests/forge_first). 시간 재기만 하고 결과에는 영향 없다
+var prof := {"n": 0, "main": 0, "decode": 0, "res": 0, "mip": 0, "tex": 0, "scan": 0}
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
@@ -52,6 +54,7 @@ const STYLE_FORM := {"물리": "hagik", "지략": "bangwon", "균형": "eorin"}
 
 
 func _ready() -> void:
+	set_process(false)      # 초상 미리 읽기(warm_portraits)가 있을 때만 돈다
 	_load()
 
 
@@ -710,23 +713,7 @@ func portrait(k: String) -> Texture2D:
 func portrait_base(k: String) -> String:
 	if _portrait_pick.has(k):
 		return _portrait_pick[k]
-	var c: Dictionary = C[k]
-	var cands: Array = []
-	if c.kind == "foe":
-		# 11/9 토벌 전용 적(y10~y79) —— assets/foes/<카드 id>.png (prompts/토벌적) 를 먼저 찾고, 없으면 병졸 그림(병종), 그것도 없으면 병종 기호
-		cands = ["res://assets/foes/%s" % k, "res://assets/troops/%s" % c.tag]
-	elif c.tier <= 2:
-		cands = ["res://assets/troops/%s" % c.tag]
-	else:
-		var p := "res://assets/portraits/%s" % person(k)
-		if TIER_ART:
-			if c.tier >= 8:
-				cands.append(p + "_신화")
-			if c.tier >= 7:
-				cands.append(p + "_불멸")
-			if c.tier >= 6:
-				cands.append(p + "_초월")
-		cands.append(p)
+	var cands: Array = _portrait_cands(k)
 	var pick := ""
 	for b in cands:
 		if _load_portrait(b) != null:
@@ -736,15 +723,37 @@ func portrait_base(k: String) -> String:
 	return pick
 
 
+func prof_reset() -> void:
+	for k in prof:
+		prof[k] = 0
+
+
+func prof_cache_size() -> int:
+	return _portrait_cache.size()
+
+
 func _load_portrait(base: String) -> Texture2D:
 	if _portrait_cache.has(base):
 		return _portrait_cache[base]
-	var tex: Texture2D = null
+	var t0 := Time.get_ticks_usec()
+	var r := _decode_portrait(base)
+	var tex := _finish_portrait(base, r)
+	prof.main += Time.get_ticks_usec() - t0
+	return tex
+
+
+## 그림 한 장 읽기 —— 파일 읽기 · 디코드 · 밉맵 · 투명 영역 검사까지 (여기는 메인 스레드가 아니어도 된다: 자기 Image 만 만지고 DB 상태는 건드리지 않는다).
+## 결과: {img, used(Rect2) · face(Rect2) — 잘라 낸 인물일 때만, panel(패널 윗변 y) — 패널째 잘린 그림일 때만, us(구간별 마이크로초)}. img 가 null 이면 그림 없음
+static func _decode_portrait(base: String) -> Dictionary:
+	var out := {"img": null, "us": {"decode": 0, "res": 0, "mip": 0, "scan": 0}}
+	var us: Dictionary = out.us
 	for ext in ["png", "jpg", "jpeg", "webp"]:
 		var path := "%s.%s" % [base, ext]
 		var img: Image = null
+		var t0 := Time.get_ticks_usec()
 		if FileAccess.file_exists(path):
 			img = _load_image(path)
+			us.decode += Time.get_ticks_usec() - t0
 		elif ResourceLoader.exists(path):
 			# 내보낸 앱(휴대폰)에는 원본 그림 파일이 없고 임포트된 텍스처만 들어간다
 			var t = load(path)
@@ -752,19 +761,23 @@ func _load_portrait(base: String) -> Texture2D:
 				img = t.get_image()
 				if img and img.is_compressed():
 					img.decompress()
+			us.res += Time.get_ticks_usec() - t0
 		if img:
+			t0 = Time.get_ticks_usec()
 			# 11/3 사용자: 일러스트가 선명하지 않다 —— 600~900px 그림을 70px 칸에 줄이면 밉맵 없이 지글거린다. 밉맵 + 선형 밉맵 거르기(project.godot)
 			if not img.has_mipmaps() and maxi(img.get_width(), img.get_height()) > 96:
 				img.generate_mipmaps()
-			tex = ImageTexture.create_from_image(img)
+			us.mip += Time.get_ticks_usec() - t0
+			t0 = Time.get_ticks_usec()
+			out.img = img
 			# 네 귀퉁이가 투명하면 잘라 낸 인물 그림으로 보고, 그려진 영역만 기억해 둔다
 			if img.detect_alpha() != Image.ALPHA_NONE:
 				var w := img.get_width() - 1
 				var h := img.get_height() - 1
 				if img.get_pixel(0, 0).a < 0.1 and img.get_pixel(w, 0).a < 0.1 and img.get_pixel(0, h).a < 0.1 and img.get_pixel(w, h).a < 0.1:
 					var ur := img.get_used_rect()
-					_portrait_used[base] = Rect2(ur)
-					_portrait_face[base] = _find_face(img, ur)
+					out.used = Rect2(ur)
+					out.face = _find_face(img, ur)
 					var n := 0
 					var on := 0
 					for y in range(ur.position.y, ur.end.y, 8):
@@ -785,10 +798,124 @@ func _load_portrait(base: String) -> Texture2D:
 							if row > cnt * 0.85:
 								top = y
 								break
-						_portrait_panel[base] = top
+						out.panel = top
+			us.scan += Time.get_ticks_usec() - t0
 			break
+	return out
+
+
+## 읽은 그림을 캐시에 올린다 —— 메인 스레드에서 (ImageTexture 만들기 + 사전 채우기뿐이라 가볍다). 이미 캐시에 있으면(같은 그림을 먼저 읽은 경우) 버린다
+func _finish_portrait(base: String, r: Dictionary) -> Texture2D:
+	if _portrait_cache.has(base):
+		return _portrait_cache[base]
+	var tex: Texture2D = null
+	if r.img != null:
+		var t0 := Time.get_ticks_usec()
+		tex = ImageTexture.create_from_image(r.img)
+		prof.tex += Time.get_ticks_usec() - t0
+		prof.n += 1
+		for k in r.us:
+			prof[k] += r.us[k]
+		if r.has("used"):
+			_portrait_used[base] = r.used
+			_portrait_face[base] = r.face
+		if r.has("panel"):
+			_portrait_panel[base] = r.panel
 	_portrait_cache[base] = tex
 	return tex
+
+
+# ───────── 초상 미리 읽기 (11/10) —— 처음 조합 탭을 열 때 140여 장을 한꺼번에 읽어 PC 에서 1초 가까이 멈췄다 (작업현황 60) ─────────
+## 디코드 · 밉맵 · 투명 검사는 작업 스레드에서(한 번에 WARM_FLY 장), 메인 스레드는 끝난 것을 캐시에 올리기만 한다 (프레임당 WARM_US 안쪽, 적어도 한 장).
+## 그림 캐시일 뿐이라 판정 · 난수에는 영향이 없다. 아직 못 읽은 그림은 그리는 쪽이 예전처럼 그 자리에서 읽는다 (portrait → _load_portrait)
+const WARM_FLY := 2
+const WARM_US := 2000
+var warm_enabled := true      # 점검용 —— false 면 미리 읽지 않는다 (예전 동작과 비교, --nowarm)
+var _warm_q: Array = []       # 읽을 그림 경로 (앞이 먼저)
+var _warm_seen := {}          # 이미 줄에 올린 경로
+var _warm_fly: Array = []     # [{id, base, r}] 작업 스레드에서 읽는 중
+
+
+## 이 카드가 쓸 수 있는 그림 경로 후보 (앞이 먼저 —— portrait_base 가 이 순서로 고른다)
+func _portrait_cands(k: String) -> Array:
+	var c: Dictionary = C[k]
+	if c.kind == "foe":
+		return ["res://assets/foes/%s" % k, "res://assets/troops/%s" % c.tag]
+	if c.tier <= 2:
+		return ["res://assets/troops/%s" % c.tag]
+	var p := "res://assets/portraits/%s" % person(k)
+	var cands: Array = []
+	if TIER_ART:
+		if c.tier >= 8:
+			cands.append(p + "_신화")
+		if c.tier >= 7:
+			cands.append(p + "_불멸")
+		if c.tier >= 6:
+			cands.append(p + "_초월")
+	cands.append(p)
+	return cands
+
+
+## 이 카드들의 초상을 미리 읽도록 줄에 올린다. front=true 면 이미 줄에 있던 것보다 앞으로 (지금 곧 볼 카드)
+func warm_portraits(keys: Array, front := false) -> void:
+	if not warm_enabled:
+		return
+	var add: Array = []
+	for k in keys:
+		if not C.has(k):
+			continue
+		for b in _portrait_cands(k):
+			if _portrait_cache.has(b):
+				if _portrait_cache[b] != null:
+					break      # 이 후보가 있으면 portrait_base 는 뒤 후보를 보지 않는다
+				continue      # 그림이 없다고 알려진 후보
+			if add.has(b) or (_warm_seen.has(b) and not front):
+				continue
+			if front:
+				_warm_q.erase(b)      # 앞으로 옮긴다
+			_warm_seen[b] = true
+			add.append(b)
+	if front:
+		_warm_q = add + _warm_q
+	else:
+		_warm_q.append_array(add)
+	if not _warm_q.is_empty():
+		set_process(true)
+
+
+func warm_pending() -> int:
+	return _warm_q.size() + _warm_fly.size()
+
+
+func _process(_dt: float) -> void:
+	if _warm_q.is_empty() and _warm_fly.is_empty():
+		set_process(false)
+		return
+	var t0 := Time.get_ticks_usec()
+	var i := 0
+	while i < _warm_fly.size():
+		var f: Dictionary = _warm_fly[i]
+		if WorkerThreadPool.is_task_completed(f.id):
+			WorkerThreadPool.wait_for_task_completion(f.id)
+			_warm_fly.remove_at(i)
+			_finish_portrait(f.base, f.slot.r)
+			if Time.get_ticks_usec() - t0 > WARM_US:
+				break
+		else:
+			i += 1
+	prof.main += Time.get_ticks_usec() - t0
+	while _warm_fly.size() < WARM_FLY and not _warm_q.is_empty():
+		var base: String = _warm_q.pop_front()
+		if _portrait_cache.has(base):
+			continue
+		var slot := {"r": {}}
+		var id := WorkerThreadPool.add_task(func(): slot.r = DB._decode_portrait(base))
+		_warm_fly.append({"id": id, "base": base, "slot": slot})
+
+
+func _exit_tree() -> void:
+	for f in _warm_fly:
+		WorkerThreadPool.wait_for_task_completion(f.id)
 
 
 ## 패널째 잘린 그림인가 —— 사각형이 꽉 차 있어 칸에 맞춰 위쪽만 보여 줘도 된다
@@ -853,7 +980,7 @@ func portrait_used(k: String) -> Rect2:
 
 
 ## 그림 읽기 —— 확장자가 아니라 파일 앞머리로 형식을 가린다 (JPEG 를 .png 로 저장한 경우 등)
-func _load_image(path: String) -> Image:
+static func _load_image(path: String) -> Image:
 	var bytes := FileAccess.get_file_as_bytes(path)
 	if bytes.size() < 12:
 		return null
