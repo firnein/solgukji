@@ -30,6 +30,9 @@ var font_display: Font
 var font_body: Font
 var font_bold: Font
 var STAT_ADJ := {}      # 능력치 보정 (set_stat_adjust)
+var CARD_ADJ := {}      # 11/10 카드별 힘 배율 {id: 배율 | {st, tr, psv}} (data/cards_ext.json card_adjust, apply_card_adjust) —— 능력치(공 · 방 · 책 · 책방) · 병력 · 특기 세기. 속도 · PV 는 그대로
+var _card_adj_on := {}  # 지금 곱해 둔 능력치 배율 (다시 불러도 겹쳐 곱하지 않게)
+var _card_adj_tr := {}  # 지금 곱해 둔 병력 배율
 const TIER_ART := true   # 11/10 사용자: 등급별 일러스트(<인물>_초월 · _불멸 · _기인.png)가 있는 카드만 그 그림을 쓴다 —— 없으면 기본 초상. 이전 설명: 초월 · 불멸 · 신화 전용 그림(<인물>_신화.png 등)을 쓸까 —— 10/30 사용자: 지금은 모든 등급이 기본 그림 (true 로 바꾸면 export_presets.cfg 의 exclude_filter 에서 *_초월 · *_불멸 · *_신화 도 빼야 APK 에 들어간다)
 const TIER_ART_MYTH := false   # 신화 카드 초상에 <인물>_신화.png 를 쓸지 (v1 신화는 컷인 전용으로 둔다)
 var _BASE := {}         # 보정 전 원본 능력치
@@ -196,6 +199,9 @@ func _load() -> void:
 		PSV.ladder[p] = LINES.ladder[p]
 	merge_stats()      # 11/6 #15 책략 · 책략방어 통합
 	set_branch(BRANCH_TR, BRANCH_ST)      # 11/9 초월 · 기인 몸을 불멸 평균의 0.75 · 0.88 / 0.7 · 0.85 로
+	CARD_ADJ = ext.get("card_adjust", {}).duplicate()
+	CARD_ADJ.erase("_설명")
+	apply_card_adjust()      # 11/10 전투 밸런스 —— 카드별 능력치 미세 조정 (몸 정규화 뒤에 곱한다)
 	_reskill()
 	_apply_roles()      # 11/9 원랜디식 역할 재배치 —— 기술 고르기(_reskill) 뒤에 (사다리가 바뀌어도 카드 기술은 그대로)
 	_build_forms()
@@ -611,8 +617,8 @@ func tier_name(k: String) -> String:
 
 
 ## 11/10 새 기인 효과 두 가지의 수치 —— 여기만 고치면 전투 · 설명 글이 같이 바뀐다 (효과 설명 · 되돌리는 법은 작업현황 54)
-const KIIN_MATCHUP_DR := 0.20      # 교변 장합 —— 상성이 불리한 공격에 아군이 받는 피해 −20%
-const KIIN_SHARE := 0.20           # 단복 서서 —— 아군이 받는 피해 중 가까운 아군이 나눠 받는 몫 20%
+const KIIN_MATCHUP_DR := 0.14      # 교변 장합 —— 상성이 불리한 공격에 아군이 받는 피해 −14% (11/10 밸런스: 임시 0.20 → 0.14 —— 장합 한 칸이 승률 +33%p 로 기인 중 가장 셌다, 효과를 끈 판 +23)
+const KIIN_SHARE := 0.30           # 단복 서서 —— 아군이 받는 피해 중 가까운 아군이 나눠 받는 몫 30% (11/10 밸런스: 임시 0.20 → 0.30 —— 서서 한 칸 −14%p, 효과 값 +3.6%p 로 약했다)
 const KIIN_SHARE_N := 2            # 단복 서서 —— 나눠 받는 가장 가까운 아군 부대 수 (최대)
 
 const KIIN_TEXT := {"guard": "병력 70% 아래 아군이 받는 피해의 절반을 대신 받는다", "no_charge": "적 기병의 첫 돌격을 막는다",
@@ -1065,6 +1071,7 @@ func passives_of(k: String):
 			sc *= float(t.get("tier_mul", PSV.get("axis_tier_mul", {}).get(attr, {})).get(str(c.tier), 1.0))      # 축 × 등급 밸런스 (10/31) —— 특기에 tier_mul 이 있으면 그것 (현혹 · 요언, 11/7)
 			if c.tier >= 8:
 				sc *= myth_trait
+			sc *= card_psv(k)      # 11/10 카드별 특기 세기 배율 (card_adjust.psv)
 			if c.get("kind", "") == "kiin" and str(kr[0]) == e[0]:      # 11/9 기인 대표 역할 —— 세기 배율
 				sc *= float(kr[1])
 			if t.has("self"):      # 금색 특기 —— 단체 효과와 함께 주인에게만 붙는 장치
@@ -1382,6 +1389,43 @@ func set_branch(tr_mul: float, st_mul: float, ktr := BRANCH_KIIN_TR, kst := BRAN
 		if not pvs.is_empty() and TIER.has(t):
 			TIER[t].lo = pvs.min()
 			TIER[t].hi = pvs.max()
+
+
+## 11/10 카드별 힘 배율 (전투 밸런스) —— data/cards_ext.json card_adjust {id: 배율 | {"st": 능력치, "tr": 병력, "psv": 특기 세기}}.
+## 숫자 하나 = 능력치 · 병력 · 특기 세기(개인 · 단체 수치)를 모두 그 배율로. 측정(tests/card_value): 능력치만 ±8% 는 승률 기여 ±1%p, 셋을 함께 ±8% 는 약 ±5%p.
+## 몸 정규화(set_branch) 뒤에 곱하므로 초월 · 기인도 그대로 먹는다. PV(비용)는 그대로.
+func _adj_of(k: String, key: String) -> float:
+	var raw = CARD_ADJ.get(k)
+	if raw == null:
+		return 1.0
+	if raw is Dictionary:
+		return float(raw.get(key, 1.0))
+	return float(raw)
+
+
+## 카드의 특기 세기 배율 (passives_of 가 곱한다)
+func card_psv(k: String) -> float:
+	return _adj_of(k, "psv")
+
+
+## 이미 곱한 배율은 나눠 내고 새로 곱하므로 몇 번 불러도 같다 (점검 도구가 CARD_ADJ 를 바꿔 다시 부를 수 있다)
+func apply_card_adjust() -> void:
+	_psv_cache.clear()      # 특기 세기 배율(psv)이 바뀌었을 수 있다
+	for k in C:
+		var want := _adj_of(k, "st")
+		var want_tr := _adj_of(k, "tr")
+		var have := float(_card_adj_on.get(k, 1.0))
+		var have_tr := float(_card_adj_tr.get(k, 1.0))
+		if not is_equal_approx(want, have):
+			var f := want / have
+			for s in ["atk", "def", "int", "res"]:
+				C[k][s] = C[k][s] * f
+				if _BASE.has(k):
+					_BASE[k][s] = _BASE[k][s] * f
+			_card_adj_on[k] = want
+		if not is_equal_approx(want_tr, have_tr):
+			C[k].tr = int(roundf(float(C[k].tr) * want_tr / have_tr / 100.0) * 100)      # 병력은 100 단위
+			_card_adj_tr[k] = want_tr
 
 
 ## 한 단계 위 등급 —— 플레이어 카드가 없는 등급(11/3 삭제한 일반)은 건너뛴다

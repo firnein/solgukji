@@ -65,6 +65,7 @@ static var myth_power := 1.0     # 신화 능력치 배율 (속도 제외) —�
 static var aura_enabled := true   # 위세 켜기 (비교용)
 static var myth_troop := 0.75    # 11/8 신화 몸값 —— 신화 병력 배율 (mk_unit). 카드 병력 70000 → 52500 (불멸 47000 의 ×1.12, 예전 ×1.49)
 static var paeup_enabled := true   # 11/8 패업 켜기 (비교용 —— 끄면 모두 불발)
+static var paeup_camp := ""       # 11/10 점검용 —— 한쪽 진영만 패업 ("A" · "B", 비우면 양쪽). 위세는 그대로 (tests/card_value mirror)
 static var aura_camp := ""        # 한쪽 진영만 위세 ("A" · "B", 비우면 양쪽) —— 점검용
 static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
 static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 —— 솔국지 확장)
@@ -1956,7 +1957,7 @@ func _wash(a: Unit) -> void:
 ## cond: status = 상태이상(PAEUP_ST)을 거는 장수 · burn = 화상을 거는 장수, 자신 외 need 명 이상
 func _paeup_setup() -> void:
 	for u in units:
-		if not paeup_enabled or not aura_enabled or not DB.AURA.has(u.c.id) or not DB.AURA[u.c.id].has("paeup") or (aura_camp != "" and u.camp != aura_camp):
+		if not paeup_enabled or not aura_enabled or not DB.AURA.has(u.c.id) or not DB.AURA[u.c.id].has("paeup") or (aura_camp != "" and u.camp != aura_camp) or (paeup_camp != "" and u.camp != paeup_camp):
 			continue
 		var pa: Dictionary = DB.AURA[u.c.id].paeup
 		var cond := str(pa.cond)
@@ -2032,9 +2033,10 @@ func _st_cap(_d: Unit) -> int:
 ## 11/9 패업 2차 —— 조조 협천자 · 관우 오관참장 · 제갈량 천문 · 감녕 백기야습 · 장료 위진소요진 · 손권 제왕술 · 여포 무쌍
 ## 시간 · 거리가 들어가는 것(감녕 · 장료 · 손권 · 천문)은 실시간 엔진(RtBattle)에서만 움직인다. 난수 없이 슬롯 · 시각으로만 고른다 (결정성)
 
+const CROWN_EVERY := 8.0     # 손권 제왕술 —— 대도독을 세우는 간격(초). 11/10 밸런스: 15 → 8 (측정: 패업을 켠 쪽이 −18%p —— 직접 공격을 안 하는 값을 못 했다)
 const LATE_T := 12.0      # 사마의 후발제인 —— 버티는 시간(초)
-const LATE_DR := 0.25     # 버티는 동안 아군이 받는 피해 −
-const LATE_ATK := 0.20    # 버틴 뒤 아군 전원 공격 +
+const LATE_DR := 0.20     # 버티는 동안 아군이 받는 피해 − (11/10 밸런스: 0.25 → 0.20, 패업을 켠 쪽 +24%p 로 너무 셌다)
+const LATE_ATK := 0.15    # 버틴 뒤 아군 전원 공격 + (11/10 밸런스: 0.20 → 0.15)
 const SEA_T0 := 10.0      # 주유 불바다 —— 깔리는 시각(초)
 const SEA_LEN := 15.0     # 불바다가 타는 시간
 const SEA_R := 230.0      # 불바다 반지름 (깔릴 때 적 진영 중심)
@@ -2115,7 +2117,7 @@ func _paeup_tick(dt: float) -> void:
 		var sq = _pa("crown", cp)
 		if sq != null:
 			var n := int(_paeup_used.get("crown_n:" + cp, 0))
-			if _tm >= 15.0 * float(n + 1):
+			if _tm >= CROWN_EVERY * float(n + 1):
 				_paeup_used["crown_n:" + cp] = n + 1
 				var last := str(_paeup_used.get("crown_last:" + cp, ""))
 				var best: Unit = null
