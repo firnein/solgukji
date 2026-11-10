@@ -1140,6 +1140,7 @@ const QUEST_BONUS_BASE := 0.30
 const QUEST_BONUS_R0 := 0.30
 const QUEST_BONUS_BIG := 0.70
 const QUEST_BONUS_TICKET_DAY := 3      # 일차 번호(0 = 1일차)가 이 값 이상 = 4일차~
+const QUEST_BONUS_TICKET_TIER := 3     # 11/10 사용자: 보너스 선택권은 고급(3) 이하 한정 —— 그날 토벌 선택권의 최고 등급이 이보다 높아도 이 등급까지만
 
 
 ## 내 편(camp A) 잔존 병력 비 0~1 (결과 roster 의 left 합 / max 합)
@@ -1182,7 +1183,7 @@ static func quest_bonus_text(base: int, ticket: int, big := true) -> String:
 		return ""
 	var head := ("토벌 대승! 보너스" if big else "토벌 선전! 보너스") + (" 기본패 +%d" % base if base > 0 else "")
 	if ticket > 0:
-		return head + " · 선택권 +%d" % ticket
+		return head + " · %s 선택권 +%d" % [DB.TIER[QUEST_BONUS_TICKET_TIER].n, ticket]
 	return head
 
 
@@ -1262,7 +1263,7 @@ func finish_battle(res: Dictionary) -> void:
 						for i in int(bb.base):
 							give(DB.BASE[rng.randi() % DB.BASE.size()])
 						if int(bb.ticket) > 0:
-							add_ticket(quest_top_tier(day), 1, true)
+							add_ticket(mini(quest_top_tier(day), QUEST_BONUS_TICKET_TIER), 1, true)
 			if not res.win:
 				strikes += 1       # 기록용
 				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]), quest_name())

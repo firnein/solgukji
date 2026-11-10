@@ -4263,7 +4263,7 @@ class BonusFx extends Control:
 		if base > 0:
 			parts.append("기본패 +%d" % base)
 		if ticket > 0:
-			parts.append("선택권 +%d" % ticket)
+			parts.append("%s 선택권 +%d" % [DB.TIER[Run.QUEST_BONUS_TICKET_TIER].n, ticket])
 		draw_string(DB.font_bold, Vector2(0, h / 2 + 6), "  ·  ".join(parts), HORIZONTAL_ALIGNMENT_RIGHT, w - 16.0, 16, Color(P.paper, a))
 		# 금빛이 한 번 쓸고 지나간다 (왼쪽 → 오른쪽, 기운 띠)
 		var u := clampf((_t - 0.1) / 0.8, 0.0, 1.0)
