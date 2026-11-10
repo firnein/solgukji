@@ -6,7 +6,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")
 ## 둘째 플레이어는 2일차에 끊었다가 같은 토큰으로 돌아온다 (그동안은 봇이 대신한다).
 ## 점검 모드(test)는 멸망하지 않아 7일째 토너먼트까지 간다.
 ## 확인: 모두 끝까지 가는가 · 사람끼리 대전의 승패가 양쪽에서 맞는가 · 저녁 준비에 받은 상대와 실제 대전 상대가 같은가 ·
-##       사람끼리 이틀 연속 붙지 않는가(11/7 결정 ②) · 어제 상대와 다시 붙지 않는가(결정 ①) · 오류 메시지가 없는가.
+##       라운드로빈(11/10): 한 바퀴(7저녁) 안에 같은 상대를 두 번 만나지 않는가 · 오류 메시지가 없는가.
 
 const PORT := 7791
 const LOG_DIR := "user://playlog_online_net"
@@ -181,27 +181,33 @@ func _report(el: float, all_done: bool) -> void:
 	var pairs := 0
 	for key in pvp_seen:
 		pairs += pvp_seen[key].filter(func(x): return pvp_seen[key].any(func(y): return y[0] == x[1])).size()
-	# 상대 선정 규칙 —— 어제 상대와 오늘 상대가 같으면 안 되고, 사람끼리 이틀 연속이면 안 된다
+	# 상대 선정 규칙 (11/10 라운드로빈) —— 저녁 7번이 한 바퀴: 같은 바퀴 안에서 같은 상대를 두 번 만나면 안 된다 (토너먼트 21일차는 뺀다)
 	var hh := 0
 	var repeat := 0
-	var hh_streak := 0
+	var seen_n := 0
 	for nm in foe_log:
 		var fl: Dictionary = foe_log[nm]
+		var per_cycle := {}      # 바퀴 번호 -> {상대: 횟수}
 		for dn in fl:
+			if int(dn) > 20:
+				continue
 			if fl[dn] in human_names:
 				hh += 1
-			if fl.has(dn - 1):
-				if fl[dn - 1] == fl[dn]:
+			seen_n += 1
+			var cy := (int(dn) - 1) / 7
+			if not per_cycle.has(cy):
+				per_cycle[cy] = {}
+			per_cycle[cy][fl[dn]] = int(per_cycle[cy].get(fl[dn], 0)) + 1
+		for cy in per_cycle:
+			for foe in per_cycle[cy]:
+				if per_cycle[cy][foe] > 1:
 					repeat += 1
-					errors.append("%s: %d일차와 %d일차 상대가 같다 (%s)" % [nm, dn - 1, dn, fl[dn]])
-				if (fl[dn - 1] in human_names) and (fl[dn] in human_names):
-					hh_streak += 1
-					errors.append("%s: 사람과 이틀 연속 붙었다 (%d일차 %s · %d일차 %s)" % [nm, dn - 1, fl[dn - 1], dn, fl[dn]])
+					errors.append("%s: %d번째 바퀴에 %s 를 %d번 만났다" % [nm, cy + 1, foe, per_cycle[cy][foe]])
 	_check_logs()
 	print("서버 점검 %.1f초 · 모두 끝 %s · 사람끼리 대전 %d건(양쪽 집계) · 재접속 %s · 오류 %d" % [el, all_done, pairs,
 		bots.size() > 1 and bots[1].back, errors.size()])
 	print("  단계 횟수(첫 플레이어): %s" % str(stage_count))
-	print("  저녁 상대 중 사람 %d건 · 어제와 같은 상대 %d건 · 사람과 이틀 연속 %d건" % [hh, repeat, hh_streak])
+	print("  저녁 상대 %d건 중 사람 %d건 · 같은 바퀴 안에서 같은 상대를 두 번 만난 건수 %d" % [seen_n, hh, repeat])
 	print("  가장 큰 메시지 %.0f KB" % (server.max_msg / 1024.0))
 	for e in errors.slice(0, 10):
 		print("  ", e)

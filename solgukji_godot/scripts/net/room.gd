@@ -7,8 +7,10 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 하루(= 게임의 한 페이즈, 7일 × 3 = 21일차)는 네 단계 (11/7 사용자 기획):
 ##   아침 morning      징집 · 조합 · 편성 (약 1분). 모두 '준비 완료'거나 시간이 끝나면 다음
 ##   점심 noon         서버가 각자의 토벌을 계산해 보내고, 각자 본다. 다 봤으면(준비) 다음
-##   저녁 evening_prep 상대가 정해진다 —— 멸망하지 않은 8자리를 PV 순으로 세워 위에서부터 인접한 짝 (_begin_evening).
-##                     어제 만난 상대는 피하고, 사람끼리는 이틀 연속 금지 (11/7 사용자 결정 ①②).
+##   저녁 evening_prep 상대가 정해진다 —— 8자리(사람 + 빈자리 봇)를 라운드로빈(원 방식)으로 돌린다 (_begin_evening · rr_round, 11/10 사용자).
+##                     저녁(토너먼트 빼고 0~19번째)마다 한 라운드, 7라운드에 한 사람이 다른 일곱 자리 전원과 정확히 한 번씩 (20번 = 7 + 7 + 6).
+##                     난수 없이 순번과 자리 배치(방의 첫 저녁에 한 번 섞고 고정)로만 정한다. 11/7 결정 ① ②(PV 순 인접 · 어제 상대 회피 · 사람끼리 이틀 연속 금지)는 이것으로 대체.
+##                     멸망한 사람의 짝이던 자리는 쉬지 않고 떠돌이 군세(유랑군)와 붙는다. 봇끼리의 짝은 싸우지 않는다.
 ##                     상대의 이름 · 전적만 보고(PV 는 안 보인다, 결정 ⑥) 편성을 고칠 준비 시간 (약 1분)
 ##   저녁 evening      서버가 대전을 계산해 보내고 본다. 모두 다 봤으면 다음 날 아침
 ## 7일째 저녁은 8인 토너먼트 —— 점심(토벌)은 없고 저녁 준비에 대진표를 보인 뒤 8강 · 4강 · 결승을 라운드마다 본다.
@@ -42,8 +44,7 @@ var server                    # MatchServer —— send(peer, msg)
 var code := ""
 var mode := "fast"
 var host := -1                # 방장 peer
-var seats := []               # [{name, human, peer, token, run, bot, ready, dead, battles, acted, watched, foe, last_foe, last_human}]
-                              #   last_foe = 어제 저녁에 만난 자리 번호(-1 이면 없음) · last_human = 그 상대가 사람이었나
+var seats := []               # [{name, human, peer, token, run, bot, ready, dead, battles, acted, watched, foe}]
 var started := false
 var human_n0 := 0             # 시작할 때 사람 수 —— 2명 이상이던 방에서 혼자 남으면 묻는다
 var alone := ""               # "" · "ask"(혼자 남아 계속할지 묻는 중) · "go"(계속하기로 했다)
@@ -52,7 +53,9 @@ var stage_no := 0             # 단계가 바뀔 때마다 1씩 —— 늦게 �
 var stage_end := 0.0
 var day := 0
 var phase := 0
-var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b 는 봇일 수 있다
+var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b 는 봇일 수 있다. 음수 -1 - d 는 멸망한 자리 d 를 대신하는 떠돌이 군세
+var rr_order := []            # 라운드로빈 자리 배치 —— 첫 저녁에 rng 로 한 번 섞고 방이 끝날 때까지 고정 (같은 순번이면 같은 짝)
+var _ghosts := {}             # 멸망한 자리 번호 -> 떠돌이 군세(자리 밖 봇) —— 저녁 대전 상대 (전적은 이어진다)
 var tour = null               # {round, list:[{name, seat}], res:[[{a, b, w}]], next}
 var rng := RandomNumberGenerator.new()
 var empty_since := -1.0
@@ -101,7 +104,7 @@ func add_human(peer: int, name_: String, token: String, rec := false) -> int:
 		return -1
 	seats.append({"name": _unique(name_), "human": true, "peer": peer, "token": token, "run": null,
 		"bot": null, "ready": false, "dead": false, "battles": [], "acted": false, "watched": false, "foe": null,
-		"last_foe": -1, "last_human": false, "say_t": -100.0, "rec": rec})
+		"say_t": -100.0, "rec": rec})
 	if host < 0:
 		host = peer
 	push_lobby()
@@ -238,7 +241,7 @@ func start() -> void:
 
 func _bot_seat(nm: String, epi: String, fac: String, style: String, pv: float, skill: float) -> Dictionary:
 	return {"name": nm, "human": false, "peer": -1, "token": "", "run": null, "ready": true, "dead": false, "battles": [],
-		"acted": false, "watched": false, "foe": null, "last_foe": -1, "last_human": false,
+		"acted": false, "watched": false, "foe": null,
 		"bot": {"epi": epi, "fac": fac, "style": style, "pv": pv, "w": 0, "l": 0, "strikes": 0, "skill": skill, "top": 0}}      # top = 소식을 띄운 최고 등급 (Run.bot_news 와 같은 기준)
 
 
@@ -405,44 +408,61 @@ func _quests() -> void:
 	_check_alone()
 
 
-## 저녁 —— 상대를 정한다 (11/7 결정 ①②, 문서 3절): 멸망하지 않은 자리를 PV 순으로 세워 위에서부터 짝을 짓는다.
-## 어제 만난 상대는 피하고, 어제 사람과 붙었으면 오늘은 봇 (사람끼리 이틀 연속 금지). 피할 수 없을 때만 그대로 짝.
-## 사람 + 봇을 가리지 않으니 사람이 홀수여도 봇이 짝이 된다. 봇끼리의 짝은 싸우지 않는다 (기록만).
+## 라운드로빈(원 방식) 한 라운드 —— order[0] 을 고정하고 나머지 n-1 자리를 한 칸씩 돌려 [[a, b] × n/2].
+## rd = 0 ~ n-2: 이 n-1 라운드 동안 모든 두 자리가 정확히 한 번씩 만난다 (n = 8 이면 7라운드)
+static func rr_round(order: Array, rd: int) -> Array:
+	var n := order.size()
+	var m := n - 1
+	var out := [[order[0], order[1 + rd % m]]]
+	for i in range(1, n / 2):
+		out.append([order[1 + (rd + i) % m], order[1 + ((rd - i) % m + m) % m]])
+	return out
+
+
+## 오늘의 짝 —— rr_round 에서 멸망한 자리(dead)를 낀 짝만 손본다: 둘 다 멸망이면 짝이 없고, 한쪽만이면 산 자리는 쉬지 않고
+## 떠돌이 군세와 붙는다 [산 자리, -1 - 멸망 자리]. (실제 자리와 바꿔 붙이면 한 바퀴 안에 같은 상대를 두 번 만나게 되므로 쓰지 않는다)
+static func rr_plan(order: Array, rd: int, dead: Array) -> Array:
+	var out := []
+	for p in rr_round(order, rd):
+		var da: bool = p[0] in dead
+		var db: bool = p[1] in dead
+		if da and db:
+			continue
+		elif da:
+			out.append([p[1], -1 - int(p[0])])
+		elif db:
+			out.append([p[0], -1 - int(p[1])])
+		else:
+			out.append(p)
+	return out
+
+
+## 저녁 —— 상대를 정한다 (11/10 사용자: 라운드로빈): 저녁 순번(day*3 + phase, 토너먼트 저녁은 여기 오지 않는다)으로 라운드를 정해
+## 8자리를 원 방식으로 짝짓는다 —— 7라운드에 한 사람이 나머지 일곱 자리와 한 번씩. 난수 없음(자리 배치만 방 첫 저녁에 한 번 섞는다).
+## 사람 + 봇을 가리지 않고, 멸망한 사람의 짝이던 자리는 떠돌이 군세와 붙는다. 봇끼리의 짝은 싸우지 않는다 (기록만).
 ## 준비 시간 동안 상대의 이름 · 전적을 보고 편성을 고친다
 func _begin_evening() -> void:
 	pairs = []
 	for s in seats:
 		s.foe = null
 		s.battles = []
-	var lst := []
+	if rr_order.size() != seats.size():
+		rr_order = []
+		for i in seats.size():
+			rr_order.append(i)
+		for i in range(rr_order.size() - 1, 0, -1):      # Fisher-Yates (방의 rng)
+			var j := rng.randi() % (i + 1)
+			var t = rr_order[i]
+			rr_order[i] = rr_order[j]
+			rr_order[j] = t
+	var dead := []
 	for i in seats.size():
-		if not (seats[i].human and seats[i].dead):
-			lst.append(i)
-	lst.sort_custom(func(a, b): return _pv(seats[a]) > _pv(seats[b]))
-	if lst.size() % 2 == 1:
-		# 홀수면 가장 약한 봇을 빼 사람은 늘 짝이 맞게 (사람뿐이면 꼴찌 사람이 쉰다)
-		for k in range(lst.size() - 1, -1, -1):
-			if not seats[lst[k]].human:
-				lst.remove_at(k)
-				break
-	# 위에서부터 인접한 짝 —— 규칙(어제 상대 · 사람끼리 연속)을 모두 지키는 짝이 있으면 그것(8자리라 되짚어도 싸다),
-	# 없으면 규칙을 무시하고 그냥 인접한 짝
-	var found := _match(lst, 0)
-	if found.is_empty():
-		for x in range(0, lst.size() - 1, 2):
-			found.append([lst[x], lst[x + 1]])
-	pairs = found
-	# 오늘 상대를 '어제 상대'로 적어 둔다 —— 내일 피한다
-	for s in seats:
-		s.last_foe = -1
-		s.last_human = false
+		if seats[i].human and seats[i].dead:
+			dead.append(i)
+	pairs = rr_plan(rr_order, (day * 3 + phase) % (seats.size() - 1), dead)
 	for p in pairs:
-		var a: Dictionary = seats[p[0]]
-		var b: Dictionary = seats[p[1]]
-		a.last_foe = p[1]
-		a.last_human = b.human
-		b.last_foe = p[0]
-		b.last_human = a.human
+		var a: Dictionary = _pair_seat(p[0])
+		var b: Dictionary = _pair_seat(p[1])
 		if a.human:
 			a.foe = _foe_info(b)
 		if b.human:
@@ -450,38 +470,15 @@ func _begin_evening() -> void:
 	_stage("evening_prep")
 
 
-## 순서대로 짝을 짓되 규칙을 지키는 짝만 —— 첫 미배정을 가장 가까운 상대부터 붙여 보고 안 되면 되짚는다. 못 찾으면 빈 배열
-func _match(lst: Array, from: int) -> Array:
-	while from < lst.size() and lst[from] < 0:
-		from += 1
-	if from >= lst.size():
-		return []
-	var a: int = lst[from]
-	for y in range(from + 1, lst.size()):
-		var b: int = lst[y]
-		if b < 0 or not _can_pair(a, b):
-			continue
-		lst[from] = -1
-		lst[y] = -1
-		var rest := _match(lst, from + 1)
-		var ok := not rest.is_empty() or lst.all(func(k): return k < 0)
-		lst[from] = a
-		lst[y] = b
-		if ok:
-			rest.push_front([a, b])
-			return rest
-	return []
-
-
-## 오늘 이 둘이 붙어도 되나 —— 어제 만난 사이가 아니고, 사람끼리면 둘 다 어제 사람과 붙지 않았어야
-func _can_pair(a: int, b: int) -> bool:
-	var sa: Dictionary = seats[a]
-	var sb: Dictionary = seats[b]
-	if sa.last_foe == b or sb.last_foe == a:
-		return false
-	if sa.human and sb.human and (sa.last_human or sb.last_human):
-		return false
-	return true
+## 짝에 적힌 번호의 자리 —— 음수는 멸망한 자리를 대신하는 떠돌이 군세 (세기 = 방 평균 PV, 전적은 이어진다)
+func _pair_seat(i: int) -> Dictionary:
+	if i >= 0:
+		return seats[i]
+	var d := -1 - i
+	if not _ghosts.has(d):
+		_ghosts[d] = _bot_seat("유랑군 %d" % (d + 1), "떠돌이 군세", "군", "균형", 0.0, 1.0)
+	_ghosts[d].bot.pv = float(_avg_pv())
+	return _ghosts[d]
 
 
 ## 상대 정보 —— 이름 · 전적만 (PV 와 편성은 보이지 않는다, 결정 ⑥)
@@ -507,8 +504,8 @@ func _pvps() -> void:
 	for s in seats:
 		s.battles = []
 	for p in pairs:
-		var a: Dictionary = seats[p[0]]
-		var b: Dictionary = seats[p[1]]
+		var a: Dictionary = _pair_seat(p[0])
+		var b: Dictionary = _pair_seat(p[1])
 		if a.human and b.human:
 			_pvp_humans(a, b)
 		elif a.human:
