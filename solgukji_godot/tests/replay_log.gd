@@ -176,6 +176,8 @@ func _ready() -> void:
 	var floats := func(key: String) -> Array:
 		return Array(str(args[key]).split(",")).map(func(x): return float(x)) if args.has(key) else []
 	EvalRun.late = floats.call("late")
+	if args.has("tmul"):      # 11/10 토너먼트 라운드별 상대 PV 배율 (8강 · 4강 · 결승)
+		Run.TOUR_BOT_MUL = floats.call("tmul")
 	EvalRun.skill = floats.call("skill")
 	EvalRun.qtr = floats.call("qtr")
 	EvalRun.q0 = float(args.get("q0", "-1"))

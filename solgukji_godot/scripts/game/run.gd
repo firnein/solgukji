@@ -807,7 +807,9 @@ static func bot_pv_gain(d: int, p: int) -> float:
 ##   replay_log --orig=now 로 그날 끝 봇 최고 PV / 기록의 내 PV 0.94 · 0.79 · 0.66 · 0.56 · 0.52 · 0.50 · 0.48 (예전 0.93 · 0.65 · 0.59 · 0.53 · 0.37 · 0.39 · 0.35),
 ##   그 사람 덱의 대전 승률 50 · 38 · 58 · 46 · 50 · 17 · 13% (예전 50 · 58 · 71 · 83 · 100 · 100 · 100%), 토너먼트 우승 100% → 0%.
 ##   6~7일차 · 토너먼트가 급락하는 건 봇 덱에 초월이 들어오는 계단(봇 PV ×1.08 ×1.3 이 약 700 을 넘으면) —— 초월 한 칸 값의 문제, 마지막 밸런스 때
-static var BOT_LATE := [1.65, 0.8, 1.0, 0.85, 0.95, 0.9, 0.85]
+## 11/10 진행 밸런스(작업현황 70): 대전 승률 목표 1~2일 55~70 · 5~7일 40~60, 일차별로 매끄럽게. replay_log(user_1109) 승 47 · 58 · 56 · 83 · 81 · 72 · 38% → 69 · 51 · 79 · 68 · 60 · 58 · 44% (k=24)
+##   일차 끝 봇 최고 PV 116 · 210 · 309 · 388 · 471 · 546 · 590 → 97 · 198 · 297 · 429 · 542 · 597 · 602 (내 PV 비 .80 .75 .64 .62 .60 .54 .47). 값은 `1.4(첫날 0 에서 시작) 뒤로 0.85 ~ 1.17 사이의 낮은 언덕`, 7일차는 사람 덱이 더 안 자라는 구간이라 일부러 낮게 — 토너먼트는 별도 배율(TOUR_BOT_MUL)
+static var BOT_LATE := [1.4, 0.85, 1.05, 1.1, 1.17, 0.85, 0.6]
 
 
 func _bot_pv_gain(d: int, p: int) -> float:
@@ -1036,7 +1038,7 @@ func start_tour() -> Dictionary:
 		init_tour()
 	var m: Dictionary = tour.res[tour.round][tour.my_match]
 	var foe: Dictionary = m.b if m.a.me else m.a
-	var y := _tour_board(foe)
+	var y := _tour_board(foe, int(tour.round))
 	battle = {"kind": "tour", "a": _my_side(), "b": y, "seed": rng.randi() % 1000000,
 		"title": "%s · %s" % [ROUNDNM[tour.round], foe.name], "foe": foe.name, "inputs": []}
 	return battle
@@ -1333,10 +1335,14 @@ func init_tour() -> void:
 	_prep_round()
 
 
-func _tour_board(pl: Dictionary) -> Dictionary:
+## 11/10 진행 밸런스(작업현황 70): 토너먼트 우승률 30~60% 를 맞추려고 라운드별(8강 · 4강 · 결승) 상대 봇 PV 배율. 7일차 대전(봇 PV 비 .47 → 승 44%)과 같은 봇으로는 8강 36 · 4강 23 · 결승 12% → 우승 1% (사람 기록 재생)
+static var TOUR_BOT_MUL := [1.0, 1.0, 1.0]
+
+
+func _tour_board(pl: Dictionary, rd := -1) -> Dictionary:
 	if pl.me:
 		return _my_side()
-	return _bot_side(pl.pv, pl.style)
+	return _bot_side(pl.pv * (float(TOUR_BOT_MUL[clampi(rd, 0, 2)]) if rd >= 0 else 1.0), pl.style)
 
 
 func _sim_match(a: Dictionary, b: Dictionary) -> String:
