@@ -3311,7 +3311,11 @@ func _dev_args() -> void:
 					online = Online.new()
 					online.gs = self
 					add_child(online)
-				online.dev_fake_room(kv[1] if kv.size() > 1 and kv[1] != "" else "noon")
+				online.dev_fake_room(kv[1] if kv.size() > 1 and kv[1] != "" else "noon", float(kv[2]) if kv.size() > 2 else 75.0)
+				if kv.size() > 3 and kv[3] == "ready":      # 점검용 —— '준비 완료'를 누른 것처럼 (5초 경고가 안 울려야 한다)
+					online.send_ready(true)
+				if kv.size() > 3 and kv[3] == "hot":      # 점검용 —— 다른 사람이 기인 이상을 등용했다는 서버 알림이 온 것처럼 (긴급 띠 · 소식 뱃지 · 시점 글)
+					online._on_msg({"t": "news", "list": [{"text": "장수214가 신산 제갈량을 등용했습니다", "kind": "news", "who": "장수214", "unit": "c187", "id": 7, "when": "1일차 아침", "hot": 1}]})
 			"pick":
 				act("begin_picks", ["phase", -1])
 				if not run.ticket_tiers().is_empty():

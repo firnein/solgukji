@@ -10,12 +10,16 @@ extends Node
 ## 끝까지 가야 '준비 완료'가 된다 (결정 ⑦ —— 건너뛰어도 결과표는 보고 닫는다). 결과에 실린 재료(res.bp)로 전투장수창의 버프 수치도 혼자 할 때와 같다.
 ## 끊기면 3초마다 다시 붙는다 —— 토큰이 같아 진행 중인 자리로 돌아가 그 단계부터 이어간다 (이미 다 본 전투는 목록만 받는다).
 ## 사람이 나 혼자 남으면(다른 사람 모두 멸망·퇴장) 서버가 묻는다 —— 계속할지, 방을 닫을지.
-## 소식(봇 · 다른 사람의 전설 이상 등용 · 멸망 · 퇴장)은 서버가 news {list:[{text, kind, who?, unit?}]} 로 뿌린다 —— 알림 + Run.news(머리띠 '소식') (11/9 사용자).
+## 소식(봇 · 다른 사람의 기인 이상 등용 · 멸망 · 퇴장)은 서버가 news {list:[{text, kind, who?, unit?, id?, when?, hot?}]} 로 뿌린다 —— 알림 + Run.news(머리띠 '소식') (11/9 사용자).
+## 11/10 사용자: hot 이 있으면(사람의 기인 이상 등용) 알림 대신 '긴급' 띠 연출(GameScreen.urgent). id · when 은 소식 항목에 그대로 담는다(안 읽은 소식 뱃지 · 소식 시트의 시점 글).
+## 11/10 사용자: 남은 시간 5초부터 비프 + 붉은 가장자리 깜빡임 —— 명령을 받는 시간제 단계(아침 · 저녁 준비)에서, 아직 '준비 완료'를 안 눌렀을 때만 (_warn_tick).
 ## 한마디(say): 방 정보의 미리 적힌 글(room.quick)만, 전투 탭 · 대기실 · 전투 재생 위 띠의 [한마디] 에서 {"t":"say","i":번호}.
 ## 받은 {who, text} 는 알림으로, 전투 중이면 BattleView.show_quick 으로 전장 위 줄로 (11/9 사용자).
 ## 전투 목록(battles)의 항목은 {title, res, kind, params} —— params(내 쪽이 A 가 되게 맞춘 재료)를 BattleView.play_res 에 넘겨 전투장수창 버프 수치를 혼자 할 때와 같게 (11/9 사용자).
 ## 머리띠(GameScreen._render_head)는 온라인이면 방의 일차 · 단계 · 남은 시간을 보인다 —— 혼자 하기의 요일 · 페이즈 · 병사 수 대신 (11/9 사용자: 싱크 · 병사 수 제거).
 
+const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # class_name 없이 (낡은 .godot 캐시에서 'not declared')
+const WARN_SEC := 5            # 남은 시간이 이 초 이하(5 → 1)면 매 초 비프 + 붉은 가장자리
 const SERVERS := "res://data/servers.json"      # 서버 목록 —— 콤보에 이 순서대로 (Dev 주소는 build_apk.bat 의 release.py 가 이 PC 의 LAN IPv4 로 고친다)
 const CUSTOM := "직접 입력…"
 ## 11/10 사용자: "동의를 받아야지" —— 온라인 접속 전에 플레이 기록 동의를 받는다. 문구를 바꾸면 NetClient.CONSENT_VER 를 올려 모두에게 다시 묻는다.
@@ -47,6 +51,9 @@ var _url_edit: LineEdit       # 직접 입력 칸 —— 「직접 입력…」�
 var _name_edit: LineEdit
 var _code_edit: LineEdit
 var _tick := 0.0
+var _warn_fx: Control = null      # 붉은 가장자리 (WarnEdge)
+var _warn_c := -1                 # 마지막으로 비프를 울린 남은 초 (올림)
+var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'를 눌렀다 —— 서버가 알려 주기 전에도 바로 끈다
 
 
 func _ready() -> void:
@@ -77,12 +84,40 @@ func _process(dt: float) -> void:
 		if _retry <= 0:
 			net.connect_to(net.url)
 			_retry = 5.0
+	_warn_tick()
 	_tick += dt
 	if _tick >= 0.5 and in_game and gs.run != null:
 		_tick = 0.0
 		gs._render_head()
 		if gs.page == "war" and not gs.battle_visible():
 			_update_clock_label()
+
+
+## 5초 경고 —— 할 일이 남은 시간제 단계에서만. 전투를 보는 단계(점심 · 저녁)는 재생이 끝나야 넘어가고 시간이 다 돼도 할 일이 없어 울리지 않는다.
+## 0초 · 단계가 바뀜 · '준비 완료' · 멸망/종료 · 접속 끊김이면 바로 끈다. 소리는 Sfx 의 효과음 크기(Settings.sfx_vol, 0 이면 무음)를 따른다
+func warn_active() -> bool:
+	if not in_game or gs.run == null or gs.run.over != null or room.is_empty() or not can_act():
+		return false
+	if _warn_off_no == int(room.get("stage_no", -2)) or bool(me().get("ready", false)) or bool(me().get("dead", false)):
+		return false
+	return true
+
+
+func _warn_tick() -> void:
+	var r := remain()
+	var c := int(ceil(r))
+	if r > 0.0 and c <= WARN_SEC and warn_active():
+		if _warn_fx == null or not is_instance_valid(_warn_fx):
+			_warn_fx = WarnEdge.new()
+			gs.add_child(_warn_fx)
+		if c != _warn_c:
+			_warn_c = c
+			Sfx.play("alert_beep", 0.0, 0.0)
+		_warn_fx.show_phase(clampf(float(c) - r, 0.0, 1.0))      # 막 c 초가 됐을 때 0 → 다음 초 직전 1
+	elif _warn_c != -1 or (_warn_fx != null and is_instance_valid(_warn_fx) and _warn_fx.visible):
+		_warn_c = -1
+		if _warn_fx != null and is_instance_valid(_warn_fx):
+			_warn_fx.hide_now()
 
 
 # ───────── 접속 시트 ─────────
@@ -461,6 +496,7 @@ func send_cmd(m: String, a: Array) -> void:
 
 ## '준비 완료' —— 지금 단계 번호를 실어 보낸다 (지난 단계의 준비가 다음 단계에 섞이지 않게)
 func send_ready(on: bool) -> void:
+	_warn_off_no = int(room.get("stage_no", -1)) if on else -1
 	net.send({"t": "ready", "on": on, "sno": int(room.get("stage_no", -1))})
 
 
@@ -877,7 +913,7 @@ func war_page() -> Control:
 
 
 ## 점검용 —— 서버 없이 전투 탭을 그려 본다 (--gsheet=onwar:noon 등). 가짜 방 정보 + 지금 Run 으로 토벌 하나를 계산해 '본 전투'로 둔다
-func dev_fake_room(stage: String) -> void:
+func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —— 남은 시간 (점검: --gsheet=onwar:morning:6 으로 5초 경고)
 	var run: Run = gs.run
 	var do_menu := stage.ends_with("+menu")        # "noon+menu" —— 재생 화면의 ⋯ 메뉴(전투 기록실)까지 연다
 	stage = stage.trim_suffix("+menu")
@@ -899,10 +935,10 @@ func dev_fake_room(stage: String) -> void:
 		seats[4].foe = seats[1].name
 	var day_no := run.day * 3 + run.phase + 1
 	room = {"code": "K7QX", "mode": "fast", "mode_n": Room.MODES.fast.n, "started": true, "stage": stage, "stage_no": 3,
-		"stage_n": Room.STAGE_N.get(stage, stage), "remain": 75.0, "day": run.day, "phase": run.phase, "day_no": day_no, "you": 0, "host": true,
+		"stage_n": Room.STAGE_N.get(stage, stage), "remain": remain_s, "day": run.day, "phase": run.phase, "day_no": day_no, "you": 0, "host": true,
 		"seats": seats, "foe": ({"name": seats[3].name, "human": false, "online": false, "epi": run.bots[0].epi, "w": 3, "l": 1} if stage in ["evening_prep", "evening"] else null),
 		"alone": "", "tour_round": -1, "quick": ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]}
-	stage_end = Room.now() + 75.0
+	stage_end = Room.now() + remain_s
 	_stage_no = 3
 	if stage in Room.WATCH_STAGES:
 		var q := run.start_quest()
