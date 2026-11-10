@@ -755,7 +755,7 @@ func _render_head() -> void:
 		# 11/9 사용자: 온라인은 머리띠도 방의 시계로 —— "2일차 · 저녁 준비 · 1:20" (혼자 하기의 '월요일 오후'와 어긋나 보였다). 진행 막대는 하루 네 단계.
 		# 병사 수(12,900명)는 뺀다 (결정 ⑥ 처럼 전력은 보이지 않는다)
 		var st := str(online.room.get("stage", ""))
-		_day_lbl.text = "%d일차" % int(online.room.get("day_no", run.day * 3 + run.phase + 1))
+		_day_lbl.text = online.day_text()      # 11/10 게임 날짜 · 페이즈로 (day_no 는 페이즈 번호 1~21)
 		_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else online.head_stage_text())
 		_phase_bar.n = 4
 		_phase_bar.group = 4

@@ -512,6 +512,12 @@ func remain() -> float:
 
 
 const STAGE_SHORT := {"morning": "아침", "noon": "점심", "evening_prep": "저녁 준비", "evening": "저녁"}
+## 11/10 사용자: 온라인의 '일차'는 방의 페이즈 번호(day_no = 일 × 3 + 페이즈 + 1, 1~21)라 12일차까지 가는 것처럼 보였다 —— 화면에는 혼자 하기와 같은 게임 날짜 · 페이즈(예: day_no 12 → 「4일차 저녁」)로 보인다. 서버 · 기록의 day_no 는 그대로
+func day_text() -> String:
+	var n := maxi(1, int(room.get("day_no", 1)))
+	return "%d일차 %s" % [(n - 1) / 3 + 1, Run.PHASE_N[(n - 1) % 3]]
+
+
 const STAGE_IDX := {"morning": 0, "noon": 1, "evening_prep": 2, "evening": 3}      # 머리띠 진행 막대의 네 칸 (11/9)
 
 
@@ -537,7 +543,7 @@ func clock_text() -> String:
 	if st == "over":
 		return "  ·  끝"
 	if STAGE_SHORT.has(st):
-		return "  ·  %d일차 %s %d:%02d" % [int(room.get("day_no", 0)), STAGE_SHORT[st], r / 60, r % 60]
+		return "  ·  %s %d:%02d" % [day_text(), r / 60, r % 60]
 	return ""
 
 
@@ -792,7 +798,7 @@ func war_page() -> Control:
 	# (a) 단계 카드 —— N일차 · 단계 · 남은 시간 · 지금 할 일
 	var head := UI.vbox(4)
 	var hr := UI.hbox(8)
-	var tl := UI.lbl("%d일차 · %s" % [int(room.get("day_no", 0)), _stage_name()], 20, DB.PAL.paper, true)
+	var tl := UI.lbl("%s · %s 단계" % [day_text(), _stage_name()], 20, DB.PAL.paper, true)
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hr.add_child(tl)
