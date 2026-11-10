@@ -9,6 +9,10 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var runs := int(args.get("runs", "60"))
 	var s0 := int(args.get("seed", "100"))
+	if args.has("mock"):      # 11/10 --mock=4000 : 승률별 모의만 (자동 진행 없이 몇 초) —— 아래 _mock
+		_mock(int(args.mock), s0)
+		get_tree().quit()
+		return
 	Run.dev_immortal = true
 	var finals := []
 	var dead_day := {}
@@ -97,3 +101,50 @@ static func _bonus_table(log: Array) -> void:
 		if n > 0:
 			print("   %d일차 | %d | %d | %d | %.2f | %.2f | %d | +%.1f%%" % [d + 1, n, w, big, rs / maxf(1.0, float(w)), bs / maxf(1.0, float(w)), ts, bs * 100.0 / maxf(1.0, float(base))])
 	print("   합계 : 보너스 기본패 %d · 선택권 %d · 토벌 기본패 합 %d (+%.1f%%)" % [tb, tt, tbase, tb * 100.0 / maxf(1.0, float(tbase))])
+
+
+## 승률별 모의 (11/10) —— 일차마다 (토벌 · 대전) × (3번, 7일차는 2번). 지면 적 남은 비를 정규분포(평균 fm · 편차 0.14)에서 뽑아 Run.hp_dmg_f 로 깎는다
+## 사람의 기록(tests/logs/user_1109.jsonl)에서 진 판의 적 남은 비는 0.52~0.77, 오토 진 판은 0.85~0.99 —— 그래서 능숙 0.55 · 보통 0.65 · 약함 0.85
+## 승률이 같아도 잘하는 사람은 아슬하게 진다는 가정이다
+func _mock(n: int, seed0: int) -> void:
+	var profiles := [["능숙(토벌 80% · 대전 70%)", 0.8, 0.7, 0.55], ["보통(65% · 55%)", 0.65, 0.55, 0.65], ["약함(35% · 35%)", 0.35, 0.35, 0.85]]
+	print("== HP_QUEST %s · 적 남은 비 계수 %.2f + %.2f × 비 · 대전 ×%.1f" % [str(Run.HP_QUEST), Run.HP_FOE_MIN, Run.HP_FOE_MUL, Run.HP_PVP_MUL])
+	for p in profiles:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed0
+		var dead := 0
+		var dead_day := {}
+		var fin := 0.0
+		var day_end := []
+		var day_cnt := []
+		for d in 7:
+			day_end.append(0.0)
+			day_cnt.append(0)
+		for i in n:
+			var hp := 100
+			var z := -1
+			for d in 7:
+				for ph in (3 if d < 6 else 2):
+					for kind in [0, 1]:
+						if rng.randf() < (p[1] if kind == 0 else p[2]):
+							continue
+						var f := clampf(rng.randfn(p[3], 0.14), 0.05, 1.0)
+						hp = maxi(0, hp - Run.hp_dmg_f(float(Run.HP_QUEST[d]) * (1.0 if kind == 0 else Run.HP_PVP_MUL), f, false))
+						if hp <= 0 and z < 0:
+							z = d + 1
+					if z > 0:
+						break
+				day_end[d] += hp      # 멸망한 판은 그 뒤 일차도 0 으로 센다
+				day_cnt[d] += 1
+				if z > 0:
+					for d2 in range(d + 1, 7):
+						day_cnt[d2] += 1
+					break
+			if z > 0:
+				dead += 1
+				dead_day[z] = int(dead_day.get(z, 0)) + 1
+			fin += hp
+		var de := []
+		for d in 7:
+			de.append(roundi(day_end[d] / maxf(1.0, float(day_cnt[d]))))
+		print("%s : 멸망 %.0f%% · 최종 평균 %.1f · 일차말 %s · 멸망일 %s" % [p[0], dead * 100.0 / n, fin / n, str(de), str(dead_day)])
