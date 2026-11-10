@@ -92,6 +92,42 @@ func _ready() -> void:
 		fails.append("say 결과 %s" % str(says))
 	if srv.of(2, "say").size() != 2:
 		fails.append("say 는 모두에게")
+	# 한마디 이모티콘 (11/10) —— 번호만 · 범위 밖 거부 · 글과 같은 2초 간격 · 모두에게 · 옛 클라이언트용 종류 분리
+	if r.info(0).get("emote_n", 0) != Room.EMOTE_N or Room.EMOTE_N != Icons.EMOTES.size() or Icons.EMOTE_NAMES.size() != Icons.EMOTES.size():
+		fails.append("emote_n(%s) · Room.EMOTE_N(%d) · Icons.EMOTES(%d) 불일치" % [str(r.info(0).get("emote_n", 0)), Room.EMOTE_N, Icons.EMOTES.size()])
+	srv.out.clear()
+	for s0 in r.seats:
+		s0.say_t = -100.0
+	r.on_emote(1, 3)
+	r.on_emote(1, 4)         # 2초 안 — 무시
+	var em := srv.of(1, "emote")
+	if em.size() != 1 or int(em[0].i) != 3 or em[0].who != "가" or srv.of(2, "emote").size() != 1:
+		fails.append("emote 결과(모두에게 1개) %s" % str(em))
+	if not srv.of(1, "say").is_empty():
+		fails.append("emote 가 say 로 갔다")
+	srv.out.clear()
+	r.on_say(1, 0)           # 방금 emote 를 보냈으니 글도 2초 안 — 간격을 공유
+	if not srv.of(1, "say").is_empty():
+		fails.append("emote 직후 say 가 간격 제한을 건너뛰었다")
+	for bad in [-1, Room.EMOTE_N, 99]:
+		for s0 in r.seats:
+			s0.say_t = -100.0
+		srv.out.clear()
+		r.on_emote(2, bad)
+		if not srv.of(1, "emote").is_empty():
+			fails.append("범위 밖 이모티콘 %d 가 통과" % bad)
+	for s0 in r.seats:
+		s0.say_t = -100.0
+	srv.out.clear()
+	r.on_emote(2, Room.EMOTE_N - 1)          # 범위 밖이 간격을 먹지 않았다 + 마지막 번호는 통과
+	if srv.of(1, "emote").size() != 1:
+		fails.append("마지막 번호 이모티콘 거부")
+	srv.out.clear()
+	r.on_emote(77, 0)        # 방에 없는 연결 — 무시
+	if not srv.out.is_empty():
+		fails.append("방 밖 연결의 emote 가 통과")
+	for s0 in r.seats:
+		s0.say_t = -100.0
 	# 재접속 · 떠남 소식
 	srv.out.clear()
 	r.remove_peer(2)

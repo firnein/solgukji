@@ -12,6 +12,7 @@ extends Control
 
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
+const EmotePop := preload("res://scripts/ui/emote_pop.gd")      # 11/10 받은 한마디 이모티콘 팝업 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const STAT_ICON := 22.0       # 능력치 아이콘(칼 · 방패 · 신발) 크기 —— 14 아래로는 선이 뭉개진다 (11/9)
@@ -3119,6 +3120,16 @@ func _next_urgent() -> void:
 	b.done.connect(_next_urgent)
 
 
+# ───────── 한마디 이모티콘 팝업 (11/10 사용자) —— 보낸 사람 이름 + 큰 기호가 1.5초. 대기실 · 아침 · 저녁 준비 · 전투 보는 중 어디서나 (EmotePop) ─────────
+var _emote_layer: Control = null
+
+func emote_pop(who: String, k: int) -> void:
+	if _emote_layer == null or not is_instance_valid(_emote_layer):
+		_emote_layer = EmotePop.new()
+		add_child(_emote_layer)
+	_emote_layer.add(who, k)
+
+
 func battle_visible() -> bool:
 	return _battle_layer.visible
 
@@ -3505,6 +3516,13 @@ func _dev_args() -> void:
 				if not run.ticket_tiers().is_empty():
 					picker(run.ticket_tiers()[0])
 			"online": _go_online()
+	if a.has("gemote"):      # 점검용 —— --gemote=3 (받은 이모티콘 팝업 + 한마디 시트) · 3,4,5 (여러 개) · cmp (8종 비교 그림). --gsheet=onwar:morning:75:hot 과 함께 쓰면 긴급 띠와의 자리 점검
+		if online == null:
+			online = Online.new()
+			online.gs = self
+			add_child(online)
+			online.dev_fake_room("morning")
+		online.dev_emote(str(a.gemote))
 	if a.has("gtake"):      # 점검용 —— 열린 보급 팝업(--gsheet=unique)의 첫 '받기' 를 누른 것처럼. 앞서 뜬 알림 · 띠는 걷고 누른다 (11/7 받기 뒤 아래 알림 없이 가운데 띠만 뜨는지)
 		await get_tree().create_timer(0.4).timeout
 		for c in _toast_box.get_children():

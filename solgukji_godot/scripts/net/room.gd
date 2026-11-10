@@ -34,7 +34,8 @@ const STAGE_N := {"lobby": "대기실", "morning": "아침 — 징집·조합", 
 const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 단계
 ## 한마디 —— 자유 입력 없이 이 글만 보낼 수 있다 (11/9 사용자: 대기실 · 아침 · 저녁 준비 · 전투를 보는 중 다른 사람에게 짧게)
 const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
-const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초)
+const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
+const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
 const STAGE_SHORT := {"morning": "아침", "noon": "점심", "evening_prep": "저녁 준비", "evening": "저녁"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
 
@@ -195,7 +196,7 @@ func info(i: int) -> Dictionary:
 	return {"code": code, "mode": mode, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
-		"alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS}
+		"alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N}
 
 
 func push_lobby() -> void:
@@ -842,18 +843,41 @@ func _announce(text: String, it = null, except = null, hot := false) -> void:
 		server.send(s.peer, {"t": "news", "list": [e]})
 
 
-## 한마디 —— 미리 적힌 글(QUICK)의 번호만 받는다. 한 사람이 SAY_GAP 초에 한 번. 대기실에서도 된다
-func on_say(peer: int, i: int) -> void:
+## 한마디 · 이모티콘을 보낼 수 있나 —— 자리가 있고, 한 사람이 SAY_GAP 초에 한 번 (글과 이모티콘이 같은 간격을 쓴다). 되면 보낸 시각을 적고 자리를 돌려준다
+func _say_seat(peer: int) -> Dictionary:
 	var si := seat_of(peer)
-	if si < 0 or i < 0 or i >= QUICK_MSGS.size():
-		return
+	if si < 0:
+		return {}
 	var s: Dictionary = seats[si]
 	if now() - float(s.get("say_t", -100.0)) < SAY_GAP:
-		return
+		return {}
 	s.say_t = now()
+	return s
+
+
+## 한마디 —— 미리 적힌 글(QUICK)의 번호만 받는다. 한 사람이 SAY_GAP 초에 한 번. 대기실에서도 된다
+func on_say(peer: int, i: int) -> void:
+	if seat_of(peer) < 0 or i < 0 or i >= QUICK_MSGS.size():
+		return
+	var s := _say_seat(peer)
+	if s.is_empty():
+		return
 	for o in humans():
 		if o.peer >= 0:
 			server.send(o.peer, {"t": "say", "who": s.name, "text": QUICK_MSGS[i]})
+
+
+## 한마디 이모티콘 (11/10 사용자) —— 번호(0 ~ EMOTE_N-1)만 받는다. 간격은 글과 같이 쓴다. 방의 모두에게 {"t":"emote","who","i"}.
+## 옛 클라이언트는 모르는 종류라 그냥 무시한다. 기록(RoomLog)에는 한마디를 남기지 않으므로 이모티콘도 남기지 않는다
+func on_emote(peer: int, i: int) -> void:
+	if seat_of(peer) < 0 or i < 0 or i >= EMOTE_N:
+		return
+	var s := _say_seat(peer)
+	if s.is_empty():
+		return
+	for o in humans():
+		if o.peer >= 0:
+			server.send(o.peer, {"t": "emote", "who": s.name, "i": i})
 
 
 # ───────── 기록 (RoomLog) ─────────

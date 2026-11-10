@@ -3,6 +3,26 @@ extends RefCounted
 ## 작은 그림 기호 —— 글꼴에 없는 기호도 휴대폰에서 똑같이 보이게 선으로 그린다.
 ## draw(그릴 곳, 이름, 가운데, 크기(지름), 색)
 
+## 한마디 이모티콘 (11/10 사용자) —— 번호 = 서버(Room.EMOTE_N)와 주고받는 값. 글꼴의 이모지는 기기마다 달라 보여서 쓰지 않고 선으로 그린다.
+## 감정이 바로 읽히는 얼굴 위주 (웃음 · 폭소 · 눈물 · 분노 · 놀람) + 좋아요(엄지) · 마음(하트) · 불꽃. 14~48px 어디서나 읽히게 획은 굵고 점은 크게.
+const EMOTES := ["emo_smile", "emo_laugh", "emo_cry", "emo_angry", "emo_wow", "emo_thumb", "heart", "flame"]
+const EMOTE_NAMES := ["웃음", "폭소", "눈물", "분노", "놀람", "좋아요", "마음", "불꽃"]
+
+
+## 타원 한 바퀴 (점 목록) —— 중심 · 반지름 · 기울기, 24 칸 좌표
+static func _ell(c: Vector2, u: float, o: Vector2, rx: float, ry: float, rot := 0.0, n := 20) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in n + 1:
+		var t := TAU * i / n
+		pts.append(c + (o + Vector2(rx * cos(t), ry * sin(t)).rotated(rot)) * u)
+	return pts
+
+
+## 얼굴 바탕 —— 둥근 선 한 줄
+static func _face(ci: CanvasItem, c: Vector2, u: float, col: Color, w: float) -> void:
+	ci.draw_arc(c, 10.2 * u, 0, TAU, 32, col, w)
+
+
 static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color) -> void:
 	var u := s / 24.0        # 24 칸 기준 좌표
 	var w := maxf(1.6, 2.2 * u)
@@ -103,6 +123,54 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(0, -9) * u, c + Vector2(5, -3) * u, c + Vector2(7, 3) * u, c + Vector2(4, 8) * u,
 				c + Vector2(0, 9) * u, c + Vector2(-4, 8) * u, c + Vector2(-7, 3) * u, c + Vector2(-5, -3) * u, c + Vector2(-2, -1) * u, c + Vector2(0, -9) * u]), col, w)
 			ci.draw_arc(c + Vector2(0, 4) * u, 3 * u, PI * 0.1, PI * 0.9, 8, col, w * 0.8)
+		# 11/10 한마디 이모티콘 —— 얼굴은 둥근 선 + 눈 · 입. 24 칸 기준
+		"emo_smile":      # 웃음 —— 점 눈 둘 · 올라간 입
+			_face(ci, c, u, col, w)
+			ci.draw_circle(c + Vector2(-3.6, -2.8) * u, 1.7 * u, col)
+			ci.draw_circle(c + Vector2(3.6, -2.8) * u, 1.7 * u, col)
+			ci.draw_arc(c + Vector2(0, 0.6) * u, 5.8 * u, PI * 0.14, PI * 0.86, 12, col, w)
+		"emo_laugh":      # 폭소 —— 감은 눈(∩ ∩) · 크게 벌린 입(꽉 찬 반달) · 눈가 눈물
+			_face(ci, c, u, col, w)
+			ci.draw_arc(c + Vector2(-4.0, -1.8) * u, 2.6 * u, PI, TAU, 8, col, w)
+			ci.draw_arc(c + Vector2(4.0, -1.8) * u, 2.6 * u, PI, TAU, 8, col, w)
+			var mo := PackedVector2Array([c + Vector2(-5.6, 1.4) * u])
+			for i in 11:
+				var mt := PI * i / 10.0
+				mo.append(c + Vector2(-5.6 * cos(mt), 1.4 + 6.4 * sin(mt)) * u)
+			ci.draw_colored_polygon(mo, col)
+			ci.draw_circle(c + Vector2(-11.2, -1.0) * u, 1.5 * u, col)
+			ci.draw_circle(c + Vector2(11.2, -1.0) * u, 1.5 * u, col)
+		"emo_cry":      # 눈물 —— 팔자 눈썹 · 점 눈 · 처진 입 · 볼을 타고 내리는 눈물 두 줄
+			_face(ci, c, u, col, w)
+			ci.draw_line(c + Vector2(-6.4, -5.2) * u, c + Vector2(-2.2, -6.4) * u, col, w * 0.9)
+			ci.draw_line(c + Vector2(6.4, -5.2) * u, c + Vector2(2.2, -6.4) * u, col, w * 0.9)
+			ci.draw_circle(c + Vector2(-3.8, -2.0) * u, 1.6 * u, col)
+			ci.draw_circle(c + Vector2(3.8, -2.0) * u, 1.6 * u, col)
+			ci.draw_arc(c + Vector2(0, 8.4) * u, 3.8 * u, PI * 1.18, PI * 1.82, 8, col, w)
+			ci.draw_line(c + Vector2(-5.2, 0.6) * u, c + Vector2(-5.6, 7.6) * u, col, w * 1.3)
+			ci.draw_line(c + Vector2(5.2, 0.6) * u, c + Vector2(5.6, 7.6) * u, col, w * 1.3)
+		"emo_angry":      # 분노 —— 안쪽으로 내려간 눈썹 · 점 눈 · 꾹 다문 처진 입
+			_face(ci, c, u, col, w)
+			ci.draw_line(c + Vector2(-7.0, -6.2) * u, c + Vector2(-1.6, -2.6) * u, col, w * 1.15)
+			ci.draw_line(c + Vector2(7.0, -6.2) * u, c + Vector2(1.6, -2.6) * u, col, w * 1.15)
+			ci.draw_circle(c + Vector2(-3.8, -0.2) * u, 1.6 * u, col)
+			ci.draw_circle(c + Vector2(3.8, -0.2) * u, 1.6 * u, col)
+			ci.draw_arc(c + Vector2(0, 8.6) * u, 4.4 * u, PI * 1.2, PI * 1.8, 8, col, w)
+		"emo_thumb":      # 엄지 척 —— 소매 · 위로 솟은 엄지 · 쥔 주먹
+			ci.draw_rect(Rect2(c + Vector2(-10.5, 0.5) * u, Vector2(4.2, 10.5) * u), col, false, w)
+			var th := PackedVector2Array([c + Vector2(-6.3, 1.6) * u, c + Vector2(-2.6, 1.6) * u, c + Vector2(0.4, -3.4) * u, c + Vector2(0.9, -8.4) * u,
+				c + Vector2(3.4, -8.4) * u, c + Vector2(3.6, -3.4) * u, c + Vector2(9.4, -3.4) * u, c + Vector2(10.6, -1.8) * u, c + Vector2(10.6, 8.6) * u,
+				c + Vector2(9.0, 10.6) * u, c + Vector2(-6.3, 10.6) * u])
+			ci.draw_polyline(th, col, w)
+			ci.draw_line(c + Vector2(4.4, 1.4) * u, c + Vector2(10.6, 1.4) * u, col, w * 0.8)
+			ci.draw_line(c + Vector2(4.4, 6.0) * u, c + Vector2(10.6, 6.0) * u, col, w * 0.8)
+		"emo_wow":      # 놀람 —— 치켜 올린 눈썹 · 큰 점 눈 · 동그랗게 벌린 입(꽉 참)
+			_face(ci, c, u, col, w)
+			ci.draw_arc(c + Vector2(-3.9, -3.7) * u, 2.4 * u, PI * 1.12, PI * 1.88, 8, col, w * 0.9)
+			ci.draw_arc(c + Vector2(3.9, -3.7) * u, 2.4 * u, PI * 1.12, PI * 1.88, 8, col, w * 0.9)
+			ci.draw_circle(c + Vector2(-3.9, -0.8) * u, 2.0 * u, col)
+			ci.draw_circle(c + Vector2(3.9, -0.8) * u, 2.0 * u, col)
+			ci.draw_colored_polygon(_ell(c, u, Vector2(0, 5.2), 2.4, 3.0), col)
 
 
 ## 기호 하나짜리 컨트롤 —— 버튼·칩 안에 넣는다

@@ -15,6 +15,8 @@ extends Node
 ## 11/10 사용자: 남은 시간 5초부터 비프 + 붉은 가장자리 깜빡임 —— 명령을 받는 시간제 단계(아침 · 저녁 준비)에서, 아직 '준비 완료'를 안 눌렀을 때만 (_warn_tick).
 ## 한마디(say): 방 정보의 미리 적힌 글(room.quick)만, 전투 탭 · 대기실 · 전투 재생 위 띠의 [한마디] 에서 {"t":"say","i":번호}.
 ## 받은 {who, text} 는 알림으로, 전투 중이면 BattleView.show_quick 으로 전장 위 줄로 (11/9 사용자).
+## 11/10 사용자: 한마디 시트 위쪽에 이모티콘 한 줄(Icons.EMOTES 8종) —— {"t":"emote","i":번호}. 받은 {who, i} 는 어디서나 GameScreen.emote_pop 으로 이름 + 큰 기호가 1.5초 (글과 같은 2초 간격).
+## 서버가 방 정보에 emote_n 을 주지 않으면(옛 서버) 이모티콘 줄은 숨긴다.
 ## 전투 목록(battles)의 항목은 {title, res, kind, params} —— params(내 쪽이 A 가 되게 맞춘 재료)를 BattleView.play_res 에 넘겨 전투장수창 버프 수치를 혼자 할 때와 같게 (11/9 사용자).
 ## 머리띠(GameScreen._render_head)는 온라인이면 방의 일차 · 단계 · 남은 시간을 보인다 —— 혼자 하기의 요일 · 페이즈 · 병사 수 대신 (11/9 사용자: 싱크 · 병사 수 제거).
 
@@ -494,6 +496,9 @@ func _on_msg(d: Dictionary) -> void:
 				gs._battle.say_line(who, tx)
 			else:
 				gs.toast("%s: %s" % [who, tx], "news")
+		"emote":
+			# 11/10 사용자: 한마디 이모티콘 {who, i} —— 어디서나(대기실 · 아침 · 저녁 준비 · 전투 보는 중) 위쪽에 이름 + 큰 기호. 범위 밖 번호는 팝업이 무시한다
+			gs.emote_pop(str(d.get("who", "")), int(d.get("i", -1)))
 		"error":
 			gs.toast(str(d.msg), "bad")
 		"left":
@@ -516,6 +521,30 @@ func send_say(i: int) -> void:
 	net.send({"t": "say", "i": i})
 
 
+## 이모티콘 하나 —— 번호만 보낸다 (서버가 글과 같은 2초 간격으로 거르고 번호 범위를 검증한다)
+func send_emote(i: int) -> void:
+	net.send({"t": "emote", "i": i})
+
+
+## 이모티콘 한 줄 —— 8칸 가로 (칸 높이 46). 누르면 보내고 시트를 닫는다
+func _emote_row() -> Control:
+	var n := mini(int(room.get("emote_n", 0)), Icons.EMOTES.size())
+	var h := UI.hbox(4)
+	for i in n:
+		var bt := UI.btn("", func():
+			send_emote(i)
+			gs.close_sheet(), "", 46)
+		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bt.custom_minimum_size = Vector2(0, 46)
+		bt.tooltip_text = Icons.EMOTE_NAMES[i]
+		var ic := Icons.View.new(Icons.EMOTES[i], DB.PAL.paper, 26.0)
+		ic.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		ic.position = Vector2(-13, -13)
+		bt.add_child(ic)
+		h.add_child(bt)
+	return h
+
+
 ## 한마디 시트 —— 방 정보의 미리 적힌 글(room.quick)을 버튼으로. 대기실(가득 덮는 판) 위에서도 보이게 시트를 맨 앞으로 (11/9 사용자)
 func quick_sheet() -> void:
 	var quick: Array = room.get("quick", [])
@@ -524,6 +553,8 @@ func quick_sheet() -> void:
 		gs.move_child(gs._sheet_mask, -1)
 		gs.move_child(gs._sheet, -1)
 	b.add_child(UI.hint("방의 모두에게 보인다 · 2초에 한 번"))
+	if int(room.get("emote_n", 0)) > 0:
+		b.add_child(_emote_row())
 	if quick.is_empty():
 		b.add_child(UI.hint("서버가 아직 글 목록을 주지 않았다."))
 	var g := UI.grid(150, 8)
@@ -954,7 +985,7 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	room = {"code": "K7QX", "mode": "fast", "mode_n": Room.MODES.fast.n, "started": true, "stage": stage, "stage_no": 3,
 		"stage_n": Room.STAGE_N.get(stage, stage), "remain": remain_s, "day": run.day, "phase": run.phase, "day_no": day_no, "you": 0, "host": true,
 		"seats": seats, "foe": ({"name": seats[3].name, "human": false, "online": false, "epi": run.bots[0].epi, "w": 3, "l": 1} if stage in ["evening_prep", "evening"] else null),
-		"alone": "", "tour_round": -1, "quick": ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]}
+		"alone": "", "tour_round": -1, "quick": ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"], "emote_n": Room.EMOTE_N}
 	stage_end = Room.now() + remain_s
 	_stage_no = 3
 	if stage in Room.WATCH_STAGES:
@@ -993,6 +1024,42 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	gs.go("war")
 	if do_say:
 		quick_sheet()
+
+
+## 점검용 —— --gemote=3 : 받은 이모티콘 팝업(3번) + 한마디 시트. "3,4,5" 는 여러 개(줄), "cmp" 는 8종을 14 · 22 · 40 · 62px 로 나란히 그린 비교 그림
+func dev_emote(arg: String) -> void:
+	if arg == "cmp":
+		var cmp := _EmoteCmp.new()
+		cmp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cmp.z_index = 60
+		gs.add_child(cmp)
+		return
+	var names := ["장수214", "유비", "조조 맹덕", "장수377"]
+	var n := 0
+	for t in arg.split(","):
+		gs.emote_pop(names[n % names.size()], int(t))
+		n += 1
+	quick_sheet()
+
+
+## 8종 비교 그림 (점검용) —— 크기별 (14 · 22 · 40 · 62px) 먹색 바탕에 종이색 선
+class _EmoteCmp extends Control:
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), DB.PAL.ink)
+		var f: Font = DB.font_body
+		var cols := [14.0, 22.0, 40.0, 62.0]
+		var x0 := 70.0
+		var y := 40.0
+		draw_string(f, Vector2(8, 24), "한마디 이모티콘 8종 (400 기준 좌표 — 화면 720 폭이면 1.8배)", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, DB.PAL.paper)
+		for k in Icons.EMOTES.size():
+			draw_string(f, Vector2(6, y + 34), "%d %s" % [k, Icons.EMOTE_NAMES[k]], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, DB.PAL.paper)
+			var x := x0 + 20.0
+			for d in cols:
+				Icons.draw(self, Icons.EMOTES[k], Vector2(x, y + 32), d, DB.PAL.paper)
+				x += d + 22.0
+			Icons.draw(self, Icons.EMOTES[k], Vector2(x + 14, y + 32), 40.0, DB.PAL.gold)
+			draw_line(Vector2(0, y + 66), Vector2(size.x, y + 66), Color(DB.PAL.paper, 0.1), 1.0)
+			y += 76.0
 
 
 ## 점검용 자동 플레이 —— 상태가 올 때마다 한 걸음 (아침: 징집 → 선택권 → 편성 → 준비 · 저녁 준비: 빈 편성 채우고 준비)

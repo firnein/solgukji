@@ -16,6 +16,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##   ready {on, sno}       준비 완료 —— sno 는 받은 방 정보의 stage_no (지난 단계의 준비는 버린다)
 ##   alone {go}            혼자 남았을 때의 답 —— go 가 참이면 봇만 상대로 계속, 아니면 방을 닫는다
 ##   say {i}               한마디 —— Room.QUICK_MSGS 의 번호 (자유 입력 없음, 2초에 한 번). 방의 모두에게 say 로 뿌린다 (11/9)
+##   emote {i}             한마디 이모티콘 —— 0 ~ Room.EMOTE_N-1 번호만 (글과 같은 2초 간격). 방의 모두에게 {"t":"emote","who","i"} (11/10)
 ## 32KB 가 넘는 메시지는 gzip 바이너리로 보낸다.
 ## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list, stage, stage_no, seen} · toast {text, kind, news?} · say {who, text} · error {msg} · left
 ## 방 진행(아침 · 점심 · 저녁 단계)은 room.gd. 플레이 기록(사람마다 jsonl)은 room_log.gd (11/10).
@@ -176,6 +177,10 @@ func _handle(id: int, d: Dictionary) -> void:
 			# 11/9 사용자: 한마디 —— 미리 적힌 글(Room.QUICK)의 번호. 방이 2초에 한 번으로 거른다
 			if rooms.has(p.room):
 				rooms[p.room].on_say(id, int(d.get("i", -1)))
+		"emote":
+			# 11/10 사용자: 한마디 이모티콘 —— 번호만. 범위 · 간격은 방이 거른다
+			if rooms.has(p.room):
+				rooms[p.room].on_emote(id, int(d.get("i", -1)))
 
 
 func _leave(id: int) -> void:
