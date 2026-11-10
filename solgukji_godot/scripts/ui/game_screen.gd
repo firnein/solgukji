@@ -11,6 +11,7 @@ extends Control
 ## (예전 도감·전투 연출 화면은 --tab=… 을 주면 열린다 —— scenes/main.tscn)
 
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
+const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # 11/10 민심 위험 비네트에 다시 쓴다 (5초 경고와 같은 가장자리 그림, class_name 없이)
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
@@ -869,6 +870,40 @@ func _hp_sync() -> void:
 		return
 	_hp_shown = hp
 	_hp_gauge.drop_to(hp)
+
+
+## 민심 위험 알림 (11/10 사용자: 민심이 얼마 남지 않았을 때 지속적으로 위험하다는 것을 알려줌) ——
+## 게이지가 보이는 값(_hp_gauge.value)이 HpGauge.LOW(30) 이하인 동안 어느 탭에서나 화면 가장자리에 아주 옅은 붉은 비네트가 느리게 맥동한다(주기 2초 · 투명도 0.06~0.18),
+## 15 이하는 더 짙고 빠르게(1.2초 · 0.10~0.26). 게이지 옆 「위험」 글자는 HpGauge 가 그린다. 입력은 막지 않고 소리는 없다.
+## 전투 화면(BattleView) · 타이틀 · 판이 끝난 뒤에는 끈다. 온라인 5초 경고(붉은 가장자리 + 비프)가 켜져 있으면 5초 경고가 우선 —— 위험 비네트는 그동안 끈다
+const DANGER_HP := 15.0
+var _danger_fx: Control = null
+var _danger_t := 0.0
+
+
+func _process(dt: float) -> void:
+	_danger_tick(dt)
+
+
+func _danger_tick(dt: float) -> void:
+	var on := false
+	var hp := 100.0
+	if _hp_gauge != null and run != null and run.over == null and (_title == null or not _title.visible) and not (_battle_layer != null and _battle_layer.visible):
+		hp = _hp_gauge.value
+		on = hp <= HpGauge.LOW
+	if on and online != null and is_instance_valid(online._warn_fx) and online._warn_fx.visible:
+		on = false      # 5초 경고가 우선
+	if not on:
+		if _danger_fx != null and is_instance_valid(_danger_fx) and _danger_fx.visible:
+			_danger_fx.hide_now()
+		return
+	if _danger_fx == null or not is_instance_valid(_danger_fx):
+		_danger_fx = WarnEdge.new()
+		add_child(_danger_fx)
+	var crit := hp <= DANGER_HP
+	_danger_t += dt
+	var s := 0.5 + 0.5 * sin(_danger_t * TAU / (1.2 if crit else 2.0))
+	_danger_fx.show_soft(lerpf(0.10, 0.26, s) if crit else lerpf(0.06, 0.18, s))
 
 
 func _hp_hold() -> bool:
@@ -4002,6 +4037,7 @@ class PhaseBar extends Control:
 class HpGauge extends Control:
 	signal tapped
 	const LOW := 30.0
+	const DANGER := 15.0     # 11/10 이 이하는 「위험」 이 더 짙고 빠르게
 	var value := 100.0       # 보이는 값 (줄어드는 중이면 중간 값)
 	var trail := 100.0       # 잃은 몫을 보이는 꼬리 (value 이상)
 	var flash := 0.0
@@ -4029,7 +4065,12 @@ class HpGauge extends Control:
 					tapped.emit()
 				_press = Vector2.INF
 
+	## 위험일 때 「위험」 글자 자리 —— 숫자와 겹치지 않게 조금 넓힌다 (온라인은 병력 줄이 없어 칸이 좁다)
+	func _fit(target: float) -> void:
+		custom_minimum_size = Vector2(112.0 if target <= LOW else 92.0, 24)
+
 	func set_now(v: float) -> void:
+		_fit(v)
 		if _tw != null:
 			_tw.kill()
 		value = v
@@ -4038,6 +4079,7 @@ class HpGauge extends Control:
 		queue_redraw()
 
 	func drop_to(v: float) -> void:
+		_fit(v)
 		if _tw != null:
 			_tw.kill()
 		_from = value
@@ -4071,6 +4113,19 @@ class HpGauge extends Control:
 		Icons.draw(self, "heart", Vector2(8, 9), 15, txt)
 		draw_string(DB.font_bold, Vector2(19, 13), "민심", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.bamboo_dim.lerp(hot, flash * 0.8))
 		draw_string(DB.font_bold, Vector2(0, 14), str(int(round(v))), HORIZONTAL_ALIGNMENT_RIGHT, size.x, 15, txt)
+		if low:      # 11/10 사용자: 민심이 얼마 안 남았으면 계속 위험하다고 알린다 —— 「위험」 인장 붉음. 15 이하는 더 짙고(바탕 알) 빠르게(1초)
+			var crit := v <= DANGER
+			var wp := 0.5 + 0.5 * sin(_t * TAU / (1.0 if crit else 2.0))
+			var wa := lerpf(0.75, 1.0, wp) if crit else lerpf(0.55, 0.95, wp)
+			var wx := 47.0
+			if crit:
+				var pill := StyleBoxFlat.new()
+				pill.bg_color = Color(P.seal.darkened(0.45), lerpf(0.55, 0.85, wp))
+				pill.border_color = Color(hot, wa)
+				pill.set_border_width_all(1)
+				pill.set_corner_radius_all(3)
+				draw_style_box(pill, Rect2(wx - 4, 1, 30, 15))
+			draw_string(DB.font_bold, Vector2(wx, 13), "위험", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(hot.lightened(0.15) if crit else hot, wa))
 		var by := size.y - 4.0
 		draw_rect(Rect2(0, by, size.x, 3), P.ink3)
 		if trail > v:
