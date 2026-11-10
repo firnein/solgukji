@@ -65,6 +65,7 @@ static var myth_power := 1.0     # 신화 능력치 배율 (속도 제외) —�
 static var aura_enabled := true   # 위세 켜기 (비교용)
 static var myth_troop := 0.75    # 11/8 신화 몸값 —— 신화 병력 배율 (mk_unit). 카드 병력 70000 → 52500 (불멸 47000 의 ×1.12, 예전 ×1.49)
 static var paeup_enabled := true   # 11/8 패업 켜기 (비교용 —— 끄면 모두 불발)
+static var paeup_camp := ""       # 11/10 점검용 —— 한쪽 진영만 패업 ("A" · "B", 비우면 양쪽). 위세는 그대로 (tests/card_value mirror)
 static var aura_camp := ""        # 한쪽 진영만 위세 ("A" · "B", 비우면 양쪽) —— 점검용
 static var synergy_enabled := false  # 세력 · 병종 시너지 (원본 SYN · TAGSYN) —— 10/30 사용자 결정으로 끔. 덱의 개성은 특기 · 기술이 맡는다
 static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 · 파갑 —— 솔국지 확장)
@@ -1956,7 +1957,7 @@ func _wash(a: Unit) -> void:
 ## cond: status = 상태이상(PAEUP_ST)을 거는 장수 · burn = 화상을 거는 장수, 자신 외 need 명 이상
 func _paeup_setup() -> void:
 	for u in units:
-		if not paeup_enabled or not aura_enabled or not DB.AURA.has(u.c.id) or not DB.AURA[u.c.id].has("paeup") or (aura_camp != "" and u.camp != aura_camp):
+		if not paeup_enabled or not aura_enabled or not DB.AURA.has(u.c.id) or not DB.AURA[u.c.id].has("paeup") or (aura_camp != "" and u.camp != aura_camp) or (paeup_camp != "" and u.camp != paeup_camp):
 			continue
 		var pa: Dictionary = DB.AURA[u.c.id].paeup
 		var cond := str(pa.cond)
