@@ -490,7 +490,7 @@ func _build_battle() -> void:
 			run.battle.inputs = inputs.duplicate(true)
 			run.save())
 	_battle_done = UI.btn("종료", _on_battle_close, "pri", 58)      # 11/3 사용자: '결과 정리' → '종료'
-	_battle_done.add_theme_font_override("font", DB.font_display)
+	_battle_done.add_theme_font_override("font", DB.title_font(20))
 	_battle_done.add_theme_font_size_override("font_size", 20)
 	_battle_done.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_battle_done.offset_left = -130
@@ -566,7 +566,7 @@ func _title_btn(text: String, cb: Callable, main: bool) -> Button:
 	b.add_theme_stylebox_override("normal", UI.flat(bg, bd, 1, 10, 10))
 	b.add_theme_stylebox_override("hover", UI.flat(bg.lightened(0.08), bd, 1, 10, 10))
 	b.add_theme_stylebox_override("pressed", UI.flat(bg.darkened(0.15), bd, 2, 10, 10))
-	b.add_theme_font_override("font", DB.font_display)
+	b.add_theme_font_override("font", DB.title_font(19))
 	b.add_theme_font_size_override("font_size", 19)
 	b.add_theme_color_override("font_color", Color("#1a1206") if main else Color("#f0e6cf"))
 	b.add_theme_color_override("font_hover_color", Color("#1a1206") if main else Color("#ffffff"))
@@ -2002,7 +2002,7 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	hb.flat = true
 	hb.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hb.custom_minimum_size.y = 30
-	hb.add_theme_font_override("font", DB.font_display)
+	hb.add_theme_font_override("font", DB.title_font(14))
 	hb.add_theme_font_size_override("font_size", 14)
 	hb.add_theme_color_override("font_color", DB.PAL.bamboo)
 	var upd := func():
@@ -2821,7 +2821,7 @@ func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callab
 	b.disabled = disabled
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_font_size_override("font_size", 15)
-	b.add_theme_font_override("font", DB.font_display)
+	b.add_theme_font_override("font", DB.title_font(15))
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return b
@@ -3689,7 +3689,7 @@ class TabButton extends Control:
 			pill.set_corner_radius_all(14)
 			draw_style_box(pill, Rect2(c.x - 28, 8, 56, 28))
 		_icon(c, col)
-		draw_string(DB.font_display if on else DB.font_body, Vector2(0, size.y - 8), text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, DB.PAL.paper if on else col)
+		draw_string(DB.title_font(13) if on else DB.font_body, Vector2(0, size.y - 8), text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, DB.PAL.paper if on else col)
 		if badge >= 0:
 			var bp := c + Vector2(15, -10)
 			if badge == 0:

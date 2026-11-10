@@ -546,6 +546,13 @@ func _build_fonts() -> void:
 	font_display = dv
 
 
+## 11/10 제목 글꼴을 크기로 고른다 —— 송명(font_display)은 큰 제목에서만 좋고, 작은 글자(이 크기 미만)는 가는 획이 뭉개져 읽기 어렵다는 지적 → 굵은 고딕(font_bold).
+## 임계값은 여기 한 곳 (눈으로 보고 정함, 작업현황 55). 송명만 쓰려면 TITLE_BIG = 0, 전부 고딕이면 큰 값.
+const TITLE_BIG := 18.0
+func title_font(fs: float) -> Font:
+	return font_display if fs >= TITLE_BIG else font_bold
+
+
 # ───────── 조회 ─────────
 
 func tier_color(k: String) -> Color:
@@ -593,8 +600,11 @@ func kiin_card(key: String) -> String:
 
 
 ## 등급 글꼴 —— 기본 · 일반은 보통 고딕, 고급 · 희귀는 명조, 전설은 굵은 고딕, 초월은 굵은 기울임, 불멸 · 신화는 더 굵은 기울임
+## 11/10 고급 · 희귀(명조 = 송명)도 작은 글자(fs < TITLE_BIG)에서는 굵은 고딕으로 —— fs 를 안 넘기면 큰 글자로 본다
 var _tier_fonts := {}
-func tier_font(t: int) -> Font:
+func tier_font(t: int, fs := 99.0) -> Font:
+	if (t == 3 or t == 4) and fs < TITLE_BIG:
+		return font_bold
 	if _tier_fonts.is_empty():
 		for i in range(1, 9):
 			var base: Font = font_body if i <= 2 else (font_display if i <= 4 else font_bold)

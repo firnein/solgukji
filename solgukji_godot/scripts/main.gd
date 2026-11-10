@@ -186,7 +186,7 @@ func _make_theme() -> Theme:
 	th.set_color("font_selected_color", "TabContainer", P.bamboo)
 	th.set_color("font_unselected_color", "TabContainer", P.bamboo_dim)
 	th.set_color("font_hovered_color", "TabContainer", P.paper)
-	th.set_font("font", "TabContainer", DB.font_display)
+	th.set_font("font", "TabContainer", DB.title_font(16))
 	th.set_font_size("font_size", "TabContainer", 16)
 	th.set_stylebox("tabbar_background", "TabContainer", _flat(Color("#0f1424"), P.ink3, 0, 0, 0))
 	return th
