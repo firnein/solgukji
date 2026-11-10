@@ -5,7 +5,8 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## WebSocket 으로 휴대폰을 받는다. 메시지는 JSON 한 줄 {"t": 종류, …}.
 ##
 ## 받는 것 (휴대폰 → 서버)
-##   hello {name, token}   첫 인사. token 이 진행 중인 방의 자리와 맞으면 그 자리로 돌아간다
+##   hello {name, token, rec}   첫 인사. token 이 진행 중인 방의 자리와 맞으면 그 자리로 돌아간다.
+##                         rec = 플레이 기록 동의 (11/10) —— true 인 사람만 서버가 기록한다 (RoomLog). 없으면(옛 APK) 접속은 되지만 기록하지 않는다
 ##   list                  열린 방 목록
 ##   create {mode}         방 만들기 (fast · normal) —— 만든 사람이 방장
 ##   join {code}           코드로 들어가기
@@ -56,7 +57,7 @@ func _process(_dt: float) -> void:
 		if ws.accept_stream(tcp.take_connection()) == OK:
 			var id := _next_id
 			_next_id += 1
-			peers[id] = {"ws": ws, "name": "", "token": "", "room": ""}
+			peers[id] = {"ws": ws, "name": "", "token": "", "room": "", "rec": false}
 	for id in peers.keys():
 		var p: Dictionary = peers[id]
 		var ws: WebSocketPeer = p.ws
@@ -113,13 +114,14 @@ func _handle(id: int, d: Dictionary) -> void:
 		"hello":
 			p.name = str(d.get("name", "무명")).substr(0, 12)
 			p.token = str(d.get("token", ""))
+			p.rec = typeof(d.get("rec")) == TYPE_BOOL and d.rec      # 기록 동의 —— 참(true)일 때만. 없거나 다른 값이면 기록하지 않는다
 			if p.token == "":
 				p.token = "%d%d" % [Time.get_ticks_usec(), randi()]
 			send(id, {"t": "hello", "id": id, "token": p.token})
 			print("%s 접속" % p.name)
 			# 진행 중인 방에 자리가 있으면 돌아간다
 			for code in rooms:
-				if rooms[code].reattach(id, p.token):
+				if rooms[code].reattach(id, p.token, p.rec):
 					p.room = code
 					print("  %s → 방 %s 로 돌아감" % [p.name, code])
 					return
@@ -132,7 +134,7 @@ func _handle(id: int, d: Dictionary) -> void:
 			var r := Room.new(self, code, str(d.get("mode", "fast")))
 			rooms[code] = r
 			p.room = code
-			r.add_human(id, p.name, p.token)
+			r.add_human(id, p.name, p.token, p.rec)
 			print("%s 방 %s 만듦 (%s)" % [p.name, code, r.mode])
 		"join":
 			var code := str(d.get("code", "")).to_upper().strip_edges()
@@ -143,11 +145,11 @@ func _handle(id: int, d: Dictionary) -> void:
 			# 11/9 사용자: 다른 방에 있다가 들어가면 먼저 나간다 (진행 중이던 방은 자리를 봇에게). 이미 들어 있는 방이면 그 자리로 그대로
 			if p.room != "" and p.room != code:
 				_leave(id)
-			if r.reattach(id, p.token):
+			if r.reattach(id, p.token, p.rec):
 				p.room = code
 				return
 			_leave(id)
-			if r.add_human(id, p.name, p.token) < 0:
+			if r.add_human(id, p.name, p.token, p.rec) < 0:
 				send(id, {"t": "error", "msg": "이미 시작했거나 자리가 없다"})
 				return
 			p.room = code

@@ -84,12 +84,13 @@ func day_no() -> int:
 
 # ───────── 대기실 ─────────
 
-func add_human(peer: int, name_: String, token: String) -> int:
+## rec = 플레이 기록 동의 (hello 의 rec) —— 참인 사람만 RoomLog 가 파일로 남긴다. 기본은 거절(기록 안 함)
+func add_human(peer: int, name_: String, token: String, rec := false) -> int:
 	if started or humans().size() >= SEATS:
 		return -1
 	seats.append({"name": _unique(name_), "human": true, "peer": peer, "token": token, "run": null,
 		"bot": null, "ready": false, "dead": false, "battles": [], "acted": false, "watched": false, "foe": null,
-		"last_foe": -1, "last_human": false, "say_t": -100.0})
+		"last_foe": -1, "last_human": false, "say_t": -100.0, "rec": rec})
 	if host < 0:
 		host = peer
 	push_lobby()
@@ -142,10 +143,14 @@ func on_leave(peer: int) -> void:
 
 
 ## 같은 토큰으로 돌아온 사람 —— 지금 단계의 상태를 주고, 보던 전투가 남았으면 다시 보낸다
-func reattach(peer: int, token: String) -> bool:
+func reattach(peer: int, token: String, rec := true) -> bool:
 	for s in seats:
 		if s.human and s.token == token:
 			s.peer = peer
+			if s.get("rec", false) and not rec:      # 돌아오며 동의를 철회했다 —— 그 자리의 기록은 여기서 멈춘다 (켜는 쪽은 없다: 이미 지난 판은 못 남긴다)
+				s.rec = false
+				if started and rlog != null and s.run != null:
+					rlog.consent_off(_idx(s), s.run, s.name)
 			empty_since = -1.0
 			if started:
 				if rlog != null:
@@ -213,6 +218,8 @@ func start() -> void:
 	if RoomLog.wanted(mode):
 		rlog = RoomLog.new()
 		rlog.open(self)
+		if rlog.files.is_empty():      # 동의한 사람이 없으면(또는 열지 못했으면) 기록기는 없는 것으로
+			rlog = null
 	_mirror()
 	_stage("morning")
 
@@ -519,9 +526,9 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 	y.battles.append({"title": bt2.title, "res": flipped, "kind": "pvp", "params": _params(bt, true, bt2.title, x.name)})
 	if rlog != null:
 		var bt3 := {"kind": "pvp", "title": bt2.title, "seed": bt.seed, "a": bt.b, "b": bt.a}      # y 기준 —— 내가 a
-		rlog.battle(_idx(x), rx, bt, res, y.name, true, x.peer < 0)
+		rlog.battle(_idx(x), rx, bt, res, y.name, true, x.peer < 0, bool(y.get("rec", false)))
 		rlog.reward(_idx(x), rx)
-		rlog.battle(_idx(y), ry, bt3, flipped, x.name, true, y.peer < 0)
+		rlog.battle(_idx(y), ry, bt3, flipped, x.name, true, y.peer < 0, bool(x.get("rec", false)))
 		rlog.reward(_idx(y), ry)
 
 
@@ -654,11 +661,11 @@ func _tour_round() -> void:
 			fr.foe = a.name
 			sb.battles.append({"title": fr.title, "res": fr, "kind": "tour", "params": _params(bt, true, fr.title, a.name)})
 			if rlog != null:
-				rlog.battle(_idx(sb), sb.run, {"kind": "tour", "title": fr.title, "seed": bt.seed, "a": bt.b, "b": bt.a}, fr, a.name, sa.human, sb.peer < 0)
+				rlog.battle(_idx(sb), sb.run, {"kind": "tour", "title": fr.title, "seed": bt.seed, "a": bt.b, "b": bt.a}, fr, a.name, sa.human, sb.peer < 0, bool(sa.get("rec", false)))
 		if sa.human:
 			sa.battles.append({"title": bt.title, "res": res, "kind": "tour", "params": _params(bt, false)})
 			if rlog != null:
-				rlog.battle(_idx(sa), sa.run, bt, res, b.name, sb.human, sa.peer < 0)
+				rlog.battle(_idx(sa), sa.run, bt, res, b.name, sb.human, sa.peer < 0, bool(sb.get("rec", false)))
 		for pair in [[sa, b, w == a], [sb, a, w == b]]:
 			var s: Dictionary = pair[0]
 			if not s.human:
