@@ -1,0 +1,99 @@
+A sheet of 6 Three Kingdoms (late Han dynasty China) characters. Calm flat SD role-card illustrations for a mobile card game (the KIIN cards: one irreplaceable role per card).
+
+REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: KIIN —— the ROLE card (jade).
+A KIIN card is an irreplaceable ROLE, not a legend: the picture shows what this person is FOR. The two things to read at thumbnail size are
+the ROLE PROP in the middle of the picture and the one bright jade accent. Everything else is calm, tidy and flat.
+
+RANK RULES (checklist —— every panel must obey all of these):
+- CAMERA AND POSE: eye-level, front view or a slight 3/4 turn, HIPS-UP half body, perfectly stable, no motion. The head is top-center, the
+  ROLE PROP is the second biggest shape: held at chest height in the center of the picture, large and readable at a glance.
+- PROPORTIONS AND LINE: the same chibi family as the reference (about 3 heads tall), clean dark-brown ink outlines, flat soft colors with
+  simple two-tone cel shading —— a slightly more polished version of the reference, not more detailed.
+- OUTFIT: exactly the base outfit (practical cloth and simple armor, NO gold and NO silver ornaments, no cape unless the base design has one)
+  PLUS the jade accent: a jade-green (#2ee6c0) cord, tassel, ribbon or pendant on the outfit, and the key part of the ROLE PROP tinted jade.
+- LIGHT: flat, even, soft; low contrast; no rim light, no glow, only a soft contact shadow.
+- COLOR: the person's own colors on a muted DUSTY TEAL-GREY background (#5f8a8c). Jade #2ee6c0 is the ONLY bright accent in the picture.
+- BACKGROUND: flat dusty teal-grey with a very soft vignette, plus ONE thin flat jade ring (a seal-like circle about 70% of the panel width,
+  thin line, centered behind the head and shoulders) that stays completely inside the panel and never touches its edge.
+  No scenery, no crowd, no banners.
+- EFFECTS: none, except small jade shards, ripples or sparks that belong to the ROLE PROP (see each ROLE line).
+- EXPRESSION: calm, professional, focused on the job.
+- NEVER: gold or silver trim, dramatic light, scenery, armies, fire or lightning, a tilted dynamic pose, a close-up face.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
+- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN. Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; young men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 2 columns x 3 rows = 6 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 6 fill the first 6 slots in order.
+- Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Natural proportions: never stretch, squash or shorten a character to fit a panel.
+- Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
+  Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 6) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Zhu Huan  [ROGUE, Wu] —— same person as reference #1
+   LOOK: early 30s, sly confident half-smile, sharp eyes, short chin beard.
+   FACE: narrow sly face, sharp side-glancing eyes, one raised eyebrow, thin nose, confident half-smile, short pointed chin beard.
+   BUILD: lean agile build, crouching.
+   SIGNATURE (unique to him on this sheet): HEAD red cloth wrapped around the head like a bandana; FACIAL HAIR short pointed chin beard; MARK short sword hidden behind the back, light leather armor.
+   COLORS: Wu red: crimson, red, orange and gold.
+   ROLE: STUNNER —— knocks enemies senseless and breaks their rhythm. The picture says it with: a sharp white impact flash with a few small dizzy stars, something has just been knocked or cut.
+   POSE AND PROP (the ROLE PROP is the star): crouched in a half-turn, the short sword just swung through a glowing orb of gathering energy and cut it into two fizzling halves, a white slash flash across it.
+2. Guan Lu  [SORCERER, Independent] —— same person as reference #2
+   LOOK: homely face, big forehead, thick eyebrows.
+   FACE: homely face, big bulging forehead, thick eyebrows, odd wandering eyes, wide nose, eccentric fortune-teller grin.
+   BUILD: short with a big head.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, big bulging forehead; FACIAL HAIR no beard; MARK turtle shell with trigrams.
+   COLORS: his own colors as described (independent).
+   ROLE: SLOWER —— floods the field and slows the enemy. The picture says it with: water: ripple rings and curling currents around the prop, droplets hanging motionless in the air.
+   POSE AND PROP (the ROLE PROP is the star): the turtle shell with trigram symbols held in both hands at chest height, a ripple ring expanding from it, droplets hanging motionless in the air around him (time slowing), a small pool of water curling at the bottom.
+3. Lu Su  [SCHOLAR, Wu] —— same person as reference #3
+   LOOK: round chubby kind face, short beard.
+   FACE: round chubby face, warm small smiling eyes, round nose, broad friendly smile, plump cheeks, soft skin, honest good-natured look.
+   BUILD: chubby and round.
+   SIGNATURE (unique to him on this sheet): HEAD round scholar hat; FACIAL HAIR short beard; MARK open book and rolled map.
+   COLORS: Wu red: crimson, red, orange and gold.
+   ROLE: WEAKENER —— saps the enemy's attack. The picture says it with: something sagging or wilting: a limp drooping flag, a bent blade, a coiled snake —— slack, downward shapes.
+   POSE AND PROP (the ROLE PROP is the star): one open palm held out in a calm peaceful offer, the rolled map in the other hand, and in the lower corner an enemy sword blade sagging limply, bent like a wilted stalk.
+4. Hua Tuo  [SORCERER, Independent] —— same person as reference #4
+   LOOK: very old but with a youthful glowing face, short white beard, square cloth cap.
+   FACE: old man with a surprisingly youthful glowing face, rosy healthy cheeks, bright twinkling eyes, button nose, laughing mouth, short white beard, square cloth cap.
+   BUILD: small round old man, energetic.
+   SIGNATURE (unique to him on this sheet): HEAD square cloth cap (fangjin); FACIAL HAIR short white beard; MARK blue cloth medicine bag hanging on his arm, acupuncture needles.
+   COLORS: his own colors as described (independent).
+   ROLE: HEALER —— heals and supplies the allies. The picture says it with: soft green-white light flowing from the hands or an instrument, herbs, needles, grain.
+   POSE AND PROP (the ROLE PROP is the star): a long glowing acupuncture needle held between two fingers, the blue cloth medicine bag on his arm, soft green-white healing light flowing from his other palm.
+5. Cao Ren  [SPEARMAN, Wei] —— same person as reference #5
+   LOOK: square face with a broad greying beard, heavy round helmet with the visor raised.
+   FACE: huge square head, small hard eyes under a heavy brow, wide nose, broad GREYING beard, ruddy skin, immovable defender.
+   BUILD: massive and square, like a wall.
+   SIGNATURE (unique to him on this sheet): HEAD heavy round helmet with the visor raised; FACIAL HAIR broad greying beard; MARK man-tall tower shield, crouched guarding stance.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   ROLE: BULWARK —— takes the hits for the allies. The picture says it with: a big flat guarding shape (a shield or crossed weapons) planted at the front center, an immovable wide stance.
+   POSE AND PROP (the ROLE PROP is the star): braced behind his man-tall tower shield planted in the center of the picture, both gauntlets pressed flat on its top edge, three arrows stuck in its face, jade cord tassels hanging from its top corners; only the helmet, the eyes, the beard and the shoulders show over the rim.
+6. Zhang Yan  [ROGUE, Independent] —— same person as reference #6
+   LOOK: young, black mask scarf over the lower face.
+   FACE: young sharp eyes above a black mask scarf over the lower face, lean face, quick bandit glance.
+   BUILD: lean and agile.
+   SIGNATURE (unique to him on this sheet): HEAD black hood; FACIAL HAIR black mask scarf over the lower face; MARK a knife in each hand.
+   COLORS: his own colors as described (independent).
+   ROLE: ARMOR-BREAKER —— strips the enemy's armor so that allies hit harder. The picture says it with: a weapon tip or a bolt punching through a cracked metal plate, flying metal shards.
+   POSE AND PROP (the ROLE PROP is the star): a knife in each hand, the right knife punched through the middle of an iron breastplate that hangs from the left knife, the plate cracked in a star with jade-tinted shards flying.

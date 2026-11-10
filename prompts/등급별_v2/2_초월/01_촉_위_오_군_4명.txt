@@ -1,0 +1,76 @@
+A sheet of 4 Three Kingdoms (late Han dynasty China) characters. Refined, cold, silver TRANSCENDENT card illustrations for a mobile card game.
+
+REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: TRANSCENDENT —— cold silver dignity.
+RANK LOOK IN ONE LINE: calm, cold and formal, a silver-white portrait in still air. At thumbnail size it must read "silver and pale sky-blue,
+quiet and noble".
+
+RANK RULES (checklist —— every panel must obey all of these):
+- CAMERA AND POSE: eye-level, CHEST-TO-WAIST crop. The body faces the front or turns at most 30 degrees, shoulders level, the pose still and
+  symmetrical, the weapon or item held VERTICALLY at one side (a tall quiet line). No diagonal action, no foreshortening, no wide-angle.
+- PROPORTIONS AND LINE: refined semi-chibi, about 3.5 heads tall, fine clean ink lines, soft cel shading with airy highlights.
+- OUTFIT: the base design made noble —— engraved SILVER and white-steel plates, silver filigree, pale silk over the faction-colored cloth
+  (the cloth muted and a little desaturated), a white or pale-blue plume or tassels, plain silver clasps. NO GOLD anywhere.
+- LIGHT: cold, bright and even, from the upper front-left, a thin white rim, soft pale blue-grey shadows. HIGH-KEY: the whole picture is light.
+- COLOR: silver, white and pale sky-blue (#cfe6ff); the faction color only in the cloth. A cool temperature everywhere.
+- BACKGROUND: pale blue-white mist fading to white at the bottom, and ONE tall faction war banner (blank cloth in the faction color, no lettering)
+  standing far behind on one side, slightly out of focus. Nothing else: no crowd, no dramatic sky.
+- EFFECTS: none, except a few tiny silver light motes. No fire, no lightning, no glowing aura.
+- EXPRESSION: composed dignity, the eyes level, a restrained look.
+- NEVER: gold or orange, fire or lightning, a dark background, a dynamic pose, crowds, a cape blowing in the wind.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
+- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN. Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; young men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 2 columns x 2 rows = 4 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 4 fill the first 4 slots in order.
+- Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Natural proportions: never stretch, squash or shorten a character to fit a panel.
+- Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
+  Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Guan Ping  [SPEARMAN, Shu] —— same person as reference #1
+   LOOK: early 20s, square jaw like his father but clean-shaven, ruddy (not deep red) face, earnest determined eyes.
+   FACE: young MAN with a square honest face, ruddy cheeks, straight thick brows, wide steady eyes, firm closed mouth, clean-shaven, dutiful expression.
+   BUILD: sturdy and square, medium height.
+   SIGNATURE (unique to him on this sheet): HEAD green cloth headband with the hair in a tight topknot; FACIAL HAIR clean-shaven; MARK broad heavy saber, seal pouch at the belt.
+   COLORS: Shu green: green, jade and earthy gold.
+2. Pang De  [SPEARMAN, Wei] —— same person as reference #2
+   LOOK: 40s, hard square jaw, full black beard, thick eyebrows, fierce unblinking eyes.
+   FACE: hard square MAN's jaw, thick straight eyebrows, fierce unblinking eyes, broad nose, full black beard, tanned skin, grim determination.
+   BUILD: solid and broad.
+   SIGNATURE (unique to him on this sheet): HEAD blue cloth headscarf (no helmet); FACIAL HAIR full black beard; MARK small upright wooden coffin on a short rope behind his back, upright long spear.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   STORY HINT (tiny and optional, only a faint shape in the mist or the thing he or she holds; the calm pose rule wins): marching out to face Guan Yu with his own coffin carried behind him, vowing to die or win.
+3. Zhou Tai  [SPEARMAN, Wu] —— same person as reference #3
+   LOOK: cropped hair, many scars and bandages, stoic expressionless face.
+   FACE: expressionless stone-like face, cropped hair, many crisscrossing scars and bandages, dull steady eyes, flat nose, closed mouth, stoic guardian.
+   BUILD: solid, broad, covered in bandages.
+   SIGNATURE (unique to him on this sheet): HEAD cropped hair with bandages wrapped around the head; FACIAL HAIR no beard; MARK crisscrossing scars and bandages everywhere.
+   COLORS: Wu red: crimson, red, orange and gold.
+   STORY HINT (tiny and optional, only a faint shape in the mist or the thing he or she holds; the calm pose rule wins): the blood battle — shielding his lord with his own body, covered in wounds and arrows, unbroken.
+4. Wen Chou  [CAVALRY, Independent] —— same person as reference #4
+   LOOK: 30s, rough ugly face, thick drooping mustache, angry glare.
+   FACE: rough lumpy face, thick brow ridge, angry bloodshot glare, flat broad nose, thick drooping mustache, scowling mouth.
+   BUILD: big and brutish, broad shoulders.
+   SIGNATURE (unique to him on this sheet): HEAD yellow-gold helmet with a tall red tassel; FACIAL HAIR thick drooping mustache, no beard; MARK long spear lowered for a charge, yellow-gold armor.
+   COLORS: Yuan clan army colors: yellow and gold robes or armor with dark brown trims (the Yuan banner color).
+   MOUNTED: riding a brown horse —— rider chest-to-waist facing nearly front; the horse's armored head and neck rise from the bottom edge in front of him, standing calmly.

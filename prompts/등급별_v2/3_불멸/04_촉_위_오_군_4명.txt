@@ -1,0 +1,80 @@
+A sheet of 4 Three Kingdoms (late Han dynasty China) characters. Blazing, golden, dynamic IMMORTAL card illustrations for a mobile card game.
+
+REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: IMMORTAL —— blazing gold.
+RANK LOOK IN ONE LINE: blazing, warm and in motion, a golden-hour war portrait with an army behind it. At thumbnail size it must read
+"gold, orange, sparks and banners".
+
+RANK RULES (checklist —— every panel must obey all of these):
+- CAMERA AND POSE: LOW camera angle, the body turned 3/4 and leaning 15 to 25 degrees on a strong diagonal, CHEST-TO-WAIST crop with the head
+  still at the top center. Dynamic: mid-stride or mid-shout, the weapon crossing the picture diagonally, the cape, ribbons and plumes whipping
+  across the frame, a little wide-angle foreshortening on the weapon.
+- PROPORTIONS AND LINE: polished anime game illustration, about 4 heads tall, dense fine linework, an expressive face.
+- OUTFIT: lavish GOLD —— gilded armor plates, gold filigree and embossed dragon / phoenix / tiger motifs, a big flowing cape or sash in a saturated
+  version of the faction color lined with red-orange silk, tall feathers or plumes, jeweled clasps.
+- LIGHT: strong warm backlight (a low sun behind), a hot orange-gold rim along the hair, shoulder and weapon, the face lit warmly from the front-low side.
+- COLOR: gold, amber and orange-red with warm brown shadows, very saturated. A warm temperature everywhere.
+- BACKGROUND: a marching army in depth —— a sea of spears and many war banners (blank cloth, no lettering) rising toward a blazing orange sunset sky
+  with smoke; the army fills the lower background and recedes into haze. The STORY DETAIL of each character appears small in that background.
+- EFFECTS: drifting embers and sparks, golden dust, trailing ribbons; fire only as sparks and small flames in the background. No lightning.
+- EXPRESSION: bold and charismatic —— a battle cry or a fierce grin.
+- NEVER: silver-blue or cold light, an empty misty backdrop, a still symmetrical pose, a black background, a close-up face filling the picture.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
+- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN. Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; young men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 2 columns x 2 rows = 4 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 4 fill the first 4 slots in order.
+- Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Natural proportions: never stretch, squash or shorten a character to fit a panel.
+- Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
+  Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Zhao Yun  [CAVALRY, Shu] —— same person as reference #1
+   LOOK: late 20s, broad face with a full heavy jaw, thick brows, large calm eyes, clean-shaven, NO helmet, neat topknot with a white-and-green headband, gentle confident smile.
+   FACE: heroic MAN with a broad face and a full heavy jaw, thick dark brows, large clear calm eyes, straight nose, gentle confident closed-mouth smile, clean-shaven, healthy tanned skin, warm honorable expression.
+   BUILD: tall, broad-chested and solid.
+   SIGNATURE (unique to him on this sheet): HEAD no helmet, neat topknot tied with a white-and-green headband; FACIAL HAIR clean-shaven; MARK white and green robe over light silver armor, dragon-engraved silver spear, white horse.
+   COLORS: Shu green: green, jade and earthy gold.
+   MOUNTED: riding a pure white horse with a green saddle cloth —— rider and horse together in a diagonal charge, the horse rearing or at full gallop with its chest and head big in the lower half; the rider's face stays at the top center, the cape streaming.
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): Zhao Zilong of Changshan riding through the enemy host at Changban with baby Liu Shan, silver spear flashing.
+2. Zhang Liao  [CAVALRY, Wei] —— same person as reference #2
+   LOOK: 40s, grim veteran cavalry commander, dark steel helmet with cheek guards and a tall purple-black plume, square-cut short black beard, scar across the left cheek.
+   FACE: hard square MAN's face, deep-set narrow cold eyes under heavy straight brows, scar across the left cheek, straight nose, square-cut short black beard and mustache, tanned skin, grim silent commander.
+   BUILD: lean and hard, tall.
+   SIGNATURE (unique to him on this sheet): HEAD dark steel helmet with cheek guards and a tall purple-black plume; FACIAL HAIR square-cut short black beard and mustache; MARK scar across the left cheek, crescent-bladed halberd, black horse.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   MOUNTED: riding a black warhorse —— rider and horse together in a diagonal charge, the horse rearing or at full gallop with its chest and head big in the lower half; the rider's face stays at the top center, the cape streaming.
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): Hefei: leading only 800 riders straight into a 100,000-man Wu army, halberd raised and shouting his name, the enemy ranks scattering, Sun Quan fleeing over a broken bridge in the background.
+3. Gan Ning  [ROGUE, Wu] —— same person as reference #3
+   LOOK: 30s, menacing pirate chief, NO feathers, scar across the brow, scary glare.
+   FACE: lean hard face, fierce glaring narrowed eyes under a heavy scarred brow, broken flat nose, sun-tanned skin, tattooed neck, bared-teeth snarl, menacing and scary, NOT playful.
+   BUILD: lean and muscular, tattooed arms.
+   SIGNATURE (unique to him on this sheet): HEAD red brocade pirate bandana knotted at the back with long tails; FACIAL HAIR rough short stubble; MARK grappling hook rope, brass bells on his belt, tattoos.
+   COLORS: Wu red: crimson, red, orange and gold.
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): the brocade-sail pirate on a ship with brocade sails, bells ringing, leaping with a curved sword.
+4. Zhang Jiao  [SORCERER, Independent] —— same person as reference #4
+   LOOK: gaunt old face, long grey beard.
+   FACE: skeletal gaunt face, hollow cheeks, wild glowing feverish eyes, long thin nose, thin cracked lips, sickly yellowish skin, fanatical prophet expression.
+   BUILD: skeletal and gaunt.
+   SIGNATURE (unique to him on this sheet): HEAD tall yellow Taoist crown over a yellow hood; FACIAL HAIR long grey beard; MARK skeletal face, nine-knot staff, Taiping scroll.
+   COLORS: his own colors as described (independent).
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): the General of Heaven proclaiming the uprising from an altar, arms raised, a sea of yellow headbands and torches below, talisman water bowl smoking.
