@@ -589,7 +589,8 @@ func remain() -> float:
 	return maxf(0.0, stage_end - Room.now())
 
 
-const STAGE_SHORT := {"morning": "아침", "noon": "점심", "evening_prep": "저녁 준비", "evening": "저녁"}
+## 11/10 사용자: 단계 이름이 페이즈 이름(오전 · 오후 · 저녁)과 같은 시간대 말이라 헷갈린다 —— 하는 일로 부른다 (아침 → 준비 · 점심 → 토벌 · 저녁 준비 → 대전 준비 · 저녁 → 대전)
+const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}
 ## 11/10 사용자: 온라인의 '일차'는 방의 페이즈 번호(day_no = 일 × 3 + 페이즈 + 1, 1~21)라 12일차까지 가는 것처럼 보였다 —— 화면에는 혼자 하기와 같은 게임 날짜 · 페이즈(예: day_no 12 → 「4일차 저녁」)로 보인다. 서버 · 기록의 day_no 는 그대로
 func day_text() -> String:
 	var n := maxi(1, int(room.get("day_no", 1)))
@@ -753,13 +754,13 @@ func _stage_hint() -> String:
 	var st := str(room.get("stage", ""))
 	var rd: bool = me().get("ready", false)
 	match st:
-		"morning": return "다른 사람을 기다리는 중 — 모두 준비되면 점심(토벌)" if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
-		"noon": return "다른 사람을 기다리는 중 — 모두 보면 저녁 상대가 정해진다" if rd else "토벌을 보고 준비 완료"
+		"morning": return "다른 사람을 기다리는 중 — 모두 준비되면 토벌" if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
+		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다" if rd else "토벌을 보고 준비 완료"
 		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성 · 작전을 고친 뒤 준비 완료"
 		"evening":
 			if int(room.get("tour_round", -1)) >= 0:
 				return "다른 사람을 기다리는 중 — 모두 보면 다음 라운드" if rd else "%s을 보고 준비 완료" % Run.ROUNDNM[int(room.tour_round)]
-			return "다른 사람을 기다리는 중 — 모두 보면 다음 날 아침" if rd else "대전을 보고 준비 완료"
+			return "다른 사람을 기다리는 중 — 모두 보면 다음 페이즈 준비" if rd else "대전을 보고 준비 완료"
 		"over": return "판이 끝났다"
 	return ""
 
@@ -915,8 +916,8 @@ func war_page() -> Control:
 				sub = "전투를 끝까지 보면 열린다"
 			else:
 				match st:
-					"morning": sub = "모두 준비되면 점심(토벌)으로"
-					"noon": sub = "모두 보면 저녁 상대가 정해진다"
+					"morning": sub = "모두 준비되면 토벌로"
+					"noon": sub = "모두 보면 대전 상대가 정해진다"
 					"evening_prep": sub = "모두 준비되면 대전"
 					"evening": sub = "모두 보면 다음으로"
 		v.add_child(UI.act("준비 취소" if rd else "준비 완료", sub, func(): send_ready(not rd), "ghost" if rd else "pri", disabled))

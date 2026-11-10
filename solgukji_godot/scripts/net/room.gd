@@ -24,20 +24,20 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 만들어진 시점 when("3일차 아침" —— 온라인의 일차는 day_no, 단계는 아침 · 점심 · 저녁 준비 · 저녁)를 붙인다.
 
 const MODES := {
-	"fast": {"n": "빠른 — 아침 1분 · 하루 약 4분", "morning": 60.0, "noon": 75.0, "prep": 60.0, "evening": 100.0},
-	"normal": {"n": "보통 — 아침 1분 30초 · 하루 약 5분", "morning": 90.0, "noon": 75.0, "prep": 90.0, "evening": 100.0},
+	"fast": {"n": "빠른 — 준비 1분 · 한 페이즈 약 4분", "morning": 60.0, "noon": 75.0, "prep": 60.0, "evening": 100.0},
+	"normal": {"n": "보통 — 준비 1분 30초 · 한 페이즈 약 5분", "morning": 90.0, "noon": 75.0, "prep": 90.0, "evening": 100.0},
 	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5},
 }
 const SEATS := 8
-const STAGE_N := {"lobby": "대기실", "morning": "아침 — 징집·조합", "noon": "점심 — 토벌", "evening_prep": "저녁 — 대전 준비",
-	"evening": "저녁 — 대전", "over": "끝"}
+const STAGE_N := {"lobby": "대기실", "morning": "준비 — 징집·조합·편성", "noon": "토벌", "evening_prep": "대전 준비",
+	"evening": "대전", "over": "끝"}
 const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 단계
 ## 한마디 —— 자유 입력 없이 이 글만 보낼 수 있다 (11/9 사용자: 대기실 · 아침 · 저녁 준비 · 전투를 보는 중 다른 사람에게 짧게)
 const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
 const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
-const STAGE_SHORT := {"morning": "아침", "noon": "점심", "evening_prep": "저녁 준비", "evening": "저녁"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
+const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
 
 var server                    # MatchServer —— send(peer, msg)
 var code := ""
@@ -88,10 +88,10 @@ func day_no() -> int:
 	return day * 3 + phase + 1
 
 
-## 소식의 시점 글 —— "3일차 아침" (day_no · 지금 단계)
+## 소식의 시점 글 —— "3일차 저녁" (11/10: 게임 날짜 · 페이즈 — 화면의 Online.day_text 와 같은 표기. day_no 는 페이즈 번호 1~21)
 func when_text() -> String:
 	var st := _news_stage if _news_stage != "" else stage
-	return "%d일차 %s" % [day_no(), STAGE_SHORT.get(st, "")] if STAGE_SHORT.has(st) else ""
+	return "%d일차 %s" % [day + 1, Run.PHASE_N[clampi(phase, 0, 2)]] if STAGE_SHORT.has(st) else ""
 
 
 # ───────── 대기실 ─────────
