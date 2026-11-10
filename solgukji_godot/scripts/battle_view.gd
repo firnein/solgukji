@@ -270,7 +270,7 @@ func _build_top() -> Control:
 	h.add_theme_constant_override("separation", 4)
 	bar.add_child(h)
 	title_label = Label.new()
-	title_label.add_theme_font_override("font", DB.font_display)
+	title_label.add_theme_font_override("font", DB.title_font(16))      # 11/10 작은 글자는 굵은 고딕
 	title_label.add_theme_font_size_override("font_size", 16)
 	title_label.text = "전장"
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1865,8 +1865,8 @@ class Hud extends Control:
 			# 10/31 사용자: 작고 짧게 (글씨 17 → 12, 1.4초 → 1.0초)
 			var a := clampf(t / 0.08, 0, 1) * clampf((1.0 - t) / 0.25, 0, 1)
 			var sc := lerpf(1.25, 1.0, ease(clampf(t / 0.14, 0, 1), 0.4))
-			var fd := DB.font_display
 			var fs := 15          # 11/3 사용자: 기술명이 안 읽힌다 (12 → 15, 외곽선 두껍게)
+			var fd := DB.title_font(fs)      # 11/10 작은 글자는 굵은 고딕
 			var tw := fd.get_string_size(b.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			var w := tw + 24.0
 			var h := 23.0
@@ -2022,7 +2022,8 @@ class Hud extends Control:
 			var big := 1.0 + minf(0.5, c.n / 30.0)
 			var fs := int((15 if mine else 12) * big)
 			var txt := "%s ×%d" % [c.name, c.n]
-			var tw := DB.font_display.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 22
+			var cfd := DB.title_font(fs)
+			var tw := cfd.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 22
 			var h := fs + 12.0
 			var slide := (1.0 - ease(clampf(t / 0.25, 0, 1), 0.3)) * 40.0
 			var x := 10.0 - slide if mine else size.x - 10.0 - tw + slide
@@ -2035,7 +2036,7 @@ class Hud extends Control:
 			sb.set_border_width_all(2 if mine else 1)
 			sb.set_corner_radius_all(6)
 			draw_style_box(sb, Rect2(x, y, tw, h))
-			_text(DB.font_display, Vector2(x + 11, y + h * 0.5 + fs * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col.lightened(0.2), a))
+			_text(cfd, Vector2(x + 11, y + h * 0.5 + fs * 0.36), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col.lightened(0.2), a))
 			if mine and t < 0.6:
 				_text(DB.font_body, Vector2(x + tw + 6, y + h * 0.5 + 4), "연쇄!", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(col, a * (1.0 - t / 0.6)))
 
@@ -2097,7 +2098,7 @@ class Hud extends Control:
 				if view.clock - float(_threat_seen["h" + sq.key]) < 3.0:
 					items.append(["%s 위태롭다" % nm, Color("#ffb070")])
 		var y := 104.0
-		var fd := DB.font_display
+		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
 		for it in items.slice(0, 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
 			var r := Rect2(size.x - w - 10.0, y, w, 22.0)
@@ -2133,7 +2134,6 @@ class Hud extends Control:
 		return clampf((view.clock - c.t0) / c.wait, 0.0, 1.0)
 
 	func _draw_charges() -> void:
-		var fd := DB.font_display
 		var fb := DB.font_bold
 		var y := 62.0
 		_charge_rows = 0
@@ -2149,11 +2149,12 @@ class Hud extends Control:
 			var a := clampf(t / 0.12, 0, 1) * clampf((c.wait + CHARGE_HOLD - t) / 0.25, 0, 1)
 			var title := "『%s』" % c.name
 			var tfs := 22
-			while tfs > 14 and fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > size.x - 140.0:
+			while tfs > 14 and DB.title_font(tfs).get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > size.x - 140.0:
 				tfs -= 1
-			var tw := fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x
+			var tf := DB.title_font(tfs)      # 11/10 18 미만으로 줄면 굵은 고딕
+			var tw := tf.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x
 			var R := 11.0
-			var bw := fd.get_string_size(CHARGE_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0
+			var bw := DB.font_bold.get_string_size(CHARGE_WORD, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0
 			var total := R * 2.0 + 9.0 + tw + 9.0 + bw
 			var x0 := (size.x - total) / 2.0
 			var tx := x0 + R * 2.0 + 9.0
@@ -2178,8 +2179,8 @@ class Hud extends Control:
 			var tcol := Color("#eaf3ff") if c.mine else Color("#ffe0d8")
 			if u >= 1.0:
 				tcol = tcol.lerp(Color("#ffd257"), 0.6)
-			draw_string_outline(fd, Vector2(tx, y + 35.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, 6, Color(0, 0, 0, 0.9 * a))
-			draw_string(fd, Vector2(tx, y + 35.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, Color(tcol, a))
+			draw_string_outline(tf, Vector2(tx, y + 35.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, 6, Color(0, 0, 0, 0.9 * a))
+			draw_string(tf, Vector2(tx, y + 35.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, Color(tcol, a))
 			# 고리 —— 금빛이 시계 방향으로 찬다. 안에 "기". 다 차면 번쩍
 			var rc := Vector2(x0 + R, cy)
 			draw_circle(rc, R + 3.5, Color(0, 0, 0, 0.5 * a))
@@ -2189,11 +2190,11 @@ class Hud extends Control:
 				draw_arc(rc, R, -PI / 2.0, -PI / 2.0 + TAU * u, 40, Color(gc, a), 3.5)
 			if u >= 1.0:
 				draw_circle(rc, R - 2.0, Color(1.0, 0.9, 0.5, 0.35 * a))
-			draw_string(fd, Vector2(rc.x - R, cy + 4.0), "기", HORIZONTAL_ALIGNMENT_CENTER, R * 2.0, 11, Color("#ffe6a8", a))
+			draw_string(fb, Vector2(rc.x - R, cy + 4.0), "기",HORIZONTAL_ALIGNMENT_CENTER, R * 2.0, 11, Color("#ffe6a8", a))
 			# 「운기」 낙관 —— 기술명 오른쪽, 진영색 바탕
 			var bb := Rect2(Vector2(tx + tw + 9.0, cy - 9.0), Vector2(bw, 18.0))
 			draw_rect(bb, Color(Color("#2f6fd0") if c.mine else Color("#c8463c"), 0.9 * a))
-			draw_string(fd, bb.position + Vector2(0, 13.5), CHARGE_WORD, HORIZONTAL_ALIGNMENT_CENTER, bw, 11, Color(DB.PAL.paper, a))
+			draw_string(fb, bb.position + Vector2(0, 13.5), CHARGE_WORD, HORIZONTAL_ALIGNMENT_CENTER, bw, 11, Color(DB.PAL.paper, a))
 			y += 46.0
 			_charge_rows += 1
 
@@ -2835,7 +2836,7 @@ class Hud extends Control:
 		draw_rect(Rect2(bx + bw * ratio, 14, bw * (1 - ratio), 8), War3D.TEAM.B)
 		_text(fb, Vector2(bx - 98, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 92, 13, Color("#a9c8f0"))
 		_text(fb, Vector2(bx + bw + 6, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
-		_text(fd, Vector2(bx, 46), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw, 16, DB.PAL.paper)
+		_text(DB.title_font(16), Vector2(bx, 46), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw, 16, DB.PAL.paper)
 		if view.speed == 0.0:
 			_text(fd, Vector2(0, size.y / 2), "일 시 정 지", HORIZONTAL_ALIGNMENT_CENTER, size.x, 26, DB.PAL.bamboo)
 		if ann:
@@ -3095,7 +3096,7 @@ class MiniCard extends Control:
 		TierDeco.draw(self, Rect2(Vector2.ZERO, size), sq.cid, TierDeco.TINY, 6.0, float(sb.border_width_left), 1.0, false)      # 11/9 기인 · 초월 · 불멸 · 신화 프로필 장식 (모서리 · 안쪽 선만 —— 이름 · 막대를 가리지 않게)
 		var fb := DB.font_body
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
-		draw_string(DB.font_display, Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))
+		draw_string(DB.title_font(12), Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))      # 11/10 작은 이름은 굵은 고딕
 		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo_dim)
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
 		draw_string(fb, Vector2(41, 41), state, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
@@ -3135,9 +3136,10 @@ class MiniCard extends Control:
 		var tw := w - x - 2
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		var fs := 12
-		while fs > 9 and DB.font_display.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
+		var nmf := DB.title_font(fs)      # 11/10 작은 이름은 굵은 고딕 (폭 계산도 같은 글꼴로)
+		while fs > 9 and nmf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
 			fs -= 1
-		draw_string(DB.font_display, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
+		draw_string(nmf, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
 		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
 		_bar_rows(3.0, bar_y, w - 6.0, 8.0, 8)
@@ -3150,8 +3152,8 @@ class MiniCard extends Control:
 			rb.set_border_width_all(3)
 			rb.set_corner_radius_all(6)
 			draw_style_box(rb, Rect2(Vector2.ZERO, size))
-			draw_string_outline(DB.font_display, Vector2(0, 50), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, 4, Color(0, 0, 0, 0.9))
-			draw_string(DB.font_display, Vector2(0, 50), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color("#ffd257"))
+			draw_string_outline(DB.title_font(13), Vector2(0, 50), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, 4, Color(0, 0, 0, 0.9))
+			draw_string(DB.title_font(13), Vector2(0, 50), "고유기", HORIZONTAL_ALIGNMENT_CENTER, w, 13, Color("#ffd257"))
 		if not sq.alive:
 			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
 
@@ -3196,5 +3198,5 @@ class MiniCard extends Control:
 				draw_circle(c, 2.4, Color("#ffd257"))
 
 	func _glow_text(t: String) -> void:
-		draw_string_outline(DB.font_display, Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, 4, Color(0, 0, 0, 0.9))
-		draw_string(DB.font_display, Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, Color("#ffd257"))
+		draw_string_outline(DB.title_font(13), Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, 4, Color(0, 0, 0, 0.9))
+		draw_string(DB.title_font(13), Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, Color("#ffd257"))
