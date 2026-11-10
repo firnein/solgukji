@@ -30,7 +30,8 @@ var font_display: Font
 var font_body: Font
 var font_bold: Font
 var STAT_ADJ := {}      # 능력치 보정 (set_stat_adjust)
-const TIER_ART := false  # 초월 · 불멸 · 신화 전용 그림(<인물>_신화.png 등)을 쓸까 —— 10/30 사용자: 지금은 모든 등급이 기본 그림 (true 로 바꾸면 export_presets.cfg 의 exclude_filter 에서 *_초월 · *_불멸 · *_신화 도 빼야 APK 에 들어간다)
+const TIER_ART := true   # 11/10 사용자: 등급별 일러스트(<인물>_초월 · _불멸 · _기인.png)가 있는 카드만 그 그림을 쓴다 —— 없으면 기본 초상. 이전 설명: 초월 · 불멸 · 신화 전용 그림(<인물>_신화.png 등)을 쓸까 —— 10/30 사용자: 지금은 모든 등급이 기본 그림 (true 로 바꾸면 export_presets.cfg 의 exclude_filter 에서 *_초월 · *_불멸 · *_신화 도 빼야 APK 에 들어간다)
+const TIER_ART_MYTH := false   # 신화 카드 초상에 <인물>_신화.png 를 쓸지 (v1 신화는 컷인 전용으로 둔다)
 var _BASE := {}         # 보정 전 원본 능력치
 
 var _portrait_cache := {}
@@ -846,7 +847,9 @@ func _portrait_cands(k: String) -> Array:
 	var p := "res://assets/portraits/%s" % person(k)
 	var cands: Array = []
 	if TIER_ART:
-		if c.tier >= 8:
+		if is_kiin(k):      # 11/10 기인은 역할 그림(<인물>_기인.png) 먼저
+			cands.append(p + "_기인")
+		if TIER_ART_MYTH and c.tier >= 8:      # 신화 v1 그림(<인물>_신화.png)은 지금 컷인 전용 —— 카드 초상에는 v2 가 그려진 뒤 켠다
 			cands.append(p + "_신화")
 		if c.tier >= 7:
 			cands.append(p + "_불멸")
