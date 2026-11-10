@@ -1036,7 +1036,7 @@ func _update_back() -> void:
 
 ## 시트 위 오른쪽 쓸기 —— 이전 카드 시트로
 func _input(e: InputEvent) -> void:
-	if not _sheet.visible or _hist.is_empty():
+	if _sheet == null or not _sheet.visible or _hist.is_empty():      # 11/10 화면이 다 만들어지기 전에 입력이 오면 _sheet 가 아직 null
 		return
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
