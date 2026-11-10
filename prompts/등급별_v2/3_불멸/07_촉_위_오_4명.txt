@@ -1,0 +1,78 @@
+A sheet of 4 Three Kingdoms (late Han dynasty China) characters. Blazing, golden, dynamic IMMORTAL card illustrations for a mobile card game.
+
+REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: IMMORTAL —— blazing gold.
+RANK LOOK IN ONE LINE: blazing, warm and in motion, a golden-hour war portrait with an army behind it. At thumbnail size it must read
+"gold, orange, sparks and banners".
+
+RANK RULES (checklist —— every panel must obey all of these):
+- CAMERA AND POSE: LOW camera angle, the body turned 3/4 and leaning 15 to 25 degrees on a strong diagonal, CHEST-TO-WAIST crop with the head
+  still at the top center. Dynamic: mid-stride or mid-shout, the weapon crossing the picture diagonally, the cape, ribbons and plumes whipping
+  across the frame, a little wide-angle foreshortening on the weapon.
+- PROPORTIONS AND LINE: polished anime game illustration, about 4 heads tall, dense fine linework, an expressive face.
+- OUTFIT: lavish GOLD —— gilded armor plates, gold filigree and embossed dragon / phoenix / tiger motifs, a big flowing cape or sash in a saturated
+  version of the faction color lined with red-orange silk, tall feathers or plumes, jeweled clasps.
+- LIGHT: strong warm backlight (a low sun behind), a hot orange-gold rim along the hair, shoulder and weapon, the face lit warmly from the front-low side.
+- COLOR: gold, amber and orange-red with warm brown shadows, very saturated. A warm temperature everywhere.
+- BACKGROUND: a marching army in depth —— a sea of spears and many war banners (blank cloth, no lettering) rising toward a blazing orange sunset sky
+  with smoke; the army fills the lower background and recedes into haze. The STORY DETAIL of each character appears small in that background.
+- EFFECTS: drifting embers and sparks, golden dust, trailing ribbons; fire only as sparks and small flames in the background. No lightning.
+- EXPRESSION: bold and charismatic —— a battle cry or a fierce grin.
+- NEVER: silver-blue or cold light, an empty misty backdrop, a still symmetrical pose, a black background, a close-up face filling the picture.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
+- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN. Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; young men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. ALWAYS a fixed grid of 2 columns x 2 rows = 4 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 4 fill the first 4 slots in order.
+- Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Natural proportions: never stretch, squash or shorten a character to fit a panel.
+- Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
+  Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 4) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Jiang Wei  [STRATEGIST, Shu] —— same person as reference #1
+   LOOK: young man in his 20s, intelligent determined face, white hood over green armor.
+   FACE: young MAN in his early 20s, firm square jaw, strong straight thick brows, keen earnest eyes, straight nose, determined closed mouth, short sideburns and a faint stubble shadow on the chin, sun-tanned skin, broad neck, serious soldier's look.
+   BUILD: athletic young soldier.
+   SIGNATURE (unique to him on this sheet): HEAD white cloth hood; FACIAL HAIR short sideburns and a faint chin stubble; MARK green armor, spear and a rolled military map.
+   COLORS: Shu green: green, jade and earthy gold.
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): the northern campaigns, three-pointed spear raised toward the central plains, wind-swept Shu banners.
+2. Sima Yi  [SCHEMER, Wei] —— same person as reference #2
+   LOOK: 50s, imposing tall figure, long thin beard, aura of the most powerful man in the realm.
+   FACE: long gaunt face, sunken cheeks, narrow wolf-like eyes looking down coldly, long thin nose, thin lips in a faint cunning smile, pale skin, overwhelming quiet authority.
+   BUILD: tall and gaunt, long neck.
+   SIGNATURE (unique to him on this sheet): HEAD tall black official crown; FACIAL HAIR long thin beard; MARK white cloak over deep blue robes, arms folded.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): the wolf's glance — looking back over his shoulder with glowing eyes, a wolf shadow behind him.
+3. Zhou Yu  [STRATEGIST, Wu] —— same person as reference #3
+   LOOK: handsome, long flowing hair, clean-shaven.
+   FACE: handsome young MAN, long oval face with a defined jaw, sharp elegant eyes, high straight nose, thin confident smile, clean-shaven, pale skin, noble masculine bearing.
+   BUILD: tall and graceful.
+   SIGNATURE (unique to him on this sheet): HEAD long flowing hair held by a red crown band; FACIAL HAIR clean-shaven; MARK elegant sword, guqin zither.
+   COLORS: Wu red: crimson, red, orange and gold.
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): the handsome commander calmly playing a guqin zither while ships burn far behind, sword at his side.
+4. Zhuge Liang  [STRATEGIST, Shu] —— same person as reference #4
+   LOOK: late 20s, serene slender face, thin mustache, black silk scholar's cap (lun jin).
+   FACE: slender serene MAN, long oval face with a defined jaw, calm deep knowing eyes, long straight nose, thin neat mustache and a short goatee, faint mysterious smile, black silk scholar's cap, otherworldly composure.
+   BUILD: tall and slender.
+   SIGNATURE (unique to him on this sheet): HEAD black silk lun-jin scholar's cap; FACIAL HAIR thin mustache and a short neat goatee; MARK white crane-feather fan, white-and-green Taoist robe.
+   COLORS: Shu green: green, jade and earthy gold.
+   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): the divine strategist on the seven-star altar, summoning the east wind with his feather fan.

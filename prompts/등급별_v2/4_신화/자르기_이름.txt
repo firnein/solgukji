@@ -1,0 +1,48 @@
+신화 —— 이름 순서 = 이름표 번호 순서. 시트는 references/등급별_v2_시트/4_신화/<txt 와 같은 이름>.png 로 두고 D:\Sol 에서
+  python -I tools/scripts/slice_tier_v2.py 4_신화   → 잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_tier_v2.py 4_신화 --apply
+  다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)
+먼저 기본 캐릭터(assets/portraits/<인물>.png)가 있어야 한다. 시트마다 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다.
+
+[01_관우.txt]  1 미염공 관우
+  참조:   python -I tools/scripts/make_ref_sheet.py "관우" prompts/등급별_v2/4_신화/참조_01.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_신화" solgukji_godot/assets/portraits
+
+[02_장료.txt]  1 강동의 악몽 장료
+  참조:   python -I tools/scripts/make_ref_sheet.py "장료" prompts/등급별_v2/4_신화/참조_02.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장료_신화" solgukji_godot/assets/portraits
+
+[03_손권.txt]  1 오대제 손권
+  참조:   python -I tools/scripts/make_ref_sheet.py "손권" prompts/등급별_v2/4_신화/참조_03.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "손권_신화" solgukji_godot/assets/portraits
+
+[04_여포.txt]  1 비장 여포
+  참조:   python -I tools/scripts/make_ref_sheet.py "여포" prompts/등급별_v2/4_신화/참조_04.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "여포_신화" solgukji_godot/assets/portraits
+
+[05_제갈량.txt]  1 신산 제갈량
+  참조:   python -I tools/scripts/make_ref_sheet.py "제갈량" prompts/등급별_v2/4_신화/참조_05.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "제갈량_신화" solgukji_godot/assets/portraits
+
+[06_사마의.txt]  1 선제 사마의
+  참조:   python -I tools/scripts/make_ref_sheet.py "사마의" prompts/등급별_v2/4_신화/참조_06.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "사마의_신화" solgukji_godot/assets/portraits
+
+[07_감녕.txt]  1 백기겁영 감녕
+  참조:   python -I tools/scripts/make_ref_sheet.py "감녕" prompts/등급별_v2/4_신화/참조_07.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "감녕_신화" solgukji_godot/assets/portraits
+
+[08_장각.txt]  1 대현량사 장각
+  참조:   python -I tools/scripts/make_ref_sheet.py "장각" prompts/등급별_v2/4_신화/참조_08.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장각_신화" solgukji_godot/assets/portraits
+
+[09_유비.txt]  1 인덕군주 유비
+  참조:   python -I tools/scripts/make_ref_sheet.py "유비" prompts/등급별_v2/4_신화/참조_09.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "유비_신화" solgukji_godot/assets/portraits
+
+[10_조조.txt]  1 난세간웅 조조
+  참조:   python -I tools/scripts/make_ref_sheet.py "조조" prompts/등급별_v2/4_신화/참조_10.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "조조_신화" solgukji_godot/assets/portraits
+
+[11_주유.txt]  1 적벽대도독 주유
+  참조:   python -I tools/scripts/make_ref_sheet.py "주유" prompts/등급별_v2/4_신화/참조_11.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "주유_신화" solgukji_godot/assets/portraits

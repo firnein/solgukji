@@ -1,0 +1,70 @@
+A sheet of 3 Three Kingdoms (late Han dynasty China) characters. Refined, cold, silver TRANSCENDENT card illustrations for a mobile card game.
+
+REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: TRANSCENDENT —— cold silver dignity.
+RANK LOOK IN ONE LINE: calm, cold and formal, a silver-white portrait in still air. At thumbnail size it must read "silver and pale sky-blue,
+quiet and noble".
+
+RANK RULES (checklist —— every panel must obey all of these):
+- CAMERA AND POSE: eye-level, CHEST-TO-WAIST crop. The body faces the front or turns at most 30 degrees, shoulders level, the pose still and
+  symmetrical, the weapon or item held VERTICALLY at one side (a tall quiet line). No diagonal action, no foreshortening, no wide-angle.
+- PROPORTIONS AND LINE: refined semi-chibi, about 3.5 heads tall, fine clean ink lines, soft cel shading with airy highlights.
+- OUTFIT: the base design made noble —— engraved SILVER and white-steel plates, silver filigree, pale silk over the faction-colored cloth
+  (the cloth muted and a little desaturated), a white or pale-blue plume or tassels, plain silver clasps. NO GOLD anywhere.
+- LIGHT: cold, bright and even, from the upper front-left, a thin white rim, soft pale blue-grey shadows. HIGH-KEY: the whole picture is light.
+- COLOR: silver, white and pale sky-blue (#cfe6ff); the faction color only in the cloth. A cool temperature everywhere.
+- BACKGROUND: pale blue-white mist fading to white at the bottom, and ONE tall faction war banner (blank cloth in the faction color, no lettering)
+  standing far behind on one side, slightly out of focus. Nothing else: no crowd, no dramatic sky.
+- EFFECTS: none, except a few tiny silver light motes. No fire, no lightning, no glowing aura.
+- EXPRESSION: composed dignity, the eyes level, a restrained look.
+- NEVER: gold or orange, fire or lightning, a dark background, a dynamic pose, crowds, a cape blowing in the wind.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
+- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN, except Da Qiao, Xiao Qiao (women). Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; no long eyelashes, no blush, no rosy lips, no soft baby face on men.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 3 columns x 1 rows = 3 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 3 fill the first 3 slots in order.
+- Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Natural proportions: never stretch, squash or shorten a character to fit a panel.
+- Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
+  Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 3) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Da Qiao  [SCHOLAR, Wu] —— same person as reference #1
+   LOOK: elegant mature face, hair in an updo with many hairpins.
+   FACE: mature graceful oval face, gentle almond eyes, small nose, soft lips, elegant updo, calm elder-sister beauty.
+   BUILD: slender graceful woman.
+   SIGNATURE (unique to her on this sheet): HAIR elegant updo with many hairpins; MARK blue-teal hanfu, folding fan, poetry book.
+   COLORS: Wu red: crimson, red, orange and gold.
+   STORY HINT (tiny and optional, only a faint shape in the mist or the thing he or she holds; the calm pose rule wins): one of the two Qiao sisters of Jiangdong by the river, a poem scroll, her sister's shadow nearby.
+2. Xiao Qiao  [SCHOLAR, Wu] —— same person as reference #2
+   LOOK: younger, twin hair buns, bright playful eyes.
+   FACE: small round youthful face, bright playful big eyes, button nose, cheerful open smile, twin hair buns, lively younger-sister beauty.
+   BUILD: petite young woman.
+   SIGNATURE (unique to her on this sheet): HAIR twin hair buns; MARK pink hanfu, scroll and brush.
+   COLORS: Wu red: crimson, red, orange and gold.
+   STORY HINT (tiny and optional, only a faint shape in the mist or the thing he or she holds; the calm pose rule wins): the beauty who topples states playing a zither, plum petals.
+3. Zhang Zhao  [SCHOLAR, Wu] —— same person as reference #3
+   LOOK: 60s, stern long face, long grey beard, deep frown lines, upright posture.
+   FACE: long stern old face, deep frown lines, disapproving narrow eyes, long nose, long grey beard, tight lecturing mouth.
+   BUILD: thin old man, very upright.
+   SIGNATURE (unique to him on this sheet): HEAD official court hat; FACIAL HAIR long grey beard; MARK court tablet, deep frown.
+   COLORS: Wu red: crimson, red, orange and gold.
+   STORY HINT (tiny and optional, only a faint shape in the mist or the thing he or she holds; the calm pose rule wins): the senior civil minister of Jiangdong addressing the court, a pile of memorials beside him.

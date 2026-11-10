@@ -1,0 +1,56 @@
+ONE MYTHIC card illustration of a single Three Kingdoms general for a mobile card game —— the rarest, most intimidating art in the game.
+
+REFERENCE (attached image): the BASE chibi design of this general (one character).
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: MYTHIC —— a killing stare out of the dark.
+RANK LOOK IN ONE LINE: a near-black picture with ONE hot color and ONE legendary effect, the eyes the brightest point. At thumbnail size it must read
+"black, with crimson / white-hot / violet fire or lightning". One look should make the viewer feel this person is about to KILL THEM.
+
+RANK RULES (checklist —— obey all of these):
+- FRAMING: a tight BUST in realistic-leaning anime proportions (NOT chibi, about 7.5 heads tall). The head is about 35 to 40% of the picture height:
+  top of the head at about 10%, eyes at about 30%, chin at about 46%, horizontally centered. The shoulders, armor, a weapon edge and the effect
+  fill the lower half. Follow each COMPOSITION line for the head turn and the camera.
+- OUTFIT: heavy engraved armor or silks, worn and battle-scarred, in the person's own colors. Gold here is dull, old and scratched, never bright.
+- LIGHT: ONE hard key light from the side (or from below); the far side of the face and body fall into deep black; a thin hot rim in the ACCENT color
+  along the hair, cheek and shoulder; a sharp catchlight in the near eye. The face stays readable with true skin tone.
+- COLOR: a near-black ground (#0a0a10) plus the ACCENT color of the EFFECT line, plus true skin and outfit colors. No pastel, no bright sky, no daylight.
+- BACKGROUND: darkness; at most a dim out-of-focus silhouette hint of the story setting inside the black. No army, no banners, no mist, no frame.
+- EFFECTS: exactly ONE legendary effect per picture (see the EFFECT line), bursting around the shoulders, the weapon and the background ——
+  never across the face. Tiny sparks only otherwise. No guardian beasts or giant spirit animals.
+- EXPRESSION: killing intent aimed at the VIEWER, the eyes meeting the camera even in profile (see each EXPRESSION line); each person is dangerous
+  in their OWN way, never the same generic angry face.
+- HANDS: out of the frame unless the COMPOSITION needs them; a natural relaxed grip with five correct fingers, never crowding the face.
+- NEVER: chibi, a bright or pastel background, crowds, mist, a silver-blue palette, a gold-orange sunset palette, jade, a card frame or border.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 10% and 46% of the picture height, horizontally centered, never off to a side.
+- Nothing important within 8% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN. Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; young men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+LAYOUT:
+- Image 1024x1536 portrait. ONE single illustration filling the whole image right to the edges: no card frame, no border, no margin.
+- No text anywhere: no name, no title, no number, no banner, no caption, no signature, no watermark.
+
+CHARACTERS
+1. Guan Yu  [SPEARMAN, Shu]
+   LOOK: deep red face, extremely long black beard, narrow phoenix eyes, green headscarf.
+   FACE: long majestic face, deep date-red skin, narrow upturned phoenix eyes half-closed, silkworm eyebrows, straight nose, solemn closed mouth hidden in the beard, aloof proud expression.
+   BUILD: very tall and dignified, long legs, upright.
+   SIGNATURE (unique to him on this sheet): HEAD green cloth headscarf; FACIAL HAIR extremely long straight black beard reaching his belly; MARK deep date-red face, Green Dragon crescent glaive.
+   COLORS: Shu green: green, jade and earthy gold.
+   SCENE (only a dim out-of-focus silhouette hint inside the black, nothing bright): beheading Hua Xiong before the wine cools —— returning with the head, the wine cup still steaming in his hand, stroking his long beard, a green dragon spirit coiling around the glaive.
+   COMPOSITION: calm near-frontal bust, the head tilted back a few degrees so that he looks down his nose, the long black beard flowing down over the chest; the crescent blade of the Green Dragon glaive rises from the lower right corner, its edge glowing white-hot.
+   EFFECT (the ONE legendary effect; the ACCENT color is crimson): ONE blood-red lightning bolt forking down through the black behind his left shoulder, lighting the glaive blade and the tips of his beard crimson; a few red embers.
+   EXPRESSION: majestic cold dignity, the narrow phoenix eyes opening slowly to stare at you, utterly silent menace.
+   MUST SHOW (clearly, large and well lit): green cloth headscarf; extremely long straight black beard reaching his belly; and if they fit the composition: deep date-red face, Green Dragon crescent glaive.
