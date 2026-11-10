@@ -2033,9 +2033,10 @@ func _st_cap(_d: Unit) -> int:
 ## 11/9 패업 2차 —— 조조 협천자 · 관우 오관참장 · 제갈량 천문 · 감녕 백기야습 · 장료 위진소요진 · 손권 제왕술 · 여포 무쌍
 ## 시간 · 거리가 들어가는 것(감녕 · 장료 · 손권 · 천문)은 실시간 엔진(RtBattle)에서만 움직인다. 난수 없이 슬롯 · 시각으로만 고른다 (결정성)
 
+const CROWN_EVERY := 8.0     # 손권 제왕술 —— 대도독을 세우는 간격(초). 11/10 밸런스: 15 → 8 (측정: 패업을 켠 쪽이 −18%p —— 직접 공격을 안 하는 값을 못 했다)
 const LATE_T := 12.0      # 사마의 후발제인 —— 버티는 시간(초)
-const LATE_DR := 0.25     # 버티는 동안 아군이 받는 피해 −
-const LATE_ATK := 0.20    # 버틴 뒤 아군 전원 공격 +
+const LATE_DR := 0.20     # 버티는 동안 아군이 받는 피해 − (11/10 밸런스: 0.25 → 0.20, 패업을 켠 쪽 +24%p 로 너무 셌다)
+const LATE_ATK := 0.15    # 버틴 뒤 아군 전원 공격 + (11/10 밸런스: 0.20 → 0.15)
 const SEA_T0 := 10.0      # 주유 불바다 —— 깔리는 시각(초)
 const SEA_LEN := 15.0     # 불바다가 타는 시간
 const SEA_R := 230.0      # 불바다 반지름 (깔릴 때 적 진영 중심)
@@ -2116,7 +2117,7 @@ func _paeup_tick(dt: float) -> void:
 		var sq = _pa("crown", cp)
 		if sq != null:
 			var n := int(_paeup_used.get("crown_n:" + cp, 0))
-			if _tm >= 15.0 * float(n + 1):
+			if _tm >= CROWN_EVERY * float(n + 1):
 				_paeup_used["crown_n:" + cp] = n + 1
 				var last := str(_paeup_used.get("crown_last:" + cp, ""))
 				var best: Unit = null

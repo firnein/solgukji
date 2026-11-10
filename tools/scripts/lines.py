@@ -195,7 +195,7 @@ TITLE_FIX = {"철벽 조인": "천인 조인", "호위 전위": "악래 전위",
 MYTH12 = ["유비", "조조", "손권", "제갈량", "사마의", "주유", "관우", "장료", "감녕", "여포", "장각"]
 NEW_MYTH = {"사마의": ("선제 사마의", "호부", {**AU("응시호보", ally={"int": 0.08}, foe={"spd": -0.08}),
     "paeup": {"n": "후발제인", "cond": "none", "need": 0, "what": "조건 없음", "fx": "late",      # 11/9 패업 —— lines.json 에 같은 값 (battle.gd _paeup_late_tick)
-              "d": "개전 12초 동안 아군이 받는 피해 -25% —— 버틴 뒤 아군 전원 공격 +20% (15초)"}})}
+              "d": "개전 12초 동안 아군이 받는 피해 -20% —— 버틴 뒤 아군 전원 공격 +15% (15초)"}})}
 NEW_ITEMS = [["u01", "호부", "유니크", "모사", "int", 0.32, "def", 0.16, 7, "myth"]]
 
 # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 특기 수 (단체 · 고유 포함)
@@ -292,6 +292,19 @@ AURA6 = {
     "원술": AU("중가제위", "fac", ally={"atk": 0.14, "int": 0.14}),
     "전풍": AU("충언역이", "all", m={"rout": 0.44, "stres": 0.18}),
 }
+# 11/10 전투 밸런스 —— 초월 위세 세기: AURA6 의 수치는 11/9 에 ×1.75 로 올린 값이다. 측정(tests/card_value duel --auraside=mine): 초월 3장 + 전설 6장 덱이 위세를 켠 쪽만 +14%p ·
+# 초월 9장은 +43%p 로 너무 셌다 —— 한 단계(×1.75 → ×1.40, 값 ×0.8) 내린다. 값을 키우거나 줄이려면 이 배율만 바꾸고 lines.py 를 다시 돌린다
+AURA6_SCALE = 0.8
+
+
+def aura6_scaled(a):
+    out = dict(a)
+    for key in ("ally", "m", "foe"):
+        if key in out:
+            out[key] = {k: round(v * AURA6_SCALE, 4) for k, v in out[key].items()}
+    return out
+
+
 # 새 인물 특기 —— 성향이 닮은 인물의 특기 사다리(passives.json ladder · level)를 빌린다
 LADDER_FROM = {"관평": "관우", "고순": "전위", "화웅": "마등", "문추": "공손찬", "황월영": "태사자", "주환": "정봉",
                "손상향": "능통", "장완": "장소", "채문희": "대교", "남화노선": "장각"}
@@ -819,7 +832,7 @@ def main():
     for c in allc:
         if c[2] == 6 and c[13] != "foe":
             assert person(c) in AURA6, person(c)
-            au = dict(AURA6[person(c)])
+            au = aura6_scaled(AURA6[person(c)])
             if au.get("to") == "rel":
                 au["rel"] = [person(c)] + REL.get(person(c), [])
             aura[c[0]] = au
