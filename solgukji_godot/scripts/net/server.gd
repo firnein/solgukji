@@ -1,5 +1,6 @@
 class_name MatchServer
 extends Node
+const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_name 캐시(.godot)와 무관하게 (낡은 캐시에서 "RoomLog not declared")
 ## 대전 서버 —— 집 PC 에서 화면 없이 띄운다: server.bat (godot --headless … res://scenes/server.tscn -- --port=7777)
 ## WebSocket 으로 휴대폰을 받는다. 메시지는 JSON 한 줄 {"t": 종류, …}.
 ##
@@ -16,7 +17,7 @@ extends Node
 ##   say {i}               한마디 —— Room.QUICK_MSGS 의 번호 (자유 입력 없음, 2초에 한 번). 방의 모두에게 say 로 뿌린다 (11/9)
 ## 32KB 가 넘는 메시지는 gzip 바이너리로 보낸다.
 ## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list, stage, stage_no, seen} · toast {text, kind, news?} · say {who, text} · error {msg} · left
-## 방 진행(아침 · 점심 · 저녁 단계)은 room.gd.
+## 방 진행(아침 · 점심 · 저녁 단계)은 room.gd. 플레이 기록(사람마다 jsonl)은 room_log.gd (11/10).
 
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -38,6 +39,8 @@ func _ready() -> void:
 		printerr("포트 %d 을(를) 열지 못했다 (%s) — 다른 프로그램이 쓰고 있지 않은지 확인" % [port, error_string(err)])
 		get_tree().quit(1)
 		return
+	var gone := RoomLog.purge()      # 온라인 플레이 기록(RoomLog.dir) 중 RoomLog.KEEP_DAYS 일 넘은 것 정리 (11/10)
+	print("플레이 기록 폴더: %s%s" % [ProjectSettings.globalize_path(RoomLog.dir), (" — 오래된 기록 %d개 지움" % gone) if gone > 0 else ""])
 	print("솔국지 서버 — 포트 %d 에서 기다리는 중. 휴대폰에서 ws://<이 PC 주소>:%d 로 접속" % [port, port])
 	for a in IP.get_local_addresses():
 		if a.count(".") == 3 and not a.begins_with("127.") and not a.begins_with("169.254."):

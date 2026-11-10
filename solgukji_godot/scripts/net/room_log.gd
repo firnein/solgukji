@@ -1,0 +1,184 @@
+extends RefCounted
+## 온라인 방 플레이 기록 (11/10 사용자: 온라인 대전도 플레이 분석할 수 있게 다른 플레이어 로그도 수집)
+## 방(Room)이 시작하면 사람 플레이어마다 파일 하나를 연다 —— 서버 PC 의 user://playlog_online/<시작시각>_<방코드>_<자리번호>.jsonl
+## (Windows: %APPDATA%\Godot\app_userdata\솔국지\playlog_online). 봇 자리는 파일이 없고 상대로만 적힌다.
+## 형식은 혼자 하기의 PlayLog 와 같다 —— 한 줄 = {"ts","ev","day","phase",...} 라서 tools/scripts/analyze_playlog.py --logs 로 그대로 읽힌다.
+##   start         판 시작 —— seed · ver · online:true · player(이름) · seat · room · mode · players(사람 이름들) · bots(봇 이름들)
+##   act           사람의 명령 (Run.COMMANDS) 과 결과 —— PlayLog.act_data 와 같은 칸 + ok
+##   stage         단계가 바뀜 (morning · noon · evening_prep · evening · over) —— 줄마다 "stage" 칸이 따라온다
+##   ready         '준비 완료' —— sec = 단계가 시작하고 몇 초 만에
+##   bot_fill      응답이 없어(단계 내내 행동이 없거나 접속이 끊겨) 봇이 그 단계를 통째로 대신함 (disconnected)
+##   battle_start / battle_end   토벌 · 대전 · 토너먼트 —— PlayLog 와 같은 칸 + foe_name · foe_human(사람과 붙었나) · auto(접속이 끊겨 봇이 대신 편성한 판)
+##   (stage 칸은 계산한 때의 단계 —— 토벌은 morning 끝, 대전은 evening_prep 끝에 서버가 계산한다)
+##   reward        토벌 · 대전 뒤 경고 · 민심 · 전적
+##   phase_end     하루(페이즈) 끝 스냅샷 —— PlayLog 와 같은 칸 (page_sec 만 없다). sec = 아침부터 몇 초
+##   disconnect / reconnect / leave   끊김 · 같은 토큰으로 돌아옴 · 스스로 나감(자리는 봇이 이어받는다 —— 이 줄이 마지막)
+##   over          판 끝 —— 우승 · 순위 · 멸망
+## 서버가 아는 것만 쓴다 (탭 · 배속 · 전투 중 개입은 없다). IP · 토큰은 쓰지 않는다. 이름은 방에 들어온 이름(중복이면 번호가 붙는다) 그대로.
+## 기록은 부수 효과일 뿐 —— 난수도 상태도 건드리지 않고, 쓰기에 실패해도 게임은 그대로 간다 (서버 콘솔에 한 줄).
+
+static var enabled := true
+static var test_ok := false                 # 점검 방(mode=test)은 기록하지 않는다 —— tests/net · tests/room_log 가 켠다
+static var dir := "user://playlog_online"
+const KEEP_DAYS := 30                       # 서버를 켤 때 이보다 오래된 파일은 지운다 (purge)
+const MAX_ARGS := 6                         # 명령 인자는 이만큼 · 글자는 24자까지만 (이상한 입력이 기록을 키우지 않게)
+
+var code := ""
+var files := {}               # 자리 번호 -> FileAccess
+var closed := {}              # 자리 번호 -> true (over · leave 를 적은 뒤 —— 더 쓰지 않는다)
+var stage := ""
+var stage_t0 := 0.0
+var day_t0 := 0.0
+var _warned := false
+
+
+static func wanted(mode: String) -> bool:
+	return enabled and (mode != "test" or test_ok)
+
+
+static func _now() -> float:
+	return Time.get_unix_time_from_system()
+
+
+## 오래된 기록 지우기 —— 서버 시작 때. 지운 개수
+static func purge() -> int:
+	var n := 0
+	if not DirAccess.dir_exists_absolute(dir):
+		return 0
+	for fn in DirAccess.get_files_at(dir):
+		if not fn.ends_with(".jsonl"):
+			continue
+		var path := dir + "/" + fn
+		var age := _now() - float(FileAccess.get_modified_time(path))
+		if age > KEEP_DAYS * 86400.0 and DirAccess.remove_absolute(path) == OK:
+			n += 1
+	return n
+
+
+func _warn(msg: String) -> void:
+	if not _warned:
+		_warned = true
+		printerr("[기록] %s —— 게임은 그대로 진행" % msg)
+
+
+## 방이 시작될 때 —— 사람마다 파일을 열고 start 줄을 적는다 (Run 들은 이미 만들어져 있어야 한다)
+func open(room) -> void:
+	code = room.code
+	if DirAccess.make_dir_recursive_absolute(dir) != OK and not DirAccess.dir_exists_absolute(dir):
+		_warn("기록 폴더를 만들지 못했다: %s" % dir)
+		return
+	var t := Time.get_datetime_dict_from_system()
+	var stamp := "%04d%02d%02d_%02d%02d%02d" % [t.year, t.month, t.day, t.hour, t.minute, t.second]
+	var humans: Array = room.humans().map(func(s): return s.name)
+	var bots: Array = room.seats.filter(func(s): return not s.human).map(func(s): return s.name)
+	for i in room.seats.size():
+		var s: Dictionary = room.seats[i]
+		if not s.human:
+			continue
+		var path := "%s/%s_%s_%d.jsonl" % [dir, stamp, code, i]
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		if f == null:
+			_warn("기록 파일을 열지 못했다: %s (오류 %d)" % [path, FileAccess.get_open_error()])
+			continue
+		files[i] = f
+		put(i, s.run, "start", {"seed": str(s.run.rng.seed), "os": OS.get_name(), "ver": Changelog.version(), "online": true,
+			"player": s.name, "seat": i, "room": code, "mode": room.mode, "players": humans, "bots": bots})
+	if not files.is_empty():
+		print("방 %s 기록 → %s (사람 %d명)" % [code, ProjectSettings.globalize_path(dir), files.size()])
+
+
+func put(i: int, run, ev: String, data := {}) -> void:
+	var f: FileAccess = files.get(i)
+	if f == null or closed.has(i) or run == null:
+		return
+	var d := {"ts": snappedf(_now(), 0.01), "ev": ev, "day": run.day, "phase": run.phase, "stage": stage}
+	d.merge(data)
+	f.store_line(JSON.stringify(d))
+	f.flush()
+
+
+func close_seat(i: int) -> void:
+	closed[i] = true
+	files.erase(i)
+
+
+func close_all() -> void:
+	for i in files.keys():
+		close_seat(i)
+
+
+## 단계가 바뀔 때 —— 모든 사람의 파일에 한 줄
+func on_stage(room) -> void:
+	stage = room.stage
+	stage_t0 = _now()
+	if stage == "morning":
+		day_t0 = stage_t0
+	for i in files.keys():
+		var s: Dictionary = room.seats[i]
+		if not s.dead:
+			put(i, s.run, "stage", {"no": room.stage_no, "remain": snappedf(room.stage_end - Room.now(), 0.1)})
+
+
+func ready(i: int, run, on: bool) -> void:
+	put(i, run, "ready", {"on": on, "sec": snappedf(_now() - stage_t0, 0.1)})
+
+
+## 명령 —— 인자는 JSON 에서 온 것이라 float 정수를 int 로, 이상한 것은 잘라 쓴다
+func act(i: int, run, m: String, a: Array, r) -> void:
+	if not files.has(i):
+		return
+	var clean := []
+	for x in a.slice(0, MAX_ARGS):
+		if x is float and x == floorf(x):
+			clean.append(int(x))
+		elif x is String:
+			clean.append((x as String).substr(0, 24))
+		elif x is int or x is float or x is bool:
+			clean.append(x)
+		else:
+			clean.append("?")
+	var d := PlayLog.act_data(m.substr(0, 24), clean, r)
+	d["ok"] = r != null and not (r is bool and not r)      # 명령이 거절되면 null · false (do_draw 같은 것은 카드 배열이 온다)
+	put(i, run, "act", d)
+
+
+## 전투 한 판 —— 이 사람 기준(bt.a = 나)의 bt 와 결과. foe_* 는 상대 (토벌은 적 부대 이름 · 사람 아님)
+func battle(i: int, run, bt: Dictionary, res: Dictionary, foe_name: String, foe_human: bool, auto := false) -> void:
+	if not files.has(i):
+		return
+	var x := {"foe_name": foe_name, "foe_human": foe_human}
+	if auto:
+		x["auto"] = true
+	var a := PlayLog.battle_start_data(bt)
+	a.merge(x)
+	put(i, run, "battle_start", a)
+	var b := PlayLog.battle_end_data(bt, res, 0.0, [], {})
+	b.merge(x)
+	put(i, run, "battle_end", b)
+
+
+func reward(i: int, run) -> void:
+	put(i, run, "reward", PlayLog.reward_data(run))
+
+
+func phase_end(i: int, run, auto := false) -> void:
+	if not files.has(i):
+		return
+	var d := {"sec": snappedf(_now() - day_t0, 0.1)}
+	d.merge(PlayLog.phase_end_data(run))
+	if auto:
+		d["auto"] = true
+	put(i, run, "phase_end", d)
+
+
+func over(i: int, run) -> void:
+	if not files.has(i) or run == null or run.over == null:
+		return
+	put(i, run, "over", PlayLog.over_data(run))
+	close_seat(i)
+
+
+func event(i: int, run, ev: String, data := {}) -> void:
+	put(i, run, ev, data)
+	if ev == "leave":
+		close_seat(i)

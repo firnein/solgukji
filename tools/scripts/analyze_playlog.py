@@ -2,6 +2,8 @@
 # 게임(PlayLog, scripts/game/play_log.gd)이 남긴 user://playlog/*.jsonl 을 읽어 HTML 보고서를 만든다.
 # 봇 기준선(tests/play_log_bot.tscn → user://playlog_bot)이 있으면 나란히 비교한다.
 # 실행: python tools/scripts/analyze_playlog.py [--logs 폴더] [--bot 폴더] [--out build/플레이_분석.html]
+# 온라인 방 기록(서버 PC 의 user://playlog_online, scripts/net/room_log.gd)도 같은 형식이다 —— --online (또는 --logs <그 폴더>).
+# 온라인 기록에는 player(이름) · foe_name · foe_human 이 더 있어 판 요약에 이름이, 아래에 '사람끼리 대전' 표가 붙는다.
 import argparse, glob, html, json, os, statistics as st
 from collections import Counter, defaultdict
 
@@ -86,7 +88,7 @@ def summary(games):
         t0 = evs[0]["ts"]
         t1 = evs[-1]["ts"]
         play = sum(float(e.get("sec", 0)) for e in evs if e["ev"] == "phase_end")
-        rows.append({"file": g["file"], "seed": evs[0].get("seed", ""), "end": slot_name(slot(evs[-1])),
+        rows.append({"file": g["file"], "seed": evs[0].get("seed", ""), "player": evs[0].get("player", ""), "end": slot_name(slot(evs[-1])),
                      "result": ("승리 · " if over and over.get("win") else "패배 · ") + (over.get("msg", "") if over else "진행 중"),
                      "w": sum(1 for b in bs if b.get("win")), "l": sum(1 for b in bs if not b.get("win")),
                      "min": (play or (t1 - t0)) / 60.0, "battles": len(bs)})
@@ -318,6 +320,36 @@ def findings(acc, acc_bot, games, bots):
     return "<ul class=find>%s</ul>" % "".join("<li>%s</li>" % x for x in out)
 
 
+def human_pvp(games):
+    """온라인 기록의 사람끼리 대전 (foe_human) —— 한 판이 양쪽 파일에 하나씩 들어 있어 사람마다 한 줄. 사람 아닌 봇 상대는 따로 센다"""
+    hh = defaultdict(lambda: {"w": 0, "l": 0, "tr": []})
+    bt = defaultdict(lambda: {"w": 0, "l": 0})
+    any_online = False
+    for g in games:
+        name = next((e.get("player", "") for e in g["ev"] if e["ev"] == "start"), "")
+        if not name:
+            continue
+        any_online = True
+        for b in battles(g):
+            if b.get("kind") != "pvp":
+                continue
+            if b.get("foe_human"):
+                hh[name]["w" if b.get("win") else "l"] += 1
+                hh[name]["tr"].append(b["tr_ratio"])
+            else:
+                bt[name]["w" if b.get("win") else "l"] += 1
+    if not any_online:
+        return ""
+    rows = []
+    for nm in sorted(set(hh) | set(bt)):
+        a, c = hh[nm], bt[nm]
+        n = a["w"] + a["l"]
+        rows.append("<tr><td>%s</td><td>%d승 %d패</td><td>%s</td><td>%s</td><td>%d승 %d패</td></tr>" % (
+            html.escape(nm), a["w"], a["l"], fmt_pct(a["w"] / n) if n else "—", ("%.2f" % st.mean(a["tr"])) if a["tr"] else "—", c["w"], c["l"]))
+    return ("<h2>사람끼리 대전 (온라인)</h2><p class=dim>사람과 붙은 대전만 (foe_human). 전력비 = 내 병력 ÷ 상대 병력. 봇과 붙은 대전은 오른쪽 칸.</p>"
+            "<table class=list><tr><th>플레이어</th><th>사람 상대</th><th>승률</th><th>평균 전력비</th><th>봇 상대 대전</th></tr>%s</table>" % "".join(rows))
+
+
 def build(games, bots):
     acc = per_slot(games)
     acc_bot = per_slot(bots)
@@ -337,13 +369,17 @@ def build(games, bots):
     """
     h = ["<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>",
          "<title>플레이 분석</title><style>%s</style></head><body>" % css,
-         "<h1>솔국지 플레이 분석</h1><p class=dim>사람 판 %d개 · 봇 기준선 %d개. 기록: user://playlog (사람) · user://playlog_bot (봇, tests/play_log_bot.tscn)</p>" % (len(games), len(bots))]
+         "<h1>솔국지 플레이 분석</h1><p class=dim>사람 판 %d개 · 봇 기준선 %d개. 기록: user://playlog (사람) · user://playlog_online (온라인 방, 서버 PC) · user://playlog_bot (봇, tests/play_log_bot.tscn)</p>" % (len(games), len(bots))]
     if not games:
         h.append("<p>사람 플레이 기록이 아직 없다. PC 에서 한 판 하고 다시 돌리면 된다.</p>")
     # 판 요약
-    rows = "".join("<tr><td>%s</td><td>%s</td><td>%s</td><td>%d승 %d패</td><td>%.0f분</td><td>%s</td></tr>" % (
-        r["file"], r["seed"], r["end"], r["w"], r["l"], r["min"], html.escape(r["result"])) for r in summary(games))
-    h.append("<h2>판 요약</h2><table class=list><tr><th>파일</th><th>시드</th><th>끝난 시점</th><th>전투</th><th>플레이 시간</th><th>결과</th></tr>%s</table>" % rows)
+    srows = summary(games)
+    named = any(r["player"] for r in srows)      # 온라인 기록이면 이름 칸을 붙인다
+    rows = "".join("<tr><td>%s</td>%s<td>%s</td><td>%s</td><td>%d승 %d패</td><td>%.0f분</td><td>%s</td></tr>" % (
+        r["file"], ("<td>%s</td>" % html.escape(r["player"])) if named else "", r["seed"], r["end"], r["w"], r["l"], r["min"], html.escape(r["result"])) for r in srows)
+    h.append("<h2>판 요약</h2><table class=list><tr><th>파일</th>%s<th>시드</th><th>끝난 시점</th><th>전투</th><th>플레이 시간</th><th>결과</th></tr>%s</table>"
+             % ("<th>플레이어</th>" if named else "", rows))
+    h.append(human_pvp(games))
     h.append("<h2>한눈에</h2>" + findings(acc, acc_bot, games, bots))
     h.append('<div class=scroll>%s</div>' % section_slots(acc, acc_bot, "시점별 난이도"))
     # 곡선
@@ -407,10 +443,13 @@ def build(games, bots):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--logs", default=os.path.join(APP, "playlog"))
+    ap.add_argument("--logs", default=None, help="사람 기록 폴더 (기본 user://playlog)")
+    ap.add_argument("--online", action="store_true", help="온라인 방 기록 폴더(user://playlog_online)를 읽는다 —— 서버 PC 에서 옮겨 온 폴더는 --logs 로")
     ap.add_argument("--bot", default=os.path.join(APP, "playlog_bot"))
     ap.add_argument("--out", default=os.path.join(ROOT, "build", "플레이_분석.html"))
     a = ap.parse_args()
+    if a.logs is None:
+        a.logs = os.path.join(APP, "playlog_online" if a.online else "playlog")
     games = load(a.logs)
     bots = load(a.bot)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
