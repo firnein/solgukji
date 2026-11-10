@@ -26,6 +26,7 @@ const OPEN_RT := 0.8        # 실시간 엔진 —— 엔진 0초가 화면 이 
 const STEP := 0.6
 const MELEE_WAIT := 6.0
 const PVP_LEN := 52.0       # 대전·토너먼트 목표 길이(초, 1배속) —— 행동 간격을 벌려 맞춘다. 끝맺음까지 50~60초
+const ONLINE_SPEED := 1.5     # 11/10 사용자: 온라인 재생은 1.5배속 하나만 (배속이 다르면 클라이언트끼리 보는 시점이 어긋난다) —— 배속 단추 · 일시정지는 숨긴다
 const QUEST_SPEED := 1.25   # 11/3 사용자: 기본 배속 2배속 → 11/5 1.25배속 (토벌 · 대전 모두) —— 위 띠에서 바꾼다
 var pace := 1.0             # 행동 간격 배율 (STEP · 턴 끝 정산에 곱한다)
 var target_len := 0.0       # 0 이면 늘리지 않는다
@@ -39,6 +40,8 @@ var log_box: RichTextLabel
 var title_label: Label
 var level_pick: OptionButton
 var speed_btns := []
+var _speed_seg: Control = null       # 위 띠의 배속 묶음 (온라인 재생에서는 숨김)
+var _speed_row_menu: Control = null  # ⋯ 메뉴의 배속 줄 (온라인 재생에서는 숨김)
 
 var res: Dictionary
 var rng := RandomNumberGenerator.new()
@@ -286,6 +289,7 @@ func _build_top() -> Control:
 	for s in [0.0, 1.0, 1.25, 2.0]:      # 11/5 사용자: 1 · 1.25 · 2배속 (4배속 뺌)
 		sp.add_child(_speed_btn(s, 38, 14))
 	h.add_child(seg)
+	_speed_seg = seg
 	# 11/9 사용자: 온라인 —— 한마디(미리 적힌 글) · 결과로 건너뛰기 (리플레이를 나갈 방법). 둘 다 온라인에서만 보인다
 	_say_btn = _bar_btn("한마디", func():
 		UI.buzz()
@@ -435,6 +439,7 @@ func _build_side() -> void:
 		sb2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		spd.add_child(sb2)
 	v.add_child(spd)
+	_speed_row_menu = spd
 	var auto_btn := CheckButton.new()
 	auto_btn.text = "직접 지휘 (고유기 버튼)"
 	auto_btn.button_pressed = direct
@@ -528,14 +533,24 @@ func fit_port() -> void:
 	field.set_portrait(stage.size.x < stage.size.y)
 
 
+## 온라인 재생에서는 배속 단추 · 일시정지를 숨긴다 (1.5배속 고정)
+func _show_speed_ui(on: bool) -> void:
+	if _speed_seg != null:
+		_speed_seg.visible = on
+	if _speed_row_menu != null:
+		_speed_row_menu.visible = on
+
+
 func _set_speed(s: float) -> void:
+	if locked and s != ONLINE_SPEED:      # 온라인 재생은 어느 경로로 불려도 1.5배속
+		s = ONLINE_SPEED
 	speed = s
 	for p in speed_btns:
 		p[0].button_pressed = p[1] == s
 
 
 func _unhandled_input(e: InputEvent) -> void:
-	if is_visible_in_tree() and e is InputEventKey and e.pressed and e.keycode == KEY_SPACE:
+	if is_visible_in_tree() and not locked and e is InputEventKey and e.pressed and e.keycode == KEY_SPACE:
 		_set_speed(QUEST_SPEED if speed == 0.0 else 0.0)
 
 
@@ -679,6 +694,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	speed_sec = {}
 	game_mode = true
 	locked = false
+	_show_speed_ui(true)
 	_skip_btn.visible = true
 	_skip_top.visible = false
 	_refresh_quick()
@@ -709,6 +725,7 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 	speed_sec = {}
 	game_mode = true
 	locked = true
+	_show_speed_ui(false)      # 11/10 온라인: 1.5배속 고정
 	_skip_btn.visible = false      # 11/10 사용자: 멀티플레이에서 전투 스킵은 없어야 한다 (11/9 에 넣었던 '결과로' 를 뺀다)
 	_skip_top.visible = false
 	_refresh_quick()
@@ -735,7 +752,7 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 	_pace_for(kind)
 	_tac = ""
 	_begin()
-	_set_speed(QUEST_SPEED)
+	_set_speed(ONLINE_SPEED)
 
 
 ## 모든 전투를 1배속 기준 50~60초에 맞춘다 (토벌은 2배속으로 보니 25~30초)
