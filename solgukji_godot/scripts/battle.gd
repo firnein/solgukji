@@ -94,6 +94,7 @@ const INT_TAG := ["책사", "유생", "술사", "모사"]
 
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 ## 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 (docs/역할_재설계_1108.md 9.1, 수치는 data/cards_ext.json class_guard → DB.GUARD)
+static var kiin_matchup_share_enabled := true   # 11/10 기인 교변 장합(불리한 상성 피해 −) · 단복 서서(피해 분담) —— 끄면 두 기인은 효과가 없다 (점검 비교용)
 static var shield_enabled := true    # 끄면 예전 판정 그대로 (지문 비교 · 점검용)
 static var side_trait := {"A": {}, "B": {}}    # 토벌 우두머리 성질 {t: armor · ward · mix, v} —— tr_mul 처럼 Run.simulate · BattleView 가 전투 전에 넣고 뒤에 되돌린다
 static var guard_over := {}          # 점검용 병종 막 덮어쓰기 {병종: 값} (--guard=창병:0.3,…) —— 물리 병종은 갑옷, 책략 병종은 결계
@@ -272,7 +273,8 @@ var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0
 	"tac_amp": 0.0, "cuts": 0.0, "cut_n": 0, "execs": 0, "kills_amp": 0, "chases": 0, "cleaves": 0.0, "awes": 0, "rallied": 0.0,
 	"phalanx": 0, "counters": 0, "counter_dmg": 0.0, "stands": 0, "phys": 0.0, "intd": 0.0, "ph_taken": 0.0,
 	"scheme_amp": 0.0, "confuses": 0, "passes": 0, "turncoats": 0, "jolts": 0.0,
-	"mends": 0.0, "moved": 0, "oaths": 0, "shreds": 0}
+	"mends": 0.0, "moved": 0, "oaths": 0, "shreds": 0,
+	"mu_n": 0, "mu_cut": 0.0, "share_n": 0, "share_dmg": 0.0}      # 11/10 기인 교변(불리한 상성 −) · 서서(분담) 발동 횟수 · 줄인 / 나눈 병력
 var _oath_used := {"A": false, "B": false}
 ## 11/4 연출 점검 —— 승부가 갈린 뒤 평타만 30초 넘게 이어지던 '정리 시간'을 끊는다.
 ## 총붕괴: 한쪽이 부대 5/9 이상을 잃거나 병력이 처음의 30% 아래면 남은 부대 사기가 초마다 크게 깎여 줄줄이 무너진다.
@@ -1018,9 +1020,20 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		dmg *= 1.0 - float(DB.PSV.guard.dr)        # 방진 —— 받는 물리 피해 감소
 	dmg *= fm * wm * tm * sm * (DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) if counter_enabled else 1.0)
 	dmg *= _role_mul(a, d, true)
+	var mu := _kiin_matchup(a, d)      # 교변 장합 —— 상성이 불리한 공격은 아군이 덜 받는다
+	dmg *= mu
 	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.troop * pace * _one))))
 	if _in_ult and _ult_by != null and not ult_cap.is_empty():
 		loss = _ult_clamp(d, loss)
+	var shared := 0.0
+	if mu < 1.0:
+		stats.mu_n += 1
+		stats.mu_cut += loss / mu - loss
+	var sh_to: Array = _kiin_share(d, loss)      # 단복 서서 —— 받는 피해의 일부를 가까운 아군이 나눠 받는다 (분담 피해는 다시 나누지 않는다)
+	if not sh_to.is_empty():
+		shared = float(sh_to[0].amt) * sh_to.size()
+		loss -= shared
+		stats.dmg += shared      # 분담한 몫도 받은 피해 합계에 (맞은 부대 n + 분담 sh = 원래 피해)
 	if tag_roles and a.c.tag == "도적" and not a.countering:      # 도적 —— 맞힌 적의 고유기 게이지 · 기술 충전을 깎는다
 		d.gauge = maxf(0.0, d.gauge - ROLE.rogue_gauge)
 		if not d.sk_ch.is_empty():
@@ -1048,13 +1061,18 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
 	d.troops -= loss
-	a.dmg += loss
+	a.dmg += loss + shared
 	d.last_hit = a
 	_charge(d, a, loss)
 	_paeup_snipe(a, d)
 	_paeup_kin(d)
-	L(a.camp, "%s%s %s %s — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), "쳤다" if _hit_kind == "int" else "들이쳤다", num(loss)],
-		{"fx": _hit_kind, "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0})
+	var hx := {"fx": _hit_kind, "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0}
+	if mu < 1.0:
+		hx["mu"] = true                      # 교변 장합 —— 상성이 불리한 공격이라 줄어든 타격
+	if shared > 0.0:
+		hx["sh"] = shared                    # 단복 서서 —— 나눠 준 병력 합 (n 은 맞은 부대가 남긴 몫, n + sh = 원래 피해)
+		hx["sh_to"] = sh_to.map(func(x): return x.key)
+	L(a.camp, "%s%s %s %s — 병력 %s 손실" % ["치명타! " if crit else "", ga(nm(a)), eul(nm(d)), "쳤다" if _hit_kind == "int" else "들이쳤다", num(loss)], hx)
 	_ignite(a, d)
 	_soak(a, d)
 	_wash(a)
@@ -1324,6 +1342,9 @@ func cleanse(u: Unit) -> bool:
 
 ## 지속 피해(화상 · 출혈) 한 틱 —— 병력을 깎고, 실제로 깎인 만큼(남은 병력 한도)을 건 장수의 준 피해(dmg · dot)와 맞은 쪽의 받은 피해(taken)에 적는다
 func _dot_hit(u: Unit, s: Dictionary, amt: float) -> void:
+	var sh_to: Array = _kiin_share(u, amt)      # 11/10 단복 서서 —— 지속 피해도 일부를 가까운 아군이 나눠 받는다
+	if not sh_to.is_empty():
+		amt -= float(sh_to[0].amt) * sh_to.size()
 	var real := maxf(0.0, minf(amt, u.troops))
 	u.troops -= amt
 	u.taken += real
@@ -2470,8 +2491,6 @@ func _kiin_open() -> void:
 		return
 	for cp in ["A", "B"]:
 		var fo := _foe(cp)
-		# 11/9 진형 우대(FORMBOON) 삭제 —— 기인 no_form(교변 장합 · 적 진형 보너스 없음) · form_x2(단복 서서 · 아군 진형 보너스 ×3)는 걸 곳이 없어 아무 일도 안 한다
-		# (데이터 · 설명은 그대로 둠 —— 되살리려면 docs 작업현황 51 참고)
 		var sx := _kv(cp, "ambush")       # 궁요 손상향 —— 적 후열 하나 습격
 		if sx:
 			var back := units.filter(func(o): return o.camp == fo and o.alive)
@@ -2515,6 +2534,46 @@ func _kiin_guard(d: Unit, loss: float) -> float:
 		return loss
 	g.troops -= share
 	return loss - share
+
+
+## 11/10 교변 장합 —— 살아 있는 동안 상성이 불리한 공격에 아군이 받는 피해가 줄어든다 (곱할 값: 1 - DB.KIIN_MATCHUP_DR, 아니면 1).
+## 불리 판정은 기존 판정을 그대로 쓴다 —— 병종 상성표(DB.cls_mul > 1: 때리는 쪽이 이기는 병종)나 맞붙음 상성(_engage_mul > 1: 묶인 원거리 · 창병 정면의 도적 · 꺾인 적을 노리는 기병 …). 적의 공격에만(혼란 아군 타격 제외)
+func _kiin_matchup(a: Unit, d: Unit) -> float:
+	if not kiin_matchup_share_enabled or not counter_enabled or a.camp == d.camp or _kiin_u.is_empty():
+		return 1.0
+	if _kv(d.camp, "matchup_dr") == null:
+		return 1.0
+	if DB.cls_mul(a.c.tag, d.c.tag, a.c.tier) > 1.0 or _engage_mul(a, d) > 1.0:
+		return 1.0 - DB.KIIN_MATCHUP_DR
+	return 1.0
+
+
+## 11/10 단복 서서 —— 살아 있는 동안 아군이 받는 피해의 KIIN_SHARE 를 가장 가까운 다른 아군 KIIN_SHARE_N 부대가 똑같이 나눠 받는다.
+## 가까운 순서는 전장 거리(pos, 턴 엔진은 모두 같은 자리라 슬롯 순) 다음 슬롯 번호 —— 난수 없음. 나눠 받는 부대는 살아 있는 부대만 (패주한 부대 제외).
+## 분담받은 병력은 여기서 바로 깎고(다시 나누지 않는다) 무너지면 정산의 check_rout 가 한 줄로 알린다. 돌려주는 값: [{key, amt}, …] (분담 없으면 빈 배열)
+func _kiin_share(d: Unit, loss: float) -> Array:
+	if not kiin_matchup_share_enabled or _kiin_u.is_empty() or loss <= 0.0 or _kv(d.camp, "share") == null:
+		return []
+	var near := units.filter(func(o): return o != d and o.alive and o.camp == d.camp and o.troops > 0.0)
+	if near.is_empty():
+		return []
+	near.sort_custom(func(x, y):
+		var dx := d.pos.distance_squared_to(x.pos)
+		var dy := d.pos.distance_squared_to(y.pos)
+		return dx < dy if dx != dy else x.slot < y.slot)
+	var n := mini(DB.KIIN_SHARE_N, near.size())
+	var per := floorf(roundf(loss * DB.KIIN_SHARE) / float(n))
+	if per < 1.0:
+		return []
+	var out := []
+	for i in n:
+		var r: Unit = near[i]
+		r.troops -= per
+		r.taken += per
+		out.append({"key": r.key, "amt": per})
+	stats.share_n += 1
+	stats.share_dmg += per * n
+	return out
 
 
 ## 턴 시작 —— 버프 지속 턴을 하나 줄인다
