@@ -581,10 +581,9 @@ func _advance() -> void:
 		else:
 			s.bot.pv += Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
 		s.battles = []
-	# 11/9 사용자: 봇 등용 소식 —— 혼자 할 때(Run.bot_news)처럼, 방의 모든 사람에게. 상태(Run.news)에 먼저 넣고 알림은 상태 뒤에
-	var news := _bot_news()
-	for it in news:
-		_news_add(it)
+	# 11/10 사용자: 온라인 대전의 전황 소식은 유저의 것만 —— 봇 등용 소식은 방에 뿌리지 않는다 (11/9 에 넣었던 것을 뺀다).
+	# _bot_news() 는 봇의 최고 등급 기록(top)과 난수를 쓰므로 호출은 그대로 두고 결과만 버린다 (난수 순서 불변)
+	_bot_news()
 	_mirror()
 	_stage("morning")
 	for s in humans():
@@ -592,8 +591,6 @@ func _advance() -> void:
 			for t in s.run.toasts:
 				server.send(s.peer, {"t": "toast", "text": t[0], "kind": t[1]})
 		s.run.toasts.clear()
-	for it in news:
-		_announce("%s가 %s을(를) 등용했습니다" % [it.who, DB.C[it.unit].name], it)
 	_check_alone()
 
 
