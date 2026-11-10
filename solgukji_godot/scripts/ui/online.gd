@@ -186,6 +186,18 @@ func _server_pick() -> OptionButton:
 	return ob
 
 
+## 11/10 사용자: 온라인 대전은 플레이 기록을 서버가 모아 밸런스 분석에 쓴다 —— 접속하기 전 화면에서 알린다 (끄는 설정은 없다).
+## 구분선 + 금 한 줄(제목) + 종이색 한 줄. 서버가 저장하는 것 = 이름 · 행동 · 전투 결과 (Room 의 RoomLog)
+func record_notice() -> Control:
+	var v := UI.vbox(4)
+	v.add_child(UI.hair())
+	v.add_child(UI.lbl("플레이 기록 안내", 14, DB.PAL.gold))
+	var t := UI.lbl("온라인 대전은 이름 · 행동 · 전투 결과가 서버에 저장되어 밸런스 분석에 쓰입니다.", 13, DB.PAL.paper.darkened(0.15))
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(t)
+	return v
+
+
 ## refresh 면(제목 · 메뉴에서 열 때) 접속해 있으면 방 목록을 다시 받는다 —— 'rooms' 가 오면 시트가 다시 그려진다 (11/9)
 func connect_sheet(refresh := false) -> void:
 	if refresh and net.is_open():
@@ -214,6 +226,7 @@ func connect_sheet(refresh := false) -> void:
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row2.add_child(_name_edit)
 	b.add_child(row2)
+	b.add_child(record_notice())
 	b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", func():
 		net.player = _name_edit.text.strip_edges()
 		var u := _picked_url()
@@ -574,6 +587,9 @@ func _show_lobby() -> void:
 	lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(lb)
 	v.add_child(hb)
+	var rn := UI.hint("이 방의 플레이(이름 · 행동 · 전투 결과)는 서버에 기록됩니다.")
+	rn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(rn)
 	gs.move_child(gs._toast_box, -1)      # 대기실은 화면을 다 덮는다 —— 알림(한마디 · 소식)이 그 위에 보이게
 
 
