@@ -6,12 +6,12 @@ extends Node
 
 const SFX_NAMES := ["tap", "open", "draw", "gain", "forge", "deny", "hit", "crit", "magic", "skill", "ult", "rout",
 	"burn", "splash", "confuse", "heal", "debuff", "horn", "drums", "win", "lose", "clash", "arrow", "swing",
-	"alert_beep"]      # 11/5 shout(함성) 삭제 —— 불쾌하다
+	"alert_beep", "alert_war", "alert_wise"]      # 11/5 shout(함성) 삭제 —— 불쾌하다
 ## 소리마다 기본 크기(dB)와 최소 간격(초)
 const TUNE := {"tap": [-16.0, 0.05], "open": [-16.0, 0.1], "draw": [-10.0, 0.06], "deny": [-14.0, 0.2], "gain": [-10.0, 0.12],
 	"forge": [-8.0, 0.2], "hit": [-15.0, 0.09], "crit": [-10.0, 0.12], "magic": [-13.0, 0.1], "skill": [-9.0, 0.15],
 	"ult": [-6.0, 0.3], "clash": [-12.0, 0.11], "arrow": [-10.0, 0.35], "swing": [-7.0, 0.1], "rout": [-10.0, 0.2], "horn": [-8.0, 0.8], "drums": [-6.0, 1.0], "win": [-5.0, 1.0],
-	"alert_beep": [-9.0, 0.3]}      # 11/10 5초 비프     # 10/31 녹음 소리에 맞춘 크기 (dB) · 최소 간격 (초)
+	"alert_beep": [-9.0, 0.3], "alert_war": [-5.0, 1.0], "alert_wise": [-5.0, 1.0]}      # 11/10 5초 비프 · 긴급 등용 함성 (무장 · 지장)     # 10/31 녹음 소리에 맞춘 크기 (dB) · 최소 간격 (초)
 const POOL := 12
 const ENABLED := true      # 10/31 사용자: 유치하지 않은 소리로 바꿔 다시 켠다 (CC0 녹음 —— assets/sfx/_licenses/출처.txt)
 

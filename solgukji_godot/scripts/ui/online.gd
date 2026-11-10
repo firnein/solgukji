@@ -451,7 +451,8 @@ func _on_msg(d: Dictionary) -> void:
 		"toast":
 			gs.toast(str(d.text), str(d.kind))
 		"news":
-			# 11/9 사용자: 다른 사람 · 봇의 소식 {"list": [{text, kind, who?, unit?}]} —— 알림 + 소식 목록(머리띠 뱃지 · 전황 소식 시트). 같은 것(who·unit 또는 글)은 한 번만
+			# 11/9 사용자: 다른 사람 · 봇의 소식 {"list": [{text, kind, who?, unit?, id?, when?, hot?}]} —— 알림 + 소식 목록(머리띠 뱃지 · 전황 소식 시트). 같은 것(id 또는 who·unit 또는 글)은 한 번만
+			# 11/10 사용자: hot(사람의 기인 이상 등용)이면 알림 한 줄 대신 '긴급' 띠 연출. id · when 은 항목에 그대로(안 읽은 소식 뱃지 · 시점 글)
 			for it in d.get("list", []):
 				if not (it is Dictionary):
 					continue

@@ -11,6 +11,7 @@ extends Control
 ## (예전 도감·전투 연출 화면은 --tab=… 을 주면 열린다 —— scenes/main.tscn)
 
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
+const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const STAT_ICON := 22.0       # 능력치 아이콘(칼 · 방패 · 신발) 크기 —— 14 아래로는 선이 뭉개진다 (11/9)
@@ -3011,6 +3012,28 @@ func hide_battle() -> void:
 func _resume_bands() -> void:
 	if not _band_busy and not _bands.is_empty():
 		_next_band.call_deferred()
+	if not _urgent_busy and not _urgents.is_empty():
+		_next_urgent.call_deferred()
+
+
+# ───────── 긴급 등용 띠 (11/10 사용자) —— 다른 사람이 기인 이상 장수를 등용했을 때. 여러 개면 하나씩 ─────────
+var _urgents: Array = []
+var _urgent_busy := false
+
+func urgent(who: String, unit: String) -> void:
+	_urgents.append([who, unit])
+	if not _urgent_busy:
+		_next_urgent()
+
+
+func _next_urgent() -> void:
+	if _urgents.is_empty() or battle_visible():      # 전투 화면 위에는 띄우지 않는다 (전장을 가렸다) —— 전투가 끝나면 이어서
+		_urgent_busy = false
+		return
+	_urgent_busy = true
+	var e: Array = _urgents.pop_front()
+	var b: Control = UrgentBand.play(self, str(e[0]), str(e[1]))
+	b.done.connect(_next_urgent)
 
 
 func battle_visible() -> bool:
@@ -3492,6 +3515,12 @@ func _dev_args() -> void:
 			ForgeFx.play_chain(self, ks)
 	if a.has("gfanfare"):      # --gfanfare=c177 —— 불멸 · 신화 완성 연출만 띄워 본다
 		_forge_fanfare(str(a.gfanfare))
+	if a.has("gnotify"):      # 점검용 —— 긴급 등용 띠를 오프라인으로 (--gnotify=카드id,카드id… --gnwho=유저이름,… 쉼표로 여럿이면 대기열, 11/10)
+		var nws := str(a.get("gnwho", "관우팬")).split(",")
+		var ni := 0
+		for nk in str(a.gnotify).split(","):
+			urgent(nws[ni % nws.size()], nk)
+			ni += 1
 	if a.has("gtouch"):
 		await _touch_test()
 		get_tree().quit()
