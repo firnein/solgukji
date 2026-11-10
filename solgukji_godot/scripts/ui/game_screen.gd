@@ -3175,6 +3175,7 @@ func _dev_args() -> void:
 		_go_online()
 		online.net.player = str(a.get("gname", "시험"))
 		online.net.token = ""      # 같은 PC 의 창들이 net.cfg 를 같이 쓴다 —— 시험 창은 새 토큰
+		online.net.consent_ver = NetClient.CONSENT_VER      # 점검 창은 기록에 동의한 것으로 (메모리만 —— net.cfg 에는 남기지 않는다)
 		online.dev_auto = a.has("gauto")
 		online.net.connect_to(str(a.gonline))
 		await online.net.opened

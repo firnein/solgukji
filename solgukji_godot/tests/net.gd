@@ -18,6 +18,7 @@ var errors := []
 var pvp_seen := {}            # "day.phase" -> [[나, 상대, 승?, 무?]]
 var foe_log := {}             # 이름 -> {day_no: 상대 이름}  (저녁 준비에 받은 상대)
 var human_names := []
+var norec := 0               # 기록에 동의하지 않은 가짜 클라이언트 수 (마지막 사람들)
 var t0 := 0.0
 var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 기준)
 
@@ -28,6 +29,7 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var n := int(args.get("players", "3"))
+	norec = int(args.get("norec", "1" if n >= 3 else "0"))      # 11/10 동의 —— 끝에서부터 이만큼은 기록에 동의하지 않은 클라이언트(hello 에 rec 없음)
 	RoomLog.test_ok = true                       # 11/10 온라인 기록 —— 점검 방도 이 점검에서는 남기고 끝에 파일을 본다
 	RoomLog.dir = LOG_DIR
 	DirAccess.make_dir_recursive_absolute(LOG_DIR)
@@ -41,6 +43,7 @@ func _ready() -> void:
 		var c := NetClient.new()
 		c.player = "시험%d" % i
 		c.token = ""
+		c.consent_ver = NetClient.CONSENT_VER if i < n - norec else 0      # 동의한 것처럼 hello 에 rec=true / 안 한 사람은 rec=false (메모리만)
 		add_child(c)
 		var b := {"c": c, "name": c.player, "i": i, "state": null, "room": null, "dropped": false, "back": false, "done": false,
 			"sno": -1}
@@ -213,6 +216,7 @@ func _check_logs() -> void:
 	var bad := 0
 	var names := []
 	var hh := 0
+	var hidden := 0
 	for fn in files:
 		var lines := FileAccess.get_file_as_string(LOG_DIR + "/" + fn).split("\n", false)
 		lines_n += lines.size()
@@ -228,16 +232,27 @@ func _check_logs() -> void:
 				names.append(d.get("player", ""))
 			if d.ev == "battle_end" and d.get("foe_human", false):
 				hh += 1
+				if d.get("foe_hidden", false):
+					hidden += 1
+					if d.has("foe_troops") or d.has("foe_troops_max") or (d.units as Array).any(func(u): return u.camp != "A"):
+						errors.append("동의 안 한 상대의 부대 기록이 남았다: %s" % fn)
 			for c in bots:
 				if ln.contains(c.c.token) and c.c.token != "":
 					errors.append("기록에 토큰이 있다: %s" % fn)
 		if last != null and last.ev == "over":
 			overs += 1
-	if files.size() != bots.size():
-		errors.append("기록 파일 %d개 (사람 %d명)" % [files.size(), bots.size()])
+	if files.size() != bots.size() - norec:
+		errors.append("기록 파일 %d개 (동의한 사람 %d명)" % [files.size(), bots.size() - norec])
 	if bad > 0:
 		errors.append("올바르지 않은 기록 줄 %d" % bad)
 	for nm in human_names:
-		if not names.has(nm):
+		var agreed: bool = human_names.find(nm) < human_names.size() - norec
+		if agreed and not names.has(nm):
 			errors.append("기록에 이름 %s 가 없다" % nm)
-	print("  온라인 기록: 파일 %d개 · %d줄 · 끝 줄 있는 것 %d · 사람끼리 대전 줄 %d · 줄 종류 %s" % [files.size(), lines_n, overs, hh, str(kinds)])
+		if not agreed:      # 동의 안 한 사람 —— 이름 · 편성이 어느 파일에도 없다
+			if names.has(nm):
+				errors.append("동의 안 한 %s 의 파일이 만들어졌다" % nm)
+			for fn in files:
+				if FileAccess.get_file_as_string(LOG_DIR + "/" + fn).contains(nm):
+					errors.append("%s: 동의 안 한 %s 의 이름이 기록에 있다" % [fn, nm])
+	print("  온라인 기록: 파일 %d개 · %d줄 · 끝 줄 있는 것 %d · 사람끼리 대전 줄 %d (그중 상대가 동의 안 한 사람 %d) · 줄 종류 %s" % [files.size(), lines_n, overs, hh, hidden, str(kinds)])
