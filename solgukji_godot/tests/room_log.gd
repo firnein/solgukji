@@ -4,8 +4,11 @@ const RoomLog := preload("res://scripts/net/room_log.gd")
 ## ① 기록을 켠 방과 끈 방이 서버로 보내는 메시지가 한 글자도 다르지 않다 (난수 · 상태를 건드리지 않는다 —— 같은 시드로 두 번)
 ## ② 기록 파일: 사람 수만큼(봇은 없다) · 줄마다 올바른 JSON · start 에 이름 · 끊김/재접속/나감 줄 · 토큰이 없다
 ## ③ 기록을 끈 방(점검 방은 기본으로 끔)에서는 파일이 없다
+## ④ 동의 (11/10) —— rec 없는 사람(시험1)은 파일이 없고, 다른 사람 파일에 그 사람의 이름 · 편성 · 상대 부대 기록이 없다 (players 에서 빠지고 hidden 숫자만 · 전투 상대는 "(비공개)")
+## ⑤ 동의를 철회하고 돌아오면(reattach rec=false) 그 사람 파일은 consent_off 로 끝나고 더 쓰지 않는다 · 아무도 동의하지 않은 방은 기록기가 없다
 
 const DIR := "user://playlog_online_roomlog"
+var had_rlog := false
 const STOP_SLOT := 4          # 이 페이즈 번호(day*3+phase)까지만 돈다 —— 길게 재지 않게
 
 class FakeSrv:
@@ -45,6 +48,7 @@ func _ready() -> void:
 				break
 	print("메시지 %d개 · 기록 끔/켬 %s" % [on.size(), "같음" if off == on else "다름"])
 	_check_files(fails)
+	_check_mix(fails)
 	print("FAIL: ", fails if not fails.is_empty() else "없음")
 	get_tree().quit(1 if not fails.is_empty() else 0)
 
@@ -56,14 +60,14 @@ func _clear() -> void:
 
 
 ## 같은 시드로 한 방을 STOP_SLOT 까지 돌리고 서버가 보낸 메시지의 해시 목록을 돌려준다
-func _play(log_on: bool, stop_slot := STOP_SLOT) -> Array:
+func _play(log_on: bool, stop_slot := STOP_SLOT, rec := [true, true, true], back_rec := true) -> Array:
 	RoomLog.test_ok = log_on
 	RoomLog.dir = DIR
 	var srv := FakeSrv.new()
 	var r := Room.new(srv, "LOGT", "test")
 	r.rng.seed = 20261110
 	for k in 3:
-		r.add_human(k + 1, "시험%d" % k, "tk%d" % k)
+		r.add_human(k + 1, "시험%d" % k, "tk%d" % k, rec[k])
 	r.start()
 	var left := false
 	var back := false
@@ -82,13 +86,14 @@ func _play(log_on: bool, stop_slot := STOP_SLOT) -> Array:
 			r.remove_peer(2)                  # 시험1 접속 끊김
 		if slot == 2 and r.stage == "morning" and left and not back:
 			back = true
-			r.reattach(22, "tk1")             # 같은 토큰으로 돌아옴
+			r.reattach(22, "tk1", back_rec)   # 같은 토큰으로 돌아옴 (back_rec=false 면 동의를 철회하고)
 		if slot == 3 and r.stage == "morning":
 			r.on_leave(3)                     # 시험2 스스로 나감
 		for s in r.humans():
 			if s.peer >= 0:
 				r.on_ready(s.peer, true, r.stage_no)
 		r.tick()
+	had_rlog = r.rlog != null
 	r.rlog = null
 	return srv.out
 
@@ -140,3 +145,59 @@ func _check_files(fails: Array, full := false) -> void:
 	for k in need:
 		if not evs.has(k):
 			fails.append("기록에 %s 줄이 하나도 없다" % k)
+
+
+## 동의 (11/10) —— ④ rec 없는 사람 · ⑤ 철회 · 아무도 동의 안 한 방
+func _check_mix(fails: Array) -> void:
+	_clear()
+	_play(true, 6, [true, false, true])
+	var files := Array(DirAccess.get_files_at(DIR)).filter(func(f): return f.ends_with(".jsonl"))
+	if files.size() != 2:
+		fails.append("동의한 사람이 2명인데 파일 %d개" % files.size())
+	var hidden_battles := 0
+	for fn in files:
+		var txt := FileAccess.get_file_as_string(DIR + "/" + fn)
+		if txt.contains("시험1"):
+			for ln in txt.split("\n", false):
+				if ln.contains("시험1"):
+					fails.append("%s: 동의하지 않은 사람 이름이 기록에 있다: %s" % [fn.substr(0, 30), ln.substr(0, 400)])
+		for ln in txt.split("\n", false):
+			var d = JSON.parse_string(ln)
+			if typeof(d) != TYPE_DICTIONARY:
+				fails.append("%s: 올바르지 않은 줄" % fn)
+				continue
+			if d.ev == "start" and (d.players.size() != 2 or int(d.get("hidden", 0)) != 1):
+				fails.append("start 의 players/hidden 이상: %s" % str(d))
+			if d.ev in ["battle_start", "battle_end"] and d.get("foe_hidden", false):
+				hidden_battles += 1
+				for k in ["foe", "foe_form", "foe_tac", "foe_morale", "foe_equip", "tr_ratio", "foe_troops", "foe_troops_max"]:
+					if d.has(k):
+						fails.append("%s: 동의 안 한 상대의 %s 가 남았다" % [d.ev, k])
+				if d.foe_name != RoomLog.HIDDEN:
+					fails.append("동의 안 한 상대 이름이 남았다: %s" % d.foe_name)
+				if d.ev == "battle_end" and (d.units as Array).any(func(u): return u.camp != "A"):
+					fails.append("동의 안 한 상대 부대 기록이 남았다")
+	print("동의 안 한 사람 1명 —— 파일 %d개 · 이름 없음 · 상대가 그 사람인 전투 줄 %d" % [files.size(), hidden_battles])
+	# 철회하고 돌아옴
+	_clear()
+	_play(true, 6, [true, true, true], false)
+	files = Array(DirAccess.get_files_at(DIR)).filter(func(f): return f.ends_with(".jsonl"))
+	var found := false
+	for fn in files:
+		var lines := FileAccess.get_file_as_string(DIR + "/" + fn).split("\n", false)
+		var d = JSON.parse_string(lines[0])
+		if d.player == "시험1":
+			found = true
+			var last = JSON.parse_string(lines[lines.size() - 1])
+			if last.ev != "consent_off":
+				fails.append("철회한 사람의 마지막 줄이 consent_off 가 아니다 (%s)" % last.ev)
+			print("철회: 시험1 %d줄 · 마지막 %s" % [lines.size(), last.ev])
+	if not found:
+		fails.append("철회한 사람의 파일이 없다")
+	# 아무도 동의하지 않음 —— 기록기 자체가 없다
+	_clear()
+	_play(true, 3, [false, false, false])
+	if not DirAccess.get_files_at(DIR).is_empty():
+		fails.append("아무도 동의하지 않았는데 파일이 있다")
+	if had_rlog:
+		fails.append("아무도 동의하지 않았는데 기록기가 만들어졌다")

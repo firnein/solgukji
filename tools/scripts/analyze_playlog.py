@@ -61,7 +61,7 @@ def battles(game):
                 b["round"] = tour_i
                 tour_i += 1
             b["margin"] = float(e.get("left_ratio", 0)) - float(e.get("foe_left_ratio", 0))
-            b["tr_ratio"] = float(cur.get("tr_ratio", 0)) if cur else 0.0
+            b["tr_ratio"] = float(cur["tr_ratio"]) if cur and "tr_ratio" in cur else None      # 동의 안 한 사람과 붙은 전투(foe_hidden)는 전력비가 없다
             out.append(b)
             cur = None
     return out
@@ -170,8 +170,9 @@ def mean_by_slot(acc, kind, f):
     pts = []
     for (s, k), bs in acc.items():
         if k == kind and bs:
-            vals = [f(b) for b in bs]
-            pts.append((s, st.mean(vals)))
+            vals = [v for v in (f(b) for b in bs) if v is not None]
+            if vals:
+                pts.append((s, st.mean(vals)))
     return pts
 
 
@@ -249,7 +250,8 @@ def section_slots(acc, acc_bot, title):
                 wr = sum(1 for b in bs if b.get("win")) / len(bs)
                 wins = [b["margin"] for b in bs if b.get("win")]
                 mg = st.mean(wins) if wins else 0.0
-                trr = st.mean(b["tr_ratio"] for b in bs)
+                trs = [b["tr_ratio"] for b in bs if b["tr_ratio"] is not None]
+                trr = st.mean(trs) if trs else 0.0
                 g = Counter(grade(b) for b in bs)
                 tip = " · ".join("%s %d" % (x, n) for x, n in g.most_common())
                 tds.append('<td class="c" style="background:%s" title="%s"><b>%s</b> <span class=dim>%d판</span><br>여유 %s · 전력비 %.2f</td>'
@@ -275,9 +277,9 @@ def battle_list(games):
             if b.get("kind") == "tour":
                 kind += " " + TOUR_ROUND[min(2, b.get("round", 0))]
             gr = grade(b)
-            rows.append("<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%.2f</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%d · %d</td><td>%s</td></tr>" % (
+            rows.append("<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%d · %d</td><td>%s</td></tr>" % (
                 {"압승": "easy", "패": "lose", "신승": "close"}.get(gr, ""), g["file"][:15], slot_name(slot(b)), kind,
-                html.escape(stt.get("title", "")), gr, b["tr_ratio"], fmt_pct(b.get("left_ratio", 0)), fmt_pct(b.get("foe_left_ratio", 0)),
+                html.escape(stt.get("title", "")), gr, ("%.2f" % b["tr_ratio"]) if b["tr_ratio"] is not None else "—", fmt_pct(b.get("left_ratio", 0)), fmt_pct(b.get("foe_left_ratio", 0)),
                 html.escape(top), html.escape(stt.get("tac", "")), b.get("ult_inputs", 0), b.get("cmd_inputs", 0), html.escape(b.get("mvp", ""))))
     return ("<h2>전투 목록</h2><table class=list><tr><th>판</th><th>시점</th><th>종류</th><th>상대</th><th>결과</th><th>전력비</th>"
             "<th>내 잔존</th><th>적 잔존</th><th>내 덱 등급</th><th>작전</th><th>고유기·군령</th><th>MVP</th></tr>%s</table>" % "".join(rows))
@@ -335,7 +337,8 @@ def human_pvp(games):
                 continue
             if b.get("foe_human"):
                 hh[name]["w" if b.get("win") else "l"] += 1
-                hh[name]["tr"].append(b["tr_ratio"])
+                if b["tr_ratio"] is not None:
+                    hh[name]["tr"].append(b["tr_ratio"])
             else:
                 bt[name]["w" if b.get("win") else "l"] += 1
     if not any_online:
