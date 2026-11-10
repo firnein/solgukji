@@ -11,6 +11,7 @@ extends Control
 ## (예전 도감·전투 연출 화면은 --tab=… 을 주면 열린다 —— scenes/main.tscn)
 
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
+const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const STAT_ICON := 22.0       # 능력치 아이콘(칼 · 방패 · 신발) 크기 —— 14 아래로는 선이 뭉개진다 (11/9)
@@ -774,11 +775,44 @@ func _render_head() -> void:
 	_info_lbl.clear()
 	_info_lbl.visible = false
 	# 소식 버튼 (11/7) —— 소식 수 뱃지, 없으면 흐리게
-	var nn := run.news.size()
-	_news_btn.disabled = nn == 0
-	_news_badge.visible = nn > 0
-	_news_badge.text = str(nn)
+	# 11/10 사용자: 소식 레드닷이 사라지지 않았다 → 안 읽은 소식 수 (소식 시트를 열면 읽음, 새 소식이 오면 다시 켜진다)
+	_news_btn.disabled = run.news.is_empty()
+	var unread := _news_unread()
+	_news_badge.visible = unread > 0
+	_news_badge.text = str(unread)
 	_item_band()
+
+
+## 안 읽은 소식 —— 항목의 id(서버 · 솔로 Run 이 매기는 늘어나는 번호)가 읽은 기준(_news_seen_id)보다 큰 것.
+## 판이 바뀌면(새 판 · 이어 하기 → Run 객체가 바뀜 · 온라인 입장/방이 바뀜) 기준을 지금 가장 큰 번호로 다시 잡는다
+## (온라인은 서버 상태마다 Run 이 새 객체라 객체가 아니라 방 코드로 비교한다). id 가 없는 옛 항목은 읽은 것으로 본다
+var _news_run: Run = null
+var _news_room := ""
+var _news_seen_id := 0
+func _news_max_id() -> int:
+	var m := 0
+	for nw in run.news:
+		m = maxi(m, int(nw.get("id", 0)))
+	return m
+
+
+func _news_unread() -> int:
+	var on := online != null and online.in_game and not online.room.is_empty()
+	var rc := str(online.room.get("code", "")) if on else ""
+	if on:
+		if rc != _news_room:
+			_news_room = rc
+			_news_run = null
+			_news_seen_id = _news_max_id()
+	elif _news_room != "" or run != _news_run:
+		_news_room = ""
+		_news_run = run
+		_news_seen_id = _news_max_id()
+	var n := 0
+	for nw in run.news:
+		if int(nw.get("id", 0)) > _news_seen_id:
+			n += 1
+	return n
 
 
 ## 아이템을 얻은 순간 가운데 띠 한 번 (11/7 사용자: 징집 페이지에 늘 자리를 차지하던 '아이템 이름 · 효과' 칩 대신).
@@ -1621,6 +1655,8 @@ func mini_n(a: int, b: int) -> int:
 
 
 func _news_sheet() -> void:
+	_news_seen_id = maxi(_news_seen_id, _news_max_id())      # 연 순간 읽음 처리 (11/10)
+	_render_head()
 	var b := open_sheet("전황 소식")
 	if run.news.is_empty():
 		b.add_child(UI.hint("아직 소식이 없다 —— 다른 세력이 장수를 등용하면 여기에 쌓인다."))
@@ -1630,9 +1666,15 @@ func _news_sheet() -> void:
 			var tx := str(nw.get("text", ""))
 			if tx.begins_with(who):
 				who = ""
-			b.add_child(UI.rich(("[b]%s[/b] " % who if who != "" else "") + tx, 15))
+			b.add_child(UI.rich(("[b]%s[/b] " % who if who != "" else "") + tx + _news_when(nw), 15))
 			continue
-		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit)], 15))
+		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]%s" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit), _news_when(nw)], 15))
+
+
+## 소식 옆의 시점 —— 「(3일차 아침)」 옅은 글씨. 옛 항목(when 없음)은 없다 (11/10)
+func _news_when(nw: Dictionary) -> String:
+	var w := str(nw.get("when", ""))
+	return " [color=#8D7B5C](%s)[/color]" % w if w != "" else ""
 
 
 func _item_sheet(id: String) -> void:
@@ -3011,6 +3053,28 @@ func hide_battle() -> void:
 func _resume_bands() -> void:
 	if not _band_busy and not _bands.is_empty():
 		_next_band.call_deferred()
+	if not _urgent_busy and not _urgents.is_empty():
+		_next_urgent.call_deferred()
+
+
+# ───────── 긴급 등용 띠 (11/10 사용자) —— 다른 사람이 기인 이상 장수를 등용했을 때. 여러 개면 하나씩 ─────────
+var _urgents: Array = []
+var _urgent_busy := false
+
+func urgent(who: String, unit: String) -> void:
+	_urgents.append([who, unit])
+	if not _urgent_busy:
+		_next_urgent()
+
+
+func _next_urgent() -> void:
+	if _urgents.is_empty() or battle_visible():      # 전투 화면 위에는 띄우지 않는다 (전장을 가렸다) —— 전투가 끝나면 이어서
+		_urgent_busy = false
+		return
+	_urgent_busy = true
+	var e: Array = _urgents.pop_front()
+	var b: Control = UrgentBand.play(self, str(e[0]), str(e[1]))
+	b.done.connect(_next_urgent)
 
 
 func battle_visible() -> bool:
@@ -3242,6 +3306,13 @@ func _dev_args() -> void:
 			if DB.C.has(kn[0]):
 				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
 		render()
+	if a.has("gnewsadd") and run != null:      # 점검용 —— 첫 그리기 뒤에 새 소식 N 건이 온 것처럼 (안 읽은 소식 뱃지 · 소식 시트의 시점 글, 11/10 · 저장하지 않는다)
+		for ni in int(a.gnewsadd):
+			run.news_seq += 1
+			run.news.push_front({"who": "관우팬%d" % ni, "unit": ["c177", "K12", "L12"][ni % 3], "id": run.news_seq, "when": run.when_text()})
+		run.news.push_front({"who": "솔", "unit": "", "text": "방을 떠났다 — 자리는 봇이 이어받는다", "id": run.news_seq + 1, "when": "3일차 아침"})
+		run.news_seq += 1
+		render()
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
 			_open[key] = true
@@ -3304,6 +3375,7 @@ func _dev_args() -> void:
 			"itemfx":      # 점검용 —— 아이템을 하나 얻고 가운데 띠가 뜨는지 (11/7, 저장하지 않는다)
 				run.gain_item()
 				render()
+			"news": _news_sheet()      # 점검용 —— 전황 소식 시트 (읽음 처리 포함)
 			"settings": _settings_sheet()
 			"online": _go_online()      # 점검용 —— 온라인 대전 접속 팝업 (11/9)
 			"onwar":      # 점검용 —— 서버 없이 온라인 전투 탭 (--gsheet=onwar:noon | morning | evening_prep | evening, 11/9)
@@ -3311,7 +3383,11 @@ func _dev_args() -> void:
 					online = Online.new()
 					online.gs = self
 					add_child(online)
-				online.dev_fake_room(kv[1] if kv.size() > 1 and kv[1] != "" else "noon")
+				online.dev_fake_room(kv[1] if kv.size() > 1 and kv[1] != "" else "noon", float(kv[2]) if kv.size() > 2 else 75.0)
+				if kv.size() > 3 and kv[3] == "ready":      # 점검용 —— '준비 완료'를 누른 것처럼 (5초 경고가 안 울려야 한다)
+					online.send_ready(true)
+				if kv.size() > 3 and kv[3] == "hot":      # 점검용 —— 다른 사람이 기인 이상을 등용했다는 서버 알림이 온 것처럼 (긴급 띠 · 소식 뱃지 · 시점 글)
+					online._on_msg({"t": "news", "list": [{"text": "장수214가 신산 제갈량을 등용했습니다", "kind": "news", "who": "장수214", "unit": "c187", "id": 7, "when": "1일차 아침", "hot": 1}]})
 			"pick":
 				act("begin_picks", ["phase", -1])
 				if not run.ticket_tiers().is_empty():
@@ -3488,6 +3564,12 @@ func _dev_args() -> void:
 			ForgeFx.play_chain(self, ks)
 	if a.has("gfanfare"):      # --gfanfare=c177 —— 불멸 · 신화 완성 연출만 띄워 본다
 		_forge_fanfare(str(a.gfanfare))
+	if a.has("gnotify"):      # 점검용 —— 긴급 등용 띠를 오프라인으로 (--gnotify=카드id,카드id… --gnwho=유저이름,… 쉼표로 여럿이면 대기열, 11/10)
+		var nws := str(a.get("gnwho", "관우팬")).split(",")
+		var ni := 0
+		for nk in str(a.gnotify).split(","):
+			urgent(nws[ni % nws.size()], nk)
+			ni += 1
 	if a.has("gtouch"):
 		await _touch_test()
 		get_tree().quit()

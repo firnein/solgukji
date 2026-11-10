@@ -19,7 +19,9 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 1단계 —— 전투는 양쪽 자동(고유기를 AI 가). 결과 전체를 보내 휴대폰은 재생만 한다. 다 보거나 '결과로 건너뛰기'를 눌러야 '준비'가 된다 (결정 ⑦, 11/9 건너뛰기 허용).
 ## "battles" 의 각 항목 {title, res, kind, params} —— params 는 BattleView.play() 가 _p 로 짓는 재료와 같은 키(a·fa·ma·ea·b·fb·mb·eb·seed·title·foe·policy·tra·trb·tb),
 ## 받는 사람이 A 가 되게 뒤집은 것 —— 휴대폰이 전투장수창의 버프 수치를 혼자 할 때와 같게 잰다 (11/9 사용자).
-## 소식(봇 등용 · 사람의 전설 이상 등용 · 멸망 · 퇴장 · 재접속)은 방의 모든 사람에게 뿌린다 ({"t":"news","list":[{text,kind}]} + 각자의 Run.news). 한마디(say)는 미리 적힌 글(QUICK_MSGS)만, 2초에 한 번 (11/9 사용자).
+## 소식(봇 등용 · 사람의 기인 이상 등용 · 멸망 · 퇴장 · 재접속)은 방의 모든 사람에게 뿌린다 ({"t":"news","list":[{text,kind,id,when,hot?}]} + 각자의 Run.news). 한마디(say)는 미리 적힌 글(QUICK_MSGS)만, 2초에 한 번 (11/9 사용자).
+## 11/10 사용자: 기인 이상(기인 · 초월 · 불멸 · 신화)을 사람이 등용하면 다른 사람에게 '긴급' 띠 연출 —— 알림에 hot=1 (Online → GameScreen.urgent). 소식 항목마다 방 안에서 늘어나는 번호 id(안 읽은 소식 뱃지)와
+## 만들어진 시점 when("3일차 아침" —— 온라인의 일차는 day_no, 단계는 아침 · 점심 · 저녁 준비 · 저녁)를 붙인다.
 
 const MODES := {
 	"fast": {"n": "빠른 — 아침 1분 · 하루 약 4분", "morning": 60.0, "noon": 75.0, "prep": 60.0, "evening": 100.0},
@@ -34,6 +36,7 @@ const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합
 const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
 const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
+const STAGE_SHORT := {"morning": "아침", "noon": "점심", "evening_prep": "저녁 준비", "evening": "저녁"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
 
 var server                    # MatchServer —— send(peer, msg)
 var code := ""
@@ -53,6 +56,8 @@ var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b �
 var tour = null               # {round, list:[{name, seat}], res:[[{a, b, w}]], next}
 var rng := RandomNumberGenerator.new()
 var empty_since := -1.0
+var news_seq := 0             # 소식 항목 번호 —— _news_add 가 1씩 올려 붙인다 (휴대폰이 안 읽은 소식을 가른다)
+var _news_stage := ""         # _advance 중에는 아직 stage 가 지난 단계라 시점을 '아침'으로 못박는다
 var rlog: RoomLog = null      # 사람마다 플레이 기록 (11/10) —— 부수 효과일 뿐, 없어도(점검 방 · 쓰기 실패) 방은 그대로 간다
 
 
@@ -80,6 +85,12 @@ func seat_of(peer: int) -> int:
 
 func day_no() -> int:
 	return day * 3 + phase + 1
+
+
+## 소식의 시점 글 —— "3일차 아침" (day_no · 지금 단계)
+func when_text() -> String:
+	var st := _news_stage if _news_stage != "" else stage
+	return "%d일차 %s" % [day_no(), STAGE_SHORT.get(st, "")] if STAGE_SHORT.has(st) else ""
 
 
 # ───────── 대기실 ─────────
@@ -327,12 +338,18 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 	seats[i].acted = true
 	if rlog != null:
 		rlog.act(i, r, m, a, ok)
-	# 11/9 사용자: 다른 사람의 소식도 와야 한다 —— 전설(6) 이상을 조합 · 선택권으로 등용하면 방의 다른 사람에게 소식 + 알림
-	if ok and m in ["forge", "pick"] and not a.is_empty() and DB.C.has(str(a[0])) and int(DB.C[str(a[0])].tier) >= 6:
+	# 11/9 사용자: 다른 사람의 소식도 와야 한다 —— 조합 · 선택권으로 등용하면 방의 다른 사람에게 소식 + 알림
+	# 11/10 사용자: 기인 이상(기인 · 초월 · 불멸 · 신화)으로 정리 —— 기인은 등급 값이 전설(5)이라 is_kiin 으로 따로 센다. 본인에게는 보내지 않는다(조합 완성 연출이 있다)
+	if ok and m in ["forge", "pick"] and not a.is_empty() and is_urgent_unit(str(a[0])):
 		var it := {"who": seats[i].name, "unit": str(a[0])}
 		_news_add(it, seats[i])
-		_announce("%s가 %s을(를) 등용했습니다" % [seats[i].name, DB.C[str(a[0])].name], it, seats[i])
+		_announce("%s가 %s을(를) 등용했습니다" % [seats[i].name, DB.C[str(a[0])].name], it, seats[i], true)
 	push(seats[i])
+
+
+## 긴급 소식 대상 —— 기인 이상 (기인 · 초월 6 · 불멸 7 · 신화 8)
+static func is_urgent_unit(k: String) -> bool:
+	return DB.C.has(k) and (DB.is_kiin(k) or int(DB.C[k].tier) >= 6)
 
 
 ## 응답이 없는 사람 몫을 봇이 한다 —— 끊겼거나 단계 내내 아무 행동도 없으면 전부, 행동은 했으면 빈 것만
@@ -565,6 +582,7 @@ func _advance() -> void:
 	if phase > 2:
 		phase = 0
 		day += 1
+	_news_stage = "morning"      # 이 아래에서 생기는 소식(멸망 · 봇 등용)의 시점은 새 날의 아침
 	for s in seats:
 		s.foe = null
 		if s.human:
@@ -591,6 +609,7 @@ func _advance() -> void:
 			for t in s.run.toasts:
 				server.send(s.peer, {"t": "toast", "text": t[0], "kind": t[1]})
 		s.run.toasts.clear()
+	_news_stage = ""
 	_check_alone()
 
 
@@ -793,6 +812,13 @@ func _fallen(s: Dictionary) -> void:
 
 ## 소식을 모든 사람의 Run.news 에 넣는다 (except 는 뺀다) —— 머리띠 '소식' 뱃지 · 전황 소식 시트가 그대로 쓴다
 func _news_add(it: Dictionary, except = null) -> void:
+	if not it.has("id"):
+		news_seq += 1
+		it["id"] = news_seq
+	if not it.has("when"):
+		var w := when_text()
+		if w != "":
+			it["when"] = w
 	for s in humans():
 		if s == except or s.run == null:
 			continue
@@ -800,13 +826,16 @@ func _news_add(it: Dictionary, except = null) -> void:
 		s.run.news = s.run.news.slice(0, 12)
 
 
-## 접속한 모든 사람에게 소식 한 줄 {"t":"news","list":[{text, kind, who?, unit?}]} (except 는 뺀다) —— who · unit 은 상태의 Run.news 항목과 같아 휴대폰이 겹침을 가릴 수 있다
-func _announce(text: String, it = null, except = null) -> void:
+## 접속한 모든 사람에게 소식 한 줄 {"t":"news","list":[{text, kind, who?, unit?, id?, when?, hot?}]} (except 는 뺀다) —— who · unit · id · when 은 상태의 Run.news 항목과 같아 휴대폰이 겹침을 가릴 수 있다.
+## hot = 긴급 띠 연출을 띄우라는 표시 (사람의 기인 이상 등용만) —— 모르는 옛 휴대폰은 그냥 알림 한 줄
+func _announce(text: String, it = null, except = null, hot := false) -> void:
 	var e := {"text": text, "kind": "news"}
 	if it is Dictionary:
-		for k in ["who", "unit"]:
+		for k in ["who", "unit", "id", "when"]:
 			if it.has(k):
 				e[k] = it[k]
+	if hot:
+		e["hot"] = 1
 	for s in humans():
 		if s == except or s.peer < 0:
 			continue

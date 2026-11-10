@@ -10,3 +10,5 @@ shout_*.ogg : "Crowd Shouting/Speaking Ambience" (CC0) https://opengameart.org/c
 arrow_*.wav · swing_*.wav : Still North Media "Medieval Sound Effects - Weapon Textures" (CC0) https://opengameart.org/content/medieval-sound-effects-weapon-textures
   —— English Longbow Shoot · Scythian Recurve Arrow Passby · Katana Swing 테이크를 tools/scripts/make_arrow_sfx.py 로 잘라 섞음 (11/4)
 shout_*.ogg 는 11/5 삭제 (사용자: 함성이 불쾌하다)
+
+alert_beep · alert_war · alert_wise.wav : 직접 합성 (tools/scripts/make_sfx.py alert, 11/10) —— 외부 음원 · 사람 목소리 샘플 없음. 비프 = 온라인 남은 시간 5초 · war = 무장 긴급 등용 함성 · wise = 지장 긴급 등용 (현 + 종 + 북). 마음에 안 들면 같은 이름 파일(wav/ogg)로 바꿔 넣으면 된다

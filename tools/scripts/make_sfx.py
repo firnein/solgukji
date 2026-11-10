@@ -1,6 +1,7 @@
 """효과음 · 배경 음악을 합성해 WAV 로 쓴다 (2026-10-30) —— 외부 음원이 없어 저작권 걱정이 없다. numpy 만 쓴다.
 
 실행: python -I tools/scripts/make_sfx.py      → solgukji_godot/assets/sfx/*.wav, assets/bgm/*.wav
+      python -I tools/scripts/make_sfx.py alert → 경고 비프 · 긴급 등용 함성 둘만 (alert_beep · alert_war · alert_wise, 11/10) —— 나머지 소리 파일은 건드리지 않는다
 효과음 44.1kHz · 배경 음악 22.05kHz, 16비트 모노. 배경 음악은 끝이 처음으로 이어지게 만든다 (Sfx 가 반복 재생).
 """
 import os
@@ -235,6 +236,66 @@ def make_sfx():
     return list(S)
 
 
+# ───────── 경고 · 긴급 등용 (11/10) —— 22.05kHz 모노, 작은 파일 ─────────
+
+SR2 = 22050
+
+
+def resonator(x, f, bw, sr=SR2):
+    """2극 공명 필터 (모음 formant) —— f 는 숫자 또는 x 와 같은 길이의 배열, bw 는 대역폭(Hz)"""
+    f = np.broadcast_to(np.asarray(f, dtype=float), x.shape)
+    r = np.exp(-np.pi * bw / sr)
+    y = np.zeros_like(x)
+    y1 = y2 = 0.0
+    for i in range(len(x)):
+        c = 2 * r * np.cos(2 * np.pi * f[i] / sr)
+        yn = (1 - r) * x[i] + c * y1 - r * r * y2
+        y2, y1 = y1, yn
+        y[i] = yn
+    return y
+
+
+def make_alert_sfx():
+    """alert_beep —— 온라인 남은 시간 5초 비프 · alert_war —— 무장 긴급 등용 함성 · alert_wise —— 지장 긴급 등용 (현 · 종 + 낮은 북)"""
+    os.makedirs(OUT_SFX, exist_ok=True)
+    arng = np.random.default_rng(1110)
+    S = {}
+    # 비프 —— 1kHz 사인 + 약한 2배음, 부드러운 어택 12ms, 0.11초
+    d = 0.11
+    tt = t_(d, SR2)
+    e = np.minimum(1.0, tt / 0.012) * np.minimum(1.0, (d - tt) / 0.03)
+    S["alert_beep"] = (np.sin(2 * np.pi * 1000 * tt) + 0.22 * np.sin(2 * np.pi * 2000 * tt)) * e
+    # 무장 함성 —— 군중(떨어진 높이의 톱니파 여럿 → 'ㅏ' 모음 공명) + 거른 잡음 + 낮은 피치 하강 + 짧은 징·북. 1.5초
+    d = 1.5
+    n = int(d * SR2)
+    tt = t_(d, SR2)
+    swell = np.minimum(1.0, tt / 0.14) * np.exp(-np.maximum(0, tt - 0.55) / 0.55)
+    glide = 1.0 - 0.30 * (1 - np.exp(-tt / 0.7))              # 높이가 아래로 떨어진다
+    crowd = np.zeros(n)
+    for _ in range(14):
+        f0 = arng.uniform(88, 150)
+        vib = 1 + 0.012 * np.sin(2 * np.pi * arng.uniform(4, 7) * tt + arng.uniform(0, 6.28))
+        ph = np.cumsum(f0 * glide * vib) / SR2 + arng.uniform(0, 1)
+        crowd += 2 * (ph % 1) - 1
+    voice = resonator(crowd, 720 * glide ** 0.5, 160) + 0.8 * resonator(crowd, 1150 * glide ** 0.5, 200) + 0.35 * resonator(crowd, 2500, 400)
+    air = bandpass(arng.uniform(-1, 1, n), 250, 2600, SR2)
+    roar = (voice / np.max(np.abs(voice)) * 0.85 + air * 0.45) * swell
+    hit = mix(drum(62, 0.7, SR2, punch=1.4) * 0.8, gong(98, 1.5, SR2) * 0.35)
+    S["alert_war"] = reverb(mix(roar, hit), SR2, mix_=0.25)[:int(1.6 * SR2)]
+    # 지장 —— 맑은 현(뜯는 소리) → 종 한 번 → 낮은 북. 1.9초
+    wl = np.zeros(int(2.0 * SR2))
+    wl += at(pluck(penta(5), 1.0, SR2, bright=0.75, decay=0.9985), 0.0, 2.0, SR2) * 0.9
+    wl += at(pluck(penta(7), 1.0, SR2, bright=0.75, decay=0.9985), 0.16, 2.0, SR2) * 0.7
+    bell = sum(a * np.sin(2 * np.pi * 880 * r * t_(1.4, SR2)) * np.exp(-t_(1.4, SR2) / dd)
+               for r, a, dd in [(1, 1, 0.9), (2.0, 0.5, 0.6), (2.76, 0.35, 0.45), (5.4, 0.18, 0.2)])
+    wl += at(bell * env(len(t_(1.4, SR2)), 0.003, 5, SR2), 0.34, 2.0, SR2) * 0.55
+    wl += at(drum(52, 0.9, SR2, punch=1.5), 0.34, 2.0, SR2) * 1.0
+    S["alert_wise"] = reverb(wl, SR2, mix_=0.3)[:int(1.95 * SR2)]
+    for k, x in S.items():
+        write(os.path.join(OUT_SFX, k + ".wav"), fade(x, 0.001, 0.04, SR2), SR2, peak=0.88)
+    return list(S)
+
+
 # ───────── 배경 음악 (끝이 처음으로 이어진다) ─────────
 
 def loopify(x, sr, tail):
@@ -288,7 +349,11 @@ def make_bgm():
 
 
 if __name__ == "__main__":
-    names = make_sfx()
+    import sys
+    if "alert" in sys.argv[1:]:
+        print("경고 · 긴급 등용 소리:", " ".join(make_alert_sfx()))
+        sys.exit(0)
+    names = make_sfx() + make_alert_sfx()
     make_bgm()
     print("효과음 %d개 · 배경 음악 2곡" % len(names))
     print(" ".join(names))

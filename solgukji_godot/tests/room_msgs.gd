@@ -22,6 +22,36 @@ func _ready() -> void:
 	r.start()
 	if not r.info(0).seats[0].has("hp") or r.info(0).seats[1].has("hp"):
 		fails.append("hp 는 내 자리에만")
+	# 11/10 긴급 등용 —— 기인 이상(기인 · 초월 · 불멸 · 신화)만 hot, 전설(5, 기인 아님) 이하는 아님. 본인에게는 안 간다. 소식에 id · when
+	for kv in [["K12", true], ["c127", true], ["L12", true], ["c177", true], ["c150", true], ["c140", true], ["c3", false]]:
+		if DB.C.has(kv[0]) and Room.is_urgent_unit(kv[0]) != kv[1]:
+			fails.append("is_urgent_unit(%s) 가 %s 여야 한다 (등급 %d)" % [kv[0], str(kv[1]), DB.C[kv[0]].tier])
+	for k5 in DB.C:
+		if DB.C[k5].tier == 5 and not DB.is_kiin(k5) and not DB.is_foe(k5) and Room.is_urgent_unit(k5):
+			fails.append("전설(5)이 긴급: " + k5)
+			break
+	for pick_k in ["c127", "K12"]:
+		var fr: Run = r.seats[0].run
+		for m in DB.RECOF.get(pick_k, []):
+			if DB.C.has(str(m)):
+				fr.give(str(m), 3)
+			elif DB.IT.has(str(m)):
+				fr.bag[str(m)] = 2
+		srv.out.clear()
+		r.on_cmd(1, "forge", [pick_k])
+		if not fr.inv.has(pick_k):
+			print("(조합 재료를 맞추지 못해 on_cmd 경로는 건너뜀: %s)" % pick_k)
+			continue
+		var hot := srv.of(2, "news")
+		if hot.is_empty() or not hot[0].list[0].has("hot") or not hot[0].list[0].has("id") or not hot[0].list[0].has("when"):
+			fails.append("긴급 등용 알림이 다른 사람에게 가지 않았다 (%s): %s" % [pick_k, str(hot)])
+		else:
+			print("긴급 등용 알림 ", hot[0].list[0])
+		if not srv.of(1, "news").is_empty():
+			fails.append("등용한 본인에게도 소식이 갔다")
+		var n0: Array = r.seats[1].run.news
+		if n0.is_empty() or not n0[0].has("id") or not n0[0].has("when"):
+			fails.append("상대 Run.news 에 id · when 없음")
 	# 아침 → 점심 : 토벌 battles 에 params
 	srv.out.clear()
 	r.stage_end = 0.0
@@ -71,6 +101,8 @@ func _ready() -> void:
 		fails.append("재접속 소식 없음")
 	else:
 		print("news ", nw[0])
+		if not nw[0].list[0].has("id") or not nw[0].list[0].has("when"):
+			fails.append("소식에 id · when 없음")
 	srv.out.clear()
 	r.on_leave(3)
 	if srv.of(1, "news").is_empty() or r.seats[1].token != "" or r.seat_of(3) != -1:

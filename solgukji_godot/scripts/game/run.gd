@@ -54,7 +54,8 @@ var last_spoil = null         # {n, src} —— 방금 받은 기본패
 var tour = null               # 최종 토너먼트
 var my_w := 0
 var my_l := 0
-var news := []                # [{who, unit}]
+var news := []                # [{who, unit, id?, when?}] —— id = 소식 번호(안 읽은 소식 뱃지가 비교, 11/10) · when = "3일차 오전" 같은 시점. 옛 저장에는 없다
+var news_seq := 0             # 소식 번호를 매기는 카운터 (솔로 · 판마다 0 에서)
 var bots := []
 var over = null               # {win, msg}
 var battle = null             # 진행 중인 전투 {kind, p(재료), inputs, ...} —— 끝나면 null
@@ -95,6 +96,7 @@ func new_game(seed_value := -1) -> void:
 	my_w = 0
 	my_l = 0
 	news = []
+	news_seq = 0
 	over = null
 	battle = null
 	last_result = null
@@ -856,9 +858,17 @@ func advance() -> void:
 	for b in bots:
 		b.pv += _bot_pv_gain(day, phase) * b.skill * rng.randf_range(0.9, 1.1)
 	for n in bot_news():
+		news_seq += 1
+		n["id"] = news_seq
+		n["when"] = when_text()
 		news.push_front(n)
 		toasts.append(["%s가 %s을(를) 등용했습니다" % [n.who, DB.C[n.unit].name], "news"])
 	news = news.slice(0, 12)
+
+
+## 소식의 시점 글 —— "3일차 오전" (혼자 하기의 DAY 번호 · 오전 / 오후 / 저녁). 온라인은 서버(Room.when_text)가 단계 이름으로 적는다
+func when_text() -> String:
+	return "%d일차 %s" % [day + 1, PHASE_N[phase]]
 
 
 func is_tour_phase() -> bool:
@@ -1352,7 +1362,7 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "myth_made", "kiin_made", "last_spoil",
-	"tour", "my_w", "my_l", "news", "bots", "over", "battle", "last_result", "mp"]
+	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp"]
 
 
 func to_dict() -> Dictionary:
@@ -1372,7 +1382,7 @@ func from_dict(d: Dictionary) -> void:
 	for dict in [inv, bag]:
 		for k in dict:
 			dict[k] = int(dict[k])
-	for k in ["day", "phase", "strikes", "my_w", "my_l", "hp", "last_hp_loss"]:
+	for k in ["day", "phase", "strikes", "my_w", "my_l", "hp", "last_hp_loss", "news_seq"]:
 		set(k, int(get(k)))
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
 		hp = maxi(1, HP_MAX - strikes * 20)
