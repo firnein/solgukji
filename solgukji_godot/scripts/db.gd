@@ -497,6 +497,48 @@ func horde_rabble(cards: Array, n: int, rng: RandomNumberGenerator, drop := 2, f
 	return out
 
 
+## 11/10 사용자: 봇 이름에 랜덤성 —— 「낙양성최씨」 처럼 삼국지 지명 + 평범한 사람 이름. 판(시드)마다 달라지고 같은 시드면 같다
+## (Run · Room 의 난수를 쓰지 않는다 —— 쓰면 그 뒤 난수가 밀려 기존 판 · 기록 재현이 어긋난다)
+const BOT_PLACES := ["낙양", "장안", "성도", "건업", "허창", "업성", "형주", "양양", "서주", "하비", "여남", "진양", "한중", "적벽", "관도", "장판", "호로관", "오장원", "이릉", "합비", "유주", "기주", "청주", "남피", "장사", "강릉", "복양", "완성", "백제성", "강동"]
+const BOT_SURNAMES := ["최", "김", "이", "박", "정", "강", "윤", "장", "한", "오", "서", "임", "조", "문", "황", "노", "백", "방", "송", "허"]
+const BOT_JOBS := ["대장장이", "약방주인", "주모", "훈장", "서생", "상인", "백정", "나루지기", "마부", "포졸", "초병", "객주", "떡장수", "점쟁이", "사냥꾼", "뱃사공", "도공", "소금장수"]
+const BOT_ADJ := ["떠돌이", "늙은", "젊은", "수상한", "배고픈", "느긋한", "성질급한", "눈치빠른", "은퇴한", "소문난"]
+const BOT_TITLES := ["도령", "장군", "도독", "군사", "어른", "나리"]
+func _bot_name_one(r: RandomNumberGenerator) -> String:
+	var place: String = BOT_PLACES[r.randi() % BOT_PLACES.size()]
+	var sur: String = BOT_SURNAMES[r.randi() % BOT_SURNAMES.size()]
+	var job: String = BOT_JOBS[r.randi() % BOT_JOBS.size()]
+	var x := r.randf()
+	if x < 0.35:      # 낙양성최씨
+		return "%s%s%s씨" % [place, "" if place.ends_with("성") or place.ends_with("관") else "성", sur]
+	if x < 0.55:      # 허창대장장이
+		return place + job
+	if x < 0.75:      # 늙은서생
+		return str(BOT_ADJ[r.randi() % BOT_ADJ.size()]) + job
+	if x < 0.92:      # 성도김도독
+		return place + sur + str(BOT_TITLES[r.randi() % BOT_TITLES.size()])
+	return sur + str(BOT_TITLES[r.randi() % BOT_TITLES.size()])      # 최군사
+
+
+## n 개의 서로 다른 봇 이름 —— used 는 이미 있는 이름(사람 플레이어 등)과 겹치지 않게
+func gen_bot_names(seed_val, n: int, used: Array = []) -> Array:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("botnames:%s" % str(seed_val))
+	var out := []
+	var taken := used.duplicate()
+	var guard := 0
+	while out.size() < n and guard < 1000:
+		guard += 1
+		var nm := _bot_name_one(r)
+		if taken.has(nm):
+			continue
+		taken.append(nm)
+		out.append(nm)
+	while out.size() < n:      # 거의 일어나지 않는다
+		out.append("산적%d" % (out.size() + 1))
+	return out
+
+
 func _build_pools() -> void:
 	for style in ["물리", "지략", "균형"]:
 		POOLS[style] = {}

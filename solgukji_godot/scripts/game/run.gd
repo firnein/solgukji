@@ -99,9 +99,10 @@ func new_game(seed_value := -1) -> void:
 	battle = null
 	last_result = null
 	bots = []
+	var bot_names := DB.gen_bot_names(rng.seed, DB.D.BOTNAME.size())      # 11/10 봇 이름은 판마다 랜덤 (DB.gen_bot_names)
 	for i in DB.D.BOTNAME.size():
 		var b: Array = DB.D.BOTNAME[i]
-		bots.append({"name": b[0], "epi": b[1], "fac": b[2], "style": DB.D.STYLES[i], "pv": 0.0,
+		bots.append({"name": bot_names[i], "epi": b[1], "fac": b[2], "style": DB.D.STYLES[i], "pv": 0.0,
 			"w": 0, "l": 0, "strikes": 0, "top": 0, "skill": snappedf(rng.randf_range(SKILL_LO, SKILL_HI), 0.01)})
 	give("spear", 3)
 	give("horse", 3)

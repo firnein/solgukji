@@ -203,9 +203,10 @@ func start() -> void:
 	var used := seats.map(func(s): return s.name)
 	var names: Array = DB.D.BOTNAME.duplicate()
 	var bi := 0
+	var gen_names := DB.gen_bot_names(rng.seed, SEATS, used)      # 11/10 봇 이름은 방마다 랜덤 (사람 이름과 겹치지 않게)
 	while seats.size() < SEATS:
 		var b: Array = names[bi % names.size()]
-		var nm: String = b[0] if not used.has(b[0]) else "%s%d" % [b[0], bi + 2]
+		var nm: String = gen_names[bi]
 		used.append(nm)
 		seats.append(_bot_seat(nm, b[1], b[2], DB.D.STYLES[bi % DB.D.STYLES.size()], 0.0,
 			snappedf(rng.randf_range(Run.SKILL_LO, Run.SKILL_HI), 0.01)))
