@@ -263,6 +263,9 @@ func _build_top() -> Control:
 	_pow_lbl = UI.lbl("", 15, DB.PAL.paper, true)
 	_pow_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	rv.add_child(_pow_lbl)
+	_hp_gauge = HpGauge.new()      # 11/10 사용자: 민심(체력)이 어디에도 안 보인다 —— 모든 탭의 머리띠 오른쪽에 늘 보인다
+	_hp_gauge.tapped.connect(func(): toast("민심은 체력 —— 패배마다 깎이고, 0 이 되면 멸망한다"))
+	rv.add_child(_hp_gauge)
 	_info_lbl = UI.rich("", 11)
 	_info_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_info_lbl.custom_minimum_size = Vector2(140, 0)
@@ -771,6 +774,7 @@ func _render_head() -> void:
 		_pow_lbl.visible = true
 		_pow_lbl.text = "%s명" % Battle.num(run.board_power())
 	_phase_bar.queue_redraw()
+	_hp_sync()
 	# 11/9 사용자: 상단의 PV · 순위 · 경고 줄은 뺀다 (경고 · 순위는 기록 탭에서 본다)
 	_info_lbl.clear()
 	_info_lbl.visible = false
@@ -834,6 +838,40 @@ func _item_band() -> void:
 		band("%s 획득" % it.name, UI.item_col(run.last_item), "%s · %s" % [it.tag, UI.item_text(run.last_item)])
 	_item_seen = run.last_item
 	_bag_seen = n
+
+
+## 머리띠 민심 게이지 (11/10) —— 보이는 값 _hp_shown 을 기억해 두었다가 run.hp 가 그보다 낮아지면 한 번 붉게 번쩍이며 줄어든다.
+## 전투를 보는 동안(결과 화면이 따로 「민심 −N」 을 보인다) · 온라인에서 서버가 먼저 깎아 보낸 판을 다 보기 전에는 값을 붙잡아 둔다 (미리 알려 주지 않게)
+var _hp_gauge: HpGauge
+var _hp_shown := -1
+var _hp_run: Run = null
+var _hp_online := false
+var _hp_plan := {}            # 이번 전투 결과 화면에서 보일 「민심 −N」 {prev, loss}
+var _hp_fx: Control = null    # 결과 화면의 민심 줄
+var _battle_last := true      # 온라인: 지금 보는 전투가 이번 단계의 마지막인지
+var _battle_kind := ""
+var _dev_hploss := 0          # 점검용 --ghploss
+func _hp_sync() -> void:
+	if _hp_gauge == null or run == null:
+		return
+	var fresh: bool = _hp_shown < 0 or (run != _hp_run and (online == null or not _hp_online)) or _hp_online != (online != null)
+	_hp_run = run
+	_hp_online = online != null
+	var hp := clampi(run.hp, 0, Run.HP_MAX)
+	if fresh or hp > _hp_shown:
+		_hp_shown = hp
+		_hp_gauge.set_now(hp)
+		return
+	if hp == _hp_shown or _hp_hold():
+		return
+	_hp_shown = hp
+	_hp_gauge.drop_to(hp)
+
+
+func _hp_hold() -> bool:
+	if _battle_layer != null and _battle_layer.visible:
+		return true
+	return online != null and online.in_game and str(online.room.get("stage", "")) in Room.WATCH_STAGES and not online._seen_all
 
 
 func toast(text: String, kind := "") -> void:
@@ -2967,6 +3005,8 @@ func _result_panel() -> Control:
 		parts.append("기본패 +%d" % run.last_spoil.n)
 	if run.ticket_left() > 0:
 		parts.append("선택권 %d" % run.ticket_left())
+	if not r.win and run.last_hp_loss > 0:      # 11/10 연출은 지나가니 깎인 만큼은 결과 줄에도 남긴다 (온라인 결과 칸과 같은 글)
+		parts.append("민심 −%d" % run.last_hp_loss)
 	var pl := UI.lbl("  ·  ".join(parts), 13, DB.PAL.bamboo)
 	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(pl)
@@ -3029,6 +3069,8 @@ func show_battle(res: Dictionary, last: bool, kind := "", params := {}) -> void:
 	_battle_done.visible = false
 	_hide_report()
 	_battle_done.text = "결과 정리  ▶" if last else "다음 전투  ▶"
+	_battle_last = last
+	_battle_kind = kind
 	_battle_layer.visible = true
 	_hide_band()
 	Settings.apply_port(_battle.port)
@@ -3083,6 +3125,7 @@ func battle_visible() -> bool:
 
 func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 	_battle_res = res
+	_plan_hp_fx(res)
 	UI.buzz(30)
 	await get_tree().create_timer(1.4).timeout      # 승전 · 패전 도장을 먼저 보이고
 	if not _battle_layer.visible or not is_same(_battle.res, res):     # 같은 전투인지 —— 내용 비교(!=)는 큰 결과에 느리다
@@ -3097,12 +3140,15 @@ func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 const REPORT_TOP := 110.0      # 위 띠 · 병력 막대 · 시계(0:29) 아래 (논리 좌표 —— 400×889 기준)
 const REPORT_BOT := 236.0      # 아래 장수 칸(≈135) + [종료] 버튼(56) + 틈
 func _show_report(res: Dictionary) -> void:
+	var plan := _hp_plan
+	_hp_plan = {}
 	_hide_report()
 	if _battle and _battle.end_clock > 0:
 		res["view_len"] = _battle.end_clock
 	_report = BattleReport.make(res)
 	var w := minf(size.x - 24.0, 460.0)
-	_report.max_h = maxf(240.0, _battle_layer.size.y - REPORT_TOP - REPORT_BOT)
+	var fx_h := (HP_FX_H + 6.0) if not plan.is_empty() else 0.0      # 민심 줄이 들어갈 자리만큼 표를 줄인다
+	_report.max_h = maxf(240.0, _battle_layer.size.y - REPORT_TOP - REPORT_BOT - fx_h)
 	_report.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_report.offset_left = -w / 2
 	_report.offset_right = w / 2
@@ -3119,7 +3165,9 @@ func _show_report(res: Dictionary) -> void:
 	await get_tree().process_frame      # 표가 두 진영 중 긴 쪽에 맞춰 높이를 정한 뒤(BattleReport._ready 의 한 프레임)
 	if _report == null or not is_instance_valid(_report):
 		return
-	var top := _report.get_global_rect().end.y + 10.0 - _battle_layer.get_global_rect().end.y
+	if not plan.is_empty():
+		_place_hp_fx(plan, _report.position.y + _report.size.y + 6.0)
+	var top := _report.get_global_rect().end.y + 10.0 - _battle_layer.get_global_rect().end.y + fx_h
 	_battle_done.offset_top = minf(top, -(REPORT_BOT - 10.0))
 	_battle_done.offset_bottom = _battle_done.offset_top + 56.0
 
@@ -3128,6 +3176,58 @@ func _hide_report() -> void:
 	if _report:
 		_report.queue_free()
 		_report = null
+	if is_instance_valid(_hp_fx):
+		_hp_fx.queue_free()
+	_hp_fx = null
+
+
+# ───────── 민심 −N 연출 (11/10) ─────────
+## 패배(무승부 포함)로 민심이 깎이는 판은 결과표 바로 아래 한 줄에 「민심 −N」 도장이 쾅 찍히고 막대 · 숫자가 줄어든다 (약 1.6초, 입력은 막지 않는다).
+## 혼자 하기는 결과를 정리하기 전이라 Run.hp_preview 로 미리 계산한 값(finish_battle 의 _hp_hit 와 같은 식), 온라인은 서버가 이미 깎아 보낸 값(_hp_shown → run.hp, 이번 단계 마지막 전투에서만)
+const HP_FX_H := 46.0
+func _plan_hp_fx(res: Dictionary) -> void:
+	_hp_plan = {}
+	var prev := -1
+	var loss := 0
+	if online == null:
+		if run != null and run.battle != null:
+			prev = run.hp
+			loss = run.hp_preview(run.battle, res)
+	elif _battle_last and _battle_kind in ["quest", "pvp"] and _hp_shown >= 0:
+		prev = _hp_shown
+		loss = _hp_shown - clampi(run.hp, 0, Run.HP_MAX)
+	if _dev_hploss > 0 and online == null and run != null:      # 점검용 --ghploss : 판정과 상관없이 이만큼 깎인 것으로
+		prev = run.hp
+		loss = _dev_hploss
+	if prev >= 0 and loss > 0:
+		_hp_plan = {"prev": prev, "loss": loss}
+
+
+func _place_hp_fx(plan: Dictionary, top: float) -> void:
+	var w := minf(size.x - 24.0, 460.0)
+	var fx := HpLossFx.new()
+	fx.setup(int(plan.prev), int(plan.loss))
+	fx.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	fx.offset_left = -w / 2
+	fx.offset_right = w / 2
+	fx.offset_top = top
+	fx.offset_bottom = top + HP_FX_H
+	_battle_layer.add_child(fx)
+	_hp_fx = fx
+
+
+## 점검용 --ghploss=N (전투 없이) —— 빈 전투 화면에 민심 줄만 띄우고, 끝나면 결과를 정리한 것처럼 메인으로 돌아가 머리띠가 줄어드는 모습을 본다
+func _dev_hp_demo(loss: int) -> void:
+	await get_tree().create_timer(0.8).timeout
+	var prev := run.hp
+	_battle_layer.visible = true
+	_place_hp_fx({"prev": prev, "loss": loss}, 300.0)
+	await get_tree().create_timer(2.6).timeout
+	run.hp = maxi(0, prev - loss)
+	run.last_hp_loss = loss
+	_hide_report()
+	_battle_layer.visible = false
+	go("war")
 
 
 func _on_battle_close() -> void:
@@ -3138,7 +3238,11 @@ func _on_battle_close() -> void:
 	if _battle_res == null:
 		return
 	PlayLog.battle_end(run, run.battle, _battle_res, _battle.end_clock, _battle.inputs, _battle.speed_sec)
+	var hp0 := run.hp
 	run.finish_battle(_battle_res)
+	if _dev_hploss > 0:      # 점검용 --ghploss : 연출한 만큼만 깎인 것으로 맞춘다
+		run.hp = maxi(0, hp0 - _dev_hploss)
+		run.last_hp_loss = _dev_hploss
 	_battle_res = null
 	run.save()
 	PlayLog.after_battle(run)
@@ -3313,6 +3417,14 @@ func _dev_args() -> void:
 		run.news.push_front({"who": "솔", "unit": "", "text": "방을 떠났다 — 자리는 봇이 이어받는다", "id": run.news_seq + 1, "when": "3일차 아침"})
 		run.news_seq += 1
 		render()
+	if a.has("ghp") and run != null:      # 점검용 —— --ghp=25 : 민심을 이 값으로 두고 시작 (머리띠 게이지 색 점검, 11/10)
+		run.hp = clampi(int(a.ghp), 0, Run.HP_MAX)
+		_hp_shown = run.hp
+		_hp_gauge.set_now(run.hp)
+	if a.has("ghploss") and run != null:      # 점검용 —— --ghploss=15 : 패배로 민심이 15 깎인 연출. --gbattle 이 있으면 그 전투 결과 화면에서, 없으면 빈 화면에서 바로
+		_dev_hploss = int(a.ghploss)
+		if not a.has("gbattle"):
+			_dev_hp_demo(_dev_hploss)
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
 			_open[key] = true
@@ -3804,6 +3916,159 @@ class PhaseBar extends Control:
 			var r := Rect2(x, 0, w, size.y)
 			draw_rect(r, col)
 			x += w + (dgap if i % group == group - 1 else gap)
+
+
+## 머리띠 민심 게이지 (11/10) —— 하트 · "민심" · 숫자 + 가는 막대. 평소 종이색 + 금 한 가지, 30 이하만 인장 붉음(맥동은 약하게),
+## 60 안팎은 변화 없음. 줄어들 때만 한 번 붉게 번쩍이고 잃은 몫이 붉은 꼬리로 줄어든다. 누르면 tapped (한 줄 설명)
+class HpGauge extends Control:
+	signal tapped
+	const LOW := 30.0
+	var value := 100.0       # 보이는 값 (줄어드는 중이면 중간 값)
+	var trail := 100.0       # 잃은 몫을 보이는 꼬리 (value 이상)
+	var flash := 0.0
+	var _t := 0.0
+	var _from := 100.0
+	var _to := 100.0
+	var _tw: Tween
+	var _press := Vector2.INF
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(92, 24)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _process(dt: float) -> void:
+		_t += dt
+		if value <= LOW:
+			queue_redraw()      # 낮을 때만 천천히 맥동
+
+	func _gui_input(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed:
+				_press = e.position
+			else:
+				if _press != Vector2.INF and Rect2(Vector2.ZERO, size).has_point(e.position):
+					tapped.emit()
+				_press = Vector2.INF
+
+	func set_now(v: float) -> void:
+		if _tw != null:
+			_tw.kill()
+		value = v
+		trail = v
+		flash = 0.0
+		queue_redraw()
+
+	func drop_to(v: float) -> void:
+		if _tw != null:
+			_tw.kill()
+		_from = value
+		_to = v
+		trail = value
+		flash = 1.0
+		_tw = create_tween()
+		_tw.tween_method(_step, 0.0, 1.0, 1.4)
+
+	func _step(u: float) -> void:
+		flash = pow(1.0 - clampf(u / 0.75, 0.0, 1.0), 1.5)
+		value = lerpf(_from, _to, ease(clampf((u - 0.1) / 0.5, 0.0, 1.0), 0.4))
+		trail = lerpf(_from, _to, clampf((u - 0.35) / 0.55, 0.0, 1.0))
+		if u >= 1.0:
+			value = _to
+			trail = _to
+			flash = 0.0
+		queue_redraw()
+
+	func _draw() -> void:
+		var P := DB.PAL
+		var v := clampf(value, 0.0, 100.0)
+		var low := v <= LOW
+		var hot: Color = P.seal.lightened(0.3)
+		var txt: Color = (hot if low else P.paper).lerp(hot, flash)
+		var bar: Color = (P.seal if low else P.gold).lerp(hot, flash)
+		if low:
+			var pulse := 0.84 + 0.16 * sin(_t * TAU / 2.8)
+			txt.a = pulse
+			bar.a = pulse
+		Icons.draw(self, "heart", Vector2(8, 9), 15, txt)
+		draw_string(DB.font_bold, Vector2(19, 13), "민심", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.bamboo_dim.lerp(hot, flash * 0.8))
+		draw_string(DB.font_bold, Vector2(0, 14), str(int(round(v))), HORIZONTAL_ALIGNMENT_RIGHT, size.x, 15, txt)
+		var by := size.y - 4.0
+		draw_rect(Rect2(0, by, size.x, 3), P.ink3)
+		if trail > v:
+			draw_rect(Rect2(size.x * v / 100.0, by, size.x * (trail - v) / 100.0, 3), Color(hot, 0.9))
+		draw_rect(Rect2(0, by, size.x * v / 100.0, 3), bar)
+
+
+## 결과 화면의 민심 줄 (11/10) —— 「민심 −N」 도장이 쾅(확대 → 제자리 + 작은 흔들림), 막대와 숫자가 이전 값에서 줄어든다. 입력은 막지 않는다
+class HpLossFx extends Control:
+	const DUR := 1.6
+	var prev := 100
+	var loss := 0
+	var now := 0
+	var _t := 0.0
+	var _slam := false
+
+	func setup(p: int, l: int) -> void:
+		prev = p
+		loss = l
+		now = maxi(0, p - l)
+		custom_minimum_size = Vector2(0, 46)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(dt: float) -> void:
+		_t += dt
+		if _t >= 0.14 and not _slam:
+			_slam = true
+			Sfx.play("deny")
+		queue_redraw()
+		if _t > DUR + 0.2:
+			set_process(false)
+
+	func _draw() -> void:
+		var P := DB.PAL
+		var hot: Color = P.seal.lightened(0.3)
+		var a := clampf(_t / 0.12, 0.0, 1.0)
+		var w := size.x
+		var h := size.y
+		draw_rect(Rect2(0, 0, w, h), Color(0.058, 0.078, 0.14, 0.94 * a))
+		var hit := clampf((_t - 0.14) / 0.2, 0.0, 1.0)
+		if hit > 0.0 and hit < 1.0:
+			draw_rect(Rect2(0, 0, w, h), Color(P.seal, 0.3 * (1.0 - hit)))      # 찍히는 순간 한 번 붉게
+		var u := clampf((_t - 0.3) / 1.0, 0.0, 1.0)
+		var e := ease(u, 0.4)
+		var cur := lerpf(float(prev), float(now), e)
+		var tr := lerpf(float(prev), float(now), clampf((_t - 0.7) / 0.8, 0.0, 1.0))
+		var txt: Color = P.paper.lerp(hot, e)
+		Icons.draw(self, "heart", Vector2(24, h / 2), 18, Color(txt, a))
+		draw_string(DB.font_bold, Vector2(40, h / 2 + 5), "민심", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(P.bamboo, a))
+		var bx := 80.0
+		var bw := w - bx - 132.0
+		var by := h / 2 - 4.0
+		draw_rect(Rect2(bx, by, bw, 8), Color(P.ink3, a))
+		if tr > cur:
+			draw_rect(Rect2(bx + bw * cur / 100.0, by, bw * (tr - cur) / 100.0, 8), Color(hot, 0.9 * a))
+		var fill: Color = P.gold.lerp(P.seal, e) if now <= 30 else P.gold
+		draw_rect(Rect2(bx, by, bw * cur / 100.0, 8), Color(fill, a))
+		draw_string(DB.font_bold, Vector2(bx + bw + 6, h / 2 + 7), str(int(round(cur))), HORIZONTAL_ALIGNMENT_RIGHT, 38, 20, Color(txt, a))
+		# 도장 —— 오른쪽 끝, 쾅 찍히고 잠깐 흔들린다
+		var s := clampf(_t / 0.14, 0.0, 1.0)
+		var sc := lerpf(2.6, 1.0, ease(s, 0.4))
+		var st := _t - 0.14
+		var shake := Vector2.ZERO
+		if st > 0.0 and st < 0.32:
+			var k := 1.0 - st / 0.32
+			shake = Vector2(sin(st * 95.0) * 5.0, cos(st * 70.0) * 3.0) * k
+		var c := Vector2(w - 12.0 - 34.0, h / 2) + shake
+		draw_set_transform(c, deg_to_rad(-5.0), Vector2.ONE * sc)
+		var box := Rect2(Vector2(-34, -16), Vector2(68, 32))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(P.seal.darkened(0.55), 0.55 * s)
+		sb.border_color = Color(hot, s)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(UI.R)
+		draw_style_box(sb, box)
+		draw_string(DB.font_bold, Vector2(-34, 8), "−%d" % loss, HORIZONTAL_ALIGNMENT_CENTER, 68, 22, Color(hot, s))
+		draw_set_transform(Vector2.ZERO)
 
 
 ## 아래 탭 하나 —— 그림 + 이름, 할 일이 있으면 빨간 점(badge 0) 또는 숫자

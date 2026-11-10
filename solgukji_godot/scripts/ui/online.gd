@@ -783,7 +783,7 @@ func _result_panel(x: Dictionary) -> Control:
 	if run.ticket_left() > 0:
 		parts.append("선택권 %d" % run.ticket_left())
 	if not win and int(run.last_hp_loss) > 0:
-		parts.append("민심 -%d" % int(run.last_hp_loss))
+		parts.append("민심 −%d" % int(run.last_hp_loss))
 	var pl := UI.lbl("  ·  ".join(parts), 13, DB.PAL.bamboo)
 	pl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(pl)

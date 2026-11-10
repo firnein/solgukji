@@ -1108,7 +1108,8 @@ static func simulate(bt: Dictionary, inputs: Array, policy: Dictionary) -> Dicti
 
 ## 전투가 끝났다 —— 보상·경고·토너먼트 진행
 ## 11/9 패배 → 민심 피해. 크게 질수록(적이 많이 남을수록) 더: base × (0.6 + 0.4 × 적 남은 비). 무승부는 절반. 0 이면 멸망
-func _hp_hit(res: Dictionary, base: float, what: String) -> void:
+## 피해량만 따로 —— _hp_hit 와 화면(결과 화면의 「민심 −N」 연출, 전투가 끝나고 결과를 정리하기 전에 미리 보여 준다)이 같은 식을 쓴다
+static func hp_dmg(res: Dictionary, base: float) -> int:
 	var foe_left := 0.0
 	var mx := 0
 	var left := 0
@@ -1118,13 +1119,35 @@ func _hp_hit(res: Dictionary, base: float, what: String) -> void:
 			left += maxi(0, int(u.left))
 	if mx > 0:
 		foe_left = clampf(float(left) / float(mx), 0.0, 1.0)
-	var dmg := int(round(base * (0.6 + 0.4 * foe_left) * (0.5 if res.get("draw", false) else 1.0)))
-	dmg = maxi(1, dmg)
+	return maxi(1, int(round(base * (0.6 + 0.4 * foe_left) * (0.5 if res.get("draw", false) else 1.0))))
+
+
+## 이 전투 결과(아직 finish_battle 전)로 민심이 얼마나 깎일지 —— 이기면 · 토너먼트면 0 (화면 전용, 상태는 건드리지 않는다)
+func hp_preview(bt: Dictionary, res: Dictionary) -> int:
+	if res.get("win", false):
+		return 0
+	match str(bt.get("kind", "")):
+		"quest": return hp_dmg(res, float(HP_QUEST[clampi(day, 0, 6)]))
+		"pvp": return hp_dmg(res, float(HP_QUEST[clampi(day, 0, 6)]) * HP_PVP_MUL)
+	return 0
+
+
+func _hp_hit(res: Dictionary, base: float, what: String) -> void:
+	var dmg := hp_dmg(res, base)
+	var foe_left := 0.0
+	var mx := 0
+	var left := 0
+	for u in res.get("roster", []):
+		if u.camp == "B":
+			mx += int(u.max)
+			left += maxi(0, int(u.left))
+	if mx > 0:
+		foe_left = clampf(float(left) / float(mx), 0.0, 1.0)
 	hp = maxi(0, hp - dmg)
 	last_hp_loss = dmg
 	if dev_log or dev_immortal:
 		dev_hp_log.append([day, what.begins_with("대전"), base, foe_left, res.get("draw", false)])
-	toasts.append(["%s 패배 —— 민심 -%d (남은 %d)" % [what, dmg, hp], "warn"])
+	# 11/10 사용자: 민심은 결과 화면의 「민심 −N」 연출 · 머리띠 게이지가 보여 준다 —— 글 알림은 걷었다
 	if hp <= 0 and not dev_immortal:
 		over = {"win": false, "msg": "%s 패배 —— 민심이 바닥나 세력이 멸망했다" % what}
 
