@@ -1,6 +1,5 @@
 class_name BattleView
 extends Control
-const TierDeco := preload("res://scripts/ui/tier_deco.gd")      # 11/10 class_name 캐시(.godot)와 무관하게 쓰려고 preload (캐시가 낡으면 "TierDeco not declared" 파스 오류)
 ## 실시간 3D 전장 —— 판정은 Battle(턴제 엔진)이 끝낸다. 그리기는 War3D 가 맡는다.
 ## 판정은 Battle(턴제 엔진)이 끝낸다. 이 화면은 그 결과를 시간축에 다시 깔아
 ## 행동들이 겹쳐 흐르게 재생한다. 근접 부대는 실제로 달려가 맞붙고, 궁병은 화살을 날리고,
@@ -3092,7 +3091,6 @@ class MiniCard extends Control:
 		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		Art.draw_portrait(self, Rect2(4, 4, 34, 38), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
-		TierDeco.draw(self, Rect2(Vector2.ZERO, size), sq.cid, TierDeco.TINY, 6.0, float(sb.border_width_left), 1.0, false)      # 11/9 기인 · 초월 · 불멸 · 신화 프로필 장식 (모서리 · 안쪽 선만 —— 이름 · 막대를 가리지 않게)
 		var fb := DB.font_body
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		draw_string(DB.font_display, Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))
@@ -3130,7 +3128,6 @@ class MiniCard extends Control:
 		var bar_y := 39.0
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
 		Art.draw_portrait(self, pr, sq.cid, 0.0, "ult" if ready else "face")
-		TierDeco.draw(self, Rect2(Vector2.ZERO, size), sq.cid, TierDeco.TINY, 6.0, float(sb.border_width_left), 1.0, false)      # 11/9 등급 장식 (작은 카드 —— 모서리 · 안쪽 선만)
 		var x := pr.end.x + 3
 		var tw := w - x - 2
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name

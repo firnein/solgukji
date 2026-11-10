@@ -1,6 +1,5 @@
 class_name DeployPage
 extends RefCounted
-const TierDeco := preload("res://scripts/ui/tier_deco.gd")      # 11/10 class_name 캐시(.godot)와 무관하게 쓰려고 preload (캐시가 낡으면 "TierDeco not declared" 파스 오류)
 ## 편성 —— 진형 고르기 · 9칸 편성판 · 손패. 원본 rDeploy · openSlot · openItem.
 ## 세로 화면: 위에 진형 띠와 편성판, 맨 아래 [보유 | 보급품] 탭. 탭을 열면 그 안만 스크롤한다.
 ## 11/7 사용자: 탭을 열어도 편성판 칸이 찌그러지지 않게 —— 페이지 전체를 세로 스크롤 상자(PageScroll)에 넣고, 열리면 편성판 높이를
@@ -503,7 +502,6 @@ class SlotBox extends Control:
 		var ph := size.y - 10 - ith
 		var pr := Rect2(5, 5, minf(ph * 0.75, size.x * 0.42), ph)
 		Art.draw_portrait(self, pr, k)
-		TierDeco.draw(self, r, k, TierDeco.MINI, 8.0, 2.0)      # 11/9 기인 · 초월 · 불멸 · 신화 프로필 장식
 		var x := pr.end.x + 6
 		var tw := size.x - x - 4
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
@@ -529,7 +527,6 @@ class SlotBox extends Control:
 		var pw := minf(size.x - 8, ph * 1.05)
 		var pr := Rect2((size.x - pw) / 2, 4, pw, ph)
 		Art.draw_portrait(self, pr, k)
-		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.MINI if size.x >= 56.0 else TierDeco.TINY, 8.0, 2.0)      # 11/9 등급 장식
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
 		var tf := DB.tier_font(c.tier)
 		var fs := 13
