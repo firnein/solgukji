@@ -502,6 +502,7 @@ class SlotBox extends Control:
 		var ph := size.y - 10 - ith
 		var pr := Rect2(5, 5, minf(ph * 0.75, size.x * 0.42), ph)
 		Art.draw_portrait(self, pr, k)
+		TierDeco.draw(self, r, k, TierDeco.MINI, 8.0, 2.0)      # 11/9 기인 · 초월 · 불멸 · 신화 프로필 장식
 		var x := pr.end.x + 6
 		var tw := size.x - x - 4
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
@@ -527,6 +528,7 @@ class SlotBox extends Control:
 		var pw := minf(size.x - 8, ph * 1.05)
 		var pr := Rect2((size.x - pw) / 2, 4, pw, ph)
 		Art.draw_portrait(self, pr, k)
+		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.MINI if size.x >= 56.0 else TierDeco.TINY, 8.0, 2.0)      # 11/9 등급 장식
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
 		var tf := DB.tier_font(c.tier)
 		var fs := 13

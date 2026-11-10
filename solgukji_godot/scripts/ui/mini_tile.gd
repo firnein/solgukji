@@ -28,6 +28,9 @@ func setup(id: String, n := -1) -> MiniTile:
 	qty = n
 	custom_minimum_size = Vector2(66, 96)      # 11/7 사용자: 카드 축소 (78×112 → 66×96, 한 줄 5장)
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	# 11/9 신화 —— 지나가는 빛줄기 덧칸 (초상 칸 위로. 폭이 56 미만이면 작은 칸의 초상 위치)
+	TierDeco.attach_shimmer(self, id, func(sz: Vector2) -> Rect2:
+		return Rect2(4, 5, sz.x - 8, sz.y - 27) if sz.x >= 56.0 else Rect2(2, 3, sz.x - 4, sz.y - 17))
 	return self
 
 
@@ -36,6 +39,7 @@ func setup(id: String, n := -1) -> MiniTile:
 func set_pin(s: bool, r: bool) -> void:
 	star = s
 	ring = r
+	queue_redraw()      # 11/9 ★ 이 있으면 등급 장식의 윗변 가운데를 비운다
 	if not s and not r:
 		if _fx != null:
 			_fx.queue_free()
@@ -144,11 +148,13 @@ func _draw() -> void:
 	if w < 56:
 		_draw_compact(c, tc, w, h)
 		return
+	var rk := TierDeco.rank(k)      # 11/9 기인 · 초월 · 불멸 · 신화 —— 등급 장식 (TierDeco)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = DB.PAL.ink2
 	var on := lit or mark == "sel"
-	sb.border_color = DB.PAL.gold if on else tc.darkened(0.15)
-	sb.set_border_width_all(2 if on else 1)
+	sb.border_color = DB.PAL.gold if on else (tc if rk != TierDeco.NONE else tc.darkened(0.15))
+	var bwv := 2 if (on or rk >= TierDeco.CHO) else 1
+	sb.set_border_width_all(bwv)
 	sb.border_width_top = 3
 	sb.set_corner_radius_all(8)
 	if on:
@@ -157,6 +163,8 @@ func _draw() -> void:
 	draw_style_box(sb, Rect2(Vector2.ZERO, size))
 	var pr := Rect2(4, 5, w - 8, h - 27)
 	Art.draw_portrait(self, pr, k)
+	if rk != TierDeco.NONE:
+		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.MINI, 8.0, float(bwv), 1.0, not star)
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(8, 8), 7, DB.fac_color(c.fac))
 		draw_string(DB.font_display, pr.position + Vector2(1, 12), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 14, 9, Color.WHITE)
@@ -209,15 +217,18 @@ func _tag_icon(c: Dictionary, p: Vector2, r: float) -> void:
 
 
 func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
+	var rk := TierDeco.rank(k)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = DB.PAL.ink2
-	sb.border_color = DB.PAL.gold if lit else tc.darkened(0.1)
+	sb.border_color = DB.PAL.gold if lit else (tc if rk != TierDeco.NONE else tc.darkened(0.1))
 	sb.set_border_width_all(1)
 	sb.border_width_top = 2
 	sb.set_corner_radius_all(5)
 	draw_style_box(sb, Rect2(Vector2.ZERO, size))
 	var pr := Rect2(2, 3, w - 4, h - 17)
 	Art.draw_portrait(self, pr, k)
+	if rk != TierDeco.NONE:
+		TierDeco.draw(self, Rect2(Vector2.ZERO, size), k, TierDeco.TINY, 5.0, 1.0, 1.0, not star)
 	_tag_icon(c, pr.end - Vector2(7, 7), 6.0)
 	var fd := DB.tier_font(c.tier)
 	# 11/3 사용자: 칭호를 떼고 "손권" 만 보이면 다른 카드(벽안 손권)로 오해한다 —— 칭호까지 보이고, 안 들어가면 칭호를 이름 위 작은 줄로
