@@ -214,8 +214,7 @@ func _check_logs() -> void:
 	var names := []
 	var hh := 0
 	for fn in files:
-		var lines := FileAccess.get_file_as_string(LOG_DIR + "/" + fn).split("
-", false)
+		var lines := FileAccess.get_file_as_string(LOG_DIR + "/" + fn).split("\n", false)
 		lines_n += lines.size()
 		var last = null
 		for ln in lines:
