@@ -188,7 +188,7 @@ class Row extends Control:
 		var P := DB.PAL
 		var a := 1.0 if r.alive else 0.5
 		Art.draw_face_circle(self, Vector2(18, 20), 16, r.id)
-		draw_arc(Vector2(18, 20), 16, 0, TAU, 32, Color(DB.TIER[r.tier].c, a), 2.0)
+		draw_arc(Vector2(18, 20), 16, 0, TAU, 32, Color(DB.TIER[int(r.tier)].c, a), 2.0)
 		if not r.alive:
 			draw_circle(Vector2(18, 20), 16, Color(0, 0, 0, 0.5))
 		var x0 := 42.0
