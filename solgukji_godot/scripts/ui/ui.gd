@@ -91,7 +91,7 @@ static func lbl(text: String, fs := 15, col := Color(0, 0, 0, 0), display := fal
 	if col.a > 0:
 		l.add_theme_color_override("font_color", col)
 	if display:
-		l.add_theme_font_override("font", DB.font_display)
+		l.add_theme_font_override("font", DB.title_font(fs))      # 11/10 큰 제목만 송명, 작은 글자는 굵은 고딕 (DB.TITLE_BIG)
 	return l
 
 
@@ -251,7 +251,7 @@ static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 		b.custom_minimum_size = Vector2(0, 40)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.add_theme_font_size_override("font_size", 15)
-		b.add_theme_font_override("font", DB.font_display)
+		b.add_theme_font_override("font", DB.title_font(15))
 		b.add_theme_stylebox_override("normal", flat(P.ink4 if on else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 3, 6))
 		b.add_theme_stylebox_override("hover", flat(P.ink4 if on else P.ink3, Color(0, 0, 0, 0), 0, 3, 6))
 		b.add_theme_stylebox_override("pressed", flat(P.ink4, Color(0, 0, 0, 0), 0, 3, 6))

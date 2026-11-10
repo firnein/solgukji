@@ -90,7 +90,7 @@ func _draw() -> void:
 	Art.draw_tier_fx(self, pr, k, _t)
 
 	var fb := DB.font_body
-	var fd := DB.font_display
+	var fd := DB.title_font(12 * u)      # 11/10 작은 글자는 굵은 고딕
 	# 세력 배지 · 병종 아이콘
 	var br := 10.5 * u
 	if tier > 2:
@@ -111,7 +111,7 @@ func _draw() -> void:
 	var col: Color = tc.lightened(0.15) if tier >= 6 else DB.PAL.paper
 	var tw := w - m * 2
 	var y := h - fw - 9 * u
-	var nf := DB.tier_font(tier)
+	var nf := DB.tier_font(tier, 18 * u)
 	draw_string(nf, Vector2(m, y), nm, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(nf, nm, int(18 * u), tw), col)
 	if title != "":
 		draw_string(fb, Vector2(m, y - 19 * u), title, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(fb, title, int(12 * u), tw), Color(col, 0.8))

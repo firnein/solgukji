@@ -40,7 +40,7 @@ func build() -> Control:
 		var b := Button.new()
 		b.text = fm.n
 		b.custom_minimum_size = Vector2(76, 40)
-		b.add_theme_font_override("font", DB.font_display)
+		b.add_theme_font_override("font", DB.title_font(14))
 		b.add_theme_font_size_override("font_size", 14)
 		for cn in ["font_color", "font_hover_color", "font_focus_color"]:
 			b.add_theme_color_override(cn, DB.PAL.gold if on else DB.PAL.paper)
@@ -490,7 +490,7 @@ class SlotBox extends Control:
 		draw_style_box(sb, r)
 		var fb := DB.font_body
 		if k == null:
-			draw_string(DB.font_display, Vector2(0, size.y * 0.5 + 6), "＋", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Color(DB.PAL.bamboo_dim, 0.7))
+			draw_string(DB.title_font(24), Vector2(0, size.y * 0.5 + 6), "＋", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Color(DB.PAL.bamboo_dim, 0.7))
 			draw_string(fb, Vector2(0, size.y - 7), UI.pos_name(s.line, s.col), HORIZONTAL_ALIGNMENT_CENTER, size.x, 11, DB.PAL.bamboo_dim)
 			return
 		var c: Dictionary = DB.C[k]
@@ -506,7 +506,7 @@ class SlotBox extends Control:
 		var tw := size.x - x - 4
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
 		var fs := 16 if size.y >= 96 else 14
-		var tf := DB.tier_font(c.tier)
+		var tf := DB.tier_font(c.tier, fs)
 		while fs > 10 and tf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
 			fs -= 1
 		var ty := pr.position.y + minf(ph * 0.3, 22.0)
@@ -528,7 +528,7 @@ class SlotBox extends Control:
 		var pr := Rect2((size.x - pw) / 2, 4, pw, ph)
 		Art.draw_portrait(self, pr, k)
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
-		var tf := DB.tier_font(c.tier)
+		var tf := DB.tier_font(c.tier, 13)
 		var fs := 13
 		while fs > 9 and tf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 6:
 			fs -= 1
