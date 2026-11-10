@@ -15,7 +15,10 @@ extends RefCounted
 ## (Run.bot_prepare —— 징집 · 선택권 · 조합 · 편성). 행동은 했지만 못 끝낸 사람은 공짜 징집과 빈 편성만 채운다.
 ## 다시 들어오면 같은 토큰으로 자리로 돌아와 그 단계부터 이어간다 (보던 전투가 남았으면 다시 보낸다).
 ## 멸망은 혼자 할 때와 같다 (결정 ④). 다만 사람이 나 혼자 남으면(다른 사람 모두 멸망 · 퇴장) 계속할지 묻고, 아니면 방을 닫는다.
-## 1단계 —— 전투는 양쪽 자동(고유기·군령을 AI 가). 결과 전체를 보내 휴대폰은 재생만 한다. 전투는 끝까지 봐야 '준비'가 된다 (결정 ⑦).
+## 1단계 —— 전투는 양쪽 자동(고유기를 AI 가). 결과 전체를 보내 휴대폰은 재생만 한다. 다 보거나 '결과로 건너뛰기'를 눌러야 '준비'가 된다 (결정 ⑦, 11/9 건너뛰기 허용).
+## "battles" 의 각 항목 {title, res, kind, params} —— params 는 BattleView.play() 가 _p 로 짓는 재료와 같은 키(a·fa·ma·ea·b·fb·mb·eb·seed·title·foe·policy·tra·trb·tb),
+## 받는 사람이 A 가 되게 뒤집은 것 —— 휴대폰이 전투장수창의 버프 수치를 혼자 할 때와 같게 잰다 (11/9 사용자).
+## 소식(봇 등용 · 사람의 전설 이상 등용 · 멸망 · 퇴장 · 재접속)은 방의 모든 사람에게 뿌린다 ({"t":"news","list":[{text,kind}]} + 각자의 Run.news). 한마디(say)는 미리 적힌 글(QUICK_MSGS)만, 2초에 한 번 (11/9 사용자).
 
 const MODES := {
 	"fast": {"n": "빠른 — 아침 1분 · 하루 약 4분", "morning": 60.0, "noon": 75.0, "prep": 60.0, "evening": 100.0},
@@ -26,6 +29,9 @@ const SEATS := 8
 const STAGE_N := {"lobby": "대기실", "morning": "아침 — 징집·조합", "noon": "점심 — 토벌", "evening_prep": "저녁 — 대전 준비",
 	"evening": "저녁 — 대전", "over": "끝"}
 const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 단계
+## 한마디 —— 자유 입력 없이 이 글만 보낼 수 있다 (11/9 사용자: 대기실 · 아침 · 저녁 준비 · 전투를 보는 중 다른 사람에게 짧게)
+const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
+const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
 
 var server                    # MatchServer —— send(peer, msg)
@@ -81,7 +87,7 @@ func add_human(peer: int, name_: String, token: String) -> int:
 		return -1
 	seats.append({"name": _unique(name_), "human": true, "peer": peer, "token": token, "run": null,
 		"bot": null, "ready": false, "dead": false, "battles": [], "acted": false, "watched": false, "foe": null,
-		"last_foe": -1, "last_human": false})
+		"last_foe": -1, "last_human": false, "say_t": -100.0})
 	if host < 0:
 		host = peer
 	push_lobby()
@@ -125,6 +131,9 @@ func on_leave(peer: int) -> void:
 	remove_peer(peer)
 	if i >= 0 and started:
 		seats[i].token = ""
+		var it := {"who": seats[i].name, "text": "방을 떠났다 — 자리는 봇이 이어받는다"}
+		_news_add(it)
+		_announce("%s이(가) 방을 떠났다 — 자리는 봇이 이어받는다" % seats[i].name, it)
 		_check_alone()
 
 
@@ -137,6 +146,9 @@ func reattach(peer: int, token: String) -> bool:
 			if started:
 				if stage in WATCH_STAGES and s.watched:
 					s.ready = true       # 끊기기 전에 다 봤다 —— 다시 보지 않아도 된다
+				var it := {"who": s.name, "text": "%s이(가) 돌아왔다" % s.name}
+				_news_add(it, s)
+				_announce("%s이(가) 돌아왔다" % s.name, it, s)
 				_mirror()
 				push(s)
 				_send_battles(s)
@@ -148,16 +160,20 @@ func reattach(peer: int, token: String) -> bool:
 
 func info(i: int) -> Dictionary:
 	var ss := []
-	for s in seats:
-		ss.append({"name": s.name, "human": s.human, "online": s.human and s.peer >= 0, "ready": s.ready,
-			"dead": s.dead, "pv": _pv(s), "foe": s.foe.name if s.foe != null else ""})
+	for k in seats.size():
+		var s: Dictionary = seats[k]
+		var row := {"name": s.name, "human": s.human, "online": s.human and s.peer >= 0, "ready": s.ready,
+			"dead": s.dead, "pv": _pv(s), "foe": s.foe.name if s.foe != null else ""}
+		if k == i and s.run != null:
+			row["hp"] = s.run.hp          # 민심은 내 자리에만 (다른 사람에게는 숨긴다)
+		ss.append(row)
 	var me = null
 	if i >= 0 and seats[i].foe != null:
 		me = seats[i].foe
 	return {"code": code, "mode": mode, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
-		"alone": alone, "tour_round": tour.round if tour != null else -1}
+		"alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS}
 
 
 func push_lobby() -> void:
@@ -195,7 +211,7 @@ func start() -> void:
 func _bot_seat(nm: String, epi: String, fac: String, style: String, pv: float, skill: float) -> Dictionary:
 	return {"name": nm, "human": false, "peer": -1, "token": "", "run": null, "ready": true, "dead": false, "battles": [],
 		"acted": false, "watched": false, "foe": null, "last_foe": -1, "last_human": false,
-		"bot": {"epi": epi, "fac": fac, "style": style, "pv": pv, "w": 0, "l": 0, "strikes": 0, "skill": skill}}
+		"bot": {"epi": epi, "fac": fac, "style": style, "pv": pv, "w": 0, "l": 0, "strikes": 0, "skill": skill, "top": 0}}      # top = 소식을 띄운 최고 등급 (Run.bot_news 와 같은 기준)
 
 
 func _stage(st: String) -> void:
@@ -285,8 +301,13 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 	if i < 0 or not (stage in ACT_STAGES) or seats[i].dead:
 		return
 	var r: Run = seats[i].run
-	r.command(m, a)
+	var ok = r.command(m, a)
 	seats[i].acted = true
+	# 11/9 사용자: 다른 사람의 소식도 와야 한다 —— 전설(6) 이상을 조합 · 선택권으로 등용하면 방의 다른 사람에게 소식 + 알림
+	if ok and m in ["forge", "pick"] and not a.is_empty() and DB.C.has(str(a[0])) and int(DB.C[str(a[0])].tier) >= 6:
+		var it := {"who": seats[i].name, "unit": str(a[0])}
+		_news_add(it, seats[i])
+		_announce("%s가 %s을(를) 등용했습니다" % [seats[i].name, DB.C[str(a[0])].name], it, seats[i])
 	push(seats[i])
 
 
@@ -322,11 +343,12 @@ func _quests() -> void:
 		q.pol = Run.policy_for(q)
 		var res := Run.simulate(q, [], q.pol)
 		r.finish_battle(res)
-		s.battles.append({"title": q.title, "res": res, "kind": "quest"})
+		s.battles.append({"title": q.title, "res": res, "kind": "quest", "params": _params(q, false)})
 		if r.over != null and mode == "test":
 			r.over = null          # 점검 모드는 멸망하지 않는다 —— 토너먼트까지 가 본다
 		if r.over != null:
 			s.dead = true
+			_fallen(s)
 	var qpv := float(DB.D.QPV[day][phase])
 	for s in seats:
 		if not s.human and s.bot.pv < qpv * 0.95 * rng.randf_range(0.92, 1.08):
@@ -458,7 +480,7 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 	var res := Run.simulate(bt, [], bt.pol)
 	rx.battle = bt
 	rx.finish_battle(res)
-	x.battles.append({"title": bt.title, "res": res, "kind": "pvp"})
+	x.battles.append({"title": bt.title, "res": res, "kind": "pvp", "params": _params(bt, false)})
 	var bt2: Dictionary = bt.duplicate(true)
 	bt2.title = "대전 · %s" % x.name
 	bt2.foe = x.name
@@ -467,7 +489,7 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 	flipped.foe = x.name
 	ry.battle = bt2
 	ry.finish_battle(flipped)
-	y.battles.append({"title": bt2.title, "res": flipped, "kind": "pvp"})
+	y.battles.append({"title": bt2.title, "res": flipped, "kind": "pvp", "params": _params(bt, true, bt2.title, x.name)})
 
 
 func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
@@ -482,7 +504,7 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 		b.bot.l += 1
 	else:
 		b.bot.w += 1
-	x.battles.append({"title": bt.title, "res": res, "kind": "pvp"})
+	x.battles.append({"title": bt.title, "res": res, "kind": "pvp", "params": _params(bt, false)})
 
 
 func _bot_side(b: Dictionary) -> Dictionary:
@@ -506,9 +528,14 @@ func _advance() -> void:
 						s.run.over = null       # 점검 모드는 멸망하지 않는다
 					else:
 						s.dead = true
+						_fallen(s)
 		else:
 			s.bot.pv += Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
 		s.battles = []
+	# 11/9 사용자: 봇 등용 소식 —— 혼자 할 때(Run.bot_news)처럼, 방의 모든 사람에게. 상태(Run.news)에 먼저 넣고 알림은 상태 뒤에
+	var news := _bot_news()
+	for it in news:
+		_news_add(it)
 	_mirror()
 	_stage("morning")
 	for s in humans():
@@ -516,6 +543,8 @@ func _advance() -> void:
 			for t in s.run.toasts:
 				server.send(s.peer, {"t": "toast", "text": t[0], "kind": t[1]})
 		s.run.toasts.clear()
+	for it in news:
+		_announce("%s가 %s을(를) 등용했습니다" % [it.who, DB.C[it.unit].name], it)
 	_check_alone()
 
 
@@ -578,13 +607,13 @@ func _tour_round() -> void:
 		var w: Dictionary = a if res.win else b
 		var sa: Dictionary = seats[a.seat]
 		var sb: Dictionary = seats[b.seat]
-		if sa.human:
-			sa.battles.append({"title": bt.title, "res": res, "kind": "tour"})
 		if sb.human:
 			var fr := Run.flip_res(res)
 			fr.title = "%s · %s" % [Run.ROUNDNM[r], a.name]
 			fr.foe = a.name
-			sb.battles.append({"title": fr.title, "res": fr, "kind": "tour"})
+			sb.battles.append({"title": fr.title, "res": fr, "kind": "tour", "params": _params(bt, true, fr.title, a.name)})
+		if sa.human:
+			sa.battles.append({"title": bt.title, "res": res, "kind": "tour", "params": _params(bt, false)})
 		for pair in [[sa, b, w == a], [sb, a, w == b]]:
 			var s: Dictionary = pair[0]
 			if not s.human:
@@ -661,6 +690,87 @@ func _finish() -> void:
 	stage = "over"
 	stage_no += 1
 	push_all()
+
+
+# ───────── 소식 · 한마디 ─────────
+
+## 전투 재료 —— BattleView.play() 가 _p 로 짓는 것과 같은 키 (a·fa·ma·ea·b·fb·mb·eb·seed·title·foe·policy·tra·trb·tb), 11/9 사용자(온라인 재생에도 버프 수치).
+## flipped 면 B 쪽 사람에게 주는 것 —— 양쪽 · 작전 정책을 바꾸고 화면 제목 · 상대 이름도 그 사람 기준(상대 = 원래 A 쪽 이름)
+func _params(bt: Dictionary, flipped: bool, title_ := "", foe_ := "") -> Dictionary:
+	var pol: Dictionary = bt.get("pol", Run.policy_for(bt))
+	var a: Dictionary = bt.b if flipped else bt.a
+	var b: Dictionary = bt.a if flipped else bt.b
+	var title: String = title_ if title_ != "" else str(bt.title)
+	var foe: String = foe_ if foe_ != "" else str(bt.foe)
+	return {"a": a.cards, "fa": a.form, "ma": a.get("morale", 100), "ea": a.get("equip"),
+		"b": b.cards, "fb": b.form, "mb": b.get("morale", 100), "eb": b.get("equip"),
+		"seed": bt.seed, "title": title, "foe": foe,
+		"policy": {"A": pol.get("B", "smart"), "B": pol.get("A", "smart")} if flipped else {"A": pol.get("A", "smart"), "B": pol.get("B", "smart")},
+		"tra": float(a.get("tr_mul", 1.0)), "trb": float(b.get("tr_mul", 1.0)), "tb": b.get("trait", {})}
+
+
+## 봇 등용 소식 —— Run.bot_news 와 같은 기준: 실제로 편성 가능한 최고 등급(전설 이상)이 올라갔을 때만
+func _bot_news() -> Array:
+	var out := []
+	for s in seats:
+		if s.human:
+			continue
+		var b: Dictionary = s.bot
+		var bb := DB.gen_board(b.pv, b.style, rng)
+		var top := 0
+		for k in bb.cards:
+			top = maxi(top, int(DB.C[k].tier))
+		if top < 6 or top <= int(b.get("top", 0)):
+			continue
+		b.top = top
+		var pl: Array = DB.POOLS[b.style].get(top, []).filter(func(k): return DB.C[k].tier < 8)
+		if pl.is_empty():
+			continue
+		out.append({"who": s.name, "unit": pl[rng.randi() % pl.size()]})
+	return out
+
+
+## 멸망 —— 방의 다른 사람에게 소식
+func _fallen(s: Dictionary) -> void:
+	var it := {"who": s.name, "text": "세력이 멸망했다"}
+	_news_add(it, s)
+	_announce("%s 세력이 멸망했다" % s.name, it, s)
+
+
+## 소식을 모든 사람의 Run.news 에 넣는다 (except 는 뺀다) —— 머리띠 '소식' 뱃지 · 전황 소식 시트가 그대로 쓴다
+func _news_add(it: Dictionary, except = null) -> void:
+	for s in humans():
+		if s == except or s.run == null:
+			continue
+		s.run.news.push_front(it)
+		s.run.news = s.run.news.slice(0, 12)
+
+
+## 접속한 모든 사람에게 소식 한 줄 {"t":"news","list":[{text, kind, who?, unit?}]} (except 는 뺀다) —— who · unit 은 상태의 Run.news 항목과 같아 휴대폰이 겹침을 가릴 수 있다
+func _announce(text: String, it = null, except = null) -> void:
+	var e := {"text": text, "kind": "news"}
+	if it is Dictionary:
+		for k in ["who", "unit"]:
+			if it.has(k):
+				e[k] = it[k]
+	for s in humans():
+		if s == except or s.peer < 0:
+			continue
+		server.send(s.peer, {"t": "news", "list": [e]})
+
+
+## 한마디 —— 미리 적힌 글(QUICK)의 번호만 받는다. 한 사람이 SAY_GAP 초에 한 번. 대기실에서도 된다
+func on_say(peer: int, i: int) -> void:
+	var si := seat_of(peer)
+	if si < 0 or i < 0 or i >= QUICK_MSGS.size():
+		return
+	var s: Dictionary = seats[si]
+	if now() - float(s.get("say_t", -100.0)) < SAY_GAP:
+		return
+	s.say_t = now()
+	for o in humans():
+		if o.peer >= 0:
+			server.send(o.peer, {"t": "say", "who": s.name, "text": QUICK_MSGS[i]})
 
 
 # ───────── 보내기 ─────────

@@ -578,7 +578,7 @@ func _go_online() -> void:
 		online = Online.new()
 		online.gs = self
 		add_child(online)
-	online.connect_sheet()
+	online.connect_sheet(true)      # 접속해 있으면 방 목록을 다시 받는다 (11/9)
 
 
 func _continue() -> void:
@@ -714,14 +714,26 @@ func _update_sheet() -> void:
 
 
 func _render_head() -> void:
-	_day_lbl.text = "DAY %d · %s요일" % [run.day + 1, Run.DAYNAME[run.day]]
-	_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else Run.PHASE_N[run.phase])
-	_clock_lbl.visible = online != null
-	if online != null:
-		_clock_lbl.text = online.clock_text().strip_edges().trim_prefix("·").strip_edges()      # "  ·  4일차 아침 3:20" → "4일차 아침 3:20"
-	_phase_bar.cur = run.phase_idx()
+	_clock_lbl.visible = false
+	if online != null and online.in_game and not online.room.is_empty():
+		# 11/9 사용자: 온라인은 머리띠도 방의 시계로 —— "2일차 · 저녁 준비 · 1:20" (혼자 하기의 '월요일 오후'와 어긋나 보였다). 진행 막대는 하루 네 단계.
+		# 병사 수(12,900명)는 뺀다 (결정 ⑥ 처럼 전력은 보이지 않는다)
+		var st := str(online.room.get("stage", ""))
+		_day_lbl.text = "%d일차" % int(online.room.get("day_no", run.day * 3 + run.phase + 1))
+		_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else online.head_stage_text())
+		_phase_bar.n = 4
+		_phase_bar.group = 4
+		_phase_bar.cur = int(Online.STAGE_IDX.get(st, 3 if st == "over" else 0))
+		_pow_lbl.visible = false
+	else:
+		_day_lbl.text = "DAY %d · %s요일" % [run.day + 1, Run.DAYNAME[run.day]]
+		_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else Run.PHASE_N[run.phase])
+		_phase_bar.n = 21
+		_phase_bar.group = 3
+		_phase_bar.cur = run.phase_idx()
+		_pow_lbl.visible = true
+		_pow_lbl.text = "%s명" % Battle.num(run.board_power())
 	_phase_bar.queue_redraw()
-	_pow_lbl.text = "%s명" % Battle.num(run.board_power())
 	# 11/9 사용자: 상단의 PV · 순위 · 경고 줄은 뺀다 (경고 · 순위는 기록 탭에서 본다)
 	_info_lbl.clear()
 	_info_lbl.visible = false
@@ -1040,6 +1052,7 @@ func _input(e: InputEvent) -> void:
 func _menu() -> void:
 	var b := open_sheet("메뉴")
 	if online != null:
+		b.add_child(UI.btn("접속 · 방 목록 (다른 방으로)", func(): online.connect_sheet(true), "ghost"))      # 11/9 사용자: 연결된 채로 방을 바꿀 수 있게
 		b.add_child(UI.btn("온라인 방에서 나가기 (자리는 AI 가 이어받는다)", func():
 			online.leave()
 			close_sheet()
@@ -1123,7 +1136,7 @@ func _settings_sheet() -> void:
 		Settings.save_cfg()
 		_settings_sheet()))
 	b.add_child(UI.hint("전투 왼쪽 위에 fps · 계산 병사 · 보이는 인형 수 · 부하 조절 단계를 띄웁니다. 타입2 는 품질과 상관없이 병사 수를 그대로 둡니다."))
-	# 11/4 사용자: 직접 지휘 개념은 없앤다 —— 전투는 늘 AI 가 고유기 · 군령을 쓴다
+	# 11/4 사용자: 직접 지휘 개념은 없앤다 —— 전투는 늘 AI 가 고유기를 쓴다
 	# 소리 크기 —— 끔 · 작게 · 보통 · 크게
 	for which in (["sfx", "bgm"] if Sfx.ENABLED else []):
 		var cur: float = Settings.sfx_vol if which == "sfx" else Settings.bgm_vol
@@ -1576,6 +1589,13 @@ func _news_sheet() -> void:
 	if run.news.is_empty():
 		b.add_child(UI.hint("아직 소식이 없다 —— 다른 세력이 장수를 등용하면 여기에 쌓인다."))
 	for nw in run.news:
+		if not DB.C.has(str(nw.get("unit", ""))):      # 11/9 온라인 소식 —— 서버가 글로 보낸 소식 (멸망 · 퇴장 등). 장수가 있으면 아래 등용 줄
+			var who := str(nw.get("who", ""))
+			var tx := str(nw.get("text", ""))
+			if tx.begins_with(who):
+				who = ""
+			b.add_child(UI.rich(("[b]%s[/b] " % who if who != "" else "") + tx, 15))
+			continue
 		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit)], 15))
 
 
@@ -2879,11 +2899,13 @@ func _start(kind: String) -> void:
 	_battle_layer.visible = true
 	_hide_band()
 	Settings.apply_port(_battle.port)
+	if "say_cb" in _battle:
+		_battle.say_cb = Callable()
 	_battle.play(bt, false)
 
 
-## 온라인 —— 서버가 계산한 결과를 재생만 한다
-func show_battle(res: Dictionary, last: bool, kind := "") -> void:
+## 온라인 —— 서버가 계산한 결과를 재생만 한다. params 는 내 쪽이 A 가 되게 맞춘 전투 재료 —— BattleView 가 전투장수창의 버프 수치를 재는 데 쓴다 (11/9)
+func show_battle(res: Dictionary, last: bool, kind := "", params := {}) -> void:
 	close_sheet()
 	_battle_res = null
 	_battle_done.visible = false
@@ -2892,7 +2914,17 @@ func show_battle(res: Dictionary, last: bool, kind := "") -> void:
 	_battle_layer.visible = true
 	_hide_band()
 	Settings.apply_port(_battle.port)
-	_battle.play_res(res, kind)
+	if "say_cb" in _battle:      # 11/9 사용자: 전투를 보는 중에도 한마디 —— BattleView 위 띠의 [한마디] 가 이 시트를 연다
+		_battle.say_cb = online.quick_sheet if online != null else Callable()
+	# play_res(res, kind, params) —— 세 번째 인자(재료)는 BattleView 쪽이 받게 되면 넘긴다 (인자 수를 보고)
+	var nargs := 2
+	for m in _battle.get_method_list():
+		if m.name == "play_res":
+			nargs = m.args.size()
+	if nargs >= 3:
+		_battle.callv("play_res", [res, kind, params])
+	else:
+		_battle.play_res(res, kind)
 
 
 func hide_battle() -> void:
@@ -3207,6 +3239,12 @@ func _dev_args() -> void:
 				render()
 			"settings": _settings_sheet()
 			"online": _go_online()      # 점검용 —— 온라인 대전 접속 팝업 (11/9)
+			"onwar":      # 점검용 —— 서버 없이 온라인 전투 탭 (--gsheet=onwar:noon | morning | evening_prep | evening, 11/9)
+				if online == null:
+					online = Online.new()
+					online.gs = self
+					add_child(online)
+				online.dev_fake_room(kv[1] if kv.size() > 1 and kv[1] != "" else "noon")
 			"pick":
 				act("begin_picks", ["phase", -1])
 				if not run.ticket_tiers().is_empty():
@@ -3603,18 +3641,20 @@ func _find_tile(n: Node) -> Control:
 ## 머리띠의 21칸 진행 막대 —— 하루 세 칸씩 묶는다
 class PhaseBar extends Control:
 	var cur := 0
+	var n := 21           # 칸 수 —— 혼자 하기 21(7일 × 3), 온라인은 하루 네 단계 4 (11/9)
+	var group := 3        # 이만큼마다 넓은 틈 (하루)
 
 	func _draw() -> void:
-		var n := 21
 		var gap := 1.5      # 11/7 머리띠 축소 —— 막대가 왼쪽 칸 폭(≈180)만 쓰니 틈을 줄인다 (2 · 6 → 1.5 · 4)
 		var dgap := 4.0
-		var w := (size.x - gap * (n - 1) - (dgap - gap) * 6) / n
+		var ngroups := maxi(1, n / maxi(1, group))
+		var w := (size.x - gap * (n - 1) - (dgap - gap) * (ngroups - 1)) / n
 		var x := 0.0
 		for i in n:
 			var col: Color = DB.PAL.gold if i == cur else (DB.PAL.bamboo_dim if i < cur else DB.PAL.ink3)
 			var r := Rect2(x, 0, w, size.y)
 			draw_rect(r, col)
-			x += w + (dgap if i % 3 == 2 else gap)
+			x += w + (dgap if i % group == group - 1 else gap)
 
 
 ## 아래 탭 하나 —— 그림 + 이름, 할 일이 있으면 빨간 점(badge 0) 또는 숫자

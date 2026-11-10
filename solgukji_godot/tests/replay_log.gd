@@ -403,6 +403,7 @@ func _probe_pvp(r: Run, e: Dictionary, q: Dictionary) -> void:
 
 func _replay(evs: Array) -> void:
 	Run.dev_immortal = true
+	Run.legacy_rewards = true      # 11/9 이전 규칙(패배 보상 감액)으로 남은 기록 —— 되살린 덱이 기록과 같게
 	var t0 := Time.get_ticks_msec()
 	var sd := -1
 	for e in evs:

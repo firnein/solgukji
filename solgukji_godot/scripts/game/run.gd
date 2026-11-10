@@ -36,9 +36,14 @@ var strikes := 0              # 토벌 실패 횟수 (기록용 —— 11/9 멸�
 ## 11/9 사용자: 패배 보상을 깎지 말고 유저 HP 를 깎자 —— 지기 시작하면 보급이 줄어 뒤집을 수가 없었다.
 ## 민심 100 에서 시작, 토벌 · 대전에 지면 일차별 피해(크게 질수록 더) 만큼 깎이고 0 이면 멸망. 보상은 이겼을 때와 같다
 const HP_MAX := 100
-const HP_QUEST := [10, 12, 14, 16, 18, 20, 22]      # 토벌 패배 기본 피해 (일차별) —— 적 남은 병력 비에 따라 ×0.6 ~ 1.0
+## 11/9 조정 (tests/hp_dist · 오토 90판 + 승률별 모의): 처음 [10..22] 는 능숙한 사람(토벌 80% · 대전 70%)도 44% 가 멸망, 오토는 3~4일차에 전멸이었다.
+## [4,5,7,9,11,13,15] 로 —— 능숙 ≈ 57 깎임(생존), 보통(65/55%) ≈ 38% 멸망, 토벌 35% 이하는 5~6일차 멸망, 1~2일차 패배는 3~5 로 가볍다
+const HP_QUEST := [4, 5, 7, 9, 11, 13, 15]      # 토벌 패배 기본 피해 (일차별) —— 적 남은 병력 비에 따라 ×0.6 ~ 1.0
 const HP_PVP_MUL := 0.6                              # 대전 패배는 토벌의 0.6배
 var hp := HP_MAX
+## 점검용 —— 11/9 이전 사람 기록(패배 보상 감액 규칙)을 되살릴 때(tests/replay_log) 켠다. 보상이 달라지면 되살린 덱이 기록과 달라져 난이도 측정이 틀어진다
+static var legacy_rewards := false
+static var dev_hp_log := []      # 11/9 점검용 —— 패배마다 [일차, 종류, 기본 피해, 적 남은 비, 무승부] (tests/hp_dist)
 var last_hp_loss := 0         # 방금 전투에서 깎인 민심 (결과 화면용)
 var last_draw := []
 var last_item = null
@@ -652,7 +657,7 @@ func clear_board() -> void:
 ## 작전 —— 정책 문자열 (Battle tac:<고유기>:<군령>) 과 설명. 셋이 서로 물고 물리게 맞췄다 (11/1 측정, ±5%p)
 const TACS := {
 	"균형": {"pol": "tac:영리:영리", "d": "상대를 보고 돌격 · 방진을 고르고, 고유기는 값어치 있을 때 쓴다"},
-	"맹공": {"pol": "tac:즉시:공세", "d": "군령 포인트를 들고 시작해 바로 돌격, 돌격 공격 +25% · 고유기는 차면 바로"},
+	"맹공": {"pol": "tac:즉시:공세", "d": "바로 돌격, 돌격 공격 +25% · 고유기는 차면 바로"},      # 11/9 사용자: 군령은 사라졌다 —— 문구에서 뺌
 	"굳히기": {"pol": "tac:위기:수비", "d": "돌격 없이 방진 · 재정비로 버틴다 · 고유기는 꺾일 때까지 아껴 배수진 위력 ×1.6"},
 }
 
@@ -821,6 +826,10 @@ func bot_news() -> Array:
 
 
 func advance() -> void:
+	# 11/9 사용자: 기본 징집을 못 했어도 사라지지 않아야 한다 —— 페이즈를 넘길 때 안 뽑은 공짜 징집은 그 자리에서 뽑아 준다
+	if not drawn and draws_n() > 0 and not legacy_rewards:
+		do_draw()
+		toasts.append(["안 뽑은 기본 징집 %d장을 받았다" % last_draw.size(), "gain"])
 	phase += 1
 	if phase > 2:
 		phase = 0
@@ -932,7 +941,7 @@ static var QUEST_MORALE := [0.8, 0.68, 0.62, 0.7, 0.62, 0.6, 0.65]
 ## 11/9 첫 유저 기록: 5~7일차 토벌이 내 병력 87~98% 남기고 끝난다(적 7등급 부대 병력 2,820 vs 내 7등급 48,551). 병력 ×8 · 사기 ×2.5 로도 71% 남음 —— 배율 자체를 1 근처로.
 ##   replay_log --orig=now --qtr 로 그 사람 덱 기준 토벌 승 · 남은 병력: 첫 토벌 100 · 60% / 1~7일 100 · 45% · 65 · 40 · 60 · 25 · 55 · 40 · 50 · 35 · 50 · 40 · 50 · 40% 어림 (예전 2일차 이후 75 · 46 → 100 · 96%)
 ##   0.6 → 0.9 사이에서 승률이 90% → 10% 로 꺾인다 (6 · 7일차) —— 병력이 같아지면 적 7등급 아홉이 내 전설을 녹인다
-static var QUEST_TR := [0.25, 0.85, 0.95, 1.3, 1.6, 0.75, 0.42]
+static var QUEST_TR := [0.25, 0.85, 1.1, 1.3, 3.0, 0.75, 0.42]
 ## 11/9 2차: 잡병을 질로 올리면서(DROP · FLOOR) 총 병력이 늘지 않게 3~7일차를 낮춤 (적 병력 총합이 예전의 +10% 안).
 ##   diff_probe 대역(자동 진행 편성 PV × 일차별 사람 배율)으로 토벌 남은 병력 첫 토벌 21% · 1~7일 51 · 37 · 40 · 31 · 43 · 44 · 33% (예전 대역 68 · 53 · 57 · 46 · 47 · 45 · 40)
 ## 11/7 사용자: 황건적은 물량이 많았다 —— 진형이 4행 5열(20칸)로 늘어난 만큼 토벌 적은 우두머리 9부대 + 잡병 부대로 몰려온다.
@@ -1102,6 +1111,8 @@ func _hp_hit(res: Dictionary, base: float, what: String) -> void:
 	dmg = maxi(1, dmg)
 	hp = maxi(0, hp - dmg)
 	last_hp_loss = dmg
+	if dev_log or dev_immortal:
+		dev_hp_log.append([day, what.begins_with("대전"), base, foe_left, res.get("draw", false)])
 	toasts.append(["%s 패배 —— 민심 -%d (남은 %d)" % [what, dmg, hp], "warn"])
 	if hp <= 0 and not dev_immortal:
 		over = {"win": false, "msg": "%s 패배 —— 민심이 바닥나 세력이 멸망했다" % what}
@@ -1127,12 +1138,23 @@ func finish_battle(res: Dictionary) -> void:
 		"quest":
 			quest_done = true
 			# 11/9 사용자: 져도 보상은 그대로 (예전엔 기본패 절반 · 선택권 한 등급 아래) —— 대신 민심을 깎는다
-			for p in no_empty_tier(DB.D.QUEST_REWARD[day]):
-				add_ticket(int(p.t), int(p.n), true)      # 11/6 #6 전투 보상의 희귀는 랜덤권
-			var n := int(DB.D.QUEST_BASE[day])
-			for i in n:
-				give(DB.BASE[rng.randi() % DB.BASE.size()])
-			last_spoil = {"n": n, "src": ("토벌 · " if res.win else "토벌 패배 · ") + quest_name()}
+			if legacy_rewards and not res.win:
+				var top := 0
+				for p in DB.D.QUEST_REWARD[day]:
+					top = maxi(top, int(p.t))
+				if top > 0:
+					add_ticket(top - 1, 1, true)
+				var nl := int(ceil(int(DB.D.QUEST_BASE[day]) / 2.0))
+				for i in nl:
+					give(DB.BASE[rng.randi() % DB.BASE.size()])
+				last_spoil = {"n": nl, "src": "토벌 패배 · " + quest_name()}
+			else:
+				for p in no_empty_tier(DB.D.QUEST_REWARD[day]):
+					add_ticket(int(p.t), int(p.n), true)      # 11/6 #6 전투 보상의 희귀는 랜덤권
+				var n := int(DB.D.QUEST_BASE[day])
+				for i in n:
+					give(DB.BASE[rng.randi() % DB.BASE.size()])
+				last_spoil = {"n": n, "src": ("토벌 · " if res.win else "토벌 패배 · ") + quest_name()}
 			if not res.win:
 				strikes += 1       # 기록용
 				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]), quest_name())
@@ -1143,12 +1165,12 @@ func finish_battle(res: Dictionary) -> void:
 						b.pv *= 0.94
 		"pvp":
 			pvp_done = true
-			var nb := int(DB.D.PVP_BASE.win)      # 11/9 져도 이긴 만큼 (예전 lose 4)
+			var nb := int(DB.D.PVP_BASE.win if (res.win or not legacy_rewards) else DB.D.PVP_BASE.lose)      # 11/9 져도 이긴 만큼 (예전 lose 4)
 			for i in nb:
 				give(DB.BASE[rng.randi() % DB.BASE.size()])
 			last_spoil = {"n": nb, "src": "대전 · " + bt.foe}
 			var b = bots[bt.bot] if bt.has("bot") else null      # 여럿이 하는 판은 서버가 상대 전적을 센다
-			add_ticket(4 if day >= 3 else 3, 1, true)      # 11/6 #6 대전 보상의 희귀는 랜덤권 —— 11/9 승패 같게
+			add_ticket((4 if day >= 3 else 3) - (1 if legacy_rewards and not res.win else 0), 1, true)      # 11/6 #6 대전 보상의 희귀는 랜덤권 —— 11/9 승패 같게
 			if res.win:
 				my_w += 1
 				if b: b.l += 1
