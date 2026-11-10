@@ -18,6 +18,10 @@ extends Node
 
 const SERVERS := "res://data/servers.json"      # 서버 목록 —— 콤보에 이 순서대로 (Dev 주소는 build_apk.bat 의 release.py 가 이 PC 의 LAN IPv4 로 고친다)
 const CUSTOM := "직접 입력…"
+## 11/10 사용자: "동의를 받아야지" —— 온라인 접속 전에 플레이 기록 동의를 받는다. 문구를 바꾸면 NetClient.CONSENT_VER 를 올려 모두에게 다시 묻는다.
+## 동의는 user://net.cfg 의 consent · consent_ver 에 남고(NetClient.set_consent), 접속할 때마다 hello 의 rec 로 서버에 알린다 —— 동의한 사람만 서버(RoomLog)가 기록한다.
+const CONSENT_TITLE := "플레이 기록 동의"
+const CONSENT_TEXT := "온라인 대전은 이름 · 행동 · 전투 결과를 서버에 저장해 밸런스 분석에만 씁니다.\n동의하지 않으면 온라인 대전은 할 수 없습니다."
 ## 한마디 —— 자유 입력 없이 서버가 방 정보에 실어 준 글(room.quick)만, 번호로 보낸다 {"t":"say","i":번호} (11/9 사용자)
 
 var gs: GameScreen
@@ -186,16 +190,53 @@ func _server_pick() -> OptionButton:
 	return ob
 
 
-## 11/10 사용자: 온라인 대전은 플레이 기록을 서버가 모아 밸런스 분석에 쓴다 —— 접속하기 전 화면에서 알린다 (끄는 설정은 없다).
-## 구분선 + 금 한 줄(제목) + 종이색 한 줄. 서버가 저장하는 것 = 이름 · 행동 · 전투 결과 (Room 의 RoomLog)
+## 플레이 기록 동의 칸 (접속 시트의 이름 칸 아래) —— 구분선 + 아직 동의 전이면 금 제목 + 종이색 두 줄(무엇을 · 왜 · 안 하면), 동의했으면 회색 한 줄 + 작은 「동의 철회」.
+## 서버가 저장하는 것 = 이름 · 행동 · 전투 결과 (Room 의 RoomLog). 버튼(동의하고 접속 · 취소)은 이 칸을 부르는 connect_sheet 가 붙인다
 func record_notice() -> Control:
 	var v := UI.vbox(4)
 	v.add_child(UI.hair())
-	v.add_child(UI.lbl("플레이 기록 안내", 14, DB.PAL.gold))
-	var t := UI.lbl("온라인 대전은 이름 · 행동 · 전투 결과가 서버에 저장되어 밸런스 분석에 쓰입니다.", 13, DB.PAL.paper.darkened(0.15))
+	if net.consented():
+		var row := UI.hbox(8)
+		var l := UI.hint("플레이 기록 동의함 · 이름 · 행동 · 전투 결과")
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(l)
+		row.add_child(UI.btn("동의 철회", _withdraw_consent, "ghost", 36))
+		v.add_child(row)
+		return v
+	v.add_child(UI.lbl(CONSENT_TITLE, 14, DB.PAL.gold))
+	var t := UI.lbl(CONSENT_TEXT, 13, DB.PAL.paper.darkened(0.15))
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(t)
 	return v
+
+
+## 동의 철회 —— 기기에 남긴 동의를 지운다. 접속해 있었으면 연결도 끊는다(서버가 이어서 기록하지 않게 · 방에서는 자리를 봇이 이어받는다). 다음 접속 때 다시 묻는다
+func _withdraw_consent() -> void:
+	var live := net.is_open() or in_game or not room.is_empty()
+	net.set_consent(false)
+	if live:
+		leave()
+		gs.toast("기록 동의를 철회해 접속을 끊었다")
+		gs._go_online()
+	else:
+		connect_sheet()
+
+
+## 「접속」 · 「동의하고 접속」 —— 동의 전이면 consent=true 로 (주소가 비었으면 동의도 남기지 않는다)
+func _connect_pressed(consent := false) -> void:
+	net.player = _name_edit.text.strip_edges()
+	var u := _picked_url()
+	if u == "":
+		_status = "주소를 넣어 주세요"
+		connect_sheet()
+		return
+	if consent:
+		net.set_consent(true)
+	_status = "접속 중…"
+	_leaving = false
+	net.connect_to(u)
+	connect_sheet()
 
 
 ## refresh 면(제목 · 메뉴에서 열 때) 접속해 있으면 방 목록을 다시 받는다 —— 'rooms' 가 오면 시트가 다시 그려진다 (11/9)
@@ -227,17 +268,17 @@ func connect_sheet(refresh := false) -> void:
 	row2.add_child(_name_edit)
 	b.add_child(row2)
 	b.add_child(record_notice())
-	b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", func():
-		net.player = _name_edit.text.strip_edges()
-		var u := _picked_url()
-		if u == "":
-			_status = "주소를 넣어 주세요"
-			connect_sheet()
-			return
-		_status = "접속 중…"
-		_leaving = false
-		net.connect_to(u)
-		connect_sheet(), "pri"))
+	if net.consented():
+		b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", _connect_pressed, "pri"))
+	else:      # 동의 전 —— 동의하고 접속하거나 취소(접속 안 함)
+		var cb := UI.hbox(8)
+		var ok := UI.btn("동의하고 접속", func(): _connect_pressed(true), "pri")
+		ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cb.add_child(ok)
+		var no := UI.btn("취소", func(): gs.close_sheet(), "ghost")
+		no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cb.add_child(no)
+		b.add_child(cb)
 	b.add_child(UI.lbl(_status, 14, DB.PAL.jade if net.is_open() else DB.PAL.bamboo_dim))
 	if not net.is_open():
 		return
@@ -587,9 +628,6 @@ func _show_lobby() -> void:
 	lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(lb)
 	v.add_child(hb)
-	var rn := UI.hint("이 방의 플레이(이름 · 행동 · 전투 결과)는 서버에 기록됩니다.")
-	rn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(rn)
 	gs.move_child(gs._toast_box, -1)      # 대기실은 화면을 다 덮는다 —— 알림(한마디 · 소식)이 그 위에 보이게
 
 
