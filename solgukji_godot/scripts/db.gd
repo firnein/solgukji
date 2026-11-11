@@ -413,7 +413,7 @@ const FORM_MID := 2
 ## 11/6 사용자 #15: 마법 개념 삭제 —— 공격 = 공 · 책 중 높은 쪽, 방어 = 방 · 책방 중 높은 쪽. int · res 칸은 같은 값을 둔다 (옛 코드가 읽어도 같게).
 ## 능력치 보정(stat_adjust)이 끝난 뒤에 합친다. 화면 용어도 공격 · 방어로 (STATNM · MOD_LABEL · 특기 설명문)
 ## 11/7 책략방어(res)는 데이터에서 지웠다 (효과는 방어로, 같이 있으면 큰 값 하나만 —— tools/scripts/extract.py drop_res). 카드 res 칸만 남아 방어와 같은 값
-const TXT_ALIAS := [["책략 피해", "피해"], ["책략 치명타", "치명타"], ["물리 피해", "피해"], ["책략을", "공격을"], ["책략이", "공격이"], ["책략 +", "공격 +"], ["책략 −", "공격 −"], ["책략 -", "공격 -"]]
+const TXT_ALIAS := [["공격과 책략이", "공격이"], ["공격과 책략을", "공격을"], ["공격 · 책략이", "공격이"], ["공격 · 책략 · ", "공격 · "], ["공격 · 책략 +", "공격 +"], ["공격·책략 +", "공격 +"], ["책략 피해", "피해"], ["책략 치명타", "치명타"], ["물리 피해", "피해"], ["책략을", "공격을"], ["책략이", "공격이"], ["책략 +", "공격 +"], ["책략 −", "공격 −"], ["책략 -", "공격 -"]]
 const MERGE_DEF_W := 0.5      # 방어 = 방 + (책방 − 방) × 이만큼 (책방이 더 클 때) —— 0.3 으로 내려도 유생 · 술사 3장 덱 70% 그대로 (11/6): 원인은 방어가 아니다
 func merge_stats() -> void:
 	for k in C:
@@ -1219,13 +1219,16 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 		if k == "first":
 			out.append("선공")
 			continue
+		if k == "int" and m.has("atk"):      # 11/11 사용자: 공격 · 책략이 합쳐진 뒤(11/6 #15) '공격+5% · 공격+5%' 로 두 번 적혔다 —— 한 번만 (큰 값)
+			continue
 		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break",
 				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx",
 				"chase", "open_slow"]:      # 계열 마무리 —— 설명으로 충분
 			continue
 		if k in ["cut_def", "first_cut", "open_cut_def"] and Battle.shield_enabled and GUARD.has("shred"):      # 11/9 갑옷 · 결계 깎기 —— 수치는 엔진 등급표 (trait_list 가 shred_text 로 적는다)
 			continue
-		var v: float = m[k] * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)
+		var mv: float = maxf(float(m[k]), float(m["int"])) if k == "atk" and m.has("int") else float(m[k])
+		var v: float = mv * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
 		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 11/3: 턴 하나로는 0.0 처럼 보여 '전투 동안' 합으로 적는다 (보통 길이 전투)
