@@ -1041,7 +1041,9 @@ var _bands: Array = []
 var _band_busy := false
 
 ## 화면 가운데 가로 띠 —— 큰 글씨 한 줄 + 작은 둘째 줄. 여러 개면 차례로
+var band_log: Array = []      # 띄운 띠 글 기록 (점검용 —— tests/phase_flow 가 센다. 바로 떠서 _bands 에 남지 않는 띠도 잡는다)
 func band(text: String, col: Color = DB.PAL.gold, sub := "") -> void:
+	band_log.append(text)
 	_bands.append([text, col, sub])
 	if not _band_busy:
 		_next_band()

@@ -34,10 +34,8 @@ func _ready() -> void:
 		var st := str(rm.get("stage", ""))
 		if st == "over" or int(rm.get("day", 0)) >= 2:
 			break
-		for b in gs._bands:
-			if str(b[0]) == "아침이 밝았습니다":
-				bands += 1
-		gs._bands = gs._bands.filter(func(b): return str(b[0]) != "아침이 밝았습니다")
+		bands += gs.band_log.count("아침이 밝았습니다")
+		gs.band_log.clear()
 		if int(rm.stage_no) != last_sno:
 			if was_playing and not (gs.battle_visible() and not gs._battle.finished):
 				skipped += 1

@@ -88,7 +88,7 @@ func _ready() -> void:
 	r.on_say(1, 0)
 	r.on_say(1, 1)          # 2초 안 — 무시
 	r.on_say(2, 99)         # 범위 밖 — 무시
-	r.on_say(2, 7)
+	r.on_say(2, Room.QUICK_MSGS.find("GG"))      # 11/12 한마디 목록이 바뀌어도 GG 를 고른다
 	var says := srv.of(1, "say")
 	if says.size() != 2 or says[0].text != "잘 부탁합니다" or says[1].text != "GG" or says[1].who != "나":
 		fails.append("say 결과 %s" % str(says))
