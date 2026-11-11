@@ -10,7 +10,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##   저녁 evening_prep 상대가 정해진다 —— 8자리(사람 + 빈자리 봇)를 라운드로빈(원 방식)으로 돌린다 (_begin_evening · rr_round, 11/10 사용자).
 ##                     저녁(토너먼트 빼고 0~19번째)마다 한 라운드, 7라운드에 한 사람이 다른 일곱 자리 전원과 정확히 한 번씩 (20번 = 7 + 7 + 6).
 ##                     난수 없이 순번과 자리 배치(방의 첫 저녁에 한 번 섞고 고정)로만 정한다. 11/7 결정 ① ②(PV 순 인접 · 어제 상대 회피 · 사람끼리 이틀 연속 금지)는 이것으로 대체.
-##                     멸망한 사람의 짝이던 자리는 쉬지 않고 떠돌이 군세(유랑군)와 붙는다. 봇끼리의 짝은 싸우지 않는다.
+##                     멸망한 사람의 짝이던 자리는 쉬지 않고 — 다른 산 사람이 있으면 그 사람의 '그림자'(저녁 편성 복사본, 11/11 그림자 대전), 없으면 떠돌이 군세(유랑군)와 붙는다. 봇끼리의 짝은 싸우지 않는다.
 ##                     상대의 이름 · 전적만 보고(PV 는 안 보인다, 결정 ⑥) 편성을 고칠 준비 시간 (약 1분)
 ##   저녁 evening      서버가 대전을 계산해 보내고 본다. 모두 다 봤으면 다음 날 아침
 ## 7일째 저녁은 8인 토너먼트 —— 점심(토벌)은 없고 저녁 준비에 대진표를 보인 뒤 8강 · 4강 · 결승을 라운드마다 본다.
@@ -38,7 +38,8 @@ const STAGE_N := {"lobby": "대기실", "morning": "준비 — 징집·조합·�
 const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 단계
 ## 한마디 —— 자유 입력 없이 이 글만 보낼 수 있다 (11/9 사용자: 대기실 · 아침 · 저녁 준비 · 전투를 보는 중 다른 사람에게 짧게)
 const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
-const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
+const SHADOW_EPI := "그림자"      # 그림자 대전 상대의 소속 글 (_foe_info.epi) —— 이름은 "<자리 이름>의 그림자"
+const SAY_GAP := 2.0         # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
 const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
@@ -57,9 +58,11 @@ var stage_no := 0             # 단계가 바뀔 때마다 1씩 —— 늦게 �
 var stage_end := 0.0
 var day := 0
 var phase := 0
-var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b 는 봇일 수 있다. 음수 -1 - d 는 멸망한 자리 d 를 대신하는 떠돌이 군세
+var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b 는 봇일 수 있다. 음수 -1 - d 는 멸망한 자리 d 를 대신하는 떠돌이 군세.
+                              # 세 번째 칸 x(자리 번호)가 있으면 [a, -1 - d, x] —— 군세 대신 산 사람 x 의 그림자 (11/11 그림자 대전)
 var rr_order := []            # 라운드로빈 자리 배치 —— 첫 저녁에 rng 로 한 번 섞고 방이 끝날 때까지 고정 (같은 순번이면 같은 짝)
 var _ghosts := {}             # 멸망한 자리 번호 -> 떠돌이 군세(자리 밖 봇) —— 저녁 대전 상대 (전적은 이어진다)
+var _shadow_news := []        # 그림자 대전 결과 소식 대기 —— 대전을 다 본 뒤(다음 날 아침을 열 때) 보낸다 (미리 보내면 결과가 새므로)
 var tour = null               # {round, list:[{name, seat}], res:[[{a, b, w}]], next}
 var rng := RandomNumberGenerator.new()
 var empty_since := -1.0
@@ -468,20 +471,40 @@ static func rr_round(order: Array, rd: int) -> Array:
 
 ## 오늘의 짝 —— rr_round 에서 멸망한 자리(dead)를 낀 짝만 손본다: 둘 다 멸망이면 짝이 없고, 한쪽만이면 산 자리는 쉬지 않고
 ## 떠돌이 군세와 붙는다 [산 자리, -1 - 멸망 자리]. (실제 자리와 바꿔 붙이면 한 바퀴 안에 같은 상대를 두 번 만나게 되므로 쓰지 않는다)
-static func rr_plan(order: Array, rd: int, dead: Array) -> Array:
+## 11/11 그림자 대전: alive_humans(멸망하지 않은 사람 자리들)를 주면, 산 자리가 사람이고 자신 말고 산 사람이 또 있을 때 군세 대신
+## 그 사람 x 의 그림자와 붙는다 [산 자리, -1 - 멸망 자리, x]. 안 주면(기본) 전과 같다.
+static func rr_plan(order: Array, rd: int, dead: Array, alive_humans: Array = [], cycle := 0) -> Array:
 	var out := []
+	var sd := dead.duplicate()
+	sd.sort()
 	for p in rr_round(order, rd):
 		var da: bool = p[0] in dead
 		var db: bool = p[1] in dead
 		if da and db:
 			continue
 		elif da:
-			out.append([p[1], -1 - int(p[0])])
+			out.append(shadow_pair(int(p[1]), int(p[0]), sd, alive_humans, cycle))
 		elif db:
-			out.append([p[0], -1 - int(p[1])])
+			out.append(shadow_pair(int(p[0]), int(p[1]), sd, alive_humans, cycle))
 		else:
 			out.append(p)
 	return out
+
+
+## 멸망한 자리 d 의 짝이던 산 자리 c 의 오늘 짝 —— c 가 사람이고 다른 산 사람이 있으면 [c, -1 - d, x], 아니면 [c, -1 - d] (떠돌이 군세).
+## x 는 자신을 뺀 산 사람(자리 번호 오름차순)을 돌아가며 고른다: 인덱스 = (cycle * 멸망 수 + d 의 멸망 순서 + c) % 후보 수.
+## cycle = 저녁 순번(day*3 + phase) / (자리 수 - 1) = 몇 번째 바퀴. 한 바퀴에 c 는 멸망 자리마다 한 번씩 그림자와 붙으니 (cycle, d 순서)가 c 에게 1씩 늘어나는 번호가 되고,
+## 그래서 후보 모두가 고르게(차 ≤ 1) 돌아온다. 난수 없음 —— 같은 입력이면 같은 x
+static func shadow_pair(c: int, d: int, dead_sorted: Array, alive_humans: Array, cycle: int) -> Array:
+	var pr := [c, -1 - d]
+	if not (c in alive_humans):
+		return pr
+	var cands := alive_humans.filter(func(h): return int(h) != c)
+	if cands.is_empty():
+		return pr
+	cands.sort()
+	pr.append(int(cands[(cycle * dead_sorted.size() + dead_sorted.find(d) + c) % cands.size()]))
+	return pr
 
 
 ## 저녁 —— 상대를 정한다 (11/10 사용자: 라운드로빈): 저녁 순번(day*3 + phase, 토너먼트 저녁은 여기 오지 않는다)으로 라운드를 정해
@@ -503,13 +526,17 @@ func _begin_evening() -> void:
 			rr_order[i] = rr_order[j]
 			rr_order[j] = t
 	var dead := []
+	var alive_h := []      # 그림자의 원본이 될 수 있는 사람 —— 멸망하지 않았고 자리를 떠나지 않은(token 이 있는) 사람. 접속이 끊겨 봇이 대신하는 사람도 포함 (덱은 진짜)
 	for i in seats.size():
 		if seats[i].human and seats[i].dead:
 			dead.append(i)
-	pairs = rr_plan(rr_order, (day * 3 + phase) % (max_seats - 1), dead)
+		elif seats[i].human and seats[i].run != null and seats[i].token != "":
+			alive_h.append(i)
+	var ev_no := day * 3 + phase
+	pairs = rr_plan(rr_order, ev_no % (max_seats - 1), dead, alive_h, ev_no / (max_seats - 1))
 	for p in pairs:
 		var a: Dictionary = _pair_seat(p[0])
-		var b: Dictionary = _pair_seat(p[1])
+		var b: Dictionary = _pair_seat(p[1], int(p[2]) if p.size() > 2 else -1)
 		if a.human:
 			a.foe = _foe_info(b)
 		if b.human:
@@ -518,9 +545,17 @@ func _begin_evening() -> void:
 
 
 ## 짝에 적힌 번호의 자리 —— 음수는 멸망한 자리를 대신하는 떠돌이 군세 (세기 = 방 평균 PV, 전적은 이어진다)
-func _pair_seat(i: int) -> Dictionary:
+## shadow >= 0 이면 군세 대신 그 자리(산 사람)의 그림자 —— 이름 "<이름>의 그림자", 전적은 원본의 것을 보이기만 한다 (원본은 건드리지 않는다)
+func _pair_seat(i: int, shadow := -1) -> Dictionary:
 	if i >= 0:
 		return seats[i]
+	if shadow >= 0:
+		var src: Dictionary = seats[shadow]
+		var sh := _bot_seat("%s의 그림자" % src.name, SHADOW_EPI, "군", "균형", float(_pv(src)), 1.0)
+		sh.bot.w = src.run.my_w
+		sh.bot.l = src.run.my_l
+		sh["shadow_of"] = shadow
+		return sh
 	var d := -1 - i
 	if not _ghosts.has(d):
 		_ghosts[d] = _bot_seat("유랑군 %d" % (d + 1), "떠돌이 군세", "군", "균형", 0.0, 1.0)
@@ -551,9 +586,12 @@ func _pvps() -> void:
 	for s in seats:
 		s.battles = []
 	for p in pairs:
+		var x := int(p[2]) if p.size() > 2 else -1
 		var a: Dictionary = _pair_seat(p[0])
-		var b: Dictionary = _pair_seat(p[1])
-		if a.human and b.human:
+		var b: Dictionary = _pair_seat(p[1], x)
+		if x >= 0 and a.human:
+			_pvp_shadow(a, seats[x], b)
+		elif a.human and b.human:
 			_pvp_humans(a, b)
 		elif a.human:
 			_pvp_bot(a, b)
@@ -612,12 +650,49 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 		rlog.reward(_idx(x), rx)
 
 
+## 그림자 대전 (11/11) —— c 가 멸망한 자리 대신 산 사람 xs 의 그림자와 싸운다. 그림자 = xs 의 지금 잠긴 편성(진형 · 작전 · 장비 · 사기)의 복사본.
+## c 쪽은 사람과의 대전과 똑같이 정산(전적 · 보상 · 민심)하고, xs 는 아무것도 바뀌지 않는다 (전적 · 민심 · 순위 · 경고 · 보상 · 전투 기록 없음).
+## 결과 소식은 대전을 다 본 뒤 (다음 날 아침을 열 때) c · xs 에게만
+func _pvp_shadow(c: Dictionary, xs: Dictionary, sh: Dictionary) -> void:
+	var rc: Run = c.run
+	var bt := {"kind": "pvp", "a": rc._my_side(), "b": (xs.run._my_side() as Dictionary).duplicate(true), "seed": rng.randi() % 1000000,
+		"title": "대전 · %s" % sh.name, "foe": sh.name, "inputs": []}
+	bt.pol = Run.policy_for(bt)
+	var res := Run.simulate(bt, [], bt.pol)
+	rc.battle = bt
+	rc.finish_battle(res)
+	c.battles.append({"title": bt.title, "res": res, "kind": "pvp", "params": _params(bt, false)})
+	_shadow_news.append({"c": c, "x": xs, "win": bool(res.win), "draw": bool(res.draw)})
+	if rlog != null:
+		rlog.battle(_idx(c), rc, bt, res, sh.name, true, c.peer < 0, bool(xs.get("rec", false)), {"ghost": true, "ghost_of": xs.name})
+		rlog.reward(_idx(c), rc)
+
+
+## 그림자 대전 결과 소식 —— 싸운 사람 c 와 원본 x 에게만 (방 전체에는 뿌리지 않는다). 대전을 다 본 뒤라 결과가 새지 않는다
+func _flush_shadow_news() -> void:
+	var save := _news_stage
+	_news_stage = "evening"      # 소식의 시점은 싸운 저녁
+	for e in _shadow_news:
+		var c: Dictionary = e.c
+		var x: Dictionary = e.x
+		var res_t := "무승부" if e.draw else ("승리" if e.win else "패배")
+		var it_c := {"who": c.name, "text": "%s의 그림자에게 %s" % [x.name, res_t]}
+		_news_add(it_c, null, [c])
+		_announce("%s이(가) %s" % [c.name, it_c.text], it_c, null, false, [c])
+		var it_x := {"who": c.name, "text": "당신의 그림자와 싸워 %s" % res_t}
+		_news_add(it_x, null, [x])
+		_announce("%s이(가) %s" % [c.name, it_x.text], it_x, null, false, [x])
+	_shadow_news = []
+	_news_stage = save
+
+
 func _bot_side(b: Dictionary) -> Dictionary:
 	return Run.bot_side(b.bot.pv * Run.BOT_PV_MUL, b.bot.style, day * 3 + phase, rng)
 
 
 ## 다음 날 아침
 func _advance() -> void:
+	_flush_shadow_news()
 	if rlog != null:
 		for s in humans():
 			if not s.dead:
@@ -895,7 +970,7 @@ func _fallen(s: Dictionary) -> void:
 
 
 ## 소식을 모든 사람의 Run.news 에 넣는다 (except 는 뺀다) —— 머리띠 '소식' 뱃지 · 전황 소식 시트가 그대로 쓴다
-func _news_add(it: Dictionary, except = null) -> void:
+func _news_add(it: Dictionary, except = null, only = null) -> void:
 	if not it.has("id"):
 		news_seq += 1
 		it["id"] = news_seq
@@ -904,7 +979,7 @@ func _news_add(it: Dictionary, except = null) -> void:
 		if w != "":
 			it["when"] = w
 	for s in humans():
-		if s == except or s.run == null:
+		if s == except or s.run == null or (only != null and not (s in only)):
 			continue
 		s.run.news.push_front(it)
 		s.run.news = s.run.news.slice(0, 12)
@@ -912,7 +987,7 @@ func _news_add(it: Dictionary, except = null) -> void:
 
 ## 접속한 모든 사람에게 소식 한 줄 {"t":"news","list":[{text, kind, who?, unit?, id?, when?, hot?}]} (except 는 뺀다) —— who · unit · id · when 은 상태의 Run.news 항목과 같아 휴대폰이 겹침을 가릴 수 있다.
 ## hot = 긴급 띠 연출을 띄우라는 표시 (사람의 기인 이상 등용만) —— 모르는 옛 휴대폰은 그냥 알림 한 줄
-func _announce(text: String, it = null, except = null, hot := false) -> void:
+func _announce(text: String, it = null, except = null, hot := false, only = null) -> void:
 	var e := {"text": text, "kind": "news"}
 	if it is Dictionary:
 		for k in ["who", "unit", "id", "when"]:
@@ -921,7 +996,7 @@ func _announce(text: String, it = null, except = null, hot := false) -> void:
 	if hot:
 		e["hot"] = 1
 	for s in humans():
-		if s == except or s.peer < 0:
+		if s == except or s.peer < 0 or (only != null and not (s in only)):
 			continue
 		server.send(s.peer, {"t": "news", "list": [e]})
 

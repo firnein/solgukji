@@ -73,7 +73,7 @@ func _ready() -> void:
 	r.tick()                 # evening_prep → evening
 	var b1 := srv.of(1, "battles")
 	var b2 := srv.of(2, "battles")
-	if not b1.is_empty() and not b2.is_empty():
+	if not b1.is_empty() and not b2.is_empty() and b1[0].list[0].params.foe == "나":      # 11/11: 8자리 라운드로빈이라 두 사람이 첫 저녁에 짝이 아닐 수 있다 (봇과 붙으면 비교하지 않는다)
 		var p1: Dictionary = b1[0].list[0].params
 		var p2: Dictionary = b2[0].list[0].params
 		if p1.a != p2.b or p1.b != p2.a or p1.seed != p2.seed or p1.policy.A != p2.policy.B:
