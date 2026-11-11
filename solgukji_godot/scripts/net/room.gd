@@ -440,7 +440,7 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 		push(seats[i])      # 클라이언트가 먼저 바꿔 둔 상태를 되돌린다
 		return
 	var r: Run = seats[i].run
-	var why := lock_reason(r, m, a)
+	why = lock_reason(r, m, a)
 	if why != "":
 		server.send(peer, {"t": "toast", "text": why, "kind": "bad"})
 		push(seats[i])      # 클라이언트가 먼저 해 본 조합을 되돌린다
