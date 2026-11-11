@@ -76,7 +76,7 @@ func _ready() -> void:
 	Settings.load_cfg()
 	if not SHOW_DOTS:
 		Settings.dots = false      # 고르는 칸을 숨겼으니 예전에 점묘로 저장했어도 3D 로
-	Sfx.music("menu")
+	Sfx.music("title")
 	if OS.has_feature("testscene"):       # 테스트 APK (build_test_apk.bat) —— 전투 점검 화면으로 바로
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
 		return
@@ -549,6 +549,7 @@ func _build_battle() -> void:
 
 
 func _build_title() -> void:
+	Sfx.music("title")
 	# 11/3 사용자: 타이틀을 이쁘게 —— 신화 일러스트가 천천히 넘어가는 배경 · 금빛 로고 + 낙관 · 영문 이름 · 아래쪽 먹빛 버튼
 	_title = ColorRect.new()
 	_title.color = Color("#0b0f1a")
@@ -635,6 +636,7 @@ func _continue() -> void:
 		return
 	run = r
 	_title.visible = false
+	Sfx.music("prep")
 	PlayLog.ensure(run, "resume")
 	if run.battle != null:
 		# 전투 도중 꺼졌다 —— 적어 둔 입력으로 마무리한다
@@ -656,6 +658,7 @@ func _new_game() -> void:
 	PlayLog.new_game(run)
 	forge_tree.clear()          # 11/3 사용자: 이전 판의 갈무리가 남아 있었다
 	_title.visible = false
+	Sfx.music("prep")
 	close_sheet()
 	go("draw")
 

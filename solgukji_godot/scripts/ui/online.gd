@@ -456,6 +456,7 @@ func _on_msg(d: Dictionary) -> void:
 				_hide_lobby()
 				gs.close_sheet()
 				gs._title.visible = false
+				Sfx.music("prep")
 				gs.go("draw")
 				_maybe_ask_alone()
 				if dev_auto:
@@ -730,6 +731,7 @@ func watch_next() -> void:
 # ───────── 대기실 ─────────
 
 func _show_lobby() -> void:
+	Sfx.music("title")
 	_hide_lobby()
 	lobby = ColorRect.new()
 	lobby.color = DB.PAL.ink
@@ -1177,6 +1179,7 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	stage = stage.trim_suffix("+watch")
 	in_game = true
 	gs._title.visible = false
+	Sfx.music("prep")
 	var n_max := clampi(dev_max, 4, 8)
 	var seats := [{"name": net.player, "human": true, "online": true, "ready": false, "dead": false, "pv": run.my_pv(), "foe": "", "hp": run.hp, "key": Room.key_cards(run)},
 		{"name": "장수214", "human": true, "online": true, "ready": true, "dead": false, "pv": 0, "foe": "", "hp": 72, "key": _dev_key([8, 7, 7, 6, 5, 5])},

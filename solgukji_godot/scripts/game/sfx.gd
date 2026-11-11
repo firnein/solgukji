@@ -1,7 +1,7 @@
 extends Node
 ## 소리 (autoload Sfx) —— 효과음 · 배경 음악. 소리 파일은 tools/scripts/make_sfx.py 로 합성했다 (assets/sfx, assets/bgm).
 ## 효과음: Sfx.play("hit") —— 같은 소리가 너무 잦으면(gap 초 안) 건너뛰고, 높이를 조금씩 흔들어 단조롭지 않게.
-## 배경 음악: Sfx.music("battle") / Sfx.music("") 끄기 —— 바뀔 때 0.6초 동안 엇갈려 넘어간다.
+## 배경 음악: Sfx.music("battle") 처럼 장면 이름으로 —— 바뀔 때 0.6초 동안 엇갈려 넘어간다.
 ## 버스 Music · SFX 를 만들어 Settings.bgm_vol · sfx_vol 로 크기를 맞춘다.
 
 const SFX_NAMES := ["tap", "open", "draw", "gain", "forge", "deny", "hit", "crit", "magic", "skill", "ult", "rout",
@@ -21,6 +21,9 @@ var _last := {}
 var _bgm_a: AudioStreamPlayer
 var _bgm_b: AudioStreamPlayer
 var _bgm_name := ""
+var _bgm_last := ""      # 바로 전에 튼 곡 경로
+var _resume := ""        # win · lose 가 끝나면 돌아갈 장면
+var _bgm_rng := RandomNumberGenerator.new()      # 곡 고르기 전용 —— 전투 판정 RNG 가 아니다
 
 
 func _ready() -> void:
@@ -50,6 +53,7 @@ func _ready() -> void:
 	for p in [_bgm_a, _bgm_b]:
 		p.bus = "Music"
 		add_child(p)
+	_bgm_rng.randomize()
 	Settings.load_cfg()
 	apply_volume()
 
@@ -88,10 +92,51 @@ func play(n: String, vol_db := 0.0, pitch_var := 0.06) -> void:
 	best.play()
 
 
-## 배경 음악 —— 같은 곡이면 그대로, "" 이면 끈다
+## 배경 음악 —— 장면 이름으로 부른다: "title"(제목 · 온라인 대기실) · "prep"(준비) · "battle"(토벌 · 대전) · "final"(토너먼트 결승) · "" 끄기.
+## assets/bgm/<장면>_<번호>.ogg 중 하나를 고른다 (바로 전에 튼 곡은 피한다). 이미 그 장면이면 그대로. "menu" 는 "prep" 로 본다.
+## "win" · "lose" 는 짧은 마무리 —— 한 번 틀고 끝나면 부르기 전 장면의 곡으로 돌아간다. 고르기는 소리 전용 RNG (전투 판정 RNG 와 무관).
 func music(n: String) -> void:
-	if not ENABLED or n == _bgm_name:
+	if not ENABLED:
 		return
+	if n == "menu":
+		n = "prep"
+	if n == _bgm_name:
+		return
+	if n == "win" or n == "lose":
+		if _bgm_name != "win" and _bgm_name != "lose":
+			_resume = _bgm_name
+		_play_bgm(n, _bgm_path(n), false)
+		return
+	_resume = ""
+	if n == "":
+		_play_bgm("", "", true)
+		return
+	var tracks := bgm_tracks(n)
+	if tracks.is_empty():
+		_play_bgm(n, "", true)
+		return
+	var pool := tracks.filter(func(t): return t != _bgm_last)
+	if pool.is_empty():
+		pool = tracks
+	_play_bgm(n, pool[_bgm_rng.randi() % pool.size()], true)
+
+
+## 그 장면의 곡 경로들 (assets/bgm/<장면>_<번호>.ogg)
+func bgm_tracks(scene: String) -> Array:
+	var out := []
+	for i in range(1, 10):
+		var path := "res://assets/bgm/%s_%d.ogg" % [scene, i]
+		if ResourceLoader.exists(path):
+			out.append(path)
+	return out
+
+
+func _bgm_path(n: String) -> String:
+	var path := "res://assets/bgm/%s.ogg" % n
+	return path if ResourceLoader.exists(path) else ""
+
+
+func _play_bgm(n: String, path: String, loop: bool) -> void:
 	_bgm_name = n
 	var old := _bgm_a if _bgm_a.playing else _bgm_b
 	var nw := _bgm_b if old == _bgm_a else _bgm_a
@@ -99,23 +144,30 @@ func music(n: String) -> void:
 		var tw := create_tween()
 		tw.tween_property(old, "volume_db", -40.0, 0.6)
 		tw.tween_callback(old.stop)
-	if n == "":
+	if path == "":
 		return
-	var st = null
-	for ext in ["ogg", "wav"]:
-		if ResourceLoader.exists("res://assets/bgm/%s.%s" % [n, ext]):
-			st = load("res://assets/bgm/%s.%s" % [n, ext])
-			break
+	var st = load(path)
 	if st == null:
 		return
 	if st is AudioStreamOggVorbis:
-		st.loop = true
-	elif st is AudioStreamWAV:
-		st.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		st.loop_begin = 0
-		st.loop_end = int(st.get_length() * st.mix_rate)
+		st.loop = loop
+	if loop:
+		_bgm_last = path
+	for p in [_bgm_a, _bgm_b]:
+		if p.finished.is_connected(_on_jingle_done):
+			p.finished.disconnect(_on_jingle_done)
 	nw.stream = st
 	nw.volume_db = -40.0
 	nw.play()
+	if not loop:
+		nw.finished.connect(_on_jingle_done, CONNECT_ONE_SHOT)
 	var tw2 := create_tween()
 	tw2.tween_property(nw, "volume_db", -13.0, 0.6)      # 10/31 오케스트라 곡은 효과음 밑에 깔리게
+
+
+func _on_jingle_done() -> void:
+	if _bgm_name == "win" or _bgm_name == "lose":
+		var back := _resume
+		_resume = ""
+		_bgm_name = "~"      # 같은 이름 건너뛰기 방지
+		music(back)
