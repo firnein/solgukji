@@ -89,10 +89,13 @@ static func member_tile(p: String, ctx: Dictionary, on_card: Callable) -> MiniTi
 	var k := own if own != "" else DB.inyeon_card_of_person(p, false)
 	var t := MiniTile.new().setup(k, -1)
 	t.custom_minimum_size = TILE
+	t.short_name = true
 	var me: bool = ctx.get("me", "") == p
 	var in_deck: bool = ctx.get("deck", {}).has(p)
 	t.lit = me or in_deck
 	t.dim = own == "" and not me
+	if t.dim:
+		t.modulate = Color(1, 1, 1, 0.6)
 	if ctx.get("pins", {}).has(p):
 		t.set_pin(true, false)
 	if ctx.get("hand", false) and own != "" and not in_deck:

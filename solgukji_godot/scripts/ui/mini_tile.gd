@@ -15,6 +15,7 @@ var up := false             # 오른쪽 위 ▲ —— 지금 조합 가능한 �
 var dim := false            # 흐리게 (없는 카드)
 var _press := Vector2.INF
 var drag_data = null        # 있으면 길게 눌러(0.35초) 끌 수 있다 (편성 손패, 11/4)
+var short_name := false     # 11/11 인연 타일 —— 이름 줄에 칭호 없이 인물 이름만 (60폭에 '난세간웅 조조' 가 잘렸다)
 var mark := ""              # "sel" —— 고른 카드 (금테)
 var star := false           # 11/7 갈무리 표시 —— 12시 방향 노란 ★ (갈무리한 장수 · 그 재료)
 var ring := false           # 11/7 갈무리 표시 —— 테두리가 빠르게 깜빡이는 금빛 하이라이트 (아직 더 모아야 하는 재료)
@@ -163,7 +164,7 @@ func _draw() -> void:
 	_tag_icon(c, pr.end - Vector2(10, 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼
 	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 2, pr.end.y - 15), 10)      # 11/9 대표 역할 칩
 	var fd := DB.tier_font(c.tier, 13)
-	var nm: String = c.name
+	var nm: String = DB.person(k) if short_name and c.tier > 2 else c.name
 	var fs := 13
 	while fs > 9 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 6:
 		fs -= 1

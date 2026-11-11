@@ -7,7 +7,11 @@ extends RefCounted
 ## 놓는 법 셋: ① 손패 카드를 길게 눌러 칸으로 끈다 ② 손패 카드를 눌러 고르고 칸을 누른다
 ## ③ 칸을 눌러 목록에서 고른다. 칸을 길게 눌러 다른 칸으로 끌면 자리를 바꾸고, 아래 목록으로 끌면 내린다.
 
+const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 표시 공용
+
 var gs: GameScreen
+var _links: Array = []        # 11/11 지금 편성판에서 이어진 인연 (DB.inyeon_links) —— build 때마다 다시 센다
+var _link_n := {}             # 인물 -> 그 인물이 든 이어진 인연 수 (칸 모서리 표시의 숫자)
 var sel := ""                 # 손패에서 고른 카드 (칸을 누르면 그 자리에 놓는다)
 var seg := ""                 # 아래 나눔 탭 —— hand · item. "" = 닫힘 (11/5 사용자: 기본 닫힌 채, 누르면 열림)
 const LOWER_H := 168.0        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
@@ -20,6 +24,11 @@ var _page_scroll := -1        # 탭을 연 채 페이지 세로 스크롤 ——
 func build() -> Control:
 	var run: Run = gs.run
 	var f: Dictionary = DB.FORM[run.form]
+	_links = DB.inyeon_links(run.board)
+	_link_n = {}
+	for l in _links:
+		for p in l["in"]:
+			_link_n[p] = int(_link_n.get(p, 0)) + 1
 	# 11/7 사용자: 페이지 전체가 세로 스크롤 상자 —— 닫힌 때는 꼭 맞아 스크롤이 없고, 열리면 아래 칸만큼 넘친다 (편성판 높이는 아래 fit 이 고정)
 	var root := PageScroll.new()
 	root.want = _page_scroll
@@ -67,7 +76,10 @@ func build() -> Control:
 	var hl := UI.vbox(0)
 	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# 11/9 사용자: 진형 우대 삭제 —— 머리는 진형 이름만 (예전 '창병 · 유생 방어 +14%' 효과 줄과 「비늘이 서로를 가린다」 설명 줄 삭제)
-	hl.add_child(UI.lbl(f.n, 17, DB.PAL.paper, true))
+	var fnr := UI.hbox(10)
+	fnr.add_child(UI.lbl(f.n, 17, DB.PAL.paper, true))
+	fnr.add_child(_inyeon_chip())      # 11/11 인연 —— 진형 이름 옆 칩 (이어진 수 · 누르면 시트)
+	hl.add_child(fnr)
 	hd.add_child(hl)
 	var ab := UI.btn("자동 편성", func():
 		sel = ""
@@ -186,6 +198,101 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 		hv.add_child(row)
 	if keys.is_empty():
 		hv.add_child(UI.hint("보유한 카드가 없다 — 모두 편성했다."))
+
+
+# ───────── 인연 (11/11) ─────────
+
+## 칸 i 의 카드가 든 이어진 인연 수 (0 = 없음)
+func slot_link_lv(i: int) -> int:
+	var k = gs.run.board[i]
+	if k == null or not DB.inyeon_card(k):
+		return 0
+	return int(_link_n.get(DB.person(k), 0))
+
+
+## 진형 이름 옆 칩 —— 기호 + '인연' (+ 이어진 인연 수). 이어진 게 없으면 옅게. 누르면 인연 시트
+func _inyeon_chip() -> Control:
+	var P := DB.PAL
+	var n := _links.size()
+	var on := n > 0
+	var b := Button.new()
+	b.text = "인연 %d" % n if on else "인연"
+	b.custom_minimum_size = Vector2(0, 28)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.add_theme_font_size_override("font_size", 13)
+	var fc: Color = P.yeon.lightened(0.3) if on else P.bamboo_dim
+	for cn in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
+		b.add_theme_color_override(cn, fc)
+	var sb := UI.flat(Color(P.yeon, 0.16) if on else P.ink2, Color(P.yeon, 0.9) if on else P.ink4, 1, UI.R, 0)
+	sb.content_margin_left = 27      # 왼쪽에 기호 자리
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	var ic := Icons.View.new("link", fc, 16)
+	ic.position = Vector2(8, 6)
+	b.add_child(ic)
+	b.pressed.connect(func():
+		UI.buzz()
+		inyeon_sheet())
+	return b
+
+
+## 인연 시트 —— 이어진 인연마다 한 장: 이름 · 합동 인원(n/3) + 구성원 타일(편성한 장수 금테 · 손패에 있는 장수 '손패' · 없는 장수 어둡게).
+## 그 아래 '이어질 인연' —— 한 명만 편성돼 있고 손패에 짝이 있는 인연 (손패 장수를 편성하면 이어진다). 맨 밑에 규칙 한 줄
+func inyeon_sheet() -> void:
+	var run: Run = gs.run
+	var P := DB.PAL
+	var b := gs.open_sheet("인연", P.yeon.lightened(0.15))
+	var ctx := {"own": InyeonUI.owned_map(run, true), "deck": InyeonUI.deck_map(run.board), "pins": InyeonUI.pinned_map(gs.forge_tree.pins), "hand": true}
+	var on_card := func(k: String): gs.card_info(k)
+	var rows := _links.duplicate()
+	rows.sort_custom(func(x, y): return x["in"].size() > y["in"].size())      # 많이 이어진 인연부터 (같으면 json 순서 그대로)
+	for l in rows:
+		b.add_child(_inyeon_block(l["n"], l["in"].size(), ctx, on_card))
+	# 이어질 인연 —— 덱에 한 명, 손패에 짝(들)
+	var near := []
+	var dk: Dictionary = ctx.deck
+	var own: Dictionary = ctx.own
+	for nm in DB.INYEON:
+		var inn := 0
+		var hand := 0
+		for p in DB.inyeon_members(nm):
+			if dk.has(p):
+				inn += 1
+			elif own.has(p):
+				hand += 1
+		if inn == 1 and hand > 0:
+			near.append([nm, hand])
+	near.sort_custom(func(x, y): return x[1] > y[1])
+	if not near.is_empty():
+		b.add_child(UI.eyebrow("이어질 인연"))
+		for e in near.slice(0, 4):
+			b.add_child(_inyeon_block(e[0], 1, ctx, on_card))
+	if rows.is_empty() and near.is_empty():
+		b.add_child(UI.hint("편성한 장수 중 같은 인연이 둘 이상이면 여기에 나온다."))
+	var rh := InyeonUI.rule_hint()
+	b.add_child(rh)
+
+
+## 인연 한 장 —— 머리(이름 · n/3) + 구성원 줄
+func _inyeon_block(nm: String, n: int, ctx: Dictionary, on_card: Callable) -> Control:
+	var P := DB.PAL
+	var v := UI.vbox(8)
+	var hd := UI.hbox(8)
+	var ic := Icons.View.new("link", P.yeon, 18)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(ic)
+	var nl := UI.lbl(nm, 16, P.yeon.lightened(0.25), true)
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hd.add_child(nl)
+	var lv := mini(n, DB.INYEON_MAX)
+	var cl := UI.lbl("%d/%d" % [lv, DB.INYEON_MAX], 15, P.gold if lv >= DB.INYEON_MAX else P.bamboo, true)
+	hd.add_child(cl)
+	v.add_child(hd)
+	v.add_child(InyeonUI.members_row(nm, ctx, on_card))
+	return UI.panel(v, 10)
 
 
 func hand_tap(k: String) -> void:
@@ -433,7 +540,10 @@ class SlotBox extends Control:
 			else:
 				if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14:
 					UI.buzz()
-					page.tap_slot(slot)
+					if page.slot_link_lv(slot) > 0 and _yeon_rect().grow(6).has_point(e.position):      # 11/11 인연 표시를 누르면 인연 시트
+						page.inyeon_sheet()
+					else:
+						page.tap_slot(slot)
 				_press = Vector2.INF
 		elif e is InputEventMouseMotion and _press != Vector2.INF and e.position.distance_to(_press) >= 14:
 			_press = Vector2.INF        # 길게 누르기 전에 움직였다 —— 탭도 끌기도 아니다
@@ -458,6 +568,20 @@ class SlotBox extends Control:
 		holder.add_child(pv)
 		pv.position = -CardTile.SIZE / 2
 		force_drag({"card": k, "from": slot}, holder)
+
+	## 11/11 인연 표시 자리 —— 칸 오른쪽 위 (초상 모서리)
+	func _yeon_rect() -> Rect2:
+		return Rect2(size.x - 31.0, 3.0, 28.0, 16.0)
+
+	## 이어진 인연이 있는 카드에 작은 표시 —— 맞물린 고리 + 그 카드가 든 이어진 인연 수
+	func _draw_yeon(lv: int) -> void:
+		if lv <= 0:
+			return
+		var r := _yeon_rect()
+		var sb := UI.flat(Color(DB.PAL.yeon, 0.96), Color(0, 0, 0, 0), 0, UI.R, 0)
+		draw_style_box(sb, r)
+		Icons.draw(self, "link", r.position + Vector2(9, 8), 13, Color("#2A1018"))
+		draw_string(DB.font_bold, r.position + Vector2(15, 12.5), str(lv), HORIZONTAL_ALIGNMENT_LEFT, 11, 12, Color("#2A1018"))
 
 	func _can_drop_data(_p: Vector2, data) -> bool:
 		return slot >= 0 and data is Dictionary and data.has("card")
@@ -496,6 +620,7 @@ class SlotBox extends Control:
 		var c: Dictionary = DB.C[k]
 		if size.x < 120:      # 11/6 5열 —— 좁은 칸: 초상 / 이름 / 병종 · 병력 / 아이템 / 진형 버프
 			_draw_narrow(k, c, z, run)
+			_draw_yeon(page.slot_link_lv(slot))
 			return
 		# 11/5 사용자: 칸을 크게 —— [초상] 이름 / 병종 / 병력, 그 아래 아이템(가운데)
 		var ith := 15.0                             # 아이템 줄
@@ -517,6 +642,7 @@ class SlotBox extends Control:
 		var it = run.item_of_slot(slot)
 		var itxt: String = "빈 슬롯" if it == null else DB.IT[it].name + (" 🔒" if Run.innate_item(k) != null else "")
 		draw_string(fb, Vector2(4, size.y - 6), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, 11, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		_draw_yeon(page.slot_link_lv(slot))
 
 
 	func _draw_narrow(k: String, c: Dictionary, z: String, run: Run) -> void:

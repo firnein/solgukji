@@ -1290,7 +1290,7 @@ func inyeon_members(nm: String) -> Array:
 ## 같은 인물은 한 번만 센다. 한 번에 합동하는 최대 인원은 INYEON_MAX
 const INYEON_MAX := 3
 ## 인연 규칙 한 줄 설명 (11/11 사용자) —— 디테일창 인연 줄 · 편성 인연 시트가 같이 쓴다. 5명 인연도 3명씩 나뉘어 발동한다 (덱이 정형화되지 않게 일부러 제한)
-const INYEON_RULE := "고유기 기가 찬 장수가 발동할 때 같은 인연에서 기가 가득 찬 장수가 함께 발동한다 · 한 번에 최대 3명"
+const INYEON_RULE := "고유기 게이지가 찬 같은 인연 장수가 함께 발동한다 · 최대 3명"
 func inyeon_links(deck: Array) -> Array:
 	var ps := {}
 	for k in deck:
