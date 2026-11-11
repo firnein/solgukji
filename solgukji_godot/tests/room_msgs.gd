@@ -20,8 +20,8 @@ func _ready() -> void:
 	if inf.get("quick", []) != Room.QUICK_MSGS:
 		fails.append("room.quick 없음")
 	r.start()
-	if not r.info(0).seats[0].has("hp") or r.info(0).seats[1].has("hp"):
-		fails.append("hp 는 내 자리에만")
+	if not r.info(0).seats[0].has("hp") or not r.info(0).seats[1].has("hp"):      # 11/11 사용자: 다른 사람의 민심도 기록 탭에 보인다 (tests/online_info 가 자세히)
+		fails.append("hp 는 사람 자리마다")
 	# 11/10 긴급 등용 —— 기인 이상(기인 · 초월 · 불멸 · 신화)만 hot, 전설(5, 기인 아님) 이하는 아님. 본인에게는 안 간다. 소식에 id · when
 	for kv in [["K12", true], ["c127", true], ["L12", true], ["c177", true], ["c150", true], ["c140", true], ["c3", false]]:
 		if DB.C.has(kv[0]) and Room.is_urgent_unit(kv[0]) != kv[1]:

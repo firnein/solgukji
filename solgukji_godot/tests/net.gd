@@ -21,6 +21,7 @@ var human_names := []
 var norec := 0               # 기록에 동의하지 않은 가짜 클라이언트 수 (마지막 사람들)
 var t0 := 0.0
 var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 기준)
+var info_rows := 0            # 확인한 사람 자리 줄 수 (hp · key, 11/11)
 
 
 func _ready() -> void:
@@ -91,6 +92,21 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 					if f.has("pv"):
 						errors.append("%s: 상대 정보에 PV 가 실려 있다" % b.name)
 					foe_log[b.name][int(rm.day_no)] = str(f.name)
+			# 11/11 기록 탭 —— 사람 자리마다 hp · key(기초불신 id 만), 봇에는 없다, 그 밖의 키는 허용 목록 안에서만 (실제 WebSocket 으로 온 줄)
+			for sr in rm.seats:
+				for sk in sr:
+					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key"]):
+						errors.append("%s: 자리 줄에 허용되지 않은 키 %s" % [b.name, sk])
+				if bool(sr.human):
+					if not (sr.has("hp") and sr.has("key")):
+						errors.append("%s: 사람 자리 줄에 hp · key 가 없다" % b.name)
+					else:
+						info_rows += 1
+						for kc in sr.key:
+							if not Room.is_urgent_unit(str(kc)):
+								errors.append("%s: key 에 기초불신이 아닌 카드 %s" % [b.name, kc])
+				elif sr.has("hp") or sr.has("key"):
+					errors.append("%s: 봇 자리 줄에 hp · key 가 있다" % b.name)
 			if rm.get("alone", "") == "ask":
 				c.send({"t": "alone", "go": true})
 			if run.over != null and not b.done:
@@ -207,6 +223,7 @@ func _report(el: float, all_done: bool) -> void:
 	print("서버 점검 %.1f초 · 모두 끝 %s · 사람끼리 대전 %d건(양쪽 집계) · 재접속 %s · 오류 %d" % [el, all_done, pairs,
 		bots.size() > 1 and bots[1].back, errors.size()])
 	print("  단계 횟수(첫 플레이어): %s" % str(stage_count))
+	print("  사람 자리 줄 %d개 확인 (hp · key 있음 · 기초불신 id 만 · 봇 줄에는 없음)" % info_rows)
 	print("  저녁 상대 %d건 중 사람 %d건 · 같은 바퀴 안에서 같은 상대를 두 번 만난 건수 %d" % [seen_n, hh, repeat])
 	print("  가장 큰 메시지 %.0f KB" % (server.max_msg / 1024.0))
 	for e in errors.slice(0, 10):
