@@ -85,7 +85,7 @@ func _ready() -> void:
 	var persons := {}
 	for k in DB.C:
 		persons[DB.person(k)] = true
-	_ok(DB.INYEON.size() == 48, "인연 수 48 (지금 %d)" % DB.INYEON.size())
+	_ok(DB.INYEON.size() == 51, "인연 수 51 (지금 %d)" % DB.INYEON.size())
 	for n in DB.INYEON:
 		var ps: Array = DB.INYEON[n]
 		_ok(ps.size() >= 4 and ps.size() <= 5, "%s: 인원 %d (4~5)" % [n, ps.size()])

@@ -2,7 +2,7 @@ extends Control
 ## 인연 합동 고유기 연출 캡처 (11/11) —— 실행 (창이 뜬다 · 휴대폰 세로 719x1280):
 ##   godot --path . --resolution 719x1280 --position 495,1500 res://tests/inyeon_cut_shot.tscn -- [--out=폴더] [--seed=5] [--who=유비,관우,장비] [--full=유비,관우,장비]
 ## tests/inyeon.gd 의 Forced 엔진으로 정한 인물의 게이지를 처음부터 채워 한 판을 돌린 뒤, 그 결과를 BattleView(타입2)로 틀고
-## ① 합류 줄이 둘 다 보일 때 ② 컷인(짝 초상 · 인연 글)이 자리 잡았을 때 ③ 컷인이 미끄러져 들어올 때 화면을 저장한다 (inyeon_1_join / _2_cut / _3_slide .png).
+## 합류 칩 · 컷인(대표 → 짝 A → 짝 B → 슉) 순서대로 화면을 저장한다 (inyeon_1_chip_a / _2_chip_ab / _3_lead / _4_a_dash / _5_a_land_b_dash / _6_both / _7_surge .png).
 
 var _args := {}
 
@@ -39,27 +39,35 @@ func _ready() -> void:
 	view.play_res(r, "pvp", {"a": ca, "fa": "eorin", "ma": 100, "ea": null, "b": cb, "fb": "hagik", "mb": 100, "eb": null, "seed": sd,
 		"title": "인연 점검", "foe": "적군", "policy": {"A": "auto", "B": "auto"}})
 	var out := str(_args.get("out", "user://"))
-	var got := [false, false, false]
+	# 11/11 연출 순서 캡처 —— 기 모으는 중 합류 칩(A 칩 · A+B 칩) → 컷인(대표 · 짝 A 날아듦 · 짝 B 날아듦 · 둘 다 선 뒤 · 슉)
+	# 컷인 시각(cut.t)은 실시간 초. 합류 칩은 합류 줄 시계(전장 시계) 기준
+	var cut_at := [["3_lead", 0.30], ["4_a_dash", 0.50], ["5_a_land_b_dash", 0.72], ["6_both", 1.05], ["7_surge", 1.55]]
+	var got := {}
 	var t_end := Time.get_ticks_msec() + 90000
-	while Time.get_ticks_msec() < t_end and not (got[0] and got[1] and got[2]):
+	while Time.get_ticks_msec() < t_end and got.size() < 8:
 		await get_tree().process_frame
-		var nj := 0
+		var jt := []
 		for k in view.hud.charges:
 			if str(view.hud.charges[k].get("inyeon", "")) != "":
-				nj += 1
+				jt.append(view.clock - float(view.hud.charges[k].t0))
 		var cut = view.hud.cut
-		if not got[0] and nj >= 2:
-			await get_tree().create_timer(0.35).timeout
+		var shot := ""
+		if cut != null and not cut.mates.is_empty():
+			for e in cut_at:
+				if not got.has(e[0]) and cut.t >= e[1]:
+					shot = e[0]
+					break
+		elif cut == null:
+			if not got.has("0_chip_dash") and jt.size() == 1 and jt[0] >= 0.13:
+				shot = "0_chip_dash"
+			elif not got.has("1_chip_a") and jt.size() == 1 and jt[0] >= 0.42:
+				shot = "1_chip_a"
+			elif not got.has("2_chip_ab") and jt.size() >= 2 and jt[jt.size() - 1] >= 0.38:
+				shot = "2_chip_ab"
+		if shot != "":
 			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("%s/inyeon_1_join.png" % out)
-			got[0] = true
-		elif not got[2] and cut != null and not cut.mates.is_empty() and cut.t >= 0.2 and cut.t < 0.5:
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("%s/inyeon_3_slide.png" % out)
-			got[2] = true
-		elif not got[1] and cut != null and not cut.mates.is_empty() and cut.t >= 0.75:
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png("%s/inyeon_2_cut.png" % out)
-			got[1] = true
-	print("캡처 %s" % str(got))
+			get_viewport().get_texture().get_image().save_png("%s/inyeon_%s.png" % [out, shot])
+			got[shot] = true
+			print("캡처 ", shot, " cut.t=", cut.t if cut != null else -1.0)
+	print("캡처 %s" % str(got.keys()))
 	get_tree().quit()
