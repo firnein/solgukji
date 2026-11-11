@@ -27,6 +27,8 @@ static var perf_hud := false   # 성능 표시 —— 전투 왼쪽 위에 fps �
 static var tac_info := 1       # 타입2 전황 표시 —— 0 끔 · 1 간단(진형 소개 · 책략 실) · 2 자세히(+ 사거리 · 전술 화살표). 11/6
 ## 11/9 사용자: 3D 전장(기본 3D · 수묵)은 점검하지 않으므로 설정에서 숨기고 늘 타입2 로 시작한다. 되살리려면 true —— 선택칸이 다시 보이고 저장된 값을 지킨다 (코드 · 점검 인자 --gtype2 · --gsumuk 는 그대로)
 const SHOW_3D := false
+static var coach_done := false   # 11/9 첫 판 안내(말풍선 4단계)를 끝냈거나 건너뛰었다 —— 한 번만
+static var coach_forge := false  # 11/9 '조합할 수 있다' 한 줄 안내를 보였다
 static var _loaded := false
 
 
@@ -41,6 +43,8 @@ static func load_cfg() -> void:
 		haptics = bool(cf.get_value("play", "haptics", true))
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
 		bgm_vol = float(cf.get_value("sound", "bgm", 0.5))
+		coach_done = bool(cf.get_value("play", "coach_done", false))
+		coach_forge = bool(cf.get_value("play", "coach_forge", false))
 		sumuk = bool(cf.get_value("gfx", "sumuk", false))
 		type2 = bool(cf.get_value("gfx", "type2", true))
 		if not cf.has_section_key("gfx", "type2_default"):      # 11/6 한 번은 타입2로 옮긴다 (예전 저장값이 3D 여도). 그 뒤 고른 값은 지킨다
@@ -63,6 +67,8 @@ static func save_cfg() -> void:
 	cf.set_value("gfx", "quality", quality)
 	cf.set_value("play", "direct", direct)
 	cf.set_value("play", "haptics", haptics)
+	cf.set_value("play", "coach_done", coach_done)
+	cf.set_value("play", "coach_forge", coach_forge)
 	cf.set_value("sound", "sfx", sfx_vol)
 	cf.set_value("sound", "bgm", bgm_vol)
 	cf.set_value("gfx", "sumuk", sumuk)
