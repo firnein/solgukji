@@ -1,14 +1,15 @@
 {
-  "note": "온라인 대전 서버 목록 —— 접속 시트의 콤보에 이 순서대로 나온다 (맨 끝에 「직접 입력…」). Dev 는 집 PC 서버: build_apk.bat 이 부르는 tools/scripts/release.py 가 빌드할 때 이 PC 의 LAN IPv4 로 주소를 고친다. 11/9: Dev 는 사용자가 원격으로 켠 집 PC 서버(192.168.55.149) —— lock 이 true 면 release.py 가 주소를 건드리지 않는다 (빌드하는 PC 가 달라도 안 바뀐다). 'Dev 밖(고정)' 은 집 PC 서버를 Tailscale Funnel(funnel.bat, 11/11)로 연 고정 주소 —— 바뀌지 않는다. 집 PC 와 server.bat 이 켜져 있어야 한다.",
+  "note": "온라인 대전 서버 목록 —— 접속 시트의 콤보에 이 순서대로, 처음엔 맨 앞이 골라진다 (맨 끝에 「직접 입력…」). 11/12 사용자: 기본은 'Dev' = 집 PC 서버를 Tailscale Funnel(funnel.bat)로 연 고정 주소. 'Dev 와이파이' 는 같은 집 와이파이에서 쓰는 LAN 주소. 둘 다 lock 이라 release.py 가 주소를 건드리지 않는다. 집 PC 와 server.bat 이 켜져 있어야 한다.",
   "servers": [
     {
       "name": "Dev",
-      "url": "ws://192.168.55.149:7777",
+      "url": "wss://node.tailc534c1.ts.net",
       "lock": true
     },
     {
-      "name": "Dev 밖(고정)",
-      "url": "wss://node.tailc534c1.ts.net"
+      "name": "Dev 와이파이",
+      "url": "ws://192.168.55.149:7777",
+      "lock": true
     }
   ]
 }
