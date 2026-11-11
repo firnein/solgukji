@@ -2,6 +2,20 @@
  "_설명": "버전 · 업데이트 내역의 원본. 맨 앞 항목이 지금 빌드 버전. 새 빌드 전에 항목을 맨 앞에 추가(python tools/scripts/release.py --next '제목')하고 items 를 채운다. release.py 가 export_presets.cfg 의 version/name · version/code 와 docs/업데이트_내역.html 을 여기서 만든다. code 는 항상 1씩 커져야 한다 (안드로이드 설치 갱신 조건).",
  "versions": [
   {
+   "ver": "1.0k",
+   "code": 12,
+   "date": "2026-11-11",
+   "title": "서버 고정 주소",
+   "groups": [
+    {
+     "n": "온라인",
+     "items": [
+      "서버 목록 「Dev 밖(고정)」 —— 집 PC 서버를 고정 주소(wss://node.tailc534c1.ts.net)로 연결. 아이피가 바뀌어도 그대로 접속된다"
+     ]
+    }
+   ]
+  },
+  {
    "ver": "1.0j",
    "code": 11,
    "date": "2026-11-11",
