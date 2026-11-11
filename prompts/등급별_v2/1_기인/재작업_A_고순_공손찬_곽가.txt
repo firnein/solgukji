@@ -1,0 +1,81 @@
+A sheet of 3 Three Kingdoms (late Han dynasty China) characters. Calm flat SD role-card illustrations for a mobile card game (the KIIN cards: one irreplaceable role per card).
+
+REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: KIIN —— the ROLE card (jade).
+A KIIN card is an irreplaceable ROLE, not a legend: the picture shows what this person is FOR. The two things to read at thumbnail size are
+the ROLE PROP in the middle of the picture and the one bright jade accent. Everything else is calm, tidy and flat.
+
+RANK RULES (checklist —— every panel must obey all of these):
+- CAMERA AND POSE: eye-level, front view or a slight 3/4 turn, HIPS-UP half body, perfectly stable, no motion. The head is top-center, the
+  ROLE PROP is the second biggest shape: held at chest height in the center of the picture, large and readable at a glance.
+- PROPORTIONS AND LINE: the same chibi family as the reference (about 3 heads tall), clean dark-brown ink outlines, flat soft colors with
+  simple two-tone cel shading —— a slightly more polished version of the reference, not more detailed.
+- OUTFIT: exactly the base outfit (practical cloth and simple armor, NO gold and NO silver ornaments, no cape unless the base design has one)
+  PLUS the jade accent: a jade-green (#2ee6c0) cord, tassel, ribbon or pendant on the outfit, and the key part of the ROLE PROP tinted jade.
+- LIGHT: flat, even, soft; low contrast; no rim light, no glow, only a soft contact shadow.
+- COLOR: the person's own colors on a muted DUSTY TEAL-GREY background (#5f8a8c). Jade #2ee6c0 is the ONLY bright accent in the picture.
+- BACKGROUND: flat dusty teal-grey with a very soft vignette, plus ONE thin flat jade ring (a seal-like circle about 70% of the panel width,
+  thin line, centered behind the head and shoulders) that stays completely inside the panel and never touches its edge.
+  No scenery, no crowd, no banners.
+- EFFECTS: none, except small jade shards, ripples or sparks that belong to the ROLE PROP (see each ROLE line).
+- EXPRESSION: calm, professional, focused on the job.
+- NEVER: gold or silver trim, dramatic light, scenery, armies, fire or lightning, a tilted dynamic pose, a close-up face.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
+- Nothing important within 12% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN. Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; young men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft baby face.
+
+REDRAW NOTE: a first attempt drew WRONG people (the young strategist became a bearded fighter, the woman became a man, the white-armored rider disappeared). Panel k MUST be exactly the character numbered k in the attached reference image. The most important identity points (override anything vague above):
+- Panel 1 — Gao Shun: a stern bearded general in a dark iron helmet with a RED plume, holding a tall spear and a LARGE rectangular iron shield (the shield is his signature: it must be clearly visible). Heavy red-and-black lamellar armor. NOT a young man, NOT a scholar.
+- Panel 2 — Gongsun Zan: silver-WHITE armor and a silver helmet with a tall WHITE plume, riding a WHITE horse, holding a spear; a lean, stern, thin-mustached commander. The white color scheme is essential.
+- Panel 3 — Guo Jia: a SLIM young SCHOLAR, not a warrior: long messy dark hair, a sly half-smile with half-closed eyes, a loose blue-grey robe, holding a calligraphy BRUSH and a small gourd at the waist. No armor, no helmet, no big beard, no weapon. Looks clever and sickly-thin, not muscular.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 3 columns x 1 rows = 3 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 3 fill the first 3 slots in order.
+- Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Natural proportions: never stretch, squash or shorten a character to fit a panel.
+- Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
+  Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 3) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Gao Shun  [SPEARMAN, Independent] —— same person as reference #1
+   LOOK: late 30s, hard square face, short neat black beard, unsmiling, disciplined.
+   FACE: hard square face, deep vertical frown lines, small stern eyes under heavy straight brows, short neat black beard, tight unsmiling mouth.
+   BUILD: compact and heavy, like a block of iron.
+   SIGNATURE (unique to him on this sheet): HEAD plain round iron helmet with cheek guards; FACIAL HAIR short neat square black beard; MARK tall rectangular iron shield, short halberd.
+   COLORS: his own colors as described (independent): dark iron grey with crimson trims (the army of Lu Bu).
+   ROLE: BULWARK —— takes the hits for the allies. The picture says it with: a big flat guarding shape (a shield or crossed weapons) planted at the front center, an immovable wide stance.
+   POSE AND PROP (the ROLE PROP is the star): a tall rectangular iron shield planted in the center in front of him with a jade-green edge trim, the short halberd levelled over its top edge, a snapped cavalry lance splintered against the shield face —— a gate that cannot be charged through.
+2. Gongsun Zan  [CAVALRY, Independent] —— same person as reference #2
+   LOOK: 30s, lean handsome face, thin mustache, white-plumed helmet.
+   FACE: lean handsome MAN's face with a firm jaw, proud bright eyes, straight nose, thin mustache, confident stern mouth, fair skin, white-plumed helmet.
+   BUILD: tall and lean.
+   SIGNATURE (unique to him on this sheet): HEAD white-plumed helmet; FACIAL HAIR thin mustache; MARK white armor, white horse.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a pure white horse (the White Horse General) —— waist-up rider on a calm standing horse; the horse's head and neck form a quiet base at the bottom (chibi, not rearing).
+   ROLE: ARMOR-BREAKER —— strips the enemy's armor so that allies hit harder. The picture says it with: a weapon tip or a bolt punching through a cracked metal plate, flying metal shards.
+   POSE AND PROP (the ROLE PROP is the star): riding the white horse, his long spear levelled forward and its point has just punched through a round bronze shield, which cracks open with a few jade-tinted shards flying; the horse's head and neck are the calm base at the bottom.
+3. Guo Jia  [STRATEGIST, Wei] —— same person as reference #3
+   LOOK: early 20s, smooth youthful face, clean-shaven.
+   FACE: slender pale young MAN in his early 20s, smooth CLEAN-SHAVEN face (no beard, no stubble), angular sharp jaw, flushed sickly cheeks, sleepy half-lidded smug eyes, thin nose, crooked playful smirk, loose messy hair.
+   BUILD: slender and loose-limbed.
+   SIGNATURE (unique to him on this sheet): HEAD no hat, loose untied hair; FACIAL HAIR clean-shaven, no beard at all; MARK short calligraphy brush in hand, wine gourd, flushed cheeks.
+   COLORS: Wei blue: navy, deep blue and steel with silver.
+   ROLE: WARD-BREAKER —— shatters magic barriers so that stratagems land. The picture says it with: a pale glowing barrier lattice of hexagon tiles cracking at the point of a brush, a finger or a talisman.
+   POSE AND PROP (the ROLE PROP is the star): the short calligraphy brush flicking forward, and a pale-blue octagonal barrier of light hanging in front of him is shattering into hexagon tiles around the brush tip; the loose hair stirring, the wine gourd at his hip.

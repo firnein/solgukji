@@ -1,0 +1,82 @@
+A sheet of 3 Three Kingdoms (late Han dynasty China) characters. Calm flat SD role-card illustrations for a mobile card game (the KIIN cards: one irreplaceable role per card).
+
+REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
+Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
+body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
+Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
+COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+
+RANK: KIIN —— the ROLE card (jade).
+A KIIN card is an irreplaceable ROLE, not a legend: the picture shows what this person is FOR. The two things to read at thumbnail size are
+the ROLE PROP in the middle of the picture and the one bright jade accent. Everything else is calm, tidy and flat.
+
+RANK RULES (checklist —— every panel must obey all of these):
+- CAMERA AND POSE: eye-level, front view or a slight 3/4 turn, HIPS-UP half body, perfectly stable, no motion. The head is top-center, the
+  ROLE PROP is the second biggest shape: held at chest height in the center of the picture, large and readable at a glance.
+- PROPORTIONS AND LINE: the same chibi family as the reference (about 3 heads tall), clean dark-brown ink outlines, flat soft colors with
+  simple two-tone cel shading —— a slightly more polished version of the reference, not more detailed.
+- OUTFIT: exactly the base outfit (practical cloth and simple armor, NO gold and NO silver ornaments, no cape unless the base design has one)
+  PLUS the jade accent: a jade-green (#2ee6c0) cord, tassel, ribbon or pendant on the outfit, and the key part of the ROLE PROP tinted jade.
+- LIGHT: flat, even, soft; low contrast; no rim light, no glow, only a soft contact shadow.
+- COLOR: the person's own colors on a muted DUSTY TEAL-GREY background (#5f8a8c). Jade #2ee6c0 is the ONLY bright accent in the picture.
+- BACKGROUND: flat dusty teal-grey with a very soft vignette, plus ONE thin flat jade ring (a seal-like circle about 70% of the panel width,
+  thin line, centered behind the head and shoulders) that stays completely inside the panel and never touches its edge.
+  No scenery, no crowd, no banners.
+- EFFECTS: none, except small jade shards, ripples or sparks that belong to the ROLE PROP (see each ROLE line).
+- EXPRESSION: calm, professional, focused on the job.
+- NEVER: gold or silver trim, dramatic light, scenery, armies, fire or lightning, a tilted dynamic pose, a close-up face.
+
+GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
+- The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.
+- Nothing important within 12% of the left and right edges or in the bottom 20% (the card cuts those). Plumes and flag tips may rise above the head.
+- The face is always clearly lit and never covered by a hand, a weapon, a fan, hair or an effect.
+
+EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
+follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
+face, body, headwear and weapon, and their own pose within the rank's pose rule —— never clones in different clothes.
+STRATEGISTS AND OFFICIALS ESPECIALLY: never default to "narrow slit eyes + long thin beard + tall black official hat" —— follow each FACE
+and SIGNATURE exactly; their eye shapes (round, droopy, bulging, narrow), beards (none, stubble, goatee, short, long) and headwear must differ.
+GENDER: every character is an adult MAN, except Sun Shangxiang (a woman). Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; no long eyelashes, no blush, no rosy lips, no soft baby face on men.
+
+REDRAW NOTE: a first attempt drew WRONG people (the young strategist became a bearded fighter, the woman became a man, the white-armored rider disappeared). Panel k MUST be exactly the character numbered k in the attached reference image. The most important identity points (override anything vague above):
+- Panel 1 — Sun Shangxiang: a YOUNG WOMAN with two hair buns tied with RED ribbons, a bold teasing smile, holding two short daggers, red-and-black light armor with a red sash. She must read as a woman at a glance; not a bearded man.
+- Panel 2 — Zhang He: a refined commander in a GOLD-and-BLUE helmet with a blue and yellow plume, a thin goatee, gold and blue armor, riding a GREY horse with a spear. Elegant and cunning, not a bulky brute.
+- Panel 3 — Ma Teng: an older Liang (western frontier) warlord in a FUR hat and a fur-trimmed brown coat, a thick GREY beard, weathered face, riding a brown shaggy horse. Not a young warrior, no club or mace.
+
+LAYOUT:
+- Image 1536x1024 landscape. ALWAYS a fixed grid of 3 columns x 1 rows = 3 equal slots, reading order left to right, top to bottom.
+- Characters 1 to 3 fill the first 3 slots in order.
+- Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Natural proportions: never stretch, squash or shorten a character to fit a panel.
+- Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
+  Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
+- Under each panel a dark green brush-stroke banner with ONLY its number (1 to 3) in big white digits.
+- No other text anywhere: no names, no titles, no captions, no signature, no watermark. Do not draw the line labels as text.
+
+CHARACTERS
+1. Sun Shangxiang  [ROGUE, Wu] —— same person as reference #1
+   LOOK: about 20, bold grin, sharp bright eyes, hair in two high buns.
+   FACE: adult young WOMAN with a heart-shaped face, bold toothy grin, sharp lively eyes, straight brows, fearless expression.
+   BUILD: slim athletic woman, light on her feet.
+   SIGNATURE (unique to her on this sheet): HEAD two high hair buns tied with red ribbons; FACIAL HAIR none; MARK two short swords crossed, short red battle robe.
+   COLORS: Wu red: crimson, red, orange and gold.
+   ROLE: STUNNER —— knocks enemies senseless and breaks their rhythm. The picture says it with: a sharp white impact flash with a few small dizzy stars, something has just been knocked or cut.
+   POSE AND PROP (the ROLE PROP is the star): her two short swords crossed in front of her chest, and the pommel of one has just knocked an enemy helmet spinning out of the corner of the picture with a white impact flash and a few small stars; the red ribbons flying.
+2. Zhang He  [CAVALRY, Wei] —— same person as reference #2
+   LOOK: elegant handsome man, refined long face, thin neat mustache.
+   FACE: elegant handsome MAN, refined long face with a clear masculine jaw, sharp elegant eyes, thin straight nose, faint vain smile, thin neat mustache, fair skin, graceful but clearly male.
+   BUILD: slender but broad-shouldered.
+   SIGNATURE (unique to him on this sheet): HEAD helmet split half yellow and half blue; FACIAL HAIR thin neat mustache; MARK armor split yellow and blue, long spear.
+   COLORS: split in two: left half yellow-gold (Yuan Shao), right half Wei blue (Cao Cao).
+   MOUNTED: riding a dapple-grey horse —— waist-up rider on a calm standing horse; the horse's head and neck form a quiet base at the bottom (chibi, not rearing).
+   ROLE: SLOWER —— floods the field and slows the enemy. The picture says it with: water: ripple rings and curling currents around the prop, droplets hanging motionless in the air.
+   POSE AND PROP (the ROLE PROP is the star): riding the dapple-grey horse through rising floodwater, blue ripple rings and curling currents around the horse's legs and the lower part of the picture, the long spear held upright; the armor split yellow and blue.
+3. Ma Teng  [CAVALRY, Independent] —— same person as reference #3
+   LOOK: 50s, big bushy grey beard, weathered sun-browned skin, fur Qiang hat, warm eyes.
+   FACE: big weathered MAN's face, warm deep-set eyes in sun wrinkles, broad nose, big bushy grey beard, sun-browned skin, fur Qiang hat, fatherly frontier lord.
+   BUILD: big, broad old man.
+   SIGNATURE (unique to him on this sheet): HEAD fur Qiang hat; FACIAL HAIR big bushy grey beard; MARK fur-trimmed brown armor.
+   COLORS: his own colors as described (independent).
+   MOUNTED: riding a shaggy brown Xiliang steppe horse —— waist-up rider on a calm standing horse; the horse's head and neck form a quiet base at the bottom (chibi, not rearing).
+   ROLE: WEAKENER —— saps the enemy's attack. The picture says it with: something sagging or wilting: a limp drooping flag, a bent blade, a coiled snake —— slack, downward shapes.
+   POSE AND PROP (the ROLE PROP is the star): riding the shaggy horse, his own banner held upright in one hand while a captured enemy banner droops limp over the horse's shoulder.
