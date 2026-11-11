@@ -14,7 +14,7 @@ const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기
 const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # 11/10 민심 위험 비네트에 다시 쓴다 (5초 경고와 같은 가장자리 그림, class_name 없이)
 const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 표시 공용 (디테일창 · 갈무리창 줄, 편성 시트)
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
-const EmotePop := preload("res://scripts/ui/emote_pop.gd")      # 11/10 받은 한마디 이모티콘 팝업 (class_name 없이)
+const SayBubble := preload("res://scripts/ui/say_bubble.gd")      # 11/12 받은 한마디(글 · 이모티콘) 구름 말풍선 (class_name 없이) —— 11/10 EmotePop 을 대신한다
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 ## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
 const COACH_STEPS := [
@@ -1910,15 +1910,26 @@ func _news_sheet() -> void:
 	var b := open_sheet("전황 소식")
 	if run.news.is_empty():
 		b.add_child(UI.hint("아직 소식이 없다 —— 다른 세력이 장수를 등용하면 여기에 쌓인다."))
+	var react: bool = online != null and online.in_game and int(online.room.get("emote_n", 0)) > 0      # 11/12 온라인 —— 소식 줄마다 반응(폭소 · 놀람 · 좋아요)을 한 번에
 	for nw in run.news:
+		var line: RichTextLabel
 		if not DB.C.has(str(nw.get("unit", ""))):      # 11/9 온라인 소식 —— 서버가 글로 보낸 소식 (멸망 · 퇴장 등). 장수가 있으면 아래 등용 줄
 			var who := str(nw.get("who", ""))
 			var tx := str(nw.get("text", ""))
 			if tx.begins_with(who):
 				who = ""
-			b.add_child(UI.rich(("[b]%s[/b] " % who if who != "" else "") + tx + _news_when(nw), 15))
+			line = UI.rich(("[b]%s[/b] " % who if who != "" else "") + tx + _news_when(nw), 15)
+		else:
+			line = UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]%s" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit), _news_when(nw)], 15)
+		if not react:
+			b.add_child(line)
 			continue
-		b.add_child(UI.rich("[b]%s[/b]가 %s [color=#8D7B5C]%s 등용[/color]%s" % [nw.who, UI.card_bb(nw.unit), DB.tier_name(nw.unit), _news_when(nw)], 15))
+		var h := UI.hbox(4)
+		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(line)
+		h.add_child(online.react_row(28.0))
+		b.add_child(h)
 
 
 ## 소식 옆의 시점 —— 「(3일차 아침)」 옅은 글씨. 옛 항목(when 없음)은 없다 (11/10)
@@ -3370,8 +3381,8 @@ func _resume_bands() -> void:
 var _urgents: Array = []
 var _urgent_busy := false
 
-func urgent(who: String, unit: String, tail := "") -> void:      # tail —— 11/12 유저전 수훈 연속 문구 (UrgentBand.tail)
-	_urgents.append([who, unit, tail])
+func urgent(who: String, unit: String, tail := "", kind := "") -> void:      # tail —— 11/12 유저전 수훈 연속 문구 (UrgentBand.tail) · kind "fall" = 멸망 띠 (장수 없음)
+	_urgents.append([who, unit, tail, kind])
 	if not _urgent_busy:
 		_next_urgent()
 
@@ -3382,18 +3393,23 @@ func _next_urgent() -> void:
 		return
 	_urgent_busy = true
 	var e: Array = _urgents.pop_front()
-	var b: Control = UrgentBand.play(self, str(e[0]), str(e[1]), str(e[2]) if e.size() > 2 else "")
+	var b: Control = UrgentBand.play(self, str(e[0]), str(e[1]), str(e[2]) if e.size() > 2 else "", str(e[3]) if e.size() > 3 else "")
 	b.done.connect(_next_urgent)
 
 
-# ───────── 한마디 이모티콘 팝업 (11/10 사용자) —— 보낸 사람 이름 + 큰 기호가 1.5초. 대기실 · 아침 · 저녁 준비 · 전투 보는 중 어디서나 (EmotePop) ─────────
+# ───────── 한마디 구름 말풍선 (11/10 이모티콘 팝업 → 11/12 사용자: 글도 같은 구름으로, 보낸 사람의 유저 칸 옆에) —— 어디서나 (SayBubble) ─────────
 var _emote_layer: Control = null
 
-func emote_pop(who: String, k: int) -> void:
+## text = 한마디 글("" 이면 이모티콘 k) · anchor = 보낸 사람의 유저 칸(화면에 보이면 그 옆, 아니면 위쪽 가운데)
+func say_pop(who: String, text: String, k := -1, anchor: Control = null) -> void:
 	if _emote_layer == null or not is_instance_valid(_emote_layer):
-		_emote_layer = EmotePop.new()
+		_emote_layer = SayBubble.new()
 		add_child(_emote_layer)
-	_emote_layer.add(who, k)
+	_emote_layer.add(who, text, k, anchor)
+
+
+func emote_pop(who: String, k: int) -> void:
+	say_pop(who, "", k)
 
 
 func battle_visible() -> bool:
@@ -3966,6 +3982,18 @@ func _dev_args() -> void:
 					online.send_ready(true)
 				if kv.size() > 3 and kv[3] == "hot":      # 점검용 —— 다른 사람이 기인 이상을 등용했다는 서버 알림이 온 것처럼 (긴급 띠 · 소식 뱃지 · 시점 글)
 					online._on_msg({"t": "news", "list": [{"text": "장수214가 신산 제갈량을 등용했습니다", "kind": "news", "who": "장수214", "unit": "c187", "id": 7, "when": "1일차 아침", "hot": 1}]})
+				if kv.size() > 3 and kv[3] in ["presence", "fall"]:      # 점검용 —— 11/12 존재감: 상태 아이콘 · 설욕전 · 한마디 말풍선(유저 칸 옆) / fall = 멸망 띠
+					var sts := ["idle", "busy", "ready", "pvp"]
+					var ss: Array = online.room.seats
+					online._on_msg({"t": "act_st", "st": ss.map(func(x): return sts[ss.find(x) % 4] if x.human else "")})
+					if online.room.get("foe") is Dictionary:
+						online.room.foe["revenge"] = true
+						render()
+					await get_tree().create_timer(0.3).timeout
+					online._on_msg({"t": "say", "who": "장수214", "text": "다음엔 이깁니다"})
+					online._on_msg({"t": "emote", "who": str(ss[0].name), "i": 1})
+					if kv[3] == "fall":
+						online._on_msg({"t": "news", "list": [{"text": "장수377의 나라가 무너졌습니다 —— 남은 군주 7명", "kind": "news", "who": "장수377", "id": 8, "line": "남은 군주 7명", "band": "fall", "hot": 1}]})
 			"pick":
 				act("begin_picks", ["phase", -1])
 				if not run.ticket_tiers().is_empty():

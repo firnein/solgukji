@@ -18,7 +18,8 @@ extends Node
 ## 11/10 사용자: hot 이 있으면(사람의 기인 이상 등용) 알림 대신 '긴급' 띠 연출(GameScreen.urgent). id · when 은 소식 항목에 그대로 담는다(안 읽은 소식 뱃지 · 소식 시트의 시점 글).
 ## 11/10 사용자: 남은 시간 5초부터 비프 + 붉은 가장자리 깜빡임 (11/12 깜빡임은 10초부터, 비프는 5초부터) —— 명령을 받는 시간제 단계(아침 · 저녁 준비)에서, 아직 '준비 완료'를 안 눌렀을 때만 (_warn_tick).
 ## 한마디(say): 방 정보의 미리 적힌 글(room.quick)만, 전투 탭 · 대기실 · 전투 재생 위 띠의 [한마디] 에서 {"t":"say","i":번호}.
-## 받은 {who, text} 는 알림으로, 전투 중이면 BattleView.show_quick 으로 전장 위 줄로 (11/9 사용자).
+## 받은 {who, text} 는 11/12 부터 구름 말풍선(GameScreen.say_pop) —— 보낸 사람의 유저 칸 옆, 안 보이면 위쪽 가운데 (11/9 알림 줄 · 전장 위 줄은 걷었다).
+## 11/12 존재감: 자리마다 상태 아이콘(act_st) · 소식 · 상대 칸의 이모트 반응(react_row) · 설욕전 · 멸망 띠(band fall).
 ## 11/10 사용자: 한마디 시트 위쪽에 이모티콘 한 줄(Icons.EMOTES 8종) —— {"t":"emote","i":번호}. 받은 {who, i} 는 어디서나 GameScreen.emote_pop 으로 이름 + 큰 기호가 1.5초 (글과 같은 2초 간격).
 ## 서버가 방 정보에 emote_n 을 주지 않으면(옛 서버) 이모티콘 줄은 숨긴다.
 ## 전투 목록(battles)의 항목은 {title, res, kind, params} —— params(내 쪽이 A 가 되게 맞춘 재료)를 BattleView.play_res 에 넘겨 전투장수창 버프 수치를 혼자 할 때와 같게 (11/9 사용자).
@@ -503,7 +504,10 @@ func _on_msg(d: Dictionary) -> void:
 				var unit := str(it.get("unit", ""))
 				var nid := int(it.get("id", 0))
 				var line := str(it.get("line", ""))      # 11/12 유저전 수훈 연속 —— 띠 문구. 소식 목록에는 글로만 (장수가 있으면 등용 줄로 보인다)
-				if bool(it.get("hot", false)) and who != "" and DB.C.has(unit):
+				if bool(it.get("hot", false)) and who != "" and str(it.get("band", "")) == "fall":
+					gs.urgent(who, "", line, "fall")      # 11/12 멸망 띠 —— 장수 없이 「유저의 나라가 무너졌습니다 / 남은 군주 N명」
+					line = ""
+				elif bool(it.get("hot", false)) and who != "" and DB.C.has(unit):
 					gs.urgent(who, unit, line)
 				elif tx != "":
 					gs.toast(tx, str(it.get("kind", "news")))
@@ -531,17 +535,24 @@ func _on_msg(d: Dictionary) -> void:
 				gs._render_head()
 		"say":
 			# 11/9 사용자: 한마디 {who, text} —— 알림으로, 전투를 보는 중이면 전장 왼쪽 위 줄로도 (알림 상자는 전투 · 대기실 아래에 깔린다)
+			# 11/12 사용자: 글도 이모티콘처럼 구름 말풍선으로 —— 보낸 사람의 유저 칸(자리 줄 · 군웅 칸 · 대기실 줄)이 보이면 그 옆, 아니면 위쪽 가운데 (SayBubble)
 			var who := str(d.get("who", ""))
 			var tx := str(d.get("text", ""))
-			if gs.battle_visible() and gs._battle.has_method("show_quick"):
-				gs._battle.show_quick(who, tx)
-			elif gs.battle_visible() and gs._battle.has_method("say_line"):
-				gs._battle.say_line(who, tx)
-			else:
-				gs.toast("%s: %s" % [who, tx], "news")
+			if tx != "":
+				gs.say_pop(who, tx, -1, anchor_of(who))
 		"emote":
-			# 11/10 사용자: 한마디 이모티콘 {who, i} —— 어디서나(대기실 · 아침 · 저녁 준비 · 전투 보는 중) 위쪽에 이름 + 큰 기호. 범위 밖 번호는 팝업이 무시한다
-			gs.emote_pop(str(d.get("who", "")), int(d.get("i", -1)))
+			# 11/10 사용자: 한마디 이모티콘 {who, i} —— 어디서나(대기실 · 아침 · 저녁 준비 · 전투 보는 중). 11/12 글과 같은 구름 말풍선, 유저 칸 옆
+			var who := str(d.get("who", ""))
+			gs.say_pop(who, "", int(d.get("i", -1)), anchor_of(who))
+		"act_st":
+			# 11/12 사용자(존재감): 자리마다 지금 하는 일 {"st": [자리 순]} —— 방 정보의 줄에 넣고 보이는 아이콘만 바꾼다 (화면을 다시 그리지 않는다)
+			var st = d.get("st", [])
+			var ss: Array = room.get("seats", [])
+			if st is Array and st.size() == ss.size():
+				for i in ss.size():
+					if ss[i] is Dictionary and bool(ss[i].get("human", false)):
+						ss[i]["st"] = str(st[i])
+				_st_refresh()
 		"error":
 			gs.toast(str(d.msg), "bad")
 		"left":
@@ -616,6 +627,92 @@ func _say_btn() -> Button:
 	b.add_theme_font_size_override("font_size", 13)
 	b.custom_minimum_size = Vector2(66, 34)
 	return b
+
+
+# ───────── 존재감 (11/12 사용자: 다른 유저도 지금 뭔가 하고 있다) —— 상태 아이콘 · 유저 칸(말풍선 자리) · 이모트 반응 ─────────
+## 서버 Room.seat_status 의 값 → [아이콘(Icons), 짧은 글, 색]. 글꼴 이모지는 기기마다 달라 선 아이콘으로 (🔨 ⚔ 🛡 💤 ✔)
+const ST_LOOK := {"busy": ["forge", "징집·조합 중", "#D9A64B"], "quest": ["blade", "토벌 중", "#e0806f"], "pvp": ["shield", "대전 중", "#e0806f"],
+	"idle": ["zz", "대기", "#8D7B5C"], "ready": ["check", "준비 완료", "#8fd4c2"]}
+const REACTS := [1, 4, 5]      # 소식 · 상대 발표의 반응 —— 폭소 · 놀람 · 좋아요 (Icons.EMOTES 번호, 한마디 이모티콘 흐름 그대로)
+var _st_views := []            # [[칸(HBox), 이름]] —— act_st 가 오면 보이는 것만 바꾼다
+var _anchors := {}             # 이름 -> 유저 칸(Control) —— 한마디 말풍선이 붙는 자리 (가장 최근에 그린 것)
+
+
+## 작은 상태 표시 (아이콘 + 짧은 글) —— st 가 비면 숨는다. 이름으로 등록해 act_st 때 바뀐다
+func st_view(who: String, st: String) -> Control:
+	var h := UI.hbox(3)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(Icons.View.new("", Color.WHITE, 15.0))
+	var l := UI.lbl("", 11, DB.PAL.bamboo_dim)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	_st_views = _st_views.filter(func(e): return is_instance_valid(e[0]))
+	_st_views.append([h, who])
+	_st_apply(h, st)
+	return h
+
+
+func _st_apply(h: Control, st: String) -> void:
+	var lk: Array = ST_LOOK.get(st, [])
+	h.visible = not lk.is_empty()
+	if lk.is_empty():
+		return
+	var ic: Icons.View = h.get_child(0)
+	ic.icon = str(lk[0])
+	ic.col = Color(str(lk[2]))
+	ic.queue_redraw()
+	var l: Label = h.get_child(1)
+	l.text = str(lk[1])
+	l.add_theme_color_override("font_color", Color(str(lk[2])))
+	h.tooltip_text = str(lk[1])
+
+
+func seat_st(who: String) -> String:
+	for s in room.get("seats", []):
+		if s is Dictionary and str(s.get("name", "")) == who:
+			return str(s.get("st", ""))
+	return ""
+
+
+func _st_refresh() -> void:
+	_st_views = _st_views.filter(func(e): return is_instance_valid(e[0]))
+	for e in _st_views:
+		_st_apply(e[0], seat_st(str(e[1])))
+
+
+## 유저 칸 등록 —— 자리 줄 · 군웅 칸 · 대기실 줄을 그릴 때
+func anchor(who: String, c: Control) -> void:
+	_anchors[who] = c
+
+
+## 그 사람의 유저 칸 —— 지금 보이는 것만 (전투 재생 중이면 가려져 있으니 없음)
+func anchor_of(who: String) -> Control:
+	var c = _anchors.get(who)
+	if c == null or not is_instance_valid(c) or not (c as Control).is_visible_in_tree() or gs.battle_visible():
+		return null
+	return c
+
+
+## 반응 버튼 한 줄 —— 누르면 그 이모티콘을 방에 보낸다 (한마디와 같은 2초 간격 · 서버 검증)
+func react_row(sz := 30.0) -> Control:
+	var h := UI.hbox(2)
+	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var n := mini(int(room.get("emote_n", 0)), Icons.EMOTES.size())
+	for k in REACTS:
+		if k >= n:
+			continue
+		var kk: int = k
+		var bt := UI.btn("", func(): send_emote(kk), "ghost", int(sz))
+		bt.custom_minimum_size = Vector2(sz + 4.0, sz)
+		bt.tooltip_text = Icons.EMOTE_NAMES[k]
+		var d := roundf(sz * 0.62)
+		var ic := Icons.View.new(Icons.EMOTES[k], DB.PAL.paper, d)
+		ic.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		ic.position = Vector2(-d / 2.0, -d / 2.0)      # 한마디 이모티콘 줄(_emote_row)과 같은 방식 —— 가운데 앵커에서 반지름만큼
+		bt.add_child(ic)
+		h.add_child(bt)
+	return h
 
 
 ## 할 수 있나 —— kind "draw"(징집 · 조합) · "form"(편성) · ""(무엇이든). 서버의 방 정보 act_draw · act_form (11/12), 옛 서버는 act · 준비 단계만
@@ -794,8 +891,10 @@ func _show_lobby() -> void:
 	var sv := UI.vbox(4)
 	for i in room.seats.size():
 		var st: Dictionary = room.seats[i]
-		sv.add_child(UI.rich("[b]%s[/b]%s%s" % [st.name, "  [color=#D9A64B]방장[/color]" if i == 0 else "",
-			"  [color=#8fd4c2](나)[/color]" if i == int(room.you) else ""], 17))
+		var lr := UI.rich("[b]%s[/b]%s%s" % [st.name, "  [color=#D9A64B]방장[/color]" if i == 0 else "",
+			"  [color=#8fd4c2](나)[/color]" if i == int(room.you) else ""], 17)
+		sv.add_child(lr)
+		anchor(str(st.name), lr)      # 11/12 한마디 말풍선이 붙는 자리
 	for i in range(room.seats.size(), room_max()):
 		sv.add_child(UI.rich("[color=#5d6a88]빈자리 — 시작하면 봇[/color]", 15))
 	v.add_child(UI.panel(sv, 14))
@@ -913,7 +1012,21 @@ func _foe_panel() -> Control:
 	var epi := str(f.get("epi", ""))
 	if not f.human and not (epi in [Room.SHADOW_EPI, "떠돌이 군세"]):
 		epi = "봇"
-	v.add_child(UI.rich("[font_size=18][b]%s[/b][/font_size]  [color=#8D7B5C]%s[/color]%s" % [f.name, epi, tag], 16))
+	var fh := UI.hbox(6)
+	var fn := UI.rich("[font_size=18][b]%s[/b][/font_size]  [color=#8D7B5C]%s[/color]%s" % [f.name, epi, tag], 16)
+	fn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	fh.add_child(fn)
+	if int(room.get("emote_n", 0)) > 0:
+		fh.add_child(react_row())      # 11/12 상대 발표에 반응 (한마디 이모티콘 흐름)
+	v.add_child(fh)
+	if bool(f.get("revenge", false)):      # 11/12 나를 이긴 사람과 다시 만났다
+		var rv := UI.hbox(4)
+		rv.add_child(Icons.View.new("blade", DB.PAL.seal, 16.0))
+		var rl := UI.lbl("설욕전 —— 지난번에 이 상대에게 졌다", 14, Color("#e0806f"), true)
+		rl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		rv.add_child(rl)
+		v.add_child(rv)
 	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], 14))
 	var key := []
 	var guess := false
@@ -1023,7 +1136,16 @@ func _seat_row(i: int, st: String) -> Control:
 		tags.append("[color=#e0806f]멸망[/color]")
 	if str(s2.get("foe", "")) != "" and st in ["evening_prep", "evening"]:
 		tags.append("[color=#8D7B5C]vs %s[/color]" % s2.foe)
-	return UI.rich("[color=%s]%s[/color]  %s%s" % [mcol, mark, who, ("   " + "  ".join(tags)) if not tags.is_empty() else ""], 14)
+	var rt := UI.rich("[color=%s]%s[/color]  %s%s" % [mcol, mark, who, ("   " + "  ".join(tags)) if not tags.is_empty() else ""], 14)
+	if not s2.human:
+		return rt
+	# 11/12 사람 자리 —— 오른쪽에 지금 하는 일(상태 아이콘), 줄은 한마디 말풍선이 붙는 자리
+	var h := UI.hbox(6)
+	rt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(rt)
+	h.add_child(st_view(str(s2.name), str(s2.get("st", ""))))
+	anchor(str(s2.name), h)
+	return h
 
 
 ## 11/11 사용자: 기록 탭에서 다른 유저의 민심 · 핵심 유닛(기초불신 = 기인 · 초월 · 불멸 · 신화)을 본다 —— 군웅 줄의 재료.
@@ -1061,6 +1183,8 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 				return ra > rb if ra != rb else a < b)
 		var row := {"name": str(s.get("name", "")), "me": me, "online": bool(s.get("online", false)), "dead": bool(s.get("dead", false)),
 			"hp": hp, "key": key, "has_key": raw is Array}
+		if s.has("st"):
+			row["st"] = str(s.st)      # 11/12 지금 하는 일 (Room.seat_status)
 		if me:
 			out.push_front(row)      # 나는 맨 위
 		else:
@@ -1113,6 +1237,8 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 		var tl := UI.lbl(tag, 12, tcol, true)
 		tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(tl)
+	if r.has("st") and scr.online != null:
+		h.add_child(scr.online.st_view(str(r.name), str(r.st)))      # 11/12 지금 하는 일 (온라인 사람 칸만)
 	if bool(r.get("bot", false)):
 		var bl := UI.lbl(str(r.get("note", "민심 없음")), 13, P.bamboo_dim)      # 봇은 민심이 없다 —— 전적 · 토벌 실패만
 		bl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1149,6 +1275,8 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 	var pnl := UI.panel(v, 10)
 	if r.me:
 		pnl.add_theme_stylebox_override("panel", UI.flat(P.ink3, P.gold, 1, 8, 10))
+	if scr.online != null and scr.online.in_game and not bool(r.get("bot", false)):
+		scr.online.anchor(str(r.name), pnl)      # 11/12 한마디 말풍선이 붙는 자리
 	return pnl
 
 

@@ -16,6 +16,7 @@ const LINES := 54         # 집중선 수
 var who := ""
 var tail := ""            # 11/12 유저전 수훈 연속 —— 있으면 「유저의 장수가 <tail>」 (없으면 「유저가 장수를 등용」)
 var unit := ""
+var kind := ""           # 11/12 "fall" = 멸망 띠 —— 장수 대신 '亡' 인장, 「[멸망]」 + 「유저의 나라가 무너졌습니다 / 남은 군주 N명」(tail)
 var t := 0.0
 var _u := 1.0             # 화면 너비 / 400 —— 모든 길이가 이 배율을 따른다
 var _fx_back: Control     # 띠 뒤 집중선 (띠 위아래로만 보이게 잘라 그린다)
@@ -29,8 +30,9 @@ var _col := Color.WHITE
 var _wise := false
 
 
-static func play(host: Control, who_: String, unit_: String, tail_ := "") -> Control:
+static func play(host: Control, who_: String, unit_: String, tail_ := "", kind_ := "") -> Control:
 	var b = load("res://scripts/ui/urgent_band.gd").new()
+	b.kind = kind_
 	b.who = who_
 	b.tail = tail_
 	b.unit = unit_
@@ -54,7 +56,7 @@ static func is_wise(k: String) -> bool:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 45
-	_col = DB.tier_color(unit) if DB.C.has(unit) else DB.PAL.gold
+	_col = DB.tier_color(unit) if DB.C.has(unit) else (RED if kind == "fall" else DB.PAL.gold)
 	_wise = is_wise(unit)
 	_tex = DB.portrait(unit) if DB.C.has(unit) else null
 	if _tex != null:
@@ -231,7 +233,7 @@ func _draw_top() -> void:
 		c.draw_texture_rect_region(_tex, box, _src, Color(1, 1, 1, pal))
 	else:
 		c.draw_rect(box, Color(DB.PAL.ink3, pal))
-		var ch := (DB.person(unit) if DB.C.has(unit) else "?").substr(0, 1)
+		var ch := (DB.person(unit) if DB.C.has(unit) else ("亡" if kind == "fall" else "?")).substr(0, 1)
 		c.draw_string(DB.font_display, Vector2(box.position.x, box.position.y + P * 0.72), ch, HORIZONTAL_ALIGNMENT_CENTER, P, int(P * 0.62), Color(_col, pal))
 	c.draw_rect(box.grow(3.0 * u), Color(0, 0, 0, 0.7 * pal), false, 1.0)
 	c.draw_set_transform(_off, 0.0, Vector2.ONE)
@@ -250,8 +252,9 @@ func _draw_top() -> void:
 	var rc := RED.lerp(Color("#ff8a70"), pulse * 0.35)
 	var sc1 := 1.0 + 0.04 * pulse
 	c.draw_set_transform(_off + Vector2(tx, y1), 0.0, Vector2(sc1, sc1))
-	c.draw_string_outline(f1, Vector2.ZERO, "[긴급!]", HORIZONTAL_ALIGNMENT_LEFT, -1, fs1, int(7.0 * u), Color(0, 0, 0, 0.9 * ta))
-	c.draw_string(f1, Vector2.ZERO, "[긴급!]", HORIZONTAL_ALIGNMENT_LEFT, -1, fs1, Color(rc, ta))
+	var head := "[멸망]" if kind == "fall" else "[긴급!]"
+	c.draw_string_outline(f1, Vector2.ZERO, head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs1, int(7.0 * u), Color(0, 0, 0, 0.9 * ta))
+	c.draw_string(f1, Vector2.ZERO, head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs1, Color(rc, ta))
 	c.draw_set_transform(_off, 0.0, Vector2.ONE)
 	var rows: Array = lay.rows
 	for ri in rows.size():
@@ -265,6 +268,23 @@ func _fit(avail: float) -> Dictionary:
 	var u := _u
 	var gold: Color = DB.PAL.gold.lightened(0.15)
 	var nc: Color = _col.lightened(0.28)
+	if kind == "fall":      # 멸망 —— 늘 두 줄: 「유저의 나라가 무너졌습니다」 / 「남은 군주 N명」
+		var shown := who
+		var fa := int(19.0 * u)
+		var fb := int(17.0 * u)
+		var fm := int(13.0 * u)
+		var ra := []
+		while true:
+			ra = [[shown, gold], ["의 나라가 무너졌습니다", DB.PAL.paper]]
+			while fa > fm and _row_w(ra, fa) > avail:
+				fa -= 1
+			if _row_w(ra, fa) <= avail or shown.length() <= 2:
+				break
+			shown = shown.substr(0, shown.length() - 2) + "…"
+		var rb := [[tail, Color("#ff8a70")]]
+		while fb > fm and _row_w(rb, fb) > avail:
+			fb -= 1
+		return {"stack": true, "rows": [ra, rb], "fs": [fa, fb], "ys": [10.0, 34.0]}
 	var j1 := "이" if batchim(who) else "가"
 	var j2 := ("을" if batchim(nm) else "를") + " 등용"
 	if tail != "":
