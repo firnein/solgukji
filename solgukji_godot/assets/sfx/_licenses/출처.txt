@@ -2,8 +2,6 @@
 hit_*.ogg · crit_*.ogg : StarNinjas "20 sword sound effects (attacks and clashes)" https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes
 tap · open · draw · gain · forge* · deny · magic · skill* · ult · rout* : "RPG Sound Pack" https://opengameart.org/content/rpg-sound-pack
 drums · horn · win : William Hector "Horde War Drums loop" https://opengameart.org/content/horde-war-drums-loop (잘라 씀)
-bgm/battle.wav : Emma_MA "Determined Pursuit (epic orchestra loop)" https://opengameart.org/content/determined-pursuit-epic-orchestra-loop
-bgm/menu.ogg : Spring Spring "War Theme" https://opengameart.org/content/war-theme
 예전 합성 소리는 references/sfx_old (tools/scripts/make_sfx.py 로 다시 만들 수 있다)
 clash_*.ogg : "Medieval Sound Effects - Weapon Impacts" (CC0) https://opengameart.org/content/medieval-sound-effects-weapon-impacts (0.6초씩 잘라 씀, 11/4)
 shout_*.ogg : "Crowd Shouting/Speaking Ambience" (CC0) https://opengameart.org/content/crowd-shoutingspeaking-ambience (4초씩 잘라 씀, 11/4)
@@ -12,3 +10,15 @@ arrow_*.wav · swing_*.wav : Still North Media "Medieval Sound Effects - Weapon 
 shout_*.ogg 는 11/5 삭제 (사용자: 함성이 불쾌하다)
 
 alert_beep · alert_war · alert_wise.wav : 직접 합성 (tools/scripts/make_sfx.py alert, 11/10) —— 외부 음원 · 사람 목소리 샘플 없음. 비프 = 온라인 남은 시간 5초 · war = 무장 긴급 등용 함성 · wise = 지장 긴급 등용 (현 + 종 + 북). 마음에 안 들면 같은 이름 파일(wav/ogg)로 바꿔 넣으면 된다
+bgm (11/11 다양화, 모두 OpenGameArt CC0 — 페이지에서 라이선스 직접 확인, 소리 크기만 맞춰 ogg 로 다시 인코딩):
+bgm/title_1 : tozan "Asianoriental2" https://opengameart.org/content/asianoriental2 (CC0)
+bgm/title_2 : Spring Spring "CH-AY-NA" https://opengameart.org/content/ch-ay-na (CC0 선택 가능 다중 라이선스 중 CC0)
+bgm/prep_1 : Spring Spring "War Theme" https://opengameart.org/content/war-theme (CC0)
+bgm/prep_2 : tozan "Koto Booth" https://opengameart.org/content/koto-booth (CC0)
+bgm/prep_3 : tozan "Asianoriental1" https://opengameart.org/content/asianoriental1 (CC0)
+bgm/battle_1 : Emma_MA "Determined Pursuit (epic orchestra loop)" https://opengameart.org/content/determined-pursuit-epic-orchestra-loop (CC0)
+bgm/battle_2 : mintodog "Hope (Orchestral battle music)" https://opengameart.org/content/hopeorchestral-battle-music (CC0)
+bgm/battle_3 : Emma_MA "QaziJamJam (orchestral battle theme)" https://opengameart.org/content/qazijamjam-orchestral-battle-theme (CC0)
+bgm/final_1 : Dizzy Crow "Epic transformation [1:24]" https://opengameart.org/content/epic-transformation-124 (CC0)
+bgm/win : Nene "Hero's Reprise" https://opengameart.org/content/heros-reprise (CC0) —— 앞 9초를 잘라 끝을 줄임
+bgm/lose : indieteur "Aftermath" https://opengameart.org/content/aftermath (CC0) —— 앞 11초를 잘라 끝을 줄임

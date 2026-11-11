@@ -795,8 +795,12 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 
 
 ## 모든 전투를 1배속 기준 50~60초에 맞춘다 (토벌은 2배속으로 보니 25~30초)
-func _pace_for(_kind: String) -> void:
+var _bgm_kind := ""      # 이번 전투 종류 (quest · pvp · tour) —— 배경 음악 고르기
+
+
+func _pace_for(kind: String) -> void:
 	target_len = PVP_LEN
+	_bgm_kind = kind
 
 
 ## 전장 화풍 —— 수묵(삼국지11 시안)이면 3D 화면 위에 먹선 · 종이 후처리를 입힌다 (Settings.sumuk)
@@ -976,7 +980,7 @@ func _begin() -> void:
 	finished = false
 	finish_t = -1.0
 	running = true
-	Sfx.music("battle")
+	Sfx.music("final" if _bgm_kind == "tour" and str(_p.get("title", "")).begins_with("결승") else "battle")      # 토너먼트 결승만 가장 웅장한 곡
 	Sfx.play("drums")      # 11/4 사용자: 함성(shout)은 비명처럼 들려 전투에서 뺀다
 	# 지형 (실시간 엔진) —— 이번 판에 무엇이 깔렸고 무슨 효과인지 한 줄로
 	var tz: Array = res.get("terrain", [])
@@ -1728,7 +1732,7 @@ func _sound(e: Dictionary) -> void:
 
 
 func _exit_tree() -> void:
-	Sfx.music("menu")
+	Sfx.music("prep")
 
 
 ## 피해 숫자 —— 스킬·고유기로 들어간 타격은 치명타로 크게 찍는다 (수치는 엔진 그대로)
@@ -1878,6 +1882,7 @@ func _finish() -> void:
 		sub += "\n수훈갑  %s  · 격파 %d" % [res.mvp.name, res.mvp.kills]
 	hud.stamp(txt, sub, col)
 	Sfx.play("lose" if res.draw or not res.win else "win")
+	Sfx.music("lose" if res.draw or not res.win else "win")      # 짧은 마무리 곡 —— 끝나면 이 장면의 곡으로
 	end_clock = clock
 	ended.emit(res, inputs)
 	log_box.append_text("\n[color=%s][b]%s[/b][/color] — %s\n" % [col.to_html(false), txt, sub.replace("\n", " · ")])
