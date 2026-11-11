@@ -55,6 +55,9 @@ var _code_edit: LineEdit
 var _tick := 0.0
 var _warn_fx: Control = null      # 붉은 가장자리 (WarnEdge)
 var _warn_c := -1                 # 마지막으로 비프를 울린 남은 초 (올림)
+var _pick_max := Room.SEATS       # 방 만들기 시트에서 고른 총 인원 (4 · 6 · 8, 11/11) —— create 의 max
+var dev_max := 8                  # 점검용 —— 가짜 방의 총 인원 (--gseats=4)
+var dev_sheet := false            # 점검용 —— 접속 없이 방 만들기 시트까지 그려 본다 (--gsheet=oncreate)
 var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'를 눌렀다 —— 서버가 알려 주기 전에도 바로 끈다
 
 
@@ -317,13 +320,13 @@ func connect_sheet(refresh := false) -> void:
 		cb.add_child(no)
 		b.add_child(cb)
 	b.add_child(UI.lbl(_status, 14, DB.PAL.jade if net.is_open() else DB.PAL.bamboo_dim))
-	if not net.is_open():
+	if not net.is_open() and not dev_sheet:
 		return
 	# 11/9 사용자: 세션이 연결돼 있으면 다른 방으로 갈 수 없었다 —— 지금 방을 보여 주고 나갈 수 있게, 다른 방에 들어가면 지금 방은 자동으로 나간다
 	if not room.is_empty():
 		b.add_child(UI.eyebrow("지금 방"))
 		var cur := UI.hbox(8)
-		var cl := UI.lbl("%s  ·  %s · %d명%s" % [str(room.get("code", "")), str(room.get("mode_n", "")), (room.get("seats", []) as Array).size(), " · 진행 중" if in_game else " · 대기 중"], 15, DB.PAL.paper)
+		var cl := UI.lbl("%s  ·  %s · %d/%d명%s" % [str(room.get("code", "")), str(room.get("mode_n", "")), (room.get("seats", []) as Array).size(), room_max(), " · 진행 중" if in_game else " · 대기 중"], 15, DB.PAL.paper)
 		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		cur.add_child(cl)
@@ -331,11 +334,15 @@ func connect_sheet(refresh := false) -> void:
 		b.add_child(cur)
 		b.add_child(UI.hint("나가면 내 자리는 AI 가 이어받는다. 다른 방을 만들거나 들어가도 지금 방에서는 나간다."))
 	b.add_child(UI.eyebrow("방 만들기"))
+	# 11/11 사용자: 총 인원(자리 수)은 방장이 고른다 —— 짝수 4 · 6 · 8. 사람이 앉고 남은 자리만 시작할 때 봇이 채운다
+	var seat_box := UI.vbox(4)
+	b.add_child(seat_box)
+	_fill_seat_pick(seat_box)
 	var mk := UI.hbox()
 	for m in ["fast", "normal"]:
 		var bt := UI.btn(Room.MODES[m].n, func():
 			_drop_room()
-			net.send({"t": "create", "mode": m}), "gold")
+			net.send({"t": "create", "mode": m, "max": _pick_max}), "gold")
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		mk.add_child(bt)
 	b.add_child(mk)
@@ -355,13 +362,32 @@ func connect_sheet(refresh := false) -> void:
 	for r in rooms:
 		if not room.is_empty() and str(r.code) == str(room.get("code", "")):
 			continue      # 지금 있는 방은 목록에서 뺀다
-		var rb := UI.btn("%s  ·  %s 방장 · %d명 · %s" % [r.code, r.host, r.n, r.mode_n], func():
+		var rb := UI.btn("%s  ·  %s 방장 · %d/%d명 · %s" % [r.code, r.host, r.n, int(r.get("max", Room.SEATS)), r.mode_n], func():
 			_drop_room()
 			net.send({"t": "join", "code": r.code}))
 		rb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		rb.clip_text = true
 		b.add_child(rb)
 	b.add_child(UI.btn("새로 고침", func(): net.send({"t": "list"}), "ghost"))
+
+
+## 총 인원 고르기 —— [4명 | 6명 | 8명] + 한 줄 안내 (고르면 이 상자만 다시 그린다 — 시트의 이름 · 주소 칸은 그대로)
+func _fill_seat_pick(box: Control) -> void:
+	for c in box.get_children():
+		c.queue_free()
+	var items := []
+	for n in Room.SEAT_OPTIONS:
+		items.append([str(n), "%d명" % n])
+	box.add_child(UI.lbl("총 인원 — 빈자리만 봇", 14, DB.PAL.bamboo))
+	box.add_child(UI.segmented(items, str(_pick_max), func(k: String):
+		_pick_max = int(k)
+		_fill_seat_pick(box)))
+	box.add_child(UI.hint("사람 3명이면 %d명 방은 봇 %d명. 시작하면 바꿀 수 없다." % [_pick_max, maxi(0, _pick_max - 3)]))
+
+
+## 이 방의 자리 수(총 인원) —— 옛 서버는 max 를 주지 않는다 → 8
+func room_max() -> int:
+	return int(room.get("max", Room.SEATS))
 
 
 ## 지금 방을 떠난다 (연결은 둔다) —— 서버는 leave 를 받으면 left · rooms 를 보낸다. 혼자 하던 판이 저장돼 있으면 그것으로 돌아간다 (11/9)
@@ -685,7 +711,7 @@ func _show_lobby() -> void:
 	var t := UI.lbl("방 %s" % room.code, 54, DB.PAL.gold, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var s := UI.lbl("%s · 친구에게 서버 주소와 이 코드를 알려 주세요" % room.mode_n, 15, DB.PAL.bamboo_dim)
+	var s := UI.lbl("총 %d명 · %s · 친구에게 서버 주소와 이 코드를 알려 주세요" % [room_max(), room.mode_n], 15, DB.PAL.bamboo_dim)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(s)
@@ -694,11 +720,11 @@ func _show_lobby() -> void:
 		var st: Dictionary = room.seats[i]
 		sv.add_child(UI.rich("[b]%s[/b]%s%s" % [st.name, "  [color=#D9A64B]방장[/color]" if i == 0 else "",
 			"  [color=#8fd4c2](나)[/color]" if i == int(room.you) else ""], 17))
-	for i in range(room.seats.size(), Room.SEATS):
+	for i in range(room.seats.size(), room_max()):
 		sv.add_child(UI.rich("[color=#5d6a88]빈자리 — 시작하면 봇[/color]", 15))
 	v.add_child(UI.panel(sv, 14))
 	if room.host:
-		v.add_child(UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), Room.SEATS - room.seats.size()], func(): net.send({"t": "start"}), "pri", 60))
+		v.add_child(UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), room_max() - room.seats.size()], func(): net.send({"t": "start"}), "pri", 60))
 	else:
 		v.add_child(UI.hint("방장이 시작하기를 기다리는 중…"))
 	var hb := UI.hbox(8)
@@ -759,10 +785,18 @@ func _stage_hint() -> String:
 		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성 · 작전을 고친 뒤 준비 완료"
 		"evening":
 			if int(room.get("tour_round", -1)) >= 0:
+				if _tour_bye():
+					return "부전승 — 이번 라운드는 쉰다. 다른 대진을 기다리는 중"
 				return "다른 사람을 기다리는 중 — 모두 보면 다음 라운드" if rd else "%s을 보고 준비 완료" % Run.ROUNDNM[int(room.tour_round)]
 			return "다른 사람을 기다리는 중 — 모두 보면 다음 페이즈 준비" if rd else "대전을 보고 준비 완료"
 		"over": return "판이 끝났다"
 	return ""
+
+
+## 토너먼트에서 이번 라운드에 내 대진이 없다 (인원이 8 미만인 방의 상위 시드 부전승) —— 멸망 · 탈락한 사람은 아니다
+func _tour_bye() -> bool:
+	var run: Run = gs.run
+	return run != null and run.over == null and run.tour != null and int(run.tour.get("my_match", -1)) < 0 and str(room.get("stage", "")) == "evening" and last_battles.is_empty()
 
 
 ## 단계 이름 —— 토너먼트 저녁은 라운드 이름
@@ -968,20 +1002,31 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	stage = stage.trim_suffix("+say")
 	var do_watch := do_menu or stage.ends_with("+watch")      # "noon+watch" —— 전투 재생 화면까지 (위 띠의 한마디 · 결과로 버튼 점검)
 	stage = stage.trim_suffix("+watch")
+	var do_rank := stage.ends_with("+rank")        # "morning+rank" —— 전투 탭 대신 순위 페이지 (온라인 인원수 표기 점검)
+	stage = stage.trim_suffix("+rank")
 	in_game = true
 	gs._title.visible = false
+	var n_max := clampi(dev_max, 4, 8)
 	var seats := [{"name": net.player, "human": true, "online": true, "ready": false, "dead": false, "pv": run.my_pv(), "foe": ""},
 		{"name": "장수214", "human": true, "online": true, "ready": true, "dead": false, "pv": 0, "foe": ""},
 		{"name": "장수377", "human": true, "online": false, "ready": false, "dead": false, "pv": 0, "foe": ""}]
-	for b in run.bots.slice(0, 5):
+	if stage == "lobby":      # 점검용 —— 대기실 (사람 3명 + 빈자리 · 시작 버튼)
+		room = {"code": "K7QX", "mode": "fast", "max": n_max, "mode_n": Room.MODES.fast.n, "started": false, "stage": "lobby", "you": 0, "host": true,
+			"seats": seats, "quick": [], "emote_n": 0}
+		in_game = false
+		_show_lobby()
+		return
+	for b in run.bots.slice(0, n_max - 3):
 		seats.append({"name": b.name, "human": false, "online": false, "ready": true, "dead": false, "pv": 0, "foe": ""})
+	run.bots = run.bots.slice(0, n_max - 1)      # 서버의 거울처럼 —— 다른 자리 N-1 개
 	if stage in ["evening_prep", "evening"]:
 		seats[0].foe = seats[3].name
 		seats[3].foe = seats[0].name
-		seats[1].foe = seats[4].name
-		seats[4].foe = seats[1].name
+		if seats.size() > 4:
+			seats[1].foe = seats[4].name
+			seats[4].foe = seats[1].name
 	var day_no := run.day * 3 + run.phase + 1
-	room = {"code": "K7QX", "mode": "fast", "mode_n": Room.MODES.fast.n, "started": true, "stage": stage, "stage_no": 3,
+	room = {"code": "K7QX", "mode": "fast", "max": n_max, "mode_n": Room.MODES.fast.n, "started": true, "stage": stage, "stage_no": 3,
 		"stage_n": Room.STAGE_N.get(stage, stage), "remain": remain_s, "day": run.day, "phase": run.phase, "day_no": day_no, "you": 0, "host": true,
 		"seats": seats, "foe": ({"name": seats[3].name, "human": false, "online": false, "epi": run.bots[0].epi, "w": 3, "l": 1} if stage in ["evening_prep", "evening"] else null),
 		"alone": "", "tour_round": -1, "quick": ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"], "emote_n": Room.EMOTE_N}
@@ -1023,7 +1068,7 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 			elif gs._battle.has_method("say_line"):
 				get_tree().create_timer(1.2).timeout.connect(func(): gs._battle.say_line("장수214", str(room.quick[0])))
 			return
-	gs.go("war")
+	gs.go("rank" if do_rank else "war")
 	if do_say:
 		quick_sheet()
 

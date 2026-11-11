@@ -3099,6 +3099,9 @@ func _bracket() -> Control:
 			var cur: bool = r == t.round and i == t.my_match and m.w == null
 			rv.add_child(UI.rich("%s%s  대  %s%s" % ["[bgcolor=#33405F]" if cur else "", nm.call(m.a), nm.call(m.b), "[/bgcolor]" if cur else ""], 14))
 		v.add_child(rv)
+	var bye: Array = t.get("bye", []) if t.round == 0 else []
+	if not bye.is_empty():      # 11/11 8명 미만인 온라인 방 —— 상위 시드는 8강을 건너뛴다
+		v.add_child(UI.hint("부전승 (4강 직행) — %s" % " · ".join(bye)))
 	v.add_child(UI.hint("전력 순위로 시딩한다. 다른 대진도 같은 전투 엔진으로 진행된다."))
 	return UI.sect("대진표 — %s 진행 중" % Run.ROUNDNM[t.round], UI.panel(v))
 
@@ -3479,7 +3482,7 @@ func _standings() -> Control:
 func _page_rank() -> Control:
 	var v := UI.vbox(16)
 	var sr := UI.grid(80, 4)
-	sr.add_child(UI.stat("%d위" % run.rank(), "8인 중"))
+	sr.add_child(UI.stat("%d위" % run.rank(), "%d인 중" % (run.bots.size() + 1)))      # 11/11 온라인은 방 자리 수(4 · 6 · 8)만큼 — 혼자 하기는 봇 7명 = 8인
 	sr.add_child(UI.stat(str(run.my_pv()), "내 전력"))
 	sr.add_child(UI.stat("%d승 %d패" % [run.my_w, run.my_l], "전적"))
 	sr.add_child(UI.stat("%d" % run.hp, "민심"))      # 11/9 경고 → 민심 (패배마다 깎이고 0 이면 멸망)
@@ -3581,7 +3584,7 @@ func _dev_args() -> void:
 			_open[key] = true
 		render()
 	if a.has("gonline"):
-		# 점검용 온라인 —— --gonline=ws://… --gname=이름 (--gcreate=fast|normal|test --gstart=사람수 | --gjoin=방장이름) --gauto
+		# 점검용 온라인 —— --gonline=ws://… --gname=이름 (--gcreate=fast|normal|test [--gmax=4|6|8] --gstart=사람수 | --gjoin=방장이름) --gauto
 		_go_online()
 		online.net.player = str(a.get("gname", "시험"))
 		online.net.token = ""      # 같은 PC 의 창들이 net.cfg 를 같이 쓴다 —— 시험 창은 새 토큰
@@ -3590,7 +3593,7 @@ func _dev_args() -> void:
 		online.net.connect_to(str(a.gonline))
 		await online.net.opened
 		if a.has("gcreate"):
-			online.net.send({"t": "create", "mode": a.gcreate})
+			online.net.send({"t": "create", "mode": a.gcreate, "max": int(a.get("gmax", "8"))})      # 11/11 --gmax=4|6|8 총 인원
 			if a.has("gstart"):
 				while online.room.is_empty() or online.room.seats.size() < int(a.gstart):
 					await online.net.message
@@ -3641,11 +3644,19 @@ func _dev_args() -> void:
 			"news": _news_sheet()      # 점검용 —— 전황 소식 시트 (읽음 처리 포함)
 			"settings": _settings_sheet()
 			"online": _go_online()      # 점검용 —— 온라인 대전 접속 팝업 (11/9)
+			"oncreate":      # 점검용 —— 접속 없이 방 만들기 시트 (총 인원 고르기, 11/11)
+				if online == null:
+					online = Online.new()
+					online.gs = self
+					add_child(online)
+				online.dev_sheet = true
+				online.connect_sheet()
 			"onwar":      # 점검용 —— 서버 없이 온라인 전투 탭 (--gsheet=onwar:noon | morning | evening_prep | evening, 11/9)
 				if online == null:
 					online = Online.new()
 					online.gs = self
 					add_child(online)
+				online.dev_max = int(a.get("gseats", "8"))      # 11/11 --gseats=4 : 가짜 방의 총 인원 (kv[1] = lobby 면 대기실)
 				online.dev_fake_room(kv[1] if kv.size() > 1 and kv[1] != "" else "noon", float(kv[2]) if kv.size() > 2 else 75.0)
 				if kv.size() > 3 and kv[3] == "ready":      # 점검용 —— '준비 완료'를 누른 것처럼 (5초 경고가 안 울려야 한다)
 					online.send_ready(true)

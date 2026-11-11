@@ -8,7 +8,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##   hello {name, token, rec}   첫 인사. token 이 진행 중인 방의 자리와 맞으면 그 자리로 돌아간다.
 ##                         rec = 플레이 기록 동의 (11/10) —— true 인 사람만 서버가 기록한다 (RoomLog). 없으면(옛 APK) 접속은 되지만 기록하지 않는다
 ##   list                  열린 방 목록
-##   create {mode}         방 만들기 (fast · normal) —— 만든 사람이 방장
+##   create {mode, max}    방 만들기 (fast · normal) —— 만든 사람이 방장. max = 총 인원(자리 수) 4 · 6 · 8 (11/11, 없거나 이상하면 8 — 옛 APK). 시작할 때 빈자리만 봇
 ##   join {code}           코드로 들어가기
 ##   leave                 방에서 나가기
 ##   start                 방장이 시작 (빈자리는 봇)
@@ -132,11 +132,11 @@ func _handle(id: int, d: Dictionary) -> void:
 		"create":
 			_leave(id)
 			var code := _new_code()
-			var r := Room.new(self, code, str(d.get("mode", "fast")))
+			var r := Room.new(self, code, str(d.get("mode", "fast")), d.get("max", Room.SEATS))
 			rooms[code] = r
 			p.room = code
 			r.add_human(id, p.name, p.token, p.rec)
-			print("%s 방 %s 만듦 (%s)" % [p.name, code, r.mode])
+			print("%s 방 %s 만듦 (%s · %d명)" % [p.name, code, r.mode, r.max_seats])
 		"join":
 			var code := str(d.get("code", "")).to_upper().strip_edges()
 			if not rooms.has(code):
@@ -162,7 +162,7 @@ func _handle(id: int, d: Dictionary) -> void:
 		"start":
 			if rooms.has(p.room) and rooms[p.room].host == id:
 				rooms[p.room].start()
-				print("방 %s 시작 — 사람 %d명" % [p.room, rooms[p.room].humans().size()])
+				print("방 %s 시작 — 사람 %d명 + 봇 %d (총 %d명)" % [p.room, rooms[p.room].humans().size(), rooms[p.room].max_seats - rooms[p.room].humans().size(), rooms[p.room].max_seats])
 		"cmd":
 			if rooms.has(p.room):
 				var a = d.get("a", [])
@@ -197,7 +197,7 @@ func _send_rooms(id: int) -> void:
 		var r: Room = rooms[code]
 		if not r.started:
 			lst.append({"code": code, "host": r.seats[0].name if not r.seats.is_empty() else "", "n": r.humans().size(),
-				"mode": r.mode, "mode_n": Room.MODES[r.mode].n})
+				"max": r.max_seats, "mode": r.mode, "mode_n": Room.MODES[r.mode].n})
 	send(id, {"t": "rooms", "list": lst})
 
 
