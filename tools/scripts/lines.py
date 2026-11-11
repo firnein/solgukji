@@ -172,7 +172,7 @@ KIIN = {
     "주환": ("매복 주환", "도적", "오", "손권 육손 주태", dict(AU("적진교란", m={"opener": 0.2}), kiin="ult_cut")),
     "장연": ("흑산 장연", "도적", "군", "장각 관해 장보", dict(AU("군량약탈", foe={"def": -0.1}), kiin="heal_cut")),
     "손상향": ("궁요 손상향", "도적", "오", "유비 손권 손책", dict(AU("백인시비", m={"crit": 0.06}), kiin="ambush")),
-    "방통": ("봉추 방통", "책사", "촉", "제갈량 사마휘 법정 마량", AU("연환", m={"cleave": 0.1, "icleave": 0.1})),
+    "방통": ("봉추 방통", "책사", "촉", "제갈량 사마휘 법정 마량", AU("연환", m={"cleave": 0.1})),      # 11/11 전투가 icleave 를 cleave 에 더한다(MV_ALIAS) —— 둘 다 적으면 두 번 붙는다
     "서서": ("단복 서서", "책사", "촉", "유비 제갈량 사마휘", dict(AU("피해분담", ally={"def": 0.06}), kiin="share")),
     "곽가": ("유계 곽가", "책사", "위", "조조 순욱 정욱", dict(AU("유계", ally={"int": 0.06}), kiin="death_gauge")),
     "미축": ("거상 미축", "유생", "촉", "유비 간옹 손상향", dict(AU("거상재물", ally={"def": 0.05}), kiin="ticket")),
@@ -198,9 +198,25 @@ NEW_MYTH = {"사마의": ("선제 사마의", "호부", {**AU("응시호보", al
               "d": "개전 12초 동안 아군이 받는 피해 -20% —— 버틴 뒤 아군 전원 공격 +15% (15초)"}})}
 NEW_ITEMS = [["u01", "호부", "유니크", "모사", "int", 0.32, "def", 0.16, 7, "myth"]]
 
-# 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 특기 수 (단체 · 고유 포함)
-TRAIT_MIN = {3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8}      # 11/3 (2) 사용자: 특기를 더 —— 한 개씩 더
-HEALERS = {"화타"}
+# 원래 특기 사다리가 없는 저등급 인물은 병종 다수결로 채우지 않고 인물별로 직접 배정한다.
+# 순서는 카드에서 읽히는 순서이며, 세 특기는 해당 인물의 가장 낮은 플레이어 카드부터 열린다.
+PERSONAL_SPECIALTIES = {
+    "감택": ["귀모", "연계", "기책"], "고람": ["반격", "휩쓸기", "금강"], "공융": ["명경", "연계", "위무"],
+    "관흥": ["용맹", "추격", "휩쓸기"], "기령": ["반격", "투쟁", "기세"], "길평": ["인술", "명경", "단량"],
+    "도겸": ["명경", "분발", "도원결의"], "동소": ["귀모", "위축", "이간"], "마속": ["기책", "반목", "신산"],
+    "맹달": ["반목", "위압", "기세"], "문빙": ["방진", "금강", "사수"], "반장": ["추격", "기세", "투쟁"],
+    "보즐": ["연계", "명경", "인술"], "비의": ["연계", "명경", "위무"], "순유": ["귀모", "기책", "신산"],
+    "엄안": ["용맹", "불굴", "위축"], "여범": ["귀모", "위축", "반목"], "오반": ["선봉", "추격", "용맹"],
+    "오의": ["위축", "파갑", "기세"], "왕쌍": ["휩쓸기", "반격", "투쟁"], "왕평": ["명경", "위축", "불굴"],
+    "우번": ["위압", "명경", "기책"], "이각": ["추격", "투쟁", "기세"], "이유": ["귀모", "이간", "반목"],
+    "이의": ["명경", "반목", "위압"], "장만성": ["기세", "투쟁", "휩쓸기"], "장임": ["위축", "기선", "용맹"],
+    "장패": ["추격", "휩쓸기", "불굴"], "장포": ["용맹", "기세", "추격"], "장흠": ["용맹", "기세", "선봉"],
+    "제갈각": ["기책", "파상", "귀모"], "제갈근": ["연계", "명경", "위무"], "조홍": ["불굴", "투쟁", "추격"],
+    "주건평": ["명경", "위압", "기책"], "주연": ["방진", "위축", "금강"], "진림": ["반목", "약점", "위압"],
+    "진무": ["반격", "용맹", "추격"], "하제": ["기세", "추격", "휩쓸기"], "한당": ["용맹", "선봉", "불굴"],
+    "한수": ["반목", "기세", "추격"], "허유": ["귀모", "기책", "약점"], "황권": ["기책", "명경", "위축"],
+    "황조": ["위축", "산란", "투쟁"],
+}
 
 # ───────── 줄기 빈 칸 칭호 ─────────
 TITLE = {
@@ -289,7 +305,7 @@ AURA6 = {
     # 모사
     "정욱": AU("동아고수", "all", m={"opener": 0.26}, foe={"atk": -0.07}),
     "등애": AU("둔전부국", "all", m={"opener": 0.44}),
-    "원술": AU("중가제위", "fac", ally={"atk": 0.14, "int": 0.14}),
+    "원술": AU("중가제위", "fac", ally={"atk": 0.14}),      # 11/11 int 는 atk 에 더해진다(MV_ALIAS) —— 공격 두 번 합산 제거
     "전풍": AU("충언역이", "all", m={"rout": 0.44, "stres": 0.18}),
 }
 # 11/10 전투 밸런스 —— 초월 위세 세기: AURA6 의 수치는 11/9 에 ×1.75 로 올린 값이다. 측정(tests/card_value duel --auraside=mine): 초월 3장 + 전설 6장 덱이 위세를 켠 쪽만 +14%p ·
@@ -878,112 +894,25 @@ def main():
 
 
 def fill_ladders(allc):
-    """11/3 사용자: 장수들이 특기를 더 많이 —— 카드 등급마다 TRAIT_MIN 개가 되도록 특기 사다리를 채운다.
-    ① 그 인물의 뒤 등급 특기를 앞당기고 (고유 특기는 불멸 아래로 내리지 않는다) ② 모자라면 같은 병종 인물들이 많이 가진 특기를 더한다.
-    단체 특기가 없는 인물은 희귀부터 그 병종에 흔한 단체 특기 하나. 결과는 인물 -> 새 사다리 (passives.json ladder 를 덮는다)"""
+    """작성된 사다리는 보존하고, 원래 배정이 없는 저등급 인물만 직접 선별한 특기로 채운다."""
     P = json.load(open(os.path.join(ROOT, "passives.json"), encoding="utf-8"))
     T = P["traits"]
-    uniq = lambda n: T[n].get("unique", False)
-    grp = lambda n: "scope" in T[n] and not uniq(n)
-    tiers, tag_of = {}, {}
+    tiers = {}
     for c in allc:
         if c[2] >= 3:
             tiers.setdefault(person(c), set()).add(c[2])
-            if c[2] >= max(tiers[person(c)]):
-                tag_of[person(c)] = c[3]
-    lad0 = {}
-    for p_ in tiers:
-        if p_ in P["ladder"]:
-            lad0[p_] = [list(e) for e in P["ladder"][p_]]
-        elif p_ in LADDER_FROM:
-            lad0[p_] = [list(e) for e in P["ladder"].get(LADDER_FROM[p_], []) if int(e[1]) <= 6]
-        else:
-            lad0[p_] = []
-    pool, gpool = {}, {}
-    for p_, lad in lad0.items():
-        for e in lad:
-            if uniq(e[0]):
-                continue
-            if e[0] == "인술" and tag_of[p_] == "술사":
-                continue
-            d = gpool if grp(e[0]) else pool
-            d.setdefault(tag_of[p_], {}).setdefault(e[0], 0)
-            d[tag_of[p_]][e[0]] += 1
     out = {}
     for p_, ts in tiers.items():
-        lad = [list(e) for e in lad0[p_]]
-        tg = tag_of[p_]
-        if tg == "술사" and p_ not in HEALERS:          # 11/3 치료는 유생 전담 —— 술사의 인술은 뺀다 (화타 같은 의원만 남긴다)
-            lad = [e for e in lad if e[0] != "인술"]
-        lo = min(ts)
-        if not any(grp(e[0]) for e in lad) and gpool.get(tg):
-            g = max(gpool[tg], key=lambda n: gpool[tg][n])
-            lad.append([g, max(4, lo)])
-        for t in sorted(ts):
-            act = lambda: [e for e in lad if int(e[1]) <= t and (len(e) < 3 or t <= int(e[2]))]
-            need = TRAIT_MIN[t] - len(act())
-            later = sorted([e for e in lad if int(e[1]) > t and len(e) < 3 and (not uniq(e[0]) or t >= 7)], key=lambda e: int(e[1]))
-            for e in later[:max(0, need)]:
-                e[1] = t
-            need = TRAIT_MIN[t] - len(act())
-            if need > 0:
-                have = {e[0] for e in lad}
-                cand = sorted(pool.get(tg, {}).items(), key=lambda kv: -kv[1])
-                for n_, _ in cand:
-                    if need <= 0:
-                        break
-                    if n_ not in have:
-                        lad.append([n_, t])
-                        need -= 1
-        out[p_] = lad
-    if TRIM_FILLER:
-        trim_filler(out, lad0, tiers, T)
-    return {p_: lad for p_, lad in out.items() if lad != lad0[p_]}
-
-
-# 11/9 특기 정리 (축소판) —— 위 ②에서 '같은 병종 인물들이 많이 가진 특기'로 억지로 채운 특기(그 인물의 원래 사다리에 없던 것)는,
-# 최고 등급 특기가 TRIM_MIN 개 이상인 인물에서 뺀다. 고유(금색) · 원래 사다리 특기 · FILL_KEEP(역할 재설계 부록 A 가 보조로 남긴 것)은 그대로.
-# 되돌리려면 TRIM_FILLER = False 로 두고 이 스크립트를 다시 돌린다. 뺀 목록: docs/특기_정리_1109.md (이 함수가 쓴다)
-TRIM_FILLER = True
-TRIM_MIN = 6
-TRIM_FLOOR = 4      # 이 이하로는 줄이지 않는다 (4개로 맞추려고 무리하지 않는다)
-FILL_KEEP = {"정보": ["위축"]}
-
-
-def trim_filler(out, lad0, tiers, T):
-    act = lambda lad, t: [e for e in lad if int(e[1]) <= t and (len(e) < 3 or t <= int(e[2]))]
-    rows = []
-    for p_, lad in out.items():
-        top = max(tiers[p_])
-        if len(act(lad, top)) < TRIM_MIN:
+        if p_ in P["ladder"] or p_ in LADDER_FROM:
             continue
-        base = {e[0] for e in lad0[p_]}
-        drop = [e for e in lad if e[0] not in base and not T[e[0]].get("unique", False) and e[0] not in FILL_KEEP.get(p_, [])]
-        before = len(act(lad, top))
-        drop.sort(key=lambda e: -int(e[1]))      # 늦게 붙은 것부터 —— 최고 등급 특기가 TRIM_FLOOR 아래로 내려가지 않게만
-        drop = drop[:max(0, before - TRIM_FLOOR)]
-        if not drop:
+        traits = PERSONAL_SPECIALTIES.get(p_, [])
+        if not traits:
             continue
-        out[p_] = [e for e in lad if e not in drop]
-        rows.append((p_, top, before, len(act(out[p_], top)), drop))
-    rows.sort(key=lambda r: (-r[1], r[0]))
-    docs = os.path.join(ROOT, "..", "..", "docs", "특기_정리_1109.md")
-    L_ = ["# 장수 특기 정리 (축소판, 11/9)", "",
-          "`tools/scripts/lines.py` 의 `trim_filler` 가 만든 목록 (이 파일도 같은 스크립트가 쓴다). 11/3 `fill_ladders` 가 등급마다 최소 특기 수(TRAIT_MIN 5 · 6 · 7 · 8)를 맞추려고",
-          "**같은 병종 인물들이 많이 가진 특기를 억지로 붙인 것**(그 인물의 원래 사다리 `passives.json ladder` 에 없던 특기) 가운데, 최고 등급 특기가 %d개 이상인 인물에서만 뺐다." % TRIM_MIN,
-          "고유(금색) 특기 · 원래 사다리에 있던 특기(대표 특기 포함) · 역할 재설계 부록 A 가 보조로 남긴 것(FILL_KEEP: %s)은 건드리지 않았다. 최고 등급 특기가 %d개 아래로는 줄이지 않았고(늦게 붙은 것부터 뺌), 4개로 맞추려고 더 뺀 것은 없다." % (", ".join("%s %s" % (k, "·".join(v)) for k, v in FILL_KEEP.items()), TRIM_FLOOR),
-          "", "**되돌리기**: `lines.py` 의 `TRIM_FILLER = False` 로 바꾸고 `python -I tools/scripts/lines.py` 를 다시 돌리면 `data/lines.json` 의 `ladder` 가 11/3 채움 그대로 돌아온다.",
-          "(뺀 특기는 카드 등급 5 = 전설 이상에서만 붙어 있었다 —— 채움이 5개부터 일어난다.)",
-          "건드리지 않은 것(다음 후보): ① TRAIT_MIN 을 맞추려고 뒤 등급 특기를 앞 등급으로 앞당긴 것(69개) ② 원래 사다리 안의 범용 특기(사기 축 함성 · 독전 · 결사 · 진정 · 고무, 후원 · 귀모 …)의 겹침 —— 대표 특기를 정한 뒤 손볼 것.", "",
-          "| 인물 | 최고 등급 | 특기 수 | 뺀 특기 (붙던 등급) |", "|---|---|---|---|"]
-    n = 0
-    for p_, top, b, a, drop in rows:
-        L_.append("| %s | %d | %d → %d | %s |" % (p_, top, b, a, " · ".join("%s(%s)" % (e[0], e[1]) for e in drop)))
-        n += len(drop)
-    L_ += ["", "합계: %d명 · 특기 %d개" % (len(rows), n)]
-    with open(docs, "w", encoding="utf-8") as f_:
-        f_.write(chr(10).join(L_) + chr(10))
-    print("특기 정리: %d명 · %d개 뺌 (docs/특기_정리_1109.md)" % (len(rows), n))
+        assert len(traits) == len(set(traits)), p_
+        assert all(n in T and not T[n].get("scope") and not T[n].get("unique", False) for n in traits), p_
+        start = min(ts)
+        out[p_] = [[n, start] for n in traits]
+    return out
 
 
 main()
