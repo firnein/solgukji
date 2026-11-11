@@ -290,7 +290,7 @@ func connect_sheet(refresh := false) -> void:
 	if refresh and net.is_open():
 		net.send({"t": "list"})
 	var b := gs.open_sheet("온라인 대전")
-	b.add_child(UI.hint("Dev = 집 PC 서버(server.bat), 같은 와이파이에서.\n밖에서는 「직접 입력…」에 포트포워딩 · 터널 주소(wss://…)."))      # 문장마다 줄을 나눈다 —— 「직접 입력…」이 줄 끝에서 갈라지지 않게
+	b.add_child(UI.hint("Dev = 집 PC 서버, 어디서나 접속.\n같은 집 와이파이면 「Dev 와이파이」도 된다."))      # 문장마다 줄을 나눈다 —— 「직접 입력…」이 줄 끝에서 갈라지지 않게
 	var row := UI.vbox(4)
 	row.add_child(UI.lbl("서버", 14, DB.PAL.bamboo))
 	_url_pick = _server_pick()
