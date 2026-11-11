@@ -132,6 +132,9 @@ func _ready() -> void:
 ## 게임을 켜자마자(타이틀에 있는 동안) 조합 탭에 나오는 장수 · 재료의 그림을 작업 스레드로 조금씩 올려 둔다. 판이 정해지면(render 첫 호출)
 ## 지금 내가 가진 카드 → 추천 → 조합 순서(조합 탭이 보이는 순서) 로 앞에 끼워 넣는다. DB.warm_portraits 참고
 var _warm_run: Run = null
+var _play_sec := 0.0          # 11/11 사용자: 현재 판 플레이 시간 (기록 탭 맨 위) —— 판이 바뀌면 0, 끝나면 멈춘다
+var _play_run: Run = null
+var _play_lbl: Label = null
 
 
 func _warm_start() -> void:
@@ -711,6 +714,8 @@ func _restore_scroll(v: int) -> void:
 ## 기록 탭 —— 위에 [순위 | 계보 | 업데이트] 나눔 탭
 func _page_more(body: Control) -> Control:
 	var v := UI.vbox(16)
+	_play_lbl = UI.lbl(play_text(), 15, DB.PAL.bamboo)      # 11/11 사용자: 최상단에 현재 플레이타임
+	v.add_child(_play_lbl)
 	v.add_child(UI.segmented([["rank", "순위"], ["line", "계보"], ["update", "업데이트"]], page, func(k): go(k)))
 	v.add_child(body)
 	return v
@@ -884,7 +889,25 @@ var _danger_t := 0.0
 
 
 func _process(dt: float) -> void:
+	_play_tick(dt)
 	_danger_tick(dt)
+
+
+## 플레이 시간 —— 이 판이 시작된 뒤 켜 둔 시간(판이 끝나면 멈춤, 제목 화면에서는 세지 않는다). 기록 탭 맨 위에 보인다
+func _play_tick(dt: float) -> void:
+	if run != _play_run:
+		_play_run = run
+		_play_sec = 0.0
+	if run != null and run.over == null and (_title == null or not _title.visible):
+		_play_sec += dt
+	if _play_lbl != null and is_instance_valid(_play_lbl) and _play_lbl.is_visible_in_tree():
+		_play_lbl.text = play_text()
+
+
+func play_text() -> String:
+	var t := int(_play_sec)
+	return ("플레이 시간  %d:%02d:%02d" % [t / 3600, t / 60 % 60, t % 60]) if t >= 3600 else ("플레이 시간  %d:%02d" % [t / 60, t % 60])
+
 
 
 func _danger_tick(dt: float) -> void:

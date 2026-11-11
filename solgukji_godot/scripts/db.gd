@@ -1630,7 +1630,26 @@ func auto_place(cards: Array, form: String) -> Array:
 	var used := []
 	used.resize(out.size())
 	used.fill(false)
-	for k in order:
+	# 11/11 사용자: 선봉에 술사가 서는 경우가 있다(창병이 있는데도) —— 등급 높은 순으로 자리를 고르면 높은 등급 술사가 먼저 뒷자리를 채우고
+	# 남은 선봉에 들어갔다. 선봉 자리는 등급과 상관없이 먼저, 그 자리에 가장 맞는 카드(기병 · 창병 …)로 채운다
+	var rest: Array = order.duplicate()
+	for i in f.slots.size():
+		var s0: Dictionary = f.slots[i]
+		if s0.line != "선봉" or rest.is_empty():
+			continue
+		var bk = null
+		var bv := -1e9
+		for k in rest:
+			var z0 := aff_of(C[k].tag, s0.line, s0.side)
+			var v0: float = (6.0 if z0 == "pref" else -4.0 if z0 == "bad" else 0.0) - absf(D.LINE[s0.line].pri - (4 - fw[C[k].tag])) * 0.6 + float(C[k].tier) * 0.01
+			if v0 > bv and v0 >= -2.0:      # 술사 · 모사(−2.4)는 이 자리의 몫이 아니다 (책사 · 유생 · 도적 −1.8 은 앞줄 카드가 모자랄 때만) —— 그래도 남으면 아래 일반 배치가 정한다
+				bv = v0
+				bk = k
+		if bk != null:
+			used[i] = true
+			out[i] = bk
+			rest.erase(bk)
+	for k in rest:
 		var best := -1
 		var bs := -1e9
 		for i in f.slots.size():
