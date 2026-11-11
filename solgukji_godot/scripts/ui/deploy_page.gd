@@ -78,6 +78,8 @@ func build() -> Control:
 	# 11/9 사용자: 진형 우대 삭제 —— 머리는 진형 이름만 (예전 '창병 · 유생 방어 +14%' 효과 줄과 「비늘이 서로를 가린다」 설명 줄 삭제)
 	var fnr := UI.hbox(10)
 	fnr.add_child(UI.lbl(f.n, 17, DB.PAL.paper, true))
+	if str(f.get("full", "")) != "":      # 11/12 진형마다 5칸이 꽉 찬 줄 하나
+		fnr.add_child(UI.lbl("%s 5칸" % f.full, 13, DB.PAL.bamboo_dim))
 	fnr.add_child(_inyeon_chip())      # 11/11 인연 —— 진형 이름 옆 칩 (이어진 수 · 누르면 시트)
 	hl.add_child(fnr)
 	hd.add_child(hl)
