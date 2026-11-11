@@ -156,6 +156,16 @@ static func draw_panel_pop(ci: CanvasItem, r: Rect2, k: String, pop: float) -> b
 	var used := DB.portrait_used(k)
 	var top := DB.portrait_panel_top(k)
 	var s := r.size.x / used.size.x
+	if used.size.y * s < r.size.y - 0.5:
+		# 11/11 사용자: 기인 갈무리창 프로필이 짤린 것처럼 —— 가로로 넓은 패널(기인 494×431 등)을 칸 너비에 맞추면 아래가 비어 그림이 끊겨 보였다.
+		# 이 경우는 높이를 칸에 맞추고 좌우를 가운데 기준으로 잘라 칸을 꽉 채운다
+		var s2 := r.size.y / used.size.y
+		var above2 := minf((top - used.position.y) * s2, pop)
+		s2 = (r.size.y + above2) / used.size.y
+		var sw := r.size.x / s2
+		var src2 := Rect2(used.position.x + (used.size.x - sw) / 2.0, used.position.y, sw, used.size.y)
+		ci.draw_texture_rect_region(tex, Rect2(r.position.x, r.position.y - above2, r.size.x, r.size.y + above2), src2)
+		return true
 	# 그림 맨 위를 칸 위 above 에 둔다 —— 깃·무기가 납작하게 잘리지 않고 통째로 솟는다 (그만큼 아래를 더 자른다)
 	var above := minf((top - used.position.y) * s, pop)
 	var src := Rect2(used.position, Vector2(used.size.x, minf((r.size.y + above) / s, used.size.y)))
