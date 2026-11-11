@@ -148,6 +148,12 @@ static var ult_cap := {6: 0.25, 7: 0.25, 8: 0.3}
 static var reult_temper := {"맹장": 0.4, "수호": 3.3, "지략": 0.56, "저격": 0.57, "분노": 1.55}
 var _ult_by: Unit = null       # 지금 고유기를 쓰는 장수 (상한 등급)
 var _ult_taken := {}           # 이번 고유기에 부대마다 잃은 병력 (상한용)
+## 11/11 인연 합동 고유기 (RtBattle) —— 켜면 한 장수가 기를 모을 때 같은 인연의 게이지 찬 아군(최대 둘)이 합류해 함께 터진다.
+## 합동 한 번이 한 부대에서 앗는 병력은 (합류한 장수 중 가장 큰 ult_cap) × inyeon_cap_mul 까지 (장수 개별 상한도 그대로)
+static var inyeon_enabled := true
+static var inyeon_cap_mul := 1.5
+var _ult_grp := {}             # 지금 터지는 합동 고유기 {members, taken, ...} (비면 단독 고유기)
+var _ult_extra := {}           # 이번 고유기 사건('ult')에 덧붙일 항목 (합동이면 inyeon · mates · lead)
 const SK_BANK := 2.0       # 일반 기술 충전 상한 —— 조건이 안 맞는 동안 두 번까지 모아 둔다
 const ULT_SIDE_GAP := 4       # 같은 진영 고유기 사이 최소 행동 수
 const PTS_EVERY := 6          # 행동 6번마다 군령 포인트 1
@@ -2902,7 +2908,7 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	var nm_: String = ul.name
 	var amp := (tac_hold_amp if _tac(u.camp, 1) == "위기" else crisis_amp) if _crisis(u.camp) else 1.0
 	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
-		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0})
+		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0}.merged(_ult_extra))
 	for comp_ in ul.eff:
 		var comp: Dictionary = _amp_comp(comp_, amp)
 		var ts := resolve_targets(comp.tgt, foes, u, allies)
@@ -3372,6 +3378,17 @@ func _ult_clamp(d: Unit, loss: float) -> float:
 		return loss
 	var got: float = _ult_taken.get(d, 0.0)
 	var out := clampf(cap * d.max - got, 0.0, loss)
+	if not _ult_grp.is_empty() and inyeon_cap_mul > 0.0:      # 합동 고유기 —— 한 부대가 합동 전체에서 받는 몫의 상한
+		var gc := 0.0
+		for m in _ult_grp.members:
+			gc = maxf(gc, float(ult_cap.get(clampi(int(m.c.tier), 6, 8), 0.0)))
+		gc *= inyeon_cap_mul
+		var gg: float = _ult_grp.taken.get(d, 0.0)
+		var o2 := clampf(gc * d.max - gg, 0.0, out)
+		if o2 < out:
+			stats["inyeon_capped"] = int(stats.get("inyeon_capped", 0)) + 1
+		out = o2
+		_ult_grp.taken[d] = gg + out
 	_ult_taken[d] = got + out
 	if out < loss:
 		stats["ult_capped"] = int(stats.get("ult_capped", 0)) + 1

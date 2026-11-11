@@ -45,6 +45,8 @@ var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등
 ## 11/10 점검용 —— 초상 읽기에 든 시간(마이크로초 합)을 구간별로 센다 (tests/forge_first). 시간 재기만 하고 결과에는 영향 없다
 var prof := {"n": 0, "main": 0, "decode": 0, "res": 0, "mip": 0, "tex": 0, "scan": 0}
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
+var INYEON := {}             # 11/11 인연 —— 이름 -> [인물 이름 4~5명] (data/inyeon.json list, 파일 순서). 고유기 합동 발동 (RtBattle._inyeon_recruit)
+var INYEON_OF := {}          # 인물 이름 -> [그 인물이 든 인연 이름들, 파일 순서]
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
 var GUARD: Dictionary = {}    # 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 · 토벌 우두머리 성질 (data/cards_ext.json class_guard) —— 없으면 막 0 · 깎기 없음
@@ -188,6 +190,12 @@ func _load() -> void:
 	ULT = JSON.parse_string(FileAccess.open("res://data/ultimates.json", FileAccess.READ).get_as_text())
 	for p in LINES.get("ults", {}):
 		ULT.list[p] = LINES.ults[p]
+	INYEON = JSON.parse_string(FileAccess.open("res://data/inyeon.json", FileAccess.READ).get_as_text()).list      # 11/11 인연 —— 검증은 tests/inyeon.gd
+	for nm_ in INYEON:
+		for pn in INYEON[nm_]:
+			if not INYEON_OF.has(pn):
+				INYEON_OF[pn] = []
+			INYEON_OF[pn].append(nm_)
 	PSV = JSON.parse_string(FileAccess.open("res://data/passives.json", FileAccess.READ).get_as_text())
 	D.STATUS.flood.d = "물에 잠겨 이동 · 공격이 %d%% 느려지고 기병은 돌격하지 못한다 (제방은 느려짐을 줄이고 격류는 더한다)" % roundi(float(PSV.water.slow) * 100)      # 11/9 수공 제어 전담 —— 지속 피해 없이 이감 + 돌격 봉쇄 (원본 설명 '병력이 잠기고' 는 옛 규칙)
 	for p in LINES.get("ladder_from", {}):        # 11/2 (5) 새 인물 —— 닮은 인물의 특기 사다리를 빌린다 (초월까지만)

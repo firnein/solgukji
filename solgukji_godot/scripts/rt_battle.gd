@@ -338,18 +338,7 @@ func _interrupt_ult(u: Unit) -> void:
 	u.gauge = 0.0                 # 다시 누를 수 없게 (터지거나 끊길 때 정리)
 	u.ult_ready_t = -1.0
 	_ult_last[u.camp] = act_n
-	# 맞을 곳 미리 보기 —— 지금 자리 기준으로 고유기 대상들을 원으로
-	var foes := units.filter(func(o): return o.camp != u.camp)
-	var allies := units.filter(func(o): return o.camp == u.camp)
-	var warn := []
-	_in_ult = true
-	for comp in u.ult.eff:
-		if comp.t == "ally":
-			continue
-		for t in resolve_targets(comp.tgt, foes, u, allies):
-			if t.alive and not warn.any(func(w): return w.k == t.key):
-				warn.append({"k": t.key, "x": roundi(t.pos.x), "y": roundi(t.pos.y), "r": 60})
-	_in_ult = false
+	var warn := _ult_warn_list(u)
 	_paeup_omen(u, warn.map(func(w): return w.k))
 	_ai += 1
 	_ph = "act"
@@ -361,19 +350,169 @@ func _interrupt_ult(u: Unit) -> void:
 		_kiin_used["ult_cut:" + zh.camp] = int(_kiin_used.get("ult_cut:" + zh.camp, 0)) + 1
 		_cut_wind(u, zh)
 		u.gauge = 0.0
+	if inyeon_enabled and _wind.has(u):
+		_inyeon_recruit(u, wait)
+
+
+## 맞을 곳 미리 보기 —— 지금 자리 기준으로 고유기 대상들을 원으로
+func _ult_warn_list(u: Unit) -> Array:
+	var foes := units.filter(func(o): return o.camp != u.camp)
+	var allies := units.filter(func(o): return o.camp == u.camp)
+	var warn := []
+	_in_ult = true
+	for comp in u.ult.eff:
+		if comp.t == "ally":
+			continue
+		for t in resolve_targets(comp.tgt, foes, u, allies):
+			if t.alive and not warn.any(func(w): return w.k == t.key):
+				warn.append({"k": t.key, "x": roundi(t.pos.x), "y": roundi(t.pos.y), "r": 60})
+	_in_ult = false
+	return warn
+
+
+# ───────── 11/11 인연 합동 고유기 ─────────
+## 한 장수(대표)가 기를 모으기 시작하면, 같은 인연(data/inyeon.json)의 게이지 100 인 아군이 기를 모으는 동안 하나씩 합류한다 (대표 포함 최대 INYEON_MAX 명).
+## 합류는 대표의 기 모으기 길이(wait)의 inyeon_join_at 비율 지점에서 · 터지는 것은 대표의 끝 시각부터 inyeon_stagger 초 간격으로 (대표 → 먼저 합류한 장수 순).
+## 합류한 장수의 고유기는 보통 한 번과 같다 (charges · ult_n · ult_tm · 게이지 0) —— 다만 ult_gap · ult_side_sec · 대기 시간 · 기질 조건 · _ult_ok 는 보지 않는다 (게이지 100 이면 충분).
+## 끊김 —— 장수마다 따로 오늘과 똑같이 (끊긴 장수만 못 쏜다 · CUT_GAUGE). 대표가 끊기면 아직 합류하지 않은 장수의 합류는 취소, 이미 합류한 장수는 제 시각에 그대로 쏜다.
+const INYEON_MAX := 3
+static var inyeon_join_at := [0.32, 0.64]      # 합류 시각 (대표 기 모으기 길이 비율) —— 2.5초면 +0.8 · +1.6
+static var inyeon_stagger := 0.2               # 터지는 간격 (초)
+var _join_q := []              # 합류 예약 [{u, lead, at, grp, name}]
+var _wind_grp := {}            # 합동에 든 장수 -> 그룹 {lead, name, members, taken, fired}
+
+
+func _join_ok(o: Unit) -> bool:
+	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= 100.0 \
+		and not has_st(o, "seal") and not has_st(o, "confuse") and not _wind.has(o) and not _wind_grp.has(o)
+
+
+func _inyeon_recruit(u: Unit, wait: float) -> void:
+	var lead_in: Array = DB.INYEON_OF.get(DB.person(u.c.id), [])
+	if lead_in.is_empty():
+		return
+	var cands := []
+	for o in units:
+		if o == u or o.camp != u.camp or not _join_ok(o):
+			continue
+		var po: String = DB.person(o.c.id)
+		if lead_in.any(func(n): return DB.INYEON[n].has(po)):
+			cands.append(o)
+	if cands.is_empty():
+		return
+	cands.sort_custom(func(x, y):      # 게이지가 먼저 찬 장수부터, 같으면 등급이 높은 장수, 그래도 같으면 유닛 순서
+		var rx: float = x.ult_ready_t if x.ult_ready_t >= 0.0 else 1e9
+		var ry: float = y.ult_ready_t if y.ult_ready_t >= 0.0 else 1e9
+		if rx != ry:
+			return rx < ry
+		if x.c.tier != y.c.tier:
+			return x.c.tier > y.c.tier
+		return _idx[x] < _idx[y])
+	var picks: Array = cands.slice(0, INYEON_MAX - 1)
+	# 인연 이름 —— 대표의 인연 가운데 뽑힌 장수가 가장 많이 든 것 (같으면 파일 순서)
+	var best := ""
+	var bn := -1
+	for n in lead_in:
+		var c := 0
+		for o in picks:
+			if DB.INYEON[n].has(DB.person(o.c.id)):
+				c += 1
+		if c > bn:
+			bn = c
+			best = n
+	var grp := {"lead": u, "name": best, "members": [u], "taken": {}, "fired": false}
+	_wind_grp[u] = grp
+	for i in picks.size():
+		var o: Unit = picks[i]
+		var po: String = DB.person(o.c.id)
+		var nm_ := best
+		if not DB.INYEON[best].has(po):      # 그룹 이름을 같이 나누지 않는 장수는 대표와 나누는 첫 인연
+			nm_ = lead_in.filter(func(n): return DB.INYEON[n].has(po))[0]
+		_join_q.append({"u": o, "lead": u, "at": _tm + wait * float(inyeon_join_at[mini(i, inyeon_join_at.size() - 1)]), "grp": grp, "name": nm_})
+
+
+## 합류 때가 된 장수를 붙인다 (매 틱, 고유기를 터뜨리기 전에)
+func _inyeon_joins() -> void:
+	for j in _join_q.duplicate():
+		if j.at > _tm + 0.001:
+			continue
+		_join_q.erase(j)
+		var lead: Unit = j.lead
+		var o: Unit = j.u
+		if not _wind.has(lead) or not _join_ok(o):      # 대표가 끊겼거나 그새 못 쓰게 됐다
+			continue
+		var grp: Dictionary = j.grp
+		var ord: int = grp.members.size()
+		grp.members.append(o)
+		_wind_grp[o] = grp
+		var end: float = float(_wind[lead]) + inyeon_stagger * ord
+		_wind[o] = end
+		o.gauge = 0.0
+		o.ult_ready_t = -1.0
+		stats["inyeon_join"] = int(stats.get("inyeon_join", 0)) + 1
+		var warn := _ult_warn_list(o)
+		_paeup_omen(o, warn.map(func(w): return w.k))
+		_ai += 1
+		_ph = "act"
+		_who = o.key
+		L("sk", "%s 『%s』 인연 『%s』 —— %s도 기를 모은다" % [ga(nm(o)), o.ult.name, j.name, nm(lead)],
+			{"fx": "ult_join", "a": o.key, "lead": lead.key, "name": o.ult.name, "inyeon": j.name, "ord": ord, "wait": end - _tm, "warn": warn})
+
+
+## 합동에서 빠진다 (끊김 · 못 쏨) —— 아직 합류하지 않은 예약도 대표가 빠지면 지운다
+func _inyeon_drop(d: Unit) -> void:
+	if _wind_grp.has(d):
+		var grp: Dictionary = _wind_grp[d]
+		grp.members.erase(d)
+		_wind_grp.erase(d)
+		if grp.members.size() > 1 or grp.fired:
+			stats["inyeon_cut"] = int(stats.get("inyeon_cut", 0)) + 1
+	_join_q = _join_q.filter(func(j): return j.lead != d)
 
 
 ## 기 모으기가 끝난 고유기를 터뜨린다 (유닛 순서대로 —— 같은 시각이면 결정적으로)
 func _fire_winds() -> void:
+	if not _join_q.is_empty():
+		_inyeon_joins()
 	for u in units:
 		if not _wind.has(u) or _wind[u] > _tm + 0.001:
 			continue
 		_wind.erase(u)
 		if not u.alive or has_st(u, "confuse"):
 			u.gauge = CUT_GAUGE
+			_inyeon_drop(u)
 			continue
+		var grp: Dictionary = _wind_grp.get(u, {})
+		if not grp.is_empty():
+			_inyeon_fire_setup(u, grp)
 		super._interrupt_ult(u)
+		_ult_grp = {}
+		_ult_extra = {}
+		_wind_grp.erase(u)
+		_join_q = _join_q.filter(func(j): return j.lead != u)
 		_omen.erase(u)
+
+
+## 합동 고유기의 사건 항목 · 상한 그룹을 정한다 —— 대표는 inyeon · mates, 따라 쏘는 장수는 inyeon · lead (대표가 이미 터졌을 때만 —— 대표가 끊겼으면 보통 고유기처럼)
+func _inyeon_fire_setup(u: Unit, grp: Dictionary) -> void:
+	if u == grp.lead:
+		var mates := []
+		for o in grp.members:
+			if o != u and _wind.has(o):
+				mates.append(o.key)
+		if mates.is_empty():
+			return
+		grp.fired = true
+		_ult_extra = {"inyeon": grp.name, "mates": mates}
+		stats["inyeon_joint"] = int(stats.get("inyeon_joint", 0)) + 1
+		stats["inyeon_units"] = int(stats.get("inyeon_units", 0)) + 1 + mates.size()
+		var kn := "inyeon_n2" if mates.size() == 1 else "inyeon_n3"
+		stats[kn] = int(stats.get(kn, 0)) + 1
+	elif grp.fired:
+		_ult_extra = {"inyeon": grp.name, "lead": grp.lead.key}
+	else:
+		return
+	_ult_grp = grp
 
 
 func _paeup_unwind(d: Unit) -> void:
@@ -383,12 +522,14 @@ func _paeup_unwind(d: Unit) -> void:
 
 func _cut_wind_quiet(d: Unit) -> void:
 	_wind.erase(d)
+	_inyeon_drop(d)
 	d.gauge = 0.0
 
 
 ## 기 모으던 장수가 적 고유기에 맞았다 —— 끊긴다
 func _cut_wind(d: Unit, a: Unit) -> void:
 	_wind.erase(d)
+	_inyeon_drop(d)
 	d.gauge = CUT_GAUGE
 	stats["ult_cuts"] = stats.get("ult_cuts", 0) + 1
 	L("sk", "%s 『%s』 기세가 끊겼다!" % [ga(nm(d)), d.ult.name], {"fx": "ult_cut", "a": a.key, "f": d.key, "name": d.ult.name})
