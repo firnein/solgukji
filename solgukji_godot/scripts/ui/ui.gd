@@ -124,6 +124,8 @@ static func spoil_bb(sp) -> String:
 		if t > 0:
 			inner += " · %s 선택권 +%d" % [DB.TIER[Run.QUEST_BONUS_TICKET_TIER].n, t]
 		s += " [color=#%s](%s)[/color]" % [DB.PAL.gold.to_html(false), inner]
+	if bool(sp.get("held", false)):      # 11/12 온라인 —— 전투 보상은 다음 아침(1페이즈)에 지급
+		s += " · 아침에 지급"
 	return s
 
 

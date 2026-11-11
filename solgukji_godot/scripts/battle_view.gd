@@ -122,6 +122,8 @@ var _auto_btn: CheckButton
 var _skip_btn: Button        # 결과로 건너뛰기 (⋯ 메뉴) —— 온라인 재생에서도 보인다 (11/9 사용자: 리플레이를 나갈 방법이 없었다)
 var _skip_top: Button        # 위 띠의 '결과로' —— 온라인 재생(locked)에서만
 var _say_btn: Button         # 위 띠의 '한마디' —— say_cb 가 있을 때(온라인)만
+var leave_cb := Callable()   # 11/12 사용자: 전투 메뉴에서 게임 나가기 —— 게임 화면이 넣는다 (점검 화면에는 없다)
+var _leave_btn: Button
 var say_cb := Callable()     # 한마디 시트를 여는 함수 (Online.quick_sheet) —— 게임 화면이 전투를 띄울 때 넣는다
 var _say_box: VBoxContainer  # 받은 한마디 줄 (전장 왼쪽 위)
 var _dev_row: Control
@@ -474,6 +476,12 @@ func _build_side() -> void:
 		set_side_visible(false)
 		skip(), "ghost", 44)
 	v.add_child(_skip_btn)
+	_leave_btn = UI.btn("게임 나가기", func():
+		set_side_visible(false)
+		if leave_cb.is_valid():
+			leave_cb.call(), "warn", 44)
+	_leave_btn.visible = false
+	v.add_child(_leave_btn)
 	var hint := UI.lbl("두 손가락 확대·회전 · 한 손가락 이동 · 장수 칸을 꾹 누르면 전투 능력치", 11, DB.PAL.bamboo_dim)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hint)
@@ -830,6 +838,8 @@ func _rt() -> bool:
 
 
 func set_side_visible(on: bool) -> void:
+	if on and _leave_btn != null:
+		_leave_btn.visible = leave_cb.is_valid()
 	_side.visible = on
 	_side_mask.visible = on
 

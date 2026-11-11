@@ -38,6 +38,8 @@ func build() -> Control:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(v)
+	if gs.online != null and not gs.can_form():      # 11/12 페이즈 개편 —— 편성이 막힌 단계면 이유 한 줄 (버튼은 잠근다)
+		v.add_child(UI.hint(gs.online.block_reason("form")))
 
 	# 진형 —— 가로로 넘기는 띠. 11/7 사용자: 이름만 (미니 격자를 붙이니 칩 폭이 모자라 레이아웃이 무너졌다). 효과 줄은 아래 편성판 머리에 한 줄
 	var st := UI.strip(6)
@@ -85,9 +87,11 @@ func build() -> Control:
 		sel = ""
 		gs.act("auto_deploy"), "pri", 40)
 	ab.add_theme_font_size_override("font_size", 14)
+	ab.disabled = not gs.can_form()
 	hd.add_child(ab)
 	var cb := UI.btn("해제", func(): gs.act("clear_board"), "ghost", 40)
 	cb.add_theme_font_size_override("font_size", 14)
+	cb.disabled = not gs.can_form()
 	hd.add_child(cb)
 	bp.add_child(hd)
 	var grid := GridContainer.new()
@@ -377,8 +381,8 @@ func _item_card(id: String, n: int, g: String) -> Control:
 
 ## 칸 누름 —— 고른 카드가 있으면 놓고, 없으면 칸 시트
 func tap_slot(i: int) -> void:
-	if not gs.can_act():
-		gs.toast("지금은 편성할 수 없다 — 다음 준비 시간에", "bad")
+	if not gs.can_form():
+		gs.toast(gs.online.block_reason("form") if gs.online != null else "지금은 편성할 수 없다", "bad")
 		return
 	if sel != "" and gs.run.inv.get(sel, 0) > 0:
 		var k := sel
@@ -390,7 +394,8 @@ func tap_slot(i: int) -> void:
 
 
 func drop(i: int, data: Dictionary) -> void:
-	if not gs.can_act():
+	if not gs.can_form():
+		gs.toast(gs.online.block_reason("form") if gs.online != null else "지금은 편성할 수 없다", "bad")
 		return
 	if data.from < 0:
 		if sel == data.card and gs.run.inv.get(sel, 0) <= 1:

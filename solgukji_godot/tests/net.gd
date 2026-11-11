@@ -28,6 +28,7 @@ var t0 := 0.0
 var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 기준)
 var info_rows := 0            # 확인한 사람 자리 줄 수 (hp · key, 11/11)
 var watch_cmds := 0           # 11/11 기다리는 단계(점심 · 저녁)에 보낸 명령 수 (첫 플레이어만 —— 나머지는 옛 클라이언트처럼 준비 단계에서만 보낸다)
+var form_denied := 0          # 11/12 기다리는 동안 보낸 편성이 이유와 함께 거부된 수
 var act_checked := 0          # 방 정보 act · noon 을 확인한 상태 수
 
 
@@ -69,7 +70,11 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 	var c: NetClient = b.c
 	match str(d.t):
 		"error":
-			errors.append("%s: %s" % [b.name, d.msg])
+			if int(b.get("want_err", 0)) > 0 and str(d.msg).contains("편성"):      # 11/12 기다리는 동안의 편성 —— 거부되어야 맞다
+				b.want_err = int(b.want_err) - 1
+				form_denied += 1
+			else:
+				errors.append("%s: %s" % [b.name, d.msg])
 		"rooms":
 			if b.i == 0 and code == "" and not b.has("created"):
 				b.created = true
@@ -104,21 +109,25 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 				if bool(rm.get("noon", true)) != (int(rm.day) < Run.ONLINE_NOON_DAYS):
 					errors.append("%s: 방 정보 noon %s (일차 %d)" % [b.name, str(rm.get("noon")), int(rm.day) + 1])
 				if run.over == null and rm.stage != "over":
-					var want_act: bool = (rm.stage in Room.ACT_STAGES) or ((rm.stage in Room.WATCH_STAGES) and int(rm.get("tour_round", -1)) < 0)
+					# 11/12 페이즈 개편: 아침 = 징집 · 편성, 저녁 준비 = 편성만, 점심 · 저녁 = 편성 불가 (징집 · 조합은 다 본 뒤)
+					var want_draw: bool = rm.stage == "morning"
+					var want_form: bool = rm.stage in Room.ACT_STAGES
 					act_checked += 1
-					if not rm.has("act") or bool(rm.act) != want_act:
-						errors.append("%s: 방 정보 act %s (%s · 기대 %s)" % [b.name, str(rm.get("act")), rm.stage, str(want_act)])
-					# 첫 플레이어는 기다리는 동안에도 편성을 만진다 (새 클라이언트) —— 서버가 받고 상태를 돌려주면 된다
-					if b.i == 0 and want_act and (rm.stage in Room.WATCH_STAGES) and int(b.get("wcmd_no", -1)) != int(rm.stage_no):
-						b.wcmd_no = int(rm.stage_no)
-						watch_cmds += 1
-						c.send({"t": "cmd", "m": "auto_deploy", "a": []})
+					if not rm.has("act") or bool(rm.get("act_form")) != want_form or (not (rm.stage in Room.WATCH_STAGES) and bool(rm.get("act_draw")) != want_draw):
+						errors.append("%s: 방 정보 act %s · 징집 %s · 편성 %s (%s)" % [b.name, str(rm.get("act")), str(rm.get("act_draw")), str(rm.get("act_form")), rm.stage])
 				# 저녁 준비 —— 받은 상대를 적어 둔다 (PV 가 실려 오면 안 된다, 결정 ⑥)
 				if rm.stage == "evening_prep" and rm.get("foe") != null:
 					var f: Dictionary = rm.foe
 					if f.has("pv"):
 						errors.append("%s: 상대 정보에 PV 가 실려 있다" % b.name)
 					foe_log[b.name][int(rm.day_no)] = str(f.name)
+			# 첫 플레이어는 전투를 다 본 뒤 기다리는 동안 징집을 한다 (새 클라이언트) · 편성은 거부되어야 한다
+			if b.i == 0 and run.over == null and (rm.stage in Room.WATCH_STAGES) and bool(rm.get("act_draw", false)) and int(b.get("wcmd_no", -1)) != int(rm.stage_no):
+				b.wcmd_no = int(rm.stage_no)
+				watch_cmds += 1
+				c.send({"t": "cmd", "m": "do_draw", "a": []})
+				c.send({"t": "cmd", "m": "auto_deploy", "a": []})
+				b["want_err"] = int(b.get("want_err", 0)) + 1
 			# 11/11 기록 탭 —— 사람 자리마다 hp · key(기초불신 id 만), 봇에는 없다, 그 밖의 키는 허용 목록 안에서만 (실제 WebSocket 으로 온 줄)
 			for sr in rm.seats:
 				for sk in sr:
@@ -204,7 +213,7 @@ func _play(b: Dictionary, run: Dictionary, room: Dictionary) -> void:
 					c.send({"t": "cmd", "m": "forge", "a": [k]})
 					return
 	var key := "%d.%d.%s" % [run.day, run.phase, room.stage]
-	if not b.has("deployed_at") or b.deployed_at != key:
+	if room.stage in Room.ACT_STAGES and (not b.has("deployed_at") or b.deployed_at != key):      # 11/12 편성은 아침 · 저녁 준비에만
 		b.deployed_at = key
 		c.send({"t": "cmd", "m": "auto_deploy", "a": []})
 		return
@@ -257,7 +266,9 @@ func _report(el: float, all_done: bool) -> void:
 	print("서버 점검 %.1f초 · 모두 끝 %s · 사람끼리 대전 %d건(양쪽 집계) · 재접속 %s · 오류 %d" % [el, all_done, pairs,
 		bots.size() > 1 and bots[1].back, errors.size()])
 	print("  단계 횟수(첫 플레이어): %s" % str(stage_count))
-	print("  기다리는 단계 명령 %d번 · 방 정보 act · noon 확인 %d번" % [watch_cmds, act_checked])
+	print("  기다리는 단계 명령 %d번 (편성 거부 %d번) · 방 정보 act · noon 확인 %d번" % [watch_cmds, form_denied, act_checked])
+	if all_done and (watch_cmds == 0 or form_denied == 0):      # 단계가 막 넘어가면 명령이 다음 단계에 닿을 수 있어 수가 꼭 같지는 않다
+		errors.append("기다리는 동안 징집 %d번 · 편성 거부 %d번" % [watch_cmds, form_denied])
 	if all_done and int(stage_count.get("noon", 0)) != 9:
 		errors.append("점심(토벌) 단계가 %d번 (기대 9 = 1~3일차 × 3페이즈)" % int(stage_count.get("noon", 0)))
 	if all_done and (int(stage_count.get("morning", 0)) != 21 or int(stage_count.get("evening_prep", 0)) != 21):
