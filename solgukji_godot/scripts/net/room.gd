@@ -30,7 +30,9 @@ const MODES := {
 	"normal": {"n": "보통 — 준비 1분 30초 · 한 페이즈 약 5분", "morning": 90.0, "noon": 75.0, "prep": 90.0, "evening": 100.0},
 	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5},
 }
-const SEATS := 8
+const SEATS := 8              # 기본 자리 수 —— 방장이 만들 때 고르지 않으면 (옛 클라이언트) 8
+const SEAT_OPTIONS := [4, 6, 8]      # 방장이 고를 수 있는 총 인원(짝수) —— 자리 수 = 총 인원, 빈자리만 봇 (11/11 사용자)
+const SEED_ORDER := [0, 7, 3, 4, 1, 6, 2, 5]      # 토너먼트 8강 시드 배치 (1-8, 4-5, 2-7, 3-6) —— 인원이 8 미만이면 8 이상 시드 자리는 부전승
 const STAGE_N := {"lobby": "대기실", "morning": "준비 — 징집·조합·편성", "noon": "토벌", "evening_prep": "대전 준비",
 	"evening": "대전", "over": "끝"}
 const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 단계
@@ -44,6 +46,7 @@ const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "�
 var server                    # MatchServer —— send(peer, msg)
 var code := ""
 var mode := "fast"
+var max_seats := SEATS        # 이 방의 자리 수(총 인원) —— 4 · 6 · 8 (11/11). 시작할 때 빈자리만 봇으로 채운다
 var host := -1                # 방장 peer
 var seats := []               # [{name, human, peer, token, run, bot, ready, dead, battles, acted, watched, foe}]
 var started := false
@@ -65,11 +68,19 @@ var _news_stage := ""         # _advance 중에는 아직 stage 가 지난 단�
 var rlog: RoomLog = null      # 사람마다 플레이 기록 (11/10) —— 부수 효과일 뿐, 없어도(점검 방 · 쓰기 실패) 방은 그대로 간다
 
 
-func _init(srv, room_code: String, m: String) -> void:
+func _init(srv, room_code: String, m: String, n_seats = SEATS) -> void:
 	server = srv
 	code = room_code
 	mode = m if MODES.has(m) else "fast"
+	max_seats = valid_seats(n_seats)
 	rng.randomize()
+
+
+## 방 만들기 메시지의 max —— 허용한 짝수(4 · 6 · 8)만, 없거나 이상하면 8 (옛 클라이언트)
+static func valid_seats(v) -> int:
+	if (typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT) and int(v) == v and int(v) in SEAT_OPTIONS:
+		return int(v)
+	return SEATS
 
 
 static func now() -> float:
@@ -101,7 +112,7 @@ func when_text() -> String:
 
 ## rec = 플레이 기록 동의 (hello 의 rec) —— 참인 사람만 RoomLog 가 파일로 남긴다. 기본은 거절(기록 안 함)
 func add_human(peer: int, name_: String, token: String, rec := false) -> int:
-	if started or humans().size() >= SEATS:
+	if started or humans().size() >= max_seats:
 		return -1
 	seats.append({"name": _unique(name_), "human": true, "peer": peer, "token": token, "run": null,
 		"bot": null, "ready": false, "dead": false, "battles": [], "acted": false, "watched": false, "foe": null,
@@ -200,7 +211,7 @@ func info(i: int) -> Dictionary:
 	var me = null
 	if i >= 0 and seats[i].foe != null:
 		me = seats[i].foe
-	return {"code": code, "mode": mode, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
+	return {"code": code, "mode": mode, "max": max_seats, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N}
@@ -222,8 +233,8 @@ func start() -> void:
 	var used := seats.map(func(s): return s.name)
 	var names: Array = DB.D.BOTNAME.duplicate()
 	var bi := 0
-	var gen_names := DB.gen_bot_names(rng.seed, SEATS, used)      # 11/10 봇 이름은 방마다 랜덤 (사람 이름과 겹치지 않게)
-	while seats.size() < SEATS:
+	var gen_names := DB.gen_bot_names(rng.seed, max_seats, used)      # 11/10 봇 이름은 방마다 랜덤 (사람 이름과 겹치지 않게)
+	while seats.size() < max_seats:
 		var b: Array = names[bi % names.size()]
 		var nm: String = gen_names[bi]
 		used.append(nm)
@@ -274,7 +285,13 @@ func _stage(st: String) -> void:
 ## 준비를 기다리는 사람 —— 접속해 있고 멸망하지 않은 사람. 모두 준비면 시간이 남아도 넘어간다.
 ## 전투를 보는 단계에서는 볼 전투가 있는 사람은 멸망했어도 기다린다 (토너먼트 탈락전 · 멸망한 토벌을 끝까지 보게)
 func _live() -> Array:
-	return humans().filter(func(s): return s.peer >= 0 and (not s.dead or (stage in WATCH_STAGES and not s.battles.is_empty())))
+	var tour_eve := stage == "evening" and tour != null
+	return humans().filter(func(s):
+		if s.peer < 0:
+			return false
+		if tour_eve and s.battles.is_empty():
+			return false      # 토너먼트 부전승(이번 라운드는 싸움이 없다) · 이미 탈락 —— 기다리지 않는다
+		return not s.dead or (stage in WATCH_STAGES and not s.battles.is_empty()))
 
 
 ## 사람이 나 혼자 남았나 —— 다른 사람이 모두 멸망했거나 나갔다(토큰 끊김). 2명 이상이던 방에서 한 번만 묻는다 (결정 ④)
@@ -309,7 +326,7 @@ func tick() -> void:
 	if not started or stage == "over":
 		return
 	var live := _live()
-	var all_ready := not live.is_empty() and live.all(func(s): return s.ready)
+	var all_ready := (not live.is_empty() or (stage == "evening" and tour != null)) and live.all(func(s): return s.ready)
 	if now() < stage_end and not all_ready:
 		return
 	match stage:
@@ -489,7 +506,7 @@ func _begin_evening() -> void:
 	for i in seats.size():
 		if seats[i].human and seats[i].dead:
 			dead.append(i)
-	pairs = rr_plan(rr_order, (day * 3 + phase) % (seats.size() - 1), dead)
+	pairs = rr_plan(rr_order, (day * 3 + phase) % (max_seats - 1), dead)
 	for p in pairs:
 		var a: Dictionary = _pair_seat(p[0])
 		var b: Dictionary = _pair_seat(p[1])
@@ -651,16 +668,36 @@ func _tour_seed() -> void:
 			continue
 		ps.append({"name": s.name, "seat": i, "pv": _pv(s)})
 	var k := 1
-	while ps.size() < SEATS:      # 멸망한 사람 자리는 떠돌이 군세로 채운다
+	while ps.size() < max_seats:      # 멸망한 사람 자리는 떠돌이 군세로 채운다
 		var bs := _bot_seat("유랑군 %d" % k, "떠돌이 군세", "군", "균형", float(_avg_pv()), 1.0)
 		seats.append(bs)
 		ps.append({"name": bs.name, "seat": seats.size() - 1, "pv": _pv(bs)})
 		k += 1
 	ps.sort_custom(func(a, b): return a.pv > b.pv)
+	# 대진표는 8강 · 4강 · 결승 틀 하나 —— 인원이 8 미만이면 8 이상 시드(상대 없는 자리)는 부전승. 8명이면 8강 4판, 6명이면 8강 2판(1 · 2위 시드 부전승), 4명이면 4강부터.
+	# 부전승 자리는 carry 에 먼저 넣고(빈 칸 = 8강 승자가 들어간다), 8강이 없으면 carry 가 곧 4강 명단
 	var lst := []
-	for i in [0, 7, 3, 4, 1, 6, 2, 5]:
-		lst.append(ps[i])
-	tour = {"round": 0, "list": lst, "res": [null, null, null], "next": null}
+	var carry := []
+	for m in 4:
+		var i: int = SEED_ORDER[m * 2]
+		var j: int = SEED_ORDER[m * 2 + 1]
+		if j < ps.size():
+			lst.append(ps[i])
+			lst.append(ps[j])
+			carry.append(null)
+		else:
+			carry.append(ps[i])
+	var first := 0
+	var bye := []
+	if lst.is_empty():
+		first = 1
+		lst = carry
+		carry = []
+	else:
+		for c in carry:
+			if c != null:
+				bye.append(c.name)
+	tour = {"round": first, "list": lst, "res": [null, null, null], "next": null, "carry": carry, "bye": bye}
 	for m in lst.size() / 2:
 		var a: Dictionary = lst[m * 2]
 		var b: Dictionary = lst[m * 2 + 1]
@@ -721,7 +758,7 @@ func _tour_round() -> void:
 				else:
 					run.my_w += 1
 			else:
-				run.over = {"win": false, "msg": "%s에서 %s에게 패했다 — 최종 %s" % [Run.ROUNDNM[r], pair[1].name, ["5~8위", "3~4위", "2위"][r]]}
+				run.over = {"win": false, "msg": "%s에서 %s에게 패했다 — 최종 %s" % [Run.ROUNDNM[r], pair[1].name, tour_rank_text(r)]}
 				s.dead = true
 		ms.append({"a": a, "b": b, "w": w.name})
 	tour.res[r] = ms
@@ -732,11 +769,18 @@ func _tour_round() -> void:
 			_log_over(s)
 
 
+## 토너먼트에서 진 라운드(0 = 8강 · 1 = 4강 · 2 = 결승)의 최종 순위 글 —— 8강 탈락은 5위부터 방 인원(max)까지
+func tour_rank_text(r: int) -> String:
+	return ("5~%d위" % max_seats) if r == 0 else ("3~4위" if r == 1 else "2위")
+
+
 ## 사람마다 Run.tour 를 채운다 —— 화면(_bracket)이 그대로 그린다
 func _tour_view() -> void:
 	for s in humans():
-		var v := {"round": tour.round, "res": [null, null, null], "my_match": -1, "next": null}
-		var rounds := [tour.res[0] if tour.res[0] != null else _tour_pending(tour.list), tour.res[1], tour.res[2]]
+		var v := {"round": tour.round, "res": [null, null, null], "my_match": -1, "next": null, "bye": tour.get("bye", [])}
+		var rounds: Array = tour.res.duplicate()
+		if rounds[tour.round] == null:
+			rounds[tour.round] = _tour_pending(tour.list)
 		for r in 3:
 			if rounds[r] == null:
 				continue
@@ -765,7 +809,20 @@ func _tour_next() -> void:
 	if tour.round >= 2:
 		_finish()
 		return
-	tour.list = tour.next
+	var nxt: Array = tour.next
+	if not tour.carry.is_empty():      # 부전승으로 먼저 올라가 있던 자리 + 8강 승자 (빈 칸에 차례로)
+		var full := []
+		var k := 0
+		for c in tour.carry:
+			if c == null:
+				full.append(nxt[k])
+				k += 1
+			else:
+				full.append(c)
+		nxt = full
+		tour.carry = []
+		tour.bye = []
+	tour.list = nxt
 	tour.round += 1
 	for s in seats:
 		s.foe = null
