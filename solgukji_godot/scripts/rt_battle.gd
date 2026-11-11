@@ -262,8 +262,9 @@ const CUT_GAUGE := 30.0        # 끊긴 장수는 게이지가 이만큼 남는�
 var _wind := {}                # 유닛 -> 터질 시각
 ## 11/2 사용자: 후반에 고유기가 연달아 터진다 → 초 단위 간격. 어느 진영이든 직전 고유기에서 ULT_GAP 초,
 ## 같은 진영은 ULT_SIDE_SEC 초가 지나야 다음 고유기 (맞받아치기로 바로 받아치던 것도 없앴다)
-static var ult_gap := 2.5
-static var ult_side_sec := 3.0      # 11/6 밸런스: 같은 진영 고유기 간격 4.5 → 3.0
+static var ult_gap := 2.5           # 11/11 기 충전 수정 2: (2.5 유지)
+static var ult_side_sec := 2.3      # 11/6 밸런스: 같은 진영 고유기 간격 4.5 → 3.0 → (11/11) 2.3
+static var wind_max := 2            # 11/11 기 충전 수정 2: 한 진영이 동시에 기를 모을 수 있는 수 1 → 2
 var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
 
@@ -275,10 +276,13 @@ func can_ult(u: Unit) -> bool:
 		if full: stats["ult_blk_wait"] = stats.get("ult_blk_wait", 0) + 1
 		return false
 	# 11/6 #14: 기 모으기는 진영마다 하나씩 (예전엔 어느 쪽이든 하나만 —— 처리량이 반이었다). 전체 간격 ult_gap 은 그대로
+	var wn := 0
 	for w in _wind:
 		if w.camp == u.camp:
-			if full: stats["ult_blk_wind"] = stats.get("ult_blk_wind", 0) + 1
-			return false
+			wn += 1
+	if wn >= wind_max:
+		if full: stats["ult_blk_wind"] = stats.get("ult_blk_wind", 0) + 1
+		return false
 	if _tm - _ult_t < ult_gap or _tm - _ult_side_t[u.camp] < ult_side_sec:
 		if full: stats["ult_blk_gap"] = stats.get("ult_blk_gap", 0) + 1
 		return false

@@ -125,7 +125,7 @@ const TEMPER := {
 	## 11/9 사용자: 고유기 발동 횟수 차이가 너무 크다 —— tests/ult_rate(30판) 기질별 발동률 맹장 89 · 66 · 69% vs 지략 58 · 45 · 67 · 저격 56 · 43 · 48 · 수호 74 · 11 · 45% (초월 · 불멸 · 신화),
 	## 첫 발동 맹장 22초 vs 저격 · 지략 30초. 맹장을 낮추고(deal 2.2 → 1.7 · kill 25 → 18) 지략 · 저격 · 수호의 꾸준히 차는 몫(act)을 올려 60~75% 로 모은다
 	"맹장": {"act": 0.85, "deal": 1.3, "hit": 1.0, "ally": 0.0, "kill": 15.0, "fall": 0.0, "status": 0.0, "wait": 1.25},
-	"수호": {"act": 2.2, "deal": 0.6, "hit": 1.4, "ally": 0.7, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 0.75},     # 11/7 측정: 0.8 · 1.6 · 0.5 · 30 에선 불멸 · 신화 수호가 19~22% 만 터졌다
+	"수호": {"act": 2.8, "deal": 0.6, "hit": 1.6, "ally": 0.7, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 0.75},     # 11/7 측정: 0.8 · 1.6 · 0.5 · 30 에선 불멸 · 신화 수호가 19~22% 만 터졌다
 	"지략": {"act": 2.4, "deal": 0.8, "hit": 0.6, "ally": 0.0, "kill": 0.0, "fall": 0.0, "status": 14.0, "wait": 0.8},
 	"저격": {"act": 2.2, "deal": 2.2, "hit": 0.8, "ally": 0.0, "kill": 40.0, "fall": 0.0, "status": 0.0, "wait": 0.75},     # 11/7 측정: 0.8 · 1.6 · 35 에선 26~44% · 첫 발동 30초
 	"분노": {"act": 1.2, "deal": 1.2, "hit": 1.4, "ally": 0.6, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 1.1},
@@ -3173,6 +3173,10 @@ func _smart(cp: String, ult_t: String, cmd_t: String, seen: Dictionary) -> void:
 			ready.append(u)
 	if not ready.is_empty():
 		ready.sort_custom(func(x, y):
+			if support_first:      # 11/11 기 충전 수정 1: 지원형(전부 아군 대상) 고유기가 먼저 —— 늘 뒤로 밀려 0번 쓰던 유비
+				var sx := _ult_support(x)
+				if sx != _ult_support(y):
+					return sx
 			if x.ult_ready_t != y.ult_ready_t:
 				return (x.ult_ready_t if x.ult_ready_t >= 0.0 else 1e9) < (y.ult_ready_t if y.ult_ready_t >= 0.0 else 1e9)
 			return x.c.tier > y.c.tier)
@@ -3417,6 +3421,20 @@ func _foe_low_in_reach(_u: Unit, foes: Array) -> bool:
 	return foes.any(func(o): return o.troops / o.max < 0.7)
 
 
+## 11/11 기 충전 수정 —— 지원형(아군만 대상) 고유기는 아군이 이만큼(평균) 다쳐야 값어치가 있다고 본다 (예전 0.3)
+static var support_hurt := 0.18
+static var support_first := true
+
+
+func _ult_support(u: Unit) -> bool:
+	if u.ult == null:
+		return false
+	for comp in u.ult.eff:
+		if comp.t != "ally":
+			return false
+	return true
+
+
 func _ult_worth(u: Unit) -> bool:
 	var mine := units.filter(func(o): return o.alive and o.camp == u.camp)
 	var foes := units.filter(func(o): return o.alive and o.camp != u.camp)
@@ -3436,7 +3454,7 @@ func _ult_worth(u: Unit) -> bool:
 		if comp.has("tgt") and comp.tgt in ["all", "front3", "denseLine"] or str(comp.get("tgt", "")).begins_with("line:"):
 			wide = true
 	if support:
-		return hurt > 0.3 or low_morale >= mine.size() * 0.4      # 아군이 꺾였을 때 아껴 둔 회복·격려
+		return hurt > support_hurt or low_morale >= mine.size() * 0.3      # 아군이 꺾였을 때 아껴 둔 회복·격려 (11/11 기 충전 수정: 0.3 · 40% → support_hurt · 30% —— 유비가 다 차고도 안 터졌다)
 	if wide:      # 11/6 사용자 #14 "책사 고유기가 거의 안 터진다": '적 4부대 이상' 이라 게이지가 찰 무렵엔 영영 못 썼다 → 맞힐 수 있는 적 2 이상이거나 적이 3 이하로 줄었으면
 		return _ult_reach_n(u, foes) >= 2 or foes.size() <= 3
 	return true                                                    # 단일 대상은 바로
