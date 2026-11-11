@@ -69,6 +69,7 @@ var rout_wait := {}         # 유닛 번호 -> true —— 병력이 다 흘러�
 var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 (점검용)
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
 const CUT_T := 1.8           # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95, 11/6 사용자: 초상 · 글이 너무 빨리 사라진다 → 1.8 (터지는 순간은 컷인이 걷힌 뒤)
+const MORALE_ROUT_TXT := "끝내 패주"     # 사건 글에 이 말이 있으면 사기 패주 (병력 패주는 「병력이 꺾여」 · 「병력이 다해」)
 const SLOW := 0.25          # 슬로모션 배속
 ## 11/11 인연 합동 연출 (사용자: "메인 발동 장수가 뜨고, 그다음 연계장수 A, B 가 샥 나오는 느낌 · 내가 돕겠다 같은 투게더 멘트") —— 모두 실시간 초
 ## 컷인(CUT_T 1.8 그대로): 대표 초상 0.05~0.30 → 『인연』 글 0.34 → 짝 A 0.42 · 짝 B 0.66 이 바깥에서 날아와 자리에 선다 → 말풍선 → YEON_SURGE_AT 부터 셋이 앞으로 슉
@@ -1629,6 +1630,8 @@ func _apply(i: int, quiet := false) -> void:
 		if e.get("fx") == "rout":
 			_snap(idx_of[f])
 			field.rout(f)
+		elif e.get("fx") == "decisive":
+			hud.decisive_on = true
 		return
 	_damage_number(i, e, f)
 	_sound(e)
@@ -1662,6 +1665,8 @@ func _apply(i: int, quiet := false) -> void:
 			field.heal_fx(f)
 		"rout":
 			var u: int = idx_of[f]
+			if str(e.get("t", "")).contains(MORALE_ROUT_TXT) and field.squads.has(f):      # 11/11 사기 때문에 무너졌다 —— 큰 글 (battle.gd rout 사유 "사기 N에서 끝내 패주했다")
+				hud.morale_rout(str(e.t).get_slice("의 군세가 ", 0), field.squads[f].camp)
 			if smooth and cur[u][0] <= 0 and shown[u][0] > 0.5:
 				# 병력이 다해 무너진다 —— 남은 병사가 0.9초에 걸쳐 다 쓰러진 뒤 무너뜨린다
 				rout_wait[u] = true
@@ -1692,6 +1697,7 @@ func _apply(i: int, quiet := false) -> void:
 			field.pull_back(2.5)
 		"decisive":
 			hud.announce("결전 —— 양군의 사기가 흔들린다", Color("#e8d6a8"))
+			hud.decisive_start()      # 11/11 끝날 때까지 위 띠 아래에 「결전 — 사기가 깎이는 중」
 
 
 ## 소리 —— 사건 종류마다 (Sfx 가 잦은 소리는 건너뛴다)
@@ -1894,6 +1900,9 @@ class Hud extends Control:
 		kills.clear()
 		chain_pop = null
 		charges.clear()
+		decisive_on = false
+		decisive_age = 99.0
+		mrout = null
 
 	## 격파 (11/4) —— 무너진 적 장수 자리에 메달이 크게 찍혔다가 금이 가며 떨어진다
 	var kills := []
@@ -1974,6 +1983,53 @@ class Hud extends Control:
 
 	func announce(text: String, col: Color) -> void:
 		ann = {"text": text, "col": col, "t": 0.0}
+
+	# ───────── 11/11 사기 표시 (화면 전용 —— 엔진 · 사건 필드 그대로) ─────────
+	## 사용자: 병력 56% 인데 사기가 무너져 9부대가 한꺼번에 패주 —— 이유가 안 보였다. 사기를 크게 보인다.
+	const SHAKY_MORALE := 30.0       # 이 아래면 부대가 '동요' (battle.gd 사기 패주 판정 morale <= 30 과 같다)
+	const ARMY_WARN := 35.0          # 진영 사기(병력 가중 평균)가 이 아래거나 동요 부대가 SHAKY_MANY 이상이면 게이지가 깜빡인다
+	const SHAKY_MANY := 3
+	const MROUT_LIFE := 1.2          # '사기 붕괴' 글이 머무는 실제 초 (배속과 무관 —— 마지막 패주부터)
+	const MORALE_OK := Color("#6fd6a6")
+	const MORALE_MID := Color("#e8d36a")
+	const MORALE_LOW := Color("#ff9a4a")
+	const MORALE_BAD := Color("#ff4a3d")
+	var decisive_on := false         # 결전 시작 사건을 받았다 —— 끝날 때까지 띠를 띄운다 (battle.gd DECISIVE_T 45초에 엔진이 내는 fx "decisive")
+	var decisive_age := 99.0         # 결전이 시작된 뒤 실제 초 (처음 번쩍임용)
+	var mrout = null                 # 사기 패주 글 {n, name, camp, age, t} —— 짧은 시간 안의 연속 패주는 한 글에 모은다 (×N)
+
+	## 사기 때문에 무너진 부대 (사건 글 "사기 N에서 끝내 패주했다") —— 한 번에 글 하나, 연이어 무너지면 ×N 으로 합친다
+	func morale_rout(nm: String, camp: String) -> void:
+		if mrout != null and float(mrout.t) < MROUT_LIFE:
+			mrout.n += 1
+			mrout.t = 0.0
+			if mrout.camp != camp:
+				mrout.camp = "M"
+		else:
+			mrout = {"n": 1, "name": nm, "camp": camp, "age": 0.0, "t": 0.0}
+
+	func decisive_start() -> void:
+		decisive_on = true
+		decisive_age = 0.0
+
+	static func shaky(sq: Squad) -> bool:
+		return sq.alive and sq.morale < SHAKY_MORALE
+
+	static func morale_color(m: float) -> Color:
+		if m >= 60.0:
+			return MORALE_OK
+		if m >= 45.0:
+			return MORALE_MID.lerp(MORALE_OK, (m - 45.0) / 15.0)
+		if m >= SHAKY_MORALE:
+			return MORALE_LOW.lerp(MORALE_MID, (m - SHAKY_MORALE) / 15.0)
+		return MORALE_BAD
+
+	## '동요' 작은 딱지 —— 부대 초상 · 메달 위에 얹는다 (r = 딱지 자리)
+	static func draw_shaky_tag(cv: CanvasItem, r: Rect2, a := 1.0) -> void:
+		cv.draw_rect(r, Color(0.78, 0.18, 0.1, 0.92 * a))
+		cv.draw_rect(r, Color(1.0, 0.72, 0.4, a), false, 1.0)
+		var f: Font = DB.font_bold
+		cv.draw_string(f, Vector2(r.position.x, r.position.y + r.size.y - 2.5), "동요", HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 9, Color(1, 0.95, 0.88, a))
 
 	## 기술 현판 —— 부대 머리 위에 1.4초. 진영색 띠 + 금테 + 큰 기술명 (삼국지13 전법 발동)
 	var banners_sk := []
@@ -2130,6 +2186,12 @@ class Hud extends Control:
 			elif not cut.mates.is_empty() and cut.inyeon != "":
 				_yeon_pop_events()
 		_flash_t += dt
+		decisive_age += dt
+		if mrout != null:
+			mrout.age += dt
+			mrout.t += dt
+			if mrout.t > MROUT_LIFE:
+				mrout = null
 		if ann:
 			ann.t += dt
 			if ann.t > 1.8:
@@ -2900,6 +2962,8 @@ class Hud extends Control:
 		var since: float = view.clock - sq.act_t
 		if since < CombatFx.ATTACK_HOLD and sq.alive:
 			_act_icon(p + Vector2(r + 4, -r + 2), sq.act_kind, a)
+		if shaky(sq):      # 11/11 사기 30 아래 —— 메달 위에 「동요」 딱지
+			draw_shaky_tag(self, Rect2(p + Vector2(-13.0, -r - 11.0), Vector2(26.0, 11.0)), a)
 
 	## 2D 전장 메달 자리 —— 가까이 붙은 메달끼리 살짝 밀어낸다 (11/6 점검: 근접전에서 메달이 겹쳐 얼굴 · 병력이 가려졌다).
 	## 화면에만 적용, 최대 22px, 부드럽게 따라간다 (튀지 않게)
@@ -3104,6 +3168,8 @@ class Hud extends Control:
 				_medal(pc, ps * 0.5, sq, a, lvq[1] > 0 and lvq[0] >= 100)
 				if not sq.alive:
 					draw_circle(pc, ps * 0.5, Color(0, 0, 0, 0.6))
+				elif shaky(sq):      # 11/11 사기 30 아래 —— 메달 아래에 「동요」 딱지
+					draw_shaky_tag(self, Rect2(pc + Vector2(-13.0, ps * 0.5 - 3.0), Vector2(26.0, 11.0)), a)
 		# 떠오르는 글씨
 		var keep := []
 		for f in floats:
@@ -3141,13 +3207,29 @@ class Hud extends Control:
 			var pt := "fps %d · 계산 %d · 보이는 %d · 조절 %d" % [Engine.get_frames_per_second(), men, figs, lv]
 			draw_string_outline(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.9))
 			draw_string(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#9fe8b8"))
-		# 위쪽 —— 시계와 세력 균형
+		# 위쪽 —— 세력 균형(병력) · 아래에 진영별 사기 게이지 + 가운데 시계 · 결전 띠
 		var tA := 0.0
 		var tB := 0.0
+		var mA := 0.0      # 사기 × 병력 합 (병력 가중 평균용) —— 11/11 사용자: 사기가 작게만 보여 갑작스런 패주를 알 수 없었다
+		var mB := 0.0
+		var nA := 0
+		var nB := 0
+		var shA := 0
+		var shB := 0
 		for sq in view.field.order:
 			if sq.alive:
-				if sq.camp == "A": tA += sq.troops
-				else: tB += sq.troops
+				var mq: float = clampf(sq.morale, 0.0, 100.0) * sq.troops
+				var sh := 1 if sq.morale < SHAKY_MORALE else 0
+				if sq.camp == "A":
+					tA += sq.troops
+					mA += mq
+					nA += 1
+					shA += sh
+				else:
+					tB += sq.troops
+					mB += mq
+					nB += 1
+					shB += sh
 		var bw := clampf(size.x - 190, 120, 420)
 		var bx := (size.x - bw) / 2
 		var ratio := 0.5 if tA + tB <= 0 else tA / (tA + tB)
@@ -3156,7 +3238,17 @@ class Hud extends Control:
 		draw_rect(Rect2(bx + bw * ratio, 14, bw * (1 - ratio), 8), War3D.TEAM.B)
 		_text(fb, Vector2(bx - 98, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 92, 13, Color("#a9c8f0"))
 		_text(fb, Vector2(bx + bw + 6, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
-		_text(DB.title_font(16), Vector2(bx, 46), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw, 16, DB.PAL.paper)
+		# 진영 사기 = 살아 있는 부대 사기(0~100 으로 자름)의 병력 가중 평균. 가운데 시계 양옆에 한 줄씩
+		var gh := 14.0
+		var gy := 27.0
+		var gw := maxf(40.0, bw * 0.5 - 34.0)
+		var mAv := mA / tA if tA > 0.0 else 0.0
+		var mBv := mB / tB if tB > 0.0 else 0.0
+		_morale_gauge(Rect2(bx, gy, gw, gh), mAv, shA, nA, true)
+		_morale_gauge(Rect2(bx + bw - gw, gy, gw, gh), mBv, shB, nB, false)
+		_text(DB.title_font(16), Vector2(bx + gw, gy + 13), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw - gw * 2, 16, DB.PAL.paper)
+		if decisive_on and not view.finished:
+			_draw_decisive(bx + bw * 0.5, 45.0)
 		if view.speed == 0.0:
 			_text(fd, Vector2(0, size.y / 2), "일 시 정 지", HORIZONTAL_ALIGNMENT_CENTER, size.x, 26, DB.PAL.bamboo)
 		if ann:
@@ -3166,6 +3258,8 @@ class Hud extends Control:
 			while afs > 12 and DB.font_display.get_string_size(ann.text, HORIZONTAL_ALIGNMENT_LEFT, -1, afs).x > size.x - 24:
 				afs -= 1         # 세로 화면에서 폭을 넘지 않게
 			_text(DB.font_display, Vector2(0, 84 + 46 * _charge_rows + 32 * _join_rows), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))      # 11/7 기 모으기 표시가 있으면 그 아래
+		if mrout != null:
+			_draw_morale_rout()
 		if cut:
 			_draw_cut()
 		# 결과 낙관
@@ -3375,6 +3469,90 @@ class Hud extends Control:
 				draw_string_outline(DB.font_bold, Vector2(tx, dy), desc, HORIZONTAL_ALIGNMENT_CENTER, tw, dfs, 6, Color(0, 0, 0, 0.85 * fade))
 				draw_string(DB.font_bold, Vector2(tx, dy), desc, HORIZONTAL_ALIGNMENT_CENTER, tw, dfs, Color("#ffe6a8", fade * nt))
 
+	## 진영 사기 게이지 —— r 안에 m(0~100)만큼 채운다. from_left 면 왼쪽에서 오른쪽으로(아군), 아니면 오른쪽에서(적).
+	## 색: 60↑ 옥색 → 45 황색 → 30 주황 → 30 미만 적색. 30 자리에 가는 눈금. 위험(평균 35 미만이거나 동요 부대 3 이상)이면 테두리 · 빛이 깜빡인다.
+	## 숫자 "사기 N" 은 안쪽 바깥 끝에, 동요 부대가 있으면 "동요 N" 이 반대쪽 끝에
+	func _morale_gauge(r: Rect2, m: float, shaky_n: int, alive_n: int, from_left: bool) -> void:
+		var fb: Font = DB.font_bold
+		var danger: bool = alive_n > 0 and (m < ARMY_WARN or shaky_n >= SHAKY_MANY)
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.0075)
+		draw_rect(Rect2(r.position - Vector2(1, 1), r.size + Vector2(2, 2)), Color(0, 0, 0, 0.6))
+		draw_rect(r, Color(0.05, 0.06, 0.09, 0.85))
+		var col: Color = morale_color(m) if alive_n > 0 else Color("#555")
+		if danger:
+			col = col.lerp(Color.WHITE, 0.22 * pulse)
+		var fw := r.size.x * clampf(m / 100.0, 0.0, 1.0)
+		if from_left:
+			draw_rect(Rect2(r.position, Vector2(fw, r.size.y)), col)
+		else:
+			draw_rect(Rect2(r.position + Vector2(r.size.x - fw, 0), Vector2(fw, r.size.y)), col)
+		var tx := r.position.x + (r.size.x * SHAKY_MORALE / 100.0 if from_left else r.size.x * (1.0 - SHAKY_MORALE / 100.0))
+		draw_rect(Rect2(tx - 0.5, r.position.y, 1.0, r.size.y), Color(1, 1, 1, 0.55))
+		if danger:
+			draw_rect(Rect2(r.position - Vector2(1, 1), r.size + Vector2(2, 2)), Color(1.0, 0.25, 0.18, 0.35 + 0.65 * pulse), false, 2.0)
+		var lbl := "사기 %d" % roundi(m) if alive_n > 0 else "사기 -"
+		var al := HORIZONTAL_ALIGNMENT_LEFT if from_left else HORIZONTAL_ALIGNMENT_RIGHT
+		var ty := r.position.y + r.size.y - 2.5
+		draw_string_outline(fb, Vector2(r.position.x + 4, ty), lbl, al, r.size.x - 8, 11, 4, Color(0, 0, 0, 0.85))
+		draw_string(fb, Vector2(r.position.x + 4, ty), lbl, al, r.size.x - 8, 11, Color(1, 1, 1, 0.97))
+		if shaky_n > 0 and r.size.x >= 110.0:
+			var sl := "동요 %d" % shaky_n
+			var al2 := HORIZONTAL_ALIGNMENT_RIGHT if from_left else HORIZONTAL_ALIGNMENT_LEFT
+			var sc := Color("#ffb070") if not danger else Color(1.0, 0.55 + 0.25 * pulse, 0.4)
+			draw_string_outline(fb, Vector2(r.position.x + 4, ty), sl, al2, r.size.x - 8, 11, 4, Color(0, 0, 0, 0.85))
+			draw_string(fb, Vector2(r.position.x + 4, ty), sl, al2, r.size.x - 8, 11, sc)
+
+	var _dec_sb: StyleBoxFlat = null
+
+	## 결전 띠 —— 45초가 지나 양군의 사기 회복이 멎고 깎이기 시작한 뒤 전투가 끝날 때까지. 처음 1.4초는 번쩍인다
+	func _draw_decisive(cx: float, y: float) -> void:
+		var f: Font = DB.title_font(12)
+		var txt := "결전 — 사기가 깎이는 중"
+		var w := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 24.0
+		var r := Rect2(cx - w * 0.5, y, w, 15.0)
+		var fl := clampf(1.0 - decisive_age / 1.4, 0.0, 1.0)      # 처음의 주의 끌기
+		var blink := 0.5 + 0.5 * sin(decisive_age * 16.0) if fl > 0.0 else 0.0
+		if _dec_sb == null:      # 매 프레임 새로 만들지 않고 하나를 고쳐 쓴다
+			_dec_sb = StyleBoxFlat.new()
+			_dec_sb.set_border_width_all(1)
+			_dec_sb.set_corner_radius_all(7)
+		var sb := _dec_sb
+		sb.bg_color = Color(0.32, 0.07, 0.04, 0.88).lerp(Color(0.85, 0.22, 0.1, 0.96), fl * blink)
+		sb.border_color = Color("#ff8a4a").lerp(Color.WHITE, fl * blink)
+		sb.shadow_color = Color(1.0, 0.45, 0.2, 0.5 * fl)
+		sb.shadow_size = 6 if fl > 0.0 else 0
+		draw_style_box(sb, r)
+		draw_string(f, Vector2(r.position.x, r.position.y + 12.0), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 12, Color("#ffe2c0").lerp(Color.WHITE, fl * blink))
+
+	## 사기 붕괴 글 —— 사기가 바닥나 무너진 부대. 하나면 "사기 붕괴 — 이름 패주", 연이어면 "사기 붕괴 ×N" + 첫 부대 이름
+	func _draw_morale_rout() -> void:
+		var m: Dictionary = mrout
+		var age: float = m.age
+		var a := clampf(age / 0.1, 0.0, 1.0) * clampf((MROUT_LIFE - float(m.t)) / 0.3, 0.0, 1.0)
+		if a <= 0.0:
+			return
+		var col: Color = {"A": Color("#ff6a57"), "B": Color("#ffd257")}.get(m.camp, Color("#ff9a4a"))
+		var fd := DB.font_display
+		var n: int = m.n
+		var title := "사기 붕괴" if n <= 1 else "사기 붕괴 ×%d" % mini(n, 99)
+		var sub := "%s 패주" % m.name if n <= 1 else "%s 외 %d부대 패주" % [m.name, n - 1]
+		var fs := 34
+		while fs > 18 and fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 40:
+			fs -= 2
+		var sfs := 17
+		var sf := DB.title_font(sfs)
+		while sfs > 11 and sf.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs).x > size.x - 40:
+			sfs -= 1
+		var sc := lerpf(1.35, 1.0, ease(clampf(age / 0.18, 0.0, 1.0), 0.4))
+		var c := Vector2(size.x * 0.5, size.y * 0.32)
+		draw_set_transform(c, 0.0, Vector2.ONE * sc)
+		var ca := Color(col, a)
+		draw_string_outline(fd, Vector2(-size.x * 0.5, 0), title, HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, 10, Color(0.1, 0.02, 0.0, 0.85 * a))
+		draw_string(fd, Vector2(-size.x * 0.5, 0), title, HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, ca)
+		draw_string_outline(sf, Vector2(-size.x * 0.5, 26), sub, HORIZONTAL_ALIGNMENT_CENTER, size.x, sfs, 6, Color(0, 0, 0, 0.85 * a))
+		draw_string(sf, Vector2(-size.x * 0.5, 26), sub, HORIZONTAL_ALIGNMENT_CENTER, size.x, sfs, Color(1.0, 0.93, 0.85, a))
+		draw_set_transform(Vector2.ZERO)
+
 	func _text(f: Font, p: Vector2, s: String, al: int, w: float, fs: int, col: Color) -> void:
 		draw_string_outline(f, p, s, al, w, fs, 5, Color(0, 0, 0, 0.8 * col.a))
 		draw_string(f, p, s, al, w, fs, col)
@@ -3467,6 +3645,8 @@ class MiniCard extends Control:
 		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		Art.draw_portrait(self, Rect2(4, 4, 34, 38), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
+		if BattleView.Hud.shaky(sq):      # 11/11 사기 30 아래 —— 초상 아래에 「동요」 딱지
+			BattleView.Hud.draw_shaky_tag(self, Rect2(4, 30, 34, 12))
 		var fb := DB.font_body
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		draw_string(DB.title_font(12), Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))      # 11/10 작은 이름은 굵은 고딕
@@ -3504,6 +3684,8 @@ class MiniCard extends Control:
 		var bar_y := 39.0
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
 		Art.draw_portrait(self, pr, sq.cid, 0.0, "ult" if ready else "face")
+		if BattleView.Hud.shaky(sq):      # 11/11 사기 30 아래 —— 초상 아래에 「동요」 딱지
+			BattleView.Hud.draw_shaky_tag(self, Rect2(pr.position.x, pr.end.y - 12.0, pr.size.x, 12.0))
 		var x := pr.end.x + 3
 		var tw := w - x - 2
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
