@@ -1879,6 +1879,14 @@ func _unique_sheet() -> void:
 		pc.clip_contents = true
 		row.add_child(pc)
 	b.add_child(row)
+	# 11/11 사용자: 유니크 보급은 한 번 다시 뽑을 수 있다 (셋 모두 바뀜 · 앞에 나온 것은 안 나옴)
+	if not run.uniq_rerolled:
+		b.add_child(UI.btn("다시 뽑기 (한 번) —— 셋 모두 바뀐다", func():
+			if act("reroll_unique", []):
+				Sfx.play("open")
+				_unique_sheet()
+			else:
+				toast("바꿀 아이템이 없다"), "ghost", 40))
 
 
 ## 그림을 상자 비율로 —— 얼굴이 있는 위쪽 기준으로 자른다 (myth 면 신화 그림, 없으면 기본 초상)

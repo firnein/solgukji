@@ -52,6 +52,7 @@ var last_hp_loss := 0         # 방금 전투에서 깎인 민심 (결과 화면
 var last_draw := []
 var last_item = null
 var uniq_offer := []          # 유니크 보급 —— 고를 수 있는 신화 재료 (고르면 비운다)
+var uniq_rerolled := false    # 11/11 사용자: 유니크 보급은 한 번 다시 뽑을 수 있다 (셋 모두 바뀜 · 앞에 나온 것은 다시 안 나옴) —— 이번 보급에서 이미 썼는가
 var myth_made := false        # 신화를 이미 만들었다 (한 판에 하나)
 var kiin_made: Array = []     # 만든 기인 (11/3 —— 한 판에 각 1장)
 var last_spoil = null         # {n, src} —— 방금 받은 기본패
@@ -93,6 +94,7 @@ func new_game(seed_value := -1) -> void:
 	last_draw = []
 	last_item = null
 	uniq_offer = []
+	uniq_rerolled = false
 	myth_made = false
 	kiin_made = []
 	last_spoil = null
@@ -248,6 +250,7 @@ func gain_item() -> String:
 	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade)
 	if grade == "유니크":
 		cand = cand.filter(func(k): return DB.MYTH_ITEMS.has(k))      # 11/3 플레이어가 만들 수 있는 신화(12명)의 재료만
+		uniq_rerolled = false
 		_offer_unique(cand)
 		return ""
 	# 보급은 지금 세운 군세에 맞는 물건이 온다
@@ -289,6 +292,30 @@ func _offer_unique(cand: Array) -> void:
 		toasts.append(["아이템 보급 도착 · %d개 중 하나를 고르시오" % out.size(), "gold"])
 
 
+## 11/11 사용자: 유니크 보급은 한 번 다시 뽑을 수 있다 —— 보이던 셋이 모두 바뀌고, 앞에 나온 것은 다시 나오지 않는다 (가진 것도 제외)
+func reroll_unique() -> bool:
+	if uniq_offer.is_empty() or uniq_rerolled:
+		return false
+	var prev: Array = uniq_offer.duplicate()
+	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k) and not prev.has(k))
+	var owned := {}
+	for k in bag:
+		owned[k] = true
+	for k in pool():
+		var inn = innate_item(k)
+		if inn != null:
+			owned[inn] = true
+	cand = cand.filter(func(k): return not owned.has(k))
+	if cand.is_empty():
+		return false      # 바꿀 것이 없다 (다시 뽑기는 쓰지 않은 것으로 둔다)
+	var out := []
+	while out.size() < 3 and not cand.is_empty():
+		out.append(cand.pop_at(rng.randi() % cand.size()))
+	uniq_offer = out
+	uniq_rerolled = true
+	return true
+
+
 ## 유니크 보급에서 하나를 고른다
 func pick_unique(id: String) -> bool:
 	if not uniq_offer.has(id):
@@ -296,6 +323,7 @@ func pick_unique(id: String) -> bool:
 	bag[id] = bag.get(id, 0) + 1
 	last_item = id
 	uniq_offer = []
+	uniq_rerolled = false
 	return true
 
 
@@ -1452,7 +1480,7 @@ func pick(k: String) -> bool:
 
 
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
-const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1,
+const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
 	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2}
 
 
@@ -1468,7 +1496,7 @@ func command(m: String, a: Array):
 # ───────── 저장 ─────────
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
-	"quest_done", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "myth_made", "kiin_made", "last_spoil",
+	"quest_done", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
 	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp"]
 
 
