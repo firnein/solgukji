@@ -328,8 +328,8 @@ func _full_room(n: int, hn: int) -> void:
 		var want_st := ["morning", "noon", "evening_prep", "evening"] if k < 9 else ["morning", "evening_prep", "evening"]
 		if k == 20:
 			want_st = ["morning", "evening_prep"]
-		for tr in tour_rounds.size():
-			want_st.append("evening")
+			for tr in tour_rounds.size():
+				want_st.append("evening")
 		if st != want_st:
 			_fail("[%d석 · 사람 %d] %d번째 페이즈 단계 %s (기대 %s)" % [n, hn, k + 1, str(st), str(want_st)])
 		noons += st.count("noon")
