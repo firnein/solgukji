@@ -1,7 +1,7 @@
 class_name Settings
 extends RefCounted
 ## 설정 —— user://settings.cfg. 품질(병사 수·안티에일리어싱·그림자)과 직접 지휘, 소리 크기.
-## 모바일은 처음 켤 때 '낮음', PC 는 '높음'으로 시작한다.
+## 처음 설치(설정 파일 없음) 기본값 (11/12 사용자) —— 병사 수: 모바일 '중간' · PC '높음'. 피해 숫자 '모아서' · 카메라 '적게' · 전황 '간단' 은 공통. 저장된 값은 덮어쓰지 않는다.
 
 const PATH := "user://settings.cfg"
 const QUALITY_N := ["낮음", "중간", "높음"]
@@ -58,7 +58,7 @@ static func load_cfg() -> void:
 			sumuk = false
 		dots = false     # 11/3 사용자: 점묘 옵션을 숨겼다 —— 저장값과 상관없이 3D (점검용 --gdots / --dots 로만 켠다)
 	if quality < 0:
-		quality = 0 if OS.has_feature("mobile") else 2
+		quality = 1 if OS.has_feature("mobile") else 2     # 11/12 모바일 기본 낮음 → 중간
 	apply()
 
 
