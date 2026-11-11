@@ -56,7 +56,7 @@ func _ready() -> void:
 	var gi: Array = DB.inyeon_of(gw)
 	_ok(gi.has("호뢰관") and gi.has("번성 전투") and gi.has("형주 쟁탈") and gi.has("무쌍의 호걸"), "관우 → %s" % str(gi))
 	var yi: Array = DB.inyeon_of(_card("유비"))
-	_ok(yi.has("호뢰관") and yi.has("하비 포위"), "유비 → %s" % str(yi))
+	_ok(yi.has("호뢰관") and yi.has("서서의 어머니"), "유비 → %s" % str(yi))
 	for k in DB.BASE:
 		_ok(DB.inyeon_of(k).is_empty(), "기본패 %s 인연 없음" % DB.C[k].name)
 		break
@@ -66,7 +66,7 @@ func _ready() -> void:
 		by[l.n] = l
 		_ok(l["in"].size() >= 2, "인연 %s 는 2명 이상 (%s)" % [l.n, str(l["in"])])
 	_ok(by.has("호뢰관") and by["호뢰관"]["in"] == ["유비", "관우", "장비"] and by["호뢰관"]["out"] == ["여포", "공손찬"], "호뢰관 유비 · 관우 · 장비 → %s" % str(by.get("호뢰관")))
-	_ok(by.has("하비 포위") and by["하비 포위"]["in"] == ["유비", "조조"] or by.has("하비 포위") and by["하비 포위"]["in"] == ["조조", "유비"], "하비 포위 조조 · 유비 2명 → %s" % str(by.get("하비 포위")))
+	_ok(by.has("서서의 어머니") and by["서서의 어머니"]["in"] == ["유비", "조조"] or by.has("서서의 어머니") and by["서서의 어머니"]["in"] == ["조조", "유비"], "서서의 어머니 조조 · 유비 2명 → %s" % str(by.get("서서의 어머니")))
 	_ok(not by.has("적벽대전"), "조조 혼자뿐인 적벽대전은 제외")
 	var gw2 := ""
 	for k in DB.C:
