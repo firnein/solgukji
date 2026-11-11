@@ -70,6 +70,23 @@ var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
 const CUT_T := 1.8           # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95, 11/6 사용자: 초상 · 글이 너무 빨리 사라진다 → 1.8 (터지는 순간은 컷인이 걷힌 뒤)
 const SLOW := 0.25          # 슬로모션 배속
+## 11/11 인연 합동 연출 (사용자: "메인 발동 장수가 뜨고, 그다음 연계장수 A, B 가 샥 나오는 느낌 · 내가 돕겠다 같은 투게더 멘트") —— 모두 실시간 초
+## 컷인(CUT_T 1.8 그대로): 대표 초상 0.05~0.30 → 『인연』 글 0.34 → 짝 A 0.42 · 짝 B 0.66 이 바깥에서 날아와 자리에 선다 → 말풍선 → YEON_SURGE_AT 부터 셋이 앞으로 슉
+const YEON_POP_AT := 0.42       # 첫 짝이 날아들기 시작하는 컷인 시각
+const YEON_POP_STAGGER := 0.24  # 짝 사이 간격 (A → B)
+const YEON_DASH := 0.26         # 바깥에서 자리까지 날아오는 시간 (TRANS_BACK · EASE_OUT 로 살짝 넘쳤다 돌아온다)
+const YEON_SCALE_FROM := 0.6    # 날아올 때 시작 크기 → YEON_SCALE_PEAK 까지 YEON_SCALE_UP 초 → 1.0 까지 YEON_SCALE_SETTLE 초
+const YEON_SCALE_PEAK := 1.08
+const YEON_SCALE_UP := 0.18
+const YEON_SCALE_SETTLE := 0.1
+const YEON_LAND_FX := 0.16      # 자리 잡은 뒤 번쩍 · 테두리 퍼짐 · 흔들림이 가시는 시간
+const YEON_SAY_DELAY := -0.04   # 말풍선이 뜨는 때 (자리 잡는 순간 기준, 음수면 그만큼 먼저)
+const YEON_SAY_POP := 0.14      # 말풍선이 톡 커지는 시간 (TRANS_BACK)
+const YEON_SURGE_AT := 1.3      # 이 컷인 시각부터 셋이 앞으로 슉 (터지는 쪽으로 커지며 다가선다)
+const YEON_SURGE_DUR := 0.45
+const YEON_SURGE_ZOOM := 0.12   # 슉 끝에서의 확대 (화면 중앙 띠 기준)
+const YEON_CHIP := Vector2(64.0, 80.0)   # 기 모으는 중 합류 칩(작은 초상) 크기 —— 합류하면 같은 방식으로 옆에서 날아든다
+const YEON_LINES_PATH := "res://data/inyeon_lines.json"      # 투게더 멘트 표 —— bold(물리) · polite(책사) · by_inyeon(인연 전용)
 ## 11/3 임팩트 프리즈 —— 큰 한 방이 꽂히는 순간 화면 시간을 거의 멈춘다 (판정 · 결과와 상관없는 연출 시계만).
 ## Engine.time_scale 을 건드리면 UI 트윈 · 소리까지 멎어 화면 시계(clock)만 늦춘다
 var freeze_t := 0.0          # 남은 프리즈 (실시간 초)
@@ -122,6 +139,9 @@ var spot_sq: Squad = null
 const SPOT_SHADER := preload("res://shaders/spotlight.gdshader")
 var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 중) —— 방진 버튼을 깜빡인다
 var warn_key := ""
+var _yeon_say := {}         # 11/11 인연 합류자 key -> 투게더 멘트 (합류 때 정해 두고 컷인 때 같은 말을 한다)
+var _yeon_used := {}        # 대표 key -> 이번 합동에서 이미 나온 멘트 (같은 말 겹침 방지)
+static var _yeon_tbl := {}  # data/inyeon_lines.json (처음 쓸 때 한 번 읽는다)
 var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이름
 var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 — 2D 전장은 그 메달의 전투장수창(unit_requested), 3D 는 그 부대를 따라간다
 const LONG_PRESS := 0.45
@@ -1271,6 +1291,7 @@ func _ult_warn(e: Dictionary) -> void:
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
 	# 11/7 사용자: "기를 모은다 —— 2.5초" 글 대신 작은 장수 이름 · 붓글씨 기술명 · 차오르는 고리 · 「운기」 (Hud.charge_start —— 아군은 늘, 적은 직접 지휘 때만 보인다)
 	hud.charge_start(e.a, who, e.name, wait, mine)
+	_yeon_used.erase(e.a)      # 새 합동 —— 투게더 멘트 겹침 기록을 비운다
 	if field.flat != null and field.flat.has_method("ult_hold"):      # 11/11 기 모으는 동안 기본 행동 연출을 줄인다 (고유기가 주인공)
 		field.flat.ult_hold(wait + 0.6)
 	if not mine:
@@ -1292,8 +1313,45 @@ func _ult_join(e: Dictionary) -> void:
 	if field.squads.has(e.a):
 		field.skill_fx(e.a)
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
-	hud.charge_start(e.a, who, e.name, wait, mine, str(e.get("inyeon", "")))
+	var jcid: String = field.squads[e.a].cid if field.squads.has(e.a) else ""
+	var say := _yeon_pick(e.a, str(e.get("lead", "")), str(e.get("inyeon", "")))
+	hud.charge_start(e.a, who, e.name, wait, mine, str(e.get("inyeon", "")), jcid, say[0], say[1])
 	Sfx.play("skill", -9.0)
+
+
+## 11/11 투게더 멘트 표 (data/inyeon_lines.json) —— 한 번 읽어 둔다. 없으면 빈 사전(멘트 없이 연출만)
+static func yeon_table() -> Dictionary:
+	if _yeon_tbl.is_empty():
+		var f := FileAccess.open(YEON_LINES_PATH, FileAccess.READ)
+		var d = JSON.parse_string(f.get_as_text()) if f != null else null
+		_yeon_tbl = d if d is Dictionary else {"bold": [], "polite": [], "by_inyeon": {}}
+	return _yeon_tbl
+
+
+## 합류자의 멘트 [글, 말투(0 호방 · 1 정중)] —— 병종이 책사 · 유생 · 술사 · 모사면 정중, 아니면 호방.
+## 시드 · 대표 · 합류자 key 의 해시로 고르므로(전투 난수 안 씀) 한 판 안에서 늘 같고, 같은 합동 안에서는 같은 말이 겹치지 않는다.
+## 인연 전용 멘트가 있는 인연이면 해시 홀짝으로 절반쯤 그쪽에서
+func _yeon_pick(key: String, lead: String, inyeon: String) -> Array:
+	var tbl := yeon_table()
+	var cid: String = field.squads[key].cid if field.squads.has(key) else ""
+	var tone := 1 if cid != "" and DB.C.has(cid) and DB.INT_TAGS.has(DB.C[cid].tag) else 0
+	var pool: Array = tbl.get("polite" if tone == 1 else "bold", [])
+	var h := ("%d|%s|%s" % [int(_p.get("seed", 0)), lead, key]).hash()
+	var spec: Array = tbl.get("by_inyeon", {}).get(inyeon, [])
+	if not spec.is_empty() and (h >> 8) % 2 == 0:
+		pool = spec
+	if pool.is_empty():
+		return ["", tone]
+	var used: Array = _yeon_used.get(lead, [])
+	var idx := h % pool.size()
+	for _i in pool.size():
+		if not used.has(pool[idx]):
+			break
+		idx = (idx + 1) % pool.size()
+	used.append(pool[idx])
+	_yeon_used[lead] = used
+	_yeon_say[key] = [str(pool[idx]), tone]
+	return [str(pool[idx]), tone]
 
 
 func _ult_cut(e: Dictionary) -> void:
@@ -1481,7 +1539,10 @@ func _start_ult(g: Dictionary) -> void:
 		hud.charge_end(mk)      # 합류 줄은 컷인의 짝 초상으로 넘어간다
 		if field.squads.has(mk):
 			var ms: Squad = field.squads[mk]
-			mates.append({"k": ms.cid, "who": ms.row.name})
+			var say: Array = _yeon_say.get(mk, [])
+			if say.is_empty():      # 합류 사건을 못 본 경우(되감기 등) —— 같은 규칙으로 지금 정한다
+				say = _yeon_pick(mk, g.who, str(u.get("inyeon", "")))
+			mates.append({"k": ms.cid, "who": ms.row.name, "line": say[0], "tone": say[1]})
 	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false), desc, mates, str(u.get("inyeon", "")))
 	# 11/4 사용자: 숄더뷰로 다가가 장수가 무기를 크게 휘두르고(효과 · 소리), 적이 날아간 뒤 원래 카메라로
 	field.cinematic(sq, 3.0, true)
@@ -2041,7 +2102,7 @@ class Hud extends Control:
 
 	func ult_cutin(sq: Squad, nm: String, shout: String, crisis := false, desc := "", mates := [], inyeon := "") -> void:
 		cut = {"k": sq.cid, "who": sq.row.name, "name": nm, "shout": shout, "camp": sq.camp, "crisis": crisis,
-			"col": DB.tier_color(sq.cid), "t": 0.0, "desc": desc, "mates": mates, "inyeon": inyeon}
+			"col": DB.tier_color(sq.cid), "t": 0.0, "desc": desc, "mates": mates, "inyeon": inyeon, "pop": [false, false], "land": [false, false]}
 		# 붓질 띠의 거친 가장자리 —— 매번 조금씩 다르게
 		_brush = PackedVector2Array()
 		var r := RandomNumberGenerator.new()
@@ -2066,6 +2127,8 @@ class Hud extends Control:
 			cut.t += dt
 			if cut.t > CUT_T:
 				cut = null
+			elif not cut.mates.is_empty() and cut.inyeon != "":
+				_yeon_pop_events()
 		_flash_t += dt
 		if ann:
 			ann.t += dt
@@ -2144,8 +2207,9 @@ class Hud extends Control:
 			prewarm_txt.clear()
 		_draw_all()
 		_draw_kills()
-		_draw_chains()
-		_draw_chain_pop()
+		if not (cut != null and cut.inyeon != ""):      # 11/11 인연 컷인 동안은 덱 연쇄 띠를 접는다 (짝 말풍선을 가린다)
+			_draw_chains()
+			_draw_chain_pop()
 		_draw_charges()
 		_draw_threats()
 		view.field.pt("머리표", t0)
@@ -2193,11 +2257,13 @@ class Hud extends Control:
 	const CHARGE_WORD := "운기"
 	const CHARGE_HOLD := 0.35      # 다 찬 뒤 머무는 시간 (전장 초)
 	var charges := {}              # 부대 key -> {who, name, t0, wait, mine}
+	var _chip_keys := []           # 이번 그림에서 합류 칩을 그릴 부대 key (매 프레임 비우고 다시 채운다)
 	var _charge_rows := 0          # 지금 보이는 줄 수 —— 안내문(ann)을 그 아래로 내린다
 	var _join_rows := 0            # 인연 합류 작은 줄 수 (32px)
 
-	func charge_start(key: String, who: String, nm: String, wait: float, mine: bool, inyeon := "") -> void:
-		charges[key] = {"who": who, "name": nm, "t0": view.clock, "wait": maxf(wait, 0.1), "mine": mine, "inyeon": inyeon}
+	func charge_start(key: String, who: String, nm: String, wait: float, mine: bool, inyeon := "", cid := "", line := "", tone := 0) -> void:
+		charges[key] = {"who": who, "name": nm, "t0": view.clock, "wait": maxf(wait, 0.1), "mine": mine, "inyeon": inyeon,
+			"cid": cid, "line": line, "tone": tone}
 
 	func charge_end(key: String) -> void:
 		charges.erase(key)
@@ -2214,6 +2280,7 @@ class Hud extends Control:
 		var y := 62.0
 		_charge_rows = 0
 		_join_rows = 0
+		_chip_keys.clear()
 		for key in charges.keys():
 			var c: Dictionary = charges[key]
 			var t: float = view.clock - c.t0
@@ -2225,6 +2292,7 @@ class Hud extends Control:
 			if c.get("inyeon", "") != "":      # 11/11 인연 합동 —— 합류한 장수는 대표 줄 아래 작은 한 줄
 				y = _draw_join_row(c, t, y)
 				_join_rows += 1
+				_chip_keys.append(key)
 				continue
 			var u := clampf(t / c.wait, 0.0, 1.0)
 			var a := clampf(t / 0.12, 0, 1) * clampf((c.wait + CHARGE_HOLD - t) / 0.25, 0, 1)
@@ -2278,6 +2346,9 @@ class Hud extends Control:
 			draw_string(fb, bb.position + Vector2(0, 13.5), CHARGE_WORD, HORIZONTAL_ALIGNMENT_CENTER, bw, 11, Color(DB.PAL.paper, a))
 			y += 46.0
 			_charge_rows += 1
+		for i in _chip_keys.size():      # 합류한 장수는 작은 초상 칩이 옆에서 날아들어 한마디 한다 (먼저 합류 = 왼쪽, 다음 = 오른쪽 —— 컷인의 짝 자리와 같다)
+			var jc: Dictionary = charges[_chip_keys[i]]
+			_draw_join_chip(jc, view.clock - jc.t0, i, y + 8.0)
 
 	## 합류한 장수의 작은 줄 —— 옆에서 미끄러져 들어와 "인연 『이름』  장수 『고유기』" · 고리 (합류 시각에서 터질 때까지 찬다). 다음 줄 y 를 돌려준다
 	func _draw_join_row(c: Dictionary, t: float, y: float) -> float:
@@ -2315,6 +2386,137 @@ class Hud extends Control:
 		draw_string_outline(fb, Vector2(tx + lw + 10.0, y + 19.0), body, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85 * a))
 		draw_string(fb, Vector2(tx + lw + 10.0, y + 19.0), body, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#9cc8ff" if c.mine else "#ffb3a6", a))
 		return y + 32.0
+
+	## ───────── 11/11 인연 날아들기 —— 기 모으는 중 합류 칩과 컷인의 짝 초상이 같은 움직임 · 같은 말풍선을 쓴다 (시간 상수는 맨 위 YEON_*) ─────────
+	var _sb_say := StyleBoxFlat.new()
+	var _say_tail := PackedVector2Array([Vector2.ZERO, Vector2.ZERO, Vector2.ZERO])
+
+	## 날아드는 위치 진행 (0 → 1, 끝에서 살짝 넘쳤다 돌아온다) —— lt: 날아들기 시작한 뒤 초
+	func _pop_prog(lt: float) -> float:
+		return float(Tween.interpolate_value(0.0, 1.0, clampf(lt, 0.0, YEON_DASH), YEON_DASH, Tween.TRANS_BACK, Tween.EASE_OUT))
+
+	## 크기 팝 0.6 → 1.08 → 1.0
+	func _pop_scale(lt: float) -> float:
+		if lt >= YEON_SCALE_UP + YEON_SCALE_SETTLE:
+			return 1.0
+		if lt < YEON_SCALE_UP:
+			return lerpf(YEON_SCALE_FROM, YEON_SCALE_PEAK, ease(clampf(lt / YEON_SCALE_UP, 0.0, 1.0), 0.4))
+		return lerpf(YEON_SCALE_PEAK, 1.0, smoothstep(0.0, 1.0, (lt - YEON_SCALE_UP) / YEON_SCALE_SETTLE))
+
+	## 자리 잡은 사각형 end 를 기준으로 지금 그릴 사각형 —— 바깥에서 날아와(from_left: 왼쪽 바깥) · 커지며 · 착지에 잠깐 흔들린다
+	func _pop_rect(end: Rect2, from_left: bool, lt: float) -> Rect2:
+		var x0 := (-end.size.x - 30.0) if from_left else (size.x + 30.0)
+		var r := Rect2(Vector2(lerpf(x0, end.position.x, _pop_prog(lt)), end.position.y), end.size)
+		var k := (lt - YEON_DASH) / YEON_LAND_FX
+		if k > 0.0 and k < 1.0:
+			r.position += Vector2(randf_range(-4.0, 4.0), randf_range(-3.0, 3.0)) * (1.0 - k)
+		var sc := _pop_scale(lt)
+		return Rect2(r.get_center() - r.size * sc * 0.5, r.size * sc)
+
+	## 잔상 둘(지난 위치의 옅은 면) + 속도선 다섯 줄 —— 날아드는 동안과 착지 직후만
+	func _pop_trail(end: Rect2, from_left: bool, lt: float, col: Color, fade: float) -> void:
+		if lt <= 0.0 or lt > YEON_DASH + 0.06:
+			return
+		var x0 := (-end.size.x - 30.0) if from_left else (size.x + 30.0)
+		for g in 2:
+			var gx := lerpf(x0, end.position.x, _pop_prog(lt - 0.035 * (g + 1)))
+			draw_rect(Rect2(gx, end.position.y, end.size.x, end.size.y), Color(col, (0.3 - 0.12 * g) * fade))
+		var cx := lerpf(x0, end.position.x, _pop_prog(lt))
+		var dirx := 1.0 if from_left else -1.0
+		var rear := cx if from_left else cx + end.size.x      # 꽁무니
+		var life := 1.0 - clampf((lt - YEON_DASH * 0.5) / (YEON_DASH * 0.5 + 0.06), 0.0, 1.0)
+		for i in 5:
+			var yy := end.position.y + end.size.y * (0.1 + 0.2 * i)
+			var ln := (70.0 + 46.0 * ((i * 3) % 4)) * life
+			draw_line(Vector2(rear, yy), Vector2(rear - dirx * ln, yy), Color(1, 0.97, 0.88, 0.6 * life * fade), 2.0)
+
+	## 착지 —— 하얗게 번쩍 + 테두리가 퍼지며 사라진다
+	func _pop_land_fx(r: Rect2, lt: float, fade: float) -> void:
+		var k := (lt - YEON_DASH) / YEON_LAND_FX
+		if k < 0.0 or k >= 1.0:
+			return
+		draw_rect(r, Color(1, 0.96, 0.82, 0.45 * (1.0 - k) * fade))
+		draw_rect(r.grow(2.0 + 16.0 * k), Color(1, 0.9, 0.6, 0.85 * (1.0 - k) * fade), false, 1.0 + 3.0 * (1.0 - k))
+
+	## 중심 zc 기준 z 배 확대한 사각형
+	func _zoom_rect(r: Rect2, zc: Vector2, z: float) -> Rect2:
+		if z == 1.0:
+			return r
+		return Rect2(zc + (r.position - zc) * z, r.size * z)
+
+	## 컷인에서 짝 i 가 자리 잡을 사각형 (대표 초상 pr 옆 —— A 왼쪽 · B 오른쪽, 대표 뒤에 조금 겹친다)
+	func _mate_end(pr: Rect2, ph: float, i: int) -> Rect2:
+		var mh := ph * 0.72
+		var mw := mh * 0.78
+		return Rect2((pr.position.x - mw * 0.64) if i == 0 else (pr.end.x - mw * 0.36), pr.end.y - mh, mw, mh)
+
+	## 컷인 짝의 날아들기 · 착지 소리 + 작은 카메라 흔들림 (한 번씩)
+	func _yeon_pop_events() -> void:
+		for i in mini(cut.mates.size(), 2):
+			var lt: float = cut.t - (YEON_POP_AT + YEON_POP_STAGGER * i)
+			if not cut.pop[i] and lt >= 0.0:
+				cut.pop[i] = true
+				Sfx.play("swing", -5.0, 0.1)
+			if not cut.land[i] and lt >= YEON_DASH:
+				cut.land[i] = true
+				Sfx.play("clash", -7.0, 0.1)
+				view.field.shake = maxf(view.field.shake, 0.7)
+
+	## 말풍선 —— tip 을 가리키는 꼬리, above 면 상자가 tip 위. 상자는 [xmin, xmax] 안에서 tip 가운데에 맞춘다. lt: 날아들기 시작한 뒤 초 (착지 YEON_SAY_DELAY 부터 톡 커진다)
+	## tone 0 호방(주황 테) · 1 정중(옅은 청색 테)
+	func _draw_say(text: String, tip: Vector2, above: bool, xmin: float, xmax: float, lt: float, fade: float, tone: int) -> void:
+		var u := lt - (YEON_DASH + YEON_SAY_DELAY)
+		if text == "" or u <= 0.0:
+			return
+		var fb := DB.font_bold
+		var fs := 16
+		var w := fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 24.0
+		var h := 30.0
+		var sc: float = Tween.interpolate_value(0.3, 0.7, minf(u, YEON_SAY_POP), YEON_SAY_POP, Tween.TRANS_BACK, Tween.EASE_OUT)
+		var a := fade * clampf(u / 0.05, 0.0, 1.0)
+		var bx := clampf(clampf(tip.x - w / 2.0, xmin, maxf(xmin, xmax - w)), 6.0, size.x - 6.0 - w) - tip.x      # 자리가 좁으면 대표 초상 쪽으로 조금 겹치되 화면 밖으로는 안 나간다 (tip 기준 상대 좌표)
+		var by_ := (-9.0 - h) if above else 9.0
+		var edge := by_ + h if above else by_
+		var tx := clampf(0.0, bx + 12.0, bx + w - 12.0)
+		var bcol := Color("#e0903a") if tone == 0 else Color("#8fbfe8")
+		if _sb_say.border_width_left == 0:
+			_sb_say.set_corner_radius_all(9)
+			_sb_say.set_border_width_all(2)
+		_sb_say.bg_color = Color(0.07, 0.05, 0.04, 0.92 * a)
+		_sb_say.border_color = Color(bcol, a)
+		draw_set_transform(tip, 0.0, Vector2.ONE * sc)
+		_say_tail[0] = Vector2(tx - 7.0, edge)
+		_say_tail[1] = Vector2(tx + 7.0, edge)
+		_say_tail[2] = Vector2.ZERO
+		draw_colored_polygon(_say_tail, Color(bcol, a))
+		draw_style_box(_sb_say, Rect2(bx, by_, w, h))
+		var tcol := Color("#ffe6bf") if tone == 0 else Color("#e8f3ff")
+		var ty := by_ + 21.0
+		draw_string_outline(fb, Vector2(bx + 12.0, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color(0, 0, 0, 0.85 * a))
+		draw_string(fb, Vector2(bx + 12.0, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(tcol, a))
+		draw_set_transform(Vector2.ZERO)
+
+	## 기 모으는 중 합류한 장수의 칩 —— 작은 초상이 옆에서 샥 날아들고(먼저 합류 왼쪽 · 다음 오른쪽) 말풍선으로 한마디. 터질 때(charge_end)까지, 컷인의 짝 자리로 이어진다
+	func _draw_join_chip(c: Dictionary, t: float, i: int, y: float) -> void:
+		var cid: String = c.get("cid", "")
+		if i > 1 or cid == "" or not DB.C.has(cid):
+			return
+		var a := clampf(t / 0.1, 0.0, 1.0) * clampf((c.wait + CHARGE_HOLD - t) / 0.25, 0.0, 1.0)
+		var left := i == 0
+		var end := Rect2(Vector2(12.0 if left else size.x - 12.0 - YEON_CHIP.x, y), YEON_CHIP)
+		var col: Color = DB.tier_color(cid)
+		_pop_trail(end, left, t, col, a)
+		var r := _pop_rect(end, left, t)
+		draw_rect(r.grow(4), Color(col, 0.4 * a))
+		draw_rect(r.grow(1.5), Color(0, 0, 0, 0.9 * a))
+		Art.draw_portrait(self, r, cid, t, "ult")
+		draw_rect(Rect2(r.position.x, r.end.y - 18.0, r.size.x, 18.0), Color(0, 0, 0, 0.72 * a))
+		draw_string(DB.font_bold, Vector2(r.position.x, r.end.y - 5.0), str(c.who).split(" ")[-1], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 12, Color(1, 0.95, 0.85, a))
+		if a < 1.0:
+			draw_rect(r, Color(0, 0, 0, (1.0 - a) * 0.7))
+		draw_rect(r, Color(Color("#ffd257"), a), false, 2.0)
+		_pop_land_fx(r, t, a)
+		_draw_say(str(c.get("line", "")), Vector2(end.position.x + end.size.x / 2.0, end.end.y + 2.0), false, 6.0, size.x - 6.0, t, a, int(c.get("tone", 0)))
 
 	## 강조 순위 —— 진영마다 그 전투에 나온 장수 가운데 등급(같으면 PV) 상위 둘만 1 · 2 (11/3 사용자: 등급마다 크게 하니
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
@@ -3040,6 +3242,12 @@ class Hud extends Control:
 		# 집중선 —— 화면 가운데로 모이는 가는 선
 		var c := sz / 2
 		var by := c.y + (sz.y * 0.12 if tall else 0.0)     # 먹띠 가운데 높이
+		# 11/11 인연 합동 —— 터지기 직전 셋이 함께 앞으로 슉 (띠 가운데를 기준으로 커지며 다가선다 · 집중선도 짙어진다)
+		var mates: Array = cut.get("mates", [])
+		var yeon: bool = not mates.is_empty() and str(cut.get("inyeon", "")) != ""
+		var surge := ease(clampf((t - YEON_SURGE_AT) / YEON_SURGE_DUR, 0.0, 1.0), 2.2) if yeon else 0.0
+		var zc := Vector2(sz.x / 2.0, by)
+		var zm := 1.0 + YEON_SURGE_ZOOM * surge
 		var r := RandomNumberGenerator.new()
 		r.seed = int(t * 20.0)
 		for i in 46:
@@ -3047,7 +3255,7 @@ class Hud extends Control:
 			var dir := Vector2.from_angle(ang)
 			var a0 := sz.length() * 0.6
 			var a1 := r.randf_range(0.28, 0.42) * sz.length()
-			draw_line(c + dir * a0, c + dir * a1, Color(1, 1, 1, 0.13 * fade), r.randf_range(1.0, 3.0))
+			draw_line(c + dir * a0, c + dir * a1, Color(1, 1, 1, (0.13 + 0.16 * surge) * fade), r.randf_range(1.0, 3.0))
 		# 먹띠 —— 비스듬히 화면을 가로지른다
 		var band_h := 170.0
 		var slide := ease(clampf(t / 0.22, 0, 1), 0.3)
@@ -3073,38 +3281,48 @@ class Hud extends Control:
 		else:
 			px = lerpf(-pw - 40, sz.x * 0.14, pin) if not foe else lerpf(sz.x + 40, sz.x * 0.86 - pw, pin)
 			pr = Rect2(px, c.y - ph * 0.55, pw, ph)
-		# 11/11 인연 합동 —— 함께 터지는 장수들이 대표 초상 양옆에 작게 선다 (바깥에서 슉 들어와 대표 뒤에 겹친다). 하나뿐이면 오른쪽
-		var mates: Array = cut.get("mates", [])
-		for i in mates.size():
-			var mt := ease(clampf((t - 0.12 - 0.1 * i) / 0.2, 0, 1), 0.2)
-			if mt <= 0.02:
+		# 11/11 인연 합동 —— 대표 다음에 짝 A(왼쪽) · B(오른쪽)가 바깥에서 샥 날아들어 대표 양옆에 선다 (_pop_rect: TRANS_BACK 으로 살짝 넘쳤다 돌아옴 · 크기 팝 ·
+		# 잔상 · 속도선 · 착지 번쩍/흔들림). 말풍선은 대표 초상 위에 겹치지 않게 맨 뒤에 그린다
+		var prd := _zoom_rect(pr, zc, zm)
+		for i in mini(mates.size(), 2):
+			var lt: float = t - (YEON_POP_AT + YEON_POP_STAGGER * i)
+			if lt <= 0.0:
 				continue
-			var mh := ph * 0.72
-			var mw := mh * 0.78
-			var right := mates.size() == 1 or i == 1
-			var mx_end := (pr.end.x - mw * 0.36) if right else (pr.position.x - mw * 0.64)
-			var mx := lerpf(sz.x + 40.0 if right else -mw - 40.0, mx_end, mt)
-			var mr := Rect2(mx, pr.end.y - mh, mw, mh)
+			var left := i == 0
+			var mend := _mate_end(pr, ph, i)
 			var mc: Color = DB.tier_color(mates[i].k)
+			_pop_trail(mend, left, lt, mc, fade)
+			var mr := _zoom_rect(_pop_rect(mend, left, lt), zc, zm)
 			draw_rect(mr.grow(6), Color(mc, 0.35 * fade))
 			draw_rect(mr.grow(2), Color(0, 0, 0, 0.9 * fade))
 			Art.draw_portrait(self, mr, mates[i].k, t, "ult")
 			var nstrip := Rect2(mr.position.x, mr.end.y - 26.0, mr.size.x, 26.0)
 			draw_rect(nstrip, Color(0, 0, 0, 0.72 * fade))
-			var vis_w := mw * 0.6      # 대표 초상에 가려지지 않는 쪽 폭 안에서 이름 (세력 · 별칭은 빼고 인물 이름)
-			var nx := nstrip.position.x if not right else nstrip.end.x - vis_w
+			var vis_w := mr.size.x * 0.6      # 대표 초상에 가려지지 않는 쪽 폭 안에서 이름 (세력 · 별칭은 빼고 인물 이름)
+			var nx := nstrip.position.x if left else nstrip.end.x - vis_w
 			draw_string(DB.font_bold, Vector2(nx, nstrip.position.y + 19), str(mates[i].who).split(" ")[-1], HORIZONTAL_ALIGNMENT_CENTER, vis_w, 16, Color(1, 0.95, 0.85, fade))
 			if fade < 1.0:
 				draw_rect(mr, Color(0, 0, 0, (1.0 - fade) * 0.7))
 			draw_rect(mr, Color(Color("#ffd257"), fade), false, 2.0)
+			_pop_land_fx(mr, lt, fade)
 		if pin > 0.02:
-			draw_rect(pr.grow(8), Color(col, 0.35 * fade))
-			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
+			draw_rect(prd.grow(8), Color(col, 0.35 * fade))
+			draw_rect(prd.grow(3), Color(0, 0, 0, 0.9 * fade))
 		if pin > 0.02:
-			Art.draw_portrait(self, pr, cut.k, t, "ult")      # 고유기 컷인 —— 고유기용 (신화 그림, 없으면 얼굴)
+			Art.draw_portrait(self, prd, cut.k, t, "ult")      # 고유기 컷인 —— 고유기용 (신화 그림, 없으면 얼굴)
 			if fade < 1.0:
-				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
-			draw_rect(pr, Color(col, fade), false, 3.0)
+				draw_rect(prd, Color(0, 0, 0, (1.0 - fade) * 0.7))
+			draw_rect(prd, Color(col, fade), false, 3.0)
+		if yeon:      # 투게더 멘트 —— 짝의 머리 위, 대표 초상 옆 빈자리에 (왼쪽 짝은 대표 왼쪽 · 오른쪽 짝은 대표 오른쪽)
+			for i in mini(mates.size(), 2):
+				var lt: float = t - (YEON_POP_AT + YEON_POP_STAGGER * i)
+				if lt <= 0.0:
+					continue
+				var left := i == 0
+				var mr := _zoom_rect(_pop_rect(_mate_end(pr, ph, i), left, lt), zc, zm)
+				var vc := (mr.position.x + prd.position.x) / 2.0 if left else (prd.end.x + mr.end.x) / 2.0
+				_draw_say(str(mates[i].get("line", "")), Vector2(vc, mr.position.y + 2.0), true,
+					8.0 if left else prd.end.x + 4.0, prd.position.x - 4.0 if left else sz.x - 8.0, lt, fade, int(mates[i].get("tone", 0)))
 		if not mates.is_empty() and str(cut.get("inyeon", "")) != "":
 			var it := clampf((t - 0.34) / 0.16, 0, 1)
 			if it > 0.0:
