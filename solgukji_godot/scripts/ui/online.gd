@@ -701,6 +701,8 @@ func _show_lobby() -> void:
 		v.add_child(UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), Room.SEATS - room.seats.size()], func(): net.send({"t": "start"}), "pri", 60))
 	else:
 		v.add_child(UI.hint("방장이 시작하기를 기다리는 중…"))
+	var cb := UI.btn("방 정보 복사 (서버 주소 + 방 코드)", copy_room_info, "ghost")      # 11/11 사용자: 서버 주소와 방 코드를 한 번에 복사해 바로 보낼 수 있게
+	v.add_child(cb)
 	var hb := UI.hbox(8)
 	var sb := UI.btn("한마디", quick_sheet, "ghost")
 	sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -714,6 +716,23 @@ func _show_lobby() -> void:
 	hb.add_child(lb)
 	v.add_child(hb)
 	gs.move_child(gs._toast_box, -1)      # 대기실은 화면을 다 덮는다 —— 알림(한마디 · 소식)이 그 위에 보이게
+
+
+## 방 정보 복사 —— 서버 주소 · 방 코드를 클립보드에 (메신저에 그대로 붙여 넣어 친구에게 보낸다). 11/11 사용자
+func room_info_text() -> String:
+	var url := str(net.url).strip_edges()
+	var lines := ["[솔국지] 같이 해요!"]
+	if url != "":
+		lines.append("서버: %s" % url)
+	lines.append("방 코드: %s" % str(room.get("code", "")))
+	lines.append("(온라인 → 서버 주소 직접 입력 → 접속 → 방 코드 입력)")
+	return "\n".join(lines)
+
+
+func copy_room_info() -> void:
+	DisplayServer.clipboard_set(room_info_text())
+	UI.buzz()
+	gs.toast("방 정보를 복사했습니다 — 붙여 넣어 보내세요", "gain")
 
 
 func _hide_lobby() -> void:
