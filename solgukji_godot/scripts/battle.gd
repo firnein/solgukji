@@ -164,6 +164,7 @@ const CRISIS_LOSS := 0.35     # 위기 —— 아군 평균 병력 손실이 이
 const CRISIS_UNITS := 5       #        살아 있는 부대가 이만큼 이하면
 static var crisis_amp := 1.3  # 위기에 쓴 고유기 위력 배율 (배수진) —— 점검용으로 바꿀 수 있어 static
 static var cmd_links := true   # 특기–군령 연결 켜기 (비교용)
+static var cmd_on := false     # 11/12 사용자: 군령은 안 쓴다 —— 돌격 · 방진 · 재정비를 아무도 내리지 않는다 (true 면 예전대로)
 ## 작전 (덱 주인이 전투 전에 고른다 —— 11/1 덱 감상 전투). 영리가 늘 이기지 않게 작전마다 강점을 하나씩
 static var tac_rush_pts := 2.0     # 공세 군령 —— 군령 포인트를 이만큼 들고 시작 (첫 돌격이 바로)
 static var tac_rush_atk := 0.25    # 공세 군령 —— 돌격의 공격 상승 +이만큼 (맹진처럼)
@@ -3131,6 +3132,8 @@ func _interrupt_ult(u: Unit) -> void:
 
 
 func _command(cp: String, name_: String) -> void:
+	if not cmd_on:
+		return
 	pts[cp] -= CMD_COST
 	_ai += 1
 	_ph = "act"
