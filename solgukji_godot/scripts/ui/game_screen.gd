@@ -12,6 +12,7 @@ extends Control
 
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
 const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # 11/10 민심 위험 비네트에 다시 쓴다 (5초 경고와 같은 가장자리 그림, class_name 없이)
+const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 표시 공용 (디테일창 · 갈무리창 줄, 편성 시트)
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const EmotePop := preload("res://scripts/ui/emote_pop.gd")      # 11/10 받은 한마디 이모티콘 팝업 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
@@ -1452,6 +1453,9 @@ func recipe_sheet(out: String) -> void:
 	rv.add_child(_stat_row(c))
 	rv.add_child(TraitBoard.new().setup(out))
 	var chips := _ability_items(out)
+	var iy := _inyeon_item(out)      # 11/11 인연 —— 이름 칩만 한 줄 (구성원은 디테일창에서)
+	if not iy.is_empty():
+		chips.append(iy)
 	var ult = DB.ult_of(out) if c.tier >= 6 or DB.is_kiin(out) else null
 	var open_detail := func(): card_info(out)      # 줄을 누르면 디테일창
 	if ult != null:      # 11/9 사용자: 초상 옆 빈 공간 정리 —— 기질은 오른쪽(능력치 · 특기판 아래), 나머지는 아래 폭 전체 한 장 패널
@@ -2066,7 +2070,7 @@ func card_info(k: String) -> void:
 	top.add_child(st)
 	b.add_child(top)
 	var ab := UI.vbox(6)
-	_ability_rows(ab, k, 12, false, false)
+	_ability_rows(ab, k, 12, false, false, [], true)
 	b.add_child(ab)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
 	b.add_child(folds)
@@ -2341,7 +2345,7 @@ func _ability_items(k: String) -> Array:
 
 ## 고유 특기 · 위세(기인) · 패업 · 고유기 (+ 기질) —— 디테일창 · 전투장수창 · 보급 팝업이 같은 모양.
 ## 11/9 사용자: 색 카드 나열이 'AI 티' —— 한 장의 패널 안에서 얇은 구분선으로 줄을 나눈다. narrow(휴대폰 세로 보급 팝업)면 줄 안을 위아래로 쌓는다
-func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_temper := true, skip: Array = []) -> void:
+func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_temper := true, skip: Array = [], with_inyeon := false) -> void:
 	var c: Dictionary = DB.C[k]
 	var its := _ability_items(k).filter(func(it): return not skip.has(str(it.get("kind", ""))))      # skip: 뺄 종류 (보급 팝업은 패업, 11/9)
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
@@ -2349,8 +2353,25 @@ func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_t
 		var ti := _temper_item(c, u)
 		if not ti.is_empty():
 			its.append(ti)
+	if with_inyeon:      # 11/11 인연 —— 맨 아래 줄 (디테일창)
+		var iy := _inyeon_item(k)
+		if not iy.is_empty():
+			its.append(iy)
 	if not its.is_empty():
 		into.add_child(_ability_panel(its, fs, narrow))
+
+
+## 11/11 인연 줄 항목 —— 이 카드의 인물이 속한 인연들 (없으면 {}). _ability_row 가 칩 + 구성원 타일로 그린다
+func _inyeon_item(k: String) -> Dictionary:
+	var names: Array = DB.inyeon_of(k)
+	if names.is_empty():
+		return {}
+	return {"kind": "인연", "inyeon": names, "k": k, "name": "", "effect": "", "icon": "link", "sub": ""}
+
+
+## 인연 구성원 타일의 상태 —— 가진 장수(갈무리창 · 디테일창 기준: 손패 + 편성판) · 갈무리한 장수 · 지금 보는 장수
+func _inyeon_ctx(k: String) -> Dictionary:
+	return {"own": InyeonUI.owned_map(run), "pins": InyeonUI.pinned_map(forge_tree.pins), "me": DB.person(k)}
 
 
 ## 기질 한 줄 항목 —— 규칙 배정이든 수동 지정이든 Battle.temper_name 이 실제 기질을 준다 (11/7). 없으면 {}
@@ -2385,6 +2406,11 @@ func _ability_panel(items: Array, fs := 12, narrow := false, simple := false, on
 ## 능력 한 줄 —— 왼쪽 기호 + 옅은 라벨, 이름(크고 종이색 · 고유 특기만 금), 아래 효과(한 단계 작고 옅게, 수치만 옥색)
 func _ability_row(it: Dictionary, fs: int, narrow: bool, simple: bool, on_tap: Callable) -> Control:
 	var P := DB.PAL
+	if it.has("inyeon"):      # 11/11 인연 줄 —— 이름 칩 + (디테일창) 구성원 타일
+		var me: String = DB.person(str(it.k))
+		return InyeonUI.detail_row(it.inyeon, _inyeon_ctx(str(it.k)), fs, simple, func(card: String):
+			if DB.person(card) != me:
+				card_info(card), on_tap)
 	var m := MarginContainer.new()
 	var vm := 6 if simple else 8
 	m.add_theme_constant_override("margin_top", vm)

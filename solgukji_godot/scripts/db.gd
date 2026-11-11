@@ -6,6 +6,7 @@ const PAL := {
 	"ink": Color("#131A2B"), "ink2": Color("#1B2338"), "ink3": Color("#242E49"), "ink4": Color("#33405F"),
 	"paper": Color("#E9E3D3"), "bamboo": Color("#C6AC7C"), "bamboo_dim": Color("#8D7B5C"),
 	"seal": Color("#BE4A3C"), "jade": Color("#4F9080"), "gold": Color("#D9A64B"),
+	"yeon": Color("#E58BA3"),      # 11/11 인연 —— 붉은 실(맺어진 사이)의 연분홍. 금(보상) · 옥(좋음) · 인장 붉음(나쁨)과 안 겹치는 한 색
 }
 
 var D: Dictionary
@@ -46,6 +47,8 @@ var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등
 var prof := {"n": 0, "main": 0, "decode": 0, "res": 0, "mip": 0, "tex": 0, "scan": 0}
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
+var INYEON: Dictionary = {}  # 11/11 인연 —— 인연 이름 -> [인물 이름] (data/inyeon.json list). 고유기를 함께 발동하는 장수 조합 (인연마다 4~5명)
+var _inyeon_of_person := {}  # 인물 이름 -> [인연 이름] (json 순서)
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
 var GUARD: Dictionary = {}    # 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 · 토벌 우두머리 성질 (data/cards_ext.json class_guard) —— 없으면 막 0 · 깎기 없음
 var bot_mix := true           # 11/8 봇 덱 병종 섞기 (gen_board —— 같은 병종 3장까지 · 물리 · 책략 각 3장 이상). 끄면 예전 몰빵 그대로 (비교용)
@@ -189,6 +192,7 @@ func _load() -> void:
 	for p in LINES.get("ults", {}):
 		ULT.list[p] = LINES.ults[p]
 	PSV = JSON.parse_string(FileAccess.open("res://data/passives.json", FileAccess.READ).get_as_text())
+	_load_inyeon()
 	D.STATUS.flood.d = "물에 잠겨 이동 · 공격이 %d%% 느려지고 기병은 돌격하지 못한다 (제방은 느려짐을 줄이고 격류는 더한다)" % roundi(float(PSV.water.slow) * 100)      # 11/9 수공 제어 전담 —— 지속 피해 없이 이감 + 돌격 봉쇄 (원본 설명 '병력이 잠기고' 는 옛 규칙)
 	for p in LINES.get("ladder_from", {}):        # 11/2 (5) 새 인물 —— 닮은 인물의 특기 사다리를 빌린다 (초월까지만)
 		var src: String = LINES.ladder_from[p]
@@ -1242,6 +1246,76 @@ func passive_text(k: String) -> String:
 	for t in trait_list(k):
 		lines.append("『%s%s』%s %s%s" % [t.name, "" if t.unique else str(t.lv), " 단체" if t.group else "", t.d, ("\n   " + t.mt) if t.mt != "" else ""])
 	return "\n".join(lines)
+
+
+## ───────── 인연 (11/11) —— 고유기를 함께 발동하는 장수 조합. 장수는 인물 이름(DB.person), 고유기가 있는 인물만 ─────────
+func _load_inyeon() -> void:
+	INYEON = {}
+	_inyeon_of_person = {}
+	var f := FileAccess.open("res://data/inyeon.json", FileAccess.READ)
+	if f == null:
+		return
+	var d = JSON.parse_string(f.get_as_text())
+	if not (d is Dictionary):
+		return
+	INYEON = d.get("list", {})
+	for nm in INYEON:
+		for p in INYEON[nm]:
+			if not _inyeon_of_person.has(p):
+				_inyeon_of_person[p] = []
+			_inyeon_of_person[p].append(nm)
+
+
+## 이 카드가 고유기를 쓸 수 있나 (초월 이상 · 기인 —— 디테일창 · 전투와 같은 기준). 인연은 이런 카드만 친다
+func inyeon_card(k) -> bool:
+	return k != null and C.has(k) and (C[k].tier >= 6 or C[k].kind == "kiin") and ULT.list.has(person(k))
+
+
+## 그 인물이 속한 인연 이름들 (json 순서) —— 인물 이름으로
+func inyeon_of_person(p: String) -> Array:
+	return _inyeon_of_person.get(p, [])
+
+
+## 카드 k 의 인물이 속한 인연 이름들 (json 순서). 고유기를 쓸 수 없는 카드 · 인연이 없는 인물은 빈 배열
+func inyeon_of(k) -> Array:
+	return inyeon_of_person(person(k)) if inyeon_card(k) else []
+
+
+## 인연의 구성원 (인물 이름, 4~5명)
+func inyeon_members(nm: String) -> Array:
+	return INYEON.get(nm, [])
+
+
+## 덱(카드 id 배열, null 가능)에서 같이 발동하는 인연 —— [{n: 인연 이름, in: [덱에 있는 구성원 인물 이름 (구성원 순서)], out: [없는 구성원]}] 2명 이상 있는 것만, json 순서.
+## 같은 인물은 한 번만 센다. 한 번에 합동하는 최대 인원은 INYEON_MAX
+const INYEON_MAX := 3
+## 인연 규칙 한 줄 설명 (11/11 사용자) —— 디테일창 인연 줄 · 편성 인연 시트가 같이 쓴다. 5명 인연도 3명씩 나뉘어 발동한다 (덱이 정형화되지 않게 일부러 제한)
+const INYEON_RULE := "고유기 기가 찬 장수가 발동할 때 같은 인연에서 기가 가득 찬 장수가 함께 발동한다 · 한 번에 최대 3명"
+func inyeon_links(deck: Array) -> Array:
+	var ps := {}
+	for k in deck:
+		if inyeon_card(k):
+			ps[person(k)] = true
+	var out := []
+	for nm in INYEON:
+		var inn := []
+		var outn := []
+		for p in INYEON[nm]:
+			(inn if ps.has(p) else outn).append(p)
+		if inn.size() >= 2:
+			out.append({"n": nm, "in": inn, "out": outn})
+	return out
+
+
+## 고유기를 쓸 수 있는 카드 중 인물 p 의 카드를 하나 —— 초상 · 디테일창으로 넘길 때. high 면 등급 높은 것, 아니면 낮은 것(초월 · 기인 쪽)
+func inyeon_card_of_person(p: String, high := true) -> String:
+	var best := ""
+	for k in C:
+		if is_foe(k) or not inyeon_card(k) or person(k) != p:
+			continue
+		if best == "" or (C[k].tier > C[best].tier if high else C[k].tier < C[best].tier):
+			best = k
+	return best
 
 
 ## 고유기 —— 신화 기준 수치를 불멸 카드에는 tier7_scale, 초월 카드에는 tier6_scale 배로 줄여 준다
