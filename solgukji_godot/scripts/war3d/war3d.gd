@@ -2586,7 +2586,7 @@ func volley(akey: String, dkeys: Array, light := false, emph := false) -> void:
 			var d0: Squad = squads.get(dk)
 			if d0 != null and not light:
 				cfx.acted(a, d0, "shoot")
-		flat.fx_volley(a, dkeys, emph)
+		flat.fx_volley(a, dkeys, emph, light)
 		return
 	var shooters := a.soldiers.filter(func(s): return s.alive)
 	if shooters.is_empty():
@@ -2752,7 +2752,7 @@ func cast(akey: String, dkeys: Array, st: String, light := false) -> void:
 			var d0: Squad = squads.get(dk)
 			if d0 != null and not light:
 				cfx.acted(a, d0, "cast")
-		flat.fx_cast(a, dkeys, col)
+		flat.fx_cast(a, dkeys, col, light)
 		return
 	if not light:
 		a.glow = 1.0
@@ -2796,6 +2796,8 @@ func clash(akey: String, dkey: String, emph := false) -> void:
 	var d: Squad = squads.get(dkey)
 	if a == null or d == null:
 		return
+	if flat != null and flat.has_method("fx_hit"):      # 11/11 타입2 —— 병종별 기본 타격 연출 (등급 배율, 평타 포함)
+		flat.fx_hit(a, d, emph)
 	if not emph:
 		cfx.acted(a, d, "melee")
 		return
