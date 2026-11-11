@@ -549,6 +549,24 @@ func _set_speed(s: float) -> void:
 		p[0].button_pressed = p[1] == s
 
 
+var _side_swipe_p := Vector2.INF
+
+
+## 11/11 사용자: 모든 팝업은 왼쪽에서 오른쪽으로 쓸어 닫는다 —— ⋯ 메뉴(오른쪽에서 열리는 옆 패널)도
+func _input(e: InputEvent) -> void:
+	if _side == null or not _side.visible or not is_visible_in_tree():
+		return
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		if e.pressed:
+			_side_swipe_p = e.position if not UI.swipe_blocked_at(_side, e.position) else Vector2.INF
+		elif _side_swipe_p != Vector2.INF:
+			var d: Vector2 = e.position - _side_swipe_p
+			_side_swipe_p = Vector2.INF
+			if d.x > 90 and absf(d.y) < d.x * 0.5 and not get_viewport().gui_is_dragging():
+				UI.buzz()
+				set_side_visible(false)
+
+
 func _unhandled_input(e: InputEvent) -> void:
 	if is_visible_in_tree() and not locked and e is InputEventKey and e.pressed and e.keycode == KEY_SPACE:
 		_set_speed(QUEST_SPEED if speed == 0.0 else 0.0)

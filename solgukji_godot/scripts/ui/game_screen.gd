@@ -1182,19 +1182,22 @@ func _update_back() -> void:
 		_back_btn.text = "‹ " + (DB.person(pk) if DB.C[pk].tier > 2 else DB.C[pk].name)
 
 
-## 시트 위 오른쪽 쓸기 —— 이전 카드 시트로
+## 시트 위 오른쪽 쓸기 —— 이전 카드 시트가 있으면 그리로, 없으면 시트를 닫는다 (11/11 사용자: 모든 팝업은 왼쪽에서 오른쪽으로 쓸어 닫는다)
 func _input(e: InputEvent) -> void:
-	if _sheet == null or not _sheet.visible or _hist.is_empty():      # 11/10 화면이 다 만들어지기 전에 입력이 오면 _sheet 가 아직 null
+	if _sheet == null or not _sheet.visible:      # 11/10 화면이 다 만들어지기 전에 입력이 오면 _sheet 가 아직 null
 		return
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
-			_swipe_p = e.position if _sheet.get_global_rect().has_point(e.position) else Vector2.INF
+			_swipe_p = e.position if _sheet.get_global_rect().has_point(e.position) and not UI.swipe_blocked_at(_sheet, e.position) else Vector2.INF
 		elif _swipe_p != Vector2.INF:
 			var d: Vector2 = e.position - _swipe_p
 			_swipe_p = Vector2.INF
-			if d.x > 90 and absf(d.y) < d.x * 0.5:
+			if d.x > 90 and absf(d.y) < d.x * 0.5 and not get_viewport().gui_is_dragging():
 				UI.buzz()
-				go_back()
+				if _hist.is_empty():
+					close_sheet()
+				else:
+					go_back()
 
 
 func _menu() -> void:
@@ -3844,6 +3847,10 @@ func _dev_args() -> void:
 		await _touch_test()
 		get_tree().quit()
 		return
+	if a.has("gswipeclose"):
+		await _swipe_close_test()
+		get_tree().quit()
+		return
 	if a.has("gshot"):
 		await get_tree().create_timer(float(a.get("after", "1.0"))).timeout
 		if a.has("gquiet"):      # 점검용 —— 찍기 전에 시트 · 띠 · 알림을 걷는다 (tests/ui_shots 처럼, 11/7)
@@ -4006,6 +4013,27 @@ func _touch_test() -> void:
 	print("⑦ 편성 손패 끌기: 손패 %d · 고른 카드 없음 %s" % [hs.scroll_vertical, deploy.sel == ""])
 	ok = ok and hs.scroll_vertical > 60 and deploy.sel == ""
 	print("손가락 점검 %s" % ("통과" if ok else "실패"))
+
+
+## 팝업 쓸어 닫기 점검 (--gswipeclose) —— 11/11 사용자: 모든 팝업은 왼쪽에서 오른쪽으로 쓸면 닫힌다
+## 시트: 이전 시트가 없으면 닫힘 · 있으면 이전 시트로 · 왼쪽으로 쓸면 그대로 · 슬라이더 위에서 시작하면 닫히지 않음
+func _swipe_close_test() -> void:
+	var ok := true
+	await get_tree().create_timer(0.5).timeout
+	var kk: String = DB.C.keys().filter(func(x): return DB.C[x].tier >= 6 and DB.C[x].kind != "retired")[0]
+	card_info(kk)
+	await get_tree().create_timer(0.5).timeout
+	var opened := _sheet.visible
+	var sp := _sheet.get_global_rect().position + Vector2(_sheet.size.x * 0.25, _sheet.size.y * 0.5)
+	await _swipe(sp, Vector2(-220, 8))
+	await get_tree().create_timer(0.4).timeout
+	print("⑧a 왼쪽으로 쓸기: 시트 그대로 %s" % _sheet.visible)
+	ok = ok and opened and _sheet.visible
+	await _swipe(sp, Vector2(220, 8))
+	await get_tree().create_timer(0.5).timeout
+	print("⑧b 오른쪽으로 쓸기: 닫힘 %s" % (not _sheet.visible))
+	ok = ok and not _sheet.visible
+	print("쓸어 닫기 점검 %s" % ("통과" if ok else "실패"))
 
 
 func _swipe(from: Vector2, d: Vector2) -> void:

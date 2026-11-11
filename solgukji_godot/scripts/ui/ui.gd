@@ -230,6 +230,21 @@ static func buzz(ms := 8) -> void:
 		Input.vibrate_handheld(ms)
 
 
+## 오른쪽 쓸기(팝업 닫기)를 시작하면 안 되는 자리 —— 슬라이더 · 스크롤바 · 입력칸 위에서 끌면 그 컨트롤이 움직여야 한다 (11/11)
+static func swipe_blocked_at(root: Node, pos: Vector2) -> bool:
+	if root == null:
+		return false
+	for c in root.get_children():
+		if c is Control and not c.is_visible_in_tree():
+			continue
+		if c is Slider or c is ScrollBar or c is LineEdit or c is TextEdit or c is SpinBox:
+			if c.get_global_rect().has_point(pos):
+				return true
+		if swipe_blocked_at(c, pos):
+			return true
+	return false
+
+
 ## 선택지 —— 필터 · 탭에 쓴다. 고른 것은 금 얇은 선, 나머지는 테두리 없는 먹색 (알약 · 색 칠한 칩 아님)
 static func chip(text: String, on: bool, cb: Callable, h := 40) -> Button:
 	var b := Button.new()
