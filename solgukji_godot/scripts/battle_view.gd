@@ -1253,6 +1253,8 @@ func _ult_warn(e: Dictionary) -> void:
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
 	# 11/7 사용자: "기를 모은다 —— 2.5초" 글 대신 작은 장수 이름 · 붓글씨 기술명 · 차오르는 고리 · 「운기」 (Hud.charge_start —— 아군은 늘, 적은 직접 지휘 때만 보인다)
 	hud.charge_start(e.a, who, e.name, wait, mine)
+	if field.flat != null and field.flat.has_method("ult_hold"):      # 11/11 기 모으는 동안 기본 행동 연출을 줄인다 (고유기가 주인공)
+		field.flat.ult_hold(wait + 0.6)
 	if not mine:
 		warn_until = clock + wait
 		warn_key = e.a

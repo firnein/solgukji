@@ -26,6 +26,9 @@ const FORM_SHAPE := {"창병": 0.9, "기병": 1.05, "궁병": 1.25, "도적": 1.
 const TEAM_A := Color("#4a8ae8")      # 11/6 묶음 인형은 작아서 색이 탁해진다 —— 밝게
 const TEAM_B := Color("#ec4f3c")
 
+const BasicFx := preload("res://scripts/field/basic_fx.gd")
+static var basic_fx := true    # 11/11 기본 행동 연출 (scripts/field/basic_fx.gd) —— 끄면 예전 화살 · 부적 점만 (점검 · 전후 비교용)
+var bfx = BasicFx.new(self)    # 병종별 평타 · 돌격 · 사격 · 시전 연출 (등급 배율 표 BasicFx.TIER)
 var _fig_tex: Texture2D
 var _ground: ColorRect          # 바닥 —— 셰이더 지도 (shaders/type2_ground.gdshader, 11/6)
 var _under: Under               # 병사 아래 층 —— 부대 바닥 · 흙먼지 · 상태 칸 · 기술 범위
@@ -232,6 +235,7 @@ func _process(dt: float) -> void:
 		return
 	field.pt("타입2 병사", t0)
 	_feel_step(dt)
+	bfx.prune()
 	if _gmm != null:
 		var gm: ShaderMaterial = _gmm.material
 		gm.set_shader_parameter("center", _center + _jit)
@@ -255,7 +259,7 @@ func _process(dt: float) -> void:
 	mat.set_shader_parameter("camp_b", _camp_x("B"))
 	if Engine.get_process_frames() % (2 if load_lv == 0 else (3 if load_lv < 3 else 4)) == 1:
 		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다 (무거우면 3 · 4프레임마다)
-	if _fx_layer and ((not _fx.is_empty() and load_lv < 3) or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다 (3단계부터 연출도 30Hz)
+	if _fx_layer and (((not _fx.is_empty() or bfx.live()) and load_lv < 3) or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다 (3단계부터 연출도 30Hz)
 		_fx_layer.queue_redraw()
 		if _fx_add:
 			_fx_add.queue_redraw()
@@ -882,6 +886,7 @@ func _spr_at(ci: CanvasItem, nm: String, c: Vector2, sz: float, col: Color, rot 
 
 ## 더하기 층 —— 빛나는 것만 (불꽃 · 불벽 · 불덩이 · 불기둥 · 검기 · 충격파 · 튀는 불티 · 번개 빛 · 소용돌이 · 회복 빛)
 func _draw_fx_add(ci: CanvasItem) -> void:
+	bfx.draw(ci, true)
 	var now := field.clock
 	var zs := clampf(_scale, 0.6, 1.8)
 	var fl := ["flame_02", "flame_03", "flame_04"]
@@ -1042,6 +1047,7 @@ func fx_minor(mk: String, a: Squad, d: Squad) -> void:
 
 ## 고유기 —— 기 모으기(술법은 빛고리, 무장은 흙먼지) 뒤 delay 에 종류별로 터진다
 func fx_ult_charge(a: Squad, col: Color, magic: bool, foes: Array = []) -> void:
+	bfx.hold(3.2)
 	var ap := vis_c(a)
 	if a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:      # 적게 모드: 아군 고유기 · 적 신화 고유기만
 		# 11/7 맞는 순간에 카메라가 이미 그 자리에 있도록 —— 기 모으기부터 시전자와 맞을 적을 함께 담는다
@@ -1067,6 +1073,7 @@ func fx_ult_charge(a: Squad, col: Color, magic: bool, foes: Array = []) -> void:
 
 
 func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> void:
+	bfx.hold(2.6)
 	var ap := vis_c(a) if a else Vector2.ZERO
 	var ds := []
 	for k in foes:
@@ -1192,6 +1199,7 @@ func _draw_flags(ci: CanvasItem) -> void:
 
 func _draw_fx(ci: CanvasItem) -> void:
 	_draw_flags(ci)
+	bfx.draw(ci, false)
 	var now := field.clock
 	var keep := []
 	var zs := clampf(_scale, 0.6, 1.8)
@@ -1559,11 +1567,15 @@ func _feel_step(dt: float) -> void:
 			fx("ring", mid, Color("#e8d3a0"), 0.5, 0.0, 34.0 if cav else 24.0)
 			fx("dust", mid, Color("#b8a07a"), 1.1, 0.0, 30.0 if cav else 20.0)
 			fx("burst", mid, Color("#ffe2a0"), 0.35, 0.0, 18.0)
+			if basic_fx:
+				bfx.contact(sq, en, mid)
 			if Settings.cam_fx >= 2:
 				shake(5.0 if cav else 2.5)
 			if first == Vector2.INF:
 				first = mid
 		_was_contact[sq.key] = on
+		if basic_fx and sq.tag == "기병" and sq.moving and sq.engaged != null and not sq.contact and sq.alive:
+			bfx.charge_run(sq)      # 달려가는 기병 속도선
 		if _was_alive.get(sq.key, true) and not sq.alive:
 			var c := vis_c(sq)
 			fx("ring", c, Color("#ffffff"), 0.6, 0.0, 40.0)
@@ -1587,6 +1599,7 @@ func _reset_feel() -> void:
 	_was_alive.clear()
 	_clashed = false
 	_focus_free = 0.0
+	bfx.clear()
 
 
 # ───────── GPU 병사 (11/6 목표: 휴대폰에서도 품질이 떨어지지 않는 대군) ─────────
@@ -1685,7 +1698,13 @@ func gpu_moved(sd, row: int, slot: float, seed: float, mt: float) -> void:
 
 
 ## 탑뷰 화살 · 부적 (War3D.volley · cast 가 넘긴다) —— 몇 발만, 병사를 고르지 않고 부대 둘레에서
-func fx_volley(a: Squad, dkeys: Array, emph := false) -> void:
+func fx_volley(a: Squad, dkeys: Array, emph := false, light := false) -> void:
+	if basic_fx:      # 11/11 등급 배율 · 꼬리 · 상한이 있는 화살 묶음 (BasicFx.volley)
+		for dk in dkeys:
+			var d1: Squad = field.squads.get(dk)
+			if d1 != null:
+				bfx.volley(a, d1, light, emph)
+		return
 	if load_lv >= 2 and not emph:
 		return
 	var ap := vis_c(a)
@@ -1697,7 +1716,24 @@ func fx_volley(a: Squad, dkeys: Array, emph := false) -> void:
 			fx("proj", vis_spot(d), Color("#e8dcc0"), 0.5, i * 0.05, 0.0, ap + a.right() * _frng.randf_range(-20, 20))
 
 
-func fx_cast(a: Squad, dkeys: Array, col: Color) -> void:
+## 근접 타격 (War3D.clash) —— 병종별 기본 타격 연출. 등급이 높을수록 크고 화려하다
+func fx_hit(a: Squad, d: Squad, emph := false) -> void:
+	if basic_fx:
+		bfx.melee_hit(a, d, emph)
+
+
+## 고유기 기 모으기 · 폭발 구간 —— 이 동안 기본 행동 연출을 줄인다 (BasicFx.ULT_DUCK)
+func ult_hold(dur: float) -> void:
+	bfx.hold(dur)
+
+
+func fx_cast(a: Squad, dkeys: Array, col: Color, light := false) -> void:
+	if basic_fx:      # 11/11 시전 빛고리 + 구슬 (BasicFx.cast)
+		for dk in dkeys:
+			var d1: Squad = field.squads.get(dk)
+			if d1 != null:
+				bfx.cast(a, d1, col, light)
+		return
 	if load_lv >= 2:
 		return
 	var ap := vis_c(a)
