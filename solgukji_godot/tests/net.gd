@@ -1,14 +1,15 @@
 extends Node
 const RoomLog := preload("res://scripts/net/room_log.gd")
-## 서버 점검 —— 실행: godot --headless --path . res://tests/net.tscn [-- --players=4]
+## 서버 점검 —— 실행: godot --headless --path . res://tests/net.tscn [-- --players=4 --seats=4|6|8 --port=7791]
 ## 서버(MatchServer)와 가짜 플레이어 N명을 한 프로세스에 띄워 실제 WebSocket 으로 한 판을 끝까지 돈다.
 ## 하루 = 아침(징집 → 선택권 → 조합 → 자동 편성 → 준비) → 점심(토벌이 오면 '본 것'으로 준비) → 저녁 준비(빈 편성 채우고 준비) → 저녁(대전이 오면 준비).
 ## 둘째 플레이어는 2일차에 끊었다가 같은 토큰으로 돌아온다 (그동안은 봇이 대신한다).
 ## 점검 모드(test)는 멸망하지 않아 7일째 토너먼트까지 간다.
 ## 확인: 모두 끝까지 가는가 · 사람끼리 대전의 승패가 양쪽에서 맞는가 · 저녁 준비에 받은 상대와 실제 대전 상대가 같은가 ·
-##       라운드로빈(11/10): 한 바퀴(7저녁) 안에 같은 상대를 두 번 만나지 않는가 · 오류 메시지가 없는가.
+##       라운드로빈(11/10): 한 바퀴(자리 수 - 1 저녁) 안에 같은 상대를 두 번 만나지 않는가 · 오류 메시지가 없는가.
+## 11/11 자리 수 --seats=4|6|8 (기본 8): create 에 max 를 실어 보낸다 —— 방 정보의 max · 자리 수 · 봇 수(= max - 사람 수)를 확인한다. --port= 로 포트를 바꾼다 (다른 세션과 겹치지 않게).
 
-const PORT := 7791
+const DEFAULT_PORT := 7791
 const LOG_DIR := "user://playlog_online_net"
 
 var server: MatchServer
@@ -18,6 +19,10 @@ var errors := []
 var pvp_seen := {}            # "day.phase" -> [[나, 상대, 승?, 무?]]
 var foe_log := {}             # 이름 -> {day_no: 상대 이름}  (저녁 준비에 받은 상대)
 var human_names := []
+var port := DEFAULT_PORT
+var seats_n := 8              # --seats —— 방의 총 인원 (create 의 max)
+var n_humans := 0
+var seat_checked := false
 var norec := 0               # 기록에 동의하지 않은 가짜 클라이언트 수 (마지막 사람들)
 var t0 := 0.0
 var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 기준)
@@ -29,6 +34,9 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var n := int(args.get("players", "3"))
+	port = int(args.get("port", str(DEFAULT_PORT)))
+	seats_n = int(args.get("seats", "8"))
+	n_humans = n
 	norec = int(args.get("norec", "1" if n >= 3 else "0"))      # 11/10 동의 —— 끝에서부터 이만큼은 기록에 동의하지 않은 클라이언트(hello 에 rec 없음)
 	RoomLog.test_ok = true                       # 11/10 온라인 기록 —— 점검 방도 이 점검에서는 남기고 끝에 파일을 본다
 	RoomLog.dir = LOG_DIR
@@ -36,7 +44,7 @@ func _ready() -> void:
 	for fn in DirAccess.get_files_at(LOG_DIR):
 		DirAccess.remove_absolute(LOG_DIR + "/" + fn)
 	server = MatchServer.new()
-	server.port = PORT
+	server.port = port
 	add_child(server)
 	t0 = Time.get_ticks_msec() / 1000.0
 	for i in n:
@@ -51,7 +59,7 @@ func _ready() -> void:
 		human_names.append(c.player)
 		foe_log[c.player] = {}
 		c.message.connect(func(d): _on_msg(b, d))
-		c.connect_to("ws://127.0.0.1:%d" % PORT)
+		c.connect_to("ws://127.0.0.1:%d" % port)
 
 
 func _on_msg(b: Dictionary, d: Dictionary) -> void:
@@ -62,13 +70,15 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 		"rooms":
 			if b.i == 0 and code == "" and not b.has("created"):
 				b.created = true
-				c.send({"t": "create", "mode": "test"})
+				c.send({"t": "create", "mode": "test", "max": seats_n})
 			elif b.i > 0 and code != "" and b.room == null:
 				c.send({"t": "join", "code": code})
 		"room":
 			b.room = d.room
 			if b.i == 0:
 				code = d.room.code
+				if int(d.room.get("max", -1)) != seats_n:
+					errors.append("방 정보의 max %s (기대 %d)" % [str(d.room.get("max")), seats_n])
 				var hs: int = d.room.seats.filter(func(s): return s.human).size()
 				if hs == bots.size() and not d.room.started:
 					c.send({"t": "start"})
@@ -91,6 +101,12 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 					if f.has("pv"):
 						errors.append("%s: 상대 정보에 PV 가 실려 있다" % b.name)
 					foe_log[b.name][int(rm.day_no)] = str(f.name)
+			if not seat_checked:
+				seat_checked = true
+				var bn: int = rm.seats.filter(func(s): return not s.human).size()
+				if rm.seats.size() != seats_n or int(rm.max) != seats_n or bn != seats_n - n_humans:
+					errors.append("자리 %d · max %s · 봇 %d (기대 %d · %d · %d)" % [rm.seats.size(), str(rm.max), bn, seats_n, seats_n, seats_n - n_humans])
+				print("  방 자리 %d (max %d) · 사람 %d · 봇 %d" % [rm.seats.size(), int(rm.max), n_humans, bn])
 			if rm.get("alone", "") == "ask":
 				c.send({"t": "alone", "go": true})
 			if run.over != null and not b.done:
@@ -106,7 +122,7 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 				print("  %s 접속 끊음 (2일차 · %s)" % [b.name, rm.stage])
 				await get_tree().create_timer(1.5).timeout
 				c.token = tok
-				c.connect_to("ws://127.0.0.1:%d" % PORT)
+				c.connect_to("ws://127.0.0.1:%d" % port)
 				b.back = true
 		"battles":
 			var dn := int(d.day) * 3 + int(d.phase) + 1
@@ -194,7 +210,7 @@ func _report(el: float, all_done: bool) -> void:
 			if fl[dn] in human_names:
 				hh += 1
 			seen_n += 1
-			var cy := (int(dn) - 1) / 7
+			var cy := (int(dn) - 1) / (seats_n - 1)
 			if not per_cycle.has(cy):
 				per_cycle[cy] = {}
 			per_cycle[cy][fl[dn]] = int(per_cycle[cy].get(fl[dn], 0)) + 1
