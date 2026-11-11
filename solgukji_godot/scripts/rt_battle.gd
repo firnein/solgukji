@@ -382,7 +382,13 @@ var _join_q := []              # 합류 예약 [{u, lead, at, grp, name}]
 var _wind_grp := {}            # 합동에 든 장수 -> 그룹 {lead, name, members, taken, fired}
 
 
+## 11/11 시험용 손잡이(기본 꺼짐 = 설계대로 게이지 100 이면 충분) —— 켜면 합류하는 장수도 제 대기 시간(장수 wait × 기질)과 재사용 대기(_reult_ok)는 지킨다
+static var inyeon_gate_time := false
+
+
 func _join_ok(o: Unit) -> bool:
+	if inyeon_gate_time and o.ult != null and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") or not _reult_ok(o)):
+		return false
 	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= 100.0 \
 		and not has_st(o, "seal") and not has_st(o, "confuse") and not _wind.has(o) and not _wind_grp.has(o)
 
@@ -463,10 +469,10 @@ func _inyeon_joins() -> void:
 func _inyeon_drop(d: Unit) -> void:
 	if _wind_grp.has(d):
 		var grp: Dictionary = _wind_grp[d]
+		if grp.members.size() > 1:      # 합류한 짝이 있는 합동에서 끊겼다 (혼자 기를 모으던 대표가 끊긴 것은 합동이 아니다)
+			stats["inyeon_cut"] = int(stats.get("inyeon_cut", 0)) + 1
 		grp.members.erase(d)
 		_wind_grp.erase(d)
-		if grp.members.size() > 1 or grp.fired:
-			stats["inyeon_cut"] = int(stats.get("inyeon_cut", 0)) + 1
 	_join_q = _join_q.filter(func(j): return j.lead != d)
 
 

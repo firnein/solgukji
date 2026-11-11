@@ -1,6 +1,6 @@
 extends Node
 ## 고유기 '한 방' 점검 (11/7 사용자: 고유기 한 방으로 게임이 그냥 끝나버리는 판이 많다 —— 신화 주유 등)
-## 실행: godot --headless --path . res://tests/ult_oneshot.tscn -- --tiers=6,7,8 --games=60 [--top=10] [--who=주유,여포] [--min=4] [--mix=rr] [--cap= --decay= --rwait= --rtemper= --allr= --alln=]
+## 실행: godot --headless --path . res://tests/ult_oneshot.tscn -- --tiers=6,7,8 --games=60 [--top=10] [--who=주유,여포] [--min=4] [--mix=rr] [--cap= --decay= --rwait= --rtemper= --allr= --alln= --inyeon=0|1 --capmul=]
 ## 같은 등급 무작위 9장끼리 영리 대 영리 (--mix=rr 이면 비용 약 620 리그전 덱 넷 —— budget_mix --set=rr 과 같은 구성 —— 에서 무작위로 둘). 고유기 한 번마다
 ##   ① 증발: 그 순간 상대 전체 병력(살아 있는 부대 합)에서 바로 사라진 비율 (처형 · 패주로 무너진 부대의 남은 병력 포함)
 ##   ② 5초 손실: 발동 뒤 5초 동안 상대 전체 병력이 줄어든 비율 (화상 · 패주 전염까지)
@@ -250,6 +250,10 @@ static func knobs(args: Dictionary) -> String:
 		RtBattle.ult_all_r = float(args.allr)
 	if args.has("alln"):
 		RtBattle.ult_all_n = int(args.alln)
+	if args.has("inyeon"):      # 11/11 인연 합동 고유기 —— --inyeon=0 이면 끈다 (고치기 전과 같은 값 · 짝 비교)
+		Battle.inyeon_enabled = str(args.inyeon) != "0"
+	if args.has("capmul"):
+		Battle.inyeon_cap_mul = float(args.capmul)
 	return "고유기 조정값 —— 한 방 상한 %s · 재사용 감쇠 %.2f · 재발동 대기 ×%.2f · 기질별 재발동 대기 %s · '적 전체' %s · %s" % [
 		str(Battle.ult_cap) if not Battle.ult_cap.is_empty() else "없음", Battle.reult_decay, Battle.reult_wait,
 		str(Battle.reult_temper) if not Battle.reult_temper.is_empty() else "없음",
