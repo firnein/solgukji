@@ -2,7 +2,8 @@ extends Node
 ## 11/11 온라인 규칙 점검 —— 가짜 서버로 Room 을 직접 돌린다 (포트 없음 · 헤드리스).
 ## 실행: godot --headless --path . res://tests/wait_rules.tscn
 ## ① 점심(토벌)은 1~3일차만 (Room.has_noon · 방 정보 noon) ② 기다리지 않는 사람(끊김 · 봇 대행 · 볼 전투 없음)은 서버가 바로 넘긴다
-## ③ 기다리는 동안(점심 · 저녁) 징집 · 조합 · 편성 명령을 받는다 — 토너먼트 저녁 · 멸망한 사람은 안 된다. 이미 계산된 전투는 그대로
+## ③ 11/12 페이즈 개편: 아침 = 징집 · 조합 · 편성, 점심 · 저녁 = 전투를 다 본 뒤 징집 · 조합만, 저녁 준비 = 편성만 — 토너먼트 저녁 · 멸망한 사람은 안 된다. 이미 계산된 전투는 그대로
+## ⑥ 11/12 온라인 전투 보상은 다음 아침(advance)에 지급 (Run.held)
 ## ④ 민심: 온라인 대전 패배 ×1.0 (혼자 하기 ×0.6) ⑤ 4일차~ 온라인 대전은 그날 토벌 보상을 얹어 준다 (표를 찍는다)
 
 class FakeSrv:
@@ -26,6 +27,7 @@ func _ready() -> void:
 	_cmd_rules()
 	_hp_rules()
 	_reward_rules()
+	_mvp_rules()
 	print("FAIL: ", fails if not fails.is_empty() else "없음")
 	get_tree().quit(1 if not fails.is_empty() else 0)
 
@@ -165,34 +167,46 @@ func _stages_and_ready() -> void:
 func _cmd_rules() -> void:
 	var a := _room(2, 21)
 	var r: Room = a[0]
-	var expect := {"morning": true, "noon": true, "evening_prep": true, "evening": true}
+	var expect := {"morning": [true, true], "noon": [true, false], "evening_prep": [false, true], "evening": [true, false]}      # [징집 · 조합, 편성] (점심 · 저녁은 다 본 뒤)
 	var seen := {}
 	var guard := 0
 	while r.stage != "over" and guard < 80 and r.day < 3:
 		guard += 1
+		if r.stage in Room.WATCH_STAGES and not r.seats[0].battles.is_empty():
+			# 전투를 다 보기 전에는 아무것도 안 된다
+			if r.can_cmd(0) or r.info(0).act_draw or r.info(0).act_form:
+				_fail("%s 에서 전투를 다 보기 전에 명령을 받는다" % r.stage)
+			r.on_ready(1, true)
 		if not seen.has(r.stage):
 			seen[r.stage] = true
 			for i in 2:
-				if r.can_cmd(i) != expect[r.stage] or r.info(i).act != expect[r.stage]:
-					_fail("%s 에서 can_cmd 가 %s" % [r.stage, str(r.can_cmd(i))])
-		if r.stage == "noon" or r.stage == "evening":
-			# 기다리는 동안 명령 —— 이미 계산된 전투는 그대로, 편성은 바뀐다
-			var s: Dictionary = r.seats[0]
-			var sig0 := JSON.stringify(s.battles)
-			var rr: Run = s.run
-			var placed0 := rr.placed()
-			r.on_cmd(1, "clear_board", [])
-			if rr.placed() != 0 and placed0 != 0:
-				_fail("%s 에서 clear_board 가 먹지 않았다" % r.stage)
-			if JSON.stringify(s.battles) != sig0:
-				_fail("%s 에서 명령이 계산된 전투를 바꿨다" % r.stage)
-			r.on_cmd(1, "auto_deploy", [])
-			if rr.placed() == 0 and not rr.inv.is_empty():
-				_fail("%s 에서 auto_deploy 가 먹지 않았다" % r.stage)
-			if rr.placed() > 0 and not s.acted:
-				_fail("%s 명령이 acted 를 올리지 않았다" % r.stage)
-		for s in r.humans():
-			s.ready = true
+				var e: Array = expect[r.stage]
+				var inf := r.info(i)
+				if r.seats[i].watched or not (r.stage in Room.WATCH_STAGES):
+					if bool(inf.act_draw) != e[0] or bool(inf.act_form) != e[1] or (r.cmd_block(i, "forge") == "") != e[0] or (r.cmd_block(i, "place") == "") != e[1]:
+						_fail("%s 에서 징집 %s · 편성 %s (기대 %s)" % [r.stage, str(inf.act_draw), str(inf.act_form), str(e)])
+					if not bool(inf.act_draw) and str(inf.why_draw) == "" or not bool(inf.act_form) and str(inf.why_form) == "":
+						_fail("%s 에서 막힌 이유가 비었다" % r.stage)
+		var s: Dictionary = r.seats[0]
+		var rr: Run = s.run
+		var placed0 := rr.placed()
+		var sig0 := JSON.stringify(s.battles)
+		r.on_cmd(1, "clear_board", [])
+		var form_ok: bool = r.stage in ["morning", "evening_prep"]
+		if placed0 > 0 and form_ok != (rr.placed() == 0):
+			_fail("%s 에서 clear_board 가 %s" % [r.stage, "먹지 않았다" if form_ok else "먹혔다"])
+		if not form_ok and srv_err(a[1], 1) == "":
+			_fail("%s 에서 거부 이유를 보내지 않았다" % r.stage)
+		srv_err(a[1], 1)
+		if JSON.stringify(s.battles) != sig0:
+			_fail("%s 에서 명령이 계산된 전투를 바꿨다" % r.stage)
+		r.on_cmd(1, "auto_deploy", [])
+		var d0 := rr.drawn
+		r.on_cmd(1, "do_draw", [])
+		if r.stage == "evening_prep" and rr.drawn != d0:
+			_fail("저녁 준비에 징집이 먹혔다")
+		for h in r.humans():
+			h.ready = true
 		r.stage_end = 0.0
 		r.tick()
 	# 멸망한 사람 · 끝난 사람 · 시작 전은 안 된다
@@ -223,7 +237,44 @@ func _cmd_rules() -> void:
 	r3.on_cmd(1, "clear_board", [])
 	if r3.seats[0].run.placed() == 0:
 		_fail("토너먼트 저녁에 clear_board 가 먹혔다")
-	print("명령 규칙 점검 끝 — 준비 단계 · 점심 · 저녁 허용, 토너먼트 저녁 · 멸망 · 끝난 사람 거부, 계산된 전투 불변")
+	print("명령 규칙 점검 끝 — 아침 전부 · 점심/저녁(다 본 뒤) 징집 · 조합 · 저녁 준비 편성만, 토너먼트 저녁 · 멸망 · 끝난 사람 거부, 계산된 전투 불변")
+
+
+func srv_err(srv, peer: int) -> String:
+	var es: Array = srv.of(peer, "error")
+	srv.out.clear()
+	return str(es[-1].msg) if not es.is_empty() else ""
+
+
+## 11/12 유저전 수훈 연속 소식 —— 같은 기인 이상 장수가 이기며 2 · 3 · 4연속 수훈이면 다음 아침에 방 전체 소식, 3연속부터 hot
+func _mvp_rules() -> void:
+	var a := _room(2, 31)
+	var r: Room = a[0]
+	var srv = a[1]
+	var hi := ""
+	for k in DB.C:
+		if Room.is_urgent_unit(str(k)):
+			hi = str(k)
+			break
+	var res := {"win": true, "roster": [{"camp": "A", "id": hi, "dmg": 9000, "kills": 3}, {"camp": "A", "id": "x", "dmg": 10}, {"camp": "B", "id": "y", "dmg": 99999}]}
+	var hot_n := []
+	for n in 4:
+		r._mvp_track(r.seats[0], res, "A", true)
+		srv.out.clear()
+		r._flush_mvp_news()
+		var ns: Array = srv.of(2, "news")
+		hot_n.append(-1 if ns.is_empty() else int(ns[0].list[0].get("hot", 0)))
+	if hot_n != [-1, 0, 1, 1]:
+		_fail("수훈 연속 소식 %s (기대 [-1, 0, 1, 1])" % str(hot_n))
+	r._mvp_track(r.seats[0], res, "A", false)      # 지면 끊긴다
+	r._mvp_track(r.seats[0], res, "A", true)
+	srv.out.clear()
+	r._flush_mvp_news()
+	if not srv.of(2, "news").is_empty():
+		_fail("진 뒤에도 수훈 연속이 이어졌다")
+	if Room.side_mvp(res, "B") != "y":
+		_fail("side_mvp B")
+	print("수훈 연속 소식 점검 끝")
 
 
 func _fake_res(win: bool, my_left: float, foe_left: float) -> Dictionary:
@@ -281,6 +332,10 @@ func _fight(d: int, kind: String, mp: bool, win: bool, left: float) -> Dictionar
 	var tk0 := _tickets_total(r)
 	r.battle = {"kind": kind, "title": "%s · x" % kind, "foe": "x", "pv": 1}
 	r.finish_battle(_fake_res(win, left, 0.0 if win else 0.5))
+	if mp:      # 11/12 온라인 보상은 아침에 —— 정산 직후에는 손패 · 선택권이 그대로, grant_held 가 준다
+		if _inv_total(r) != inv0 or _tickets_total(r) != tk0 or r.held.is_empty():
+			_fail("일차 %d %s 온라인 보상이 바로 들어왔다" % [d + 1, kind])
+		r.grant_held()
 	var sp: Dictionary = r.last_spoil if r.last_spoil != null else {}
 	return {"n": int(sp.get("n", 0)), "tk": _tickets_total(r) - tk0 + r.last_legend.size(),      # 4등급 랜덤권은 선택권이 아니라 그 자리에서 카드로 들어온다(last_legend)
 	 "bonus": int(sp.get("bonus", 0)), "bt": int(sp.get("bonus_ticket", 0)),

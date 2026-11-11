@@ -14,6 +14,7 @@ const RED := Color("#ff3a2d")
 const LINES := 54         # 집중선 수
 
 var who := ""
+var tail := ""            # 11/12 유저전 수훈 연속 —— 있으면 「유저의 장수가 <tail>」 (없으면 「유저가 장수를 등용」)
 var unit := ""
 var t := 0.0
 var _u := 1.0             # 화면 너비 / 400 —— 모든 길이가 이 배율을 따른다
@@ -28,9 +29,10 @@ var _col := Color.WHITE
 var _wise := false
 
 
-static func play(host: Control, who_: String, unit_: String) -> Control:
+static func play(host: Control, who_: String, unit_: String, tail_ := "") -> Control:
 	var b = load("res://scripts/ui/urgent_band.gd").new()
 	b.who = who_
+	b.tail = tail_
 	b.unit = unit_
 	host.add_child(b)
 	return b
@@ -265,6 +267,9 @@ func _fit(avail: float) -> Dictionary:
 	var nc: Color = _col.lightened(0.28)
 	var j1 := "이" if batchim(who) else "가"
 	var j2 := ("을" if batchim(nm) else "를") + " 등용"
+	if tail != "":
+		j1 = "의"
+		j2 = ("이" if batchim(nm) else "가") + " " + tail
 	# 한 줄
 	var one := [[who, gold], [j1 + " ", DB.PAL.paper], [nm, nc], [j2, DB.PAL.paper]]
 	var fs := int(22.0 * u)
@@ -281,7 +286,7 @@ func _fit(avail: float) -> Dictionary:
 	var f2 := int(19.0 * u)
 	var f3 := int(13.0 * u)
 	while true:
-		r1 = [[shown, gold], [("이" if batchim(shown) else "가"), DB.PAL.paper]]
+		r1 = [[shown, gold], [("의" if tail != "" else ("이" if batchim(shown) else "가")), DB.PAL.paper]]
 		while f1 > f3 and _row_w(r1, f1) > avail:
 			f1 -= 1
 		if _row_w(r1, f1) <= avail or shown.length() <= 2:

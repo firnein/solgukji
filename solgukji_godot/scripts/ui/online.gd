@@ -9,6 +9,9 @@ extends Node
 ## 명령은 준비 단계(아침 · 저녁 준비)와, 11/11 부터 전투를 보는 단계(점심 · 저녁, 토너먼트 저녁 제외)에서도 보낼 수 있다 (방 정보 act = can_act). '준비 완료'는 방 정보의 stage_no 를 실어 보낸다 —— 늦게 간 준비는 서버가 버린다.
 ## 전투는 서버가 계산해 보낸 결과를 차례로 재생한다(1단계 —— 자동 전투). 끝까지 본다 (11/10 사용자: 멀티플레이 스킵 없음 — 예전 '결과로 건너뛰기'(BattleView.skip, 11/9 사용자: 리플레이를 나갈 방법)로
 ## 끝까지 가야 '준비 완료'가 된다 (결정 ⑦ —— 건너뛰어도 결과표는 보고 닫는다). 결과에 실린 재료(res.bp)로 전투장수창의 버프 수치도 혼자 할 때와 같다.
+## 11/12 사용자(페이즈 개편, room.gd 맨 위): 아침 = 징집 · 조합 · 편성 · 점심/저녁 = 다 본 뒤 징집 · 조합만 · 저녁 준비 = 편성만. 방 정보 act_draw · act_form · why_*
+## 로 버튼을 막고 이유를 띄운다 (can_act(kind) · block_reason). 새 아침이면 가운데 띠 '아침이 밝았습니다'.
+## 11/12 사용자: 서버가 다음 단계로 넘어갔는데 아직 전투를 보고 있으면(재생이 밀림) 바로 건너뛴다 (_stage_moved).
 ## 끊기면 3초마다 다시 붙는다 —— 토큰이 같아 진행 중인 자리로 돌아가 그 단계부터 이어간다 (이미 다 본 전투는 목록만 받는다).
 ## 사람이 나 혼자 남으면(다른 사람 모두 멸망·퇴장) 서버가 묻는다 —— 계속할지, 방을 닫을지.
 ## 소식(봇 · 다른 사람의 기인 이상 등용 · 멸망 · 퇴장)은 서버가 news {list:[{text, kind, who?, unit?, id?, when?, hot?}]} 로 뿌린다 —— 알림 + Run.news(머리띠 '소식') (11/9 사용자).
@@ -447,8 +450,13 @@ func _on_msg(d: Dictionary) -> void:
 			stage_end = Room.now() + float(room.remain)
 			if int(room.get("stage_no", 0)) != _stage_no:
 				# 새 단계 —— 본 기록을 지운다. 전투는 battles 메시지로 따로 온다. 보는 단계가 아니면 지난 전투 줄 · 결과 칸도 걷는다
+				var was_watch := _stage_no >= 0 and ((gs.battle_visible() and not gs._battle.finished) or not watch.is_empty())      # 결과표를 보는 중이면 그대로 둔다
 				_stage_no = int(room.get("stage_no", 0))
 				_seen_all = false
+				if was_watch:
+					_stage_moved()
+				if str(room.stage) == "morning" and in_game:
+					gs.band("아침이 밝았습니다", DB.PAL.gold, "장수를 등용하고 전투를 준비하세요")
 				if not (str(room.stage) in Room.WATCH_STAGES):
 					watch = []
 					last_battles = []
@@ -494,16 +502,19 @@ func _on_msg(d: Dictionary) -> void:
 				var who := str(it.get("who", ""))
 				var unit := str(it.get("unit", ""))
 				var nid := int(it.get("id", 0))
+				var line := str(it.get("line", ""))      # 11/12 유저전 수훈 연속 —— 띠 문구. 소식 목록에는 글로만 (장수가 있으면 등용 줄로 보인다)
 				if bool(it.get("hot", false)) and who != "" and DB.C.has(unit):
-					gs.urgent(who, unit)
+					gs.urgent(who, unit, line)
 				elif tx != "":
 					gs.toast(tx, str(it.get("kind", "news")))
+				if line != "":
+					unit = ""
 				if gs.run == null:
 					continue
 				var dup := false
 				for nw in gs.run.news:
-					if nid > 0 and int(nw.get("id", 0)) == nid:
-						dup = true
+					if nid > 0:
+						dup = dup or int(nw.get("id", 0)) == nid
 					elif unit != "" and str(nw.get("who", "")) == who and str(nw.get("unit", "")) == unit:
 						dup = true
 					elif unit == "" and tx != "" and str(nw.get("text", "")) == tx:
@@ -607,13 +618,26 @@ func _say_btn() -> Button:
 	return b
 
 
-## 징집 · 조합 · 편성을 할 수 있나 —— 서버의 방 정보 act(준비 단계 + 전투를 보는 단계 − 토너먼트 저녁 · 멸망한 사람). 옛 서버는 act 가 없어 준비 단계만
-func can_act() -> bool:
+## 할 수 있나 —— kind "draw"(징집 · 조합) · "form"(편성) · ""(무엇이든). 서버의 방 정보 act_draw · act_form (11/12), 옛 서버는 act · 준비 단계만
+func can_act(kind := "") -> bool:
 	if not in_game or gs.run == null or gs.run.over != null or room.is_empty():
 		return false
+	if kind != "" and room.has("act_" + kind):
+		return bool(room["act_" + kind])
 	if room.has("act"):
 		return bool(room.act)
 	return str(room.get("stage", "")) in Room.ACT_STAGES
+
+
+## 막힌 이유 한 줄 (서버가 방 정보에 실어 준 글)
+func block_reason(kind: String) -> String:
+	var t := str(room.get("why_" + kind, ""))
+	return t if t != "" else ("지금은 편성할 수 없다" if kind == "form" else "지금은 징집 · 조합할 수 없다")
+
+
+## 명령 이름 → 종류 (Room.FORM_CMDS 면 편성)
+static func cmd_kind(m: String) -> String:
+	return "form" if m in Room.FORM_CMDS else "draw"
 
 
 func me() -> Dictionary:
@@ -713,6 +737,17 @@ func replay_ended() -> void:
 	if bool(me().get("ready", false)) or _warn_off_no == int(room.get("stage_no", -2)):
 		return
 	send_ready(true)
+
+
+## 11/12 사용자: 전투 싱크가 밀렸다 —— 서버는 이미 다음 단계인데 재생 중(또는 볼 전투가 남음)이면 바로 건너뛴다. 결과는 전투 탭의 지난 전투 · 소식으로
+func _stage_moved() -> void:
+	watch = []
+	if gs.battle_visible() and not gs._battle.finished:
+		gs.hide_battle()
+		gs.toast("다른 사람이 모두 끝나 전투를 건너뛰었다", "news")
+	if gs.battle_visible() or str(room.get("stage", "")) in Room.WATCH_STAGES:
+		return
+	gs.go("draw" if str(room.get("stage", "")) == "morning" else "deploy")
 
 
 func watch_next() -> void:
@@ -841,14 +876,14 @@ func _stage_hint() -> String:
 	var rd: bool = me().get("ready", false)
 	match st:
 		"morning": return ("다른 사람을 기다리는 중 — 모두 준비되면 %s" % ("토벌" if has_noon() else "대전 준비")) if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
-		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다. 그동안 징집 · 조합 · 편성을 해 둘 수 있다" if rd else "토벌을 끝까지 보면 자동으로 준비된다"
-		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성 · 작전을 고친 뒤 준비 완료"
+		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다. 그동안 징집 · 조합을 해 둘 수 있다 (편성은 대전 준비 때)" if rd else "토벌을 끝까지 보면 자동으로 준비된다"
+		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성을 고친 뒤 준비 완료 (징집 · 조합은 다음 아침)"
 		"evening":
 			if int(room.get("tour_round", -1)) >= 0:
 				if _tour_bye():
 					return "부전승 — 이번 라운드는 쉰다. 다른 대진을 기다리는 중"
 				return "다른 사람을 기다리는 중 — 모두 보면 다음 라운드" if rd else "%s을 보고 준비 완료" % Run.ROUNDNM[int(room.tour_round)]
-			return "다른 사람을 기다리는 중 — 모두 보면 다음 페이즈 준비. 그동안 징집 · 조합 · 편성을 해 둘 수 있다" if rd else "대전을 끝까지 보면 자동으로 준비된다"
+			return "다른 사람을 기다리는 중 — 모두 보면 다음 아침. 그동안 징집 · 조합을 해 둘 수 있다 (보상은 아침에)" if rd else "대전을 끝까지 보면 자동으로 준비된다"
 		"over": return "판이 끝났다"
 	return ""
 
@@ -1371,7 +1406,7 @@ func _dev_step() -> void:
 			pl.sort_custom(func(x, y): return DB.C[x].tr > DB.C[y].tr)
 			gs.act("pick", [pl[randi() % mini(6, pl.size())]])
 			return
-	if r.placed() < 9 and not r.inv.is_empty():
+	if r.placed() < 9 and not r.inv.is_empty() and can_act("form"):
 		gs.act("auto_deploy")
 	elif not me().get("ready", true):
 		send_ready(true)

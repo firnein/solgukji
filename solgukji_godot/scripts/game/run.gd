@@ -86,6 +86,7 @@ var battle = null             # 진행 중인 전투 {kind, p(재료), inputs, .
 var last_result = null        # 마지막 전투 요약 —— 전투 탭에 다시 보여 준다
 var toasts := []              # 화면이 가져가 띄우는 알림 [text, kind]
 var mp := false               # 여럿이 하는 판 —— 봇(bots)은 다른 자리의 거울이라 서버가 채운다
+var held := {}                # 11/12 사용자: 온라인은 모든 보상을 1페이즈(아침)에 —— 토벌 · 대전 보상을 쌓아 두는 곳 {"inv": {카드: 장수}, "tickets": {등급: 장수}}. advance 가 지급
 
 
 func new_game(seed_value := -1) -> void:
@@ -125,6 +126,7 @@ func new_game(seed_value := -1) -> void:
 	over = null
 	battle = null
 	last_result = null
+	held = {}
 	bots = []
 	var bot_names := DB.gen_bot_names(rng.seed, DB.D.BOTNAME.size())      # 11/10 봇 이름은 판마다 랜덤 (DB.gen_bot_names)
 	for i in DB.D.BOTNAME.size():
@@ -882,6 +884,7 @@ func bot_news() -> Array:
 
 
 func advance() -> void:
+	grant_held()
 	# 11/9 사용자: 기본 징집을 못 했어도 사라지지 않아야 한다 —— 페이즈를 넘길 때 안 뽑은 공짜 징집은 그 자리에서 뽑아 준다
 	if not drawn and draws_n() > 0 and not legacy_rewards:
 		do_draw()
@@ -1285,9 +1288,58 @@ func _hp_hit(res: Dictionary, base: float, what: String) -> void:
 		over = {"win": false, "msg": "%s 패배 —— 민심이 바닥나 세력이 멸망했다" % what}
 
 
+## 11/12 사용자(온라인 페이즈 개편): 모든 보상은 1페이즈(아침)에 —— 여럿이 하는 판의 토벌 · 대전 보상(기본패 · 선택권 · 보급 · 기인 효과)은
+## 정산은 그대로 하되(난수 순서 불변) 손패 · 선택권에 늘어난 만큼을 held 로 옮겨 두고, 다음 아침(advance)에 grant_held 가 준다. 민심 · 전적은 바로
 func finish_battle(res: Dictionary) -> void:
 	if battle == null:
 		return
+	if not (mp and str(battle.kind) in ["quest", "pvp"]):
+		_finish_battle(res)
+		return
+	var inv0 := inv.duplicate()
+	var tk0 := tickets.duplicate()
+	_finish_battle(res)
+	var h_inv: Dictionary = held.get("inv", {})
+	var h_tk: Dictionary = held.get("tickets", {})
+	for k in inv.keys():
+		var d := int(inv[k]) - int(inv0.get(k, 0))
+		if d > 0:
+			h_inv[k] = int(h_inv.get(k, 0)) + d
+			if inv0.has(k):
+				inv[k] = int(inv0[k])
+			else:
+				inv.erase(k)
+	for k in tickets.keys():
+		var d := int(tickets[k]) - int(tk0.get(k, 0))
+		if d > 0:
+			h_tk[k] = int(h_tk.get(k, 0)) + d
+			if tk0.has(k):
+				tickets[k] = int(tk0[k])
+			else:
+				tickets.erase(k)
+	held = {"inv": h_inv, "tickets": h_tk}
+	if last_spoil != null:
+		last_spoil["held"] = true      # 결과 줄에 '아침 지급'
+
+
+## 쌓아 둔 전투 보상을 준다 (아침) —— 알림 한 줄
+func grant_held() -> void:
+	if held.is_empty():
+		return
+	var n := 0
+	for k in held.get("inv", {}):
+		give(str(k), int(held.inv[k]))
+		n += int(held.inv[k])
+	var t := 0
+	for k in held.get("tickets", {}):
+		tickets[str(k)] = int(tickets.get(str(k), 0)) + int(held.tickets[k])
+		t += int(held.tickets[k])
+	held = {}
+	if n + t > 0:
+		toasts.append(["지난 전투 보상 —— 장수 %d장%s" % [n, (" · 선택권 %d" % t) if t > 0 else ""], "gold"])
+
+
+func _finish_battle(res: Dictionary) -> void:
 	var bt: Dictionary = battle
 	battle = null
 	last_result = {"title": bt.title, "win": res.win, "draw": res.draw, "left": res.left, "eLeft": res.eLeft,
@@ -1542,7 +1594,7 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
-	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp"]
+	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held"]
 
 
 func to_dict() -> Dictionary:

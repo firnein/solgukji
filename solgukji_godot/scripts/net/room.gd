@@ -16,6 +16,12 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 11/11 사용자(온라인 방): 점심(토벌)은 1~3일차(day 0~2)에만 —— 4일차(day 3)부터는 아침(준비) → 저녁 준비(대전 준비) → 저녁(대전) 세 단계 (Room.has_noon).
 ## 없어진 토벌 보상은 그 일차의 대전이 대신 준다 (Run.pvp_quest_equiv). 대전 패배 민심 피해는 온라인에서 토벌과 같게(Run.HP_PVP_MUL_ONLINE).
 ## 11/11 사용자: 점심 · 저녁(전투를 보는 단계)은 내 전투를 다 보면(또는 볼 전투가 없으면 · 끊김/봇 대행이면) 서버가 기다리지 않고 넘어간다 —— 그동안 징집 · 조합 · 편성은 계속 할 수 있다 (can_cmd, 토너먼트 저녁만 잠긴다).
+## 11/12 사용자(페이즈 개편): 모든 보상(토벌 · 대전)은 1페이즈(아침)에 준다 (Run.held → Run.advance). 단계마다 할 수 있는 일 (cmd_block):
+##   1 아침(1분)            징집 · 조합 · 편성 모두
+##   2 점심(토벌)           토벌을 다 본 뒤 기다리는 동안 징집 · 조합만 (편성 불가)
+##   3 저녁 준비(30초)      편성만 (징집 · 조합 불가)
+##   4 저녁(대전)           대전을 다 본 뒤 기다리는 동안 징집 · 조합만 (편성 불가) —— 먼저 끝난 사람의 빈 시간을 쓰게. 토너먼트 저녁은 모두 잠김
+## 안 되는 명령은 거부하고 그 사람에게 이유를 보낸다 ({"t":"error"}). 방 정보에 act_draw · act_form · why_draw · why_form
 ## 7일째 저녁은 8인 토너먼트 —— 점심(토벌)은 없고 저녁 준비에 대진표를 보인 뒤 8강 · 4강 · 결승을 라운드마다 본다.
 ## 응답이 없는 사람(접속 끊김, 또는 단계 내내 아무 행동도 없음)은 단계가 끝날 때 그 사람의 자산으로 봇이 대신한다
 ## (Run.bot_prepare —— 징집 · 선택권 · 조합 · 편성). 행동은 했지만 못 끝낸 사람은 공짜 징집과 빈 편성만 채운다.
@@ -29,8 +35,8 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 만들어진 시점 when("3일차 아침" —— 온라인의 일차는 day_no, 단계는 아침 · 점심 · 저녁 준비 · 저녁)를 붙인다.
 
 const MODES := {
-	"fast": {"n": "빠른 — 준비 30초 · 한 페이즈 약 3분", "morning": 30.0, "noon": 75.0, "prep": 30.0, "evening": 100.0},
-	"normal": {"n": "보통 — 준비 45초 · 한 페이즈 약 4분", "morning": 45.0, "noon": 75.0, "prep": 45.0, "evening": 100.0},
+	"fast": {"n": "빠른 — 준비 1분 · 대전 준비 30초", "morning": 60.0, "noon": 75.0, "prep": 30.0, "evening": 100.0},      # 11/12 사용자: 1페이즈 1분 · 유저전 준비 30초
+	"normal": {"n": "보통 — 준비 1분 · 대전 준비 30초", "morning": 60.0, "noon": 75.0, "prep": 30.0, "evening": 100.0},
 	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5},
 }
 const SEATS := 8              # 기본 자리 수 —— 방장이 만들 때 고르지 않으면 (옛 클라이언트) 8
@@ -42,10 +48,13 @@ const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합
 ## 한마디 —— 자유 입력 없이 이 글만 보낼 수 있다 (11/9 사용자: 대기실 · 아침 · 저녁 준비 · 전투를 보는 중 다른 사람에게 짧게)
 const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG",
 	"니오넨비욘", "줴줴이야~", "7층이나 가죠", "커피 고마워."]      # 11/12 사용자 추가 —— 번호가 밀리지 않게 끝에만 붙인다 (옛 클라이언트는 방 정보의 quick 을 그대로 쓴다)
+## 11/12 사용자: 기인 이상 장수가 유저전(대전)에서 이기며 연속으로 수훈(MVP)하면 방 전체에 소식 —— 횟수별 문구(4 이상은 4), 3연속부터 긴급 띠
+const MVP_STREAK_TEXT := {2: "기세가 오르고 있습니다", 3: "미쳐 날뛰고 있습니다", 4: "아무도 막지 못하고 있습니다"}
 const SHADOW_EPI := "그림자"      # 그림자 대전 상대의 소속 글 (_foe_info.epi) —— 이름은 "<자리 이름>의 그림자"
 const SAY_GAP := 2.0         # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
+const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip"]      # 편성 명령 —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
 const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
 
 var server                    # MatchServer —— send(peer, msg)
@@ -66,6 +75,7 @@ var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b �
                               # 세 번째 칸 x(자리 번호)가 있으면 [a, -1 - d, x] —— 군세 대신 산 사람 x 의 그림자 (11/11 그림자 대전)
 var rr_order := []            # 라운드로빈 자리 배치 —— 첫 저녁에 rng 로 한 번 섞고 방이 끝날 때까지 고정 (같은 순번이면 같은 짝)
 var _ghosts := {}             # 멸망한 자리 번호 -> 떠돌이 군세(자리 밖 봇) —— 저녁 대전 상대 (전적은 이어진다)
+var _mvp_news := []           # 수훈 연속 소식 대기 [{s, unit, n}] —— 그림자 소식처럼 대전을 다 본 뒤(다음 아침) 보낸다
 var _shadow_news := []        # 그림자 대전 결과 소식 대기 —— 대전을 다 본 뒤(다음 날 아침을 열 때) 보낸다 (미리 보내면 결과가 새므로)
 var tour = null               # {round, list:[{name, seat}], res:[[{a, b, w}]], next}
 var rng := RandomNumberGenerator.new()
@@ -226,7 +236,8 @@ func info(i: int) -> Dictionary:
 	return {"code": code, "mode": mode, "max": max_seats, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
-		"noon": has_noon(day), "act": i >= 0 and can_cmd(i), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N}
+		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
+		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N}
 
 
 func push_lobby() -> void:
@@ -373,20 +384,42 @@ func on_ready(peer: int, on: bool, sno := -1) -> void:
 	push_all()
 
 
-## 징집 · 조합 · 편성 명령을 받을 수 있나 (11/11 사용자: 기다리는 동안에도) —— 준비 단계(아침 · 저녁 준비)는 늘, 전투를 보는 단계(점심 · 저녁)도 된다.
-## 이미 계산된 판(토벌 · 대전)은 시작할 때 편성을 복사해 갔으므로 이 단계의 명령이 그 결과를 바꾸지 못한다 —— 바뀐 편성은 다음 판부터.
-## 안 되는 것: 멸망 · 판이 끝난 사람, 토너먼트 저녁(라운드마다 그 순간의 편성으로 곧바로 다시 계산한다 — 8강 · 4강 사이에 고칠 수 있게 되면 안 된다)
-func can_cmd(i: int) -> bool:
+## 이 명령을 지금 받을 수 있나 —— 되면 "", 안 되면 짧은 이유 (11/12 사용자 페이즈 개편, 맨 위 설명).
+## m 이 FORM_CMDS 면 편성, 아니면 징집 · 조합. 이미 계산된 판(토벌 · 대전)은 편성을 복사해 갔으므로 기다리는 동안의 징집 · 조합이 그 결과를 바꾸지 못한다.
+## 늘 안 되는 것: 멸망 · 판이 끝난 사람, 토너먼트 저녁(라운드마다 그 순간의 편성으로 곧바로 다시 계산한다)
+func cmd_block(i: int, m: String) -> String:
 	if not started or i < 0 or i >= seats.size() or not seats[i].human or seats[i].dead or seats[i].run == null or seats[i].run.over != null:
-		return false
-	if stage in ACT_STAGES:
-		return true
-	return stage in WATCH_STAGES and tour == null
+		return "지금은 할 수 없다"
+	var form: bool = m in FORM_CMDS
+	match stage:
+		"morning":
+			return ""
+		"evening_prep":
+			return "" if form else "대전 준비 중 — 지금은 편성만 할 수 있다"
+		"noon", "evening":
+			if stage == "evening" and tour != null:
+				return "토너먼트 중에는 손댈 수 없다"
+			if form:
+				return "지금은 편성할 수 없다 — 다음 준비 때"
+			if not seats[i].watched:
+				return "전투를 다 본 뒤에 할 수 있다"
+			return ""
+	return "지금은 할 수 없다"
+
+
+## 무엇이든 하나라도 할 수 있나 (방 정보 act —— 옛 클라이언트용)
+func can_cmd(i: int) -> bool:
+	return cmd_block(i, "forge") == "" or cmd_block(i, "place") == ""
 
 
 func on_cmd(peer: int, m: String, a: Array) -> void:
 	var i := seat_of(peer)
-	if i < 0 or not can_cmd(i):
+	if i < 0:
+		return
+	var why := cmd_block(i, m)
+	if why != "":
+		server.send(peer, {"t": "error", "msg": why})
+		push(seats[i])      # 클라이언트가 먼저 바꿔 둔 상태를 되돌린다
 		return
 	var r: Run = seats[i].run
 	var ok = r.command(m, a)
@@ -670,6 +703,8 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 	flipped.foe = x.name
 	ry.battle = bt2
 	ry.finish_battle(flipped)
+	_mvp_track(x, res, "A", bool(res.win))
+	_mvp_track(y, res, "B", bool(flipped.win))
 	y.battles.append({"title": bt2.title, "res": flipped, "kind": "pvp", "params": _params(bt, true, bt2.title, x.name)})
 	if rlog != null:
 		var bt3 := {"kind": "pvp", "title": bt2.title, "seed": bt.seed, "a": bt.b, "b": bt.a}      # y 기준 —— 내가 a
@@ -687,6 +722,7 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 	var res := Run.simulate(bt, [], bt.pol)
 	rx.battle = bt
 	rx.finish_battle(res)
+	_mvp_track(x, res, "A", bool(res.win))
 	if res.win:
 		b.bot.l += 1
 	else:
@@ -708,11 +744,67 @@ func _pvp_shadow(c: Dictionary, xs: Dictionary, sh: Dictionary) -> void:
 	var res := Run.simulate(bt, [], bt.pol)
 	rc.battle = bt
 	rc.finish_battle(res)
+	_mvp_track(c, res, "A", bool(res.win))
 	c.battles.append({"title": bt.title, "res": res, "kind": "pvp", "params": _params(bt, false)})
 	_shadow_news.append({"c": c, "x": xs, "win": bool(res.win), "draw": bool(res.draw)})
 	if rlog != null:
 		rlog.battle(_idx(c), rc, bt, res, sh.name, true, c.peer < 0, bool(xs.get("rec", false)), {"ghost": true, "ghost_of": xs.name})
 		rlog.reward(_idx(c), rc)
+
+
+## 한 진영의 수훈 장수 id —— Battle 의 MVP 와 같은 공식(피해 + 기술 피해 · 회복 ×420 + 처치 ×3200)을 결과 로스터로. 없으면 ""
+static func side_mvp(res: Dictionary, camp: String) -> String:
+	var best := ""
+	var bm := 0.0
+	for u in res.get("roster", []):
+		if str(u.get("camp", "")) != camp:
+			continue
+		var m := float(u.get("dmg", 0)) + float(u.get("mdmg", 0)) * 420.0 + float(u.get("heal", 0)) * 420.0 + float(u.get("kills", 0)) * 3200.0
+		if m > bm:
+			bm = m
+			best = str(u.get("id", ""))
+	return best
+
+
+## 유저전 수훈 연속 —— 이긴 판의 수훈이 기인 이상이고 지난 판과 같은 장수면 +1, 아니면 처음부터. 2 이상이면 소식 대기
+func _mvp_track(s: Dictionary, res: Dictionary, camp: String, won: bool) -> void:
+	if not s.human:
+		return
+	var k := side_mvp(res, camp) if won else ""
+	var st: Array = s.get("mvp_st", ["", 0])
+	if k == "" or not is_urgent_unit(k):
+		s["mvp_st"] = ["", 0]
+		return
+	var n: int = int(st[1]) + 1 if str(st[0]) == k else 1
+	s["mvp_st"] = [k, n]
+	if n >= 2:
+		_mvp_news.append({"s": s, "unit": k, "n": n})
+
+
+## 수훈 연속 소식 —— 방 전체에 (대전을 다 본 뒤라 결과가 새지 않는다). 3연속부터 긴급 띠(hot) —— line 은 띠 문구
+func _flush_mvp_news() -> void:
+	var save := _news_stage
+	_news_stage = "evening"
+	for e in _mvp_news:
+		var s: Dictionary = e.s
+		var nm: String = DB.C[e.unit].name
+		var tail: String = MVP_STREAK_TEXT[mini(int(e.n), 4)]
+		var tx := "%s의 %s%s %s (%d연속 수훈)" % [s.name, nm, "이" if _batchim(nm) else "가", tail, int(e.n)]
+		var it := {"who": s.name, "text": tx}      # 소식 목록에는 글만 (장수가 있으면 등용 줄로 보이므로)
+		_news_add(it)
+		var ann := it.duplicate()
+		ann["unit"] = e.unit
+		ann["line"] = tail
+		_announce(tx, ann, null, int(e.n) >= 3)
+	_mvp_news = []
+	_news_stage = save
+
+
+static func _batchim(t: String) -> bool:
+	if t == "":
+		return false
+	var c := t.unicode_at(t.length() - 1)
+	return c >= 0xAC00 and c <= 0xD7A3 and (c - 0xAC00) % 28 != 0
 
 
 ## 그림자 대전 결과 소식 —— 싸운 사람 c 와 원본 x 에게만 (방 전체에는 뿌리지 않는다). 대전을 다 본 뒤라 결과가 새지 않는다
@@ -740,6 +832,7 @@ func _bot_side(b: Dictionary) -> Dictionary:
 ## 다음 날 아침
 func _advance() -> void:
 	_flush_shadow_news()
+	_flush_mvp_news()
 	if rlog != null:
 		for s in humans():
 			if not s.dead:
@@ -1037,7 +1130,7 @@ func _news_add(it: Dictionary, except = null, only = null) -> void:
 func _announce(text: String, it = null, except = null, hot := false, only = null) -> void:
 	var e := {"text": text, "kind": "news"}
 	if it is Dictionary:
-		for k in ["who", "unit", "id", "when"]:
+		for k in ["who", "unit", "id", "when", "line"]:
 			if it.has(k):
 				e[k] = it[k]
 	if hot:

@@ -513,7 +513,7 @@ func _build_tabbar_badges() -> void:
 		if r.can_forge(rc[0]):
 			nf += 1
 	_tabs.forge.badge = nf if nf > 0 and can_act() else -1
-	_tabs.deploy.badge = 0 if r.placed() < 9 and not r.inv.is_empty() and can_act() else -1
+	_tabs.deploy.badge = 0 if r.placed() < 9 and not r.inv.is_empty() and can_form() else -1
 	var war_todo := false
 	if online == null and r.over == null and r.placed() > 0:
 		if r.is_tour_phase():
@@ -537,6 +537,7 @@ func _build_battle() -> void:
 	_battle.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_battle_layer.add_child(_battle)
 	_battle.ended.connect(_on_battle_ended)
+	_battle.leave_cb = _leave_from_battle      # 11/12 사용자: 전투 메뉴에서 게임 나가기
 	_battle.info_requested.connect(func(cid):
 		if DB.RECOF.has(cid) and not DB.is_foe(cid):
 			recipe_sheet(cid)
@@ -1161,6 +1162,11 @@ func changed() -> void:
 ## 행동 —— Run 의 명령(Run.COMMANDS)을 실행하고 저장·다시 그린다. 온라인이면 서버에도 보낸다
 ## (서버가 같은 명령을 판정해 상태를 돌려보낸다 —— 난수 상태가 같아 결과도 같다)
 func act(m: String, a := []):
+	if online != null and not online.can_act(Online.cmd_kind(m)):      # 11/12 지금 단계에서 안 되는 행동 —— 이유 한 줄 (서버도 거부한다)
+		Sfx.play("deny")
+		toast(online.block_reason(Online.cmd_kind(m)), "bad")
+		render()
+		return null
 	var r = run.command(m, a.duplicate())
 	if online == null:
 		PlayLog.act(run, m, a, r)
@@ -1680,6 +1686,8 @@ func _page_draw() -> Control:
 		return _over_panel()
 	var v := UI.vbox(8)
 	var n := run.draws_n()
+	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
+		v.add_child(UI.hint(online.block_reason("draw")))
 	if run.day == 6:
 		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 더 이상 농민을 징집하지 않는다. 명장만이 소환된다.", 14), 10))
 
@@ -2198,9 +2206,14 @@ func _restore_sheet_scroll(y: int) -> void:
 		_sheet_scroll.scroll_vertical = y
 
 
-## 지금 손댈 수 있는가 —— 온라인은 준비 시간에만
+## 지금 징집 · 조합할 수 있는가 —— 온라인은 서버의 방 정보 act_draw (11/12 페이즈 개편: 아침 · 전투를 다 본 뒤 기다리는 동안)
 func can_act() -> bool:
-	return online == null or online.can_act()
+	return online == null or online.can_act("draw")
+
+
+## 지금 편성할 수 있는가 —— 온라인은 act_form (아침 · 저녁 준비)
+func can_form() -> bool:
+	return online == null or online.can_act("form")
 
 
 # ───────── 카드 상세 ─────────
@@ -3327,6 +3340,20 @@ func show_battle(res: Dictionary, last: bool, kind := "", params := {}) -> void:
 		_battle.play_res(res, kind)
 
 
+## 11/12 사용자: 전투 메뉴의 '게임 나가기' —— 온라인은 방을 나가고(자리는 AI 가 이어받는다), 혼자 하기는 저장하고 처음 화면으로
+## (진행 중인 전투는 Run.battle 로 남아 이어하기 때 resolve_pending 이 마무리한다)
+func _leave_from_battle() -> void:
+	hide_battle()
+	close_sheet()
+	if online != null:
+		online.leave()
+	elif run != null:
+		run.save()
+	if _title != null:
+		_title.queue_free()
+	_build_title()
+
+
 func hide_battle() -> void:
 	_battle_layer.visible = false
 	_resume_bands()
@@ -3343,8 +3370,8 @@ func _resume_bands() -> void:
 var _urgents: Array = []
 var _urgent_busy := false
 
-func urgent(who: String, unit: String) -> void:
-	_urgents.append([who, unit])
+func urgent(who: String, unit: String, tail := "") -> void:      # tail —— 11/12 유저전 수훈 연속 문구 (UrgentBand.tail)
+	_urgents.append([who, unit, tail])
 	if not _urgent_busy:
 		_next_urgent()
 
@@ -3355,7 +3382,7 @@ func _next_urgent() -> void:
 		return
 	_urgent_busy = true
 	var e: Array = _urgents.pop_front()
-	var b: Control = UrgentBand.play(self, str(e[0]), str(e[1]))
+	var b: Control = UrgentBand.play(self, str(e[0]), str(e[1]), str(e[2]) if e.size() > 2 else "")
 	b.done.connect(_next_urgent)
 
 
