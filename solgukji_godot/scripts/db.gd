@@ -46,8 +46,9 @@ var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등
 ## 11/10 점검용 —— 초상 읽기에 든 시간(마이크로초 합)을 구간별로 센다 (tests/forge_first). 시간 재기만 하고 결과에는 영향 없다
 var prof := {"n": 0, "main": 0, "decode": 0, "res": 0, "mip": 0, "tex": 0, "scan": 0}
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
+var INYEON := {}             # 11/11 인연 —— 이름 -> [인물 이름 4~5명] (data/inyeon.json list, 파일 순서). 고유기 합동 발동 (RtBattle._inyeon_recruit)
+var INYEON_OF := {}          # 인물 이름 -> [그 인물이 든 인연 이름들, 파일 순서]
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
-var INYEON: Dictionary = {}  # 11/11 인연 —— 인연 이름 -> [인물 이름] (data/inyeon.json list). 고유기를 함께 발동하는 장수 조합 (인연마다 4~5명)
 var _inyeon_of_person := {}  # 인물 이름 -> [인연 이름] (json 순서)
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
 var GUARD: Dictionary = {}    # 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 · 토벌 우두머리 성질 (data/cards_ext.json class_guard) —— 없으면 막 0 · 깎기 없음
@@ -1267,6 +1268,7 @@ func _load_inyeon() -> void:
 			if not _inyeon_of_person.has(p):
 				_inyeon_of_person[p] = []
 			_inyeon_of_person[p].append(nm)
+	INYEON_OF = _inyeon_of_person      # 전투(RtBattle)가 읽는 이름 —— 같은 사전
 
 
 ## 이 카드가 고유기를 쓸 수 있나 (초월 이상 · 기인 —— 디테일창 · 전투와 같은 기준). 인연은 이런 카드만 친다

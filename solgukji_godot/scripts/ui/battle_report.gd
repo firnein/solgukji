@@ -115,10 +115,13 @@ func _deck_summary() -> String:
 	var final: Array = res.ev[res.ev.size() - 1].s
 	var auras := []
 	var ults := 0
+	var joint := 0      # 11/11 인연 합동 고유기 (대표 사건에 mates)
 	var kills := 0
 	for e in res.ev:
 		if e.get("fx") == "ult" and str(e.get("a", "")).begins_with("A"):
 			ults += 1
+			if e.has("mates"):
+				joint += 1
 	for i in res.roster.size():
 		var u: Dictionary = res.roster[i]
 		if u.camp != "A":
@@ -137,7 +140,7 @@ func _deck_summary() -> String:
 				best = k
 		parts.append("연쇄 [b]%s[/b] ×%d" % [best, int(ch[best])])
 	if ults > 0:
-		parts.append("고유기 %d회" % ults)
+		parts.append("고유기 %d회" % ults + (" (인연 합동 %d)" % joint if joint > 0 else ""))
 	if kills > 0:
 		parts.append("격파 %d" % kills)
 	if parts.is_empty():
