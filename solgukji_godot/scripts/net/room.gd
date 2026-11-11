@@ -190,8 +190,12 @@ func info(i: int) -> Dictionary:
 		var s: Dictionary = seats[k]
 		var row := {"name": s.name, "human": s.human, "online": s.human and s.peer >= 0, "ready": s.ready,
 			"dead": s.dead, "pv": _pv(s), "foe": s.foe.name if s.foe != null else ""}
-		if k == i and s.run != null:
-			row["hp"] = s.run.hp          # 민심은 내 자리에만 (다른 사람에게는 숨긴다)
+		if s.human and s.run != null:
+			# 11/11 사용자: 다른 유저의 민심 · 핵심 유닛을 기록 탭에서 본다 —— 이전(11/9)에는 내 자리에만 보냈다.
+			# 사람 자리마다 hp(정수) + key(기초불신 = 기인 · 초월 · 불멸 · 신화 카드 id 배열, 등급 높은 순). PV · 병사 수 · 나머지 덱은 여전히 보내지 않는다 (결정 ⑥).
+			# 필드만 늘렸다 —— 옛 클라이언트는 모르는 키를 무시한다. 봇 자리에는 없다 (민심도 카드도 없다)
+			row["hp"] = s.run.hp
+			row["key"] = key_cards(s.run)
 		ss.append(row)
 	var me = null
 	if i >= 0 and seats[i].foe != null:
@@ -348,12 +352,37 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 		var it := {"who": seats[i].name, "unit": str(a[0])}
 		_news_add(it, seats[i])
 		_announce("%s가 %s을(를) 등용했습니다" % [seats[i].name, DB.C[str(a[0])].name], it, seats[i], true)
-	push(seats[i])
+	var sig := ",".join(key_cards(r))
+	var changed: bool = sig != str(seats[i].get("key_sig", ""))
+	seats[i]["key_sig"] = sig
+	if changed:
+		push_all()      # 11/11 핵심 유닛이 늘거나 줄었다 —— 다른 사람 화면의 기록 탭도 새로 (보통은 단계가 바뀔 때만 모두에게 간다). 드문 일이라 부담이 없다
+	else:
+		push(seats[i])
 
 
 ## 긴급 소식 대상 —— 기인 이상 (기인 · 초월 6 · 불멸 7 · 신화 8)
 static func is_urgent_unit(k: String) -> bool:
 	return DB.C.has(k) and (DB.is_kiin(k) or int(DB.C[k].tier) >= 6)
+
+
+## 11/11 기록 탭에 보이는 핵심 유닛 —— 가진 카드(손패 + 편성판) 중 기초불신(기인 · 초월 · 불멸 · 신화)의 id (한 종류에 하나 · 등급 높은 순 → id 순).
+## 순위: 신화 8 > 불멸 7 > 초월 6 > 기인 (기인은 등급 값이 전설 5 라 따로 5 로 센다)
+static func key_cards(r: Run) -> Array:
+	var out := []
+	var p := r.pool()
+	for k in p:
+		if is_urgent_unit(str(k)) and int(p[k]) > 0:
+			out.append(str(k))
+	out.sort_custom(func(a, b):
+		var ra := key_rank(a)
+		var rb := key_rank(b)
+		return ra > rb if ra != rb else a < b)
+	return out
+
+
+static func key_rank(k: String) -> int:
+	return 5 if DB.is_kiin(k) else int(DB.C[k].tier)
 
 
 ## 응답이 없는 사람 몫을 봇이 한다 —— 끊겼거나 단계 내내 아무 행동도 없으면 전부, 행동은 했으면 빈 것만

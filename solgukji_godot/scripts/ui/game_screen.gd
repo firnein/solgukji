@@ -3487,6 +3487,8 @@ func _page_rank() -> Control:
 	sr.add_child(UI.stat("%d승 %d패" % [run.my_w, run.my_l], "전적"))
 	sr.add_child(UI.stat("%d" % run.hp, "민심"))      # 11/9 경고 → 민심 (패배마다 깎이고 0 이면 멸망)
 	v.add_child(UI.sect("군웅 할거 · %s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]], UI.panel(sr)))
+	if online != null and online.in_game and not online.room.is_empty():
+		v.add_child(online.peers_section())      # 11/11 사용자: 다른 유저의 민심 · 핵심 유닛(기인 · 초월 · 불멸 · 신화)
 	v.add_child(UI.sect("순위", _standings()))
 	var bv := UI.vbox(6)
 	var bs: Array = run.bots.duplicate()
