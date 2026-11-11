@@ -8,7 +8,7 @@ extends RefCounted
 ##   stage         단계가 바뀜 (morning · noon · evening_prep · evening · over) —— 줄마다 "stage" 칸이 따라온다
 ##   ready         '준비 완료' —— sec = 단계가 시작하고 몇 초 만에
 ##   bot_fill      응답이 없어(단계 내내 행동이 없거나 접속이 끊겨) 봇이 그 단계를 통째로 대신함 (disconnected)
-##   battle_start / battle_end   토벌 · 대전 · 토너먼트 —— PlayLog 와 같은 칸 + foe_name · foe_human(사람과 붙었나) · auto(접속이 끊겨 봇이 대신 편성한 판)
+##   battle_start / battle_end   토벌 · 대전 · 토너먼트 —— PlayLog 와 같은 칸 + foe_name · foe_human(사람과 붙었나) · auto(접속이 끊겨 봇이 대신 편성한 판) · ghost/ghost_of(그림자 대전 11/11 —— 멸망한 자리 대신 산 사람의 편성 복사본과 붙은 판, foe_human 은 true)
 ##   (stage 칸은 계산한 때의 단계 —— 토벌은 morning 끝, 대전은 evening_prep 끝에 서버가 계산한다)
 ##   reward        토벌 · 대전 뒤 경고 · 민심 · 전적
 ##   phase_end     하루(페이즈) 끝 스냅샷 —— PlayLog 와 같은 칸 (page_sec 만 없다). sec = 아침부터 몇 초
@@ -167,7 +167,7 @@ func act(i: int, run, m: String, a: Array, r) -> void:
 
 ## 전투 한 판 —— 이 사람 기준(bt.a = 나)의 bt 와 결과. foe_* 는 상대 (토벌은 적 부대 이름 · 사람 아님)
 ## foe_rec = 상대가 사람이면 그 사람이 기록에 동의했나 —— 아니면(foe_hidden) 상대 이름 · 편성 · 상대 부대 기록을 남기지 않는다
-func battle(i: int, run, bt: Dictionary, res: Dictionary, foe_name: String, foe_human: bool, auto := false, foe_rec := true) -> void:
+func battle(i: int, run, bt: Dictionary, res: Dictionary, foe_name: String, foe_human: bool, auto := false, foe_rec := true, extra := {}) -> void:
 	if not files.has(i):
 		return
 	var hide := foe_human and not foe_rec
@@ -176,6 +176,10 @@ func battle(i: int, run, bt: Dictionary, res: Dictionary, foe_name: String, foe_
 		x["foe_hidden"] = true
 	if auto:
 		x["auto"] = true
+	if not extra.is_empty():      # 그림자 대전 (11/11) —— ghost: true · ghost_of: 원본 자리 이름 (원본이 기록에 동의 안 했으면 가린다)
+		x.merge(extra)
+		if hide and x.has("ghost_of"):
+			x["ghost_of"] = HIDDEN
 	var a := PlayLog.battle_start_data(bt)
 	a["title"] = _scrub(str(a.title))
 	if hide:

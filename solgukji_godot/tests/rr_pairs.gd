@@ -4,6 +4,8 @@ extends Node
 ## ① 한 라운드에 한 자리가 두 번 나오지 않는다 ② 한 바퀴(N-1 라운드)에 살아 있는 두 자리는 정확히 한 번씩 만난다(사람 대 사람 포함)
 ## ③ 멸망한 자리의 짝이던 산 자리는 떠돌이 군세와 붙고 — 그 횟수가 자리마다 고르다 ④ 같은 입력 · 같은 방 씨앗이면 같은 짝
 ## ⑤ (11/11) 자리 수 N = 4 · 6 · 8 방: 빈자리만 봇 · 가득 차면 참가 거부 · 20 저녁 상대 분포 · 토너먼트(8강 틀 + 부전승)가 끝까지 간다
+## ⑥ (11/11 그림자 대전) rr_plan 에 산 사람 목록을 주면 멸망한 자리의 짝이던 산 사람은 군세 대신 다른 산 사람의 그림자 [c, -1 - d, x] 와 붙는다 —— 산 사람이 둘 이상이면 군세가 남지 않고,
+##    하나뿐이면 전처럼 군세, 멸망 자리는 -1 - d 로만 나오고, 한 바퀴에 산 사람끼리의 진짜 짝은 정확히 한 번씩, 그림자 원본(x)은 돌아가며 고르게 (shadow_pair)
 ## 마지막에 사람 8명인 방의 20 저녁 상대 분포 표를 찍는다.
 
 class FakeSrv:
@@ -18,10 +20,14 @@ func _ready() -> void:
 	for n in Room.SEAT_OPTIONS:
 		_pure(n)
 	for n in Room.SEAT_OPTIONS:
+		_shadow_pure(n)
+	for n in Room.SEAT_OPTIONS:
 		_room_table(n)
 	_room_dead(8, 4)
 	_room_dead(6, 4)
 	_room_dead(4, 4)
+	_room_dead(8, 3)
+	_room_dead(4, 3)
 	_seats_rules()
 	# 한 판 전체는 느리다(방 하나 30~160초) —— 기본은 셋(4석 사람 3 · 6석 사람 3 · 8석 사람 2), 인자 --full 이면 사람으로 가득 찬 방 · 혼자인 방까지
 	var full_cfgs := [[4, 3], [6, 3], [8, 2]]
@@ -90,6 +96,102 @@ func _pure(n: int) -> void:
 					cases += 1
 					_check_plan(n, order, dead)
 	print("순수 점검 [%d석]: 자리 배치 %d가지 × 사람 1~%d × 멸망 0~3 = %d 경우 (한 바퀴 %d라운드)" % [n, ords.size(), n, cases, n - 1])
+
+
+## 그림자 대전 (11/11) 순수 계산 —— 자리 배치 여럿 × 사람 수 2~n × 멸망 1 · 2명 (사람은 배치의 앞 h 자리, 나머지는 봇)
+func _shadow_pure(n: int) -> void:
+	var cases := 0
+	var cyc := n - 1
+	for order in _orders(n):
+		for h in range(2, n + 1):
+			var humans: Array = order.slice(0, h)
+			for d in range(1, mini(2, h - 1) + 1):
+				for variant in 3:
+					var dead := []
+					for k in d:
+						dead.append(humans[k if variant == 0 else ((h - 1 - k) if variant == 1 else ((k * 2 + 1) % h))])
+					if dead.size() != d or _dup(dead):
+						continue
+					var alive_h := humans.filter(func(s): return not (s in dead))
+					cases += 1
+					_check_shadow(n, order, dead, alive_h, humans)
+	print("그림자 순수 점검 [%d석]: %d 경우 (한 바퀴 %d라운드 × 몇 바퀴)" % [n, cases, cyc])
+
+
+func _check_shadow(n: int, order: Array, dead: Array, alive_h: Array, humans: Array) -> void:
+	var tag := "[%d석 · 사람 %s · 멸망 %s]" % [n, str(humans), str(dead)]
+	var cyc := n - 1
+	var cycles := maxi(1, alive_h.size() - 1) * 2      # 후보 수의 두 배 바퀴 —— 모든 원본이 같은 횟수로 돌아오는지
+	var meet := {}                      # (바퀴 0) 산 사람 쌍 -> 횟수
+	var srcs := {}                      # c -> {x: 횟수} (전체)
+	var per_cycle := {}                 # c -> [바퀴별 x 목록]
+	for cy in cycles:
+		for rd in cyc:
+			var plan: Array = Room.rr_plan(order, rd, dead, alive_h, cy)
+			if plan != Room.rr_plan(order.duplicate(), rd, dead.duplicate(), alive_h.duplicate(), cy):
+				_fail("같은 입력인데 짝이 다르다 " + tag)
+			var used := {}
+			for p in plan:
+				if p.size() < 2 or p.size() > 3:
+					_fail("짝 칸 수 %d %s" % [p.size(), tag])
+					continue
+				for k in 2:
+					if int(p[k]) >= 0:
+						if p[k] in dead:
+							_fail("멸망한 자리 %d 가 진짜 짝에 있다 %s" % [p[k], tag])
+						if used.has(p[k]):
+							_fail("한 라운드에 자리 %d 가 두 번 %s" % [p[k], tag])
+						used[p[k]] = true
+				if int(p[1]) < 0:
+					if not ((-1 - int(p[1])) in dead):
+						_fail("군세/그림자 자리 %d 가 멸망한 자리가 아니다 %s" % [-1 - int(p[1]), tag])
+					if p[0] in alive_h:
+						if alive_h.size() >= 2:
+							if p.size() != 3:
+								_fail("산 사람이 둘 이상인데 자리 %d 가 유랑군과 붙는다 %s" % [p[0], tag])
+							else:
+								var x: int = p[2]
+								if x == p[0] or not (x in alive_h) or x in dead:
+									_fail("그림자 원본 %d 가 부적절 (C %d) %s" % [x, p[0], tag])
+								if not srcs.has(p[0]):
+									srcs[p[0]] = {}
+									per_cycle[p[0]] = []
+								srcs[p[0]][x] = int(srcs[p[0]].get(x, 0)) + 1
+								if per_cycle[p[0]].size() <= cy:
+									per_cycle[p[0]].append([])
+								per_cycle[p[0]][cy].append(x)
+						elif p.size() != 2:
+							_fail("산 사람이 하나뿐인데 그림자 짝 %s %s" % [str(p), tag])
+					elif p.size() != 2:
+						_fail("봇 자리 %d 가 그림자와 붙는다 %s" % [p[0], tag])
+				elif p.size() != 2:
+					_fail("진짜 짝에 셋째 칸 %s %s" % [str(p), tag])
+				elif cy == 0 and (p[0] in alive_h) and (p[1] in alive_h):
+					var key := "%d-%d" % [mini(p[0], p[1]), maxi(p[0], p[1])]
+					meet[key] = int(meet.get(key, 0)) + 1
+			if cy == 0:
+				for s in order:
+					if not (s in dead) and not used.has(s):
+						_fail("라운드 %d 에서 산 자리 %d 가 쉰다 %s" % [rd, s, tag])
+	# 한 바퀴에 산 사람끼리의 진짜 짝은 정확히 한 번씩
+	for i in alive_h.size():
+		for j in range(i + 1, alive_h.size()):
+			var key := "%d-%d" % [mini(alive_h[i], alive_h[j]), maxi(alive_h[i], alive_h[j])]
+			if int(meet.get(key, 0)) != 1:
+				_fail("%s 가 한 바퀴에 %d번 %s" % [key, int(meet.get(key, 0)), tag])
+	# 회전 공정성 —— 각 c 의 원본이 (후보 수 × 바퀴) 동안 후보마다 같은 횟수 (멸망 수 × 2 번씩), 한 바퀴 안에서는 (후보가 둘 이상이면) 서로 다른 원본
+	for c in srcs:
+		var m := alive_h.size() - 1
+		for x in alive_h:
+			if x == c:
+				continue
+			if int(srcs[c].get(x, 0)) != dead.size() * 2:
+				_fail("자리 %d 의 그림자 원본 %d 횟수 %d (기대 %d) %s" % [c, x, int(srcs[c].get(x, 0)), dead.size() * 2, tag])
+		if m >= dead.size():
+			for cy in per_cycle[c].size():
+				if _dup(per_cycle[c][cy]):
+					_fail("자리 %d 가 한 바퀴(%d)에 같은 원본을 두 번 %s" % [c, cy, str(per_cycle[c][cy])])
+					break
 
 
 func _dup(a: Array) -> bool:
@@ -227,6 +329,7 @@ func _room_dead(n: int, hn: int) -> void:
 			r.seats[k].dead = true
 		var hh := {}       # 산 사람 쌍(순서 있음) -> 한 바퀴 안 횟수
 		var ghost_foes := 0
+		var shadow_foes := 0
 		for er in 20:
 			r.day = er / 3
 			r.phase = er % 3
@@ -238,6 +341,17 @@ func _room_dead(n: int, hn: int) -> void:
 					continue
 				if s.foe.epi == "떠돌이 군세":
 					ghost_foes += 1
+					if hn - dead_n >= 2:
+						_fail("[%d석] 멸망 %d명 방 %d번째 저녁 —— 산 사람이 둘 이상인데 %s 가 유랑군과 붙는다" % [n, dead_n, er, s.name])
+				elif s.foe.epi == Room.SHADOW_EPI:
+					shadow_foes += 1
+					var src_name: String = str(s.foe.name).trim_suffix("의 그림자")
+					var src_ok := false
+					for k2 in range(dead_n, hn):
+						if r.seats[k2].name == src_name and k2 != i:
+							src_ok = true
+					if not src_ok:
+						_fail("[%d석] 그림자 원본 %s 가 산 다른 사람이 아니다" % [n, src_name])
 				if er < cyc and s.foe.human:
 					var k := "%s-%s" % [s.name, s.foe.name]
 					hh[k] = int(hh.get(k, 0)) + 1
@@ -248,7 +362,11 @@ func _room_dead(n: int, hn: int) -> void:
 		var want: int = alive_h * (alive_h - 1)
 		if hh.size() != want or hh.values().any(func(v): return v != 1):
 			_fail("[%d석] 멸망 %d명 방 —— 산 사람끼리 한 바퀴 횟수 이상 %s" % [n, dead_n, str(hh)])
-		print("멸망 %d명 방(%d석 · 사람 %d): 산 사람끼리 짝 %d칸(한 바퀴 한 번씩) · 20 저녁 중 떠돌이 군세와 붙은 건수 %d" % [dead_n, n, hn, hh.size(), ghost_foes])
+		print("멸망 %d명 방(%d석 · 사람 %d): 산 사람끼리 짝 %d칸(한 바퀴 한 번씩) · 20 저녁 중 떠돌이 군세와 붙은 건수 %d · 그림자 %d" % [dead_n, n, hn, hh.size(), ghost_foes, shadow_foes])
+		if hn - dead_n < 2 and shadow_foes > 0:
+			_fail("[%d석] 산 사람이 하나뿐인데 그림자 대전이 있다" % n)
+		if hn - dead_n >= 2 and shadow_foes == 0:
+			_fail("[%d석] 산 사람이 둘 이상인데 그림자 대전이 없다" % n)
 		# 대전 계산도 한 번 돌려 본다 (떠돌이 군세와의 싸움이 되는지)
 		r.stage_end = 0.0
 		r._end_prep()
