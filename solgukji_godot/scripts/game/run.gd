@@ -42,8 +42,27 @@ const HP_MAX := 100
 const HP_QUEST := [4, 5, 6, 7, 10, 13, 17]      # 토벌 패배 기본 피해 (일차별) —— × (HP_FOE_MIN + HP_FOE_MUL × 적 남은 병력 비)
 const HP_FOE_MIN := 0.35                             # 적이 하나도 안 남은 채 진(무승부에 가까운) 판의 배율
 const HP_FOE_MUL := 1.0                              # 적 남은 비 1.0(완패)이면 배율 1.35
-const HP_PVP_MUL := 0.6                              # 대전 패배는 토벌의 0.6배
+const HP_PVP_MUL := 0.6                              # 대전 패배는 토벌의 0.6배 (혼자 하기)
+## 11/11 사용자(온라인): 대전 패배의 민심 피해를 토벌과 같게 —— 온라인 방(mp)의 Run 만. 혼자 하기는 HP_PVP_MUL 그대로
+const HP_PVP_MUL_ONLINE := 1.0
+## 11/11 사용자(온라인): 토벌은 1~3일차(day 0~2)만 —— 4일차(day 3)부터는 점심(토벌) 단계가 없다. 없어진 토벌 보상은 그 일차의 대전이 대신 준다 (pvp_quest_equiv)
+const ONLINE_NOON_DAYS := 3
 var hp := HP_MAX
+
+
+## 대전 패배 민심 배율 —— 온라인(mp)은 HP_PVP_MUL_ONLINE, 혼자 하기는 HP_PVP_MUL
+func pvp_mul() -> float:
+	return HP_PVP_MUL_ONLINE if mp else HP_PVP_MUL
+
+
+## 온라인 방은 이 일차(0 = 1일차)에 토벌 단계가 있나
+static func online_noon(day_i: int) -> bool:
+	return day_i < ONLINE_NOON_DAYS
+
+
+## 토벌이 없는 온라인 일차의 대전 —— 그날 토벌이 줬을 보상(전리품 · 선택권 · 성과 보너스)을 대전이 대신 얹어 준다
+func pvp_quest_equiv() -> bool:
+	return mp and not online_noon(day)
 ## 점검용 —— 11/9 이전 사람 기록(패배 보상 감액 규칙)을 되살릴 때(tests/replay_log) 켠다. 보상이 달라지면 되살린 덱이 기록과 달라져 난이도 측정이 틀어진다
 static var legacy_rewards := false
 static var dev_hp_log := []      # 11/9 점검용 —— 패배마다 [일차, 종류, 기본 피해, 적 남은 비, 무승부] (tests/hp_dist)
@@ -1211,13 +1230,37 @@ static func quest_top_tier(day_i: int) -> int:
 
 ## 보너스 알림 글 「토벌 대승! 보너스 기본패 +M · 선택권 +1」 —— 기본패 · 선택권 둘 다 0 이면 빈 글. 가운데 띠(gold 알림)는 " · " 앞을 큰 글씨로 쓴다
 ## 대승(r ≥ QUEST_BONUS_BIG)이 아닌 좋은 성과는 "토벌 선전!"
-static func quest_bonus_text(base: int, ticket: int, big := true) -> String:
+static func quest_bonus_text(base: int, ticket: int, big := true, what := "토벌") -> String:
 	if base <= 0 and ticket <= 0:
 		return ""
-	var head := ("토벌 대승! 보너스" if big else "토벌 선전! 보너스") + (" 기본패 +%d" % base if base > 0 else "")
+	var head := (what + (" 대승! 보너스" if big else " 선전! 보너스")) + (" 기본패 +%d" % base if base > 0 else "")
 	if ticket > 0:
 		return head + " · %s 선택권 +%d" % [DB.TIER[QUEST_BONUS_TICKET_TIER].n, ticket]
 	return head
+
+
+## 11/11 사용자: 토벌이 없는 온라인 일차(4일차~)의 대전이 그날 토벌 보상을 얹어 준다 —— 토벌의 비난수 규칙(QUEST_REWARD 선택권 · QUEST_BASE 전리품 · 성과 보너스)을 그대로 재사용한다.
+## 이기면 풀로(보너스 포함), 지면 토벌 패배와 같게(기본 보상은 그대로 · 보너스 없음 · 민심은 따로). last_spoil 은 대전 몫에 합치고 perf_r · bonus · bonus_ticket 을 같은 키로 둔다(클라이언트 보너스 연출이 그대로 쓴다)
+func _pvp_quest_reward(res: Dictionary) -> void:
+	var d := clampi(day, 0, 6)
+	for p in no_empty_tier(DB.D.QUEST_REWARD[d]):
+		add_ticket(int(p.t), int(p.n), true)
+	var n := int(DB.D.QUEST_BASE[d])
+	for i in n:
+		give(DB.BASE[rng.randi() % DB.BASE.size()])
+	if last_spoil == null:
+		last_spoil = {"n": 0, "src": ""}
+	last_spoil["n"] = int(last_spoil.n) + n
+	last_spoil["quest_n"] = n
+	var bb := quest_bonus(res, day)
+	last_spoil["perf_r"] = snappedf(float(bb.r), 0.001)
+	if res.get("win", false):
+		last_spoil["bonus"] = int(bb.base)
+		last_spoil["bonus_ticket"] = int(bb.ticket)
+		for i in int(bb.base):
+			give(DB.BASE[rng.randi() % DB.BASE.size()])
+		if int(bb.ticket) > 0:
+			add_ticket(mini(quest_top_tier(day), QUEST_BONUS_TICKET_TIER), 1, true)
 
 
 ## 이 전투 결과(아직 finish_battle 전)로 민심이 얼마나 깎일지 —— 이기면 · 토너먼트면 0 (화면 전용, 상태는 건드리지 않는다)
@@ -1226,7 +1269,7 @@ func hp_preview(bt: Dictionary, res: Dictionary) -> int:
 		return 0
 	match str(bt.get("kind", "")):
 		"quest": return hp_dmg(res, float(HP_QUEST[clampi(day, 0, 6)]))
-		"pvp": return hp_dmg(res, float(HP_QUEST[clampi(day, 0, 6)]) * HP_PVP_MUL)
+		"pvp": return hp_dmg(res, float(HP_QUEST[clampi(day, 0, 6)]) * pvp_mul())
 	return 0
 
 
@@ -1313,13 +1356,15 @@ func finish_battle(res: Dictionary) -> void:
 			last_spoil = {"n": nb, "src": "대전 · " + bt.foe}
 			var b = bots[bt.bot] if bt.has("bot") else null      # 여럿이 하는 판은 서버가 상대 전적을 센다
 			add_ticket((4 if day >= 3 else 3) - (1 if legacy_rewards and not res.win else 0), 1, true)      # 11/6 #6 대전 보상의 희귀는 랜덤권 —— 11/9 승패 같게
+			if pvp_quest_equiv():
+				_pvp_quest_reward(res)
 			if res.win:
 				my_w += 1
 				if b: b.l += 1
 			else:
 				my_l += 1
 				if b: b.w += 1
-				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]) * HP_PVP_MUL, "대전 · " + str(bt.foe))
+				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]) * pvp_mul(), "대전 · " + str(bt.foe))
 		"tour":
 			var r: int = tour.round
 			var ms: Array = tour.res[r]

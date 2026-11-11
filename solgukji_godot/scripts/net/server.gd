@@ -12,13 +12,14 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##   join {code}           코드로 들어가기
 ##   leave                 방에서 나가기
 ##   start                 방장이 시작 (빈자리는 봇)
-##   cmd {m, a}            징집·조합·편성 명령 (Run.COMMANDS)
+##   cmd {m, a}            징집·조합·편성 명령 (Run.COMMANDS) —— 준비 단계(아침 · 저녁 준비) + 전투를 보는 단계(점심 · 저녁, 토너먼트 저녁 제외, 11/11). 방 정보의 act 가 지금 받는지 알려 준다
 ##   ready {on, sno}       준비 완료 —— sno 는 받은 방 정보의 stage_no (지난 단계의 준비는 버린다)
 ##   alone {go}            혼자 남았을 때의 답 —— go 가 참이면 봇만 상대로 계속, 아니면 방을 닫는다
 ##   say {i}               한마디 —— Room.QUICK_MSGS 의 번호 (자유 입력 없음, 2초에 한 번). 방의 모두에게 say 로 뿌린다 (11/9)
 ##   emote {i}             한마디 이모티콘 —— 0 ~ Room.EMOTE_N-1 번호만 (글과 같은 2초 간격). 방의 모두에게 {"t":"emote","who","i"} (11/10)
 ## 32KB 가 넘는 메시지는 gzip 바이너리로 보낸다.
 ## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list, stage, stage_no, seen} · toast {text, kind, news?} · say {who, text} · error {msg} · left
+## 방 정보(room)에 11/11 추가: noon(이 일차에 점심 단계가 있나 — 4일차부터 false) · act(지금 cmd 를 받나). 없으면(옛 서버) 클라이언트가 점심 있음 · 준비 단계만으로 본다.
 ## 방 진행(아침 · 점심 · 저녁 단계)은 room.gd. 플레이 기록(사람마다 jsonl)은 room_log.gd (11/10).
 
 const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -55,6 +56,7 @@ func _process(_dt: float) -> void:
 		ws.inbound_buffer_size = 1 << 22
 		ws.outbound_buffer_size = 1 << 24
 		ws.max_queued_packets = 4096
+		ws.heartbeat_interval = 15.0      # 11/11 반쯤 끊긴 연결(휴대폰이 잠들어 소켓만 남음)을 ping 으로 빨리 알아챈다 —— 끊김을 알아야 방이 그 사람을 기다리지 않는다
 		if ws.accept_stream(tcp.take_connection()) == OK:
 			var id := _next_id
 			_next_id += 1

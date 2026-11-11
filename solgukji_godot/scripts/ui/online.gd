@@ -5,7 +5,8 @@ extends Node
 ## 접속 시트(서버·이름·방 목록·방 만들기·코드로 참가) → 대기실(코드·자리·시작) → 게임.
 ## 서버는 콤보로 고른다 —— data/servers.json 의 서버(Dev = 집 PC, 빌드 때 그 PC 의 아이피로 고쳐진다) + 「직접 입력…」. 고른 것은 user://net.cfg 에 남는다 (11/7).
 ## 하루는 아침(징집·조합·편성) → 점심(토벌 보기) → 저녁 준비(상대 이름·전적을 보고 편성) → 저녁(대전 보기) 네 단계 (room.gd, 11/7).
-## 명령은 아침 · 저녁 준비에만 보낼 수 있다. '준비 완료'는 방 정보의 stage_no 를 실어 보낸다 —— 늦게 간 준비는 서버가 버린다.
+## 11/11 사용자: 점심(토벌)은 1~3일차만 —— 4일차부터는 아침 → 저녁 준비 → 저녁 세 단계 (방 정보 noon, 머리띠 진행 막대도 세 칸). 전투를 다 보면(결과표가 뜨는 순간) 준비 완료가 자동으로 간다 (replay_ended).
+## 명령은 준비 단계(아침 · 저녁 준비)와, 11/11 부터 전투를 보는 단계(점심 · 저녁, 토너먼트 저녁 제외)에서도 보낼 수 있다 (방 정보 act = can_act). '준비 완료'는 방 정보의 stage_no 를 실어 보낸다 —— 늦게 간 준비는 서버가 버린다.
 ## 전투는 서버가 계산해 보낸 결과를 차례로 재생한다(1단계 —— 자동 전투). 끝까지 본다 (11/10 사용자: 멀티플레이 스킵 없음 — 예전 '결과로 건너뛰기'(BattleView.skip, 11/9 사용자: 리플레이를 나갈 방법)로
 ## 끝까지 가야 '준비 완료'가 된다 (결정 ⑦ —— 건너뛰어도 결과표는 보고 닫는다). 결과에 실린 재료(res.bp)로 전투장수창의 버프 수치도 혼자 할 때와 같다.
 ## 끊기면 3초마다 다시 붙는다 —— 토큰이 같아 진행 중인 자리로 돌아가 그 단계부터 이어간다 (이미 다 본 전투는 목록만 받는다).
@@ -101,7 +102,7 @@ func _process(dt: float) -> void:
 ## 5초 경고 —— 할 일이 남은 시간제 단계에서만. 전투를 보는 단계(점심 · 저녁)는 재생이 끝나야 넘어가고 시간이 다 돼도 할 일이 없어 울리지 않는다.
 ## 0초 · 단계가 바뀜 · '준비 완료' · 멸망/종료 · 접속 끊김이면 바로 끈다. 소리는 Sfx 의 효과음 크기(Settings.sfx_vol, 0 이면 무음)를 따른다
 func warn_active() -> bool:
-	if not in_game or gs.run == null or gs.run.over != null or room.is_empty() or not can_act():
+	if not in_game or gs.run == null or gs.run.over != null or room.is_empty() or not can_act() or not (str(room.get("stage", "")) in Room.ACT_STAGES):
 		return false
 	if _warn_off_no == int(room.get("stage_no", -2)) or bool(me().get("ready", false)) or bool(me().get("dead", false)):
 		return false
@@ -603,8 +604,13 @@ func _say_btn() -> Button:
 	return b
 
 
+## 징집 · 조합 · 편성을 할 수 있나 —— 서버의 방 정보 act(준비 단계 + 전투를 보는 단계 − 토너먼트 저녁 · 멸망한 사람). 옛 서버는 act 가 없어 준비 단계만
 func can_act() -> bool:
-	return in_game and (str(room.get("stage", "")) in Room.ACT_STAGES) and gs.run != null and gs.run.over == null
+	if not in_game or gs.run == null or gs.run.over != null or room.is_empty():
+		return false
+	if room.has("act"):
+		return bool(room.act)
+	return str(room.get("stage", "")) in Room.ACT_STAGES
 
 
 func me() -> Dictionary:
@@ -626,6 +632,23 @@ func day_text() -> String:
 
 
 const STAGE_IDX := {"morning": 0, "noon": 1, "evening_prep": 2, "evening": 3}      # 머리띠 진행 막대의 네 칸 (11/9)
+const STAGE_IDX3 := {"morning": 0, "evening_prep": 1, "evening": 2}      # 11/11 토벌이 없는 날(4일차~)의 세 칸
+
+
+## 이 일차에 점심(토벌) 단계가 있나 —— 서버의 방 정보 noon (옛 서버는 늘 있다). 점심이 지금이면 당연히 있다
+func has_noon() -> bool:
+	return str(room.get("stage", "")) == "noon" or bool(room.get("noon", true))
+
+
+## 머리띠 진행 막대 —— 칸 수 · 지금 칸
+func head_steps() -> int:
+	return 4 if has_noon() else 3
+
+
+func head_idx() -> int:
+	var st := str(room.get("stage", ""))
+	var m: Dictionary = STAGE_IDX if has_noon() else STAGE_IDX3
+	return int(m.get(st, head_steps() - 1 if st == "over" else 0))
 
 
 ## 남은 시간 "1:20"
@@ -677,14 +700,26 @@ func _maybe_ask_alone() -> void:
 
 # ───────── 전투 재생 ─────────
 
+## 11/11 사용자: 전투를 다 보면 준비 완료가 자동 —— 결과표가 뜨는 순간(BattleView.ended, 끝까지 가도 · 건너뛰어도) 이번 단계 마지막 전투면 바로 보낸다.
+## 결과표를 닫기를 기다리지 않는다 (다른 사람이 모두 끝났으면 바로 다음 단계). 이미 준비면 다시 보내지 않는다 (준비 취소를 되돌리지 않게)
+func replay_ended() -> void:
+	if not in_game or not watch.is_empty() or room.is_empty():
+		return
+	if not (str(room.get("stage", "")) in Room.WATCH_STAGES) or last_battles.is_empty():
+		return
+	if bool(me().get("ready", false)) or _warn_off_no == int(room.get("stage_no", -2)):
+		return
+	send_ready(true)
+
+
 func watch_next() -> void:
 	if watch.is_empty():
 		if gs.battle_visible():
 			gs.hide_battle()
 			# 다 봤으면 준비 완료 —— 다시 누르면 취소된다 (결정 ⑦: 끝까지 본 뒤에만)
 			_seen_all = true
-			if str(room.get("stage", "")) in Room.WATCH_STAGES:
-				send_ready(true)
+			if str(room.get("stage", "")) in Room.WATCH_STAGES and not bool(me().get("ready", false)):
+				send_ready(true)      # 보통은 replay_ended 가 결과표가 뜨는 순간 이미 보냈다 —— 건너뛰기 · 재연결 등으로 못 보냈을 때의 보험
 		gs.go("war")
 		return
 	var b: Dictionary = watch.pop_front()
@@ -801,15 +836,15 @@ func _stage_hint() -> String:
 	var st := str(room.get("stage", ""))
 	var rd: bool = me().get("ready", false)
 	match st:
-		"morning": return "다른 사람을 기다리는 중 — 모두 준비되면 토벌" if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
-		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다" if rd else "토벌을 보고 준비 완료"
+		"morning": return ("다른 사람을 기다리는 중 — 모두 준비되면 %s" % ("토벌" if has_noon() else "대전 준비")) if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
+		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다. 그동안 징집 · 조합 · 편성을 해 둘 수 있다" if rd else "토벌을 끝까지 보면 자동으로 준비된다"
 		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성 · 작전을 고친 뒤 준비 완료"
 		"evening":
 			if int(room.get("tour_round", -1)) >= 0:
 				if _tour_bye():
 					return "부전승 — 이번 라운드는 쉰다. 다른 대진을 기다리는 중"
 				return "다른 사람을 기다리는 중 — 모두 보면 다음 라운드" if rd else "%s을 보고 준비 완료" % Run.ROUNDNM[int(room.tour_round)]
-			return "다른 사람을 기다리는 중 — 모두 보면 다음 페이즈 준비" if rd else "대전을 보고 준비 완료"
+			return "다른 사람을 기다리는 중 — 모두 보면 다음 페이즈 준비. 그동안 징집 · 조합 · 편성을 해 둘 수 있다" if rd else "대전을 끝까지 보면 자동으로 준비된다"
 		"over": return "판이 끝났다"
 	return ""
 
@@ -1083,7 +1118,7 @@ func war_page() -> Control:
 				sub = "전투를 끝까지 보면 열린다"
 			else:
 				match st:
-					"morning": sub = "모두 준비되면 토벌로"
+					"morning": sub = "모두 준비되면 토벌로" if has_noon() else "모두 준비되면 대전 준비로"
 					"noon": sub = "모두 보면 대전 상대가 정해진다"
 					"evening_prep": sub = "모두 준비되면 대전"
 					"evening": sub = "모두 보면 다음으로"
@@ -1173,7 +1208,7 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	room = {"code": "K7QX", "mode": "fast", "max": n_max, "mode_n": Room.MODES.fast.n, "started": true, "stage": stage, "stage_no": 3,
 		"stage_n": Room.STAGE_N.get(stage, stage), "remain": remain_s, "day": run.day, "phase": run.phase, "day_no": day_no, "you": 0, "host": true,
 		"seats": seats, "foe": ({"name": seats[3].name, "human": false, "online": false, "epi": run.bots[0].epi, "w": 3, "l": 1} if stage in ["evening_prep", "evening"] else null),
-		"alone": "", "tour_round": -1, "quick": ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"], "emote_n": Room.EMOTE_N}
+		"noon": run.day < Run.ONLINE_NOON_DAYS, "act": true, "alone": "", "tour_round": -1, "quick": ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"], "emote_n": Room.EMOTE_N}
 	stage_end = Room.now() + remain_s
 	_stage_no = 3
 	if stage in Room.WATCH_STAGES:

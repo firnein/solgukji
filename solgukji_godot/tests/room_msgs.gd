@@ -73,7 +73,9 @@ func _ready() -> void:
 	r.tick()                 # evening_prep → evening
 	var b1 := srv.of(1, "battles")
 	var b2 := srv.of(2, "battles")
-	if not b1.is_empty() and not b2.is_empty():
+	# 11/11: 라운드로빈(11/10) 뒤로 두 사람이 서로 붙는 저녁은 일부 —— 서로의 이름이 제목에 있을 때만 뒤집힘을 비교한다 (봇과 붙었으면 건너뜀)
+	var mutual: bool = not b1.is_empty() and not b2.is_empty() and str(b1[0].list[0].title) == "대전 · 나" and str(b2[0].list[0].title) == "대전 · 가"
+	if mutual:
 		var p1: Dictionary = b1[0].list[0].params
 		var p2: Dictionary = b2[0].list[0].params
 		if p1.a != p2.b or p1.b != p2.a or p1.seed != p2.seed or p1.policy.A != p2.policy.B:

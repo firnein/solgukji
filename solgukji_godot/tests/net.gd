@@ -27,6 +27,8 @@ var norec := 0               # 기록에 동의하지 않은 가짜 클라이언
 var t0 := 0.0
 var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 기준)
 var info_rows := 0            # 확인한 사람 자리 줄 수 (hp · key, 11/11)
+var watch_cmds := 0           # 11/11 기다리는 단계(점심 · 저녁)에 보낸 명령 수 (첫 플레이어만 —— 나머지는 옛 클라이언트처럼 준비 단계에서만 보낸다)
+var act_checked := 0          # 방 정보 act · noon 을 확인한 상태 수
 
 
 func _ready() -> void:
@@ -96,6 +98,21 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 				b.sno = int(rm.stage_no)
 				if b.i == 0:
 					stage_count[rm.stage] = stage_count.get(rm.stage, 0) + 1
+				# 11/11 점심(토벌)은 1~3일차만 · 방 정보 noon / act 가 규칙과 맞는가
+				if rm.stage == "noon" and int(rm.day) >= Run.ONLINE_NOON_DAYS:
+					errors.append("%s: %d일차에 점심 단계가 왔다" % [b.name, int(rm.day) + 1])
+				if bool(rm.get("noon", true)) != (int(rm.day) < Run.ONLINE_NOON_DAYS):
+					errors.append("%s: 방 정보 noon %s (일차 %d)" % [b.name, str(rm.get("noon")), int(rm.day) + 1])
+				if run.over == null and rm.stage != "over":
+					var want_act: bool = (rm.stage in Room.ACT_STAGES) or ((rm.stage in Room.WATCH_STAGES) and int(rm.get("tour_round", -1)) < 0)
+					act_checked += 1
+					if not rm.has("act") or bool(rm.act) != want_act:
+						errors.append("%s: 방 정보 act %s (%s · 기대 %s)" % [b.name, str(rm.get("act")), rm.stage, str(want_act)])
+					# 첫 플레이어는 기다리는 동안에도 편성을 만진다 (새 클라이언트) —— 서버가 받고 상태를 돌려주면 된다
+					if b.i == 0 and want_act and (rm.stage in Room.WATCH_STAGES) and int(b.get("wcmd_no", -1)) != int(rm.stage_no):
+						b.wcmd_no = int(rm.stage_no)
+						watch_cmds += 1
+						c.send({"t": "cmd", "m": "auto_deploy", "a": []})
 				# 저녁 준비 —— 받은 상대를 적어 둔다 (PV 가 실려 오면 안 된다, 결정 ⑥)
 				if rm.stage == "evening_prep" and rm.get("foe") != null:
 					var f: Dictionary = rm.foe
@@ -125,7 +142,8 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 				print("  방 자리 %d (max %d) · 사람 %d · 봇 %d" % [rm.seats.size(), int(rm.max), n_humans, bn])
 			if rm.get("alone", "") == "ask":
 				c.send({"t": "alone", "go": true})
-			if run.over != null and not b.done:
+			# 11/11 온라인 대전 패배 민심 ×1.0 —— 점검 모드는 민심이 바닥나도 멸망하지 않고 다음 날 아침에 over 가 지워진다(일시적). 진짜 끝(방 over · 토너먼트)만 끝으로 센다
+			if run.over != null and not b.done and (rm.stage == "over" or run.tour != null):
 				b.done = true
 				print("  %s 끝: %s (%s)" % [b.name, "우승" if run.over.win else "탈락", run.over.msg])
 			if (rm.stage in Room.ACT_STAGES) and run.over == null:
@@ -239,6 +257,11 @@ func _report(el: float, all_done: bool) -> void:
 	print("서버 점검 %.1f초 · 모두 끝 %s · 사람끼리 대전 %d건(양쪽 집계) · 재접속 %s · 오류 %d" % [el, all_done, pairs,
 		bots.size() > 1 and bots[1].back, errors.size()])
 	print("  단계 횟수(첫 플레이어): %s" % str(stage_count))
+	print("  기다리는 단계 명령 %d번 · 방 정보 act · noon 확인 %d번" % [watch_cmds, act_checked])
+	if all_done and int(stage_count.get("noon", 0)) != 9:
+		errors.append("점심(토벌) 단계가 %d번 (기대 9 = 1~3일차 × 3페이즈)" % int(stage_count.get("noon", 0)))
+	if all_done and (int(stage_count.get("morning", 0)) != 21 or int(stage_count.get("evening_prep", 0)) != 21):
+		errors.append("준비 %d번 · 대전 준비 %d번 (기대 21 · 21)" % [int(stage_count.get("morning", 0)), int(stage_count.get("evening_prep", 0))])
 	print("  사람 자리 줄 %d개 확인 (hp · key 있음 · 기초불신 id 만 · 봇 줄에는 없음)" % info_rows)
 	print("  저녁 상대 %d건 중 사람 %d건 · 같은 바퀴 안에서 같은 상대를 두 번 만난 건수 %d" % [seen_n, hh, repeat])
 	print("  가장 큰 메시지 %.0f KB" % (server.max_msg / 1024.0))
