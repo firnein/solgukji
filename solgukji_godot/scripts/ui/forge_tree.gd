@@ -89,6 +89,14 @@ func done(k: String) -> void:
 		gs.toast("%s 완성 — 갈무리에서 뺐다" % DB.C[k].name, "gain")
 
 
+## 갈무리에서 조용히 뺀다 (알림은 부르는 쪽이) —— 11/12 다른 유저가 먼저 등용한 장수
+func drop(k: String) -> void:
+	if pins.has(k):
+		pins.erase(k)
+		opened.erase(k)
+		_save()
+
+
 ## 모두 펴기 / 모두 접기 (11/3 사용자) —— 펼 수 있는 재료 경로를 모두 연다
 func open_all(root: String) -> void:
 	if all_open(root):

@@ -86,6 +86,10 @@ var battle = null             # 진행 중인 전투 {kind, p(재료), inputs, .
 var last_result = null        # 마지막 전투 요약 —— 전투 탭에 다시 보여 준다
 var toasts := []              # 화면이 가져가 띄우는 알림 [text, kind]
 var mp := false               # 여럿이 하는 판 —— 봇(bots)은 다른 자리의 거울이라 서버가 채운다
+## 11/12 온라인 방 규칙 —— 등용할 수 없는 장수 id -> {"by": 먼저 등용한 유저} (장수 선점제) · {"dead": 1} (장수 사망룰).
+## 서버(Room._sync_locks)가 채우고 상태로 보낸다. 혼자 하기는 늘 비어 있다. can_forge · pick 이 거부하고, 화면은 회색 + lock_text
+var locked := {}
+var on_forge := Callable()    # 서버 전용 —— 조합에 성공하면 결과 id 로 부른다 (Room 이 선점 기록에 쓴다). 저장 · 전송하지 않는다
 
 
 func new_game(seed_value := -1) -> void:
@@ -444,7 +448,7 @@ static func need_item(out: String):
 
 
 func can_forge(out: String) -> bool:
-	if not DB.RECOF.has(out):
+	if not DB.RECOF.has(out) or locked.has(out):
 		return false
 	if DB.C[out].tier >= 8 and has_myth():
 		return false
@@ -483,7 +487,19 @@ func forge(out: String) -> bool:
 	if DB.is_kiin(out):
 		kiin_made.append(out)
 	give(out)
+	if on_forge.is_valid():
+		on_forge.call(out)
 	return true
+
+
+## 등용할 수 없는 까닭 —— "정지 세력이 등용" · "사망" · "" (등용 가능)
+func lock_text(k: String) -> String:
+	if not locked.has(k):
+		return ""
+	var e = locked[k]
+	if e is Dictionary and e.has("by"):
+		return "%s 세력이 등용" % str(e.by)
+	return "사망"
 
 
 ## 재료 부족 수 (아이템 포함)
@@ -566,7 +582,7 @@ func forge_goals(keys: Array, limit := 4, max_effort := GOAL_EFFORT) -> Array:
 	var min_t := maxi(3, top - 1)      # 11/4 사용자: 가진 최고 등급보다 한 단계 넘게 낮은 등급은 빼고
 	var cand := []
 	for out in keys:
-		if not DB.RECOF.has(out) or DB.is_foe(out) or can_forge(out) or DB.C[out].tier < min_t:
+		if not DB.RECOF.has(out) or DB.is_foe(out) or locked.has(out) or can_forge(out) or DB.C[out].tier < min_t:
 			continue
 		if DB.C[out].tier >= 8 and has_myth():
 			continue
@@ -1512,7 +1528,7 @@ func ticket_left() -> int:
 
 ## 선택권 하나 —— 그 카드 등급의 선택권을 쓴다
 func pick(k: String) -> bool:
-	if not DB.C.has(k) or DB.is_kiin(k) or DB.is_foe(k):
+	if not DB.C.has(k) or DB.is_kiin(k) or DB.is_foe(k) or locked.has(k):
 		return false
 	var key := str(DB.C[k].tier)
 	if int(tickets.get(key, 0)) <= 0:
@@ -1542,7 +1558,7 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
-	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp"]
+	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "locked"]
 
 
 func to_dict() -> Dictionary:

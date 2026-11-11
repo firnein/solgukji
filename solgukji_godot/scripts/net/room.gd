@@ -46,6 +46,8 @@ const SHADOW_EPI := "그림자"      # 그림자 대전 상대의 소속 글 (_f
 const SAY_GAP := 2.0         # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
+## 11/12 방 규칙 —— 장수 선점제(claim, 기본 켜짐) · 장수 사망룰(deaths = 판 시작 때 죽는 기인 이상 장수 수, 0 = 끔). 대상은 is_urgent_unit(기인 이상)
+const DEATH_OPTIONS := [3, 5, 10]
 const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
 
 var server                    # MatchServer —— send(peer, msg)
@@ -73,14 +75,27 @@ var empty_since := -1.0
 var news_seq := 0             # 소식 항목 번호 —— _news_add 가 1씩 올려 붙인다 (휴대폰이 안 읽은 소식을 가른다)
 var _news_stage := ""         # _advance 중에는 아직 stage 가 지난 단계라 시점을 '아침'으로 못박는다
 var rlog: RoomLog = null      # 사람마다 플레이 기록 (11/10) —— 부수 효과일 뿐, 없어도(점검 방 · 쓰기 실패) 방은 그대로 간다
+var claim_on := true          # 11/12 장수 선점제 —— 기인 이상은 먼저 등용한 사람만 (다른 사람은 조합 불가)
+var death_n := 0              # 11/12 장수 사망룰 —— 판 시작 때 죽는 기인 이상 장수 수 (0 = 끔)
+var claims := {}              # 선점 기록: 장수 id -> 먼저 등용한 자리 이름 (그 사람이 멸망 · 퇴장해도 풀지 않는다 —— 단순하게)
+var dead_units := []          # 사망한 장수 id (시작 때 정하고 고정)
 
 
-func _init(srv, room_code: String, m: String, n_seats = SEATS) -> void:
+func _init(srv, room_code: String, m: String, n_seats = SEATS, claim = true, deaths = 0) -> void:
 	server = srv
 	code = room_code
 	mode = m if MODES.has(m) else "fast"
 	max_seats = valid_seats(n_seats)
+	claim_on = not (typeof(claim) == TYPE_BOOL and not claim)      # 없거나 이상하면 켜짐 (옛 클라이언트도 선점제)
+	death_n = valid_deaths(deaths)
 	rng.randomize()
+
+
+## 방 만들기 메시지의 deaths —— 3 · 5 · 10 만, 나머지(없음 · 0 · 이상한 값)는 0(끔)
+static func valid_deaths(v) -> int:
+	if (typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT) and int(v) == v and int(v) in DEATH_OPTIONS:
+		return int(v)
+	return 0
 
 
 ## 방 만들기 메시지의 max —— 허용한 짝수(4 · 6 · 8)만, 없거나 이상하면 8 (옛 클라이언트)
@@ -226,7 +241,8 @@ func info(i: int) -> Dictionary:
 	return {"code": code, "mode": mode, "max": max_seats, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
-		"noon": has_noon(day), "act": i >= 0 and can_cmd(i), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N}
+		"noon": has_noon(day), "act": i >= 0 and can_cmd(i), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
+		"claim": claim_on, "deaths": death_n, "dead_units": dead_units}
 
 
 func push_lobby() -> void:
@@ -258,6 +274,8 @@ func start() -> void:
 		r.new_game(rng.randi())
 		r.mp = true
 		s.run = r
+		r.on_forge = _on_forged.bind(s)
+	_pick_deaths()
 	if RoomLog.wanted(mode):
 		rlog = RoomLog.new()
 		rlog.open(self)
@@ -389,6 +407,11 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 	if i < 0 or not can_cmd(i):
 		return
 	var r: Run = seats[i].run
+	var why := lock_reason(r, m, a)
+	if why != "":
+		server.send(peer, {"t": "toast", "text": why, "kind": "bad"})
+		push(seats[i])      # 클라이언트가 먼저 해 본 조합을 되돌린다
+		return
 	var ok = r.command(m, a)
 	seats[i].acted = true
 	if rlog != null:
@@ -406,6 +429,59 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 		push_all()      # 11/11 핵심 유닛이 늘거나 줄었다 —— 다른 사람 화면의 기록 탭도 새로 (보통은 단계가 바뀔 때만 모두에게 간다). 드문 일이라 부담이 없다
 	else:
 		push(seats[i])
+
+
+# ───────── 장수 선점제 · 사망룰 (11/12) ─────────
+
+## 사망 장수 뽑기 —— 조합으로 얻을 수 있는 기인 이상(적 전용 제외) 중 death_n 명. 방의 rng 로 (시작 때 한 번), 모두에게 소식 한 줄
+func _pick_deaths() -> void:
+	dead_units = []
+	if death_n > 0:
+		var cand: Array = DB.RECOF.keys().filter(func(k): return is_urgent_unit(str(k)) and not DB.is_foe(str(k)))
+		cand.sort()
+		while dead_units.size() < death_n and not cand.is_empty():
+			dead_units.append(str(cand.pop_at(rng.randi() % cand.size())))
+	_sync_locks()
+	if not dead_units.is_empty():
+		_news_stage = "morning"
+		_news_add({"who": "천명", "text": "%s 사망 —— 이번 판 등용 불가" % " · ".join(dead_units.map(func(k): return DB.C[k].name))})
+		_news_stage = ""
+
+
+## 사람마다 Run.locked 를 새로 채운다 —— 사망 장수 + (선점제면) 다른 사람이 먼저 등용한 장수
+func _sync_locks() -> void:
+	for s in humans():
+		if s.run == null:
+			continue
+		var lk := {}
+		for k in dead_units:
+			lk[k] = {"dead": 1}
+		if claim_on:
+			for k in claims:
+				if str(claims[k]) != str(s.name):
+					lk[k] = {"by": claims[k]}
+		s.run.locked = lk
+
+
+## Run.forge 가 성공하면 부른다 (사람의 명령 · 봇 대행 모두) —— 기인 이상을 처음 등용하면 선점으로 적고 다른 사람의 Run 을 바로 잠근다
+## (같은 단계에서 봇 대행이 차례로 조합해도 뒤 사람이 같은 장수를 만들지 못하게)
+func _on_forged(k: String, s: Dictionary) -> void:
+	if not claim_on or not is_urgent_unit(k) or claims.has(k):
+		return
+	claims[k] = s.name
+	_sync_locks()
+
+
+## 등용 거부 까닭 —— 잠긴 장수를 조합하려 하면 (클라이언트가 늦게 받은 경우 등). "" 이면 거부 아님
+func lock_reason(r: Run, m: String, a: Array) -> String:
+	if not (m in ["forge", "pick"]) or a.is_empty() or not r.locked.has(str(a[0])):
+		return ""
+	var k := str(a[0])
+	var nm: String = DB.C[k].name if DB.C.has(k) else k
+	var e = r.locked[k]
+	if e is Dictionary and e.has("by"):
+		return "장수 선점제 —— %s은(는) %s 세력이 먼저 등용해 등용할 수 없습니다" % [nm, str(e.by)]
+	return "장수 사망룰 —— %s은(는) 이번 판에 사망해 등용할 수 없습니다" % nm
 
 
 ## 긴급 소식 대상 —— 기인 이상 (기인 · 초월 6 · 불멸 7 · 신화 8)

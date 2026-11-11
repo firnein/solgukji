@@ -9,6 +9,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##                         rec = 플레이 기록 동의 (11/10) —— true 인 사람만 서버가 기록한다 (RoomLog). 없으면(옛 APK) 접속은 되지만 기록하지 않는다
 ##   list                  열린 방 목록
 ##   create {mode, max}    방 만들기 (fast · normal) —— 만든 사람이 방장. max = 총 인원(자리 수) 4 · 6 · 8 (11/11, 없거나 이상하면 8 — 옛 APK). 시작할 때 빈자리만 봇
+##                         11/12 claim = 장수 선점제(없으면 켜짐) · deaths = 장수 사망룰 인원 3 · 5 · 10 (없거나 0 이면 끔). 방 정보에 claim · deaths · dead_units
 ##   join {code}           코드로 들어가기
 ##   leave                 방에서 나가기
 ##   start                 방장이 시작 (빈자리는 봇)
@@ -134,11 +135,11 @@ func _handle(id: int, d: Dictionary) -> void:
 		"create":
 			_leave(id)
 			var code := _new_code()
-			var r := Room.new(self, code, str(d.get("mode", "fast")), d.get("max", Room.SEATS))
+			var r := Room.new(self, code, str(d.get("mode", "fast")), d.get("max", Room.SEATS), d.get("claim", true), d.get("deaths", 0))
 			rooms[code] = r
 			p.room = code
 			r.add_human(id, p.name, p.token, p.rec)
-			print("%s 방 %s 만듦 (%s · %d명)" % [p.name, code, r.mode, r.max_seats])
+			print("%s 방 %s 만듦 (%s · %d명 · 선점제 %s · 사망 %d)" % [p.name, code, r.mode, r.max_seats, "켜짐" if r.claim_on else "꺼짐", r.death_n])
 		"join":
 			var code := str(d.get("code", "")).to_upper().strip_edges()
 			if not rooms.has(code):
