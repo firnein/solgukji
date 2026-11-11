@@ -13,7 +13,7 @@ extends Node
 ## 사람이 나 혼자 남으면(다른 사람 모두 멸망·퇴장) 서버가 묻는다 —— 계속할지, 방을 닫을지.
 ## 소식(봇 · 다른 사람의 기인 이상 등용 · 멸망 · 퇴장)은 서버가 news {list:[{text, kind, who?, unit?, id?, when?, hot?}]} 로 뿌린다 —— 알림 + Run.news(머리띠 '소식') (11/9 사용자).
 ## 11/10 사용자: hot 이 있으면(사람의 기인 이상 등용) 알림 대신 '긴급' 띠 연출(GameScreen.urgent). id · when 은 소식 항목에 그대로 담는다(안 읽은 소식 뱃지 · 소식 시트의 시점 글).
-## 11/10 사용자: 남은 시간 5초부터 비프 + 붉은 가장자리 깜빡임 —— 명령을 받는 시간제 단계(아침 · 저녁 준비)에서, 아직 '준비 완료'를 안 눌렀을 때만 (_warn_tick).
+## 11/10 사용자: 남은 시간 5초부터 비프 + 붉은 가장자리 깜빡임 (11/12 깜빡임은 10초부터, 비프는 5초부터) —— 명령을 받는 시간제 단계(아침 · 저녁 준비)에서, 아직 '준비 완료'를 안 눌렀을 때만 (_warn_tick).
 ## 한마디(say): 방 정보의 미리 적힌 글(room.quick)만, 전투 탭 · 대기실 · 전투 재생 위 띠의 [한마디] 에서 {"t":"say","i":번호}.
 ## 받은 {who, text} 는 알림으로, 전투 중이면 BattleView.show_quick 으로 전장 위 줄로 (11/9 사용자).
 ## 11/10 사용자: 한마디 시트 위쪽에 이모티콘 한 줄(Icons.EMOTES 8종) —— {"t":"emote","i":번호}. 받은 {who, i} 는 어디서나 GameScreen.emote_pop 으로 이름 + 큰 기호가 1.5초 (글과 같은 2초 간격).
@@ -22,7 +22,8 @@ extends Node
 ## 머리띠(GameScreen._render_head)는 온라인이면 방의 일차 · 단계 · 남은 시간을 보인다 —— 혼자 하기의 요일 · 페이즈 · 병사 수 대신 (11/9 사용자: 싱크 · 병사 수 제거).
 
 const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # class_name 없이 (낡은 .godot 캐시에서 'not declared')
-const WARN_SEC := 5            # 남은 시간이 이 초 이하(5 → 1)면 매 초 비프 + 붉은 가장자리
+const WARN_SEC := 10           # 남은 시간이 이 초 이하(10 → 1)면 붉은 가장자리 깜빡임 (11/12 사용자: 깜빡임은 10초부터)
+const BEEP_SEC := 5            # 비프는 그대로 5초부터 (10초 내내 울리면 시끄럽다)
 const SERVERS := "res://data/servers.json"      # 서버 목록 —— 콤보에 이 순서대로 (Dev 주소는 build_apk.bat 의 release.py 가 이 PC 의 LAN IPv4 로 고친다)
 const CUSTOM := "직접 입력…"
 ## 11/10 사용자: "동의를 받아야지" —— 온라인 접속 전에 플레이 기록 동의를 받는다. 문구를 바꾸면 NetClient.CONSENT_VER 를 올려 모두에게 다시 묻는다.
@@ -118,7 +119,8 @@ func _warn_tick() -> void:
 			gs.add_child(_warn_fx)
 		if c != _warn_c:
 			_warn_c = c
-			Sfx.play("alert_beep", 0.0, 0.0)
+			if c <= BEEP_SEC:
+				Sfx.play("alert_beep", 0.0, 0.0)
 		_warn_fx.show_phase(clampf(float(c) - r, 0.0, 1.0))      # 막 c 초가 됐을 때 0 → 다음 초 직전 1
 	elif _warn_c != -1 or (_warn_fx != null and is_instance_valid(_warn_fx) and _warn_fx.visible):
 		_warn_c = -1
@@ -865,15 +867,49 @@ func _stage_name() -> String:
 	return str(STAGE_SHORT.get(st, room.get("stage_n", "")))
 
 
-## 상대 줄 —— 이름 · 전적만 (PV 는 보이지 않는다, 결정 ⑥)
+## 상대 줄 —— 이름 · 전적 · 핵심 장수 (PV 와 편성은 보이지 않는다, 결정 ⑥)
+## 11/12 사용자: 봇의 칭호("전력 1위 사냥꾼" 등)는 빼고 "봇" 으로. 상대의 핵심 장수(기인 이상)를 높은 등급부터 한 줄로 —— 사람 · 그림자는 서버가 준 key, 봇은 지금 전력의 예(GameScreen.bot_key)
 func _foe_panel() -> Control:
 	var f: Dictionary = room.foe
-	var v := UI.vbox(4)
+	var v := UI.vbox(6)
 	var tag := ""
 	if f.human and not f.online:
 		tag = "  [color=#e0806f]끊김 — 봇 대행[/color]"
-	v.add_child(UI.rich("[font_size=18][b]%s[/b][/font_size]  [color=#8D7B5C]%s[/color]%s" % [f.name, f.epi, tag], 16))
+	var epi := str(f.get("epi", ""))
+	if not f.human and not (epi in [Room.SHADOW_EPI, "떠돌이 군세"]):
+		epi = "봇"
+	v.add_child(UI.rich("[font_size=18][b]%s[/b][/font_size]  [color=#8D7B5C]%s[/color]%s" % [f.name, epi, tag], 16))
 	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], 14))
+	var key := []
+	var guess := false
+	if f.get("key") is Array:
+		for k in f.key:      # 믿지 않는다 —— 모르는 id · 기초불신이 아닌 카드 · 중복은 거른다 (peer_rows 와 같다)
+			var ks := str(k)
+			if DB.C.has(ks) and Room.is_urgent_unit(ks) and not key.has(ks):
+				key.append(ks)
+	elif not f.human:
+		for b in gs.run.bots:
+			if str(b.name) == str(f.name):
+				key = GameScreen.bot_key(gs.run, b)
+				guess = true
+				break
+	key.sort_custom(func(a, b):
+		var ra := Room.key_rank(a)
+		var rb := Room.key_rank(b)
+		return ra > rb if ra != rb else a < b)
+	if not key.is_empty():
+		v.add_child(UI.lbl("핵심 장수%s" % (" (봇 군세는 전투마다 새로 뽑는다 —— 예)" if guess else ""), 12, DB.PAL.bamboo_dim))
+		var fl := HFlowContainer.new()
+		fl.add_theme_constant_override("h_separation", 4)
+		fl.add_theme_constant_override("v_separation", 4)
+		for k in key:
+			var t := MiniTile.new().setup(str(k), -1)
+			t.custom_minimum_size = Vector2(50, 74)
+			t.tapped.connect(func(kk): gs.card_info(kk))
+			fl.add_child(t)
+		v.add_child(fl)
+	elif f.get("key") is Array or guess:
+		v.add_child(UI.lbl("핵심 장수 아직 없음", 12, DB.PAL.bamboo_dim))
 	if str(room.get("stage", "")) == "evening_prep":
 		v.add_child(UI.hint("편성 탭에서 진형 · 작전을 고칠 수 있다. 상대의 편성은 보이지 않는다."))
 	return UI.sect("오늘 저녁 상대", UI.panel(v))
@@ -998,20 +1034,24 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 
 
 ## 기록 탭의 「군웅」 —— 사람마다 한 칸: 이름 + 민심 게이지(머리띠와 같은 것), 아래에 핵심 유닛 작은 카드 줄 (누르면 디테일창).
-## 봇은 줄 없이 한 줄 요약 —— 봇 자리에는 민심도 카드도 없다 (서버가 모르는 것이 아니라 없다: 멸망하지 않는 세력, Room 봇은 pv · 전적 · 실패만 가진다)
+## 11/12 사용자: 봇 자리도 줄로 —— 봇에게는 민심이 없다(멸망하지 않는 세력)고 적고, 핵심 유닛은 지금 전력으로 뽑힐 군세의 예시(GameScreen.bot_key —— 봇 군세는 전투마다 새로 뽑는다)
 func peers_section() -> Control:
 	var run: Run = gs.run
 	var seats: Array = room.get("seats", [])
 	var v := UI.vbox(8)
 	for r in peer_rows(room, run.hp, Room.key_cards(run)):
-		v.add_child(_peer_row(r))
-	var bn := seats.filter(func(x): return not bool(x.get("human", false))).size()
-	if bn > 0:
-		v.add_child(UI.hint("봇 %d자리 — 민심 · 핵심 유닛 정보 없음 (멸망하지 않는 세력)" % bn))
+		v.add_child(peer_row(gs, r))
+	for x in seats:
+		if x is Dictionary and not bool(x.get("human", false)):
+			for b in run.bots:      # 서버의 거울(Room._mirror) —— 봇의 전력 · 성향은 여기에 있다
+				if str(b.name) == str(x.get("name", "")):
+					v.add_child(peer_row(gs, GameScreen.bot_row(run, b)))
+					break
 	return UI.sect("군웅 — 민심 · 핵심 유닛", v)
 
 
-func _peer_row(r: Dictionary) -> Control:
+## 한 사람(또는 봇)의 칸 —— 혼자 하기 기록 탭(GameScreen._page_rank)도 같이 쓴다
+static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 	var P := DB.PAL
 	var v := UI.vbox(6)
 	var h := UI.hbox(8)
@@ -1029,6 +1069,8 @@ func _peer_row(r: Dictionary) -> Control:
 	elif r.dead:
 		tag = "멸망"
 		tcol = P.seal
+	elif bool(r.get("bot", false)):
+		tag = "봇"
 	elif not r.online:
 		tag = "끊김"
 		tcol = P.seal
@@ -1036,7 +1078,11 @@ func _peer_row(r: Dictionary) -> Control:
 		var tl := UI.lbl(tag, 12, tcol, true)
 		tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(tl)
-	if int(r.hp) >= 0:
+	if bool(r.get("bot", false)):
+		var bl := UI.lbl(str(r.get("note", "민심 없음")), 13, P.bamboo_dim)      # 봇은 민심이 없다 —— 전적 · 토벌 실패만
+		bl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(bl)
+	elif int(r.hp) >= 0:
 		var g := GameScreen.HpGauge.new()      # 머리띠의 민심 게이지를 그대로 (30 이하 붉음 · 위험 표시까지)
 		g.set_now(float(r.hp))
 		g.custom_minimum_size = Vector2(150, 24)
@@ -1054,13 +1100,15 @@ func _peer_row(r: Dictionary) -> Control:
 	elif r.key.is_empty():
 		v.add_child(UI.lbl("핵심 유닛 아직 없음", 13, P.bamboo_dim))
 	else:
+		if bool(r.get("bot", false)):
+			v.add_child(UI.lbl("핵심 유닛 (봇 군세는 전투마다 새로 뽑는다 —— 지금 전력의 예)", 12, P.bamboo_dim))
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 4)
 		fl.add_theme_constant_override("v_separation", 4)
 		for k in r.key:
 			var t := MiniTile.new().setup(str(k), -1)
 			t.custom_minimum_size = Vector2(50, 74)      # 폭 56 미만 = 작은 칸 (초상 · 이름) —— 한 줄 12장
-			t.tapped.connect(func(kk): gs.card_info(kk))
+			t.tapped.connect(func(kk): scr.card_info(kk))
 			fl.add_child(t)
 		v.add_child(fl)
 	var pnl := UI.panel(v, 10)
@@ -1210,8 +1258,8 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	var day_no := run.day * 3 + run.phase + 1
 	room = {"code": "K7QX", "mode": "fast", "max": n_max, "mode_n": Room.MODES.fast.n, "started": true, "stage": stage, "stage_no": 3,
 		"stage_n": Room.STAGE_N.get(stage, stage), "remain": remain_s, "day": run.day, "phase": run.phase, "day_no": day_no, "you": 0, "host": true,
-		"seats": seats, "foe": ({"name": seats[3].name, "human": false, "online": false, "epi": run.bots[0].epi, "w": 3, "l": 1} if stage in ["evening_prep", "evening"] else null),
-		"noon": run.day < Run.ONLINE_NOON_DAYS, "act": true, "alone": "", "tour_round": -1, "quick": ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"], "emote_n": Room.EMOTE_N}
+		"seats": seats, "foe": ({"name": seats[3].name, "human": false, "online": false, "epi": "", "w": 3, "l": 1} if stage in ["evening_prep", "evening"] else null),
+		"noon": run.day < Run.ONLINE_NOON_DAYS, "act": true, "alone": "", "tour_round": -1, "quick": Room.QUICK_MSGS, "emote_n": Room.EMOTE_N}
 	stage_end = Room.now() + remain_s
 	_stage_no = 3
 	if stage in Room.WATCH_STAGES:
