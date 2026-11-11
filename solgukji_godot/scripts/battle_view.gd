@@ -1263,6 +1263,21 @@ func _ult_warn(e: Dictionary) -> void:
 		warn_name = "%s 『%s』" % [who, e.name]
 
 
+## 11/11 인연 합동 —— 대표가 기를 모으는 동안 같은 인연의 장수가 합류한다. 그 장수도 기 모으기 표시(작은 줄 『인연』 · 장수 · 차오르는 고리) · 맞을 곳 표시
+## 터질 때는 대표의 컷인 옆에 작은 초상으로 함께 선다 (_start_ult · Hud._draw_cut)
+func _ult_join(e: Dictionary) -> void:
+	var mine: bool = str(e.a).begins_with("A")
+	var wait: float = e.get("wait", 1.5)
+	var col := Color("#6fb0ff") if mine else Color("#ff4a3a")
+	for w in e.get("warn", []):
+		field.area_mark({"k": "circle", "x": w.x, "y": w.y, "r": w.r}, col, wait + 0.3)
+	if field.squads.has(e.a):
+		field.skill_fx(e.a)
+	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
+	hud.charge_start(e.a, who, e.name, wait, mine, str(e.get("inyeon", "")))
+	Sfx.play("skill", -9.0)
+
+
 func _ult_cut(e: Dictionary) -> void:
 	var f: String = e.get("f", "")
 	if f == warn_key:
@@ -1291,6 +1306,8 @@ func _start_group(g: Dictionary) -> void:
 		match e.get("fx", ""):
 			"ult_warn":
 				_ult_warn(e)
+			"ult_join":
+				_ult_join(e)
 			"ult_cut":
 				_ult_cut(e)
 	if g.ult != null and field.squads.has(g.who):
@@ -1423,11 +1440,31 @@ func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
 	var u: Dictionary = g.ult
 	hud.charge_end(g.who)      # 기 모으기 표시는 컷인이 뜨면 걷는다
+	if u.has("lead"):      # 11/11 인연 합동 —— 대표 컷인 옆에 이미 서 있다. 컷인 · 카메라 · 슬로모션 없이 제 고유기 이펙트만 (슉 나아가 휘두른다)
+		hud.float_text(g.who, "인연 『%s』" % u.get("inyeon", ""), Color("#ffd257"), 13)
+		get_tree().create_timer(0.35).timeout.connect(func():
+			if is_instance_valid(sq):
+				field.flourish(sq, 1.3))
+		field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
+		g.min_t = clock + ULT_DELAY
+		if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty() and not _rt():
+			field.order_melee(g.who, g.targets[0])
+			g.wait = clock + MELEE_WAIT
+			pending.append(g)
+		else:
+			_release(g, clock + ULT_DELAY)
+		return
 	if speed > 0:
 		slow_t = 2.8      # 11/4 휘두르기 · 날리기까지 슬로모션 (11/6 컷인이 길어져 2.0 → 2.8)
 	var ud = DB.ult_of(sq.cid) if DB.C.has(sq.cid) else null      # 효과 문구는 카드의 고유기 정의에서 (사건 쪽 사전에는 eff 가 없다)
 	var desc := _ult_short(ud, sq.tier) if ud != null and ud.has("eff") else ""
-	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false), desc)
+	var mates := []
+	for mk in u.get("mates", []):
+		hud.charge_end(mk)      # 합류 줄은 컷인의 짝 초상으로 넘어간다
+		if field.squads.has(mk):
+			var ms: Squad = field.squads[mk]
+			mates.append({"k": ms.cid, "who": ms.row.name})
+	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false), desc, mates, str(u.get("inyeon", "")))
 	# 11/4 사용자: 숄더뷰로 다가가 장수가 무기를 크게 휘두르고(효과 · 소리), 적이 날아간 뒤 원래 카메라로
 	field.cinematic(sq, 3.0, true)
 	get_tree().create_timer(CUT_T * 0.7).timeout.connect(func():
@@ -1984,9 +2021,9 @@ class Hud extends Control:
 	var cut = null           # 고유기 컷인 {k, name, shout, camp, col, t}
 	var _brush := PackedVector2Array()
 
-	func ult_cutin(sq: Squad, nm: String, shout: String, crisis := false, desc := "") -> void:
+	func ult_cutin(sq: Squad, nm: String, shout: String, crisis := false, desc := "", mates := [], inyeon := "") -> void:
 		cut = {"k": sq.cid, "who": sq.row.name, "name": nm, "shout": shout, "camp": sq.camp, "crisis": crisis,
-			"col": DB.tier_color(sq.cid), "t": 0.0, "desc": desc}
+			"col": DB.tier_color(sq.cid), "t": 0.0, "desc": desc, "mates": mates, "inyeon": inyeon}
 		# 붓질 띠의 거친 가장자리 —— 매번 조금씩 다르게
 		_brush = PackedVector2Array()
 		var r := RandomNumberGenerator.new()
@@ -2139,9 +2176,10 @@ class Hud extends Control:
 	const CHARGE_HOLD := 0.35      # 다 찬 뒤 머무는 시간 (전장 초)
 	var charges := {}              # 부대 key -> {who, name, t0, wait, mine}
 	var _charge_rows := 0          # 지금 보이는 줄 수 —— 안내문(ann)을 그 아래로 내린다
+	var _join_rows := 0            # 인연 합류 작은 줄 수 (32px)
 
-	func charge_start(key: String, who: String, nm: String, wait: float, mine: bool) -> void:
-		charges[key] = {"who": who, "name": nm, "t0": view.clock, "wait": maxf(wait, 0.1), "mine": mine}
+	func charge_start(key: String, who: String, nm: String, wait: float, mine: bool, inyeon := "") -> void:
+		charges[key] = {"who": who, "name": nm, "t0": view.clock, "wait": maxf(wait, 0.1), "mine": mine, "inyeon": inyeon}
 
 	func charge_end(key: String) -> void:
 		charges.erase(key)
@@ -2157,13 +2195,18 @@ class Hud extends Control:
 		var fb := DB.font_bold
 		var y := 62.0
 		_charge_rows = 0
+		_join_rows = 0
 		for key in charges.keys():
 			var c: Dictionary = charges[key]
 			var t: float = view.clock - c.t0
 			if t > c.wait + CHARGE_HOLD:
 				charges.erase(key)
 				continue
-			if (not c.mine and not view.direct) or _charge_rows >= 2:
+			if (not c.mine and not view.direct) or (_charge_rows >= 2 and c.get("inyeon", "") == ""):
+				continue
+			if c.get("inyeon", "") != "":      # 11/11 인연 합동 —— 합류한 장수는 대표 줄 아래 작은 한 줄
+				y = _draw_join_row(c, t, y)
+				_join_rows += 1
 				continue
 			var u := clampf(t / c.wait, 0.0, 1.0)
 			var a := clampf(t / 0.12, 0, 1) * clampf((c.wait + CHARGE_HOLD - t) / 0.25, 0, 1)
@@ -2217,6 +2260,43 @@ class Hud extends Control:
 			draw_string(fb, bb.position + Vector2(0, 13.5), CHARGE_WORD, HORIZONTAL_ALIGNMENT_CENTER, bw, 11, Color(DB.PAL.paper, a))
 			y += 46.0
 			_charge_rows += 1
+
+	## 합류한 장수의 작은 줄 —— 옆에서 미끄러져 들어와 "인연 『이름』  장수 『고유기』" · 고리 (합류 시각에서 터질 때까지 찬다). 다음 줄 y 를 돌려준다
+	func _draw_join_row(c: Dictionary, t: float, y: float) -> float:
+		var fb := DB.font_bold
+		var u := clampf(t / c.wait, 0.0, 1.0)
+		var a := clampf(t / 0.12, 0, 1) * clampf((c.wait + CHARGE_HOLD - t) / 0.25, 0, 1)
+		var slide := (1.0 - ease(clampf(t / 0.22, 0, 1), 0.3)) * (-90.0 if c.mine else 90.0)
+		var lab := "인연 『%s』" % c.inyeon
+		var who: String = c.who if c.mine else "적 · " + c.who
+		var body := "%s 『%s』" % [who, c.name]
+		var fs := 13
+		var lw := fb.get_string_size(lab, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var bw := fb.get_string_size(body, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		while fs > 10 and lw + bw + 52.0 > size.x - 40.0:
+			fs -= 1
+			lw = fb.get_string_size(lab, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			bw = fb.get_string_size(body, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var R := 8.0
+		var total := R * 2.0 + 8.0 + lw + 10.0 + bw
+		var x0 := (size.x - total) / 2.0 + slide
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.05, 0.04, 0.03, 0.62 * a)
+		sb.set_corner_radius_all(7)
+		sb.border_color = Color(Color("#e8c26a"), 0.75 * a)
+		sb.set_border_width_all(1)
+		draw_style_box(sb, Rect2(x0 - 10.0, y, total + 20.0, 28.0))
+		var rc := Vector2(x0 + R, y + 14.0)
+		draw_arc(rc, R, 0.0, TAU, 32, Color(1, 1, 1, 0.18 * a), 2.5)
+		if u > 0.0:
+			var gc := Color("#ffd257") if u < 1.0 else Color("#ffd257").lerp(Color.WHITE, 0.5 + 0.5 * sin(view.clock * 25.0))
+			draw_arc(rc, R, -PI / 2.0, -PI / 2.0 + TAU * u, 32, Color(gc, a), 3.0)
+		var tx := x0 + R * 2.0 + 8.0
+		draw_string_outline(fb, Vector2(tx, y + 19.0), lab, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85 * a))
+		draw_string(fb, Vector2(tx, y + 19.0), lab, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#ffd98a", a))
+		draw_string_outline(fb, Vector2(tx + lw + 10.0, y + 19.0), body, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.85 * a))
+		draw_string(fb, Vector2(tx + lw + 10.0, y + 19.0), body, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#9cc8ff" if c.mine else "#ffb3a6", a))
+		return y + 32.0
 
 	## 강조 순위 —— 진영마다 그 전투에 나온 장수 가운데 등급(같으면 PV) 상위 둘만 1 · 2 (11/3 사용자: 등급마다 크게 하니
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
@@ -2865,7 +2945,7 @@ class Hud extends Control:
 			var afs := 20
 			while afs > 12 and DB.font_display.get_string_size(ann.text, HORIZONTAL_ALIGNMENT_LEFT, -1, afs).x > size.x - 24:
 				afs -= 1         # 세로 화면에서 폭을 넘지 않게
-			_text(DB.font_display, Vector2(0, 84 + 46 * _charge_rows), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))      # 11/7 기 모으기 표시가 있으면 그 아래
+			_text(DB.font_display, Vector2(0, 84 + 46 * _charge_rows + 32 * _join_rows), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))      # 11/7 기 모으기 표시가 있으면 그 아래
 		if cut:
 			_draw_cut()
 		# 결과 낙관
@@ -2975,6 +3055,30 @@ class Hud extends Control:
 		else:
 			px = lerpf(-pw - 40, sz.x * 0.14, pin) if not foe else lerpf(sz.x + 40, sz.x * 0.86 - pw, pin)
 			pr = Rect2(px, c.y - ph * 0.55, pw, ph)
+		# 11/11 인연 합동 —— 함께 터지는 장수들이 대표 초상 양옆에 작게 선다 (바깥에서 슉 들어와 대표 뒤에 겹친다). 하나뿐이면 오른쪽
+		var mates: Array = cut.get("mates", [])
+		for i in mates.size():
+			var mt := ease(clampf((t - 0.12 - 0.1 * i) / 0.2, 0, 1), 0.2)
+			if mt <= 0.02:
+				continue
+			var mh := ph * 0.72
+			var mw := mh * 0.78
+			var right := mates.size() == 1 or i == 1
+			var mx_end := (pr.end.x - mw * 0.36) if right else (pr.position.x - mw * 0.64)
+			var mx := lerpf(sz.x + 40.0 if right else -mw - 40.0, mx_end, mt)
+			var mr := Rect2(mx, pr.end.y - mh, mw, mh)
+			var mc: Color = DB.tier_color(mates[i].k)
+			draw_rect(mr.grow(6), Color(mc, 0.35 * fade))
+			draw_rect(mr.grow(2), Color(0, 0, 0, 0.9 * fade))
+			Art.draw_portrait(self, mr, mates[i].k, t, "ult")
+			var nstrip := Rect2(mr.position.x, mr.end.y - 26.0, mr.size.x, 26.0)
+			draw_rect(nstrip, Color(0, 0, 0, 0.72 * fade))
+			var vis_w := mw * 0.6      # 대표 초상에 가려지지 않는 쪽 폭 안에서 이름 (세력 · 별칭은 빼고 인물 이름)
+			var nx := nstrip.position.x if not right else nstrip.end.x - vis_w
+			draw_string(DB.font_bold, Vector2(nx, nstrip.position.y + 19), str(mates[i].who).split(" ")[-1], HORIZONTAL_ALIGNMENT_CENTER, vis_w, 16, Color(1, 0.95, 0.85, fade))
+			if fade < 1.0:
+				draw_rect(mr, Color(0, 0, 0, (1.0 - fade) * 0.7))
+			draw_rect(mr, Color(Color("#ffd257"), fade), false, 2.0)
 		if pin > 0.02:
 			draw_rect(pr.grow(8), Color(col, 0.35 * fade))
 			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
@@ -2983,6 +3087,20 @@ class Hud extends Control:
 			if fade < 1.0:
 				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
 			draw_rect(pr, Color(col, fade), false, 3.0)
+		if not mates.is_empty() and str(cut.get("inyeon", "")) != "":
+			var it := clampf((t - 0.34) / 0.16, 0, 1)
+			if it > 0.0:
+				var lab := "인연 『%s』" % cut.inyeon
+				var lw := sz.x * 0.9
+				var lfs := 34
+				while lfs > 20 and DB.font_display.get_string_size(lab, HORIZONTAL_ALIGNMENT_LEFT, -1, lfs).x > lw:
+					lfs -= 2
+				var ly := (pr.position.y - 8.0 - (34.0 if cut.crisis else 0.0)) if tall else (by - band_h / 2.0 - 30.0)
+				var lsc := lerpf(1.7, 1.0, ease(it, 0.35))
+				draw_set_transform(Vector2(sz.x / 2.0, ly), tilt * 0.3, Vector2.ONE * lsc)
+				draw_string_outline(DB.font_display, Vector2(-lw / 2.0, 0), lab, HORIZONTAL_ALIGNMENT_CENTER, lw, lfs, 12, Color(0, 0, 0, fade))
+				draw_string(DB.font_display, Vector2(-lw / 2.0, 0), lab, HORIZONTAL_ALIGNMENT_CENTER, lw, lfs, Color(Color("#ffd98a"), fade * it))
+				draw_set_transform(Vector2.ZERO)
 		# 기술명 —— 크게 찍혔다가 자리를 잡는다
 		var fd := DB.font_display
 		var nt := clampf((t - 0.22) / 0.16, 0, 1)

@@ -16,6 +16,7 @@ const KNOBS := [      # [이름, 객체, 속성, 최소, 최대, 칸]
 	["책략 사거리 cast_range", "RtBattle", "cast_range", 80.0, 500.0, 5.0],
 	["신화 능력치 myth_power", "Battle", "myth_power", 0.8, 2.0, 0.05],
 	["책략 병력 피해 int_troop", "Battle", "int_troop", 0.5, 3.0, 0.05],
+	["인연 합동 상한 배수", "Battle", "inyeon_cap_mul", 0.5, 5.0, 0.1],
 ]
 
 var side := {}           # "A" / "B" -> {deck: Array, list: ItemList, deck_list: ItemList, form, tac, morale, equip, tier, tag, foe}
@@ -399,7 +400,7 @@ func _mid_col() -> Control:
 		grid.add_child(sb)
 	kp.add_child(grid)
 	var tg := HBoxContainer.new()
-	for t in [["병종 역할", "tag_roles"], ["고유기", "ults_enabled"], ["특기", "passives_enabled"], ["위세", "aura_enabled"]]:
+	for t in [["병종 역할", "tag_roles"], ["고유기", "ults_enabled"], ["인연 합동", "inyeon_enabled"], ["특기", "passives_enabled"], ["위세", "aura_enabled"]]:
 		var c := CheckBox.new()
 		c.text = t[0]
 		c.button_pressed = bool(_kget(t[1]))
@@ -433,8 +434,10 @@ func _kget(k: String):
 		"cast_range": return RtBattle.cast_range
 		"myth_power": return Battle.myth_power
 		"int_troop": return Battle.int_troop
+		"inyeon_cap_mul": return Battle.inyeon_cap_mul
 		"tag_roles": return Battle.tag_roles
 		"ults_enabled": return Battle.ults_enabled
+		"inyeon_enabled": return Battle.inyeon_enabled
 		"passives_enabled": return Battle.passives_enabled
 		"aura_enabled": return Battle.aura_enabled
 	return 0.0
@@ -450,8 +453,10 @@ func _kset(k: String, v) -> void:
 		"cast_range": RtBattle.cast_range = v
 		"myth_power": Battle.myth_power = v
 		"int_troop": Battle.int_troop = v
+		"inyeon_cap_mul": Battle.inyeon_cap_mul = v
 		"tag_roles": Battle.tag_roles = v
 		"ults_enabled": Battle.ults_enabled = v
+		"inyeon_enabled": Battle.inyeon_enabled = v
 		"passives_enabled": Battle.passives_enabled = v
 		"aura_enabled": Battle.aura_enabled = v
 
