@@ -20,6 +20,7 @@ const KNOBS := [      # [이름, 객체, 속성, 최소, 최대, 칸]
 
 var side := {}           # "A" / "B" -> {deck: Array, list: ItemList, deck_list: ItemList, form, tac, morale, equip, tier, tag, foe}
 var view: BattleView
+var _style_btn: OptionButton
 var out: RichTextLabel
 var seed_box: SpinBox
 var seed_rand: CheckBox
@@ -59,6 +60,13 @@ func _ready() -> void:
 	view.ended.connect(func(res, _inp): _report([res], "관전 결과"))
 	await get_tree().process_frame
 	Settings.load_cfg()      # 11/6 사용자: 실험실에서 전투 설정(화풍 · 품질)을 바꿀 수 없다 —— 게임 설정을 읽고 가운데 열에서 바꾼다
+	# 11/11 사용자: 실험실도 기본 타입2 —— 저장된 설정이 무엇이든 시작은 타입2 (저장하지 않는다. 가운데 열에서 바꾸면 그때 저장)
+	Settings.type2 = true
+	Settings.sumuk = false
+	Settings.dots = false
+	if _style_btn != null:
+		_style_btn.selected = 2
+	view.apply_style()
 	Settings.apply()
 	Settings.apply_port(view.port)
 	_random("A", 7)
@@ -294,6 +302,7 @@ func _mid_col() -> Control:
 	stl.text = "화풍"
 	rs.add_child(stl)
 	var style := OptionButton.new()
+	_style_btn = style
 	for nm in ["기본 3D", "수묵", "타입2 (삼국지11)", "점묘 (2D)"]:
 		style.add_item(nm)
 	style.selected = 2 if Settings.type2 else (1 if Settings.sumuk else (3 if Settings.dots else 0))
