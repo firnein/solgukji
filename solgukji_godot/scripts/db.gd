@@ -34,7 +34,7 @@ var CARD_ADJ := {}      # 11/10 카드별 힘 배율 {id: 배율 | {st, tr, psv}
 var _card_adj_on := {}  # 지금 곱해 둔 능력치 배율 (다시 불러도 겹쳐 곱하지 않게)
 var _card_adj_tr := {}  # 지금 곱해 둔 병력 배율
 const TIER_ART := true   # 11/10 사용자: 등급별 일러스트(<인물>_초월 · _불멸 · _기인.png)가 있는 카드만 그 그림을 쓴다 —— 없으면 기본 초상. 이전 설명: 초월 · 불멸 · 신화 전용 그림(<인물>_신화.png 등)을 쓸까 —— 10/30 사용자: 지금은 모든 등급이 기본 그림 (true 로 바꾸면 export_presets.cfg 의 exclude_filter 에서 *_초월 · *_불멸 · *_신화 도 빼야 APK 에 들어간다)
-const TIER_ART_MYTH := false   # 신화 카드 초상에 <인물>_신화.png 를 쓸지 (v1 신화는 컷인 전용으로 둔다)
+const TIER_ART_MYTH := true   # 11/11 사용자: 신화 그림(<인물>_신화.png)이 있는 신화 카드는 신화 그림으로 (예전엔 컷인 전용이라 신화 유비가 불멸 그림을 썼다). 없는 인물은 한 단계씩 아래 그림(불멸 → 초월 → 기본)
 var _BASE := {}         # 보정 전 원본 능력치
 
 var _portrait_cache := {}
