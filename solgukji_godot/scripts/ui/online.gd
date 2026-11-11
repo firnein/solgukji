@@ -344,6 +344,8 @@ func connect_sheet(refresh := false) -> void:
 			_drop_room()
 			net.send({"t": "create", "mode": m, "max": _pick_max}), "gold")
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
+		bt.custom_minimum_size = Vector2(0, 64)
 		mk.add_child(bt)
 	b.add_child(mk)
 	b.add_child(UI.eyebrow("코드로 들어가기"))

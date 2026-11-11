@@ -3650,6 +3650,7 @@ func _dev_args() -> void:
 					online.gs = self
 					add_child(online)
 				online.dev_sheet = true
+				online._pick_max = Room.valid_seats(int(a.get("gseats", "8")))      # --gseats=4 면 4명이 골라진 모양
 				online.connect_sheet()
 			"onwar":      # 점검용 —— 서버 없이 온라인 전투 탭 (--gsheet=onwar:noon | morning | evening_prep | evening, 11/9)
 				if online == null:
