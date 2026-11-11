@@ -304,6 +304,12 @@ func _build_top() -> Control:
 	_news_btn.add_child(_news_badge)
 	mv.add_child(_news_btn)
 	row.add_child(mv)
+	# 11/11 사용자: 현재 플레이타임을 머리띠(☰ 이 뜨는 줄)의 가운데에 —— "플레이타임 0:04"
+	_play_lbl = UI.lbl(play_text(), 12, DB.PAL.bamboo)
+	_play_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_play_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_play_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(_play_lbl)
 	return bar
 
 
@@ -714,8 +720,6 @@ func _restore_scroll(v: int) -> void:
 ## 기록 탭 —— 위에 [순위 | 계보 | 업데이트] 나눔 탭
 func _page_more(body: Control) -> Control:
 	var v := UI.vbox(16)
-	_play_lbl = UI.lbl(play_text(), 15, DB.PAL.bamboo)      # 11/11 사용자: 최상단에 현재 플레이타임
-	v.add_child(_play_lbl)
 	v.add_child(UI.segmented([["rank", "순위"], ["line", "계보"], ["update", "업데이트"]], page, func(k): go(k)))
 	v.add_child(body)
 	return v
@@ -893,7 +897,7 @@ func _process(dt: float) -> void:
 	_danger_tick(dt)
 
 
-## 플레이 시간 —— 이 판이 시작된 뒤 켜 둔 시간(판이 끝나면 멈춤, 제목 화면에서는 세지 않는다). 기록 탭 맨 위에 보인다
+## 플레이타임 —— 이 판이 시작된 뒤 켜 둔 시간(판이 끝나면 멈춤, 제목 화면에서는 세지 않는다). 머리띠 가운데에 보인다
 func _play_tick(dt: float) -> void:
 	if run != _play_run:
 		_play_run = run
@@ -906,7 +910,7 @@ func _play_tick(dt: float) -> void:
 
 func play_text() -> String:
 	var t := int(_play_sec)
-	return ("플레이 시간  %d:%02d:%02d" % [t / 3600, t / 60 % 60, t % 60]) if t >= 3600 else ("플레이 시간  %d:%02d" % [t / 60, t % 60])
+	return ("플레이타임 %d:%02d:%02d" % [t / 3600, t / 60 % 60, t % 60]) if t >= 3600 else ("플레이타임 %d:%02d" % [t / 60, t % 60])
 
 
 
