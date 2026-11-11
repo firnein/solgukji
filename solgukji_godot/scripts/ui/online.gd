@@ -61,6 +61,9 @@ var _tick := 0.0
 var _warn_fx: Control = null      # 붉은 가장자리 (WarnEdge)
 var _warn_c := -1                 # 마지막으로 비프를 울린 남은 초 (올림)
 var _pick_max := Room.SEATS       # 방 만들기 시트에서 고른 총 인원 (4 · 6 · 8, 11/11) —— create 의 max
+var _pick_claim := true           # 11/12 장수 선점제 (기본 켜짐) —— create 의 claim
+var _pick_deaths := 0             # 11/12 장수 사망룰 인원 (0 = 끔 · 3 · 5 · 10) —— create 의 deaths
+var _intro_room := ""             # 규칙 안내(선점제 팝업 · 사망 연출)를 띄운 방 코드 —— 한 판에 한 번
 var dev_max := 8                  # 점검용 —— 가짜 방의 총 인원 (--gseats=4)
 var dev_sheet := false            # 점검용 —— 접속 없이 방 만들기 시트까지 그려 본다 (--gsheet=oncreate)
 var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'를 눌렀다 —— 서버가 알려 주기 전에도 바로 끈다
@@ -348,7 +351,7 @@ func connect_sheet(refresh := false) -> void:
 	for m in ["fast", "normal"]:
 		var bt := UI.btn(Room.MODES[m].n, func():
 			_drop_room()
-			net.send({"t": "create", "mode": m, "max": _pick_max}), "gold")
+			net.send({"t": "create", "mode": m, "max": _pick_max, "claim": _pick_claim, "deaths": _pick_deaths}), "gold")
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
 		bt.custom_minimum_size = Vector2(0, 64)
@@ -391,6 +394,18 @@ func _fill_seat_pick(box: Control) -> void:
 		_pick_max = int(k)
 		_fill_seat_pick(box)))
 	box.add_child(UI.hint("사람 3명이면 %d명 방은 봇 %d명. 시작하면 바꿀 수 없다." % [_pick_max, maxi(0, _pick_max - 3)]))
+	# 11/12 방 규칙 —— 장수 선점제(기본 켜짐) · 장수 사망룰(기본 끔, 3 · 5 · 10명)
+	box.add_child(UI.lbl("장수 선점제 — 기인 이상은 먼저 등용한 사람만", 14, DB.PAL.bamboo))
+	box.add_child(UI.segmented([["1", "켜기"], ["0", "끄기"]], "1" if _pick_claim else "0", func(k: String):
+		_pick_claim = k == "1"
+		_fill_seat_pick(box)))
+	var dl := [["0", "끄기"]]
+	for n in Room.DEATH_OPTIONS:
+		dl.append([str(n), "%d명" % n])
+	box.add_child(UI.lbl("장수 사망룰 — 시작 때 기인 이상 무작위 사망", 14, DB.PAL.bamboo))
+	box.add_child(UI.segmented(dl, str(_pick_deaths), func(k: String):
+		_pick_deaths = int(k)
+		_fill_seat_pick(box)))
 
 
 ## 이 방의 자리 수(총 인원) —— 옛 서버는 max 를 주지 않는다 → 8
@@ -446,6 +461,8 @@ func _on_msg(d: Dictionary) -> void:
 			room = d.room
 			var r := Run.new()
 			r.from_dict(d.run)
+			if in_game:
+				_unpin_claimed(gs.run, r)
 			gs.run = r
 			stage_end = Room.now() + float(room.remain)
 			if int(room.get("stage_no", 0)) != _stage_no:
@@ -469,6 +486,7 @@ func _on_msg(d: Dictionary) -> void:
 				Sfx.music("prep")
 				gs.go("draw")
 				_maybe_ask_alone()
+				_rules_intro()
 				if dev_auto:
 					_dev_step()
 				return
@@ -787,7 +805,7 @@ func _show_lobby() -> void:
 	var t := UI.lbl("방 %s" % room.code, 54, DB.PAL.gold, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var s := UI.lbl("총 %d명 · %s · 친구에게 서버 주소와 이 코드를 알려 주세요" % [room_max(), room.mode_n], 15, DB.PAL.bamboo_dim)
+	var s := UI.lbl("총 %d명 · %s%s · 친구에게 서버 주소와 이 코드를 알려 주세요" % [room_max(), room.mode_n, rules_text()], 15, DB.PAL.bamboo_dim)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(s)
@@ -818,6 +836,53 @@ func _show_lobby() -> void:
 	hb.add_child(lb)
 	v.add_child(hb)
 	gs.move_child(gs._toast_box, -1)      # 대기실은 화면을 다 덮는다 —— 알림(한마디 · 소식)이 그 위에 보이게
+
+
+## 방 규칙 한 토막 (11/12) —— " · 장수 선점제 · 사망 3명". 옛 서버는 claim 이 없다 → 빈 글
+func rules_text() -> String:
+	var out := ""
+	if bool(room.get("claim", false)):
+		out += " · 장수 선점제"
+	if int(room.get("deaths", 0)) > 0:
+		out += " · 장수 사망 %d명" % int(room.deaths)
+	return out
+
+
+## 게임에 처음 들어왔을 때(1일차 첫 아침) 규칙 안내 —— 선점제 팝업을 닫으면 사망 장수 연출 (겹치면 이 순서로). 방마다 한 번
+func _rules_intro() -> void:
+	var code_ := str(room.get("code", ""))
+	if code_ == "" or code_ == _intro_room or dev_auto:
+		return
+	if int(room.get("day", 0)) != 0 or int(room.get("phase", 0)) != 0 or str(room.get("stage", "")) != "morning":
+		_intro_room = code_      # 첫 아침이 지난 뒤 들어왔다(재접속) —— 다시 띄우지 않는다
+		return
+	_intro_room = code_
+	var dead: Array = room.get("dead_units", []).filter(func(k): return DB.C.has(str(k)))
+	var show_dead := func():
+		for k in dead:
+			gs.death_card(str(k))
+	if not bool(room.get("claim", false)):
+		show_dead.call()
+		return
+	var b := gs.open_sheet("장수 선점제입니다")
+	b.add_child(UI.hint("다른 유저가 먼저 등용한 기인 이상(기인 · 초월 · 불멸 · 신화) 장수는 등용할 수 없습니다.
+먼저 조합한 사람이 그 장수를 차지합니다."))
+	b.add_child(UI.btn("알겠습니다", func():
+		gs.close_sheet()
+		show_dead.call(), "pri", 52))
+
+
+## 다른 사람이 먼저 등용해 새로 잠긴 장수 —— 내가 갈무리해 둔 것이면 갈무리를 풀고 알린다 (11/12 장수 선점제)
+func _unpin_claimed(old: Run, r: Run) -> void:
+	if old == null:
+		return
+	for k in r.locked:
+		var e = r.locked[k]
+		if not (e is Dictionary and e.has("by")) or old.locked.has(k):
+			continue
+		if gs.forge_tree.pinned(str(k)):
+			gs.forge_tree.drop(str(k))
+			gs.toast("%s이(가) %s에게 등용되어 갈무리가 해제되었습니다" % [DB.C[k].name, str(e.by)], "bad")
 
 
 ## 방 정보 복사 —— 서버 주소 · 방 코드를 클립보드에 (메신저에 그대로 붙여 넣어 친구에게 보낸다). 11/11 사용자

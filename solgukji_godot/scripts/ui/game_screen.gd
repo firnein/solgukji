@@ -14,6 +14,7 @@ const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기
 const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # 11/10 민심 위험 비네트에 다시 쓴다 (5초 경고와 같은 가장자리 그림, class_name 없이)
 const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 표시 공용 (디테일창 · 갈무리창 줄, 편성 시트)
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
+const DeathBand := preload("res://scripts/ui/death_band.gd")      # 11/12 장수 사망룰 연출 (class_name 없이)
 const EmotePop := preload("res://scripts/ui/emote_pop.gd")      # 11/10 받은 한마디 이모티콘 팝업 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 ## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
@@ -703,6 +704,7 @@ func render(new_page := false) -> void:
 	if run != _warm_run:
 		_warm_run = run
 		_warm_for_run()
+	MiniTile.locked = run.locked      # 11/12 온라인 장수 선점제 · 사망룰 —— 잠긴 장수 타일은 회색 + 까닭, 눌리지 않는다 (혼자 하기는 늘 빈 것)
 	_render_head()
 	_build_tabbar_badges()
 	var keep := _scroll.scroll_vertical
@@ -1657,7 +1659,8 @@ func recipe_sheet(out: String) -> void:
 		b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다 — 이미 신화를 얻었다"))
 	var ok := run.can_forge(out)
 	var br := UI.hbox(6)
-	var fb := UI.btn("조합하기" if ok else "재료 부족 %d장" % run.miss_count(out), func():
+	var lock_t := run.lock_text(out)      # 11/12 선점 · 사망으로 잠긴 장수
+	var fb := UI.btn("조합하기" if ok else (lock_t + " — 등용 불가" if lock_t != "" else "재료 부족 %d장" % run.miss_count(out)), func():
 		if act("forge", [out]):
 			toast("%s 조합 완료" % c.name, "gain")
 			if _hist.is_empty():
@@ -2897,7 +2900,7 @@ func _forge_goals(lst: Array) -> Array:
 	if not run.has_myth():
 		for k in DB.by_tier(8):
 			var it = Run.need_item(k)
-			if it != null and run.bag.get(it, 0) > 0 and DB.RECOF.has(k) and not DB.is_foe(k) and (forge_tag == "" or DB.C[k].tag == forge_tag):
+			if it != null and run.bag.get(it, 0) > 0 and DB.RECOF.has(k) and not DB.is_foe(k) and not run.locked.has(k) and (forge_tag == "" or DB.C[k].tag == forge_tag):
 				out_.append(k)
 				seen[DB.person(k)] = true
 				break
@@ -3386,6 +3389,28 @@ func _next_urgent() -> void:
 	b.done.connect(_next_urgent)
 
 
+# ───────── 장수 사망 연출 (11/12 사용자: 온라인 장수 사망룰) —— 1일차 첫 아침, 사망 장수마다 하나씩 차례로 (DeathBand) ─────────
+var _deaths: Array = []
+var _death_busy := false
+
+func death_card(unit: String) -> void:
+	_deaths.append(unit)
+	if not _death_busy:
+		_next_death()
+
+
+func _next_death() -> void:
+	if _deaths.is_empty():
+		_death_busy = false
+		return
+	_death_busy = true
+	var k: String = _deaths.pop_front()
+	var b: Control = DeathBand.play(self, k)
+	b.done.connect(func():
+		toast("%s 사망 —— 이번 판 등용 불가" % DB.C[k].name, "bad")
+		_next_death())
+
+
 # ───────── 한마디 이모티콘 팝업 (11/10 사용자) —— 보낸 사람 이름 + 큰 기호가 1.5초. 대기실 · 아침 · 저녁 준비 · 전투 보는 중 어디서나 (EmotePop) ─────────
 var _emote_layer: Control = null
 
@@ -3862,6 +3887,18 @@ func _dev_args() -> void:
 			if DB.C.has(kn[0]):
 				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
 		render()
+	if a.has("glock") and run != null:      # 점검용 —— --glock=K01:정지,K07:dead : 장수 선점제 · 사망룰로 잠긴 장수 (11/12 · 저장하지 않는다). --gdeath=K07 은 사망 연출
+		for s_ in str(a.glock).split(",", false):
+			var kv_ := s_.split(":")
+			if DB.C.has(kv_[0]):
+				run.locked[kv_[0]] = {"dead": 1} if kv_.size() < 2 or kv_[1] == "dead" else {"by": kv_[1]}
+		if a.has("gftier"):
+			forge_tier = int(a.gftier)      # 조합 탭 등급 거르기 (9 = 기인)
+		render()
+	if a.has("gdeath"):
+		for k_ in str(a.gdeath).split(",", false):
+			if DB.C.has(k_):
+				death_card(k_)
 	if a.has("gnewsadd") and run != null:      # 점검용 —— 첫 그리기 뒤에 새 소식 N 건이 온 것처럼 (안 읽은 소식 뱃지 · 소식 시트의 시점 글, 11/10 · 저장하지 않는다)
 		for ni in int(a.gnewsadd):
 			run.news_seq += 1

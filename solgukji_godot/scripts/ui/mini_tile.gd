@@ -22,6 +22,9 @@ var ring := false           # 11/7 갈무리 표시 —— 테두리가 빠르�
 var _fx: PinFx = null       # ★ · 깜빡이는 테를 그리는 덧칸
 var _held := 0.0
 var _dragging := false
+## 11/12 온라인 장수 선점제 · 사망룰 —— 지금 판의 Run.locked (GameScreen.render 가 넣는다). 여기 있는 장수(가지지 않은 것)는
+## 회색 + 「정지 세력이 등용」 · 「사망」 띠, 누를 수 없다
+static var locked := {}
 
 
 func setup(id: String, n := -1) -> MiniTile:
@@ -111,7 +114,7 @@ func _gui_input(e: InputEvent) -> void:
 			_held = 0.0
 			_dragging = false
 		else:
-			if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14:
+			if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14 and not _is_locked():
 				UI.buzz()
 				tapped.emit(k)
 			_press = Vector2.INF
@@ -195,6 +198,27 @@ func _draw() -> void:
 		draw_string(DB.font_body, br.position + Vector2(0, 13), badge, HORIZONTAL_ALIGNMENT_CENTER, bw, 11, Color.WHITE)
 	if dim:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.5))
+	if _is_locked():
+		_draw_lock(w, h)
+
+
+func _is_locked() -> bool:
+	return qty <= 0 and locked.has(k)
+
+
+## 잠긴 장수 —— 회색으로 덮고 가운데에 까닭 띠 (11/12)
+func _draw_lock(w: float, h: float) -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.16, 0.17, 0.72))
+	var e = locked[k]
+	var dead: bool = not (e is Dictionary and e.has("by"))
+	var tx := "사망" if dead else "%s 세력이 등용" % str(e.by)
+	var fs := 11 if w >= 56 else 8
+	while fs > 7 and DB.font_body.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 4:
+		fs -= 1
+	var bh := fs + 8.0
+	var by := h * 0.42 - bh / 2.0
+	draw_rect(Rect2(0, by, w, bh), Color(DB.PAL.seal, 0.9) if dead else Color(0.1, 0.1, 0.12, 0.92))
+	draw_string(DB.font_body, Vector2(2, by + bh - 4.0 - (fs * 0.1)), tx, HORIZONTAL_ALIGNMENT_CENTER, w - 4, fs, Color.WHITE if dead else Color(0.82, 0.82, 0.82))
 
 
 ## 작은 칸 (폭 56 아래 —— 징집 화면 보유 패 8열, 11/2) —— 초상 · 짧은 이름 · 수량 · ▲ 만. 편성 중이면 왼쪽 아래 옥색 점
@@ -260,3 +284,5 @@ func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 		draw_circle(Vector2(6, h - 19), 4, Color(DB.PAL.jade, 0.95))
 	if dim:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.5))
+	if _is_locked():
+		_draw_lock(w, h)
