@@ -863,6 +863,120 @@ func _seat_row(i: int, st: String) -> Control:
 	return UI.rich("[color=%s]%s[/color]  %s%s" % [mcol, mark, who, ("   " + "  ".join(tags)) if not tags.is_empty() else ""], 14)
 
 
+## 11/11 사용자: 기록 탭에서 다른 유저의 민심 · 핵심 유닛(기초불신 = 기인 · 초월 · 불멸 · 신화)을 본다 —— 군웅 줄의 재료.
+## room = Room.info 의 사전, my_hp · my_key = 내 것(서버 줄보다 지금 Run 이 정확하다). 사람 자리만, 나 먼저 그다음 자리 순.
+## 줄 {name, me, online, dead, hp(−1 = 모름), key(Array · 기초불신 id 만, 높은 등급 순), has_key(false = 옛 서버라 모름)}.
+## 옛 서버의 줄(hp · key 없음)도 깨지지 않는다 —— hp −1 · has_key false 로 화면에는 「—」
+static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
+	var out := []
+	var you := int(room.get("you", -1))
+	var seats: Array = room.get("seats", [])
+	for i in seats.size():
+		var s = seats[i]
+		if not (s is Dictionary) or not bool(s.get("human", false)):
+			continue
+		var me: bool = i == you
+		var hp := -1
+		var raw = null
+		if me:
+			hp = my_hp if my_hp >= 0 else (clampi(int(s.hp), 0, Run.HP_MAX) if s.has("hp") else -1)
+			raw = my_key
+		else:
+			if s.has("hp") and (s.hp is int or s.hp is float):
+				hp = clampi(int(s.hp), 0, Run.HP_MAX)
+			if s.get("key") is Array:
+				raw = s.key
+		var key := []
+		if raw is Array:
+			for k in raw:      # 믿지 않는다 —— 모르는 id · 기초불신이 아닌 카드 · 중복은 거른다
+				var ks := str(k)
+				if DB.C.has(ks) and Room.is_urgent_unit(ks) and not key.has(ks):
+					key.append(ks)
+			key.sort_custom(func(a, b):
+				var ra := Room.key_rank(a)
+				var rb := Room.key_rank(b)
+				return ra > rb if ra != rb else a < b)
+		var row := {"name": str(s.get("name", "")), "me": me, "online": bool(s.get("online", false)), "dead": bool(s.get("dead", false)),
+			"hp": hp, "key": key, "has_key": raw is Array}
+		if me:
+			out.push_front(row)      # 나는 맨 위
+		else:
+			out.append(row)
+	return out
+
+
+## 기록 탭의 「군웅」 —— 사람마다 한 칸: 이름 + 민심 게이지(머리띠와 같은 것), 아래에 핵심 유닛 작은 카드 줄 (누르면 디테일창).
+## 봇은 줄 없이 한 줄 요약 —— 봇 자리에는 민심도 카드도 없다 (서버가 모르는 것이 아니라 없다: 멸망하지 않는 세력, Room 봇은 pv · 전적 · 실패만 가진다)
+func peers_section() -> Control:
+	var run: Run = gs.run
+	var seats: Array = room.get("seats", [])
+	var v := UI.vbox(8)
+	for r in peer_rows(room, run.hp, Room.key_cards(run)):
+		v.add_child(_peer_row(r))
+	var bn := seats.filter(func(x): return not bool(x.get("human", false))).size()
+	if bn > 0:
+		v.add_child(UI.hint("봇 %d자리 — 민심 · 핵심 유닛 정보 없음 (멸망하지 않는 세력)" % bn))
+	return UI.sect("군웅 — 민심 · 핵심 유닛", v)
+
+
+func _peer_row(r: Dictionary) -> Control:
+	var P := DB.PAL
+	var v := UI.vbox(6)
+	var h := UI.hbox(8)
+	var nl := UI.lbl(str(r.name), 16, P.gold if r.me else P.paper, true)
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nl.clip_text = true
+	h.add_child(nl)
+	var tag := ""
+	var tcol: Color = P.bamboo_dim
+	if r.me:
+		tag = "나"
+		tcol = P.jade
+	elif r.dead:
+		tag = "멸망"
+		tcol = P.seal
+	elif not r.online:
+		tag = "끊김"
+		tcol = P.seal
+	if tag != "":
+		var tl := UI.lbl(tag, 12, tcol, true)
+		tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(tl)
+	if int(r.hp) >= 0:
+		var g := GameScreen.HpGauge.new()      # 머리띠의 민심 게이지를 그대로 (30 이하 붉음 · 위험 표시까지)
+		g.set_now(float(r.hp))
+		g.custom_minimum_size = Vector2(150, 24)
+		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		g.set_process(false)      # 맥동은 머리띠만 —— 줄마다 매 프레임 다시 그리지 않는다
+		h.add_child(g)
+	else:
+		var dl := UI.lbl("민심 —", 14, P.bamboo_dim)
+		dl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(dl)
+	v.add_child(h)
+	if not r.has_key:
+		v.add_child(UI.lbl("핵심 유닛 —", 13, P.bamboo_dim))
+	elif r.key.is_empty():
+		v.add_child(UI.lbl("핵심 유닛 아직 없음", 13, P.bamboo_dim))
+	else:
+		var fl := HFlowContainer.new()
+		fl.add_theme_constant_override("h_separation", 4)
+		fl.add_theme_constant_override("v_separation", 4)
+		for k in r.key:
+			var t := MiniTile.new().setup(str(k), -1)
+			t.custom_minimum_size = Vector2(50, 74)      # 폭 56 미만 = 작은 칸 (초상 · 이름) —— 한 줄 12장
+			t.tapped.connect(func(kk): gs.card_info(kk))
+			fl.add_child(t)
+		v.add_child(fl)
+	var pnl := UI.panel(v, 10)
+	if r.me:
+		pnl.add_theme_stylebox_override("panel", UI.flat(P.ink3, P.gold, 1, 8, 10))
+	return pnl
+
+
 func war_page() -> Control:
 	var run: Run = gs.run
 	var v := UI.vbox(14)
@@ -966,14 +1080,25 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	stage = stage.trim_suffix("+menu")
 	var do_say := stage.ends_with("+say")          # "morning+say" —— 전투 탭 위에 한마디 시트
 	stage = stage.trim_suffix("+say")
+	var do_rank := stage.ends_with("+rank") or stage.ends_with("+oldrank")      # "morning+rank" —— 기록 탭(군웅 민심 · 핵심 유닛, 11/11). "+oldrank" 는 한 사람이 옛 서버의 줄(hp · key 없음)
+	var do_old := stage.ends_with("+oldrank")
+	stage = stage.trim_suffix("+oldrank").trim_suffix("+rank")
 	var do_watch := do_menu or stage.ends_with("+watch")      # "noon+watch" —— 전투 재생 화면까지 (위 띠의 한마디 · 결과로 버튼 점검)
 	stage = stage.trim_suffix("+watch")
 	in_game = true
 	gs._title.visible = false
-	var seats := [{"name": net.player, "human": true, "online": true, "ready": false, "dead": false, "pv": run.my_pv(), "foe": ""},
-		{"name": "장수214", "human": true, "online": true, "ready": true, "dead": false, "pv": 0, "foe": ""},
-		{"name": "장수377", "human": true, "online": false, "ready": false, "dead": false, "pv": 0, "foe": ""}]
-	for b in run.bots.slice(0, 5):
+	var seats := [{"name": net.player, "human": true, "online": true, "ready": false, "dead": false, "pv": run.my_pv(), "foe": "", "hp": run.hp, "key": Room.key_cards(run)},
+		{"name": "장수214", "human": true, "online": true, "ready": true, "dead": false, "pv": 0, "foe": "", "hp": 72, "key": _dev_key([8, 7, 7, 6, 5, 5])},
+		{"name": "장수377", "human": true, "online": false, "ready": false, "dead": false, "pv": 0, "foe": "", "hp": 24, "key": _dev_key([7, 6, 5])}]
+	if do_rank:
+		seats.append({"name": "장수590", "human": true, "online": true, "ready": false, "dead": false, "pv": 0, "foe": "", "hp": 55, "key": []})
+		if do_old:      # 옛 서버 —— hp · key 가 아예 없다
+			seats[3].erase("hp")
+			seats[3].erase("key")
+		for ki in _dev_key([7, 5]):      # 내 줄에도 몇 장 (점검 전용 —— 저장하지 않는다)
+			run.give(ki)
+		seats[0].key = Room.key_cards(run)
+	for b in run.bots.slice(0, 8 - seats.size()):
 		seats.append({"name": b.name, "human": false, "online": false, "ready": true, "dead": false, "pv": 0, "foe": ""})
 	if stage in ["evening_prep", "evening"]:
 		seats[0].foe = seats[3].name
@@ -1023,9 +1148,26 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 			elif gs._battle.has_method("say_line"):
 				get_tree().create_timer(1.2).timeout.connect(func(): gs._battle.say_line("장수214", str(room.quick[0])))
 			return
+	if do_rank:
+		gs.go("rank")
+		return
 	gs.go("war")
 	if do_say:
 		quick_sheet()
+
+
+## 점검용 —— 등급(8 신화 · 7 불멸 · 6 초월 · 5 = 기인)마다 돌려 가며 카드 id 를 하나씩 (같은 등급은 앞에서부터 겹치지 않게)
+func _dev_key(tiers: Array) -> Array:
+	var out := []
+	var used := {}
+	for t in tiers:
+		var pool: Array = DB.C.keys().filter(func(k): return DB.is_kiin(k)) if int(t) == 5 else DB.by_tier(int(t))
+		for k in pool:
+			if not used.has(k):
+				used[k] = true
+				out.append(k)
+				break
+	return out
 
 
 ## 점검용 —— --gemote=3 : 받은 이모티콘 팝업(3번) + 한마디 시트. "3,4,5" 는 여러 개(줄), "cmp" 는 8종을 14 · 22 · 40 · 62px 로 나란히 그린 비교 그림
