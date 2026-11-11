@@ -9,6 +9,10 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var runs := int(args.get("runs", "60"))
 	var s0 := int(args.get("seed", "100"))
+	if args.has("online"):      # 11/11 --online=4000 : 온라인 방 7일 민심 — 토벌 1~3일차만 · 대전 패배 ×1.0 (전: 토벌 매 페이즈 · 대전 ×0.6) —— 아래 _mock_online
+		_mock_online(int(args.online), s0)
+		get_tree().quit()
+		return
 	if args.has("mock"):      # 11/10 --mock=4000 : 승률별 모의만 (자동 진행 없이 몇 초) —— 아래 _mock
 		_mock(int(args.mock), s0)
 		get_tree().quit()
@@ -148,3 +152,55 @@ func _mock(n: int, seed0: int) -> void:
 		for d in 7:
 			de.append(roundi(day_end[d] / maxf(1.0, float(day_cnt[d]))))
 		print("%s : 멸망 %.0f%% · 최종 평균 %.1f · 일차말 %s · 멸망일 %s" % [p[0], dead * 100.0 / n, fin / n, str(de), str(dead_day)])
+
+
+## 11/11 온라인 방 7일 민심 —— 같은 모의(일차마다 토벌 · 대전 × 3번, 7일차는 2번 + 토너먼트는 민심 없음)를 두 규칙으로:
+## 전 = 토벌 매 페이즈(20번) + 대전 패배 ×HP_PVP_MUL(0.6) / 후 = 토벌 1~3일차만(9번) + 대전 패배 ×HP_PVP_MUL_ONLINE(1.0).
+## 대전 승률은 상대 구성에 따라 —— 봇전 85% · 사람전 60% · 혼합(8석 중 사람 4 = 상대 7 중 사람 3 · 봇 4) 74%. 토벌 승률 · 진 판의 적 남은 비는 _mock 의 능숙 / 보통 / 약함과 같다.
+## 출력: 기대 총 민심 손실(멸망 뒤에도 계속 깎는다고 치고 0 밑으로 안 막음 · 100 기준) · 멸망 % · 최종 민심 평균
+func _mock_online(n: int, seed0: int) -> void:
+	var skill := [["능숙(토벌 80% · 적 남은 비 0.55)", 0.8, 0.55], ["보통(토벌 65% · 0.65)", 0.65, 0.65], ["약함(토벌 35% · 0.85)", 0.35, 0.85]]
+	var mixes := [["봇전 85%", 0.85], ["혼합 74%", 0.74], ["사람전 60%", 0.60]]
+	print("== 온라인 7일 민심 모의 (%d판씩) · HP_QUEST %s · 전: 토벌 20번 · 대전 ×%.1f / 후: 토벌 9번 · 대전 ×%.1f" % [n, str(Run.HP_QUEST), Run.HP_PVP_MUL, Run.HP_PVP_MUL_ONLINE])
+	for sk in skill:
+		for mx in mixes:
+			var line := "%s · 대전 %s :" % [sk[0], mx[0]]
+			for rule in [0, 1]:
+				var rng := RandomNumberGenerator.new()
+				rng.seed = seed0
+				var loss_sum := 0.0
+				var q_loss := 0.0
+				var p_loss := 0.0
+				var dead := 0
+				var fin := 0.0
+				for i in n:
+					var hp := 100
+					var loss := 0
+					var ql := 0
+					var pl := 0
+					var z := false
+					for d in 7:
+						for ph in (3 if d < 6 else 2):
+							if rule == 0 or d < Run.ONLINE_NOON_DAYS:
+								if rng.randf() >= sk[1]:
+									var dq := Run.hp_dmg_f(float(Run.HP_QUEST[d]), clampf(rng.randfn(sk[2], 0.14), 0.05, 1.0), false)
+									loss += dq
+									ql += dq
+									hp = maxi(0, hp - dq)
+							if rng.randf() >= mx[1]:
+								var dp := Run.hp_dmg_f(float(Run.HP_QUEST[d]) * (Run.HP_PVP_MUL if rule == 0 else Run.HP_PVP_MUL_ONLINE), clampf(rng.randfn(sk[2], 0.14), 0.05, 1.0), false)
+								loss += dp
+								pl += dp
+								hp = maxi(0, hp - dp)
+							if hp <= 0:
+								z = true
+					loss_sum += loss
+					q_loss += ql
+					p_loss += pl
+					fin += hp
+					if z:
+						dead += 1
+				line += "  %s 총 손실 %.1f(토벌 %.1f + 대전 %.1f) · 멸망 %.0f%% · 최종 %.1f" % ["전" if rule == 0 else "후", loss_sum / n, q_loss / n, p_loss / n, dead * 100.0 / n, fin / n]
+				if rule == 0:
+					line += "  →"
+			print(line)

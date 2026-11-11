@@ -13,6 +13,9 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##                     멸망한 사람의 짝이던 자리는 쉬지 않고 떠돌이 군세(유랑군)와 붙는다. 봇끼리의 짝은 싸우지 않는다.
 ##                     상대의 이름 · 전적만 보고(PV 는 안 보인다, 결정 ⑥) 편성을 고칠 준비 시간 (약 1분)
 ##   저녁 evening      서버가 대전을 계산해 보내고 본다. 모두 다 봤으면 다음 날 아침
+## 11/11 사용자(온라인 방): 점심(토벌)은 1~3일차(day 0~2)에만 —— 4일차(day 3)부터는 아침(준비) → 저녁 준비(대전 준비) → 저녁(대전) 세 단계 (Room.has_noon).
+## 없어진 토벌 보상은 그 일차의 대전이 대신 준다 (Run.pvp_quest_equiv). 대전 패배 민심 피해는 온라인에서 토벌과 같게(Run.HP_PVP_MUL_ONLINE).
+## 11/11 사용자: 점심 · 저녁(전투를 보는 단계)은 내 전투를 다 보면(또는 볼 전투가 없으면 · 끊김/봇 대행이면) 서버가 기다리지 않고 넘어간다 —— 그동안 징집 · 조합 · 편성은 계속 할 수 있다 (can_cmd, 토너먼트 저녁만 잠긴다).
 ## 7일째 저녁은 8인 토너먼트 —— 점심(토벌)은 없고 저녁 준비에 대진표를 보인 뒤 8강 · 4강 · 결승을 라운드마다 본다.
 ## 응답이 없는 사람(접속 끊김, 또는 단계 내내 아무 행동도 없음)은 단계가 끝날 때 그 사람의 자산으로 봇이 대신한다
 ## (Run.bot_prepare —— 징집 · 선택권 · 조합 · 편성). 행동은 했지만 못 끝낸 사람은 공짜 징집과 빈 편성만 채운다.
@@ -26,8 +29,8 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 만들어진 시점 when("3일차 아침" —— 온라인의 일차는 day_no, 단계는 아침 · 점심 · 저녁 준비 · 저녁)를 붙인다.
 
 const MODES := {
-	"fast": {"n": "빠른 — 준비 1분 · 한 페이즈 약 4분", "morning": 60.0, "noon": 75.0, "prep": 60.0, "evening": 100.0},
-	"normal": {"n": "보통 — 준비 1분 30초 · 한 페이즈 약 5분", "morning": 90.0, "noon": 75.0, "prep": 90.0, "evening": 100.0},
+	"fast": {"n": "빠른 — 준비 30초 · 한 페이즈 약 3분", "morning": 30.0, "noon": 75.0, "prep": 30.0, "evening": 100.0},
+	"normal": {"n": "보통 — 준비 45초 · 한 페이즈 약 4분", "morning": 45.0, "noon": 75.0, "prep": 45.0, "evening": 100.0},
 	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5},
 }
 const SEATS := 8              # 기본 자리 수 —— 방장이 만들 때 고르지 않으면 (옛 클라이언트) 8
@@ -35,7 +38,7 @@ const SEAT_OPTIONS := [4, 6, 8]      # 방장이 고를 수 있는 총 인원(�
 const SEED_ORDER := [0, 7, 3, 4, 1, 6, 2, 5]      # 토너먼트 8강 시드 배치 (1-8, 4-5, 2-7, 3-6) —— 인원이 8 미만이면 8 이상 시드 자리는 부전승
 const STAGE_N := {"lobby": "대기실", "morning": "준비 — 징집·조합·편성", "noon": "토벌", "evening_prep": "대전 준비",
 	"evening": "대전", "over": "끝"}
-const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 단계
+const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 준비 단계 (시간제 · 준비 완료 버튼) —— 전투를 보는 단계에서도 can_cmd 가 허락한다
 ## 한마디 —— 자유 입력 없이 이 글만 보낼 수 있다 (11/9 사용자: 대기실 · 아침 · 저녁 준비 · 전투를 보는 중 다른 사람에게 짧게)
 const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
 const SAY_GAP := 2.0          # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
@@ -85,6 +88,11 @@ static func valid_seats(v) -> int:
 
 static func now() -> float:
 	return Time.get_ticks_msec() / 1000.0
+
+
+## 이 일차(0 = 1일차)에 점심(토벌) 단계가 있나 —— 1~3일차만 (11/11)
+static func has_noon(day_i: int) -> bool:
+	return Run.online_noon(day_i)
 
 
 func humans() -> Array:
@@ -214,7 +222,7 @@ func info(i: int) -> Dictionary:
 	return {"code": code, "mode": mode, "max": max_seats, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
-		"alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N}
+		"noon": has_noon(day), "act": i >= 0 and can_cmd(i), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N}
 
 
 func push_lobby() -> void:
@@ -277,6 +285,11 @@ func _stage(st: String) -> void:
 			s.ready = false
 			s.acted = false
 			s.watched = false
+			if st in ACT_STAGES:
+				s["auto"] = false
+			elif st in WATCH_STAGES and s.battles.is_empty():
+				s.ready = true          # 11/11 볼 전투가 없다(멸망 · 토너먼트 부전승 · 탈락) —— 누르지 않아도 준비다
+				s.watched = true
 	if rlog != null:
 		rlog.on_stage(self)
 	push_all()
@@ -289,6 +302,8 @@ func _live() -> Array:
 	return humans().filter(func(s):
 		if s.peer < 0:
 			return false
+		if stage in WATCH_STAGES and s.get("auto", false):
+			return false      # 11/11 직전 준비를 봇이 대신 했다(단계 내내 아무 행동 없음 = 자리를 비움) —— 전투를 다 보기를 기다리지 않는다
 		if tour_eve and s.battles.is_empty():
 			return false      # 토너먼트 부전승(이번 라운드는 싸움이 없다) · 이미 탈락 —— 기다리지 않는다
 		return not s.dead or (stage in WATCH_STAGES and not s.battles.is_empty()))
@@ -354,9 +369,20 @@ func on_ready(peer: int, on: bool, sno := -1) -> void:
 	push_all()
 
 
+## 징집 · 조합 · 편성 명령을 받을 수 있나 (11/11 사용자: 기다리는 동안에도) —— 준비 단계(아침 · 저녁 준비)는 늘, 전투를 보는 단계(점심 · 저녁)도 된다.
+## 이미 계산된 판(토벌 · 대전)은 시작할 때 편성을 복사해 갔으므로 이 단계의 명령이 그 결과를 바꾸지 못한다 —— 바뀐 편성은 다음 판부터.
+## 안 되는 것: 멸망 · 판이 끝난 사람, 토너먼트 저녁(라운드마다 그 순간의 편성으로 곧바로 다시 계산한다 — 8강 · 4강 사이에 고칠 수 있게 되면 안 된다)
+func can_cmd(i: int) -> bool:
+	if not started or i < 0 or i >= seats.size() or not seats[i].human or seats[i].dead or seats[i].run == null or seats[i].run.over != null:
+		return false
+	if stage in ACT_STAGES:
+		return true
+	return stage in WATCH_STAGES and tour == null
+
+
 func on_cmd(peer: int, m: String, a: Array) -> void:
 	var i := seat_of(peer)
-	if i < 0 or not (stage in ACT_STAGES) or seats[i].dead:
+	if i < 0 or not can_cmd(i):
 		return
 	var r: Run = seats[i].run
 	var ok = r.command(m, a)
@@ -406,6 +432,7 @@ static func key_rank(k: String) -> int:
 func _fill(s: Dictionary, full_if_idle := true) -> void:
 	var r: Run = s.run
 	var idle: bool = s.peer < 0 or (full_if_idle and not s.acted)
+	s["auto"] = idle      # 11/11 봇이 대신했다 —— 이어지는 전투 보는 단계에서 기다리지 않는다 (_live)
 	if rlog != null and idle:      # 행동은 했지만 못 끝낸 사람의 빈 편성 채우기는 적지 않는다 —— 봇이 통째로 대신한 것만
 		rlog.event(_idx(s), r, "bot_fill", {"disconnected": s.peer < 0})
 	r.bot_prepare(idle)
@@ -418,6 +445,13 @@ func _end_morning() -> void:
 	if day == 6 and phase == 2:
 		_tour_seed()             # 7일째 저녁 —— 토벌 없이 바로 토너먼트 준비
 		_stage("evening_prep")
+		return
+	if not has_noon(day):
+		# 11/11 사용자: 4일차~ 는 토벌이 없다 —— 점심 단계 없이 바로 저녁 준비(상대 정하기). 봇의 토벌 실패(strikes)만 그대로 센다 (봇 성장 곡선 불변)
+		for s in seats:
+			s.battles = []
+		_bot_quest_strikes()
+		_begin_evening()
 		return
 	_quests()
 	_stage("noon")
@@ -447,12 +481,17 @@ func _quests() -> void:
 			s.dead = true
 			_log_over(s)
 			_fallen(s)
+	_bot_quest_strikes()
+	_check_alone()
+
+
+## 봇의 토벌 —— 그날 기준(QPV)에 못 미치면 실패 한 번 · 전력 6% 깎임 (봇 성장 곡선). 토벌이 없는 날(4일차~)에도 똑같이 돈다
+func _bot_quest_strikes() -> void:
 	var qpv := float(DB.D.QPV[day][phase])
 	for s in seats:
 		if not s.human and s.bot.pv < qpv * 0.95 * rng.randf_range(0.92, 1.08):
 			s.bot.strikes += 1
 			s.bot.pv *= 0.94
-	_check_alone()
 
 
 ## 라운드로빈(원 방식) 한 라운드 —— order[0] 을 고정하고 나머지 n-1 자리를 한 칸씩 돌려 [[a, b] × n/2].

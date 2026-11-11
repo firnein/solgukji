@@ -773,9 +773,9 @@ func _render_head() -> void:
 		var st := str(online.room.get("stage", ""))
 		_day_lbl.text = online.day_text()      # 11/10 게임 날짜 · 페이즈로 (day_no 는 페이즈 번호 1~21)
 		_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else online.head_stage_text())
-		_phase_bar.n = 4
-		_phase_bar.group = 4
-		_phase_bar.cur = int(Online.STAGE_IDX.get(st, 3 if st == "over" else 0))
+		_phase_bar.n = online.head_steps()      # 11/11 토벌이 없는 날(4일차~)은 세 칸
+		_phase_bar.group = online.head_steps()
+		_phase_bar.cur = online.head_idx()
 		_pow_lbl.visible = false
 	else:
 		_day_lbl.text = "DAY %d · %s요일" % [run.day + 1, Run.DAYNAME[run.day]]
@@ -3235,6 +3235,8 @@ func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 	_battle_res = res
 	_plan_hp_fx(res)
 	_plan_bonus_fx(res)
+	if online != null:
+		online.replay_ended()      # 11/11 전투를 다 보면 준비 완료 자동 (결과표를 닫기를 기다리지 않는다)
 	UI.buzz(30)
 	await get_tree().create_timer(1.4).timeout      # 승전 · 패전 도장을 먼저 보이고
 	if not _battle_layer.visible or not is_same(_battle.res, res):     # 같은 전투인지 —— 내용 비교(!=)는 큰 결과에 느리다
@@ -3348,7 +3350,8 @@ func _plan_bonus_fx(res: Dictionary) -> void:
 		tk = int(b.ticket)
 		r = float(b.r)
 	else:
-		if _battle_kind != "quest" or not _battle_last or run.last_spoil == null:
+		# 11/11 온라인 4일차~ 는 토벌이 없고 대전이 토벌 보상(+ 성과 보너스)을 준다 —— 서버가 last_spoil 에 perf_r 를 싣는다
+		if not (_battle_kind in ["quest", "pvp"]) or not _battle_last or run.last_spoil == null or not run.last_spoil.has("perf_r"):
 			return
 		base = int(run.last_spoil.get("bonus", 0))
 		tk = int(run.last_spoil.get("bonus_ticket", 0))
@@ -3356,19 +3359,19 @@ func _plan_bonus_fx(res: Dictionary) -> void:
 	if base <= 0 and tk <= 0:
 		return
 	var big := r >= Run.QUEST_BONUS_BIG
-	_bonus_plan = {"base": base, "ticket": tk, "big": big}
+	_bonus_plan = {"base": base, "ticket": tk, "big": big, "what": "대전" if (online != null and _battle_kind == "pvp") else "토벌"}
 	if online != null:
 		var key := "%d:%d:%d:%d" % [run.day, run.phase, base, tk]
 		if key != _bonus_key:
 			_bonus_key = key
-			var parts: PackedStringArray = Run.quest_bonus_text(base, tk, big).split(" · ", true, 1)
+			var parts: PackedStringArray = Run.quest_bonus_text(base, tk, big, "대전" if _battle_kind == "pvp" else "토벌").split(" · ", true, 1)
 			band(parts[0], DB.PAL.gold, parts[1] if parts.size() > 1 else "")
 
 
 func _place_bonus_fx(plan: Dictionary, top: float) -> void:
 	var w := minf(size.x - 24.0, 460.0)
 	var fx := BonusFx.new()
-	fx.setup(int(plan.base), int(plan.ticket), bool(plan.big))
+	fx.setup(int(plan.base), int(plan.ticket), bool(plan.big), str(plan.get("what", "토벌")))
 	fx.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	fx.offset_left = -w / 2
 	fx.offset_right = w / 2
@@ -4324,13 +4327,15 @@ class BonusFx extends Control:
 	var base := 0
 	var ticket := 0
 	var big := true
+	var what := "토벌"      # 11/11 온라인 4일차~ 는 대전이 토벌 보상을 대신 준다 → "대전"
 	var _t := 0.0
 	var _chime := false
 
-	func setup(b: int, t: int, is_big: bool) -> void:
+	func setup(b: int, t: int, is_big: bool, w := "토벌") -> void:
 		base = b
 		ticket = t
 		big = is_big
+		what = w
 		custom_minimum_size = Vector2(0, 46)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -4351,7 +4356,7 @@ class BonusFx extends Control:
 		draw_rect(Rect2(0, 0, w, h), Color(0.058, 0.078, 0.14, 0.94 * a))
 		draw_rect(Rect2(0, 0, w, 1), Color(P.gold, 0.8 * a))
 		draw_rect(Rect2(0, h - 1, w, 1), Color(P.gold, 0.8 * a))
-		var head := "토벌 대승!" if big else "토벌 선전!"
+		var head := (what + " 대승!") if big else (what + " 선전!")
 		var f: Font = DB.title_font(20)
 		draw_string(f, Vector2(16, h / 2 + 8), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(P.gold.lightened(0.2), a))
 		var parts := []

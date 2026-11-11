@@ -298,12 +298,22 @@ func _full_room(n: int, hn: int) -> void:
 	var tour_rounds := []
 	var guard := 0
 	var t0 := Time.get_ticks_msec()
+	var phases := []      # 페이즈마다 본 단계 순서 (11/11: 점심은 1~3일차만)
+	var last_no := -1
 	while r.stage != "over" and guard < 400:
 		guard += 1
 		if r.stage == "evening_prep" and r.tour == null:
 			evenings += 1
 		if r.stage == "evening" and r.tour != null:
 			tour_rounds.append([r.tour.round, r.tour.res[r.tour.round].size()])
+		if r.stage_no != last_no:
+			last_no = r.stage_no
+			if r.stage == "morning":
+				phases.append({"day": r.day, "stages": []})
+			if not phases.is_empty():
+				phases[phases.size() - 1].stages.append(r.stage)
+			if r.info(0).get("noon") != Room.has_noon(r.day):
+				_fail("[%d석] 방 정보 noon 이 일차 %d 와 다르다" % [n, r.day])
 		r.stage_end = 0.0
 		r.tick()
 	if r.stage != "over":
@@ -311,6 +321,20 @@ func _full_room(n: int, hn: int) -> void:
 		return
 	if evenings != 20:
 		_fail("[%d석 · 사람 %d] 대전 준비 %d번 (기대 20)" % [n, hn, evenings])
+	# 11/11 단계 순서 —— 1~3일차(페이즈 0~8): 준비 · 토벌 · 대전 준비 · 대전 / 4일차~(9~19): 준비 · 대전 준비 · 대전 / 21번째(토너먼트): 준비 · 대전 준비 · 대전 × 라운드
+	var noons := 0
+	for k in phases.size():
+		var st: Array = phases[k].stages
+		var want_st := ["morning", "noon", "evening_prep", "evening"] if k < 9 else ["morning", "evening_prep", "evening"]
+		if k == 20:
+			want_st = ["morning", "evening_prep"]
+		for tr in tour_rounds.size():
+			want_st.append("evening")
+		if st != want_st:
+			_fail("[%d석 · 사람 %d] %d번째 페이즈 단계 %s (기대 %s)" % [n, hn, k + 1, str(st), str(want_st)])
+		noons += st.count("noon")
+	if phases.size() != 21 or noons != 9:
+		_fail("[%d석 · 사람 %d] 페이즈 %d개 · 점심 %d번 (기대 21 · 9)" % [n, hn, phases.size(), noons])
 	# 토너먼트 —— 8명: 8강 4 · 4강 2 · 결승 1 / 6명: 8강 2 · 4강 2 · 결승 1 / 4명: 4강 2 · 결승 1
 	var want := [[0, 4], [1, 2], [2, 1]] if n == 8 else ([[0, 2], [1, 2], [2, 1]] if n == 6 else [[1, 2], [2, 1]])
 	# 사람이 모두 일찍 떨어지면 끝까지 다 안 볼 수도 있다 (점검 모드는 멸망하지 않으니 토너먼트 패배만) —— 라운드가 계속 이어지는지 본다
@@ -320,6 +344,8 @@ func _full_room(n: int, hn: int) -> void:
 		if s.run.over == null:
 			_fail("[%d석] %s 의 끝(over)이 없다" % [n, s.name])
 	var champs := r.humans().filter(func(s): return s.run.over != null and s.run.over.win).size()
+	if phases.size() == 21:
+		print("  단계 순서: 1~9번째 페이즈 %s · 10~20번째 %s · 21번째 %s" % [str(phases[0].stages), str(phases[9].stages), str(phases[20].stages)])
 	print("한 판 [%d석 · 사람 %d · 봇 %d]: 저녁 %d · 토너먼트 %s · 우승 사람 %d · %.1f초" % [n, hn, bots_n, evenings, str(tour_rounds), champs, (Time.get_ticks_msec() - t0) / 1000.0])
 	if champs > 1:
 		_fail("[%d석] 우승한 사람이 %d명" % [n, champs])
