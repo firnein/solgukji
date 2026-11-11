@@ -40,7 +40,8 @@ const STAGE_N := {"lobby": "대기실", "morning": "준비 — 징집·조합·�
 	"evening": "대전", "over": "끝"}
 const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 준비 단계 (시간제 · 준비 완료 버튼) —— 전투를 보는 단계에서도 can_cmd 가 허락한다
 ## 한마디 —— 자유 입력 없이 이 글만 보낼 수 있다 (11/9 사용자: 대기실 · 아침 · 저녁 준비 · 전투를 보는 중 다른 사람에게 짧게)
-const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG"]
+const QUICK_MSGS := ["잘 부탁합니다", "빨리 준비해 주세요", "좋은 승부였습니다", "운이 좋았네요", "다음엔 이깁니다", "잠시만요", "ㅋㅋ", "GG",
+	"니오넨비욘", "줴줴이야~", "7층이나 가죠", "커피 고마워."]      # 11/12 사용자 추가 —— 번호가 밀리지 않게 끝에만 붙인다 (옛 클라이언트는 방 정보의 quick 을 그대로 쓴다)
 const SHADOW_EPI := "그림자"      # 그림자 대전 상대의 소속 글 (_foe_info.epi) —— 이름은 "<자리 이름>의 그림자"
 const SAY_GAP := 2.0         # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
@@ -602,10 +603,17 @@ func _pair_seat(i: int, shadow := -1) -> Dictionary:
 	return _ghosts[d]
 
 
-## 상대 정보 —— 이름 · 전적만 (PV 와 편성은 보이지 않는다, 결정 ⑥)
+## 상대 정보 —— 이름 · 전적 · 핵심 장수 (PV 와 편성은 보이지 않는다, 결정 ⑥)
+## 11/12 사용자: 상대가 정해지면 그 핵심 장수(key_cards —— 기록 탭의 「군웅」 과 같은 것)를 높은 등급부터. 사람은 그 Run, 그림자는 원본의 Run.
+## 봇은 군세를 전투마다 새로 뽑아 key 가 없다(클라이언트가 예시를 그린다). 봇의 칭호(BOTNAME 의 둘째 칸)는 보이지 않는다 —— epi "봇"
 func _foe_info(s: Dictionary) -> Dictionary:
-	return {"name": s.name, "human": s.human, "online": s.human and s.peer >= 0,
-		"epi": "사람" if s.human else s.bot.epi, "w": s.run.my_w if s.human else s.bot.w, "l": s.run.my_l if s.human else s.bot.l}
+	var d := {"name": s.name, "human": s.human, "online": s.human and s.peer >= 0,
+		"epi": "사람" if s.human else (s.bot.epi if s.bot.epi in [SHADOW_EPI, "떠돌이 군세"] else "봇"), "w": s.run.my_w if s.human else s.bot.w, "l": s.run.my_l if s.human else s.bot.l}
+	if s.human:
+		d["key"] = key_cards(s.run)
+	elif s.has("shadow_of"):
+		d["key"] = key_cards(seats[int(s.shadow_of)].run)
+	return d
 
 
 func _end_prep() -> void:

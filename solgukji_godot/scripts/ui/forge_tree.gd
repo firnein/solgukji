@@ -5,6 +5,8 @@ extends RefCounted
 ## 이미 가진 재료는 ✓ 로 접고, 모자란 재료는 [재료 ▾] 로 고급 재료가 나올 때까지 몇 단이든 펼친다. 일반 등급 이하(창병대 · 궁수대 …)는 그리지 않고
 ## 부모 칸에 '기본패 n장' 으로만 적는다. 칸마다 [조합], 아래 [모두 조합] 은 아래에서부터 되는 만큼 잇달아 조합한다.
 ## 갈무리 목록은 화면 쪽 취향이라 Run(서버 판정)에 넣지 않고 기기에 따로 둔다 (user://pins.json).
+## 11/12 사용자: 새 판에 이전 판의 갈무리가 남아 있었다 —— 혼자 하기의 새 판(_new_game)만 비우고 온라인 새 판은 비우지 않았다.
+## 이제 파일에 어느 판의 갈무리인지(game = Run 의 rng 씨앗)를 함께 적고, 판이 바뀌면(bind) 비운다. 옛 파일(배열)은 지금 판의 것으로 받아들인다
 
 const PATH := "user://pins.json"
 const MAX_PINS := 6
@@ -21,12 +23,16 @@ const BTN := 28.0              # 칸 아래 [조합] 자리
 var gs: GameScreen
 var pins: Array = []
 var opened := {}               # 갈무리 장수 -> {펼친 재료 경로("관우/장비/…"): true} —— 어느 단이든 여럿 펼친다
+var game := ""                # 이 갈무리가 속한 판 (GameScreen.game_id) —— "" 이면 아직 모른다 (옛 파일)
 
 
 func _init(g: GameScreen) -> void:
 	gs = g
 	if FileAccess.file_exists(PATH):
 		var d = JSON.parse_string(FileAccess.get_file_as_string(PATH))
+		if d is Dictionary:
+			game = str(d.get("game", ""))
+			d = d.get("pins", [])
 		if d is Array:
 			pins = d.filter(func(k): return k is String and DB.RECOF.has(k))
 
@@ -34,7 +40,7 @@ func _init(g: GameScreen) -> void:
 func _save() -> void:
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify(pins))
+		f.store_string(JSON.stringify({"game": game, "pins": pins}))
 
 
 ## 새 판 —— 갈무리를 비운다
@@ -42,6 +48,19 @@ func clear() -> void:
 	pins.clear()
 	opened.clear()
 	_save()
+
+
+## 지금 판(id)에 맞춘다 —— 다른 판의 갈무리면 비운다. 비웠으면 true (다시 그려야 한다)
+func bind(id: String) -> bool:
+	if id == "" or id == game:
+		return false
+	var other := game != "" and not pins.is_empty()
+	game = id
+	if other:
+		pins.clear()
+		opened.clear()
+	_save()
+	return other
 
 
 func pinned(k: String) -> bool:

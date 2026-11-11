@@ -142,8 +142,10 @@ func _ready() -> void:
 ## 게임을 켜자마자(타이틀에 있는 동안) 조합 탭에 나오는 장수 · 재료의 그림을 작업 스레드로 조금씩 올려 둔다. 판이 정해지면(render 첫 호출)
 ## 지금 내가 가진 카드 → 추천 → 조합 순서(조합 탭이 보이는 순서) 로 앞에 끼워 넣는다. DB.warm_portraits 참고
 var _warm_run: Run = null
-var _play_sec := 0.0          # 11/11 사용자: 현재 판 플레이 시간 (기록 탭 맨 위) —— 판이 바뀌면 0, 끝나면 멈춘다
-var _play_run: Run = null
+var _play_sec := 0.0          # 11/11 사용자: 현재 판 플레이 시간 —— 판이 바뀌면 0, 끝나면 멈춘다
+var _play_id := ""            # 11/12 판의 이름표(game_id) —— Run 객체로 가리면 온라인은 상태를 받을 때마다 새 Run 이라 0 으로 돌아갔다
+var _play_save_t := 0.0       # 몇 초마다 기기에 적는다 (PLAY_PATH)
+const PLAY_PATH := "user://play_time.json"      # {판 id: 초} —— 끄고 다시 켜도 이어 센다 (최근 몇 판만)
 var _play_lbl: Label = null
 
 
@@ -282,6 +284,11 @@ func _build_top() -> Control:
 	_hp_gauge = HpGauge.new()      # 11/10 사용자: 민심(체력)이 어디에도 안 보인다 —— 모든 탭의 머리띠 오른쪽에 늘 보인다
 	_hp_gauge.tapped.connect(func(): toast("민심은 체력 —— 패배마다 깎이고, 0 이 되면 멸망한다"))
 	rv.add_child(_hp_gauge)
+	# 11/11 사용자: 현재 플레이타임 —— 11/12 사용자: 민심 바로 아래에 작게 ("플레이타임 0:04", 머리띠 가운데에서 옮김)
+	_play_lbl = UI.lbl(play_text(), 10, DB.PAL.bamboo_dim)
+	_play_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_play_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rv.add_child(_play_lbl)
 	_info_lbl = UI.rich("", 11)
 	_info_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_info_lbl.custom_minimum_size = Vector2(140, 0)
@@ -314,12 +321,6 @@ func _build_top() -> Control:
 	_news_btn.add_child(_news_badge)
 	mv.add_child(_news_btn)
 	row.add_child(mv)
-	# 11/11 사용자: 현재 플레이타임을 머리띠(☰ 이 뜨는 줄)의 가운데에 —— "플레이타임 0:04"
-	_play_lbl = UI.lbl(play_text(), 12, DB.PAL.bamboo)
-	_play_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_play_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_play_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.add_child(_play_lbl)
 	return bar
 
 
@@ -916,15 +917,49 @@ func _process(dt: float) -> void:
 	_danger_tick(dt)
 
 
-## 플레이타임 —— 이 판이 시작된 뒤 켜 둔 시간(판이 끝나면 멈춤, 제목 화면에서는 세지 않는다). 머리띠 가운데에 보인다
+## 플레이타임 —— 이 판이 시작된 뒤 켜 둔 시간(판이 끝나면 멈춤, 제목 화면에서는 세지 않는다). 머리띠 민심 아래에 작게 (11/12 사용자)
+## 판이 바뀌면(game_id) 그 판의 갈무리도 맞춘다 —— 다른 판의 것이면 비우고 다시 그린다 (ForgeTree.bind)
 func _play_tick(dt: float) -> void:
-	if run != _play_run:
-		_play_run = run
-		_play_sec = 0.0
+	var id := game_id()
+	if id != _play_id:
+		_play_store()
+		_play_id = id
+		_play_sec = float(_play_load().get(id, 0.0))
+		if forge_tree != null and forge_tree.bind(id) and run != null:
+			render()
 	if run != null and run.over == null and (_title == null or not _title.visible):
 		_play_sec += dt
+		_play_save_t += dt
+		if _play_save_t >= 10.0:
+			_play_store()
 	if _play_lbl != null and is_instance_valid(_play_lbl) and _play_lbl.is_visible_in_tree():
 		_play_lbl.text = play_text()
+
+
+## 판의 이름표 —— Run 의 rng 씨앗 (혼자 하기 · 온라인 모두 판마다 다르고, 저장 · 서버 상태에 함께 실려 온다)
+func game_id() -> String:
+	return "" if run == null else str(run.rng.seed)
+
+
+func _play_load() -> Dictionary:
+	if not FileAccess.file_exists(PLAY_PATH):
+		return {}
+	var d = JSON.parse_string(FileAccess.get_file_as_string(PLAY_PATH))
+	return d if d is Dictionary else {}
+
+
+func _play_store() -> void:
+	_play_save_t = 0.0
+	if _play_id == "" or not PlayLog.enabled:      # 점검 실행(--gnew)은 적지 않는다
+		return
+	var d := _play_load()
+	d.erase(_play_id)
+	while d.size() >= 4:      # 최근 판 몇 개만 (오래된 것부터 뺀다 —— 사전은 넣은 순서를 지킨다)
+		d.erase(d.keys()[0])
+	d[_play_id] = snappedf(_play_sec, 0.1)
+	var f := FileAccess.open(PLAY_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(d))
 
 
 func play_text() -> String:
@@ -3636,8 +3671,9 @@ func _page_line() -> Control:
 func _standings() -> Control:
 	var rows := [{"name": "나", "epi": "%d승 %d패 · 민심 %d" % [run.my_w, run.my_l, run.hp],
 		"fac": "촉", "pv": run.my_pv(), "me": true, "dead": run.over != null and not run.over.win}]
-	for b in run.bots:
-		rows.append({"name": b.name, "epi": b.epi, "fac": b.fac, "pv": roundi(b.pv), "me": false, "dead": false})
+	for b in run.bots:      # 11/12 사용자: 봇의 칭호("전력 1위 사냥꾼" 등)는 뺀다 —— 전적만. 온라인 사람 자리는 서버가 적은 "사람 · 접속 끊김 …" 그대로
+		var epi := str(b.epi) if str(b.epi).begins_with("사람") else "%d승 %d패" % [int(b.get("w", 0)), int(b.get("l", 0))]
+		rows.append({"name": b.name, "epi": epi, "fac": b.fac, "pv": roundi(b.pv), "me": false, "dead": false})
 	rows.sort_custom(func(a, b): return a.pv > b.pv)
 	var v := UI.vbox(6)
 	for i in rows.size():
@@ -3677,6 +3713,8 @@ func _page_rank() -> Control:
 	v.add_child(UI.sect("군웅 할거 · %s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]], UI.panel(sr)))
 	if online != null and online.in_game and not online.room.is_empty():
 		v.add_child(online.peers_section())      # 11/11 사용자: 다른 유저의 민심 · 핵심 유닛(기인 · 초월 · 불멸 · 신화)
+	else:
+		v.add_child(_peers_solo())      # 11/12 사용자: 혼자 하기에서도 봇의 핵심 유닛 · 민심을 기록 탭에
 	v.add_child(UI.sect("순위", _standings()))
 	var bv := UI.vbox(6)
 	var bs: Array = run.bots.duplicate()
@@ -3687,6 +3725,54 @@ func _page_rank() -> Control:
 	bv.add_child(UI.hint("모든 토벌 실패가 경고로 쌓이며, 3일차부터 한도에 닿으면 멸망한다. 봇 세력은 멸망하지 않고 전력 손실로만 대가를 치른다."))
 	v.add_child(UI.sect("세력 성향", UI.panel(bv)))
 	return v
+
+
+## 혼자 하기의 「군웅」 —— 온라인 Online.peers_section 과 같은 칸: 나(민심 게이지 · 핵심 유닛) + 봇마다 (전력 높은 순)
+func _peers_solo() -> Control:
+	var v := UI.vbox(8)
+	v.add_child(Online.peer_row(self, {"name": "나", "me": true, "online": true, "dead": run.over != null and not run.over.win,
+		"hp": run.hp, "key": Room.key_cards(run), "has_key": true}))
+	var bs: Array = run.bots.duplicate()
+	bs.sort_custom(func(a, b): return a.pv > b.pv)
+	for b in bs:
+		v.add_child(Online.peer_row(self, bot_row(run, b)))
+	return UI.sect("군웅 — 민심 · 핵심 유닛", v)
+
+
+## 봇 한 줄 (Online.peer_row 의 줄) —— 봇은 민심이 없다(멸망하지 않는 세력): 그 자리에 전적 · 토벌 실패. 핵심 유닛은 bot_key
+static func bot_row(r: Run, b: Dictionary) -> Dictionary:
+	var note := "민심 없음 · %d승 %d패" % [int(b.get("w", 0)), int(b.get("l", 0))]
+	if int(b.get("strikes", 0)) > 0:
+		note += " · 토벌 실패 %d" % int(b.strikes)
+	return {"name": str(b.name), "me": false, "online": true, "dead": false, "bot": true, "note": note,
+		"hp": -1, "key": bot_key(r, b), "has_key": true}
+
+
+## 봇의 핵심 유닛 (11/12 사용자) —— 봇 군세는 전투마다 지금 전력 · 성향으로 새로 뽑는다(Run.bot_side → DB.gen_board). 같은 식으로 한 번 뽑아 본
+## 기인 이상(Room.is_urgent_unit)을 높은 등급부터. 판 · 요일 · 페이즈 · 봇 이름으로 정한 따로 된 씨앗이라 Run 의 rng 를 건드리지 않고, 같은 때에는 늘 같다
+static var _bot_key_cache := {}
+static func bot_key(r: Run, b: Dictionary) -> Array:
+	var pv := float(b.get("pv", 0.0)) * Run.BOT_PV_MUL
+	if r.phase_idx() <= 0:
+		pv = maxf(pv, Run.BOT_OPEN_PV)
+	var ck := "%s|%s|%d|%d|%d" % [str(r.rng.seed), str(b.name), r.day, r.phase, roundi(pv)]
+	if _bot_key_cache.has(ck):
+		return _bot_key_cache[ck]
+	var rg := RandomNumberGenerator.new()
+	rg.seed = hash(ck)
+	var eb := DB.gen_board(pv, str(b.get("style", "균형")), rg)
+	var out := []
+	for k in eb.cards:
+		if Room.is_urgent_unit(str(k)) and not out.has(str(k)):
+			out.append(str(k))
+	out.sort_custom(func(x, y):
+		var rx := Room.key_rank(x)
+		var ry := Room.key_rank(y)
+		return rx > ry if rx != ry else x < y)
+	if _bot_key_cache.size() > 64:
+		_bot_key_cache.clear()
+	_bot_key_cache[ck] = out
+	return out
 
 
 func _over_panel() -> Control:
