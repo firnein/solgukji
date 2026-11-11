@@ -29,7 +29,8 @@ var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 �
 var info_rows := 0            # 확인한 사람 자리 줄 수 (hp · key, 11/11)
 var watch_cmds := 0           # 11/11 기다리는 단계(점심 · 저녁)에 보낸 명령 수 (첫 플레이어만 —— 나머지는 옛 클라이언트처럼 준비 단계에서만 보낸다)
 var form_denied := 0          # 11/12 기다리는 동안 보낸 편성이 이유와 함께 거부된 수
-var act_checked := 0          # 방 정보 act · noon 을 확인한 상태 수
+var act_checked := 0
+var act_st_n := 0             # 11/12 받은 상태 아이콘 메시지 수          # 방 정보 act · noon 을 확인한 상태 수
 
 
 func _ready() -> void:
@@ -69,6 +70,10 @@ func _ready() -> void:
 func _on_msg(b: Dictionary, d: Dictionary) -> void:
 	var c: NetClient = b.c
 	match str(d.t):
+		"act_st":      # 11/12 상태 아이콘 —— 자리 수만큼, 알려진 값만
+			act_st_n += 1
+			if (d.st as Array).size() != seats_n or (d.st as Array).any(func(x): return not (str(x) in ["", "busy", "quest", "pvp", "idle", "ready"])):
+				errors.append("%s: act_st 이상 %s" % [b.name, str(d.st)])
 		"error":
 			if int(b.get("want_err", 0)) > 0 and str(d.msg).contains("편성"):      # 11/12 기다리는 동안의 편성 —— 거부되어야 맞다
 				b.want_err = int(b.want_err) - 1
@@ -131,7 +136,7 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 			# 11/11 기록 탭 —— 사람 자리마다 hp · key(기초불신 id 만), 봇에는 없다, 그 밖의 키는 허용 목록 안에서만 (실제 WebSocket 으로 온 줄)
 			for sr in rm.seats:
 				for sk in sr:
-					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key"]):
+					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "st"]):      # st = 11/12 지금 하는 일 (사람 자리)
 						errors.append("%s: 자리 줄에 허용되지 않은 키 %s" % [b.name, sk])
 				if bool(sr.human):
 					if not (sr.has("hp") and sr.has("key")):
@@ -273,6 +278,9 @@ func _report(el: float, all_done: bool) -> void:
 		errors.append("점심(토벌) 단계가 %d번 (기대 9 = 1~3일차 × 3페이즈)" % int(stage_count.get("noon", 0)))
 	if all_done and (int(stage_count.get("morning", 0)) != 21 or int(stage_count.get("evening_prep", 0)) != 21):
 		errors.append("준비 %d번 · 대전 준비 %d번 (기대 21 · 21)" % [int(stage_count.get("morning", 0)), int(stage_count.get("evening_prep", 0))])
+	print("  상태 아이콘(act_st) %d번 받음" % act_st_n)
+	if all_done and act_st_n == 0:
+		errors.append("act_st 를 한 번도 받지 못했다")
 	print("  사람 자리 줄 %d개 확인 (hp · key 있음 · 기초불신 id 만 · 봇 줄에는 없음)" % info_rows)
 	print("  저녁 상대 %d건 중 사람 %d건 · 같은 바퀴 안에서 같은 상대를 두 번 만난 건수 %d" % [seen_n, hh, repeat])
 	print("  가장 큰 메시지 %.0f KB" % (server.max_msg / 1024.0))

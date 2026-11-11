@@ -126,6 +126,11 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(0, -9) * u, c + Vector2(5, -3) * u, c + Vector2(7, 3) * u, c + Vector2(4, 8) * u,
 				c + Vector2(0, 9) * u, c + Vector2(-4, 8) * u, c + Vector2(-7, 3) * u, c + Vector2(-5, -3) * u, c + Vector2(-2, -1) * u, c + Vector2(0, -9) * u]), col, w)
 			ci.draw_arc(c + Vector2(0, 4) * u, 3 * u, PI * 0.1, PI * 0.9, 8, col, w * 0.8)
+		"zz":        # 잠(대기) —— 큰 Z 와 오른쪽 위 작은 z (11/12 온라인 상태 아이콘)
+			for z in [[Vector2(-3, 3), 6.0], [Vector2(6, -6), 3.6]]:
+				var o: Vector2 = c + z[0] * u
+				var r: float = z[1] * u
+				ci.draw_polyline(PackedVector2Array([o + Vector2(-r, -r), o + Vector2(r, -r), o + Vector2(-r, r), o + Vector2(r, r)]), col, w * (1.0 if z[1] > 5.0 else 0.8))
 		# 11/10 한마디 이모티콘 —— 얼굴은 둥근 선 + 눈 · 입. 24 칸 기준
 		"emo_smile":      # 웃음 —— 점 눈 둘 · 올라간 입
 			_face(ci, c, u, col, w)

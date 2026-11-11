@@ -244,6 +244,8 @@ func info(i: int) -> Dictionary:
 			# 필드만 늘렸다 —— 옛 클라이언트는 모르는 키를 무시한다. 봇 자리에는 없다 (민심도 카드도 없다)
 			row["hp"] = s.run.hp
 			row["key"] = key_cards(s.run)
+		if started and s.human:
+			row["st"] = seat_status(s)      # 11/12 온라인 존재감 —— 지금 하는 일 (아래 '존재감' 절)
 		ss.append(row)
 	var me = null
 	if i >= 0 and seats[i].foe != null:
@@ -373,6 +375,7 @@ func on_alone(peer: int, go: bool) -> void:
 func tick() -> void:
 	if not started or stage == "over":
 		return
+	_status_sync()
 	var live := _live()
 	var all_ready := (not live.is_empty() or (stage == "evening" and tour != null)) and live.all(func(s): return s.ready)
 	if now() < stage_end and not all_ready:
@@ -447,6 +450,7 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 		return
 	var ok = r.command(m, a)
 	seats[i].acted = true
+	seats[i]["cmd_t"] = now()      # 11/12 상태 아이콘 —— 방금 손을 댔다 (BUSY_SEC 동안 🔨)
 	if rlog != null:
 		rlog.act(i, r, m, a, ok)
 	# 11/9 사용자: 다른 사람의 소식도 와야 한다 —— 조합 · 선택권으로 등용하면 방의 다른 사람에게 소식 + 알림
@@ -455,6 +459,7 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 		var it := {"who": seats[i].name, "unit": str(a[0])}
 		_news_add(it, seats[i])
 		_announce("%s가 %s을(를) 등용했습니다" % [seats[i].name, DB.C[str(a[0])].name], it, seats[i], true)
+		_foe_preview(i, str(a[0]))      # 11/12 오늘 밤 상대에게만 예고
 	var sig := ",".join(key_cards(r))
 	var changed: bool = sig != str(seats[i].get("key_sig", ""))
 	seats[i]["key_sig"] = sig
@@ -687,9 +692,9 @@ func _begin_evening() -> void:
 		var a: Dictionary = _pair_seat(p[0])
 		var b: Dictionary = _pair_seat(p[1], int(p[2]) if p.size() > 2 else -1)
 		if a.human:
-			a.foe = _foe_info(b)
+			a.foe = _foe_for(a, b)
 		if b.human:
-			b.foe = _foe_info(a)
+			b.foe = _foe_for(b, a)
 	_stage("evening_prep")
 
 
@@ -781,6 +786,7 @@ func _pvp_humans(x: Dictionary, y: Dictionary) -> void:
 	ry.finish_battle(flipped)
 	_mvp_track(x, res, "A", bool(res.win))
 	_mvp_track(y, res, "B", bool(flipped.win))
+	_beat_track(x, y, bool(res.win), bool(res.draw))      # 11/12 설욕전
 	y.battles.append({"title": bt2.title, "res": flipped, "kind": "pvp", "params": _params(bt, true, bt2.title, x.name)})
 	if rlog != null:
 		var bt3 := {"kind": "pvp", "title": bt2.title, "seed": bt.seed, "a": bt.b, "b": bt.a}      # y 기준 —— 내가 a
@@ -846,6 +852,7 @@ static func side_mvp(res: Dictionary, camp: String) -> String:
 func _mvp_track(s: Dictionary, res: Dictionary, camp: String, won: bool) -> void:
 	if not s.human:
 		return
+	_streak_track(s, won)      # 11/12 판세 소식 —— 연승 (유저전마다 한 번씩 불린다)
 	var k := side_mvp(res, camp) if won else ""
 	var st: Array = s.get("mvp_st", ["", 0])
 	if k == "" or not is_urgent_unit(k):
@@ -909,6 +916,7 @@ func _bot_side(b: Dictionary) -> Dictionary:
 func _advance() -> void:
 	_flush_shadow_news()
 	_flush_mvp_news()
+	_flush_presence_news()      # 11/12 연승 · 민심 위기 —— 대전을 다 본 뒤
 	if rlog != null:
 		for s in humans():
 			if not s.dead:
@@ -995,7 +1003,7 @@ func _tour_seed() -> void:
 		for pair in [[a, b], [b, a]]:
 			var s: Dictionary = seats[pair[0].seat]
 			if s.human:
-				s.foe = _foe_info(seats[pair[1].seat])
+				s.foe = _foe_for(s, seats[pair[1].seat])
 	_tour_view()
 
 
@@ -1123,7 +1131,7 @@ func _tour_next() -> void:
 		for pair in [[a, b], [b, a]]:
 			var s: Dictionary = seats[pair[0].seat]
 			if s.human:
-				s.foe = _foe_info(seats[pair[1].seat])
+				s.foe = _foe_for(s, seats[pair[1].seat])
 	_tour_round()
 	_stage("evening")
 	for s in humans():
@@ -1179,10 +1187,16 @@ func _bot_news() -> Array:
 
 
 ## 멸망 —— 방의 다른 사람에게 소식
+## 11/12 사용자(온라인 존재감): 방 전체에 긴급 띠 「<유저>의 나라가 무너졌습니다 —— 남은 군주 N명」 (band = "fall", 장수 없는 띠 · 옛 휴대폰은 알림 한 줄)
 func _fallen(s: Dictionary) -> void:
-	var it := {"who": s.name, "text": "세력이 멸망했다"}
+	var n := seats.filter(func(o): return not (o.human and o.dead)).size()
+	var tx := "%s의 나라가 무너졌습니다 —— 남은 군주 %d명" % [s.name, n]
+	var it := {"who": s.name, "text": tx}
 	_news_add(it, s)
-	_announce("%s 세력이 멸망했다" % s.name, it, s)
+	var ann := it.duplicate()
+	ann["band"] = "fall"
+	ann["line"] = "남은 군주 %d명" % n
+	_announce(tx, ann, s, true)
 
 
 ## 소식을 모든 사람의 Run.news 에 넣는다 (except 는 뺀다) —— 머리띠 '소식' 뱃지 · 전황 소식 시트가 그대로 쓴다
@@ -1206,7 +1220,7 @@ func _news_add(it: Dictionary, except = null, only = null) -> void:
 func _announce(text: String, it = null, except = null, hot := false, only = null) -> void:
 	var e := {"text": text, "kind": "news"}
 	if it is Dictionary:
-		for k in ["who", "unit", "id", "when", "line"]:
+		for k in ["who", "unit", "id", "when", "line", "band"]:
 			if it.has(k):
 				e[k] = it[k]
 	if hot:
@@ -1252,6 +1266,141 @@ func on_emote(peer: int, i: int) -> void:
 	for o in humans():
 		if o.peer >= 0:
 			server.send(o.peer, {"t": "emote", "who": s.name, "i": i})
+
+
+# ───────── 존재감 (11/12 사용자: 정적인 게임에서 다른 유저의 움직임을 계속 느끼게) ─────────
+## 상태 아이콘 —— 방 정보의 사람 자리 줄 st 와, 바뀔 때마다 모두에게 {"t":"act_st","st":[자리마다]} (가벼운 메시지, 상태 전체를 다시 보내지 않는다).
+##   busy 🔨 징집 · 조합 · 편성 중(마지막 명령이 BUSY_SEC 안) · quest ⚔ 토벌 중 · pvp 🛡 대전 중(아직 다 안 봤다) · idle 💤 대기 · ready ✔ 준비 완료(아침 · 저녁 준비)
+##   멸망 · 끊김 · 봇 · 대기실은 "" (끊김 · 멸망은 따로 표시가 있다)
+## 상대 예고 —— 오늘 밤 내 유저전 상대(사람)가 기인 이상을 등용하면 나에게만 소식 (방 전체의 등용 띠는 그대로)
+## 판세 소식 —— N연승(3 이상, 이번 저녁에 늘었을 때) · 민심 위기(30 이하로 처음) : 대전을 다 본 뒤(_advance 맨 앞) 방 전체에 소식 + 작은 알림 (긴급 띠 아님)
+## 설욕전 —— 나를 (사람끼리 대전에서) 이긴 사람과 다시 만나면 상대 정보에 revenge = true. 이기면 지운다
+const BUSY_SEC := 6.0
+const STREAK_MIN := 3
+const HP_CRISIS := 30         # HpGauge 의 붉은 선과 같다
+var _st_sig := ""
+
+
+func seat_status(s: Dictionary) -> String:
+	if not started or not s.human or s.dead or s.peer < 0 or stage == "over":
+		return ""
+	if stage in ACT_STAGES and s.ready:
+		return "ready"
+	if stage in WATCH_STAGES and not s.watched and not s.battles.is_empty():
+		return "quest" if stage == "noon" else "pvp"
+	if now() - float(s.get("cmd_t", -100.0)) < BUSY_SEC:
+		return "busy"
+	return "idle"
+
+
+## 상태가 바뀌었으면 모두에게 (tick 마다 부른다 —— 자리 8개라 가볍다)
+func _status_sync() -> void:
+	var st := []
+	for s in seats:
+		st.append(seat_status(s))
+	var sig := ",".join(st)
+	if sig == _st_sig:
+		return
+	_st_sig = sig
+	for o in humans():
+		if o.peer >= 0:
+			server.send(o.peer, {"t": "act_st", "st": st})
+
+
+## 오늘 밤 이 자리(i)의 상대가 될 사람 자리 —— 아침 · 점심에만(저녁 준비부터는 상대 칸이 이미 보인다). 첫 저녁 전(자리 배치 전) · 토너먼트 날 · 그림자 · 봇이면 -1.
+## _begin_evening 과 같은 식(rr_plan)으로 미리 셈한다 —— 난수를 쓰지 않는다
+func tonight_foe(i: int) -> int:
+	if not (stage in ["morning", "noon"]) or tour != null or rr_order.size() != seats.size() or (day == 6 and phase == 2):
+		return -1
+	var dead := []
+	var alive_h := []
+	for k in seats.size():
+		if seats[k].human and seats[k].dead:
+			dead.append(k)
+		elif seats[k].human and seats[k].run != null and seats[k].token != "":
+			alive_h.append(k)
+	var ev_no := day * 3 + phase
+	for p in rr_plan(rr_order, ev_no % (max_seats - 1), dead, alive_h, ev_no / (max_seats - 1)):
+		if p.size() != 2 or int(p[0]) < 0 or int(p[1]) < 0:
+			continue
+		var o := -1
+		if int(p[0]) == i:
+			o = int(p[1])
+		elif int(p[1]) == i:
+			o = int(p[0])
+		if o >= 0 and seats[o].human and not seats[o].dead:
+			return o
+	return -1
+
+
+## 등용한 사람(i)의 오늘 밤 상대에게만 —— "오늘 밤 상대 <유저>가 방금 <장수>를 데려왔습니다"
+func _foe_preview(i: int, k: String) -> void:
+	var o := tonight_foe(i)
+	if o < 0:
+		return
+	var nm: String = DB.C[k].name
+	var tx := "오늘 밤 상대 %s%s 방금 %s%s 데려왔습니다" % [seats[i].name, "이" if _batchim(seats[i].name) else "가", nm, "을" if _batchim(nm) else "를"]
+	var it := {"who": seats[i].name, "text": tx}
+	_news_add(it, null, [seats[o]])
+	_announce(tx, it, null, false, [seats[o]])
+
+
+## 유저전 하나가 끝날 때마다 —— 이기면 연승 +1(이번 저녁에 늘었다 표시), 지거나 비기면 0
+func _streak_track(s: Dictionary, won: bool) -> void:
+	if won:
+		s["win_st"] = int(s.get("win_st", 0)) + 1
+		s["win_new"] = true
+	else:
+		s["win_st"] = 0
+		s["win_new"] = false
+
+
+## 사람끼리 대전 —— 진 쪽의 beat_by 에 이긴 사람 이름을 적는다. 설욕(이긴 쪽이 예전에 졌던 상대)하면 지운다
+func _beat_track(x: Dictionary, y: Dictionary, x_won: bool, draw: bool) -> void:
+	if draw:
+		return
+	var w: Dictionary = x if x_won else y
+	var l: Dictionary = y if x_won else x
+	var lb: Array = l.get("beat_by", [])
+	if not lb.has(w.name):
+		lb.append(w.name)
+	l["beat_by"] = lb
+	var wb: Array = w.get("beat_by", [])
+	wb.erase(l.name)
+	w["beat_by"] = wb
+
+
+## 상대 정보 + 설욕전 표시 (me 가 예전에 other 에게 졌다)
+func _foe_for(me: Dictionary, other: Dictionary) -> Dictionary:
+	var d := _foe_info(other)
+	if other.human and (me.get("beat_by", []) as Array).has(other.name):
+		d["revenge"] = true
+	return d
+
+
+## 연승 · 민심 위기 소식 —— 대전을 다 본 뒤라 결과가 새지 않는다. 본인에게는 보내지 않는다 (자기 화면에 이미 보인다)
+func _flush_presence_news() -> void:
+	var save := _news_stage
+	_news_stage = "evening"
+	for s in humans():
+		if s.dead or s.run == null:
+			continue
+		var tx := ""
+		if bool(s.get("win_new", false)) and int(s.get("win_st", 0)) >= STREAK_MIN:
+			tx = "%s %d연승 중" % [s.name, int(s.win_st)]
+		s["win_new"] = false
+		var hp := int(s.run.hp)
+		if hp > 0 and hp <= HP_CRISIS and s.run.over == null and not bool(s.get("hp_warn", false)):
+			s["hp_warn"] = true
+			var t2 := "%s 민심 %d, 위태롭습니다" % [s.name, hp]
+			var it2 := {"who": s.name, "text": t2}
+			_news_add(it2, s)
+			_announce(t2, it2, s)
+		if tx != "":
+			var it := {"who": s.name, "text": tx}
+			_news_add(it, s)
+			_announce(tx, it, s)
+	_news_stage = save
 
 
 # ───────── 기록 (RoomLog) ─────────
