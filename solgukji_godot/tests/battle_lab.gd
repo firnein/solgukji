@@ -108,6 +108,7 @@ func _side_col(cp: String, title: String) -> Control:
 	var fr := HBoxContainer.new()
 	var tier := OptionButton.new()
 	tier.add_item("모든 등급", 0)
+	tier.add_item("기인", 99)      # 11/11 사용자: 실험실에 기인이 안 보인다 —— 기인은 등급이 전설로 같아 목록에 섞여 있었다. 따로 거르기
 	for t in range(8, 0, -1):
 		if DB.TIER.has(t):
 			tier.add_item(DB.TIER[t].n, t)
@@ -185,6 +186,11 @@ func _side_col(cp: String, title: String) -> Control:
 		b.add_theme_font_size_override("font_size", 11)
 		b.pressed.connect(func(): _random(cp, t))
 		r3.add_child(b)
+	var bk := Button.new()
+	bk.text = "무작위 기인"
+	bk.add_theme_font_size_override("font_size", 11)
+	bk.pressed.connect(func(): _random_kiin(cp))
+	r3.add_child(bk)
 	v.add_child(r3)
 	var r4 := HBoxContainer.new()
 	var rec := Button.new()
@@ -207,11 +213,16 @@ func _cards(cp: String) -> Array:
 		var c: Dictionary = DB.C[k]
 		if c.kind == "retired": return false
 		if DB.is_foe(k) and not s.foe: return false
-		if s.tier > 0 and c.tier != s.tier: return false
+		if s.tier == 99:
+			if c.kind != "kiin": return false
+		elif s.tier > 0 and (c.tier != s.tier or c.kind == "kiin"): return false
 		if s.tag != "" and c.tag != s.tag: return false
 		if q != "" and not c.name.contains(q): return false
 		return true)
 	ks.sort_custom(func(a, b):
+		var ka: bool = DB.C[a].kind == "kiin"
+		var kb: bool = DB.C[b].kind == "kiin"
+		if ka != kb: return ka      # 기인은 맨 위
 		if DB.C[a].tier != DB.C[b].tier: return DB.C[a].tier > DB.C[b].tier
 		return DB.C[a].name < DB.C[b].name)
 	return ks
@@ -219,7 +230,7 @@ func _cards(cp: String) -> Array:
 
 func _label(k: String) -> String:
 	var c: Dictionary = DB.C[k]
-	return "[%s] %s · %s%s" % [DB.TIER[c.tier].n, c.name, c.tag, "  (적)" if DB.is_foe(k) else ""]
+	return "[%s] %s · %s%s" % [DB.tier_name(k), c.name, c.tag, "  (적)" if DB.is_foe(k) else ""]
 
 
 func _fill(cp: String) -> void:
@@ -228,7 +239,7 @@ func _fill(cp: String) -> void:
 	for k in _cards(cp):
 		var i := list.add_item(_label(k))
 		list.set_item_metadata(i, k)
-		list.set_item_custom_fg_color(i, DB.TIER[DB.C[k].tier].c)
+		list.set_item_custom_fg_color(i, DB.tier_color(k))
 	_fill_deck(cp)
 
 
@@ -240,7 +251,7 @@ func _fill_deck(cp: String) -> void:
 	var pv := 0
 	for k in s.deck:
 		var i := dl.add_item(_label(k))
-		dl.set_item_custom_fg_color(i, DB.TIER[DB.C[k].tier].c)
+		dl.set_item_custom_fg_color(i, DB.tier_color(k))
 		tr += int(DB.C[k].tr)
 		pv += int(DB.C[k].pv)
 	s.sum.text = "%d장 · 병력 %s · 전력 %d · 추천 작전 %s" % [s.deck.size(), _num(tr), pv, Run.recommend_tac(s.deck)[0]]
@@ -253,6 +264,16 @@ func _add(cp: String, k: String) -> void:
 		return
 	s.deck.append(k)
 	_fill_deck(cp)
+
+
+## 11/11 기인 9장 무작위 (기인 카드가 9장보다 적으면 그만큼)
+func _random_kiin(cp: String) -> void:
+	var s: Dictionary = side[cp]
+	var pool := DB.C.keys().filter(func(k): return DB.is_kiin(k))
+	pool.shuffle()
+	s.deck = pool.slice(0, 9)
+	_fill_deck(cp)
+	_set_tac(cp, Run.recommend_tac(s.deck)[0])
 
 
 func _random(cp: String, t: int) -> void:
