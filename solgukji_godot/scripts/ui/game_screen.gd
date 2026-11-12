@@ -1190,6 +1190,7 @@ func act(m: String, a := []):
 			elif r and not _forge_quiet:               # 11/6 #17 조합 연출 —— 재료가 모여 하나로 (모두 조합은 forge_tree 가 묶어서)
 				ForgeFx.play_one(self, str(a[0]), DB.RECOF.get(str(a[0]), []))
 		"do_draw", "pick", "random_grant": Sfx.play("draw")
+		"sell", "buy": Sfx.play("gain" if (r != null and not (r is bool and not r)) else "deny")
 	if online != null:
 		online.send_cmd(m, a)
 	changed()
@@ -1699,6 +1700,8 @@ func _page_draw() -> Control:
 	var n := run.draws_n()
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
+	if shop_on():      # 11/13 군량 · 상점
+		v.add_child(_grain_bar())
 	if run.day >= 7:      # 11/12 최후 1인 —— 8일차부터 패배 민심 피해가 매일 커진다
 		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]%d일차 — 난세의 끝[/color][/b] — 마지막 한 세력이 남을 때까지 싸운다. 패배 민심 피해 ×%s" % [run.day + 1, str(snappedf(pow(Run.HP_LATE_MUL, run.day - Run.LAST_TABLE_DAY), 0.01))], 14), 10))
 
@@ -1749,6 +1752,8 @@ func _page_draw() -> Control:
 	var hand_tile := func(k: String, n: int, h: float) -> MiniTile:
 		var t := mtile(k, n)
 		t.custom_minimum_size = Vector2(30, h)
+		if n > 0 and shop_on() and Run.sellable(k):      # 11/13 꾹 누르면 판매
+			t.on_hold = _sell_sheet
 		if run.on_board(k) > 0:
 			t.badge = "편성 %d" % run.on_board(k) if h >= 90 else "편성"
 			t.badge_col = Color(DB.PAL.ink4, 0.95)
@@ -2233,6 +2238,92 @@ func can_act() -> bool:
 	return online == null or online.can_act("draw")
 
 
+# ───────── 유닛 판매 · 군량 상점 (11/13) ─────────
+
+## 판매 · 상점을 쓰는 판인가 —— 혼자 하기는 늘, 온라인은 방 옵션(방 정보 sell —— 옛 서버는 없어 숨긴다)
+func shop_on() -> bool:
+	if run == null or not run.sell_on:
+		return false
+	return online == null or bool(online.room.get("sell", false))
+
+
+## 징집 탭 머리 —— 군량 수치 + [상점]
+func _grain_bar() -> Control:
+	var h := UI.hbox(8)
+	var l := UI.rich("[color=#8D7B5C]군량[/color]  [b][color=#D9A64B]%d[/color][/b]" % run.grain, 15)
+	l.fit_content = true
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	var cheap := Run.shop_price(Run.SHOP_TIERS[0])
+	var sb := UI.btn("상점", _shop_sheet, "gold" if run.grain >= cheap else "ghost", 36)
+	sb.custom_minimum_size.x = 84
+	h.add_child(sb)
+	return UI.panel(h, 6)
+
+
+## 상점 시트 —— 고급 · 희귀 · 전설 랜덤권 가격 · 구매
+func _shop_sheet() -> void:
+	var b := open_sheet("군량 상점")
+	b.add_child(UI.rich("[color=#8D7B5C]가진 군량[/color]  [b][color=#D9A64B]%d[/color][/b]" % run.grain, 17))
+	if not can_act():
+		b.add_child(UI.hint(online.block_reason("draw") if online != null else ""))
+	for t in Run.SHOP_TIERS:
+		var tt: int = t
+		var price := Run.shop_price(tt)
+		var row := UI.hbox(10)
+		var nm := UI.lbl("%s 랜덤권" % DB.TIER[tt].n, 17, DB.TIER[tt].c, true)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(nm)
+		row.add_child(UI.lbl("군량 %d" % price, 15, DB.PAL.gold))
+		var bb := UI.btn("구매", func():
+			if act("buy", [tt]) != null:
+				_shop_sheet(), "pri" if run.grain >= price else "ghost", 44)
+		bb.custom_minimum_size.x = 80
+		bb.disabled = run.grain < price or not can_act()
+		row.add_child(bb)
+		b.add_child(UI.panel(row, 8))
+	b.add_child(UI.hint("사면 그 등급 장수 하나를 무작위로 받는다 (기인 제외). 군량은 장수를 팔아 얻는다 —— 징집 탭 보유 카드를 꾹 누르거나 장수 정보에서 [판매]."))
+	var sp := []
+	for t in [3, 4, 5, "기인", 6, 7, 8]:
+		var ks: Array = DB.C.keys().filter(func(x): return DB.is_kiin(x)) if str(t) == "기인" else DB.by_tier(int(t)).filter(func(x): return not DB.is_kiin(x))
+		var vs: Array = ks.filter(func(x): return Run.sellable(x)).map(func(x): return Run.sell_price(x))
+		if not vs.is_empty():
+			sp.append("%s %d~%d" % [str(t) if str(t) == "기인" else DB.TIER[int(t)].n, vs.min(), vs.max()])
+	b.add_child(UI.hint("판매가(군량): " + " · ".join(sp)))
+
+
+## 꾹 누른 보유 카드 —— 판매 한 줄 시트
+func _sell_sheet(k: String) -> void:
+	if not DB.C.has(k) or run.have(k) <= 0:
+		return
+	var b := open_sheet(DB.C[k].name, DB.tier_color(k).lightened(0.2))
+	var only_board: bool = int(run.inv.get(k, 0)) <= 0
+	b.add_child(UI.hint("%s · 보유 %d장%s · 지금 군량 %d" % [DB.tier_name(k), run.have(k), " (편성 %d)" % run.on_board(k) if run.on_board(k) > 0 else "", run.grain]))
+	if only_board:
+		b.add_child(UI.hint("편성에 올린 장수다 —— 팔면 편성에서 빠진다."))
+	var sb := UI.btn("판매  +%d 군량" % Run.sell_price(k), func():
+		close_sheet()
+		act("sell", [k]), "warn" if only_board else "pri", 52)
+	sb.disabled = not can_act()
+	b.add_child(sb)
+	if not can_act() and online != null:
+		b.add_child(UI.hint(online.block_reason("draw")))
+	b.add_child(UI.btn("장수 정보", func(): card_info(k), "ghost"))
+
+
+## 장수 정보창의 [판매] —— 손패에 없고 편성에만 있으면 확인을 받는다
+func _sell(k: String) -> void:
+	if int(run.inv.get(k, 0)) <= 0 and run.on_board(k) > 0:
+		_sell_sheet(k)
+		return
+	act("sell", [k])
+	if run.have(k) > 0:
+		card_info(k)
+	else:
+		close_sheet()
+
+
 ## 지금 편성할 수 있는가 —— 온라인은 act_form (아침 · 저녁 준비)
 func can_form() -> bool:
 	return online == null or online.can_act("form")
@@ -2273,6 +2364,10 @@ func card_info(k: String) -> void:
 			st.add_child(tb0)
 	top.add_child(st)
 	b.add_child(top)
+	if shop_on() and Run.sellable(k) and int(p.get(k, 0)) > 0:      # 11/13 유닛 판매
+		var sb := UI.btn("판매  +%d 군량" % Run.sell_price(k), func(): _sell(k), "ghost", 44)
+		sb.disabled = not can_act()
+		b.add_child(sb)
 	var ab := UI.vbox(6)
 	_ability_rows(ab, k, 12, false, false, [], true)
 	b.add_child(ab)
@@ -4060,6 +4155,9 @@ func _dev_args() -> void:
 			if DB.C.has(kn[0]):
 				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
 		render()
+	if a.has("ggrain") and run != null:      # 점검용 —— --ggrain=40 : 군량 (11/13 · 저장하지 않는다)
+		run.grain = int(a.ggrain)
+		render()
 	if a.has("glock") and run != null:      # 점검용 —— --glock=K01:정지,K07:dead : 장수 선점제 · 사망룰로 잠긴 장수 (11/12 · 저장하지 않는다). --gdeath=K07 은 사망 연출
 		for s_ in str(a.glock).split(",", false):
 			var kv_ := s_.split(":")
@@ -4164,6 +4262,8 @@ func _dev_args() -> void:
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
 			"uniq": _unique_sheet()
+			"shop": _shop_sheet()      # 11/13 군량 상점 (--ggrain=40 과 함께)
+			"sell": _sell_sheet(kv[1])      # 11/13 보유 카드 꾹 누르기 판매 시트
 			"unique":      # 점검용 —— 보급 팝업을 억지로 연다 (--gsheet=unique:i81+i72+i89, 비우면 신화 재료 앞 셋)
 				var ids: Array = Array(kv[1].split("+")) if kv.size() > 1 and kv[1] != "" else DB.MYTH_ITEMS.keys().slice(0, 3)
 				run.uniq_offer = ids

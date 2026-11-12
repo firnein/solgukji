@@ -95,15 +95,17 @@ var claim_on := true          # 11/12 장수 선점제 —— 기인 이상은 �
 var death_n := 0              # 11/12 장수 사망룰 —— 판 시작 때 죽는 기인 이상 장수 수 (0 = 끔)
 var claims := {}              # 선점 기록: 장수 id -> 먼저 등용한 자리 이름 (그 사람이 멸망 · 퇴장해도 풀지 않는다 —— 단순하게)
 var dead_units := []          # 사망한 장수 id (시작 때 정하고 고정)
+var sell_on := true           # 11/13 유닛 판매 · 군량 상점 (기본 켜짐) —— 사람 자리의 Run.sell_on 으로 넣는다. 꺼진 방은 sell · buy 를 거부
 
 
-func _init(srv, room_code: String, m: String, n_seats = SEATS, claim = true, deaths = 0) -> void:
+func _init(srv, room_code: String, m: String, n_seats = SEATS, claim = true, deaths = 0, sell = true) -> void:
 	server = srv
 	code = room_code
 	mode = m if MODES.has(m) else "fast"
 	max_seats = valid_seats(n_seats)
 	claim_on = not (typeof(claim) == TYPE_BOOL and not claim)      # 없거나 이상하면 켜짐 (옛 클라이언트도 선점제)
 	death_n = valid_deaths(deaths)
+	sell_on = not (typeof(sell) == TYPE_BOOL and not sell)      # 없거나 이상하면 켜짐 (옛 클라이언트가 만든 방도 판매 켜짐)
 	rng.randomize()
 
 
@@ -290,7 +292,7 @@ func info(i: int) -> Dictionary:
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
 		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": -1, "winner": winner, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
-		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths()}
+		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on}
 
 
 func push_lobby() -> void:
@@ -324,6 +326,7 @@ func start() -> void:
 		var r := Run.new()
 		r.new_game(rng.randi())
 		r.mp = true
+		r.sell_on = sell_on
 		s.run = r
 		r.on_forge = _on_forged.bind(s)
 	_pick_deaths()
@@ -468,11 +471,16 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 		return
 	var r: Run = seats[i].run
 	why = lock_reason(r, m, a)
+	if why == "":
+		why = shop_reason(r, m, a)
 	if why != "":
 		server.send(peer, {"t": "toast", "text": why, "kind": "bad"})
 		push(seats[i])      # 클라이언트가 먼저 해 본 조합을 되돌린다
 		return
+	var n_toast := r.toasts.size()
 	var ok = r.command(m, a)
+	if m in ["sell", "buy"]:
+		r.toasts.resize(n_toast)      # 11/13 판매 · 구매 알림은 휴대폰이 먼저 해 본 명령으로 띄운다 —— 서버 쪽 것은 버린다 (다음 아침에 겹쳐 오지 않게)
 	seats[i].acted = true
 	seats[i]["cmd_t"] = now()      # 11/12 상태 아이콘 —— 방금 손을 댔다 (BUSY_SEC 동안 🔨)
 	if rlog != null:
@@ -574,6 +582,19 @@ func lock_reason(r: Run, m: String, a: Array) -> String:
 	if e is Dictionary and e.has("by"):
 		return "장수 선점제 —— %s은(는) %s 세력이 먼저 등용해 등용할 수 없습니다" % [nm, str(e.by)]
 	return "장수 사망룰 —— %s은(는) 이번 판에 사망해 등용할 수 없습니다" % nm
+
+
+## 판매 · 구매 거부 까닭 (11/13) —— 옵션이 꺼진 방 · 없는 장수 · 군량 부족. "" 이면 거부 아님
+func shop_reason(r: Run, m: String, a: Array) -> String:
+	if not (m in ["sell", "buy"]):
+		return ""
+	if a.size() != 1:
+		return "잘못된 명령입니다"
+	if m == "sell":
+		return r.sell_block(str(a[0]))
+	if not (a[0] is int or a[0] is float):
+		return "잘못된 명령입니다"
+	return r.buy_block(int(a[0]))
 
 
 ## 긴급 소식 대상 —— 기인 이상 (기인 · 초월 6 · 불멸 7 · 신화 8)

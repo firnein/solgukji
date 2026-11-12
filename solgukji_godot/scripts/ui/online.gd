@@ -64,6 +64,7 @@ var _warn_fx: Control = null      # 붉은 가장자리 (WarnEdge)
 var _warn_c := -1                 # 마지막으로 비프를 울린 남은 초 (올림)
 var _pick_max := Room.SEATS       # 방 만들기 시트에서 고른 총 인원 (4 · 6 · 8, 11/11) —— create 의 max
 var _pick_claim := true           # 11/12 장수 선점제 (기본 켜짐) —— create 의 claim
+var _pick_sell := true            # 11/13 유닛 판매 · 군량 상점 (기본 켜짐) —— create 의 sell
 var _pick_deaths := 0             # 11/12 장수 사망룰 인원 (0 = 끔 · 3 · 5 · 10) —— create 의 deaths
 var _intro_room := ""             # 규칙 안내(선점제 팝업 · 사망 연출)를 띄운 방 코드 —— 한 판에 한 번
 var dev_max := 8                  # 점검용 —— 가짜 방의 총 인원 (--gseats=4)
@@ -362,7 +363,7 @@ func connect_sheet(refresh := false) -> void:
 	for m in ["fast", "normal"]:
 		var bt := UI.btn(Room.MODES[m].n, func():
 			_drop_room()
-			net.send({"t": "create", "mode": m, "max": _pick_max, "claim": _pick_claim, "deaths": _pick_deaths}), "gold")
+			net.send({"t": "create", "mode": m, "max": _pick_max, "claim": _pick_claim, "deaths": _pick_deaths, "sell": _pick_sell}), "gold")
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
 		bt.custom_minimum_size = Vector2(0, 64)
@@ -416,6 +417,10 @@ func _fill_seat_pick(box: Control) -> void:
 	box.add_child(UI.lbl("장수 사망룰 — 시작 때 기인 이상 무작위 사망", 14, DB.PAL.bamboo))
 	box.add_child(UI.segmented(dl, str(_pick_deaths), func(k: String):
 		_pick_deaths = int(k)
+		_fill_seat_pick(box)))
+	box.add_child(UI.lbl("유닛 판매 — 장수를 팔아 군량, 군량으로 랜덤권", 14, DB.PAL.bamboo))      # 11/13
+	box.add_child(UI.segmented([["1", "켜기"], ["0", "끄기"]], "1" if _pick_sell else "0", func(k: String):
+		_pick_sell = k == "1"
 		_fill_seat_pick(box)))
 
 
@@ -972,6 +977,8 @@ func rules_text() -> String:
 		out += " · 장수 선점제"
 	if int(room.get("deaths", 0)) > 0:
 		out += " · 장수 사망 %d명" % int(room.deaths)
+	if room.has("sell"):      # 11/13 옛 서버는 sell 이 없다 —— 말하지 않는다
+		out += " · 유닛 판매" if bool(room.sell) else " · 판매 없음"
 	return out
 
 

@@ -95,11 +95,11 @@ static func new_game(run) -> void:
 static func act(run, m: String, a: Array, r) -> void:
 	if not ensure(run):
 		return
-	_put(run, "act", act_data(m, a, r))
+	_put(run, "act", act_data(m, a, r, run))
 
 
 ## act 한 줄의 내용 —— 온라인 방 기록(RoomLog)도 같은 형식을 쓴다 (11/10)
-static func act_data(m: String, a: Array, r) -> Dictionary:
+static func act_data(m: String, a: Array, r, run_ = null) -> Dictionary:
 	var d := {"m": m, "a": a}
 	match m:
 		"do_draw", "random_grant":
@@ -111,6 +111,19 @@ static func act_data(m: String, a: Array, r) -> Dictionary:
 				d["got"] = [card(str(a[0]))]      # 조합 결과 카드
 		"place":
 			d["card"] = card(str(a[1])) if a.size() > 1 else []
+		"sell":      # 11/13 유닛 판매 —— 판 장수 · 받은 군량
+			d["card"] = card(str(a[0])) if not a.is_empty() else []
+			d["ok"] = bool(r)
+			if bool(r) and not a.is_empty():
+				d["grain_gain"] = Run.sell_price(str(a[0]))
+		"buy":       # 11/13 군량 상점 —— 산 등급 · 낸 군량 · 받은 장수
+			if not a.is_empty() and (a[0] is int or a[0] is float):
+				d["cost"] = Run.shop_price(int(a[0]))
+			d["ok"] = r != null
+			if r is String:
+				d["got"] = [card(r)]
+	if run_ != null and run_.get("grain") != null:
+		d["grain"] = int(run_.grain)      # 명령 뒤 남은 군량
 	return d
 
 

@@ -148,6 +148,8 @@ func new_game(seed_value := -1) -> void:
 	battle = null
 	last_result = null
 	held = {}
+	grain = 0
+	sell_on = true
 	bots = []
 	var bot_names := DB.gen_bot_names(rng.seed, DB.D.BOTNAME.size())      # 11/10 봇 이름은 판마다 랜덤 (DB.gen_bot_names)
 	for i in DB.D.BOTNAME.size():
@@ -1781,9 +1783,111 @@ func pick(k: String) -> bool:
 	return true
 
 
+# ───────── 유닛 판매 · 군량 상점 (11/13) ─────────
+## 11/13 사용자: "유닛 판매 추가 (옵션 기본 true). 판매를 통해 군량으로 지급. 군량으로 전설 or 희귀 or 고급 랜덤권 구매".
+## 값의 잣대 = 기본패 환산(재료를 끝까지 풀어 센 기본패 수 —— tests/supply_check 의 비용과 같다, 유니크 아이템은 세지 않는다).
+## 판매가 = 그 장수 값 × SELL_RATE (반올림, 고급 이상만), 상점가 = 그 등급 랜덤권으로 나올 수 있는 장수(pickable) 값의 평균 × SHOP_RATE (올림).
+## 같은 등급에서 가장 비싼 장수의 판매가도 상점가보다 낮아 팔고-사기를 되풀이해 이득을 볼 수 없다 (tests/shop_rules 가 확인).
+## 온라인은 방 옵션(Room.sell_on, 기본 켜짐)을 sell_on 으로 받는다 —— 꺼진 방은 판매 · 구매를 거부. 혼자 하기는 늘 켜짐.
+## 명령 종류는 '징집 · 조합'(Room.FORM_CMDS 가 아님) —— 아침 · 전투를 다 본 뒤 기다리는 시간에 되고, 대전 준비 단계에는 안 된다
+const SELL_RATE := 0.45
+const SHOP_RATE := 1.0
+const SHOP_TIERS := [3, 4, 5]      # 고급 · 희귀 · 전설 랜덤권
+var grain := 0                     # 군량 —— 판매로 얻고 상점에서 쓴다
+var sell_on := true                # 이 판에서 판매 · 상점을 쓸 수 있나 (온라인 방 옵션 —— 서버가 시작 때 넣는다)
+static var _val_cache := {}
+
+
+## 기본패 환산 값 —— 기본패 1, 조합 장수는 재료 값의 합
+static func base_value(k: String) -> float:
+	if _val_cache.has(k):
+		return _val_cache[k]
+	var v := 1.0
+	if DB.C.has(k) and int(DB.C[k].tier) > 1 and DB.RECOF.has(k):
+		v = 0.0
+		for m in DB.RECOF[k]:
+			if DB.C.has(str(m)):
+				v += base_value(str(m))
+	_val_cache[k] = v
+	return v
+
+
+## 팔 수 있는 장수인가 —— 고급 이상(기인 포함), 적 전용 · 옛 명단 제외
+static func sellable(k: String) -> bool:
+	return DB.C.has(k) and int(DB.C[k].tier) >= 3 and not DB.is_foe(k) and str(DB.C[k].get("kind", "")) != "retired"
+
+
+static func sell_price(k: String) -> int:
+	return int(round(base_value(k) * SELL_RATE)) if sellable(k) else 0
+
+
+## 상점 랜덤권 값 —— 그 등급 랜덤권으로 나올 수 있는 장수 값의 평균 × SHOP_RATE (올림)
+static func shop_price(t: int) -> int:
+	if not t in SHOP_TIERS:
+		return 0
+	var key := "shop%d" % t
+	if _val_cache.has(key):
+		return int(_val_cache[key])
+	var src: Array = pickable(t).filter(func(x): return str(DB.C[x].get("kind", "")) != "retired")
+	var s := 0.0
+	for k in src:
+		s += base_value(k)
+	var p := int(ceil(s / maxf(1.0, src.size()) * SHOP_RATE))
+	_val_cache[key] = p
+	return p
+
+
+## 판매를 받을 수 없는 까닭 —— "" 이면 된다 (서버가 거부 이유로 보낸다)
+func sell_block(k: String) -> String:
+	if not sell_on:
+		return "유닛 판매가 꺼진 방입니다"
+	if not sellable(k):
+		return "팔 수 없는 장수입니다"
+	if have(k) <= 0:
+		return "가지고 있지 않은 장수입니다"
+	return ""
+
+
+func buy_block(t: int) -> String:
+	if not sell_on:
+		return "유닛 판매가 꺼진 방입니다 (상점 없음)"
+	if not t in SHOP_TIERS:
+		return "살 수 없는 등급입니다"
+	if grain < shop_price(t):
+		return "군량이 모자랍니다 (%d / %d)" % [grain, shop_price(t)]
+	return ""
+
+
+## 한 장 판다 —— 손패부터, 손패에 없으면 편성에서 내려 판다 (화면이 먼저 확인을 받는다). 군량 = sell_price
+func sell(k: String) -> bool:
+	if sell_block(k) != "":
+		return false
+	var g := sell_price(k)
+	take(k, 1)
+	grain += g
+	toasts.append(["%s 판매 —— 군량 +%d" % [DB.C[k].name, g], "gain"])
+	return true
+
+
+## 랜덤권 하나를 사서 바로 연다 (전투 보상 랜덤권처럼 그 등급에서 무작위, 기인 제외) —— 받은 카드 id, 못 사면 null
+func buy(t) -> Variant:
+	t = int(t)
+	if buy_block(t) != "":
+		return null
+	var src: Array = pickable(t).filter(func(x): return str(DB.C[x].get("kind", "")) != "retired")
+	if src.is_empty():
+		return null
+	grain -= shop_price(t)
+	var k: String = src[rng.randi() % src.size()]
+	give(k)
+	toasts.append(["상점 %s 랜덤권 · %s" % [DB.TIER[t].n, DB.C[k].name], "gold"])
+	return k
+
+
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
 const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
-	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1}
+	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1,
+	"sell": 1, "buy": 1}
 
 
 func command(m: String, a: Array):
@@ -1799,7 +1903,7 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
-	"my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked"]
+	"my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on"]
 
 
 func to_dict() -> Dictionary:
@@ -1819,8 +1923,9 @@ func from_dict(d: Dictionary) -> void:
 	for dict in [inv, bag]:
 		for k in dict:
 			dict[k] = int(dict[k])
-	for k in ["day", "phase", "strikes", "my_w", "my_l", "hp", "last_hp_loss", "news_seq"]:
+	for k in ["day", "phase", "strikes", "my_w", "my_l", "hp", "last_hp_loss", "news_seq", "grain"]:
 		set(k, int(get(k)))
+	sell_on = bool(d.get("sell_on", true))      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
 		hp = maxi(1, HP_MAX - strikes * 20)
 	if not d.has("tickets"):

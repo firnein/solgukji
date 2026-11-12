@@ -160,7 +160,7 @@ func act(i: int, run, m: String, a: Array, r) -> void:
 			clean.append(x)
 		else:
 			clean.append("?")
-	var d := PlayLog.act_data(m.substr(0, 24), clean, r)
+	var d := PlayLog.act_data(m.substr(0, 24), clean, r, run)
 	d["ok"] = r != null and not (r is bool and not r)      # 명령이 거절되면 null · false (do_draw 같은 것은 카드 배열이 온다)
 	put(i, run, "act", d)
 

@@ -15,6 +15,7 @@ var up := false             # 오른쪽 위 ▲ —— 지금 조합 가능한 �
 var dim := false            # 흐리게 (없는 카드)
 var _press := Vector2.INF
 var drag_data = null        # 있으면 길게 눌러(0.35초) 끌 수 있다 (편성 손패, 11/4)
+var on_hold := Callable()   # 11/13 끌기가 없는 타일을 꾹 누르면(CardTile.HOLD) 부른다 (징집 보유 카드 —— 판매 시트). 그때는 tapped 를 보내지 않는다
 var short_name := false     # 11/11 인연 타일 —— 이름 줄에 칭호 없이 인물 이름만 (60폭에 '난세간웅 조조' 가 잘렸다)
 var mark := ""              # "sel" —— 고른 카드 (금테)
 var star := false           # 11/7 갈무리 표시 —— 12시 방향 노란 ★ (갈무리한 장수 · 그 재료)
@@ -123,7 +124,16 @@ func _gui_input(e: InputEvent) -> void:
 
 
 func _process(dt: float) -> void:
-	if drag_data == null or _press == Vector2.INF or _dragging:
+	if _press == Vector2.INF or _dragging:
+		return
+	if drag_data == null:
+		if on_hold.is_valid():
+			_held += dt
+			if _held >= CardTile.HOLD + 0.1:
+				_dragging = true      # 손을 뗄 때 tapped 를 보내지 않게
+				_press = Vector2.INF
+				UI.buzz()
+				on_hold.call(k)
 		return
 	_held += dt
 	if _held >= CardTile.HOLD:
