@@ -190,6 +190,15 @@ func pool() -> Dictionary:
 	return o
 
 
+## 손패 + 편성판의 카드 장수
+func _card_count() -> int:
+	var n := 0
+	var p := pool()
+	for k in p:
+		n += int(p[k])
+	return n
+
+
 func my_pv() -> int:
 	var s := 0
 	var p := pool()
@@ -905,6 +914,18 @@ func advance() -> void:
 	if not drawn and draws_n() > 0 and not legacy_rewards:
 		do_draw()
 		toasts.append(["안 뽑은 기본 징집 %d장을 받았다" % last_draw.size(), "gain"])
+	# 11/12 (작업현황 94): 선택권 · 배급도 같다 —— 페이즈를 넘길 때 안 받은 것은 아래에서 flag 가 지워져 통째로 사라졌다 (징집만 받아 줬다)
+	# 온라인은 서버(Room._fill)가 단계 끝에 같은 것을 하므로 겹치지 않는다. 혼자 하기에서 선택권 타일 · 배급 타일을 안 누르고 넘긴 경우
+	if not legacy_rewards:
+		if not picked and not pick_list().is_empty():
+			var tk_before := ticket_left()
+			var inv_before := _card_count()
+			begin_picks("phase")
+			toasts.append(["안 받은 선택권을 받았다 —— 선택권 +%d%s" % [ticket_left() - tk_before, (" · 전설 %d장" % (_card_count() - inv_before)) if _card_count() > inv_before else ""], "gain"])
+		if not granted and not grant_list().is_empty():
+			var got := random_grant()
+			if not got.is_empty():
+				toasts.append(["안 받은 배급 %d장을 받았다" % got.size(), "gain"])
 	phase += 1
 	if phase > 2:
 		phase = 0
@@ -923,7 +944,10 @@ func advance() -> void:
 		return
 	if hp <= 0 and not dev_immortal:      # 11/9 민심이 바닥났으면 (finish_battle 에서 이미 끝났어야 한다)
 		over = {"win": false, "msg": "민심이 바닥났다 —— 세력이 멸망했다"}
-		return
+		if not mp:
+			return
+		# 11/12 (작업현황 94): 여럿이 하는 판은 이어서 아이템 보급을 준다 —— 점검 방은 멸망하지 않아(Room 이 over 를 지운다) 민심이 0 인 채로 계속 가는데,
+		# 여기서 돌아가 버리면 그 뒤로 매 아침 아이템 보급(gain_item)이 사라졌다. 실제 방은 곧 멸망 처리라 한 개 더 받아도 보이지 않는다
 	gain_item()
 	if mp:
 		return
