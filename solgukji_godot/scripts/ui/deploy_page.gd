@@ -298,6 +298,9 @@ func _inyeon_block(nm: String, n: int, ctx: Dictionary, on_card: Callable) -> Co
 	hd.add_child(cl)
 	v.add_child(hd)
 	v.add_child(InyeonUI.members_row(nm, ctx, on_card))
+	var fh := InyeonUI.fin_hint(nm)
+	if fh != null:
+		v.add_child(fh)
 	return UI.panel(v, 10)
 
 

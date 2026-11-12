@@ -473,7 +473,71 @@ func _inyeon_drop(d: Unit) -> void:
 			stats["inyeon_cut"] = int(stats.get("inyeon_cut", 0)) + 1
 		grp.members.erase(d)
 		_wind_grp.erase(d)
+		_inyeon_fin_check(grp)
 	_join_q = _join_q.filter(func(j): return j.lead != d)
+
+
+# ───────── 11/12 인연기 (사용자: 합동이 a+b 가 아니라 c 의 효과와 이펙트가 나오게) ─────────
+## 합동 고유기가 2명 이상 실제로 터지면, 마지막 장수가 쏜 뒤(남은 장수가 끊겨 더 쏠 사람이 없을 때도) 그 인연의 인연기가 한 번 터진다.
+## 틀 셋 —— fire(적 전체 화상) · duel(적 최강 장수에게 일격 + 사기) · rally(아군 전체 사기 + 공격). 수치는 [2명, 3명].
+## 피해형으로 키우지 않는다 —— 합동 상한(inyeon_cap_mul)에 걸려 체감이 없다. 상태 · 사기 위주.
+static var inyeon_fin_enabled := true
+static var FIN := {
+	"fire": {"burn": [0.05, 0.08], "dur": [2, 3]},
+	"duel": {"mult": [1.0, 1.6], "morale": [12.0, 20.0]},
+	"rally": {"morale": [10.0, 18.0], "atk": [0.10, 0.15], "dur": 2},
+}
+
+
+func _inyeon_fin_check(grp: Dictionary) -> void:
+	if not inyeon_fin_enabled or not grp.get("fired", false) or grp.get("fin", false) or int(grp.get("shot", 0)) < 2:
+		return
+	if grp.members.any(func(o): return _wind.has(o)):      # 아직 쏠 장수가 남았다
+		return
+	grp["fin"] = true
+	var def: Dictionary = DB.inyeon_fin(grp.name)
+	if def.is_empty() or not FIN.has(def.t):
+		return
+	var by: Unit = grp.lead if grp.lead.alive else null
+	if by == null:
+		for o in grp.members:
+			if o.alive:
+				by = o
+				break
+	if by == null:
+		return
+	var foes := units.filter(func(o): return o.alive and o.camp != by.camp)
+	var allies := units.filter(func(o): return o.alive and o.camp == by.camp)
+	if foes.is_empty():
+		return
+	var i := 1 if int(grp.shot) >= 3 else 0
+	var tune: Dictionary = FIN[def.t]
+	stats["inyeon_fin"] = int(stats.get("inyeon_fin", 0)) + 1
+	_ai += 1
+	_ph = "act"
+	_who = by.key
+	_one = turn_mul
+	_long = turn_mul
+	L("sk", "인연 『%s』 인연기 『%s』 —— %s" % [grp.name, def.n, DB.INYEON_FIN_DESC.get(def.t, "")],
+		{"fx": "inyeon_fin", "a": by.key, "name": def.n, "inyeon": grp.name, "kind": def.t, "cnt": int(grp.shot)})
+	match def.t:
+		"fire":
+			for t in foes:
+				inflict(by, t, "burn", float(tune.burn[i]), int(tune.dur[i]))
+		"duel":
+			var best: Unit = foes[0]
+			for t in foes:      # 적 최강 장수 —— 등급, 같으면 남은 병력
+				if t.c.tier > best.c.tier or (t.c.tier == best.c.tier and t.troops > best.troops):
+					best = t
+			phys_hit(by, best, float(tune.mult[i]), true)
+			if best.alive:
+				morale_hit(best, float(tune.morale[i]), def.n, 1, by)
+		"rally":
+			for o in allies:
+				heal_morale(o, float(tune.morale[i]), def.n, by)
+				add_buff(o, {"stat": "atk", "amt": float(tune.atk[i]), "dur": int(tune.dur)})
+	_one = 1.0
+	_long = 1.0
 
 
 ## 기 모으기가 끝난 고유기를 터뜨린다 (유닛 순서대로 —— 같은 시각이면 결정적으로)
@@ -492,9 +556,13 @@ func _fire_winds() -> void:
 		if not grp.is_empty():
 			_inyeon_fire_setup(u, grp)
 		super._interrupt_ult(u)
+		var joint: bool = not _ult_grp.is_empty()      # 합동으로 터졌다 (대표가 끊겨 혼자 쏜 장수는 세지 않는다)
 		_ult_grp = {}
 		_ult_extra = {}
 		_wind_grp.erase(u)
+		if joint:
+			grp["shot"] = int(grp.get("shot", 0)) + 1
+			_inyeon_fin_check(grp)
 		_join_q = _join_q.filter(func(j): return j.lead != u)
 		_omen.erase(u)
 

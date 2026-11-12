@@ -3170,7 +3170,9 @@ func _page_war() -> Control:
 		row.add_child(_war_btn("① 토벌", run.quest_name(), run.quest_done, placed == 0, func(): _start("quest"), "pri"))
 		row.add_child(_war_btn("② 대전", "임의 세력" if run.quest_done else "토벌 뒤", run.pvp_done, placed == 0 or not run.quest_done, func(): _start("pvp"), "pri"))
 		v.add_child(row)
-		var qt := DB.quest_trait(run.day)      # 11/8 토벌 우두머리 성질 —— 그날 아침부터 미리 보인다 (docs/역할_재설계_1108.md 7.3)
+		if run.quest_open():
+			v.add_child(quest_hard_btn())
+		var qt := DB.quest_trait(run.day)     # 11/8 토벌 우두머리 성질 —— 그날 아침부터 미리 보인다 (docs/역할_재설계_1108.md 7.3)
 		if not qt.is_empty() and not run.quest_done and Battle.shield_enabled:
 			v.add_child(UI.hint("오늘 토벌 우두머리 —— %s" % DB.trait_text(qt)))
 		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
@@ -3224,6 +3226,13 @@ func _page_war() -> Control:
 
 
 ## 전투 탭 행동 버튼 (11/7 사용자) —— 한 줄 '① 토벌 · 백파적'. 끝났으면 작은 '✓ 토벌 완료' 표시만(누를 수 없다), 못 하면 흐리게
+## 11/12 험지 토벌 고르기 —— 누를 때마다 보통 ↔ 험지 (혼자 하기 전투 탭 · 온라인 준비 단계가 같이 쓴다)
+func quest_hard_btn() -> Button:
+	var on := run.quest_hard
+	var txt := ("험지 토벌 ✔ — 적 병력 ×%s · 이기면 %s +1 (누르면 보통으로)" if on else "험지로 토벌 — 적 병력 ×%s · 이기면 %s +1") % [str(Run.QUEST_HARD_TR), run.quest_hard_reward_text()]
+	return UI.btn(txt, func(): act("set_quest_hard", [not on]), "warn" if on else "ghost", 44)
+
+
 func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callable, kind: String) -> Button:
 	var P := DB.PAL
 	if done:

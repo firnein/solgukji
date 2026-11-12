@@ -54,7 +54,7 @@ const SHADOW_EPI := "그림자"      # 그림자 대전 상대의 소속 글 (_f
 const SAY_GAP := 2.0         # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
-const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip"]      # 편성 명령 —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
+const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip", "set_quest_hard"]      # 편성 명령 (11/12 험지 토벌 고르기도 준비 단계의 것) —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
 ## 11/12 방 규칙 —— 장수 선점제(claim, 기본 켜짐) · 장수 사망룰(deaths = 판 시작 때 죽는 기인 이상 장수 수, 0 = 끔). 대상은 is_urgent_unit(기인 이상)
 const DEATH_OPTIONS := [3, 5, 10]
 const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)

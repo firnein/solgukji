@@ -30,8 +30,9 @@ var drawn := false
 var picked := false
 var granted := false
 var quest_done := false
+var quest_hard := false       # 11/12 험지 토벌 —— 이번 페이즈 토벌을 어렵게 고른다 (set_quest_hard). 페이즈마다 꺼진다
 var pvp_done := false
-var tickets := {}             # 선택권 —— 등급("4") -> 남은 장수. 등급마다 따로 쓴다 (끄고 켜도 남는다)
+var tickets := {}           # 선택권 —— 등급("4") -> 남은 장수. 등급마다 따로 쓴다 (끄고 켜도 남는다)
 var strikes := 0              # 토벌 실패 횟수 (기록용 —— 11/9 멸망 조건은 민심(hp)으로)
 ## 11/9 사용자: 패배 보상을 깎지 말고 유저 HP 를 깎자 —— 지기 시작하면 보급이 줄어 뒤집을 수가 없었다.
 ## 민심 100 에서 시작, 토벌 · 대전에 지면 일차별 피해(크게 질수록 더) 만큼 깎이고 0 이면 멸망. 보상은 이겼을 때와 같다
@@ -110,6 +111,7 @@ func new_game(seed_value := -1) -> void:
 	picked = false
 	granted = false
 	quest_done = false
+	quest_hard = false
 	pvp_done = false
 	tickets = {}
 	strikes = 0
@@ -221,8 +223,10 @@ func placed() -> int:
 	return board.filter(func(k): return k != null).size()
 
 
+## 11/12 사용자: 전투 시작 사기는 대전 승패와 상관없다 (예전 100 + 승×3 − 패×4, 상한 130 —— 온라인 기록에서 130 대 73 까지 벌어져 눈덩이).
+## 시작 사기를 올리고 내리는 것은 특기뿐 —— 군주 · 대의 · 왕좌 · 명문(아군 +), 만인적 · 폭군 · 위진 · 경국(적 −) (passives.json 의 morale · foe_morale, Battle 이 개전에 반영)
 func my_morale() -> int:
-	return roundi(minf(130, 100 + my_w * 3 - my_l * 4))
+	return 100
 
 
 func rank() -> int:
@@ -979,6 +983,7 @@ func advance() -> void:
 	picked = false
 	granted = false
 	quest_done = false
+	quest_hard = false
 	pvp_done = false
 	last_result = null
 	last_draw = []
@@ -1170,6 +1175,35 @@ func quest_name() -> String:
 	return q.name if q != null else DB.D.QUESTS[day][phase]
 
 
+## 11/12 사용자: 험지 토벌 —— 아침에 「보통 / 험지」를 고른다. 험지는 적 병력 · 사기가 오르고, 이기면 그날 토벌 선택권보다 한 등급 높은 것을 한 장 더 준다
+## (지면 민심은 보통 토벌과 같은 식 —— 적이 더 남으니 더 깎인다). 수치는 아직 측정 전 (사용자: 밸런스 체크 없이 먼저 진행)
+static var QUEST_HARD_TR := 1.5          # 적 병력 배율 (QUEST_TR 에 곱한다)
+static var QUEST_HARD_MORALE := 1.15     # 적 사기 배율
+
+
+## 지금 토벌 난이도를 고를 수 있나 —— 이번 페이즈 토벌이 아직 남았고(온라인은 토벌이 있는 일차만) 전투 중이 아닐 때
+func quest_open() -> bool:
+	return over == null and battle == null and not quest_done and not is_tour_phase() and (not mp or online_noon(day))
+
+
+func set_quest_hard(on) -> bool:
+	if not quest_open():
+		return false
+	quest_hard = bool(on)
+	return true
+
+
+## 험지 토벌 보상 선택권 등급 —— 그날 토벌 선택권 최고 등급 + 1 (무상 천장까지)
+func quest_hard_tier() -> int:
+	return mini(FREE_TIER_CAP, quest_top_tier(day) + 1)
+
+
+## 「전설 랜덤권」 · 「희귀 랜덤권」 (전투 보상이라 희귀 이상은 랜덤권)
+func quest_hard_reward_text() -> String:
+	var t := quest_hard_tier()
+	return "%s %s" % [DB.TIER[t].n, ticket_noun(t, true)]
+
+
 func quest_pv() -> int:
 	var q = quest_roster()
 	return int(q.pv) if q != null else int(DB.D.QPV[day][phase] * QUEST_PV_MUL)
@@ -1197,8 +1231,13 @@ func start_quest() -> Dictionary:
 		var styles := ["물리", "지략", "균형"]
 		foe = _bot_side(pv, styles[rng.randi() % 3])
 	if not DB.quest_trait(day).is_empty(): foe["trait"] = DB.quest_trait(day)      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
+	if quest_hard:      # 11/12 험지 토벌 —— 적 병력 · 사기 배율
+		foe["tr_mul"] = float(foe.get("tr_mul", 1.0)) * QUEST_HARD_TR
+		foe["morale"] = int(round(float(foe.morale) * QUEST_HARD_MORALE))
 	battle = {"kind": "quest", "a": _my_side(), "b": foe, "seed": rng.randi() % 1000000,
-		"title": "토벌 · %s" % quest_name(), "foe": quest_name(), "pv": pv, "inputs": []}
+		"title": "토벌 · %s%s" % [quest_name(), " (험지)" if quest_hard else ""], "foe": quest_name(), "pv": pv, "inputs": []}
+	if quest_hard:
+		battle["hard"] = true
 	return battle
 
 
@@ -1543,6 +1582,13 @@ func _finish_battle(res: Dictionary) -> void:
 							give(DB.BASE[rng.randi() % DB.BASE.size()])
 						if int(bb.ticket) > 0:
 							add_ticket(mini(quest_top_tier(day), QUEST_BONUS_TICKET_TIER), 1, true)
+			if res.win and bt.get("hard", false):      # 11/12 험지 토벌 돌파 —— 한 등급 높은 선택권 한 장 (맨 뒤에 얹어 보통 토벌의 난수 순서는 그대로)
+				var ht := quest_hard_tier()
+				add_ticket(ht, 1, true)
+				if last_spoil != null:
+					last_spoil["hard_tier"] = ht
+				if not mp:
+					toasts.append(["험지 돌파! %s +1" % quest_hard_reward_text(), "gold"])
 			if not res.win:
 				strikes += 1       # 기록용
 				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]), quest_name())
@@ -1733,7 +1779,7 @@ func pick(k: String) -> bool:
 
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
 const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
-	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2}
+	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1}
 
 
 func command(m: String, a: Array):
@@ -1748,7 +1794,7 @@ func command(m: String, a: Array):
 # ───────── 저장 ─────────
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
-	"quest_done", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
+	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
 	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked"]
 
 

@@ -44,6 +44,18 @@ static func rule_hint() -> Label:
 	return l
 
 
+## 11/12 인연기 한 줄 (DB.inyeon_fin_text) —— 인연기가 없는 인연은 null
+static func fin_hint(nm: String) -> Label:
+	var s := DB.inyeon_fin_text(nm)
+	if s == "":
+		return null
+	var l := UI.lbl(s, 12, DB.PAL.gold)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
 ## 인연 이름 칩 —— 고르면 연분홍 테두리
 static func chip(text: String, on: bool, cb: Callable, h := 30) -> Button:
 	var P := DB.PAL
@@ -174,6 +186,9 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 			holder.remove_child(c)
 			c.queue_free()
 		holder.add_child(members_row(cur[0], ctx, on_card))
+		var fh := fin_hint(cur[0])
+		if fh != null:
+			holder.add_child(fh)
 		holder.add_child(rule_hint())
 	rf[0].call()
 	m.add_child(v)

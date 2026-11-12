@@ -47,7 +47,8 @@ var _portrait_pick := {}     # 카드 key -> 실제로 쓰는 그림 경로 (등
 var prof := {"n": 0, "main": 0, "decode": 0, "res": 0, "mip": 0, "tex": 0, "scan": 0}
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var INYEON := {}             # 11/11 인연 —— 이름 -> [인물 이름 4~5명] (data/inyeon.json list, 파일 순서). 고유기 합동 발동 (RtBattle._inyeon_recruit)
-var INYEON_OF := {}          # 인물 이름 -> [그 인물이 든 인연 이름들, 파일 순서]
+var INYEON_FIN := {}         # 11/12 인연기 —— 인연 이름 -> {t, n} (data/inyeon.json fin)
+var INYEON_OF := {}         # 인물 이름 -> [그 인물이 든 인연 이름들, 파일 순서]
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var _inyeon_of_person := {}  # 인물 이름 -> [인연 이름] (json 순서)
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
@@ -1268,12 +1269,28 @@ func _load_inyeon() -> void:
 	if not (d is Dictionary):
 		return
 	INYEON = d.get("list", {})
+	INYEON_FIN = d.get("fin", {})
 	for nm in INYEON:
 		for p in INYEON[nm]:
 			if not _inyeon_of_person.has(p):
 				_inyeon_of_person[p] = []
 			_inyeon_of_person[p].append(nm)
 	INYEON_OF = _inyeon_of_person      # 전투(RtBattle)가 읽는 이름 —— 같은 사전
+
+
+## 11/12 인연기 —— 합동 고유기 뒤에 터지는 그 인연만의 효과 {t: fire|duel|rally, n: 이름}. 없으면 빈 사전
+const INYEON_FIN_KIND := {"fire": "화공", "duel": "일기토", "rally": "고무"}
+const INYEON_FIN_DESC := {"fire": "적 전체 화상", "duel": "적 최강 장수에게 일격 · 사기 감소", "rally": "아군 전체 사기 · 공격 상승"}
+func inyeon_fin(nm: String) -> Dictionary:
+	return INYEON_FIN.get(nm, {})
+
+
+## 인연기 한 줄 설명 (디테일창 · 편성 시트) —— 없으면 ""
+func inyeon_fin_text(nm: String) -> String:
+	var f := inyeon_fin(nm)
+	if f.is_empty():
+		return ""
+	return "인연기 『%s』 —— %s (3명이면 더 강하게)" % [f.n, INYEON_FIN_DESC.get(f.t, "")]
 
 
 ## 이 카드가 고유기를 쓸 수 있나 (초월 이상 · 기인 —— 디테일창 · 전투와 같은 기준). 인연은 이런 카드만 친다

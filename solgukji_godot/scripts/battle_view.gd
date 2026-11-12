@@ -94,7 +94,10 @@ var freeze_t := 0.0          # 남은 프리즈 (실시간 초)
 var _freeze_cd := 0.0        # 너무 잦지 않게 —— 다음 프리즈까지 (실시간 초)
 var _ace_cd := 0.0           # 에이스(불멸 · 신화) 기술 줌인 간격
 const FREEZE_SPD := 0.04
-const ULT_DELAY := 0.52     # 고유기 발동 뒤 피해가 터지기까지 (전장 시간 —— 슬로모션 중이라 실제로는 약 2.1초, 컷인 1.8초가 걷힌 뒤 맞는 순간을 보여 준다 11/6)
+const FIN_DELAY := 0.95      # 11/12 인연기 —— 합동 고유기(ULT_DELAY + 합류 간격)가 다 꽂힌 뒤에 터진다 (전장 시간)
+const FIN_VFX := {"fire": "firestorm", "duel": "slash", "rally": "aura"}      # 인연기 틀 → 전장 이펙트(UltFx)
+const FIN_COL := {"fire": Color("#ff7a2a"), "duel": Color("#ffe6a0"), "rally": Color("#ffd76e")}
+const ULT_DELAY := 0.52    # 고유기 발동 뒤 피해가 터지기까지 (전장 시간 —— 슬로모션 중이라 실제로는 약 2.1초, 컷인 1.8초가 걷힌 뒤 맞는 순간을 보여 준다 11/6)
 var dbg_nolog := false      # 점검용 —— 전투 기록을 쓰지 않는다
 ## 전투 중 개입 —— 탭할 때마다 (시드 + 입력 전부)로 처음부터 다시 계산하고, 입력 앞부분은 그대로 둔 채 뒤만 바꾼다
 var _p := {}                # 지금 전투의 재료 (덱·진형·시드)
@@ -1070,13 +1073,15 @@ func _build_timeline(rebuild := false) -> void:
 		if g == null or g.ai != e.ai:
 			g = {"ai": e.ai, "ph": e.ph, "who": e.who, "ev": [], "targets": [], "skill": "",
 				"kind": "misc", "st": "", "phys": false, "int": false, "t": 0.0, "wait": 0.0,
-				"ult": null, "foes": [], "allies": [], "min_t": 0.0}
+				"ult": null, "fin": null, "foes": [], "allies": [], "min_t": 0.0}
 			groups.append(g)
 		g.ev.append(i)
 		group_of.append(g)
 		var fx: String = e.get("fx", "")
 		if fx == "ult":
 			g.ult = e
+		elif fx == "inyeon_fin":
+			g.fin = e
 		elif fx == "skill":
 			g.skill = e.name
 		elif (fx == "phys" or fx == "int") and e.get("a") == g.who:
@@ -1426,6 +1431,11 @@ func _start_group(g: Dictionary) -> void:
 	if g.ult != null and field.squads.has(g.who):
 		_start_ult(g)
 		return
+	if g.fin != null:      # 11/12 인연기 —— 합동 고유기들이 다 꽂힌 뒤에 터진다 (연출은 _apply 의 "inyeon_fin")
+		g.kind = "misc"
+		g.min_t = clock + FIN_DELAY
+		_release(g, clock + FIN_DELAY)
+		return
 	if g.skill != "":
 		field.skill_fx(g.who)
 		var asq: Squad = field.squads.get(g.who)
@@ -1687,6 +1697,17 @@ func _apply(i: int, quiet := false) -> void:
 		if smooth:
 			field.minor_fx(str(e.get("mk", "")), e.a, f)
 	match e.get("fx", ""):
+		"inyeon_fin":      # 11/12 인연기 —— 큰 이름 띠 · 틀 색 섬광 · 전장 이펙트(적 전체 불바다 / 일격 / 아군 전체 기세)
+			var kind := str(e.get("kind", ""))
+			var fcol: Color = FIN_COL.get(kind, Color("#ffd257"))
+			hud.announce("인연기 『%s』" % e.name, fcol)
+			hud.flash(fcol, true)
+			impact(0.22, 1.6)
+			Sfx.play("horn", 2.0)
+			if kind == "fire":
+				Sfx.play("burn", 3.0)
+			if smooth and field.squads.has(str(e.get("a", ""))):
+				field.ult.play(FIN_VFX.get(kind, "aura"), e.a, gq.foes, gq.allies, 0.0)
 		"phys":
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
 				field.clash(e.a, f, e.get("crit", false) or e.has("mn") or group_of[i].skill != "" or group_of[i].ult != null)

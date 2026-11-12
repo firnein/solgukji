@@ -1431,6 +1431,8 @@ func war_page() -> Control:
 					"evening_prep": sub = "모두 준비되면 대전"
 					"evening": sub = "모두 보면 다음으로"
 		v.add_child(UI.act("준비 취소" if rd else "준비 완료", sub, func(): send_ready(not rd), "ghost" if rd else "pri", disabled))
+		if st == "morning" and has_noon() and run.quest_open():      # 11/12 험지 토벌 고르기 —— 토벌이 있는 일차의 준비 단계
+			v.add_child(gs.quest_hard_btn())
 		if watching and not watch.is_empty():
 			v.add_child(UI.btn("남은 전투 보기 (%d)" % watch.size(), func(): watch_next(), "gold", 46))
 	# (c) 이번 단계 전투 —— 본 전투의 결과 칸 + 한 줄씩

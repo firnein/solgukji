@@ -294,7 +294,8 @@ const COLLAPSE_ROUT := 3.0      # 총붕괴 진영의 패주 확률 배율
 const COLLAPSE_HOLD_TIER := 7   # 이 등급부터(불멸 · 신화)는 총붕괴에 휩쓸리지 않는다 —— 9부대 중 신화 하나가 남아도 버틴다
 const DECISIVE_T := 45.0
 const DECISIVE_MORALE := 12.0
-const ROUT_SPREAD := 1.5        # 패주 전염 (K.routSame · routOther 배율) —— 한 번 무너지면 줄줄이
+const ROUT_SPREAD := 1.5        # 패주 전염 (K.routSame · routOther 배율) —— 아군이 무너지면 사기가 깎인다
+const ROUT_SHOCK_FLOOR := 31.0  # 11/12 패주 충격으로 내려갈 수 있는 사기 바닥 —— 패주 문턱(30) 바로 위라 연쇄 패주가 안 난다
 var _collapsed := {"A": false, "B": false}
 var _decisive := false
 var _start_troops := {"A": 0.0, "B": 0.0}
@@ -2338,7 +2339,10 @@ func rout(u: Unit, why: String) -> void:
 				_gauge_add(o, _tw(o, "fall"))
 	for o in units:
 		if not o.alive or o.camp != u.camp: continue
-		o.morale -= (K.routSame if _same_line(o, u) else K.routOther) * ROUT_SPREAD * (1.0 - mv(o, "rout_loss"))
+		# 11/12 사용자: 옆 부대가 패주했다고 줄줄이 패주하지 않게 —— 패주 충격은 사기를 ROUT_SHOCK_FLOOR 아래로는 못 끌어내린다
+		# (사기 패주는 30 이하에서 굴린다 → 충격만으로는 패주 문턱에 못 든다. 이미 그 아래면 더 깎지 않는다)
+		var shock: float = (K.routSame if _same_line(o, u) else K.routOther) * ROUT_SPREAD * (1.0 - mv(o, "rout_loss"))
+		o.morale = minf(o.morale, maxf(ROUT_SHOCK_FLOOR, o.morale - shock))
 		if mv(o, "avenge") > 0 and o.avenge_n < 3:
 			o.avenge_n += 1
 		if mv(o, "resolve") > 0:      # 결사 —— 아군이 무너지면 오히려 사기가 오른다
