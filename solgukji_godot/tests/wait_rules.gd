@@ -226,7 +226,7 @@ func _timer_rules() -> void:
 		if news_at != [[3, 0, "morning"]]:
 			_fail("[%s] 토벌 종료 알림이 4일차 첫 아침에 정확히 한 번이어야 한다: %s" % [m, str(news_at)])
 		# 방의 Run.news 에도 한 번
-		var cnt := r.seats[0].run.news.filter(func(it): return str(it.get("band", "")) == "noon_end").size()
+		var cnt: int = r.seats[0].run.news.filter(func(it): return str(it.get("band", "")) == "noon_end").size()
 		if cnt != 1:
 			_fail("[%s] Run.news 에 토벌 종료가 %d 번" % [m, cnt])
 		# 일차별 방 정보 stage_len

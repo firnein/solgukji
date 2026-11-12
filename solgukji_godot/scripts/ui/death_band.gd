@@ -78,7 +78,7 @@ func _layout() -> void:
 
 ## 누르면 tapped —— 눌린 입력은 여기서 삼킨다 (아래 버튼이 눌리지 않게). 터치와 에뮬레이션된 마우스가 겹치니 0.15초 안의 두 번째는 무시
 func _input(ev: InputEvent) -> void:
-	var press := (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed)
+	var press: bool = (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed)
 	if not press:
 		return
 	get_viewport().set_input_as_handled()
