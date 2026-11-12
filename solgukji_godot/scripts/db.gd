@@ -48,6 +48,7 @@ var prof := {"n": 0, "main": 0, "decode": 0, "res": 0, "mip": 0, "tex": 0, "scan
 var ULT: Dictionary          # data/ultimates.json —— 불멸·신화 고유기
 var INYEON := {}             # 11/11 인연 —— 이름 -> [인물 이름 4~5명] (data/inyeon.json list, 파일 순서). 고유기 합동 발동 (RtBattle._inyeon_recruit)
 var INYEON_FIN := {}         # 11/12 인연기 —— 인연 이름 -> {t, n} (data/inyeon.json fin)
+var INYEON_THEME := {}       # 11/12 인연 주제 —— 인연 이름 -> {t, n, plus?} (data/inyeon.json theme)
 var INYEON_OF := {}         # 인물 이름 -> [그 인물이 든 인연 이름들, 파일 순서]
 var PSV: Dictionary          # data/passives.json —— 개인·단체 특기
 var _inyeon_of_person := {}  # 인물 이름 -> [인연 이름] (json 순서)
@@ -1270,6 +1271,7 @@ func _load_inyeon() -> void:
 		return
 	INYEON = d.get("list", {})
 	INYEON_FIN = d.get("fin", {})
+	INYEON_THEME = d.get("theme", {})
 	for nm in INYEON:
 		for p in INYEON[nm]:
 			if not _inyeon_of_person.has(p):
@@ -1291,6 +1293,39 @@ func inyeon_fin_text(nm: String) -> String:
 	if f.is_empty():
 		return ""
 	return "인연기 『%s』 —— %s (3명이면 더 강하게)" % [f.n, INYEON_FIN_DESC.get(f.t, "")]
+
+
+## 11/12 인연 주제 —— 연쇄가 끝나면 그 인연 계열의 큰 효과 (RtBattle._inyeon_theme_fire)
+const INYEON_THEME_KIND := {"ignite": "점화", "spread": "불길 번짐", "blaze": "연소", "steam": "증기", "flood": "침수", "tide": "백의도강",
+	"counter": "반격", "chase": "추격", "momentum": "기세", "exec": "비장", "confuse": "혼란", "slow": "둔화", "ambush": "매복",
+	"plague": "역병", "cleanse": "정화", "duel": "일기토"}
+const INYEON_THEME_DESC := {"ignite": "적 전원 화상, 이미 타는 적은 남은 화상이 즉시 터진다", "spread": "적 선봉 화상, 타는 적마다 같은 열로 번진다",
+	"blaze": "타는 적의 불길이 거세지고 안 타는 적은 화상", "steam": "적 전원 수몰 · 화상, 화상 ×1.3", "flood": "적 전원 수몰, 병력이 바닥난 적은 휩쓸려 패주",
+	"tide": "적 후군 수몰 + 기습", "counter": "아군 전원 반격 확률 · 반격 피해 크게 (2턴)", "chase": "연쇄 장수마다 적을 몰아친다 (무너진 적만큼)",
+	"momentum": "아군 전원 다음 공격 강화", "exec": "방어가 깎인 적을 베어 넘기고 적 선봉 방어를 깎는다", "confuse": "적 상위 부대 혼란",
+	"slow": "적 전원 둔화 · 고유기 게이지 감소", "ambush": "기 모으는 적을 끊고, 나머지 적 고유기 게이지 감소", "plague": "적 전원 역병 · 적 최강 장수 봉인",
+	"cleanse": "아군 전원 상태이상 해제 · 사기", "duel": "적 최강 장수에게 일격 · 사기 감소"}
+const INYEON_THEME_PLUS := {"confuse": "적 최강 장수 혼란", "slow": "적 전원 둔화", "phalanx": "아군 전원 방진"}
+## 기인 · 초월의 몫 (11/12 사용자) —— 인연 시트 · 디테일창 규칙 줄
+const INYEON_ROLE := "기인: 연쇄를 연다 (맨 먼저 터지고 마무리 장수 피해 +) / 초월: 연쇄를 키운다 (같은 인연 기 충전 가속 · 최대 4명)"
+func inyeon_theme(nm: String) -> Dictionary:
+	return INYEON_THEME.get(nm, {})
+
+
+func inyeon_theme_desc(def: Dictionary) -> String:
+	var s: String = INYEON_THEME_DESC.get(str(def.get("t", "")), "")
+	var p := str(def.get("plus", ""))
+	if p != "" and INYEON_THEME_PLUS.has(p):
+		s += " + " + INYEON_THEME_PLUS[p]
+	return s
+
+
+## 인연 주제 한 줄 (디테일창 · 편성 시트) —— 없으면 ""
+func inyeon_theme_text(nm: String) -> String:
+	var t := inyeon_theme(nm)
+	if t.is_empty():
+		return ""
+	return "주제 %s 『%s』 —— %s" % [INYEON_THEME_KIND.get(t.t, ""), t.n, inyeon_theme_desc(t)]
 
 
 ## 이 카드가 고유기를 쓸 수 있나 (초월 이상 · 기인 —— 디테일창 · 전투와 같은 기준). 인연은 이런 카드만 친다
