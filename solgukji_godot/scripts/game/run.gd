@@ -1377,6 +1377,12 @@ static func bonus_ticket_name(what: String) -> String:
 	return DB.TIER[PVP_BONUS_TICKET_TIER if what.begins_with("대전") else QUEST_BONUS_TICKET_TIER].n
 
 
+## 선택권 이름 —— 랜덤이면 랜덤권 (add_ticket 규칙: 전설(5) 은 늘 랜덤, 희귀(4) 는 전투 보상일 때만 랜덤)
+static func ticket_noun(t: int, random_flag: bool) -> String:
+	var tt := mini(FREE_TIER_CAP, t)
+	return "랜덤권" if ((LEGEND_RANDOM and tt == 5) or (random_flag and tt == 4)) else "선택권"
+
+
 ## 11/12 사용자: 랜덤이면 랜덤권으로 부른다 —— 희귀(4) 보상 선택권은 받는 즉시 그 등급 카드 한 장(add_ticket random), 전설도 마찬가지. 고급 이하는 고르는 선택권
 static func bonus_ticket_text(what: String, n: int) -> String:
 	var t := PVP_BONUS_TICKET_TIER if what.begins_with("대전") else QUEST_BONUS_TICKET_TIER
@@ -1488,8 +1494,9 @@ func _finish_battle(res: Dictionary) -> void:
 		"turns": res.turns, "mvp": res.mvp.name if res.mvp else "", "kind": bt.kind}
 	if res.win and bt.kind in ["quest", "pvp"]:      # 11/3 전투 밖 기인 —— 편성에 있으면 이길 때마다
 		if board.has(DB.kiin_card("ticket")):          # 거상 미축: 그날 보급 등급 선택권 +1
-			add_ticket(pick_list()[0].t if not pick_list().is_empty() else 3, 1)
-			toasts.append(["거상 미축의 재물 —— 선택권 +1", "gold"])
+			var mt: int = int(pick_list()[0].t) if not pick_list().is_empty() else 3
+			add_ticket(mt, 1)
+			toasts.append(["거상 미축의 재물 —— %s %s +1" % [DB.TIER[mini(FREE_TIER_CAP, mt)].n, ticket_noun(mt, false)], "gold"])      # 11/12 랜덤이면 랜덤권
 		if board.has(DB.kiin_card("heal_cut")):        # 흑산 장연: 약탈 —— 기본패 +2
 			for i in 2:
 				give(DB.BASE[rng.randi() % DB.BASE.size()])
