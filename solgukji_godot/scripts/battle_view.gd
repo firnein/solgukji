@@ -86,6 +86,8 @@ const YEON_SAY_POP := 0.14      # 말풍선이 톡 커지는 시간 (TRANS_BACK)
 const YEON_SURGE_AT := 1.3      # 이 컷인 시각부터 셋이 앞으로 슉 (터지는 쪽으로 커지며 다가선다)
 const YEON_SURGE_DUR := 0.45
 const YEON_SURGE_ZOOM := 0.12   # 슉 끝에서의 확대 (화면 중앙 띠 기준)
+const YEON_MATE3_SCALE := 0.8   # 11/12 짝이 셋이면 컷인 짝 · 합류 칩을 이만큼 작게
+const YEON_MATE3_RISE := 0.82   # 셋째 짝은 첫 짝 위로 (짝 높이 비율)
 const YEON_CHIP := Vector2(64.0, 80.0)   # 기 모으는 중 합류 칩(작은 초상) 크기 —— 합류하면 같은 방식으로 옆에서 날아든다
 const YEON_LINES_PATH := "res://data/inyeon_lines.json"      # 투게더 멘트 표 —— bold(물리) · polite(책사) · by_inyeon(인연 전용)
 ## 11/3 임팩트 프리즈 —— 큰 한 방이 꽂히는 순간 화면 시간을 거의 멈춘다 (판정 · 결과와 상관없는 연출 시계만).
@@ -2478,7 +2480,7 @@ class Hud extends Control:
 			_charge_rows += 1
 		for i in _chip_keys.size():      # 합류한 장수는 작은 초상 칩이 옆에서 날아들어 한마디 한다 (먼저 합류 = 왼쪽, 다음 = 오른쪽 —— 컷인의 짝 자리와 같다)
 			var jc: Dictionary = charges[_chip_keys[i]]
-			_draw_join_chip(jc, view.clock - jc.t0, i, y + 8.0)
+			_draw_join_chip(jc, view.clock - jc.t0, i, y + 8.0, _chip_keys.size())
 
 	## 합류한 장수의 작은 줄 —— 옆에서 미끄러져 들어와 "인연 『이름』  장수 『고유기』" · 고리 (합류 시각에서 터질 때까지 찬다). 다음 줄 y 를 돌려준다
 	func _draw_join_row(c: Dictionary, t: float, y: float) -> float:
@@ -2575,14 +2577,13 @@ class Hud extends Control:
 		return Rect2(zc + (r.position - zc) * z, r.size * z)
 
 	## 컷인에서 짝 i 가 자리 잡을 사각형 (대표 초상 pr 옆 —— A 왼쪽 · B 오른쪽, 대표 뒤에 조금 겹친다)
-	func _mate_end(pr: Rect2, ph: float, i: int) -> Rect2:
-		var mh := ph * 0.72
+	func _mate_end(pr: Rect2, ph: float, i: int, n := 2) -> Rect2:
+		var mh := ph * 0.72 * (YEON_MATE3_SCALE if n >= 3 else 1.0)      # 11/12 짝 셋(초월 4명 연쇄)이면 모두 조금 작게
 		var mw := mh * 0.78
-		if i >= 2:      # 11/12 셋째 짝(초월이 키운 4명 연쇄) —— 첫 짝 위 바깥쪽에 조금 작게 (아랫단만 첫 짝 뒤에 겹친다)
-			var sh := mh * 0.7
-			var sw := sh * 0.78
-			return Rect2(maxf(4.0, pr.position.x - mw * 0.64 - sw * 0.35), pr.end.y - mh - sh * 0.78, sw, sh)
-		return Rect2((pr.position.x - mw * 0.64) if i == 0 else (pr.end.x - mw * 0.36), pr.end.y - mh, mw, mh)
+		var x0 := pr.position.x - mw * 0.64
+		if i >= 2:      # 셋째 짝 —— 첫 짝 바로 위 바깥쪽(이름 띠는 위에 —— 아랫단만 첫 짝 뒤에 겹친다)
+			return Rect2(maxf(4.0, x0 - mw * 0.25), pr.end.y - mh - mh * YEON_MATE3_RISE, mw, mh)
+		return Rect2(x0 if i == 0 else (pr.end.x - mw * 0.36), pr.end.y - mh, mw, mh)
 
 	## 컷인 짝의 날아들기 · 착지 소리 + 작은 카메라 흔들림 (한 번씩)
 	func _yeon_pop_events() -> void:
@@ -2635,13 +2636,15 @@ class Hud extends Control:
 		draw_set_transform(Vector2.ZERO)
 
 	## 기 모으는 중 합류한 장수의 칩 —— 작은 초상이 옆에서 샥 날아들고(먼저 합류 왼쪽 · 다음 오른쪽) 말풍선으로 한마디. 터질 때(charge_end)까지, 컷인의 짝 자리로 이어진다
-	func _draw_join_chip(c: Dictionary, t: float, i: int, y: float) -> void:
+	func _draw_join_chip(c: Dictionary, t: float, i: int, y: float, n := 2) -> void:
 		var cid: String = c.get("cid", "")
 		if i > 2 or cid == "" or not DB.C.has(cid):
 			return
 		var a := clampf(t / 0.1, 0.0, 1.0) * clampf((c.wait + CHARGE_HOLD - t) / 0.25, 0.0, 1.0)
-		var left := i != 1      # 11/12 셋째(초월 4명 연쇄)는 첫째 아래 왼쪽
-		var end := Rect2(Vector2(12.0 if left else size.x - 12.0 - YEON_CHIP.x, y + (YEON_CHIP.y + 34.0 if i == 2 else 0.0)), YEON_CHIP)
+		var left := i != 1      # 11/12 셋째(초월 4명 연쇄)는 첫째 오른쪽에 나란히 · 셋이면 모두 조금 작게
+		var cs: Vector2 = YEON_CHIP * (YEON_MATE3_SCALE if n >= 3 else 1.0)
+		var cx := 12.0 if i == 0 else (12.0 + cs.x + 14.0 if i == 2 else size.x - 12.0 - cs.x)
+		var end := Rect2(Vector2(cx, y), cs)
 		var col: Color = DB.tier_color(cid)
 		_pop_trail(end, left, t, col, a)
 		var r := _pop_rect(end, left, t)
@@ -2654,7 +2657,8 @@ class Hud extends Control:
 			draw_rect(r, Color(0, 0, 0, (1.0 - a) * 0.7))
 		draw_rect(r, Color(Color("#ffd257"), a), false, 2.0)
 		_pop_land_fx(r, t, a)
-		_draw_say(str(c.get("line", "")), Vector2(end.position.x + end.size.x / 2.0, end.end.y + 2.0), false, 6.0, size.x - 6.0, t, a, int(c.get("tone", 0)))
+		var sy := end.end.y + 2.0 + (40.0 if i == 2 else 0.0)      # 셋째 말풍선은 한 단 아래 (첫째와 겹치지 않게)
+		_draw_say(str(c.get("line", "")), Vector2(end.position.x + end.size.x / 2.0, sy), false, 6.0, size.x - 6.0, t, a, int(c.get("tone", 0)))
 
 	## 강조 순위 —— 진영마다 그 전투에 나온 장수 가운데 등급(같으면 PV) 상위 둘만 1 · 2 (11/3 사용자: 등급마다 크게 하니
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
@@ -3460,16 +3464,16 @@ class Hud extends Control:
 			if lt <= 0.0:
 				continue
 			var left := i != 1
-			var mend := _mate_end(pr, ph, i)
+			var mend := _mate_end(pr, ph, i, mates.size())
 			var mc: Color = DB.tier_color(mates[i].k)
 			_pop_trail(mend, left, lt, mc, fade)
 			var mr := _zoom_rect(_pop_rect(mend, left, lt), zc, zm)
 			draw_rect(mr.grow(6), Color(mc, 0.35 * fade))
 			draw_rect(mr.grow(2), Color(0, 0, 0, 0.9 * fade))
 			Art.draw_portrait(self, mr, mates[i].k, t, "ult")
-			var nstrip := Rect2(mr.position.x, mr.end.y - 26.0, mr.size.x, 26.0)
+			var nstrip := Rect2(mr.position.x, (mr.position.y if i >= 2 else mr.end.y - 26.0), mr.size.x, 26.0)      # 셋째 짝은 이름 띠를 위에 (아랫단이 첫 짝에 가린다)
 			draw_rect(nstrip, Color(0, 0, 0, 0.72 * fade))
-			var vis_w := mr.size.x * 0.6      # 대표 초상에 가려지지 않는 쪽 폭 안에서 이름 (세력 · 별칭은 빼고 인물 이름)
+			var vis_w := mr.size.x * (0.9 if i >= 2 else 0.6)      # 대표 초상에 가려지지 않는 쪽 폭 안에서 이름 (세력 · 별칭은 빼고 인물 이름)
 			var nx := nstrip.position.x if left else nstrip.end.x - vis_w
 			draw_string(DB.font_bold, Vector2(nx, nstrip.position.y + 19), str(mates[i].who).split(" ")[-1], HORIZONTAL_ALIGNMENT_CENTER, vis_w, 16, Color(1, 0.95, 0.85, fade))
 			if fade < 1.0:
@@ -3490,7 +3494,7 @@ class Hud extends Control:
 				if lt <= 0.0:
 					continue
 				var left := i != 1
-				var mr := _zoom_rect(_pop_rect(_mate_end(pr, ph, i), left, lt), zc, zm)
+				var mr := _zoom_rect(_pop_rect(_mate_end(pr, ph, i, mates.size()), left, lt), zc, zm)
 				var vc := (mr.position.x + prd.position.x) / 2.0 if left else (prd.end.x + mr.end.x) / 2.0
 				_draw_say(str(mates[i].get("line", "")), Vector2(vc, mr.position.y + 2.0), true,
 					8.0 if left else prd.end.x + 4.0, prd.position.x - 4.0 if left else sz.x - 8.0, lt, fade, int(mates[i].get("tone", 0)))

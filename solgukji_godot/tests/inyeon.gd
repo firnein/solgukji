@@ -359,3 +359,42 @@ func _theme_checks() -> void:
 	print("(h) 무작위 20판 (불멸 6 · 초월 2 · 기인 1): 합동 %d · 기인이 연 연쇄 %d (마무리 %d) · 초월 낀 연쇄 %d · 4명 %d · 주제 %d · 인연기 %d" % [
 		tot.inyeon_joint, tot.inyeon_kiin, tot.inyeon_kiin_fin, tot.inyeon_up, tot.inyeon_n4, tot.inyeon_theme, tot.inyeon_fin])
 	_ok(tot.inyeon_theme > 0, "무작위 덱에서 주제가 터진다")
+
+	# (i) 초월이 든 인연 덱 20판 —— 그 인연 4명(초월 1 + 불멸 이상 3) + 불멸 무작위, 상대는 불멸 무작위. 합류 문턱 100 → yeon_up_join 비교 (4명 연쇄 횟수)
+	var decks4 := []
+	for nm in DB.INYEON:
+		for p in DB.INYEON[nm]:
+			if _card(p, 6) == "":
+				continue
+			var hi: Array = DB.INYEON[nm].filter(func(q): return q != p and _any(q, [7, 8]) != "")
+			if hi.size() >= 3:
+				decks4.append([_card(p, 6)] + hi.slice(0, 3).map(func(q): return _any(q, [7, 8])))
+				break
+	var keep := RtBattle.yeon_up_join
+	var line := []
+	for th in [100.0, keep]:
+		RtBattle.yeon_up_join = th
+		var rg := RandomNumberGenerator.new()
+		rg.seed = 1113
+		var c4 := {}
+		for g in 20:
+			var a: Array = decks4[g % decks4.size()].duplicate()
+			var ps := a.map(func(k): return DB.person(k))
+			var pool: Array = DB.by_tier(7)
+			while a.size() < 9:
+				var k: String = pool[rg.randi() % pool.size()]
+				if not ps.has(DB.person(k)):
+					a.append(k)
+					ps.append(DB.person(k))
+			var b := []
+			while b.size() < 9:
+				var k: String = pool[rg.randi() % pool.size()]
+				if not b.has(k):
+					b.append(k)
+			var res: Dictionary = RtBattle.make(rg.randi() % 100000).run(DB.auto_place(a, "eorin"), "eorin", 100, null, DB.auto_place(b, "hagik"), "hagik", 100, null,
+				"", "", [], {"A": "smart", "B": "smart"})
+			for key in ["inyeon_joint", "inyeon_n3", "inyeon_n4", "inyeon_up"]:
+				c4[key] = int(c4.get(key, 0)) + int(res.stats.get(key, 0))
+		line.append("문턱 %d: 합동 %d · 3명 %d · 4명 %d · 초월 낀 연쇄 %d" % [th, c4.inyeon_joint, c4.inyeon_n3, c4.inyeon_n4, c4.inyeon_up])
+	RtBattle.yeon_up_join = keep
+	print("(i) 초월 인연 덱 20판 (인연 %d개 돌려 씀): %s" % [decks4.size(), " / ".join(line)])

@@ -391,6 +391,13 @@ const INYEON_MAX_UP := 4
 static var inyeon_join_at4 := [0.24, 0.48, 0.72]   # 4명 연쇄의 합류 시각 (대표 기 모으기 길이 비율)
 static var yeon_kiin_fin_mul := 1.3
 static var yeon_kiin_cap_mul := 1.8
+static var yeon_up_join := 70.0      # 11/12 2차 85 → 70 (초월 인연 덱 20판 4명 연쇄 4 → 6, 무작위 덱은 문턱과 무관하게 0 —— 구성원 넷이 모이는 일이 드묾). 같은 인연 초월이 살아 있으면(또는 자신이 초월이면) 게이지가 이만큼만 차도 합류 (평소 100)
+
+
+func _join_gauge(o: Unit) -> float:
+	if inyeon_theme and (is_up_u(o) or (_gain_up.has(o) and _gain_up[o].any(func(x): return x.alive))):
+		return yeon_up_join
+	return 100.0
 
 
 static func is_kiin_u(o: Unit) -> bool:
@@ -428,7 +435,7 @@ static var inyeon_gate_time := false
 func _join_ok(o: Unit) -> bool:
 	if inyeon_gate_time and o.ult != null and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") or not _reult_ok(o)):
 		return false
-	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= 100.0 \
+	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= _join_gauge(o) \
 		and not has_st(o, "seal") and not has_st(o, "confuse") and not _wind.has(o) and not _wind_grp.has(o)
 
 
