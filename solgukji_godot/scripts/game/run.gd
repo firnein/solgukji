@@ -296,6 +296,18 @@ func gain_item() -> String:
 	return id
 
 
+## 11/12 사용자: 사망한 장수의 유니크 아이템은 나오지 않아야 한다 —— 이 판에 만들 수 없는 신화(사망 · 하위 불멸 사망 · 다른 사람이 선점, 곧 locked 에 든 신화)의 유니크 재료 id 집합.
+## 유니크 보급(_offer_unique · reroll_unique)이 거른다. 유니크 아이템은 그 둘뿐이다 (다른 보급 gain_item 은 일반 · 매직 · 레어만). 서버가 locked 를 채우지 않는 혼자 하기는 늘 빈 집합
+func blocked_uniques() -> Dictionary:
+	var out := {}
+	for k in locked:
+		if DB.C.has(k) and int(DB.C[k].tier) >= 8 and not DB.is_foe(k):
+			var ni = need_item(str(k))
+			if ni != null:
+				out[ni] = true
+	return out
+
+
 ## 유니크 보급 (2 · 4 · 6일차 아침) —— 신화 재료 셋 중 하나를 고른다 (11/2 사용자).
 ## 군세와 상관없이 무작위 셋, 가방에 이미 있는 것은 빼고. 신화는 한 판에 하나뿐이라
 ## 일찍 받은 것으로 빨리 만들지, 3 · 5일차 보급을 기다릴지가 선택이 된다
@@ -308,13 +320,34 @@ func _offer_unique(cand: Array) -> void:
 		var inn = innate_item(k)
 		if inn != null:
 			owned[inn] = true
-	cand = cand.filter(func(k): return not owned.has(k))
+	var blocked := blocked_uniques()
+	cand = cand.filter(func(k): return not owned.has(k) and not blocked.has(k))
 	var out := []
 	while out.size() < 3 and not cand.is_empty():
 		out.append(cand.pop_at(rng.randi() % cand.size()))
 	uniq_offer = out
 	if not out.is_empty():
 		toasts.append(["아이템 보급 도착 · %d개 중 하나를 고르시오" % out.size(), "gold"])
+
+
+## 11/12 보급이 이미 열려 있는데 그 사이 신화가 잠겼다(다른 사람의 선점) —— 보이는 셋에서 막힌 것만 빼고 빈자리는 새로 채운다 (서버 Room._sync_locks 가 부른다). 바뀌었으면 참
+func prune_unique_offer() -> bool:
+	var b := blocked_uniques()
+	if uniq_offer.is_empty() or not uniq_offer.any(func(k): return b.has(k)):
+		return false
+	var keep: Array = uniq_offer.filter(func(k): return not b.has(k))
+	var owned := {}
+	for k in bag:
+		owned[k] = true
+	for k in pool():
+		var inn = innate_item(k)
+		if inn != null:
+			owned[inn] = true
+	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k) and not owned.has(k) and not b.has(k) and not keep.has(k) and not uniq_offer.has(k))
+	while keep.size() < 3 and not cand.is_empty():
+		keep.append(cand.pop_at(rng.randi() % cand.size()))
+	uniq_offer = keep
+	return true
 
 
 ## 11/11 사용자: 유니크 보급은 한 번 다시 뽑을 수 있다 —— 보이던 셋이 모두 바뀌고, 앞에 나온 것은 다시 나오지 않는다 (가진 것도 제외)
@@ -330,7 +363,8 @@ func reroll_unique() -> bool:
 		var inn = innate_item(k)
 		if inn != null:
 			owned[inn] = true
-	cand = cand.filter(func(k): return not owned.has(k))
+	var blocked := blocked_uniques()
+	cand = cand.filter(func(k): return not owned.has(k) and not blocked.has(k))
 	if cand.is_empty():
 		return false      # 바꿀 것이 없다 (다시 뽑기는 쓰지 않은 것으로 둔다)
 	var out := []

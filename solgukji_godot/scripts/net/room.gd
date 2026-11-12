@@ -17,9 +17,9 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 없어진 토벌 보상은 그 일차의 대전이 대신 준다 (Run.pvp_quest_equiv). 대전 패배 민심 피해는 온라인에서 토벌과 같게(Run.HP_PVP_MUL_ONLINE).
 ## 11/11 사용자: 점심 · 저녁(전투를 보는 단계)은 내 전투를 다 보면(또는 볼 전투가 없으면 · 끊김/봇 대행이면) 서버가 기다리지 않고 넘어간다 —— 그동안 징집 · 조합 · 편성은 계속 할 수 있다 (can_cmd, 토너먼트 저녁만 잠긴다).
 ## 11/12 사용자(페이즈 개편): 모든 보상(토벌 · 대전)은 1페이즈(아침)에 준다 (Run.held → Run.advance). 단계마다 할 수 있는 일 (cmd_block):
-##   1 아침(1분)            징집 · 조합 · 편성 모두
+##   1 아침(1분 → 4일차~ 30초)  징집 · 조합 · 편성 모두  (11/12 사용자: 토벌이 사라지는 4일차~ 는 준비 · 대전 준비가 절반 —— 시작 때 「토벌 종료」 알림)
 ##   2 점심(토벌)           토벌을 다 본 뒤 기다리는 동안 징집 · 조합만 (편성 불가)
-##   3 저녁 준비(30초)      편성만 (징집 · 조합 불가)
+##   3 저녁 준비(30초 → 4일차~ 15초)  편성만 (징집 · 조합 불가)
 ##   4 저녁(대전)           대전을 다 본 뒤 기다리는 동안 징집 · 조합만 (편성 불가) —— 먼저 끝난 사람의 빈 시간을 쓰게. 토너먼트 저녁은 모두 잠김
 ## 안 되는 명령은 거부하고 그 사람에게 이유를 보낸다 ({"t":"error"}). 방 정보에 act_draw · act_form · why_draw · why_form
 ## 7일째 저녁은 8인 토너먼트 —— 점심(토벌)은 없고 저녁 준비에 대진표를 보인 뒤 8강 · 4강 · 결승을 라운드마다 본다.
@@ -35,9 +35,9 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 만들어진 시점 when("3일차 아침" —— 온라인의 일차는 day_no, 단계는 아침 · 점심 · 저녁 준비 · 저녁)를 붙인다.
 
 const MODES := {
-	"fast": {"n": "빠른 — 준비 1분 · 대전 준비 30초", "morning": 60.0, "noon": 75.0, "prep": 30.0, "evening": 100.0},      # 11/12 사용자: 1페이즈 1분 · 유저전 준비 30초
-	"normal": {"n": "보통 — 준비 1분 · 대전 준비 30초", "morning": 60.0, "noon": 75.0, "prep": 30.0, "evening": 100.0},
-	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5},
+	"fast": {"n": "빠른 — 준비 1분 · 대전 준비 30초", "morning": 60.0, "noon": 75.0, "prep": 30.0, "evening": 100.0, "morning2": 30.0, "prep2": 15.0},      # 11/12 사용자: 1페이즈 1분 · 유저전 준비 30초 / 같은 날 사용자: 토벌이 사라지는 4일차~ 는 절반 (morning2 · prep2)
+	"normal": {"n": "보통 — 준비 1분 · 대전 준비 30초", "morning": 60.0, "noon": 75.0, "prep": 30.0, "evening": 100.0, "morning2": 30.0, "prep2": 15.0},
+	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5, "morning2": 1.0, "prep2": 0.5},      # 점검 모드는 빠르게 그대로 (4일차~ 도 같은 값)
 }
 const SEATS := 8              # 기본 자리 수 —— 방장이 만들 때 고르지 않으면 (옛 클라이언트) 8
 const SEAT_OPTIONS := [4, 6, 8]      # 방장이 고를 수 있는 총 인원(짝수) —— 자리 수 = 총 인원, 빈자리만 봇 (11/11 사용자)
@@ -71,6 +71,8 @@ var alone := ""               # "" · "ask"(혼자 남아 계속할지 묻는 �
 var stage := "lobby"          # lobby · morning · noon · evening_prep · evening · over
 var stage_no := 0             # 단계가 바뀔 때마다 1씩 —— 늦게 온 '준비 완료'를 거른다
 var stage_end := 0.0
+var stage_len_now := 0.0      # 지금 단계의 전체 길이 (초) —— 방 정보 stage_len (휴대폰이 5초 경고를 단계 길이에 맞춘다)
+var noon_end_sent := false    # 토벌 종료 알림(4일차 첫 단계)을 보냈나 —— 한 판에 한 번
 var day := 0
 var phase := 0
 var pairs := []               # 저녁 대진 [[자리 a, 자리 b]] —— b 는 봇일 수 있다. 음수 -1 - d 는 멸망한 자리 d 를 대신하는 떠돌이 군세.
@@ -122,6 +124,31 @@ static func now() -> float:
 ## 이 일차(0 = 1일차)에 점심(토벌) 단계가 있나 —— 1~3일차만 (11/11)
 static func has_noon(day_i: int) -> bool:
 	return Run.online_noon(day_i)
+
+
+## 단계 길이(초) —— 토벌이 없는 날(4일차~)의 준비(morning) · 대전 준비(evening_prep)는 절반 (MODES 의 morning2 · prep2, 11/12 사용자). 점심 · 저녁은 그대로
+static func stage_len(mode_: String, st: String, day_i: int) -> float:
+	var m: Dictionary = MODES[mode_] if MODES.has(mode_) else MODES.fast
+	var late := not has_noon(day_i)
+	match st:
+		"morning": return float(m.morning2 if late else m.morning)
+		"noon": return float(m.noon)
+		"evening_prep": return float(m.prep2 if late else m.prep)
+		"evening": return float(m.evening)
+	return 0.0
+
+
+## 초 → 글 —— 60 → "1분", 30 → "30초", 0.5 → "0.5초" (점검 모드)
+static func sec_text(v: float) -> String:
+	if v >= 60.0 and fmod(v, 60.0) == 0.0:
+		return "%d분" % int(v / 60.0)
+	return "%d초" % int(v) if v == floorf(v) else "%.1f초" % v
+
+
+## 토벌이 사라지는 날의 새 타이머 글 —— "준비 30초 · 대전 준비 15초"
+static func cut_text(mode_: String) -> String:
+	var d := Run.ONLINE_NOON_DAYS
+	return "준비 %s · 대전 준비 %s" % [sec_text(stage_len(mode_, "morning", d)), sec_text(stage_len(mode_, "evening_prep", d))]
 
 
 func humans() -> Array:
@@ -251,11 +278,11 @@ func info(i: int) -> Dictionary:
 	if i >= 0 and seats[i].foe != null:
 		me = seats[i].foe
 	return {"code": code, "mode": mode, "max": max_seats, "mode_n": MODES[mode].n, "started": started, "stage": stage, "stage_no": stage_no,
-		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "day": day, "phase": phase,
+		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "stage_len": stage_len_now, "noon_end": noon_end_sent and day == Run.ONLINE_NOON_DAYS and phase == 0 and stage == "morning", "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
 		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
-		"claim": claim_on, "deaths": death_n, "dead_units": dead_units}
+		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths()}
 
 
 func push_lobby() -> void:
@@ -307,13 +334,8 @@ func _bot_seat(nm: String, epi: String, fac: String, style: String, pv: float, s
 func _stage(st: String) -> void:
 	stage = st
 	stage_no += 1
-	var m: Dictionary = MODES[mode]
-	var len := 0.0
-	match st:
-		"morning": len = m.morning
-		"noon": len = m.noon
-		"evening_prep": len = m.prep
-		"evening": len = m.evening
+	var len := stage_len(mode, st, day)
+	stage_len_now = len
 	stage_end = now() + len
 	for s in seats:
 		if s.human:
@@ -482,8 +504,32 @@ func _pick_deaths() -> void:
 	_sync_locks()
 	if not dead_units.is_empty():
 		_news_stage = "morning"
-		_news_add({"who": "천명", "text": "%s 사망 —— 이번 판 등용 불가" % " · ".join(dead_units.map(func(k): return DB.C[k].name))})
+		var tx := "%s 사망 —— 이번 판 등용 불가" % " · ".join(dead_units.map(func(k): return DB.C[k].name))
+		var dm := dead_myths()
+		if not dm.is_empty():      # 하위 불멸이 죽어 함께 못 만드는 신화
+			tx += " (신화 %s 도)" % " · ".join(dm.map(func(k): return DB.C[k].name))
+		_news_add({"who": "천명", "text": tx})
 		_news_stage = ""
+
+
+## 불멸(7등급) 카드 k 를 재료로 쓰는 신화 id —— 하위 불멸이 사망하면 신화도 못 만든다. 없으면 "" (11/12 사용자)
+static func myth_over(k: String) -> String:
+	if not DB.C.has(k) or int(DB.C[k].tier) != 7:
+		return ""
+	for o in DB.RECOF:
+		if DB.C.has(o) and int(DB.C[o].tier) >= 8 and not DB.is_foe(str(o)) and DB.RECOF[o].has(k):
+			return str(o)
+	return ""
+
+
+## 사망 장수의 상위 신화들 (이미 사망 명단에 든 신화는 뺀다) —— 방 정보 dead_myth
+func dead_myths() -> Array:
+	var out := []
+	for k in dead_units:
+		var m := myth_over(str(k))
+		if m != "" and not (m in dead_units) and not (m in out):
+			out.append(m)
+	return out
 
 
 ## 사람마다 Run.locked 를 새로 채운다 —— 사망 장수 + (선점제면) 다른 사람이 먼저 등용한 장수
@@ -494,16 +540,22 @@ func _sync_locks() -> void:
 		var lk := {}
 		for k in dead_units:
 			lk[k] = {"dead": 1}
+		for k in dead_myths():
+			lk[k] = {"dead": 1}      # 하위 불멸이 사망 —— 그 신화도 등용 불가 (재료인 불멸을 못 만드니 원래도 못 만들지만 표시 · 거부 · 유니크 보급 거르기에 명시)
 		if claim_on:
 			for k in claims:
 				if str(claims[k]) != str(s.name):
 					lk[k] = {"by": claims[k]}
 		s.run.locked = lk
+		if s.run.prune_unique_offer():      # 11/12 열려 있는 유니크 보급에 막힌 신화의 재료가 있으면 갈아 끼운다
+			if s.peer >= 0:
+				server.send(s.peer, {"t": "toast", "text": "다른 유저가 신화를 선점해 유니크 보급 한 개가 바뀌었습니다", "kind": "news"})
 
 
 ## Run.forge 가 성공하면 부른다 (사람의 명령 · 봇 대행 모두) —— 기인 이상을 처음 등용하면 선점으로 적고 다른 사람의 Run 을 바로 잠근다
 ## (같은 단계에서 봇 대행이 차례로 조합해도 뒤 사람이 같은 장수를 만들지 못하게)
 func _on_forged(k: String, s: Dictionary) -> void:
+	# 11/12 사용자: 신화를 만들어 재료인 하위 불멸이 없어져도 그 불멸의 선점은 풀지 않는다 —— 신화를 만든 사람 몫으로 남아 다른 사람이 그 불멸을 얻지 못한다
 	if not claim_on or not is_urgent_unit(k) or claims.has(k):
 		return
 	claims[k] = s.name
@@ -946,7 +998,12 @@ func _advance() -> void:
 	# _bot_news() 는 봇의 최고 등급 기록(top)과 난수를 쓰므로 호출은 그대로 두고 결과만 버린다 (난수 순서 불변)
 	_bot_news()
 	_mirror()
+	var cut := day == Run.ONLINE_NOON_DAYS and phase == 0 and not noon_end_sent      # 4일차 첫 단계 —— 토벌이 사라지고 타이머가 절반이 된다 (한 판에 한 번)
+	if cut:
+		noon_end_sent = true      # 방 정보 noon_end 가 이 단계 상태에 실리도록 _stage 전에
 	_stage("morning")
+	if cut:
+		_noon_end_news()
 	for s in humans():
 		if s.peer >= 0:
 			for t in s.run.toasts:
@@ -1197,6 +1254,15 @@ func _fallen(s: Dictionary) -> void:
 	ann["band"] = "fall"
 	ann["line"] = "남은 군주 %d명" % n
 	_announce(tx, ann, s, true)
+
+
+## 11/12 사용자: 토벌이 사라지는 순간(4일차 첫 단계)의 알림 —— 「토벌 종료 / 이제부터 준비 30초 · 대전 준비 15초」. 방 전체에 소식 한 줄 + band "noon_end" (새 휴대폰은 아침 띠 대신 이 띠,
+## 옛 휴대폰은 band · line 을 모르고 text 를 알림 한 줄로만 본다). 필드만 늘렸다
+func _noon_end_news() -> void:
+	var line := cut_text(mode)
+	var it := {"who": "천명", "text": "토벌 종료 —— 이제부터 %s" % line, "band": "noon_end", "line": line}
+	_news_add(it)
+	_announce(it.text, it)
 
 
 ## 소식을 모든 사람의 Run.news 에 넣는다 (except 는 뺀다) —— 머리띠 '소식' 뱃지 · 전황 소식 시트가 그대로 쓴다
