@@ -2316,6 +2316,8 @@ class Hud extends Control:
 	## 11/6 #16 A등급 위험 신호 —— 화면 오른쪽 위 고정 칸: 적 고유기 준비(이름) · 아군 장수 병력 30% 아래(이름). 카메라 · 메달과 무관하게 늘 같은 자리
 	var _threat_seen := {}
 	func _draw_threats() -> void:
+		if cut != null:      # 11/12 사용자: 컷인(인연 말풍선 포함)이 떠 있는 동안은 위험 칸(적 고유기 준비 · 위태롭다)이 말풍선을 가렸다 —— 컷인이 걷힌 뒤에 보인다
+			return
 		var items := []
 		for sq: Squad in view.field.order:
 			if not sq.alive or sq.tier < 3:
