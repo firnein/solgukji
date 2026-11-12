@@ -183,13 +183,14 @@ static func _pair() -> Array:
 	return ["", ""]
 
 
-## 11/12 ③ 선점제에서 신화를 만들면 하위 불멸의 선점이 풀리는가 —— 불멸 U 를 만들면 다른 사람은 U 가 잠기고, 그 U 로 신화 M 을 만들면 U 의 선점은 풀리고 M 만 사람1 의 선점으로 남는다
+## 11/12 ③ 선점제에서 신화를 만들면 하위 불멸의 선점은 어떻게 되나 (사용자 정정: 유지) —— 불멸 U 를 만들면 다른 사람은 U 가 잠기고, 그 U 로 신화 M 을 만들어 U 가 소모돼도 U · M 모두 사람1 선점으로 남아 사람2 는 U 를 못 만든다
 func _myth_chain() -> void:
 	var pr := _pair()
 	var M: String = pr[0]
 	var U: String = pr[1]
 	var mk := _mk(true, 0)
 	var r: Room = mk[0]
+	var srv: FakeSrv = mk[1]
 	var a: Dictionary = r.seats[0]
 	var b: Dictionary = r.seats[1]
 	_feed(a.run, U)
@@ -212,22 +213,31 @@ func _myth_chain() -> void:
 		_fail("체인: 신화 조합 결과 M=%d U=%d" % [a.run.have(M), a.run.have(U)])
 	if str(r.claims.get(M, "")) != "사람1":
 		_fail("체인: 신화 %s 선점이 사람1 이 아니다" % M)
-	if r.claims.has(U):
-		_fail("체인: 재료로 쓴 불멸 %s 의 선점이 풀리지 않았다 (%s)" % [U, str(r.claims)])
-	if b.run.locked.has(U):
-		_fail("체인: 사람2 에게 불멸 %s 가 아직 잠겨 있다" % U)
+	if str(r.claims.get(U, "")) != "사람1":
+		_fail("체인: 재료로 쓴 불멸 %s 의 선점이 사람1 에게 남아 있지 않다 (%s)" % [U, str(r.claims)])
+	if not b.run.locked.has(U) or str(b.run.locked[U].get("by", "")) != "사람1":
+		_fail("체인: 사람2 에게 불멸 %s 가 사람1 선점으로 계속 잠겨 있어야 한다: %s" % [U, str(b.run.locked.get(U))])
 	if not b.run.locked.has(M) or str(b.run.locked[M].get("by", "")) != "사람1":
 		_fail("체인: 사람2 에게 신화 %s 가 사람1 선점으로 잠기지 않았다" % M)
 	if a.run.locked.has(M) or a.run.locked.has(U):
 		_fail("체인: 사람1 자신이 잠겼다")
 	print("체인 2) 신화 %s 후 선점 %s · 사람2 locked: U=%s M=%s" % [DB.C[M].name, str(r.claims), str(b.run.locked.get(U)), str(b.run.locked.get(M))])
-	# 풀린 불멸은 사람2 가 평범하게 얻는다 —— 하지만 신화는 못 만든다
+	# 불멸이 소모된 뒤에도 사람2 는 그 불멸을 조합할 수 없다 (명령도 거부 + 까닭 알림)
 	_feed(b.run, U)
-	if not b.run.can_forge(U):
-		_fail("체인: 풀린 불멸 %s 를 사람2 가 만들 수 없다" % U)
+	if b.run.can_forge(U):
+		_fail("체인: 사람2 가 사람1 의 신화 재료가 된 불멸 %s 를 만들 수 있다" % U)
+	srv.out.clear()
 	r.on_cmd(2, "forge", [U])
-	if b.run.have(U) != 1:
-		_fail("체인: 사람2 의 불멸 %s 조합 실패" % U)
+	if b.run.have(U) != 0:
+		_fail("체인: 사람2 가 불멸 %s 를 조합했다" % U)
+	var ts: Array = srv.of(2, "toast")
+	if ts.is_empty() or not str(ts[0].text).contains("선점제"):
+		_fail("체인: 사람2 의 불멸 조합 거부 알림이 없다")
+	# 봇 대행도 못 만든다
+	b.acted = false
+	r._fill(b)
+	if b.run.have(U) != 0:
+		_fail("체인: 봇 대행이 잠긴 불멸 %s 를 조합했다" % U)
 	for q in DB.RECOF[M]:
 		if str(q) != U:
 			b.run.give(str(q))
@@ -235,8 +245,6 @@ func _myth_chain() -> void:
 	b.run.myth_made = false
 	if b.run.can_forge(M):
 		_fail("체인: 사람2 가 선점된 신화 %s 를 만들 수 있다" % M)
-	if str(r.claims.get(U, "")) != "사람2":
-		_fail("체인: 사람2 가 만든 불멸은 사람2 선점이어야 한다: %s" % str(r.claims.get(U, "")))
 	# 불멸을 두 장 만든 경우 —— 한 장이 남았으면 풀지 않는다
 	mk = _mk(true, 0)
 	r = mk[0]

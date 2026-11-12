@@ -4074,6 +4074,8 @@ func _dev_args() -> void:
 					online.send_ready(true)
 				if kv.size() > 3 and kv[3] == "hot":      # 점검용 —— 다른 사람이 기인 이상을 등용했다는 서버 알림이 온 것처럼 (긴급 띠 · 소식 뱃지 · 시점 글)
 					online._on_msg({"t": "news", "list": [{"text": "장수214가 신산 제갈량을 등용했습니다", "kind": "news", "who": "장수214", "unit": "c187", "id": 7, "when": "1일차 아침", "hot": 1}]})
+				if kv.size() > 3 and kv[3] == "noonend":      # 점검용 —— 11/12 4일차 첫 아침에 서버가 보내는 「토벌 종료」 소식이 온 것처럼 (가운데 띠 + 소식 줄)
+					online._on_msg({"t": "news", "list": [{"text": "토벌 종료 —— 이제부터 %s" % Room.cut_text("fast"), "kind": "news", "who": "천명", "id": 9, "line": Room.cut_text("fast"), "band": "noon_end", "when": "4일차 준비"}]})
 				if kv.size() > 3 and kv[3] in ["presence", "fall"]:      # 점검용 —— 11/12 존재감: 상태 아이콘 · 설욕전 · 한마디 말풍선(유저 칸 옆) / fall = 멸망 띠
 					var sts := ["idle", "busy", "ready", "pvp"]
 					var ss: Array = online.room.seats

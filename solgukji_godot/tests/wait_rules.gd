@@ -24,6 +24,7 @@ func _fail(s: String) -> void:
 
 func _ready() -> void:
 	_stages_and_ready()
+	_timer_rules()
 	_cmd_rules()
 	_hp_rules()
 	_reward_rules()
@@ -162,6 +163,95 @@ func _stages_and_ready() -> void:
 	if r2.stage != "evening_prep":
 		_fail("멸망한 사람 때문에 점심이 안 끝났다 (%s)" % r2.stage)
 	print("단계 · 준비 점검 끝 — 점심은 1~3일차만, 끊김 · 자리 비움 · 볼 전투 없음은 기다리지 않는다")
+
+
+## 11/12 사용자: 토벌이 사라지는 4일차~ 는 준비 60 → 30초 · 대전 준비 30 → 15초 (빠른 · 보통), 점검 모드는 그대로 —— 시작 때 「토벌 종료」 알림이 한 번만
+func _timer_rules() -> void:
+	# 정적 값 —— 일차(0 = 1일차)마다 단계 길이
+	for m in ["fast", "normal"]:
+		for d in 7:
+			var late := d >= Run.ONLINE_NOON_DAYS
+			var want := {"morning": 30.0 if late else 60.0, "noon": 75.0, "evening_prep": 15.0 if late else 30.0, "evening": 100.0}
+			for st in want:
+				if Room.stage_len(m, st, d) != float(want[st]):
+					_fail("%s %d일차 %s 길이 %s (기대 %s)" % [m, d + 1, st, str(Room.stage_len(m, st, d)), str(want[st])])
+	for d in 7:
+		if Room.stage_len("test", "morning", d) != 1.0 or Room.stage_len("test", "evening_prep", d) != 0.5:
+			_fail("점검 모드 타이머가 일차마다 같지 않다 (%d일차)" % (d + 1))
+	if Room.cut_text("fast") != "준비 30초 · 대전 준비 15초":
+		_fail("cut_text(fast) = %s" % Room.cut_text("fast"))
+	if Room.sec_text(60.0) != "1분" or Room.sec_text(15.0) != "15초" or Room.sec_text(0.5) != "0.5초":
+		_fail("sec_text")
+	# 방을 일차 순서로 돌려 본다 —— 방 정보 stage_len · remain 과 알림
+	for m in ["fast", "test"]:
+		var srv := FakeSrv.new()
+		var r := Room.new(srv, "WT", m)
+		r.rng.seed = 21
+		r.add_human(1, "사람1", "tk0")
+		r.add_human(2, "사람2", "tk1")
+		r.start()
+		var news_at := []      # 「토벌 종료」 소식이 온 때 [day, phase, stage]
+		var seen_n := 0
+		var lens := {}      # 일차 -> {단계: 방 정보 stage_len}
+		var guard := 0
+		while r.day < 5 and guard < 300:
+			guard += 1
+			var inf: Dictionary = r.info(0)
+			if not lens.has(r.day):
+				lens[r.day] = {}
+			if not lens[r.day].has(r.stage):
+				lens[r.day][r.stage] = float(inf.stage_len)
+			if float(inf.remain) > float(inf.stage_len) + 0.05:
+				_fail("remain 이 stage_len 보다 크다 (%s)" % r.stage)
+			if bool(inf.noon_end) != (r.day == 3 and r.phase == 0 and r.stage == "morning"):
+				_fail("noon_end 방 정보가 4일차 첫 아침에만 참이어야 한다 (day %d phase %d %s = %s)" % [r.day, r.phase, r.stage, str(inf.noon_end)])
+			var ne := srv.of(1, "news").filter(func(d): return str(d.list[0].get("band", "")) == "noon_end")
+			if ne.size() > seen_n:
+				seen_n = ne.size()
+				news_at.append([r.day, r.phase, r.stage])
+				var it: Dictionary = ne[-1].list[0]
+				var line := Room.cut_text(m)
+				if not str(it.text).begins_with("토벌 종료") or not str(it.text).contains(line) or str(it.line) != line:
+					_fail("토벌 종료 알림 글: %s" % str(it))
+				if bool(it.get("hot", false)):
+					_fail("토벌 종료 알림에 hot 이 있다 (옛 휴대폰 긴급 띠 오작동)")
+				if m == "fast" and not str(it.text).contains("준비 30초 · 대전 준비 15초"):
+					_fail("빠른 모드 알림에 30 · 15초가 없다: %s" % str(it.text))
+			_ready_all(r)
+			for s in r.humans():
+				s.ready = true
+				s.watched = true
+			r.stage_end = 0.0      # 시간이 다 됐다고 보고 넘긴다
+			r.tick()
+		if news_at != [[3, 0, "morning"]]:
+			_fail("[%s] 토벌 종료 알림이 4일차 첫 아침에 정확히 한 번이어야 한다: %s" % [m, str(news_at)])
+		# 방의 Run.news 에도 한 번
+		var cnt := r.seats[0].run.news.filter(func(it): return str(it.get("band", "")) == "noon_end").size()
+		if cnt != 1:
+			_fail("[%s] Run.news 에 토벌 종료가 %d 번" % [m, cnt])
+		# 일차별 방 정보 stage_len
+		for d in lens:
+			for st in lens[d]:
+				if st in ["lobby", "over"]:
+					continue
+				var want := Room.stage_len(m, str(st), int(d))
+				if absf(float(lens[d][st]) - want) > 0.001:
+					_fail("[%s] %d일차 %s 방 정보 stage_len %s (기대 %s)" % [m, int(d) + 1, st, str(lens[d][st]), str(want)])
+		if m == "fast":
+			var l: Dictionary = lens
+			if not (l.has(2) and l.has(3)):
+				_fail("일차 표본이 모자란다")
+			else:
+				print("방 정보 stage_len —— 3일차 아침 %s · 대전 준비 %s / 4일차 아침 %s · 대전 준비 %s (토벌 %s → %s)" % [str(l[2].get("morning")), str(l[2].get("evening_prep")), str(l[3].get("morning")), str(l[3].get("evening_prep")), str(l[2].get("noon")), str(l[3].get("noon", "없음"))])
+	# 5초 경고 시작 시점 —— 60 · 30초 단계는 10초부터, 15초 단계는 5초부터 (단계의 1/3, 5~10초)
+	var on := Online.new()
+	var exp := {0.0: 10, 15.0: 5, 30.0: 10, 60.0: 10, 75.0: 10, 24.0: 8}
+	for len_ in exp:
+		on._stage_len = float(len_)
+		if on.warn_sec() != int(exp[len_]):
+			_fail("warn_sec(%s) = %d (기대 %d)" % [str(len_), on.warn_sec(), int(exp[len_])])
+	on.free()
+	print("타이머 점검 끝 — 1~3일차 준비 60 · 대전 준비 30 / 4일차~ 30 · 15, 토벌 종료 알림 한 번, 경고 시점")
 
 
 func _cmd_rules() -> void:
