@@ -5,7 +5,7 @@ extends Node
 ##     [--hide=ground,men,under,fx,hud,cpu  층을 숨겨 그 비용을 뺀다] [--lv=N 부하 조절 단계 고정] [--lod=0 병사 수 LOD 끔]
 ##     [--gscatter=0 흐트러짐 끔 (11/7 아침 배치)] [--mobile=1 휴대폰 문턱으로 (PC 에서 휴대폰 단계 흉내)]
 ##     [--shots=2,5,9 그 초에 화면을 찍는다 (out/<tag>_t<초>.png)] [--zoom=2.5 가장 빽빽한 부대를 따라 그 배율로 다가간다]
-##     [--count=1 병사 수만 찍고 끝 (판 고르기)]
+##     [--count=1 병사 수만 찍고 끝 (판 고르기)] [--tierfig=0 11/12 등급별 인형 줄이기 · 고급 병사 장식 끔 (전후 비교)]
 ## 자동 진행으로 그 페이즈까지 간 판의 전투를 틀고(ui_shots 와 같은 판), skip 초 뒤부터 secs 초 동안 프레임마다 잰다 (vsync 끔 · fps 상한 없음):
 ##   fps · 프레임 시간(평균 · 상위 5% · 최대) · 처리 시간(process_frame → frame_pre_draw, 프레임 평균 —— 모든 _process 와 엔진 갱신)
 ##   · 스크립트최대(Performance.TIME_PROCESS = 지난 1초 중 가장 긴 process) · GPU 시간(뷰포트 측정) · 그리기 호출 · 스크립트 구간(War3D.prof)
@@ -44,6 +44,8 @@ func _ready() -> void:
 		t2s.set("scatter", float(args.gscatter))
 	if args.has("budget"):
 		t2s.set("budget_on", args.budget != "0")
+	if args.has("tierfig"):
+		t2s.set("tier_fig", args.tierfig != "0")
 	if args.has("mobile"):
 		t2s.set("mobile_test", args.mobile != "0")
 	var gs: GameScreen = load("res://scenes/game.tscn").instantiate()
@@ -84,7 +86,10 @@ func _ready() -> void:
 	for sq: Squad in field.order:
 		men += sq.soldiers.size()
 	if args.has("count"):
-		print("COUNT|%s|병사 %d|부대 %d|단계 %d" % [tag, men, field.order.size(), t2.load_lv])
+		var tiers := {}
+		for sq: Squad in field.order:
+			tiers[sq.tier] = int(tiers.get(sq.tier, 0)) + 1
+		print("COUNT|%s|병사 %d|부대 %d|단계 %d|등급별 부대 %s" % [tag, men, field.order.size(), t2.load_lv, str(tiers)])
 		get_tree().quit()
 		return
 	# 가장 빽빽한 부대 (면적당 병사) —— --zoom 이 따라간다
