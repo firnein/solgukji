@@ -282,7 +282,7 @@ func info(i: int) -> Dictionary:
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
 		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
-		"claim": claim_on, "deaths": death_n, "dead_units": dead_units}
+		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths()}
 
 
 func push_lobby() -> void:
@@ -504,8 +504,32 @@ func _pick_deaths() -> void:
 	_sync_locks()
 	if not dead_units.is_empty():
 		_news_stage = "morning"
-		_news_add({"who": "천명", "text": "%s 사망 —— 이번 판 등용 불가" % " · ".join(dead_units.map(func(k): return DB.C[k].name))})
+		var tx := "%s 사망 —— 이번 판 등용 불가" % " · ".join(dead_units.map(func(k): return DB.C[k].name))
+		var dm := dead_myths()
+		if not dm.is_empty():      # 하위 불멸이 죽어 함께 못 만드는 신화
+			tx += " (신화 %s 도)" % " · ".join(dm.map(func(k): return DB.C[k].name))
+		_news_add({"who": "천명", "text": tx})
 		_news_stage = ""
+
+
+## 불멸(7등급) 카드 k 를 재료로 쓰는 신화 id —— 하위 불멸이 사망하면 신화도 못 만든다. 없으면 "" (11/12 사용자)
+static func myth_over(k: String) -> String:
+	if not DB.C.has(k) or int(DB.C[k].tier) != 7:
+		return ""
+	for o in DB.RECOF:
+		if DB.C.has(o) and int(DB.C[o].tier) >= 8 and not DB.is_foe(str(o)) and DB.RECOF[o].has(k):
+			return str(o)
+	return ""
+
+
+## 사망 장수의 상위 신화들 (이미 사망 명단에 든 신화는 뺀다) —— 방 정보 dead_myth
+func dead_myths() -> Array:
+	var out := []
+	for k in dead_units:
+		var m := myth_over(str(k))
+		if m != "" and not (m in dead_units) and not (m in out):
+			out.append(m)
+	return out
 
 
 ## 사람마다 Run.locked 를 새로 채운다 —— 사망 장수 + (선점제면) 다른 사람이 먼저 등용한 장수
@@ -516,20 +540,37 @@ func _sync_locks() -> void:
 		var lk := {}
 		for k in dead_units:
 			lk[k] = {"dead": 1}
+		for k in dead_myths():
+			lk[k] = {"dead": 1}      # 하위 불멸이 사망 —— 그 신화도 등용 불가 (재료인 불멸을 못 만드니 원래도 못 만들지만 표시 · 거부 · 유니크 보급 거르기에 명시)
 		if claim_on:
 			for k in claims:
 				if str(claims[k]) != str(s.name):
 					lk[k] = {"by": claims[k]}
 		s.run.locked = lk
+		if s.run.prune_unique_offer():      # 11/12 열려 있는 유니크 보급에 막힌 신화의 재료가 있으면 갈아 끼운다
+			if s.peer >= 0:
+				server.send(s.peer, {"t": "toast", "text": "다른 유저가 신화를 선점해 유니크 보급 한 개가 바뀌었습니다", "kind": "news"})
 
 
 ## Run.forge 가 성공하면 부른다 (사람의 명령 · 봇 대행 모두) —— 기인 이상을 처음 등용하면 선점으로 적고 다른 사람의 Run 을 바로 잠근다
 ## (같은 단계에서 봇 대행이 차례로 조합해도 뒤 사람이 같은 장수를 만들지 못하게)
 func _on_forged(k: String, s: Dictionary) -> void:
-	if not claim_on or not is_urgent_unit(k) or claims.has(k):
+	if not claim_on:
 		return
-	claims[k] = s.name
-	_sync_locks()
+	var changed := false
+	if is_urgent_unit(k) and not claims.has(k):
+		claims[k] = s.name
+		changed = true
+	# 11/12 사용자: 신화를 만들면 재료로 써 없어진 하위 불멸의 선점은 풀린다 —— 다른 사람이 그 불멸을 평범한 불멸로 얻을 수 있다 (신화 자체는 이 사람이 계속 선점).
+	# 이 사람이 아직 그 불멸을 쥐고 있으면(여러 장 만든 경우) 풀지 않는다
+	if int(DB.C[k].tier) >= 8:
+		for m in DB.RECOF.get(k, []):
+			var ms := str(m)
+			if DB.C.has(ms) and int(DB.C[ms].tier) == 7 and str(claims.get(ms, "")) == str(s.name) and s.run.have(ms) <= 0:
+				claims.erase(ms)
+				changed = true
+	if changed:
+		_sync_locks()
 
 
 ## 등용 거부 까닭 —— 잠긴 장수를 조합하려 하면 (클라이언트가 늦게 받은 경우 등). "" 이면 거부 아님

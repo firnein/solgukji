@@ -983,6 +983,8 @@ func _rules_intro() -> void:
 		return
 	_intro_room = code_
 	var dead: Array = room.get("dead_units", []).filter(func(k): return DB.C.has(str(k)))
+	dead = dead.filter(func(k):      # 11/12 하위 불멸이 같이 죽은 신화는 그 불멸 카드에 얹어 한 번에 (GameScreen._next_death) —— 따로 한 번 더 찢지 않는다
+		return not dead.any(func(o): return Room.myth_over(str(o)) == str(k)))
 	var show_dead := func():
 		for k in dead:
 			gs.death_card(str(k))

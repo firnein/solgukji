@@ -3402,26 +3402,79 @@ func _next_urgent() -> void:
 	b.done.connect(_next_urgent)
 
 
-# ───────── 장수 사망 연출 (11/12 사용자: 온라인 장수 사망룰) —— 1일차 첫 아침, 사망 장수마다 하나씩 차례로 (DeathBand) ─────────
-var _deaths: Array = []
+# ───────── 장수 사망 연출 (11/12 사용자: 온라인 장수 사망룰) —— 1일차 첫 아침, 사망 장수마다 하나씩 (DeathBand) ─────────
+## 11/12 사용자: 한 장 약 1.15초 · 끝나기 0.4초 전에 다음 카드가 겹쳐 들어온다 (10명 약 8초) · 화면을 누르면 3배속, 두 번 누르면 나머지 건너뜀 ·
+## 불멸이 죽으면 그 상위 신화 카드가 위에 같이 얹혀 함께 찢어진다 (Room.myth_over). 알림은 끝나고 한 번만.
+const DEATH_FAST := 3.0      # 한 번 누르면 이 배속으로
+var _deaths: Array = []      # 아직 시작 안 한 사망 장수
 var _death_busy := false
+var _death_idle := false     # 대기열이 비어 다음 카드를 기다리는 중 (남은 연출은 끝나가는 중) —— 새로 오면 바로 시작
+var _death_live: Array = []  # 화면에 떠 있는 연출 노드
+var _death_spd := 1.0
+var _death_names: Array = [] # 이번 연속 연출에서 보여 준 이름 (끝 알림용)
+var _death_total := 0
 
 func death_card(unit: String) -> void:
 	_deaths.append(unit)
-	if not _death_busy:
-		_next_death()
+	_death_total += 1
+	if not _death_busy or _death_idle:
+		_death_busy = true
+		_death_idle = false
+		_next_death.call_deferred()      # 같은 프레임에 여러 명이 오면 모두 모인 뒤 시작 (안내 글 · 명단 묶기)
 
 
 func _next_death() -> void:
 	if _deaths.is_empty():
-		_death_busy = false
+		_death_idle = true
+		if _death_live.is_empty():
+			_death_end()
 		return
 	_death_busy = true
 	var k: String = _deaths.pop_front()
-	var b: Control = DeathBand.play(self, k)
+	var m := Room.myth_over(k)
+	if m != "" and _deaths.has(m):      # 같은 명단에 그 신화도 있으면 한 번에 (불멸 카드에 얹어)
+		_deaths.erase(m)
+	if m != "":
+		_death_names.append("%s · %s" % [DB.C[k].name, DB.C[m].name])
+	else:
+		_death_names.append(str(DB.C[k].name))
+	var b: Control = DeathBand.play(self, k, m, _death_spd, _death_total > 1)
+	_death_live.append(b)
+	b.next.connect(_next_death)
+	b.tapped.connect(_death_tap)
 	b.done.connect(func():
-		toast("%s 사망 —— 이번 판 등용 불가" % DB.C[k].name, "bad")
-		_next_death())
+		_death_live.erase(b)
+		if _deaths.is_empty() and _death_live.is_empty():
+			_death_end())
+
+
+## 누름 —— 첫 번째는 빠르게, 두 번째는 나머지를 건너뛴다
+func _death_tap() -> void:
+	if _death_spd < DEATH_FAST:
+		_death_spd = DEATH_FAST
+		for b in _death_live:
+			if is_instance_valid(b):
+				b.spd = DEATH_FAST
+		return
+	_deaths.clear()
+	for b in _death_live.duplicate():
+		if is_instance_valid(b):
+			b.finish()
+
+
+func _death_end() -> void:
+	_death_busy = false
+	_death_idle = false
+	_death_spd = 1.0
+	var names := _death_names
+	_death_names = []
+	_death_total = 0
+	if names.is_empty():
+		return
+	if names.size() == 1:
+		toast("%s 사망 —— 이번 판 등용 불가" % names[0], "bad")
+	else:
+		toast("장수 %d명 사망 —— 이번 판 등용 불가 (전황 소식에서 확인)" % names.size(), "bad")
 
 
 # ───────── 한마디 구름 말풍선 (11/10 이모티콘 팝업 → 11/12 사용자: 글도 같은 구름으로, 보낸 사람의 유저 칸 옆에) —— 어디서나 (SayBubble) ─────────

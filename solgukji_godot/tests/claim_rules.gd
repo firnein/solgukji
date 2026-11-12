@@ -152,6 +152,9 @@ func _headless() -> void:
 		if t2.is_empty() or not str(t2[0].text).contains("사망룰"):
 			_fail("사망 거부 알림 없음")
 		print("사망 %d명: %s" % [n, " · ".join(dd.map(func(k): return DB.C[k].name))])
+	_myth_chain()
+	_dead_myth()
+	_unique_filter()
 	# 옛 클라이언트 · 이상한 값
 	var old := Room.new(FakeSrv.new(), "OLD", "test", 4)
 	if not old.claim_on or old.death_n != 0:
@@ -167,6 +170,227 @@ func _headless() -> void:
 	if not solo.locked.is_empty():
 		_fail("혼자 하기 locked")
 	print("가짜 서버 점검 끝")
+
+
+## 신화 M 과 그 재료인 불멸 U (아이템이 필요 없는 U) —— 첫 번째 쌍
+static func _pair() -> Array:
+	var ms: Array = DB.RECOF.keys().filter(func(k): return int(DB.C[k].tier) >= 8 and not DB.is_foe(str(k)))
+	ms.sort()
+	for m in ms:
+		for x in DB.RECOF[m]:
+			if DB.C.has(x) and int(DB.C[x].tier) == 7 and Run.need_item(str(x)) == null:
+				return [str(m), str(x)]
+	return ["", ""]
+
+
+## 11/12 ③ 선점제에서 신화를 만들면 하위 불멸의 선점이 풀리는가 —— 불멸 U 를 만들면 다른 사람은 U 가 잠기고, 그 U 로 신화 M 을 만들면 U 의 선점은 풀리고 M 만 사람1 의 선점으로 남는다
+func _myth_chain() -> void:
+	var pr := _pair()
+	var M: String = pr[0]
+	var U: String = pr[1]
+	var mk := _mk(true, 0)
+	var r: Room = mk[0]
+	var a: Dictionary = r.seats[0]
+	var b: Dictionary = r.seats[1]
+	_feed(a.run, U)
+	r.on_cmd(1, "forge", [U])
+	if a.run.have(U) != 1 or str(r.claims.get(U, "")) != "사람1":
+		_fail("체인: 사람1 이 불멸 %s 를 선점하지 못했다 %s" % [U, str(r.claims)])
+	if not b.run.locked.has(U) or not b.run.locked[U].has("by"):
+		_fail("체인: 불멸 %s 가 사람2 에게 잠기지 않았다" % U)
+	print("체인 1) 불멸 %s 선점 후 사람2 locked: %s" % [DB.C[U].name, str(b.run.locked.get(U))])
+	# 신화 재료 (불멸은 이미 쥐었으니 나머지 + 유니크)
+	var ni = Run.need_item(M)
+	for q in DB.RECOF[M]:
+		if str(q) != U:
+			a.run.give(str(q))
+	a.run.bag[ni] = 1
+	if not a.run.can_forge(M):
+		_fail("체인: 사람1 이 신화 %s 를 못 만든다 (시험 준비 오류)" % M)
+	r.on_cmd(1, "forge", [M])
+	if a.run.have(M) != 1 or a.run.have(U) != 0:
+		_fail("체인: 신화 조합 결과 M=%d U=%d" % [a.run.have(M), a.run.have(U)])
+	if str(r.claims.get(M, "")) != "사람1":
+		_fail("체인: 신화 %s 선점이 사람1 이 아니다" % M)
+	if r.claims.has(U):
+		_fail("체인: 재료로 쓴 불멸 %s 의 선점이 풀리지 않았다 (%s)" % [U, str(r.claims)])
+	if b.run.locked.has(U):
+		_fail("체인: 사람2 에게 불멸 %s 가 아직 잠겨 있다" % U)
+	if not b.run.locked.has(M) or str(b.run.locked[M].get("by", "")) != "사람1":
+		_fail("체인: 사람2 에게 신화 %s 가 사람1 선점으로 잠기지 않았다" % M)
+	if a.run.locked.has(M) or a.run.locked.has(U):
+		_fail("체인: 사람1 자신이 잠겼다")
+	print("체인 2) 신화 %s 후 선점 %s · 사람2 locked: U=%s M=%s" % [DB.C[M].name, str(r.claims), str(b.run.locked.get(U)), str(b.run.locked.get(M))])
+	# 풀린 불멸은 사람2 가 평범하게 얻는다 —— 하지만 신화는 못 만든다
+	_feed(b.run, U)
+	if not b.run.can_forge(U):
+		_fail("체인: 풀린 불멸 %s 를 사람2 가 만들 수 없다" % U)
+	r.on_cmd(2, "forge", [U])
+	if b.run.have(U) != 1:
+		_fail("체인: 사람2 의 불멸 %s 조합 실패" % U)
+	for q in DB.RECOF[M]:
+		if str(q) != U:
+			b.run.give(str(q))
+	b.run.bag[ni] = 1
+	b.run.myth_made = false
+	if b.run.can_forge(M):
+		_fail("체인: 사람2 가 선점된 신화 %s 를 만들 수 있다" % M)
+	if str(r.claims.get(U, "")) != "사람2":
+		_fail("체인: 사람2 가 만든 불멸은 사람2 선점이어야 한다: %s" % str(r.claims.get(U, "")))
+	# 불멸을 두 장 만든 경우 —— 한 장이 남았으면 풀지 않는다
+	mk = _mk(true, 0)
+	r = mk[0]
+	a = r.seats[0]
+	b = r.seats[1]
+	_feed(a.run, U)
+	r.on_cmd(1, "forge", [U])
+	_feed(a.run, U)
+	r.on_cmd(1, "forge", [U])
+	if a.run.have(U) != 2:
+		_fail("체인(2장): 불멸 두 장 조합 실패 %d" % a.run.have(U))
+	for q in DB.RECOF[M]:
+		if str(q) != U:
+			a.run.give(str(q))
+	a.run.bag[ni] = 1
+	r.on_cmd(1, "forge", [M])
+	if a.run.have(M) != 1 or a.run.have(U) != 1:
+		_fail("체인(2장): 신화 조합 결과 M=%d U=%d" % [a.run.have(M), a.run.have(U)])
+	if str(r.claims.get(U, "")) != "사람1" or not b.run.locked.has(U):
+		_fail("체인(2장): 불멸이 한 장 남았는데 선점이 풀렸다")
+	# 선점제 꺼짐이면 아무 기록도 없다
+	mk = _mk(false, 0)
+	r = mk[0]
+	_feed(r.seats[0].run, U)
+	r.on_cmd(1, "forge", [U])
+	if not r.claims.is_empty():
+		_fail("체인: 선점제 꺼짐인데 선점 기록이 있다")
+	print("선점 체인 점검 끝")
+
+
+## 11/12 ① 하위 불멸이 사망하면 그 신화도 등용 불가 (locked dead · 방 정보 dead_myth · 소식 글 · 조합 거부)
+func _dead_myth() -> void:
+	var pr := _pair()
+	var M: String = pr[0]
+	var U: String = pr[1]
+	if Room.myth_over(U) != M:
+		_fail("myth_over(%s) = %s, %s 여야 한다" % [U, Room.myth_over(U), M])
+	if Room.myth_over(M) != "" or Room.myth_over("c1") != "":
+		_fail("myth_over 가 불멸이 아닌 것에도 답한다")
+	var found := false
+	for sd in range(1, 40):      # 사망 10명 중 불멸이 든 방을 찾는다
+		var mk := _mk(true, 10, 2, sd)
+		var r: Room = mk[0]
+		var dms: Array = r.dead_myths()
+		if dms.is_empty():
+			continue
+		found = true
+		for m in dms:
+			if not r.seats[0].run.locked.has(m) or not r.seats[0].run.locked[m].has("dead"):
+				_fail("하위 불멸 사망 신화 %s 가 잠기지 않았다" % m)
+			if not (m in (r.info(0).dead_myth as Array)):
+				_fail("방 정보 dead_myth 에 %s 없음" % m)
+			if (m in r.dead_units):
+				_fail("명단에 든 신화 %s 가 dead_myth 에도 있다" % m)
+		var nw: String = str(r.seats[0].run.news[0].get("text", ""))
+		if not nw.contains("신화"):
+			_fail("사망 소식에 신화가 없다: %s" % nw)
+		# 그 신화는 재료를 다 줘도 못 만든다
+		var m0: String = dms[0]
+		_feed(r.seats[0].run, m0)
+		r.seats[0].run.bag[Run.need_item(m0)] = 1
+		r.seats[0].run.myth_made = false
+		if r.seats[0].run.can_forge(m0):
+			_fail("사망 불멸의 신화 %s 를 만들 수 있다" % m0)
+		print("사망 %d명 중 하위 불멸 사망 → 신화 %s · 소식: %s" % [r.dead_units.size(), " · ".join(dms.map(func(k): return DB.C[k].name)), nw])
+		break
+	if not found:
+		_fail("사망 10명에 불멸이 든 방을 못 찾았다")
+	# 직접 정한 사망 명단 [U]
+	var mk2 := _mk(true, 0)
+	var r2: Room = mk2[0]
+	r2.dead_units = [U]
+	r2._sync_locks()
+	if not r2.seats[0].run.locked.has(M) or not r2.seats[1].run.locked.has(U):
+		_fail("직접 사망 U: M · U 모두 잠겨야 한다 %s" % str(r2.seats[0].run.locked))
+	r2.dead_units = [U, M]
+	if r2.dead_myths() != []:
+		_fail("명단에 든 신화는 dead_myth 에서 빠져야 한다")
+
+
+## 11/12 ② 사망 · 선점으로 잠긴 신화의 유니크 재료는 유니크 보급 3택 · 다시 뽑기에 나오지 않는다 (여러 시드, 방 안 Run 의 locked 로)
+func _unique_filter() -> void:
+	var pr := _pair()
+	var M: String = pr[0]
+	var mi: String = str(Run.need_item(M))
+	var seen_free := false
+	for sd in 30:
+		var run := Run.new()
+		run.new_game(500 + sd)
+		_unique_offer(run)
+		if run.uniq_offer.has(mi):
+			seen_free = true
+	if not seen_free:
+		_fail("잠금이 없을 때 %s 의 유니크 %s 가 한 번도 안 나온다 (표본 오류)" % [M, mi])
+	var bad := 0
+	var n_off := 0
+	for sd in 60:
+		var run := Run.new()
+		run.new_game(500 + sd)
+		run.locked = {M: {"dead": 1}}
+		_unique_offer(run)
+		n_off += run.uniq_offer.size()
+		if run.uniq_offer.has(mi):
+			bad += 1
+		if run.reroll_unique() and run.uniq_offer.has(mi):
+			bad += 1
+		# 선점으로 잠긴 신화도 같다
+		var run2 := Run.new()
+		run2.new_game(500 + sd)
+		run2.locked = {M: {"by": "누군가"}}
+		_unique_offer(run2)
+		if run2.uniq_offer.has(mi):
+			bad += 1
+		if run2.reroll_unique() and run2.uniq_offer.has(mi):
+			bad += 1
+	if bad > 0:
+		_fail("잠긴 신화 %s 의 유니크 %s 가 %d 번 나왔다" % [M, mi, bad])
+	# 신화를 전부 잠그면 보급이 비어 있다 (오류 없이)
+	var run3 := Run.new()
+	run3.new_game(1)
+	for m in DB.RECOF.keys().filter(func(k): return int(DB.C[k].tier) >= 8 and not DB.is_foe(str(k))):
+		run3.locked[str(m)] = {"dead": 1}
+	_unique_offer(run3)
+	if not run3.uniq_offer.is_empty() or run3.reroll_unique():
+		_fail("신화를 모두 잠갔는데 유니크 보급이 나온다")
+	# 열려 있는 보급 중에 신화가 선점되면 갈아 끼운다
+	var run4 := Run.new()
+	run4.new_game(9)
+	_unique_offer(run4)
+	var shown: Array = run4.uniq_offer.duplicate()
+	var victim := ""
+	for m in DB.RECOF.keys():
+		if int(DB.C[m].tier) >= 8 and not DB.is_foe(str(m)) and shown.has(Run.need_item(str(m))):
+			victim = str(m)
+			break
+	run4.locked = {victim: {"by": "누군가"}}
+	if not run4.prune_unique_offer() or run4.uniq_offer.has(Run.need_item(victim)) or run4.uniq_offer.size() != 3:
+		_fail("열린 유니크 보급 갈아 끼우기: %s" % str(run4.uniq_offer))
+	# 방에서 사람2 가 선점당한 신화는 사람2 의 보급에서 빠진다
+	var mk := _mk(true, 0)
+	var r: Room = mk[0]
+	r.claims[M] = "사람1"
+	r._sync_locks()
+	if not r.seats[1].run.blocked_uniques().has(mi) or r.seats[0].run.blocked_uniques().has(mi):
+		_fail("방: 선점 신화의 유니크가 사람2 에게만 막혀야 한다")
+	print("유니크 보급 거르기 점검 끝 (보급 %d개 표본, 막힌 신화 %s 유니크 %s)" % [n_off, DB.C[M].name, mi])
+
+
+## 유니크 보급 상태로 만든다 (UNIQUE_PHASES 아침과 같은 호출)
+static func _unique_offer(run: Run) -> void:
+	run.uniq_offer = []
+	run.uniq_rerolled = false
+	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k))
+	run._offer_unique(cand)
 
 
 func _socket() -> void:
