@@ -14,7 +14,9 @@
 shader_type canvas_item;
 
 uniform sampler2D squad_tex : filter_nearest;
-uniform sampler2D tag_tex : filter_nearest;      // 11/7 부대 줄 -> 병종 인형 칸 (아틀라스 9칸 중, 0~1)
+uniform sampler2D tag_tex : filter_nearest;      // 11/7 부대 줄 -> 칸 0 (인형 칸 0~1, 병종 크기, 11/12 등급 배율, 장식 단계 0 · 1 · 2) · 칸 1 장식 색 · 칸 2 발광 색
+// 11/12 고급 병사 장식 (Type2View._deco_tex) —— 병사 아틀라스와 같은 칸 × 2줄(장식 1 · 2단계). r 금 · g 장식 색 · b 둘레 발광
+uniform sampler2D deco_tex : filter_linear;
 uniform vec2 center;            // 화면 가운데 전장 자리 (흔들림 포함)
 uniform float scl = 1.0;
 uniform float tilt = 1.25;
@@ -34,6 +36,9 @@ uniform float dark = 0.0;
 
 varying vec4 tint;
 varying float atlas_x;
+varying float deco;
+varying vec3 acc_c;
+varying vec3 glow_c;
 
 vec4 sq(float row, int col) {
 	return texelFetch(squad_tex, ivec2(col, int(row)), 0);
@@ -90,7 +95,7 @@ void vertex() {
 		vec2 d = p - center;
 		sp2 = vsize * 0.5 + vec2(d.y, -d.x * tilt) * scl;
 		float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);
-		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep * max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5);
+		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep * max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5) * max(texelFetch(tag_tex, ivec2(0, int(row)), 0).b, 1.0);
 		float fall = hash(seed * 11.9) < 0.5 ? 1.0 : -1.0;
 		rotz = fall * clamp(u / 0.35, 0.0, 1.0) * 3.14159 * 0.5 * (u > 0.0 ? 1.0 : 0.0);
 		shade = u > 0.0 ? 0.55 : 1.0;
@@ -222,11 +227,12 @@ void vertex() {
 		float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);      // 화면 위(먼) 병사는 작게
 		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep;
 		h *= max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5);      // 병종 크기 (기병 크게)
+		h *= max(texelFetch(tag_tex, ivec2(0, int(row)), 0).b, 1.0);      // 11/12 등급 배율 —— 높은 등급은 인형을 덜 그리는 대신 크게
 		if (fighting3 && hash(seed * 51.7 + floor(clock * 0.8 + seed * 3.0)) < 0.18) flip = -flip;      // 난전에선 가끔 옆 · 뒤를 돌아본다
 		if (!contact && !moving0 && hash(seed * 61.3) < 0.07 * scatter) flip = -flip;                 // 서 있을 땐 몇이 딴 데를 본다
 		rotz = (camp > 0.5 ? 0.45 : -0.45) * sk + (moving ? sin(walk * 0.9) * 0.08 : 0.0) + hurt * (camp > 0.5 ? -0.5 : 0.5);      // 내지르면 앞으로, 걸으면 좌우로, 맞으면 뒤로 젖힌다
 	}
-	vec2 lv = rot(VERTEX * vec2(h * flip, h), rotz);
+	vec2 lv = rot(VERTEX * vec2(h * flip, -h), rotz);      // 11/12 QuadMesh 는 2D 에서 위아래가 뒤집힌다 (인형이 물구나무였다) —— -h 로 바로 세운다
 	VERTEX = hide ? vec2(-99999.0) : sp2 + lv + vec2(0.0, -h * 0.5);
 	vec3 team = camp > 0.5 ? team_b : team_a;
 	if (mod(t3.z, 2.0) >= 1.0) team = mix(team, vec3(0.48, 0.29, 0.16), 0.35);      // 파갑 —— 녹슨 빛
@@ -234,10 +240,31 @@ void vertex() {
 	float row_shade = 1.0 - 0.06 * mod(row, 3.0);
 	float man_shade = 1.0 - (0.16 * hash(seed * 9.9) - 0.08) * scatter;      // 병사마다 옷 밝기 (무리가 한 덩어리로 보이지 않게)
 	tint = vec4(team * row_shade * man_shade * shade, (dying ? 1.0 : t2.w) * alpha);
-	atlas_x = texelFetch(tag_tex, ivec2(0, int(row)), 0).r;
+	vec4 tg0 = texelFetch(tag_tex, ivec2(0, int(row)), 0);
+	atlas_x = tg0.r;
+	deco = tg0.a;
+	acc_c = texelFetch(tag_tex, ivec2(1, int(row)), 0).rgb;
+	glow_c = texelFetch(tag_tex, ivec2(2, int(row)), 0).rgb * (0.85 + 0.3 * sin(clock * 3.0 + seed * 6.2831));      // 발광은 병사마다 느리게 일렁인다
+	if (deco > 0.5) tint.rgb = mix(tint.rgb, tint.rgb * 0.82, 0.5 * (deco - 0.5));      // 고급 병사 갑옷은 조금 짙게 (금 · 깃발이 돋보이게)
 }
 
 void fragment() {
-	vec4 t = texture(TEXTURE, vec2(UV.x / 9.0 + atlas_x, UV.y));
-	COLOR = t * tint;
+	vec2 uv = vec2(UV.x / 9.0 + atlas_x, UV.y);
+	vec4 t = texture(TEXTURE, uv);
+	vec4 c = t * tint;
+	if (deco > 0.5) {
+		// 11/12 고급 병사 —— 금(투구 · 띠 · 테두리 · 깃대) · 장식 색(깃털 · 깃발) · 둘레 발광. 진영색을 곱하지 않는다
+		vec3 d = texture(deco_tex, vec2(uv.x, (clamp(UV.y, 0.012, 0.988) + floor(deco + 0.5) - 1.0) * 0.5)).rgb;      // 두 줄 경계에서 옆 줄이 번지지 않게
+		vec3 gold = vec3(1.0, 0.80, 0.30) * (0.8 + 0.25 * UV.y);
+		float acc = max(d.r, d.g);
+		vec3 ac = d.g >= d.r ? acc_c : gold;
+		if (t.a > 0.5) {
+			c.rgb = mix(c.rgb, ac, acc);
+		} else if (acc > 0.05) {
+			c = vec4(ac, acc * tint.a);
+		} else if (d.b > 0.0) {
+			c = vec4(glow_c * 1.15, d.b * 0.3 * tint.a);
+		}
+	}
+	COLOR = c;
 }
