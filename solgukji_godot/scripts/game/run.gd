@@ -1368,13 +1368,20 @@ static func quest_bonus_text(base: int, ticket: int, big := true, what := "토�
 	var head := (what + " 보너스") if flat else (what + (" 대승! 보너스" if big else " 선전! 보너스"))
 	head += (" 기본패 +%d" % base if base > 0 else "")
 	if ticket > 0:
-		return head + " · %s 선택권 +%d" % [bonus_ticket_name(what), ticket]
+		return head + " · " + bonus_ticket_text(what, ticket)
 	return head
 
 
 ## 보너스 선택권 등급 이름 —— 대전(토벌 없는 온라인 일차)은 희귀, 토벌은 고급
 static func bonus_ticket_name(what: String) -> String:
 	return DB.TIER[PVP_BONUS_TICKET_TIER if what.begins_with("대전") else QUEST_BONUS_TICKET_TIER].n
+
+
+## 11/12 사용자: 랜덤이면 랜덤권으로 부른다 —— 희귀(4) 보상 선택권은 받는 즉시 그 등급 카드 한 장(add_ticket random), 전설도 마찬가지. 고급 이하는 고르는 선택권
+static func bonus_ticket_text(what: String, n: int) -> String:
+	var t := PVP_BONUS_TICKET_TIER if what.begins_with("대전") else QUEST_BONUS_TICKET_TIER
+	var rnd := t == 4 or (LEGEND_RANDOM and t == 5)
+	return "%s %s +%d" % [DB.TIER[t].n, "랜덤권" if rnd else "선택권", n]
 
 
 ## 11/11 사용자: 토벌이 없는 온라인 일차(4일차~)의 대전이 그날 토벌 보상을 얹어 준다 —— 토벌의 비난수 규칙(QUEST_REWARD 선택권 · QUEST_BASE 전리품 · 성과 보너스)을 그대로 재사용한다.

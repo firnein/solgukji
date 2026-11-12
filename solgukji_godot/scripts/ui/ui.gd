@@ -122,7 +122,7 @@ static func spoil_bb(sp) -> String:
 		var tag := "보너스" if bool(sp.get("flat", false)) else ("대승" if float(sp.get("perf_r", 0.0)) >= Run.QUEST_BONUS_BIG else "선전")
 		var inner := "%s +%d" % [tag, b] if b > 0 else tag
 		if t > 0:
-			inner += " · %s 선택권 +%d" % [Run.bonus_ticket_name(str(sp.get("src", ""))), t]
+			inner += " · " + Run.bonus_ticket_text(str(sp.get("src", "")), t)
 		s += " [color=#%s](%s)[/color]" % [DB.PAL.gold.to_html(false), inner]
 	if bool(sp.get("held", false)):      # 11/12 온라인 —— 전투 보상은 다음 아침(1페이즈)에 지급
 		s += " · 아침에 지급"
