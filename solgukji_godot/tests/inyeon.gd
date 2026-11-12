@@ -201,6 +201,9 @@ func _run_cut() -> String:
 	var ults := _evs(r, "ult")
 	var first: Dictionary = ults[0] if not ults.is_empty() else {}
 	_ok(not warns.is_empty() and cuts.size() >= 1, "대표가 끊겼다")
-	_ok(joins.size() == 1, "대표가 +1.2초에 끊기면 합류1(+0.8)만 합류 (지금 %d)" % joins.size())
+	# 11/12: 첫 합동(대표 첫 예고 뒤 2.6초 안)만 센다 —— 진형이 바뀌면 전투 뒤쪽에 다른 합동이 또 나올 수 있다
+	var t0w := float(warns[0].get("tm", 0.0)) if not warns.is_empty() else 0.0
+	var joins1 := joins.filter(func(e): return float(e.get("tm", 0.0)) <= t0w + 2.6 and str(e.get("lead", "")) == str(warns[0].get("a", "")))
+	_ok(joins1.size() == 1, "대표가 +1.2초에 끊기면 합류1(+0.8)만 합류 (지금 %d)" % joins1.size())
 	_ok(not first.is_empty() and not first.has("lead") and not first.has("mates"), "합류한 장수는 보통 고유기로 쏜다")
 	return "합류 %d · 끊김 %d · 첫 발동 항목 %s" % [joins.size(), cuts.size(), str(first.get("inyeon", "-"))]
