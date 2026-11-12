@@ -1343,30 +1343,52 @@ static func yeon_table() -> Dictionary:
 	return _yeon_tbl
 
 
-## 합류자의 멘트 [글, 말투(0 호방 · 1 정중)] —— 병종이 책사 · 유생 · 술사 · 모사면 정중, 아니면 호방.
-## 시드 · 대표 · 합류자 key 의 해시로 고르므로(전투 난수 안 씀) 한 판 안에서 늘 같고, 같은 합동 안에서는 같은 말이 겹치지 않는다.
-## 인연 전용 멘트가 있는 인연이면 해시 홀짝으로 절반쯤 그쪽에서
+## 합류자의 멘트 [글, 말투(0 호방 · 1 정중), 출처("pair" 짝 · "story" 인연 · "tone" 말투 풀)] —— 병종이 책사 · 유생 · 술사 · 모사면 정중, 아니면 호방.
+## 11/12 서사 개편 —— 우선순위: ① 짝 멘트(pairs["합류자>대표"], 인물 이름 · 확률 1) ② 인연 이야기 멘트(by_inyeon) ③ 말투 풀(bold · polite).
+## 시드 · 대표 · 합류자 key 의 해시로 고르므로(전투 난수 안 씀) 한 판 안에서 늘 같고, 같은 합동 안에서는 같은 말이 겹치지 않는다(겹치면 다음 단계에서 고른다).
+## 합류자가 둘이면 각자 자기 짝 키로 따로 고른다 (서로의 짝이 아니라 대표와의 짝)
 func _yeon_pick(key: String, lead: String, inyeon: String) -> Array:
-	var tbl := yeon_table()
 	var cid: String = field.squads[key].cid if field.squads.has(key) else ""
 	var tone := 1 if cid != "" and DB.C.has(cid) and DB.INT_TAGS.has(DB.C[cid].tag) else 0
-	var pool: Array = tbl.get("polite" if tone == 1 else "bold", [])
-	var h := ("%d|%s|%s" % [int(_p.get("seed", 0)), lead, key]).hash()
-	var spec: Array = tbl.get("by_inyeon", {}).get(inyeon, [])
-	if not spec.is_empty() and (h >> 8) % 2 == 0:
-		pool = spec
-	if pool.is_empty():
-		return ["", tone]
 	var used: Array = _yeon_used.get(lead, [])
-	var idx := h % pool.size()
-	for _i in pool.size():
-		if not used.has(pool[idx]):
-			break
-		idx = (idx + 1) % pool.size()
-	used.append(pool[idx])
-	_yeon_used[lead] = used
-	_yeon_say[key] = [str(pool[idx]), tone]
-	return [str(pool[idx]), tone]
+	var pick := yeon_choose(yeon_table(), int(_p.get("seed", 0)), lead, key, _yeon_person(key), _yeon_person(lead), inyeon, tone, used)
+	if str(pick[0]) != "":
+		used.append(pick[0])
+		_yeon_used[lead] = used
+	_yeon_say[key] = pick
+	return pick
+
+
+## 부대 key -> 인물 이름 (DB.person). 없으면 ""
+func _yeon_person(key: String) -> String:
+	var cid: String = field.squads[key].cid if field.squads.has(key) else ""
+	return DB.person(cid) if cid != "" and DB.C.has(cid) else ""
+
+
+## 멘트 고르는 순수 함수 (tests/inyeon_lines 가 직접 부른다) —— tbl: yeon_table() · jp/lp: 합류자 · 대표 인물 이름 · used: 이번 합동에서 이미 쓴 말.
+## 단계마다 안 쓴 말을 해시 자리부터 찾고, 그 단계가 다 쓰였으면 다음 단계로 (셋 다 쓰였으면 처음 단계 해시 자리 그대로)
+static func yeon_choose(tbl: Dictionary, seed_: int, lead: String, key: String, jp: String, lp: String, inyeon: String, tone: int, used: Array) -> Array:
+	var h := ("%d|%s|%s" % [seed_, lead, key]).hash()
+	var tiers := []
+	var pair: Array = tbl.get("pairs", {}).get("%s>%s" % [jp, lp], []) if jp != "" and lp != "" else []
+	if not pair.is_empty():
+		tiers.append(["pair", pair])
+	var story: Array = tbl.get("by_inyeon", {}).get(inyeon, [])
+	if not story.is_empty():
+		tiers.append(["story", story])
+	var pool: Array = tbl.get("polite" if tone == 1 else "bold", [])
+	if not pool.is_empty():
+		tiers.append(["tone", pool])
+	if tiers.is_empty():
+		return ["", tone, ""]
+	for t in tiers:
+		var lines: Array = t[1]
+		for i in lines.size():
+			var s := str(lines[(h + i) % lines.size()])
+			if not used.has(s):
+				return [s, tone, t[0]]
+	var f: Array = tiers[0][1]
+	return [str(f[h % f.size()]), tone, tiers[0][0]]
 
 
 func _ult_cut(e: Dictionary) -> void:
@@ -2548,6 +2570,10 @@ class Hud extends Control:
 		var fb := DB.font_bold
 		var fs := 16
 		var w := fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 24.0
+		var room := maxf(xmax - xmin, 150.0)      # 11/12 서사 멘트는 길 수 있다 —— 상자 자리보다 길면 글자를 줄여(최소 12) 맞춘다
+		if w > room:
+			fs = clampi(int(float(fs) * (room - 24.0) / (w - 24.0)), 12, 16)
+			w = fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 24.0
 		var h := 30.0
 		var sc: float = Tween.interpolate_value(0.3, 0.7, minf(u, YEON_SAY_POP), YEON_SAY_POP, Tween.TRANS_BACK, Tween.EASE_OUT)
 		var a := fade * clampf(u / 0.05, 0.0, 1.0)
@@ -2568,7 +2594,7 @@ class Hud extends Control:
 		draw_colored_polygon(_say_tail, Color(bcol, a))
 		draw_style_box(_sb_say, Rect2(bx, by_, w, h))
 		var tcol := Color("#ffe6bf") if tone == 0 else Color("#e8f3ff")
-		var ty := by_ + 21.0
+		var ty := by_ + 15.0 + float(fs) * 0.375      # 글자 크기가 줄어도 상자 가운데에
 		draw_string_outline(fb, Vector2(bx + 12.0, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color(0, 0, 0, 0.85 * a))
 		draw_string(fb, Vector2(bx + 12.0, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(tcol, a))
 		draw_set_transform(Vector2.ZERO)
