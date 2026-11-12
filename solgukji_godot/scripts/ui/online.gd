@@ -28,6 +28,7 @@ extends Node
 const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # class_name 없이 (낡은 .godot 캐시에서 'not declared')
 const WARN_SEC := 10           # 남은 시간이 이 초 이하(10 → 1)면 붉은 가장자리 깜빡임 (11/12 사용자: 깜빡임은 10초부터)
 const BEEP_SEC := 5            # 비프는 그대로 5초부터 (10초 내내 울리면 시끄럽다)
+## 11/12 사용자: 4일차~ 준비 15초 —— 깜빡임이 10초부터면 단계의 2/3 가 붉다. 단계 길이(room.stage_len)의 1/3 이하부터, 5 ~ 10초 사이로 (60 · 30초 단계 10초 · 15초 단계 5초)
 const SERVERS := "res://data/servers.json"      # 서버 목록 —— 콤보에 이 순서대로 (Dev 주소는 build_apk.bat 의 release.py 가 이 PC 의 LAN IPv4 로 고친다)
 const CUSTOM := "직접 입력…"
 ## 11/10 사용자: "동의를 받아야지" —— 온라인 접속 전에 플레이 기록 동의를 받는다. 문구를 바꾸면 NetClient.CONSENT_VER 를 올려 모두에게 다시 묻는다.
@@ -67,6 +68,8 @@ var _pick_deaths := 0             # 11/12 장수 사망룰 인원 (0 = 끔 · 3 
 var _intro_room := ""             # 규칙 안내(선점제 팝업 · 사망 연출)를 띄운 방 코드 —— 한 판에 한 번
 var dev_max := 8                  # 점검용 —— 가짜 방의 총 인원 (--gseats=4)
 var dev_sheet := false            # 점검용 —— 접속 없이 방 만들기 시트까지 그려 본다 (--gsheet=oncreate)
+var _stage_len := 0.0             # 지금 단계의 전체 길이 (방 정보 stage_len, 옛 서버는 단계 시작 때 남은 시간)
+var _noon_end_room := ""          # 토벌 종료 띠를 띄운 방 코드 —— 한 판에 한 번 (상태 · 소식 어느 쪽이 먼저 와도)
 var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'를 눌렀다 —— 서버가 알려 주기 전에도 바로 끈다
 
 
@@ -117,10 +120,17 @@ func warn_active() -> bool:
 	return true
 
 
+## 붉은 가장자리를 시작하는 남은 초 —— 단계 길이의 1/3, 5 ~ 10초 사이 (길이를 모르면 10)
+func warn_sec() -> int:
+	if _stage_len <= 0.0:
+		return WARN_SEC
+	return clampi(int(floor(_stage_len / 3.0)), BEEP_SEC, WARN_SEC)
+
+
 func _warn_tick() -> void:
 	var r := remain()
 	var c := int(ceil(r))
-	if r > 0.0 and c <= WARN_SEC and warn_active():
+	if r > 0.0 and c <= warn_sec() and warn_active():
 		if _warn_fx == null or not is_instance_valid(_warn_fx):
 			_warn_fx = WarnEdge.new()
 			gs.add_child(_warn_fx)
@@ -467,6 +477,7 @@ func _on_msg(d: Dictionary) -> void:
 			gs.run = r
 			stage_end = Room.now() + float(room.remain)
 			if int(room.get("stage_no", 0)) != _stage_no:
+				_stage_len = float(room.get("stage_len", room.remain))      # 새 단계 —— 길이 (옛 서버는 필드가 없어 지금 남은 시간)
 				# 새 단계 —— 본 기록을 지운다. 전투는 battles 메시지로 따로 온다. 보는 단계가 아니면 지난 전투 줄 · 결과 칸도 걷는다
 				var was_watch := _stage_no >= 0 and ((gs.battle_visible() and not gs._battle.finished) or not watch.is_empty())      # 결과표를 보는 중이면 그대로 둔다
 				_stage_no = int(room.get("stage_no", 0))
@@ -474,7 +485,10 @@ func _on_msg(d: Dictionary) -> void:
 				if was_watch:
 					_stage_moved()
 				if str(room.stage) == "morning" and in_game:
-					gs.band("아침이 밝았습니다", DB.PAL.gold, "장수를 등용하고 전투를 준비하세요")
+					if bool(room.get("noon_end", false)):
+						noon_end_band(Room.cut_text(str(room.get("mode", "fast"))))      # 11/12 4일차 첫 아침 —— 「아침이 밝았습니다」 대신 「토벌 종료」 (타이머 안내)
+					else:
+						gs.band("아침이 밝았습니다", DB.PAL.gold, "장수를 등용하고 전투를 준비하세요")
 				if not (str(room.stage) in Room.WATCH_STAGES):
 					watch = []
 					last_battles = []
@@ -522,7 +536,10 @@ func _on_msg(d: Dictionary) -> void:
 				var unit := str(it.get("unit", ""))
 				var nid := int(it.get("id", 0))
 				var line := str(it.get("line", ""))      # 11/12 유저전 수훈 연속 —— 띠 문구. 소식 목록에는 글로만 (장수가 있으면 등용 줄로 보인다)
-				if bool(it.get("hot", false)) and who != "" and str(it.get("band", "")) == "fall":
+				if str(it.get("band", "")) == "noon_end":
+					noon_end_band(line)      # 11/12 토벌 종료 띠 (상태가 먼저 와서 이미 띄웠으면 건너뜀) —— 알림 줄은 따로 띄우지 않고 소식 목록에만
+					line = ""
+				elif bool(it.get("hot", false)) and who != "" and str(it.get("band", "")) == "fall":
 					gs.urgent(who, "", line, "fall")      # 11/12 멸망 띠 —— 장수 없이 「유저의 나라가 무너졌습니다 / 남은 군주 N명」
 					line = ""
 				elif bool(it.get("hot", false)) and who != "" and DB.C.has(unit):
@@ -576,6 +593,15 @@ func _on_msg(d: Dictionary) -> void:
 		"left":
 			_drop_room()
 			_refresh_sheet()
+
+
+## 11/12 사용자: 토벌이 사라지는 순간 가운데 띠 「토벌 종료 / 이제부터 준비 30초 · 대전 준비 15초」 —— 한 판(방)에 한 번
+func noon_end_band(line: String) -> void:
+	var code_ := str(room.get("code", ""))
+	if _noon_end_room == code_ and code_ != "":
+		return
+	_noon_end_room = code_
+	gs.band("토벌 종료", DB.PAL.seal.lightened(0.15), "이제부터 %s" % line if line != "" else "")
 
 
 func send_cmd(m: String, a: Array) -> void:
@@ -902,7 +928,7 @@ func _show_lobby() -> void:
 	var t := UI.lbl("방 %s" % room.code, 54, DB.PAL.gold, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var s := UI.lbl("총 %d명 · %s%s · 친구에게 서버 주소와 이 코드를 알려 주세요" % [room_max(), room.mode_n, rules_text()], 15, DB.PAL.bamboo_dim)
+	var s := UI.lbl("총 %d명 · %s (4일차~ 절반)%s · 친구에게 서버 주소와 이 코드를 알려 주세요" % [room_max(), room.mode_n, rules_text()], 15, DB.PAL.bamboo_dim)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(s)
