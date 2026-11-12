@@ -44,7 +44,7 @@ func _ready() -> void:
 	for p in ult_persons:
 		if DB.inyeon_of_person(p).size() >= 3:
 			ok3 += 1
-	_ok(ok3 >= 50 and hi <= 6, "인연이 3개 이상인 고유기 인물 %d명 · 최대 6개 이하" % ok3)
+	_ok(ok3 >= 50 and lo >= 2 and hi <= 5, "인연이 3개 이상인 고유기 인물 %d명 · 최소 2 · 최대 5개 (11/13)" % ok3)
 	var ghost := []
 	for nm in DB.INYEON:
 		for p in DB.inyeon_members(nm):
@@ -54,7 +54,7 @@ func _ready() -> void:
 	var gw := _card("관우")
 	_ok(gw != "", "관우 카드 있음 (%s)" % gw)
 	var gi: Array = DB.inyeon_of(gw)
-	_ok(gi.has("호뢰관") and gi.has("번성 전투") and gi.has("형주 쟁탈") and gi.has("무쌍의 호걸"), "관우 → %s" % str(gi))
+	_ok(gi.has("호뢰관") and gi.has("번성 전투") and gi.has("형주 쟁탈") and gi.has("오호대장"), "관우 → %s" % str(gi))      # 11/13 겹침 정리로 무쌍의 호걸에서 빠짐
 	var yi: Array = DB.inyeon_of(_card("유비"))
 	_ok(yi.has("호뢰관") and yi.has("서서의 어머니"), "유비 → %s" % str(yi))
 	for k in DB.BASE:
@@ -65,8 +65,8 @@ func _ready() -> void:
 	for l in DB.inyeon_links(deck):
 		by[l.n] = l
 		_ok(l["in"].size() >= 2, "인연 %s 는 2명 이상 (%s)" % [l.n, str(l["in"])])
-	_ok(by.has("호뢰관") and by["호뢰관"]["in"] == ["유비", "관우", "장비"] and by["호뢰관"]["out"] == ["여포", "공손찬"], "호뢰관 유비 · 관우 · 장비 → %s" % str(by.get("호뢰관")))
-	_ok(by.has("서서의 어머니") and by["서서의 어머니"]["in"] == ["유비", "조조"] or by.has("서서의 어머니") and by["서서의 어머니"]["in"] == ["조조", "유비"], "서서의 어머니 조조 · 유비 2명 → %s" % str(by.get("서서의 어머니")))
+	_ok(by.has("호뢰관") and by["호뢰관"]["in"] == ["유비", "관우", "장비"] and by["호뢰관"]["out"] == ["여포", "화웅"], "호뢰관 유비 · 관우 · 장비 → %s" % str(by.get("호뢰관")))
+	_ok(by.has("오호대장") and by["오호대장"]["in"] == ["관우", "장비"], "오호대장 관우 · 장비 2명 → %s" % str(by.get("오호대장")))      # 11/13 조조 · 유비가 함께 든 인연은 없어졌다
 	_ok(not by.has("적벽대전"), "조조 혼자뿐인 적벽대전은 제외")
 	var gw2 := ""
 	for k in DB.C:

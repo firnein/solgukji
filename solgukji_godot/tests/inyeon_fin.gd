@@ -18,7 +18,7 @@ func _ready() -> void:
 		_ok(DB.INYEON.has(n), "fin: 모르는 인연 %s" % n)
 		_ok(RtBattle.FIN.has(DB.INYEON_FIN[n].t), "fin: %s 틀 %s" % [n, DB.INYEON_FIN[n].t])
 		_ok(DB.inyeon_fin_text(n) != "", "fin: %s 설명" % n)
-	_ok(DB.inyeon_fin_text("번성") == "", "인연기 없는 인연은 설명 없음")
+	_ok(DB.inyeon_fin_text("북벌 저지") == "", "인연기 없는 인연은 설명 없음")
 	print("(a) 인연기 %d개" % DB.INYEON_FIN.size())
 
 	# (b) 유비 관우 장비 —— 호뢰관(일기토) 3명
