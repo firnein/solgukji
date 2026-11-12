@@ -2040,6 +2040,7 @@ func _st_cap(_d: Unit) -> int:
 ## 11/9 패업 2차 —— 조조 협천자 · 관우 오관참장 · 제갈량 천문 · 감녕 백기야습 · 장료 위진소요진 · 손권 제왕술 · 여포 무쌍
 ## 시간 · 거리가 들어가는 것(감녕 · 장료 · 손권 · 천문)은 실시간 엔진(RtBattle)에서만 움직인다. 난수 없이 슬롯 · 시각으로만 고른다 (결정성)
 
+const CROWN_ATK := 0.3      # 손권 제왕술 —— 손권의 공격 배율 (예전 0 = 공격하지 않는다). 11/12 사용자: 신화인데 아예 안 때리는 것은 아쉽다 → 약간만
 const CROWN_EVERY := 8.0     # 손권 제왕술 —— 대도독을 세우는 간격(초). 11/10 밸런스: 15 → 8 (측정: 패업을 켠 쪽이 −18%p —— 직접 공격을 안 하는 값을 못 했다)
 const LATE_T := 12.0      # 사마의 후발제인 —— 버티는 시간(초)
 const LATE_DR := 0.20     # 버티는 동안 아군이 받는 피해 − (11/10 밸런스: 0.25 → 0.20, 패업을 켠 쪽 +24%p 로 너무 셌다)
@@ -2086,10 +2087,10 @@ func _no_ally(u: Unit) -> bool:
 	return not _paeup.is_empty() and _paeup.get("peerless:" + u.camp) == u
 
 
-## 공격 배율 —— 손권 제왕술(공격하지 않는다 → 0) · 여포 무쌍(쓰러진 아군마다 +12%, 최대 +60%)
+## 공격 배율 —— 손권 제왕술(공격 배율 CROWN_ATK = 0.3) · 여포 무쌍(쓰러진 아군마다 +12%, 최대 +60%)
 func _paeup_atk(u: Unit) -> float:
 	if _paeup.get("crown:" + u.camp) == u:
-		return 0.0
+		return CROWN_ATK      # 11/12 사용자: 0 이 아니라 약간의 공격력 —— 신화다
 	if _paeup.get("peerless:" + u.camp) == u:
 		return 1.0 + minf(0.6, 0.12 * float(_paeup_used.get("peerless_n:" + u.camp, 0)))
 	return 1.0
