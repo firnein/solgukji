@@ -196,6 +196,8 @@ func _timer_rules() -> void:
 		var guard := 0
 		while r.day < 5 and guard < 300:
 			guard += 1
+			for h in r.humans():      # 11/12 최후 1인: 사람이 모두 멸망하면 진짜 방은 끝난다 —— 타이머만 보려고 민심을 채운다 (봇 대행 사람은 일찍 무너진다)
+				h.run.hp = Run.HP_MAX
 			var inf: Dictionary = r.info(0)
 			if not lens.has(r.day):
 				lens[r.day] = {}
@@ -310,24 +312,28 @@ func _cmd_rules() -> void:
 	r.seats[1].run.over = null
 	if r.can_cmd(9) or r.can_cmd(-1) or r.can_cmd(2):      # 2 = 봇 자리
 		_fail("없는 자리 · 봇 자리가 명령을 받는다")
-	# 토너먼트 저녁은 잠긴다 (라운드마다 그 순간 편성으로 다시 계산하므로) · 토너먼트 저녁 준비는 열려 있다
+	# 11/12 최후 1인: 7일차 저녁은 토너먼트가 아니라 여느 저녁 —— 대전 준비 · 대전 뒤 8일차 아침으로 이어진다
 	var c := _room(2, 22)
 	var r3: Room = c[0]
 	r3.day = 6
 	r3.phase = 2
 	r3.stage_end = 0.0
 	_ready_all(r3)
-	r3.tick()      # 아침 → (토벌 없이) 저녁 준비 (토너먼트)
-	if r3.stage != "evening_prep" or r3.tour == null or not r3.can_cmd(0):
-		_fail("토너먼트 저녁 준비가 열려 있지 않다 (%s)" % r3.stage)
+	r3.tick()      # 아침 → (토벌 없이) 저녁 준비
+	if r3.stage != "evening_prep" or r3.tour != null or not r3.can_cmd(0) or r3.seats[0].foe == null:
+		_fail("7일차 저녁 준비가 여느 대전 준비가 아니다 (%s)" % r3.stage)
 	r3.stage_end = 0.0
 	r3.tick()
-	if r3.stage != "evening" or r3.can_cmd(0) or r3.info(0).act:
-		_fail("토너먼트 저녁이 잠겨 있지 않다 (%s)" % r3.stage)
-	r3.on_cmd(1, "clear_board", [])
-	if r3.seats[0].run.placed() == 0:
-		_fail("토너먼트 저녁에 clear_board 가 먹혔다")
-	print("명령 규칙 점검 끝 — 아침 전부 · 점심/저녁(다 본 뒤) 징집 · 조합 · 저녁 준비 편성만, 토너먼트 저녁 · 멸망 · 끝난 사람 거부, 계산된 전투 불변")
+	if r3.stage != "evening" or r3.tour != null:
+		_fail("7일차 저녁이 여느 대전이 아니다 (%s)" % r3.stage)
+	for h in r3.humans():
+		h.ready = true
+		h.watched = true
+	r3.stage_end = 0.0
+	r3.tick()
+	if r3.stage != "morning" or r3.day != 7:
+		_fail("7일차 저녁 뒤 8일차 아침으로 이어지지 않는다 (%s · 일차 %d)" % [r3.stage, r3.day + 1])
+	print("명령 규칙 점검 끝 — 아침 전부 · 점심/저녁(다 본 뒤) 징집 · 조합 · 저녁 준비 편성만, 멸망 · 끝난 사람 거부, 계산된 전투 불변, 7일차 저녁 뒤 8일차로")
 
 
 func srv_err(srv, peer: int) -> String:

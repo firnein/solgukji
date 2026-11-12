@@ -10,7 +10,6 @@ extends RefCounted
 
 const PHASE_N := ["오전", "오후", "저녁"]
 const DAYNAME := ["월", "화", "수", "목", "금", "토", "일"]
-const ROUNDNM := ["8강", "4강", "결승"]
 const FREE_TIER_CAP := 5      # 무상으로 주는 패의 천장. 초월 이상은 조합으로만 오른다
 const STRIKE_MAX := 4         # 토벌 실패 경고 한도 —— 3일차부터 닿으면 멸망
 const SKILL_LO := 1.15        # 봇 실력 계수 (11/2 난이도 상승: 0.98 ~ 1.38 → 1.08 ~ 1.45, 11/9 폭을 좁혀 1.15 ~ 1.35 —— 평균은 거의 그대로, 너무 센 봇을 줄인다)
@@ -40,7 +39,10 @@ const HP_MAX := 100
 ## 11/9 조정 (tests/hp_dist · 오토 90판 + 승률별 모의): 처음 [10..22] 는 능숙한 사람(토벌 80% · 대전 70%)도 44% 가 멸망, 오토는 3~4일차에 전멸이었다.
 ## [4,5,7,9,11,13,15] 로 —— 능숙 ≈ 57 깎임(생존), 보통(65/55%) ≈ 38% 멸망, 토벌 35% 이하는 5~6일차 멸망, 1~2일차 패배는 3~5 로 가볍다
 ## 11/10 변경(사용자: 날짜가 지날수록 · 남은 적에 비례해 더): 일차별 값을 가파르게, 적 남은 비 계수 0.6 + 0.4 → 0.35 + 1.0. 측정은 작업현황 65절
-const HP_QUEST := [4, 5, 6, 7, 10, 13, 17]      # 토벌 패배 기본 피해 (일차별) —— × (HP_FOE_MIN + HP_FOE_MUL × 적 남은 병력 비)
+## 11/12 사용자(최후 1인): 민심 피해를 더 —— 온라인 실제 로그(사람 2 · 봇 2, 7일)에서 둘 다 민심 65~66 으로 끝났다(패배당 3~12). 일차별 값 ×1.8 (옛 [4, 5, 6, 7, 10, 13, 17]).
+## 7일차가 끝나도 판은 이어진다(최후 1인까지) —— 8일차(day 7)부터는 7일차 값 × HP_LATE_MUL^(일차 − 7) 로 매일 커져 판이 끝나게 한다 (hp_base)
+const HP_QUEST := [7, 9, 11, 13, 18, 23, 31]      # 토벌 패배 기본 피해 (일차별) —— × (HP_FOE_MIN + HP_FOE_MUL × 적 남은 병력 비)
+const HP_LATE_MUL := 1.25                          # 8일차부터 하루마다 패배 피해 배율
 const HP_FOE_MIN := 0.35                             # 적이 하나도 안 남은 채 진(무승부에 가까운) 판의 배율
 const HP_FOE_MUL := 1.0                              # 적 남은 비 1.0(완패)이면 배율 1.35
 const HP_PVP_MUL := 0.6                              # 대전 패배는 토벌의 0.6배 (혼자 하기)
@@ -48,7 +50,18 @@ const HP_PVP_MUL := 0.6                              # 대전 패배는 토벌�
 const HP_PVP_MUL_ONLINE := 1.0
 ## 11/11 사용자(온라인): 토벌은 1~3일차(day 0~2)만 —— 4일차(day 3)부터는 점심(토벌) 단계가 없다. 없어진 토벌 보상은 그 일차의 대전이 대신 준다 (pvp_quest_equiv)
 const ONLINE_NOON_DAYS := 3
+const LAST_TABLE_DAY := 6      # 표(보급 · 토벌 편성 · 선택권 …)가 있는 마지막 일차 —— 8일차 이후는 7일차 표를 그대로 쓴다 (td)
 var hp := HP_MAX
+
+
+## 이 일차(0 = 1일차)의 패배 기본 피해 —— 7일차까지는 HP_QUEST, 8일차부터 매일 ×HP_LATE_MUL (온라인 · 혼자 하기 · 봇 모두 같은 식)
+static func hp_base(day_i: int) -> float:
+	return float(HP_QUEST[clampi(day_i, 0, LAST_TABLE_DAY)]) * pow(HP_LATE_MUL, maxi(0, day_i - LAST_TABLE_DAY))
+
+
+## 표를 찾을 일차 —— 7일차(6)를 넘으면 7일차 표
+func td() -> int:
+	return clampi(day, 0, LAST_TABLE_DAY)
 
 
 ## 대전 패배 민심 배율 —— 온라인(mp)은 HP_PVP_MUL_ONLINE, 혼자 하기는 HP_PVP_MUL
@@ -76,13 +89,15 @@ var uniq_rerolled := false    # 11/11 사용자: 유니크 보급은 한 번 다
 var myth_made := false        # 신화를 이미 만들었다 (한 판에 하나)
 var kiin_made: Array = []     # 만든 기인 (11/3 —— 한 판에 각 1장)
 var last_spoil = null         # {n, src} —— 방금 받은 기본패
-var tour = null               # 최종 토너먼트
+var tour = null               # 옛 최종 토너먼트 —— 11/12 최후 1인 규칙으로 없어졌다. 옛 저장 · 점검 코드가 읽어도 깨지지 않게 늘 null
 var my_w := 0
 var my_l := 0
 var news := []                # [{who, unit, id?, when?}] —— id = 소식 번호(안 읽은 소식 뱃지가 비교, 11/10) · when = "3일차 오전" 같은 시점. 옛 저장에는 없다
 var news_seq := 0             # 소식 번호를 매기는 카운터 (솔로 · 판마다 0 에서)
 var bots := []
-var over = null               # {win, msg}
+## 판의 끝 {win, msg, rank, of, by?} —— 11/12 최후 1인: rank = 최종 순위(1 = 천하 통일), of = 처음 세력 수, by = 마지막에 나를 꺾은 상대 이름(있으면).
+## 혼자 하기는 Run 이, 온라인은 Room 이 채운다 (Room 은 방 정보에 winner · 자리마다 rank 도 싣는다). 멸망 연출은 이것만 본다
+var over = null
 var battle = null             # 진행 중인 전투 {kind, p(재료), inputs, ...} —— 끝나면 null
 var last_result = null        # 마지막 전투 요약 —— 전투 탭에 다시 보여 준다
 var toasts := []              # 화면이 가져가 띄우는 알림 [text, kind]
@@ -138,7 +153,7 @@ func new_game(seed_value := -1) -> void:
 	for i in DB.D.BOTNAME.size():
 		var b: Array = DB.D.BOTNAME[i]
 		bots.append({"name": bot_names[i], "epi": b[1], "fac": b[2], "style": DB.D.STYLES[i], "pv": 0.0,
-			"w": 0, "l": 0, "strikes": 0, "top": 0, "skill": snappedf(rng.randf_range(SKILL_LO, SKILL_HI), 0.01)})
+			"w": 0, "l": 0, "strikes": 0, "top": 0, "skill": snappedf(rng.randf_range(SKILL_LO, SKILL_HI), 0.01), "hp": HP_MAX, "dead": false})
 	for b in bots:
 		bot_grow(b, int(rng.seed), 0)      # 11/12 봇 군세는 한 번 만들어 PV 를 따라 자란다 (난수를 쓰지 않는다 —— 이 판의 다른 진행은 그대로)
 	give("spear", 3)
@@ -230,12 +245,19 @@ func my_morale() -> int:
 
 
 func rank() -> int:
+	if over != null and over.has("rank"):
+		return int(over.rank)
 	var mine := my_pv()
 	var n := 1
 	for b in bots:
-		if b.pv > mine:
+		if not bool(b.get("dead", false)) and b.pv > mine:
 			n += 1
 	return n
+
+
+## 아직 살아 있는 봇 (혼자 하기) —— 온라인은 Room 의 거울(bots)이라 멸망한 자리도 dead 로 들어 있다
+func alive_bots() -> Array:
+	return bots.filter(func(b): return not bool(b.get("dead", false)))
 
 
 func phase_idx() -> int:
@@ -832,7 +854,7 @@ func set_equip(i: int, id) -> void:
 # ───────── 징집 ─────────
 
 func draws_n() -> int:
-	return int(DB.D.DRAWS[day])
+	return int(DB.D.DRAWS[td()])
 
 
 func do_draw() -> Array:
@@ -850,9 +872,9 @@ func do_draw() -> Array:
 
 func pick_list() -> Array:
 	var l: Array
-	if day == 6 and DB.ECON_ON:
-		l = DB.DAY7_PICKS[phase]      # 11/7 보급 줄임 (DB.ECON 주석)
-	elif day == 6:
+	if day >= 6 and DB.ECON_ON:
+		l = DB.DAY7_PICKS[phase]      # 11/7 보급 줄임 (DB.ECON 주석) —— 8일차 이후도 7일차 표
+	elif day >= 6:
 		l = [{"t": 6, "n": 1}] if phase == 0 else ([{"t": 5, "n": 1}] if phase == 1 else [{"t": 6, "n": 1}, {"t": 4, "n": 2}])
 	else:
 		l = DB.D.PICKS[day]
@@ -886,7 +908,7 @@ func random_grant() -> Array:
 	if granted:
 		return []
 	var got := []
-	for p in DB.D.RANDOM_GRANT[day]:
+	for p in DB.D.RANDOM_GRANT[td()]:
 		var t := mini(FREE_TIER_CAP, int(p.t))
 		var src: Array = pickable(t).filter(func(x): return DB.C[x].tier < 8)
 		if src.is_empty():
@@ -900,7 +922,7 @@ func random_grant() -> Array:
 
 
 func grant_list() -> Array:
-	return DB.D.RANDOM_GRANT[day]
+	return DB.D.RANDOM_GRANT[td()]
 
 
 # ───────── 진행 ─────────
@@ -933,7 +955,7 @@ func _bot_pv_gain(d: int, p: int) -> float:
 ## 봇 등용 소식 —— 실제로 군세에 든 최고 등급이 올라갔을 때만 (11/12 군세가 유지되므로 그 군세의 가장 높은 장수가 소식의 주인공)
 func bot_news() -> Array:
 	var out := []
-	for b in bots:
+	for b in alive_bots():
 		var hit := bot_top_card(b)
 		if hit == "":
 			continue
@@ -988,12 +1010,9 @@ func advance() -> void:
 	last_result = null
 	last_draw = []
 	last_spoil = null
-	if day > 6:
-		over = {"win": true, "msg": "일주일을 살아남았다"}
-		day = 6
-		return
-	if hp <= 0 and not dev_immortal:      # 11/9 민심이 바닥났으면 (finish_battle 에서 이미 끝났어야 한다)
-		over = {"win": false, "msg": "민심이 바닥났다 —— 세력이 멸망했다"}
+	# 11/12 사용자(최후 1인): 7일차가 끝나도 판은 이어진다 —— 마지막 한 세력이 남을 때까지 (예전: 8일째 아침에 「일주일을 살아남았다」 승리)
+	if hp <= 0 and not dev_immortal and not dev_keep_me:      # 11/9 민심이 바닥났으면 (finish_battle 에서 이미 끝났어야 한다)
+		over = {"win": false, "msg": "민심이 바닥났다 —— 세력이 멸망했다", "rank": 1 + alive_bots().size(), "of": 1 + bots.size()}
 		if not mp:
 			return
 		# 11/12 (작업현황 94): 여럿이 하는 판은 이어서 아이템 보급을 준다 —— 점검 방은 멸망하지 않아(Room 이 over 를 지운다) 민심이 0 인 채로 계속 가는데,
@@ -1001,7 +1020,7 @@ func advance() -> void:
 	gain_item()
 	if mp:
 		return
-	for b in bots:
+	for b in alive_bots():      # 11/12 멸망한 봇은 자라지 않는다
 		b.pv += _bot_pv_gain(day, phase) * b.skill * rng.randf_range(0.9, 1.1)
 		bot_grow(b, int(rng.seed), phase_idx())      # 11/12 PV 가 오른 만큼 군세도 (필요한 칸만) 자란다
 	for n in bot_news():
@@ -1018,12 +1037,13 @@ func when_text() -> String:
 	return "%d일차 %s" % [day + 1, PHASE_N[phase]]
 
 
+## 옛 최종 토너먼트 페이즈 —— 11/12 최후 1인 규칙으로 없어졌다 (점검 코드가 부르므로 늘 거짓으로 남긴다)
 func is_tour_phase() -> bool:
-	return day == 6 and phase == 2
+	return false
 
 
 func can_next() -> bool:
-	return over == null and battle == null and not is_tour_phase() and quest_done and pvp_done
+	return over == null and battle == null and quest_done and pvp_done
 
 
 # ───────── 전투 —— 시작에 재료를 적고, 끝에 보상 ─────────
@@ -1128,7 +1148,7 @@ static func bot_equip(cards: Array, p_idx: int, r: RandomNumberGenerator) -> Arr
 func quest_roster():
 	if DB.QUEST_ROSTERS.is_empty():
 		return null
-	return DB.QUEST_ROSTERS[day][phase]
+	return DB.QUEST_ROSTERS[td()][phase]
 
 
 ## 11/3 수입을 약 70% 로 줄이며 (DB.ECON) 토벌 황건 편성은 예전 수입에 맞춘 그대로라 —— 적 사기로 낮춘다 (사기는 모든 능력치에, 70 → 0.88배)
@@ -1172,7 +1192,7 @@ func myth_on_board() -> bool:
 
 func quest_name() -> String:
 	var q = quest_roster()
-	return q.name if q != null else DB.D.QUESTS[day][phase]
+	return q.name if q != null else DB.D.QUESTS[td()][phase]
 
 
 ## 11/12 사용자: 험지 토벌 —— 아침에 「보통 / 험지」를 고른다. 험지는 적 병력 · 사기가 오르고, 이기면 그날 토벌 선택권보다 한 등급 높은 것을 한 장 더 준다
@@ -1206,7 +1226,7 @@ func quest_hard_reward_text() -> String:
 
 func quest_pv() -> int:
 	var q = quest_roster()
-	return int(q.pv) if q != null else int(DB.D.QPV[day][phase] * QUEST_PV_MUL)
+	return int(q.pv) if q != null else int(DB.D.QPV[td()][phase] * QUEST_PV_MUL)
 
 
 func start_quest() -> Dictionary:
@@ -1230,7 +1250,7 @@ func start_quest() -> Dictionary:
 	else:
 		var styles := ["물리", "지략", "균형"]
 		foe = _bot_side(pv, styles[rng.randi() % 3])
-	if not DB.quest_trait(day).is_empty(): foe["trait"] = DB.quest_trait(day)      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
+	if not DB.quest_trait(td()).is_empty(): foe["trait"] = DB.quest_trait(td())      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
 	if quest_hard:      # 11/12 험지 토벌 —— 적 병력 · 사기 배율
 		foe["tr_mul"] = float(foe.get("tr_mul", 1.0)) * QUEST_HARD_TR
 		foe["morale"] = int(round(float(foe.morale) * QUEST_HARD_MORALE))
@@ -1242,21 +1262,11 @@ func start_quest() -> Dictionary:
 
 
 func start_pvp() -> Dictionary:
-	var bi := rng.randi() % bots.size()
-	var b: Dictionary = bots[bi]
+	var alive := alive_bots()      # 11/12 최후 1인 —— 남은 세력끼리만 (멸망한 봇은 상대가 되지 않는다)
+	var b: Dictionary = alive[rng.randi() % alive.size()] if not alive.is_empty() else bots[0]
+	var bi := bots.find(b)
 	battle = {"kind": "pvp", "a": _my_side(), "b": _bot_side_of(b), "seed": rng.randi() % 1000000,
 		"title": "대전 · %s" % b.name, "foe": b.name, "bot": bi, "inputs": []}
-	return battle
-
-
-func start_tour() -> Dictionary:
-	if tour == null:
-		init_tour()
-	var m: Dictionary = tour.res[tour.round][tour.my_match]
-	var foe: Dictionary = m.b if m.a.me else m.a
-	var y := _tour_board(foe, int(tour.round))
-	battle = {"kind": "tour", "a": _my_side(), "b": y, "seed": rng.randi() % 1000000,
-		"title": "%s · %s" % [ROUNDNM[tour.round], foe.name], "foe": foe.name, "inputs": []}
 	return battle
 
 
@@ -1458,8 +1468,8 @@ func hp_preview(bt: Dictionary, res: Dictionary) -> int:
 	if res.get("win", false):
 		return 0
 	match str(bt.get("kind", "")):
-		"quest": return hp_dmg(res, float(HP_QUEST[clampi(day, 0, 6)]))
-		"pvp": return hp_dmg(res, float(HP_QUEST[clampi(day, 0, 6)]) * pvp_mul())
+		"quest": return hp_dmg(res, hp_base(day))
+		"pvp": return hp_dmg(res, hp_base(day) * pvp_mul())
 	return 0
 
 
@@ -1471,8 +1481,11 @@ func _hp_hit(res: Dictionary, base: float, what: String) -> void:
 	if dev_log or dev_immortal:
 		dev_hp_log.append([day, what.begins_with("대전"), base, foe_left, res.get("draw", false)])
 	# 11/10 사용자: 민심은 결과 화면의 「민심 −N」 연출 · 머리띠 게이지가 보여 준다 —— 글 알림은 걷었다
-	if hp <= 0 and not dev_immortal:
+	if hp <= 0 and not dev_immortal and not dev_keep_me:
 		over = {"win": false, "msg": "%s 패배 —— 민심이 바닥나 세력이 멸망했다" % what}
+		if not mp:      # 혼자 하기의 최종 순위 = 아직 남은 봇 수 + 1 (온라인은 Room._fallen 이 방 기준으로 적는다)
+			over["rank"] = 1 + alive_bots().size()
+			over["of"] = 1 + bots.size()
 
 
 ## 11/12 사용자(온라인 페이즈 개편): 모든 보상은 1페이즈(아침)에 —— 여럿이 하는 판의 토벌 · 대전 보상(기본패 · 선택권 · 보급 · 기인 효과)은
@@ -1547,18 +1560,18 @@ func _finish_battle(res: Dictionary) -> void:
 			# 11/9 사용자: 져도 보상은 그대로 (예전엔 기본패 절반 · 선택권 한 등급 아래) —— 대신 민심을 깎는다
 			if legacy_rewards and not res.win:
 				var top := 0
-				for p in DB.D.QUEST_REWARD[day]:
+				for p in DB.D.QUEST_REWARD[td()]:
 					top = maxi(top, int(p.t))
 				if top > 0:
 					add_ticket(top - 1, 1, true)
-				var nl := int(ceil(int(DB.D.QUEST_BASE[day]) / 2.0))
+				var nl := int(ceil(int(DB.D.QUEST_BASE[td()]) / 2.0))
 				for i in nl:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
 				last_spoil = {"n": nl, "src": "토벌 패배 · " + quest_name()}
 			else:
-				for p in no_empty_tier(DB.D.QUEST_REWARD[day]):
+				for p in no_empty_tier(DB.D.QUEST_REWARD[td()]):
 					add_ticket(int(p.t), int(p.n), true)      # 11/6 #6 전투 보상의 희귀는 랜덤권
-				var n := int(DB.D.QUEST_BASE[day])
+				var n := int(DB.D.QUEST_BASE[td()])
 				for i in n:
 					give(DB.BASE[rng.randi() % DB.BASE.size()])
 				last_spoil = {"n": n, "src": ("토벌 · " if res.win else "토벌 패배 · ") + quest_name()}
@@ -1570,7 +1583,7 @@ func _finish_battle(res: Dictionary) -> void:
 					if mp:
 						last_spoil["flat"] = true
 					if dev_immortal:
-						dev_bonus_log.append([day, bool(res.win), float(bb.r), int(bb.base), int(bb.ticket), int(DB.D.QUEST_BASE[day])])
+						dev_bonus_log.append([day, bool(res.win), float(bb.r), int(bb.base), int(bb.ticket), int(DB.D.QUEST_BASE[td()])])
 					if res.win or mp:
 						last_spoil["bonus"] = int(bb.base)
 						last_spoil["bonus_ticket"] = int(bb.ticket)
@@ -1591,12 +1604,13 @@ func _finish_battle(res: Dictionary) -> void:
 					toasts.append(["험지 돌파! %s +1" % quest_hard_reward_text(), "gold"])
 			if not res.win:
 				strikes += 1       # 기록용
-				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]), quest_name())
+				_hp_hit(res, hp_base(day), quest_name())
 			if not mp:
-				for b in bots:
+				for b in alive_bots():
 					if b.pv < bt.pv * 0.95 * rng.randf_range(0.92, 1.08):
 						b.strikes += 1
-						b.pv *= 0.94
+						b.pv *= 0.94      # (봇의 토벌 실패는 전력 손실로만 —— 민심은 대전 · 봇끼리 승부에서만 깎인다: 측정에서 토벌 피해까지 얹으면 봇이 5일차에 모두 무너졌다)
+				_solo_fallen()
 		"pvp":
 			pvp_done = true
 			var nb := int(DB.D.PVP_BASE.win if (res.win or not legacy_rewards) else DB.D.PVP_BASE.lose)      # 11/9 져도 이긴 만큼 (예전 lose 4)
@@ -1613,24 +1627,16 @@ func _finish_battle(res: Dictionary) -> void:
 			else:
 				my_l += 1
 				if b: b.w += 1
-				_hp_hit(res, float(HP_QUEST[clampi(day, 0, 6)]) * pvp_mul(), "대전 · " + str(bt.foe))
-		"tour":
-			var r: int = tour.round
-			var ms: Array = tour.res[r]
-			var m: Dictionary = ms[tour.my_match]
-			var me: Dictionary = m.a if m.a.me else m.b
-			var foe: Dictionary = m.b if m.a.me else m.a
-			m.w = me.name if res.win else foe.name
-			if not res.win:
-				over = {"win": false, "msg": "%s에서 %s에게 패했다 — 최종 %s" % [ROUNDNM[r], foe.name, tour_rank()]}
-			elif r == 2:
-				over = {"win": true, "msg": "%s을(를) 꺾고 천하를 얻었다" % foe.name}
-			else:
-				my_w += 1
-				var nxt := []
-				for x in ms:
-					nxt.append(x.a if x.w == x.a.name else x.b)
-				tour.next = nxt
+				_hp_hit(res, hp_base(day) * pvp_mul(), "대전 · " + str(bt.foe))
+				if over != null and not over.win:
+					over["by"] = str(bt.foe)      # 11/12 엔딩 연출(GameScreen.show_ending) —— 나를 멸망시킨 상대
+					over["by_human"] = false        # 온라인은 Room._reap 이 사람 자리면 참으로 고친다
+			if b and not mp:
+				# 11/12 사용자(최후 1인): 봇도 민심이 있다 —— 나에게 지면 같은 식(봇 쪽에서 본 적 남은 비 = 내 잔존 비)으로 깎인다. 무승부는 양쪽 다 절반
+				if res.win or res.get("draw", false):
+					bot_hp_hit(b, hp_dmg_f(hp_base(day) * pvp_mul(), my_left_ratio(res), res.get("draw", false)))
+				_bot_duels(int(bt.bot))      # 나머지 봇끼리도 이 저녁에 겨룬다
+				_solo_fallen()
 
 
 ## 전투 도중 꺼졌던 판 —— 적어 둔 입력으로 다시 계산해 마무리한다 (남은 부분은 자동 전투)
@@ -1643,74 +1649,72 @@ func resolve_pending() -> Dictionary:
 	return res
 
 
-# ───────── 8인 토너먼트 ─────────
+# ───────── 최후 1인 (11/12 사용자: 7일차 토너먼트 대신 마지막 한 세력이 남을 때까지) ─────────
 
-func init_tour() -> void:
-	var ps := [{"me": true, "name": "나", "pv": my_pv(), "style": "균형"}]
+## 봇 두 세력의 승부 어림 —— 전투를 돌리지 않는다(혼자 하기의 봇끼리 · 온라인 방의 봇끼리 · 봇 대 유랑군이 같이 쓴다).
+## 이길 확률 = pa^k / (pa^k + pb^k) (pa · pb = 전력 × 실력), 진 쪽이 본 '적 남은 병력 비'는 이긴 쪽의 전력 우위가 클수록 크다 (0.05 ~ 0.9)
+const DUEL_K := 3.0
+static func bot_duel(pa: float, pb: float, r: RandomNumberGenerator) -> Dictionary:
+	pa = maxf(pa, 1.0)
+	pb = maxf(pb, 1.0)
+	var p := pow(pa, DUEL_K) / (pow(pa, DUEL_K) + pow(pb, DUEL_K))
+	var a_win := r.randf() < p
+	var ratio := pa / pb if a_win else pb / pa
+	var left := clampf(0.3 + 0.35 * log(ratio) / log(2.0) + r.randf_range(-0.15, 0.15), 0.05, 0.9)
+	return {"a_win": a_win, "foe_left": left}
+
+
+## 봇 민심을 깎는다 —— 0 이 되면 멸망(dead). 방금 멸망했으면 참
+static func bot_hp_hit(b: Dictionary, dmg: int) -> bool:
+	if bool(b.get("dead", false)):
+		return false
+	b["hp"] = maxi(0, int(b.get("hp", HP_MAX)) - dmg)
+	if int(b.hp) <= 0 and not dev_immortal:
+		b["dead"] = true
+		return true
+	return false
+
+
+## 혼자 하기 —— 내 상대(skip)를 뺀 남은 봇끼리 짝을 지어 겨룬다 (홀수면 하나는 유랑군과). 진 쪽은 온라인 대전 패배와 같은 식(×1.0)으로 민심이 깎인다
+## (나와의 대전은 혼자 하기 배율 ×0.6 그대로 —— 봇은 토벌 피해가 없어 봇끼리는 ×1.0. ×0.6 이면 나만 불멸인 측정에서 봇이 모두 무너지는 데 평균 12.5일)
+func _bot_duels(skip: int) -> void:
+	var ls := alive_bots().filter(func(b): return bots.find(b) != skip)
+	for i in range(ls.size() - 1, 0, -1):      # 섞는다 (이 판의 rng)
+		var j := rng.randi() % (i + 1)
+		var t = ls[i]
+		ls[i] = ls[j]
+		ls[j] = t
+	for m in ls.size() / 2:
+		var a: Dictionary = ls[m * 2]
+		var c: Dictionary = ls[m * 2 + 1]
+		var d := bot_duel(float(a.pv) * float(a.skill), float(c.pv) * float(c.skill), rng)
+		var w: Dictionary = a if d.a_win else c
+		var l: Dictionary = c if d.a_win else a
+		w.w = int(w.w) + 1
+		l.l = int(l.l) + 1
+		bot_hp_hit(l, hp_dmg_f(hp_base(day) * HP_PVP_MUL_ONLINE, float(d.foe_left), false))
+	if ls.size() % 2 == 1:      # 홀수면 남은 하나는 유랑군(남은 봇 평균 전력)과 겨룬다 —— 온라인 방의 유랑군과 같다 (쉬면 마지막 봇이 끝까지 안 깎인다)
+		var o: Dictionary = ls[ls.size() - 1]
+		var avg := 0.0
+		for b in alive_bots():
+			avg += float(b.pv)
+		avg /= maxf(1.0, alive_bots().size())
+		var d := bot_duel(float(o.pv) * float(o.skill), avg, rng)
+		if d.a_win:
+			o.w = int(o.w) + 1
+		else:
+			o.l = int(o.l) + 1
+			bot_hp_hit(o, hp_dmg_f(hp_base(day) * HP_PVP_MUL_ONLINE, float(d.foe_left), false))
+
+
+## 혼자 하기 —— 방금 멸망한 봇 소식 · 마지막 한 세력이면 천하 통일 (내가 이미 멸망했으면 패배 그대로)
+func _solo_fallen() -> void:
 	for b in bots:
-		ps.append({"me": false, "name": b.name, "pv": roundi(b.pv), "style": b.style})
-	ps.sort_custom(func(a, b): return a.pv > b.pv)
-	var seed_order := [0, 7, 3, 4, 1, 6, 2, 5]
-	var lst := []
-	for i in seed_order:
-		lst.append(ps[i])
-	tour = {"round": 0, "list": lst, "res": [null, null, null], "my_match": -1, "next": null}
-	_prep_round()
-
-
-## 11/10 진행 밸런스(작업현황 70): 토너먼트 우승률 30~60% 를 맞추려고 라운드별(8강 · 4강 · 결승) 상대 봇 PV 배율. 7일차 대전(봇 PV 비 .47 → 승 44%)과 같은 봇으로는 8강 36 · 4강 23 · 결승 13% → 우승 1% — 한 번에 셋을 이겨야 해서 라운드마다 70~90% 가 되게 하려면 상대 PV ×0.75~0.8 (봇 덱 등급이 한 칸 내려가는 구간, 한 칸 위로는 급락 ×0.9 이면 결승 26% · ×1.0 이면 13%). 사람 기록 재생 k=96 우승 1 → 42%
-static var TOUR_BOT_MUL := [0.8, 0.75, 0.75]
-
-
-func _tour_board(pl: Dictionary, rd := -1) -> Dictionary:
-	if pl.me:
-		return _my_side()
-	var mul := float(TOUR_BOT_MUL[clampi(rd, 0, 2)]) if rd >= 0 else 1.0
-	for b in bots:
-		if b.name == pl.name:
-			return _bot_side_of(b, mul)      # 11/12 그 봇의 군세
-	return _bot_side(pl.pv * mul, pl.style)      # (옛 저장 · 찾지 못하면 예전처럼)
-
-
-func _sim_match(a: Dictionary, b: Dictionary) -> String:
-	var x := _tour_board(a)
-	var y := _tour_board(b)
-	var r := RtBattle.make(rng.randi() % 1000000).run(x.cards, x.form, x.morale, x.equip, y.cards, y.form, y.morale, y.equip)
-	return a.name if r.win else b.name
-
-
-func _prep_round() -> void:
-	var L: Array = tour.list
-	var mi := -1
-	for i in L.size():
-		if L[i].me:
-			mi = i
-	tour.my_match = mi / 2 if mi >= 0 else -1
-	var ms := []
-	for m in L.size() / 2:
-		var a: Dictionary = L[m * 2]
-		var b: Dictionary = L[m * 2 + 1]
-		ms.append({"a": a, "b": b, "w": null if m == tour.my_match else _sim_match(a, b)})
-	tour.res[tour.round] = ms
-
-
-func tour_rank() -> String:
-	return ["5~8위", "3~4위", "2위"][tour.round]
-
-
-func tour_advance() -> void:
-	tour.list = tour.next
-	tour.next = null
-	tour.round += 1
-	last_result = null
-	_prep_round()
-
-
-func tour_foe() -> Dictionary:
-	if tour == null:
-		return {}
-	var m: Dictionary = tour.res[tour.round][tour.my_match]
-	return m.b if m.a.me else m.a
+		if bool(b.get("dead", false)) and not bool(b.get("fall_told", false)):
+			b["fall_told"] = true
+			toasts.append(["%s의 나라가 무너졌습니다 —— 남은 세력 %d" % [b.name, 1 + alive_bots().size()], "news"])
+	if over == null and alive_bots().is_empty() and not dev_immortal:
+		over = {"win": true, "msg": "천하를 통일했다 —— 마지막까지 남은 세력", "rank": 1, "of": 1 + bots.size()}
 
 
 # ───────── 선택권 ─────────
@@ -1795,7 +1799,7 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
-	"tour", "my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked"]
+	"my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked"]
 
 
 func to_dict() -> Dictionary:
@@ -1828,6 +1832,8 @@ func from_dict(d: Dictionary) -> void:
 	for b in bots:
 		for k in ["w", "l", "strikes", "top"]:
 			b[k] = int(b[k])
+		b["hp"] = int(b.get("hp", HP_MAX))      # 옛 저장의 봇은 민심이 없었다 —— 가득으로
+		b["dead"] = bool(b.get("dead", false))
 		if b.has("aseed"):
 			b["aseed"] = int(b.aseed)
 	if battle != null:
@@ -1836,9 +1842,7 @@ func from_dict(d: Dictionary) -> void:
 			battle.bot = int(battle.bot)
 		for inp in battle.inputs:
 			inp[0] = int(inp[0])
-	if tour != null:
-		tour.round = int(tour.round)
-		tour.my_match = int(tour.my_match)
+	tour = null      # 옛 저장의 토너먼트는 버린다 (11/12 최후 1인) —— 7일차 저녁의 대전부터 이어 간다
 
 
 func save() -> void:
@@ -1929,14 +1933,6 @@ func dev_autoplay() -> void:
 	if over != null:
 		return
 	bot_prepare()
-	if is_tour_phase():
-		if tour == null:
-			init_tour()
-		while over == null:
-			_dev_fight(start_tour())
-			if over == null:
-				tour_advance()
-		return
 	var q := start_quest()
 	if dev_snap_on:      # 점검용 —— 토벌 직전 내 편성 (tests/quest_tune --snap)
 		dev_snap.append({"d": day, "p": phase, "a": q.a.duplicate(true)})
@@ -1979,6 +1975,7 @@ func bot_prepare(full := true) -> void:
 	_dev_spend()
 
 
+static var dev_keep_me := false    # 점검용 —— 나만 멸망하지 않는다(봇은 멸망) : 봇이 모두 무너지는 데 며칠 걸리나 (tests/game --keep)
 static var dev_immortal := false   # 점검용 —— 자동 진행(--gplay · 봇 기준선)은 멸망하지 않는다 (11/5 사용자). 경고는 그대로 쌓인다
 static var dev_log := false      # 점검용 —— 봇 자동 진행도 플레이 기록(PlayLog)에 남긴다 (사람 플레이와 비교할 기준선, tests/play_log_bot)
 

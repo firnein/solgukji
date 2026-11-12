@@ -28,6 +28,8 @@ const MELEE_WAIT := 6.0
 const PVP_LEN := 52.0       # 대전·토너먼트 목표 길이(초, 1배속) —— 행동 간격을 벌려 맞춘다. 끝맺음까지 50~60초
 const ONLINE_SPEED := 1.5     # 11/10 사용자: 온라인 재생은 1.5배속 하나만 (배속이 다르면 클라이언트끼리 보는 시점이 어긋난다) —— 배속 단추 · 일시정지는 숨긴다
 const QUEST_SPEED := 1.25   # 11/3 사용자: 기본 배속 2배속 → 11/5 1.25배속 (토벌 · 대전 모두) —— 위 띠에서 바꾼다
+const RAID_SPEED := 2.0     # 11/12 사용자: 토벌은 2배속으로 재생 (혼자 하기 기본 배속 · 온라인 고정 배속 모두, 대전은 위 두 값 그대로)
+var _lock_speed := ONLINE_SPEED      # 온라인 재생의 고정 배속 —— 토벌이면 RAID_SPEED
 var pace := 1.0             # 행동 간격 배율 (STEP · 턴 끝 정산에 곱한다)
 var target_len := 0.0       # 0 이면 늘리지 않는다
 
@@ -574,8 +576,8 @@ func _show_speed_ui(on: bool) -> void:
 
 
 func _set_speed(s: float) -> void:
-	if locked and s != ONLINE_SPEED:      # 온라인 재생은 어느 경로로 불려도 1.5배속
-		s = ONLINE_SPEED
+	if locked and s != _lock_speed:      # 온라인 재생은 어느 경로로 불려도 고정 배속 (대전 1.5 · 토벌 2)
+		s = _lock_speed
 	speed = s
 	for p in speed_btns:
 		p[0].button_pressed = p[1] == s
@@ -762,7 +764,7 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	_pace_for(str(bt.get("kind", "")))
 	_tac = str(bt.a.get("tac", ""))
 	_begin()
-	_set_speed(QUEST_SPEED)
+	_set_speed(RAID_SPEED if str(bt.get("kind", "")) == "quest" else QUEST_SPEED)
 
 
 ## 온라인 —— 서버가 계산한 결과(사람끼리 대전이면 내 쪽이 A 가 되게 뒤집은 것)를 그대로 재생한다.
@@ -775,7 +777,8 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 	speed_sec = {}
 	game_mode = true
 	locked = true
-	_show_speed_ui(false)      # 11/10 온라인: 1.5배속 고정
+	_lock_speed = RAID_SPEED if kind == "quest" else ONLINE_SPEED      # 11/12 토벌은 2배속
+	_show_speed_ui(false)      # 11/10 온라인: 1.5배속 고정 (토벌 2배속)
 	_skip_btn.visible = false      # 11/10 사용자: 멀티플레이에서 전투 스킵은 없어야 한다 (11/9 에 넣었던 '결과로' 를 뺀다)
 	_skip_top.visible = false
 	_refresh_quick()

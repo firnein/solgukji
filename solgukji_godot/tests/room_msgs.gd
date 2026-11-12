@@ -156,6 +156,7 @@ func _ready() -> void:
 		for s in r.seats:
 			if not s.human:
 				s.bot.pv += 60.0
+				Run.bot_grow(s.bot, int(r.rng.seed), 3)      # 11/12 (작업현황 94 뒤) 봇 소식은 군세(army)의 최고 등급 —— PV 만 올리면 군세가 그대로라 소식이 없었다
 		got += r._bot_news().size()
 	print("봇 등용 소식 ", got, "건")
 	if got == 0:

@@ -22,7 +22,9 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##   3 저녁 준비(30초 → 4일차~ 15초)  편성만 (징집 · 조합 불가)
 ##   4 저녁(대전)           대전을 다 본 뒤 기다리는 동안 징집 · 조합만 (편성 불가) —— 먼저 끝난 사람의 빈 시간을 쓰게. 토너먼트 저녁은 모두 잠김
 ## 안 되는 명령은 거부하고 그 사람에게 이유를 보낸다 ({"t":"error"}). 방 정보에 act_draw · act_form · why_draw · why_form
-## 7일째 저녁은 8인 토너먼트 —— 점심(토벌)은 없고 저녁 준비에 대진표를 보인 뒤 8강 · 4강 · 결승을 라운드마다 본다.
+## 11/12 사용자(최후 1인): 7일째 토너먼트는 없다 —— 7일이 지나도 날이 이어지고, 마지막 한 세력(사람 · 봇)이 남으면 끝난다. 봇도 민심이 있어 멸망한다(같은 식).
+## 8일차부터는 패배 민심 피해가 매일 ×1.25 (Run.hp_base). 대진은 남은 세력끼리(_plan_pairs) —— 홀수면 한 자리는 그림자 · 유랑군과 붙는다.
+## 멸망한 자리는 순위가 정해지고(자리 줄 rank · Run.over.rank) 관전하거나 나간다. 판이 끝나면 방 정보 winner = 마지막 세력 이름.
 ## 응답이 없는 사람(접속 끊김, 또는 단계 내내 아무 행동도 없음)은 단계가 끝날 때 그 사람의 자산으로 봇이 대신한다
 ## (Run.bot_prepare —— 징집 · 선택권 · 조합 · 편성). 행동은 했지만 못 끝낸 사람은 공짜 징집과 빈 편성만 채운다.
 ## 다시 들어오면 같은 토큰으로 자리로 돌아와 그 단계부터 이어간다 (보던 전투가 남았으면 다시 보낸다).
@@ -41,7 +43,7 @@ const MODES := {
 }
 const SEATS := 8              # 기본 자리 수 —— 방장이 만들 때 고르지 않으면 (옛 클라이언트) 8
 const SEAT_OPTIONS := [4, 6, 8]      # 방장이 고를 수 있는 총 인원(짝수) —— 자리 수 = 총 인원, 빈자리만 봇 (11/11 사용자)
-const SEED_ORDER := [0, 7, 3, 4, 1, 6, 2, 5]      # 토너먼트 8강 시드 배치 (1-8, 4-5, 2-7, 3-6) —— 인원이 8 미만이면 8 이상 시드 자리는 부전승
+const TEST_MORTAL_DAY := 7    # 점검 모드는 7일차까지 멸망하지 않는다(민심 0 인 채로 간다) —— 8일차(day 7)부터는 진짜 방처럼 멸망해 판이 끝난다
 const STAGE_N := {"lobby": "대기실", "morning": "준비 — 징집·조합·편성", "noon": "토벌", "evening_prep": "대전 준비",
 	"evening": "대전", "over": "끝"}
 const ACT_STAGES := ["morning", "evening_prep"]        # 명령(징집 · 조합 · 편성)을 받는 준비 단계 (시간제 · 준비 완료 버튼) —— 전투를 보는 단계에서도 can_cmd 가 허락한다
@@ -81,7 +83,9 @@ var rr_order := []            # 라운드로빈 자리 배치 —— 첫 저녁�
 var _ghosts := {}             # 멸망한 자리 번호 -> 떠돌이 군세(자리 밖 봇) —— 저녁 대전 상대 (전적은 이어진다)
 var _mvp_news := []           # 수훈 연속 소식 대기 [{s, unit, n}] —— 그림자 소식처럼 대전을 다 본 뒤(다음 아침) 보낸다
 var _shadow_news := []        # 그림자 대전 결과 소식 대기 —— 대전을 다 본 뒤(다음 날 아침을 열 때) 보낸다 (미리 보내면 결과가 새므로)
-var tour = null               # {round, list:[{name, seat}], res:[[{a, b, w}]], next}
+var tour = null               # 옛 토너먼트 —— 11/12 최후 1인 규칙으로 없어졌다 (점검 코드가 읽어도 깨지지 않게 늘 null)
+var winner := ""              # 판이 끝났을 때 마지막까지 남은 세력 이름 (사람 · 봇, 남은 사람이 없이 끝나면 "") —— 방 정보 winner
+var fall_n := 0               # 지금까지 멸망한 자리 수
 var rng := RandomNumberGenerator.new()
 var empty_since := -1.0
 var news_seq := 0             # 소식 항목 번호 —— _news_add 가 1씩 올려 붙인다 (휴대폰이 안 읽은 소식을 가른다)
@@ -271,6 +275,10 @@ func info(i: int) -> Dictionary:
 			# 필드만 늘렸다 —— 옛 클라이언트는 모르는 키를 무시한다. 봇 자리에는 없다 (민심도 카드도 없다)
 			row["hp"] = s.run.hp
 			row["key"] = key_cards(s.run)
+		elif s.bot != null:
+			row["hp"] = int(s.bot.get("hp", Run.HP_MAX))      # 11/12 최후 1인 —— 봇도 민심이 있다 (멸망하는 세력)
+		if s.has("rank"):
+			row["rank"] = int(s.rank)      # 멸망 · 판 끝으로 정해진 최종 순위 (1 = 천하 통일)
 		if started and s.human:
 			row["st"] = seat_status(s)      # 11/12 온라인 존재감 —— 지금 하는 일 (아래 '존재감' 절)
 		ss.append(row)
@@ -281,7 +289,7 @@ func info(i: int) -> Dictionary:
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "stage_len": stage_len_now, "noon_end": noon_end_sent and day == Run.ONLINE_NOON_DAYS and phase == 0 and stage == "morning", "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
-		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": tour.round if tour != null else -1, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
+		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": -1, "winner": winner, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
 		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths()}
 
 
@@ -331,7 +339,7 @@ func start() -> void:
 func _bot_seat(nm: String, epi: String, fac: String, style: String, pv: float, skill: float) -> Dictionary:
 	return {"name": nm, "human": false, "peer": -1, "token": "", "run": null, "ready": true, "dead": false, "battles": [],
 		"acted": false, "watched": false, "foe": null,
-		"bot": {"epi": epi, "fac": fac, "style": style, "pv": pv, "w": 0, "l": 0, "strikes": 0, "skill": skill, "top": 0}}      # top = 소식을 띄운 최고 등급 (Run.bot_news 와 같은 기준)
+		"bot": {"epi": epi, "fac": fac, "style": style, "pv": pv, "w": 0, "l": 0, "strikes": 0, "skill": skill, "top": 0, "hp": Run.HP_MAX}}      # top = 소식을 띄운 최고 등급 (Run.bot_news 와 같은 기준)
 
 
 func _stage(st: String) -> void:
@@ -358,20 +366,17 @@ func _stage(st: String) -> void:
 ## 준비를 기다리는 사람 —— 접속해 있고 멸망하지 않은 사람. 모두 준비면 시간이 남아도 넘어간다.
 ## 전투를 보는 단계에서는 볼 전투가 있는 사람은 멸망했어도 기다린다 (토너먼트 탈락전 · 멸망한 토벌을 끝까지 보게)
 func _live() -> Array:
-	var tour_eve := stage == "evening" and tour != null
 	return humans().filter(func(s):
 		if s.peer < 0:
 			return false
 		if stage in WATCH_STAGES and s.get("auto", false):
 			return false      # 11/11 직전 준비를 봇이 대신 했다(단계 내내 아무 행동 없음 = 자리를 비움) —— 전투를 다 보기를 기다리지 않는다
-		if tour_eve and s.battles.is_empty():
-			return false      # 토너먼트 부전승(이번 라운드는 싸움이 없다) · 이미 탈락 —— 기다리지 않는다
 		return not s.dead or (stage in WATCH_STAGES and not s.battles.is_empty()))
 
 
 ## 사람이 나 혼자 남았나 —— 다른 사람이 모두 멸망했거나 나갔다(토큰 끊김). 2명 이상이던 방에서 한 번만 묻는다 (결정 ④)
 func _check_alone() -> void:
-	if not started or stage == "over" or tour != null or human_n0 < 2 or alone != "":
+	if not started or stage == "over" or human_n0 < 2 or alone != "":
 		return
 	var alive := humans().filter(func(s): return not s.dead and s.token != "")
 	if alive.size() == 1:
@@ -402,18 +407,14 @@ func tick() -> void:
 		return
 	_status_sync()
 	var live := _live()
-	var all_ready := (not live.is_empty() or (stage == "evening" and tour != null)) and live.all(func(s): return s.ready)
+	var all_ready := not live.is_empty() and live.all(func(s): return s.ready)
 	if now() < stage_end and not all_ready:
 		return
 	match stage:
 		"morning": _end_morning()
 		"noon": _begin_evening()
 		"evening_prep": _end_prep()
-		"evening":
-			if tour != null:
-				_tour_next()
-			else:
-				_advance()
+		"evening": _advance()
 
 
 func on_ready(peer: int, on: bool, sno := -1) -> void:
@@ -432,7 +433,7 @@ func on_ready(peer: int, on: bool, sno := -1) -> void:
 
 ## 이 명령을 지금 받을 수 있나 —— 되면 "", 안 되면 짧은 이유 (11/12 사용자 페이즈 개편, 맨 위 설명).
 ## m 이 FORM_CMDS 면 편성, 아니면 징집 · 조합. 이미 계산된 판(토벌 · 대전)은 편성을 복사해 갔으므로 기다리는 동안의 징집 · 조합이 그 결과를 바꾸지 못한다.
-## 늘 안 되는 것: 멸망 · 판이 끝난 사람, 토너먼트 저녁(라운드마다 그 순간의 편성으로 곧바로 다시 계산한다)
+## 늘 안 되는 것: 멸망 · 판이 끝난 사람
 func cmd_block(i: int, m: String) -> String:
 	if not started or i < 0 or i >= seats.size() or not seats[i].human or seats[i].dead or seats[i].run == null or seats[i].run.over != null:
 		return "지금은 할 수 없다"
@@ -443,8 +444,6 @@ func cmd_block(i: int, m: String) -> String:
 		"evening_prep":
 			return "" if form else "대전 준비 중 — 지금은 편성만 할 수 있다"
 		"noon", "evening":
-			if stage == "evening" and tour != null:
-				return "토너먼트 중에는 손댈 수 없다"
 			if form:
 				return "지금은 편성할 수 없다 — 다음 준비 때"
 			if not seats[i].watched:
@@ -615,10 +614,6 @@ func _end_morning() -> void:
 	for s in humans():
 		if not s.dead:
 			_fill(s)
-	if day == 6 and phase == 2:
-		_tour_seed()             # 7일째 저녁 —— 토벌 없이 바로 토너먼트 준비
-		_stage("evening_prep")
-		return
 	if not has_noon(day):
 		# 11/11 사용자: 4일차~ 는 토벌이 없다 —— 점심 단계 없이 바로 저녁 준비(상대 정하기). 봇의 토벌 실패(strikes)만 그대로 센다 (봇 성장 곡선 불변)
 		for s in seats:
@@ -635,6 +630,7 @@ func _end_morning() -> void:
 func _quests() -> void:
 	for s in seats:
 		s.battles = []
+	_snap_hp()
 	for s in humans():
 		if s.dead:
 			continue
@@ -644,27 +640,26 @@ func _quests() -> void:
 		var res := Run.simulate(q, [], q.pol)
 		r.finish_battle(res)
 		s.battles.append({"title": q.title, "res": res, "kind": "quest", "params": _params(q, false)})
-		if r.over != null and mode == "test":
-			r.over = null          # 점검 모드는 멸망하지 않는다 —— 토너먼트까지 가 본다
+		if r.over != null and not _mortal():
+			r.over = null          # 점검 모드는 7일차까지 멸망하지 않는다
 		if rlog != null:
 			var si := _idx(s)
 			rlog.battle(si, r, q, res, str(q.title), false, s.peer < 0)
 			rlog.reward(si, r)
-		if r.over != null:
-			s.dead = true
-			_log_over(s)
-			_fallen(s)
 	_bot_quest_strikes()
+	_reap()
 	_check_alone()
 
 
 ## 봇의 토벌 —— 그날 기준(QPV)에 못 미치면 실패 한 번 · 전력 6% 깎임 (봇 성장 곡선). 토벌이 없는 날(4일차~)에도 똑같이 돈다
+## 11/12 최후 1인: 봇의 토벌 실패는 전력 손실로만 (민심은 대전 · 봇끼리 승부에서 깎인다). 멸망한 봇은 빠진다
 func _bot_quest_strikes() -> void:
-	var qpv := float(DB.D.QPV[day][phase])
+	var qpv := float(DB.D.QPV[clampi(day, 0, Run.LAST_TABLE_DAY)][phase])
 	for s in seats:
-		if not s.human and s.bot.pv < qpv * 0.95 * rng.randf_range(0.92, 1.08):
+		if not s.human and not s.dead and s.bot.pv < qpv * 0.95 * rng.randf_range(0.92, 1.08):
 			s.bot.strikes += 1
 			s.bot.pv *= 0.94
+
 
 
 ## 라운드로빈(원 방식) 한 라운드 —— order[0] 을 고정하고 나머지 n-1 자리를 한 칸씩 돌려 [[a, b] × n/2].
@@ -721,6 +716,9 @@ static func shadow_pair(c: int, d: int, dead_sorted: Array, alive_humans: Array,
 ## 사람 + 봇을 가리지 않고, 멸망한 사람의 짝이던 자리는 떠돌이 군세와 붙는다. 봇끼리의 짝은 싸우지 않는다 (기록만).
 ## 준비 시간 동안 상대의 이름 · 전적을 보고 편성을 고친다
 func _begin_evening() -> void:
+	if _game_done():      # 11/12 토벌에서 멸망해 한 세력만 남았다 —— 토벌을 다 본 뒤 여기서 끝낸다
+		_finish()
+		return
 	pairs = []
 	for s in seats:
 		s.foe = null
@@ -734,15 +732,7 @@ func _begin_evening() -> void:
 			var t = rr_order[i]
 			rr_order[i] = rr_order[j]
 			rr_order[j] = t
-	var dead := []
-	var alive_h := []      # 그림자의 원본이 될 수 있는 사람 —— 멸망하지 않았고 자리를 떠나지 않은(token 이 있는) 사람. 접속이 끊겨 봇이 대신하는 사람도 포함 (덱은 진짜)
-	for i in seats.size():
-		if seats[i].human and seats[i].dead:
-			dead.append(i)
-		elif seats[i].human and seats[i].run != null and seats[i].token != "":
-			alive_h.append(i)
-	var ev_no := day * 3 + phase
-	pairs = rr_plan(rr_order, ev_no % (max_seats - 1), dead, alive_h, ev_no / (max_seats - 1))
+	pairs = _plan_pairs()
 	for p in pairs:
 		var a: Dictionary = _pair_seat(p[0])
 		var b: Dictionary = _pair_seat(p[1], int(p[2]) if p.size() > 2 else -1)
@@ -751,6 +741,32 @@ func _begin_evening() -> void:
 		if b.human:
 			b.foe = _foe_for(b, a)
 	_stage("evening_prep")
+
+
+## 오늘 저녁의 짝 (난수 없음 —— _begin_evening · tonight_foe 가 같이 쓴다).
+## 멸망한 자리가 없으면 예전 그대로 라운드로빈(rr_plan, 8자리 7라운드). 11/12 최후 1인: 멸망한 자리가 생기면 남은 세력(사람 · 봇)만 자리 배치 순서대로 모아
+## 그들끼리 라운드로빈을 돈다 —— 홀수면 가장 앞 번호의 멸망 자리 하나를 '빈자리'로 끼워 그 짝이 된 쪽은 그림자(사람이고 다른 산 사람이 있으면) 또는 유랑군과 붙는다 (rr_plan · shadow_pair 재사용)
+func _plan_pairs() -> Array:
+	var dead := []
+	var alive_h := []      # 그림자의 원본이 될 수 있는 사람 —— 멸망하지 않았고 자리를 떠나지 않은(token 이 있는) 사람. 접속이 끊겨 봇이 대신하는 사람도 포함 (덱은 진짜)
+	for i in seats.size():
+		if seats[i].dead:
+			dead.append(i)
+		elif seats[i].human and seats[i].run != null and seats[i].token != "":
+			alive_h.append(i)
+	var ev_no := day * 3 + phase
+	if dead.is_empty():
+		return rr_plan(rr_order, ev_no % (max_seats - 1), [], alive_h, ev_no / (max_seats - 1))
+	var order := rr_order.filter(func(i): return not seats[int(i)].dead)
+	var bye := []
+	if order.size() % 2 == 1:
+		dead.sort()
+		bye = [dead[0]]
+		order.append(dead[0])
+	if order.size() < 2:
+		return []
+	var m := order.size() - 1
+	return rr_plan(order, ev_no % m, bye, alive_h, ev_no / m)
 
 
 ## 짝에 적힌 번호의 자리 —— 음수는 멸망한 자리를 대신하는 떠돌이 군세 (세기 = 방 평균 PV, 전적은 이어진다)
@@ -789,10 +805,7 @@ func _end_prep() -> void:
 	for s in humans():
 		if not s.dead:
 			_fill(s, false)      # 저녁 준비는 아침에 편성이 끝나 있다 —— 끊긴 사람만 봇이 전부, 나머지는 빈 편성만
-	if tour != null:
-		_tour_round()
-	else:
-		_pvps()
+	_pvps()
 	_stage("evening")
 	for s in humans():
 		_send_battles(s)
@@ -801,6 +814,7 @@ func _end_prep() -> void:
 func _pvps() -> void:
 	for s in seats:
 		s.battles = []
+	_snap_hp()
 	for p in pairs:
 		var x := int(p[2]) if p.size() > 2 else -1
 		var a: Dictionary = _pair_seat(p[0])
@@ -813,7 +827,8 @@ func _pvps() -> void:
 			_pvp_bot(a, b)
 		elif b.human:
 			_pvp_bot(b, a)
-		# 봇끼리는 싸우지 않는다
+		else:
+			_pvp_bots(a, b)      # 11/12 최후 1인 —— 봇끼리(· 봇 대 유랑군)도 겨룬다 (전투 없이 어림, Run.bot_duel)
 	pairs = []
 	if mode != "test":      # 대전에서 민심이 바닥난 사람 —— 끝 줄은 지금 적는다 (점검 방은 다음 날 아침에 over 를 지우고 계속 가므로 적지 않는다)
 		for s in humans():
@@ -864,6 +879,8 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 		b.bot.l += 1
 	else:
 		b.bot.w += 1
+	if res.win or res.draw:      # 11/12 봇도 민심이 깎인다 —— 봇 쪽에서 본 '적 남은 비' = 사람의 잔존 비 (유랑군은 자리가 아니라 빠진다)
+		_bot_hit(b, Run.hp_dmg_f(Run.hp_base(day) * Run.HP_PVP_MUL_ONLINE, Run.my_left_ratio(res), bool(res.draw)))
 	x.battles.append({"title": bt.title, "res": res, "kind": "pvp", "params": _params(bt, false)})
 	if rlog != null:
 		rlog.battle(_idx(x), rx, bt, res, b.name, false, x.peer < 0)
@@ -986,19 +1003,18 @@ func _advance() -> void:
 		s.foe = null
 		if s.human:
 			if not s.dead:
-				s.run.advance()
-				# 11/4 점검: Run.advance 가 3일차에 들어설 때 경고 4회면 멸망시킨다 (11/3) —— 방도 같이 처리해야 한다
-				if s.run.over != null and not s.run.over.win:
-					if mode == "test":
-						s.run.over = null       # 점검 모드는 멸망하지 않는다
-					else:
-						s.dead = true
-						_log_over(s)
-						_fallen(s)
-		else:
+				s.run.advance()      # 민심이 바닥났으면 여기서 over 가 선다 —— 아래 _reap 이 멸망 · 순위를 정한다
+				if s.run.over != null and not s.run.over.win and not _mortal():
+					s.run.over = null       # 점검 모드는 7일차까지 멸망하지 않는다
+		elif not s.dead:
 			s.bot.pv += Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
 			Run.bot_grow(s.bot, int(rng.seed), day * 3 + phase)      # 11/12 PV 가 오른 만큼 군세도 (필요한 칸만) 자란다
 		s.battles = []
+	_reap()      # 11/12 지난 저녁 대전으로 민심이 바닥난 사람 · 봇 —— 대전을 다 본 뒤라 결과가 새지 않는다
+	if _game_done():
+		_news_stage = ""
+		_finish()
+		return
 	# 11/10 사용자: 온라인 대전의 전황 소식은 유저의 것만 —— 봇 등용 소식은 방에 뿌리지 않는다 (11/9 에 넣었던 것을 뺀다).
 	# _bot_news() 는 봇의 최고 등급 기록(top)을 갱신하므로 호출은 그대로 두고 결과만 버린다
 	_bot_news()
@@ -1018,56 +1034,7 @@ func _advance() -> void:
 	_check_alone()
 
 
-# ───────── 토너먼트 ─────────
-
-## 7일째 저녁 준비 —— 시딩과 대진표만 (전투는 준비가 끝나면)
-func _tour_seed() -> void:
-	var ps := []
-	for i in seats.size():
-		var s: Dictionary = seats[i]
-		if s.human and s.dead:
-			continue
-		ps.append({"name": s.name, "seat": i, "pv": _pv(s)})
-	var k := 1
-	while ps.size() < max_seats:      # 멸망한 사람 자리는 떠돌이 군세로 채운다
-		var bs := _bot_seat("유랑군 %d" % k, "떠돌이 군세", "군", "균형", float(_avg_pv()), 1.0)
-		seats.append(bs)
-		ps.append({"name": bs.name, "seat": seats.size() - 1, "pv": _pv(bs)})
-		k += 1
-	ps.sort_custom(func(a, b): return a.pv > b.pv)
-	# 대진표는 8강 · 4강 · 결승 틀 하나 —— 인원이 8 미만이면 8 이상 시드(상대 없는 자리)는 부전승. 8명이면 8강 4판, 6명이면 8강 2판(1 · 2위 시드 부전승), 4명이면 4강부터.
-	# 부전승 자리는 carry 에 먼저 넣고(빈 칸 = 8강 승자가 들어간다), 8강이 없으면 carry 가 곧 4강 명단
-	var lst := []
-	var carry := []
-	for m in 4:
-		var i: int = SEED_ORDER[m * 2]
-		var j: int = SEED_ORDER[m * 2 + 1]
-		if j < ps.size():
-			lst.append(ps[i])
-			lst.append(ps[j])
-			carry.append(null)
-		else:
-			carry.append(ps[i])
-	var first := 0
-	var bye := []
-	if lst.is_empty():
-		first = 1
-		lst = carry
-		carry = []
-	else:
-		for c in carry:
-			if c != null:
-				bye.append(c.name)
-	tour = {"round": first, "list": lst, "res": [null, null, null], "next": null, "carry": carry, "bye": bye}
-	for m in lst.size() / 2:
-		var a: Dictionary = lst[m * 2]
-		var b: Dictionary = lst[m * 2 + 1]
-		for pair in [[a, b], [b, a]]:
-			var s: Dictionary = seats[pair[0].seat]
-			if s.human:
-				s.foe = _foe_for(s, seats[pair[1].seat])
-	_tour_view()
-
+# ───────── 최후 1인 (11/12 사용자: 7일째 토너먼트 대신 마지막 한 세력이 남을 때까지) ─────────
 
 func _avg_pv() -> int:
 	var t := 0.0
@@ -1076,138 +1043,115 @@ func _avg_pv() -> int:
 	return roundi(t / maxf(1, seats.size()))
 
 
-func _side_of(e: Dictionary) -> Dictionary:
-	var s: Dictionary = seats[e.seat]
-	return s.run._my_side() if s.human else _bot_side(s)
+## 점검 모드는 7일차까지 멸망하지 않는다 (TEST_MORTAL_DAY) —— 진짜 방은 늘
+func _mortal() -> bool:
+	return mode != "test" or day >= TEST_MORTAL_DAY
 
 
-func _tour_round() -> void:
+## 이번 전투 단계 직전의 민심 (모두가 한꺼번에 무너질 때 누가 마지막까지 남았는지 가른다)
+func _snap_hp() -> void:
 	for s in seats:
-		s.battles = []
-	var r: int = tour.round
-	var L: Array = tour.list
-	var ms := []
-	for m in L.size() / 2:
-		var a: Dictionary = L[m * 2]
-		var b: Dictionary = L[m * 2 + 1]
-		var bt := {"kind": "tour", "a": _side_of(a), "b": _side_of(b), "seed": rng.randi() % 1000000,
-			"title": "%s · %s" % [Run.ROUNDNM[r], b.name], "foe": b.name, "inputs": []}
-		bt.pol = Run.policy_for(bt)
-		var res := Run.simulate(bt, [], bt.pol)
-		var w: Dictionary = a if res.win else b
-		var sa: Dictionary = seats[a.seat]
-		var sb: Dictionary = seats[b.seat]
-		if sb.human:
-			var fr := Run.flip_res(res)
-			fr.title = "%s · %s" % [Run.ROUNDNM[r], a.name]
-			fr.foe = a.name
-			sb.battles.append({"title": fr.title, "res": fr, "kind": "tour", "params": _params(bt, true, fr.title, a.name)})
-			if rlog != null:
-				rlog.battle(_idx(sb), sb.run, {"kind": "tour", "title": fr.title, "seed": bt.seed, "a": bt.b, "b": bt.a}, fr, a.name, sa.human, sb.peer < 0, bool(sa.get("rec", false)))
-		if sa.human:
-			sa.battles.append({"title": bt.title, "res": res, "kind": "tour", "params": _params(bt, false)})
-			if rlog != null:
-				rlog.battle(_idx(sa), sa.run, bt, res, b.name, sb.human, sa.peer < 0, bool(sb.get("rec", false)))
-		for pair in [[sa, b, w == a], [sb, a, w == b]]:
-			var s: Dictionary = pair[0]
-			if not s.human:
-				continue
-			var run: Run = s.run
-			if pair[2]:
-				if r == 2:
-					run.over = {"win": true, "msg": "%s을(를) 꺾고 천하를 얻었다" % pair[1].name}
-				else:
-					run.my_w += 1
-			else:
-				run.over = {"win": false, "msg": "%s에서 %s에게 패했다 — 최종 %s" % [Run.ROUNDNM[r], pair[1].name, tour_rank_text(r)]}
-				s.dead = true
-		ms.append({"a": a, "b": b, "w": w.name})
-	tour.res[r] = ms
-	tour.next = ms.map(func(x): return x.a if x.w == x.a.name else x.b)
-	_tour_view()
-	for s in humans():
-		if s.run.over != null:
-			_log_over(s)
+		s["hp0"] = _hp_of(s)
 
 
-## 토너먼트에서 진 라운드(0 = 8강 · 1 = 4강 · 2 = 결승)의 최종 순위 글 —— 8강 탈락은 5위부터 방 인원(max)까지
-func tour_rank_text(r: int) -> String:
-	return ("5~%d위" % max_seats) if r == 0 else ("3~4위" if r == 1 else "2위")
+func _hp_of(s: Dictionary) -> int:
+	if s.human:
+		return int(s.run.hp) if s.run != null else 0
+	return int(s.bot.get("hp", Run.HP_MAX)) if s.bot != null else 0
 
 
-## 사람마다 Run.tour 를 채운다 —— 화면(_bracket)이 그대로 그린다
-func _tour_view() -> void:
-	for s in humans():
-		var v := {"round": tour.round, "res": [null, null, null], "my_match": -1, "next": null, "bye": tour.get("bye", [])}
-		var rounds: Array = tour.res.duplicate()
-		if rounds[tour.round] == null:
-			rounds[tour.round] = _tour_pending(tour.list)
-		for r in 3:
-			if rounds[r] == null:
-				continue
-			var ms := []
-			for i in rounds[r].size():
-				var m: Dictionary = rounds[r][i]
-				var a := {"name": m.a.name, "me": m.a.name == s.name, "pv": m.a.pv}
-				var b := {"name": m.b.name, "me": m.b.name == s.name, "pv": m.b.pv}
-				if a.me or b.me:
-					if r == tour.round:
-						v.my_match = i
-				ms.append({"a": a, "b": b, "w": m.get("w")})
-			v.res[r] = ms
-		s.run.tour = v
-
-
-## 아직 치르지 않은 라운드의 대진 (승자 없음)
-func _tour_pending(lst: Array) -> Array:
-	var ms := []
-	for m in lst.size() / 2:
-		ms.append({"a": lst[m * 2], "b": lst[m * 2 + 1], "w": null})
-	return ms
-
-
-func _tour_next() -> void:
-	if tour.round >= 2:
-		_finish()
+## 봇 자리의 민심을 깎는다 —— 자리(seats)에 있는 봇만 (유랑군 · 그림자는 민심이 없다). 멸망 판정은 _reap 이 한 번에
+func _bot_hit(b: Dictionary, dmg: int) -> void:
+	if b.human or b.dead or not seats.any(func(o): return is_same(o, b)):
 		return
-	var nxt: Array = tour.next
-	if not tour.carry.is_empty():      # 부전승으로 먼저 올라가 있던 자리 + 8강 승자 (빈 칸에 차례로)
-		var full := []
-		var k := 0
-		for c in tour.carry:
-			if c == null:
-				full.append(nxt[k])
-				k += 1
-			else:
-				full.append(c)
-		nxt = full
-		tour.carry = []
-		tour.bye = []
-	tour.list = nxt
-	tour.round += 1
-	for s in seats:
-		s.foe = null
-	for m in tour.list.size() / 2:
-		var a: Dictionary = tour.list[m * 2]
-		var b: Dictionary = tour.list[m * 2 + 1]
-		for pair in [[a, b], [b, a]]:
-			var s: Dictionary = seats[pair[0].seat]
-			if s.human:
-				s.foe = _foe_for(s, seats[pair[1].seat])
-	_tour_round()
-	_stage("evening")
-	for s in humans():
-		_send_battles(s)
+	b.bot["hp"] = maxi(0, int(b.bot.get("hp", Run.HP_MAX)) - dmg)
 
 
+## 봇끼리 (또는 봇 대 유랑군) —— 전투를 돌리지 않고 어림한다 (Run.bot_duel, 혼자 하기의 봇끼리와 같은 식). 진 쪽은 대전 패배와 같은 식으로 민심이 깎인다
+func _pvp_bots(a: Dictionary, b: Dictionary) -> void:
+	var d := Run.bot_duel(float(a.bot.pv) * float(a.bot.skill), float(b.bot.pv) * float(b.bot.skill), rng)
+	var w: Dictionary = a if d.a_win else b
+	var l: Dictionary = b if d.a_win else a
+	w.bot.w += 1
+	l.bot.l += 1
+	_bot_hit(l, Run.hp_dmg_f(Run.hp_base(day) * Run.HP_PVP_MUL_ONLINE, float(d.foe_left), false))
+
+
+## 민심이 바닥난 자리를 멸망시킨다 —— 사람은 Run.over(패배)가 섰을 때, 봇은 민심 0. 같이 무너진 자리는 같은 순위(남은 수 + 1).
+## 남은 세력이 한꺼번에 모두 무너지면 전투 직전 민심(hp0)이 가장 높던 하나(같으면 승수 · 앞자리)를 민심 1 로 남긴다 —— 최후 1인이 늘 있게
+func _reap() -> void:
+	if not _mortal():
+		return
+	var alive := seats.filter(func(o): return not o.dead)
+	var fall := alive.filter(func(o):
+		if o.human:
+			return o.run != null and o.run.over != null and not o.run.over.win
+		return int(o.bot.get("hp", Run.HP_MAX)) <= 0)
+	if fall.is_empty():
+		return
+	if fall.size() == alive.size():
+		var keep: Dictionary = fall[0]
+		for o in fall:
+			var k := [int(o.get("hp0", 0)), _wins_of(o), -_idx(o)]
+			var kk := [int(keep.get("hp0", 0)), _wins_of(keep), -_idx(keep)]
+			if k > kk:
+				keep = o
+		fall.erase(keep)
+		if keep.human:
+			keep.run.over = null
+			keep.run.hp = 1
+		else:
+			keep.bot.hp = 1
+	var rank := alive.size() - fall.size() + 1
+	for o in fall:
+		o.dead = true
+		o["rank"] = rank
+		fall_n += 1
+		if o.human:
+			o.run.over["rank"] = rank
+			o.run.over["of"] = seats.size()
+			var by := str(o.run.over.get("by", ""))      # 엔딩 연출 —— 마지막에 나를 꺾은 상대가 사람 자리인가 (그림자 · 유랑군 · 봇은 아니다)
+			o.run.over["by_human"] = by != "" and seats.any(func(x): return x.human and str(x.name) == by)
+			_log_over(o)
+		_fallen(o)
+
+
+## 판의 끝 —— 남은 세력(하나)이 1위 · 천하 통일. 사람이면 Run.over = {win: true, msg, rank: 1, of}, 방 정보 winner = 그 이름 (남은 사람 없이 끝나면 남은 봇 중 민심이 가장 높은 쪽).
+## 아직 over 가 없는 사람(남은 사람 없이 끝난 경우는 없다 —— 혼자 남아 방을 닫는 것은 on_alone)은 지금 남은 수로 순위를 받는다
 func _finish() -> void:
+	var alive := seats.filter(func(o): return not o.dead)
+	alive.sort_custom(func(a, b): return _hp_of(a) > _hp_of(b) if _hp_of(a) != _hp_of(b) else _idx(a) < _idx(b))
+	if not alive.is_empty():
+		var w: Dictionary = alive[0]
+		winner = str(w.name)
+		w["rank"] = 1
+		if w.human:
+			w.run.over = {"win": true, "msg": "천하를 통일했다 —— 마지막까지 남은 세력", "rank": 1, "of": seats.size()}
+		for k in range(1, alive.size()):      # 남은 사람 없이 끝난 방의 나머지 봇 —— 민심 순
+			alive[k]["rank"] = k + 1
 	for s in humans():
 		if s.run.over == null:
-			s.run.over = {"win": false, "msg": "토너먼트가 끝났다"}
+			s.run.over = {"win": false, "msg": "판이 끝났다", "rank": int(s.get("rank", seats.size())), "of": seats.size()}
+	if winner != "":
+		var it := {"who": winner, "text": "%s, 천하를 통일했습니다" % winner}
+		_news_add(it)
+		_announce(it.text, it)
 	stage = "over"
 	stage_no += 1
 	_log_end()
 	push_all()
+
+
+func _wins_of(s: Dictionary) -> int:
+	return int(s.run.my_w) if s.human else int(s.bot.w)
+
+
+## 판이 끝났나 —— 남은 세력이 하나뿐이거나(최후 1인), 남은 사람이 없다(진짜 방: 봇끼리 이어 갈 까닭이 없다)
+func _game_done() -> bool:
+	var alive := seats.filter(func(o): return not o.dead)
+	if alive.size() <= 1:
+		return true
+	return mode != "test" and not alive.any(func(o): return o.human)
 
 
 # ───────── 소식 · 한마디 ─────────
@@ -1247,15 +1191,17 @@ func _bot_news() -> Array:
 
 ## 멸망 —— 방의 다른 사람에게 소식
 ## 11/12 사용자(온라인 존재감): 방 전체에 긴급 띠 「<유저>의 나라가 무너졌습니다 —— 남은 군주 N명」 (band = "fall", 장수 없는 띠 · 옛 휴대폰은 알림 한 줄)
+## 11/12 최후 1인: 봇 자리도 무너진다 (같은 띠). 항목에 rank(최종 순위)를 싣는다 —— 멸망 연출이 쓴다
 func _fallen(s: Dictionary) -> void:
-	var n := seats.filter(func(o): return not (o.human and o.dead)).size()
+	var n := seats.filter(func(o): return not o.dead).size()
 	var tx := "%s의 나라가 무너졌습니다 —— 남은 군주 %d명" % [s.name, n]
 	var it := {"who": s.name, "text": tx}
-	_news_add(it, s)
+	_news_add(it, s if s.human else null)
 	var ann := it.duplicate()
 	ann["band"] = "fall"
 	ann["line"] = "남은 군주 %d명" % n
-	_announce(tx, ann, s, true)
+	ann["rank"] = int(s.get("rank", n + 1))
+	_announce(tx, ann, s if s.human else null, true)
 
 
 ## 11/12 사용자: 토벌이 사라지는 순간(4일차 첫 단계)의 알림 —— 「토벌 종료 / 이제부터 준비 30초 · 대전 준비 15초」. 방 전체에 소식 한 줄 + band "noon_end" (새 휴대폰은 아침 띠 대신 이 띠,
@@ -1375,20 +1321,12 @@ func _status_sync() -> void:
 			server.send(o.peer, {"t": "act_st", "st": st})
 
 
-## 오늘 밤 이 자리(i)의 상대가 될 사람 자리 —— 아침 · 점심에만(저녁 준비부터는 상대 칸이 이미 보인다). 첫 저녁 전(자리 배치 전) · 토너먼트 날 · 그림자 · 봇이면 -1.
-## _begin_evening 과 같은 식(rr_plan)으로 미리 셈한다 —— 난수를 쓰지 않는다
+## 오늘 밤 이 자리(i)의 상대가 될 사람 자리 —— 아침 · 점심에만(저녁 준비부터는 상대 칸이 이미 보인다). 첫 저녁 전(자리 배치 전) · 그림자 · 봇이면 -1.
+## _begin_evening 과 같은 식(_plan_pairs)으로 미리 셈한다 —— 난수를 쓰지 않는다
 func tonight_foe(i: int) -> int:
-	if not (stage in ["morning", "noon"]) or tour != null or rr_order.size() != seats.size() or (day == 6 and phase == 2):
+	if not (stage in ["morning", "noon"]) or rr_order.size() != seats.size():
 		return -1
-	var dead := []
-	var alive_h := []
-	for k in seats.size():
-		if seats[k].human and seats[k].dead:
-			dead.append(k)
-		elif seats[k].human and seats[k].run != null and seats[k].token != "":
-			alive_h.append(k)
-	var ev_no := day * 3 + phase
-	for p in rr_plan(rr_order, ev_no % (max_seats - 1), dead, alive_h, ev_no / (max_seats - 1)):
+	for p in _plan_pairs():
 		if p.size() != 2 or int(p[0]) < 0 or int(p[1]) < 0:
 			continue
 		var o := -1
@@ -1514,11 +1452,12 @@ func _mirror() -> void:
 				var r: Run = o.run
 				var epi := "사람" + ("" if o.peer >= 0 else " · 접속 끊김 — 봇 대행") + (" · 멸망" if o.dead else "")
 				lst.append({"name": o.name, "epi": epi, "fac": "촉", "style": "균형", "pv": float(r.my_pv()),
-					"w": r.my_w, "l": r.my_l, "strikes": r.strikes, "top": 0, "skill": 1.0})
+					"w": r.my_w, "l": r.my_l, "strikes": r.strikes, "top": 0, "skill": 1.0, "hp": r.hp, "dead": o.dead})
 			else:
 				var b: Dictionary = o.bot
 				lst.append({"name": o.name, "epi": b.epi, "fac": b.fac, "style": b.style, "pv": b.pv,
-					"w": b.w, "l": b.l, "strikes": b.strikes, "top": 0, "skill": b.skill, "army": (b.get("army", []) as Array).duplicate()})
+					"w": b.w, "l": b.l, "strikes": b.strikes, "top": 0, "skill": b.skill, "army": (b.get("army", []) as Array).duplicate(),
+					"hp": int(b.get("hp", Run.HP_MAX)), "dead": o.dead})      # 11/12 봇 민심 · 멸망
 		s.run.bots = lst
 
 

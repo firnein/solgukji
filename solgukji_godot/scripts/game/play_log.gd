@@ -237,4 +237,4 @@ static func over(run) -> void:
 static func over_data(run) -> Dictionary:
 	return {"win": bool(run.over.win), "msg": str(run.over.msg), "hp": run.hp, "w": run.my_w, "l": run.my_l,
 		"rank": run.rank(), "my_pv": run.my_pv(), "deck": side(run.board),
-		"tour": ("우승" if bool(run.over.win) else run.tour_rank()) if run.tour != null else ""}
+		"of": int(run.over.get("of", 0)), "day_end": run.day + 1}      # 11/12 최후 1인 —— 옛 "tour"(토너먼트 순위) 대신 최종 순위(rank) · 처음 세력 수 · 끝난 일차

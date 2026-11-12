@@ -517,10 +517,7 @@ func _build_tabbar_badges() -> void:
 	_tabs.deploy.badge = 0 if r.placed() < 9 and not r.inv.is_empty() and can_form() else -1
 	var war_todo := false
 	if online == null and r.over == null and r.placed() > 0:
-		if r.is_tour_phase():
-			war_todo = r.tour == null or r.tour.get("next") == null or r.last_result == null
-		else:
-			war_todo = not r.quest_done or not r.pvp_done or r.can_next()
+		war_todo = not r.quest_done or not r.pvp_done or r.can_next()
 	_tabs.war.badge = 0 if war_todo else -1
 	for k in _tabs:
 		_tabs[k].on = k == page or (k == "more" and page in ["line", "rank", "update"])
@@ -591,7 +588,7 @@ func _build_title() -> void:
 	sub.add_theme_constant_override("outline_size", 4)
 	sub.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 	v.add_child(sub)
-	var ko := UI.lbl("일주일을 살아남아 천하를 얻어라", 14, Color("#c6ac7c"))
+	var ko := UI.lbl("마지막까지 살아남아 천하를 통일하라", 14, Color("#c6ac7c"))
 	ko.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ko.add_theme_constant_override("outline_size", 5)
 	ko.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
@@ -708,7 +705,7 @@ func render(new_page := false) -> void:
 	_render_head()
 	_build_tabbar_badges()
 	var keep := _scroll.scroll_vertical
-	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null) or (page == "war" and run.over == null and online == null and not run.is_tour_phase())      # 전투 탭 —— 진영 그림이 남는 공간을 채운다 (11/4)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
+	var fixed: bool = page == "deploy" or (page == "draw" and run.over == null) or (page == "war" and run.over == null and online == null)      # 전투 탭 —— 진영 그림이 남는 공간을 채운다 (11/4)      # 징집도 고정 —— 보유 패만 아래에서 스크롤 (11/2)
 	_scroll.visible = not fixed
 	_fixed.visible = fixed
 	for c in _body.get_children():
@@ -795,17 +792,18 @@ func _render_head() -> void:
 		# 병사 수(12,900명)는 뺀다 (결정 ⑥ 처럼 전력은 보이지 않는다)
 		var st := str(online.room.get("stage", ""))
 		_day_lbl.text = online.day_text()      # 11/10 게임 날짜 · 페이즈로 (day_no 는 페이즈 번호 1~21)
-		_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else online.head_stage_text())
+		_sub_lbl.text = (("천하 통일" if run.over.win else "멸망") if run.over else online.head_stage_text())
 		_phase_bar.n = online.head_steps()      # 11/11 토벌이 없는 날(4일차~)은 세 칸
 		_phase_bar.group = online.head_steps()
 		_phase_bar.cur = online.head_idx()
 		_pow_lbl.visible = false
 	else:
-		_day_lbl.text = "DAY %d · %s요일" % [run.day + 1, Run.DAYNAME[run.day]]
-		_sub_lbl.text = (("종료" if run.over.win else "멸망") if run.over else Run.PHASE_N[run.phase])
+		_day_lbl.text = "DAY %d · %s요일" % [run.day + 1, Run.DAYNAME[run.day % 7]]
+		_sub_lbl.text = (("천하 통일" if run.over.win else "멸망") if run.over else Run.PHASE_N[run.phase])
+		# 11/12 최후 1인: 7일이 지나도 판이 이어진다 —— 막대는 이번 주(7일 × 3칸)만
 		_phase_bar.n = 21
 		_phase_bar.group = 3
-		_phase_bar.cur = run.phase_idx()
+		_phase_bar.cur = run.phase_idx() % 21
 		_pow_lbl.visible = true
 		_pow_lbl.text = "%s명" % Battle.num(run.board_power())
 	_phase_bar.queue_redraw()
@@ -1693,8 +1691,8 @@ func _page_draw() -> Control:
 	var n := run.draws_n()
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
-	if run.day == 6:
-		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 징집은 이날 가장 적게 남는다. 명장으로 마지막 싸움을 준비하라.", 14), 10))
+	if run.day >= 7:      # 11/12 최후 1인 —— 8일차부터 패배 민심 피해가 매일 커진다
+		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]%d일차 — 난세의 끝[/color][/b] — 마지막 한 세력이 남을 때까지 싸운다. 패배 민심 피해 ×%s" % [run.day + 1, str(snappedf(pow(Run.HP_LATE_MUL, run.day - Run.LAST_TABLE_DAY), 0.01))], 14), 10))
 
 	# 할 일 —— 기호 타일 한 줄 (11/7 사용자: 세로로 너무 컸다 —— 기호 · 제목을 옆으로 나란히 높이 34, 한 줄 최대 5칸)
 	var acts := UI.grid(70, 4)
@@ -3146,24 +3144,7 @@ func _page_war() -> Control:
 		return _over_panel()
 	var v := UI.vbox(16)
 	var placed := run.placed()
-	if run.is_tour_phase():
-		if run.tour == null:
-			run.init_tour()
-			run.save()
-		var foe := run.tour_foe()
-		v.add_child(_page_head("최종 토너먼트 · %s" % Run.ROUNDNM[run.tour.round],
-			"상대 %s · %d PV · 내 전력 %d PV — 지면 그대로 끝난다." % [foe.name, foe.pv, run.my_pv()]))
-		if run.last_result != null and run.tour.next != null:
-			v.add_child(_result_panel())
-			v.add_child(UI.btn("%s 진출" % Run.ROUNDNM[run.tour.round + 1], func():
-				run.tour_advance()
-				changed(), "pri", 60))
-		else:
-			# 11/7 사용자: 큰 두 줄 버튼(UI.act) 대신 토벌 · 대전과 같은 한 줄 '출진 · 9/9칸 · 76,500명'
-			v.add_child(_war_btn("출진" if placed > 0 else "편성이 비어 있다", ("%d/9칸 · %s명" % [placed, Battle.num(run.board_power())]) if placed > 0 else "",
-				false, placed == 0, func(): _start("tour"), "warn"))
-		v.add_child(_bracket())
-	else:
+	if true:      # 11/12 최후 1인 —— 옛 최종 토너먼트 화면(대진표)은 없어졌다
 		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
 		# 11/7 사용자: '목요일 오전' 글은 머리띠에 이미 있어 뺀다. 큰 두 줄 버튼(UI.act 64) 은 한 줄(46)로, 끝난 것은 완료 표시만 작게
 		var row := UI.hbox(8)
@@ -3202,7 +3183,7 @@ func _page_war() -> Control:
 				if run.over != null:
 					PlayLog.over(run)
 				go("draw"), "pri", 50))
-	if not run.is_tour_phase() and placed > 0:
+	if placed > 0:
 		# 11/7 사용자: 군단 효과는 그림 밖 칩 흐름(접으면 6개 + '+N 더', 펼치면 2열 표)으로 —— 효과가 많은 덱도 줄바꿈될 뿐 메달 줄을 누르지 않는다
 		var fx := FormationView.effects_box(run.board, run.form, _open.get("war:fx", false), func(): _toggle("war:fx"), func(k): card_info(k))
 		if fx != null:
@@ -3214,7 +3195,7 @@ func _page_war() -> Control:
 		fp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.add_child(fp)
-	if not run.is_tour_phase():
+	if true:
 		# 11/7: 전투 탭은 고정 페이지(render 의 fixed —— 진영 그림이 남는 공간을 채운다)라 내용이 길면(점괘 · 펼친 효과 표) 아래가 잘리고
 		# 내릴 수도 없었다 —— 탭 안에 제 스크롤을 둔다. 짧으면 안쪽 VBox 가 창을 채우고(진영 그림이 남는 공간), 길면 손가락으로 내린다
 		var sc := UI.scroll()
@@ -3288,36 +3269,6 @@ func _result_panel() -> Control:
 	return UI.panel(v, 12)
 
 
-func _bracket() -> Control:
-	var v := UI.vbox(10)
-	var t: Dictionary = run.tour
-	for r in 3:
-		var ms = t.res[r]
-		if ms == null:
-			continue
-		var rv := UI.vbox(2)
-		rv.add_child(UI.lbl(Run.ROUNDNM[r], 14, DB.PAL.bamboo, true))
-		for i in ms.size():
-			var m: Dictionary = ms[i]
-			var nm := func(pl):
-				var s: String = pl.name
-				if m.w == pl.name:
-					s = "[color=#8fd4c2][b]%s[/b][/color]" % s
-				elif m.w != null:
-					s = "[color=#5d6a88]%s[/color]" % s
-				if pl.me:
-					s = "[u]%s[/u]" % s
-				return s
-			var cur: bool = r == t.round and i == t.my_match and m.w == null
-			rv.add_child(UI.rich("%s%s  대  %s%s" % ["[bgcolor=#33405F]" if cur else "", nm.call(m.a), nm.call(m.b), "[/bgcolor]" if cur else ""], 14))
-		v.add_child(rv)
-	var bye: Array = t.get("bye", []) if t.round == 0 else []
-	if not bye.is_empty():      # 11/11 8명 미만인 온라인 방 —— 상위 시드는 8강을 건너뛴다
-		v.add_child(UI.hint("부전승 (4강 직행) — %s" % " · ".join(bye)))
-	v.add_child(UI.hint("전력 순위로 시딩한다. 다른 대진도 같은 전투 엔진으로 진행된다."))
-	return UI.sect("대진표 — %s 진행 중" % Run.ROUNDNM[t.round], UI.panel(v))
-
-
 func _start(kind: String) -> void:
 	if run.placed() == 0 or run.battle != null:
 		return
@@ -3325,7 +3276,6 @@ func _start(kind: String) -> void:
 	match kind:
 		"quest": bt = run.start_quest()
 		"pvp": bt = run.start_pvp()
-		"tour": bt = run.start_tour()
 	run.save()
 	PlayLog.battle_start(run, bt)
 	close_sheet()
@@ -3754,7 +3704,7 @@ func _on_battle_close() -> void:
 	PlayLog.after_battle(run)
 	_battle_layer.visible = false
 	_resume_bands()
-	if run.last_spoil != null and run.last_result.kind != "tour":
+	if run.last_spoil != null:
 		toast("기본패 %d장 획득 — %s" % [run.last_spoil.n, run.last_spoil.src], "gain")
 	go("war")
 
@@ -3807,8 +3757,10 @@ func _standings() -> Control:
 		"fac": "촉", "pv": run.my_pv(), "me": true, "dead": run.over != null and not run.over.win}]
 	for b in run.bots:      # 11/12 사용자: 봇의 칭호("전력 1위 사냥꾼" 등)는 뺀다 —— 전적만. 온라인 사람 자리는 서버가 적은 "사람 · 접속 끊김 …" 그대로
 		var epi := str(b.epi) if str(b.epi).begins_with("사람") else "%d승 %d패" % [int(b.get("w", 0)), int(b.get("l", 0))]
-		rows.append({"name": b.name, "epi": epi, "fac": b.fac, "pv": roundi(b.pv), "me": false, "dead": false})
-	rows.sort_custom(func(a, b): return a.pv > b.pv)
+		if not str(b.epi).begins_with("사람") and b.has("hp"):
+			epi += " · 민심 %d" % int(b.hp)      # 11/12 최후 1인 —— 봇도 민심이 있다
+		rows.append({"name": b.name, "epi": epi, "fac": b.fac, "pv": roundi(b.pv), "me": false, "dead": bool(b.get("dead", false))})
+	rows.sort_custom(func(a, b): return a.pv > b.pv if a.dead == b.dead else b.dead)      # 남은 세력이 위, 멸망한 세력은 아래
 	var v := UI.vbox(6)
 	for i in rows.size():
 		var r: Dictionary = rows[i]
@@ -3844,7 +3796,7 @@ func _page_rank() -> Control:
 	sr.add_child(UI.stat(str(run.my_pv()), "내 전력"))
 	sr.add_child(UI.stat("%d승 %d패" % [run.my_w, run.my_l], "전적"))
 	sr.add_child(UI.stat("%d" % run.hp, "민심"))      # 11/9 경고 → 민심 (패배마다 깎이고 0 이면 멸망)
-	v.add_child(UI.sect("군웅 할거 · %s요일 %s" % [Run.DAYNAME[run.day], Run.PHASE_N[run.phase]], UI.panel(sr)))
+	v.add_child(UI.sect("군웅 할거 · %d일차 %s" % [run.day + 1, Run.PHASE_N[run.phase]], UI.panel(sr)))
 	if online != null and online.in_game and not online.room.is_empty():
 		v.add_child(online.peers_section())      # 11/11 사용자: 다른 유저의 민심 · 핵심 유닛(기인 · 초월 · 불멸 · 신화)
 	else:
@@ -3856,7 +3808,7 @@ func _page_rank() -> Control:
 	for b in bs:
 		bv.add_child(UI.rich("[b]%s[/b]  [color=#8D7B5C]%s 편중 · %s%s[/color]" % [b.name, b.style, DB.FORM[DB.STYLE_FORM[b.style]].n,
 			(" · 토벌 실패 %d" % b.strikes) if b.strikes else ""]))
-	bv.add_child(UI.hint("모든 토벌 실패가 경고로 쌓이며, 3일차부터 한도에 닿으면 멸망한다. 봇 세력은 멸망하지 않고 전력 손실로만 대가를 치른다."))
+	bv.add_child(UI.hint("토벌 · 대전에 지면 민심이 깎이고 0 이면 멸망한다 —— 봇 세력도 같다. 8일차부터는 패배 피해가 매일 커지며, 마지막 한 세력이 천하를 통일한다."))
 	v.add_child(UI.sect("세력 성향", UI.panel(bv)))
 	return v
 
@@ -3873,13 +3825,13 @@ func _peers_solo() -> Control:
 	return UI.sect("군웅 — 민심 · 핵심 유닛", v)
 
 
-## 봇 한 줄 (Online.peer_row 의 줄) —— 봇은 민심이 없다(멸망하지 않는 세력): 그 자리에 전적 · 토벌 실패. 핵심 유닛은 bot_key
+## 봇 한 줄 (Online.peer_row 의 줄) —— 11/12 최후 1인: 봇도 민심이 있다(멸망하는 세력) —— 민심 게이지 + 전적. 민심을 주지 않는 옛 서버의 봇만 글(전적)로. 핵심 유닛은 bot_key
 static func bot_row(r: Run, b: Dictionary) -> Dictionary:
-	var note := "민심 없음 · %d승 %d패" % [int(b.get("w", 0)), int(b.get("l", 0))]
+	var note := "%d승 %d패" % [int(b.get("w", 0)), int(b.get("l", 0))]
 	if int(b.get("strikes", 0)) > 0:
 		note += " · 토벌 실패 %d" % int(b.strikes)
-	return {"name": str(b.name), "me": false, "online": true, "dead": false, "bot": true, "note": note,
-		"hp": -1, "key": bot_key(r, b), "has_key": true}
+	return {"name": str(b.name), "me": false, "online": true, "dead": bool(b.get("dead", false)), "bot": true, "note": note,
+		"hp": clampi(int(b.hp), 0, Run.HP_MAX) if b.has("hp") else -1, "key": bot_key(r, b), "has_key": true}
 
 
 ## 봇의 핵심 유닛 (11/12 사용자) —— 11/12 부터 봇 군세는 봇마다 한 번 만들어 자라는 것(b.army, Run.bot_grow)이라 그 군세의 기인 이상(Room.is_urgent_unit)을 높은 등급부터 보인다.
@@ -3925,14 +3877,15 @@ func _over_panel() -> Control:
 	var v := UI.vbox(16)
 	var o: Dictionary = run.over
 	var pv := UI.vbox(8)
-	var t := UI.lbl("우승" if o.win else "멸망", 48, DB.PAL.jade if o.win else DB.PAL.seal, true)
+	var t := UI.lbl("천하 통일" if o.win else "멸망", 48, DB.PAL.jade if o.win else DB.PAL.seal, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pv.add_child(t)
 	var m := UI.lbl(o.msg, 16, DB.PAL.paper)
 	m.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	m.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pv.add_child(m)
-	var s := UI.lbl("최종 %s명 · %d PV · %d승 %d패" % [Battle.num(run.board_power()), run.my_pv(), run.my_w, run.my_l], 15, DB.PAL.bamboo)
+	var rk := ("최종 %d위 / %d · " % [int(o.rank), int(o.get("of", run.bots.size() + 1))]) if o.has("rank") else ""      # 11/12 최후 1인 순위
+	var s := UI.lbl("%s%d일차 · 최종 %s명 · %d PV · %d승 %d패" % [rk, run.day + 1, Battle.num(run.board_power()), run.my_pv(), run.my_w, run.my_l], 15, DB.PAL.bamboo)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pv.add_child(s)

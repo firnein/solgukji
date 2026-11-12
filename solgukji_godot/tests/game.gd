@@ -1,7 +1,7 @@
 extends Node
 ## 진행 점검 —— 실행: godot --headless --path . res://tests/game.tscn [-- --runs=20] [--noshield]
 ## 사람 대신 Run.dev_autoplay 의 단순한 규칙으로 한 판을 끝까지 돈다 (징집 → 선택권 → 조합 → 자동 편성 →
-## 토벌 → 대전 → 다음 페이즈 … → 토너먼트). 페이즈마다 저장했다가 다시 읽어 이어 간다.
+## 토벌 → 대전 → 다음 페이즈 … → 최후 1인(11/12: 토너먼트 없음 —— 내가 멸망하거나 봇이 모두 멸망할 때까지)). 페이즈마다 저장했다가 다시 읽어 이어 간다.
 
 
 func _ready() -> void:
@@ -18,15 +18,17 @@ func _ready() -> void:
 	if args.has("noshield"):        # 11/8 갑옷 · 결계 · 깎기 · 토벌 성질 · 봇 덱 섞기 끄기 —— 비교용
 		Battle.shield_enabled = false
 		DB.bot_mix = false
+	Run.dev_keep_me = args.has("keep")      # 11/12 나만 멸망하지 않게 —— 봇이 모두 무너지는(천하 통일) 날을 잰다
 	var qtry := {}                # "일차-단계" -> [도전, 실패]
 	var wins := 0
+	var days_sum := 0
 	var phases := 0
 	for n in runs:
 		var r := Run.new()
 		r.new_game(100 + n)
 		var guard := 0
 		var myth_at := ""
-		while r.over == null and guard < 40:
+		while r.over == null and guard < 150:
 			guard += 1
 			var qk := "%d-%d" % [r.day + 1, r.phase + 1]
 			var st0 := r.strikes
@@ -43,12 +45,20 @@ func _ready() -> void:
 			var r2 := Run.new()
 			r2.from_dict(d)
 			r = r2
+		if r.over == null:
+			print("판 %d: %d페이즈 안에 끝나지 않았다 (오류)" % [n, guard])
+			continue
 		if r.over.win:
 			wins += 1
 		phases += r.day * 3 + r.phase
-		print("판 %d: %s · %s · %d일차 %s · PV %d · %d승 %d패 · 경고 %d · 민심 %d · 신화 %s" % [n, "우승" if r.over.win else "탈락",
+		days_sum += r.day + 1
+		var alive_b := r.alive_bots().size()
+		if r.over.win and alive_b != 0:
+			print("  오류: 천하 통일인데 남은 봇 %d" % alive_b)
+		print("  남은 봇 %d · 봇 민심 %s" % [alive_b, str(r.bots.map(func(b): return int(b.hp)))])
+		print("판 %d: %s · %s · %d일차 %s · PV %d · %d승 %d패 · 경고 %d · 민심 %d · 신화 %s" % [n, "천하 통일" if r.over.win else "멸망 %s위" % str(r.over.get("rank", "?")),
 			r.over.msg, r.day + 1, Run.PHASE_N[r.phase], r.my_pv(), r.my_w, r.my_l, r.strikes, r.hp, myth_at if myth_at != "" else "없음"])
-	print("우승 %d / %d · 평균 도달 페이즈 %.1f" % [wins, runs, phases / float(runs)])
+	print("천하 통일 %d / %d · 평균 도달 페이즈 %.1f · 평균 끝난 일차 %.1f" % [wins, runs, phases / float(runs), days_sum / float(runs)])
 	if args.has("snap"):
 		var sf := FileAccess.open(str(args.snap), FileAccess.WRITE)
 		sf.store_string(JSON.stringify(Run.dev_snap))

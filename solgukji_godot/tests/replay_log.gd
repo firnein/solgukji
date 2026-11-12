@@ -176,8 +176,7 @@ func _ready() -> void:
 	var floats := func(key: String) -> Array:
 		return Array(str(args[key]).split(",")).map(func(x): return float(x)) if args.has(key) else []
 	EvalRun.late = floats.call("late")
-	if args.has("tmul"):      # 11/10 토너먼트 라운드별 상대 PV 배율 (8강 · 4강 · 결승)
-		Run.TOUR_BOT_MUL = floats.call("tmul")
+	# 11/12 토너먼트가 없어져 --tmul(라운드별 상대 PV 배율)은 쓰지 않는다
 	EvalRun.skill = floats.call("skill")
 	EvalRun.qtr = floats.call("qtr")
 	EvalRun.q0 = float(args.get("q0", "-1"))
@@ -266,12 +265,8 @@ func _start(r: Run, kind: String) -> Dictionary:
 			return r.start_quest()
 		"pvp":
 			return r.start_pvp()
-		"tour":
-			if r.tour == null:
-				r.init_tour()
-			elif r.tour.next != null:
-				r.tour_advance()
-			return r.start_tour()
+		"tour":      # 11/12 토너먼트가 없어졌다 —— 옛 기록의 토너먼트 전투는 대전으로 되살린다
+			return r.start_pvp()
 	return {}
 
 
@@ -343,18 +338,7 @@ func _eval(xs: Array, r: Run, e: Dictionary, tag: String, q: Dictionary) -> void
 		_probe_pvp(r, e, q)
 	for x in xs:
 		_copy_side(x, r)
-		if kd == "tour":
-			x.init_tour()
-			while x.over == null:
-				var tb: Dictionary = x.start_tour()
-				var tres: Dictionary = Run.simulate(tb, [], Run.policy_for(tb))
-				var rd: int = x.tour.round
-				tour_n[rd] += 1
-				tour_w[rd] += 1 if tres.win else 0
-				x.finish_battle(tres)
-				if x.over != null:
-					break
-				x.tour_advance()
+		if kd == "tour":      # 11/12 토너먼트가 없어졌다 —— 옛 기록의 토너먼트는 건너뛴다
 			continue
 		var b: Dictionary = x.start_quest() if kd == "quest" else x.start_pvp()
 		if not (only == "all" or only == kd) or (not at.is_empty() and not at.has(tag)):
@@ -444,8 +428,7 @@ func _replay(evs: Array) -> void:
 				if desync == "" and e.has("ok") and bool(res) != bool(e.ok):
 					desync = "%s %s %s 성공 여부" % [tag, e.m, str(e.a)]
 			"page":
-				if str(e.get("to", "")) == "war" and r.is_tour_phase() and r.tour == null:
-					r.init_tour()      # 화면은 토너먼트 페이즈에 전투 탭을 처음 열 때 대진을 짠다
+				pass      # (옛 토너먼트 대진 짜기 —— 11/12 없어졌다)
 			"battle_start":
 				bt = _start(r, str(e.kind))
 				approx = direct

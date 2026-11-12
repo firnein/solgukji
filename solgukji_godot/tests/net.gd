@@ -4,7 +4,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")
 ## 서버(MatchServer)와 가짜 플레이어 N명을 한 프로세스에 띄워 실제 WebSocket 으로 한 판을 끝까지 돈다.
 ## 하루 = 아침(징집 → 선택권 → 조합 → 자동 편성 → 준비) → 점심(토벌이 오면 '본 것'으로 준비) → 저녁 준비(빈 편성 채우고 준비) → 저녁(대전이 오면 준비).
 ## 둘째 플레이어는 2일차에 끊었다가 같은 토큰으로 돌아온다 (그동안은 봇이 대신한다).
-## 점검 모드(test)는 멸망하지 않아 7일째 토너먼트까지 간다.
+## 점검 모드(test)는 7일차까지 멸망하지 않고, 8일차부터 민심이 바닥난 세력이 무너져 최후 1인이 남으면 끝난다 (11/12 토너먼트 없음).
 ## 확인: 모두 끝까지 가는가 · 사람끼리 대전의 승패가 양쪽에서 맞는가 · 저녁 준비에 받은 상대와 실제 대전 상대가 같은가 ·
 ##       라운드로빈(11/10): 한 바퀴(자리 수 - 1 저녁) 안에 같은 상대를 두 번 만나지 않는가 · 오류 메시지가 없는가.
 ## 11/11 자리 수 --seats=4|6|8 (기본 8): create 에 max 를 실어 보낸다 —— 방 정보의 max · 자리 수 · 봇 수(= max - 사람 수)를 확인한다. --port= 로 포트를 바꾼다 (다른 세션과 겹치지 않게).
@@ -27,6 +27,8 @@ var norec := 0               # 기록에 동의하지 않은 가짜 클라이언
 var t0 := 0.0
 var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 기준)
 var info_rows := 0            # 확인한 사람 자리 줄 수 (hp · key, 11/11)
+var end_day := 0              # 11/12 판이 끝난 일차
+var winner := ""
 var watch_cmds := 0           # 11/11 기다리는 단계(점심 · 저녁)에 보낸 명령 수 (첫 플레이어만 —— 나머지는 옛 클라이언트처럼 준비 단계에서만 보낸다)
 var form_denied := 0          # 11/12 기다리는 동안 보낸 편성이 이유와 함께 거부된 수
 var act_checked := 0
@@ -79,7 +81,7 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 				b.want_err = int(b.want_err) - 1
 				form_denied += 1
 			else:
-				errors.append("%s: %s" % [b.name, d.msg])
+				errors.append("%s: %s (%s · %s일차)" % [b.name, d.msg, str(b.room.get("stage", "")) if b.room != null else "", str(int(b.room.get("day", -1)) + 1) if b.room != null else ""])
 		"rooms":
 			if b.i == 0 and code == "" and not b.has("created"):
 				b.created = true
@@ -136,7 +138,7 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 			# 11/11 기록 탭 —— 사람 자리마다 hp · key(기초불신 id 만), 봇에는 없다, 그 밖의 키는 허용 목록 안에서만 (실제 WebSocket 으로 온 줄)
 			for sr in rm.seats:
 				for sk in sr:
-					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "st"]):      # st = 11/12 지금 하는 일 (사람 자리)
+					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "st", "rank"]):      # st = 11/12 지금 하는 일 (사람 자리) · rank = 11/12 최종 순위
 						errors.append("%s: 자리 줄에 허용되지 않은 키 %s" % [b.name, sk])
 				if bool(sr.human):
 					if not (sr.has("hp") and sr.has("key")):
@@ -146,8 +148,8 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 						for kc in sr.key:
 							if not Room.is_urgent_unit(str(kc)):
 								errors.append("%s: key 에 기초불신이 아닌 카드 %s" % [b.name, kc])
-				elif sr.has("hp") or sr.has("key"):
-					errors.append("%s: 봇 자리 줄에 hp · key 가 있다" % b.name)
+				elif sr.has("key") or not sr.has("hp"):
+					errors.append("%s: 봇 자리 줄에 key 가 있거나 hp 가 없다 (11/12 봇도 민심)" % b.name)
 			if not seat_checked:
 				seat_checked = true
 				var bn: int = rm.seats.filter(func(s): return not s.human).size()
@@ -156,10 +158,22 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 				print("  방 자리 %d (max %d) · 사람 %d · 봇 %d" % [rm.seats.size(), int(rm.max), n_humans, bn])
 			if rm.get("alone", "") == "ask":
 				c.send({"t": "alone", "go": true})
-			# 11/11 온라인 대전 패배 민심 ×1.0 —— 점검 모드는 민심이 바닥나도 멸망하지 않고 다음 날 아침에 over 가 지워진다(일시적). 진짜 끝(방 over · 토너먼트)만 끝으로 센다
-			if run.over != null and not b.done and (rm.stage == "over" or run.tour != null):
+			# 11/11 온라인 대전 패배 민심 ×1.0 —— 점검 모드는 7일차까지 민심이 바닥나도 멸망하지 않고 다음 날 아침에 over 가 지워진다(일시적). 방 over 만 끝으로 센다
+			if rm.stage == "over" and not b.done:
 				b.done = true
-				print("  %s 끝: %s (%s)" % [b.name, "우승" if run.over.win else "탈락", run.over.msg])
+				if run.over == null:
+					errors.append("%s: 판이 끝났는데 over 가 없다" % b.name)
+				else:
+					print("  %s 끝: %s · %s위 (%s) · %d일차" % [b.name, "천하 통일" if run.over.win else "멸망", str(run.over.get("rank", "?")), run.over.msg, int(run.day) + 1])
+					if not run.over.has("rank"):
+						errors.append("%s: over 에 rank 가 없다" % b.name)
+				var alive_n: int = rm.seats.filter(func(x): return not bool(x.dead)).size()
+				if b.i == 0:
+					end_day = int(rm.day) + 1
+					winner = str(rm.get("winner", ""))
+					print("  판 끝 —— %d일차 · 천하 통일 %s · 남은 자리 %d" % [end_day, winner, alive_n])
+					if alive_n != 1 or winner == "":
+						errors.append("최후 1인이 아니다 (남은 자리 %d · winner %s)" % [alive_n, winner])
 			if (rm.stage in Room.ACT_STAGES) and run.over == null:
 				_play(b, run, rm)
 			# 둘째는 2일차 오전에 끊었다가 1.5초 뒤 같은 토큰으로 돌아온다
@@ -196,7 +210,7 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 func _play(b: Dictionary, run: Dictionary, room: Dictionary) -> void:
 	var c: NetClient = b.c
 	if room.stage == "morning":
-		if not run.drawn and int(DB.D.DRAWS[int(run.day)]) > 0:
+		if not run.drawn and int(DB.D.DRAWS[mini(int(run.day), 6)]) > 0:
 			c.send({"t": "cmd", "m": "do_draw", "a": []})
 			return
 		if not run.picked:
@@ -230,7 +244,7 @@ func _play(b: Dictionary, run: Dictionary, room: Dictionary) -> void:
 func _process(_dt: float) -> void:
 	var el := Time.get_ticks_msec() / 1000.0 - t0
 	var all_done := not bots.is_empty() and bots.all(func(b): return b.done)
-	if all_done or el > 300.0:
+	if all_done or el > 480.0:
 		_report(el, all_done)
 		set_process(false)
 		get_tree().quit()
@@ -245,7 +259,7 @@ func _report(el: float, all_done: bool) -> void:
 	var pairs := 0
 	for key in pvp_seen:
 		pairs += pvp_seen[key].filter(func(x): return pvp_seen[key].any(func(y): return y[0] == x[1])).size()
-	# 상대 선정 규칙 (11/10 라운드로빈) —— 저녁 7번이 한 바퀴: 같은 바퀴 안에서 같은 상대를 두 번 만나면 안 된다 (토너먼트 21일차는 뺀다)
+	# 상대 선정 규칙 (11/10 라운드로빈) —— 저녁 7번이 한 바퀴: 같은 바퀴 안에서 같은 상대를 두 번 만나면 안 된다 (멸망이 없는 1~7일차 = 21저녁만 —— 8일차부터는 남은 세력끼리 다시 짠다)
 	var hh := 0
 	var repeat := 0
 	var seen_n := 0
@@ -253,7 +267,7 @@ func _report(el: float, all_done: bool) -> void:
 		var fl: Dictionary = foe_log[nm]
 		var per_cycle := {}      # 바퀴 번호 -> {상대: 횟수}
 		for dn in fl:
-			if int(dn) > 20:
+			if int(dn) > 21:
 				continue
 			if fl[dn] in human_names:
 				hh += 1
@@ -276,8 +290,9 @@ func _report(el: float, all_done: bool) -> void:
 		errors.append("기다리는 동안 징집 %d번 · 편성 거부 %d번" % [watch_cmds, form_denied])
 	if all_done and int(stage_count.get("noon", 0)) != 9:
 		errors.append("점심(토벌) 단계가 %d번 (기대 9 = 1~3일차 × 3페이즈)" % int(stage_count.get("noon", 0)))
-	if all_done and (int(stage_count.get("morning", 0)) != 21 or int(stage_count.get("evening_prep", 0)) != 21):
-		errors.append("준비 %d번 · 대전 준비 %d번 (기대 21 · 21)" % [int(stage_count.get("morning", 0)), int(stage_count.get("evening_prep", 0))])
+	if all_done and (int(stage_count.get("morning", 0)) < 22 or int(stage_count.get("evening_prep", 0)) < 22):
+		errors.append("준비 %d번 · 대전 준비 %d번 (기대 22 이상 —— 7일이 지나도 이어진다)" % [int(stage_count.get("morning", 0)), int(stage_count.get("evening_prep", 0))])
+	print("  끝난 일차 %d · 천하 통일 %s" % [end_day, winner])
 	print("  상태 아이콘(act_st) %d번 받음" % act_st_n)
 	if all_done and act_st_n == 0:
 		errors.append("act_st 를 한 번도 받지 못했다")

@@ -1073,26 +1073,22 @@ func _stage_hint() -> String:
 		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다. 그동안 징집 · 조합을 해 둘 수 있다 (편성은 대전 준비 때)" if rd else "토벌을 끝까지 보면 자동으로 준비된다"
 		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성을 고친 뒤 준비 완료 (징집 · 조합은 다음 아침)"
 		"evening":
-			if int(room.get("tour_round", -1)) >= 0:
-				if _tour_bye():
-					return "부전승 — 이번 라운드는 쉰다. 다른 대진을 기다리는 중"
-				return "다른 사람을 기다리는 중 — 모두 보면 다음 라운드" if rd else "%s을 보고 준비 완료" % Run.ROUNDNM[int(room.tour_round)]
 			return "다른 사람을 기다리는 중 — 모두 보면 다음 아침. 그동안 징집 · 조합을 해 둘 수 있다 (보상은 아침에)" if rd else "대전을 끝까지 보면 자동으로 준비된다"
-		"over": return "판이 끝났다"
+		"over": return ("판이 끝났다 —— %s 천하 통일" % str(room.winner)) if str(room.get("winner", "")) != "" else "판이 끝났다"
 	return ""
 
 
-## 토너먼트에서 이번 라운드에 내 대진이 없다 (인원이 8 미만인 방의 상위 시드 부전승) —— 멸망 · 탈락한 사람은 아니다
-func _tour_bye() -> bool:
-	var run: Run = gs.run
-	return run != null and run.over == null and run.tour != null and int(run.tour.get("my_match", -1)) < 0 and str(room.get("stage", "")) == "evening" and last_battles.is_empty()
+## 판이 끝난 한 줄 (11/12 최후 1인) —— 「천하 통일 — …」 / 「멸망 · 3위 / 8 — …. 남은 판은 관전하거나 나갈 수 있다」. over = Run.over {win, msg, rank?, of?}
+static func over_line(o: Dictionary) -> String:
+	var win := bool(o.get("win", false))
+	var rk := (" · %d위 / %d" % [int(o.rank), int(o.get("of", 0))]) if o.has("rank") else ""
+	return "[color=%s][b]%s%s[/b][/color] — %s.%s" % ["#8fd4c2" if win else "#e0806f", "천하 통일" if win else "멸망", rk, str(o.get("msg", "")),
+		"" if win else " 남은 판은 관전하거나 나갈 수 있다"]
 
 
-## 단계 이름 —— 토너먼트 저녁은 라운드 이름
+## 단계 이름
 func _stage_name() -> String:
 	var st := str(room.get("stage", ""))
-	if st == "evening" and int(room.get("tour_round", -1)) >= 0:
-		return "토너먼트 %s" % Run.ROUNDNM[int(room.tour_round)]
 	return str(STAGE_SHORT.get(st, room.get("stage_n", "")))
 
 
@@ -1189,7 +1185,7 @@ func _result_panel(x: Dictionary) -> Control:
 		parts.append("민심 −%d" % int(run.last_hp_loss))
 	v.add_child(UI.result_line(parts))
 	if run.over != null:
-		v.add_child(UI.rich("[color=%s][b]%s[/b][/color] — %s. 남은 판은 관전한다." % ["#8fd4c2" if run.over.win else "#e0806f", "우승" if run.over.win else "탈락", run.over.msg], 13))
+		v.add_child(UI.rich(over_line(run.over), 13))
 	return UI.panel(v, 12)
 
 
@@ -1288,7 +1284,7 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 
 
 ## 기록 탭의 「군웅」 —— 사람마다 한 칸: 이름 + 민심 게이지(머리띠와 같은 것), 아래에 핵심 유닛 작은 카드 줄 (누르면 디테일창).
-## 11/12 사용자: 봇 자리도 줄로 —— 봇에게는 민심이 없다(멸망하지 않는 세력)고 적고, 핵심 유닛은 지금 전력으로 뽑힐 군세의 예시(GameScreen.bot_key —— 봇 군세는 전투마다 새로 뽑는다)
+## 11/12 사용자: 봇 자리도 줄로 —— 11/12 최후 1인부터 봇도 민심 게이지(서버 거울 bots 의 hp)를 보이고, 핵심 유닛은 지금 전력으로 뽑힐 군세의 예시(GameScreen.bot_key —— 봇 군세는 전투마다 새로 뽑는다)
 func peers_section() -> Control:
 	var run: Run = gs.run
 	var seats: Array = room.get("seats", [])
@@ -1334,8 +1330,8 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 		h.add_child(tl)
 	if r.has("st") and scr.online != null:
 		h.add_child(scr.online.st_view(str(r.name), str(r.st)))      # 11/12 지금 하는 일 (온라인 사람 칸만)
-	if bool(r.get("bot", false)):
-		var bl := UI.lbl(str(r.get("note", "민심 없음")), 13, P.bamboo_dim)      # 봇은 민심이 없다 —— 전적 · 토벌 실패만
+	if bool(r.get("bot", false)) and (int(r.hp) < 0 or r.dead):
+		var bl := UI.lbl(str(r.get("note", "")), 13, P.bamboo_dim)      # 민심을 주지 않는 옛 서버의 봇 · 멸망한 봇 —— 전적만
 		bl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(bl)
 	elif int(r.hp) >= 0:
@@ -1351,13 +1347,15 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 		dl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(dl)
 	v.add_child(h)
+	if bool(r.get("bot", false)) and int(r.hp) >= 0 and not r.dead and str(r.get("note", "")) != "":
+		v.add_child(UI.lbl(str(r.note), 12, P.bamboo_dim))      # 11/12 봇 전적 —— 이름 줄은 민심 게이지가 쓴다
 	if not r.has_key:
 		v.add_child(UI.lbl("핵심 유닛 —", 13, P.bamboo_dim))
 	elif r.key.is_empty():
 		v.add_child(UI.lbl("핵심 유닛 아직 없음", 13, P.bamboo_dim))
 	else:
 		if bool(r.get("bot", false)):
-			v.add_child(UI.lbl("핵심 유닛 (봇 군세는 전투마다 새로 뽑는다 —— 지금 전력의 예)", 12, P.bamboo_dim))
+			v.add_child(UI.lbl("핵심 유닛 (봇 군세)", 12, P.bamboo_dim))
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 4)
 		fl.add_theme_constant_override("v_separation", 4)
@@ -1400,7 +1398,7 @@ func war_page() -> Control:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	head.add_child(hint)
 	if run.over != null:
-		head.add_child(UI.rich("[color=#e0806f][b]%s[/b][/color] — %s. 남은 판은 관전한다." % ["우승" if run.over.win else "탈락", run.over.msg], 13))
+		head.add_child(UI.rich(over_line(run.over), 13))
 	v.add_child(UI.panel(head))
 	# 혼자 남았다 —— 서버가 묻는 중 (시트를 닫았어도 여기서 답할 수 있다)
 	if str(room.get("alone", "")) == "ask":
@@ -1467,9 +1465,6 @@ func war_page() -> Control:
 		var hn := seats.filter(func(x): return x.human).size()
 		var rn := seats.filter(func(x): return x.human and x.ready).size()
 		v.add_child(UI.sect("자리 — 사람 %d · 봇 %d · 준비 %d/%d" % [hn, seats.size() - hn, rn, hn], UI.panel(sv, 10)))
-	# (f) 대진표
-	if run.tour != null:
-		v.add_child(gs._bracket())
 	return v
 
 
