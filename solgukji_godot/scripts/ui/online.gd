@@ -475,6 +475,8 @@ func _on_msg(d: Dictionary) -> void:
 					_stage_moved()
 				if str(room.stage) == "morning" and in_game:
 					gs.band("아침이 밝았습니다", DB.PAL.gold, "장수를 등용하고 전투를 준비하세요")
+					if not gs.battle_visible() and gs.page != "draw":
+						gs.go("draw")      # 11/12 사용자: 새 페이즈(아침)가 열리면 징집 페이지로
 				if not (str(room.stage) in Room.WATCH_STAGES):
 					watch = []
 					last_battles = []
