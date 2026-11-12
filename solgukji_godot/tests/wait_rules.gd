@@ -455,14 +455,14 @@ func _reward_rules() -> void:
 			if ow.n != base_n or ol.n != base_n or ow.perf or ow.bonus != 0:
 				_fail("일차 %d(1~3일차) 온라인 대전 보상이 바뀌었다" % [d + 1])
 		else:
-			if ow.n != base_n + int(DB.D.QUEST_BASE[d]) or ol.n != ow.n or not ow.perf or not ol.perf:
+			if ow.n != base_n + int(DB.D.QUEST_BASE[d]) or ol.n != ow.n or not ow.perf or not ol.perf:      # (패배도 같은 전리품)
 				_fail("일차 %d 온라인 대전 전리품 %d (기대 %d)" % [d + 1, ow.n, base_n + int(DB.D.QUEST_BASE[d])])
-			if int(ow.tk) < int(pw.tk) + 1 or int(ol.tk) != int(ow.tk) - int(ow.bt):
-				_fail("일차 %d 온라인 대전 선택권 %d(보너스 %d) / 패 %d / 이전 %d" % [d + 1, ow.tk, ow.bt, ol.tk, pw.tk])
-			# 성과 보너스 = 토벌과 같은 함수 · 패배는 보너스 없음
-			var want := Run.quest_bonus(_fake_res(true, 1.0, 0.0), d)
-			if ow.bonus != int(want.base) or ow.bt != int(want.ticket) or ol.bonus != 0 or ol.bt != 0:
-				_fail("일차 %d 온라인 대전 보너스 %d+%d (기대 %d+%d) · 패 %d+%d" % [d + 1, ow.bonus, ow.bt, want.base, want.ticket, ol.bonus, ol.bt])
+			# 11/12 사용자: 온라인은 승패 · 성과 차등 없음 —— 졌어도, 잔존 병력이 낮아도 승리와 같은 보상(보너스 포함)
+			if int(ow.tk) < int(pw.tk) + 1 or int(ol.tk) != int(ow.tk) or int(ow7.tk) != int(ow.tk):
+				_fail("일차 %d 온라인 대전 선택권 %d(보너스 %d) / 패 %d / 잔존0.7 %d / 이전 %d" % [d + 1, ow.tk, ow.bt, ol.tk, ow7.tk, pw.tk])
+			var want := Run.quest_bonus(_fake_res(true, 1.0, 0.0), d, true)
+			if ow.bonus != int(want.base) or ow.bt != int(want.ticket) or ol.bonus != ow.bonus or ol.bt != ow.bt or ow7.bonus != ow.bonus:
+				_fail("일차 %d 온라인 대전 보너스 %d+%d (기대 %d+%d) · 패 %d+%d · 잔존0.7 %d+%d" % [d + 1, ow.bonus, ow.bt, want.base, want.ticket, ol.bonus, ol.bt, ow7.bonus, ow7.bt])
 			# 가방이 실제로 그만큼 늘었다 (전리품 + 보너스)
 			if int(ow.inv) < int(ow.n) + int(ow.bonus) - 1:
 				_fail("일차 %d 온라인 대전 가방이 덜 늘었다 %d (전리품 %d + 보너스 %d)" % [d + 1, ow.inv, ow.n, ow.bonus])

@@ -1694,7 +1694,7 @@ func _page_draw() -> Control:
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
 	if run.day == 6:
-		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 더 이상 농민을 징집하지 않는다. 명장만이 소환된다.", 14), 10))
+		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]결전의 날[/color][/b] — 징집은 이날 가장 적게 남는다. 명장으로 마지막 싸움을 준비하라.", 14), 10))
 
 	# 할 일 —— 기호 타일 한 줄 (11/7 사용자: 세로로 너무 컸다 —— 기호 · 제목을 옆으로 나란히 높이 34, 한 줄 최대 5칸)
 	var acts := UI.grid(70, 4)
@@ -3647,7 +3647,9 @@ func _place_hp_fx(plan: Dictionary, top: float) -> void:
 ## 알림(가운데 띠)은 혼자 하기는 finish_battle 의 gold 알림, 온라인은 서버 알림이 단계 끝에야 가니 여기서 한 번만 직접 (서버는 mp 일 때 알림을 안 보낸다)
 func _plan_bonus_fx(res: Dictionary) -> void:
 	_bonus_plan = {}
-	if run == null or not res.get("win", false) or res.get("draw", false):
+	if run == null:
+		return
+	if online == null and (not res.get("win", false) or res.get("draw", false)):      # 11/12 온라인은 승패와 상관없이 보너스가 나간다
 		return
 	var base := 0
 	var tk := 0
@@ -3669,19 +3671,19 @@ func _plan_bonus_fx(res: Dictionary) -> void:
 	if base <= 0 and tk <= 0:
 		return
 	var big := r >= Run.QUEST_BONUS_BIG
-	_bonus_plan = {"base": base, "ticket": tk, "big": big, "what": "대전" if (online != null and _battle_kind == "pvp") else "토벌"}
+	_bonus_plan = {"base": base, "ticket": tk, "big": big, "what": "대전" if (online != null and _battle_kind == "pvp") else "토벌", "flat": online != null}
 	if online != null:
 		var key := "%d:%d:%d:%d" % [run.day, run.phase, base, tk]
 		if key != _bonus_key:
 			_bonus_key = key
-			var parts: PackedStringArray = Run.quest_bonus_text(base, tk, big, "대전" if _battle_kind == "pvp" else "토벌").split(" · ", true, 1)
+			var parts: PackedStringArray = Run.quest_bonus_text(base, tk, big, "대전" if _battle_kind == "pvp" else "토벌", true).split(" · ", true, 1)
 			band(parts[0], DB.PAL.gold, parts[1] if parts.size() > 1 else "")
 
 
 func _place_bonus_fx(plan: Dictionary, top: float) -> void:
 	var w := minf(size.x - 24.0, 460.0)
 	var fx := BonusFx.new()
-	fx.setup(int(plan.base), int(plan.ticket), bool(plan.big), str(plan.get("what", "토벌")))
+	fx.setup(int(plan.base), int(plan.ticket), bool(plan.big), str(plan.get("what", "토벌")), bool(plan.get("flat", false)))
 	fx.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	fx.offset_left = -w / 2
 	fx.offset_right = w / 2
@@ -4730,14 +4732,16 @@ class BonusFx extends Control:
 	var ticket := 0
 	var big := true
 	var what := "토벌"      # 11/11 온라인 4일차~ 는 대전이 토벌 보상을 대신 준다 → "대전"
+	var flat := false      # 11/12 온라인 —— 승패 · 성과 차등 없는 보너스 (「대승!」 대신 「보너스」)
 	var _t := 0.0
 	var _chime := false
 
-	func setup(b: int, t: int, is_big: bool, w := "토벌") -> void:
+	func setup(b: int, t: int, is_big: bool, w := "토벌", is_flat := false) -> void:
 		base = b
 		ticket = t
 		big = is_big
 		what = w
+		flat = is_flat
 		custom_minimum_size = Vector2(0, 46)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -4758,14 +4762,14 @@ class BonusFx extends Control:
 		draw_rect(Rect2(0, 0, w, h), Color(0.058, 0.078, 0.14, 0.94 * a))
 		draw_rect(Rect2(0, 0, w, 1), Color(P.gold, 0.8 * a))
 		draw_rect(Rect2(0, h - 1, w, 1), Color(P.gold, 0.8 * a))
-		var head := (what + " 대승!") if big else (what + " 선전!")
+		var head := (what + " 보너스") if flat else ((what + " 대승!") if big else (what + " 선전!"))
 		var f: Font = DB.title_font(20)
 		draw_string(f, Vector2(16, h / 2 + 8), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(P.gold.lightened(0.2), a))
 		var parts := []
 		if base > 0:
 			parts.append("기본패 +%d" % base)
 		if ticket > 0:
-			parts.append("%s 선택권 +%d" % [DB.TIER[Run.QUEST_BONUS_TICKET_TIER].n, ticket])
+			parts.append("%s 선택권 +%d" % [Run.bonus_ticket_name(what), ticket])
 		draw_string(DB.font_bold, Vector2(0, h / 2 + 6), "  ·  ".join(parts), HORIZONTAL_ALIGNMENT_RIGHT, w - 16.0, 16, Color(P.paper, a))
 		# 금빛이 한 번 쓸고 지나간다 (왼쪽 → 오른쪽, 기운 띠)
 		var u := clampf((_t - 0.1) / 0.8, 0.0, 1.0)

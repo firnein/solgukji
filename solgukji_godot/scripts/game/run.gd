@@ -1322,6 +1322,7 @@ const QUEST_BONUS_BASE := 0.30
 const QUEST_BONUS_R0 := 0.30
 const QUEST_BONUS_BIG := 0.70
 const QUEST_BONUS_TICKET_DAY := 3      # 일차 번호(0 = 1일차)가 이 값 이상 = 4일차~
+const PVP_BONUS_TICKET_TIER := 4       # 11/12 사용자: 토벌이 없는 온라인 일차의 대전 보너스 선택권은 희귀(4) 한정 (토벌 보너스는 고급 그대로)
 const QUEST_BONUS_TICKET_TIER := 3     # 11/10 사용자: 보너스 선택권은 고급(3) 이하 한정 —— 그날 토벌 선택권의 최고 등급이 이보다 높아도 이 등급까지만
 
 
@@ -1337,10 +1338,11 @@ static func my_left_ratio(res: Dictionary) -> float:
 
 
 ## {r, base, ticket} —— 이기지 않았으면 base · ticket 0 (r 은 그대로 기록용)
-static func quest_bonus(res: Dictionary, day_i: int) -> Dictionary:
-	var r := my_left_ratio(res)
+## flat(11/12 사용자: 온라인은 승패 · 성과에 따른 보상 차등 없음 —— 어차피 민심이 깎이고, 앞선 사람이 더 받으면 역전이 안 된다): 항상 r = 1.0 의 보너스를 준다
+static func quest_bonus(res: Dictionary, day_i: int, flat := false) -> Dictionary:
+	var r := 1.0 if flat else my_left_ratio(res)
 	var out := {"r": r, "base": 0, "ticket": 0}
-	if not res.get("win", false) or res.get("draw", false):
+	if not flat and (not res.get("win", false) or res.get("draw", false)):
 		return out
 	var d := clampi(day_i, 0, 6)
 	var f := clampf((r - QUEST_BONUS_R0) / (1.0 - QUEST_BONUS_R0), 0.0, 1.0)
@@ -1360,13 +1362,19 @@ static func quest_top_tier(day_i: int) -> int:
 
 ## 보너스 알림 글 「토벌 대승! 보너스 기본패 +M · 선택권 +1」 —— 기본패 · 선택권 둘 다 0 이면 빈 글. 가운데 띠(gold 알림)는 " · " 앞을 큰 글씨로 쓴다
 ## 대승(r ≥ QUEST_BONUS_BIG)이 아닌 좋은 성과는 "토벌 선전!"
-static func quest_bonus_text(base: int, ticket: int, big := true, what := "토벌") -> String:
+static func quest_bonus_text(base: int, ticket: int, big := true, what := "토벌", flat := false) -> String:
 	if base <= 0 and ticket <= 0:
 		return ""
-	var head := (what + (" 대승! 보너스" if big else " 선전! 보너스")) + (" 기본패 +%d" % base if base > 0 else "")
+	var head := (what + " 보너스") if flat else (what + (" 대승! 보너스" if big else " 선전! 보너스"))
+	head += (" 기본패 +%d" % base if base > 0 else "")
 	if ticket > 0:
-		return head + " · %s 선택권 +%d" % [DB.TIER[QUEST_BONUS_TICKET_TIER].n, ticket]
+		return head + " · %s 선택권 +%d" % [bonus_ticket_name(what), ticket]
 	return head
+
+
+## 보너스 선택권 등급 이름 —— 대전(토벌 없는 온라인 일차)은 희귀, 토벌은 고급
+static func bonus_ticket_name(what: String) -> String:
+	return DB.TIER[PVP_BONUS_TICKET_TIER if what.begins_with("대전") else QUEST_BONUS_TICKET_TIER].n
 
 
 ## 11/11 사용자: 토벌이 없는 온라인 일차(4일차~)의 대전이 그날 토벌 보상을 얹어 준다 —— 토벌의 비난수 규칙(QUEST_REWARD 선택권 · QUEST_BASE 전리품 · 성과 보너스)을 그대로 재사용한다.
@@ -1382,15 +1390,15 @@ func _pvp_quest_reward(res: Dictionary) -> void:
 		last_spoil = {"n": 0, "src": ""}
 	last_spoil["n"] = int(last_spoil.n) + n
 	last_spoil["quest_n"] = n
-	var bb := quest_bonus(res, day)
+	var bb := quest_bonus(res, day, true)      # 11/12 승패 · 성과와 상관없이 같은 보너스 (온라인 전용 함수)
 	last_spoil["perf_r"] = snappedf(float(bb.r), 0.001)
-	if res.get("win", false):
-		last_spoil["bonus"] = int(bb.base)
-		last_spoil["bonus_ticket"] = int(bb.ticket)
-		for i in int(bb.base):
-			give(DB.BASE[rng.randi() % DB.BASE.size()])
-		if int(bb.ticket) > 0:
-			add_ticket(mini(quest_top_tier(day), QUEST_BONUS_TICKET_TIER), 1, true)
+	last_spoil["flat"] = true
+	last_spoil["bonus"] = int(bb.base)
+	last_spoil["bonus_ticket"] = int(bb.ticket)
+	for i in int(bb.base):
+		give(DB.BASE[rng.randi() % DB.BASE.size()])
+	if int(bb.ticket) > 0:
+		add_ticket(mini(quest_top_tier(day), PVP_BONUS_TICKET_TIER), 1, true)
 
 
 ## 이 전투 결과(아직 finish_battle 전)로 민심이 얼마나 깎일지 —— 이기면 · 토너먼트면 0 (화면 전용, 상태는 건드리지 않는다)
@@ -1504,11 +1512,13 @@ func _finish_battle(res: Dictionary) -> void:
 				if not legacy_rewards:
 					# 11/10 토벌 성과 보너스 —— 기본 보상을 다 준 뒤에 얹는다(보너스가 없는 판은 난수 순서가 전과 같다). 알림은 혼자 하기만 여기서
 					# (온라인은 서버 알림이 단계 끝에야 가니, 결과를 보는 순간 클라이언트가 last_spoil 로 직접 띄운다)
-					var bb := quest_bonus(res, day)
+					var bb := quest_bonus(res, day, mp)      # 11/12 온라인은 승패 · 성과 차등 없음
 					last_spoil["perf_r"] = snappedf(float(bb.r), 0.001)
+					if mp:
+						last_spoil["flat"] = true
 					if dev_immortal:
 						dev_bonus_log.append([day, bool(res.win), float(bb.r), int(bb.base), int(bb.ticket), int(DB.D.QUEST_BASE[day])])
-					if res.win:
+					if res.win or mp:
 						last_spoil["bonus"] = int(bb.base)
 						last_spoil["bonus_ticket"] = int(bb.ticket)
 						if not mp:
