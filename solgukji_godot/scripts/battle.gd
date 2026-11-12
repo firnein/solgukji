@@ -154,6 +154,9 @@ static var inyeon_enabled := true
 static var inyeon_cap_mul := 1.5
 var _ult_grp := {}             # 지금 터지는 합동 고유기 {members, taken, ...} (비면 단독 고유기)
 var _ult_extra := {}           # 이번 고유기 사건('ult')에 덧붙일 항목 (합동이면 inyeon · mates · lead)
+var _ult_amp_x := 1.0          # 11/12 인연 주제 —— 기인이 연 연쇄의 마무리 장수 피해 배율 (RtBattle 이 정한다, 평소 1.0)
+var _gain_up := {}             # 11/12 인연 주제 —— 유닛 -> [같은 인연 초월 유닛들] (살아 있으면 게이지 inyeon_up_gain 배, RtBattle 이 채운다)
+static var inyeon_up_gain := 1.15
 const SK_BANK := 2.0       # 일반 기술 충전 상한 —— 조건이 안 맞는 동안 두 번까지 모아 둔다
 const ULT_SIDE_GAP := 4       # 같은 진영 고유기 사이 최소 행동 수
 const PTS_EVERY := 6          # 행동 6번마다 군령 포인트 1
@@ -1103,6 +1106,9 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 				cmul *= 1.0 + float(DB.PSV.guard.amp)       # 방진 —— 반격 피해 +
 			if guard_enabled:
 				cmul *= 1.0 + mv(d, "counter_hit") + (mv(d, "phalanx_amp") if ph else 0.0)     # 반격(즉발) · 역습
+			var yc := _buff_sum(d, "counter_amp")      # 11/12 인연 주제 『반격』 —— 반격 피해 + (없으면 그대로)
+			if yc > 0.0:
+				cmul *= 1.0 + yc
 			stats.counters += 1
 			_chain(d.camp, "반격", d.key)
 			d.countering = true
@@ -2913,10 +2919,11 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 		L("sk", "%s의 장강방벽 —— 고유기를 받아 낸다" % nm(ss), {"fx": "skill", "a": ss.key, "name": "장강방벽", "kind": "phys"})
 	var nm_: String = ul.name
 	var amp := (tac_hold_amp if _tac(u.camp, 1) == "위기" else crisis_amp) if _crisis(u.camp) else 1.0
+	var amp_c := amp * _ult_amp_x      # 11/12 기인이 연 연쇄의 마무리 —— 피해 배율 (평소 1.0 이라 그대로)
 	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
 		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0}.merged(_ult_extra))
 	for comp_ in ul.eff:
-		var comp: Dictionary = _amp_comp(comp_, amp)
+		var comp: Dictionary = _amp_comp(comp_, amp_c)
 		var ts := resolve_targets(comp.tgt, foes, u, allies)
 		match comp.t:
 			"hit":
@@ -3375,6 +3382,8 @@ func _gauge_add(u: Unit, v: float) -> void:
 func _gain(u: Unit, v: float) -> void:
 	if v <= 0.0:
 		return
+	if not _gain_up.is_empty() and _gain_up.has(u) and _gain_up[u].any(func(o): return o.alive):      # 11/12 같은 인연 초월이 살아 있으면 기가 빨리 찬다
+		v *= inyeon_up_gain
 	u.gauge = minf(100.0, u.gauge + v * (pow(reult_decay, u.ult_n) if u.ult_n > 0 else 1.0))      # n번 쓴 장수는 reult_decay^n 배로 (쓸수록 어렵게)
 
 
@@ -3390,7 +3399,7 @@ func _ult_clamp(d: Unit, loss: float) -> float:
 		var gc := 0.0
 		for m in _ult_grp.members:
 			gc = maxf(gc, float(ult_cap.get(clampi(int(m.c.tier), 6, 8), 0.0)))
-		gc *= inyeon_cap_mul
+		gc *= float(_ult_grp.get("cap_mul", inyeon_cap_mul))      # 11/12 기인이 연 연쇄는 더 높게
 		var gg: float = _ult_grp.taken.get(d, 0.0)
 		var o2 := clampf(gc * d.max - gg, 0.0, out)
 		if o2 < out:

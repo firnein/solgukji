@@ -39,7 +39,8 @@ static func deck_map(deck: Array) -> Dictionary:
 
 ## 인연 규칙 한 줄 (DB.INYEON_RULE)
 static func rule_hint() -> Label:
-	var l := UI.hint(DB.INYEON_RULE)
+	var l := UI.hint(DB.INYEON_RULE + "\n" + DB.INYEON_ROLE)      # 11/12 기인 · 초월의 몫 한 줄
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_font_size_override("font_size", 12)
 	return l
 
@@ -47,6 +48,9 @@ static func rule_hint() -> Label:
 ## 11/12 인연기 한 줄 (DB.inyeon_fin_text) —— 인연기가 없는 인연은 null
 static func fin_hint(nm: String) -> Label:
 	var s := DB.inyeon_fin_text(nm)
+	var th := DB.inyeon_theme_text(nm)      # 11/12 인연 주제 —— 인연기 위에 한 줄
+	if th != "":
+		s = th if s == "" else th + "\n" + s
 	if s == "":
 		return null
 	var l := UI.lbl(s, 12, DB.PAL.gold)

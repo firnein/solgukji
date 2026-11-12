@@ -15,6 +15,7 @@ const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # 11/10 민심 �
 const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 표시 공용 (디테일창 · 갈무리창 줄, 편성 시트)
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const DeathBand := preload("res://scripts/ui/death_band.gd")      # 11/12 장수 사망룰 연출 (class_name 없이)
+const Ending := preload("res://scripts/ui/ending.gd")      # 11/12 멸망 · 엔딩 연출 + 요약 (class_name 없이) —— show_ending
 const SayBubble := preload("res://scripts/ui/say_bubble.gd")      # 11/12 받은 한마디(글 · 이모티콘) 구름 말풍선 (class_name 없이) —— 11/10 EmotePop 을 대신한다
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 ## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
@@ -645,6 +646,8 @@ func _continue() -> void:
 		_new_game()
 		return
 	run = r
+	_ending_key = ""
+	_play_t0 = -1
 	_title.visible = false
 	Sfx.music("prep")
 	PlayLog.ensure(run, "resume")
@@ -665,6 +668,8 @@ func _new_game() -> void:
 	run = Run.new()
 	run.new_game()
 	run.save()
+	_ending_key = ""
+	_play_t0 = -1
 	PlayLog.new_game(run)
 	forge_tree.clear()          # 11/3 사용자: 이전 판의 갈무리가 남아 있었다
 	_title.visible = false
@@ -730,6 +735,9 @@ func render(new_page := false) -> void:
 		_restore_scroll.call_deferred(want)
 	_flush_toasts()
 	_coach_tick()
+	if _play_t0 < 0 and run.over == null:
+		_play_t0 = Time.get_ticks_msec()
+	_maybe_ending.call_deferred()
 
 
 func _restore_scroll(v: int) -> void:
@@ -3332,6 +3340,7 @@ func _leave_from_battle() -> void:
 func hide_battle() -> void:
 	_battle_layer.visible = false
 	_resume_bands()
+	_maybe_ending.call_deferred()
 
 
 func _resume_bands() -> void:
@@ -3873,6 +3882,123 @@ static func bot_key(r: Run, b: Dictionary) -> Array:
 	return out
 
 
+# ───────── 멸망 · 엔딩 연출 (11/12 사용자: "최종 멸망 이후에 엔딩씬이 없다") ─────────
+## 판 끝 처리(run.over —— 혼자 하기 · 온라인 모두)를 받는 얇은 접점. 규칙(멸망 · 승리 판정)은 Run · Room 이 정하고 여기선 보여 주기만 한다.
+## info = {win: bool, rank: int|String, by: String(멸망시킨 상대 이름, 없으면 ""), by_human: bool, days: int, w: int, l: int,
+##         deck: Array(카드 id, 높은 등급 순), playtime: int(초)} + 고를 것 {name, glyph, msg, lord, again_text, watch}
+## 다른 사람의 멸망은 기존 멸망 띠(urgent "fall") 그대로 —— 이 함수는 내 판이 끝났을 때만.
+var _ending: Control = null
+var _ending_key := ""          # 이미 보여 준 엔딩 (같은 판에서 두 번 띄우지 않는다 —— 온라인은 상태마다 Run 을 새로 만든다)
+var _play_t0 := -1             # 이번 판을 시작(또는 이어 하기)한 시각 (ms) —— 엔딩의 플레이 시간
+
+func show_ending(info: Dictionary) -> void:
+	if is_instance_valid(_ending):
+		_ending.queue_free()
+	close_sheet()
+	_bands.clear()
+	_hide_band()
+	_ending = Ending.play(self, info, self)
+	_ending.home.connect(func():
+		_ending_close()
+		if online != null:
+			online.leave()
+		elif run != null:
+			run.save()
+		if _title != null:
+			_title.queue_free()
+		_build_title())
+	_ending.again.connect(func():
+		_ending_close()
+		if online != null and _solo_unfinished():
+			online.leave()
+			_continue()      # 온라인에서 끝났는데 이어 하던 혼자 하기 판이 있으면 덮어쓰지 않고 이어 한다
+			return
+		if online == null:
+			Run.delete_save()
+		_new_game())
+	_ending.watch.connect(func():
+		_ending_close()
+		Sfx.music("prep")
+		render())
+
+
+func _ending_close() -> void:
+	if is_instance_valid(_ending):
+		_ending.queue_free()
+	_ending = null
+
+
+func _solo_unfinished() -> bool:
+	if not Run.has_save():
+		return false
+	var r := Run.load_saved()
+	return r != null and r.over == null
+
+
+## 판이 막 끝났으면 엔딩을 띄운다 (render · 전투 화면을 닫을 때 부른다). 전투를 보는 중 · 제목 화면 · 이미 띄운 판이면 건너뛴다
+func _maybe_ending() -> void:
+	if run == null or run.over == null or battle_visible() or is_instance_valid(_ending):
+		return
+	if _title != null and is_instance_valid(_title) and _title.visible:
+		return
+	if online != null and not online.watch.is_empty():
+		return      # 온라인 —— 이번 단계 전투를 다 본 뒤에
+	var key := "%s|%s|%s" % [str(online.room.get("code", "")) if online != null else "solo", str(run.over.get("win", false)), str(run.over.get("msg", ""))]
+	if key == _ending_key:
+		return
+	_ending_key = key
+	show_ending(ending_info())
+
+
+## 지금 Run(과 온라인 방 정보)으로 엔딩 info 를 만든다
+func ending_info() -> Dictionary:
+	var o: Dictionary = run.over if run.over != null else {"win": false, "msg": ""}
+	var win := bool(o.get("win", false))
+	var by := str(o.get("by", ""))
+	var by_human := bool(o.get("by_human", false))
+	var lr = run.last_result
+	if by == "" and not win and lr is Dictionary and not bool(lr.get("win", true)) and str(lr.get("kind", "")) != "quest":
+		var parts := str(lr.get("title", "")).split(" · ", false, 1)      # "대전 · 상대" · "8강 · 상대"
+		if parts.size() > 1:
+			by = parts[1]
+	var me_name := "나"
+	var rank = o.get("rank", 0)
+	if online != null and not online.room.is_empty():
+		var my: Dictionary = online.me()
+		me_name = str(my.get("name", "나"))
+		var alive := 0
+		for st in online.room.get("seats", []):
+			if st is Dictionary and str(st.get("name", "")) == by and by != "":
+				by_human = by_human or bool(st.get("human", false))
+			if st is Dictionary and not bool(st.get("dead", false)) and str(st.get("name", "")) != me_name:
+				alive += 1
+		if not (rank is String) and int(rank) <= 0:
+			rank = 1 if win else alive + 1
+	elif not (rank is String) and int(rank) <= 0:
+		if win:
+			rank = 1
+		else:      # (옛 토너먼트 순위는 11/12 최후 1인으로 없어졌다 —— Run.over.rank 가 늘 있다)
+			rank = 1 + run.bots.filter(func(b): return not bool(b.get("dead", false))).size()
+	var deck: Array = []
+	for k in run.board:
+		if k != null and DB.C.has(str(k)) and not deck.has(str(k)):
+			deck.append(str(k))
+	deck.sort_custom(func(a, b): return DB.C[a].tier > DB.C[b].tier if DB.C[a].tier != DB.C[b].tier else a < b)
+	var pt := 0 if _play_t0 < 0 else int((Time.get_ticks_msec() - _play_t0) / 1000)
+	_play_t0 = -1
+	var info := {"win": win, "rank": rank, "by": by, "by_human": by_human, "days": mini(run.day + 1, 99), "w": run.my_w, "l": run.my_l,
+		"deck": deck, "playtime": pt, "name": me_name, "msg": str(o.get("msg", "")), "glyph": "蜀"}
+	if online != null:
+		info["watch"] = not win and str(online.room.get("stage", "")) != "over"
+		if _solo_unfinished():
+			info["again_text"] = "혼자 하기 이어 하기"
+		else:
+			info["again_text"] = "혼자 하기"
+		if me_name != "":
+			info["glyph"] = me_name.substr(0, 1)
+	return info
+
+
 func _over_panel() -> Control:
 	var v := UI.vbox(16)
 	var o: Dictionary = run.over
@@ -3942,6 +4068,27 @@ func _dev_args() -> void:
 		if a.has("gftier"):
 			forge_tier = int(a.gftier)      # 조합 탭 등급 거르기 (9 = 기인)
 		render()
+	if a.has("gending"):      # 점검용 —— --gending=lose | win | lose_user : 멸망 · 엔딩 연출을 바로 띄운다 (11/12 · 저장하지 않는다). --gnew 와 함께 쓰면 그 판의 편성 · 전적
+		if run == null:
+			PlayLog.enabled = false
+			run = Run.new()
+			run.new_game(7)
+		_title.visible = false
+		var inf := ending_info()
+		inf.win = str(a.gending) == "win"
+		inf.by = "조조팬" if str(a.gending) == "lose_user" else ("원소" if str(a.gending) == "lose" else "")
+		inf.by_human = str(a.gending) == "lose_user"
+		inf.rank = 1 if inf.win else 5
+		inf.days = 7 if inf.win else 5
+		inf.playtime = 1834
+		if (inf.deck as Array).size() < 3:
+			var hi := DB.C.keys().filter(func(k): return int(DB.C[k].tier) >= 6 and DB.portrait(k) != null)
+			hi.sort_custom(func(x, y): return DB.C[x].tier > DB.C[y].tier if DB.C[x].tier != DB.C[y].tier else x < y)
+			inf.deck = hi.slice(0, 9)
+		inf.w = maxi(int(inf.w), 9)
+		inf.l = maxi(int(inf.l), 4)
+		_ending_key = "dev"
+		show_ending(inf)
 	if a.has("gdeath"):
 		for k_ in str(a.gdeath).split(",", false):
 			if DB.C.has(k_):

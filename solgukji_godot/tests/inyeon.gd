@@ -5,6 +5,7 @@ extends Node
 ## (c) 둘만 찼으면 둘이 터진다 · 인연 없는 장수가 섞이면 합류하지 않는다
 ## (d) inyeon_enabled=false 면 예전처럼 장수마다 따로 (간격 ult_side_sec 이상)
 ## (e) 합동 상한: 한 부대가 합동 전체에서 받는 병력 ≤ 단일 상한 × inyeon_cap_mul
+## (f~h) 11/12 인연 주제 (RtBattle.inyeon_theme) —— 기인이 연다 · 초월이 키운다(4명) · 주제 사건 · 무작위 덱에서 기인/초월 연쇄 횟수
 
 var _fail := 0
 
@@ -163,6 +164,9 @@ func _ready() -> void:
 	var r6 := _run_cut()
 	print("(e) 끊김: %s" % r6)
 
+	if RtBattle.inyeon_theme:
+		_theme_checks()
+
 	print("인연 점검 %s (실패 %d)" % ["통과" if _fail == 0 else "실패", _fail])
 	get_tree().quit(1 if _fail > 0 else 0)
 
@@ -207,3 +211,190 @@ func _run_cut() -> String:
 	_ok(joins1.size() == 1, "대표가 +1.2초에 끊기면 합류1(+0.8)만 합류 (지금 %d)" % joins1.size())
 	_ok(not first.is_empty() and not first.has("lead") and not first.has("mates"), "합류한 장수는 보통 고유기로 쏜다")
 	return "합류 %d · 끊김 %d · 첫 발동 항목 %s" % [joins.size(), cuts.size(), str(first.get("inyeon", "-"))]
+
+
+
+# ───────── 11/12 인연 주제 · 기인이 연다 · 초월이 키운다 ─────────
+func _kiin_card(person: String) -> String:
+	for k in DB.C:
+		if DB.C[k].kind == "kiin" and DB.person(k) == person and DB.ult_of(k) != null:
+			return k
+	return ""
+
+
+func _any(person: String, tiers: Array) -> String:
+	for t in tiers:
+		var k := _card(person, t)
+		if k != "":
+			return k
+	return ""
+
+
+## 오호대장 가운데 초월 카드가 있는 인물 (없으면 "")
+func _up_of(nm: String, skip: String) -> String:
+	for p in DB.INYEON[nm]:
+		if p != skip and _card(p, 6) != "":
+			return p
+	return ""
+
+
+func _run_cards(a: Array, full: Array, seed_v := 5) -> Dictionary:
+	var used := a.map(func(k): return DB.person(k))
+	for k in DB.by_tier(7):
+		if a.size() >= 9:
+			break
+		if not used.has(DB.person(k)):
+			a.append(k)
+			used.append(DB.person(k))
+	var b := _pick([], 7)
+	var bt := Forced.new(seed_v)
+	bt.full = full
+	var r := bt.run(DB.auto_place(a, "eorin"), "eorin", 100, null, DB.auto_place(b, "hagik"), "hagik", 100, null, "", "", [], {"A": "auto", "B": "auto"})
+	r["bt"] = bt
+	return r
+
+
+func _theme_checks() -> void:
+	# (f) 기인이 연다 —— 기인 카드가 있는 인연에서 (불멸 이상 대표 + 기인 + 한 명 더)
+	var fk := ""
+	var fa := []
+	var ff := []
+	for nm in DB.INYEON:
+		for p in DB.INYEON[nm]:
+			var kc := _kiin_card(p)
+			if kc == "":
+				continue
+			var hi: Array = DB.INYEON[nm].filter(func(q): return q != p and _any(q, [7, 8]) != "")
+			if hi.size() >= 2:
+				fk = kc
+				fa = [_any(hi[0], [7, 8]), kc, _any(hi[1], [7, 8])]
+				ff = [hi[0], p, hi[1]]
+				break
+		if fk != "":
+			break
+	var r := _run_cards(fa, ff)
+	var warns := _evs(r, "ult_warn")
+	var ults := _evs(r, "ult")
+	print("(f) 기인 %s %s: 예고 %d · 합류 %d · 터짐 %d" % [fk, str(ff), warns.size(), _evs(r, "ult_join").size(), ults.size()])
+	if warns.size() >= 1 and ults.size() >= 3:
+		var t0: float = warns[0].tm
+		var dur: float = warns[0].wait
+		for i in 3:
+			print("   터짐 %d %s +%.2fs · %s" % [i, ults[i].a, ults[i].tm - t0, str([ults[i].get("inyeon", ""), ults[i].get("mates", ults[i].get("lead", "")), ults[i].get("open", ""), ults[i].get("finish", false)])])
+		var kkey := ""
+		for u in r.bt.units:
+			if u.c.id == fk:
+				kkey = u.key
+		_ok(ults[0].a == kkey, "기인이 맨 먼저 터진다 (지금 %s)" % ults[0].a)
+		_ok(absf((ults[0].tm - t0) - (dur - 0.2)) <= 0.06, "기인은 대표보다 0.2초 먼저")
+		_ok(ults[0].get("mates", []).size() == 2 and ults[0].get("open", "") == "kiin", "기인 사건에 mates · open")
+		_ok(ults[2].get("finish", false), "마무리 장수 표시")
+	_ok(int(r.bt.stats.get("inyeon_kiin", 0)) >= 1 and int(r.bt.stats.get("inyeon_kiin_fin", 0)) >= 1, "stats 기인 연쇄 · 마무리")
+	_ok(not _evs(r, "inyeon_theme").is_empty(), "주제 사건")
+
+	# (g) 초월이 키운다 —— 불멸 이상 대표 + 초월 + 둘 더 = 4명
+	var ga_ := []
+	var gf := []
+	for nm in DB.INYEON:
+		var up := ""
+		for p in DB.INYEON[nm]:
+			if _card(p, 6) != "":
+				up = p
+				break
+		if up == "":
+			continue
+		var hi: Array = DB.INYEON[nm].filter(func(q): return q != up and _any(q, [7, 8]) != "")
+		if hi.size() >= 3:
+			ga_ = [_any(hi[0], [7, 8]), _card(up, 6), _any(hi[1], [7, 8]), _any(hi[2], [7, 8])]
+			gf = [hi[0], up, hi[1], hi[2]]
+			break
+	var r2 := _run_cards(ga_, gf)
+	var w2 := _evs(r2, "ult_warn")
+	var j2 := _evs(r2, "ult_join")
+	var u2 := _evs(r2, "ult")
+	print("(g) 초월 %s: 합류 %d · 터짐 %d · 첫 합동 %d명" % [str(gf), j2.size(), u2.size(), 1 + (u2[0].get("mates", []).size() if not u2.is_empty() else 0)])
+	_ok(j2.size() >= 3, "초월이 끼면 셋 합류")
+	if w2.size() >= 1 and j2.size() >= 3:
+		var t0: float = w2[0].tm
+		var dur: float = w2[0].wait
+		for i in 3:
+			print("   합류 %d %s +%.2fs" % [i, j2[i].a, j2[i].tm - t0])
+			_ok(absf((j2[i].tm - t0) - dur * [0.24, 0.48, 0.72][i]) <= 0.06, "4명 합류 시각 %d" % i)
+		_ok(u2[0].get("mates", []).size() == 3, "4명 합동")
+	_ok(int(r2.bt.stats.get("inyeon_n4", 0)) >= 1 and int(r2.bt.stats.get("inyeon_up", 0)) >= 1, "stats 4명 · 초월 연쇄")
+	_ok(not r2.bt._gain_up.is_empty(), "같은 인연 초월 기 충전 가속 대상")
+
+	# (h) 무작위 덱 (불멸 6 · 초월 2 · 기인 1) 20판 —— 기인/초월 참여 연쇄가 실제로 나오나 (횟수만)
+	var kiins := []
+	for k in DB.C:
+		if DB.C[k].kind == "kiin" and DB.inyeon_card(k) and not DB.inyeon_of(k).is_empty():
+			kiins.append(k)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1112
+	var tot := {}
+	for g in 20:
+		var decks := []
+		for side in 2:
+			var d := []
+			var ps := []
+			for spec in [[7, 6], [6, 2]]:
+				var pool: Array = DB.by_tier(spec[0])
+				var n := 0
+				while n < spec[1]:
+					var k: String = pool[rng.randi() % pool.size()]
+					if not ps.has(DB.person(k)):
+						d.append(k)
+						ps.append(DB.person(k))
+						n += 1
+			while true:
+				var k: String = kiins[rng.randi() % kiins.size()]
+				if not ps.has(DB.person(k)):
+					d.append(k)
+					break
+			decks.append(d)
+		var res: Dictionary = RtBattle.make(rng.randi() % 100000).run(DB.auto_place(decks[0], "eorin"), "eorin", 100, null, DB.auto_place(decks[1], "hagik"), "hagik", 100, null,
+			"", "", [], {"A": "smart", "B": "smart"})
+		for key in ["inyeon_joint", "inyeon_kiin", "inyeon_kiin_fin", "inyeon_up", "inyeon_n4", "inyeon_theme", "inyeon_fin"]:
+			tot[key] = int(tot.get(key, 0)) + int(res.stats.get(key, 0))
+	print("(h) 무작위 20판 (불멸 6 · 초월 2 · 기인 1): 합동 %d · 기인이 연 연쇄 %d (마무리 %d) · 초월 낀 연쇄 %d · 4명 %d · 주제 %d · 인연기 %d" % [
+		tot.inyeon_joint, tot.inyeon_kiin, tot.inyeon_kiin_fin, tot.inyeon_up, tot.inyeon_n4, tot.inyeon_theme, tot.inyeon_fin])
+	_ok(tot.inyeon_theme > 0, "무작위 덱에서 주제가 터진다")
+
+	# (i) 초월이 든 인연 덱 20판 —— 그 인연 4명(초월 1 + 불멸 이상 3) + 불멸 무작위, 상대는 불멸 무작위. 합류 문턱 100 → yeon_up_join 비교 (4명 연쇄 횟수)
+	var decks4 := []
+	for nm in DB.INYEON:
+		for p in DB.INYEON[nm]:
+			if _card(p, 6) == "":
+				continue
+			var hi: Array = DB.INYEON[nm].filter(func(q): return q != p and _any(q, [7, 8]) != "")
+			if hi.size() >= 3:
+				decks4.append([_card(p, 6)] + hi.slice(0, 3).map(func(q): return _any(q, [7, 8])))
+				break
+	var keep := RtBattle.yeon_up_join
+	var line := []
+	for th in [100.0, keep]:
+		RtBattle.yeon_up_join = th
+		var rg := RandomNumberGenerator.new()
+		rg.seed = 1113
+		var c4 := {}
+		for g in 20:
+			var a: Array = decks4[g % decks4.size()].duplicate()
+			var ps := a.map(func(k): return DB.person(k))
+			var pool: Array = DB.by_tier(7)
+			while a.size() < 9:
+				var k: String = pool[rg.randi() % pool.size()]
+				if not ps.has(DB.person(k)):
+					a.append(k)
+					ps.append(DB.person(k))
+			var b := []
+			while b.size() < 9:
+				var k: String = pool[rg.randi() % pool.size()]
+				if not b.has(k):
+					b.append(k)
+			var res: Dictionary = RtBattle.make(rg.randi() % 100000).run(DB.auto_place(a, "eorin"), "eorin", 100, null, DB.auto_place(b, "hagik"), "hagik", 100, null,
+				"", "", [], {"A": "smart", "B": "smart"})
+			for key in ["inyeon_joint", "inyeon_n3", "inyeon_n4", "inyeon_up"]:
+				c4[key] = int(c4.get(key, 0)) + int(res.stats.get(key, 0))
+		line.append("문턱 %d: 합동 %d · 3명 %d · 4명 %d · 초월 낀 연쇄 %d" % [th, c4.inyeon_joint, c4.inyeon_n3, c4.inyeon_n4, c4.inyeon_up])
+	RtBattle.yeon_up_join = keep
+	print("(i) 초월 인연 덱 20판 (인연 %d개 돌려 씀): %s" % [decks4.size(), " / ".join(line)])

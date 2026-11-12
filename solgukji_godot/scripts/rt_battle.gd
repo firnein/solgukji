@@ -141,6 +141,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, policy_)
 	for i in units.size():
 		_idx[units[i]] = i
+	if inyeon_theme and inyeon_enabled:
+		_yeon_up_setup()
 	# 전장 범위 —— 진형 자리 · 발자국에 맞춘다 (앞뒤로 반 행, 옆으로 한 열 남짓 여유: 예비대가 측면으로 돌 자리)
 	var xh := 0.0
 	var yh := 0.0
@@ -379,6 +381,50 @@ const INYEON_MAX := 3
 static var inyeon_join_at := [0.32, 0.64]      # 합류 시각 (대표 기 모으기 길이 비율) —— 2.5초면 +0.8 · +1.6
 static var inyeon_stagger := 0.2               # 터지는 간격 (초)
 var _join_q := []              # 합류 예약 [{u, lead, at, grp, name}]
+
+# ───────── 11/12 인연 주제 · 기인이 연다 · 초월이 키운다 (사용자 확정) ─────────
+## 끄면(false) 예전과 비트 단위로 같다. 켜면 —— ① 연쇄(합동 2명 이상)가 끝나면 그 인연의 주제 효과(data/inyeon.json theme)가 터진다
+## ② 기인이 연쇄에 끼면 맨 먼저 터지고(대표보다 inyeon_stagger 먼저), 마무리 장수 피해 ×yeon_kiin_fin_mul · 합동 상한 배수 yeon_kiin_cap_mul
+## ③ 같은 인연 초월이 살아 있으면 그 인연 장수 게이지 ×Battle.inyeon_up_gain, 초월이 연쇄에 끼면 참여 상한 INYEON_MAX_UP 명
+static var inyeon_theme := true
+const INYEON_MAX_UP := 4
+static var inyeon_join_at4 := [0.24, 0.48, 0.72]   # 4명 연쇄의 합류 시각 (대표 기 모으기 길이 비율)
+static var yeon_kiin_fin_mul := 1.3
+static var yeon_kiin_cap_mul := 1.8
+static var yeon_up_join := 70.0      # 11/12 2차 85 → 70 (초월 인연 덱 20판 4명 연쇄 4 → 6, 무작위 덱은 문턱과 무관하게 0 —— 구성원 넷이 모이는 일이 드묾). 같은 인연 초월이 살아 있으면(또는 자신이 초월이면) 게이지가 이만큼만 차도 합류 (평소 100)
+
+
+func _join_gauge(o: Unit) -> float:
+	if inyeon_theme and (is_up_u(o) or (_gain_up.has(o) and _gain_up[o].any(func(x): return x.alive))):
+		return yeon_up_join
+	return 100.0
+
+
+static func is_kiin_u(o: Unit) -> bool:
+	return o.c.kind == "kiin"
+
+
+static func is_up_u(o: Unit) -> bool:      # 초월 (기인 아님)
+	return o.c.tier == 6 and o.c.kind != "kiin"
+
+
+## 같은 인연 초월 —— 고유기 있는 아군마다, 인연을 같이 나누는 초월 아군(자기 말고)
+func _yeon_up_setup() -> void:
+	for u in units:
+		if u.ult == null:
+			continue
+		var my: Array = DB.INYEON_OF.get(DB.person(u.c.id), [])
+		if my.is_empty():
+			continue
+		var ups := []
+		for o in units:
+			if o == u or o.camp != u.camp or o.ult == null or not is_up_u(o):
+				continue
+			var po: String = DB.person(o.c.id)
+			if my.any(func(n): return DB.INYEON[n].has(po)):
+				ups.append(o)
+		if not ups.is_empty():
+			_gain_up[u] = ups
 var _wind_grp := {}            # 합동에 든 장수 -> 그룹 {lead, name, members, taken, fired}
 
 
@@ -389,7 +435,7 @@ static var inyeon_gate_time := false
 func _join_ok(o: Unit) -> bool:
 	if inyeon_gate_time and o.ult != null and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") or not _reult_ok(o)):
 		return false
-	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= 100.0 \
+	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= _join_gauge(o) \
 		and not has_st(o, "seal") and not has_st(o, "confuse") and not _wind.has(o) and not _wind_grp.has(o)
 
 
@@ -406,7 +452,14 @@ func _inyeon_recruit(u: Unit, wait: float) -> void:
 			cands.append(o)
 	if cands.is_empty():
 		return
-	cands.sort_custom(func(x, y):      # 게이지가 먼저 찬 장수부터, 같으면 등급이 높은 장수, 그래도 같으면 유닛 순서
+	cands.sort_custom(func(x, y):      # 게이지가 먼저 찬 장수부터, 같으면 등급이 높은 장수, 그래도 같으면 유닛 순서 (주제 켬: 기인 → 초월이 맨 앞)
+		if inyeon_theme:
+			var kx := is_kiin_u(x)
+			if kx != is_kiin_u(y):
+				return kx
+			var ux := is_up_u(x)
+			if ux != is_up_u(y):
+				return ux
 		var rx: float = x.ult_ready_t if x.ult_ready_t >= 0.0 else 1e9
 		var ry: float = y.ult_ready_t if y.ult_ready_t >= 0.0 else 1e9
 		if rx != ry:
@@ -414,7 +467,10 @@ func _inyeon_recruit(u: Unit, wait: float) -> void:
 		if x.c.tier != y.c.tier:
 			return x.c.tier > y.c.tier
 		return _idx[x] < _idx[y])
-	var picks: Array = cands.slice(0, INYEON_MAX - 1)
+	var mx := INYEON_MAX
+	if inyeon_theme and (is_up_u(u) or cands.any(func(o): return is_up_u(o))):      # 초월이 끼면 참여 상한 +1
+		mx = INYEON_MAX_UP
+	var picks: Array = cands.slice(0, mx - 1)
 	# 인연 이름 —— 대표의 인연 가운데 뽑힌 장수가 가장 많이 든 것 (같으면 파일 순서)
 	var best := ""
 	var bn := -1
@@ -427,6 +483,12 @@ func _inyeon_recruit(u: Unit, wait: float) -> void:
 			bn = c
 			best = n
 	var grp := {"lead": u, "name": best, "members": [u], "taken": {}, "fired": false}
+	var at: Array = inyeon_join_at
+	if inyeon_theme:
+		if picks.size() >= 3:
+			at = inyeon_join_at4
+		if is_kiin_u(u):
+			grp["kiin"] = u      # 기인이 대표 —— 원래 맨 먼저 터진다
 	_wind_grp[u] = grp
 	for i in picks.size():
 		var o: Unit = picks[i]
@@ -434,7 +496,7 @@ func _inyeon_recruit(u: Unit, wait: float) -> void:
 		var nm_ := best
 		if not DB.INYEON[best].has(po):      # 그룹 이름을 같이 나누지 않는 장수는 대표와 나누는 첫 인연
 			nm_ = lead_in.filter(func(n): return DB.INYEON[n].has(po))[0]
-		_join_q.append({"u": o, "lead": u, "at": _tm + wait * float(inyeon_join_at[mini(i, inyeon_join_at.size() - 1)]), "grp": grp, "name": nm_})
+		_join_q.append({"u": o, "lead": u, "at": _tm + wait * float(at[mini(i, at.size() - 1)]), "grp": grp, "name": nm_})
 
 
 ## 합류 때가 된 장수를 붙인다 (매 틱, 고유기를 터뜨리기 전에)
@@ -452,6 +514,12 @@ func _inyeon_joins() -> void:
 		grp.members.append(o)
 		_wind_grp[o] = grp
 		var end: float = float(_wind[lead]) + inyeon_stagger * ord
+		if inyeon_theme:
+			if not grp.has("kiin") and is_kiin_u(o):      # 기인은 연쇄를 연다 —— 대표보다 먼저 터진다
+				grp["kiin"] = o
+				end = float(_wind[lead]) - inyeon_stagger
+			elif grp.has("kiin") and grp.kiin != lead:      # 기인이 앞에 끼어 뒤 장수는 한 칸씩 당겨진다
+				end = float(_wind[lead]) + inyeon_stagger * (ord - 1)
 		_wind[o] = end
 		o.gauge = 0.0
 		o.ult_ready_t = -1.0
@@ -473,6 +541,8 @@ func _inyeon_drop(d: Unit) -> void:
 			stats["inyeon_cut"] = int(stats.get("inyeon_cut", 0)) + 1
 		grp.members.erase(d)
 		_wind_grp.erase(d)
+		if grp.get("kiin") == d and not grp.get("fired", false):      # 연쇄를 열 기인이 끊겼다 —— 대표가 다시 연다
+			grp.erase("kiin")
 		_inyeon_fin_check(grp)
 	_join_q = _join_q.filter(func(j): return j.lead != d)
 
@@ -490,11 +560,18 @@ static var FIN := {
 
 
 func _inyeon_fin_check(grp: Dictionary) -> void:
-	if not inyeon_fin_enabled or not grp.get("fired", false) or grp.get("fin", false) or int(grp.get("shot", 0)) < 2:
+	if not (inyeon_fin_enabled or inyeon_theme) or not grp.get("fired", false) or grp.get("fin", false) or int(grp.get("shot", 0)) < 2:
 		return
 	if grp.members.any(func(o): return _wind.has(o)):      # 아직 쏠 장수가 남았다
 		return
 	grp["fin"] = true
+	if inyeon_fin_enabled:
+		_inyeon_fin_fire(grp)
+	if inyeon_theme:      # 11/12 인연 주제 —— 인연기 다음에
+		_inyeon_theme_fire(grp)
+
+
+func _inyeon_fin_fire(grp: Dictionary) -> void:
 	var def: Dictionary = DB.inyeon_fin(grp.name)
 	if def.is_empty() or not FIN.has(def.t):
 		return
@@ -559,6 +636,7 @@ func _fire_winds() -> void:
 		var joint: bool = not _ult_grp.is_empty()      # 합동으로 터졌다 (대표가 끊겨 혼자 쏜 장수는 세지 않는다)
 		_ult_grp = {}
 		_ult_extra = {}
+		_ult_amp_x = 1.0
 		_wind_grp.erase(u)
 		if joint:
 			grp["shot"] = int(grp.get("shot", 0)) + 1
@@ -569,7 +647,8 @@ func _fire_winds() -> void:
 
 ## 합동 고유기의 사건 항목 · 상한 그룹을 정한다 —— 대표는 inyeon · mates, 따라 쏘는 장수는 inyeon · lead (대표가 이미 터졌을 때만 —— 대표가 끊겼으면 보통 고유기처럼)
 func _inyeon_fire_setup(u: Unit, grp: Dictionary) -> void:
-	if u == grp.lead:
+	var head: Unit = grp.get("kiin", grp.lead) if inyeon_theme else grp.lead      # 11/12 기인이 끼면 기인이 연다
+	if u == head and not grp.fired:
 		var mates := []
 		for o in grp.members:
 			if o != u and _wind.has(o):
@@ -577,13 +656,28 @@ func _inyeon_fire_setup(u: Unit, grp: Dictionary) -> void:
 		if mates.is_empty():
 			return
 		grp.fired = true
+		grp["head"] = u
+		if inyeon_theme:
+			grp["foes0"] = units.filter(func(o): return o.alive and o.camp != u.camp).size()
 		_ult_extra = {"inyeon": grp.name, "mates": mates}
 		stats["inyeon_joint"] = int(stats.get("inyeon_joint", 0)) + 1
 		stats["inyeon_units"] = int(stats.get("inyeon_units", 0)) + 1 + mates.size()
-		var kn := "inyeon_n2" if mates.size() == 1 else "inyeon_n3"
+		var kn := "inyeon_n2" if mates.size() == 1 else ("inyeon_n3" if mates.size() == 2 else "inyeon_n4")
 		stats[kn] = int(stats.get(kn, 0)) + 1
+		if inyeon_theme:
+			if is_kiin_u(u):
+				grp["cap_mul"] = yeon_kiin_cap_mul
+				grp["kiin_open"] = true
+				stats["inyeon_kiin"] = int(stats.get("inyeon_kiin", 0)) + 1
+				_ult_extra["open"] = "kiin"
+			if grp.members.any(func(o): return is_up_u(o) and (o == u or _wind.has(o))):
+				stats["inyeon_up"] = int(stats.get("inyeon_up", 0)) + 1
 	elif grp.fired:
-		_ult_extra = {"inyeon": grp.name, "lead": grp.lead.key}
+		_ult_extra = {"inyeon": grp.name, "lead": grp.get("head", grp.lead).key}
+		if inyeon_theme and grp.get("kiin_open", false) and not grp.members.any(func(o): return o != u and _wind.has(o)):
+			_ult_amp_x = yeon_kiin_fin_mul      # 기인이 연 연쇄의 마무리
+			_ult_extra["finish"] = true
+			stats["inyeon_kiin_fin"] = int(stats.get("inyeon_kiin_fin", 0)) + 1
 	else:
 		return
 	_ult_grp = grp
@@ -1329,3 +1423,197 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	super.int_hit(a, d, m, spread)
 	if _in_ult and _wind.has(d) and d.camp != a.camp:
 		_cut_wind(d, a)
+
+
+# ───────── 11/12 인연 주제 —— 연쇄가 끝나면 그 인연 계열의 큰 효과 (기존 전투 효과를 그대로 쓴다) ─────────
+## 수치는 [2명, 3명 이상]. 피해형은 작게 —— 상태 · 처형 · 버프 위주. 인연기(FIN)가 있는 인연은 인연기 다음에 터지고, 주제는 인연기와 겹치지 않게 골랐다(data/inyeon.json theme).
+static var THEME := {
+	"ignite": {"burn": [0.05, 0.07], "dur": [2, 3], "pop": [0.5, 0.7]},      # 점화 —— 안 타는 적은 화상, 이미 타는 적은 남은 화상의 pop 만큼 즉시 터진다
+	"spread": {"burn": [0.04, 0.06], "dur": [2, 3]},                         # 불길 번짐 —— 적 선봉 화상 + 타는 적마다 같은 열로 번짐
+	"blaze": {"amp": [1.25, 1.4], "burn": [0.04, 0.06], "dur": [2, 3]},      # 연소 —— 타는 적의 불길이 거세진다(세기 ×amp · 1턴 더), 안 타는 적은 화상
+	"steam": {"burn": [0.04, 0.06], "dur": [2, 3], "amp": 1.3},              # 증기 —— 적 전원 수몰 + 화상, 화상 ×1.3
+	"flood": {"dur": [2, 3], "rout": [0.15, 0.2]},                            # 침수 —— 적 전원 수몰, 병력 rout 아래 적은 휩쓸려 패주
+	"tide": {"dur": [2, 3], "mult": [0.5, 0.75]},                             # 백의도강 —— 적 후군 수몰 + 기습(물리 일격)
+	"counter": {"p": [0.35, 0.5], "amp": [0.3, 0.5], "dur": 2},              # 반격 —— 아군 전원 반격 확률 · 반격 피해 + (2턴)
+	"chase": {"mult": [0.8, 1.0]},                                            # 추격 —— 연쇄에 든 장수마다 적을 몰아친다 (연쇄 동안 무너진 적만큼, 1~2번)
+	"momentum": {"amp": [0.25, 0.4]},                                         # 기세 —— 아군 전원 다음 공격 +
+	"exec": {"at": [0.3, 0.4]},                                               # 비장 —— 방어가 깎인 적 중 병력 at 아래를 베어 넘기고, 적 선봉 방어를 깎는다
+	"confuse": {"n": [2, 3]},                                                 # 혼란(반목 · 반간 · 미인계 · 위압) —— 적 상위 n 부대 혼란
+	"slow": {"gauge": [15.0, 25.0]},                                          # 둔화 —— 적 전원 수몰(발 묶임) + 고유기 게이지 −
+	"ambush": {"gauge": [20.0, 30.0]},                                        # 매복 —— 기 모으는 적은 끊고, 나머지는 게이지 −
+	"plague": {"val": [8.0, 12.0], "dur": [2, 3]},                            # 역병 · 봉인 —— 적 전원 역병 + 적 최강 장수 봉인
+	"cleanse": {"n": [1, 2], "morale": [8.0, 14.0]},                          # 정화 · 고무 —— 아군 전원 상태이상 해제 + 사기
+	"duel": {"mult": [1.0, 1.6], "morale": [12.0, 20.0]},                     # 일기토 —— 적 최강 장수에게 일격 + 사기
+}
+
+
+func _yeon_best(foes: Array) -> Unit:      # 적 최강 장수 —— 등급, 같으면 남은 병력 (인연기 duel 과 같은 기준)
+	var best: Unit = foes[0]
+	for t in foes:
+		if t.c.tier > best.c.tier or (t.c.tier == best.c.tier and t.troops > best.troops):
+			best = t
+	return best
+
+
+func _inyeon_theme_fire(grp: Dictionary) -> void:
+	var def: Dictionary = DB.inyeon_theme(grp.name)
+	if def.is_empty() or not THEME.has(def.t):
+		return
+	var head: Unit = grp.get("head", grp.lead)
+	var by: Unit = head if head.alive else null
+	if by == null:
+		for o in grp.members:
+			if o.alive:
+				by = o
+				break
+	if by == null and grp.lead.alive:
+		by = grp.lead
+	if by == null:
+		return
+	var foes := units.filter(func(o): return o.alive and o.camp != by.camp)
+	var allies := units.filter(func(o): return o.alive and o.camp == by.camp)
+	if foes.is_empty():
+		return
+	var i := 1 if int(grp.shot) >= 3 else 0
+	var tune: Dictionary = THEME[def.t]
+	var plus := str(def.get("plus", ""))
+	stats["inyeon_theme"] = int(stats.get("inyeon_theme", 0)) + 1
+	_ai += 1
+	_ph = "act"
+	_who = by.key
+	_one = turn_mul
+	_long = turn_mul
+	L("sk", "인연 『%s』 %s 『%s』 —— %s" % [grp.name, DB.INYEON_THEME_KIND.get(def.t, ""), def.n, DB.inyeon_theme_desc(def)],
+		{"fx": "inyeon_theme", "a": by.key, "name": def.n, "inyeon": grp.name, "kind": def.t, "plus": plus, "cnt": int(grp.shot)})
+	match def.t:
+		"ignite":
+			for t in foes:
+				var s = _st_of(t, "burn")
+				if s != null:      # 이미 타는 적 —— 남은 화상이 한꺼번에 터진다
+					var amt: float = float(s.val) * maxf(1.0, float(s.dur)) * float(tune.pop[i])
+					t.st.erase(s)
+					_dot_hit(t, s, amt)
+					stats.burn += amt
+					L("st", "%s의 불길이 한꺼번에 터졌다 — 병력 %s 손실" % [nm(t), num(amt)], {"fx": "tick", "f": t.key, "st": "burn", "n": roundi(amt)})
+				else:
+					inflict(by, t, "burn", float(tune.burn[i]), int(tune.dur[i]))
+		"spread":
+			for t in _front_of(foes):
+				inflict(by, t, "burn", float(tune.burn[i]), int(tune.dur[i]))
+			for t in foes:
+				var s = _st_of(t, "burn")
+				if s != null and t.alive:
+					for o in units:
+						if o.alive and o != t and o.camp == t.camp and _same_line(o, t) and not has_st(o, "burn"):
+							_spread_burn_to(t, s, o)
+		"blaze":
+			for t in foes:
+				var s = _st_of(t, "burn")
+				if s != null:
+					s.val = roundf(float(s.val) * float(tune.amp[i]))
+					s.dur = int(s.dur) + 1
+					L("st", "%s의 불길이 거세진다" % nm(t), {"fx": "status", "f": t.key, "st": "burn"})
+				else:
+					inflict(by, t, "burn", float(tune.burn[i]), int(tune.dur[i]))
+		"steam":
+			for t in foes:
+				inflict(by, t, "flood", _water_flood(by), int(tune.dur[i]))
+				inflict(by, t, "burn", float(tune.burn[i]), int(tune.dur[i]))
+				var s = _st_of(t, "burn")
+				if s != null:
+					s.val = roundf(float(s.val) * float(tune.amp))
+		"flood":
+			for t in foes:
+				inflict(by, t, "flood", _water_flood(by), int(tune.dur[i]))
+			for t in foes:
+				if t.alive and t.troops > 0 and t.troops / t.max <= float(tune.rout[i]):
+					stats.drowned += 1
+					rout(t, "물에 휩쓸려 무너졌다")
+		"tide":
+			for t in _back_of(foes):
+				inflict(by, t, "flood", _water_flood(by), int(tune.dur[i]))
+				if t.alive:
+					phys_hit(by, t, float(tune.mult[i]), true)
+		"counter":
+			for o in allies:
+				o.buffs.append({"stat": "counter", "amt": float(tune.p[i]), "dur": roundi(int(tune.dur) * _long)})
+				o.buffs.append({"stat": "counter_amp", "amt": float(tune.amp[i]), "dur": roundi(int(tune.dur) * _long)})
+				L("sk", "%s 반격 태세를 갖춘다" % ga(nm(o)), {"fx": "buff", "f": o.key, "up": true})
+		"chase":
+			var n := clampi(int(grp.get("foes0", 0)) - foes.size(), 1, 2)      # 연쇄 동안 무너진 적만큼 (1~2번)
+			for k in grp.members:
+				for r in n:
+					if not k.alive:
+						break
+					var tt := basic_target(k, units.filter(func(o): return o.camp != k.camp))
+					if tt.is_empty() or not tt[0].alive:
+						break
+					stats.chases += 1
+					L("sk", "%s 달아나는 적을 몰아친다" % ga(nm(k)), {"fx": "skill", "a": k.key, "name": "추격", "kind": "phys"})
+					if is_caster(k.c): int_hit(k, tt[0], float(tune.mult[i]), 1)
+					else: phys_hit(k, tt[0], float(tune.mult[i]), true)
+		"momentum":
+			for o in allies:
+				o.kill_amp = maxf(o.kill_amp, float(tune.amp[i]))
+				L("sk", "%s 기세가 오른다" % ga(nm(o)), {"fx": "buff", "f": o.key, "up": true})
+		"exec":
+			for t in foes:
+				var cut: bool = int(t.shred.phys.t) > 0 if shield_enabled else t.cut.def > 0
+				if t.alive and cut and t.troops > 0 and t.troops / t.max <= float(tune.at[i]):
+					stats.execs += 1
+					rout(t, "한 칼에 베였다")
+			for t in _front_of(units.filter(func(o): return o.alive and o.camp != by.camp)):
+				if shield_enabled: _shred(by, t, "phys", _shred_v(by) * _gv("shred_big", 1.5), int(_gv("shred_dur", 3)), def.n)
+				else: _cut(by, t, "def", 0.15 * by.c.atk, def.n)
+		"confuse":
+			var ord := foes.duplicate()
+			ord.sort_custom(func(x, y):
+				if x.c.tier != y.c.tier:
+					return x.c.tier > y.c.tier
+				if x.troops != y.troops:
+					return x.troops > y.troops
+				return _idx[x] < _idx[y])
+			for t in ord.slice(0, int(tune.n[i])):
+				stats.confuses += 1
+				inflict(by, t, "confuse", 1, int(DB.PSV.scheme.dur))
+		"slow":
+			for t in foes:
+				inflict(by, t, "flood", 1, 1)
+				t.gauge = maxf(0.0, t.gauge - float(tune.gauge[i]))
+		"ambush":
+			for t in foes:
+				if _wind.has(t):
+					_cut_wind(t, by)
+				else:
+					t.gauge = maxf(0.0, t.gauge - float(tune.gauge[i]))
+		"plague":
+			for t in foes:
+				inflict(by, t, "plague", float(tune.val[i]), int(tune.dur[i]))
+			var b := _yeon_best(foes)
+			if b.alive:
+				inflict(by, b, "seal", 1, 1)
+		"cleanse":
+			for o in allies:
+				for r in int(tune.n[i]):
+					if not cleanse(o): break
+				heal_morale(o, float(tune.morale[i]), def.n, by)
+		"duel":
+			var b := _yeon_best(foes)
+			phys_hit(by, b, float(tune.mult[i]), true)
+			if b.alive:
+				morale_hit(b, float(tune.morale[i]), def.n, 1, by)
+	var left := units.filter(func(o): return o.alive and o.camp != by.camp)
+	match plus:      # 덧붙는 효과 (data/inyeon.json theme.plus)
+		"confuse":
+			if not left.is_empty():
+				var b := _yeon_best(left)
+				stats.confuses += 1
+				inflict(by, b, "confuse", 1, int(DB.PSV.scheme.dur))
+		"slow":
+			for t in left:
+				inflict(by, t, "flood", 1, 1)
+		"phalanx":
+			for o in allies:
+				_give_phalanx(o, 2, def.n)
+	_one = 1.0
+	_long = 1.0

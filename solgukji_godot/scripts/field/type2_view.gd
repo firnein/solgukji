@@ -150,6 +150,31 @@ var draw_keep := 1.0           # 예산 때문에 그리는 병사 비율 (1 = �
 var draw_grow := 1.0           # 줄인 비율에 따른 인형 배율 (1~1.35)
 var draw_dark := 0.0           # 줄인 비율에 따른 진영색 짙기 (0~1)
 static var mobile_test := false     # 점검용 (--mobile=1) —— PC 에서 휴대폰 문턱으로
+## 11/12 후반 프레임 · 고급 병사 (사용자 "후반 전투 프레임이 떨어진다 · 병사 수를 줄이고 고급 병종처럼") —— 화면만:
+##   등급이 높을수록 부대당 그리는 인형을 줄이고(TIER_KEEP, 예산 keep 에 곱한다) 남은 인형을 크게(TIER_GROW) · 장식한다(_deco).
+##   안 그리는 병사는 GPU 인스턴스에서 아예 뺀다(_build_gpu) —— 정점 셰이더도 돌지 않는다. 계산 병사 · 병력 · 판정은 그대로
+const TIER_KEEP := {5: 0.8, 6: 0.6, 7: 0.45, 8: 0.38}
+const TIER_GROW := {5: 1.08, 6: 1.2, 7: 1.32, 8: 1.4}
+const GROW_CAP := 1.75         # 예산 grow × 등급 배율의 상한
+const DECO_ACCENT := {6: Color("#45c8f5"), 7: Color("#ff8a1c"), 8: Color("#e8323c")}     # 투구 깃털 · 등 깃발 천 (신화는 붉은 기에 금테)
+const DECO_GLOW := {6: Color("#45c8f5"), 7: Color("#ff9a2c"), 8: Color("#ffd23a")}       # 발밑 · 둘레 기운 (불멸 · 신화만)
+static var tier_fig := true    # 점검용 (--tierfig=0) —— 등급별 인형 줄이기 · 장식 끔 (전후 비교)
+
+
+## 이 부대에서 그리는 병사 비율 (예산 × 등급)
+func _keep_of(sq: Squad) -> float:
+	return draw_keep * (float(TIER_KEEP.get(sq.tier, 1.0)) if tier_fig else 1.0)
+
+
+## 장식 단계 —— 0 평범(전설 이하) · 1 초월 · 기인(금 투구 · 금 띠 · 짧은 깃털) · 2 불멸 · 신화(+ 금 테두리 · 긴 깃털 · 등 깃발 · 둘레 발광)
+func _deco(sq: Squad) -> int:
+	if not tier_fig:
+		return 0
+	if sq.tier >= 7:
+		return 2
+	if sq.tier == 6 or DB.is_kiin(sq.cid):
+		return 1
+	return 0
 
 
 static func _mobile() -> bool:
@@ -219,7 +244,7 @@ func _thinned(sq: Squad) -> bool:
 
 ## 이 부대에서 그려지는 GPU 병사 수 (성능 표시 '보이는' —— 셰이더처럼 앞 두 줄 · 맨 뒷줄 · 양 끝 열을 뺀 안쪽의 반을 뺀다, 근사)
 func _shown_of(sq: Squad) -> int:
-	var alive := int(sq._alive * draw_keep)      # 예산이 먼저 —— LOD 는 남은 병사에서 (바닥 단계에서는 쉰다, _lod)
+	var alive := int(sq._alive * _keep_of(sq))      # 예산 · 등급이 먼저 —— LOD 는 남은 병사에서 (바닥 단계에서는 쉰다, _lod)
 	if not _thinned(sq):
 		return alive
 	var rows := sq.ranks()
@@ -557,6 +582,7 @@ shader_type canvas_item;
 varying float atlas_x;
 varying vec4 tint;
 void vertex() {
+	VERTEX.y = -VERTEX.y;      // 11/12 QuadMesh 는 2D 에서 위아래가 뒤집혀 그려졌다 (인형이 물구나무) —— 바로 세운다
 	atlas_x = INSTANCE_CUSTOM.x;
 	tint = COLOR;
 }
@@ -1625,8 +1651,9 @@ func _build_gpu() -> void:
 	var lst := []
 	for row in field.order.size():
 		var sq: Squad = field.order[row]
+		var kp := _keep_of(sq)
 		for sd in sq.soldiers:
-			if sd != sq.general:
+			if sd != sq.general and sd.gseed <= kp:      # 11/12 예산 · 등급으로 안 그리는 병사는 인스턴스에서 뺀다 (셰이더 keep 과 같은 씨앗 기준)
 				lst.append([row, sd])
 	if lst.is_empty():
 		return
@@ -1658,10 +1685,8 @@ func _build_gpu() -> void:
 	var gm := ShaderMaterial.new()
 	gm.shader = load("res://shaders/type2_gpu.gdshader")
 	gm.set_shader_parameter("squad_tex", field._sq_tex)
-	var timg := Image.create(1, maxi(1, field.order.size()), false, Image.FORMAT_RGF)
-	for row in field.order.size():
-		timg.set_pixel(0, row, Color(_cell(field.order[row].tag), float(TAG_SIZE.get(field.order[row].tag, 1.0)), 0))
-	gm.set_shader_parameter("tag_tex", ImageTexture.create_from_image(timg))
+	gm.set_shader_parameter("tag_tex", _tag_tex())
+	gm.set_shader_parameter("deco_tex", _deco_tex())
 	gm.set_shader_parameter("tilt", TILT)
 	gm.set_shader_parameter("spread", T2_SPREAD)
 	gm.set_shader_parameter("team_a", TEAM_A)
@@ -1672,6 +1697,118 @@ func _build_gpu() -> void:
 	gpu_count = lst.size()
 	gpu_total = gpu_count
 	gpu_shown = gpu_count
+
+
+## 부대 줄 -> 셰이더 표 (3칸): 0 = (인형 칸, 병종 크기, 등급 배율, 장식 단계) · 1 = 장식 색(깃털 · 깃발) · 2 = 발광 색
+func _tag_tex() -> ImageTexture:
+	var timg := Image.create(3, maxi(1, field.order.size()), false, Image.FORMAT_RGBAF)
+	for row in field.order.size():
+		var sq: Squad = field.order[row]
+		var tg := float(TIER_GROW.get(sq.tier, 1.0)) if tier_fig else 1.0
+		tg = minf(tg, maxf(1.0, GROW_CAP / draw_grow))
+		var dc := _deco(sq)
+		timg.set_pixel(0, row, Color(_cell(sq.tag), float(TAG_SIZE.get(sq.tag, 1.0)), tg, dc))
+		var acc: Color = DECO_ACCENT.get(sq.tier, DB.KIIN_COL)
+		timg.set_pixel(1, row, acc)
+		timg.set_pixel(2, row, DECO_GLOW.get(sq.tier, acc))
+	return ImageTexture.create_from_image(timg)
+
+
+## 11/12 고급 병사 장식 아틀라스 —— 병사 아틀라스와 같은 칸(병종 9칸) × 2줄(장식 1 · 2단계). 색이 아니라 쓰임새를 담는다:
+##   r = 금 (투구 · 띠 · 방패 테 · 옷 테두리 · 깃대), g = 장식 색 (깃털 · 깃발 천, 부대 줄의 등급색), b = 둘레 발광 (실루엣 밖, 거리로 옅어짐)
+## 인형 그림(_make_tag_fig)과 같은 기준점(머리 · 몸)으로 그린다. 한 번 만들어 계속 쓴다
+static var _deco_cache: ImageTexture = null
+func _deco_tex() -> ImageTexture:
+	if _deco_cache != null:
+		return _deco_cache
+	var n := 48
+	var img := Image.create(n * ATLAS_N, n * 2, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 1))
+	for ti in DB.D.TAGORDER.size():
+		var tag := str(DB.D.TAGORDER[ti])
+		var fig := _make_tag_fig(tag, n)
+		var cav := tag == "기병"
+		var low := tag == "도적"
+		var robe := tag in ["책사", "유생", "술사", "모사"]
+		var hx := 0.46
+		var hy := 0.13 if cav else (0.30 if low else 0.22)
+		var hr := 0.075 if cav else 0.085
+		var b0 := hy + hr + 0.01
+		var b1 := 0.90 if robe else (0.48 if cav else (0.74 if low else 0.70))
+		var solid := PackedByteArray()
+		var cloth := PackedByteArray()
+		solid.resize(n * n)
+		cloth.resize(n * n)
+		for y in n:
+			for x in n:
+				var c := fig.get_pixel(x, y)
+				solid[y * n + x] = 1 if c.a > 0.5 else 0
+				cloth[y * n + x] = 1 if c.a > 0.9 and c.r > 0.98 and c.g > 0.98 and c.b > 0.98 else 0
+		# 실루엣 밖 거리 (4 칸까지, 네 방향 번짐을 거듭)
+		var dist := PackedByteArray()
+		dist.resize(n * n)
+		for i in n * n:
+			dist[i] = 0 if solid[i] == 1 else 9
+		for it in 4:
+			for y in n:
+				for x in n:
+					var i := y * n + x
+					if dist[i] <= it:
+						continue
+					for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+						var q: Vector2i = Vector2i(x, y) + d
+						if q.x >= 0 and q.y >= 0 and q.x < n and q.y < n and dist[q.y * n + q.x] == it:
+							dist[i] = it + 1
+							break
+		for lv in [1, 2]:
+			for y in n:
+				for x in n:
+					var fx := (x + 0.5) / n
+					var fy := (y + 0.5) / n
+					var i := y * n + x
+					var c := fig.get_pixel(x, y)
+					var gold := 0.0
+					var acc := 0.0
+					var glow := 0.0
+					var dark: bool = solid[i] == 1 and c.a > 0.9 and c.r < 0.4 and c.r > 0.2 and absf(c.r - 0.30) < 0.08 and absf(c.b - 0.25) < 0.08
+					if dark and fy < b0 + 0.01:
+						gold = 1.0                                   # 금 투구 · 관
+					elif dark and fy < b1 and absf(fx - hx) < 0.24:
+						gold = 0.9                                   # 금 띠 · 방패 테 · 화살통
+					# 투구 깃털 —— 1단계 짧게 · 2단계 길게 뒤로 휘어
+					var top := hy - hr
+					var plen := 0.09 if lv == 1 else 0.17
+					var pk := (top - fy) / plen
+					if pk >= 0.0 and pk <= 1.0 and absf(fx - (hx - pk * pk * 0.07 * float(lv))) < 0.026 + 0.016 * pk:
+						acc = 1.0
+					if lv == 2:
+						# 옷 금테 —— 옷 칸 중 옷이 아닌 칸과 맞닿은 곳 (두 칸 폭)
+						if cloth[i] == 1:
+							for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(2, 0), Vector2i(-2, 0), Vector2i(0, 2), Vector2i(0, -2)]:
+								var q: Vector2i = Vector2i(x, y) + d
+								if q.x < 0 or q.y < 0 or q.x >= n or q.y >= n or cloth[q.y * n + q.x] == 0:
+									gold = maxf(gold, 0.6)
+									break
+						# 등 깃발 (사시모노) —— 등 뒤 깃대 + 등급색 천 + 금테
+						var px := hx - 0.16
+						var py0 := 0.02
+						var py1 := b0 + 0.18
+						if solid[i] == 0 or fx < hx - 0.08:
+							if absf(fx - px) < 0.016 and fy > py0 and fy < py1:
+								gold = 1.0
+							if fx > px - 0.21 and fx < px - 0.01 and fy > py0 + 0.01 and fy < py0 + 0.24:
+								var edge := fx < px - 0.19 or fx > px - 0.035 or fy < py0 + 0.035 or fy > py0 + 0.215
+								if edge:
+									gold = 1.0
+								else:
+									acc = 1.0
+						if solid[i] == 0 and gold == 0.0 and acc == 0.0 and dist[i] <= 3:
+							glow = 1.0 - (float(dist[i]) - 1.0) / 3.0
+					if acc > 0.0:
+						gold = 0.0
+					img.set_pixel(n * ti + x, n * (lv - 1) + y, Color(gold, acc, glow, 1.0))
+	_deco_cache = ImageTexture.create_from_image(img)
+	return _deco_cache
 
 
 var _dying := {}                # 부대 key -> 쓰러지는 병사 (CPU 가 눕히며 그린다, 2초 뒤 빠진다)
@@ -1689,6 +1826,8 @@ func gpu_moved(sd, row: int, slot: float, seed: float, mt: float) -> void:
 		else:
 			_gmm.multimesh.set_instance_custom_data(_gi[sd], Color(row, slot, seed, mt))
 	sd.gdie = gdie
+	if _gmm != null and not _gi.has(sd):
+		return      # 11/12 예산 · 등급으로 안 그리는 병사 —— 날아가도 CPU 가 그리지 않는다
 	if not sd.alive and not gdie and row < field.order.size():
 		var k: String = field.order[row].key
 		if not _dying.has(k):
