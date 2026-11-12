@@ -309,6 +309,9 @@ func start() -> void:
 		seats.append(_bot_seat(nm, b[1], b[2], DB.D.STYLES[bi % DB.D.STYLES.size()], 0.0,
 			snappedf(rng.randf_range(Run.SKILL_LO, Run.SKILL_HI), 0.01)))
 		bi += 1
+	for s in seats:
+		if not s.human:
+			Run.bot_grow(s.bot, int(rng.seed), 0)      # 11/12 봇 군세를 처음 만든다 (난수를 쓰지 않는다 —— 방의 다른 진행은 그대로)
 	for s in humans():
 		var r := Run.new()
 		r.new_game(rng.randi())
@@ -960,8 +963,9 @@ func _flush_shadow_news() -> void:
 	_news_stage = save
 
 
+## 11/12 사용자(작업현황 94): 봇의 군세는 그 봇이 한 번 만들어 PV 를 따라 자란다 (Run.bot_side_of) —— 전투마다 새로 뽑지 않는다
 func _bot_side(b: Dictionary) -> Dictionary:
-	return Run.bot_side(b.bot.pv * Run.BOT_PV_MUL, b.bot.style, day * 3 + phase, rng)
+	return Run.bot_side_of(b.bot, int(rng.seed), day * 3 + phase)
 
 
 ## 다음 날 아침
@@ -993,9 +997,10 @@ func _advance() -> void:
 						_fallen(s)
 		else:
 			s.bot.pv += Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
+			Run.bot_grow(s.bot, int(rng.seed), day * 3 + phase)      # 11/12 PV 가 오른 만큼 군세도 (필요한 칸만) 자란다
 		s.battles = []
 	# 11/10 사용자: 온라인 대전의 전황 소식은 유저의 것만 —— 봇 등용 소식은 방에 뿌리지 않는다 (11/9 에 넣었던 것을 뺀다).
-	# _bot_news() 는 봇의 최고 등급 기록(top)과 난수를 쓰므로 호출은 그대로 두고 결과만 버린다 (난수 순서 불변)
+	# _bot_news() 는 봇의 최고 등급 기록(top)을 갱신하므로 호출은 그대로 두고 결과만 버린다
 	_bot_news()
 	_mirror()
 	var cut := day == Run.ONLINE_NOON_DAYS and phase == 0 and not noon_end_sent      # 4일차 첫 단계 —— 토벌이 사라지고 타이머가 절반이 된다 (한 판에 한 번)
@@ -1222,24 +1227,21 @@ func _params(bt: Dictionary, flipped: bool, title_ := "", foe_ := "") -> Diction
 		"tra": float(a.get("tr_mul", 1.0)), "trb": float(b.get("tr_mul", 1.0)), "tb": b.get("trait", {})}
 
 
-## 봇 등용 소식 —— Run.bot_news 와 같은 기준: 실제로 편성 가능한 최고 등급(전설 이상)이 올라갔을 때만
+## 봇 등용 소식 —— Run.bot_news 와 같은 기준: 군세에 든 최고 등급(전설 이상)이 올라갔을 때만
 func _bot_news() -> Array:
 	var out := []
 	for s in seats:
 		if s.human:
 			continue
 		var b: Dictionary = s.bot
-		var bb := DB.gen_board(b.pv, b.style, rng)
-		var top := 0
-		for k in bb.cards:
-			top = maxi(top, int(DB.C[k].tier))
+		var hit := Run.bot_top_card(b)
+		if hit == "":
+			continue
+		var top: int = DB.C[hit].tier
 		if top < 6 or top <= int(b.get("top", 0)):
 			continue
 		b.top = top
-		var pl: Array = DB.POOLS[b.style].get(top, []).filter(func(k): return DB.C[k].tier < 8)
-		if pl.is_empty():
-			continue
-		out.append({"who": s.name, "unit": pl[rng.randi() % pl.size()]})
+		out.append({"who": s.name, "unit": hit})
 	return out
 
 
@@ -1516,7 +1518,7 @@ func _mirror() -> void:
 			else:
 				var b: Dictionary = o.bot
 				lst.append({"name": o.name, "epi": b.epi, "fac": b.fac, "style": b.style, "pv": b.pv,
-					"w": b.w, "l": b.l, "strikes": b.strikes, "top": 0, "skill": b.skill})
+					"w": b.w, "l": b.l, "strikes": b.strikes, "top": 0, "skill": b.skill, "army": (b.get("army", []) as Array).duplicate()})
 		s.run.bots = lst
 
 

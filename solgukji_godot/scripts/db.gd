@@ -1549,7 +1549,8 @@ func aff_of(tag: String, line: String, side: String) -> String:
 
 # ───────── 보드 생성 (원본 genBoard / autoPlace) ─────────
 
-func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictionary:
+## 봇 덱의 9칸 등급 —— 가장 낮은 칸부터 한 단계씩 올리며 PV 를 쓴다 (gen_board 와 군세 유지(army_fit)가 같이 쓴다. 난수 없음)
+func board_tiers(pv: float) -> Array:
 	var mid := func(t): return roundi((TIER[t].lo + TIER[t].hi) / 2.0)
 	var tiers := []
 	tiers.resize(9)
@@ -1569,23 +1570,114 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 			break
 		tiers[lo] = nt
 		spent += cost
+	return tiers
+
+
+func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictionary:
+	var tiers := board_tiers(pv)
 	var cards := []
 	var mix_tags := _mix_tags(style, rng) if bot_mix else []
 	for i in tiers.size():
 		var t: int = tiers[i]
-		var src: Array = POOLS[style].get(t, [])
-		if src.is_empty():
-			src = POOLS["균형"][t]
-		if bot_mix:
-			src = _mix_src(t, str(mix_tags[i]))
-		var ok := src.filter(func(k): return C[k].tier < 8)
-		if ok.is_empty():
-			ok = src
-		var fresh := ok.filter(func(k): return C[k].tier < 3 or not cards.any(func(x): return person(x) == person(k)))      # 같은 인물은 한 부대만
-		if not fresh.is_empty():
-			ok = fresh
-		cards.append(ok[rng.randi() % ok.size()])
+		var tag := str(mix_tags[i]) if bot_mix else ""
+		var k := _army_pick(t, tag, cards, rng.randi(), style)
+		cards.append(k)
 	return {"cards": cards, "form": STYLE_FORM[style]}
+
+
+## 11/12 봇 군세 한 칸 뽑기 (작업현황 94) —— 이미 뽑힌 others 와 겹치지 않게: 카드 id 는 늘, 같은 인물(person)은 전설 이하 낮은 등급(3 미만 기본패)을 빼고 한 부대만.
+## 후보 순서: 그 등급 · 그 병종(없으면 같은 피해 종류 · 아무나, _mix_src) → 그 등급 전체 → 한 등급 낮은 곳 … 안 겹치는 것이 하나라도 있는 첫 곳에서 고른다.
+## 맨 아래 등급(기본패 8종)은 9칸을 채우면 모자라 겹칠 수 있다 —— 마지막 수단으로만 겹침을 허용. seed 만으로 같은 결과(난수 상태 없음)
+## bot_mix 를 끈 옛 방식(style 풀)은 style 로 고른다
+func _army_pick(t: int, tag: String, others: Array, seed_: int, style := "균형") -> String:
+	var rg := RandomNumberGenerator.new()
+	rg.seed = seed_
+	var used_id := {}
+	var used_p := {}
+	for k in others:
+		if k == null:
+			continue
+		used_id[str(k)] = true
+		if int(C[k].tier) >= 3:
+			used_p[person(k)] = true
+	var chains := []
+	if bot_mix:
+		chains.append(_mix_src(t, tag))
+	else:
+		var src: Array = POOLS[style].get(t, [])
+		chains.append(src if not src.is_empty() else POOLS["균형"].get(t, []))
+	chains.append(POOLS["균형"].get(t, []).filter(func(k): return C[k].tier < 8))
+	var lt := t
+	while lt > 1:
+		lt = _prev_tier(lt)
+		chains.append(POOLS["균형"].get(lt, []).filter(func(k): return C[k].tier < 8))
+	for src in chains:
+		var ok: Array = src.filter(func(k): return C[k].tier < 8 and not used_id.has(k) and (int(C[k].tier) < 3 or not used_p.has(person(k))))
+		if not ok.is_empty():
+			return ok[rg.randi() % ok.size()]
+	var last: Array = chains[0] if not chains[0].is_empty() else chains[1]
+	return last[rg.randi() % last.size()]
+
+
+## 한 등급 아래 플레이 등급 (기본 = 1)
+func _prev_tier(t: int) -> int:
+	var prev := 1
+	for x in PLAY_TIERS:
+		if x >= t:
+			break
+		prev = x
+	return prev
+
+
+## 정수 섞기(64비트 곱 · 시프트) —— 씨앗을 이어 붙인다. hash() 는 버전마다 달라질 수 있어 쓰지 않는다 (봇 군세는 서버 · 점검이 같은 결과여야 한다)
+static func mix_seed(a: int, b: int, c := 0) -> int:
+	var x: int = (a ^ 0x5bd1e995) * 0x100000001b3 + b
+	x = (x ^ (x >> 29)) * 0x27d4eb2f165667c5 + c
+	x = x ^ (x >> 32)
+	return x & 0x7fffffff
+
+
+## 11/12 사용자(작업현황 94): 봇 군세는 전투마다 새로 뽑지 않는다 —— 봇마다 9장짜리 군세를 한 번 만들고(army 가 비었을 때 gen_board), PV 가 오르면 필요한 칸만
+## 한 단계 위 카드로 바꾼다(army_fit). 칸의 병종은 그대로. 새 등급 배분(board_tiers)과 맞게 현재 등급을 높은 순으로 줄 세워 비교하므로 보통은 PV 가 한 칸치 오를 때 한 장만 바뀐다.
+## PV 가 내려가도(토벌 실패 ×0.94) 같은 식으로 맞춘다. 반환은 새 9장(army 는 건드리지 않는다) —— 부르는 쪽이 저장한다. aseed 한 값으로 모든 선택이 정해진다 (난수 상태 없음)
+func army_fit(army: Array, pv: float, style: String, aseed: int) -> Array:
+	if army.size() != 9:
+		var rg := RandomNumberGenerator.new()
+		rg.seed = aseed
+		return gen_board(pv, style, rg).cards
+	var want := board_tiers(pv)
+	want.sort()
+	want.reverse()
+	var order := []
+	for i in 9:
+		order.append(i)
+	order.sort_custom(func(a, b):
+		var ta: int = C[army[a]].tier
+		var tb: int = C[army[b]].tier
+		return ta > tb if ta != tb else a < b)
+	var todo := []
+	for j in 9:
+		var i: int = order[j]
+		if int(C[army[i]].tier) != int(want[j]):
+			todo.append([i, int(want[j])])
+	var out := army.duplicate()
+	todo.sort_custom(func(a, b): return a[1] > b[1] if a[1] != b[1] else a[0] < b[0])      # 높은 등급부터 고른다
+	for e in todo:
+		var i: int = e[0]
+		var others := out.duplicate()
+		others[i] = null
+		out[i] = _army_pick(int(e[1]), str(C[out[i]].tag), others, mix_seed(aseed, i, int(e[1])), style)
+	# 겹침 고치기 —— 처음 만들 때 기본패 8종이 9칸에 모자라 겹쳤던 칸 · 옛 저장의 겹침이, 같은 등급의 안 겹치는 카드가 생기면 바뀐다 (없으면 그대로)
+	for i in range(1, 9):
+		var k: String = out[i]
+		for j in i:
+			var o: String = out[j]
+			if o == k or (int(C[k].tier) >= 3 and person(o) == person(k)):
+				var others2 := out.duplicate()
+				others2[i] = null
+				out[i] = _army_pick(int(C[k].tier), str(C[k].tag), others2, mix_seed(aseed, i, 100 + int(C[k].tier)), style)
+				break
+	return out
 
 
 ## 11/8 봇 덱 병종 (docs/역할_재설계_1108.md 7.2) —— 몰빵이면 몰빵 카운터가 정답이 되어 '고루'의 가치가 흐려진다.
