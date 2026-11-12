@@ -3818,10 +3818,22 @@ static func bot_row(r: Run, b: Dictionary) -> Dictionary:
 		"hp": -1, "key": bot_key(r, b), "has_key": true}
 
 
-## 봇의 핵심 유닛 (11/12 사용자) —— 봇 군세는 전투마다 지금 전력 · 성향으로 새로 뽑는다(Run.bot_side → DB.gen_board). 같은 식으로 한 번 뽑아 본
-## 기인 이상(Room.is_urgent_unit)을 높은 등급부터. 판 · 요일 · 페이즈 · 봇 이름으로 정한 따로 된 씨앗이라 Run 의 rng 를 건드리지 않고, 같은 때에는 늘 같다
+## 봇의 핵심 유닛 (11/12 사용자) —— 11/12 부터 봇 군세는 봇마다 한 번 만들어 자라는 것(b.army, Run.bot_grow)이라 그 군세의 기인 이상(Room.is_urgent_unit)을 높은 등급부터 보인다.
+## 군세를 주지 않는 옛 서버만 예전 방식: 지금 전력 · 성향으로 한 번 뽑아 본 예시 —— 판 · 요일 · 페이즈 · 봇 이름으로 정한 따로 된 씨앗이라 Run 의 rng 를 건드리지 않고, 같은 때에는 늘 같다
 static var _bot_key_cache := {}
 static func bot_key(r: Run, b: Dictionary) -> Array:
+	# 11/12 군세가 유지된다(봇마다 한 번 만들어 자란다) —— 서버 · 혼자 하기가 군세를 주면 실제 군세의 기인 이상을 그대로 보인다. 군세가 없는 옛 서버만 아래 예시
+	var army: Array = b.get("army", [])
+	if army.size() == 9:
+		var real := []
+		for k in army:
+			if DB.C.has(k) and Room.is_urgent_unit(str(k)) and not real.has(str(k)):
+				real.append(str(k))
+		real.sort_custom(func(x, y):
+			var rx := Room.key_rank(x)
+			var ry := Room.key_rank(y)
+			return rx > ry if rx != ry else x < y)
+		return real
 	var pv := float(b.get("pv", 0.0)) * Run.BOT_PV_MUL
 	if r.phase_idx() <= 0:
 		pv = maxf(pv, Run.BOT_OPEN_PV)

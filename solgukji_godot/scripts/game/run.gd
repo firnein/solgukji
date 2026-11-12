@@ -137,6 +137,8 @@ func new_game(seed_value := -1) -> void:
 		var b: Array = DB.D.BOTNAME[i]
 		bots.append({"name": bot_names[i], "epi": b[1], "fac": b[2], "style": DB.D.STYLES[i], "pv": 0.0,
 			"w": 0, "l": 0, "strikes": 0, "top": 0, "skill": snappedf(rng.randf_range(SKILL_LO, SKILL_HI), 0.01)})
+	for b in bots:
+		bot_grow(b, int(rng.seed), 0)      # 11/12 봇 군세는 한 번 만들어 PV 를 따라 자란다 (난수를 쓰지 않는다 —— 이 판의 다른 진행은 그대로)
 	give("spear", 3)
 	give("horse", 3)
 	give("bow", 2)
@@ -890,22 +892,31 @@ func _bot_pv_gain(d: int, p: int) -> float:
 	return bot_pv_gain(d, p)
 
 
-## 봇 등용 소식 —— 실제로 편성 가능한 최고 등급이 올라갔을 때만 알린다
+## 봇 등용 소식 —— 실제로 군세에 든 최고 등급이 올라갔을 때만 (11/12 군세가 유지되므로 그 군세의 가장 높은 장수가 소식의 주인공)
 func bot_news() -> Array:
 	var out := []
 	for b in bots:
-		var bb := DB.gen_board(b.pv, b.style, rng)
-		var top := 0
-		for k in bb.cards:
-			top = maxi(top, DB.C[k].tier)
-		if top < 6 or top <= b.top:
+		var hit := bot_top_card(b)
+		if hit == "":
+			continue
+		var top: int = DB.C[hit].tier
+		if top < 6 or top <= int(b.top):
 			continue
 		b.top = top
-		var pl: Array = DB.POOLS[b.style].get(top, []).filter(func(k): return DB.C[k].tier < 8)
-		if pl.is_empty():
-			continue
-		out.append({"who": b.name, "unit": pl[rng.randi() % pl.size()]})
+		out.append({"who": b.name, "unit": hit})
 	return out
+
+
+## 군세에서 가장 높은 등급의 카드 (같으면 앞 칸) —— 군세가 없으면 ""
+static func bot_top_card(b: Dictionary) -> String:
+	var army: Array = b.get("army", [])
+	var best := ""
+	var bt := 0
+	for k in army:
+		if DB.C.has(k) and int(DB.C[k].tier) > bt:
+			bt = int(DB.C[k].tier)
+			best = str(k)
+	return best
 
 
 func advance() -> void:
@@ -953,6 +964,7 @@ func advance() -> void:
 		return
 	for b in bots:
 		b.pv += _bot_pv_gain(day, phase) * b.skill * rng.randf_range(0.9, 1.1)
+		bot_grow(b, int(rng.seed), phase_idx())      # 11/12 PV 가 오른 만큼 군세도 (필요한 칸만) 자란다
 	for n in bot_news():
 		news_seq += 1
 		n["id"] = news_seq
@@ -985,6 +997,11 @@ func _bot_side(pv: float, style: String) -> Dictionary:
 	return bot_side(pv * BOT_PV_MUL * (MYTH_BOT_PV if myth_on_board() else 1.0), style, phase_idx(), rng)
 
 
+## 11/12 사용자(작업현황 94): 봇 대전 편성은 그 봇의 군세(b.army) —— 전투마다 새로 뽑지 않는다. extra = 이번 전투만의 PV 배율(토너먼트 라운드 배율 등, 1.0 이면 군세 그대로)
+func _bot_side_of(b: Dictionary, extra := 1.0) -> Dictionary:
+	return bot_side_of(b, int(rng.seed), phase_idx(), extra * (MYTH_BOT_PV if myth_on_board() else 1.0))
+
+
 ## 봇 · 토벌 적 군세 —— 11/2 사용자: 너무 허접하다 → 장비를 끼우고(그 때 보급 등급으로, 사람보다 조금 많이) 덱에 맞는 작전을 쓴다
 const BOT_PV_MUL := 1.08
 const QUEST_PV_MUL := 1.05      # 11/6 밸런스: 3일차 토벌 병력비 0.43 → 1.2 에서 내림
@@ -996,6 +1013,42 @@ static func bot_side(pv: float, style: String, p_idx: int, r: RandomNumberGenera
 	var eb := DB.gen_board(pv, style, r)
 	var cards := DB.auto_place(eb.cards, eb.form)
 	return {"cards": cards, "form": eb.form, "morale": 100, "equip": bot_equip(cards, p_idx, r), "tac": recommend_tac(cards)[0]}
+
+
+## 봇의 표준 PV (대전 전투 기준) —— 봇 전력 × BOT_PV_MUL, 첫 페이즈만 바닥(BOT_OPEN_PV)
+static func bot_std_pv(b: Dictionary, p_idx: int, extra := 1.0) -> float:
+	var pv: float = float(b.pv) * BOT_PV_MUL * extra
+	if p_idx <= 0:
+		pv = maxf(pv, BOT_OPEN_PV)
+	return pv
+
+
+## 봇의 군세 씨앗 —— 방 · 판의 씨앗(base)과 봇 이름으로 한 번 정해 b.aseed 에 둔다 (31비트 —— JSON 을 오가도 안 깨진다)
+static func bot_aseed(b: Dictionary, base: int) -> int:
+	if not b.has("aseed"):
+		b["aseed"] = DB.mix_seed(base, str(b.get("name", "")).hash(), 11)
+	return int(b.aseed)
+
+
+## 11/12 군세를 표준 PV 에 맞춘다 (저장) —— 비었으면 처음 만들고, 아니면 필요한 칸만 바꾼다 (DB.army_fit). 난수 · 전역 상태 없음
+static func bot_grow(b: Dictionary, base: int, p_idx: int) -> void:
+	var sd := bot_aseed(b, base)
+	b["army"] = DB.army_fit(b.get("army", []), bot_std_pv(b, p_idx), str(b.get("style", "균형")), sd)
+
+
+## 봇 한 명의 대전 편성 —— 군세(b.army)를 표준 PV 에 맞추고(저장), extra != 1 이면 이번 전투만 그 PV 로 한 번 더 맞춘 복사본을 쓴다 (저장하지 않음 ·
+## 같은 입력이면 같은 카드). 장비는 (봇 · 페이즈)마다 정해진 씨앗으로 —— 같은 페이즈에 몇 번 싸워도 같고, 페이즈가 바뀌면 새 보급표로 다시 낀다
+static func bot_side_of(b: Dictionary, base: int, p_idx: int, extra := 1.0) -> Dictionary:
+	bot_grow(b, base, p_idx)
+	var sd := bot_aseed(b, base)
+	var style := str(b.get("style", "균형"))
+	var army: Array = b.army
+	if not is_equal_approx(extra, 1.0):
+		army = DB.army_fit(army, bot_std_pv(b, p_idx, extra), style, sd)
+	var cards := DB.auto_place(army, DB.STYLE_FORM[style])
+	var er := RandomNumberGenerator.new()
+	er.seed = DB.mix_seed(sd, p_idx, 7)
+	return {"cards": cards, "form": DB.STYLE_FORM[style], "morale": 100, "equip": bot_equip(cards, p_idx, er), "tac": recommend_tac(cards)[0]}
 
 
 ## 높은 등급 장수부터 (보급 수 + 2)개까지, 그 때의 보급 등급표로 병종이 맞는 장비를 끼운다
@@ -1118,7 +1171,7 @@ func start_quest() -> Dictionary:
 func start_pvp() -> Dictionary:
 	var bi := rng.randi() % bots.size()
 	var b: Dictionary = bots[bi]
-	battle = {"kind": "pvp", "a": _my_side(), "b": _bot_side(b.pv, b.style), "seed": rng.randi() % 1000000,
+	battle = {"kind": "pvp", "a": _my_side(), "b": _bot_side_of(b), "seed": rng.randi() % 1000000,
 		"title": "대전 · %s" % b.name, "foe": b.name, "bot": bi, "inputs": []}
 	return battle
 
@@ -1508,7 +1561,11 @@ static var TOUR_BOT_MUL := [0.8, 0.75, 0.75]
 func _tour_board(pl: Dictionary, rd := -1) -> Dictionary:
 	if pl.me:
 		return _my_side()
-	return _bot_side(pl.pv * (float(TOUR_BOT_MUL[clampi(rd, 0, 2)]) if rd >= 0 else 1.0), pl.style)
+	var mul := float(TOUR_BOT_MUL[clampi(rd, 0, 2)]) if rd >= 0 else 1.0
+	for b in bots:
+		if b.name == pl.name:
+			return _bot_side_of(b, mul)      # 11/12 그 봇의 군세
+	return _bot_side(pl.pv * mul, pl.style)      # (옛 저장 · 찾지 못하면 예전처럼)
 
 
 func _sim_match(a: Dictionary, b: Dictionary) -> String:
@@ -1667,6 +1724,8 @@ func from_dict(d: Dictionary) -> void:
 	for b in bots:
 		for k in ["w", "l", "strikes", "top"]:
 			b[k] = int(b[k])
+		if b.has("aseed"):
+			b["aseed"] = int(b.aseed)
 	if battle != null:
 		battle.seed = int(battle.seed)
 		if battle.has("bot"):
