@@ -1316,7 +1316,50 @@ const INYEON_THEME_DESC := {"ignite": "적 전원 화상, 이미 타는 적은 �
 	"cleanse": "아군 전원 상태이상 해제 · 사기", "duel": "적 최강 장수에게 일격 · 사기 감소"}
 const INYEON_THEME_PLUS := {"confuse": "적 최강 장수 혼란", "slow": "적 전원 둔화", "phalanx": "아군 전원 방진"}
 ## 기인 · 초월의 몫 (11/12 사용자) —— 인연 시트 · 디테일창 규칙 줄
-const INYEON_ROLE := "기인: 연쇄를 연다 (맨 먼저 터지고 마무리 장수 피해 +) / 초월: 연쇄를 키운다 (같은 인연 기 충전 가속 · 최대 4명)"
+## 11/13 사용자: 한 덩어리 글 대신 짧은 항목 3줄 [라벨, 설명] —— 합동 발동 / 기인 / 초월 (InyeonUI.rule_hint 가 라벨에 등급색)
+const INYEON_RULES := [["합동", "게이지 찬 같은 인연 장수가 함께 발동 · 3명 (초월 끼면 4명)"],
+	["기인", "연쇄를 연다 · 맨 먼저 터지고 마무리 장수 피해 +"],
+	["초월", "연쇄를 키운다 · 같은 인연 기 충전 가속 · 4명 연쇄"]]
+const INYEON_ROLE := "기인: 연쇄를 연다 · 맨 먼저 터지고 마무리 장수 피해 +\n초월: 연쇄를 키운다 · 같은 인연 기 충전 가속 · 4명까지"
+
+
+## 11/13 그 인연에 실제로 있는 기인 · 초월 인물 {kiin: [인물], up: [인물]} —— 기인 카드 / 초월(등급 6, 기인 아님) 카드가 있는 구성원 (RtBattle 과 같은 기준)
+func inyeon_roles(nm: String) -> Dictionary:
+	var o := {"kiin": [], "up": []}
+	for p in inyeon_members(nm):
+		var kc := false
+		var up := false
+		for k in C:
+			if is_foe(k) or person(k) != p or not inyeon_card(k):
+				continue
+			if is_kiin(k):
+				kc = true
+			elif C[k].tier == 6:
+				up = true
+		if kc:
+			o.kiin.append(p)
+		if up:
+			o.up.append(p)
+	return o
+
+
+## 11/13 주제 · 인연기를 [제목, 효과] 두 줄로 —— 이름이 겹치면(백의도강 『백의도강』) 한 번만. 없으면 빈 배열
+func inyeon_theme_lines(nm: String) -> Array:
+	var t := inyeon_theme(nm)
+	if t.is_empty():
+		return []
+	var kind: String = INYEON_THEME_KIND.get(t.t, "")
+	var d := inyeon_theme_desc(t)
+	return ["주제 · %s" % t.n, d if kind == "" or kind == str(t.n) else "%s —— %s" % [kind, d]]
+
+
+func inyeon_fin_lines(nm: String) -> Array:
+	var f := inyeon_fin(nm)
+	if f.is_empty():
+		return []
+	var kind: String = INYEON_FIN_KIND.get(f.t, "")
+	var d: String = INYEON_FIN_DESC.get(f.t, "") + " (3명이면 더 강하게)"
+	return ["인연기 · %s" % f.n, d if kind == "" or kind == str(f.n) else "%s —— %s" % [kind, d]]
 func inyeon_theme(nm: String) -> Dictionary:
 	return INYEON_THEME.get(nm, {})
 
@@ -1334,7 +1377,8 @@ func inyeon_theme_text(nm: String) -> String:
 	var t := inyeon_theme(nm)
 	if t.is_empty():
 		return ""
-	return "주제 %s 『%s』 —— %s" % [INYEON_THEME_KIND.get(t.t, ""), t.n, inyeon_theme_desc(t)]
+	var l := inyeon_theme_lines(nm)
+	return "%s: %s" % [l[0], l[1]]
 
 
 ## 이 카드가 고유기를 쓸 수 있나 (초월 이상 · 기인 —— 디테일창 · 전투와 같은 기준). 인연은 이런 카드만 친다
@@ -1361,7 +1405,7 @@ func inyeon_members(nm: String) -> Array:
 ## 같은 인물은 한 번만 센다. 한 번에 합동하는 최대 인원은 INYEON_MAX
 const INYEON_MAX := 3
 ## 인연 규칙 한 줄 설명 (11/11 사용자) —— 디테일창 인연 줄 · 편성 인연 시트가 같이 쓴다. 5명 인연도 3명씩 나뉘어 발동한다 (덱이 정형화되지 않게 일부러 제한)
-const INYEON_RULE := "고유기 게이지가 찬 같은 인연 장수가 함께 발동한다 · 최대 3명"
+const INYEON_RULE := "게이지 찬 같은 인연 장수가 함께 발동 · 3명 (초월 끼면 4명)"
 func inyeon_links(deck: Array) -> Array:
 	var ps := {}
 	for k in deck:

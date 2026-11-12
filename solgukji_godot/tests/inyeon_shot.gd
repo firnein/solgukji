@@ -45,6 +45,12 @@ func _ready() -> void:
 	gs.card_info(who)
 	await get_tree().create_timer(0.8).timeout
 	await _shot("%s/detail.png" % out)
+	# 11/13 인연 줄(라벨 '인연')을 창 위쪽에 맞춰 한 장 —— 주제 · 인연기 · 규칙 줄 확인용
+	var yl := _find_label(gs._sheet_scroll, "인연")
+	if yl != null:
+		gs._sheet_scroll.scroll_vertical += int(yl.global_position.y - gs._sheet_scroll.global_position.y) - 40
+		await get_tree().create_timer(0.4).timeout
+		await _shot("%s/detail_inyeon.png" % out)
 	gs._sheet_scroll.scroll_vertical = 9999
 	await get_tree().create_timer(0.4).timeout
 	await _shot("%s/detail_bottom.png" % out)
@@ -53,6 +59,16 @@ func _ready() -> void:
 	await get_tree().create_timer(0.8).timeout
 	await _shot("%s/recipe.png" % out)
 	get_tree().quit()
+
+
+func _find_label(n: Node, text: String) -> Label:
+	if n is Label and n.text == text and n.is_visible_in_tree():
+		return n
+	for c in n.get_children():
+		var r := _find_label(c, text)
+		if r != null:
+			return r
+	return null
 
 
 func _shot(path: String) -> void:

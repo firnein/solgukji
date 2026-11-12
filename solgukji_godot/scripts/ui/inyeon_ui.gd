@@ -37,27 +37,70 @@ static func deck_map(deck: Array) -> Dictionary:
 	return o
 
 
-## 인연 규칙 한 줄 (DB.INYEON_RULE)
-static func rule_hint() -> Label:
-	var l := UI.hint(DB.INYEON_RULE + "\n" + DB.INYEON_ROLE)      # 11/12 기인 · 초월의 몫 한 줄
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.add_theme_font_size_override("font_size", 12)
-	return l
+## 인연 규칙 —— 11/13 사용자: 한 덩어리 글 대신 짧은 항목 3줄 (DB.INYEON_RULES: 합동 / 기인 / 초월).
+## 라벨은 등급색(합동 연분홍 · 기인 옥색 · 초월 하늘색), 설명은 왼쪽 라벨 칸에 맞춰 줄바꿈.
+## nm 을 주면(장수 정보창 · 인연 한 장) 그 인연에 실제로 있는 기인 · 초월 줄은 밝게 + 그 장수 이름, 없는 줄은 흐리게
+static func rule_hint(nm := "") -> Control:
+	var P := DB.PAL
+	var v := UI.vbox(3)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var roles := DB.inyeon_roles(nm) if nm != "" else {}
+	for r in DB.INYEON_RULES:
+		var key: String = r[0]
+		var col: Color = P.yeon
+		var who: Array = []
+		if key == "기인":
+			col = DB.KIIN_COL
+			who = roles.get("kiin", [])
+		elif key == "초월":
+			col = DB.TIER[6].c
+			who = roles.get("up", [])
+		var h := UI.hbox(8)
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var kl := UI.lbl(key, 12, col, true)
+		kl.custom_minimum_size.x = 30
+		kl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		kl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(kl)
+		var s: String = r[1]
+		if not who.is_empty():
+			s += "  (%s)" % " · ".join(who)
+		var tl := UI.lbl(s, 12, P.paper if not who.is_empty() else P.bamboo_dim.lightened(0.12))
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(tl)
+		if nm != "" and key != "합동" and who.is_empty():
+			h.modulate = Color(1, 1, 1, 0.42)      # 이 인연에 없는 몫은 흐리게
+		v.add_child(h)
+	return v
 
 
-## 11/12 인연기 한 줄 (DB.inyeon_fin_text) —— 인연기가 없는 인연은 null
-static func fin_hint(nm: String) -> Label:
-	var s := DB.inyeon_fin_text(nm)
-	var th := DB.inyeon_theme_text(nm)      # 11/12 인연 주제 —— 인연기 위에 한 줄
-	if th != "":
-		s = th if s == "" else th + "\n" + s
-	if s == "":
+## 11/12 주제 · 인연기 —— 11/13 「주제 · 이름」 제목 줄 + 효과 한 줄 (이름 중복 없이). 둘 다 없는 인연은 null
+static func fin_hint(nm: String) -> Control:
+	var P := DB.PAL
+	var blocks := [DB.inyeon_theme_lines(nm), DB.inyeon_fin_lines(nm)]
+	var v := UI.vbox(6)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for b in blocks:
+		if b.is_empty():
+			continue
+		var bx := UI.vbox(1)
+		bx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var t := UI.lbl(b[0], 13, P.gold, true)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bx.add_child(t)
+		var d := UI.lbl(b[1], 12, P.paper.darkened(0.08))
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bx.add_child(d)
+		v.add_child(bx)
+	if v.get_child_count() == 0:
+		v.queue_free()
 		return null
-	var l := UI.lbl(s, 12, DB.PAL.gold)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
+	return v
 
 
 ## 인연 이름 칩 —— 고르면 연분홍 테두리
@@ -193,7 +236,7 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 		var fh := fin_hint(cur[0])
 		if fh != null:
 			holder.add_child(fh)
-		holder.add_child(rule_hint())
+		holder.add_child(rule_hint(cur[0]))
 	rf[0].call()
 	m.add_child(v)
 	return m

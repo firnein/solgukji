@@ -1,6 +1,6 @@
 extends Node
 ## 인연 합동 고유기 점검 (11/11) —— 실행: godot --headless --path . res://tests/inyeon.tscn
-## (a) 데이터: inyeon.json 의 모든 인연 4~5명 · 중복 없음 · 알려진 인물 · 모든 인물이 고유기 보유 · 장수당 3~6개 인연
+## (a) 데이터: inyeon.json 의 모든 인연 4~5명 · 중복 없음 · 알려진 인물 · 모든 인물이 고유기 보유 · 장수당 2~5개 인연 · 두 인연이 3명 이상 겹치지 않음 (11/13)
 ## (b) 유비 + 관우 + 장비를 게이지 100 으로 강제 → 합류해 합동 고유기 하나로 터진다 (대표 창 · 합류 시각 · 터지는 순서 · 사건 항목)
 ## (c) 둘만 찼으면 둘이 터진다 · 인연 없는 장수가 섞이면 합류하지 않는다
 ## (d) inyeon_enabled=false 면 예전처럼 장수마다 따로 (간격 ult_side_sec 이상)
@@ -86,7 +86,17 @@ func _ready() -> void:
 	var persons := {}
 	for k in DB.C:
 		persons[DB.person(k)] = true
-	_ok(DB.INYEON.size() == 51, "인연 수 51 (지금 %d)" % DB.INYEON.size())
+	_ok(DB.INYEON.size() == 47, "인연 수 47 (지금 %d)" % DB.INYEON.size())
+	# 11/13 겹침 규칙 —— 어떤 두 인연도 구성원이 3명 이상 겹치지 않는다 (2명까지)
+	var names: Array = DB.INYEON.keys()
+	var two := 0
+	for i in names.size():
+		for j in range(i + 1, names.size()):
+			var sh: Array = DB.INYEON[names[i]].filter(func(q): return DB.INYEON[names[j]].has(q))
+			_ok(sh.size() <= 2, "%s / %s: %d명 겹침 %s (2명까지)" % [names[i], names[j], sh.size(), str(sh)])
+			if sh.size() == 2:
+				two += 1
+	print("(a) 겹침: 3명 이상 쌍 0 이어야 · 2명 겹침 쌍 %d" % two)
 	for n in DB.INYEON:
 		var ps: Array = DB.INYEON[n]
 		_ok(ps.size() >= 4 and ps.size() <= 5, "%s: 인원 %d (4~5)" % [n, ps.size()])
@@ -99,7 +109,7 @@ func _ready() -> void:
 	var hist := {}
 	for p in DB.INYEON_OF:
 		var c: int = DB.INYEON_OF[p].size()
-		_ok(c >= 3 and c <= 6, "%s: 인연 %d개 (3~6)" % [p, c])
+		_ok(c >= 2 and c <= 5, "%s: 인연 %d개 (2~5)" % [p, c])
 		hist[c] = int(hist.get(c, 0)) + 1
 	print("(a) 인연 %d · 인연에 든 인물 %d (장수당 개수 분포 %s) · 고유기 보유 인물 %d" % [DB.INYEON.size(), DB.INYEON_OF.size(), str(hist), ult_names.size()])
 
