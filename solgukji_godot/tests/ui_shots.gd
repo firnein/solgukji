@@ -31,6 +31,10 @@ func _ready() -> void:
 		r._dev_fight(r.start_quest())
 		if str(args.done) == "pvp" and r.over == null:
 			r._dev_fight(r.start_pvp())
+	if args.has("hard"):      # --hard=1 —— 험지 토벌을 고른 채로 (11/13 전투 탭 글자 밀림 점검)
+		r.quest_hard = true
+	if args.has("grain"):      # --grain=N —— 군량 (11/13 머리띠 군량 점검)
+		r.grain = int(args.grain)
 	gs.run = r
 	gs._title.visible = false
 	if args.has("seg"):      # --seg=hand|syn|item —— 편성 아래 탭을 연 채로 찍는다 (11/7 편성판 찌그러짐 점검). 열린 탭이 편성판을 밀지 않는지 본다
@@ -46,6 +50,14 @@ func _ready() -> void:
 		for c in gs._toast_box.get_children():
 			c.queue_free()
 	await get_tree().create_timer(0.6).timeout
+	if args.has("sheet"):      # --sheet=shop | sell:카드 —— 군량 상점 · 판매 시트를 연 채로 (11/13 군량 기호 점검)
+		var sk := str(args.sheet).split(":")
+		if sk[0] == "shop":
+			gs._shop_sheet()
+		elif sk.size() > 1:
+			r.give(sk[1])
+			gs._sell_sheet(sk[1])
+		await get_tree().create_timer(0.6).timeout
 	if args.has("wait"):      # --wait=초 —— 보급 선택권 띠(2초쯤 떠 있다)가 사라진 뒤 찍으려면 1.5 쯤 (11/7 편성 레이아웃 점검)
 		await get_tree().create_timer(float(args.wait)).timeout
 	var sc: ScrollContainer = gs._scroll

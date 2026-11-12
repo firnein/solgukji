@@ -42,7 +42,9 @@ var _safe: MarginContainer
 var _top: Control
 var _day_lbl: Label
 var _sub_lbl: Label
-var _pow_lbl: Label
+var _grain_box: HBoxContainer      # 11/13 사용자: 머리띠 민심 위 「N명」(편성 병력 합) 자리에 [쌀가마] [군량]
+var _grain_lbl: Label
+var _grain_shown := -1             # 마지막으로 보인 군량 —— 바뀌면 숫자가 살짝 튄다
 var _info_lbl: RichTextLabel
 var _phase_bar: Control
 var _news_btn: Button         # 11/7 ☰ 아래 '소식' (소식 수 뱃지)
@@ -280,9 +282,14 @@ func _build_top() -> Control:
 	row.add_child(lv)
 	var rv := UI.vbox(0)
 	rv.alignment = BoxContainer.ALIGNMENT_CENTER
-	_pow_lbl = UI.lbl("", 15, DB.PAL.paper, true)
-	_pow_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	rv.add_child(_pow_lbl)
+	_grain_box = UI.grain("0", 15, DB.PAL.gold)
+	_grain_box.alignment = BoxContainer.ALIGNMENT_END
+	_grain_box.mouse_filter = Control.MOUSE_FILTER_STOP
+	_grain_box.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and run != null and shop_on():
+			_shop_sheet())
+	_grain_lbl = _grain_box.get_child(1)
+	rv.add_child(_grain_box)
 	_hp_gauge = HpGauge.new()      # 11/10 사용자: 민심(체력)이 어디에도 안 보인다 —— 모든 탭의 머리띠 오른쪽에 늘 보인다
 	_hp_gauge.tapped.connect(func(): toast("민심은 체력 —— 패배마다 깎이고, 0 이 되면 멸망한다"))
 	rv.add_child(_hp_gauge)
@@ -804,7 +811,6 @@ func _render_head() -> void:
 		_phase_bar.n = online.head_steps()      # 11/11 토벌이 없는 날(4일차~)은 세 칸
 		_phase_bar.group = online.head_steps()
 		_phase_bar.cur = online.head_idx()
-		_pow_lbl.visible = false
 	else:
 		_day_lbl.text = "DAY %d · %s요일" % [run.day + 1, Run.DAYNAME[run.day % 7]]
 		_sub_lbl.text = (("천하 통일" if run.over.win else "멸망") if run.over else Run.PHASE_N[run.phase])
@@ -812,9 +818,8 @@ func _render_head() -> void:
 		_phase_bar.n = 21
 		_phase_bar.group = 3
 		_phase_bar.cur = run.phase_idx() % 21
-		_pow_lbl.visible = true
-		_pow_lbl.text = "%s명" % Battle.num(run.board_power())
 	_phase_bar.queue_redraw()
+	_grain_sync()
 	_hp_sync()
 	# 11/9 사용자: 상단의 PV · 순위 · 경고 줄은 뺀다 (경고 · 순위는 기록 탭에서 본다)
 	_info_lbl.clear()
@@ -879,6 +884,29 @@ func _item_band() -> void:
 		band("%s 획득" % it.name, UI.item_col(run.last_item), "%s · %s" % [it.tag, UI.item_text(run.last_item)])
 	_item_seen = run.last_item
 	_bag_seen = n
+
+
+## 머리띠 군량 (11/13) —— 판매 · 상점을 쓰는 판에서만. 값이 바뀌면 숫자가 한 번 튄다 (커졌다 제자리 · 늘면 밝게)
+func _grain_sync() -> void:
+	_grain_box.visible = shop_on()
+	if not _grain_box.visible:
+		_grain_shown = -1
+		return
+	var g := int(run.grain)
+	_grain_lbl.text = str(g)
+	if _grain_shown >= 0 and g != _grain_shown:
+		_grain_pop(g > _grain_shown)
+	_grain_shown = g
+
+
+func _grain_pop(up: bool) -> void:
+	var l := _grain_lbl
+	l.pivot_offset = l.size / 2
+	var tw := l.create_tween()
+	l.modulate = Color(1.5, 1.4, 1.0) if up else Color(1.3, 0.75, 0.7)
+	tw.tween_property(l, "scale", Vector2(1.32, 1.32), 0.09).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "modulate", Color.WHITE, 0.35)
 
 
 ## 머리띠 민심 게이지 (11/10) —— 보이는 값 _hp_shown 을 기억해 두었다가 run.hp 가 그보다 낮아지면 한 번 붉게 번쩍이며 줄어든다.
@@ -1700,8 +1728,6 @@ func _page_draw() -> Control:
 	var n := run.draws_n()
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
-	if shop_on():      # 11/13 군량 · 상점
-		v.add_child(_grain_bar())
 	if run.day >= 7:      # 11/12 최후 1인 —— 8일차부터 패배 민심 피해가 매일 커진다
 		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]%d일차 — 난세의 끝[/color][/b] — 마지막 한 세력이 남을 때까지 싸운다. 패배 민심 피해 ×%s" % [run.day + 1, str(snappedf(pow(Run.HP_LATE_MUL, run.day - Run.LAST_TABLE_DAY), 0.01))], 14), 10))
 
@@ -1710,6 +1736,8 @@ func _page_draw() -> Control:
 	# 11/2 사용자: 타일 아래 설명 글(기본패 14장 · 11종 중 고르기)은 빼고 낮게. 선택권은 타일 하나 —— 고르다 닫아도 「일반 ×2」 같은 타일이 따로 생기지 않고 같은 타일로 다시 연다
 	if n > 0:
 		acts.add_child(UI.tile_act("draw", "징집", "", func(): act("do_draw"), "pri", run.drawn, not can_act()))
+	if shop_on():      # 11/13 사용자: 상점은 기본패 징집 바로 다음 칸 (군량 값은 머리띠 민심 위에 늘 보인다 —— 징집 탭 머리의 「군량 N [상점]」 줄은 걷었다)
+		acts.add_child(UI.tile_act("grain", "상점", "", _shop_sheet, "gold" if run.grain >= Run.shop_price(Run.SHOP_TIERS[0]) else ""))
 	# 11/2 사용자: 보급(선택권)을 하나로 합치지 말고 등급별 칸으로. 고르지 않고 닫으면 수는 줄지 않는다 (고른 만큼만 줄어든다)
 	var pl := run.pick_list()
 	var per_t := {}
@@ -2247,25 +2275,13 @@ func shop_on() -> bool:
 	return online == null or bool(online.room.get("sell", false))
 
 
-## 징집 탭 머리 —— 군량 수치 + [상점]
-func _grain_bar() -> Control:
-	var h := UI.hbox(8)
-	var l := UI.rich("[color=#8D7B5C]군량[/color]  [b][color=#D9A64B]%d[/color][/b]" % run.grain, 15)
-	l.fit_content = true
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(l)
-	var cheap := Run.shop_price(Run.SHOP_TIERS[0])
-	var sb := UI.btn("상점", _shop_sheet, "gold" if run.grain >= cheap else "ghost", 36)
-	sb.custom_minimum_size.x = 84
-	h.add_child(sb)
-	return UI.panel(h, 6)
-
-
 ## 상점 시트 —— 고급 · 희귀 · 전설 랜덤권 가격 · 구매
 func _shop_sheet() -> void:
 	var b := open_sheet("군량 상점")
-	b.add_child(UI.rich("[color=#8D7B5C]가진 군량[/color]  [b][color=#D9A64B]%d[/color][/b]" % run.grain, 17))
+	var have := UI.hbox(8)
+	have.add_child(UI.lbl("가진 군량", 15, Color("#8D7B5C")))
+	have.add_child(UI.grain(str(run.grain), 17))
+	b.add_child(have)
 	if not can_act():
 		b.add_child(UI.hint(online.block_reason("draw") if online != null else ""))
 	for t in Run.SHOP_TIERS:
@@ -2275,7 +2291,9 @@ func _shop_sheet() -> void:
 		var nm := UI.lbl("%s 랜덤권" % DB.TIER[tt].n, 17, DB.TIER[tt].c, true)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(nm)
-		row.add_child(UI.lbl("군량 %d" % price, 15, DB.PAL.gold))
+		var pg := UI.grain(str(price), 15, DB.PAL.gold if run.grain >= price else DB.PAL.bamboo_dim, false)
+		pg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(pg)
 		var bb := UI.btn("구매", func():
 			if act("buy", [tt]) != null:
 				_shop_sheet(), "pri" if run.grain >= price else "ghost", 44)
@@ -2299,13 +2317,17 @@ func _sell_sheet(k: String) -> void:
 		return
 	var b := open_sheet(DB.C[k].name, DB.tier_color(k).lightened(0.2))
 	var only_board: bool = int(run.inv.get(k, 0)) <= 0
-	b.add_child(UI.hint("%s · 보유 %d장%s · 지금 군량 %d" % [DB.tier_name(k), run.have(k), " (편성 %d)" % run.on_board(k) if run.on_board(k) > 0 else "", run.grain]))
+	var hr := UI.hbox(8)
+	hr.add_child(UI.lbl("%s · 보유 %d장%s · 지금" % [DB.tier_name(k), run.have(k), " (편성 %d)" % run.on_board(k) if run.on_board(k) > 0 else ""], 13, DB.PAL.bamboo_dim.lightened(0.12)))
+	hr.add_child(UI.grain(str(run.grain), 13, DB.PAL.gold, false))
+	b.add_child(hr)
 	if only_board:
 		b.add_child(UI.hint("편성에 올린 장수다 —— 팔면 편성에서 빠진다."))
-	var sb := UI.btn("판매  +%d 군량" % Run.sell_price(k), func():
+	var sb := UI.grain_btn("판매", "+%d" % Run.sell_price(k), func():
 		close_sheet()
 		act("sell", [k]), "warn" if only_board else "pri", 52)
 	sb.disabled = not can_act()
+	sb.modulate.a = 0.5 if sb.disabled else 1.0
 	b.add_child(sb)
 	if not can_act() and online != null:
 		b.add_child(UI.hint(online.block_reason("draw")))
@@ -2365,8 +2387,9 @@ func card_info(k: String) -> void:
 	top.add_child(st)
 	b.add_child(top)
 	if shop_on() and Run.sellable(k) and int(p.get(k, 0)) > 0:      # 11/13 유닛 판매
-		var sb := UI.btn("판매  +%d 군량" % Run.sell_price(k), func(): _sell(k), "ghost", 44)
+		var sb := UI.grain_btn("판매", "+%d" % Run.sell_price(k), func(): _sell(k), "ghost", 44)
 		sb.disabled = not can_act()
+		sb.modulate.a = 0.5 if sb.disabled else 1.0
 		b.add_child(sb)
 	var ab := UI.vbox(6)
 	_ability_rows(ab, k, 12, false, false, [], true)
@@ -3313,8 +3336,25 @@ func _page_war() -> Control:
 ## 11/12 험지 토벌 고르기 —— 누를 때마다 보통 ↔ 험지 (혼자 하기 전투 탭 · 온라인 준비 단계가 같이 쓴다)
 func quest_hard_btn() -> Button:
 	var on := run.quest_hard
-	var txt := ("험지 토벌 ✔ — 적 병력 ×%s · 이기면 %s +1 (누르면 보통으로)" if on else "험지로 토벌 — 적 병력 ×%s · 이기면 %s +1") % [str(Run.QUEST_HARD_TR), run.quest_hard_reward_text()]
-	return UI.btn(txt, func(): act("set_quest_hard", [not on]), "warn" if on else "ghost", 44)
+	# 11/13 사용자: 험지를 고르면 글자가 밀린다 —— 한 줄 글자(버튼 최소 폭 = 글자 폭)가 화면보다 길어 전투 탭 전체가 오른쪽으로 넘쳤다.
+	#   글자는 줄을 바꿔 감싸고(최소 폭 0), ✔ 글리프(기기마다 이모지로 바뀐다)는 선 기호로 그린다
+	var txt := ("험지 토벌 — 적 병력 ×%s · 이기면 %s +1\n다시 누르면 보통 토벌" if on else "험지로 토벌 — 적 병력 ×%s · 이기면 %s +1") % [str(Run.QUEST_HARD_TR), run.quest_hard_reward_text()]
+	var b := UI.btn(txt, func(): act("set_quest_hard", [not on]), "warn" if on else "ghost", 44)
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_font_size_override("font_size", 14)
+	if on:
+		for st in ["normal", "hover", "pressed", "focus"]:
+			var sb := b.get_theme_stylebox(st)
+			if sb != null:
+				sb = sb.duplicate()
+				sb.content_margin_left = 34
+				b.add_theme_stylebox_override(st, sb)
+		var ic := Icons.View.new("check", DB.PAL.paper, 16)
+		ic.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
+		ic.position = Vector2(12, -8)
+		b.add_child(ic)
+	return b
 
 
 func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callable, kind: String) -> Button:
@@ -4154,6 +4194,9 @@ func _dev_args() -> void:
 			var kn := s.split(":")
 			if DB.C.has(kn[0]):
 				run.give(kn[0], int(kn[1]) if kn.size() > 1 else 1)
+		render()
+	if a.has("ghard") and run != null:      # 점검용 —— --ghard : 험지 토벌을 고른 채로 (11/13 글자 밀림 점검 · 저장하지 않는다)
+		run.quest_hard = true
 		render()
 	if a.has("ggrain") and run != null:      # 점검용 —— --ggrain=40 : 군량 (11/13 · 저장하지 않는다)
 		run.grain = int(a.ggrain)

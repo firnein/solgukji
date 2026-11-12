@@ -95,6 +95,38 @@ static func lbl(text: String, fs := 15, col := Color(0, 0, 0, 0), display := fal
 	return l
 
 
+## 군량 표기 (11/13) —— [쌀가마 기호] [값]. 글자 「군량」 대신 어디서나 같은 모양 (머리띠 · 상점 가격 · 판매 버튼)
+static func grain(text: String, fs := 15, col := Color(0, 0, 0, 0), display := true) -> HBoxContainer:
+	var h := hbox(maxi(2, int(fs * 0.2)))
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var c := col if col.a > 0 else DB.PAL.gold
+	var ic := Icons.View.new("grain", c, roundf(fs * 1.15))
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var l := lbl(text, fs, c, display)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(l)
+	return h
+
+
+## 군량 기호가 든 버튼 —— 「판매  [쌀가마] +N」. 글자는 버튼 가운데에 (Button.text 는 비우고 위에 얹는다)
+static func grain_btn(pre: String, text: String, cb: Callable, kind := "", h := BTN_H, fs := 16) -> Button:
+	var b := btn("", cb, kind, h)
+	var row := hbox(6)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if pre != "":
+		var pl := lbl(pre, fs, DB.PAL.paper)
+		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(pl)
+	row.add_child(grain(text, fs, DB.PAL.gold, false))
+	b.add_child(row)
+	b.custom_minimum_size.x = maxf(b.custom_minimum_size.x, row.get_combined_minimum_size().x + 20)
+	return b
+
+
 static func hint(text: String) -> Label:
 	var l := lbl(text, 13, DB.PAL.bamboo_dim.lightened(0.12))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -94,6 +94,14 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 		"link":      # 인연 —— 비스듬히 맞물린 두 고리 (11/11)
 			ci.draw_arc(c + Vector2(-3.8, 3.8) * u, 6.0 * u, 0, TAU, 24, col, w)
 			ci.draw_arc(c + Vector2(3.8, -3.8) * u, 6.0 * u, 0, TAU, 24, col, w)
+		"grain":     # 군량 —— 쌀가마: 묶은 목 위로 벌어진 주둥이, 불룩한 몸통, 가운데 새끼줄 한 줄 (11/13 머리띠 · 상점)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-2.6, -5.6) * u, c + Vector2(-6.5, -2.4) * u, c + Vector2(-8.6, 2.5) * u,
+				c + Vector2(-8.2, 7.2) * u, c + Vector2(-5.2, 9.6) * u, c + Vector2(5.2, 9.6) * u, c + Vector2(8.2, 7.2) * u,
+				c + Vector2(8.6, 2.5) * u, c + Vector2(6.5, -2.4) * u, c + Vector2(2.6, -5.6) * u]), col, w)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-2.6, -5.6) * u, c + Vector2(-5.6, -9.6) * u, c + Vector2(-1.6, -8.2) * u,
+				c + Vector2(0, -10.2) * u, c + Vector2(1.6, -8.2) * u, c + Vector2(5.6, -9.6) * u, c + Vector2(2.6, -5.6) * u]), col, w * 0.85)
+			ci.draw_line(c + Vector2(-3.6, -5.6) * u, c + Vector2(3.6, -5.6) * u, col, w * 1.1)
+			ci.draw_line(c + Vector2(-8.4, 3.2) * u, c + Vector2(8.4, 3.2) * u, col, w * 0.75)
 		"heart":     # 민심(마음) —— 아래가 뾰족한 하트 한 줄 (11/10 머리띠 민심 게이지)
 			var hrt := PackedVector2Array()
 			for i in 25:
