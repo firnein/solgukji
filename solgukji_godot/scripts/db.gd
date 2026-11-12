@@ -201,7 +201,14 @@ func _load() -> void:
 		var src: String = LINES.ladder_from[p]
 		PSV.ladder[p] = PSV.ladder.get(src, []).filter(func(e): return int(e[1]) <= 6)
 		if PSV.level.has(src):
-			PSV.level[p] = PSV.level[src]
+			var own: Dictionary = PSV.level.get(p, {})      # 11/13 자기 표(특기 레벨을 벌린 칸)가 있으면 원래 인물 표 위에 덮는다
+			var lvp: Dictionary = PSV.level[src].duplicate(true) if not own.is_empty() else PSV.level[src]
+			for tn in own:
+				var lt: Dictionary = lvp.get(tn, {})
+				for tk in own[tn]:
+					lt[tk] = own[tn][tk]
+				lvp[tn] = lt
+			PSV.level[p] = lvp
 	for p in LINES.get("ladder", {}):          # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 수만큼 채운 사다리 (lines.py fill_ladders)
 		PSV.ladder[p] = LINES.ladder[p]
 	merge_stats()      # 11/6 #15 책략 · 책략방어 통합
@@ -1246,6 +1253,8 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 			continue
 		if k in MOD_FLAT:
 			out.append("%s%s%.0f" % [lb, sign, v])
+		elif absf(v * 100) < 5.0 and absf(v * 100 - roundf(v * 100)) >= 0.05:      # 11/13 작은 % 는 한 자리까지 —— 정수로 반올림하면 레벨이 올라도 '+1% · +1%' 로 같아 보였다
+			out.append("%s%s%.1f%%" % [lb, sign, v * 100])
 		else:
 			out.append("%s%s%.0f%%" % [lb, sign, v * 100])
 	return " · ".join(out)
