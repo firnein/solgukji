@@ -64,7 +64,7 @@ for sheet, names in plan:
     if not os.path.exists(src):
         missing.append(sheet)
         continue
-    if "," not in names and tier == "4_신화":        # 한 명짜리 —— 그림 전체가 카드
+    if "," not in names and tier in ("4_신화", "3_불멸"):        # 한 명짜리 —— 그림 전체가 카드 (11/13 불멸도 한 장에 한 명)
         im = Image.open(src).convert("RGB")
         dst = os.path.join(out, names + ".png")
         im.save(dst)

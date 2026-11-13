@@ -1,17 +1,27 @@
-ONE MYTHIC card illustration of a single Three Kingdoms general for a mobile card game —— the rarest, most intimidating art in the game.
+ONE MYTHIC card illustration of a single Three Kingdoms general for a mobile card game —— the rarest, most intimidating and most REALISTIC art in the game (a cinematic realistic painting, never anime).
 
 REFERENCE (attached image): the BASE chibi design of this general (one character).
 Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
 body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
 Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
 COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+If NO image is attached, build each person from the LOOK, FACE, BUILD, SIGNATURE and COLORS lines alone —— they describe the same design.
+REALISM LEVEL 4 of 4 —— the MOST REALISTIC art in the game (KIIN chibi < TRANSCENDENT < IMMORTAL < MYTHIC): the reference is a chibi cartoon ——
+do NOT copy its drawing style. Paint this person as a REAL human being in a cinematic realistic digital painting: keep WHO they are (headwear, hairstyle,
+facial hair, age, build, colors, weapon), nothing of the cartoon. No chibi, no anime, no manga line art, no cel shading, no big or glossy anime eyes,
+no smooth pretty-boy face.
+STYLE REFERENCE (a second attached image, if present —— an older mythic portrait of another general): match its level of painted realism (real facial
+anatomy, pores and scars, individually painted hair, heavy scratched metal). Do NOT take its person or its gold card frame.
 
 RANK: MYTHIC —— a killing stare out of the dark.
 RANK LOOK IN ONE LINE: a near-black picture with ONE hot color and ONE legendary effect, the eyes the brightest point. At thumbnail size it must read
 "black, with crimson / white-hot / violet fire or lightning". One look should make the viewer feel this person is about to KILL THEM.
 
 RANK RULES (checklist —— obey all of these):
-- FRAMING: a tight BUST in realistic-leaning anime proportions (NOT chibi, about 7.5 heads tall). The head is about 35 to 40% of the picture height:
+- RENDERING: a cinematic REALISTIC digital painting (dark historical fantasy key art) —— NOT anime, NOT manga, NOT chibi. Real human facial anatomy
+  for the person's age: realistic eyes with small irises, heavy lids and brow bone, a real nose, lips, cheekbones and jaw; skin with pores, scars, sweat and
+  grime; hair, brows and beard painted strand by strand; heavy scratched metal, worn leather, thick embroidered cloth. No ink outlines, no cel shading.
+- FRAMING: a tight BUST in real human proportions (about 7.5 to 8 heads tall). The head is about 35 to 40% of the picture height:
   top of the head at about 10%, eyes at about 30%, chin at about 46%, horizontally centered. The shoulders, armor, a weapon edge and the effect
   fill the lower half. Follow each COMPOSITION line for the head turn and the camera.
 - OUTFIT: heavy engraved armor or silks, worn and battle-scarred, in the person's own colors. Gold here is dull, old and scratched, never bright.
@@ -24,7 +34,7 @@ RANK RULES (checklist —— obey all of these):
 - EXPRESSION: killing intent aimed at the VIEWER, the eyes meeting the camera even in profile (see each EXPRESSION line); each person is dangerous
   in their OWN way, never the same generic angry face.
 - HANDS: out of the frame unless the COMPOSITION needs them; a natural relaxed grip with five correct fingers, never crowding the face.
-- NEVER: chibi, a bright or pastel background, crowds, mist, a silver-blue palette, a gold-orange sunset palette, jade, a card frame or border.
+- NEVER: chibi, anime or manga style, line art, cel shading, big or glossy eyes, a smooth youthful idol face, a bright or pastel background, crowds, mist, a silver-blue palette, a gold-orange sunset palette, jade, a card frame or border.
 
 GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
 - The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 10% and 46% of the picture height, horizontally centered, never off to a side.

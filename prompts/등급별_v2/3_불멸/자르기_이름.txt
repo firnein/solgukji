@@ -3,34 +3,127 @@
   다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)
 먼저 기본 캐릭터(assets/portraits/<인물>.png)가 있어야 한다. 시트마다 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다.
 
-[01_촉_위_오_군_4명.txt]  1 수엄칠군 관우 · 2 주아부 서황 · 3 회계태수 손책 · 4 폭군 동탁
-  참조:   python -I tools/scripts/make_ref_sheet.py "관우,서황,손책,동탁" prompts/등급별_v2/3_불멸/참조_01.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_불멸,서황_불멸,손책_불멸,동탁_불멸" solgukji_godot/assets/portraits
 
-[02_촉_위_오_군_4명.txt]  1 당양교 장비 · 2 발시담정 하후돈 · 3 벽안아 손권 · 4 호뢰관 여포
-  참조:   python -I tools/scripts/make_ref_sheet.py "장비,하후돈,손권,여포" prompts/등급별_v2/3_불멸/참조_02.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "장비_불멸,하후돈_불멸,손권_불멸,여포_불멸" solgukji_godot/assets/portraits
+[01_관우.txt]  1 수엄칠군 관우
+  참조:   python -I tools/scripts/make_ref_sheet.py "관우" prompts/등급별_v2/3_불멸/01_관우_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "관우_불멸" solgukji_godot/assets/portraits
 
-[03_촉_위_오_군_4명.txt]  1 오호대장 마초 · 2 호치 허저 · 3 동래맹호 태사자 · 4 하북패자 원소
-  참조:   python -I tools/scripts/make_ref_sheet.py "마초,허저,태사자,원소" prompts/등급별_v2/3_불멸/참조_03.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "마초_불멸,허저_불멸,태사자_불멸,원소_불멸" solgukji_godot/assets/portraits
+[02_서황.txt]  1 주아부 서황
+  참조:   python -I tools/scripts/make_ref_sheet.py "서황" prompts/등급별_v2/3_불멸/02_서황_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "서황_불멸" solgukji_godot/assets/portraits
 
-[04_촉_위_오_군_4명.txt]  1 단기구주 조운 · 2 오자제일 장료 · 3 금범적 감녕 · 4 천공장군 장각
-  참조:   python -I tools/scripts/make_ref_sheet.py "조운,장료,감녕,장각" prompts/등급별_v2/3_불멸/참조_04.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "조운_불멸,장료_불멸,감녕_불멸,장각_불멸" solgukji_godot/assets/portraits
+[03_손책.txt]  1 회계태수 손책
+  참조:   python -I tools/scripts/make_ref_sheet.py "손책" prompts/등급별_v2/3_불멸/03_손책_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "손책_불멸" solgukji_godot/assets/portraits
 
-[05_촉_위_오_군_4명.txt]  1 노장 황충 · 2 신속 하후연 · 3 오하아몽 여몽 · 4 오두미교주 장로
-  참조:   python -I tools/scripts/make_ref_sheet.py "황충,하후연,여몽,장로" prompts/등급별_v2/3_불멸/참조_05.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "황충_불멸,하후연_불멸,여몽_불멸,장로_불멸" solgukji_godot/assets/portraits
+[04_동탁.txt]  1 폭군 동탁
+  참조:   python -I tools/scripts/make_ref_sheet.py "동탁" prompts/등급별_v2/3_불멸/04_동탁_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "동탁_불멸" solgukji_godot/assets/portraits
 
-[06_촉_위_오_군_4명.txt]  1 자오곡 위연 · 2 순령군 순욱 · 3 이릉대첩 육손 · 4 하비충절 진궁
-  참조:   python -I tools/scripts/make_ref_sheet.py "위연,순욱,육손,진궁" prompts/등급별_v2/3_불멸/참조_06.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "위연_불멸,순욱_불멸,육손_불멸,진궁_불멸" solgukji_godot/assets/portraits
+[05_장비.txt]  1 당양교 장비
+  참조:   python -I tools/scripts/make_ref_sheet.py "장비" prompts/등급별_v2/3_불멸/05_장비_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장비_불멸" solgukji_godot/assets/portraits
 
-[07_촉_위_오_4명.txt]  1 구벌중원 강유 · 2 낭고 사마의 · 3 미주랑 주유 · 4 출사표 제갈량
-  참조:   python -I tools/scripts/make_ref_sheet.py "강유,사마의,주유,제갈량" prompts/등급별_v2/3_불멸/참조_07.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "강유_불멸,사마의_불멸,주유_불멸,제갈량_불멸" solgukji_godot/assets/portraits
+[06_하후돈.txt]  1 발시담정 하후돈
+  참조:   python -I tools/scripts/make_ref_sheet.py "하후돈" prompts/등급별_v2/3_불멸/06_하후돈_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "하후돈_불멸" solgukji_godot/assets/portraits
 
-[08_위_촉_3명.txt]  1 위왕 조조 · 2 정군산 법정 · 3 삼고초려 유비
-  참조:   python -I tools/scripts/make_ref_sheet.py "조조,법정,유비" prompts/등급별_v2/3_불멸/참조_08.png
-  자르기: python -I tools/scripts/slice_panels.py 시트.png "조조_불멸,법정_불멸,유비_불멸" solgukji_godot/assets/portraits
+[07_손권.txt]  1 벽안아 손권
+  참조:   python -I tools/scripts/make_ref_sheet.py "손권" prompts/등급별_v2/3_불멸/07_손권_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "손권_불멸" solgukji_godot/assets/portraits
+
+[08_여포.txt]  1 호뢰관 여포
+  참조:   python -I tools/scripts/make_ref_sheet.py "여포" prompts/등급별_v2/3_불멸/08_여포_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "여포_불멸" solgukji_godot/assets/portraits
+
+[09_마초.txt]  1 오호대장 마초
+  참조:   python -I tools/scripts/make_ref_sheet.py "마초" prompts/등급별_v2/3_불멸/09_마초_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "마초_불멸" solgukji_godot/assets/portraits
+
+[10_허저.txt]  1 호치 허저
+  참조:   python -I tools/scripts/make_ref_sheet.py "허저" prompts/등급별_v2/3_불멸/10_허저_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "허저_불멸" solgukji_godot/assets/portraits
+
+[11_태사자.txt]  1 동래맹호 태사자
+  참조:   python -I tools/scripts/make_ref_sheet.py "태사자" prompts/등급별_v2/3_불멸/11_태사자_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "태사자_불멸" solgukji_godot/assets/portraits
+
+[12_원소.txt]  1 하북패자 원소
+  참조:   python -I tools/scripts/make_ref_sheet.py "원소" prompts/등급별_v2/3_불멸/12_원소_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "원소_불멸" solgukji_godot/assets/portraits
+
+[13_조운.txt]  1 단기구주 조운
+  참조:   python -I tools/scripts/make_ref_sheet.py "조운" prompts/등급별_v2/3_불멸/13_조운_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "조운_불멸" solgukji_godot/assets/portraits
+
+[14_장료.txt]  1 오자제일 장료
+  참조:   python -I tools/scripts/make_ref_sheet.py "장료" prompts/등급별_v2/3_불멸/14_장료_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장료_불멸" solgukji_godot/assets/portraits
+
+[15_감녕.txt]  1 금범적 감녕
+  참조:   python -I tools/scripts/make_ref_sheet.py "감녕" prompts/등급별_v2/3_불멸/15_감녕_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "감녕_불멸" solgukji_godot/assets/portraits
+
+[16_장각.txt]  1 천공장군 장각
+  참조:   python -I tools/scripts/make_ref_sheet.py "장각" prompts/등급별_v2/3_불멸/16_장각_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장각_불멸" solgukji_godot/assets/portraits
+
+[17_황충.txt]  1 노장 황충
+  참조:   python -I tools/scripts/make_ref_sheet.py "황충" prompts/등급별_v2/3_불멸/17_황충_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "황충_불멸" solgukji_godot/assets/portraits
+
+[18_하후연.txt]  1 신속 하후연
+  참조:   python -I tools/scripts/make_ref_sheet.py "하후연" prompts/등급별_v2/3_불멸/18_하후연_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "하후연_불멸" solgukji_godot/assets/portraits
+
+[19_여몽.txt]  1 오하아몽 여몽
+  참조:   python -I tools/scripts/make_ref_sheet.py "여몽" prompts/등급별_v2/3_불멸/19_여몽_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "여몽_불멸" solgukji_godot/assets/portraits
+
+[20_장로.txt]  1 오두미교주 장로
+  참조:   python -I tools/scripts/make_ref_sheet.py "장로" prompts/등급별_v2/3_불멸/20_장로_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "장로_불멸" solgukji_godot/assets/portraits
+
+[21_위연.txt]  1 자오곡 위연
+  참조:   python -I tools/scripts/make_ref_sheet.py "위연" prompts/등급별_v2/3_불멸/21_위연_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "위연_불멸" solgukji_godot/assets/portraits
+
+[22_순욱.txt]  1 순령군 순욱
+  참조:   python -I tools/scripts/make_ref_sheet.py "순욱" prompts/등급별_v2/3_불멸/22_순욱_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "순욱_불멸" solgukji_godot/assets/portraits
+
+[23_육손.txt]  1 이릉대첩 육손
+  참조:   python -I tools/scripts/make_ref_sheet.py "육손" prompts/등급별_v2/3_불멸/23_육손_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "육손_불멸" solgukji_godot/assets/portraits
+
+[24_진궁.txt]  1 하비충절 진궁
+  참조:   python -I tools/scripts/make_ref_sheet.py "진궁" prompts/등급별_v2/3_불멸/24_진궁_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "진궁_불멸" solgukji_godot/assets/portraits
+
+[25_강유.txt]  1 구벌중원 강유
+  참조:   python -I tools/scripts/make_ref_sheet.py "강유" prompts/등급별_v2/3_불멸/25_강유_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "강유_불멸" solgukji_godot/assets/portraits
+
+[26_사마의.txt]  1 낭고 사마의
+  참조:   python -I tools/scripts/make_ref_sheet.py "사마의" prompts/등급별_v2/3_불멸/26_사마의_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "사마의_불멸" solgukji_godot/assets/portraits
+
+[27_주유.txt]  1 미주랑 주유
+  참조:   python -I tools/scripts/make_ref_sheet.py "주유" prompts/등급별_v2/3_불멸/27_주유_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "주유_불멸" solgukji_godot/assets/portraits
+
+[28_제갈량.txt]  1 출사표 제갈량
+  참조:   python -I tools/scripts/make_ref_sheet.py "제갈량" prompts/등급별_v2/3_불멸/28_제갈량_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "제갈량_불멸" solgukji_godot/assets/portraits
+
+[29_조조.txt]  1 위왕 조조
+  참조:   python -I tools/scripts/make_ref_sheet.py "조조" prompts/등급별_v2/3_불멸/29_조조_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "조조_불멸" solgukji_godot/assets/portraits
+
+[30_법정.txt]  1 정군산 법정
+  참조:   python -I tools/scripts/make_ref_sheet.py "법정" prompts/등급별_v2/3_불멸/30_법정_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "법정_불멸" solgukji_godot/assets/portraits
+
+[31_유비.txt]  1 삼고초려 유비
+  참조:   python -I tools/scripts/make_ref_sheet.py "유비" prompts/등급별_v2/3_불멸/31_유비_base.png
+  자르기: python -I tools/scripts/slice_panels.py 시트.png "유비_불멸" solgukji_godot/assets/portraits

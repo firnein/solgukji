@@ -28,7 +28,7 @@ OUT = "prompts/등급별_v2"
 DIRS = {"kiin": "1_기인", 6: "2_초월", 7: "3_불멸", 8: "4_신화"}
 SUFFIX = {"kiin": "_기인", 6: "_초월", 7: "_불멸", 8: "_신화"}
 LABEL = {"kiin": "기인", 6: "초월", 7: "불멸", 8: "신화"}
-PER = {"kiin": 6, 6: 4, 7: 4, 8: 1}            # 한 장 인원 —— 많으면 모델이 인물별 지시를 섞는다. 4~6 이 안전하고 신화는 한 명씩
+PER = {"kiin": 6, 6: 4, 7: 1, 8: 1}            # 한 장 인원 —— 많으면 모델이 인물별 지시를 섞는다. 4~6 이 안전하고 신화는 한 명씩
 FAC_ORDER = ["촉", "위", "오", "군"]
 CLASS_ORDER = ["창병", "기병", "궁병", "도적", "책사", "유생", "술사", "모사"]
 
@@ -142,10 +142,29 @@ REFERENCE = """REFERENCE (attached image): a numbered sheet of the BASE chibi de
 Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
 body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
 Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
-COLORS give the CLOTH and ARMOR colors only (ignore the word \"gold\" there) —— the color of metal trim, the light and the background come from the RANK RULES."""
+COLORS give the CLOTH and ARMOR colors only (ignore the word \"gold\" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+If NO image is attached, build each person from the LOOK, FACE, BUILD, SIGNATURE and COLORS lines alone —— they describe the same design."""
 
 SOLO_REFERENCE = REFERENCE.replace("a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.",
                                    "the BASE chibi design of this general (one character).")
+
+# 11/13 사용자: 기인 → 초월 → 불멸 → 신화 순으로 점점 실사풍. 불멸에도 신화 하후돈 · 하후연(이전 세대 신화 그림)의 느낌, 신화의 치비 · 애니풍은 없앤다.
+# 기본 초상(치비)을 참조로 붙이기 때문에 얼굴까지 치비로 끌려갔다 —— 참조에서는 '누구인지'만 가져오고 그리는 방식은 등급의 REALISM 을 따르게 한다.
+REALISM = {
+    6: """REALISM LEVEL 2 of 4 (KIIN chibi < TRANSCENDENT < IMMORTAL < MYTHIC): the reference is a chibi cartoon —— do NOT copy its drawing style.
+Redraw each person as a NON-CHIBI stylized adult: keep WHO they are (headwear, hairstyle, facial hair, age, build, colors, weapon), but give them
+adult body proportions and an adult face. No big head, no big round eyes, no button nose, no stubby limbs.""",
+    7: """STYLE LEVEL 3 of 4 (KIIN chibi < TRANSCENDENT < IMMORTAL < MYTHIC —— only MYTHIC is realistic): the reference is a chibi cartoon —— do NOT copy
+its proportions. Redraw each person as a HANDSOME, HEROIC ADULT in a polished anime illustration: keep WHO they are (headwear, hairstyle, facial
+hair, age, build, colors, weapon), with a normal-size head, adult eyes and a strong clean face. This rank is NOT realistic and NOT chibi:
+no photo-real skin, no pores, wrinkles, grime or sweat, no ugly or grotesque faces.""",
+    8: """REALISM LEVEL 4 of 4 —— the MOST REALISTIC art in the game (KIIN chibi < TRANSCENDENT < IMMORTAL < MYTHIC): the reference is a chibi cartoon ——
+do NOT copy its drawing style. Paint this person as a REAL human being in a cinematic realistic digital painting: keep WHO they are (headwear, hairstyle,
+facial hair, age, build, colors, weapon), nothing of the cartoon. No chibi, no anime, no manga line art, no cel shading, no big or glossy anime eyes,
+no smooth pretty-boy face.
+STYLE REFERENCE (a second attached image, if present —— an older mythic portrait of another general): match its level of painted realism (real facial
+anatomy, pores and scars, individually painted hair, heavy scratched metal). Do NOT take its person or its gold card frame.""",
+}
 
 DISTINCT = """EVERY CHARACTER LOOKS DIFFERENT: no two characters on a sheet share the same headgear, hairstyle or facial hair ——
 follow each SIGNATURE line exactly (HEAD, FACIAL HAIR, MARK). All panels share the RANK LOOK (that is the point), but each person keeps their own
@@ -180,7 +199,9 @@ quiet and noble".
 RANK RULES (checklist —— every panel must obey all of these):
 - CAMERA AND POSE: eye-level, CHEST-TO-WAIST crop. The body faces the front or turns at most 30 degrees, shoulders level, the pose still and
   symmetrical, the weapon or item held VERTICALLY at one side (a tall quiet line). No diagonal action, no foreshortening, no wide-angle.
-- PROPORTIONS AND LINE: refined semi-chibi, about 3.5 heads tall, fine clean ink lines, soft cel shading with airy highlights.
+- PROPORTIONS AND RENDERING: stylized anime-style game illustration with ADULT proportions, about 5.5 to 6 heads tall (NOT chibi, NOT semi-chibi):
+  a normal-size head on broad shoulders, adult faces with normal-size eyes, a drawn nose bridge, a defined jaw and cheekbones. Fine clean ink
+  lines, soft cel shading with a little painted gradation and airy highlights. Every panel on the sheet uses the SAME proportions and rendering.
 - OUTFIT: the base design made noble —— engraved SILVER and white-steel plates, silver filigree, pale silk over the faction-colored cloth
   (the cloth muted and a little desaturated), a white or pale-blue plume or tassels, plain silver clasps. NO GOLD anywhere.
 - LIGHT: cold, bright and even, from the upper front-left, a thin white rim, soft pale blue-grey shadows. HIGH-KEY: the whole picture is light.
@@ -189,31 +210,51 @@ RANK RULES (checklist —— every panel must obey all of these):
   standing far behind on one side, slightly out of focus. Nothing else: no crowd, no dramatic sky.
 - EFFECTS: none, except a few tiny silver light motes. No fire, no lightning, no glowing aura.
 - EXPRESSION: composed dignity, the eyes level, a restrained look.
-- NEVER: gold or orange, fire or lightning, a dark background, a dynamic pose, crowds, a cape blowing in the wind.""",
-    7: """RANK: IMMORTAL —— blazing gold.
-RANK LOOK IN ONE LINE: blazing, warm and in motion, a golden-hour war portrait with an army behind it. At thumbnail size it must read
-"gold, orange, sparks and banners".
+- NEVER: chibi or super-deformed proportions, big heads, big round eyes, a jade ring or circle behind the head (that is the KIIN mark),
+  gold or orange, fire or lightning, a dark background, a dynamic pose, crowds, a cape blowing in the wind.""",
+    7: """RANK: IMMORTAL —— a legend in his own scene.
+RANK LOOK IN ONE LINE: ONE legendary general, big and unmistakable, in the place, weather and light of HIS OWN story. Every IMMORTAL picture has a
+different time of day and a different color palette; what they share is the big face, the rich finish and the cinematic depth —— NOT a color.
 
 RANK RULES (checklist —— every panel must obey all of these):
-- CAMERA AND POSE: LOW camera angle, the body turned 3/4 and leaning 15 to 25 degrees on a strong diagonal, CHEST-TO-WAIST crop with the head
-  still at the top center. Dynamic: mid-stride or mid-shout, the weapon crossing the picture diagonally, the cape, ribbons and plumes whipping
-  across the frame, a little wide-angle foreshortening on the weapon.
-- PROPORTIONS AND LINE: polished anime game illustration, about 4 heads tall, dense fine linework, an expressive face.
-- OUTFIT: lavish GOLD —— gilded armor plates, gold filigree and embossed dragon / phoenix / tiger motifs, a big flowing cape or sash in a saturated
-  version of the faction color lined with red-orange silk, tall feathers or plumes, jeweled clasps.
-- LIGHT: strong warm backlight (a low sun behind), a hot orange-gold rim along the hair, shoulder and weapon, the face lit warmly from the front-low side.
-- COLOR: gold, amber and orange-red with warm brown shadows, very saturated. A warm temperature everywhere.
-- BACKGROUND: a marching army in depth —— a sea of spears and many war banners (blank cloth, no lettering) rising toward a blazing orange sunset sky
-  with smoke; the army fills the lower background and recedes into haze. The STORY DETAIL of each character appears small in that background.
-- EFFECTS: drifting embers and sparks, golden dust, trailing ribbons; fire only as sparks and small flames in the background. No lightning.
-- EXPRESSION: bold and charismatic —— a battle cry or a fierce grin.
-- NEVER: silver-blue or cold light, an empty misty backdrop, a still symmetrical pose, a black background, a close-up face filling the picture.""",
+- FACE FIRST: a tight BUST portrait —— head and shoulders, nothing below the chest. The HEAD is about 40 to 45% of the picture height: top of the
+  hair or helmet at about 8%, eyes at about 30%, chin at about 50%, horizontally centered. The FACE is the picture: the sharpest, brightest,
+  highest-contrast area. Shoulders, collar and cape fill the lower part; weapon, horse and hands appear only as cut-off shapes at the edges.
+- COMPOSITION: follow the COMPOSITION line EXACTLY —— the camera height, the direction the head and body face, and the expression are the point
+  of this picture and differ for every general in the game. Do NOT fall back to the default "three-quarter view from a low angle, shouting,
+  weapon raised on the left".
+- SEPARATION FROM THE BACKGROUND: the background is clearly DARKER (about two stops), less saturated and soft-focus behind a layer of smoke and
+  haze, like a telephoto photograph. A thin bright rim light in the color of the scene's light source (moon, fire, sun, lantern, snow glare) runs
+  around the silhouette. The area directly behind the head is plain sky, mist or smoke —— no banner, spear, roof or soldier touches or crosses the head.
+- PROPORTIONS AND RENDERING: a polished ANIME game illustration (top-rarity card art of a mobile RPG), adult heroic proportions about 6.5 to 7
+  heads tall. Clean confident line art, rich cel shading with smooth painted gradients and crisp highlights on metal, cloth and hair.
+  Faces are stylized, clean and ATTRACTIVE: clear expressive anime eyes of adult size, a simple clean nose and mouth, smooth skin, a firm jaw ——
+  cool, dignified and charismatic even on old, fat or villainous characters (their age, weight and nature are shown by shape and expression,
+  never by realistic wrinkles, pores, sagging skin, grime or sweat). Mouths are drawn simply; no detailed teeth or gums.
+  Every panel on the sheet uses the SAME style.
+- OUTFIT: the base design made magnificent, in the person's OWN colors: the faction-colored cloth (cape, robe, sash, headscarf) is big, saturated
+  and dominant on the figure, so that the panels differ in color at a glance (green, navy, crimson, purple, yellow ...). Gold is the TRIM only ——
+  gilded edges, clasps, embossed dragon / phoenix / tiger motifs —— over dark steel, lacquer or silk. Never an all-gold figure.
+- LIGHT AND COLOR: taken from the SETTING AND LIGHT line —— it decides the time of day, the weather and the whole palette of this picture. The face
+  is always lit clearly with true skin tone. Value plan: bright face and rim > saturated faction cloth > dark armor > dimmer background.
+- BACKGROUND: the place of the SETTING AND LIGHT line (and the STORY BACKGROUND line), small, dim and out of focus. An army or banners appear only
+  where the story has them, far away and low in the picture.
+- EFFECTS: only what the setting gives (rain, snow, mist, dust, sparks, petals, blown leaves), a few particles in front of the shoulders, never over
+  the face. No lightning, no spirit beasts, no glowing aura.
+- EXPRESSION: each person's own (see each COMPOSITION line), stylized and cool; at most ONE open-mouthed shout on the whole sheet.
+- NEVER: a waist-up or full-body view, a small head on a huge torso, a busy bright background that swallows the figure, a wall of soldiers right
+  behind the shoulders, the generic "golden sunset battlefield with orange sky and embers" (unless the SETTING line says fire or sunset),
+  an all-gold or all-orange picture, chibi, big heads on small bodies, photorealism, realistic skin texture, pores,
+  wrinkles, sweat, grime, detailed teeth, grotesque or ugly faces, a flat empty or pure black background.""",
     8: """RANK: MYTHIC —— a killing stare out of the dark.
 RANK LOOK IN ONE LINE: a near-black picture with ONE hot color and ONE legendary effect, the eyes the brightest point. At thumbnail size it must read
 "black, with crimson / white-hot / violet fire or lightning". One look should make the viewer feel this person is about to KILL THEM.
 
 RANK RULES (checklist —— obey all of these):
-- FRAMING: a tight BUST in realistic-leaning anime proportions (NOT chibi, about 7.5 heads tall). The head is about 35 to 40% of the picture height:
+- RENDERING: a cinematic REALISTIC digital painting (dark historical fantasy key art) —— NOT anime, NOT manga, NOT chibi. Real human facial anatomy
+  for the person's age: realistic eyes with small irises, heavy lids and brow bone, a real nose, lips, cheekbones and jaw; skin with pores, scars, sweat and
+  grime; hair, brows and beard painted strand by strand; heavy scratched metal, worn leather, thick embroidered cloth. No ink outlines, no cel shading.
+- FRAMING: a tight BUST in real human proportions (about 7.5 to 8 heads tall). The head is about 35 to 40% of the picture height:
   top of the head at about 10%, eyes at about 30%, chin at about 46%, horizontally centered. The shoulders, armor, a weapon edge and the effect
   fill the lower half. Follow each COMPOSITION line for the head turn and the camera.
 - OUTFIT: heavy engraved armor or silks, worn and battle-scarred, in the person's own colors. Gold here is dull, old and scratched, never bright.
@@ -226,20 +267,20 @@ RANK RULES (checklist —— obey all of these):
 - EXPRESSION: killing intent aimed at the VIEWER, the eyes meeting the camera even in profile (see each EXPRESSION line); each person is dangerous
   in their OWN way, never the same generic angry face.
 - HANDS: out of the frame unless the COMPOSITION needs them; a natural relaxed grip with five correct fingers, never crowding the face.
-- NEVER: chibi, a bright or pastel background, crowds, mist, a silver-blue palette, a gold-orange sunset palette, jade, a card frame or border.""",
+- NEVER: chibi, anime or manga style, line art, cel shading, big or glossy eyes, a smooth youthful idol face, a bright or pastel background, crowds, mist, a silver-blue palette, a gold-orange sunset palette, jade, a card frame or border.""",
 }
 
 STYLE_LINE = {
     "kiin": "Calm flat SD role-card illustrations for a mobile card game (the KIIN cards: one irreplaceable role per card).",
-    6: "Refined, cold, silver TRANSCENDENT card illustrations for a mobile card game.",
-    7: "Blazing, golden, dynamic IMMORTAL card illustrations for a mobile card game.",
-    8: "ONE MYTHIC card illustration of a single Three Kingdoms general for a mobile card game —— the rarest, most intimidating art in the game.",
+    6: "Refined, cold, silver TRANSCENDENT card illustrations for a mobile card game —— stylized adult anime proportions, not chibi.",
+    7: "IMMORTAL card illustrations for a mobile card game —— polished anime hero portraits with adult proportions: not chibi and not realistic.",
+    8: "ONE MYTHIC card illustration of a single Three Kingdoms general for a mobile card game —— the rarest, most intimidating and most REALISTIC art in the game (a cinematic realistic painting, never anime).",
 }
 
 MOUNT_RULE = {
     "kiin": "waist-up rider on a calm standing horse; the horse's head and neck form a quiet base at the bottom (chibi, not rearing).",
     6: "rider chest-to-waist facing nearly front; the horse's armored head and neck rise from the bottom edge in front of him, standing calmly.",
-    7: "rider and horse together in a diagonal charge, the horse rearing or at full gallop with its chest and head big in the lower half; the rider's face stays at the top center, the cape streaming.",
+    7: "he is ON this horse, but this is a face portrait: the horse is only a glimpse of ears, mane or the top of its head at one bottom corner.",
     8: "the rider's face and shoulders are the subject; the armored horse is only a dark glimpse of head, neck or mane at the lower edge of the picture.",
 }
 
@@ -344,6 +385,74 @@ MYTH = {
 }
 
 
+# ── 불멸: 구도 풀 (11/13 사용자: "너무 다 똑같은 구도이면서 인물이 돋보이지 않음") ─────────────────────
+# 예전 규칙은 모든 패널에 "낮은 앵글 · 대각선 · 함성" 하나를 줬다. 병종 묶음마다 구도 여러 개를 두고, 한 장 안에서 겹치지 않게 돌려 준다.
+IMMORTAL_SCENE = {   # 인물별 장면의 시간 · 날씨 · 색 (이야기 힌트에 맞춰 손으로 씀) —— 같은 색이 이어지지 않게
+    "관우": "a storm over the flooding Han river —— heavy grey rain clouds, cold daylight, churning teal-green water; palette storm grey, teal and his deep green",
+    "서황": "a cold dawn over siege trenches and earthworks —— blue-grey morning mist, a pale white sun low on the horizon; palette slate blue, steel and pale cream",
+    "손책": "a bright clear noon over the wide Yangtze —— a vivid blue sky with tall white clouds, sparkling water, red banners; palette sky blue, white and crimson",
+    "동탁": "a palace hall at night —— red paper lanterns and candles, black lacquer pillars, heaps of looted treasure glinting in the dark; palette crimson, black and candle amber",
+    "장비": "an overcast autumn afternoon at a wooden bridge over a river, dust rising from the forest behind —— palette grey sky, russet leaves, dark green and brown",
+    "하후돈": "a dusty battlefield at harsh midday —— a white sun through ochre dust haze, broken arrows in the ground; palette ochre, bone white and navy",
+    "손권": "sunrise on the great river —— a pale rose and light blue sky, the sails of a fleet, glittering water; palette rose, pale blue and crimson",
+    "여포": "the stone gate of a mountain pass on a dark thunder-blue evening, torches along the walls —— palette deep indigo, cold stone grey and blood red",
+    "마초": "a western desert pass on a cold bright winter day —— a pale blue sky, yellow sand, snow-capped mountains far away; palette sand, ice blue and silver-white",
+    "허저": "a muddy duelling ground just after summer rain —— wet earth, low grey clouds breaking, steam in the humid air; palette wet brown, grey and navy",
+    "태사자": "green spring hills in clear afternoon light —— fresh grass, blue distance, white blossom on the wind; palette spring green, sky blue and red",
+    "원소": "a great altar on a clear morning with the many-colored banners of the allied lords —— white-gold daylight; palette ivory, yellow and many small banner colors",
+    "조운": "an open plain at blue-violet twilight, a full moon rising through battle dust —— palette violet-blue, moon silver and white",
+    "장료": "a river crossing in cold dawn mist, a broken bridge fading into the fog —— palette blue-white mist, steel and purple-black",
+    "감녕": "a night raid on the river under a bright moon —— deep indigo water, ship lanterns, patterned brocade sails; palette indigo, moon white and red",
+    "장각": "night, a sea of torches below an altar, greenish incense smoke under a starless sky —— palette black-green, torch amber and yellow cloth",
+    "황충": "a crisp mountain morning among pines high on a ridge —— cool blue shadows, a clear warm sun, far valleys in haze; palette pine green, cool blue and warm white",
+    "하후연": "a wind-swept grassland under fast grey clouds, long grass bending —— palette steel blue, grey and dry straw",
+    "여몽": "a river at misty daybreak, plain merchant boats sliding through thick white fog —— palette pearl white, pale grey and soft red",
+    "장로": "a mountain temple at night, rows of warm paper lanterns in blue mist —— palette night blue, lantern amber and pale yellow",
+    "위연": "a narrow mountain gorge, deep green shadow between cliffs with one shaft of sunlight falling into it —— palette dark moss green, rock grey and one warm beam",
+    "순욱": "a quiet study in late afternoon —— soft window light across a wooden lattice, thin incense smoke; palette muted blue-grey, warm wood and ivory",
+    "육손": "a forest valley at dusk with a long chain of camps on fire —— black tree silhouettes against orange flames; palette fire orange, black and red",
+    "진궁": "a white stone gate tower in a rainstorm, torn banners snapping —— palette rain grey, wet white stone and dark red",
+    "강유": "a high northern mountain pass in wind-driven snow, green banners straining —— palette snow white, cold blue and green",
+    "사마의": "a moonlit winter night, bare black trees and low mist —— palette violet-blue, moon white and black",
+    "주유": "night on the great river, a burning fleet far behind mirrored in black water —— palette black, crimson and ember red",
+    "제갈량": "an altar under a deep-blue starry night sky, lamps flickering in a rising east wind —— palette midnight blue, star white and jade green",
+    "조조": "a cliff edge at a bleak grey dawn, crows wheeling, thin smoke far below —— palette steel grey, navy and cold white",
+    "법정": "a mountain peak above a sea of clouds at clear high noon —— palette bright sky blue, cloud white and green",
+    "유비": "a snowy winter day at a thatched cottage among bamboo —— soft white daylight, falling snow; palette snow white, bamboo green and warm straw",
+}
+
+IMMORTAL_COMP = [
+    "STRAIGHT-ON close bust at eye level, shoulders square to the viewer, the chin slightly lowered and the eyes locked on the viewer from under the brows. Expression: a calm, immovable stare, mouth closed",
+    "LOW camera, the body turned three-quarters toward the {a}, the chin lifted so that the eyes look DOWN at the viewer. Expression: a confident smirk, one corner of the mouth raised",
+    "OVER THE SHOULDER: the back and {a} shoulder are toward the viewer and the head is turned back over that shoulder, the face in three-quarter view. Expression: a hard sideways glare, mouth closed",
+    "HIGH camera looking down from the front; the head is bowed a little and the eyes look UP at the viewer through the brows. Expression: a slow dangerous smile",
+    "PURE PROFILE facing {b}, only the eye sliding sideways to meet the viewer, hair, ribbons or plume blowing forward past the face (never over it). Expression: cold and composed, lips closed",
+    "TILTED camera (about 15 degrees), the body leaning toward the viewer so the face comes close, the shoulders rising behind it. Expression: a fierce battle shout",
+    "EYE-LEVEL three-quarter view toward the {b}, the head thrown back a little. Expression: a bold open laugh or wide grin, eyes narrowed with delight",
+    "LOW camera straight from the front, the figure looming over the viewer, the upper face half in shadow under the helmet, hat or hair with a bright rim of light around the head. Expression: a grim scowl, jaw clenched",
+]
+IMMORTAL_EDGE = {
+    "mount": "At the edges: a glimpse of the horse's ears and mane at the lower {b} corner, the weapon shaft cut off along the {a} edge",
+    "melee": "At the edges: the head or blade of the signature weapon rises along the {a} edge, partly cut off by the frame, catching the light",
+    "archer": "At the edges: the upper limb of the bow and the fletching of one arrow along the {a} edge, the quiver behind the shoulder",
+    "mind": "At the edges: the signature item (fan, scroll, staff or book) held low at the bottom {a} corner, well below the chin, never covering the face",
+}
+_GROUP = {"SPEARMAN": "melee", "ROGUE": "melee", "CAVALRY": "melee", "ARCHER": "archer"}
+
+
+def immortal_comps(chunk, ident, sheet_no):
+    """인물별 구도 —— 전체 순서(sheet_no)대로 8가지 카메라를 돌려 쓰고 좌우를 번갈아. 이웃한 번호끼리는 늘 다른 구도"""
+    out = []
+    for i, c in enumerate(chunk):
+        ent = ident[c["person"]]
+        g = "mount" if horse_of(ent) else _GROUP.get(en_head(ent)[1], "mind")
+        n = sheet_no + i - 1
+        k = (n * 3) % len(IMMORTAL_COMP)            # 3칸씩 건너뛰어 같은 병종 · 세력 줄에서 비슷한 구도가 이어지지 않게
+        a, b = ("left", "right") if (n // len(IMMORTAL_COMP) + n) % 2 == 0 else ("right", "left")
+        out.append((IMMORTAL_COMP[k] + ". " + IMMORTAL_EDGE[g]).format(a=a, b=b))
+    return out
+
+
 # ── 시트 짜기 ──────────────────────────────────────────────────────────────────
 
 def en_head(ent):
@@ -384,8 +493,8 @@ def identity_lines(i, ent, key, solo=False):
     return lines
 
 
-def entry(i, person, ent, key, roles, hints):
-    lines = identity_lines(i, ent, key, solo=(key == 8))
+def entry(i, person, ent, key, roles, hints, comp=None):
+    lines = identity_lines(i, ent, key, solo=(PER[key] == 1))
     if key == "kiin":
         role = roles[person]
         en, does, reads = ROLE[role]
@@ -397,7 +506,11 @@ def entry(i, person, ent, key, roles, hints):
     elif key == 7:
         story = hints[7].get(person) or hints[8].get(person)        # 불멸 힌트가 없는 신화 인물은 신화 장면 한 줄로 대신
         if story:
-            lines.append("   STORY DETAIL (small, in the army background; ignore any lightning, aura or spirit beast in it —— the rank rules win): " + story)
+            lines.append("   STORY BACKGROUND (the place behind this person —— dim, small and out of focus; take only the setting, ignore any pose, lightning, aura or spirit beast in it): " + story)
+        if person in IMMORTAL_SCENE:
+            lines.append("   SETTING AND LIGHT (decides the time of day, the weather and the whole color palette): " + IMMORTAL_SCENE[person] + ".")
+        if comp:
+            lines.append("   COMPOSITION: " + comp + ". The head stays big in the top-center zone.")
     else:
         t = MYTH[person]
         if person in hints[8]:
@@ -409,6 +522,10 @@ def entry(i, person, ent, key, roles, hints):
         lines.append("   MUST SHOW (clearly, large and well lit): %s; %s; and if they fit the composition: %s." % (h, f, m))
     return "\n".join(lines)
 
+
+STYLE_REF_NOTE = {
+    8: "화풍 참조(두 번째 첨부, 11/13): solgukji_godot/assets/portraits/하후돈_신화.png (또는 하후연_신화.png) 를 참조 이미지와 같이 붙인다 —— 사실감 기준. 금색 테두리는 따라 그리지 않는다.",
+}
 
 GRID = {1: (1, 1, False), 2: (2, 1, True), 3: (3, 1, True), 4: (2, 2, False), 6: (2, 3, False)}
 
@@ -465,20 +582,32 @@ def gender_line(women):
     return base + ". Men read as men at a glance —— masculine jaw and brow, thicker neck, broad shoulders, male hairstyles and headwear; young men are young MEN, never girls: no long eyelashes, no blush, no rosy lips, no soft baby face."
 
 
-def sheet_text(key, chunk, ident, roles, hints):
+def sheet_text(key, chunk, ident, roles, hints, sheet_no=0):
     n = len(chunk)
-    solo = key == 8
+    solo = PER[key] == 1
     unit = "picture" if solo else "panel"
-    z0, z1 = (10, 46) if solo else (8, 47)
+    z0, z1 = (8, 54) if key == 7 else (10, 46) if solo else (8, 47)
     women = [en_head(ident[c["person"]])[0] for c in chunk if is_woman(ident[c["person"]])]
     head = STYLE_LINE[key]
     if not solo:
-        head = "A sheet of %d Three Kingdoms (late Han dynasty China) characters. " % n + head
-    parts = [head, "", SOLO_REFERENCE if solo else REFERENCE, "", RANK[key], "",
+        cols, rows, land = grid_for(n, PER[key])
+        head = ("A sheet of %d Three Kingdoms (late Han dynasty China) characters. " % n + head
+                + "\nFORMAT (strict, see LAYOUT): a %s image, %d columns x %d rows of TALL portrait panels separated by light green gaps, a number banner under each panel."
+                % ("1536x1024 LANDSCAPE" if land else "1024x1536 PORTRAIT (taller than wide)", cols, rows))
+    ref = SOLO_REFERENCE if solo else REFERENCE
+    if key in REALISM:
+        ref += "\n" + REALISM[key]
+    parts = [head, "", ref, "", RANK[key], "",
              HEAD_ZONE.format(z0=z0, z1=z1, unit=unit, side=12 if key == "kiin" else 8), "", DISTINCT, gender_line(women), "",
              SOLO_LAYOUT if solo else layout(n, PER[key]), "", "CHARACTERS"]
-    ents = [entry(i + 1, c["person"], ident[c["person"]], key, roles, hints) for i, c in enumerate(chunk)]
-    return "\n".join(parts) + "\n" + "\n".join(ents) + "\n"
+    comps = immortal_comps(chunk, ident, sheet_no) if key == 7 else [None] * n
+    ents = [entry(i + 1, c["person"], ident[c["person"]], key, roles, hints, comps[i]) for i, c in enumerate(chunk)]
+    text = "\n".join(parts) + "\n" + "\n".join(ents) + "\n"
+    if solo and key == 7:
+        text = (text.replace("every panel must obey all of these", "obey all of these").replace("Every panel on the sheet uses the SAME style.", "")
+                .replace("so that the panels differ in color at a glance", "so that the generals differ in color at a glance")
+                .replace("Each panel has a different place behind the person.", "").replace("; at most ONE open-mouthed shout on the whole sheet", "").replace("the panel", "the picture"))
+    return text
 
 
 def interleave(groups):
@@ -524,6 +653,7 @@ def write_tier(key, cards, ident, roles, hints):
              "  python -I tools/scripts/slice_tier_v2.py %s   → 잘림/ · 미리보기/ 확인 →   python -I tools/scripts/slice_tier_v2.py %s --apply" % (DIRS[key], DIRS[key]),
              "  다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)",
              "먼저 기본 캐릭터(assets/portraits/<인물>.png)가 있어야 한다. 시트마다 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다.",
+             STYLE_REF_NOTE.get(key, ""),
              ""]
     pos, no, total_len = 0, 0, []
     sizes = sizes_for(len(seq), per)
@@ -531,8 +661,8 @@ def write_tier(key, cards, ident, roles, hints):
         chunk = seq[pos:pos + n]
         pos += n
         no += 1
-        text = sheet_text(key, chunk, ident, roles, hints)
-        if key == 8:
+        text = sheet_text(key, chunk, ident, roles, hints, no)
+        if PER[key] == 1:
             fname = "%02d_%s.txt" % (no, chunk[0]["person"])
         elif key == "kiin":
             fname = "%02d_기인_%d명.txt" % (no, n)
@@ -543,7 +673,7 @@ def write_tier(key, cards, ident, roles, hints):
         total_len.append(len(text))
         names = [c["person"] for c in chunk]
         howto.append("[%s]  %s" % (fname, " · ".join("%d %s" % (j + 1, c["name"]) for j, c in enumerate(chunk))))
-        howto.append('  참조:   python -I tools/scripts/make_ref_sheet.py "%s" %s/참조_%02d.png' % (",".join(names), folder.replace("\\", "/"), no))
+        howto.append('  참조:   python -I tools/scripts/make_ref_sheet.py "%s" %s/%s' % (",".join(names), folder.replace("\\", "/"), (fname[:-4] + "_base.png") if key == 7 else "참조_%02d.png" % no))
         howto.append('  자르기: python -I tools/scripts/slice_panels.py 시트.png "%s" solgukji_godot/assets/portraits' % ",".join(p + SUFFIX[key] for p in names))
         howto.append("")
     open(os.path.join(folder, "자르기_이름.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(howto))
@@ -560,6 +690,8 @@ def main():
         assert c["person"] in ident, "기본 프롬프트에 없는 인물: " + c["person"]
         assert c["person"] in roles and roles[c["person"]] in ROLE, "passives.json 기인 역할 없음: " + c["person"]
         assert c["person"] in KIIN_PROP, "KIIN_PROP 에 없음: " + c["person"]
+    for c in targets[7]:
+        assert c["person"] in IMMORTAL_SCENE, "IMMORTAL_SCENE 에 없음: " + c["person"]
     for c in targets[8]:
         assert c["person"] in MYTH, "MYTH 에 없음: " + c["person"]
     for key in (6, 7, 8):

@@ -1,0 +1,4 @@
+실사 지형 · 하늘 (10/31) —— Poly Haven, CC0 (https://polyhaven.com/license)
+grass_* : aerial_grass_rock https://polyhaven.com/a/aerial_grass_rock
+mud_* : brown_mud_leaves_01 https://polyhaven.com/a/brown_mud_leaves_01
+sky.hdr : kloofendal_48d_partly_cloudy_puresky https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky

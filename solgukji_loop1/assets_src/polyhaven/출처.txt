@@ -1,0 +1,1 @@
+실사 나무 · 덤불 원본 (10/31) —— Poly Haven CC0 (https://polyhaven.com/license). 게임에는 tests/bake_trees.tscn 으로 구운 그림(assets/trees)만 들어간다

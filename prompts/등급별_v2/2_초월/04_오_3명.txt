@@ -1,10 +1,15 @@
-A sheet of 3 Three Kingdoms (late Han dynasty China) characters. Refined, cold, silver TRANSCENDENT card illustrations for a mobile card game.
+A sheet of 3 Three Kingdoms (late Han dynasty China) characters. Refined, cold, silver TRANSCENDENT card illustrations for a mobile card game —— stylized adult anime proportions, not chibi.
+FORMAT (strict, see LAYOUT): a 1536x1024 LANDSCAPE image, 3 columns x 1 rows of TALL portrait panels separated by light green gaps, a number banner under each panel.
 
 REFERENCE (attached image): a numbered sheet of the BASE chibi designs of these characters —— character #k in the reference = panel #k here.
 Keep each PERSON exactly: the same face shape, eyes, brows, nose, mouth, age, facial hair, hairstyle and headwear, skin tone,
 body build, cloth colors and signature weapon or item (see each LOOK, FACE, SIGNATURE and COLORS line).
 Take NOTHING else from the reference: its small standing pose, flat light and green blot are replaced by the RANK RULES below.
 COLORS give the CLOTH and ARMOR colors only (ignore the word "gold" there) —— the color of metal trim, the light and the background come from the RANK RULES.
+If NO image is attached, build each person from the LOOK, FACE, BUILD, SIGNATURE and COLORS lines alone —— they describe the same design.
+REALISM LEVEL 2 of 4 (KIIN chibi < TRANSCENDENT < IMMORTAL < MYTHIC): the reference is a chibi cartoon —— do NOT copy its drawing style.
+Redraw each person as a NON-CHIBI stylized adult: keep WHO they are (headwear, hairstyle, facial hair, age, build, colors, weapon), but give them
+adult body proportions and an adult face. No big head, no big round eyes, no button nose, no stubby limbs.
 
 RANK: TRANSCENDENT —— cold silver dignity.
 RANK LOOK IN ONE LINE: calm, cold and formal, a silver-white portrait in still air. At thumbnail size it must read "silver and pale sky-blue,
@@ -13,7 +18,9 @@ quiet and noble".
 RANK RULES (checklist —— every panel must obey all of these):
 - CAMERA AND POSE: eye-level, CHEST-TO-WAIST crop. The body faces the front or turns at most 30 degrees, shoulders level, the pose still and
   symmetrical, the weapon or item held VERTICALLY at one side (a tall quiet line). No diagonal action, no foreshortening, no wide-angle.
-- PROPORTIONS AND LINE: refined semi-chibi, about 3.5 heads tall, fine clean ink lines, soft cel shading with airy highlights.
+- PROPORTIONS AND RENDERING: stylized anime-style game illustration with ADULT proportions, about 5.5 to 6 heads tall (NOT chibi, NOT semi-chibi):
+  a normal-size head on broad shoulders, adult faces with normal-size eyes, a drawn nose bridge, a defined jaw and cheekbones. Fine clean ink
+  lines, soft cel shading with a little painted gradation and airy highlights. Every panel on the sheet uses the SAME proportions and rendering.
 - OUTFIT: the base design made noble —— engraved SILVER and white-steel plates, silver filigree, pale silk over the faction-colored cloth
   (the cloth muted and a little desaturated), a white or pale-blue plume or tassels, plain silver clasps. NO GOLD anywhere.
 - LIGHT: cold, bright and even, from the upper front-left, a thin white rim, soft pale blue-grey shadows. HIGH-KEY: the whole picture is light.
@@ -22,7 +29,8 @@ RANK RULES (checklist —— every panel must obey all of these):
   standing far behind on one side, slightly out of focus. Nothing else: no crowd, no dramatic sky.
 - EFFECTS: none, except a few tiny silver light motes. No fire, no lightning, no glowing aura.
 - EXPRESSION: composed dignity, the eyes level, a restrained look.
-- NEVER: gold or orange, fire or lightning, a dark background, a dynamic pose, crowds, a cape blowing in the wind.
+- NEVER: chibi or super-deformed proportions, big heads, big round eyes, a jade ring or circle behind the head (that is the KIIN mark),
+  gold or orange, fire or lightning, a dark background, a dynamic pose, crowds, a cape blowing in the wind.
 
 GAME CROP SAFETY (the game cuts the face out of the top center of each picture for the card and for the small round battle medal):
 - The whole HEAD (top of the hair or helmet down to the chin) sits in the TOP-CENTER zone: between 8% and 47% of the panel height, horizontally centered, never off to a side.

@@ -3,6 +3,7 @@
   다 넣으면 solgukji_godot 에서 Godot --import 한 번. (한 장씩 자를 때는 아래 명령)
 먼저 기본 캐릭터(assets/portraits/<인물>.png)가 있어야 한다. 시트마다 참조 이미지를 만들어 프롬프트와 함께 붙여 넣는다.
 
+
 [01_촉_위_오_군_4명.txt]  1 충효 관평 · 2 결사 방덕 · 3 혈전 주태 · 4 하북명장 문추
   참조:   python -I tools/scripts/make_ref_sheet.py "관평,방덕,주태,문추" prompts/등급별_v2/2_초월/참조_01.png
   자르기: python -I tools/scripts/slice_panels.py 시트.png "관평_초월,방덕_초월,주태_초월,문추_초월" solgukji_godot/assets/portraits

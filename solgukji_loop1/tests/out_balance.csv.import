@@ -1,0 +1,17 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://1ctjcmpuqygv"
+
+[deps]
+
+files=["res://tests/out_balance.id.translation", "res://tests/out_balance.name.translation", "res://tests/out_balance.tag.translation", "res://tests/out_balance.fac.translation", "res://tests/out_balance.stat.translation", "res://tests/out_balance.stat.translation", "res://tests/out_balance.win.translation"]
+
+source_file="res://tests/out_balance.csv"
+dest_files=["res://tests/out_balance.id.translation", "res://tests/out_balance.name.translation", "res://tests/out_balance.tag.translation", "res://tests/out_balance.fac.translation", "res://tests/out_balance.stat.translation", "res://tests/out_balance.stat.translation", "res://tests/out_balance.win.translation"]
+
+[params]
+
+compress=true
+delimiter=0
