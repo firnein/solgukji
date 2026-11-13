@@ -3446,7 +3446,7 @@ func quest_hard_btn() -> Button:
 	# 11/13 사용자: 험지를 고르면 글자가 밀린다 —— 한 줄 글자(버튼 최소 폭 = 글자 폭)가 화면보다 길어 전투 탭 전체가 오른쪽으로 넘쳤다.
 	#   글자는 줄을 바꿔 감싸고(최소 폭 0), ✔ 글리프(기기마다 이모지로 바뀐다)는 선 기호로 그린다
 	var txt := ("험지 토벌 — 적 병력 ×%s · 이기면 %s +1\n다시 누르면 보통 토벌" if on else "험지로 토벌 — 적 병력 ×%s · 이기면 %s +1") % [str(Run.QUEST_HARD_TR), run.quest_hard_reward_text()]
-	var b := UI.btn(txt, func(): act("set_quest_hard", [not on]), "warn" if on else "ghost", 44)
+	var b := UI.btn(txt, func(): act("set_quest_hard", [not on]), "warn" if on else "gold", 44)      # 11/13 꺼져 있을 때도 눈에 띄게 (ghost → gold)
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_font_size_override("font_size", 14)

@@ -83,6 +83,8 @@ func build() -> Control:
 	if str(f.get("full", "")) != "":      # 11/12 진형마다 5칸이 꽉 찬 줄 하나
 		fnr.add_child(UI.lbl("%s 5칸" % f.full, 13, DB.PAL.bamboo_dim))
 	fnr.add_child(_inyeon_chip())      # 11/11 인연 —— 진형 이름 옆 칩 (이어진 수 · 누르면 시트)
+	if run.quest_open() and gs.can_form():      # 11/13 사용자: 험지 토벌이 눈에 안 띈다(전투 탭 아래 옅은 버튼뿐) —— 편성 화면 진형 이름 옆 칩
+		fnr.add_child(_hard_chip())
 	hl.add_child(fnr)
 	hd.add_child(hl)
 	var ab := UI.btn("자동 편성", func():
@@ -214,6 +216,36 @@ func slot_link_lv(i: int) -> int:
 	if k == null or not DB.inyeon_card(k):
 		return 0
 	return int(_link_n.get(DB.person(k), 0))
+
+
+## 진형 이름 옆 칩 —— 오늘 토벌을 험지로 (누를 때마다 보통 ↔ 험지). 꺼져 있어도 금테로 눈에 띄게, 켜지면 붉게 채운다. 누르면 무엇이 달라지는지 알림 한 줄
+func _hard_chip() -> Control:
+	var P := DB.PAL
+	var run: Run = gs.run
+	var on := run.quest_hard
+	var b := Button.new()
+	b.text = "험지 토벌 ✕%s" % str(Run.QUEST_HARD_TR) if on else "험지 토벌"
+	b.custom_minimum_size = Vector2(0, 28)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.add_theme_font_size_override("font_size", 13)
+	var fc: Color = P.paper if on else P.gold
+	for cn in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
+		b.add_theme_color_override(cn, fc)
+	var sb := UI.flat(Color(P.seal, 0.55) if on else Color(P.gold, 0.10), P.seal.lightened(0.25) if on else P.gold, 1, UI.R, 0)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(func():
+		UI.buzz()
+		gs.act("set_quest_hard", [not on])
+		if on:
+			gs.toast("보통 토벌로 되돌렸다")
+		else:
+			gs.toast("험지 토벌 — 적 병력 ×%s · 이기면 %s +1" % [str(Run.QUEST_HARD_TR), run.quest_hard_reward_text()], "gold"))
+	return b
 
 
 ## 진형 이름 옆 칩 —— 기호 + '인연' (+ 이어진 인연 수). 이어진 게 없으면 옅게. 누르면 인연 시트

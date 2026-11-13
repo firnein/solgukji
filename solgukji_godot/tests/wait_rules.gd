@@ -29,6 +29,7 @@ func _ready() -> void:
 	_hp_rules()
 	_reward_rules()
 	_mvp_rules()
+	_prep_skip()
 	print("FAIL: ", fails if not fails.is_empty() else "없음")
 	get_tree().quit(1 if not fails.is_empty() else 0)
 
@@ -171,14 +172,14 @@ func _timer_rules() -> void:
 	for m in ["fast", "normal"]:
 		for d in 7:
 			var late := d >= Run.ONLINE_NOON_DAYS
-			var want := {"morning": 30.0 if late else 60.0, "noon": 75.0, "evening_prep": 15.0 if late else 30.0, "evening": 100.0}
+			var want := {"morning": 45.0 if late else 75.0, "noon": 75.0, "evening_prep": 0.0, "evening": 100.0}
 			for st in want:
 				if Room.stage_len(m, st, d) != float(want[st]):
 					_fail("%s %d일차 %s 길이 %s (기대 %s)" % [m, d + 1, st, str(Room.stage_len(m, st, d)), str(want[st])])
 	for d in 7:
 		if Room.stage_len("test", "morning", d) != 1.0 or Room.stage_len("test", "evening_prep", d) != 0.5:
 			_fail("점검 모드 타이머가 일차마다 같지 않다 (%d일차)" % (d + 1))
-	if Room.cut_text("fast") != "준비 30초 · 대전 준비 15초":
+	if Room.cut_text("fast") != "준비 45초":
 		_fail("cut_text(fast) = %s" % Room.cut_text("fast"))
 	if Room.sec_text(60.0) != "1분" or Room.sec_text(15.0) != "15초" or Room.sec_text(0.5) != "0.5초":
 		_fail("sec_text")
@@ -217,8 +218,8 @@ func _timer_rules() -> void:
 					_fail("토벌 종료 알림 글: %s" % str(it))
 				if bool(it.get("hot", false)):
 					_fail("토벌 종료 알림에 hot 이 있다 (옛 휴대폰 긴급 띠 오작동)")
-				if m == "fast" and not str(it.text).contains("준비 30초 · 대전 준비 15초"):
-					_fail("빠른 모드 알림에 30 · 15초가 없다: %s" % str(it.text))
+				if m == "fast" and not str(it.text).contains("준비 45초"):
+					_fail("빠른 모드 알림에 45초가 없다: %s" % str(it.text))
 			_ready_all(r)
 			for s in r.humans():
 				s.ready = true
@@ -476,3 +477,35 @@ func _reward_rules() -> void:
 			if int(ow.n) - base_n != int(qw.n) or int(ow.bonus) != int(qw.bonus) or int(ow.bt) != int(qw.bt):
 				_fail("일차 %d 대전이 얹은 몫(%d + 보너스 %d+%d)이 토벌(%d + %d+%d)과 다르다" % [d + 1, int(ow.n) - base_n, ow.bonus, ow.bt, qw.n, qw.bonus, qw.bt])
 	print("보상 점검 끝")
+
+
+## 11/13 사용자: 대전 준비 단계 없음 —— 빠른 모드(prep 0)는 토벌을 다 보면 바로 대전(evening), 방 정보 prep = false, 대전 전투가 온다. 4일차~ 는 아침 → 바로 대전
+func _prep_skip() -> void:
+	var srv := FakeSrv.new()
+	var r := Room.new(srv, "PS", "fast")
+	r.rng.seed = 7
+	for i in 2:
+		r.add_human(i + 1, "사람%d" % (i + 1), "tk%d" % i)
+	r.start()
+	if bool(r.info(0).get("prep", true)):
+		_fail("빠른 모드 방 정보 prep 이 true")
+	var seen := []
+	for k in 60:
+		if r.stage == "over":
+			break
+		if seen.is_empty() or seen[-1] != r.stage:
+			seen.append(r.stage)
+		if r.stage == "evening" and r.seats[0].battles.is_empty() and not r.seats[0].dead:
+			_fail("대전 단계인데 전투가 없다")
+		for s in r.humans():
+			s.acted = true
+			s.watched = true
+			s.ready = true
+		r.tick()
+		if r.day >= 3 and r.phase >= 1:
+			break
+	if seen.has("evening_prep"):
+		_fail("빠른 모드에 대전 준비 단계가 있다 %s" % str(seen))
+	if seen.slice(0, 4) != ["morning", "noon", "evening", "morning"]:
+		_fail("빠른 모드 단계 순서 %s" % str(seen.slice(0, 6)))
+	print("대전 준비 건너뛰기 —— 단계 %s … 끝 %d일차" % [str(seen.slice(0, 4)), r.day + 1])

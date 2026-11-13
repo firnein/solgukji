@@ -818,15 +818,23 @@ func has_noon() -> bool:
 	return str(room.get("stage", "")) == "noon" or bool(room.get("noon", true))
 
 
+## 11/13 이 방에 대전 준비 단계가 있나 —— 방 정보 prep (옛 서버는 늘 있다). 지금이 그 단계면 당연히 있다
+func has_prep() -> bool:
+	return str(room.get("stage", "")) == "evening_prep" or bool(room.get("prep", true))
+
+
 ## 머리띠 진행 막대 —— 칸 수 · 지금 칸
 func head_steps() -> int:
-	return 4 if has_noon() else 3
+	return (4 if has_noon() else 3) - (0 if has_prep() else 1)
 
 
 func head_idx() -> int:
 	var st := str(room.get("stage", ""))
 	var m: Dictionary = STAGE_IDX if has_noon() else STAGE_IDX3
-	return int(m.get(st, head_steps() - 1 if st == "over" else 0))
+	var k := int(m.get(st, head_steps() - 1 if st == "over" else 0))
+	if not has_prep() and st == "evening":
+		k -= 1      # 대전 준비 칸이 없다
+	return k
 
 
 ## 남은 시간 "1:20"
@@ -1079,8 +1087,8 @@ func _stage_hint() -> String:
 	var st := str(room.get("stage", ""))
 	var rd: bool = me().get("ready", false)
 	match st:
-		"morning": return ("다른 사람을 기다리는 중 — 모두 준비되면 %s" % ("토벌" if has_noon() else "대전 준비")) if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
-		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다. 그동안 징집 · 조합을 해 둘 수 있다 (편성은 대전 준비 때)" if rd else "토벌을 끝까지 보면 자동으로 준비된다"
+		"morning": return ("다른 사람을 기다리는 중 — 모두 준비되면 %s" % ("토벌" if has_noon() else ("대전 준비" if has_prep() else "대전"))) if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
+		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다. 그동안 징집 · 조합을 해 둘 수 있다 (편성은 다음 준비 때)" if rd else "토벌을 끝까지 보면 자동으로 준비된다"
 		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성을 고친 뒤 준비 완료 (징집 · 조합은 다음 아침)"
 		"evening":
 			return "다른 사람을 기다리는 중 — 모두 보면 다음 아침. 그동안 징집 · 조합을 해 둘 수 있다 (보상은 아침에)" if rd else "대전을 끝까지 보면 자동으로 준비된다"
@@ -1434,7 +1442,7 @@ func war_page() -> Control:
 				sub = "전투를 끝까지 보면 열린다"
 			else:
 				match st:
-					"morning": sub = "모두 준비되면 토벌로" if has_noon() else "모두 준비되면 대전 준비로"
+					"morning": sub = "모두 준비되면 토벌로" if has_noon() else ("모두 준비되면 대전 준비로" if has_prep() else "모두 준비되면 대전으로")
 					"noon": sub = "모두 보면 대전 상대가 정해진다"
 					"evening_prep": sub = "모두 준비되면 대전"
 					"evening": sub = "모두 보면 다음으로"
