@@ -56,7 +56,7 @@ static func is_wise(k: String) -> bool:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 45
-	_col = DB.tier_color(unit) if DB.C.has(unit) else (RED if kind == "fall" else DB.PAL.gold)
+	_col = DB.tier_color(unit) if DB.C.has(unit) else (RED if kind == "fall" else (Color(DB.D.IGRADE["고대"]) if kind == "item" else DB.PAL.gold))
 	_wise = is_wise(unit)
 	_tex = DB.portrait(unit) if DB.C.has(unit) else null
 	if _tex != null:
@@ -233,7 +233,7 @@ func _draw_top() -> void:
 		c.draw_texture_rect_region(_tex, box, _src, Color(1, 1, 1, pal))
 	else:
 		c.draw_rect(box, Color(DB.PAL.ink3, pal))
-		var ch := (DB.person(unit) if DB.C.has(unit) else ("亡" if kind == "fall" else "?")).substr(0, 1)
+		var ch := (DB.person(unit) if DB.C.has(unit) else ("亡" if kind == "fall" else ("古" if kind == "item" else "?"))).substr(0, 1)
 		c.draw_string(DB.font_display, Vector2(box.position.x, box.position.y + P * 0.72), ch, HORIZONTAL_ALIGNMENT_CENTER, P, int(P * 0.62), Color(_col, pal))
 	c.draw_rect(box.grow(3.0 * u), Color(0, 0, 0, 0.7 * pal), false, 1.0)
 	c.draw_set_transform(_off, 0.0, Vector2.ONE)
@@ -252,7 +252,7 @@ func _draw_top() -> void:
 	var rc := RED.lerp(Color("#ff8a70"), pulse * 0.35)
 	var sc1 := 1.0 + 0.04 * pulse
 	c.draw_set_transform(_off + Vector2(tx, y1), 0.0, Vector2(sc1, sc1))
-	var head := "[멸망]" if kind == "fall" else "[긴급!]"
+	var head := "[멸망]" if kind == "fall" else ("[속보]" if kind == "item" else "[긴급!]")
 	c.draw_string_outline(f1, Vector2.ZERO, head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs1, int(7.0 * u), Color(0, 0, 0, 0.9 * ta))
 	c.draw_string(f1, Vector2.ZERO, head, HORIZONTAL_ALIGNMENT_LEFT, -1, fs1, Color(rc, ta))
 	c.draw_set_transform(_off, 0.0, Vector2.ONE)
@@ -268,6 +268,23 @@ func _fit(avail: float) -> Dictionary:
 	var u := _u
 	var gold: Color = DB.PAL.gold.lightened(0.15)
 	var nc: Color = _col.lightened(0.28)
+	if kind == "item":      # 11/13 고대 아이템 속보 —— 늘 두 줄: 「유저가 고대 아이템 획득」 / 「아이템 이름」(tail)
+		var shown_i := who
+		var fia := int(19.0 * u)
+		var fib := int(19.0 * u)
+		var fim := int(13.0 * u)
+		var ria := []
+		while true:
+			ria = [[shown_i, gold], [("이" if batchim(shown_i) else "가") + " 고대 아이템 획득", DB.PAL.paper]]
+			while fia > fim and _row_w(ria, fia) > avail:
+				fia -= 1
+			if _row_w(ria, fia) <= avail or shown_i.length() <= 2:
+				break
+			shown_i = shown_i.substr(0, shown_i.length() - 2) + "…"
+		var rib := [["「%s」" % tail, nc]]
+		while fib > fim and _row_w(rib, fib) > avail:
+			fib -= 1
+		return {"stack": true, "rows": [ria, rib], "fs": [fia, fib], "ys": [10.0, 34.0]}
 	if kind == "fall":      # 멸망 —— 늘 두 줄: 「유저의 나라가 무너졌습니다」 / 「남은 군주 N명」
 		var shown := who
 		var fa := int(19.0 * u)

@@ -319,8 +319,8 @@ func _items(v: VBoxContainer) -> void:
 	if bk.is_empty():
 		v.add_child(UI.hint("보급품이 없다. 페이즈가 넘어가면 하나씩 지급된다."))
 		return
-	var cols := {"유니크": 1, "레어": 2, "매직": 3, "일반": 3}
-	for g in ["유니크", "레어", "매직", "일반"]:
+	var cols := {"유니크": 1, "고대": 2, "레어": 2, "매직": 3, "일반": 3}
+	for g in DB.IGRADE_ORDER:
 		var ids: Array = bk.filter(func(x): return DB.IT[x].grade == g)
 		if ids.is_empty():
 			continue
@@ -341,7 +341,7 @@ func _item_card(id: String, n: int, g: String) -> Control:
 	var it: Dictionary = DB.IT[id]
 	var col := UI.item_col(id)
 	var big := g == "유니크"
-	var mid := g == "레어"
+	var mid := g == "레어" or g == "고대"
 	var b := PanelContainer.new()
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, col, 2 if big else 1, 8, 6))
@@ -467,14 +467,21 @@ func slot_sheet(i: int) -> void:
 		var cv := UI.vbox(8)
 		cv.add_child(gs.tile(cur))
 		var inn = Run.innate_item(cur)
-		var it = run.item_of_slot(i)
-		var iv := UI.hbox(8)
-		if inn != null:
-			iv.add_child(UI.hint("🔒 %s 내장" % DB.IT[inn].name))
-		else:
-			var ib := UI.btn("아이템: %s" % DB.IT[it].name if it != null else "아이템 장착", func(): item_sheet(i), "", 42)
+		var gear := run.gear_of_slot(i)      # 11/13 아이템 칸 둘 —— [무기, 갑옷]
+		var gv := UI.hbox(8)
+		for si in 2:
+			var sl: String = ["weapon", "armor"][si]
+			var it = gear[si]
+			var ib := UI.btn("%s: %s%s" % [DB.ISLOT_NAME[sl], DB.IT[it].name if it != null else "비어 있음", " 🔒" if it != null and it == inn else ""], func(): item_sheet(i), "", 42)
 			ib.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			iv.add_child(ib)
+			ib.clip_text = true
+			ib.disabled = it != null and it == inn      # 신화의 유니크는 뗄 수 없다
+			if it != null:
+				ib.add_theme_color_override("font_color", UI.item_col(it).lightened(0.25))
+				ib.add_theme_color_override("font_disabled_color", UI.item_col(it).lightened(0.1))
+			gv.add_child(ib)
+		cv.add_child(gv)
+		var iv := UI.hbox(8)
 		var ub := UI.btn("내리기", func():
 			gs.close_sheet()
 			gs.act("unplace", [i]), "ghost", 42)
@@ -506,24 +513,48 @@ func item_sheet(i: int) -> void:
 	var k: String = run.board[i]
 	var used := {}
 	for j in 9:
-		if j != i and run.equip[j] != null:
-			used[run.equip[j]] = used.get(run.equip[j], 0) + 1
-	var cand: Array = run.bag.keys().filter(func(id): return run.can_equip(k, id) and run.bag[id] - used.get(id, 0) > 0)
+		if j != i:
+			for e in [run.equip[j], run.equip2[j]]:
+				if e != null:
+					used[e] = used.get(e, 0) + 1
 	var b := gs.open_sheet("%s 아이템" % DB.C[k].name)
-	b.add_child(UI.hint("%s 전용 아이템만 장착할 수 있다 · 슬롯 1칸" % DB.C[k].tag))
-	if run.equip[i] != null:
-		b.add_child(UI.btn("해제", func():
-			gs.close_sheet()
-			gs.act("set_equip", [i, null]), "ghost"))
-	if cand.is_empty():
-		b.add_child(UI.hint("장착할 수 있는 %s 아이템이 없다." % DB.C[k].tag))
-		return
-	var f := UI.grid(170, 8)
-	for id in cand:
-		f.add_child(gs.item_box(id, run.bag[id] - used.get(id, 0), func():
-			gs.close_sheet()
-			gs.act("set_equip", [i, id])))
-	b.add_child(f)
+	b.add_child(UI.hint("%s 전용 아이템만 장착할 수 있다 · 무기 1칸 · 갑옷 1칸" % DB.C[k].tag))
+	var inn = Run.innate_item(k)
+	var order: Array = DB.IGRADE_ORDER
+	for si in 2:
+		var sl: String = ["weapon", "armor"][si]
+		var cur = [run.equip[i], run.equip2[i]][si]
+		b.add_child(UI.eyebrow(DB.ISLOT_NAME[sl]))
+		if inn != null and DB.item_slot(inn) == sl:
+			b.add_child(gs.item_box(inn))
+			b.add_child(UI.hint("🔒 신화 장수의 전용 아이템 —— 뗄 수 없다."))
+			continue
+		if cur != null:
+			var hr := UI.hbox(8)
+			var cb := gs.item_box(cur)
+			cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			hr.add_child(cb)
+			hr.add_child(UI.btn("해제", func():
+				gs.close_sheet()
+				gs.act("unequip", [i, sl]), "ghost", 42))
+			b.add_child(hr)
+		var cand: Array = run.bag.keys().filter(func(id): return id != cur and DB.item_slot(id) == sl and run.can_equip(k, id) and run.bag[id] - used.get(id, 0) > 0)
+		cand.sort_custom(func(x, y):
+			var gx := order.find(DB.IT[x].grade)
+			var gy := order.find(DB.IT[y].grade)
+			if gx != gy:
+				return gx < gy
+			return DB.IT[x].pa + DB.IT[x].sa > DB.IT[y].pa + DB.IT[y].sa)
+		if cand.is_empty():
+			if cur == null:
+				b.add_child(UI.hint("장착할 수 있는 %s %s가 없다." % [DB.C[k].tag, DB.ISLOT_NAME[sl]] if sl == "weapon" else "장착할 수 있는 %s %s이 없다." % [DB.C[k].tag, DB.ISLOT_NAME[sl]]))
+			continue
+		var f := UI.grid(170, 8)
+		for id in cand:
+			f.add_child(gs.item_box(id, run.bag[id] - used.get(id, 0), func():
+				gs.close_sheet()
+				gs.act("set_equip", [i, id])))
+		b.add_child(f)
 
 
 ## 편성판 한 칸 —— 누르면 칸 시트(또는 고른 카드를 놓는다), 길게 누르면 끌어서 옮기기·내리기
@@ -649,9 +680,7 @@ class SlotBox extends Control:
 		draw_string(tf, Vector2(x, ty), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, DB.tier_color(k).lightened(0.2))
 		draw_string(fb, Vector2(x, ty + gap), c.tag, HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo))
 		draw_string(fb, Vector2(x, ty + gap * 2), Battle.num(c.tr) + "명", HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.bamboo_dim)
-		var it = run.item_of_slot(slot)
-		var itxt: String = "빈 슬롯" if it == null else DB.IT[it].name + (" 🔒" if Run.innate_item(k) != null else "")
-		draw_string(fb, Vector2(4, size.y - 6), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8, 11, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		_draw_gear(run, size.y - 6, 11)
 		_draw_yeon(page.slot_link_lv(slot))
 
 
@@ -672,9 +701,23 @@ class SlotBox extends Control:
 		draw_string(tf, Vector2(3, y), nm, HORIZONTAL_ALIGNMENT_CENTER, size.x - 6, fs, DB.tier_color(k).lightened(0.2))
 		var info := "%s %s" % [c.tag, Battle.num(c.tr)]
 		draw_string(fb, Vector2(2, y + 12), info, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 10, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo_dim))
-		var it = run.item_of_slot(slot)
-		var itxt: String = "빈 슬롯" if it == null else DB.IT[it].name
-		draw_string(fb, Vector2(2, size.y - 5), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 9, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		_draw_gear(run, size.y - 5, 9)
+
+
+	## 11/13 아이템 줄 —— 칸이 둘(무기 · 갑옷): 양 끝에 등급색 네모 둘(빈 칸은 테만), 가운데에 이름(무기 먼저, 둘이면 뒤에 +1)
+	func _draw_gear(run: Run, y: float, fs: int) -> void:
+		var g := run.gear_of_slot(slot)
+		var n := (1 if g[0] != null else 0) + (1 if g[1] != null else 0)
+		var it = g[0] if g[0] != null else g[1]
+		var itxt: String = "빈 슬롯" if it == null else str(DB.IT[it].name) + ("+1" if n == 2 else "")
+		var pip := 5.0
+		draw_string(DB.font_body, Vector2(4 + pip, y), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8 - pip * 2, fs, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		for si in 2:
+			var r := Rect2(3.0 if si == 0 else size.x - 3.0 - pip, y - pip - 1, pip, pip)
+			if g[si] != null:
+				draw_rect(r, UI.item_col(g[si]))
+			else:
+				draw_rect(r, Color(DB.PAL.bamboo_dim, 0.5), false, 1.0)
 
 
 ## 손패 한 줄 (11/5) —— [초상] 이름(등급색) / 병종 · 등급 · 병력, ×수. 누르면 page.hand_tap, 길게 눌러 끈다

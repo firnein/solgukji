@@ -733,6 +733,7 @@ func start_stats(key: String) -> Dictionary:
 			out["line"] = u.line
 			out["side"] = u.side
 			out["item"] = u.item
+			out["item2"] = u.item2
 			out["tr"] = u.max
 			break
 	return out

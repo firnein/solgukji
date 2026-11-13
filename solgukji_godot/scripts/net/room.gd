@@ -56,7 +56,7 @@ const SHADOW_EPI := "그림자"      # 그림자 대전 상대의 소속 글 (_f
 const SAY_GAP := 2.0         # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
-const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip", "set_quest_hard"]      # 편성 명령 (11/12 험지 토벌 고르기도 준비 단계의 것) —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
+const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip", "unequip", "set_quest_hard"]      # 편성 명령 (11/12 험지 토벌 고르기도 준비 단계의 것) —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
 ## 11/12 방 규칙 —— 장수 선점제(claim, 기본 켜짐) · 장수 사망룰(deaths = 판 시작 때 죽는 기인 이상 장수 수, 0 = 끔). 대상은 is_urgent_unit(기인 이상)
 const DEATH_OPTIONS := [3, 5, 10]
 const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
@@ -292,7 +292,7 @@ func info(i: int) -> Dictionary:
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
 		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": -1, "winner": winner, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
-		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on}
+		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on, "gacha": true}
 
 
 func push_lobby() -> void:
@@ -492,6 +492,14 @@ func on_cmd(peer: int, m: String, a: Array) -> void:
 		_news_add(it, seats[i])
 		_announce("%s가 %s을(를) 등용했습니다" % [seats[i].name, DB.C[str(a[0])].name], it, seats[i], true)
 		_foe_preview(i, str(a[0]))      # 11/12 오늘 밤 상대에게만 예고
+	# 11/13 사용자: 고대 아이템을 뽑으면 다른 사람에게 속보 —— 소식 한 줄 + 띠(band "item"). 본인은 제 화면 연출이 있어 보내지 않는다
+	if m == "gacha" and ok is Array:
+		for gid in ok:
+			if DB.IT.has(gid) and str(DB.IT[gid].grade) == "고대":
+				var nm: String = DB.IT[gid].name
+				var gi := {"who": seats[i].name, "line": nm, "band": "item"}
+				_news_add({"who": seats[i].name, "text": "%s —— 고대 아이템 「%s」 획득" % [seats[i].name, nm]}, seats[i])
+				_announce("%s —— 고대 아이템 「%s」 획득" % [seats[i].name, nm], gi, seats[i], true)
 	var sig := ",".join(key_cards(r))
 	var changed: bool = sig != str(seats[i].get("key_sig", ""))
 	seats[i]["key_sig"] = sig

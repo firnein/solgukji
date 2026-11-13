@@ -549,6 +549,9 @@ func _on_msg(d: Dictionary) -> void:
 				elif bool(it.get("hot", false)) and who != "" and str(it.get("band", "")) == "fall":
 					gs.urgent(who, "", line, "fall")      # 11/12 멸망 띠 —— 장수 없이 「유저의 나라가 무너졌습니다 / 남은 군주 N명」
 					line = ""
+				elif bool(it.get("hot", false)) and who != "" and str(it.get("band", "")) == "item":
+					gs.urgent(who, "", line, "item")      # 11/13 고대 아이템 속보 —— 「[속보]」 + 「유저가 고대 아이템 획득 / 아이템 이름」
+					line = ""
 				elif bool(it.get("hot", false)) and who != "" and DB.C.has(unit):
 					gs.urgent(who, unit, line)
 				elif tx != "":

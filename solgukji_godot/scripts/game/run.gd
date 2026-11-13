@@ -22,7 +22,8 @@ var phase := 0
 var inv := {}                 # 카드 id -> 장수 (손패)
 var bag := {}                 # 아이템 id -> 개수
 var board := []               # 9칸 —— 카드 id 또는 null
-var equip := []               # 9칸 —— 아이템 id 또는 null
+var equip := []               # 9칸 —— 무기 칸: 아이템 id 또는 null
+var equip2 := []              # 9칸 —— 갑옷 칸 (11/13 사용자: 장수의 아이템 슬롯을 2개로 —— 무기 · 갑옷. DB.item_slot)
 var form := "eorin"
 var tac := "균형"            # 작전 —— 전투 전에 고른다. 전투 중 AI 가 이 방침으로 고유기 · 군령을 쓴다 (11/1)
 var drawn := false
@@ -120,6 +121,9 @@ func new_game(seed_value := -1) -> void:
 	bag = {}
 	board = _nine()
 	equip = _nine()
+	equip2 = _nine()
+	gacha_pity = 0
+	last_gacha = []
 	form = "eorin"
 	tac = "균형"
 	drawn = false
@@ -200,6 +204,7 @@ func take(k: String, n := 1) -> void:
 		if board[i] == k:
 			board[i] = null
 			equip[i] = null
+			equip2[i] = null
 			need -= 1
 
 
@@ -439,7 +444,7 @@ func has_myth() -> bool:
 
 
 func bag_keys() -> Array:
-	var g := ["유니크", "레어", "매직", "일반"]
+	var g: Array = DB.IGRADE_ORDER
 	var order: Array = DB.D.TAGORDER
 	var ks: Array = bag.keys()
 	ks.sort_custom(func(a, b):
@@ -457,56 +462,79 @@ static func innate_item(k: String):
 	return DB.ITEM_BY_NAME.get(need) if need != "" else null
 
 
+## 11/13 칸이 둘(무기 · 갑옷)이라 신화 장수도 유니크가 차지하지 않은 다른 칸에는 낄 수 있다
 func can_equip(k, item_id) -> bool:
-	if k == null or item_id == null:
+	if k == null or item_id == null or not DB.IT.has(item_id):
 		return false
-	if innate_item(k) != null:
+	var inn = innate_item(k)
+	if inn != null and DB.item_slot(inn) == DB.item_slot(item_id):
 		return false
 	return DB.IT[item_id].tag == DB.C[k].tag
 
 
-func item_of_slot(i: int):
+## 그 칸 부대의 [무기, 갑옷] —— 신화의 유니크는 제 칸을 차지한다. 빈 칸은 null
+func gear_of_slot(i: int) -> Array:
 	var k = board[i]
 	if k == null:
-		return null
+		return [null, null]
+	var out := [equip[i], equip2[i]]
 	var inn = innate_item(k)
-	return inn if inn != null else equip[i]
+	if inn != null:
+		out[1 if DB.item_slot(inn) == "armor" else 0] = inn
+	return out
+
+
+func item_of_slot(i: int):
+	var g := gear_of_slot(i)
+	return g[0] if g[0] != null else g[1]
 
 
 func equipped_count() -> int:
-	return equip.filter(func(e): return e != null).size()
+	return equip.filter(func(e): return e != null).size() + equip2.filter(func(e): return e != null).size()
 
 
-## 가방에서 병종이 맞는 최상 등급을 고른다. 유니크 재료는 신화를 아직 만들 수 있을 때만 조합용으로 남긴다
-## (11/3 사용자: 자동 편성이 상위 아이템을 끼우지 않는다 —— 신화는 한 판에 하나라, 만든 뒤 남은 유니크는 늘 가방에 묵었다)
-func recommend_items() -> Array:
+## 전투로 넘기는 장비 —— 칸마다 [무기, 갑옷] (둘 다 없으면 null). Battle._gear 가 푼다 (봇 · 토벌 적은 예전처럼 id 하나)
+func gear_pairs() -> Array:
+	var out := []
+	for i in 9:
+		out.append([equip[i], equip2[i]] if equip[i] != null or equip2[i] != null else null)
+	return out
+
+
+## 가방에서 병종이 맞는 최상 등급을 칸마다(무기 · 갑옷) 고른다 —— [무기 9칸, 갑옷 9칸]. 높은 등급 장수부터.
+## (11/3 사용자: 자동 편성이 상위 아이템을 끼우지 않는다 · 11/4 유니크도 끼운다 —— 끼워도 가방에 남아 신화 조합에 쓸 수 있고, 조합하면 그 칸은 비운다)
+func recommend_gear() -> Array:
 	var used := {}
 	var eq := _nine()
-	var order := ["유니크", "레어", "매직", "일반"]
-	var keep_uniq := false      # 11/4 사용자: 자동 배치에 유니크를 먼저 끼운다 (끼워도 가방에 남아 신화 조합에 쓸 수 있다 —— 조합하면 그 칸은 비운다)
+	var eq2 := _nine()
+	var order: Array = DB.IGRADE_ORDER
 	var slots := []
 	for i in 9:
-		if board[i] != null and innate_item(board[i]) == null:
+		if board[i] != null:
 			slots.append(i)
 	slots.sort_custom(func(a, b):
 		if DB.C[board[a]].tier != DB.C[board[b]].tier:
 			return DB.C[board[a]].tier > DB.C[board[b]].tier
 		return DB.C[board[a]].pv > DB.C[board[b]].pv)
-	for i in slots:
-		var k: String = board[i]
-		var cand: Array = bag.keys().filter(func(it): return DB.IT[it].tag == DB.C[k].tag \
-			and bag[it] - used.get(it, 0) > 0 and not (keep_uniq and DB.IT[it].use == "myth"))
-		if cand.is_empty():
-			continue
-		cand.sort_custom(func(a, b):
-			var ga := order.find(DB.IT[a].grade)
-			var gb := order.find(DB.IT[b].grade)
-			if ga != gb:
-				return ga < gb
-			return DB.IT[a].pa + DB.IT[a].sa > DB.IT[b].pa + DB.IT[b].sa)
-		eq[i] = cand[0]
-		used[cand[0]] = used.get(cand[0], 0) + 1
-	return eq
+	for sl in ["weapon", "armor"]:
+		for i in slots:
+			var k: String = board[i]
+			var cand: Array = bag.keys().filter(func(it): return DB.item_slot(it) == sl and can_equip(k, it) and bag[it] - used.get(it, 0) > 0)
+			if cand.is_empty():
+				continue
+			cand.sort_custom(func(a, b):
+				var ga := order.find(DB.IT[a].grade)
+				var gb := order.find(DB.IT[b].grade)
+				if ga != gb:
+					return ga < gb
+				return DB.IT[a].pa + DB.IT[a].sa > DB.IT[b].pa + DB.IT[b].sa)
+			(eq2 if sl == "armor" else eq)[i] = cand[0]
+			used[cand[0]] = used.get(cand[0], 0) + 1
+	return [eq, eq2]
+
+
+func recommend_items() -> Array:
+	return recommend_gear()[0]
 
 
 # ───────── 조합 ─────────
@@ -552,11 +580,12 @@ func forge(out: String) -> bool:
 			bag.erase(ni)
 		var left := int(bag.get(ni, 0))      # 조합에 쓴 유니크를 끼고 있던 칸은 비운다 (가방 수보다 많이 끼지 않게)
 		for i in 9:
-			if equip[i] == ni:
-				if left > 0:
-					left -= 1
-				else:
-					equip[i] = null
+			for arr in [equip, equip2]:
+				if arr[i] == ni:
+					if left > 0:
+						left -= 1
+					else:
+						arr[i] = null
 	if DB.C[out].tier >= 8:
 		myth_made = true
 	if DB.is_kiin(out):
@@ -748,6 +777,8 @@ func place(i: int, k: String) -> void:
 	board[i] = k
 	if equip[i] != null and not can_equip(k, equip[i]):
 		equip[i] = null
+	if equip2[i] != null and not can_equip(k, equip2[i]):
+		equip2[i] = null
 
 
 func unplace(i: int) -> void:
@@ -757,6 +788,7 @@ func unplace(i: int) -> void:
 		give(board[i])
 	board[i] = null
 	equip[i] = null
+	equip2[i] = null
 
 
 func swap(i: int, j: int) -> void:
@@ -768,6 +800,9 @@ func swap(i: int, j: int) -> void:
 	var e = equip[i]
 	equip[i] = equip[j]
 	equip[j] = e
+	var e2 = equip2[i]
+	equip2[i] = equip2[j]
+	equip2[j] = e2
 
 
 ## 병력 큰 순으로 9장을 골라 진형에 앉히고 아이템을 붙인다
@@ -791,7 +826,9 @@ func auto_deploy() -> void:
 		else:
 			give(k)
 	board = DB.auto_place(pick9, form)
-	equip = recommend_items()
+	var gear := recommend_gear()
+	equip = gear[0]
+	equip2 = gear[1]
 
 
 func clear_board() -> void:
@@ -838,19 +875,35 @@ func set_form(f: String) -> void:
 		form = f
 
 
-## 아이템 장착 —— id 가 null 이면 해제
+## 아이템 장착 —— 칸은 아이템이 정한다 (무기 → equip · 갑옷 → equip2). id 가 null 이면 두 칸 다 해제
 func set_equip(i: int, id) -> void:
 	if i < 0 or i > 8 or board[i] == null:
 		return
 	if id == null:
 		equip[i] = null
+		equip2[i] = null
+		return
+	if not DB.IT.has(id):
 		return
 	var used := 0
 	for j in 9:
-		if j != i and equip[j] == id:
-			used += 1
+		if j != i:
+			used += (1 if equip[j] == id else 0) + (1 if equip2[j] == id else 0)
 	if can_equip(board[i], id) and bag.get(id, 0) - used > 0:
-		equip[i] = id
+		if DB.item_slot(id) == "armor":
+			equip2[i] = id
+		else:
+			equip[i] = id
+
+
+## 한 칸만 해제 —— slot: "weapon" · "armor"
+func unequip(i: int, slot) -> void:
+	if i < 0 or i > 8:
+		return
+	if str(slot) == "armor":
+		equip2[i] = null
+	else:
+		equip[i] = null
 
 
 # ───────── 징집 ─────────
@@ -1008,6 +1061,7 @@ func advance() -> void:
 	granted = false
 	quest_done = false
 	quest_hard = false
+	grain += GRAIN_PER_PHASE      # 11/13 군량을 페이즈마다 지급
 	pvp_done = false
 	last_result = null
 	last_draw = []
@@ -1051,7 +1105,7 @@ func can_next() -> bool:
 # ───────── 전투 —— 시작에 재료를 적고, 끝에 보상 ─────────
 
 func _my_side() -> Dictionary:
-	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": equip.duplicate(), "tac": tac}
+	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": gear_pairs(), "tac": tac}
 
 
 func _bot_side(pv: float, style: String) -> Dictionary:
@@ -1112,7 +1166,8 @@ static func bot_side_of(b: Dictionary, base: int, p_idx: int, extra := 1.0) -> D
 	return {"cards": cards, "form": DB.STYLE_FORM[style], "morale": 100, "equip": bot_equip(cards, p_idx, er), "tac": recommend_tac(cards)[0]}
 
 
-## 높은 등급 장수부터 (보급 수 + 2)개까지, 그 때의 보급 등급표로 병종이 맞는 장비를 끼운다
+## 높은 등급 장수부터 (보급 수 + 2)명까지, 그 때의 보급 등급표로 병종이 맞는 장비를 끼운다.
+## 11/13 사용자: 봇도 아이템 두 칸을 쓴다 —— 고른 장수마다 무기 · 갑옷을 따로 굴려 [무기, 갑옷] (Battle._gear 가 푼다)
 static func bot_equip(cards: Array, p_idx: int, r: RandomNumberGenerator) -> Array:
 	var eq := []
 	eq.resize(cards.size())
@@ -1129,20 +1184,25 @@ static func bot_equip(cards: Array, p_idx: int, r: RandomNumberGenerator) -> Arr
 	var n := mini(slots.size(), p_idx + 2)
 	for j in n:
 		var i: int = slots[j]
-		var tot := 0.0
-		for g in tbl:
-			tot += tbl[g]
-		var x := r.randf() * tot
-		var grade := "일반"
-		for g in tbl:
-			x -= tbl[g]
-			if x <= 0:
-				grade = g
-				break
 		var tag: String = DB.C[cards[i]].tag
-		var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade and DB.IT[k].tag == tag and DB.IT[k].use != "myth")
-		if not cand.is_empty():
-			eq[i] = cand[r.randi() % cand.size()]
+		var pair := [null, null]
+		for si in 2:
+			var sl: String = ["weapon", "armor"][si]
+			var tot := 0.0
+			for g in tbl:
+				tot += tbl[g]
+			var x := r.randf() * tot
+			var grade := "일반"
+			for g in tbl:
+				x -= tbl[g]
+				if x <= 0:
+					grade = g
+					break
+			var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade and DB.IT[k].tag == tag and DB.IT[k].use != "myth" and DB.item_slot(k) == sl)
+			if not cand.is_empty():
+				pair[si] = cand[r.randi() % cand.size()]
+		if pair[0] != null or pair[1] != null:
+			eq[i] = pair
 	return eq
 
 
@@ -1197,7 +1257,7 @@ func quest_name() -> String:
 	return q.name if q != null else DB.D.QUESTS[td()][phase]
 
 
-## 11/12 사용자: 험지 토벌 —— 아침에 「보통 / 험지」를 고른다. 험지는 적 병력 · 사기가 오르고, 이기면 그날 토벌 선택권보다 한 등급 높은 것을 한 장 더 준다
+## 11/12 사용자: 험지 토벌 —— 아침에 「보통 / 험지」를 고른다. 험지는 적 병력 · 사기가 오르고, 이기면 선택권을 한 장 더 준다 (quest_hard_tier —— 11/13 한 등급 낮은 것으로)
 ## (지면 민심은 보통 토벌과 같은 식 —— 적이 더 남으니 더 깎인다). 수치는 아직 측정 전 (사용자: 밸런스 체크 없이 먼저 진행)
 static var QUEST_HARD_TR := 1.5          # 적 병력 배율 (QUEST_TR 에 곱한다)
 static var QUEST_HARD_MORALE := 1.15     # 적 사기 배율
@@ -1215,9 +1275,12 @@ func set_quest_hard(on) -> bool:
 	return true
 
 
-## 험지 토벌 보상 선택권 등급 —— 그날 토벌 선택권 최고 등급 + 1 (무상 천장까지)
+## 험지 토벌 보상 선택권 등급 —— 11/13 사용자: "험지 보상은 험지가 아닌 보상보다 약간만 좋아야 한다 · 전설 랜덤권이 확정으로 나오면 안 된다".
+## 그날 토벌 선택권 최고 등급보다 한 등급 낮은 것 한 장 (고급 ~ 희귀). 예전: 최고 등급 + 1 (전설 랜덤권이 확정으로 나왔다)
+const QUEST_HARD_TIER_MIN := 3
+const QUEST_HARD_TIER_MAX := 4
 func quest_hard_tier() -> int:
-	return mini(FREE_TIER_CAP, quest_top_tier(day) + 1)
+	return clampi(quest_top_tier(day) - 1, QUEST_HARD_TIER_MIN, QUEST_HARD_TIER_MAX)
 
 
 ## 「전설 랜덤권」 · 「희귀 랜덤권」 (전투 보상이라 희귀 이상은 랜덤권)
@@ -1884,10 +1947,81 @@ func buy(t) -> Variant:
 	return k
 
 
+# ───────── 군량 지급 · 아이템 뽑기 (11/13) ─────────
+## 11/13 사용자: "군량을 페이즈마다 n개씩 지급 · 군량으로 아이템 뽑기(가챠) · 레어와 유니크 사이에 고대 아이템 · x1 과 x10 · k 번 뽑으면 확정 고대(천장) · 아이템은 판매할 수 없다".
+## 수치(n · 값 · 확률 · k)는 사용자가 정하기 전의 임시값 —— 여기 상수만 바꾸면 된다. 점검 tests/gacha_rules
+## 뽑기는 일반 ~ 고대만 나온다 (유니크는 신화 재료라 보급으로만). 그 등급 아이템 가운데 완전 무작위 —— 군세 병종에 맞춰 주지 않는다 (11/13 사용자: 스마트 뽑기 X).
+## 천장: 고대가 안 나온 뽑기를 세어 GACHA_PITY 번째는 고대 확정, 고대가 나오면 0 으로. 10연은 레어 이상 하나 보장.
+## 유닛 판매가 꺼진 방(sell_on=false)에서도 군량 지급 · 뽑기는 된다 (판매 · 랜덤권 상점만 꺼진다).
+const GRAIN_PER_PHASE := 3
+const GACHA_PRICE := 5
+const GACHA_TEN := 10
+const GACHA_PITY := 30
+const GACHA_W := {"일반": 45, "매직": 35, "레어": 18, "고대": 2}
+const GACHA_TEN_MIN := "레어"
+var gacha_pity := 0                # 고대가 안 나온 뽑기 수 (천장까지 GACHA_PITY - gacha_pity)
+var last_gacha := []               # 방금 뽑은 아이템 id 들 (화면이 결과로 보인다)
+
+
+static func gacha_cost(n: int) -> int:
+	return GACHA_PRICE * n
+
+
+func gacha_block(n: int) -> String:
+	if n != 1 and n != GACHA_TEN:
+		return "한 번 또는 %d번만 뽑을 수 있습니다" % GACHA_TEN
+	if grain < gacha_cost(n):
+		return "군량이 모자랍니다 (%d / %d)" % [grain, gacha_cost(n)]
+	return ""
+
+
+func _gacha_pick(grade: String) -> String:
+	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade)
+	return cand[rng.randi() % cand.size()]
+
+
+## n 번(1 또는 10) 뽑는다 —— 받은 아이템 id 배열, 못 뽑으면 null
+func gacha(n) -> Variant:
+	n = int(n)
+	if gacha_block(n) != "":
+		return null
+	grain -= gacha_cost(n)
+	var order: Array = DB.IGRADE_ORDER
+	var grades := []
+	var tot := 0.0
+	for g in GACHA_W:
+		tot += GACHA_W[g]
+	for i in n:
+		gacha_pity += 1
+		var grade := "일반"
+		if gacha_pity >= GACHA_PITY:
+			grade = "고대"
+		else:
+			var r := rng.randf() * tot
+			for g in GACHA_W:
+				r -= GACHA_W[g]
+				if r <= 0:
+					grade = g
+					break
+		if grade == "고대":
+			gacha_pity = 0
+		grades.append(grade)
+	if n >= GACHA_TEN and not grades.any(func(g): return order.find(g) <= order.find(GACHA_TEN_MIN)):
+		grades[n - 1] = GACHA_TEN_MIN
+	var out := []
+	for g in grades:
+		var id := _gacha_pick(g)
+		bag[id] = int(bag.get(id, 0)) + 1
+		out.append(id)
+	last_gacha = out
+	last_item = out[out.size() - 1]
+	return out
+
+
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
 const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
 	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1,
-	"sell": 1, "buy": 1}
+	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2}
 
 
 func command(m: String, a: Array):
@@ -1901,7 +2035,7 @@ func command(m: String, a: Array):
 
 # ───────── 저장 ─────────
 
-const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "form", "tac", "drawn", "picked", "granted",
+const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "equip2", "gacha_pity", "last_gacha", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
 	"my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on"]
 
@@ -1923,8 +2057,10 @@ func from_dict(d: Dictionary) -> void:
 	for dict in [inv, bag]:
 		for k in dict:
 			dict[k] = int(dict[k])
-	for k in ["day", "phase", "strikes", "my_w", "my_l", "hp", "last_hp_loss", "news_seq", "grain"]:
+	for k in ["day", "phase", "strikes", "my_w", "my_l", "hp", "last_hp_loss", "news_seq", "grain", "gacha_pity"]:
 		set(k, int(get(k)))
+	if not d.has("equip2") or equip2.size() != 9:      # 예전 저장 · 옛 서버 —— 갑옷 칸 없음
+		equip2 = _nine()
 	sell_on = bool(d.get("sell_on", true))      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
 		hp = maxi(1, HP_MAX - strikes * 20)

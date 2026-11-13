@@ -888,7 +888,7 @@ func _item_band() -> void:
 
 ## 머리띠 군량 (11/13) —— 판매 · 상점을 쓰는 판에서만. 값이 바뀌면 숫자가 한 번 튄다 (커졌다 제자리 · 늘면 밝게)
 func _grain_sync() -> void:
-	_grain_box.visible = shop_on()
+	_grain_box.visible = shop_on() or gacha_on()
 	if not _grain_box.visible:
 		_grain_shown = -1
 		return
@@ -1218,6 +1218,7 @@ func act(m: String, a := []):
 			elif r and not _forge_quiet:               # 11/6 #17 조합 연출 —— 재료가 모여 하나로 (모두 조합은 forge_tree 가 묶어서)
 				ForgeFx.play_one(self, str(a[0]), DB.RECOF.get(str(a[0]), []))
 		"do_draw", "pick", "random_grant": Sfx.play("draw")
+		"gacha": Sfx.play("draw" if r != null else "deny")
 		"sell", "buy": Sfx.play("gain" if (r != null and not (r is bool and not r)) else "deny")
 	if online != null:
 		online.send_cmd(m, a)
@@ -1736,8 +1737,8 @@ func _page_draw() -> Control:
 	# 11/2 사용자: 타일 아래 설명 글(기본패 14장 · 11종 중 고르기)은 빼고 낮게. 선택권은 타일 하나 —— 고르다 닫아도 「일반 ×2」 같은 타일이 따로 생기지 않고 같은 타일로 다시 연다
 	if n > 0:
 		acts.add_child(UI.tile_act("draw", "징집", "", func(): act("do_draw"), "pri", run.drawn, not can_act()))
-	if shop_on():      # 11/13 사용자: 상점은 기본패 징집 바로 다음 칸 (군량 값은 머리띠 민심 위에 늘 보인다 —— 징집 탭 머리의 「군량 N [상점]」 줄은 걷었다)
-		acts.add_child(UI.tile_act("grain", "상점", "", _shop_sheet, "gold" if run.grain >= Run.shop_price(Run.SHOP_TIERS[0]) else ""))
+	if shop_on() or gacha_on():      # 11/13 사용자: 상점은 기본패 징집 바로 다음 칸 (군량 값은 머리띠 민심 위에 늘 보인다 —— 징집 탭 머리의 「군량 N [상점]」 줄은 걷었다)
+		acts.add_child(UI.tile_act("grain", "상점", "", _shop_sheet, "gold" if run.grain >= Run.GACHA_PRICE else ""))
 	# 11/2 사용자: 보급(선택권)을 하나로 합치지 말고 등급별 칸으로. 고르지 않고 닫으면 수는 줄지 않는다 (고른 만큼만 줄어든다)
 	var pl := run.pick_list()
 	var per_t := {}
@@ -1986,7 +1987,7 @@ func _item_sheet(id: String) -> void:
 	var it: Dictionary = DB.IT[id]
 	var b := open_sheet(it.name)
 	b.add_child(item_box(id, run.bag.get(id, 0)))
-	b.add_child(UI.hint("%s 전용 · %s. 편성 탭에서 칸을 눌러 장착한다.%s" % [it.tag, it.grade, " 신화 장수 조합 재료이기도 하다." if it.use == "myth" else ""]))
+	b.add_child(UI.hint("%s 전용 %s · %s. 편성 탭에서 칸을 눌러 장착한다.%s" % [it.tag, DB.ISLOT_NAME[DB.item_slot(id)], it.grade, " 신화 장수 조합 재료이기도 하다." if it.use == "myth" else ""]))
 	# 유니크 —— 이 아이템으로 만드는 신화 장수 (11/2 사용자). 누르면 조합 시트
 	var myth := DB.by_tier(8).filter(func(k): return Run.need_item(k) == id)
 	if not myth.is_empty():
@@ -2275,15 +2276,32 @@ func shop_on() -> bool:
 	return online == null or bool(online.room.get("sell", false))
 
 
-## 상점 시트 —— 고급 · 희귀 · 전설 랜덤권 가격 · 구매
-func _shop_sheet() -> void:
+## 군량으로 아이템을 뽑을 수 있는 판인가 (11/13) —— 혼자 하기는 늘, 온라인은 서버가 뽑기를 아는 판(방 정보 gacha —— 옛 서버는 없어 숨긴다)
+func gacha_on() -> bool:
+	if run == null:
+		return false
+	return online == null or bool(online.room.get("gacha", false))
+
+
+## 상점 시트 —— 아이템 뽑기(1회 · 10회 · 천장) + 고급 · 희귀 · 전설 랜덤권 + 준비 중인 칸. got: 방금 뽑은 아이템 id 들 (결과를 맨 위에)
+func _shop_sheet(got := []) -> void:
 	var b := open_sheet("군량 상점")
 	var have := UI.hbox(8)
 	have.add_child(UI.lbl("가진 군량", 15, Color("#8D7B5C")))
 	have.add_child(UI.grain(str(run.grain), 17))
+	var inc := UI.lbl("페이즈마다 +%d" % Run.GRAIN_PER_PHASE, 12, DB.PAL.bamboo_dim)
+	inc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inc.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	have.add_child(inc)
 	b.add_child(have)
 	if not can_act():
 		b.add_child(UI.hint(online.block_reason("draw") if online != null else ""))
+	if gacha_on():
+		_gacha_block(b, got)
+	if not shop_on():
+		_shop_soon(b)
+		return
+	b.add_child(UI.eyebrow("장수 랜덤권"))
 	for t in Run.SHOP_TIERS:
 		var tt: int = t
 		var price := Run.shop_price(tt)
@@ -2301,14 +2319,79 @@ func _shop_sheet() -> void:
 		bb.disabled = run.grain < price or not can_act()
 		row.add_child(bb)
 		b.add_child(UI.panel(row, 8))
-	b.add_child(UI.hint("사면 그 등급 장수 하나를 무작위로 받는다 (기인 제외). 군량은 장수를 팔아 얻는다 —— 징집 탭 보유 카드를 꾹 누르거나 장수 정보에서 [판매]."))
-	var sp := []
-	for t in [3, 4, 5, "기인", 6, 7, 8]:
-		var ks: Array = DB.C.keys().filter(func(x): return DB.is_kiin(x)) if str(t) == "기인" else DB.by_tier(int(t)).filter(func(x): return not DB.is_kiin(x))
-		var vs: Array = ks.filter(func(x): return Run.sellable(x)).map(func(x): return Run.sell_price(x))
-		if not vs.is_empty():
-			sp.append("%s %d~%d" % [str(t) if str(t) == "기인" else DB.TIER[int(t)].n, vs.min(), vs.max()])
-	b.add_child(UI.hint("판매가(군량): " + " · ".join(sp)))
+	_shop_soon(b)
+
+
+## 아이템 뽑기 칸 (11/13) —— 결과 · 설명 · 천장 · [1회] [10회] · 확률
+func _gacha_block(b: VBoxContainer, got: Array) -> void:
+	b.add_child(UI.eyebrow("아이템 뽑기"))
+	if not got.is_empty():
+		var order: Array = DB.IGRADE_ORDER
+		var ids: Array = got.duplicate()
+		ids.sort_custom(func(x, y): return order.find(DB.IT[x].grade) < order.find(DB.IT[y].grade))
+		var top_g: String = DB.IT[ids[0]].grade
+		b.add_child(UI.lbl("뽑은 아이템 %d개%s" % [ids.size(), " —— 고대 등급!" if top_g == "고대" else ""], 14, Color(DB.D.IGRADE[top_g]).lightened(0.25), true))
+		var f := UI.grid(170, 6)
+		for id in ids:
+			f.add_child(item_box(id))
+		b.add_child(f)
+	var v := UI.vbox(8)
+	var left := maxi(1, Run.GACHA_PITY - int(run.gacha_pity))
+	v.add_child(UI.rich("[color=#%s][b]고대 확정까지 %d번[/b][/color]" % [Color(DB.D.IGRADE["고대"]).lightened(0.2).to_html(false), left], 14))
+	var row := UI.hbox(8)
+	for n in [1, Run.GACHA_TEN]:
+		var nn: int = n
+		var cost := Run.gacha_cost(nn)
+		var ok: bool = run.grain >= cost and can_act()
+		var gb := UI.grain_btn("%d회" % nn, str(cost), func():
+			var r = act("gacha", [nn])
+			if r != null:
+				_shop_sheet(r)
+				_gacha_fx(r), "pri" if ok else "ghost", 46)
+		gb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gb.disabled = not ok
+		row.add_child(gb)
+	v.add_child(row)
+	var tot := 0.0
+	for g in Run.GACHA_W:
+		tot += float(Run.GACHA_W[g])
+	var odds := []
+	for g in DB.IGRADE_ORDER:
+		if Run.GACHA_W.has(g):
+			odds.append("%s %d%%" % [g, roundi(float(Run.GACHA_W[g]) / tot * 100)])
+	v.add_child(UI.hint(" · ".join(odds)))
+	b.add_child(UI.panel(v, 8))
+
+
+## 고대 아이템을 뽑았다 (11/13) —— 가운데 띠 「고대 아이템 획득」 + 이름 · 번쩍임 · 완성 소리. 온라인에서는 서버가 다른 사람에게 속보를 보낸다 (Room · UrgentBand "item")
+func _gacha_fx(got: Array) -> void:
+	var anc: Array = got.filter(func(id): return DB.IT.has(id) and str(DB.IT[id].grade) == "고대")
+	if anc.is_empty():
+		return
+	var col := Color(DB.D.IGRADE["고대"]).lightened(0.15)
+	Sfx.play("forge", 2.0)
+	band("고대 아이템 획득", col, " · ".join(anc.map(func(id): return str(DB.IT[id].name))))
+
+
+## 군량으로 열릴 다른 쓰임새 —— 아직 없는 칸을 잠긴 채로 보여 준다 (11/13 사용자: 추후 군량을 통한 다른 시스템 도입을 암시하는 UI)
+func _shop_soon(b: VBoxContainer) -> void:
+	b.add_child(UI.eyebrow("준비 중"))
+	var row := UI.hbox(8)
+	for nm in ["진형 강화", "군령", "???"]:
+		var pc := PanelContainer.new()
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(DB.PAL.bamboo_dim, 0.5), 1, UI.R, 8))
+		var v := UI.vbox(2)
+		var l1 := UI.lbl("🔒 " + nm, 14, DB.PAL.bamboo_dim, true)
+		l1.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(l1)
+		var l2 := UI.lbl("군량으로 열립니다", 11, Color(DB.PAL.bamboo_dim, 0.7))
+		l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(l2)
+		pc.add_child(v)
+		pc.modulate = Color(1, 1, 1, 0.75)
+		row.add_child(pc)
+	b.add_child(row)
 
 
 ## 꾹 누른 보유 카드 —— 판매 한 줄 시트
@@ -2545,6 +2628,28 @@ func _stat_cell(icon: String, nm: String, col: Color, num: Control) -> PanelCont
 	return pc
 
 
+## 11/13 사용자: 전투에서 꾹 눌러 나오는 창에 장착 아이템 정보 —— 무기 · 갑옷 한 줄씩 (이름 · 등급 · 효과). 빈 칸은 「없음」.
+## 재료는 시작 능력치(ss)의 item · item2, 없으면(온라인 재생) 전투 결과 명단(res.roster)의 것
+func _battle_gear_rows(b: VBoxContainer, key: String, ss: Dictionary) -> void:
+	var gear := [ss.get("item"), ss.get("item2")]
+	if ss.is_empty() and _battle != null and _battle.res is Dictionary:
+		for r in _battle.res.get("roster", []):
+			if str(r.get("key", "")) == key:
+				gear = [r.get("item"), r.get("item2")]
+				break
+	var v := UI.vbox(3)
+	for si in 2:
+		var sl: String = ["weapon", "armor"][si]
+		var iid = gear[si]
+		if iid != null and DB.IT.has(iid):
+			var it: Dictionary = DB.IT[iid]
+			v.add_child(UI.rich("[color=#8D7B5C]%s[/color]  [color=#%s][b]%s[/b][/color] [color=#8D7B5C]%s[/color]  %s" % [
+				DB.ISLOT_NAME[sl], UI.item_col(iid).lightened(0.2).to_html(false), it.name, it.grade, UI.item_text(iid)], 13))
+		else:
+			v.add_child(UI.rich("[color=#8D7B5C]%s  없음[/color]" % DB.ISLOT_NAME[sl], 13))
+	b.add_child(UI.panel(v, 8))
+
+
 ## 전투장수창 (11/6 사용자) —— 전투 중 꾹 눌러 연다. 이미 만든 장수라 재료 · 갈무리는 빼고 전투 요소만:
 ## 병력 · 사기 · 상태, 공격 · 방어 · 속도 = 기본 수치 + (버프로 늘어난 만큼, 다른 색), 기술 · 고유기 · 특기
 func battle_unit_sheet(key: String) -> void:
@@ -2610,11 +2715,13 @@ func battle_unit_sheet(key: String) -> void:
 		var z := DB.aff_of(c.tag, ss.line, ss.side)
 		if z != "":
 			why.append("자리 %s" % ("선호" if z == "pref" else "어색"))
-		if ss.item:
-			why.append("보급품 %s" % DB.IT[ss.item].name)
+		for iid in [ss.get("item"), ss.get("item2")]:
+			if iid:
+				why.append("%s %s" % [DB.ISLOT_NAME[DB.item_slot(iid)], DB.IT[iid].name])
 		right.add_child(UI.rich("[color=#7fe0a8]＋늘어난 값[/color] [color=#8D7B5C]%s · 단체 특기 · 위세 · 사기[/color]  [color=#ff7a6a]−깎인 값[/color] [color=#8D7B5C]적 효과 (전투 시작 기준)[/color]" % " · ".join(why), 11))
 	top.add_child(right)
 	b.add_child(top)
+	_battle_gear_rows(b, key, ss)
 	# 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸 (11/7 사용자)
 	_ability_rows(b, k, 13)
 	# 기술 (자주 쓰는 기술 + 일반 기술)
@@ -4306,6 +4413,14 @@ func _dev_args() -> void:
 			"menu": _menu()
 			"uniq": _unique_sheet()
 			"shop": _shop_sheet()      # 11/13 군량 상점 (--ggrain=40 과 함께)
+			"gacha":      # 11/13 아이템 뽑기 결과 (--ggrain=80 --gsheet=gacha:10) · gacha:pity 는 천장 직전에서 한 번(고대 연출)
+				if kv.size() > 1 and kv[1] == "pity":
+					run.gacha_pity = Run.GACHA_PITY - 1
+				var gr = run.command("gacha", [int(kv[1]) if kv.size() > 1 and kv[1] != "pity" else (1 if kv.size() > 1 else 10)])
+				_shop_sheet(gr if gr is Array else [])
+				_gacha_fx(gr if gr is Array else [])
+			"urgent_item":      # 11/13 고대 아이템 속보 띠 (--gsheet=urgent_item)
+				urgent("이한솔국지", "", "고대 환두대도", "item")
 			"sell": _sell_sheet(kv[1])      # 11/13 보유 카드 꾹 누르기 판매 시트
 			"unique":      # 점검용 —— 보급 팝업을 억지로 연다 (--gsheet=unique:i81+i72+i89, 비우면 신화 재료 앞 셋)
 				var ids: Array = Array(kv[1].split("+")) if kv.size() > 1 and kv[1] != "" else DB.MYTH_ITEMS.keys().slice(0, 3)

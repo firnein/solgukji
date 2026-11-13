@@ -190,6 +190,7 @@ class Unit:
 	var slot: int
 	var key: String
 	var item = null
+	var item2 = null      # 11/13 갑옷 칸
 	var troops: float
 	var max: float
 	var morale: float
@@ -404,7 +405,9 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	u.camp = camp
 	u.slot = slot
 	u.key = camp + str(slot)
-	u.item = item
+	var gear := _gear(cid, item)      # 11/13 아이템 칸 둘 —— item: 무기 칸 · item2: 갑옷 칸
+	u.item = gear[0]
+	u.item2 = gear[1]
 	u.ts = syn.tag.get(u.c.tag)
 	var tr: float = u.c.tr * syn.troop * (1.0 + u.ts.v if u.ts and u.ts.stat == "troop" else 1.0)
 	if u.c.tier >= 8: tr *= myth_troop
@@ -497,7 +500,28 @@ func innate_item(cid: String):
 
 
 func is_signature(u: Unit) -> bool:
-	return u.c.need != "" and DB.ITEM_BY_NAME.get(u.c.need) == u.item
+	return u.c.need != "" and DB.ITEM_BY_NAME.get(u.c.need) in [u.item, u.item2]
+
+
+## 그 아이템이 이 장수의 전용 유니크인가 (신화 —— MYTH_AMP 를 받는 것은 그 아이템뿐)
+func _sig_item(u: Unit, id) -> bool:
+	return u.c.need != "" and DB.ITEM_BY_NAME.get(u.c.need) == id
+
+
+## 전투에 넘어온 장비 한 칸을 [무기, 갑옷] 으로 푼다 —— e 는 null · 아이템 id 하나(봇 · 토벌 적 · 옛 기록) · [무기, 갑옷](Run.gear_pairs).
+## 신화의 유니크(innate)는 제 칸을 차지한다
+func _gear(cid: String, e) -> Array:
+	var out := [null, null]
+	if e is Array:
+		for x in e:
+			if x != null and DB.IT.has(x):
+				out[1 if DB.item_slot(x) == "armor" else 0] = x
+	elif e != null and DB.IT.has(e):
+		out[1 if DB.item_slot(e) == "armor" else 0] = e
+	var inn = innate_item(cid)
+	if inn != null:
+		out[1 if DB.item_slot(inn) == "armor" else 0] = inn
+	return out
 
 
 # ───────── 실효 수치 ─────────
@@ -521,11 +545,12 @@ func eff(u: Unit, stat: String) -> float:
 	var zone := DB.aff_of(c.tag, u.line, u.side)
 	if zone == "pref": v *= _sm(af.b, stat)
 	if zone == "bad": v *= _sm(af.p, stat)
-	if u.item:
-		var it: Dictionary = DB.IT[u.item]
-		var amp := MYTH_AMP if is_signature(u) else 1.0
-		if S(it.pri) == stat: v *= (1 + it.pa * amp)
-		if S(it.sec) == stat: v *= (1 + it.sa * amp)
+	for iid in [u.item, u.item2]:
+		if iid:
+			var it: Dictionary = DB.IT[iid]
+			var amp := MYTH_AMP if _sig_item(u, iid) else 1.0
+			if S(it.pri) == stat: v *= (1 + it.pa * amp)
+			if S(it.sec) == stat: v *= (1 + it.sa * amp)
 	if stat == "atk": v *= u.syn_atk
 	if stat == "spd": v *= u.syn_spd * _flood_slow(u)
 	if u.ts and S(u.ts.stat) == stat: v *= (1 + u.ts.v)
@@ -848,8 +873,9 @@ func sk_rate(u: Unit) -> float:
 	if has_st(u, "seal"):
 		return 0.0
 	var r: float = DB.D.RATE.get(str(u.c.tier), 0.0)
-	if u.item:
-		r += DB.IT[u.item].rb / 100.0 * (MYTH_AMP if is_signature(u) else 1.0)
+	for iid in [u.item, u.item2]:
+		if iid:
+			r += DB.IT[iid].rb / 100.0 * (MYTH_AMP if _sig_item(u, iid) else 1.0)
 	if u.ts and u.ts.stat == "rate": r += u.ts.v
 	return r + mv(u, "rate")
 
@@ -2452,11 +2478,11 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 	for i in a_cards.size():
 		var k = a_cards[i]
 		if k and i < aS.size():
-			units.append(mk_unit(k, aS[i], "A", a_morale, i, a_equip[i] if a_equip and a_equip[i] else innate_item(k), a_syn))
+			units.append(mk_unit(k, aS[i], "A", a_morale, i, a_equip[i] if a_equip and i < a_equip.size() else null, a_syn))
 	for i in b_cards.size():
 		var k = b_cards[i]
 		if k and i < bS.size():
-			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and b_equip[i] else innate_item(k), b_syn))
+			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and i < b_equip.size() else null, b_syn))
 	for u in units:
 		if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].has("kiin"):
 			var kk: String = DB.AURA[u.c.id].kiin
@@ -2724,7 +2750,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 	for u in units:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
-			"item": u.item, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "dot": roundi(u.dot), "heal": roundi(u.heal), "kills": u.kills,
+			"item": u.item, "item2": u.item2, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "dot": roundi(u.dot), "heal": roundi(u.heal), "kills": u.kills,
 			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
