@@ -166,7 +166,12 @@ func _warm_start() -> void:
 
 func _warm_for_run() -> void:
 	var first: Array = run.pool().keys()
-	first.append_array(_forge_goals(DB.D.RECDEF))
+	var near_: Array = _forge_goals(DB.D.RECDEF)
+	first.append_array(near_)
+	var near_p := {}
+	for o in near_:
+		near_p[DB.person(o)] = true
+	first.append_array(run.bond_goals(near_p, 4))
 	var rest: Array = DB.D.RECDEF.map(func(r): return r[0])
 	rest.sort_custom(func(x, y):
 		var a := run.miss_count(x)
@@ -3136,27 +3141,38 @@ func _toggle(key: String, default := false) -> void:
 const KIIN_T := 9      # 기인 칸 —— 등급 거르기 · 계보 줄 (등급 수 바깥의 자리)
 
 ## 추천 목표 —— 점수는 Run.forge_goals (덱이 얻는 전력 − 모자란 재료를 구하는 수고 + 줄기 · 병종 맞춤, 11/5 사용자: 플레이에 도움이 되게)
+## 11/13 사용자: 신화 아이템(유니크)으로 가는 신화 장수는 둘째 칸 「신화 · 인연 추천」 (Run.bond_goals) 으로 옮겼다
 func _forge_goals(lst: Array) -> Array:
-	var cand: Array = run.forge_goals(lst.map(func(r): return r[0]), 4).map(func(k): return [0, k])
-	var out_ := []
-	var seen := {}
-	# 11/5 사용자: 신화 장수가 없는데 신화 아이템(유니크)을 가지고 있으면 추천 1번은 그 신화 장수 (재료가 몇 장 모자라든)
-	if not run.has_myth():
-		for k in DB.by_tier(8):
-			var it = Run.need_item(k)
-			if it != null and run.bag.get(it, 0) > 0 and DB.RECOF.has(k) and not DB.is_foe(k) and not run.locked.has(k) and (forge_tag == "" or DB.C[k].tag == forge_tag):
-				out_.append(k)
-				seen[DB.person(k)] = true
-				break
-	for c in cand:
-		var p := DB.person(c[1])
-		if seen.has(p):
-			continue
-		seen[p] = true
-		out_.append(c[1])
-		if out_.size() >= 4:
-			break
-	return out_
+	return run.forge_goals(lst.map(func(r): return r[0]), 4)
+
+
+## 추천 칸 하나 —— 제목 · 타일 띠 (필터에 걸린 것은 수만 알린다). caption: 타일 아래 짧은 글 (없으면 "")
+func _goal_section(title: String, all_: Array, caption: Callable, col: Color) -> Control:
+	var rec: Array = all_.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
+	var hidden_n := all_.size() - rec.size()
+	var gsec := UI.vbox(6)
+	gsec.add_child(UI.head(title, ("필터에 숨은 추천 %d" % hidden_n) if hidden_n > 0 else ""))
+	if rec.is_empty():
+		gsec.add_child(UI.hint("지금 필터(병종 · 등급)에 맞는 추천이 없습니다. 필터를 '모두'로 두면 %d개가 보입니다." % hidden_n))
+		return gsec
+	var gs_ := UI.strip(8)
+	for out in rec:
+		var gv := UI.vbox(3)
+		gv.custom_minimum_size = Vector2(86, 0)
+		var gt := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
+		gt.custom_minimum_size = Vector2(86, 112)
+		gt.badge = "-%d" % run.miss_count(out) if run.miss_count(out) > 0 else "조합"
+		gt.badge_col = Color(col, 0.9)
+		gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
+		var cap: String = caption.call(out)
+		if cap != "":
+			var cl := UI.lbl(cap, 11, col)
+			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cl.custom_minimum_size = Vector2(86, 0)
+			gv.add_child(cl)
+		gs_[1].add_child(gv)
+	gsec.add_child(gs_[0])
+	return gsec
 
 
 ## 히든(불멸) 이상 완성 연출 (scripts/ui/forge_fanfare.gd). 모두 조합으로 여러 장이 잇달아 나오면 가장 높은 것 하나만
@@ -3235,33 +3251,29 @@ func _page_forge() -> Control:
 	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
 	# 11/3 추천 목표 —— 조합식이 170개가 넘어 무엇을 노릴지 고르기 어렵다: 재료가 1~2장 모자란 것 가운데 높은 등급 · 가진 재료가 많은 것 4개 (인물 하나씩)
 	# 11/6 사용자 #8 "추천 목표가 안 나오는 경우가 많다": 필터를 거친 목록만 넘겨 비었다 → 전체로 계산하고 필터에 걸린 것은 수만 알린다
+	# 11/13 사용자: 추천 조합칸을 둘로 —— ① 가장 가까운 (덱 이득 − 수고) ② 신화 · 인연 추천 (신화 아이템 길 · 가진 장수와 인연이 많은 장수, ①의 인물은 빼고)
 	var rec_all := _forge_goals(DB.D.RECDEF)
-	var rec: Array = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
-	var hidden_n := rec_all.size() - rec.size()
-	var far_goal := false
 	if rec_all.is_empty():      # 수고 한도 안에 아무것도 없다 —— 가장 가까운 목표 하나는 보인다
 		rec_all = run.forge_goals(DB.D.RECDEF.map(func(r): return r[0]), 1, 1e9)
-		rec = rec_all.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
-		hidden_n = rec_all.size() - rec.size()
-		far_goal = not rec.is_empty()
-	if not rec.is_empty() or hidden_n > 0:
-		var gsec := UI.vbox(6)
-		gsec.add_child(UI.head("추천 목표" if not far_goal else "가장 가까운 목표", ("필터에 숨은 추천 %d" % hidden_n) if hidden_n > 0 else ""))
-		var gs_ := UI.strip(8)
-		for out in rec:
-			var gv := UI.vbox(3)
-			gv.custom_minimum_size = Vector2(86, 0)
-			var gt := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
-			gt.custom_minimum_size = Vector2(86, 112)
-			gt.badge = "-%d" % run.miss_count(out) if run.miss_count(out) > 0 else "조합"
-			gt.badge_col = Color(DB.PAL.seal, 0.9)
-			gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
-			gs_[1].add_child(gv)
-		if not rec.is_empty():
-			gsec.add_child(gs_[0])
-		if rec.is_empty() and hidden_n > 0:
-			gsec.add_child(UI.hint("지금 필터(병종 · 등급)에 맞는 추천이 없습니다. 필터를 '모두'로 두면 %d개가 보입니다." % hidden_n))
-		v.add_child(gsec)
+	var near_p := {}
+	for o in rec_all:
+		near_p[DB.person(o)] = true
+	var bond_all := run.bond_goals(near_p, 4)
+	var owned := run.owned_persons()
+	var rec := []      # 두 칸에 실제로 보이는 것 —— 「나머지」 에서 뺀다
+	for o in rec_all + bond_all:
+		if (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier):
+			rec.append(o)
+	if not rec_all.is_empty():
+		v.add_child(_goal_section("추천 · 가장 가까운", rec_all, func(_o): return "", DB.PAL.seal))
+	if not bond_all.is_empty():
+		var myth_ := run.myth_item_goals()
+		var cap := func(o):      # 가진 장수와 이어진 수(명) · 없으면 그 인물이 든 인연 수(개)
+			if myth_.has(o):
+				return "신화 아이템"
+			var n := Run.bond_links(o, owned)
+			return ("인연 %d명" % n) if n > 0 else ("인연 %d개" % DB.INYEON_OF.get(DB.person(o), []).size())
+		v.add_child(_goal_section("추천 · 신화와 인연", bond_all, cap, DB.PAL.yeon))
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return can_now.has(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)

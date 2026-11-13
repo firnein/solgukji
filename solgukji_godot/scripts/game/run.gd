@@ -678,23 +678,33 @@ func goal_score(out: String) -> float:
 	return gain + fit - goal_effort(out) * 6.0
 
 
-func forge_goals(keys: Array, limit := 4, max_effort := GOAL_EFFORT) -> Array:
+## 추천 목표 등급 하한 —— 11/4 사용자: 가진 최고 등급보다 한 단계 넘게 낮은 등급은 빼고
+func goal_min_tier() -> int:
 	var top := 3
 	for k in pool():
 		if DB.C[k].tier >= 3:
 			top = maxi(top, DB.C[k].tier)
-	var min_t := maxi(3, top - 1)      # 11/4 사용자: 가진 최고 등급보다 한 단계 넘게 낮은 등급은 빼고
+	return maxi(3, top - 1)
+
+
+## 추천 후보로 둘 수 있는가 (수고 한도는 따로) —— 잠김 · 적 · 지금 조합됨 · 낮은 등급 · 신화 중복 · 만든 기인 · 이미 그 등급 이상 가진 인물은 뺀다
+func goal_ok(out: String, min_t: int) -> bool:
+	if not DB.RECOF.has(out) or DB.is_foe(out) or locked.has(out) or can_forge(out) or DB.C[out].tier < min_t:
+		return false
+	if DB.C[out].tier >= 8 and has_myth():
+		return false
+	if DB.is_kiin(out) and (kiin_made.has(out) or have(out) > 0):
+		return false
+	var p := DB.person(out)
+	var t: int = DB.C[out].tier
+	return not pool().keys().any(func(k): return DB.C[k].tier >= t and DB.C[k].tier >= 3 and DB.person(k) == p)
+
+
+func forge_goals(keys: Array, limit := 4, max_effort := GOAL_EFFORT) -> Array:
+	var min_t := goal_min_tier()
 	var cand := []
 	for out in keys:
-		if not DB.RECOF.has(out) or DB.is_foe(out) or locked.has(out) or can_forge(out) or DB.C[out].tier < min_t:
-			continue
-		if DB.C[out].tier >= 8 and has_myth():
-			continue
-		if DB.is_kiin(out) and (kiin_made.has(out) or have(out) > 0):
-			continue
-		var p := DB.person(out)
-		var t: int = DB.C[out].tier
-		if pool().keys().any(func(k): return DB.C[k].tier >= t and DB.C[k].tier >= 3 and DB.person(k) == p):
+		if not goal_ok(out, min_t):
 			continue
 		if goal_effort(out) > max_effort:
 			continue
@@ -710,6 +720,77 @@ func forge_goals(keys: Array, limit := 4, max_effort := GOAL_EFFORT) -> Array:
 		out_.append(c[1])
 		if out_.size() >= limit:
 			break
+	return out_
+
+
+## 11/13 사용자: 추천 조합칸을 둘로 나눈다 —— 둘째 칸 「신화 · 인연 추천」 (첫 칸 「가장 가까운」 은 forge_goals 그대로)
+##   ① 신화 아이템 길: 신화가 없고, 신화 장수의 고유 아이템(유니크 · need_item)을 가방에 가졌으면 그 신화 장수 (재료가 몇 장 모자라든, 11/5 규칙을 이리 옮김)
+##   ② 인연 많은 장수: 점수 = 가진 장수(손패 · 편성의 인물)와 같은 인연으로 묶인 수(bond_links) × 10 + 그 인물이 든 인연 수
+##      (가진 장수와 이어진 쪽이 먼저, 아직 아무와도 안 이어졌으면 인연이 많은 인물) —— 같으면 모자란 재료 적은 것 · 높은 등급. 인연이 없는 인물은 빼고
+##   빼는 것: exclude(인물 이름 -> true) —— 첫 칸에 이미 뜬 인물 · goal_ok 에 걸리는 것 (수고 한도는 보지 않는다)
+func myth_item_goals() -> Array:
+	var out_ := []
+	if has_myth():
+		return out_
+	for k in DB.by_tier(8):
+		var it = need_item(k)
+		if it != null and bag.get(it, 0) > 0 and DB.RECOF.has(k) and not DB.is_foe(k) and not locked.has(k):
+			out_.append(k)
+	return out_
+
+
+## 이 장수의 인물이 가진 장수(owned: 인물 이름 -> true)와 같은 인연으로 묶인 수 (인연이 여럿이면 각각 센다)
+static func bond_links(out: String, owned: Dictionary) -> int:
+	var p := DB.person(out)
+	var n := 0
+	for nm in DB.INYEON_OF.get(p, []):
+		for q in DB.INYEON[nm]:
+			if q != p and owned.has(q):
+				n += 1
+	return n
+
+
+func owned_persons() -> Dictionary:
+	var o := {}
+	for k in pool():
+		o[DB.person(k)] = true
+	return o
+
+
+func bond_goals(exclude: Dictionary, limit := 4) -> Array:
+	var out_ := []
+	var seen := exclude.duplicate()
+	for k in myth_item_goals():
+		var p := DB.person(k)
+		if not seen.has(p):
+			seen[p] = true
+			out_.append(k)
+	var owned := owned_persons()
+	var min_t := goal_min_tier()
+	var cand := []
+	for r in DB.D.RECDEF:
+		var k: String = r[0]
+		if seen.has(DB.person(k)) or not goal_ok(k, min_t):
+			continue
+		var g: int = DB.INYEON_OF.get(DB.person(k), []).size()
+		if g > 0:
+			cand.append([bond_links(k, owned) * 10 + g, miss_count(k), int(DB.C[k].tier), k])
+	cand.sort_custom(func(a, b):
+		if a[0] != b[0]:
+			return a[0] > b[0]
+		if a[1] != b[1]:
+			return a[1] < b[1]
+		if a[2] != b[2]:
+			return a[2] > b[2]
+		return a[3] < b[3])
+	for c in cand:
+		if out_.size() >= limit:
+			break
+		var p := DB.person(c[3])
+		if seen.has(p):
+			continue
+		seen[p] = true
+		out_.append(c[3])
 	return out_
 
 
