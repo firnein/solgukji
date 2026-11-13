@@ -1352,6 +1352,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 				stats["charges"] = stats.get("charges", 0) + 1
 		if a.c.tag == "창병" and a.ran >= SPEAR_RUN and not far and not a.countering:      # 11/8 창병은 붙는 순간이 힘
 			m *= engage_v("spear_impact", 1.0)
+	if a.c.tag == "창병" and d.c.tag == "창병" and a.camp != d.camp:      # 11/14 창병끼리 —— 창병 갑옷 · 방어 이점이 서로 상쇄돼 판이 늘어진다 (거울전 53초 → 35초 안팎)
+		m *= engage_v("spear_mirror", 1.0)
 	if not a.countering:
 		a.ran = 0.0
 	var n0 := ev.size()
