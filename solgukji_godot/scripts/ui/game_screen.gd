@@ -1777,6 +1777,9 @@ func _page_draw() -> Control:
 			for k in act("random_grant"):
 				toast("%s 배급 · %s" % [DB.C[k].name, DB.tier_name(k)], "gain"), "", run.granted, not can_act()))
 	v.add_child(acts)
+	var gb := _goal_block()      # 11/13 추천 조합 (가까운 · 인연) —— 할 일 줄 아래, 가진 장수 위
+	if gb != null:
+		v.add_child(gb)
 
 	# 11/7 사용자: '아이템 이름 · 효과' 칩은 획득 순간 가운데 띠(_item_band)로, '소식 N' 칩은 머리띠 ☰ 아래 버튼으로 —— 칩 줄은 없다
 
@@ -1824,8 +1827,6 @@ func _page_draw() -> Control:
 				g.add_child(hand_tile.call(k, p[k], grp[2]))
 		if g.get_child_count() > 0:
 			inner.add_child(g)
-	if inner.get_child_count() == 0:
-		inner.add_child(UI.hint("장수가 아직 없다. 기본 병졸을 조합하거나 선택권으로."))
 	hs.add_child(inner)
 	var base := UI.grid(30, 4)      # 11/6 사용자: 기본병 8종은 맨 윗줄에 (조합 재료의 출발점이라 먼저 본다)
 	base.max_cols = 8
@@ -3157,22 +3158,9 @@ func _forge_goals(lst: Array) -> Array:
 const GOAL_TILE := Vector2(86, 112)
 
 
-## 추천 반 칸 —— 위에 짧은 이름(+ 필터에 숨은 수), 아래 타일 띠(타일 두 장 폭, 넘치면 가로로 민다). caption: 타일 아래 짧은 글 (없으면 "")
-func _goal_half(title: String, all_: Array, caption: Callable, col: Color, empty_msg: String) -> Control:
-	var rec: Array = all_.filter(func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier))
-	var hidden_n := all_.size() - rec.size()
-	var gv0 := UI.vbox(4)
-	gv0.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gv0.size_flags_stretch_ratio = 1.0
-	gv0.add_child(UI.lbl(title + ("  · 숨은 %d" % hidden_n if hidden_n > 0 else ""), 12, col))
-	if rec.is_empty():
-		var h := UI.hint("필터에 맞는 추천이 없습니다." if hidden_n > 0 else empty_msg)
-		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		h.custom_minimum_size = Vector2(0, 0)
-		gv0.add_child(h)
-		return gv0
-	var gs_ := UI.strip(6)
-	gs_[0].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+## 추천 한 줄 —— 전체 폭 가로 띠 (넘치면 가로로 민다). caption: 타일 아래 짧은 글 (없으면 "")
+func _goal_strip(rec: Array, caption: Callable, col: Color) -> Control:
+	var gs_ := UI.strip(8)
 	for out in rec:
 		var gv := UI.vbox(2)
 		gv.custom_minimum_size = Vector2(GOAL_TILE.x, 0)
@@ -3188,8 +3176,38 @@ func _goal_half(title: String, all_: Array, caption: Callable, col: Color, empty
 			cl.custom_minimum_size = Vector2(GOAL_TILE.x, 0)
 			gv.add_child(cl)
 		gs_[1].add_child(gv)
-	gv0.add_child(gs_[0])
-	return gv0
+	return gs_[0]
+
+
+## 11/13 사용자 "너무 좁다" —— 추천 조합을 조합 탭에서 징집 탭으로 옮겼다. [추천 닫기 / 추천 열기] 아래
+##   「추천 조합 (가까운)」 전체 폭 한 줄 —— 신화 아이템(유니크)으로 가는 신화 장수가 맨 앞 + 덱 이득 − 수고 (_forge_goals)
+##   「추천 조합 (인연)」 전체 폭 한 줄 —— 가진 장수와 인연이 많이 겹치는 순 (Run.bond_goals, 위 줄 인물은 빼고). 후보가 없으면 줄째 숨긴다
+##   접은 상태는 _open["draw:rec_fold"] (세션 동안 유지). 빈 안내 문구는 두지 않는다. 둘 다 비면 null
+func _goal_block() -> Control:
+	var near_all := _forge_goals(DB.D.RECDEF)
+	if near_all.is_empty():      # 수고 한도 안에 아무것도 없다 —— 가장 가까운 목표 하나는 보인다
+		near_all = run.forge_goals(DB.D.RECDEF.map(func(r): return r[0]), 1, 1e9)
+	var seen_p := {}
+	for o in near_all:
+		seen_p[DB.person(o)] = true
+	var bond_all := run.bond_goals(seen_p, 6)
+	if near_all.is_empty() and bond_all.is_empty():
+		return null
+	var fold: bool = _open.get("draw:rec_fold", false)
+	var gsec := UI.vbox(6)
+	var tb := UI.btn("추천 열기 ▾" if fold else "추천 닫기 ▴", func(): _toggle("draw:rec_fold"), "ghost", 28)
+	tb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	gsec.add_child(tb)
+	if fold:
+		return gsec
+	if not near_all.is_empty():
+		gsec.add_child(UI.lbl("추천 조합 (가까운)", 12, DB.PAL.seal))
+		gsec.add_child(_goal_strip(near_all, func(_o): return "", DB.PAL.seal))
+	if not bond_all.is_empty():
+		var owned := run.owned_persons()
+		gsec.add_child(UI.lbl("추천 조합 (인연)", 12, DB.PAL.yeon))
+		gsec.add_child(_goal_strip(bond_all, func(o): return "인연 %d명" % Run.bond_links(o, owned), DB.PAL.yeon))      # 가진 장수 가운데 같은 인연으로 이어진 수
+	return gsec
 
 
 ## 히든(불멸) 이상 완성 연출 (scripts/ui/forge_fanfare.gd). 모두 조합으로 여러 장이 잇달아 나오면 가장 높은 것 하나만
@@ -3268,28 +3286,7 @@ func _page_forge() -> Control:
 	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
 	# 11/3 추천 목표 —— 조합식이 170개가 넘어 무엇을 노릴지 고르기 어렵다: 재료가 1~2장 모자란 것 가운데 높은 등급 · 가진 재료가 많은 것 4개 (인물 하나씩)
 	# 11/6 사용자 #8 "추천 목표가 안 나오는 경우가 많다": 필터를 거친 목록만 넘겨 비었다 → 전체로 계산하고 필터에 걸린 것은 수만 알린다
-	# 11/13 사용자: 추천 조합칸 한 줄을 둘로 (타일 두 장 폭씩, 각자 가로로 민다) —— 왼쪽 「가장 가까운」(신화 아이템 길이 맨 앞 + 덱 이득 − 수고)
-	#   오른쪽 「인연」(가진 장수와 인연이 많이 겹치는 순, 겹치는 장수가 없으면 안내 한 줄) —— 왼쪽에 뜬 인물은 오른쪽에서 뺀다
-	var near_all := _forge_goals(DB.D.RECDEF)
-	if near_all.is_empty():      # 수고 한도 안에 아무것도 없다 —— 가장 가까운 목표 하나는 보인다
-		near_all = run.forge_goals(DB.D.RECDEF.map(func(r): return r[0]), 1, 1e9)
-	var seen_p := {}
-	for o in near_all:
-		seen_p[DB.person(o)] = true
-	var bond_all := run.bond_goals(seen_p, 4)
-	var owned := run.owned_persons()
-	var fit_ := func(o): return (forge_tag == "" or DB.C[o].tag == forge_tag) and _tier_match(o, forge_tier)
-	var rec: Array = (near_all + bond_all).filter(fit_)      # 추천 칸에 실제로 보이는 것 —— 「나머지」 에서 뺀다
-	if not near_all.is_empty() or not bond_all.is_empty():
-		var gsec := UI.vbox(6)
-		gsec.add_child(UI.head("추천 조합", ""))
-		var row := UI.hbox(8)
-		row.add_child(_goal_half("가장 가까운", near_all, func(_o): return "", DB.PAL.seal, "가까운 조합이 없습니다."))
-		row.add_child(VSeparator.new())
-		var bond_cap := func(o): return "인연 %d명" % Run.bond_links(o, owned)      # 가진 장수 가운데 같은 인연으로 이어진 수
-		row.add_child(_goal_half("인연", bond_all, bond_cap, DB.PAL.yeon, "아직 겹치는 인연이 없다."))
-		gsec.add_child(row)
-		v.add_child(gsec)
+	# 11/13 사용자: 추천 조합은 징집 탭으로 옮겼다 (_goal_block)
 	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
 	var ready: Array = lst.filter(func(r): return can_now.has(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
@@ -3302,7 +3299,7 @@ func _page_forge() -> Control:
 		sec.add_child(rs[0])
 		v.add_child(sec)
 	# 나머지 —— 가까운 순 (모자란 장수 적은 것 먼저, 같으면 높은 등급)
-	lst = lst.filter(func(r): return not can_now.has(r[0]) and not rec.has(r[0]))
+	lst = lst.filter(func(r): return not can_now.has(r[0]))
 	var miss_of := {}      # 11/10 모자란 수를 비교할 때마다 다시 세지 않고 한 번만 (정렬이 약 10ms 걸렸다)
 	for r in lst:
 		miss_of[r[0]] = run.miss_count(r[0])

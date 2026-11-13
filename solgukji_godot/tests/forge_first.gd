@@ -30,6 +30,10 @@ func _ready() -> void:
 	var dwell := int(a.get("dwell", "0"))      # 징집 탭에 머문 프레임 수 (미리 읽기가 돌 시간)
 	for i in dwell:
 		await get_tree().process_frame
+	if a.has("drawshot"):      # --drawshot=경로.png —— 징집 탭(11/13 추천 조합 두 줄)을 찍는다
+		await get_tree().create_timer(0.4).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(str(a.drawshot))
 	print("== 징집 탭에서 %d프레임 머문 뒤 · 초상 캐시 %d장" % [dwell, DB.prof_cache_size()])
 	await _enter(gs, "첫 진입")
 	if a.has("shot"):
