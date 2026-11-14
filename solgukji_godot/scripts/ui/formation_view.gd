@@ -243,7 +243,7 @@ static func team_buffs(board: Array) -> Array:
 		var k0: String = l[0][1]
 		var txt := DB.mods_text(DB.group_def(nm).m, total, DB.C[l[0][1]].tier)
 		if txt == "":
-			txt = str(DB.group_def(nm).get("d", "")).get_slice(" —— ", 0)
+			txt = DB.turn_text(str(DB.group_def(nm).get("d", "")), DB.C[l[0][1]].tier).get_slice(" —— ", 0)
 		out.append({"kind": "적에게" if DB.group_def(nm).get("scope", "") == "foe" else "단체", "name": nm, "text": txt, "who": " · ".join(who), "col": DB.TRAIT_COL["단체"], "k": k0})
 	for k in ks:
 		if DB.AURA.has(k):

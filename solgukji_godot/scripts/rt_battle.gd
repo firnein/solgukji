@@ -18,7 +18,12 @@ const BATTLE_SEC := 35.0                # 같은 등급 감상 전투의 보통 
 
 ## 그 등급 전투 한 판의 턴 수 (보통 길이 기준)
 static func turns_for(t: float) -> float:
-	return BATTLE_SEC / (period_base * PERIOD_MUL[clampi(roundi(t), 3, 8)])
+	return BATTLE_SEC / turn_sec(t)
+
+
+## 그 등급 전투의 한 턴(정산 간격) 길이 (초) —— 화면 설명의 'N턴'을 초로 바꿀 때 (DB.sec_text). 1·2등급은 3등급과 같게
+static func turn_sec(t: float) -> float:
+	return period_base * PERIOD_MUL[clampi(roundi(t), 3, 8)]
 
 
 static var period_base := 1.9           # 예전 한 턴에 해당하는 시간 (초) —— 턴 끝 정산 간격 · 행동 간격의 기준. 11/1 2.9→1.9 (감상 전투 35초 안팎)
@@ -125,6 +130,11 @@ var _idx := {}                # 유닛 -> 번호
 ## 게임에서 쓰는 엔진을 만든다 —— 실시간(기본) 또는 예전 턴 엔진
 static func make(seed_value: int) -> Battle:
 	return RtBattle.new(seed_value) if enabled else Battle.new(seed_value)
+
+
+## 이번 전투의 한 턴 길이 (초) —— 전투 기록의 지속 표시용
+func _turn_sec() -> float:
+	return period
 
 
 ## 결정적 순서로 유닛을 놓고 시간을 흘린다

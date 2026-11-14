@@ -3003,7 +3003,7 @@ static var _num_re: RegEx
 ## "적 전체에 책략 319%" → ["적 전체에 책략", "319%"], 끝에 수치가 없으면 ["대상 혼란", ""]
 func _kv_split(text: String) -> Array:
 	if _num_re == null:
-		_num_re = RegEx.create_from_string("([+\\-−×]?\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:%p|%|턴|초|부대|명)?)\\s*$")
+		_num_re = RegEx.create_from_string("((?:약 )?[+\\-−×]?\\s?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:%p|%|턴|초|부대|명)?)\\s*$")
 	var out := []
 	for part in text.replace(" / ", " · ").replace("\n", " · ").split(" · "):
 		var s := part.strip_edges()
@@ -3025,13 +3025,13 @@ static func minor_desc(k: String, with_every := true) -> String:
 	var parts := ["평타 %d번에 한 번" % int(m.every)] if with_every else []
 	parts.append("%s피해 ×%.2f" % ["적 후열에 " if m.get("back", false) else "", float(m.mult)])
 	if m.has("st"):
-		parts.append("%s %d턴" % [DB.D.STATUS[m.st[0]].n, int(m.st[2])])
+		parts.append("%s %s" % [DB.D.STATUS[m.st[0]].n, DB.sec_text(int(m.st[2]), DB.C[k].tier)])
 	if m.has("extra"):
 		parts.append("한 번 더 ×%.1f" % float(m.extra))
 	if m.has("self"):
-		parts.append("자신 %s %+d%%(%d턴)" % [DB.D.STATNM.get(m.self.stat, m.self.stat), roundi(float(m.self.amt) * 100), int(m.self.dur)])
+		parts.append("자신 %s %+d%%(%s)" % [DB.D.STATNM.get(m.self.stat, m.self.stat), roundi(float(m.self.amt) * 100), DB.sec_text(int(m.self.dur), DB.C[k].tier)])
 	if m.has("foe"):
-		parts.append("맞은 적 %s %+d%%(%d턴)" % [DB.D.STATNM.get(m.foe.stat, m.foe.stat), roundi(float(m.foe.amt) * 100), int(m.foe.dur)])
+		parts.append("맞은 적 %s %+d%%(%s)" % [DB.D.STATNM.get(m.foe.stat, m.foe.stat), roundi(float(m.foe.amt) * 100), DB.sec_text(int(m.foe.dur), DB.C[k].tier)])
 	if m.has("morale"):
 		parts.append("적 사기 −%d" % int(m.morale))
 	if m.has("mend") and m.has("cheer"):
