@@ -20,7 +20,7 @@ const SayBubble := preload("res://scripts/ui/say_bubble.gd")      # 11/12 받은
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 ## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
 const COACH_STEPS := [
-	["draw", "1/4  징집", "매일 장수 카드를 받는다. 여기서 뽑는다."],
+	["draw", "1/4  징집", "매일 기본패를 받는다. 「징집하기」를 눌러 뽑자."],
 	["forge", "2/4  조합  —  꼭 알아 둘 것", "같은 장수 · 같은 카드를 모아 조합 탭에서 한 등급 위로 올린다. 1성 9장 그대로는 토벌에서 전멸한다."],
 	["deploy", "3/4  편성", "가진 장수를 9칸에 배치한다. 앞줄과 뒷줄 자리를 살피자."],
 	["war", "4/4  전투", "출진하면 자동으로 싸운다(조작 없음). 지면 민심이 깎이고, 0 이 되면 멸망한다. 출진 전에 조합부터."],
@@ -582,13 +582,34 @@ func _build_title() -> void:
 	var bg := TitleBG.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_title.add_child(bg)
+	# 11/14 감사 #6 (01 제목 화면): 아래 절반에 먹빛 그라데이션 깔개 —— 초상 콜라주 위에서도 버튼 · 글자가 읽힌다
+	var scrim := TextureRect.new()
+	var gt := GradientTexture2D.new()
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	var gr := Gradient.new()
+	gr.set_color(0, Color("#0b0f1a", 0.0))
+	gr.set_color(1, Color("#0b0f1a", 0.94))
+	gr.add_point(0.4, Color("#0b0f1a", 0.78))
+	gt.gradient = gr
+	gt.width = 4
+	gt.height = 64
+	scrim.texture = gt
+	scrim.stretch_mode = TextureRect.STRETCH_SCALE
+	scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scrim.anchor_left = 0
+	scrim.anchor_right = 1
+	scrim.anchor_top = 0.5
+	scrim.anchor_bottom = 1
+	_title.add_child(scrim)
 	var m := MarginContainer.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var side := maxf(30.0, (size.x - 420.0) / 2.0)
 	for s in ["left", "right"]:
 		m.add_theme_constant_override("margin_" + s, int(side))
 	m.add_theme_constant_override("margin_top", 70)
-	m.add_theme_constant_override("margin_bottom", 40)
+	m.add_theme_constant_override("margin_bottom", UI.SP_XL + int(_safe_insets().size.y))
 	_title.add_child(m)
 	var v := UI.vbox(0)
 	m.add_child(v)
@@ -596,51 +617,55 @@ func _build_title() -> void:
 	var logo := TitleBG.Logo.new()
 	logo.custom_minimum_size = Vector2(0, 150)
 	v.add_child(logo)
-	var sub := UI.lbl("THREE KINGDOMS · RANDOM DEFENSE", 11, Color("#d9a64b"))
+	var sub := UI.lbl("THREE KINGDOMS · RANDOM DEFENSE", UI.FS_CAP, Color("#d9a64b"))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_constant_override("outline_size", 4)
 	sub.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 	v.add_child(sub)
-	var ko := UI.lbl("마지막까지 살아남아 천하를 통일하라", 14, Color("#c6ac7c"))
+	var ko := UI.lbl("마지막까지 살아남아 천하를 통일하라", UI.FS_LABEL, Color("#c6ac7c"))
 	ko.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ko.add_theme_constant_override("outline_size", 5)
 	ko.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
 	var rg3 := Control.new()
-	rg3.custom_minimum_size.y = 6
+	rg3.custom_minimum_size.y = UI.SP_S
 	v.add_child(rg3)
 	v.add_child(ko)
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(fill)
-	# 버튼 —— 아래쪽, 먹빛 반투명 + 금테
-	var bv := UI.vbox(10)
+	# 버튼 —— 주 버튼 하나(게임 안 주 버튼과 같은 먹금 모양, BH_L) + 보조 버튼(먹빛 바탕 + 얇은 선). 설정 · 버전은 아래 한 줄
+	var bv := UI.vbox(UI.SP_M)
 	if Run.has_save():
 		bv.add_child(_title_btn("이어 하기", _continue, true))
 	bv.add_child(_title_btn("새 판 시작", _new_game, not Run.has_save()))
 	bv.add_child(_title_btn("온라인 대전", _go_online, false))
-	var sb := UI.btn("설정", _settings_sheet, "ghost", 44)
-	sb.add_theme_color_override("font_color", Color("#c6ac7c"))
-	bv.add_child(sb)
+	var low := UI.hbox(UI.SP_S)
+	var sb := UI.btn_ghost("설정", _settings_sheet, UI.BH_S)
 	# 11/7 버전 · 업데이트 내역 (data/changelog.json)
-	var vb := UI.btn("v%s · 업데이트 내역" % CHANGELOG.version(), _update_sheet, "ghost", 36)
-	vb.add_theme_font_size_override("font_size", 13)
-	vb.add_theme_color_override("font_color", Color("#8d7b5c"))
-	bv.add_child(vb)
+	var vb := UI.btn_ghost("v%s · 업데이트 내역" % CHANGELOG.version(), _update_sheet, UI.BH_S)
+	for x in [sb, vb]:
+		x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		x.add_theme_font_size_override("font_size", UI.FS_BODY)
+		x.add_theme_color_override("font_color", Color("#c6ac7c"))
+		x.add_theme_stylebox_override("normal", UI.flat(Color("#0b0f1a", 0.55), UI.HAIR, 1, UI.R, 10))
+		low.add_child(x)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = UI.SP_XS
+	bv.add_child(gap)
+	bv.add_child(low)
 	v.add_child(bv)
 
 
-## 타이틀 버튼 —— 주 버튼은 금빛 바탕, 나머지는 먹빛 반투명 + 금테
+## 타이틀 버튼 (11/14 감사 #6) —— 주 버튼은 게임 안 주 버튼(UI.btn_primary, 먹금 바탕 + 금 선)과 같은 모양 · 높이 BH_L,
+## 나머지는 보조 버튼에 먹빛 반투명 바탕(그림 위에서 읽히게). 글꼴은 제목 글꼴 FS_TITLE
 func _title_btn(text: String, cb: Callable, main: bool) -> Button:
-	var b := UI.btn(text, cb, "", 56)
-	var bg := Color("#c9952f", 0.92) if main else Color("#0b0f1a", 0.62)
-	var bd := Color("#ffd98a") if main else Color("#d9a64b", 0.7)
-	b.add_theme_stylebox_override("normal", UI.flat(bg, bd, 1, 10, 10))
-	b.add_theme_stylebox_override("hover", UI.flat(bg.lightened(0.08), bd, 1, 10, 10))
-	b.add_theme_stylebox_override("pressed", UI.flat(bg.darkened(0.15), bd, 2, 10, 10))
-	b.add_theme_font_override("font", DB.title_font(19))
-	b.add_theme_font_size_override("font_size", 19)
-	b.add_theme_color_override("font_color", Color("#1a1206") if main else Color("#f0e6cf"))
-	b.add_theme_color_override("font_hover_color", Color("#1a1206") if main else Color("#ffffff"))
+	var b := UI.btn_primary(text, cb, UI.BH_L) if main else UI.btn_secondary(text, cb, UI.BH_M)
+	if not main:
+		b.add_theme_stylebox_override("normal", UI.flat(Color("#0b0f1a", 0.72), Color(DB.PAL.paper, 0.22), 1, UI.R, 10))
+		b.add_theme_stylebox_override("hover", UI.flat(Color(DB.PAL.ink3, 0.85), Color(DB.PAL.paper, 0.35), 1, UI.R, 10))
+	b.add_theme_font_override("font", DB.title_font(UI.FS_TITLE))
+	b.add_theme_font_size_override("font_size", UI.FS_TITLE if main else UI.FS_LABEL + 2)
+	b.add_theme_color_override("font_color", Color("#f0e6cf"))
 	return b
 
 
@@ -1037,8 +1062,23 @@ func _hp_hold() -> bool:
 	return online != null and online.in_game and str(online.room.get("stage", "")) in Room.WATCH_STAGES and not online._seen_all
 
 
+## 11/14 감사 #5: 같은 종류(「희귀 보급 —— 황권」 처럼 「——」 앞이 같은) 알림은 한 줄로 묶는다 —— 「희귀 보급 3장 —— 황권 · 이의 · 마량」.
+##   한 번에 보이는 알림은 최대 TOAST_MAX 줄 (카드 그리드를 가리지 않게)
+const TOAST_MAX := 2
 func toast(text: String, kind := "") -> void:
 	Sfx.play({"gain": "gain", "bad": "deny", "gold": "gain"}.get(kind, "draw"))
+	var cut := text.split(" —— ", true, 1)
+	var grp := "%s|%s" % [kind, cut[0]] if cut.size() > 1 else ""
+	if grp != "":
+		for c in _toast_box.get_children():
+			if c.is_queued_for_deletion() or str(c.get_meta("grp", "")) != grp:
+				continue
+			var items: Array = c.get_meta("items")
+			items.append(cut[1])
+			var unit := "장" if cut[0].ends_with("보급") else "건"
+			(c.get_meta("lbl") as Label).text = UI.keep_words("%s %d%s —— %s" % [cut[0], items.size(), unit, " · ".join(items)])
+			_toast_play(c)
+			return
 	var p := PanelContainer.new()
 	var col: Color = {"gold": DB.PAL.gold, "news": DB.PAL.bamboo, "gain": DB.PAL.jade, "bad": DB.PAL.seal}.get(kind, DB.PAL.bamboo_dim)
 	var sb := UI.flat(Color("#1b2236", 0.97), Color(col, 0.35), 1, UI.R, 12)      # 11/9: 왼쪽 굵은 색 띠 · 그림자 걷음 —— 얇은 선 하나
@@ -1047,12 +1087,26 @@ func toast(text: String, kind := "") -> void:
 	var l := UI.lbl(text, UI.FS_BODY, DB.PAL.danger if kind == "bad" else DB.PAL.paper)
 	UI.wrap_text(l)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.max_lines_visible = 2
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	p.add_child(l)
+	p.set_meta("grp", grp)
+	p.set_meta("items", [cut[1]] if grp != "" else [])
+	p.set_meta("lbl", l)
 	_toast_box.add_child(p)
-	while _toast_box.get_child_count() > 3:
+	while _toast_box.get_child_count() > TOAST_MAX:
 		_toast_box.get_child(0).free()
 	p.modulate.a = 0.0
+	_toast_play(p)
+
+
+## 알림 보이기 → 2.6초 → 사라짐. 묶여서 글이 바뀐 알림은 처음부터 다시 센다
+func _toast_play(p: Control) -> void:
+	var old: Tween = p.get_meta("tw") if p.has_meta("tw") else null
+	if old != null and old.is_valid():
+		old.kill()
 	var tw := p.create_tween()
+	p.set_meta("tw", tw)
 	tw.tween_property(p, "modulate:a", 1.0, 0.15)
 	tw.tween_interval(2.6)
 	tw.tween_property(p, "modulate:a", 0.0, 0.35)
@@ -1114,8 +1168,8 @@ func _next_band() -> void:
 	p.add_theme_stylebox_override("panel", sb)
 	p.anchor_left = 0
 	p.anchor_right = 1
-	p.anchor_top = 0.42
-	p.anchor_bottom = 0.42
+	p.anchor_top = 0
+	p.anchor_bottom = 0
 	var v := UI.vbox(2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := UI.lbl(str(e[0]), UI.FS_TITLE, col.lightened(0.25), true)
@@ -1131,10 +1185,12 @@ func _next_band() -> void:
 	add_child(p)
 	_band_node = p
 	var h := p.get_combined_minimum_size().y
+	# 11/14 감사 #5: 화면 42% 높이에 떠서 카드 이름을 덮었다 —— 머리띠 바로 아래(위쪽)로
+	var y0 := (_top.get_global_rect().end.y - global_position.y + UI.SP_S) if is_instance_valid(_top) else 80.0
 	p.offset_left = 0
 	p.offset_right = 0
-	p.offset_top = -h / 2.0
-	p.offset_bottom = h / 2.0
+	p.offset_top = y0
+	p.offset_bottom = y0 + h
 	p.pivot_offset = Vector2(size.x / 2.0, h / 2.0)
 	p.scale = Vector2(1.0, 0.05)
 	p.modulate.a = 0.0
@@ -1478,6 +1534,16 @@ func _coach_tick() -> void:
 	var key := "forge" if _coach_i == -2 else str(COACH_STEPS[_coach_i][0])
 	var tb: Control = _tabs[key]
 	var aim := Vector2(tb.global_position.x + tb.size.x / 2.0, _tabbar.global_position.y)
+	# 11/14 감사 #6-4: 징집 · 전투 단계는 탭 대신 화면 안 주 행동 버튼(「징집하기」 · 「출진」)을 가리킨다 —— 버튼 바로 아래에 뜬다
+	var cta: Control = {"draw": _draw_cta_node, "war": _war_cta_node}.get(key) if _coach_i >= 0 else null
+	var under := false
+	if cta != null and is_instance_valid(cta) and cta.is_visible_in_tree() and page == key:
+		await get_tree().process_frame
+		if _coach_i != _coach_shown or not is_instance_valid(cta):
+			return
+		var r := cta.get_global_rect()
+		aim = Vector2(r.get_center().x, r.end.y)
+		under = true
 	var w := minf(size.x - 24.0, 340.0)
 	var c: Coach
 	if _coach_i == -2:
@@ -1490,7 +1556,7 @@ func _coach_tick() -> void:
 	else:
 		var st: Array = COACH_STEPS[_coach_i]
 		var last := _coach_i == COACH_STEPS.size() - 1
-		c = Coach.make(str(st[1]), str(st[2]), aim, last, not last, w)
+		c = Coach.make(str(st[1]), str(st[2]), aim, last, not last, w, under)
 		c.next.connect(func():
 			if last:
 				_coach_finish()
@@ -1736,9 +1802,15 @@ func _page_draw() -> Control:
 		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]%d일차 — 난세의 끝[/color][/b] — 마지막 한 세력이 남을 때까지 싸운다. 패배 민심 피해 ×%s" % [run.day + 1, str(snappedf(pow(Run.HP_LATE_MUL, run.day - Run.LAST_TABLE_DAY), 0.01))], UI.FS_BODY), 10))
 
 	# 할 일 —— 기호 타일 한 줄 (11/7 사용자: 세로로 너무 컸다 —— 기호 · 제목을 옆으로 나란히 높이 34, 한 줄 최대 5칸)
+	# 11/14 UI 다듬기 2단계 (감사 #2 · #6-1): 오늘 징집을 아직 안 했으면 할 일 줄 위에 큰 주 행동 카드 「징집하기」 —— 코치 말풍선(1/4)이 이것을 가리킨다.
+	#   징집을 마치면 예전처럼 할 일 줄의 작은 완료 칸(✓ 징집)으로 줄어든다
+	_draw_cta_node = null
+	if n > 0 and not run.drawn:
+		_draw_cta_node = _draw_cta(n)
+		v.add_child(_draw_cta_node)
 	var acts := UI.grid(70, 4)
 	# 11/2 사용자: 타일 아래 설명 글(기본패 14장 · 11종 중 고르기)은 빼고 낮게. 선택권은 타일 하나 —— 고르다 닫아도 「일반 ×2」 같은 타일이 따로 생기지 않고 같은 타일로 다시 연다
-	if n > 0:
+	if n > 0 and run.drawn:
 		acts.add_child(UI.tile_act("draw", "징집", "", func(): act("do_draw"), "pri", run.drawn, not can_act()))
 	if shop_on() or gacha_on():      # 11/13 사용자: 상점은 기본패 징집 바로 다음 칸 (군량 값은 머리띠 민심 위에 늘 보인다 —— 징집 탭 머리의 「군량 N [상점]」 줄은 걷었다)
 		acts.add_child(UI.tile_act("grain", "상점", "", _shop_sheet, "gold" if run.grain >= Run.GACHA_PRICE else ""))
@@ -1774,7 +1846,8 @@ func _page_draw() -> Control:
 		acts.add_child(UI.tile_act("grant", "배급", "", func():
 			for k in act("random_grant"):
 				toast("%s 배급 · %s" % [DB.C[k].name, DB.tier_name(k)], "gain"), "", run.granted, not can_act()))
-	v.add_child(acts)
+	if acts.get_child_count() > 0:
+		v.add_child(acts)
 	var gb := _goal_block()      # 11/13 추천 조합 (가까운 · 인연) —— 할 일 줄 아래, 가진 장수 위
 	if gb != null:
 		v.add_child(gb)
@@ -1816,6 +1889,8 @@ func _page_draw() -> Control:
 			by[key] = []
 		by[key].append(k)
 	_hand_done(inner, by, p, hand_tile)
+	if by.keys().all(func(x): return x is int and x <= 1):      # 11/14 감사 #2: 장수(일반 위)가 하나도 없으면 빈 상태 카드
+		inner.add_child(_draw_empty())
 	# 전설 6열 84 · 희귀 6열 80 · 고급 · 일반 7열 72 —— 지금처럼 등급마다 한 묶음 (기인은 위 [초월 | 기인] 줄로 올라갔다. 폭 56 아래는 작은 칸 그리기)
 	for grp in [[[5], 6, 84.0], [[4], 6, 80.0], [[3, 2], 7, 72.0]]:
 		var g := UI.grid(30, 6)
@@ -1936,6 +2011,46 @@ func _done_group(sp: Array, ks: Array, p: Dictionary, hand_tile: Callable) -> Pa
 		g.add_child(hand_tile.call(k, int(p[k]), sp[3]))
 	v.add_child(g)
 	pc.add_child(v)
+	return pc
+
+
+## 징집 주 행동 카드 (11/14 감사 #2) —— 기호 + 「징집하기」 + 오늘 받는 장수 · 큰 주 버튼(BH_L)
+var _draw_cta_node: Control = null
+func _draw_cta(n: int) -> Control:
+	var b := UI.act("징집하기", "오늘 기본패 %d장을 받는다" % n, func(): act("do_draw"), "pri", not can_act())
+	b.custom_minimum_size.y = UI.BH_L + UI.SP_S
+	var ic := Icons.View.new("draw", Color(DB.PAL.gold, 0.45 if b.disabled else 1.0), 26)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ic.anchor_top = 0.5
+	ic.anchor_bottom = 0.5
+	ic.offset_left = UI.SP_L
+	ic.offset_right = UI.SP_L + 26
+	ic.offset_top = -13
+	ic.offset_bottom = 13
+	b.add_child(ic)
+	return b
+
+
+## 장수가 아직 없을 때의 빈 상태 카드 (11/14 감사 #2) —— 기호 + 두 줄 설명 (+ 징집을 마쳤으면 조합 탭으로 가는 버튼)
+func _draw_empty() -> Control:
+	var v := UI.vbox(UI.SP_S)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	var ic := Icons.View.new("draw", Color(DB.PAL.bamboo, 0.8), 32)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	var t := UI.lbl("아직 장수가 없다", UI.FS_LABEL, DB.PAL.paper, true)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var d := UI.hint("징집으로 기본패를 모으고, 같은 카드를 맞춰 조합 탭에서 장수로 올린다.")
+	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(d)
+	if run.drawn:
+		var gb := UI.btn_secondary("조합하러 가기", func(): go("forge"), UI.BH_S)
+		gb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		gb.custom_minimum_size.x = 160
+		v.add_child(gb)
+	var pc := UI.panel(v, UI.SP_XL)
+	pc.custom_minimum_size.y = 160
 	return pc
 
 
@@ -2314,14 +2429,10 @@ func _shop_sheet(got := []) -> void:
 		var nm := UI.lbl("%s 랜덤권" % DB.TIER[tt].n, UI.FS_LABEL, DB.TIER[tt].c, true)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(nm)
-		var pg := UI.grain(str(price), UI.FS_BODY, DB.PAL.gold if run.grain >= price else DB.PAL.text_dim, false)
-		pg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(pg)
-		var bb := UI.btn("구매", func():
+		var bb := _buy_btn("구매", price, func():
 			if act("buy", [tt]) != null:
-				_shop_sheet(), "pri" if run.grain >= price else "ghost", UI.BH_S)
-		bb.custom_minimum_size.x = 80
-		bb.disabled = run.grain < price or not can_act()
+				_shop_sheet())
+		bb.custom_minimum_size.x = maxf(bb.custom_minimum_size.x, 120)
 		row.add_child(bb)
 		b.add_child(UI.panel(row, 8))
 	_shop_soon(b)
@@ -2344,19 +2455,22 @@ func _gacha_block(b: VBoxContainer, got: Array) -> void:
 	var left := maxi(1, Run.GACHA_PITY - int(run.gacha_pity))
 	v.add_child(UI.rich("[color=#%s][b]고대 확정까지 %d번[/b][/color]" % [Color(DB.D.IGRADE["고대"]).lightened(0.2).to_html(false), left], UI.FS_BODY))
 	var row := UI.hbox(UI.SP_S)
+	var short := []
 	for n in [1, Run.GACHA_TEN]:
 		var nn: int = n
 		var cost := Run.gacha_cost(nn)
-		var ok: bool = run.grain >= cost and can_act()
-		var gb := UI.grain_btn("%d회" % nn, str(cost), func():
+		var gb := _buy_btn("%d회 뽑기" % nn, cost, func():
 			var r = act("gacha", [nn])
 			if r != null:
 				_shop_sheet(r)
-				_gacha_fx(r), "pri" if ok else "ghost", UI.BH_M)
+				_gacha_fx(r))
 		gb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		gb.disabled = not ok
 		row.add_child(gb)
+		if run.grain < cost:
+			short.append("%d회는 군량 %d 더 필요" % [nn, cost - run.grain])
 	v.add_child(row)
+	if not short.is_empty():
+		v.add_child(UI.lbl(" · ".join(short), UI.FS_CAP, DB.PAL.text_dim))
 	var tot := 0.0
 	for g in Run.GACHA_W:
 		tot += float(Run.GACHA_W[g])
@@ -2366,6 +2480,17 @@ func _gacha_block(b: VBoxContainer, got: Array) -> void:
 			odds.append("%s %d%%" % [g, roundi(float(Run.GACHA_W[g]) / tot * 100)])
 	v.add_child(UI.hint(" · ".join(odds)))
 	b.add_child(UI.panel(v, 8))
+
+
+## 상점 구매 버튼 (11/14 감사 #4) —— 어디서나 같은 모양: 주 버튼 안에 [글자 · 쌀가마 값]. 군량이 모자라거나 지금 못 사면 흐린 비활성
+##   (예전엔 살 수 있는 쪽만 금 테두리 · 못 사는 쪽은 남색이라 [1회][10회]가 고르기 토글처럼 보였다)
+func _buy_btn(pre: String, cost: int, cb: Callable) -> Button:
+	var b := UI.grain_btn(pre, str(cost), cb, "pri", UI.BH_M)
+	b.disabled = run.grain < cost or not can_act()
+	if b.disabled:      # 비활성 —— 버튼 모양(먹 바탕 + 얇은 선)은 남기고 안의 글자 · 값만 흐리게
+		b.add_theme_stylebox_override("disabled", UI.flat(DB.PAL.ink2, Color(DB.PAL.paper, 0.16), 1, UI.R, 10))
+		b.get_child(b.get_child_count() - 1).modulate.a = 0.4
+	return b
 
 
 ## 고대 아이템을 뽑았다 (11/13) —— 가운데 띠 「고대 아이템 획득」 + 이름 · 번쩍임 · 완성 소리. 온라인에서는 서버가 다른 사람에게 속보를 보낸다 (Room · UrgentBand "item")
@@ -2409,11 +2534,16 @@ func _sell_sheet(k: String) -> void:
 	hr.add_child(UI.lbl("%s · 보유 %d장%s · 지금" % [DB.tier_name(k), run.have(k), " (편성 %d)" % run.on_board(k) if run.on_board(k) > 0 else ""], UI.FS_BODY, DB.PAL.text_dim))
 	hr.add_child(UI.grain(str(run.grain), UI.FS_BODY, DB.PAL.gold, false))
 	b.add_child(hr)
+	var rare := int(DB.C[k].tier) >= 5 or DB.is_kiin(k)
 	if only_board:
 		b.add_child(UI.hint("편성에 올린 장수다 —— 팔면 편성에서 빠진다."))
+	if rare:
+		var wl := UI.lbl("%s 장수다 —— 팔면 되돌릴 수 없다." % DB.tier_name(k), UI.FS_BODY, DB.PAL.danger)
+		UI.wrap_text(wl)
+		b.add_child(wl)
 	var sb := UI.grain_btn("판매", "+%d" % Run.sell_price(k), func():
 		close_sheet()
-		act("sell", [k]), "warn" if only_board else "pri", UI.BH_M)
+		act("sell", [k]), "warn" if (only_board or rare) else "pri", UI.BH_M)
 	sb.disabled = not can_act()
 	sb.modulate.a = 0.5 if sb.disabled else 1.0
 	b.add_child(sb)
@@ -2422,9 +2552,14 @@ func _sell_sheet(k: String) -> void:
 	b.add_child(UI.btn("장수 정보", func(): card_info(k), "ghost"))
 
 
-## 장수 정보창의 [판매] —— 손패에 없고 편성에만 있으면 확인을 받는다
+## 판매 전에 확인을 받을 장수 (11/14 감사 #3) —— 전설 이상 · 기인 · 손패에 없고 편성에만 있는 장수
+func _sell_needs_confirm(k: String) -> bool:
+	return int(DB.C[k].tier) >= 5 or DB.is_kiin(k) or (int(run.inv.get(k, 0)) <= 0 and run.on_board(k) > 0)
+
+
+## 장수 정보창의 [판매] —— 확인이 필요한 장수(_sell_needs_confirm)는 판매 시트로
 func _sell(k: String) -> void:
-	if int(run.inv.get(k, 0)) <= 0 and run.on_board(k) > 0:
+	if _sell_needs_confirm(k):
 		_sell_sheet(k)
 		return
 	act("sell", [k])
@@ -2474,11 +2609,6 @@ func card_info(k: String) -> void:
 			st.add_child(tb0)
 	top.add_child(st)
 	b.add_child(top)
-	if shop_on() and Run.sellable(k) and int(p.get(k, 0)) > 0:      # 11/13 유닛 판매
-		var sb := UI.grain_btn("판매", "+%d" % Run.sell_price(k), func(): _sell(k), "ghost", UI.BH_S)
-		sb.disabled = not can_act()
-		sb.modulate.a = 0.5 if sb.disabled else 1.0
-		b.add_child(sb)
 	var ab := UI.vbox(UI.SP_S)
 	_ability_rows(ab, k, 12, false, false, [], true)
 	b.add_child(ab)
@@ -2562,6 +2692,22 @@ func card_info(k: String) -> void:
 	for sec in ([up_sec, make_sec] if owned else [make_sec, up_sec]):
 		if sec.get_child_count() > 0:
 			b.add_child(sec)
+	# 11/13 유닛 판매 —— 11/14 감사 #3: 초상 바로 아래 전체 폭 버튼이 상세창에서 가장 눈에 띄었다 (불멸을 실수로 팔 위험).
+	#   맨 아래 머리선 뒤 한 줄로 내리고 작은 보조 버튼으로. 전설 이상 · 기인 · 편성에만 있는 장수는 확인 시트(_sell_sheet)를 거친다
+	if shop_on() and Run.sellable(k) and int(p.get(k, 0)) > 0:
+		b.add_child(UI.hair())
+		var sr := UI.hbox(UI.SP_S)
+		var sl := UI.lbl("보유 %d장 · 팔면 군량을 받는다" % int(p.get(k, 0)), UI.FS_CAP, DB.PAL.text_dim)
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sr.add_child(sl)
+		var sb := UI.grain_btn("판매", "+%d" % Run.sell_price(k), func(): _sell(k), "ghost", UI.BH_S, UI.FS_BODY)
+		sb.disabled = not can_act()
+		sb.modulate.a = 0.5 if sb.disabled else 1.0
+		sb.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), Color(DB.PAL.seal, 0.55), 1, UI.R, 10))
+		sb.custom_minimum_size.x = maxf(sb.custom_minimum_size.x, 128)
+		sr.add_child(sb)
+		b.add_child(sr)
 
 
 ## 접는 칸 —— 머리줄을 누르면 열고 닫는다. 기본은 닫힘, 연 상태는 _open[key] 에 남아 다른 카드에서도 이어진다
@@ -3405,12 +3551,20 @@ func _page_war() -> Control:
 	if true:      # 11/12 최후 1인 —— 옛 최종 토너먼트 화면(대진표)은 없어졌다
 		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
 		# 11/7 사용자: '목요일 오전' 글은 머리띠에 이미 있어 뺀다. 큰 두 줄 버튼(UI.act 64) 은 한 줄(46)로, 끝난 것은 완료 표시만 작게
-		var row := UI.hbox(UI.SP_S)
-		row.add_child(_war_btn("① 토벌", run.quest_name(), run.quest_done, placed == 0, func(): _start("quest"), "pri"))
-		row.add_child(_war_btn("② 대전", "임의 세력" if run.quest_done else "토벌 뒤", run.pvp_done, placed == 0 or not run.quest_done, func(): _start("pvp"), "pri"))
-		v.add_child(row)
-		if run.quest_open():
-			v.add_child(quest_hard_btn())
+		# 11/14 UI 다듬기 2단계 (감사 #1): 출진은 화면에 하나뿐인 큰 주 버튼(BH_L), 험지는 그 아래 켜고 끄는 줄(보조 모양). 끝난 전투는 작은 완료 표시
+		if run.quest_done:
+			var dr := UI.hbox(UI.SP_S)
+			dr.add_child(_war_btn("① 토벌", "", true, false, func(): pass, ""))
+			if run.pvp_done:
+				dr.add_child(_war_btn("② 대전", "", true, false, func(): pass, ""))
+			v.add_child(dr)
+			if not run.pvp_done:
+				v.add_child(_war_cta("출진  ·  대전", "임의 세력과 맞붙는다", placed == 0, func(): _start("pvp")))
+		else:
+			v.add_child(_war_cta("출진  ·  토벌", run.quest_name() + ("  ·  험지" if run.quest_hard else ""), placed == 0, func(): _start("quest")))
+			if run.quest_open():
+				v.add_child(quest_hard_btn())
+			v.add_child(_war_btn("② 대전", "토벌을 마치면 열린다", false, true, func(): pass, ""))
 		var qt := DB.quest_trait(run.day)     # 11/8 토벌 우두머리 성질 —— 그날 아침부터 미리 보인다 (docs/역할_재설계_1108.md 7.3)
 		if not qt.is_empty() and not run.quest_done and Battle.shield_enabled:
 			v.add_child(UI.hint("오늘 토벌 우두머리 —— %s" % DB.trait_text(qt)))
@@ -3464,48 +3618,76 @@ func _page_war() -> Control:
 	return v
 
 
-## 전투 탭 행동 버튼 (11/7 사용자) —— 한 줄 '① 토벌 · 백파적'. 끝났으면 작은 '✓ 토벌 완료' 표시만(누를 수 없다), 못 하면 흐리게
-## 11/12 험지 토벌 고르기 —— 누를 때마다 보통 ↔ 험지 (혼자 하기 전투 탭 · 온라인 준비 단계가 같이 쓴다)
-func quest_hard_btn() -> Button:
-	var on := run.quest_hard
-	# 11/13 사용자: 험지를 고르면 글자가 밀린다 —— 한 줄 글자(버튼 최소 폭 = 글자 폭)가 화면보다 길어 전투 탭 전체가 오른쪽으로 넘쳤다.
-	#   글자는 줄을 바꿔 감싸고(최소 폭 0), ✔ 글리프(기기마다 이모지로 바뀐다)는 선 기호로 그린다
-	var txt := ("험지 토벌 — 적 병력 ×%s · 이기면 %s +1\n다시 누르면 보통 토벌" if on else "험지로 토벌 — 적 병력 ×%s · 이기면 %s +1") % [str(Run.QUEST_HARD_TR), run.quest_hard_reward_text()]
-	var b := UI.btn(txt, func(): act("set_quest_hard", [not on]), "warn" if on else "gold", UI.BH_S)      # 11/13 꺼져 있을 때도 눈에 띄게 (ghost → gold)
-	UI.wrap_text(b)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_font_size_override("font_size", UI.FS_BODY)
-	if on:
-		for st in ["normal", "hover", "pressed", "focus"]:
-			var sb := b.get_theme_stylebox(st)
-			if sb != null:
-				sb = sb.duplicate()
-				sb.content_margin_left = 34
-				b.add_theme_stylebox_override(st, sb)
-		var ic := Icons.View.new("check", DB.PAL.paper, 16)
-		ic.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
-		ic.position = Vector2(12, -8)
-		b.add_child(ic)
+## 전투 탭 출진 버튼 (11/14 감사 #1) —— 두 줄 큰 주 버튼. 코치 말풍선(4/4)이 이것을 가리킨다
+var _war_cta_node: Control = null
+func _war_cta(title: String, sub: String, disabled: bool, cb: Callable) -> Button:
+	var b := UI.act(title, sub, cb, "pri", disabled)
+	b.custom_minimum_size.y = UI.BH_L
+	_war_cta_node = b
 	return b
 
 
+## 11/12 험지 토벌 고르기 —— 누를 때마다 보통 ↔ 험지 (혼자 하기 전투 탭 · 온라인 준비 단계가 같이 쓴다)
+## 11/14 감사 #1: 금색 전체 폭 버튼이 출진보다 눈에 띄었다 —— 보조 상자 + 오른쪽 켜고 끄기 스위치 한 줄. 글자는 줄바꿈(최소 폭 0)
+func quest_hard_btn() -> Control:
+	var P := DB.PAL
+	var on := run.quest_hard
+	var box := PanelContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_stylebox_override("panel", UI.flat(P.ink2, Color(P.seal, 0.7) if on else UI.HAIR, 1, UI.R, UI.SP_M))
+	var row := UI.hbox(UI.SP_M)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tv := UI.vbox(2)
+	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tv.add_child(UI.lbl("험지 토벌" + ("  ·  켜짐" if on else ""), UI.FS_LABEL, P.danger if on else P.paper, true))
+	var sub := UI.lbl("적 병력 ×%s · 이기면 %s +1" % [str(Run.QUEST_HARD_TR), run.quest_hard_reward_text()], UI.FS_CAP, P.text_dim)
+	UI.wrap_text(sub)
+	tv.add_child(sub)
+	for c in tv.get_children():
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(tv)
+	var sw := Control.new()      # 스위치 —— 네모 트랙(모서리 UI.R) + 손잡이. 켜지면 인장 붉음 · 손잡이 오른쪽
+	sw.custom_minimum_size = Vector2(44, 24)
+	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sw.draw.connect(func():
+		sw.draw_style_box(UI.flat(P.seal.darkened(0.2) if on else P.ink, Color(P.seal, 0.9) if on else Color(P.paper, 0.25), 1, UI.R, 0), Rect2(Vector2.ZERO, sw.size))
+		var k := Rect2(Vector2(sw.size.x - 21.0 if on else 3.0, 3.0), Vector2(18, 18))
+		sw.draw_style_box(UI.flat(P.paper if on else P.bamboo, Color(0, 0, 0, 0), 0, 3, 0), k))
+	row.add_child(sw)
+	box.add_child(row)
+	var hit := TouchButton.new()      # 상자 전체가 누르는 곳 (PanelContainer 가 자식을 겹쳐 채운다)
+	hit.flat = true
+	for st in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
+		hit.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	hit.pressed.connect(func():
+		UI.buzz()
+		act("set_quest_hard", [not on]))
+	box.add_child(hit)
+	return box
+
+
+## 끝난 전투 · 잠긴 전투 표시 (11/7 사용자) —— 끝났으면 작은 '✓ 토벌 완료'(누를 수 없다), 잠겼으면 흐린 작은 줄
 func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callable, kind: String) -> Button:
 	var P := DB.PAL
 	if done:
 		var d := UI.btn("✓ %s 완료" % title.substr(2), func(): pass, "", UI.BH_S)
 		d.disabled = true
+		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		d.add_theme_font_size_override("font_size", UI.FS_BODY)
 		d.add_theme_color_override("font_disabled_color", Color(P.jade, 0.9))
-		d.add_theme_stylebox_override("disabled", UI.flat(Color(P.jade, 0.08), Color(P.jade, 0.4), 1, 17, 0))
+		d.add_theme_stylebox_override("disabled", UI.flat(Color(P.jade, 0.08), Color(P.jade, 0.4), 1, UI.R, 0))
 		var sb: StyleBoxFlat = d.get_theme_stylebox("disabled")
 		sb.content_margin_left = 12
 		sb.content_margin_right = 12
 		return d
-	var b := UI.btn("%s · %s" % [title, sub] if sub != "" else title, cb, kind, UI.BH_M)
+	var b := UI.btn("%s  —  %s" % [title, sub] if sub != "" else title, cb, kind, UI.BH_S)
 	b.disabled = disabled
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_font_size_override("font_size", UI.FS_BODY)
-	b.add_theme_font_override("font", DB.title_font(15))
+	b.add_theme_color_override("font_disabled_color", P.text_dim)
+	b.add_theme_stylebox_override("disabled", UI.flat(Color(P.ink2, 0.45), Color(0, 0, 0, 0), 0, UI.R, 10))
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return b

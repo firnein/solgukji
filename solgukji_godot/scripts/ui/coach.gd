@@ -10,12 +10,14 @@ var _panel: PanelContainer
 var _arrow: Control
 var aim := Vector2.ZERO      # 가리키는 탭 가운데 x · 탭바 윗변 y (전역)
 var _w := 340.0
+var below := false      # 11/14 true 면 화면 안 행동 버튼(aim = 그 버튼 아래 가운데) 바로 아래에 뜨고 꼬리가 위를 가리킨다
 
 
 ## head 는 작은 머리글(금), body 는 본문. last 면 [다음] 대신 [확인], skippable 이면 [건너뛰기]
-static func make(head: String, body: String, aim_g: Vector2, last: bool, skippable: bool, width: float) -> Coach:
+static func make(head: String, body: String, aim_g: Vector2, last: bool, skippable: bool, width: float, under := false) -> Coach:
 	var c := Coach.new()
 	c.aim = aim_g
+	c.below = under
 	c._w = width
 	c._build(head, body, last, skippable)
 	return c
@@ -46,9 +48,10 @@ func _build(head: String, body: String, last: bool, skippable: bool) -> void:
 	_arrow = Control.new()
 	_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_arrow.draw.connect(func():
-		var pts := PackedVector2Array([Vector2(-9, 0), Vector2(0, 10), Vector2(9, 0)])
+		var tip := -10.0 if below else 10.0
+		var pts := PackedVector2Array([Vector2(-9, 0), Vector2(0, tip), Vector2(9, 0)])
 		_arrow.draw_colored_polygon(pts, DB.PAL.ink2)
-		_arrow.draw_polyline(PackedVector2Array([Vector2(-9, 0), Vector2(0, 10), Vector2(9, 0)]), Color(DB.PAL.gold, 0.85), 1.0))
+		_arrow.draw_polyline(pts, Color(DB.PAL.gold, 0.85), 1.0))
 	add_child(_arrow)
 	_panel.resized.connect(_place)
 	_panel.reset_size()
@@ -63,8 +66,8 @@ func _place() -> void:
 	var org := global_position
 	var sw := get_parent_area_size().x
 	var x := clampf(aim.x - org.x - _w / 2.0, 12.0, maxf(12.0, sw - _w - 12.0))
-	var y := aim.y - org.y - 14.0 - h
+	var y := (aim.y - org.y + 14.0) if below else (aim.y - org.y - 14.0 - h)
 	_panel.size = Vector2(_w, h)
 	_panel.position = Vector2(x, y)
-	_arrow.position = Vector2(clampf(aim.x - org.x, x + 16.0, x + _w - 16.0), y + h - 1.0)
+	_arrow.position = Vector2(clampf(aim.x - org.x, x + 16.0, x + _w - 16.0), (y + 1.0) if below else (y + h - 1.0))
 	_arrow.queue_redraw()
