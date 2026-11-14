@@ -2261,6 +2261,7 @@ func picker(t: int) -> void:
 	var was_open := _sheet.visible
 	var b := open_sheet("%s 선택권 — 남은 %d회" % [DB.TIER[t].n, left])
 	_sheet_full = true      # 11/6 사용자 2차: 타일이 너무 작다 → 전체 화면 높이 · 큰 타일 · 병종 묶음
+	b.add_child(UI.lbl("한 장을 누르면 바로 받는다", UI.FS_CAP, DB.PAL.text_dim))      # 11/14 UI 4단계: 누르면 무엇이 되는지 한 줄
 	var vp := get_viewport_rect().size
 	var full: float = (_sheet.size.x if _sheet.size.x > 100 else vp.x) - 36
 	var gap := 6.0
@@ -3586,7 +3587,15 @@ func _page_war() -> Control:
 			v.add_child(_war_btn("② 대전", "토벌을 마치면 열린다", false, true, func(): pass, ""))
 		var qt := DB.quest_trait(run.day)     # 11/8 토벌 우두머리 성질 —— 그날 아침부터 미리 보인다 (docs/역할_재설계_1108.md 7.3)
 		if not qt.is_empty() and not run.quest_done and Battle.shield_enabled:
-			v.add_child(UI.hint("오늘 토벌 우두머리 —— %s" % DB.trait_text(qt)))
+			# 11/14 UI 4단계: 전투 결정에 중요한 정보인데 회색 작은 글씨였다 —— 기호 + 금빛 굵은 머리 + 종이색 본문 한 패널
+			var qh := UI.hbox(UI.SP_S)
+			var qi := Icons.View.new("burst", DB.PAL.gold, 18)
+			qi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			qh.add_child(qi)
+			var ql := UI.rich("[b][color=%s]오늘 토벌 우두머리[/color][/b]  %s" % [DB.PAL.gold.to_html(false), DB.trait_text(qt)], UI.FS_BODY)
+			ql.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			qh.add_child(ql)
+			v.add_child(UI.panel(qh, 10))
 		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
 		var qr = run.quest_roster()
 		if qr != null and not run.quest_done and run.board.has(DB.kiin_card("wind_slow")):
@@ -3625,6 +3634,18 @@ func _page_war() -> Control:
 		var fp := UI.panel(fv, 0)
 		fp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		# 11/14 UI 4단계: 아래 진영 그림이 편성 탭과 무엇이 다른지(보기만 하는 곳) 몰랐다 —— 머리줄 「출진 진영」 + 오른쪽 「편성 바꾸기 ›」
+		var fh := UI.hbox(UI.SP_S)
+		var ft := UI.eyebrow("출진 진영")
+		ft.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ft.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		fh.add_child(ft)
+		var fb := UI.btn_ghost("편성 바꾸기 ›", func(): go("deploy"), UI.BH_XS)
+		fb.add_theme_font_size_override("font_size", UI.FS_CAP)
+		fb.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+		fb.add_theme_color_override("font_color", DB.PAL.gold)
+		fh.add_child(fb)
+		v.add_child(fh)
 		v.add_child(fp)
 	if true:
 		# 11/7: 전투 탭은 고정 페이지(render 의 fixed —— 진영 그림이 남는 공간을 채운다)라 내용이 길면(점괘 · 펼친 효과 표) 아래가 잘리고

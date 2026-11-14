@@ -325,6 +325,8 @@ func connect_sheet(refresh := false) -> void:
 	_name_edit = LineEdit.new()
 	_name_edit.text = net.player
 	_name_edit.max_length = 12
+	_name_edit.placeholder_text = "대전에서 보일 이름 (12자까지)"      # 11/14 UI 4단계: 비었을 때 무엇을 넣는 칸인지
+	_name_edit.select_all_on_focus = true
 	_name_edit.custom_minimum_size = Vector2(0, 48)
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row2.add_child(_name_edit)
