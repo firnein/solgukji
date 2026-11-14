@@ -1916,6 +1916,15 @@ func _page_draw() -> Control:
 			for k in by.get(t, []):
 				g.add_child(hand_tile.call(k, p[k], grp[2]))
 		if g.get_child_count() > 0:
+			# 11/14 UI 4단계: 묶음이 줄 간격으로만 나뉘어 어디서 등급이 바뀌는지 안 보였다 —— 작은 등급 머리글 (등급색 글자 + 장 수, 높이 한 줄)
+			var tn: Array = []
+			var cnt := 0
+			for t in grp[0]:
+				if by.has(t):
+					tn.append(DB.TIER[t].n)
+					cnt += by[t].size()
+			var hl := UI.lbl("%s  %d" % [" · ".join(tn), cnt], UI.FS_CAP, DB.TIER[grp[0][0]].c.lightened(0.2), true)
+			inner.add_child(hl)
 			inner.add_child(g)
 	hs.add_child(inner)
 	var base := UI.grid(30, 4)      # 11/6 사용자: 기본병 8종은 맨 윗줄에 (조합 재료의 출발점이라 먼저 본다)
@@ -3473,7 +3482,7 @@ func _page_forge() -> Control:
 	for r in lst.slice(0, shown_n):
 		g.add_child(_forge_tile(r[0]))
 	var sec2 := UI.vbox(UI.SP_S)
-	sec2.add_child(UI.head(("나머지 %d" if not ready.is_empty() else "조합법 %d") % lst.size(), ""))
+	sec2.add_child(UI.head(("나머지 %d" if not ready.is_empty() else "조합법 %d") % lst.size(), "−N = 모자란 재료 수"))      # 11/14 UI 4단계: 빨간 −1 · −2 배지의 뜻을 머리줄 오른쪽에 한 번
 	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
 	if shown_n < lst.size():
 		var rest: Array = lst.slice(shown_n)
