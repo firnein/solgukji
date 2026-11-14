@@ -648,7 +648,7 @@ const KIIN_SHARE_N := 2            # 단복 서서 —— 나눠 받는 가장 �
 const KIIN_TEXT := {"guard": "병력 70% 아래 아군이 받는 피해의 절반을 대신 받는다", "no_charge": "적 기병의 첫 돌격을 막는다",
 	"charge_up": "아군 기병의 첫 돌격 피해 +50%", "ult_block": "적 고유기 두 번을 막아 낸다",
 	"ult_cut": "적이 고유기 기를 모으면 두 번까지 끊고 게이지를 비운다", "heal_cut": "적 회복 −50% · 이기면 기본패 +2",
-	"ambush": "개전에 적 후열 하나를 습격 (사기 −40 · 혼란 2턴)",
+	"ambush": "개전에 적 후열 하나를 습격 (사기 −40 · 잠시 혼란)",
 	"death_gauge": "쓰러지면 아군 전원 고유기 게이지 +70 · 사기 +15", "ticket": "이기면 그날 보급 등급 선택권 +1 (전설 등급이면 랜덤권)",
 	"aura_half": "적 위세 효과 절반", "revive": "처음 무너진 아군 2부대를 병력 40%로 일으켜 세운다",
 	"seal": "개전과 중반에 적 전원 기술 봉인", "wind_slow": "적 고유기 기 모으기 +1초 · 편성에 있으면 토벌 적 편성을 미리 본다",
@@ -1157,12 +1157,12 @@ func trait_list(k: String) -> Array:
 		var st := shred_text(k, t.name, t.m)
 		if st != "":
 			tmt = (tmt + " · " if tmt != "" else "") + st
-		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": t.d, "mt": tmt}
+		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": turn_text(t.d, C[k].tier), "mt": tmt}
 	for g in ps.groups:
 		var gmt := mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)
 		if by.has(g.name) and by[g.name].mt != "":      # 금색 —— 주인 장치 수치도 함께
 			gmt = (gmt + " · " if gmt != "" else "") + "자신 " + by[g.name].mt
-		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": g.d, "mt": gmt}
+		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": turn_text(g.d, C[k].tier), "mt": gmt}
 	var out := []
 	for e in PSV.ladder[person(k)]:
 		if by.has(e[0]):
@@ -1209,11 +1209,11 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "�
 	"morale": "시작 사기", "crit": "치명타 확률", "critd": "치명타 피해", "icrit": "치명타 확률", "rate": "스킬 발동",
 	"dr": "받는 피해 -", "idr": "받는 피해 -", "rout": "패주 확률 -", "shock": "큰 손실 충격 -",
 	"counter": "반격", "stres": "상태이상 저항", "low_atk": "절반 이하 공격", "avenge": "아군 이탈마다 공격",
-	"opener": "첫 공격 피해", "first": "선공", "regen": "턴마다 병력", "mregen": "턴마다 사기",
+	"opener": "첫 공격 피해", "first": "선공", "regen": "일정 시간마다 병력", "mregen": "일정 시간마다 사기",
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
 	"rpierce": "적 방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 공격", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
-	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속(턴)", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
+	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
 	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항", "fire_hit": "불길 추가 피해", "water_hit": "물살 추가 피해",
 	"shatter": "와해 확률", "break_amp": "와해된 적에게 피해", "break_hit": "충격 추가 피해", "exec_break": "와해된 적 처형 문턱", "break_res": "와해 저항",
 	"aim": "표식 확률", "mark_amp": "표식된 적에게 피해", "mark_hit": "관통 추가 피해", "mark_res": "표식 저항",
@@ -1256,13 +1256,42 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 			var pct: bool = k in ["regen", "mend", "cheer_hit"]
 			out.append(("%s%s%.0f%%" if pct else ("%s%s%.1f" if k == "terror" else "%s%s%.0f")) % [FLOW_LABEL.get(k, lb), sign, v * 100 if pct else v])
 			continue
-		if k in MOD_FLAT:
+		if k == "burn_dur":      # 11/14 화상 지속 —— 턴 대신 초
+			out.append("%s +%s" % [lb, sec_text(v, tier)])
+		elif k in MOD_FLAT:
 			out.append("%s%s%.0f" % [lb, sign, v])
 		elif absf(v * 100) < 5.0 and absf(v * 100 - roundf(v * 100)) >= 0.05:      # 11/13 작은 % 는 한 자리까지 —— 정수로 반올림하면 레벨이 올라도 '+1% · +1%' 로 같아 보였다
 			out.append("%s%s%.1f%%" % [lb, sign, v * 100])
 		else:
 			out.append("%s%s%.0f%%" % [lb, sign, v * 100])
 	return " · ".join(out)
+
+
+## 11/14 전투가 실시간이라 화면에는 '턴' 대신 초로 —— 턴 수 × 그 등급 한 턴 길이(RtBattle.turn_sec), 0.5초 단위 (최소 0.5). 수치 · 판정은 그대로
+func sec_text(turns: float, tier: float) -> String:
+	return sec_str(turns * RtBattle.turn_sec(tier))
+
+
+## 초 → "약 X초" (0.5초 단위, 최소 0.5)
+func sec_str(sec: float) -> String:
+	var s := maxf(0.5, snappedf(sec, 0.5))
+	return "약 %s초" % (str(roundi(s)) if is_equal_approx(s, roundf(s)) else "%.1f" % s)
+
+
+var _turn_re: RegEx
+
+## 데이터 설명글의 'N턴' · '턴마다' 를 그 카드 등급의 초로 (데이터 원문은 그대로 둔다)
+func turn_text(s: String, tier: float) -> String:
+	if s.find("턴") < 0:
+		return s
+	s = s.replace("첫 턴에", "개전 직후").replace("몇 턴 동안", "잠시").replace("턴마다", sec_text(1, tier) + "마다").replace("한 턴 더", sec_text(1, tier) + " 더")
+	if _turn_re == null:
+		_turn_re = RegEx.create_from_string("(\\d+)턴")
+	var ms := _turn_re.search_all(s)
+	for i in range(ms.size() - 1, -1, -1):
+		var m: RegExMatch = ms[i]
+		s = s.substr(0, m.get_start()) + sec_text(float(m.get_string(1)), tier) + s.substr(m.get_end())
+	return s
 
 
 func passive_text(k: String) -> String:
@@ -1322,7 +1351,7 @@ const INYEON_THEME_KIND := {"ignite": "점화", "spread": "불길 번짐", "blaz
 	"plague": "역병", "cleanse": "정화", "duel": "일기토"}
 const INYEON_THEME_DESC := {"ignite": "적 전원 화상, 이미 타는 적은 남은 화상이 즉시 터진다", "spread": "적 선봉 화상, 타는 적마다 같은 열로 번진다",
 	"blaze": "타는 적의 불길이 거세지고 안 타는 적은 화상", "steam": "적 전원 수몰 · 화상, 화상 ×1.3", "flood": "적 전원 수몰, 병력이 바닥난 적은 휩쓸려 패주",
-	"tide": "적 후군 수몰 + 기습", "counter": "아군 전원 반격 확률 · 반격 피해 크게 (2턴)", "chase": "연쇄 장수마다 적을 몰아친다 (무너진 적만큼)",
+	"tide": "적 후군 수몰 + 기습", "counter": "아군 전원 반격 확률 · 반격 피해 크게 (잠시)", "chase": "연쇄 장수마다 적을 몰아친다 (무너진 적만큼)",
 	"momentum": "아군 전원 다음 공격 강화", "exec": "방어가 깎인 적을 베어 넘기고 적 선봉 방어를 깎는다", "confuse": "적 상위 부대 혼란",
 	"slow": "적 전원 둔화 · 고유기 게이지 감소", "ambush": "기 모으는 적을 끊고, 나머지 적 고유기 게이지 감소", "plague": "적 전원 역병 · 적 최강 장수 봉인",
 	"cleanse": "아군 전원 상태이상 해제 · 사기", "duel": "적 최강 장수에게 일격 · 사기 감소"}
@@ -1915,8 +1944,8 @@ func skill_desc(c: Dictionary, sk = null) -> String:
 	if e.has("morale"): p.append("사기 −%.1f" % (e.morale * pc))
 	if e.has("pierce"): p.append("방어 %s 무시" % pct.call(e.pierce))
 	if e.has("exec"): p.append("병력 %s 이하면 즉시 이탈" % pct.call(e.exec))
-	if e.has("stance"): p.append("자신 반격 %s · %d턴" % [pct.call(e.stance.amt), e.stance.dur])
-	if e.has("status"): p.append("『%s』 %d턴" % [D.STATUS[e.status.k].n, e.status.dur])
+	if e.has("stance"): p.append("자신 반격 %s · %s" % [pct.call(e.stance.amt), sec_text(e.stance.dur, c.tier)])
+	if e.has("status"): p.append("『%s』 %s" % [D.STATUS[e.status.k].n, sec_text(e.status.dur, c.tier)])
 	if e.has("tHeal"): p.append("아군 병력 %.1f%% 회복" % (e.tHeal * pc * 100))
 	if e.has("heal"): p.append("아군 전원 사기 +%d" % roundi(e.heal * (1.0 if e.get("rally", false) else pc)))
 	if e.has("cleanse"): p.append("아군 상태이상 %d종 해제" % e.cleanse)
@@ -2043,8 +2072,8 @@ const AURA_TO := {"all": "아군", "front": "선봉 · 전군 아군", "back": "
 const AURA_FOE := {"all": "적", "front": "적 선봉 · 전군", "back": "적 중군 · 후군"}
 ## 특수 효과 이름 —— [이름, 백분율로 보이는가]
 const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해", true], "dr": ["받는 피해", false],
-	"idr": ["받는 피해", false], "counter": ["반격 확률", true], "regen": ["턴마다 병력 회복", true],
-	"mregen": ["턴마다 사기 회복", false], "rate": ["기술 발동", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
+	"idr": ["받는 피해", false], "counter": ["반격 확률", true], "regen": ["일정 시간마다 병력 회복", true],
+	"mregen": ["일정 시간마다 사기 회복", false], "rate": ["기술 발동", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
 	"low_atk": ["병력 절반 아래 공격", true], "kill_amp": ["적을 무너뜨린 뒤 피해", true], "weak_amp": ["약해진 적에게 피해", true],
 	"ignite": ["점화 확률", true], "spread": ["불 번짐", true], "st_amp": ["지속 피해 세기", true], "opener": ["첫 공격 피해", true],
 	"fire_res": ["화공 저항", true], "cleave": ["같은 열 이웃에게 피해", true], "icleave": ["같은 열 이웃에게 피해", true],

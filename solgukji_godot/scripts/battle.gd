@@ -1326,6 +1326,11 @@ func add_buff(u: Unit, b: Dictionary) -> void:
 		"+" if up else "", roundi(b.amt * 100)], {"fx": "buff", "f": u.key, "up": up})
 
 
+## 한 턴의 실제 길이 (초) —— 전투 기록에 지속을 초로 적을 때. 턴 엔진은 기본 길이로 어림, 실시간 엔진은 이번 전투의 period
+func _turn_sec() -> float:
+	return RtBattle.period_base
+
+
 func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	if not d.alive: return
 	if mv(d, "stres") > 0 and rng.randf() < mv(d, "stres"):
@@ -1367,7 +1372,7 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 				if s.dur <= w.dur: w = s
 			d.st.erase(w)
 		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp, "by": a.key if a else ""})
-	L("st", "%s 『%s』에 걸렸다 — %d턴" % [ga(nm(d)), DB.D.STATUS[kind].n, t],
+	L("st", "%s 『%s』에 걸렸다 — %s" % [ga(nm(d)), DB.D.STATUS[kind].n, DB.sec_str(t * _turn_sec())],
 		{"fx": "status", "f": d.key, "st": kind})
 	if temper_enabled and a and a.alive and a.camp != d.camp and not _in_ult:      # 11/7 지략 —— 상태이상을 걸 때마다 찬다
 		_gauge_add(a, _tw(a, "status"))

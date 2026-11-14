@@ -73,8 +73,8 @@ func _est_h(cp: String) -> float:
 
 func _len_text() -> String:
 	var t: float = res.get("view_len", res.get("len", 0.0))      # 11/3 화면 시계(위쪽 0:00)와 같은 시간 —— 엔진 시간은 화면에서 늘려 보여 준다
-	if t <= 0:
-		return "%d턴" % res.turns
+	if t <= 0:      # 예전 턴 엔진 결과 —— 턴 수 × 기본 한 턴 길이로 어림
+		t = float(res.get("turns", 0)) * RtBattle.period_base
 	return "%d:%02d" % [int(t) / 60, int(t) % 60]
 
 
