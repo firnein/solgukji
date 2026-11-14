@@ -1328,15 +1328,20 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 	var v := UI.vbox(UI.SP_S)
 	var h := UI.hbox(UI.SP_S)
 	var nl := UI.lbl(str(r.name), UI.FS_LABEL, P.gold if r.me else P.paper, true)
-	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	nl.clip_text = true
-	h.add_child(nl)
+	# 11/14 UI 4단계 (감사 09-2): 「봇 · 나 · 멸망」 표시가 이름에서 떨어져 민심 게이지 앞에 붙었다 —— 이름 바로 옆에 (이름은 제 폭까지만, 길면 … )
+	var nf: Font = DB.title_font(UI.FS_LABEL)
+	nl.custom_minimum_size.x = minf(nf.get_string_size(str(r.name), HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_LABEL).x + 2.0, 150.0)
+	var nh := UI.hbox(UI.SP_XS)
+	nh.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nh.add_child(nl)
+	h.add_child(nh)
 	var tag := ""
 	var tcol: Color = P.bamboo_dim
 	if r.me:
-		tag = "나"
+		tag = "" if str(r.name) == "나" else "나"      # 이름이 이미 「나」면 「나 나」로 겹치지 않게
 		tcol = P.jade
 	elif r.dead:
 		tag = "멸망"
@@ -1349,7 +1354,7 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 	if tag != "":
 		var tl := UI.lbl(tag, UI.FS_CAP, tcol, true)
 		tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(tl)
+		nh.add_child(tl)
 	if r.has("st") and scr.online != null:
 		h.add_child(scr.online.st_view(str(r.name), str(r.st)))      # 11/12 지금 하는 일 (온라인 사람 칸만)
 	if bool(r.get("bot", false)) and (int(r.hp) < 0 or r.dead):
