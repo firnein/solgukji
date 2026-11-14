@@ -2419,8 +2419,7 @@ class Hud extends Control:
 			if sq.camp == "A" and sq.troops / sq.max < 0.3 and sq.troops > 0:
 				if not _threat_seen.has("h" + sq.key):
 					_threat_seen["h" + sq.key] = view.clock
-				if view.clock - float(_threat_seen["h" + sq.key]) < 3.0:
-					items.append(["%s 위태롭다" % nm, Color("#ffb070")])
+				pass      # 11/14 UI 4단계: 「○○ 위태롭다」 칸은 적 부대를 가렸다 —— 아래 장수 칸 테두리가 깜빡이는 것으로 대신 (적 고유기 준비 칸은 남긴다)
 		var y := 104.0
 		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
 		for it in items.slice(0, 3):
@@ -3724,9 +3723,16 @@ class MiniCard extends Control:
 		var lv := view.unit_live(sq.key)
 		var ready := view.ult_ready(sq.key)
 		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], ready]
-		if now != _last or ready or _waiting(lv):
+		if now != _last or ready or _waiting(lv) or _danger():      # 위태한 칸은 테두리가 깜빡이도록 매 프레임
 			_last = now
 			queue_redraw()
+
+	## 병력 30% 아래 (11/6 #16 위험 신호) —— 11/14 UI 4단계: 맵 오른쪽 위 「○○ 위태롭다」 칸 대신 이 칸의 붉은 테두리가 깜빡인다
+	func _danger() -> bool:
+		return sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3
+
+	func _danger_col() -> Color:
+		return Color(DB.PAL.danger, 0.45 + 0.55 * absf(sin(Time.get_ticks_msec() / 1000.0 * 5.0)))
 
 	## 11/6 #14 게이지는 찼는데 차례(대기 · 간격 · 조건)를 기다리는 중 —— 「준비」 가 깜빡인다
 	func _waiting(lv: Array) -> bool:
@@ -3777,7 +3783,7 @@ class MiniCard extends Control:
 		sb.set_corner_radius_all(6)
 		var danger: bool = sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3      # 11/6 #16 위험 신호
 		sb.set_border_width_all(3 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 2)      # 11/6 사용자: 프로필 테두리를 더 구별되게 (등급색 2px)
-		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (DB.PAL.danger if (sq.hurt > 0.05 or danger) else tc)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (DB.PAL.danger if sq.hurt > 0.05 else (_danger_col() if danger else tc))
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		Art.draw_portrait(self, Rect2(4, 4, 34, 38), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
 		if BattleView.Hud.shaky(sq):      # 11/11 사기 30 아래 —— 초상 아래에 「동요」 딱지
@@ -3814,7 +3820,7 @@ class MiniCard extends Control:
 		sb.set_corner_radius_all(6)
 		var danger: bool = sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3      # 11/6 #16 위험 신호
 		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 1)
-		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (DB.PAL.danger if (sq.hurt > 0.05 or danger) else tc)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (DB.PAL.danger if sq.hurt > 0.05 else (_danger_col() if danger else tc))
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		var bar_y := 39.0
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
