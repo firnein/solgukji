@@ -37,6 +37,10 @@ func _ready() -> void:
 	gs.go("deploy")
 	await get_tree().create_timer(1.0).timeout
 	await _shot(out + "/23_deploy_hand_open.png")
+	gs.deploy.seg = ""
+	gs._confirm_new()      # 11/14 UI 4단계 —— 새 판 확인 시트
+	await get_tree().create_timer(0.8).timeout
+	await _shot(out + "/24_confirm_new.png")
 	get_tree().quit()
 
 

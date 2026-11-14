@@ -638,7 +638,7 @@ func _build_title() -> void:
 	var bv := UI.vbox(UI.SP_M)
 	if Run.has_save():
 		bv.add_child(_title_btn("이어 하기", _continue, true))
-	bv.add_child(_title_btn("새 판 시작", _new_game, not Run.has_save()))
+	bv.add_child(_title_btn("새 판 시작", _confirm_new if Run.has_save() else _new_game, not Run.has_save()))      # 11/14 UI 4단계: 저장된 판이 있으면 확인부터
 	bv.add_child(_title_btn("온라인 대전", _go_online, false))
 	var low := UI.hbox(UI.SP_S)
 	var sb := UI.btn_ghost("설정", _settings_sheet, UI.BH_S)
@@ -698,6 +698,24 @@ func _continue() -> void:
 		go("war")
 		return
 	go("draw")
+
+
+## 새 판 확인 (11/14 UI 4단계) —— 되돌릴 수 없는 행동은 확인 한 번. [취소] 왼쪽 · [새 판 시작] 오른쪽 (위험 붉음)
+func _confirm_new() -> void:
+	var b := open_sheet("새 판을 시작할까요?")
+	var d := UI.lbl("지금 진행 중인 판은 사라지고 되돌릴 수 없습니다.", UI.FS_BODY, DB.PAL.danger)
+	UI.wrap_text(d)
+	b.add_child(d)
+	var row := UI.hbox(UI.SP_S)
+	var no := UI.btn_ghost("취소", close_sheet)
+	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(no)
+	var ok := UI.btn("새 판 시작", func():
+		Run.delete_save()
+		_new_game(), "warn")
+	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(ok)
+	b.add_child(row)
 
 
 func _new_game() -> void:
@@ -1405,9 +1423,7 @@ func _menu() -> void:
 		close_sheet()
 		_title.queue_free()
 		_build_title()))
-	b.add_child(UI.btn("새 판 시작 (지금 판은 사라집니다)", func():
-		Run.delete_save()
-		_new_game(), "warn"))
+	b.add_child(UI.btn("새 판 시작", _confirm_new, "warn"))      # 11/14 UI 4단계: 한 번에 지우지 않고 확인 시트
 	b.add_child(UI.btn("설정", _settings_sheet, "ghost"))
 	if OS.has_feature("pc"):      # 11/5 사용자: 친구들에게 플레이 기록을 받으려고 —— 휴대폰은 앱 폴더라 열 수 없다
 		var dir := ProjectSettings.globalize_path(PlayLog.dir).replace("/", "\\")
@@ -2302,13 +2318,21 @@ func picker(t: int) -> void:
 			if ks.is_empty():
 				continue
 			var row := UI.hbox(int(gap))
+			# 11/14 UI 4단계: 기호만으로는 처음 보는 사람이 병종을 모른다 —— 기호 아래 병종 이름 (작은 글자)
+			var iv := UI.vbox(2)
+			iv.alignment = BoxContainer.ALIGNMENT_CENTER
+			iv.custom_minimum_size = Vector2(icon_w, th)
 			var ic := TextureRect.new()
 			ic.texture = DB.ICON.get(tag)
 			ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			ic.custom_minimum_size = Vector2(icon_w, th)
+			ic.custom_minimum_size = Vector2(icon_w, 20)
 			ic.modulate = Color(DB.PAL.bamboo, 0.85)
-			row.add_child(ic)
+			iv.add_child(ic)
+			var il := UI.lbl(str(tag), UI.FS_TINY, DB.PAL.text_dim)
+			il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			iv.add_child(il)
+			row.add_child(iv)
 			var g := GridContainer.new()
 			g.columns = cols
 			g.add_theme_constant_override("h_separation", int(gap))
