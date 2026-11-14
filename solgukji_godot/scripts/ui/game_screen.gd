@@ -2034,25 +2034,10 @@ func _draw_cta(n: int) -> Control:
 
 ## 장수가 아직 없을 때의 빈 상태 카드 (11/14 감사 #2) —— 기호 + 두 줄 설명 (+ 징집을 마쳤으면 조합 탭으로 가는 버튼)
 func _draw_empty() -> Control:
-	var v := UI.vbox(UI.SP_S)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	var ic := Icons.View.new("draw", Color(DB.PAL.bamboo, 0.8), 32)
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(ic)
-	var t := UI.lbl("아직 장수가 없다", UI.FS_LABEL, DB.PAL.paper, true)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(t)
-	var d := UI.hint("징집으로 기본패를 모으고, 같은 카드를 맞춰 조합 탭에서 장수로 올린다.")
-	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(d)
+	var gb: Button = null
 	if run.drawn:
-		var gb := UI.btn_secondary("조합하러 가기", func(): go("forge"), UI.BH_S)
-		gb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		gb.custom_minimum_size.x = 160
-		v.add_child(gb)
-	var pc := UI.panel(v, UI.SP_XL)
-	pc.custom_minimum_size.y = 160
-	return pc
+		gb = UI.btn_secondary("조합하러 가기", func(): go("forge"), UI.BH_S)
+	return UI.empty("draw", "아직 장수가 없다", "징집으로 기본패를 모으고, 같은 카드를 맞춰 조합 탭에서 장수로 올린다.", gb)
 
 
 var _hand_scroll: ScrollContainer
@@ -2074,7 +2059,7 @@ func _news_sheet() -> void:
 	_render_head()
 	var b := open_sheet("전황 소식")
 	if run.news.is_empty():
-		b.add_child(UI.hint("아직 소식이 없다 —— 다른 세력이 장수를 등용하면 여기에 쌓인다."))
+		b.add_child(UI.empty("news", "아직 소식이 없다", "다른 세력이 장수를 등용하거나 무너지면 여기에 쌓인다."))      # 11/14 UI 4단계: 빈 상태 공용 부품
 	var react: bool = online != null and online.in_game and int(online.room.get("emote_n", 0)) > 0      # 11/12 온라인 —— 소식 줄마다 반응(폭소 · 놀람 · 좋아요)을 한 번에
 	for nw in run.news:
 		var line: RichTextLabel
@@ -3423,7 +3408,7 @@ func _page_forge() -> Control:
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 4)
 	for t in [0, 3, 4, 5, KIIN_T, 6, 7, 8]:        # 11/3 일반 없음 · 기인(9)은 전설 옆
-		var tn: String = "all" if t == 0 else ("기" if t == KIIN_T else DB.TIER[t].n.left(1))
+		var tn: String = "all" if t == 0 else ("기인" if t == KIIN_T else DB.TIER[t].n)      # 11/14 UI 4단계: 한 글자(고 · 희 …)는 처음 보는 사람이 못 읽는다 —— 등급 이름 그대로
 		row2.add_child(_filter_chip(tn, null, "", DB.PAL.paper if t == 0 else (DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c), forge_tier == t, func():
 			forge_tier = t
 			_open.erase("forge:more")

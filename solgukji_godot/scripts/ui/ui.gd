@@ -254,12 +254,15 @@ static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> TouchButt
 		"pri", "gold":      # 주 행동은 금 한 가지 —— 먹금 바탕 + 금 얇은 선 (옥색 바탕은 걷었다 —— 옥색은 수치 강조에만)
 			b.add_theme_stylebox_override("normal", flat(DB.PAL.gold.darkened(0.72), Color(DB.PAL.gold, 0.85), 1, R, 10))
 			b.add_theme_stylebox_override("hover", flat(DB.PAL.gold.darkened(0.6), DB.PAL.gold, 1, R, 10))
+			b.add_theme_stylebox_override("pressed", flat(DB.PAL.gold.darkened(0.8), DB.PAL.gold, 1, R, 10))      # 눌림 = 같은 색 한 단계 어둡게 (다른 색으로 바뀌지 않게)
 		"warn":      # 인장 붉음 —— 경고 · 위험
 			b.add_theme_stylebox_override("normal", flat(DB.PAL.seal.darkened(0.35), none, 0, R, 10))
 			b.add_theme_stylebox_override("hover", flat(DB.PAL.seal.darkened(0.2), none, 0, R, 10))
+			b.add_theme_stylebox_override("pressed", flat(DB.PAL.seal.darkened(0.5), none, 0, R, 10))
 		"ghost":
 			b.add_theme_stylebox_override("normal", flat(none, Color(DB.PAL.paper, 0.16), 1, R, 10))
 			b.add_theme_stylebox_override("hover", flat(Color(DB.PAL.paper, 0.05), Color(DB.PAL.paper, 0.28), 1, R, 10))
+			b.add_theme_stylebox_override("pressed", flat(Color(DB.PAL.paper, 0.1), Color(DB.PAL.paper, 0.28), 1, R, 10))
 	return b
 
 
@@ -290,6 +293,29 @@ static func icon_btn(glyph: String, cb: Callable, vis := ICON_BTN, fs := FS_TITL
 	b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	b.add_theme_font_size_override("font_size", fs)
 	return b
+
+
+## 빈 상태 카드 (11/14 UI 4단계) —— 기호 + 제목 + 한두 줄 설명 (+ 다음 행동 버튼). 징집 첫날 · 소식 · 인연처럼 "아무것도 없다"를 한 모양으로
+static func empty(icon: String, title: String, desc: String, action: Button = null) -> PanelContainer:
+	var v := vbox(SP_S)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	var ic := Icons.View.new(icon, Color(DB.PAL.bamboo, 0.8), 32)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	var t := lbl(title, FS_LABEL, DB.PAL.paper, true)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	if desc != "":
+		var d := hint(desc)
+		d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(d)
+	if action != null:
+		action.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		action.custom_minimum_size.x = maxf(action.custom_minimum_size.x, 160)
+		v.add_child(action)
+	var pc := panel(v, SP_XL)
+	pc.custom_minimum_size.y = 160
+	return pc
 
 
 ## 두 줄 버튼 —— 굵은 제목 + 작은 설명 (징집·전투의 큰 행동 버튼)

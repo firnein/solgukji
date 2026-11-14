@@ -312,7 +312,7 @@ func inyeon_sheet() -> void:
 		for e in near.slice(0, 4):
 			b.add_child(_inyeon_block(e[0], 1, ctx, on_card))
 	if rows.is_empty() and near.is_empty():
-		b.add_child(UI.hint("편성한 장수 중 같은 인연이 둘 이상이면 여기에 나온다."))
+		b.add_child(UI.empty("link", "맺어진 인연이 없다", "편성한 장수 중 같은 인연이 둘 이상이면 여기에 나온다. 카드 상세의 인연 칸에서 짝을 볼 수 있다."))      # 11/14 UI 4단계: 빈 상태 공용 부품
 	var rh := InyeonUI.rule_hint()
 	b.add_child(rh)
 

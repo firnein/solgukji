@@ -305,11 +305,12 @@ func connect_sheet(refresh := false) -> void:
 	if refresh and net.is_open():
 		net.send({"t": "list"})
 	var b := gs.open_sheet("온라인 대전")
-	b.add_child(UI.hint("Dev = 집 PC 서버, 어디서나 접속.\n같은 집 와이파이면 「Dev 와이파이」도 된다."))      # 문장마다 줄을 나눈다 —— 「직접 입력…」이 줄 끝에서 갈라지지 않게
 	var row := UI.vbox(UI.SP_XS)
 	row.add_child(UI.lbl("서버", UI.FS_BODY, DB.PAL.bamboo))
 	_url_pick = _server_pick()
 	row.add_child(_url_pick)
+	# 11/14 UI 4단계: 서버 설명이 시트 맨 위에서 먼저 읽혔다 —— 고르는 칸 바로 아래 작은 글씨로 (문장마다 줄을 나눈다 —— 「직접 입력…」이 줄 끝에서 갈라지지 않게)
+	row.add_child(UI.lbl("Dev = 집 PC 서버, 어디서나 접속.\n같은 집 와이파이면 「Dev 와이파이」도 된다.", UI.FS_CAP, DB.PAL.text_dim))
 	_url_edit = LineEdit.new()
 	_url_edit.text = net.custom
 	_url_edit.placeholder_text = "ws://주소:7777  ·  wss://…"
@@ -1370,7 +1371,7 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 	if not r.has_key:
 		v.add_child(UI.lbl("핵심 유닛 —", UI.FS_BODY, P.text_dim))
 	elif r.key.is_empty():
-		v.add_child(UI.lbl("핵심 유닛 아직 없음", UI.FS_BODY, P.text_dim))
+		pass      # 11/14 UI 4단계: 「핵심 유닛 아직 없음」이 줄마다 반복돼 높이만 차지했다 —— 없으면 줄을 생략
 	else:
 		if bool(r.get("bot", false)):
 			v.add_child(UI.lbl("핵심 유닛 (봇 군세)", UI.FS_CAP, P.text_dim))

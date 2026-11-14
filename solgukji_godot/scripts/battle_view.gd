@@ -322,8 +322,21 @@ func _build_top() -> Control:
 	var sp := HBoxContainer.new()
 	sp.add_theme_constant_override("separation", 2)
 	seg.add_child(sp)
-	for s in [0.0, 1.0, 1.25, 2.0]:      # 11/5 사용자: 1 · 1.25 · 2배속 (4배속 뺌)
-		sp.add_child(_speed_btn(s, UI.BH_S, UI.FS_BODY))
+	# 11/14 UI 4단계: 위 띠는 [일시정지] [배속 순환] 두 칸 (모바일 관례 —— 칸마다 손가락이 넉넉히 들어간다). 1 · 1.25 · 2 를 하나씩 고르는 줄은 ⋯ 메뉴에
+	_pause_top = _top_btn(func():
+		UI.buzz()
+		_set_speed(_run_speed if speed == 0.0 else 0.0))
+	sp.add_child(_pause_top)
+	_cycle_top = _top_btn(func():
+		UI.buzz()
+		if speed == 0.0:
+			_set_speed(_run_speed)
+		else:
+			var i := SPEEDS.find(speed)
+			_set_speed(SPEEDS[(i + 1) % SPEEDS.size()]))
+	_cycle_top.custom_minimum_size.x = 58
+	sp.add_child(_cycle_top)
+	_sync_top()
 	h.add_child(seg)
 	_speed_seg = seg
 	# 11/9 사용자: 온라인 —— 한마디(미리 적힌 글) · 결과로 건너뛰기 (리플레이를 나갈 방법). 둘 다 온라인에서만 보인다
@@ -361,6 +374,38 @@ func _bar_btn(text: String, cb: Callable) -> Button:
 	b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 8))
 	b.pressed.connect(cb)
 	return b
+
+
+const SPEEDS := [1.0, 1.25, 2.0]      # 11/5 사용자: 1 · 1.25 · 2배속 (4배속 뺌)
+var _pause_top: TouchButton = null
+var _cycle_top: TouchButton = null
+var _run_speed := QUEST_SPEED      # 멈췄다 다시 갈 때의 배속
+
+
+## 위 띠의 일시정지 · 배속 칸 —— 테두리 없는 면, 멈춤일 때만 금 얇은 선
+func _top_btn(cb: Callable) -> TouchButton:
+	var b := TouchButton.new()
+	b.custom_minimum_size = Vector2(48, UI.BH_S)
+	b.add_theme_font_size_override("font_size", UI.FS_BODY)
+	b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, Color(0, 0, 0, 0), 0, UI.R, 4))
+	b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, Color(0, 0, 0, 0), 0, UI.R, 4))
+	b.add_theme_color_override("font_color", DB.PAL.paper)
+	b.pressed.connect(cb)
+	return b
+
+
+func _sync_top() -> void:
+	if _pause_top == null:
+		return
+	var paused := speed == 0.0
+	_pause_top.text = "▶" if paused else "❚❚"
+	_pause_top.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3 if paused else Color(0, 0, 0, 0), DB.PAL.gold if paused else Color(0, 0, 0, 0), 1 if paused else 0, UI.R, 4))
+	_cycle_top.text = ("%s×" % str(_run_speed)) if _run_speed != floorf(_run_speed) else ("%d×" % int(_run_speed))
+	_cycle_top.add_theme_color_override("font_color", DB.PAL.text_dim if paused else DB.PAL.paper)
+	_cycle_top.disabled = locked
+	if OS.has_feature("mobile"):
+		_pause_top._no_sticky_hover()
+		_cycle_top._no_sticky_hover()
 
 
 ## 배속 버튼 하나 —— 위 띠와 ⋯ 메뉴가 같은 목록(speed_btns)을 써서 어느 쪽을 눌러도 함께 바뀐다. 고른 것만 금 얇은 선
@@ -588,8 +633,11 @@ func _set_speed(s: float) -> void:
 	if locked and s != _lock_speed:      # 온라인 재생은 어느 경로로 불려도 고정 배속 (대전 1.5 · 토벌 2)
 		s = _lock_speed
 	speed = s
+	if s > 0.0:
+		_run_speed = s
 	for p in speed_btns:
 		p[0].button_pressed = p[1] == s
+	_sync_top()
 
 
 var _side_swipe_p := Vector2.INF
@@ -612,7 +660,7 @@ func _input(e: InputEvent) -> void:
 
 func _unhandled_input(e: InputEvent) -> void:
 	if is_visible_in_tree() and not locked and e is InputEventKey and e.pressed and e.keycode == KEY_SPACE:
-		_set_speed(QUEST_SPEED if speed == 0.0 else 0.0)
+		_set_speed(_run_speed if speed == 0.0 else 0.0)
 
 
 # ───────── 카메라 ─────────

@@ -394,7 +394,7 @@ func _build_summary() -> void:
 	var H := _stage_h()
 	var pad := 16.0
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", UI.flat(Color("#141a2b", 0.96), Color(GOLD if _mode == "win" else DB.PAL.bamboo_dim, 0.6), 1, 12, 14))
+	p.add_theme_stylebox_override("panel", UI.flat(Color("#141a2b", 0.96), Color(GOLD if _mode == "win" else DB.PAL.bamboo_dim, 0.6), 1, UI.R, 14))
 	p.position = Vector2(pad, H + 96.0 * _u)
 	p.size = Vector2(size.x - pad * 2.0, size.y - p.position.y - pad)
 	p.custom_minimum_size = Vector2(p.size.x, 0)
@@ -423,10 +423,10 @@ func _build_summary() -> void:
 	if deck.is_empty():
 		v.add_child(UI.hint("편성된 장수가 없었다"))
 	else:
-		var sc := UI.scroll(true)      # 손가락으로 끌어 넘긴다 (막대는 숨김)
-		sc.custom_minimum_size = Vector2(0, UI.TILE_M.y + UI.SP_XS)
-		var row := UI.hbox(UI.SP_S)
-		sc.add_child(row)
+		# 11/14 UI 4단계: 가로 스크롤은 여섯째 장이 오른쪽에서 잘려 보였다 (넘길 수 있다는 표시도 없음) —— 줄바꿈해 모두 보인다. 패널은 _fit_summary 가 위로 늘린다
+		var row := UI.flow(UI.SP_S)
+		row.alignment = FlowContainer.ALIGNMENT_CENTER
+		var sc := row
 		for k in deck:
 			if not DB.C.has(str(k)):
 				continue
@@ -436,6 +436,8 @@ func _build_summary() -> void:
 				row.add_child(UI.lbl(str(DB.C[k].name), UI.FS_BODY, DB.tier_color(str(k))))
 		v.add_child(sc)
 	var msg := str(info.get("msg", ""))
+	if msg.begins_with("세력이 무너졌") or msg.begins_with("민심이 바닥났다") or msg.begins_with("천하를 통일했다"):      # 11/14 UI 4단계: 위 큰 글자 두 줄과 같은 말을 두 번 하지 않는다 (「X 패배 —— …」처럼 새 정보가 있는 말만 남긴다)
+		msg = ""
 	if msg != "":
 		var ml := UI.lbl(msg, UI.FS_BODY, DB.PAL.text_dim)
 		UI.wrap_text(ml)
