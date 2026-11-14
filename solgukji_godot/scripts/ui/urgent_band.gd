@@ -10,7 +10,7 @@ signal done
 const IN := 0.2           # 띠가 정착하는 시간
 const HOLD := 2.7         # 이 시각까지 머문다 (IN 포함)
 const OUT := 0.35         # 위로 빠지는 시간
-const RED := Color("#ff3a2d")
+const RED: Color = DB.PAL.alarm
 const LINES := 54         # 집중선 수
 
 var who := ""

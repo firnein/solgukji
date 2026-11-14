@@ -20,7 +20,7 @@ const OVERLAP := 0.40     # 끝나기 이만큼 전에 다음 카드가 시작�
 const TEXT_FADE := 0.25   # 글이 나타나는 / 사라지는 시간
 const MYTH_UP := 0.27     # 신화 카드가 불멸 카드보다 위로 얹히는 정도 (카드 높이 비)
 const MYTH_SCALE := 0.94  # 신화 카드 크기 (불멸 카드 대비)
-const RED := Color("#ff3a2d")
+const RED: Color = DB.PAL.alarm
 
 var unit := ""
 var myth := ""            # 있으면 이 신화 카드가 뒤 위쪽에 같이 나와 함께 찢어진다

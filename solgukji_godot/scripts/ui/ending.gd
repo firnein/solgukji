@@ -12,7 +12,7 @@ signal home
 signal again
 signal watch
 
-const RED := Color("#ff3a2d")
+const RED: Color = DB.PAL.alarm
 const GOLD := Color("#ffd98a")
 
 var info := {}
@@ -400,7 +400,7 @@ func _build_summary() -> void:
 	p.custom_minimum_size = p.size
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(p)
-	var v := UI.vbox(10)
+	var v := UI.vbox(UI.SP_S)
 	p.add_child(v)
 	var stats := HBoxContainer.new()
 	stats.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -409,16 +409,16 @@ func _build_summary() -> void:
 			["%d승 %d패" % [int(info.get("w", 0)), int(info.get("l", 0))], "전적"], [time_text(int(info.get("playtime", 0))), "플레이 시간"]]:
 		var s := UI.vbox(0)
 		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var vl := UI.lbl(str(kv[0]), 19, GOLD if _mode == "win" else DB.PAL.paper, true)
+		var vl := UI.lbl(str(kv[0]), UI.FS_TITLE, GOLD if _mode == "win" else DB.PAL.paper, true)
 		vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		s.add_child(vl)
-		var ll := UI.lbl(str(kv[1]), 12, DB.PAL.bamboo_dim)
+		var ll := UI.lbl(str(kv[1]), UI.FS_CAP, DB.PAL.text_dim)
 		ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		s.add_child(ll)
 		stats.add_child(s)
 	v.add_child(stats)
 	v.add_child(UI.hair())
-	v.add_child(UI.lbl("핵심 장수", 14, DB.PAL.bamboo, true))
+	v.add_child(UI.lbl("핵심 장수", UI.FS_BODY, DB.PAL.bamboo, true))
 	var deck: Array = info.get("deck", [])
 	if deck.is_empty():
 		v.add_child(UI.hint("편성된 장수가 없었다"))
@@ -427,7 +427,7 @@ func _build_summary() -> void:
 		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		sc.custom_minimum_size = Vector2(0, 104)
-		var row := UI.hbox(6)
+		var row := UI.hbox(UI.SP_S)
 		sc.add_child(row)
 		for k in deck:
 			if not DB.C.has(str(k)):
@@ -435,23 +435,23 @@ func _build_summary() -> void:
 			if gs != null and gs.has_method("mtile"):
 				row.add_child(gs.mtile(str(k), -1, func(_id): pass))
 			else:
-				row.add_child(UI.lbl(str(DB.C[k].name), 14, DB.tier_color(str(k))))
+				row.add_child(UI.lbl(str(DB.C[k].name), UI.FS_BODY, DB.tier_color(str(k))))
 		v.add_child(sc)
 	var msg := str(info.get("msg", ""))
 	if msg != "":
-		var ml := UI.lbl(msg, 13, DB.PAL.bamboo_dim)
-		ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var ml := UI.lbl(msg, UI.FS_BODY, DB.PAL.text_dim)
+		UI.wrap_text(ml)
 		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(ml)
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(fill)
 	if bool(info.get("watch", false)):
-		v.add_child(UI.btn("남은 판 관전하기", func(): watch.emit(), "ghost", 44))
-	var bh := UI.hbox(8)
-	var b1 := UI.btn("처음으로", func(): home.emit(), "ghost", 54)
+		v.add_child(UI.btn("남은 판 관전하기", func(): watch.emit(), "ghost", UI.BH_S))
+	var bh := UI.hbox(UI.SP_S)
+	var b1 := UI.btn("처음으로", func(): home.emit(), "ghost", UI.BH_M)      # 패널 아래가 화면에 닿아 있다 —— 높이를 늘리지 않는다 (배치는 다음 단계)
 	b1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var b2 := UI.btn(str(info.get("again_text", "다시 하기")), func(): again.emit(), "pri", 54)
+	var b2 := UI.btn(str(info.get("again_text", "다시 하기")), func(): again.emit(), "pri", UI.BH_M)
 	b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bh.add_child(b1)
 	bh.add_child(b2)

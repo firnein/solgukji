@@ -55,9 +55,9 @@ static func rule_hint(nm := "") -> Control:
 		elif key == "초월":
 			col = DB.TIER[6].c
 			who = roles.get("up", [])
-		var h := UI.hbox(8)
+		var h := UI.hbox(UI.SP_S)
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var kl := UI.lbl(key, 12, col, true)
+		var kl := UI.lbl(key, UI.FS_CAP, col, true)
 		kl.custom_minimum_size.x = 30
 		kl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		kl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -65,8 +65,8 @@ static func rule_hint(nm := "") -> Control:
 		var s: String = r[1]
 		if not who.is_empty():
 			s += "  (%s)" % " · ".join(who)
-		var tl := UI.lbl(s, 12, P.paper if not who.is_empty() else P.bamboo_dim.lightened(0.12))
-		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var tl := UI.lbl(s, UI.FS_CAP, P.paper if not who.is_empty() else P.text_dim)
+		UI.wrap_text(tl)
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(tl)
@@ -80,19 +80,19 @@ static func rule_hint(nm := "") -> Control:
 static func fin_hint(nm: String) -> Control:
 	var P := DB.PAL
 	var blocks := [DB.inyeon_theme_lines(nm), DB.inyeon_fin_lines(nm)]
-	var v := UI.vbox(6)
+	var v := UI.vbox(UI.SP_S)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for b in blocks:
 		if b.is_empty():
 			continue
 		var bx := UI.vbox(1)
 		bx.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var t := UI.lbl(b[0], 13, P.gold, true)
+		var t := UI.lbl(b[0], UI.FS_BODY, P.gold, true)
 		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bx.add_child(t)
-		var d := UI.lbl(b[1], 12, P.paper.darkened(0.08))
-		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var d := UI.lbl(b[1], UI.FS_CAP, P.paper.darkened(0.08))
+		UI.wrap_text(d)
 		d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bx.add_child(d)
@@ -104,13 +104,13 @@ static func fin_hint(nm: String) -> Control:
 
 
 ## 인연 이름 칩 —— 고르면 연분홍 테두리
-static func chip(text: String, on: bool, cb: Callable, h := 30) -> Button:
+static func chip(text: String, on: bool, cb: Callable, h := UI.BH_XS) -> Button:
 	var P := DB.PAL
 	var col: Color = P.yeon
-	var b := Button.new()
+	var b := TouchButton.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, h)
-	b.add_theme_font_size_override("font_size", 13)
+	b.add_theme_font_size_override("font_size", UI.FS_BODY)
 	for cn in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
 		b.add_theme_color_override(cn, col.lightened(0.3) if on else P.paper)
 	var sb := UI.flat(Color(col, 0.16) if on else P.ink3, col if on else Color(0, 0, 0, 0), 1, UI.R, 0)
@@ -166,7 +166,7 @@ static func member_tile(p: String, ctx: Dictionary, on_card: Callable) -> MiniTi
 
 ## 인연 하나의 구성원 줄 —— 4~5명이 한 줄 (가운데 맞춤)
 static func members_row(nm: String, ctx: Dictionary, on_card: Callable) -> Control:
-	var h := UI.hbox(6)
+	var h := UI.hbox(UI.SP_S)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	for p in DB.inyeon_members(nm):
 		h.add_child(member_tile(p, ctx, on_card))
@@ -189,9 +189,9 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 				on_tap.call())
 	else:
 		m.mouse_filter = Control.MOUSE_FILTER_PASS
-	var v := UI.vbox(8)
+	var v := UI.vbox(UI.SP_S)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var top := UI.hbox(8)
+	var top := UI.hbox(UI.SP_S)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lab := HBoxContainer.new()
 	lab.add_theme_constant_override("separation", 5)
@@ -200,7 +200,7 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 	var ic := Icons.View.new("link", P.yeon, fs + 2)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	lab.add_child(ic)
-	var kl := UI.lbl("인연", fs - 1, P.bamboo_dim)
+	var kl := UI.lbl("인연", fs - 1, P.text_dim)
 	kl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	kl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lab.add_child(kl)
@@ -215,7 +215,7 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 			flow.add_child(name_chip(nm, fs))
 		m.add_child(v)
 		return m
-	var holder := UI.vbox(6)
+	var holder := UI.vbox(UI.SP_S)
 	v.add_child(holder)
 	var cur := [names[0]]
 	var rf := [Callable()]      # 람다가 자기 자신을 부르려면 배열에 담는다 (지역 변수는 값으로 잡힌다)

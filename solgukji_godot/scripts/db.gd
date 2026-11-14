@@ -7,6 +7,10 @@ const PAL := {
 	"paper": Color("#E9E3D3"), "bamboo": Color("#C6AC7C"), "bamboo_dim": Color("#8D7B5C"),
 	"seal": Color("#BE4A3C"), "jade": Color("#4F9080"), "gold": Color("#D9A64B"),
 	"yeon": Color("#E58BA3"),      # 11/11 인연 —— 붉은 실(맺어진 사이)의 연분홍. 금(보상) · 옥(좋음) · 인장 붉음(나쁨)과 안 겹치는 한 색
+	# 11/14 UI 감사 #7 —— 글자색은 먹 바탕(ink · ink2 · ink3) 위 4.5:1 이상. bamboo_dim · seal 은 선 · 면 · 장식에만
+	"text_dim": Color("#A89574"),  # 설명 · 힌트 · 보조 글자 (ink2 위 5.4:1 · ink3 위 4.7:1)
+	"danger": Color("#E0806F"),    # 빨간 글자 —— 부족 · 실패 · 위험 (ink2 위 5.6:1). 면 · 테두리는 seal
+	"alarm": Color("#FF3A2D"),     # 위급 연출(위급 띠 · 멸망 띠 · 엔딩)의 선명한 붉음 —— 글자 · 상자에는 쓰지 않는다
 }
 
 var D: Dictionary

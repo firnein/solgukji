@@ -93,16 +93,16 @@ static func effects_box(board: Array, form_key: String, open: bool, on_toggle: C
 	if rows.is_empty():
 		return null
 	var P := DB.PAL
-	var v := UI.vbox(6)
-	var head := UI.hbox(8)
-	var title := UI.lbl("군단 효과 %d" % rows.size(), 14, P.bamboo, true)
+	var v := UI.vbox(UI.SP_S)
+	var head := UI.hbox(UI.SP_S)
+	var title := UI.lbl("군단 효과 %d" % rows.size(), UI.FS_BODY, P.bamboo, true)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(title)
-	var tg := Button.new()
+	var tg := TouchButton.new()
 	tg.text = "접기 ▴" if open else "펼치기 ▾"
-	tg.custom_minimum_size = Vector2(0, 28)
-	tg.add_theme_font_size_override("font_size", 12)
+	tg.custom_minimum_size = Vector2(0, UI.BH_XS)
+	tg.add_theme_font_size_override("font_size", UI.FS_CAP)
 	tg.add_theme_color_override("font_color", P.bamboo)
 	tg.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), Color(P.paper, 0.16), 1, UI.R, 0))
 	tg.add_theme_stylebox_override("hover", UI.flat(P.ink3, Color(P.paper, 0.28), 1, UI.R, 0))
@@ -128,8 +128,8 @@ static func effects_box(board: Array, form_key: String, open: bool, on_toggle: C
 		if rows.size() > n_show:
 			var more := Button.new()
 			more.text = "+%d 더" % (rows.size() - n_show)
-			more.custom_minimum_size = Vector2(0, 28)
-			more.add_theme_font_size_override("font_size", 12)
+			more.custom_minimum_size = Vector2(0, UI.BH_XS)
+			more.add_theme_font_size_override("font_size", UI.FS_CAP)
 			more.add_theme_color_override("font_color", P.bamboo)
 			more.add_theme_stylebox_override("normal", UI.flat(P.ink3, Color(0, 0, 0, 0), 0, UI.R, 0))
 			more.add_theme_stylebox_override("hover", UI.flat(P.ink4, Color(0, 0, 0, 0), 0, UI.R, 0))
@@ -152,8 +152,8 @@ static func _chip(r: Dictionary, on_card: Callable) -> Button:
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var tw: float = DB.font_body.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-	b.custom_minimum_size = Vector2(minf(tw + 22.0, 230.0), 28)
-	b.add_theme_font_size_override("font_size", 12)
+	b.custom_minimum_size = Vector2(minf(tw + 22.0, 230.0), UI.BH_XS)
+	b.add_theme_font_size_override("font_size", UI.FS_CAP)
 	b.add_theme_color_override("font_color", P.paper)
 	b.add_theme_color_override("font_hover_color", P.paper)
 	b.add_theme_color_override("font_pressed_color", P.paper)
@@ -177,9 +177,9 @@ static func _row(r: Dictionary, on_card: Callable) -> Control:
 	left.custom_minimum_size.x = 118
 	left.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
 	_pad(left, 2, 6)
-	var who := UI.lbl(r.who, 12, col.lightened(0.3))      # 부여 장수는 등급색 글자 (바탕 덩어리는 걷음)
+	var who := UI.lbl(r.who, UI.FS_CAP, col.lightened(0.3))      # 부여 장수는 등급색 글자 (바탕 덩어리는 걷음)
 	who.add_theme_font_override("font", DB.font_bold)
-	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UI.wrap_text(who)
 	who.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	who.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	left.add_child(who)
@@ -188,8 +188,8 @@ static func _row(r: Dictionary, on_card: Callable) -> Control:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
 	_pad(right, 6, 6)
-	var bb := "[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [r.name, r.text, "" if r.kind == "단체" else " [color=#8D7B5C](%s)[/color]" % r.kind]
-	var txt := UI.rich(bb, 12)
+	var bb := "[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [r.name, r.text, "" if r.kind == "단체" else " [color=#A89574](%s)[/color]" % r.kind]
+	var txt := UI.rich(bb, UI.FS_CAP)
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.add_child(txt)
 	h.add_child(right)

@@ -223,7 +223,7 @@ func _server_pick() -> OptionButton:
 	ob.clip_text = true
 	ob.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	ob.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE      # 떼야 열린다 —— 시트를 끌다가 목록이 열리지 않게 (끌면 TouchScroll 이 누름을 취소)
-	ob.add_theme_font_size_override("font_size", 16)
+	ob.add_theme_font_size_override("font_size", UI.FS_LABEL)
 	var open_sb := UI.flat(P.ink4, P.bamboo, 1, 8, 10)      # 목록이 열린 동안 —— 버튼의 밝은 눌림 색 대신
 	ob.add_theme_stylebox_override("pressed", open_sb)
 	ob.add_theme_stylebox_override("hover_pressed", open_sb)
@@ -238,7 +238,7 @@ func _server_pick() -> OptionButton:
 	var pm := ob.get_popup()
 	pm.add_theme_stylebox_override("panel", UI.flat(P.ink2, P.bamboo_dim, 1, 8, 6))
 	pm.add_theme_stylebox_override("hover", UI.flat(P.ink4, P.ink4, 0, 6, 6))
-	pm.add_theme_font_size_override("font_size", 16)
+	pm.add_theme_font_size_override("font_size", UI.FS_LABEL)
 	pm.add_theme_constant_override("v_separation", 20)
 	pm.add_theme_constant_override("item_start_padding", 10)
 	pm.add_theme_constant_override("item_end_padding", 14)
@@ -254,20 +254,20 @@ func _server_pick() -> OptionButton:
 ## 플레이 기록 동의 칸 (접속 시트의 이름 칸 아래) —— 구분선 + 아직 동의 전이면 금 제목 + 종이색 두 줄(무엇을 · 왜 · 안 하면), 동의했으면 회색 한 줄 + 작은 「동의 철회」.
 ## 서버가 저장하는 것 = 이름 · 행동 · 전투 결과 (Room 의 RoomLog). 버튼(동의하고 접속 · 취소)은 이 칸을 부르는 connect_sheet 가 붙인다
 func record_notice() -> Control:
-	var v := UI.vbox(4)
+	var v := UI.vbox(UI.SP_XS)
 	v.add_child(UI.hair())
 	if net.consented():
-		var row := UI.hbox(8)
+		var row := UI.hbox(UI.SP_S)
 		var l := UI.hint("플레이 기록 동의함 · 이름 · 행동 · 전투 결과")
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(l)
-		row.add_child(UI.btn("동의 철회", _withdraw_consent, "ghost", 36))
+		row.add_child(UI.btn("동의 철회", _withdraw_consent, "ghost", UI.BH_S))
 		v.add_child(row)
 		return v
-	v.add_child(UI.lbl(CONSENT_TITLE, 14, DB.PAL.gold))
-	var t := UI.lbl(CONSENT_TEXT, 13, DB.PAL.paper.darkened(0.15))
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(UI.lbl(CONSENT_TITLE, UI.FS_BODY, DB.PAL.gold))
+	var t := UI.lbl(CONSENT_TEXT, UI.FS_BODY, DB.PAL.paper.darkened(0.15))
+	UI.wrap_text(t)
 	v.add_child(t)
 	return v
 
@@ -306,8 +306,8 @@ func connect_sheet(refresh := false) -> void:
 		net.send({"t": "list"})
 	var b := gs.open_sheet("온라인 대전")
 	b.add_child(UI.hint("Dev = 집 PC 서버, 어디서나 접속.\n같은 집 와이파이면 「Dev 와이파이」도 된다."))      # 문장마다 줄을 나눈다 —— 「직접 입력…」이 줄 끝에서 갈라지지 않게
-	var row := UI.vbox(4)
-	row.add_child(UI.lbl("서버", 14, DB.PAL.bamboo))
+	var row := UI.vbox(UI.SP_XS)
+	row.add_child(UI.lbl("서버", UI.FS_BODY, DB.PAL.bamboo))
 	_url_pick = _server_pick()
 	row.add_child(_url_pick)
 	_url_edit = LineEdit.new()
@@ -319,8 +319,8 @@ func connect_sheet(refresh := false) -> void:
 	_url_edit.text_changed.connect(func(tx: String): net.custom = tx.strip_edges())      # 시트를 다시 그려도(접속 끊김 등) 친 주소가 남게
 	row.add_child(_url_edit)
 	b.add_child(row)
-	var row2 := UI.vbox(4)
-	row2.add_child(UI.lbl("이름", 14, DB.PAL.bamboo))
+	var row2 := UI.vbox(UI.SP_XS)
+	row2.add_child(UI.lbl("이름", UI.FS_BODY, DB.PAL.bamboo))
 	_name_edit = LineEdit.new()
 	_name_edit.text = net.player
 	_name_edit.max_length = 12
@@ -332,7 +332,7 @@ func connect_sheet(refresh := false) -> void:
 	if net.consented():
 		b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", _connect_pressed, "pri"))
 	else:      # 동의 전 —— 동의하고 접속하거나 취소(접속 안 함)
-		var cb := UI.hbox(8)
+		var cb := UI.hbox(UI.SP_S)
 		var ok := UI.btn("동의하고 접속", func(): _connect_pressed(true), "pri")
 		ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cb.add_child(ok)
@@ -340,14 +340,14 @@ func connect_sheet(refresh := false) -> void:
 		no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cb.add_child(no)
 		b.add_child(cb)
-	b.add_child(UI.lbl(_status, 14, DB.PAL.jade if net.is_open() else DB.PAL.bamboo_dim))
+	b.add_child(UI.lbl(_status, UI.FS_BODY, DB.PAL.jade if net.is_open() else DB.PAL.text_dim))
 	if not net.is_open() and not dev_sheet:
 		return
 	# 11/9 사용자: 세션이 연결돼 있으면 다른 방으로 갈 수 없었다 —— 지금 방을 보여 주고 나갈 수 있게, 다른 방에 들어가면 지금 방은 자동으로 나간다
 	if not room.is_empty():
 		b.add_child(UI.eyebrow("지금 방"))
-		var cur := UI.hbox(8)
-		var cl := UI.lbl("%s  ·  %s · %d/%d명%s" % [str(room.get("code", "")), str(room.get("mode_n", "")), (room.get("seats", []) as Array).size(), room_max(), " · 진행 중" if in_game else " · 대기 중"], 15, DB.PAL.paper)
+		var cur := UI.hbox(UI.SP_S)
+		var cl := UI.lbl("%s  ·  %s · %d/%d명%s" % [str(room.get("code", "")), str(room.get("mode_n", "")), (room.get("seats", []) as Array).size(), room_max(), " · 진행 중" if in_game else " · 대기 중"], UI.FS_BODY, DB.PAL.paper)
 		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		cur.add_child(cl)
@@ -356,7 +356,7 @@ func connect_sheet(refresh := false) -> void:
 		b.add_child(UI.hint("나가면 내 자리는 AI 가 이어받는다. 다른 방을 만들거나 들어가도 지금 방에서는 나간다."))
 	b.add_child(UI.eyebrow("방 만들기"))
 	# 11/11 사용자: 총 인원(자리 수)은 방장이 고른다 —— 짝수 4 · 6 · 8. 사람이 앉고 남은 자리만 시작할 때 봇이 채운다
-	var seat_box := UI.vbox(4)
+	var seat_box := UI.vbox(UI.SP_XS)
 	b.add_child(seat_box)
 	_fill_seat_pick(seat_box)
 	var mk := UI.hbox()
@@ -365,8 +365,8 @@ func connect_sheet(refresh := false) -> void:
 			_drop_room()
 			net.send({"t": "create", "mode": m, "max": _pick_max, "claim": _pick_claim, "deaths": _pick_deaths, "sell": _pick_sell}), "gold")
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
-		bt.custom_minimum_size = Vector2(0, 64)
+		UI.wrap_text(bt)      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
+		bt.custom_minimum_size = Vector2(0, UI.BH_L)
 		mk.add_child(bt)
 	b.add_child(mk)
 	b.add_child(UI.eyebrow("코드로 들어가기"))
@@ -401,24 +401,24 @@ func _fill_seat_pick(box: Control) -> void:
 	var items := []
 	for n in Room.SEAT_OPTIONS:
 		items.append([str(n), "%d명" % n])
-	box.add_child(UI.lbl("총 인원 — 빈자리만 봇", 14, DB.PAL.bamboo))
+	box.add_child(UI.lbl("총 인원 — 빈자리만 봇", UI.FS_BODY, DB.PAL.bamboo))
 	box.add_child(UI.segmented(items, str(_pick_max), func(k: String):
 		_pick_max = int(k)
 		_fill_seat_pick(box)))
 	box.add_child(UI.hint("사람 3명이면 %d명 방은 봇 %d명. 시작하면 바꿀 수 없다." % [_pick_max, maxi(0, _pick_max - 3)]))
 	# 11/12 방 규칙 —— 장수 선점제(기본 켜짐) · 장수 사망룰(기본 끔, 3 · 5 · 10명)
-	box.add_child(UI.lbl("장수 선점제 — 기인 이상은 먼저 등용한 사람만", 14, DB.PAL.bamboo))
+	box.add_child(UI.lbl("장수 선점제 — 기인 이상은 먼저 등용한 사람만", UI.FS_BODY, DB.PAL.bamboo))
 	box.add_child(UI.segmented([["1", "켜기"], ["0", "끄기"]], "1" if _pick_claim else "0", func(k: String):
 		_pick_claim = k == "1"
 		_fill_seat_pick(box)))
 	var dl := [["0", "끄기"]]
 	for n in Room.DEATH_OPTIONS:
 		dl.append([str(n), "%d명" % n])
-	box.add_child(UI.lbl("장수 사망룰 — 시작 때 기인 이상 무작위 사망", 14, DB.PAL.bamboo))
+	box.add_child(UI.lbl("장수 사망룰 — 시작 때 기인 이상 무작위 사망", UI.FS_BODY, DB.PAL.bamboo))
 	box.add_child(UI.segmented(dl, str(_pick_deaths), func(k: String):
 		_pick_deaths = int(k)
 		_fill_seat_pick(box)))
-	box.add_child(UI.lbl("유닛 판매 — 장수를 팔아 군량, 군량으로 랜덤권", 14, DB.PAL.bamboo))      # 11/13
+	box.add_child(UI.lbl("유닛 판매 — 장수를 팔아 군량, 군량으로 랜덤권", UI.FS_BODY, DB.PAL.bamboo))      # 11/13
 	box.add_child(UI.segmented([["1", "켜기"], ["0", "끄기"]], "1" if _pick_sell else "0", func(k: String):
 		_pick_sell = k == "1"
 		_fill_seat_pick(box)))
@@ -637,13 +637,13 @@ func send_emote(i: int) -> void:
 ## 이모티콘 한 줄 —— 8칸 가로 (칸 높이 46). 누르면 보내고 시트를 닫는다
 func _emote_row() -> Control:
 	var n := mini(int(room.get("emote_n", 0)), Icons.EMOTES.size())
-	var h := UI.hbox(4)
+	var h := UI.hbox(UI.SP_XS)
 	for i in n:
 		var bt := UI.btn("", func():
 			send_emote(i)
-			gs.close_sheet(), "", 46)
+			gs.close_sheet(), "", UI.BH_M)
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bt.custom_minimum_size = Vector2(0, 46)
+		bt.custom_minimum_size = Vector2(0, UI.BH_M)
 		bt.tooltip_text = Icons.EMOTE_NAMES[i]
 		var ic := Icons.View.new(Icons.EMOTES[i], DB.PAL.paper, 26.0)
 		ic.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -669,7 +669,7 @@ func quick_sheet() -> void:
 	for i in quick.size():
 		var bt := UI.btn(str(quick[i]), func():
 			send_say(i)
-			gs.close_sheet(), "", 46)
+			gs.close_sheet(), "", UI.BH_M)
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		g.add_child(bt)
 	b.add_child(g)
@@ -677,9 +677,9 @@ func quick_sheet() -> void:
 
 ## 작은 [한마디] 버튼 —— 전투 탭 머리줄 · 대기실
 func _say_btn() -> Button:
-	var b := UI.btn("한마디", quick_sheet, "ghost", 34)
-	b.add_theme_font_size_override("font_size", 13)
-	b.custom_minimum_size = Vector2(66, 34)
+	var b := UI.btn("한마디", quick_sheet, "ghost", UI.BH_S)
+	b.add_theme_font_size_override("font_size", UI.FS_BODY)
+	b.custom_minimum_size = Vector2(66, UI.BH_S)
 	return b
 
 
@@ -698,7 +698,7 @@ func st_view(who: String, st: String) -> Control:
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(Icons.View.new("", Color.WHITE, 15.0))
-	var l := UI.lbl("", 11, DB.PAL.bamboo_dim)
+	var l := UI.lbl("", UI.FS_CAP, DB.PAL.text_dim)
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(l)
 	_st_views = _st_views.filter(func(e): return is_instance_valid(e[0]))
@@ -878,10 +878,10 @@ func _maybe_ask_alone() -> void:
 	b.add_child(UI.hint("다른 사람이 모두 멸망했거나 방을 나갔다. 남은 날은 봇만 상대하게 된다. 계속할까요?"))
 	b.add_child(UI.btn("계속한다 — 봇만 상대로 끝까지", func():
 		net.send({"t": "alone", "go": true})
-		gs.close_sheet(), "pri", 56))
+		gs.close_sheet(), "pri", UI.BH_L))
 	b.add_child(UI.btn("그만둔다 — 방을 닫는다", func():
 		net.send({"t": "alone", "go": false})
-		gs.close_sheet(), "warn", 56))
+		gs.close_sheet(), "warn", UI.BH_L))
 
 
 # ───────── 전투 재생 ─────────
@@ -940,33 +940,33 @@ func _show_lobby() -> void:
 	for sd in ["left", "right"]:
 		c.add_theme_constant_override("margin_" + sd, int(side))
 	lobby.add_child(c)
-	var v := UI.vbox(12)
+	var v := UI.vbox(UI.SP_M)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	c.add_child(v)
-	var t := UI.lbl("방 %s" % room.code, 54, DB.PAL.gold, true)
+	var t := UI.lbl("방 %s" % room.code, UI.FS_DISPLAY, DB.PAL.gold, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var s := UI.lbl("총 %d명 · %s (4일차~ 절반)%s · 친구에게 서버 주소와 이 코드를 알려 주세요" % [room_max(), room.mode_n, rules_text()], 15, DB.PAL.bamboo_dim)
+	var s := UI.lbl("총 %d명 · %s (4일차~ 절반)%s · 친구에게 서버 주소와 이 코드를 알려 주세요" % [room_max(), room.mode_n, rules_text()], UI.FS_BODY, DB.PAL.text_dim)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UI.wrap_text(s)
 	v.add_child(s)
-	var sv := UI.vbox(4)
+	var sv := UI.vbox(UI.SP_XS)
 	for i in room.seats.size():
 		var st: Dictionary = room.seats[i]
 		var lr := UI.rich("[b]%s[/b]%s%s" % [st.name, "  [color=#D9A64B]방장[/color]" if i == 0 else "",
-			"  [color=#8fd4c2](나)[/color]" if i == int(room.you) else ""], 17)
+			"  [color=#8fd4c2](나)[/color]" if i == int(room.you) else ""], UI.FS_LABEL)
 		sv.add_child(lr)
 		anchor(str(st.name), lr)      # 11/12 한마디 말풍선이 붙는 자리
 	for i in range(room.seats.size(), room_max()):
-		sv.add_child(UI.rich("[color=#5d6a88]빈자리 — 시작하면 봇[/color]", 15))
+		sv.add_child(UI.rich("[color=#5d6a88]빈자리 — 시작하면 봇[/color]", UI.FS_BODY))
 	v.add_child(UI.panel(sv, 14))
 	if room.host:
-		v.add_child(UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), room_max() - room.seats.size()], func(): net.send({"t": "start"}), "pri", 60))
+		v.add_child(UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), room_max() - room.seats.size()], func(): net.send({"t": "start"}), "pri", UI.BH_L))
 	else:
 		v.add_child(UI.hint("방장이 시작하기를 기다리는 중…"))
 	var cb := UI.btn("방 정보 복사 (서버 주소 + 방 코드)", copy_room_info, "ghost")      # 11/11 사용자: 서버 주소와 방 코드를 한 번에 복사해 바로 보낼 수 있게
 	v.add_child(cb)
-	var hb := UI.hbox(8)
+	var hb := UI.hbox(UI.SP_S)
 	var sb := UI.btn("한마디", quick_sheet, "ghost")
 	sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(sb)
@@ -1016,7 +1016,7 @@ func _rules_intro() -> void:
 먼저 조합한 사람이 그 장수를 차지합니다."))
 	b.add_child(UI.btn("알겠습니다", func():
 		gs.close_sheet()
-		show_dead.call(), "pri", 52))
+		show_dead.call(), "pri", UI.BH_M))
 
 
 ## 다른 사람이 먼저 등용해 새로 잠긴 장수 —— 내가 갈무리해 둔 것이면 갈무리를 풀고 알린다 (11/12 장수 선점제)
@@ -1114,15 +1114,15 @@ func _stage_name() -> String:
 ## 11/12 사용자: 봇의 칭호("전력 1위 사냥꾼" 등)는 빼고 "봇" 으로. 상대의 핵심 장수(기인 이상)를 높은 등급부터 한 줄로 —— 사람 · 그림자는 서버가 준 key, 봇은 지금 전력의 예(GameScreen.bot_key)
 func _foe_panel() -> Control:
 	var f: Dictionary = room.foe
-	var v := UI.vbox(6)
+	var v := UI.vbox(UI.SP_S)
 	var tag := ""
 	if f.human and not f.online:
 		tag = "  [color=#e0806f]끊김 — 봇 대행[/color]"
 	var epi := str(f.get("epi", ""))
 	if not f.human and not (epi in [Room.SHADOW_EPI, "떠돌이 군세"]):
 		epi = "봇"
-	var fh := UI.hbox(6)
-	var fn := UI.rich("[font_size=18][b]%s[/b][/font_size]  [color=#8D7B5C]%s[/color]%s" % [f.name, epi, tag], 16)
+	var fh := UI.hbox(UI.SP_S)
+	var fn := UI.rich("[font_size=18][b]%s[/b][/font_size]  [color=#A89574]%s[/color]%s" % [f.name, epi, tag], UI.FS_LABEL)
 	fn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	fh.add_child(fn)
@@ -1130,13 +1130,13 @@ func _foe_panel() -> Control:
 		fh.add_child(react_row())      # 11/12 상대 발표에 반응 (한마디 이모티콘 흐름)
 	v.add_child(fh)
 	if bool(f.get("revenge", false)):      # 11/12 나를 이긴 사람과 다시 만났다
-		var rv := UI.hbox(4)
+		var rv := UI.hbox(UI.SP_XS)
 		rv.add_child(Icons.View.new("blade", DB.PAL.seal, 16.0))
-		var rl := UI.lbl("설욕전 —— 지난번에 이 상대에게 졌다", 14, Color("#e0806f"), true)
+		var rl := UI.lbl("설욕전 —— 지난번에 이 상대에게 졌다", UI.FS_BODY, DB.PAL.danger, true)
 		rl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		rv.add_child(rl)
 		v.add_child(rv)
-	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], 14))
+	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], UI.FS_BODY))
 	var key := []
 	var guess := false
 	if f.get("key") is Array:
@@ -1155,7 +1155,7 @@ func _foe_panel() -> Control:
 		var rb := Room.key_rank(b)
 		return ra > rb if ra != rb else a < b)
 	if not key.is_empty():
-		v.add_child(UI.lbl("핵심 장수%s" % (" (봇 군세는 전투마다 새로 뽑는다 —— 예)" if guess else ""), 12, DB.PAL.bamboo_dim))
+		v.add_child(UI.lbl("핵심 장수%s" % (" (봇 군세는 전투마다 새로 뽑는다 —— 예)" if guess else ""), UI.FS_CAP, DB.PAL.text_dim))
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 4)
 		fl.add_theme_constant_override("v_separation", 4)
@@ -1166,7 +1166,7 @@ func _foe_panel() -> Control:
 			fl.add_child(t)
 		v.add_child(fl)
 	elif f.get("key") is Array or guess:
-		v.add_child(UI.lbl("핵심 장수 아직 없음", 12, DB.PAL.bamboo_dim))
+		v.add_child(UI.lbl("핵심 장수 아직 없음", UI.FS_CAP, DB.PAL.text_dim))
 	if str(room.get("stage", "")) == "evening_prep":
 		v.add_child(UI.hint("편성 탭에서 진형 · 작전을 고칠 수 있다. 상대의 편성은 보이지 않는다."))
 	return UI.sect("오늘 저녁 상대", UI.panel(v))
@@ -1179,14 +1179,14 @@ func _result_panel(x: Dictionary) -> Control:
 	var res: Dictionary = x.res
 	var win: bool = bool(res.get("win", false))
 	var draw: bool = bool(res.get("draw", false))
-	var col := Color("#C6AC7C") if draw else (Color("#8fd4c2") if win else Color("#e0806f"))
-	var v := UI.vbox(8)
-	var h := UI.hbox(10)
-	var big := UI.lbl("무승부" if draw else ("승리" if win else "패배"), 24, col, true)
+	var col := Color("#C6AC7C") if draw else (Color("#8fd4c2") if win else DB.PAL.danger)
+	var v := UI.vbox(UI.SP_S)
+	var h := UI.hbox(UI.SP_S)
+	var big := UI.lbl("무승부" if draw else ("승리" if win else "패배"), UI.FS_HEAD, col, true)
 	big.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(big)
-	var tl := UI.lbl(str(x.get("title", res.get("title", ""))), 14, DB.PAL.bamboo)
-	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var tl := UI.lbl(str(x.get("title", res.get("title", ""))), UI.FS_BODY, DB.PAL.bamboo)
+	UI.wrap_text(tl)
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(tl)
@@ -1203,7 +1203,7 @@ func _result_panel(x: Dictionary) -> Control:
 		parts.append("민심 −%d" % int(run.last_hp_loss))
 	v.add_child(UI.result_line(parts))
 	if run.over != null:
-		v.add_child(UI.rich(over_line(run.over), 13))
+		v.add_child(UI.rich(over_line(run.over), UI.FS_BODY))
 	return UI.panel(v, 12)
 
 
@@ -1212,18 +1212,18 @@ func _battle_row(x: Dictionary, seen: bool) -> Control:
 	var res: Dictionary = x.res
 	var win: bool = bool(res.get("win", false))
 	var draw: bool = bool(res.get("draw", false))
-	var h := UI.hbox(8)
+	var h := UI.hbox(UI.SP_S)
 	var col := "#C6AC7C" if draw else ("#8fd4c2" if win else "#e0806f")
-	var r := UI.rich("[color=%s][b]%s[/b][/color]  %s  [color=#8D7B5C]잔존 %d 대 %d[/color]" % [col, "무승부" if draw else ("승리" if win else "패배"),
-		str(x.get("title", "")), int(res.get("left", 0)), int(res.get("eLeft", 0))], 14)
+	var r := UI.rich("[color=%s][b]%s[/b][/color]  %s  [color=#A89574]잔존 %d 대 %d[/color]" % [col, "무승부" if draw else ("승리" if win else "패배"),
+		str(x.get("title", "")), int(res.get("left", 0)), int(res.get("eLeft", 0))], UI.FS_BODY)
 	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(r)
 	var b := UI.btn("다시 보기" if seen else "보기", func():
 		watch = [x]
-		watch_next(), "ghost", 36)
-	b.add_theme_font_size_override("font_size", 13)
-	b.custom_minimum_size = Vector2(78, 36)
+		watch_next(), "ghost", UI.BH_S)
+	b.add_theme_font_size_override("font_size", UI.FS_BODY)
+	b.custom_minimum_size = Vector2(78, UI.BH_S)
 	h.add_child(b)
 	return h
 
@@ -1238,18 +1238,18 @@ func _seat_row(i: int, st: String) -> Control:
 		who += "  [color=#8fd4c2](나)[/color]"
 	var tags := []
 	if not s2.human:
-		tags.append("[color=#8D7B5C]봇[/color]")
+		tags.append("[color=#A89574]봇[/color]")
 	elif not s2.online:
 		tags.append("[color=#e0806f]끊김 — 봇 대행[/color]")
 	if s2.dead:
 		tags.append("[color=#e0806f]멸망[/color]")
 	if str(s2.get("foe", "")) != "" and st in ["evening_prep", "evening"]:
-		tags.append("[color=#8D7B5C]vs %s[/color]" % s2.foe)
-	var rt := UI.rich("[color=%s]%s[/color]  %s%s" % [mcol, mark, who, ("   " + "  ".join(tags)) if not tags.is_empty() else ""], 14)
+		tags.append("[color=#A89574]vs %s[/color]" % s2.foe)
+	var rt := UI.rich("[color=%s]%s[/color]  %s%s" % [mcol, mark, who, ("   " + "  ".join(tags)) if not tags.is_empty() else ""], UI.FS_BODY)
 	if not s2.human:
 		return rt
 	# 11/12 사람 자리 —— 오른쪽에 지금 하는 일(상태 아이콘), 줄은 한마디 말풍선이 붙는 자리
-	var h := UI.hbox(6)
+	var h := UI.hbox(UI.SP_S)
 	rt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(rt)
 	h.add_child(st_view(str(s2.name), str(s2.get("st", ""))))
@@ -1306,7 +1306,7 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 func peers_section() -> Control:
 	var run: Run = gs.run
 	var seats: Array = room.get("seats", [])
-	var v := UI.vbox(8)
+	var v := UI.vbox(UI.SP_S)
 	for r in peer_rows(room, run.hp, Room.key_cards(run)):
 		v.add_child(peer_row(gs, r))
 	for x in seats:
@@ -1321,9 +1321,9 @@ func peers_section() -> Control:
 ## 한 사람(또는 봇)의 칸 —— 혼자 하기 기록 탭(GameScreen._page_rank)도 같이 쓴다
 static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 	var P := DB.PAL
-	var v := UI.vbox(6)
-	var h := UI.hbox(8)
-	var nl := UI.lbl(str(r.name), 16, P.gold if r.me else P.paper, true)
+	var v := UI.vbox(UI.SP_S)
+	var h := UI.hbox(UI.SP_S)
+	var nl := UI.lbl(str(r.name), UI.FS_LABEL, P.gold if r.me else P.paper, true)
 	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1343,13 +1343,13 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 		tag = "끊김"
 		tcol = P.seal
 	if tag != "":
-		var tl := UI.lbl(tag, 12, tcol, true)
+		var tl := UI.lbl(tag, UI.FS_CAP, tcol, true)
 		tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(tl)
 	if r.has("st") and scr.online != null:
 		h.add_child(scr.online.st_view(str(r.name), str(r.st)))      # 11/12 지금 하는 일 (온라인 사람 칸만)
 	if bool(r.get("bot", false)) and (int(r.hp) < 0 or r.dead):
-		var bl := UI.lbl(str(r.get("note", "")), 13, P.bamboo_dim)      # 민심을 주지 않는 옛 서버의 봇 · 멸망한 봇 —— 전적만
+		var bl := UI.lbl(str(r.get("note", "")), UI.FS_BODY, P.text_dim)      # 민심을 주지 않는 옛 서버의 봇 · 멸망한 봇 —— 전적만
 		bl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(bl)
 	elif int(r.hp) >= 0:
@@ -1361,19 +1361,19 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 		g.set_process(false)      # 맥동은 머리띠만 —— 줄마다 매 프레임 다시 그리지 않는다
 		h.add_child(g)
 	else:
-		var dl := UI.lbl("민심 —", 14, P.bamboo_dim)
+		var dl := UI.lbl("민심 —", UI.FS_BODY, P.text_dim)
 		dl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(dl)
 	v.add_child(h)
 	if bool(r.get("bot", false)) and int(r.hp) >= 0 and not r.dead and str(r.get("note", "")) != "":
-		v.add_child(UI.lbl(str(r.note), 12, P.bamboo_dim))      # 11/12 봇 전적 —— 이름 줄은 민심 게이지가 쓴다
+		v.add_child(UI.lbl(str(r.note), UI.FS_CAP, P.text_dim))      # 11/12 봇 전적 —— 이름 줄은 민심 게이지가 쓴다
 	if not r.has_key:
-		v.add_child(UI.lbl("핵심 유닛 —", 13, P.bamboo_dim))
+		v.add_child(UI.lbl("핵심 유닛 —", UI.FS_BODY, P.text_dim))
 	elif r.key.is_empty():
-		v.add_child(UI.lbl("핵심 유닛 아직 없음", 13, P.bamboo_dim))
+		v.add_child(UI.lbl("핵심 유닛 아직 없음", UI.FS_BODY, P.text_dim))
 	else:
 		if bool(r.get("bot", false)):
-			v.add_child(UI.lbl("핵심 유닛 (봇 군세)", 12, P.bamboo_dim))
+			v.add_child(UI.lbl("핵심 유닛 (봇 군세)", UI.FS_CAP, P.text_dim))
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 4)
 		fl.add_theme_constant_override("v_separation", 4)
@@ -1393,7 +1393,7 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 
 func war_page() -> Control:
 	var run: Run = gs.run
-	var v := UI.vbox(14)
+	var v := UI.vbox(UI.SP_L)
 	var st: String = str(room.get("stage", ""))
 	if run.over != null and st == "over":
 		v.add_child(gs._over_panel())
@@ -1401,30 +1401,30 @@ func war_page() -> Control:
 	var my: Dictionary = me()
 	var watching: bool = st in Room.WATCH_STAGES
 	# (a) 단계 카드 —— N일차 · 단계 · 남은 시간 · 지금 할 일
-	var head := UI.vbox(4)
-	var hr := UI.hbox(8)
-	var tl := UI.lbl("%s · %s 단계" % [day_text(), _stage_name()], 20, DB.PAL.paper, true)
+	var head := UI.vbox(UI.SP_XS)
+	var hr := UI.hbox(UI.SP_S)
+	var tl := UI.lbl("%s · %s 단계" % [day_text(), _stage_name()], UI.FS_TITLE, DB.PAL.paper, true)
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hr.add_child(tl)
-	_clock_lbl = UI.lbl(remain_text(), 20, DB.PAL.gold, true)
+	_clock_lbl = UI.lbl(remain_text(), UI.FS_TITLE, DB.PAL.gold, true)
 	_clock_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hr.add_child(_clock_lbl)
 	hr.add_child(_say_btn())
 	head.add_child(hr)
-	var hint := UI.lbl(_stage_hint(), 13, DB.PAL.bamboo)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var hint := UI.lbl(_stage_hint(), UI.FS_BODY, DB.PAL.bamboo)
+	UI.wrap_text(hint)
 	head.add_child(hint)
 	if run.over != null:
-		head.add_child(UI.rich(over_line(run.over), 13))
+		head.add_child(UI.rich(over_line(run.over), UI.FS_BODY))
 	v.add_child(UI.panel(head))
 	# 혼자 남았다 —— 서버가 묻는 중 (시트를 닫았어도 여기서 답할 수 있다)
 	if str(room.get("alone", "")) == "ask":
-		var av := UI.vbox(6)
-		av.add_child(UI.rich("[color=#D9A64B][b]혼자 남았다[/b][/color] — 다른 사람이 모두 멸망했거나 나갔다. 남은 날은 봇만 상대한다.", 14))
-		var ah := UI.hbox(8)
-		var b1 := UI.btn("계속한다", func(): net.send({"t": "alone", "go": true}), "pri", 46)
-		var b2 := UI.btn("방을 닫는다", func(): net.send({"t": "alone", "go": false}), "warn", 46)
+		var av := UI.vbox(UI.SP_S)
+		av.add_child(UI.rich("[color=#D9A64B][b]혼자 남았다[/b][/color] — 다른 사람이 모두 멸망했거나 나갔다. 남은 날은 봇만 상대한다.", UI.FS_BODY))
+		var ah := UI.hbox(UI.SP_S)
+		var b1 := UI.btn("계속한다", func(): net.send({"t": "alone", "go": true}), "pri", UI.BH_M)
+		var b2 := UI.btn("방을 닫는다", func(): net.send({"t": "alone", "go": false}), "warn", UI.BH_M)
 		b1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ah.add_child(b1)
@@ -1450,16 +1450,16 @@ func war_page() -> Control:
 		if st == "morning" and has_noon() and run.quest_open():      # 11/12 험지 토벌 고르기 —— 토벌이 있는 일차의 준비 단계
 			v.add_child(gs.quest_hard_btn())
 		if watching and not watch.is_empty():
-			v.add_child(UI.btn("남은 전투 보기 (%d)" % watch.size(), func(): watch_next(), "gold", 46))
+			v.add_child(UI.btn("남은 전투 보기 (%d)" % watch.size(), func(): watch_next(), "gold", UI.BH_M))
 	# (c) 이번 단계 전투 —— 본 전투의 결과 칸 + 한 줄씩
 	if not last_battles.is_empty():
-		var bv := UI.vbox(8)
+		var bv := UI.vbox(UI.SP_S)
 		var shown: Dictionary = _last_watched
 		if shown.is_empty() and _seen_all and last_battles.size() == 1:
 			shown = last_battles[0]      # 재접속 등으로 목록만 받았어도 하나뿐이면 그 결과
 		if not shown.is_empty():
 			bv.add_child(_result_panel(shown))
-		var rows := UI.vbox(6)
+		var rows := UI.vbox(UI.SP_S)
 		for i in last_battles.size():
 			var x: Dictionary = last_battles[i]
 			if i > 0:
@@ -1475,7 +1475,7 @@ func war_page() -> Control:
 	# (e) 자리 —— 한 줄씩
 	var seats: Array = room.get("seats", [])
 	if not seats.is_empty():
-		var sv := UI.vbox(5)
+		var sv := UI.vbox(UI.SP_XS)
 		for i in seats.size():
 			if i > 0:
 				sv.add_child(UI.hair())

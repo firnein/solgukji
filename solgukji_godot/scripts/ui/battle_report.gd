@@ -28,20 +28,20 @@ static func make(r: Dictionary) -> BattleReport:
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UI.flat(Color(0.06, 0.07, 0.11, 1.0), DB.PAL.ink3, 1, 10, 12))      # 불투명 —— 뒤의 종료 문구가 비쳐 글씨가 겹쳤다
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	var v := UI.vbox(8)
+	var v := UI.vbox(UI.SP_S)
 	add_child(v)
 	var col: Color = DB.PAL.jade if res.win else DB.PAL.seal
-	var head := UI.hbox(8)
-	head.add_child(UI.lbl("무승부" if res.draw else ("승전" if res.win else "패전"), 20, col, true))
-	var sub := UI.lbl("잔존 %d 대 %d · %s" % [res.left, res.eLeft, _len_text()], 13, DB.PAL.bamboo_dim)
+	var head := UI.hbox(UI.SP_S)
+	head.add_child(UI.lbl("무승부" if res.draw else ("승전" if res.win else "패전"), UI.FS_TITLE, col, true))
+	var sub := UI.lbl("잔존 %d 대 %d · %s" % [res.left, res.eLeft, _len_text()], UI.FS_BODY, DB.PAL.text_dim)
 	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	sub.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(sub)
 	v.add_child(head)
 	if not res.win and str(res.get("why", "")) != "":      # 11/9 패배 사유 (game_screen._why_lost)
-		var wl := UI.lbl(str(res.why), 13, DB.PAL.paper)
-		wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var wl := UI.lbl(str(res.why), UI.FS_BODY, DB.PAL.paper)
+		UI.wrap_text(wl)
 		v.add_child(wl)
 	_tabs = Control.new()
 	v.add_child(_tabs)
@@ -50,7 +50,7 @@ func _ready() -> void:
 	_body = UI.vbox(int(ROW_SEP))
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_body)
-	v.add_child(UI.rich("[color=#%s]■[/color] 준 피해   [color=#c0503f]■[/color] 받은 피해   ·   격파 · 기술 · 고유기   ·   깎기 +피해" % DB.PAL.gold.to_html(false), 11))
+	v.add_child(UI.rich("[color=#%s]■[/color] 준 피해   [color=#c0503f]■[/color] 받은 피해   ·   격파 · 기술 · 고유기   ·   깎기 +피해" % DB.PAL.gold.to_html(false), UI.FS_CAP))
 	_fill()
 	await get_tree().process_frame      # 한 번 자리 잡은 뒤 —— 표 틀(머리줄 · 탭 · 범례 · 여백) 높이를 재고 줄 칸 높이를 정한다
 	if not is_inside_tree():
@@ -90,7 +90,7 @@ func _fill() -> void:
 	if camp == "A":      # 11/6 #16 덱 설계 요약 —— "내 덱의 무엇이 통했는지" 한 줄 (데일리 진행의 확인 순간)
 		var ds := _deck_summary()
 		if ds != "":
-			_body.add_child(UI.rich(ds, 13))
+			_body.add_child(UI.rich(ds, UI.FS_BODY))
 	var ch: Dictionary = res.get("chains", {}).get(camp, {})
 	if not ch.is_empty():
 		var names := ch.keys()
@@ -98,7 +98,7 @@ func _fill() -> void:
 		var parts := []
 		for k in names.slice(0, 5):
 			parts.append("[b]%s[/b] ×%d" % [k, int(ch[k])])
-		_body.add_child(UI.rich("[color=#%s]덱 연쇄[/color]  %s" % [("ffd257" if camp == "A" else "ff7a66"), "   ".join(parts)], 13))
+		_body.add_child(UI.rich("[color=#%s]덱 연쇄[/color]  %s" % [("ffd257" if camp == "A" else "ff7a66"), "   ".join(parts)], UI.FS_BODY))
 	var rows := _rows(camp)
 	var top_d := 1.0
 	var top_t := 1.0
@@ -200,7 +200,7 @@ class Row extends Control:
 			draw_circle(Vector2(18, 20), 16, Color(0, 0, 0, 0.5))
 		var x0 := 42.0
 		draw_string(DB.title_font(13), Vector2(x0, 17), _fit(DB.title_font(13), r.name, 13, NAME_W), HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 13, Color(P.paper, a))
-		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 10, P.bamboo_dim)
+		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 10, P.text_dim)
 		var bx := x0 + NAME_W + 6
 		var bw := size.x - bx - CNT_W - 8
 		_bar(Vector2(bx, 7), bw, r.dmg / top_d, P.gold, Battle.num(r.dmg) if r.get("dot", 0.0) <= 0.0 else "화상 · 출혈 %s  %s" % [Battle.num(r.dot), Battle.num(r.dmg)])      # 11/9 지속 피해(건 장수에게 기록)는 준 피해 안에 들어 있다 —— 막대 글에 몫을 밝힌다

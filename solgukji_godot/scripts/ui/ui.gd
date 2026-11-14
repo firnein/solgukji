@@ -3,16 +3,46 @@ extends RefCounted
 ## 화면 부품 —— 세로 화면(기준 폭 400) 휴대폰용. 손가락으로 누르기 좋게 버튼은 높이 48 이상. 색은 DB.PAL.
 ## 스크롤은 UI.scroll() 로 만든다 (TouchScroll 이 버튼 위에서 끌어도 스크롤되게 한다).
 
-const BTN_H := 50
+## ── 공통 규칙 (11/14 UI 감사 #10) ───────────────────────────────────────────────
+## 새 화면 · 고치는 화면은 아래 값만 쓴다. 숫자를 직접 쓰지 말 것 (값은 논리 단위 —— 기준 폭 400, 화면 px 는 약 ×1.8).
+# 간격 —— 다섯 단계. 0~3 은 글자 줄을 붙일 때만 그대로 쓴다
+const SP_XS := 4
+const SP_S := 8
+const SP_M := 12
+const SP_L := 16
+const SP_XL := 24
+# 글자 크기 —— 다섯 단계 + 큰 글자. FS_TINY 는 타일 안 배지 · 그림 위 숫자 전용 (본문 · 설명 금지)
+const FS_TINY := 10
+const FS_CAP := 12       # 캡션 · 보조 숫자 · 머리줄 오른쪽 글씨
+const FS_BODY := 14      # 본문 · 설명 · 힌트 · 칩
+const FS_LABEL := 16     # 버튼 · 이름 · 강조 줄
+const FS_TITLE := 20     # 시트 제목 · 큰 수치
+const FS_HEAD := 24      # 화면 머리 · 결과 제목
+const FS_DISPLAY := 48   # 엔딩 · 방 코드처럼 한 화면에 하나뿐인 큰 글자
+# 버튼 높이 —— 보이는 크기. 누르는 범위는 어느 것이든 HIT(48) 이상 (TouchButton)
+const BH_XS := 28        # 타일 아래 · 줄 안의 작은 버튼
+const BH_S := 40         # 머리줄 · 칩 · 나눔 · 보조 버튼
+const BH_M := 50         # 기본 버튼
+const BH_L := 60         # 주 행동 · 두 줄 행동 버튼(act) · 시트 아래 확정
+const HIT := 48          # 최소 터치 범위 (가로 · 세로)
+const ICON_BTN := Vector2(44, 44)      # ☰ · 닫기 ✕ 같은 기호 버튼의 보이는 크기 (누르는 범위는 HIT)
+# 카드 타일 —— 세 가지 (가로 × 세로)
+const TILE_S := Vector2(46, 72)        # 손패 · 작은 줄
+const TILE_M := Vector2(68, 96)        # 목록 그리드 기본
+const TILE_L := Vector2(86, 112)       # 추천 · 조합 목표
+# 모서리
 const R := 4                      # 모서리 반지름 —— 상자 · 버튼 · 칩 모두 이 크기 (11/9, 알약 · 큰 둥근 모서리 금지)
+const R_SHEET := 18               # 아래에서 올라오는 시트의 위 두 모서리만 예외
+const BTN_H := BH_M
 const HAIR := Color(0.914, 0.89, 0.827, 0.10)      # 구분선(hairline) —— 종이색 10%
+const WJ := "⁠"              # 단어 잇기(보이지 않음) —— 붙은 한글 음절 사이에 넣어 단어 중간 줄바꿈을 막는다 (keep_words)
 
 
 static func theme() -> Theme:
 	var P := DB.PAL
 	var th := Theme.new()
 	th.default_font = DB.font_body
-	th.default_font_size = 15
+	th.default_font_size = FS_BODY
 	# 11/9 사용자: AI 티를 걷는다 —— 상자는 테두리 없는 먹색 면 + 작은 모서리, 선택 · 눌림에만 금 얇은 선 (작업현황 ㊽ 규칙)
 	var none := Color(0, 0, 0, 0)
 	th.set_stylebox("panel", "PanelContainer", flat(P.ink2, none, 0, R, 12))
@@ -29,7 +59,7 @@ static func theme() -> Theme:
 	th.set_color("font_disabled_color", "Button", Color(P.paper, 0.35))
 	th.set_color("font_color", "Label", P.paper)
 	th.set_color("default_color", "RichTextLabel", P.paper)
-	th.set_font_size("normal_font_size", "RichTextLabel", 14)
+	th.set_font_size("normal_font_size", "RichTextLabel", FS_BODY)
 	th.set_font("normal_font", "RichTextLabel", DB.font_body)
 	th.set_font("bold_font", "RichTextLabel", DB.font_bold)
 	th.set_stylebox("normal", "OptionButton", flat(P.ink3, none, 0, R, 10))
@@ -57,8 +87,8 @@ static func theme() -> Theme:
 	th.set_stylebox("scroll", "HScrollBar", StyleBoxEmpty.new())
 	th.set_stylebox("normal", "LineEdit", flat(P.ink3, none, 0, R, 10))      # 11/9 사용자: 온라인 팝업 입력 칸 —— 상자 규칙(먹색 면 · 테두리 없음)으로, 초점만 가는 선
 	th.set_stylebox("focus", "LineEdit", flat(P.ink3, P.bamboo_dim, 1, R, 10))
-	th.set_font_size("font_size", "LineEdit", 16)
-	th.set_font_size("font_size", "CheckButton", 15)
+	th.set_font_size("font_size", "LineEdit", FS_LABEL)
+	th.set_font_size("font_size", "CheckButton", FS_BODY)
 	return th
 
 
@@ -84,7 +114,39 @@ static func hair(vertical := false) -> ColorRect:
 	return r
 
 
-static func lbl(text: String, fs := 15, col := Color(0, 0, 0, 0), display := false) -> Label:
+## 단어 중간 줄바꿈 막기 (11/14 감사 #7) —— Godot(ICU)은 한글을 음절마다 끊을 수 있다고 본다(「모\n든」).
+## 붙은 한글 음절 사이에 보이지 않는 단어 잇기(WJ)를 넣어 띄어쓰기 자리에서만 끊기게 한다. 한 단어가 줄보다 길면 그때만 음절에서 끊긴다(WORD_SMART)
+static func keep_words(s: String) -> String:
+	if s.find(WJ) >= 0:
+		return s
+	var out := PackedStringArray()
+	var n := s.length()
+	for i in n:
+		out.append(s[i])
+		if i + 1 < n and _is_syl(s.unicode_at(i)) and _is_syl(s.unicode_at(i + 1)):
+			out.append(WJ)
+	return "".join(out)
+
+
+static func _is_syl(c: int) -> bool:
+	return c >= 0xAC00 and c <= 0xD7A3
+
+
+## 여러 줄 글 —— 줄바꿈은 단어 단위(WORD_SMART) + 한글 단어 중간에서 안 끊기게. Label · RichTextLabel(UI.rich) 둘 다
+static func wrap_text(l: Control) -> Control:
+	if l is Label or l is Button:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.text = keep_words(l.text)
+	elif l is RichTextLabel:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var t: String = l.get_meta("bb", "")
+		if t != "":
+			l.clear()
+			l.append_text(keep_words(t))
+	return l
+
+
+static func lbl(text: String, fs := FS_BODY, col := Color(0, 0, 0, 0), display := false) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", fs)
@@ -96,7 +158,7 @@ static func lbl(text: String, fs := 15, col := Color(0, 0, 0, 0), display := fal
 
 
 ## 군량 표기 (11/13) —— [쌀가마 기호] [값]. 글자 「군량」 대신 어디서나 같은 모양 (머리띠 · 상점 가격 · 판매 버튼)
-static func grain(text: String, fs := 15, col := Color(0, 0, 0, 0), display := true) -> HBoxContainer:
+static func grain(text: String, fs := FS_BODY, col := Color(0, 0, 0, 0), display := true) -> HBoxContainer:
 	var h := hbox(maxi(2, int(fs * 0.2)))
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var c := col if col.a > 0 else DB.PAL.gold
@@ -111,9 +173,9 @@ static func grain(text: String, fs := 15, col := Color(0, 0, 0, 0), display := t
 
 
 ## 군량 기호가 든 버튼 —— 「판매  [쌀가마] +N」. 글자는 버튼 가운데에 (Button.text 는 비우고 위에 얹는다)
-static func grain_btn(pre: String, text: String, cb: Callable, kind := "", h := BTN_H, fs := 16) -> Button:
+static func grain_btn(pre: String, text: String, cb: Callable, kind := "", h := BTN_H, fs := FS_LABEL) -> Button:
 	var b := btn("", cb, kind, h)
-	var row := hbox(6)
+	var row := hbox(SP_S)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -128,12 +190,12 @@ static func grain_btn(pre: String, text: String, cb: Callable, kind := "", h := 
 
 
 static func hint(text: String) -> Label:
-	var l := lbl(text, 13, DB.PAL.bamboo_dim.lightened(0.12))
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var l := lbl(text, FS_BODY, DB.PAL.text_dim)
+	wrap_text(l)
 	return l
 
 
-static func rich(bb: String, fs := 14) -> RichTextLabel:
+static func rich(bb: String, fs := FS_BODY) -> RichTextLabel:
 	var r := RichTextLabel.new()
 	r.bbcode_enabled = true
 	r.fit_content = true
@@ -141,6 +203,7 @@ static func rich(bb: String, fs := 14) -> RichTextLabel:
 	r.mouse_filter = Control.MOUSE_FILTER_PASS
 	r.add_theme_font_size_override("normal_font_size", fs)
 	r.add_theme_font_size_override("bold_font_size", fs)
+	r.set_meta("bb", bb)
 	r.append_text(bb)
 	return r
 
@@ -166,21 +229,23 @@ static func spoil_bb(sp) -> String:
 
 ## 결과 정리 줄 —— 조각을 "  ·  " 로 잇는다 (BBCode 가능). 기본 글자색은 bamboo
 static func result_line(parts: Array) -> RichTextLabel:
-	var r := rich("[color=#%s]%s[/color]" % [DB.PAL.bamboo.to_html(false), "  ·  ".join(parts)], 13)
-	r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var r := rich("[color=#%s]%s[/color]" % [DB.PAL.bamboo.to_html(false), "  ·  ".join(parts)], FS_BODY)
+	wrap_text(r)
 	return r
 
 
 static func eyebrow(text: String) -> Label:
-	var l := lbl(text, 14, DB.PAL.bamboo, true)
+	var l := lbl(text, FS_BODY, DB.PAL.bamboo, true)
 	return l
 
 
-static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> Button:
-	var b := Button.new()
+## 버튼 —— kind: "pri"/"gold"(주 행동 —— 화면에 하나) · ""(기본) · "ghost"(테두리만) · "warn"(위험). 높이는 BH_* 중 하나.
+## 보이는 높이가 HIT 보다 작아도 누르는 범위는 HIT (TouchButton)
+static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> TouchButton:
+	var b := TouchButton.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, h)
-	b.add_theme_font_size_override("font_size", 16)
+	b.add_theme_font_size_override("font_size", FS_LABEL)
 	b.pressed.connect(func():
 		buzz()
 		cb.call())
@@ -198,21 +263,50 @@ static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> Button:
 	return b
 
 
+## 버튼 종류별 이름 —— 새 코드는 btn(…, kind, h) 대신 이것들로
+static func btn_primary(text: String, cb: Callable, h := BH_M) -> Button:
+	return btn(text, cb, "pri", h)
+
+
+static func btn_secondary(text: String, cb: Callable, h := BH_M) -> Button:
+	return btn(text, cb, "", h)
+
+
+static func btn_ghost(text: String, cb: Callable, h := BH_M) -> Button:
+	return btn(text, cb, "ghost", h)
+
+
+## 작은 버튼 —— 머리줄 · 줄 안 (보이는 높이 BH_S, 누르는 범위 HIT)
+static func btn_small(text: String, cb: Callable, kind := "") -> Button:
+	var b := btn(text, cb, kind, BH_S)
+	b.add_theme_font_size_override("font_size", FS_BODY)
+	return b
+
+
+## 기호 버튼 —— ☰ · ✕ 처럼 글자 하나. 바탕 없이 보이는 크기 vis, 누르는 범위는 HIT × HIT
+static func icon_btn(glyph: String, cb: Callable, vis := ICON_BTN, fs := FS_TITLE) -> TouchButton:
+	var b := btn(glyph, cb, "ghost", int(vis.y))
+	b.custom_minimum_size = vis
+	b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	b.add_theme_font_size_override("font_size", fs)
+	return b
+
+
 ## 두 줄 버튼 —— 굵은 제목 + 작은 설명 (징집·전투의 큰 행동 버튼)
 static func act(title: String, sub: String, cb: Callable, kind := "", disabled := false) -> Button:
-	var b := btn("", cb, kind, 64)
+	var b := btn("", cb, kind, BH_L)
 	b.disabled = disabled
-	b.custom_minimum_size = Vector2(0, 64)
+	b.custom_minimum_size = Vector2(0, BH_L)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 0)
-	var t := lbl(title, 16, Color(DB.PAL.paper, 0.4 if disabled else 1.0), true)
+	var t := lbl(title, FS_LABEL, Color(DB.PAL.paper, 0.4 if disabled else 1.0), true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var s := lbl(sub, 12, Color(DB.PAL.bamboo, 0.4 if disabled else 1.0))
+	var s := lbl(sub, FS_CAP, Color(DB.PAL.bamboo, 0.4 if disabled else 1.0))
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	s.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -245,7 +339,7 @@ static func scroll(horizontal := false) -> ScrollContainer:
 
 
 ## 가로로 넘기는 띠 —— 칩·진형처럼 한 줄에 다 안 들어가는 것
-static func strip(sep := 8) -> Array:
+static func strip(sep := SP_S) -> Array:
 	var sc := scroll(true)
 	var h := hbox(sep)
 	sc.add_child(h)
@@ -253,7 +347,7 @@ static func strip(sep := 8) -> Array:
 
 
 ## 폭에 맞춰 칸 수를 정하는 격자 —— 카드·아이템 목록 (휴대폰 세로는 두 칸)
-static func grid(min_w := 168.0, sep := 8) -> AutoGrid:
+static func grid(min_w := 168.0, sep := SP_S) -> AutoGrid:
 	var g := AutoGrid.new()
 	g.min_w = min_w
 	g.sep = sep
@@ -283,11 +377,11 @@ static func swipe_blocked_at(root: Node, pos: Vector2) -> bool:
 
 
 ## 선택지 —— 필터 · 탭에 쓴다. 고른 것은 금 얇은 선, 나머지는 테두리 없는 먹색 (알약 · 색 칠한 칩 아님)
-static func chip(text: String, on: bool, cb: Callable, h := 40) -> Button:
-	var b := Button.new()
+static func chip(text: String, on: bool, cb: Callable, h := BH_S) -> Button:
+	var b := TouchButton.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, h)
-	b.add_theme_font_size_override("font_size", 14)
+	b.add_theme_font_size_override("font_size", FS_BODY)
 	var P := DB.PAL
 	var none := Color(0, 0, 0, 0)
 	if on:
@@ -310,25 +404,31 @@ static func chip(text: String, on: bool, cb: Callable, h := 40) -> Button:
 	return b
 
 
-## 분할 탭 —— [계보 | 순위] 처럼 한 줄을 나눠 고른다
+## 분할 탭 —— [계보 | 순위] 처럼 한 줄을 나눠 고른다. 고르기 · 나눔 · 켜고 끄기 줄은 모두 이것 하나 (11/14 감사 #10)
+## 모양: 어두운 바탕 트랙(가는 테두리 —— 먹 바탕 · 시트 위 어디서나 보이게) + 고른 칸만 ink4 채움 + 금 아래선.
+## cur 가 어느 칸과도 같지 않으면 아무 칸도 고르지 않은 상태 (편성 보유/보급품 닫힘)
 static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 	var P := DB.PAL
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", flat(P.ink2, Color(0, 0, 0, 0), 0, R, 3))
-	var h := hbox(4)
+	p.add_theme_stylebox_override("panel", flat(Color(P.ink, 0.75), HAIR, 1, R, 3))
+	var h := hbox(SP_XS)
 	p.add_child(h)
+	var none := Color(0, 0, 0, 0)
 	for it in items:
 		var on: bool = it[0] == cur
-		var b := Button.new()
+		var b := TouchButton.new()
 		b.text = it[1]
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, BH_S)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 15)
-		b.add_theme_font_override("font", DB.title_font(15))
-		b.add_theme_stylebox_override("normal", flat(P.ink4 if on else Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 3, 6))
-		b.add_theme_stylebox_override("hover", flat(P.ink4 if on else P.ink3, Color(0, 0, 0, 0), 0, 3, 6))
-		b.add_theme_stylebox_override("pressed", flat(P.ink4, Color(0, 0, 0, 0), 0, 3, 6))
-		b.add_theme_color_override("font_color", P.paper if on else P.bamboo_dim)
+		b.add_theme_font_size_override("font_size", FS_BODY)
+		b.add_theme_font_override("font", DB.title_font(FS_BODY))
+		var sel := flat(P.ink4, P.gold, 0, R, 6)
+		sel.border_width_bottom = 2
+		b.add_theme_stylebox_override("normal", sel if on else flat(none, none, 0, R, 6))
+		b.add_theme_stylebox_override("hover", sel if on else flat(P.ink3, none, 0, R, 6))
+		b.add_theme_stylebox_override("pressed", sel)
+		b.add_theme_stylebox_override("hover_pressed", sel)
+		b.add_theme_color_override("font_color", P.paper if on else P.text_dim)
 		b.add_theme_color_override("font_hover_color", P.paper)
 		b.add_theme_color_override("font_pressed_color", P.paper)
 		var key: String = it[0]
@@ -343,24 +443,24 @@ static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button:
 	var P := DB.PAL
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 52)
+	b.custom_minimum_size = Vector2(0, BH_M)
 	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(0, 0, 0, 0), 0, R, 12))
 	b.add_theme_stylebox_override("hover", flat(P.ink3, Color(0, 0, 0, 0), 0, R, 12))
 	b.add_theme_stylebox_override("pressed", flat(P.ink3, Color(0, 0, 0, 0), 0, R, 12))
 	b.pressed.connect(func():
 		buzz()
 		cb.call())
-	var h := hbox(8)
+	var h := hbox(SP_S)
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	h.offset_left = 14
 	h.offset_right = -14
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var t := lbl(title, 16, P.paper, true)
+	var t := lbl(title, FS_LABEL, P.paper, true)
 	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	t.size_flags_vertical = Control.SIZE_FILL
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(t)
-	var s := lbl(sub, 13, P.bamboo)
+	var s := lbl(sub, FS_BODY, P.bamboo)
 	s.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	s.size_flags_vertical = Control.SIZE_FILL
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -368,7 +468,7 @@ static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button
 	s.clip_text = true
 	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(s)
-	var ar := lbl("−" if open else "+", 20, P.bamboo_dim, true)
+	var ar := lbl("−" if open else "+", FS_TITLE, P.text_dim, true)
 	ar.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ar.size_flags_vertical = Control.SIZE_FILL
 	ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -394,7 +494,7 @@ static func tier_mark(b: Control, t: int) -> void:
 static func tile_act(icon: String, title: String, sub: String, cb: Callable, kind := "", done := false, disabled := false) -> Button:
 	var P := DB.PAL
 	var low := sub == ""      # 11/7 사용자: 설명 글이 없으면 기호 · 제목을 옆으로 나란히 한 줄 (징집 페이지 선택권 묶음이 세로로 너무 컸다 —— 46 → 34)
-	var b := btn("", cb, kind, 58 if not low else 34)      # 11/2 사용자: 80 → 58
+	var b := btn("", cb, kind, BH_L if not low else BH_S)      # 11/2 사용자: 80 → 58
 	b.disabled = disabled or done
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if done:
@@ -414,7 +514,7 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	for pair in [[title, 13, P.paper, true], [sub, 10, P.bamboo, false]]:
+	for pair in [[title, FS_BODY, P.paper, true], [sub, FS_CAP, P.bamboo, false]]:
 		if pair[0] == "":
 			continue
 		var l := lbl(pair[0], pair[1], Color(pair[2], a), pair[3])
@@ -434,15 +534,15 @@ static func tile_act(icon: String, title: String, sub: String, cb: Callable, kin
 ## 기호 칩 —— 한 줄 요약 (보급품 · 소식). 누르면 자세히
 static func icon_chip(icon: String, text: String, col: Color, cb: Callable) -> Button:
 	var P := DB.PAL
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 36)
+	var b := TouchButton.new()
+	b.custom_minimum_size = Vector2(0, BH_S)
 	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(0, 0, 0, 0), 0, R, 0))
 	b.add_theme_stylebox_override("hover", flat(P.ink3, Color(0, 0, 0, 0), 0, R, 0))
 	b.add_theme_stylebox_override("pressed", flat(P.ink4, Color(0, 0, 0, 0), 0, R, 0))
 	b.pressed.connect(func():
 		buzz()
 		cb.call())
-	var h := hbox(6)
+	var h := hbox(SP_S)
 	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	h.offset_left = 10
 	h.offset_right = -12
@@ -450,7 +550,7 @@ static func icon_chip(icon: String, text: String, col: Color, cb: Callable) -> B
 	var ic := Icons.View.new(icon, col, 20)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
-	var l := lbl(text, 13, col.lightened(0.25))
+	var l := lbl(text, FS_BODY, col.lightened(0.25))
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.size_flags_vertical = Control.SIZE_FILL
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -464,31 +564,31 @@ static func icon_chip(icon: String, text: String, col: Color, cb: Callable) -> B
 
 ## 머리줄 —— 왼쪽 제목, 오른쪽 작은 글씨
 static func head(title: String, right := "") -> HBoxContainer:
-	var h := hbox(8)
+	var h := hbox(SP_S)
 	var t := eyebrow(title)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(t)
 	if right != "":
-		var r := lbl(right, 12, DB.PAL.bamboo_dim)
+		var r := lbl(right, FS_CAP, DB.PAL.text_dim)
 		r.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		r.size_flags_vertical = Control.SIZE_FILL
 		h.add_child(r)
 	return h
 
 
-static func vbox(sep := 8) -> VBoxContainer:
+static func vbox(sep := SP_S) -> VBoxContainer:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", sep)
 	return v
 
 
-static func hbox(sep := 8) -> HBoxContainer:
+static func hbox(sep := SP_S) -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", sep)
 	return h
 
 
-static func flow(sep := 8) -> HFlowContainer:
+static func flow(sep := SP_S) -> HFlowContainer:
 	var f := HFlowContainer.new()
 	f.add_theme_constant_override("h_separation", sep)
 	f.add_theme_constant_override("v_separation", sep)
@@ -497,7 +597,7 @@ static func flow(sep := 8) -> HFlowContainer:
 
 ## 한 덩어리 —— 머리말 + 내용
 static func sect(title: String, body: Control) -> VBoxContainer:
-	var v := vbox(6)
+	var v := vbox(SP_S)
 	if title != "":
 		v.add_child(eyebrow(title))
 	v.add_child(body)
@@ -506,9 +606,9 @@ static func sect(title: String, body: Control) -> VBoxContainer:
 
 static func stat(value: String, label: String) -> VBoxContainer:
 	var v := vbox(0)
-	var a := lbl(value, 20, DB.PAL.paper, true)
+	var a := lbl(value, FS_TITLE, DB.PAL.paper, true)
 	a.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var b := lbl(label, 12, DB.PAL.bamboo_dim)
+	var b := lbl(label, FS_CAP, DB.PAL.text_dim)
 	b.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(a)
 	v.add_child(b)
@@ -517,7 +617,7 @@ static func stat(value: String, label: String) -> VBoxContainer:
 
 
 ## 금색(고유) 특기 칸 —— 인물마다 하나, 금빛 바탕 · 금 테두리 · 이름 + 레벨. 없으면 null
-static func unique_chips(k: String, fs := 13):
+static func unique_chips(k: String, fs := FS_BODY):
 	var ts := DB.trait_list(k).filter(func(t): return t.unique)
 	if ts.is_empty():
 		return null

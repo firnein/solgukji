@@ -129,7 +129,7 @@ func _collect_paths(nd: Dictionary, o: Dictionary) -> void:
 
 ## 갈무리 칸 —— 조합 탭 맨 위
 func build() -> Control:
-	var v := UI.vbox(8)
+	var v := UI.vbox(UI.SP_S)
 	if pins.is_empty():          # 11/2 사용자: 갈무리 안내 글은 빼고 공간 확보
 		v.visible = false
 		return v
@@ -164,7 +164,7 @@ func _node(k: String, n: int, depth: int, root := "", path := "", full := false)
 
 
 func _card(root: String) -> Control:
-	var v := UI.vbox(6)
+	var v := UI.vbox(UI.SP_S)
 	var tree := _node(root, 1, 0)
 	var view := TreeView.new()
 	view.ft = self
@@ -182,18 +182,18 @@ func _card(root: String) -> Control:
 		var c := CenterContainer.new()
 		c.add_child(view)
 		v.add_child(c)
-	var row := UI.hbox(6)
+	var row := UI.hbox(UI.SP_S)
 	var can := _chain_can(tree)
-	var all := UI.btn("모두 조합", func(): forge_chain(root), "pri" if can else "", 40)
+	var all := UI.btn("모두 조합", func(): forge_chain(root), "pri" if can else "", UI.BH_S)
 	all.disabled = not can or not gs.can_act()
 	all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(all)
 	var ao := all_open(root)
-	var ob := UI.btn("모두 접기" if ao else "모두 펴기", func(): open_all(root), "", 40)
+	var ob := UI.btn("모두 접기" if ao else "모두 펴기", func(): open_all(root), "", UI.BH_S)
 	ob.custom_minimum_size.x = 92
 	ob.disabled = not ao and _chain_paths_empty(root)
 	row.add_child(ob)
-	var x := UI.btn("해제", func(): toggle(root), "ghost", 40)
+	var x := UI.btn("해제", func(): toggle(root), "ghost", UI.BH_S)
 	x.custom_minimum_size.x = 64
 	row.add_child(x)
 	v.add_child(row)
@@ -329,8 +329,8 @@ class TreeView extends Control:
 		v.custom_minimum_size.x = nw
 		if nd.has("item"):
 			var it: Dictionary = DB.IT[nd.item]
-			var l := UI.rich("[center][color=%s]＋%s[/color]\n[color=#8D7B5C]%s[/color][/center]" % [
-				"#d59700" if nd.ok else "#e0806f", it.name, "보유" if nd.ok else "아이템 보급품"], 12)
+			var l := UI.rich("[center][color=%s]＋%s[/color]\n[color=#A89574]%s[/color][/center]" % [
+				"#d59700" if nd.ok else "#e0806f", it.name, "보유" if nd.ok else "아이템 보급품"], UI.FS_CAP)
 			l.custom_minimum_size = Vector2(nw, ForgeTree.NH)
 			v.add_child(l)
 			return v
@@ -349,14 +349,14 @@ class TreeView extends Control:
 		if nd.has("fold") or (op and not nd.ok and not run.can_forge(k)):
 			var path: String = nd.path
 			var fb := UI.btn("접기 ▴" if op else "재료 ▾", func(): ft.toggle_open(root, path), "ghost", ForgeTree.BTN - 2)
-			fb.add_theme_font_size_override("font_size", 11)
+			fb.add_theme_font_size_override("font_size", UI.FS_CAP)
 			v.add_child(fb)
 		elif not nd.ok and run.can_forge(k) and depth > 0:
 			var b := UI.btn("조합", func():
 				if gs.act("forge", [k]):
 					gs.toast("%s 조합 완료" % DB.C[k].name, "gain"), "pri", ForgeTree.BTN - 2)
 			b.disabled = not gs.can_act()
-			b.add_theme_font_size_override("font_size", 12)
+			b.add_theme_font_size_override("font_size", UI.FS_CAP)
 			v.add_child(b)
 		else:
 			var txt := ""
@@ -366,7 +366,7 @@ class TreeView extends Control:
 				txt = "기본패 %d장" % nd.basic
 			elif depth == 0:
 				txt = "모자람 %d" % run.miss_count(k)
-			var l := UI.lbl(txt, 11, DB.PAL.jade if nd.ok else DB.PAL.bamboo)
+			var l := UI.lbl(txt, UI.FS_CAP, DB.PAL.jade if nd.ok else DB.PAL.bamboo)
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			l.custom_minimum_size = Vector2(nw, ForgeTree.BTN - 2)
 			v.add_child(l)

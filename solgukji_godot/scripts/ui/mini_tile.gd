@@ -31,7 +31,7 @@ static var locked := {}
 func setup(id: String, n := -1) -> MiniTile:
 	k = id
 	qty = n
-	custom_minimum_size = Vector2(66, 96)      # 11/7 사용자: 카드 축소 (78×112 → 66×96, 한 줄 5장)
+	custom_minimum_size = UI.TILE_M      # 11/7 사용자: 카드 축소 (78×112 → 66×96, 한 줄 5장)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	return self
 

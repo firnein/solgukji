@@ -198,7 +198,7 @@ func _find_btn(n: Node, text: String) -> Button:
 
 
 func _has_text(n: Node, text: String) -> bool:
-	if n is Label and n.text == text and n.is_visible_in_tree():
+	if n is Label and n.text.replace(UI.WJ, "") == text and n.is_visible_in_tree():      # 줄바꿈용 단어 잇기(UI.keep_words)는 빼고 비교
 		return true
 	for c in n.get_children():
 		if _has_text(c, text):

@@ -26,19 +26,19 @@ func _build(head: String, body: String, last: bool, skippable: bool) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, Color(DB.PAL.gold, 0.85), 1, UI.R, 12))
-	var v := UI.vbox(8)
+	var v := UI.vbox(UI.SP_S)
 	_panel.add_child(v)
-	v.add_child(UI.lbl(head, 15, DB.PAL.gold, true))
-	var bl := UI.lbl(body, 14, DB.PAL.paper)
-	bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(UI.lbl(head, UI.FS_BODY, DB.PAL.gold, true))
+	var bl := UI.lbl(body, UI.FS_BODY, DB.PAL.paper)
+	UI.wrap_text(bl)
 	bl.custom_minimum_size.x = _w - 26.0
 	v.add_child(bl)
-	var row := UI.hbox(8)
+	var row := UI.hbox(UI.SP_S)
 	if skippable:
-		var sk := UI.btn("건너뛰기", func(): skip.emit(), "ghost", 38)
+		var sk := UI.btn("건너뛰기", func(): skip.emit(), "ghost", UI.BH_S)
 		sk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(sk)
-	var nb := UI.btn("확인" if last else "다음", func(): next.emit(), "pri", 38)
+	var nb := UI.btn("확인" if last else "다음", func(): next.emit(), "pri", UI.BH_S)
 	nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(nb)
 	v.add_child(row)

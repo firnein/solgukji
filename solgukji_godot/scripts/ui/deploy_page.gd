@@ -48,11 +48,12 @@ func build() -> Control:
 		if fm.get("foe", false):      # 토벌 적 전용 대군 진형
 			continue
 		var on: bool = key == run.form
-		var b := Button.new()
+		var b := TouchButton.new()
+		b.hit.x = 0.0
 		b.text = fm.n
-		b.custom_minimum_size = Vector2(76, 40)
+		b.custom_minimum_size = Vector2(76, UI.BH_S)
 		b.add_theme_font_override("font", DB.title_font(14))
-		b.add_theme_font_size_override("font_size", 14)
+		b.add_theme_font_size_override("font_size", UI.FS_BODY)
 		for cn in ["font_color", "font_hover_color", "font_focus_color"]:
 			b.add_theme_color_override(cn, DB.PAL.gold if on else DB.PAL.paper)
 		b.add_theme_color_override("font_pressed_color", DB.PAL.gold)
@@ -73,15 +74,15 @@ func build() -> Control:
 	# 11/5 사용자: 작전(군령) 고르기 삭제. 11/9 사용자: 진형 우대(FORMBOON) 삭제 —— 진형은 모양(칸)과 칸 선호로만
 
 	# 편성판 —— 화면 위쪽 (손패에서 길게 눌러 끌어 올 수 있게)
-	var bp := UI.vbox(6)
-	var hd := UI.hbox(6)
+	var bp := UI.vbox(UI.SP_S)
+	var hd := UI.hbox(UI.SP_S)
 	var hl := UI.vbox(0)
 	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# 11/9 사용자: 진형 우대 삭제 —— 머리는 진형 이름만 (예전 '창병 · 유생 방어 +14%' 효과 줄과 「비늘이 서로를 가린다」 설명 줄 삭제)
-	var fnr := UI.hbox(10)
-	fnr.add_child(UI.lbl(f.n, 17, DB.PAL.paper, true))
+	var fnr := UI.hbox(UI.SP_S)
+	fnr.add_child(UI.lbl(f.n, UI.FS_LABEL, DB.PAL.paper, true))
 	if str(f.get("full", "")) != "":      # 11/12 진형마다 5칸이 꽉 찬 줄 하나
-		fnr.add_child(UI.lbl("%s 5칸" % f.full, 13, DB.PAL.bamboo_dim))
+		fnr.add_child(UI.lbl("%s 5칸" % f.full, UI.FS_BODY, DB.PAL.text_dim))
 	fnr.add_child(_inyeon_chip())      # 11/11 인연 —— 진형 이름 옆 칩 (이어진 수 · 누르면 시트)
 	if run.quest_open() and gs.can_form():      # 11/13 사용자: 험지 토벌이 눈에 안 띈다(전투 탭 아래 옅은 버튼뿐) —— 편성 화면 진형 이름 옆 칩
 		fnr.add_child(_hard_chip())
@@ -89,12 +90,12 @@ func build() -> Control:
 	hd.add_child(hl)
 	var ab := UI.btn("자동 편성", func():
 		sel = ""
-		gs.act("auto_deploy"), "pri", 40)
-	ab.add_theme_font_size_override("font_size", 14)
+		gs.act("auto_deploy"), "pri", UI.BH_S)
+	ab.add_theme_font_size_override("font_size", UI.FS_BODY)
 	ab.disabled = not gs.can_form()
 	hd.add_child(ab)
-	var cb := UI.btn("해제", func(): gs.act("clear_board"), "ghost", 40)
-	cb.add_theme_font_size_override("font_size", 14)
+	var cb := UI.btn("해제", func(): gs.act("clear_board"), "ghost", UI.BH_S)
+	cb.add_theme_font_size_override("font_size", UI.FS_BODY)
 	cb.disabled = not gs.can_form()
 	hd.add_child(cb)
 	bp.add_child(hd)
@@ -102,16 +103,16 @@ func build() -> Control:
 	grid.columns = 1 + DB.FORM_COLS      # 11/6 진형 4행 5열
 	grid.add_theme_constant_override("h_separation", 5)
 	grid.add_theme_constant_override("v_separation", 5)
-	var face := UI.lbl("▲적", 11, DB.PAL.seal)
+	var face := UI.lbl("▲적", UI.FS_CAP, DB.PAL.danger)
 	face.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	grid.add_child(face)
 	for col in ["좌익", "좌", "중앙", "우", "우익"]:
-		var cl := UI.lbl(col, 11, DB.PAL.bamboo_dim)
+		var cl := UI.lbl(col, UI.FS_CAP, DB.PAL.text_dim)
 		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(cl)
 	for ri in f.grid.size():
-		var ll := UI.lbl(DB.D.LINES[ri], 12, DB.PAL.bamboo, true)
+		var ll := UI.lbl(DB.D.LINES[ri], UI.FS_CAP, DB.PAL.bamboo, true)
 		ll.custom_minimum_size = Vector2(28, 0)
 		ll.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -141,7 +142,7 @@ func build() -> Control:
 	var hand := HandDrop.new()
 	hand.page = self
 	hand.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var hv := UI.vbox(6)
+	var hv := UI.vbox(UI.SP_S)
 	hand.add_child(hv)
 	# 11/5 사용자: '손패' → '보유', 진형 탭 버튼 제거 (진형 설명은 위 편성판 머리에 있다)
 	var tabs := UI.segmented([["hand", "보유 %d" % keys.size()], ["item", "보급품 %d" % n_items]], seg, func(k):
@@ -155,7 +156,7 @@ func build() -> Control:
 		var sc := UI.scroll()
 		sc.custom_minimum_size.y = LOWER_H
 		hv.add_child(sc)
-		var lower := UI.vbox(6)
+		var lower := UI.vbox(UI.SP_S)
 		lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sc.add_child(lower)
 		match seg:
@@ -186,14 +187,14 @@ func build() -> Control:
 func _hand(hv: VBoxContainer, keys: Array) -> void:
 	var run: Run = gs.run
 	if sel != "":
-		var sh := UI.hbox(8)
-		var sl := UI.rich("[color=#D9A64B][b]%s[/b] 을(를) 골랐다 — 놓을 칸을 누른다[/color]" % DB.C[sel].name, 14)
+		var sh := UI.hbox(UI.SP_S)
+		var sl := UI.rich("[color=#D9A64B][b]%s[/b] 을(를) 골랐다 — 놓을 칸을 누른다[/color]" % DB.C[sel].name, UI.FS_BODY)
 		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		sh.add_child(sl)
 		sh.add_child(UI.btn("취소", func():
 			sel = ""
-			gs.render(), "ghost", 40))
+			gs.render(), "ghost", UI.BH_S))
 		hv.add_child(sh)
 
 	# 11/5 사용자: 손패는 목록으로, 높은 등급부터 (Run.sort_cards). 줄을 누르면 고르고, 고른 줄을 다시 누르면 상세. 길게 눌러 칸으로 끈다
@@ -223,11 +224,11 @@ func _hard_chip() -> Control:
 	var P := DB.PAL
 	var run: Run = gs.run
 	var on := run.quest_hard
-	var b := Button.new()
+	var b := TouchButton.new()
 	b.text = "험지 토벌 ✕%s" % str(Run.QUEST_HARD_TR) if on else "험지 토벌"
-	b.custom_minimum_size = Vector2(0, 28)
+	b.custom_minimum_size = Vector2(0, UI.BH_XS)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.add_theme_font_size_override("font_size", 13)
+	b.add_theme_font_size_override("font_size", UI.FS_BODY)
 	var fc: Color = P.paper if on else P.gold
 	for cn in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
 		b.add_theme_color_override(cn, fc)
@@ -253,11 +254,11 @@ func _inyeon_chip() -> Control:
 	var P := DB.PAL
 	var n := _links.size()
 	var on := n > 0
-	var b := Button.new()
+	var b := TouchButton.new()
 	b.text = "인연 %d" % n if on else "인연"
-	b.custom_minimum_size = Vector2(0, 28)
+	b.custom_minimum_size = Vector2(0, UI.BH_XS)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.add_theme_font_size_override("font_size", 13)
+	b.add_theme_font_size_override("font_size", UI.FS_BODY)
 	var fc: Color = P.yeon.lightened(0.3) if on else P.bamboo_dim
 	for cn in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color"]:
 		b.add_theme_color_override(cn, fc)
@@ -317,16 +318,16 @@ func inyeon_sheet() -> void:
 ## 인연 한 장 —— 머리(이름 · n/3) + 구성원 줄
 func _inyeon_block(nm: String, n: int, ctx: Dictionary, on_card: Callable) -> Control:
 	var P := DB.PAL
-	var v := UI.vbox(8)
-	var hd := UI.hbox(8)
+	var v := UI.vbox(UI.SP_S)
+	var hd := UI.hbox(UI.SP_S)
 	var ic := Icons.View.new("link", P.yeon, 18)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hd.add_child(ic)
-	var nl := UI.lbl(nm, 16, P.yeon.lightened(0.25), true)
+	var nl := UI.lbl(nm, UI.FS_LABEL, P.yeon.lightened(0.25), true)
 	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hd.add_child(nl)
 	var lv := mini(n, DB.INYEON_MAX)
-	var cl := UI.lbl("%d/%d" % [lv, DB.INYEON_MAX], 15, P.gold if lv >= DB.INYEON_MAX else P.bamboo, true)
+	var cl := UI.lbl("%d/%d" % [lv, DB.INYEON_MAX], UI.FS_BODY, P.gold if lv >= DB.INYEON_MAX else P.bamboo, true)
 	hd.add_child(cl)
 	v.add_child(hd)
 	v.add_child(InyeonUI.members_row(nm, ctx, on_card))
@@ -359,7 +360,7 @@ func _items(v: VBoxContainer) -> void:
 		var n := 0
 		for id in ids:
 			n += run.bag[id]
-		v.add_child(UI.lbl("%s %d" % [g, n], 12, Color(DB.D.IGRADE[g]).lightened(0.2), true))
+		v.add_child(UI.lbl("%s %d" % [g, n], UI.FS_CAP, Color(DB.D.IGRADE[g]).lightened(0.2), true))
 		var gr := GridContainer.new()
 		gr.columns = cols[g]
 		gr.add_theme_constant_override("h_separation", 6)
@@ -382,7 +383,7 @@ func _item_card(id: String, n: int, g: String) -> Control:
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 			UI.buzz()
 			gs._item_sheet(id))      # 누르면 아이템 시트 (유니크는 들어가는 신화 장수)
-	var h := UI.hbox(8)
+	var h := UI.hbox(UI.SP_S)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ts := 56 if big else (36 if mid else 26)
 	var th := ItemArt.View.new(id, ts)
@@ -394,7 +395,7 @@ func _item_card(id: String, n: int, g: String) -> Control:
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var nl := UI.lbl("%s%s" % [it.name, ("  ×%d" % n) if n > 1 else ""], 16 if big else (13 if mid else 12), col.lightened(0.2), true)
+	var nl := UI.lbl("%s%s" % [it.name, ("  ×%d" % n) if n > 1 else ""], UI.FS_LABEL if big else (UI.FS_BODY if mid else UI.FS_CAP), col.lightened(0.2), true)
 	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	nl.clip_text = true
 	tv.add_child(nl)
@@ -405,8 +406,8 @@ func _item_card(id: String, n: int, g: String) -> Control:
 			et += "\n→ %s" % DB.C[k].name
 	else:
 		et = et.replace(" · ", "\n")
-	var el := UI.lbl(et, 13 if big else 11, DB.PAL.bamboo)
-	el.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART     # 효과를 자르지 않는다
+	var el := UI.lbl(et, UI.FS_BODY if big else UI.FS_CAP, DB.PAL.bamboo)
+	UI.wrap_text(el)     # 효과를 자르지 않는다
 	tv.add_child(el)
 	for c in tv.get_children():
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -457,7 +458,7 @@ func slot_sheet(i: int) -> void:
 	var side: String = ["좌익", "좌", "중앙", "우", "우익"][clampi(int(s.col), 0, 4)]
 	var b := gs.open_sheet("%s · %s 배치" % [side, line])
 	# 11/9 사용자: 텍스트가 너무 많다 —— 공격 · 방어 · 피격 글자를 칼 · 방패 · 과녁 기호로 (능력치 줄과 같은 기호 · 색)
-	var sr := UI.hbox(5)
+	var sr := UI.hbox(UI.SP_XS)
 	sr.alignment = BoxContainer.ALIGNMENT_CENTER
 	var _ico := func(icon: String, col: Color, tip: String) -> Control:
 		var iv := Icons.View.new(icon, col, 20.0)
@@ -466,7 +467,7 @@ func slot_sheet(i: int) -> void:
 		iv.tooltip_text = tip
 		return iv
 	var _num := func(t: String, col: Color) -> Control:
-		var l := UI.lbl(t, 15, col, true)
+		var l := UI.lbl(t, UI.FS_BODY, col, true)
 		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		return l
 	sr.add_child(_ico.call("blade", Color("#ff6b5a"), "공격"))
@@ -489,22 +490,22 @@ func slot_sheet(i: int) -> void:
 		if z == "":
 			continue
 		var col := DB.PAL.jade if z == "pref" else DB.PAL.seal
-		var chip := UI.lbl(("▲ " if z == "pref" else "▼ ") + t, 12, col.lightened(0.25), true)
+		var chip := UI.lbl(("▲ " if z == "pref" else "▼ ") + t, UI.FS_CAP, col.lightened(0.25), true)
 		var pc := PanelContainer.new()
 		pc.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink3, Color(0, 0, 0, 0), 0, UI.R, 4))      # 11/9 색 테두리 칩 → 먹색 칩 (선호 옥 · 어색 인장은 글자색으로만)
 		pc.add_child(chip)
 		zr.add_child(pc)
 	b.add_child(zr)
 	if cur != null:
-		var cv := UI.vbox(8)
+		var cv := UI.vbox(UI.SP_S)
 		cv.add_child(gs.tile(cur))
 		var inn = Run.innate_item(cur)
 		var gear := run.gear_of_slot(i)      # 11/13 아이템 칸 둘 —— [무기, 갑옷]
-		var gv := UI.hbox(8)
+		var gv := UI.hbox(UI.SP_S)
 		for si in 2:
 			var sl: String = ["weapon", "armor"][si]
 			var it = gear[si]
-			var ib := UI.btn("%s: %s%s" % [DB.ISLOT_NAME[sl], DB.IT[it].name if it != null else "비어 있음", " 🔒" if it != null and it == inn else ""], func(): item_sheet(i), "", 42)
+			var ib := UI.btn("%s: %s%s" % [DB.ISLOT_NAME[sl], DB.IT[it].name if it != null else "비어 있음", " 🔒" if it != null and it == inn else ""], func(): item_sheet(i), "", UI.BH_S)
 			ib.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			ib.clip_text = true
 			ib.disabled = it != null and it == inn      # 신화의 유니크는 뗄 수 없다
@@ -513,10 +514,10 @@ func slot_sheet(i: int) -> void:
 				ib.add_theme_color_override("font_disabled_color", UI.item_col(it).lightened(0.1))
 			gv.add_child(ib)
 		cv.add_child(gv)
-		var iv := UI.hbox(8)
+		var iv := UI.hbox(UI.SP_S)
 		var ub := UI.btn("내리기", func():
 			gs.close_sheet()
-			gs.act("unplace", [i]), "ghost", 42)
+			gs.act("unplace", [i]), "ghost", UI.BH_S)
 		ub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		iv.add_child(ub)
 		cv.add_child(iv)
@@ -562,13 +563,13 @@ func item_sheet(i: int) -> void:
 			b.add_child(UI.hint("🔒 신화 장수의 전용 아이템 —— 뗄 수 없다."))
 			continue
 		if cur != null:
-			var hr := UI.hbox(8)
+			var hr := UI.hbox(UI.SP_S)
 			var cb := gs.item_box(cur)
 			cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			hr.add_child(cb)
 			hr.add_child(UI.btn("해제", func():
 				gs.close_sheet()
-				gs.act("unequip", [i, sl]), "ghost", 42))
+				gs.act("unequip", [i, sl]), "ghost", UI.BH_S))
 			b.add_child(hr)
 		var cand: Array = run.bag.keys().filter(func(id): return id != cur and DB.item_slot(id) == sl and run.can_equip(k, id) and run.bag[id] - used.get(id, 0) > 0)
 		cand.sort_custom(func(x, y):
@@ -688,7 +689,7 @@ class SlotBox extends Control:
 		var fb := DB.font_body
 		if k == null:
 			draw_string(DB.title_font(24), Vector2(0, size.y * 0.5 + 6), "＋", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Color(DB.PAL.bamboo_dim, 0.7))
-			draw_string(fb, Vector2(0, size.y - 7), UI.pos_name(s.line, s.col), HORIZONTAL_ALIGNMENT_CENTER, size.x, 11, DB.PAL.bamboo_dim)
+			draw_string(fb, Vector2(0, size.y - 7), UI.pos_name(s.line, s.col), HORIZONTAL_ALIGNMENT_CENTER, size.x, 11, DB.PAL.text_dim)
 			return
 		var c: Dictionary = DB.C[k]
 		if size.x < 120:      # 11/6 5열 —— 좁은 칸: 초상 / 이름 / 병종 · 병력 / 아이템 / 진형 버프
@@ -711,7 +712,7 @@ class SlotBox extends Control:
 		var gap := clampf(ph * 0.26, 13.0, 20.0)
 		draw_string(tf, Vector2(x, ty), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, DB.tier_color(k).lightened(0.2))
 		draw_string(fb, Vector2(x, ty + gap), c.tag, HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo))
-		draw_string(fb, Vector2(x, ty + gap * 2), Battle.num(c.tr) + "명", HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.bamboo_dim)
+		draw_string(fb, Vector2(x, ty + gap * 2), Battle.num(c.tr) + "명", HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.text_dim)
 		_draw_gear(run, size.y - 6, 11)
 		_draw_yeon(page.slot_link_lv(slot))
 
@@ -767,7 +768,7 @@ class HandRow extends PanelContainer:
 		custom_minimum_size.y = 50
 		var tc := DB.tier_color(k)
 		add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else tc.darkened(0.3), 2 if on else 1, 8, 4))
-		var h := UI.hbox(8)
+		var h := UI.hbox(UI.SP_S)
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var t := MiniTile.new().setup(k, -1)
 		t.custom_minimum_size = Vector2(34, 44)
@@ -777,11 +778,11 @@ class HandRow extends PanelContainer:
 		var tv := UI.vbox(0)
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		tv.add_child(UI.lbl(c.name, 14, tc.lightened(0.2), true))
-		tv.add_child(UI.lbl("%s · %s · %s명" % [c.tag, DB.tier_name(k), Battle.num(c.tr)], 11, DB.PAL.bamboo))
+		tv.add_child(UI.lbl(c.name, UI.FS_BODY, tc.lightened(0.2), true))
+		tv.add_child(UI.lbl("%s · %s · %s명" % [c.tag, DB.tier_name(k), Battle.num(c.tr)], UI.FS_CAP, DB.PAL.bamboo))
 		h.add_child(tv)
 		if qty > 1:
-			var q := UI.lbl("×%d" % qty, 13, DB.PAL.gold, true)
+			var q := UI.lbl("×%d" % qty, UI.FS_BODY, DB.PAL.gold, true)
 			q.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			q.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			h.add_child(q)

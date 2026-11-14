@@ -256,7 +256,7 @@ func _ready() -> void:
 	field.ult_flash.connect(hud.flash)
 	stage.resized.connect(fit_port)
 	# 11/9 사용자: 전투를 보는 중에도 다른 사람의 한마디가 보여야 한다 —— 전장 왼쪽 위에 작은 줄, 4초 뒤 사라진다
-	_say_box = UI.vbox(4)
+	_say_box = UI.vbox(UI.SP_XS)
 	_say_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_say_box.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_say_box.offset_left = 10
@@ -309,7 +309,7 @@ func _build_top() -> Control:
 	bar.add_child(h)
 	title_label = Label.new()
 	title_label.add_theme_font_override("font", DB.title_font(16))      # 11/10 작은 글자는 굵은 고딕
-	title_label.add_theme_font_size_override("font_size", 16)
+	title_label.add_theme_font_size_override("font_size", UI.FS_LABEL)
 	title_label.text = "전장"
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -323,7 +323,7 @@ func _build_top() -> Control:
 	sp.add_theme_constant_override("separation", 2)
 	seg.add_child(sp)
 	for s in [0.0, 1.0, 1.25, 2.0]:      # 11/5 사용자: 1 · 1.25 · 2배속 (4배속 뺌)
-		sp.add_child(_speed_btn(s, 38, 14))
+		sp.add_child(_speed_btn(s, UI.BH_S, UI.FS_BODY))
 	h.add_child(seg)
 	_speed_seg = seg
 	# 11/9 사용자: 온라인 —— 한마디(미리 적힌 글) · 결과로 건너뛰기 (리플레이를 나갈 방법). 둘 다 온라인에서만 보인다
@@ -340,10 +340,10 @@ func _build_top() -> Control:
 		skip())
 	_skip_top.visible = false
 	h.add_child(_skip_top)
-	var mb := Button.new()
+	var mb := TouchButton.new()
 	mb.text = "⋯"
-	mb.custom_minimum_size = Vector2(44, 40)
-	mb.add_theme_font_size_override("font_size", 22)
+	mb.custom_minimum_size = Vector2(UI.ICON_BTN.x, UI.BH_S)
+	mb.add_theme_font_size_override("font_size", UI.FS_TITLE)
 	mb.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	mb.pressed.connect(toggle_menu)
 	h.add_child(mb)
@@ -352,10 +352,10 @@ func _build_top() -> Control:
 
 ## 위 띠의 작은 글 버튼 —— 테두리 없는 먹색 면 (11/9 규칙)
 func _bar_btn(text: String, cb: Callable) -> Button:
-	var b := Button.new()
+	var b := TouchButton.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 38)
-	b.add_theme_font_size_override("font_size", 13)
+	b.custom_minimum_size = Vector2(0, UI.BH_S)
+	b.add_theme_font_size_override("font_size", UI.FS_BODY)
 	b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3, Color(0, 0, 0, 0), 0, UI.R, 8))
 	b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink4, Color(0, 0, 0, 0), 0, UI.R, 8))
 	b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 8))
@@ -365,7 +365,8 @@ func _bar_btn(text: String, cb: Callable) -> Button:
 
 ## 배속 버튼 하나 —— 위 띠와 ⋯ 메뉴가 같은 목록(speed_btns)을 써서 어느 쪽을 눌러도 함께 바뀐다. 고른 것만 금 얇은 선
 func _speed_btn(s: float, h: int, fs: int) -> Button:
-	var b := Button.new()
+	var b := TouchButton.new()
+	b.hit.x = 0.0      # 배속 칸은 다닥다닥 붙어 있다 —— 누르는 범위는 위아래로만 넓힌다
 	b.text = "❚❚" if s == 0.0 else ("%s×" % str(s) if s != floorf(s) else "%d×" % s)
 	b.toggle_mode = true
 	b.button_pressed = s == QUEST_SPEED
@@ -397,7 +398,7 @@ func show_quick(who: String, text: String) -> void:
 	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pc.add_theme_stylebox_override("panel", UI.flat(Color(DB.PAL.ink, 0.82), Color(0, 0, 0, 0), 0, UI.R, 6))
 	pc.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var r := UI.rich("[color=#D9A64B][b]%s[/b][/color]  %s" % [who, text], 13)
+	var r := UI.rich("[color=#D9A64B][b]%s[/b][/color]  %s" % [who, text], UI.FS_BODY)
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.autowrap_mode = TextServer.AUTOWRAP_OFF
 	pc.add_child(r)
@@ -438,12 +439,12 @@ func _build_side() -> void:
 	v.add_theme_constant_override("separation", 10)
 	panel.add_child(v)
 	var top := HBoxContainer.new()
-	var tl := UI.lbl("전투 메뉴", 18, DB.PAL.paper, true)
+	var tl := UI.lbl("전투 메뉴", UI.FS_TITLE, DB.PAL.paper, true)
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	top.add_child(tl)
-	var x := UI.btn("✕", func(): set_side_visible(false), "ghost", 44)
-	x.custom_minimum_size = Vector2(44, 44)
+	var x := UI.btn("✕", func(): set_side_visible(false), "ghost", UI.BH_S)
+	x.custom_minimum_size = UI.ICON_BTN
 	x.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	top.add_child(x)
 	v.add_child(top)
@@ -461,7 +462,7 @@ func _build_side() -> void:
 	row.add_child(level_pick)
 	var nb := UI.btn("새 전투", func():
 		set_side_visible(false)
-		new_battle(), "", 44)
+		new_battle(), "", UI.BH_S)
 	row.add_child(nb)
 	v.add_child(row)
 	_dev_row = row
@@ -471,7 +472,7 @@ func _build_side() -> void:
 	var spd := HBoxContainer.new()
 	spd.add_theme_constant_override("separation", 4)
 	for sv in [0.0, 1.0, 1.25, 2.0]:
-		var sb2 := _speed_btn(sv, 42, 14)
+		var sb2 := _speed_btn(sv, UI.BH_S, UI.FS_BODY)
 		sb2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		spd.add_child(sb2)
 	v.add_child(spd)
@@ -480,29 +481,29 @@ func _build_side() -> void:
 	auto_btn.text = "직접 지휘 (고유기 버튼)"
 	auto_btn.button_pressed = direct
 	auto_btn.custom_minimum_size = Vector2(0, 44)
-	auto_btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UI.wrap_text(auto_btn)
 	auto_btn.toggled.connect(set_direct)
 	_auto_btn = auto_btn
 	auto_btn.visible = false      # 11/4 사용자: 직접 지휘 개념은 없앤다
 	v.add_child(auto_btn)
 	_skip_btn = UI.btn("결과로 건너뛰기", func():
 		set_side_visible(false)
-		skip(), "ghost", 44)
+		skip(), "ghost", UI.BH_S)
 	v.add_child(_skip_btn)
 	_leave_btn = UI.btn("게임 나가기", func():
 		set_side_visible(false)
 		if leave_cb.is_valid():
-			leave_cb.call(), "warn", 44)
+			leave_cb.call(), "warn", UI.BH_S)
 	_leave_btn.visible = false
 	v.add_child(_leave_btn)
-	var hint := UI.lbl("두 손가락 확대·회전 · 한 손가락 이동 · 장수 칸을 꾹 누르면 전투 능력치", 11, DB.PAL.bamboo_dim)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var hint := UI.lbl("두 손가락 확대·회전 · 한 손가락 이동 · 장수 칸을 꾹 누르면 전투 능력치", UI.FS_CAP, DB.PAL.text_dim)
+	UI.wrap_text(hint)
 	v.add_child(hint)
 	v.add_child(UI.hair())
 
 	# 말풍선 —— 퀵 메시지 (quick_list 가 있을 때만). 누르면 2열 목록이 펴지고, 고르면 quick_requested 가 나간다
 	_quick_btn = UI.btn("말풍선", func():
-		_quick_grid.visible = not _quick_grid.visible, "ghost", 44)
+		_quick_grid.visible = not _quick_grid.visible, "ghost", UI.BH_S)
 	v.add_child(_quick_btn)
 	_quick_grid = GridContainer.new()
 	_quick_grid.columns = 2
@@ -521,8 +522,8 @@ func _build_side() -> void:
 	log_box.bbcode_enabled = true
 	log_box.scroll_following = true
 	log_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_box.add_theme_font_size_override("normal_font_size", 13)
-	log_box.add_theme_font_size_override("bold_font_size", 13)
+	log_box.add_theme_font_size_override("normal_font_size", UI.FS_BODY)
+	log_box.add_theme_font_size_override("bold_font_size", UI.FS_BODY)
 	log_box.add_theme_constant_override("line_separation", 3)
 	TouchScroll.add(log_box)
 	lp.add_child(log_box)
@@ -541,8 +542,8 @@ func _refresh_quick() -> void:
 	for i in quick_list.size():
 		var b := UI.btn(str(quick_list[i]), func():
 			set_side_visible(false)
-			quick_requested.emit(i), "ghost", 40)
-		b.add_theme_font_size_override("font_size", 13)
+			quick_requested.emit(i), "ghost", UI.BH_S)
+		b.add_theme_font_size_override("font_size", UI.FS_BODY)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_quick_grid.add_child(b)
 	_say_btn.visible = say_cb.is_valid() or has
@@ -1042,7 +1043,7 @@ func _begin() -> void:
 		get_tree().create_timer(2.6).timeout.connect(func():
 			if running and not finished:
 				hud.announce(pline, Color("#ff9ab4") if pon else DB.PAL.bamboo))
-	log_box.append_text("[color=#8D7B5C]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
+	log_box.append_text("[color=#A89574]아군 %s · 적 %s[/color]\n" % [_form_txt(res.aForm, res.aSyn), _form_txt(res.bForm, res.bSyn)])
 
 
 func _form_txt(form: String, syn: Dictionary) -> String:
@@ -3735,7 +3736,7 @@ class MiniCard extends Control:
 		var fb := DB.font_body
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		draw_string(DB.title_font(12), Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))      # 11/10 작은 이름은 굵은 고딕
-		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo_dim)
+		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.text_dim)
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
 		draw_string(fb, Vector2(41, 41), state, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
 		_bar_rows(4.0, 44.0, size.x - 8.0, 8.0, 8)
