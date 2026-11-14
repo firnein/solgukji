@@ -494,7 +494,7 @@ static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button
 	s.clip_text = true
 	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(s)
-	var ar := lbl("−" if open else "+", FS_TITLE, P.text_dim, true)
+	var ar := lbl("▴" if open else "▾", FS_BODY, P.text_dim, true)      # 11/14 UI 4단계: 접힘 표시 통일 —— ▾ 닫힘 · ▴ 열림
 	ar.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ar.size_flags_vertical = Control.SIZE_FILL
 	ar.mouse_filter = Control.MOUSE_FILTER_IGNORE

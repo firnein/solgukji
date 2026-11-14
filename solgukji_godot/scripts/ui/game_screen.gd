@@ -618,12 +618,12 @@ func _build_title() -> void:
 	var logo := TitleBG.Logo.new()
 	logo.custom_minimum_size = Vector2(0, 150)
 	v.add_child(logo)
-	var sub := UI.lbl("THREE KINGDOMS · RANDOM DEFENSE", UI.FS_CAP, Color("#d9a64b"))
+	var sub := UI.lbl("THREE KINGDOMS · RANDOM DEFENSE", UI.FS_CAP, DB.PAL.gold)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_constant_override("outline_size", 4)
 	sub.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
 	v.add_child(sub)
-	var ko := UI.lbl("마지막까지 살아남아 천하를 통일하라", UI.FS_LABEL, Color("#c6ac7c"))
+	var ko := UI.lbl("마지막까지 살아남아 천하를 통일하라", UI.FS_LABEL, DB.PAL.bamboo)
 	ko.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ko.add_theme_constant_override("outline_size", 5)
 	ko.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
@@ -647,7 +647,7 @@ func _build_title() -> void:
 	for x in [sb, vb]:
 		x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		x.add_theme_font_size_override("font_size", UI.FS_BODY)
-		x.add_theme_color_override("font_color", Color("#c6ac7c"))
+		x.add_theme_color_override("font_color", DB.PAL.bamboo)
 		x.add_theme_stylebox_override("normal", UI.flat(Color("#0b0f1a", 0.55), UI.HAIR, 1, UI.R, 10))
 		low.add_child(x)
 	var gap := Control.new()
@@ -2742,7 +2742,7 @@ func _fold_sec(key: String, title: String, body: Control) -> Control:
 	hb.add_theme_color_override("font_color", DB.PAL.bamboo)
 	var upd := func():
 		var on: bool = _open.get(key, false)
-		hb.text = ("▾ " if on else "▸ ") + title
+		hb.text = title + ("  ▴" if on else "  ▾")      # 11/14 UI 4단계: 접힘 표시는 앱 전체 ▾(닫힘) · ▴(열림) 하나로 (▸ · +/− 섞임 정리)
 		body.visible = on
 	hb.pressed.connect(func():
 		UI.buzz()
@@ -3272,8 +3272,9 @@ func _up_row(out: String) -> Control:
 		var qn: String = DB.person(q) if DB.C[q].tier > 2 else DB.C[q].name
 		var cb := UI.btn("%s %d/%d" % [qn, got, m[q]], func(): card_info(q), "", UI.BH_S)      # 기호 없이 색으로 (4열에 이름이 잘렸다)
 		for st in ["normal", "hover", "pressed"]:
-			cb.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color("#8fd4c2") if ok else Color(DB.PAL.danger, 0.6), 1, 8, 2))
-		cb.add_theme_color_override("font_color", Color("#8fd4c2") if ok else DB.PAL.danger)
+			# 11/14 UI 4단계 (감사 10-6): 모자란 재료가 모두 붉어 오류처럼 보였다 —— 모자람은 중립(얇은 선 · 종이색), 갖춤만 옥색. 수량 n/m 이 상태를 말한다
+			cb.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color("#8fd4c2") if ok else Color(DB.PAL.paper, 0.16), 1, UI.R, 2))
+		cb.add_theme_color_override("font_color", Color("#8fd4c2") if ok else DB.PAL.paper)
 		cb.add_theme_font_size_override("font_size", UI.FS_CAP)
 		cb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		cb.clip_text = true
@@ -3284,9 +3285,9 @@ func _up_row(out: String) -> Control:
 		var ok: bool = run.bag.get(ni, 0) > 0
 		# 유니크 재료도 재료 칸처럼 (11/3 —— 글씨가 칸 밖으로 삐져나왔다). 누르면 아이템 시트
 		var ib := UI.btn("◆%s %d/1" % [DB.IT[ni].name, run.bag.get(ni, 0)], func(): _item_sheet(ni), "", UI.BH_S)
-		var icol := Color("#d59700") if ok else DB.PAL.danger
+		var icol := Color("#d59700") if ok else DB.PAL.paper
 		for st in ["normal", "hover", "pressed"]:
-			ib.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color(icol, 0.8), 1, 8, 2))
+			ib.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color(icol, 0.8 if ok else 0.16), 1, UI.R, 2))
 		ib.add_theme_color_override("font_color", icol)
 		ib.add_theme_font_size_override("font_size", UI.FS_CAP)
 		ib.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

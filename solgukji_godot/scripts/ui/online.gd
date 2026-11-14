@@ -1182,7 +1182,7 @@ func _result_panel(x: Dictionary) -> Control:
 	var res: Dictionary = x.res
 	var win: bool = bool(res.get("win", false))
 	var draw: bool = bool(res.get("draw", false))
-	var col := Color("#C6AC7C") if draw else (Color("#8fd4c2") if win else DB.PAL.danger)
+	var col := DB.PAL.bamboo if draw else (Color("#8fd4c2") if win else DB.PAL.danger)
 	var v := UI.vbox(UI.SP_S)
 	var h := UI.hbox(UI.SP_S)
 	var big := UI.lbl("무승부" if draw else ("승리" if win else "패배"), UI.FS_HEAD, col, true)

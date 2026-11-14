@@ -121,7 +121,7 @@ func _grid9() -> void:
 		var rh := minf(ts.y * 0.8, rw * ch / cw)
 		rw = rh * cw / ch
 		var src := Rect2((ts.x - rw) / 2.0 + drift, ts.y * 0.06 + absf(drift) * 0.5, rw, rh)
-		draw_rect(r.grow(2.0), Color("#d9a64b", 0.85))
+		draw_rect(r.grow(2.0), Color(DB.PAL.gold, 0.85))
 		draw_texture_rect_region(tex, r, src)
 		var lit := 1.0 if i == hot else 0.0
 		var a := clampf(1.0 - fmod(t, 1.4) / 1.4, 0.0, 1.0) * lit

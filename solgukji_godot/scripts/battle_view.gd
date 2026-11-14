@@ -2187,7 +2187,7 @@ class Hud extends Control:
 			var box := Rect2(Vector2(-w / 2, -h / 2), Vector2(w, h))
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = Color(0.06, 0.05, 0.04, 0.88 * a)
-			sb.border_color = Color("#d9a64b", a)
+			sb.border_color = Color(DB.PAL.gold, a)
 			sb.set_border_width_all(1)
 			sb.set_corner_radius_all(3)
 			draw_style_box(sb, box)
@@ -3457,7 +3457,7 @@ class Hud extends Control:
 			return
 		var foe: bool = cut.camp == "B"
 		var col: Color = cut.col
-		var accent: Color = Color("#c8463c") if foe else Color("#d9a64b")
+		var accent: Color = Color("#c8463c") if foe else DB.PAL.gold
 		var sz := size
 		var tall := sz.x < sz.y
 		# 어둡게 + 가장자리 비네트
@@ -3703,7 +3703,7 @@ class MiniCard extends Control:
 	## 막대 색 —— 병력 파랑(위 세력 띠와 같은 진영색) · 사기 옥색 · 고유기 금색(전투장수창 『고유기』 #ffd76e 계열).
 	## 11/7 사용자: 사기 · 고유기가 둘 다 금색이라 어느 막대가 무엇인지 안 보였다
 	const MORALE_COL := Color("#6fd6a6")
-	const ULT_COL := Color("#d9a64b")
+	const ULT_COL := DB.PAL.gold
 	const ULT_FULL := Color("#ffd76e")
 
 	func _ready() -> void:
@@ -3878,7 +3878,7 @@ class MiniCard extends Control:
 			var gw := bw2 - (n * 7.0 + 3.0 if n > 0 else 0.0)
 			if _waiting(lv):
 				var pb := StyleBoxFlat.new()
-				pb.bg_color = Color("#d9a64b", 0.6 + 0.3 * sin(view.clock * 6.0))
+				pb.bg_color = Color(DB.PAL.gold, 0.6 + 0.3 * sin(view.clock * 6.0))
 				pb.set_corner_radius_all(3)
 				draw_style_box(pb, Rect2(bx, y, gw, pitch))
 				draw_string(fb, Vector2(bx, y + pitch - 1.5), "준비", HORIZONTAL_ALIGNMENT_CENTER, gw, lfs, Color("#1A1508"))
