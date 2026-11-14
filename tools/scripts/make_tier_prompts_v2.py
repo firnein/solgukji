@@ -562,6 +562,7 @@ def layout(n, per):
 - Image {size}. ALWAYS a fixed grid of {cols} columns x {rows} rows = {slots} equal slots, reading order left to right, top to bottom.
 - Characters 1 to {n} fill the first {n} slots in order.{empty}
 - Each slot holds ONE tall rounded-rectangle PANEL whose picture runs all the way to the panel edge: no inner border, no frame, no white margin.
+- Every panel has the same shape, about 10:13 (width:height) —— the game turns each panel into a 400x520 card portrait (docs/일러스트_규격.md).
 - Natural proportions: never stretch, squash or shorten a character to fit a panel.
 - Flat light green paper background (#9BCF88) around the panels, NARROW even gaps between them (about 3% of the image width).
   Nothing crosses into a neighbor: no plume, banner, weapon or effect leaves its own panel.
@@ -572,6 +573,7 @@ def layout(n, per):
 
 SOLO_LAYOUT = """LAYOUT:
 - Image 1024x1536 portrait. ONE single illustration filling the whole image right to the edges: no card frame, no border, no margin.
+- The game uses it whole as a 2:3 cut-in (512x768) and crops a 10:13 card portrait (400x520) from the top: keep the head and weapon tips well inside the frame (docs/일러스트_규격.md).
 - No text anywhere: no name, no title, no number, no banner, no caption, no signature, no watermark."""
 
 

@@ -76,6 +76,7 @@ var _battle_layer: Control
 var _battle: BattleView
 var _battle_done: Button
 var _report: BattleReport    # 전투 결과표 (끝나고 잠시 뒤 뜬다)
+var _report_scrim: ColorRect      # 결과표 뒤 깔개 (11/14)
 var _battle_res = null
 var _title: Control
 var deploy: DeployPage
@@ -566,7 +567,7 @@ func _build_battle() -> void:
 	_battle_done.offset_left = -130
 	_battle_done.offset_right = 130
 	_battle_done.offset_top = 110
-	_battle_done.offset_bottom = 168
+	_battle_done.offset_bottom = 110 + UI.BH_L
 	_battle_done.visible = false
 	_battle_layer.add_child(_battle_done)
 
@@ -3509,7 +3510,7 @@ func _forge_more(g: Control, btn: Button, rest: Array) -> void:
 func _filter_chip(txt: String, icon, cnt: String, col: Color, on: bool, cb: Callable) -> Button:
 	var b := TouchButton.new()
 	b.hit.x = 0.0
-	b.custom_minimum_size = Vector2(0, UI.BH_S - 6)      # 두 줄 거르기 —— 줄 사이가 붙어 있어 보이는 높이는 34 로 둔다 (배치 정리는 다음 단계)
+	b.custom_minimum_size = Vector2(0, UI.BH_S)      # 11/14 감사 #10: 34 → 칩 높이 BH_S 로 (누르는 범위는 TouchButton 이 HIT 까지)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var tier_col: bool = icon == null and txt != "all"
 	for st in ["normal", "hover", "pressed"]:      # 11/9: 등급색 덩어리 칩 → 먹색 칩 + 등급색 글자, 고른 것만 금 얇은 선
@@ -3522,7 +3523,7 @@ func _filter_chip(txt: String, icon, cnt: String, col: Color, on: bool, cb: Call
 		b.add_theme_color_override("icon_normal_color", DB.PAL.paper if on else DB.PAL.bamboo)
 	else:
 		b.text = "전체" if txt == "all" else txt
-		b.add_theme_font_size_override("font_size", UI.FS_CAP)
+		b.add_theme_font_size_override("font_size", UI.FS_BODY)
 		b.clip_text = true
 		b.add_theme_color_override("font_color", col.lightened(0.15) if tier_col else DB.PAL.paper)
 		b.add_theme_color_override("font_hover_color", col.lightened(0.3) if tier_col else DB.PAL.paper)
@@ -3986,7 +3987,13 @@ func _show_report(res: Dictionary) -> void:
 	if _battle and _battle.end_clock > 0:
 		res["view_len"] = _battle.end_clock
 	_report = BattleReport.make(res)
-	var w := minf(size.x - 24.0, 460.0)
+	# 11/14 감사 #9: 결과표 뒤로 전투 HUD(병력 막대 · 시계 · 아래 장수 칸)가 비쳐 보였다 —— 깔개로 어둡게 (누름은 막지 않는다: 위 띠 메뉴는 그대로)
+	_report_scrim = ColorRect.new()
+	_report_scrim.color = Color(DB.PAL.ink, 0.78)
+	_report_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_report_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_battle_layer.add_child(_report_scrim)
+	var w := minf(size.x - UI.SP_L * 2.0, 460.0)
 	var fx_h := (HP_FX_H + 6.0) if (not plan.is_empty() or not bplan.is_empty()) else 0.0      # 민심 줄(패배) · 보너스 줄(승리)이 들어갈 자리만큼 표를 줄인다
 	_report.max_h = maxf(240.0, _battle_layer.size.y - REPORT_TOP - REPORT_BOT - fx_h)
 	_report.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -3996,10 +4003,10 @@ func _show_report(res: Dictionary) -> void:
 	_battle_layer.add_child(_report)
 	_battle_layer.move_child(_battle_done, -1)
 	_battle_done.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	_battle_done.offset_left = -130
-	_battle_done.offset_right = 130
+	_battle_done.offset_left = -w / 2      # 11/14 감사 #9: 버튼 폭 = 결과표 폭
+	_battle_done.offset_right = w / 2
 	_battle_done.offset_top = -(REPORT_BOT - 10.0)      # 11/3 사용자: 아래 장수 칸을 덮지 않게 위로 —— 결과표가 자리 잡으면 그 바로 아래로
-	_battle_done.offset_bottom = _battle_done.offset_top + 56.0
+	_battle_done.offset_bottom = _battle_done.offset_top + UI.BH_L
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await get_tree().process_frame      # 표가 두 진영 중 긴 쪽에 맞춰 높이를 정한 뒤(BattleReport._ready 의 한 프레임)
@@ -4009,15 +4016,18 @@ func _show_report(res: Dictionary) -> void:
 		_place_hp_fx(plan, _report.position.y + _report.size.y + 6.0)
 	elif not bplan.is_empty():
 		_place_bonus_fx(bplan, _report.position.y + _report.size.y + 6.0)
-	var top := _report.get_global_rect().end.y + 10.0 - _battle_layer.get_global_rect().end.y + fx_h
+	var top := _report.get_global_rect().end.y + UI.SP_M - _battle_layer.get_global_rect().end.y + fx_h
 	_battle_done.offset_top = minf(top, -(REPORT_BOT - 10.0))
-	_battle_done.offset_bottom = _battle_done.offset_top + 56.0
+	_battle_done.offset_bottom = _battle_done.offset_top + UI.BH_L
 
 
 func _hide_report() -> void:
 	if _report:
 		_report.queue_free()
 		_report = null
+	if is_instance_valid(_report_scrim):
+		_report_scrim.queue_free()
+	_report_scrim = null
 	if is_instance_valid(_hp_fx):
 		_hp_fx.queue_free()
 	_hp_fx = null
@@ -4046,7 +4056,7 @@ func _plan_hp_fx(res: Dictionary) -> void:
 
 
 func _place_hp_fx(plan: Dictionary, top: float) -> void:
-	var w := minf(size.x - 24.0, 460.0)
+	var w := minf(size.x - UI.SP_L * 2.0, 460.0)
 	var fx := HpLossFx.new()
 	fx.setup(int(plan.prev), int(plan.loss))
 	fx.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -4098,7 +4108,7 @@ func _plan_bonus_fx(res: Dictionary) -> void:
 
 
 func _place_bonus_fx(plan: Dictionary, top: float) -> void:
-	var w := minf(size.x - 24.0, 460.0)
+	var w := minf(size.x - UI.SP_L * 2.0, 460.0)
 	var fx := BonusFx.new()
 	fx.setup(int(plan.base), int(plan.ticket), bool(plan.big), str(plan.get("what", "토벌")), bool(plan.get("flat", false)))
 	fx.set_anchors_preset(Control.PRESET_CENTER_TOP)

@@ -172,25 +172,26 @@ func _draw() -> void:
 	var pr := Rect2(4, 5, w - 8, h - 27)
 	Art.draw_portrait(self, pr, k)
 	if c.tier > 2:
-		draw_circle(pr.position + Vector2(8, 8), 7, DB.fac_color(c.fac))
-		draw_string(DB.title_font(9), pr.position + Vector2(1, 12), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 14, 9, Color.WHITE)
+		draw_circle(pr.position + Vector2(8, 8), 8, DB.fac_color(c.fac))
+		draw_string(DB.title_font(UI.FS_TINY), pr.position + Vector2(0, 11.5), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, UI.FS_TINY, Color.WHITE)
 	_tag_icon(c, pr.end - Vector2(10, 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼
-	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 2, pr.end.y - 15), 10)      # 11/9 대표 역할 칩
+	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 2, pr.end.y - 15), UI.FS_TINY)      # 11/9 대표 역할 칩
 	var fd := DB.tier_font(c.tier, 13)
 	var nm: String = DB.person(k) if short_name and c.tier > 2 else c.name
-	var fs := 13
-	while fs > 9 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 6:
-		fs -= 1
+	var fs := UI.fit_fs(fd, nm, 13, UI.FS_TINY, w - 6)      # 11/14 감사 #10: 아무리 길어도 FS_TINY 아래로는 줄이지 않는다
+	if fs == UI.FS_TINY and c.tier > 2 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 6:
+		nm = DB.person(k)      # 그래도 넘치면 칭호를 떼고 인물 이름만
+		fs = UI.fit_fs(fd, nm, 13, UI.FS_TINY, w - 6)
 	draw_string(fd, Vector2(3, h - 8), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 6, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
 	if qty > 0:
 		var s := "×%d" % qty
-		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 8
-		var qr := Rect2(w - qw - 3, 4, qw, 16)
+		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP).x + 8
+		var qr := Rect2(w - qw - 3, 4, qw, 17)
 		var qb := StyleBoxFlat.new()
 		qb.bg_color = Color(DB.PAL.gold, 0.92)
 		qb.set_corner_radius_all(8)
 		draw_style_box(qb, qr)
-		draw_string(DB.font_body, qr.position + Vector2(0, 12), s, HORIZONTAL_ALIGNMENT_CENTER, qw, 11, Color("#1A1508"))
+		draw_string(DB.font_body, qr.position + Vector2(0, 13), s, HORIZONTAL_ALIGNMENT_CENTER, qw, UI.FS_CAP, Color("#1A1508"))
 	if up:
 		var ur := Rect2(w - 19, 22 if qty > 0 else 4, 16, 16)
 		var ub := StyleBoxFlat.new()
@@ -199,13 +200,13 @@ func _draw() -> void:
 		draw_style_box(ub, ur)
 		Icons.draw(self, "up", ur.get_center(), 14, Color.WHITE)
 	if badge != "":
-		var bw := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 10
+		var bw := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP).x + 10
 		var br := Rect2(4, h - 41, bw, 17)
 		var bb := StyleBoxFlat.new()
 		bb.bg_color = badge_col if badge_col.a > 0 else Color(DB.PAL.ink, 0.85)
 		bb.set_corner_radius_all(8)
 		draw_style_box(bb, br)
-		draw_string(DB.font_body, br.position + Vector2(0, 13), badge, HORIZONTAL_ALIGNMENT_CENTER, bw, 11, Color.WHITE)
+		draw_string(DB.font_body, br.position + Vector2(0, 13), badge, HORIZONTAL_ALIGNMENT_CENTER, bw, UI.FS_CAP, Color.WHITE)
 	if dim:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.5))
 	if _is_locked():
@@ -222,9 +223,9 @@ func _draw_lock(w: float, h: float) -> void:
 	var e = locked[k]
 	var dead: bool = not (e is Dictionary and e.has("by"))
 	var tx := "사망" if dead else "%s 세력이 등용" % str(e.by)
-	var fs := 11 if w >= 56 else 8
-	while fs > 7 and DB.font_body.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 4:
-		fs -= 1
+	var fs := UI.fit_fs(DB.font_body, tx, UI.FS_CAP if w >= 56 else UI.FS_TINY, UI.FS_TINY, w - 4)
+	if DB.font_body.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 4:
+		tx = "사망" if dead else "등용"      # 11/14 감사 #10: 글자를 FS_TINY 아래로 줄이는 대신 짧게
 	var bh := fs + 8.0
 	var by := h * 0.42 - bh / 2.0
 	draw_rect(Rect2(0, by, w, bh), Color(DB.PAL.seal, 0.9) if dead else Color(0.1, 0.1, 0.12, 0.92))
@@ -246,7 +247,7 @@ func _tag_icon(c: Dictionary, p: Vector2, r: float) -> void:
 func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = DB.PAL.ink2
-	sb.border_color = DB.PAL.gold if lit else tc.darkened(0.1)
+	sb.border_color = DB.PAL.gold if lit or mark == "sel" else tc.darkened(0.1)
 	sb.set_border_width_all(1)
 	sb.border_width_top = 2
 	sb.set_corner_radius_all(5)
@@ -254,35 +255,30 @@ func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 	var pr := Rect2(2, 3, w - 4, h - 17)
 	Art.draw_portrait(self, pr, k)
 	_tag_icon(c, pr.end - Vector2(7, 7), 6.0)
-	var fd := DB.tier_font(c.tier, 10)
+	var fd := DB.tier_font(c.tier, UI.FS_TINY)
 	# 11/3 사용자: 칭호를 떼고 "손권" 만 보이면 다른 카드(벽안 손권)로 오해한다 —— 칭호까지 보이고, 안 들어가면 칭호를 이름 위 작은 줄로
 	var nm: String = c.name
 	var nc := tc.lightened(0.15) if c.tier >= 3 else tc
-	var fs := 10
-	while fs > 8 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
-		fs -= 1
+	var fs := UI.FS_TINY      # 11/14 감사 #10: 작은 칸 글자도 FS_TINY 아래로는 줄이지 않는다 —— 넘치면 칭호를 위 줄로 · 그래도 넘치면 … 으로
 	if c.tier > 2 and nm.contains(" ") and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
 		var per := DB.person(k)
 		var title := nm.substr(0, nm.length() - per.length()).strip_edges()
-		var ts := 8
-		while ts > 6 and DB.font_body.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x > w - 2:
-			ts -= 1
-		draw_rect(Rect2(1, h - 25, w - 2, 10), Color(DB.PAL.ink2, 0.8))
+		var ts := UI.FS_TINY
+		title = UI.ellipsize(DB.font_body, title, ts, w - 2)
+		draw_rect(Rect2(1, h - 27, w - 2, 12), Color(DB.PAL.ink2, 0.8))
 		draw_string(DB.font_body, Vector2(1, h - 17), title, HORIZONTAL_ALIGNMENT_CENTER, w - 2, ts, Color(nc, 0.85))
 		nm = per
-		fs = 10
-		while fs > 7 and fd.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 2:
-			fs -= 1
+	nm = UI.ellipsize(fd, nm, fs, w - 2)
 	draw_string(fd, Vector2(1, h - 4), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 2, fs, nc)
 	if qty > 1:
 		var s := "%d" % qty
-		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x + 6
-		var qr := Rect2(w - qw - 1, 1, qw, 12)
+		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY).x + 6
+		var qr := Rect2(w - qw - 1, 1, qw, 13)
 		var qb := StyleBoxFlat.new()
 		qb.bg_color = Color(DB.PAL.gold, 0.92)
 		qb.set_corner_radius_all(6)
 		draw_style_box(qb, qr)
-		draw_string(DB.font_body, qr.position + Vector2(0, 10), s, HORIZONTAL_ALIGNMENT_CENTER, qw, 9, Color("#1A1508"))
+		draw_string(DB.font_body, qr.position + Vector2(0, 10.5), s, HORIZONTAL_ALIGNMENT_CENTER, qw, UI.FS_TINY, Color("#1A1508"))
 	if up:
 		var ur := Rect2(w - 13, 14 if qty > 1 else 1, 12, 12)
 		var ub := StyleBoxFlat.new()

@@ -32,13 +32,15 @@ static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind :=
 		_draw_face(ci, r, tex, DB.portrait_face(k))
 		return
 	if tex:
+		# 11/14 그림 비율이 제각각(정사각 576~713 · 가로로 넓은 기인 · 세로 h600 · 신화 2:3)이라 칸마다 위아래 · 양옆이 비었다 ——
+		# 어떤 비율이든 칸을 꽉 채우고(cover) 머리를 기준으로 자른다 (_draw_anchor). 패널 그림은 예전처럼 너비에 맞추고 아래를 자른다
 		var used := DB.portrait_used(k)
 		if used.has_area() and DB.portrait_panel(k):
 			_draw_panel(ci, r, tex, used)
 		elif used.has_area():
-			_draw_fit(ci, r, tex, used)
+			_draw_anchor(ci, r, tex, used, DB.portrait_face(k))
 		else:
-			_draw_cover(ci, r, tex)
+			_draw_anchor(ci, r, tex, Rect2(Vector2.ZERO, tex.get_size()), DB.portrait_face(k))
 		return
 
 	if c.tier <= 2:
@@ -173,13 +175,21 @@ static func draw_panel_pop(ci: CanvasItem, r: Rect2, k: String, pop: float) -> b
 	return true
 
 
-## 잘라 낸 인물 —— 그려진 영역 전체가 들어오게 줄이고, 아래쪽 띠(칸 높이의 8%) 위에 발을 붙여 가운데 둔다
-static func _draw_fit(ci: CanvasItem, r: Rect2, tex: Texture2D, used: Rect2) -> void:
-	var area := Rect2(r.position + Vector2(r.size.x * 0.02, r.size.y * 0.02), Vector2(r.size.x * 0.96, r.size.y * 0.90))     # 10/30 칸을 더 채운다
-	var sc := minf(area.size.x / used.size.x, area.size.y / used.size.y)
-	var sz := used.size * sc
-	var pos := Vector2(area.position.x + (area.size.x - sz.x) / 2, area.end.y - sz.y)
-	ci.draw_texture_rect_region(tex, Rect2(pos, sz), used)
+## 머리 기준 꽉 채우기 (11/14) —— reg(그려진 영역 · 그림 전체)가 칸 r 을 빈틈없이 덮게 키우고(cover), 넘친 쪽을 자른다.
+## 가로: 얼굴 가운데를 칸 가운데에. 세로: 얼굴을 칸 위쪽(키 큰 칸 30% · 납작한 칸 50%)에 두되, 그려진 영역 맨 위보다 위로는 가지 않는다(머리 위가 비지 않게).
+## 어느 쪽이든 reg 밖으로 나가지 않게 막아 빈 띠(레터박스)가 생기지 않는다. face 가 없으면 영역 위쪽 30% 를 얼굴로 본다
+static func _draw_anchor(ci: CanvasItem, r: Rect2, tex: Texture2D, reg: Rect2, face: Rect2) -> void:
+	if reg.size.x < 1.0 or reg.size.y < 1.0:
+		return
+	var sc := maxf(r.size.x / reg.size.x, r.size.y / reg.size.y)
+	var src := r.size / sc
+	var fc := face.get_center() if face.has_area() else Vector2(reg.get_center().x, reg.position.y + reg.size.y * 0.3)
+	var fh := face.size.y if face.has_area() else reg.size.y * 0.38
+	# 보이는 높이가 얼굴의 2.2배 이상이면 얼굴을 30% 자리에(몸이 아래로 보인다), 얼굴만 겨우 들어가는 납작한 칸이면 가운데에
+	var a := clampf(lerpf(0.5, 0.3, (src.y / maxf(1.0, fh) - 1.2) / 1.0), 0.3, 0.5)
+	var x := clampf(fc.x - src.x * 0.5, reg.position.x, reg.end.x - src.x)
+	var y := clampf(fc.y - src.y * a, reg.position.y, reg.end.y - src.y)
+	ci.draw_texture_rect_region(tex, r, Rect2(Vector2(x, y), src))
 
 
 ## 11/3 사용자: 일러스트가 선명하지 않다 —— 큰 그림을 작게 줄일 때 밉맵으로 거른다 (프로젝트 전체 설정은 3D 쪽에서 멈춰 그리는 칸에만)

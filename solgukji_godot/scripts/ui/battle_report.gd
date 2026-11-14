@@ -5,7 +5,7 @@ extends PanelContainer
 ## 11/7 사용자: 토벌 대군(적 20부대)은 표가 화면을 넘쳐 [종료] 버튼이 줄 위에 겹치고 내릴 수도 없었다 ——
 ##   머리줄 · 아군/적군 탭 · 범례는 고정하고 장수 줄만 스크롤(UI.scroll = 손가락 끌기 TouchScroll).
 ##   표 높이는 두 진영 중 긴 쪽에 맞추되 max_h(보여 주는 쪽이 화면에 맞춰 준다)를 넘지 않는다 —— 탭을 바꿔도 표 · 버튼이 움직이지 않게.
-##   긴 이름('동오덕왕 엄백호')은 … 으로 줄이고, 수치는 막대 오른쪽 끝에 테두리 글씨로 (짧은 막대 위에 겹쳐 읽기 어려웠다).
+##   긴 이름('동오덕왕 엄백호')은 … 으로 줄이고, 수치는 막대 오른쪽 제 칸에 (11/14 감사 #9 —— 막대 위에 겹쳐 읽기 어려웠다).
 
 const ROW_H := 40.0
 const ROW_SEP := 4.0
@@ -50,7 +50,7 @@ func _ready() -> void:
 	_body = UI.vbox(int(ROW_SEP))
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_body)
-	v.add_child(UI.rich("[color=#%s]■[/color] 준 피해   [color=#c0503f]■[/color] 받은 피해   ·   격파 · 기술 · 고유기   ·   깎기 +피해" % DB.PAL.gold.to_html(false), UI.FS_CAP))
+	v.add_child(UI.rich("[color=#%s]■[/color] 준 피해   [color=#%s]■[/color] 받은 피해   ·   격파 · 기술 · 고유기" % [DB.PAL.gold.to_html(false), DB.PAL.seal.lightened(0.05).to_html(false)], UI.FS_CAP))
 	_fill()
 	await get_tree().process_frame      # 한 번 자리 잡은 뒤 —— 표 틀(머리줄 · 탭 · 범례 · 여백) 높이를 재고 줄 칸 높이를 정한다
 	if not is_inside_tree():
@@ -176,8 +176,9 @@ func _rows(cp: String) -> Array:
 
 
 class Row extends Control:
-	const NAME_W := 92.0      # 이름 칸 —— 넘치면 … (11/7: '동오덕왕 엄백호' 가 막대 밑으로 들어갔다)
-	const CNT_W := 74.0       # 오른쪽 격파 · 기술 · 고유기 칸
+	const NAME_W := 84.0      # 이름 칸 —— 넘치면 … (11/7: '동오덕왕 엄백호' 가 막대 밑으로 들어갔다)
+	const NUM_W := 46.0       # 11/14 감사 #9: 수치는 막대 위에 겹치지 않게 막대 오른쪽 제 칸에
+	const CNT_W := 60.0       # 오른쪽 격파 · 기술 · 고유기 칸
 	var r: Dictionary
 	var top_d: float
 	var top_t: float
@@ -194,33 +195,35 @@ class Row extends Control:
 	func _draw() -> void:
 		var P := DB.PAL
 		var a := 1.0 if r.alive else 0.5
-		Art.draw_face_circle(self, Vector2(18, 20), 16, r.id)
-		draw_arc(Vector2(18, 20), 16, 0, TAU, 32, Color(DB.TIER[int(r.tier)].c, a), 2.0)
+		var cy := ROW_H / 2.0
+		Art.draw_face_circle(self, Vector2(17, cy), 15, r.id)
+		draw_arc(Vector2(17, cy), 15, 0, TAU, 32, Color(DB.TIER[int(r.tier)].c, a), 2.0)
 		if not r.alive:
-			draw_circle(Vector2(18, 20), 16, Color(0, 0, 0, 0.5))
-		var x0 := 42.0
-		draw_string(DB.title_font(13), Vector2(x0, 17), _fit(DB.title_font(13), r.name, 13, NAME_W), HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 13, Color(P.paper, a))
-		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, NAME_W, 10, P.text_dim)
-		var bx := x0 + NAME_W + 6
-		var bw := size.x - bx - CNT_W - 8
-		_bar(Vector2(bx, 7), bw, r.dmg / top_d, P.gold, Battle.num(r.dmg) if r.get("dot", 0.0) <= 0.0 else "화상 · 출혈 %s  %s" % [Battle.num(r.dot), Battle.num(r.dmg)])      # 11/9 지속 피해(건 장수에게 기록)는 준 피해 안에 들어 있다 —— 막대 글에 몫을 밝힌다
-		_bar(Vector2(bx, 23), bw, r.taken / top_t, Color("#c0503f"), Battle.num(r.taken))
-		if r.get("gain", 0.0) > 0.0:      # 11/9 역할 기여 —— 이 장수의 깎기로 아군이 더 넣은 피해 (엔진 기록 gain)
-			draw_string(DB.font_body, Vector2(size.x - CNT_W, 12), "깎기 +" + Battle.num(r.gain), HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, 10, Color("#d8c27a", a))
+			draw_circle(Vector2(17, cy), 15, Color(0, 0, 0, 0.5))
+		var x0 := 38.0
+		var tf := DB.title_font(UI.FS_BODY)
+		draw_string(tf, Vector2(x0, 17), UI.ellipsize(tf, r.name, UI.FS_BODY, NAME_W), HORIZONTAL_ALIGNMENT_LEFT, NAME_W, UI.FS_BODY, Color(P.paper, a))
+		draw_string(DB.font_body, Vector2(x0, 33), r.tag, HORIZONTAL_ALIGNMENT_LEFT, NAME_W, UI.FS_CAP, P.text_dim)
+		var bx := x0 + NAME_W + UI.SP_XS
+		var bw := maxf(20.0, size.x - bx - NUM_W - CNT_W - UI.SP_S)
+		_bar(Vector2(bx, 8), bw, r.dmg / top_d, P.gold, Battle.num(r.dmg))
+		_bar(Vector2(bx, 24), bw, r.taken / top_t, P.seal.lightened(0.05), Battle.num(r.taken))
+		if r.get("dot", 0.0) > 0.0:      # 11/9 지속 피해(건 장수에게 기록)는 준 피해 안에 들어 있다 —— 막대 빈 자리에 몫을 밝힌다 (안 들어가면 생략)
+			var dt := "화상 · 출혈 " + Battle.num(r.dot)
+			var free := bw * (1.0 - clampf(r.dmg / top_d, 0, 1)) - 4.0
+			if DB.font_body.get_string_size(dt, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY).x <= free:
+				draw_string(DB.font_body, Vector2(bx, 16), dt, HORIZONTAL_ALIGNMENT_RIGHT, bw - 2, UI.FS_TINY, P.text_dim)
+		var cx := size.x - CNT_W
 		var s := "%d · %d · %d" % [r.kills, r.sk, r.ult]
-		draw_string(DB.title_font(13), Vector2(size.x - CNT_W, 25), s, HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, 13, P.paper if r.kills + r.sk + r.ult > 0 else P.bamboo_dim)
+		var gain: float = r.get("gain", 0.0)
+		draw_string(DB.title_font(UI.FS_BODY), Vector2(cx, 17 if gain > 0.0 else 25), s, HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, UI.FS_BODY, P.paper if r.kills + r.sk + r.ult > 0 else P.text_dim)
+		if gain > 0.0:      # 11/9 역할 기여 —— 이 장수의 깎기로 아군이 더 넣은 피해 (엔진 기록 gain). 11/14: 셈 아래 제 줄로 (위에 겹쳤다)
+			var gt := UI.ellipsize(DB.font_body, "깎기 +" + Battle.num(gain), UI.FS_TINY, CNT_W)
+			draw_string(DB.font_body, Vector2(cx, 33), gt, HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, UI.FS_TINY, Color("#d8c27a", a))
 
-	## 칸에 들어가게 뒤를 … 으로
-	static func _fit(f: Font, s: String, fs: int, w: float) -> String:
-		if f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= w:
-			return s
-		var t := s
-		while t.length() > 1 and f.get_string_size(t + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w:
-			t = t.substr(0, t.length() - 1)
-		return t + "…"
-
+	## 막대 + 오른쪽 제 칸의 수치 (막대 색과 같은 계열)
 	func _bar(p: Vector2, w: float, f: float, col: Color, txt: String) -> void:
-		draw_rect(Rect2(p, Vector2(w, 10)), Color(1, 1, 1, 0.06))
-		draw_rect(Rect2(p, Vector2(w * clampf(f, 0, 1), 10)), col)
-		draw_string_outline(DB.font_body, p + Vector2(0, 9), txt, HORIZONTAL_ALIGNMENT_RIGHT, w - 3, 9, 3, Color(0, 0, 0, 0.8))
-		draw_string(DB.font_body, p + Vector2(0, 9), txt, HORIZONTAL_ALIGNMENT_RIGHT, w - 3, 9, Color(1, 1, 1, 0.92))
+		draw_rect(Rect2(p, Vector2(w, 8)), Color(1, 1, 1, 0.06))
+		draw_rect(Rect2(p, Vector2(w * clampf(f, 0, 1), 8)), col)
+		var fs := UI.fit_fs(DB.font_body, txt, UI.FS_CAP, UI.FS_TINY, NUM_W - 4)
+		draw_string(DB.font_body, Vector2(p.x + w + 4, p.y + 9), txt, HORIZONTAL_ALIGNMENT_RIGHT, NUM_W - 4, fs, col.lightened(0.35))

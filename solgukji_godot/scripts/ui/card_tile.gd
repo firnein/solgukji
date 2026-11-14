@@ -104,13 +104,13 @@ func _draw() -> void:
 	Art.draw_portrait(self, pr, k)
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(9, 9), 8, DB.fac_color(c.fac))
-		draw_string(DB.title_font(10), pr.position + Vector2(1, 13), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, 10, Color.WHITE)
+		draw_string(DB.title_font(UI.FS_TINY), pr.position + Vector2(1, 13), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, UI.FS_TINY, Color.WHITE)
 	# 병종 기호 —— 초상 오른쪽 위
 	var tcen := Vector2(pr.end.x - 8, pr.position.y + 8)
 	draw_circle(tcen, 9.5, DB.kind_col(c.tag))      # 11/9 피해 종류 —— 병종 기호 테두리 (물리 주황 · 책략 파랑)
 	draw_circle(tcen, 8.5, Color(DB.PAL.ink, 0.92))
 	draw_texture_rect(DB.ICON[c.tag], Rect2(tcen - Vector2(5.5, 5.5), Vector2(11, 11)), false, DB.PAL.paper)
-	draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 14), 10)      # 11/9 대표 역할 칩
+	draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 14), UI.FS_TINY)      # 11/9 대표 역할 칩
 	var x := pr.end.x + 7
 	var tw := w - x - 6
 	var fb := DB.font_body
@@ -120,23 +120,23 @@ func _draw() -> void:
 	var fd := DB.tier_font(c.tier, fs)      # 11/10 줄어든 크기(18 미만)에서는 고급 · 희귀도 굵은 고딕
 	draw_string(fd, Vector2(x, 25), c.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
 	if note != "":
-		draw_string(fb, Vector2(x, h - 12), note, HORIZONTAL_ALIGNMENT_LEFT, tw, 11, note_col if note_col.a > 0 else DB.PAL.bamboo_dim)
+		draw_string(fb, Vector2(x, h - 12), UI.ellipsize(fb, note, UI.FS_CAP, tw), HORIZONTAL_ALIGNMENT_LEFT, tw, UI.FS_CAP, note_col if note_col.a > 0 else DB.PAL.text_dim)
 		draw_traits(self, k, Rect2(x, 33, tw, 18))
 	else:
 		draw_traits(self, k, Rect2(x, 33, tw, h - 37))
 	if qty > 0:
 		var qr := Rect2(w - 28, 5, 23, 19)
 		draw_rect(qr, Color(DB.PAL.gold, 0.9))
-		draw_string(fb, qr.position + Vector2(0, 15), str(qty), HORIZONTAL_ALIGNMENT_CENTER, qr.size.x, 13, Color("#1A1508"))
+		draw_string(fb, qr.position + Vector2(0, 14.5), str(qty), HORIZONTAL_ALIGNMENT_CENTER, qr.size.x, UI.FS_CAP, Color("#1A1508"))
 	if mark == "dim":
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.55))
 
 
 ## 특기 칸 —— 네모 안에 이름 + 레벨(금색), 먹색 (11/9 계열 색 걷음). 칸이 모자라면 마지막에 +n
-static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := 11) -> void:
+static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := UI.FS_CAP) -> void:
 	var ts := DB.trait_list(id)
 	var fb := DB.font_body
-	var ch := fs + 7.0
+	var ch := fs + 6.0      # 11/14 글자 11 → FS_CAP(12): 칸 높이는 예전 그대로 18 (카드 높이 76 에 두 줄)
 	var gap := 3.0
 	var p := r.position
 	for i in ts.size():

@@ -2,8 +2,8 @@ class_name DeployPage
 extends RefCounted
 ## 편성 —— 진형 고르기 · 9칸 편성판 · 손패. 원본 rDeploy · openSlot · openItem.
 ## 세로 화면: 위에 진형 띠와 편성판, 맨 아래 [보유 | 보급품] 탭. 탭을 열면 그 안만 스크롤한다.
-## 11/7 사용자: 탭을 열어도 편성판 칸이 찌그러지지 않게 —— 페이지 전체를 세로 스크롤 상자(PageScroll)에 넣고, 열리면 편성판 높이를
-## 닫힌 때 그대로 고정한 채 아래 칸(LOWER_H)만큼 넘치게 한다. 넘친 만큼 페이지가 위로 밀려 올라가(진형 띠가 위로 숨는다) 끌어 내리면 다시 보인다.
+## 11/14 UI 감사 #8: 페이지는 스크롤하지 않는다 —— 진형 띠 · 편성판 머리줄(자동 편성 · 해제)은 늘 제자리. 탭을 열면 편성판 칸을
+## 작게(SlotBox.compact —— 초상 · 이름만) 그리고 남는 높이를 모두 아래 목록(보유 카드 격자)에 준다.
 ## 놓는 법 셋: ① 손패 카드를 길게 눌러 칸으로 끈다 ② 손패 카드를 눌러 고르고 칸을 누른다
 ## ③ 칸을 눌러 목록에서 고른다. 칸을 길게 눌러 다른 칸으로 끌면 자리를 바꾸고, 아래 목록으로 끌면 내린다.
 
@@ -14,11 +14,11 @@ var _links: Array = []        # 11/11 지금 편성판에서 이어진 인연 (D
 var _link_n := {}             # 인물 -> 그 인물이 든 이어진 인연 수 (칸 모서리 표시의 숫자)
 var sel := ""                 # 손패에서 고른 카드 (칸을 누르면 그 자리에 놓는다)
 var seg := ""                 # 아래 나눔 탭 —— hand · item. "" = 닫힘 (11/5 사용자: 기본 닫힌 채, 누르면 열림)
-const LOWER_H := 168.0        # 열린 아래 칸 높이 (11/5 사용자: 예전 남는 공간 전부 → 절반쯤)
 const SEP := 10.0             # 진형 띠 · 편성판 · 아래 칸 사이 간격
 var _slide_up := false        # 방금 열었다 —— 올라오는 연출
 var _form_scroll := 0         # 진형 띠 가로 스크롤 —— 진형을 골라 다시 그려도 그 자리에 (11/6 사용자)
-var _page_scroll := -1        # 탭을 연 채 페이지 세로 스크롤 —— 카드를 놓아 다시 그려도 그 자리에. -1 = 맨 아래 (아래 칸이 다 보이게)
+const MIN_LOWER_H := 150.0    # 열린 아래 목록의 최소 높이 (남는 높이는 모두 목록에)
+const HAND_TILE := Vector2(56, 80)      # 보유 카드 격자 한 칸 (최소 —— 남는 폭은 나눠 가진다)
 
 
 func build() -> Control:
@@ -29,20 +29,17 @@ func build() -> Control:
 	for l in _links:
 		for p in l["in"]:
 			_link_n[p] = int(_link_n.get(p, 0)) + 1
-	# 11/7 사용자: 페이지 전체가 세로 스크롤 상자 —— 닫힌 때는 꼭 맞아 스크롤이 없고, 열리면 아래 칸만큼 넘친다 (편성판 높이는 아래 fit 이 고정)
-	var root := PageScroll.new()
-	root.want = _page_scroll
-	root.anim = _slide_up
-	_slide_up = false
+	var open := seg != ""
+	# 11/14 UI 감사 #8: 「보유」를 열면 페이지가 위로 밀려 진형 고르기 · 자동 편성이 화면 밖으로 사라지고 보유 목록은 두 줄만 보였다 ——
+	# 이제 페이지는 스크롤하지 않는다. 진형 띠 · 편성판 머리줄은 늘 제자리, 열리면 편성판 칸을 줄이고(SlotBox.compact) 남는 높이를 모두 아래 목록에 준다
 	var v := UI.vbox(int(SEP))
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_child(v)
 	if gs.online != null and not gs.can_form():      # 11/12 페이즈 개편 —— 편성이 막힌 단계면 이유 한 줄 (버튼은 잠근다)
 		v.add_child(UI.hint(gs.online.block_reason("form")))
 
 	# 진형 —— 가로로 넘기는 띠. 11/7 사용자: 이름만 (미니 격자를 붙이니 칩 폭이 모자라 레이아웃이 무너졌다). 효과 줄은 아래 편성판 머리에 한 줄
-	var st := UI.strip(6)
+	var st := UI.strip(UI.SP_S)
 	for key in DB.FORM:
 		var fm: Dictionary = DB.FORM[key]
 		if fm.get("foe", false):      # 토벌 적 전용 대군 진형
@@ -52,14 +49,14 @@ func build() -> Control:
 		b.hit.x = 0.0
 		b.text = fm.n
 		b.custom_minimum_size = Vector2(76, UI.BH_S)
-		b.add_theme_font_override("font", DB.title_font(14))
+		b.add_theme_font_override("font", DB.title_font(UI.FS_BODY))
 		b.add_theme_font_size_override("font_size", UI.FS_BODY)
 		for cn in ["font_color", "font_hover_color", "font_focus_color"]:
 			b.add_theme_color_override(cn, DB.PAL.gold if on else DB.PAL.paper)
 		b.add_theme_color_override("font_pressed_color", DB.PAL.gold)
-		b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else DB.PAL.ink4, 2 if on else 1, 10, 8))
-		b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, DB.PAL.gold if on else DB.PAL.bamboo_dim, 2 if on else 1, 10, 8))
-		b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 2, 10, 8))
+		b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else DB.PAL.ink4, 2 if on else 1, UI.R, 8))
+		b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, DB.PAL.gold if on else DB.PAL.bamboo_dim, 2 if on else 1, UI.R, 8))
+		b.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink4, DB.PAL.gold, 2, UI.R, 8))
 		b.pressed.connect(func():
 			UI.buzz()
 			gs.act("set_form", [key]))
@@ -80,9 +77,13 @@ func build() -> Control:
 	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# 11/9 사용자: 진형 우대 삭제 —— 머리는 진형 이름만 (예전 '창병 · 유생 방어 +14%' 효과 줄과 「비늘이 서로를 가린다」 설명 줄 삭제)
 	var fnr := UI.hbox(UI.SP_S)
-	fnr.add_child(UI.lbl(f.n, UI.FS_LABEL, DB.PAL.paper, true))
-	if str(f.get("full", "")) != "":      # 11/12 진형마다 5칸이 꽉 찬 줄 하나
-		fnr.add_child(UI.lbl("%s 5칸" % f.full, UI.FS_BODY, DB.PAL.text_dim))
+	var fl := UI.lbl(f.n, UI.FS_LABEL, DB.PAL.paper, true)
+	fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	fnr.add_child(fl)
+	if str(f.get("full", "")) != "" and not open:      # 11/12 진형마다 5칸이 꽉 찬 줄 하나 (열린 때는 머리줄을 한 줄로)
+		var fu := UI.lbl("%s 5칸" % f.full, UI.FS_BODY, DB.PAL.text_dim)
+		fu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		fnr.add_child(fu)
 	fnr.add_child(_inyeon_chip())      # 11/11 인연 —— 진형 이름 옆 칩 (이어진 수 · 누르면 시트)
 	if run.quest_open() and gs.can_form():      # 11/13 사용자: 험지 토벌이 눈에 안 띈다(전투 탭 아래 옅은 버튼뿐) —— 편성 화면 진형 이름 옆 칩
 		fnr.add_child(_hard_chip())
@@ -102,15 +103,16 @@ func build() -> Control:
 	var grid := GridContainer.new()
 	grid.columns = 1 + DB.FORM_COLS      # 11/6 진형 4행 5열
 	grid.add_theme_constant_override("h_separation", 5)
-	grid.add_theme_constant_override("v_separation", 5)
-	var face := UI.lbl("▲적", UI.FS_CAP, DB.PAL.danger)
-	face.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	grid.add_child(face)
-	for col in ["좌익", "좌", "중앙", "우", "우익"]:
-		var cl := UI.lbl(col, UI.FS_CAP, DB.PAL.text_dim)
-		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(cl)
+	grid.add_theme_constant_override("v_separation", UI.SP_XS if open else 5)
+	if not open:      # 열린 때는 칸 이름 줄(좌익 · 좌 …)을 접어 아래 목록에 높이를 준다
+		var face := UI.lbl("▲적", UI.FS_CAP, DB.PAL.danger)
+		face.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		grid.add_child(face)
+		for col in ["좌익", "좌", "중앙", "우", "우익"]:
+			var cl := UI.lbl(col, UI.FS_CAP, DB.PAL.text_dim)
+			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			grid.add_child(cl)
 	for ri in f.grid.size():
 		var ll := UI.lbl(DB.D.LINES[ri], UI.FS_CAP, DB.PAL.bamboo, true)
 		ll.custom_minimum_size = Vector2(28, 0)
@@ -123,13 +125,14 @@ func build() -> Control:
 			var box := SlotBox.new()
 			box.page = self
 			box.slot = si
+			box.compact = open
 			box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			grid.add_child(box)
 	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	bp.add_child(grid)
-	var bpp := UI.panel(bp, 8)
-	bpp.size_flags_vertical = Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
+	var bpp := UI.panel(bp, UI.SP_S)
+	bpp.size_flags_vertical = Control.SIZE_FILL if open else Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
 	bp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(bpp)
 
@@ -138,23 +141,26 @@ func build() -> Control:
 	var n_items := 0
 	for id in run.bag:
 		n_items += run.bag[id]
-	# 11/5 사용자: 기본 닫힌 채 —— 탭을 누르면 열리고, 열린 탭을 다시 누르면 닫힌다. 열려도 높이는 LOWER_H (예전의 절반쯤)
+	# 11/5 사용자: 기본 닫힌 채 —— 탭을 누르면 열리고, 열린 탭을 다시 누르면 닫힌다
 	var hand := HandDrop.new()
 	hand.page = self
 	hand.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var hv := UI.vbox(UI.SP_S)
 	hand.add_child(hv)
-	# 11/5 사용자: '손패' → '보유', 진형 탭 버튼 제거 (진형 설명은 위 편성판 머리에 있다)
-	var tabs := UI.segmented([["hand", "보유 %d" % keys.size()], ["item", "보급품 %d" % n_items]], seg, func(k):
+	# 11/5 사용자: '손패' → '보유', 진형 탭 버튼 제거. 11/14 감사 #8-5: 닫힌 탭이 비활성처럼 보였다 —— 펼침 화살표(▴ 열기 · ▾ 닫기)
+	var arrow := func(k: String) -> String: return " ▾" if seg == k else " ▴"
+	var tabs := UI.segmented([["hand", "보유 %d%s" % [keys.size(), arrow.call("hand")]], ["item", "보급품 %d%s" % [n_items, arrow.call("item")]]], seg, func(k):
 		var was := seg
 		seg = "" if seg == k else k
 		_slide_up = was == "" and seg != ""
-		_page_scroll = -1      # 열고 닫을 때는 맨 아래부터 (그 자리를 지키는 건 연 채로 다시 그릴 때만)
 		gs.render())
 	v.add_child(hand)
-	if seg != "":
+	if open:
+		hand.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		hv.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		var sc := UI.scroll()
-		sc.custom_minimum_size.y = LOWER_H
+		sc.custom_minimum_size.y = MIN_LOWER_H
+		sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		hv.add_child(sc)
 		var lower := UI.vbox(UI.SP_S)
 		lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -163,25 +169,18 @@ func build() -> Control:
 			"hand": _hand(lower, keys)
 			"item": _items(lower)
 		var pad := Control.new()
-		pad.custom_minimum_size = Vector2(0, 12)
+		pad.custom_minimum_size = Vector2(0, UI.SP_M)
 		lower.add_child(pad)
-		# 11/7 사용자: 아래 칸 높이는 LOWER_H 까지 —— 다만 맨 아래로 밀렸을 때 편성판 격자가 위로 잘리지 않을 만큼만 (= 격자 위에 있는 진형 띠 · 편성판 머리글 높이).
-		# 줄바꿈 글줄(효과 · 설명)의 높이는 정렬 때 정해지니 bp 가 정렬될 때마다 다시 잰다 (같은 프레임 안에서 끝나 튀지 않는다). 8 = 편성판 panel 여백, 5 = 격자 v_separation, 6 = hv 간격
-		bp.sort_children.connect(func():
-			if is_instance_valid(sc) and is_instance_valid(grid):
-				var above := sc0.get_combined_minimum_size().y + SEP + 8 + grid.position.y + face.get_combined_minimum_size().y + 5
-				sc.custom_minimum_size.y = clampf(above - 6, 112.0, LOWER_H))
+		if _slide_up:      # 방금 열었다 —— 목록이 살짝 아래에서 떠오른다 (자리는 그대로라 칸 · 머리줄은 움직이지 않는다)
+			_slide_up = false
+			lower.modulate.a = 0.0
+			(func():
+				if is_instance_valid(lower) and lower.is_inside_tree():
+					lower.create_tween().tween_property(lower, "modulate:a", 1.0, 0.18)
+				elif is_instance_valid(lower):
+					lower.modulate.a = 1.0).call_deferred()
 	hv.add_child(tabs)          # 탭은 늘 맨 아래 —— 열리면 내용이 그 위에 온다
-	# 11/7 사용자: 편성판 높이 고정 —— 열린 때 편성판 최소 높이 = 페이지 높이 − 진형 띠 − 탭 − 간격 둘 = 닫힌 때 편성판이 차지하던 높이.
-	# 그래서 열어도 칸 크기 · 비율이 그대로고, 넘친 아래 칸만큼 페이지가 스크롤된다 (닫힌 때는 0 —— EXPAND_FILL 이 남는 공간을 채운다)
-	var fit := func():
-		if not is_instance_valid(root) or not is_instance_valid(bpp):
-			return
-		var h := root.size.y - sc0.get_combined_minimum_size().y - tabs.get_combined_minimum_size().y - SEP * 2
-		bpp.custom_minimum_size.y = maxf(0.0, h) if seg != "" else 0.0
-	root.resized.connect(fit)
-	root.get_v_scroll_bar().value_changed.connect(func(_x): _page_scroll = root.want)
-	return root
+	return v
 
 
 func _hand(hv: VBoxContainer, keys: Array) -> void:
@@ -197,14 +196,17 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 			gs.render(), "ghost", UI.BH_S))
 		hv.add_child(sh)
 
-	# 11/5 사용자: 손패는 목록으로, 높은 등급부터 (Run.sort_cards). 줄을 누르면 고르고, 고른 줄을 다시 누르면 상세. 길게 눌러 칸으로 끈다
+	# 11/5 사용자: 손패는 높은 등급부터 (Run.sort_cards). 누르면 고르고, 고른 카드를 다시 누르면 상세. 길게 눌러 칸으로 끈다.
+	# 11/14 감사 #8: 한 줄에 하나씩(높이 50) 두면 열어도 두세 장만 보였다 —— 작은 카드 격자(한 줄 6장 안팎)로
+	var gr := UI.grid(HAND_TILE.x, UI.SP_XS + 2)
 	for k in keys:
-		var row := HandRow.new()
-		row.page = self
-		row.k = k
-		row.qty = run.inv[k]
-		row.on = k == sel
-		hv.add_child(row)
+		var t := gs.mtile(k, run.inv[k] if run.inv[k] > 1 else -1, func(id): hand_tap(id))      # 수량은 둘 이상일 때만
+		t.custom_minimum_size = HAND_TILE
+		t.drag_data = {"card": k, "from": -1}
+		if k == sel:
+			t.mark = "sel"
+		gr.add_child(t)
+	hv.add_child(gr)
 	if keys.is_empty():
 		hv.add_child(UI.hint("보유한 카드가 없다 — 모두 편성했다."))
 
@@ -226,7 +228,7 @@ func _hard_chip() -> Control:
 	var on := run.quest_hard
 	var b := TouchButton.new()
 	b.text = "험지 토벌 ✕%s" % str(Run.QUEST_HARD_TR) if on else "험지 토벌"
-	b.custom_minimum_size = Vector2(0, UI.BH_XS)
+	b.custom_minimum_size = Vector2(0, UI.BH_S)      # 11/14 감사 #8-3 머리줄 버튼 높이 40 통일
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.add_theme_font_size_override("font_size", UI.FS_BODY)
 	var fc: Color = P.paper if on else P.gold
@@ -256,7 +258,7 @@ func _inyeon_chip() -> Control:
 	var on := n > 0
 	var b := TouchButton.new()
 	b.text = "인연 %d" % n if on else "인연"
-	b.custom_minimum_size = Vector2(0, UI.BH_XS)
+	b.custom_minimum_size = Vector2(0, UI.BH_S)      # 11/14 감사 #8-3 머리줄 버튼 높이 40 통일
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.add_theme_font_size_override("font_size", UI.FS_BODY)
 	var fc: Color = P.yeon.lightened(0.3) if on else P.bamboo_dim
@@ -270,7 +272,7 @@ func _inyeon_chip() -> Control:
 	for st in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(st, sb)
 	var ic := Icons.View.new("link", fc, 16)
-	ic.position = Vector2(8, 6)
+	ic.position = Vector2(8, (UI.BH_S - 16) / 2.0)
 	b.add_child(ic)
 	b.pressed.connect(func():
 		UI.buzz()
@@ -593,14 +595,16 @@ func item_sheet(i: int) -> void:
 ## 편성판 한 칸 —— 누르면 칸 시트(또는 고른 카드를 놓는다), 길게 누르면 끌어서 옮기기·내리기
 class SlotBox extends Control:
 	const SZ := Vector2(60, 84)      # 11/6 진형 5열 —— 좁고 높게 (초상 위 · 글 아래). 11/7 66 → 60: 줄 이름 28 + 칸 5개 + 간격 · 여백이 논리 폭 400 을 넘어 9:20 휴대폰에서 편성판이 오른쪽으로 넘쳤다 (넓으면 칸은 늘어난다)
+	const SZ_COMPACT := Vector2(48, 54)      # 11/14 감사 #8 —— 아래 목록을 연 때: 초상 · 이름만 (병력 · 아이템은 닫힌 때와 칸 시트에서)
 	var page: DeployPage
 	var slot := -1
+	var compact := false
 	var _press := Vector2.INF
 	var _held := 0.0
 	var _dragging := false
 
 	func _ready() -> void:
-		custom_minimum_size = SZ
+		custom_minimum_size = SZ_COMPACT if compact else SZ
 		mouse_filter = Control.MOUSE_FILTER_STOP if slot >= 0 else Control.MOUSE_FILTER_IGNORE
 
 	func _gui_input(e: InputEvent) -> void:
@@ -688,10 +692,17 @@ class SlotBox extends Control:
 		draw_style_box(sb, r)
 		var fb := DB.font_body
 		if k == null:
-			draw_string(DB.title_font(24), Vector2(0, size.y * 0.5 + 6), "＋", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Color(DB.PAL.bamboo_dim, 0.7))
-			draw_string(fb, Vector2(0, size.y - 7), UI.pos_name(s.line, s.col), HORIZONTAL_ALIGNMENT_CENTER, size.x, 11, DB.PAL.text_dim)
+			var py := size.y * (0.42 if compact else 0.5) + 6
+			draw_string(DB.title_font(24), Vector2(0, py), "＋", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, Color(DB.PAL.bamboo_dim, 0.7))
+			var pn := UI.pos_name(s.line, s.col)
+			var pfs := UI.fit_fs(fb, pn, UI.FS_TINY if compact else UI.FS_CAP, UI.FS_TINY, size.x - 4)
+			draw_string(fb, Vector2(2, size.y - (5 if compact else 7)), pn, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, pfs, DB.PAL.text_dim)
 			return
 		var c: Dictionary = DB.C[k]
+		if compact:      # 11/14 감사 #8 —— 아래 목록을 연 때: 초상 / 이름 (아이템은 초상 아래 두 점)
+			_draw_compact(k, c, run)
+			_draw_yeon(page.slot_link_lv(slot))
+			return
 		if size.x < 120:      # 11/6 5열 —— 좁은 칸: 초상 / 이름 / 병종 · 병력 / 아이템 / 진형 버프
 			_draw_narrow(k, c, z, run)
 			_draw_yeon(page.slot_link_lv(slot))
@@ -704,120 +715,78 @@ class SlotBox extends Control:
 		var x := pr.end.x + 6
 		var tw := size.x - x - 4
 		var nm: String = DB.person(k) if c.tier > 2 else c.name
-		var fs := 16 if size.y >= 96 else 14
+		var fs := UI.FS_LABEL if size.y >= 96 else UI.FS_BODY
 		var tf := DB.tier_font(c.tier, fs)
-		while fs > 10 and tf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
-			fs -= 1
+		fs = UI.fit_fs(tf, nm, fs, UI.FS_TINY, tw)
 		var ty := pr.position.y + minf(ph * 0.3, 22.0)
 		var gap := clampf(ph * 0.26, 13.0, 20.0)
 		draw_string(tf, Vector2(x, ty), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, DB.tier_color(k).lightened(0.2))
-		draw_string(fb, Vector2(x, ty + gap), c.tag, HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo))
-		draw_string(fb, Vector2(x, ty + gap * 2), Battle.num(c.tr) + "명", HORIZONTAL_ALIGNMENT_LEFT, tw, 12, DB.PAL.text_dim)
-		_draw_gear(run, size.y - 6, 11)
+		draw_string(fb, Vector2(x, ty + gap), c.tag, HORIZONTAL_ALIGNMENT_LEFT, tw, UI.FS_CAP, _aff_col(z, DB.PAL.bamboo))
+		draw_string(fb, Vector2(x, ty + gap * 2), Battle.num(c.tr) + "명", HORIZONTAL_ALIGNMENT_LEFT, tw, UI.FS_CAP, DB.PAL.text_dim)
+		_draw_gear(run, size.y - 6, UI.FS_CAP)
 		_draw_yeon(page.slot_link_lv(slot))
 
+	## 자리 선호 · 어색에 따른 글자색 (옥 · 붉음 —— 글자용 danger)
+	static func _aff_col(z: String, base: Color) -> Color:
+		return DB.PAL.jade.lightened(0.15) if z == "pref" else (DB.PAL.danger if z == "bad" else base)
+
+	## 이름 —— 칭호 없이 인물 이름 (병졸 카드는 카드 이름)
+	static func _short(k: String, c: Dictionary) -> String:
+		return DB.person(k) if c.tier > 2 else c.name
 
 	func _draw_narrow(k: String, c: Dictionary, z: String, run: Run) -> void:
 		var fb := DB.font_body
 		var ith := 12.0
-		var txt_h := 25.0
+		var txt_h := 28.0
 		var ph := maxf(16.0, size.y - 8 - ith - txt_h)
 		var pw := minf(size.x - 8, ph * 1.05)
 		var pr := Rect2((size.x - pw) / 2, 4, pw, ph)
 		Art.draw_portrait(self, pr, k)
-		var nm: String = DB.person(k) if c.tier > 2 else c.name
-		var tf := DB.tier_font(c.tier, 13)
-		var fs := 13
-		while fs > 9 and tf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 6:
-			fs -= 1
-		var y := pr.end.y + 12
+		var nm := _short(k, c)
+		var tf := DB.tier_font(c.tier, UI.FS_BODY)
+		var fs := UI.fit_fs(tf, nm, UI.FS_BODY, UI.FS_TINY, size.x - 6)
+		var y := pr.end.y + 13
 		draw_string(tf, Vector2(3, y), nm, HORIZONTAL_ALIGNMENT_CENTER, size.x - 6, fs, DB.tier_color(k).lightened(0.2))
 		var info := "%s %s" % [c.tag, Battle.num(c.tr)]
-		draw_string(fb, Vector2(2, y + 12), info, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, 10, DB.PAL.jade if z == "pref" else (DB.PAL.seal if z == "bad" else DB.PAL.bamboo_dim))
-		_draw_gear(run, size.y - 5, 9)
+		var ifs := UI.fit_fs(fb, info, UI.FS_CAP, UI.FS_TINY, size.x - 4)
+		draw_string(fb, Vector2(2, y + 13), info, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, ifs, _aff_col(z, DB.PAL.text_dim))
+		_draw_gear(run, size.y - 5, UI.FS_TINY)
+
+	## 작게 (아래 목록을 연 때) —— 초상이 칸을 채우고 아래에 이름 한 줄. 아이템은 초상 아래 모서리 두 점
+	func _draw_compact(k: String, c: Dictionary, run: Run) -> void:
+		var nh := float(UI.FS_CAP) + 4.0
+		var pr := Rect2(3, 3, size.x - 6, maxf(12.0, size.y - 6 - nh))
+		Art.draw_portrait(self, pr, k)
+		var nm := _short(k, c)
+		var tf := DB.tier_font(c.tier, UI.FS_CAP)
+		var fs := UI.fit_fs(tf, nm, UI.FS_CAP, UI.FS_TINY, size.x - 4)
+		draw_string(tf, Vector2(2, size.y - 5), nm, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, fs, DB.tier_color(k).lightened(0.2))
+		var g := run.gear_of_slot(slot)
+		for si in 2:
+			if g[si] == null:
+				continue
+			var q := Rect2(pr.position.x + 2.0 if si == 0 else pr.end.x - 9.0, pr.end.y - 9.0, 7, 7)
+			draw_rect(q.grow(1), Color(DB.PAL.ink, 0.8))
+			draw_rect(q, UI.item_col(g[si]))
 
 
-	## 11/13 아이템 줄 —— 칸이 둘(무기 · 갑옷): 양 끝에 등급색 네모 둘(빈 칸은 테만), 가운데에 이름(무기 먼저, 둘이면 뒤에 +1)
+	## 11/13 아이템 줄 —— 칸이 둘(무기 · 갑옷): 양 끝에 등급색 네모 둘(빈 칸은 테만), 가운데에 이름(무기 먼저, 둘이면 뒤에 +1).
+	## 11/14 감사 #8: 「빈 슬롯」 글자는 뺐다 (빈 칸은 테만 있는 네모로 안다) · 이름은 칸에 맞춰 … 으로 줄인다
 	func _draw_gear(run: Run, y: float, fs: int) -> void:
 		var g := run.gear_of_slot(slot)
 		var n := (1 if g[0] != null else 0) + (1 if g[1] != null else 0)
 		var it = g[0] if g[0] != null else g[1]
-		var itxt: String = "빈 슬롯" if it == null else str(DB.IT[it].name) + ("+1" if n == 2 else "")
-		var pip := 5.0
-		draw_string(DB.font_body, Vector2(4 + pip, y), itxt, HORIZONTAL_ALIGNMENT_CENTER, size.x - 8 - pip * 2, fs, UI.item_col(it) if it != null else Color(DB.PAL.bamboo_dim, 0.6))
+		var pip := 6.0
+		if it != null:
+			var tw := size.x - 8 - pip * 2
+			var itxt := UI.ellipsize(DB.font_body, str(DB.IT[it].name) + ("+1" if n == 2 else ""), fs, tw)
+			draw_string(DB.font_body, Vector2(4 + pip, y), itxt, HORIZONTAL_ALIGNMENT_CENTER, tw, fs, UI.item_col(it))
 		for si in 2:
-			var r := Rect2(3.0 if si == 0 else size.x - 3.0 - pip, y - pip - 1, pip, pip)
+			var r := Rect2(3.0 if si == 0 else size.x - 3.0 - pip, y - pip, pip, pip)
 			if g[si] != null:
 				draw_rect(r, UI.item_col(g[si]))
 			else:
 				draw_rect(r, Color(DB.PAL.bamboo_dim, 0.5), false, 1.0)
-
-
-## 손패 한 줄 (11/5) —— [초상] 이름(등급색) / 병종 · 등급 · 병력, ×수. 누르면 page.hand_tap, 길게 눌러 끈다
-class HandRow extends PanelContainer:
-	var page: DeployPage
-	var k := ""
-	var qty := 1
-	var on := false
-	var _press := Vector2.INF
-	var _held := 0.0
-	var _dragging := false
-
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_STOP
-		custom_minimum_size.y = 50
-		var tc := DB.tier_color(k)
-		add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else tc.darkened(0.3), 2 if on else 1, 8, 4))
-		var h := UI.hbox(UI.SP_S)
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var t := MiniTile.new().setup(k, -1)
-		t.custom_minimum_size = Vector2(34, 44)
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(t)
-		var c: Dictionary = DB.C[k]
-		var tv := UI.vbox(0)
-		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		tv.add_child(UI.lbl(c.name, UI.FS_BODY, tc.lightened(0.2), true))
-		tv.add_child(UI.lbl("%s · %s · %s명" % [c.tag, DB.tier_name(k), Battle.num(c.tr)], UI.FS_CAP, DB.PAL.bamboo))
-		h.add_child(tv)
-		if qty > 1:
-			var q := UI.lbl("×%d" % qty, UI.FS_BODY, DB.PAL.gold, true)
-			q.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			q.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			h.add_child(q)
-		for ch in [tv] + tv.get_children():
-			ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(h)
-
-	func _gui_input(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-			if e.pressed:
-				_press = e.position
-				_held = 0.0
-				_dragging = false
-			else:
-				if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14:
-					UI.buzz()
-					page.hand_tap(k)
-				_press = Vector2.INF
-		elif e is InputEventMouseMotion and _press != Vector2.INF and e.position.distance_to(_press) >= 14:
-			_press = Vector2.INF
-
-	func _process(dt: float) -> void:
-		if _press == Vector2.INF or _dragging:
-			return
-		_held += dt
-		if _held >= CardTile.HOLD:
-			_dragging = true
-			_press = Vector2.INF
-			var pv := MiniTile.new().setup(k, -1)
-			pv.size = Vector2(56, 84)
-			pv.modulate = Color(1, 1, 1, 0.85)
-			var holder := Control.new()
-			holder.add_child(pv)
-			pv.position = -pv.size / 2
-			force_drag({"card": k, "from": -1}, holder)
 
 
 ## 손패 상자 —— 칸에서 끌어 오면 내린다
@@ -829,50 +798,3 @@ class HandDrop extends PanelContainer:
 
 	func _drop_data(_p: Vector2, data) -> void:
 		page.drop_hand(data)
-
-
-## 페이지 세로 스크롤 상자 (11/7) —— 레이아웃이 끝나는 바로 그때(SORT_CHILDREN 뒤) 스크롤을 맞춰, 다시 그려도 한 프레임도 튀지 않는다.
-## (call_deferred 로 맞추면 스크롤 범위가 아직 안 잡혀 0 으로 잘린다.) 세로 막대는 숨긴다 —— 보이면 그 폭만큼 편성판이 좁아져 칸 폭이 바뀐다.
-## want: 맞출 자리 (-1 = 맨 아래) · 사용자가 끌면 그 자리를 따라간다 · anim: 열리는 연출 —— 0 에서 맨 아래로 0.18초
-class PageScroll extends ScrollContainer:
-	var want := -1
-	var anim := false
-	var _t := -1.0            # 연출 진행 (0~1). -1 = 연출 없음 · 끝남
-	var _mine := false        # 지금 바꾸는 건 내 쪽 (사용자 끌기가 아니다)
-
-	func _init() -> void:
-		horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-		TouchScroll.add(self)
-		get_v_scroll_bar().value_changed.connect(func(x):
-			if not _mine:
-				want = int(x))
-
-	func _notification(what: int) -> void:
-		if what != NOTIFICATION_SORT_CHILDREN:
-			return
-		if anim:
-			anim = false
-			_t = 0.0              # 연출이 시작되기 전(같은 프레임의 다음 정렬)에도 0 에 붙들어 둔다 —— 아니면 맨 아래로 튀었다가 연출이 시작된다
-			_put(0)
-			var tw := create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-			tw.tween_method(_step, 0.0, 1.0, 0.18)
-			tw.tween_callback(func(): _t = -1.0)
-			return
-		if _t >= 0.0:
-			_step(_t)             # 연출 중에 레이아웃이 바뀌어도 그 비율 자리에
-			return
-		_put(_max() if want < 0 else mini(want, _max()))
-
-	func _step(t: float) -> void:
-		_t = t
-		_put(int(roundf(t * _max())))
-
-	func _put(y: int) -> void:
-		_mine = true
-		scroll_vertical = y
-		_mine = false
-
-	func _max() -> int:
-		var b := get_v_scroll_bar()
-		return int(maxf(0.0, b.max_value - b.page))

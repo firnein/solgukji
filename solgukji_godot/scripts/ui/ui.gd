@@ -717,5 +717,23 @@ static func aff_zones(tag: String, which: String) -> String:
 	return "%s %s" % [a.bad[0], a.bad[1]]
 
 
+## 그려 넣는 글자(draw_string) 크기 —— start 에서 줄여 w 에 들어가는 크기. 아무리 줄여도 lo(보통 FS_TINY) 아래로는 내리지 않는다 (11/14 감사 #10)
+static func fit_fs(f: Font, s: String, start: int, lo: int, w: float) -> int:
+	var fs := start
+	while fs > lo and f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w:
+		fs -= 1
+	return fs
+
+
+## 폭 w 에 들어가게 뒤를 … 으로 줄인 글자 (draw_string 은 넘쳐도 자르지 않는다)
+static func ellipsize(f: Font, s: String, fs: int, w: float) -> String:
+	if f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= w:
+		return s
+	var t := s
+	while t.length() > 1 and f.get_string_size(t + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w:
+		t = t.substr(0, t.length() - 1)
+	return t + "…"
+
+
 static func pos_name(line: String, col: int) -> String:
 	return ["좌익 ", "좌", "", "우", "우익 "][clampi(col, 0, 4)] + line      # 11/6 5열

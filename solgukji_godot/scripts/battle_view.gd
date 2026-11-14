@@ -3650,8 +3650,9 @@ class MiniCard extends Control:
 	var view: BattleView
 
 	## 11/7 카드 높이 —— 막대 세 줄에 글자(병 · 사 · 기)를 붙이느라 58 → 64 (넓은 카드는 병종 줄이 있어 70). 아래 독 두 줄이면 12px 자란다
-	const H_SMALL := 64.0
-	const H_WIDE := 70.0
+	const H_SMALL := 72.0      # 11/14 감사 #10: 막대 글자(병 · 사 · 기) 8 → FS_TINY, 줄 간격 8 → 10.5 —— 8 늘었다
+	const H_WIDE := 78.0
+	const BAR_PITCH := 10.5
 	## 막대 색 —— 병력 파랑(위 세력 띠와 같은 진영색) · 사기 옥색 · 고유기 금색(전투장수창 『고유기』 #ffd76e 계열).
 	## 11/7 사용자: 사기 · 고유기가 둘 다 금색이라 어느 막대가 무엇인지 안 보였다
 	const MORALE_COL := Color("#6fd6a6")
@@ -3728,18 +3729,18 @@ class MiniCard extends Control:
 		sb.set_corner_radius_all(6)
 		var danger: bool = sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3      # 11/6 #16 위험 신호
 		sb.set_border_width_all(3 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 2)      # 11/6 사용자: 프로필 테두리를 더 구별되게 (등급색 2px)
-		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (DB.PAL.danger if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		Art.draw_portrait(self, Rect2(4, 4, 34, 38), sq.cid, 0.0, "ult" if view.direct and view.ult_ready(sq.key) else "face")
 		if BattleView.Hud.shaky(sq):      # 11/11 사기 30 아래 —— 초상 아래에 「동요」 딱지
 			BattleView.Hud.draw_shaky_tag(self, Rect2(4, 30, 34, 12))
 		var fb := DB.font_body
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
-		draw_string(DB.title_font(12), Vector2(41, 17), nm, HORIZONTAL_ALIGNMENT_LEFT, 52, 12, tc.lightened(0.2))      # 11/10 작은 이름은 굵은 고딕
-		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.text_dim)
+		draw_string(DB.title_font(UI.FS_CAP), Vector2(41, 17), UI.ellipsize(DB.title_font(UI.FS_CAP), nm, UI.FS_CAP, size.x - 45), HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_CAP, tc.lightened(0.2))      # 11/10 작은 이름은 굵은 고딕
+		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_TINY, DB.PAL.text_dim)
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
-		draw_string(fb, Vector2(41, 41), state, HORIZONTAL_ALIGNMENT_LEFT, 52, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
-		_bar_rows(4.0, 44.0, size.x - 8.0, 8.0, 8)
+		draw_string(fb, Vector2(41, 41), state, HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_TINY, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
+		_bar_rows(4.0, 44.0, size.x - 8.0, BAR_PITCH, UI.FS_TINY)
 		if view.direct and view.ult_ready(sq.key):       # 직접 지휘일 때만 '눌러라' 금테
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
 			var rb := StyleBoxFlat.new()
@@ -3765,7 +3766,7 @@ class MiniCard extends Control:
 		sb.set_corner_radius_all(6)
 		var danger: bool = sq.alive and sq.troops > 0 and sq.troops / sq.max < 0.3      # 11/6 #16 위험 신호
 		sb.set_border_width_all(2 if sq.glow > 0.05 or sq.hurt > 0.05 or danger else 1)
-		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (Color("#ff6a4d") if (sq.hurt > 0.05 or danger) else tc)
+		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (DB.PAL.danger if (sq.hurt > 0.05 or danger) else tc)
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		var bar_y := 39.0
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
@@ -3775,14 +3776,13 @@ class MiniCard extends Control:
 		var x := pr.end.x + 3
 		var tw := w - x - 2
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
-		var fs := 12
-		var nmf := DB.title_font(fs)      # 11/10 작은 이름은 굵은 고딕 (폭 계산도 같은 글꼴로)
-		while fs > 9 and nmf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > tw:
-			fs -= 1
+		var nmf := DB.title_font(UI.FS_CAP)      # 11/10 작은 이름은 굵은 고딕 (폭 계산도 같은 글꼴로)
+		var fs := UI.fit_fs(nmf, nm, UI.FS_CAP, UI.FS_TINY, tw)      # 11/14 감사 #10: FS_TINY 아래로는 줄이지 않고 … 으로
+		nm = UI.ellipsize(nmf, nm, fs, tw)
 		draw_string(nmf, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
-		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, 10, DB.PAL.bamboo if sq.alive else Color("#ff6b57"))
-		_bar_rows(3.0, bar_y, w - 6.0, 8.0, 8)
+		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, UI.FS_TINY, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
+		_bar_rows(3.0, bar_y, w - 6.0, BAR_PITCH, UI.FS_TINY)
 		if ready:
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
 			var rb := StyleBoxFlat.new()

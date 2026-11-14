@@ -397,7 +397,7 @@ func _build_summary() -> void:
 	p.add_theme_stylebox_override("panel", UI.flat(Color("#141a2b", 0.96), Color(GOLD if _mode == "win" else DB.PAL.bamboo_dim, 0.6), 1, 12, 14))
 	p.position = Vector2(pad, H + 96.0 * _u)
 	p.size = Vector2(size.x - pad * 2.0, size.y - p.position.y - pad)
-	p.custom_minimum_size = p.size
+	p.custom_minimum_size = Vector2(p.size.x, 0)
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(p)
 	var v := UI.vbox(UI.SP_S)
@@ -423,10 +423,8 @@ func _build_summary() -> void:
 	if deck.is_empty():
 		v.add_child(UI.hint("편성된 장수가 없었다"))
 	else:
-		var sc := ScrollContainer.new()
-		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		sc.custom_minimum_size = Vector2(0, 104)
+		var sc := UI.scroll(true)      # 손가락으로 끌어 넘긴다 (막대는 숨김)
+		sc.custom_minimum_size = Vector2(0, UI.TILE_M.y + UI.SP_XS)
 		var row := UI.hbox(UI.SP_S)
 		sc.add_child(row)
 		for k in deck:
@@ -457,6 +455,19 @@ func _build_summary() -> void:
 	bh.add_child(b2)
 	v.add_child(bh)
 	_summary = p
+	_fit_summary.call_deferred(p, H)
 	p.modulate.a = 0.0
 	var tw := create_tween()
 	tw.tween_property(p, "modulate:a", 1.0, 0.35)
+
+
+## 11/14 감사 #9: 요약 내용(관전 버튼 · 긴 문구)이 패널보다 길면 아래 버튼이 화면 밖으로 밀렸다 ——
+## 내용 높이를 잰 뒤 패널을 위로 늘린다 (연출 글자 아래 —— H × 0.7 + 100 —— 까지). 아래 끝은 늘 화면 안 (여백 SP_L)
+func _fit_summary(p: PanelContainer, H: float) -> void:
+	if not is_instance_valid(p):
+		return
+	var need := p.get_combined_minimum_size().y
+	var bottom := size.y - UI.SP_L
+	var top := clampf(bottom - need, H * 0.70 + 100.0 * _u, H + 96.0 * _u)
+	p.position.y = top
+	p.size.y = maxf(need, bottom - top)
