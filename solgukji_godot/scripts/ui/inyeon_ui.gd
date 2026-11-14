@@ -88,12 +88,12 @@ static func fin_hint(nm: String) -> Control:
 		var bx := UI.vbox(1)
 		bx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var t := UI.lbl(b[0], UI.FS_BODY, P.gold, true)
-		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT      # 11/14 UI 4단계 (감사 10-3): 가운데 → 왼쪽 —— 아래 범례 · 위 칩 줄과 같은 왼쪽 기준선
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bx.add_child(t)
 		var d := UI.lbl(b[1], UI.FS_CAP, P.paper.darkened(0.08))
 		UI.wrap_text(d)
-		d.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		d.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bx.add_child(d)
 		v.add_child(bx)
@@ -164,10 +164,10 @@ static func member_tile(p: String, ctx: Dictionary, on_card: Callable) -> MiniTi
 	return t
 
 
-## 인연 하나의 구성원 줄 —— 4~5명이 한 줄 (가운데 맞춤)
+## 인연 하나의 구성원 줄 —— 4~5명이 한 줄 (왼쪽 맞춤 —— 11/14 UI 4단계, 감사 10-3)
 static func members_row(nm: String, ctx: Dictionary, on_card: Callable) -> Control:
 	var h := UI.hbox(UI.SP_S)
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.alignment = BoxContainer.ALIGNMENT_BEGIN
 	for p in DB.inyeon_members(nm):
 		h.add_child(member_tile(p, ctx, on_card))
 	return h
