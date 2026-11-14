@@ -83,6 +83,10 @@ def main():
     for o in opts:
         if o.startswith("--max="):
             max_side = int(o.split("=", 1)[1])
+    SEAM = 120         # 맞붙은 이웃을 나누는 이음선을 찾는 범위 (경계선 좌우 px, 11/14). --seam=N
+    for o in opts:
+        if o.startswith("--seam="):
+            SEAM = int(o.split("=", 1)[1])
     big = 2.2 if "--big" in opts else 1.0      # 11/7 인물이 적어 크게 그린 시트(13_새인물_2명) —— 이름표도 크다
     src, names, out = args[0], args[1].split(","), args[2]
     os.makedirs(out, exist_ok=True)
@@ -167,8 +171,35 @@ def main():
                 left = m[:, :mid].sum()
                 right = m[:, mid:].sum()
                 if left > 3000 and right > 3000:
-                    sub = band[:, mid:]
-                    sub[sub == cid] = next_id
+                    # 11/14 곧은 세로선으로 나누면 경계선을 넘어온 소매 · 방패가 잘려 옆 사람에게 붙었다 (인물이 크게 그려진 시트).
+                    # 경계선 좌우 SEAM px 안에서 그림 화소를 가장 적게 지나는 이음선(위→아래, 한 줄에 좌우 2px 까지)을 찾아 그 선에서 나눈다.
+                    x0s, x1s = max(1, mid - SEAM), min(m.shape[1] - 1, mid + SEAM)
+                    cost = m[:, x0s:x1s].astype(np.float32) * 100.0 + np.abs(np.arange(x0s, x1s) - mid)[None, :] * 0.02
+                    acc = cost.copy()
+                    back = np.zeros(cost.shape, dtype=np.int8)
+                    for y in range(1, acc.shape[0]):
+                        prev = acc[y - 1]
+                        best = prev.copy()
+                        arg = np.zeros(len(prev), dtype=np.int8)
+                        for d in (-2, -1, 1, 2):
+                            sh = np.full(len(prev), np.inf, dtype=np.float32)
+                            if d > 0:
+                                sh[:-d] = prev[d:]
+                            else:
+                                sh[-d:] = prev[:d]
+                            sh = sh + abs(d) * 0.01
+                            better = sh < best
+                            best[better] = sh[better]
+                            arg[better] = d
+                        acc[y] += best
+                        back[y] = arg
+                    seam = np.zeros(acc.shape[0], dtype=np.int32)
+                    seam[-1] = int(np.argmin(acc[-1]))
+                    for y in range(acc.shape[0] - 1, 0, -1):
+                        seam[y - 1] = seam[y] + back[y][seam[y]]
+                    seam += x0s
+                    right_of = np.arange(m.shape[1])[None, :] >= seam[:, None]
+                    band[m & right_of] = next_id
                     next_id += 1
                     split_any = True
     if split_any:
