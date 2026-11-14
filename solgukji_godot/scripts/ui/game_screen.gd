@@ -1881,6 +1881,7 @@ func _page_draw() -> Control:
 			t.on_hold = _sell_sheet
 		if run.on_board(k) > 0:
 			t.badge = "편성 %d" % run.on_board(k) if h >= 90 else "편성"
+			t.badge_quiet = true
 			t.badge_col = Color(DB.PAL.ink4, 0.95)
 		t.up = mats.has(k)
 		t.dim = n <= 0
