@@ -48,6 +48,10 @@ func build() -> Control:
 		var b := TouchButton.new()
 		b.hit.x = 0.0
 		b.text = fm.n
+		# 11/14 UI 4단계 (감사 07-4): 이름만으로는 모양을 몰랐다 —— 진형 칸 모양(mask)을 작은 점 그림 아이콘으로 이름 왼쪽에.
+		# 11/7 에 미니 격자를 뺀 까닭(칩 폭이 모자라 레이아웃이 무너짐)을 피해 버튼 icon 으로 —— 버튼이 제 폭을 재고, 띠는 가로로 넘긴다
+		b.icon = form_glyph(fm.get("mask", []), on)
+		b.add_theme_constant_override("h_separation", 6)
 		b.custom_minimum_size = Vector2(76, UI.BH_S)
 		b.add_theme_font_override("font", DB.title_font(UI.FS_BODY))
 		b.add_theme_font_size_override("font_size", UI.FS_BODY)
@@ -219,6 +223,31 @@ func slot_link_lv(i: int) -> int:
 	if k == null or not DB.inyeon_card(k):
 		return 0
 	return int(_link_n.get(DB.person(k), 0))
+
+
+## 진형 점 그림 (11/14) —— mask(줄마다 "X." 문자열, 위가 적 쪽)를 칸 3px · 틈 1px 그림으로. 고른 진형은 금, 나머지는 대나무색
+static var _glyphs := {}
+static func form_glyph(mask: Array, on: bool) -> Texture2D:
+	var key := "%s|%s" % ["/".join(mask), on]
+	if _glyphs.has(key):
+		return _glyphs[key]
+	var cell := 4
+	var gap := 1
+	var cols := 4
+	var rows := maxi(1, mask.size())
+	var img := Image.create(cols * (cell + gap) - gap, rows * (cell + gap) - gap, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var col: Color = DB.PAL.gold if on else DB.PAL.bamboo
+	for ri in mask.size():
+		var row := str(mask[ri])
+		var off := (cols - row.length()) / 2.0      # 3칸 줄은 가운데로
+		for ci in row.length():
+			var c: Color = col if row[ci] == "X" else Color(col, 0.18)
+			var x := int(round((ci + off) * (cell + gap)))
+			img.fill_rect(Rect2i(x, ri * (cell + gap), cell, cell), c)
+	var t := ImageTexture.create_from_image(img)
+	_glyphs[key] = t
+	return t
 
 
 ## 진형 이름 옆 칩 —— 오늘 토벌을 험지로 (누를 때마다 보통 ↔ 험지). 꺼져 있어도 금테로 눈에 띄게, 켜지면 붉게 채운다. 누르면 무엇이 달라지는지 알림 한 줄
