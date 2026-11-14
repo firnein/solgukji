@@ -332,6 +332,8 @@ func connect_sheet(refresh := false) -> void:
 	row2.add_child(_name_edit)
 	b.add_child(row2)
 	b.add_child(record_notice())
+	if _status != "":      # 11/14 UI 4단계 (감사 18-3): 상태 글이 버튼 아래 맨 끝에 흐리게 있어 안 보였다 —— 버튼 바로 위 한 줄 (접속됨 옥색)
+		b.add_child(UI.lbl(_status, UI.FS_BODY, DB.PAL.jade.lightened(0.2) if net.is_open() else DB.PAL.text_dim))
 	if net.consented():
 		b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", _connect_pressed, "pri"))
 	else:      # 동의 전 —— 동의하고 접속하거나 취소(접속 안 함)
@@ -343,7 +345,6 @@ func connect_sheet(refresh := false) -> void:
 		no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cb.add_child(no)
 		b.add_child(cb)
-	b.add_child(UI.lbl(_status, UI.FS_BODY, DB.PAL.jade if net.is_open() else DB.PAL.text_dim))
 	if not net.is_open() and not dev_sheet:
 		return
 	# 11/9 사용자: 세션이 연결돼 있으면 다른 방으로 갈 수 없었다 —— 지금 방을 보여 주고 나갈 수 있게, 다른 방에 들어가면 지금 방은 자동으로 나간다
