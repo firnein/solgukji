@@ -8,6 +8,7 @@ extends RefCounted
 ## ③ 칸을 눌러 목록에서 고른다. 칸을 길게 눌러 다른 칸으로 끌면 자리를 바꾸고, 아래 목록으로 끌면 내린다.
 
 const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 표시 공용
+const TacUI := preload("res://scripts/ui/tac_ui.gd")      # 11/15 군략 카드 —— 편성판 아래 「군략 1 · 2 · 3단계」 칸 줄
 
 var gs: GameScreen
 var _links: Array = []        # 11/11 지금 편성판에서 이어진 인연 (DB.inyeon_links) —— build 때마다 다시 센다
@@ -139,6 +140,7 @@ func build() -> Control:
 	bpp.size_flags_vertical = Control.SIZE_FILL if open else Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
 	bp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(bpp)
+	v.add_child(TacUI.plan_row(gs))      # 11/15 군략 —— 칸을 누르면 손패 시트
 
 	# 아래 —— [보유 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
 	var keys := Run.sort_cards(run.inv.keys())

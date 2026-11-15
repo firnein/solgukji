@@ -17,6 +17,7 @@ const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기�
 const DeathBand := preload("res://scripts/ui/death_band.gd")      # 11/12 장수 사망룰 연출 (class_name 없이)
 const Ending := preload("res://scripts/ui/ending.gd")      # 11/12 멸망 · 엔딩 연출 + 요약 (class_name 없이) —— show_ending
 const SayBubble := preload("res://scripts/ui/say_bubble.gd")      # 11/12 받은 한마디(글 · 이모티콘) 구름 말풍선 (class_name 없이) —— 11/10 EmotePop 을 대신한다
+const TacUI := preload("res://scripts/ui/tac_ui.gd")      # 11/15 군략 카드 화면 부품 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 ## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
 const COACH_STEPS := [
@@ -73,6 +74,8 @@ var _swipe_p := Vector2.INF   # 시트 위에서 누른 곳 (쓸기 판정)
 var _sheet_dy := 0.0
 var _toast_box: VBoxContainer
 var _battle_layer: Control
+var _tk_btn: Button = null        # 11/15 머리띠 「군략 3택1」 —— 고를 것이 있을 때만
+var _tk_auto := -1                # 3택1 시트를 저절로 연 날 (하루에 한 번)
 var _battle: BattleView
 var _battle_done: Button
 var _report: BattleReport    # 전투 결과표 (끝나고 잠시 뒤 뜬다)
@@ -274,6 +277,8 @@ func _build_top() -> Control:
 	_sub_lbl.size_flags_vertical = Control.SIZE_FILL
 	dl.add_child(_day_lbl)
 	dl.add_child(_sub_lbl)
+	_tk_btn = TacUI.head_btn(self)
+	dl.add_child(_tk_btn)
 	lv.add_child(dl)
 	var bl := UI.hbox(UI.SP_S)
 	_phase_bar = PhaseBar.new()
@@ -880,6 +885,18 @@ func _render_head() -> void:
 	_news_badge.visible = unread > 0
 	_news_badge.text = str(unread)
 	_item_band()
+	_tk_head()
+
+
+## 11/15 군략 3택1 —— 머리띠 버튼을 켜고 끈다. 하루 끝에 새로 오면 시트를 한 번 저절로 연다 (전투 · 다른 시트 위에는 안 띄운다)
+func _tk_head() -> void:
+	if _tk_btn == null:
+		return
+	var on: bool = run.over == null and not run.tk_offer.is_empty()
+	_tk_btn.visible = on
+	if on and _tk_auto != run.day and not sheet_open() and not (_battle_layer != null and _battle_layer.visible):
+		_tk_auto = run.day
+		(func(): if not sheet_open(): TacUI.offer_sheet(self)).call_deferred()
 
 
 ## 안 읽은 소식 —— 항목의 id(서버 · 솔로 Run 이 매기는 늘어나는 번호)가 읽은 기준(_news_seen_id)보다 큰 것.
@@ -3587,17 +3604,8 @@ func _page_war() -> Control:
 			if run.quest_open():
 				v.add_child(quest_hard_btn())
 			v.add_child(_war_btn("② 대전", "토벌을 마치면 열린다", false, true, func(): pass, ""))
-		var qt := DB.quest_trait(run.day)     # 11/8 토벌 우두머리 성질 —— 그날 아침부터 미리 보인다 (docs/역할_재설계_1108.md 7.3)
-		if not qt.is_empty() and not run.quest_done and Battle.shield_enabled:
-			# 11/14 UI 4단계: 전투 결정에 중요한 정보인데 회색 작은 글씨였다 —— 기호 + 금빛 굵은 머리 + 종이색 본문 한 패널
-			var qh := UI.hbox(UI.SP_S)
-			var qi := Icons.View.new("burst", DB.PAL.gold, 18)
-			qi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			qh.add_child(qi)
-			var ql := UI.rich("[b][color=%s]오늘 토벌 우두머리[/color][/b]  %s" % [DB.PAL.gold.to_html(false), DB.trait_text(qt)], UI.FS_BODY)
-			ql.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			qh.add_child(ql)
-			v.add_child(UI.panel(qh, 10))
+		if not run.quest_done:      # 11/8 토벌 우두머리 성질 · 11/15 군략 계획 —— 그날 아침부터 미리 보인다
+			v.add_child(boss_panel())
 		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
 		var qr = run.quest_roster()
 		if qr != null and not run.quest_done and run.board.has(DB.kiin_card("wind_slow")):
@@ -3667,6 +3675,25 @@ func _war_cta(title: String, sub: String, disabled: bool, cb: Callable) -> Butto
 	b.custom_minimum_size.y = UI.BH_L
 	_war_cta_node = b
 	return b
+
+
+## 오늘 토벌 우두머리 패널 —— 11/8 성질(docs/역할_재설계_1108.md 7.3) + 11/15 그날 고정 군략 계획(받아치는 퍼즐 —— 칩을 누르면 효과 한 줄).
+## 11/14 UI 4단계: 기호 + 금빛 굵은 머리 + 종이색 본문 한 패널. 혼자 하기 전투 탭 · 온라인 준비 단계(Online.war_page)가 같이 쓴다
+func boss_panel() -> Control:
+	var v := UI.vbox(UI.SP_S)
+	var qt := DB.quest_trait(run.day)
+	var tt := DB.trait_text(qt) if (not qt.is_empty() and Battle.shield_enabled) else ""
+	var qh := UI.hbox(UI.SP_S)
+	var qi := Icons.View.new("burst", DB.PAL.gold, 18)
+	qi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	qh.add_child(qi)
+	var ql := UI.rich("[b][color=%s]오늘 토벌 우두머리[/color][/b]  %s" % [DB.PAL.gold.to_html(false), tt], UI.FS_BODY)
+	ql.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	qh.add_child(ql)
+	v.add_child(qh)
+	if Run.tac_on:
+		v.add_child(TacUI.plan_chips(run.quest_plan(), func(t: String): toast(t)))
+	return UI.panel(v, 10)
 
 
 ## 11/12 험지 토벌 고르기 —— 누를 때마다 보통 ↔ 험지 (혼자 하기 전투 탭 · 온라인 준비 단계가 같이 쓴다)
@@ -4671,6 +4698,8 @@ func _dev_args() -> void:
 			"menu": _menu()
 			"uniq": _unique_sheet()
 			"shop": _shop_sheet()      # 11/13 군량 상점 (--ggrain=40 과 함께)
+			"tacoffer": TacUI.offer_sheet(self, kv[1] if kv.size() > 1 else "")      # 11/15 군략 3택1 (--gsheet=tacoffer:카드 = 고른 채로)
+			"tachand": TacUI.hand_sheet(self, int(kv[1]))      # 11/15 군략 손패 시트 (단계 0 · 1 · 2)
 			"gacha":      # 11/13 아이템 뽑기 결과 (--ggrain=80 --gsheet=gacha:10) · gacha:pity 는 천장 직전에서 한 번(고대 연출)
 				if kv.size() > 1 and kv[1] == "pity":
 					run.gacha_pity = Run.GACHA_PITY - 1
