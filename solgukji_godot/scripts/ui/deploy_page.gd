@@ -18,7 +18,8 @@ const SEP := 10.0             # 진형 띠 · 편성판 · 아래 칸 사이 간
 var _slide_up := false        # 방금 열었다 —— 올라오는 연출
 var _form_scroll := 0         # 진형 띠 가로 스크롤 —— 진형을 골라 다시 그려도 그 자리에 (11/6 사용자)
 const MIN_LOWER_H := 150.0    # 열린 아래 목록의 최소 높이 (남는 높이는 모두 목록에)
-const HAND_TILE := Vector2(56, 80)      # 보유 카드 격자 한 칸 (최소 —— 남는 폭은 나눠 가진다)
+const HARD_CHIP := Vector2(84, UI.BH_S)      # 험지 토벌 칩 —— 켜도 꺼도 같은 크기 (11/15 칸 밀림)
+const HAND_TILE := Vector2(56, 80)     # 보유 카드 격자 한 칸 (최소 —— 남는 폭은 나눠 가진다)
 
 
 func build() -> Control:
@@ -256,8 +257,12 @@ func _hard_chip() -> Control:
 	var run: Run = gs.run
 	var on := run.quest_hard
 	var b := TouchButton.new()
-	b.text = "험지 토벌 ✕%s" % str(Run.QUEST_HARD_TR) if on else "험지 토벌"
-	b.custom_minimum_size = Vector2(0, UI.BH_S)      # 11/14 감사 #8-3 머리줄 버튼 높이 40 통일
+	# 11/15 사용자: "험지 토벌 활성화시 칸 밀림" —— 켜면 글이 「험지 토벌 ✕1.5」로 바뀌어 칩이 넓어지고(머리줄이 길어진다) 본문 글꼴에 없는 ✕ 는
+	# 대체 글꼴로 그려져 줄 높이까지 달라질 수 있었다 → 머리줄이 커지면서 아래 편성판 칸이 밀렸다. 켜도 꺼도 글 · 폭 · 높이를 똑같이 (HARD_CHIP),
+	# 배율은 누를 때 알림 한 줄에. 켜짐은 붉게 채운 바탕으로 알린다
+	b.text = "험지 토벌"
+	b.custom_minimum_size = HARD_CHIP      # 11/14 감사 #8-3 머리줄 버튼 높이 40 통일
+	b.clip_text = true
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.add_theme_font_size_override("font_size", UI.FS_BODY)
 	var fc: Color = P.paper if on else P.gold
@@ -427,8 +432,7 @@ func _item_card(id: String, n: int, g: String) -> Control:
 	tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var nl := UI.lbl("%s%s" % [it.name, ("  ×%d" % n) if n > 1 else ""], UI.FS_LABEL if big else (UI.FS_BODY if mid else UI.FS_CAP), col.lightened(0.2), true)
-	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	nl.clip_text = true
+	UI.wrap_text(nl)      # 11/15 사용자: 이름이 … 으로 잘렸다 (3열 칸) —— 자르지 않고 줄을 바꾼다 (×N 이 다음 줄로)
 	tv.add_child(nl)
 	var et := UI.item_text(id)
 	if big:
@@ -532,13 +536,12 @@ func slot_sheet(i: int) -> void:
 		cv.add_child(gs.tile(cur))
 		var inn = Run.innate_item(cur)
 		var gear := run.gear_of_slot(i)      # 11/13 아이템 칸 둘 —— [무기, 갑옷]
-		var gv := UI.hbox(UI.SP_S)
+		var gv := UI.vbox(UI.SP_XS)      # 11/15 사용자: 장착 아이템 글이 잘렸다 —— 옆으로 둘(반 폭 · 잘림) 대신 한 줄에 하나씩 (폭 전체)
 		for si in 2:
 			var sl: String = ["weapon", "armor"][si]
 			var it = gear[si]
 			var ib := UI.btn("%s: %s%s" % [DB.ISLOT_NAME[sl], DB.IT[it].name if it != null else "비어 있음", " 🔒" if it != null and it == inn else ""], func(): item_sheet(i), "", UI.BH_S)
 			ib.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			ib.clip_text = true
 			ib.disabled = it != null and it == inn      # 신화의 유니크는 뗄 수 없다
 			if it != null:
 				ib.add_theme_color_override("font_color", UI.item_col(it).lightened(0.25))
@@ -632,9 +635,19 @@ class SlotBox extends Control:
 	var _held := 0.0
 	var _dragging := false
 
+	var pref := false      # 11/15 이 칸의 장수가 제 병종의 선호 자리에 섰다 (DB.aff_of == "pref") —— 1시 방향 ✓ 표시
+
 	func _ready() -> void:
 		custom_minimum_size = SZ_COMPACT if compact else SZ
 		mouse_filter = Control.MOUSE_FILTER_STOP if slot >= 0 else Control.MOUSE_FILTER_IGNORE
+		if slot >= 0:
+			var run: Run = page.gs.run
+			var k = run.board[slot]
+			if k != null:
+				var s: Dictionary = DB.FORM[run.form].slots[slot]
+				pref = DB.aff_of(DB.C[k].tag, s.line, s.side) == "pref"
+			if pref:
+				add_child(PrefBadge.new())
 
 	func _gui_input(e: InputEvent) -> void:
 		if slot < 0:
@@ -678,6 +691,8 @@ class SlotBox extends Control:
 
 	## 11/11 인연 표시 자리 —— 칸 오른쪽 위 (초상 모서리)
 	func _yeon_rect() -> Rect2:
+		if pref:      # 11/15 오른쪽 위 모서리는 선호 자리 ✓ —— 인연 표시는 그 왼쪽으로
+			return Rect2(maxf(1.0, size.x - 31.0 - PrefBadge.W), 3.0, 28.0, 16.0)
 		return Rect2(size.x - 31.0, 3.0, 28.0, 16.0)
 
 	## 이어진 인연이 있는 카드에 작은 표시 —— 맞물린 고리 + 그 카드가 든 이어진 인연 수
@@ -765,7 +780,8 @@ class SlotBox extends Control:
 
 	func _draw_narrow(k: String, c: Dictionary, z: String, run: Run) -> void:
 		var fb := DB.font_body
-		var ith := 12.0
+		var gear: Array = run.gear_of_slot(slot).filter(func(x): return x != null)
+		var ith := GEAR_LH * maxi(1, gear.size())      # 11/15 아이템마다 한 줄 (둘이면 두 줄)
 		var txt_h := 28.0
 		var ph := maxf(16.0, size.y - 8 - ith - txt_h)
 		var pw := minf(size.x - 8, ph * 1.05)
@@ -779,7 +795,22 @@ class SlotBox extends Control:
 		var info := "%s %s" % [c.tag, Battle.num(c.tr)]
 		var ifs := UI.fit_fs(fb, info, UI.FS_CAP, UI.FS_TINY, size.x - 4)
 		draw_string(fb, Vector2(2, y + 13), info, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4, ifs, _aff_col(z, DB.PAL.text_dim))
-		_draw_gear(run, size.y - 5, UI.FS_TINY)
+		if gear.is_empty():
+			_draw_gear(run, size.y - 5, UI.FS_TINY)      # 빈 칸 둘 (테만 있는 네모)
+		else:
+			_draw_gear_rows(gear, size.y - 5)
+
+	## 11/15 사용자: "편성 장착 아이템 텍스트 짤림" —— 좁은 칸에서는 양 끝 네모 사이 한 줄에 「이름+1」을 넣느라 다섯 글자 이름이 … 으로 잘렸다.
+	## 아이템마다 한 줄씩 칸 폭 전체에 (무기 위 · 갑옷 아래, 등급색). 그래도 넘치면 글씨를 한 단계씩 줄이고(8 까지) 마지막에만 …
+	const GEAR_LH := 12.0
+	func _draw_gear_rows(gear: Array, bottom: float) -> void:
+		var w := size.x - 4.0
+		var y := bottom - GEAR_LH * (gear.size() - 1)
+		for it in gear:
+			var nm := str(DB.IT[it].name)
+			var fs := UI.fit_fs(DB.font_body, nm, UI.FS_TINY, 8, w)
+			draw_string(DB.font_body, Vector2(2, y), UI.ellipsize(DB.font_body, nm, fs, w), HORIZONTAL_ALIGNMENT_CENTER, w, fs, UI.item_col(it).lightened(0.15))
+			y += GEAR_LH
 
 	## 작게 (아래 목록을 연 때) —— 초상이 칸을 채우고 아래에 이름 한 줄. 아이템은 초상 아래 모서리 두 점
 	func _draw_compact(k: String, c: Dictionary, run: Run) -> void:
@@ -808,14 +839,55 @@ class SlotBox extends Control:
 		var pip := 6.0
 		if it != null:
 			var tw := size.x - 8 - pip * 2
-			var itxt := UI.ellipsize(DB.font_body, str(DB.IT[it].name) + ("+1" if n == 2 else ""), fs, tw)
-			draw_string(DB.font_body, Vector2(4 + pip, y), itxt, HORIZONTAL_ALIGNMENT_CENTER, tw, fs, UI.item_col(it))
+			var full := str(DB.IT[it].name) + ((" · " + str(DB.IT[g[1]].name)) if n == 2 else "")      # 11/15 「+1」 대신 두 이름 모두 —— 넘치면 글씨를 줄이고 마지막에만 …
+			var gfs := UI.fit_fs(DB.font_body, full, fs, 8, tw)
+			var itxt := UI.ellipsize(DB.font_body, full, gfs, tw)
+			draw_string(DB.font_body, Vector2(4 + pip, y), itxt, HORIZONTAL_ALIGNMENT_CENTER, tw, gfs, UI.item_col(it))
 		for si in 2:
 			var r := Rect2(3.0 if si == 0 else size.x - 3.0 - pip, y - pip, pip, pip)
 			if g[si] != null:
 				draw_rect(r, UI.item_col(g[si]))
 			else:
 				draw_rect(r, Color(DB.PAL.bamboo_dim, 0.5), false, 1.0)
+
+
+## 선호 자리 표시 (11/15 사용자: "병종이 선호 위치에 있다면 카드 1시 방향에 v자 체크 모양이나 활성화 되었다는 이펙트") ——
+## 칸 오른쪽 위 모서리에 옥빛 동그라미 ✓, 그 뒤로 은은하게 숨 쉬는 빛. 칸 본체(초상)는 다시 그리지 않게 작은 덧칸으로 (빛은 modulate 만 바꾼다)
+class PrefBadge extends Control:
+	const W := 18.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		anchor_left = 1.0
+		anchor_right = 1.0
+		offset_left = -W - 1.0
+		offset_right = -1.0
+		offset_top = 1.0
+		offset_bottom = W + 1.0
+		var glow := Control.new()
+		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		glow.draw.connect(func():
+			var c := glow.size / 2.0
+			for i in 4:
+				glow.draw_circle(c, W * 0.5 + 2.0 + i * 2.0, Color(DB.PAL.jade.lightened(0.3), 0.20 - i * 0.04)))
+		add_child(glow)
+		var mark := Control.new()
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mark.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mark.draw.connect(func():
+			var c := mark.size / 2.0
+			mark.draw_circle(c, W * 0.5, Color("#0E1A16"))
+			mark.draw_circle(c, W * 0.5 - 1.5, DB.PAL.jade.lightened(0.1))
+			var a := c + Vector2(-4.0, 0.2)
+			var m := c + Vector2(-1.2, 3.2)
+			var e := c + Vector2(4.4, -3.4)
+			mark.draw_polyline(PackedVector2Array([a, m, e]), Color("#0E1A16"), 2.2, true))
+		add_child(mark)
+		glow.ready.connect(func():
+			var tw := glow.create_tween().set_loops()
+			tw.tween_property(glow, "modulate:a", 0.25, 0.9).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(glow, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE))
 
 
 ## 손패 상자 —— 칸에서 끌어 오면 내린다
