@@ -372,6 +372,31 @@ static func strip(sep := SP_S) -> Array:
 	return [sc, h]
 
 
+## 11/15 성능: 막 붙인 페이지(c)에 부모 MarginContainer 가 줄 자리를 미리 준다.
+## 컨테이너는 트리에 들어온 순서(위 → 아래)로 자리 잡기를 예약하는데, 붙인 부모의 자리 잡기는 그 맨 뒤에 온다 —— 그래서 페이지 안 격자들이
+## 먼저 엉뚱한 폭(자기 최소 폭)으로 칸을 나누고 타일이 그 크기로 한 번 그려진 다음, 부모가 제 폭을 주면 다시 나누고 다시 그렸다 (페이지를 새로 짓는 프레임마다 타일을 두 번).
+## 붙이자마자 폭을 정해 주면 위에서 아래로 한 번에 맞는다. 부모가 나중에 주는 자리와 같은 값이라 화면은 달라지지 않는다
+static func presize(c: Control) -> void:
+	var p := c.get_parent() as MarginContainer
+	if p == null or p.size.x <= 0.0:
+		return
+	var l := p.get_theme_constant("margin_left")
+	var t := p.get_theme_constant("margin_top")
+	var w := p.size.x - l - p.get_theme_constant("margin_right")
+	var h := p.size.y - t - p.get_theme_constant("margin_bottom")
+	if w <= 0.0:
+		return
+	var in_scroll := p.get_parent() is ScrollContainer      # 스크롤 안의 내용은 높이가 내용만큼 —— 폭만 맞춘다
+	c.position = Vector2(l, t)
+	c.size = Vector2(w, c.get_combined_minimum_size().y if in_scroll else maxf(h, c.get_combined_minimum_size().y))
+
+
+## 11/15 성능: 이 칸이 화면(뷰포트) 밖에 통째로 나가 있는가 —— 카드 타일은 화면 밖이면 그리지 않고(스크롤 아래 150장을 페이지를 지을 때마다 그렸다),
+## 자리가 바뀌어(스크롤 · 시트가 올라옴 · 자리 잡기) 화면에 들어오면 그때 그린다 (MiniTile · CardTile 의 _draw · _notification). 여유 96px
+static func off_screen(c: Control) -> bool:
+	return not c.get_viewport_rect().grow(96.0).intersects(c.get_global_rect())
+
+
 ## 폭에 맞춰 칸 수를 정하는 격자 —— 카드·아이템 목록 (휴대폰 세로는 두 칸)
 static func grid(min_w := 168.0, sep := SP_S) -> AutoGrid:
 	var g := AutoGrid.new()

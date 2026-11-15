@@ -208,6 +208,7 @@ func _ready() -> void:
 	port.positional_shadow_atlas_size = 4096
 	_box.add_child(port)
 	field = War3D.new()
+	field.defer_assets = true      # 11/15 하늘 · 지형 텍스처는 3D 전장을 실제로 보일 때만 (apply_style)
 	port.add_child(field)
 	# 점묘 전장 (Settings.dots) —— 3D 위에 덮는다. 켜면 3D 는 그리지 않고 계산만 한다
 	dots = DotView.new()
@@ -888,6 +889,8 @@ func apply_style() -> void:
 		field.flat = (type2 if t2 else dots) if flat_on else null
 		port.render_target_update_mode = SubViewport.UPDATE_DISABLED if flat_on else SubViewport.UPDATE_ALWAYS
 		_box.visible = not flat_on
+		if not flat_on:
+			field.ensure_3d_assets()
 	if Settings.sumuk and not Settings.type2:
 		var m := ShaderMaterial.new()
 		m.shader = load("res://shaders/sumuk.gdshader")
@@ -1021,7 +1024,8 @@ func _begin() -> void:
 	hud.prewarm_txt.clear()
 	for q in field.order:
 		if DB.C.has(q.cid) and (q.tier >= 6 or DB.is_kiin(q.cid)):
-			for tx in [DB.portrait(q.cid), DB.face_tex(q.cid), DB.myth_art(q.cid)]:
+			var ftx := DB.face_tex(q.cid)      # 11/15 얼굴 메달이 있으면 전투는 원본 초상을 쓰지 않는다 (메달 · 컷인 모두 얼굴 메달 / 신화 그림) —— 원본(2.8MB)을 괜히 올리지 않는다
+			for tx in [ftx if ftx != null else DB.portrait(q.cid), DB.myth_art(q.cid)]:
 				if tx != null:
 					hud.prewarm.append(tx)      # 첫 그리기 때 안 보이게 한 번 찍어 그래픽카드에 미리 올린다 (컷인 첫 프레임 10ms)
 			var ud = DB.ult_of(q.cid)
@@ -2015,6 +2019,8 @@ class Hud extends Control:
 	func reset() -> void:
 		if _medal_cache.size() > 600:      # 11/9 구운 메달은 (장수 · 진영 · 등급색 · 크기 · 배율)이 키라 전투를 넘어 써도 된다 —— 너무 쌓였을 때만 비운다
 			_medal_cache.clear()
+		_tok_tex.clear()
+		_emph_n = -1
 		floats.clear()
 		stamp_info = null
 		chains_fx.clear()
@@ -2389,12 +2395,14 @@ class Hud extends Control:
 				draw_string(DB.font_body, Vector2(-9999, -9999), e[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
 			prewarm_txt.clear()
 		_draw_all()
+		var tq := Time.get_ticks_usec()
 		_draw_kills()
 		if not (cut != null and cut.inyeon != ""):      # 11/11 인연 컷인 동안은 덱 연쇄 띠를 접는다 (짝 말풍선을 가린다)
 			_draw_chains()
 			_draw_chain_pop()
 		_draw_charges()
 		_draw_threats()
+		view.field.pt("머리표·띠", tq)
 		view.field.pt("머리표", t0)
 
 	## 11/6 #16 A등급 위험 신호 —— 화면 오른쪽 위 고정 칸: 적 고유기 준비(이름) · 아군 장수 병력 30% 아래(이름). 카메라 · 메달과 무관하게 늘 같은 자리
@@ -2715,8 +2723,13 @@ class Hud extends Control:
 	## 강조 순위 —— 진영마다 그 전투에 나온 장수 가운데 등급(같으면 PV) 상위 둘만 1 · 2 (11/3 사용자: 등급마다 크게 하니
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
 	var _emph := {}
+	var _emph_n := -1      # 11/15 성능: 순위는 전투 동안 바뀌지 않는다(등급 · PV) —— 부대 구성이 바뀔 때만 다시 센다 (그리기마다 정렬하지 않게. reset 이 −1 로)
+	var _tok_tex := {}     # 부대 key -> [카드, 크기, [틀, 얼굴]] —— _token 이 찍을 구운 메달 (reset · 배율이 바뀌면 비운다)
 
 	func _rank_emph() -> void:
+		if _emph_n == view.field.squads.size():
+			return
+		_emph_n = view.field.squads.size()
 		_emph.clear()
 		for cp in ["A", "B"]:
 			var gs := []
@@ -3058,11 +3071,16 @@ class Hud extends Control:
 		if sq.hurt > 0.05:
 			ring = ring.lerp(Color(1, 1, 1), sq.hurt * 0.6)
 		# 11/6 목표(휴대폰 대군): 메달은 전투 시작 때 그림 한 장으로 구워 두고 매 프레임 한 번만 찍는다 (원 · 고리 · 얼굴 다각형 · 뿔을 매번 그리던 것이 프레임당 약 2ms)
-		var S := _px_scale()      # 11/9 화면 배율에 맞춰 굽고 1:1 로 찍는다 (위 _bake_s 설명)
-		if not is_equal_approx(S, _bake_s):
-			_medal_cache.clear()
-			_bake_s = S
-		var mts := _medal_tex(sq, r, S)
+		var S := _bake_s      # 11/9 화면 배율에 맞춰 굽고 1:1 로 찍는다 (위 _bake_s 설명. 배율이 바뀌었는지는 _draw_all 이 그리기마다 한 번 본다)
+		# 11/15 성능: 메달마다 그리기마다 캐시 열쇠 글자(진영 · 등급색 · 크기 · 배율)를 두 번씩 만들었다 —— 부대마다 찾은 그림 두 장을 기억해 둔다
+		var mts: Array
+		var te = _tok_tex.get(sq.key)
+		if te != null and te[0] == sq.cid and te[1] == r:
+			mts = te[2]
+		else:
+			mts = _medal_tex(sq, r, S)
+			if mts.size() == 2:
+				_tok_tex[sq.key] = [sq.cid, r, mts]
 		for mt in mts:      # 틀 → 얼굴 (둘 다 가운데가 p)
 			var msz := Vector2(mt.get_size()) / S      # 논리 크기 = 구운 화면 px ÷ 배율
 			var mpos := ((p * S - Vector2(mt.get_size()) * 0.5).round()) / S      # 화면 픽셀 칸에 맞춘다 —— 반 픽셀 걸치면 또 번진다
@@ -3102,32 +3120,32 @@ class Hud extends Control:
 	var _tok_off := {}
 	const TOK_GAP := 38.0
 	func _flat_token_pos(tags: Array) -> Dictionary:
-		var base := {}
-		var want := {}
-		var keys := []
-		for t in tags:
-			var sq: Squad = t[1]
-			var p: Vector2 = view.field.to_screen(sq.pos, 0.0)
-			base[sq.key] = p
-			want[sq.key] = p
-			keys.append(sq.key)
+		# 11/15 성능: 메달 18개면 쌍 153 × 4바퀴를 사전(문자열 열쇠)으로 돌던 것을 배열로 (같은 계산 —— 그리기 한 번에 약 0.5ms 였다)
+		var n := tags.size()
+		var base := PackedVector2Array()
+		base.resize(n)
+		for i in n:
+			base[i] = view.field.to_screen((tags[i][1] as Squad).pos, 0.0)
+		var want := base.duplicate()
 		for _it in 4:
-			for i in keys.size():
-				for j in range(i + 1, keys.size()):
-					var a: Vector2 = want[keys[i]]
-					var b: Vector2 = want[keys[j]]
+			for i in n:
+				for j in range(i + 1, n):
+					var a := want[i]
+					var b := want[j]
 					var d := b - a
 					var l := d.length()
 					if l < TOK_GAP:
 						var dir := d / l if l > 0.01 else Vector2(1, 0).rotated(i * 1.3)
 						var push := dir * (TOK_GAP - l) * 0.5
-						want[keys[i]] = a - push
-						want[keys[j]] = b + push
+						want[i] = a - push
+						want[j] = b + push
 		var out := {}
-		for k in keys:
-			var off: Vector2 = (want[k] - base[k]).limit_length(22.0)
-			_tok_off[k] = (_tok_off.get(k, Vector2.ZERO) as Vector2).lerp(off, 0.15)
-			out[k] = base[k] + _tok_off[k]
+		for i in n:
+			var k: String = (tags[i][1] as Squad).key
+			var off: Vector2 = (want[i] - base[i]).limit_length(22.0)
+			var cur: Vector2 = (_tok_off.get(k, Vector2.ZERO) as Vector2).lerp(off, 0.15)
+			_tok_off[k] = cur
+			out[k] = base[i] + cur
 		return out
 
 	## 2D 전장에서 화면 위치 sp 에 있는 메달(부대) —— 그리는 자리(밀어낸 _tok_off 까지)와 같은 곳에서 고른다 (11/9 꾹 누르기 → 전투장수창).
@@ -3216,7 +3234,14 @@ class Hud extends Control:
 		var placed: Array[Rect2] = []
 		var fbo: Font = DB.font_bold
 		var tok_pos := {}
+		var tq := Time.get_ticks_usec()
 		_rank_emph()
+		if view.field.flat != null:
+			var S := _px_scale()
+			if not is_equal_approx(S, _bake_s):
+				_medal_cache.clear()
+				_tok_tex.clear()
+				_bake_s = S
 		for t in tags:
 			var p: Vector2 = t[0]
 			var sq: Squad = t[1]
@@ -3302,6 +3327,7 @@ class Hud extends Control:
 					draw_circle(pc, ps * 0.5, Color(0, 0, 0, 0.6))
 				elif shaky(sq):      # 11/11 사기 30 아래 —— 메달 아래에 「동요」 딱지
 					draw_shaky_tag(self, Rect2(pc + Vector2(-13.0, ps * 0.5 - 3.0), Vector2(26.0, 11.0)), a)
+		tq = view.field.pt("머리표·메달", tq)
 		# 떠오르는 글씨
 		var keep := []
 		for f in floats:
@@ -3326,6 +3352,7 @@ class Hud extends Control:
 			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
 		floats = keep
 		_draw_skill_banners()
+		tq = view.field.pt("머리표·글씨", tq)
 		if _flash_t < 0.35:
 			var fa := (1.0 - _flash_t / 0.35)
 			draw_rect(Rect2(Vector2.ZERO, size), Color(_flash.lerp(Color.WHITE, 0.55 * _flash_k), 0.55 * fa * fa * _flash_k))
@@ -3392,8 +3419,10 @@ class Hud extends Control:
 			_text(DB.font_display, Vector2(0, 84 + 46 * _charge_rows + 32 * _join_rows), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))      # 11/7 기 모으기 표시가 있으면 그 아래
 		if mrout != null:
 			_draw_morale_rout()
+		tq = view.field.pt("머리표·위띠", tq)
 		if cut:
 			_draw_cut()
+			tq = view.field.pt("머리표·컷인", tq)
 		# 결과 낙관
 		if stamp_info:
 			var u := clampf(stamp_t / 0.25, 0, 1)
@@ -3723,9 +3752,16 @@ class MiniCard extends Control:
 		var lv := view.unit_live(sq.key)
 		var ready := view.ult_ready(sq.key)
 		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], ready]
-		if now != _last or ready or _waiting(lv) or _danger():      # 위태한 칸은 테두리가 깜빡이도록 매 프레임
+		# 11/15 성능: 값이 바뀌면 바로, 깜빡이는 칸(위태 · 「준비」 · 직접 지휘의 고유기 금테)은 BLINK_MS 마다 다시 그린다 —— 예전엔 매 프레임이라
+		# 후반(대부분 위태 · 준비)에는 칸 18개를 프레임마다 통째로 다시 그렸다. 고유기가 찼을 뿐(직접 지휘 아님)이면 그림이 같아 다시 그리지 않는다
+		var ms := Time.get_ticks_msec()
+		if now != _last or (((ready and view.direct) or _waiting(lv) or _danger()) and ms - _drawn_ms >= BLINK_MS):
 			_last = now
+			_drawn_ms = ms
 			queue_redraw()
+
+	const BLINK_MS := 50
+	var _drawn_ms := 0
 
 	## 병력 30% 아래 (11/6 #16 위험 신호) —— 11/14 UI 4단계: 맵 오른쪽 위 「○○ 위태롭다」 칸 대신 이 칸의 붉은 테두리가 깜빡인다
 	func _danger() -> bool:
@@ -3765,7 +3801,9 @@ class MiniCard extends Control:
 			if DB.C.has(sq.cid):
 				UI.buzz(30)
 				view.unit_requested.emit(sq.key)
+		var t0 := Time.get_ticks_usec()
 		_process_card()
+		view.field.pt("아래카드·검사", t0)
 
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()

@@ -115,6 +115,7 @@ func _gui_input(e: InputEvent) -> void:
 			_press = e.position
 			_held = 0.0
 			_dragging = false
+			set_process(drag_data != null or on_hold.is_valid())      # 꾹 누르기를 재는 동안만 (끝나면 _process 가 스스로 끈다)
 		else:
 			if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14 and not _is_locked():
 				UI.buzz()
@@ -124,8 +125,33 @@ func _gui_input(e: InputEvent) -> void:
 		_press = Vector2.INF
 
 
+## 11/15 성능 —— ① 매 프레임 _process 는 누르고 있는 동안만 (목록의 타일 190장이 가만히 있을 때도 프레임마다 불렸다)
+## ② 화면 밖 타일은 그리지 않고, 자리가 바뀌어 화면에 들어오면 그때 그린다 (UI.off_screen)
+var _skipped := false       # 화면 밖이라 그리기를 건너뛰었다
+
+
+func _ready() -> void:
+	set_process(false)
+	set_notify_transform(true)
+	var vp := get_viewport()
+	if vp != null and not vp.size_changed.is_connected(_wake):
+		vp.size_changed.connect(_wake)      # 창 크기가 바뀌면 화면 안팎이 달라진다
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSFORM_CHANGED and _skipped:
+		_wake()
+
+
+func _wake() -> void:
+	if _skipped and is_inside_tree() and not UI.off_screen(self):
+		_skipped = false
+		queue_redraw()
+
+
 func _process(dt: float) -> void:
 	if _press == Vector2.INF or _dragging:
+		set_process(false)
 		return
 	if drag_data == null:
 		if on_hold.is_valid():
@@ -152,6 +178,10 @@ func _process(dt: float) -> void:
 func _draw() -> void:
 	if k == "":
 		return
+	if UI.off_screen(self):
+		_skipped = true
+		return
+	_skipped = false
 	var c: Dictionary = DB.C[k]
 	var tc := DB.tier_color(k)
 	var w := size.x

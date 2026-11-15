@@ -253,6 +253,7 @@ class Unit:
 	var hd0 := 28.0           # 처음 반깊이
 	var vel := Vector2.ZERO   # 속도 (px/초)
 	var block_t := 0.0        # 앞이 막힌 채 지난 시간 (초)
+	var ranged := false       # 원거리(궁병 · 책략계)인가 —— RtBattle.mk_unit 이 한 번 정한다 (11/15 성능: 틱마다 수백 번 묻는다)
 
 
 var K: Dictionary
@@ -527,36 +528,44 @@ func _gear(cid: String, e) -> Array:
 # ───────── 실효 수치 ─────────
 
 func eff(u: Unit, stat: String) -> float:
+	# 11/15 성능: 실시간 엔진이 틱마다 부대 수 × 2 번(이동 속도 · 행동 간격) 부른다 —— 쓰지 않는 조회(줄 배율 · 선호 대열 표)를 건너뛰고
+	# 선호 대열(zone)은 부대마다 한 번만 찾는다. 곱하는 값 · 순서는 그대로라 결과는 같다
 	stat = S(stat)      # 11/6 #15 int → atk
 	var c := u.c
-	var lm: Dictionary = DB.D.LINE[u.line]
-	var af: Dictionary = DB.D.AFF[c.tag]
 	var v: float = c[stat]
-	var caster := is_caster(c)
+	var is_atk := stat == "atk"
 	if c.tier >= 8 and stat != "spd": v *= myth_power      # 11/2 사용자: 신화 한 장이 불멸 · 초월보다 확실히 세게
-	if stat == "atk": v *= (lm.int if caster else lm.atk)      # 책략계는 예전 책략 줄 배율(뒤에서 세다)
-	if stat == "def": v *= lm.def
-	if stat == "atk" and mv(u, "front_atk") != 0.0 and _is_front(u): v *= 1 + mv(u, "front_atk")
-	if stat == "atk" and mv(u, "back_int") != 0.0 and _is_back(u): v *= 1 + mv(u, "back_int")
+	if is_atk:
+		var lm: Dictionary = DB.D.LINE[u.line]
+		v *= (lm.int if INT_TAG.has(c.tag) else lm.atk)      # 책략계는 예전 책략 줄 배율(뒤에서 세다)
+		if mv(u, "front_atk") != 0.0 and _is_front(u): v *= 1 + mv(u, "front_atk")
+		if mv(u, "back_int") != 0.0 and _is_back(u): v *= 1 + mv(u, "back_int")
+	elif stat == "def":
+		v *= DB.D.LINE[u.line].def
 	v *= 1 + mv(u, stat)
-	if stat == "atk":
+	if is_atk:
 		if u.troops < u.max * 0.5: v *= 1 + mv(u, "low_atk")
 		v *= 1 + mv(u, "avenge") * u.avenge_n
-	var zone := DB.aff_of(c.tag, u.line, u.side)
-	if zone == "pref": v *= _sm(af.b, stat)
-	if zone == "bad": v *= _sm(af.p, stat)
-	for iid in [u.item, u.item2]:
-		if iid:
-			var it: Dictionary = DB.IT[iid]
-			var amp := MYTH_AMP if _sig_item(u, iid) else 1.0
-			if S(it.pri) == stat: v *= (1 + it.pa * amp)
-			if S(it.sec) == stat: v *= (1 + it.sa * amp)
-	if stat == "atk": v *= u.syn_atk
-	if stat == "spd": v *= u.syn_spd * _flood_slow(u)
+	var zone = _zone_of.get(u)
+	if zone == null:
+		zone = DB.aff_of(c.tag, u.line, u.side)
+		_zone_of[u] = zone
+	if zone == "pref": v *= _sm(DB.D.AFF[c.tag].b, stat)
+	elif zone == "bad": v *= _sm(DB.D.AFF[c.tag].p, stat)
+	if u.item != null or u.item2 != null:
+		for iid in [u.item, u.item2]:
+			if iid:
+				var it: Dictionary = DB.IT[iid]
+				var amp := MYTH_AMP if _sig_item(u, iid) else 1.0
+				if S(it.pri) == stat: v *= (1 + it.pa * amp)
+				if S(it.sec) == stat: v *= (1 + it.sa * amp)
+	if is_atk: v *= u.syn_atk
+	elif stat == "spd": v *= u.syn_spd * _flood_slow(u)
 	if u.ts and S(u.ts.stat) == stat: v *= (1 + u.ts.v)
 	for b in u.buffs:
-		if S(b.stat) == stat: v *= (1 + b.amt)
-	if stat == "atk": v *= (0.4 + 0.6 * (u.troops / u.max))
+		var bs = b.stat
+		if bs == stat or (is_atk and bs == "int"): v *= (1 + b.amt)      # S(b.stat) == stat 와 같다 (int 는 atk 의 옛 이름)
+	if is_atk: v *= (0.4 + 0.6 * (u.troops / u.max))
 	v *= morale_mul(u)               # 사기 —— 모든 능력치에 (2026-10-30 사용자 결정)
 	if aura_enabled and not _myths.is_empty():
 		v *= _aura_mul(u, stat)
@@ -811,14 +820,30 @@ static func _sv_m(d: Dictionary, k: String) -> float:
 
 
 ## 위세 (신화 · 초월) —— 살아 있는 장수마다 아군 전체(ally, tag 가 있으면 그 병종만) · 적 전체(foe) 배율
+## 11/15 성능: eff() 가 부를 때마다 위세 장수를 다 훑었다 (불멸 · 신화 판은 18명) —— 능력치마다 그 능력치를 실제로 바꾸는 위세 장수만 추려 둔다
+## (_myths 순서 그대로. 빠지는 장수는 곱이 정확히 ×1.0 이라 결과가 한 비트도 달라지지 않는다). _myths 는 전투 준비 때 한 번 채워진다
+var _myth_k := {}             # 능력치 -> 위세 장수들
+var _myth_n := -1
 func _aura_mul(u: Unit, stat: String) -> float:
+	if _myth_n != _myths.size():
+		_myth_k.clear()
+		_myth_n = _myths.size()
+	var lst = _myth_k.get(stat)
+	if lst == null:
+		lst = []
+		for mu in _myths:
+			var a0: Dictionary = DB.AURA[mu.c.id]
+			if (a0.has("ally") and _sv(a0.ally, stat) != 0.0) or (a0.has("foe") and _sv(a0.foe, stat) != 0.0):
+				lst.append(mu)
+		_myth_k[stat] = lst
 	var m := 1.0
-	for mu in _myths:
+	var half_on: bool = _kiin_u.has("aura_half")      # 노숙이 없는 판은 찾지 않는다
+	for mu in lst:
 		if not mu.alive:
 			continue
 		var a: Dictionary = DB.AURA[mu.c.id]
-		var mc := _acamp(mu)
-		var h := 0.5 if _kv(_foe(mc), "aura_half") else 1.0      # 연합 노숙 —— 적 위세 절반
+		var mc: String = mu.camp if _stolen.is_empty() else _acamp(mu)
+		var h := 0.5 if (half_on and _kv(_foe(mc), "aura_half")) else 1.0      # 연합 노숙 —— 적 위세 절반
 		if mc == u.camp:
 			if a.has("ally") and not _no_ally(u) and _aura_on(mu, a, u):
 				m *= 1.0 + _sv(a.ally, stat) * h
@@ -857,16 +882,36 @@ func mv(u: Unit, k: String) -> float:
 	if probe_on and v != 0.0:
 		probe[k] = int(probe.get(k, 0)) + 1
 	if not _aura_m.is_empty():
-		for mu in _aura_m:
+		# 11/15 성능: mv() 는 판정마다 수십 번 불리는데 그때마다 위세 장수를 다 훑었다 —— 키마다 그 키(또는 옛 별칭)를 주는 장수만 추려 둔다 (_aura_m 순서 그대로, 더하는 값 · 순서는 같다)
+		if _aura_m_n != _aura_m.size():
+			_aura_m_k.clear()
+			_aura_m_n = _aura_m.size()
+		var lst = _aura_m_k.get(k)
+		if lst == null:
+			lst = []
+			for mu in _aura_m:
+				var am: Dictionary = DB.AURA[mu.c.id].m
+				if am.has(k) or (MV_ALIAS.has(k) and am.has(MV_ALIAS[k])):
+					lst.append(mu)
+			_aura_m_k[k] = lst
+		for mu in lst:
 			if mu.alive and _acamp(mu) == u.camp and not _no_ally(u):
 				var a: Dictionary = DB.AURA[mu.c.id]
-				if (a.m.has(k) or (MV_ALIAS.has(k) and a.m.has(MV_ALIAS[k]))) and _aura_on(mu, a, u):
+				if _aura_on(mu, a, u):
 					v += _sv_m(a.m, k) * (0.5 if _kv(_foe(_acamp(mu)), "aura_half") else 1.0)
 	return v
 
 
+var _aura_m_k := {}           # 효과 키 -> 그 키를 주는 위세 장수들 (mv)
+var _aura_m_n := -1
+var _zone_of := {}            # 부대 -> 선호 대열 판정 ("pref" · "bad" · "") —— 병종 · 줄 · 좌우는 전투 중 바뀌지 않는다 (eff)
+
+
 func has_st(u: Unit, k: String) -> bool:
-	return u.st.any(func(s): return s.k == k)
+	for s in u.st:      # 11/15 성능: any(람다) → 그냥 훑기 (같은 답, 틱마다 수백 번 불린다)
+		if s.k == k:
+			return true
+	return false
 
 
 func sk_rate(u: Unit) -> float:
@@ -1815,18 +1860,26 @@ func _do_chase() -> void:
 
 ## 머리표에 보일 상태 —— 상태이상에 방진 · 분발 버프를 더한다 (표시용, 판정에 쓰지 않는다)
 func _shown_st(u: Unit) -> Array:
-	var out: Array = u.st.map(func(x): return x.k)
-	if _phalanx(u):
-		out.append("phalanx")
-	if u.buffs.any(func(b): return b.get("moved", false)):
-		out.append("moved")
-	for k in u.cut:
-		if u.cut[k] > 0:
+	var out: Array = []      # 11/15 성능: 사건마다 부대 수만큼 불린다 —— map · any(람다) 대신 그냥 훑기 (같은 값)
+	for x in u.st:
+		out.append(x.k)
+	var bf: Array = u.buffs
+	if not bf.is_empty():
+		if _phalanx(u):
+			out.append("phalanx")
+		for b in bf:
+			if b.get("moved", false):
+				out.append("moved")
+				break
+	var cut: Dictionary = u.cut
+	for k in cut:
+		if cut[k] > 0:
 			out.append(CUT_ST[k])
-	if shield_enabled and int(u.shred.phys.t) > 0 and float(u.shield.phys) > 0.0 and not out.has("cut_def"):
-		out.append("cut_def")      # 11/8 갑옷 깨짐 —— 제 아이콘은 3단계, 지금은 파갑 표지를 같이 쓴다
-	if shield_enabled and int(u.shred["int"].t) > 0 and float(u.shield["int"]) > 0.0:
-		out.append("cut_res")      # 11/9 결계 깨짐 —— 화면 표지 (기록만)
+	if shield_enabled:
+		if int(u.shred.phys.t) > 0 and float(u.shield.phys) > 0.0 and not out.has("cut_def"):
+			out.append("cut_def")      # 11/8 갑옷 깨짐 —— 제 아이콘은 3단계, 지금은 파갑 표지를 같이 쓴다
+		if int(u.shred["int"].t) > 0 and float(u.shield["int"]) > 0.0:
+			out.append("cut_res")      # 11/9 결계 깨짐 —— 화면 표지 (기록만)
 	return out
 
 
@@ -2770,7 +2823,11 @@ func _result(winner: String, turn: int) -> Dictionary:
 
 
 func live_count(cp: String) -> int:
-	return units.filter(func(u): return u.alive and u.camp == cp).size()
+	var n := 0      # 11/15 성능: filter(람다).size() → 세기만
+	for u in units:
+		if u.alive and u.camp == cp:
+			n += 1
+	return n
 
 
 func act(u: Unit) -> void:

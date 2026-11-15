@@ -8,6 +8,13 @@ const INK := Color("#0a0e18")
 
 ## kind —— "card" 조합 · 도감용 (인물 전체) · "face" 전투용 (얼굴 확대) · "ult" 고유기용 (신화 그림, 없으면 얼굴) —— 10/30 사용자: 셋을 나눈다
 static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind := "card") -> void:
+	# 11/15 성능(메모리): 목록의 작은 칸은 반쪽 그림(DB '작은 칸용 반쪽 그림')으로 —— 그리는 동안만 DB.small 을 켠다 (그림 · 그려진 영역 · 얼굴 자리를 한 묶음으로 반쪽에서 읽게)
+	DB.small = kind == "card" and maxf(r.size.x, r.size.y) <= DB.THUMB_MAX
+	_draw_portrait(ci, r, k, t, kind)
+	DB.small = false
+
+
+static func _draw_portrait(ci: CanvasItem, r: Rect2, k: String, t: float, kind: String) -> void:
 	# 넓이가 없거나(접히는 중인 칸) 화면에서 아주 먼 곳(달아난 부대의 머리표)은 그리지 않는다 —— 좌표가 크면 다각형 분할이 실패한다
 	if r.size.x < 1.0 or r.size.y < 1.0 or absf(r.position.x) > 6000.0 or absf(r.position.y) > 6000.0:
 		return

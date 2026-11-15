@@ -871,10 +871,12 @@ class FxLayer extends Control:
 	var add := false
 	func _draw() -> void:
 		if v != null and v.field != null:
+			var t0 := Time.get_ticks_usec()
 			if add:
 				v._draw_fx_add(self)
 			else:
 				v._draw_fx(self)
+			v.field.pt("타입2 효과", t0)
 
 
 var _fx := []                  # {k, p, q, col, t0, life, r, s}

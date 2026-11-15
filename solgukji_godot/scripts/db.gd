@@ -69,6 +69,8 @@ const STYLE_FORM := {"물리": "hagik", "지략": "bangwon", "균형": "eorin"}
 
 func _ready() -> void:
 	set_process(false)      # 초상 미리 읽기(warm_portraits)가 있을 때만 돈다
+	if OS.get_cmdline_user_args().has("--nothumb"):      # 점검용 —— 작은 칸도 원본 그림으로 (11/15 전과 비교)
+		thumbs_on = false
 	_load()
 
 
@@ -740,8 +742,36 @@ func face_tex(k: String) -> Texture2D:
 
 
 func portrait(k: String) -> Texture2D:
+	var key := _pkey(k)
+	return _portrait_cache.get(key) if key != "" else null
+
+
+# ───────── 작은 칸용 반쪽 그림 (11/15 성능 · 메모리 —— docs/성능_1115.md) ─────────
+## 초상은 압축 없는 RGBA + 밉맵으로 그래픽 메모리에 올라간다 (720×720 한 장 2.8MB). 조합 탭 미리 읽기(warm)가 190장을 다 올려 제목 화면에서 이미 350MB,
+## 탭을 돌면 650MB 였다 —— 휴대폰에는 무겁다. 목록의 작은 타일(한 변 THUMB_MAX 논리 px 안쪽)은 원본의 밉맵 1단계(가로 · 세로 절반, 메모리 1/4)만 올려 그린다.
+## 그 크기에서는 그래픽카드가 어차피 1단계 아래 밉맵만 읽으므로 보이는 그림은 같다. 큰 칸(카드 상세 · 조합 시트 · 컷인 · 띠)은 예전처럼 원본을 그때 읽는다.
+## 캐시 열쇠: 원본은 경로 그대로, 반쪽은 경로 + "#s". 그려진 영역 · 얼굴 자리 · 패널 윗변은 원본에서 재서 반쪽 크기로 줄여 둔다 (같은 자리를 가리킨다).
+## Art.draw_portrait 가 작은 칸을 그리는 동안만 small 을 켠다 —— 그 밖에서 DB.portrait · portrait_used … 를 부르면 늘 원본이다
+const THUMB_FROM := 512       # 짧은 변이 이보다 큰 그림(기본 초상 558 ~ 720 정사각)만 반쪽을 만든다 —— 등급 그림(불멸 400×520 · 초월 470×600 · 기인 383×640 …)은 원래 작아 원본 그대로 (반쪽 열쇠도 원본을 가리킨다)
+const THUMB_MAX := 88.0       # 칸의 긴 변(논리 px)이 이 안이면 반쪽 (목록 타일 69 · 추천 조합 타일 85). 보통 휴대폰(논리 1 = 2.7px)에서 238px —— 가장 작은 반쪽(558 → 279px)보다 작다
+var thumbs_on := true         # 점검용 (--nothumb : 예전처럼 원본만)
+var dbg_full := false         # 점검용 (tests/ui_perf --full) —— 원본을 읽을 때마다 이름을 찍는다 (어느 화면이 원본을 올리는지)
+var small := false
+
+
+## 이 카드가 지금 쓰는 그림의 캐시 열쇠 (없으면 ""). 그 그림이 캐시에 올라와 있게 한다
+func _pkey(k: String) -> String:
 	var base := portrait_base(k)
-	return _portrait_cache.get(base) if base != "" else null
+	if base == "":
+		return ""
+	if small and thumbs_on:
+		var key := base + "#s"
+		if not _portrait_cache.has(key):
+			_load_portrait(base, true)
+		return key
+	if not _portrait_cache.has(base):
+		_load_portrait(base)
+	return base
 
 
 ## 이 카드가 실제로 쓰는 그림 경로(확장자 없이). 그림이 하나도 없으면 ""
@@ -751,7 +781,7 @@ func portrait_base(k: String) -> String:
 	var cands: Array = _portrait_cands(k)
 	var pick := ""
 	for b in cands:
-		if _load_portrait(b) != null:
+		if _load_portrait(b, small and thumbs_on) != null:      # 있는지만 보면 된다 —— 지금 그리는 크기로 읽는다 (원본을 괜히 올리지 않게)
 			pick = b
 			break
 	_portrait_pick[k] = pick
@@ -767,19 +797,57 @@ func prof_cache_size() -> int:
 	return _portrait_cache.size()
 
 
-func _load_portrait(base: String) -> Texture2D:
-	if _portrait_cache.has(base):
-		return _portrait_cache[base]
+func _load_portrait(base: String, sm := false) -> Texture2D:
+	var key := base + "#s" if sm else base
+	if _portrait_cache.has(key):
+		return _portrait_cache[key]
+	if sm and _portrait_cache.has(base):
+		var ft: Texture2D = _portrait_cache[base]
+		if ft == null or mini(ft.get_width(), ft.get_height()) <= THUMB_FROM:      # 그림이 없거나 원래 작다 —— 반쪽 열쇠도 원본을 가리킨다
+			_alias(key, base)
+			return ft
 	var t0 := Time.get_ticks_usec()
-	var r := _decode_portrait(base)
-	var tex := _finish_portrait(base, r)
+	if not sm and dbg_full:
+		print("FULL|", base.get_file())
+	var r := _decode_portrait(base, sm)
+	var tex := _finish_portrait(key, r)
 	prof.main += Time.get_ticks_usec() - t0
 	return tex
 
 
+## 캐시 열쇠 to 가 from 과 같은 그림 · 같은 영역을 가리키게 한다
+func _alias(to: String, from: String) -> void:
+	_portrait_cache[to] = _portrait_cache.get(from)
+	if _portrait_used.has(from):
+		_portrait_used[to] = _portrait_used[from]
+		_portrait_face[to] = _portrait_face[from]
+	if _portrait_panel.has(from):
+		_portrait_panel[to] = _portrait_panel[from]
+
+
+## 밉맵이 있는 그림의 1단계(가로 · 세로 절반)를 따로 떼어 낸 그림 (밉맵 포함). 못 떼면 null
+static func _mip1(img: Image) -> Image:
+	if not img.has_mipmaps() or img.get_mipmap_count() < 1 or img.is_compressed():
+		return null
+	var w := maxi(1, img.get_width() >> 1)
+	var h := maxi(1, img.get_height() >> 1)
+	var data := img.get_data()
+	var a := img.get_mipmap_offset(1)
+	var b := img.get_mipmap_offset(2) if img.get_mipmap_count() >= 2 else data.size()
+	if a <= 0 or b <= a or (b - a) % (w * h) != 0:
+		return null
+	var th := Image.create_from_data(w, h, false, img.get_format(), data.slice(a, b))
+	if th == null or th.is_empty():
+		return null
+	if maxi(w, h) > 96:
+		th.generate_mipmaps()
+	return th
+
+
 ## 그림 한 장 읽기 —— 파일 읽기 · 디코드 · 밉맵 · 투명 영역 검사까지 (여기는 메인 스레드가 아니어도 된다: 자기 Image 만 만지고 DB 상태는 건드리지 않는다).
 ## 결과: {img, used(Rect2) · face(Rect2) — 잘라 낸 인물일 때만, panel(패널 윗변 y) — 패널째 잘린 그림일 때만, us(구간별 마이크로초)}. img 가 null 이면 그림 없음
-static func _decode_portrait(base: String) -> Dictionary:
+## sm —— 작은 칸용 반쪽 (위 '작은 칸용 반쪽 그림'). 큰 그림이면 img 가 1단계 밉맵이고 영역들도 그 크기로 줄어 있다. 원래 작은 그림이면 원본 그대로 + full = true
+static func _decode_portrait(base: String, sm := false) -> Dictionary:
 	var out := {"img": null, "us": {"decode": 0, "res": 0, "mip": 0, "scan": 0}}
 	var us: Dictionary = out.us
 	for ext in ["png", "jpg", "jpeg", "webp"]:
@@ -834,6 +902,18 @@ static func _decode_portrait(base: String) -> Dictionary:
 								top = y
 								break
 						out.panel = top
+			if sm:
+				var th: Image = _mip1(img) if mini(img.get_width(), img.get_height()) > THUMB_FROM else null
+				if th != null:
+					var sc := Vector2(th.get_width() / float(img.get_width()), th.get_height() / float(img.get_height()))
+					out.img = th
+					if out.has("used"):
+						out.used = Rect2(out.used.position * sc, out.used.size * sc)
+						out.face = Rect2(out.face.position * sc, out.face.size * sc)
+					if out.has("panel"):
+						out.panel = out.panel * sc.y
+				else:
+					out.full = true
 			us.scan += Time.get_ticks_usec() - t0
 			break
 	return out
@@ -857,6 +937,10 @@ func _finish_portrait(base: String, r: Dictionary) -> Texture2D:
 		if r.has("panel"):
 			_portrait_panel[base] = r.panel
 	_portrait_cache[base] = tex
+	if base.ends_with("#s") and (r.img == null or r.get("full", false)):      # 그림이 없거나 원래 작은 그림 —— 원본 열쇠도 같은 것을 가리킨다 (다시 읽지 않게)
+		var full := base.trim_suffix("#s")
+		if not _portrait_cache.has(full):
+			_alias(full, base)
 	return tex
 
 
@@ -901,7 +985,8 @@ func warm_portraits(keys: Array, front := false) -> void:
 	for k in keys:
 		if not C.has(k):
 			continue
-		for b in _portrait_cands(k):
+		for b0 in _portrait_cands(k):
+			var b: String = b0 + "#s" if thumbs_on else b0      # 11/15 미리 읽기는 목록 타일용 —— 반쪽 그림을 올린다 (원본은 큰 칸이 그릴 때)
 			if _portrait_cache.has(b):
 				if _portrait_cache[b] != null:
 					break      # 이 후보가 있으면 portrait_base 는 뒤 후보를 보지 않는다
@@ -946,7 +1031,9 @@ func _process(_dt: float) -> void:
 		if _portrait_cache.has(base):
 			continue
 		var slot := {"r": {}}
-		var id := WorkerThreadPool.add_task(func(): slot.r = DB._decode_portrait(base))
+		var path := base.trim_suffix("#s")      # 줄의 열쇠는 캐시 열쇠 —— "#s" 가 붙어 있으면 반쪽 그림
+		var sm := base.ends_with("#s")
+		var id := WorkerThreadPool.add_task(func(): slot.r = DB._decode_portrait(path, sm))
 		_warm_fly.append({"id": id, "base": base, "slot": slot})
 
 
@@ -957,17 +1044,17 @@ func _exit_tree() -> void:
 
 ## 패널째 잘린 그림인가 —— 사각형이 꽉 차 있어 칸에 맞춰 위쪽만 보여 줘도 된다
 func portrait_panel(k: String) -> bool:
-	return _portrait_panel.has(portrait_base(k))
+	return _portrait_panel.has(_pkey(k))
 
 
 ## 패널 윗변의 그림 속 y —— 이보다 위는 패널 밖으로 튀어나온 깃·무기
 func portrait_panel_top(k: String) -> float:
-	return float(_portrait_panel.get(portrait_base(k), 0))
+	return float(_portrait_panel.get(_pkey(k), 0))
 
 
 ## 전투용 썸네일 —— 그림에서 얼굴 자리(정사각형). 잘라 낸 인물이 아니면 위쪽 가운데
 func portrait_face(k: String) -> Rect2:
-	var base := portrait_base(k)
+	var base := _pkey(k)
 	if _portrait_face.has(base):
 		return _portrait_face[base]
 	var tex := portrait(k)
@@ -1013,7 +1100,7 @@ static func _find_face(img: Image, ur: Rect2i) -> Rect2:
 
 ## 잘라 낸 인물 그림이면 그려진 영역, 아니면 빈 Rect2
 func portrait_used(k: String) -> Rect2:
-	return _portrait_used.get(portrait_base(k), Rect2())
+	return _portrait_used.get(_pkey(k), Rect2())
 
 
 ## 그림 읽기 —— 확장자가 아니라 파일 앞머리로 형식을 가린다 (JPEG 를 .png 로 저장한 경우 등)

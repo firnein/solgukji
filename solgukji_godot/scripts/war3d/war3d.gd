@@ -158,6 +158,27 @@ var squad_rings := {}       # 부대 key -> Decal (발밑 진영색 고리)
 var _ring_tex: Texture2D
 
 
+## 11/15 성능(메모리 · 시작 시간): 하늘 HDRI(2048×1024) · 실사 지형 텍스처 6장(2048², 압축 없음)은 3D 전장을 실제로 그릴 때만 올린다.
+## 기본 전장(타입2 —— 3D 뷰포트는 꺼 둔다)에서는 한 번도 보이지 않는데 게임을 켤 때마다 읽어 그래픽 메모리 150MB 남짓을 차지했다 (docs/성능_1115.md).
+## defer_assets 를 켜고 만들면(BattleView) ensure_3d_assets() 를 부를 때까지 미룬다. 따로 만든 점검 장면은 예전처럼 바로 올린다
+var defer_assets := false
+var _assets_3d := false
+var _sky_mat: PanoramaSkyMaterial
+var _ground_mat: ShaderMaterial
+
+
+func ensure_3d_assets() -> void:
+	if _assets_3d:
+		return
+	_assets_3d = true
+	if _sky_mat != null:
+		_sky_mat.panorama = load("res://assets/terrain/sky.hdr")
+	if _ground_mat != null:
+		for t in ["grass", "mud"]:      # 실사 지형 텍스처 (Poly Haven CC0 —— assets/terrain/출처.txt)
+			for part in ["diff", "nor", "rough"]:
+				_ground_mat.set_shader_parameter("%s_%s" % [t, part], load("res://assets/terrain/%s_%s.jpg" % [t, part]))
+
+
 func _ready() -> void:
 	rng.randomize()
 	noise.seed = 21
@@ -165,6 +186,8 @@ func _ready() -> void:
 	noise.fractal_octaves = 4
 	_environment()
 	_terrain()
+	if not defer_assets:
+		ensure_3d_assets()
 	_scenery()
 	soldier_mat = ShaderMaterial.new()
 	soldier_mat.shader = load("res://shaders/soldier.gdshader")
@@ -261,7 +284,7 @@ func _environment() -> void:
 	var sky := Sky.new()
 	# 10/31 사용자: 카툰 느낌을 벗는다 → 실제 하늘 사진(HDRI, Poly Haven CC0 kloofendal_48d_partly_cloudy_puresky). 주변광도 여기서
 	var psm := PanoramaSkyMaterial.new()
-	psm.panorama = load("res://assets/terrain/sky.hdr")
+	_sky_mat = psm      # 하늘 사진은 ensure_3d_assets() 가 올린다 (11/15)
 	psm.energy_multiplier = 0.8      # 11/5 사용자: 전체 톤을 차분하게
 	sky.sky_material = psm
 	sky.radiance_size = Sky.RADIANCE_SIZE_256
@@ -412,9 +435,7 @@ func _terrain() -> void:
 	fn.fractal_octaves = 4
 	tex.noise = fn
 	mat.set_shader_parameter("detail", tex)
-	for t in ["grass", "mud"]:      # 실사 지형 텍스처 (Poly Haven CC0 —— assets/terrain/출처.txt)
-		for part in ["diff", "nor", "rough"]:
-			mat.set_shader_parameter("%s_%s" % [t, part], load("res://assets/terrain/%s_%s.jpg" % [t, part]))
+	_ground_mat = mat      # 실사 지형 텍스처는 ensure_3d_assets() 가 올린다 (11/15)
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
 	mi.material_override = mat
