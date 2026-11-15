@@ -279,6 +279,7 @@ var _long := 1.0              # 한 번뿐인 효과(고유기 · 전투 시작 
 var _myths: Array[Unit] = []   # 위세를 가진 장수 (신화 · 초월 —— 전투 준비 때 모은다)
 var _aura_m: Array[Unit] = []  # 그 가운데 특수 효과(m)를 주는 장수 —— mv() 가 더한다
 var _tm := 0.0                # 전장 시각(초) —— 실시간 엔진만 쓴다. 사건에 tm 으로 적는다
+var tac = null                # 11/15 군략 카드 전투 처리 (scripts/tac_rt.gd) —— 계획이 없는 전투는 null (예전과 같다)
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
 	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
@@ -536,6 +537,7 @@ func eff(u: Unit, stat: String) -> float:
 	if c.tier >= 8 and stat != "spd": v *= myth_power      # 11/2 사용자: 신화 한 장이 불멸 · 초월보다 확실히 세게
 	if stat == "atk": v *= (lm.int if caster else lm.atk)      # 책략계는 예전 책략 줄 배율(뒤에서 세다)
 	if stat == "def": v *= lm.def
+	if stat == "def" and tac != null: v *= tac.def_mul(u)      # 11/15 군략 —— 방어 + · 적 방어 −
 	if stat == "atk" and mv(u, "front_atk") != 0.0 and _is_front(u): v *= 1 + mv(u, "front_atk")
 	if stat == "atk" and mv(u, "back_int") != 0.0 and _is_back(u): v *= 1 + mv(u, "back_int")
 	v *= 1 + mv(u, stat)
@@ -2357,6 +2359,8 @@ func rout(u: Unit, why: String) -> void:
 	if _paeup_revive(u):      # 장각 태평환생 —— 무너질 부대가 다시 일어선다
 		return
 	u.alive = false
+	if tac != null:
+		tac.on_fall(u)      # 11/15 군략 상벌 분명
 	if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].get("kiin", "") == "death_gauge":      # 유계 곽가 —— 쓰러지면 아군 전원 고유기 게이지 +50
 		for o in units:
 			if o.alive and o.camp == u.camp:
@@ -2711,6 +2715,8 @@ func _settle(frac: float, final: bool) -> String:
 	for u in units:
 		if not u.alive: continue
 		var r := u.troops / u.max
+		if tac != null and tac.no_rout(u):      # 11/15 군략 부동여산 —— 이 단계 패주 안 함
+			continue
 		var pm := maxf(K.routMin, (30 - u.morale) * K.routSlope) if u.morale <= 30 else 0.0
 		var pt := (rout_hp - r) * rout_hp_slope if r < rout_hp else 0.0
 		if pm <= 0 and pt <= 0: continue
