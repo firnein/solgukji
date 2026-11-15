@@ -148,7 +148,12 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			if k != null and DB.C.has(str(k)):
 				tr += float(DB.C[str(k)].tr)
 		lay = clampf(sqrt(tr / LAY_FULL), LAY_MIN, 1.0)
-	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, policy_)
+	var tp = policy_.get("plan")      # 11/15 군략 카드 —— 양쪽 계획은 정책과 같은 길로 온다 (Run.policy_for). 정책에서는 떼어 낸다
+	var pol := policy_
+	if tp != null:
+		pol = policy_.duplicate()
+		pol.erase("plan")
+	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, pol)
 	for i in units.size():
 		_idx[units[i]] = i
 	if inyeon_theme and inyeon_enabled:
@@ -182,9 +187,15 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	var next_end := period
 	var next_set := SETTLE
 	var last_set := 0.0
+	if tp != null:
+		tac = load("res://scripts/tac_rt.gd").make(self, tp)
+	if tac != null:
+		tac.tick()      # 1단계 공개 —— 시작하자마자
 	_record()
 	while _tm < cap_t and winner == "":
 		_tm += TICK
+		if tac != null:
+			tac.tick()
 		_move()
 		_fire_winds()
 		_paeup_tick(TICK)
@@ -211,6 +222,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 				_act_one(u)
 				if live_count("A") == 0 or live_count("B") == 0:
 					break
+		if tac != null:
+			tac.clamp_morale()      # 군령 엄수 · 부동여산 —— 정산(패주 굴림) 전에 사기 바닥
 		if _tm >= next_end - 0.001:
 			next_end += period
 			winner = _settle((_tm - last_set) / period, true)      # 턴 경계 —— 남은 몫 + 지속 시간 줄이기
@@ -235,6 +248,10 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	r["lay"] = lay
 	r["arena"] = [roundi(arena.position.x), roundi(arena.position.y), roundi(arena.size.x), roundi(arena.size.y)]
 	r["len"] = snappedf(_tm, 0.1)
+	if tac != null:
+		r["tac"] = tac.summary()      # 단계마다 양쪽 카드 · 상성, 약탈 군량
+		tac.b = null                  # 서로 붙든 참조를 끊는다
+		tac = null
 	return r
 
 
@@ -242,7 +259,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 func _interval(u: Unit) -> float:
 	var fl := _flood_slow(u)      # 수몰 이감은 속도 반영이 1/4 뿐인 간격식에 묻히지 않게 따로 곱한다 (11/8 —— 이동은 eff 로 그대로)
 	var s := eff(u, "spd") / fl / maxf(1.0, float(u.c.spd))
-	return period / clampf(0.75 + 0.25 * s * (float(u.c.spd) / 75.0), 0.8, 1.25) / fl
+	return period / clampf(0.75 + 0.25 * s * (float(u.c.spd) / 75.0), 0.8, 1.25) / fl * (tac.int_mul(u) if tac != null else 1.0)      # 11/15 군략 공격 간격 (노궁 연사 · 제갈연노)
 
 
 ## 유닛을 만들 때 바로 진형 자리에 세운다 —— 전투 시작 효과(위진 · 철옹성 · 수공 …)도 거리로 판정하므로
@@ -453,6 +470,8 @@ func _join_ok(o: Unit) -> bool:
 
 
 func _inyeon_recruit(u: Unit, wait: float) -> void:
+	if tac != null and tac.yeon_cut(u.camp):      # 11/15 군략 이간 —— 이 단계 인연 합동을 모으지 못한다
+		return
 	var lead_in: Array = DB.INYEON_OF.get(DB.person(u.c.id), [])
 	if lead_in.is_empty():
 		return
@@ -779,9 +798,9 @@ func _dense_max(us: Array) -> int:
 func _reach(u: Unit) -> float:
 	var hill := HILL.range if _in(u.pos, "hill") else 1.0
 	if u.c.tag == "궁병":
-		return bow_range * hill * Battle.class_tune("range", u.c.tag, u.c.tier)
+		return bow_range * hill * Battle.class_tune("range", u.c.tag, u.c.tier) * (tac.range_mul(u) if tac != null else 1.0)
 	if is_caster(u.c):
-		return cast_range * hill * Battle.class_tune("range", u.c.tag, u.c.tier)      # 11/8 병종 사거리 배율 (class_guard.range)
+		return cast_range * hill * Battle.class_tune("range", u.c.tag, u.c.tier) * (tac.range_mul(u) if tac != null else 1.0)      # 11/8 병종 사거리 배율 (class_guard.range)
 	return melee_gap
 
 
@@ -832,7 +851,7 @@ func _terrain_move(u: Unit) -> float:
 
 ## 화상 —— 숲에서는 크게 번진다
 func _burn_mul(a: Unit, d: Unit) -> float:
-	return super._burn_mul(a, d) * (FOREST.burn if _in(d.pos, "forest") else 1.0)
+	return super._burn_mul(a, d) * (FOREST.burn if _in(d.pos, "forest") else 1.0) * (tac.burn_mul(a) if tac != null else 1.0)      # 11/15 군략 동남풍 · 천시
 
 
 func _ranged(u: Unit) -> bool:
@@ -895,7 +914,7 @@ func _gap(a: Unit, b: Unit) -> float:
 
 
 func _speed(u: Unit) -> float:
-	return SPEED.get(u.c.tag, 55.0) * clampf(eff(u, "spd") / maxf(1.0, float(u.c.spd)), 0.5, 1.5) * _terrain_move(u)
+	return SPEED.get(u.c.tag, 55.0) * clampf(eff(u, "spd") / maxf(1.0, float(u.c.spd)), 0.5, 1.5) * _terrain_move(u) * (tac.spd_mul(u) if tac != null else 1.0)
 
 
 # ───────── 움직임 ─────────
@@ -1451,8 +1470,15 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		m *= engage_v("spear_mirror", 1.0)
 	if not a.countering:
 		a.ran = 0.0
+	if tac != null:
+		m *= tac.hit_mul(a, d, far)      # 11/15 군략 —— 주는 피해 · 적 공격 − · 받는 피해
 	var n0 := ev.size()
 	super.phys_hit(a, d, m, no_counter or far, pierce)
+	if tac != null:      # 되돌림 · 화살비 · 불화살 —— 이 타격으로 깎인 병력 기준
+		for i in range(n0, ev.size()):
+			if (ev[i].get("fx") == "phys" or ev[i].get("fx") == "int") and ev[i].get("a") == a.key and ev[i].get("f") == d.key and not ev[i].has("tac"):
+				tac.after_hit(a, d, far, float(ev[i].get("n", 0.0)))
+				break
 	if _in_ult and _wind.has(d) and d.camp != a.camp:
 		_cut_wind(d, a)
 	if dir != "":

@@ -56,7 +56,7 @@ const SHADOW_EPI := "그림자"      # 그림자 대전 상대의 소속 글 (_f
 const SAY_GAP := 2.0         # 한 사람이 한마디를 보낼 수 있는 간격 (초) —— 글과 이모티콘이 함께 쓴다
 const EMOTE_N := 8            # 한마디 이모티콘 개수 (11/10) —— 그림은 클라이언트가 가진다(Icons.EMOTES), 서버는 번호 범위만 검증 (자유 입력 없음)
 const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
-const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip", "unequip", "set_quest_hard"]      # 편성 명령 (11/12 험지 토벌 고르기도 준비 단계의 것) —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
+const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip", "unequip", "set_quest_hard", "set_plan"]      # 편성 명령 (11/12 험지 토벌 고르기도 준비 단계의 것) —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
 ## 11/12 방 규칙 —— 장수 선점제(claim, 기본 켜짐) · 장수 사망룰(deaths = 판 시작 때 죽는 기인 이상 장수 수, 0 = 끔). 대상은 is_urgent_unit(기인 이상)
 const DEATH_OPTIONS := [3, 5, 10]
 const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
@@ -832,8 +832,12 @@ func _foe_info(s: Dictionary) -> Dictionary:
 		"epi": "사람" if s.human else (s.bot.epi if s.bot.epi in [SHADOW_EPI, "떠돌이 군세"] else "봇"), "w": s.run.my_w if s.human else s.bot.w, "l": s.run.my_l if s.human else s.bot.l}
 	if s.human:
 		d["key"] = key_cards(s.run)
+		d["tac"] = s.run.tk_hist      # 11/15 군략 —— 상대가 최근 두 판에 쓴 카드 계열
 	elif s.has("shadow_of"):
 		d["key"] = key_cards(seats[int(s.shadow_of)].run)
+		d["tac"] = seats[int(s.shadow_of)].run.tk_hist
+	else:
+		d["tac"] = s.bot.get("tk_hist", [])
 	return d
 
 
@@ -910,6 +914,8 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 	var res := Run.simulate(bt, [], bt.pol)
 	rx.battle = bt
 	rx.finish_battle(res)
+	if res.get("tac") is Dictionary:      # 11/15 군략 —— 봇이 쓴 계획 계열 (다음 상대 화면에)
+		b.bot["tk_hist"] = Run.tk_hist_push(b.bot.get("tk_hist", []), res.tac, "B")
 	_mvp_track(x, res, "A", bool(res.win))
 	if res.win:
 		b.bot.l += 1

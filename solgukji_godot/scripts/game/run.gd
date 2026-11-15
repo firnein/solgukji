@@ -15,6 +15,7 @@ const STRIKE_MAX := 4         # 토벌 실패 경고 한도 —— 3일차부터
 const SKILL_LO := 1.15        # 봇 실력 계수 (11/2 난이도 상승: 0.98 ~ 1.38 → 1.08 ~ 1.45, 11/9 폭을 좁혀 1.15 ~ 1.35 —— 평균은 거의 그대로, 너무 센 봇을 줄인다)
 const SKILL_HI := 1.35
 const SAVE_PATH := "user://save.json"
+const Tac := preload("res://scripts/tactics.gd")      # 11/15 군략 카드 규칙 (class_name 없이 —— 낡은 .godot 캐시에서도)
 
 var rng := RandomNumberGenerator.new()
 var day := 0
@@ -107,6 +108,17 @@ var held := {}                # 11/12 사용자: 온라인은 모든 보상을 1
 ## 11/12 온라인 방 규칙 —— 등용할 수 없는 장수 id -> {"by": 먼저 등용한 유저} (장수 선점제) · {"dead": 1} (장수 사망룰).
 ## 서버(Room._sync_locks)가 채우고 상태로 보낸다. 혼자 하기는 늘 비어 있다. can_forge · pick 이 거부하고, 화면은 회색 + lock_text
 var locked := {}
+# 11/15 군략 카드 (docs/군략_카드_초안.md) —— 손패 · 이번 계획(3칸) · 3택1 대기 · 내 최근 대전 계획 계열 · 영구 효과
+var tk_hand := {}             # 군략 id -> 가진 수 (기본 3장은 처음부터)
+var tk_plan := ["", "", ""]   # 단계 1 · 2 · 3 에 놓은 카드 (빈 글 = 없음) —— 전투마다 그대로 쓴다
+var tk_offer := []            # 하루 끝 3택1 —— 고를 카드 id (비면 대기 없음)
+var tk_hist := []             # 내가 최근 대전 두 판에 쓴 계열 [[계열 × 3], …] (앞이 최근) —— 상대 화면에 보인다
+var tk_perm := {}             # 능력치 · 경제 카드의 영구 효과 {parts: [부품], morale, hp_cut, grain_day, notes: [글]}
+var tk_more := false          # 군략 연구 —— 다음 3택1 선택지 4장
+var tk_reroll := 0            # 기책 —— 3택1 다시 굴리기 남은 수
+var tk_draw := 0              # 징병 —— 다음 기본 징집에 더하는 장수
+var tk_rolls := 0             # 3택1 뽑기 횟수 (씨앗 —— 본 난수를 쓰지 않는다)
+static var tac_on := true     # 점검용 —— 끄면 계획 없이 예전 전투 그대로
 var on_forge := Callable()    # 서버 전용 —— 조합에 성공하면 결과 id 로 부른다 (Room 이 선점 기록에 쓴다). 저장 · 전송하지 않는다
 
 
@@ -154,6 +166,7 @@ func new_game(seed_value := -1) -> void:
 	held = {}
 	grain = 0
 	sell_on = true
+	tk_reset()
 	bots = []
 	var bot_names := DB.gen_bot_names(rng.seed, DB.D.BOTNAME.size())      # 11/10 봇 이름은 판마다 랜덤 (DB.gen_bot_names)
 	for i in DB.D.BOTNAME.size():
@@ -248,7 +261,7 @@ func placed() -> int:
 ## 11/12 사용자: 전투 시작 사기는 대전 승패와 상관없다 (예전 100 + 승×3 − 패×4, 상한 130 —— 온라인 기록에서 130 대 73 까지 벌어져 눈덩이).
 ## 시작 사기를 올리고 내리는 것은 특기뿐 —— 군주 · 대의 · 왕좌 · 명문(아군 +), 만인적 · 폭군 · 위진 · 경국(적 −) (passives.json 의 morale · foe_morale, Battle 이 개전에 반영)
 func my_morale() -> int:
-	return 100
+	return 100 + int(tk_perm.get("morale", 0))      # 11/15 군략 사기 진작
 
 
 func rank() -> int:
@@ -992,7 +1005,9 @@ func do_draw() -> Array:
 	if drawn:
 		return []
 	var got := []
-	for i in draws_n():
+	var nd := draws_n() + tk_draw      # 11/15 군략 징병
+	tk_draw = 0
+	for i in nd:
 		var k: String = DB.BASE[rng.randi() % DB.BASE.size()]
 		give(k)
 		got.append(k)
@@ -1132,6 +1147,7 @@ func advance() -> void:
 	if phase > 2:
 		phase = 0
 		day += 1
+		tk_day_end()      # 11/15 하루가 끝났다 —— 군략 3택1 (서버도 같은 길: Room._advance → advance)
 	drawn = false
 	picked = false
 	granted = false
@@ -1181,7 +1197,7 @@ func can_next() -> bool:
 # ───────── 전투 —— 시작에 재료를 적고, 끝에 보상 ─────────
 
 func _my_side() -> Dictionary:
-	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": gear_pairs(), "tac": tac}
+	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": gear_pairs(), "tac": tac, "plan": tac_load()}
 
 
 func _bot_side(pv: float, style: String) -> Dictionary:
@@ -1203,7 +1219,8 @@ static func bot_side(pv: float, style: String, p_idx: int, r: RandomNumberGenera
 		pv = maxf(pv, BOT_OPEN_PV)
 	var eb := DB.gen_board(pv, style, r)
 	var cards := DB.auto_place(eb.cards, eb.form)
-	return {"cards": cards, "form": eb.form, "morale": 100, "equip": bot_equip(cards, p_idx, r), "tac": recommend_tac(cards)[0]}
+	return {"cards": cards, "form": eb.form, "morale": 100, "equip": bot_equip(cards, p_idx, r), "tac": recommend_tac(cards)[0],
+		"plan": bot_plan_load(cards, p_idx, DB.mix_seed(p_idx, int(pv), 17), DB.mix_seed(int(pv), 0, 19))}
 
 
 ## 봇의 표준 PV (대전 전투 기준) —— 봇 전력 × BOT_PV_MUL, 첫 페이즈만 바닥(BOT_OPEN_PV)
@@ -1239,7 +1256,8 @@ static func bot_side_of(b: Dictionary, base: int, p_idx: int, extra := 1.0) -> D
 	var cards := DB.auto_place(army, DB.STYLE_FORM[style])
 	var er := RandomNumberGenerator.new()
 	er.seed = DB.mix_seed(sd, p_idx, 7)
-	return {"cards": cards, "form": DB.STYLE_FORM[style], "morale": 100, "equip": bot_equip(cards, p_idx, er), "tac": recommend_tac(cards)[0]}
+	return {"cards": cards, "form": DB.STYLE_FORM[style], "morale": 100, "equip": bot_equip(cards, p_idx, er), "tac": recommend_tac(cards)[0],
+		"plan": bot_plan_load(cards, p_idx, DB.mix_seed(sd, p_idx, 13), DB.mix_seed(sd, 0, 19))}      # 11/15 군략 —— 손패는 봇마다 한 씨앗(날이 갈수록 같은 순서로 는다) · 계획은 (봇 · 페이즈) 씨앗
 
 
 ## 높은 등급 장수부터 (보급 수 + 2)명까지, 그 때의 보급 등급표로 병종이 맞는 장비를 끼운다.
@@ -1391,6 +1409,7 @@ func start_quest() -> Dictionary:
 	else:
 		var styles := ["물리", "지략", "균형"]
 		foe = _bot_side(pv, styles[rng.randi() % 3])
+	foe["plan"] = quest_load() if tac_on else {}      # 11/15 토벌 우두머리의 그날 고정 계획 (전투 탭에 미리 보인다)
 	if not DB.quest_trait(td()).is_empty(): foe["trait"] = DB.quest_trait(td())      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
 	if quest_hard:      # 11/12 험지 토벌 —— 적 병력 · 사기 배율
 		foe["tr_mul"] = float(foe.get("tr_mul", 1.0)) * QUEST_HARD_TR
@@ -1415,7 +1434,12 @@ func start_pvp() -> Dictionary:
 static func policy_for(bt: Dictionary) -> Dictionary:
 	if bt.has("pol"):
 		return bt.pol
-	return {"A": side_pol(bt.a), "B": bt.get("foe_ai", side_pol(bt.b))}
+	var p := {"A": side_pol(bt.a), "B": bt.get("foe_ai", side_pol(bt.b))}
+	var pa = bt.a.get("plan", {})
+	var pb = bt.b.get("plan", {})
+	if not Tac.empty_load(pa) or not Tac.empty_load(pb):      # 11/15 군략 —— 양쪽 계획은 정책과 같은 길로 엔진에 (RtBattle.run 이 떼어 낸다)
+		p["plan"] = {"A": pa if pa is Dictionary else {}, "B": pb if pb is Dictionary else {}}
+	return p
 
 
 static func side_pol(side: Dictionary) -> String:
@@ -1609,13 +1633,13 @@ func hp_preview(bt: Dictionary, res: Dictionary) -> int:
 	if res.get("win", false):
 		return 0
 	match str(bt.get("kind", "")):
-		"quest": return hp_dmg(res, hp_base(day))
-		"pvp": return hp_dmg(res, hp_base(day) * pvp_mul())
+		"quest": return roundi(hp_dmg(res, hp_base(day)) * hp_cut_mul())
+		"pvp": return roundi(hp_dmg(res, hp_base(day) * pvp_mul()) * hp_cut_mul())
 	return 0
 
 
 func _hp_hit(res: Dictionary, base: float, what: String) -> void:
-	var dmg := hp_dmg(res, base)
+	var dmg := roundi(hp_dmg(res, base) * hp_cut_mul())      # 11/15 군략 군의
 	var foe_left := foe_left_ratio(res)
 	hp = maxi(0, hp - dmg)
 	last_hp_loss = dmg
@@ -1695,6 +1719,7 @@ func _finish_battle(res: Dictionary) -> void:
 				give(DB.BASE[rng.randi() % DB.BASE.size()])
 			toasts.append(["흑산 장연의 약탈 —— 기본패 +2", "gold"])
 	last_hp_loss = 0
+	tk_after_battle(bt, res)      # 11/15 군략 —— 약탈 군량 · 대전 계획 기록
 	match bt.kind:
 		"quest":
 			quest_done = true
@@ -2097,7 +2122,7 @@ func gacha(n) -> Variant:
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
 const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
 	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1,
-	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2}
+	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2, "set_plan": 2, "pick_tac": 1, "reroll_tac": 0}
 
 
 func command(m: String, a: Array):
@@ -2113,7 +2138,8 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "equip2", "gacha_pity", "last_gacha", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
-	"my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on"]
+	"my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on",
+	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls"]
 
 
 func to_dict() -> Dictionary:
@@ -2137,7 +2163,8 @@ func from_dict(d: Dictionary) -> void:
 		set(k, int(get(k)))
 	if not d.has("equip2") or equip2.size() != 9:      # 예전 저장 · 옛 서버 —— 갑옷 칸 없음
 		equip2 = _nine()
-	sell_on = bool(d.get("sell_on", true))      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
+	sell_on = bool(d.get("sell_on", true))
+	tk_load(d)      # 11/15 군략 —— 옛 저장 · 옛 서버는 기본 3장으로      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
 		hp = maxi(1, HP_MAX - strikes * 20)
 	if not d.has("tickets"):
@@ -2276,7 +2303,10 @@ func bot_prepare(full := true) -> void:
 	if not full:
 		if placed() == 0:
 			auto_deploy()
+		tk_auto()
 		return
+	if not tk_offer.is_empty():      # 11/15 군략 3택1 —— 군략 카드부터
+		pick_tac(str(tk_offer[0]))
 	if not uniq_offer.is_empty():
 		# 11/3 신화에 가장 가까운 유니크를 고른다 (예전엔 첫 번째 —— 신화를 한 번도 못 만들었다)
 		var bu: String = uniq_offer[0]
@@ -2290,6 +2320,7 @@ func bot_prepare(full := true) -> void:
 						bu = id
 		pick_unique(bu)
 	_dev_spend()
+	tk_auto()
 
 
 static var dev_keep_me := false    # 점검용 —— 나만 멸망하지 않는다(봇은 멸망) : 봇이 모두 무너지는 데 며칠 걸리나 (tests/game --keep)
@@ -2357,3 +2388,215 @@ func _dev_spend() -> void:
 					forge(k)
 					made = true
 	auto_deploy()
+
+
+# ───────── 11/15 군략 카드 (docs/군략_카드_초안.md · scripts/tactics.gd 규칙 · scripts/tac_rt.gd 전투) ─────────
+
+## 처음 상태 —— 기본 3장 (돌격 · 우회 · 방진)
+func tk_reset() -> void:
+	tk_hand = {}
+	for id in Tac.data().rule.start:
+		tk_hand[str(id)] = 1
+	tk_plan = ["", "", ""]
+	tk_offer = []
+	tk_hist = []
+	tk_perm = {}
+	tk_more = false
+	tk_reroll = 0
+	tk_draw = 0
+	tk_rolls = 0
+
+
+## 불러오기 —— 옛 저장(키 없음)은 처음 상태. JSON 숫자(float)는 int 로
+func tk_load(d: Dictionary) -> void:
+	if not d.has("tk_hand") or not (tk_hand is Dictionary):
+		tk_reset()
+		return
+	var h := {}
+	for k in tk_hand:
+		if Tac.has(str(k)):
+			h[str(k)] = int(tk_hand[k])
+	tk_hand = h
+	tk_plan = Tac.norm(tk_plan)
+	tk_offer = (tk_offer if tk_offer is Array else []).map(func(x): return str(x)).filter(func(x): return Tac.has(x))
+	tk_more = bool(tk_more)
+	tk_reroll = int(tk_reroll)
+	tk_draw = int(tk_draw)
+	tk_rolls = int(tk_rolls)
+	if not (tk_perm is Dictionary):
+		tk_perm = {}
+	if not (tk_hist is Array):
+		tk_hist = []
+
+
+## 전투에 넘길 내 짐 {p, own, perm}
+func tac_load() -> Dictionary:
+	return Tac.payload(tk_plan, tk_hand, tk_perm) if tac_on else {}
+
+
+## 봇 계획 —— 손패는 사람과 같은 규칙(기본 3장 + 지난 날 수만큼 3택1, 씨앗 hsd), 계획은 씨앗 sd (같은 봇 · 페이즈면 같다)
+static func bot_plan_load(cards: Array, p_idx: int, sd: int, hsd: int) -> Dictionary:
+	if not tac_on:
+		return {}
+	var r := RandomNumberGenerator.new()
+	r.seed = sd
+	return Tac.hand_load(cards, Tac.sim_hand(cards, p_idx / 3, hsd), r)
+
+
+## 오늘 토벌 우두머리의 계획 —— 그날 · 페이즈로 정해진다 (전투 탭에 미리 보인다 —— 받아치는 퍼즐)
+func quest_plan() -> Array:
+	return quest_load().p
+
+
+## 우두머리 짐 —— 손패는 사람과 같은 규칙(지난 날 수만큼 3택1, 그날 씨앗), 계획은 그날 · 페이즈 고정
+func quest_load() -> Dictionary:
+	var q = quest_roster()
+	var cards: Array = q.cards if q != null else []
+	var r := RandomNumberGenerator.new()
+	r.seed = DB.mix_seed(day + 101, phase, 23)
+	return Tac.hand_load(cards, Tac.sim_hand(cards, day, DB.mix_seed(day + 101, 0, 19)), r)
+
+
+## i 칸(0 ~ 2)에 카드를 놓는다 —— 빈 글이면 비운다. 규칙에 어긋나면 까닭 알림
+func set_plan(i: int, id: String) -> bool:
+	var p := Tac.norm(tk_plan)
+	var why := Tac.plan_block(p, tk_hand, i, id)
+	if why != "":
+		toasts.append([why, "bad"])
+		return false
+	p[i] = id
+	tk_plan = p
+	return true
+
+
+## 대행 · 자동 진행 —— 계획이 비었으면 손패로 채운다
+func tk_auto() -> void:
+	if not tac_on or Tac.norm(tk_plan) != ["", "", ""]:
+		return
+	var r := RandomNumberGenerator.new()
+	r.seed = DB.mix_seed(int(rng.seed), phase_idx(), 41)
+	tk_plan = Tac.bot_plan(board, tk_hand.keys(), r, tk_hand)
+
+
+## 3택1 씨앗 —— 본 난수(rng)를 쓰지 않아 다른 진행의 난수 순서가 그대로다
+func _tk_rng(salt: int) -> RandomNumberGenerator:
+	tk_rolls += 1
+	var r := RandomNumberGenerator.new()
+	r.seed = DB.mix_seed(int(rng.seed) + tk_rolls, phase_idx(), salt)
+	return r
+
+
+## 하루 끝 —— 안 고른 3택1 은 첫 카드를 받고(사라지지 않게) 새 3택1 을 편다. 둔전 군량
+func tk_day_end() -> void:
+	if not tac_on:
+		return
+	if not tk_offer.is_empty():
+		var id := str(tk_offer[0])
+		pick_tac(id)
+		toasts.append(["안 고른 군략 3택1 —— 「%s」 을(를) 받았다" % id, "gain"])
+	var gd := int(tk_perm.get("grain_day", 0))
+	if gd > 0:
+		grain += gd
+	tk_new_offer()
+
+
+## 군략 2장(군략 연구면 3장) + 능력치 · 경제 1장
+func tk_new_offer() -> void:
+	var n := 3 if tk_more else 2
+	tk_more = false
+	tk_offer = Tac.offer(board, tk_hand, n, _tk_rng(29))
+
+
+func pick_tac(id: String) -> bool:
+	if not tk_offer.has(id):
+		return false
+	tk_offer = []
+	var c := Tac.card(id)
+	if str(c.get("kind", "")) == "econ":
+		_tk_econ(c)
+	else:
+		tk_hand[id] = int(tk_hand.get(id, 0)) + 1
+	return true
+
+
+## 기책 —— 3택1 을 다시 굴린다 (같은 장 수)
+func reroll_tac() -> bool:
+	if tk_reroll <= 0 or tk_offer.is_empty():
+		return false
+	tk_reroll -= 1
+	tk_offer = Tac.offer(board, tk_hand, tk_offer.size() - 1, _tk_rng(31))
+	return true
+
+
+## 능력치 · 경제 카드 —— 즉시 또는 영구 (tk_perm)
+func _tk_econ(c: Dictionary) -> void:
+	var notes: Array = tk_perm.get("notes", [])
+	for part in c.fx:
+		var v := float(part.get("v", 0))
+		match str(part.k):
+			"perm":
+				var pp: Dictionary = (part.part as Dictionary).duplicate(true)
+				var nm := str(c.id)
+				if bool(part.get("rand_tag", false)):
+					var tags: Array = DB.D.TAGORDER
+					var t: String = tags[_tk_rng(37).randi() % tags.size()]
+					pp["who"] = [t]
+					nm += " (%s)" % t
+				var parts: Array = tk_perm.get("parts", [])
+				parts.append(pp)
+				tk_perm["parts"] = parts
+				notes.append(nm)
+			"start_morale":
+				tk_perm["morale"] = int(tk_perm.get("morale", 0)) + int(v)
+				notes.append(str(c.id))
+			"grain":
+				grain += int(v)
+			"draw":
+				tk_draw += int(v)
+			"ticket":
+				var pl := pick_list()
+				add_ticket(int(pl[0].t) if not pl.is_empty() else 3, int(v))
+			"hp_cut":
+				tk_perm["hp_cut"] = minf(0.6, float(tk_perm.get("hp_cut", 0.0)) + v)
+				notes.append(str(c.id))
+			"hp":
+				hp = mini(HP_MAX, hp + int(v))
+			"more":
+				tk_more = true
+			"reroll":
+				tk_reroll += int(v)
+			"grain_day":
+				tk_perm["grain_day"] = int(tk_perm.get("grain_day", 0)) + int(v)
+				notes.append(str(c.id))
+	tk_perm["notes"] = notes
+
+
+## 군의 —— 패배 민심 피해 배율
+func hp_cut_mul() -> float:
+	return 1.0 - float(tk_perm.get("hp_cut", 0.0))
+
+
+## 전투 뒤 —— 약탈 군량, 대전이면 내 계획 계열 기록(상대 화면용) · 혼자 하기 봇 상대의 계획도
+func tk_after_battle(bt: Dictionary, res: Dictionary) -> void:
+	var tr = res.get("tac")
+	if not (tr is Dictionary):
+		return
+	var g := int((tr.get("grain", {}) as Dictionary).get("A", 0))
+	if g > 0:
+		grain += g
+		toasts.append(["약탈 —— 군량 +%d" % g, "gold"])
+	if str(bt.get("kind", "")) != "pvp":
+		return
+	tk_hist = tk_hist_push(tk_hist, tr, "A")
+	if bt.has("bot") and not mp:
+		var b: Dictionary = bots[int(bt.bot)]
+		b["tk_hist"] = tk_hist_push(b.get("tk_hist", []), tr, "B")
+
+
+## 최근 두 판 기록에 한 판을 더한다 —— 결과의 단계 기록(tac.log)에서 그 진영 카드의 계열 (없으면 빈 글)
+static func tk_hist_push(h: Array, tr: Dictionary, cp: String) -> Array:
+	var fs := []
+	for e in tr.get("log", []):
+		fs.append(str((e.get(cp, {}) as Dictionary).get("fam", "")))
+	var out := [fs] + h
+	return out.slice(0, 2)

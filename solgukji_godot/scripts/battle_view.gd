@@ -153,6 +153,8 @@ var spot_t := 0.0          # 남은 집중 시간 (실시간 초)
 var spot_len := 0.0
 var spot_sq: Squad = null
 const SPOT_SHADER := preload("res://shaders/spotlight.gdshader")
+const TacUI := preload("res://scripts/ui/tac_ui.gd")      # 11/15 군략 단계 공개 연출 (class_name 없이)
+var _tac_box: Control = null      # 지금 떠 있는 단계 공개 (다음 단계가 오면 갈아 끼운다)
 var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 중) —— 방진 버튼을 깜빡인다
 var warn_key := ""
 var _yeon_say := {}         # 11/11 인연 합류자 key -> 투게더 멘트 (합류 때 정해 두고 컷인 때 같은 말을 한다)
@@ -1837,6 +1839,8 @@ func _apply(i: int, quiet := false) -> void:
 		elif e.get("fx") == "decisive":
 			hud.decisive_on = true
 		return
+	if e.get("fx") == "tac":
+		_tac_reveal(e)      # 11/15 군략 단계 공개 (인연기 연출과 따로)
 	_damage_number(i, e, f)
 	_sound(e)
 	# 무쌍 —— 기술 · 고유기 타격은 병력을 바로 깎고 쓰러질 병사들을 한꺼번에 날린다
@@ -1917,6 +1921,17 @@ func _apply(i: int, quiet := false) -> void:
 		"decisive":
 			hud.announce("결전 —— 양군의 사기가 흔들린다", Color("#e8d6a8"))
 			hud.decisive_start()      # 11/11 끝날 때까지 위 띠 아래에 「결전 — 사기가 깎이는 중」
+
+
+## 11/15 군략 단계 공개 —— 위 띠(병력 · 사기 · 시계, 결전 띠 45px) · 알림 글 아래에 양쪽 카드가 뒤집혀 나오고 상성 한 줄, 1.2초 뒤 사라진다.
+## 전장을 오래 가리지 않게 높이 84px 한 줄만. 인연기 연출(_event 의 inyeon_fin)과 따로 둔다
+func _tac_reveal(e: Dictionary) -> void:
+	if is_instance_valid(_tac_box):
+		_tac_box.queue_free()
+	_tac_box = TacUI.reveal(e, size.x)
+	var y0 := (hud.global_position.y - global_position.y) if hud != null else 0.0      # 위 띠는 Hud 가 제 원점에서 0 ~ 45px 에 그린다 (그 위는 제목 줄)
+	_tac_box.position = Vector2(0, y0 + 104)      # 띠(0 ~ 45) · 결전 띠(45 ~) · 알림 글(84 언저리) 아래
+	add_child(_tac_box)
 
 
 ## 소리 —— 사건 종류마다 (Sfx 가 잦은 소리는 건너뛴다)

@@ -1141,6 +1141,9 @@ func _foe_panel() -> Control:
 		rv.add_child(rl)
 		v.add_child(rv)
 	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], UI.FS_BODY))
+	var th = GameScreen.TacUI.hist_line(f.get("tac", []))      # 11/15 상대가 최근 두 판에 쓴 군략 계열
+	if th != null:
+		v.add_child(th)
 	var key := []
 	var guess := false
 	if f.get("key") is Array:
@@ -1458,6 +1461,8 @@ func war_page() -> Control:
 		v.add_child(UI.act("준비 취소" if rd else "준비 완료", sub, func(): send_ready(not rd), "ghost" if rd else "pri", disabled))
 		if st == "morning" and has_noon() and run.quest_open():      # 11/12 험지 토벌 고르기 —— 토벌이 있는 일차의 준비 단계
 			v.add_child(gs.quest_hard_btn())
+		if st == "morning" and has_noon():      # 11/15 오늘 토벌 우두머리 (성질 · 군략 계획) —— 혼자 하기 전투 탭과 같은 패널
+			v.add_child(gs.boss_panel())
 		if watching and not watch.is_empty():
 			v.add_child(UI.btn("남은 전투 보기 (%d)" % watch.size(), func(): watch_next(), "gold", UI.BH_M))
 	# (c) 이번 단계 전투 —— 본 전투의 결과 칸 + 한 줄씩
