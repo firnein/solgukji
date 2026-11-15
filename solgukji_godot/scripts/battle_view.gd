@@ -157,6 +157,8 @@ var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 �
 var warn_key := ""
 var _yeon_say := {}         # 11/11 인연 합류자 key -> 투게더 멘트 (합류 때 정해 두고 컷인 때 같은 말을 한다)
 var _yeon_used := {}        # 대표 key -> 이번 합동에서 이미 나온 멘트 (같은 말 겹침 방지)
+var _yeon_turn := {}        # 11/15 "합류자>대표|인연" -> 이번 전투에서 말한 횟수 (나설 때마다 다음 멘트로 돌린다 · 화면만)
+var _yeon_last := {}        # 11/15 같은 키 -> 지난번에 한 말 (연달아 같은 말을 하지 않는다)
 static var _yeon_tbl := {}  # data/inyeon_lines.json (처음 쓸 때 한 번 읽는다)
 var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이름
 var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 — 2D 전장은 그 메달의 전투장수창(unit_requested), 3D 는 그 부대를 따라간다
@@ -1421,10 +1423,19 @@ func _yeon_pick(key: String, lead: String, inyeon: String) -> Array:
 	var cid: String = field.squads[key].cid if field.squads.has(key) else ""
 	var tone := 1 if cid != "" and DB.C.has(cid) and DB.INT_TAGS.has(DB.C[cid].tag) else 0
 	var used: Array = _yeon_used.get(lead, [])
-	var pick := yeon_choose(yeon_table(), int(_p.get("seed", 0)), lead, key, _yeon_person(key), _yeon_person(lead), inyeon, tone, used)
+	# 11/15 사용자 "같은 인연멘트만 반복되지 않도록" —— 같은 짝이 한 판에서 또 나서면 다음 멘트로 돌리고(turn), 지난번에 한 말은 피한다.
+	# 횟수는 화면(BattleView)만 센다 —— 전투 계산 · 난수와 무관
+	var slot := "%s>%s|%s" % [key, lead, inyeon]
+	var turn := int(_yeon_turn.get(slot, 0))
+	var avoid: Array = used.duplicate()
+	if _yeon_last.has(slot):
+		avoid.append(_yeon_last[slot])
+	var pick := yeon_choose(yeon_table(), int(_p.get("seed", 0)), lead, key, _yeon_person(key), _yeon_person(lead), inyeon, tone, avoid, turn)
+	_yeon_turn[slot] = turn + 1
 	if str(pick[0]) != "":
 		used.append(pick[0])
 		_yeon_used[lead] = used
+		_yeon_last[slot] = pick[0]
 	_yeon_say[key] = pick
 	return pick
 
@@ -1437,8 +1448,9 @@ func _yeon_person(key: String) -> String:
 
 ## 멘트 고르는 순수 함수 (tests/inyeon_lines 가 직접 부른다) —— tbl: yeon_table() · jp/lp: 합류자 · 대표 인물 이름 · used: 이번 합동에서 이미 쓴 말.
 ## 단계마다 안 쓴 말을 해시 자리부터 찾고, 그 단계가 다 쓰였으면 다음 단계로 (셋 다 쓰였으면 처음 단계 해시 자리 그대로)
-static func yeon_choose(tbl: Dictionary, seed_: int, lead: String, key: String, jp: String, lp: String, inyeon: String, tone: int, used: Array) -> Array:
-	var h := ("%d|%s|%s" % [seed_, lead, key]).hash()
+## turn (11/15): 같은 짝이 이번 전투에서 이미 말한 횟수 —— 해시 자리를 그만큼 밀어 나설 때마다 다음 멘트가 나온다
+static func yeon_choose(tbl: Dictionary, seed_: int, lead: String, key: String, jp: String, lp: String, inyeon: String, tone: int, used: Array, turn := 0) -> Array:
+	var h := ("%d|%s|%s" % [seed_, lead, key]).hash() + maxi(turn, 0)
 	var tiers := []
 	var pair: Array = tbl.get("pairs", {}).get("%s>%s" % [jp, lp], []) if jp != "" and lp != "" else []
 	if not pair.is_empty():
@@ -1752,7 +1764,9 @@ func _apply(i: int, quiet := false) -> void:
 		_snap(idx_of[f])
 		# 11/3 사용자: 에이스 장수의 무쌍만이 전장을 지배하도록 —— 날리기 · 프리즈 · 흔들림을 예전의 약 3배로 (일반 장수 기술은 그대로)
 		var ace: bool = field.squads.has(gq.who) and field.squads[gq.who].tier >= 7
-		field.blast(f, from, 4.5 if gq.ult != null else (3.0 if ace else 1.0))
+		# 11/15 병사 단계 —— 높은 단계가 낮은 단계를 치면 더 멀리 날아간다 (Type2View.GRADE · 화면만)
+		var gmul: float = Type2View.hit_skill_mul(field.squads[gq.who], field.squads[f]) if field.squads.has(gq.who) and field.squads.has(f) else 1.0
+		field.blast(f, from, (4.5 if gq.ult != null else (3.0 if ace else 1.0)) * gmul)
 		if gq.ult != null:
 			impact(0.24, 1.5)
 		elif ace:
@@ -1779,10 +1793,16 @@ func _apply(i: int, quiet := false) -> void:
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
 				field.clash(e.a, f, e.get("crit", false) or e.has("mn") or group_of[i].skill != "" or group_of[i].ult != null)
 			# 11/2 불멸 · 신화는 평타에도 적 병사가 튕겨 나간다 (압도적인 파괴력) —— 무거운 소리와 함께
-			if smooth and field.squads.has(e.a) and field.squads[e.a].tier >= 7 and gq.skill == "" and gq.ult == null and idx_of.has(f):
-				_snap(idx_of[f])
-				field.blast(f, e.a, 0.5 if field.squads[e.a].tier == 7 else 0.8)
-				Sfx.play("crit")
+			# 11/15 병사 단계 —— 단계가 둘 이상 높은 부대의 평타에도 약한 병사가 튕겨 나간다 (세기는 Type2View.hit_power: 평타 무게 + 단계 차 × 0.2).
+			# 불멸 · 신화의 무거운 소리는 그대로, 단계 차로만 날리는 평타는 소리 없이 · 부하 3단계부터는 쉰다 (날아가는 병사는 CPU 가 그린다)
+			if smooth and field.squads.has(e.a) and field.squads.has(f) and gq.skill == "" and gq.ult == null and idx_of.has(f):
+				var heavy: bool = field.squads[e.a].tier >= 7
+				var hp: float = Type2View.hit_power(field.squads[e.a], field.squads[f])
+				if hp > 0.0 and (heavy or type2 == null or type2.load_lv < 3):
+					_snap(idx_of[f])
+					field.blast(f, e.a, hp)
+					if heavy:
+						Sfx.play("crit")
 			if e.get("dir", "") == "후방":       # 실시간 엔진 —— 뒤에서 친 타격만 (측면은 잦아서 띄우지 않는다, 10/31)
 				hud.float_text(f, "후방!", Color("#ff5e3a"), 11)
 		"heal":
@@ -2717,8 +2737,8 @@ class Hud extends Control:
 			draw_rect(r, Color(0, 0, 0, (1.0 - a) * 0.7))
 		draw_rect(r, Color(Color("#ffd257"), a), false, 2.0)
 		_pop_land_fx(r, t, a)
-		var sy := end.end.y + 2.0 + (40.0 if i == 2 else 0.0)      # 셋째 말풍선은 한 단 아래 (첫째와 겹치지 않게)
-		_draw_say(str(c.get("line", "")), Vector2(end.position.x + end.size.x / 2.0, sy), false, 6.0, size.x - 6.0, t, a, int(c.get("tone", 0)))
+		# 11/15 사용자 "메인 고유기 발동 이전에 인연 멘트가 먼저 노출됨" —— 기 모으는 동안에는 초상 칩만 날아든다. 말풍선(인연 멘트)은
+		# 대표의 고유기 컷인에서 대표 초상 · 기술명이 찍힌 뒤 짝이 자리 잡을 때 뜬다 (_draw_cut 의 _draw_say · YEON_POP_AT)
 
 	## 강조 순위 —— 진영마다 그 전투에 나온 장수 가운데 등급(같으면 PV) 상위 둘만 1 · 2 (11/3 사용자: 등급마다 크게 하니
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0

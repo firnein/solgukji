@@ -15,6 +15,8 @@ shader_type canvas_item;
 
 uniform sampler2D squad_tex : filter_nearest;
 uniform sampler2D tag_tex : filter_nearest;      // 11/7 부대 줄 -> 칸 0 (인형 칸 0~1, 병종 크기, 11/12 등급 배율, 장식 단계 0 · 1 · 2) · 칸 1 장식 색 · 칸 2 발광 색
+// 11/15 병사 단계 (Type2View.GRADE) —— 칸 3 = (흐트러짐: 1 보통 · 클수록 헝클어진 무리 · 작을수록 반듯한 대열, 바랜 옷 0~1, 은빛 투구 0~1, 훑고 지나가는 번쩍임 0~1)
+//   잡병은 바랜 옷에 들쭉날쭉한 무리, 정예부터 은빛 투구가 번쩍이고 줄이 반듯하다. 판정 · 발자국은 그대로 (보이는 배치 · 빛만)
 // 11/12 고급 병사 장식 (Type2View._deco_tex) —— 병사 아틀라스와 같은 칸 × 2줄(장식 1 · 2단계). r 금 · g 장식 색 · b 둘레 발광
 uniform sampler2D deco_tex : filter_linear;
 uniform vec2 center;            // 화면 가운데 전장 자리 (흔들림 포함)
@@ -39,6 +41,8 @@ varying float atlas_x;
 varying float deco;
 varying vec3 acc_c;
 varying vec3 glow_c;
+varying float steel;
+varying float sheen;
 
 vec4 sq(float row, int col) {
 	return texelFetch(squad_tex, ivec2(col, int(row)), 0);
@@ -82,6 +86,11 @@ void vertex() {
 	float alpha = 1.0;
 	float shade = 1.0;
 	bool hide = t1.z <= 0.0;
+	vec4 tg0 = texelFetch(tag_tex, ivec2(0, int(row)), 0);
+	vec4 gr = texelFetch(tag_tex, ivec2(3, int(row)), 0);
+	float sct = scatter * gr.r;                 // 이 부대의 흐트러짐 (단계가 낮을수록 크게)
+	float tight = clamp(gr.r, 0.3, 1.25);       // 대열 굽이 · 서성임 (단계가 높을수록 줄이 반듯하다)
+	sheen = 0.0;
 	if (dying) {
 		// 쓰러지는 병사 —— 죽은 자리에 고정, 시각이 되면 넘어진다. 부대가 사라졌으면(gone, 9.w) 같이 사라진다
 		float u = clock - ic.a;
@@ -95,7 +104,7 @@ void vertex() {
 		vec2 d = p - center;
 		sp2 = vsize * 0.5 + vec2(d.y, -d.x * tilt) * scl;
 		float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);
-		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep * max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5) * max(texelFetch(tag_tex, ivec2(0, int(row)), 0).b, 1.0);
+		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep * max(tg0.g, 0.5) * max(tg0.b, 0.5);
 		float fall = hash(seed * 11.9) < 0.5 ? 1.0 : -1.0;
 		rotz = fall * clamp(u / 0.35, 0.0, 1.0) * 3.14159 * 0.5 * (u > 0.0 ? 1.0 : 0.0);
 		shade = u > 0.0 ? 0.55 : 1.0;
@@ -133,12 +142,14 @@ void vertex() {
 		vec2 rgt = vec2(-fwd.y, fwd.x);
 		vec2 front = pos + fwd * t1.w * squeeze.x;
 		// 자리 어긋남 —— 원반에 고르게 (√: 예전엔 가운데로 몰렸다), 흐트러뜨리면 조금 더 멀리
-		vec2 jit = rot(vec2(1.0, 0.0), hash(seed * 7.1) * 6.2831) * sqrt(hash(seed * 3.3)) * sp * (0.75 + 0.2 * scatter) * min(squeeze.x, squeeze.y);
+		vec2 jit = rot(vec2(1.0, 0.0), hash(seed * 7.1) * 6.2831) * sqrt(hash(seed * 3.3)) * sp * (0.75 + 0.2 * sct) * tight * min(squeeze.x, squeeze.y);
 		vec2 l1 = vec2(-((rk + 0.5) * spr), (c - half_c + mod(rk, 2.0) * 0.5) * sp);
 		vec2 l0 = vec2(-((rk0 + 0.5) * spr), (c0 - half_c + mod(rk0, 2.0) * 0.5) * sp);
 		vec2 lc = mix(l0, l1, move_k) * squeeze;
-		lc.x += sin(lc.y * 0.09 + row * 1.7 + clock * 0.35) * sp * 0.9;
-		lc.y += sin(lc.x * 0.11 + row * 2.3) * sp * 0.5;
+		lc.x += sin(lc.y * 0.09 + row * 1.7 + clock * 0.35) * sp * 0.9 * tight;
+		lc.y += sin(lc.x * 0.11 + row * 2.3) * sp * 0.5 * tight;
+		// 11/15 번쩍임 —— 정예부터 투구 · 창끝에 빛이 대열을 훑고 지나간다 (부대마다 박자가 다르다)
+		sheen = gr.a * pow(max(0.0, sin(clock * 1.5 + row * 1.9 - lc.y * 0.045 - lc.x * 0.03)), 10.0);
 		bool contact = t2.z > 0.5;
 		bool moving0 = t2.y > 0.5;
 		float loose = t5.x;
@@ -147,7 +158,7 @@ void vertex() {
 		vec2 nq = lc / (sp * 6.0) + vec2(row * 3.1, row * 7.7);
 		float n0 = vnoise(nq);
 		vec2 grad = vec2(vnoise(nq + vec2(0.3, 0.0)) - n0, vnoise(nq + vec2(0.0, 0.3)) - n0) / 0.3;
-		vec2 clump = -grad * sp * 2.0 * scatter * (moving0 ? 1.2 : 1.0) * (1.0 + 0.6 * loose);
+		vec2 clump = -grad * sp * 2.0 * sct * (moving0 ? 1.2 : 1.0) * (1.0 + 0.6 * loose);
 		// 발자국 밖으로는 조금만 (옆 부대와 겹쳐 보이지 않게) —— 가장자리는 아래 rag 가 들쭉날쭉하게 한다
 		vec2 q0 = lc + clump;
 		float hwf = (half_c + 0.75) * sp;
@@ -160,10 +171,10 @@ void vertex() {
 		float sidek = step(cols - 1.0, c + 0.5) + step(c, 0.5);
 		vec2 rag = vec2(-lastk * hash(seed * 43.7) * spr * 1.1, (c < 0.5 ? -1.0 : 1.0) * sidek * hash(seed * 47.3) * sp * (1.1 + 0.8 * loose));
 		rag.x += (1.0 - smoothstep(0.0, 1.0, rkf)) * (1.0 - smoothstep(0.0, 0.3, loose)) * step(0.5, hash(seed * 53.9)) * hash(seed * 57.1) * sp * 0.8;
-		vec2 p = front + fwd * (lc.x + clump.x + rag.x * scatter) + rgt * (lc.y + clump.y + rag.y * scatter) + jit;
+		vec2 p = front + fwd * (lc.x + clump.x + rag.x * sct) + rgt * (lc.y + clump.y + rag.y * sct) + jit;
 		bool fighting = contact && rk < 2.0;
 		float wt = clock * (fighting ? 1.3 : 0.5) + seed * 40.0;
-		float wamp = (fighting ? 1.1 + 1.4 * loose : (moving0 ? 0.6 : 0.5)) * mix(0.5, 1.0, min(squeeze.x, squeeze.y));
+		float wamp = (fighting ? 1.1 + 1.4 * loose : (moving0 ? 0.6 : 0.5) * tight) * mix(0.5, 1.0, min(squeeze.x, squeeze.y));
 		p += vec2(sin(wt * 1.7 + seed * 13.0) + 0.5 * sin(wt * 0.6 + seed * 3.0), cos(wt * 1.3 + seed * 29.0)) * sp * wamp;
 		if (moving0) p -= fwd * hash(seed * 15.3) * sp * 0.9 * (0.4 + rk / rows);
 		if (contact && rk < 3.0) p += fwd * sp * (1.0 - rk * 0.3) * (0.4 + loose * 1.2) * (0.6 + 0.8 * hash(seed * 21.1));
@@ -226,21 +237,22 @@ void vertex() {
 		if (fighting3) sp2.y -= abs(sin(clock * 5.0 + seed * 17.0)) * 1.6;        // 싸우는 병사는 들썩인다
 		float dep = 0.82 + 0.18 * clamp(sp2.y / max(vsize.y, 1.0), 0.0, 1.0);      // 화면 위(먼) 병사는 작게
 		h = fig * grow * t4.z * (0.92 + 0.16 * hash(seed * 8.3)) * dep;
-		h *= max(texelFetch(tag_tex, ivec2(0, int(row)), 0).g, 0.5);      // 병종 크기 (기병 크게)
-		h *= max(texelFetch(tag_tex, ivec2(0, int(row)), 0).b, 1.0);      // 11/12 등급 배율 —— 높은 등급은 인형을 덜 그리는 대신 크게
+		h *= max(tg0.g, 0.5);      // 병종 크기 (기병 크게)
+		h *= max(tg0.b, 0.5);      // 11/12 등급 배율 —— 높은 등급은 인형을 덜 그리는 대신 크게 (11/15 잡병은 조금 작게)
 		if (fighting3 && hash(seed * 51.7 + floor(clock * 0.8 + seed * 3.0)) < 0.18) flip = -flip;      // 난전에선 가끔 옆 · 뒤를 돌아본다
-		if (!contact && !moving0 && hash(seed * 61.3) < 0.07 * scatter) flip = -flip;                 // 서 있을 땐 몇이 딴 데를 본다
+		if (!contact && !moving0 && hash(seed * 61.3) < 0.07 * sct) flip = -flip;                 // 서 있을 땐 몇이 딴 데를 본다
 		rotz = (camp > 0.5 ? 0.45 : -0.45) * sk + (moving ? sin(walk * 0.9) * 0.08 : 0.0) + hurt * (camp > 0.5 ? -0.5 : 0.5);      // 내지르면 앞으로, 걸으면 좌우로, 맞으면 뒤로 젖힌다
 	}
 	vec2 lv = rot(VERTEX * vec2(h * flip, -h), rotz);      // 11/12 QuadMesh 는 2D 에서 위아래가 뒤집힌다 (인형이 물구나무였다) —— -h 로 바로 세운다
 	VERTEX = hide ? vec2(-99999.0) : sp2 + lv + vec2(0.0, -h * 0.5);
 	vec3 team = camp > 0.5 ? team_b : team_a;
 	if (mod(t3.z, 2.0) >= 1.0) team = mix(team, vec3(0.48, 0.29, 0.16), 0.35);      // 파갑 —— 녹슨 빛
+	team = mix(team, vec3(0.46, 0.41, 0.34), 0.55 * gr.g);      // 11/15 잡병 —— 바랜 옷 (Type2View.DRAB_COL)
 	team = mix(vec3(dot(team, vec3(0.3, 0.59, 0.11))), team, 1.0 + 0.3 * dark) * (1.0 - 0.2 * dark);      // 많이 줄였을수록 진영색을 짙게 (채도 +30% · 밝기 -20% 까지)
 	float row_shade = 1.0 - 0.06 * mod(row, 3.0);
-	float man_shade = 1.0 - (0.16 * hash(seed * 9.9) - 0.08) * scatter;      // 병사마다 옷 밝기 (무리가 한 덩어리로 보이지 않게)
+	float man_shade = 1.0 - (0.16 * hash(seed * 9.9) - 0.08) * scatter * (1.0 + 2.0 * gr.g);      // 바랜 옷일수록 제각각      // 병사마다 옷 밝기 (무리가 한 덩어리로 보이지 않게)
 	tint = vec4(team * row_shade * man_shade * shade, (dying ? 1.0 : t2.w) * alpha);
-	vec4 tg0 = texelFetch(tag_tex, ivec2(0, int(row)), 0);
+	steel = gr.b;
 	atlas_x = tg0.r;
 	deco = tg0.a;
 	acc_c = texelFetch(tag_tex, ivec2(1, int(row)), 0).rgb;
@@ -252,6 +264,13 @@ void fragment() {
 	vec2 uv = vec2(UV.x / 9.0 + atlas_x, UV.y);
 	vec4 t = texture(TEXTURE, uv);
 	vec4 c = t * tint;
+	if (t.a > 0.5 && (steel > 0.01 || sheen > 0.01)) {
+		// 11/15 정예 —— 머리 쪽 어두운 칸(투구)을 은빛으로, 번쩍임이 지나갈 때 윗몸이 밝아진다
+		float top = 1.0 - smoothstep(0.36, 0.46, UV.y);
+		float dk = 1.0 - smoothstep(0.38, 0.52, dot(t.rgb, vec3(0.333)));
+		c.rgb = mix(c.rgb, vec3(0.80, 0.85, 0.93) * (0.75 + 0.25 * tint.a), top * dk * steel * 0.9);
+		c.rgb += vec3(1.0, 0.95, 0.80) * sheen * (1.0 - smoothstep(0.3, 0.7, UV.y)) * 0.75;
+	}
 	if (deco > 0.5) {
 		// 11/12 고급 병사 —— 금(투구 · 띠 · 테두리 · 깃대) · 장식 색(깃털 · 깃발) · 둘레 발광. 진영색을 곱하지 않는다
 		vec3 d = texture(deco_tex, vec2(uv.x, (clamp(UV.y, 0.012, 0.988) + floor(deco + 0.5) - 1.0) * 0.5)).rgb;      // 두 줄 경계에서 옆 줄이 번지지 않게

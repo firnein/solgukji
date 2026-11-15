@@ -46,6 +46,8 @@ func _ready() -> void:
 		t2s.set("budget_on", args.budget != "0")
 	if args.has("tierfig"):
 		t2s.set("tier_fig", args.tierfig != "0")
+	if args.has("grade"):      # 11/15 병사 단계 표현 끔(--grade=0, 전후 비교)
+		t2s.set("grade_on", args.grade != "0")
 	if args.has("mobile"):
 		t2s.set("mobile_test", args.mobile != "0")
 	var gs: GameScreen = load("res://scenes/game.tscn").instantiate()
@@ -89,6 +91,11 @@ func _ready() -> void:
 		var tiers := {}
 		for sq: Squad in field.order:
 			tiers[sq.tier] = int(tiers.get(sq.tier, 0)) + 1
+		var tr := {}      # 11/15 등급별 병력 범위 (병사 단계 문턱을 데이터로 정하려고)
+		for sq: Squad in field.order:
+			var c: Array = tr.get(sq.tier, [INF, 0.0])
+			tr[sq.tier] = [minf(c[0], sq.max), maxf(c[1], sq.max)]
+		print("TROOPS|%s|%s" % [tag, str(tr)])
 		print("COUNT|%s|병사 %d|부대 %d|단계 %d|등급별 부대 %s" % [tag, men, field.order.size(), t2.load_lv, str(tiers)])
 		get_tree().quit()
 		return
