@@ -1220,7 +1220,7 @@ static func bot_side(pv: float, style: String, p_idx: int, r: RandomNumberGenera
 	var eb := DB.gen_board(pv, style, r)
 	var cards := DB.auto_place(eb.cards, eb.form)
 	return {"cards": cards, "form": eb.form, "morale": 100, "equip": bot_equip(cards, p_idx, r), "tac": recommend_tac(cards)[0],
-		"plan": bot_plan_load(cards, p_idx, DB.mix_seed(p_idx, int(pv), 17))}
+		"plan": bot_plan_load(cards, p_idx, DB.mix_seed(p_idx, int(pv), 17), DB.mix_seed(int(pv), 0, 19))}
 
 
 ## 봇의 표준 PV (대전 전투 기준) —— 봇 전력 × BOT_PV_MUL, 첫 페이즈만 바닥(BOT_OPEN_PV)
@@ -1257,7 +1257,7 @@ static func bot_side_of(b: Dictionary, base: int, p_idx: int, extra := 1.0) -> D
 	var er := RandomNumberGenerator.new()
 	er.seed = DB.mix_seed(sd, p_idx, 7)
 	return {"cards": cards, "form": DB.STYLE_FORM[style], "morale": 100, "equip": bot_equip(cards, p_idx, er), "tac": recommend_tac(cards)[0],
-		"plan": bot_plan_load(cards, p_idx, DB.mix_seed(sd, p_idx, 13))}      # 11/15 군략 —— (봇 · 페이즈)마다 정해진 씨앗
+		"plan": bot_plan_load(cards, p_idx, DB.mix_seed(sd, p_idx, 13), DB.mix_seed(sd, 0, 19))}      # 11/15 군략 —— 손패는 봇마다 한 씨앗(날이 갈수록 같은 순서로 는다) · 계획은 (봇 · 페이즈) 씨앗
 
 
 ## 높은 등급 장수부터 (보급 수 + 2)명까지, 그 때의 보급 등급표로 병종이 맞는 장비를 끼운다.
@@ -1409,7 +1409,7 @@ func start_quest() -> Dictionary:
 	else:
 		var styles := ["물리", "지략", "균형"]
 		foe = _bot_side(pv, styles[rng.randi() % 3])
-	foe["plan"] = {"p": quest_plan()} if tac_on else {}      # 11/15 토벌 우두머리의 그날 고정 계획 (전투 탭에 미리 보인다)
+	foe["plan"] = quest_load() if tac_on else {}      # 11/15 토벌 우두머리의 그날 고정 계획 (전투 탭에 미리 보인다)
 	if not DB.quest_trait(td()).is_empty(): foe["trait"] = DB.quest_trait(td())      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
 	if quest_hard:      # 11/12 험지 토벌 —— 적 병력 · 사기 배율
 		foe["tr_mul"] = float(foe.get("tr_mul", 1.0)) * QUEST_HARD_TR
@@ -2434,22 +2434,27 @@ func tac_load() -> Dictionary:
 	return Tac.payload(tk_plan, tk_hand, tk_perm) if tac_on else {}
 
 
-## 봇 계획 —— 정해진 씨앗으로 (같은 봇 · 페이즈면 같다)
-static func bot_plan_load(cards: Array, p_idx: int, sd: int) -> Dictionary:
+## 봇 계획 —— 손패는 사람과 같은 규칙(기본 3장 + 지난 날 수만큼 3택1, 씨앗 hsd), 계획은 씨앗 sd (같은 봇 · 페이즈면 같다)
+static func bot_plan_load(cards: Array, p_idx: int, sd: int, hsd: int) -> Dictionary:
 	if not tac_on:
 		return {}
 	var r := RandomNumberGenerator.new()
 	r.seed = sd
-	return {"p": Tac.bot_plan(cards, Tac.bot_pool(p_idx), r)}
+	return Tac.hand_load(cards, Tac.sim_hand(cards, p_idx / 3, hsd), r)
 
 
 ## 오늘 토벌 우두머리의 계획 —— 그날 · 페이즈로 정해진다 (전투 탭에 미리 보인다 —— 받아치는 퍼즐)
 func quest_plan() -> Array:
+	return quest_load().p
+
+
+## 우두머리 짐 —— 손패는 사람과 같은 규칙(지난 날 수만큼 3택1, 그날 씨앗), 계획은 그날 · 페이즈 고정
+func quest_load() -> Dictionary:
 	var q = quest_roster()
 	var cards: Array = q.cards if q != null else []
 	var r := RandomNumberGenerator.new()
 	r.seed = DB.mix_seed(day + 101, phase, 23)
-	return Tac.bot_plan(cards, Tac.bot_pool(phase_idx()), r)
+	return Tac.hand_load(cards, Tac.sim_hand(cards, day, DB.mix_seed(day + 101, 0, 19)), r)
 
 
 ## i 칸(0 ~ 2)에 카드를 놓는다 —— 빈 글이면 비운다. 규칙에 어긋나면 까닭 알림

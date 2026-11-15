@@ -222,7 +222,31 @@ static func empty_load(pl) -> bool:
 	return (pl.get("own", []) as Array).is_empty() and (pl.get("perm", []) as Array).is_empty()
 
 
-## 봇 · 토벌 적이 쓸 수 있는 카드 —— 페이즈 번호(p_idx)가 오를수록 높은 등급까지 (사람이 하루 한 장씩 느는 것과 비슷하게)
+## 11/15 지휘: 봇 · 토벌 우두머리 손패는 사람과 같은 규칙 —— 기본 3장 + 지난 날 수만큼 3택1(같은 offer, 정해진 씨앗)에서
+## 군략 한 장씩(제시된 첫 군략 —— 경제 카드는 고르지 않는다). 그 손패 안에서만 계획을 짠다
+static func sim_hand(cards: Array, days: int, sd: int) -> Dictionary:
+	data()
+	var hand := {}
+	for id in RULE.start:
+		hand[str(id)] = 1
+	var r := RandomNumberGenerator.new()
+	r.seed = sd
+	for d in maxi(0, days):
+		for id in offer(cards, hand, 2, r):
+			if str(card(id).get("kind", "")) == "plan" or str(card(id).get("kind", "")) == "passive":
+				hand[id] = int(hand.get(id, 0)) + 1
+				break
+	return hand
+
+
+## 손패 짐 —— 계획(쏠림 가중 + 30% 무작위) + 늘 켜지는 카드
+static func hand_load(cards: Array, hand: Dictionary, r: RandomNumberGenerator) -> Dictionary:
+	var own := hand.keys().filter(func(id): return str(card(id).get("kind", "")) == "passive")
+	own.sort()
+	return {"p": bot_plan(cards, hand.keys(), r, hand), "own": own, "perm": []}
+
+
+## (옛) 봇 · 토벌 적이 쓸 수 있는 카드 —— 11/15 지휘로 sim_hand 를 쓴다. 점검용으로만 남김 —— 페이즈 번호(p_idx)가 오를수록 높은 등급까지 (사람이 하루 한 장씩 느는 것과 비슷하게)
 static func bot_pool(p_idx: int) -> Array:
 	data()
 	var top := 0 if p_idx < 2 else (1 if p_idx < 7 else (2 if p_idx < 13 else 3))

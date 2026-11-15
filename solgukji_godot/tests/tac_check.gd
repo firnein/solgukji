@@ -157,6 +157,12 @@ func _run_flow() -> void:
 	_ok(not run.set_plan(1, "화공"), "없는 카드 놓기 거절")
 	_ok(run.quest_plan().size() == 3, "우두머리 계획")
 	_ok(run.quest_plan() == run.quest_plan(), "우두머리 계획이 그날 고정")
+	var bc: Array = ["spear", "horse", "bow"]      # 봇 손패 —— 사람과 같은 규칙 (첫날은 기본 3장뿐, 날마다 한 장)
+	var h0 := Tac.sim_hand(bc, 0, 9)
+	var h4 := Tac.sim_hand(bc, 4, 9)
+	_ok(h0.size() == 3 and h4.size() == 7, "봇 손패 3 → 4일 뒤 7 (%d · %d)" % [h0.size(), h4.size()])
+	var bp := Run.bot_plan_load(bc, 0, 5, 9)
+	_ok((bp.p as Array).all(func(id): return id == "" or h0.has(id)), "첫날 봇 계획은 기본 카드만")
 	for i in 3:
 		run.quest_done = true
 		run.pvp_done = true
