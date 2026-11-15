@@ -6,7 +6,7 @@ extends RefCounted
 const INK := Color("#0a0e18")
 
 
-## kind —— "card" 조합 · 도감용 (인물 전체) · "face" 전투용 (얼굴 확대) · "ult" 고유기용 (신화 그림, 없으면 얼굴) —— 10/30 사용자: 셋을 나눈다
+## kind —— "card" 조합 · 도감용 (인물 전체) · "face" 전투용 (얼굴 확대) · "ult" 고유기용 (그 카드 등급의 그림, 없으면 얼굴) —— 10/30 사용자: 셋을 나눈다
 static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind := "card") -> void:
 	# 넓이가 없거나(접히는 중인 칸) 화면에서 아주 먼 곳(달아난 부대의 머리표)은 그리지 않는다 —— 좌표가 크면 다각형 분할이 실패한다
 	if r.size.x < 1.0 or r.size.y < 1.0 or absf(r.position.x) > 6000.0 or absf(r.position.y) > 6000.0:
@@ -21,8 +21,8 @@ static func draw_portrait(ci: CanvasItem, r: Rect2, k: String, t := 0.0, kind :=
 	ci.draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
 		PackedColorArray([top, top.lerp(bot, 0.3), bot, bot]))
 	# 실제 그림 —— 배경이 투명한 그림도 세력색 바탕 위에 얹힌다 (10/30 뒤에 깔던 등급색 원은 뺐다)
-	if kind == "ult" and DB.myth_art(k):
-		_draw_cover(ci, r, DB.myth_art(k))
+	if kind == "ult" and DB.ult_art(k):      # 11/15 그 카드 등급의 그림 (예전엔 등급과 관계없이 신화 그림 —— 불멸 고유기에 신화 일러가 나왔다)
+		_draw_cover(ci, r, DB.ult_art(k))
 		return
 	var ft := DB.face_tex(k) if kind != "card" else null      # 전용 얼굴 메달이 있으면 그것을 통째로
 	if ft:

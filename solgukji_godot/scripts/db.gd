@@ -733,10 +733,26 @@ func myth_art(k: String) -> Texture2D:
 
 
 ## 전투용 원형 얼굴 썸네일 (11/3) —— assets/faces/<인물>.png 가 있으면 (prompts/얼굴썸네일 로 그린 메달). 없으면 null
+## 11/15 사용자 "메달 이미지 해당 등급의 이미지를 얼굴 자르는 방식으로": 등급 그림(<인물>_기인 · _초월 · _불멸 · _신화)을 쓰는 카드는 그 그림에서 자른
+## 얼굴 메달 assets/faces/<인물>_<등급>.png (tools/scripts/tier_faces.py) 을 먼저 쓴다. 없으면 기본 메달 <인물>.png
 func face_tex(k: String) -> Texture2D:
 	if C[k].tier <= 2 or C[k].kind == "foe":
 		return null
+	var art := portrait_base(k).get_file()
+	if art.contains("_"):
+		var ft := _load_portrait("res://assets/faces/%s" % art)
+		if ft != null:
+			return ft
 	return _load_portrait("res://assets/faces/%s" % person(k))
+
+
+## 고유기 컷인 그림 (11/15 사용자 "불멸 고유기에 신화 일러가 나오지 않도록") —— 그 카드가 쓰는 등급 그림 그대로 (불멸 → _불멸 · 초월 → _초월 · 신화 → _신화).
+## 예전엔 등급과 관계없이 그 인물의 신화 그림(myth_art)을 썼다. 큰 등급 그림이 없는 카드(기본 · 기인 그림)는 null —— 그리는 쪽에서 얼굴 메달을 쓴다
+func ult_art(k: String) -> Texture2D:
+	var art := portrait_base(k).get_file()
+	if art.ends_with("_신화") or art.ends_with("_불멸") or art.ends_with("_초월"):
+		return portrait(k)
+	return null
 
 
 func portrait(k: String) -> Texture2D:
