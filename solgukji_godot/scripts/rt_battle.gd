@@ -208,6 +208,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			if u.atb != atb_cap or probe_on:      # 11/15 성능: 이미 가득 찬 준비는 더해도 그대로다 —— 행동 간격(eff)을 재지 않는다
 				u.atb = minf(atb_cap, u.atb + TICK / _interval(u))
 			if u.atb >= 1.0 and not _ready_to_hit(u):
+				_idle_gauge(u, TICK)
 				var wk := "wait_r" if _ranged(u) else "wait_m"      # 점검용 —— 준비가 다 찼는데 닿는 적이 없어 노는 시간
 				stats[wk] = stats.get(wk, 0.0) + TICK
 				if not _ranged(u) and u.tgt != null:
@@ -262,6 +263,18 @@ func _interval(u: Unit) -> float:
 	return period / clampf(0.75 + 0.25 * s * (float(u.c.spd) / 75.0), 0.8, 1.25) / fl * (tac.int_mul(u) if tac != null else 1.0)      # 11/15 군략 공격 간격 (노궁 연사 · 제갈연노)
 
 
+## 사거리 때문에 차례를 못 쓰는 동안에도 기본 충전은 흐른다.
+## 실제 행동의 충전량은 그대로 두고, 놓친 시간의 몫만 보충한다.
+func _idle_gauge(u: Unit, dt: float) -> void:
+	if not u.alive or u.ult == null or u.charges <= 0 or u.gauge >= 100.0 or _wind.has(u) or has_st(u, "confuse"):
+		return
+	var before := u.gauge
+	_gauge_add(u, GAUGE_ACT / gauge_div() * _tw(u, "act") * dt / _interval(u))
+	stats["idle_gauge"] = float(stats.get("idle_gauge", 0.0)) + u.gauge - before
+	if u.gauge >= 100.0 and u.ult_ready_t < 0.0:
+		u.ult_ready_t = _tm
+
+
 ## 유닛을 만들 때 바로 진형 자리에 세운다 —— 전투 시작 효과(위진 · 철옹성 · 수공 …)도 거리로 판정하므로
 func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, slot: int, item, syn: Dictionary) -> Unit:
 	var u := super.mk_unit(cid, slot_info, camp, morale, slot, item, syn)
@@ -299,6 +312,7 @@ static var ult_side_sec := 2.3      # 11/6 밸런스: 같은 진영 고유기 �
 static var wind_max := 2            # 11/11 기 충전 수정 2: 한 진영이 동시에 기를 모을 수 있는 수 1 → 2
 var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
+var _target_preview := false
 
 
 ## 11/4 사용자: 고유기 대기 시간은 장수마다 (DB.ult_of 가 고유기 세기로 정한 wait 초 —— 센 고유기일수록 늦게). 그 전에는 쓰지 않는다
@@ -351,12 +365,25 @@ func _foe_low_in_reach(u: Unit, foes: Array) -> bool:
 
 
 func _ult_reach_n(u: Unit, foes: Array) -> int:
-	var reach: float = (cast_range if is_caster(u.c) else melee_gap + 90.0) + 40.0      # 발자국 틈 기준
-	var n := 0
-	for f in foes:
-		if f.alive and _gap(u, f) <= reach:
-			n += 1
-	return n
+	if u.ult == null:
+		return 0
+	# 고유기는 평타 사거리 제한이 없다. 실제 고유기와 동일한 대상 계산으로 판단한다.
+	# 판단만 하면서 과거 사건의 area를 수정하지 않도록 _mark도 막는다.
+	var previous_ult := _in_ult
+	var previous_preview := _target_preview
+	_in_ult = true
+	_target_preview = true
+	var targets := {}
+	var allies := units.filter(func(o): return o.alive and o.camp == u.camp)
+	for comp in u.ult.eff:
+		if comp.t not in ["hit", "foe"] or not comp.has("tgt"):
+			continue
+		for target in resolve_targets(str(comp.tgt), foes, u, allies):
+			if target.alive and target.camp != u.camp:
+				targets[target.key] = true
+	_in_ult = previous_ult
+	_target_preview = previous_preview
+	return targets.size()
 
 
 func _interrupt_ult(u: Unit) -> void:
@@ -1393,6 +1420,8 @@ func _ult_area(me: Unit, main: Unit, live: Array) -> Array:
 ## 기본 공격 —— 예전 규칙(궁병 · 도적 · 책략 유닛은 후열을 노린다)을 사거리 안에서: 닿는 적 가운데 적진 가장 깊은 적
 ## 범위 기록 —— 방금 펼친 기술 · 고유기 사건에 덮은 곳을 적는다 (화면이 땅에 미리 그린다)
 func _mark(me: Unit, shape: Dictionary) -> void:
+	if _target_preview:
+		return
 	for i in range(ev.size() - 1, maxi(-1, ev.size() - 40), -1):
 		var e: Dictionary = ev[i]
 		if (e.get("fx") == "skill" or e.get("fx") == "ult") and e.get("a") == me.key:

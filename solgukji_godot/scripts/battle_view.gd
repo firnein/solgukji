@@ -1888,7 +1888,7 @@ func _apply(i: int, quiet := false) -> void:
 			field.heal_fx(f)
 		"rout":
 			var u: int = idx_of[f]
-			if str(e.get("t", "")).contains(MORALE_ROUT_TXT) and field.squads.has(f):      # 11/11 사기 때문에 무너졌다 —— 큰 글 (battle.gd rout 사유 "사기 N에서 끝내 패주했다")
+			if (e.get("rout_cause", "") in ["morale", "mixed"] or str(e.get("t", "")).contains(MORALE_ROUT_TXT)) and field.squads.has(f):
 				hud.morale_rout(str(e.t).get_slice("의 군세가 ", 0), field.squads[f].camp)
 			if smooth and cur[u][0] <= 0 and shown[u][0] > 0.5:
 				# 병력이 다해 무너진다 —— 남은 병사가 0.9초에 걸쳐 다 쓰러진 뒤 무너뜨린다

@@ -7,7 +7,7 @@ extends PanelContainer
 ##   표 높이는 두 진영 중 긴 쪽에 맞추되 max_h(보여 주는 쪽이 화면에 맞춰 준다)를 넘지 않는다 —— 탭을 바꿔도 표 · 버튼이 움직이지 않게.
 ##   긴 이름('동오덕왕 엄백호')은 … 으로 줄이고, 수치는 막대 오른쪽 제 칸에 (11/14 감사 #9 —— 막대 위에 겹쳐 읽기 어려웠다).
 
-const ROW_H := 40.0
+const ROW_H := 58.0       # 마지막 줄: 생존/패주 원인 · 잔존 병력 · 사기
 const ROW_SEP := 4.0
 const LINE_H := 24.0      # 덱 요약 · 덱 연쇄 한 줄 (어림)
 
@@ -83,6 +83,7 @@ func _fill() -> void:
 		camp = k
 		_fill())
 	_tabs.replace_by(nt)
+	_tabs.queue_free()
 	_tabs = nt
 	_scroll.scroll_vertical = 0      # 탭을 바꾸면 맨 위부터
 	for c in _body.get_children():
@@ -157,18 +158,29 @@ func _rows(cp: String) -> Array:
 	var final: Array = res.ev[res.ev.size() - 1].s
 	var sk := {}
 	var ul := {}
+	var exits := {}
 	for e in res.ev:
 		var fx = e.get("fx")
 		if fx == "skill":
 			sk[e.a] = sk.get(e.a, 0) + 1
 		elif fx == "ult":
 			ul[e.a] = ul.get(e.a, 0) + 1
+		elif fx == "rout":
+			exits[str(e.f)] = e
 	var out := []
 	for i in res.roster.size():
 		var u: Dictionary = res.roster[i]
 		if u.camp != cp:
 			continue
+		var exit: Dictionary = exits.get(str(u.key), {})
+		var cause := str(exit.get("rout_cause", ""))
+		if cause == "" and not exit.is_empty():      # 이전 버전의 재생 결과도 읽는다
+			var text := str(exit.get("t", ""))
+			cause = "morale" if text.contains("끝내 패주") else ("annihilated" if text.contains("병력이 다해") else ("troops" if text.contains("병력이 꺾여") else "effect"))
 		out.append({"id": u.id, "name": u.name, "tier": u.tier, "tag": u.tag,
+			"rout_cause": cause, "remaining": float(exit.get("troop_ratio", float(final[i][0]) / maxf(1.0, float(u.max)))),
+			"morale": float(exit.get("morale", final[i][1])), "gauge": int(final[i][4]) if final[i].size() > 4 else 0,
+			"has_ult": DB.ult_of(str(u.id)) != null,
 			"dmg": float(u.get("dmg", 0)), "dot": float(u.get("dot", 0)), "taken": float(u.taken) if u.has("taken") else maxf(0.0, u.max - final[i][0]), "heal": float(u.get("heal", 0)),
 			"kills": int(u.get("kills", 0)), "gain": float(u.get("gain", 0)), "sk": sk.get(u.key, 0), "ult": ul.get(u.key, 0), "alive": final[i][2] == 1})
 	out.sort_custom(func(x, y): return x.dmg > y.dmg)
@@ -220,6 +232,14 @@ class Row extends Control:
 		if gain > 0.0:      # 11/9 역할 기여 —— 이 장수의 깎기로 아군이 더 넣은 피해 (엔진 기록 gain). 11/14: 셈 아래 제 줄로 (위에 겹쳤다)
 			var gt := UI.ellipsize(DB.font_body, "깎기 +" + Battle.num(gain), UI.FS_TINY, CNT_W)
 			draw_string(DB.font_body, Vector2(cx, 33), gt, HORIZONTAL_ALIGNMENT_RIGHT, CNT_W, UI.FS_TINY, Color("#d8c27a", a))
+		var labels := {"morale": "사기 패주", "troops": "병력 패주", "mixed": "사기·병력 패주", "annihilated": "병력 소진", "effect": "효과로 이탈"}
+		var status: String = "생존" if r.alive else str(labels.get(r.get("rout_cause", ""), "패주"))
+		status += " · 병력 %d%% · 사기 %d" % [roundi(float(r.remaining) * 100.0), maxi(0, roundi(float(r.morale)))]
+		if r.has_ult and r.ult == 0:
+			status += " · 고유기 미발동"
+		var col: Color = P.seal.lightened(0.35) if r.get("rout_cause", "") in ["morale", "mixed"] else P.text_dim
+		var status_fs := UI.fit_fs(DB.font_body, status, UI.FS_TINY, 9, size.x - 12.0)
+		draw_string(DB.font_body, Vector2(6, ROW_H - 6), status, HORIZONTAL_ALIGNMENT_LEFT, size.x - 12.0, status_fs, col)
 
 	## 막대 + 오른쪽 제 칸의 수치 (막대 색과 같은 계열)
 	func _bar(p: Vector2, w: float, f: float, col: Color, txt: String) -> void:

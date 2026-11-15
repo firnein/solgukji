@@ -116,6 +116,8 @@ static var moved_cd := 4
 const GAUGE_ACT := 30.0       # 제 차례마다 —— 11/9 56 으로 올렸다가 되돌림: 공통 시간 몫을 키우니 토벌(적 우두머리 · 잡병)도 고유기를 너무 써 사용자 덱 토벌 승률이 0% 로 무너졌다. 발동률 차이는 기질 가중치(act · wait)로만 맞춘다
 const GAUGE_HIT := 80.0       # 병력을 잃은 비율 × 이만큼
 const GAUGE_DEAL := 6.0       # 때릴 때마다
+## 교란은 실제 잃은 병력 1%당 사기 2를 넘지 않는다. 막아 낸 잔타로 사기만 붕괴하는 문제 방지.
+const JOLT_PER_HP_PERCENT := 2.0
 ## 11/7 고유기 기질(temper) —— 사용자: 발동 조건을 단순 시간 대기만이 아니라 장수별로. 장수마다 기질 하나 (data/ultimates.json "temper", 없으면 temper_of 규칙):
 ##   맹장 = 때릴 때 차고 적을 무너뜨리면 더, 맞닿은 적이 있을 때 쓴다 · 수호 = 맞을 때 · 아군이 잃을 때 차고 아군이 다쳤을 때 쓴다
 ##   지략 = 차례마다 꾸준히 + 상태이상을 걸 때, 맞힐 적이 둘 이상일 때 · 저격 = 때릴 때 · 적을 무너뜨릴 때, 병력 60% 아래 적이 사거리 안일 때
@@ -1162,7 +1164,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	_soak(a, d)
 	_wash(a)
 	_tac_hit(a, d, true)
-	_after_hit(a, d)
+	_after_hit(a, d, loss)
 	_cleave(a, d, mult, true)
 	if not no_counter and d.alive:
 		var stance = null
@@ -1976,10 +1978,15 @@ func _most_hurt(cp: String):
 
 
 ## 맞힌 뒤 (물리 · 책략 공통) —— 교란(즉발 사기 -) · 위무(즉발 아군 치료)
-func _after_hit(a: Unit, d: Unit) -> void:
+func _after_hit(a: Unit, d: Unit, loss: float) -> void:
 	if scheme_enabled and d.alive and mv(a, "jolt") > 0:
-		d.morale -= mv(a, "jolt")
-		stats.jolts += mv(a, "jolt")
+		var jolt := minf(mv(a, "jolt") * pace, maxf(0.0, loss) / maxf(1.0, d.max) * 100.0 * JOLT_PER_HP_PERCENT)
+		jolt *= morale_guard(a, d) * clampf(1.0 - mv(d, "mshield"), 0.0, 1.0)
+		d.morale -= jolt
+		a.mdmg += jolt
+		stats.jolts += jolt
+		if jolt >= 0.5:
+			L("mo", "교란 — %s 사기 %.1f 감소" % [nm(d), jolt], {"fx": "morale", "a": a.key, "f": d.key, "m": jolt, "cause": "jolt"})
 	if virtue_enabled and mv(a, "cheer_hit") > 0:
 		var t = _most_hurt(a.camp)
 		if t:
@@ -2392,7 +2399,7 @@ func _paeup_revive(u: Unit) -> bool:
 	return true
 
 
-func rout(u: Unit, why: String) -> void:
+func rout(u: Unit, why: String, cause := "effect") -> void:
 	if not u.alive: return
 	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
 	if ht and ht != u and int(_kiin_used.get("revive:" + u.camp, 0)) < 2:
@@ -2446,7 +2453,8 @@ func rout(u: Unit, why: String) -> void:
 		for o in units:
 			if o.alive and o.camp == lh.camp:
 				_rally(o, mv(lh, "rally_kill"), "함성")
-	L("rt", "%s의 군세가 %s" % [nm(u), why], {"fx": "rout", "f": u.key})
+	L("rt", "%s의 군세가 %s" % [nm(u), why], {"fx": "rout", "f": u.key,
+		"rout_cause": cause, "morale": u.morale, "troop_ratio": clampf(u.troops / u.max, 0.0, 1.0)})
 
 
 ## 총붕괴 · 결전 판정 (정산마다) —— 전투 끝을 당긴다 (위 상수 설명)
@@ -2491,7 +2499,7 @@ func _check_collapse(frac: float) -> void:
 
 func check_rout() -> void:
 	for o in units:
-		if o.alive and o.troops <= 0: rout(o, "병력이 다해 무너졌다")
+		if o.alive and o.troops <= 0: rout(o, "병력이 다해 무너졌다", "annihilated")
 	if not _chase_q.is_empty():
 		_do_chase()
 		check_rout()
@@ -2781,10 +2789,12 @@ func _settle(frac: float, final: bool) -> String:
 		if _collapsed[u.camp] and u.c.tier < COLLAPSE_HOLD_TIER: p *= COLLAPSE_ROUT
 		p = 1.0 - pow(1.0 - minf(p, 1.0), frac / turn_mul)     # 턴이 늘어난 만큼 · 나눠 부른 몫만큼 —— 전투 전체로 보면 같은 빈도
 		if rng.randf() < p:
-			if pm >= pt:
-				rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)))
+			if pm > 0.0 and pt > 0.0:
+				rout(u, "사기와 병력이 꺾여 패주했다 (사기 %d · 병력 %d%%)" % [maxi(0, roundi(u.morale)), roundi(r * 100)], "mixed")
+			elif pm > 0.0:
+				rout(u, "사기 %d에서 끝내 패주했다" % maxi(0, roundi(u.morale)), "morale")
 			else:
-				rout(u, "병력이 꺾여 패주했다 (남은 병력 %d%%)" % roundi(r * 100))
+				rout(u, "병력이 꺾여 패주했다 (남은 병력 %d%%)" % roundi(r * 100), "troops")
 	var aA := live_count("A")
 	var bA := live_count("B")
 	if aA == 0 and bA == 0: return "draw"
@@ -3454,7 +3464,7 @@ static func temper_name(c: Dictionary, ult: Dictionary) -> String:
 const TEMPER_DESC := {
 	"맹장": "때릴수록 기가 빨리 찬다. 적과 맞닿으면 쓴다",
 	"수호": "맞거나 아군이 다칠수록 기가 찬다. 아군이 다쳤을 때 쓴다",
-	"지략": "차례마다 꾸준히, 상태이상을 걸면 더 찬다. 맞힐 적이 둘 넘으면 쓴다",
+	"지략": "행동 대기 중에도 꾸준히 충전. 상태이상을 걸면 더 찬다. 고유기로 맞힐 적이 둘 이상이면 쓴다",
 	"저격": "때리고 적을 무너뜨릴수록 기가 찬다. 약해진 적이 사거리 안이면 쓴다",
 	"분노": "맞거나 아군이 무너질수록 기가 빨리 찬다. 아군이 무너지거나 병력 70% 아래면 쓴다",
 }
