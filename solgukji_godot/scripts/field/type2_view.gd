@@ -25,6 +25,7 @@ const CLONE_GRID := [Vector2(0, 0), Vector2(0.5, 0.5), Vector2(-0.5, 0.5), Vecto
 const FORM_SHAPE := {"창병": 0.9, "기병": 1.05, "궁병": 1.25, "도적": 1.1, "책사": 1.15, "유생": 1.15, "술사": 1.15, "모사": 1.15}
 const TEAM_A := Color("#4a8ae8")      # 11/6 묶음 인형은 작아서 색이 탁해진다 —— 밝게
 const TEAM_B := Color("#ec4f3c")
+const DRAB_COL := Color(0.46, 0.41, 0.34)      # 11/15 잡병의 바랜 옷 (진영색에 섞는다 —— 셰이더 type2_gpu 의 drab 과 같은 빛)
 
 const BasicFx := preload("res://scripts/field/basic_fx.gd")
 static var basic_fx := true    # 11/11 기본 행동 연출 (scripts/field/basic_fx.gd) —— 끄면 예전 화살 · 부적 점만 (점검 · 전후 비교용)
@@ -64,9 +65,14 @@ func _ready() -> void:
 func setup() -> void:
 	_camp_cache.clear()
 	super.setup()
+	_grade.clear()
 	for sq: Squad in field.order:
+		_grade[sq.key] = grade_of(sq)
 		var base := TEAM_A if sq.camp == "A" else TEAM_B
 		_col[sq.key] = base.lightened(0.06 * (int(sq.row.slot) % 3)) if sq.tier < 6 else base.lerp(DB.TIER[sq.tier].c, 0.25)
+		var drab := float(GRADE[_g(sq)][G_DRAB]) if grade_on else 0.0      # 11/15 낮은 단계 —— 날아가는 병사도 바랜 옷 (셰이더와 같은 빛)
+		if drab > 0.0:
+			_col[sq.key] = _col[sq.key].lerp(DRAB_COL, 0.55 * drab)
 	var ys := 0.0
 	for sq: Squad in field.order:
 		ys += sq.pos.y
@@ -153,28 +159,111 @@ static var mobile_test := false     # 점검용 (--mobile=1) —— PC 에서 �
 ## 11/12 후반 프레임 · 고급 병사 (사용자 "후반 전투 프레임이 떨어진다 · 병사 수를 줄이고 고급 병종처럼") —— 화면만:
 ##   등급이 높을수록 부대당 그리는 인형을 줄이고(TIER_KEEP, 예산 keep 에 곱한다) 남은 인형을 크게(TIER_GROW) · 장식한다(_deco).
 ##   안 그리는 병사는 GPU 인스턴스에서 아예 뺀다(_build_gpu) —— 정점 셰이더도 돌지 않는다. 계산 병사 · 병력 · 판정은 그대로
-const TIER_KEEP := {5: 0.8, 6: 0.6, 7: 0.45, 8: 0.38}
-const TIER_GROW := {5: 1.08, 6: 1.2, 7: 1.32, 8: 1.4}
+##   11/15 등급별 비율 · 배율(TIER_KEEP · TIER_GROW)은 병사 단계 표 GRADE 의 G_KEEP · G_GROW 칸으로 옮겼다 (값은 그대로, 잡병만 0.88 배로 작게)
 const GROW_CAP := 1.75         # 예산 grow × 등급 배율의 상한
 const DECO_ACCENT := {6: Color("#45c8f5"), 7: Color("#ff8a1c"), 8: Color("#e8323c")}     # 투구 깃털 · 등 깃발 천 (신화는 붉은 기에 금테)
 const DECO_GLOW := {6: Color("#45c8f5"), 7: Color("#ff9a2c"), 8: Color("#ffd23a")}       # 발밑 · 둘레 기운 (불멸 · 신화만)
 static var tier_fig := true    # 점검용 (--tierfig=0) —— 등급별 인형 줄이기 · 장식 끔 (전후 비교)
 
+## 11/15 병사 단계 (사용자 "병력이 n명 이상이거나 등급이 특정 등급 이상일 때 병종을 더 강하게 보이도록 —— 약한 등급의 병사들이 펑펑 날아가는 게 납득되도록")
+## 화면만 바꾼다 (판정 · 병력 · 난수와 무관). 문턱과 표현을 이 표 하나에 모았다 —— 숫자만 고치면 된다.
+##   단계 = 등급으로 정한 단계와 병력(전투 시작 병력 Squad.max)으로 정한 단계 중 높은 쪽. 다만 병력만으로는 등급 단계보다 한 단계까지만 오른다. 기인은 근위부터.
+##   문턱 근거(11/15 자동 진행 실측): 고급 900 · 희귀 2,100~2,950 · 전설 8,300~9,300 · 초월 26,500~43,800 · 불멸 37,000~53,000 · 신화 60,000 이상
+##   칸: 이름 · 등급 문턱 · 병력 문턱 · 그리는 비율(예전 TIER_KEEP) · 인형 배율(예전 TIER_GROW) · 장식 단계(0 없음 · 1 금 투구 · 띠 · 깃털 · 2 + 금테 · 등 깃발 · 둘레 빛)
+##       · 흐트러짐(1 보통 · 클수록 대열이 헝클어지고 작을수록 줄이 반듯) · 바랜 옷(0~1 누더기 빛) · 쇠 빛(은빛 투구 + 훑고 지나가는 번쩍임 0~1)
+##       · 군기 단계(0 낡은 삼각기 하나 · 1 삼각기 · 2 삼각기 둘 · 3 + 금테 대장기 · 4 + 긴 대장기와 꼬리 · 5 + 금 창끝과 꼬리 둘) · 발밑 기운(0~1)
+##       · 평타 무게(평타에도 적 병사가 튕겨 나가는 세기, 예전 불멸 0.5 · 신화 0.8)
+## 낮은 품질(Settings.quality 0)은 값싼 것만: 옷 빛 · 인형 크기 · 대열 흐트러짐 · 장식. 번쩍임 · 대장기 · 발밑 기운 · 단계 차 날리기는 뺀다 (_rich)
+const G_NAME := 0
+const G_TIER := 1
+const G_TROOPS := 2
+const G_KEEP := 3
+const G_GROW := 4
+const G_DECO := 5
+const G_LOOSE := 6
+const G_DRAB := 7
+const G_SHEEN := 8
+const G_FLAG := 9
+const G_AURA := 10
+const G_HIT := 11
+const GRADE := [
+	["잡병", 0, 0.0,     1.0,  0.88, 0, 1.6,  0.6, 0.0, 0, 0.0,  0.0],
+	["정병", 4, 2000.0,  1.0,  1.0,  0, 1.15, 0.2, 0.0, 1, 0.0,  0.0],
+	["정예", 5, 8000.0,  0.8,  1.08, 0, 0.75, 0.0, 0.7, 2, 0.0,  0.0],
+	["근위", 6, 25000.0, 0.6,  1.2,  1, 0.5,  0.0, 0.85, 3, 0.35, 0.0],
+	["철위", 7, 45000.0, 0.45, 1.32, 2, 0.35, 0.0, 1.0, 4, 0.7,  0.5],
+	["신병", 8, 60000.0, 0.38, 1.4,  2, 0.25, 0.0, 1.0, 5, 1.0,  0.8],
+]
+const KIIN_GRADE := 3          # 기인은 등급 · 병력과 상관없이 이 단계부터
+const HIT_PER_GRADE := 0.2     # 평타 날리기 —— 친 쪽이 한 단계 높을 때마다 더하는 세기
+const HIT_MIN := 0.4           # 이 세기부터 평타에도 병사가 튕겨 나간다 (단계 차 2 부터)
+const HIT_SKILL_MUL := 0.15    # 기술 · 고유기 날리기 —— 단계 차 하나마다 배율 (0.7~1.6 안에서)
+static var grade_on := true    # 점검용 (tests/grade_shot --grade=0) —— 끄면 11/12 표현(등급만 · 흐트러짐 · 바랜 옷 · 쇠 빛 · 대장기 · 기운 · 단계 차 날리기 없음)
 
-## 이 부대에서 그리는 병사 비율 (예산 × 등급)
+
+## 부대의 병사 단계 (GRADE 의 줄 번호) —— 등급 · 시작 병력으로. 전투 내내 같다
+static func grade_of(sq) -> int:
+	var gt := 0
+	var gn := 0
+	for i in GRADE.size():
+		if sq.tier >= int(GRADE[i][G_TIER]):
+			gt = i
+		if grade_on and float(sq.max) >= float(GRADE[i][G_TROOPS]):
+			gn = i
+	var g := maxi(gt, mini(gn, gt + 1))
+	if DB.C.has(sq.cid) and DB.is_kiin(sq.cid):
+		g = maxi(g, KIIN_GRADE)
+	return g
+
+
+## 값비싼 단계 표현(번쩍임 · 대장기 · 발밑 기운 · 단계 차 날리기)을 쓸까 —— 낮은 품질에서는 뺀다
+static func _rich() -> bool:
+	return grade_on and Settings.quality >= 1
+
+
+## 평타 날리기 세기 —— 친 부대의 평타 무게 + 단계 차. HIT_MIN 아래면 날리지 않는다(0)
+static func hit_power(a, d) -> float:
+	var ga := grade_of(a)
+	var p := float(GRADE[ga][G_HIT])
+	if _rich():
+		p += HIT_PER_GRADE * float(maxi(0, ga - grade_of(d)))
+	return p if p >= HIT_MIN else 0.0
+
+
+## 기술 · 고유기 날리기 배율 —— 높은 단계가 낮은 단계를 치면 더 멀리, 반대면 덜
+static func hit_skill_mul(a, d) -> float:
+	if not _rich():
+		return 1.0
+	return clampf(1.0 + HIT_SKILL_MUL * float(grade_of(a) - grade_of(d)), 0.7, 1.6)
+
+
+## 이 전투의 부대별 단계 (setup 이 한 번 정한다 —— 매 프레임 표를 훑지 않는다)
+var _grade := {}
+func _g(sq: Squad) -> int:
+	return _grade.get(sq.key, 0)
+
+
+## 이 부대에서 그리는 병사 비율 (예산 × 단계)
 func _keep_of(sq: Squad) -> float:
-	return draw_keep * (float(TIER_KEEP.get(sq.tier, 1.0)) if tier_fig else 1.0)
+	return draw_keep * (float(GRADE[_g(sq)][G_KEEP]) if tier_fig else 1.0)
 
 
-## 장식 단계 —— 0 평범(전설 이하) · 1 초월 · 기인(금 투구 · 금 띠 · 짧은 깃털) · 2 불멸 · 신화(+ 금 테두리 · 긴 깃털 · 등 깃발 · 둘레 발광)
+## 장식 단계 —— 0 평범(정예 이하) · 1 근위 · 기인(금 투구 · 금 띠 · 짧은 깃털) · 2 철위 · 신병(+ 금 테두리 · 긴 깃털 · 등 깃발 · 둘레 발광)
 func _deco(sq: Squad) -> int:
 	if not tier_fig:
 		return 0
-	if sq.tier >= 7:
-		return 2
-	if sq.tier == 6 or DB.is_kiin(sq.cid):
-		return 1
-	return 0
+	return int(GRADE[_g(sq)][G_DECO])
+
+
+## 장식 색(깃털 · 깃발 천) · 기운 색 —— 불멸 · 신화 · 초월은 정해 둔 색, 기인은 기인색, 병력으로 올라온 부대는 제 등급색
+func _accent_of(sq: Squad) -> Color:
+	if DECO_ACCENT.has(sq.tier):
+		return DECO_ACCENT[sq.tier]
+	return DB.KIIN_COL if DB.is_kiin(sq.cid) else DB.TIER.get(sq.tier, {}).get("c", Color.WHITE)
+
+
+func _glow_of(sq: Squad) -> Color:
+	return DECO_GLOW.get(sq.tier, _accent_of(sq))
 
 
 static func _mobile() -> bool:
@@ -508,6 +597,7 @@ func _draw_under(ci: CanvasItem) -> void:
 
 
 func _draw_under_inner(ci: CanvasItem) -> void:
+	var aura_on := _rich() and tier_fig
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone":
 			continue
@@ -531,6 +621,13 @@ func _draw_under_inner(ci: CanvasItem) -> void:
 			ci.draw_colored_polygon(pts, Color(team.lightened(hl * 0.5), 0.35 * hl * fade))
 			pts.append(pts[0])
 			ci.draw_polyline(pts, Color(team.lightened(0.85), hl * fade), 1.6 + 2.4 * hl)
+		# 11/15 병사 단계 —— 근위부터 발밑에 등급색 기운이 번진다 (테두리 없는 부드러운 빛 · 느리게 숨쉰다). 낮은 품질에서는 뺀다
+		if aura_on:
+			var au := float(GRADE[_g(sq)][G_AURA])
+			if au > 0.0:
+				var rad := maxf(ex.length(), ey.length()) * (3.2 + 0.6 * au)      # 병사 무리 밖으로 번져야 보인다
+				var breathe := 0.85 + 0.15 * sin(_t * 1.6 + float(sq.row.slot))
+				_spr_at(ci, "light_02", mc, rad, Color(_glow_of(sq), (0.14 + 0.26 * au) * breathe * fade))
 		# 전선 먼지 —— 맞붙은 자리에 흙먼지가 계속 인다 (11/6 보는 맛)
 		if load_lv == 0 and sq.contact and sq.engaged != null and is_instance_valid(sq.engaged):
 			var mid: Vector2 = sq.engaged.pos + sq.axis * sq.engaged.edge(sq.axis)
@@ -1203,24 +1300,74 @@ func _ell(ci: CanvasItem, c: Vector2, rad: float, col: Color, width := 0.0) -> v
 ## 1단계-4: 군기 —— 부대 뒤 가운데에 세력색 깃발(전설 이상 둘). 바람에 흔들리는 사인 파형. 11/6에 뺀 성씨 깃발 대신 글자 없이 작게
 func _draw_flags(ci: CanvasItem) -> void:
 	var zs := clampf(_scale, 0.6, 1.8)
+	var rich := _rich() and tier_fig
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone" or sq.state == "flee" or sq.tier <= 2:
 			continue
 		var team := TEAM_A if sq.camp == "A" else TEAM_B
 		var fac_c: Color = DB.fac_color(sq.row.fac) if "fac" in sq.row else team
-		var n := 2 if sq.tier >= 5 and load_lv < 3 else 1      # 부하 3단계부터 군기 하나씩 (그리기 호출을 줄인다)
+		# 11/15 병사 단계 —— 군기도 단계를 따른다 (GRADE 의 G_FLAG): 잡병은 낡고 짧은 삼각기 하나, 정예부터 둘, 근위부터 금테 대장기
+		var fg: int = int(GRADE[_g(sq)][G_FLAG]) if grade_on else (2 if sq.tier >= 5 else 1)
+		var n := 2 if fg >= 2 and load_lv < 3 else 1      # 부하 3단계부터 군기 하나씩 (그리기 호출을 줄인다)
+		var pcol: Color = fac_c.lerp(team, 0.45)
+		if fg == 0:
+			pcol = pcol.lerp(DRAB_COL, 0.55)
 		for j in n:
-			var at: Vector2 = sq.pos - sq.fwd * (sq.hd() + 6.0) + sq.right() * ((j - (n - 1) * 0.5) * 14.0)
+			var at: Vector2 = sq.pos - sq.fwd * (sq.hd() + 6.0) + sq.right() * ((j - (n - 1) * 0.5) * (14.0 if fg < 3 else 22.0))
 			var base := map(at)
-			var h := 26.0 * zs
+			var h := (18.0 if fg == 0 else 26.0) * zs
 			var top := base + Vector2(0, -h)
 			ci.draw_line(base, top, Color(0.25, 0.2, 0.15, 0.9), 1.5 * zs)
-			var w := 11.0 * zs
+			var w := (8.0 if fg == 0 else 11.0) * zs
 			var wave := sin(_t * 4.0 + sq.row.slot * 0.7 + j) * 2.5 * zs
 			var pts := PackedVector2Array([top, top + Vector2(w, 3.0 * zs + wave), top + Vector2(0, 9.0 * zs)])
-			ci.draw_colored_polygon(pts, Color(fac_c.lerp(team, 0.45), 0.95))
+			ci.draw_colored_polygon(pts, Color(pcol, 0.95))
 			if load_lv < 3:
 				ci.draw_polyline(pts + PackedVector2Array([top]), Color(0, 0, 0, 0.35), 1.0)
+		if fg >= 3 and rich:
+			_draw_standard(ci, sq, fg, zs)
+
+
+## 11/15 대장기 —— 근위(3) · 철위(4) · 신병(5) 부대의 장수 곁(메달 왼쪽 —— 메달 · 병력 표에 가리지 않는 자리)에 선다.
+## 세로로 긴 천(등급색) + 금테 + 단계 표시(금 네모 1 · 2 · 3개). 철위부터 더 크고 아래로 제비꼬리가 달리고, 신병은 금 창끝이 빛난다.
+## 부하 3단계부터는 천과 금테만 (그리기 호출을 줄인다)
+const STD_GOLD := Color("#ffd866")
+const STD_SIDE := 25.0         # 메달 가운데에서 깃대까지 (화면 px —— 메달 반지름 + 틈)
+func _draw_standard(ci: CanvasItem, sq: Squad, fg: int, zs0: float) -> void:
+	var zs := maxf(zs0, 0.9)      # 멀리서 봐도 읽히게 (근위 8 × 14 · 철위 10 × 18 · 신병 13 × 22px 안팎 —— 고등급이 뭉쳐도 전장을 덮지 않게 근위 · 철위는 작게)
+	var k := float(fg - 3)
+	var base := map(sq.pos) + Vector2(-STD_SIDE, 14.0)
+	var h := (36.0 + 7.0 * k) * zs
+	var w := (9.0 + 2.5 * k) * zs
+	var bh := (15.0 + 4.5 * k) * zs
+	var top := base + Vector2(0, -h)
+	var sway := sin(_t * 2.6 + float(sq.row.slot) * 1.3) * (1.6 + 0.5 * k) * zs
+	var col: Color = _accent_of(sq)
+	ci.draw_line(base, top, Color(0.2, 0.15, 0.1, 0.95), 2.0 * zs)
+	# 천 —— 깃대 위쪽에서 바깥(왼쪽)으로 걸린 세로기. 아래 끝이 바람에 흔들린다.
+	# 굵은 선으로 긋는다 (다각형은 그릴 때마다 삼각형으로 쪼개느라 비싸다 —— 부대마다 매번 그리는 것이라 선 · 사각형만 쓴다)
+	var cx := top.x - 1.0 * zs - w * 0.5
+	var a := Vector2(cx, top.y + 1.0 * zs)
+	var d := Vector2(cx + sway, top.y + 1.0 * zs + bh)
+	var e := 1.6 * zs
+	ci.draw_line(a + Vector2(0, -e), d + Vector2(0, e), STD_GOLD, w + e * 2.0)
+	ci.draw_line(a, d, col.darkened(0.12), w)
+	if load_lv >= 3:
+		return
+	# 단계 표시 —— 금 네모 (근위 1 · 철위 2 · 신병 3)
+	var pips := fg - 2
+	var r := 1.7 * zs
+	for i in pips:
+		var pc := a.lerp(d, (float(i) + 1.0) / (float(pips) + 1.0))
+		ci.draw_rect(Rect2(pc.x - r, pc.y - r, r * 2.0, r * 2.0), STD_GOLD)
+	if fg >= 4:      # 제비꼬리 —— 천 아래 두 갈래
+		var tl := (7.0 + 3.0 * k) * zs
+		var sw2 := sway * 0.8
+		ci.draw_line(d + Vector2(-w * 0.3, 0), d + Vector2(-w * 0.3 + sw2, tl), col, w * 0.34)
+		ci.draw_line(d + Vector2(w * 0.3, 0), d + Vector2(w * 0.3 + sw2, tl), col, w * 0.34)
+	if fg >= 5:      # 금 창끝 + 빛
+		ci.draw_rect(Rect2(top.x - 2.2 * zs, top.y - 4.4 * zs, 4.4 * zs, 4.4 * zs), STD_GOLD)
+		_spr_at(ci, "star_06", top + Vector2(0, -2.0 * zs), 16.0 * zs, Color(1.0, 0.9, 0.5, 0.55 + 0.25 * sin(_t * 3.0 + float(sq.row.slot))))
 
 
 func _draw_fx(ci: CanvasItem) -> void:
@@ -1701,16 +1848,22 @@ func _build_gpu() -> void:
 
 ## 부대 줄 -> 셰이더 표 (3칸): 0 = (인형 칸, 병종 크기, 등급 배율, 장식 단계) · 1 = 장식 색(깃털 · 깃발) · 2 = 발광 색
 func _tag_tex() -> ImageTexture:
-	var timg := Image.create(3, maxi(1, field.order.size()), false, Image.FORMAT_RGBAF)
+	var timg := Image.create(4, maxi(1, field.order.size()), false, Image.FORMAT_RGBAF)
 	for row in field.order.size():
 		var sq: Squad = field.order[row]
-		var tg := float(TIER_GROW.get(sq.tier, 1.0)) if tier_fig else 1.0
-		tg = minf(tg, maxf(1.0, GROW_CAP / draw_grow))
+		var gr: Array = GRADE[_g(sq)]
+		var tg := float(gr[G_GROW]) if tier_fig else 1.0
+		if tg > 1.0:
+			tg = minf(tg, maxf(1.0, GROW_CAP / draw_grow))
 		var dc := _deco(sq)
 		timg.set_pixel(0, row, Color(_cell(sq.tag), float(TAG_SIZE.get(sq.tag, 1.0)), tg, dc))
-		var acc: Color = DECO_ACCENT.get(sq.tier, DB.KIIN_COL)
+		var acc: Color = _accent_of(sq)
 		timg.set_pixel(1, row, acc)
-		timg.set_pixel(2, row, DECO_GLOW.get(sq.tier, acc))
+		timg.set_pixel(2, row, _glow_of(sq))
+		# 11/15 칸 3 —— 병사 단계: 흐트러짐 · 바랜 옷 · 쇠 빛(은빛 투구) · 번쩍임(낮은 품질에서는 0)
+		var on := grade_on and tier_fig
+		timg.set_pixel(3, row, Color(float(gr[G_LOOSE]) if on else 1.0, float(gr[G_DRAB]) if on else 0.0,
+			float(gr[G_SHEEN]) if on and dc == 0 else 0.0, float(gr[G_SHEEN]) if on and _rich() else 0.0))
 	return ImageTexture.create_from_image(timg)
 
 

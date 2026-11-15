@@ -52,7 +52,7 @@ func _ready() -> void:
 				break
 		_ok(together, "짝 '%s' —— 함께 든 인연이 없다(합류할 수 없는 짝)" % k)
 		var lines: Array = pairs[k]
-		_ok(lines.size() >= 1 and lines.size() <= 3, "짝 '%s' 멘트 수 %d (1~3)" % [k, lines.size()])
+		_ok(lines.size() >= 2 and lines.size() <= 3, "짝 '%s' 멘트 수 %d (2~3 —— 11/15 같은 말만 되풀이하지 않게 둘 이상)" % [k, lines.size()])
 		var seen := {}
 		for s in lines:
 			var t := str(s)
@@ -71,7 +71,7 @@ func _ready() -> void:
 	for n in story:
 		_ok(inv.has(n), "by_inyeon '%s' —— inyeon.json 에 없는 인연" % n)
 		var seen := {}
-		_ok(story[n].size() >= 1 and story[n].size() <= 4, "이야기 '%s' 멘트 수 %d (1~4)" % [n, story[n].size()])
+		_ok(story[n].size() >= 2 and story[n].size() <= 4, "이야기 '%s' 멘트 수 %d (2~4)" % [n, story[n].size()])
 		for s in story[n]:
 			var t := str(s)
 			n_story_lines += 1
@@ -95,6 +95,7 @@ func _ready() -> void:
 					pl += pairs["%s>%s" % [a, b]].size()
 		var sl: int = story.get(n, []).size()
 		_ok(pk + sl > 0, "인연 '%s' —— 짝 멘트도 이야기 멘트도 없다" % n)
+		_ok(sl >= 2, "인연 '%s' —— 이야기 멘트 %d줄 (11/15 인연마다 2줄 이상)" % [n, sl])
 		_ok(pk >= 3 or sl >= 2, "인연 '%s' —— 짝 키 %d(3↑) · 이야기 %d(2↑) 모자람" % [n, pk, sl])
 		rows.append([n, pk, pl, sl])
 	print("(c) 인연 · 짝 키 · 짝 줄 · 이야기 줄")
@@ -144,6 +145,34 @@ func _ready() -> void:
 				real_ok = false
 	_ok(real_ok, "실제 표의 모든 짝이 짝 멘트로 나온다")
 
+	# 11/15 같은 짝이 한 판에서 거듭 나서도 연달아 같은 말을 하지 않는다 (BattleView._yeon_pick 과 같은 방식: turn 을 올리고 지난 말을 피한다)
+	var rep_ok := true
+	var both := {}
+	for sd in 20:
+		var last := ""
+		for turn in 6:
+			var rr: Array = BattleView.yeon_choose(tt, sd, "A1", "A2", "장비", "관우", "호뢰관", 0, [last] if last != "" else [], turn)
+			if rr[0] == last or rr[0] == "":
+				rep_ok = false
+			if rr[2] == "pair":
+				both[rr[0]] = true
+			last = rr[0]
+	_ok(rep_ok, "같은 짝이 거듭 나서도 연달아 같은 말이 없다")
+	_ok(both.size() == 2, "거듭 나서면 짝 멘트 둘이 번갈아 나온다 (%d)" % both.size())
+	var real_rep := true
+	for n in inv:      # 실제 표 —— 인연마다 모든 (합류자, 대표) 짝이 네 번 거듭 나서도 연달아 같은 말 없음
+		var ms: Array = inv[n]
+		for a in ms:
+			for b in ms:
+				if a == b:
+					continue
+				var last := ""
+				for turn in 4:
+					var rr: Array = BattleView.yeon_choose(tbl, 7, "L", "J", a, b, n, 0, [last] if last != "" else [], turn)
+					if rr[0] == "" or rr[0] == last:
+						real_rep = false
+					last = rr[0]
+	_ok(real_rep, "실제 표 —— 모든 인연의 모든 짝이 거듭 나서도 연달아 같은 말 없음")
 	print("(d) 고르는 규칙 점검 끝")
 	print("--- 실패 %d" % _fail)
 	get_tree().quit(1 if _fail > 0 else 0)
