@@ -1602,6 +1602,87 @@ func _spot_step(dt: float) -> void:
 	m.set_shader_parameter("glow", DB.TIER[spot_sq.tier].c if spot_sq.tier >= 6 else Color(1, 0.85, 0.5))
 
 
+## 11/15 인연기 연출 —— 모음(FIN_GATHER 초, 연출 시계) 뒤에 터진다. 판정 · 사건 순서는 그대로, 화면만.
+## 연달아 터지면(FIN_WEAK_GAP 안) 뒤의 것은 약하게(어두워짐 · 섬광 · 흔들림 작게 · 모음 짧게) —— 화면이 하얗게 뒤덮이지 않게
+const FIN_GATHER := 0.42
+const FIN_WEAK_GAP := 2.5
+var _fin_last := -99.0       # 마지막 인연기 연출 시각 (실제 초)
+var _fin_busy := -99.0       # 이름 띠가 비는 시각 (실제 초)
+const FIN_HOLD := 1.9        # 모음 + 터짐 + 이름 띠가 한 화면을 쓰는 시간
+
+func _fin_show(e: Dictionary, gq: Dictionary, kind: String, fcol: Color, lbl: String, late := false) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var wait := _fin_busy - now
+	if wait > 0.05 and not late:      # 앞 인연기의 이름 띠가 아직 떠 있다 —— 겹치지 않게 그 뒤로 미룬다 (인연기 → 인연 주제가 연달아 올 때)
+		_fin_busy = now + wait + FIN_HOLD
+		get_tree().create_timer(wait).timeout.connect(func():
+			if is_instance_valid(self) and is_inside_tree():
+				_fin_show(e, gq, kind, fcol, lbl, true))
+		return
+	var weak := late or now - _fin_last < FIN_WEAK_GAP
+	if not late:
+		_fin_busy = now + FIN_HOLD
+	_fin_last = now
+	var qi: int = Settings.quality if Settings.quality >= 0 else 2
+	qi = clampi(qi, 0, 2)
+	var camp := str(e.get("a", "")).substr(0, 1)
+	var inyeon := str(e.get("inyeon", ""))
+	var names: Array = DB.INYEON.get(inyeon, [])
+	var mkeys := []
+	var mates := []
+	for sk in field.squads:
+		var sq: Squad = field.squads[sk]
+		if sq.camp == camp and names.has(_yeon_person(sk)) and DB.C.has(sq.cid):
+			mkeys.append(sk)
+			mates.append({"k": sq.cid})
+	if mkeys.is_empty() and field.squads.has(str(e.get("a", ""))):
+		mkeys.append(str(e.a))
+		mates.append({"k": field.squads[e.a].cid})
+	var tgt: Array = (gq.allies if kind == "rally" else gq.foes).duplicate()
+	tgt = tgt.filter(func(k): return field.squads.has(k) and field.squads[k].alive)
+	if tgt.size() > 12:
+		tgt.resize(12)
+	var total := 0.0      # 이 묶음에서 적이 잃은 병력 합 (직접 피해가 있을 때만 —— 불바다는 지속 피해라 0)
+	for i in gq.ev:
+		for ch in changes[i]:
+			if ch[1] < 0 and not str(res.roster[ch[0]].key).begins_with(camp):
+				total += -float(ch[1])
+	var g: float = FIN_GATHER * (0.35 if weak else 1.0)
+	var sk_: float = 0.45 if weak else 1.0
+	hud.fin_start({"col": fcol, "kind": kind, "g": g, "k": sk_, "q": qi, "name": str(e.get("name", "")), "label": lbl,
+		"mates": mates, "mkeys": mkeys, "tgt": tgt, "total": total})
+	# 모음 소리 —— 낮은 북이 올라온다
+	Sfx.play("drums", -2.0)
+	var me := self
+	var at := func(dl: float, fn: Callable) -> void:
+		get_tree().create_timer(dl).timeout.connect(func():
+			if is_instance_valid(me) and me.is_inside_tree():
+				fn.call())
+	at.call(g, func():
+		# 터짐 —— 흰 섬광(상한 있음) · 카메라 흔들림 · 정지 프레임 · 전장 이펙트
+		if not weak:
+			hud.flash(Color.WHITE.lerp(fcol, 0.2), true)
+		impact(0.1 if kind == "duel" else 0.16, 1.1 if weak else 2.2)
+		if field.squads.has(str(e.get("a", ""))) and smooth:
+			field.ult.play(FIN_VFX.get(kind, "aura"), e.a, gq.foes, gq.allies, 0.0)
+		Sfx.play("ult", 0.0)
+		Sfx.play("horn", 2.0)
+		Sfx.play("crit_%d" % (1 + randi() % 4), 3.0)
+		if kind == "fire":
+			Sfx.play("burn", 3.0)
+		elif kind == "duel":
+			Sfx.play("swing", 4.0)
+		if not weak:
+			UI.buzz(45))
+	# 연쇄 폭발 —— 맞은 부대마다 팡 팡 팡
+	var step := 0.1 if tgt.size() <= 9 else 0.08
+	for j in tgt.size():
+		at.call(g + j * step, func():
+			Sfx.play("hit", -2.0, 0.2)
+			if j % 3 == 0:
+				Sfx.play("clash", -4.0, 0.15))
+
+
 ## 임팩트 프리즈 + 카메라 흔들림 (11/3). dur 실시간 초, kick 흔들림 세기
 func impact(dur: float, kick: float) -> void:
 	if _freeze_cd > 0 or speed <= 0:
@@ -1758,19 +1839,13 @@ func _apply(i: int, quiet := false) -> void:
 		if smooth:
 			field.minor_fx(str(e.get("mk", "")), e.a, f)
 	match e.get("fx", ""):
-		"inyeon_fin", "inyeon_theme":      # 11/12 인연기 —— 큰 이름 띠 · 틀 색 섬광 · 전장 이펙트(적 전체 불바다 / 일격 / 아군 전체 기세). 인연 주제도 같은 틀
+		"inyeon_fin", "inyeon_theme":      # 11/12 인연기 —— 11/15 강화: 모음(어두워짐 · 빛줄기) → 터짐(섬광 · 충격파 · 연쇄 폭발 · 쾅 이름 띠). 인연 주제도 같은 틀
 			var th: bool = e.fx == "inyeon_theme"
 			var tk := str(e.get("kind", ""))
 			var kind: String = THEME_FIN.get(tk, "rally") if th else tk
-			var fcol: Color = (THEME_COL.get(tk, FIN_COL.get(kind, Color("#ffd257"))) if th else FIN_COL.get(kind, Color("#ffd257")))
-			hud.announce(("%s 『%s』" % [DB.INYEON_THEME_KIND.get(tk, "인연"), e.name]) if th else ("인연기 『%s』" % e.name), fcol)
-			hud.flash(fcol, true)
-			impact(0.22, 1.6)
-			Sfx.play("horn", 2.0)
-			if kind == "fire":
-				Sfx.play("burn", 3.0)
-			if smooth and field.squads.has(str(e.get("a", ""))):
-				field.ult.play(FIN_VFX.get(kind, "aura"), e.a, gq.foes, gq.allies, 0.0)
+			var fcol: Color = (THEME_COL.get(tk, FIN_COL.get(kind, DB.PAL.gold)) if th else FIN_COL.get(kind, DB.PAL.gold))
+			var lbl := ("%s" % DB.INYEON_THEME_KIND.get(tk, "인연")) if th else "인연기"
+			_fin_show(e, gq, kind, fcol, lbl)
 		"phys":
 			if field.squads.has(e.a) and field.squads[e.a].cls != "ranged":
 				field.clash(e.a, f, e.get("crit", false) or e.has("mn") or group_of[i].skill != "" or group_of[i].ult != null)
@@ -2105,6 +2180,193 @@ class Hud extends Control:
 	func announce(text: String, col: Color) -> void:
 		ann = {"text": text, "col": col, "t": 0.0}
 
+	# ───────── 11/15 인연기 연출 강화 (화면 전용 —— 엔진 · 판정 · 사건 순서 그대로) ─────────
+	## 모음(화면이 어두워지고 장수들에게서 빛줄기가 한 점으로) → 터짐(흰 섬광 · 충격파 링 · 적 부대마다 차례로 연쇄 폭발 · 틀별 연출) → 이름 띠(쾅 찍히듯)
+	const FIN_LIFE := 2.4
+	var fins := []
+
+	## d: {col, kind, g(모음 초), k(세기 1/약), q(품질 0~2), name, label, mates[{k}], mkeys, tgt, total}
+	func fin_start(d: Dictionary) -> void:
+		d["t"] = 0.0
+		fins.append(d)
+		if fins.size() > 3:
+			fins.pop_front()
+
+	func _fin_tick(dt: float) -> void:
+		if fins.is_empty():
+			return
+		for f in fins:
+			f.t += dt
+		fins = fins.filter(func(f): return f.t < FIN_LIFE + f.g)
+
+	func _fin_pt(k: String, lift: float) -> Vector2:
+		var sq = view.field.squads.get(k)
+		if sq == null:
+			return Vector2(-99999, -99999)
+		return _to_screen(sq.pos, lift)
+
+	func _draw_fins() -> void:
+		for f in fins:
+			_draw_fin(f)
+
+	func _draw_fin(f: Dictionary) -> void:
+		var t: float = f.t
+		var G: float = f.g
+		var col: Color = f.col
+		var qi: int = f.q
+		var kind: String = f.kind
+		var sk: float = f.k
+		var tb := t - G
+		# 모음의 한 점 —— 장수들 위치의 평균 (없으면 화면 가운데)
+		var cp := Vector2(size.x * 0.5, size.y * 0.5)
+		var pts := []
+		for k in f.mkeys:
+			var p := _fin_pt(k, 7.0)
+			if p.x > -5000.0:
+				pts.append(p)
+		if not pts.is_empty():
+			cp = Vector2.ZERO
+			for p in pts:
+				cp += p
+			cp /= pts.size()
+			cp.y -= 18.0
+		# 어두워짐
+		var dim := 0.0
+		if tb < 0.0:
+			dim = 0.4 * sk * ease(clampf(t / maxf(G, 0.01), 0, 1), 0.6)
+		else:
+			dim = 0.4 * sk * clampf(1.0 - tb / 0.35, 0, 1)
+		if dim > 0.01:
+			draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, dim))
+		# 모음 —— 빛줄기가 한 점으로
+		if tb < 0.12:
+			var u := clampf(t / maxf(G, 0.01), 0, 1)
+			var fade := 1.0 - clampf(tb / 0.12, 0, 1)
+			for p in pts:
+				var head: Vector2 = p.lerp(cp, ease(u, 2.2))
+				var tail: Vector2 = p.lerp(cp, ease(maxf(0.0, u - 0.4), 2.2))
+				draw_line(tail, head, Color(col, 0.8 * fade), 7.0)
+				draw_line(tail, head, Color(1, 1, 1, 0.9 * fade), 2.5)
+				draw_circle(head, 5.0 + 5.0 * u, Color(1, 1, 1, 0.9 * fade))
+				if qi >= 1:
+					var nrm := (head - tail).orthogonal().normalized() * 12.0 * (1.0 - u)
+					draw_line(tail + nrm, head, Color(col, 0.45 * fade), 2.0)
+					draw_line(tail - nrm, head, Color(col, 0.45 * fade), 2.0)
+			draw_circle(cp, 10.0 + 34.0 * u, Color(col, 0.28 * u * fade))
+			draw_circle(cp, 5.0 + 14.0 * u, Color(1, 1, 1, 0.75 * u * fade))
+		if tb < 0.0:
+			return
+		# 흰 섬광 핵 → 틀 색 충격파 링 2~3겹
+		if tb < 0.22:
+			var a := 1.0 - tb / 0.22
+			draw_circle(cp, 40.0 + 150.0 * tb / 0.22, Color(1, 1, 1, 0.8 * a * sk))
+		for i in (2 if qi == 0 else 3):
+			var d0 := i * 0.09
+			var u := (tb - d0) / 0.6
+			if u < 0.0 or u >= 1.0:
+				continue
+			var r := ease(u, 0.35) * size.y * (0.5 + 0.17 * i)
+			var rc: Color = Color.WHITE.lerp(col, 0.5) if i == 0 else col
+			draw_arc(cp, r, 0, TAU, 40 if qi == 0 else 64, Color(rc, 0.85 * (1.0 - u) * sk), 3.0 + 11.0 * (1.0 - u) * (1.0 - i * 0.25))
+		# 일격 —— 화면을 가로지르는 큰 참격선 (엇갈려 두 줄)
+		if kind == "duel":
+			for s in (1 if qi == 0 else 2):
+				var ts := tb - s * 0.09
+				if ts < 0.0 or ts > 0.6:
+					continue
+				var A := Vector2(-30, size.y * 0.2) if s == 0 else Vector2(size.x + 30, size.y * 0.3)
+				var B := Vector2(size.x + 30, size.y * 0.8) if s == 0 else Vector2(-30, size.y * 0.72)
+				var E := A.lerp(B, ease(clampf(ts / 0.1, 0, 1), 0.5))
+				var a := 1.0 - clampf((ts - 0.1) / 0.5, 0, 1)
+				var hw := 30.0 * (1.0 - clampf(ts / 0.6, 0, 1) * 0.85)
+				var nrm := (E - A).orthogonal().normalized() * hw
+				var mid := A.lerp(E, 0.5)
+				draw_colored_polygon(PackedVector2Array([A, mid + nrm, E, mid - nrm]), Color(col, 0.85 * a * sk))
+				draw_line(A, E, Color(1, 1, 1, a), 2.0 + 4.0 * (1.0 - clampf(ts / 0.4, 0, 1)))
+		# 맞은 부대마다 차례로 팡 팡 팡 (불바다: 불꽃 기둥 · 기세: 금빛이 위로 솟구침)
+		var tg: Array = f.tgt
+		var step := 0.1 if tg.size() <= 9 else 0.08
+		var life := 1.3 if kind == "rally" else 0.85
+		var nsp: int = [5, 8, 12][qi]
+		for j in tg.size():
+			var lt := tb - j * step
+			if lt < 0.0 or lt > life:
+				continue
+			var p := _fin_pt(tg[j], 3.0)
+			if p.x < -5000.0:
+				continue
+			var u := clampf(lt / 0.5, 0, 1)
+			draw_circle(p, 10.0 + 34.0 * ease(clampf(lt / 0.18, 0, 1), 0.4), Color(Color.WHITE.lerp(col, clampf(lt / 0.2, 0, 1)), 0.7 * clampf(1.0 - lt / 0.3, 0, 1) * sk))
+			if u < 1.0:
+				draw_arc(p, 14.0 + 58.0 * ease(u, 0.4), 0, TAU, 20 if qi == 0 else 32, Color(col, 0.9 * (1.0 - u)), 1.5 + 4.0 * (1.0 - u))
+				for s in nsp:
+					var dir := Vector2.from_angle(TAU * s / nsp + j * 0.7)
+					var l1 := 12.0 + 62.0 * ease(u, 0.4)
+					draw_line(p + dir * l1 * 0.5, p + dir * l1, Color(1, 0.95, 0.8, 1.0 - u), 2.0)
+			if kind == "fire":
+				var h := 140.0 * ease(clampf(lt / 0.25, 0, 1), 0.5) * (1.0 - clampf((lt - 0.45) / 0.4, 0, 1))
+				var w := 17.0 + 5.0 * sin(lt * 38.0 + j)
+				var b := p + Vector2(0, 8)
+				if h > 4.0:
+					draw_colored_polygon(PackedVector2Array([b + Vector2(-w, 0), b + Vector2(-w * 0.35, -h * 0.55), b + Vector2(0, -h), b + Vector2(w * 0.35, -h * 0.5), b + Vector2(w, 0)]), Color(col, 0.78))
+					draw_colored_polygon(PackedVector2Array([b + Vector2(-w * 0.5, 0), b + Vector2(0, -h * 0.65), b + Vector2(w * 0.5, 0)]), Color(Color.WHITE.lerp(col, 0.35), 0.8))
+			elif kind == "rally":
+				var h := 150.0 * ease(clampf(lt / 0.4, 0, 1), 0.5)
+				var fa := 1.0 - clampf((lt - 0.7) / 0.6, 0, 1)
+				var b := p + Vector2(0, 6)
+				draw_polygon(PackedVector2Array([b + Vector2(-22, 0), b + Vector2(22, 0), b + Vector2(14, -h), b + Vector2(-14, -h)]),
+					PackedColorArray([Color(col, 0.5 * fa), Color(col, 0.5 * fa), Color(col, 0.0), Color(col, 0.0)]))
+				var nst: int = [3, 5, 7][qi]
+				for s in nst:
+					var ox := (s - (nst - 1) * 0.5) * 7.0
+					var ph := fmod(lt * 2.0 + s * 0.37, 1.0)
+					var y0 := b.y - ph * 160.0
+					draw_line(Vector2(b.x + ox, y0), Vector2(b.x + ox, y0 + 34.0), Color(1, 0.95, 0.7, (1.0 - ph) * fa), 2.5)
+		# 큰 피해 숫자 —— 합쳐 한 번 크게 (세어 올라가며 쾅)
+		if float(f.total) > 0.0 and tb > 0.3 and tb < 1.7:
+			var u := tb - 0.3
+			var sc := lerpf(1.9, 1.0, ease(clampf(u / 0.2, 0, 1), 0.3))
+			var a := clampf(u / 0.08, 0, 1) * clampf((1.7 - tb) / 0.4, 0, 1)
+			var txt := "-" + Battle.num(float(f.total) * ease(clampf(u / 0.4, 0, 1), 0.4))
+			draw_set_transform(Vector2(size.x * 0.5, size.y * 0.52 - u * 14.0), 0, Vector2.ONE * sc)
+			draw_string_outline(DB.font_display, Vector2(-160, 0), txt, HORIZONTAL_ALIGNMENT_CENTER, 320, 44, 10, Color(0.15, 0.02, 0.0, a))
+			draw_string(DB.font_display, Vector2(-160, 0), txt, HORIZONTAL_ALIGNMENT_CENTER, 320, 44, Color(1, 0.96, 0.85, a))
+			draw_set_transform(Vector2.ZERO)
+		# 이름 띠 —— 붓글씨 큰 글자가 쾅 찍히듯 (크게 → 제자리로 튕김) + 구성원 초상
+		if tb < FIN_LIFE - 0.1:
+			var fade := clampf(tb / 0.06, 0, 1) * clampf((FIN_LIFE - 0.1 - tb) / 0.4, 0, 1)
+			var cy := size.y * 0.33
+			draw_rect(Rect2(0, cy - 52, size.x, 118), Color(0, 0, 0, 0.58 * fade))
+			draw_rect(Rect2(0, cy - 52, size.x, 3), Color(col, 0.9 * fade))
+			draw_rect(Rect2(0, cy + 63, size.x, 3), Color(col, 0.9 * fade))
+			var fs := 48
+			while fs > 20 and DB.font_display.get_string_size(f.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 40:
+				fs -= 2
+			var sc := 1.0
+			if tb < 0.14:
+				sc = lerpf(2.5, 0.9, ease(tb / 0.14, 2.0))
+			elif tb < 0.32:
+				sc = lerpf(0.9, 1.0, 1.0 - pow(1.0 - (tb - 0.14) / 0.18, 2.0)) + 0.06 * sin((tb - 0.14) / 0.18 * PI)
+			_text(DB.font_bold, Vector2(0, cy - 30), f.label, HORIZONTAL_ALIGNMENT_CENTER, size.x, 15, Color(col, fade))
+			draw_set_transform(Vector2(size.x * 0.5, cy + 14), 0, Vector2.ONE * sc)
+			draw_string_outline(DB.font_display, Vector2(-size.x * 0.5, 0), f.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, 12, Color(0.1, 0.03, 0, fade))
+			draw_string(DB.font_display, Vector2(-size.x * 0.5, 0), f.name, HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, Color(Color.WHITE.lerp(col, clampf(tb / 0.4, 0, 1) * 0.5), fade))
+			draw_set_transform(Vector2.ZERO)
+			var ms: Array = f.mates
+			var pw := 32.0
+			var ph := 40.0
+			var x0 := (size.x - ms.size() * (pw + 6.0) + 6.0) * 0.5
+			for i in ms.size():
+				var pa := fade * clampf((tb - 0.15 - i * 0.05) / 0.12, 0, 1)
+				if pa <= 0.0:
+					continue
+				var mr := Rect2(x0 + i * (pw + 6.0), cy + 26, pw, ph)
+				var mc: Color = DB.tier_color(ms[i].k)
+				draw_rect(mr.grow(2), Color(mc, pa))
+				Art.draw_portrait(self, mr, ms[i].k, t, "ult")
+				if pa < 1.0:
+					draw_rect(mr, Color(0, 0, 0, 1.0 - pa))
+
 	# ───────── 11/11 사기 표시 (화면 전용 —— 엔진 · 사건 필드 그대로) ─────────
 	## 사용자: 병력 56% 인데 사기가 무너져 9부대가 한꺼번에 패주 —— 이유가 안 보였다. 사기를 크게 보인다.
 	const SHAKY_MORALE := 30.0       # 이 아래면 부대가 '동요' (battle.gd 사기 패주 판정 morale <= 30 과 같다)
@@ -2307,6 +2569,7 @@ class Hud extends Control:
 			elif not cut.mates.is_empty() and cut.inyeon != "":
 				_yeon_pop_events()
 		_flash_t += dt
+		_fin_tick(dt)
 		decisive_age += dt
 		if mrout != null:
 			mrout.age += dt
@@ -3326,6 +3589,7 @@ class Hud extends Control:
 			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
 		floats = keep
 		_draw_skill_banners()
+		_draw_fins()
 		if _flash_t < 0.35:
 			var fa := (1.0 - _flash_t / 0.35)
 			draw_rect(Rect2(Vector2.ZERO, size), Color(_flash.lerp(Color.WHITE, 0.55 * _flash_k), 0.55 * fa * fa * _flash_k))
