@@ -1306,6 +1306,34 @@ func act(m: String, a := []):
 	return r
 
 
+## 조용한 행동 (11/15 모두 조합) —— act 와 같은 판정 · 기록 · 서버 전송을 하되 저장 · 다시 그리기 · 소리 · 한 장 연출은 하지 않는다.
+## 여러 번 잇달아 부른 뒤 부르는 쪽이 changed() 를 한 번 부른다 (한 장마다 화면 전체를 다시 만들면 수십 번 조합에 몇 초씩 멈췄다)
+func act_quiet(m: String, a := []):
+	if online != null and not online.can_act(Online.cmd_kind(m)):
+		return null
+	var r = run.command(m, a.duplicate())
+	if online == null:
+		PlayLog.act(run, m, a, r)
+	if m == "forge" and r:
+		if forge_tree.pinned(str(a[0])):
+			forge_tree.done(str(a[0]))
+		if DB.C[str(a[0])].tier >= 7:
+			_forge_fanfare(str(a[0]))
+	if online != null:
+		online.send_cmd(m, a)
+	return r
+
+
+## 지금 이 행동을 할 수 있는가 —— 안 되면 까닭을 알리고 false (온라인 단계 제한)
+func can_act_or_tell(m: String) -> bool:
+	if online != null and not online.can_act(Online.cmd_kind(m)):
+		Sfx.play("deny")
+		toast(online.block_reason(Online.cmd_kind(m)), "bad")
+		render()
+		return false
+	return true
+
+
 # ───────── 시트 ─────────
 
 ## col 을 주면 제목을 그 색 · 큰 글씨로 (카드 시트 —— 등급색 장수 이름)
@@ -1644,11 +1672,19 @@ func item_box(id: String, n := -1, on_tap := Callable(), amp := 1.0) -> Control:
 	v.add_child(UI.lbl(top, UI.FS_BODY, col.lightened(0.2), true))
 	v.add_child(UI.lbl("%s · %s" % [it.tag, it.grade], UI.FS_CAP, DB.PAL.text_dim))
 	v.add_child(UI.lbl(UI.item_text(id, amp) + ("  · 신화 조합 재료" if it.use == "myth" else ""), UI.FS_CAP, DB.PAL.bamboo))
+	# 11/15 사용자: 장착 아이템 글이 잘렸다 —— 이름 · 효과 줄은 … 으로 자르지 않고 줄을 바꾼다. 상자 높이는 글에 맞춰 늘어난다 (병종 · 등급 줄만 한 줄)
 	for c in v.get_children():
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		c.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		c.clip_text = true
+	var kids := v.get_children()
+	UI.wrap_text(kids[0])
+	kids[1].text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	kids[1].clip_text = true
+	UI.wrap_text(kids[2])
 	b.add_child(v)
+	var fit := func():
+		if is_instance_valid(b) and is_instance_valid(v):
+			b.custom_minimum_size.y = maxf(74.0, v.get_combined_minimum_size().y + 14.0)
+	v.minimum_size_changed.connect(fit)
 	return b
 
 
@@ -1730,6 +1766,26 @@ func recipe_sheet(out: String) -> void:
 	_route_enter("recipe", out)
 	var c: Dictionary = DB.C[out]
 	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
+	# 11/15 사용자: "갈무리 버튼이 맨 아래가 아니라 더 가까이" —— [조합하기 | 갈무리 | 상세] 줄을 시트 맨 위(이름 바로 아래)로. 높이 50 (누르는 범위 48 이상)
+	var ok := run.can_forge(out)
+	var br := UI.hbox(UI.SP_S)
+	var lock_t := run.lock_text(out)      # 11/12 선점 · 사망으로 잠긴 장수
+	var fb := UI.btn("조합하기" if ok else (lock_t + " — 등용 불가" if lock_t != "" else "재료 부족 %d장" % run.miss_count(out)), func():
+		if act("forge", [out]):
+			toast("%s 조합 완료" % c.name, "gain")
+			if _hist.is_empty():
+				close_sheet()
+			else:
+				go_back(), "pri" if ok else "", UI.BH_M)
+	fb.disabled = not ok
+	fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fb.clip_text = true
+	br.add_child(fb)
+	br.add_child(_pin_btn(out, func(): close_sheet()))
+	var ib := UI.btn("상세", func(): card_info(out), "ghost", UI.BH_M)
+	ib.custom_minimum_size.x = 72
+	br.add_child(ib)
+	b.add_child(br)
 	# 11/3 사용자: 이름은 제목과 겹치니 빼고, 일반 기술도 뺀다.
 	# 11/9 사용자: 시트를 더 크게 —— 큰 초상 + 능력치 · 특기판, 그 아래 고유 특기 · 위세 · 패업 · 고유기 · 기질을 디테일창과 같은 색 띠 칸으로 이름만 (설명은 디테일창에서)
 	var tp := UI.hbox(UI.SP_M)
@@ -1781,29 +1837,6 @@ func recipe_sheet(out: String) -> void:
 		b.add_child(UI.icon_chip("item", "유니크 %s — %s" % [DB.IT[ni].name, "보유" if have_it else "없음 · 2 · 4 · 6일차 아이템 보급"], DB.PAL.gold if have_it else DB.PAL.seal, func(): _item_sheet(ni)))
 	if c.tier >= 8 and run.has_myth():
 		b.add_child(UI.hint("신화 장수는 한 판에 하나뿐이다 — 이미 신화를 얻었다"))
-	var ok := run.can_forge(out)
-	var br := UI.hbox(UI.SP_S)
-	var lock_t := run.lock_text(out)      # 11/12 선점 · 사망으로 잠긴 장수
-	var fb := UI.btn("조합하기" if ok else (lock_t + " — 등용 불가" if lock_t != "" else "재료 부족 %d장" % run.miss_count(out)), func():
-		if act("forge", [out]):
-			toast("%s 조합 완료" % c.name, "gain")
-			if _hist.is_empty():
-				close_sheet()
-			else:
-				go_back(), "pri" if ok else "", UI.BH_S)
-	fb.disabled = not ok
-	fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	br.add_child(fb)
-	var pn := forge_tree.pinned(out)
-	var pb := UI.btn("갈무리 해제" if pn else "갈무리", func():
-		forge_tree.toggle(out)
-		close_sheet(), "ghost" if pn else "", UI.BH_S)
-	pb.custom_minimum_size.x = 96
-	br.add_child(pb)
-	var ib := UI.btn("상세", func(): card_info(out), "ghost", UI.BH_S)
-	ib.custom_minimum_size.x = 72
-	br.add_child(ib)
-	b.add_child(br)
 
 
 # ───────── 징집 ─────────
@@ -1813,6 +1846,10 @@ func _page_draw() -> Control:
 		return _over_panel()
 	var v := UI.vbox(UI.SP_S)
 	var n := run.draws_n()
+	# 11/15 사용자: "징집에서 내 기본카드는 항상 가장 위 같은 위치에" —— 기본패 8종 줄을 페이지 맨 위(머리띠 바로 아래)에 둔다.
+	# 예전에는 큰 「징집하기」 카드 · 할 일 줄 · 추천 묶음(열림 · 닫힘 · 인연 줄) 아래라 그 높이에 따라 오르내렸다. 줄은 아래에서 채운다 (base_slot)
+	var base_slot := UI.vbox(0)
+	v.add_child(base_slot)
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
 	if run.day >= 7:      # 11/12 최후 1인 —— 8일차부터 패배 민심 피해가 매일 커진다
@@ -1928,11 +1965,12 @@ func _page_draw() -> Control:
 			inner.add_child(hl)
 			inner.add_child(g)
 	hs.add_child(inner)
-	var base := UI.grid(30, 4)      # 11/6 사용자: 기본병 8종은 맨 윗줄에 (조합 재료의 출발점이라 먼저 본다)
+	var base := UI.grid(30, 4)      # 11/6 사용자: 기본병 8종은 맨 윗줄에 (조합 재료의 출발점이라 먼저 본다) —— 11/15 페이지 맨 위 고정 자리로
 	base.max_cols = 8
 	for k in Run.sort_cards(DB.BASE.duplicate()):
 		base.add_child(hand_tile.call(k, int(p.get(k, 0)), HAND_TILE.y))
-	hv.add_child(base)
+	base_slot.add_child(base)
+	_base_row = base
 	hv.add_child(hs)
 	_hand_scroll = hs
 	_restore_hand_scroll.call_deferred(_hand_scroll_y)
@@ -2042,6 +2080,7 @@ func _done_group(sp: Array, ks: Array, p: Dictionary, hand_tile: Callable) -> Pa
 
 
 ## 징집 주 행동 카드 (11/14 감사 #2) —— 기호 + 「징집하기」 + 오늘 받는 장수 · 큰 주 버튼(BH_L)
+var _base_row: Control = null      # 징집 탭 맨 위 기본패 줄 (점검 · 캡처가 자리를 잰다)
 var _draw_cta_node: Control = null
 func _draw_cta(n: int) -> Control:
 	var b := UI.act("징집하기", "오늘 기본패 %d장을 받는다" % n, func(): act("do_draw"), "pri", not can_act())
@@ -2546,9 +2585,53 @@ func _shop_soon(b: VBoxContainer) -> void:
 
 
 ## 꾹 누른 보유 카드 —— 판매 한 줄 시트
+## 11/15 사용자: 판매할 때 갈무리된 재료면 한 번 더 알린다 —— k 가 갈무리 장수(또는 그 재료 · 아래 재료까지)이고 팔면 필요한 수보다 모자라게 되면
+## 그 갈무리 장수 이름 (차례가 가장 앞인 것), 아니면 "". 넉넉히 가진 재료(팔아도 필요한 수가 남는다)는 묻지 않는다
+func _sell_pin_target(k: String) -> String:
+	if forge_tree.pins.is_empty():
+		return ""
+	if forge_tree.pinned(k):
+		return k
+	var nd: Dictionary = ForgeTree.needs_of(run, forge_tree.pins)
+	if nd.has(k) and run.have(k) - 1 < int(nd[k].need):
+		return str(nd[k].root)
+	return ""
+
+
+## 갈무리 재료 판매 —— 한 번 더 묻는 시트
+func _sell_pin_confirm(k: String, target: String) -> void:
+	var b := open_sheet("갈무리 재료 판매", DB.PAL.danger)
+	var own := target == k
+	var wl := UI.rich("[color=#E9E3D3][b]%s[/b][/color]%s — 갈무리한 [color=#D9A64B][b]%s[/b][/color]%s. 팔면 조합이 그만큼 멀어진다. 그래도 팔까?" % [
+		DB.C[k].name, "" if own else " (보유 %d장)" % run.have(k), DB.C[target].name, " 장수다" if own else "의 재료다"], UI.FS_LABEL)
+	UI.wrap_text(wl)
+	b.add_child(wl)
+	var tr := UI.hbox(UI.SP_M)
+	tr.alignment = BoxContainer.ALIGNMENT_CENTER
+	var t1 := mtile(k, run.have(k))
+	t1.custom_minimum_size = Vector2(56, 78)
+	tr.add_child(t1)
+	if not own:
+		var ar := UI.lbl("→", UI.FS_TITLE, DB.PAL.bamboo)
+		ar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tr.add_child(ar)
+		var t2 := mtile(target, -1)
+		t2.custom_minimum_size = Vector2(56, 78)
+		t2.set_pin(true, false)
+		tr.add_child(t2)
+	b.add_child(tr)
+	var sb := UI.grain_btn("그래도 판매", "+%d" % Run.sell_price(k), func():
+		close_sheet()
+		act("sell", [k]), "warn", UI.BH_M)
+	sb.disabled = not can_act()
+	b.add_child(sb)
+	b.add_child(UI.btn("팔지 않는다", func(): close_sheet(), "ghost"))
+
+
 func _sell_sheet(k: String) -> void:
 	if not DB.C.has(k) or run.have(k) <= 0:
 		return
+	var pin_t := _sell_pin_target(k)
 	var b := open_sheet(DB.C[k].name, DB.tier_color(k).lightened(0.2))
 	var only_board: bool = int(run.inv.get(k, 0)) <= 0
 	var hr := UI.hbox(UI.SP_S)
@@ -2562,9 +2645,16 @@ func _sell_sheet(k: String) -> void:
 		var wl := UI.lbl("%s 장수다 —— 팔면 되돌릴 수 없다." % DB.tier_name(k), UI.FS_BODY, DB.PAL.danger)
 		UI.wrap_text(wl)
 		b.add_child(wl)
+	if pin_t != "":
+		var pl := UI.lbl("★ 갈무리한 %s%s." % [DB.C[pin_t].name, " 장수다" if pin_t == k else "의 재료다"], UI.FS_BODY, DB.PAL.gold)
+		UI.wrap_text(pl)
+		b.add_child(pl)
 	var sb := UI.grain_btn("판매", "+%d" % Run.sell_price(k), func():
+		if pin_t != "":      # 갈무리 재료 —— 한 번 더 묻는다
+			_sell_pin_confirm(k, pin_t)
+			return
 		close_sheet()
-		act("sell", [k]), "warn" if (only_board or rare) else "pri", UI.BH_M)
+		act("sell", [k]), "warn" if (only_board or rare or pin_t != "") else "pri", UI.BH_M)
 	sb.disabled = not can_act()
 	sb.modulate.a = 0.5 if sb.disabled else 1.0
 	b.add_child(sb)
@@ -2578,8 +2668,12 @@ func _sell_needs_confirm(k: String) -> bool:
 	return int(DB.C[k].tier) >= 5 or DB.is_kiin(k) or (int(run.inv.get(k, 0)) <= 0 and run.on_board(k) > 0)
 
 
-## 장수 정보창의 [판매] —— 확인이 필요한 장수(_sell_needs_confirm)는 판매 시트로
+## 장수 정보창의 [판매] —— 확인이 필요한 장수(_sell_needs_confirm)는 판매 시트로. 갈무리 재료는 바로 '한 번 더' 확인 시트로 (11/15)
 func _sell(k: String) -> void:
+	var pin_t := _sell_pin_target(k)
+	if pin_t != "" and not _sell_needs_confirm(k):
+		_sell_pin_confirm(k, pin_t)
+		return
 	if _sell_needs_confirm(k):
 		_sell_sheet(k)
 		return
@@ -2630,6 +2724,22 @@ func card_info(k: String) -> void:
 			st.add_child(tb0)
 	top.add_child(st)
 	b.add_child(top)
+	if DB.RECOF.has(k) and not DB.is_foe(k):      # 11/15 사용자: 갈무리 버튼을 맨 아래(장수 조합법 줄)가 아니라 초상 바로 아래에
+		var pr := UI.hbox(UI.SP_S)
+		var pbn := _pin_btn(k, func():
+			_back_nav = true
+			card_info(k))
+		pbn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pr.add_child(pbn)
+		if run.can_forge(k):
+			var fbn := UI.btn("조합하기", func():
+				if act("forge", [k]):
+					toast("%s 조합 완료" % c.name, "gain")
+					_back_nav = true
+					card_info(k), "pri", UI.BH_M)
+			fbn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pr.add_child(fbn)
+		b.add_child(pr)
 	var ab := UI.vbox(UI.SP_S)
 	_ability_rows(ab, k, 12, false, false, [], true)
 	b.add_child(ab)
@@ -2729,6 +2839,17 @@ func card_info(k: String) -> void:
 		sb.custom_minimum_size.x = maxf(sb.custom_minimum_size.x, 128)
 		sr.add_child(sb)
 		b.add_child(sr)
+
+
+## 갈무리 버튼 (11/15 —— 조합 시트 · 디테일창 맨 위) —— ★ 갈무리 / ★ 갈무리 해제. 높이 50, 누른 뒤 after
+func _pin_btn(k: String, after: Callable) -> Button:
+	var pn := forge_tree.pinned(k)
+	var pb := UI.btn("★ 갈무리 해제" if pn else "★ 갈무리", func():
+		forge_tree.toggle(k)
+		after.call(), "ghost" if pn else "", UI.BH_M)
+	pb.custom_minimum_size.x = 120 if pn else 104
+	pb.add_theme_color_override("font_color", DB.PAL.gold.lightened(0.15) if not pn else DB.PAL.paper)
+	return pb
 
 
 ## 접는 칸 —— 머리줄을 누르면 열고 닫는다. 기본은 닫힘, 연 상태는 _open[key] 에 남아 다른 카드에서도 이어진다

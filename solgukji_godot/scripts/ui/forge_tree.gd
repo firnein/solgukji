@@ -24,6 +24,10 @@ var gs: GameScreen
 var pins: Array = []
 var opened := {}               # 갈무리 장수 -> {펼친 재료 경로("관우/장비/…"): true} —— 어느 단이든 여럿 펼친다
 var game := ""                # 이 갈무리가 속한 판 (GameScreen.game_id) —— "" 이면 아직 모른다 (옛 파일)
+## 11/15 사용자: 완성 순서 —— pins 의 차례가 곧 「순서대로 모두 조합」의 차례(앞이 먼저 재료를 가져간다).
+## morder 는 갈무리 장수마다 그 재료를 끝낼 차례 {장수: [재료 …]} (없으면 조합법 차례 · 가장 깊은 것부터). 둘 다 pins.json 에 (갈무리와 같은 곳 —— Run 저장은 온라인에서 서버 것으로 덮인다)
+var morder := {}
+const CHAIN_MAX := 200         # 모두 조합 한 번의 조합 수 한도 (예전 40 —— 깊은 나무는 한 번에 끝나지 않았다)
 
 
 func _init(g: GameScreen) -> void:
@@ -32,6 +36,11 @@ func _init(g: GameScreen) -> void:
 		var d = JSON.parse_string(FileAccess.get_file_as_string(PATH))
 		if d is Dictionary:
 			game = str(d.get("game", ""))
+			var mo = d.get("morder", {})
+			if mo is Dictionary:
+				for k in mo:
+					if mo[k] is Array:
+						morder[str(k)] = mo[k].filter(func(x): return x is String and DB.C.has(x))
 			d = d.get("pins", [])
 		if d is Array:
 			pins = d.filter(func(k): return k is String and DB.RECOF.has(k))
@@ -40,13 +49,14 @@ func _init(g: GameScreen) -> void:
 func _save() -> void:
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"game": game, "pins": pins}))
+		f.store_string(JSON.stringify({"game": game, "pins": pins, "morder": morder}))
 
 
 ## 새 판 —— 갈무리를 비운다
 func clear() -> void:
 	pins.clear()
 	opened.clear()
+	morder.clear()
 	_save()
 
 
@@ -59,6 +69,7 @@ func bind(id: String) -> bool:
 	if other:
 		pins.clear()
 		opened.clear()
+		morder.clear()
 	_save()
 	return other
 
@@ -70,10 +81,11 @@ func pinned(k: String) -> bool:
 func toggle(k: String) -> void:
 	if pins.has(k):
 		pins.erase(k)
+		morder.erase(k)
 		gs.toast("%s 갈무리 해제" % DB.C[k].name)
 	else:
 		if pins.size() >= MAX_PINS:
-			pins.pop_back()
+			morder.erase(pins.pop_back())
 		pins.push_front(k)
 		gs.toast("%s 갈무리 — 조합 탭 맨 위에" % DB.C[k].name, "gain")
 	_save()
@@ -85,6 +97,7 @@ func done(k: String) -> void:
 	if pins.has(k):
 		pins.erase(k)
 		opened.erase(k)
+		morder.erase(k)
 		_save()
 		gs.toast("%s 완성 — 갈무리에서 뺐다" % DB.C[k].name, "gain")
 
@@ -94,6 +107,7 @@ func drop(k: String) -> void:
 	if pins.has(k):
 		pins.erase(k)
 		opened.erase(k)
+		morder.erase(k)
 		_save()
 
 
@@ -133,34 +147,215 @@ func build() -> Control:
 	if pins.is_empty():          # 11/2 사용자: 갈무리 안내 글은 빼고 공간 확보
 		v.visible = false
 		return v
+	# 11/15 사용자: 완성 순서를 정하는 창 + 그 차례대로 한 번에 —— 갈무리 묶음 머리줄 [갈무리 N] … [완성 순서] [순서대로 모두 조합]
+	var hd := UI.hbox(UI.SP_S)
+	var hl := UI.lbl("갈무리 %d" % pins.size(), UI.FS_LABEL, DB.PAL.gold, true)
+	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(hl)
+	var ob := UI.btn("완성 순서", func(): order_sheet(), "ghost", UI.BH_S)
+	ob.add_theme_font_size_override("font_size", UI.FS_BODY)
+	ob.custom_minimum_size.x = 84
+	hd.add_child(ob)
+	if pins.size() >= 2:
+		var any := false
+		for k in pins:
+			if gs.run.can_forge(k) or _chain_can(_node(k, 1, 0, k, "", true)):
+				any = true
+				break
+		var ab := UI.btn("순서대로 모두 조합", func(): forge_all(), "pri" if any else "", UI.BH_S)
+		ab.add_theme_font_size_override("font_size", UI.FS_BODY)
+		ab.disabled = not any or not gs.can_act()
+		hd.add_child(ab)
+	v.add_child(hd)
 	for k in pins:
 		v.add_child(UI.panel(_card(k), 10))
 	return v
 
 
+## 완성 순서 시트 (11/15 사용자) —— 갈무리 장수의 차례(위가 먼저 —— 「순서대로 모두 조합」이 이 차례로, 재료가 겹치면 위 장수가 먼저 가져간다)와
+## 장수마다 그 재료(전설 · 전설 · 희귀 …)를 끝낼 차례(「모두 조합」이 앞 재료의 가지부터 조합한다)를 ▲ ▼ 로 바꾼다. 바꾸면 바로 저장(pins.json)
+func order_sheet(scroll_y := 0) -> void:
+	var b := gs.open_sheet("완성 순서")
+	var hint := UI.hint("위에 있을수록 먼저 완성한다. 「순서대로 모두 조합」은 이 차례로 돌고, 재료가 겹치면 위 장수가 먼저 가져간다. 장수 아래 재료 차례는 「모두 조합」이 어느 재료부터 끝낼지다.")
+	b.add_child(hint)
+	if pins.is_empty():
+		b.add_child(UI.empty("pick", "갈무리한 장수가 없다", "조합 탭에서 장수를 눌러 갈무리하면 여기서 완성 순서를 정할 수 있다."))
+		return
+	var moved := func():
+		var y := gs._sheet_scroll.scroll_vertical
+		gs.render()
+		order_sheet(y)
+	for i in pins.size():
+		var k: String = pins[i]
+		var pv := UI.vbox(UI.SP_XS)
+		var row := UI.hbox(UI.SP_S)
+		var no := UI.lbl(str(i + 1), UI.FS_TITLE, DB.PAL.gold, true)
+		no.custom_minimum_size.x = 20
+		no.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		no.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(no)
+		var t := gs.mtile(k, -1, func(id): gs.recipe_sheet(id))
+		t.custom_minimum_size = Vector2(46, 62)
+		row.add_child(t)
+		var tv := UI.vbox(2)
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var nl := UI.lbl(DB.C[k].name, UI.FS_LABEL, DB.tier_color(k).lightened(0.2), true)
+		UI.wrap_text(nl)
+		tv.add_child(nl)
+		var can := gs.run.can_forge(k)
+		tv.add_child(UI.lbl("%s · %s" % [DB.tier_name(k), "지금 조합 가능" if can else "모자람 %d" % gs.run.miss_count(k)], UI.FS_CAP, DB.PAL.jade if can else DB.PAL.text_dim))
+		row.add_child(tv)
+		row.add_child(_move_btn("▲", i > 0, func():
+			move_pin(k, -1)
+			moved.call()))
+		row.add_child(_move_btn("▼", i < pins.size() - 1, func():
+			move_pin(k, 1)
+			moved.call()))
+		pv.add_child(row)
+		var mats := order_mats(k)
+		if mats.size() >= 2:
+			pv.add_child(UI.hair())
+			var need := Run.mat_count(DB.RECOF[k])
+			for j in mats.size():
+				var q: String = mats[j]
+				var mr := UI.hbox(UI.SP_S)
+				var ml := UI.lbl("재료 %d" % (j + 1), UI.FS_CAP, DB.PAL.bamboo)
+				ml.custom_minimum_size.x = 44
+				ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				mr.add_child(ml)
+				var have := gs.run.have(q)
+				var done: bool = have >= int(need[q])
+				var qn := UI.lbl(DB.C[q].name, UI.FS_BODY, DB.tier_color(q).lightened(0.2), true)
+				qn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				qn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				UI.wrap_text(qn)
+				mr.add_child(qn)
+				var st := UI.lbl("%s %d/%d" % [DB.tier_name(q), have, int(need[q])], UI.FS_CAP, DB.PAL.jade if done else DB.PAL.text_dim)
+				st.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				mr.add_child(st)
+				mr.add_child(_move_btn("▲", j > 0, func():
+					move_mat(k, q, -1)
+					moved.call()))
+				mr.add_child(_move_btn("▼", j < mats.size() - 1, func():
+					move_mat(k, q, 1)
+					moved.call()))
+				pv.add_child(mr)
+		b.add_child(UI.panel(pv, 10))
+	if scroll_y > 0:
+		gs._restore_sheet_scroll.call_deferred(scroll_y)
+
+
+## ▲ ▼ —— 48×48 (최소 터치 범위)
+func _move_btn(glyph: String, on: bool, cb: Callable) -> Button:
+	var mb := UI.btn(glyph, cb, "ghost", UI.HIT)
+	mb.custom_minimum_size = Vector2(UI.HIT, UI.HIT)
+	mb.add_theme_font_size_override("font_size", UI.FS_BODY)
+	mb.disabled = not on
+	mb.modulate.a = 1.0 if on else 0.35
+	mb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return mb
+
+
 ## 트리 노드 —— {k, need, have, ok, kids[], basic(뺀 기본패 모자란 수)} 또는 {item, ok}
 ## full 이면 접힘과 상관없이 끝까지 (모두 조합이 쓴다)
 func _node(k: String, n: int, depth: int, root := "", path := "", full := false) -> Dictionary:
-	var run: Run = gs.run
+	var rk := k if depth == 0 else root
+	return node_of(gs.run, k, n, depth, path, full, opened.get(rk, {}), morder.get(rk, []))
+
+
+## 화면 없이 Run 만으로 (점검 tests/auto_forge_perf 도 쓴다) —— open = 펼친 경로들, order = 맨 위 장수의 재료 차례 (비면 조합법 차례)
+static func node_of(run: Run, k: String, n: int, depth: int, path: String, full: bool, open: Dictionary, order: Array) -> Dictionary:
 	var have := run.have(k)
 	var nd := {"k": k, "need": n, "have": have, "ok": depth > 0 and have >= n, "kids": [], "basic": 0, "path": path}
 	if nd.ok or not DB.RECOF.has(k) or depth >= MAX_DEPTH:
 		return nd
-	if depth >= 1 and not full and not is_open(root, path):
+	if depth >= 1 and not full and not open.has(path):
 		nd["fold"] = true       # 접힌 재료 —— [재료 ▾] 로 펼친다
 		return nd
 	var want := n - have if depth > 0 else 1
 	var m := Run.mat_count(DB.RECOF[k])
-	for q in m:
+	var qs: Array = m.keys()
+	if depth == 0 and not order.is_empty():
+		qs = sorted_mats(qs, order)
+	for q in qs:
 		var need: int = m[q] * want
 		if DB.C[q].tier <= BASIC_TIER:
 			nd.basic += maxi(0, need - run.have(q))
 			continue
-		nd.kids.append(_node(q, need, depth + 1, root if depth > 0 else k, (path + "/" if path != "" else "") + q, full))
+		nd.kids.append(node_of(run, q, need, depth + 1, (path + "/" if path != "" else "") + q, full, open, order))
 	var ni = Run.need_item(k)
 	if ni != null:
 		nd.kids.append({"item": ni, "ok": run.bag.get(ni, 0) > 0, "kids": []})
 	return nd
+
+
+## 재료를 정해 둔 차례로 (차례에 없는 재료는 조합법 차례 그대로 뒤에)
+static func sorted_mats(qs: Array, order: Array) -> Array:
+	var out := []
+	for q in order:
+		if qs.has(q) and not out.has(q):
+			out.append(q)
+	for q in qs:
+		if not out.has(q):
+			out.append(q)
+	return out
+
+
+## 차례를 정할 수 있는 재료 —— 맨 위 장수의 재료 가운데 스스로 조합되는 것 (기본패 · 조합법 없는 재료는 뺀다), 지금 차례로
+func order_mats(root: String) -> Array:
+	var qs: Array = Run.mat_count(DB.RECOF.get(root, [])).keys().filter(func(q): return DB.C[q].tier > BASIC_TIER and DB.RECOF.has(q))
+	return sorted_mats(qs, morder.get(root, []))
+
+
+## 갈무리 장수의 차례를 한 칸 옮긴다 (d = -1 위로 · +1 아래로)
+func move_pin(k: String, d: int) -> void:
+	var i := pins.find(k)
+	var j := i + d
+	if i < 0 or j < 0 or j >= pins.size():
+		return
+	pins[i] = pins[j]
+	pins[j] = k
+	_save()
+
+
+## 재료의 차례를 한 칸 옮긴다
+func move_mat(root: String, q: String, d: int) -> void:
+	var lst := order_mats(root)
+	var i := lst.find(q)
+	var j := i + d
+	if i < 0 or j < 0 or j >= lst.size():
+		return
+	lst[i] = lst[j]
+	lst[j] = q
+	morder[root] = lst
+	_save()
+
+
+## 갈무리 장수들이 (아래 재료까지) 필요로 하는 수 {재료: {need, root}} —— 판매 확인(11/15)이 쓴다. 기본패도 센다. root 는 차례가 가장 앞인 갈무리 장수
+static func needs_of(run: Run, roots: Array) -> Dictionary:
+	var out := {}
+	for root in roots:
+		if not DB.RECOF.has(root):
+			continue
+		var acc := {}
+		_needs_walk(run, root, 1, 0, acc)
+		for q in acc:
+			if not out.has(q):
+				out[q] = {"need": 0, "root": root}
+			out[q].need += acc[q]
+	return out
+
+
+static func _needs_walk(run: Run, k: String, want: int, depth: int, acc: Dictionary) -> void:
+	if want <= 0 or not DB.RECOF.has(k) or depth >= MAX_DEPTH:
+		return
+	var m := Run.mat_count(DB.RECOF[k])
+	for q in m:
+		var need: int = m[q] * want
+		acc[q] = int(acc.get(q, 0)) + need
+		_needs_walk(run, q, need - run.have(q), depth + 1, acc)
 
 
 func _card(root: String) -> Control:
@@ -217,35 +412,77 @@ func _chain_can(nd: Dictionary) -> bool:
 
 
 ## 가장 깊은 곳부터 조합할 수 있는 것
-func _deepest_forgeable(nd: Dictionary, depth: int, best: Array) -> void:
+static func _deepest_forgeable(run: Run, nd: Dictionary, depth: int, best: Array) -> void:
 	for c in nd.kids:
-		_deepest_forgeable(c, depth + 1, best)
-	if nd.has("k") and not nd.ok and gs.run.can_forge(nd.k) and depth > best[1]:
+		_deepest_forgeable(run, c, depth + 1, best)
+	if nd.has("k") and not nd.ok and run.can_forge(nd.k) and depth > best[1]:
 		best[0] = nd.k
 		best[1] = depth
 
 
-## 모두 조합 —— 가장 깊은 재료부터 되는 것을 하나씩 조합하고, 트리를 다시 잰다. 맨 위 장수가 나오면 멈춘다
-func forge_chain(root: String) -> void:
+## 모두 조합의 알맹이 (화면 없이) —— 가장 깊은 재료부터 되는 것을 하나씩 do_forge(k) 로 조합하고 나무를 다시 잰다. 맨 위 장수가 나오면 멈춘다.
+## order(재료 완성 차례)를 정했으면 앞 재료의 가지부터 끝낸다 (그 가지에서 될 것이 없으면 다음 재료로). 만든 것을 차례로 돌려준다
+static func chain(run: Run, root: String, do_forge: Callable, order: Array = [], cap := CHAIN_MAX) -> Array:
 	var made := []
-	gs._forge_quiet = true      # 11/6 #17 한 장마다 연출하지 않고 끝에 셔플로
-	for _i in 40:
-		if gs.run.can_forge(root):
-			if gs.act("forge", [root]):
+	for _i in cap:
+		if run.can_forge(root):
+			if do_forge.call(root):
 				made.append(root)
 			break
+		var tree := node_of(run, root, 1, 0, "", true, {}, order)       # 접힌 재료 안쪽까지
 		var best := [null, 0]
-		_deepest_forgeable(_node(root, 1, 0, root, "", true), 0, best)       # 접힌 재료 안쪽까지
-		if best[0] == null or not gs.act("forge", [best[0]]):
+		if order.is_empty():
+			_deepest_forgeable(run, tree, 0, best)
+		else:
+			for c in tree.kids:
+				_deepest_forgeable(run, c, 1, best)
+				if best[0] != null:
+					break
+		if best[0] == null or not do_forge.call(best[0]):
 			break
 		made.append(best[0])
+	return made
+
+
+## 모두 조합 —— 11/15 사용자 "자동조합 여러 명일 때 프리징": 예전에는 한 장 조합할 때마다 저장 + 화면 전체 다시 그리기(갈무리 나무 여섯 · 조합법 타일)를
+## 했다 (한 번에 수십 번). 이제 조합은 조용히(gs.act_quiet) 잇달아 하고 저장 · 다시 그리기는 끝에 한 번
+func forge_chain(root: String) -> void:
+	_chain_run([root])
+
+
+## 순서대로 모두 조합 —— 갈무리 차례(pins)대로 하나씩 모두 조합. 앞 장수가 먼저 재료를 가져간다
+func forge_all() -> void:
+	_chain_run(pins.duplicate())
+
+
+func _chain_run(roots: Array) -> void:
+	if not gs.can_act_or_tell("forge"):
+		return
+	var made := []
+	gs._forge_quiet = true      # 11/6 #17 한 장마다 연출하지 않고 끝에 셔플로
+	for root in roots:
+		made.append_array(chain(gs.run, root, func(k): return gs.act_quiet("forge", [k]) == true, morder.get(root, [])))
 	gs._forge_quiet = false
 	if made.is_empty():
 		gs.toast("지금 조합할 수 있는 재료가 없다")
-	else:
-		gs.toast("조합 %d번 — %s" % [made.size(), " → ".join(made.map(func(x): return DB.C[x].name))], "gain")
-		if DB.C[made[made.size() - 1]].tier < 7:      # 불멸 이상은 ForgeFanfare 가 이미 떴다
-			ForgeFx.play_chain(gs, made)
+		gs.render()
+		return
+	Sfx.play("forge")
+	gs.toast("조합 %d번 — %s" % [made.size(), _made_text(made)], "gain")
+	gs.changed()
+	var top := 0
+	for k in made:
+		top = maxi(top, int(DB.C[k].tier))
+	if top < 7:      # 불멸 이상은 ForgeFanfare 가 이미 떴다
+		ForgeFx.play_chain(gs, made)
+
+
+## 알림 글 —— 많으면 끝의 몇 개만 (수십 번 조합이면 이름 수십 개가 알림을 덮는다)
+static func _made_text(made: Array) -> String:
+	var names: Array = made.map(func(x): return DB.C[x].name)
+	if names.size() <= 5:
+		return " → ".join(names)
+	return "… → " + " → ".join(names.slice(names.size() - 4))
 
 
 func is_open(root: String, path: String) -> bool:
