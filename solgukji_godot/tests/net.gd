@@ -231,6 +231,15 @@ func _play(b: Dictionary, run: Dictionary, room: Dictionary) -> void:
 				if r.can_forge(k):
 					c.send({"t": "cmd", "m": "forge", "a": [k]})
 					return
+		var off: Array = run.get("tk_offer", [])      # 11/15 군략 3택1 —— 자리마다 다른 칸을 고른다
+		if not off.is_empty():
+			c.send({"t": "cmd", "m": "pick_tac", "a": [str(off[b.i % off.size()])]})
+			return
+	if room.stage in Room.ACT_STAGES:      # 11/15 군략 계획 —— 1단계가 비었으면 기본 카드 하나 (서버 명령 set_plan)
+		var tp: Array = run.get("tk_plan", [])
+		if tp.size() == 3 and str(tp[0]) == "":
+			c.send({"t": "cmd", "m": "set_plan", "a": [0, ["돌격", "우회", "방진"][b.i % 3]]})
+			return
 	var key := "%d.%d.%s" % [run.day, run.phase, room.stage]
 	if room.stage in Room.ACT_STAGES and (not b.has("deployed_at") or b.deployed_at != key):      # 11/12 편성은 아침 · 저녁 준비에만
 		b.deployed_at = key
