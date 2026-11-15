@@ -32,7 +32,7 @@ func _ready() -> void:
 	for a in str(args.get("shots", "")).split(",", false):
 		shots.append(float(a))
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
-	Engine.max_fps = 0
+	Engine.max_fps = int(args.get("fps", "0"))      # 11/15 --fps=60 —— 휴대폰처럼 프레임을 묶어 잰다 (몇 Hz 로 줄인 갱신이 실제로 덜어 주는 만큼만 보인다)
 	PlayLog.enabled = false
 	Run.dev_immortal = true
 	var t2s: Script = load(T2_PATH)

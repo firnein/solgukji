@@ -193,7 +193,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 				continue
 			if u.gauge >= 100.0 and u.ult_ready_t < 0.0:
 				u.ult_ready_t = _tm
-			u.atb = minf(1.0 if _ranged(u) else melee_bank, u.atb + TICK / _interval(u))
+			var atb_cap := 1.0 if u.ranged else melee_bank
+			if u.atb != atb_cap or probe_on:      # 11/15 성능: 이미 가득 찬 준비는 더해도 그대로다 —— 행동 간격(eff)을 재지 않는다
+				u.atb = minf(atb_cap, u.atb + TICK / _interval(u))
 			if u.atb >= 1.0 and not _ready_to_hit(u):
 				var wk := "wait_r" if _ranged(u) else "wait_m"      # 점검용 —— 준비가 다 찼는데 닿는 적이 없어 노는 시간
 				stats[wk] = stats.get(wk, 0.0) + TICK
@@ -253,6 +255,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	u.hw = fp.x
 	u.hd0 = fp.y
 	u.hd = fp.y
+	u.ranged = u.c.tag == "궁병" or is_caster(u.c)
 	return u
 
 
@@ -833,11 +836,17 @@ func _burn_mul(a: Unit, d: Unit) -> float:
 
 
 func _ranged(u: Unit) -> bool:
-	return u.c.tag == "궁병" or is_caster(u.c)
+	return u.ranged      # 궁병 · 책략계 (mk_unit 이 정해 둔다)
 
 
 func _foes_of(u: Unit) -> Array:
-	return units.filter(func(o): return o.alive and o.camp != u.camp and not _hidden(o))      # 감녕 백기야습 —— 숨은 동안은 목표가 되지 않는다
+	var out := []      # 11/15 성능: filter(람다) → 그냥 훑기 (같은 순서 · 같은 답. 틱마다 부대 수만큼 불린다)
+	var cp := u.camp
+	var hide_on: bool = not _paeup.is_empty() and _tm < 8.0      # 숨는 장수는 패업이 있는 판의 개전 8초뿐 (_hidden 의 조건) —— 그 밖에는 묻지 않는다
+	for o in units:
+		if o.alive and o.camp != cp and not (hide_on and _hidden(o)):      # 감녕 백기야습 —— 숨은 동안은 목표가 되지 않는다
+			out.append(o)
+	return out
 
 
 func _ready_to_hit(u: Unit) -> bool:
@@ -858,13 +867,30 @@ static func _extent(u: Unit, dir: Vector2) -> float:
 
 
 ## 두 발자국 가장자리 사이 틈 (겹치면 음수 —— 가장 얕게 파고든 깊이). 네 축(두 부대의 앞뒤 · 좌우)으로 재는 분리축 판정
+## 11/15 성능: 전투 계산에서 가장 많이 불리는 함수 (틱마다 수백 번) —— 축 배열 · _rt · _extent 호출을 풀어 썼다. 식 · 계산 순서는 그대로라 결과는 같다
 func _gap(a: Unit, b: Unit) -> float:
 	var d := b.pos - a.pos
+	var af := a.fwd
+	var ar := Vector2(-af.y, af.x)
+	var bf := b.fwd
+	var br := Vector2(-bf.y, bf.x)
+	var ahd := a.hd
+	var ahw := a.hw
+	var bhd := b.hd
+	var bhw := b.hw
 	var best := -INF
-	for ax in [a.fwd, _rt(a), b.fwd, _rt(b)]:
-		var sep := absf(d.dot(ax)) - _extent(a, ax) - _extent(b, ax)
-		if sep > best:
-			best = sep
+	var sep := absf(d.dot(af)) - (ahd * absf(af.dot(af)) + ahw * absf(af.dot(ar))) - (bhd * absf(af.dot(bf)) + bhw * absf(af.dot(br)))
+	if sep > best:
+		best = sep
+	sep = absf(d.dot(ar)) - (ahd * absf(ar.dot(af)) + ahw * absf(ar.dot(ar))) - (bhd * absf(ar.dot(bf)) + bhw * absf(ar.dot(br)))
+	if sep > best:
+		best = sep
+	sep = absf(d.dot(bf)) - (ahd * absf(bf.dot(af)) + ahw * absf(bf.dot(ar))) - (bhd * absf(bf.dot(bf)) + bhw * absf(bf.dot(br)))
+	if sep > best:
+		best = sep
+	sep = absf(d.dot(br)) - (ahd * absf(br.dot(af)) + ahw * absf(br.dot(ar))) - (bhd * absf(br.dot(bf)) + bhw * absf(br.dot(br)))
+	if sep > best:
+		best = sep
 	return best
 
 
@@ -886,7 +912,12 @@ func _move() -> void:
 		# 맞닿은 적이 있으면 묶인다 —— 발자국이 맞닿은(틈 TOUCH 안) 적 가운데 가장 가까운 적을 상대 (원거리도 붙으면 맞받아 싸운다)
 		var pin: Unit = null
 		var pd := TOUCH + 2.0
+		# 11/15 성능: 가운데끼리 이만큼 멀면 틈이 TOUCH 를 넘는 것이 확실하다 (틈 ≥ 거리 / √2 − 두 발자국의 반폭 + 반깊이) —— 그런 적은 틈을 재지 않는다 (결과는 같다)
+		var far_r := u.hw + u.hd + 12.0
+		var upos := u.pos
 		for o in foes:
+			if upos.distance_to(o.pos) * 0.7 > far_r + o.hw + o.hd:
+				continue
 			var g := _gap(u, o)
 			if g <= pd:
 				pd = g
@@ -900,8 +931,12 @@ func _move() -> void:
 		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0 or _hidden(u.tgt):
 			u.tgt = _choose(u, foes)
 			u.retgt = 0.5
-		var sp := _speed(u)
+		# 11/15 성능: 이동 속도(eff → 특기 · 위세 · 버프를 다 훑는다)는 실제로 움직일 때만 잰다 —— 맞붙어 서 있는 부대(목표 속도 0 · 지금 속도 0)는
+		# 속도가 얼마든 그대로 0 이다. 점검용 특기 세기(probe_on)를 켠 판은 예전처럼 늘 잰다 (읽힌 횟수가 같게)
+		var sp := _speed(u) if probe_on else -1.0
 		if has_st(u, "confuse"):
+			if sp < 0.0:
+				sp = _speed(u)
 			u.vel = u.vel.move_toward(Vector2.ZERO, sp / DEC_T * TICK)
 			u.pos += u.vel * TICK
 			continue
@@ -928,16 +963,21 @@ func _move() -> void:
 						dir = wv.normalized()
 			dir = _steer(u, dir, t)
 			if dir != Vector2.ZERO:
+				if sp < 0.0:
+					sp = _speed(u)
 				desired = dir * minf(sp, (gap - want) / TICK)      # 노리는 적 앞에서 멈춘다 (파고들지 않게)
 		else:
 			u.block_t = 0.0
 		# 속도 —— 가속 · 감속 시간을 두어 미끄러지거나 순간이동하지 않는다
-		var acc := sp / (ACC_T if desired.length() > u.vel.length() else DEC_T)
-		u.vel = u.vel.move_toward(desired, acc * TICK)
-		var step := u.vel * TICK
-		u.pos += step
-		if desired != Vector2.ZERO:
-			u.ran += step.length()
+		if desired != Vector2.ZERO or u.vel != Vector2.ZERO or sp >= 0.0:
+			if sp < 0.0:
+				sp = _speed(u)
+			var acc := sp / (ACC_T if desired.length() > u.vel.length() else DEC_T)
+			u.vel = u.vel.move_toward(desired, acc * TICK)
+			var step := u.vel * TICK
+			u.pos += step
+			if desired != Vector2.ZERO:
+				u.ran += step.length()
 		_turn_to(u, to)
 	_depth_update()
 	_solve()
@@ -984,10 +1024,12 @@ func _blocker(u: Unit, dir: Vector2, t: Unit, look: float) -> Unit:
 		var ahead := v.dot(dir)
 		if ahead <= 0.0:
 			continue
-		var eo := _extent(o, dir)
+		var of: Vector2 = o.fwd      # 11/15 성능: _extent(o, dir) · _extent(o, perp) 를 풀어 썼다 (같은 식)
+		var ort := Vector2(-of.y, of.x)
+		var eo: float = o.hd * absf(dir.dot(of)) + o.hw * absf(dir.dot(ort))
 		if ahead - eu - eo > look:
 			continue
-		if absf(v.dot(perp)) >= pu + _extent(o, perp) + 4.0:
+		if absf(v.dot(perp)) >= pu + (o.hd * absf(perp.dot(of)) + o.hw * absf(perp.dot(ort))) + 4.0:
 			continue
 		if ahead < bd:
 			bd = ahead
@@ -1058,7 +1100,8 @@ func _choose(u: Unit, foes: Array) -> Unit:
 			# 근접은 아군이 이미 몰려 싸우는 적보다 빈 적을 (줄 서서 놀지 않게)
 			var crowd := 0
 			for al in units:
-				if al != u and al.alive and al.camp == u.camp and not _ranged(al) and _gap(al, o) <= TOUCH + 4.0:
+				# 11/15 성능: 멀리 있는 아군은 틈을 재지 않는다 (위 _move 의 맞닿음 판정과 같은 까닭 —— 틈이 TOUCH + 4 를 넘는 것이 확실하다)
+				if al != u and al.alive and al.camp == u.camp and not al.ranged and al.pos.distance_to(o.pos) * 0.7 <= al.hw + al.hd + o.hw + o.hd + 14.0 and _gap(al, o) <= TOUCH + 4.0:
 					crowd += 1
 			w *= 1.0 + 0.35 * crowd
 		if d * w < bs:
@@ -1114,23 +1157,59 @@ func _solve() -> void:
 	var pre := {}
 	for u in live:
 		pre[u] = u.pos
+	# 11/15 성능: 방향 · 발자국 크기는 푸는 동안 바뀌지 않는다(자리만 밀린다) —— 부대마다 한 번 읽어 두고, 축 배열 · _extent 호출은 풀어 썼다 (식 · 순서 그대로)
+	var n_live := live.size()
+	var fw: Array[Vector2] = []
+	var rt: Array[Vector2] = []
+	var hds := PackedFloat64Array()
+	var hws := PackedFloat64Array()
+	for u in live:
+		var f: Vector2 = u.fwd
+		fw.append(f)
+		rt.append(Vector2(-f.y, f.x))
+		hds.append(u.hd)
+		hws.append(u.hw)
 	for it in SOLVE_ITERS:
-		for i in live.size():
+		var moved := false
+		for i in n_live:
 			var a: Unit = live[i]
-			for j in range(i + 1, live.size()):
+			var af := fw[i]
+			var ar := rt[i]
+			var ahd := hds[i]
+			var ahw := hws[i]
+			var acamp := a.camp
+			for j in range(i + 1, n_live):
 				var b: Unit = live[j]
-				var want: float = ALLY_GAP if a.camp == b.camp else -FOE_MIX
+				var want: float = ALLY_GAP if acamp == b.camp else -FOE_MIX
 				var d: Vector2 = b.pos - a.pos
-				if d.length() > a.hw + a.hd + b.hw + b.hd + want:
+				var bhd := hds[j]
+				var bhw := hws[j]
+				if d.length() > ahw + ahd + bhw + bhd + want:
 					continue
+				var bf := fw[j]
+				var br := rt[j]
 				var best := -INF
 				var bn := Vector2.ZERO
-				for ax in [a.fwd, _rt(a), b.fwd, _rt(b)]:
-					var proj := d.dot(ax)
-					var sep := absf(proj) - _extent(a, ax) - _extent(b, ax)
-					if sep > best:
-						best = sep
-						bn = ax if proj >= 0.0 else -ax
+				var proj := d.dot(af)
+				var sep := absf(proj) - (ahd * absf(af.dot(af)) + ahw * absf(af.dot(ar))) - (bhd * absf(af.dot(bf)) + bhw * absf(af.dot(br)))
+				if sep > best:
+					best = sep
+					bn = af if proj >= 0.0 else -af
+				proj = d.dot(ar)
+				sep = absf(proj) - (ahd * absf(ar.dot(af)) + ahw * absf(ar.dot(ar))) - (bhd * absf(ar.dot(bf)) + bhw * absf(ar.dot(br)))
+				if sep > best:
+					best = sep
+					bn = ar if proj >= 0.0 else -ar
+				proj = d.dot(bf)
+				sep = absf(proj) - (ahd * absf(bf.dot(af)) + ahw * absf(bf.dot(ar))) - (bhd * absf(bf.dot(bf)) + bhw * absf(bf.dot(br)))
+				if sep > best:
+					best = sep
+					bn = bf if proj >= 0.0 else -bf
+				proj = d.dot(br)
+				sep = absf(proj) - (ahd * absf(br.dot(af)) + ahw * absf(br.dot(ar))) - (bhd * absf(br.dot(bf)) + bhw * absf(br.dot(br)))
+				if sep > best:
+					best = sep
+					bn = br if proj >= 0.0 else -br
 				if best >= want:
 					continue
 				var push := want - best
@@ -1138,8 +1217,14 @@ func _solve() -> void:
 				var mb := b.troops + 1.0
 				a.pos -= bn * push * (mb / (ma + mb))
 				b.pos += bn * push * (ma / (ma + mb))
+				moved = true
 		for u in live:
+			var p0: Vector2 = u.pos
 			_clamp_arena(u)
+			if u.pos != p0:
+				moved = true
+		if not moved:
+			break      # 11/15 성능: 이번 바퀴에 아무도 밀리지 않았다 —— 남은 바퀴도 똑같이 아무 일이 없다
 	if rigid_probe:      # 남은 겹침 —— 풀고도 1px 넘게 파고든 쌍 (연쇄 겹침이 다 안 풀린 경우)
 		for i in live.size():
 			for j in range(i + 1, live.size()):

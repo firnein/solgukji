@@ -545,6 +545,8 @@ func _build_battle() -> void:
 	_battle_layer.visible = false
 	TouchScroll.block(_battle_layer)
 	add_child(_battle_layer)
+	# 11/15 성능: 전투 화면(불투명)이 덮는 동안 밑의 머리띠 · 탭 페이지 · 탭 줄은 보이지 않는데도 매 프레임 그려졌다 (그리기 호출 150~200) —— 그동안 숨긴다
+	_battle_layer.visibility_changed.connect(func(): _safe.visible = not _battle_layer.visible)
 	_battle = BattleView.new()
 	_battle.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_battle_layer.add_child(_battle)
@@ -785,8 +787,10 @@ func render(new_page := false) -> void:
 	pg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if fixed:
 		_fixed.add_child(pg)
+		UI.presize(pg)      # 11/15 성능: 타일을 엉뚱한 크기로 한 번 더 그리지 않게 (UI.presize)
 	else:
 		_body.add_child(pg)
+		UI.presize(pg)
 		var want: int = _scroll_keep.get(page, 0) if new_page else keep
 		_restore_scroll.call_deferred(want)
 	_flush_toasts()

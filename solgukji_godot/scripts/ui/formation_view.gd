@@ -258,11 +258,10 @@ func _sprite(tag: String) -> Texture2D:
 
 
 func _process(dt: float) -> void:
-	if is_visible_in_tree():
-		t += dt
-		queue_redraw()
-		for ch in get_children():
-			ch.queue_redraw()
+	# 11/15 성능: 병졸 그림(_squad, 까딱이는 움직임)을 뺀 뒤(11/4)로는 그림이 가만히 있는데 매 프레임 메달 9개를 다시 그렸다
+	# (전투 탭에 머무는 동안 PC 0.6ms/프레임 —— 전투를 보는 동안에도 밑에서 돌았다). 크기가 바뀌면 Control 이 알아서 다시 그린다
+	t += dt
+	set_process(false)
 
 
 func _draw() -> void:
