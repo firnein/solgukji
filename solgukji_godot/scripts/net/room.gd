@@ -37,8 +37,8 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ## 만들어진 시점 when("3일차 아침" —— 온라인의 일차는 day_no, 단계는 아침 · 점심 · 저녁 준비 · 저녁)를 붙인다.
 
 const MODES := {
-	"fast": {"n": "빠른 — 준비 75초", "morning": 75.0, "noon": 75.0, "prep": 0.0, "evening": 100.0, "morning2": 45.0, "prep2": 0.0},      # 11/13 사용자: 대전 준비 단계 없음(prep 0 = 건너뜀, 토벌 → 바로 대전) · 그 시간을 준비에 (60 → 75 · 30 → 45) —— 뽑기 할 시간 /      # 11/12 사용자: 1페이즈 1분 · 유저전 준비 30초 / 같은 날 사용자: 토벌이 사라지는 4일차~ 는 절반 (morning2 · prep2)
-	"normal": {"n": "보통 — 준비 75초", "morning": 75.0, "noon": 75.0, "prep": 0.0, "evening": 100.0, "morning2": 45.0, "prep2": 0.0},
+	"fast": {"n": "빠른 — 준비 75초", "morning": 75.0, "noon": 75.0, "prep": 10.0, "evening": 100.0, "morning2": 45.0, "prep2": 10.0},      # 11/16 사용자: "토벌 이후에 대전하기 전에 군략 카드를 변경할 수 있어야함 · 군략만 허용 10초" —— 대전 준비 10초를 되살린다 (상대를 보고 군략만 고친다 —— 편성 · 징집 · 조합은 안 됨, 준비 완료를 누르면 바로 대전) /      # 11/13 사용자: 대전 준비 단계 없음(prep 0 = 건너뜀, 토벌 → 바로 대전) · 그 시간을 준비에 (60 → 75 · 30 → 45) —— 뽑기 할 시간 /      # 11/12 사용자: 1페이즈 1분 · 유저전 준비 30초 / 같은 날 사용자: 토벌이 사라지는 4일차~ 는 절반 (morning2 · prep2)
+	"normal": {"n": "보통 — 준비 75초", "morning": 75.0, "noon": 75.0, "prep": 10.0, "evening": 100.0, "morning2": 45.0, "prep2": 10.0},
 	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5, "morning2": 1.0, "prep2": 0.5},      # 점검 모드는 빠르게 그대로 (4일차~ 도 같은 값)
 }
 const SEATS := 8              # 기본 자리 수 —— 방장이 만들 때 고르지 않으면 (옛 클라이언트) 8
@@ -154,8 +154,6 @@ static func sec_text(v: float) -> String:
 ## 토벌이 사라지는 날의 새 타이머 글 —— "준비 30초 · 대전 준비 15초"
 static func cut_text(mode_: String) -> String:
 	var d := Run.ONLINE_NOON_DAYS
-	if stage_len(mode_, "evening_prep", d) <= 0.0:      # 11/13 대전 준비 단계가 없는 모드
-		return "준비 %s" % sec_text(stage_len(mode_, "morning", d))
 	if stage_len(mode_, "evening_prep", d) <= 0.0:      # 11/13 대전 준비 단계가 없는 모드
 		return "준비 %s" % sec_text(stage_len(mode_, "morning", d))
 	return "준비 %s · 대전 준비 %s" % [sec_text(stage_len(mode_, "morning", d)), sec_text(stage_len(mode_, "evening_prep", d))]
@@ -295,7 +293,7 @@ func info(i: int) -> Dictionary:
 		"stage_n": STAGE_N.get(stage, stage), "remain": maxf(0.0, stage_end - now()), "stage_len": stage_len_now, "prep": stage_len(mode, "evening_prep", day) > 0.0, "noon_end": noon_end_sent and day == Run.ONLINE_NOON_DAYS and phase == 0 and stage == "morning", "day": day, "phase": phase,
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
-		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "alone": alone, "tour_round": -1, "winner": winner, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
+		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "act_plan": cmd_block(i, "set_plan") == "", "why_plan": cmd_block(i, "set_plan"), "alone": alone, "tour_round": -1, "winner": winner, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
 		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on, "gacha": true}
 
 
@@ -448,8 +446,8 @@ func cmd_block(i: int, m: String) -> String:
 	match stage:
 		"morning":
 			return ""
-		"evening_prep":
-			return "" if form else "대전 준비 중 — 지금은 편성만 할 수 있다"
+		"evening_prep":      # 11/16 사용자: 대전 준비는 군략만 (편성 · 징집 · 조합은 아침에)
+			return "" if m == "set_plan" else "대전 준비 중 — 지금은 군략만 바꿀 수 있다"
 		"noon", "evening":
 			if form:
 				return "지금은 편성할 수 없다 — 다음 준비 때"
@@ -461,7 +459,7 @@ func cmd_block(i: int, m: String) -> String:
 
 ## 무엇이든 하나라도 할 수 있나 (방 정보 act —— 옛 클라이언트용)
 func can_cmd(i: int) -> bool:
-	return cmd_block(i, "forge") == "" or cmd_block(i, "place") == ""
+	return cmd_block(i, "forge") == "" or cmd_block(i, "place") == "" or cmd_block(i, "set_plan") == ""
 
 
 func on_cmd(peer: int, m: String, a: Array) -> void:

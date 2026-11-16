@@ -972,7 +972,8 @@ func _move() -> void:
 		var slip: bool = (u.c.tag == "기병" or u.c.tag == "도적") and u.tgt != null and u.tgt.alive and pin != u.tgt
 		if slip:
 			pin = null
-		if pin != null and (u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
+		# 11/16 사용자 "뒷라인이 도적에게 공격 받아도 타겟팅을 바꾸지 않음" —— 원거리(궁병 · 책략계)는 근접 적이 달라붙으면 사거리 안의 옛 목표를 버리고 붙은 적을 상대한다
+		if pin != null and ((u.ranged and not pin.ranged) or u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
 			u.tgt = pin
 		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0 or _hidden(u.tgt):
 			u.tgt = _choose(u, foes)
@@ -1432,8 +1433,27 @@ func _mark(me: Unit, shape: Dictionary) -> void:
 
 
 func basic_target(u: Unit, foes: Array) -> Array:
+	if u.ranged:      # 11/16 달라붙은 근접 적(도적 · 기병 …)이 있으면 후열 대신 그 적부터 친다
+		var p := _pinner(u, foes)
+		if p != null:
+			return [p]
 	var back: bool = probe_back_basic and ((u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or is_caster(u.c))
 	return resolve_targets("back1" if back else "front1", foes, u, [])
+
+
+## 원거리 부대 u 에 맞닿은 근접 적 가운데 가장 가까운 것 (없으면 null) —— _pinned 와 같은 기준(틈 TOUCH + 2)
+func _pinner(u: Unit, foes: Array) -> Unit:
+	var best: Unit = null
+	var bd := TOUCH + 2.0
+	var far_r := u.hw + u.hd + 12.0
+	for o in foes:
+		if not o.alive or o.ranged or o.camp == u.camp or _hidden(o) or u.pos.distance_to(o.pos) * 0.7 > far_r + o.hw + o.hd:
+			continue
+		var g := _gap(u, o)
+		if g <= bd:
+			bd = g
+			best = o
+	return best
 
 
 func _nearest(p: Vector2, us: Array) -> Unit:

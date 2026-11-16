@@ -1175,9 +1175,10 @@ var _band_busy := false
 
 ## 화면 가운데 가로 띠 —— 큰 글씨 한 줄 + 작은 둘째 줄. 여러 개면 차례로
 var band_log: Array = []      # 띄운 띠 글 기록 (점검용 —— tests/phase_flow 가 센다. 바로 떠서 _bands 에 남지 않는 띠도 잡는다)
-func band(text: String, col: Color = DB.PAL.gold, sub := "") -> void:
+## over_report —— 전투 결과표를 보는 중에도 바로 띄운다 (온라인 「아침이 밝았습니다」 · 「토벌 종료」)
+func band(text: String, col: Color = DB.PAL.gold, sub := "", over_report := false) -> void:
 	band_log.append(text)
-	_bands.append([text, col, sub])
+	_bands.append([text, col, sub, over_report])
 	if not _band_busy:
 		_next_band()
 
@@ -1190,11 +1191,23 @@ func _hide_band() -> void:
 
 
 func _next_band() -> void:
-	if _bands.is_empty() or battle_visible():      # 11/6 전투 중에는 띠를 띄우지 않는다 (진형 표시 · 전장을 가렸다) —— 전투가 끝나면 이어서
+	# 11/6 전투 중에는 띠를 띄우지 않는다 (진형 표시 · 전장을 가렸다) —— 전투가 끝나면 이어서.
+	# 11/16 사용자 "멀티 아침이 밝았습니다가 안나옴": 봇과만 하면 내 대전이 늘 마지막이라 결과표가 뜨는 순간 서버가 아침으로 넘어간다 —— 띠가 결과표를 닫을 때까지 밀렸다.
+	# 싸움이 끝난 뒤(결과표를 보는 중)에는 전장을 가릴 일이 없으니 바로 띄운다
+	# 싸움이 끝난 뒤(결과표를 보는 중)에는 전장을 가릴 일이 없으니 단계 알림(over_report)만 바로 띄운다 —— 보상 띠는 예전처럼 결과표를 닫은 뒤
+	var bi := 0
+	if not _bands.is_empty() and battle_visible():
+		bi = -1
+		if _battle != null and _battle.finished:
+			for i in _bands.size():
+				if bool(_bands[i][3]):
+					bi = i
+					break
+	if _bands.is_empty() or bi < 0:
 		_band_busy = false
 		return
 	_band_busy = true
-	var e: Array = _bands.pop_front()
+	var e: Array = _bands.pop_at(bi)
 	var col: Color = e[1]
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2484,7 +2497,7 @@ func gacha_on() -> bool:
 	return online == null or bool(online.room.get("gacha", false))
 
 
-## 상점 시트 —— 아이템 뽑기(1회 · 10회 · 천장) + 고급 · 희귀 · 전설 랜덤권 + 준비 중인 칸. got: 방금 뽑은 아이템 id 들 (결과를 맨 위에)
+## 상점 시트 —— 아이템 뽑기(1회 · 10회 · 천장) + 기본 · 고급 · 희귀 · 전설 랜덤권 + 준비 중인 칸. got: 방금 뽑은 아이템 id 들 (결과를 맨 위에)
 func _shop_sheet(got := []) -> void:
 	var b := open_sheet("군량 상점")
 	var have := UI.hbox(UI.SP_S)
@@ -4593,8 +4606,8 @@ func _maybe_ending() -> void:
 		return
 	if _title != null and is_instance_valid(_title) and _title.visible:
 		return
-	if online != null and not online.watch.is_empty():
-		return      # 온라인 —— 이번 단계 전투를 다 본 뒤에
+	if online != null and (online._await_battles or not online.watch.is_empty()):
+		return      # 온라인 —— 이번 단계 전투를 다 본 뒤에 (11/16 전투 목록이 아직 안 온 동안에도 기다린다)
 	var key := "%s|%s|%s" % [str(online.room.get("code", "")) if online != null else "solo", str(run.over.get("win", false)), str(run.over.get("msg", ""))]
 	if key == _ending_key:
 		return
@@ -4745,6 +4758,10 @@ func _dev_args() -> void:
 			inf.deck = hi.slice(0, 9)
 		inf.w = maxi(int(inf.w), 9)
 		inf.l = maxi(int(inf.l), 4)
+		if a.has("gendwatch"):      # 점검용 —— 온라인 요약처럼 관전 버튼 · 긴 문구 (버튼이 화면 안에 남는지)
+			inf["watch"] = true
+			inf["msg"] = "대전 · 조조팬 패배 —— 민심이 바닥나 세력이 멸망했다"
+			inf["again_text"] = "혼자 하기 이어 하기"
 		_ending_key = "dev"
 		show_ending(inf)
 	if a.has("gdeath"):

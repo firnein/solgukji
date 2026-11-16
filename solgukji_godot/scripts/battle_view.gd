@@ -1048,6 +1048,11 @@ func _begin() -> void:
 		cards_bar.add_child(mc)
 	_shift = 0.0
 	warn_until = -1.0
+	# 11/16 사용자 "잘못된 인연멘트" —— 지난 전투의 멘트 기록이 남아, 같은 자리(A2 …)에 선 다른 장수가 지난 판 장수의 말을 했다 (유비가 등애의 「농서」 멘트). 판마다 비운다
+	_yeon_say.clear()
+	_yeon_used.clear()
+	_yeon_turn.clear()
+	_yeon_last.clear()
 	_met = false
 	_lead = 0
 	_turns_n = 0
@@ -1264,6 +1269,8 @@ func _process_inner(dt: float) -> void:
 	_ace_cd -= dt
 	_kill_cd -= dt
 	_spot_step(dt)
+	if is_instance_valid(_tac_box):      # 11/16 군략 단계 공개 카드는 HUD 밖 위층이라 고유기 컷인 초상을 덮었다 —— 컷인 동안은 숨긴다
+		_tac_box.visible = hud == null or hud.cut == null
 	var spd := speed * (SLOW if slow_t > 0 else 1.0)
 	if freeze_t > 0:
 		freeze_t -= dt
@@ -1438,7 +1445,7 @@ func _yeon_pick(key: String, lead: String, inyeon: String) -> Array:
 		used.append(pick[0])
 		_yeon_used[lead] = used
 		_yeon_last[slot] = pick[0]
-	_yeon_say[key] = pick
+	_yeon_say[key] = pick + [lead, cid]      # 누구에게(대표) · 누가(카드) 한 말인지 함께 —— 컷인이 다른 짝의 말을 꺼내 쓰지 않게
 	return pick
 
 
@@ -1747,7 +1754,7 @@ func _start_ult(g: Dictionary) -> void:
 		if field.squads.has(mk):
 			var ms: Squad = field.squads[mk]
 			var say: Array = _yeon_say.get(mk, [])
-			if say.is_empty():      # 합류 사건을 못 본 경우(되감기 등) —— 같은 규칙으로 지금 정한다
+			if say.size() < 5 or str(say[3]) != str(g.who) or str(say[4]) != ms.cid:      # 합류 사건을 못 본 경우(되감기 등) · 다른 대표 · 다른 장수에게 했던 말 —— 같은 규칙으로 지금 정한다
 				say = _yeon_pick(mk, g.who, str(u.get("inyeon", "")))
 			mates.append({"k": ms.cid, "who": ms.row.name, "line": say[0], "tone": say[1]})
 	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false), desc, mates, str(u.get("inyeon", "")))
@@ -2701,6 +2708,7 @@ class Hud extends Control:
 		_draw_charges()
 		_draw_threats()
 		view.field.pt("머리표·띠", tq)
+		_draw_top()
 		view.field.pt("머리표", t0)
 
 	## 11/6 #16 A등급 위험 신호 —— 화면 오른쪽 위 고정 칸: 적 고유기 준비(이름) · 아군 장수 병력 30% 아래(이름). 카메라 · 메달과 무관하게 늘 같은 자리
@@ -3719,6 +3727,13 @@ class Hud extends Control:
 		if mrout != null:
 			_draw_morale_rout()
 		tq = view.field.pt("머리표·위띠", tq)
+
+	## 맨 위층 —— 고유기 컷인 · 결과 낙관. 11/16 사용자 "전투 때 ZOrder 안 맞는 것 (고유기 초상화와 메달)":
+	## 컷인을 _draw_all 안에서 그려, 그 뒤에 그리는 격파 메달 · 덱 연쇄 띠 · 기 모으기 줄(메달 · 고리) · 위험 신호가 초상 위로 올라왔다 —— HUD 의 다른 것을 모두 그린 뒤에 그린다
+	func _draw_top() -> void:
+		var fb := DB.font_body
+		var fd := DB.font_display
+		var tq := Time.get_ticks_usec()
 		if cut:
 			_draw_cut()
 			tq = view.field.pt("머리표·컷인", tq)
@@ -3789,7 +3804,7 @@ class Hud extends Control:
 		var sz := size
 		var tall := sz.x < sz.y
 		# 어둡게 + 가장자리 비네트
-		draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.5 * fade))
+		draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.7 * fade))      # 11/16 0.5 → 0.7 —— 뒤의 전장 메달 · 병력 알약이 컷인과 같은 층처럼 또렷이 비쳤다
 		for i in 6:
 			var a := 0.08 * fade * (6 - i) / 6.0
 			draw_rect(Rect2(Vector2.ZERO, sz).grow(-i * 22.0), Color(0, 0, 0, a), false, 22.0)
@@ -3913,7 +3928,7 @@ class Hud extends Control:
 			var shown := shout.substr(0, int(clampf((t - 0.3) / 0.55, 0, 1) * shout.length()))
 			_text(fd, Vector2(tx, by - 40 if tall else by - 52), shown, HORIZONTAL_ALIGNMENT_CENTER, tw, 20 if tall else 24, Color(1, 0.95, 0.88, fade))
 			if cut.crisis:      # 위기에 쓴 고유기 —— 위력이 오른다
-				_text(fd, Vector2(tx, pr.position.y - 10 if tall else by - 92), "배수진", HORIZONTAL_ALIGNMENT_CENTER, tw, 22, Color(1, 0.35, 0.25, fade * nt))
+				_text(fd, Vector2(tx, pr.position.y + 30 if tall else by - 92), "배수진", HORIZONTAL_ALIGNMENT_CENTER, tw, 22, Color(1, 0.35, 0.25, fade * nt))
 			# 장수 이름 낙관
 			var who: String = cut.who
 			var wsz := DB.font_body.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)

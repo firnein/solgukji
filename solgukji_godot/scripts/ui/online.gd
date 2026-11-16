@@ -47,6 +47,7 @@ var stage_end := 0.0          # 이 기기 시계로 지금 단계가 끝나는 
 var watch := []               # 남은 볼 전투 [{title, res}]
 var last_battles := []        # 이번 단계 전투 (다시 보기)
 var _last_watched := {}       # 마지막으로 본(또는 보던) 전투 —— 전투 탭의 결과 칸 (11/9 사용자: 결과창이 없었다)
+var _await_battles := false   # 11/16 전투를 보는 단계가 열렸는데 전투 목록(battles)이 아직 안 왔다 —— 그동안은 멸망 연출을 띄우지 않는다 (상태가 먼저 와서 전투도 보기 전에 멸망이 떴다)
 var _seen_all := false        # 이번 단계의 전투를 다 봤다 —— 그래야 '준비 완료'를 누를 수 있다
 var _stage_no := -1           # 마지막으로 받은 단계 번호 —— 바뀌면 본 기록을 지운다
 var _asked_alone := false     # 혼자 남았다는 물음을 띄웠다
@@ -452,6 +453,7 @@ func _drop_room() -> void:
 	_last_watched = {}
 	_stage_no = -1
 	_seen_all = false
+	_await_battles = false
 	_asked_alone = false
 	_hide_lobby()
 	gs.hide_battle()
@@ -491,13 +493,14 @@ func _on_msg(d: Dictionary) -> void:
 				var was_watch := _stage_no >= 0 and ((gs.battle_visible() and not gs._battle.finished) or not watch.is_empty())      # 결과표를 보는 중이면 그대로 둔다
 				_stage_no = int(room.get("stage_no", 0))
 				_seen_all = false
+				_await_battles = str(room.stage) in Room.WATCH_STAGES and not bool(me().get("ready", false))      # 볼 전투가 없는 자리는 서버가 미리 준비로 둔다
 				if was_watch:
 					_stage_moved()
 				if str(room.stage) == "morning" and in_game:
 					if bool(room.get("noon_end", false)):
 						noon_end_band(Room.cut_text(str(room.get("mode", "fast"))))      # 11/12 4일차 첫 아침 —— 「아침이 밝았습니다」 대신 「토벌 종료」 (타이머 안내)
 					else:
-						gs.band("아침이 밝았습니다", DB.PAL.gold, "장수를 등용하고 전투를 준비하세요")
+						gs.band("아침이 밝았습니다", DB.PAL.gold, "장수를 등용하고 전투를 준비하세요", true)      # 11/16 결과표를 보는 중이어도 바로 (타이머는 이미 돌고 있다)
 					if not gs.battle_visible() and gs.page != "draw":
 						gs.go("draw")      # 11/12 사용자: 새 페이즈(아침)가 열리면 징집 페이지로
 				if not (str(room.stage) in Room.WATCH_STAGES):
@@ -522,6 +525,7 @@ func _on_msg(d: Dictionary) -> void:
 			if dev_auto:
 				_dev_step()
 		"battles":
+			_await_battles = false
 			last_battles = d.list
 			_last_watched = {}
 			if bool(d.get("seen", false)):
@@ -615,7 +619,7 @@ func noon_end_band(line: String) -> void:
 	if _noon_end_room == code_ and code_ != "":
 		return
 	_noon_end_room = code_
-	gs.band("토벌 종료", DB.PAL.seal.lightened(0.15), "이제부터 %s" % line if line != "" else "")
+	gs.band("토벌 종료", DB.PAL.seal.lightened(0.15), "이제부터 %s" % line if line != "" else "", true)
 
 
 func send_cmd(m: String, a: Array) -> void:
@@ -777,6 +781,8 @@ func react_row(sz := 30.0) -> Control:
 func can_act(kind := "") -> bool:
 	if not in_game or gs.run == null or gs.run.over != null or room.is_empty():
 		return false
+	if kind == "plan" and not room.has("act_plan"):
+		kind = "form"      # 옛 서버 —— 군략도 편성 명령으로 본다
 	if kind != "" and room.has("act_" + kind):
 		return bool(room["act_" + kind])
 	if room.has("act"):
@@ -786,12 +792,14 @@ func can_act(kind := "") -> bool:
 
 ## 막힌 이유 한 줄 (서버가 방 정보에 실어 준 글)
 func block_reason(kind: String) -> String:
-	var t := str(room.get("why_" + kind, ""))
-	return t if t != "" else ("지금은 편성할 수 없다" if kind == "form" else "지금은 징집 · 조합할 수 없다")
+	var t := str(room.get("why_" + kind, room.get("why_form", "") if kind == "plan" else ""))
+	return t if t != "" else ("지금은 군략을 바꿀 수 없다" if kind == "plan" else ("지금은 편성할 수 없다" if kind == "form" else "지금은 징집 · 조합할 수 없다"))
 
 
 ## 명령 이름 → 종류 (Room.FORM_CMDS 면 편성)
 static func cmd_kind(m: String) -> String:
+	if m == "set_plan":
+		return "plan"      # 11/16 군략 계획 —— 대전 준비 단계에도 된다 (방 정보 act_plan)
 	return "form" if m in Room.FORM_CMDS else "draw"
 
 
@@ -1093,7 +1101,7 @@ func _stage_hint() -> String:
 	match st:
 		"morning": return ("다른 사람을 기다리는 중 — 모두 준비되면 %s" % ("토벌" if has_noon() else ("대전 준비" if has_prep() else "대전"))) if rd else "징집 · 조합 · 편성을 마치고 준비 완료"
 		"noon": return "다른 사람을 기다리는 중 — 모두 보면 대전 상대가 정해진다. 그동안 징집 · 조합을 해 둘 수 있다 (편성은 다음 준비 때)" if rd else "토벌을 끝까지 보면 자동으로 준비된다"
-		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 편성을 고친 뒤 준비 완료 (징집 · 조합은 다음 아침)"
+		"evening_prep": return "다른 사람을 기다리는 중 — 모두 준비되면 대전" if rd else "상대를 보고 군략을 고친 뒤 준비 완료 —— 누르면 바로 대전 (편성 · 징집 · 조합은 다음 아침)"
 		"evening":
 			return "다른 사람을 기다리는 중 — 모두 보면 다음 아침. 그동안 징집 · 조합을 해 둘 수 있다 (보상은 아침에)" if rd else "대전을 끝까지 보면 자동으로 준비된다"
 		"over": return ("판이 끝났다 —— %s 천하 통일" % str(room.winner)) if str(room.get("winner", "")) != "" else "판이 끝났다"
@@ -1461,6 +1469,8 @@ func war_page() -> Control:
 		v.add_child(UI.act("준비 취소" if rd else "준비 완료", sub, func(): send_ready(not rd), "ghost" if rd else "pri", disabled))
 		if st == "morning" and has_noon() and run.quest_open():      # 11/12 험지 토벌 고르기 —— 토벌이 있는 일차의 준비 단계
 			v.add_child(gs.quest_hard_btn())
+		if st == "evening_prep" and not rd:      # 11/16 토벌 뒤 · 대전 전 —— 군략(편성 화면의 「군략 1 · 2 · 3단계」)을 고치러 가는 길
+			v.add_child(UI.btn("군략 고치기 ›", func(): gs.go("deploy"), "gold", UI.BH_M))
 		if st == "morning" and has_noon():      # 11/15 오늘 토벌 우두머리 (성질 · 군략 계획) —— 혼자 하기 전투 탭과 같은 패널
 			v.add_child(gs.boss_panel())
 		if watching and not watch.is_empty():

@@ -62,55 +62,127 @@ static func fam_tag(id: String, fs := UI.FS_CAP) -> HBoxContainer:
 	return h
 
 
-## 카드 한 장 (손패 · 3택1) —— 위 등급색 선 · 이름 · 계열 · 등급 · 한 줄 효과. sel 이면 금테. note 는 못 놓는 까닭 같은 덧말(옅게)
+## 카드 한 장 (손패 · 3택1) —— 등급색이 옅게 밴 바탕 · 위 등급색 선 · 계열 문장(기호) · 이름 · 등급 · 효과 · 상성(우세 / 열세). sel 이면 금테.
+## note 는 못 놓는 까닭 같은 덧말(옅게). tall(3택1)은 문장을 가운데 크게 세운 세로 카드
+## 11/16 사용자 "군략카드 폴리싱" —— 글만 있던 카드에 계열 문장 · 등급 바탕 · 상성 줄을 넣었다 (긴 상성 안내 글을 읽지 않아도 카드에서 바로 보이게)
 static func card_btn(id: String, cb: Callable, sel := false, note := "", tall := false) -> TouchButton:
 	var P := DB.PAL
 	var b := TouchButton.new()
-	b.custom_minimum_size = Vector2(0, 176 if tall else (112 if note != "" else 100))      # 글이 짧아(효과 한 줄) 높이를 정해 둔다 —— 줄바꿈 글의 최소 크기는 폭이 잡히기 전에 커서 못 믿는다
+	var econ := str(Tac.card(id).get("kind", "")) == "econ"
+	var has_match := not Tac.fams(id).is_empty()
+	b.custom_minimum_size = Vector2(0, 204 if tall else ((118 if has_match else 100) + (14 if note != "" else 0)))      # 글이 짧아(효과 한두 줄) 높이를 정해 둔다 —— 줄바꿈 글의 최소 크기는 폭이 잡히기 전에 커서 못 믿는다
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var gc := Tac.grade_col(id)
-	var sb := UI.flat(P.ink3 if sel else P.ink2, P.gold if sel else P.ink4, 2 if sel else 1, UI.R, 0)
+	var sb := UI.flat(P.ink2.lerp(gc, 0.16 if sel else 0.09), P.gold if sel else Color(gc, 0.55), 2 if sel else 1, UI.R, 0)
 	sb.border_width_top = 3
 	sb.border_color = P.gold if sel else gc
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(st, sb)
-	var v := UI.vbox(2)
+	var v := UI.vbox(3 if tall else 2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.offset_left = UI.SP_S
 	v.offset_right = -UI.SP_S
 	v.offset_top = UI.SP_S
 	v.offset_bottom = -UI.SP_XS
-	var hd := UI.hbox(UI.SP_S)
-	hd.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var nl := UI.lbl(id, UI.FS_LABEL, P.gold if sel else P.paper, true)
 	nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nl.clip_text = true
-	hd.add_child(nl)
-	var econ := str(Tac.card(id).get("kind", "")) == "econ"
-	var gl := UI.lbl("" if econ else Tac.grade_name(id), UI.FS_CAP, gc.lightened(0.15))
+	var gl := UI.lbl("능력치 · 경제" if econ else Tac.grade_name(id), UI.FS_CAP, gc.lightened(0.2))
 	gl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hd.add_child(gl)
-	v.add_child(hd)
-	if not econ:
-		v.add_child(fam_tag(id))
+	if tall:
+		# 세로 카드 —— 등급 · 문장 · 이름 · 계열을 가운데로
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(gl)
+		v.add_child(_emblem(id, gc, 40.0))
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		v.add_child(nl)
+		if not econ:
+			var fl := UI.lbl(Tac.fam_text(id) if has_match else "계열 없음", UI.FS_CAP, P.bamboo)
+			fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			v.add_child(fl)
 	else:
-		var el := UI.lbl("능력치 · 경제", UI.FS_CAP, gc.lightened(0.2))
-		el.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(el)
-	var dl := UI.lbl(Tac.desc(id) + (("\n" + note) if note != "" else ""), UI.FS_CAP, P.text_dim)
+		var hd := UI.hbox(UI.SP_S)
+		hd.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var em := _emblem(id, gc, 26.0)
+		em.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		hd.add_child(em)
+		var nv := UI.vbox(0)
+		nv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nv.add_child(nl)
+		if not econ:
+			var fl2 := UI.lbl(Tac.fam_text(id) if has_match else "계열 없음", UI.FS_CAP, P.bamboo)
+			fl2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			nv.add_child(fl2)
+		hd.add_child(nv)
+		gl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		hd.add_child(gl)
+		v.add_child(hd)
+	var dl := UI.lbl(Tac.desc(id) + (("
+" + note) if note != "" else ""), UI.FS_CAP, P.paper if tall else P.text_dim)
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UI.wrap_text(dl)
+	if tall:
+		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dl.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(dl)
+	if has_match:
+		v.add_child(_match_rows(id, tall))
 	b.add_child(v)
 	b.clip_contents = true
 	b.pressed.connect(func():
 		UI.buzz()
 		cb.call())
 	return b
+
+
+## 계열 문장 —— 등급색 얇은 테 원 안에 계열 기호 (둘이면 나란히). 계열 없음 · 능력치 카드는 작은 빈 원
+static func _emblem(id: String, gc: Color, d: float) -> Control:
+	var fs_l := Tac.fams(id)
+	if fs_l.is_empty():
+		fs_l = [""]
+	var pc := PanelContainer.new()
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := UI.flat(Color(gc, 0.14), Color(gc, 0.7), 1, int(d / 2.0), 0)
+	sb.content_margin_left = d * 0.22
+	sb.content_margin_right = d * 0.22
+	sb.content_margin_top = d * 0.22
+	sb.content_margin_bottom = d * 0.22
+	pc.add_theme_stylebox_override("panel", sb)
+	var h := UI.hbox(2)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for f in fs_l:
+		h.add_child(Glyph.new(f, gc.lightened(0.35), d * 0.56))
+	pc.add_child(h)
+	return pc
+
+
+## 상성 줄 —— 「우세 기동 · 원거리」(옥빛) · 「열세 수비 · 책략」(붉은빛). tall 이면 두 줄, 아니면 한 줄에 나란히
+static func _match_rows(id: String, tall: bool) -> Control:
+	var P := DB.PAL
+	var box: BoxContainer = UI.vbox(0) if tall else UI.hbox(UI.SP_S)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for e in [["우세", Tac.strong(id), P.jade], ["열세", Tac.weak(id), P.danger]]:
+		var fl: Array = e[1]
+		if fl.is_empty():
+			continue
+		var h := UI.hbox(3)
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if tall:
+			h.alignment = BoxContainer.ALIGNMENT_CENTER
+		var hl := UI.lbl(str(e[0]), UI.FS_TINY, (e[2] as Color).lightened(0.15), true)
+		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(hl)
+		var tl := UI.lbl(" · ".join(fl), UI.FS_TINY, P.text_dim)
+		tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(tl)
+		box.add_child(h)
+	return box
 
 
 # ───────── 편성 화면 —— 「군략 1 · 2 · 3단계」 ─────────
@@ -136,7 +208,9 @@ static func _slot(gs, i: int, id: String) -> TouchButton:
 	b.custom_minimum_size = Vector2(0, UI.HIT)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var on := id != ""
-	var sb := UI.flat(P.ink2 if on else Color(0, 0, 0, 0), Color(Tac.grade_col(id), 0.9) if on else Color(P.paper, 0.16), 1, UI.R, 0)
+	var sb := UI.flat(P.ink2.lerp(Tac.grade_col(id), 0.10) if on else Color(0, 0, 0, 0), Color(Tac.grade_col(id), 0.9) if on else Color(P.paper, 0.16), 1, UI.R, 0)
+	if on:
+		sb.border_width_top = 2      # 손패 카드와 같은 결 —— 위 등급색 선
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(st, sb)
 	var v := UI.vbox(0)
@@ -219,7 +293,7 @@ static func hand_sheet(gs, i: int) -> void:
 		if not notes.is_empty():
 			tx.append("영구 —— " + " · ".join(notes))
 		b.add_child(UI.hint("\n".join(tx)))
-	b.add_child(UI.hint(MATCH_HINT))
+	b.add_child(UI.hint("같은 단계에 낸 카드끼리 상성을 본다 —— 우세면 공격 +15%, 열세면 내 카드 효과 절반."))
 	b.add_child(UI.hint("기본 카드는 여러 단계에 겹쳐 놓을 수 있다 · 고급 이상은 전투당 한 번 · 전설은 한 장. 계획은 토벌 · 대전 모두에 쓴다."))
 
 
@@ -262,6 +336,8 @@ static func offer_sheet(gs, sel := "") -> void:
 		var sid := str(id)
 		row.add_child(card_btn(sid, func(): offer_sheet(gs, sid), sid == sel, "", true))
 	b.add_child(row)
+	if sel != "" and Tac.placeable(sel):
+		b.add_child(UI.hint("「%s」 —— 편성 화면의 군략 칸에 놓아 쓴다. 우세 계열을 상대하면 공격 +15%%, 열세 계열을 만나면 효과 절반." % sel))
 	var ok := UI.btn("「%s」 고르기" % sel if sel != "" else "카드를 눌러 고른다", func():
 		if sel == "":
 			return

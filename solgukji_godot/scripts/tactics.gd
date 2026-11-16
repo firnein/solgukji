@@ -345,6 +345,30 @@ static func offer(board: Array, owned: Dictionary, n_tac: int, r: RandomNumberGe
 	return out
 
 
+## 이 카드 계열이 이기는 계열 (표 그대로, 겹치지 않게) —— 카드 화면의 「우세」 줄
+static func strong(id: String) -> Array:
+	data()
+	var out := []
+	for f in fams(id):
+		for b in (FAM[f].beat as Array) if FAM.has(f) else []:
+			if not out.has(b) and not fams(id).has(b):
+				out.append(b)
+	return out
+
+
+## 이 카드 계열을 이기는 계열 —— 「열세」 줄 (둘인 카드는 한쪽이 막아 주는 계열을 뺀다)
+static func weak(id: String) -> Array:
+	data()
+	var mine := fams(id)
+	var out := []
+	for f in FAMS:
+		if mine.has(f) or mine.is_empty():
+			continue
+		if outcome(mine, [f]) == "lose":
+			out.append(f)
+	return out
+
+
 ## 한 줄 설명
 static func desc(id: String) -> String:
 	return str(card(id).get("d", ""))

@@ -1956,7 +1956,7 @@ func pick(k: String) -> bool:
 ## 명령 종류는 '징집 · 조합'(Room.FORM_CMDS 가 아님) —— 아침 · 전투를 다 본 뒤 기다리는 시간에 되고, 대전 준비 단계에는 안 된다
 const SELL_RATE := 0.45
 const SHOP_RATE := 1.0
-const SHOP_TIERS := [3, 4, 5]      # 고급 · 희귀 · 전설 랜덤권
+const SHOP_TIERS := [1, 3, 4, 5]      # 기본 · 고급 · 희귀 · 전설 랜덤권 (11/16 사용자: "상점에 기본 랜덤권도 존재해야함" —— 값은 같은 식: 기본패 값 1 → 군량 1)
 var grain := 0                     # 군량 —— 판매로 얻고 상점에서 쓴다
 var sell_on := true                # 이 판에서 판매 · 상점을 쓸 수 있나 (온라인 방 옵션 —— 서버가 시작 때 넣는다)
 static var _val_cache := {}

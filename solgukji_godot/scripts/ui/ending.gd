@@ -24,6 +24,8 @@ var _sum_at := 2.6              # 요약이 뜨는 시각
 var _shake_t := -9.0            # 흔들림이 시작된 시각
 var _flash_t := -9.0            # 붉은 번쩍임이 시작된 시각
 var _summary: Control = null
+var _deck_sc: ScrollContainer = null      # 요약의 핵심 장수 칸 (길면 이 안에서 스크롤)
+var _deck_row: Control = null
 var _tex: Texture2D = null
 var _src := Rect2()
 var _cued := {}                  # 이미 낸 효과음
@@ -40,6 +42,7 @@ static func play(host: Control, info_: Dictionary, gs_: Control = null) -> Contr
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	z_index = 60
+	TouchScroll.block(self)      # 11/16 아래 화면의 스크롤이 엔딩 버튼 누름을 가로채지 않게
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	if bool(info.get("win", false)):
 		_mode = "win"
@@ -424,9 +427,15 @@ func _build_summary() -> void:
 		v.add_child(UI.hint("편성된 장수가 없었다"))
 	else:
 		# 11/14 UI 4단계: 가로 스크롤은 여섯째 장이 오른쪽에서 잘려 보였다 (넘길 수 있다는 표시도 없음) —— 줄바꿈해 모두 보인다. 패널은 _fit_summary 가 위로 늘린다
+		# 11/16 사용자 "멸망 페이지에서 나갈 수 없음" —— 장수가 많아 줄이 늘면 패널이 화면 아래로 넘쳐 [처음으로] · [다시 하기] 가 밀려 나갔다.
+		# 장수 칸만 스크롤 상자에 넣고 높이를 남는 만큼으로 잡는다 (_fit_summary) —— 버튼은 늘 화면 안
 		var row := UI.flow(UI.SP_S)
 		row.alignment = FlowContainer.ALIGNMENT_CENTER
-		var sc := row
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var sc := UI.scroll()
+		sc.add_child(row)
+		_deck_sc = sc
+		_deck_row = row
 		for k in deck:
 			if not DB.C.has(str(k)):
 				continue
@@ -468,8 +477,17 @@ func _build_summary() -> void:
 func _fit_summary(p: PanelContainer, H: float) -> void:
 	if not is_instance_valid(p):
 		return
-	var need := p.get_combined_minimum_size().y
 	var bottom := size.y - UI.SP_L
-	var top := clampf(bottom - need, H * 0.70 + 100.0 * _u, H + 96.0 * _u)
+	var top_min := H * 0.70 + 100.0 * _u
+	if is_instance_valid(_deck_sc) and is_instance_valid(_deck_row):
+		await get_tree().process_frame      # 줄바꿈 상자는 한 번 놓인 뒤에야 제 높이를 안다
+		if not is_instance_valid(p) or not is_instance_valid(_deck_sc):
+			return
+		_deck_sc.custom_minimum_size.y = 0
+		var rest := p.get_combined_minimum_size().y      # 장수 칸을 뺀 나머지 (통계 · 버튼)
+		var want := _deck_row.get_combined_minimum_size().y
+		_deck_sc.custom_minimum_size.y = clampf(want, 0.0, maxf(72.0, bottom - top_min - rest))
+	var need := p.get_combined_minimum_size().y
+	var top := clampf(bottom - need, minf(top_min, maxf(UI.SP_L, bottom - need)), H + 96.0 * _u)
 	p.position.y = top
-	p.size.y = maxf(need, bottom - top)
+	p.size.y = bottom - top

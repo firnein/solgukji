@@ -172,14 +172,14 @@ func _timer_rules() -> void:
 	for m in ["fast", "normal"]:
 		for d in 7:
 			var late := d >= Run.ONLINE_NOON_DAYS
-			var want := {"morning": 45.0 if late else 75.0, "noon": 75.0, "evening_prep": 0.0, "evening": 100.0}
+			var want := {"morning": 45.0 if late else 75.0, "noon": 75.0, "evening_prep": 10.0, "evening": 100.0}      # 11/16 대전 준비 10초 복원 (군략만)
 			for st in want:
 				if Room.stage_len(m, st, d) != float(want[st]):
 					_fail("%s %d일차 %s 길이 %s (기대 %s)" % [m, d + 1, st, str(Room.stage_len(m, st, d)), str(want[st])])
 	for d in 7:
 		if Room.stage_len("test", "morning", d) != 1.0 or Room.stage_len("test", "evening_prep", d) != 0.5:
 			_fail("점검 모드 타이머가 일차마다 같지 않다 (%d일차)" % (d + 1))
-	if Room.cut_text("fast") != "준비 45초":
+	if Room.cut_text("fast") != "준비 45초 · 대전 준비 10초":
 		_fail("cut_text(fast) = %s" % Room.cut_text("fast"))
 	if Room.sec_text(60.0) != "1분" or Room.sec_text(15.0) != "15초" or Room.sec_text(0.5) != "0.5초":
 		_fail("sec_text")
@@ -260,7 +260,7 @@ func _timer_rules() -> void:
 func _cmd_rules() -> void:
 	var a := _room(2, 21)
 	var r: Room = a[0]
-	var expect := {"morning": [true, true], "noon": [true, false], "evening_prep": [false, true], "evening": [true, false]}      # [징집 · 조합, 편성] (점심 · 저녁은 다 본 뒤)
+	var expect := {"morning": [true, true], "noon": [true, false], "evening_prep": [false, false], "evening": [true, false]}      # [징집 · 조합, 편성] (점심 · 저녁은 다 본 뒤)
 	var seen := {}
 	var guard := 0
 	while r.stage != "over" and guard < 80 and r.day < 3:
@@ -285,7 +285,9 @@ func _cmd_rules() -> void:
 		var placed0 := rr.placed()
 		var sig0 := JSON.stringify(s.battles)
 		r.on_cmd(1, "clear_board", [])
-		var form_ok: bool = r.stage in ["morning", "evening_prep"]
+		if r.stage == "evening_prep" and (not bool(r.info(0).act_plan) or r.cmd_block(0, "set_plan") != ""):      # 11/16 대전 준비는 군략만
+			_fail("대전 준비에 군략(set_plan)이 막혀 있다")
+		var form_ok: bool = r.stage == "morning"
 		if placed0 > 0 and form_ok != (rr.placed() == 0):
 			_fail("%s 에서 clear_board 가 %s" % [r.stage, "먹지 않았다" if form_ok else "먹혔다"])
 		if not form_ok and srv_err(a[1], 1) == "":
@@ -487,8 +489,8 @@ func _prep_skip() -> void:
 	for i in 2:
 		r.add_human(i + 1, "사람%d" % (i + 1), "tk%d" % i)
 	r.start()
-	if bool(r.info(0).get("prep", true)):
-		_fail("빠른 모드 방 정보 prep 이 true")
+	if not bool(r.info(0).get("prep", false)):      # 11/16 사용자: 토벌 뒤 · 대전 전에 군략을 바꿀 수 있게 대전 준비 20초를 되살렸다
+		_fail("빠른 모드 방 정보 prep 이 false")
 	var seen := []
 	for k in 60:
 		if r.stage == "over":
@@ -504,8 +506,6 @@ func _prep_skip() -> void:
 		r.tick()
 		if r.day >= 3 and r.phase >= 1:
 			break
-	if seen.has("evening_prep"):
-		_fail("빠른 모드에 대전 준비 단계가 있다 %s" % str(seen))
-	if seen.slice(0, 4) != ["morning", "noon", "evening", "morning"]:
+	if seen.slice(0, 5) != ["morning", "noon", "evening_prep", "evening", "morning"]:
 		_fail("빠른 모드 단계 순서 %s" % str(seen.slice(0, 6)))
 	print("대전 준비 건너뛰기 —— 단계 %s … 끝 %d일차" % [str(seen.slice(0, 4)), r.day + 1])

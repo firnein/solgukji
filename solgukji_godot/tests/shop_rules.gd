@@ -52,7 +52,7 @@ func _prices() -> void:
 		if typeof(t) == TYPE_INT and int(t) in Run.SHOP_TIERS:
 			shop = str(Run.shop_price(int(t)))
 			var pk: Array = Run.pickable(int(t)).filter(func(k): return Run.sellable(k))
-			var mx: int = pk.map(func(k): return Run.sell_price(k)).max()
+			var mx: int = pk.map(func(k): return Run.sell_price(k)).max() if not pk.is_empty() else 0      # 기본패는 팔 수 없다 (11/16 기본 랜덤권)
 			if mx >= Run.shop_price(int(t)):
 				_fail("%s 최고 판매가 %d ≥ 상점가 %d (팔고-사기 이득)" % [name_, mx, Run.shop_price(int(t))])
 		print("| %s | %d | %.1f (%d~%d) | %.1f (%d~%d) | %s | %.2f |" % [name_, ks.size(), avg, vs.min(), vs.max(), pavg, ps.min(), ps.max(), shop, pavg / avg])

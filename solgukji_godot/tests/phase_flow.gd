@@ -41,7 +41,7 @@ func _ready() -> void:
 				skipped += 1
 			last_sno = int(rm.stage_no)
 			seen[st] = int(seen.get(st, 0)) + 1
-			var want_form: bool = st in Room.ACT_STAGES
+			var want_form: bool = st == "morning"      # 11/16 대전 준비는 군략만
 			if on.can_act("form") != want_form:
 				fails.append("%s 에서 can_act(form) %s" % [st, str(on.can_act("form"))])
 			if not want_form and gs.run != null and gs.act("auto_deploy") != null:
