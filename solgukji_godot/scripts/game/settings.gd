@@ -4,6 +4,7 @@ extends RefCounted
 ## 처음 설치(설정 파일 없음) 기본값 (11/12 사용자) —— 병사 수: 모바일 '중간' · PC '높음'. 피해 숫자 '모아서' · 카메라 '적게' · 전황 '간단' 은 공통. 저장된 값은 덮어쓰지 않는다.
 
 const PATH := "user://settings.cfg"
+static var war_painting := true # Illustrated formations; previous crowd remains selectable.
 const QUALITY_N := ["낮음", "중간", "높음"]
 const FULL_COUNT_DEBUG := true
 const COUNT_SCALE := [0.4, 0.65, 1.0]     # 병사 수 배율 (Squad.count_scale)
@@ -39,6 +40,7 @@ static func load_cfg() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(PATH) == OK:
 		quality = int(cf.get_value("gfx", "quality", -1))
+		war_painting = bool(cf.get_value("gfx", "war_painting", true))
 		direct = false      # 11/4 직접 지휘 없앰
 		haptics = bool(cf.get_value("play", "haptics", true))
 		sfx_vol = float(cf.get_value("sound", "sfx", 0.8))
@@ -65,6 +67,7 @@ static func load_cfg() -> void:
 static func save_cfg() -> void:
 	var cf := ConfigFile.new()
 	cf.set_value("gfx", "quality", quality)
+	cf.set_value("gfx", "war_painting", war_painting)
 	cf.set_value("play", "direct", direct)
 	cf.set_value("play", "haptics", haptics)
 	cf.set_value("play", "coach_done", coach_done)

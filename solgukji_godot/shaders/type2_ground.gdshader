@@ -1,4 +1,9 @@
 shader_type canvas_item;
+uniform bool painting = false;
+uniform float perspective = 0.0;
+uniform float depth_stretch = 1.0;
+uniform vec2 projection_origin = vec2(0.5);
+uniform sampler2D painting_ground : source_color, filter_linear_mipmap, repeat_enable;
 // 타입2 전장 바닥 (11/6) —— 삼국지11 식 채색 지도. 화면 px 를 전장 좌표로 되돌려(Type2View.map 의 역) 그린다.
 // 풀빛 얼룩 · 흙밭 · 굽은 길 · 양옆 숲(나무 덩이) · 옅은 육각 격자 · 가장자리 어둡게. CPU 는 매 프레임 uniform 만 넘긴다.
 
@@ -58,13 +63,19 @@ float hexdist(vec2 p) {
 
 void fragment() {
 	vec2 px = UV * vsize;
-	vec2 w = center + vec2(-(px.y - vsize.y * 0.5) / (scl * tilt), (px.x - vsize.x * 0.5) / scl);
+	vec2 local = (px - vsize * projection_origin) / max(scl, 0.001);
+	local.y /= max(depth_stretch, 0.001);
+	float dx = -local.y / max(0.12, tilt + perspective * local.y);
+	vec2 w = center + vec2(dx, local.x * (1.0 + perspective * dx));
 	// 풀빛 —— 큰 얼룩 + 잔 얼룩 (차분한 톤)
 	vec2 ws = w + seed_off;
 	float n = fbm(ws * 0.004);
 	float n2 = fbm(ws * 0.022 + 7.0);
 	vec3 col = mix(grass_lo, grass_hi, n);
 	col *= 0.93 + 0.14 * n2;
+	if (painting) {
+		col = mix(col, texture(painting_ground, ws / 1000.0).rgb, 0.8);
+	}
 	// 마른 흙 얼룩
 	float soil = smoothstep(0.62 - soil_amt * 0.25, 0.72 - soil_amt * 0.25, fbm(ws * 0.0028 + 13.0));
 	col = mix(col, vec3(0.55, 0.49, 0.35) * (0.94 + 0.12 * n2), soil * 0.55);
@@ -125,16 +136,23 @@ void fragment() {
 		col = mix(col, rk * (0.9 + 0.2 * hash(rc)), on * (1.0 - smoothstep(rr - 1.0, rr, d)));
 	}
 	// 11/6 사용자: 바닥 타일링(육각 · 길 · 흙밭)은 판정과 무관해 뺀다 —— 의미 있는 선만: 양 진영 시작선(진지선)과 가운데 경계
+	if (!painting) {
 	float da = abs(w.x - camp_a);
 	float db = abs(w.x - camp_b);
 	col = mix(col, vec3(0.30, 0.42, 0.62), (1.0 - smoothstep(2.0, 5.0, da)) * 0.45);
 	col = mix(col, vec3(0.66, 0.32, 0.28), (1.0 - smoothstep(2.0, 5.0, db)) * 0.45);
 	float dm = abs(w.x - (camp_a + camp_b) * 0.5);
 	col = mix(col, col * 0.86, (1.0 - smoothstep(1.0, 2.5, dm)) * 0.6);
+	}
 	// 숲 —— 양옆에만, 나무 덩이 (칸마다 하나, 그림자는 화면 오른쪽 아래로)
 	float side = smoothstep(forest_side, forest_side + 160.0, abs(w.y - mid_y - forest_bias * 180.0));      // 11/9 forest_bias: 숲을 한쪽으로
 	float fz = smoothstep(forest_amt, forest_amt + 0.1, fbm(ws * 0.003 + 31.0)) * side;
-	if (fz > 0.01) {
+	if (painting) {
+		// Broad brush masses replace tiny tiled treetops at the low viewing angle.
+		float foliage = smoothstep(0.42, 0.69, fbm(ws * 0.018 + 5.0));
+		col = mix(col, mix(tree_lo, tree_hi, n2), foliage * fz * 0.65);
+	}
+	if (fz > 0.01 && !painting) {
 		float cs = 20.0;
 		vec2 cell = floor(ws / cs);
 		vec2 o = (vec2(hash(cell), hash(cell + 3.1)) - 0.5) * 6.0;
@@ -151,5 +169,18 @@ void fragment() {
 	// 가장자리 어둡게
 	vec2 q = UV - 0.5;
 	col *= 1.0 - dot(q, q) * 0.35;      // 11/6 적이 있는 위쪽이 너무 어두웠다
+	if (painting) {
+		float grain = hash(floor(ws * 1.5));
+		col = mix(col, vec3(0.79, 0.70, 0.51), 0.10);
+		col *= 0.97 + grain * 0.06;
+		// A distant, hazy tree line establishes eye height; the playable ground
+		// still uses the exact inverse projection shared with the formations.
+		vec3 distant = vec3(0.73, 0.69, 0.55);
+		float ridge = 0.055 + sin(UV.x * 8.0) * 0.016 + sin(UV.x * 21.0) * 0.005;
+		distant = mix(distant, vec3(0.45, 0.48, 0.35), smoothstep(ridge - 0.003, ridge + 0.008, UV.y));
+		float ridge2 = 0.105 + sin(UV.x * 11.0 + 2.0) * 0.015;
+		distant = mix(distant, vec3(0.54, 0.53, 0.36), smoothstep(ridge2 - 0.005, ridge2 + 0.015, UV.y));
+		col = mix(distant, col, smoothstep(0.07, 0.19, UV.y));
+	}
 	COLOR = vec4(col, 1.0);
 }

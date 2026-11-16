@@ -11,6 +11,17 @@ const FIG := 17.0              # 병사 인형 크기 (px, 화면 —— 배율 
 const FIG_MIN := 0.5           # 인형 크기 배율 하한 (배율 × 1.15 를 이 아래로 내리지 않는다) —— 11/7 대군을 멀리서 볼 때 0.6 → 0.5: 겹침을 줄인다 (간격은 2.6px 인데 인형이 10px 였다)
 const T2_SPREAD := 1.0         # 11/7 군집 강체: 병사는 엔진 발자국을 그대로 채운다 (넓혀 그리던 1.35 는 RtBattle.FP_SPREAD 로 발자국에 들어갔다)
 static var scatter := 1.0      # 11/7 흐트러짐 세기 (셰이더 scatter —— 점검용 tests/perf_probe --gscatter=0 이면 흐트러뜨리기 전 배치)
+static var formation_preview := false # Opt-in visual study; no simulation changes.
+var painting: Control
+const PAINT_TILT := 0.72 # Ground seen obliquely, while figures stay upright.
+const PAINT_PERSPECTIVE := 0.00048
+var _painting_bounds := Rect2()
+var _painting_points := PackedVector2Array()
+var _painting_origin := Vector2(0.5, 0.5)
+var _painting_stretch := 1.0 # Portrait framing independent of soldier scale.
+
+static func painting_on() -> bool:
+	return Settings.type2 and Settings.war_painting and not formation_preview
 const HEX := 34.0              # 육각 한 칸 (전장 px)
 const CLONES := 1              # 11/6 3차(목표: 휴대폰에서도 품질 그대로 대군): 묶음(단순한 인형 열둘) 하나 = 병사 하나 —— 화면 병사 수 4배, 그리는 칸은 1/3
 const CLONES_SMALL := 2        # 병사가 SMALL_SQ 명보다 적은 부대(1일차 등)
@@ -60,9 +71,25 @@ func _ready() -> void:
 	_under.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_under)
 	move_child(_under, 1)
+	painting = preload("res://scripts/field/war_painting.gd").new()
+	painting.v = self
+	painting.visible = painting_on()
+	add_child(painting)
+	mat.set_shader_parameter("painting_ground", load("res://assets/war_painting/ground_01.png"))
+	if formation_preview:
+		var preview := FormationPreview.new()
+		preview.v = self
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(preview)
 
 
 func setup() -> void:
+	_painting_bounds = Rect2()
+	_painting_points.clear()
+	if painting != null:
+		painting.reset()
+		painting.visible = painting_on()
+	_mm.visible = not painting_on() and not formation_preview
 	_camp_cache.clear()
 	super.setup()
 	_grade.clear()
@@ -97,10 +124,71 @@ func setup() -> void:
 ## 전장 px → 화면 px —— DotView 처럼 아군 아래 · 적 위, 세로를 TILT 만큼 눌러 비스듬히
 func map(p: Vector2) -> Vector2:
 	var d := p - _center - _jit
+	if painting_on():
+		return size * _painting_origin + Vector2(d.y, -d.x * PAINT_TILT * _painting_stretch) * _scale * depth_scale(p)
 	return size * 0.5 + Vector2(d.y, -d.x * TILT) * _scale
 
 
+func depth_scale(p: Vector2) -> float:
+	if not painting_on():
+		return 1.0
+	return 1.0 / maxf(0.35, 1.0 + (p.x - _center.x - _jit.x) * PAINT_PERSPECTIVE)
+
+
+func unmap(screen: Vector2) -> Vector2:
+	if not painting_on():
+		var local := (screen - size * 0.5) / _scale
+		return _center + _jit + Vector2(-local.y / TILT, local.x)
+	var local := (screen - size * _painting_origin) / _scale
+	local.y /= _painting_stretch
+	var x := -local.y / maxf(0.12, PAINT_TILT + PAINT_PERSPECTIVE * local.y)
+	return _center + _jit + Vector2(x, local.x * (1.0 + x * PAINT_PERSPECTIVE))
+
+
+func _fit_painting() -> void:
+	# Fit the initial battlefield once, not the shrinking set of survivors.
+	# A retreat or routed front must leave visible empty ground instead of zooming in.
+	if not _painting_bounds.has_area():
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		for sq: Squad in field.order:
+			var extent := Vector2(sq.hd0 + 25.0, sq.hw + 25.0)
+			lo = lo.min(sq.pos - extent)
+			hi = hi.max(sq.pos + extent)
+			for side in [Vector2(-1, -1), Vector2(-1, 1), Vector2(1, -1), Vector2(1, 1)]:
+				_painting_points.append(sq.pos + extent * side)
+		if lo.x == INF:
+			return
+		_painting_bounds = Rect2(lo, hi - lo)
+	_center = _painting_bounds.get_center()
+	_want_center = _center
+	_jit = Vector2.ZERO
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for corner in _painting_points:
+		var d: Vector2 = corner - _center
+		var projected := Vector2(d.y, -d.x * PAINT_TILT) / (1.0 + d.x * PAINT_PERSPECTIVE)
+		lo = lo.min(projected)
+		hi = hi.max(projected)
+	var span := hi - lo
+	var top := 90.0 # Room for strength and morale; avoid wasting portrait depth.
+	var bottom := 30.0
+	var available := Vector2(maxf(1.0, size.x - 40.0), maxf(1.0, size.y - top - bottom))
+	_scale = minf(available.x / maxf(span.x, 1.0), available.y / maxf(span.y, 1.0))
+	_want_scale = _scale
+	_base_scale = _scale
+	# Keep figure size and horizontal fit, but use the available vertical stage.
+	# This is presentation framing, not a change to deployment or battle distances.
+	_painting_stretch = available.y / maxf(span.y * _scale, 1.0)
+	lo.y *= _painting_stretch
+	span.y *= _painting_stretch
+	_painting_origin = (Vector2(20, top) + (available - span * _scale) * 0.5 - lo * _scale) / size.max(Vector2.ONE)
+
+
 func _fit(now := false) -> void:
+	if painting_on():
+		_fit_painting()
+		return
 	var lo := Vector2(INF, INF)
 	var hi := Vector2(-INF, -INF)
 	for sq: Squad in field.order:
@@ -365,7 +453,10 @@ func _process(dt: float) -> void:
 	var mat: ShaderMaterial = _ground.material
 	mat.set_shader_parameter("center", _center + _jit)
 	mat.set_shader_parameter("scl", _scale)
-	mat.set_shader_parameter("tilt", TILT)
+	mat.set_shader_parameter("tilt", PAINT_TILT if painting_on() else TILT)
+	mat.set_shader_parameter("projection_origin", _painting_origin if painting_on() else Vector2(0.5, 0.5))
+	mat.set_shader_parameter("perspective", PAINT_PERSPECTIVE if painting_on() else 0.0)
+	mat.set_shader_parameter("depth_stretch", _painting_stretch if painting_on() else 1.0)
 	mat.set_shader_parameter("vsize", size)
 	mat.set_shader_parameter("mid_y", _mid_y)
 	mat.set_shader_parameter("hex", HEX)
@@ -427,6 +518,16 @@ static func _unit_circle(n: int) -> PackedVector2Array:
 
 
 func _draw_dots() -> void:
+	if painting_on():
+		_mm.visible = false
+		if _gmm != null:
+			_gmm.visible = false
+		return
+	if formation_preview:
+		_mm.visible = false
+		if _gmm != null:
+			_gmm.visible = false
+		return
 	var mm := _mm.multimesh
 	# 11/6 병사 1,000명 넘게 매번 정렬하던 것을 부대 단위 정렬로 (후반 fps 68 → ?) —— 부대끼리 겹침 순서만 맞으면 충분하다
 	var sqs: Array = field.order.duplicate()
@@ -582,6 +683,60 @@ func _draw() -> void:
 	pass
 
 
+class FormationPreview extends Control:
+	var v: Type2View
+	func _process(_dt: float) -> void:
+		queue_redraw()
+	func _draw() -> void:
+		if v != null and v.field != null:
+			v._draw_formation_preview(self)
+
+
+func _draw_formation_preview(ci: CanvasItem) -> void:
+	var sqs: Array = field.order.duplicate()
+	sqs.sort_custom(func(a, b): return map(a.pos).y < map(b.pos).y)
+	for sq: Squad in sqs:
+		if sq.state == "gone" or sq.fade < 0.05:
+			continue
+		var team := TEAM_A if sq.camp == "A" else TEAM_B
+		# Fixed representative ranks: troop losses open gaps, never spawn a cloud.
+		var ratio := clampf(sq.troops / maxf(1.0, sq.max), 0.0, 1.0)
+		var cavalry := sq.tag == "기병"
+		var ranged := sq.tag in ["궁병", "책사", "유생", "술사", "모사"]
+		var cols := 5 if cavalry else (6 if ranged else 7)
+		var ranks := 4
+		var count := roundi(cols * ranks * ratio)
+		var width := minf(sq.hw * 1.75, 145.0)
+		var depth := minf(sq.hd() * 1.5, 105.0)
+		var h := clampf(24.0 * _scale, 10.0, 22.0)
+		var corners := PackedVector2Array()
+		for offset in [Vector2(-0.6, -0.65), Vector2(0.6, -0.65), Vector2(0.6, 0.65), Vector2(-0.6, 0.65)]:
+			corners.append(map(sq.pos + sq.right() * offset.x * width + sq.fwd * offset.y * depth))
+		ci.draw_colored_polygon(corners, Color(team, 0.07 * sq.fade))
+		corners.append(corners[0])
+		ci.draw_polyline(corners, Color(team, 0.25 * sq.fade), 1.0, true)
+		for row in ranks:
+			var row_cols := mini(cols, 1 + row * 2) if cavalry else cols
+			for col in row_cols:
+				var index := row * cols + col
+				if index >= count:
+					continue
+				var lateral := (float(col) - float(row_cols - 1) * 0.5) * width / float(cols - 1)
+				var forward := (1.5 - float(row)) * depth / 3.0
+				var at := sq.pos + sq.right() * lateral + sq.fwd * forward
+				var p := map(at)
+				if sq.state == "flee":
+					p += Vector2(sin(float(index) * 2.7), cos(float(index) * 1.9)) * 7.0
+				var step := absf(sin(field.clock * 5.0 + float(row) * 0.7 + float(col))) * 0.65 if sq.state == "move" else 0.0
+				p.y -= step
+				ci.draw_circle(p + Vector2(0, -1), h * 0.18, Color(0, 0, 0, 0.18 * sq.fade))
+				var rect := Rect2(p - Vector2(h * 0.5, h), Vector2(h, h))
+				if sq.camp == "B":
+					rect.position.x += h
+					rect.size.x = -h
+				ci.draw_texture_rect_region(_fig_tex, rect, Rect2(_cell(sq.tag) * 48.0 * ATLAS_N, 0, 48, 48), Color(team.lightened(0.1 if row == 0 else 0.0), sq.fade))
+
+
 class Under extends Control:
 	var v: Type2View
 	func _draw() -> void:
@@ -597,6 +752,9 @@ func _draw_under(ci: CanvasItem) -> void:
 
 
 func _draw_under_inner(ci: CanvasItem) -> void:
+	if painting_on():
+		_draw_areas(ci)
+		return
 	var aura_on := _rich() and tier_fig
 	for sq: Squad in field.order:
 		if not sq.alive or sq.state == "gone":
@@ -1011,6 +1169,8 @@ func _spr_at(ci: CanvasItem, nm: String, c: Vector2, sz: float, col: Color, rot 
 
 ## 더하기 층 —— 빛나는 것만 (불꽃 · 불벽 · 불덩이 · 불기둥 · 검기 · 충격파 · 튀는 불티 · 번개 빛 · 소용돌이 · 회복 빛)
 func _draw_fx_add(ci: CanvasItem) -> void:
+	if painting_on():
+		return # Formation fire and volleys are drawn by the painting layer.
 	bfx.draw(ci, true)
 	var now := field.clock
 	var zs := clampf(_scale, 0.6, 1.8)
@@ -1106,6 +1266,8 @@ func _ensure_fx_layer() -> void:
 
 func fx(k: String, p: Vector2, col: Color, life: float, delay := 0.0, r := 30.0, q := Vector2.ZERO) -> void:
 	_ensure_fx_layer()
+	if painting_on():
+		return
 	if _fx.size() > (320 if load_lv < 2 else 120):      # 11/7 고유기 연출이 커져 칸을 늘렸다
 		return
 	_fx.append({"k": k, "p": p, "q": q, "col": col, "t0": field.clock + delay, "life": life, "r": r, "s": _frng.randf() * 100.0})
@@ -1373,6 +1535,8 @@ func _draw_standard(ci: CanvasItem, sq: Squad, fg: int, zs0: float) -> void:
 
 
 func _draw_fx(ci: CanvasItem) -> void:
+	if painting_on():
+		return
 	_draw_flags(ci)
 	bfx.draw(ci, false)
 	var now := field.clock
@@ -1719,6 +1883,9 @@ func shake(amt: float) -> void:
 
 
 func _feel_step(dt: float) -> void:
+	if painting_on():
+		_jit = Vector2.ZERO
+		return # The painting camera stays fixed through impacts and routes.
 	# 다가가거나 돌아올 때는 빠르게 (DotView 의 느린 따라가기 위에 한 번 더)
 	var fast := _focus_on() or absf(_scale - _want_scale) > _base_scale * 0.08
 	if fast:
@@ -1795,6 +1962,8 @@ func _build_gpu() -> void:
 	_gi.clear()
 	_dying.clear()
 	gpu_count = 0
+	if painting_on():
+		return
 	if not field._gpu or field._sq_tex == null:
 		return
 	var lst := []
@@ -2087,3 +2256,12 @@ func _roll_ground() -> void:
 	m.set_shader_parameter("farm_amt", r.randf_range(0.6, 1.0) if farm else 0.0)
 	m.set_shader_parameter("farm_side", side * r.randf_range(240.0, 330.0) if farm else 9999.0)
 	m.set_shader_parameter("rock_amt", r.randf_range(0.0, 1.0) if r.randf() < 0.7 else 0.0)
+	m.set_shader_parameter("painting", painting_on())
+	if painting_on():
+		m.set_shader_parameter("grass_lo", Color("#827750"))
+		m.set_shader_parameter("grass_hi", Color("#b6a274"))
+		m.set_shader_parameter("tree_lo", Color("#424a32"))
+		m.set_shader_parameter("tree_hi", Color("#70734b"))
+		m.set_shader_parameter("forest_side", 360.0)
+		m.set_shader_parameter("forest_amt", 0.62)
+		m.set_shader_parameter("snow", 0.0)

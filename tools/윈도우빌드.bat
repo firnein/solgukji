@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul
-rem 윈도우 빌드 —— 솔국지.exe 를 만들고 친구에게 보낼 zip 으로 묶는다 (build\windows)
+rem 윈도우 빌드 —— 솔국지.exe 를 만들고 친구에게 보낼 zip 으로 묶는다 (build\release, APK 와 같은 결과물 폴더)
 rem 1) 데이터 · 그림 가져오기  2) 내보내기(릴리스)  3) 압축  4) 폴더 열기
 setlocal
 for %%I in ("%~dp0..") do set ROOT=%%~fI
 set GODOT=%~dp0Godot_v4.4.1-stable_win64_console.exe
-set OUT=%ROOT%\build\windows
+set OUT=%ROOT%\build\release
 
 if not exist "%GODOT%" (
   echo [오류] Godot 실행 파일이 없습니다: %GODOT%

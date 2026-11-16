@@ -84,6 +84,11 @@ func _ready() -> void:
 	net.opened.connect(func():
 		_status = "접속됨 — %s" % net.url
 		_retry = -1.0
+		if _pending_join != "":      # 11/16 초대 글로 입장 —— 붙자마자 그 방으로
+			var jc := _pending_join
+			_pending_join = ""
+			_drop_room()
+			net.send({"t": "join", "code": jc})
 		_refresh_sheet())
 	net.closed.connect(func():
 		_status = "접속 끊김"
@@ -285,6 +290,53 @@ func _withdraw_consent() -> void:
 		connect_sheet()
 
 
+# ───────── 초대 글로 입장 (11/16 사용자: "이 메시지를 통해 자동으로 입장") ─────────
+## 방 정보 복사(room_info_text)로 받은 글 —— 「서버: wss://…」 · 「방 코드: SFM5」 —— 을 복사한 채 게임을 열면
+## 온라인 시트 맨 위에 「초대 받은 방으로 입장」 이 뜬다 (GameScreen 이 창이 앞으로 올 때 시트를 연다). 한 번 누르면 접속 · 참가까지.
+var _pending_join := ""            # 접속이 붙으면 들어갈 방 코드
+static var invite_seen := ""       # 시트를 저절로 열어 준 초대 글 —— 같은 글로 또 열지 않는다
+
+
+## 글에서 서버 주소 · 방 코드를 찾는다 —— 둘 다 있어야 초대. 없으면 {}
+static func parse_invite(t: String) -> Dictionary:
+	var ru := RegEx.create_from_string("서버[ \\t]*[:：][ \\t]*(wss?://[^ \\t\\r\\n]+)")
+	var rc := RegEx.create_from_string("방[ \\t]*코드[ \\t]*[:：][ \\t]*([A-Za-z0-9]{4})(?![A-Za-z0-9])")
+	var mu := ru.search(t)
+	var mc := rc.search(t)
+	if mu == null or mc == null:
+		return {}
+	return {"url": mu.get_string(1), "code": mc.get_string(1).to_upper()}
+
+
+## 지금 클립보드의 초대 (없으면 {}) —— 이미 그 방에 있으면 없는 것으로
+func clip_invite() -> Dictionary:
+	var inv := parse_invite(DisplayServer.clipboard_get())
+	if not inv.is_empty() and str(room.get("code", "")) == str(inv.code):
+		return {}
+	return inv
+
+
+func join_invite(inv: Dictionary) -> void:
+	if _name_edit != null and is_instance_valid(_name_edit) and _name_edit.text.strip_edges() != "":
+		net.player = _name_edit.text.strip_edges()
+	if not net.consented():
+		net.set_consent(true)      # 버튼 글이 「동의하고 …」 일 때만 여기로 온다
+	net.server = ""
+	net.custom = str(inv.url)
+	for s in servers:      # 목록에 있는 서버면 그 이름으로 고른 것으로
+		if str(s.url) == str(inv.url):
+			net.server = s.name
+	_leaving = false
+	if net.is_open() and str(net.url) == str(inv.url):
+		_drop_room()
+		net.send({"t": "join", "code": str(inv.code)})
+	else:
+		_pending_join = str(inv.code)
+		_status = "접속 중… (초대 방 %s)" % str(inv.code)
+		net.connect_to(str(inv.url))
+	connect_sheet()
+
+
 ## 「접속」 · 「동의하고 접속」 —— 동의 전이면 consent=true 로 (주소가 비었으면 동의도 남기지 않는다)
 func _connect_pressed(consent := false) -> void:
 	net.player = _name_edit.text.strip_edges()
@@ -306,6 +358,15 @@ func connect_sheet(refresh := false) -> void:
 	if refresh and net.is_open():
 		net.send({"t": "list"})
 	var b := gs.open_sheet("온라인 대전")
+	var inv := clip_invite() if not in_game and _pending_join == "" else {}
+	if not inv.is_empty():      # 11/16 복사해 둔 초대 글 —— 한 번 눌러 접속 · 참가
+		var iv := UI.vbox(UI.SP_XS)
+		iv.add_child(UI.lbl("복사한 초대 —— 방 %s" % str(inv.code), UI.FS_LABEL, DB.PAL.gold, true))
+		var il := UI.lbl(str(inv.url), UI.FS_CAP, DB.PAL.text_dim)
+		il.clip_text = true
+		iv.add_child(il)
+		iv.add_child(UI.btn(("초대 받은 방 %s 로 입장" if net.consented() else "동의하고 초대 받은 방 %s 로 입장") % str(inv.code), func(): join_invite(inv), "gold"))
+		b.add_child(UI.panel(iv))
 	var row := UI.vbox(UI.SP_XS)
 	row.add_child(UI.lbl("서버", UI.FS_BODY, DB.PAL.bamboo))
 	_url_pick = _server_pick()
@@ -1051,7 +1112,7 @@ func room_info_text() -> String:
 	if url != "":
 		lines.append("서버: %s" % url)
 	lines.append("방 코드: %s" % str(room.get("code", "")))
-	lines.append("(온라인 → 서버 주소 직접 입력 → 접속 → 방 코드 입력)")
+	lines.append("(이 글을 통째로 복사하고 게임을 열면 바로 입장할 수 있어요 · 직접 넣으려면 온라인 → 서버 주소 직접 입력 → 접속 → 방 코드 입력)")
 	return "\n".join(lines)
 
 

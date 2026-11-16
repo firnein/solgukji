@@ -227,7 +227,23 @@ func _safe_insets() -> Rect2:
 
 
 ## 휴대폰 —— 뒤로 가기는 시트를 닫고, 앱이 가려지거나 꺼질 때 저장한다
+## 11/16 초대 글(서버 주소 + 방 코드)을 복사한 채 게임이 앞으로 오면 온라인 시트를 저절로 연다 —— 맨 위 「초대 받은 방으로 입장」 한 번이면 들어간다.
+## 제목 화면에서만 · 같은 글로는 한 번만 (하던 판을 끊지 않는다)
+func _check_invite() -> void:
+	if _title == null or not is_instance_valid(_title) or not _title.visible or _sheet == null or _sheet.visible:
+		return
+	if online != null and (online.in_game or not online.room.is_empty()):
+		return
+	var t := DisplayServer.clipboard_get()
+	if t == "" or t == Online.invite_seen or Online.parse_invite(t).is_empty():
+		return
+	Online.invite_seen = t
+	_go_online()
+
+
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		_check_invite.call_deferred()
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
 			if _sheet != null and _sheet.visible:
@@ -1498,6 +1514,12 @@ func _menu() -> void:
 
 func _settings_sheet() -> void:
 	var b := open_sheet("설정")
+	b.add_child(UI.eyebrow("전투 화풍"))
+	b.add_child(UI.segmented([["painting", "전쟁 삽화"], ["crowd", "기존 군집"]], "painting" if Settings.war_painting else "crowd", func(key):
+		Settings.war_painting = key == "painting"
+		Settings.save_cfg()
+		_settings_sheet()))
+	b.add_child(UI.hint("다음 전투부터 적용됩니다."))
 	b.add_child(UI.eyebrow("전투 품질 — 병사 수 · 해상도 · 그림자"))
 	var qs := []
 	for q in 3:

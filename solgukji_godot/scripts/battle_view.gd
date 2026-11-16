@@ -1848,11 +1848,12 @@ func _apply(i: int, quiet := false) -> void:
 		return
 	if e.get("fx") == "tac":
 		_tac_reveal(e)      # 11/15 군략 단계 공개 (인연기 연출과 따로)
+	hud.deck_event(e)
 	_damage_number(i, e, f)
 	_sound(e)
 	# 무쌍 —— 기술 · 고유기 타격은 병력을 바로 깎고 쓰러질 병사들을 한꺼번에 날린다
 	var gq: Dictionary = group_of[i]
-	if (e.get("fx") == "phys" or e.get("fx") == "int") and (gq.skill != "" or gq.ult != null) and idx_of.has(f) and smooth:
+	if not Type2View.painting_on() and not Type2View.formation_preview and (e.get("fx") == "phys" or e.get("fx") == "int") and (gq.skill != "" or gq.ult != null) and idx_of.has(f) and smooth:
 		_snap(idx_of[f])
 		# 11/3 사용자: 에이스 장수의 무쌍만이 전장을 지배하도록 —— 날리기 · 프리즈 · 흔들림을 예전의 약 3배로 (일반 장수 기술은 그대로)
 		var ace: bool = field.squads.has(gq.who) and field.squads[gq.who].tier >= 7
@@ -1881,7 +1882,7 @@ func _apply(i: int, quiet := false) -> void:
 			# 11/2 불멸 · 신화는 평타에도 적 병사가 튕겨 나간다 (압도적인 파괴력) —— 무거운 소리와 함께
 			# 11/15 병사 단계 —— 단계가 둘 이상 높은 부대의 평타에도 약한 병사가 튕겨 나간다 (세기는 Type2View.hit_power: 평타 무게 + 단계 차 × 0.2).
 			# 불멸 · 신화의 무거운 소리는 그대로, 단계 차로만 날리는 평타는 소리 없이 · 부하 3단계부터는 쉰다 (날아가는 병사는 CPU 가 그린다)
-			if smooth and field.squads.has(e.a) and field.squads.has(f) and gq.skill == "" and gq.ult == null and idx_of.has(f):
+			if not Type2View.painting_on() and not Type2View.formation_preview and smooth and field.squads.has(e.a) and field.squads.has(f) and gq.skill == "" and gq.ult == null and idx_of.has(f):
 				var heavy: bool = field.squads[e.a].tier >= 7
 				var hp: float = Type2View.hit_power(field.squads[e.a], field.squads[f])
 				if hp > 0.0 and (heavy or type2 == null or type2.load_lv < 3):
@@ -2139,6 +2140,8 @@ class Hud extends Control:
 		_tok_tex.clear()
 		_emph_n = -1
 		floats.clear()
+		_deck_seen.clear()
+		_deck_links.clear()
 		stamp_info = null
 		chains_fx.clear()
 		kills.clear()
@@ -2152,6 +2155,8 @@ class Hud extends Control:
 	var kills := []
 
 	func kill_mark(sq: Squad) -> void:
+		if Type2View.painting_on():
+			return
 		kills.append({"p": sq.pos, "cid": sq.cid, "name": DB.person(sq.cid) if sq.tier > 2 else sq.row.name,
 			"tier": sq.tier, "t0": view.clock, "r": randf_range(-0.5, 0.5)})
 
@@ -2197,6 +2202,9 @@ class Hud extends Control:
 	var chain_pop = null
 
 	func _draw_chain_pop() -> void:
+		if Type2View.painting_on():
+			chain_pop = null
+			return
 		if chain_pop == null:
 			return
 		var t: float = view.clock - chain_pop.t0
@@ -2466,6 +2474,8 @@ class Hud extends Control:
 	var banners_sk := []
 
 	func skill_banner(key: String, nm: String) -> void:
+		if Type2View.painting_on():
+			return
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
 			return
@@ -2510,6 +2520,8 @@ class Hud extends Control:
 		banners_sk = keep
 
 	func float_text(key: String, text: String, col: Color, fs: int, replace := false) -> void:
+		if Type2View.painting_on():
+			return
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
 			return
@@ -2521,6 +2533,91 @@ class Hud extends Control:
 				n += 1
 		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n})
 
+	# 실제 확산 출처와 추가 피해 사건을 전장에 연결한다.
+	const DECK_ST := {
+		"burn": ["화상", Color("#ff9b45")], "flood": ["둔화", Color("#71caff")],
+		"cut_def": ["방깎", Color("#ffb697")], "cut_res": ["책방깎", Color("#ed9aff")],
+		"confuse": ["혼란", Color("#c4a0ff")]
+	}
+	var _deck_seen := {}
+	var _deck_links: Array = []
+
+	func deck_event(e: Dictionary) -> void:
+		var target := str(e.get("f", ""))
+		if not view.field.squads.has(target):
+			return
+		var kind := str(e.get("st", ""))
+		var label := ""
+		var col := Color.WHITE
+		var source := str(e.get("from", e.get("a", "")))
+		if e.get("fx", "") in ["status", "debuff"] and DECK_ST.has(kind):
+			label = str(DECK_ST[kind][0])
+			col = DECK_ST[kind][1]
+			if e.has("from") and kind in ["burn", "flood"]:
+				label = "불길 확산" if kind == "burn" else "물길 확산"
+		elif e.get("fx", "") in ["phys", "int"]:
+			if e.get("fire", false):
+				kind = "fire_hit"
+				label = "화상 활용"
+				col = DECK_ST.burn[1]
+			elif e.get("water", false):
+				kind = "water_hit"
+				label = "수몰 활용"
+				col = DECK_ST.flood[1]
+		if label == "":
+			return
+		# 같은 대상/효과는 4초에 한 번, 연결선은 최대 셋.
+		var key := target + ":" + kind
+		if view.clock - float(_deck_seen.get(key, -100.0)) < 4.0:
+			return
+		_deck_seen[key] = view.clock
+		if view.field.squads.has(source) and source != target:
+			float_text(source, label, col, 12, true)
+			_deck_links.append({"a": source, "b": target, "col": col, "t": view.clock})
+			if _deck_links.size() > 3:
+				_deck_links.pop_front()
+		else:
+			float_text(target, label, col, 12, true)
+
+	func _draw_deck_links() -> void:
+		if Type2View.painting_on():
+			_deck_links = _deck_links.filter(func(e): return view.clock - float(e.t) < 0.85)
+			return
+		_deck_links = _deck_links.filter(func(e): return view.clock - float(e.t) < 0.85)
+		for e in _deck_links:
+			var a: Squad = view.field.squads.get(e.a)
+			var b: Squad = view.field.squads.get(e.b)
+			if a == null or b == null or not a.alive or not b.alive:
+				continue
+			var t := clampf((view.clock - float(e.t)) / 0.85, 0.0, 1.0)
+			var start: Vector2 = view.field.to_screen(a.pos, 0.0)
+			var end: Vector2 = view.field.to_screen(b.pos, 0.0)
+			var col := Color(e.col, (1.0 - t) * 0.8)
+			draw_line(start, end, Color(0, 0, 0, col.a * 0.5), 4.0, true)
+			draw_line(start, end, col, 1.5, true)
+			draw_circle(start.lerp(end, minf(1.0, t * 2.0)), 3.0, col)
+
+	func _deck_badges(sq: Squad, p: Vector2, radius: float, alpha: float) -> void:
+		if not sq.alive:
+			return
+		var labels := PackedStringArray()
+		var col := Color.WHITE
+		for st in DECK_ST:
+			if sq.statuses.has(st):
+				if labels.is_empty():
+					col = DECK_ST[st][1]
+				labels.append(str(DECK_ST[st][0]))
+				if labels.size() == 2:
+					break
+		if labels.is_empty():
+			return
+		var txt := " · ".join(labels)
+		var w := DB.font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 8.0
+		var r := Rect2(p + Vector2(-w * 0.5, radius + 25.0), Vector2(w, 16))
+		draw_rect(r, Color(0.03, 0.04, 0.07, 0.92 * alpha))
+		draw_rect(r, Color(col, alpha), false, 1.0)
+		_text(DB.font_bold, r.position + Vector2(0, 12), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 11, Color(col, alpha))
+
 	const SMALL_HIT := 0.06          # 이보다 작은 타격은 모아서 띄운다 (부대 최대 병력 대비) —— 11/4 0.04 → 0.06 (숫자가 겹쳐 쌓였다)
 	const SMALL_HIT_FAR := 0.1       # 멀리 볼 때 (War3D.overview) —— 큰 타격만
 	var _small := {}                 # 부대 key + 종류 -> 아직 띄우지 않은 피해 합
@@ -2531,6 +2628,11 @@ class Hud extends Control:
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
 			return
+		if Type2View.painting_on() and Settings.dmg_numbers != 2:
+			if amount < sq.max * 0.12 or kind == "tick":
+				return
+			if floats.any(func(f): return f.key == key and view.clock - f.t0 < 1.5):
+				return
 		var mine: bool = sq.camp == "A"
 		var col: Color
 		var fs := 14                     # 10/31 작게(15 → 11) → 11/3 사용자: 군단 사이에서 안 읽힌다 → 14 + 두꺼운 외곽선 (작은 타격은 그대로 모아서 띄운다)
@@ -2644,6 +2746,9 @@ class Hud extends Control:
 			chains_fx.erase(mine[0])
 
 	func _draw_chains() -> void:
+		if Type2View.painting_on():
+			chains_fx.clear()
+			return
 		const LIFE := 2.6
 		chains_fx = chains_fx.filter(func(c): return view.clock - c.t0 < LIFE)
 		var row := {"A": 0, "B": 0}
@@ -2700,6 +2805,7 @@ class Hud extends Control:
 				draw_string(DB.font_body, Vector2(-9999, -9999), e[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
 			prewarm_txt.clear()
 		_draw_all()
+		_draw_deck_links()
 		var tq := Time.get_ticks_usec()
 		_draw_kills()
 		if not (cut != null and cut.inyeon != ""):      # 11/11 인연 컷인 동안은 덱 연쇄 띠를 접는다 (짝 말풍선을 가린다)
@@ -2736,7 +2842,7 @@ class Hud extends Control:
 				pass      # 11/14 UI 4단계: 「○○ 위태롭다」 칸은 적 부대를 가렸다 —— 아래 장수 칸 테두리가 깜빡이는 것으로 대신 (적 고유기 준비 칸은 남긴다)
 		var y := 104.0
 		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
-		for it in items.slice(0, 3):
+		for it in items.slice(0, 1 if Type2View.painting_on() else 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
 			var r := Rect2(size.x - w - 10.0, y, w, 22.0)
 			var sb := StyleBoxFlat.new()
@@ -3399,6 +3505,7 @@ class Hud extends Control:
 		if sq.hurt > 0.05:      # 맞을 때만 고리를 흰빛으로 덧그린다
 			draw_arc(p, r + 2.6, 0, TAU, 24, Color(1, 1, 1, sq.hurt * 0.6 * a), 3.0)
 		_guard_mark(p, r, sq, a)      # 11/9 적 갑옷 · 결계 표지
+		_deck_badges(sq, p, r, a)
 		if not sq.alive:
 			draw_circle(p, r, Color(0, 0, 0, 0.6))
 		# 병력 —— 5.3K 처럼
@@ -3530,6 +3637,8 @@ class Hud extends Control:
 		var tags := []
 		for sq in view.field.order:
 			if sq.state != "gone":
+				if Type2View.painting_on():
+					continue # Identity is carried by the illustrated standards.
 				var sp := _to_screen(sq.pos, 5.0)
 				if sp.x > -9999 and view.field.label_alpha(sq.pos) > 0.02:
 					tags.append([sp, sq])
@@ -3629,6 +3738,7 @@ class Hud extends Control:
 				var pr := Rect2(r.position + Vector2(-ps - 3, (11.0 if full else 1.5) - ps * 0.5), Vector2(ps, ps))
 				var pc := pr.get_center()
 				_medal(pc, ps * 0.5, sq, a, lvq[1] > 0 and lvq[0] >= 100)
+				_deck_badges(sq, pc, ps * 0.5, a)
 				if not sq.alive:
 					draw_circle(pc, ps * 0.5, Color(0, 0, 0, 0.6))
 				elif shaky(sq):      # 11/11 사기 30 아래 —— 메달 아래에 「동요」 딱지
