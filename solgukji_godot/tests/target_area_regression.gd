@@ -115,9 +115,17 @@ func _ready() -> void:
 	assert(outline.size() == 64)
 	for p in outline:
 		assert(absf(flat.unmap(p).distance_to(main.pos) - radius) < 0.01, "Every displayed vertex must lie on the actual world boundary")
+	var painter = preload("res://scripts/field/war_painting.gd").new()
+	painter.v = flat
+	var sea := {"center": Vector2(123.25, 45.75), "radius": Battle.SEA_R + Battle.SEA_MARGIN, "start": 0.0, "end": 15.0}
+	for time in [0.0, 0.1, 0.42, 10.0]:
+		painter.last_clock = time
+		for p in painter.fire_sea_outline(sea):
+			assert(absf(flat.unmap(p).distance_to(sea.center) - float(sea.radius)) < 0.01, "Fire-sea boundary must match its active radius from the first tick")
+	painter.free()
 	flat.free()
 	Settings.type2 = was_type2
 	Settings.war_painting = was_painting
 	Type2View.formation_preview = was_preview
-	print("PASS projected circle: 64 inverse-projected boundary points")
+	print("PASS projected circle and fire sea: inverse-projected boundary points and constant active radius")
 	get_tree().quit()

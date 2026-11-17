@@ -2148,6 +2148,7 @@ const LATE_ATK := 0.15    # 버틴 뒤 아군 전원 공격 + (11/10 밸런스: 
 const SEA_T0 := 10.0      # 주유 불바다 —— 깔리는 시각(초)
 const SEA_LEN := 15.0     # 불바다가 타는 시간
 const SEA_R := 230.0      # 불바다 반지름 (깔릴 때 적 진영 중심)
+const SEA_MARGIN := 60.0
 const SEA_EVERY := 2.5    # 불바다가 적에게 화상을 거는 간격
 const SEA_SLOW := 0.7     # 불바다 안 적의 이동 배율
 var _fire_sea := {}       # 진영 -> {x, y, t1, next} (그 진영 주유가 깐 불바다)
@@ -2278,7 +2279,9 @@ func _paeup_fall(u: Unit) -> void:
 	if lb != null and lb != u:
 		_paeup_used["peerless_n:" + u.camp] = int(_paeup_used.get("peerless_n:" + u.camp, 0)) + 1
 		if int(_paeup_used["peerless_n:" + u.camp]) <= 5:
-			L("sk", "%s의 무쌍 —— %s 쓰러지자 분노가 쌓인다 (공격 +%d%%)" % [nm(lb), nm(u), roundi(minf(0.6, 0.12 * int(_paeup_used["peerless_n:" + u.camp])) * 100)], {"fx": "skill", "a": lb.key, "name": "무쌍", "kind": "phys"})
+			var bonus := int(_paeup_used["peerless_n:" + u.camp]) * 12
+			L("sk", "%s의 무쌍 —— %s 쓰러지자 분노가 쌓인다 (공격 +%d%%)" % [nm(lb), nm(u), bonus],
+				{"fx": "skill", "a": lb.key, "name": "무쌍", "kind": "phys", "peerless_bonus": bonus})
 	var lh = u.last_hit
 	if lh != null and lh.camp != u.camp and lh.alive and _pa("pass5", lh.camp) == lh and not _pass_busy:
 		var seq := int(_paeup_used.get("pass5_n:" + lh.camp, 0))
@@ -2324,7 +2327,7 @@ func _paeup_sea_tick(cp: String) -> void:
 	if z == null or (not sea.is_empty() and _tm > float(sea.t1)):
 		if not sea.is_empty():
 			_fire_sea.erase(cp)
-			L("sk", "%s의 불바다가 잦아든다" % nm(z) if z != null else "불바다가 잦아든다")
+			L("sk", "%s의 불바다가 잦아든다" % nm(z) if z != null else "불바다가 잦아든다", {"sea_end": sea.source})
 		return
 	var foes := units.filter(func(o): return o.alive and o.camp != cp)
 	if foes.is_empty():
@@ -2336,9 +2339,10 @@ func _paeup_sea_tick(cp: String) -> void:
 		for o in foes:
 			c += o.pos
 		c /= float(foes.size())
-		sea = {"x": c.x, "y": c.y, "t1": _tm + SEA_LEN, "next": _tm}
+		sea = {"x": c.x, "y": c.y, "t1": _tm + SEA_LEN, "next": _tm, "source": z.key}
 		_fire_sea[cp] = sea
-		L("sk", "%s의 적벽 불바다 —— 적진 한가운데가 불길에 잠긴다" % nm(z), {"fx": "skill", "a": z.key, "name": "불바다", "kind": "int", "area": [{"k": "circle", "x": roundi(c.x), "y": roundi(c.y), "r": roundi(SEA_R)}]})
+		L("sk", "%s의 적벽 불바다 —— 적진 한가운데가 불길에 잠긴다" % nm(z), {"fx": "skill", "a": z.key, "name": "불바다", "kind": "int", "sea_duration": SEA_LEN,
+			"sea_margin": SEA_MARGIN, "area": [{"k": "circle", "x": c.x, "y": c.y, "r": SEA_R}]})
 	if _tm < float(sea.next):
 		return
 	sea.next = _tm + SEA_EVERY
@@ -2348,7 +2352,8 @@ func _paeup_sea_tick(cp: String) -> void:
 			inflict(z, o, "burn", _fire_burn(z), int(DB.PSV.fire.burn.dur))
 			burned.append(o)
 	if not burned.is_empty():
-		L("sk", "불바다가 %s을(를) 휘감는다" % ", ".join(burned.map(func(o): return nm(o))), {"fx": "skill", "a": z.key, "name": "불바다", "kind": "int", "area": [{"k": "circle", "x": roundi(sea.x), "y": roundi(sea.y), "r": roundi(SEA_R)}]})
+		L("sk", "불바다가 %s을(를) 휘감는다" % ", ".join(burned.map(func(o): return nm(o))), {"fx": "skill", "a": z.key, "name": "불바다", "kind": "int",
+			"sea_targets": burned.map(func(o): return o.key), "area": [{"k": "circle", "x": sea.x, "y": sea.y, "r": SEA_R}]})
 
 
 ## 이 부대가 상대 진영 주유의 불바다 안인가 (발자국이 반지름에 걸치면 안 —— 여유 60)
@@ -2358,7 +2363,7 @@ func _in_sea(u: Unit) -> bool:
 	var sea: Dictionary = _fire_sea.get(_foe(u.camp), {})
 	if sea.is_empty() or _pa("fire_sea", _foe(u.camp)) == null or _tm > float(sea.t1):
 		return false
-	return u.pos.distance_to(Vector2(sea.x, sea.y)) <= SEA_R + 60.0
+	return u.pos.distance_to(Vector2(sea.x, sea.y)) <= SEA_R + SEA_MARGIN
 
 
 ## 유비 한실부흥 —— 아군 부대의 병력이 30% 아래로 떨어지면 유비가 일으켜 세운다 (병력 +15% · 사기 +10, 부대마다 한 번 · 전투당 3번)
@@ -2376,7 +2381,8 @@ func _paeup_kin(d: Unit) -> void:
 	d.troops += g
 	d.morale = minf(200.0, d.morale + 10.0)
 	z.heal += g / 300.0
-	L("hl", "%s의 한실부흥 —— 아군 %s을(를) 일으켜 세운다 — 병력 +%s" % [nm(z), nm(d), num(g)], {"fx": "heal", "f": d.key, "n": g})
+	L("hl", "%s의 한실부흥 —— 아군 %s을(를) 일으켜 세운다 — 병력 +%s" % [nm(z), nm(d), num(g)], {"fx": "heal", "f": d.key, "n": g,
+		"kin_by": z.key, "kin_ratio": d.troops / d.max})
 
 
 ## 장각 태평환생 —— 무너질 아군 부대를 일으켜 세운다. 병력 15% + 적 상태이상 부대 하나마다 +10% (최대 45%), 부대마다 한 번 · 전투당 2번.
