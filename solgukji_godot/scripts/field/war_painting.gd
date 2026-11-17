@@ -19,6 +19,8 @@ var peerless := {}
 var contacts: Array = []
 var bodies: Array = []
 var volleys: Array = []
+var ults: Array = []          # 11/17 고유기 이펙트 —— 삽화 화면에서는 type2 의 2D 연출이 꺼져 있어 여기서 그린다
+const MAX_ULTS := 6
 const MAX_BODIES := 96
 const MAX_CONTACTS := 48
 const INK := Color("#29271f")
@@ -34,11 +36,25 @@ const STRIDE_FRAMES := 12
 static var batch_rendering := true
 var batch: Node2D
 var top_effects: Node2D
+var glow_effects: Node2D
+var _glow_q: Array = []
+const GLOW_SPR := ["flame_02", "flame_03", "flame_04", "fire_01", "fire_02", "spark_01", "spark_04", "light_02", "star_06",
+	"magic_01", "magic_03", "magic_05", "slash_01", "slash_02", "slash_03", "twirl_01", "circle_03", "circle_05", "trace_01", "muzzle_02"]
+const GLOW_BOOST := 1.6        # 더하기 합성에서 그림 자체가 어두워(평균 회색 0.3~0.5) 색을 조금 밝게
 
 class TopEffects extends Node2D:
 	var painter
 	func _draw() -> void:
 		painter._draw_overlay(self)
+
+## 11/17 빛나는 효과 층 —— kenney 효과 그림은 회색 + 낮은 알파(더하기 합성용)라 보통 합성으로는 황토 땅에 어두운 얼룩만 남았다
+## (불꽃 · 화상 · 불바다 · 낙뢰 · 검기가 안 보였다). 그런 그림은 _spr 가 모아 두고 이 층이 더하기로 그린다
+class GlowEffects extends Node2D:
+	var painter
+	func _draw() -> void:
+		for g in painter._glow_q:
+			painter.v._spr_at(self, g[0], g[1], g[2], g[3], g[4], g[5])
+		painter._glow_q.clear()
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -57,7 +73,15 @@ func _ready() -> void:
 	add_child(batch)
 	top_effects = TopEffects.new()
 	top_effects.painter = self
+	top_effects.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR      # 11/17 효과 스프라이트(kenney)는 밉맵이 없다 —— 부모의 밉맵 필터를 물려받으면 안 그려졌다
 	add_child(top_effects)
+	glow_effects = GlowEffects.new()
+	glow_effects.painter = self
+	glow_effects.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	var add := CanvasItemMaterial.new()
+	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	glow_effects.material = add
+	add_child(glow_effects)
 
 
 func _walk_mesh(cell: int, phase: int, strength: int) -> ArrayMesh:
@@ -102,6 +126,8 @@ func reset() -> void:
 	bodies.clear()
 	contacts.clear()
 	volleys.clear()
+	ults.clear()
+	_glow_q.clear()
 	last_clock = -1.0
 	visual_time = 0.0
 	motion_dt = 0.0
@@ -134,13 +160,13 @@ func prepare_attack(source_key: String, targets: Array, kind: String) -> void:
 		for key in targets:
 			var dst: Squad = v.field.squads.get(key)
 			if dst != null:
-				var count := mini(form.count, 8) if kind == "volley" else 1
+				var count := mini(form.count, 8) if kind == "volley" else 3      # 11/17 책략 평타는 구슬 셋 (하나는 안 보였다 —— 「후열 주유가 무기력해 보인다」)
 				if count <= 0:
 					continue
 				volleys.append({"start": v.field.clock, "end": v.field.clock + flight + 0.12 + (count - 1) * 0.025,
 					"flight": flight,
 					"from": form.center, "to": _formation(dst).center, "camp": sq.camp,
-					"count": count, "kind": kind})
+					"count": count, "kind": kind, "tag": sq.tag})
 	else:
 		var point := form.center.direction_to(_formation(target).center)
 		var edge := form.center + point * sq.edge(point)
@@ -296,6 +322,7 @@ func _process(dt: float) -> void:
 	bodies = bodies.filter(func(b): return visual_time < b.end)
 	contacts = contacts.filter(func(h): return visual_time < h.end)
 	volleys = volleys.filter(func(shot): return last_clock < shot.end)
+	ults = ults.filter(func(u): return last_clock < float(u.end) and last_clock >= float(u.start) - 5.0)
 	for sq: Squad in v.field.order:
 		if sq.state == "gone":
 			formations.erase(sq.key)
@@ -307,6 +334,8 @@ func _process(dt: float) -> void:
 	queue_redraw()
 	if top_effects != null:
 		top_effects.queue_redraw()
+	if glow_effects != null:
+		glow_effects.queue_redraw()
 
 func squad_at(screen: Vector2) -> Squad:
 	var local := get_global_transform_with_canvas().affine_inverse() * screen
@@ -383,6 +412,7 @@ func _draw_overlay(ci: CanvasItem) -> void:
 	_draw_volleys(ci)
 	_draw_links(ci)
 	_draw_mythic_actions(ci)
+	_draw_ults(ci)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var h := _figure_height(sq, form)
@@ -396,9 +426,16 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		direction = form.center.direction_to(_formation(target).center)
 	var axis: Vector2 = (v.map(form.center + direction * 20.0) - v.map(form.center)).normalized()
 
-	if axis.x > 0.3:
+	# 11/17 사용자 「옆으로 미끄러진다」 —— 그림 좌우를 늘 목표 적 쪽으로 두어, 옆으로 갈 때 걷는 쪽과 반대를 보며 미끄러졌다(문워크).
+	# 맞붙지 않고 최근 공격하지 않은 채 화면 가로로 제법 움직이면 가는 쪽을 본다
+	var face_x := axis.x
+	var mv_screen: Vector2 = v.map(form.center + form.move_vel * 0.25) - v.map(form.center)
+	var walking: bool = not form.contact and visual_time - form.last_action > 0.6 and mv_screen.length() > 2.5 * v.depth_scale(form.center)
+	if walking and absf(mv_screen.x) > mv_screen.length() * 0.35:
+		face_x = signf(mv_screen.x)
+	if face_x > 0.3:
 		form.facing_right = true
-	elif axis.x < -0.3:
+	elif face_x < -0.3:
 		form.facing_right = false
 	var mirror := not form.facing_right if sq.camp == "A" else form.facing_right
 
@@ -584,7 +621,10 @@ func _draw_volleys(ci: CanvasItem = null) -> void:
 			var height := 18.0 + start.distance_to(end) * 0.025
 			var p: Vector2 = v.map(world) - Vector2(0, 5.0 + sin(t * PI) * height * v.depth_scale(world))
 			var prev: Vector2 = v.map(start.lerp(end + spread, prev_t)) - Vector2(0, 5.0 + sin(prev_t * PI) * height * v.depth_scale(world))
-			var color := PAPER if shot.kind == "volley" else EMBER
+			if shot.kind == "spell":
+				_spell_orb(ci, shot, id, start, end, spread, t, height)
+				continue
+			var color := PAPER
 			ci.draw_line(prev, p, Color(INK, 0.8), 2.0, true)
 			ci.draw_line(prev, p, color, 1.0, true)
 
@@ -606,7 +646,7 @@ func _draw_fire_seas() -> void:
 			var at: Vector2 = v.map(spot)
 			var flicker := 0.5 + 0.5 * sin(last_clock * 8.0 + float(i) * 2.4)
 			var h: float = (13.0 + flicker * 9.0) * v.depth_scale(spot)
-			v._spr_at(self, "flame_02", at + Vector2(0, - h * 0.32), h, Color(EMBER, (0.26 + flicker * 0.32) * fade), 0.1, Vector2(0.7, 1.0))
+			_spr(self, "flame_02", at + Vector2(0, - h * 0.32), h, Color(EMBER, (0.26 + flicker * 0.32) * fade), 0.1, Vector2(0.7, 1.0))
 
 func _draw_mythic_actions(ci: CanvasItem = null) -> void:
 	if ci == null:
@@ -657,7 +697,7 @@ func _draw_mythic_actions(ci: CanvasItem = null) -> void:
 		for i in range(-1, 2):
 			var at: Vector2 = v.map(target.pos + target.right() * float(i) * target.hw * 0.65)
 			var h: float = (12.0 + sin(t * PI) * 23.0) * float(flame.size) * v.depth_scale(target.pos)
-			v._spr_at(ci, "flame_02", at - Vector2(0, h * 0.5), h, Color(EMBER, (1.0 - t) * 0.9), 0.0, Vector2(0.75, 1.0))
+			_spr(ci, "flame_02", at - Vector2(0, h * 0.5), h, Color(EMBER, (1.0 - t) * 0.9), 0.0, Vector2(0.75, 1.0))
 
 func _action_label(at: Vector2, label: String, color: Color, alpha: float, ci: CanvasItem = null) -> void:
 	if ci == null:
@@ -708,7 +748,7 @@ func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
 			var phase: float = v.field.clock * 5.0 + j * 1.7
 			var base: Vector2 = v.map(sq.pos + sq.right() * (j - 1.5) * sq.hw * 0.5)
 			var h := (13.0 + 5.0 * sin(phase)) * perspective
-			v._spr_at(ci, "flame_02", base + Vector2(0, -h * 0.45), h * 2.0, Color(1.0, 0.62, 0.20, 0.85), sin(phase) * 0.12, Vector2(0.65, 1.0))
+			_spr(ci, "flame_02", base + Vector2(0, -h * 0.45), h * 2.0, Color(1.0, 0.62, 0.20, 0.85), sin(phase) * 0.12, Vector2(0.65, 1.0))
 	if sq.statuses.has("cut_def") or sq.statuses.has("cut_res"):
 		var q := p + Vector2(14, -22) * perspective
 		ci.draw_set_transform(q, 0, Vector2.ONE * perspective)
@@ -722,3 +762,485 @@ func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
 			ci.draw_arc(p + Vector2(0, j * 3) * perspective, (13 + j * 2) * perspective, 0.1, PI - 0.1, 12, Color(0.35, 0.65, 0.75, 0.7), 1.3, true)
 	if sq.statuses.has("confuse"):
 		ci.draw_arc(p + Vector2(0, -17) * perspective, 7 * perspective, v.field.clock, v.field.clock + PI * 1.6, 12, Color("#be9aca"), 1.7, true)
+
+
+# ───────── 고유기 이펙트 (11/17) ─────────
+# 사용자: 「고유기 이펙트가 왜 안 나오냐」 —— 삽화 화면에서는 type2 의 fx()/_draw_fx 가 모두 꺼져 컷인 · 카메라 · 병사 밀림만 남았다.
+# 화면 섬광 · 팝콘 날리기 없이 붓 획 · 불꽃 · 낙뢰 · 화살비처럼 종류가 한눈에 갈리게 그린다. 판정 · 수치와 무관한 화면 연출.
+const ULT_LIFE := {"firestorm": 2.4, "thunder": 1.5, "slash": 1.1, "shadow": 1.3, "poison": 2.4, "illusion": 1.8, "aura": 1.8, "heal": 1.8, "roar": 1.2, "whirlwind": 1.4, "charge": 1.0}
+
+## phase "charge" —— 기 모으기 (시전자 둘레), "impact" —— 맞는 순간 (적 · 아군 부대)
+func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color, phase: String) -> void:
+	var now: float = v.field.clock
+	var a: Squad = v.field.squads.get(a_key)
+	var e := {"vfx": vfx, "a": a_key, "col": col, "phase": phase, "start": now,
+		"end": now + (0.55 if phase == "charge" else 3.0 if phase == "dash" else float(ULT_LIFE.get(vfx, 1.0))),
+		"from": a.pos if a != null else Vector2.ZERO, "hits": [], "allies": []}
+	var storm := vfx == "arrowstorm"
+	if storm and phase == "impact":      # 화살비 —— 기 모으기 동안은 컷인이 덮고 있어, 컷인이 걷힌 맞는 순간에 떼로 솟아 쏟아진다
+		e.end = now + 1.8
+	if phase == "impact":
+		for k in foes:
+			var d: Squad = v.field.squads.get(k)
+			if d == null:
+				continue
+			var spots := []
+			for j in 7:      # 발자국 안 고정 지점 —— 화면 쪽 해시 (전투 rng 를 건드리지 않는다)
+				var h1 := float(hash(str(k) + ":" + str(j)) % 10007) / 10007.0
+				var h2 := float(hash(str(j) + ":" + str(k) + ":y") % 10007) / 10007.0
+				spots.append(d.pos + d.right() * (h1 * 2.0 - 1.0) * d.hw * 0.75 + d.fwd * (h2 * 2.0 - 1.0) * d.hd() * 0.55)
+			e.hits.append({"at": d.pos, "spots": spots, "right": d.right(), "fwd": d.fwd, "hw": d.hw, "hd": d.hd()})
+		for k in allies:
+			var q: Squad = v.field.squads.get(k)
+			if q != null:
+				e.allies.append(q.pos)
+	ults.append(e)
+	while ults.size() > MAX_ULTS:
+		ults.pop_front()
+
+## 전장 길이 L 을 그 자리의 화면 px 로
+func _px(at: Vector2, length: float) -> float:
+	return (v.map(at + Vector2(0, length)) - v.map(at)).length()
+
+## 전장 원을 화면 타원으로 (먹 테두리 + 색)
+func _world_ring(ci: CanvasItem, c: Vector2, r: float, col: Color, width: float) -> void:
+	var pts := PackedVector2Array()
+	for k in 25:
+		var t := TAU * k / 24.0
+		pts.append(v.map(c + Vector2(cos(t), sin(t)) * r))
+	ci.draw_polyline(pts, Color(INK, col.a * 0.55), width + 2.0, true)
+	ci.draw_polyline(pts, col, width, true)
+
+## 11/17 사용자: 「이펙트가 잘 안 보이면 배경을 좀 바꿔도」 —— 고유기가 터지는 동안 전장(땅 · 병사)을 종류 색의 어둠으로 깔고 그 위에 효과를 그린다.
+## 메달 · HUD 는 위층이라 밝은 그대로. 화살비는 검은 화살이라 반대로 하늘을 밝게 씻는다
+const ULT_DIM := {"firestorm": Color(0.16, 0.03, 0.0, 0.42), "thunder": Color(0.02, 0.04, 0.14, 0.5), "poison": Color(0.03, 0.1, 0.02, 0.42),
+	"illusion": Color(0.1, 0.03, 0.16, 0.42), "shadow": Color(0.04, 0.02, 0.07, 0.5), "arrowstorm": Color(1.0, 0.96, 0.88, 0.12)}
+const ULT_DIM_BASE := Color(0.06, 0.05, 0.04, 0.36)
+func _ult_backdrop(ci: CanvasItem) -> void:
+	var best := 0.0
+	var tint := ULT_DIM_BASE
+	for e: Dictionary in ults:
+		if e.phase != "impact":
+			continue
+		var age := last_clock - float(e.start)
+		var life := float(e.end) - float(e.start)
+		if age < 0.0 or age > life:
+			continue
+		var k := minf(1.0, age / 0.12) * (1.0 - smoothstep(life - 0.45, life, age))
+		if k > best:
+			best = k
+			tint = ULT_DIM.get(e.vfx, ULT_DIM_BASE)
+	if best > 0.01:
+		ci.draw_rect(Rect2(Vector2(-40, -40), v.size + Vector2(80, 80)), Color(tint, tint.a * best))
+
+func _draw_ults(ci: CanvasItem) -> void:
+	_ult_backdrop(ci)
+	for e: Dictionary in ults:
+		var age := last_clock - float(e.start)
+		if age < 0.0:
+			continue
+		var life := float(e.end) - float(e.start)
+		var t := clampf(age / life, 0.0, 1.0)
+		var col: Color = e.col
+		var fade := 1.0 - smoothstep(0.7, 1.0, t)
+		if e.vfx == "arrowstorm":
+			if e.phase == "impact":
+				_arrow_storm(ci, e, age)
+			continue
+		if e.phase == "charge":
+			_ult_charge(ci, e, t, col)
+			continue
+		if e.phase == "dash":
+			_ult_dash(ci, e, age)
+			continue
+		var from: Vector2 = e.from
+		if e.vfx in ["roar", "whirlwind"]:
+			_shock_from(ci, e, age, t, col, fade, from)
+		for hit: Dictionary in e.hits:
+			_ult_hit(ci, e, hit, t, age, col, fade, from)
+		if e.vfx in ["aura", "heal"]:
+			if e.vfx == "aura":
+				_sunburst(ci, from, age, col, fade)
+			for q: Vector2 in e.allies:
+				_pillar(ci, q, age, col, fade)
+
+func _ult_charge(ci: CanvasItem, e: Dictionary, t: float, col: Color) -> void:
+	var from: Vector2 = e.from
+	var fs: Vector2 = v.map(from)
+	if e.vfx in UltFx.MAGIC:      # 술법 —— 조여드는 고리 + 법진, 무장 —— 흙먼지만 (고리는 장풍처럼 보였다)
+		for j in 2:
+			var u := clampf(t * 1.3 - j * 0.3, 0.0, 1.0)
+			if u > 0.0 and u < 1.0:
+				_world_ring(ci, from, 70.0 - u * 45.0, Color(col, sin(u * PI) * 0.9), 2.5)
+		var ma := sin(t * PI)      # 법진 —— 두 겹 고리 + 도는 별 모양 (흐린 그림 대신 선)
+		_world_ring(ci, from, 55.0, Color(col, 0.85 * ma), 3.0)
+		_world_ring(ci, from, 40.0, Color(col, 0.6 * ma), 1.8)
+		var star := PackedVector2Array()
+		for k in 6:
+			var ang := t * 4.0 + k * TAU * 2.0 / 5.0
+			star.append(v.map(from + Vector2(cos(ang), sin(ang)) * 52.0))
+		ci.draw_polyline(star, Color(col.lightened(0.3), 0.8 * ma), 2.0, true)
+	else:
+		for j in 5:
+			var ang := TAU * j / 5.0 + t
+			var at := from + Vector2(cos(ang), sin(ang)) * 30.0 * (1.0 - t * 0.5)
+			ci.draw_circle(v.map(at), _px(at, 14.0), Color(0.78, 0.69, 0.5, 0.55 * sin(t * PI)))
+
+# ── 그리기 부품 (11/17 사용자: 「황충 고유기 정도의 임팩트는 있어야지, 나머지는 쓰는지 티도 안 난다」) ──
+# 흐린 효과 그림 대신 진한 도형 + 꼭짓점 색 그라데이션 + 먹 테두리로 그린다. 황토 지면 위에서도 읽히게.
+
+## 불길 혀 하나 —— 바닥 c(화면), 높이 h, 폭 w. 아래 붉은 주황 → 끝 노랑 · 투명
+func _flame(ci: CanvasItem, c: Vector2, h: float, w: float, phase: float, a: float) -> void:
+	if h < 2.0 or a <= 0.01:
+		return
+	var sway := sin(phase) * w * 0.45
+	var pts := PackedVector2Array([c + Vector2(-w, 0), c + Vector2(-w * 0.75, -h * 0.4), c + Vector2(-w * 0.35 + sway * 0.5, -h * 0.75),
+		c + Vector2(sway, -h), c + Vector2(w * 0.35 + sway * 0.5, -h * 0.7), c + Vector2(w * 0.8, -h * 0.35), c + Vector2(w, 0)])
+	var cols := PackedColorArray()
+	for p in pts:
+		var k := clampf((c.y - p.y) / h, 0.0, 1.0)
+		cols.append(Color(Color(0.85, 0.18, 0.04).lerp(Color(1.0, 0.85, 0.3), k), a * (1.0 - k * 0.55)))
+	ci.draw_polygon(pts, cols)
+	var core := PackedVector2Array([c + Vector2(-w * 0.45, 0), c + Vector2(sway * 0.6, -h * 0.6), c + Vector2(w * 0.45, 0)])
+	ci.draw_colored_polygon(core, Color(1.0, 0.95, 0.65, a * 0.85))
+
+## 채운 타원 (화면 반지름 rx, ry)
+func _ellipse(ci: CanvasItem, c: Vector2, rx: float, ry: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for k in 20:
+		var t := TAU * k / 20.0
+		pts.append(c + Vector2(cos(t) * rx, sin(t) * ry))
+	ci.draw_colored_polygon(pts, col)
+
+## 초승달 붓 획 —— 가운데 c, 반지름 r, 시작 각 a0, 펼친 각 span, 가장 굵은 곳 th
+func _crescent(ci: CanvasItem, c: Vector2, r: float, a0: float, span: float, th: float, col: Color, squash := 0.55) -> void:
+	if span <= 0.02:
+		return
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	for k in 13:
+		var u := float(k) / 12.0
+		var ang := a0 + span * u
+		var w := th * sin(u * PI)
+		outer.append(c + Vector2(cos(ang) * r, sin(ang) * r * squash))
+		inner.append(c + Vector2(cos(ang) * (r - w), sin(ang) * (r - w) * squash))
+	inner.reverse()
+	var poly := outer + inner
+	ci.draw_colored_polygon(poly, col)
+	outer.append_array(inner)
+	outer.append(outer[0])
+	ci.draw_polyline(outer, Color(INK, col.a * 0.7), 1.8, true)
+
+## 낙뢰 —— top 에서 bottom 까지 지그재그 (seed 로 모양 고정)
+func _bolt(ci: CanvasItem, top: Vector2, bottom: Vector2, seed: float, col: Color, a: float) -> void:
+	var pts := PackedVector2Array([top])
+	var w := top.distance_to(bottom) * 0.09
+	for k in range(1, 9):
+		pts.append(top.lerp(bottom, k / 9.0) + Vector2(sin(seed * 3.7 + k * 2.9) * w, 0))
+	pts.append(bottom)
+	ci.draw_polyline(pts, Color(col, a * 0.45), 10.0, true)
+	ci.draw_polyline(pts, Color(col.lightened(0.4), a * 0.9), 4.5, true)
+	ci.draw_polyline(pts, Color(1, 1, 1, a), 1.8, true)
+	var b0: Vector2 = pts[4]      # 곁가지 하나
+	var b1 := b0 + Vector2(sin(seed) * w * 3.0, w * 2.5)
+	ci.draw_polyline(PackedVector2Array([b0, b0.lerp(b1, 0.5) + Vector2(w * 0.6, 0), b1]), Color(1, 1, 1, a * 0.8), 1.4, true)
+
+## 시전자에서 퍼지는 기합 · 회오리 (포효 · 선풍)
+func _shock_from(ci: CanvasItem, e: Dictionary, age: float, t: float, col: Color, fade: float, from: Vector2) -> void:
+	for j in 3:      # 기합 고리 세 겹 —— 전장 380 까지 (화면 100px 남짓)
+		var u := clampf((age - j * 0.12) / 0.75, 0.0, 1.0)
+		if u > 0.0 and u < 1.0:
+			_world_ring(ci, from, 30.0 + u * 350.0, Color(col, (1.0 - u) * 0.95), 11.0 - j * 3.0)
+			_world_ring(ci, from, 20.0 + u * 320.0, Color(PAPER, (1.0 - u) * 0.65), 4.0)
+	var fs: Vector2 = v.map(from)
+	var r := maxf(55.0, _px(from, 230.0))
+	for k in 14:      # 바닥에서 밀려 나가는 흙먼지 띠
+		var ang := k * TAU / 14.0
+		var u2 := clampf(age / 0.9, 0.0, 1.0)
+		var p := fs + Vector2(cos(ang), sin(ang) * 0.5) * r * (0.35 + u2 * 0.75)
+		ci.draw_circle(p, r * 0.12 * (0.6 + u2), Color(0.8, 0.71, 0.52, 0.7 * (1.0 - u2)))
+	if e.vfx == "whirlwind":      # 시전자 둘레를 휘감는 커다란 바람 날 다섯
+		for k in 5:
+			var a0 := age * 8.0 + k * TAU / 5.0
+			var rr := r * (0.7 + 0.12 * sin(age * 5.0 + k))
+			_crescent(ci, fs, rr, a0, 1.7, r * 0.2, Color(1.0, 0.95, 0.82, 0.95 * fade))
+			_crescent(ci, fs, rr * 0.75, a0 + 0.6, 1.3, r * 0.12, Color(col, 0.85 * fade))
+
+## 아군 빛기둥 —— 바닥 고리 + 위로 옅어지는 기둥 + 떠오르는 마름모 빛
+func _pillar(ci: CanvasItem, q: Vector2, age: float, col: Color, fade: float) -> void:
+	var qs: Vector2 = v.map(q)
+	var w := maxf(16.0, _px(q, 55.0))
+	var h := w * 5.5 * minf(1.0, age * 4.0)
+	var pts := PackedVector2Array([qs + Vector2(-w, 0), qs + Vector2(-w * 0.6, -h), qs + Vector2(w * 0.6, -h), qs + Vector2(w, 0)])
+	ci.draw_polygon(pts, PackedColorArray([Color(col, 0.75 * fade), Color(col, 0.0), Color(col, 0.0), Color(col, 0.75 * fade)]))
+	var core := PackedVector2Array([qs + Vector2(-w * 0.35, 0), qs + Vector2(-w * 0.15, -h * 0.9), qs + Vector2(w * 0.15, -h * 0.9), qs + Vector2(w * 0.35, 0)])
+	ci.draw_polygon(core, PackedColorArray([Color(1, 1, 1, 0.6 * fade), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.6 * fade)]))
+	_ellipse(ci, qs, w * 1.3, w * 0.5, Color(col, 0.35 * fade))
+	_world_ring(ci, q, 22.0 + sin(age * 6.0) * 4.0, Color(col.lightened(0.3), 0.9 * fade), 2.5)
+	for k in 6:
+		var u := fmod(age * 1.3 + k * 0.17, 1.0)
+		var p := qs + Vector2(sin(k * 2.1) * w * 0.8, -h * u)
+		ci.draw_circle(p, w * 0.1 * (1.0 - u * 0.5), Color(col.lightened(0.5), 0.9 * fade * (1.0 - u)))
+
+func _ult_hit(ci: CanvasItem, e: Dictionary, hit: Dictionary, t: float, age: float, col: Color, fade: float, from: Vector2) -> void:
+	var at: Vector2 = hit.at
+	var ds: Vector2 = v.map(at)
+	var spots: Array = hit.spots
+	var unit := maxf(40.0, _px(at, 130.0))      # 이 자리의 기준 크기 —— 부대 하나가 30px 남짓이라 고유기는 몇 부대를 덮게 (11/17 「티도 안 난다」)
+	match str(e.vfx):
+		"firestorm":      # 불덩이 셋이 꼬리를 끌고 날아와 꽂히고 → 붉은 땅 · 솟는 불길 · 검은 연기
+			var fs: Vector2 = v.map(from)
+			for j in 3:
+				var u := clampf((age - j * 0.08) / 0.4, 0.0, 1.0)
+				if u > 0.0 and u < 1.0:
+					var sp: Vector2 = v.map(spots[j])
+					var tail := PackedVector2Array()
+					for k in 7:
+						var uu := maxf(0.0, u - k * 0.04)
+						tail.append(fs.lerp(sp, uu) - Vector2(0, sin(uu * PI) * unit * 2.2))
+					ci.draw_polyline(tail, Color(0.9, 0.3, 0.05, 0.7), unit * 0.3, true)
+					ci.draw_circle(tail[0], unit * 0.32, Color(0.95, 0.35, 0.05))
+					ci.draw_circle(tail[0], unit * 0.18, Color(1.0, 0.9, 0.5))
+			var g := clampf((age - 0.3) / 0.25, 0.0, 1.0)
+			if g > 0.0:
+				_ellipse(ci, ds, unit * 2.0 * g, unit * 0.85 * g, Color(0.85, 0.25, 0.04, 0.4 * fade))
+				_ellipse(ci, ds, unit * 1.2 * g, unit * 0.5 * g, Color(1.0, 0.55, 0.1, 0.35 * fade))
+				for k in 3:      # 검은 연기 —— 솟으며 커진다
+					var sm := ds + Vector2((k - 1) * unit * 0.7, -unit * (1.6 + (age - 0.3) * 2.5 + k * 0.3))
+					ci.draw_circle(sm, unit * (0.45 + (age - 0.3) * 0.5), Color(0.16, 0.11, 0.09, 0.4 * fade))
+				var n := 14
+				for k in n:
+					var sp2: Vector2 = spots[k % spots.size()]
+					var base: Vector2 = v.map(sp2) + Vector2(((k * 37) % 9 - 4) * unit * 0.12, ((k * 53) % 5 - 2) * unit * 0.06)
+					var flick := 0.75 + 0.25 * sin(last_clock * 11.0 + k * 1.9)
+					_flame(ci, base, unit * (1.0 + (k % 3) * 0.35) * flick * g, unit * 0.26, last_clock * 7.0 + k, 0.95 * fade)
+		"thunder":      # 주변이 어두워지고 굵은 낙뢰가 잇달아 꽂힌다 —— 꽂힌 자리마다 흰 별 · 그을음
+			_ellipse(ci, ds, unit * 1.5, unit * 0.7, Color(0.05, 0.07, 0.16, 0.35 * fade))
+			for j in 5:
+				var st := j * 0.13
+				var u := (age - st) / 0.16
+				if u <= 0.0:
+					continue
+				var sp: Vector2 = v.map(spots[j % spots.size()])
+				if u < 1.0:
+					var top := Vector2(sp.x + sin(j * 4.1) * unit * 1.5, maxf(40.0, sp.y - unit * 7.0))
+					var flicker := 1.0 if fmod(age * 30.0 + j, 2.0) < 1.4 else 0.5
+					_bolt(ci, top, sp, float(j) + at.x, col, (1.0 - u * 0.6) * flicker)
+					_ellipse(ci, sp, unit * (0.7 + u * 0.4), unit * (0.28 + u * 0.15), Color(0.85, 0.92, 1.0, 0.75 * (1.0 - u)))
+				_ellipse(ci, sp, unit * 0.55, unit * 0.25, Color(0.08, 0.08, 0.12, 0.55 * fade))
+		"slash", "shadow":      # 11/17 사용자 「검기 짜친다」 —— 초승달 대신 일섬: 가늘고 긴 선이 순간 그어졌다 벤 자국 · 먹 튐만 남는다
+			if e.vfx == "shadow":
+				_ellipse(ci, ds, unit * 1.7, unit * 0.8, Color(0.05, 0.03, 0.08, 0.5 * fade))
+			var glow := Color(1.0, 0.86, 0.5) if e.vfx == "slash" else col
+			for j in 3:
+				var st := j * 0.09 + (0.0 if e.vfx == "slash" else j * 0.04)
+				var u := (age - st) / 0.55
+				if u <= 0.0 or u >= 1.0:
+					continue
+				var ang: float = float([-0.95, 0.75, -0.25][j]) + sin(at.x * 0.37 + j) * 0.15      # 대각선으로 엇갈리게
+				_iseom(ci, v.map(spots[j]) + Vector2(0, -unit * 0.25), ang, unit * 3.2, unit * 0.13, glow, u, j + at.x)
+		"poison":      # 짙은 독안개 덩이가 퍼지며 솟는다
+			var g := minf(1.0, age * 2.5)
+			_ellipse(ci, ds, unit * 1.5 * g, unit * 0.65 * g, Color(0.14, 0.28, 0.06, 0.5 * fade))
+			for k in 12:
+				var sp: Vector2 = v.map(spots[k % spots.size()])
+				var rise := fmod(age * 0.6 + k * 0.13, 1.0)
+				var p := sp + Vector2(sin(age * 1.5 + k) * unit * 0.4, -rise * unit * 2.2)
+				ci.draw_circle(p, unit * (0.3 + rise * 0.35) * g, Color(col.darkened(0.35), 0.7 * fade * (1.0 - rise * 0.6)))
+				ci.draw_arc(p, unit * (0.3 + rise * 0.35) * g, 0, TAU, 14, Color(0.08, 0.16, 0.04, 0.45 * fade * (1.0 - rise)), 1.5, true)
+		"illusion":      # 보랏빛 소용돌이 세 갈래가 적진을 감는다
+			_ellipse(ci, ds, unit * 1.5, unit * 0.7, Color(col.darkened(0.4), 0.4 * fade))
+			for arm in 3:
+				var pts := PackedVector2Array()
+				for k in 22:
+					var u := float(k) / 21.0
+					var ang := age * 4.0 + arm * TAU / 3.0 + u * 4.5
+					pts.append(ds + Vector2(cos(ang), sin(ang) * 0.5) * unit * 1.5 * (1.0 - u * 0.85))
+				ci.draw_polyline(pts, Color(INK, 0.4 * fade), 9.0, true)
+				ci.draw_polyline(pts, Color(col.lightened(0.2), 0.95 * fade), 5.0, true)
+		"charge":      # 실제로 달려와 부딪힌 앞줄 —— 흙구름이 터지고 파편이 튄다 (달리는 동안은 _ult_dash)
+			var a_sq: Squad = v.field.squads.get(e.a)
+			var src: Vector2 = a_sq.pos if a_sq != null else from
+			var dirw := (at - src).normalized() if not (at - src).is_zero_approx() else Vector2.RIGHT
+			var side := dirw.orthogonal()
+			var hit_at: Vector2 = at - dirw * float(hit.get("hd", 20.0))
+			var hs: Vector2 = v.map(hit_at)
+			var u2 := clampf(age / 0.9, 0.0, 1.0)
+			var front: Vector2 = (v.map(hit_at + dirw * 10.0) - hs).normalized()
+			for k in 7:
+				var p: Vector2 = v.map(hit_at + side * (k - 3) * float(hit.get("hw", 24.0)) * 0.3) + Vector2(0, -u2 * unit * 0.5 * (1 + k % 2))
+				var rr := unit * (0.3 + u2 * 0.45)
+				ci.draw_circle(p, rr, Color(0.8, 0.71, 0.52, 0.85 * (1.0 - u2)))
+				ci.draw_arc(p, rr, PI * 0.9, PI * 2.1, 10, Color(INK, 0.5 * (1.0 - u2)), 2.0, true)
+			var deb := PackedVector2Array()
+			for k in 10:
+				var dd := dirw.rotated(-1.2 + k * 0.27)
+				var p0: Vector2 = v.map(hit_at + dd * (8.0 + u2 * 40.0))
+				deb.append(p0)
+				deb.append(p0 + (v.map(hit_at + dd * 20.0) - hs).normalized() * 5.0)
+			ci.draw_multiline(deb, Color(INK, 0.85 * (1.0 - u2)), 3.0, true)
+			for k in 14:      # 튀어 오르는 흙덩이 —— 돌진 방향으로 포물선
+				var r1 := fposmod(sin(at.x * 0.1 + k * 12.9898) * 43758.5, 1.0)
+				var r2 := fposmod(sin(at.y * 0.1 + k * 78.233) * 24634.6, 1.0)
+				var uk := clampf(age / (0.45 + r2 * 0.2), 0.0, 1.0)
+				if uk >= 1.0:
+					continue
+				var dk := dirw.rotated((r1 - 0.5) * 1.8)
+				var p0: Vector2 = v.map(hit_at + dk * (6.0 + uk * (40.0 + r2 * 50.0)))
+				ci.draw_circle(p0 - Vector2(0, sin(uk * PI) * unit * (0.5 + r1 * 0.8)), 1.6 + r2 * 2.2, Color(0.3, 0.22, 0.14, 0.9 * (1.0 - uk * 0.5)))
+		"roar", "whirlwind":      # 맞은 자리에 흙먼지
+			var u3 := clampf(age / 0.8, 0.0, 1.0)
+			for k in 4:
+				var p: Vector2 = v.map(spots[k]) + Vector2(0, -u3 * unit * 0.4)
+				ci.draw_circle(p, unit * (0.3 + u3 * 0.45), Color(0.78, 0.69, 0.5, 0.6 * (1.0 - u3)))
+		_:
+			_world_ring(ci, at, 15.0 + t * 50.0, Color(col, 0.8 * fade), 2.0)
+
+## 11/17 화살비 —— 사용자 참고 「영웅」의 하늘을 덮는 화살 떼. 수백 발의 먹빛 화살이 시전자 뒤에서 높이 솟아 포물선으로 적진에 쏟아지고, 꽂힌 화살이 남는다.
+## 선 묶음(draw_multiline) 한두 번으로 그린다 —— 화살 수가 많아도 그리기 호출은 늘지 않는다
+const STORM_ARROWS := 380      # 11/17 사용자 「화살비 너무 과함」 900 → 380
+func _arrow_storm(ci: CanvasItem, e: Dictionary, age: float) -> void:
+	var hits: Array = e.hits
+	if hits.is_empty():
+		return
+	var a_sq: Squad = v.field.squads.get(e.a)
+	var from: Vector2 = e.from
+	var aw: float = a_sq.hw if a_sq != null else 24.0
+	var fade := 1.0 - smoothstep(float(e.end) - float(e.start) - 0.5, float(e.end) - float(e.start), age)
+	var n := clampi(STORM_ARROWS / hits.size(), 60, 160)
+	var flying := PackedVector2Array()
+	var flying_far := PackedVector2Array()
+	var stuck := PackedVector2Array()
+	var sky := float(v.size.y) * 0.2      # 포물선 꼭대기 —— 화면 1/5 쯤
+	for hi in hits.size():
+		var hit: Dictionary = hits[hi]
+		var r_ax: Vector2 = hit.right
+		var f_ax: Vector2 = hit.fwd
+		for k in n:
+			var r1 := fposmod(sin(k * 12.9898 + hi * 78.233) * 43758.5453, 1.0)
+			var r2 := fposmod(sin(k * 39.3468 + hi * 11.135) * 24634.6345, 1.0)
+			var r3 := fposmod(sin(k * 73.156 + hi * 52.235) * 12573.9187, 1.0)
+			var r4 := fposmod(sin(k * 5.7121 + hi * 91.71) * 35711.1773, 1.0)
+			var launch: Vector2 = v.map(from + Vector2(r2 * 2.0 - 1.0, r3 * 2.0 - 1.0) * aw * 0.8) + Vector2((r1 * 2.0 - 1.0) * 90.0, 0)      # 넓은 띠에서 쏘아 하늘을 덮는다
+			var land_w: Vector2 = hit.at + r_ax * (r3 * 2.0 - 1.0) * float(hit.hw) * 0.95 + f_ax * (r4 * 2.0 - 1.0) * float(hit.hd) * 0.8
+			var land: Vector2 = v.map(land_w)
+			var t0 := r1 * 0.3            # 쏘는 시차 —— 두어 물결로 쏟아진다
+			var dur := 0.34 + r4 * 0.1
+			var u := (age - t0) / dur
+			if u <= 0.0:
+				continue
+			var hgt := sky * (0.55 + r2 * 0.85)
+			if u < 1.0:
+				var p := launch.lerp(land, u) - Vector2(0, hgt * 4.0 * u * (1.0 - u))
+				var tang := (land - launch) - Vector2(0, hgt * (4.0 - 8.0 * u))
+				var dir := tang.normalized()
+				var ln := 9.0 + r1 * 6.0
+				var arr := flying if (k % 3) != 0 else flying_far
+				arr.append(p - dir * ln)
+				arr.append(p)
+			else:      # 꽂힌 화살 —— 떨어지던 기울기 그대로 짧게
+				var dir2 := ((land - launch) + Vector2(0, hgt * 4.0)).normalized()
+				stuck.append(land - dir2 * 6.0)
+				stuck.append(land)
+	if not flying_far.is_empty():
+		ci.draw_multiline(flying_far, Color(0.16, 0.18, 0.24, 0.55 * fade), 1.0, true)
+	if not flying.is_empty():
+		ci.draw_multiline(flying, Color(0.10, 0.11, 0.15, 0.9 * fade), 1.4, true)
+	if not stuck.is_empty():
+		ci.draw_multiline(stuck, Color(0.12, 0.10, 0.08, 0.85 * fade), 1.2, true)
+
+
+## 돌진 중 —— 달리는 부대 뒤로 부대 폭만큼 속도선, 발밑에서 뒤로 날리는 흙먼지 (부대가 실제로 움직인다)
+func _ult_dash(ci: CanvasItem, e: Dictionary, age: float) -> void:
+	var a_sq: Squad = v.field.squads.get(e.a)
+	if a_sq == null or not a_sq.alive:
+		return
+	var src: Vector2 = a_sq.pos
+	var from: Vector2 = e.from
+	var dirw := (src - from).normalized() if src.distance_to(from) > 4.0 else a_sq.fwd
+	var side := dirw.orthogonal()
+	var fade := 1.0 if (v.field.squads.get(e.a) != null and v.field.squads.get(e.a).moving) or age < 0.3 else 0.0
+	var streaks := PackedVector2Array()
+	for k in 11:
+		var off := (float(k) / 10.0 * 2.0 - 1.0) * a_sq.hw * 0.95
+		var ln := 50.0 + fmod(k * 37.0, 40.0)
+		var head := src + side * off - dirw * (a_sq.hd() * 0.6 + fmod(k * 17.0, 14.0))
+		streaks.append(v.map(head))
+		streaks.append(v.map(head - dirw * ln))
+	ci.draw_multiline(streaks, Color(INK, 0.35 * fade), 4.5, true)
+	ci.draw_multiline(streaks, Color(PAPER, 0.85 * fade), 2.4, true)
+	var unit := maxf(24.0, _px(src, 80.0))
+	for k in 5:
+		var w := src - dirw * (a_sq.hd() + 10.0 + k * 16.0) + side * sin(k * 2.3 + age * 3.0) * a_sq.hw * 0.6
+		ci.draw_circle(v.map(w), unit * (0.22 + k * 0.06), Color(0.78, 0.69, 0.5, 0.6 * fade * (1.0 - k * 0.15)))
+
+
+## 효과 그림 하나 —— 빛나는 그림(GLOW_SPR)은 더하기 층으로 미루고, 연기 · 그을음 같은 어두운 그림은 바로 그린다
+func _spr(ci: CanvasItem, nm: String, c: Vector2, sz: float, col: Color, rot := 0.0, stretch := Vector2.ONE) -> void:
+	if glow_effects != null and GLOW_SPR.has(nm):
+		if _glow_q.size() < 900:
+			_glow_q.append([nm, c, sz, Color(col.r * GLOW_BOOST, col.g * GLOW_BOOST, col.b * GLOW_BOOST, col.a), rot, stretch])
+		return
+	v._spr_at(ci, nm, c, sz, col, rot, stretch)
+
+
+## 위세 · 격려(aura) —— 시전자에게서 금빛 햇살이 퍼지고 바닥에 금 고리가 남는다
+func _sunburst(ci: CanvasItem, from: Vector2, age: float, col: Color, fade: float) -> void:
+	var fs: Vector2 = v.map(from)
+	var r := maxf(60.0, _px(from, 220.0)) * minf(1.0, age * 3.0)
+	for k in 16:
+		var ang := k * TAU / 16.0 + age * 0.6
+		var w := 0.14 if k % 2 == 0 else 0.08
+		var ln := r * (1.0 if k % 2 == 0 else 0.7)
+		var tip := fs + Vector2(cos(ang), sin(ang) * 0.55) * ln
+		var l := fs + Vector2(cos(ang - w), sin(ang - w) * 0.55) * ln * 0.25
+		var rr := fs + Vector2(cos(ang + w), sin(ang + w) * 0.55) * ln * 0.25
+		ci.draw_polygon(PackedVector2Array([l, tip, rr]), PackedColorArray([Color(1.0, 0.82, 0.3, 0.95 * fade), Color(1.0, 0.82, 0.3, 0.1 * fade), Color(1.0, 0.82, 0.3, 0.95 * fade)]))
+	_ellipse(ci, fs, r * 0.28, r * 0.15, Color(1, 0.95, 0.7, 0.6 * fade))
+	for j in 2:
+		var u := clampf((age - j * 0.2) / 0.8, 0.0, 1.0)
+		if u > 0.0 and u < 1.0:
+			_world_ring(ci, from, 30.0 + u * 180.0, Color(col, (1.0 - u) * 0.9), 5.0 - j * 2.0)
+
+
+## 일섬 —— 가운데 c, 각 ang, 길이 ln, 가장 굵은 폭 w. u 0~0.22 에 한쪽 끝에서 반대 끝으로 번쩍 그어지고 → 머리카락 굵기의 먹 자국으로 식으며 먹이 튄다
+func _iseom(ci: CanvasItem, c: Vector2, ang: float, ln: float, w: float, glow: Color, u: float, seed: float) -> void:
+	var d := Vector2(cos(ang), sin(ang) * 0.6).normalized()
+	var n := d.orthogonal()
+	var a := c - d * ln * 0.5
+	var b := c + d * ln * 0.5
+	var draw_u := minf(1.0, u / 0.22)
+	var head := a.lerp(b, draw_u)
+	if u < 0.45:      # 번쩍 —— 뾰족한 마름모 빛 (바깥 빛 + 흰 심)
+		var k := 1.0 if u < 0.22 else 1.0 - (u - 0.22) / 0.23
+		var mid := a.lerp(head, 0.55)
+		ci.draw_colored_polygon(PackedVector2Array([a, mid + n * w * 2.2 * k, head, mid - n * w * 2.2 * k]), Color(glow, 0.45 * k))
+		ci.draw_colored_polygon(PackedVector2Array([a, mid + n * w * k, head, mid - n * w * k]), Color(1, 1, 1, 0.95 * k))
+	if u > 0.15:      # 벤 자국 —— 가는 먹 선이 남았다 흐려진다
+		var cut := clampf(1.0 - (u - 0.15) / 0.85, 0.0, 1.0)
+		ci.draw_line(a.lerp(b, 0.06), a.lerp(b, 0.94), Color(INK, 0.85 * cut), 1.6, true)
+		for k2 in 6:      # 먹 튐 —— 선 가운데 둘레로 작은 방울
+			var r1 := fposmod(sin(seed * 7.1 + k2 * 3.3) * 437.5, 1.0)
+			var r2 := fposmod(sin(seed * 2.9 + k2 * 5.7) * 913.1, 1.0)
+			var p := c + d * (r1 - 0.5) * ln * 0.6 + n * (r2 - 0.5) * w * 9.0 * minf(1.0, (u - 0.15) * 4.0)
+			ci.draw_circle(p, 1.0 + r2 * 1.8, Color(INK, 0.75 * cut))
+
+
+## 11/17 후열 책략 평타 —— 병종 색 구슬이 꼬리를 끌며 날아가 맞는 자리에서 번쩍인다 (판정 · 수치 무관)
+const SPELL_COL := {"책사": Color(1.0, 0.55, 0.18), "술사": Color(0.75, 0.5, 1.0), "모사": Color(0.55, 0.8, 1.0), "유생": Color(0.5, 0.95, 0.7)}
+func _spell_orb(ci: CanvasItem, shot: Dictionary, id: int, start: Vector2, end: Vector2, spread: Vector2, t: float, height: float) -> void:
+	var col: Color = SPELL_COL.get(str(shot.get("tag", "")), EMBER)
+	var tail := PackedVector2Array()
+	for k in 6:
+		var tt := maxf(0.0, t - k * 0.035)
+		var w: Vector2 = start.lerp(end + spread, tt)
+		tail.append(v.map(w) - Vector2(0, 8.0 + sin(tt * PI) * height * 1.6 * v.depth_scale(w)))
+	ci.draw_polyline(tail, Color(INK, 0.35), 6.0, true)
+	ci.draw_polyline(tail, Color(col, 0.75), 3.5, true)
+	ci.draw_circle(tail[0], 5.0, Color(INK, 0.6))
+	ci.draw_circle(tail[0], 4.0, col)
+	ci.draw_circle(tail[0], 2.0, Color(1, 1, 1, 0.95))
+	if t > 0.86:      # 맞는 자리 —— 납작한 섬광 고리
+		var u := (t - 0.86) / 0.14
+		var hit: Vector2 = v.map(end + spread)
+		ci.draw_arc(hit, 6.0 + u * 12.0, 0, TAU, 16, Color(col, 1.0 - u), 2.5, true)

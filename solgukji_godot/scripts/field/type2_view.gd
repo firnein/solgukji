@@ -1333,8 +1333,10 @@ func fx_minor(mk: String, a: Squad, d: Squad) -> void:
 
 
 ## 고유기 —— 기 모으기(술법은 빛고리, 무장은 흙먼지) 뒤 delay 에 종류별로 터진다
-func fx_ult_charge(a: Squad, col: Color, magic: bool, foes: Array = []) -> void:
+func fx_ult_charge(a: Squad, col: Color, magic: bool, foes: Array = [], vfx := "") -> void:
 	bfx.hold(3.2)
+	if painting_on() and painting != null and painting.has_method("add_ult"):      # 11/17 삽화 화면 —— 2D 연출(fx)은 꺼져 있어 삽화 층에 그린다
+		painting.add_ult(vfx, a.key, foes, [], col, "charge")
 	var ap := vis_c(a)
 	if a.camp == "A" or a.tier >= 8 or Settings.cam_fx >= 2:      # 적게 모드: 아군 고유기 · 적 신화 고유기만
 		# 11/7 맞는 순간에 카메라가 이미 그 자리에 있도록 —— 기 모으기부터 시전자와 맞을 적을 함께 담는다
@@ -1361,6 +1363,8 @@ func fx_ult_charge(a: Squad, col: Color, magic: bool, foes: Array = []) -> void:
 
 func fx_ult(vfx: String, a: Squad, foes: Array, allies: Array, col: Color) -> void:
 	bfx.hold(2.6)
+	if painting_on() and painting != null and painting.has_method("add_ult") and a != null:
+		painting.add_ult(vfx, a.key, foes, allies, col, "impact")
 	var ap := vis_c(a) if a else Vector2.ZERO
 	var ds := []
 	for k in foes:

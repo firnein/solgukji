@@ -1526,6 +1526,9 @@ func _start_group(g: Dictionary) -> void:
 		match e.get("fx", ""):
 			"ult_warn":
 				_ult_warn(e)
+			"ult_dash":      # 11/17 돌격 고유기 —— 실제로 달려가는 동안 속도선 · 흙먼지
+				if Type2View.painting_on() and type2 != null and type2.painting != null:
+					type2.painting.add_ult("charge", str(e.get("a", "")), [str(e.get("f", ""))], [], Color("#ffd257"), "dash")
 			"ult_join":
 				_ult_join(e)
 			"ult_cut":
@@ -2555,7 +2558,7 @@ class Hud extends Control:
 			draw_set_transform(Vector2.ZERO)
 		banners_sk = keep
 
-	func float_text(key: String, text: String, col: Color, fs: int, replace := false, deck_notice := false) -> void:
+	func float_text(key: String, text: String, col: Color, fs: int, replace := false, deck_notice := false, icon := "") -> void:
 		if Type2View.painting_on() and not deck_notice:
 			return
 		var sq: Squad = view.field.squads.get(key)
@@ -2571,7 +2574,7 @@ class Hud extends Control:
 		for f in floats:
 			if f.key == key and view.clock - f.t0 < 0.8:
 				n += 1
-		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n, "deck": deck_notice})
+		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n, "deck": deck_notice, "icon": icon})
 
 	# 실제 확산 출처와 추가 피해 사건을 전장에 연결한다.
 	const DECK_ST := {
@@ -2583,6 +2586,7 @@ class Hud extends Control:
 	}
 	var _deck_seen := {}
 	var _deck_links: Array = []
+	var _badge_rects: Array = []      # 이번 그리기에서 놓인 상태 딱지 —— 딱지끼리 · 기여 알림이 피해 간다
 
 	func deck_event(e: Dictionary) -> void:
 		for assist in e.get("assists", []):
@@ -2621,10 +2625,16 @@ class Hud extends Control:
 		if view.clock - float(_deck_seen.get(key, -100.0)) < 4.0:
 			return
 		_deck_seen[key] = view.clock
+		# 11/17 사용자: 쓸데없는 글씨는 줄인다 —— 알림은 기호 + 장수 이름만 (글씨 라벨은 기호가 없는 화면용으로만 남긴다)
+		var icon := kind.trim_suffix("_assist")
+		if kind == "fire_hit": icon = "burn"
+		elif kind == "water_hit": icon = "flood"
+		if bool(e.get("spread", false)) and kind in ["burn", "flood"]:
+			icon += "_spread"
 		if view.field.squads.has(source) and source != target:
-			float_text(source, label, col, 12, true, true)
+			float_text(source, label, col, 12, true, true, icon)
 		else:
-			float_text(target, label, col, 12, true, true)
+			float_text(target, label, col, 12, true, true, icon)
 		if view.field.squads.has(origin) and origin != target:
 			_deck_links.append({"a": origin, "b": target, "col": col, "t": view.clock})
 			if _deck_links.size() > 3:
@@ -2651,23 +2661,108 @@ class Hud extends Control:
 	func _deck_badges(sq: Squad, p: Vector2, radius: float, alpha: float) -> void:
 		if not sq.alive:
 			return
-		var labels := PackedStringArray()
-		var col := Color.WHITE
+		# 11/17 사용자: 「방깎 · 공깎」 같은 글씨 딱지 대신 기호로 —— 메달 아래 작은 동그라미 기호를 셋까지
+		var icons := PackedStringArray()
 		for st in DECK_ST:
-			if sq.statuses.has(st) and not labels.has(str(DECK_ST[st][0])):
-				if labels.is_empty():
-					col = DECK_ST[st][1]
-				labels.append(str(DECK_ST[st][0]))
-				if labels.size() == 2:
+			var ic := _icon_of(st)
+			if sq.statuses.has(st) and not icons.has(ic):
+				icons.append(ic)
+				if icons.size() == 3:
 					break
-		if labels.is_empty():
+		if icons.is_empty():
 			return
-		var txt := " · ".join(labels)
-		var w := DB.font_bold.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 8.0
-		var r := Rect2(p + Vector2(-w * 0.5, radius + 25.0), Vector2(w, 16))
-		draw_rect(r, Color(0.03, 0.04, 0.07, 0.92 * alpha))
-		draw_rect(r, Color(col, alpha), false, 1.0)
-		_text(DB.font_bold, r.position + Vector2(0, 12), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 11, Color(col, alpha))
+		const D := 15.0
+		var w := D * icons.size() + 2.0 * (icons.size() - 1)
+		var r := Rect2(p + Vector2(-w * 0.5, radius + 17.0), Vector2(w, D))
+		# 밀집 교전에서 기호끼리 겹치면 한 칸 아래로 비켜 보고, 그래도 겹치면 이 부대 기호는 뺀다 (아래 장수 칸 · 알림은 그대로)
+		var placed := false
+		for dy in [0.0, D + 2.0]:
+			var cand := Rect2(r.position + Vector2(0, dy), r.size)
+			if not _badge_rects.any(func(o): return (o as Rect2).intersects(cand)):
+				r = cand
+				placed = true
+				break
+		if not placed:
+			return
+		_badge_rects.append(r)
+		for i in icons.size():
+			var c := r.position + Vector2(D * 0.5 + i * (D + 2.0), D * 0.5)
+			draw_circle(c, D * 0.5, Color(0.03, 0.04, 0.07, 0.92 * alpha))
+			draw_arc(c, D * 0.5, 0, TAU, 20, Color(_icon_col(icons[i]), 0.9 * alpha), 1.0, true)
+			_st_icon(c, icons[i], D * 0.5 - 2.0, alpha)
+
+	## 상태 기호 이름 —— 같은 뜻(방어 깎기 · 갑옷 약화)은 같은 기호
+	static func _icon_of(st: String) -> String:
+		match st:
+			"cut_def", "shred_phys": return "def_down"
+			"cut_res", "shred_int": return "res_down"
+			"cut_atk", "cut_int": return "atk_down"
+		return st
+
+	static func _icon_col(ic: String) -> Color:
+		match ic.trim_suffix("_spread"):
+			"burn": return Color("#ff9b45")
+			"flood": return Color("#71caff")
+			"def_down", "shred_phys": return Color("#ffb697")
+			"res_down", "shred_int": return Color("#ed9aff")
+			"atk_down", "cut_atk", "cut_int": return Color("#9bbcf2")
+			"confuse": return Color("#c4a0ff")
+		return Color.WHITE
+
+	## 상태 기호 —— c 가운데, 반지름 s. 불꽃 · 물결 · 방패↓(방어) · 결계↓(책략 방어) · 칼↓(공격) · 소용돌이(혼란). _spread 는 옆으로 번지는 화살표를 덧붙인다
+	func _st_icon(c: Vector2, ic: String, s: float, a: float) -> void:
+		var base := ic.trim_suffix("_spread")
+		base = _icon_of(base)
+		var col := Color(_icon_col(base), a)
+		var dark := Color(0, 0, 0, 0.6 * a)
+		match base:
+			"burn":      # 물방울을 뒤집은 불꽃 —— 아래는 둥글고 위는 뾰족, 안쪽에 밝은 심지
+				for layer in 2:
+					var k := 1.0 if layer == 0 else 0.55
+					var cc := c + Vector2(0, s * 0.3 + (1.0 - k) * s * 0.25)
+					var pts := PackedVector2Array([cc + Vector2(s * 0.12, -s * 1.25) * k])
+					for i in 11:
+						var t := deg_to_rad(-25.0 + 230.0 * float(i) / 10.0)
+						pts.append(cc + Vector2(cos(t), sin(t)) * s * 0.62 * k)
+					draw_colored_polygon(pts, col if layer == 0 else Color(1, 0.93, 0.6, a))
+			"flood":
+				for k in 2:
+					var y := c.y - s * 0.3 + k * s * 0.65
+					var pts := PackedVector2Array()
+					for i in 9:
+						var x := -s + 2.0 * s * float(i) / 8.0
+						pts.append(Vector2(c.x + x, y + sin(float(i) / 8.0 * TAU) * s * 0.22))
+					draw_polyline(pts, col, 1.6, true)
+			"def_down":
+				var sh := PackedVector2Array([c + Vector2(-s * 0.8, -s * 0.85), c + Vector2(s * 0.8, -s * 0.85), c + Vector2(s * 0.8, -s * 0.1), c + Vector2(0, s * 0.95), c + Vector2(-s * 0.8, -s * 0.1)])
+				draw_colored_polygon(sh, col)
+				draw_polyline(PackedVector2Array([c + Vector2(-s * 0.15, -s * 0.85), c + Vector2(s * 0.2, -s * 0.2), c + Vector2(-s * 0.1, s * 0.3)]), dark, 1.4, true)
+			"res_down":
+				draw_arc(c, s * 0.8, 0, TAU, 16, col, 1.8, true)
+				draw_circle(c, s * 0.3, col)
+				draw_line(c + Vector2(-s * 0.7, -s * 0.7), c + Vector2(s * 0.7, s * 0.7), dark, 1.4, true)
+			"atk_down":
+				draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), col, 2.0, true)
+				draw_line(c + Vector2(-s * 0.75, s * 0.15), c + Vector2(-s * 0.15, s * 0.75), col, 1.8, true)
+				draw_line(c + Vector2(-s * 0.85, -s * 0.2), c + Vector2(s * 0.2, s * 0.85), dark, 1.4, true)
+			"confuse":
+				var pts := PackedVector2Array()
+				for i in 18:
+					var t := float(i) / 17.0
+					pts.append(c + Vector2(cos(t * TAU * 1.6), sin(t * TAU * 1.6)) * s * (0.15 + 0.8 * t))
+				draw_polyline(pts, col, 1.6, true)
+			_:
+				draw_circle(c, s * 0.5, col)
+		if base in ["def_down", "res_down", "atk_down"]:      # 깎임 —— 오른쪽 아래 붉은 ↓
+			var q := c + Vector2(s * 0.7, s * 0.5)
+			var tri := PackedVector2Array([q + Vector2(-s * 0.6, -s * 0.3), q + Vector2(s * 0.6, -s * 0.3), q + Vector2(0, s * 0.6)])
+			draw_colored_polygon(tri, Color(1, 0.3, 0.25, a))
+			tri.append(tri[0])
+			draw_polyline(tri, Color(0, 0, 0, 0.7 * a), 1.0, true)
+		if ic.ends_with("_spread"):      # 번짐 —— 오른쪽으로 뻗는 화살표
+			var q := c + Vector2(s * 0.55, -s * 0.55)
+			draw_line(q, q + Vector2(s * 0.6, 0), Color(1, 1, 1, a), 1.4, true)
+			draw_colored_polygon(PackedVector2Array([q + Vector2(s * 0.95, 0), q + Vector2(s * 0.55, -s * 0.28), q + Vector2(s * 0.55, s * 0.28)]), Color(1, 1, 1, a))
 
 	const SMALL_HIT := 0.06          # 이보다 작은 타격은 모아서 띄운다 (부대 최대 병력 대비) —— 11/4 0.04 → 0.06 (숫자가 겹쳐 쌓였다)
 	const SMALL_HIT_FAR := 0.1       # 멀리 볼 때 (War3D.overview) —— 큰 타격만
@@ -3669,6 +3764,19 @@ class Hud extends Control:
 		if f.has("dy"):
 			return f.dy
 		var dy := 0.0
+		if f.get("deck", false):
+			# 11/17 기여 알림 —— 위로만 밀면 밀집 교전에서 멀리 떠올라 엉뚱한 메달을 덮었다.
+			# 제자리 · 위 · 아래를 번갈아 보며 덜 가리는 자리를 고른다 (다 막히면 가장 덜 겹치는 곳)
+			var best := 1 << 30
+			for o in [0.0, -1.0, 1.0, -2.0, 2.0, -3.0]:
+				var n := _deck_overlaps(f, Rect2(p + Vector2(-w / 2, -h + o * h * 0.9), Vector2(w, h)))
+				if n < best:
+					best = n
+					dy = o * h * 0.9
+				if n == 0:
+					break
+			f.dy = dy
+			return dy
 		for _k in 5:
 			var r := Rect2(p + Vector2(-w / 2, -h + dy), Vector2(w, h))
 			var hit := false
@@ -3681,6 +3789,22 @@ class Hud extends Control:
 			dy -= h * 0.9
 		f.dy = dy
 		return dy
+
+	## 기여 알림 자리 r 이 가리는 것 수 —— 다른 글씨 · 상태 딱지 · 메달과 이름표 (제자리는 자기 메달 바로 위라 자기 것과는 안 겹친다)
+	func _deck_overlaps(f: Dictionary, r: Rect2) -> int:
+		var n := 0
+		for o in floats:
+			if not is_same(o, f) and o.has("rect") and (o.rect as Rect2).intersects(r):
+				n += 1
+		for o in _badge_rects:
+			if (o as Rect2).intersects(r):
+				n += 1
+		for mk in _painted_medals:
+			var md: Dictionary = _painted_medals[mk]
+			var mr := Rect2(md.at - Vector2.ONE * float(md.radius), Vector2.ONE * float(md.radius) * 2.0).merge(md.label)
+			if mr.intersects(r):
+				n += 1
+		return n
 
 	## 행동 아이콘 —— 주황 동그라미 위에 흰 그림
 	func _act_icon(c: Vector2, kind: String, a: float) -> void:
@@ -3715,6 +3839,7 @@ class Hud extends Control:
 	func _draw_all() -> void:
 		var painted := Type2View.painting_on()
 		_painted_medals.clear()
+		_badge_rects.clear()
 		var fb := DB.font_body
 		var fd := DB.font_display
 		# 부대 머리표 —— 진영색 알약 이름표 + 병력 막대(+ 사기·고유기 가는 줄). 아래쪽(가까운) 부대부터 놓고,
@@ -3846,8 +3971,10 @@ class Hud extends Control:
 				if marker.is_empty() or squad == null:
 					continue
 				var name_: String = DB.person(squad.cid) if squad.tier > 2 else squad.row.name
-				var label := name_ + " · " + str(f.text)
-				var width := fb.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0
+				var ic := str(f.get("icon", ""))
+				var label := name_ if ic != "" else name_ + " · " + str(f.text)      # 11/17 기호가 있으면 이름만
+				var iw := 16.0 if ic != "" else 0.0
+				var width := fb.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0 + iw
 				var anchor: Vector2 = marker.at - Vector2(0, float(marker.radius) + 8.0 + u * 12.0)
 				anchor.x = clampf(anchor.x, width * 0.5 + 6.0, size.x - width * 0.5 - 6.0)
 				anchor.y = maxf(110.0, anchor.y)
@@ -3856,7 +3983,9 @@ class Hud extends Control:
 				f.rect = box
 				draw_rect(box, Color(0.07, 0.06, 0.04, 0.94 * col.a))
 				draw_rect(box, Color(col, 0.8 * col.a), false, 1.0)
-				draw_string(fb, box.position + Vector2(6, 13), label, HORIZONTAL_ALIGNMENT_LEFT, width - 12, 11, col)
+				if ic != "":
+					_st_icon(box.position + Vector2(12, 9), ic, 6.0, col.a)
+				draw_string(fb, box.position + Vector2(6 + iw, 13), label, HORIZONTAL_ALIGNMENT_LEFT, width - 12 - iw, 11, col)
 				continue
 			var p := _to_screen(f.p, 6.5) + Vector2(0, -20 - f.n * 16 - u * 26)
 			if view.field.flat != null:      # 2D 전장 —— 메달 밀어낸 만큼 따라가고, 겹치면 위로

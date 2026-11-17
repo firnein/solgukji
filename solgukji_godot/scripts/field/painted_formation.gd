@@ -107,13 +107,17 @@ func restore_soldiers(wanted: int, sq: Squad) -> void:
 
 		feet[i] = center - Vector2.from_angle(heading) * sq.hd0
 
+var move_vel := Vector2.ZERO
+
 func step(sq: Squad, dt: float) -> void:
 	if dt <= 0.0:
 		return
 	var following_track := sq.puppet and sq.state != "flee"
 	var goal := sq.pgoal if following_track else sq.pos
 	var facing := sq.pfwd if following_track else sq.fwd
+	var before := center
 	center = center.lerp(goal, 1.0 - exp(- dt * 16.0))
+	move_vel = move_vel.lerp((center - before) / dt, 1.0 - exp(- dt * 5.0))      # 11/17 병사 그림이 가는 쪽을 보게 (문워크 방지)
 	heading = rotate_toward(heading, facing.angle(), dt * 3.2)
 	contact = (sq.ptouch if following_track else sq.contact) and sq.state != "flee"
 	contact_weight = move_toward(contact_weight, 1.0 if contact else 0.0, dt * 5.0)

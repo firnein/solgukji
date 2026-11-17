@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/legend_cav_vs_ce.gd" id="1"]
+
+[node name="LegendCavVsCe" type="Node"]
+script = ExtResource("1")

@@ -198,6 +198,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			tac.tick()
 		_move()
 		_fire_winds()
+		_dash_tick()
 		_paeup_tick(TICK)
 		for u in units:
 			if not u.alive:
@@ -305,6 +306,13 @@ const WIND := 2.5
 const WIND_FAST := 0.7
 const CUT_GAUGE := 30.0        # 끊긴 장수는 게이지가 이만큼 남는다 (횟수는 그대로)
 var _wind := {}                # 유닛 -> 터질 시각
+## 11/17 사용자: 「마초는 기병인데 먼 곳에 꽂혀도 되나」 → 돌격 고유기(vfx charge · 근접)는 기를 다 모으면 실제로 달려가 부딪히는 순간 터진다.
+## 대상은 달려온 길의 띠(line:선봉+전군) 또는 원래 규칙을 부딪힌 자리 기준으로 (그 전에는 적 진영 앞쪽 3부대를 거리 없이 쳤다)
+const DASH_MUL := 3.2          # 돌진 속도 = 병종 이동 속도 × 이만큼
+const DASH_MAX := 3.0          # 이 안에 못 닿으면 그 자리에서 터진다 (막혔을 때 —— 최후열 돌격은 멀어 2초 넘게 달린다)
+var _dash := {}                # 유닛 -> {from, t, end}
+static var probe_dash := false
+var _dash_from := {}           # 터지는 동안만 —— 달려온 출발점 (띠 대상 계산)
 ## 11/2 사용자: 후반에 고유기가 연달아 터진다 → 초 단위 간격. 어느 진영이든 직전 고유기에서 ULT_GAP 초,
 ## 같은 진영은 ULT_SIDE_SEC 초가 지나야 다음 고유기 (맞받아치기로 바로 받아치던 것도 없앴다)
 static var ult_gap := 2.5           # 11/11 기 충전 수정 2: (2.5 유지)
@@ -702,20 +710,101 @@ func _fire_winds() -> void:
 			u.gauge = CUT_GAUGE
 			_inyeon_drop(u)
 			continue
-		var grp: Dictionary = _wind_grp.get(u, {})
-		if not grp.is_empty():
-			_inyeon_fire_setup(u, grp)
-		super._interrupt_ult(u)
-		var joint: bool = not _ult_grp.is_empty()      # 합동으로 터졌다 (대표가 끊겨 혼자 쏜 장수는 세지 않는다)
-		_ult_grp = {}
-		_ult_extra = {}
-		_ult_amp_x = 1.0
-		_wind_grp.erase(u)
-		if joint:
-			grp["shot"] = int(grp.get("shot", 0)) + 1
-			_inyeon_fin_check(grp)
-		_join_q = _join_q.filter(func(j): return j.lead != u)
-		_omen.erase(u)
+		if _dash_ult(u):
+			var dt := _dash_target(u)
+			if dt != null and _gap(u, dt) > TOUCH + 2.0:
+				_dash[u] = {"from": u.pos, "t": dt, "end": _tm + DASH_MAX, "g0": _gap(u, dt), "t0": _tm}
+				L("sk", "%s 적진으로 돌진한다" % ga(nm(u)), {"fx": "ult_dash", "a": u.key, "f": dt.key})
+				continue
+		_fire_one(u)
+
+
+## 기를 다 모은 (돌격이면 부딪힌) 고유기 하나를 터뜨린다
+func _fire_one(u: Unit) -> void:
+	var grp: Dictionary = _wind_grp.get(u, {})
+	if not grp.is_empty():
+		_inyeon_fire_setup(u, grp)
+	super._interrupt_ult(u)
+	var joint: bool = not _ult_grp.is_empty()      # 합동으로 터졌다 (대표가 끊겨 혼자 쏜 장수는 세지 않는다)
+	_ult_grp = {}
+	_ult_extra = {}
+	_ult_amp_x = 1.0
+	_wind_grp.erase(u)
+	if joint:
+		grp["shot"] = int(grp.get("shot", 0)) + 1
+		_inyeon_fin_check(grp)
+	_join_q = _join_q.filter(func(j): return j.lead != u)
+	_omen.erase(u)
+
+
+## 돌격 고유기 —— 근접 장수의 vfx charge 고유기
+func _dash_ult(u: Unit) -> bool:
+	return u.ult != null and str(u.ult.get("vfx", "")) == "charge" and not _ranged(u)
+
+
+## 달려갈 적 —— 첫 타격 대상이 최후열(back1 · back2)이면 가장 깊은 적, 아니면 발자국 틈이 가장 가까운 적
+func _dash_target(u: Unit) -> Unit:
+	var live := units.filter(func(o): return o.alive and o.camp != u.camp and not _hidden(o))
+	if live.is_empty():
+		return null
+	var spec := ""
+	for comp in u.ult.eff:
+		if comp.t == "hit" and comp.has("tgt"):
+			spec = str(comp.tgt)
+			break
+	if spec in ["back1", "back2"]:
+		return _deepest(u, live)
+	var best: Unit = null
+	var bd := INF
+	for o in live:
+		var g := _gap(u, o)
+		if g < bd:
+			bd = g
+			best = o
+	return best
+
+
+## 돌진 중인 장수를 움직이고, 닿으면(또는 시간이 다 되면) 고유기를 터뜨린다 (유닛 순서대로 —— 결정적)
+func _dash_tick() -> void:
+	if _dash.is_empty():
+		return
+	for u in units:
+		if not _dash.has(u):
+			continue
+		var d: Dictionary = _dash[u]
+		if not u.alive or has_st(u, "confuse"):
+			_dash.erase(u)
+			u.gauge = CUT_GAUGE
+			_inyeon_drop(u)
+			continue
+		var t: Unit = d.t
+		if not t.alive:
+			t = _dash_target(u)
+			d.t = t
+		var arrived := t == null or _gap(u, t) <= TOUCH + 2.0 or _tm >= float(d.end) - 0.001
+		if not arrived:
+			var to := t.pos - u.pos
+			var sp: float = float(SPEED.get(u.c.tag, 55.0)) * DASH_MUL
+			var step := minf(sp * TICK, maxf(0.0, _gap(u, t) - TOUCH))
+			var dir := to.normalized()
+			u.vel = dir * sp
+			u.pos += dir * step
+			u.ran += step
+			_turn_to(u, to)
+			arrived = _gap(u, t) <= TOUCH + 2.0
+		if arrived:
+			_dash.erase(u)
+			u.vel = Vector2.ZERO
+			if t != null:
+				u.tgt = t
+			_dash_from[u] = d.from
+			stats["dash_n"] = int(stats.get("dash_n", 0)) + 1      # 점검용 —— 돌진 고유기 수 · 터질 때 부딪힌 적과의 틈 (tests/ult_dash)
+			if t != null:
+				stats["dash_gap_max"] = maxf(float(stats.get("dash_gap_max", 0.0)), _gap(u, t))
+				if probe_dash:
+					print("DASHLOG ", u.c.name, " g0=", roundi(d.g0), " g1=", roundi(_gap(u, t)), " t=", snappedf(_tm - float(d.t0), 0.01), " tgt=", t.c.name, " moved=", roundi(u.pos.distance_to(d.from)))
+			_fire_one(u)
+			_dash_from.erase(u)
 
 
 ## 합동 고유기의 사건 항목 · 상한 그룹을 정한다 —— 대표는 inyeon · mates, 따라 쏘는 장수는 inyeon · lead (대표가 이미 터졌을 때만 —— 대표가 끊겼으면 보통 고유기처럼)
@@ -965,7 +1054,7 @@ func _speed(u: Unit) -> float:
 
 func _move() -> void:
 	for u in units:
-		if not u.alive:
+		if not u.alive or _dash.has(u):
 			continue
 		u.retgt -= TICK
 		var foes := _foes_of(u)
@@ -1221,7 +1310,7 @@ func _pen_sum(u: Unit, near: Array) -> float:
 ## 겹치지 않게 (11/7 강체) —— 발자국끼리 분리축 판정으로 겹친 만큼 민다. 아군은 ALLY_GAP 틈을 두고, 적은 FOE_MIX 까지만 파고든다.
 ## 병력이 많은 쪽이 덜 밀린다(떠밀기 —— 큰 군세가 작은 부대를 밀어낸다). 몇 번 되풀이해 연쇄 겹침까지 푼다. 밀린 쪽은 그쪽으로 가던 속도를 잃는다
 func _solve() -> void:
-	var live: Array = units.filter(func(o): return o.alive)
+	var live: Array = units.filter(func(o): return o.alive and not _dash.has(o))      # 11/17 돌진 중인 고유기 장수는 대열을 뚫고 지나간다 (닿아 터진 뒤 다시 밀어낸다)
 	var pre := {}
 	for u in live:
 		pre[u] = u.pos
@@ -1395,6 +1484,31 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 			_mark_targets(me, best)
 			return best
 	# 11/2 열 —— 설명대로 적 진영의 앞쪽(선봉 · 전군) / 뒤쪽(후군) 절반, 최대 3부대 (예전엔 나에서 대상으로 뻗은 띠였다)
+	if spec == "line:선봉+전군" and _dash_ult(me):
+		# 돌격 고유기 —— 달려온 길(예고 때는 달려갈 길) 띠 안의 적, 부딪힌 적에 가까운 순으로 3부대까지
+		var org: Vector2 = _dash_from.get(me, me.pos)
+		var hit: Unit = me.tgt if me.tgt != null and me.tgt.alive and live.has(me.tgt) and _dash_from.has(me) else null
+		if hit == null:
+			hit = _dash_target(me)
+		if hit == null:
+			return []
+		var dir := (hit.pos - org).normalized()
+		if dir == Vector2.ZERO:
+			dir = me.fwd
+		var ln := org.distance_to(hit.pos) + 80.0
+		var perp := Vector2(-dir.y, dir.x)
+		var s := live.filter(func(o):
+			var v: Vector2 = o.pos - org
+			var along := v.dot(dir)
+			return o == hit or (along >= -10.0 and along <= ln + _extent(o, dir) and absf(v.cross(dir)) <= LINE_W + _extent(o, perp)))
+		s.sort_custom(func(a, b): return a.pos.distance_squared_to(hit.pos) < b.pos.distance_squared_to(hit.pos))
+		s = s.slice(0, 3)
+		if _dash_from.has(me) and not _target_preview:
+			for o in s:
+				stats["dash_line_far"] = maxf(float(stats.get("dash_line_far", 0.0)), _gap(me, o))
+		var tip := org + dir * ln
+		_mark(me, {"k": "line", "x": org.x, "y": org.y, "x2": tip.x, "y2": tip.y, "w": LINE_W})
+		return s
 	if spec == "line:후군" or spec == "line:선봉+전군":
 		var s := live.duplicate()
 		var back := spec == "line:후군"

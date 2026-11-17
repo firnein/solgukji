@@ -63,10 +63,12 @@ func _ready() -> void:
 	add_child(view)
 	await get_tree().process_frame
 	var helper = preload("res://tests/formation_preview.gd").new()
-	var a: Array = DB.auto_place(helper._cards([]), "eorin")
-	var b: Array = DB.auto_place(helper._cards([]), "hagik")
+	var names_a: Array = Array(str(args.get("a", "")).split(",", false))
+	var names_b: Array = Array(str(args.get("b", "")).split(",", false))
+	var a: Array = DB.auto_place(helper._cards(names_a), "eorin")
+	var b: Array = DB.auto_place(helper._cards(names_b), "hagik")
 	helper.free()
-	var result := RtBattle.new(5100).run(a, "eorin", 100, null, b, "hagik", 100, null, "", "", [], {"A": "auto", "B": "auto"})
+	var result := RtBattle.new(int(args.get("seed", "5100"))).run(a, "eorin", 100, null, b, "hagik", 100, null, "", "", [], {"A": "auto", "B": "auto"})
 	view.play_res(result, "pvp")
 	view.speed = 1.0
 	var painter: Control = view.type2.painting
@@ -122,6 +124,149 @@ func _ready() -> void:
 	for sq: Squad in view.field.order:
 		capacity += painter._formation(sq).capacity
 	print("PASS motion.5 event delivery: volley / impact / casualty / effect limits / reset")
+	if args.has("move-audit"):      # 11/17 이동 어색함 점검 —— 화면 부대(Squad)와 삽화 대열(form)의 움직임을 프레임마다 재 본다
+		var secs := float(args.get("move-audit", "30"))
+		var prev := {}
+		var m := {"frames": 0, "moving": 0.0, "crab": 0.0, "back": 0.0, "stopgo": 0, "jerk": 0, "spin": 0, "head_flip": 0, "turn_in_place": 0.0}
+		var worst := {}
+		var last_move := {}
+		var last_turn := {}
+		while view.clock < secs and not view.finished:
+			await get_tree().process_frame
+			var dt: float = get_process_delta_time() * view.speed if view.speed > 0 else 0.0
+			if dt <= 0.0005:
+				continue
+			m.frames += 1
+			for sq: Squad in view.field.order:
+				if not sq.alive or sq.state == "gone":
+					continue
+				var form = painter.formations.get(sq.key)
+				if form == null:
+					continue
+				var cur := {"p": form.center, "h": form.heading, "mv": sq.moving}
+				if prev.has(sq.key):
+					var pv: Dictionary = prev[sq.key]
+					var vel: Vector2 = (cur.p - pv.p) / dt
+					var spd := vel.length()
+					var pspd: float = pv.get("spd", spd)
+					cur["spd"] = spd
+					var dh := absf(angle_difference(float(pv.h), float(cur.h)))
+					var scr: Vector2 = painter.v.map(cur.p) - painter.v.map(pv.p)
+					if absf(scr.x) / dt > 12.0 and absf(scr.x) > scr.length() * 0.35:      # 화면 가로로 움직이는데 그림이 반대를 본다 = 문워크
+						m.side_move = float(m.get("side_move", 0.0)) + dt
+						var looks_right: bool = form.facing_right
+						if looks_right != (scr.x > 0.0):
+							m.moonwalk = float(m.get("moonwalk", 0.0)) + dt
+							var mk := "moonwalk_" + ("contact" if sq.contact else "free")
+							m[mk] = float(m.get(mk, 0.0)) + dt
+					if spd > 15.0:
+						m.moving += dt
+						var off := absf(angle_difference(vel.angle(), float(cur.h)))
+						if off > deg_to_rad(60) and off < deg_to_rad(120):
+							m.crab += dt
+							var ctx := ("contact" if sq.contact else ("near" if sq.ptgt != null and sq.pos.distance_to(sq.ptgt.pos) < 140.0 else "free"))
+							var kk := "crab_" + ctx + "_" + sq.cls
+							m[kk] = float(m.get(kk, 0.0)) + dt
+							var ek := "eng_off_" + ctx      # 엔진 자체도 옆으로 가나 (기록된 엔진 방향 vs 엔진 이동)
+							var eng_off := absf(angle_difference(vel.angle(), sq.pfwd.angle()))
+							if eng_off > deg_to_rad(60) and eng_off < deg_to_rad(120):
+								m[ek] = float(m.get(ek, 0.0)) + dt
+							worst[sq.key + ":crab"] = float(worst.get(sq.key + ":crab", 0.0)) + dt
+						elif off >= deg_to_rad(120):
+							m.back += dt
+							worst[sq.key + ":back"] = float(worst.get(sq.key + ":back", 0.0)) + dt
+					elif dh / dt > 1.0:
+						m.turn_in_place += dt
+					if absf(spd - pspd) / dt > 900.0:
+						m.jerk += 1
+						worst[sq.key + ":jerk"] = int(worst.get(sq.key + ":jerk", 0)) + 1
+					if dh / dt > 4.0:
+						m.spin += 1
+					var sgn := signf(angle_difference(float(pv.h), float(cur.h)))
+					if dh > 0.0005:      # 눈에 보이는 떨림 —— 한쪽으로 5도 넘게 돌았다가 0.6초 안에 반대로 5도 넘게
+						var lt: Array = last_turn.get(sq.key, [sgn, view.clock, 0.0, 0.0, -10.0])
+						if int(lt[0]) == int(sgn):
+							lt[2] = float(lt[2]) + dh
+						else:
+							if float(lt[2]) > 0.087 and float(lt[3]) > 0.087 and view.clock - float(lt[4]) < 0.6:
+								m.head_flip += 1
+								if args.has("flip-log"):
+									print("FLIP ", sq.key, " t=", snappedf(view.clock, 0.01), " seg=", snappedf(rad_to_deg(float(lt[2])), 0.1), "/", snappedf(rad_to_deg(float(lt[3])), 0.1))
+								var fk := "flip_" + ("march" if form.get("marching") else ("contact" if sq.contact else "face")) + ("_moving" if float(cur.get("spd", 0.0)) > 15.0 else "_still")
+								m[fk] = int(m.get(fk, 0)) + 1
+								worst[sq.key + ":flip"] = int(worst.get(sq.key + ":flip", 0)) + 1
+							lt = [sgn, view.clock, dh, float(lt[2]), view.clock]
+						lt[1] = view.clock
+						last_turn[sq.key] = lt
+					if bool(pv.mv) != bool(cur.mv):
+						if last_move.has(sq.key) and view.clock - float(last_move[sq.key]) < 0.5:
+							m.stopgo += 1
+							worst[sq.key + ":stopgo"] = int(worst.get(sq.key + ":stopgo", 0)) + 1
+						last_move[sq.key] = view.clock
+				if args.has("trace") and sq.key == str(args.get("trace")):
+					print("TR t=", snappedf(view.clock, 0.01), " h=", snappedf(rad_to_deg(form.heading), 0.1), " md=", snappedf(rad_to_deg(form.march_dir.angle()), 0.1) if form.march_dir != Vector2.ZERO else "-", " pf=", snappedf(rad_to_deg(sq.pfwd.angle()), 0.1), " mar=", form.marching, " c=", form.center.round())
+				prev[sq.key] = cur
+		var ws := worst.keys()
+		ws.sort_custom(func(x, y): return float(worst[x]) > float(worst[y]))
+		var top := {}
+		for k in ws.slice(0, 12):
+			top[k] = snappedf(float(worst[k]), 0.01)
+		for k in m:
+			m[k] = snappedf(float(m[k]), 0.01) if m[k] is float else m[k]
+		print("MOVE_AUDIT ", JSON.stringify(m))
+		print("MOVE_WORST ", JSON.stringify(top))
+		get_tree().quit()
+		return
+	if args.has("ult-inject"):      # 화면 확인용 —— 고유기 이펙트를 직접 넣어 0.15 · 0.45 · 0.8초에 찍는다 (판정과 무관)
+		while view.clock < 8.0:
+			await get_tree().process_frame
+		var caster: Squad = view.field.order[0]
+		var foes := []
+		for q: Squad in view.field.order:
+			if q.camp != caster.camp and q.alive and foes.size() < 3:
+				foes.append(q.key)
+		var kind := str(args.get("ult-inject"))
+		painter.add_ult(kind, caster.key, foes, [], UltFx.new(view.field)._col(kind), "impact")
+		var t0: float = view.clock
+		for k in 3:
+			while view.clock - t0 < [0.15, 0.45, 0.8][k]:
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png("res://../build/inject_%s_%d.png" % [kind, k])
+		print("INJECT_SHOTS ", kind)
+		get_tree().quit()
+		return
+	if args.has("ult-shots"):      # 11/17 고유기 이펙트 확인 —— 맞는 순간 뒤 0.15 · 0.45 · 0.8초에 한 장씩 (최대 n 개 고유기)
+		var want := int(args.get("ult-shots", "6"))
+		var only := str(args.get("ult-kind", ""))
+		var phase := str(args.get("ult-phase", "impact"))
+		var done := {}
+		var taken := 0
+		while taken < want * 3 and not view.finished and view.clock < 90.0:
+			await get_tree().process_frame
+			for e: Dictionary in painter.ults:
+				if e.phase != phase or (only != "" and e.vfx != only):
+					continue
+				var age: float = view.clock - float(e.start)
+				var id := "%s_%.2f" % [e.vfx, float(e.start)]
+				var step: int = done.get(id, 0)
+				if step < 3 and age >= ([0.08, 0.2, 0.5] if e.vfx == "arrowstorm" else [0.15, 0.45, 0.8])[step]:
+					done[id] = step + 1
+					taken += 1
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png("res://../build/ult_%02d_%s_%s_%d.png" % [taken, e.vfx, e.phase, step])
+					print("ULT_SHOT ", id, " step ", step)
+					if args.has("ult-debug"):
+						print("  a=", e.a, " from=", e.from, " scr=", painter.v.map(e.from), " unit=", painter._px(e.from, 80.0), " tex=", painter.v._spr("flame_02"), " vis=", painter.top_effects.is_visible_in_tree(), " z=", painter.top_effects.z_index)
+						for h in e.hits:
+							var near := ""
+							for q: Squad in view.field.order:
+								if q.pos.distance_to(h.at) < 5.0: near = q.key + "/" + q.camp
+							print("  hit ", h.at, " -> ", painter.v.map(h.at), " ", near)
+					break
+		print("ULT_SHOTS %d" % taken)
+		get_tree().quit()
+		return
 	if args.has("validate-only"):
 		while view.clock < float(args.get("capture-at", "0")) and not view.finished:
 			await get_tree().process_frame
