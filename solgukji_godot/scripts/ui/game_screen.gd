@@ -3987,6 +3987,7 @@ func show_battle(res: Dictionary, last: bool, kind := "", params := {}) -> void:
 	_battle_last = last
 	_battle_kind = kind
 	_battle_layer.visible = true
+	_battle.process_mode = Node.PROCESS_MODE_INHERIT      # 11/17 hide_battle 이 멈춰 둔 재생을 다시 (다시 보기)
 	_hide_band()
 	Settings.apply_port(_battle.port)
 	if "say_cb" in _battle:      # 11/9 사용자: 전투를 보는 중에도 한마디 —— BattleView 위 띠의 [한마디] 가 이 시트를 연다
@@ -4018,6 +4019,11 @@ func _leave_from_battle() -> void:
 
 func hide_battle() -> void:
 	_battle_layer.visible = false
+	# 11/17 온라인에서 다 안 본 전투를 닫거나(전투 창 닫기 · 다음 단계로 넘어감) 숨기면 재생을 멈춘다 —— 전엔 숨기기만 해서
+	# 다음 아침(징집) 뒤에서 전투가 끝까지 돌며 효과음 · 승패 음악 · 결과 처리를 냈다 (4APT 토요일 아침)
+	if online != null and _battle != null and not _battle.finished:
+		_battle.process_mode = Node.PROCESS_MODE_DISABLED
+		Sfx.music("prep")
 	_resume_bands()
 	_maybe_ending.call_deferred()
 
