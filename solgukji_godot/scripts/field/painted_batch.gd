@@ -63,6 +63,8 @@ func _mesh(vertices: PackedVector2Array, indices: PackedInt32Array, uv: PackedVe
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, Mesh.ARRAY_FLAG_USE_2D_VERTICES)
 	return mesh
 
+const HURT_TINT := Color("#fff3df")      # 11/18 인형마다 문자열을 다시 읽던 것을 한 번만
+
 func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 	var count := figures.size()
 	if count > capacity:
@@ -93,7 +95,7 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 		buffer[b + 6] = 0
 		buffer[b + 7] = p.y - lift
 		var cloth := ally if int(f.cell) < 8 else enemy
-		var tint := cloth.lerp(Color("#fff3df"), float(f.hurt) * 0.75)
+		var tint := cloth if float(f.hurt) <= 0.0 else cloth.lerp(HURT_TINT, float(f.hurt) * 0.75)
 		buffer[b + 8] = tint.r
 		buffer[b + 9] = tint.g
 		buffer[b + 10] = tint.b

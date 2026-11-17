@@ -11,6 +11,7 @@ var ratios := {}
 var last_clock := -1.0
 var visual_time := 0.0
 var motion_dt := 0.0
+var _skip_dt := 0.0          # 11/18 부하 2단계부터 30Hz —— 건너뛴 프레임의 시간을 모아 다음 갱신에 넘긴다
 var charges := {}
 var rallies := {}
 var fire_seas := {}
@@ -310,6 +311,15 @@ func _record_impact(source: Squad, target: Squad, now: float, brace: bool) -> vo
 func _process(dt: float) -> void:
 	if not is_visible_in_tree() or v == null or v.field == null:
 		return
+	# 11/18 모바일 19fps: 삽화(인형 위치 · 수집 · 정렬 · 묶음 버퍼)가 부하 조절 단계를 따르지 않고 늘 60Hz 로 돌아
+	# 단계가 끝까지 올라가도 줄어드는 것이 없었다 → 2단계부터 갱신 · 그리기를 두 프레임에 한 번 (사이 시간은 모아 넘긴다)
+	var lv := int(v.load_lv) if v.get("load_lv") != null else 0
+	if lv >= 2 and Engine.get_process_frames() % 2 == 1:
+		_skip_dt += dt
+		return
+	dt += _skip_dt
+	_skip_dt = 0.0
+	var t0 := Time.get_ticks_usec()
 	var elapsed := 0.0 if last_clock < 0 else clampf(float(v.field.clock) - last_clock, 0.0, 0.25)
 
 	motion_dt = minf(minf(dt, elapsed), 0.05) if elapsed > 0.0 else 0.0
@@ -331,6 +341,7 @@ func _process(dt: float) -> void:
 		form.contact_limits = _contact_limits(sq) if batch_rendering else []
 		form.step(sq, motion_dt)
 		ratios[sq.key] = form.ratio
+	v.field.pt("삽화 갱신", t0)
 	queue_redraw()
 	if top_effects != null:
 		top_effects.queue_redraw()
@@ -385,6 +396,7 @@ func _draw() -> void:
 	visible_soldiers.clear()
 	if v == null or v.field == null or cells.is_empty():
 		return
+	var t0 := Time.get_ticks_usec()
 	_draw_fire_seas()
 	_draw_bodies(false)
 	for sq: Squad in v.field.order:
@@ -400,6 +412,7 @@ func _draw() -> void:
 	else:
 		for figure in visible_soldiers:
 			_draw_soldier(figure)
+	v.field.pt("삽화 그리기", t0)
 
 func _draw_overlay(ci: CanvasItem) -> void:
 	if v == null or v.field == null:
@@ -446,6 +459,7 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		if form.alive[id] == 0:
 			continue
 		var p: Vector2 = v.map(form.feet[id])
+		var p0 := p      # 11/18 발은 _place 에서 이미 접촉선 안 —— 찌르기 · 밀림으로 옮겨진 인형만 다시 맞춘다
 		var tilt := 0.0
 		var gait: float = form.gait[id]
 		var stride: float = form.strides[id]
@@ -475,7 +489,7 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 			hit = 1.0 - smoothstep(0.025, 0.14, hurt_age)
 			gait *= 1.0 - recoil
 		tilt += sin(stride) * gait * (0.035 if form.cavalry else 0.012)
-		if not form.contact_limits.is_empty():
+		if not form.contact_limits.is_empty() and p != p0:
 			# Attack thrust and recoil must respect the same visible contact front.
 			p = v.map(form.constrain_foot(v.unmap(p)))
 		visible_soldiers.append({"p": p, "h": h, "cell": cell, "fade": sq.fade * form.opacity[id],
@@ -497,15 +511,17 @@ func _draw_formation_mark(sq: Squad, form: FormationMotion) -> void:
 		v.map(front - right * (form.half_width + 7.0)), v.map(front + right * (form.half_width + 7.0)),
 		v.map(back + right * (form.half_width + 7.0))])
 	var color := ALLY_MARK if sq.camp == "A" else ENEMY_MARK
+	# 11/18 부하 2단계부터 표식 선의 안티에일리어싱을 끈다 (부대마다 매 프레임 —— 삽화 그리기에서 가장 무거웠다)
+	var aa := v.get("load_lv") == null or int(v.load_lv) < 2
 	draw_colored_polygon(rim, Color(color, 0.075 * sq.fade))
-	draw_polyline(rim, Color(color, 0.38 * sq.fade), 1.1, true)
+	draw_polyline(rim, Color(color, 0.38 * sq.fade), 1.1, aa)
 
 	var marks := PackedVector2Array()
+	var half := maxf(2.0, _figure_height(sq, form) * 0.17)      # 11/18 부대마다 같다 —— 인형마다 다시 재던 것을 밖으로
 	for id in form.capacity:
 		if form.alive[id] == 0 or form.ranks[id] != 0:
 			continue
 		var p: Vector2 = v.map(form.feet[id]) + Vector2(0, 1)
-		var half := maxf(2.0, _figure_height(sq, form) * 0.17)
 		var shape := PackedVector2Array([p + Vector2(- half, 0), p + Vector2(half, 0)])
 		if sq.camp != "A":
 			shape = PackedVector2Array([p + Vector2(- half, -1), p + Vector2(0, 1.5), p + Vector2(half, -1)])
@@ -516,8 +532,8 @@ func _draw_formation_mark(sq: Squad, form: FormationMotion) -> void:
 		for segment in shape.size() - 1:
 			marks.append_array([shape[segment], shape[segment + 1]])
 	if not marks.is_empty():
-		draw_multiline(marks, Color(INK, 0.7 * sq.fade), 3.0, true)
-		draw_multiline(marks, Color(color, 0.8 * sq.fade), 1.5, true)
+		draw_multiline(marks, Color(INK, 0.7 * sq.fade), 3.0, aa)
+		draw_multiline(marks, Color(color, 0.8 * sq.fade), 1.5, aa)
 	_draw_dust(sq, form.half_width * 2.0, form)
 
 func _draw_soldier(f: Dictionary) -> void:
