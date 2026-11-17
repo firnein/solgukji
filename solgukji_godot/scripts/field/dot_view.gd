@@ -163,6 +163,17 @@ func add_area(shape: Dictionary, col: Color, life: float) -> void:
 	_areas.append({"shape": shape, "col": col, "t0": field.clock, "life": life})
 
 
+## Project the actual world-space boundary. In perspective this is not a
+## screen-space circle, and its world radius must not be scaled for decoration.
+func area_outline(shape: Dictionary) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var center := Vector2(float(shape.x), float(shape.y))
+	for i in 64:
+		var angle := TAU * float(i) / 64.0
+		points.append(map(center + Vector2(cos(angle), sin(angle)) * float(shape.r)))
+	return points
+
+
 ## 범위 —— 원(안은 옅게, 테두리는 진하게 · 오래 남는 예고는 테두리가 안쪽으로 조여든다) · 띠
 func _draw_areas(ci: CanvasItem = null) -> void:
 	if ci == null:
@@ -182,12 +193,10 @@ func _draw_areas(ci: CanvasItem = null) -> void:
 			var p1 := map(Vector2(sh.x2, sh.y2))
 			ci.draw_line(p0, p1, Color(col, 0.18 * al), float(sh.w) * 2.0 * _scale * spread * 0.5)
 			continue
-		var c := map(Vector2(sh.x, sh.y))
-		var r: float = float(sh.r) * _scale * spread * 0.6
-		ci.draw_circle(c, r, Color(col, 0.16 * al * _area_alpha()))
-		ci.draw_arc(c, r, 0, TAU, 40, Color(col, 0.85 * al * _area_alpha()), 2.5)
-		if a.life > 1.5:
-			ci.draw_arc(c, r * (1.0 - u), 0, TAU, 40, Color(col, 0.6 * al), 2.0)       # 조여드는 고리 —— 터지는 때를 알린다
+		var outline := area_outline(sh)
+		ci.draw_colored_polygon(outline, Color(col, 0.16 * al * _area_alpha()))
+		outline.append(outline[0])
+		ci.draw_polyline(outline, Color(col, 0.85 * al * _area_alpha()), 2.5, true)
 	_areas = keep
 
 

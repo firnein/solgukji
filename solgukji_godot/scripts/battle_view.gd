@@ -1376,12 +1376,22 @@ func _ambient_fire() -> void:
 
 
 ## 고유기 기 모으기 예고 —— 맞을 곳을 붉게(적) · 푸르게(아군) 깔고, 적이면 크게 알리고 방진 버튼을 깜빡인다
+static func warning_shapes(e: Dictionary) -> Array:
+	if not e.get("warn_shapes", []).is_empty():
+		return e.warn_shapes
+	# Previous server/replay formats only provided per-target markers.
+	var shapes := []
+	for w in e.get("warn", []):
+		shapes.append({"k": "circle", "x": w.x, "y": w.y, "r": w.r})
+	return shapes
+
+
 func _ult_warn(e: Dictionary) -> void:
 	var mine: bool = str(e.a).begins_with("A")
 	var wait: float = e.get("wait", 2.5)
 	var col := Color("#6fb0ff") if mine else Color("#ff4a3a")
-	for w in e.get("warn", []):
-		field.area_mark({"k": "circle", "x": w.x, "y": w.y, "r": w.r}, col, wait + 0.3)
+	for shape in warning_shapes(e):
+		field.area_mark(shape, col, wait + 0.3)
 	if field.squads.has(e.a):
 		field.skill_fx(e.a)
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
@@ -1404,8 +1414,8 @@ func _ult_join(e: Dictionary) -> void:
 	var mine: bool = str(e.a).begins_with("A")
 	var wait: float = e.get("wait", 1.5)
 	var col := Color("#6fb0ff") if mine else Color("#ff4a3a")
-	for w in e.get("warn", []):
-		field.area_mark({"k": "circle", "x": w.x, "y": w.y, "r": w.r}, col, wait + 0.3)
+	for shape in warning_shapes(e):
+		field.area_mark(shape, col, wait + 0.3)
 	if field.squads.has(e.a):
 		field.skill_fx(e.a)
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""

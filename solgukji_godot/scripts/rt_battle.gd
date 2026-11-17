@@ -112,7 +112,7 @@ const REAR := 0.30            # 뒤에서 친 피해 +
 const TURN_RATE := 2.5        # 부대가 도는 속도 (라디안/초)
 
 static var probe_rogue_flank := true    # 11/8 점검 (tests/mono_league --off=우회) —— 끄면 도적이 적 무리 옆으로 크게 돌지 않고 곧장 간다
-static var probe_back_basic := true     # 11/8 점검 (--off=후열평타) —— 끄면 책략계 · 궁병 · 도적의 평타도 맞붙은 · 가까운 적을 친다 (front1)
+static var probe_back_basic := true     # --off=후열평타: 도적의 후열 평타 비교용. 원거리는 이 스위치와 무관하게 사거리 안 최근접 적.
 static var enabled := true    # 게임 · 서버의 전투를 실시간 엔진으로 (false 면 예전 턴 엔진 —— 비교용)
 
 # 지형 (삼국지11) —— 판마다 시드로 좌우 대칭이 되게 깐다. 숲 · 언덕 {k, x, y, r} · 강 {k: "river", x, w(반폭)}
@@ -313,6 +313,9 @@ static var wind_max := 2            # 11/11 기 충전 수정 2: 한 진영이 �
 var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
 var _target_preview := false
+var _capture_preview_areas := false
+var _preview_areas: Array = []
+var _last_warn_areas: Array = []
 
 
 ## 11/4 사용자: 고유기 대기 시간은 장수마다 (DB.ult_of 가 고유기 세기로 정한 wait 초 —— 센 고유기일수록 늦게). 그 전에는 쓰지 않는다
@@ -403,7 +406,7 @@ func _interrupt_ult(u: Unit) -> void:
 	_ph = "act"
 	_who = u.key
 	L("sk", "%s 『%s』 기를 모은다%s" % [ga(nm(u)), u.ult.name, ""],
-		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "fast": fast})
+		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": fast})
 	var zh := _kv(_foe(u.camp), "ult_cut")      # 매복 주환 —— 적 고유기 기 모으기를 한 번 끊고 게이지를 비운다
 	if zh and int(_kiin_used.get("ult_cut:" + zh.camp, 0)) < 2:      # 두 번까지
 		_kiin_used["ult_cut:" + zh.camp] = int(_kiin_used.get("ult_cut:" + zh.camp, 0)) + 1
@@ -418,6 +421,13 @@ func _ult_warn_list(u: Unit) -> Array:
 	var foes := units.filter(func(o): return o.camp != u.camp)
 	var allies := units.filter(func(o): return o.camp == u.camp)
 	var warn := []
+	var previous_ult := _in_ult
+	var previous_preview := _target_preview
+	var previous_capture := _capture_preview_areas
+	var previous_areas := _preview_areas
+	_target_preview = true
+	_capture_preview_areas = true
+	_preview_areas = []
 	_in_ult = true
 	for comp in u.ult.eff:
 		if comp.t == "ally":
@@ -425,7 +435,11 @@ func _ult_warn_list(u: Unit) -> Array:
 		for t in resolve_targets(comp.tgt, foes, u, allies):
 			if t.alive and not warn.any(func(w): return w.k == t.key):
 				warn.append({"k": t.key, "x": roundi(t.pos.x), "y": roundi(t.pos.y), "r": 60})
-	_in_ult = false
+	_last_warn_areas = _preview_areas.duplicate(true)
+	_preview_areas = previous_areas
+	_capture_preview_areas = previous_capture
+	_target_preview = previous_preview
+	_in_ult = previous_ult
 	return warn
 
 
@@ -589,7 +603,7 @@ func _inyeon_joins() -> void:
 		_ph = "act"
 		_who = o.key
 		L("sk", "%s 『%s』 인연 『%s』 —— %s도 기를 모은다" % [ga(nm(o)), o.ult.name, j.name, nm(lead)],
-			{"fx": "ult_join", "a": o.key, "lead": lead.key, "name": o.ult.name, "inyeon": j.name, "ord": ord, "wait": end - _tm, "warn": warn})
+			{"fx": "ult_join", "a": o.key, "lead": lead.key, "name": o.ult.name, "inyeon": j.name, "ord": ord, "wait": end - _tm, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true)})
 
 
 ## 합동에서 빠진다 (끊김 · 못 쏨) —— 아직 합류하지 않은 예약도 대표가 빠지면 지운다
@@ -898,6 +912,9 @@ func _foes_of(u: Unit) -> Array:
 func _ready_to_hit(u: Unit) -> bool:
 	if has_st(u, "confuse"):
 		return true            # 혼란은 제자리에서 차례를 날리거나 제 편을 친다 (Battle.act)
+	if u.ranged:
+		u.tgt = _nearest_ranged_target(u, _foes_of(u))
+		return u.tgt != null
 	return u.tgt != null and u.tgt.alive and not _hidden(u.tgt) and _gap(u, u.tgt) <= _reach(u) + 2.0
 
 
@@ -973,7 +990,9 @@ func _move() -> void:
 		if slip:
 			pin = null
 		# 11/16 사용자 "뒷라인이 도적에게 공격 받아도 타겟팅을 바꾸지 않음" —— 원거리(궁병 · 책략계)는 근접 적이 달라붙으면 사거리 안의 옛 목표를 버리고 붙은 적을 상대한다
-		if pin != null and ((u.ranged and not pin.ranged) or u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
+		if u.ranged:
+			u.tgt = _choose(u, foes)
+		elif pin != null and (u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
 			u.tgt = pin
 		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0 or _hidden(u.tgt):
 			u.tgt = _choose(u, foes)
@@ -1120,6 +1139,8 @@ func _flank_way(u: Unit, t: Unit, foes: Array):
 
 
 func _choose(u: Unit, foes: Array) -> Unit:
+	if u.ranged:
+		return _nearest_ranged_target(u, foes, false)
 	var best: Unit = null
 	var bs := INF
 	var lane: bool = not _ranged(u) and u.c.tag != "기병" and u.c.tag != "도적"
@@ -1414,14 +1435,15 @@ func _ult_area(me: Unit, main: Unit, live: Array) -> Array:
 	if r <= 0.0:
 		for o in s:
 			r = maxf(r, o.pos.distance_to(c))
-	_mark(me, {"k": "circle", "x": roundi(c.x), "y": roundi(c.y), "r": roundi(r + 40.0)})
+	_mark(me, {"k": "circle", "x": c.x, "y": c.y, "r": r})
 	return s
 
 
-## 기본 공격 —— 예전 규칙(궁병 · 도적 · 책략 유닛은 후열을 노린다)을 사거리 안에서: 닿는 적 가운데 적진 가장 깊은 적
 ## 범위 기록 —— 방금 펼친 기술 · 고유기 사건에 덮은 곳을 적는다 (화면이 땅에 미리 그린다)
 func _mark(me: Unit, shape: Dictionary) -> void:
 	if _target_preview:
+		if _capture_preview_areas:
+			_preview_areas.append(shape.duplicate(true))
 		return
 	for i in range(ev.size() - 1, maxi(-1, ev.size() - 40), -1):
 		var e: Dictionary = ev[i]
@@ -1432,13 +1454,34 @@ func _mark(me: Unit, shape: Dictionary) -> void:
 			return
 
 
+## 기본 공격: 원거리는 사거리 안 최근접, 도적은 기존 후열 특성을 유지한다.
 func basic_target(u: Unit, foes: Array) -> Array:
-	if u.ranged:      # 11/16 달라붙은 근접 적(도적 · 기병 …)이 있으면 후열 대신 그 적부터 친다
-		var p := _pinner(u, foes)
-		if p != null:
-			return [p]
+	if u.ranged:
+		var nearest := _nearest_ranged_target(u, foes)
+		return [nearest] if nearest != null else []
 	var back: bool = probe_back_basic and ((u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or is_caster(u.c))
 	return resolve_targets("back1" if back else "front1", foes, u, [])
+
+
+## Keep the existing footprint-gap range rule, then rank eligible enemies by
+## center distance. Movement may approach the nearest enemy only if none is in range.
+func _nearest_ranged_target(u: Unit, foes: Array, only_in_range := true) -> Unit:
+	var best: Unit = null
+	var approach: Unit = null
+	var best_d := INF
+	var approach_d := INF
+	var reach := _reach(u) + 2.0
+	for o in foes:
+		if not o.alive or o.camp == u.camp or _hidden(o):
+			continue
+		var distance := u.pos.distance_squared_to(o.pos)
+		if not only_in_range and distance < approach_d:
+			approach = o
+			approach_d = distance
+		if distance < best_d and _gap(u, o) <= reach:
+			best = o
+			best_d = distance
+	return best if best != null or only_in_range else approach
 
 
 ## 원거리 부대 u 에 맞닿은 근접 적 가운데 가장 가까운 것 (없으면 null) —— _pinned 와 같은 기준(틈 TOUCH + 2)

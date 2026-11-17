@@ -1462,10 +1462,11 @@ static func flip_res(res: Dictionary) -> Dictionary:
 		out.track = res.track.map(func(fr): return [fr[0], fr[1].map(func(p): return [-p[0], p[1], snappedf(wrapf(PI - float(p[2]), -PI, PI), 0.01), p[3], p[4]])])
 		out.terrain = res.get("terrain", []).map(func(z): var o: Dictionary = z.duplicate(); o.x = -int(z.x); return o)
 		for e in out.ev:
-			for sh in e.get("area", []):     # 기술 범위도 좌우를 바꾼다
-				sh.x = -sh.x
-				if sh.has("x2"):
-					sh.x2 = -sh.x2
+			for field in ["area", "warn_shapes", "warn"]:
+				for sh in e.get(field, []):
+					sh.x = -sh.x
+					if sh.has("x2"):
+						sh.x2 = -sh.x2
 	return out
 
 
