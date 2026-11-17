@@ -1505,14 +1505,17 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			m *= RIVER.hurt
 		if _in(a.pos, "hill") and not _in(d.pos, "hill"):
 			m *= HILL.hit
+	var painted_charge := ""
 	if not _in_ult:
 		m *= far_mul if far else near_mul
 		if a.c.tag == "기병" and a.ran >= CHARGE_RUN and not far and not a.countering and not (water_enabled and has_st(a, "flood")):     # 수몰된 기병은 돌격을 못 한다 (11/8 수공 제어 전담)
 			if d.c.tag == "창병" and _front(d, a):      # 11/8 창병 정면은 돌격을 막는다 (창벽)
 				m *= engage_v("brace", 1.0)
+				painted_charge = "brace"
 			else:
 				m *= cav_charge
 				stats["charges"] = stats.get("charges", 0) + 1
+				painted_charge = "hit"
 		if a.c.tag == "창병" and a.ran >= SPEAR_RUN and not far and not a.countering:      # 11/8 창병은 붙는 순간이 힘
 			m *= engage_v("spear_impact", 1.0)
 	if a.c.tag == "창병" and d.c.tag == "창병" and a.camp != d.camp:      # 11/14 창병끼리 —— 창병 갑옷 · 방어 이점이 서로 상쇄돼 판이 늘어진다 (거울전 53초 → 35초 안팎)
@@ -1530,11 +1533,14 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 				break
 	if _in_ult and _wind.has(d) and d.camp != a.camp:
 		_cut_wind(d, a)
-	if dir != "":
+	if dir != "" or painted_charge != "":
 		# 이 타격의 사건에 방향을 적는다 —— 화면이 '측면!' · '후방!' 을 띄운다
 		for i in range(n0, ev.size()):
 			if ev[i].get("fx") == "phys" and ev[i].get("a") == a.key and ev[i].get("f") == d.key:
-				ev[i]["dir"] = dir
+				if dir != "":
+					ev[i]["dir"] = dir
+				if painted_charge != "":
+					ev[i]["painted_charge"] = painted_charge
 				break
 
 

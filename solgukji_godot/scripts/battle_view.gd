@@ -1242,7 +1242,9 @@ func _process(dt: float) -> void:
 		var pp: Vector2 = _press[0]
 		_press = []
 		if field and field.flat != null:      # 2D 전장 —— 그려진 메달 자리에서 고른다. 아군 · 적군 모두 전투장수창 (11/9 사용자)
-			var mq: Squad = hud.medal_at(pp)
+			var mq := hud.medal_at(pp)
+			if mq == null and Type2View.painting_on() and type2 != null and type2.painting != null:
+				mq = type2.painting.squad_at(pp)
 			if mq and DB.C.has(mq.cid):
 				UI.buzz(30)
 				unit_requested.emit(mq.key)
@@ -1317,7 +1319,7 @@ func _process_inner(dt: float) -> void:
 	if not finished and gi >= groups.size() and pending.is_empty() and due.is_empty() and not _draining():
 		if finish_t < 0:
 			finish_t = clock + 1.0
-		elif clock >= finish_t:
+		elif clock >= finish_t and (not Type2View.painting_on() or type2 == null or type2.painting == null or not type2.painting.has_unsettled_casualties()):
 			_finish()
 	var t2v = field.flat if field.flat != null and field.flat.get("load_lv") != null else null
 	if t2v == null or int(t2v.load_lv) < 2 or Engine.get_process_frames() % 2 == 0:
@@ -1497,6 +1499,8 @@ func _ult_cut(e: Dictionary) -> void:
 func _show_areas(g: Dictionary) -> void:
 	for i in g.ev:
 		var e: Dictionary = res.ev[i]
+		if Type2View.painting_on() and (e.has("sea_duration") or e.has("sea_targets")):
+			continue
 		if e.has("area"):
 			var col: Color = Color("#ffd257") if e.get("fx") == "ult" else (Color("#6fb0ff") if str(e.get("a", "A")).begins_with("A") else Color("#ff6a5a"))
 			for sh in e.area:
@@ -1505,6 +1509,8 @@ func _show_areas(g: Dictionary) -> void:
 
 func _start_group(g: Dictionary) -> void:
 	_show_areas(g)
+	if Type2View.painting_on() and type2 != null and type2.painting != null:
+		type2.painting.prepare_attack(g.who, g.targets, g.kind)
 	for i in g.ev:
 		var e: Dictionary = res.ev[i]
 		match e.get("fx", ""):
@@ -1542,7 +1548,7 @@ func _start_group(g: Dictionary) -> void:
 		"melee":
 			if _rt():
 				field.clash(g.who, g.targets[0], g.skill != "")       # 실시간 엔진은 맞닿았을 때만 친다 —— 이미 붙어 있다
-				_release(g, clock)
+				_release(g, clock + (0.12 if Type2View.painting_on() else 0.0))
 			else:
 				field.order_melee(g.who, g.targets[0])
 				g.wait = clock + MELEE_WAIT
@@ -1819,6 +1825,7 @@ func _release(g: Dictionary, t0: float) -> void:
 
 func _apply(i: int, quiet := false) -> void:
 	var e: Dictionary = res.ev[i]
+	var troop_updates := []
 	# 11/2 고유기 묶음은 늦게 풀려 사건이 순서를 건너뛴다 —— 게이지 표시는 가장 늦은 사건만 (예전 사건으로 되돌아가면 막대가 요동쳤다)
 	if i >= live_i:
 		live_i = i
@@ -1829,6 +1836,8 @@ func _apply(i: int, quiet := false) -> void:
 		var u: int = ch[0]
 		cur[u][0] += ch[1]
 		cur[u][1] += ch[2]
+		if ch[1] != 0:
+			troop_updates.append({"key": res.roster[u].key, "troops": cur[u][0]})
 		if from != "":
 			src[u] = from
 		if quiet or not smooth:
@@ -1840,6 +1849,8 @@ func _apply(i: int, quiet := false) -> void:
 	if f != "" and idx_of.has(f):
 		field.squads[f].statuses = e.s[idx_of[f]][3]
 	if quiet:
+		if Type2View.painting_on() and type2 != null and type2.painting != null:
+			type2.painting.sync_quiet(troop_updates)
 		if e.get("fx") == "rout":
 			_snap(idx_of[f])
 			field.rout(f)
@@ -1849,10 +1860,14 @@ func _apply(i: int, quiet := false) -> void:
 	if e.get("fx") == "tac":
 		_tac_reveal(e)      # 11/15 군략 단계 공개 (인연기 연출과 따로)
 	hud.deck_event(e)
-	_damage_number(i, e, f)
+	var painting := Type2View.painting_on()
+	if not (painting and e.has("kin_by")):
+		_damage_number(i, e, f)
 	_sound(e)
 	# 무쌍 —— 기술 · 고유기 타격은 병력을 바로 깎고 쓰러질 병사들을 한꺼번에 날린다
 	var gq: Dictionary = group_of[i]
+	if painting and type2 != null and type2.painting != null:
+		type2.painting.play_event(e, gq.ult, troop_updates)
 	if not Type2View.painting_on() and not Type2View.formation_preview and (e.get("fx") == "phys" or e.get("fx") == "int") and (gq.skill != "" or gq.ult != null) and idx_of.has(f) and smooth:
 		_snap(idx_of[f])
 		# 11/3 사용자: 에이스 장수의 무쌍만이 전장을 지배하도록 —— 날리기 · 프리즈 · 흔들림을 예전의 약 3배로 (일반 장수 기술은 그대로)
@@ -1946,8 +1961,17 @@ func _tac_reveal(e: Dictionary) -> void:
 func _sound(e: Dictionary) -> void:
 	match e.get("fx", ""):
 		"phys":      # 11/4 사용자: 병장기 소리 —— 칼 소리와 병장기 부딪침을 섞는다
-			Sfx.play("crit" if e.get("crit", false) else "hit")
-			Sfx.play("clash", -2.0, 0.1)
+			var heavy: bool = e.get("crit", false)
+			if Type2View.painting_on():
+				var attacker: Squad = field.squads.get(e.get("a", ""))
+				var ranged := attacker != null and attacker.cls == "ranged"
+				heavy = heavy or e.get("painted_charge", "") != ""
+				Sfx.play("crit" if heavy else "hit", 4.0 if heavy else(0.0 if ranged else 2.5))
+				if not ranged:
+					Sfx.play("clash", 1.0 if heavy else -1.0, 0.08)
+			else:
+				Sfx.play("crit" if heavy else "hit")
+				Sfx.play("clash", -2.0, 0.1)
 		"int": pass      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
 		"skill": if e.get("kind", "") == "phys": Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
 		"ult":
@@ -2138,6 +2162,8 @@ class Hud extends Control:
 		if _medal_cache.size() > 600:      # 11/9 구운 메달은 (장수 · 진영 · 등급색 · 크기 · 배율)이 키라 전투를 넘어 써도 된다 —— 너무 쌓였을 때만 비운다
 			_medal_cache.clear()
 		_tok_tex.clear()
+		_tok_off.clear()
+		_painted_medals.clear()
 		_emph_n = -1
 		floats.clear()
 		_deck_seen.clear()
@@ -3473,11 +3499,13 @@ class Hud extends Control:
 	const TOK_R := {1: 11.0, 2: 11.0, 3: 12.5, 4: 13.5, 5: 14.5, 6: 16.0, 7: 17.5, 8: 19.0}
 	## 메달 얼굴 뒤 바탕 —— 진영색을 어둡게 (11/9 사용자: 아군 · 적군 바탕색 구분). 그림이 비치는 초상 · 병종 기호 뒤에서도 피아가 보인다
 	const TOK_BG := {"A": Color("#17315e"), "B": Color("#5a1713")}
-	func _token(sq: Squad, p: Vector2) -> void:
+	func _token(sq: Squad, p: Vector2, painted := false) -> void:
 		if sq.state == "gone":
 			return
 		var a: float = sq.fade
 		var r: float = TOK_R.get(clampi(sq.tier, 1, 8), 15.0)      # 11/9 사용자: 메달 크기가 등급을 따르지 않았다 (7등급 전까지 전부 15) —— 등급마다 한 단씩
+		if painted:
+			r = 10.0 if sq.tier >= 7 else 8.0
 		# 11/6 사용자: 메달 피아식별 —— 바깥 굵은 진영 고리(아군 파랑 · 적 빨강, 채도 높게) + 안쪽 가는 등급 고리 + 검은 테
 		var ring: Color = TOK_TEAM[sq.camp]
 		if sq.hurt > 0.05:
@@ -3497,6 +3525,14 @@ class Hud extends Control:
 			var msz := Vector2(mt.get_size()) / S      # 논리 크기 = 구운 화면 px ÷ 배율
 			var mpos := ((p * S - Vector2(mt.get_size()) * 0.5).round()) / S      # 화면 픽셀 칸에 맞춘다 —— 반 픽셀 걸치면 또 번진다
 			draw_texture_rect(mt, Rect2(mpos, msz), false, Color(1, 1, 1, a))
+		if painted:
+			var name_: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+			var w := DB.font_bold.get_string_size(name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8.0
+			var label := Rect2(p + Vector2(- w * 0.5, r + 3.0), Vector2(w, 13.0))
+			draw_rect(label, Color(0.08, 0.08, 0.06, 0.82 * a))
+			draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81, a))
+			_painted_medals[sq.key] = {"at": p, "radius": r, "label": label}
+			return
 		var ck := charge_k(sq.key)      # 11/7 기 모으는 중 —— 메달 바깥에 금빛 고리가 찬다 (위 HUD 고리와 같은 박자)
 		if ck >= 0.0:
 			draw_arc(p, r + 10.0, 0.0, TAU, 36, Color(0, 0, 0, 0.45 * a), 4.0)
@@ -3531,14 +3567,21 @@ class Hud extends Control:
 	## 2D 전장 메달 자리 —— 가까이 붙은 메달끼리 살짝 밀어낸다 (11/6 점검: 근접전에서 메달이 겹쳐 얼굴 · 병력이 가려졌다).
 	## 화면에만 적용, 최대 22px, 부드럽게 따라간다 (튀지 않게)
 	var _tok_off := {}
+	var _painted_medals := {}
 	const TOK_GAP := 38.0
-	func _flat_token_pos(tags: Array) -> Dictionary:
+	func _flat_token_pos(tags: Array, painted: bool) -> Dictionary:
 		# 11/15 성능: 메달 18개면 쌍 153 × 4바퀴를 사전(문자열 열쇠)으로 돌던 것을 배열로 (같은 계산 —— 그리기 한 번에 약 0.5ms 였다)
 		var n := tags.size()
 		var base := PackedVector2Array()
 		base.resize(n)
 		for i in n:
-			base[i] = view.field.to_screen((tags[i][1] as Squad).pos, 0.0)
+			var sq: Squad = tags[i][1]
+			if painted:
+
+				var rear := sq.pos + Vector2(-1, 0) * (sq.hd0 + 12.0) * (1.0 if sq.camp == "A" else -1.0)
+				base[i] = view.field.to_screen(rear, 0.0) + Vector2(0, 5)
+			else:
+				base[i] = view.field.to_screen(sq.pos, 0.0)
 		var want := base.duplicate()
 		for _it in 4:
 			for i in n:
@@ -3559,6 +3602,9 @@ class Hud extends Control:
 			var cur: Vector2 = (_tok_off.get(k, Vector2.ZERO) as Vector2).lerp(off, 0.15)
 			_tok_off[k] = cur
 			out[k] = base[i] + cur
+			if painted:
+				var p: Vector2 = out[k]
+				out[k] = p.clamp(Vector2(26, 94), size - Vector2(26, 33))
 		return out
 
 	## 2D 전장에서 화면 위치 sp 에 있는 메달(부대) —— 그리는 자리(밀어낸 _tok_off 까지)와 같은 곳에서 고른다 (11/9 꾹 누르기 → 전투장수창).
@@ -3571,9 +3617,20 @@ class Hud extends Control:
 		for sq in view.field.order:
 			if sq.state == "gone" or sq.fade < 0.2:
 				continue
-			var p: Vector2 = view.field.to_screen(sq.pos, 0.0) + (_tok_off.get(sq.key, Vector2.ZERO) as Vector2)
+			var p: Vector2
+			var radius := (15.0 if sq.tier < 7 else 17.0) + MEDAL_PICK_PAD
+			if Type2View.painting_on():
+				var marker: Dictionary = _painted_medals.get(sq.key, {})
+				if marker.is_empty():
+					continue
+				p = marker.at
+				radius = float(marker.radius) + 4.0
+				if (marker.label as Rect2).has_point(sp):
+					radius = 40.0
+			else:
+				p = view.field.to_screen(sq.pos, 0.0) + (_tok_off.get(sq.key, Vector2.ZERO) as Vector2)
 			var d := p.distance_to(sp)
-			if d > (15.0 if sq.tier < 7 else 17.0) + MEDAL_PICK_PAD:
+			if d > radius:
 				continue
 			if d < bd - 0.5 or (absf(d - bd) <= 0.5 and p.y > by):
 				bd = d
@@ -3630,6 +3687,8 @@ class Hud extends Control:
 		draw_set_transform(Vector2.ZERO)
 
 	func _draw_all() -> void:
+		var painted := Type2View.painting_on()
+		_painted_medals.clear()
 		var fb := DB.font_body
 		var fd := DB.font_display
 		# 부대 머리표 —— 진영색 알약 이름표 + 병력 막대(+ 사기·고유기 가는 줄). 아래쪽(가까운) 부대부터 놓고,
@@ -3637,8 +3696,6 @@ class Hud extends Control:
 		var tags := []
 		for sq in view.field.order:
 			if sq.state != "gone":
-				if Type2View.painting_on():
-					continue # Identity is carried by the illustrated standards.
 				var sp := _to_screen(sq.pos, 5.0)
 				if sp.x > -9999 and view.field.label_alpha(sq.pos) > 0.02:
 					tags.append([sp, sq])
@@ -3662,8 +3719,8 @@ class Hud extends Control:
 			var sq: Squad = t[1]
 			if view.field.flat != null:
 				if tok_pos.is_empty():
-					tok_pos = _flat_token_pos(tags)
-				_token(sq, tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0)))
+					tok_pos = _flat_token_pos(tags, painted)
+				_token(sq, tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0)), painted)
 				continue
 			var a: float = sq.fade * view.field.label_alpha(sq.pos)
 			var myth: bool = sq.tier >= 8
@@ -3759,7 +3816,8 @@ class Hud extends Control:
 				continue
 			var p := _to_screen(f.p, 6.5) + Vector2(0, -20 - f.n * 16 - u * 26)
 			if view.field.flat != null:      # 2D 전장 —— 메달 밀어낸 만큼 따라가고, 겹치면 위로
-				p += _tok_off.get(f.key, Vector2.ZERO)
+				if not painted:
+					p += _tok_off.get(f.key, Vector2.ZERO)
 				var tw: float = fd.get_string_size(f.text, HORIZONTAL_ALIGNMENT_LEFT, -1, f.fs).x + 6.0
 				p.y += _settle_dy(f, p + Vector2(0, u * 26), tw, f.fs * 1.2)
 				f.rect = Rect2(p + Vector2(-tw / 2, -f.fs * 1.2), Vector2(tw, f.fs * 1.2))
