@@ -90,6 +90,13 @@ func _ready() -> void:
 	for frame in 20:
 		small.step(compact, 0.016)
 	assert(small.contact_weight > 0.5 and small.gait[0] > 0.0)
+	small.contact_limits = [{"normal": Vector2.RIGHT, "edge": small.center.x + 8.0}]
+	small.step(compact, 0.016)
+	for id in small.capacity:
+		assert(small.feet[id].x <= float(small.contact_limits[0].edge) + 0.001)
+	var contact_pose: PackedVector2Array = small.feet.duplicate()
+	small.step(compact, 0.0)
+	assert(small.feet == contact_pose, "Contact separation must freeze while paused")
 	compact.puppet = was_puppet
 	compact.contact = was_contact
 	compact.pos = old_pos
@@ -135,6 +142,18 @@ func _ready() -> void:
 			print("PASS batched renderer: all figures / depth order / atlas cell / no CPU pose cache")
 		if args.has("shot"):
 			get_viewport().get_texture().get_image().save_png("res://../build/motion5_renderer_%s.png" % str(args.get("tag", "smoke")))
+		if args.has("contact-audit"):
+			var crowded := []
+			for i in painter.visible_soldiers.size():
+				var one: Dictionary = painter.visible_soldiers[i]
+				for j in range(i + 1, painter.visible_soldiers.size()):
+					var two: Dictionary = painter.visible_soldiers[j]
+					if one.sq.camp == two.sq.camp or not one.sq.alive or not two.sq.alive:
+						continue
+					var separation: float = one.p.distance_to(two.p) / minf(one.h, two.h)
+					if separation < 0.2:
+						crowded.append({"a": one.sq.key, "b": two.sq.key, "separation": separation})
+			print("CONTACT_AUDIT ", JSON.stringify({"clock": view.clock, "figures": painter.visible_soldiers.size(), "near_opposing_feet": crowded}))
 		view.queue_free()
 		await get_tree().process_frame
 		get_tree().quit()

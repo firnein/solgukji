@@ -27,6 +27,15 @@ var action_target := ""
 var action_kind := ""
 var half_width := 0.0
 var row_gap := 0.0
+var contact_limits: Array = [] # Visual half-planes; never change simulation positions.
+
+func constrain_foot(point: Vector2) -> Vector2:
+	for boundary in contact_limits:
+		var normal: Vector2 = boundary.normal
+		var excess := point.dot(normal) - float(boundary.edge)
+		if excess > 0.0:
+			point -= normal * excess
+	return point
 
 func _init(sq: Squad) -> void:
 	cavalry = sq.tag == "기병"
@@ -129,12 +138,12 @@ func _place(sq: Squad, dt: float, initial: bool) -> void:
 		var offset := facing * depth + right * (flank * half_width + stagger)
 		if sq.state == "flee":
 			offset += right * sin(float(i) * 2.4) * (12.0 + row * 3.0)
-		var goal := center + offset
+		var goal := constrain_foot(center + offset)
 		if initial:
 			feet[i] = goal
 			continue
 		var before := feet[i]
-		feet[i] = before.lerp(goal, follow)
+		feet[i] = constrain_foot(before.lerp(goal, follow))
 		var speed := feet[i].distance_to(before) / dt
 		var walking := smoothstep(10.0, 90.0, speed)
 		gait[i] = lerpf(gait[i], walking, 1.0 - exp(- dt * 9.0))

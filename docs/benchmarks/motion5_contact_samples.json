@@ -1,0 +1,55 @@
+{
+  "seed": 5100,
+  "threshold_fraction_of_smaller_figure_height": 0.2,
+  "samples": [
+    {
+      "run": "motion5_contact_before",
+      "clock": 8.00669445454541,
+      "figures": 265,
+      "near_opposing_feet": [
+        {
+          "a": "B2",
+          "b": "A3",
+          "separation": 0.162010948537301
+        },
+        {
+          "a": "A3",
+          "b": "B2",
+          "separation": 0.139354217823526
+        },
+        {
+          "a": "A1",
+          "b": "B0",
+          "separation": 0.12200468407939
+        },
+        {
+          "a": "A1",
+          "b": "B0",
+          "separation": 0.122268436103753
+        },
+        {
+          "a": "B1",
+          "b": "A2",
+          "separation": 0.175964900589748
+        },
+        {
+          "a": "B0",
+          "b": "A1",
+          "separation": 0.164757323314344
+        }
+      ]
+    },
+    {
+      "run": "motion5_remaining_visual",
+      "clock": 8.00485360069267,
+      "figures": 265,
+      "near_opposing_feet": []
+    },
+    {
+      "run": "motion5_contact20",
+      "clock": 20.0040714601296,
+      "figures": 156,
+      "near_opposing_feet": []
+    }
+  ]
+}

@@ -301,6 +301,7 @@ func _process(dt: float) -> void:
 			formations.erase(sq.key)
 			continue
 		var form := _formation(sq)
+		form.contact_limits = _contact_limits(sq) if batch_rendering else []
 		form.step(sq, motion_dt)
 		ratios[sq.key] = form.ratio
 	queue_redraw()
@@ -324,6 +325,32 @@ func _figure_height(sq: Squad, form: FormationMotion) -> float:
 	var nominal := (61.0 if form.cavalry else 51.0) * scale
 	var horizontal := 2.0 * form.half_width / maxf(1, form.cols - 1) * scale
 	return clampf(minf(nominal, horizontal / 0.58), 12.0, 46.0)
+
+func _contact_limits(sq: Squad) -> Array:
+	var limits := []
+	if sq.state == "flee" or not sq.alive:
+		return limits
+	for other: Squad in v.field.order:
+		if not other.alive or other.camp == sq.camp or other.state == "flee":
+			continue
+		var delta := other.pos - sq.pos
+		if delta.length_squared() > pow(sq.hw + sq.hd() + other.hw + other.hd() + 30.0, 2):
+			continue
+		var gap := -INF
+		var normal := Vector2.ZERO
+		for axis: Vector2 in [sq.fwd, sq.right(), other.fwd, other.right()]:
+			if delta.dot(axis) < 0.0:
+				axis = -axis
+			var separation := delta.dot(axis) - sq.edge(axis) - other.edge(axis)
+			if separation > gap:
+				gap = separation
+				normal = axis
+		if gap > RtBattle.TOUCH + 4.0 or normal == Vector2.ZERO:
+			continue
+		var own_edge := sq.pos.dot(normal) + sq.edge(normal)
+		var foe_edge := other.pos.dot(normal) - other.edge(normal)
+		limits.append({"normal": normal, "edge": (own_edge + foe_edge) * 0.5 - 8.0})
+	return limits
 
 func _draw() -> void:
 	visible_soldiers.clear()
@@ -411,6 +438,9 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 			hit = 1.0 - smoothstep(0.025, 0.14, hurt_age)
 			gait *= 1.0 - recoil
 		tilt += sin(stride) * gait * (0.035 if form.cavalry else 0.012)
+		if not form.contact_limits.is_empty():
+			# Attack thrust and recoil must respect the same visible contact front.
+			p = v.map(form.constrain_foot(v.unmap(p)))
 		visible_soldiers.append({"p": p, "h": h, "cell": cell, "fade": sq.fade * form.opacity[id],
 			"tilt": tilt, "gait": gait, "stride": stride, "hurt": hit, "mirror": mirror, "sq": sq})
 

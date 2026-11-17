@@ -2555,41 +2555,55 @@ class Hud extends Control:
 			draw_set_transform(Vector2.ZERO)
 		banners_sk = keep
 
-	func float_text(key: String, text: String, col: Color, fs: int, replace := false) -> void:
-		if Type2View.painting_on():
+	func float_text(key: String, text: String, col: Color, fs: int, replace := false, deck_notice := false) -> void:
+		if Type2View.painting_on() and not deck_notice:
 			return
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
 			return
 		if replace:
 			floats = floats.filter(func(f): return f.key != key or f.get("num", false))
+		if deck_notice:
+			var notices := floats.filter(func(f): return f.get("deck", false))
+			while notices.size() >= 3:
+				floats.erase(notices.pop_front())
 		var n := 0
 		for f in floats:
 			if f.key == key and view.clock - f.t0 < 0.8:
 				n += 1
-		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n})
+		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n, "deck": deck_notice})
 
 	# 실제 확산 출처와 추가 피해 사건을 전장에 연결한다.
 	const DECK_ST := {
 		"burn": ["화상", Color("#ff9b45")], "flood": ["둔화", Color("#71caff")],
 		"cut_def": ["방깎", Color("#ffb697")], "cut_res": ["책방깎", Color("#ed9aff")],
+		"cut_atk": ["공깎", Color("#9bbcf2")], "cut_int": ["공깎", Color("#9bbcf2")],
+		"shred_phys": ["갑옷 약화", Color("#ffb697")], "shred_int": ["결계 약화", Color("#ed9aff")],
 		"confuse": ["혼란", Color("#c4a0ff")]
 	}
 	var _deck_seen := {}
 	var _deck_links: Array = []
 
 	func deck_event(e: Dictionary) -> void:
+		for assist in e.get("assists", []):
+			if float(assist.get("n", 0.0)) > 0.0:
+				deck_event({"fx": "support", "f": e.get("f", ""), "st": assist.st, "from": assist.get("from", "")})
 		var target := str(e.get("f", ""))
 		if not view.field.squads.has(target):
 			return
 		var kind := str(e.get("st", ""))
 		var label := ""
 		var col := Color.WHITE
-		var source := str(e.get("from", e.get("a", "")))
-		if e.get("fx", "") in ["status", "debuff"] and DECK_ST.has(kind):
+		var source := str(e.get("contributor", e.get("from", e.get("a", ""))))
+		var origin := str(e.get("from", source))
+		if e.get("fx") == "support" and kind in ["shred_phys", "shred_int"]:
+			label = "갑옷 약화 활용" if kind == "shred_phys" else "결계 약화 활용"
+			col = DECK_ST[kind][1]
+			kind += "_assist"
+		elif e.get("fx", "") in ["status", "debuff"] and DECK_ST.has(kind):
 			label = str(DECK_ST[kind][0])
 			col = DECK_ST[kind][1]
-			if e.has("from") and kind in ["burn", "flood"]:
+			if bool(e.get("spread", e.has("from"))) and kind in ["burn", "flood"]:
 				label = "불길 확산" if kind == "burn" else "물길 확산"
 		elif e.get("fx", "") in ["phys", "int"]:
 			if e.get("fire", false):
@@ -2602,18 +2616,19 @@ class Hud extends Control:
 				col = DECK_ST.flood[1]
 		if label == "":
 			return
-		# 같은 대상/효과는 4초에 한 번, 연결선은 최대 셋.
-		var key := target + ":" + kind
+		# 같은 출처/대상/효과만 제한해 다른 장수의 기여가 가려지지 않게 한다.
+		var key := source + ":" + target + ":" + kind
 		if view.clock - float(_deck_seen.get(key, -100.0)) < 4.0:
 			return
 		_deck_seen[key] = view.clock
 		if view.field.squads.has(source) and source != target:
-			float_text(source, label, col, 12, true)
-			_deck_links.append({"a": source, "b": target, "col": col, "t": view.clock})
+			float_text(source, label, col, 12, true, true)
+		else:
+			float_text(target, label, col, 12, true, true)
+		if view.field.squads.has(origin) and origin != target:
+			_deck_links.append({"a": origin, "b": target, "col": col, "t": view.clock})
 			if _deck_links.size() > 3:
 				_deck_links.pop_front()
-		else:
-			float_text(target, label, col, 12, true)
 
 	func _draw_deck_links() -> void:
 		if Type2View.painting_on():
@@ -2639,7 +2654,7 @@ class Hud extends Control:
 		var labels := PackedStringArray()
 		var col := Color.WHITE
 		for st in DECK_ST:
-			if sq.statuses.has(st):
+			if sq.statuses.has(st) and not labels.has(str(DECK_ST[st][0])):
 				if labels.is_empty():
 					col = DECK_ST[st][1]
 				labels.append(str(DECK_ST[st][0]))
@@ -3542,6 +3557,7 @@ class Hud extends Control:
 			draw_rect(label, Color(0.08, 0.08, 0.06, 0.82 * a))
 			draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81, a))
 			_painted_medals[sq.key] = {"at": p, "radius": r, "label": label}
+			_deck_badges(sq, p, r, a)
 			return
 		var ck := charge_k(sq.key)      # 11/7 기 모으는 중 —— 메달 바깥에 금빛 고리가 찬다 (위 HUD 고리와 같은 박자)
 		if ck >= 0.0:
@@ -3823,6 +3839,24 @@ class Hud extends Control:
 			col.a = 1.0 - maxf(0, u - 0.55) / 0.45
 			if f.get("num", false):
 				_draw_number(f, u, col)
+				continue
+			if painted and f.get("deck", false):
+				var marker: Dictionary = _painted_medals.get(f.key, {})
+				var squad: Squad = view.field.squads.get(f.key)
+				if marker.is_empty() or squad == null:
+					continue
+				var name_: String = DB.person(squad.cid) if squad.tier > 2 else squad.row.name
+				var label := name_ + " · " + str(f.text)
+				var width := fb.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0
+				var anchor: Vector2 = marker.at - Vector2(0, float(marker.radius) + 8.0 + u * 12.0)
+				anchor.x = clampf(anchor.x, width * 0.5 + 6.0, size.x - width * 0.5 - 6.0)
+				anchor.y = maxf(110.0, anchor.y)
+				anchor.y += _settle_dy(f, anchor, width, 18.0)
+				var box := Rect2(anchor - Vector2(width * 0.5, 18), Vector2(width, 18))
+				f.rect = box
+				draw_rect(box, Color(0.07, 0.06, 0.04, 0.94 * col.a))
+				draw_rect(box, Color(col, 0.8 * col.a), false, 1.0)
+				draw_string(fb, box.position + Vector2(6, 13), label, HORIZONTAL_ALIGNMENT_LEFT, width - 12, 11, col)
 				continue
 			var p := _to_screen(f.p, 6.5) + Vector2(0, -20 - f.n * 16 - u * 26)
 			if view.field.flat != null:      # 2D 전장 —— 메달 밀어낸 만큼 따라가고, 겹치면 위로

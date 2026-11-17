@@ -1125,6 +1125,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		d.gauge = maxf(0.0, d.gauge - ROLE.rogue_gauge)
 		if not d.sk_ch.is_empty():
 			d.sk_ch[0] = maxf(0.0, d.sk_ch[0] - ROLE.rogue_charge)
+	var assists := []
 	if shield_enabled:      # 11/9 깎기 기여 기록 —— 깎기가 없었다면 막 그대로였을 몫과의 차이를 건 장수에게
 		var gk := dmg_kind(a)
 		var gs: Dictionary = d.shred[gk]
@@ -1134,7 +1135,10 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			if gc < gb:
 				for gu in units:
 					if gu.key == gs.by:
-						gu.gain += loss * (1.0 - (1.0 - gb) / (1.0 - gc))
+						var gain := loss * (1.0 - (1.0 - gb) / (1.0 - gc))
+						gu.gain += gain
+						if gain > 0.0:
+							assists.append({"from": gu.key, "st": "shred_" + gk, "n": gain})
 						break
 	stats.tac_amp += loss * (1.0 - 1.0 / tm)
 	stats.scheme_amp += loss * (1.0 - 1.0 / sm)
@@ -1154,6 +1158,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	_paeup_snipe(a, d)
 	_paeup_kin(d)
 	var hx := {"fx": _hit_kind, "a": a.key, "f": d.key, "n": loss, "crit": crit, "fire": fm > 1.0, "water": wm > 1.0}
+	if not assists.is_empty():
+		hx["assists"] = assists
 	if mu < 1.0:
 		hx["mu"] = true                      # 교변 장합 —— 상성이 불리한 공격이라 줄어든 타격
 	if shared > 0.0:
@@ -1257,7 +1263,7 @@ func _shred(a: Unit, d: Unit, k: String, v: float, dur: int, why: String) -> voi
 	stats.shreds += 1
 	if float(d.shield[k]) > 0.0:      # 막이 없는 적은 기록만 줄인다 (걸린 것은 같다)
 		L("st", "『%s』 %s의 %s −%d%%" % [why, nm(d), "갑옷" if k == "phys" else "결계", roundi(v * 100)],
-			{"fx": "debuff", "f": d.key, "st": "shred_" + k, "n": v})
+			{"fx": "debuff", "f": d.key, "st": "shred_" + k, "n": v, "from": a.key})
 
 
 ## 깎기 남은 턴 —— 턴 끝마다 (실시간 엔진은 period 마다) tick_status 가 부른다
@@ -1409,6 +1415,10 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	for s in d.st:
 		if s.k == kind: old = s
 	if old:
+		var spread_by := str(old.get("spread_by", old.get("by", "")))
+		if sp > float(old.get("sp", 0.0)) and a:
+			spread_by = a.key
+		old["spread_by"] = spread_by
 		if v > old.val and a:
 			old.by = a.key      # 더 센 쪽이 덮어쓰면 출처도 그쪽 (지속 피해 기록)
 		old.val = maxf(old.val, v)
@@ -1420,9 +1430,9 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 			for s in d.st:
 				if s.dur <= w.dur: w = s
 			d.st.erase(w)
-		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp, "by": a.key if a else ""})
+		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp, "by": a.key if a else "", "spread_by": a.key if a else ""})
 	L("st", "%s 『%s』에 걸렸다 — %s" % [ga(nm(d)), DB.D.STATUS[kind].n, DB.sec_str(t * _turn_sec())],
-		{"fx": "status", "f": d.key, "st": kind})
+		{"fx": "status", "f": d.key, "st": kind, "from": a.key if a else "", "spread": false})
 	if temper_enabled and a and a.alive and a.camp != d.camp and not _in_ult:      # 11/7 지략 —— 상태이상을 걸 때마다 찬다
 		_gauge_add(a, _tw(a, "status"))
 
@@ -1564,7 +1574,7 @@ func _spread_burn(u: Unit, s: Dictionary) -> void:
 	_spread_burn_to(u, s, pick(same if not same.is_empty() else cand))
 
 
-func _spread_burn_to(u: Unit, s: Dictionary, t: Unit) -> void:
+func _spread_burn_to(u: Unit, s: Dictionary, t: Unit, triggered_by := "") -> void:
 	var water: bool = s.k == "flood"
 	var res := mv(t, "flood_res") if water else mv(t, "fire_res")
 	var weak := 0.0 if water else mv(t, "fire_weak")
@@ -1574,15 +1584,19 @@ func _spread_burn_to(u: Unit, s: Dictionary, t: Unit) -> void:
 		for x in t.st:
 			if x.dur <= w.dur: w = x
 		t.st.erase(w)
-	t.st.append({"k": s.k, "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5, "by": s.get("by", "")})
+	var spread_by := str(s.get("spread_by", s.get("by", "")))
+	var contributor := str(s.get("by", "")) if water else spread_by
+	if triggered_by != "":
+		contributor = triggered_by
+	t.st.append({"k": s.k, "val": v, "dur": maxi(1, s.dur), "sp": s.sp * 0.5, "by": s.get("by", ""), "spread_by": spread_by})
 	if water:
 		stats.flows += 1
 		_chain(_foe(t.camp), "물길")
-		L("st", "물길이 %s의 진영으로 흘러들었다" % nm(t), {"fx": "status", "f": t.key, "st": "flood", "from": u.key})
+		L("st", "물길이 %s의 진영으로 흘러들었다" % nm(t), {"fx": "status", "f": t.key, "st": "flood", "from": u.key, "contributor": contributor, "spread": true})
 	else:
 		stats.spreads += 1
 		_chain(_foe(t.camp), "불길 번짐")
-		L("st", "불길이 %s에게 번졌다" % nm(t), {"fx": "status", "f": t.key, "st": "burn", "from": u.key})
+		L("st", "불길이 %s에게 번졌다" % nm(t), {"fx": "status", "f": t.key, "st": "burn", "from": u.key, "contributor": contributor, "spread": true})
 
 
 ## 진영에서 가장 센 수정치 (살아 있는 부대 중)
@@ -1613,9 +1627,17 @@ func _blaze(u: Unit) -> void:
 		if x.k == "burn": s = x
 	if s == null:
 		return
+	var contributor := ""
+	var strongest := 0.0
+	for candidate in units:
+		if candidate.alive and candidate.camp != u.camp:
+			var strength := mv(candidate, "blaze")
+			if strength > strongest:
+				strongest = strength
+				contributor = candidate.key
 	for t in units:
 		if t.alive and t != u and t.camp == u.camp and _same_line(t, u) and not has_st(t, "burn"):
-			_spread_burn_to(u, s, t)
+			_spread_burn_to(u, s, t, contributor)
 			stats.blazes += 1
 			_chain(_foe(u.camp), "연소")
 
@@ -1709,7 +1731,7 @@ func _cut(a: Unit, d: Unit, stat: String, amt: float, why: String) -> void:
 	d.cut[stat] += v
 	stats.cuts += v
 	stats.cut_n += 1
-	L("st", "『%s』 %s의 %s −%d" % [why, nm(d), CUT_NAME[stat], roundi(v)], {"fx": "debuff", "f": d.key, "st": CUT_ST[stat], "n": v})
+	L("st", "『%s』 %s의 %s −%d" % [why, nm(d), CUT_NAME[stat], roundi(v)], {"fx": "debuff", "f": d.key, "st": CUT_ST[stat], "n": v, "from": a.key if a else ""})
 
 
 ## 맞힐 때마다 깎는 양 —— 특기 값 × 자기 능력치(물리는 공격, 책략은 책략). 10/30 턴 배율로 나누던 것을 뺐다 (높은 등급에서 거의 0 이 됐다)
