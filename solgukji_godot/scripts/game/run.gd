@@ -1467,6 +1467,8 @@ static func flip_res(res: Dictionary) -> Dictionary:
 					sh.x = -sh.x
 					if sh.has("x2"):
 						sh.x2 = -sh.x2
+					for point in sh.get("boundary", []):
+						point[0] = -point[0]
 	return out
 
 

@@ -56,6 +56,7 @@ func _ready() -> void:
 	Settings.apply()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = int(args.get("fps", "0"))
+	preload("res://scripts/field/war_painting.gd").batch_rendering = not args.has("legacy-painting")
 	theme = UI.theme()
 	var view := BattleView.new()
 	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -69,11 +70,42 @@ func _ready() -> void:
 	view.play_res(result, "pvp")
 	view.speed = 1.0
 	var painter: Control = view.type2.painting
-	validate_formation(view.field.order[0])
+	for unit: Squad in view.field.order:
+		validate_formation(unit)
+	# A compact formation must still step, brace and refill its front.
+	var compact: Squad = view.field.order[-1]
+	var old_hw := compact.hw
+	var old_hd := compact.hd0
+	compact.hw = 30.0
+	compact.hd0 = 18.0
+	validate_formation(compact)
+	var small = Formation.new(compact)
+	assert(small.capacity <= 8)
+	var was_puppet := compact.puppet
+	var was_contact := compact.contact
+	var old_pos := compact.pos
+	compact.puppet = false
+	compact.contact = true
+	compact.pos += Vector2(15, 0)
+	for frame in 20:
+		small.step(compact, 0.016)
+	assert(small.contact_weight > 0.5 and small.gait[0] > 0.0)
+	compact.puppet = was_puppet
+	compact.contact = was_contact
+	compact.pos = old_pos
+	compact.hw = old_hw
+	compact.hd0 = old_hd
 	var source: Squad = view.field.order[0]
 	var target: Squad = view.field.order[-1]
 	painter.prepare_attack(source.key, [target.key], "volley")
 	assert(not painter.volleys.is_empty(), "Volley event must reach the formation renderer")
+	var shot: Dictionary = painter.volleys[-1]
+	var first_arrival := float(shot.start) + 0.12 + float(shot.flight)
+	assert(painter.volley_progress(shot, 0, first_arrival) == 1.0)
+	assert(painter.volley_progress(shot, int(shot.count) - 1, first_arrival) < 1.0)
+	assert(painter.volley_progress(shot, int(shot.count) - 1, float(shot.end)) > 0.999)
+	assert(painter.volley_progress(shot, 1, float(shot.start) + 0.13) == 0.0)
+
 	painter.play_event({"fx": "phys", "a": source.key, "f": target.key, "n": 10, "painted_charge": "hit"}, null, [{"key": target.key, "troops": target.max * 0.5}])
 	assert(painter.charges.has(target.key) and not painter.contacts.is_empty() and not painter.bodies.is_empty())
 	assert(painter.bodies.size() <= painter.MAX_BODIES and painter.contacts.size() <= painter.MAX_CONTACTS)
@@ -84,9 +116,25 @@ func _ready() -> void:
 		capacity += painter._formation(sq).capacity
 	print("PASS motion.5 event delivery: volley / impact / casualty / effect limits / reset")
 	if args.has("validate-only"):
+		while view.clock < float(args.get("capture-at", "0")) and not view.finished:
+			await get_tree().process_frame
+		view.speed = 0.0
 		await RenderingServer.frame_post_draw
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		if painter.batch_rendering:
+			assert(painter.batch.soldiers.multimesh.visible_instance_count == painter.visible_soldiers.size())
+			assert(painter.batch.shadows.multimesh.visible_instance_count == painter.visible_soldiers.size())
+			assert(painter.walk_meshes.is_empty(), "GPU walk animation must not allocate CPU pose meshes")
+			for i in painter.visible_soldiers.size():
+				var figure: Dictionary = painter.visible_soldiers[i]
+				assert(painter.batch.buffer[i * 16 + 12] == float(figure.cell))
+				assert(is_equal_approx(painter.batch.buffer[i * 16 + 13], float(figure.stride)))
+				assert(is_equal_approx(painter.batch.buffer[i * 16 + 14], float(figure.gait)))
+				assert(is_equal_approx(painter.batch.buffer[i * 16 + 3], float(figure.p.x)))
+			print("PASS batched renderer: all figures / depth order / atlas cell / no CPU pose cache")
 		if args.has("shot"):
-			get_viewport().get_texture().get_image().save_png("res://../build/motion5_renderer_smoke.png")
+			get_viewport().get_texture().get_image().save_png("res://../build/motion5_renderer_%s.png" % str(args.get("tag", "smoke")))
 		view.queue_free()
 		await get_tree().process_frame
 		get_tree().quit()
@@ -127,7 +175,7 @@ func _ready() -> void:
 		"android_device_measurement": OS.get_name() == "Android", "renderer": RenderingServer.get_current_rendering_method(),
 		"adapter": RenderingServer.get_video_adapter_name(), "window": str(get_viewport_rect().size),
 		"quality": Settings.quality, "vsync": false, "fps_cap": Engine.max_fps, "seed": 5100,
-		"hidden_painting": hidden, "warmup_seconds": skip, "sample_seconds": duration, "total": stats(frames),
+		"batch_rendering": painter.batch_rendering, "hidden_painting": hidden, "warmup_seconds": skip, "sample_seconds": duration, "total": stats(frames),
 		"phases": {}, "max_figures": max_figures, "max_bodies": max_bodies, "max_walk_meshes": max_meshes,
 		"mean_draw_calls": draw_calls / maxf(1.0, frames.size()), "initial_formation_capacity": capacity}
 	for phase in phases:

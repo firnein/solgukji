@@ -31,6 +31,14 @@ const ALLY_CLOTH := Color("#b3dcff")
 const ENEMY_CLOTH := Color("#ffc7aa")
 const TAGS := ["창병", "기병", "궁병", "도적", "책사", "유생", "술사", "모사"]
 const STRIDE_FRAMES := 12
+static var batch_rendering := true
+var batch: Node2D
+var top_effects: Node2D
+
+class TopEffects extends Node2D:
+	var painter
+	func _draw() -> void:
+		painter._draw_overlay(self)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -43,6 +51,13 @@ func _ready() -> void:
 		t.filter_clip = true
 		cells.append(t)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	batch = preload("res://scripts/field/painted_batch.gd").new()
+	batch.atlas = atlas
+	batch.visible = batch_rendering
+	add_child(batch)
+	top_effects = TopEffects.new()
+	top_effects.painter = self
+	add_child(top_effects)
 
 
 func _walk_mesh(cell: int, phase: int, strength: int) -> ArrayMesh:
@@ -79,6 +94,8 @@ func _walk_mesh(cell: int, phase: int, strength: int) -> ArrayMesh:
 	return mesh
 
 func reset() -> void:
+	if batch != null:
+		batch.update_figures([], ALLY_CLOTH, ENEMY_CLOTH)
 	formations.clear()
 	ratios.clear()
 	visible_soldiers.clear()
@@ -117,9 +134,13 @@ func prepare_attack(source_key: String, targets: Array, kind: String) -> void:
 		for key in targets:
 			var dst: Squad = v.field.squads.get(key)
 			if dst != null:
-				volleys.append({"start": v.field.clock, "end": v.field.clock + flight,
+				var count := mini(form.count, 8) if kind == "volley" else 1
+				if count <= 0:
+					continue
+				volleys.append({"start": v.field.clock, "end": v.field.clock + flight + 0.12 + (count - 1) * 0.025,
+					"flight": flight,
 					"from": form.center, "to": _formation(dst).center, "camp": sq.camp,
-					"count": mini(form.count, 8) if kind == "volley" else 1, "kind": kind})
+					"count": count, "kind": kind})
 	else:
 		var point := form.center.direction_to(_formation(target).center)
 		var edge := form.center + point * sq.edge(point)
@@ -283,6 +304,8 @@ func _process(dt: float) -> void:
 		form.step(sq, motion_dt)
 		ratios[sq.key] = form.ratio
 	queue_redraw()
+	if top_effects != null:
+		top_effects.queue_redraw()
 
 func squad_at(screen: Vector2) -> Squad:
 	var local := get_global_transform_with_canvas().affine_inverse() * screen
@@ -316,16 +339,23 @@ func _draw() -> void:
 				_collect_figures(sq, form)
 	visible_soldiers.sort_custom(func(a, b): return a.p.y < b.p.y)
 	v.drawn_figs = visible_soldiers.size() + bodies.size()
-	for figure in visible_soldiers:
-		_draw_soldier(figure)
-	_draw_contacts()
-	_draw_bodies(true)
+	if batch_rendering:
+		batch.update_figures(visible_soldiers, ALLY_CLOTH, ENEMY_CLOTH)
+	else:
+		for figure in visible_soldiers:
+			_draw_soldier(figure)
+
+func _draw_overlay(ci: CanvasItem) -> void:
+	if v == null or v.field == null:
+		return
+	_draw_contacts(ci)
+	_draw_bodies(true, ci)
 	for sq: Squad in v.field.order:
-		if sq.state != "gone" and sq.fade > 0.01:
-			_draw_status(sq)
-	_draw_volleys()
-	_draw_links()
-	_draw_mythic_actions()
+		if sq.fade > 0.01:
+			_draw_status(sq, ci)
+	_draw_volleys(ci)
+	_draw_links(ci)
+	_draw_mythic_actions(ci)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var h := _figure_height(sq, form)
@@ -403,6 +433,7 @@ func _draw_formation_mark(sq: Squad, form: FormationMotion) -> void:
 	draw_colored_polygon(rim, Color(color, 0.075 * sq.fade))
 	draw_polyline(rim, Color(color, 0.38 * sq.fade), 1.1, true)
 
+	var marks := PackedVector2Array()
 	for id in form.capacity:
 		if form.alive[id] == 0 or form.ranks[id] != 0:
 			continue
@@ -411,8 +442,15 @@ func _draw_formation_mark(sq: Squad, form: FormationMotion) -> void:
 		var shape := PackedVector2Array([p + Vector2(- half, 0), p + Vector2(half, 0)])
 		if sq.camp != "A":
 			shape = PackedVector2Array([p + Vector2(- half, -1), p + Vector2(0, 1.5), p + Vector2(half, -1)])
-		draw_polyline(shape, Color(INK, 0.7 * sq.fade), 3.0, true)
-		draw_polyline(shape, Color(color, 0.8 * sq.fade), 1.5, true)
+		if not batch_rendering:
+			draw_polyline(shape, Color(INK, 0.7 * sq.fade), 3.0, true)
+			draw_polyline(shape, Color(color, 0.8 * sq.fade), 1.5, true)
+			continue
+		for segment in shape.size() - 1:
+			marks.append_array([shape[segment], shape[segment + 1]])
+	if not marks.is_empty():
+		draw_multiline(marks, Color(INK, 0.7 * sq.fade), 3.0, true)
+		draw_multiline(marks, Color(color, 0.8 * sq.fade), 1.5, true)
 	_draw_dust(sq, form.half_width * 2.0, form)
 
 func _draw_soldier(f: Dictionary) -> void:
@@ -436,7 +474,9 @@ func _draw_soldier(f: Dictionary) -> void:
 		draw_texture_rect(cells[f.cell], Rect2(- h * 0.5, - h * 0.97, h, h), false, tint)
 		draw_set_transform(Vector2.ZERO)
 
-func _draw_bodies(airborne: bool) -> void:
+func _draw_bodies(airborne: bool, ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
 	for body in bodies:
 		var age := maxf(0.0, visual_time - float(body.start))
 		var t := clampf(age / float(body.duration), 0.0, 1.0)
@@ -450,25 +490,27 @@ func _draw_bodies(airborne: bool) -> void:
 		var h: float = body.h
 		var alpha := 1.0 - smoothstep(float(body.duration) + 1.2, float(body.duration) + 2.6, age)
 		if flying:
-			draw_set_transform(p, 0, Vector2(1, 0.3))
-			draw_circle(Vector2.ZERO, h * 0.19, Color(0.08, 0.06, 0.04, 0.18 * alpha))
-			draw_set_transform(Vector2.ZERO)
+			ci.draw_set_transform(p, 0, Vector2(1, 0.3))
+			ci.draw_circle(Vector2.ZERO, h * 0.19, Color(0.08, 0.06, 0.04, 0.18 * alpha))
+			ci.draw_set_transform(Vector2.ZERO)
 		var tumble := smoothstep(0.0, 1.0, t)
 		var turn := float(body.turn) * tumble
 		var squash := lerpf(1.0, 0.4, smoothstep(0.78, 1.0, t))
 		var cloth := ALLY_CLOTH if body.cell < 8 else ENEMY_CLOTH
 		var tint := Color(cloth.darkened(0.25 * tumble), alpha * (0.7 if t >= 1.0 else 1.0))
-		draw_set_transform(p - Vector2(0, height + h * 0.3), turn, Vector2(-1.0 if body.mirror else 1.0, squash))
-		draw_texture_rect(cells[body.cell], Rect2(- h * 0.5, - h * 0.62, h, h), false, tint)
-		draw_set_transform(Vector2.ZERO)
+		ci.draw_set_transform(p - Vector2(0, height + h * 0.3), turn, Vector2(-1.0 if body.mirror else 1.0, squash))
+		ci.draw_texture_rect(cells[body.cell], Rect2(- h * 0.5, - h * 0.62, h, h), false, tint)
+		ci.draw_set_transform(Vector2.ZERO)
 		var landing := age - float(body.duration)
 		if body.flying and landing >= 0.0 and landing < 0.27:
 			var dust := landing / 0.27
-			draw_set_transform(p, 0, Vector2(1.0, 0.42))
-			draw_circle(Vector2.ZERO, 4.0 + dust * h * 0.5, Color(PAPER, (1.0 - dust) * 0.36))
-			draw_set_transform(Vector2.ZERO)
+			ci.draw_set_transform(p, 0, Vector2(1.0, 0.42))
+			ci.draw_circle(Vector2.ZERO, 4.0 + dust * h * 0.5, Color(PAPER, (1.0 - dust) * 0.36))
+			ci.draw_set_transform(Vector2.ZERO)
 
-func _draw_contacts() -> void:
+func _draw_contacts(ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
 	for hit in contacts:
 		var age := visual_time - float(hit.start)
 		if age < 0.0:
@@ -485,32 +527,36 @@ func _draw_contacts() -> void:
 		var color := JADE if hit.magic else PAPER
 		if flash > 0.0:
 			if not hit.ranged:
-				draw_line(p - side * 5.0 * power, p + side * 6.0 * power, Color(color, flash * 0.85), 2.0, true)
-			draw_circle(p, 2.0 * power, Color(color, flash), true, -1.0, true)
+				ci.draw_line(p - side * 5.0 * power, p + side * 6.0 * power, Color(color, flash * 0.85), 2.0, true)
+			ci.draw_circle(p, 2.0 * power, Color(color, flash), true, -1.0, true)
 		var fade := 1.0 - smoothstep(0.04, 0.25, age)
 		for i in (4 if hit.power > 1.0 else 2):
 			var ray := axis.rotated((float(i) - 1.5) * 0.75)
 			var travel := age * 28.0 * power
-			draw_line(p + ray * travel, p + ray * (travel + 3.0 * power), Color(EMBER, fade * 0.9), 1.2, true)
+			ci.draw_line(p + ray * travel, p + ray * (travel + 3.0 * power), Color(EMBER, fade * 0.9), 1.2, true)
 
-func _draw_volleys() -> void:
+func volley_progress(shot: Dictionary, id: int, clock: float) -> float:
+	return clampf((clock - float(shot.start) - 0.12 - id * 0.025) / float(shot.flight), 0.0, 1.0)
+
+func _draw_volleys(ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
 	for shot in volleys:
 		var start: Vector2 = shot.from
 		var end: Vector2 = shot.to
 		for id in shot.count:
-			var delay := float(id) * 0.008
-			var t := clampf((last_clock - float(shot.start) - 0.12 - delay) / maxf(0.1, float(shot.end) - float(shot.start) - 0.12 - delay), 0.0, 1.0)
-			if t <= 0.0:
+			var t := volley_progress(shot, id, last_clock)
+			if t <= 0.0 or t >= 1.0:
 				continue
 			var spread := Vector2(0.0, (float(id) - float(shot.count - 1) * 0.5) * 8.0)
-			var world := start.lerp(end, t) + spread
+			var world := start.lerp(end + spread, t)
 			var prev_t := maxf(0.0, t - 0.045)
 			var height := 18.0 + start.distance_to(end) * 0.025
 			var p: Vector2 = v.map(world) - Vector2(0, 5.0 + sin(t * PI) * height * v.depth_scale(world))
-			var prev: Vector2 = v.map(start.lerp(end, prev_t) + spread) - Vector2(0, 5.0 + sin(prev_t * PI) * height * v.depth_scale(world))
+			var prev: Vector2 = v.map(start.lerp(end + spread, prev_t)) - Vector2(0, 5.0 + sin(prev_t * PI) * height * v.depth_scale(world))
 			var color := PAPER if shot.kind == "volley" else EMBER
-			draw_line(prev, p, Color(INK, 0.8), 2.0, true)
-			draw_line(prev, p, color, 1.0, true)
+			ci.draw_line(prev, p, Color(INK, 0.8), 2.0, true)
+			ci.draw_line(prev, p, color, 1.0, true)
 
 func fire_sea_outline(sea: Dictionary) -> PackedVector2Array:
 	# The boundary is already active on the first tick. Animate flames, not radius.
@@ -532,17 +578,19 @@ func _draw_fire_seas() -> void:
 			var h: float = (13.0 + flicker * 9.0) * v.depth_scale(spot)
 			v._spr_at(self, "flame_02", at + Vector2(0, - h * 0.32), h, Color(EMBER, (0.26 + flicker * 0.32) * fade), 0.1, Vector2(0.7, 1.0))
 
-func _draw_mythic_actions() -> void:
+func _draw_mythic_actions(ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
 	for sea: Dictionary in fire_seas.values():
 		var age := maxf(0.0, last_clock - float(sea.start))
 		if age < 1.45:
-			_action_label(v.map(sea.center), "적벽 불바다", EMBER, clampf((1.45 - age) * 3.0, 0.0, 1.0))
+			_action_label(v.map(sea.center), "적벽 불바다", EMBER, clampf((1.45 - age) * 3.0, 0.0, 1.0), ci)
 	for key in peerless:
 		var sq: Squad = v.field.squads.get(key)
 		if sq != null and sq.alive:
 			var mark: Dictionary = peerless[key]
 			var at: Vector2 = v.map(sq.pos - sq.fwd * sq.hd() * 0.65)
-			_action_label(at + Vector2(0, -24), "무쌍  공격 +%d%%" % mark.bonus, PAPER, clampf((float(mark.end) - last_clock) * 4.0, 0.0, 1.0))
+			_action_label(at + Vector2(0, -24), "무쌍  공격 +%d%%" % mark.bonus, PAPER, clampf((float(mark.end) - last_clock) * 4.0, 0.0, 1.0), ci)
 	for hit: Dictionary in charges.values():
 		var t := clampf((last_clock - float(hit.start)) / 0.65, 0.0, 1.0)
 		var axis: Vector2 = hit.direction
@@ -553,9 +601,9 @@ func _draw_mythic_actions() -> void:
 		for i in range(-4, 5):
 			var point := center + side * float(i) * (5.0 + t * 4.0) + axis * (1.0 - absf(float(i)) / 4.0) * t * 22.0
 			arc.append(v.map(point))
-		draw_polyline(arc, Color(accent, (1.0 - t) * 0.8), 2.2, true)
+		ci.draw_polyline(arc, Color(accent, (1.0 - t) * 0.8), 2.2, true)
 		if hit.brace:
-			_action_label(v.map(center), "창벽", PAPER, 1.0 - t)
+			_action_label(v.map(center), "창벽", PAPER, 1.0 - t, ci)
 	for key in rallies:
 		var target: Squad = v.field.squads.get(key)
 		if target == null or not target.alive:
@@ -567,9 +615,9 @@ func _draw_mythic_actions() -> void:
 		if source != null and source != target and t < 0.43:
 			var start: Vector2 = v.map(source.pos - source.fwd * source.hd() * 0.65)
 			var progress := minf(1.0, t * 6.0)
-			draw_line(start.lerp(dst, maxf(0.0, progress - 0.3)), start.lerp(dst, progress), Color(JADE, 0.8), 2.0, true)
-		draw_arc(dst, 9.0 + t * 13.0, 0.0, TAU, 20, Color(JADE, (1.0 - t) * 0.65), 1.5, true)
-		_action_label(dst + Vector2(0, -23), rally.label, JADE, clampf((1.0 - t) * 3.0, 0.0, 1.0))
+			ci.draw_line(start.lerp(dst, maxf(0.0, progress - 0.3)), start.lerp(dst, progress), Color(JADE, 0.8), 2.0, true)
+		ci.draw_arc(dst, 9.0 + t * 13.0, 0.0, TAU, 20, Color(JADE, (1.0 - t) * 0.65), 1.5, true)
+		_action_label(dst + Vector2(0, -23), rally.label, JADE, clampf((1.0 - t) * 3.0, 0.0, 1.0), ci)
 	for key in flames:
 		var target: Squad = v.field.squads.get(key)
 		if target == null or target.fade <= 0.01:
@@ -579,15 +627,19 @@ func _draw_mythic_actions() -> void:
 		for i in range(-1, 2):
 			var at: Vector2 = v.map(target.pos + target.right() * float(i) * target.hw * 0.65)
 			var h: float = (12.0 + sin(t * PI) * 23.0) * float(flame.size) * v.depth_scale(target.pos)
-			v._spr_at(self, "flame_02", at - Vector2(0, h * 0.5), h, Color(EMBER, (1.0 - t) * 0.9), 0.0, Vector2(0.75, 1.0))
+			v._spr_at(ci, "flame_02", at - Vector2(0, h * 0.5), h, Color(EMBER, (1.0 - t) * 0.9), 0.0, Vector2(0.75, 1.0))
 
-func _action_label(at: Vector2, label: String, color: Color, alpha: float) -> void:
+func _action_label(at: Vector2, label: String, color: Color, alpha: float, ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
 	var width := DB.font_bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	var pos := at - Vector2(width * 0.5, 7)
-	draw_string_outline(DB.font_bold, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(INK, alpha))
-	draw_string(DB.font_bold, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(color, alpha))
+	ci.draw_string_outline(DB.font_bold, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(INK, alpha))
+	ci.draw_string(DB.font_bold, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(color, alpha))
 
-func _draw_links() -> void:
+func _draw_links(ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
 	if v.view == null or v.view.hud == null:
 		return
 	for e in v.view.hud._deck_links:
@@ -600,7 +652,7 @@ func _draw_links() -> void:
 			var u := clampf(t * 1.3 - j * 0.06, 0.0, 1.0)
 			var world: Vector2 = a.pos.lerp(b.pos, u)
 			var at: Vector2 = v.map(world) + Vector2(0, -sin(u * PI) * 15.0 * v.depth_scale(world))
-			draw_circle(at, 2.5 - j * 0.5, Color(e.col, (1.0 - t) * 0.85))
+			ci.draw_circle(at, 2.5 - j * 0.5, Color(e.col, (1.0 - t) * 0.85))
 
 func _draw_dust(sq: Squad, width: float, form: FormationMotion) -> void:
 	if not sq.contact and not sq.moving:
@@ -614,7 +666,9 @@ func _draw_dust(sq: Squad, width: float, form: FormationMotion) -> void:
 			at -= sq.fwd * sq.hd()
 		draw_circle(v.map(at), (4.0 + phase * 7.0) * v.depth_scale(at), Color(0.72, 0.64, 0.46, sin(phase * PI) * 0.13 * sq.fade))
 
-func _draw_status(sq: Squad) -> void:
+func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
+	if ci == null:
+		ci = self
 	if not sq.alive:
 		return
 	var p: Vector2 = v.map(sq.pos)
@@ -624,17 +678,17 @@ func _draw_status(sq: Squad) -> void:
 			var phase: float = v.field.clock * 5.0 + j * 1.7
 			var base: Vector2 = v.map(sq.pos + sq.right() * (j - 1.5) * sq.hw * 0.5)
 			var h := (13.0 + 5.0 * sin(phase)) * perspective
-			v._spr_at(self, "flame_02", base + Vector2(0, -h * 0.45), h * 2.0, Color(1.0, 0.62, 0.20, 0.85), sin(phase) * 0.12, Vector2(0.65, 1.0))
+			v._spr_at(ci, "flame_02", base + Vector2(0, -h * 0.45), h * 2.0, Color(1.0, 0.62, 0.20, 0.85), sin(phase) * 0.12, Vector2(0.65, 1.0))
 	if sq.statuses.has("cut_def") or sq.statuses.has("cut_res"):
 		var q := p + Vector2(14, -22) * perspective
-		draw_set_transform(q, 0, Vector2.ONE * perspective)
+		ci.draw_set_transform(q, 0, Vector2.ONE * perspective)
 		q = Vector2.ZERO
 		var shield := PackedVector2Array([q + Vector2(-6, -7), q + Vector2(6, -7), q + Vector2(5, 2), q + Vector2(0, 7), q + Vector2(-5, 2), q + Vector2(-6, -7)])
-		draw_polyline(shield, Color("#e6bd79"), 1.5, true)
-		draw_polyline(PackedVector2Array([q + Vector2(1, -7), q + Vector2(-2, -1), q + Vector2(2, 1), q + Vector2(0, 7)]), INK, 2.5, true)
-		draw_set_transform(Vector2.ZERO)
+		ci.draw_polyline(shield, Color("#e6bd79"), 1.5, true)
+		ci.draw_polyline(PackedVector2Array([q + Vector2(1, -7), q + Vector2(-2, -1), q + Vector2(2, 1), q + Vector2(0, 7)]), INK, 2.5, true)
+		ci.draw_set_transform(Vector2.ZERO)
 	if sq.statuses.has("flood"):
 		for j in 2:
-			draw_arc(p + Vector2(0, j * 3) * perspective, (13 + j * 2) * perspective, 0.1, PI - 0.1, 12, Color(0.35, 0.65, 0.75, 0.7), 1.3, true)
+			ci.draw_arc(p + Vector2(0, j * 3) * perspective, (13 + j * 2) * perspective, 0.1, PI - 0.1, 12, Color(0.35, 0.65, 0.75, 0.7), 1.3, true)
 	if sq.statuses.has("confuse"):
-		draw_arc(p + Vector2(0, -17) * perspective, 7 * perspective, v.field.clock, v.field.clock + PI * 1.6, 12, Color("#be9aca"), 1.7, true)
+		ci.draw_arc(p + Vector2(0, -17) * perspective, 7 * perspective, v.field.clock, v.field.clock + PI * 1.6, 12, Color("#be9aca"), 1.7, true)

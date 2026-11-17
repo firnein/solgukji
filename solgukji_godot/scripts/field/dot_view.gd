@@ -167,6 +167,19 @@ func add_area(shape: Dictionary, col: Color, life: float) -> void:
 ## screen-space circle, and its world radius must not be scaled for decoration.
 func area_outline(shape: Dictionary) -> PackedVector2Array:
 	var points := PackedVector2Array()
+	if shape.get("k") == "footprint":
+		for point in shape.boundary:
+			points.append(map(Vector2(float(point[0]), float(point[1]))))
+		return points
+	if shape.get("k") == "line":
+		var start := Vector2(shape.x, shape.y)
+		var end := Vector2(shape.x2, shape.y2)
+		var direction := start.direction_to(end)
+		var side := direction.orthogonal() * float(shape.w)
+		start -= direction * 10.0
+		for point in [start - side, end - side, end + side, start + side]:
+			points.append(map(point))
+		return points
 	var center := Vector2(float(shape.x), float(shape.y))
 	for i in 64:
 		var angle := TAU * float(i) / 64.0
@@ -178,7 +191,6 @@ func area_outline(shape: Dictionary) -> PackedVector2Array:
 func _draw_areas(ci: CanvasItem = null) -> void:
 	if ci == null:
 		ci = self
-	var spread := _area_spread()
 	var keep := []
 	for a in _areas:
 		var u: float = (field.clock - a.t0) / a.life
@@ -188,11 +200,6 @@ func _draw_areas(ci: CanvasItem = null) -> void:
 		var al := minf(1.0, u * 6.0) * (1.0 if u < 0.8 else (1.0 - u) / 0.2)
 		var sh: Dictionary = a.shape
 		var col: Color = a.col
-		if sh.k == "line":
-			var p0 := map(Vector2(sh.x, sh.y))
-			var p1 := map(Vector2(sh.x2, sh.y2))
-			ci.draw_line(p0, p1, Color(col, 0.18 * al), float(sh.w) * 2.0 * _scale * spread * 0.5)
-			continue
 		var outline := area_outline(sh)
 		ci.draw_colored_polygon(outline, Color(col, 0.16 * al * _area_alpha()))
 		outline.append(outline[0])

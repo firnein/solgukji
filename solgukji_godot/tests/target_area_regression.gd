@@ -99,6 +99,42 @@ func _ready() -> void:
 	assert(Run.flip_res(flipped).ev == replay.ev, "Warning geometry must survive a double flip")
 	print("PASS ultimate geometry: footprint boundary / exact radius / pure preview / JSON / legacy replay / opponent flip")
 
+	# Non-circular targeting must display the selected footprints, not fake circles.
+	bt._capture_preview_areas = true
+	bt._target_preview = true
+	bt._in_ult = true
+	main.fwd = Vector2.from_angle(0.7)
+	edge_in.pos = main.pos + Vector2(25, 0)
+	edge_out.pos = main.pos + Vector2(2000, 0)
+	for spec in ["front3", "denseLine", "all"]:
+		bt._preview_areas.clear()
+		var saved_r := RtBattle.ult_all_r
+		var saved_n := RtBattle.ult_all_n
+		RtBattle.ult_all_r = 0.0
+		RtBattle.ult_all_n = 0
+		var targets := bt.resolve_targets(spec, foes, me, [])
+		assert(bt._preview_areas.size() == targets.size())
+		for mark in bt._preview_areas:
+			assert(mark.k == "footprint" and mark.boundary.size() == 4)
+			assert(targets.any(func(u): return u.key == mark.target))
+			var selected: Battle.Unit = targets.filter(func(u): return u.key == mark.target)[0]
+			for corner in mark.boundary:
+				var offset := Vector2(corner[0], corner[1]) - selected.pos
+				assert(absf(absf(offset.dot(selected.fwd)) - selected.hd) < 0.001)
+				assert(absf(absf(offset.dot(selected.fwd.orthogonal())) - selected.hw) < 0.001)
+		var wire: Dictionary = JSON.parse_string(JSON.stringify({"warn_shapes": bt._preview_areas}))
+		replay.ev = [wire]
+		assert(Run.flip_res(Run.flip_res(replay)).ev == replay.ev)
+		var mirrored := Run.flip_res(replay)
+		assert(mirrored.ev[0].warn_shapes[0].boundary[0][0] == -wire.warn_shapes[0].boundary[0][0])
+		RtBattle.ult_all_n = 1
+		bt._preview_areas.clear()
+		assert(bt._ult_area(me, main, foes).size() == 1)
+		assert(bt._preview_areas.size() == 1 and bt._preview_areas[0].target == main.key)
+		RtBattle.ult_all_r = saved_r
+		RtBattle.ult_all_n = saved_n
+	print("PASS group/global/capped targets: exact footprints / selected identities / wire format / mirrored corners")
+
 	var was_type2 := Settings.type2
 	var was_painting := Settings.war_painting
 	var was_preview := Type2View.formation_preview
@@ -115,6 +151,16 @@ func _ready() -> void:
 	assert(outline.size() == 64)
 	for p in outline:
 		assert(absf(flat.unmap(p).distance_to(main.pos) - radius) < 0.01, "Every displayed vertex must lie on the actual world boundary")
+	var footprint: Dictionary = bt._preview_areas[0]
+	var projected := flat.area_outline(footprint)
+	assert(projected.size() == 4)
+	for i in 4:
+		assert(flat.unmap(projected[i]).distance_to(Vector2(footprint.boundary[i][0], footprint.boundary[i][1])) < 0.01)
+	var band := {"k": "line", "x": 1.25, "y": 2.5, "x2": 201.25, "y2": 2.5, "w": 30.0}
+	var band_outline := flat.area_outline(band)
+	for vertex in band_outline:
+		var world := flat.unmap(vertex)
+		assert(absf(absf(world.y - 2.5) - 30.0) < 0.01, "Band width must use its actual world half-width")
 	var painter = preload("res://scripts/field/war_painting.gd").new()
 	painter.v = flat
 	var sea := {"center": Vector2(123.25, 45.75), "radius": Battle.SEA_R + Battle.SEA_MARGIN, "start": 0.0, "end": 15.0}

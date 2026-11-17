@@ -552,7 +552,26 @@ func slot_pos(camp: String, form: String, slot: int, lay := 1.0) -> Vector2:
 	return Vector2(-x if camp == "A" else x, (s.col - DB.FORM_MID) * CS * lay)
 
 
+func _release_squads() -> void:
+	# Opponents retain one another through engaged/duel. Break these cycles on
+	# replay replacement and scene exit so old battles can release their memory.
+	for sq: Squad in order:
+		sq.engaged = null
+		sq.act_tgt = null
+		sq.ptgt = null
+		for soldier in sq.soldiers:
+			soldier.duel = null
+		if sq.general != null:
+			sq.general.duel = null
+
+func _exit_tree() -> void:
+	_release_squads()
+	if ult != null:
+		# Pending effect closures retain their UltFx owner until explicitly cleared.
+		ult.clear()
+
 func clear() -> void:
+	_release_squads()
 	for m in gpu_mmi:
 		if is_instance_valid(m):
 			m.queue_free()
@@ -3069,7 +3088,15 @@ func area_mark(shape: Dictionary, col: Color, life := 1.1) -> void:
 	d.upper_fade = 0.3
 	d.lower_fade = 0.3
 	d.distance_fade_enabled = false
-	if shape.k == "line":
+	if shape.k == "footprint":
+		var a := Vector2(shape.boundary[0][0], shape.boundary[0][1])
+		var b := Vector2(shape.boundary[1][0], shape.boundary[1][1])
+		var c := Vector2(shape.boundary[2][0], shape.boundary[2][1])
+		d.texture_albedo = _band_tex
+		d.position = p3(Vector2(shape.x, shape.y))
+		d.size = Vector3(a.distance_to(b) * S, 30, b.distance_to(c) * S)
+		d.rotation.y = -(b - a).angle()
+	elif shape.k == "line":
 		var a := Vector2(shape.x, shape.y)
 		var b := Vector2(shape.x2, shape.y2)
 		var mid := p3((a + b) / 2)

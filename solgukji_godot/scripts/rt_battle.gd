@@ -1376,24 +1376,23 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 		"front3":
 			var s := live.filter(func(o): return o == main or _gap(o, main) <= AREA_GAP)
 			s.sort_custom(func(a, b): return (-1.0 if a == main else _gap(a, main)) < (-1.0 if b == main else _gap(b, main)))
-			_mark(me, {"k": "circle", "x": roundi(main.pos.x), "y": roundi(main.pos.y), "r": AREA})
-			return s.slice(0, 3)
+			s = s.slice(0, 3)
+			_mark_targets(me, s)
+			return s
 		"all":
 			if _in_ult:
 				if ult_all_r <= 0.0 and ult_all_n <= 0:
-					_mark(me, {"k": "circle", "x": roundi(_centroid(live).x), "y": roundi(_centroid(live).y), "r": 300})
+					_mark_targets(me, live)
 					return live
 				return _ult_area(me, main, live)
 			return live.filter(func(o): return me.pos.distance_to(o.pos) <= all_r)
 		"denseLine":
 			var best: Array = [main]
-			var bc: Unit = main
 			for c in near:
 				var g := live.filter(func(o): return o == c or _gap(o, c) <= AREA_GAP)
 				if g.size() > best.size():
 					best = g
-					bc = c
-			_mark(me, {"k": "circle", "x": roundi(bc.pos.x), "y": roundi(bc.pos.y), "r": AREA})
+			_mark_targets(me, best)
 			return best
 	# 11/2 열 —— 설명대로 적 진영의 앞쪽(선봉 · 전군) / 뒤쪽(후군) 절반, 최대 3부대 (예전엔 나에서 대상으로 뻗은 띠였다)
 	if spec == "line:후군" or spec == "line:선봉+전군":
@@ -1414,7 +1413,7 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 			var along := v.dot(dir)
 			return along >= -10.0 and along <= ln + _extent(o, dir) and absf(v.cross(dir)) <= LINE_W + _extent(o, perp))
 		var tip := me.pos + dir * ln
-		_mark(me, {"k": "line", "x": roundi(me.pos.x), "y": roundi(me.pos.y), "x2": roundi(tip.x), "y2": roundi(tip.y), "w": LINE_W})
+		_mark(me, {"k": "line", "x": me.pos.x, "y": me.pos.y, "x2": tip.x, "y2": tip.y, "w": LINE_W})
 		return s if not s.is_empty() else [main]
 	return [main]
 
@@ -1431,12 +1430,25 @@ func _ult_area(me: Unit, main: Unit, live: Array) -> Array:
 	s.sort_custom(func(a, b): return a.pos.distance_squared_to(c) < b.pos.distance_squared_to(c))
 	if ult_all_n > 0 and s.size() > ult_all_n:
 		s = s.slice(0, ult_all_n)
-	var r := ult_all_r
-	if r <= 0.0:
-		for o in s:
-			r = maxf(r, o.pos.distance_to(c))
-	_mark(me, {"k": "circle", "x": c.x, "y": c.y, "r": r})
+	if ult_all_r > 0.0:
+		_mark(me, {"k": "circle", "x": c.x, "y": c.y, "r": ult_all_r})
+	if ult_all_r <= 0.0 or ult_all_n > 0:
+		_mark_targets(me, s)
 	return s
+
+
+## Gap-based groups and capped/global skills select units rather than a circle.
+## Record each selected footprint, including its orientation, at this instant.
+func _mark_targets(me: Unit, targets: Array) -> void:
+	for target: Unit in targets:
+		var forward := target.fwd * target.hd
+		var side := target.fwd.orthogonal() * target.hw
+		var boundary := []
+		for offset in [-forward - side, forward - side, forward + side, -forward + side]:
+			var point: Vector2 = target.pos + offset
+			boundary.append([point.x, point.y])
+		_mark(me, {"k": "footprint", "x": target.pos.x, "y": target.pos.y,
+			"r": 0.0, "target": target.key, "boundary": boundary})
 
 
 ## 범위 기록 —— 방금 펼친 기술 · 고유기 사건에 덮은 곳을 적는다 (화면이 땅에 미리 그린다)

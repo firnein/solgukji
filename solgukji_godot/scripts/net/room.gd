@@ -330,7 +330,9 @@ func start() -> void:
 		r.mp = true
 		r.sell_on = sell_on
 		s.run = r
-		r.on_forge = _on_forged.bind(s)
+		# Bind a stable seat index: binding its Dictionary retains the Run itself
+		# through s.run and creates a cycle that survives room deletion.
+		r.on_forge = _on_forged.bind(_idx(s))
 	_pick_deaths()
 	if RoomLog.wanted(mode):
 		rlog = RoomLog.new()
@@ -574,7 +576,8 @@ func _sync_locks() -> void:
 
 ## Run.forge 가 성공하면 부른다 (사람의 명령 · 봇 대행 모두) —— 기인 이상을 처음 등용하면 선점으로 적고 다른 사람의 Run 을 바로 잠근다
 ## (같은 단계에서 봇 대행이 차례로 조합해도 뒤 사람이 같은 장수를 만들지 못하게)
-func _on_forged(k: String, s: Dictionary) -> void:
+func _on_forged(k: String, seat_index: int) -> void:
+	var s: Dictionary = seats[seat_index]
 	# 11/12 사용자: 신화를 만들어 재료인 하위 불멸이 없어져도 그 불멸의 선점은 풀지 않는다 —— 신화를 만든 사람 몫으로 남아 다른 사람이 그 불멸을 얻지 못한다
 	if not claim_on or not is_urgent_unit(k) or claims.has(k):
 		return

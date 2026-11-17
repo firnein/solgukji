@@ -1,0 +1,63 @@
+{
+	"adapter": "NVIDIA GeForce RTX 4080",
+	"android_device_measurement": false,
+	"batch_rendering": false,
+	"engine": "4.4.1-stable (official)",
+	"fps_cap": 0,
+	"hidden_painting": false,
+	"initial_formation_capacity": 296,
+	"max_bodies": 39,
+	"max_figures": 289,
+	"max_walk_meshes": 120,
+	"mean_draw_calls": 1455.32362122789,
+	"phases": {
+		"contact": {
+			"fps": 64.2215364081446,
+			"frames": 746,
+			"max_ms": 29.083,
+			"mean_ms": 15.571100536193,
+			"over_33ms_pct": 0.0,
+			"p50_ms": 15.261,
+			"p95_ms": 19.635,
+			"p99_ms": 21.739
+		},
+		"march": {
+			"fps": 64.6521070121675,
+			"frames": 5,
+			"max_ms": 16.295,
+			"mean_ms": 15.4674,
+			"over_33ms_pct": 0.0,
+			"p50_ms": 15.545,
+			"p95_ms": 16.295,
+			"p99_ms": 16.295
+		},
+		"ultimate": {
+			"fps": 63.448594251074,
+			"frames": 210,
+			"max_ms": 29.594,
+			"mean_ms": 15.7607904761905,
+			"over_33ms_pct": 0.0,
+			"p50_ms": 15.525,
+			"p95_ms": 19.649,
+			"p99_ms": 24.612
+		}
+	},
+	"platform": "Windows",
+	"quality": 1,
+	"renderer": "forward_plus",
+	"sample_seconds": 15.0,
+	"seed": 5100,
+	"total": {
+		"fps": 64.0532411073306,
+		"frames": 961,
+		"max_ms": 29.594,
+		"mean_ms": 15.6120124869927,
+		"over_33ms_pct": 0.0,
+		"p50_ms": 15.33,
+		"p95_ms": 19.635,
+		"p99_ms": 22.43
+	},
+	"vsync": false,
+	"warmup_seconds": 3.0,
+	"window": "(430.0, 860.0)"
+}
