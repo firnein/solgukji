@@ -24,6 +24,8 @@ extends RefCounted
 static var enabled := true
 static var test_ok := false                 # 점검 방(mode=test)은 기록하지 않는다 —— tests/net · tests/room_log 가 켠다
 static var dir := "user://playlog_online"
+## Run 의 명령 중 void 인 것 (Run.command 가 null 을 돌려준다 —— 거절과 구별이 안 된다)
+const VOID_CMDS := ["auto_deploy", "begin_picks", "place", "unplace", "swap", "clear_board", "set_tac", "set_form", "set_equip", "unequip"]
 const KEEP_DAYS := 30                       # 서버를 켤 때 이보다 오래된 파일은 지운다 (purge)
 const HIDDEN := "(비공개)"                 # 기록 안 하는 사람의 이름 자리
 const MAX_ARGS := 6                         # 명령 인자는 이만큼 · 글자는 24자까지만 (이상한 입력이 기록을 키우지 않게)
@@ -162,6 +164,8 @@ func act(i: int, run, m: String, a: Array, r) -> void:
 			clean.append("?")
 	var d := PlayLog.act_data(m.substr(0, 24), clean, r, run)
 	d["ok"] = r != null and not (r is bool and not r)      # 명령이 거절되면 null · false (do_draw 같은 것은 카드 배열이 온다)
+	if r == null and m in VOID_CMDS:      # 11/17 돌려주는 값이 없는 명령 —— 여기까지 왔으면 실행됐다 (전엔 늘 ok:false 로 찍혀 실패처럼 보였다)
+		d["ok"] = true
 	put(i, run, "act", d)
 
 

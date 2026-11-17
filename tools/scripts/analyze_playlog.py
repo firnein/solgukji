@@ -264,6 +264,45 @@ def section_slots(acc, acc_bot, title):
            "<table class=grid>%s%s</table>" % (title, EASY * 100, head, "".join(rows))
 
 
+def fired(b):
+    """11/17 실제로 터진 고유기 · 군령 (ult_fired 등, 나/적). 옛 기록은 누른 수(ult_inputs) —— 온라인은 서버가 입력 없이 돌려 늘 0 이었다"""
+    if "ult_fired" in b:
+        return "%d/%d · %d/%d" % (b["ult_fired"], b.get("foe_ult_fired", 0), b.get("cmd_fired", 0), b.get("foe_cmd_fired", 0))
+    return "%d · %d" % (b.get("ult_inputs", 0), b.get("cmd_inputs", 0))
+
+
+def flow(games):
+    """11/17 판도 —— 판마다 시점별 민심 · 전력 · 순위 · 병력 · 그 시점 전투, 그리고 민심이 어디서 깎였나(토벌 · 사람 대전 · 봇 대전 · 그림자)"""
+    out = []
+    for g in games:
+        name = next((e.get("player", "") for e in g["ev"] if e["ev"] == "start"), "") or g["file"]
+        pe = {(e["day"], e["phase"]): e for e in g["ev"] if e["ev"] == "phase_end"}
+        bts = defaultdict(list)
+        loss = Counter()
+        last = None
+        for e in g["ev"]:
+            if e["ev"] == "battle_end":
+                last = e
+                r = "무" if e.get("draw") else ("승" if e.get("win") else "패")
+                foe = "토벌" if e.get("kind") == "quest" else str(e.get("foe_name", ""))[:6]
+                bts[(e["day"], e["phase"])].append(r + "·" + foe)
+            elif e["ev"] == "reward" and e.get("hp_loss"):
+                src = "토벌" if not last or last.get("kind") == "quest" else ("그림자" if last.get("ghost") else ("사람 대전" if last.get("foe_human") else "봇 대전"))
+                loss[src] += int(e["hp_loss"])
+                bts[(e["day"], e["phase"])].append("민심−%d" % e["hp_loss"])
+        over = next((e for e in g["ev"] if e["ev"] == "over"), None)
+        rows = []
+        for k in sorted(set(pe) | set(bts)):
+            x = pe.get(k, {})
+            rows.append("<tr><td>%s %s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (
+                DAY[k[0] % 7], PHASE[k[1]], x.get("hp", "—"), x.get("my_pv", "—"), x.get("rank", "—"),
+                "{:,}".format(x["deck"]["tr"]) if x.get("deck") else "—", html.escape(" ".join(bts.get(k, [])))))
+        ls = " · ".join("%s %d" % kv for kv in loss.most_common()) or "없음"
+        out.append("<h3>%s —— %s</h3><p class=dim>민심이 깎인 곳: %s</p><table class=list><tr><th>시점</th><th>민심</th><th>전력</th><th>순위</th><th>병력</th><th>전투</th></tr>%s</table>" % (
+            html.escape(name), html.escape(over.get("msg", "")) if over else "끝나지 않음", ls, "".join(rows)))
+    return "<h2>판도</h2>" + "".join(out) if out else ""
+
+
 def battle_list(games):
     rows = []
     for g in games:
@@ -277,12 +316,12 @@ def battle_list(games):
             if b.get("kind") == "tour":
                 kind += " " + TOUR_ROUND[min(2, b.get("round", 0))]
             gr = grade(b)
-            rows.append("<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%d · %d</td><td>%s</td></tr>" % (
+            rows.append("<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (
                 {"압승": "easy", "패": "lose", "신승": "close"}.get(gr, ""), g["file"][:15], slot_name(slot(b)), kind,
                 html.escape(stt.get("title", "")), gr, ("%.2f" % b["tr_ratio"]) if b["tr_ratio"] is not None else "—", fmt_pct(b.get("left_ratio", 0)), fmt_pct(b.get("foe_left_ratio", 0)),
-                html.escape(top), html.escape(stt.get("tac", "")), b.get("ult_inputs", 0), b.get("cmd_inputs", 0), html.escape(b.get("mvp", ""))))
+                html.escape(top), html.escape(stt.get("tac", "")), fired(b), html.escape(b.get("mvp", ""))))
     return ("<h2>전투 목록</h2><table class=list><tr><th>판</th><th>시점</th><th>종류</th><th>상대</th><th>결과</th><th>전력비</th>"
-            "<th>내 잔존</th><th>적 잔존</th><th>내 덱 등급</th><th>작전</th><th>고유기·군령</th><th>MVP</th></tr>%s</table>" % "".join(rows))
+            "<th>내 잔존</th><th>적 잔존</th><th>내 덱 등급</th><th>작전</th><th>고유기·군령 (나/적)</th><th>MVP</th></tr>%s</table>" % "".join(rows))
 
 
 def findings(acc, acc_bot, games, bots):
@@ -324,7 +363,8 @@ def findings(acc, acc_bot, games, bots):
 
 def human_pvp(games):
     """온라인 기록의 사람끼리 대전 (foe_human) —— 한 판이 양쪽 파일에 하나씩 들어 있어 사람마다 한 줄. 사람 아닌 봇 상대는 따로 센다"""
-    hh = defaultdict(lambda: {"w": 0, "l": 0, "tr": []})
+    hh = defaultdict(lambda: {"w": 0, "l": 0, "d": 0, "tr": []})
+    gh = defaultdict(lambda: {"w": 0, "l": 0, "d": 0})      # 11/17 그림자 대전(ghost —— 사람의 편성 복사본)은 사람 대전이 아니다: 양쪽 전적이 어긋났다
     bt = defaultdict(lambda: {"w": 0, "l": 0})
     any_online = False
     for g in games:
@@ -335,8 +375,11 @@ def human_pvp(games):
         for b in battles(g):
             if b.get("kind") != "pvp":
                 continue
-            if b.get("foe_human"):
-                hh[name]["w" if b.get("win") else "l"] += 1
+            res = "d" if b.get("draw") else ("w" if b.get("win") else "l")
+            if b.get("ghost"):
+                gh[name][res] += 1
+            elif b.get("foe_human"):
+                hh[name][res] += 1
                 if b["tr_ratio"] is not None:
                     hh[name]["tr"].append(b["tr_ratio"])
             else:
@@ -345,12 +388,13 @@ def human_pvp(games):
         return ""
     rows = []
     for nm in sorted(set(hh) | set(bt)):
-        a, c = hh[nm], bt[nm]
-        n = a["w"] + a["l"]
-        rows.append("<tr><td>%s</td><td>%d승 %d패</td><td>%s</td><td>%s</td><td>%d승 %d패</td></tr>" % (
-            html.escape(nm), a["w"], a["l"], fmt_pct(a["w"] / n) if n else "—", ("%.2f" % st.mean(a["tr"])) if a["tr"] else "—", c["w"], c["l"]))
+        a, c, g = hh[nm], bt[nm], gh[nm]
+        n = a["w"] + a["l"] + a["d"]
+        rows.append("<tr><td>%s</td><td>%d승 %d패%s</td><td>%s</td><td>%s</td><td>%d승 %d패</td><td>%s</td></tr>" % (
+            html.escape(nm), a["w"], a["l"], (" %d무" % a["d"]) if a["d"] else "", fmt_pct(a["w"] / n) if n else "—", ("%.2f" % st.mean(a["tr"])) if a["tr"] else "—", c["w"], c["l"],
+            ("%d승 %d패 %d무" % (g["w"], g["l"], g["d"])) if sum(g.values()) else "—"))
     return ("<h2>사람끼리 대전 (온라인)</h2><p class=dim>사람과 붙은 대전만 (foe_human). 전력비 = 내 병력 ÷ 상대 병력. 봇과 붙은 대전은 오른쪽 칸.</p>"
-            "<table class=list><tr><th>플레이어</th><th>사람 상대</th><th>승률</th><th>평균 전력비</th><th>봇 상대 대전</th></tr>%s</table>" % "".join(rows))
+            "<table class=list><tr><th>플레이어</th><th>사람 상대</th><th>승률</th><th>평균 전력비</th><th>봇 상대 대전</th><th>그림자 대전</th></tr>%s</table>" % "".join(rows))
 
 
 def build(games, bots):
@@ -439,6 +483,7 @@ def build(games, bots):
         n_games = max(1, len(games))
         rows = "".join("<tr><td>%s</td>%s</tr>" % (slot_name(s), "".join("<td>%s</td>" % (("%.1f" % (acts[s][m] / n_games)) if acts[s][m] else "") for m in names)) for s in sorted(acts))
         h.append("<h2>행동 (판 평균 횟수)</h2><div class=scroll><table class=list><tr><th>시점</th>%s</tr>%s</table></div>" % ("".join("<th>%s</th>" % kor[m] for m in names), rows))
+    h.append(flow(games))
     h.append(battle_list(games))
     h.append("</body></html>")
     return "".join(h)

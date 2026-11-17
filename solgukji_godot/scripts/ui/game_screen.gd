@@ -1939,7 +1939,8 @@ func _page_draw() -> Control:
 		var tt: int = t
 		var rnd := Run.LEGEND_RANDOM and tt == 5      # 11/5 사용자: 전설 보급은 무작위 —— 누르면 바로 받는다 (고르는 창 없음)
 		var tb := UI.tile_act("grant" if rnd else "pick", "%s %d" % [DB.TIER[tt].n, per_t[tt]], "", func():
-			act("begin_picks", ["phase", -1])
+			if not run.picked:      # 11/17 이미 받았으면 다시 보내지 않는다 (서버 기록에 헛명령이 쌓였다)
+				act("begin_picks", ["phase", -1])
 			if not rnd:
 				picker(tt), "gold", false, not can_act())
 		tb.add_theme_color_override("font_color", DB.TIER[tt].c)
@@ -4921,7 +4922,8 @@ func _dev_args() -> void:
 					if kv[3] == "fall":
 						online._on_msg({"t": "news", "list": [{"text": "장수377의 나라가 무너졌습니다 —— 남은 군주 7명", "kind": "news", "who": "장수377", "id": 8, "line": "남은 군주 7명", "band": "fall", "hot": 1}]})
 			"pick":
-				act("begin_picks", ["phase", -1])
+				if not run.picked:
+					act("begin_picks", ["phase", -1])
 				if not run.ticket_tiers().is_empty():
 					picker(run.ticket_tiers()[0])
 			"online": _go_online()

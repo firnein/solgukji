@@ -72,6 +72,8 @@ var dev_max := 8                  # 점검용 —— 가짜 방의 총 인원 (-
 var dev_sheet := false            # 점검용 —— 접속 없이 방 만들기 시트까지 그려 본다 (--gsheet=oncreate)
 var _stage_len := 0.0             # 지금 단계의 전체 길이 (방 정보 stage_len, 옛 서버는 단계 시작 때 남은 시간)
 var _noon_end_room := ""          # 토벌 종료 띠를 띄운 방 코드 —— 한 판에 한 번 (상태 · 소식 어느 쪽이 먼저 와도)
+var _cmd_t := 0                  # 마지막 명령을 보낸 시각 (ms)
+var _cmd_q := 0                  # 11/17 보낸 명령 번호 (서버가 상태의 ack 로 어디까지 처리했는지 알려 준다)
 var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'를 눌렀다 —— 서버가 알려 주기 전에도 바로 끈다
 
 
@@ -541,12 +543,16 @@ func _on_msg(d: Dictionary) -> void:
 				gs.close_sheet()
 				_show_lobby()
 		"state":
+			# 11/17 아직 처리 안 된 내 명령이 있으면(ack < 보낸 번호) 같은 단계의 옛 상태로 화면을 덮지 않는다 —— 연달아 조합할 때 되돌아갔다 다시 나타나
+			# 다시 누르게 되고(서버엔 실패로 쌓였다) 느리게 느껴졌다. 마지막 명령의 상태가 오면 그것으로 맞춘다 (옛 서버는 ack 가 없어 늘 덮는다)
+			var stale: bool = in_game and d.has("ack") and int(d.ack) < _cmd_q and int(d.room.get("stage_no", 0)) == _stage_no and Time.get_ticks_msec() - _cmd_t < 3000      # 3초가 지나면 서버를 믿는다 (명령이 안 닿은 경우)
 			room = d.room
-			var r := Run.new()
-			r.from_dict(d.run)
-			if in_game:
-				_unpin_claimed(gs.run, r)
-			gs.run = r
+			if not stale:
+				var r := Run.new()
+				r.from_dict(d.run)
+				if in_game:
+					_unpin_claimed(gs.run, r)
+				gs.run = r
 			stage_end = Room.now() + float(room.remain)
 			if int(room.get("stage_no", 0)) != _stage_no:
 				_stage_len = float(room.get("stage_len", room.remain))      # 새 단계 —— 길이 (옛 서버는 필드가 없어 지금 남은 시간)
@@ -684,7 +690,9 @@ func noon_end_band(line: String) -> void:
 
 
 func send_cmd(m: String, a: Array) -> void:
-	net.send({"t": "cmd", "m": m, "a": a})
+	_cmd_q += 1
+	_cmd_t = Time.get_ticks_msec()
+	net.send({"t": "cmd", "m": m, "a": a, "q": _cmd_q})
 
 
 ## '준비 완료' —— 지금 단계 번호를 실어 보낸다 (지난 단계의 준비가 다음 단계에 섞이지 않게)

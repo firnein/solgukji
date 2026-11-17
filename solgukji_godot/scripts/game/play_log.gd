@@ -176,7 +176,20 @@ static func battle_end_data(bt, res: Dictionary, view_len: float, inputs: Array,
 		if x is Array and x.size() > 2:
 			if str(x[2]) == "ult": ult += 1
 			else: cmd += 1
-	return {"kind": bt.kind if bt else "", "win": bool(res.win), "draw": bool(res.draw),
+	# 11/17 실제로 터진 고유기 · 군령 수 (A = 나) —— 온라인은 서버가 입력 없이 돌려 ult_inputs 가 늘 0 이라, 판도는 이것으로 본다
+	var fired := {"ult": {"A": 0, "B": 0}, "cmd": {"A": 0, "B": 0}}
+	for e in res.get("ev", []):
+		var fx = e.get("fx")
+		if fx == "ult":
+			var k := str(e.get("a", ""))
+			if k.begins_with("A") or k.begins_with("B"):
+				fired.ult[k[0]] += 1
+		elif fx == "cmd":
+			var cp := str(e.get("camp", ""))
+			if cp == "A" or cp == "B":
+				fired.cmd[cp] += 1
+	return {"ult_fired": fired.ult.A, "foe_ult_fired": fired.ult.B, "cmd_fired": fired.cmd.A, "foe_cmd_fired": fired.cmd.B,
+		"kind": bt.kind if bt else "", "win": bool(res.win), "draw": bool(res.draw),
 		"alive": int(res.left), "foe_alive": int(res.eLeft), "troops": left.A, "foe_troops": left.B,
 		"troops_max": mx.A, "foe_troops_max": mx.B,
 		"left_ratio": snappedf(float(left.A) / maxf(1.0, float(mx.A)), 0.001),

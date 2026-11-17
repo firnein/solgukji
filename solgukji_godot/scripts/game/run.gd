@@ -1457,7 +1457,7 @@ static func flip_res(res: Dictionary) -> Dictionary:
 	out.bForm = res.aForm
 	out.aSyn = _flip(res.bSyn)
 	out.bSyn = _flip(res.aSyn)
-	out.mvp = null
+	out.mvp = _camp_mvp(res.get("roster", []), "B")   # 11/17 뒤집은 쪽도 수훈을 보인다 (전엔 null —— B 자리 결과 화면 · 기록에 MVP 가 비었다)
 	if res.has("track"):          # 실시간 엔진 위치 —— 좌우를 바꾼다 (x → -x, 방향각 a → π - a)
 		out.track = res.track.map(func(fr): return [fr[0], fr[1].map(func(p): return [-p[0], p[1], snappedf(wrapf(PI - float(p[2]), -PI, PI), 0.01), p[3], p[4]])])
 		out.terrain = res.get("terrain", []).map(func(z): var o: Dictionary = z.duplicate(); o.x = -int(z.x); return o)
@@ -1470,6 +1470,20 @@ static func flip_res(res: Dictionary) -> Dictionary:
 					for point in sh.get("boundary", []):
 						point[0] = -point[0]
 	return out
+
+
+## battle.gd 결과의 mvp 와 같은 공적 공식 (피해 + 사기피해·회복 ×420 + 처치 ×3200) —— roster 의 camp 는 원본 기준
+static func _camp_mvp(roster: Array, camp: String):
+	var best = null
+	var bm := 0.0
+	for u in roster:
+		if str(u.get("camp", "")) != camp:
+			continue
+		var m := float(u.get("dmg", 0)) + float(u.get("mdmg", 0)) * 420.0 + float(u.get("heal", 0)) * 420.0 + float(u.get("kills", 0)) * 3200.0
+		if m > bm:
+			bm = m
+			best = {"name": u.name, "id": u.id, "kills": int(u.get("kills", 0)), "dmg": int(u.get("dmg", 0))}
+	return best
 
 
 static func _flip(v):

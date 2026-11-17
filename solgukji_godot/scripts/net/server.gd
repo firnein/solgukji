@@ -170,7 +170,7 @@ func _handle(id: int, d: Dictionary) -> void:
 		"cmd":
 			if rooms.has(p.room):
 				var a = d.get("a", [])
-				rooms[p.room].on_cmd(id, str(d.get("m", "")), a if a is Array else [])
+				rooms[p.room].on_cmd(id, str(d.get("m", "")), a if a is Array else [], int(d.get("q", -1)))
 		"ready":
 			if rooms.has(p.room):
 				rooms[p.room].on_ready(id, bool(d.get("on", true)), int(d.get("sno", -1)))

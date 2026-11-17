@@ -464,10 +464,12 @@ func can_cmd(i: int) -> bool:
 	return cmd_block(i, "forge") == "" or cmd_block(i, "place") == "" or cmd_block(i, "set_plan") == ""
 
 
-func on_cmd(peer: int, m: String, a: Array) -> void:
+func on_cmd(peer: int, m: String, a: Array, q := -1) -> void:
 	var i := seat_of(peer)
 	if i < 0:
 		return
+	if q >= 0:
+		seats[i]["ack"] = q      # 11/17 이 자리가 보낸 명령 번호 —— 상태에 실어 보내 휴대폰이 늦게 온 옛 상태로 화면을 되돌리지 않게
 	var why := cmd_block(i, m)
 	if why != "":
 		server.send(peer, {"t": "error", "msg": why})
@@ -1507,7 +1509,7 @@ func _mirror() -> void:
 func push(s: Dictionary) -> void:
 	if s.peer < 0:
 		return
-	server.send(s.peer, {"t": "state", "run": s.run.to_dict(), "room": info(seats.find(s))})
+	server.send(s.peer, {"t": "state", "run": s.run.to_dict(), "room": info(seats.find(s)), "ack": int(s.get("ack", -1))})
 
 
 func push_all() -> void:
