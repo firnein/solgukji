@@ -1389,7 +1389,7 @@ const SIG_LABEL := {
 	"no_pin": ["", ""], "charge_run": ["", ""], "shove": ["", ""], "chain": ["", ""], "undying": ["", ""], "morale_floor": ["", ""], "kite": ["", ""],
 	"hit_run": ["", ""], "blink": ["", ""], "stealth": ["", ""], "ambush": ["", ""], "rear_spawn": ["", ""], "truce": ["", ""], "mark": ["", ""], "trap": ["", ""],
 	"rain": ["", ""], "confuse_aura": ["", ""], "cleanse_aura": ["", ""],
-	"amp_low": ["병력이 꺾인 적에게 피해", "%"], "amp_cav": ["기병에게 피해", "%"], "amp_strong": ["더 센 적에게 피해", "%"], "amp_gen": ["장수 부대에게 피해", "%"],
+	"amp_low": ["병력이 꺾인 적에게 피해", "%"], "amp_cav": ["기병에게 피해", "%"], "amp_strong": ["더 센 적에게 피해", "%"], "amp_gen": ["고유기를 가진 적에게 피해", "%"],
 	"amp_rear": ["옆 · 뒤에서 칠 때 피해", "%"], "amp_open": ["첫 세 번 공격 피해", "%"], "amp_same": ["같은 적을 칠수록 피해 최대", "%"],
 	"amp_still": ["제자리에서 쏠 때 피해", "%"], "amp_come": ["다가오는 적에게 피해", "%"], "amp_drown": ["수몰 · 혼란한 적에게 피해", "%"],
 	"amp_allies": ["아군이 많이 남을수록 피해 최대", "%"], "amp_early": ["개전 초반 피해", "%"], "amp_late": ["싸움이 길어질수록 피해 최대", "%"],
@@ -2209,6 +2209,8 @@ func role_chip(k: String) -> Dictionary:
 					if ROLES.key.has(key):
 						e = ROLES.key[key]
 						break
+		if e != null and str(e[0]).begins_with("@"):      # @dmg · @tough —— 같은 일도 병종에 따라 부르는 말이 다르다 (근접 공격 · 원거리 공격 · 광역 책략 …)
+			e = (ROLES.get(str(e[0]).substr(1), {}) as Dictionary).get(str(c.tag))
 		if e == null:
 			e = ROLES.tag.get(str(c.tag))
 		if e != null and ROLES.cat.has(str(e[1])):

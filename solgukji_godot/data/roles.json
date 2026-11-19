@@ -1,5 +1,5 @@
 {
- "_설명": "11/19 장수 역할 한 줄 (사용자: 카드에 그 장수의 롤을 줄여 적는다 —— 조인 '아군 보호' · 주유 '광역 화공' · 화타 '병력 회복'). 정하는 순서: person[인물] → key[그 인물 개성(passives.json sig)의 첫 키] → tag[병종]. 값은 [글, 갈래]. 갈래(cat)는 색 · 기호. 병졸 카드(1~2급)는 적지 않는다. 글은 4자 안팎(띄어쓰기 한 번)",
+ "_설명": "11/19 장수 역할 한 줄 (사용자: 카드에 그 장수의 롤을 줄여 적는다 —— 조인 아군 보호 · 주유 광역 화공 · 화타 병력 회복). 사용자 2차: 결사 항전 · 함정 설치 같은 특기 이름풍은 와닿지 않는다 —— 전투에서 하는 일(누구에게 무엇을)로만 적는다. 정하는 순서: person[인물] → key[그 인물 개성(passives.json sig)의 첫 키] → tag[병종]. 값은 [글, 갈래]. 글이 @dmg(피해가 주 역할) · @tough(버티는 것이 주 역할)면 병종에 따라 dmg · tough 표에서 고른다. 갈래(cat)는 색 · 기호. 병졸 카드(1~2급)는 적지 않는다",
  "cat": {
   "guard": [
    "#3f7a52",
@@ -38,358 +38,438 @@
    "burst"
   ]
  },
+ "dmg": {
+  "창병": [
+   "근접 공격",
+   "strike"
+  ],
+  "기병": [
+   "돌격 공격",
+   "strike"
+  ],
+  "궁병": [
+   "원거리 공격",
+   "snipe"
+  ],
+  "도적": [
+   "후열 습격",
+   "raid"
+  ],
+  "책사": [
+   "광역 책략",
+   "aoe"
+  ],
+  "술사": [
+   "광역 책략",
+   "aoe"
+  ],
+  "모사": [
+   "책략 공격",
+   "aoe"
+  ],
+  "유생": [
+   "책략 공격",
+   "aoe"
+  ]
+ },
+ "tough": {
+  "창병": [
+   "전열 방어",
+   "guard"
+  ],
+  "기병": [
+   "버티기",
+   "guard"
+  ],
+  "궁병": [
+   "버티기",
+   "guard"
+  ],
+  "도적": [
+   "버티기",
+   "guard"
+  ],
+  "책사": [
+   "버티기",
+   "guard"
+  ],
+  "술사": [
+   "버티기",
+   "guard"
+  ],
+  "모사": [
+   "버티기",
+   "guard"
+  ],
+  "유생": [
+   "버티기",
+   "guard"
+  ]
+ },
  "key": {
   "taunt": [
    "아군 보호",
    "guard"
   ],
-  "counter_all": [
-   "포위 반격",
+  "seek_guard": [
+   "아군 보호",
    "guard"
+  ],
+  "def_aura": [
+   "아군 보호",
+   "guard"
+  ],
+  "ult_dr": [
+   "아군 보호",
+   "guard"
+  ],
+  "counter_all": [
+   "@tough",
+   ""
+  ],
+  "undying": [
+   "@tough",
+   ""
+  ],
+  "dr_still": [
+   "@tough",
+   ""
+  ],
+  "dr_link": [
+   "@tough",
+   ""
+  ],
+  "def": [
+   "@tough",
+   ""
+  ],
+  "fire_res": [
+   "@tough",
+   ""
+  ],
+  "flood_res": [
+   "@tough",
+   ""
+  ],
+  "dodge_big": [
+   "@tough",
+   ""
+  ],
+  "dr_early": [
+   "@tough",
+   ""
+  ],
+  "stres": [
+   "@tough",
+   ""
+  ],
+  "low_atk": [
+   "@dmg",
+   ""
+  ],
+  "enrage": [
+   "@dmg",
+   ""
+  ],
+  "amp_strong": [
+   "@dmg",
+   ""
+  ],
+  "amp_kill": [
+   "@dmg",
+   ""
+  ],
+  "atk": [
+   "@dmg",
+   ""
+  ],
+  "amp_allies": [
+   "@dmg",
+   ""
+  ],
+  "amp_late": [
+   "@dmg",
+   ""
+  ],
+  "amp_behind": [
+   "@dmg",
+   ""
+  ],
+  "ult_ret": [
+   "@dmg",
+   ""
+  ],
+  "kill_gauge": [
+   "@dmg",
+   ""
+  ],
+  "amp_guard": [
+   "@dmg",
+   ""
+  ],
+  "amp_last": [
+   "@dmg",
+   ""
+  ],
+  "charge_amp": [
+   "@dmg",
+   ""
+  ],
+  "spd": [
+   "@dmg",
+   ""
+  ],
+  "kite": [
+   "@dmg",
+   ""
+  ],
+  "no_pin": [
+   "@dmg",
+   ""
+  ],
+  "amp_still": [
+   "@dmg",
+   ""
+  ],
+  "amp_come": [
+   "@dmg",
+   ""
+  ],
+  "amp_far": [
+   "@dmg",
+   ""
+  ],
+  "rate": [
+   "@dmg",
+   ""
+  ],
+  "sk_amp": [
+   "@dmg",
+   ""
+  ],
+  "amp_drown": [
+   "@dmg",
+   ""
+  ],
+  "icleave": [
+   "@dmg",
+   ""
+  ],
+  "trap": [
+   "@dmg",
+   ""
+  ],
+  "amp_same": [
+   "집중 공격",
+   "strike"
+  ],
+  "cleave": [
+   "범위 공격",
+   "strike"
+  ],
+  "amp_open": [
+   "선제 공격",
+   "strike"
+  ],
+  "amp_early": [
+   "선제 공격",
+   "strike"
+  ],
+  "charge_run": [
+   "선제 공격",
+   "strike"
+  ],
+  "throw": [
+   "선제 공격",
+   "strike"
+  ],
+  "seek_low": [
+   "적 마무리",
+   "strike"
+  ],
+  "amp_low": [
+   "적 마무리",
+   "strike"
+  ],
+  "pierce_hit": [
+   "전열 돌파",
+   "strike"
   ],
   "shove": [
    "전열 돌파",
    "strike"
   ],
-  "undying": [
-   "불굴 버팀",
-   "guard"
-  ],
-  "low_atk": [
-   "결사 항전",
-   "strike"
-  ],
-  "seek_low": [
-   "잔적 처형",
-   "strike"
-  ],
-  "seek_guard": [
-   "아군 구원",
-   "guard"
-  ],
-  "roar": [
-   "사기 꺾기",
-   "hex"
-  ],
-  "amp_same": [
-   "일대일 압박",
-   "strike"
-  ],
-  "pierce_hit": [
-   "관통 돌파",
-   "strike"
-  ],
-  "enrage": [
-   "분노 반격",
-   "strike"
-  ],
-  "ally_calm": [
-   "패주 방지",
-   "buff"
-  ],
-  "dr_still": [
-   "거점 사수",
-   "guard"
-  ],
-  "dr_link": [
-   "방진 연결",
-   "guard"
-  ],
-  "amp_open": [
-   "선봉 돌격",
-   "strike"
-  ],
-  "throw": [
-   "선제 투척",
-   "strike"
-  ],
-  "fire_res": [
-   "화공 방비",
-   "guard"
-  ],
-  "cleave": [
-   "범위 타격",
-   "strike"
-  ],
-  "amp_strong": [
-   "강적 사냥",
-   "strike"
-  ],
-  "amp_last": [
-   "최후 보루",
-   "guard"
-  ],
   "chain": [
-   "연속 돌격",
+   "전열 돌파",
    "strike"
   ],
   "hit_run": [
    "치고 빠지기",
    "raid"
   ],
-  "amp_early": [
-   "초반 압박",
-   "strike"
-  ],
-  "amp_kill": [
-   "격파 기세",
-   "strike"
-  ],
   "seek_back": [
-   "후방 침투",
+   "후열 습격",
    "raid"
   ],
   "amp_rear": [
-   "측후 기습",
+   "후열 습격",
    "raid"
   ],
-  "cav_aura": [
-   "기병 강화",
-   "buff"
+  "stealth": [
+   "후열 습격",
+   "raid"
   ],
-  "morale_on": [
-   "사기 꺾기",
-   "hex"
+  "ambush": [
+   "후열 습격",
+   "raid"
   ],
-  "amp_allies": [
-   "대군 위세",
-   "strike"
+  "rear_spawn": [
+   "후열 습격",
+   "raid"
+  ],
+  "blink": [
+   "후열 습격",
+   "raid"
   ],
   "seek_cav": [
    "기병 견제",
    "strike"
   ],
-  "spd": [
-   "신속 기동",
-   "raid"
-  ],
-  "bind": [
-   "적 포박",
-   "hex"
-  ],
-  "charge_amp": [
-   "강습 돌격",
+  "amp_cav": [
+   "기병 견제",
    "strike"
-  ],
-  "charge_run": [
-   "즉시 돌격",
-   "strike"
-  ],
-  "def": [
-   "중장 방어",
-   "guard"
-  ],
-  "regen": [
-   "자체 회복",
-   "heal"
-  ],
-  "flood_res": [
-   "수공 방비",
-   "guard"
   ],
   "seek_gen": [
    "장수 저격",
    "snipe"
   ],
-  "kite": [
-   "후퇴 사격",
+  "amp_gen": [
+   "장수 저격",
    "snipe"
   ],
-  "no_pin": [
-   "근접 사격",
-   "snipe"
+  "spread": [
+   "광역 화공",
+   "fire"
   ],
   "ignite": [
-   "화시 사격",
+   "화공 공격",
    "fire"
   ],
   "fire_amp": [
-   "화공 강화",
+   "화공 공격",
    "fire"
   ],
-  "amp_still": [
-   "거점 사격",
-   "snipe"
-  ],
   "bleed_on": [
-   "지속 출혈",
+   "지속 피해",
+   "hex"
+  ],
+  "atk_down": [
+   "적 약화",
    "hex"
   ],
   "slow_on": [
    "적 둔화",
    "hex"
   ],
-  "amp_come": [
-   "길목 요격",
-   "snipe"
-  ],
-  "stealth": [
-   "은신 기습",
-   "raid"
-  ],
-  "ambush": [
-   "측면 매복",
-   "raid"
-  ],
-  "gauge_on": [
-   "고유기 견제",
-   "hex"
-  ],
-  "kill_gauge": [
-   "격파 충전",
-   "strike"
-  ],
-  "atk": [
-   "광폭 공격",
-   "strike"
-  ],
-  "spd_aura": [
-   "아군 가속",
-   "buff"
-  ],
-  "spread": [
-   "광역 화공",
-   "fire"
-  ],
-  "amp_drown": [
-   "약점 추격",
-   "aoe"
-  ],
-  "confuse_aura": [
-   "혼란 유발",
-   "hex"
-  ],
-  "ult_dr": [
-   "고유기 방어",
-   "buff"
-  ],
-  "amp_guard": [
-   "방진 파쇄",
-   "strike"
-  ],
-  "rate": [
-   "속사 책략",
-   "aoe"
-  ],
-  "sk_amp": [
-   "책략 강화",
-   "aoe"
-  ],
-  "morale_floor": [
-   "사기 유지",
-   "buff"
-  ],
   "quake": [
    "적 둔화",
    "hex"
   ],
-  "icleave": [
-   "범위 책략",
-   "aoe"
+  "bind": [
+   "적 발묶기",
+   "hex"
+  ],
+  "confuse_aura": [
+   "적 혼란",
+   "hex"
+  ],
+  "sow": [
+   "적 혼란",
+   "hex"
+  ],
+  "truce": [
+   "적 무력화",
+   "hex"
+  ],
+  "roar": [
+   "사기 저하",
+   "hex"
+  ],
+  "morale_on": [
+   "사기 저하",
+   "hex"
+  ],
+  "gauge_on": [
+   "고유기 방해",
+   "hex"
   ],
   "starve": [
    "회복 차단",
    "hex"
   ],
-  "cheer_aura": [
-   "사기 고양",
-   "buff"
-  ],
-  "blink": [
-   "홀연 회피",
-   "raid"
+  "give_troops": [
+   "병력 회복",
+   "heal"
   ],
   "rain": [
-   "회복 지원",
+   "병력 회복",
+   "heal"
+  ],
+  "regen": [
+   "자가 회복",
+   "heal"
+  ],
+  "absorb": [
+   "자가 회복",
    "heal"
   ],
   "cleanse_aura": [
-   "상태 정화",
+   "상태 해제",
    "heal"
+  ],
+  "cav_aura": [
+   "아군 강화",
+   "buff"
   ],
   "caster_aura": [
-   "책략 강화",
+   "아군 강화",
    "buff"
   ],
-  "dodge_big": [
-   "위기 회피",
-   "guard"
-  ],
-  "dr_early": [
-   "초반 방어",
-   "guard"
-  ],
-  "amp_gen": [
-   "장수 저격",
-   "snipe"
-  ],
-  "sow": [
-   "혼란 유발",
-   "hex"
-  ],
-  "amp_late": [
-   "후반 강세",
-   "strike"
-  ],
-  "ult_ret": [
-   "고유기 반격",
-   "strike"
-  ],
-  "amp_behind": [
-   "열세 역전",
-   "strike"
-  ],
-  "rear_spawn": [
-   "배후 기습",
-   "raid"
-  ],
-  "trap": [
-   "함정 설치",
-   "hex"
-  ],
-  "stres": [
-   "상태 저항",
-   "guard"
-  ],
-  "absorb": [
-   "병력 흡수",
-   "heal"
-  ],
-  "gauge_aura": [
-   "고유기 가속",
-   "buff"
-  ],
-  "def_aura": [
-   "방어 지원",
+  "tier_aura": [
+   "아군 강화",
    "buff"
   ],
   "boost_best": [
-   "주력 강화",
+   "아군 강화",
+   "buff"
+  ],
+  "spd_aura": [
+   "아군 강화",
    "buff"
   ],
   "mark": [
-   "집중 지목",
+   "아군 강화",
    "buff"
   ],
-  "give_troops": [
-   "병력 보급",
-   "heal"
+  "cheer_aura": [
+   "사기 지원",
+   "buff"
   ],
-  "atk_down": [
-   "공격 약화",
-   "hex"
+  "ally_calm": [
+   "사기 지원",
+   "buff"
   ],
-  "tier_aura": [
-   "정예 강화",
+  "morale_floor": [
+   "사기 지원",
    "buff"
   ],
   "morale": [
-   "사기 진작",
+   "사기 지원",
    "buff"
   ],
-  "truce": [
-   "교전 중지",
-   "hex"
+  "gauge_aura": [
+   "고유기 지원",
+   "buff"
   ]
  },
  "person": {
@@ -398,55 +478,47 @@
    "heal"
   ],
   "장로": [
-   "회복 지원",
+   "병력 회복",
    "heal"
   ],
   "유비": [
-   "전군 회복",
+   "병력 회복",
    "heal"
   ],
   "우길": [
-   "회복 지원",
+   "병력 회복",
    "heal"
   ],
   "방통": [
-   "연환 화공",
+   "광역 화공",
    "fire"
   ],
   "장각": [
-   "광역 낙뢰",
+   "광역 책략",
    "aoe"
   ],
   "조조": [
-   "전군 강화",
+   "아군 강화",
    "buff"
   ],
   "초선": [
-   "혼란 유발",
+   "적 혼란",
    "hex"
   ],
-  "강유": [
-   "근접 책략",
-   "aoe"
+  "좌자": [
+   "적 혼란",
+   "hex"
   ],
   "손권": [
-   "엄호 사격",
-   "snipe"
-  ],
-  "장임": [
-   "매복 사격",
-   "snipe"
+   "아군 강화",
+   "buff"
   ],
   "황조": [
-   "일제 사격",
-   "snipe"
-  ],
-  "마충": [
-   "기병 저격",
+   "범위 공격",
    "snipe"
   ],
   "황월영": [
-   "속사 연노",
+   "원거리 공격",
    "snipe"
   ],
   "동소": [
@@ -454,24 +526,16 @@
    "hex"
   ],
   "전풍": [
-   "상태 정화",
+   "상태 해제",
    "heal"
   ],
-  "주건평": [
-   "장수 저격",
-   "aoe"
+  "전위": [
+   "전열 방어",
+   "guard"
   ],
-  "제갈각": [
-   "초반 책략",
-   "aoe"
-  ],
-  "원술": [
-   "초반 강세",
-   "buff"
-  ],
-  "종회": [
-   "대군 책략",
-   "aoe"
+  "주태": [
+   "전열 방어",
+   "guard"
   ]
  },
  "tag": {
@@ -480,28 +544,28 @@
    "guard"
   ],
   "기병": [
-   "기동 돌격",
+   "돌격 공격",
    "strike"
   ],
   "궁병": [
-   "후열 사격",
+   "원거리 공격",
    "snipe"
   ],
   "도적": [
-   "후방 교란",
+   "후열 습격",
    "raid"
   ],
   "책사": [
-   "범위 책략",
+   "광역 책략",
    "aoe"
   ],
   "술사": [
-   "상태 이상",
+   "적 약화",
    "hex"
   ],
   "모사": [
-   "계략 지원",
-   "hex"
+   "책략 공격",
+   "aoe"
   ],
   "유생": [
    "병력 회복",
