@@ -24,6 +24,7 @@ const HAND_TILE := Vector2(56, 80)     # 보유 카드 격자 한 칸 (최소 �
 
 
 func build() -> Control:
+	_gear_rows = -1
 	var run: Run = gs.run
 	var f: Dictionary = DB.FORM[run.form]
 	_links = DB.inyeon_links(run.board)
@@ -221,6 +222,19 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 # ───────── 인연 (11/11) ─────────
 
 ## 칸 i 의 카드가 든 이어진 인연 수 (0 = 없음)
+## 11/20 편성판에서 아이템을 가장 많이 낀 칸의 아이템 수 (1 · 2) —— 모든 칸이 같은 줄 수를 잡아 초상 · 이름 높이가 맞는다. build() 마다 다시 센다
+var _gear_rows := -1
+func gear_rows() -> int:
+	if _gear_rows < 0:
+		_gear_rows = 1
+		var run: Run = gs.run
+		for i in run.board.size():
+			if run.board[i] != null and run.gear_of_slot(i).filter(func(x): return x != null).size() >= 2:
+				_gear_rows = 2
+				break
+	return _gear_rows
+
+
 func slot_link_lv(i: int) -> int:
 	var k = gs.run.board[i]
 	if k == null or not DB.inyeon_card(k):
@@ -783,20 +797,26 @@ class SlotBox extends Control:
 	func _draw_narrow(k: String, c: Dictionary, z: String, run: Run) -> void:
 		var fb := DB.font_body
 		var gear: Array = run.gear_of_slot(slot).filter(func(x): return x != null)
-		# 11/20 폴리싱: 아이템 수(0 · 1 · 2)에 따라 초상 높이가 달라 같은 줄 칸끼리 초상 · 이름 높이가 12px 씩 어긋났다 —— 칸이 넉넉하면(104 이상) 늘 두 줄 자리를 잡아 둔다
-		var rows := 2 if size.y >= 104.0 else maxi(1, gear.size())      # 11/15 아이템마다 한 줄 (둘이면 두 줄)
+		# 11/20 폴리싱: 아이템 수(0 · 1 · 2)에 따라 초상 높이가 달라 같은 줄 칸끼리 초상 · 이름 높이가 12px 씩 어긋났다 —— 칸이 넉넉하면(104 이상) 모든 칸이 같은 줄 수(편성판에서 가장 많이 낀 칸 기준, DeployPage.gear_rows)를 잡는다
+		var rows: int = page.gear_rows() if size.y >= 104.0 else maxi(1, gear.size())      # 11/15 아이템마다 한 줄 (둘이면 두 줄)
 		var ith := GEAR_LH * rows
 		var txt_h := 29.0
+		# 11/20 역할 칩 —— 초상 위에 얹으면 턱이 가려 글 영역에 한 줄로: 초상 / 역할 / 이름 / 병종 · 병력 (다른 타일과 같은 "이름 바로 위". 이름 아래에 두는 안과 캡처로 견줘 골랐다)
+		# 넣고도 초상이 30 이상일 때만, 병졸 칸도 같은 자리를 비워 높이를 맞춘다. 칩 + 병력을 한 줄로 합치는 안은 칸 폭 60 에 들어가지 않는다 (칩 37 + "8,500" 25 > 55)
+		var role_row := size.y - 8 - ith - txt_h - ROLE_LH >= 30.0
+		if role_row:
+			txt_h += ROLE_LH
 		var ph := maxf(16.0, size.y - 8 - ith - txt_h)
 		var pw := minf(size.x - 8, ph * 1.05)
 		var pr := Rect2((size.x - pw) / 2, 4, pw, ph)
 		Art.draw_portrait(self, pr, k)
-		if ph >= 46.0:      # 11/20 역할 칩 —— 다른 타일처럼 초상 아래 폭 전체 (초상이 낮은 칸에서는 얼굴을 가려 뺀다)
-			CardTile.draw_role_chip(self, k, Vector2(pr.position.x, pr.end.y - 15), UI.FS_TINY, pr.size.x, true)
 		var nm := _short(k, c)
 		var tf := DB.tier_font(c.tier, UI.FS_BODY)
 		var fs := UI.fit_fs(tf, nm, UI.FS_BODY, UI.FS_TINY, size.x - 6)
 		var y := pr.end.y + 14      # 11/20 13 → 14: 이름 윗머리가 초상 아랫변에 닿았다
+		if role_row:
+			CardTile.draw_role_chip(self, k, Vector2(3, pr.end.y + 2), UI.FS_TINY, size.x - 6, true)
+			y += ROLE_LH
 		draw_string(tf, Vector2(3, y), nm, HORIZONTAL_ALIGNMENT_CENTER, size.x - 6, fs, DB.tier_color(k).lightened(0.2))
 		var info := "%s %s" % [c.tag, Battle.num(c.tr)]
 		var ifs := UI.fit_fs(fb, info, UI.FS_CAP, UI.FS_TINY, size.x - 4)
@@ -809,6 +829,7 @@ class SlotBox extends Control:
 	## 11/15 사용자: "편성 장착 아이템 텍스트 짤림" —— 좁은 칸에서는 양 끝 네모 사이 한 줄에 「이름+1」을 넣느라 다섯 글자 이름이 … 으로 잘렸다.
 	## 아이템마다 한 줄씩 칸 폭 전체에 (무기 위 · 갑옷 아래, 등급색). 그래도 넘치면 글씨를 한 단계씩 줄이고(8 까지) 마지막에만 …
 	const GEAR_LH := 12.0
+	const ROLE_LH := 17.0      # 역할 칩 한 줄 (칩 15 + 틈 2)
 	func _draw_gear_rows(gear: Array, bottom: float) -> void:
 		var w := size.x - 4.0
 		var y := bottom - GEAR_LH * (gear.size() - 1)

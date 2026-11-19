@@ -45,7 +45,7 @@ func _ready() -> void:
 
 
 func _gui_input(e: InputEvent) -> void:
-	if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed and t > 0.6:
+	if (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT or e is InputEventScreenTouch) and e.pressed and t > 0.6:      # 11/20 조작: 휠 · 오른쪽 버튼에는 닫히지 않게 (왼쪽 버튼 · 터치만)
 		accept_event()
 		_close()
 

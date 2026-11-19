@@ -43,7 +43,7 @@ func _process(_dt: float) -> void:
 
 
 func _gui_input(e: InputEvent) -> void:
-	if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed:
+	if (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT or e is InputEventScreenTouch) and e.pressed:      # 11/20 조작: 휠 · 오른쪽 버튼에는 넘어가지 않게
 		accept_event()
 		_finish()
 

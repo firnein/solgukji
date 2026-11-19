@@ -2380,7 +2380,13 @@ func from_dict(d: Dictionary) -> void:
 	tour = null      # 옛 저장의 토너먼트는 버린다 (11/12 최후 1인) —— 7일차 저녁의 대전부터 이어 간다
 
 
+## 11/20 점검 실행(--gnew 등 점검 인자)은 사용자 저장을 쓰지 않는다 —— 점검을 돌릴 때마다 save.json · pins.json 이 덮여
+## 백업 · 복구를 손으로 해야 했고, 사용자가 게임을 켜 둔 채면 그 판의 저장을 덮을 수 있었다 (GameScreen 이 켠다)
+static var dev_nosave := false
+
 func save() -> void:
+	if dev_nosave:
+		return
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(to_dict(), "", false, true))     # 키 순서 그대로 · 실수를 다 살린다 —— 아니면 불러온 판이 갈라진다

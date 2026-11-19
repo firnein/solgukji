@@ -29,7 +29,7 @@ const COACH_STEPS := [
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const STAT_ICON := 22.0       # 능력치 아이콘(칼 · 방패 · 신발) 크기 —— 14 아래로는 선이 뭉개진다 (11/9)
 const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만
-const TOP_H := 58.0          # 11/7 사용자: DAY 네비게이터 축소 (66 → 58)
+const TOP_H := 68.0          # 11/7 사용자: DAY 네비게이터 축소 (66 → 58). 11/20 상수를 실제 높이에 맞춘다 —— 오른쪽 칸 세 줄(군량 19 + 민심 24 + 플레이타임 17) + 여백 8 = 68, 58 은 한 번도 지켜진 적이 없었다
 const TAB_H := 62.0
 
 var run: Run
@@ -1148,6 +1148,7 @@ func toast(text: String, kind := "") -> void:
 			items.append(cut[1])
 			var unit := "장" if cut[0].ends_with("보급") else "건"
 			(c.get_meta("lbl") as Label).text = UI.keep_words("%s %d%s —— %s" % [cut[0], items.size(), unit, " · ".join(items)])
+			_toast_fit.call_deferred(c.get_meta("lbl"))
 			_toast_play(c)
 			return
 	var p := PanelContainer.new()
@@ -1160,6 +1161,10 @@ func toast(text: String, kind := "") -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.max_lines_visible = 2
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# 11/20 줄바꿈 + 줄임표를 같이 켠 Label 은 최소 높이가 1 이다 (Godot) —— 11/14 부터 알림이 글자 없이 빈 상자(높이 25)로만 떴다.
+	# 한 줄 자리를 먼저 잡고, 폭이 정해지면 줄 수(최대 2)만큼 높이를 잡는다 (_toast_fit)
+	l.custom_minimum_size.y = UI.FS_BODY + 6.0
+	l.resized.connect(_toast_fit.bind(l))
 	p.add_child(l)
 	p.set_meta("grp", grp)
 	p.set_meta("items", [cut[1]] if grp != "" else [])
@@ -1169,6 +1174,21 @@ func toast(text: String, kind := "") -> void:
 		_toast_box.get_child(0).free()
 	p.modulate.a = 0.0
 	_toast_play(p)
+
+
+## 알림 글의 높이 —— 지금 폭에서 줄 수(최대 2)만큼
+func _toast_fit(l) -> void:      # 형을 적지 않는다 —— 미뤄 부른 사이 알림이 지워졌으면 지워진 객체가 온다
+	if not is_instance_valid(l) or not (l is Label):
+		return
+	var lb: Label = l
+	if lb.size.x < 40.0:      # 아직 폭이 안 정해졌다
+		return
+	var brk := TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND | TextServer.BREAK_ADAPTIVE
+	var f := lb.get_theme_font("font")      # 글꼴로 줄 수만 센다 (Label 의 줄 수 · 줄 높이는 높이가 모자란 동안 믿을 수 없다)
+	var n := clampi(roundi(f.get_multiline_string_size(lb.text, HORIZONTAL_ALIGNMENT_LEFT, lb.size.x, UI.FS_BODY, 2, brk).y / maxf(1.0, f.get_height(UI.FS_BODY))), 1, 2)
+	var hh: float = n * lb.get_line_height() + (n - 1) * lb.get_theme_constant("line_spacing")
+	if absf(lb.custom_minimum_size.y - hh) > 0.5:
+		lb.custom_minimum_size.y = hh
 
 
 ## 알림 보이기 → 2.6초 → 사라짐. 묶여서 글이 바뀐 알림은 처음부터 다시 센다
@@ -1895,7 +1915,7 @@ func recipe_sheet(out: String) -> void:
 			rv.add_child(UI.hair())
 			rv.add_child(_ability_panel([ti], 12, false, true, open_detail, false))
 	tp.add_child(rv)
-	b.add_child(UI.panel(tp, 10))
+	b.add_child(tp)      # 11/20 시트와 같은 색 상자(여백 10)에 싸여 초상만 10 들여 쓴 것처럼 보였다 —— 상자를 걷어 디테일창과 같은 왼끝
 	if not chips.is_empty():
 		b.add_child(_ability_panel(chips, 12, false, true, open_detail))
 		b.add_child(UI.hint("자세한 설명은 상세(디테일창)에서 보세요"))
@@ -2044,8 +2064,9 @@ func _page_draw() -> Control:
 	_hand_done(inner, by, p, hand_tile)
 	if by.keys().all(func(x): return x is int and x <= 1):      # 11/14 감사 #2: 장수(일반 위)가 하나도 없으면 빈 상태 카드
 		inner.add_child(_draw_empty())
-	# 전설 6열 84 · 희귀 6열 80 · 고급 · 일반 7열 72 —— 지금처럼 등급마다 한 묶음 (기인은 위 [초월 | 기인] 줄로 올라갔다. 폭 56 아래는 작은 칸 그리기)
-	for grp in [[[5], 6, 84.0], [[4], 6, 80.0], [[3, 2], 7, 72.0]]:
+	# 전설 6열 96 · 희귀 6열 80 · 고급 · 일반 7열 72 —— 지금처럼 등급마다 한 묶음 (기인은 위 [초월 | 기인] 줄로 올라갔다. 폭 56 아래는 작은 칸 그리기)
+	# 11/20 전설 칸 높이 84 → 96 (지휘 결정 —— 한 화면에 들어가는 줄 수가 줄어드는 것은 감수)
+	for grp in [[[5], 6, 96.0], [[4], 6, 80.0], [[3, 2], 7, 72.0]]:
 		var g := UI.grid(30, 6)
 		g.max_cols = grp[1]
 		for t in grp[0]:
@@ -2589,7 +2610,7 @@ func _shop_sheet(got := []) -> void:
 		row.add_child(nm)
 		var bb := _buy_btn("구매", price, func():
 			if act("buy", [tt]) != null:
-				_shop_sheet())
+				_shop_sheet(), false)
 		bb.custom_minimum_size.x = maxf(bb.custom_minimum_size.x, 120)
 		row.add_child(bb)
 		b.add_child(UI.panel(row, 8))
@@ -2621,7 +2642,7 @@ func _gacha_block(b: VBoxContainer, got: Array) -> void:
 			var r = act("gacha", [nn])
 			if r != null:
 				_shop_sheet(r)
-				_gacha_fx(r))
+				_gacha_fx(r), nn == 1)      # 11/20 금색 주 버튼은 「1회 뽑기」 하나만
 		gb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(gb)
 		if run.grain < cost:
@@ -2642,8 +2663,11 @@ func _gacha_block(b: VBoxContainer, got: Array) -> void:
 
 ## 상점 구매 버튼 (11/14 감사 #4) —— 어디서나 같은 모양: 주 버튼 안에 [글자 · 쌀가마 값]. 군량이 모자라거나 지금 못 사면 흐린 비활성
 ##   (예전엔 살 수 있는 쪽만 금 테두리 · 못 사는 쪽은 남색이라 [1회][10회]가 고르기 토글처럼 보였다)
-func _buy_btn(pre: String, cost: int, cb: Callable) -> Button:
-	var b := UI.grain_btn(pre, str(cost), cb, "pri", UI.BH_M)
+## 11/20 UI 다듬기 2차: 금색 주 버튼이 한 화면에 다섯(1회 · 10회 · 구매 넷)이라 위계가 없었다 —— main 인 것(1회 뽑기)만 금, 나머지는 보조(먹색 면 + 얇은 선). 값의 금색 쌀가마는 그대로
+func _buy_btn(pre: String, cost: int, cb: Callable, main := true) -> Button:
+	var b := UI.grain_btn(pre, str(cost), cb, "pri" if main else "", UI.BH_M)
+	if not main:
+		UI.btn_styles(b, UI.flat(DB.PAL.ink3, Color(DB.PAL.paper, 0.22), 1, UI.R, 10), UI.flat(DB.PAL.ink4, Color(DB.PAL.paper, 0.35), 1, UI.R, 10), UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 10))
 	b.disabled = run.grain < cost or not can_act()
 	if b.disabled:      # 비활성 —— 버튼 모양(먹 바탕 + 얇은 선)은 남기고 안의 글자 · 값만 흐리게
 		b.add_theme_stylebox_override("disabled", UI.flat(DB.PAL.ink2, Color(DB.PAL.paper, 0.16), 1, UI.R, 10))
@@ -3199,7 +3223,7 @@ func _with_role(portrait: Control, k: String) -> Control:
 	return v
 
 
-## 11/19 장수 역할 칩 (디테일창 · 갈무리창) —— 카드에 그리는 것(CardTile.draw_role_chip)과 같은 알약을 한 줄 컨트롤로
+## 11/19 장수 역할 칩 (디테일창 · 갈무리창) —— 카드에 그리는 것(CardTile.draw_role_chip)과 같은 칩(모서리 UI.R)을 한 줄 컨트롤로
 class RoleChip extends Control:
 	const FS := 12
 	var k := ""
@@ -4885,6 +4909,10 @@ func _dev_args() -> void:
 	if a.has("gq"):
 		Settings.quality = int(a.gq)
 		Settings.apply()
+	for dk in a:      # 11/20 점검 인자(--g…)가 하나라도 있으면 사용자 저장(save.json · pins.json)을 쓰지 않는다
+		if str(dk).begins_with("g"):
+			Run.dev_nosave = true
+			break
 	if a.has("gnew"):
 		PlayLog.enabled = false        # 점검 실행은 플레이 기록에 섞지 않는다
 		Run.dev_immortal = true        # 11/5 사용자: 자동 진행은 멸망하지 않는다
@@ -5322,25 +5350,38 @@ func _dev_args() -> void:
 		if a.has("scroll"):
 			_scroll.scroll_vertical = int(a.scroll)
 			await get_tree().process_frame
+		if a.has("gsscroll"):      # 점검용 —— 열린 시트를 이 위치까지 내린다 (긴 시트의 아래쪽: 온라인 방 목록 · 디테일창 조합법, 11/20)
+			_sheet_scroll.scroll_vertical = int(a.gsscroll)
+			await get_tree().process_frame
 		if a.has("ghand") and is_instance_valid(_hand_scroll):      # 점검용 —— 징집 보유 목록을 이 위치까지 내린다 (큰 수면 맨 아래, 11/7)
 			_hand_scroll.scroll_vertical = int(a.ghand)
 			await get_tree().process_frame
 		if a.has("ghover"):      # 점검용 —— --ghover=x,y (논리 좌표) : 그 자리에 마우스를 올린 모양으로 찍는다. x,y,p 면 누른 채로 (11/20 버튼 올림 · 눌림 모양 점검)
+			# 그 자리의 버튼 크기를 평소 → 올림(→ 눌림) 순서로 한 줄 찍는다 (크기가 바뀌면 줄이 밀린다는 뜻)
 			var hp_: PackedStringArray = str(a.ghover).split(",")
 			var hpos := Vector2(float(hp_[0]), float(hp_[1]))
+			var hb_: Button = _btn_at(self, hpos)
+			var hlog := "ghover %s 「%s」 평소 %s" % [str(hpos), hb_.text if hb_ != null else "(버튼 없음)", str(hb_.size) if hb_ != null else "-"]
 			var mm := InputEventMouseMotion.new()
 			mm.position = hpos
 			mm.global_position = hpos
-			get_viewport().push_input(mm)
+			get_viewport().push_input(mm, true)
+			for i in 4:
+				await get_tree().process_frame
+			if hb_ != null:
+				hlog += " · 올림 %s(상태 %d)" % [str(hb_.size), hb_.get_draw_mode()]
 			if hp_.size() > 2:
 				var mb_ := InputEventMouseButton.new()
 				mb_.button_index = MOUSE_BUTTON_LEFT
 				mb_.pressed = true
 				mb_.position = hpos
 				mb_.global_position = hpos
-				get_viewport().push_input(mb_)
-			for i in 4:
-				await get_tree().process_frame
+				get_viewport().push_input(mb_, true)
+				for i in 12:      # TouchButton 눌림 줄어듦(0.05초)이 끝난 뒤
+					await get_tree().process_frame
+				if hb_ != null:
+					hlog += " · 눌림 %s(상태 %d · 배율 %.2f)" % [str(hb_.size), hb_.get_draw_mode(), hb_.scale.x]
+			print(hlog)
 		# --frames=N --every=초 —— 연속 장면을 경로_0.png, 경로_1.png … 로
 		var nf := int(a.get("frames", "1"))
 		for i in nf:
@@ -5541,6 +5582,21 @@ func _find_btn(n: Node, text: String) -> Button:
 		var r := _find_btn(c, text)
 		if r != null:
 			return r
+	return null
+
+
+## 점검용 —— 그 자리(논리 좌표)에서 맨 위에 그려지는 보이는 버튼 (--ghover)
+func _btn_at(n: Node, pos: Vector2) -> Button:
+	var cs := n.get_children()
+	for i in range(cs.size() - 1, -1, -1):
+		var c: Node = cs[i]
+		if c is CanvasItem and not c.visible:
+			continue
+		var r := _btn_at(c, pos)
+		if r != null:
+			return r
+		if c is Button and c.get_global_rect().has_point(pos):
+			return c
 	return null
 
 

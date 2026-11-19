@@ -73,7 +73,7 @@ func _layout() -> void:
 
 ## 연출 중에 누르면 바로 요약으로
 func _gui_input(ev: InputEvent) -> void:
-	var press: bool = (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed)
+	var press: bool = (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT) or (ev is InputEventScreenTouch and ev.pressed)      # 11/20 조작: 휠 · 오른쪽 버튼은 빼고
 	if press and t < _sum_at:
 		t = _sum_at
 		_cue_all()

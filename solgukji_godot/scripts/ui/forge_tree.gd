@@ -47,6 +47,8 @@ func _init(g: GameScreen) -> void:
 
 
 func _save() -> void:
+	if Run.dev_nosave:      # 11/20 점검 실행은 사용자 갈무리(pins.json)를 덮지 않는다
+		return
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify({"game": game, "pins": pins, "morder": morder}))

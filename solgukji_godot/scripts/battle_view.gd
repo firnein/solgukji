@@ -3075,6 +3075,7 @@ class Hud extends Control:
 	var _brush := PackedVector2Array()
 
 	func ult_cutin(sq: Squad, nm: String, shout: String, crisis := false, desc := "", mates := [], inyeon := "") -> void:
+		_say_lay.clear()      # 말풍선 글 맞춤은 컷인마다 다시 (11/20 2차)
 		cut = {"k": sq.cid, "who": sq.row.name, "name": nm, "shout": shout, "camp": sq.camp, "crisis": crisis,
 			"col": DB.tier_color(sq.cid), "t": 0.0, "desc": desc, "mates": mates, "inyeon": inyeon, "pop": [false, false, false], "land": [false, false, false]}
 		# 붓질 띠의 거친 가장자리 —— 매번 조금씩 다르게
@@ -3106,12 +3107,13 @@ class Hud extends Control:
 		_flash_t += dt
 		_fin_tick(dt)
 		decisive_age += dt
-		if mrout != null:
+		# 11/20 2차: 컷인 동안은 알림 · 사기 붕괴 글을 그리지 않는다 —— 그동안 시계도 멈춰, 컷인이 걷힌 뒤에 제 시간만큼 보인다
+		if mrout != null and cut == null:
 			mrout.age += dt
 			mrout.t += dt
 			if mrout.t > MROUT_LIFE:
 				mrout = null
-		if ann:
+		if ann and cut == null:
 			ann.t += dt
 			if ann.t > 1.8:
 				ann = null
@@ -3226,6 +3228,8 @@ class Hud extends Control:
 					_threat_seen["h" + sq.key] = view.clock
 				pass      # 11/14 UI 4단계: 「○○ 위태롭다」 칸은 적 부대를 가렸다 —— 아래 장수 칸 테두리가 깜빡이는 것으로 대신 (적 고유기 준비 칸은 남긴다)
 		var y := maxf(104.0, 66.0 + 46.0 * _charge_rows + 32.0 * _join_rows)      # 11/20 폴리싱: 기 모으기 줄 · 인연 합류 줄이 떠 있으면 그 아래로 —— 합류 줄 오른쪽 끝과 겹쳐 글씨가 가렸다
+		if _chip_keys.size() >= 2:      # 11/20 2차: 둘째 짝의 합류 초상 칩은 화면 오른쪽에 선다(_draw_join_chip) —— 이 칸과 같은 자리라 그 아래로
+			y += YEON_CHIP.y * (YEON_MATE3_SCALE if _chip_keys.size() >= 3 else 1.0) + 12.0
 		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
 		for it in items.slice(0, 1 if Type2View.painting_on() else 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
@@ -3461,13 +3465,15 @@ class Hud extends Control:
 		if text == "" or u <= 0.0:
 			return
 		var fb := DB.font_bold
-		var fs := 16
-		var w := fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 24.0
-		var room := maxf(xmax - xmin, 150.0)      # 11/12 서사 멘트는 길 수 있다 —— 상자 자리보다 길면 글자를 줄여(최소 12) 맞춘다
-		if w > room:
-			fs = clampi(int(float(fs) * (room - 24.0) / (w - 24.0)), 12, 16)
-			w = fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 24.0
-		var h := 30.0
+		var lay = _say_lay.get(text)      # [글 크기, 줄들, 상자 폭] —— 컷인마다 한 번만 잰다 (ult_cutin 이 비운다)
+		if lay == null:
+			lay = _say_fit(text, xmax - xmin)
+			_say_lay[text] = lay
+		var fs: int = lay[0]
+		var lines: Array = lay[1]
+		var w: float = lay[2]
+		var lh := float(fs) * 1.2
+		var h := 30.0 + lh * (lines.size() - 1)
 		var sc: float = Tween.interpolate_value(0.3, 0.7, minf(u, YEON_SAY_POP), YEON_SAY_POP, Tween.TRANS_BACK, Tween.EASE_OUT)
 		var a := fade * clampf(u / 0.05, 0.0, 1.0)
 		var bx := clampf(clampf(tip.x - w / 2.0, xmin, maxf(xmin, xmax - w)), 6.0, size.x - 6.0 - w) - tip.x      # 자리가 좁으면 대표 초상 쪽으로 조금 겹치되 화면 밖으로는 안 나간다 (tip 기준 상대 좌표)
@@ -3488,9 +3494,47 @@ class Hud extends Control:
 		draw_style_box(_sb_say, Rect2(bx, by_, w, h))
 		var tcol := Color("#ffe6bf") if tone == 0 else Color("#e8f3ff")
 		var ty := by_ + 15.0 + float(fs) * 0.375      # 글자 크기가 줄어도 상자 가운데에
-		draw_string_outline(fb, Vector2(bx + 12.0, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color(0, 0, 0, 0.85 * a))
-		draw_string(fb, Vector2(bx + 12.0, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(tcol, a))
+		for ln: String in lines:
+			draw_string_outline(fb, Vector2(bx + 12.0, ty), ln, HORIZONTAL_ALIGNMENT_CENTER, w - 24.0, fs, 5, Color(0, 0, 0, 0.85 * a))
+			draw_string(fb, Vector2(bx + 12.0, ty), ln, HORIZONTAL_ALIGNMENT_CENTER, w - 24.0, fs, Color(tcol, a))
+			ty += lh
 		draw_set_transform(Vector2.ZERO)
+
+	var _say_lay := {}
+
+	## 말풍선 글 맞춤 (11/20 2차) —— 고유기 외침과 같은 순서: 한 줄로 자리(space = 대표 초상 옆 빈 폭)에 들어가게 줄여 보고(16 → 14),
+	## 안 되면 가운데에 가까운 띄어쓰기에서 두 줄로 나눠 다시 맞춘다(16 → 13). 예전엔 한 줄로 최소 150 폭을 잡아 긴 대사가 대표 초상을 70px 쯤 덮었다.
+	## 띄어쓰기가 없는 긴 글은 예전처럼 한 줄(폭 150, 최소 12). 돌려주는 값 [글 크기, 줄들, 상자 폭]
+	func _say_fit(text: String, space: float) -> Array:
+		var fb := DB.font_bold
+		var fs := 16
+		var tw := fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var fit := maxf(space - 24.0, 40.0)
+		while fs > 14 and tw > fit:
+			fs -= 1
+			tw = fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		if tw <= fit:
+			return [fs, [text], tw + 24.0]
+		var cutp := -1
+		var mid := text.length() / 2
+		for ci in text.length():
+			if text[ci] == " " and (cutp < 0 or absi(ci - mid) < absi(cutp - mid)):
+				cutp = ci
+		if cutp <= 0:
+			fs = 16
+			tw = fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var room := maxf(space, 150.0) - 24.0
+			if tw > room:
+				fs = clampi(int(16.0 * room / tw), 12, 16)
+				tw = fb.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			return [fs, [text], tw + 24.0]
+		var two: Array = [text.substr(0, cutp), text.substr(cutp + 1)]
+		fs = 16
+		tw = maxf(fb.get_string_size(two[0], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x, fb.get_string_size(two[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+		while fs > 13 and tw > fit:
+			fs -= 1
+			tw = maxf(fb.get_string_size(two[0], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x, fb.get_string_size(two[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+		return [fs, two, tw + 24.0]
 
 	## 기 모으는 중 합류한 장수의 칩 —— 작은 초상이 옆에서 샥 날아들고(먼저 합류 왼쪽 · 다음 오른쪽) 말풍선으로 한마디. 터질 때(charge_end)까지, 컷인의 짝 자리로 이어진다
 	func _draw_join_chip(c: Dictionary, t: float, i: int, y: float, n := 2) -> void:
@@ -4425,62 +4469,72 @@ class Hud extends Control:
 			var pt := "fps %d · 계산 %d · 보이는 %d · 조절 %d" % [Engine.get_frames_per_second(), men, figs, lv]
 			draw_string_outline(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.9))
 			draw_string(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#9fe8b8"))
-		# 위쪽 —— 세력 균형(병력) · 아래에 진영별 사기 게이지 + 가운데 시계 · 결전 띠
-		var tA := 0.0
-		var tB := 0.0
-		var mA := 0.0      # 사기 × 병력 합 (병력 가중 평균용) —— 11/11 사용자: 사기가 작게만 보여 갑작스런 패주를 알 수 없었다
-		var mB := 0.0
-		var nA := 0
-		var nB := 0
-		var shA := 0
-		var shB := 0
-		for sq in view.field.order:
-			if sq.alive:
-				var mq: float = clampf(sq.morale, 0.0, ARMY_MORALE_MAX) * sq.troops      # 11/19 사용자: 전군 사기 상한 100 → 200
-				var sh := 1 if sq.morale < SHAKY_MORALE else 0
-				if sq.camp == "A":
-					tA += sq.troops
-					mA += mq
-					nA += 1
-					shA += sh
-				else:
-					tB += sq.troops
-					mB += mq
-					nB += 1
-					shB += sh
-		var bw := clampf(size.x - 190, 120, 420)
-		var bx := (size.x - bw) / 2
-		var ratio := 0.5 if tA + tB <= 0 else tA / (tA + tB)
-		draw_rect(Rect2(bx - 2, 12, bw + 4, 12), Color(0, 0, 0, 0.55))
-		draw_rect(Rect2(bx, 14, bw * ratio, 8), War3D.TEAM.A)
-		draw_rect(Rect2(bx + bw * ratio, 14, bw * (1 - ratio), 8), War3D.TEAM.B)
-		_text(fb, Vector2(bx - 98, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 92, 13, Color("#a9c8f0"))
-		_text(fb, Vector2(bx + bw + 6, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
-		# 진영 사기 = 살아 있는 부대 사기(0~200 으로 자름)의 병력 가중 평균. 가운데 시계 양옆에 한 줄씩
-		var gh := 14.0
-		var gy := 27.0
-		var gw := maxf(40.0, bw * 0.5 - 34.0)
-		var mAv := mA / tA if tA > 0.0 else 0.0
-		var mBv := mB / tB if tB > 0.0 else 0.0
-		_morale_gauge(Rect2(bx, gy, gw, gh), mAv, shA, nA, true)
-		_morale_gauge(Rect2(bx + bw - gw, gy, gw, gh), mBv, shB, nB, false)
-		# 11/20 폴리싱: 「사기」 머리말은 게이지 밖, 병력 글("아군 72,965") 바로 아래 같은 색으로 —— 게이지 안에 두면 "사기 100 (+20)" 이
-		# 세로 화면 폭(게이지 71)에 안 들어가 100 을 넘은 쪽만 머리말이 떨어졌다 (한쪽 "사기 100" · 다른 쪽 "100 (+20)")
-		_text(fb, Vector2(bx - 98, gy + 11.5), "사기", HORIZONTAL_ALIGNMENT_RIGHT, 92, UI.FS_CAP, Color("#a9c8f0"))
-		_text(fb, Vector2(bx + bw + 6, gy + 11.5), "사기", HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP, Color("#f0aaa2"))
-		_text(DB.title_font(16), Vector2(bx + gw, gy + 13), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw - gw * 2, 16, DB.PAL.paper)
-		if decisive_on and not view.finished:
-			_draw_decisive(bx + bw * 0.5, 45.0)
+		if cut == null:      # 11/20 폴리싱 2차: 고유기 · 인연 컷인이 떠 있는 동안은 위 띠(병력 · 사기 · 시계 · 결전 띠)를 그리지 않는다 —— 어두운 막 아래로 비쳐 인연 이름 · 초상과 겹쳤다. 컷인이 걷히면 바로 돌아온다
+			# 위쪽 —— 세력 균형(병력) · 아래에 진영별 사기 게이지 + 가운데 시계 · 결전 띠
+			var tA := 0.0
+			var tB := 0.0
+			var mA := 0.0      # 사기 × 병력 합 (병력 가중 평균용) —— 11/11 사용자: 사기가 작게만 보여 갑작스런 패주를 알 수 없었다
+			var mB := 0.0
+			var nA := 0
+			var nB := 0
+			var shA := 0
+			var shB := 0
+			for sq in view.field.order:
+				if sq.alive:
+					var mq: float = clampf(sq.morale, 0.0, ARMY_MORALE_MAX) * sq.troops      # 11/19 사용자: 전군 사기 상한 100 → 200
+					var sh := 1 if sq.morale < SHAKY_MORALE else 0
+					if sq.camp == "A":
+						tA += sq.troops
+						mA += mq
+						nA += 1
+						shA += sh
+					else:
+						tB += sq.troops
+						mB += mq
+						nB += 1
+						shB += sh
+			var bw := clampf(size.x - 190, 120, 420)
+			var bx := (size.x - bw) / 2
+			var ratio := 0.5 if tA + tB <= 0 else tA / (tA + tB)
+			draw_rect(Rect2(bx - 2, 12, bw + 4, 12), Color(0, 0, 0, 0.55))
+			draw_rect(Rect2(bx, 14, bw * ratio, 8), War3D.TEAM.A)
+			draw_rect(Rect2(bx + bw * ratio, 14, bw * (1 - ratio), 8), War3D.TEAM.B)
+			_text(fb, Vector2(bx - 98, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 92, 13, Color("#a9c8f0"))
+			_text(fb, Vector2(bx + bw + 6, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
+			# 진영 사기 = 살아 있는 부대 사기(0~200 으로 자름)의 병력 가중 평균. 가운데 시계 양옆에 한 줄씩
+			var gh := 14.0
+			var gy := 27.0
+			var gw := maxf(40.0, bw * 0.5 - 34.0)
+			var mAv := mA / tA if tA > 0.0 else 0.0
+			var mBv := mB / tB if tB > 0.0 else 0.0
+			_morale_gauge(Rect2(bx, gy, gw, gh), mAv, shA, nA, true)
+			_morale_gauge(Rect2(bx + bw - gw, gy, gw, gh), mBv, shB, nB, false)
+			# 11/20 폴리싱: 「사기」 머리말은 게이지 밖, 병력 글("아군 72,965") 바로 아래 같은 색으로 —— 게이지 안에 두면 "사기 100 (+20)" 이
+			# 세로 화면 폭(게이지 71)에 안 들어가 100 을 넘은 쪽만 머리말이 떨어졌다 (한쪽 "사기 100" · 다른 쪽 "100 (+20)")
+			_text(fb, Vector2(bx - 98, gy + 11.5), "사기", HORIZONTAL_ALIGNMENT_RIGHT, 92, UI.FS_CAP, Color("#a9c8f0"))
+			_text(fb, Vector2(bx + bw + 6, gy + 11.5), "사기", HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP, Color("#f0aaa2"))
+			_text(DB.title_font(16), Vector2(bx + gw, gy + 13), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw - gw * 2, 16, DB.PAL.paper)
+			if decisive_on and not view.finished:
+				_draw_decisive(bx + bw * 0.5, 45.0)
 		if view.speed == 0.0:
 			_text(fd, Vector2(0, size.y / 2), "일 시 정 지", HORIZONTAL_ALIGNMENT_CENTER, size.x, 26, DB.PAL.bamboo)
-		if ann:
+		if ann and cut == null:      # 11/20 2차: 컷인 동안은 숨기고 시계도 멈춘다(_process) —— 컷인이 걷힌 뒤에 뜬다
 			var aa: float = clampf(ann.t / 0.15, 0, 1) * clampf((1.8 - ann.t) / 0.4, 0, 1)
 			var ac: Color = ann.col
-			var afs := 20
-			while afs > 12 and DB.font_display.get_string_size(ann.text, HORIZONTAL_ALIGNMENT_LEFT, -1, afs).x > size.x - 24:
-				afs -= 1         # 세로 화면에서 폭을 넘지 않게
-			_text(DB.font_display, Vector2(0, 84 + 46 * _charge_rows + 32 * _join_rows), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))      # 11/7 기 모으기 표시가 있으면 그 아래
-		if mrout != null:
+			if not ann.has("fs"):      # 글 크기 · 폭은 알림마다 한 번만 잰다 (예전엔 프레임마다)
+				var afs0 := 20
+				var aw0: float = DB.font_display.get_string_size(ann.text, HORIZONTAL_ALIGNMENT_LEFT, -1, afs0).x
+				while afs0 > 12 and aw0 > size.x - 40:
+					afs0 -= 1         # 세로 화면에서 폭을 넘지 않게
+					aw0 = DB.font_display.get_string_size(ann.text, HORIZONTAL_ALIGNMENT_LEFT, -1, afs0).x
+				ann["fs"] = afs0
+				ann["w"] = aw0
+			var afs: int = ann.fs
+			var ay := 84.0 + 46 * _charge_rows + 32 * _join_rows      # 11/7 기 모으기 표시가 있으면 그 아래
+			# 11/20 2차: 옅은 먹 받침 —— 그 자리를 지나는 피해 숫자 · 메달이 알림 글 뒤로 비쳐 읽기 어려웠다. 글 폭에 맞춘 띠, 알림과 같이 사라진다
+			_plate(Rect2((size.x - float(ann.w)) * 0.5 - 12.0, ay - afs - 1.0, float(ann.w) + 24.0, afs + 10.0), aa)
+			_text(DB.font_display, Vector2(0, ay), ann.text, HORIZONTAL_ALIGNMENT_CENTER, size.x, afs, Color(ac, aa))
+		if mrout != null and cut == null:
 			_draw_morale_rout()
 		tq = view.field.pt("머리표·위띠", tq)
 
@@ -4735,6 +4789,8 @@ class Hud extends Control:
 	## 11/19 사용자: 전군 사기 상한은 200. 막대는 100 까지 한 칸을 채우고, 100 을 넘는 몫은 같은 칸 위에 다른 색(금색)으로 덧채운다. 글은 "사기 100 (+20)"
 	const ARMY_MORALE_MAX := 200.0
 	const MORALE_OVER_COL := Color("#ffd76e")
+	var _sagi_w := -1.0      # 「사기」 머리말 폭 (한 번만 잰다)
+
 	func _morale_gauge(r: Rect2, m: float, shaky_n: int, alive_n: int, from_left: bool) -> void:
 		var fb: Font = DB.font_bold
 		var danger: bool = alive_n > 0 and (m < ARMY_WARN or shaky_n >= SHAKY_MANY)
@@ -4768,14 +4824,30 @@ class Hud extends Control:
 		var ty := r.position.y + r.size.y - 2.5
 		draw_string_outline(fb, Vector2(r.position.x + 4, ty), lbl, al, r.size.x - 8, 11, 4, Color(0, 0, 0, 0.85))
 		draw_string(fb, Vector2(r.position.x + 4, ty), lbl, al, r.size.x - 8, 11, Color(1, 1, 1, 0.97))
-		if shaky_n > 0 and r.size.x >= 110.0:
+		if shaky_n > 0:
 			var sl := "동요 %d" % shaky_n
 			var al2 := HORIZONTAL_ALIGNMENT_RIGHT if from_left else HORIZONTAL_ALIGNMENT_LEFT
 			var sc := Color("#ffb070") if not danger else Color(1.0, 0.55 + 0.25 * pulse, 0.4)
-			draw_string_outline(fb, Vector2(r.position.x + 4, ty), sl, al2, r.size.x - 8, 11, 4, Color(0, 0, 0, 0.85))
-			draw_string(fb, Vector2(r.position.x + 4, ty), sl, al2, r.size.x - 8, 11, sc)
+			if r.size.x >= 110.0:
+				draw_string_outline(fb, Vector2(r.position.x + 4, ty), sl, al2, r.size.x - 8, 11, 4, Color(0, 0, 0, 0.85))
+				draw_string(fb, Vector2(r.position.x + 4, ty), sl, al2, r.size.x - 8, 11, sc)
+			else:      # 11/20 2차: 세로 화면(게이지 폭 110 미만)에서는 안 보였다 —— 게이지 밖, 「사기」 머리말 바깥쪽에 같은 글씨 · 같은 깜빡임으로
+				if _sagi_w < 0.0:
+					_sagi_w = DB.font_body.get_string_size("사기", HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP).x
+				var sp := Vector2(r.position.x - 12.0 - _sagi_w - 64.0, ty) if from_left else Vector2(r.end.x + 12.0 + _sagi_w, ty)
+				draw_string_outline(fb, sp, sl, al2, 64, 11, 4, Color(0, 0, 0, 0.85))
+				draw_string(fb, sp, sl, al2, 64, 11, sc)
 
 	var _dec_sb: StyleBoxFlat = null
+	var _plate_sb: StyleBoxFlat = null
+
+	## 11/20 2차: 알림 글(선봉 격돌! · 사기 붕괴 …) 뒤의 옅은 먹 받침 —— 모서리 UI.R, 하나를 고쳐 쓴다
+	func _plate(r: Rect2, a: float) -> void:
+		if _plate_sb == null:
+			_plate_sb = StyleBoxFlat.new()
+			_plate_sb.set_corner_radius_all(UI.R)
+		_plate_sb.bg_color = Color(0.03, 0.03, 0.05, 0.6 * a)
+		draw_style_box(_plate_sb, r)
 
 	## 결전 띠 —— 45초가 지나 양군의 사기 회복이 멎고 깎이기 시작한 뒤 전투가 끝날 때까지. 처음 1.4초는 번쩍인다
 	func _draw_decisive(cx: float, y: float) -> void:
@@ -4809,16 +4881,28 @@ class Hud extends Control:
 		var n: int = m.n
 		var title := "사기 붕괴" if n <= 1 else "사기 붕괴 ×%d" % mini(n, 99)
 		var sub := "%s 패주" % m.name if n <= 1 else "%s 외 %d부대 패주" % [m.name, n - 1]
-		var fs := 34
-		while fs > 18 and fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > size.x - 40:
-			fs -= 2
-		var sfs := 17
-		var sf := DB.title_font(sfs)
-		while sfs > 11 and sf.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs).x > size.x - 40:
-			sfs -= 1
+		var sf := DB.title_font(17)
+		var lay = m.get("lay")      # [부대 수, 제목 크기, 아랫줄 크기, 넓은 쪽 폭] —— 11/20 2차: 부대 수가 바뀔 때만 다시 잰다 (예전엔 프레임마다)
+		if lay == null or int(lay[0]) != n:
+			var fs0 := 34
+			var tw0: float = fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs0).x
+			while fs0 > 18 and tw0 > size.x - 56:
+				fs0 -= 2
+				tw0 = fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs0).x
+			var sfs0 := 17
+			var sw0: float = sf.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs0).x
+			while sfs0 > 11 and sw0 > size.x - 56:
+				sfs0 -= 1
+				sw0 = sf.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs0).x
+			lay = [n, fs0, sfs0, maxf(tw0, sw0)]
+			m["lay"] = lay
+		var fs: int = lay[1]
+		var sfs: int = lay[2]
 		var sc := lerpf(1.35, 1.0, ease(clampf(age / 0.18, 0.0, 1.0), 0.4))
 		var c := Vector2(size.x * 0.5, size.y * 0.32)
 		draw_set_transform(c, 0.0, Vector2.ONE * sc)
+		var pw: float = float(lay[3]) + 28.0      # 11/20 2차: 옅은 먹 받침 (제목 + 아랫줄을 한 장에)
+		_plate(Rect2(-pw * 0.5, -fs - 1.0, pw, fs + 36.0), a)
 		var ca := Color(col, a)
 		draw_string_outline(fd, Vector2(-size.x * 0.5, 0), title, HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, 10, Color(0.1, 0.02, 0.0, 0.85 * a))
 		draw_string(fd, Vector2(-size.x * 0.5, 0), title, HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, ca)

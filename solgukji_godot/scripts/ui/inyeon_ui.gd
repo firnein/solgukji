@@ -149,6 +149,7 @@ static func member_tile(p: String, ctx: Dictionary, on_card: Callable) -> MiniTi
 	var t := MiniTile.new().setup(k, -1)
 	t.custom_minimum_size = TILE
 	t.short_name = true
+	t.show_role = false      # 11/20 구성원 확인용 타일 —— 얼굴과 이름만
 	var me: bool = ctx.get("me", "") == p
 	var in_deck: bool = ctx.get("deck", {}).has(p)
 	t.lit = me or in_deck

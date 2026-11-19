@@ -64,13 +64,23 @@ func _input(e: InputEvent) -> void:
 			var d: Vector2 = e.position - _press
 			if d.length() < SLOP:
 				return
-			var axis := Vector2(1, 0) if absf(d.x) > absf(d.y) else Vector2(0, 1)
-			for c in _cands:
-				if is_instance_valid(c) and _can(c, axis):
-					_target = c
-					_axis = axis
+			# 11/20 조작: 비스듬히 시작한 쓸기 —— 예전에는 10px 시점에 가로가 조금이라도 크면 그 터치는 끝까지 세로 스크롤을 못 했다.
+			# 큰 쪽 축을 먼저 보고, 그 축으로 굴릴 상자가 없으면 작은 쪽 축도 본다 (작은 쪽이 SLOP 을 넘고 큰 쪽의 60% 이상일 때만 —— 거의 가로인 쓸어 닫기는 건드리지 않는다)
+			var big := Vector2(1, 0) if absf(d.x) > absf(d.y) else Vector2(0, 1)
+			var small := Vector2(0, 1) if big.x > 0.0 else Vector2(1, 0)
+			for axis: Vector2 in [big, small]:
+				if axis == small and (absf(d.dot(small)) < SLOP or absf(d.dot(small)) < absf(d.dot(big)) * 0.6):
+					continue
+				for c in _cands:
+					if is_instance_valid(c) and _can(c, axis):
+						_target = c
+						_axis = axis
+						break
+				if _target != null:
 					break
 			if _target == null:
+				if absf(d.dot(small)) >= absf(d.dot(big)) * 0.6 and d.length() < SLOP * 3.0:
+					return      # 아직 비스듬하다 —— 조금 더 지켜본다
 				_press = Vector2.INF        # 이 방향으로는 스크롤할 것이 없다 —— 손대지 않는다
 				_cands = []
 				return

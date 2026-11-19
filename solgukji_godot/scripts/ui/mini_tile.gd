@@ -17,6 +17,7 @@ var dim := false            # 흐리게 (없는 카드)
 var _press := Vector2.INF
 var drag_data = null        # 있으면 길게 눌러(0.35초) 끌 수 있다 (편성 손패, 11/4)
 var on_hold := Callable()   # 11/13 끌기가 없는 타일을 꾹 누르면(CardTile.HOLD) 부른다 (징집 보유 카드 —— 판매 시트). 그때는 tapped 를 보내지 않는다
+var show_role := true       # 11/20 인연 타일은 구성원 확인용이라 역할 칩을 뺀다 (얼굴 · 이름만)
 var short_name := false     # 11/11 인연 타일 —— 이름 줄에 칭호 없이 인물 이름만 (60폭에 '난세간웅 조조' 가 잘렸다)
 var mark := ""              # "sel" —— 고른 카드 (금테)
 var star := false           # 11/7 갈무리 표시 —— 12시 방향 노란 ★ (갈무리한 장수 · 그 재료)
@@ -205,14 +206,16 @@ func _draw() -> void:
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(8, 8), 8, DB.fac_color(c.fac))
 		draw_string(DB.title_font(UI.FS_TINY), pr.position + Vector2(0, 11.5), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, UI.FS_TINY, Color.WHITE)
-	var has_role := not DB.role_chip(k).is_empty()
+	var has_role := show_role and not DB.role_chip(k).is_empty()
 	# 11/20 폴리싱: 낮은 칸(징집 보유 6열 84 · 갈무리 재료 78 · 편성 손패 80)은 초상이 57px 아래인데 수량 · 배지 · 병종 기호 · 역할 칩이 큰 칸과 같은 크기라 얼굴이 다 가렸다 —— 낮은 칸에서는 덧붙는 것들을 작은 칸(_draw_compact) 크기로
 	var small := pr.size.y < 60.0
 	var cfs := UI.FS_TINY if small else UI.FS_CAP      # 수량 · 배지 글씨
 	var bh := 14.0 if small else 17.0                  # 수량 · 배지 높이
 	var tr := 6.0 if small else 8.0                    # 병종 기호 반지름 (작은 칸과 같은 6)
-	_tag_icon(c, pr.end - Vector2(tr + 2.0, (16.0 if has_role else 0.0) + tr + 2.0), tr)      # 11/6 사용자: 그림에 병종 심볼 (11/19 역할 칩이 있으면 그 위로)
-	CardTile.draw_role_chip(self, k, Vector2(pr.position.x, pr.end.y - 15), UI.FS_TINY, pr.size.x, true)      # 11/19 장수 역할 칩 —— 초상 아래 폭 전체 (11/20 fill: 타일마다 같은 폭 · 높이)
+	var tag_c := pr.end - Vector2(tr + 2.0, (16.0 if has_role else 0.0) + tr + 2.0)
+	_tag_icon(c, tag_c, tr)      # 11/6 사용자: 그림에 병종 심볼 (11/19 역할 칩이 있으면 그 위로)
+	if has_role:
+		CardTile.draw_role_chip(self, k, Vector2(pr.position.x, pr.end.y - 15), UI.FS_TINY, pr.size.x, true)      # 11/19 장수 역할 칩 —— 초상 아래 폭 전체 (11/20 fill: 타일마다 같은 폭 · 높이)
 	var fd := DB.tier_font(c.tier, 13)
 	var nm: String = DB.person(k) if short_name and c.tier > 2 else c.name
 	var fs := UI.fit_fs(fd, nm, 13, UI.FS_TINY, w - 6)      # 11/14 감사 #10: 아무리 길어도 FS_TINY 아래로는 줄이지 않는다
@@ -220,10 +223,12 @@ func _draw() -> void:
 		nm = DB.person(k)      # 그래도 넘치면 칭호를 떼고 인물 이름만
 		fs = UI.fit_fs(fd, nm, 13, UI.FS_TINY, w - 6)
 	draw_string(fd, Vector2(3, h - 8), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 6, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
+	var q_left := w - 3.0      # 수량 배지 왼끝 (없으면 타일 오른끝)
 	if qty > 0:
 		var s := "×%d" % qty
 		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x + (6 if small else 8)
 		var qr := Rect2(w - qw - 3, 4, qw, bh)
+		q_left = qr.position.x
 		var qb := StyleBoxFlat.new()
 		qb.bg_color = Color(DB.PAL.gold, 0.92)
 		qb.set_corner_radius_all(8)
@@ -232,22 +237,42 @@ func _draw() -> void:
 	if up:
 		var us := 12.0 if small else 16.0
 		var ur := Rect2(w - us - 3, (4.5 if small else 5.0) + bh if qty > 0 else 4.0, us, us)
+		# 11/20 2차: 오른쪽에 ×N · ▲ · 병종 기호가 세로로 쌓인다 —— 낮은 칸에서 ▲ 가 병종 기호를 덮었다. 자리가 모자라면 ▲ 를 줄이고(9 까지), 그래도 안 되면 ×N 왼쪽으로
+		var room := tag_c.y - tr - 1.5 - ur.position.y
+		if room < us and room >= 9.0:
+			us = floorf(room)
+			ur = Rect2(w - us - 3, ur.position.y, us, us)
+		elif room < us and qty > 0:
+			ur = Rect2(q_left - us - 1.0, 4.0 + (bh - us) * 0.5, us, us)
 		var ub := StyleBoxFlat.new()
 		ub.bg_color = Color(DB.PAL.jade, 0.95)
 		ub.set_corner_radius_all(8)
 		draw_style_box(ub, ur)
 		Icons.draw(self, "up", ur.get_center(), us - 2.0, Color.WHITE)
+	# 11/20 2차: 좁은 칸(6열 57px)에서 왼쪽 배지("편성 2" · "조합")가 오른쪽 병종 기호를 덮었다 —— 기호 앞까지만 쓴다: 넘치면 첫 낱말만("편성"), 그래도 넘치면 글씨를 한 단계 작게
+	var b_txt := badge
+	var b_fs := UI.FS_TINY if badge_quiet else cfs
+	var b_pad := 8.0 if badge_quiet or small else 10.0
+	if badge != "":
+		var b_room := tag_c.x - tr - 2.5 - 4.0
+		var b_w := DB.font_body.get_string_size(b_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, b_fs).x
+		if b_w + b_pad > b_room and b_txt.contains(" "):
+			b_txt = b_txt.get_slice(" ", 0)
+			b_w = DB.font_body.get_string_size(b_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, b_fs).x
+		if b_w + b_pad > b_room and b_fs > UI.FS_TINY:
+			b_fs = UI.FS_TINY
+			b_pad = 6.0
 	if badge != "" and not badge_quiet:
-		var bw0 := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x + (8 if small else 10)
+		var bw0 := DB.font_body.get_string_size(b_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, b_fs).x + b_pad
 		var br0 := Rect2(4, pr.end.y - 2.0 - bh - (15 if has_role else 0), bw0, bh)      # 11/19 역할 칩 위로
 		var bb0 := StyleBoxFlat.new()
 		bb0.bg_color = badge_col if badge_col.a > 0 else Color(DB.PAL.ink, 0.85)
 		bb0.set_corner_radius_all(UI.R)      # 11/14 알약 → 모서리 규칙 R
 		draw_style_box(bb0, br0)
-		draw_string(DB.font_body, br0.position + Vector2(0, bh - 4.0 + (0.5 if small else 0.0)), badge, HORIZONTAL_ALIGNMENT_CENTER, bw0, cfs, Color.WHITE)
+		draw_string(DB.font_body, br0.position + Vector2(0, (bh + b_fs * 0.72) * 0.5), b_txt, HORIZONTAL_ALIGNMENT_CENTER, bw0, b_fs, Color.WHITE)
 	elif badge != "":
 		# 11/14 UI 4단계 (감사 06-4): 흰 글자 둥근 알약이 초상을 가리고 다른 배지 셋과 다퉜다 —— 각진 작은 표(R) · 금 글자 · 한 단계 작은 글자로 무게를 낮춘다
-		var bw := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY).x + 8
+		var bw := DB.font_body.get_string_size(b_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY).x + 8
 		var br := Rect2(4, pr.end.y - 15.0 - (15 if has_role else 0), bw, 14)      # 11/19 역할 칩 위로 (11/20 왼쪽 끝을 초상 · 칩에 맞춤 3 → 4)
 		var bb := StyleBoxFlat.new()
 		bb.bg_color = Color(DB.PAL.ink, 0.88)
@@ -255,7 +280,7 @@ func _draw() -> void:
 		bb.set_border_width_all(1)
 		bb.set_corner_radius_all(UI.R / 2)
 		draw_style_box(bb, br)
-		draw_string(DB.font_body, br.position + Vector2(0, 11), badge, HORIZONTAL_ALIGNMENT_CENTER, bw, UI.FS_TINY, DB.PAL.gold)
+		draw_string(DB.font_body, br.position + Vector2(0, 11), b_txt, HORIZONTAL_ALIGNMENT_CENTER, bw, UI.FS_TINY, DB.PAL.gold)
 	if dim:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.5))
 	if _is_locked():

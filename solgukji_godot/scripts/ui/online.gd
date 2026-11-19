@@ -462,7 +462,10 @@ func connect_sheet(refresh := false) -> void:
 	b.add_child(row2)
 	b.add_child(record_notice())
 	if _status != "":      # 11/14 UI 4단계 (감사 18-3): 상태 글이 버튼 아래 맨 끝에 흐리게 있어 안 보였다 —— 버튼 바로 위 한 줄 (접속됨 옥색)
-		b.add_child(UI.lbl(_status, UI.FS_BODY, DB.PAL.jade.lightened(0.2) if net.is_open() else DB.PAL.text_dim))
+		var stl := UI.lbl(_status, UI.FS_BODY, DB.PAL.jade.lightened(0.2) if net.is_open() else DB.PAL.text_dim)
+		stl.clip_text = true      # 11/20 「접속됨 — 긴 주소」가 시트 폭을 밀지 않게 —— 넘치면 …
+		stl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.add_child(stl)
 	if net.consented():
 		b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", _connect_pressed, "pri"))
 	else:      # 동의 전 —— 동의하고 접속하거나 취소(접속 안 함)

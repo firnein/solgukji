@@ -140,9 +140,10 @@ static func wrap_text(l: Control) -> Control:
 	elif l is RichTextLabel:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var t: String = l.get_meta("bb", "")
-		if t != "":
+		if t != "" and not l.get_meta("kept", false):      # UI.rich 가 이미 단어 잇기를 넣었으면 다시 쓰지 않는다
 			l.clear()
 			l.append_text(keep_words(t))
+			l.set_meta("kept", true)
 	return l
 
 
@@ -195,7 +196,9 @@ static func hint(text: String) -> Label:
 	return l
 
 
-static func rich(bb: String, fs := FS_BODY) -> RichTextLabel:
+## 11/20 UI 다듬기 2차: 줄바꿈은 기본으로 단어 단위 (keep_words) —— 예전엔 wrap_text 를 부른 곳만이라 「병/력」 · 「세/기」처럼 단어 가운데서 끊기는 곳이 남았다.
+## 글자 단위로 끊어야 하는 곳만 words = false
+static func rich(bb: String, fs := FS_BODY, words := true) -> RichTextLabel:
 	var r := RichTextLabel.new()
 	r.bbcode_enabled = true
 	r.fit_content = true
@@ -204,7 +207,8 @@ static func rich(bb: String, fs := FS_BODY) -> RichTextLabel:
 	r.add_theme_font_size_override("normal_font_size", fs)
 	r.add_theme_font_size_override("bold_font_size", fs)
 	r.set_meta("bb", bb)
-	r.append_text(bb)
+	r.set_meta("kept", words)
+	r.append_text(keep_words(bb) if words else bb)
 	return r
 
 
@@ -269,6 +273,19 @@ static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> TouchButt
 			b.add_theme_stylebox_override("normal", flat(none, Color(DB.PAL.paper, 0.16), 1, R, 10))
 			b.add_theme_stylebox_override("hover", flat(Color(DB.PAL.paper, 0.05), Color(DB.PAL.paper, 0.28), 1, R, 10))
 			b.add_theme_stylebox_override("pressed", flat(Color(DB.PAL.paper, 0.1), Color(DB.PAL.paper, 0.28), 1, R, 10))
+	# 11/20 UI 다듬기 2차: 낮은 버튼(BH_XS 28 · BH_S 40)도 위아래 여백이 10 이라 글자 16 이면 실제 높이가 42 였다 ——
+	# 요청 높이에 맞춰 위아래 여백을 줄인다 (글자 한 줄 22 기준 · 모든 상태 모양에 같이 · 옆 여백은 그대로). 누르는 범위는 TouchButton 이 HIT 까지 지킨다
+	var vm := clampi(int((h - 22) / 2.0), 0, 10)
+	if vm < 10:
+		var P := DB.PAL
+		var base := {"normal": [P.ink3, none, 0], "hover": [P.ink4, none, 0], "pressed": [P.ink4, P.gold, 1], "hover_pressed": [P.ink4, P.gold, 1], "disabled": [Color(P.ink3, 0.5), none, 0]}      # UI.theme() 의 Button 과 같은 값
+		for st in base:
+			var sb: StyleBox = b.get_theme_stylebox(st) if b.has_theme_stylebox_override(st) else flat(base[st][0], base[st][1], base[st][2], R, 10)
+			if st == "hover_pressed" and b.has_theme_stylebox_override("pressed"):
+				sb = b.get_theme_stylebox("pressed")
+			sb.content_margin_top = vm
+			sb.content_margin_bottom = vm
+			b.add_theme_stylebox_override(st, sb)
 	return b
 
 

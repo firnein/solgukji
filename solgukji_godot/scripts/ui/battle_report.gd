@@ -269,7 +269,7 @@ class Row extends Control:
 
 	func _draw() -> void:
 		var P := DB.PAL
-		var a := 1.0 if r.alive else 0.5
+		var a := 1.0 if r.alive else 0.75      # 11/20 폴리싱 2차: 0.5 → 0.75 —— 전멸한 줄의 이름이 바탕에 묻혔다 (패전이면 표 전체가 흐렸다). 살아 있는 줄보다는 한 단계 흐리게
 		var cy := ROW_H / 2.0
 		Art.draw_face_circle(self, Vector2(17, cy), 15, r.id)
 		draw_arc(Vector2(17, cy), 15, 0, TAU, 32, Color(DB.TIER[int(r.tier)].c, a), 2.0)
@@ -309,7 +309,8 @@ class Row extends Control:
 		status += " · 병력 %d%% · 사기 %d" % [roundi(float(r.remaining) * 100.0), maxi(0, roundi(float(r.morale)))]
 		if r.has_ult and r.ult == 0:
 			status += " · 고유기 미발동"
-		var col: Color = P.seal.lightened(0.35) if r.get("rout_cause", "") in ["morale", "mixed"] else P.text_dim
+		# 11/20 폴리싱 2차: 상태 줄(작은 글씨 10)은 text_dim 이라 읽기 어려웠다 —— 살아 있는 줄 bamboo, 전멸한 줄은 그보다 한 단계 흐리게
+		var col: Color = P.seal.lightened(0.35) if r.get("rout_cause", "") in ["morale", "mixed"] else (P.bamboo if r.alive else Color(P.bamboo, 0.8))
 		# 11/20 폴리싱: 상태 줄을 이름 칸(x0)에 맞춘다 —— 왼쪽 끝(6)에서 시작해 얼굴 동그라미 아랫단에 닿았고, 이름 · 병종 줄과 왼쪽이 어긋났다
 		var status_w := size.x - x0 - 6.0
 		var status_fs := UI.fit_fs(DB.font_body, status, UI.FS_TINY, 9, status_w)
