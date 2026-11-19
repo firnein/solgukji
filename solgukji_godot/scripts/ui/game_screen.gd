@@ -3526,7 +3526,7 @@ const ULT_COL := {"firestorm": Color("#F08A3C"), "thunder": Color("#6FA8F0"), "p
 const ULT_ICON := {"firestorm": "flame", "heal": "heart", "charge": "blade", "slash": "blade", "arrowstorm": "target", "aura": "banner",
 	"illusion": "swirl", "whirlwind": "swirl"}
 const ABIL_VAL := Color("#8FD4C2")      # 수치 글자 (_hl 과 같은 옥색)
-const ABIL_NUM := UI.FS_HEAD + 6        # 고유기의 큰 숫자 —— 이 패널에서 하나뿐인 큰 글자
+const ABIL_NUM := UI.FS_HEAD + 2       # 고유기의 큰 숫자 —— 이 패널에서 하나뿐인 큰 글자
 
 
 func _ability_cards(into: Container, k: String) -> void:
@@ -3590,7 +3590,7 @@ func _ult_card(k: String, u: Dictionary) -> Control:
 	UI.wrap_text(nl)
 	left.add_child(nl)
 	if str(u.get("shout", "")) != "":
-		var sl := UI.lbl("“%s”" % str(u.shout), UI.FS_CAP, P.text_dim)
+		var sl := UI.lbl("“%s”" % str(u.shout), UI.FS_TINY, P.text_dim)
 		UI.wrap_text(sl)
 		left.add_child(sl)
 	top.add_child(left)
@@ -3599,7 +3599,7 @@ func _ult_card(k: String, u: Dictionary) -> Control:
 		hv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var a := UI.lbl(str(parts.hero.v), ABIL_NUM, col.lightened(0.45), true)
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		var b := UI.lbl(str(parts.hero.l), UI.FS_CAP, P.bamboo)
+		var b := UI.lbl(str(parts.hero.l), UI.FS_TINY, P.bamboo)
 		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		hv.add_child(a)
 		hv.add_child(b)
@@ -3664,12 +3664,12 @@ func _abil_tag(kind: String, col: Color, sub := "") -> Control:
 	var h := UI.hbox(UI.SP_XS)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var ic := Icons.View.new(str(ABILITY_ICON.get(kind, "pick")), col, 12)
+	var ic := Icons.View.new(str(ABILITY_ICON.get(kind, "pick")), col, 10)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
-	h.add_child(UI.lbl(kind, UI.FS_CAP, col))
+	h.add_child(UI.lbl(kind, UI.FS_TINY, col))
 	if sub != "":
-		h.add_child(UI.lbl("· " + sub, UI.FS_CAP, DB.PAL.text_dim))
+		h.add_child(UI.lbl("· " + sub, UI.FS_TINY, DB.PAL.text_dim))
 	return h
 
 
@@ -3678,10 +3678,10 @@ func _stat_chip(val: String, label: String, fill := true) -> Control:
 	var P := DB.PAL
 	var pc := PanelContainer.new()
 	var sb := UI.flat(Color(P.ink, 0.55), Color(0, 0, 0, 0), 0, UI.R, 0)
-	sb.content_margin_left = 8
-	sb.content_margin_right = 8
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 4
+	sb.content_margin_left = 7
+	sb.content_margin_right = 7
+	sb.content_margin_top = 1
+	sb.content_margin_bottom = 3
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if fill:      # 혼자인 칩은 제 폭만 (온 폭으로 늘어나면 칩이 아니라 줄처럼 보인다)
@@ -3695,8 +3695,8 @@ func _stat_chip(val: String, label: String, fill := true) -> Control:
 		return pc
 	var v := UI.vbox(-3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(UI.lbl(val, UI.FS_TITLE, ABIL_VAL, true))
-	v.add_child(UI.lbl(label, UI.FS_CAP, P.text_dim))
+	v.add_child(UI.lbl(val, UI.FS_LABEL, ABIL_VAL, true))      # 11/20 사용자: 글자를 줄여 카드 높이 목표(고유기 120 · 나머지 80)에 맞춘다
+	v.add_child(UI.lbl(label, UI.FS_TINY, P.text_dim))
 	pc.add_child(v)
 	return pc
 
@@ -3708,21 +3708,21 @@ func _tag_chip(ch: Dictionary, col: Color) -> Control:
 	var st: bool = kind == "st"
 	var pc := PanelContainer.new()
 	var sb := UI.flat(Color(col, 0.22) if st else Color(P.ink, 0.55), Color(col, 0.55) if st else Color(0, 0, 0, 0), 1 if st else 0, UI.R, 0)
-	sb.content_margin_left = 8
-	sb.content_margin_right = 8
-	sb.content_margin_top = 3
-	sb.content_margin_bottom = 3
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var h := UI.hbox(UI.SP_XS)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if kind == "tgt":
-		var ic := Icons.View.new("target", P.bamboo, 11)
+		var ic := Icons.View.new("target", P.bamboo, 9)
 		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(ic)
-	h.add_child(UI.lbl(str(ch.l), UI.FS_CAP, P.paper if st or kind == "tgt" else (P.text_dim if kind == "cap" else P.bamboo)))
+	h.add_child(UI.lbl(str(ch.l), UI.FS_TINY, P.paper if st or kind == "tgt" else (P.text_dim if kind == "cap" else P.bamboo)))
 	if str(ch.get("v", "")) != "":
-		h.add_child(UI.lbl(str(ch.v), UI.FS_CAP, P.text_dim if kind == "cap" else ABIL_VAL, true))
+		h.add_child(UI.lbl(str(ch.v), UI.FS_TINY, P.text_dim if kind == "cap" else ABIL_VAL, true))
 	pc.add_child(h)
 	return pc
 
