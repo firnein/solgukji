@@ -47,10 +47,10 @@ func _ready() -> void:
 	var other: Dictionary = RtBattle.new(77).run(a, "eorin", 100, null, b, "hagik", 100, null, "", "", [], {"A": "auto", "B": "auto"})
 	view.play(bt)
 	view.play_res(other, "pvp")
-	for i in 120:
+	# 11/20 프레임 수(120) 대신 시간(최대 6초)으로 기다린다 —— 헤드리스는 120프레임이 1초쯤이라 다른 점검과 함께 돌면 계산(2초 남짓)이 끝나기 전에 넘어가 아래 단언이 깨졌다
+	var wait_until := Time.get_ticks_msec() + 6000
+	while view._loading and Time.get_ticks_msec() < wait_until:
 		await get_tree().process_frame
-		if not view._loading:
-			break
 	await get_tree().process_frame
 	assert(not view._loading and view.running, "online replay must keep running")
 	assert(JSON.stringify(view.res.ev) == JSON.stringify(other.ev), "a late threaded result must not replace the online replay")

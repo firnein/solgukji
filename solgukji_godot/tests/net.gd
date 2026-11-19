@@ -26,6 +26,7 @@ var seat_checked := false
 var norec := 0               # 기록에 동의하지 않은 가짜 클라이언트 수 (마지막 사람들)
 var t0 := 0.0
 var stage_count := {}         # 단계 이름 -> 본 횟수 (첫 플레이어 기준)
+var noon_want := 0            # 11/20 점심이 있어야 하는 페이즈 수 —— 첫 플레이어가 본 아침 가운데 Room.has_noon(일차)인 것
 var info_rows := 0            # 확인한 사람 자리 줄 수 (hp · key, 11/11)
 var end_day := 0              # 11/12 판이 끝난 일차
 var winner := ""
@@ -129,6 +130,8 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 				b.sno = int(rm.stage_no)
 				if b.i == 0:
 					stage_count[rm.stage] = stage_count.get(rm.stage, 0) + 1
+					if rm.stage == "morning" and Room.has_noon(int(rm.day)):
+						noon_want += 1
 				# 11/11 점심(토벌)은 1~3일차만 · 방 정보 noon / act 가 규칙과 맞는가
 				if rm.stage == "noon" and int(rm.day) >= Run.ONLINE_NOON_DAYS:
 					errors.append("%s: %d일차에 점심 단계가 왔다" % [b.name, int(rm.day) + 1])
@@ -319,8 +322,9 @@ func _report(el: float, all_done: bool) -> void:
 	print("  전투 단계 편성 거부 검사 %d번 (응답 %d번) · 방 정보 act · noon 확인 %d번" % [watch_cmds, form_denied, act_checked])
 	if all_done and (watch_cmds == 0 or form_denied == 0):      # 단계가 막 넘어가면 명령이 다음 단계에 닿을 수 있어 수가 꼭 같지는 않다
 		errors.append("편성 거부 검사 %d번 · 응답 %d번" % [watch_cmds, form_denied])
-	if all_done and int(stage_count.get("noon", 0)) != 9:
-		errors.append("점심(토벌) 단계가 %d번 (기대 9 = 1~3일차 × 3페이즈)" % int(stage_count.get("noon", 0)))
+	# 11/20 고정 9(1~3일차 × 3페이즈) 대신 규칙에서 유도 —— 11/19 온라인 토벌 계속(Run.ONLINE_NOON_DAYS = 9999)으로 페이즈마다 점심이 온다. 값을 3 으로 되돌리면 다시 9 가 된다
+	if all_done and int(stage_count.get("noon", 0)) != noon_want:
+		errors.append("점심(토벌) 단계가 %d번 (기대 %d = 토벌이 있는 일차의 아침 수 · Run.ONLINE_NOON_DAYS %d)" % [int(stage_count.get("noon", 0)), noon_want, Run.ONLINE_NOON_DAYS])
 	if all_done and (int(stage_count.get("morning", 0)) < 22 or int(stage_count.get("evening_prep", 0)) < 22):
 		errors.append("준비 %d번 · 대전 준비 %d번 (기대 22 이상 —— 7일이 지나도 이어진다)" % [int(stage_count.get("morning", 0)), int(stage_count.get("evening_prep", 0))])
 	print("  끝난 일차 %d · 천하 통일 %s" % [end_day, winner])

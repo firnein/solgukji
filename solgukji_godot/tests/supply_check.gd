@@ -134,6 +134,10 @@ func _ready() -> void:
 		while r.over == null and guard < 40:
 			guard += 1
 			var d0 := r.day
+			while stat.size() <= d0:      # 11/20 판이 간 일수만큼 늘린다 —— 11/12 토너먼트가 없어져 8일차 이후로 넘어가면 7칸짜리 배열에서 범위 오류가 나고 quit 을 못 불러 멈췄다
+				board_sum.append({})
+				made_sum.append({})
+				stat.append([0, 0, 0, 0, 0.0, 0.0])
 			var before := r.pool().duplicate()
 			var st0 := r.strikes
 			var w0 := r.my_w
@@ -165,7 +169,7 @@ func _ready() -> void:
 				var pc := r.pool()
 				for k in pc:
 					stat[d0][5] += _cost(k) * int(pc[k])
-	for d in 7:
+	for d in stat.size():      # 11/20 7일 고정 → 실제로 간 일수
 		var bl := []
 		var ml := []
 		for g in names:
@@ -178,7 +182,7 @@ func _ready() -> void:
 			sd[4] / runs, sd[5] / runs, " ".join(bl), " ".join(ml)])
 	if bot_tab:
 		print("── 일차 끝 봇 PV (봇 7명 최고 · 중간 · 최저, 판 평균) · 자동 진행 내 PV ──")
-		for d in 7:
+		for d in bot_sum.size():      # 11/20 7일 고정 → 실제로 간 일수
 			var b: Array = bot_sum[d]
 			if b[4] > 0:
 				var n := float(b[4])
@@ -193,6 +197,8 @@ func _note_bots(r: Run) -> void:
 		return
 	var pv: Array = r.bots.map(func(b): return float(b.pv))
 	pv.sort()
+	while bot_sum.size() <= r.day:      # 11/20 8일차 이후도 적는다 (위 stat 과 같은 까닭)
+		bot_sum.append([0.0, 0.0, 0.0, 0.0, 0])
 	var row: Array = bot_sum[r.day]
 	row[0] += pv[pv.size() - 1]
 	row[1] += pv[pv.size() / 2]

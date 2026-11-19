@@ -322,8 +322,11 @@ func _room_table(n: int) -> void:
 
 ## 멸망이 낀 방 —— 사람 hn명 중 1 · 2명 멸망: 산 사람은 매 저녁 상대가 있고(사람 · 봇 · 떠돌이 군세), 산 사람끼리는 한 바퀴에 한 번씩
 func _room_dead(n: int, hn: int) -> void:
-	var cyc := n - 1
 	for dead_n in [1, 2]:
+		# 11/20 한 바퀴 길이 · 그림자 기대를 지금 규칙(Room._plan_pairs, 11/12 최후 1인)에 맞춘다 —— 멸망이 생기면 남은 세력끼리 다시 짜고,
+		# 홀수일 때만 멸망 자리 하나를 빈자리로 끼운다(그 짝이 그림자 · 유랑군). 예전 기대는 늘 n - 1 라운드 · 산 사람이 둘 이상이면 늘 그림자였다
+		var has_bye: bool = (n - dead_n) % 2 == 1
+		var cyc: int = (n - dead_n) + (1 if has_bye else 0) - 1
 		var r := _room(hn, 31 + dead_n, n)
 		for k in dead_n:
 			r.seats[k].dead = true
@@ -365,8 +368,10 @@ func _room_dead(n: int, hn: int) -> void:
 		print("멸망 %d명 방(%d석 · 사람 %d): 산 사람끼리 짝 %d칸(한 바퀴 한 번씩) · 20 저녁 중 떠돌이 군세와 붙은 건수 %d · 그림자 %d" % [dead_n, n, hn, hh.size(), ghost_foes, shadow_foes])
 		if hn - dead_n < 2 and shadow_foes > 0:
 			_fail("[%d석] 산 사람이 하나뿐인데 그림자 대전이 있다" % n)
-		if hn - dead_n >= 2 and shadow_foes == 0:
-			_fail("[%d석] 산 사람이 둘 이상인데 그림자 대전이 없다" % n)
+		if hn - dead_n >= 2 and has_bye and shadow_foes == 0:
+			_fail("[%d석] 남은 세력이 홀수이고 산 사람이 둘 이상인데 그림자 대전이 없다" % n)
+		if not has_bye and (shadow_foes > 0 or ghost_foes > 0):      # 11/20 남은 세력이 짝수면 빈자리가 없다 —— 그림자 · 유랑군이 나오면 안 된다
+			_fail("[%d석] 멸망 %d명 방 —— 남은 세력이 짝수인데 그림자 %d · 유랑군 %d" % [n, dead_n, shadow_foes, ghost_foes])
 		# 대전 계산도 한 번 돌려 본다 (떠돌이 군세와의 싸움이 되는지)
 		r.stage_end = 0.0
 		r._end_prep()
@@ -403,7 +408,8 @@ func _seats_rules() -> void:
 	print("자리 수 규칙: 허용 4 · 6 · 8, 이상하면 8, 가득 차면 참가 거부 · 시작한 방 거부 점검 끝")
 
 
-## 한 판 전체 —— 점검 모드 방(자리 n · 사람 hn)을 끝(over)까지 직접 돌린다. 빈자리만 봇 · 20 저녁 · 토너먼트 라운드 수 · 모두 끝에 닿는가
+## 한 판 전체 —— 점검 모드 방(자리 n · 사람 hn)을 끝(over)까지 직접 돌린다. 빈자리만 봇 · 단계 순서 · 저녁 수 · 모두 끝에 닿는가
+## (11/20: 예전의 「20 저녁 · 토너먼트 라운드 수」 기대는 11/12 최후 1인 · 11/19 온라인 토벌 계속에 맞춰 바꿨다)
 func _full_room(n: int, hn: int) -> void:
 	var r := _room(hn, 777 + n * 10 + hn, n)
 	var bots_n := r.seats.filter(func(s): return not s.human).size()
@@ -437,33 +443,35 @@ func _full_room(n: int, hn: int) -> void:
 	if r.stage != "over":
 		_fail("[%d석 · 사람 %d] 끝나지 않았다 (stage=%s 단계 %d)" % [n, hn, r.stage, guard])
 		return
-	if evenings != 20:
-		_fail("[%d석 · 사람 %d] 대전 준비 %d번 (기대 20)" % [n, hn, evenings])
-	# 11/11 단계 순서 —— 1~3일차(페이즈 0~8): 준비 · 토벌 · 대전 준비 · 대전 / 4일차~(9~19): 준비 · 대전 준비 · 대전 / 21번째(토너먼트): 준비 · 대전 준비 · 대전 × 라운드
+	# 11/20 기대값을 지금 규칙에서 유도한다 (예전: 저녁 20 · 페이즈 21 · 점심 9 · 4일차~ 점심 없음 · 21번째는 토너먼트)
+	#   11/12 최후 1인 —— 토너먼트가 없다(Room.tour 는 늘 null). 점검 방은 Room.TEST_MORTAL_DAY 일차까지 멸망이 없으니 그 일수 × 3 페이즈는 꼭 채우고, 그 뒤 한 세력만 남으면 끝난다
+	#   11/19 온라인 토벌 계속 —— 점심은 Room.has_noon(일차)인 페이즈마다 (Run.ONLINE_NOON_DAYS)
+	var min_phases: int = Room.TEST_MORTAL_DAY * 3
+	var preps := 0
 	var noons := 0
+	var want_noons := 0
 	for k in phases.size():
 		var st: Array = phases[k].stages
-		var want_st := ["morning", "noon", "evening_prep", "evening"] if k < 9 else ["morning", "evening_prep", "evening"]
-		if k == 20:
-			want_st = ["morning", "evening_prep"]
-			for tr in tour_rounds.size():
-				want_st.append("evening")
-		if st != want_st:
+		var want_st := ["morning", "noon", "evening_prep", "evening"] if Room.has_noon(int(phases[k].day)) else ["morning", "evening_prep", "evening"]
+		var cut: bool = k == phases.size() - 1 and st.size() < want_st.size() and st == want_st.slice(0, st.size())      # 마지막 페이즈는 토벌에서 판이 끝나면 대전 앞에서 끊길 수 있다
+		if st != want_st and not cut:
 			_fail("[%d석 · 사람 %d] %d번째 페이즈 단계 %s (기대 %s)" % [n, hn, k + 1, str(st), str(want_st)])
+		preps += st.count("evening_prep")
 		noons += st.count("noon")
-	if phases.size() != 21 or noons != 9:
-		_fail("[%d석 · 사람 %d] 페이즈 %d개 · 점심 %d번 (기대 21 · 9)" % [n, hn, phases.size(), noons])
-	# 토너먼트 —— 8명: 8강 4 · 4강 2 · 결승 1 / 6명: 8강 2 · 4강 2 · 결승 1 / 4명: 4강 2 · 결승 1
-	var want := [[0, 4], [1, 2], [2, 1]] if n == 8 else ([[0, 2], [1, 2], [2, 1]] if n == 6 else [[1, 2], [2, 1]])
-	# 사람이 모두 일찍 떨어지면 끝까지 다 안 볼 수도 있다 (점검 모드는 멸망하지 않으니 토너먼트 패배만) —— 라운드가 계속 이어지는지 본다
-	if tour_rounds.size() != want.size() or str(tour_rounds) != str(want):
-		_fail("[%d석 · 사람 %d] 토너먼트 라운드 %s (기대 %s)" % [n, hn, str(tour_rounds), str(want)])
+		want_noons += 1 if want_st.has("noon") and (not cut or st.has("noon")) else 0
+	if evenings != preps or evenings < min_phases:
+		_fail("[%d석 · 사람 %d] 대전 준비 %d번 (단계 기록 %d번 · 기대 %d 이상)" % [n, hn, evenings, preps, min_phases])
+	if phases.size() < min_phases or noons != want_noons:
+		_fail("[%d석 · 사람 %d] 페이즈 %d개 (기대 %d 이상) · 점심 %d번 (기대 %d)" % [n, hn, phases.size(), min_phases, noons, want_noons])
+	if not tour_rounds.is_empty():
+		_fail("[%d석 · 사람 %d] 토너먼트 라운드가 있다 %s (11/12 최후 1인 —— 없어야 한다)" % [n, hn, str(tour_rounds)])
 	for s in r.humans():
 		if s.run.over == null:
 			_fail("[%d석] %s 의 끝(over)이 없다" % [n, s.name])
 	var champs := r.humans().filter(func(s): return s.run.over != null and s.run.over.win).size()
-	if phases.size() == 21:
-		print("  단계 순서: 1~9번째 페이즈 %s · 10~20번째 %s · 21번째 %s" % [str(phases[0].stages), str(phases[9].stages), str(phases[20].stages)])
+	if phases.size() >= 21:      # 11/20 판 길이가 21페이즈로 고정이 아니다 —— 마지막 페이즈도 함께 찍는다
+		print("  단계 순서: 1~9번째 페이즈 %s · 10~20번째 %s · 21번째 %s · 마지막(%d번째) %s" % [str(phases[0].stages), str(phases[9].stages), str(phases[20].stages),
+			phases.size(), str(phases[phases.size() - 1].stages)])
 	print("한 판 [%d석 · 사람 %d · 봇 %d]: 저녁 %d · 토너먼트 %s · 우승 사람 %d · %.1f초" % [n, hn, bots_n, evenings, str(tour_rounds), champs, (Time.get_ticks_msec() - t0) / 1000.0])
 	if champs > 1:
 		_fail("[%d석] 우승한 사람이 %d명" % [n, champs])
