@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>솔국지 현황 11/20</title>
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--ink:#e8e2d2;--dim:#a99c80;--gold:#e0b45a;--jade:#7fd0bd;--seal:#e0806f;--line:#2a3348}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 "Noto Sans KR","Malgun Gothic",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:28px;margin:0 0 4px;color:var(--gold)}
+h2{font-size:21px;margin:44px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold)}
+h3{font-size:16px;margin:24px 0 8px;color:var(--jade)}
+.sub{color:var(--dim);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin:12px 0}
+.shots figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px}
+.shots img{width:100%;display:block;border-radius:4px}
+figcaption{font-size:12.5px;color:var(--dim);margin-top:6px;line-height:1.45}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1d2538;color:var(--gold);font-weight:600}
+code{background:#222b3f;padding:1px 5px;border-radius:4px;font-size:13px;color:#d9d0b8}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.flow span{background:#222b3f;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:13.5px}
+.flow b{color:var(--dim)}
+.risk{border-left:4px solid var(--seal)}
+.ok{border-left:4px solid var(--jade)}
+.tag{display:inline-block;font-size:12px;border-radius:4px;padding:0 6px;margin-right:6px}
+.t-hi{background:#5a2a24;color:#ffb3a6}.t-mid{background:#4a3d1e;color:#f2d38a}.t-lo{background:#203a35;color:#a6e6d6}
+ul{margin:6px 0;padding-left:20px}
+.toc a{color:var(--jade);text-decoration:none}
+.tw{overflow-x:auto}
+@media (max-width:600px){h1{font-size:23px}.shots{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<h1>솔국지 현황 보고 — 2026-11-20 (하루 마감)</h1>
+<p class="sub">다른 AI 모델 · 다른 작업자에게 넘기는 문서. 이 문서 하나로 게임의 흐름 · 시스템 · 11/11 이후의 변화 · <b>약점</b>을 파악할 수 있게 썼다. 앞 문서: <code>docs/현황_1111.html</code>. 출처: <code>작업현황.md</code> 97 · 105~109 절, <code>docs/전투_프레임_알고리즘_1119.md</code>, <code>data/changelog.json</code>, <code>git log</code>. 스크린샷은 점검 인자로 찍은 실제 게임 화면(450×968, Mobile 렌더러).</p>
+
+<div class="card toc">
+<b>목차</b> ·
+<a href="#s1">1. 한눈에</a> ·
+<a href="#s2">2. 한 판의 흐름 · 화면</a> ·
+<a href="#s3">3. 핵심 시스템</a> ·
+<a href="#s4">4. 전투</a> ·
+<a href="#s5">5. 온라인</a> ·
+<a href="#s6">6. 11/11 → 지금 변경 요약</a> ·
+<a href="#s7">7. 측정 수치 · 밸런스</a> ·
+<a href="#s8">8. 약점 · 고민거리</a> ·
+<a href="#s9">9. 묻고 싶은 것</a> ·
+<a href="#s10">10. 부록</a>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 한눈에</h2>
+<div class="card">
+<p>솔국지는 Godot 4.4.1 로 만든 <b>세로 화면 삼국지 카드 오토배틀러</b>다(안드로이드 APK · PC EXE, 개인 프로젝트). 카드를 받고(징집) · 같은 카드를 모아 한 등급 위 장수로 올리고(조합) · 진형에 편성하면, 전투는 자동 · 실시간으로 진행되고 사람은 구경한다. <b>최후의 한 세력이 남을 때까지</b> 날이 이어진다(1.0r 에서 토너먼트 삭제). 혼자 하기(봇)와 온라인(4 · 6 · 8명 방, 빈자리 봇)이 있다. 기준은 온라인 대전이다(사용자 원칙: 싱글은 힘을 뺀다).</p>
+</div>
+<table>
+<tr><th>항목</th><th>지금</th></tr>
+<tr><td>버전</td><td><b>1.1h</b> (code 39, 11/20) —— 변경 내역 등록. 마지막 배포 빌드는 1.1g (code 38). 1.1h APK · EXE 는 이번 마감에서 지휘자가 빌드</td></tr>
+<tr><td>전투 화면</td><td><b>전쟁 삽화 방식만</b> (1.1e, <code>Settings.PAINTING_ONLY</code>). 3D · 수묵 · 점묘 · 옛 군집은 꺼 두고 손대지 않는다 (사용자 결정)</td></tr>
+<tr><td>전투 속도 규칙</td><td><b>속도 100 = 초당 1번 공격</b> (행동 간격 = 100 / 속도 초, 1.1h, 사용자 결정)</td></tr>
+<tr><td>규모</td><td>카드 385장 · 장수 개성(고유 행동) 142명 · 고유기 데이터 60개 · 인연 47개 · 군략 카드 81장 · 역할 갈래 9개 · 병종 8개(창병 · 기병 · 궁병 · 도적 · 책사 · 유생 · 술사 · 모사)</td></tr>
+<tr><td>11/11 이후</td><td>판 1.0l → 1.1h (22판)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 한 판의 흐름 · 화면</h2>
+<div class="flow"><span>타이틀</span><b>→</b><span>오전: 징집 · 조합 · 편성</span><b>→</b><span>토벌 (험지 선택 가능)</span><b>→</b><span>대전 준비 10초 (군략만)</span><b>→</b><span>대전</span><b>→</b><span>결과 · 민심</span><b>→</b><span>다음 날 아침 보상 일괄</span><b>→</b><span>최후 1인까지 반복</span></div>
+<ul>
+<li>하루 = 오전 · 오후 · 저녁 3페이즈 (<code>Run.PHASE_N</code>). 머리띠에 「DAY 6 · 토요일 오전」, 요일은 7일 주기.</li>
+<li>지는 구조: 민심(hp 100). 패배 피해 <code>HP_QUEST [7,9,11,13,18,23,31]</code> × (0.35 + 적 남은 비), 8일차부터 7일차 값 × 1.25^(일차−7). 혼자 하기 대전 ×0.6 · 온라인 ×1.0. 0 이면 멸망 (깃발 꺾임 · 처형 연출 · 엔딩 순위).</li>
+<li>판 길이(측정, 11/12): 온라인 어림 4석 평균 7.3~7.4일 · 8석 7.8~7.9일.</li>
+<li>보상은 이기든 지든 같다(1.0p, 민심만 깎임). 군량은 페이즈마다 3, 연승 · 연패 2/3/4번이면 +1/+2/+3 (1.1g).</li>
+</ul>
+<div class="shots">
+<figure><img src="report_1120/01_title.png" alt="타이틀"><figcaption>01 타이틀 —— 이어 하기 · 새 판 · 온라인 대전 · 설정 · 「v1.1h · 업데이트 내역」. 온라인 판이 끊겼으면 여기에 「대전으로 돌아가기」가 뜬다.</figcaption></figure>
+<figure><img src="report_1120/02_draw.png" alt="징집"><figcaption>02 징집 (6일차) —— 위 병종 막대 8칸, 「징집하기」 큰 버튼, 추천 조합(가까운 · 인연), 보유 카드. 카드 초상 위 <b>역할 칩</b>(아군 강화 · 적 마무리 …).</figcaption></figure>
+<figure><img src="report_1120/03_forge.png" alt="조합"><figcaption>03 조합 —— 병종 · 등급 거르기, 「지금 조합 가능 4」 와 나머지 195장. 카드 왼쪽 위 −N = 모자란 재료 수.</figcaption></figure>
+<figure><img src="report_1120/04_deploy.png" alt="편성"><figcaption>04 편성 —— 진형 8종(봉시 · 어린 · 방원 · 학익 …), 4줄 진형판(선봉 · 전군 · 중군 · 후군), 아래 <b>군략 1 · 2 · 3단계</b>(기본 돌격 · 방진 · 우회), 보유 · 보급품.</figcaption></figure>
+<figure><img src="report_1120/05_war.png" alt="전투 탭"><figcaption>05 전투 탭 —— 「출진 · 토벌」과 「② 대전」 한 줄, 험지 토벌 스위치(적 병력 ×1.5), 오늘 우두머리의 성질 · 군략, 군단 효과, 출진 진영 메달의 <b>군단 효과 기호</b>.</figcaption></figure>
+<figure><img src="report_1120/12_result.png" alt="결과 칸"><figcaption>12 전투 결과 칸 (2일차 대전 패배) —— 잔존 · 수훈 · 기본패 · 선택권 · 민심을 값/이름 칸 한 줄로(1.1h), 아래 패배 사유 한 줄.</figcaption></figure>
+</div>
+<h3>장수 정보 시트</h3>
+<div class="shots">
+<figure><img src="report_1120/06_card_gahu.png" alt="디테일창 가후"><figcaption>06 디테일창 · 독사 가후 —— 능력치 3개 + 특기 칩, 기질(지략), <b>고유기 카드</b>(큰 숫자 407% 피해 · 꼬리표), 고유 특기 · 기인 카드(2단 수치 칩), 인연.</figcaption></figure>
+<figure><img src="report_1120/07_card_caocao.png" alt="디테일창 조조"><figcaption>07 디테일창 · 난세간웅 조조(신화) —— 고유기 큰 숫자가 "첫 효과"인 <b>아군 공격 +30%</b> (피해 862% 는 작은 칩). 위세 · 패업 카드, 인연 「적벽대전」 구성원 · 인연기 설명.</figcaption></figure>
+<figure><img src="report_1120/08_recipe.png" alt="갈무리창"><figcaption>08 갈무리창 · 육손 —— 재료 부족 2장, 갈무리 ★ · 상세, 고유 특기 이름(서생), 재료 타일 4장(보유 수 / 필요 수).</figcaption></figure>
+<figure><img src="report_1120/09_update.png" alt="업데이트 내역"><figcaption>09 업데이트 내역 —— 최신 판(1.1h)만 펼치고 지난 판은 한 줄로 접는다. 문장은 "~습니다" 짧은 문장.</figcaption></figure>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 핵심 시스템</h2>
+<table>
+<tr><th>시스템</th><th>내용</th></tr>
+<tr><td>장수 등급</td><td>1~8 (병졸 → 고급 3 → 희귀 4 → 전설 5 → 초월 6 · 불멸 7 · 신화 8). 기인은 별도 줄. 원칙: 높은 등급을 덱빌딩으로 뒤집지 못한다(등급 격차 유지).</td></tr>
+<tr><td>조합</td><td>같은 카드 · 재료를 모아 한 등급 위로. 추천 조합 · 이유 · 조합 전후 손익 미리 보기(11/19). 장수 선점제: 남이 먼저 데려간 기인 이상 장수는 조합 불가(1.0n).</td></tr>
+<tr><td>특기</td><td>개인 · 단체 특기, 계열 연쇄, 위세(초월 이상), 패업. 설명에서 턴제 말(차례 · 같은 열)을 "약 N초마다 · 주변"으로 바꿈. 디테일창은 계열 기호 6열 격자, 누르면 설명(1.1h).</td></tr>
+<tr><td>장수 개성</td><td>142명 모두에 고유 행동 하나(조인 도발 · 주태 불사 · 관우 처형 · 여포 무쌍 연쇄 · 제갈량 팔진, 1.1f). 발동하면 머리 위에 이름. 고유(금색) 특기는 3급부터.</td></tr>
+<tr><td>역할 칩</td><td><code>data/roles.json</code> —— 갈래 9개의 색 · 기호, 글은 "전투에서 하는 일"(근접 공격 · 적 마무리 · 후열 습격 · 병력 회복 …). 카드 초상 위 · 디테일창 · 갈무리창 · 편성판.</td></tr>
+<tr><td>고유기</td><td>기 100 이면 기 모으기 → 컷인 → 큰 이펙트. 같은 계열도 인물마다 모양이 다르다(주유 불벽 · 육손 불기둥 줄 · 황개 불배 · 방통 사슬). 돌격 고유기는 실제로 부딪히는 순간 터짐. 고유기를 더 오래 못 쓴 진영이 먼저 정함(공정화).</td></tr>
+<tr><td>군략</td><td>전투 3단계마다 카드 한 장(정면 · 기동 · 수비 · 원거리 · 책략 상성). 덱에 맞는 병종이 많을수록 강함. 하루 끝 3택1로 손패가 는다. 기본 계획 돌격 · 방진 · 우회.</td></tr>
+<tr><td>진형</td><td>8종, 모두 좌우 대칭 · 한 줄 4칸까지(1.0t). 의미는 칸 배치와 병종별 칸 선호.</td></tr>
+<tr><td>인연</td><td>47개. 한 장수가 기를 모으면 같은 인연의 게이지 찬 아군이 함께 발동(초월 끼면 4명), 기인은 연쇄를 열고 초월은 키운다. 연쇄 끝에 인연 주제 효과(적벽 = 불길).</td></tr>
+<tr><td>기질</td><td>장수마다 기 모으는 방식(예: 지략 —— "차는 때 가만히 있어도 기가 꾸준히 찬다"). 맹장 기질은 고유기 대기 짧음(1.1f). 갈무리창에 설명 두 줄(1.1h).</td></tr>
+<tr><td>연승 보너스</td><td><code>Run.streak</code> · <code>STREAK_GRAIN {2:1, 3:2, 4:3}</code> 군량. 온라인은 다음 아침 지급. 수치는 처음 잡은 값.</td></tr>
+<tr><td>사기</td><td>전군 사기 상한 <b>200</b>. 100 초과분은 금색 + "100 (+20)" 표기. 30 미만이면 패주 판정, 총붕괴 · 결전 때 깎임(병력 많으면 덜).</td></tr>
+<tr><td>아이템 · 군량</td><td>무기 · 갑옷 두 칸, 고대 등급 16개(뽑기 전용, 30번 천장). 장수 판매로 군량.</td></tr>
+<tr><td>토벌</td><td>온라인에서도 끝까지 이어짐 · 총대장을 베면 승 · 우두머리 성질이 날마다 다름 · 이기면 장비 한 점(1.1f). 험지 = 적 병력 ×1.5.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 전투 (삽화 방식만)</h2>
+<div class="card">
+<ul>
+<li><b>구조</b>: 결정적 엔진(<code>battle.gd</code> + <code>rt_battle.gd</code>)이 끝까지 <b>미리 계산</b>하고, 화면(<code>battle_view.gd</code> · <code>Type2View</code> · <code>war_painting</code>)은 그 결과를 <b>재생</b>한다. 혼자 하기는 계산을 스레드로(<code>BattleView.async_sim</code>, 「전투 준비 중…」), 온라인은 서버가 계산.</li>
+<li><b>속도</b>: 행동 간격 = 100 / 속도 초 (<code>RtBattle.spd_rule</code>). 일반 기술은 "약 4초마다" 식으로 표기.</li>
+<li><b>이동</b> (<code>algo_v2</code>): 비켜 가기 관성 + 원거리 다가서기. 원거리가 막혀 선 시간 51.0 → 25.1초/판 (240판).</li>
+<li><b>화면 요소</b>: 위 띠(아군 · 적 병력, 시간, 사기 게이지 —— 100 초과는 "100 (+7)"), 일시정지 · 배속(토벌 2×, 대전 1.25×), 메달 이름표(병력 47k 표기 · 사기 막대), 상태 기호, 떠오르는 피해 숫자, 고유기 컷인(동안 위 띠 숨김), 「적 고유기 준비」 칸, 아래 장수 카드(병력 "8.8k").</li>
+<li>개입 없음 —— 결정은 전투 전(편성 · 군략)에 끝난다.</li>
+</ul>
+</div>
+<div class="shots">
+<figure><img src="report_1120/14_battle_early.png" alt="토벌 초반"><figcaption>14 토벌 · 청주 황건 (6페이즈, 2×) —— 사선 고정 시점 삽화 전장, 메달 · 병력 표기, 원거리 탄 · 범위 표시.</figcaption></figure>
+<figure><img src="report_1120/11_battle_quest.png" alt="토벌 총붕괴"><figcaption>11 토벌 · 산월의 엄백호 —— 312,612 대 26,419 로 밀려 「아군 총붕괴!」. 번개 고유기 · 치료 원. 왼쪽 위 fps 줄은 점검 표시.</figcaption></figure>
+<figure><img src="report_1120/10_battle_pvp.png" alt="대전 컷인"><figcaption>10 대전 · 호로관 (0:12) —— 고유기 「성도 진격」 컷인. 적 사기 「100 (+47)」 = 상한 200 의 초과분.</figcaption></figure>
+<figure><img src="report_1120/13_battle_late.png" alt="대전 후반 덱"><figcaption>13 대전 · 후반 덱 (21페이즈) —— 「적 고유기 준비 · 방덕」 칸, 큰 피해 숫자, 아래 장수 카드의 기 막대.</figcaption></figure>
+<figure><img src="report_1120/15_band_medal.png" alt="위 띠 · 메달 확대"><figcaption>15 위 띠 · 메달 확대 (13 의 위쪽) —— 사기 "100 (+7)", 메달 아래 병력(33k) 과 상태 기호.</figcaption></figure>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. 온라인</h2>
+<table>
+<tr><th>항목</th><th>내용</th></tr>
+<tr><td>서버</td><td>집 PC <code>server.bat</code> (포트 7777) · WebSocket · <b>Tailscale Funnel</b> 고정 주소. 서버(<code>scripts/net/room.gd</code>)가 전투를 판정한다.</td></tr>
+<tr><td>방</td><td>방 만들기 / 코드 참가 / 대기실, 4 · 6 · 8명(빈자리 봇). 봇도 민심이 있고 멸망. 봇 상대 승률 목표 1~2일차 약 65% · 3~4일차 60% · 5일차부터 55% (1.1d, 플레이 기록으로 맞춤).</td></tr>
+<tr><td>끊긴 판 돌아가기</td><td>온라인 판 진행 중이면 <code>user://net_live.json</code> 에 주소 · 방 코드. 타이틀 「대전으로 돌아가기」 (<code>Online.live_mark</code> · <code>rejoin</code>). 3시간 지나면 없는 것으로. 점검 <code>--grejoin</code>.</td></tr>
+<tr><td>프레임 실측 기록</td><td>전투 하나를 다 보면 클라이언트가 <code>{"t":"perf"}</code> 를 보냄 → <code>playlog_online/*.jsonl</code> 의 <code>ev:"perf"</code>. 칸: n · avg · max · s25 · s50 · lv · top · os · dev · gpu · win. 주의: <code>start</code> 의 os 는 <b>서버의</b> OS.</td></tr>
+<tr><td>조작</td><td>뒤로/Esc 는 한 단계씩, 온라인 판에서는 나가기 전에 확인. 준비 · 방 만들기 연타 잠금. 서버 state 로 다시 그리기는 누르는 동안 미룸(<code>Online._render_soon</code>).</td></tr>
+<tr><td>주의</td><td>이동 알고리즘 · 처리 순서 · 속도 규칙은 <b>전투 결과를 바꾼다</b> —— 서버도 같은 소스로 재시작해야 온라인 판정에 반영된다.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. 11/11 → 지금 변경 요약</h2>
+<div class="tw"><table>
+<tr><th>판</th><th>날짜</th><th>요약</th></tr>
+<tr><td>1.0m</td><td>11/12</td><td>진형 개편(모든 진형에 5칸 꽉 찬 줄) · 편의</td></tr>
+<tr><td>1.0n</td><td>11/12</td><td>하루 흐름 개편: 아침 1분(징집 · 조합 · 편성), 보상은 다음 아침 일괄, 장수 선점제</td></tr>
+<tr><td>1.0o</td><td>11/12</td><td>양군 사기 게이지 · 인연 대사 · 토벌 종료</td></tr>
+<tr><td>1.0p</td><td>11/12</td><td>온라인 보상 차등 없음 · 랜덤권</td></tr>
+<tr><td>1.0q</td><td>11/12</td><td>험지 토벌 · 인연기</td></tr>
+<tr><td>1.0r</td><td>11/13</td><td><b>토너먼트 삭제 → 최후의 1인</b>, 봇 민심 · 멸망, 민심 피해 ×1.8, 장수 판매</td></tr>
+<tr><td>1.0s</td><td>11/13</td><td>인연 겹침 정리(51 → 47) · 군량 표시</td></tr>
+<tr><td>1.0t</td><td>11/13</td><td>아이템 두 칸 · 고대 등급 · 군량 뽑기 · 진형 8종 재편</td></tr>
+<tr><td>1.0u</td><td>11/14</td><td>화면 규칙 통일 · 추천 조합 · 신화 보정</td></tr>
+<tr><td>1.0v</td><td>11/15</td><td>일러스트 새 단장(기본 143명 · 기인 22 · 불멸 31)</td></tr>
+<tr><td>1.0w</td><td>11/15</td><td><b>군략 카드</b>(전투 3단계) · 인연기 연출 강화</td></tr>
+<tr><td>1.0x</td><td>11/16</td><td>후열 고유기 충전 · 사기 패주 개선</td></tr>
+<tr><td>1.0y</td><td>11/16</td><td>대전 준비 10초 · 멀티 다듬기</td></tr>
+<tr><td>1.0z</td><td>11/16</td><td><b>전쟁 삽화</b> 화풍 · 고정 사선 전장</td></tr>
+<tr><td>1.1a</td><td>11/17</td><td>삽화 고유기 이펙트 · 돌격 고유기 · 상태 기호</td></tr>
+<tr><td>1.1b</td><td>11/18</td><td>온라인 반응(명령 번호) · 닫은 전투 재생 정지 · 기록 정리</td></tr>
+<tr><td>1.1c</td><td>11/18</td><td>모바일 프레임: 삽화가 부하 단계를 따름</td></tr>
+<tr><td>1.1d</td><td>11/19</td><td>온라인 토벌 적 병력 · 봇 전투력을 기록으로 맞춤</td></tr>
+<tr><td>1.1e</td><td>11/19</td><td><b>삽화 전용</b> · 프레임 6.47 → 4.20ms · 이동 알고리즘 · 고유기 선수 공정화</td></tr>
+<tr><td>1.1f</td><td>11/19</td><td>장수 개성 142명 · 공격력 ×1.25 · 토벌 차별화(총대장 · 장비 보상)</td></tr>
+<tr><td>1.1g</td><td>11/19</td><td>역할 칩 · 메달 병력/사기 · 사기 상한 200 · 고유기 갈래 · 연승 보너스 · 연속 전투 누수 수정</td></tr>
+<tr><td>1.1h</td><td>11/20</td><td><b>속도 100 = 초당 1번</b> · 디테일창 능력 카드 · 특기 아이콘 · 결과 칸 · 조작 폴리싱(뒤로/Esc · 누름 판정) · 끊긴 판 돌아가기 · 군략 기본 계획</td></tr>
+</table></div>
+<p>11/20 커밋 흐름: <code>01cf8ca</code> 속도 규칙 → <code>d544920</code> · <code>56e6b18</code> UI 폴리싱 1 · 2차 → <code>a6e9df5</code> · <code>f134a35</code> 조작 → <code>e82a7ff</code> 조작 회귀 점검 → <code>152a88d</code> 결과 칸 → <code>f28c662</code> · <code>4a7b443</code> 능력 패널 카드화.</p>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. 측정해 둔 수치 · 밸런스 상태</h2>
+<h3>속도 규칙 (예전 → 새 규칙, 4,160판, <code>tests/spd_balance</code>) —— 3장 이상 덱 승률</h3>
+<table>
+<tr><th>병종</th><th>예전</th><th>새 규칙</th><th>차</th></tr>
+<tr><td>기병</td><td>54.3%</td><td><b>58.2%</b></td><td>+3.9</td></tr>
+<tr><td>도적</td><td>47.4</td><td>52.1</td><td>+4.7</td></tr>
+<tr><td>궁병</td><td>47.8</td><td>49.6</td><td>+1.8</td></tr>
+<tr><td>모사</td><td>53.8</td><td>55.7</td><td>+1.9</td></tr>
+<tr><td>술사</td><td>50.9</td><td>50.9</td><td>0</td></tr>
+<tr><td>창병</td><td>51.1</td><td>48.0</td><td>−3.1</td></tr>
+<tr><td>책사</td><td>44.9</td><td><b>39.4</b></td><td>−5.5</td></tr>
+<tr><td>유생</td><td>39.6</td><td><b>34.7</b></td><td>−4.9</td></tr>
+</table>
+<h3>등급별 전투 길이 (같은 측정)</h3>
+<table>
+<tr><th>등급</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
+<tr><td>예전 (초)</td><td>36.3</td><td>35.1</td><td>38.0</td><td>36.7</td><td>28.1</td><td>34.7</td></tr>
+<tr><td>새 규칙 (초)</td><td><b>20.1</b></td><td>26.7</td><td>31.5</td><td>34.3</td><td>26.7</td><td>30.3</td></tr>
+</table>
+<ul>
+<li>3급은 61% 가 20초 미만. 시간 끝 판은 3급 43 → 3.</li>
+<li>거울 대전 A 승률 50.3%. 덱 평균 속도가 높은 쪽 승률 59.5 → 62.5%.</li>
+<li>고유기 선수 공정화: 같은 덱 A 승률 67.2 → <b>48.1%</b> (960판), 서로 다른 덱 진영 교체 49.0% (480판).</li>
+<li>프레임 (PC · Mobile 렌더러, <code>motion5_replay</code>): 평균 6.47 → 4.20ms (1.1e), 이후 점검에서 약 4.3ms. p95 11.98 → 6.18 · 최대 20.6 → 9.9 · 그리기 호출 700 → 580. <b>실기기 미측정.</b></li>
+<li>연속 전투 누수: 4초씩 24판 끊어 보기에서 4.5 → 11.9ms 로 커지던 것을 고침 → 24판 내내 4.5ms.</li>
+<li>이 PC 재현 시도(11/19 밤): 토벌 29부대 · 대전 18부대, RTX 3070 · UHD 770, 평균 2.4~5.8ms, 컷인 중 6.7ms.</li>
+<li>밸런스 수치 자체는 1.1f(공격력 ×1.25 등) 뒤로 건드리지 않았다. 사용자 원칙: 밸런스는 마지막에 한 번, 데이터로.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 약점 · 고민거리</h2>
+<div class="card risk"><span class="tag t-hi">높음</span><b>병종 격차가 속도 규칙으로 벌어짐</b> —— 기병 58.2% · 모사 55.7% 대 책사 39.4% · 유생 34.7% (4,160판). 속도가 높은 덱 승률 62.5%. 느린 후열 병종이 손해.</div>
+<div class="card risk"><span class="tag t-hi">높음</span><b>3급 전투가 너무 짧다</b> —— 평균 20.1초, 61% 가 20초 미만. 컷인 · 군략 3단계 · 인연 연쇄가 보일 시간이 모자랄 수 있다.</div>
+<div class="card risk"><span class="tag t-hi">높음</span><b>행동마다 도는 효과가 낮은 등급에서 약 3배</b> —— 독전 · 인술 · 방진 같은 "행동마다" 효과가 속도 규칙으로 행동 수가 늘며 커졌다.</div>
+<div class="card risk"><span class="tag t-hi">높음</span><b>실기기(Android) 미확인</b> —— 프레임 · 뒤로 버튼 · 터치 감각 · 소리. adb 는 <code>tools/android/sdk/platform-tools/adb.exe</code> 에 있으나 연결 기기 없음. 사용자는 프레임 저하를 느끼지만 PC 에서 재현 안 됨 → 서버 기록 <code>ev:"perf"</code> 로 실기기 수치를 받는 중.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>"전투 동안" 합계 표기</b> —— 인술 · 맞힐 때 치료 등의 합계가 35초 기준이라 짧은 전투에서 과장된다.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>고유기 카드 큰 숫자 = "첫 효과"</b> —— 조조는 피해 862% 대신 아군 공격 +30% 가 크게 보인다(스크린샷 07). 피해를 늘 주인공으로 할지 미정.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>서버 소스 일치</b> —— 전투 결과를 바꾸는 변경(속도 규칙 · 이동 · 처리 순서)은 서버 재시작 전까지 온라인에 반영되지 않는다. (11/20 08시 1.1h 소스로 재시작함 —— 이후 변경은 다시 재시작 필요)</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>연승 보너스 수치</b> —— 처음 잡은 값({2:1, 3:2, 4:3}), 밸런스 때 함께 본다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span>봇 덱 섞기 규칙의 2% 어긋남은 허용(사용자 결정, <code>5d058c9</code>).</div>
+<div class="card risk"><span class="tag t-lo">낮음</span>작은 글자 —— 10px 글자가 남아 있다(역할 칩은 최소 9px). 휴대폰에서 읽기 어려울 수 있다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span>남은 확인: 「둔화」를 「속도 감소」로 바꿀지(사용자의 "이감" 은 화면 글에 없음) · 아래 장수 카드 병력 "8.8k" 표기 확인 · "새 판을 시작할까요?" 시트가 화면을 꽉 채운 경로 미재현 · 편성판 끌기 강조의 눈 확인.</div>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 다른 모델에게 묻고 싶은 것</h2>
+<ol>
+<li>속도 규칙(100 = 초당 1번)을 유지하면서 책사 · 유생을 살리는 방법: 속도 보정 vs 행동당 효과 크기 조정 vs 기술 준비 시간을 행동 수와 떼기 — 어느 쪽이 밸런스를 덜 흔드나?</li>
+<li>3급 전투 20초는 짧은가? 낮은 등급 전투 길이를 늘릴 손잡이(병력 · 방어 · 사기)는 무엇이 좋은가?</li>
+<li>"행동마다" 효과(독전 · 인술 · 방진)를 초 단위로 바꾸는 것이 맞나, 등급별 계수로 누르는 것이 맞나?</li>
+<li>PC 에서 재현 안 되는 모바일 프레임 저하 — <code>perf</code> 기록(avg · max · s25 · s50 · lv · top)으로 원인을 좁히는 순서는?</li>
+<li>고유기 카드의 주인공 수치는 피해로 고정할까, 첫 효과로 둘까?</li>
+<li>"결정은 전투 전에 끝난다" 구조에서 관전의 재미(군략 공개 · 컷인 · 인연 연쇄)가 충분한가, 짧아진 전투에서 무엇을 줄일까?</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. 부록 —— 파일 지도 · 점검 방법</h2>
+<table>
+<tr><th>무엇</th><th>어디</th></tr>
+<tr><td>프로젝트</td><td><code>solgukji_godot/</code> (Godot 4.4.1)</td></tr>
+<tr><td>판정 엔진</td><td><code>scripts/battle.gd</code> · <code>scripts/rt_battle.gd</code> (<code>spd_rule</code> · <code>algo_v2</code> · <code>_camp_order</code>)</td></tr>
+<tr><td>한 판 진행</td><td><code>scripts/game/run.gd</code> (<code>PHASE_N</code> · <code>HP_QUEST</code> · <code>streak</code> · <code>dev_nosave</code>)</td></tr>
+<tr><td>화면</td><td><code>scripts/ui/game_screen.gd</code> (점검 인자 10행 · <code>_dev_args()</code>) · <code>ui.gd</code> · <code>press.gd</code> · <code>online.gd</code> · <code>battle_view.gd</code> · <code>card_view.gd</code> · <code>card_tile.gd</code></td></tr>
+<tr><td>서버</td><td><code>scripts/net/room.gd</code> · <code>server.bat</code> · 기록 <code>playlog_online/*.jsonl</code></td></tr>
+<tr><td>데이터</td><td><code>data/</code> game · cards_ext · passives · ultimates · inyeon · tactics · roles · changelog (.json)</td></tr>
+<tr><td>문서</td><td>루트 <code>작업현황.md</code> (절 번호순, 최신 맨 끝) · <code>docs/전투_프레임_알고리즘_1119.md</code> · <code>docs/장수_개성_정리_1119.md</code> · <code>docs/업데이트_내역.html</code></td></tr>
+</table>
+<h3>점검 씬 (tests/)</h3>
+<table>
+<tr><th>점검</th><th>무엇 · 최근 결과</th></tr>
+<tr><td><code>determinism</code></td><td>같은 시드 = 같은 결과, 30판 실패 0</td></tr>
+<tr><td><code>net --players=2</code></td><td>온라인 2인 · 재접속, rc=0 · 오류 0</td></tr>
+<tr><td><code>ctl_check</code></td><td>조작 회귀(입력을 넣음, 헤드리스 약 1분) 40개 실패 0</td></tr>
+<tr><td><code>tac_check</code></td><td>군략, 실패 0</td></tr>
+<tr><td><code>motion5_replay</code></td><td>전투 프레임, 평균 약 4.3ms</td></tr>
+<tr><td><code>battle_chain</code></td><td>연속 전투 24판 프레임 · 노드 · 그리기 호출, 4.5ms 유지</td></tr>
+<tr><td><code>spd_rule</code> · <code>spd_balance</code></td><td>속도 규칙 실험 · 4,160판 밸런스</td></tr>
+<tr><td><code>algo_audit</code></td><td>이동 품질 · 진영 치우침 · 시뮬 시간</td></tr>
+<tr><td><code>async_sim</code></td><td>스레드 계산 = 바로 계산</td></tr>
+<tr><td>그 밖</td><td><code>motion5_combat_regression</code> · <code>target_area_regression</code> · <code>rear_morale_regression</code> · <code>inyeon</code> · <code>claim_rules</code> · <code>ult_dash</code> · <code>ult_look</code> · <code>last_one</code> · <code>game --runs=N</code>(자동 진행)</td></tr>
+</table>
+<h3>스크린샷 찍기</h3>
+<div class="card">
+<code>cd solgukji_godot && ../tools/Godot_v4.4.1-stable_win64_console.exe --path . --rendering-method mobile --resolution 450x968 --position 2000,100 -- --gnew=7 --gplay=15 --gpage=deploy --gquiet --gshot=out.png --after=1.5</code>
+<ul>
+<li><code>--gpage=draw|forge|deploy|war</code> · <code>--gbattle=pvp|quest</code> (<code>--speed=8 --gclose</code> 면 결과까지) · <code>--gsheet=card:K22|recipe:c100|update</code> + <code>--gnoband</code>.</li>
+<li><b>주의</b>: <code>--gquiet</code> 는 찍기 전에 시트를 닫는다 —— 시트를 찍을 때는 빼야 한다.</li>
+<li>점검 인자(<code>--g…</code>)가 있으면 사용자 저장을 쓰지 않는다(<code>Run.dev_nosave</code>). <code>--gplay</code> 가 클수록 높은 등급 카드(6 · 15 · 21).</li>
+</ul>
+</div>
+<p class="sub">이 문서의 스크린샷: <code>docs/report_1120/</code> 15장. 모든 수치는 위 출처의 측정값이며, 판 수를 함께 적었다.</p>
+</main>
+</body>
+</html>
