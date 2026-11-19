@@ -1027,7 +1027,19 @@ func _flush_shadow_news() -> void:
 
 ## 11/12 사용자(작업현황 94): 봇의 군세는 그 봇이 한 번 만들어 PV 를 따라 자란다 (Run.bot_side_of) —— 전투마다 새로 뽑지 않는다
 func _bot_side(b: Dictionary) -> Dictionary:
-	return Run.bot_side_of(b.bot, int(rng.seed), day * 3 + phase)
+	return Run.bot_side_of(b.bot, int(rng.seed), day * 3 + phase, _bot_mul(b))
+
+
+## 11/19 사용자: 유저봇 전투력을 온라인 대전의 유저 플레이로 맞춘다 —— 일차별 봇 전투 배율 (대전 군세 · 보이는 전력에 곱한다, 봇끼리 승부 · 봇 토벌은 그대로)
+## tests/bot_fit (온라인 기록 사람 대 봇 296판 —— 그때 사람 덱으로 다시 싸움): 배율 1.0 재현 사람 승률 77 · 86 · 91 · 99 · 80 · 43 · 38% (실제 72 · 88 · 92 · 93 · 80 · 59 · 50%)
+## 목표 사람 승률 1~2일 65 · 3~4일 60 · 5일~ 55% → 1.3 · 1.4 · 1.5 · 1.4 · 1.15 · 1.0 · 1.0 (봇이 목 · 금에 다 무너져 막판이 늘 1:1 이던 것)
+const ONLINE_BOT_MUL := [1.3, 1.4, 1.5, 1.4, 1.15, 1.0, 1.0]
+
+## 자리에 앉은 봇에만 —— 유랑군은 평균 전력(이미 배율이 든)으로 만든다
+func _bot_mul(b: Dictionary) -> float:
+	if b.human or not seats.any(func(o): return is_same(o, b)):
+		return 1.0
+	return float(ONLINE_BOT_MUL[clampi(day, 0, ONLINE_BOT_MUL.size() - 1)])
 
 
 ## 다음 날 아침
@@ -1483,7 +1495,7 @@ func _log_end() -> void:
 func _pv(s: Dictionary) -> int:
 	if s.human:
 		return s.run.my_pv() if s.run != null else 0
-	return roundi(s.bot.pv)
+	return roundi(s.bot.pv * _bot_mul(s))
 
 
 ## 사람마다 Run.bots 를 다른 자리들의 거울로 채운다 —— 순위 화면·머리띠 순위가 그대로 쓴다
@@ -1500,7 +1512,7 @@ func _mirror() -> void:
 					"w": r.my_w, "l": r.my_l, "strikes": r.strikes, "top": 0, "skill": 1.0, "hp": r.hp, "dead": o.dead})
 			else:
 				var b: Dictionary = o.bot
-				lst.append({"name": o.name, "epi": b.epi, "fac": b.fac, "style": b.style, "pv": b.pv,
+				lst.append({"name": o.name, "epi": b.epi, "fac": b.fac, "style": b.style, "pv": b.pv * _bot_mul(o),
 					"w": b.w, "l": b.l, "strikes": b.strikes, "top": 0, "skill": b.skill, "army": (b.get("army", []) as Array).duplicate(),
 					"hp": int(b.get("hp", Run.HP_MAX)), "dead": o.dead})      # 11/12 봇 민심 · 멸망
 		s.run.bots = lst

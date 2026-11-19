@@ -1388,6 +1388,12 @@ func quest_pv() -> int:
 	return int(q.pv) if q != null else int(DB.D.QPV[td()][phase] * QUEST_PV_MUL)
 
 
+## 11/19 사용자: 토벌은 고정 난이도로 두고 온라인 기록으로 값을 맞춘다 —— 온라인(mp) 토벌의 날짜 · 시간대별 적 병력 배율 (QUEST_TR 에 곱한다, 험지는 그 위에)
+## tests/quest_fit (온라인 기록 토벌 266판 —— 그때 플레이어 덱으로 다시 싸움). 목표: 보통 덱의 일반 토벌 승률 약 80% 를 매 시점 고르게
+##   실제 승률 월 57 · 82 · 84 / 화 76 · 91 · 89 / 수 86 · 80 · 94% —— 첫날 아침 낭떠러지 · 화요일 거저
+##   월 아침 ×0.55 (재현 47 → 약 76%) · 월 저녁 ×1.15 · 화 아침 ×0.8 · 화 낮 ×1.3 · 수 저녁 ×1.2. 화 저녁은 배율에 반응이 없어 그대로
+const QUEST_PH_TR_ONLINE := [[0.55, 1.0, 1.15], [0.8, 1.3, 1.0], [1.0, 1.0, 1.2]]
+
 func start_quest() -> Dictionary:
 	var pv := quest_pv()
 	var q = quest_roster()
@@ -1409,6 +1415,8 @@ func start_quest() -> Dictionary:
 	else:
 		var styles := ["물리", "지략", "균형"]
 		foe = _bot_side(pv, styles[rng.randi() % 3])
+	if mp and day < QUEST_PH_TR_ONLINE.size():      # 11/19 온라인 토벌 시점별 병력 보정 (고정 난이도 그대로)
+		foe["tr_mul"] = float(foe.get("tr_mul", 1.0)) * float(QUEST_PH_TR_ONLINE[day][phase])
 	foe["plan"] = quest_load() if tac_on else {}      # 11/15 토벌 우두머리의 그날 고정 계획 (전투 탭에 미리 보인다)
 	if not DB.quest_trait(td()).is_empty(): foe["trait"] = DB.quest_trait(td())      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
 	if quest_hard:      # 11/12 험지 토벌 —— 적 병력 · 사기 배율
