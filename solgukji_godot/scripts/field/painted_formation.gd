@@ -28,6 +28,7 @@ var action_kind := ""
 var half_width := 0.0
 var row_gap := 0.0
 var contact_limits: Array = [] # Visual half-planes; never change simulation positions.
+var limits_ready := false      # 11/19 접촉선을 한 번이라도 쟀는가 (war_painting 이 네 프레임에 한 번 다시 잰다)
 
 func constrain_foot(point: Vector2) -> Vector2:
 	for boundary in contact_limits:
@@ -128,6 +129,7 @@ func _place(sq: Squad, dt: float, initial: bool) -> void:
 	var right := Vector2(- facing.y, facing.x)
 	var front := maxf(sq.hd0 * ratio, RtBattle.HD_MIN) * 0.86
 	var follow := 1.0 - exp(- dt * 11.0)
+	var limited := not contact_limits.is_empty()      # 11/19 접촉선이 없으면 병사마다 두 번 부르던 제한 함수를 건너뛴다
 	for i in capacity:
 		if alive[i] == 0:
 			continue
@@ -142,12 +144,14 @@ func _place(sq: Squad, dt: float, initial: bool) -> void:
 		var offset := facing * depth + right * (flank * half_width + stagger)
 		if sq.state == "flee":
 			offset += right * sin(float(i) * 2.4) * (12.0 + row * 3.0)
-		var goal := constrain_foot(center + offset)
+		var goal := center + offset
+		if limited:
+			goal = constrain_foot(goal)
 		if initial:
 			feet[i] = goal
 			continue
 		var before := feet[i]
-		feet[i] = constrain_foot(before.lerp(goal, follow))
+		feet[i] = constrain_foot(before.lerp(goal, follow)) if limited else before.lerp(goal, follow)
 		var speed := feet[i].distance_to(before) / dt
 		var walking := smoothstep(10.0, 90.0, speed)
 		gait[i] = lerpf(gait[i], walking, 1.0 - exp(- dt * 9.0))

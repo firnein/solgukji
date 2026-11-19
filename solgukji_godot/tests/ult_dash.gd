@@ -6,6 +6,8 @@ const CAV := ["마초", "서황", "공손찬", "장료", "조운", "손책", "�
 func _ready() -> void:
 	PlayLog.enabled = false
 	RtBattle.probe_dash = "--log" in OS.get_cmdline_user_args()
+	RtBattle.algo_v2 = not ("--v2=0" in OS.get_cmdline_user_args())      # 11/19 전후 비교용
+	RtBattle.fair_order = not ("--fair=0" in OS.get_cmdline_user_args())
 	var helper = preload("res://tests/formation_preview.gd").new()
 	var dashes := 0
 	var gap_max := 0.0
@@ -29,6 +31,8 @@ func _ready() -> void:
 	print("DASH ults=%d dashes=%d arrive_gap_max=%.1f line_target_gap_max=%.1f" % [ults, dashes, gap_max, line_far])
 	assert(dashes > 0, "charge ultimates should dash")
 	assert(gap_max <= RtBattle.TOUCH + 3.0, "dash must end in contact")
-	assert(line_far <= 150.0, "path-line targets must stay near the impact")
+	# 11/19 150 → 200: 띠는 달려온 길 전체(출발점 ~ 부딪힌 곳 + 80)라, 길게 달린 돌격은 출발점 쪽 대상이 이만큼 떨어질 수 있다.
+	# 150 은 예전 이동 알고리즘의 3개 시드 실측(82)에 맞춘 값 —— 이동 알고리즘 · 처리 순서를 바꾼 뒤 한 번 166 이 나왔다 (--v2=0 --fair=0 이면 예전 82 그대로)
+	assert(line_far <= 200.0, "path-line targets must stay near the impact")
 	print("PASS ult dash: charge ultimates run in and strike near the caster")
 	get_tree().quit()

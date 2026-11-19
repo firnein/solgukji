@@ -209,7 +209,7 @@ func _handle_args() -> void:
 		tabs.current_tab = 1
 	if a.has("level"):
 		battle.level_pick.selected = int(a.level)
-	if a.has("dots"):             # 전장 표현 (1 점묘 · 0 3D)
+	if a.has("dots") and not Settings.PAINTING_ONLY:             # 전장 표현 (1 점묘 · 0 3D)
 		Settings.dots = a.dots != "0"
 	if a.has("seed"):
 		battle.fixed_seed = int(a.seed)

@@ -58,6 +58,44 @@ const ACC_T := 0.6            # 멈춤 → 제 속도까지 (초)
 const DEC_T := 0.4            # 제 속도 → 멈춤 (초)
 const HD_MIN := 6.0
 const LOOK := 60.0            # 앞을 살피는 거리 (px) —— 이 안에 막은 부대가 있으면 비켜 간다
+## 11/19 전투 알고리즘 고도화 (사용자 목표) —— 이동 감사(tests/algo_audit) 기준: 옆걸음 29.6% · 갈지자 판당 11.8회 · 원거리 막혀 선 시간 판당 47.8초.
+##  ① 비켜 가기 관성: 비켜 갈 쪽을 한 번 고르면 그 길이 막힐 때까지 지키고, 막힘이 풀린 뒤에도 STEER_KEEP 초 동안 같은 쪽 성분을 줄여 가며 푼다
+##     (틱마다 더 트인 쪽을 다시 골라 좌우로 꺾이고, 풀리자마자 곧장 꺾어 다시 걸리던 갈지자)
+##  ② 가는 쪽 보기: 노리는 적과 틈이 FACE_GAP 보다 멀고 실제로 걷고 있으면 적이 아니라 가는 방향을 본다 (돌아갈 때 적을 보며 게걸음하던 것). 가까워지면 적을 본다
+##  ③ 원거리 대기: 앞이 아군에 막힌 원거리가 제자리에서 기다리는 시간 3초 → RANGED_WAIT (사거리 안에 적이 없는데 서 있기만 했다)
+## 셋 다 끄면(algo_v2 = false) 예전 움직임 그대로 —— 전후 비교 · 점검용
+static var algo_v2 := true
+## 11/19 공정한 처리 순서 —— 틱마다 부대를 units 순서(A 진영 전부 → B 진영 전부)로 움직이고 행동시켜, 같은 덱을 진영만 바꿔 돌려도 A 쪽이 더 이겼다
+## (tests/algo_audit 진영 교체 600판에서 A 승률 약 55%). 온라인 대전은 한쪽이 늘 A 라 그 사람이 덕을 본다.
+## 거울 대전(같은 덱 · 같은 진형) 480판: A 승률 67.2%. 가장 큰 까닭은 고유기 전역 간격(ult_gap) —— 대기 시간이 풀리는 틱에 양쪽이 함께 준비되면
+## 먼저 처리되는 A 가 늘 선수를 잡고, B 는 2.5초를 더 기다렸다.
+## 두 진영을 번갈아 세운 순서(A0 B0 A1 B1 …)를 쓰고, 먼저 하는 진영은 틱마다 시드 · 틱 번호 해시로 정한다 (짝 · 홀로 번갈면 14.0초 같은 정각 틱이
+## 늘 같은 쪽이라 58.1% 가 남았다). 전투 난수(rng)는 건드리지 않는다 —— 같은 시드면 같은 결과. units 자체(사건 기록의 부대 번호)는 그대로
+static var fair_order := true
+static var fair_debug := 0
+var _ord_ab: Array = []
+var _ord_ba: Array = []
+var _tick_n := 0
+var _tick_b_first := false
+var _fair_seed := 0
+## 켤 것 (비트) —— 1 비켜 가기 관성 · 2 가는 쪽 보기 · 4 원거리 다가서기 · 대기. 기본 5 (① + ③).
+## 240판 진영 교체 측정(11/19): 예전 → ①+③: 원거리 막혀 선 시간 51.0 → 25.1초/판 · 원거리 노는 시간 31.8 → 25.6% · 근접 노는 시간 24.0 → 22.5% ·
+## 전투 길이 36.8 → 35.7초 · 병종별 피해 ±3% 안. ②(가는 쪽 보기)는 옆걸음을 28.5 → 22.5%(근접만) / 8.5%(원거리 포함)로 줄이지만
+## 갈지자(판당 12.5 → 17.7회)와 원거리 막힘이 늘어 기본에서는 끈다 —— 삽화 화면은 병사 그림이 가는 쪽을 보게 이미 처리한다
+static var algo_bits := 5
+const STEER_KEEP := 0.5
+const FACE_GAP := 70.0
+const FACE_SPEED := 12.0      # 이보다 느리면(거의 섰다) 적을 본다
+const FACE_LEAN := 0.6        # 붐비는 곳에서 가는 쪽으로 트는 한도 (라디안, 약 34도)
+const FACE_CLEAR := 30.0      # 둘레가 이만큼 비어 있을 때만 가는 쪽을 본다
+const RANGED_CLOSE := 12.0    # ③ 원거리는 앞 아군과 틈이 이만큼 남을 때까지는 계속 다가선다 (LOOK 60px 앞에서 멈춰 사거리를 버리지 않게)
+const RANGED_WAIT := 1.2
+## 11/19 점검 (tests/algo_audit) —— 이동 알고리즘 감사: 틱마다 실제로 움직인 방향과 부대가 보는 방향을 견줘 옆걸음 · 뒷걸음 · 갈지자 · 막혀 선 시간을 stats 에 센다.
+## 켜도 판정 · 난수 · 사건 기록은 그대로 (세기만 한다)
+static var algo_probe := false
+var _ap_pos := {}      # 유닛 -> 지난 틱 자리
+var _ap_dir := {}      # 유닛 -> 지난 틱 이동 방향 (움직였을 때만)
+var _ap_met := false   # 첫 맞닿음이 있었는가
 static var rigid_probe := false     # 점검 (tests/rigid_check) —— 풀고 난 뒤 남은 겹침 · 막힌 시간 · 측면으로 돈 시간을 stats 에 센다
 
 
@@ -141,6 +179,7 @@ func _turn_sec() -> float:
 func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Array, b_form: String,
 		b_morale: float, b_equip, title := "", foe_name := "", inputs_ := [], policy_ := {}) -> Dictionary:
 	_make_terrain(rng.seed)
+	_fair_seed = int(rng.seed)
 	lay = 1.0
 	if compact_enabled:
 		var tr := 0.0
@@ -156,6 +195,18 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, pol)
 	for i in units.size():
 		_idx[units[i]] = i
+	var ua: Array = units.filter(func(o): return o.camp == "A")
+	var ub: Array = units.filter(func(o): return o.camp != "A")
+	_ord_ab = []
+	_ord_ba = []
+	for i in maxi(ua.size(), ub.size()):
+		if i < ua.size():
+			_ord_ab.append(ua[i])
+		if i < ub.size():
+			_ord_ab.append(ub[i])
+			_ord_ba.append(ub[i])
+		if i < ua.size():
+			_ord_ba.append(ua[i])
 	if inyeon_theme and inyeon_enabled:
 		_yeon_up_setup()
 	# 전장 범위 —— 진형 자리 · 발자국에 맞춘다 (앞뒤로 반 행, 옆으로 한 열 남짓 여유: 예비대가 측면으로 돌 자리)
@@ -196,11 +247,20 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		_tm += TICK
 		if tac != null:
 			tac.tick()
+		_tick_n += 1
+		_tick_b_first = (hash(_fair_seed * 31 + _tick_n * 7919) >> 5) & 1 == 1
+		if fair_debug != 0:      # 점검용 —— 1 이면 늘 A 먼저, 2 면 늘 B 먼저
+			_tick_b_first = fair_debug == 2
+		var tp0 := Time.get_ticks_usec() if algo_probe else 0
 		_move()
+		if algo_probe:
+			var tp1 := Time.get_ticks_usec()
+			stats["us_move"] = stats.get("us_move", 0) + tp1 - tp0
+			tp0 = tp1
 		_fire_winds()
 		_dash_tick()
 		_paeup_tick(TICK)
-		for u in units:
+		for u: Unit in _tick_units():
 			if not u.alive:
 				continue
 			if u.gauge >= 100.0 and u.ult_ready_t < 0.0:
@@ -221,9 +281,16 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 				u.atb -= 1.0
 				var ak := "acts_r" if _ranged(u) else "acts_m"
 				stats[ak] = stats.get(ak, 0) + 1
+				var ta0 := Time.get_ticks_usec() if algo_probe else 0
 				_act_one(u)
+				if algo_probe:
+					stats["us_act_one"] = stats.get("us_act_one", 0) + Time.get_ticks_usec() - ta0
 				if live_count("A") == 0 or live_count("B") == 0:
 					break
+		if algo_probe:
+			var tp2 := Time.get_ticks_usec()
+			stats["us_act"] = stats.get("us_act", 0) + tp2 - tp0
+			tp0 = tp2
 		if tac != null:
 			tac.clamp_morale()      # 군령 엄수 · 부동여산 —— 정산(패주 굴림) 전에 사기 바닥
 		if _tm >= next_end - 0.001:
@@ -242,6 +309,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			winner = "draw" if live_count("A") + live_count("B") == 0 else ("A" if live_count("B") == 0 else "B")
 		if _tm >= _next_track - 0.001:
 			_record()
+		if algo_probe:
+			stats["us_settle"] = stats.get("us_settle", 0) + Time.get_ticks_usec() - tp0
 	_record()
 	var r := _result(winner, turn)
 	r["track"] = track
@@ -702,7 +771,7 @@ func _inyeon_fin_fire(grp: Dictionary) -> void:
 func _fire_winds() -> void:
 	if not _join_q.is_empty():
 		_inyeon_joins()
-	for u in units:
+	for u: Unit in _tick_units():
 		if not _wind.has(u) or _wind[u] > _tm + 0.001:
 			continue
 		_wind.erase(u)
@@ -1053,11 +1122,26 @@ func _speed(u: Unit) -> float:
 # ───────── 움직임 ─────────
 
 func _move() -> void:
-	for u in units:
+	# 11/19 성능: 적 목록은 진영마다 같다 (이동 중에는 아무도 쓰러지지 않는다) —— 부대마다 다시 만들지 않고 진영마다 한 번
+	var foes_of_a: Array = []
+	var foes_of_b: Array = []
+	var got_a := false
+	var got_b := false
+	for u: Unit in _tick_units():
 		if not u.alive or _dash.has(u):
 			continue
 		u.retgt -= TICK
-		var foes := _foes_of(u)
+		var foes: Array
+		if u.camp == "A":
+			if not got_a:
+				foes_of_a = _foes_of(u)
+				got_a = true
+			foes = foes_of_a
+		else:
+			if not got_b:
+				foes_of_b = _foes_of(u)
+				got_b = true
+			foes = foes_of_b
 		if foes.is_empty():
 			u.vel = Vector2.ZERO
 			continue
@@ -1133,9 +1217,75 @@ func _move() -> void:
 			u.pos += step
 			if desired != Vector2.ZERO:
 				u.ran += step.length()
-		_turn_to(u, to)
+		# ② 멀리 걷는 동안은 가는 쪽을 본다 (묶였거나 가까우면 적을 본다)
+		if algo_v2 and algo_bits & 2 and pin == null and not u.ranged and gap > FACE_GAP and u.vel.length() > FACE_SPEED:
+			# 붐비는 곳에서는 적 쪽에서 가는 쪽으로 FACE_LEAN 까지만 튼다 (넓은 대열이 좁은 틈에서 크게 돌면 이웃과 부딪친다). 트인 곳에서는 가는 쪽 그대로
+			var lean := clampf(angle_difference(to.angle(), u.vel.angle()), -FACE_LEAN, FACE_LEAN)
+			_turn_to(u, Vector2.from_angle(to.angle() + lean), u.vel)
+		else:
+			_turn_to(u, to)
+	var tq0 := Time.get_ticks_usec() if algo_probe else 0
 	_depth_update()
 	_solve()
+	if algo_probe:
+		stats["us_solve"] = stats.get("us_solve", 0) + Time.get_ticks_usec() - tq0
+		_algo_probe()
+
+
+## 11/19 고유기 선수 (fair_order) —— 행동 사이마다(_between) 양쪽 AI 가 고유기를 정하는데 늘 A 가 먼저였다. 한쪽이 기를 모으기 시작하면
+## 전역 간격(ult_gap) 동안 양쪽 다 못 쓰므로, 둘 다 준비된 순간마다 A 가 자리를 잡고 B 는 밀렸다 —— 거울 대전 A 승률 치우침의 본체
+## (고유기를 끄면 48.4%, 켜면 64.7% · 960판씩). 고유기를 더 오래 못 쓴 진영이 먼저 정한다. 같으면(개전 직후) 시드 · 행동 번호 해시
+const _CAMPS_AB := ["A", "B"]
+const _CAMPS_BA := ["B", "A"]
+func _camp_order() -> Array:
+	if not fair_order:
+		return _CAMPS_AB
+	var ta: float = _ult_side_t.A
+	var tb: float = _ult_side_t.B
+	if ta != tb:
+		return _CAMPS_AB if ta < tb else _CAMPS_BA
+	return _CAMPS_BA if (hash(_fair_seed * 131 + act_n * 7919) >> 5) & 1 == 1 else _CAMPS_AB
+
+
+## 이번 틱의 부대 처리 순서 (fair_order) —— 진영을 번갈아, 틱마다 먼저 하는 쪽을 바꿔서
+func _tick_units() -> Array:
+	if not fair_order:
+		return units
+	return _ord_ba if _tick_b_first else _ord_ab
+
+
+func _algo_probe() -> void:
+	for u in units:
+		if not u.alive:
+			continue
+		var p0: Vector2 = _ap_pos.get(u, u.pos)
+		_ap_pos[u] = u.pos
+		var d: Vector2 = u.pos - p0
+		var spd := d.length() / TICK
+		var cls := "r" if u.ranged else "m"
+		stats["ap_t_" + cls] = stats.get("ap_t_" + cls, 0.0) + TICK
+		if u.tgt != null and u.tgt.alive and _gap(u, u.tgt) <= TOUCH + 3.0:
+			if not _ap_met:
+				_ap_met = true
+				stats["ap_first_touch"] = _tm
+		if spd <= 15.0:
+			if u.block_t > 0.0:
+				stats["ap_blocked_" + cls] = stats.get("ap_blocked_" + cls, 0.0) + TICK      # 막혀서 서 있다
+			_ap_dir.erase(u)
+			continue
+		stats["ap_move_" + cls] = stats.get("ap_move_" + cls, 0.0) + TICK
+		stats["ap_dist"] = stats.get("ap_dist", 0.0) + d.length()
+		var off := absf(angle_difference(d.angle(), u.fwd.angle()))
+		if off > deg_to_rad(120.0):
+			stats["ap_back"] = stats.get("ap_back", 0.0) + TICK      # 뒷걸음
+		elif off > deg_to_rad(60.0):
+			stats["ap_crab"] = stats.get("ap_crab", 0.0) + TICK      # 옆걸음
+		if _ap_dir.has(u):
+			var turn := absf(angle_difference((_ap_dir[u] as Vector2).angle(), d.angle()))
+			if turn > deg_to_rad(50.0):
+				stats["ap_zig"] = stats.get("ap_zig", 0) + 1      # 한 틱(0.1초) 사이에 가는 방향이 50도 넘게 꺾였다 (갈지자 · 떨림)
+			stats["ap_turn_sum"] = stats.get("ap_turn_sum", 0.0) + turn
+		_ap_dir[u] = d
 
 
 ## 앞이 막혔으면 비켜 간다 —— 진행 방향 LOOK 안에 다른 부대(아군 · 노리지 않는 적)가 있으면 그 옆으로. 양쪽 가운데 더 트인 쪽으로,
@@ -1144,23 +1294,41 @@ func _steer(u: Unit, dir: Vector2, t: Unit) -> Vector2:
 	var blocker := _blocker(u, dir, t, LOOK)
 	if blocker == null:
 		u.block_t = 0.0
+		if algo_v2 and algo_bits & 1 and u.steer_side != 0.0 and u.steer_keep > 0.0:
+			# ① 방금 비켜 나왔다 —— 곧장 꺾으면 모서리에 다시 걸린다. 같은 쪽 성분을 줄여 가며 푼다 (그 길이 막혔으면 곧장)
+			u.steer_keep -= TICK
+			var d2 := (dir + Vector2(-dir.y, dir.x) * u.steer_side * 0.7 * (u.steer_keep / STEER_KEEP)).normalized()
+			if _blocker(u, d2, t, LOOK) == null:
+				return d2
+		u.steer_side = 0.0
 		return dir
+	if algo_v2 and algo_bits & 4 and _ranged(u) and blocker.camp == u.camp:
+		# ③ 앞 아군 바로 뒤까지는 붙는다 —— 한 걸음이라도 다가서면 사거리에 드는 적이 생긴다
+		var room := (blocker.pos - u.pos).dot(dir) - _extent(u, dir) - _extent(blocker, dir)
+		if room > RANGED_CLOSE:
+			return dir
 	u.block_t += TICK
 	if rigid_probe:
 		stats["block_t"] = stats.get("block_t", 0.0) + TICK
-	if _ranged(u) and u.block_t < 3.0:
+	if _ranged(u) and u.block_t < (RANGED_WAIT if algo_v2 and algo_bits & 4 else 3.0):
 		return Vector2.ZERO
 	var perp := Vector2(-dir.y, dir.x)
 	var free_p := _free_run(u, perp, t)
 	var free_m := _free_run(u, -perp, t)
-	var side := 0.0
-	if absf(free_p - free_m) > 8.0:
-		side = 1.0 if free_p > free_m else -1.0
-	else:
-		var lat := (t.pos - u.pos).dot(perp)
-		side = signf(lat) if absf(lat) > 4.0 else (1.0 if u.slot % 2 == 0 else -1.0)
+	var side := u.steer_side if algo_v2 and algo_bits & 1 else 0.0
+	if side != 0.0 and (free_p if side > 0.0 else free_m) < 6.0:
+		side = 0.0      # 고른 쪽이 막혔다 —— 다시 고른다
+	if side == 0.0:
+		if absf(free_p - free_m) > 8.0:
+			side = 1.0 if free_p > free_m else -1.0
+		else:
+			var lat := (t.pos - u.pos).dot(perp)
+			side = signf(lat) if absf(lat) > 4.0 else (1.0 if u.slot % 2 == 0 else -1.0)
 	if maxf(free_p, free_m) < 6.0:
+		u.steer_side = 0.0
 		return Vector2.ZERO        # 양옆도 막혔다 —— 기다린다 (앞이 열리면 간다)
+	u.steer_side = side
+	u.steer_keep = STEER_KEEP
 	var k := clampf(0.7 + u.block_t * 0.4, 0.7, 1.6)
 	return (dir * 0.6 + perp * side * k).normalized()
 
@@ -1275,18 +1443,34 @@ func _centroid(us: Array) -> Vector2:
 
 
 ## 돌기 —— TURN_RATE 까지. 돌아서 옆 부대를 더 파고들게 되면 반 · 반의 반만 돌고, 그래도 파고들면 이번 틱은 멈춘다 (대열이 이웃을 쓸고 지나가지 않게)
-func _turn_to(u: Unit, v: Vector2) -> void:
+## open_v (11/19 ②) —— 둘레에 다른 부대가 없을 때(트인 곳을 돌아갈 때)는 v 대신 이쪽을 본다. 붐비는 곳에서 넓은 대열이 돌면 이웃과 부딪쳐 막힘 · 떨림이 늘었다
+func _turn_to(u: Unit, v: Vector2, open_v := Vector2.ZERO) -> void:
 	if v.length() < 0.001:
 		return
 	var a0 := u.fwd.angle()
+	var near := []
+	var reach := u.hw + u.hd + 4.0
+	var scanned := false
+	if open_v != Vector2.ZERO:
+		scanned = true
+		var wide := reach + FACE_CLEAR
+		var open := true
+		for o in units:
+			if o != u and o.alive:
+				var od := u.pos.distance_to(o.pos)
+				if od < reach + o.hw + o.hd:
+					near.append(o)
+				if od < wide + o.hw + o.hd:
+					open = false
+		if open:
+			v = open_v
 	var a1 := rotate_toward(a0, v.angle(), TURN_RATE * TICK)
 	if absf(a1 - a0) < 0.0001:
 		return
-	var near := []
-	var reach := u.hw + u.hd + 4.0
-	for o in units:
-		if o != u and o.alive and u.pos.distance_to(o.pos) < reach + o.hw + o.hd:
-			near.append(o)
+	if not scanned:
+		for o in units:
+			if o != u and o.alive and u.pos.distance_to(o.pos) < reach + o.hw + o.hd:
+				near.append(o)
 	var pen0 := _pen_sum(u, near)
 	var f0 := u.fwd
 	for k in [1.0, 0.5, 0.25]:
@@ -1597,6 +1781,9 @@ func _nearest_ranged_target(u: Unit, foes: Array, only_in_range := true) -> Unit
 	var best_d := INF
 	var approach_d := INF
 	var reach := _reach(u) + 2.0
+	# 11/19 성능: 가운데끼리 멀면 틈이 사거리를 넘는 것이 확실하다 (틈 ≥ 거리 / √2 − 두 발자국의 반폭 + 반깊이) —— 그런 적은 틈을 재지 않는다.
+	# 원거리 부대마다 틱에 두 번(이동 · 행동) 적 전부의 틈을 쟀다. 결과는 같다 (tests/algo_audit 지문 동일)
+	var far := reach + u.hw + u.hd
 	for o in foes:
 		if not o.alive or o.camp == u.camp or _hidden(o):
 			continue
@@ -1604,9 +1791,11 @@ func _nearest_ranged_target(u: Unit, foes: Array, only_in_range := true) -> Unit
 		if not only_in_range and distance < approach_d:
 			approach = o
 			approach_d = distance
-		if distance < best_d and _gap(u, o) <= reach:
-			best = o
-			best_d = distance
+		if distance < best_d:
+			var lim: float = (far + o.hw + o.hd) / 0.7
+			if distance <= lim * lim and _gap(u, o) <= reach:
+				best = o
+				best_d = distance
 	return best if best != null or only_in_range else approach
 
 

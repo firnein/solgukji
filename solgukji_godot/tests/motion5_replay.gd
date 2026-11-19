@@ -57,6 +57,7 @@ func _ready() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = int(args.get("fps", "0"))
 	preload("res://scripts/field/war_painting.gd").batch_rendering = not args.has("legacy-painting")
+	preload("res://scripts/field/war_painting.gd").keep_dicts = args.has("validate-only")      # 11/19 점검만 사전 목록 (측정은 실제 게임처럼 묶음 배열만)
 	theme = UI.theme()
 	var view := BattleView.new()
 	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -306,11 +307,21 @@ func _ready() -> void:
 	var hidden := args.has("hide-painting")
 	if hidden:
 		painter.hide()
+	# 진단 —— 층별로 끄고 그리기 호출 · 프레임을 비교한다 (게임 옵션 아님)
+	if args.has("hide-hud"):
+		view.hud.hide()
+	if args.has("hide-ground"):
+		view.type2._ground_view.hide()
+	if args.has("hide-dock"):
+		view.cards_bar.hide()
 	var skip := float(args.get("skip", "3"))
 	var duration := float(args.get("secs", "15"))
 	var start := Time.get_ticks_usec()
 	while (Time.get_ticks_usec() - start) / 1e6 < skip:
 		await get_tree().process_frame
+	var prof0: Dictionary = view.field.prof.duplicate()
+	var prof_last: Dictionary = prof0.duplicate()
+	var phase_cpu := {"march": {}, "contact": {}, "ultimate": {}}
 	var last := Time.get_ticks_usec()
 	var end := last + int(duration * 1e6)
 	var frames := []
@@ -331,7 +342,13 @@ func _ready() -> void:
 		elif view.field.order.any(func(sq): return sq.alive and sq.contact):
 			phase = "contact"
 		phases[phase].append(frame_ms)
-		max_figures = maxi(max_figures, painter.visible_soldiers.size())
+		if args.has("phase-cpu"):      # 구간(행군 · 교전 · 고유기)별 CPU 몫 —— 프레임마다 prof 차이를 모은다 (측정 자체가 조금 무겁다)
+			var cur: Dictionary = view.field.prof
+			var acc: Dictionary = phase_cpu[phase]
+			for k in cur:
+				acc[k] = int(acc.get(k, 0)) + int(cur[k]) - int(prof_last.get(k, 0))
+			prof_last = cur.duplicate()
+		max_figures = maxi(max_figures, painter.figure_count)
 		max_meshes = maxi(max_meshes, painter.walk_meshes.size())
 		max_bodies = maxi(max_bodies, painter.bodies.size())
 		draw_calls += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
@@ -344,6 +361,23 @@ func _ready() -> void:
 		"mean_draw_calls": draw_calls / maxf(1.0, frames.size()), "initial_formation_capacity": capacity}
 	for phase in phases:
 		report.phases[phase] = stats(phases[phase])
+	# 구간별 CPU 시간 (프레임당 평균 ms) —— 측정 구간만 (준비 구간은 빼려고 아래 prof0 를 뺀다)
+	var cpu := {}
+	var nf := maxf(1.0, float(view.field.prof.get("_frames", 0) - prof0.get("_frames", 0)))
+	for k in view.field.prof:
+		if k != "_frames":
+			cpu[k] = snappedf((float(view.field.prof[k]) - float(prof0.get(k, 0))) / 1000.0 / nf, 0.001)
+	report["cpu_ms_per_frame"] = cpu
+	if args.has("phase-cpu"):
+		var pc := {}
+		for ph in phase_cpu:
+			var n := maxf(1.0, float(phases[ph].size()))
+			var row := {}
+			for k in phase_cpu[ph]:
+				if k != "_frames":
+					row[k] = snappedf(float(phase_cpu[ph][k]) / 1000.0 / n, 0.001)
+			pc[ph] = row
+		report["phase_cpu_ms"] = pc
 	var name_ := "hidden" if hidden else "full"
 	var path := "res://../build/motion5_profile_%s.json" % str(args.get("tag", name_))
 	var f := FileAccess.open(path, FileAccess.WRITE)

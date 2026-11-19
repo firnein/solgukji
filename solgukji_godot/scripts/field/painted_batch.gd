@@ -121,3 +121,70 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 	if capacity > 0:
 		soldiers.multimesh.buffer = buffer
 		shadows.multimesh.buffer = shadow_buffer
+
+
+## 11/19 묶음 배열판 (war_painting._figs) —— keys 정렬 순서(아래 16비트 = 인형 번호)로 버퍼를 채운다. 값 · 식은 update_figures 와 같다
+func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, ally: Color, enemy: Color) -> void:
+	var count := keys.size()
+	if count > capacity:
+		capacity = maxi(64, capacity)
+		while capacity < count:
+			capacity *= 2
+		soldiers.multimesh.instance_count = capacity
+		shadows.multimesh.instance_count = capacity
+		buffer.resize(capacity * 16)
+		shadow_buffer.resize(capacity * 12)
+	soldiers.multimesh.visible_instance_count = count
+	shadows.multimesh.visible_instance_count = count
+	for i in count:
+		var f := int(keys[i] & 0xFFFF) * w
+		var px := figs[f]
+		var py := figs[f + 1]
+		var h := figs[f + 2]
+		var cell := figs[f + 3]
+		var fade := figs[f + 4]
+		var tilt := figs[f + 5]
+		var gait := figs[f + 6]
+		var stride := figs[f + 7]
+		var hurt := figs[f + 8]
+		var sn := absf(sin(stride))
+		var lift := sn * sn * sn * gait * h * (0.027 if int(cell) % 8 == 1 else 0.009)
+		var c := cos(tilt)
+		var s := sin(tilt)
+		var sx := -h if figs[f + 9] > 0.5 else h
+		var b := i * 16
+		buffer[b] = c * sx
+		buffer[b + 1] = -s * h
+		buffer[b + 2] = 0
+		buffer[b + 3] = px
+		buffer[b + 4] = s * sx
+		buffer[b + 5] = c * h
+		buffer[b + 6] = 0
+		buffer[b + 7] = py - lift
+		var cloth := ally if cell < 8.0 else enemy
+		var tint := cloth if hurt <= 0.0 else cloth.lerp(HURT_TINT, hurt * 0.75)
+		buffer[b + 8] = tint.r
+		buffer[b + 9] = tint.g
+		buffer[b + 10] = tint.b
+		buffer[b + 11] = fade
+		buffer[b + 12] = cell
+		buffer[b + 13] = stride
+		buffer[b + 14] = gait
+		buffer[b + 15] = 0
+		var sh := i * 12
+		var r := h * 0.19
+		shadow_buffer[sh] = r
+		shadow_buffer[sh + 1] = 0
+		shadow_buffer[sh + 2] = 0
+		shadow_buffer[sh + 3] = px
+		shadow_buffer[sh + 4] = 0
+		shadow_buffer[sh + 5] = r * 0.32
+		shadow_buffer[sh + 6] = 0
+		shadow_buffer[sh + 7] = py
+		shadow_buffer[sh + 8] = 0.1
+		shadow_buffer[sh + 9] = 0.08
+		shadow_buffer[sh + 10] = 0.05
+		shadow_buffer[sh + 11] = 0.25 * fade
+	if capacity > 0:
+		soldiers.multimesh.buffer = buffer
+		shadows.multimesh.buffer = shadow_buffer

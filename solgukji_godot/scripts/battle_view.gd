@@ -762,7 +762,7 @@ func new_battle() -> void:
 ## 전투장수창용 —— 같은 재료로 엔진을 '준비'만 시켜(유닛 · 단체 특기 · 전투 시작 효과) 시작 능력치를 잰다. 재생에는 손대지 않는다.
 ## {atk: [기본, 실제], def, spd, line, side, item} · 재료가 없으면(온라인 재생) 빈 사전
 func start_stats(key: String) -> Dictionary:
-	if _p.is_empty() or not _p.has("a"):
+	if _p.is_empty() or not _p.has("a") or _loading:      # 11/19 계산 스레드가 도는 동안은 엔진 정적 값(병력 배율 · 턴 배율)을 건드리지 않는다
 		return {}
 	Battle.tr_mul = {"A": float(_p.get("tra", 1.0)), "B": float(_p.get("trb", 1.0))}
 	Battle.side_trait = {"A": {}, "B": _p.get("tb", {})}      # 11/8 토벌 우두머리 성질
@@ -823,11 +823,87 @@ func play(bt: Dictionary, direct_ := false) -> void:
 		"seed": bt.seed, "title": bt.title, "foe": bt.foe,
 		"policy": Run.policy_for(bt), "tra": float(bt.a.get("tr_mul", 1.0)), "trb": float(bt.b.get("tr_mul", 1.0)), "tb": bt.b.get("trait", {})}
 	inputs = bt.get("inputs", []).duplicate(true)
-	res = _simulate()
+	# 11/19 혼자 하기 전투 계산(PC 약 0.5초, 휴대폰은 몇 초)을 다른 스레드에서 —— 그동안 화면이 멈추지 않는다. 결과는 같은 식 · 같은 시드라 그대로
+	if async_sim and OS.has_feature("threads"):
+		var r = await _simulate_async()
+		if r == null:
+			return      # 기다리는 사이 다른 전투가 시작됐거나 화면이 닫혔다
+		res = r
+	else:
+		res = _simulate()
 	_pace_for(str(bt.get("kind", "")))
 	_tac = str(bt.a.get("tac", ""))
 	_begin()
 	_set_speed(RAID_SPEED if str(bt.get("kind", "")) == "quest" else QUEST_SPEED)
+
+
+## 11/19 전투 계산을 스레드로 (play 전용 —— 연습 전투 · 다시 계산(_resim)은 예전처럼 바로 계산)
+## 엔진(Battle · RtBattle)은 씬 트리를 건드리지 않는다. 함께 쓰는 지연 캐시(DB.passives_of · Battle.minor_kind · st_kinds_of)는 스레드를 띄우기 전에
+## 이 전투의 카드로 미리 채워, 계산 스레드가 사전을 고치는 동안 화면 쪽이 같은 사전을 읽는 일이 없게 한다. 계산이 도는 동안에는
+## 전투장수창의 시작 능력치(start_stats —— 같은 엔진을 준비시킨다)를 재지 않는다 (_loading)
+static var async_sim := true
+var _loading := false
+var _sim_thread: Thread = null
+var _sim_id := 0
+var _load_cover: ColorRect = null
+
+
+func _simulate_async():
+	_sim_id += 1
+	var my := _sim_id
+	if _sim_thread != null:      # 앞 전투 계산이 아직 돈다 (연달아 눌렀다) —— 끝내고 버린다
+		_sim_thread.wait_to_finish()
+		_sim_thread = null
+	running = false
+	_loading = true
+	_show_load_cover(true)
+	for k in _p.a + _p.b:
+		if k != null and DB.C.has(str(k)):
+			DB.passives_of(str(k))
+			Battle.st_kinds_of(str(k))      # minor_kind 도 함께 채운다
+	Battle.tr_mul = {"A": float(_p.get("tra", 1.0)), "B": float(_p.get("trb", 1.0))}
+	Battle.side_trait = {"A": {}, "B": _p.get("tb", {})}
+	var th := Thread.new()
+	_sim_thread = th
+	var p: Dictionary = _p
+	var inp: Array = inputs.duplicate(true)
+	th.start(func() -> Dictionary:
+		return RtBattle.make(p.seed).run(p.a, p.fa, p.get("ma", 100), p.get("ea"), p.b, p.fb, p.get("mb", 100), p.get("eb"),
+			p.title, p.foe, inp, p.policy))
+	while th.is_alive():
+		await get_tree().process_frame
+	if _sim_thread != th:
+		return null      # 그사이 다음 전투가 이 스레드를 거둬 갔다
+	var r: Dictionary = th.wait_to_finish()
+	_sim_thread = null
+	Battle.tr_mul = {"A": 1.0, "B": 1.0}
+	Battle.side_trait = {"A": {}, "B": {}}
+	_loading = false
+	_show_load_cover(false)
+	if my != _sim_id:
+		return null
+	return r
+
+
+func _show_load_cover(on: bool) -> void:
+	if _load_cover == null:
+		if not on:
+			return
+		_load_cover = ColorRect.new()
+		_load_cover.color = Color("#0b0f1a")
+		_load_cover.mouse_filter = Control.MOUSE_FILTER_STOP
+		_load_cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var lb := Label.new()
+		lb.text = "전투 준비 중…"
+		lb.add_theme_font_override("font", DB.title_font(18))
+		lb.add_theme_font_size_override("font_size", 18)
+		lb.add_theme_color_override("font_color", DB.PAL.gold)
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_load_cover.add_child(lb)
+		stage.add_child(_load_cover)
+	_load_cover.visible = on
 
 
 ## 온라인 —— 서버가 계산한 결과(사람끼리 대전이면 내 쪽이 A 가 되게 뒤집은 것)를 그대로 재생한다.
@@ -836,6 +912,8 @@ func play(bt: Dictionary, direct_ := false) -> void:
 ## params(선택) —— 서버가 전투마다 실은 재료. 평평한 꼴 {a, fa, ma, ea, b, fb, mb, eb, seed, title, foe, policy, tra, trb, tb}(play 가 _p 에 넣는 것과 같다)
 ## 이거나 res.bp 같은 {a:{cards,form,morale,equip}, b:{…}, seed, pol} 꼴 둘 다 받는다. 없으면 res.bp, 그것도 없으면 빈 재료(전투장수창 버프 수치만 빈다)
 func play_res(r: Dictionary, kind := "", params := {}) -> void:
+	_sim_id += 1      # 혼자 하기 계산이 돌고 있었다면 그 결과는 버린다
+	_show_load_cover(false)
 	end_clock = 0.0
 	speed_sec = {}
 	game_mode = true
@@ -2007,6 +2085,12 @@ func _sound(e: Dictionary) -> void:
 
 
 func _exit_tree() -> void:
+	if _sim_thread != null:      # 계산 중에 화면이 닫혔다 —— 스레드를 거둔다
+		_sim_thread.wait_to_finish()
+		_sim_thread = null
+		_loading = false
+		Battle.tr_mul = {"A": 1.0, "B": 1.0}
+		Battle.side_trait = {"A": {}, "B": {}}
 	Sfx.music("prep")
 
 
@@ -2175,7 +2259,13 @@ class Hud extends Control:
 		if _medal_cache.size() > 600:      # 11/9 구운 메달은 (장수 · 진영 · 등급색 · 크기 · 배율)이 키라 전투를 넘어 써도 된다 —— 너무 쌓였을 때만 비운다
 			_medal_cache.clear()
 		_tok_tex.clear()
+		_tok_name.clear()
+		for k in _medal_nodes:
+			_medal_nodes[k].queue_free()
+		_medal_nodes.clear()
+		_badge_icons.clear()
 		_tok_off.clear()
+		_tok_want.clear()
 		_painted_medals.clear()
 		_emph_n = -1
 		floats.clear()
@@ -2691,6 +2781,43 @@ class Hud extends Control:
 			draw_arc(c, D * 0.5, 0, TAU, 20, Color(_icon_col(icons[i]), 0.9 * alpha), 1.0, true)
 			_st_icon(c, icons[i], D * 0.5 - 2.0, alpha)
 
+	## 11/19 프레임: 삽화 메달의 상태 기호 —— 무엇을 어디에 둘지만 정한다 (그리기는 MedalNode 가 바뀔 때만).
+	## 예전엔 부대마다 매 프레임 원 · 고리 · 기호(다각형 · 안티에일리어싱 선)를 다시 그려 HUD 에서 가장 무거웠다 (프레임당 약 0.9ms)
+	## 돌려주는 값: [기호 목록, 아래로 비킨 거리] —— 겹쳐서 뺄 때는 빈 목록
+	var _badge_icons := {}      # 부대 key -> [상태 해시, 기호 목록]
+	const BADGE_D := 15.0
+	func _badge_place(sq: Squad, p: Vector2, radius: float) -> Array:
+		if not sq.alive or sq.statuses.is_empty():
+			return [PackedStringArray(), 0.0]
+		var h: int = sq.statuses.hash()
+		var c = _badge_icons.get(sq.key)
+		if c == null or c[0] != h:
+			var found := PackedStringArray()
+			for st in DECK_ST:
+				var ic := _icon_of(st)
+				if sq.statuses.has(st) and not found.has(ic):
+					found.append(ic)
+					if found.size() == 3:
+						break
+			c = [h, found]
+			_badge_icons[sq.key] = c
+		var icons: PackedStringArray = c[1]
+		if icons.is_empty():
+			return [icons, 0.0]
+		var w := BADGE_D * icons.size() + 2.0 * (icons.size() - 1)
+		var r := Rect2(p + Vector2(-w * 0.5, radius + 17.0), Vector2(w, BADGE_D))
+		for dy in [0.0, BADGE_D + 2.0]:
+			var cand := Rect2(r.position + Vector2(0, dy), r.size)
+			var hit := false
+			for o: Rect2 in _badge_rects:
+				if o.intersects(cand):
+					hit = true
+					break
+			if not hit:
+				_badge_rects.append(cand)
+				return [icons, dy]
+		return [PackedStringArray(), 0.0]
+
 	## 상태 기호 이름 —— 같은 뜻(방어 깎기 · 갑옷 약화)은 같은 기호
 	static func _icon_of(st: String) -> String:
 		match st:
@@ -2710,7 +2837,9 @@ class Hud extends Control:
 		return Color.WHITE
 
 	## 상태 기호 —— c 가운데, 반지름 s. 불꽃 · 물결 · 방패↓(방어) · 결계↓(책략 방어) · 칼↓(공격) · 소용돌이(혼란). _spread 는 옆으로 번지는 화살표를 덧붙인다
-	func _st_icon(c: Vector2, ic: String, s: float, a: float) -> void:
+	func _st_icon(c: Vector2, ic: String, s: float, a: float, ci: CanvasItem = null) -> void:
+		if ci == null:
+			ci = self
 		var base := ic.trim_suffix("_spread")
 		base = _icon_of(base)
 		var col := Color(_icon_col(base), a)
@@ -2724,7 +2853,7 @@ class Hud extends Control:
 					for i in 11:
 						var t := deg_to_rad(-25.0 + 230.0 * float(i) / 10.0)
 						pts.append(cc + Vector2(cos(t), sin(t)) * s * 0.62 * k)
-					draw_colored_polygon(pts, col if layer == 0 else Color(1, 0.93, 0.6, a))
+					ci.draw_colored_polygon(pts, col if layer == 0 else Color(1, 0.93, 0.6, a))
 			"flood":
 				for k in 2:
 					var y := c.y - s * 0.3 + k * s * 0.65
@@ -2732,37 +2861,37 @@ class Hud extends Control:
 					for i in 9:
 						var x := -s + 2.0 * s * float(i) / 8.0
 						pts.append(Vector2(c.x + x, y + sin(float(i) / 8.0 * TAU) * s * 0.22))
-					draw_polyline(pts, col, 1.6, true)
+					ci.draw_polyline(pts, col, 1.6, true)
 			"def_down":
 				var sh := PackedVector2Array([c + Vector2(-s * 0.8, -s * 0.85), c + Vector2(s * 0.8, -s * 0.85), c + Vector2(s * 0.8, -s * 0.1), c + Vector2(0, s * 0.95), c + Vector2(-s * 0.8, -s * 0.1)])
-				draw_colored_polygon(sh, col)
-				draw_polyline(PackedVector2Array([c + Vector2(-s * 0.15, -s * 0.85), c + Vector2(s * 0.2, -s * 0.2), c + Vector2(-s * 0.1, s * 0.3)]), dark, 1.4, true)
+				ci.draw_colored_polygon(sh, col)
+				ci.draw_polyline(PackedVector2Array([c + Vector2(-s * 0.15, -s * 0.85), c + Vector2(s * 0.2, -s * 0.2), c + Vector2(-s * 0.1, s * 0.3)]), dark, 1.4, true)
 			"res_down":
-				draw_arc(c, s * 0.8, 0, TAU, 16, col, 1.8, true)
-				draw_circle(c, s * 0.3, col)
-				draw_line(c + Vector2(-s * 0.7, -s * 0.7), c + Vector2(s * 0.7, s * 0.7), dark, 1.4, true)
+				ci.draw_arc(c, s * 0.8, 0, TAU, 16, col, 1.8, true)
+				ci.draw_circle(c, s * 0.3, col)
+				ci.draw_line(c + Vector2(-s * 0.7, -s * 0.7), c + Vector2(s * 0.7, s * 0.7), dark, 1.4, true)
 			"atk_down":
-				draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), col, 2.0, true)
-				draw_line(c + Vector2(-s * 0.75, s * 0.15), c + Vector2(-s * 0.15, s * 0.75), col, 1.8, true)
-				draw_line(c + Vector2(-s * 0.85, -s * 0.2), c + Vector2(s * 0.2, s * 0.85), dark, 1.4, true)
+				ci.draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), col, 2.0, true)
+				ci.draw_line(c + Vector2(-s * 0.75, s * 0.15), c + Vector2(-s * 0.15, s * 0.75), col, 1.8, true)
+				ci.draw_line(c + Vector2(-s * 0.85, -s * 0.2), c + Vector2(s * 0.2, s * 0.85), dark, 1.4, true)
 			"confuse":
 				var pts := PackedVector2Array()
 				for i in 18:
 					var t := float(i) / 17.0
 					pts.append(c + Vector2(cos(t * TAU * 1.6), sin(t * TAU * 1.6)) * s * (0.15 + 0.8 * t))
-				draw_polyline(pts, col, 1.6, true)
+				ci.draw_polyline(pts, col, 1.6, true)
 			_:
-				draw_circle(c, s * 0.5, col)
+				ci.draw_circle(c, s * 0.5, col)
 		if base in ["def_down", "res_down", "atk_down"]:      # 깎임 —— 오른쪽 아래 붉은 ↓
 			var q := c + Vector2(s * 0.7, s * 0.5)
 			var tri := PackedVector2Array([q + Vector2(-s * 0.6, -s * 0.3), q + Vector2(s * 0.6, -s * 0.3), q + Vector2(0, s * 0.6)])
-			draw_colored_polygon(tri, Color(1, 0.3, 0.25, a))
+			ci.draw_colored_polygon(tri, Color(1, 0.3, 0.25, a))
 			tri.append(tri[0])
-			draw_polyline(tri, Color(0, 0, 0, 0.7 * a), 1.0, true)
+			ci.draw_polyline(tri, Color(0, 0, 0, 0.7 * a), 1.0, true)
 		if ic.ends_with("_spread"):      # 번짐 —— 오른쪽으로 뻗는 화살표
 			var q := c + Vector2(s * 0.55, -s * 0.55)
-			draw_line(q, q + Vector2(s * 0.6, 0), Color(1, 1, 1, a), 1.4, true)
-			draw_colored_polygon(PackedVector2Array([q + Vector2(s * 0.95, 0), q + Vector2(s * 0.55, -s * 0.28), q + Vector2(s * 0.55, s * 0.28)]), Color(1, 1, 1, a))
+			ci.draw_line(q, q + Vector2(s * 0.6, 0), Color(1, 1, 1, a), 1.4, true)
+			ci.draw_colored_polygon(PackedVector2Array([q + Vector2(s * 0.95, 0), q + Vector2(s * 0.55, -s * 0.28), q + Vector2(s * 0.55, s * 0.28)]), Color(1, 1, 1, a))
 
 	const SMALL_HIT := 0.06          # 이보다 작은 타격은 모아서 띄운다 (부대 최대 병력 대비) —— 11/4 0.04 → 0.06 (숫자가 겹쳐 쌓였다)
 	const SMALL_HIT_FAR := 0.1       # 멀리 볼 때 (War3D.overview) —— 큰 타격만
@@ -3282,6 +3411,36 @@ class Hud extends Control:
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
 	var _emph := {}
 	var _emph_n := -1      # 11/15 성능: 순위는 전투 동안 바뀌지 않는다(등급 · PV) —— 부대 구성이 바뀔 때만 다시 센다 (그리기마다 정렬하지 않게. reset 이 −1 로)
+	var _tok_name := {}    # 부대 key -> [이름, 이름표 폭, 카드] (삽화 메달, 11/19)
+	var _medal_layer: Control = null
+	var _medal_nodes := {}  # 부대 key -> MedalNode
+
+	## 삽화 메달 하나 —— 틀 · 얼굴 · 이름표를 한 번 그려 두고 Hud 가 자리(position) · 투명(modulate)만 바꾼다
+	class MedalNode extends Control:
+		var mts: Array = []
+		var name_ := ""
+		var w := 0.0
+		var S := 1.0
+		var r := 8.0
+		var hud                       # 기호 그리기(_st_icon)를 빌린다
+		var icons := PackedStringArray()
+		var badge_dy := 0.0
+		func _draw() -> void:
+			for mt: Texture2D in mts:
+				var tsz := Vector2(mt.get_size())
+				draw_texture_rect(mt, Rect2((tsz * -0.5).round() / S, tsz / S), false)
+			var label := Rect2(Vector2(- w * 0.5, r + 3.0), Vector2(w, 13.0))
+			draw_rect(label, Color(0.08, 0.08, 0.06, 0.82))
+			draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81))
+			if icons.is_empty() or hud == null:
+				return
+			var D: float = BattleView.Hud.BADGE_D      # 메달 아래 작은 동그라미 기호 (최대 셋) —— _deck_badges 와 같은 모양
+			var bw := D * icons.size() + 2.0 * (icons.size() - 1)
+			for i in icons.size():
+				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + 2.0), r + 17.0 + badge_dy + D * 0.5)
+				draw_circle(c, D * 0.5, Color(0.03, 0.04, 0.07, 0.92))
+				draw_arc(c, D * 0.5, 0, TAU, 20, Color(BattleView.Hud._icon_col(icons[i]), 0.9), 1.0, true)
+				hud._st_icon(c, icons[i], D * 0.5 - 2.0, 1.0, self)
 	var _tok_tex := {}     # 부대 key -> [카드, 크기, [틀, 얼굴]] —— _token 이 찍을 구운 메달 (reset · 배율이 바뀌면 비운다)
 
 	func _rank_emph() -> void:
@@ -3619,9 +3778,10 @@ class Hud extends Control:
 	const TOK_R := {1: 11.0, 2: 11.0, 3: 12.5, 4: 13.5, 5: 14.5, 6: 16.0, 7: 17.5, 8: 19.0}
 	## 메달 얼굴 뒤 바탕 —— 진영색을 어둡게 (11/9 사용자: 아군 · 적군 바탕색 구분). 그림이 비치는 초상 · 병종 기호 뒤에서도 피아가 보인다
 	const TOK_BG := {"A": Color("#17315e"), "B": Color("#5a1713")}
-	func _token(sq: Squad, p: Vector2, painted := false) -> void:
+	func _token(sq: Squad, p: Vector2, painted := false, layer := -1) -> void:
 		if sq.state == "gone":
 			return
+		# layer (삽화 메달 묶어 그리기, 11/19) —— -1 한 번에 · 0 틀 · 1 얼굴 · 2 이름 바탕 · 3 이름 글씨 · 4 기호
 		var a: float = sq.fade
 		var r: float = TOK_R.get(clampi(sq.tier, 1, 8), 15.0)      # 11/9 사용자: 메달 크기가 등급을 따르지 않았다 (7등급 전까지 전부 15) —— 등급마다 한 단씩
 		if painted:
@@ -3641,18 +3801,26 @@ class Hud extends Control:
 			mts = _medal_tex(sq, r, S)
 			if mts.size() == 2:
 				_tok_tex[sq.key] = [sq.cid, r, mts]
-		for mt in mts:      # 틀 → 얼굴 (둘 다 가운데가 p)
+		for mi in mts.size():      # 틀 → 얼굴 (둘 다 가운데가 p)
+			if layer >= 0 and layer != mi:
+				continue
+			var mt: Texture2D = mts[mi]
 			var msz := Vector2(mt.get_size()) / S      # 논리 크기 = 구운 화면 px ÷ 배율
 			var mpos := ((p * S - Vector2(mt.get_size()) * 0.5).round()) / S      # 화면 픽셀 칸에 맞춘다 —— 반 픽셀 걸치면 또 번진다
 			draw_texture_rect(mt, Rect2(mpos, msz), false, Color(1, 1, 1, a))
 		if painted:
+			if layer == 0 or layer == 1:
+				return
 			var name_: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 			var w := DB.font_bold.get_string_size(name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8.0
 			var label := Rect2(p + Vector2(- w * 0.5, r + 3.0), Vector2(w, 13.0))
-			draw_rect(label, Color(0.08, 0.08, 0.06, 0.82 * a))
-			draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81, a))
-			_painted_medals[sq.key] = {"at": p, "radius": r, "label": label}
-			_deck_badges(sq, p, r, a)
+			if layer < 0 or layer == 2:
+				draw_rect(label, Color(0.08, 0.08, 0.06, 0.82 * a))
+				_painted_medals[sq.key] = {"at": p, "radius": r, "label": label}
+			if layer < 0 or layer == 3:
+				draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81, a))
+			if layer < 0 or layer == 4:
+				_deck_badges(sq, p, r, a)
 			return
 		var ck := charge_k(sq.key)      # 11/7 기 모으는 중 —— 메달 바깥에 금빛 고리가 찬다 (위 HUD 고리와 같은 박자)
 		if ck >= 0.0:
@@ -3688,6 +3856,8 @@ class Hud extends Control:
 	## 2D 전장 메달 자리 —— 가까이 붙은 메달끼리 살짝 밀어낸다 (11/6 점검: 근접전에서 메달이 겹쳐 얼굴 · 병력이 가려졌다).
 	## 화면에만 적용, 최대 22px, 부드럽게 따라간다 (튀지 않게)
 	var _tok_off := {}
+	var _tok_want := {}    # 부대 key -> 비켜날 목표 거리 (세 프레임에 한 번 다시 푼다)
+	var _tok_tick := 0
 	var _painted_medals := {}
 	const TOK_GAP := 38.0
 	func _flat_token_pos(tags: Array, painted: bool) -> Dictionary:
@@ -3703,23 +3873,37 @@ class Hud extends Control:
 				base[i] = view.field.to_screen(rear, 0.0) + Vector2(0, 5)
 			else:
 				base[i] = view.field.to_screen(sq.pos, 0.0)
-		var want := base.duplicate()
-		for _it in 4:
-			for i in n:
-				for j in range(i + 1, n):
+		# 11/19 프레임: 밀어내기(쌍 153 × 최대 4바퀴)는 세 프레임에 한 번만 다시 풀고, 사이 프레임은 지난 목표로 따라간다
+		# (메달 밑자리는 매 프레임 부대를 따라가고, 비켜난 거리만 천천히 바뀐다). 한 바퀴에 밀린 쌍이 없으면 바로 끝낸다
+		_tok_tick += 1
+		var solve := _tok_tick % 3 == 0 or _tok_want.size() != n
+		if solve:
+			var want := base.duplicate()
+			var gap2 := TOK_GAP * TOK_GAP
+			for _it in 4:
+				var pushed := false
+				for i in n:
 					var a := want[i]
-					var b := want[j]
-					var d := b - a
-					var l := d.length()
-					if l < TOK_GAP:
+					for j in range(i + 1, n):
+						var d := want[j] - a
+						if d.length_squared() >= gap2:
+							continue
+						var l := d.length()
 						var dir := d / l if l > 0.01 else Vector2(1, 0).rotated(i * 1.3)
 						var push := dir * (TOK_GAP - l) * 0.5
-						want[i] = a - push
-						want[j] = b + push
+						a -= push
+						want[j] += push
+						pushed = true
+					want[i] = a
+				if not pushed:
+					break
+			_tok_want.clear()
+			for i in n:
+				_tok_want[(tags[i][1] as Squad).key] = (want[i] - base[i]).limit_length(22.0)
 		var out := {}
 		for i in n:
 			var k: String = (tags[i][1] as Squad).key
-			var off: Vector2 = (want[i] - base[i]).limit_length(22.0)
+			var off: Vector2 = _tok_want.get(k, Vector2.ZERO)
 			var cur: Vector2 = (_tok_off.get(k, Vector2.ZERO) as Vector2).lerp(off, 0.15)
 			_tok_off[k] = cur
 			out[k] = base[i] + cur
@@ -3865,6 +4049,69 @@ class Hud extends Control:
 				_medal_cache.clear()
 				_tok_tex.clear()
 				_bake_s = S
+		if _medal_layer != null and (not painted or tags.is_empty()):
+			_medal_layer.visible = false
+		if painted and not tags.is_empty():
+			# 11/19 삽화 메달 —— 자리 계산은 여기서, 그림은 메달 노드(MedalNode)가 한 번만. 상태 기호만 여기서 그린다
+			tok_pos = _flat_token_pos(tags, painted)
+			var S := _bake_s
+			var fbo2: Font = DB.font_bold
+			var seen := {}
+			if _medal_layer == null:
+				_medal_layer = Control.new()
+				_medal_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_medal_layer.show_behind_parent = true      # HUD 가 직접 그리는 것(글씨 · 컷인 · 띠)보다 아래 —— 예전에도 메달을 가장 먼저 그렸다
+				_medal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				add_child(_medal_layer)
+			_medal_layer.visible = true
+			for t in tags:
+				var sq: Squad = t[1]
+				if sq.state == "gone":
+					continue
+				var p: Vector2 = tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0))
+				var r := 10.0 if sq.tier >= 7 else 8.0
+				var mts: Array
+				var te = _tok_tex.get(sq.key)
+				if te != null and te[0] == sq.cid and te[1] == r:
+					mts = te[2]
+				else:
+					mts = _medal_tex(sq, r, S)
+					if mts.size() == 2:
+						_tok_tex[sq.key] = [sq.cid, r, mts]
+				var nw = _tok_name.get(sq.key)      # 이름 · 폭은 전투 내내 같다 —— 한 번만 잰다
+				if nw == null or nw[2] != sq.cid:
+					var name_: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+					nw = [name_, fbo2.get_string_size(name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8.0, sq.cid]
+					_tok_name[sq.key] = nw
+				var w: float = nw[1]
+				var label := Rect2(p + Vector2(- w * 0.5, r + 3.0), Vector2(w, 13.0))
+				_painted_medals[sq.key] = {"at": p, "radius": r, "label": label}
+				var bp := _badge_place(sq, p, r)
+				# 11/19 프레임: 메달(틀 · 얼굴 · 이름표)은 한 번 그려 둔 노드를 자리만 옮긴다 —— 매 프레임 메달 18개 × 그리기 4번을 다시 넣던 것이 HUD 에서 가장 무거웠다
+				var node: MedalNode = _medal_nodes.get(sq.key)
+				if node == null:
+					node = MedalNode.new()
+					node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					_medal_layer.add_child(node)
+					_medal_nodes[sq.key] = node
+				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.icons != bp[0] or node.badge_dy != bp[1]:
+					node.hud = self
+					node.icons = bp[0]
+					node.badge_dy = bp[1]
+					node.mts = mts
+					node.name_ = nw[0]
+					node.w = w
+					node.S = S
+					node.r = r
+					node.queue_redraw()
+				node.position = (p * S).round() / S      # 화면 픽셀 칸에 맞춘다
+				node.modulate.a = sq.fade
+				node.visible = true
+				seen[sq.key] = true
+			for k in _medal_nodes:
+				if not seen.has(k):
+					_medal_nodes[k].visible = false
+			tags.clear()
 		for t in tags:
 			var p: Vector2 = t[0]
 			var sq: Squad = t[1]
@@ -4009,7 +4256,7 @@ class Hud extends Control:
 			for q in view.field.order:
 				men += q.soldiers.size()
 			var t2 = view.field.flat
-			var figs: int = (int(t2.drawn_figs) * (1 if t2.gpu_count > 0 else Type2View.PACK) + int(t2.gpu_count)) if t2 != null and t2.get("drawn_figs") != null else men
+			var figs: int = (int(t2.drawn_figs) * (1 if t2.gpu_count > 0 or Type2View.painting_on() else Type2View.PACK) + int(t2.gpu_count)) if t2 != null and t2.get("drawn_figs") != null else men
 			var lv: int = int(t2.load_lv) if t2 != null and t2.get("load_lv") != null else 0
 			var pt := "fps %d · 계산 %d · 보이는 %d · 조절 %d" % [Engine.get_frames_per_second(), men, figs, lv]
 			draw_string_outline(DB.font_bold, Vector2(8, 66), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.9))
@@ -4505,6 +4752,8 @@ class MiniCard extends Control:
 	## 작은 카드 (휴대폰 세로 —— 폭 약 73) —— 초상 · 이름 · 병력, 아래에 글자 붙은 막대 세 줄.
 	## 11/7 사용자: 고유기 남은 횟수 구슬이 이름 옆(위 오른쪽)에 떠서 세 글자 이름과 겹쳤다 → 기 막대 끝으로 (이름 줄과 다른 줄이라 어떤 길이에도 안 겹친다)
 	func _draw_small() -> void:
+		# 11/19 그리기 호출: 글씨 · 막대 · 초상을 번갈아 그려 카드마다 묶음이 20번쯤 끊겼다(카드 9장 ≈ 200회) ——
+		# 면(바탕 · 막대 · 구슬) → 초상 → 글씨 순서로 모아 그린다. 모양 · 자리는 그대로
 		var tc := DB.tier_color(sq.cid)
 		var w := size.x
 		var ready := view.direct and view.ult_ready(sq.key)
@@ -4516,6 +4765,7 @@ class MiniCard extends Control:
 		sb.border_color = DB.PAL.gold if sq.glow > 0.05 else (DB.PAL.danger if sq.hurt > 0.05 else (_danger_col() if danger else tc))
 		draw_style_box(sb, Rect2(Vector2.ZERO, size))
 		var bar_y := 39.0
+		_bar_rows(3.0, bar_y, w - 6.0, BAR_PITCH, UI.FS_TINY, 0)
 		var pr := Rect2(3, 3, minf(26, w * 0.36), bar_y - 5)
 		Art.draw_portrait(self, pr, sq.cid, 0.0, "ult" if ready else "face")
 		if BattleView.Hud.shaky(sq):      # 11/11 사기 30 아래 —— 초상 아래에 「동요」 딱지
@@ -4529,7 +4779,7 @@ class MiniCard extends Control:
 		draw_string(nmf, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
 		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
 		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, UI.FS_TINY, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
-		_bar_rows(3.0, bar_y, w - 6.0, BAR_PITCH, UI.FS_TINY)
+		_bar_rows(3.0, bar_y, w - 6.0, BAR_PITCH, UI.FS_TINY, 1)
 		if ready:
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)
 			var rb := StyleBoxFlat.new()
@@ -4546,43 +4796,53 @@ class MiniCard extends Control:
 
 	## 막대 세 줄 (11/7 사용자: 막대 뜻을 한눈에) —— 줄마다 왼쪽에 글자(병 · 사 · 기), 굵기 병력 5 · 사기 2 · 고유기 3, 색은 파랑 · 옥색 · 금색.
 	## 고유기 줄 끝에 남은 횟수 구슬(최대 3, 11/7 재사용) —— 차례를 기다리는 중이면 막대 자리에 「준비」 가 깜빡인다 (11/6 #14).
-	## x0 · y0 왼쪽 위, bw 전체 폭, pitch 줄 간격, lfs 글자 크기
-	func _bar_rows(x0: float, y0: float, bw: float, pitch: float, lfs: int) -> void:
+	## x0 · y0 왼쪽 위, bw 전체 폭, pitch 줄 간격, lfs 글자 크기. layer —— -1 모두 · 0 면(막대 · 구슬)만 · 1 글씨만 (11/19 묶어 그리기)
+	func _bar_rows(x0: float, y0: float, bw: float, pitch: float, lfs: int, layer := -1) -> void:
+		var shapes := layer != 1
+		var text := layer != 0
 		var fb := DB.font_bold
 		var bx := x0 + lfs + 3.0
 		var bw2 := bw - (lfs + 3.0)
 		var y := y0
 		# 병력 —— 굵게 · 진영 파랑
-		draw_string(fb, Vector2(x0, y + pitch - 2.0), "병", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, Color("#9cc4ff"))
-		draw_rect(Rect2(bx, y + 2.0, bw2, 5), DB.PAL.ink)
-		draw_rect(Rect2(bx, y + 2.0, bw2 * clampf(sq.troops / sq.max, 0, 1), 5), War3D.TEAM.A)
+		if text:
+			draw_string(fb, Vector2(x0, y + pitch - 2.0), "병", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, Color("#9cc4ff"))
+		if shapes:
+			draw_rect(Rect2(bx, y + 2.0, bw2, 5), DB.PAL.ink)
+			draw_rect(Rect2(bx, y + 2.0, bw2 * clampf(sq.troops / sq.max, 0, 1), 5), War3D.TEAM.A)
 		# 사기 —— 가늘게 · 옥색. 100 이 가득 (예전 /200 이라 평소에 반만 차 보였다), 넘치면 밝게, 30 아래면 붉게 (11/4)
 		y += pitch
 		var mc: Color = Color("#ff6b57") if sq.morale < 30 else (Color("#c2f7df") if sq.morale > 100 else MORALE_COL)
-		draw_string(fb, Vector2(x0, y + pitch - 2.0), "사", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, MORALE_COL)
-		draw_rect(Rect2(bx, y + 3.0, bw2, 2), DB.PAL.ink)
-		draw_rect(Rect2(bx, y + 3.0, bw2 * clampf(sq.morale / 100.0, 0, 1), 2), mc)
+		if text:
+			draw_string(fb, Vector2(x0, y + pitch - 2.0), "사", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, MORALE_COL)
+		if shapes:
+			draw_rect(Rect2(bx, y + 3.0, bw2, 2), DB.PAL.ink)
+			draw_rect(Rect2(bx, y + 3.0, bw2 * clampf(sq.morale / 100.0, 0, 1), 2), mc)
 		# 고유기 —— 금색 · 끝에 남은 횟수 구슬 (6급 이상 · 기인만. 횟수가 다 떨어지면 회색)
 		y += pitch
 		if sq.tier >= 6 or DB.is_kiin(sq.cid):
 			var lv := view.unit_live(sq.key)
 			var n: int = lv[1]
-			draw_string(fb, Vector2(x0, y + pitch - 2.0), "기", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, ULT_FULL if n > 0 else Color("#777"))
+			if text:
+				draw_string(fb, Vector2(x0, y + pitch - 2.0), "기", HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, ULT_FULL if n > 0 else Color("#777"))
 			var gw := bw2 - (n * 7.0 + 3.0 if n > 0 else 0.0)
 			if _waiting(lv):
-				var pb := StyleBoxFlat.new()
-				pb.bg_color = Color(DB.PAL.gold, 0.6 + 0.3 * sin(view.clock * 6.0))
-				pb.set_corner_radius_all(3)
-				draw_style_box(pb, Rect2(bx, y, gw, pitch))
-				draw_string(fb, Vector2(bx, y + pitch - 1.5), "준비", HORIZONTAL_ALIGNMENT_CENTER, gw, lfs, Color("#1A1508"))
-			else:
+				if shapes:
+					var pb := StyleBoxFlat.new()
+					pb.bg_color = Color(DB.PAL.gold, 0.6 + 0.3 * sin(view.clock * 6.0))
+					pb.set_corner_radius_all(3)
+					draw_style_box(pb, Rect2(bx, y, gw, pitch))
+				if text:
+					draw_string(fb, Vector2(bx, y + pitch - 1.5), "준비", HORIZONTAL_ALIGNMENT_CENTER, gw, lfs, Color("#1A1508"))
+			elif shapes:
 				draw_rect(Rect2(bx, y + 2.5, gw, 3), DB.PAL.ink)
 				var gc: Color = (ULT_FULL if lv[0] >= 100.0 else ULT_COL) if n > 0 else Color("#555")
 				draw_rect(Rect2(bx, y + 2.5, gw * clampf(lv[0] / 100.0, 0, 1), 3), gc)
-			for i in n:
-				var c := Vector2(bx + gw + 6.0 + i * 7.0, y + 4.0)
-				draw_circle(c, 3.2, Color(0, 0, 0, 0.7))
-				draw_circle(c, 2.4, Color("#ffd257"))
+			if shapes:
+				for i in n:
+					var c := Vector2(bx + gw + 6.0 + i * 7.0, y + 4.0)
+					draw_circle(c, 3.2, Color(0, 0, 0, 0.7))
+					draw_circle(c, 2.4, Color("#ffd257"))
 
 	func _glow_text(t: String) -> void:
 		draw_string_outline(DB.title_font(13), Vector2(0, -4), t, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, 4, Color(0, 0, 0, 0.9))

@@ -75,7 +75,7 @@ func _ready() -> void:
 	var t_start := Time.get_ticks_usec()
 	for h in str(args.get("hide", "")).split(",", false):
 		match h:
-			"ground": t2._ground.visible = false
+			"ground": t2._ground_view.visible = false
 			"men": if t2._gmm: t2._gmm.visible = false
 			"cpu": t2._mm.visible = false
 			"under": t2._under.visible = false

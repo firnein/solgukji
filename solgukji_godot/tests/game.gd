@@ -10,6 +10,10 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var runs := int(args.get("runs", "20"))
+	if args.has("v2"):      # 11/19 전후 비교 —— --v2=0 예전 이동 알고리즘 · --fair=0 예전 처리 순서
+		RtBattle.algo_v2 = str(args.v2) != "0"
+	if args.has("fair"):
+		RtBattle.fair_order = str(args.fair) != "0"
 	Run.dev_snap_on = args.has("snap")      # --snap=경로.json —— 토벌 직전 편성을 모은다 (quest_tune --snap 이 기준 덱으로 쓴다)
 	if args.has("oldquest"):        # 토벌 고정 편성(황건적) 대신 예전 무작위 —— 비교용
 		DB.QUEST_ROSTERS = []

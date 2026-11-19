@@ -43,6 +43,13 @@ static var basic_fx := true    # 11/11 기본 행동 연출 (scripts/field/basic
 var bfx = BasicFx.new(self)    # 병종별 평타 · 돌격 · 사격 · 시전 연출 (등급 배율 표 BasicFx.TIER)
 var _fig_tex: Texture2D
 var _ground: ColorRect          # 바닥 —— 셰이더 지도 (shaders/type2_ground.gdshader, 11/6)
+## 11/19 프레임(휴대폰 GPU): 바닥 셰이더는 화면 전체 픽셀마다 잡음(fbm)을 4~6번 돈다 —— 삽화 화면은 카메라가 고정이라 매 프레임 같은 그림이었다.
+## 바닥을 작은 뷰포트(_ground_port)에 한 번만 그려 두고 화면에는 그 그림(_ground_view) 한 장을 깐다. 값(가운데 · 배율 · 크기 · 무늬)이 바뀔 때만 다시 그린다
+var _ground_port: SubViewport
+var _ground_view: TextureRect
+var _ground_sig := []           # 지난번에 그린 값 —— 같으면 다시 그리지 않는다
+var _ground_rev := 0            # 무늬(_roll_ground · detail)가 바뀌면 올린다
+const GROUND_MAX_PX := 2048     # 바닥 그림 긴 변 상한 (화면 px)
 var _under: Under               # 병사 아래 층 —— 부대 바닥 · 흙먼지 · 상태 칸 · 기술 범위
 var _mid_y := 0.0
 
@@ -63,8 +70,23 @@ func _ready() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/type2_ground.gdshader")
 	_ground.material = mat
-	add_child(_ground)
-	move_child(_ground, 0)
+	_ground_port = SubViewport.new()
+	_ground_port.disable_3d = true
+	_ground_port.transparent_bg = false
+	_ground_port.gui_disable_input = true
+	_ground_port.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_ground_port.size = Vector2i(8, 8)
+	add_child(_ground_port)
+	_ground_port.add_child(_ground)
+	_ground_view = TextureRect.new()
+	_ground_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ground_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ground_view.stretch_mode = TextureRect.STRETCH_SCALE
+	_ground_view.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_ground_view.texture = _ground_port.get_texture()
+	_ground_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_ground_view)
+	move_child(_ground_view, 0)
 	_under = Under.new()
 	_under.v = self
 	_under.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -84,6 +106,7 @@ func _ready() -> void:
 
 
 func setup() -> void:
+	_paint = painting_on()
 	_painting_bounds = Rect2()
 	_painting_points.clear()
 	if painting != null:
@@ -110,11 +133,17 @@ func setup() -> void:
 	_set_budget()
 	_lv_floor = _floor_for(men)      # 바닥 단계는 전투 병사 수 그대로 (먼지 · 바닥 · 30Hz 같은 부수 비용은 병사 수를 따른다)
 	load_lv = _lv_floor      # 지난 전투의 단계를 이어 쓰지 않는다 (작은 전투가 큰 전투 단계로 시작했다)
+	if _paint:
+		# 11/19 삽화 전용 —— 옛 군집 병사 수(만 명대)로 바닥 단계를 4 로 잡던 것을 없앤다 (삽화는 300명 안팎). 바닥은 0.
+		# 휴대폰은 2단계(삽화 · HUD 갱신 30Hz, 화면은 60Hz)에서 시작해 프레임이 남으면 내려간다 —— 무거운 채 시작해 몇 초 버벅인 뒤에야 올라가지 않게
+		_lv_floor = 0
+		load_lv = 2 if _mobile() else 0
 	_ft = 1.0 / 60.0
 	_lv_hold = 2.0           # 처음 2초는 셰이더 · 노드 준비로 튀므로 보지 않는다
 	_down_hold = 4.0
 	_roll_ground()
 	var gm0: ShaderMaterial = _ground.material
+	_ground_rev += 1
 	gm0.set_shader_parameter("detail", 0.0 if _lv_floor >= 3 else 1.0)      # 대군이면 바닥 잡음을 2옥타브로 (전투 내내 같아 깜빡이지 않는다)
 	_reset_feel()
 	_setup_tac()
@@ -122,15 +151,17 @@ func setup() -> void:
 
 
 ## 전장 px → 화면 px —— DotView 처럼 아군 아래 · 적 위, 세로를 TILT 만큼 눌러 비스듬히
+## 11/19 프레임: map · depth_scale 은 한 프레임에 수천 번 불린다 —— 화풍 확인(정적 함수 · 설정 읽기)을 _process 가 한 번 정한 값으로
+var _paint := true
 func map(p: Vector2) -> Vector2:
 	var d := p - _center - _jit
-	if painting_on():
-		return size * _painting_origin + Vector2(d.y, -d.x * PAINT_TILT * _painting_stretch) * _scale * depth_scale(p)
+	if _paint:
+		return size * _painting_origin + Vector2(d.y, -d.x * PAINT_TILT * _painting_stretch) * (_scale / maxf(0.35, 1.0 + d.x * PAINT_PERSPECTIVE))
 	return size * 0.5 + Vector2(d.y, -d.x * TILT) * _scale
 
 
 func depth_scale(p: Vector2) -> float:
-	if not painting_on():
+	if not _paint:
 		return 1.0
 	return 1.0 / maxf(0.35, 1.0 + (p.x - _center.x - _jit.x) * PAINT_PERSPECTIVE)
 
@@ -431,6 +462,7 @@ func _shown_of(sq: Squad) -> int:
 
 func _process(dt: float) -> void:
 	var t0 := Time.get_ticks_usec()
+	_paint = painting_on()
 	_load_step(dt)
 	super._process(dt)
 	if not visible or field == null:
@@ -450,18 +482,7 @@ func _process(dt: float) -> void:
 		gm.set_shader_parameter("grow", draw_grow)
 		gm.set_shader_parameter("dark", draw_dark)
 		gm.set_shader_parameter("scatter", scatter)
-	var mat: ShaderMaterial = _ground.material
-	mat.set_shader_parameter("center", _center + _jit)
-	mat.set_shader_parameter("scl", _scale)
-	mat.set_shader_parameter("tilt", PAINT_TILT if painting_on() else TILT)
-	mat.set_shader_parameter("projection_origin", _painting_origin if painting_on() else Vector2(0.5, 0.5))
-	mat.set_shader_parameter("perspective", PAINT_PERSPECTIVE if painting_on() else 0.0)
-	mat.set_shader_parameter("depth_stretch", _painting_stretch if painting_on() else 1.0)
-	mat.set_shader_parameter("vsize", size)
-	mat.set_shader_parameter("mid_y", _mid_y)
-	mat.set_shader_parameter("hex", HEX)
-	mat.set_shader_parameter("camp_a", _camp_x("A"))
-	mat.set_shader_parameter("camp_b", _camp_x("B"))
+	_ground_step()
 	if Engine.get_process_frames() % (2 if load_lv == 0 else (3 if load_lv < 3 else 4)) == 1:
 		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다 (무거우면 3 · 4프레임마다)
 	if _fx_layer and (((not _fx.is_empty() or bfx.live()) and load_lv < 3) or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다 (3단계부터 연출도 30Hz)
@@ -472,6 +493,37 @@ func _process(dt: float) -> void:
 		_label_layer.queue_redraw()
 	elif _label_layer and _label_layer.visible:
 		_label_layer.visible = false      # 다 보여 줬다 —— 다음 전투에서 다시 켠다
+
+
+## 바닥 그림 —— 값이 지난번과 같으면 아무것도 하지 않는다 (삽화 화면은 전투 내내 한 번). 바뀌면 셰이더 값을 넘기고 한 번 다시 그린다
+func _ground_step() -> void:
+	var px_k: float = get_viewport().get_final_transform().get_scale().x if is_inside_tree() else 1.0
+	var want := size * maxf(px_k, 0.5)
+	var longest := maxf(want.x, want.y)
+	if longest > GROUND_MAX_PX:
+		want *= GROUND_MAX_PX / longest
+	var psz := Vector2i(maxi(8, roundi(want.x)), maxi(8, roundi(want.y)))
+	var sig := [_center + _jit, _scale, size, _paint, _painting_origin, _painting_stretch, _mid_y, _camp_x("A"), _camp_x("B"), _ground_rev, psz]
+	if sig == _ground_sig:
+		return
+	_ground_sig = sig
+	var mat: ShaderMaterial = _ground.material
+	mat.set_shader_parameter("center", _center + _jit)
+	mat.set_shader_parameter("scl", _scale)
+	mat.set_shader_parameter("tilt", PAINT_TILT if _paint else TILT)
+	mat.set_shader_parameter("projection_origin", _painting_origin if _paint else Vector2(0.5, 0.5))
+	mat.set_shader_parameter("perspective", PAINT_PERSPECTIVE if _paint else 0.0)
+	mat.set_shader_parameter("depth_stretch", _painting_stretch if _paint else 1.0)
+	mat.set_shader_parameter("vsize", size)
+	mat.set_shader_parameter("mid_y", _mid_y)
+	mat.set_shader_parameter("hex", HEX)
+	mat.set_shader_parameter("camp_a", _camp_x("A"))
+	mat.set_shader_parameter("camp_b", _camp_x("B"))
+	if _ground_port.size != psz:
+		_ground_port.size = psz
+	_ground.position = Vector2.ZERO
+	_ground.size = Vector2(psz)
+	_ground_port.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
 ## 진영 시작선 (전장 x) —— 바닥에 옅은 진지선을 긋는다 (11/6 사용자: 바닥 타일링 의미 불분명 → 의미 있는 선만)
@@ -2225,6 +2277,7 @@ const GROUNDS := [      # [풀 어두운, 풀 밝은, 흙 얼룩, 나무 어두�
 	[Color(0.74, 0.76, 0.76), Color(0.86, 0.87, 0.86), 0.0, Color(0.22, 0.28, 0.26), Color(0.36, 0.42, 0.40), 1.0],      # 눈밭
 ]
 func _roll_ground() -> void:
+	_ground_rev += 1
 	var r := RandomNumberGenerator.new()
 	var sd = view._p.get("seed") if view != null and view.get("_p") is Dictionary else null
 	r.seed = hash(str(sd) + "바닥") if sd != null else hash(str(field.order.map(func(q): return q.cid)))

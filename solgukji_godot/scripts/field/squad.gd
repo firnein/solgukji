@@ -40,6 +40,10 @@ static var count_scale := 1.0   # 품질 설정 —— 모바일은 병사 수�
 ## 11/3 GPU 병사 (War3D._gpu) —— 살아 있는 병사는 셰이더가 대열 자리에 그리므로 병사마다 걷기 계산을 하지 않는다.
 ## 병력이 줄면 뒷자리(slot 큰 쪽)부터 지우고(대열이 뒤에서 줄어든다), 쓰러지는 병사는 앞줄 자리에 놓아 CPU 가 넘어뜨린다
 static var gpu := false
+## 11/19 삽화 전용 (War3D.no3d) —— 병사 객체를 만들지 않는다. 삽화는 제 대열(painted_formation)로 그리므로 옛 군집용 병사(전투마다 만 명 넘게)는
+## 만들고 · 쓰러뜨릴 사람을 고르는 계산만 하고 화면에 쓰이지 않았다. 병사 수(_alive —— 아래 카드의 '○○명')는 같은 식으로 세기만 한다
+static var lite := false
+var _lite_n := 0
 const CPU_SHARE := 0.33         # GPU 가 아닐 때(점묘 · 타입2) 병사 수 배율 —— 예전 수(약 1,700명)로
 static var DENSITY := 3.5            # 11/3 GPU 병사 —— 후반 대전 약 5,000명 (예전 1.15 ≈ 1,700명). 2D 전장(점묘 · 타입2)은 CPU 라 CPU_SHARE 만큼만 —— 11/3 사용자: 1,000~2,000명이 바글바글한 '병사의 바다' 로 (11/2 의 1.1 · 넓은 간격에서 수를 늘리고 간격을 좁힘)
 ## 이동 속도 (px/초) —— 기병은 돌격 때 더 빨라진다
@@ -202,6 +206,11 @@ func _init(r: Dictionary, at: Vector2, rng: RandomNumberGenerator, lay := 1.0) -
 	var rows0 := ceili(float(n) / cols)
 	sp = 2.0 * hw / cols
 	spr = 2.0 * hd0 / rows0
+	if lite:
+		_lite_n = n
+		_alive = n
+		_rk = ranks()
+		return
 	for i in n:
 		soldiers.append(_new_soldier(i))
 	_alive = n
@@ -577,8 +586,12 @@ func update(dt: float, clock: float) -> void:
 ## 병력 변화를 병사 수로 옮긴다. 줄면 적과 가까운 병사부터 쓰러지고, 그 옆 병사는 움찔한다.
 func set_troops(t: float, from: Vector2, clock: float, rng: RandomNumberGenerator) -> void:
 	troops = clampf(t, 0, max)
-	var n := soldiers.size()
+	var n := _lite_n if lite else soldiers.size()
 	var want := 0 if troops <= 0 else maxi(1, ceili(n * troops / max))
+	if lite:
+		_alive = want
+		hurt = 1.0
+		return
 	if gpu:
 		_set_troops_gpu(want, from, clock, rng)
 		return

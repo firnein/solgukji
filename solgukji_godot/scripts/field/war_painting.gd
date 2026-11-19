@@ -6,11 +6,27 @@ var atlas: Texture2D
 var cells: Array[AtlasTexture] = []
 var walk_meshes := {}
 var formations := {}
-var visible_soldiers: Array = []
+var visible_soldiers: Array = []      # 점검용 사전 목록 (keep_dicts 일 때만 채운다) —— 그리기는 아래 묶음 배열을 쓴다
+## 11/19 프레임: 병사마다 키 11개짜리 사전을 만들고 람다로 정렬하던 것이 삽화 그리기의 절반이었다 ——
+## 인형 값은 묶음 배열 한 줄(FIG_W 칸)에, 깊이 순서는 정수 키(화면 y · 번호) 정렬로. 그리는 모양 · 순서는 그대로
+const FIG_W := 10              # x, y, 키, 칸, 투명, 기울기, 걸음 세기, 보폭, 피격, 좌우 뒤집기
+var _figs := PackedFloat32Array()
+var _fig_sq: Array = []
+var _fig_keys := PackedInt64Array()
+var figure_count := 0          # 지난 그리기의 인형 수
+static var keep_dicts := false # 점검용 —— visible_soldiers 사전 목록도 채운다 (tests/motion5_replay)
+var _scr := {}                 # 부대 key -> 이번 그리기의 발 화면 좌표 (수집이 채우고 표식이 다시 쓴다)
+# 투영 캐시 —— 그리기 한 번 동안 같은 값 (v.map 은 부를 때마다 화풍 확인 · depth_scale 을 다시 불렀다)
+var _po := Vector2.ZERO
+var _pc := Vector2.ZERO
+var _ps := 1.0
+var _pt := 1.0
 var ratios := {}
 var last_clock := -1.0
 var visual_time := 0.0
 var motion_dt := 0.0
+var _cl_tick := 0
+var _cl_i := 0
 var _skip_dt := 0.0          # 11/18 부하 2단계부터 30Hz —— 건너뛴 프레임의 시간을 모아 다음 갱신에 넘긴다
 var charges := {}
 var rallies := {}
@@ -46,7 +62,10 @@ const GLOW_BOOST := 1.6        # 더하기 합성에서 그림 자체가 어두�
 class TopEffects extends Node2D:
 	var painter
 	func _draw() -> void:
+		var t0 := Time.get_ticks_usec()
 		painter._draw_overlay(self)
+		if painter.v != null and painter.v.field != null:
+			painter.v.field.pt("삽화 위층", t0)
 
 ## 11/17 빛나는 효과 층 —— kenney 효과 그림은 회색 + 낮은 알파(더하기 합성용)라 보통 합성으로는 황토 땅에 어두운 얼룩만 남았다
 ## (불꽃 · 화상 · 불바다 · 낙뢰 · 검기가 안 보였다). 그런 그림은 _spr 가 모아 두고 이 층이 더하기로 그린다
@@ -124,6 +143,10 @@ func reset() -> void:
 	formations.clear()
 	ratios.clear()
 	visible_soldiers.clear()
+	figure_count = 0
+	_fig_sq.clear()
+	_fig_keys.clear()
+	_scr.clear()
 	bodies.clear()
 	contacts.clear()
 	volleys.clear()
@@ -333,12 +356,20 @@ func _process(dt: float) -> void:
 	contacts = contacts.filter(func(h): return visual_time < h.end)
 	volleys = volleys.filter(func(shot): return last_clock < shot.end)
 	ults = ults.filter(func(u): return last_clock < float(u.end) and last_clock >= float(u.start) - 5.0)
+	_cl_tick += 1
+	_cl_i = 0
 	for sq: Squad in v.field.order:
 		if sq.state == "gone":
 			formations.erase(sq.key)
 			continue
 		var form := _formation(sq)
-		form.contact_limits = _contact_limits(sq) if batch_rendering else []
+		# 11/19 접촉선은 부대 수 제곱 계산 —— 부대마다 엇갈려 네 번에 한 번만 다시 잰다 (선은 천천히 움직인다. 화면 전용 —— 판정과 무관)
+		_cl_i += 1
+		if not batch_rendering:
+			form.contact_limits = []
+		elif (_cl_tick + _cl_i) % 4 == 0 or not form.limits_ready:
+			form.contact_limits = _contact_limits(sq)
+			form.limits_ready = true
 		form.step(sq, motion_dt)
 		ratios[sq.key] = form.ratio
 	v.field.pt("삽화 갱신", t0)
@@ -352,16 +383,33 @@ func squad_at(screen: Vector2) -> Squad:
 	var local := get_global_transform_with_canvas().affine_inverse() * screen
 	var best: Squad = null
 	var best_distance := INF
-	for figure in visible_soldiers:
-		var p: Vector2 = figure.p - Vector2(0.0, figure.h * 0.42)
+	for i in figure_count:
+		var b := i * FIG_W
+		var h := _figs[b + 2]
+		var p := Vector2(_figs[b], _figs[b + 1] - h * 0.42)
 		var distance := p.distance_squared_to(local)
-		if distance <= pow(maxf(10.0, figure.h * 0.45), 2) and distance < best_distance:
+		if distance <= pow(maxf(10.0, h * 0.45), 2) and distance < best_distance:
 			best_distance = distance
-			best = figure.sq
+			best = _fig_sq[i]
 	return best
 
+func _proj_begin() -> void:
+	_po = v.size * v._painting_origin
+	_pc = v._center + v._jit
+	_ps = v._scale
+	_pt = Type2View.PAINT_TILT * v._painting_stretch
+
+## v.map 과 같은 식 (삽화 투영) —— _proj_begin 뒤에만
+func _pm(p: Vector2) -> Vector2:
+	var d := p - _pc
+	return _po + Vector2(d.y, -d.x * _pt) * (_ps / maxf(0.35, 1.0 + d.x * Type2View.PAINT_PERSPECTIVE))
+
+## v.depth_scale(p) * v._scale 과 같다
+func _pk(p: Vector2) -> float:
+	return _ps / maxf(0.35, 1.0 + (p.x - _pc.x) * Type2View.PAINT_PERSPECTIVE)
+
 func _figure_height(sq: Squad, form: FormationMotion) -> float:
-	var scale: float = v.depth_scale(form.center) * v._scale
+	var scale: float = _pk(form.center)
 	var nominal := (61.0 if form.cavalry else 51.0) * scale
 	var horizontal := 2.0 * form.half_width / maxf(1, form.cols - 1) * scale
 	return clampf(minf(nominal, horizontal / 0.58), 12.0, 46.0)
@@ -397,19 +445,54 @@ func _draw() -> void:
 	if v == null or v.field == null or cells.is_empty():
 		return
 	var t0 := Time.get_ticks_usec()
+	_proj_begin()
 	_draw_fire_seas()
 	_draw_bodies(false)
+	var tq: int = v.field.pt("삽화·바닥", t0)
+	figure_count = 0
+	_fig_sq.clear()
+	_fig_keys.clear()
 	for sq: Squad in v.field.order:
 		if sq.state != "gone" and sq.fade > 0.01:
 			var form: FormationMotion = formations.get(sq.key)
 			if form != null:
-				_draw_formation_mark(sq, form)
 				_collect_figures(sq, form)
-	visible_soldiers.sort_custom(func(a, b): return a.p.y < b.p.y)
-	v.drawn_figs = visible_soldiers.size() + bodies.size()
+	tq = v.field.pt("삽화·수집", tq)
+	_mk_pts.clear()
+	_mk_cols.clear()
+	_mk_idx.clear()
+	_mk_rim.clear()
+	_mk_rim_c.clear()
+	_mk_ln.clear()
+	_mk_ink.clear()
+	_mk_lc.clear()
+	for sq: Squad in v.field.order:
+		if sq.state != "gone" and sq.fade > 0.01:
+			var form: FormationMotion = formations.get(sq.key)
+			if form != null:
+				if batch_rendering:
+					_mark_batch(sq, form)
+				else:
+					_draw_formation_mark(sq, form)
+	if not _mk_idx.is_empty():      # 부대 바닥 면 · 먼지 —— 삼각형 묶음 한 번
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), _mk_idx, _mk_pts, _mk_cols)
+	var mk_aa: bool = v.get("load_lv") == null or int(v.load_lv) < 2      # 11/18 부하 2단계부터 표식 선의 안티에일리어싱을 끈다
+	if not _mk_rim.is_empty():
+		draw_multiline_colors(_mk_rim, _mk_rim_c, 1.1, mk_aa)
+	if not _mk_ln.is_empty():
+		draw_multiline_colors(_mk_ln, _mk_ink, 3.0, mk_aa)
+		draw_multiline_colors(_mk_ln, _mk_lc, 1.5, mk_aa)
+	tq = v.field.pt("삽화·표식", tq)
+	_fig_keys.sort()      # 화면 y 가 작은(먼) 인형부터 —— 키 = (y × 8 + 오프셋) << 16 | 번호
+	v.drawn_figs = figure_count + bodies.size()
+	if keep_dicts or not batch_rendering:
+		for k in _fig_keys:
+			visible_soldiers.append(_fig_dict(int(k & 0xFFFF)))
+	tq = v.field.pt("삽화·정렬", tq)
 	if batch_rendering:
-		batch.update_figures(visible_soldiers, ALLY_CLOTH, ENEMY_CLOTH)
-	else:
+		batch.update_packed(_figs, _fig_keys, FIG_W, ALLY_CLOTH, ENEMY_CLOTH)
+	v.field.pt("삽화·버퍼", tq)
+	if not batch_rendering:
 		for figure in visible_soldiers:
 			_draw_soldier(figure)
 	v.field.pt("삽화 그리기", t0)
@@ -437,12 +520,12 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		target = sq.engaged
 	if target != null and target.alive and sq.state != "flee":
 		direction = form.center.direction_to(_formation(target).center)
-	var axis: Vector2 = (v.map(form.center + direction * 20.0) - v.map(form.center)).normalized()
+	var axis: Vector2 = (_pm(form.center + direction * 20.0) - _pm(form.center)).normalized()
 
 	# 11/17 사용자 「옆으로 미끄러진다」 —— 그림 좌우를 늘 목표 적 쪽으로 두어, 옆으로 갈 때 걷는 쪽과 반대를 보며 미끄러졌다(문워크).
 	# 맞붙지 않고 최근 공격하지 않은 채 화면 가로로 제법 움직이면 가는 쪽을 본다
 	var face_x := axis.x
-	var mv_screen: Vector2 = v.map(form.center + form.move_vel * 0.25) - v.map(form.center)
+	var mv_screen: Vector2 = _pm(form.center + form.move_vel * 0.25) - _pm(form.center)
 	var walking: bool = not form.contact and visual_time - form.last_action > 0.6 and mv_screen.length() > 2.5 * v.depth_scale(form.center)
 	if walking and absf(mv_screen.x) > mv_screen.length() * 0.35:
 		face_x = signf(mv_screen.x)
@@ -455,45 +538,182 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var attacking := form.action_kind == "melee" and visual_time - form.last_action < 0.55
 	var eligible := (form.contact or attacking) and sq.state != "flee" and target != null and target.alive
 	var front_ids: Array = form.nearest_living(form.center + direction * sq.edge(direction), form.cols) if eligible else[]
+	var scr: PackedVector2Array = _scr.get(sq.key, PackedVector2Array())
+	if scr.size() != form.capacity:
+		scr.resize(form.capacity)
+	var fleeing := sq.state == "flee"
+	var has_front := not front_ids.is_empty()
+	var slot_f := float(sq.row.slot)
+	var ranged: bool = form.action_kind == "volley" or form.action_kind == "spell"
+	var bow_base := visual_time - form.last_action      # 활 당김은 쏜 뒤 0.5초 안에만 보인다 (그 뒤는 0)
+	var sway := 0.035 if form.cavalry else 0.012
+	var fade_sq := sq.fade
 	for id in form.capacity:
 		if form.alive[id] == 0:
 			continue
-		var p: Vector2 = v.map(form.feet[id])
+		var p: Vector2 = _pm(form.feet[id])
+		scr[id] = p
 		var p0 := p      # 11/18 발은 _place 에서 이미 접촉선 안 —— 찌르기 · 밀림으로 옮겨진 인형만 다시 맞춘다
 		var tilt := 0.0
 		var gait: float = form.gait[id]
 		var stride: float = form.strides[id]
 		var hit := 0.0
-		var age := visual_time - form.strike_at[id]
-		var windup := smoothstep(0.0, 0.09, age) * (1.0 - smoothstep(0.09, 0.13, age))
-		var thrust := smoothstep(0.09, 0.13, age) * (1.0 - smoothstep(0.18, 0.4, age))
-		if sq.state != "flee":
-			if front_ids.has(id):
-
-				var guard := sin(visual_time * 4.3 + id * 2.4 + float(sq.row.slot)) * form.contact_weight
+		if not fleeing:
+			if has_front and front_ids.has(id):
+				# 11/19 찌르기 곡선은 앞줄만, 그것도 친 지 0.4초 안일 때만 잰다 (예전엔 모든 병사가 매 프레임 smoothstep 네 번)
+				var age := visual_time - form.strike_at[id]
+				var windup := 0.0
+				var thrust := 0.0
+				if age < 0.4:
+					windup = smoothstep(0.0, 0.09, age) * (1.0 - smoothstep(0.09, 0.13, age))
+					thrust = smoothstep(0.09, 0.13, age) * (1.0 - smoothstep(0.18, 0.4, age))
+				var guard := sin(visual_time * 4.3 + id * 2.4 + slot_f) * form.contact_weight
 				p += axis * guard * 0.55 * (1.0 - gait)
 				tilt += axis.x * guard * 0.022
 				p += axis * (thrust * 3.2 - windup * 1.2)
 				tilt += axis.x * (thrust * 0.14 - windup * 0.065)
 				gait *= 0.35
-			elif form.action_kind in ["volley", "spell"]:
-				var bow_age := visual_time - form.last_action - (id / form.cols) * 0.025
+			elif ranged and bow_base < 0.5:
+				var bow_age := bow_base - (id / form.cols) * 0.025
 				var bow := smoothstep(0.0, 0.1, bow_age) * (1.0 - smoothstep(0.15, 0.32, bow_age))
 				tilt -= axis.x * bow * 0.065
 		var hurt_age := visual_time - form.hurt_at[id]
 		if hurt_age >= 0.0 and hurt_age < 0.38:
-			var hurt_axis: Vector2 = (v.map(form.feet[id] + form.hurt_dir[id] * 16.0) - p).normalized()
+			var hurt_axis: Vector2 = (_pm(form.feet[id] + form.hurt_dir[id] * 16.0) - p).normalized()
 			var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, 0.38, hurt_age))
 			p += hurt_axis * recoil * (2.0 + form.hurt_power[id] * 2.4)
 			tilt += hurt_axis.x * recoil * (0.09 + form.hurt_power[id] * 0.06)
 			hit = 1.0 - smoothstep(0.025, 0.14, hurt_age)
 			gait *= 1.0 - recoil
-		tilt += sin(stride) * gait * (0.035 if form.cavalry else 0.012)
-		if not form.contact_limits.is_empty() and p != p0:
+		if gait > 0.001:
+			tilt += sin(stride) * gait * sway
+		if p != p0 and not form.contact_limits.is_empty():
 			# Attack thrust and recoil must respect the same visible contact front.
-			p = v.map(form.constrain_foot(v.unmap(p)))
-		visible_soldiers.append({"p": p, "h": h, "cell": cell, "fade": sq.fade * form.opacity[id],
-			"tilt": tilt, "gait": gait, "stride": stride, "hurt": hit, "mirror": mirror, "sq": sq})
+			p = _pm(form.constrain_foot(v.unmap(p)))
+		var n := figure_count
+		figure_count += 1
+		if _figs.size() < figure_count * FIG_W:
+			_figs.resize(maxi(figure_count * FIG_W, _figs.size() * 2))
+		var b := n * FIG_W
+		_figs[b] = p.x
+		_figs[b + 1] = p.y
+		_figs[b + 2] = h
+		_figs[b + 3] = cell
+		_figs[b + 4] = fade_sq * form.opacity[id]
+		_figs[b + 5] = tilt
+		_figs[b + 6] = gait
+		_figs[b + 7] = stride
+		_figs[b + 8] = hit
+		_figs[b + 9] = 1.0 if mirror else 0.0
+		_fig_sq.append(sq)
+		_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
+	_scr[sq.key] = scr
+
+## 11/19 그리기 호출 · 프레임: 부대마다 면 1 + 테두리 1 + 앞줄 표식 2 + 먼지 3 번씩 따로 그리던 것(18부대 ≈ 120회)을
+## 전 부대 것을 모아 면(삼각형 묶음) 1 · 테두리 1 · 표식 2 번으로. 모양 · 색 · 자리는 _draw_formation_mark 와 같다
+var _mk_pts := PackedVector2Array()
+var _mk_cols := PackedColorArray()
+var _mk_idx := PackedInt32Array()
+var _mk_rim := PackedVector2Array()
+var _mk_rim_c := PackedColorArray()
+var _mk_ln := PackedVector2Array()
+var _mk_ink := PackedColorArray()
+var _mk_lc := PackedColorArray()
+const DUST_SEG := 10
+
+func _mark_batch(sq: Squad, form: FormationMotion) -> void:
+	if form.count == 0:
+		return
+	var facing := Vector2.from_angle(form.heading)
+	var right := Vector2(- facing.y, facing.x)
+	var front := form.center + facing * maxf(sq.hd0 * form.ratio, RtBattle.HD_MIN) * 0.86
+	var last_rank := 0
+	for id in form.capacity:
+		if form.alive[id] != 0 and form.ranks[id] > last_rank:
+			last_rank = form.ranks[id]
+	var back := front - facing * maxf(12.0, form.row_gap * last_rank)
+	var side := right * (form.half_width + 7.0)
+	var a := _pm(back - side)
+	var b := _pm(front - side)
+	var c := _pm(front + side)
+	var d := _pm(back + side)
+	var color := ALLY_MARK if sq.camp == "A" else ENEMY_MARK
+	var fill := Color(color, 0.075 * sq.fade)
+	var base := _mk_pts.size()
+	_mk_pts.append(a)
+	_mk_pts.append(b)
+	_mk_pts.append(c)
+	_mk_pts.append(d)
+	for i in 4:
+		_mk_cols.append(fill)
+	_mk_idx.append(base)
+	_mk_idx.append(base + 1)
+	_mk_idx.append(base + 2)
+	_mk_idx.append(base)
+	_mk_idx.append(base + 2)
+	_mk_idx.append(base + 3)
+	var rim_c := Color(color, 0.38 * sq.fade)
+	_mk_rim.append(a)
+	_mk_rim.append(b)
+	_mk_rim.append(b)
+	_mk_rim.append(c)
+	_mk_rim.append(c)
+	_mk_rim.append(d)
+	for i in 3:
+		_mk_rim_c.append(rim_c)
+	var scr: PackedVector2Array = _scr.get(sq.key, PackedVector2Array())
+	var half := maxf(2.0, _figure_height(sq, form) * 0.17)
+	var ink := Color(INK, 0.7 * sq.fade)
+	var lc := Color(color, 0.8 * sq.fade)
+	var ally := sq.camp == "A"
+	for id in form.capacity:
+		if form.alive[id] == 0 or form.ranks[id] != 0:
+			continue
+		var p: Vector2 = (scr[id] if id < scr.size() else _pm(form.feet[id])) + Vector2(0, 1)
+		if ally:
+			_mk_ln.append(p + Vector2(- half, 0))
+			_mk_ln.append(p + Vector2(half, 0))
+			_mk_ink.append(ink)
+			_mk_lc.append(lc)
+		else:
+			var mid := p + Vector2(0, 1.5)
+			_mk_ln.append(p + Vector2(- half, -1))
+			_mk_ln.append(mid)
+			_mk_ln.append(mid)
+			_mk_ln.append(p + Vector2(half, -1))
+			_mk_ink.append(ink)
+			_mk_ink.append(ink)
+			_mk_lc.append(lc)
+			_mk_lc.append(lc)
+	# 먼지 (_draw_dust 와 같은 자리 · 크기 · 빛) —— 같은 삼각형 묶음에
+	if not sq.contact and not sq.moving:
+		return
+	var width := form.half_width * 2.0
+	for j in 3:
+		var phase := fposmod(v.field.clock * 0.8 + j * 0.33, 1.0)
+		var at: Vector2 = form.center + sq.right() * (j - 1) * width * 0.3
+		if sq.contact:
+			at += sq.fwd * sq.hd()
+		else:
+			at -= sq.fwd * sq.hd()
+		var dc := Color(0.72, 0.64, 0.46, sin(phase * PI) * 0.13 * sq.fade)
+		var cen := _pm(at)
+		var rad := (4.0 + phase * 7.0) * _pk(at) / _ps
+		var b0 := _mk_pts.size()
+		_mk_pts.append(cen)
+		_mk_cols.append(dc)
+		for k in DUST_SEG:
+			_mk_pts.append(cen + Vector2.from_angle(TAU * k / DUST_SEG) * rad)
+			_mk_cols.append(dc)
+			_mk_idx.append(b0)
+			_mk_idx.append(b0 + 1 + k)
+			_mk_idx.append(b0 + 1 + (k + 1) % DUST_SEG)
+
+## 점검 · 옛 그리기용 —— 묶음 배열 한 줄을 예전 사전 꼴로
+func _fig_dict(n: int) -> Dictionary:
+	var b := n * FIG_W
+	return {"p": Vector2(_figs[b], _figs[b + 1]), "h": _figs[b + 2], "cell": int(_figs[b + 3]), "fade": _figs[b + 4],
+		"tilt": _figs[b + 5], "gait": _figs[b + 6], "stride": _figs[b + 7], "hurt": _figs[b + 8], "mirror": _figs[b + 9] > 0.5, "sq": _fig_sq[n]}
 
 func _draw_formation_mark(sq: Squad, form: FormationMotion) -> void:
 	if form.count == 0:
@@ -507,21 +727,22 @@ func _draw_formation_mark(sq: Squad, form: FormationMotion) -> void:
 			last_rank = maxi(last_rank, form.ranks[id])
 
 	var back := front - facing * maxf(12.0, form.row_gap * last_rank)
-	var rim := PackedVector2Array([v.map(back - right * (form.half_width + 7.0)),
-		v.map(front - right * (form.half_width + 7.0)), v.map(front + right * (form.half_width + 7.0)),
-		v.map(back + right * (form.half_width + 7.0))])
+	var rim := PackedVector2Array([_pm(back - right * (form.half_width + 7.0)),
+		_pm(front - right * (form.half_width + 7.0)), _pm(front + right * (form.half_width + 7.0)),
+		_pm(back + right * (form.half_width + 7.0))])
 	var color := ALLY_MARK if sq.camp == "A" else ENEMY_MARK
 	# 11/18 부하 2단계부터 표식 선의 안티에일리어싱을 끈다 (부대마다 매 프레임 —— 삽화 그리기에서 가장 무거웠다)
 	var aa := v.get("load_lv") == null or int(v.load_lv) < 2
 	draw_colored_polygon(rim, Color(color, 0.075 * sq.fade))
 	draw_polyline(rim, Color(color, 0.38 * sq.fade), 1.1, aa)
 
+	var scr: PackedVector2Array = _scr.get(sq.key, PackedVector2Array())
 	var marks := PackedVector2Array()
 	var half := maxf(2.0, _figure_height(sq, form) * 0.17)      # 11/18 부대마다 같다 —— 인형마다 다시 재던 것을 밖으로
 	for id in form.capacity:
 		if form.alive[id] == 0 or form.ranks[id] != 0:
 			continue
-		var p: Vector2 = v.map(form.feet[id]) + Vector2(0, 1)
+		var p: Vector2 = (scr[id] if id < scr.size() else _pm(form.feet[id])) + Vector2(0, 1)
 		var shape := PackedVector2Array([p + Vector2(- half, 0), p + Vector2(half, 0)])
 		if sq.camp != "A":
 			shape = PackedVector2Array([p + Vector2(- half, -1), p + Vector2(0, 1.5), p + Vector2(half, -1)])
@@ -750,7 +971,7 @@ func _draw_dust(sq: Squad, width: float, form: FormationMotion) -> void:
 			at += sq.fwd * sq.hd()
 		else:
 			at -= sq.fwd * sq.hd()
-		draw_circle(v.map(at), (4.0 + phase * 7.0) * v.depth_scale(at), Color(0.72, 0.64, 0.46, sin(phase * PI) * 0.13 * sq.fade))
+		draw_circle(_pm(at), (4.0 + phase * 7.0) * _pk(at) / _ps, Color(0.72, 0.64, 0.46, sin(phase * PI) * 0.13 * sq.fade))
 
 func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
 	if ci == null:

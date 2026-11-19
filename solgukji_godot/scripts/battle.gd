@@ -255,6 +255,8 @@ class Unit:
 	var hd0 := 28.0           # 처음 반깊이
 	var vel := Vector2.ZERO   # 속도 (px/초)
 	var block_t := 0.0        # 앞이 막힌 채 지난 시간 (초)
+	var steer_side := 0.0     # 11/19 비켜 가는 쪽 (+1 · −1, 0 = 정하지 않음) —— 한 번 고르면 그 길이 막힐 때까지 지킨다 (RtBattle._steer)
+	var steer_keep := 0.0     # 막힘이 풀린 뒤에도 같은 쪽으로 비켜 가는 남은 시간 (초)
 	var ranged := false       # 원거리(궁병 · 책략계)인가 —— RtBattle.mk_unit 이 한 번 정한다 (11/15 성능: 틱마다 수백 번 묻는다)
 
 
@@ -3230,7 +3232,7 @@ func _between() -> void:
 	for inp in inputs:
 		if int(inp[0]) == act_n:
 			_apply_input(inp)
-	for cp in ["A", "B"]:
+	for cp in _camp_order():      # 11/19 고유기 선수 —— 늘 A 가 먼저 정하면 전역 간격 때문에 A 가 유리하다 (RtBattle._camp_order)
 		if policy[cp] == "smart":
 			_smart(cp, "영리", "영리", seen[cp])
 		elif str(policy[cp]).begins_with("tac:"):
@@ -3243,6 +3245,11 @@ func _between() -> void:
 					break
 			if pts[cp] >= CMD_COST:
 				_command(cp, "돌격")
+
+
+## 양쪽 AI 가 고유기 · 군령을 정하는 순서 —— 턴 엔진은 예전대로 A · B. 실시간 엔진이 덮어쓴다
+func _camp_order() -> Array:
+	return ["A", "B"]
 
 
 func _apply_input(inp: Array) -> void:
@@ -3322,7 +3329,7 @@ func _smart(cp: String, ult_t: String, cmd_t: String, seen: Dictionary) -> void:
 	# → 게이지가 먼저 찬 부대부터, 같으면 등급이 높은 부대
 	var ready := []
 	for u in units:
-		if u.camp == cp and can_ult(u) and _ult_ok(u, ult_t):
+		if u.camp == cp and u.gauge >= 100.0 and can_ult(u) and _ult_ok(u, ult_t):      # 11/19 성능: 게이지가 안 찼으면 묻지 않는다 (can_ult 도 같은 답 —— 행동마다 부대 수만큼 불렸다)
 			ready.append(u)
 	if not ready.is_empty():
 		ready.sort_custom(func(x, y):

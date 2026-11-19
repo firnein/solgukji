@@ -4,7 +4,10 @@ extends RefCounted
 ## 처음 설치(설정 파일 없음) 기본값 (11/12 사용자) —— 병사 수: 모바일 '중간' · PC '높음'. 피해 숫자 '모아서' · 카메라 '적게' · 전황 '간단' 은 공통. 저장된 값은 덮어쓰지 않는다.
 
 const PATH := "user://settings.cfg"
-static var war_painting := true # Illustrated formations; previous crowd remains selectable.
+static var war_painting := true # 전쟁 삽화 —— 11/19 사용자: 삽화 방식만 쓴다 (PAINTING_ONLY)
+## 11/19 사용자: "이제 삽화방식만으로 할 것 —— 기존 다른 방식들은 업데이트 없이 모두 비활성화". 켜 두면 저장값 · 점검 인자와 상관없이
+## 타입2 + 삽화로 시작하고(3D · 수묵 · 점묘 · 기존 군집 끔) 설정 화면의 화풍 선택칸도 숨긴다. 옛 방식 코드는 지우지 않고 그대로 둔다 (되살리려면 false)
+const PAINTING_ONLY := true
 const QUALITY_N := ["낮음", "중간", "높음"]
 const FULL_COUNT_DEBUG := true
 const COUNT_SCALE := [0.4, 0.65, 1.0]     # 병사 수 배율 (Squad.count_scale)
@@ -59,9 +62,20 @@ static func load_cfg() -> void:
 			type2 = true
 			sumuk = false
 		dots = false     # 11/3 사용자: 점묘 옵션을 숨겼다 —— 저장값과 상관없이 3D (점검용 --gdots / --dots 로만 켠다)
+	_force_painting()
 	if quality < 0:
 		quality = 1 if OS.has_feature("mobile") else 2     # 11/12 모바일 기본 낮음 → 중간
 	apply()
+
+
+## 삽화 전용 (PAINTING_ONLY) —— 다른 화풍 값을 끈다. 불러온 뒤 · 적용할 때마다 (점검 인자가 바꿔 놓아도 되돌린다)
+static func _force_painting() -> void:
+	if not PAINTING_ONLY:
+		return
+	type2 = true
+	war_painting = true
+	sumuk = false
+	dots = false
 
 
 static func save_cfg() -> void:
@@ -86,6 +100,7 @@ static func save_cfg() -> void:
 
 
 static func apply() -> void:
+	_force_painting()
 	Squad.count_scale = COUNT_SCALE[quality]
 	if FULL_COUNT_DEBUG and not OS.has_feature("mobile"):
 		Squad.count_scale = 1.0     # 11/3: PC 는 품질과 상관없이 병사를 다 풀어 놓는다. 11/6 사용자: 휴대폰은 디버그 APK 라도 품질대로 (전엔 디버그면 '낮음'이 먹지 않아 후반 프레임 드랍)

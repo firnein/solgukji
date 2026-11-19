@@ -129,6 +129,10 @@ var sprite_mat := {}        # 병종 -> 그림 판 재질
 var _sprite_quad := {}      # 병종 -> 그림 판
 var follow: Squad = null
 var flat: DotView = null    # 점묘 전장 —— 있으면 화면 좌표를 이것이 정한다 (3D 는 계산만)
+## 11/19 삽화 전용 (사용자: 이제 삽화 방식만 쓴다 —— 다른 방식은 업데이트 없이 꺼서 로직에 끼어들지 않게).
+## 켜지면 3D 병사 · 무기 · 깃발 · 발밑 고리 · 진지 · 지형 메시 · 3D 입자 · 점광 · 데칼 · GPU 군집 값 줄(_sq_tex)을 만들지도 갱신하지도 않는다.
+## 부대(Squad) 위치 · 상태 · 판정 재생은 그대로 —— 화면은 Type2View + war_painting 이 그린다
+var no3d := false
 var _cam_attr: CameraAttributesPractical      # 먼 곳 흐림 (고품질만)
 const SHOW_BANNERS := false # 부대 깃발 —— 10/31 사용자: 뺀다 (화면이 정신없다)
 const AUTO_MARGIN := 0.72   # 11/4 저녁 북적임: 조금 더 바짝 (0.88 → 0.82)   # 11/4 사용자: 압도적인 스케일 —— 멀리서 넓게 (0.88) · # 11/3 사용자: 병사의 바다가 화면을 채우게 바짝 (예전 1.04) —— 자동 카메라가 부대들을 담는 거리에 곱하는 여유 —— 10/31 사용자: 18부대가 화면에 꽉 차게
@@ -624,7 +628,16 @@ func setup(res: Dictionary) -> void:
 	Squad.gpu = _gpu
 	Squad.gpu_mul = (gpu_mul_t2 if gpu_mul_t2 > 0.0 else 1.5) if (_gpu and Settings.type2) else 1.0      # 11/6 목표: 탑뷰 GPU 병사는 1.5배 (점검 --gmul)
 	track_mode = res.get("rt", false)
-	_build_terrain(res.get("terrain", []))
+	no3d = Type2View.painting_on()
+	Squad.lite = no3d      # 삽화 전용 —— 옛 군집용 병사 객체를 만들지 않는다 (Squad.lite)
+	if no3d:
+		tzones = res.get("terrain", [])      # 지형 값만 (3D 메시 · 나무는 만들지 않는다)
+		_hills = []
+		if terrain_root != null:
+			for c in terrain_root.get_children():
+				c.queue_free()
+	else:
+		_build_terrain(res.get("terrain", []))
 	var lay_v := float(res.get("lay", 1.0))
 	if res.has("arena"):      # 11/7 군집 강체 —— 엔진이 정한 전장 범위 (진형 · 발자국에 맞춤)
 		var ar: Array = res.arena
@@ -647,6 +660,10 @@ func setup(res: Dictionary) -> void:
 			sq.state = "move"
 		squads[r.key] = sq
 		order.append(sq)
+	if no3d:
+		_entry_of.clear()
+		_cpu_full = false
+		return
 	# 병종별 인스턴스 수를 세고 자리를 나눈다
 	var count := {}
 	var wcount := {}
@@ -1327,6 +1344,8 @@ func _process(dt: float) -> void:
 
 
 func _process_inner(dt: float) -> void:
+	if no3d:
+		return      # 삽화 전용 —— 3D 카메라 · 3D 입자 배속을 돌리지 않는다 (전장 화면은 Type2View 가 맞춘다)
 	if _intro > 0:
 		_intro -= dt
 		if _intro <= 0:
@@ -1384,6 +1403,15 @@ func step(dt: float) -> void:
 	for sq in order:
 		sq.update(dt, clock)
 	t = pt("부대갱신", t)
+	if no3d:
+		for sq in order:
+			sq.impact = false
+			sq.moved_figs.clear()      # GPU 군집이 읽던 목록 —— 삽화는 쓰지 않으니 쌓이지 않게 비운다
+		pt("부대갱신", t)
+		_shove()      # 맞붙은 짝의 밀림 → 진 쪽 hurt (메달 · 아래 카드가 쓴다). 3D 먼지는 _particles 가 거른다
+		ult.step()
+		pt("효과갱신", Time.get_ticks_usec())
+		return
 	for sq in order:
 		if sq.impact:
 			sq.impact = false
@@ -2971,6 +2999,8 @@ func _pmaterial(add: bool) -> StandardMaterial3D:
 
 ## 파티클 한 번 터뜨리기 —— 종류별 설정표
 func _particles(pos: Vector3, kind: String, col: Color, loop := false) -> CPUParticles3D:
+	if no3d:
+		return null              # 삽화 전용 —— 보이지 않는 3D 입자를 만들지 않는다 (CPU 가 계속 시뮬레이션했다)
 	if overview and not loop and SMALL_FX.has(kind):
 		return null              # 멀리 볼 때는 작은 입자를 뺀다
 	var cfg := {
@@ -3044,6 +3074,8 @@ func _particles(pos: Vector3, kind: String, col: Color, loop := false) -> CPUPar
 
 
 func _light(pos: Vector3, col: Color, energy: float, life: float) -> void:
+	if no3d:
+		return
 	var l := OmniLight3D.new()
 	l.light_color = col
 	l.light_energy = energy
@@ -3054,6 +3086,8 @@ func _light(pos: Vector3, col: Color, energy: float, life: float) -> void:
 
 
 func _ring(pos: Vector3, col: Color, life: float) -> void:
+	if no3d:
+		return
 	var r := MeshInstance3D.new()
 	var tm := TorusMesh.new()
 	tm.inner_radius = 2.6

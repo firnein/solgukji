@@ -1514,12 +1514,13 @@ func _menu() -> void:
 
 func _settings_sheet() -> void:
 	var b := open_sheet("설정")
-	b.add_child(UI.eyebrow("전투 화풍"))
-	b.add_child(UI.segmented([["painting", "전쟁 삽화"], ["crowd", "기존 군집"]], "painting" if Settings.war_painting else "crowd", func(key):
-		Settings.war_painting = key == "painting"
-		Settings.save_cfg()
-		_settings_sheet()))
-	b.add_child(UI.hint("다음 전투부터 적용됩니다."))
+	if not Settings.PAINTING_ONLY:      # 11/19 사용자: 삽화 방식만 —— 화풍 선택칸을 숨긴다
+		b.add_child(UI.eyebrow("전투 화풍"))
+		b.add_child(UI.segmented([["painting", "전쟁 삽화"], ["crowd", "기존 군집"]], "painting" if Settings.war_painting else "crowd", func(key):
+			Settings.war_painting = key == "painting"
+			Settings.save_cfg()
+			_settings_sheet()))
+		b.add_child(UI.hint("다음 전투부터 적용됩니다."))
 	b.add_child(UI.eyebrow("전투 품질 — 병사 수 · 해상도 · 그림자"))
 	var qs := []
 	for q in 3:
@@ -3974,7 +3975,7 @@ func _start(kind: String) -> void:
 	Settings.apply_port(_battle.port)
 	if "say_cb" in _battle:
 		_battle.say_cb = Callable()
-	_battle.play(bt, false)
+	await _battle.play(bt, false)      # 11/19 전투 계산은 스레드에서 —— 끝나면 재생이 시작된다 (BattleView._simulate_async)
 
 
 ## 온라인 —— 서버가 계산한 결과를 재생만 한다. params 는 내 쪽이 A 가 되게 맞춘 전투 재료 —— BattleView 가 전투장수창의 버프 수치를 재는 데 쓴다 (11/9)
@@ -4953,7 +4954,7 @@ func _dev_args() -> void:
 			tb.pressed.emit()
 	if a.has("gtitle"):
 		_title.visible = true
-	if a.has("gdots"):          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
+	if a.has("gdots") and not Settings.PAINTING_ONLY:          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
 		Settings.dots = a.gdots != "0"
 	if a.has("gatlas"):         # 점검용 —— 탑뷰 병사 인형 아틀라스를 그림 파일로 (--gatlas=경로.png)
 		var tv := Type2View.new()
@@ -4971,15 +4972,15 @@ func _dev_args() -> void:
 		await _pin_pick_test(str(a.gpintest))
 	if a.has("gperf"):          # 점검용 —— 성능 표시 켜기 (저장하지 않는다)
 		Settings.perf_hud = a.gperf != "0"
-	if a.has("gtype2"):          # 점검용 —— 타입2 전장 (저장하지 않는다)
+	if a.has("gtype2") and not Settings.PAINTING_ONLY:          # 점검용 —— 타입2 전장 (저장하지 않는다)
 		Settings.type2 = a.gtype2 != "0"
-	if a.has("gsumuk"):          # 점검용 —— 수묵 화풍으로 (저장하지 않는다)
+	if a.has("gsumuk") and not Settings.PAINTING_ONLY:          # 점검용 —— 수묵 화풍으로 (저장하지 않는다)
 		Settings.sumuk = a.gsumuk != "0"
 		if _battle:
 			_battle.apply_style()
 	if a.has("gbattle"):
 		await get_tree().process_frame
-		_start(a.gbattle)
+		await _start(a.gbattle)
 		if a.has("speed"):
 			_battle._set_speed(float(a.speed))
 		if a.has("gmenu"):
