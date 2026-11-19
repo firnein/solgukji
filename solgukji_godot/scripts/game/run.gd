@@ -51,7 +51,8 @@ const HP_PVP_MUL := 0.6                              # 대전 패배는 토벌�
 ## 11/11 사용자(온라인): 대전 패배의 민심 피해를 토벌과 같게 —— 온라인 방(mp)의 Run 만. 혼자 하기는 HP_PVP_MUL 그대로
 const HP_PVP_MUL_ONLINE := 1.0
 ## 11/11 사용자(온라인): 토벌은 1~3일차(day 0~2)만 —— 4일차(day 3)부터는 점심(토벌) 단계가 없다. 없어진 토벌 보상은 그 일차의 대전이 대신 준다 (pvp_quest_equiv)
-const ONLINE_NOON_DAYS := 3
+## 11/19 사용자: 온라인도 4일차 이후 토벌을 계속한다 —— 사실상 끝없음 (값을 3 으로 되돌리면 예전 규칙: 토벌 종료 알림 · 타이머 절반 · 대전이 토벌 보상 대신)
+const ONLINE_NOON_DAYS := 9999
 const LAST_TABLE_DAY := 6      # 표(보급 · 토벌 편성 · 선택권 …)가 있는 마지막 일차 —— 8일차 이후는 7일차 표를 그대로 쓴다 (td)
 var hp := HP_MAX
 
@@ -1498,7 +1499,7 @@ func start_quest() -> Dictionary:
 	if mp and day < QUEST_PH_TR_ONLINE.size():      # 11/19 온라인 토벌 시점별 병력 보정 (고정 난이도 그대로)
 		foe["tr_mul"] = float(foe.get("tr_mul", 1.0)) * float(QUEST_PH_TR_ONLINE[day][phase])
 	foe["plan"] = quest_load() if tac_on else {}      # 11/15 토벌 우두머리의 그날 고정 계획 (전투 탭에 미리 보인다)
-	if not DB.quest_trait(td()).is_empty(): foe["trait"] = DB.quest_trait(td())      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) —— 비면 넣지 않는다
+	foe["trait"] = DB.quest_trait(day)      # 11/8 토벌 우두머리 성질 (docs/역할_재설계_1108.md 7.3) · 11/19 총대장 · 행동 성질 (7일차 뒤로도 날마다 바뀐다)
 	if quest_hard:      # 11/12 험지 토벌 —— 적 병력 · 사기 배율
 		foe["tr_mul"] = float(foe.get("tr_mul", 1.0)) * QUEST_HARD_TR
 		foe["morale"] = int(round(float(foe.morale) * QUEST_HARD_MORALE))
@@ -1758,6 +1759,29 @@ func _hp_hit(res: Dictionary, base: float, what: String) -> void:
 			over["of"] = 1 + bots.size()
 
 
+## 11/19 사용자(토벌 차별화 C): 장비는 토벌만 떨군다 —— 이기면 그날 아이템 보급표(DROP)의 가장 높은 등급 장비 한 점 (유니크 없음)
+const LOOT_GRADES := ["일반", "매직", "레어"]
+func quest_loot_grade() -> String:
+	var p := phase_idx()
+	var gi := 0
+	for d in DB.D.DROP:
+		if p <= int(d.upto):
+			for g in d.w:
+				gi = maxi(gi, LOOT_GRADES.find(g))
+			break
+	return LOOT_GRADES[gi]
+
+
+## 이 등급 장비 한 점을 가방에 —— 11/19 사용자: 스마트 드롭 없이 그 등급 안에서 완전 무작위 (군세 병종을 보지 않는다)
+func gain_item_grade(grade: String) -> String:
+	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade and DB.IT[k].get("use", "") != "myth")
+	if cand.is_empty():
+		return ""
+	var id: String = cand[rng.randi() % cand.size()]
+	bag[id] = bag.get(id, 0) + 1
+	return id
+
+
 ## 11/12 사용자(온라인 페이즈 개편): 모든 보상은 1페이즈(아침)에 —— 여럿이 하는 판의 토벌 · 대전 보상(기본패 · 선택권 · 보급 · 기인 효과)은
 ## 정산은 그대로 하되(난수 순서 불변) 손패 · 선택권에 늘어난 만큼을 held 로 옮겨 두고, 다음 아침(advance)에 grant_held 가 준다. 민심 · 전적은 바로
 func finish_battle(res: Dictionary) -> void:
@@ -1768,6 +1792,7 @@ func finish_battle(res: Dictionary) -> void:
 		return
 	var inv0 := inv.duplicate()
 	var tk0 := tickets.duplicate()
+	var bag0 := bag.duplicate()
 	_finish_battle(res)
 	var h_inv: Dictionary = held.get("inv", {})
 	var h_tk: Dictionary = held.get("tickets", {})
@@ -1787,7 +1812,16 @@ func finish_battle(res: Dictionary) -> void:
 				tickets[k] = int(tk0[k])
 			else:
 				tickets.erase(k)
-	held = {"inv": h_inv, "tickets": h_tk}
+	var h_bag: Dictionary = held.get("bag", {})      # 11/19 토벌 전리품 장비도 아침에
+	for k in bag.keys():
+		var d := int(bag[k]) - int(bag0.get(k, 0))
+		if d > 0:
+			h_bag[k] = int(h_bag.get(k, 0)) + d
+			if bag0.has(k):
+				bag[k] = int(bag0[k])
+			else:
+				bag.erase(k)
+	held = {"inv": h_inv, "tickets": h_tk, "bag": h_bag}
 	if last_spoil != null:
 		last_spoil["held"] = true      # 결과 줄에 '아침 지급'
 
@@ -1804,9 +1838,13 @@ func grant_held() -> void:
 	for k in held.get("tickets", {}):
 		tickets[str(k)] = int(tickets.get(str(k), 0)) + int(held.tickets[k])
 		t += int(held.tickets[k])
+	var it := 0
+	for k in held.get("bag", {}):
+		bag[str(k)] = int(bag.get(str(k), 0)) + int(held.bag[k])
+		it += int(held.bag[k])
 	held = {}
-	if n + t > 0:
-		toasts.append(["지난 전투 보상 —— 장수 %d장%s" % [n, (" · 선택권 %d" % t) if t > 0 else ""], "gold"])
+	if n + t + it > 0:
+		toasts.append(["지난 전투 보상 —— 장수 %d장%s%s" % [n, (" · 선택권 %d" % t) if t > 0 else "", (" · 장비 %d" % it) if it > 0 else ""], "gold"])
 
 
 func _finish_battle(res: Dictionary) -> void:
@@ -1873,6 +1911,12 @@ func _finish_battle(res: Dictionary) -> void:
 					last_spoil["hard_tier"] = ht
 				if not mp:
 					toasts.append(["험지 돌파! %s +1" % quest_hard_reward_text(), "gold"])
+			if res.win:      # 11/19 토벌 전리품 장비 —— 맨 뒤에 얹어 앞 보상의 난수 순서는 그대로
+				var lid := gain_item_grade(quest_loot_grade())
+				if lid != "" and last_spoil != null:
+					last_spoil["loot"] = lid
+				if lid != "" and not mp:
+					toasts.append(["황건 전리품 —— %s" % DB.IT[lid].name, "gold"])
 			if not res.win:
 				strikes += 1       # 기록용
 				_hp_hit(res, hp_base(day), quest_name())

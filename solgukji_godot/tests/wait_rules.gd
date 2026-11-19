@@ -131,25 +131,33 @@ func _stages_and_ready() -> void:
 			s.ready = true
 		r.stage_end = 0.0
 		r.tick()
-	if r.day != 3 or r.stage != "morning" or r.info(0).noon:
-		_fail("4일차 아침에 닿지 못했다 (day %d · %s · noon %s)" % [r.day, r.stage, str(r.info(0).get("noon"))])
-	# 4일차 아침 → 곧바로 저녁 준비 (점심 없음 · 토벌 전투 없음 · 상대는 정해진다)
-	srv.out.clear()
-	r.stage_end = 0.0
-	r.tick()
-	if r.stage != "evening_prep":
-		_fail("4일차 아침 뒤가 저녁 준비가 아니다 (%s)" % r.stage)
-	if r.seats[0].foe == null or not r.seats[0].battles.is_empty():
-		_fail("4일차 저녁 준비 — 상대가 없거나 토벌 전투가 있다 (foe %s · 전투 %d · 멸망 %s · 일차 %d)" % [str(r.seats[0].foe), r.seats[0].battles.size(), str(r.seats[0].dead), r.day])
-	if not srv.of(1, "battles").is_empty():
-		_fail("4일차에 토벌 battles 가 갔다")
-	# 저녁: 전투가 있고, 둘 다 준비해야 넘어간다
-	r.stage_end = 0.0
-	r.tick()
-	if r.stage != "evening":
-		_fail("저녁 준비 뒤가 저녁이 아니다")
-	if r.seats[0].battles.is_empty():
-		_fail("4일차 저녁 전투 없음")
+	if Run.ONLINE_NOON_DAYS > 3:      # 11/19 사용자: 온라인도 4일차 이후 토벌을 계속한다 —— 4일차 아침 뒤도 점심(토벌)
+		if r.day != 3 or r.stage != "morning" or not r.info(0).noon:
+			_fail("4일차 아침에 토벌(noon)이 없다 (day %d · %s · noon %s)" % [r.day, r.stage, str(r.info(0).get("noon"))])
+		r.stage_end = 0.0
+		r.tick()
+		if r.stage != "noon" or r.seats[0].battles.is_empty():
+			_fail("4일차 아침 뒤가 토벌이 아니다 (%s · 전투 %d)" % [r.stage, r.seats[0].battles.size()])
+	else:
+		if r.day != 3 or r.stage != "morning" or r.info(0).noon:
+			_fail("4일차 아침에 닿지 못했다 (day %d · %s · noon %s)" % [r.day, r.stage, str(r.info(0).get("noon"))])
+		# 4일차 아침 → 곧바로 저녁 준비 (점심 없음 · 토벌 전투 없음 · 상대는 정해진다)
+		srv.out.clear()
+		r.stage_end = 0.0
+		r.tick()
+		if r.stage != "evening_prep":
+			_fail("4일차 아침 뒤가 저녁 준비가 아니다 (%s)" % r.stage)
+		if r.seats[0].foe == null or not r.seats[0].battles.is_empty():
+			_fail("4일차 저녁 준비 — 상대가 없거나 토벌 전투가 있다 (foe %s · 전투 %d · 멸망 %s · 일차 %d)" % [str(r.seats[0].foe), r.seats[0].battles.size(), str(r.seats[0].dead), r.day])
+		if not srv.of(1, "battles").is_empty():
+			_fail("4일차에 토벌 battles 가 갔다")
+		# 저녁: 전투가 있고, 둘 다 준비해야 넘어간다
+		r.stage_end = 0.0
+		r.tick()
+		if r.stage != "evening":
+			_fail("저녁 준비 뒤가 저녁이 아니다")
+		if r.seats[0].battles.is_empty():
+			_fail("4일차 저녁 전투 없음")
 	# 볼 전투가 없는 사람(멸망)은 저녁 시작에 이미 준비로 친다
 	var b := _room(2, 12)
 	var r2: Room = b[0]
@@ -206,7 +214,7 @@ func _timer_rules() -> void:
 				lens[r.day][r.stage] = float(inf.stage_len)
 			if float(inf.remain) > float(inf.stage_len) + 0.05:
 				_fail("remain 이 stage_len 보다 크다 (%s)" % r.stage)
-			if bool(inf.noon_end) != (r.day == 3 and r.phase == 0 and r.stage == "morning"):
+			if bool(inf.noon_end) != (r.day == 3 and Run.ONLINE_NOON_DAYS == 3 and r.phase == 0 and r.stage == "morning"):
 				_fail("noon_end 방 정보가 4일차 첫 아침에만 참이어야 한다 (day %d phase %d %s = %s)" % [r.day, r.phase, r.stage, str(inf.noon_end)])
 			var ne := srv.of(1, "news").filter(func(d): return str(d.list[0].get("band", "")) == "noon_end")
 			if ne.size() > seen_n:
@@ -226,11 +234,11 @@ func _timer_rules() -> void:
 				s.watched = true
 			r.stage_end = 0.0      # 시간이 다 됐다고 보고 넘긴다
 			r.tick()
-		if news_at != [[3, 0, "morning"]]:
+		if news_at != ([[3, 0, "morning"]] if Run.ONLINE_NOON_DAYS == 3 else []):
 			_fail("[%s] 토벌 종료 알림이 4일차 첫 아침에 정확히 한 번이어야 한다: %s" % [m, str(news_at)])
 		# 방의 Run.news 에도 한 번
 		var cnt: int = r.seats[0].run.news.filter(func(it): return str(it.get("band", "")) == "noon_end").size()
-		if cnt != 1:
+		if cnt != (1 if Run.ONLINE_NOON_DAYS == 3 else 0):
 			_fail("[%s] Run.news 에 토벌 종료가 %d 번" % [m, cnt])
 		# 일차별 방 정보 stage_len
 		for d in lens:
@@ -322,7 +330,13 @@ func _cmd_rules() -> void:
 	r3.phase = 2
 	r3.stage_end = 0.0
 	_ready_all(r3)
-	r3.tick()      # 아침 → (토벌 없이) 저녁 준비
+	r3.tick()      # 아침 → (토벌이 있으면 점심을 거쳐) 저녁 준비
+	if Room.has_noon(6):      # 11/19 온라인 토벌 계속 —— 7일차도 점심(토벌)
+		for h in r3.humans():
+			h.ready = true
+			h.watched = true
+		r3.stage_end = 0.0
+		r3.tick()
 	if r3.stage != "evening_prep" or r3.tour != null or not r3.can_cmd(0) or r3.seats[0].foe == null:
 		_fail("7일차 저녁 준비가 여느 대전 준비가 아니다 (%s)" % r3.stage)
 	r3.stage_end = 0.0

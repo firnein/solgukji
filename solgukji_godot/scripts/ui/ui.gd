@@ -222,6 +222,9 @@ static func spoil_bb(sp) -> String:
 	var ht := int(sp.get("hard_tier", 0))      # 11/12 험지 토벌 돌파 보상
 	if ht > 0:
 		s += " [color=#%s](험지 돌파 · %s %s +1)[/color]" % [DB.PAL.gold.to_html(false), DB.TIER[ht].n, Run.ticket_noun(ht, true)]
+	var lt := str(sp.get("loot", ""))      # 11/19 토벌 전리품 장비
+	if lt != "" and DB.IT.has(lt):
+		s += " · [color=%s]%s[/color]" % [str(DB.D.IGRADE.get(DB.IT[lt].grade, "#ffffff")), DB.IT[lt].name]
 	if bool(sp.get("held", false)):      # 11/12 온라인 —— 전투 보상은 다음 아침(1페이즈)에 지급
 		s += " · 아침에 지급"
 	return s

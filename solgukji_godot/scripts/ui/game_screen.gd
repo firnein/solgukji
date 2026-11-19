@@ -3859,7 +3859,7 @@ func _war_cta(title: String, sub: String, disabled: bool, cb: Callable) -> Butto
 func boss_panel() -> Control:
 	var v := UI.vbox(UI.SP_S)
 	var qt := DB.quest_trait(run.day)
-	var tt := DB.trait_text(qt) if (not qt.is_empty() and Battle.shield_enabled) else ""
+	var tt := DB.trait_text(qt) if Battle.shield_enabled else DB.trait_text({"x": qt.get("x", "")})
 	var qh := UI.hbox(UI.SP_S)
 	var qi := Icons.View.new("burst", DB.PAL.gold, 18)
 	qi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -3868,6 +3868,7 @@ func boss_panel() -> Control:
 	ql.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	qh.add_child(ql)
 	v.add_child(qh)
+	v.add_child(UI.rich("[color=%s]총대장을 베면 승리[/color]" % DB.PAL.gold.to_html(false), UI.FS_CAP))      # 11/19 토벌 차별화 A
 	if Run.tac_on:
 		v.add_child(TacUI.plan_chips(run.quest_plan(), func(t: String): toast(t)))
 	return UI.panel(v, 10)
