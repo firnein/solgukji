@@ -24,6 +24,9 @@ static var turn_mul := 3.0
 ## (tests/turns.tscn). 비율은 그대로라 원본의 균형(피해 대 회복, 직접 대 지속)은 유지된다. 일회성 기준값
 ## (반파·괴멸 사기 하락, 패주 확률, 처형 문턱)은 바꾸지 않는다.
 static var pace := BASE_PACE / 3.0
+var _sg = null             # 11/19 장수 개성 (sig_rt.gd) —— 실시간 엔진이 개성 키가 있는 판에만 만든다
+static var sig_enabled := true
+static var atk_up := 1.25  # 11/19 사용자: 전체 공격력을 올려 판 길이를 줄인다 —— 직접 피해(평타 · 기술 · 고유기)에만 곱한다
 
 
 static func set_turn_mul(m: float) -> void:
@@ -82,7 +85,7 @@ static var tag_roles := true
 ## 11/8 병종 균형: 유생 치료 schol_heal 1.6 → 0.6 (몰빵 리그전 유생 덱 84% —— 치료가 분발 · 인의 방진을 내내 켰다. 분발 재발동 대기 moved_cd 와 함께).
 ##   병종마다 준 피해 · 받는 피해 · 사거리 배율(등급 무관 한 값)은 data/cards_ext.json class_guard 의 dmg · taken · range (class_tune), 지원 등급 성장은 sup, 맞붙음 상성은 engage
 static var ROLE := {"charge": 2.0, "horse_after": 0.9, "horse_all": 1.0, "int_guard": 1.0, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
-	"rogue_gauge": 10.0, "rogue_charge": 0.3, "strat_int": 2.4, "schol_heal": 0.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
+	"rogue_gauge": 5.0, "rogue_charge": 0.15, "strat_int": 2.4, "schol_heal": 0.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
 	"schem_morale": 2.2, "schem_int": 2.0}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
 const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
@@ -115,6 +118,7 @@ static var moved_cd := 4
 ##         군령    공세(늘 돌격) · 영리(상대를 보고) · 수비(방진·재정비로 버틴다)
 const GAUGE_ACT := 30.0       # 제 차례마다 —— 11/9 56 으로 올렸다가 되돌림: 공통 시간 몫을 키우니 토벌(적 우두머리 · 잡병)도 고유기를 너무 써 사용자 덱 토벌 승률이 0% 로 무너졌다. 발동률 차이는 기질 가중치(act · wait)로만 맞춘다
 const GAUGE_HIT := 80.0       # 병력을 잃은 비율 × 이만큼
+const GAUGE_HIT_FLAT := 2.0   # 11/19 사용자: 모든 병종이 맞을 때 일정 기가 찬다 —— 타격마다 이만큼 더 (기질 · 등급 무관. 반격으로 맞은 것은 counter_charge 를 따른다)
 const GAUGE_DEAL := 6.0       # 때릴 때마다
 ## 교란은 실제 잃은 병력 1%당 사기 2를 넘지 않는다. 막아 낸 잔타로 사기만 붕괴하는 문제 방지.
 const JOLT_PER_HP_PERCENT := 2.0
@@ -126,7 +130,7 @@ const JOLT_PER_HP_PERCENT := 2.0
 const TEMPER := {
 	## 11/9 사용자: 고유기 발동 횟수 차이가 너무 크다 —— tests/ult_rate(30판) 기질별 발동률 맹장 89 · 66 · 69% vs 지략 58 · 45 · 67 · 저격 56 · 43 · 48 · 수호 74 · 11 · 45% (초월 · 불멸 · 신화),
 	## 첫 발동 맹장 22초 vs 저격 · 지략 30초. 맹장을 낮추고(deal 2.2 → 1.7 · kill 25 → 18) 지략 · 저격 · 수호의 꾸준히 차는 몫(act)을 올려 60~75% 로 모은다
-	"맹장": {"act": 0.85, "deal": 1.3, "hit": 1.0, "ally": 0.0, "kill": 15.0, "fall": 0.0, "status": 0.0, "wait": 1.25},
+	"맹장": {"act": 0.85, "deal": 1.3, "hit": 1.0, "ally": 0.0, "kill": 15.0, "fall": 0.0, "status": 0.0, "wait": 0.9},      # 11/19 wait 1.25 → 0.9: 대기 14.6초라 기 찬 채 기다리다 쓰러져 발동 35% (tests/temper_block)
 	"수호": {"act": 2.8, "deal": 0.6, "hit": 1.6, "ally": 0.7, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 0.75},     # 11/7 측정: 0.8 · 1.6 · 0.5 · 30 에선 불멸 · 신화 수호가 19~22% 만 터졌다
 	"지략": {"act": 2.4, "deal": 0.8, "hit": 0.6, "ally": 0.0, "kill": 0.0, "fall": 0.0, "status": 14.0, "wait": 0.8},
 	"저격": {"act": 2.2, "deal": 2.2, "hit": 0.8, "ally": 0.0, "kill": 40.0, "fall": 0.0, "status": 0.0, "wait": 0.75},     # 11/7 측정: 0.8 · 1.6 · 35 에선 26~44% · 첫 발동 30초
@@ -206,12 +210,15 @@ class Unit:
 	var alive := true
 	var hit50 := false
 	var hit25 := false
+	var sg := {}              # 11/19 장수 개성 상태 (sig_rt.gd —— 맞힌 수 · 제자리 시간 · 물러남 등)
+	var sga := {}             # 11/19 장수 개성 오라 몫 {atk · def · spd} —— eff 가 (1 + 값)을 곱한다
 	var m := {}               # 특기 수정치 (data/passives.json 의 m 키) —— mv() 로 읽는다
 	var avenge_n := 0         # 비장 —— 아군이 무너진 횟수
 	var opens := 0            # 첫 공격 보너스를 쓴 횟수 (기신·강행·습격) —— 턴 배율만큼 나눠 쓴다
 	var night_used := false   # 야습 —— 첫 공격의 확정 점화를 썼는가
 	var cut_used := false     # 쇄갑 —— 첫 물리 공격의 큰 파갑을 썼는가
 	var cut := {"atk": 0.0, "int": 0.0, "def": 0.0}   # 수치 깎기 (위축 · 산란 · 파갑) —— 전투 끝까지 쌓이고 0 까지
+	var boss := false         # 11/19 토벌 총대장 —— 무너지면 그 진영이 모두 흩어진다 (_boss_setup)
 	var shield := {"phys": 0.0, "int": 0.0}   # 11/8 갑옷(받는 물리 피해 −) · 결계(받는 책략 피해 −) —— 병종 기본, 토벌 우두머리는 그날 성질
 	var shred := {"phys": {"v": 0.0, "t": 0, "by": ""}, "int": {"v": 0.0, "t": 0, "by": ""}}   # 갑옷 · 결계 깎기 (값 · 남은 턴 · 출처 부대 키) —— 종류별 가장 센 하나. 출처를 Unit 으로 들면 순환 참조가 생겨 키로
 	var kill_amp := 0.0       # 기세 —— 적을 무너뜨린 뒤 다음 공격 피해 +
@@ -252,6 +259,9 @@ class Unit:
 	var atb := 0.0            # 행동 준비 (1 이 되면 사거리 안의 적을 친다)
 	var retgt := 0.0          # 다음 대상 다시 고르기까지 (초)
 	var ran := 0.0            # 마지막 공격 뒤 달려온 거리 (기병 돌격)
+	var opened := false       # 11/19 첫 일격을 썼는가 (RtBattle.first_strike)
+	var atk_n := 0            # 11/19 공격한 차례 수 (RtBattle.heavy_every —— 몇 번째마다 결정타)
+	var atk_act := -1         # 마지막으로 센 차례 번호 (한 차례의 여러 타격은 한 번만 센다)
 	# 11/7 군집 강체 (RtBattle) —— 대열 발자국 · 속도
 	var hw := 28.0            # 발자국 반폭 (좌우)
 	var hd := 28.0            # 발자국 반깊이 (앞뒤) —— 병력에 따라 뒤에서부터 줄어든다
@@ -307,9 +317,24 @@ const COLLAPSE_ROUT := 3.0      # 총붕괴 진영의 패주 확률 배율
 const COLLAPSE_HOLD_TIER := 7   # 이 등급부터(불멸 · 신화)는 총붕괴에 휩쓸리지 않는다 —— 9부대 중 신화 하나가 남아도 버틴다
 const DECISIVE_T := 45.0
 const DECISIVE_MORALE := 12.0
+# 11/19 사용자: 병력이 많은데 사기로 패주하는 것 완화 —— 아직 성한 부대는 총붕괴 사기 감소를 덜 받고, 결전 감소는 남은 병력에 따라 준다
+static var collapse_hold_ratio := 0.6   # 병력이 최대의 이 비율 이상이면
+static var collapse_hold_mul := 0.5     # 총붕괴 사기 감소에 이 배율
+static var decisive_late_t := 60.0      # 이 시각부터 결전이 세진다 —— 병력 완화 없이 decisive_late_mul 배 (11/19 사용자: 긴 꼬리 자르기)
+static var decisive_late_mul := 2.0
+static var decisive_full_mul := 0.4     # 결전 감소 배율 —— 병력 가득이면 이 값, 병력 0이면 1.0 (그 사이 선형)
 const ROUT_SPREAD := 1.5        # 패주 전염 (K.routSame · routOther 배율) —— 아군이 무너지면 사기가 깎인다
 const ROUT_SHOCK_FLOOR := 31.0  # 11/12 패주 충격으로 내려갈 수 있는 사기 바닥 —— 패주 문턱(30) 바로 위라 연쇄 패주가 안 난다
 var _collapsed := {"A": false, "B": false}
+## 11/19 사용자(토벌 차별화 A): 토벌은 총대장을 베면 이긴다 —— 우두머리 9부대 가운데 가장 높은 등급(같으면 병력이 많은) 부대가 총대장.
+## 총대장은 병력 × BOSS_TR · 패주 저항 + BOSS_ROUT. 무너지면 그 진영의 남은 부대가 모두 패주한다 (잡병 · 우두머리 모두). side_trait.B.boss 가 켠다
+const BOSS_TR := 1.3
+const BOSS_ROUT := 0.5
+var boss_u: Unit = null
+var _boss_fell := false
+## 11/19 사용자(토벌 차별화 B): 우두머리 행동 성질 —— 갑옷 · 결계(t)와 따로 하루 하나 (side_trait.B.x). 우두머리 9부대에 특기 수정치로 얹는다
+## regen 재생(턴마다 병력 회복 —— 화상 · 몰아치기) · rage 광폭(병력 절반 아래 공격 + —— 공깎 · 기절) · rush 질주(속도 + —— 수공 둔화) · stand 결사(패주 저항 —— 화력 · 참수)
+const QUEST_X := {"regen": {"regen": 0.05}, "rage": {"low_atk": 0.4}, "rush": {"spd": 0.25}, "stand": {"rout": 0.5}}
 var _decisive := false
 var _start_troops := {"A": 0.0, "B": 0.0}
 var _kiin_u := {}              # 11/3 기인 —— 기능 키 -> 유닛 배열
@@ -575,6 +600,7 @@ func eff(u: Unit, stat: String) -> float:
 		var bs = b.stat
 		if bs == stat or (is_atk and bs == "int"): v *= (1 + b.amt)      # S(b.stat) == stat 와 같다 (int 는 atk 의 옛 이름)
 	if is_atk: v *= (0.4 + 0.6 * (u.troops / u.max))
+	if not u.sga.is_empty(): v *= maxf(0.2, 1.0 + float(u.sga.get(stat, 0.0)))      # 11/19 장수 개성 오라 (sig_rt)
 	v *= morale_mul(u)               # 사기 —— 모든 능력치에 (2026-10-30 사용자 결정)
 	if aura_enabled and not _myths.is_empty():
 		v *= _aura_mul(u, stat)
@@ -1114,7 +1140,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	dmg *= _role_mul(a, d, true)
 	var mu := _kiin_matchup(a, d)      # 교변 장합 —— 상성이 불리한 공격은 아군이 덜 받는다
 	dmg *= mu
-	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.troop * pace * _one))))
+	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.troop * pace * atk_up * _one))))
 	if _in_ult and _ult_by != null and not ult_cap.is_empty():
 		loss = _ult_clamp(d, loss)
 	var shared := 0.0
@@ -2232,6 +2258,8 @@ func _paeup_atk(u: Unit) -> float:
 
 ## 감녕 백기야습 —— 개전 8초 동안 숨는다 (적의 목표가 되지 않는다)
 func _hidden(u: Unit) -> bool:
+	if u.alive and u.sg.has("hide") and _tm < float(u.sg.hide):      # 11/19 여몽 위장 —— 처음 몇 초 표적이 안 된다
+		return true
 	return u.alive and not _paeup.is_empty() and _by_distance() and _tm < 8.0 and _paeup.get("hide:" + u.camp) == u
 
 
@@ -2433,7 +2461,7 @@ func _paeup_revive(u: Unit) -> bool:
 		if o.alive and o.camp != u.camp and o.st.any(func(x): return PAEUP_ST.has(x.k)):
 			n += 1
 	var ratio := minf(0.45, 0.15 + 0.10 * float(n))
-	z.htr += maxf(0.0, roundf(u.max * ratio) - u.troops)      # 11/19 기록만
+	z.htr += maxf(0.0, roundf(u.max * ratio) - maxf(0.0, u.troops))      # 11/19 기록만 (넘친 피해로 병력이 음수여도 0 부터 센다)
 	u.troops = maxf(u.troops, roundf(u.max * ratio))
 	u.morale = maxf(u.morale, 60.0)
 	L("hl", "%s의 태평환생 —— %s 다시 일어선다 (병력 %d%% · 상태이상에 걸린 적 %d부대)" % [nm(z), ga(nm(u)), roundi(ratio * 100), n], {"fx": "heal", "f": u.key, "n": u.troops})
@@ -2442,10 +2470,12 @@ func _paeup_revive(u: Unit) -> bool:
 
 func rout(u: Unit, why: String, cause := "effect") -> void:
 	if not u.alive: return
+	if _sg != null and _sg.hold_rout(u, cause):      # 11/19 주태 불사 · 하후돈 분노
+		return
 	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
 	if ht and ht != u and int(_kiin_used.get("revive:" + u.camp, 0)) < 2:
 		_kiin_used["revive:" + u.camp] = int(_kiin_used.get("revive:" + u.camp, 0)) + 1
-		ht.htr += maxf(0.0, roundf(u.max * 0.4) - u.troops)      # 11/19 기록만
+		ht.htr += maxf(0.0, roundf(u.max * 0.4) - maxf(0.0, u.troops))      # 11/19 기록만 (병력 음수여도 0 부터)
 		u.troops = maxf(u.troops, roundf(u.max * 0.4))
 		u.morale = maxf(u.morale, 60.0)
 		L("hl", "%s의 기사회생 —— %s 다시 일어선다" % [nm(ht), ga(nm(u))], {"fx": "heal", "f": u.key, "n": u.troops})
@@ -2474,6 +2504,8 @@ func rout(u: Unit, why: String, cause := "effect") -> void:
 	_paeup_fall(u)
 	_tac_rout(u)
 	if u.last_hit and u.last_hit.camp != u.camp: u.last_hit.kills += 1
+	if _sg != null:
+		_sg.on_kill(u.last_hit, u)      # 11/19 여포 무쌍 · 장패 약탈 · 맹달 변절 유도
 	if temper_enabled:      # 11/7 기질 —— 적을 무너뜨린 맹장 · 저격은 기세가 오르고, 아군이 무너지면 수호 · 분노가 끓는다
 		if u.last_hit and u.last_hit.camp != u.camp and u.last_hit.alive:
 			_gauge_add(u.last_hit, _tw(u.last_hit, "kill"))
@@ -2497,6 +2529,14 @@ func rout(u: Unit, why: String, cause := "effect") -> void:
 				_rally(o, mv(lh, "rally_kill"), "함성")
 	L("rt", "%s의 군세가 %s" % [nm(u), why], {"fx": "rout", "f": u.key,
 		"rout_cause": cause, "morale": u.morale, "troop_ratio": clampf(u.troops / u.max, 0.0, 1.0)})
+	if u == boss_u and not _boss_fell:
+		_boss_fell = true
+		stats["boss_t"] = snappedf(_tm, 0.1)
+		L("rt", "총대장 %s 쓰러졌다 —— 황건이 흩어진다" % ga(u.c.name), {"fx": "collapse", "camp": u.camp, "boss": u.key})
+		for o in units:
+			if o.alive and o.camp == u.camp:
+				o.morale = 0.0
+				rout(o, "총대장을 잃고 흩어졌다", "boss")
 
 
 ## 총붕괴 · 결전 판정 (정산마다) —— 전투 끝을 당긴다 (위 상수 설명)
@@ -2508,7 +2548,7 @@ func _check_collapse(frac: float) -> void:
 		if _collapsed[cp]:
 			for u in units:
 				if u.alive and u.camp == cp and u.c.tier < COLLAPSE_HOLD_TIER:      # 불멸 · 신화는 홀로 남아도 버틴다 (11/4 사용자)
-					u.morale -= COLLAPSE_MORALE * frac
+					u.morale -= COLLAPSE_MORALE * frac * (collapse_hold_mul if u.troops >= u.max * collapse_hold_ratio else 1.0) * _steadfast(u)
 			continue
 		if _collapsed[_foe(cp)]:
 			continue
@@ -2536,7 +2576,13 @@ func _check_collapse(frac: float) -> void:
 			L("div", "해가 기운다 —— 결전. 양군의 사기가 흔들린다", {"fx": "decisive"})
 		for u in units:
 			if u.alive and not _collapsed[u.camp]:
-				u.morale -= DECISIVE_MORALE * frac
+				var dm: float = decisive_late_mul if _tm > decisive_late_t else lerpf(1.0, decisive_full_mul, clampf(u.troops / maxf(u.max, 1.0), 0.0, 1.0))
+				u.morale -= DECISIVE_MORALE * frac * dm * _steadfast(u)
+
+
+## 11/19 사용자: 불굴 계열(쉽게 패주하지 않음 —— 불굴 · 독안 · 엄정 · 만인적 · 일신시담 · 군주 · 결속)이 총붕괴 · 결전에도 듣게 —— 받는 몫
+func _steadfast(u) -> float:
+	return clampf(1.0 - mv(u, "rout"), 0.0, 1.0)
 
 
 func check_rout() -> void:
@@ -2577,6 +2623,25 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 var _meta := {}               # run 재료 중 결과에 그대로 돌려줄 것 (진형 · 시너지 · 제목)
 
 
+## 11/19 토벌 총대장 · 행동 성질 (side_trait.B 의 boss · x) —— 우두머리는 B 진영 9번 칸 앞 (잡병은 9번 칸부터)
+func _boss_setup() -> void:
+	var tr: Dictionary = side_trait.get("B", {})
+	var xm: Dictionary = QUEST_X.get(str(tr.get("x", "")), {})
+	for u in units:
+		if u.camp != "B" or u.slot >= 9:
+			continue
+		for k in xm:
+			u.m[k] = float(u.m.get(k, 0.0)) + float(xm[k])
+		if bool(tr.get("boss", false)) and (boss_u == null or u.c.tier > boss_u.c.tier or (u.c.tier == boss_u.c.tier and u.max > boss_u.max)):
+			boss_u = u
+	if boss_u == null:
+		return
+	boss_u.boss = true
+	boss_u.troops = roundf(boss_u.troops * BOSS_TR)
+	boss_u.max = roundf(boss_u.max * BOSS_TR)
+	boss_u.m["rout"] = float(boss_u.m.get("rout", 0.0)) + BOSS_ROUT
+
+
 ## 전투 준비 —— 유닛 만들기 · 턴 배율 · 단체 특기 · 전투 시작 효과
 func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Array, b_form: String,
 		b_morale: float, b_equip, title: String, foe_name: String, inputs_: Array, policy_: Dictionary) -> void:
@@ -2604,12 +2669,15 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 			_myths.append(u)
 			if DB.AURA[u.c.id].has("m"):
 				_aura_m.append(u)
+	_boss_setup()
 	_paeup_setup()
-	if auto_turn and not units.is_empty():
+	if not units.is_empty():
 		var ts := 0.0
 		for u in units:
 			ts += u.c.tier
-		set_turn_mul(turn_mul_for(ts / units.size()))
+		tier_avg = ts / units.size()
+		if auto_turn:
+			set_turn_mul(turn_mul_for(tier_avg))
 	if passives_enabled or fire_enabled:
 		_apply_group_passives()
 		for cp in ["A", "B"]:
@@ -2827,8 +2895,9 @@ func _settle(frac: float, final: bool) -> String:
 		p *= 1.0 + _side_max(_foe(u.camp), "fear")      # 위압 —— 적 진영에서 가장 센 값 하나
 		p *= 1.0 - mv(u, "rout")
 		p *= 1.0 - _buff_sum(u, "calm")
+		if _sg != null: p *= 1.0 - _sg.calm(u)      # 11/19 우금 군율
 		if u.caps.has("유생"): p *= 0.5
-		if _collapsed[u.camp] and u.c.tier < COLLAPSE_HOLD_TIER: p *= COLLAPSE_ROUT
+		if _collapsed[u.camp] and u.c.tier < COLLAPSE_HOLD_TIER: p *= 1.0 + (COLLAPSE_ROUT - 1.0) * _steadfast(u)
 		p = 1.0 - pow(1.0 - minf(p, 1.0), frac / turn_mul)     # 턴이 늘어난 만큼 · 나눠 부른 몫만큼 —— 전투 전체로 보면 같은 빈도
 		if rng.randf() < p:
 			if pm > 0.0 and pt > 0.0:
@@ -2867,7 +2936,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
 			"item": u.item, "item2": u.item2, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "dot": roundi(u.dot), "heal": roundi(u.heal), "kills": u.kills,
-			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken), "htr": roundi(u.htr), "hmo": roundi(u.hmo), "over": roundi(u.over)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
+			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken), "htr": roundi(u.htr), "hmo": roundi(u.hmo), "over": roundi(u.over), "boss": u.boss})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))
@@ -2876,7 +2945,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 		mvp = {"name": mine[0].c.name, "id": mine[0].c.id, "kills": mine[0].kills, "dmg": roundi(mine[0].dmg)}
 	return {"win": winner == "A", "draw": winner == "draw", "ev": ev, "roster": roster, "title": _meta.title,
 		"foe": _meta.foe, "aForm": _meta.aForm, "bForm": _meta.bForm, "aSyn": _meta.aSyn, "bSyn": _meta.bSyn, "mvp": mvp,
-		"left": live_count("A"), "eLeft": live_count("B"), "turns": turn, "applied": applied, "rejected": rejected, "policy": policy.duplicate(), "stats": stats, "chains": chains,
+		"left": live_count("A"), "eLeft": live_count("B"), "beheaded": _boss_fell, "turns": turn, "applied": applied, "rejected": rejected, "policy": policy.duplicate(), "stats": stats, "chains": chains,
 		"paeup": _paeup_log.map(func(p): return {"camp": p.camp, "id": p.id, "n": p.n, "on": p.on, "have": p.have, "need": p.need, "used": int(_paeup_used.get(p.fx + ":" + p.camp, 0))})}
 
 
@@ -3201,7 +3270,7 @@ func _stat(d: Unit, loss: float) -> void:
 func _charge(d: Unit, a: Unit, loss: float) -> void:
 	if a.countering and not counter_charge:
 		return
-	_gain(d, GAUGE_HIT * loss / d.max * _tw(d, "hit"))
+	_gain(d, GAUGE_HIT * loss / d.max * _tw(d, "hit") + (GAUGE_HIT_FLAT if loss > 0.0 else 0.0))
 	_gain(a, GAUGE_DEAL / gauge_div() * _tw(a, "deal"))
 	if temper_enabled:      # 11/7 수호 · 분노 —— 아군이 병력을 잃으면 함께 찬다
 		for o in units:
@@ -3349,6 +3418,10 @@ func _smart(cp: String, ult_t: String, cmd_t: String, seen: Dictionary) -> void:
 				var sx := _ult_support(x)
 				if sx != _ult_support(y):
 					return sx
+			if ult_danger > 0.0:      # 11/19 곧 쓰러질 장수 먼저 —— 기 찬 순서만 보면 늦게 차고 먼저 쓰러지는 전열(맹장)이 늘 밀려 못 썼다
+				var dx: bool = x.troops / x.max < ult_danger
+				if dx != (y.troops / y.max < ult_danger):
+					return dx
 			if x.ult_ready_t != y.ult_ready_t:
 				return (x.ult_ready_t if x.ult_ready_t >= 0.0 else 1e9) < (y.ult_ready_t if y.ult_ready_t >= 0.0 else 1e9)
 			return x.c.tier > y.c.tier)
@@ -3609,6 +3682,8 @@ func _foe_low_in_reach(_u: Unit, foes: Array) -> bool:
 ## 11/11 기 충전 수정 —— 지원형(아군만 대상) 고유기는 아군이 이만큼(평균) 다쳐야 값어치가 있다고 본다 (예전 0.3)
 static var support_hurt := 0.18
 static var support_first := true
+var tier_avg := 0.0       # 11/19 이 전투의 평균 등급 (고유기 간격 등급 배율용)
+static var ult_danger := 0.7      # 11/19 병력이 이 비율 아래인 장수는 고유기 줄 앞으로 (0 이면 예전 —— 기 찬 순서만)
 
 
 func _ult_support(u: Unit) -> bool:

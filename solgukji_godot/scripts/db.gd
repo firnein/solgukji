@@ -219,6 +219,7 @@ func _load() -> void:
 			PSV.level[p] = lvp
 	for p in LINES.get("ladder", {}):          # 11/3 사용자: 장수들이 특기를 더 많이 —— 등급마다 최소 수만큼 채운 사다리 (lines.py fill_ladders)
 		PSV.ladder[p] = LINES.ladder[p]
+	_apply_sig()      # 11/19 장수 개성 —— 인물마다 고유 하나를 첫 등급부터 (passives.json sig)
 	merge_stats()      # 11/6 #15 책략 · 책략방어 통합
 	set_branch(BRANCH_TR, BRANCH_ST)      # 11/9 초월 · 기인 몸을 불멸 평균의 0.75 · 0.88 / 0.7 · 0.85 로
 	CARD_ADJ = ext.get("card_adjust", {}).duplicate()
@@ -709,6 +710,52 @@ func fac_color(fac: String) -> Color:
 ## 적 전용 —— 원래 적 카드(foe)와, 11/2 줄기 재편으로 플레이어 쪽에서 뺀 카드(retired —— 토벌 편성에는 남고 초상도 그대로)
 func is_foe(k: String) -> bool:
 	return C[k].kind == "foe" or C[k].kind == "retired"
+
+
+## 11/19 장수 개성 (passives.json sig, docs/장수_개성_정리_1119.md) —— 인물마다 고유(금색) 특기 하나를 그 인물의 첫 등급부터.
+## 이미 고유가 있으면 그 고유에 설명 · 키를 붙이고 붙는 등급을 앞당긴다. 없으면 새 고유를 만든다. 개성 키는 등급 배율을 곱하지 않는다(flags).
+## 사다리 덮어쓰기(ladder_from · lines.ladder)가 끝난 뒤에 —— 빌린 사다리를 고치지 않게 그 인물 사다리만 새 배열로 바꾼다
+func _apply_sig() -> void:
+	var sg: Dictionary = PSV.get("sig", {})
+	if sg.is_empty():
+		return
+	var sk: Array = load("res://scripts/sig_rt.gd").KEYS
+	for key in sk:
+		if not PSV.flags.has(key):
+			PSV.flags.append(key)
+	var all_scope: Array = sg.get("scope_all", [])
+	for p in sg:
+		if p.begins_with("_") or p == "scope_all":
+			continue
+		var e: Array = sg[p]
+		var t0 := 3      # 그 인물의 가장 낮은 카드부터 (사다리는 3급부터 읽는다 —— 카드가 없는 등급은 상관없다)
+		var lad: Array = []
+		for x in PSV.ladder.get(p, []):
+			lad.append(x.duplicate())
+		var hit := -1
+		for i in lad.size():
+			if PSV.traits.get(lad[i][0], {}).get("unique", false):
+				hit = i
+		var add: Dictionary = e[2]
+		if hit >= 0:
+			var tn: String = lad[hit][0]
+			var t: Dictionary = PSV.traits[tn]
+			if not add.is_empty():
+				var into := "self" if (t.has("scope") or t.has("self")) else "m"
+				if not t.has(into):
+					t[into] = {}
+				for key in add:
+					t[into][key] = float(t[into].get(key, 0.0)) + float(add[key])
+			if str(e[1]) != "":
+				t.d = "%s · %s" % [t.d, e[1]]
+			lad[hit][1] = mini(int(lad[hit][1]), t0)
+		elif str(e[0]) != "":
+			var nt := {"d": str(e[1]), "m": add.duplicate(), "attr": "", "unique": true}
+			if all_scope.has(p):
+				nt["scope"] = "all"
+			PSV.traits[str(e[0])] = nt
+			lad.append([str(e[0]), t0])
+		PSV.ladder[p] = lad
 
 
 func person(k: String) -> String:
@@ -2141,23 +2188,42 @@ func guard_text(tag: String) -> String:
 	return s
 
 
-## 11/8 토벌 일차별 우두머리 성질 (class_guard.quest[일차], 0 = 1일차) —— 없는 날은 빈 사전
+## 11/8 토벌 일차별 우두머리 성질 (class_guard.quest[일차], 0 = 1일차) —— t 갑옷 · 결계, x 행동 성질(11/19), boss 총대장(11/19 늘 켬)
+## 7일차가 넘으면(온라인은 끝까지 토벌) 막은 7일차 그대로, 행동 성질은 QUEST_X_LATE 를 돈다 —— 날마다 다른 퍼즐
+const QUEST_X_LATE := ["rush", "stand", "regen", "rage"]
 func quest_trait(day: int) -> Dictionary:
 	var q: Array = GUARD.get("quest", [])
+	var out := {"boss": true}
 	if q.is_empty():
-		return {}
+		return out
 	var t: Dictionary = q[clampi(day, 0, q.size() - 1)]
-	return t.duplicate() if str(t.get("t", "")) != "" else {}
+	if str(t.get("t", "")) != "":
+		out["t"] = t.t
+		out["v"] = t.get("v", 0.0)
+	var x := str(t.get("x", ""))
+	if day >= q.size():
+		x = QUEST_X_LATE[(day - q.size()) % QUEST_X_LATE.size()]
+	if x != "":
+		out["x"] = x
+	return out
 
 
-## 토벌 성질 한 줄 —— "철갑 · 물리 −45%" / "부적 · 책략 −45%" / "철갑 앞 · 부적 뒤 60%"
+## 행동 성질 이름 · 한 줄 (Battle.QUEST_X 와 같은 값)
+const QUEST_X_TEXT := {"regen": "재생 · 병력 회복", "rage": "광폭 · 궁지 공격 +40%", "rush": "질주 · 속도 +25%", "stand": "결사 · 패주 저항"}
+
+
+## 토벌 성질 한 줄 —— "철갑 · 물리 −45%" / "부적 · 책략 −45%" / "철갑 앞 · 부적 뒤 60%", 행동 성질이 있으면 " / 재생 · 병력 회복"
 func trait_text(t: Dictionary) -> String:
 	var v := roundi(float(t.get("v", 0.0)) * 100)
+	var s := ""
 	match str(t.get("t", "")):
-		"armor": return "철갑 · 물리 −%d%%" % v
-		"ward": return "부적 · 책략 −%d%%" % v
-		"mix": return "철갑 앞 · 부적 뒤 %d%%" % v
-	return ""
+		"armor": s = "철갑 · 물리 −%d%%" % v
+		"ward": s = "부적 · 책략 −%d%%" % v
+		"mix": s = "철갑 앞 · 부적 뒤 %d%%" % v
+	var x := str(QUEST_X_TEXT.get(str(t.get("x", "")), ""))
+	if x != "":
+		s = x if s == "" else s + " / " + x
+	return s
 
 
 func cls_mul(a: String, d: String, tier := 8) -> float:

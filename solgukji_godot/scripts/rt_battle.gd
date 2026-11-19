@@ -132,6 +132,13 @@ static var melee_reach := 130.0    # (예전 근접 중심 거리 —— 11/7 �
 static var melee_bank := 2.0       # 근접은 행동 준비를 이만큼 모아 둔다 —— 걸어가는 동안 쌓았다가 닿자마자 몰아 친다
 static var int_mul := 0.6          # 책략 피해 배율 —— 후열이 안전해진 만큼 (고유기 제외). 등급별 INT_TIER 를 곱한다
 static var int_tier := {3: 1.5, 4: 1.35, 5: 0.85, 6: 0.7, 7: 0.75, 8: 0.8}   # 공격자 카드 등급별 책략 배율 (10/31 측정 —— 낮은 등급 지략이 약하고 높은 등급이 세다)
+## 11/19 사용자: 기병 전투는 빨리 끝나 좋은데 나머지는 지루하다 —— 몰빵 거울전 첫 부대 무너짐이 기병 6초 · 나머지 9~19초 (tests/class_tempo).
+## 기병 돌격(cav_charge) · 창병 붙는 순간(spear_impact)이 없는 병종도 첫 공격 한 번을 세게 (반격 · 고유기 제외)
+static var first_strike := {}      # 11/19 첫 공격 1.6배는 첫 무너짐을 못 당겼다(궁병 9.4 → 9.9초) —— 비워 둔다
+## 11/19 A2 반복되는 결정타 —— 기병은 돌격이 판당 14번 되풀이되어 빨리 끝난다. 다른 전투 병종도 N 번째 차례마다 그 차례의 타격 전부 heavy_mul 배
+## (반격 · 고유기 제외. 지원 병종 술사 · 모사 · 유생은 뺀다)
+static var heavy_every := {}      # 11/19 4번째 · 1.6배를 해 봤으나 거울전 첫 무너짐이 0~1초만 당겨졌다 —— 비워 둔다
+static var heavy_mul := 1.6
 static var cav_charge := 1.6       # 기병 돌격 —— CHARGE_RUN 넘게 달려와 친 첫 물리 공격 피해 배율
 const CHARGE_RUN := 120.0
 static var near_mul := 1.5         # 맞닿아 친 물리 피해 배율 (삼국지11 —— 근접이 세다)
@@ -209,6 +216,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			_ord_ba.append(ua[i])
 	if inyeon_theme and inyeon_enabled:
 		_yeon_up_setup()
+	_sg = load("res://scripts/sig_rt.gd").make(self) if sig_enabled else null      # 11/19 장수 개성 —— 개성 키가 있는 판에만
+	if _sg != null:
+		_sg.setup()
 	# 전장 범위 —— 진형 자리 · 발자국에 맞춘다 (앞뒤로 반 행, 옆으로 한 열 남짓 여유: 예비대가 측면으로 돌 자리)
 	var xh := 0.0
 	var yh := 0.0
@@ -260,6 +270,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		_fire_winds()
 		_dash_tick()
 		_paeup_tick(TICK)
+		if _sg != null:
+			_sg.tick(TICK)
 		for u: Unit in _tick_units():
 			if not u.alive:
 				continue
@@ -323,6 +335,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		r["tac"] = tac.summary()      # 단계마다 양쪽 카드 · 상성, 약탈 군량
 		tac.b = null                  # 서로 붙든 참조를 끊는다
 		tac = null
+	if _sg != null:
+		_sg.release()      # 서로 붙든 참조를 끊는다 (장수 개성)
+		_sg = null
 	return r
 
 
@@ -386,6 +401,12 @@ var _dash_from := {}           # 터지는 동안만 —— 달려온 출발점 
 ## 같은 진영은 ULT_SIDE_SEC 초가 지나야 다음 고유기 (맞받아치기로 바로 받아치던 것도 없앴다)
 static var ult_gap := 2.5           # 11/11 기 충전 수정 2: (2.5 유지)
 static var ult_side_sec := 2.3      # 11/6 밸런스: 같은 진영 고유기 간격 4.5 → 3.0 → (11/11) 2.3
+## 11/19 등급별 전역 간격 배율 —— 7등급은 판이 31초로 가장 짧아(6등급 38 · 8등급 45) 간격 2.5초에 걸려 고유기 장수 절반만 썼다(54%). 표 사이는 잇는다
+static var ult_gap_tier := {}      # 11/19 7등급 0.8 을 해 봤으나 고유기가 많아진 만큼 판이 짧아져(31 → 29.5초) 발동 수가 같았다 —— 비워 둔다
+func _gap_tier() -> float:
+	var lo := floori(tier_avg)
+	var f := tier_avg - lo
+	return lerpf(float(ult_gap_tier.get(lo, 1.0)), float(ult_gap_tier.get(lo + 1, 1.0)), f)
 static var wind_max := 2            # 11/11 기 충전 수정 2: 한 진영이 동시에 기를 모을 수 있는 수 1 → 2
 var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
@@ -409,7 +430,7 @@ func can_ult(u: Unit) -> bool:
 	if wn >= wind_max:
 		if full: stats["ult_blk_wind"] = stats.get("ult_blk_wind", 0) + 1
 		return false
-	if _tm - _ult_t < ult_gap or _tm - _ult_side_t[u.camp] < ult_side_sec:
+	if _tm - _ult_t < ult_gap * _gap_tier() or _tm - _ult_side_t[u.camp] < ult_side_sec:
 		if full: stats["ult_blk_gap"] = stats.get("ult_blk_gap", 0) + 1
 		return false
 	var ok := super.can_ult(u)
@@ -1160,7 +1181,18 @@ func _move() -> void:
 				pin = o
 		# 기병 · 도적은 맞닿아도 묶이지 않고 노리던 후열로 파고든다
 		var slip: bool = (u.c.tag == "기병" or u.c.tag == "도적") and u.tgt != null and u.tgt.alive and pin != u.tgt
+		if slip and u.c.tag == "도적" and pin != null and pin.c.tag == "창병" and Battle.tag_roles and rogue_hold > 0.0:
+			# 11/19 사용자: 도적 대책 2 —— 창병 도발이 도적에게도. 맞닿은 창병이 그 도적을 rogue_hold 초 붙잡는다 (창병 하나가 같은 도적을 한 번만)
+			var hk := [u, pin]
+			var left: float = float(_rogue_held.get(hk, rogue_hold))
+			if left > 0.0:
+				if not _rogue_held.has(hk):
+					stats["rogue_held"] = int(stats.get("rogue_held", 0)) + 1
+				_rogue_held[hk] = left - TICK
+				slip = false
 		if slip:
+			pin = null
+		if _sg != null and _sg.backing(u):      # 11/19 치고 빠지기 —— 물러나는 동안 묶이지 않는다
 			pin = null
 		# 11/16 사용자 "뒷라인이 도적에게 공격 받아도 타겟팅을 바꾸지 않음" —— 원거리(궁병 · 책략계)는 근접 적이 달라붙으면 사거리 안의 옛 목표를 버리고 붙은 적을 상대한다
 		if u.ranged:
@@ -1207,6 +1239,12 @@ func _move() -> void:
 				desired = dir * minf(sp, (gap - want) / TICK)      # 노리는 적 앞에서 멈춘다 (파고들지 않게)
 		else:
 			u.block_t = 0.0
+		if _sg != null and not u.m.is_empty():      # 11/19 치고 빠지기 · 후퇴 사격
+			var d2: Vector2 = _sg.steer(u, t, pin, desired, sp if sp >= 0.0 else _speed(u))
+			if d2 != desired:
+				desired = d2
+				if sp < 0.0:
+					sp = _speed(u)
 		# 속도 —— 가속 · 감속 시간을 두어 미끄러지거나 순간이동하지 않는다
 		if desired != Vector2.ZERO or u.vel != Vector2.ZERO or sp >= 0.0:
 			if sp < 0.0:
@@ -1381,6 +1419,10 @@ func _depth_update() -> void:
 
 ## 도적 우회 길목 —— 아직 노리는 적보다 앞(우리 쪽)에 있으면 적 무리 옆 바깥 점, 지나갔으면 null (곧장 친다)
 var _flank := {}        # 유닛 -> 돌아갈 쪽 (+1 · -1), 처음 한 번 정한다
+var _rogue_held := {}   # [도적, 창병] -> 남은 붙잡힘 초 (도적 대책 2)
+static var rogue_hold := 2.5      # 11/19 창병이 맞닿은 도적을 붙잡는 초 (0 이면 예전처럼 흘려 지나간다)
+static var escort_w := 0.4        # 11/19 도적 대책 1 —— 우리 후열에 붙은 적 기병 · 도적을 놀던 근접 부대가 고를 때 거리 배율 (1 이면 예전)
+const ESCORT_R := 320.0           # 호위하러 갈 최대 거리
 func _flank_way(u: Unit, t: Unit, foes: Array):
 	var ahead := 1.0 if u.camp == "A" else -1.0       # A 는 +x 로 나아간다
 	if (t.pos.x - u.pos.x) * ahead < 40.0:
@@ -1413,6 +1455,12 @@ func _choose(u: Unit, foes: Array) -> Unit:
 			w = 0.6 if u.c.tag == "도적" else 0.75
 		if u.tgt == o:
 			w *= 0.8            # 노리던 적을 쉽게 바꾸지 않는다
+		# 11/19 사용자: 도적 대책 1 (호위) —— 우리 원거리 · 책략 부대에 붙은 적 기병 · 도적은 근접 부대(도적 제외)가 막으러 간다.
+		# 맞붙어 묶인 부대는 여기 오지 않는다(_choose 는 묶이지 않았을 때만) —— 놀거나 막혀 기다리던 부대가 돌아선다
+		if escort_w < 1.0 and not _ranged(u) and u.c.tag != "도적" and (o.c.tag == "도적" or o.c.tag == "기병") 				and o.tgt != null and o.tgt.alive and o.tgt.camp == u.camp and _ranged(o.tgt) and _gap(o, o.tgt) <= TOUCH + 6.0 and d < ESCORT_R:
+			w *= escort_w
+			if best != o and d * w < bs:
+				stats["escort"] = int(stats.get("escort", 0)) + 1
 		# 11/7 강체: 앞이 막힌 지 1초가 넘은 근접 부대는 길이 트인 적을 고른다 (예비대가 전선 뒤에서 기다리지 않고 측면의 적에게 간다)
 		if lane and u.block_t > 1.0:
 			var dv: Vector2 = o.pos - u.pos
@@ -1429,6 +1477,8 @@ func _choose(u: Unit, foes: Array) -> Unit:
 				if al != u and al.alive and al.camp == u.camp and not al.ranged and al.pos.distance_to(o.pos) * 0.7 <= al.hw + al.hd + o.hw + o.hd + 14.0 and _gap(al, o) <= TOUCH + 4.0:
 					crowd += 1
 			w *= 1.0 + 0.35 * crowd
+		if _sg != null:
+			w *= _sg.target_w(u, o, d)      # 11/19 장수 개성 —— 도발 · 노리는 적 · 지목
 		if d * w < bs:
 			bs = d * w
 			best = o
@@ -1791,11 +1841,15 @@ func _nearest_ranged_target(u: Unit, foes: Array, only_in_range := true) -> Unit
 		if not only_in_range and distance < approach_d:
 			approach = o
 			approach_d = distance
-		if distance < best_d:
+		var sc := distance
+		if _sg != null:      # 11/19 장수 개성 —— 원거리도 도발 · 노리는 적을 따른다 (사거리 안에서만)
+			var sw: float = _sg.target_w(u, o, sqrt(distance))
+			sc *= sw * sw
+		if sc < best_d:
 			var lim: float = (far + o.hw + o.hd) / 0.7
 			if distance <= lim * lim and _gap(u, o) <= reach:
 				best = o
-				best_d = distance
+				best_d = sc
 	return best if best != null or only_in_range else approach
 
 
@@ -1866,24 +1920,51 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var painted_charge := ""
 	if not _in_ult:
 		m *= far_mul if far else near_mul
-		if a.c.tag == "기병" and a.ran >= CHARGE_RUN and not far and not a.countering and not (water_enabled and has_st(a, "flood")):     # 수몰된 기병은 돌격을 못 한다 (11/8 수공 제어 전담)
+		if a.c.tag == "기병" and a.ran >= CHARGE_RUN * (1.0 - minf(0.7, mv(a, "charge_run"))) and not far and not a.countering and not (water_enabled and has_st(a, "flood")):     # 수몰된 기병은 돌격을 못 한다 (11/8 수공 제어 전담)
 			if d.c.tag == "창병" and _front(d, a):      # 11/8 창병 정면은 돌격을 막는다 (창벽)
 				m *= engage_v("brace", 1.0)
 				painted_charge = "brace"
 			else:
-				m *= cav_charge
+				m *= cav_charge * (1.0 + mv(a, "charge_amp"))
 				stats["charges"] = stats.get("charges", 0) + 1
 				painted_charge = "hit"
 		if a.c.tag == "창병" and a.ran >= SPEAR_RUN and not far and not a.countering:      # 11/8 창병은 붙는 순간이 힘
 			m *= engage_v("spear_impact", 1.0)
+	var heavy := false
+	if not _in_ult and not a.countering and heavy_every.has(a.c.tag):
+		if a.atk_act != act_n:
+			a.atk_act = act_n
+			a.atk_n += 1
+			if a.atk_n % int(heavy_every[a.c.tag]) == 0:
+				stats["heavies"] = stats.get("heavies", 0) + 1
+		if a.atk_n % int(heavy_every[a.c.tag]) == 0:
+			m *= heavy_mul
+			heavy = true
+	if not _in_ult and not a.countering and not a.opened:
+		a.opened = true
+		var fs := float(first_strike.get(a.c.tag, 1.0))
+		if fs != 1.0:
+			m *= fs
+			stats["first_strikes"] = stats.get("first_strikes", 0) + 1
 	if a.c.tag == "창병" and d.c.tag == "창병" and a.camp != d.camp:      # 11/14 창병끼리 —— 창병 갑옷 · 방어 이점이 서로 상쇄돼 판이 늘어진다 (거울전 53초 → 35초 안팎)
 		m *= engage_v("spear_mirror", 1.0)
 	if not a.countering:
 		a.ran = 0.0
 	if tac != null:
 		m *= tac.hit_mul(a, d, far)      # 11/15 군략 —— 주는 피해 · 적 공격 − · 받는 피해
+	if _sg != null and a.camp != d.camp:
+		m *= _sg.amp(a, d, far) * _sg.taken(d, a, m)      # 11/19 장수 개성 —— 주는 · 받는 피해
 	var n0 := ev.size()
 	super.phys_hit(a, d, m, no_counter or far, pierce)
+	if _sg != null and a.camp != d.camp:
+		var sl := 0.0
+		for i in range(n0, ev.size()):
+			if (ev[i].get("fx") == "phys" or ev[i].get("fx") == "int") and ev[i].get("a") == a.key and ev[i].get("f") == d.key:
+				sl = float(ev[i].get("n", 0.0))
+				break
+		if sl > 0.0:
+			_sg.after_hit(a, d, sl, far)
+			_sg.after_taken(d, a, sl, far)
 	if tac != null:      # 되돌림 · 화살비 · 불화살 —— 이 타격으로 깎인 병력 기준
 		for i in range(n0, ev.size()):
 			if (ev[i].get("fx") == "phys" or ev[i].get("fx") == "int") and ev[i].get("a") == a.key and ev[i].get("f") == d.key and not ev[i].has("tac"):
@@ -1891,6 +1972,11 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 				break
 	if _in_ult and _wind.has(d) and d.camp != a.camp:
 		_cut_wind(d, a)
+	if heavy:      # 11/19 결정타 —— 사건에 적어 둔다 (화면 연출용)
+		for i in range(n0, ev.size()):
+			if (ev[i].get("fx") == "phys" or ev[i].get("fx") == "int") and ev[i].get("a") == a.key and ev[i].get("f") == d.key:
+				ev[i]["heavy"] = true
+				break
 	if dir != "" or painted_charge != "":
 		# 이 타격의 사건에 방향을 적는다 —— 화면이 '측면!' · '후방!' 을 띄운다
 		for i in range(n0, ev.size()):
