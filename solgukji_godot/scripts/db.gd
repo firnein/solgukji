@@ -758,6 +758,12 @@ func _apply_sig() -> void:
 		PSV.ladder[p] = lad
 
 
+## 카드 이름에서 인물 이름만 —— "호치 허저" → "허저" (결과 칸의 수훈처럼 좁은 자리에)
+func person_of_name(nm: String) -> String:
+	var parts: PackedStringArray = nm.split(" ")
+	return parts[parts.size() - 1]
+
+
 func person(k: String) -> String:
 	var parts: PackedStringArray = C[k].name.split(" ")
 	return parts[parts.size() - 1]

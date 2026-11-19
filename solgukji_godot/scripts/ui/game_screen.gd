@@ -4211,16 +4211,18 @@ func _result_panel() -> Control:
 	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(tl)
 	v.add_child(h)
-	var parts := ["잔존 %d : %d" % [r.left, r.eLeft]]      # 11/9: 색 칩 줄 → 한 줄 글 (구분점)
+	# 11/20 사용자 "정리": 점으로 이은 한 줄(좁으면 "민심 / −2" 로 끊겼다) → 값 · 이름 칸 한 줄 (UI.result_stats)
+	var items := [["잔존", "%d : %d" % [r.left, r.eLeft]]]
 	if r.mvp != "":
-		parts.append("수훈 %s" % r.mvp)
+		items.append(["수훈", DB.person_of_name(str(r.mvp))])
 	if run.last_spoil != null:
-		parts.append(UI.spoil_bb(run.last_spoil))      # 11/10 토벌 성과 보너스는 금색 "(대승 +M)"
+		items.append(["기본패", "+%d" % int(run.last_spoil.n), DB.PAL.gold])
 	if run.ticket_left() > 0:
-		parts.append("선택권 %d" % run.ticket_left())
-	if not r.win and run.last_hp_loss > 0:      # 11/10 연출은 지나가니 깎인 만큼은 결과 줄에도 남긴다 (온라인 결과 칸과 같은 글)
-		parts.append("민심 −%d" % run.last_hp_loss)
-	v.add_child(UI.result_line(parts))
+		items.append(["선택권", str(run.ticket_left())])
+	if not r.win and run.last_hp_loss > 0:      # 11/10 연출은 지나가니 깎인 만큼은 결과 칸에도 남긴다
+		items.append(["민심", "−%d" % run.last_hp_loss, DB.PAL.danger])
+	v.add_child(UI.hair())
+	v.add_child(UI.result_stats(items, UI.spoil_note(run.last_spoil)))
 	if not r.win and str(r.get("why", "")) != "":      # 11/9 패배 사유 (민심 깎인 양은 위 결과 줄에 이미 있다)
 		v.add_child(UI.hair())
 		var wl := UI.lbl(str(r.why), UI.FS_BODY, DB.PAL.paper)

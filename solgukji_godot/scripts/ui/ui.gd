@@ -244,6 +244,47 @@ static func result_line(parts: Array) -> RichTextLabel:
 	return r
 
 
+## 11/20 사용자 "정리": 전투 결과 칸 —— "잔존 0 : 2 · 수훈 악진 · 기본패 +5 · 선택권 3 · 민심 −2" 를 점으로 이은 한 줄이
+## 좁은 화면에서 "민심 / −2" 처럼 끊겼다. 값(굵게) 위 · 이름(작게) 아래의 칸을 한 줄에 고르게 놓고 칸 사이에 가는 세로선.
+## items: [[이름, 값, 색(생략하면 종이색)] …]. note_bb 가 있으면 그 아래 작은 한 줄 (보너스 · 아침 지급 같은 덧글)
+static func result_stats(items: Array, note_bb := "") -> VBoxContainer:
+	var v := vbox(SP_S)
+	var h := hbox(0)
+	for i in items.size():
+		var it: Array = items[i]
+		if i > 0:
+			var sep := ColorRect.new()
+			sep.color = Color(DB.PAL.paper, 0.14)
+			sep.custom_minimum_size = Vector2(1, 26)
+			sep.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(sep)
+		var cell := vbox(1)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var val := lbl(str(it[1]), FS_BODY + 2, it[2] if it.size() > 2 else DB.PAL.paper, true)
+		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		val.clip_text = true      # 긴 이름(수훈)은 칸 안에서 … 로
+		val.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		var nm := lbl(str(it[0]), FS_CAP, DB.PAL.text_dim)
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cell.add_child(val)
+		cell.add_child(nm)
+		h.add_child(cell)
+	v.add_child(h)
+	if note_bb != "":
+		var n := rich("[center][color=#%s]%s[/color][/center]" % [DB.PAL.bamboo.to_html(false), note_bb], FS_CAP)
+		v.add_child(n)
+	return v
+
+
+## 보상 글(spoil_bb)에서 "기본패 +N" 을 뺀 덧글만 —— 보너스 · 험지 돌파 · 전리품 · 연승 군량 · 아침 지급 (없으면 빈 글)
+static func spoil_note(sp) -> String:
+	if sp == null:
+		return ""
+	var s := spoil_bb(sp).trim_prefix("기본패 +%d" % int(sp.n)).strip_edges()
+	return s.trim_prefix("·").strip_edges()
+
+
 static func eyebrow(text: String) -> Label:
 	var l := lbl(text, FS_BODY, DB.PAL.bamboo, true)
 	return l

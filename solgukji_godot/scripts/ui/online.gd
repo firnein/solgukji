@@ -1478,17 +1478,20 @@ func _result_panel(x: Dictionary) -> Control:
 	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(tl)
 	v.add_child(h)
-	var parts := ["잔존 %d : %d" % [int(res.get("left", 0)), int(res.get("eLeft", 0))]]
+	# 11/20 사용자 "정리": 점으로 이은 한 줄 → 값 · 이름 칸 한 줄 (UI.result_stats, 혼자 하기 결과 칸과 같은 모양)
+	var items := [["잔존", "%d : %d" % [int(res.get("left", 0)), int(res.get("eLeft", 0))]]]
 	var mvp = res.get("mvp")
 	if mvp is Dictionary and str(mvp.get("name", "")) != "":
-		parts.append("수훈 %s" % mvp.name)
-	if run.last_spoil != null and str(x.get("kind", "")) != "tour":
-		parts.append(UI.spoil_bb(run.last_spoil))      # 11/10 토벌 성과 보너스는 금색 "(대승 +M)" (서버 mirror 의 last_spoil)
+		items.append(["수훈", DB.person_of_name(str(mvp.name))])
+	var sp_on: bool = run.last_spoil != null and str(x.get("kind", "")) != "tour"
+	if sp_on:
+		items.append(["기본패", "+%d" % int(run.last_spoil.n), DB.PAL.gold])
 	if run.ticket_left() > 0:
-		parts.append("선택권 %d" % run.ticket_left())
+		items.append(["선택권", str(run.ticket_left())])
 	if not win and int(run.last_hp_loss) > 0:
-		parts.append("민심 −%d" % int(run.last_hp_loss))
-	v.add_child(UI.result_line(parts))
+		items.append(["민심", "−%d" % int(run.last_hp_loss), DB.PAL.danger])
+	v.add_child(UI.hair())
+	v.add_child(UI.result_stats(items, UI.spoil_note(run.last_spoil) if sp_on else ""))
 	if run.over != null:
 		v.add_child(UI.rich(over_line(run.over), UI.FS_BODY))
 	return UI.panel(v, 12)
