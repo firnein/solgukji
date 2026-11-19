@@ -1363,7 +1363,7 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "�
 	"morale": "시작 사기", "crit": "치명타 확률", "critd": "치명타 피해", "icrit": "치명타 확률", "rate": "스킬 발동",
 	"dr": "받는 피해 -", "idr": "받는 피해 -", "rout": "패주 확률 -", "shock": "큰 손실 충격 -",
 	"counter": "반격", "stres": "상태이상 저항", "low_atk": "절반 이하 공격", "avenge": "아군 이탈마다 공격",
-	"opener": "첫 공격 피해", "first": "선공", "regen": "일정 시간마다 병력", "mregen": "일정 시간마다 사기",
+	"opener": "첫 공격 피해", "first": "개전 직후 바로 행동", "regen": "일정 시간마다 병력", "mregen": "일정 시간마다 사기",
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
 	"rpierce": "적 방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 공격", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
@@ -1373,14 +1373,14 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "�
 	"aim": "표식 확률", "mark_amp": "표식된 적에게 피해", "mark_hit": "관통 추가 피해", "mark_res": "표식 저항",
 	"phalanx": "방진 확률", "counter_hit": "반격 피해", "phalanx_amp": "방진 중 반격 피해",
 	"sow": "혼란 확률", "jolt": "맞힐 때 적 사기 -", "confuse_amp": "혼란·봉인된 적에게 피해",
-	"mend": "차례마다 치료", "cheer_hit": "맞힐 때 아군 치료",
-	"kill_amp": "적을 무너뜨린 뒤 다음 공격 피해", "cleave": "같은 열 이웃에게 피해", "icleave": "같은 열 이웃에게 피해",
+	"mend": "주기마다 치료", "cheer_hit": "맞힐 때 아군 치료",
+	"kill_amp": "적을 무너뜨린 뒤 다음 공격 피해", "cleave": "맞힌 적 주변에 피해", "icleave": "맞힌 적 주변에 피해",
 	"int_low": "절반 아래 적에게 피해", "sk_amp": "기술 피해", "ally_sk": "아군 기술 때 충전",
 	"cut_atk": "맞힐 때 적 공격 −(내 공격의)", "cut_int": "맞힐 때 적 공격 −(내 공격의)", "cut_def": "맞힐 때 적 방어 −(내 공격의)",
 	"first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
 	"open_cut_int": "시작에 적 후군 공격 −(내 공격의)", "open_cut_def": "시작에 적 전원 방어 −(내 공격의)",
 	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해",
-	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "차례마다 같은 열 사기(전투 전체)", "resolve": "아군이 무너지면 사기",
+	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "전투 동안 주변 아군 사기", "resolve": "아군이 무너지면 사기",
 	"steady": "사기 60 아래에서 한 번 사기", "ult_rally": "아군 고유기 때 아군 전원 사기"}
 ## 11/19 사용자: 장수 정보창 고유 특기 설명에 개성 키가 날것으로 보였다 ("seek_low+50% · amp_low+30%") —— 장수 개성 키(sig_rt.gd KEYS)의 글.
 ## [글, 꼴] 꼴: "%" 백분율 · "n" 숫자 · "" 적지 않는다(표적 고르기 · 행동 —— 특기 설명 문장이 말해 준다). 글이 "-" 로 끝나면 깎는 값
@@ -1414,7 +1414,7 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 	var out := []
 	for k in m:
 		if k == "first":
-			out.append("선공")
+			out.append("개전 직후 바로 행동")
 			continue
 		if k == "int" and m.has("atk"):      # 11/11 사용자: 공격 · 책략이 합쳐진 뒤(11/6 #15) '공격+5% · 공격+5%' 로 두 번 적혔다 —— 한 번만 (큰 값)
 			continue
@@ -1538,7 +1538,7 @@ func inyeon_fin_text(nm: String) -> String:
 const INYEON_THEME_KIND := {"ignite": "점화", "spread": "불길 번짐", "blaze": "연소", "steam": "증기", "flood": "침수", "tide": "백의도강",
 	"counter": "반격", "chase": "추격", "momentum": "기세", "exec": "비장", "confuse": "혼란", "slow": "둔화", "ambush": "매복",
 	"plague": "역병", "cleanse": "정화", "duel": "일기토"}
-const INYEON_THEME_DESC := {"ignite": "적 전원 화상, 이미 타는 적은 남은 화상이 즉시 터진다", "spread": "적 선봉 화상, 타는 적마다 같은 열로 번진다",
+const INYEON_THEME_DESC := {"ignite": "적 전원 화상, 이미 타는 적은 남은 화상이 즉시 터진다", "spread": "적 선봉 화상, 타는 적마다 주변으로 번진다",
 	"blaze": "타는 적의 불길이 거세지고 안 타는 적은 화상", "steam": "적 전원 수몰 · 화상, 화상 ×1.3", "flood": "적 전원 수몰, 병력이 바닥난 적은 휩쓸려 패주",
 	"tide": "적 후군 수몰 + 기습", "counter": "아군 전원 반격 확률 · 반격 피해 크게 (잠시)", "chase": "연쇄 장수마다 적을 몰아친다 (무너진 적만큼)",
 	"momentum": "아군 전원 다음 공격 강화", "exec": "방어가 깎인 적을 베어 넘기고 적 선봉 방어를 깎는다", "confuse": "적 상위 부대 혼란",
@@ -2304,7 +2304,7 @@ const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해
 	"mregen": ["일정 시간마다 사기 회복", false], "rate": ["기술 발동", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
 	"low_atk": ["병력 절반 아래 공격", true], "kill_amp": ["적을 무너뜨린 뒤 피해", true], "weak_amp": ["약해진 적에게 피해", true],
 	"ignite": ["점화 확률", true], "spread": ["불 번짐", true], "st_amp": ["지속 피해 세기", true], "opener": ["첫 공격 피해", true],
-	"fire_res": ["화공 저항", true], "cleave": ["같은 열 이웃에게 피해", true], "icleave": ["같은 열 이웃에게 피해", true],
+	"fire_res": ["화공 저항", true], "cleave": ["맞힌 적 주변에 피해", true], "icleave": ["맞힌 적 주변에 피해", true],
 	"fear": ["적을 패주시킬 확률", true]}
 const AURA_HIDE := ["turncoat"]      # 기인 설명(KIIN_TEXT)이 대신 적는 키
 
