@@ -27,6 +27,7 @@ var visual_time := 0.0
 var motion_dt := 0.0
 var _cl_tick := 0
 var _cl_i := 0
+var paint_updates := 0       # 11/19 실제 삽화 갱신 횟수 (점검 motion5_replay 가 초당으로 잰다)
 var _skip_dt := 0.0          # 11/18 부하 2단계부터 30Hz —— 건너뛴 프레임의 시간을 모아 다음 갱신에 넘긴다
 var charges := {}
 var rallies := {}
@@ -336,12 +337,14 @@ func _process(dt: float) -> void:
 		return
 	# 11/18 모바일 19fps: 삽화(인형 위치 · 수집 · 정렬 · 묶음 버퍼)가 부하 조절 단계를 따르지 않고 늘 60Hz 로 돌아
 	# 단계가 끝까지 올라가도 줄어드는 것이 없었다 → 2단계부터 갱신 · 그리기를 두 프레임에 한 번 (사이 시간은 모아 넘긴다)
+	# 11/19 홀짝 프레임 → 실제 경과 시간 30Hz (Type2View.gate) —— 느린 기기에서 반으로 또 줄이지 않는다
 	var lv := int(v.load_lv) if v.get("load_lv") != null else 0
-	if lv >= 2 and Engine.get_process_frames() % 2 == 1:
+	if lv >= 2 and v.has_method("gate") and not v.gate("paint", dt, 1.0 / 30.0):
 		_skip_dt += dt
 		return
 	dt += _skip_dt
 	_skip_dt = 0.0
+	paint_updates += 1
 	var t0 := Time.get_ticks_usec()
 	var elapsed := 0.0 if last_clock < 0 else clampf(float(v.field.clock) - last_clock, 0.0, 0.25)
 

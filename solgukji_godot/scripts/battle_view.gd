@@ -1400,8 +1400,8 @@ func _process_inner(dt: float) -> void:
 		elif clock >= finish_t and (not Type2View.painting_on() or type2 == null or type2.painting == null or not type2.painting.has_unsettled_casualties()):
 			_finish()
 	var t2v = field.flat if field.flat != null and field.flat.get("load_lv") != null else null
-	if t2v == null or int(t2v.load_lv) < 2 or Engine.get_process_frames() % 2 == 0:
-		hud.queue_redraw()      # 11/6 부하 조절 2단계면 HUD 를 30Hz 로
+	if t2v == null or t2v.gate("hud", dt, 0.0 if int(t2v.load_lv) < 2 else 1.0 / 30.0):
+		hud.queue_redraw()      # 11/6 부하 조절 2단계면 HUD 를 30Hz 로 (11/19 실제 경과 시간 기준)
 
 
 ## 전환점 (11/4 연출 점검) —— 화면에 보이는 병력 비율이 뒤집히는 순간 "전세 역전!" (한 판 둘까지)

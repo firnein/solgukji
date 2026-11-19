@@ -32,14 +32,17 @@ func stats(values: Array) -> Dictionary:
 	sorted.sort()
 	var total := 0.0
 	var slow := 0
+	var long := 0
 	for value in values:
 		total += float(value)
 		if value > 33.333:
 			slow += 1
+		if value >= 100.0:
+			long += 1
 	return {"frames": values.size(), "fps": values.size() * 1000.0 / total,
 		"mean_ms": total / values.size(), "p50_ms": sorted[ceili((sorted.size() - 1) * 0.50)],
 		"p95_ms": sorted[ceili((sorted.size() - 1) * 0.95)], "p99_ms": sorted[ceili((sorted.size() - 1) * 0.99)],
-		"max_ms": sorted[-1], "over_33ms_pct": slow * 100.0 / values.size()}
+		"max_ms": sorted[-1], "over_33ms_pct": slow * 100.0 / values.size(), "long_100ms": long}
 
 func _ready() -> void:
 	var args := {}
@@ -56,6 +59,8 @@ func _ready() -> void:
 	Settings.apply()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = int(args.get("fps", "0"))
+	if args.has("lv"):      # 11/19 부하 단계 고정 (삽화 · HUD 갱신 주기 확인)
+		Type2View.force_lv = int(args.lv)
 	preload("res://scripts/field/war_painting.gd").batch_rendering = not args.has("legacy-painting")
 	preload("res://scripts/field/war_painting.gd").keep_dicts = args.has("validate-only")      # 11/19 점검만 사전 목록 (측정은 실제 게임처럼 묶음 배열만)
 	theme = UI.theme()
@@ -330,6 +335,8 @@ func _ready() -> void:
 	var max_meshes := 0
 	var max_bodies := 0
 	var draw_calls := 0.0
+	var upd0: int = painter.paint_updates
+	var lv_hist := {}
 	while Time.get_ticks_usec() < end and not view.finished:
 		await get_tree().process_frame
 		var now := Time.get_ticks_usec()
@@ -352,13 +359,16 @@ func _ready() -> void:
 		max_meshes = maxi(max_meshes, painter.walk_meshes.size())
 		max_bodies = maxi(max_bodies, painter.bodies.size())
 		draw_calls += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+		var lvk := str(view.type2.load_lv)
+		lv_hist[lvk] = int(lv_hist.get(lvk, 0)) + 1
 	var report := {"platform": OS.get_name(), "engine": Engine.get_version_info().string,
 		"android_device_measurement": OS.get_name() == "Android", "renderer": RenderingServer.get_current_rendering_method(),
 		"adapter": RenderingServer.get_video_adapter_name(), "window": str(get_viewport_rect().size),
 		"quality": Settings.quality, "vsync": false, "fps_cap": Engine.max_fps, "seed": 5100,
 		"batch_rendering": painter.batch_rendering, "hidden_painting": hidden, "warmup_seconds": skip, "sample_seconds": duration, "total": stats(frames),
 		"phases": {}, "max_figures": max_figures, "max_bodies": max_bodies, "max_walk_meshes": max_meshes,
-		"mean_draw_calls": draw_calls / maxf(1.0, frames.size()), "initial_formation_capacity": capacity}
+		"mean_draw_calls": draw_calls / maxf(1.0, frames.size()),
+		"paint_updates_per_sec": (painter.paint_updates - upd0) / maxf(0.001, (last - (end - int(duration * 1e6))) / 1e6), "load_lv_frames": lv_hist, "initial_formation_capacity": capacity}
 	for phase in phases:
 		report.phases[phase] = stats(phases[phase])
 	# 구간별 CPU 시간 (프레임당 평균 ms) —— 측정 구간만 (준비 구간은 빼려고 아래 prof0 를 뺀다)

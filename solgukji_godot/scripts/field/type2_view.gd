@@ -261,6 +261,7 @@ const LV_MAX := 4
 const LV_UP := [1.0 / 40.0, 1.0 / 52.0]            # [PC, 휴대폰] 프레임 시간이 이보다 길면 한 단계 올린다 (휴대폰은 60fps 를 지키려 일찍)
 const LV_DOWN := 1.0 / 57.0                         # 이보다 짧으면 한 단계 내린다 (바닥 단계까지)
 var load_lv := 0
+var _gate := {}                # 11/19 격프레임 갱신을 실제 경과 시간으로 (gate)
 var _lv_floor := 0             # 이 전투의 바닥 단계 (병사 수로 setup 이 정한다)
 var _ft := 1.0 / 60.0
 var _lv_hold := 0.0
@@ -435,6 +436,18 @@ func _load_step(dt: float) -> void:
 		_down_at = now
 
 
+## 11/19 부하 단계의 '몇 프레임에 한 번' 을 실제 경과 시간으로 —— 갱신 주기 period(초)가 지났으면 true.
+## 프레임 홀짝으로 건너뛰면 호출이 120Hz 인 기기는 60Hz, 20Hz 로 버벅이는 기기는 10Hz 로 또 반이 된다.
+## 이제는 호출이 목표보다 느리면 매번 갱신한다. 4ms 여유는 60Hz 호출의 흔들림(16.4 + 16.6ms)이 한 번 더 건너뛰지 않게.
+func gate(slot: String, dt: float, period: float) -> bool:
+	var acc: float = float(_gate.get(slot, 1e9)) + dt
+	if acc + 0.004 < period:
+		_gate[slot] = acc
+		return false
+	_gate[slot] = 0.0
+	return true
+
+
 ## 셰이더 LOD 단계 (0 · 1 · 2) —— 부하 단계 3 → 1, 4 → 2
 func _lod() -> int:
 	if not lod_on:
@@ -483,9 +496,9 @@ func _process(dt: float) -> void:
 		gm.set_shader_parameter("dark", draw_dark)
 		gm.set_shader_parameter("scatter", scatter)
 	_ground_step()
-	if Engine.get_process_frames() % (2 if load_lv == 0 else (3 if load_lv < 3 else 4)) == 1:
+	if gate("under", dt, 1.0 / (30.0 if load_lv == 0 else (20.0 if load_lv < 3 else 15.0))):
 		_under.queue_redraw()      # 부대 바닥이 부대를 따라가야 한다 (무거우면 3 · 4프레임마다)
-	if _fx_layer and (((not _fx.is_empty() or bfx.live()) and load_lv < 3) or Engine.get_process_frames() % 2 == 0):      # 깃발이 부대를 따라간다 (3단계부터 연출도 30Hz)
+	if _fx_layer and (gate("fx", dt, 0.0 if (not _fx.is_empty() or bfx.live()) and load_lv < 3 else 1.0 / 30.0)):      # 깃발이 부대를 따라간다 (3단계부터 연출도 30Hz)
 		_fx_layer.queue_redraw()
 		if _fx_add:
 			_fx_add.queue_redraw()
@@ -1165,7 +1178,7 @@ func _make_fig() -> Texture2D:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_DRAW and _under and (load_lv < 3 or Engine.get_process_frames() % 2 == 0):
+	if what == NOTIFICATION_DRAW and _under and (load_lv < 3 or gate("under_n", get_process_delta_time(), 1.0 / 30.0)):
 		_under.queue_redraw()      # 기술 범위가 떠 있으면 DotView 가 매 프레임 다시 그린다 (3단계부터 두 프레임에 한 번)
 
 
