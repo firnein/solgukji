@@ -659,9 +659,17 @@ func _build_title() -> void:
 	v.add_child(fill)
 	# 버튼 —— 주 버튼 하나(게임 안 주 버튼과 같은 먹금 모양, BH_L) + 보조 버튼(먹빛 바탕 + 얇은 선). 설정 · 버전은 아래 한 줄
 	var bv := UI.vbox(UI.SP_M)
+	var live := Online.live_mark()      # 11/19 끊긴 온라인 대전 —— 그 판으로 바로 돌아간다 (Online.rejoin)
+	if not live.is_empty():
+		bv.add_child(_title_btn("대전으로 돌아가기 · 방 %s" % str(live.get("room", "")), func():
+			if online == null:
+				online = Online.new()
+				online.gs = self
+				add_child(online)
+			online.rejoin(live), true))
 	if Run.has_save():
-		bv.add_child(_title_btn("이어 하기", _continue, true))
-	bv.add_child(_title_btn("새 판 시작", _confirm_new if Run.has_save() else _new_game, not Run.has_save()))      # 11/14 UI 4단계: 저장된 판이 있으면 확인부터
+		bv.add_child(_title_btn("이어 하기", _continue, live.is_empty()))
+	bv.add_child(_title_btn("새 판 시작", _confirm_new if Run.has_save() else _new_game, not Run.has_save() and live.is_empty()))      # 11/14 UI 4단계: 저장된 판이 있으면 확인부터
 	bv.add_child(_title_btn("온라인 대전", _go_online, false))
 	var low := UI.hbox(UI.SP_S)
 	var sb := UI.btn_ghost("설정", _settings_sheet, UI.BH_S)
@@ -3122,7 +3130,12 @@ func _ability_items(k: String) -> Array:
 	var out := []
 	for t in DB.trait_list(k):
 		if t.unique:
-			out.append({"kind": "고유 특기", "name": t.name, "effect": t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0), "icon": ABILITY_ICON["고유 특기"], "sub": "", "gold": true})
+			var eff: String = t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0)
+			# 11/19 장수 개성(passives.json sig) 문장을 수치 앞에 —— 표적 고르기 같은 행동은 수치가 없어 문장이 없으면 무엇을 하는지 알 수 없다
+			var sg = DB.PSV.get("sig", {}).get(DB.person(k))
+			if sg is Array and sg.size() >= 2 and str(sg[1]) != "" and not eff.contains(str(sg[1])):
+				eff = str(sg[1]) + " · " + eff
+			out.append({"kind": "고유 특기", "name": t.name, "effect": eff, "icon": ABILITY_ICON["고유 특기"], "sub": "", "gold": true})
 	if DB.AURA.has(k):
 		var kiin: bool = DB.is_kiin(k)
 		var kd := "기인" if kiin else "위세"
@@ -4838,6 +4851,17 @@ func _dev_args() -> void:
 		for key in str(a.gopen).split(","):
 			_open[key] = true
 		render()
+	if a.has("grejoin"):      # 점검용 —— 타이틀의 「대전으로 돌아가기」를 누른 것처럼 (--grejoin=기다릴 초, 11/19). 결과를 한 줄 찍는다
+		var live := Online.live_mark()
+		print("REJOIN 표시 ", live)
+		if not live.is_empty():
+			if online == null:
+				online = Online.new()
+				online.gs = self
+				add_child(online)
+			online.rejoin(live)
+			await get_tree().create_timer(float(a.grejoin)).timeout
+			print("REJOIN 결과 in_game=", online.in_game, " 방 ", online.room.get("code", ""), " 일차 ", run.day if run else -1, " 표시 남음 ", not Online.live_mark().is_empty())
 	if a.has("gonline"):
 		# 점검용 온라인 —— --gonline=ws://… --gname=이름 (--gcreate=fast|normal|test [--gmax=4|6|8] --gstart=사람수 | --gjoin=방장이름) --gauto
 		_go_online()

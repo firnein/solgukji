@@ -1382,6 +1382,29 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "�
 	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해",
 	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "차례마다 같은 열 사기(전투 전체)", "resolve": "아군이 무너지면 사기",
 	"steady": "사기 60 아래에서 한 번 사기", "ult_rally": "아군 고유기 때 아군 전원 사기"}
+## 11/19 사용자: 장수 정보창 고유 특기 설명에 개성 키가 날것으로 보였다 ("seek_low+50% · amp_low+30%") —— 장수 개성 키(sig_rt.gd KEYS)의 글.
+## [글, 꼴] 꼴: "%" 백분율 · "n" 숫자 · "" 적지 않는다(표적 고르기 · 행동 —— 특기 설명 문장이 말해 준다). 글이 "-" 로 끝나면 깎는 값
+const SIG_LABEL := {
+	"taunt": ["", ""], "seek_low": ["", ""], "seek_gen": ["", ""], "seek_back": ["", ""], "seek_cav": ["", ""], "seek_strong": ["", ""], "seek_guard": ["", ""],
+	"no_pin": ["", ""], "charge_run": ["", ""], "shove": ["", ""], "chain": ["", ""], "undying": ["", ""], "morale_floor": ["", ""], "kite": ["", ""],
+	"hit_run": ["", ""], "blink": ["", ""], "stealth": ["", ""], "ambush": ["", ""], "rear_spawn": ["", ""], "truce": ["", ""], "mark": ["", ""], "trap": ["", ""],
+	"rain": ["", ""], "confuse_aura": ["", ""], "cleanse_aura": ["", ""],
+	"amp_low": ["병력이 꺾인 적에게 피해", "%"], "amp_cav": ["기병에게 피해", "%"], "amp_strong": ["더 센 적에게 피해", "%"], "amp_gen": ["장수 부대에게 피해", "%"],
+	"amp_rear": ["옆 · 뒤에서 칠 때 피해", "%"], "amp_open": ["첫 세 번 공격 피해", "%"], "amp_same": ["같은 적을 칠수록 피해 최대", "%"],
+	"amp_still": ["제자리에서 쏠 때 피해", "%"], "amp_come": ["다가오는 적에게 피해", "%"], "amp_drown": ["수몰 · 혼란한 적에게 피해", "%"],
+	"amp_allies": ["아군이 많이 남을수록 피해 최대", "%"], "amp_early": ["개전 초반 피해", "%"], "amp_late": ["싸움이 길어질수록 피해 최대", "%"],
+	"amp_last": ["아군 셋 이하일 때 피해", "%"], "amp_behind": ["아군이 밀릴수록 피해 최대", "%"], "amp_far": ["멀리서 쏠수록 피해 최대", "%"],
+	"amp_kill": ["적을 무너뜨릴수록 피해 최대", "%"], "amp_guard": ["방진을 친 적에게 피해", "%"], "charge_amp": ["돌격 피해", "%"],
+	"dr_still": ["제자리에서 받는 피해 -", "%"], "dr_link": ["옆 창병과 붙어 서면 받는 피해 -", "%"], "dr_low": ["병력이 줄수록 받는 피해 최대 -", "%"],
+	"dr_early": ["개전 20초 동안 받는 피해 -", "%"], "dodge_big": ["큰 한 방을 피할 확률", "%"], "ult_dr": ["아군이 받는 적 고유기 피해 -", "%"],
+	"bind": ["맞힌 적을 묶을 확률", "%"], "slow_on": ["맞힌 적 속도 -", "%"], "morale_on": ["맞힌 적 사기 -", "n"], "gauge_on": ["맞힌 적 고유기 기 -", "n"],
+	"bleed_on": ["출혈을 입힐 확률", "%"], "pierce_hit": ["뒤의 적에게 꿰뚫는 피해", "%"], "throw": ["던지기 피해(공격의)", "%"],
+	"counter_all": ["붙은 적 전부에게 반격 피해", "%"], "enrage": ["크게 맞은 뒤 공격", "%"], "ult_ret": ["적 고유기 되받아치기 피해", "%"],
+	"kill_gauge": ["적을 무너뜨리면 고유기 기", "n"], "absorb": ["무너뜨린 적 병력을 거두는 몫", "%"], "ally_calm": ["주변 아군 패주 확률 -", "%"],
+	"roar": ["일갈마다 주변 적 사기 -", "n"], "cheer_aura": ["주기마다 주변 아군 사기", "n"], "spd_aura": ["주변 아군 속도", "%"], "def_aura": ["주변 아군 방어", "%"],
+	"atk_down": ["주변 적 공격 -", "%"], "cav_aura": ["아군 기병 공격", "%"], "caster_aura": ["아군 책략 부대 공격", "%"], "tier_aura": ["아군 최고 등급 부대 공격", "%"],
+	"boost_best": ["가장 강한 아군 장수 공격", "%"], "give_troops": ["꺾인 아군에게 나눠 주는 병력", "%"], "quake": ["주변 적 속도 -", "%"],
+	"gauge_aura": ["주기마다 아군 고유기 기", "n"], "frail_water": ["받는 수몰 피해", "%"]}
 const FLOW_LABEL := {"regen": "전투 동안 병력", "mregen": "전투 동안 사기", "mend": "전투 동안 치료", "cheer_hit": "전투 동안 맞힐 때 치료"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt", "rally_kill", "cheer_turn", "resolve", "steady", "ult_rally"]
 
@@ -1400,6 +1423,18 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 				"chase", "open_slow"]:      # 계열 마무리 —— 설명으로 충분
 			continue
 		if k in ["cut_def", "first_cut", "open_cut_def"] and Battle.shield_enabled and GUARD.has("shred"):      # 11/9 갑옷 · 결계 깎기 —— 수치는 엔진 등급표 (trait_list 가 shred_text 로 적는다)
+			continue
+		if SIG_LABEL.has(k):      # 11/19 장수 개성 키 —— 등급 배율 없이, 제 글로 (행동뿐인 키는 설명 문장에 맡긴다)
+			var se: Array = SIG_LABEL[k]
+			if str(se[0]) == "":
+				continue
+			var sv := float(m[k])
+			var sl: String = se[0]
+			var ssign := "" if sl.ends_with("-") else " +"
+			if str(se[1]) == "%":
+				out.append("%s%s%d%%" % [sl, ssign, roundi(sv * 100.0)])
+			else:
+				out.append("%s%s%s" % [sl, ssign, str(roundi(sv)) if is_equal_approx(sv, roundf(sv)) else "%.1f" % sv])
 			continue
 		var mv: float = maxf(float(m[k]), float(m["int"])) if k == "atk" and m.has("int") else float(m[k])
 		var v: float = mv * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)

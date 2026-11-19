@@ -108,7 +108,68 @@ func _ready() -> void:
 		net.player = "장수%d" % (randi() % 900 + 100)
 
 
+## 11/19 사용자: 온라인 대전에서 끊겼을 때 그 판으로 바로 붙는 버튼을 메인 로비에 —— 진행 중인 방(주소 · 방 코드 · 이름)을 user://net_live.json 에
+## 적어 두고(net.cfg 는 접속기가 통째로 다시 써서 따로 둔다), 타이틀이 이 표시가 있으면 「대전으로 돌아가기」 버튼을 보인다 (GameScreen._build_title).
+## 버튼은 그 주소로 붙기만 한다 —— 서버가 토큰(net.cfg)으로 자리를 찾아 진행 중인 방의 상태를 보내 준다. 판이 이미 끝났으면 표시를 지우고 방 목록으로.
+## 표시는 내가 나갔을 때 · 내 세력이 끝났을 때 지운다. 마지막 소식에서 LIVE_MAX_SEC 가 지나면 없는 것으로 본다
+const LIVE := "user://net_live.json"
+const LIVE_MAX_SEC := 3 * 3600
+var _live_code := ""
+var _live_ts := 0.0
+var _rejoin_wait := -1.0
+
+
+static func live_mark() -> Dictionary:
+	if not FileAccess.file_exists(LIVE):
+		return {}
+	var d = JSON.parse_string(FileAccess.get_file_as_string(LIVE))
+	if not (d is Dictionary) or str(d.get("url", "")) == "" or Time.get_unix_time_from_system() - float(d.get("ts", 0.0)) > LIVE_MAX_SEC:
+		return {}
+	return d
+
+
+func _live_touch() -> void:
+	var code := str(room.get("code", ""))
+	var now := Time.get_unix_time_from_system()
+	if code == "" or (code == _live_code and now - _live_ts < 60.0):
+		return
+	_live_code = code
+	_live_ts = now
+	var f := FileAccess.open(LIVE, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify({"url": net.url, "room": code, "name": net.player, "ts": now}))
+
+
+func _live_clear() -> void:
+	_live_code = ""
+	if FileAccess.file_exists(LIVE):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LIVE))
+
+
+## 타이틀의 「대전으로 돌아가기」 —— 적어 둔 주소로 붙는다. 8초 안에 판 상태가 안 오면 끝난 판으로 보고 방 목록을 연다
+func rejoin(mark: Dictionary) -> void:
+	if str(mark.get("name", "")) != "":
+		net.player = str(mark.name)
+	_leaving = false
+	_status = "대전으로 돌아가는 중…"
+	_rejoin_wait = 8.0
+	gs.toast("대전으로 돌아가는 중…", "news")
+	net.connect_to(str(mark.url))
+
+
 func _process(dt: float) -> void:
+	if _rejoin_wait > 0.0:
+		if in_game:
+			_rejoin_wait = -1.0
+		else:
+			_rejoin_wait -= dt
+			if _rejoin_wait <= 0.0:
+				_live_clear()
+				gs.toast("돌아갈 대전을 찾지 못했다 (판이 끝났거나 서버에 닿지 않는다)", "bad")
+				if gs._title != null and is_instance_valid(gs._title):      # 버튼을 걷은 타이틀로 다시
+					gs._title.queue_free()
+				gs._build_title()
+				connect_sheet(true)
 	if _retry > 0:
 		_retry -= dt
 		if _retry <= 0:
@@ -503,6 +564,7 @@ func room_max() -> int:
 
 ## 지금 방을 떠난다 (연결은 둔다) —— 서버는 leave 를 받으면 left · rooms 를 보낸다. 혼자 하던 판이 저장돼 있으면 그것으로 돌아간다 (11/9)
 func leave_room() -> void:
+	_live_clear()
 	net.send({"t": "leave"})
 	_drop_room()
 	_status = "방에서 나왔다"
@@ -558,6 +620,11 @@ func _on_msg(d: Dictionary) -> void:
 					_unpin_claimed(gs.run, r)
 				gs.run = r
 			stage_end = Room.now() + float(room.remain)
+			if bool(room.get("started", true)):      # 11/19 돌아갈 판 표시 —— 내 세력이 끝났으면 지운다
+				if gs.run != null and gs.run.over != null:
+					_live_clear()
+				else:
+					_live_touch()
 			if int(room.get("stage_no", 0)) != _stage_no:
 				_stage_len = float(room.get("stage_len", room.remain))      # 새 단계 —— 길이 (옛 서버는 필드가 없어 지금 남은 시간)
 				# 새 단계 —— 본 기록을 지운다. 전투는 battles 메시지로 따로 온다. 보는 단계가 아니면 지난 전투 줄 · 결과 칸도 걷는다
@@ -1141,6 +1208,7 @@ func _hide_lobby() -> void:
 
 
 func leave() -> void:
+	_live_clear()
 	_leaving = true
 	net.send({"t": "leave"})
 	net.close()
