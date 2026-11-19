@@ -31,14 +31,3 @@ static func version() -> String:
 static func versions() -> Array:
 	_load()
 	return _d.get("versions", [])
-
-
-## 한 버전을 bbcode 로 —— 묶음 이름은 금빛, 항목은 '·' 로 시작
-static func bb(v: Dictionary) -> String:
-	var out := ""
-	for g in v.get("groups", []):
-		out += "[color=#D9A64B]%s[/color]\n" % str(g.get("n", ""))
-		for it in g.get("items", []):
-			out += "· %s\n" % str(it)
-		out += "\n"
-	return out.strip_edges()

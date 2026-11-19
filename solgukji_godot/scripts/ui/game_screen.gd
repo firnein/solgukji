@@ -915,31 +915,76 @@ func _page_more(body: Control) -> Control:
 
 
 ## 업데이트 내역 (11/7) —— data/changelog.json 의 버전별 변경. 제목 화면에선 시트로, 게임 안에선 기록 탭 안 페이지로 같은 내용
-func _changelog_body() -> Control:
-	var v := UI.vbox(UI.SP_L)
+## 11/20 정리: 맨 위(지금) 판만 펼치고 지난 판은 한 줄(버전 · 날짜 · 제목)로 접는다 —— 누르면 그때 내용을 만든다 (판이 수십 개라 다 만들면 시트가 늦게 열렸다).
+## also = 처음부터 함께 펼칠 판 번호 (점검용 --gsheet=update:2)
+func _changelog_body(also := -1) -> Control:
+	var v := UI.vbox(UI.SP_S)
 	var vs := CHANGELOG.versions()
 	if vs.is_empty():
 		v.add_child(UI.hint("업데이트 내역이 없습니다."))
 		return v
 	for i in vs.size():
-		var ver: Dictionary = vs[i]
-		var b := UI.vbox(UI.SP_S)
-		var head := UI.hbox(UI.SP_S)
-		head.add_child(UI.lbl("v%s" % str(ver.get("ver", "?")), UI.FS_TITLE, DB.PAL.gold, true))
-		var d := UI.lbl(str(ver.get("date", "")), UI.FS_BODY, DB.PAL.text_dim)
-		d.size_flags_vertical = Control.SIZE_SHRINK_END
-		head.add_child(d)
-		if i == 0:
-			var now := UI.lbl("지금 버전", UI.FS_CAP, DB.PAL.jade)
-			now.size_flags_vertical = Control.SIZE_SHRINK_END
-			head.add_child(now)
-		b.add_child(head)
-		var t := UI.lbl(str(ver.get("title", "")), UI.FS_BODY, DB.PAL.paper)
-		UI.wrap_text(t)
-		b.add_child(t)
-		b.add_child(UI.rich(CHANGELOG.bb(ver), UI.FS_BODY))
-		v.add_child(UI.panel(b))
+		if i > 0:
+			v.add_child(UI.hair())
+		var box := UI.vbox(UI.SP_S)
+		_changelog_fill(box, vs[i], i == 0, i == 0 or i == also)
+		v.add_child(box)
 	return v
+
+
+## 한 판 —— 머리줄(버전 굵게 · 날짜 흐리게 · 제목 · 접힘 표시)을 누르면 접고 편다. 접혀 있으면 묶음 · 항목은 만들지 않는다
+func _changelog_fill(box: VBoxContainer, ver: Dictionary, now: bool, open: bool) -> void:
+	for c in box.get_children():
+		box.remove_child(c)
+		c.queue_free()
+	var P := DB.PAL
+	var head := UI.hbox(UI.SP_S)
+	head.custom_minimum_size.y = UI.BH_S
+	head.mouse_filter = Control.MOUSE_FILTER_STOP
+	head.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var vl := UI.lbl("v%s" % str(ver.get("ver", "?")), UI.FS_TITLE if now else UI.FS_LABEL, P.gold if now else P.paper, true)
+	head.add_child(vl)
+	var date := str(ver.get("date", ""))
+	head.add_child(UI.lbl(date.substr(5).replace("-", ".") if date.length() == 10 else date, UI.FS_CAP, P.text_dim))      # 2026-11-19 → 11.19 (좁은 화면에서 제목 자리를 남긴다)
+	var t := UI.lbl(str(ver.get("title", "")), UI.FS_BODY, P.paper if open else P.bamboo)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if open:
+		UI.wrap_text(t)      # 펼치면 제목을 끝까지 (여러 줄)
+	else:
+		t.clip_text = true
+		t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	head.add_child(t)
+	if now:
+		head.add_child(UI.lbl("지금", UI.FS_CAP, P.jade))
+	head.add_child(UI.lbl("▴" if open else "▾", UI.FS_BODY, P.text_dim, true))      # UI.fold 와 같은 표시: ▾ 닫힘 · ▴ 열림
+	UI.tap(head, func():
+		UI.buzz()
+		_changelog_fill(box, ver, now, not open))
+	box.add_child(head)
+	if not open:
+		return
+	var body := UI.vbox(UI.SP_M)
+	for g in ver.get("groups", []):
+		var gb := UI.vbox(UI.SP_XS)
+		gb.add_child(UI.lbl(str(g.get("n", "")), UI.FS_CAP, P.gold, true))
+		for it in g.get("items", []):
+			# 글머리 기호와 본문을 칸으로 나눈다 —— 본문이 줄바꿈돼도 둘째 줄이 기호 아래로 들어가지 않는다
+			var row := UI.hbox(UI.SP_XS)
+			var dot := UI.lbl("·", UI.FS_BODY, P.bamboo, true)
+			dot.custom_minimum_size.x = UI.SP_S
+			dot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			dot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			row.add_child(dot)
+			var l := UI.lbl(str(it), UI.FS_BODY, P.paper)
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			UI.wrap_text(l)
+			row.add_child(l)
+			gb.add_child(row)
+		body.add_child(gb)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_bottom", UI.SP_M)
+	pad.add_child(body)
+	box.add_child(pad)
 
 
 func _page_update() -> Control:
@@ -949,9 +994,9 @@ func _page_update() -> Control:
 	return v
 
 
-func _update_sheet() -> void:
+func _update_sheet(also := -1) -> void:
 	var b := open_sheet("업데이트 내역 · v%s" % CHANGELOG.version())
-	b.add_child(_changelog_body())
+	b.add_child(_changelog_body(also))
 
 
 func _render_head() -> void:
@@ -2014,10 +2059,10 @@ func recipe_sheet(out: String) -> void:
 	var ult = DB.ult_of(out) if c.tier >= 6 or DB.is_kiin(out) else null
 	var open_detail := func(): card_info(out)      # 줄을 누르면 디테일창
 	if ult != null:      # 11/9 사용자: 초상 옆 빈 공간 정리 —— 기질은 오른쪽(능력치 · 특기판 아래), 나머지는 아래 폭 전체 한 장 패널
-		var ti := _temper_item(c, ult)
-		if not ti.is_empty():
-			rv.add_child(UI.hair())
-			rv.add_child(_ability_panel([ti], 12, false, true, open_detail, false))
+		# 11/20 사용자: 갈무리창의 기질은 이름("지략")만 있어 무슨 뜻인지 알 수 없었다 —— 디테일창과 같은 설명 두 줄(차는 때 · 쓰는 때)을 붙인다
+		var tb1 := _temper_box(c, ult, 11, true)
+		if tb1 != null:
+			rv.add_child(tb1)
 	tp.add_child(rv)
 	b.add_child(tp)      # 11/20 시트와 같은 색 상자(여백 10)에 싸여 초상만 10 들여 쓴 것처럼 보였다 —— 상자를 걷어 디테일창과 같은 왼끝
 	if not chips.is_empty():
@@ -2916,23 +2961,6 @@ func can_form() -> bool:
 
 # ───────── 카드 상세 ─────────
 
-## 11/20 장수 열전 (data/bios.json list: 인물 이름 -> 한 줄 소개, 44자 이하). 없는 인물 · 병졸 카드는 빈 글
-static var _bios := {}
-static var _bios_loaded := false
-
-static func _bio(k: String) -> String:
-	if not _bios_loaded:
-		_bios_loaded = true
-		var f := FileAccess.open("res://data/bios.json", FileAccess.READ)
-		if f != null:
-			var d = JSON.parse_string(f.get_as_text())
-			if d is Dictionary:
-				_bios = d.get("list", {})
-	if not DB.C.has(k) or int(DB.C[k].tier) <= 2:
-		return ""
-	return str(_bios.get(DB.person(k), ""))
-
-
 func card_info(k: String) -> void:
 	_route_enter("card", k)
 	var c: Dictionary = DB.C[k]
@@ -2953,28 +2981,10 @@ func card_info(k: String) -> void:
 		if gt != "":
 			gh.add_child(UI.lbl(gt, UI.FS_CAP, DB.kind_col(c.tag)))
 		st.add_child(gh)
-	# 11/20 사용자: 디테일창의 특기 열고 닫기를 없애고(가진 특기만 고정), 그 자리에 장수 열전을 짧게 —— 초상 높이를 넘지 않게 두 줄까지
+	# 11/20 사용자: 디테일창의 특기 열고 닫기를 없앤다(가진 특기만 고정). 그 자리에 넣었던 장수 열전은 같은 날 사용자 뜻으로 다시 뺐다
 	var tbd := TraitBoard.new()
 	tbd.fixed = true
 	st.add_child(tbd.setup(k))
-	var bio := _bio(k)
-	if bio != "":
-		var bl := UI.lbl(bio, UI.FS_CAP, DB.PAL.bamboo)
-		UI.wrap_text(bl)
-		# 특기가 두 줄이고 아래에 기질 띠까지 오는 카드는 한 줄만 (초상 높이를 넘지 않게)
-		var bio_lines := 1 if tbd.custom_minimum_size.y > 20.0 and (c.tier >= 6 or DB.is_kiin(k)) else 2
-		bl.max_lines_visible = bio_lines
-		if bio_lines == 1:
-			# 11/20 한 줄뿐이면 둘째 문장 가운데서 「관도에서 …」로 끊겼다 —— 첫 문장까지만 보인다 (첫 문장도 길면 그때만 …)
-			var cut := bio.find(". ")
-			if cut > 0:
-				bl.text = bio.substr(0, cut + 1)
-			bl.autowrap_mode = TextServer.AUTOWRAP_OFF
-			bl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			bl.clip_text = true
-			bl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bl.custom_minimum_size.y = (UI.FS_CAP + 5.0) * bio_lines      # 줄 자리를 잡아 둔다 (줄바꿈 글은 폭이 정해지기 전 높이가 0 이라 안 보였다)
-		st.add_child(bl)
 	# 11/9 사용자: 초상 옆 빈 공간 정리 —— 오른쪽에는 능력치 · 특기판 · 기질 띠(좁은 모양)를 쌓고, 고유 특기 · 위세 · 패업 · 고유기는 아래 폭 전체 카드 격자로
 	var ult0 = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if ult0 != null:
@@ -3000,7 +3010,7 @@ func card_info(k: String) -> void:
 			pr.add_child(fbn)
 		b.add_child(pr)
 	var ab := UI.vbox(UI.SP_S)
-	_ability_rows(ab, k, 12, false, false, [], true)
+	_ability_cards(ab, k)      # 11/20 능력 카드 (고유기가 주인공 · 수치 칩) —— 예전 줄 모양은 _ability_rows
 	b.add_child(ab)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
 	b.add_child(folds)
@@ -3017,15 +3027,12 @@ func card_info(k: String) -> void:
 			sk_items.append(UI.rich("[color=#A89574]%s[/color]" % DB.SK_SHARE_NOTE, UI.FS_CAP))
 		folds.add_child(_fold_sec("card_skills", "기술 %d" % (c.get("sks", []).size() + (1 if mk != "" else 0)), _kv_stack(sk_items)))
 	var tl := DB.trait_list(k)
-	if not tl.is_empty():
-		# 왼쪽 칸 = 특기 이름+레벨, 오른쪽 = 설명(—— 에서 줄바꿈)과 그 아래 수치. 오른쪽 칸 왼끝이 맞는다
-		var tg := _info_grid()
-		for t in tl.filter(func(x): return not x.unique):
-			var body := "[color=#C6AC7C]%s[/color]%s" % [(t.d as String).replace(" —— ", "\n"), ("\n[color=#8FD4C2]%s[/color]" % t.mt) if t.mt != "" else ""]
-			_info_row(tg, "[b]%s[/b][color=#D9A64B]%d[/color]%s" % [t.name, t.lv, "\n[color=#A89574]단체[/color]" if t.group else ""], body)
+	var tn := tl.filter(func(x): return not x.unique)      # 고유 특기는 위 능력 카드에
+	if not tn.is_empty():
+		# 11/20 사용자: "특기 아이콘화" —— 글 줄 나열 대신 계열 기호 칸 격자 + 고른 특기 설명 한 칸 (_trait_icons)
 		var tv := UI.vbox(UI.SP_S)      # 11/9 사용자: 특기 펼치기 버튼 제거 —— 늘 펼쳐 둔다
-		tv.add_child(UI.eyebrow("특기 %d" % tl.filter(func(x): return not x.unique).size()))
-		tv.add_child(tg)
+		tv.add_child(UI.eyebrow("특기 %d" % tn.size()))
+		tv.add_child(_trait_icons(tn))
 		var tm := MarginContainer.new()
 		tm.add_theme_constant_override("margin_top", 8)
 		tm.add_theme_constant_override("margin_left", 0)      # 11/20 머리말 왼끝을 다른 묶음(기술 · 선호 대열 · 장수 조합법)과 맞춘다 (4 → 0)
@@ -3062,8 +3069,7 @@ func card_info(k: String) -> void:
 	var ts := by_t.keys()
 	ts.sort()
 	if DB.is_kiin(k):
-		up_sec.add_child(UI.eyebrow("기인"))
-		up_sec.add_child(UI.hint("같은 기인은 한 판에 한 장. 다른 기인은 여러 장 둘 수 있다. 다른 조합의 재료로 쓰이지 않는다."))
+		pass      # 11/20 사용자: 기인 안내 칸("같은 기인은 한 판에 한 장 …")은 뺀다
 	elif own.is_empty() and ts.is_empty() and c.tier >= 3:
 		up_sec.add_child(UI.eyebrow("최종 단계"))
 		up_sec.add_child(UI.hint("이 장수는 더 올라가는 길이 없고 다른 조합의 재료로도 쓰이지 않는다 — 완성형."))
@@ -3505,6 +3511,378 @@ func _ability_row(it: Dictionary, fs: int, narrow: bool, simple: bool, on_tap: C
 	h.add_child(rv)
 	m.add_child(h)
 	return m
+
+
+# ───────── 11/20 디테일창 능력 카드 · 특기 아이콘 ─────────
+## 사용자: "왜 맨날 UI가 나열식이야" —— 같은 정보를 위계와 덩어리로. 고유기가 주인공(계열 색 띠 카드 · 큰 숫자 하나 · 꼬리표),
+## 고유 특기 · 위세(기인) · 패업은 왼쪽 색 띠 카드(이름 + 개성 문장 + 2단 수치 칩), 인연도 같은 카드 틀.
+## 수치는 문장을 다시 쪼개지 않고 원천의 구조(DB.ult_parts · trait_list 의 ml · DB.aura_list)에서 받는다.
+## 갈무리창 · 전투장수창 · 보급 팝업은 예전 줄 모양(_ability_rows) 그대로
+
+## 고유기 계열(ultimates.json vfx) → 카드 색 · 바탕 기호
+const ULT_COL := {"firestorm": Color("#F08A3C"), "thunder": Color("#6FA8F0"), "poison": Color("#8CC455"), "heal": Color("#5FC9A8"),
+	"shadow": Color("#A183E0"), "illusion": Color("#D08AE0"), "aura": Color("#E3B454"), "charge": Color("#E8694F"), "slash": Color("#E06A5A"),
+	"arrowstorm": Color("#D8C078"), "roar": Color("#F0A848"), "whirlwind": Color("#5EC4CC")}
+const ULT_ICON := {"firestorm": "flame", "heal": "heart", "charge": "blade", "slash": "blade", "arrowstorm": "target", "aura": "banner",
+	"illusion": "swirl", "whirlwind": "swirl"}
+const ABIL_VAL := Color("#8FD4C2")      # 수치 글자 (_hl 과 같은 옥색)
+const ABIL_NUM := UI.FS_HEAD + 6        # 고유기의 큰 숫자 —— 이 패널에서 하나뿐인 큰 글자
+
+
+func _ability_cards(into: Container, k: String) -> void:
+	var c: Dictionary = DB.C[k]
+	var P := DB.PAL
+	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	if u != null:
+		into.add_child(_ult_card(k, u))
+	var lead: bool = u == null      # 고유기가 없는 등급(3~5급)은 고유 특기가 주인공
+	for t in DB.trait_list(k):
+		if not t.unique:
+			continue
+		var chips: Array = (t.ml as Array).map(DB.mod_chip)
+		var d0: String = (t.d as String).get_slice(" —— ", 0)
+		var sg = DB.PSV.get("sig", {}).get(DB.person(k))      # 장수 개성 문장 (passives.json sig) —— 없으면 특기 설명
+		var line := str(sg[1]) if sg is Array and sg.size() >= 2 else ""
+		if line == "":
+			line = d0
+		elif chips.is_empty() and not d0.contains(line):
+			line += " · " + d0
+		into.add_child(_abil_card("고유 특기", str(t.name), line, chips, P.gold, lead))
+		lead = false
+	if DB.AURA.has(k):
+		var al := DB.aura_list(k)
+		var chips := []
+		for g in al.groups:
+			for e in g.items:
+				chips.append([e[1], "%s %s" % [g.who, e[0]]])
+		into.add_child(_abil_card("기인" if DB.is_kiin(k) else "위세", str(DB.AURA[k].n), str(al.text), chips, DB.tier_color(k)))
+		if DB.AURA[k].has("paeup"):      # 패업 —— 조건 · 효과 글 (판정은 Battle._paeup_setup)
+			var pa: Dictionary = DB.AURA[k].paeup
+			var pc := []
+			if str(pa.cond) != "none":
+				var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
+				pc.append(["%d명 이상" % int(pa.need), "아군에 %s (자신 외)" % cw])
+			into.add_child(_abil_card("패업", str(pa.n), str(pa.get("d", "")), pc, P.bamboo))
+	var iy := _inyeon_item(k)
+	if not iy.is_empty():      # 인연 —— 칩 줄 + 구성원 타일은 그대로, 틀만 같은 카드
+		var me: String = DB.person(k)
+		var ic := AbilCard.new(P.yeon)
+		ic.add_child(InyeonUI.detail_row(iy.inyeon, _inyeon_ctx(k), 12, false, func(card: String):
+			if DB.person(card) != me:
+				card_info(card)))
+		into.add_child(ic)
+
+
+## 고유기 카드 —— 머리(고유기 · N초부터) · 이름(제목 글꼴) · 외침 | 큰 숫자 + 그 글, 아래 꼬리표 줄 (범위 · 상태 · 나머지 수치 · 상한)
+func _ult_card(k: String, u: Dictionary) -> Control:
+	var P := DB.PAL
+	var vfx := str(u.get("vfx", ""))
+	var col: Color = ULT_COL.get(vfx, DB.tier_color(k))
+	var parts := DB.ult_parts(u, int(DB.C[k].tier))
+	var card := AbilCard.new(col, true, str(ULT_ICON.get(vfx, "burst")))
+	var v := UI.vbox(6)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var top := UI.hbox(UI.SP_S)
+	var left := UI.vbox(0)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_child(_abil_tag("고유기", col.lightened(0.3), "%d초부터" % roundi(u.wait)))
+	var nl := UI.lbl(str(u.name), UI.FS_TITLE, P.paper, true)
+	UI.wrap_text(nl)
+	left.add_child(nl)
+	if str(u.get("shout", "")) != "":
+		var sl := UI.lbl("“%s”" % str(u.shout), UI.FS_CAP, P.text_dim)
+		UI.wrap_text(sl)
+		left.add_child(sl)
+	top.add_child(left)
+	if not parts.hero.is_empty():
+		var hv := UI.vbox(-5)
+		hv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var a := UI.lbl(str(parts.hero.v), ABIL_NUM, col.lightened(0.45), true)
+		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		var b := UI.lbl(str(parts.hero.l), UI.FS_CAP, P.bamboo)
+		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		hv.add_child(a)
+		hv.add_child(b)
+		top.add_child(hv)
+	v.add_child(top)
+	if not parts.chips.is_empty():
+		var f := UI.flow(6)
+		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for ch in parts.chips:
+			f.add_child(_tag_chip(ch, col))
+		v.add_child(f)
+	card.add_child(v)
+	return card
+
+
+## 능력 카드 (고유 특기 · 위세 · 기인 · 패업) —— 이름 + 개성 문장 + 오른쪽 끝 종류 꼬리표, 아래 수치 칩 줄. chips: [[값, 글] …] (값이 "" 면 글 칩).
+## lead = 이 장수의 주인공 카드 (고유기가 없을 때의 고유 특기) —— 이름을 제목 크기로, 바탕에 그라데이션
+func _abil_card(kind: String, name: String, line: String, chips: Array, col: Color, lead := false) -> Control:
+	var P := DB.PAL
+	var card := AbilCard.new(col, lead, str(ABILITY_ICON.get(kind, "")))
+	var v := UI.vbox(6)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var hd := UI.hbox(UI.SP_S)
+	var nl := UI.lbl(name, UI.FS_TITLE if lead else UI.FS_LABEL, P.gold if kind == "고유 특기" else P.paper, true)
+	nl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	hd.add_child(nl)
+	var below: bool = line.length() > 34      # 긴 글(패업 설명)은 이름 아래 온 폭으로
+	var ll: RichTextLabel = null
+	if line != "":
+		ll = UI.rich(_hl(line), UI.FS_CAP)
+		ll.add_theme_color_override("default_color", P.bamboo)
+		ll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UI.wrap_text(ll)
+	if ll != null and not below:
+		var lm := MarginContainer.new()      # 이름(큰 글자)과 첫 줄 밑선을 맞춘다
+		lm.add_theme_constant_override("margin_top", 6 if lead else 3)
+		lm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lm.add_child(ll)
+		hd.add_child(lm)
+	else:
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hd.add_child(sp)
+	hd.add_child(_abil_tag(kind, P.text_dim))
+	v.add_child(hd)
+	if ll != null and below:
+		v.add_child(ll)
+	if not chips.is_empty():
+		var f := UI.flow(6)
+		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for ch in chips:
+			f.add_child(_stat_chip(str(ch[0]), str(ch[1]), chips.size() > 1))
+		v.add_child(f)
+	card.add_child(v)
+	return card
+
+
+## 종류 꼬리표 —— 기호 + "고유 특기" (+ 옅은 덧말 "13초부터")
+func _abil_tag(kind: String, col: Color, sub := "") -> Control:
+	var h := UI.hbox(UI.SP_XS)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var ic := Icons.View.new(str(ABILITY_ICON.get(kind, "pick")), col, 12)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	h.add_child(UI.lbl(kind, UI.FS_CAP, col))
+	if sub != "":
+		h.add_child(UI.lbl("· " + sub, UI.FS_CAP, DB.PAL.text_dim))
+	return h
+
+
+## 2단 수치 칩 —— 큰 값("+21%") 아래 작은 글("거는 상태이상 세기"). 줄을 고르게 채운다 (한 줄 2~3개, 넘치면 다음 줄). 값이 없으면 글만
+func _stat_chip(val: String, label: String, fill := true) -> Control:
+	var P := DB.PAL
+	var pc := PanelContainer.new()
+	var sb := UI.flat(Color(P.ink, 0.55), Color(0, 0, 0, 0), 0, UI.R, 0)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 4
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if fill:      # 혼자인 칩은 제 폭만 (온 폭으로 늘어나면 칩이 아니라 줄처럼 보인다)
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		pc.custom_minimum_size.x = 96
+	if val == "":
+		var tl := UI.lbl(label, UI.FS_CAP, P.paper)
+		tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		pc.add_child(tl)
+		return pc
+	var v := UI.vbox(-3)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(UI.lbl(val, UI.FS_TITLE, ABIL_VAL, true))
+	v.add_child(UI.lbl(label, UI.FS_CAP, P.text_dim))
+	pc.add_child(v)
+	return pc
+
+
+## 고유기 꼬리표 —— 한 줄 칩. 범위(과녁 기호) · 상태(계열 색 면) · 수치(글 + 옥색 값) · 상한(옅게)
+func _tag_chip(ch: Dictionary, col: Color) -> Control:
+	var P := DB.PAL
+	var kind := str(ch.get("k", ""))
+	var st: bool = kind == "st"
+	var pc := PanelContainer.new()
+	var sb := UI.flat(Color(col, 0.22) if st else Color(P.ink, 0.55), Color(col, 0.55) if st else Color(0, 0, 0, 0), 1 if st else 0, UI.R, 0)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := UI.hbox(UI.SP_XS)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if kind == "tgt":
+		var ic := Icons.View.new("target", P.bamboo, 11)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ic)
+	h.add_child(UI.lbl(str(ch.l), UI.FS_CAP, P.paper if st or kind == "tgt" else (P.text_dim if kind == "cap" else P.bamboo)))
+	if str(ch.get("v", "")) != "":
+		h.add_child(UI.lbl(str(ch.v), UI.FS_CAP, P.text_dim if kind == "cap" else ABIL_VAL, true))
+	pc.add_child(h)
+	return pc
+
+
+## 능력 카드 틀 —— 옅은 먹 바탕 + 왼쪽 색 띠. big(주인공 카드)이면 색 그라데이션 · 옅은 빗금 · 오른쪽에 큰 기호를 깐다
+class AbilCard extends PanelContainer:
+	var col := Color.WHITE
+	var big := false
+	var icon := ""
+
+	func _init(c: Color, b := false, ic := "") -> void:
+		col = c
+		big = b
+		icon = ic
+		var sb := StyleBoxEmpty.new()
+		sb.content_margin_left = 14
+		sb.content_margin_right = 12
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 9 if b else 8
+		add_theme_stylebox_override("panel", sb)
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		clip_contents = true
+
+	func _draw() -> void:
+		var P := DB.PAL
+		var r := Rect2(Vector2.ZERO, size)
+		draw_style_box(UI.flat(Color(P.ink3, 0.7), Color(0, 0, 0, 0), 0, UI.R, 0), r)
+		if big:
+			var c0 := Color(col, 0.30)
+			var c1 := Color(col, 0.03)
+			draw_polygon(PackedVector2Array([Vector2(1, 1), Vector2(size.x - 1, 1), Vector2(size.x - 1, size.y - 1), Vector2(1, size.y - 1)]),
+				PackedColorArray([c0, c1, c1, c0]))
+			var x := size.x * 0.45      # 오른쪽 절반에 옅은 빗금
+			while x < size.x + size.y:
+				draw_line(Vector2(x, 0), Vector2(x - size.y, size.y), Color(col, 0.05), 1.0)
+				x += 9.0
+			if icon != "":
+				Icons.draw(self, icon, Vector2(size.x - 34, size.y - 26), minf(size.y * 0.8, 92.0), Color(col, 0.06))      # 오른쪽 아래로 반쯤 잘린 큰 기호
+			draw_style_box(UI.flat(Color(0, 0, 0, 0), Color(col, 0.5), 1, UI.R, 0), r)
+		draw_rect(Rect2(0, 0, 3, size.y), col if big else Color(col, 0.85))
+
+
+## 11/20 사용자: "특기 아이콘화" —— 특기 글 목록(특기 수만큼 세로 줄) 대신 아이콘 칸 격자 + 고른 특기 설명 한 칸. 처음에는 첫 특기
+func _trait_icons(tl: Array) -> Control:
+	var P := DB.PAL
+	var v := UI.vbox(UI.SP_S)
+	var grid := TraitIcons.new(tl)
+	v.add_child(grid)
+	var box := PanelContainer.new()
+	box.add_theme_stylebox_override("panel", UI.flat(Color(P.ink3, 0.55), Color(0, 0, 0, 0), 0, UI.R, 10))
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	box.custom_minimum_size.y = 70      # 설명 두 줄 높이 —— 칸을 바꿔 눌러도 아래가 덜 출렁인다
+	v.add_child(box)
+	var pick := func(i: int):
+		for ch in box.get_children():
+			box.remove_child(ch)
+			ch.queue_free()
+		var t: Dictionary = tl[i]
+		var cat := TraitIcons.cat_of(t)
+		var col: Color = (DB.TRAIT_COL.get(cat, DB.TRAIT_COL[""]) as Color).lightened(0.35)
+		var bv := UI.vbox(3)
+		var hd := UI.hbox(UI.SP_XS)
+		hd.add_child(UI.lbl(str(t.name), UI.FS_LABEL, P.paper, true))
+		hd.add_child(UI.lbl(str(t.lv), UI.FS_LABEL, P.gold, true))
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hd.add_child(sp)
+		var cn: String = TraitIcons.NAME.get(cat, "")
+		if t.group and cat != "단체":
+			cn = (cn + " · " if cn != "" else "") + "단체"
+		if cn != "":
+			var cl := UI.lbl(cn, UI.FS_CAP, col)
+			cl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			hd.add_child(cl)
+		bv.add_child(hd)
+		var d := UI.rich(str(t.d).replace(" —— ", "\n"), UI.FS_CAP)
+		d.add_theme_color_override("default_color", P.bamboo)
+		UI.wrap_text(d)
+		bv.add_child(d)
+		if str(t.mt) != "":
+			var mv := UI.rich(_hl(str(t.mt)), UI.FS_CAP)
+			mv.add_theme_color_override("default_color", P.text_dim)
+			UI.wrap_text(mv)
+			bv.add_child(mv)
+		box.add_child(bv)
+	grid.on_pick = pick
+	pick.call(0)
+	return v
+
+
+## 특기 아이콘 격자 —— 칸 = 계열 색 원(단체는 네모 테) 안에 계열 기호, 오른쪽 아래 레벨, 아래 이름. 칸을 누르면 on_pick(i)
+class TraitIcons extends Control:
+	const ICON := {"물리": "blade", "책략": "news", "도트": "flame", "공깎": "blade_down", "책략깎": "scroll_down", "방깎": "shield_crack",
+		"둔화": "hourglass", "혼란": "swirl", "사기": "banner", "철벽": "shield", "인덕": "heart", "": "pick", "단체": "group"}
+	const NAME := {"물리": "물리 피해", "책략": "책략 피해", "도트": "지속 피해", "공깎": "공격 깎기", "책략깎": "책략 깎기", "방깎": "방어 깎기",
+		"둔화": "둔화", "혼란": "혼란", "사기": "사기", "철벽": "철벽", "인덕": "인덕", "": "", "단체": "단체"}
+	const COLS := 6
+	const CH := 60.0       # 칸 높이
+	const GAP := 4.0
+	const DIA := 34.0      # 기호 원 지름
+
+	var items: Array = []
+	var sel := 0
+	var on_pick := Callable()
+	var _pr := Press.new()
+
+	func _init(its: Array) -> void:
+		items = its
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		var rows := ceili(items.size() / float(COLS))
+		custom_minimum_size = Vector2(0, rows * CH + maxi(0, rows - 1) * GAP)
+
+	## 칸의 계열 —— 계열 없는 단체 특기는 "단체"
+	static func cat_of(t: Dictionary) -> String:
+		return "단체" if str(t.attr) == "" and t.group else str(t.attr)
+
+	func _cell(i: int) -> Rect2:
+		var cw := (size.x - GAP * (COLS - 1)) / COLS
+		return Rect2((cw + GAP) * (i % COLS), (CH + GAP) * (i / COLS), cw, CH)
+
+	func _gui_input(e: InputEvent) -> void:
+		if _pr.feed(self, e) != Press.TAP:
+			return
+		for i in items.size():
+			if _cell(i).has_point((e as InputEventMouseButton).position):
+				if i != sel:
+					sel = i
+					UI.buzz()
+					queue_redraw()
+					if on_pick.is_valid():
+						on_pick.call(i)
+				accept_event()
+				return
+
+	func _draw() -> void:
+		var P := DB.PAL
+		var fb := DB.font_body
+		for i in items.size():
+			var t: Dictionary = items[i]
+			var r := _cell(i)
+			var on: bool = i == sel
+			var col: Color = DB.TRAIT_COL.get(cat_of(t), DB.TRAIT_COL[""])
+			if on:
+				draw_style_box(UI.flat(Color(P.ink4, 0.9), Color(col.lightened(0.3), 0.9), 1, UI.R, 0), r)
+			var c := Vector2(r.position.x + r.size.x * 0.5, r.position.y + 5 + DIA * 0.5)
+			if t.group:      # 단체 —— 네모 테 (개인은 원)
+				draw_style_box(UI.flat(Color(col, 0.30), col.lightened(0.15), 2, UI.R, 0), Rect2(c - Vector2(DIA, DIA) * 0.5, Vector2(DIA, DIA)))
+			else:
+				draw_circle(c, DIA * 0.5, Color(col, 0.30))
+				draw_arc(c, DIA * 0.5, 0, TAU, 40, col.lightened(0.15), 1.5, true)
+			Icons.draw(self, str(ICON.get(cat_of(t), "pick")), c, 20.0, col.lightened(0.55))
+			var bc := c + Vector2(DIA * 0.5 - 3, DIA * 0.5 - 4)      # 레벨 —— 오른쪽 아래 먹색 원 안 금 숫자
+			draw_circle(bc, 7.5, P.ink)
+			draw_arc(bc, 7.5, 0, TAU, 20, Color(P.gold, 0.7), 1.0, true)
+			var lv := str(t.lv)
+			var lw := DB.font_bold.get_string_size(lv, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY).x
+			draw_string(DB.font_bold, bc + Vector2(-lw * 0.5, UI.FS_TINY * 0.36), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY, P.gold)
+			var nm := str(t.name)
+			var f := UI.fit_fs(fb, nm, UI.FS_CAP - 1, 8, r.size.x - 2)
+			draw_string(fb, Vector2(r.position.x, r.position.y + CH - 5), nm, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, f, P.paper if on else P.bamboo)
 
 
 static var _hl_re: RegEx
@@ -4016,19 +4394,22 @@ func _page_war() -> Control:
 		# 11/4 사용자: 토벌 · 대전을 한 줄에, 설명 글은 빼고, 남는 공간에 지금 배치된 진영을 그린다
 		# 11/7 사용자: '목요일 오전' 글은 머리띠에 이미 있어 뺀다. 큰 두 줄 버튼(UI.act 64) 은 한 줄(46)로, 끝난 것은 완료 표시만 작게
 		# 11/14 UI 다듬기 2단계 (감사 #1): 출진은 화면에 하나뿐인 큰 주 버튼(BH_L), 험지는 그 아래 켜고 끄는 줄(보조 모양). 끝난 전투는 작은 완료 표시
+		# 11/20 사용자: 토벌 완료 · 출진 대전을 한 줄에 —— 끝난 것(왼쪽 작은 '✓ 토벌') · 잠긴 것(오른쪽 작은 '② 대전')은 글자 폭만, 출진 버튼이 남은 폭
+		var dr := UI.hbox(UI.SP_S)
 		if run.quest_done:
-			var dr := UI.hbox(UI.SP_S)
-			dr.add_child(_war_btn("① 토벌", "", true, false, func(): pass, ""))
 			if run.pvp_done:
+				dr.add_child(_war_btn("① 토벌", "", true, false, func(): pass, ""))
 				dr.add_child(_war_btn("② 대전", "", true, false, func(): pass, ""))
+			else:
+				dr.add_child(_war_btn("① 토벌", "", true, false, func(): pass, "", false))
+				dr.add_child(_war_cta("출진  ·  대전", "임의 세력과 맞붙는다", placed == 0, func(): _start("pvp")))
 			v.add_child(dr)
-			if not run.pvp_done:
-				v.add_child(_war_cta("출진  ·  대전", "임의 세력과 맞붙는다", placed == 0, func(): _start("pvp")))
 		else:
-			v.add_child(_war_cta("출진  ·  토벌", run.quest_name() + ("  ·  험지" if run.quest_hard else ""), placed == 0, func(): _start("quest")))
+			dr.add_child(_war_cta("출진  ·  토벌", run.quest_name() + ("  ·  험지" if run.quest_hard else ""), placed == 0, func(): _start("quest")))
+			dr.add_child(_war_btn("② 대전", "토벌 뒤 열림", false, true, func(): pass, "", false))
+			v.add_child(dr)
 			if run.quest_open():
 				v.add_child(quest_hard_btn())
-			v.add_child(_war_btn("② 대전", "토벌을 마치면 열린다", false, true, func(): pass, ""))
 		if not run.quest_done:      # 11/8 토벌 우두머리 성질 · 11/15 군략 계획 —— 그날 아침부터 미리 보인다
 			v.add_child(boss_panel())
 		# 11/3 기인 점복 관로 —— 편성에 있으면 이번 토벌의 적 편성을 미리 본다
@@ -4172,12 +4553,14 @@ func quest_hard_btn() -> Control:
 
 
 ## 끝난 전투 · 잠긴 전투 표시 (11/7 사용자) —— 끝났으면 작은 '✓ 토벌 완료'(누를 수 없다), 잠겼으면 흐린 작은 줄
-func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callable, kind: String) -> Button:
+## 11/20 사용자: 출진 버튼과 한 줄 —— fill 이 false 면 글자 폭만 차지하는 작은 표시(끝남 '✓ 토벌' · 잠김 '② 대전' + 작은 설명 두 줄), 버튼과 세로 가운데
+func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callable, kind: String, fill := true) -> Control:
 	var P := DB.PAL
 	if done:
-		var d := UI.btn("✓ %s 완료" % title.substr(2), func(): pass, "", UI.BH_S)
+		var d := UI.btn("✓ %s 완료" % title.substr(2) if fill else "✓ %s" % title.substr(2), func(): pass, "", UI.BH_S)
 		d.disabled = true
-		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		d.size_flags_horizontal = Control.SIZE_EXPAND_FILL if fill else Control.SIZE_SHRINK_BEGIN
+		d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		d.add_theme_font_size_override("font_size", UI.FS_BODY)
 		d.add_theme_color_override("font_disabled_color", Color(P.jade, 0.9))
 		d.add_theme_stylebox_override("disabled", UI.flat(Color(P.jade, 0.08), Color(P.jade, 0.4), 1, UI.R, 0))
@@ -4185,6 +4568,29 @@ func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callab
 		sb.content_margin_left = 12
 		sb.content_margin_right = 12
 		return d
+	if disabled and not fill:
+		var pc := PanelContainer.new()
+		var psb := UI.flat(Color(P.ink2, 0.45), Color(P.paper, 0.1), 1, UI.R, 0)
+		psb.content_margin_left = 12
+		psb.content_margin_right = 12
+		psb.content_margin_top = 4
+		psb.content_margin_bottom = 4
+		pc.add_theme_stylebox_override("panel", psb)
+		pc.custom_minimum_size.y = UI.BH_S
+		pc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var lv := UI.vbox(0)
+		lv.alignment = BoxContainer.ALIGNMENT_CENTER
+		lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for pair in [[title, UI.FS_BODY], [sub, UI.FS_TINY]]:
+			if pair[0] == "":
+				continue
+			var ll := UI.lbl(pair[0], pair[1], P.text_dim)
+			ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			ll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			lv.add_child(ll)
+		pc.add_child(lv)
+		return pc
 	var b := UI.btn("%s  —  %s" % [title, sub] if sub != "" else title, cb, kind, UI.BH_S)
 	b.disabled = disabled
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -5157,6 +5563,7 @@ func _dev_args() -> void:
 			"item": _item_sheet(kv[1])
 			"slot": deploy.slot_sheet(int(kv[1]))
 			"menu": _menu()
+			"update": _update_sheet(int(kv[1]) if kv.size() > 1 else -1)      # 11/20 업데이트 내역 시트 (--gsheet=update:2 = 앞에서 셋째 판도 펼친 채)
 			"uniq": _unique_sheet()
 			"shop": _shop_sheet()      # 11/13 군량 상점 (--ggrain=40 과 함께)
 			"tacoffer": TacUI.offer_sheet(self, kv[1] if kv.size() > 1 else "")      # 11/15 군략 3택1 (--gsheet=tacoffer:카드 = 고른 채로)

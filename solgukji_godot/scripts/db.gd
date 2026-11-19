@@ -1313,16 +1313,19 @@ func trait_list(k: String) -> Array:
 		return []
 	var by := {}
 	for t in ps.traits:
-		var tmt := mods_text(t.m, 1.0, C[k].tier, C[k].spd)
+		# 11/20 수치를 구조(ml: mods_list 항목 배열)로도 싣는다 —— mt 는 그것을 이어 붙인 문장 (디테일창 수치 칩)
+		var tml := mods_list(t.m, 1.0, C[k].tier, C[k].spd)
 		var st := shred_text(k, t.name, t.m)
 		if st != "":
-			tmt = (tmt + " · " if tmt != "" else "") + st
-		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": turn_text(t.d, C[k].tier, C[k].spd), "mt": tmt}
+			tml.append(mod_split(st))
+		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": turn_text(t.d, C[k].tier, C[k].spd), "mt": " · ".join(tml.map(mod_str)), "ml": tml}
 	for g in ps.groups:
-		var gmt := mods_text(PSV.traits[g.name].m, g.scale, C[k].tier, C[k].spd)
+		var gml := mods_list(PSV.traits[g.name].m, g.scale, C[k].tier, C[k].spd)
 		if by.has(g.name) and by[g.name].mt != "":      # 금색 —— 주인 장치 수치도 함께
-			gmt = (gmt + " · " if gmt != "" else "") + "자신 " + by[g.name].mt
-		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": turn_text(g.d, C[k].tier, C[k].spd), "mt": gmt}
+			var own: Array = by[g.name].ml
+			for oi in own.size():      # 문장은 예전처럼 "자신 " 을 한 번만 (첫 항목 앞)
+				gml.append([("자신 " if oi == 0 else "") + str(own[oi][0]), own[oi][1], own[oi][2]])
+		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": turn_text(g.d, C[k].tier, C[k].spd), "mt": " · ".join(gml.map(mod_str)), "ml": gml}
 	var out := []
 	for e in PSV.ladder[person(k)]:
 		if by.has(e[0]):
@@ -1421,12 +1424,22 @@ const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt", "rally_
 const MOD_PER_ACT := ["mend", "cheer_hit"]
 
 
-## 수치 요약 —— "치명타 확률 +14% · 치명타 피해 +69%"
+## 수치 요약 —— "치명타 확률 +14% · 치명타 피해 +69%" (mods_list 를 이어 붙인다 —— 문장과 칩이 같은 계산을 쓴다)
 func mods_text(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> String:
+	return " · ".join(mods_list(m, scale, tier, spd).map(mod_str))
+
+
+## mods_list 한 항목 → 문장 조각
+func mod_str(e: Array) -> String:
+	return str(e[0]) + str(e[1]) + ((" (%s)" % e[2]) if str(e[2]) != "" else "")
+
+
+## 11/20 수치를 구조로 —— [글, 값, 덧말] 배열 (문장 = 글 + 값 + " (덧말)"). 디테일창 능력 카드의 수치 칩이 쓴다 (mod_chip). 값이 없는 항목은 글만
+func mods_list(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> Array:
 	var out := []
 	for k in m:
 		if k == "first":
-			out.append("개전 직후 바로 행동")
+			out.append(["개전 직후 바로 행동", "", ""])
 			continue
 		if k == "int" and m.has("atk"):      # 11/11 사용자: 공격 · 책략이 합쳐진 뒤(11/6 #15) '공격+5% · 공격+5%' 로 두 번 적혔다 —— 한 번만 (큰 값)
 			continue
@@ -1444,38 +1457,65 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> String:
 			var sl: String = se[0]
 			var ssign := "" if sl.ends_with("-") else " +"
 			if str(se[1]) == "%":
-				out.append("%s%s%d%%" % [sl, ssign, roundi(sv * 100.0)])
+				out.append([sl + ssign.left(1), "%s%d%%" % [ssign.substr(1), roundi(sv * 100.0)], ""])
 			else:
-				out.append("%s%s%s" % [sl, ssign, str(roundi(sv)) if is_equal_approx(sv, roundf(sv)) else "%.1f" % sv])
+				out.append([sl + ssign.left(1), ssign.substr(1) + (str(roundi(sv)) if is_equal_approx(sv, roundf(sv)) else "%.1f" % sv), ""])
 			continue
 		var mv: float = maxf(float(m[k]), float(m["int"])) if k == "atk" and m.has("int") else float(m[k])
 		var v: float = mv * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
 		if k == "terror":      # 11/19 불타는 적은 정산 한 번(Battle.tick_status)마다 사기가 깎인다 —— '화상마다 −0.4' 는 무엇마다인지 알 수 없었다
-			out.append("%s%.1f (%s마다)" % [lb, v * Battle.pace_for(tier), sec_text(1, tier)])
+			out.append([lb, "%.1f" % (v * Battle.pace_for(tier)), sec_text(1, tier) + "마다"])
 			continue
 		if k == "cheer_turn":      # 11/19 독전 —— 행동할 때마다 주변 아군 사기 + (Battle._turn_start: 값 / 턴 배율). 날값(8)을 '전투 동안 +8' 이라 적고 있었다 —— 한 번에 오르는 값과 간격으로
-			out.append("%s +%.1f (%s마다)" % [lb, v / Battle.turn_mul_for(tier), sec_str(act_sec(tier, spd))])
+			out.append([lb + " ", "+%.1f" % (v / Battle.turn_mul_for(tier)), sec_str(act_sec(tier, spd)) + "마다"])
 			continue
 		if k == "rate":      # 11/19 사용자: "충전 1.1 이런 것도 모호하다" —— 행동마다 기술 준비가 이만큼 더 찬다. 그 등급 기본값(D.RATE) 대비 빨라지는 비율로
 			var rb := float(D.RATE.get(str(int(tier)), 0.0))
-			out.append("%s+%.0f%%" % [lb, (v / rb if rb > 0.0 else v) * 100])
+			out.append([lb, "+%.0f%%" % ((v / rb if rb > 0.0 else v) * 100), ""])
 			continue
 		if k in ["regen", "mregen", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 11/3: 턴 하나로는 0.0 처럼 보여 '전투 동안' 합으로 적는다 (보통 길이 전투)
 			v *= Battle.pace_for(tier) * (acts_for(tier, spd) if k in MOD_PER_ACT else RtBattle.turns_for(tier))      # 11/19 인술 · 위무는 행동마다 (acts_for), 회복 · 사기 회복은 정산마다
 			var pct: bool = k in ["regen", "mend", "cheer_hit"]
-			out.append(("%s%s%.0f%%" if pct else "%s%s%.0f") % [FLOW_LABEL.get(k, lb), sign, v * 100 if pct else v])
+			out.append([FLOW_LABEL.get(k, lb), sign + (("%.0f%%" % (v * 100)) if pct else ("%.0f" % v)), ""])
 			continue
 		if k == "burn_dur":      # 11/14 화상 지속 —— 턴 대신 초
-			out.append("%s +%s" % [lb, sec_text(v, tier)])
+			out.append([lb + " ", "+" + sec_text(v, tier), ""])
 		elif k in MOD_FLAT:
-			out.append("%s%s%.0f" % [lb, sign, v])
+			out.append([lb, sign + ("%.0f" % v), ""])
 		elif absf(v * 100) < 5.0 and absf(v * 100 - roundf(v * 100)) >= 0.05:      # 11/13 작은 % 는 한 자리까지 —— 정수로 반올림하면 레벨이 올라도 '+1% · +1%' 로 같아 보였다
-			out.append("%s%s%.1f%%" % [lb, sign, v * 100])
+			out.append([lb, sign + ("%.1f%%" % (v * 100)), ""])
 		else:
-			out.append("%s%s%.0f%%" % [lb, sign, v * 100])
-	return " · ".join(out)
+			out.append([lb, sign + ("%.0f%%" % (v * 100)), ""])
+	return out
+
+
+## 수치 칩용 —— mods_list 항목을 [값, 글] 로. "받는 피해 -" + "30%" → ["−30%", "받는 피해"], 값이 없으면 ["", 글]
+func mod_chip(e: Array) -> Array:
+	var lb := str(e[0]).strip_edges()
+	var v := str(e[1])
+	if v == "":
+		return ["", lb]
+	if lb.ends_with("-") or lb.ends_with("−"):
+		lb = lb.left(lb.length() - 1).strip_edges()
+		v = "−" + v.trim_prefix("+")
+	elif lb.contains(" −(내 공격의)"):
+		lb = lb.replace(" −(내 공격의)", "") + " (내 공격의)"
+		v = "−" + v.trim_prefix("+")
+	if str(e[2]) != "":
+		lb += " · " + str(e[2])
+	return [v, lb]
+
+
+## "첫 공격 적 갑옷 −30%p" 같은 완성 문장 조각을 [글, 값, ""] 로 —— 마지막 낱말이 수치일 때만 (아니면 글만)
+func mod_split(s: String) -> Array:
+	var i := s.rfind(" ")
+	if i > 0:
+		var tail := s.substr(i + 1)
+		if tail.length() > 0 and (tail[0] in "+-−" or tail[0].is_valid_int()):
+			return [s.substr(0, i + 1), tail, ""]
+	return [s, "", ""]
 
 
 ## 11/14 전투가 실시간이라 화면에는 '턴' 대신 초로 —— 턴 수 × 그 등급 한 턴 길이(RtBattle.turn_sec), 0.5초 단위 (최소 0.5). 수치 · 판정은 그대로
@@ -1746,6 +1786,95 @@ func ult_of(k: String):
 				comp.mult = snappedf(float(comp.mult) * f, 0.01)
 	u.wait = ult_wait(k, u)
 	return u
+
+
+## 11/20 고유기 효과를 구조로 —— 디테일창 고유기 카드: 큰 숫자 하나(hero {v, l}) + 꼬리표(chips [{l, v, k}], k: "tgt" 범위 · "st" 상태 · "cap" 상한 · "" 수치).
+## 수치 계산은 UI.ult_desc 와 같다 (타격 = 배율 × 그 등급 turn_mul, 회복 · 사기 = × Battle.burst). 큰 숫자는 첫 효과의 대표 값 (타격 > 회복 > 버프 > 사기)
+func ult_parts(u: Dictionary, tier := 0) -> Dictionary:
+	var tm := Battle.turn_mul_for(tier) if tier > 0 else 1.0
+	var cap := float(Battle.ult_cap.get(clampi(tier, 6, 8), 0.0)) if tier > 0 else 0.0
+	var rows := []      # 효과마다 {t, tgt, items: [[글, 값, 종류]]}
+	for comp in u.eff:
+		var t := str(comp.get("t", ""))
+		var items := []
+		match t:
+			"hit":
+				items.append(["피해", "%d%%" % roundi(float(comp.mult) * tm * 100), ""])
+				if comp.has("exec"):
+					items.append(["병력 %d%% 이하 즉사" % roundi(float(comp.exec) * 100), "", "st"])
+				if comp.has("morale"):
+					items.append(["사기", "−%d" % roundi(float(comp.morale) * Battle.burst()), ""])
+				if comp.has("status"):
+					items.append([str(D.STATUS.get(comp.status.k, {}).get("n", comp.status.k)), "", "st"])
+			"ally":
+				if comp.has("heal"):
+					items.append(["병력 회복", "+%s%%" % str(snappedf(float(comp.heal) * Battle.burst() * 100, 0.1)).trim_suffix(".0"), ""])
+				if comp.has("buff"):
+					items.append([str(D.STATNM.get(comp.buff.stat, comp.buff.stat)), ("%+d%%" % roundi(float(comp.buff.amt) * 100)).replace("-", "−"), ""])
+				if comp.has("morale"):
+					items.append(["사기", "+%d" % roundi(float(comp.morale) * Battle.burst()), ""])
+				if comp.has("cleanse"):
+					items.append(["상태 해제", "", "st"])
+			"foe":
+				if comp.has("buff"):
+					items.append([str(D.STATNM.get(comp.buff.stat, comp.buff.stat)), ("%+d%%" % roundi(float(comp.buff.amt) * 100)).replace("-", "−"), ""])
+				if comp.has("morale"):
+					items.append(["사기", "−%d" % roundi(float(comp.morale) * Battle.burst()), ""])
+				if comp.has("status"):
+					items.append([str(D.STATUS.get(comp.status.k, {}).get("n", comp.status.k)), "", "st"])
+		if not items.is_empty():
+			rows.append({"t": t, "tgt": str(comp.get("tgt", "")), "items": items})
+	var out := {"hero": {}, "chips": []}
+	if rows.is_empty():
+		return out
+	var hi := 0      # 큰 숫자를 낼 효과 —— 값이 있는 첫 효과
+	for i in rows.size():
+		if rows[i].items.any(func(e): return str(e[1]) != ""):
+			hi = i
+			break
+	var h0: Dictionary = rows[hi]
+	var ally0: bool = h0.t == "ally"
+	var side0 := ("자신" if h0.tgt == "self" else "아군") if ally0 else "적"
+	for i in rows.size():
+		var r: Dictionary = rows[i]
+		var same: bool = r.tgt == h0.tgt and (r.t == "ally") == ally0
+		var who := ""
+		if i == hi:
+			out.chips.append({"l": _ult_tgt(r.t, r.tgt), "v": "", "k": "tgt"})
+		elif same:
+			who = side0
+		else:
+			who = _ult_tgt(r.t, r.tgt)
+		for e in r.items:
+			if i == hi and out.hero.is_empty() and str(e[1]) != "":
+				out.hero = {"v": e[1], "l": e[0] if r.t == "hit" else side0 + " " + str(e[0])}
+				continue
+			var lb: String = (who + " " + str(e[0])) if who != "" else str(e[0])
+			if not out.hero.is_empty() and str(e[1]) != "" and str(e[2]) == "" and str(out.hero.v) == str(e[1]) and same and r.t != "hit" and h0.t != "hit":
+				if not str(out.hero.l).contains(str(e[0])):      # 같은 대상 · 같은 값의 버프는 큰 숫자 글에 합친다 ("아군 공격 · 책략")
+					out.hero.l = str(out.hero.l) + " · " + str(e[0])
+				continue
+			var dup := false
+			for c in out.chips:
+				if str(c.l) == lb and str(c.v) == str(e[1]):
+					dup = true
+				elif str(c.k) == "" and str(e[2]) == "" and str(e[1]) != "" and str(c.v) == str(e[1]) and str(c.get("w", "")) == who and who != "" and not str(e[0]) in ["피해", "사기"] and not str(c.l).ends_with("피해") and not str(c.l).ends_with("사기"):
+					c.l = str(c.l) + " · " + str(e[0])      # "적 공격 −20%" + "적 방어 −20%" → "적 공격 · 방어 −20%"
+					dup = true
+				if dup:
+					break
+			if not dup:
+				out.chips.append({"l": lb, "v": e[1], "k": e[2], "w": who})
+	if cap > 0.0 and rows.any(func(r): return r.t == "hit"):      # 한 방 상한 —— 맨 끝에 옅게 (한 부대가 이 고유기에 잃는 병력은 최대 병력의 이만큼까지)
+		out.chips.append({"l": "한 부대 피해 상한", "v": "병력의 %d%%" % roundi(cap * 100), "k": "cap"})
+	return out
+
+
+## 고유기 꼬리표의 대상 글 —— '적 전체' 는 전장 전체가 아니라 노리는 적 둘레 (UI.ult_desc 와 같은 규칙)
+func _ult_tgt(t: String, tgt: String) -> String:
+	if tgt == "all" and t != "ally":
+		return "적 둘레 전체"
+	return tgt_name(tgt)
 
 
 ## 고유기 대기 시간 (11/4 사용자: 병종이 아니라 장수마다) —— 전투 시작 뒤 이 초가 지나야 쓴다.
@@ -2387,16 +2516,28 @@ func aura_text(k: String) -> String:
 
 
 func aura_effect(k: String) -> String:
+	var al := aura_list(k)
+	var parts := []
+	for g in al.groups:
+		parts.append(str(g.who) + " " + " · ".join(g.items.map(func(e): return "%s %s" % [e[0], e[1]])))
+	if str(al.text) != "":
+		parts.append(al.text)
+	return " / ".join(parts)
+
+
+## 11/20 위세 효과를 구조로 —— {groups: [{who: "아군", items: [[글, 값] …]}, {who: "적", …}], text: 기인 기능 설명("" 이면 없음)}.
+## aura_effect 가 이것을 이어 붙인다 (디테일창 능력 카드의 수치 칩과 문장이 같은 계산)
+func aura_list(k: String) -> Dictionary:
+	var out := {"groups": [], "text": ""}
 	if not AURA.has(k):
-		return ""
+		return out
 	var a: Dictionary = AURA[k]
 	var who: String = AURA_TO.get(a.get("to", "all"), "아군")
 	if a.get("to", "") == "tag" or (not a.has("to") and a.has("tag")):
 		who = "아군 " + a.tag
-	var parts := []
 	var mine := []
 	for st in a.get("ally", {}):
-		mine.append(_pct(D.STATNM.get(st, st), a.ally[st]))
+		mine.append(_pct2(D.STATNM.get(st, st), a.ally[st]))
 	for mk in a.get("m", {}):
 		if mk in AURA_HIDE:
 			continue
@@ -2409,25 +2550,30 @@ func aura_effect(k: String) -> String:
 		elif mk == "rate" and float(D.RATE.get(str(int(at)), 0.0)) > 0.0:
 			v /= float(D.RATE[str(int(at))])
 		if mk in ["dr", "idr"]:
-			mine.append(_pct(d[0], -v))
+			mine.append(_pct2(d[0], -v))
 		elif d[1]:
-			mine.append(_pct(d[0], v))
+			mine.append(_pct2(d[0], v))
 		else:
-			mine.append("%s +%s" % [d[0], str(snappedf(v, 0.1))])
+			mine.append([d[0], "+%s" % str(snappedf(v, 0.1))])
 	if not mine.is_empty():
-		parts.append(who + " " + " · ".join(mine))
+		out.groups.append({"who": who, "items": mine})
 	var theirs := []
 	for st in a.get("foe", {}):
-		theirs.append(_pct(D.STATNM.get(st, st), a.foe[st]))
+		theirs.append(_pct2(D.STATNM.get(st, st), a.foe[st]))
 	if not theirs.is_empty():
 		var ft: String = a.get("foe_to", "all")
 		var fw: String = ("적 " + ft.substr(4)) if ft.begins_with("tag:") else AURA_FOE.get(ft, "적")
-		parts.append(fw + " " + " · ".join(theirs))
+		out.groups.append({"who": fw, "items": theirs})
 	if a.has("kiin"):
-		parts.append(kiin_text(a.kiin))
-	return " / ".join(parts)
+		out.text = kiin_text(a.kiin)
+	return out
 
 
 func _pct(name: String, v: float) -> String:
 	return "%s %s%d%%" % [name, "+" if v > 0 else "−", roundi(absf(v) * 100)]
+
+
+## _pct 의 구조판 —— [글, 값]
+func _pct2(name: String, v: float) -> Array:
+	return [name, "%s%d%%" % ["+" if v > 0 else "−", roundi(absf(v) * 100)]]
 

@@ -5,6 +5,8 @@ extends Control
 ## 11/7 사용자: 군단 효과(진형 · 단체 특기 · 위세 · 기인)는 이 그림 안에 그리지 않는다 —— 효과가 많은 덱(11줄)에서 표가 그림을 다 먹어
 ##   메달 줄이 서로 겹쳤고, RichTextLabel [table] 은 오른쪽이 잘렸다. 대신 effects_box() 가 칩 흐름(HFlowContainer, 접으면 몇 개만 + '+N')
 ##   · 펼치면 컨테이너 2열 표를 만들어 전투 탭이 그림 위에 따로 놓는다. 어떤 덱이든 줄바꿈될 뿐 무너지지 않는다.
+## 11/20 사용자: 메달에 작은 배지로 —— 글 목록이 아니라 효과를 내는 장수의 메달 오른쪽 아래에 종류 배지만 (medal_marks · Medals._badge).
+##   배지는 effects_box 와 같은 effect_rows() 에서 뽑는다 (표의 왼쪽 칸에 이름이 나오는 장수 = 배지가 붙는 장수)
 
 const COLS := 5      # 11/6 진형 4행 5열
 const FX_SHOW := 6   # 접었을 때 보이는 효과 칩 수 (540 폭에서 두 줄쯤)
@@ -78,12 +80,48 @@ func _ready() -> void:
 # ───────── 군단 효과 (11/7) ─────────
 
 ## 진영이 받는 효과 줄 —— 단체 특기 · 위세 · 기인 (team_buffs 순서). 11/9 진형 우대 줄은 삭제 (form_key 는 호출 모양을 지키려 남김)
-## [{kind, name, text(자세히), brief(칩 한 토막), who, k(부여 장수), col}]
+## [{kind, name, text(자세히), brief(칩 한 토막), who, k(부여 장수), ks(who 에 이름이 나오는 장수들), col}]
 static func effect_rows(board: Array, _form_key: String) -> Array:
 	var rows := []
 	for b in team_buffs(board):
-		rows.append({"kind": b.kind, "name": b.name, "text": b.text, "brief": _brief(b.text), "who": b.who, "k": b.k, "col": DB.tier_color(b.k)})
+		rows.append({"kind": b.kind, "name": b.name, "text": b.text, "brief": _brief(b.text), "who": b.who, "k": b.k, "ks": b.ks, "col": DB.tier_color(b.k)})
 	return rows
+
+
+## 효과 종류의 배지 [기호, 색] (11/20) —— 단체 특기 · 적에게 거는 특기 · 위세 · 기인 (team_buffs 의 kind)
+## 군단 효과 종류의 표시 —— [기호(Icons), 색]. 11/20 사용자 "단적위기가 뭐야?": 한 글자(단 · 적 · 위 · 기)는 뜻을 알 수 없었다 →
+## 기호로 바꾸고, 아래 군단 효과 칩 · 표의 같은 효과 앞에도 같은 기호를 붙여 메달 배지와 짝이 보이게 한다
+## 단체 특기 = 고리(같은 특기를 가진 장수끼리 묶여 군 전체에) · 적에게 = 과녁(적 군단을 깎는 효과) · 위세 = 왕관(신화 장수의 군 전체 효과) · 기인 = 깃발
+static func kind_mark(kind: String) -> Array:
+	match kind:
+		"기인":
+			return ["banner", DB.KIIN_COL]
+		"위세":
+			return ["crown", DB.PAL.gold]
+		"적에게":
+			return ["target", DB.PAL.seal]
+	return ["link", DB.TRAIT_COL["단체"]]
+
+
+## 종류 기호 동그라미 —— 메달 배지 · 칩 · 표 줄이 같은 모양을 쓴다
+static func draw_kind(ci: CanvasItem, kind: String, c: Vector2, r: float) -> void:
+	var km := kind_mark(kind)
+	var col: Color = km[1]
+	ci.draw_circle(c, r + 1.5, Color(0, 0, 0, 0.85))
+	ci.draw_circle(c, r, col)
+	var tc: Color = DB.PAL.ink if col.get_luminance() > 0.4 else DB.PAL.paper
+	Icons.draw(ci, str(km[0]), c, r * 1.55, tc)
+
+
+## 메달 배지 (11/20 사용자) —— 카드 id -> 그 장수가 내는 군단 효과의 종류들 (effect_rows 순서 = 상자의 칩 · 표 순서). 효과가 없는 장수는 없다
+static func medal_marks(board: Array, form_key: String) -> Dictionary:
+	var out := {}
+	for r in effect_rows(board, form_key):
+		for k in r.ks:
+			if not out.has(k):
+				out[k] = []
+			out[k].append(r.kind)
+	return out
 
 
 ## 칩에 넣을 한 토막 —— 첫 항목만 ("아군 방어 +5% / 병력 70% 아래 …" → "아군 방어 +5%")
@@ -167,6 +205,12 @@ static func _chip(r: Dictionary, on_card: Callable) -> Button:
 	b.add_theme_stylebox_override("hover", UI.flat(P.ink4, Color(0, 0, 0, 0), 0, UI.R, 0))
 	b.add_theme_stylebox_override("pressed", UI.flat(P.ink4, P.gold, 1, UI.R, 0))
 	_pad(b, 10, 3)
+	# 11/20 칩 앞에 종류 기호 —— 메달 배지와 같은 모양이라 어느 메달의 효과인지 짝이 보인다
+	for st in ["normal", "hover", "pressed"]:
+		(b.get_theme_stylebox(st) as StyleBoxFlat).content_margin_left = 26
+	b.custom_minimum_size.x = minf(tw + 38.0, 246.0)
+	var kind: String = r.kind
+	b.draw.connect(func(): FormationView.draw_kind(b, kind, Vector2(13, b.size.y * 0.5), 7.0))
 	var k: String = r.k
 	b.pressed.connect(func():
 		if k != "" and on_card.is_valid():
@@ -179,6 +223,12 @@ static func _chip(r: Dictionary, on_card: Callable) -> Button:
 static func _row(r: Dictionary, on_card: Callable) -> Control:
 	var col: Color = r.col
 	var h := UI.hbox(0)
+	var mark := Control.new()      # 11/20 줄 앞에 종류 기호 (메달 배지와 같은 모양)
+	mark.custom_minimum_size = Vector2(22, 22)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var kind: String = r.kind
+	mark.draw.connect(func(): FormationView.draw_kind(mark, kind, Vector2(10, mark.size.y * 0.5), 7.0))
+	h.add_child(mark)
 	var left := PanelContainer.new()
 	left.custom_minimum_size.x = 118
 	left.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
@@ -194,7 +244,7 @@ static func _row(r: Dictionary, on_card: Callable) -> Control:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0))
 	_pad(right, 6, 6)
-	var bb := "[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [r.name, r.text, "" if r.kind == "단체" else " [color=#A89574](%s)[/color]" % r.kind]
+	var bb := "[color=#E8D9B5]『%s』[/color] [color=#8FD4C2]%s[/color]%s" % [r.name, r.text, " [color=#A89574](%s)[/color]" % ("단체 특기" if r.kind == "단체" else r.kind)]      # 11/20 기호 뜻을 표에서 읽을 수 있게 단체도 종류를 적는다
 	var txt := UI.rich(bb, UI.FS_CAP)
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	right.add_child(txt)
@@ -244,16 +294,19 @@ static func team_buffs(board: Array) -> Array:
 		l.sort_custom(func(a, b): return a[0] > b[0])
 		var total: float = l[0][0] + (l[1][0] * 0.5 if l.size() > 1 else 0.0)
 		var who := []
+		var gks := []            # who 에 이름이 나오는 장수 id (11/20 메달 배지가 같은 장수에 붙는다)
 		for e in l.slice(0, 2):
 			who.append(DB.person(e[1]) if DB.C[e[1]].tier > 2 else DB.C[e[1]].name)
+			if not gks.has(e[1]):
+				gks.append(e[1])
 		var k0: String = l[0][1]
 		var txt := DB.mods_text(DB.group_def(nm).m, total, DB.C[l[0][1]].tier, DB.C[l[0][1]].spd)      # 11/19 행동마다 일어나는 효과는 그 장수 속도로 (DB.act_sec)
 		if txt == "":
 			txt = DB.turn_text(str(DB.group_def(nm).get("d", "")), DB.C[l[0][1]].tier, DB.C[l[0][1]].spd).get_slice(" —— ", 0)
-		out.append({"kind": "적에게" if DB.group_def(nm).get("scope", "") == "foe" else "단체", "name": nm, "text": txt, "who": " · ".join(who), "col": DB.TRAIT_COL["단체"], "k": k0})
+		out.append({"kind": "적에게" if DB.group_def(nm).get("scope", "") == "foe" else "단체", "name": nm, "text": txt, "who": " · ".join(who), "col": DB.TRAIT_COL["단체"], "k": k0, "ks": gks})
 	for k in ks:
 		if DB.AURA.has(k):
-			out.append({"kind": "기인" if DB.is_kiin(k) else "위세", "name": DB.AURA[k].n, "text": DB.aura_effect(k), "who": DB.person(k), "col": DB.tier_color(k), "k": k})
+			out.append({"kind": "기인" if DB.is_kiin(k) else "위세", "name": DB.AURA[k].n, "text": DB.aura_effect(k), "who": DB.person(k), "col": DB.tier_color(k), "k": k, "ks": [k]})
 	return out
 
 
@@ -349,6 +402,7 @@ class Medals extends Control:
 	var fv: FormationView
 
 	func _draw() -> void:
+		var marks := FormationView.medal_marks(fv.cards, fv.form)
 		for e in fv.layout():
 			var c: Vector2 = e[0]
 			var k: String = e[1]
@@ -359,7 +413,25 @@ class Medals extends Control:
 			draw_circle(mc, r + 2.0, DB.tier_color(k))
 			draw_circle(mc, r + 0.6, Color("#4f8be0"))
 			Art.draw_face_circle(self, mc, r, k)
+			_badges(mc, r, marks.get(k, []))
 			var nm: String = DB.person(k) if DB.C[k].tier > 2 else DB.C[k].name
 			var f: Font = DB.font_bold
 			draw_string_outline(f, Vector2(mc.x - 60, mc.y + r + 17), nm, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, 4, Color(0, 0, 0, 0.8))
 			draw_string(f, Vector2(mc.x - 60, mc.y + r + 17), nm, HORIZONTAL_ALIGNMENT_CENTER, 120, 13, DB.tier_color(k).lightened(0.3))
+
+	## 군단 효과 배지 (11/20 사용자) —— 메달 테 위 오른쪽 아래에서 위로 (45° 간격). 둘까지 + 나머지는 '+n'. 지름은 메달의 1/3 안팎, 어두운 테
+	func _badges(mc: Vector2, r: float, kinds: Array) -> void:
+		if kinds.is_empty():
+			return
+		var br := clampf(r * 0.34, 7.0, 11.0)
+		var n := mini(kinds.size(), 2)
+		var f: Font = DB.font_bold
+		for i in n + (1 if kinds.size() > n else 0):
+			var c := mc + Vector2.from_angle(deg_to_rad(45.0 - 45.0 * i)) * (r + 1.0)
+			if i < n:      # 11/20 한 글자(단 · 적 · 위 · 기) → 기호 (아래 군단 효과 칩 · 표와 같은 기호)
+				FormationView.draw_kind(self, str(kinds[i]), c, br)
+				continue
+			var fs := roundi(br * 1.1)
+			draw_circle(c, br + 1.5, Color(0, 0, 0, 0.85))
+			draw_circle(c, br, DB.PAL.ink3)
+			draw_string(f, Vector2(c.x - br - 4.0, c.y + fs * 0.36), "+%d" % (kinds.size() - n), HORIZONTAL_ALIGNMENT_CENTER, br * 2.0 + 8.0, fs, DB.PAL.paper)

@@ -134,6 +134,42 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 			ci.draw_polyline(PackedVector2Array([c + Vector2(0, -9) * u, c + Vector2(5, -3) * u, c + Vector2(7, 3) * u, c + Vector2(4, 8) * u,
 				c + Vector2(0, 9) * u, c + Vector2(-4, 8) * u, c + Vector2(-7, 3) * u, c + Vector2(-5, -3) * u, c + Vector2(-2, -1) * u, c + Vector2(0, -9) * u]), col, w)
 			ci.draw_arc(c + Vector2(0, 4) * u, 3 * u, PI * 0.1, PI * 0.9, 8, col, w * 0.8)
+		# 11/20 특기 계열 기호 (디테일창 특기 아이콘 칸) —— 깎기는 본 기호(칼 · 두루마리) 옆에 아래 화살, 방깎은 금 간 방패
+		"blade_down":      # 공깎 —— 작은 칼 + 아래 화살
+			ci.draw_line(c + Vector2(-6, 2) * u, c + Vector2(3, -8) * u, col, w * 1.3)
+			ci.draw_line(c + Vector2(-9, -2) * u, c + Vector2(-3, 4) * u, col, w)
+			ci.draw_line(c + Vector2(-7, 4) * u, c + Vector2(-9.5, 7) * u, col, w * 1.1)
+			ci.draw_line(c + Vector2(6, -1) * u, c + Vector2(6, 9) * u, col, w)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(2, 5) * u, c + Vector2(6, 9.5) * u, c + Vector2(10, 5) * u]), col, w)
+		"scroll_down":     # 책략깎 —— 작은 두루마리 + 아래 화살
+			ci.draw_rect(Rect2(c + Vector2(-9, -8) * u, Vector2(10, 14) * u), col, false, w)
+			for sy in [-4.0, -1.0, 2.0]:
+				ci.draw_line(c + Vector2(-6.5, sy) * u, c + Vector2(-1.5, sy) * u, col, w * 0.6)
+			ci.draw_line(c + Vector2(6, -1) * u, c + Vector2(6, 9) * u, col, w)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(2, 5) * u, c + Vector2(6, 9.5) * u, c + Vector2(10, 5) * u]), col, w)
+		"shield_crack":    # 방깎 —— 방패에 지그재그 금
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-8, -7) * u, c + Vector2(8, -7) * u, c + Vector2(8, 0) * u, c + Vector2(0, 9) * u,
+				c + Vector2(-8, 0) * u, c + Vector2(-8, -7) * u]), col, w)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(1.5, -7) * u, c + Vector2(-2, -2) * u, c + Vector2(2, 0.5) * u, c + Vector2(-1, 5) * u]), col, w * 0.8)
+		"hourglass":       # 둔화 —— 모래시계
+			ci.draw_line(c + Vector2(-6.5, -9) * u, c + Vector2(6.5, -9) * u, col, w)
+			ci.draw_line(c + Vector2(-6.5, 9) * u, c + Vector2(6.5, 9) * u, col, w)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-5, -9) * u, c + Vector2(-5, -5) * u, c + Vector2(0, 0) * u, c + Vector2(5, -5) * u, c + Vector2(5, -9) * u]), col, w * 0.9)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-5, 9) * u, c + Vector2(-5, 5) * u, c + Vector2(0, 0) * u, c + Vector2(5, 5) * u, c + Vector2(5, 9) * u]), col, w * 0.9)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-3.4, 8) * u, c + Vector2(0, 4.4) * u, c + Vector2(3.4, 8) * u]), col)
+		"swirl":           # 혼란 —— 소용돌이
+			var sw := PackedVector2Array()
+			for i in 34:
+				var sa := i * 0.42
+				sw.append(c + Vector2.from_angle(sa - PI * 0.5) * (1.0 + i * 0.27) * u)
+			ci.draw_polyline(sw, col, w)
+		"group":           # 단체 —— 세 사람 (머리 셋 · 어깨선)
+			ci.draw_arc(c + Vector2(0, -4.5) * u, 3.2 * u, 0, TAU, 14, col, w)
+			ci.draw_arc(c + Vector2(0, 8.5) * u, 6.0 * u, PI * 1.08, PI * 1.92, 12, col, w)
+			ci.draw_arc(c + Vector2(-7.5, -1.5) * u, 2.4 * u, 0, TAU, 12, col, w * 0.8)
+			ci.draw_arc(c + Vector2(7.5, -1.5) * u, 2.4 * u, 0, TAU, 12, col, w * 0.8)
+			ci.draw_arc(c + Vector2(-8.5, 8.5) * u, 4.4 * u, PI * 1.1, PI * 1.62, 8, col, w * 0.8)
+			ci.draw_arc(c + Vector2(8.5, 8.5) * u, 4.4 * u, PI * 1.38, PI * 1.9, 8, col, w * 0.8)
 		"zz":        # 잠(대기) —— 큰 Z 와 오른쪽 위 작은 z (11/12 온라인 상태 아이콘)
 			for z in [[Vector2(-3, 3), 6.0], [Vector2(6, -6), 3.6]]:
 				var o: Vector2 = c + z[0] * u
