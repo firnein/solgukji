@@ -1328,6 +1328,29 @@ func on_say(peer: int, i: int) -> void:
 
 ## 한마디 이모티콘 (11/10 사용자) —— 번호(0 ~ EMOTE_N-1)만 받는다. 간격은 글과 같이 쓴다. 방의 모두에게 {"t":"emote","who","i"}.
 ## 옛 클라이언트는 모르는 종류라 그냥 무시한다. 기록(RoomLog)에는 한마디를 남기지 않으므로 이모티콘도 남기지 않는다
+## 11/19 전투 프레임 실측 기록 —— 클라이언트가 보낸 요약을 그 자리 기록에 ev "perf" 로. 숫자 · 짧은 글만 받는다 (판 진행과 무관)
+func on_perf(peer: int, d: Dictionary) -> void:
+	var i := seat_of(peer)
+	if i < 0 or rlog == null:
+		return
+	var out := {}
+	for k in ["n", "avg", "max", "s25", "s50", "lv", "lv_max", "units", "q"]:
+		if d.has(k) and (d[k] is float or d[k] is int):
+			out[k] = d[k]
+	for k in ["os", "dev", "gpu", "ver"]:
+		if d.has(k):
+			out[k] = str(d[k]).left(48)
+	if d.get("win") is Array and (d.win as Array).size() == 2:
+		out["win"] = [int(d.win[0]), int(d.win[1])]
+	if d.get("top") is Array:
+		var top := []
+		for e in (d.top as Array).slice(0, 6):
+			if e is Array and e.size() == 2:
+				top.append([str(e[0]).left(24), float(e[1])])
+		out["top"] = top
+	rlog.put(i, seats[i].run, "perf", out)
+
+
 func on_emote(peer: int, i: int) -> void:
 	if seat_of(peer) < 0 or i < 0 or i >= EMOTE_N:
 		return

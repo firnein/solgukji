@@ -225,6 +225,9 @@ static func spoil_bb(sp) -> String:
 	var lt := str(sp.get("loot", ""))      # 11/19 토벌 전리품 장비
 	if lt != "" and DB.IT.has(lt):
 		s += " · [color=%s]%s[/color]" % [str(DB.D.IGRADE.get(DB.IT[lt].grade, "#ffffff")), DB.IT[lt].name]
+	var sg := int(sp.get("streak_g", 0))      # 11/19 연승 · 연패 보너스
+	if sg > 0:
+		s += " · [color=#%s]%s 군량 +%d[/color]" % [DB.PAL.gold.to_html(false), Run.streak_text(int(sp.get("streak", 0))), sg]
 	if bool(sp.get("held", false)):      # 11/12 온라인 —— 전투 보상은 다음 아침(1페이즈)에 지급
 		s += " · 아침에 지급"
 	return s

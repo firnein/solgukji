@@ -95,6 +95,32 @@ var last_spoil = null         # {n, src} —— 방금 받은 기본패
 var tour = null               # 옛 최종 토너먼트 —— 11/12 최후 1인 규칙으로 없어졌다. 옛 저장 · 점검 코드가 읽어도 깨지지 않게 늘 null
 var my_w := 0
 var my_l := 0
+## 11/19 사용자: 연승 · 연패 보너스 —— 대전을 잇달아 이기거나 지면 군량을 더 받는다 (이기는 쪽은 기세, 지는 쪽은 추스를 밑천).
+## streak: 양수 = 연승 수, 음수 = 연패 수, 무승부면 0. 보너스는 STREAK_GRAIN[연속 수] (2연 +1 · 3연 +2 · 4연 이상 +3) —— 온라인은 다른 보상처럼 다음 아침에 지급
+var streak := 0
+const STREAK_GRAIN := {2: 1, 3: 2, 4: 3}
+
+
+static func streak_grain(n: int) -> int:
+	n = absi(n)
+	if n < 2:
+		return 0
+	return int(STREAK_GRAIN.get(mini(n, 4), 0))
+
+
+## 대전 한 판의 승패를 연속 기록에 넣고 보너스 군량을 돌려준다 (0 이면 없음)
+func streak_push(won: bool, draw: bool) -> int:
+	if draw:
+		streak = 0
+	elif won:
+		streak = streak + 1 if streak > 0 else 1
+	else:
+		streak = streak - 1 if streak < 0 else -1
+	return streak_grain(streak)
+
+
+static func streak_text(n: int) -> String:
+	return ("%d연승" % n) if n > 0 else ("%d연패" % -n)
 var news := []                # [{who, unit, id?, when?}] —— id = 소식 번호(안 읽은 소식 뱃지가 비교, 11/10) · when = "3일차 오전" 같은 시점. 옛 저장에는 없다
 var news_seq := 0             # 소식 번호를 매기는 카운터 (솔로 · 판마다 0 에서)
 var bots := []
@@ -1793,6 +1819,7 @@ func finish_battle(res: Dictionary) -> void:
 	var inv0 := inv.duplicate()
 	var tk0 := tickets.duplicate()
 	var bag0 := bag.duplicate()
+	var kind0 := str(battle.kind)
 	_finish_battle(res)
 	var h_inv: Dictionary = held.get("inv", {})
 	var h_tk: Dictionary = held.get("tickets", {})
@@ -1821,7 +1848,12 @@ func finish_battle(res: Dictionary) -> void:
 				bag[k] = int(bag0[k])
 			else:
 				bag.erase(k)
-	held = {"inv": h_inv, "tickets": h_tk, "bag": h_bag}
+	var h_grain := int(held.get("grain", 0))      # 11/19 연승 · 연패 보너스 군량도 아침에 (결과가 미리 새지 않게)
+	if kind0 == "pvp" and last_spoil != null and int(last_spoil.get("streak_g", 0)) > 0:
+		var sg := int(last_spoil.streak_g)
+		grain -= sg
+		h_grain += sg
+	held = {"inv": h_inv, "tickets": h_tk, "bag": h_bag, "grain": h_grain}
 	if last_spoil != null:
 		last_spoil["held"] = true      # 결과 줄에 '아침 지급'
 
@@ -1842,9 +1874,12 @@ func grant_held() -> void:
 	for k in held.get("bag", {}):
 		bag[str(k)] = int(bag.get(str(k), 0)) + int(held.bag[k])
 		it += int(held.bag[k])
+	var hg := int(held.get("grain", 0))
+	grain += hg
 	held = {}
-	if n + t + it > 0:
-		toasts.append(["지난 전투 보상 —— 장수 %d장%s%s" % [n, (" · 선택권 %d" % t) if t > 0 else "", (" · 장비 %d" % it) if it > 0 else ""], "gold"])
+	if n + t + it + hg > 0:
+		toasts.append(["지난 전투 보상 —— 장수 %d장%s%s%s" % [n, (" · 선택권 %d" % t) if t > 0 else "", (" · 장비 %d" % it) if it > 0 else "",
+			(" · %s 군량 +%d" % [streak_text(streak) if streak != 0 else "연속", hg]) if hg > 0 else ""], "gold"])
 
 
 func _finish_battle(res: Dictionary) -> void:
@@ -1936,6 +1971,13 @@ func _finish_battle(res: Dictionary) -> void:
 			add_ticket((4 if day >= 3 else 3) - (1 if legacy_rewards and not res.win else 0), 1, true)      # 11/6 #6 대전 보상의 희귀는 랜덤권 —— 11/9 승패 같게
 			if pvp_quest_equiv():
 				_pvp_quest_reward(res)
+			var sg := streak_push(bool(res.win), bool(res.get("draw", false)))
+			if sg > 0:
+				grain += sg
+				last_spoil["streak"] = streak
+				last_spoil["streak_g"] = sg
+				if not mp:
+					toasts.append(["%s 보너스 —— 군량 +%d" % [streak_text(streak), sg], "gold"])
 			if res.win:
 				my_w += 1
 				if b: b.l += 1
@@ -2287,7 +2329,7 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "equip2", "gacha_pity", "last_gacha", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
-	"my_w", "my_l", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on",
+	"my_w", "my_l", "streak", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on",
 	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls"]
 
 
@@ -2308,7 +2350,7 @@ func from_dict(d: Dictionary) -> void:
 	for dict in [inv, bag]:
 		for k in dict:
 			dict[k] = int(dict[k])
-	for k in ["day", "phase", "strikes", "my_w", "my_l", "hp", "last_hp_loss", "news_seq", "grain", "gacha_pity"]:
+	for k in ["day", "phase", "strikes", "my_w", "my_l", "streak", "hp", "last_hp_loss", "news_seq", "grain", "gacha_pity"]:
 		set(k, int(get(k)))
 	if not d.has("equip2") or equip2.size() != 9:      # 예전 저장 · 옛 서버 —— 갑옷 칸 없음
 		equip2 = _nine()

@@ -139,7 +139,7 @@ func _draw() -> void:
 	draw_circle(tcen, 9.5, DB.kind_col(c.tag))      # 11/9 피해 종류 —— 병종 기호 테두리 (물리 주황 · 책략 파랑)
 	draw_circle(tcen, 8.5, Color(DB.PAL.ink, 0.92))
 	draw_texture_rect(DB.ICON[c.tag], Rect2(tcen - Vector2(5.5, 5.5), Vector2(11, 11)), false, DB.PAL.paper)
-	draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 14), UI.FS_TINY)      # 11/9 대표 역할 칩
+	draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 15), UI.FS_TINY, pr.size.x - 2.0)      # 11/19 장수 역할 칩
 	var x := pr.end.x + 7
 	var tw := w - x - 6
 	var fb := DB.font_body
@@ -190,15 +190,39 @@ static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := UI.FS_CAP) -
 		p.x += cw + gap
 
 
-## 11/9 대표 역할 두 글자 칩 (기인만 —— DB.role_chip). p 는 칩 왼쪽 위
-static func draw_role_chip(ci: CanvasItem, id: String, p: Vector2, fs := 10) -> void:
+## 11/19 장수 역할 칩 (DB.role_chip) —— 갈래 색 알약에 기호 + 글 ("아군 보호"). p 는 칩 왼쪽 위, max_w 가 있으면 그 폭에 맞춘다(띄어쓰기를 빼고, 그래도 넘치면 글씨를 줄인다)
+static func draw_role_chip(ci: CanvasItem, id: String, p: Vector2, fs := 10, max_w := 0.0) -> float:
 	var rc := DB.role_chip(id)
 	if rc.is_empty():
-		return
-	var fb := DB.font_body
-	var cw := fb.get_string_size(rc.t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 7
+		return 0.0
+	var fb := DB.font_bold
+	var t: String = rc.t
+	var ic := float(fs)
+	var tw := fb.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	if max_w > 0.0 and ic + tw + 11.0 > max_w:
+		t = t.replace(" ", "")
+		tw = fb.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		while fs > 8 and ic + tw + 11.0 > max_w:
+			fs -= 1
+			ic = float(fs)
+			tw = fb.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var cw := ic + tw + 11.0
+	var ch := fs + 5.0
+	var col: Color = rc.col
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = DB.PAL.ink4
-	sb.set_corner_radius_all(2)
-	ci.draw_style_box(sb, Rect2(p, Vector2(cw, fs + 4)))
-	ci.draw_string(fb, p + Vector2(3.5, fs + 1), rc.t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, DB.PAL.paper)
+	sb.bg_color = Color(col.darkened(0.25), 0.94)
+	sb.border_color = Color(col.lightened(0.45), 0.9)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(int(ch * 0.5))
+	ci.draw_style_box(sb, Rect2(p, Vector2(cw, ch)))
+	var icc := p + Vector2(4.0 + ic * 0.5, ch * 0.5)
+	var white := Color(1.0, 0.97, 0.9)
+	if str(rc.icon) == "plus":      # 회복 —— 굵은 십자
+		var a := ic * 0.36
+		var b := ic * 0.13
+		ci.draw_rect(Rect2(icc - Vector2(a, b), Vector2(a * 2.0, b * 2.0)), white)
+		ci.draw_rect(Rect2(icc - Vector2(b, a), Vector2(b * 2.0, a * 2.0)), white)
+	else:
+		Icons.draw(ci, str(rc.icon), icc, ic * 0.95, white)
+	ci.draw_string(fb, p + Vector2(6.0 + ic, fs + 1.0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, white)
+	return cw

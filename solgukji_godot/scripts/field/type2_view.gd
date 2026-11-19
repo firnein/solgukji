@@ -107,6 +107,7 @@ func _ready() -> void:
 
 func setup() -> void:
 	_paint = painting_on()
+	_areas.clear()      # 11/19 지난 전투의 범위 표시를 걷는다 —— 시계가 0 으로 돌아가 끝나지 않은 채 보이지 않게 계속 그려져, 전투를 볼수록 쌓였다 (24전투 뒤 프레임 2.7배)
 	_painting_bounds = Rect2()
 	_painting_points.clear()
 	if painting != null:
@@ -1825,7 +1826,10 @@ func _foe_of(sq: Squad) -> Squad:
 
 
 ## 진형 이름 —— 각 편 무리 바깥(아군 아래 · 적 위)에 (시작 몇 초)
+const FORM_LABEL_OFF := true
 func _draw_tac_top(ci: CanvasItem) -> void:
+	if FORM_LABEL_OFF:      # 11/19 사용자: 전투 처음에 나오는 진형 글씨는 필요 없다
+		return
 	if tac_level() <= 0:
 		return
 	var ia := _intro_alpha()

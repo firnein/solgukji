@@ -2150,19 +2150,37 @@ func dmg_kind(tag: String) -> String:
 	return str(GUARD.get("kind", {}).get(tag, "int" if INT_TAGS.has(tag) else "phys"))
 
 
-## 11/9 카드 표지 —— 대표 역할 두 글자 칩 (기인만 데이터가 있다: passives.json role.kiin[인물][2]). 없으면 빈 사전. 색은 docs/역할_재설계_1108.md 4절
-const ROLE_CHIP := {"방깎": ["방깎", "#a8893c"], "결계 깨기": ["파계", "#5a6fc0"], "공깎": ["공깎", "#b0504a"], "둔화": ["둔화", "#3f9aa8"],
-	"기절": ["기절", "#9a5ab0"], "보딜": ["보딜", "#c98a2e"], "광역": ["광역", "#3f7fc0"], "도트": ["도트", "#c8553d"],
-	"철벽": ["철벽", "#6f8aa6"], "치료": ["지원", "#4f9a5a"], "지원": ["지원", "#4f9a5a"]}
+## 11/19 카드 표지 —— 장수 역할 한 줄 (사용자: "해당 장수의 롤을 축약해서 적어 준다" —— 조인 '아군 보호' · 주유 '광역 화공' · 화타 '병력 회복').
+## data/roles.json: person[인물] → key[그 인물 개성(passives.json sig)의 첫 키] → tag[병종] 순서로 정한다. 병졸 카드(1~2급) · 적 전용은 빈 사전.
+## {t 글, col 갈래 색, icon 기호 이름(Icons · "plus"), cat 갈래}. 예전 기인 두 글자 칩(방깎 · 파계 …)을 대신한다
+var ROLES := {}
+var _role_cache := {}
 
 func role_chip(k: String) -> Dictionary:
-	if not is_kiin(k):
-		return {}
-	var kr: Array = PSV.get("role", {}).get("kiin", {}).get(person(k), [])
-	if kr.size() < 3 or not ROLE_CHIP.has(str(kr[2])):
-		return {}
-	var e: Array = ROLE_CHIP[str(kr[2])]
-	return {"t": e[0], "col": Color(e[1])}
+	if _role_cache.has(k):
+		return _role_cache[k]
+	var out := {}
+	if ROLES.is_empty():
+		var f := FileAccess.open("res://data/roles.json", FileAccess.READ)
+		ROLES = JSON.parse_string(f.get_as_text()) if f != null else {"cat": {}}
+	var c: Dictionary = C.get(k, {})
+	if not c.is_empty() and int(c.tier) > 2 and ROLES.has("key"):
+		var pn := person(k)
+		var e = ROLES.person.get(pn)
+		if e == null:
+			var sg = PSV.get("sig", {}).get(pn)
+			if sg is Array and sg.size() >= 3:
+				for key in (sg[2] as Dictionary):
+					if ROLES.key.has(key):
+						e = ROLES.key[key]
+						break
+		if e == null:
+			e = ROLES.tag.get(str(c.tag))
+		if e != null and ROLES.cat.has(str(e[1])):
+			var ct: Array = ROLES.cat[str(e[1])]
+			out = {"t": str(e[0]), "col": Color(str(ct[0])), "icon": str(ct[1]), "cat": str(e[1])}
+	_role_cache[k] = out
+	return out
 
 
 ## 피해 종류 색 —— 물리 주황 · 책략 파랑 (카드 병종 기호 테두리 · 디테일창 글)

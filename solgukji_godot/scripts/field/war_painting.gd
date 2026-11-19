@@ -1009,6 +1009,11 @@ func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
 # 화면 섬광 · 팝콘 날리기 없이 붓 획 · 불꽃 · 낙뢰 · 화살비처럼 종류가 한눈에 갈리게 그린다. 판정 · 수치와 무관한 화면 연출.
 const ULT_LIFE := {"firestorm": 2.4, "thunder": 1.5, "slash": 1.1, "shadow": 1.3, "poison": 2.4, "illusion": 1.8, "aura": 1.8, "heal": 1.8, "roar": 1.2, "whirlwind": 1.4, "charge": 1.0}
 
+## 11/19 화염 계열 여섯 —— 인물마다 불이 오는 방식이 다르다 (없으면 불덩이 셋). 다른 계열은 인물 갈래 번호(sd)로 획 수 · 각도 · 색을 바꾼다
+##  wave 주유 적벽대화: 바람을 탄 불벽이 적진을 쓸고 지나간다 · trail 육손 이릉: 불길이 진영을 따라 차례로 옮겨붙는다 · arrows 정보 화선: 불화살 떼
+##  ram 황개 고육지계: 불배 하나가 곧장 들이받고 터진다 · chain 방통 연환: 쇠사슬로 엮인 뒤 사슬을 따라 탄다 · erupt 동탁 낙양겁화: 땅에서 불기둥이 솟는다
+const ULT_STYLE := {"주유": "wave", "육손": "trail", "정보": "arrows", "황개": "ram", "방통": "chain", "동탁": "erupt"}
+
 ## phase "charge" —— 기 모으기 (시전자 둘레), "impact" —— 맞는 순간 (적 · 아군 부대)
 func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color, phase: String) -> void:
 	var now: float = v.field.clock
@@ -1016,6 +1021,10 @@ func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color,
 	var e := {"vfx": vfx, "a": a_key, "col": col, "phase": phase, "start": now,
 		"end": now + (0.55 if phase == "charge" else 3.0 if phase == "dash" else float(ULT_LIFE.get(vfx, 1.0))),
 		"from": a.pos if a != null else Vector2.ZERO, "hits": [], "allies": []}
+	# 11/19 사용자: 같은 계열 고유기라도 이펙트가 달라 보이게 —— 인물마다 모양(style) · 갈래 번호(sd)를 싣는다
+	var who: String = DB.person(a.cid) if a != null and DB.C.has(a.cid) else ""
+	e["style"] = str(ULT_STYLE.get(who, ""))
+	e["sd"] = absi(hash(who)) % 997
 	var storm := vfx == "arrowstorm"
 	if storm and phase == "impact":      # 화살비 —— 기 모으기 동안은 컷인이 덮고 있어, 컷인이 걷힌 맞는 순간에 떼로 솟아 쏟아진다
 		e.end = now + 1.8
@@ -1100,7 +1109,7 @@ func _draw_ults(ci: CanvasItem) -> void:
 			_ult_hit(ci, e, hit, t, age, col, fade, from)
 		if e.vfx in ["aura", "heal"]:
 			if e.vfx == "aura":
-				_sunburst(ci, from, age, col, fade)
+				_sunburst(ci, from, age, col, fade, int(e.get("sd", 0)))
 			for q: Vector2 in e.allies:
 				_pillar(ci, q, age, col, fade)
 
@@ -1131,6 +1140,8 @@ func _ult_charge(ci: CanvasItem, e: Dictionary, t: float, col: Color) -> void:
 
 ## 불길 혀 하나 —— 바닥 c(화면), 높이 h, 폭 w. 아래 붉은 주황 → 끝 노랑 · 투명
 func _flame(ci: CanvasItem, c: Vector2, h: float, w: float, phase: float, a: float) -> void:
+	if h < 1.0 or w < 0.3:      # 11/19 높이 0 다각형 오류 방지
+		return
 	if h < 2.0 or a <= 0.01:
 		return
 	var sway := sin(phase) * w * 0.45
@@ -1211,6 +1222,8 @@ func _pillar(ci: CanvasItem, q: Vector2, age: float, col: Color, fade: float) ->
 	var qs: Vector2 = v.map(q)
 	var w := maxf(16.0, _px(q, 55.0))
 	var h := w * 5.5 * minf(1.0, age * 4.0)
+	if h < 1.0:      # 11/19 막 시작한 프레임(높이 0)의 찌그러진 다각형이 「Invalid polygon data」 오류를 냈다 (오류 출력이 프레임도 잡아먹는다)
+		return
 	var pts := PackedVector2Array([qs + Vector2(-w, 0), qs + Vector2(-w * 0.6, -h), qs + Vector2(w * 0.6, -h), qs + Vector2(w, 0)])
 	ci.draw_polygon(pts, PackedColorArray([Color(col, 0.75 * fade), Color(col, 0.0), Color(col, 0.0), Color(col, 0.75 * fade)]))
 	var core := PackedVector2Array([qs + Vector2(-w * 0.35, 0), qs + Vector2(-w * 0.15, -h * 0.9), qs + Vector2(w * 0.15, -h * 0.9), qs + Vector2(w * 0.35, 0)])
@@ -1222,14 +1235,137 @@ func _pillar(ci: CanvasItem, q: Vector2, age: float, col: Color, fade: float) ->
 		var p := qs + Vector2(sin(k * 2.1) * w * 0.8, -h * u)
 		ci.draw_circle(p, w * 0.1 * (1.0 - u * 0.5), Color(col.lightened(0.5), 0.9 * fade * (1.0 - u)))
 
-func _ult_hit(ci: CanvasItem, e: Dictionary, hit: Dictionary, t: float, age: float, col: Color, fade: float, from: Vector2) -> void:
+## 11/19 화염 계열 —— 인물마다 다른 불 (ULT_STYLE). 앞 0.45초는 불이 오는 방식, 그 뒤는 타는 모양(불길 수 · 키 · 연기)도 갈래마다 다르다
+func _fire_style(ci: CanvasItem, e: Dictionary, hit: Dictionary, age: float, fade: float, from: Vector2, unit: float) -> void:
 	var at: Vector2 = hit.at
 	var ds: Vector2 = v.map(at)
+	var fs: Vector2 = v.map(from)
 	var spots: Array = hit.spots
-	var unit := maxf(40.0, _px(at, 130.0))      # 이 자리의 기준 크기 —— 부대 하나가 30px 남짓이라 고유기는 몇 부대를 덮게 (11/17 「티도 안 난다」)
-	match str(e.vfx):
-		"firestorm":      # 불덩이 셋이 꼬리를 끌고 날아와 꽂히고 → 붉은 땅 · 솟는 불길 · 검은 연기
-			var fs: Vector2 = v.map(from)
+	var right: Vector2 = hit.right
+	var fwd: Vector2 = hit.fwd
+	var hw := float(hit.hw)
+	var hd := float(hit.hd)
+	var style := str(e.get("style", ""))
+	var dir := (ds - fs).normalized() if not (ds - fs).is_zero_approx() else Vector2.UP
+	var side := Vector2(-dir.y, dir.x)
+	var g := clampf((age - 0.3) / 0.25, 0.0, 1.0)      # 불이 붙어 번지는 정도
+	var n_flame := 14
+	var tall := 1.0
+	var smoke := 3
+	match style:
+		"wave":      # 주유 —— 바람 줄기가 먼저 스치고, 불벽이 시전자 쪽에서 적진을 쓸고 지나간다
+			var u := clampf(age / 0.75, 0.0, 1.0)
+			for k in 7:
+				var wu := fmod(age * 1.8 + k * 0.143, 1.0)
+				var w0 := ds + side * (k - 3) * unit * 0.55 + dir * unit * (-3.0 + wu * 6.0)
+				ci.draw_line(w0, w0 + dir * unit * 0.9, Color(1.0, 0.86, 0.62, 0.5 * fade * sin(PI * wu)), 1.6, true)
+			if u < 1.0:
+				var front := ds + dir * unit * (-2.4 + u * 4.8)
+				_ellipse(ci, front - dir * unit * 0.7, unit * 2.2, unit * 0.6, Color(0.9, 0.3, 0.05, 0.35))
+				for k in 9:
+					var fp := front + side * (k - 4) * unit * 0.42 + Vector2(0, sin(k * 1.7 + age * 9.0) * unit * 0.1)
+					_flame(ci, fp, unit * (1.9 + 0.5 * sin(k * 2.3 + age * 12.0)), unit * 0.3, last_clock * 8.0 + k, 0.95)
+			g = clampf((age - 0.35) / 0.3, 0.0, 1.0)
+			n_flame = 18
+			tall = 1.25
+		"trail":      # 육손 —— 불씨가 진영을 따라 달리며 지나간 자리마다 차례로 불기둥이 선다
+			var u := clampf(age / 0.85, 0.0, 1.0)
+			var path := PackedVector2Array()
+			for k in 7:
+				path.append(v.map(at + right * (k / 3.0 - 1.0) * hw * 1.25 + fwd * sin(k * 2.2) * hd * 0.5))
+			var reach := u * (path.size() - 1)
+			var lit := PackedVector2Array()
+			for k in path.size():
+				if float(k) <= reach:
+					lit.append(path[k])
+			if lit.size() < path.size():
+				var kk := int(reach)
+				lit.append(path[kk].lerp(path[mini(kk + 1, path.size() - 1)], reach - kk))
+			if lit.size() >= 2:
+				ci.draw_polyline(lit, Color(0.35, 0.08, 0.02, 0.6 * fade), unit * 0.32, true)
+				ci.draw_polyline(lit, Color(1.0, 0.62, 0.15, 0.9 * fade), unit * 0.14, true)
+				ci.draw_circle(lit[-1], unit * 0.22, Color(1.0, 0.92, 0.6, fade))
+			for k in path.size():
+				var lu := clampf(reach - k + 0.3, 0.0, 1.0)
+				if lu > 0.0:
+					_flame(ci, path[k], unit * (2.3 - 0.9 * clampf(age - 0.9, 0.0, 1.0)) * lu, unit * 0.2, last_clock * 9.0 + k * 1.3, 0.95 * fade)
+			g = 0.0      # 번지는 불바다 대신 줄지어 선 불기둥
+			smoke = 2
+		"arrows":      # 정보 —— 가는 불화살 떼가 포물선으로 쏟아져 여기저기 작은 불이 붙는다
+			for j in 12:
+				var u := clampf((age - j * 0.035) / 0.42, 0.0, 1.0)
+				if u > 0.0 and u < 1.0:
+					var sp: Vector2 = v.map(spots[j % spots.size()]) + Vector2(sin(j * 3.3), cos(j * 2.1)) * unit * 0.3
+					var p1 := fs.lerp(sp, u) - Vector2(0, sin(u * PI) * unit * 2.6)
+					var u0 := maxf(0.0, u - 0.06)
+					var p0 := fs.lerp(sp, u0) - Vector2(0, sin(u0 * PI) * unit * 2.6)
+					ci.draw_line(p0, p1, Color(INK, 0.9), 2.0, true)
+					ci.draw_line(p0.lerp(p1, 0.55), p1, Color(1.0, 0.6, 0.12), 3.0, true)
+					ci.draw_circle(p1, unit * 0.09, Color(1.0, 0.92, 0.55))
+			for j in 7:      # 꽂힌 자리마다 작은 불
+				var lu := clampf((age - 0.4 - j * 0.035) / 0.2, 0.0, 1.0)
+				if lu > 0.0:
+					var sp2: Vector2 = v.map(spots[j])
+					_ellipse(ci, sp2, unit * 0.75 * lu, unit * 0.3 * lu, Color(0.9, 0.35, 0.06, 0.45 * fade))
+					_flame(ci, sp2, unit * 1.5 * lu * (0.8 + 0.2 * sin(last_clock * 10.0 + j)), unit * 0.24, last_clock * 7.0 + j, 0.95 * fade)
+			g = 0.0
+			smoke = 1
+		"ram":      # 황개 —— 불붙은 배 하나가 낮게 곧장 달려와 들이받고 크게 터진다
+			var u := clampf(age / 0.42, 0.0, 1.0)
+			if u < 1.0:
+				var bp := fs.lerp(ds, u) - Vector2(0, sin(u * PI) * unit * 0.5)
+				var tail := PackedVector2Array()
+				for k in 8:
+					var uu := maxf(0.0, u - k * 0.05)
+					tail.append(fs.lerp(ds, uu) - Vector2(0, sin(uu * PI) * unit * 0.5))
+				ci.draw_polyline(tail, Color(0.25, 0.1, 0.05, 0.6), unit * 0.75, true)
+				ci.draw_polyline(tail, Color(0.95, 0.4, 0.06, 0.85), unit * 0.5, true)
+				ci.draw_circle(bp, unit * 0.55, Color(0.35, 0.16, 0.06))      # 선체
+				_flame(ci, bp, unit * 1.3, unit * 0.4, last_clock * 10.0, 1.0)
+			else:
+				var bu := clampf((age - 0.42) / 0.5, 0.0, 1.0)
+				_world_ring(ci, at, 20.0 + bu * 150.0, Color(1.0, 0.75, 0.3, 0.95 * (1.0 - bu)), 4.0)
+				for k in 12:
+					var ang := k * TAU / 12.0 + 0.3
+					var rd := Vector2(cos(ang), sin(ang) * 0.55)
+					var d0 := ds + rd * unit * (0.4 + bu * 2.4)
+					ci.draw_line(d0, d0 + rd * unit * 0.5, Color(1.0, 0.8, 0.35, 0.9 * (1.0 - bu)), 3.0, true)
+			g = clampf((age - 0.42) / 0.2, 0.0, 1.0)
+			n_flame = 9
+			tall = 1.7
+			smoke = 4
+		"chain":      # 방통 —— 쇠사슬이 부대를 엮고, 불이 사슬을 타고 돈다
+			var u := clampf(age / 0.35, 0.0, 1.0)
+			var ring := PackedVector2Array()
+			for k in 13:
+				var ang := k * TAU / 12.0
+				ring.append(v.map(at + right * cos(ang) * hw * 1.1 + fwd * sin(ang) * hd * 1.1))
+			var shown := clampi(int(u * ring.size()), 2, ring.size())
+			for k in shown - 1:      # 사슬 —— 마디마다 작은 고리
+				ci.draw_line(ring[k], ring[k + 1], Color(0.12, 0.11, 0.1, 0.9 * fade), 3.0, true)
+				ci.draw_arc(ring[k].lerp(ring[k + 1], 0.5), unit * 0.11, 0, TAU, 8, Color(0.55, 0.5, 0.42, 0.9 * fade), 1.6, true)
+			var run := clampf((age - 0.3) / 0.6, 0.0, 1.0)
+			for k in int(run * 12.0):
+				_flame(ci, ring[k], unit * (1.1 + 0.3 * sin(k * 1.9 + last_clock * 8.0)), unit * 0.2, last_clock * 8.0 + k, 0.95 * fade)
+			g = clampf((age - 0.8) / 0.3, 0.0, 1.0)
+			n_flame = 6
+		"erupt":      # 동탁 —— 날아오는 것 없이 땅이 붉게 갈라지고 불기둥이 솟는다. 연기가 가장 짙다
+			for j in 7:
+				var lu := clampf((age - j * 0.07) / 0.3, 0.0, 1.0)
+				if lu <= 0.0:
+					continue
+				var sp: Vector2 = v.map(spots[j])
+				var crack := PackedVector2Array([sp + Vector2(-unit * 0.5, 0), sp + Vector2(-unit * 0.15, unit * 0.08), sp + Vector2(unit * 0.1, -unit * 0.06), sp + Vector2(unit * 0.5, unit * 0.04)])
+				ci.draw_polyline(crack, Color(1.0, 0.45, 0.08, 0.9 * fade), 2.5, true)
+				var hgt := maxf(2.0, unit * 3.0 * lu * (1.0 - 0.35 * clampf(age - 1.0, 0.0, 1.0)))
+				var col_pts := PackedVector2Array([sp + Vector2(-unit * 0.16, 0), sp + Vector2(-unit * 0.1, -hgt), sp + Vector2(unit * 0.1, -hgt), sp + Vector2(unit * 0.16, 0)])
+				ci.draw_polygon(col_pts, PackedColorArray([Color(0.75, 0.12, 0.02, 0.85 * fade), Color(1.0, 0.6, 0.1, 0.0), Color(1.0, 0.6, 0.1, 0.0), Color(0.75, 0.12, 0.02, 0.85 * fade)]))
+				_flame(ci, sp, unit * 1.2 * lu, unit * 0.24, last_clock * 8.0 + j, 0.95 * fade)
+			g = clampf((age - 0.25) / 0.3, 0.0, 1.0)
+			n_flame = 8
+			tall = 0.9
+			smoke = 6
+		_:      # 불덩이 셋이 꼬리를 끌고 날아와 꽂힌다
 			for j in 3:
 				var u := clampf((age - j * 0.08) / 0.4, 0.0, 1.0)
 				if u > 0.0 and u < 1.0:
@@ -1241,44 +1377,67 @@ func _ult_hit(ci: CanvasItem, e: Dictionary, hit: Dictionary, t: float, age: flo
 					ci.draw_polyline(tail, Color(0.9, 0.3, 0.05, 0.7), unit * 0.3, true)
 					ci.draw_circle(tail[0], unit * 0.32, Color(0.95, 0.35, 0.05))
 					ci.draw_circle(tail[0], unit * 0.18, Color(1.0, 0.9, 0.5))
-			var g := clampf((age - 0.3) / 0.25, 0.0, 1.0)
-			if g > 0.0:
-				_ellipse(ci, ds, unit * 2.0 * g, unit * 0.85 * g, Color(0.85, 0.25, 0.04, 0.4 * fade))
-				_ellipse(ci, ds, unit * 1.2 * g, unit * 0.5 * g, Color(1.0, 0.55, 0.1, 0.35 * fade))
-				for k in 3:      # 검은 연기 —— 솟으며 커진다
-					var sm := ds + Vector2((k - 1) * unit * 0.7, -unit * (1.6 + (age - 0.3) * 2.5 + k * 0.3))
-					ci.draw_circle(sm, unit * (0.45 + (age - 0.3) * 0.5), Color(0.16, 0.11, 0.09, 0.4 * fade))
-				var n := 14
-				for k in n:
-					var sp2: Vector2 = spots[k % spots.size()]
-					var base: Vector2 = v.map(sp2) + Vector2(((k * 37) % 9 - 4) * unit * 0.12, ((k * 53) % 5 - 2) * unit * 0.06)
-					var flick := 0.75 + 0.25 * sin(last_clock * 11.0 + k * 1.9)
-					_flame(ci, base, unit * (1.0 + (k % 3) * 0.35) * flick * g, unit * 0.26, last_clock * 7.0 + k, 0.95 * fade)
+	var age2 := maxf(0.0, age - 0.3)
+	if age >= 0.3:
+		for k in smoke:      # 검은 연기 —— 솟으며 커진다
+			var sm := ds + Vector2((k - (smoke - 1) * 0.5) * unit * 0.7, -unit * (1.6 + age2 * 2.5 + (k % 3) * 0.3))
+			ci.draw_circle(sm, unit * (0.45 + age2 * 0.5), Color(0.16, 0.11, 0.09, 0.4 * fade))
+	if g > 0.0:
+		_ellipse(ci, ds, unit * 2.0 * g, unit * 0.85 * g, Color(0.85, 0.25, 0.04, 0.4 * fade))
+		_ellipse(ci, ds, unit * 1.2 * g, unit * 0.5 * g, Color(1.0, 0.55, 0.1, 0.35 * fade))
+		for k in n_flame:
+			var sp2: Vector2 = spots[k % spots.size()]
+			var base: Vector2 = v.map(sp2) + Vector2(((k * 37) % 9 - 4) * unit * 0.12, ((k * 53) % 5 - 2) * unit * 0.06)
+			var flick := 0.75 + 0.25 * sin(last_clock * 11.0 + k * 1.9)
+			_flame(ci, base, unit * (1.0 + (k % 3) * 0.35) * flick * g * tall, unit * 0.26, last_clock * 7.0 + k, 0.95 * fade)
+
+
+func _ult_hit(ci: CanvasItem, e: Dictionary, hit: Dictionary, t: float, age: float, col: Color, fade: float, from: Vector2) -> void:
+	var at: Vector2 = hit.at
+	var ds: Vector2 = v.map(at)
+	var spots: Array = hit.spots
+	var unit := maxf(40.0, _px(at, 130.0))      # 이 자리의 기준 크기 —— 부대 하나가 30px 남짓이라 고유기는 몇 부대를 덮게 (11/17 「티도 안 난다」)
+	match str(e.vfx):
+		"firestorm":      # 11/19 인물마다 다른 불 (ULT_STYLE) —— 기본은 불덩이 셋이 꼬리를 끌고 날아와 꽂힌다
+			_fire_style(ci, e, hit, age, fade, from, unit)
 		"thunder":      # 주변이 어두워지고 굵은 낙뢰가 잇달아 꽂힌다 —— 꽂힌 자리마다 흰 별 · 그을음
 			_ellipse(ci, ds, unit * 1.5, unit * 0.7, Color(0.05, 0.07, 0.16, 0.35 * fade))
-			for j in 5:
-				var st := j * 0.13
-				var u := (age - st) / 0.16
+			var tv := int(e.get("sd", 0)) % 3      # 11/19 갈래 —— 0 낙뢰 다섯 · 1 굵은 벼락 하나에 잔 번개 둘 · 2 가는 번개 여덟이 빠르게
+			var tn: int = [5, 3, 8][tv]
+			var tgap: float = [0.13, 0.22, 0.07][tv]
+			var tcol: Color = [col, Color("#ffe9a0"), Color("#d9b8ff")][tv]
+			for j in tn:
+				var st := j * tgap
+				var big := tv == 1 and j == 0
+				var u := (age - st) / (0.3 if big else 0.16)
 				if u <= 0.0:
 					continue
-				var sp: Vector2 = v.map(spots[j % spots.size()])
+				var sp: Vector2 = ds if big else v.map(spots[j % spots.size()])
 				if u < 1.0:
 					var top := Vector2(sp.x + sin(j * 4.1) * unit * 1.5, maxf(40.0, sp.y - unit * 7.0))
 					var flicker := 1.0 if fmod(age * 30.0 + j, 2.0) < 1.4 else 0.5
-					_bolt(ci, top, sp, float(j) + at.x, col, (1.0 - u * 0.6) * flicker)
+					_bolt(ci, top, sp, float(j) + at.x, tcol, (1.0 - u * 0.6) * flicker)
+					if big:      # 굵은 벼락 —— 옆으로 한 줄 더, 바닥에 충격 고리
+						_bolt(ci, top + Vector2(unit * 0.25, 0), sp + Vector2(unit * 0.12, 0), 7.0 + at.x, tcol, (1.0 - u * 0.6) * flicker)
+						_world_ring(ci, at, 30.0 + u * 90.0, Color(tcol, 0.9 * (1.0 - u)), 3.0)
 					_ellipse(ci, sp, unit * (0.7 + u * 0.4), unit * (0.28 + u * 0.15), Color(0.85, 0.92, 1.0, 0.75 * (1.0 - u)))
 				_ellipse(ci, sp, unit * 0.55, unit * 0.25, Color(0.08, 0.08, 0.12, 0.55 * fade))
 		"slash", "shadow":      # 11/17 사용자 「검기 짜친다」 —— 초승달 대신 일섬: 가늘고 긴 선이 순간 그어졌다 벤 자국 · 먹 튐만 남는다
 			if e.vfx == "shadow":
 				_ellipse(ci, ds, unit * 1.7, unit * 0.8, Color(0.05, 0.03, 0.08, 0.5 * fade))
-			var glow := Color(1.0, 0.86, 0.5) if e.vfx == "slash" else col
-			for j in 3:
-				var st := j * 0.09 + (0.0 if e.vfx == "slash" else j * 0.04)
+			var sv := int(e.get("sd", 0)) % 4      # 11/19 갈래 —— 0 엇갈린 세 줄 · 1 길게 한 줄(가로) 뒤에 잔상 · 2 다섯 줄 난무(별 모양) · 3 십자 두 줄
+			var glow: Color = [Color(1.0, 0.86, 0.5), Color(0.75, 0.92, 1.0), Color(1.0, 0.62, 0.45), Color(0.95, 0.95, 0.82)][sv] if e.vfx == "slash" else col
+			var angs: Array = [[-0.95, 0.75, -0.25], [0.05, 0.12, -0.04], [-1.25, -0.63, 0.0, 0.63, 1.25], [-0.78, 0.78]][sv]
+			var lens: float = [3.2, 5.0, 2.4, 3.8][sv]
+			var gap: float = [0.09, 0.14, 0.05, 0.12][sv]
+			for j in angs.size():
+				var st := j * gap + (0.0 if e.vfx == "slash" else j * 0.04)
 				var u := (age - st) / 0.55
 				if u <= 0.0 or u >= 1.0:
 					continue
-				var ang: float = float([-0.95, 0.75, -0.25][j]) + sin(at.x * 0.37 + j) * 0.15      # 대각선으로 엇갈리게
-				_iseom(ci, v.map(spots[j]) + Vector2(0, -unit * 0.25), ang, unit * 3.2, unit * 0.13, glow, u, j + at.x)
+				var ang: float = float(angs[j]) + sin(at.x * 0.37 + j) * (0.15 if sv == 0 else 0.04)
+				var cen: Vector2 = (v.map(spots[j % spots.size()]) if sv == 0 or sv == 2 else ds) + Vector2(0, -unit * 0.25)
+				_iseom(ci, cen, ang, unit * lens * (1.0 - 0.18 * j if sv == 1 else 1.0), unit * (0.13 if sv != 1 else 0.17), glow, u, j + at.x)
 		"poison":      # 짙은 독안개 덩이가 퍼지며 솟는다
 			var g := minf(1.0, age * 2.5)
 			_ellipse(ci, ds, unit * 1.5 * g, unit * 0.65 * g, Color(0.14, 0.28, 0.06, 0.5 * fade))
@@ -1290,11 +1449,18 @@ func _ult_hit(ci: CanvasItem, e: Dictionary, hit: Dictionary, t: float, age: flo
 				ci.draw_arc(p, unit * (0.3 + rise * 0.35) * g, 0, TAU, 14, Color(0.08, 0.16, 0.04, 0.45 * fade * (1.0 - rise)), 1.5, true)
 		"illusion":      # 보랏빛 소용돌이 세 갈래가 적진을 감는다
 			_ellipse(ci, ds, unit * 1.5, unit * 0.7, Color(col.darkened(0.4), 0.4 * fade))
-			for arm in 3:
+			var iv := int(e.get("sd", 0)) % 3      # 11/19 갈래 —— 0 세 갈래 소용돌이 · 1 거꾸로 도는 다섯 갈래(가늘게) · 2 두 갈래 큰 소용돌이 + 맥동 고리
+			var arms: int = [3, 5, 2][iv]
+			var spin: float = [4.0, -5.5, 2.8][iv]
+			if iv == 2:
+				for rk in 3:
+					var ru := fmod(age * 0.9 + rk / 3.0, 1.0)
+					_world_ring(ci, at, 20.0 + ru * 110.0, Color(col.lightened(0.35), 0.8 * fade * (1.0 - ru)), 2.5)
+			for arm in arms:
 				var pts := PackedVector2Array()
 				for k in 22:
 					var u := float(k) / 21.0
-					var ang := age * 4.0 + arm * TAU / 3.0 + u * 4.5
+					var ang := age * spin + arm * TAU / arms + u * (4.5 if iv != 1 else 3.0)
 					pts.append(ds + Vector2(cos(ang), sin(ang) * 0.5) * unit * 1.5 * (1.0 - u * 0.85))
 				ci.draw_polyline(pts, Color(INK, 0.4 * fade), 9.0, true)
 				ci.draw_polyline(pts, Color(col.lightened(0.2), 0.95 * fade), 5.0, true)
@@ -1425,17 +1591,23 @@ func _spr(ci: CanvasItem, nm: String, c: Vector2, sz: float, col: Color, rot := 
 
 
 ## 위세 · 격려(aura) —— 시전자에게서 금빛 햇살이 퍼지고 바닥에 금 고리가 남는다
-func _sunburst(ci: CanvasItem, from: Vector2, age: float, col: Color, fade: float) -> void:
+## 11/19 인물 갈래(sd)로 햇살 수 · 도는 방향 · 빛깔이 다르다 (위세 계열 열한 명이 모두 같아 보였다)
+func _sunburst(ci: CanvasItem, from: Vector2, age: float, col: Color, fade: float, sd := 0) -> void:
 	var fs: Vector2 = v.map(from)
 	var r := maxf(60.0, _px(from, 220.0)) * minf(1.0, age * 3.0)
-	for k in 16:
-		var ang := k * TAU / 16.0 + age * 0.6
+	if r < 2.0:      # 11/19 첫 프레임(반지름 0)의 찌그러진 삼각형 열여섯이 「Invalid polygon data」 오류를 냈다 —— 위세 고유기마다 오류 16줄
+		return
+	var rays: int = [16, 12, 20, 8][sd % 4]
+	var spin: float = [0.6, -0.9, 0.35, 1.4][sd % 4]
+	var tint: Color = [Color(1.0, 0.82, 0.3), Color(0.72, 0.9, 1.0), Color(0.62, 1.0, 0.72), Color(1.0, 0.62, 0.4)][(sd / 4) % 4]
+	for k in rays:
+		var ang := k * TAU / rays + age * spin
 		var w := 0.14 if k % 2 == 0 else 0.08
 		var ln := r * (1.0 if k % 2 == 0 else 0.7)
 		var tip := fs + Vector2(cos(ang), sin(ang) * 0.55) * ln
 		var l := fs + Vector2(cos(ang - w), sin(ang - w) * 0.55) * ln * 0.25
 		var rr := fs + Vector2(cos(ang + w), sin(ang + w) * 0.55) * ln * 0.25
-		ci.draw_polygon(PackedVector2Array([l, tip, rr]), PackedColorArray([Color(1.0, 0.82, 0.3, 0.95 * fade), Color(1.0, 0.82, 0.3, 0.1 * fade), Color(1.0, 0.82, 0.3, 0.95 * fade)]))
+		ci.draw_polygon(PackedVector2Array([l, tip, rr]), PackedColorArray([Color(tint, 0.95 * fade), Color(tint, 0.1 * fade), Color(tint, 0.95 * fade)]))
 	_ellipse(ci, fs, r * 0.28, r * 0.15, Color(1, 0.95, 0.7, 0.6 * fade))
 	for j in 2:
 		var u := clampf((age - j * 0.2) / 0.8, 0.0, 1.0)
@@ -1451,8 +1623,8 @@ func _iseom(ci: CanvasItem, c: Vector2, ang: float, ln: float, w: float, glow: C
 	var b := c + d * ln * 0.5
 	var draw_u := minf(1.0, u / 0.22)
 	var head := a.lerp(b, draw_u)
-	if u < 0.45:      # 번쩍 —— 뾰족한 마름모 빛 (바깥 빛 + 흰 심)
-		var k := 1.0 if u < 0.22 else 1.0 - (u - 0.22) / 0.23
+	if u < 0.45 and a.distance_squared_to(head) > 9.0:      # 번쩍 —— 뾰족한 마름모 빛 (바깥 빛 + 흰 심). 11/19 길이 0 인 첫 프레임은 건너뛴다 (다각형 오류)
+		var k := maxf(0.05, 1.0 if u < 0.22 else 1.0 - (u - 0.22) / 0.23)
 		var mid := a.lerp(head, 0.55)
 		ci.draw_colored_polygon(PackedVector2Array([a, mid + n * w * 2.2 * k, head, mid - n * w * 2.2 * k]), Color(glow, 0.45 * k))
 		ci.draw_colored_polygon(PackedVector2Array([a, mid + n * w * k, head, mid - n * w * k]), Color(1, 1, 1, 0.95 * k))

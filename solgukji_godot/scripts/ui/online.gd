@@ -78,6 +78,10 @@ var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'�
 
 
 func _ready() -> void:
+	# 11/19 전투 프레임 실측 —— 전투 하나를 다 보면 요약을 서버에 보낸다 (서버 기록 ev "perf". 옛 서버는 모르는 메시지라 버린다)
+	BattleView.perf_sink = func(d: Dictionary) -> void:
+		if in_game and net != null:
+			net.send({"t": "perf", "d": d})
 	servers = load_servers()
 	net = PickNet.new()
 	_load_pick()

@@ -205,8 +205,9 @@ func _draw() -> void:
 	if c.tier > 2:
 		draw_circle(pr.position + Vector2(8, 8), 8, DB.fac_color(c.fac))
 		draw_string(DB.title_font(UI.FS_TINY), pr.position + Vector2(0, 11.5), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, UI.FS_TINY, Color.WHITE)
-	_tag_icon(c, pr.end - Vector2(10, 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼
-	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 2, pr.end.y - 15), UI.FS_TINY)      # 11/9 대표 역할 칩
+	var has_role := not DB.role_chip(k).is_empty()
+	_tag_icon(c, pr.end - Vector2(10, 26 if has_role else 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼 (11/19 역할 칩이 있으면 그 위로)
+	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 15), UI.FS_TINY, pr.size.x - 2.0)      # 11/19 장수 역할 칩 —— 초상 아래 폭 전체
 	var fd := DB.tier_font(c.tier, 13)
 	var nm: String = DB.person(k) if short_name and c.tier > 2 else c.name
 	var fs := UI.fit_fs(fd, nm, 13, UI.FS_TINY, w - 6)      # 11/14 감사 #10: 아무리 길어도 FS_TINY 아래로는 줄이지 않는다
@@ -232,7 +233,7 @@ func _draw() -> void:
 		Icons.draw(self, "up", ur.get_center(), 14, Color.WHITE)
 	if badge != "" and not badge_quiet:
 		var bw0 := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP).x + 10
-		var br0 := Rect2(4, h - 41, bw0, 17)
+		var br0 := Rect2(4, h - 41 - (15 if has_role else 0), bw0, 17)      # 11/19 역할 칩 위로
 		var bb0 := StyleBoxFlat.new()
 		bb0.bg_color = badge_col if badge_col.a > 0 else Color(DB.PAL.ink, 0.85)
 		bb0.set_corner_radius_all(UI.R)      # 11/14 알약 → 모서리 규칙 R
@@ -241,7 +242,7 @@ func _draw() -> void:
 	elif badge != "":
 		# 11/14 UI 4단계 (감사 06-4): 흰 글자 둥근 알약이 초상을 가리고 다른 배지 셋과 다퉜다 —— 각진 작은 표(R) · 금 글자 · 한 단계 작은 글자로 무게를 낮춘다
 		var bw := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY).x + 8
-		var br := Rect2(3, h - 37, bw, 14)
+		var br := Rect2(3, h - 37 - (15 if has_role else 0), bw, 14)      # 11/19 역할 칩 위로
 		var bb := StyleBoxFlat.new()
 		bb.bg_color = Color(DB.PAL.ink, 0.88)
 		bb.border_color = Color(DB.PAL.gold, 0.7)

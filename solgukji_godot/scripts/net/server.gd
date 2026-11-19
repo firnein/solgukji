@@ -185,6 +185,10 @@ func _handle(id: int, d: Dictionary) -> void:
 			# 11/10 사용자: 한마디 이모티콘 —— 번호만. 범위 · 간격은 방이 거른다
 			if rooms.has(p.room):
 				rooms[p.room].on_emote(id, int(d.get("i", -1)))
+		"perf":
+			# 11/19 전투 프레임 실측 —— 클라이언트가 전투 하나를 본 뒤 보내는 요약. 기록만 한다
+			if rooms.has(p.room) and d.get("d") is Dictionary:
+				rooms[p.room].on_perf(id, d.d)
 
 
 func _leave(id: int) -> void:

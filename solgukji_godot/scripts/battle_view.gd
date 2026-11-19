@@ -1111,6 +1111,7 @@ func _begin() -> void:
 	set_side_visible(false)
 	fit_port()
 	field.setup(res)
+	_fr_reset()
 	fit_camera()
 	apply_style()
 	if Settings.type2 and type2:
@@ -1332,8 +1333,58 @@ func _build_timeline(rebuild := false) -> void:
 
 # ───────── 재생 ─────────
 
+## 11/19 전투 프레임 실측 —— 사용자 "여전히 전투에서 프레임 떨어진다" 인데 이 PC(내장 그래픽 포함)에서는 재현되지 않았다. 실제 기기의 수치를 받는다:
+## 전투를 보는 동안 프레임 간격(실시간)을 세어, 끝나면 perf_sink(온라인이면 서버 기록 ev "perf")로 넘긴다. 판정 · 화면과 무관
+static var perf_sink := Callable()
+var _fr := {}
+var _fr_last := 0
+
+
+func _fr_reset() -> void:
+	_fr = {"n": 0, "sum": 0.0, "max": 0.0, "n25": 0, "n50": 0, "lv_sum": 0, "lv_max": 0, "prof0": field.prof.duplicate() if field else {}}
+	_fr_last = 0
+
+
+func _fr_tick() -> void:
+	var now := Time.get_ticks_usec()
+	if _fr_last > 0 and not _fr.is_empty():
+		var ms := (now - _fr_last) / 1000.0
+		_fr.n += 1
+		_fr.sum += ms
+		_fr.max = maxf(_fr.max, ms)
+		if ms > 25.0:
+			_fr.n25 += 1
+		if ms > 50.0:
+			_fr.n50 += 1
+		var lv: int = type2.load_lv if type2 != null else 0
+		_fr.lv_sum += lv
+		_fr.lv_max = maxi(_fr.lv_max, lv)
+	_fr_last = now
+
+
+## 이번 전투의 프레임 요약 —— {n 프레임 수, avg · max ms, s25 · s50 느린 프레임 %, lv 부하 단계 평균 · 최고, top 무거운 구간 ms/프레임, 기기 · 창 · 버전}
+func frame_stats() -> Dictionary:
+	if _fr.is_empty() or int(_fr.n) < 30:
+		return {}
+	var n := float(_fr.n)
+	var top := []
+	if field:
+		for k in field.prof:
+			if k != "_frames":
+				top.append([str(k), snappedf((float(field.prof[k]) - float(_fr.prof0.get(k, 0))) / 1000.0 / n, 0.01)])
+		top.sort_custom(func(x, y): return x[1] > y[1])
+	return {"n": int(n), "avg": snappedf(_fr.sum / n, 0.01), "max": snappedf(_fr.max, 0.1), "s25": snappedf(_fr.n25 * 100.0 / n, 0.1), "s50": snappedf(_fr.n50 * 100.0 / n, 0.1),
+		"lv": snappedf(_fr.lv_sum / n, 0.01), "lv_max": int(_fr.lv_max), "top": top.slice(0, 6), "units": field.order.size() if field else 0,
+		"os": OS.get_name(), "dev": OS.get_model_name().left(40), "gpu": RenderingServer.get_video_adapter_name().left(40),
+		"win": [get_window().size.x, get_window().size.y], "q": Settings.quality, "ver": Changelog.version()}
+
+
 func _process(dt: float) -> void:
 	var tv := Time.get_ticks_usec()
+	if running and not finished:
+		_fr_tick()
+	else:
+		_fr_last = 0
 	if not _press.is_empty() and Time.get_ticks_msec() - _press[1] >= LONG_PRESS * 1000:
 		var pp: Vector2 = _press[0]
 		_press = []
@@ -2256,6 +2307,11 @@ func skip() -> void:
 
 func _finish() -> void:
 	finished = true
+	if perf_sink.is_valid():      # 11/19 프레임 실측을 넘긴다 (온라인: 서버 기록)
+		var fs := frame_stats()
+		if not fs.is_empty():
+			perf_sink.call(fs)
+	_fr = {}
 	# 흘려 넣은 결과가 엔진의 최종 병력과 같은지 확인한다
 	var final: Array = res.ev[res.ev.size() - 1].s
 	for u in shown.size():
@@ -2495,7 +2551,8 @@ class Hud extends Control:
 				var hw := 30.0 * (1.0 - clampf(ts / 0.6, 0, 1) * 0.85)
 				var nrm := (E - A).orthogonal().normalized() * hw
 				var mid := A.lerp(E, 0.5)
-				draw_colored_polygon(PackedVector2Array([A, mid + nrm, E, mid - nrm]), Color(col, 0.85 * a * sk))
+				if A.distance_squared_to(E) > 9.0:      # 11/19 길이 0 인 첫 프레임은 건너뛴다 (다각형 오류)
+					draw_colored_polygon(PackedVector2Array([A, mid + nrm, E, mid - nrm]), Color(col, 0.85 * a * sk))
 				draw_line(A, E, Color(1, 1, 1, a), 2.0 + 4.0 * (1.0 - clampf(ts / 0.4, 0, 1)))
 		# 맞은 부대마다 차례로 팡 팡 팡 (불바다: 불꽃 기둥 · 기세: 금빛이 위로 솟구침)
 		var tg: Array = f.tgt
@@ -2528,8 +2585,9 @@ class Hud extends Control:
 				var h := 150.0 * ease(clampf(lt / 0.4, 0, 1), 0.5)
 				var fa := 1.0 - clampf((lt - 0.7) / 0.6, 0, 1)
 				var b := p + Vector2(0, 6)
-				draw_polygon(PackedVector2Array([b + Vector2(-22, 0), b + Vector2(22, 0), b + Vector2(14, -h), b + Vector2(-14, -h)]),
-					PackedColorArray([Color(col, 0.5 * fa), Color(col, 0.5 * fa), Color(col, 0.0), Color(col, 0.0)]))
+				if h > 2.0:      # 11/19 높이 0 인 첫 프레임은 건너뛴다 (다각형 오류)
+					draw_polygon(PackedVector2Array([b + Vector2(-22, 0), b + Vector2(22, 0), b + Vector2(14, -h), b + Vector2(-14, -h)]),
+						PackedColorArray([Color(col, 0.5 * fa), Color(col, 0.5 * fa), Color(col, 0.0), Color(col, 0.0)]))
 				var nst: int = [3, 5, 7][qi]
 				for s in nst:
 					var ox := (s - (nst - 1) * 0.5) * 7.0
@@ -3475,24 +3533,48 @@ class Hud extends Control:
 		var icons := PackedStringArray()
 		var badge_dy := 0.0
 		var boss := false             # 11/19 토벌 총대장 —— 메달 위에 왕관
+		# 11/19 사용자: 메달로 그 부대의 사기 · 병력("47k")을 본다 (고유기 고리는 넣었다가 사용자 뜻으로 뺐다). 값은 칸으로 끊어(사기 5) 바뀔 때만 다시 그린다
+		var troops_t := ""            # 이름 옆 병력 ("47k"), 빈 글이면 안 그린다
+		var tw := 0.0                 # 병력 글 폭
+		var mo := -1                  # 사기 칸 (0~40 = 0~200, 5 단위). -1 이면 막대 없음
 		func _draw() -> void:
 			for mt: Texture2D in mts:
 				var tsz := Vector2(mt.get_size())
 				draw_texture_rect(mt, Rect2((tsz * -0.5).round() / S, tsz / S), false)
 			if boss:
 				BattleView.Hud.draw_crown(self, Vector2(0, - r - 5.0), 1.0)
-			var label := Rect2(Vector2(- w * 0.5, r + 3.0), Vector2(w, 13.0))
+			var label := Rect2(Vector2(- w * 0.5, r + 4.5), Vector2(w, 13.0))
 			draw_rect(label, Color(0.08, 0.08, 0.06, 0.82))
-			draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81))
+			if troops_t == "":
+				draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81))
+			else:
+				draw_string(DB.font_bold, label.position + Vector2(4, 10), name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.98, 0.94, 0.81))
+				draw_string(DB.font_bold, label.position + Vector2(w - tw - 4, 10), troops_t, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("#a9c8f0"))
+			if mo >= 0:      # 사기 막대 —— 이름표 바로 아래 2px. 100 까지 사기색, 넘는 몫은 금색
+				var bar := Rect2(label.position + Vector2(0, 13.0), Vector2(w, 2.0))
+				draw_rect(bar, Color(0.02, 0.02, 0.03, 0.9))
+				var m := mo * 5.0
+				draw_rect(Rect2(bar.position, Vector2(w * clampf(m / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.morale_color(m))
+				if m > 100.0:
+					draw_rect(Rect2(bar.position, Vector2(w * clampf((m - 100.0) / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.MORALE_OVER_COL)
 			if icons.is_empty() or hud == null:
 				return
 			var D: float = BattleView.Hud.BADGE_D      # 메달 아래 작은 동그라미 기호 (최대 셋) —— _deck_badges 와 같은 모양
 			var bw := D * icons.size() + 2.0 * (icons.size() - 1)
 			for i in icons.size():
-				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + 2.0), r + 17.0 + badge_dy + D * 0.5)
+				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + 2.0), r + 21.0 + badge_dy + D * 0.5)
 				draw_circle(c, D * 0.5, Color(0.03, 0.04, 0.07, 0.92))
 				draw_arc(c, D * 0.5, 0, TAU, 20, Color(BattleView.Hud._icon_col(icons[i]), 0.9), 1.0, true)
 				hud._st_icon(c, icons[i], D * 0.5 - 2.0, 1.0, self)
+	## 11/19 메달 옆 병력 —— "47k" · "4.7k" · "820"
+	static func troops_k(v: float) -> String:
+		if v >= 9950.0:
+			return "%dk" % roundi(v / 1000.0)
+		if v >= 1000.0:
+			return "%.1fk" % (v / 1000.0)
+		return str(maxi(0, roundi(v)))
+
+
 	## 11/19 토벌 총대장 왕관 —— 금색 세 봉우리 (글자 없이 기호로)
 	static func draw_crown(ci: CanvasItem, c: Vector2, a: float) -> void:
 		var pts := PackedVector2Array([c + Vector2(-6, 3), c + Vector2(-6, -3), c + Vector2(-3, 0), c + Vector2(0, -5), c + Vector2(3, 0), c + Vector2(6, -3), c + Vector2(6, 3)])
@@ -4143,7 +4225,16 @@ class Hud extends Control:
 					nw = [name_, fbo2.get_string_size(name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8.0, sq.cid]
 					_tok_name[sq.key] = nw
 				var w: float = nw[1]
-				var label := Rect2(p + Vector2(- w * 0.5, r + 3.0), Vector2(w, 13.0))
+				# 11/19 병력 · 사기 · 고유기 (살아 있는 부대만)
+				var tt := ""
+				var ttw := 0.0
+				var mo := -1
+				if sq.alive:
+					tt = troops_k(sq.troops)
+					ttw = fbo2.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+					w += ttw + 3.0
+					mo = clampi(roundi(sq.morale / 5.0), 0, 40)
+				var label := Rect2(p + Vector2(- w * 0.5, r + 4.5), Vector2(w, 15.0))
 				_painted_medals[sq.key] = {"at": p, "radius": r, "label": label}
 				var bp := _badge_place(sq, p, r)
 				# 11/19 프레임: 메달(틀 · 얼굴 · 이름표)은 한 번 그려 둔 노드를 자리만 옮긴다 —— 매 프레임 메달 18개 × 그리기 4번을 다시 넣던 것이 HUD 에서 가장 무거웠다
@@ -4154,8 +4245,11 @@ class Hud extends Control:
 					_medal_layer.add_child(node)
 					_medal_nodes[sq.key] = node
 				var bz: bool = bool(sq.row.get("boss", false)) and sq.alive
-				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.icons != bp[0] or node.badge_dy != bp[1] or node.boss != bz:
+				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.icons != bp[0] or node.badge_dy != bp[1] or node.boss != bz 						or node.troops_t != tt or node.mo != mo:
 					node.boss = bz
+					node.troops_t = tt
+					node.tw = ttw
+					node.mo = mo
 					node.hud = self
 					node.icons = bp[0]
 					node.badge_dy = bp[1]
@@ -4337,7 +4431,7 @@ class Hud extends Control:
 		var shB := 0
 		for sq in view.field.order:
 			if sq.alive:
-				var mq: float = clampf(sq.morale, 0.0, 100.0) * sq.troops
+				var mq: float = clampf(sq.morale, 0.0, ARMY_MORALE_MAX) * sq.troops      # 11/19 사용자: 전군 사기 상한 100 → 200
 				var sh := 1 if sq.morale < SHAKY_MORALE else 0
 				if sq.camp == "A":
 					tA += sq.troops
@@ -4357,7 +4451,7 @@ class Hud extends Control:
 		draw_rect(Rect2(bx + bw * ratio, 14, bw * (1 - ratio), 8), War3D.TEAM.B)
 		_text(fb, Vector2(bx - 98, 23), "아군 " + Battle.num(tA), HORIZONTAL_ALIGNMENT_RIGHT, 92, 13, Color("#a9c8f0"))
 		_text(fb, Vector2(bx + bw + 6, 23), Battle.num(tB) + " 적", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f0aaa2"))
-		# 진영 사기 = 살아 있는 부대 사기(0~100 으로 자름)의 병력 가중 평균. 가운데 시계 양옆에 한 줄씩
+		# 진영 사기 = 살아 있는 부대 사기(0~200 으로 자름)의 병력 가중 평균. 가운데 시계 양옆에 한 줄씩
 		var gh := 14.0
 		var gy := 27.0
 		var gw := maxf(40.0, bw * 0.5 - 34.0)
@@ -4578,8 +4672,32 @@ class Hud extends Control:
 			draw_set_transform(Vector2.ZERO)
 			# 외침 —— 한 글자씩 나온다
 			var shout: String = "“%s”" % cut.shout
-			var shown := shout.substr(0, int(clampf((t - 0.3) / 0.55, 0, 1) * shout.length()))
-			_text(fd, Vector2(tx, by - 40 if tall else by - 52), shown, HORIZONTAL_ALIGNMENT_CENTER, tw, 20 if tall else 24, Color(1, 0.95, 0.88, fade))
+			var shown_n := int(clampf((t - 0.3) / 0.55, 0, 1) * shout.length())
+			# 11/19 사용자: 장비 외침이 잘렸다 —— 한 줄에 안 들어가면 글씨를 줄이고, 그래도 넘치면 가운데 띄어쓰기에서 두 줄로 나눈다
+			var sfs := 20 if tall else 24
+			var lines: Array = [shout]
+			while sfs > 17 and fd.get_string_size(shout, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs).x > tw:
+				sfs -= 1
+			if fd.get_string_size(shout, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs).x > tw:
+				var cutp := -1
+				var mid := shout.length() / 2
+				for ci in shout.length():
+					if shout[ci] == " " and (cutp < 0 or absi(ci - mid) < absi(cutp - mid)):
+						cutp = ci
+				if cutp > 0:
+					lines = [shout.substr(0, cutp), shout.substr(cutp + 1)]
+					sfs = 20 if tall else 24
+				for ln in lines:
+					while sfs > 12 and fd.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs).x > tw:
+						sfs -= 1
+			var sy := (by - 40 if tall else by - 52) - (lines.size() - 1) * sfs * 1.15
+			var used := 0
+			for ln in lines:
+				var part: String = ln.substr(0, clampi(shown_n - used, 0, ln.length()))
+				if part != "":
+					_text(fd, Vector2(tx, sy), part, HORIZONTAL_ALIGNMENT_CENTER, tw, sfs, Color(1, 0.95, 0.88, fade))
+				used += ln.length() + 1
+				sy += sfs * 1.15
 			if cut.crisis:      # 위기에 쓴 고유기 —— 위력이 오른다
 				_text(fd, Vector2(tx, pr.position.y + 30 if tall else by - 92), "배수진", HORIZONTAL_ALIGNMENT_CENTER, tw, 22, Color(1, 0.35, 0.25, fade * nt))
 			# 장수 이름 낙관
@@ -4601,6 +4719,9 @@ class Hud extends Control:
 	## 진영 사기 게이지 —— r 안에 m(0~100)만큼 채운다. from_left 면 왼쪽에서 오른쪽으로(아군), 아니면 오른쪽에서(적).
 	## 색: 60↑ 옥색 → 45 황색 → 30 주황 → 30 미만 적색. 30 자리에 가는 눈금. 위험(평균 35 미만이거나 동요 부대 3 이상)이면 테두리 · 빛이 깜빡인다.
 	## 숫자 "사기 N" 은 안쪽 바깥 끝에, 동요 부대가 있으면 "동요 N" 이 반대쪽 끝에
+	## 11/19 사용자: 전군 사기 상한은 200. 막대는 100 까지 한 칸을 채우고, 100 을 넘는 몫은 같은 칸 위에 다른 색(금색)으로 덧채운다. 글은 "사기 100 (+20)"
+	const ARMY_MORALE_MAX := 200.0
+	const MORALE_OVER_COL := Color("#ffd76e")
 	func _morale_gauge(r: Rect2, m: float, shaky_n: int, alive_n: int, from_left: bool) -> void:
 		var fb: Font = DB.font_bold
 		var danger: bool = alive_n > 0 and (m < ARMY_WARN or shaky_n >= SHAKY_MANY)
@@ -4615,11 +4736,23 @@ class Hud extends Control:
 			draw_rect(Rect2(r.position, Vector2(fw, r.size.y)), col)
 		else:
 			draw_rect(Rect2(r.position + Vector2(r.size.x - fw, 0), Vector2(fw, r.size.y)), col)
+		var over := clampf(m - 100.0, 0.0, ARMY_MORALE_MAX - 100.0)
+		if over > 0.0 and alive_n > 0:
+			var ow := r.size.x * over / (ARMY_MORALE_MAX - 100.0)
+			var oh := r.size.y * 0.5      # 넘는 몫은 칸 위쪽 절반에 —— 아래로 본래 색이 보여 '가득 + 덤' 으로 읽힌다
+			if from_left:
+				draw_rect(Rect2(r.position, Vector2(ow, oh)), MORALE_OVER_COL)
+			else:
+				draw_rect(Rect2(r.position + Vector2(r.size.x - ow, 0), Vector2(ow, oh)), MORALE_OVER_COL)
 		var tx := r.position.x + (r.size.x * SHAKY_MORALE / 100.0 if from_left else r.size.x * (1.0 - SHAKY_MORALE / 100.0))
 		draw_rect(Rect2(tx - 0.5, r.position.y, 1.0, r.size.y), Color(1, 1, 1, 0.55))
 		if danger:
 			draw_rect(Rect2(r.position - Vector2(1, 1), r.size + Vector2(2, 2)), Color(1.0, 0.25, 0.18, 0.35 + 0.65 * pulse), false, 2.0)
-		var lbl := "사기 %d" % roundi(m) if alive_n > 0 else "사기 -"
+		var lbl := "사기 -"
+		if alive_n > 0:
+			lbl = "사기 %d" % roundi(m) if roundi(m) <= 100 else "사기 100 (+%d)" % (roundi(m) - 100)
+			if fb.get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x > r.size.x - 8.0:      # 좁은 화면 —— 머리말을 뗀다
+				lbl = lbl.trim_prefix("사기 ")
 		var al := HORIZONTAL_ALIGNMENT_LEFT if from_left else HORIZONTAL_ALIGNMENT_RIGHT
 		var ty := r.position.y + r.size.y - 2.5
 		draw_string_outline(fb, Vector2(r.position.x + 4, ty), lbl, al, r.size.x - 8, 11, 4, Color(0, 0, 0, 0.85))
@@ -4883,6 +5016,8 @@ class MiniCard extends Control:
 		if shapes:
 			draw_rect(Rect2(bx, y + 3.0, bw2, 2), DB.PAL.ink)
 			draw_rect(Rect2(bx, y + 3.0, bw2 * clampf(sq.morale / 100.0, 0, 1), 2), mc)
+			if sq.morale > 100.0:      # 11/19 100 을 넘는 몫은 금색으로 덧채운다 (상한 200)
+				draw_rect(Rect2(bx, y + 3.0, bw2 * clampf((sq.morale - 100.0) / 100.0, 0, 1), 2), BattleView.Hud.MORALE_OVER_COL)
 		# 고유기 —— 금색 · 끝에 남은 횟수 구슬 (6급 이상 · 기인만. 횟수가 다 떨어지면 회색)
 		y += pitch
 		if sq.tier >= 6 or DB.is_kiin(sq.cid):

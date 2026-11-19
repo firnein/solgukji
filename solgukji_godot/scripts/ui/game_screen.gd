@@ -2782,9 +2782,9 @@ func card_info(k: String) -> void:
 	var rc := DB.role_chip(k)      # 11/9 대표 역할 칩 (기인) + 피해 종류 한 줄
 	if gt != "" or not rc.is_empty():
 		var gh := UI.hbox(UI.SP_S)
-		if not rc.is_empty():      # 역할 칩의 색 칠한 상자는 걷고 글자만 (11/9)
+		if not rc.is_empty():      # 11/19 장수 역할 —— 갈래 색 글 ("역할 아군 보호")
 			gh.add_child(UI.lbl("역할", UI.FS_CAP, DB.PAL.text_dim))
-			gh.add_child(UI.lbl(str(rc.t), UI.FS_CAP, DB.PAL.paper, true))
+			gh.add_child(UI.lbl(str(rc.t), UI.FS_CAP, (rc.col as Color).lightened(0.45), true))
 		if gt != "":
 			gh.add_child(UI.lbl(gt, UI.FS_CAP, DB.kind_col(c.tag)))
 		st.add_child(gh)
@@ -4514,7 +4514,7 @@ func _page_rank() -> Control:
 	var sr := UI.grid(80, 4)
 	sr.add_child(UI.stat("%d위" % run.rank(), "%d인 중" % (run.bots.size() + 1)))      # 11/11 온라인은 방 자리 수(4 · 6 · 8)만큼 — 혼자 하기는 봇 7명 = 8인
 	sr.add_child(UI.stat(str(run.my_pv()), "내 전력"))
-	sr.add_child(UI.stat("%d승 %d패" % [run.my_w, run.my_l], "전적"))
+	sr.add_child(UI.stat("%d승 %d패%s" % [run.my_w, run.my_l, (" · " + Run.streak_text(run.streak)) if absi(run.streak) >= 2 else ""], "전적"))      # 11/19 연승 · 연패
 	sr.add_child(UI.stat("%d" % run.hp, "민심"))      # 11/9 경고 → 민심 (패배마다 깎이고 0 이면 멸망)
 	v.add_child(UI.sect("군웅 할거 · %d일차 %s" % [run.day + 1, Run.PHASE_N[run.phase]], UI.panel(sr)))
 	if online != null and online.in_game and not online.room.is_empty():
@@ -5088,6 +5088,12 @@ func _dev_args() -> void:
 		var worst := 0.0
 		var t0 := Time.get_ticks_usec()
 		var last := t0
+		# 11/19 컷인 중 · 평소를 갈라 잰다 (고유기마다 끊기는지) + 뷰포트 GPU · CPU 렌더 시간
+		var by_cut := {false: PackedFloat32Array(), true: PackedFloat32Array()}
+		var vrid := get_viewport().get_viewport_rid()
+		RenderingServer.viewport_set_measure_render_time(vrid, true)
+		var gpu_sum := 0.0
+		var rcpu_sum := 0.0
 		while Time.get_ticks_usec() - t0 < int(float(a.gfps) * 1e6):
 			await get_tree().process_frame
 			var now := Time.get_ticks_usec()
@@ -5101,6 +5107,9 @@ func _dev_args() -> void:
 				dl.sort_custom(func(x, y): return x[1] > y[1])
 				print("  느린 프레임 %.1fms · 전투 %.2f초 · %s · 컷인 %s" % [ftm, _battle.clock if _battle else -1.0, " ".join(dl.slice(0, 3).map(func(x): return "%s %.1f" % [x[0], x[1]])), str(_battle.hud.cut != null)])
 			_pf_prev = pf_now
+			by_cut[_battle != null and _battle.hud != null and _battle.hud.cut != null].append(ftm)
+			gpu_sum += RenderingServer.viewport_get_measured_render_time_gpu(vrid)
+			rcpu_sum += RenderingServer.viewport_get_measured_render_time_cpu(vrid)
 			worst = maxf(worst, ftm)
 			last = now
 			fr += 1
@@ -5117,6 +5126,17 @@ func _dev_args() -> void:
 					parts.append([k, pf[k] / 1000.0 / nfr])
 			parts.sort_custom(func(x, y): return x[1] > y[1])
 			print("  프레임당 ms: " + " · ".join(parts.slice(0, 9).map(func(x): return "%s %.2f" % [x[0], x[1]])))
+		for ck in [false, true]:
+			var arr: PackedFloat32Array = by_cut[ck]
+			if arr.is_empty():
+				continue
+			arr.sort()
+			var sm := 0.0
+			for x in arr:
+				sm += x
+			print("  %s %d프레임 · 평균 %.2fms · p95 %.2f · p99 %.2f · 최대 %.1f" % ["컷인 중" if ck else "평소", arr.size(), sm / arr.size(),
+				arr[int((arr.size() - 1) * 0.95)], arr[int((arr.size() - 1) * 0.99)], arr[-1]])
+		print("  렌더 GPU %.2fms · 렌더 CPU %.2fms (프레임 평균) · 창 %s" % [gpu_sum / maxi(1, fr), rcpu_sum / maxi(1, fr), str(get_window().size)])
 		print("병사 %d명 · fps 평균 %.0f · 가장 느린 프레임 %.1fms (%d프레임)" % [men, fr / ((Time.get_ticks_usec() - t0) / 1e6), worst, fr])
 		get_tree().quit()
 		return

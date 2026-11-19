@@ -194,7 +194,7 @@ func _draw_areas(ci: CanvasItem = null) -> void:
 	var keep := []
 	for a in _areas:
 		var u: float = (field.clock - a.t0) / a.life
-		if u >= 1.0:
+		if u >= 1.0 or u < 0.0:      # u < 0 —— 시계가 되돌아갔다 (지난 전투의 것)
 			continue
 		keep.append(a)
 		var al := minf(1.0, u * 6.0) * (1.0 if u < 0.8 else (1.0 - u) / 0.2)
