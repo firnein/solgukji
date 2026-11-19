@@ -342,8 +342,15 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 
 
 ## 행동 간격 —— 한 턴(period)에 한 번이 기준, 빠르면 조금 짧게 (±25%)
+## 11/19 실험 (사용자 제안: "속도 100 = 초당 1번 공격") —— 켜면 행동 간격 = SPD_RULE_BASE / 속도 초. 등급별 턴 배율(PERIOD_MUL)은 정산 간격에만 남는다.
+## 기본은 꺼 둔다 (전투 결과 · 길이가 크게 바뀐다 —— tests/spd_rule 로 전후를 잰다)
+static var spd_rule := false
+const SPD_RULE_BASE := 100.0
+
 func _interval(u: Unit) -> float:
 	var fl := _flood_slow(u)      # 수몰 이감은 속도 반영이 1/4 뿐인 간격식에 묻히지 않게 따로 곱한다 (11/8 —— 이동은 eff 로 그대로)
+	if spd_rule:
+		return SPD_RULE_BASE / maxf(20.0, eff(u, "spd") / fl) / fl * (tac.int_mul(u) if tac != null else 1.0)
 	var s := eff(u, "spd") / fl / maxf(1.0, float(u.c.spd))
 	return period / clampf(0.75 + 0.25 * s * (float(u.c.spd) / 75.0), 0.8, 1.25) / fl * (tac.int_mul(u) if tac != null else 1.0)      # 11/15 군략 공격 간격 (노궁 연사 · 제갈연노)
 

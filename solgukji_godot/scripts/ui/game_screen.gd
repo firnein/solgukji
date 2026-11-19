@@ -1865,12 +1865,10 @@ func recipe_sheet(out: String) -> void:
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 			UI.buzz()
 			card_info(out))
-	tp.add_child(cv)
+	tp.add_child(_with_role(cv, out))      # 11/19 사용자: 초상 바로 아래에 역할
 	var rv := UI.vbox(UI.SP_S)
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rv.add_child(_stat_row(c))
-	if not DB.role_chip(out).is_empty():      # 11/19 사용자: 갈무리창에도 역할
-		rv.add_child(RoleChip.new(out))
 	rv.add_child(TraitBoard.new().setup(out))
 	var chips := _ability_items(out)
 	var iy := _inyeon_item(out)      # 11/11 인연 —— 이름 칩만 한 줄 (구성원은 디테일창에서)
@@ -2786,18 +2784,15 @@ func card_info(k: String) -> void:
 	var top := UI.hbox(UI.SP_M)
 	var big := CardView.new().setup(k, Vector2(132, 188))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	top.add_child(big)
+	top.add_child(_with_role(big, k))      # 11/19 사용자: 초상 바로 아래에 역할
 	# 초상 오른쪽 (11/3 사용자: 초상과 높이를 맞춘다) —— 능력치 다섯 칸 · 특기판 · 접힌 고유 특기 · 위세 · 고유기
 	var st := UI.vbox(UI.SP_S)
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	st.custom_minimum_size.y = 188
 	st.add_child(_stat_row(c))
 	var gt := DB.guard_text(c.tag)      # 11/8 피해 종류 · 병종 갑옷 · 결계 한 줄 ("물리 피해 · 갑옷 30%")
-	var rc := DB.role_chip(k)      # 11/9 대표 역할 칩 (기인) + 피해 종류 한 줄
-	if gt != "" or not rc.is_empty():
+	if gt != "":
 		var gh := UI.hbox(UI.SP_S)
-		if not rc.is_empty():      # 11/19 장수 역할 —— 카드와 같은 갈래 색 칩
-			gh.add_child(RoleChip.new(k))
 		if gt != "":
 			gh.add_child(UI.lbl(gt, UI.FS_CAP, DB.kind_col(c.tag)))
 		st.add_child(gh)
@@ -3127,6 +3122,19 @@ func battle_unit_sheet(key: String) -> void:
 const TEMPER_ICON := {"맹장": "blade", "수호": "shield", "지략": "news", "저격": "target", "분노": "flame"}
 ## 고유 특기 · 위세(기인) · 패업 · 고유기 줄의 기호 —— 11/9 사용자: 종류를 색 카드가 아니라 작은 기호 + 옅은 라벨로 (작업현황 ㊽)
 const ABILITY_ICON := {"고유 특기": "seal", "위세": "banner", "기인": "banner", "패업": "crown", "고유기": "burst"}
+
+
+## 11/19 사용자: 디테일창 · 갈무리창은 초상 이미지 바로 아래에 역할 —— 초상과 역할 칩을 세로로 묶는다 (역할이 없는 카드는 초상 그대로)
+func _with_role(portrait: Control, k: String) -> Control:
+	if DB.role_chip(k).is_empty():
+		return portrait
+	var v := UI.vbox(UI.SP_XS)
+	v.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	v.add_child(portrait)
+	var chip := RoleChip.new(k)
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(chip)
+	return v
 
 
 ## 11/19 장수 역할 칩 (디테일창 · 갈무리창) —— 카드에 그리는 것(CardTile.draw_role_chip)과 같은 알약을 한 줄 컨트롤로
