@@ -6,19 +6,19 @@
    "shield"
   ],
   "strike": [
-   "#a8473c",
+   "#b53a3a",
    "blade"
   ],
   "fire": [
-   "#b5522e",
+   "#cc6a14",
    "flame"
   ],
   "snipe": [
-   "#8a6a2e",
+   "#8c7e22",
    "target"
   ],
   "raid": [
-   "#5a5fa8",
+   "#5b6584",
    "boot"
   ],
   "heal": [
@@ -26,15 +26,15 @@
    "plus"
   ],
   "buff": [
-   "#3f7fb0",
+   "#2f7fb8",
    "banner"
   ],
   "hex": [
-   "#7a4fa0",
+   "#8e479e",
    "zz"
   ],
   "aoe": [
-   "#3f6fc0",
+   "#4b4fc4",
    "burst"
   ]
  },

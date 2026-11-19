@@ -206,8 +206,13 @@ func _draw() -> void:
 		draw_circle(pr.position + Vector2(8, 8), 8, DB.fac_color(c.fac))
 		draw_string(DB.title_font(UI.FS_TINY), pr.position + Vector2(0, 11.5), c.fac, HORIZONTAL_ALIGNMENT_CENTER, 16, UI.FS_TINY, Color.WHITE)
 	var has_role := not DB.role_chip(k).is_empty()
-	_tag_icon(c, pr.end - Vector2(10, 26 if has_role else 10), 8.0)      # 11/6 사용자: 그림에 병종 심볼 (11/19 역할 칩이 있으면 그 위로)
-	CardTile.draw_role_chip(self, k, Vector2(pr.position.x + 1, pr.end.y - 15), UI.FS_TINY, pr.size.x - 2.0)      # 11/19 장수 역할 칩 —— 초상 아래 폭 전체
+	# 11/20 폴리싱: 낮은 칸(징집 보유 6열 84 · 갈무리 재료 78 · 편성 손패 80)은 초상이 57px 아래인데 수량 · 배지 · 병종 기호 · 역할 칩이 큰 칸과 같은 크기라 얼굴이 다 가렸다 —— 낮은 칸에서는 덧붙는 것들을 작은 칸(_draw_compact) 크기로
+	var small := pr.size.y < 60.0
+	var cfs := UI.FS_TINY if small else UI.FS_CAP      # 수량 · 배지 글씨
+	var bh := 14.0 if small else 17.0                  # 수량 · 배지 높이
+	var tr := 6.0 if small else 8.0                    # 병종 기호 반지름 (작은 칸과 같은 6)
+	_tag_icon(c, pr.end - Vector2(tr + 2.0, (16.0 if has_role else 0.0) + tr + 2.0), tr)      # 11/6 사용자: 그림에 병종 심볼 (11/19 역할 칩이 있으면 그 위로)
+	CardTile.draw_role_chip(self, k, Vector2(pr.position.x, pr.end.y - 15), UI.FS_TINY, pr.size.x, true)      # 11/19 장수 역할 칩 —— 초상 아래 폭 전체 (11/20 fill: 타일마다 같은 폭 · 높이)
 	var fd := DB.tier_font(c.tier, 13)
 	var nm: String = DB.person(k) if short_name and c.tier > 2 else c.name
 	var fs := UI.fit_fs(fd, nm, 13, UI.FS_TINY, w - 6)      # 11/14 감사 #10: 아무리 길어도 FS_TINY 아래로는 줄이지 않는다
@@ -217,32 +222,33 @@ func _draw() -> void:
 	draw_string(fd, Vector2(3, h - 8), nm, HORIZONTAL_ALIGNMENT_CENTER, w - 6, fs, tc.lightened(0.15) if c.tier >= 3 else tc)
 	if qty > 0:
 		var s := "×%d" % qty
-		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP).x + 8
-		var qr := Rect2(w - qw - 3, 4, qw, 17)
+		var qw := DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x + (6 if small else 8)
+		var qr := Rect2(w - qw - 3, 4, qw, bh)
 		var qb := StyleBoxFlat.new()
 		qb.bg_color = Color(DB.PAL.gold, 0.92)
 		qb.set_corner_radius_all(8)
 		draw_style_box(qb, qr)
-		draw_string(DB.font_body, qr.position + Vector2(0, 13), s, HORIZONTAL_ALIGNMENT_CENTER, qw, UI.FS_CAP, Color("#1A1508"))
+		draw_string(DB.font_body, qr.position + Vector2(0, bh - 4.0 + (0.5 if small else 0.0)), s, HORIZONTAL_ALIGNMENT_CENTER, qw, cfs, Color("#1A1508"))
 	if up:
-		var ur := Rect2(w - 19, 22 if qty > 0 else 4, 16, 16)
+		var us := 12.0 if small else 16.0
+		var ur := Rect2(w - us - 3, (4.5 if small else 5.0) + bh if qty > 0 else 4.0, us, us)
 		var ub := StyleBoxFlat.new()
 		ub.bg_color = Color(DB.PAL.jade, 0.95)
 		ub.set_corner_radius_all(8)
 		draw_style_box(ub, ur)
-		Icons.draw(self, "up", ur.get_center(), 14, Color.WHITE)
+		Icons.draw(self, "up", ur.get_center(), us - 2.0, Color.WHITE)
 	if badge != "" and not badge_quiet:
-		var bw0 := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP).x + 10
-		var br0 := Rect2(4, h - 41 - (15 if has_role else 0), bw0, 17)      # 11/19 역할 칩 위로
+		var bw0 := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x + (8 if small else 10)
+		var br0 := Rect2(4, pr.end.y - 2.0 - bh - (15 if has_role else 0), bw0, bh)      # 11/19 역할 칩 위로
 		var bb0 := StyleBoxFlat.new()
 		bb0.bg_color = badge_col if badge_col.a > 0 else Color(DB.PAL.ink, 0.85)
 		bb0.set_corner_radius_all(UI.R)      # 11/14 알약 → 모서리 규칙 R
 		draw_style_box(bb0, br0)
-		draw_string(DB.font_body, br0.position + Vector2(0, 13), badge, HORIZONTAL_ALIGNMENT_CENTER, bw0, UI.FS_CAP, Color.WHITE)
+		draw_string(DB.font_body, br0.position + Vector2(0, bh - 4.0 + (0.5 if small else 0.0)), badge, HORIZONTAL_ALIGNMENT_CENTER, bw0, cfs, Color.WHITE)
 	elif badge != "":
 		# 11/14 UI 4단계 (감사 06-4): 흰 글자 둥근 알약이 초상을 가리고 다른 배지 셋과 다퉜다 —— 각진 작은 표(R) · 금 글자 · 한 단계 작은 글자로 무게를 낮춘다
 		var bw := DB.font_body.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_TINY).x + 8
-		var br := Rect2(3, h - 37 - (15 if has_role else 0), bw, 14)      # 11/19 역할 칩 위로
+		var br := Rect2(4, pr.end.y - 15.0 - (15 if has_role else 0), bw, 14)      # 11/19 역할 칩 위로 (11/20 왼쪽 끝을 초상 · 칩에 맞춤 3 → 4)
 		var bb := StyleBoxFlat.new()
 		bb.bg_color = Color(DB.PAL.ink, 0.88)
 		bb.border_color = Color(DB.PAL.gold, 0.7)

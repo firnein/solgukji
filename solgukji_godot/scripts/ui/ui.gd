@@ -296,9 +296,34 @@ static func btn_small(text: String, cb: Callable, kind := "") -> Button:
 static func icon_btn(glyph: String, cb: Callable, vis := ICON_BTN, fs := FS_TITLE) -> TouchButton:
 	var b := btn(glyph, cb, "ghost", int(vis.y))
 	b.custom_minimum_size = vis
-	b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	# 11/20 UI 다듬기: 평소 모양만 비우고 올림 · 눌림은 ghost(여백 10)를 그대로 써서, 마우스를 올리면 버튼이 커지며 줄 전체가 밀렸다 (머리띠 ☰ · 시트 ✕) —— 여백 0 으로 맞춘다
+	var pp := DB.PAL.paper
+	btn_styles(b, StyleBoxEmpty.new(), flat(Color(pp, 0.06), Color(pp, 0.22), 1, R, 0), flat(Color(pp, 0.12), Color(pp, 0.28), 1, R, 0))
 	b.add_theme_font_size_override("font_size", fs)
 	return b
+
+
+## 버튼 모양을 상태마다 같은 여백으로 (11/20 UI 다듬기) —— normal 만 바꾸면 올림 · 눌림 · 꺼짐에는 테마 기본(여백 10 · 테두리 없음)이 남아,
+## 마우스를 올리거나 누르는 순간 글자가 밀리고 버튼 크기 · 테두리가 튄다 (Button 은 지금 상태 모양의 여백으로 최소 크기를 잰다).
+## 안 준 상태는 앞 상태를 따른다 (hover ← normal · pressed ← hover · hover_pressed = pressed · disabled ← 흐린 normal). 여백은 모두 normal 것으로 맞춘다
+static func btn_styles(b: Button, normal: StyleBox, hover: StyleBox = null, pressed: StyleBox = null, disabled: StyleBox = null) -> void:
+	var hv: StyleBox = hover if hover != null else normal
+	var pr: StyleBox = pressed if pressed != null else hv
+	var ds: StyleBox = disabled
+	if ds == null:
+		ds = normal.duplicate()
+		if ds is StyleBoxFlat:
+			ds.bg_color.a *= 0.5
+			ds.border_color.a *= 0.5
+	for sb in [hv, pr, ds]:
+		if sb != normal:
+			for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+				sb.set_content_margin(side, normal.get_margin(side))
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hv)
+	b.add_theme_stylebox_override("pressed", pr)
+	b.add_theme_stylebox_override("hover_pressed", pr)
+	b.add_theme_stylebox_override("disabled", ds)
 
 
 ## 빈 상태 카드 (11/14 UI 4단계) —— 기호 + 제목 + 한두 줄 설명 (+ 다음 행동 버튼). 징집 첫날 · 소식 · 인연처럼 "아무것도 없다"를 한 모양으로

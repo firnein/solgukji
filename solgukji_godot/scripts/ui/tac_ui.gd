@@ -129,6 +129,13 @@ static func card_btn(id: String, cb: Callable, sel := false, note := "", tall :=
 		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dl.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(dl)
+	# 11/20 폴리싱: 효과 글이 세 줄이 되면(손패 시트 두 칸 격자의 「우회」) 정해 둔 높이를 넘어 상성 줄과 겹쳤다 —— 폭이 잡힌 뒤 줄 수를 세어 넘는 줄만큼만 카드를 키운다
+	var base_h := b.custom_minimum_size.y
+	var base_lines := 2 + (1 if note != "" else 0)
+	dl.resized.connect(func():
+		var extra := maxi(0, dl.get_line_count() - base_lines) * (dl.get_line_height() + dl.get_theme_constant("line_spacing"))
+		if dl.size.x >= 60.0 and not is_equal_approx(b.custom_minimum_size.y, base_h + extra):      # 폭이 잡히기 전(글자마다 줄이 바뀐다)은 믿지 않는다
+			b.custom_minimum_size.y = base_h + extra)
 	if has_match:
 		v.add_child(_match_rows(id, tall))
 	b.add_child(v)

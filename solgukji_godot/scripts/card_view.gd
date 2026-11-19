@@ -109,7 +109,7 @@ func _draw() -> void:
 		if not rc.is_empty():
 			var rfs := maxi(9, int(11 * u))
 			var rw: float = minf(pr.size.x - 6.0, rfs + DB.font_bold.get_string_size(str(rc.t), HORIZONTAL_ALIGNMENT_LEFT, -1, rfs).x + 11.0)
-			CardTile.draw_role_chip(self, k, Vector2(pr.get_center().x - rw * 0.5, pr.end.y - rfs - 8.0), rfs, pr.size.x - 6.0)
+			CardTile.draw_role_chip(self, k, Vector2(pr.get_center().x - rw * 0.5, pr.end.y - rfs - 5.0 - 4.0 * u), rfs, pr.size.x - 6.0)      # 11/20 폴리싱: 칩 아랫변이 칭호 윗머리에 닿았다 —— 조금 위로
 
 	# 이름 —— 칭호와 이름을 두 줄로 (백마장군 / 공손찬). 길면 글자를 줄인다
 	var nm: String = c.name
@@ -120,11 +120,13 @@ func _draw() -> void:
 		nm = nm.substr(sp + 1)
 	var col: Color = tc.lightened(0.15) if tier >= 6 else DB.PAL.paper
 	var tw := w - m * 2
-	var y := h - fw - 9 * u
+	var y := h - fw - 5.5 * u      # 11/20 폴리싱: 칭호 · 이름 두 줄이 서로 닿고 여백은 이름 아래에만 몰려 있었다(굵은 테 등급에서 더) —— 이름을 내리고(9 → 5.5) 칭호와의 줄 사이를 벌린다(19 → 21)
+	if title == "":      # 11/20 폴리싱: 칭호 없는 카드(관우 · 육손)는 이름이 아래에 붙고 역할 칩과의 사이가 비었다 —— 이름 칸 가운데로
+		y = h - name_h * 0.5 - fw * 0.5 + 6.5 * u
 	var nf := DB.tier_font(tier, 18 * u)
 	draw_string(nf, Vector2(m, y), nm, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(nf, nm, int(18 * u), tw), col)
 	if title != "":
-		draw_string(fb, Vector2(m, y - 19 * u), title, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(fb, title, int(12 * u), tw), Color(col, 0.8))
+		draw_string(fb, Vector2(m, y - 21 * u), title, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(fb, title, int(12 * u), tw), Color(col, 0.9))
 
 
 func _fit(f: Font, s: String, fs: int, wmax: float) -> int:

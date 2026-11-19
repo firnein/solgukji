@@ -340,8 +340,10 @@ func _build_top() -> Control:
 	_news_btn.hit_dir = 1
 	_news_btn.custom_minimum_size = Vector2(46, 22)
 	_news_btn.add_theme_font_size_override("font_size", UI.FS_CAP)
-	for st in ["normal", "hover", "pressed", "disabled"]:
-		_news_btn.add_theme_stylebox_override(st, UI.flat(Color(0, 0, 0, 0), Color(DB.PAL.ink4, 0.5 if st == "disabled" else 1.0), 1, 6, 2))
+	# 11/20 UI 다듬기: 올림 · 눌림이 평소와 같은 모양이라 PC 에서 눌리는지 알 수 없었다 —— 여백은 그대로(2), 선만 밝힌다
+	var nz := Color(0, 0, 0, 0)
+	UI.btn_styles(_news_btn, UI.flat(nz, DB.PAL.ink4, 1, 6, 2), UI.flat(Color(DB.PAL.paper, 0.06), DB.PAL.bamboo_dim, 1, 6, 2),
+		UI.flat(Color(DB.PAL.paper, 0.12), DB.PAL.bamboo_dim, 1, 6, 2), UI.flat(nz, Color(DB.PAL.ink4, 0.5), 1, 6, 2))
 	_news_btn.add_theme_color_override("font_color", DB.PAL.bamboo)
 	_news_btn.add_theme_color_override("font_pressed_color", DB.PAL.paper)
 	_news_badge = UI.lbl("", UI.FS_TINY, Color("#1A1508"), true)
@@ -442,10 +444,9 @@ func _build_sheet() -> void:
 	hv.add_child(tm)
 	_back_btn = UI.btn("‹", go_back, "ghost", UI.BH_S)
 	_back_btn.add_theme_font_size_override("font_size", UI.FS_BODY)
-	_back_btn.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3, DB.PAL.ink4, 1, 8, 6))
 	# 11/19 사용자: 뒤로 버튼에 마우스를 올리면 이름이 잘렸다 —— 평소 모양만 여백 6 으로 바꿔 두어, 올렸을 때 · 눌렀을 때는 테마의 넓은 여백이 글자를 밀어냈다
-	_back_btn.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink4, Color(DB.PAL.gold, 0.6), 1, 8, 6))
-	_back_btn.add_theme_stylebox_override("pressed", UI.flat(DB.PAL.ink2, Color(DB.PAL.gold, 0.6), 1, 8, 6))
+	# 11/20 같은 문제를 한 곳(UI.btn_styles)에서 막는다 —— 모든 상태의 여백을 평소 모양에 맞춘다
+	UI.btn_styles(_back_btn, UI.flat(DB.PAL.ink3, DB.PAL.ink4, 1, 8, 6), UI.flat(DB.PAL.ink4, Color(DB.PAL.gold, 0.6), 1, 8, 6), UI.flat(DB.PAL.ink2, Color(DB.PAL.gold, 0.6), 1, 8, 6))
 	_back_btn.add_theme_stylebox_override("focus", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 8, 6))
 	_back_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_back_btn.visible = false
@@ -455,10 +456,8 @@ func _build_sheet() -> void:
 	UI.wrap_text(_sheet_title)
 	_sheet_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(_sheet_title)
-	var x := UI.btn("✕", close_sheet, "ghost", UI.BH_S)
-	x.custom_minimum_size = UI.ICON_BTN
-	x.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-	x.add_theme_font_size_override("font_size", UI.FS_TITLE)
+	var x := UI.icon_btn("✕", close_sheet)      # 11/20 올리면 높이가 44 → 48 로 커져 시트 내용이 4 씩 내려앉았다 —— 기호 버튼 공용(여백 0)으로
+	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(x)
 	_sheet_scroll = UI.scroll()
 	_sheet_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -683,7 +682,10 @@ func _build_title() -> void:
 		x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		x.add_theme_font_size_override("font_size", UI.FS_BODY)
 		x.add_theme_color_override("font_color", DB.PAL.bamboo)
-		x.add_theme_stylebox_override("normal", UI.flat(Color("#0b0f1a", 0.55), UI.HAIR, 1, UI.R, 10))
+		# 11/20 올리면 ghost 기본(거의 투명)으로 바뀌어 그림 위에서 오히려 글자가 묻혔다 —— 올림 · 눌림도 먹빛 바탕을 지킨다
+		UI.btn_styles(x, UI.flat(Color("#0b0f1a", 0.55), UI.HAIR, 1, UI.R, 10), UI.flat(Color(DB.PAL.ink3, 0.8), Color(DB.PAL.paper, 0.28), 1, UI.R, 10),
+			UI.flat(Color("#0b0f1a", 0.8), Color(DB.PAL.gold, 0.6), 1, UI.R, 10))
+		x.add_theme_color_override("font_hover_color", DB.PAL.paper)
 		low.add_child(x)
 	var gap := Control.new()
 	gap.custom_minimum_size.y = UI.SP_XS
@@ -697,8 +699,9 @@ func _build_title() -> void:
 func _title_btn(text: String, cb: Callable, main: bool) -> Button:
 	var b := UI.btn_primary(text, cb, UI.BH_L) if main else UI.btn_secondary(text, cb, UI.BH_M)
 	if not main:
-		b.add_theme_stylebox_override("normal", UI.flat(Color("#0b0f1a", 0.72), Color(DB.PAL.paper, 0.22), 1, UI.R, 10))
-		b.add_theme_stylebox_override("hover", UI.flat(Color(DB.PAL.ink3, 0.85), Color(DB.PAL.paper, 0.35), 1, UI.R, 10))
+		# 11/20 눌림만 테마 기본(불투명 남색)이라 누르는 순간 색이 튀었다 —— 같은 먹빛에서 금 선만
+		UI.btn_styles(b, UI.flat(Color("#0b0f1a", 0.72), Color(DB.PAL.paper, 0.22), 1, UI.R, 10), UI.flat(Color(DB.PAL.ink3, 0.85), Color(DB.PAL.paper, 0.35), 1, UI.R, 10),
+			UI.flat(Color("#0b0f1a", 0.85), Color(DB.PAL.gold, 0.7), 1, UI.R, 10))
 	b.add_theme_font_override("font", DB.title_font(UI.FS_TITLE))
 	b.add_theme_font_size_override("font_size", UI.FS_TITLE if main else UI.FS_LABEL + 2)
 	b.add_theme_color_override("font_color", Color("#f0e6cf"))
@@ -1246,6 +1249,8 @@ func _next_band() -> void:
 	sb.border_width_bottom = 1
 	sb.content_margin_top = 10
 	sb.content_margin_bottom = 10
+	sb.content_margin_left = 14      # 11/20 긴 글이 화면 양끝에 닿거나 넘치지 않게 —— 옆 여백 + 넘치면 …
+	sb.content_margin_right = 14
 	p.add_theme_stylebox_override("panel", sb)
 	p.anchor_left = 0
 	p.anchor_right = 1
@@ -1257,10 +1262,14 @@ func _next_band() -> void:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_constant_override("outline_size", 5)
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	l.clip_text = true
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	v.add_child(l)
 	if str(e[2]) != "":
 		var l2 := UI.lbl(str(e[2]), UI.FS_BODY, DB.PAL.paper)
 		l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l2.clip_text = true
+		l2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		v.add_child(l2)
 	p.add_child(v)
 	add_child(p)
@@ -1520,7 +1529,11 @@ func _menu() -> void:
 		b.add_child(UI.btn("플레이 기록 폴더 열기", func():
 			DirAccess.make_dir_recursive_absolute(PlayLog.dir)
 			OS.shell_open(dir), "ghost"))
-		b.add_child(UI.hint("판마다 .jsonl 파일이 하나씩 쌓입니다. 이 파일들을 보내 주세요.\n%s" % dir))
+		b.add_child(UI.hint("판마다 .jsonl 파일이 하나씩 쌓입니다. 이 파일들을 보내 주세요."))
+		# 11/20 폴더 길이 안내 글에 붙어 「C:」 · 「솔/국지」에서 끊겨 세 줄이 됐다 —— 작은 글씨 따로, 글자 단위로 꽉 채워 줄바꿈
+		var dl := UI.lbl(dir, UI.FS_CAP, Color(DB.PAL.text_dim, 0.8))
+		dl.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		b.add_child(dl)
 	b.add_child(UI.hint("행동할 때마다 자동으로 저장됩니다. 전투 도중 앱을 꺼도 다음에 열면 그 전투를 마무리합니다."))
 
 
@@ -2825,6 +2838,10 @@ func card_info(k: String) -> void:
 		var bio_lines := 1 if tbd.custom_minimum_size.y > 20.0 and (c.tier >= 6 or DB.is_kiin(k)) else 2
 		bl.max_lines_visible = bio_lines
 		if bio_lines == 1:
+			# 11/20 한 줄뿐이면 둘째 문장 가운데서 「관도에서 …」로 끊겼다 —— 첫 문장까지만 보인다 (첫 문장도 길면 그때만 …)
+			var cut := bio.find(". ")
+			if cut > 0:
+				bl.text = bio.substr(0, cut + 1)
 			bl.autowrap_mode = TextServer.AUTOWRAP_OFF
 			bl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			bl.clip_text = true
@@ -2884,7 +2901,7 @@ func card_info(k: String) -> void:
 		tv.add_child(tg)
 		var tm := MarginContainer.new()
 		tm.add_theme_constant_override("margin_top", 8)
-		tm.add_theme_constant_override("margin_left", 4)
+		tm.add_theme_constant_override("margin_left", 0)      # 11/20 머리말 왼끝을 다른 묶음(기술 · 선호 대열 · 장수 조합법)과 맞춘다 (4 → 0)
 		tm.add_theme_constant_override("margin_bottom", 8)
 		tm.add_child(tv)
 		folds.add_child(tm)
@@ -2952,7 +2969,9 @@ func card_info(k: String) -> void:
 		var sb := UI.grain_btn("판매", "+%d" % Run.sell_price(k), func(): _sell(k), "ghost", UI.BH_S, UI.FS_BODY)
 		sb.disabled = not can_act()
 		sb.modulate.a = 0.5 if sb.disabled else 1.0
-		sb.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), Color(DB.PAL.seal, 0.55), 1, UI.R, 10))
+		# 11/20 올리면 붉은 선이 종이색으로 바뀌었다 —— 올림 · 눌림도 인장 붉은 선
+		UI.btn_styles(sb, UI.flat(Color(0, 0, 0, 0), Color(DB.PAL.seal, 0.55), 1, UI.R, 10), UI.flat(Color(DB.PAL.seal, 0.10), Color(DB.PAL.seal, 0.8), 1, UI.R, 10),
+			UI.flat(Color(DB.PAL.seal, 0.18), Color(DB.PAL.seal, 0.8), 1, UI.R, 10))
 		sb.custom_minimum_size.x = maxf(sb.custom_minimum_size.x, 128)
 		sr.add_child(sb)
 		b.add_child(sr)
@@ -2973,12 +2992,17 @@ func _pin_btn(k: String, after: Callable) -> Button:
 func _fold_sec(key: String, title: String, body: Control) -> Control:
 	var v := UI.vbox(UI.SP_S)
 	var hb := TouchButton.new()
-	hb.flat = true
+	# 11/20 UI 다듬기: 테마 여백(10) 때문에 「기술 2 ▾」가 옆 머리말(「특기 4」 · 「장수 조합법」)보다 10 들어가 있었다 —— 여백 없는 빈 모양으로 왼끝을 맞추고, 올리면 글자만 밝힌다
+	var hb_sb := StyleBoxEmpty.new()
+	hb_sb.set_content_margin_all(0)
+	UI.btn_styles(hb, hb_sb)
 	hb.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hb.custom_minimum_size.y = UI.BH_XS
 	hb.add_theme_font_override("font", DB.title_font(14))
 	hb.add_theme_font_size_override("font_size", UI.FS_BODY)
 	hb.add_theme_color_override("font_color", DB.PAL.bamboo)
+	hb.add_theme_color_override("font_hover_color", DB.PAL.paper)
+	hb.add_theme_color_override("font_pressed_color", DB.PAL.paper)
 	var upd := func():
 		var on: bool = _open.get(key, false)
 		hb.text = title + ("  ▴" if on else "  ▾")      # 11/14 UI 4단계: 접힘 표시는 앱 전체 ▾(닫힘) · ▴(열림) 하나로 (▸ · +/− 섞임 정리)
@@ -3314,6 +3338,7 @@ func _ability_row(it: Dictionary, fs: int, narrow: bool, simple: bool, on_tap: C
 		eff = UI.rich(str(it.effect) if it.get("raw", false) else _hl(str(it.effect)), fs - 1)
 		eff.add_theme_color_override("default_color", P.bamboo)
 		eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		UI.wrap_text(eff)      # 11/20 「세/기」처럼 단어 가운데서 줄이 바뀌었다
 	if narrow and not simple:
 		var v := UI.vbox(3)
 		var hd := UI.hbox(UI.SP_XS)
@@ -3554,9 +3579,9 @@ func _up_row(out: String) -> Control:
 		var ok: bool = got >= m[q]
 		var qn: String = DB.person(q) if DB.C[q].tier > 2 else DB.C[q].name
 		var cb := UI.btn("%s %d/%d" % [qn, got, m[q]], func(): card_info(q), "", UI.BH_S)      # 기호 없이 색으로 (4열에 이름이 잘렸다)
-		for st in ["normal", "hover", "pressed"]:
-			# 11/14 UI 4단계 (감사 10-6): 모자란 재료가 모두 붉어 오류처럼 보였다 —— 모자람은 중립(얇은 선 · 종이색), 갖춤만 옥색. 수량 n/m 이 상태를 말한다
-			cb.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color("#8fd4c2") if ok else Color(DB.PAL.paper, 0.16), 1, UI.R, 2))
+		# 11/14 UI 4단계 (감사 10-6): 모자란 재료가 모두 붉어 오류처럼 보였다 —— 모자람은 중립(얇은 선 · 종이색), 갖춤만 옥색. 수량 n/m 이 상태를 말한다
+		var cb_c: Color = Color("#8fd4c2") if ok else Color(DB.PAL.paper, 0.16)
+		UI.btn_styles(cb, UI.flat(DB.PAL.ink2, cb_c, 1, UI.R, 2), UI.flat(DB.PAL.ink3, cb_c, 1, UI.R, 2), UI.flat(DB.PAL.ink4, cb_c, 1, UI.R, 2))      # 11/20 올림 · 눌림은 바탕만 한 단계 밝게
 		cb.add_theme_color_override("font_color", Color("#8fd4c2") if ok else DB.PAL.paper)
 		cb.add_theme_font_size_override("font_size", UI.FS_CAP)
 		cb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -3569,8 +3594,8 @@ func _up_row(out: String) -> Control:
 		# 유니크 재료도 재료 칸처럼 (11/3 —— 글씨가 칸 밖으로 삐져나왔다). 누르면 아이템 시트
 		var ib := UI.btn("◆%s %d/1" % [DB.IT[ni].name, run.bag.get(ni, 0)], func(): _item_sheet(ni), "", UI.BH_S)
 		var icol := Color("#d59700") if ok else DB.PAL.paper
-		for st in ["normal", "hover", "pressed"]:
-			ib.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink2, Color(icol, 0.8 if ok else 0.16), 1, UI.R, 2))
+		var ib_c := Color(icol, 0.8 if ok else 0.16)
+		UI.btn_styles(ib, UI.flat(DB.PAL.ink2, ib_c, 1, UI.R, 2), UI.flat(DB.PAL.ink3, ib_c, 1, UI.R, 2), UI.flat(DB.PAL.ink4, ib_c, 1, UI.R, 2))
 		ib.add_theme_color_override("font_color", icol)
 		ib.add_theme_font_size_override("font_size", UI.FS_CAP)
 		ib.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -3646,6 +3671,13 @@ func _goal_block() -> Control:
 	var gsec := UI.vbox(UI.SP_S)
 	var tb := UI.btn("추천 열기 ▾" if fold else "추천 닫기 ▴", func(): _toggle("draw:rec_fold"), "ghost", UI.BH_XS)
 	tb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	# 11/20 UI 다듬기: 높이 28 로 만들었지만 글자 16 + 여백 10 이라 실제로는 42 —— 다른 접기 버튼(군단 효과 「펼치기 ▾」 · 「완성된 장수 접기 ▴」)과 같은 작은 글씨 · 대나무색 · 낮은 여백으로
+	tb.add_theme_font_size_override("font_size", UI.FS_CAP)
+	tb.add_theme_color_override("font_color", DB.PAL.bamboo)
+	var tb_n := UI.flat(Color(0, 0, 0, 0), Color(DB.PAL.paper, 0.16), 1, UI.R, 10)
+	tb_n.content_margin_top = 3
+	tb_n.content_margin_bottom = 3
+	UI.btn_styles(tb, tb_n, UI.flat(DB.PAL.ink3, Color(DB.PAL.paper, 0.28), 1, UI.R, 10), UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 10))
 	gsec.add_child(tb)
 	if fold:
 		return gsec
@@ -3816,8 +3848,11 @@ func _filter_chip(txt: String, icon, cnt: String, col: Color, on: bool, cb: Call
 	b.custom_minimum_size = Vector2(0, UI.BH_S)      # 11/14 감사 #10: 34 → 칩 높이 BH_S 로 (누르는 범위는 TouchButton 이 HIT 까지)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var tier_col: bool = icon == null and txt != "all"
-	for st in ["normal", "hover", "pressed"]:      # 11/9: 등급색 덩어리 칩 → 먹색 칩 + 등급색 글자, 고른 것만 금 얇은 선
-		b.add_theme_stylebox_override(st, UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, DB.PAL.gold if on else Color(0, 0, 0, 0), 1 if on else 0, UI.R, 0))
+	# 11/9: 등급색 덩어리 칩 → 먹색 칩 + 등급색 글자, 고른 것만 금 얇은 선
+	# 11/20 올림 · 눌림이 평소와 같은 모양이라 PC 에서 반응이 없었다 —— 한 단계 밝게 (여백 0 그대로)
+	var fc_b: Color = DB.PAL.gold if on else Color(0, 0, 0, 0)
+	UI.btn_styles(b, UI.flat(DB.PAL.ink3 if on else DB.PAL.ink2, fc_b, 1 if on else 0, UI.R, 0), UI.flat(DB.PAL.ink4 if on else DB.PAL.ink3, fc_b, 1 if on else 0, UI.R, 0),
+		UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 0))
 	if icon != null:
 		b.icon = icon
 		b.expand_icon = false
@@ -3917,8 +3952,15 @@ func _page_war() -> Control:
 		fh.add_child(ft)
 		var fb := UI.btn_ghost("편성 바꾸기 ›", func(): go("deploy"), UI.BH_XS)
 		fb.add_theme_font_size_override("font_size", UI.FS_CAP)
-		fb.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+		# 11/20 올리면 여백 10 짜리 ghost 상자로 바뀌어 글자가 왼쪽으로 20 밀리고 머리줄이 높아졌다 —— 글자만 밝힌다 (여백 좌우 4)
+		var fb_n := StyleBoxEmpty.new()
+		fb_n.set_content_margin_all(0)
+		fb_n.content_margin_left = 4
+		fb_n.content_margin_right = 0
+		UI.btn_styles(fb, fb_n)
 		fb.add_theme_color_override("font_color", DB.PAL.gold)
+		fb.add_theme_color_override("font_hover_color", DB.PAL.gold.lightened(0.3))
+		fb.add_theme_color_override("font_pressed_color", DB.PAL.paper)
 		fh.add_child(fb)
 		v.add_child(fh)
 		v.add_child(fp)
@@ -3954,6 +3996,7 @@ func boss_panel() -> Control:
 	qh.add_child(qi)
 	var ql := UI.rich("[b][color=%s]오늘 토벌 우두머리[/color][/b]  %s" % [DB.PAL.gold.to_html(false), tt], UI.FS_BODY)
 	ql.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI.wrap_text(ql)      # 11/20 「병/력 회복」처럼 단어 가운데서 줄이 바뀌었다
 	qh.add_child(ql)
 	v.add_child(qh)
 	v.add_child(UI.rich("[color=%s]총대장을 베면 승리[/color]" % DB.PAL.gold.to_html(false), UI.FS_CAP))      # 11/19 토벌 차별화 A
@@ -4549,8 +4592,8 @@ func _page_line() -> Control:
 				var b := UI.btn("%s%s%s" % [c.name, "★" if c.kind == "myth" else "", (" ×%d" % p[k]) if has else ""], func(): recipe_sheet(k) if DB.RECOF.has(k) else card_info(k), "", UI.BH_S)
 				b.add_theme_font_size_override("font_size", UI.FS_BODY)
 				b.add_theme_color_override("font_color", DB.tier_color(k) if has else Color(DB.PAL.paper, 0.55))
-				if has:
-					b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink3, DB.tier_color(k), 1, 8, 10))
+				if has:      # 11/20 올리면 등급색 테두리가 사라졌다 —— 올림 · 눌림도 테두리를 지킨다
+					UI.btn_styles(b, UI.flat(DB.PAL.ink3, DB.tier_color(k), 1, 8, 10), UI.flat(DB.PAL.ink4, DB.tier_color(k), 1, 8, 10), UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, 8, 10))
 				f.add_child(b)
 			lv.add_child(f)
 		lv0.add_child(UI.panel(lv))
@@ -5282,6 +5325,22 @@ func _dev_args() -> void:
 		if a.has("ghand") and is_instance_valid(_hand_scroll):      # 점검용 —— 징집 보유 목록을 이 위치까지 내린다 (큰 수면 맨 아래, 11/7)
 			_hand_scroll.scroll_vertical = int(a.ghand)
 			await get_tree().process_frame
+		if a.has("ghover"):      # 점검용 —— --ghover=x,y (논리 좌표) : 그 자리에 마우스를 올린 모양으로 찍는다. x,y,p 면 누른 채로 (11/20 버튼 올림 · 눌림 모양 점검)
+			var hp_: PackedStringArray = str(a.ghover).split(",")
+			var hpos := Vector2(float(hp_[0]), float(hp_[1]))
+			var mm := InputEventMouseMotion.new()
+			mm.position = hpos
+			mm.global_position = hpos
+			get_viewport().push_input(mm)
+			if hp_.size() > 2:
+				var mb_ := InputEventMouseButton.new()
+				mb_.button_index = MOUSE_BUTTON_LEFT
+				mb_.pressed = true
+				mb_.position = hpos
+				mb_.global_position = hpos
+				get_viewport().push_input(mb_)
+			for i in 4:
+				await get_tree().process_frame
 		# --frames=N --every=초 —— 연속 장면을 경로_0.png, 경로_1.png … 로
 		var nf := int(a.get("frames", "1"))
 		for i in nf:

@@ -112,10 +112,10 @@ func _fill() -> void:
 	if camp == "A":      # 11/6 #16 덱 설계 요약 —— "내 덱의 무엇이 통했는지" 한 줄 (데일리 진행의 확인 순간)
 		var ds := _deck_summary()
 		if ds != "":
-			_body.add_child(UI.rich(ds, UI.FS_BODY))
+			_body.add_child(UI.wrap_text(UI.rich(ds, UI.FS_BODY)))      # 11/20 폴리싱: 요약 줄이 단어 중간에서 끊겼다 (「반 / 격」) —— 띄어쓰기 자리에서만
 		var ft := _feats()
 		if ft != "":
-			_body.add_child(UI.rich(ft, UI.FS_BODY))
+			_body.add_child(UI.wrap_text(UI.rich(ft, UI.FS_BODY)))
 	var ch: Dictionary = res.get("chains", {}).get(camp, {})
 	if not ch.is_empty():
 		var names := ch.keys()
@@ -123,7 +123,7 @@ func _fill() -> void:
 		var parts := []
 		for k in names.slice(0, 5):
 			parts.append("[b]%s[/b] ×%d" % [k, int(ch[k])])
-		_body.add_child(UI.rich("[color=#%s]덱 연쇄[/color]  %s" % [("ffd257" if camp == "A" else "ff7a66"), "   ".join(parts)], UI.FS_BODY))
+		_body.add_child(UI.wrap_text(UI.rich("[color=#%s]덱 연쇄[/color]  %s" % [("ffd257" if camp == "A" else "ff7a66"), "   ".join(parts)], UI.FS_BODY)))
 	var rows := _rows(camp)
 	var k1: String = {"dmg": "dmg", "heal": "htr", "sup": "gain"}[view]
 	var k2: String = {"dmg": "taken", "heal": "hmo", "sup": "mdmg"}[view]
@@ -310,8 +310,10 @@ class Row extends Control:
 		if r.has_ult and r.ult == 0:
 			status += " · 고유기 미발동"
 		var col: Color = P.seal.lightened(0.35) if r.get("rout_cause", "") in ["morale", "mixed"] else P.text_dim
-		var status_fs := UI.fit_fs(DB.font_body, status, UI.FS_TINY, 9, size.x - 12.0)
-		draw_string(DB.font_body, Vector2(6, ROW_H - 6), status, HORIZONTAL_ALIGNMENT_LEFT, size.x - 12.0, status_fs, col)
+		# 11/20 폴리싱: 상태 줄을 이름 칸(x0)에 맞춘다 —— 왼쪽 끝(6)에서 시작해 얼굴 동그라미 아랫단에 닿았고, 이름 · 병종 줄과 왼쪽이 어긋났다
+		var status_w := size.x - x0 - 6.0
+		var status_fs := UI.fit_fs(DB.font_body, status, UI.FS_TINY, 9, status_w)
+		draw_string(DB.font_body, Vector2(x0, ROW_H - 6), status, HORIZONTAL_ALIGNMENT_LEFT, status_w, status_fs, col)
 
 	## 막대 + 오른쪽 제 칸의 수치 (막대 색과 같은 계열)
 	func _bar(p: Vector2, w: float, f: float, col: Color, txt: String) -> void:

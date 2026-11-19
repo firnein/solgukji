@@ -2719,7 +2719,10 @@ class Hud extends Control:
 			var tw := fd.get_string_size(b.name, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			var w := tw + 24.0
 			var h := 23.0
-			draw_set_transform(p + Vector2(0, -34 - t * 8), 0, Vector2.ONE * sc)
+			var bp := p + Vector2(0, -34 - t * 8)
+			bp.x = clampf(bp.x, w * 0.5 + 4.0, maxf(w * 0.5 + 4.0, size.x - w * 0.5 - 4.0))      # 11/20 폴리싱: 가장자리 부대의 기술명이 화면 밖으로 잘렸다 · 위 띠 밑에서 멈춘다
+			bp.y = maxf(bp.y, _float_top + h * 0.5)
+			draw_set_transform(bp, 0, Vector2.ONE * sc)
 			var box := Rect2(Vector2(-w / 2, -h / 2), Vector2(w, h))
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = Color(0.06, 0.05, 0.04, 0.88 * a)
@@ -3222,7 +3225,7 @@ class Hud extends Control:
 				if not _threat_seen.has("h" + sq.key):
 					_threat_seen["h" + sq.key] = view.clock
 				pass      # 11/14 UI 4단계: 「○○ 위태롭다」 칸은 적 부대를 가렸다 —— 아래 장수 칸 테두리가 깜빡이는 것으로 대신 (적 고유기 준비 칸은 남긴다)
-		var y := 104.0
+		var y := maxf(104.0, 66.0 + 46.0 * _charge_rows + 32.0 * _join_rows)      # 11/20 폴리싱: 기 모으기 줄 · 인연 합류 줄이 떠 있으면 그 아래로 —— 합류 줄 오른쪽 끝과 겹쳐 글씨가 가렸다
 		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
 		for it in items.slice(0, 1 if Type2View.painting_on() else 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
@@ -4357,6 +4360,7 @@ class Hud extends Control:
 					draw_shaky_tag(self, Rect2(pc + Vector2(-13.0, ps * 0.5 - 3.0), Vector2(26.0, 11.0)), a)
 		tq = view.field.pt("머리표·메달", tq)
 		# 떠오르는 글씨
+		_float_top = 62.0 if decisive_on else 44.0      # 11/20 폴리싱: 위 띠(병력 · 사기 · 시계, 결전 띠가 있으면 그 아래) 밑에서 멈춘다 —— 위쪽 부대의 숫자 · 외침이 띠 글씨 뒤로 겹쳐 들어갔다
 		var keep := []
 		for f in floats:
 			var life := 1.6 if f.get("crit", false) else 1.3
@@ -4399,6 +4403,7 @@ class Hud extends Control:
 					p += _tok_off.get(f.key, Vector2.ZERO)
 				var tw: float = fd.get_string_size(f.text, HORIZONTAL_ALIGNMENT_LEFT, -1, f.fs).x + 6.0
 				p.y += _settle_dy(f, p + Vector2(0, u * 26), tw, f.fs * 1.2)
+				p.y = maxf(p.y, _float_top + f.fs)
 				f.rect = Rect2(p + Vector2(-tw / 2, -f.fs * 1.2), Vector2(tw, f.fs * 1.2))
 			draw_string_outline(fd, p - Vector2(80, -2), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 10, Color(0, 0, 0, col.a * 0.35))
 			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 6, Color(0, 0, 0, col.a))
@@ -4459,6 +4464,10 @@ class Hud extends Control:
 		var mBv := mB / tB if tB > 0.0 else 0.0
 		_morale_gauge(Rect2(bx, gy, gw, gh), mAv, shA, nA, true)
 		_morale_gauge(Rect2(bx + bw - gw, gy, gw, gh), mBv, shB, nB, false)
+		# 11/20 폴리싱: 「사기」 머리말은 게이지 밖, 병력 글("아군 72,965") 바로 아래 같은 색으로 —— 게이지 안에 두면 "사기 100 (+20)" 이
+		# 세로 화면 폭(게이지 71)에 안 들어가 100 을 넘은 쪽만 머리말이 떨어졌다 (한쪽 "사기 100" · 다른 쪽 "100 (+20)")
+		_text(fb, Vector2(bx - 98, gy + 11.5), "사기", HORIZONTAL_ALIGNMENT_RIGHT, 92, UI.FS_CAP, Color("#a9c8f0"))
+		_text(fb, Vector2(bx + bw + 6, gy + 11.5), "사기", HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_CAP, Color("#f0aaa2"))
 		_text(DB.title_font(16), Vector2(bx + gw, gy + 13), view.clock_text(), HORIZONTAL_ALIGNMENT_CENTER, bw - gw * 2, 16, DB.PAL.paper)
 		if decisive_on and not view.finished:
 			_draw_decisive(bx + bw * 0.5, 45.0)
@@ -4504,6 +4513,8 @@ class Hud extends Control:
 				_text(fb, Vector2(0, y), line, HORIZONTAL_ALIGNMENT_CENTER, size.x, 15, Color(DB.PAL.paper, u))
 				y += 22
 
+	var _float_top := 44.0      # 떠오르는 글 · 숫자가 올라갈 수 있는 맨 위 (위 띠 아래 —— _draw_all 이 매 프레임 정한다)
+
 	func _draw_number(f: Dictionary, u: float, col: Color) -> void:
 		var base := _to_screen(f.p, 4.0)
 		if base.x < -9999:
@@ -4520,6 +4531,7 @@ class Hud extends Control:
 			var th: float = f.fs * 1.25
 			var p0 := base + Vector2(f.jx * 0.6, -f.n * 19)
 			p.y += _settle_dy(f, p0, tw, th)
+			p.y = maxf(p.y, _float_top + th + (16.0 if crit else 0.0))      # 11/20 위 띠 밑에서 멈춘다 (치명타는 위의 "치명타!" 줄만큼 더)
 			f.rect = Rect2(p + Vector2(-tw / 2, -th), Vector2(tw, th))
 		var sc := 1.0
 		if crit:
@@ -4649,6 +4661,7 @@ class Hud extends Control:
 				while lfs > 20 and DB.font_display.get_string_size(lab, HORIZONTAL_ALIGNMENT_LEFT, -1, lfs).x > lw:
 					lfs -= 2
 				var ly := (pr.position.y - 8.0 - (34.0 if cut.crisis else 0.0)) if tall else (by - band_h / 2.0 - 30.0)
+				ly = maxf(ly, lfs + 4.0)      # 11/20 폴리싱: 배수진 인연 컷인(세로)에서 이름이 화면 위로 나가 윗부분이 잘렸다
 				var lsc := lerpf(1.7, 1.0, ease(it, 0.35))
 				draw_set_transform(Vector2(sz.x / 2.0, ly), tilt * 0.3, Vector2.ONE * lsc)
 				draw_string_outline(DB.font_display, Vector2(-lw / 2.0, 0), lab, HORIZONTAL_ALIGNMENT_CENTER, lw, lfs, 12, Color(0, 0, 0, fade))
@@ -4718,7 +4731,7 @@ class Hud extends Control:
 
 	## 진영 사기 게이지 —— r 안에 m(0~100)만큼 채운다. from_left 면 왼쪽에서 오른쪽으로(아군), 아니면 오른쪽에서(적).
 	## 색: 60↑ 옥색 → 45 황색 → 30 주황 → 30 미만 적색. 30 자리에 가는 눈금. 위험(평균 35 미만이거나 동요 부대 3 이상)이면 테두리 · 빛이 깜빡인다.
-	## 숫자 "사기 N" 은 안쪽 바깥 끝에, 동요 부대가 있으면 "동요 N" 이 반대쪽 끝에
+	## 숫자 "N" 은 안쪽 바깥 끝에(머리말 「사기」 는 게이지 밖 · 11/20), 동요 부대가 있으면 "동요 N" 이 반대쪽 끝에
 	## 11/19 사용자: 전군 사기 상한은 200. 막대는 100 까지 한 칸을 채우고, 100 을 넘는 몫은 같은 칸 위에 다른 색(금색)으로 덧채운다. 글은 "사기 100 (+20)"
 	const ARMY_MORALE_MAX := 200.0
 	const MORALE_OVER_COL := Color("#ffd76e")
@@ -4748,11 +4761,9 @@ class Hud extends Control:
 		draw_rect(Rect2(tx - 0.5, r.position.y, 1.0, r.size.y), Color(1, 1, 1, 0.55))
 		if danger:
 			draw_rect(Rect2(r.position - Vector2(1, 1), r.size + Vector2(2, 2)), Color(1.0, 0.25, 0.18, 0.35 + 0.65 * pulse), false, 2.0)
-		var lbl := "사기 -"
+		var lbl := "-"      # 11/20 머리말 「사기」 는 게이지 밖에 (_draw_all) —— 안에는 숫자만, 폭을 매 프레임 재지 않는다
 		if alive_n > 0:
-			lbl = "사기 %d" % roundi(m) if roundi(m) <= 100 else "사기 100 (+%d)" % (roundi(m) - 100)
-			if fb.get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x > r.size.x - 8.0:      # 좁은 화면 —— 머리말을 뗀다
-				lbl = lbl.trim_prefix("사기 ")
+			lbl = str(roundi(m)) if roundi(m) <= 100 else "100 (+%d)" % (roundi(m) - 100)
 		var al := HORIZONTAL_ALIGNMENT_LEFT if from_left else HORIZONTAL_ALIGNMENT_RIGHT
 		var ty := r.position.y + r.size.y - 2.5
 		draw_string_outline(fb, Vector2(r.position.x + 4, ty), lbl, al, r.size.x - 8, 11, 4, Color(0, 0, 0, 0.85))
@@ -4777,7 +4788,7 @@ class Hud extends Control:
 		if _dec_sb == null:      # 매 프레임 새로 만들지 않고 하나를 고쳐 쓴다
 			_dec_sb = StyleBoxFlat.new()
 			_dec_sb.set_border_width_all(1)
-			_dec_sb.set_corner_radius_all(7)
+			_dec_sb.set_corner_radius_all(UI.R)      # 11/20 폴리싱: 알약(7) → 모서리 규칙 R
 		var sb := _dec_sb
 		sb.bg_color = Color(0.32, 0.07, 0.04, 0.88).lerp(Color(0.85, 0.22, 0.1, 0.96), fl * blink)
 		sb.border_color = Color("#ff8a4a").lerp(Color.WHITE, fl * blink)
@@ -4930,7 +4941,7 @@ class MiniCard extends Control:
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		draw_string(DB.title_font(UI.FS_CAP), Vector2(41, 17), UI.ellipsize(DB.title_font(UI.FS_CAP), nm, UI.FS_CAP, size.x - 45), HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_CAP, tc.lightened(0.2))      # 11/10 작은 이름은 굵은 고딕
 		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_TINY, DB.PAL.text_dim)
-		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
+		var state: String = BattleView.Hud.troops_k(sq.troops) if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")      # 11/20 폴리싱: 병사 그림 수("203명") → 메달 이름표와 같은 병력("8.8k") —— 같은 부대가 두 곳에서 다른 수였다
 		draw_string(fb, Vector2(41, 41), state, HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_TINY, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
 		_bar_rows(4.0, 44.0, size.x - 8.0, BAR_PITCH, UI.FS_TINY)
 		if view.direct and view.ult_ready(sq.key):       # 직접 지휘일 때만 '눌러라' 금테
@@ -4975,7 +4986,7 @@ class MiniCard extends Control:
 		var fs := UI.fit_fs(nmf, nm, UI.FS_CAP, UI.FS_TINY, tw)      # 11/14 감사 #10: FS_TINY 아래로는 줄이지 않고 … 으로
 		nm = UI.ellipsize(nmf, nm, fs, tw)
 		draw_string(nmf, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
-		var state: String = "%d명" % sq.alive_count() if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
+		var state: String = BattleView.Hud.troops_k(sq.troops) if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")      # 11/20 폴리싱: 병사 그림 수("203명") → 메달 이름표와 같은 병력("8.8k") —— 같은 부대가 두 곳에서 다른 수였다
 		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, UI.FS_TINY, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
 		_bar_rows(3.0, bar_y, w - 6.0, BAR_PITCH, UI.FS_TINY, 1)
 		if ready:
@@ -5029,7 +5040,7 @@ class MiniCard extends Control:
 			if _waiting(lv):
 				if shapes:
 					var pb := StyleBoxFlat.new()
-					pb.bg_color = Color(DB.PAL.gold, 0.6 + 0.3 * sin(view.clock * 6.0))
+					pb.bg_color = Color(DB.PAL.gold, 0.75 + 0.2 * sin(view.clock * 6.0))      # 11/20 폴리싱: 0.3 까지 꺼지면 어두운 「준비」 글씨가 바탕에 묻혔다 —— 0.55 ~ 0.95 로 깜빡인다
 					pb.set_corner_radius_all(3)
 					draw_style_box(pb, Rect2(bx, y, gw, pitch))
 				if text:
