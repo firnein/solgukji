@@ -61,6 +61,7 @@ var _sheet: PanelContainer
 var _sheet_body: VBoxContainer
 var _sheet_title: Label
 var _sheet_scroll: ScrollContainer
+var _card_tabs: HBoxContainer
 var _sheet_h := 0.0
 var _sheet_tw: Tween
 var _sheet_drag := -1.0       # 손잡이를 끄는 중이면 누른 y
@@ -521,6 +522,15 @@ func _build_sheet() -> void:
 	var x := UI.icon_btn("✕", close_sheet)      # 11/20 올리면 높이가 44 → 48 로 커져 시트 내용이 4 씩 내려앉았다 —— 기호 버튼 공용(여백 0)으로
 	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(x)
+	var tab_margin := MarginContainer.new()
+	for side in ["left", "right"]:
+		tab_margin.add_theme_constant_override("margin_" + side, 16)
+	tab_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hv.add_child(tab_margin)
+	_card_tabs = UI.hbox(UI.SP_S)
+	_card_tabs.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tab_margin.add_child(_card_tabs)
+	tab_margin.hide()
 	_sheet_scroll = UI.scroll()
 	_sheet_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_sheet_scroll)
@@ -1560,6 +1570,10 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 		move_child(_sheet, -1)
 	_sheet_title.add_theme_color_override("font_color", col if col.a > 0 else DB.PAL.paper)
 	_sheet_title.add_theme_font_size_override("font_size", UI.FS_HEAD if col.a > 0 else UI.FS_TITLE)
+	_card_tabs.get_parent().hide()
+	for tab in _card_tabs.get_children():
+		_card_tabs.remove_child(tab)
+		tab.queue_free()
 	for c in _sheet_body.get_children():
 		c.queue_free()
 	_sheet_mask.visible = true
@@ -1600,7 +1614,7 @@ func _route_enter(kind: String, k: String) -> void:
 	var r := {"kind": kind, "k": k}
 	if _back_nav:
 		_back_nav = false
-	elif _sheet.visible and not _route.is_empty() and _route != r:
+	elif _sheet.visible and not _route.is_empty() and (_route.kind != kind or _route.k != k):
 		_hist.append(_route)
 		if _hist.size() > 20:
 			_hist.pop_front()
@@ -1619,7 +1633,7 @@ func go_back() -> void:
 	if r.kind == "recipe":
 		recipe_sheet(r.k)
 	else:
-		card_info(r.k)
+		card_info(r.k, int(r.get("tab", 0)))
 
 
 func _update_back() -> void:
@@ -2961,7 +2975,9 @@ func can_form() -> bool:
 
 # ───────── 카드 상세 ─────────
 
-func card_info(k: String) -> void:
+func card_info(k: String, tab := -1) -> void:
+	if tab < 0:
+		tab = int(_route.get("tab", 0)) if _route.get("kind") == "card" and _route.get("k") == k else 0
 	_route_enter("card", k)
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
@@ -3010,10 +3026,13 @@ func card_info(k: String) -> void:
 			pr.add_child(fbn)
 		b.add_child(pr)
 	var ab := UI.vbox(UI.SP_S)
-	_ability_cards(ab, k)      # 11/20 능력 카드 (고유기가 주인공 · 수치 칩) —— 예전 줄 모양은 _ability_rows
-	b.add_child(ab)
+	_ability_cards(ab, k)
+	var ability := UI.vbox(UI.SP_M)
+	b.add_child(ability)
+	ability.add_child(ab)
+	ab.visible = ab.get_child_count() > 0
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
-	b.add_child(folds)
+	ability.add_child(folds)
 	# 기술 —— 접힌 칸 하나에 기술마다 효과 · 수치 표
 	# 11/5 사용자: 잔기술을 따로 부르지 않는다 —— 자주 쓰는 기술로 기술 목록 맨 앞에 (발동: "평타 3번에 한 번")
 	var mk := Battle.minor_kind(k)
@@ -3044,6 +3063,11 @@ func card_info(k: String) -> void:
 	_info_row(ag, "[color=#e0806f]어색[/color]", "%s\n[color=#C6AC7C]%s[/color]" % [UI.aff_zones(c.tag, "bad"), UI.aff_desc(c.tag, "bad")])
 	folds.add_child(_fold_sec("card_aff", "선호 대열", ag))
 
+	var inyeon := UI.vbox(UI.SP_M)
+	_card_inyeon(inyeon, k)
+	b.add_child(inyeon)
+	var recipe := UI.vbox(UI.SP_M)
+	b.add_child(recipe)
 	# 보유 중이면 한 단계 위(이 카드로 만드는 것)를 먼저, 아니면 만드는 법을 먼저 (11/2 사용자)
 	var owned: bool = run.pool().get(k, 0) > 0
 	var make_sec := UI.vbox(UI.SP_M)
@@ -3089,11 +3113,11 @@ func card_info(k: String) -> void:
 
 	for sec in ([up_sec, make_sec] if owned else [make_sec, up_sec]):
 		if sec.get_child_count() > 0:
-			b.add_child(sec)
+			recipe.add_child(sec)
 	# 11/13 유닛 판매 —— 11/14 감사 #3: 초상 바로 아래 전체 폭 버튼이 상세창에서 가장 눈에 띄었다 (불멸을 실수로 팔 위험).
 	#   맨 아래 머리선 뒤 한 줄로 내리고 작은 보조 버튼으로. 전설 이상 · 기인 · 편성에만 있는 장수는 확인 시트(_sell_sheet)를 거친다
 	if shop_on() and Run.sellable(k) and int(p.get(k, 0)) > 0:
-		b.add_child(UI.hair())
+		recipe.add_child(UI.hair())
 		var sr := UI.hbox(UI.SP_S)
 		var sl := UI.lbl("보유 %d장 · 팔면 군량을 받는다" % int(p.get(k, 0)), UI.FS_CAP, DB.PAL.text_dim)
 		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3107,7 +3131,31 @@ func card_info(k: String) -> void:
 			UI.flat(Color(DB.PAL.seal, 0.18), Color(DB.PAL.seal, 0.8), 1, UI.R, 10))
 		sb.custom_minimum_size.x = maxf(sb.custom_minimum_size.x, 128)
 		sr.add_child(sb)
-		b.add_child(sr)
+		recipe.add_child(sr)
+	_build_card_tabs([ability, inyeon, recipe], tab)
+
+
+func _build_card_tabs(panels: Array[Control], selected: int) -> void:
+	var titles := ["능력", "인연", "조합"]
+	var group := ButtonGroup.new()
+	for i in panels.size():
+		var button := UI.btn(titles[i], func():
+			_route["tab"] = i
+			for j in panels.size():
+				panels[j].visible = j == i
+			_sheet_scroll.scroll_vertical = 0
+			_fit_sheet(false), "ghost", UI.HIT)
+		button.toggle_mode = true
+		button.button_group = group
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var active := UI.flat(DB.PAL.gold.darkened(0.72), Color(DB.PAL.gold, 0.85), 1, UI.R, 10)
+		button.add_theme_stylebox_override("pressed", active)
+		button.add_theme_stylebox_override("hover_pressed", active)
+		_card_tabs.add_child(button)
+		button.set_pressed_no_signal(i == selected)
+		panels[i].visible = i == selected
+	_card_tabs.get_parent().show()
+	_route["tab"] = selected
 
 
 ## 갈무리 버튼 (11/15 —— 조합 시트 · 디테일창 맨 위) —— ★ 갈무리 / ★ 갈무리 해제. 높이 50, 누른 뒤 after
@@ -3563,14 +3611,19 @@ func _ability_cards(into: Container, k: String) -> void:
 				var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
 				pc.append(["%d명 이상" % int(pa.need), "아군에 %s (자신 외)" % cw])
 			into.add_child(_abil_card("패업", str(pa.n), str(pa.get("d", "")), pc, P.bamboo))
+
+
+func _card_inyeon(into: Container, k: String) -> void:
 	var iy := _inyeon_item(k)
-	if not iy.is_empty():      # 인연 —— 칩 줄 + 구성원 타일은 그대로, 틀만 같은 카드
-		var me: String = DB.person(k)
-		var ic := AbilCard.new(P.yeon)
-		ic.add_child(InyeonUI.detail_row(iy.inyeon, _inyeon_ctx(k), 12, false, func(card: String):
-			if DB.person(card) != me:
-				card_info(card)))
-		into.add_child(ic)
+	if iy.is_empty():
+		into.add_child(UI.hint("등록된 인연이 없습니다."))
+		return
+	var me: String = DB.person(k)
+	var ic := AbilCard.new(DB.PAL.yeon)
+	ic.add_child(InyeonUI.detail_row(iy.inyeon, _inyeon_ctx(k), 12, false, func(card: String):
+		if DB.person(card) != me:
+			card_info(card)))
+	into.add_child(ic)
 
 
 ## 고유기 카드 —— 머리(고유기 · N초부터) · 이름(제목 글꼴) · 외침 | 큰 숫자 + 그 글, 아래 꼬리표 줄 (범위 · 상태 · 나머지 수치 · 상한)

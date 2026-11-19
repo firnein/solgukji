@@ -44,18 +44,14 @@ func set_consent(on: bool) -> void:
 
 
 func save_cfg() -> void:
-	var old := ConfigFile.new()
-	old.load(CFG)
 	var cf := ConfigFile.new()
+	cf.load(CFG)
 	cf.set_value("net", "url", url)
 	cf.set_value("net", "name", player)
 	cf.set_value("net", "token", token)
 	if _write_consent:
 		cf.set_value("net", "consent", 1 if consent_ver > 0 else 0)
 		cf.set_value("net", "consent_ver", consent_ver)
-	else:
-		cf.set_value("net", "consent", int(old.get_value("net", "consent", 0)))
-		cf.set_value("net", "consent_ver", int(old.get_value("net", "consent_ver", 0)))
 	cf.save(CFG)
 
 

@@ -70,6 +70,7 @@ var _pick_deaths := 0             # 11/12 장수 사망룰 인원 (0 = 끔 · 3 
 var _intro_room := ""             # 규칙 안내(선점제 팝업 · 사망 연출)를 띄운 방 코드 —— 한 판에 한 번
 var dev_max := 8                  # 점검용 —— 가짜 방의 총 인원 (--gseats=4)
 var dev_sheet := false            # 점검용 —— 접속 없이 방 만들기 시트까지 그려 본다 (--gsheet=oncreate)
+var _name_draft := ""
 var _stage_len := 0.0             # 지금 단계의 전체 길이 (방 정보 stage_len, 옛 서버는 단계 시작 때 남은 시간)
 var _noon_end_room := ""          # 토벌 종료 띠를 띄운 방 코드 —— 한 판에 한 번 (상태 · 소식 어느 쪽이 먼저 와도)
 var _cmd_t := 0                  # 마지막 명령을 보낸 시각 (ms)
@@ -113,6 +114,19 @@ func _ready() -> void:
 		_refresh_sheet())
 	if net.player == "":
 		net.player = "장수%d" % (randi() % 900 + 100)
+	var cf := ConfigFile.new()
+	cf.load(NetClient.CFG)
+	_name_draft = str(cf.get_value("net", "name_draft", net.player)).left(12)
+
+
+func _cache_name(text: String) -> void:
+	_name_draft = text
+	if Run.dev_nosave:
+		return
+	var cf := ConfigFile.new()
+	cf.load(NetClient.CFG)
+	cf.set_value("net", "name_draft", text)
+	cf.save(NetClient.CFG)
 
 
 ## 11/19 사용자: 온라인 대전에서 끊겼을 때 그 판으로 바로 붙는 버튼을 메인 로비에 —— 진행 중인 방(주소 · 방 코드 · 이름)을 user://net_live.json 에
@@ -232,8 +246,7 @@ func _warn_tick() -> void:
 
 # ───────── 접속 시트 ─────────
 
-## net.cfg 에 고른 서버도 남기는 접속기 —— NetClient.save_cfg() 는 파일을 새로 써서 주소 · 이름 · 토큰 말고는 지운다.
-## 그 파일을 쓸 때마다(접속 · 인사) 고른 서버 이름(server —— "" 이면 직접 입력)과 직접 친 주소(custom)를 덧붙인다
+## 접속 · 인사 때 고른 서버(server)와 직접 친 주소(custom)도 net.cfg 에 남긴다
 class PickNet extends NetClient:
 	var server := ""
 	var custom := ""
@@ -395,8 +408,8 @@ func clip_invite() -> Dictionary:
 
 
 func join_invite(inv: Dictionary) -> void:
-	if _name_edit != null and is_instance_valid(_name_edit) and _name_edit.text.strip_edges() != "":
-		net.player = _name_edit.text.strip_edges()
+	if _name_draft.strip_edges() != "":
+		net.player = _name_draft.strip_edges()
 	if not net.consented():
 		net.set_consent(true)      # 버튼 글이 「동의하고 …」 일 때만 여기로 온다
 	net.server = ""
@@ -440,6 +453,7 @@ func connect_sheet(refresh := false) -> void:
 	_rooms_cap = null
 	_code_edit = null
 	var b := gs.open_sheet("온라인 대전")
+	var connection := UI.vbox(UI.SP_M)
 	var inv := clip_invite() if not in_game and _pending_join == "" else {}
 	if not inv.is_empty():      # 11/16 복사해 둔 초대 글 —— 한 번 눌러 접속 · 참가
 		var iv := UI.vbox(UI.SP_XS)
@@ -453,8 +467,7 @@ func connect_sheet(refresh := false) -> void:
 	row.add_child(UI.lbl("서버", UI.FS_BODY, DB.PAL.bamboo))
 	_url_pick = _server_pick()
 	row.add_child(_url_pick)
-	# 11/14 UI 4단계: 서버 설명이 시트 맨 위에서 먼저 읽혔다 —— 고르는 칸 바로 아래 작은 글씨로 (문장마다 줄을 나눈다 —— 「직접 입력…」이 줄 끝에서 갈라지지 않게)
-	row.add_child(UI.lbl("Dev = 집 PC 서버, 어디서나 접속.\n같은 집 와이파이면 「Dev 와이파이」도 된다.", UI.FS_CAP, DB.PAL.text_dim))
+	row.add_child(UI.hint("Dev는 외부 접속용, Dev 와이파이는 같은 집에서 사용합니다."))
 	_url_edit = LineEdit.new()
 	_url_edit.text = net.custom
 	_url_edit.placeholder_text = "ws://주소:7777  ·  wss://…"
@@ -463,27 +476,33 @@ func connect_sheet(refresh := false) -> void:
 	_url_edit.visible = _server_index(net.server) < 0
 	_url_edit.text_changed.connect(func(tx: String): net.custom = tx.strip_edges())      # 시트를 다시 그려도(접속 끊김 등) 친 주소가 남게
 	row.add_child(_url_edit)
-	b.add_child(row)
+	connection.add_child(row)
 	var row2 := UI.vbox(UI.SP_XS)
 	row2.add_child(UI.lbl("이름", UI.FS_BODY, DB.PAL.bamboo))
 	_name_edit = LineEdit.new()
-	_name_edit.text = net.player
 	_name_edit.max_length = 12
+	_name_edit.text = _name_draft
+	_name_edit.text_changed.connect(_cache_name)
 	_name_edit.placeholder_text = "대전에서 보일 이름 (12자까지)"      # 11/14 UI 4단계: 비었을 때 무엇을 넣는 칸인지
 	_name_edit.select_all_on_focus = true
 	_name_edit.custom_minimum_size = Vector2(0, 48)
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row2.add_child(_name_edit)
-	b.add_child(row2)
-	b.add_child(record_notice())
-	if _status != "":      # 11/14 UI 4단계 (감사 18-3): 상태 글이 버튼 아래 맨 끝에 흐리게 있어 안 보였다 —— 버튼 바로 위 한 줄 (접속됨 옥색)
-		var stl := UI.lbl(_status, UI.FS_BODY, DB.PAL.jade.lightened(0.2) if net.is_open() else DB.PAL.text_dim)
-		stl.clip_text = true      # 11/20 「접속됨 — 긴 주소」가 시트 폭을 밀지 않게 —— 넘치면 …
-		stl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		b.add_child(stl)
-	if net.consented():
-		b.add_child(UI.btn("접속" if not net.is_open() else "다시 접속", _connect_pressed, "pri"))
-	else:      # 동의 전 —— 동의하고 접속하거나 취소(접속 안 함)
+	connection.add_child(row2)
+	connection.add_child(record_notice())
+	b.add_child(UI.panel(connection))
+	if net.is_open() and net.consented():
+		var status_row := UI.hbox(UI.SP_S)
+		var status := UI.lbl("● 접속됨", UI.FS_BODY, DB.PAL.jade.lightened(0.2))
+		status.tooltip_text = net.url
+		status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		status.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		status_row.add_child(status)
+		status_row.add_child(UI.btn("다시 접속", _connect_pressed, "ghost", UI.BH_S))
+		b.add_child(status_row)
+	elif _status != "":
+		connection.add_child(UI.hint(_status))
+	if not net.consented():
 		var cb := UI.hbox(UI.SP_S)
 		var ok := UI.btn("동의하고 접속", func(): _connect_pressed(true), "pri")
 		ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -492,6 +511,8 @@ func connect_sheet(refresh := false) -> void:
 		no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cb.add_child(no)
 		b.add_child(cb)
+	elif not net.is_open():
+		b.add_child(UI.btn("접속", _connect_pressed, "pri"))
 	if not net.is_open() and not dev_sheet:
 		_conn_restore(keep)
 		return
@@ -506,10 +527,11 @@ func connect_sheet(refresh := false) -> void:
 		cur.add_child(UI.btn("나가기", leave_room, "warn"))
 		b.add_child(cur)
 		b.add_child(UI.hint("나가면 내 자리는 AI 가 이어받는다. 다른 방을 만들거나 들어가도 지금 방에서는 나간다."))
-	b.add_child(UI.eyebrow("방 만들기"))
+	var create_box := UI.vbox(UI.SP_M)
+	create_box.add_child(UI.eyebrow("방 만들기"))
 	# 11/11 사용자: 총 인원(자리 수)은 방장이 고른다 —— 짝수 4 · 6 · 8. 사람이 앉고 남은 자리만 시작할 때 봇이 채운다
-	var seat_box := UI.vbox(UI.SP_XS)
-	b.add_child(seat_box)
+	var seat_box := UI.vbox(UI.SP_M)
+	create_box.add_child(seat_box)
 	_fill_seat_pick(seat_box)
 	var mk := UI.hbox()
 	for m in ["fast", "normal"]:
@@ -521,8 +543,10 @@ func connect_sheet(refresh := false) -> void:
 		UI.wrap_text(bt)      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
 		bt.custom_minimum_size = Vector2(0, UI.BH_L)
 		mk.add_child(bt)
-	b.add_child(mk)
-	b.add_child(UI.eyebrow("코드로 들어가기"))
+	create_box.add_child(mk)
+	b.add_child(UI.panel(create_box))
+	var join_box := UI.vbox(UI.SP_S)
+	join_box.add_child(UI.eyebrow("코드로 들어가기"))
 	var cr := UI.hbox()
 	_code_edit = LineEdit.new()
 	_code_edit.placeholder_text = "예) K7QX"
@@ -534,7 +558,8 @@ func connect_sheet(refresh := false) -> void:
 	jb.pressed.connect(func(): _hold_btn(jb))      # 11/20 조작: 응답이 올 때까지 꺼 둔다
 	_code_edit.text_submitted.connect(func(_t: String): _join_code())      # 11/20 조작: 방 코드 칸에서 Enter 로 참가
 	cr.add_child(jb)
-	b.add_child(cr)
+	join_box.add_child(cr)
+	b.add_child(UI.panel(join_box))
 	_rooms_cap = UI.eyebrow("")
 	b.add_child(_rooms_cap)
 	_rooms_box = UI.vbox(UI.SP_M)      # 시트 본문과 같은 틈
@@ -613,27 +638,33 @@ func _fill_seat_pick(box: Control) -> void:
 	var items := []
 	for n in Room.SEAT_OPTIONS:
 		items.append([str(n), "%d명" % n])
-	box.add_child(UI.lbl("총 인원 — 빈자리만 봇", UI.FS_BODY, DB.PAL.bamboo))
-	box.add_child(UI.segmented(items, str(_pick_max), func(k: String):
+	_room_option(box, "총 인원", "빈자리는 봇이 채웁니다. 시작 후에는 바꿀 수 없습니다.", items, str(_pick_max), func(k: String):
 		_pick_max = int(k)
-		_fill_seat_pick(box)))
-	box.add_child(UI.hint("사람 3명이면 %d명 방은 봇 %d명. 시작하면 바꿀 수 없다." % [_pick_max, maxi(0, _pick_max - 3)]))
+		_fill_seat_pick(box))
 	# 11/12 방 규칙 —— 장수 선점제(기본 켜짐) · 장수 사망룰(기본 끔, 3 · 5 · 10명)
-	box.add_child(UI.lbl("장수 선점제 — 기인 이상은 먼저 등용한 사람만", UI.FS_BODY, DB.PAL.bamboo))
-	box.add_child(UI.segmented([["1", "켜기"], ["0", "끄기"]], "1" if _pick_claim else "0", func(k: String):
+	var toggle := [["1", "켜기"], ["0", "끄기"]]
+	_room_option(box, "장수 선점제", "기인 이상은 먼저 등용한 사람만 보유합니다.", toggle, "1" if _pick_claim else "0", func(k: String):
 		_pick_claim = k == "1"
-		_fill_seat_pick(box)))
+		_fill_seat_pick(box))
 	var dl := [["0", "끄기"]]
 	for n in Room.DEATH_OPTIONS:
 		dl.append([str(n), "%d명" % n])
-	box.add_child(UI.lbl("장수 사망룰 — 시작 때 기인 이상 무작위 사망", UI.FS_BODY, DB.PAL.bamboo))
-	box.add_child(UI.segmented(dl, str(_pick_deaths), func(k: String):
+	_room_option(box, "장수 사망룰", "시작할 때 기인 이상 장수가 무작위로 사망합니다.", dl, str(_pick_deaths), func(k: String):
 		_pick_deaths = int(k)
-		_fill_seat_pick(box)))
-	box.add_child(UI.lbl("유닛 판매 — 장수를 팔아 군량, 군량으로 랜덤권", UI.FS_BODY, DB.PAL.bamboo))      # 11/13
-	box.add_child(UI.segmented([["1", "켜기"], ["0", "끄기"]], "1" if _pick_sell else "0", func(k: String):
+		_fill_seat_pick(box))
+	_room_option(box, "유닛 판매", "장수를 팔아 받은 군량으로 랜덤권을 삽니다.", toggle, "1" if _pick_sell else "0", func(k: String):
 		_pick_sell = k == "1"
-		_fill_seat_pick(box)))
+		_fill_seat_pick(box))
+
+
+func _room_option(box: Control, title: String, description: String, items: Array, selected: String, change: Callable) -> void:
+	var field := UI.vbox(UI.SP_XS)
+	field.add_child(UI.lbl(title, UI.FS_BODY, DB.PAL.paper))
+	var hint := UI.lbl(description, UI.FS_CAP, DB.PAL.text_dim)
+	UI.wrap_text(hint)
+	field.add_child(hint)
+	field.add_child(UI.segmented(items, selected, change))
+	box.add_child(field)
 
 
 ## 이 방의 자리 수(총 인원) —— 옛 서버는 max 를 주지 않는다 → 8
