@@ -241,9 +241,9 @@ static func team_buffs(board: Array) -> Array:
 		for e in l.slice(0, 2):
 			who.append(DB.person(e[1]) if DB.C[e[1]].tier > 2 else DB.C[e[1]].name)
 		var k0: String = l[0][1]
-		var txt := DB.mods_text(DB.group_def(nm).m, total, DB.C[l[0][1]].tier)
+		var txt := DB.mods_text(DB.group_def(nm).m, total, DB.C[l[0][1]].tier, DB.C[l[0][1]].spd)      # 11/19 행동마다 일어나는 효과는 그 장수 속도로 (DB.act_sec)
 		if txt == "":
-			txt = DB.turn_text(str(DB.group_def(nm).get("d", "")), DB.C[l[0][1]].tier).get_slice(" —— ", 0)
+			txt = DB.turn_text(str(DB.group_def(nm).get("d", "")), DB.C[l[0][1]].tier, DB.C[l[0][1]].spd).get_slice(" —— ", 0)
 		out.append({"kind": "적에게" if DB.group_def(nm).get("scope", "") == "foe" else "단체", "name": nm, "text": txt, "who": " · ".join(who), "col": DB.TRAIT_COL["단체"], "k": k0})
 	for k in ks:
 		if DB.AURA.has(k):

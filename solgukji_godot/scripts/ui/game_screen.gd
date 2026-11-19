@@ -1865,7 +1865,7 @@ func recipe_sheet(out: String) -> void:
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 			UI.buzz()
 			card_info(out))
-	tp.add_child(_with_role(cv, out))      # 11/19 사용자: 초상 바로 아래에 역할
+	tp.add_child(cv)      # 11/20 역할은 큰 카드 초상 위에 (CardView.show_role)
 	var rv := UI.vbox(UI.SP_S)
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rv.add_child(_stat_row(c))
@@ -2776,6 +2776,23 @@ func can_form() -> bool:
 
 # ───────── 카드 상세 ─────────
 
+## 11/20 장수 열전 (data/bios.json list: 인물 이름 -> 한 줄 소개, 44자 이하). 없는 인물 · 병졸 카드는 빈 글
+static var _bios := {}
+static var _bios_loaded := false
+
+static func _bio(k: String) -> String:
+	if not _bios_loaded:
+		_bios_loaded = true
+		var f := FileAccess.open("res://data/bios.json", FileAccess.READ)
+		if f != null:
+			var d = JSON.parse_string(f.get_as_text())
+			if d is Dictionary:
+				_bios = d.get("list", {})
+	if not DB.C.has(k) or int(DB.C[k].tier) <= 2:
+		return ""
+	return str(_bios.get(DB.person(k), ""))
+
+
 func card_info(k: String) -> void:
 	_route_enter("card", k)
 	var c: Dictionary = DB.C[k]
@@ -2784,7 +2801,7 @@ func card_info(k: String) -> void:
 	var top := UI.hbox(UI.SP_M)
 	var big := CardView.new().setup(k, Vector2(132, 188))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	top.add_child(_with_role(big, k))      # 11/19 사용자: 초상 바로 아래에 역할
+	top.add_child(big)      # 11/20 역할은 큰 카드 초상 위에 (CardView.show_role)
 	# 초상 오른쪽 (11/3 사용자: 초상과 높이를 맞춘다) —— 능력치 다섯 칸 · 특기판 · 접힌 고유 특기 · 위세 · 고유기
 	var st := UI.vbox(UI.SP_S)
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2796,7 +2813,24 @@ func card_info(k: String) -> void:
 		if gt != "":
 			gh.add_child(UI.lbl(gt, UI.FS_CAP, DB.kind_col(c.tag)))
 		st.add_child(gh)
-	st.add_child(TraitBoard.new().setup(k))
+	# 11/20 사용자: 디테일창의 특기 열고 닫기를 없애고(가진 특기만 고정), 그 자리에 장수 열전을 짧게 —— 초상 높이를 넘지 않게 두 줄까지
+	var tbd := TraitBoard.new()
+	tbd.fixed = true
+	st.add_child(tbd.setup(k))
+	var bio := _bio(k)
+	if bio != "":
+		var bl := UI.lbl(bio, UI.FS_CAP, DB.PAL.bamboo)
+		UI.wrap_text(bl)
+		# 특기가 두 줄이고 아래에 기질 띠까지 오는 카드는 한 줄만 (초상 높이를 넘지 않게)
+		var bio_lines := 1 if tbd.custom_minimum_size.y > 20.0 and (c.tier >= 6 or DB.is_kiin(k)) else 2
+		bl.max_lines_visible = bio_lines
+		if bio_lines == 1:
+			bl.autowrap_mode = TextServer.AUTOWRAP_OFF
+			bl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			bl.clip_text = true
+			bl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bl.custom_minimum_size.y = (UI.FS_CAP + 5.0) * bio_lines      # 줄 자리를 잡아 둔다 (줄바꿈 글은 폭이 정해지기 전 높이가 0 이라 안 보였다)
+		st.add_child(bl)
 	# 11/9 사용자: 초상 옆 빈 공간 정리 —— 오른쪽에는 능력치 · 특기판 · 기질 띠(좁은 모양)를 쌓고, 고유 특기 · 위세 · 패업 · 고유기는 아래 폭 전체 카드 격자로
 	var ult0 = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if ult0 != null:
@@ -2832,9 +2866,11 @@ func card_info(k: String) -> void:
 	if not c.get("sks", []).is_empty() or mk != "":
 		var sk_items := []
 		if mk != "":
-			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
+			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, minor_when(k), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
 		for x in c.get("sks", []):
-			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x, c), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+		if c.get("sks", []).size() >= 2:      # 11/19 기술마다 '약 N초마다' 로 적는다 —— 준비를 나눠 쓴다는 것을 한 줄로
+			sk_items.append(UI.rich("[color=#A89574]%s[/color]" % DB.SK_SHARE_NOTE, UI.FS_CAP))
 		folds.add_child(_fold_sec("card_skills", "기술 %d" % (c.get("sks", []).size() + (1 if mk != "" else 0)), _kv_stack(sk_items)))
 	var tl := DB.trait_list(k)
 	if not tl.is_empty():
@@ -3102,9 +3138,11 @@ func battle_unit_sheet(key: String) -> void:
 	var mk := Battle.minor_kind(k)
 	var bsk := []
 	if mk != "":
-		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, "평타 %d번에 한 번" % int(Battle.minor_def(mk).every), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
+		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, minor_when(k), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
 	for x in c.get("sks", []):
-		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x, c), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
+	if c.get("sks", []).size() >= 2:      # 11/19 준비를 나눠 쓴다는 한 줄
+		bsk.append(UI.rich("[color=#A89574]%s[/color]" % DB.SK_SHARE_NOTE, UI.FS_CAP))
 	if not bsk.is_empty():
 		b.add_child(_kv_stack(bsk))
 	# 특기 —— 이름 · 레벨 · 수치 한 줄씩 (고유 특기는 위 칸에)
@@ -3419,12 +3457,20 @@ func _kv_split(text: String) -> Array:
 	return out
 
 
-## 잔기술 설명 (Battle.MINOR · minor_kind) —— "평타 3번에 한 번 · 책략 피해 ×0.90 · 화상"
+## 잔기술이 나오는 간격 —— "공격 3번에 한 번 · 약 3.5초마다"
+## 11/19 사용자: 턴제의 흔적 · 단위 없는 숫자를 걷는다 —— '평타 3번에 한 번' 에 그 장수의 속도로 몇 초마다인지 덧붙인다 (행동 간격 DB.act_sec)
+static func minor_when(k: String) -> String:
+	var n := int(Battle.minor_def(Battle.minor_kind(k)).every)
+	var c: Dictionary = DB.C[k]
+	return "공격 %d번에 한 번 · %s마다" % [n, DB.sec_str(n * DB.act_sec(float(c.tier), float(c.spd)))]
+
+
+## 잔기술 설명 (Battle.MINOR · minor_kind) —— "공격 3번에 한 번 · 약 3.5초마다 · 책략 피해 ×0.90 · 화상"
 static func minor_desc(k: String, with_every := true) -> String:
 	var mk := Battle.minor_kind(k)
 	var m: Dictionary = Battle.minor_def(mk)
 	var phys: bool = (m.kind == "phys") if m.has("kind") else DB.C[k]["int"] <= DB.C[k].atk
-	var parts := ["평타 %d번에 한 번" % int(m.every)] if with_every else []
+	var parts := [minor_when(k)] if with_every else []
 	parts.append("%s피해 ×%.2f" % ["적 후열에 " if m.get("back", false) else "", float(m.mult)])
 	if m.has("st"):
 		parts.append("%s %s" % [DB.D.STATUS[m.st[0]].n, DB.sec_text(int(m.st[2]), DB.C[k].tier)])

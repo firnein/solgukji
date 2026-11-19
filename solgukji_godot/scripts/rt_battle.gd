@@ -342,9 +342,10 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 
 
 ## 행동 간격 —— 한 턴(period)에 한 번이 기준, 빠르면 조금 짧게 (±25%)
-## 11/19 실험 (사용자 제안: "속도 100 = 초당 1번 공격") —— 켜면 행동 간격 = SPD_RULE_BASE / 속도 초. 등급별 턴 배율(PERIOD_MUL)은 정산 간격에만 남는다.
-## 기본은 꺼 둔다 (전투 결과 · 길이가 크게 바뀐다 —— tests/spd_rule 로 전후를 잰다)
-static var spd_rule := false
+## 11/19 사용자: "속도 100 = 초당 1번 공격" —— 행동 간격 = SPD_RULE_BASE / 속도 초. 등급별 턴 배율(PERIOD_MUL)은 정산 간격(상태 지속 · 회복 주기)에만 남는다.
+## 실험(tests/spd_rule, 16판씩)을 보고 사용자가 "그대로 초당 1번으로 켠다"고 정했다: 3급 33 → 19초 · 4급 40 → 30 · 5급 33 → 26 · 6급 이상은 거의 그대로.
+## false 면 예전 식(한 턴에 한 번, 속도는 ±25%)
+static var spd_rule := true
 const SPD_RULE_BASE := 100.0
 
 func _interval(u: Unit) -> float:

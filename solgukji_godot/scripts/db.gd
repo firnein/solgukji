@@ -1307,16 +1307,16 @@ func trait_list(k: String) -> Array:
 		return []
 	var by := {}
 	for t in ps.traits:
-		var tmt := mods_text(t.m, 1.0, C[k].tier)
+		var tmt := mods_text(t.m, 1.0, C[k].tier, C[k].spd)
 		var st := shred_text(k, t.name, t.m)
 		if st != "":
 			tmt = (tmt + " · " if tmt != "" else "") + st
-		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": turn_text(t.d, C[k].tier), "mt": tmt}
+		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": turn_text(t.d, C[k].tier, C[k].spd), "mt": tmt}
 	for g in ps.groups:
-		var gmt := mods_text(PSV.traits[g.name].m, g.scale, C[k].tier)
+		var gmt := mods_text(PSV.traits[g.name].m, g.scale, C[k].tier, C[k].spd)
 		if by.has(g.name) and by[g.name].mt != "":      # 금색 —— 주인 장치 수치도 함께
 			gmt = (gmt + " · " if gmt != "" else "") + "자신 " + by[g.name].mt
-		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": turn_text(g.d, C[k].tier), "mt": gmt}
+		by[g.name] = {"name": g.name, "lv": g.lv, "group": true, "attr": g.attr, "unique": PSV.traits[g.name].get("unique", false), "d": turn_text(g.d, C[k].tier, C[k].spd), "mt": gmt}
 	var out := []
 	for e in PSV.ladder[person(k)]:
 		if by.has(e[0]):
@@ -1360,14 +1360,14 @@ func passive_hits(g: Dictionary, owner_k: String, k: String) -> bool:
 
 
 const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "속도", "troop": "병력",      # 11/6 #15 책략 → 공격 (책략방어는 11/7 데이터에서 방어로)
-	"morale": "시작 사기", "crit": "치명타 확률", "critd": "치명타 피해", "icrit": "치명타 확률", "rate": "스킬 발동",
+	"morale": "시작 사기", "crit": "치명타 확률", "critd": "치명타 피해", "icrit": "치명타 확률", "rate": "기술 준비 속도",
 	"dr": "받는 피해 -", "idr": "받는 피해 -", "rout": "패주 확률 -", "shock": "큰 손실 충격 -",
 	"counter": "반격", "stres": "상태이상 저항", "low_atk": "절반 이하 공격", "avenge": "아군 이탈마다 공격",
 	"opener": "첫 공격 피해", "first": "개전 직후 바로 행동", "regen": "일정 시간마다 병력", "mregen": "일정 시간마다 사기",
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
 	"rpierce": "적 방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 공격", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
-	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속", "terror": "화상마다 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
+	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속", "terror": "불타는 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
 	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항", "fire_hit": "불길 추가 피해", "water_hit": "물살 추가 피해",
 	"shatter": "와해 확률", "break_amp": "와해된 적에게 피해", "break_hit": "충격 추가 피해", "exec_break": "와해된 적 처형 문턱", "break_res": "와해 저항",
 	"aim": "표식 확률", "mark_amp": "표식된 적에게 피해", "mark_hit": "관통 추가 피해", "mark_res": "표식 저항",
@@ -1375,12 +1375,13 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "�
 	"sow": "혼란 확률", "jolt": "맞힐 때 적 사기 -", "confuse_amp": "혼란·봉인된 적에게 피해",
 	"mend": "주기마다 치료", "cheer_hit": "맞힐 때 아군 치료",
 	"kill_amp": "적을 무너뜨린 뒤 다음 공격 피해", "cleave": "맞힌 적 주변에 피해", "icleave": "맞힌 적 주변에 피해",
-	"int_low": "절반 아래 적에게 피해", "sk_amp": "기술 피해", "ally_sk": "아군 기술 때 충전",
+	"int_low": "절반 아래 적에게 피해", "sk_amp": "기술 피해", "ally_sk": "아군이 기술을 쓰면 내 기술 준비",
 	"cut_atk": "맞힐 때 적 공격 −(내 공격의)", "cut_int": "맞힐 때 적 공격 −(내 공격의)", "cut_def": "맞힐 때 적 방어 −(내 공격의)",
 	"first_cut": "첫 공격 적 방어 −(내 공격의)", "open_cut_atk": "시작에 적 선봉 공격 −(내 공격의)",
 	"open_cut_int": "시작에 적 후군 공격 −(내 공격의)", "open_cut_def": "시작에 적 전원 방어 −(내 공격의)",
 	"awe": "꺾인 적 혼란 확률", "weak_amp": "디버프 걸린 적에게 피해",
-	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "전투 동안 주변 아군 사기", "resolve": "아군이 무너지면 사기",
+	"rally_kill": "적을 무너뜨리면 아군 전원 사기", "cheer_turn": "주변 아군 사기",      # 11/19 값은 mods_text 가 '약 N초마다 +X' 로 (행동할 때마다 준다)
+	"resolve": "아군이 무너지면 사기",
 	"steady": "사기 60 아래에서 한 번 사기", "ult_rally": "아군 고유기 때 아군 전원 사기"}
 ## 11/19 사용자: 장수 정보창 고유 특기 설명에 개성 키가 날것으로 보였다 ("seek_low+50% · amp_low+30%") —— 장수 개성 키(sig_rt.gd KEYS)의 글.
 ## [글, 꼴] 꼴: "%" 백분율 · "n" 숫자 · "" 적지 않는다(표적 고르기 · 행동 —— 특기 설명 문장이 말해 준다). 글이 "-" 로 끝나면 깎는 값
@@ -1401,16 +1402,21 @@ const SIG_LABEL := {
 	"bleed_on": ["출혈을 입힐 확률", "%"], "pierce_hit": ["뒤의 적에게 꿰뚫는 피해", "%"], "throw": ["던지기 피해(공격의)", "%"],
 	"counter_all": ["붙은 적 전부에게 반격 피해", "%"], "enrage": ["크게 맞은 뒤 공격", "%"], "ult_ret": ["적 고유기 되받아치기 피해", "%"],
 	"kill_gauge": ["적을 무너뜨리면 고유기 기", "n"], "absorb": ["무너뜨린 적 병력을 거두는 몫", "%"], "ally_calm": ["주변 아군 패주 확률 -", "%"],
-	"roar": ["일갈마다 주변 적 사기 -", "n"], "cheer_aura": ["주기마다 주변 아군 사기", "n"], "spd_aura": ["주변 아군 속도", "%"], "def_aura": ["주변 아군 방어", "%"],
+	"roar": ["4초마다 주변 적 사기 -", "n"], "cheer_aura": ["4초마다 주변 아군 사기", "n"],      # 11/19 '주기마다 · 일갈마다' 는 얼마마다인지 알 수 없었다 —— 오라 주기(sig_rt.gd AURA_T = 4초)
+	"spd_aura": ["주변 아군 속도", "%"], "def_aura": ["주변 아군 방어", "%"],
 	"atk_down": ["주변 적 공격 -", "%"], "cav_aura": ["아군 기병 공격", "%"], "caster_aura": ["아군 책략 부대 공격", "%"], "tier_aura": ["아군 최고 등급 부대 공격", "%"],
 	"boost_best": ["가장 강한 아군 장수 공격", "%"], "give_troops": ["꺾인 아군에게 나눠 주는 병력", "%"], "quake": ["주변 적 속도 -", "%"],
-	"gauge_aura": ["주기마다 아군 고유기 기", "n"], "frail_water": ["받는 수몰 피해", "%"]}
+	"gauge_aura": ["4초마다 아군 고유기 기", "n"], "frail_water": ["받는 수몰 피해", "%"]}
 const FLOW_LABEL := {"regen": "전투 동안 병력", "mregen": "전투 동안 사기", "mend": "전투 동안 치료", "cheer_hit": "전투 동안 맞힐 때 치료"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt", "rally_kill", "cheer_turn", "resolve", "steady", "ult_rally"]
+## 11/19 사용자: "속도 100 = 초당 1번 공격"(RtBattle.spd_rule) —— 행동할 때마다 일어나는 효과 (Battle._turn_start · _after_hit).
+## 이들의 '전투 동안' 합계는 정산 횟수(turns_for)가 아니라 그 카드의 행동 횟수(acts_for)로 곱한다. regen · mregen · terror 는 정산(_settle · tick_status)마다라 그대로.
+## 독전(cheer_turn)도 행동마다지만 합계 대신 '약 N초마다 +X' 로 적는다
+const MOD_PER_ACT := ["mend", "cheer_hit"]
 
 
 ## 수치 요약 —— "치명타 확률 +14% · 치명타 피해 +69%"
-func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
+func mods_text(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> String:
 	var out := []
 	for k in m:
 		if k == "first":
@@ -1440,10 +1446,20 @@ func mods_text(m: Dictionary, scale := 1.0, tier := 5) -> String:
 		var v: float = mv * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)
 		var lb: String = MOD_LABEL.get(k, k)
 		var sign := "" if lb.ends_with("-") else "+"
-		if k in ["regen", "mregen", "terror", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 11/3: 턴 하나로는 0.0 처럼 보여 '전투 동안' 합으로 적는다 (보통 길이 전투)
-			v *= Battle.pace_for(tier) * (1.0 if k == "terror" else RtBattle.turns_for(tier))
+		if k == "terror":      # 11/19 불타는 적은 정산 한 번(Battle.tick_status)마다 사기가 깎인다 —— '화상마다 −0.4' 는 무엇마다인지 알 수 없었다
+			out.append("%s%.1f (%s마다)" % [lb, v * Battle.pace_for(tier), sec_text(1, tier)])
+			continue
+		if k == "cheer_turn":      # 11/19 독전 —— 행동할 때마다 주변 아군 사기 + (Battle._turn_start: 값 / 턴 배율). 날값(8)을 '전투 동안 +8' 이라 적고 있었다 —— 한 번에 오르는 값과 간격으로
+			out.append("%s +%.1f (%s마다)" % [lb, v / Battle.turn_mul_for(tier), sec_str(act_sec(tier, spd))])
+			continue
+		if k == "rate":      # 11/19 사용자: "충전 1.1 이런 것도 모호하다" —— 행동마다 기술 준비가 이만큼 더 찬다. 그 등급 기본값(D.RATE) 대비 빨라지는 비율로
+			var rb := float(D.RATE.get(str(int(tier)), 0.0))
+			out.append("%s+%.0f%%" % [lb, (v / rb if rb > 0.0 else v) * 100])
+			continue
+		if k in ["regen", "mregen", "mend", "cheer_hit"]:      # 턴마다 흐르는 양 —— 11/3: 턴 하나로는 0.0 처럼 보여 '전투 동안' 합으로 적는다 (보통 길이 전투)
+			v *= Battle.pace_for(tier) * (acts_for(tier, spd) if k in MOD_PER_ACT else RtBattle.turns_for(tier))      # 11/19 인술 · 위무는 행동마다 (acts_for), 회복 · 사기 회복은 정산마다
 			var pct: bool = k in ["regen", "mend", "cheer_hit"]
-			out.append(("%s%s%.0f%%" if pct else ("%s%s%.1f" if k == "terror" else "%s%s%.0f")) % [FLOW_LABEL.get(k, lb), sign, v * 100 if pct else v])
+			out.append(("%s%s%.0f%%" if pct else "%s%s%.0f") % [FLOW_LABEL.get(k, lb), sign, v * 100 if pct else v])
 			continue
 		if k == "burn_dur":      # 11/14 화상 지속 —— 턴 대신 초
 			out.append("%s +%s" % [lb, sec_text(v, tier)])
@@ -1461,6 +1477,20 @@ func sec_text(turns: float, tier: float) -> String:
 	return sec_str(turns * RtBattle.turn_sec(tier))
 
 
+## 11/19 사용자: "속도 100 = 초당 1번 공격" —— 그 카드가 한 번 행동하는 간격(초) = RtBattle.SPD_RULE_BASE / 속도 (RtBattle._interval 과 같은 식).
+## 행동마다 일어나는 것(기술 준비 · 독전 · 인술 · 방진 · 잔기술)의 글에 쓴다. 카드 기본 속도라 전투 중 사기 · 버프 · 수몰로 달라진다 (그래서 '약').
+## 속도를 모르거나(0) 규칙이 꺼져 있으면 예전처럼 그 등급 한 턴 길이. 지속 시간('N턴')은 정산 간격(period)마다 줄어 sec_text 그대로다
+func act_sec(tier: float, spd: float) -> float:
+	if RtBattle.spd_rule and spd > 0.0:
+		return RtBattle.SPD_RULE_BASE / maxf(20.0, spd)
+	return RtBattle.turn_sec(tier)
+
+
+## 보통 길이 전투(RtBattle.BATTLE_SEC) 한 판의 행동 횟수 —— '전투 동안' 합계용 (mods_text)
+func acts_for(tier: float, spd: float) -> float:
+	return RtBattle.BATTLE_SEC / act_sec(tier, spd)
+
+
 ## 초 → "약 X초" (0.5초 단위, 최소 0.5)
 func sec_str(sec: float) -> String:
 	var s := maxf(0.5, snappedf(sec, 0.5))
@@ -1470,10 +1500,13 @@ func sec_str(sec: float) -> String:
 var _turn_re: RegEx
 
 ## 데이터 설명글의 'N턴' · '턴마다' 를 그 카드 등급의 초로 (데이터 원문은 그대로 둔다)
-func turn_text(s: String, tier: float) -> String:
+## 11/19 '턴마다'(독전 · 인술 · 방진)는 엔진에서 그 부대가 행동할 때마다(Battle._turn_start)라 이제 100 / 속도 초 (act_sec) —— spd 를 받는다.
+## 'N턴'(상태 · 버프 지속)과 '턴마다 한 번'(추격 —— _turn 이 바뀔 때)은 정산 간격(period)이라 예전 환산(sec_text) 그대로
+func turn_text(s: String, tier: float, spd := 0.0) -> String:
 	if s.find("턴") < 0:
 		return s
-	s = s.replace("첫 턴에", "개전 직후").replace("몇 턴 동안", "잠시").replace("턴마다", sec_text(1, tier) + "마다").replace("한 턴 더", sec_text(1, tier) + " 더")
+	s = s.replace("첫 턴에", "개전 직후").replace("몇 턴 동안", "잠시").replace("턴마다 한 번", sec_text(1, tier) + "마다 한 번") \
+		.replace("턴마다", sec_str(act_sec(tier, spd)) + "마다").replace("한 턴 더", sec_text(1, tier) + " 더")
 	if _turn_re == null:
 		_turn_re = RegEx.create_from_string("(\\d+)턴")
 	var ms := _turn_re.search_all(s)
@@ -1549,8 +1582,8 @@ const INYEON_THEME_PLUS := {"confuse": "적 최강 장수 혼란", "slow": "적 
 ## 11/13 사용자: 한 덩어리 글 대신 짧은 항목 3줄 [라벨, 설명] —— 합동 발동 / 기인 / 초월 (InyeonUI.rule_hint 가 라벨에 등급색)
 const INYEON_RULES := [["합동", "게이지 찬 같은 인연 장수가 함께 발동 · 3명 (초월 끼면 4명)"],
 	["기인", "연쇄를 연다 · 맨 먼저 터지고 마무리 장수 피해 +"],
-	["초월", "연쇄를 키운다 · 같은 인연 기 충전 가속 · 4명 연쇄"]]
-const INYEON_ROLE := "기인: 연쇄를 연다 · 맨 먼저 터지고 마무리 장수 피해 +\n초월: 연쇄를 키운다 · 같은 인연 기 충전 가속 · 4명까지"
+	["초월", "연쇄를 키운다 · 같은 인연 장수의 기가 빨리 찬다 · 4명 연쇄"]]
+const INYEON_ROLE := "기인: 연쇄를 연다 · 맨 먼저 터지고 마무리 장수 피해 +\n초월: 연쇄를 키운다 · 같은 인연 장수의 기가 빨리 찬다 · 4명까지"
 
 
 ## 11/13 그 인연에 실제로 있는 기인 · 초월 인물 {kiin: [인물], up: [인물]} —— 기인 카드 / 초월(등급 6, 기인 아님) 카드가 있는 구성원 (RtBattle 과 같은 기준)
@@ -2127,34 +2160,63 @@ func skill_desc(c: Dictionary, sk = null) -> String:
 	var p := []
 	var pct := func(v): return "%d%%" % roundi(v * 100)
 	match e.kind:
-		"phys": p.append("적 %s에 물리 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
-		"int": p.append("적 %s에 책략 %s" % [tgt_name(e.tgt), pct.call(e.mult)])
+		"phys": p.append("%s에 물리 %s" % [_foe_tgt(e.tgt), pct.call(e.mult)])
+		"int": p.append("%s에 책략 %s" % [_foe_tgt(e.tgt), pct.call(e.mult)])
 	var pc := Battle.pace_for(c.tier)
+	# 11/19 능력치 변화에 부호와 지속 시간 —— '자신 방어 35%' 는 오르는지 깎이는지, 얼마 동안인지 알 수 없었다 (지속은 정산 간격 단위 → sec_text)
+	var buf := func(who: String, stat: String, b: Dictionary) -> String:
+		var dur := (" (%s)" % sec_text(float(b.dur), c.tier)) if float(b.get("dur", 0)) > 0.0 else ""
+		return "%s %s%s %+d%%" % [who, D.STATNM.get(stat, stat), dur, roundi(float(b.amt) * 100)]
 	if e.has("morale"): p.append("사기 −%.1f" % (e.morale * pc))
 	if e.has("pierce"): p.append("방어 %s 무시" % pct.call(e.pierce))
 	if e.has("exec"): p.append("병력 %s 이하면 즉시 이탈" % pct.call(e.exec))
-	if e.has("stance"): p.append("자신 반격 %s · %s" % [pct.call(e.stance.amt), sec_text(e.stance.dur, c.tier)])
+	if e.has("stance"): p.append("자신 반격 확률 (%s) +%s" % [sec_text(e.stance.dur, c.tier), pct.call(e.stance.amt)])
 	if e.has("status"): p.append("『%s』 %s" % [D.STATUS[e.status.k].n, sec_text(e.status.dur, c.tier)])
 	if e.has("tHeal"): p.append("아군 병력 %.1f%% 회복" % (e.tHeal * pc * 100))
 	if e.has("heal"): p.append("아군 전원 사기 +%d" % roundi(e.heal * (1.0 if e.get("rally", false) else pc)))
 	if e.has("cleanse"): p.append("아군 상태이상 %d종 해제" % e.cleanse)
-	if e.has("spd"): p.append("대상 속도 %s" % pct.call(e.spd.amt))
-	if e.has("foeSpd"): p.append("대상 속도 %s" % pct.call(e.foeSpd.amt))
+	if e.has("spd"): p.append(buf.call("대상", "spd", e.spd))
+	if e.has("foeSpd"): p.append(buf.call("대상", "spd", e.foeSpd))
 	if e.has("defDown"): p.append("대상 방어 %s" % pct.call(e.defDown.amt))
-	if e.has("selfBuff"): p.append("자신 %s %s" % [D.STATNM[e.selfBuff.stat], pct.call(e.selfBuff.amt)])
-	if e.has("allyBuff"): p.append("%s %s %s" % [tgt_name(e.allyBuff.tgt), D.STATNM[e.allyBuff.stat], pct.call(e.allyBuff.amt)])
+	if e.has("selfBuff"): p.append(buf.call("자신", str(e.selfBuff.stat), e.selfBuff))
+	if e.has("allyBuff"): p.append(buf.call(tgt_name(e.allyBuff.tgt), str(e.allyBuff.stat), e.allyBuff))
 	return " · ".join(p)
 
 
+## 대상 이름 앞의 '적' —— 이름에 이미 '적'이 들어 있으면 붙이지 않는다 (11/19 '적 맞붙은 적 1부대' · '적 적 후군' 으로 겹쳐 적혔다)
+func _foe_tgt(t: String) -> String:
+	var tn := tgt_name(t)
+	return tn if tn.find("적") >= 0 else "적 " + tn
+
+
+## 11/19 일반 기술이 다시 준비되는 시간(초) —— 행동할 때마다 준비가 D.RATE[등급] 만큼 차고(Battle.sk_rate) 비용(sk.cost)만큼 모이면 쓴다
+## → 비용 / RATE 번 행동 × 행동 간격(act_sec). 아이템 · 특기(기술 준비 속도)는 넣지 않은 기본값. RATE 가 없는 등급(3급 이하)은 0
+func sk_every_sec(sk: Dictionary, c: Dictionary) -> float:
+	var r := float(D.RATE.get(str(int(c.get("tier", 0))), 0.0))
+	if r <= 0.0:
+		return 0.0
+	return float(sk.get("cost", 1.0)) / r * act_sec(float(c.tier), float(c.get("spd", 0.0)))
+
+
+## 기술을 둘 이상 가진 장수 —— 준비는 하나를 나눠 쓴다 (Battle.act: sk_ch[0]). 기술 칸 아래 한 줄
+const SK_SHARE_NOTE := "기술은 한 번에 하나만 쓴다 —— 하나를 쓰면 나머지도 그만큼 다시 기다린다"
+
+
 ## 일반 기술 발동 조건 글 —— "자신 병력 60% 이하 또는 …"
-## 기술 발동 안내 —— "적 맨 앞 열에 2부대 이상 · 충전 1.6" (11/3 비용)
-func sk_when(sk: Dictionary) -> String:
-	var t := cond_text(str(sk.get("cond", "always")))
-	if sk.has("cost"):
-		t += " · 충전 %s" % str(snappedf(float(sk.cost), 0.1))
-	return t
+## 기술 발동 안내 —— "적 전열에 2부대 이상일 때 · 약 4.5초마다"
+## 11/19 사용자: "충전 1.1 이런 것도 무슨 표현인지 모호하다" —— 충전 숫자는 비용(행동마다 RATE 씩 모아 이만큼 차면 쓴다)이었다. 그 장수가 실제로 몇 초마다 쓰는지로 적는다 (c 가 없으면 조건만)
+func sk_when(sk: Dictionary, c := {}) -> String:
+	var cond := str(sk.get("cond", "always"))
+	var sec := sk_every_sec(sk, c) if not c.is_empty() else 0.0
+	if sec <= 0.0:
+		return cond_text(cond)
+	var every := sec_str(sec) + "마다"
+	if cond.split("|").has("always"):
+		return every
+	return "%s · %s" % [cond_text(cond), every]
 
 
+## 11/19 '한 열 · 맨 앞 열 · 후열' 은 턴제 칸 기준 —— 실시간 판정(RtBattle._dense_max 뭉친 무리 · _front_of 가장 앞선 무리 · _is_back 내 편에서 먼 적)대로
 func cond_text(cond: String) -> String:
 	var out := []
 	for one in cond.split("|"):
@@ -2162,19 +2224,21 @@ func cond_text(cond: String) -> String:
 		var v: String = kv[1] if kv.size() > 1 else ""
 		var pc := "%d%%" % roundi(float(v) * 100) if v.is_valid_float() else v
 		match kv[0]:
-			"always": out.append("충전되면 바로")
+			"always": out.append("준비되면 바로")
 			"hurt": out.append("자신 병력 %s 이하" % pc)
 			"ally_hurt": out.append("아군 병력 %s 이하가 있을 때" % pc)
 			"foe_hurt": out.append("적 병력 %s 이하가 있을 때" % pc)
-			"dense": out.append("한 열에 적 %s부대 이상" % v)
-			"front_n": out.append("적 맨 앞 열에 %s부대 이상" % v)
-			"foe_n": out.append("적 %s부대 이상" % v)
-			"back_n": out.append("적 후열에 %s부대 이상" % v)
-			"line": out.append("적 %s이 있을 때" % v)
+			"dense": out.append("적 %s부대 이상이 뭉쳐 있을 때" % v)
+			"front_n": out.append("적 전열에 %s부대 이상일 때" % v)
+			"foe_n": out.append("적이 %s부대 이상 남았을 때" % v)
+			"back_n": out.append("적 후열에 부대가 있을 때" if int(v) <= 1 else "적 후열에 %s부대 이상일 때" % v)
+			"line":      # 실시간은 줄 이름이 아니라 거리로 본다 (Battle._sk_cond: 선봉 · 전군 → 앞에 선 적, 중군 · 후군 → 뒤에 선 적)
+				var lt := "적 전열에 부대가 있을 때" if int(D.LINE.get(v, {}).get("pri", 1)) <= 2 else "적 후열에 부대가 있을 때"
+				if not out.has(lt): out.append(lt)
 			"no_st": out.append("『%s』 아닌 적이 있을 때" % D.STATUS[v].n)
 			"ally_st": out.append("상태이상 걸린 아군이 있을 때")
 			"foe_morale": out.append("적 사기가 아군 이상일 때")
-			"ally_morale": out.append("아군 사기가 %s 아래일 때" % v)
+			"ally_morale": out.append("아군 평균 사기가 %s 아래일 때" % v)
 			_: out.append(one)
 	return " 또는 ".join(out)
 
@@ -2300,8 +2364,8 @@ const AURA_TO := {"all": "아군", "front": "선봉 · 전군 아군", "back": "
 const AURA_FOE := {"all": "적", "front": "적 선봉 · 전군", "back": "적 중군 · 후군"}
 ## 특수 효과 이름 —— [이름, 백분율로 보이는가]
 const AURA_M := {"crit": ["치명타 확률", true], "critd": ["치명타 피해", true], "dr": ["받는 피해", false],
-	"idr": ["받는 피해", false], "counter": ["반격 확률", true], "regen": ["일정 시간마다 병력 회복", true],
-	"mregen": ["일정 시간마다 사기 회복", false], "rate": ["기술 발동", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
+	"idr": ["받는 피해", false], "counter": ["반격 확률", true], "regen": ["전투 동안 병력 회복", true],
+	"mregen": ["전투 동안 사기 회복", false], "rate": ["기술 준비 속도", true], "rout": ["패주 저항", true], "stres": ["상태이상 저항", true],
 	"low_atk": ["병력 절반 아래 공격", true], "kill_amp": ["적을 무너뜨린 뒤 피해", true], "weak_amp": ["약해진 적에게 피해", true],
 	"ignite": ["점화 확률", true], "spread": ["불 번짐", true], "st_amp": ["지속 피해 세기", true], "opener": ["첫 공격 피해", true],
 	"fire_res": ["화공 저항", true], "cleave": ["맞힌 적 주변에 피해", true], "icleave": ["맞힌 적 주변에 피해", true],
@@ -2332,6 +2396,12 @@ func aura_effect(k: String) -> String:
 			continue
 		var d: Array = AURA_M.get(mk, [mk, true])
 		var v: float = a.m[mk]
+		# 11/19 '일정 시간마다 +1%' 는 얼마마다인지 알 수 없었다 —— 특기(mods_text)처럼 보통 길이 전투의 합계로. 기술 준비는 그 등급 기본값 대비
+		var at := float(C[k].tier) if C.has(k) else 8.0
+		if mk in ["regen", "mregen"]:
+			v *= Battle.pace_for(at) * RtBattle.turns_for(at)
+		elif mk == "rate" and float(D.RATE.get(str(int(at)), 0.0)) > 0.0:
+			v /= float(D.RATE[str(int(at))])
 		if mk in ["dr", "idr"]:
 			mine.append(_pct(d[0], -v))
 		elif d[1]:

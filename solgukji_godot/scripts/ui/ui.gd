@@ -704,7 +704,7 @@ static func item_text(id: String, amp := 1.0) -> String:
 	if it.sa > 0:
 		s += " · %s +%d%%" % [DB.D.STATNM[it.sec], roundi(it.sa * amp * 100)]
 	if it.rb > 0:
-		s += " · 발동 +%d%%p" % roundi(it.rb * amp)
+		s += " · 기술 준비 속도 +%d%%p" % roundi(it.rb * amp)      # 11/19 '발동 +5%p' 는 무엇의 발동인지 알 수 없었다 (행동마다 기술 준비가 그만큼 더 찬다 —— Battle.sk_rate)
 	return s
 
 

@@ -14,6 +14,8 @@ var _t := 0.0
 var _hover := false
 
 
+var show_role := true      # 11/20 초상 아래쪽에 역할 칩 (DB.role_chip)
+
 func setup(id: String, sz := Vector2(150, 214)) -> CardView:
 	k = id
 	custom_minimum_size = sz
@@ -100,6 +102,14 @@ func _draw() -> void:
 	var ip := Vector2(pr.end.x - br - 3 * u, pr.position.y + br + 3 * u)
 	draw_circle(ip, br, Color(DB.PAL.ink, 0.78))
 	draw_texture_rect(DB.ICON[c.tag], Rect2(ip - Vector2(7, 7) * u, Vector2(14, 14) * u), false, DB.PAL.paper)
+
+	# 11/20 사용자: 일반 장수 카드처럼 역할을 초상 위(이름 바로 위)에 —— "아군 강화 / 난세간웅 조조". 초상 아래쪽 가운데에 역할 칩
+	if show_role:
+		var rc := DB.role_chip(k)
+		if not rc.is_empty():
+			var rfs := maxi(9, int(11 * u))
+			var rw: float = minf(pr.size.x - 6.0, rfs + DB.font_bold.get_string_size(str(rc.t), HORIZONTAL_ALIGNMENT_LEFT, -1, rfs).x + 11.0)
+			CardTile.draw_role_chip(self, k, Vector2(pr.get_center().x - rw * 0.5, pr.end.y - rfs - 8.0), rfs, pr.size.x - 6.0)
 
 	# 이름 —— 칭호와 이름을 두 줄로 (백마장군 / 공손찬). 길면 글자를 줄인다
 	var nm: String = c.name
