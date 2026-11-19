@@ -273,6 +273,21 @@ func _ready() -> void:
 		print("ULT_SHOTS %d" % taken)
 		get_tree().quit()
 		return
+	if args.has("num-count"):      # 11/19 피해 숫자가 병종별로 몇 번 떴나 (그림 화면 · 맞은 부대 병종 기준) —— 창병 숫자가 안 뜨던 것 확인
+		var seen := {}
+		var by := {}
+		while not view.finished and view.clock < float(args.get("num-count")):
+			for f in view.hud.floats:
+				var fid := "%s|%.4f" % [f.key, float(f.get("born", 0.0))]
+				if f.get("num", false) and not seen.has(fid):
+					seen[fid] = true
+					var sq = view.field.squads.get(f.key)
+					var tg: String = sq.row.get("tag", "?") if sq != null else "?"
+					by[tg] = int(by.get(tg, 0)) + 1
+			await get_tree().process_frame
+		print("NUM_COUNT painting=%s %s" % [Type2View.painting_on(), by])
+		get_tree().quit()
+		return
 	if args.has("float-shot"):      # 11/19 전투 중 알림 확인 —— 그 기호(heal · burn …)의 알림이 처음 뜬 뒤 0.3초에 한 장
 		var want := str(args.get("float-shot"))
 		while not view.finished and not view.hud.floats.any(func(f): return str(f.get("icon", "")) == want):

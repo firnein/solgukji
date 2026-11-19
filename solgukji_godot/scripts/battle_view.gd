@@ -1025,11 +1025,28 @@ func _engine_state():
 	return res.ev[maxi(0, i - 1)]
 
 
+## [게이지, 남은 횟수, 기 모으는 중]. 11/19 사용자: 엔진은 기 모으기를 시작할 때 게이지를 0 으로 둔다(다시 누르지 못하게) ——
+## 화면에서는 막대가 "차다가 빠지는" 것처럼 보였다. 모으는 동안은 가득 찬 채로 보이고, 터지거나(횟수 −1) 끊기면(게이지 30 · 0) 그때 내려간다
 func unit_live(key: String) -> Array:
 	if live_e == null or not idx_of.has(key):
-		return [0, 0]
+		return [0, 0, false]
 	var s: Array = live_e.s[idx_of[key]]
-	return [s[4], s[5]]
+	if _winding.has(key):
+		var w: Array = _winding[key]
+		if s[2] != 1 or int(s[5]) < int(w[0]) or float(s[4]) > 0.0 or float(live_e.get("tm", 0.0)) > float(w[1]) + 6.0:
+			_winding.erase(key)
+		else:
+			return [100.0, s[5], true]
+	return [s[4], s[5], false]
+
+
+var _winding := {}             # 기 모으는 부대 key -> [그때 남은 횟수, 시작 시각(엔진)] —— unit_live 가 막대를 가득 찬 채로 보인다
+
+
+func _wind_mark(e: Dictionary) -> void:
+	var k := str(e.get("a", ""))
+	if idx_of.has(k) and e.has("s"):
+		_winding[k] = [int(e.s[idx_of[k]][5]), float(e.get("tm", 0.0))]
 
 
 func ult_ready(key: String) -> bool:
@@ -1137,6 +1154,7 @@ func _begin() -> void:
 	_kill_cd = 0.0
 	live_e = res.ev[0]
 	live_i = 0
+	_winding.clear()
 	_build_timeline()
 	clock = 0.0
 	gi = 0
@@ -1477,6 +1495,7 @@ func _ult_warn(e: Dictionary) -> void:
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
 	# 11/7 사용자: "기를 모은다 —— 2.5초" 글 대신 작은 장수 이름 · 붓글씨 기술명 · 차오르는 고리 · 「운기」 (Hud.charge_start —— 아군은 늘, 적은 직접 지휘 때만 보인다)
 	hud.charge_start(e.a, who, e.name, wait, mine)
+	_wind_mark(e)
 	_yeon_used.erase(e.a)      # 새 합동 —— 투게더 멘트 겹침 기록을 비운다
 	if field.flat != null and field.flat.has_method("ult_hold"):      # 11/11 기 모으는 동안 기본 행동 연출을 줄인다 (고유기가 주인공)
 		field.flat.ult_hold(wait + 0.6)
@@ -1502,6 +1521,7 @@ func _ult_join(e: Dictionary) -> void:
 	var jcid: String = field.squads[e.a].cid if field.squads.has(e.a) else ""
 	var say := _yeon_pick(e.a, str(e.get("lead", "")), str(e.get("inyeon", "")))
 	hud.charge_start(e.a, who, e.name, wait, mine, str(e.get("inyeon", "")), jcid, say[0], say[1])
+	_wind_mark(e)
 	Sfx.play("skill", -9.0)
 
 
@@ -1577,6 +1597,7 @@ func _ult_cut(e: Dictionary) -> void:
 	if f == warn_key:
 		warn_until = -1.0
 	hud.charge_end(f)      # 기 모으기 표시도 걷는다
+	_winding.erase(f)
 	# 11/2 사용자: 맞받아치기 · 끊었다 같은 큰 글씨는 이상하다 → 띄우지 않는다
 	if field.squads.has(f):
 		field.squads[f].hurt = 1.0
@@ -1974,6 +1995,11 @@ func _apply(i: int, quiet := false) -> void:
 		hud.float_text(e.a, e.mn, Color("#b9a0ff") if e.fx == "int" else Color("#f0d79a"), 12, true)      # 11/6 #16 B등급: 부대마다 하나만
 		if smooth:
 			field.minor_fx(str(e.get("mk", "")), e.a, f)
+	if e.get("sig", false):      # 11/19 장수 개성 —— 발동한 장수 머리 위에 특성 이름 (sig_rt)
+		var stx := str(e.get("t", ""))
+		var who_k := str(e.get("a", f)) if e.get("fx", "") == "debuff" else f
+		if stx.find("의 ") >= 0 and field.squads.has(who_k):
+			hud.float_text(who_k, stx.substr(stx.find("의 ") + 2).split(" ——")[0], Color("#ffd257"), 12, false, true)
 	match e.get("fx", ""):
 		"inyeon_fin", "inyeon_theme":      # 11/12 인연기 —— 11/15 강화: 모음(어두워짐 · 빛줄기) → 터짐(섬광 · 충격파 · 연쇄 폭발 · 쾅 이름 띠). 인연 주제도 같은 틀
 			var th: bool = e.fx == "inyeon_theme"
@@ -2028,7 +2054,10 @@ func _apply(i: int, quiet := false) -> void:
 			pass          # 상태이상 · 해제 · 수치 깎기 —— 머리표 배지로 보인다
 		"collapse":       # 11/4 총붕괴 —— 큰 띠 · 섬광 · 뿔나팔, 카메라가 뒤로 물러나 무너지는 전장을 담는다
 			var mine: bool = e.camp == "A"
-			hud.announce("아군 총붕괴!" if mine else "적군 총붕괴!", Color("#ff7a66") if mine else Color("#ffd257"))
+			if e.has("boss"):      # 11/19 토벌 총대장 격파 —— 적 전군이 흩어진다
+				hud.announce("총대장 격파!", Color("#ffd257"))
+			else:
+				hud.announce("아군 총붕괴!" if mine else "적군 총붕괴!", Color("#ff7a66") if mine else Color("#ffd257"))
 			hud.flash(Color(0.9, 0.3, 0.2) if mine else Color(1.0, 0.85, 0.4))
 			impact(0.2, 1.2)
 			field.pull_back(2.5)
@@ -2917,10 +2946,17 @@ class Hud extends Control:
 		if sq == null:
 			return
 		if Type2View.painting_on() and Settings.dmg_numbers != 2:
-			if amount < sq.max * 0.12 or kind == "tick":
+			if kind == "tick":
 				return
-			if floats.any(func(f): return f.key == key and view.clock - f.t0 < 1.5):
+			# 11/19 사용자: 창병은 붙어 싸우는데 숫자가 하나도 안 뜬다 —— 한 대가 병력의 12% 아래면 버리던 것을 모아 두었다가 12% 가 차면 띄운다
+			# (창병 한 대 평균 2.5% · 기병 돌격 7~16% 라 돌격만 숫자가 떴다. tests/hit_size)
+			var pk: String = key + kind + "@p"
+			var acc: float = _small.get(pk, 0.0) + amount
+			if acc < sq.max * 0.12 or floats.any(func(f): return f.key == key and view.clock - f.t0 < 1.5):
+				_small[pk] = acc
 				return
+			_small.erase(pk)
+			amount = acc
 		var mine: bool = sq.camp == "A"
 		var col: Color
 		var fs := 14                     # 10/31 작게(15 → 11) → 11/3 사용자: 군단 사이에서 안 읽힌다 → 14 + 두꺼운 외곽선 (작은 타격은 그대로 모아서 띄운다)
@@ -3438,10 +3474,13 @@ class Hud extends Control:
 		var hud                       # 기호 그리기(_st_icon)를 빌린다
 		var icons := PackedStringArray()
 		var badge_dy := 0.0
+		var boss := false             # 11/19 토벌 총대장 —— 메달 위에 왕관
 		func _draw() -> void:
 			for mt: Texture2D in mts:
 				var tsz := Vector2(mt.get_size())
 				draw_texture_rect(mt, Rect2((tsz * -0.5).round() / S, tsz / S), false)
+			if boss:
+				BattleView.Hud.draw_crown(self, Vector2(0, - r - 5.0), 1.0)
 			var label := Rect2(Vector2(- w * 0.5, r + 3.0), Vector2(w, 13.0))
 			draw_rect(label, Color(0.08, 0.08, 0.06, 0.82))
 			draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81))
@@ -3454,6 +3493,13 @@ class Hud extends Control:
 				draw_circle(c, D * 0.5, Color(0.03, 0.04, 0.07, 0.92))
 				draw_arc(c, D * 0.5, 0, TAU, 20, Color(BattleView.Hud._icon_col(icons[i]), 0.9), 1.0, true)
 				hud._st_icon(c, icons[i], D * 0.5 - 2.0, 1.0, self)
+	## 11/19 토벌 총대장 왕관 —— 금색 세 봉우리 (글자 없이 기호로)
+	static func draw_crown(ci: CanvasItem, c: Vector2, a: float) -> void:
+		var pts := PackedVector2Array([c + Vector2(-6, 3), c + Vector2(-6, -3), c + Vector2(-3, 0), c + Vector2(0, -5), c + Vector2(3, 0), c + Vector2(6, -3), c + Vector2(6, 3)])
+		var outline := pts.duplicate()
+		outline.append(pts[0])
+		ci.draw_colored_polygon(pts, Color(1.0, 0.82, 0.25, a))
+		ci.draw_polyline(outline, Color(0.25, 0.12, 0.02, 0.9 * a), 1.0, true)
 	var _tok_tex := {}     # 부대 key -> [카드, 크기, [틀, 얼굴]] —— _token 이 찍을 구운 메달 (reset · 배율이 바뀌면 비운다)
 
 	func _rank_emph() -> void:
@@ -4107,7 +4153,9 @@ class Hud extends Control:
 					node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 					_medal_layer.add_child(node)
 					_medal_nodes[sq.key] = node
-				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.icons != bp[0] or node.badge_dy != bp[1]:
+				var bz: bool = bool(sq.row.get("boss", false)) and sq.alive
+				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.icons != bp[0] or node.badge_dy != bp[1] or node.boss != bz:
+					node.boss = bz
 					node.hud = self
 					node.icons = bp[0]
 					node.badge_dy = bp[1]
@@ -4207,6 +4255,8 @@ class Hud extends Control:
 				var pc := pr.get_center()
 				_medal(pc, ps * 0.5, sq, a, lvq[1] > 0 and lvq[0] >= 100)
 				_deck_badges(sq, pc, ps * 0.5, a)
+				if bool(sq.row.get("boss", false)) and sq.alive:
+					draw_crown(self, pc + Vector2(0, - ps * 0.5 - 5.0), a)
 				if not sq.alive:
 					draw_circle(pc, ps * 0.5, Color(0, 0, 0, 0.6))
 				elif shaky(sq):      # 11/11 사기 30 아래 —— 메달 아래에 「동요」 딱지
@@ -4668,11 +4718,11 @@ class MiniCard extends Control:
 	func _process_card() -> void:
 		var lv := view.unit_live(sq.key)
 		var ready := view.ult_ready(sq.key)
-		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], ready]
+		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], lv[2], ready]
 		# 11/15 성능: 값이 바뀌면 바로, 깜빡이는 칸(위태 · 「준비」 · 직접 지휘의 고유기 금테)은 BLINK_MS 마다 다시 그린다 —— 예전엔 매 프레임이라
 		# 후반(대부분 위태 · 준비)에는 칸 18개를 프레임마다 통째로 다시 그렸다. 고유기가 찼을 뿐(직접 지휘 아님)이면 그림이 같아 다시 그리지 않는다
 		var ms := Time.get_ticks_msec()
-		if now != _last or (((ready and view.direct) or _waiting(lv) or _danger()) and ms - _drawn_ms >= BLINK_MS):
+		if now != _last or (((ready and view.direct) or _waiting(lv) or lv[2] or _danger()) and ms - _drawn_ms >= BLINK_MS):
 			_last = now
 			_drawn_ms = ms
 			queue_redraw()
@@ -4689,7 +4739,7 @@ class MiniCard extends Control:
 
 	## 11/6 #14 게이지는 찼는데 차례(대기 · 간격 · 조건)를 기다리는 중 —— 「준비」 가 깜빡인다
 	func _waiting(lv: Array) -> bool:
-		return sq.tier >= 6 and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive
+		return sq.tier >= 6 and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive and not lv[2]      # 모으는 중은 「준비」 아님
 
 	var _down_ms := -1
 	var _long_fired := false
@@ -4853,6 +4903,9 @@ class MiniCard extends Control:
 				draw_rect(Rect2(bx, y + 2.5, gw, 3), DB.PAL.ink)
 				var gc: Color = (ULT_FULL if lv[0] >= 100.0 else ULT_COL) if n > 0 else Color("#555")
 				draw_rect(Rect2(bx, y + 2.5, gw * clampf(lv[0] / 100.0, 0, 1), 3), gc)
+				if lv[2]:      # 기 모으는 중 —— 가득 찬 막대 위로 빛이 흐른다
+					var sx := fposmod(view.clock * 1.6, 1.0) * gw
+					draw_rect(Rect2(bx + maxf(0.0, sx - 8.0), y + 2.5, minf(16.0, gw - maxf(0.0, sx - 8.0)), 3), Color(1, 1, 1, 0.75))
 			if shapes:
 				for i in n:
 					var c := Vector2(bx + gw + 6.0 + i * 7.0, y + 4.0)
