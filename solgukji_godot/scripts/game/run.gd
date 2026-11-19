@@ -609,6 +609,86 @@ func forge(out: String) -> bool:
 	return true
 
 
+## 11/19 조합 미리 보기 —— forge() 의 take() 와 같은 규칙(손패 먼저, 모자라면 편성판 0→8칸)으로 계산만 한다 (Run · RNG 를 바꾸지 않는다)
+##   board_lost: 재료로 내려가는 편성 칸의 카드 · gear_lost: 그 칸에서 빠지는 장비 수
+##   bonds_lost: 지금 이어진 인연 중 조합 뒤 끊기는 것 (편성판 기준 —— 손패에만 있는 인연과 구분) · roles_lost: 편성에서 없어지는 역할
+func forge_preview(out: String) -> Dictionary:
+	var res := {"board_lost": [], "gear_lost": 0, "bonds_lost": [], "roles_lost": []}
+	if not DB.RECOF.has(out):
+		return res
+	var after := board.duplicate()
+	var m := mat_count(DB.RECOF[out])
+	for k in m:
+		var need: int = maxi(0, int(m[k]) - int(inv.get(k, 0)))
+		for i in 9:
+			if need <= 0:
+				break
+			if after[i] == k:
+				after[i] = null
+				res.board_lost.append(k)
+				res.gear_lost += (1 if equip[i] != null else 0) + (1 if equip2[i] != null else 0)
+				need -= 1
+	if res.board_lost.is_empty():
+		return res
+	var now_b := {}
+	for l in DB.inyeon_links(board.filter(func(k): return k != null)):
+		now_b[l.n] = true
+	var aft_b := {}
+	for l in DB.inyeon_links(after.filter(func(k): return k != null)):
+		aft_b[l.n] = true
+	for nm in now_b:
+		if not aft_b.has(nm):
+			res.bonds_lost.append(nm)
+	var roles_now := deck_roles(board)
+	var roles_aft := deck_roles(after)
+	for r in roles_now:
+		if not roles_aft.has(r):
+			res.roles_lost.append(r)
+	return res
+
+
+## 11/19 카드의 지원 역할 —— "치료"(유생: 엔진에서 치료 전담) · "깎기"(갑옷 · 결계 깎기 특기). 추천 · 미리 보기의 사실 문구용
+static func card_roles(k: String) -> Array:
+	var out := []
+	if not DB.C.has(k):
+		return out
+	if DB.C[k].tag == "유생":
+		out.append("치료")
+	var ps = DB.passives_of(k)
+	if ps != null:
+		for t in ps.traits:
+			if t.m.has("shred") or t.m.has("first_shred") or t.m.has("wshred") or t.name in ["위진", "요언"]:
+				out.append("깎기")
+				break
+	return out
+
+
+static func deck_roles(cards: Array) -> Dictionary:
+	var o := {}
+	for k in cards:
+		if k != null:
+			for r in card_roles(k):
+				o[r] = true
+	return o
+
+
+## 11/19 추천 조합의 이유 한 마디 (사실만) —— 유니크 보유 · 편성 승급 · 역할 보강 · 인연. 없으면 ""
+func goal_reason(out: String) -> String:
+	if myth_item_goals().has(out):
+		return "유니크 보유"
+	var p := DB.person(out)
+	if board.any(func(k): return k != null and DB.person(k) == p):
+		return "편성 승급"
+	var have_r := deck_roles(board)
+	for r in card_roles(out):
+		if not have_r.has(r):
+			return r + " 보강"
+	var n := bond_links(out, owned_persons())
+	if n > 0:
+		return "인연 %d명" % n
+	return ""
+
+
 ## 등용할 수 없는 까닭 —— "정지 세력이 등용" · "사망" · "" (등용 가능)
 func lock_text(k: String) -> String:
 	if not locked.has(k):

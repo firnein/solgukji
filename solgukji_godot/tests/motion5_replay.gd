@@ -273,6 +273,16 @@ func _ready() -> void:
 		print("ULT_SHOTS %d" % taken)
 		get_tree().quit()
 		return
+	if args.has("float-shot"):      # 11/19 전투 중 알림 확인 —— 그 기호(heal · burn …)의 알림이 처음 뜬 뒤 0.3초에 한 장
+		var want := str(args.get("float-shot"))
+		while not view.finished and not view.hud.floats.any(func(f): return str(f.get("icon", "")) == want):
+			await get_tree().process_frame
+		await get_tree().create_timer(0.3).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("res://../build/float_%s.png" % want)
+		print("FLOAT_SHOT ", want, " at ", view.clock, " found=", not view.finished)
+		get_tree().quit()
+		return
 	if args.has("validate-only"):
 		while view.clock < float(args.get("capture-at", "0")) and not view.finished:
 			await get_tree().process_frame

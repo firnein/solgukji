@@ -1888,6 +1888,21 @@ func recipe_sheet(out: String) -> void:
 		t.dim = got <= 0
 		row.add_child(t)
 	b.add_child(row)
+	var pv := run.forge_preview(out)      # 11/19 조합하면 편성에서 빠지는 것 —— 실제로 빠질 때만 (손패 여분으로 되면 아무것도 안 띄운다)
+	if not pv.board_lost.is_empty():
+		var lost := []
+		for k in pv.board_lost:
+			lost.append(DB.person(k))
+		var parts := ["출전 %s 소모" % ", ".join(lost)]
+		if int(pv.gear_lost) > 0:
+			parts.append("장비 %d 해제" % pv.gear_lost)
+		if not pv.bonds_lost.is_empty():
+			parts.append("인연 「%s」 끊김" % "」「".join(pv.bonds_lost))
+		if not pv.roles_lost.is_empty():
+			parts.append("%s 역할 없어짐" % ", ".join(pv.roles_lost))
+		var wl := UI.lbl(" · ".join(parts), UI.FS_CAP, DB.PAL.seal.lightened(0.3))
+		UI.wrap_text(wl)
+		b.add_child(wl)
 	var ni = Run.need_item(out)
 	if ni != null:
 		var have_it: bool = run.bag.get(ni, 0) > 0
@@ -3548,7 +3563,7 @@ func _goal_block() -> Control:
 		return gsec
 	if not near_all.is_empty():
 		gsec.add_child(UI.lbl("추천 조합 (가까운)", UI.FS_CAP, DB.PAL.danger))
-		gsec.add_child(_goal_strip(near_all, func(_o): return "", DB.PAL.seal))
+		gsec.add_child(_goal_strip(near_all, func(o): return run.goal_reason(o), DB.PAL.seal))      # 11/19 이유 한 마디 (유니크 · 승급 · 역할 보강 · 인연)
 	if not bond_all.is_empty():
 		var owned := run.owned_persons()
 		gsec.add_child(UI.lbl("추천 조합 (인연)", UI.FS_CAP, DB.PAL.yeon))
