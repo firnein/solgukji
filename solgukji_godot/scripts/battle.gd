@@ -230,6 +230,9 @@ class Unit:
 	var gain := 0.0           # 11/9 결과창 역할 기여 —— 내가 건 갑옷 · 결계 깎기로 아군이 더 넣은 피해 (기록만, 판정에 안 쓴다)
 	var mdmg := 0.0
 	var heal := 0.0
+	var over := 0.0           # 11/19 준 피해 중 남은 병력을 넘친 몫 (기록만)
+	var htr := 0.0            # 11/19 실제로 되살린 병력 (초과 회복 제외 · 결과창 치료. 기록만, 판정에 안 쓴다)
+	var hmo := 0.0            # 11/19 실제로 올린 사기 (200 상한 넘친 몫 제외 · 기록만)
 	var kills := 0
 	var last_hit: Unit = null
 	var st := []
@@ -1153,6 +1156,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	stats.fire_amp += loss * (1.0 - 1.0 / fm)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
+	a.over += maxf(0.0, loss - maxf(0.0, d.troops))      # 11/19 남은 병력을 넘친 몫 (기록만 —— 결과창은 dmg − over 를 실제 피해로)
 	d.troops -= loss
 	a.dmg += loss + shared
 	d.last_hit = a
@@ -1357,9 +1361,12 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	d.troops += g
 	if src:
 		src.heal += g / 300.0
+		src.htr += g
 		src.theal += g / d.max      # 점검용 —— 병력 치료만 (최대 병력 대비)
-	L("hl", "『%s』에 %s의 대오가 정비된다 — 병력 +%s" % [who, nm(d), num(g)],
-		{"fx": "heal", "f": d.key, "n": g})
+	var hx := {"fx": "heal", "f": d.key, "n": g}
+	if src and src != d:
+		hx["healer"] = src.key      # 11/19 화면 출처 (기록만)
+	L("hl", "『%s』에 %s의 대오가 정비된다 — 병력 +%s" % [who, nm(d), num(g)], hx)
 	if virtue_enabled and _side_max(d.camp, "moved") > 0:
 		_give_moved(d)
 
@@ -1369,7 +1376,9 @@ func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
 	var b := d.morale
 	d.morale = minf(200, d.morale + amt * pace * _one)
 	var g := d.morale - b
-	if src and g > 0: src.heal += g
+	if src and g > 0:
+		src.heal += g
+		src.hmo += g
 	if g > 0.5:
 		L("hl", "『%s』에 %s의 군세가 다시 일어선다 — 사기 +%d" % [who, nm(d), roundi(g)],
 			{"fx": "heal", "f": d.key, "m": g})
@@ -2405,6 +2414,7 @@ func _paeup_kin(d: Unit) -> void:
 	d.troops += g
 	d.morale = minf(200.0, d.morale + 10.0)
 	z.heal += g / 300.0
+	z.htr += g
 	L("hl", "%s의 한실부흥 —— 아군 %s을(를) 일으켜 세운다 — 병력 +%s" % [nm(z), nm(d), num(g)], {"fx": "heal", "f": d.key, "n": g,
 		"kin_by": z.key, "kin_ratio": d.troops / d.max})
 
@@ -2423,6 +2433,7 @@ func _paeup_revive(u: Unit) -> bool:
 		if o.alive and o.camp != u.camp and o.st.any(func(x): return PAEUP_ST.has(x.k)):
 			n += 1
 	var ratio := minf(0.45, 0.15 + 0.10 * float(n))
+	z.htr += maxf(0.0, roundf(u.max * ratio) - u.troops)      # 11/19 기록만
 	u.troops = maxf(u.troops, roundf(u.max * ratio))
 	u.morale = maxf(u.morale, 60.0)
 	L("hl", "%s의 태평환생 —— %s 다시 일어선다 (병력 %d%% · 상태이상에 걸린 적 %d부대)" % [nm(z), ga(nm(u)), roundi(ratio * 100), n], {"fx": "heal", "f": u.key, "n": u.troops})
@@ -2434,6 +2445,7 @@ func rout(u: Unit, why: String, cause := "effect") -> void:
 	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
 	if ht and ht != u and int(_kiin_used.get("revive:" + u.camp, 0)) < 2:
 		_kiin_used["revive:" + u.camp] = int(_kiin_used.get("revive:" + u.camp, 0)) + 1
+		ht.htr += maxf(0.0, roundf(u.max * 0.4) - u.troops)      # 11/19 기록만
 		u.troops = maxf(u.troops, roundf(u.max * 0.4))
 		u.morale = maxf(u.morale, 60.0)
 		L("hl", "%s의 기사회생 —— %s 다시 일어선다" % [nm(ht), ga(nm(u))], {"fx": "heal", "f": u.key, "n": u.troops})
@@ -2855,7 +2867,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
 			"item": u.item, "item2": u.item2, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "dot": roundi(u.dot), "heal": roundi(u.heal), "kills": u.kills,
-			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
+			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken), "htr": roundi(u.htr), "hmo": roundi(u.hmo), "over": roundi(u.over)})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))

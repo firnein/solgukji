@@ -2648,7 +2648,7 @@ class Hud extends Control:
 			draw_set_transform(Vector2.ZERO)
 		banners_sk = keep
 
-	func float_text(key: String, text: String, col: Color, fs: int, replace := false, deck_notice := false, icon := "") -> void:
+	func float_text(key: String, text: String, col: Color, fs: int, replace := false, deck_notice := false, icon := "", who := "") -> void:
 		if Type2View.painting_on() and not deck_notice:
 			return
 		var sq: Squad = view.field.squads.get(key)
@@ -2664,7 +2664,7 @@ class Hud extends Control:
 		for f in floats:
 			if f.key == key and view.clock - f.t0 < 0.8:
 				n += 1
-		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n, "deck": deck_notice, "icon": icon})
+		floats.append({"key": key, "p": sq.pos, "text": text, "col": col, "fs": fs, "t0": view.clock, "n": n, "deck": deck_notice, "icon": icon, "who": who})
 
 	# 실제 확산 출처와 추가 피해 사건을 전장에 연결한다.
 	const DECK_ST := {
@@ -2688,6 +2688,15 @@ class Hud extends Control:
 		var kind := str(e.get("st", ""))
 		var label := ""
 		var col := Color.WHITE
+		if e.get("fx") == "heal" and e.has("healer") and float(e.get("n", 0.0)) > 0.0:      # 11/19 치료 —— 받은 부대 위에 기호 + 시전자 이름 (같은 시전자 · 대상은 4초에 한 번)
+			var hs := str(e.healer)
+			var hk := hs + ":" + target + ":heal"
+			if not view.field.squads.has(hs) or view.clock - float(_deck_seen.get(hk, -100.0)) < 4.0:
+				return
+			_deck_seen[hk] = view.clock
+			var hq: Squad = view.field.squads[hs]
+			float_text(target, "치료", Color("#7fd6a4"), 12, true, true, "heal", DB.person(hq.cid) if hq.tier > 2 else hq.row.name)
+			return
 		var source := str(e.get("contributor", e.get("from", e.get("a", ""))))
 		var origin := str(e.get("from", source))
 		if e.get("fx") == "support" and kind in ["shred_phys", "shred_int"]:
@@ -2834,6 +2843,7 @@ class Hud extends Control:
 			"res_down", "shred_int": return Color("#ed9aff")
 			"atk_down", "cut_atk", "cut_int": return Color("#9bbcf2")
 			"confuse": return Color("#c4a0ff")
+			"heal": return Color("#7fd6a4")
 		return Color.WHITE
 
 	## 상태 기호 —— c 가운데, 반지름 s. 불꽃 · 물결 · 방패↓(방어) · 결계↓(책략 방어) · 칼↓(공격) · 소용돌이(혼란). _spread 는 옆으로 번지는 화살표를 덧붙인다
@@ -2874,6 +2884,9 @@ class Hud extends Control:
 				ci.draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), col, 2.0, true)
 				ci.draw_line(c + Vector2(-s * 0.75, s * 0.15), c + Vector2(-s * 0.15, s * 0.75), col, 1.8, true)
 				ci.draw_line(c + Vector2(-s * 0.85, -s * 0.2), c + Vector2(s * 0.2, s * 0.85), dark, 1.4, true)
+			"heal":      # 십자
+				ci.draw_rect(Rect2(c - Vector2(s * 0.25, s * 0.8), Vector2(s * 0.5, s * 1.6)), col)
+				ci.draw_rect(Rect2(c - Vector2(s * 0.8, s * 0.25), Vector2(s * 1.6, s * 0.5)), col)
 			"confuse":
 				var pts := PackedVector2Array()
 				for i in 18:
@@ -4218,6 +4231,8 @@ class Hud extends Control:
 				if marker.is_empty() or squad == null:
 					continue
 				var name_: String = DB.person(squad.cid) if squad.tier > 2 else squad.row.name
+				if str(f.get("who", "")) != "":      # 받은 부대 위에 준 장수 이름 (치료)
+					name_ = str(f.who)
 				var ic := str(f.get("icon", ""))
 				var label := name_ if ic != "" else name_ + " · " + str(f.text)      # 11/17 기호가 있으면 이름만
 				var iw := 16.0 if ic != "" else 0.0
