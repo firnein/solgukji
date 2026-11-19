@@ -181,7 +181,7 @@ func _run_flow() -> void:
 		old.erase(k)
 	var r3 := Run.new()
 	r3.from_dict(old)
-	_ok(r3.tk_hand.size() == 3 and r3.tk_plan == ["", "", ""], "옛 저장 기본값")
+	_ok(r3.tk_hand.size() == 3 and r3.tk_plan == ["돌격", "방진", "우회"], "옛 저장 기본값")      # 11/19 기본 계획은 돌격 · 방진 · 우회로 채워 둔다
 	# 경제 카드 모두
 	for id in Tac.ECON:
 		var r4 := Run.new()

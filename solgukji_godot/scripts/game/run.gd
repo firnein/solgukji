@@ -2583,12 +2583,24 @@ func _dev_spend() -> void:
 
 # ───────── 11/15 군략 카드 (docs/군략_카드_초안.md · scripts/tactics.gd 규칙 · scripts/tac_rt.gd 전투) ─────────
 
-## 처음 상태 —— 기본 3장 (돌격 · 우회 · 방진)
+## 11/19 사용자: 군략의 기본은 돌진 · 방어 · 기동을 하나씩 채워 놓는다 —— 단계 1 · 2 · 3 = 돌격 · 방진 · 우회 (tactics.json rule.plan).
+## 가진 카드만, 놓을 수 있는 칸에만 놓는다 (못 놓는 칸은 빈 채로)
+func tk_default_plan() -> Array:
+	var p := ["", "", ""]
+	var want: Array = Tac.data().rule.get("plan", [])
+	for i in mini(want.size(), p.size()):
+		var id := str(want[i])
+		if Tac.plan_block(p, tk_hand, i, id) == "":
+			p[i] = id
+	return p
+
+
+## 처음 상태 —— 기본 3장 (돌격 · 우회 · 방진), 계획은 돌격 · 방진 · 우회로 채워 둔다
 func tk_reset() -> void:
 	tk_hand = {}
 	for id in Tac.data().rule.start:
 		tk_hand[str(id)] = 1
-	tk_plan = ["", "", ""]
+	tk_plan = tk_default_plan()
 	tk_offer = []
 	tk_hist = []
 	tk_perm = {}
@@ -2609,6 +2621,8 @@ func tk_load(d: Dictionary) -> void:
 			h[str(k)] = int(tk_hand[k])
 	tk_hand = h
 	tk_plan = Tac.norm(tk_plan)
+	if tk_plan == ["", "", ""]:      # 11/19 세 칸이 다 빈 옛 저장도 기본으로 채운다
+		tk_plan = tk_default_plan()
 	tk_offer = (tk_offer if tk_offer is Array else []).map(func(x): return str(x)).filter(func(x): return Tac.has(x))
 	tk_more = bool(tk_more)
 	tk_reroll = int(tk_reroll)
