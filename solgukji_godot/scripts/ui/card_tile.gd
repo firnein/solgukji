@@ -7,7 +7,7 @@ extends Control
 signal tapped(k: String)
 
 const SIZE := Vector2(160, 76)     # 11/7 사용자: 카드 축소 —— 특기 칸 두 줄(33 + 18×2 + 3)이 들어가는 최소 높이가 76
-const HOLD := 0.35
+const HOLD := Press.HOLD_DRAG      # 11/20 조작: 꾹 눌러 끌기 시간은 Press 한 벌 (0.35)
 
 var k := ""
 var qty := -1
@@ -15,9 +15,9 @@ var note := ""              # 아래 줄 대신 쓸 짧은 글 (예: "선호 · 
 var note_col := Color.TRANSPARENT
 var mark := ""              # "pref" · "bad" · "on" (편성 중) · "sel" (골랐다) · "dim"
 var drag_data = null        # 있으면 길게 눌러 끌 수 있다
-var _press := Vector2.INF
-var _held := 0.0
+var _pr := Press.new()       # 11/20 조작: 누름 판정은 Press 한 벌 (탭 취소 10px · 범위 밖 떼기 무효)
 var _dragging := false
+var _down_fx := false        # 11/20 조작: 꾹 누르는 동안의 눌림 모양 (살짝 어둡게)
 var _fx: MiniTile.PinFx = null   # 11/7 갈무리 표시 덧칸 (★ · 깜빡이는 테) —— MiniTile 과 같은 표현
 
 
@@ -44,19 +44,24 @@ func set_pin(s: bool, r: bool) -> void:
 
 
 func _gui_input(e: InputEvent) -> void:
-	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-		if e.pressed:
-			_press = e.position
-			_held = 0.0
+	match _pr.feed(self, e):
+		Press.DOWN:
 			_dragging = false
 			set_process(drag_data != null)      # 꾹 누르기를 재는 동안만 (끝나면 _process 가 스스로 끈다)
-		else:
-			if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14:
+		Press.TAP:
+			_set_down(false)
+			if not _dragging:
+				UI.buzz()      # 11/20 조작: 탭 소리 · 진동 (MiniTile 과 같게)
 				tapped.emit(k)
-			_press = Vector2.INF
-	elif e is InputEventMouseMotion and _press != Vector2.INF:
-		if e.position.distance_to(_press) >= 14:
-			_press = Vector2.INF       # 끌었다 —— 스크롤에 맡긴다
+		Press.CANCEL:
+			_set_down(false)       # 끌었다 —— 스크롤에 맡긴다
+
+
+## 11/20 조작: 눌림 모양 —— 꾹 누르는 동안 제 그림만 살짝 어둡게 (덧칸 ★ 은 그대로)
+func _set_down(on: bool) -> void:
+	if _down_fx != on:
+		_down_fx = on
+		self_modulate = Color(0.78, 0.78, 0.78) if on else Color.WHITE
 
 
 ## 11/15 성능 —— MiniTile 과 같다: _process 는 누르고 있는 동안만 · 화면 밖이면 그리지 않고 화면에 들어오면 그린다 (UI.off_screen)
@@ -82,19 +87,23 @@ func _wake() -> void:
 		queue_redraw()
 
 
-func _process(dt: float) -> void:
-	if drag_data == null or _press == Vector2.INF or _dragging:
+func _process(_dt: float) -> void:
+	if drag_data == null or not _pr.held() or _dragging:
 		set_process(false)
+		_set_down(false)
 		return
-	_held += dt
-	if _held >= HOLD:
+	if not _down_fx and Time.get_ticks_msec() - _pr.t0 >= 70:      # 쓸기 시작의 짧은 누름에는 깜빡이지 않게
+		_set_down(true)
+	if _pr.long_due(Press.HOLD_DRAG):
 		_dragging = true
-		_press = Vector2.INF
+		_pr.reset()
+		_set_down(false)
+		UI.buzz(15)      # 11/20 조작: 끌기 시작 진동은 편성판 칸과 같은 값
 		var pv := CardTile.new().setup(k, -1)
 		pv.modulate = Color(1, 1, 1, 0.85)
 		var holder := Control.new()
 		holder.add_child(pv)
-		pv.position = -SIZE / 2
+		pv.position = Vector2(-SIZE.x / 2, -SIZE.y)      # 11/20 조작: 미리 보기를 손가락 위쪽으로 (가려지지 않게 반 칸 올림)
 		force_drag(drag_data, holder)
 
 

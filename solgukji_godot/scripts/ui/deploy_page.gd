@@ -431,8 +431,9 @@ func _item_card(id: String, n: int, g: String) -> Control:
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink2, col, 2 if big else 1, 8, 6))
 	b.mouse_filter = Control.MOUSE_FILTER_STOP
+	var ipr := Press.new()      # 11/20 조작: '떼기'만 보던 처리기 —— 보급품 목록을 쓸면 스크롤 시작 순간 아이템 시트가 열렸다
 	b.gui_input.connect(func(e):
-		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+		if ipr.feed(b, e) == Press.TAP:
 			UI.buzz()
 			gs._item_sheet(id))      # 누르면 아이템 시트 (유니크는 들어가는 신화 장수)
 	var h := UI.hbox(UI.SP_S)
@@ -647,9 +648,10 @@ class SlotBox extends Control:
 	var page: DeployPage
 	var slot := -1
 	var compact := false
-	var _press := Vector2.INF
-	var _held := 0.0
+	var _pr := Press.new()       # 11/20 조작: 누름 판정은 Press 한 벌
 	var _dragging := false
+	var _down_fx := false        # 11/20 조작: 꾹 누르는 동안의 눌림 모양 (살짝 어둡게)
+	var _drop_fx: DropFx = null  # 11/20 조작: 끄는 동안 놓을 수 있는 칸의 옅은 금 테
 
 	var pref := false      # 11/15 이 칸의 장수가 제 병종의 선호 자리에 섰다 (DB.aff_of == "pref") —— 1시 방향 ✓ 표시
 
@@ -668,32 +670,43 @@ class SlotBox extends Control:
 	func _gui_input(e: InputEvent) -> void:
 		if slot < 0:
 			return
-		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-			if e.pressed:
-				_press = e.position
-				_held = 0.0
+		var at := _pr.down
+		match _pr.feed(self, e):
+			Press.DOWN:
 				_dragging = false
-			else:
-				if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14:
-					UI.buzz()
-					if page.slot_link_lv(slot) > 0 and _yeon_rect().grow(6).has_point(e.position):      # 11/11 인연 표시를 누르면 인연 시트
-						page.inyeon_sheet()
-					else:
-						page.tap_slot(slot)
-				_press = Vector2.INF
-		elif e is InputEventMouseMotion and _press != Vector2.INF and e.position.distance_to(_press) >= 14:
-			_press = Vector2.INF        # 길게 누르기 전에 움직였다 —— 탭도 끌기도 아니다
+			Press.TAP:
+				_set_down(false)
+				if _dragging:
+					return
+				UI.buzz()
+				# 11/11 인연 표시를 누르면 인연 시트 (11/20 조작: 28×16 표시의 누르는 범위를 6 → 10 으로 넓힘 · 누른 자리로 판정)
+				if page.slot_link_lv(slot) > 0 and _yeon_rect().grow(10).has_point(at):
+					page.inyeon_sheet()
+				else:
+					page.tap_slot(slot)
+			Press.CANCEL:
+				_set_down(false)        # 길게 누르기 전에 움직였다 —— 탭도 끌기도 아니다
 
-	func _process(dt: float) -> void:
-		if _press == Vector2.INF or _dragging:
+	## 11/20 조작: 눌림 모양 —— 꾹 누르는 동안 제 그림만 살짝 어둡게
+	func _set_down(on: bool) -> void:
+		if _down_fx != on:
+			_down_fx = on
+			self_modulate = Color(0.78, 0.78, 0.78) if on else Color.WHITE
+
+	func _process(_dt: float) -> void:
+		if not _pr.held() or _dragging:
+			if _down_fx:
+				_set_down(false)
 			return
-		_held += dt
-		if _held >= CardTile.HOLD:
+		if not _down_fx and page.gs.run.board[slot] != null and Time.get_ticks_msec() - _pr.t0 >= 70:
+			_set_down(true)
+		if _pr.long_due(Press.HOLD_DRAG):
 			_start_drag()
 
 	func _start_drag() -> void:
 		var k = page.gs.run.board[slot]
-		_press = Vector2.INF
+		_pr.reset()
+		_set_down(false)
 		if k == null:
 			return
 		_dragging = true
@@ -702,8 +715,31 @@ class SlotBox extends Control:
 		pv.modulate = Color(1, 1, 1, 0.85)
 		var holder := Control.new()
 		holder.add_child(pv)
-		pv.position = -CardTile.SIZE / 2
+		pv.position = Vector2(-CardTile.SIZE.x / 2, -CardTile.SIZE.y)      # 11/20 조작: 미리 보기를 손가락 위쪽으로 (가려지지 않게 반 칸 올림)
 		force_drag({"card": k, "from": slot}, holder)
+
+	## 11/20 조작: 끌기 피드백 —— 카드를 끄는 동안 놓을 수 있는 칸에 옅은 금 테 (끝나면 걷는다)
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_DRAG_BEGIN:
+			var d = get_viewport().gui_get_drag_data()
+			if _drop_fx == null and _can_drop_data(Vector2.ZERO, d):
+				_drop_fx = DropFx.new()
+				_drop_fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				_drop_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_drop_fx.own = d.get("from", -1) == slot
+				add_child(_drop_fx)
+		elif what == NOTIFICATION_DRAG_END and _drop_fx != null:
+			_drop_fx.queue_free()
+			_drop_fx = null
+
+	class DropFx extends Control:
+		var own := false      # 끌려 나온 제 칸 —— 테 대신 옅게 비운 모양
+		func _draw() -> void:
+			var r := Rect2(Vector2.ZERO, size)
+			if own:
+				draw_rect(r.grow(-2), Color(DB.PAL.ink, 0.45))
+				return
+			draw_style_box(UI.flat(Color(DB.PAL.gold, 0.08), Color(DB.PAL.gold, 0.55), 2, 8, 0), r)
 
 	## 11/11 인연 표시 자리 —— 칸 오른쪽 위 (초상 모서리)
 	func _yeon_rect() -> Rect2:

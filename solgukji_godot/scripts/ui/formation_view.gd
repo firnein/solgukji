@@ -39,12 +39,18 @@ func min_h() -> float:
 	return _rows() * 92.0 + 36.0
 
 
+var _pr := Press.new()       # 11/20 조작: 누름 판정은 Press 한 벌 —— 예전에는 뗀 자리만 봐서 쓸다가 메달 위에서 떼어도 상세가 열렸다
+
+
 func _gui_input(e: InputEvent) -> void:
-	if not on_medal.is_valid() or not (e is InputEventMouseButton) or e.button_index != MOUSE_BUTTON_LEFT or e.pressed:
+	if not on_medal.is_valid():
+		return
+	var at := _pr.down       # 누른 자리 —— 메달은 누른 자리로 고른다 (떼기까지 TAP_SLOP 안)
+	if _pr.feed(self, e) != Press.TAP:
 		return
 	for m in layout():
 		var r := clampf(float(m[2]) * 0.3, 18.0, 34.0)
-		if e.position.distance_to(m[0] + Vector2(0, -8.0)) <= r + 10.0:
+		if at.distance_to(m[0] + Vector2(0, -8.0)) <= r + 10.0:
 			UI.buzz()
 			on_medal.call(m[1])
 			accept_event()

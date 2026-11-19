@@ -538,10 +538,20 @@ static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 	return p
 
 
+## 11/20 조작: 버튼이 아닌 칸(초상 · 그림 · 줄)의 탭 —— 누른 자리에서 Press.TAP_SLOP 안 · 칸 안에서 뗐을 때만 cb.
+## 전엔 곳마다 '떼기'만 봐서, 목록을 쓸다 떼거나 TouchScroll 이 넣는 화면 밖 떼기에도 시트가 열렸다
+static func tap(c: Control, cb: Callable) -> void:
+	var pr := Press.new()
+	c.gui_input.connect(func(e: InputEvent):
+		if pr.feed(c, e) == Press.TAP:
+			cb.call())
+
+
 ## 접는 묶음 —— 머리줄을 누르면 펼치고 접는다. open 이면 body 를 붙인다 (닫혀 있으면 body 를 만들지 않아도 된다)
 static func fold(title: String, sub: String, open: bool, cb: Callable) -> Button:
 	var P := DB.PAL
 	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE      # 11/20 조작: 누른 버튼에 포커스가 남지 않게 (TouchButton 과 같게)
 	b.custom_minimum_size = Vector2(0, BH_M)
 	b.add_theme_stylebox_override("normal", flat(P.ink2, Color(0, 0, 0, 0), 0, R, 12))
 	b.add_theme_stylebox_override("hover", flat(P.ink3, Color(0, 0, 0, 0), 0, R, 12))

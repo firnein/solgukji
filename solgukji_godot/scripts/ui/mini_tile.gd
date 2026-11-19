@@ -14,16 +14,16 @@ var badge_quiet := false     # 11/14 편성 표시처럼 상태만 알리는 배
 var lit := false          # 금빛 테두리 (지금 조합 가능)
 var up := false             # 오른쪽 위 ▲ —— 지금 조합 가능한 상위 카드의 재료
 var dim := false            # 흐리게 (없는 카드)
-var _press := Vector2.INF
+var _pr := Press.new()       # 11/20 조작: 누름 판정은 Press 한 벌 (탭 취소 10px · 범위 밖 떼기 무효)
+var _down_fx := false        # 11/20 조작: 꾹 누르는 동안의 눌림 모양 (살짝 어둡게)
 var drag_data = null        # 있으면 길게 눌러(0.35초) 끌 수 있다 (편성 손패, 11/4)
-var on_hold := Callable()   # 11/13 끌기가 없는 타일을 꾹 누르면(CardTile.HOLD) 부른다 (징집 보유 카드 —— 판매 시트). 그때는 tapped 를 보내지 않는다
+var on_hold := Callable()   # 11/13 끌기가 없는 타일을 꾹 누르면(Press.LONG_PRESS) 부른다 (징집 보유 카드 —— 판매 시트). 그때는 tapped 를 보내지 않는다
 var show_role := true       # 11/20 인연 타일은 구성원 확인용이라 역할 칩을 뺀다 (얼굴 · 이름만)
 var short_name := false     # 11/11 인연 타일 —— 이름 줄에 칭호 없이 인물 이름만 (60폭에 '난세간웅 조조' 가 잘렸다)
 var mark := ""              # "sel" —— 고른 카드 (금테)
 var star := false           # 11/7 갈무리 표시 —— 12시 방향 노란 ★ (갈무리한 장수 · 그 재료)
 var ring := false           # 11/7 갈무리 표시 —— 테두리가 빠르게 깜빡이는 금빛 하이라이트 (아직 더 모아야 하는 재료)
 var _fx: PinFx = null       # ★ · 깜빡이는 테를 그리는 덧칸
-var _held := 0.0
 var _dragging := false
 ## 11/12 온라인 장수 선점제 · 사망룰 —— 지금 판의 Run.locked (GameScreen.render 가 넣는다). 여기 있는 장수(가지지 않은 것)는
 ## 회색 + 「정지 세력이 등용」 · 「사망」 띠, 누를 수 없다
@@ -111,19 +111,28 @@ class PinFx extends Control:
 
 
 func _gui_input(e: InputEvent) -> void:
-	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-		if e.pressed:
-			_press = e.position
-			_held = 0.0
+	match _pr.feed(self, e):
+		Press.DOWN:
 			_dragging = false
 			set_process(drag_data != null or on_hold.is_valid())      # 꾹 누르기를 재는 동안만 (끝나면 _process 가 스스로 끈다)
-		else:
-			if _press != Vector2.INF and not _dragging and e.position.distance_to(_press) < 14 and not _is_locked():
+		Press.TAP:
+			_set_down(false)
+			if _dragging:
+				return
+			if _is_locked():
+				Sfx.play("deny")      # 11/20 조작: 잠긴 타일(등용 · 사망)은 거절음 —— 까닭은 타일의 띠에 적혀 있다
+			else:
 				UI.buzz()
 				tapped.emit(k)
-			_press = Vector2.INF
-	elif e is InputEventMouseMotion and _press != Vector2.INF and e.position.distance_to(_press) >= 14:
-		_press = Vector2.INF
+		Press.CANCEL:
+			_set_down(false)
+
+
+## 11/20 조작: 눌림 모양 —— 꾹 누르는 동안 제 그림만 살짝 어둡게 (덧칸 ★ 은 그대로)
+func _set_down(on: bool) -> void:
+	if _down_fx != on:
+		_down_fx = on
+		self_modulate = Color(0.78, 0.78, 0.78) if on else Color.WHITE
 
 
 ## 11/15 성능 —— ① 매 프레임 _process 는 누르고 있는 동안만 (목록의 타일 190장이 가만히 있을 때도 프레임마다 불렸다)
@@ -150,29 +159,32 @@ func _wake() -> void:
 		queue_redraw()
 
 
-func _process(dt: float) -> void:
-	if _press == Vector2.INF or _dragging:
+func _process(_dt: float) -> void:
+	if not _pr.held() or _dragging:
 		set_process(false)
+		_set_down(false)
 		return
+	if not _down_fx and Time.get_ticks_msec() - _pr.t0 >= 70:      # 쓸기 시작의 짧은 누름에는 깜빡이지 않게
+		_set_down(true)
 	if drag_data == null:
-		if on_hold.is_valid():
-			_held += dt
-			if _held >= CardTile.HOLD + 0.1:
-				_dragging = true      # 손을 뗄 때 tapped 를 보내지 않게
-				_press = Vector2.INF
-				UI.buzz()
-				on_hold.call(k)
+		if on_hold.is_valid() and _pr.long_due(Press.LONG_PRESS):      # 11/20 조작: 꾹 눌러 보기 · 판매는 Press.LONG_PRESS (0.45)
+			_dragging = true      # 손을 뗄 때 tapped 를 보내지 않게
+			_pr.reset()
+			_set_down(false)
+			UI.buzz()
+			on_hold.call(k)
 		return
-	_held += dt
-	if _held >= CardTile.HOLD:
+	if _pr.long_due(Press.HOLD_DRAG):
 		_dragging = true
-		_press = Vector2.INF
+		_pr.reset()
+		_set_down(false)
+		UI.buzz(15)      # 11/20 조작: 끌기 시작 진동은 편성판 칸과 같은 값
 		var pv := MiniTile.new().setup(k, -1)
 		pv.size = size
 		pv.modulate = Color(1, 1, 1, 0.85)
 		var holder := Control.new()
 		holder.add_child(pv)
-		pv.position = -size / 2
+		pv.position = Vector2(-size.x / 2, -size.y)      # 11/20 조작: 미리 보기를 손가락 위쪽으로 (가려지지 않게 반 칸 올림)
 		force_drag(drag_data, holder)
 
 

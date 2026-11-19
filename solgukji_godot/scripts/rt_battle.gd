@@ -1220,6 +1220,12 @@ func _move() -> void:
 			u.pos += u.vel * TICK
 			continue
 		var t := u.tgt
+		if t == null:      # 11/20 노릴 적이 없다 (남은 적이 모두 은신 중일 때 등) —— 예전에는 여기서 null 접근 오류가 나 그 틱의 나머지 부대 이동까지 끊겼다. 제자리에서 멈춘다
+			if sp < 0.0:
+				sp = _speed(u)
+			u.vel = u.vel.move_toward(Vector2.ZERO, sp / DEC_T * TICK)
+			u.pos += u.vel * TICK
+			continue
 		var to := t.pos - u.pos
 		var dist := to.length()
 		var gap := _gap(u, t)

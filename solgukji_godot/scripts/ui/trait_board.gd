@@ -15,7 +15,7 @@ var ch := 16.0
 var gap := 2.0
 var _all: Array = []         # 보여 줄 칸 [{name, attr, group}] —— 계열 순서 (접힘이면 가진 것만)
 var _mine := {}              # 이름 -> {lv, ...}
-var _press := Vector2.INF
+var _pr := Press.new()       # 11/20 조작: 누름 판정은 Press 한 벌
 var fixed := false           # 펼칠 수 없다 —— 가진 특기만 (아이템 보급 창, 11/3)
 
 
@@ -42,15 +42,11 @@ func _rebuild() -> void:
 func _gui_input(e: InputEvent) -> void:
 	if fixed:
 		return
-	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-		if e.pressed:
-			_press = e.position
-		elif _press != Vector2.INF and e.position.distance_to(_press) < 14:
-			_press = Vector2.INF
-			UI.buzz()
-			expanded = not expanded
-			_rebuild()
-			accept_event()
+	if _pr.feed(self, e) == Press.TAP:
+		UI.buzz()
+		expanded = not expanded
+		_rebuild()
+		accept_event()
 
 
 ## 사다리에 실제로 쓰이는 특기 전부 —— 계열(ORDER) 순서, 같은 계열 안은 passives.json 순서

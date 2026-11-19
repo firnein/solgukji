@@ -75,6 +75,13 @@ var _noon_end_room := ""          # 토벌 종료 띠를 띄운 방 코드 —�
 var _cmd_t := 0                  # 마지막 명령을 보낸 시각 (ms)
 var _cmd_q := 0                  # 11/17 보낸 명령 번호 (서버가 상태의 ack 로 어디까지 처리했는지 알려 준다)
 var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'를 눌렀다 —— 서버가 알려 주기 전에도 바로 끈다
+var _render_wait := -1            # 11/20 조작: 다시 그리기를 미루기 시작한 시각 (ms). -1 이면 미룬 것이 없다
+const RENDER_HOLD_MS := 1500      # 눌림이 이어져도 이만큼 지나면 그린다
+var _ready_tap := -99999          # 11/20 조작: '준비' 버튼을 마지막으로 누른 시각 (ms)
+const READY_LOCK_MS := 600        # 이 안의 다시 누름은 버린다 (연타로 '준비 → 취소'가 나가지 않게)
+var _wait_btns: Array = []        # 11/20 조작: 서버 응답을 기다리며 꺼 둔 버튼 (시작 · 방 만들기 · 참가)
+var _rooms_cap: Label = null      # 접속 시트의 「열린 방 — N개」 줄
+var _rooms_box: VBoxContainer = null      # 접속 시트의 열린 방 목록 —— rooms 가 오면 여기만 다시 채운다
 
 
 func _ready() -> void:
@@ -175,6 +182,10 @@ func _process(dt: float) -> void:
 		if _retry <= 0:
 			net.connect_to(net.url)
 			_retry = 5.0
+	if _render_wait >= 0 and (not gs.touch_held() or Time.get_ticks_msec() - _render_wait >= RENDER_HOLD_MS):
+		_render_wait = -1
+		if in_game and not gs.battle_visible():
+			gs.render()
 	_warn_tick()
 	_tick += dt
 	if _tick >= 0.5 and in_game and gs.run != null:
@@ -424,6 +435,10 @@ func _connect_pressed(consent := false) -> void:
 func connect_sheet(refresh := false) -> void:
 	if refresh and net.is_open():
 		net.send({"t": "list"})
+	var keep := _conn_keep()      # 11/20 조작: 치던 글자 · 포커스 · 스크롤 (_conn_restore)
+	_rooms_box = null
+	_rooms_cap = null
+	_code_edit = null
 	var b := gs.open_sheet("온라인 대전")
 	var inv := clip_invite() if not in_game and _pending_join == "" else {}
 	if not inv.is_empty():      # 11/16 복사해 둔 초대 글 —— 한 번 눌러 접속 · 참가
@@ -478,6 +493,7 @@ func connect_sheet(refresh := false) -> void:
 		cb.add_child(no)
 		b.add_child(cb)
 	if not net.is_open() and not dev_sheet:
+		_conn_restore(keep)
 		return
 	# 11/9 사용자: 세션이 연결돼 있으면 다른 방으로 갈 수 없었다 —— 지금 방을 보여 주고 나갈 수 있게, 다른 방에 들어가면 지금 방은 자동으로 나간다
 	if not room.is_empty():
@@ -500,6 +516,7 @@ func connect_sheet(refresh := false) -> void:
 		var bt := UI.btn(Room.MODES[m].n, func():
 			_drop_room()
 			net.send({"t": "create", "mode": m, "max": _pick_max, "claim": _pick_claim, "deaths": _pick_deaths, "sell": _pick_sell}), "gold")
+		bt.pressed.connect(func(): _hold_btn(bt))      # 11/20 조작: 응답이 올 때까지 꺼 둔다 (연타로 방이 두 개 만들어지지 않게)
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UI.wrap_text(bt)      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
 		bt.custom_minimum_size = Vector2(0, UI.BH_L)
@@ -513,21 +530,80 @@ func connect_sheet(refresh := false) -> void:
 	_code_edit.custom_minimum_size = Vector2(0, 48)
 	_code_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cr.add_child(_code_edit)
-	cr.add_child(UI.btn("참가", func():
-		_drop_room()
-		net.send({"t": "join", "code": _code_edit.text.to_upper()})))
+	var jb := UI.btn("참가", _join_code)
+	jb.pressed.connect(func(): _hold_btn(jb))      # 11/20 조작: 응답이 올 때까지 꺼 둔다
+	_code_edit.text_submitted.connect(func(_t: String): _join_code())      # 11/20 조작: 방 코드 칸에서 Enter 로 참가
+	cr.add_child(jb)
 	b.add_child(cr)
-	b.add_child(UI.eyebrow("열린 방 — %d개" % rooms.size()))
+	_rooms_cap = UI.eyebrow("")
+	b.add_child(_rooms_cap)
+	_rooms_box = UI.vbox(UI.SP_M)      # 시트 본문과 같은 틈
+	b.add_child(_rooms_box)
+	_fill_rooms()
+	b.add_child(UI.btn("새로 고침", func(): net.send({"t": "list"}), "ghost"))
+	_conn_restore(keep)
+
+
+func _join_code() -> void:
+	_drop_room()
+	net.send({"t": "join", "code": _code_edit.text.to_upper()})
+
+
+## 열린 방 목록 —— rooms 가 올 때마다 이 상자만 다시 채운다 (시트의 이름 · 방 코드 칸 · 포커스 · 스크롤은 그대로, 11/20 조작)
+func _fill_rooms() -> void:
+	_rooms_cap.text = "열린 방 — %d개" % rooms.size()
+	for c in _rooms_box.get_children():
+		_rooms_box.remove_child(c)
+		c.queue_free()
 	for r in rooms:
 		if not room.is_empty() and str(r.code) == str(room.get("code", "")):
 			continue      # 지금 있는 방은 목록에서 뺀다
 		var rb := UI.btn("%s  ·  %s 방장 · %d/%d명 · %s" % [r.code, r.host, r.n, int(r.get("max", Room.SEATS)), r.mode_n], func():
 			_drop_room()
 			net.send({"t": "join", "code": r.code}))
+		rb.pressed.connect(func(): _hold_btn(rb))
 		rb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		rb.clip_text = true
-		b.add_child(rb)
-	b.add_child(UI.btn("새로 고침", func(): net.send({"t": "list"}), "ghost"))
+		_rooms_box.add_child(rb)
+	_rooms_box.visible = _rooms_box.get_child_count() > 0
+
+
+## 접속 시트가 지금 떠 있는가 (닫히는 중은 아니다)
+func _conn_shown() -> bool:
+	return gs._sheet.visible and not gs._sheet_closing and gs._sheet_title.text == "온라인 대전" and is_instance_valid(_name_edit) and _name_edit.is_inside_tree()
+
+
+## 11/20 조작: 접속 시트를 다시 그려도(접속됨 · 끊김 · 방에서 나옴) 치던 이름 · 방 코드 · 포커스 · 스크롤 자리가 남게 —— 다시 그리기 전에 적어 두고 그린 뒤 돌려놓는다
+func _conn_keep() -> Dictionary:
+	if not _conn_shown():
+		return {}
+	var k := {"name": _name_edit.text, "scroll": gs._sheet_scroll.scroll_vertical, "focus": "", "caret": 0, "code": ""}
+	var eds := {"name": _name_edit, "url": _url_edit, "code": _code_edit}
+	if is_instance_valid(_code_edit) and _code_edit.is_inside_tree():
+		k.code = _code_edit.text
+	for nm in eds:
+		var ed: LineEdit = eds[nm] if is_instance_valid(eds[nm]) else null
+		if ed != null and ed.is_inside_tree() and ed.has_focus():
+			k.focus = nm
+			k.caret = ed.caret_column
+	return k
+
+
+func _conn_restore(k: Dictionary) -> void:
+	if k.is_empty():
+		return
+	_name_edit.text = str(k.name)
+	var has_code: bool = is_instance_valid(_code_edit) and _code_edit.is_inside_tree()
+	if has_code:
+		_code_edit.text = str(k.code)
+	var ed: LineEdit = {"name": _name_edit, "url": _url_edit, "code": _code_edit if has_code else null}.get(str(k.focus))
+	if ed != null and ed.is_visible_in_tree():
+		ed.grab_focus()
+		ed.edit()
+		ed.deselect()      # 이름 칸은 포커스를 받으면 모두 고른다 —— 치던 글자가 다음 글자에 지워지지 않게
+		ed.caret_column = int(k.caret)
+	if int(k.scroll) > 0:
+		gs._restore_sheet_scroll(int(k.scroll))
 
 
 ## 총 인원 고르기 —— [4명 | 6명 | 8명] + 한 줄 안내 (고르면 이 상자만 다시 그린다 — 시트의 이름 · 주소 칸은 그대로)
@@ -602,15 +678,28 @@ func _refresh_sheet() -> void:
 # ───────── 받기 ─────────
 
 func _on_msg(d: Dictionary) -> void:
+	if str(d.t) in ["room", "state", "rooms", "error", "left"]:
+		_free_btns()      # 11/20 조작: 응답이 왔다 —— 꺼 둔 버튼을 다시 켠다
 	match str(d.t):
 		"rooms":
 			rooms = d.list
-			_refresh_sheet()
+			# 11/20 조작: 시트를 통째로 다시 그리면 치던 글자 · 포커스가 날아갔다 —— 방 목록 상자만 다시 채운다
+			if _conn_shown() and is_instance_valid(_rooms_box) and not in_game and room.is_empty():
+				_fill_rooms()
+			else:
+				_refresh_sheet()
 		"room":
+			# 11/20 조작: 대기실에서 room 이 올 때마다(누가 들어옴 · 나감) 시트를 닫아 한마디 · 설정 · 나가기 확인이 닫혔다 ——
+			# 대기실에 처음 들어올 때(접속 시트에서)만 닫고, 이미 그 방의 대기실이면 시트는 두고 대기실만 다시 그린다
+			var same: bool = lobby != null and str(room.get("code", "")) == str(d.room.get("code", "")) and gs._sheet.visible and gs._sheet_title.text != "온라인 대전"
 			room = d.room
 			if not room.started:
-				gs.close_sheet()
+				if not same:
+					gs.close_sheet()
 				_show_lobby()
+				if same:      # 새 대기실이 시트 위에 붙었다 —— 시트를 다시 앞으로
+					gs.move_child(gs._sheet_mask, -1)
+					gs.move_child(gs._sheet, -1)
 		"state":
 			# 11/17 아직 처리 안 된 내 명령이 있으면(ack < 보낸 번호) 같은 단계의 옛 상태로 화면을 덮지 않는다 —— 연달아 조합할 때 되돌아갔다 다시 나타나
 			# 다시 누르게 되고(서버엔 실패로 쌓였다) 느리게 느껴졌다. 마지막 명령의 상태가 오면 그것으로 맞춘다 (옛 서버는 ack 가 없어 늘 덮는다)
@@ -661,7 +750,7 @@ func _on_msg(d: Dictionary) -> void:
 					_dev_step()
 				return
 			if not gs.battle_visible():
-				gs.render()
+				_render_soon()
 			_maybe_ask_alone()
 			if dev_auto:
 				_dev_step()
@@ -752,6 +841,43 @@ func _on_msg(d: Dictionary) -> void:
 		"left":
 			_drop_room()
 			_refresh_sheet()
+
+
+## 11/20 조작: 서버 상태가 올 때마다 페이지를 통째로 다시 만들어, 손가락이 눌린 채면 그 탭 · 꾹 누름 · 끌기 · 스크롤이 날아갔다 ——
+## 화면에 눌림이 있는 동안은 표시만 해 두고(머리띠는 바로) 뗀 다음 프레임에 한 번 그린다 (_process). 길어도 RENDER_HOLD_MS
+func _render_soon() -> void:
+	if not gs.touch_held():
+		_render_wait = -1
+		gs.render()
+		return
+	gs._render_head()
+	if _render_wait < 0:
+		_render_wait = Time.get_ticks_msec()
+
+
+## 11/20 조작: 서버 응답을 기다리는 버튼(시작 · 방 만들기 · 참가) —— 누르면 꺼 두고(연타로 같은 요청이 두 번 나가지 않게)
+## 다음 수신(room · state · rooms · error · left) 또는 1초 뒤 다시 켠다
+func _hold_btn(b: BaseButton) -> void:
+	b.disabled = true
+	_wait_btns.append(b)
+	get_tree().create_timer(1.0).timeout.connect(_free_btns)
+
+
+func _free_btns() -> void:
+	for b in _wait_btns:
+		if is_instance_valid(b):
+			b.disabled = false
+	_wait_btns.clear()
+
+
+## 11/20 조작: 전투 탭의 '준비 완료 · 준비 취소' —— 서버 상태가 오면 버튼이 손가락 밑에서 반대 글로 바뀌어, 연타하면 '준비 → 취소'가 나갔다.
+## 누른 뒤 READY_LOCK_MS 동안의 다시 누름은 버린다 (코드가 부르는 send_ready 는 그대로)
+func tap_ready(on: bool) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _ready_tap < READY_LOCK_MS:
+		return
+	_ready_tap = now
+	send_ready(on)
 
 
 ## 11/12 사용자: 토벌이 사라지는 순간 가운데 띠 「토벌 종료 / 이제부터 준비 30초 · 대전 준비 15초」 —— 한 판(방)에 한 번
@@ -1116,7 +1242,9 @@ func _show_lobby() -> void:
 		sv.add_child(UI.rich("[color=#5d6a88]빈자리 — 시작하면 봇[/color]", UI.FS_BODY))
 	v.add_child(UI.panel(sv, 14))
 	if room.host:
-		v.add_child(UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), room_max() - room.seats.size()], func(): net.send({"t": "start"}), "pri", UI.BH_L))
+		var go := UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), room_max() - room.seats.size()], func(): net.send({"t": "start"}), "pri", UI.BH_L)
+		go.pressed.connect(func(): _hold_btn(go))      # 11/20 조작: 응답이 올 때까지 꺼 둔다
+		v.add_child(go)
 	else:
 		v.add_child(UI.hint("방장이 시작하기를 기다리는 중…"))
 	var cb := UI.btn("방 정보 복사 (서버 주소 + 방 코드)", copy_room_info, "ghost")      # 11/11 사용자: 서버 주소와 방 코드를 한 번에 복사해 바로 보낼 수 있게
@@ -1610,7 +1738,7 @@ func war_page() -> Control:
 					"noon": sub = "모두 보면 대전 상대가 정해진다"
 					"evening_prep": sub = "모두 준비되면 대전"
 					"evening": sub = "모두 보면 다음으로"
-		v.add_child(UI.act("준비 취소" if rd else "준비 완료", sub, func(): send_ready(not rd), "ghost" if rd else "pri", disabled))
+		v.add_child(UI.act("준비 취소" if rd else "준비 완료", sub, func(): tap_ready(not rd), "ghost" if rd else "pri", disabled))
 		if st == "morning" and has_noon() and run.quest_open():      # 11/12 험지 토벌 고르기 —— 토벌이 있는 일차의 준비 단계
 			v.add_child(gs.quest_hard_btn())
 		if st == "evening_prep" and not rd:      # 11/16 토벌 뒤 · 대전 전 —— 군략(편성 화면의 「군략 1 · 2 · 3단계」)을 고치러 가는 길

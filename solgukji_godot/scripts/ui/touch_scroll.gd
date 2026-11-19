@@ -103,6 +103,18 @@ func _input(e: InputEvent) -> void:
 			_vel = lerpf(_vel, delta / dt, 0.5) if dt < 0.1 else delta / dt
 
 
+## 11/20 조작: 밖에서 쓰는 창구 —— 지금 손가락으로 목록을 끌고 있는가
+func scrolling() -> bool:
+	return _target != null
+
+
+## 지금 누름을 잊는다 (쓸어 닫기가 그 떼기를 삼켰을 때 —— 여기서는 떼기를 못 봐 누름이 남는다)
+func drop_press() -> void:
+	_press = Vector2.INF
+	_target = null
+	_cands = []
+
+
 func _process(dt: float) -> void:
 	if _fling == null:
 		return

@@ -164,7 +164,7 @@ var _yeon_last := {}        # 11/15 같은 키 -> 지난번에 한 말 (연달�
 static var _yeon_tbl := {}  # data/inyeon_lines.json (처음 쓸 때 한 번 읽는다)
 var warn_name := ""         # 경고 띠에 쓰는 적 장수 · 고유기 이름
 var _press := []            # 꾹 누르기 [화면 위치, 누른 시각 ms] —— 가만히 LONG_PRESS 초 누르면 — 2D 전장은 그 메달의 전투장수창(unit_requested), 3D 는 그 부대를 따라간다
-const LONG_PRESS := 0.45
+const LONG_PRESS := Press.LONG_PRESS      # 11/20 조작: 꾹 누름 시간은 Press 한 벌 (0.45)
 # 11/4 연출 점검 —— 리듬
 const MARCH_SPD := 1.0      # 맞닿기 전(다가오기만 하는 개전 구간) 배속 —— 11/4 저녁 사용자: 1배속인데 배속 돌린 듯 어색하다 → 1.0 (끔)
 const LEAD_ON := 0.58       # 병력 비율이 이만큼 넘으면 '우세'
@@ -363,7 +363,9 @@ func _build_top() -> Control:
 	mb.custom_minimum_size = Vector2(UI.ICON_BTN.x, UI.BH_S)
 	mb.add_theme_font_size_override("font_size", UI.FS_TITLE)
 	mb.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-	mb.pressed.connect(toggle_menu)
+	mb.pressed.connect(func():
+		UI.buzz()      # 11/20 조작: ⋯ 버튼에도 소리 · 진동
+		toggle_menu())
 	h.add_child(mb)
 	return bar
 
@@ -509,6 +511,7 @@ func _build_side() -> void:
 	level_pick.selected = 2
 	level_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	level_pick.custom_minimum_size = Vector2(0, 44)
+	level_pick.focus_mode = Control.FOCUS_NONE      # 11/20 조작: 포커스가 남으면 스페이스가 일시정지 대신 이 버튼을 누른다
 	row.add_child(level_pick)
 	var nb := UI.btn("새 전투", func():
 		set_side_visible(false)
@@ -531,6 +534,7 @@ func _build_side() -> void:
 	auto_btn.text = "직접 지휘 (고유기 버튼)"
 	auto_btn.button_pressed = direct
 	auto_btn.custom_minimum_size = Vector2(0, 44)
+	auto_btn.focus_mode = Control.FOCUS_NONE
 	UI.wrap_text(auto_btn)
 	auto_btn.toggled.connect(set_direct)
 	_auto_btn = auto_btn
@@ -540,10 +544,7 @@ func _build_side() -> void:
 		set_side_visible(false)
 		skip(), "ghost", UI.BH_S)
 	v.add_child(_skip_btn)
-	_leave_btn = UI.btn("게임 나가기", func():
-		set_side_visible(false)
-		if leave_cb.is_valid():
-			leave_cb.call(), "warn", UI.BH_S)
+	_leave_btn = UI.btn(LEAVE_TEXT, _leave_press, "warn", UI.BH_S)
 	_leave_btn.visible = false
 	v.add_child(_leave_btn)
 	var hint := UI.lbl("두 손가락 확대·회전 · 한 손가락 이동 · 장수 칸을 꾹 누르면 전투 능력치", UI.FS_CAP, DB.PAL.text_dim)
@@ -611,6 +612,52 @@ func toggle_menu() -> void:
 	set_side_visible(not _side.visible)
 
 
+## 11/20 조작: '게임 나가기'는 두 번 눌러야 나간다 —— 한 번 누르면 글이 바뀌고 LEAVE_SEC 안에 다시 눌러야 한다 (예전엔 한 번에 바로 나갔다)
+const LEAVE_TEXT := "게임 나가기"
+const LEAVE_SEC := 2.5
+var _leave_arm := 0      # 첫 누름 시각 (ms). 0 이면 아직 누르지 않았다
+
+
+func _leave_press() -> void:
+	var now := Time.get_ticks_msec()
+	if _leave_arm > 0 and now - _leave_arm <= int(LEAVE_SEC * 1000.0):
+		set_side_visible(false)
+		if leave_cb.is_valid():
+			leave_cb.call()
+		return
+	_leave_arm = now
+	_leave_btn.text = "한 번 더 누르면 나간다"
+	get_tree().create_timer(LEAVE_SEC).timeout.connect(func():
+		if _leave_arm == now:
+			_leave_reset())
+
+
+func _leave_reset() -> void:
+	_leave_arm = 0
+	if _leave_btn != null:
+		_leave_btn.text = LEAVE_TEXT
+
+
+## 11/20 조작: 결과표의 [종료] 버튼 —— 게임 화면이 전투 화면 옆(같은 부모)에 띄운다. done_btn 을 넣어 주면 그것을, 아니면 보이는 형제 버튼을 찾는다
+var done_btn: Button = null
+
+
+func _done_btn() -> Button:
+	if is_instance_valid(done_btn):
+		return done_btn if done_btn.is_visible_in_tree() and not done_btn.disabled else null
+	var p := get_parent()
+	if p != null and game_mode:      # 점검 화면(전투만 띄운 곳)에서는 찾지 않는다
+		for c in p.get_children():
+			if c is Button and c.visible and not c.disabled:
+				return c
+	return null
+
+
+## 11/20 조작: 결과표가 떠 있다 —— 표 뒤의 메달 꾹 누름 · 아래 장수 칸 누름을 받지 않는다 (깔개는 누름을 막지 않는다: 위 띠 메뉴는 그대로)
+func _result_up() -> bool:
+	return finished and _done_btn() != null
+
+
 ## 3D 해상도 맞추기 —— 화면 실제 픽셀(× 품질 배율)로 그리고 논리 크기로 줄여 보인다
 func fit_port() -> void:
 	if stage == null or stage.size.x < 2 or stage.size.y < 2:
@@ -658,14 +705,45 @@ func _input(e: InputEvent) -> void:
 		elif _side_swipe_p != Vector2.INF:
 			var d: Vector2 = e.position - _side_swipe_p
 			_side_swipe_p = Vector2.INF
-			if d.x > 90 and absf(d.y) < d.x * 0.5 and not get_viewport().gui_is_dragging():
+			if d.x > Press.SWIPE_CLOSE and absf(d.y) < d.x * 0.5 and not get_viewport().gui_is_dragging():
+				# 11/20 조작: 쓸어 닫을 때 손가락 밑 버튼(배속 · 결과로 · 나가기)도 눌렸다 —— 밑의 누름을 취소하고 이 떼기는 삼킨다
+				TouchScroll._cancel_press()
+				get_viewport().set_input_as_handled()
 				UI.buzz()
 				set_side_visible(false)
 
 
+## 11/20 조작: 전투 키보드 —— 스페이스 일시정지 · Esc 메뉴 · 숫자 1 2 3 배속(SPEEDS 순서) · 결과표가 떠 있으면 Enter = [종료].
+## 게임 화면 안에서는 Esc 를 GameScreen.back() 이 먼저 받는다(_unhandled_key_input) —— 여기 Esc 는 점검 화면처럼 전투 화면만 떠 있을 때
 func _unhandled_input(e: InputEvent) -> void:
-	if is_visible_in_tree() and not locked and e is InputEventKey and e.pressed and e.keycode == KEY_SPACE:
-		_set_speed(_run_speed if speed == 0.0 else 0.0)
+	if not (e is InputEventKey) or not e.pressed or e.echo or not is_visible_in_tree():
+		return
+	var kc: int = e.keycode
+	if kc == KEY_SPACE:
+		if finished:
+			return
+		if locked:      # 온라인 재생은 멈출 수 없다 —— 까닭을 알린다
+			hud.announce("온라인 전투는 멈출 수 없다", DB.PAL.bamboo)
+		else:
+			_set_speed(_run_speed if speed == 0.0 else 0.0)
+	elif kc == KEY_ESCAPE:
+		toggle_menu()
+	elif kc == KEY_ENTER or kc == KEY_KP_ENTER:
+		var db := _done_btn() if finished else null
+		if db == null:
+			return
+		db.pressed.emit()
+	elif (kc >= KEY_1 and kc <= KEY_9) or (kc >= KEY_KP_1 and kc <= KEY_KP_9):
+		var i: int = (kc - KEY_1) if kc <= KEY_9 else (kc - KEY_KP_1)
+		if i >= SPEEDS.size() or finished:
+			return
+		if locked:
+			hud.announce("온라인 전투는 배속이 고정이다", DB.PAL.bamboo)
+		else:
+			_set_speed(SPEEDS[i])
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 
 # ───────── 카메라 ─────────
@@ -716,11 +794,11 @@ func _stage_input(e: InputEvent) -> void:
 	field.camera_input(e)
 
 
-## 꾹 누르기 기록 —— 왼쪽 버튼(손가락)을 누른 자리 · 시각. 14px 넘게 움직이면 취소
+## 꾹 누르기 기록 —— 왼쪽 버튼(손가락)을 누른 자리 · 시각. Press.TAP_SLOP 넘게 움직이면 취소 (11/20 조작: 14px → 한 벌 값. 결과표가 떠 있으면 받지 않는다)
 func _track_press(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-		_press = [e.position, Time.get_ticks_msec()] if e.pressed and _touches.size() < 2 else []
-	elif e is InputEventMouseMotion and not _press.is_empty() and e.position.distance_to(_press[0]) > 14:
+		_press = [e.position, Time.get_ticks_msec()] if e.pressed and _touches.size() < 2 and not _result_up() else []
+	elif e is InputEventMouseMotion and not _press.is_empty() and e.position.distance_to(_press[0]) > Press.TAP_SLOP:
 		_press = []
 
 
@@ -987,6 +1065,7 @@ func _rt() -> bool:
 
 
 func set_side_visible(on: bool) -> void:
+	_leave_reset()      # 11/20 조작: 메뉴를 여닫으면 '한 번 더 누르면 나간다' 는 처음으로
 	if on and _leave_btn != null:
 		_leave_btn.visible = leave_cb.is_valid()
 	_side.visible = on
@@ -4969,30 +5048,26 @@ class MiniCard extends Control:
 	func _waiting(lv: Array) -> bool:
 		return sq.tier >= 6 and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive and not lv[2]      # 모으는 중은 「준비」 아님
 
-	var _down_ms := -1
-	var _long_fired := false
+	var _pr := Press.new()      # 11/20 조작: 누름 판정은 Press 한 벌 —— 예전엔 이동 · 범위 판정이 없어 카드 밖에서 떼어도 강조(직접 지휘면 고유기)가 나갔고, 움직여도 꾹 누름이 취소되지 않았다
 
 	## 11/6 #11: 한 번 누르면 전장의 그 부대를 강조(카메라는 움직이지 않음), 길게 누르면 디테일창
 	func _gui_input(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-			if e.pressed:
-				_down_ms = Time.get_ticks_msec()
-				_long_fired = false
-			else:
-				if _down_ms >= 0 and not _long_fired:
-					if view.direct and view.ult_ready(sq.key):
-						UI.buzz(20)
-						view.request_ult(sq.key)
-					else:
-						UI.buzz()
-						view.hud.highlight(sq.key)
-						if view.field.flat == null:
-							view.focus(sq)
-				_down_ms = -1
+		match _pr.feed(self, e):
+			Press.DOWN:
+				if view._result_up():      # 결과표가 떠 있으면 표 뒤의 칸은 받지 않는다
+					_pr.reset()
+			Press.TAP:
+				if view.direct and view.ult_ready(sq.key):
+					UI.buzz(20)
+					view.request_ult(sq.key)
+				else:
+					UI.buzz()
+					view.hud.highlight(sq.key)
+					if view.field.flat == null:
+						view.focus(sq)
 
 	func _process(_dt: float) -> void:
-		if _down_ms >= 0 and not _long_fired and Time.get_ticks_msec() - _down_ms >= BattleView.LONG_PRESS * 1000:
-			_long_fired = true
+		if _pr.long_due(Press.LONG_PRESS):
 			if DB.C.has(sq.cid):
 				UI.buzz(30)
 				view.unit_requested.emit(sq.key)

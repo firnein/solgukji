@@ -184,8 +184,9 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 	m.add_theme_constant_override("margin_bottom", vm)
 	if on_tap.is_valid():
 		m.mouse_filter = Control.MOUSE_FILTER_STOP
+		var pr := Press.new()      # 11/20 조작: '떼기'만 보던 처리기 —— 목록을 쓸면 스크롤 시작 순간 탭으로 받았다
 		m.gui_input.connect(func(e):
-			if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+			if pr.feed(m, e) == Press.TAP:
 				UI.buzz()
 				on_tap.call())
 	else:

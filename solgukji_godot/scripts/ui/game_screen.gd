@@ -71,6 +71,8 @@ var _routing := false         # 카드 시트를 여는 중 (open_sheet 가 길�
 var _back_nav := false        # 뒤로 가는 중 (길에 쌓지 않게)
 var _back_btn: Button
 var _swipe_p := Vector2.INF   # 시트 위에서 누른 곳 (쓸기 판정)
+var _swipe_on := false        # 11/20 조작: 이 누름은 쓸기로 판정됐다 (밑의 버튼 누름은 이미 취소했다)
+var _sheet_closing := false   # 11/20 조작: 시트가 닫히며 내려가는 중 (0.2초) —— 그 사이 시트의 버튼은 눌리지 않는다
 var _sheet_dy := 0.0
 var _toast_box: VBoxContainer
 var _battle_layer: Control
@@ -246,22 +248,84 @@ func _notification(what: int) -> void:
 		_check_invite.call_deferred()
 	match what:
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			if _sheet != null and _sheet.visible:
-				close_sheet()
-			elif _battle_layer != null and _battle_layer.visible:
-				_battle.toggle_menu()      # 전투 중에는 메뉴(자동 전투·결과로)를 연다
-			elif _title != null and not _title.visible:
-				if online != null:
-					online.leave()
-				elif run != null:
-					run.save()
-				_title.queue_free()
-				_build_title()
-			else:
-				get_tree().quit()
+			back.call_deferred()      # 알림이 도는 동안에는 자식을 붙이거나 옮길 수 없다 (타이틀 다시 만들기 · 시트를 앞으로)
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			if run != null and online == null:
 				run.save()
+
+
+## 11/20 조작: 뒤로 한 단계 —— Android 뒤로와 Esc 가 같이 부른다. 전엔 뒤로 한 번에 온라인 판을 떠나고(자리는 AI 가 받았다) 타이틀에서는 앱이 바로 꺼졌다
+## 순서: 연출 덮개 → 시트(이전 카드 시트가 있으면 그리로, 없으면 닫기 —— ‹ · 쓸기와 같게) → 전투(결과표면 '종료', 아니면 메뉴) →
+## 온라인(대기실 · 판)은 나가기 확인 → 혼자 하기는 저장하고 처음 화면 → 타이틀은 2초 안에 두 번 눌러야 종료 (Esc 는 타이틀에서 아무것도 안 한다)
+var _back_t := -99999          # 타이틀에서 마지막으로 뒤로를 누른 시각 (ms)
+func back(from_key := false) -> void:
+	if _sheet == null or _title == null:
+		return
+	if is_instance_valid(_ending):
+		return      # 엔딩 요약은 제 버튼(처음으로 · 다시)으로만 닫는다
+	if _death_busy and not _death_idle:
+		_death_tap()      # 사망 연출 —— 화면을 누른 것과 같게 (빨리 감기 → 넘기기)
+		return
+	if _sheet.visible:
+		if _sheet_closing:
+			return
+		if _hist.is_empty():
+			close_sheet()
+		else:
+			go_back()
+		return
+	if _battle_layer != null and _battle_layer.visible:
+		if _battle_done.visible:
+			_on_battle_close()      # 결과표가 떠 있으면 [종료 · 다음 전투]와 같다
+		else:
+			_battle.toggle_menu()      # 전투 중에는 메뉴(자동 전투·결과로)를 연다
+		return
+	if online != null and (online.in_game or not online.room.is_empty()):
+		_confirm_leave()
+		return
+	if is_instance_valid(_title) and not _title.visible:
+		if run != null:
+			run.save()
+		_title.queue_free()
+		_build_title()
+		return
+	if from_key:
+		return
+	var now := Time.get_ticks_msec()
+	if now - _back_t < 2000:
+		get_tree().quit()
+		return
+	_back_t = now
+	move_child(_toast_box, -1)      # 타이틀이 알림 상자를 덮고 있다
+	toast("한 번 더 누르면 종료합니다")
+
+
+## 11/20 조작: 온라인 방 나가기 확인 —— 뒤로 한 번에 떠나지 않게. [계속하기] 왼쪽 · [나가기] 오른쪽 (위험 붉음)
+func _confirm_leave() -> void:
+	var b := open_sheet("온라인 방에서 나갈까요?")
+	var d := UI.lbl("나가면 내 자리는 AI 가 이어받습니다." if online.in_game else "대기실에서 나가 방 목록으로 돌아갑니다.", UI.FS_BODY, DB.PAL.text_dim)
+	UI.wrap_text(d)
+	b.add_child(d)
+	var row := UI.hbox(UI.SP_S)
+	var no := UI.btn_ghost("계속하기", close_sheet)
+	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(no)
+	var ok := UI.btn("나가기", func():
+		if online == null:
+			close_sheet()
+		elif online.in_game:
+			_leave_from_battle()
+		else:
+			online.leave_room(), "warn")
+	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(ok)
+	b.add_child(row)
+
+
+func _unhandled_key_input(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_ESCAPE:
+		get_viewport().set_input_as_handled()
+		back(true)
 
 
 # ───────── 뼈대 ─────────
@@ -312,8 +376,8 @@ func _build_top() -> Control:
 	_grain_box = UI.grain("0", UI.FS_BODY, DB.PAL.gold)
 	_grain_box.alignment = BoxContainer.ALIGNMENT_END
 	_grain_box.mouse_filter = Control.MOUSE_FILTER_STOP
-	_grain_box.gui_input.connect(func(e: InputEvent):
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and run != null and shop_on():
+	UI.tap(_grain_box, func():      # 11/20 조작: 누르는 순간이 아니라 탭으로 뗐을 때 (UI.tap)
+		if run != null and shop_on():
 			_shop_sheet())
 	_grain_lbl = _grain_box.get_child(1)
 	rv.add_child(_grain_box)
@@ -399,9 +463,7 @@ func _build_sheet() -> void:
 	_sheet_mask.color = Color(0, 0, 0, 0.55)
 	_sheet_mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_sheet_mask.visible = false
-	_sheet_mask.gui_input.connect(func(e):
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			close_sheet())
+	UI.tap(_sheet_mask, close_sheet)      # 11/20 조작: 누르는 순간이 아니라 탭으로 뗐을 때 닫는다 (UI.tap)
 	TouchScroll.block(_sheet_mask)
 	add_child(_sheet_mask)
 	# 11/3 사용자: 장수정보간략창(조합 시트) 위의 빈 공간에 신화 그림 —— 어두운 막 위, 시트 아래. 누르면 막처럼 닫힌다
@@ -500,6 +562,7 @@ func _put_sheet(dy: float) -> void:
 func _slide_sheet(to: float, dur: float, then := Callable()) -> void:
 	if _sheet_tw != null:
 		_sheet_tw.kill()
+	_sheet_closing = false
 	var from := _sheet.offset_bottom
 	_sheet_tw = create_tween()
 	_sheet_tw.tween_method(_put_sheet, from, to, dur).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -587,6 +650,8 @@ func _build_battle() -> void:
 			run.battle.inputs = inputs.duplicate(true)
 			run.save())
 	_battle_done = UI.btn("종료", _on_battle_close, "pri", UI.BH_L)      # 11/3 사용자: '결과 정리' → '종료'
+	if _battle != null:
+		_battle.done_btn = _battle_done      # 11/20 조작: 결과표에서 Enter = 종료 (BattleView 가 이 버튼을 누른다)
 	_battle_done.add_theme_font_override("font", DB.title_font(20))
 	_battle_done.add_theme_font_size_override("font_size", UI.FS_TITLE)
 	_battle_done.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -1429,7 +1494,12 @@ func can_act_or_tell(m: String) -> bool:
 
 ## col 을 주면 제목을 그 색 · 큰 글씨로 (카드 시트 —— 등급색 장수 이름)
 func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
-	var was := _sheet.visible
+	# 11/20 조작: 닫히는 0.2초 안에 열면 닫는 트윈이 끝나며 새 시트를 숨겼다 —— 닫는 트윈을 죽이고 처음 여는 것처럼 올린다
+	var was := _sheet.visible and not _sheet_closing
+	if _sheet_closing:
+		if _sheet_tw != null:
+			_sheet_tw.kill()
+		_sheet_closing = false
 	if not _routing:
 		_route = {}
 		_hist.clear()
@@ -1464,12 +1534,20 @@ func close_sheet() -> void:
 	if not _sheet.visible:
 		return
 	_slide_sheet(_sheet_h, 0.2, func():
+		_sheet_closing = false
 		_sheet_mask.visible = false
 		_sheet.visible = false)
+	_sheet_closing = true
 
 
 func sheet_open() -> bool:
 	return _sheet.visible
+
+
+## 11/20 조작: 화면에 눌림이 있는가 —— 누르는 중 · 끄는 중 · 스크롤 중 · 쓸어 닫는 중 (스크롤 · 쓸기는 밑의 누름을 취소해 버튼 상태로는 안 보인다).
+## 온라인이 서버 상태를 받아 페이지를 다시 만들 때 본다 (Online._render_soon)
+func touch_held() -> bool:
+	return Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or get_viewport().gui_is_dragging() or (_swipe_on and _sheet.visible) or TouchScroll.scrolling()
 
 
 ## 카드 시트로 들어간다 —— 다른 카드 시트를 보던 중이면 그 시트를 길에 쌓는다
@@ -1512,18 +1590,43 @@ func _update_back() -> void:
 func _input(e: InputEvent) -> void:
 	if _sheet == null or not _sheet.visible:      # 11/10 화면이 다 만들어지기 전에 입력이 오면 _sheet 가 아직 null
 		return
+	if (e is InputEventMouseButton or e is InputEventMouseMotion) and e.position.x < -1000.0:
+		return      # 누름 취소용 화면 밖 이동 · 떼기 (TouchScroll._cancel_press)
+	if _sheet_closing:      # 11/20 조작: 닫히는 중인 시트의 버튼은 눌리지 않는다
+		_swipe_p = Vector2.INF
+		_swipe_on = false
+		if e is InputEventMouseButton and e.pressed and _sheet.get_global_rect().has_point(e.position):
+			get_viewport().set_input_as_handled()
+		return
+	# 11/20 조작: 쓸어 닫으면 손가락 밑의 버튼도 눌렸다(떼는 순간 탭으로) —— 움직이는 중에 쓸기로 판정되면(가로가 닫는 거리의 1/3 을 넘고 세로의 2배 이상)
+	# 밑의 누름을 화면 밖 떼기로 취소하고, 진짜 떼기는 삼킨 뒤 닫는다
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
+			_swipe_on = false
 			_swipe_p = e.position if _sheet.get_global_rect().has_point(e.position) and not UI.swipe_blocked_at(_sheet, e.position) else Vector2.INF
 		elif _swipe_p != Vector2.INF:
 			var d: Vector2 = e.position - _swipe_p
+			var was_on := _swipe_on
 			_swipe_p = Vector2.INF
-			if d.x > 90 and absf(d.y) < d.x * 0.5 and not get_viewport().gui_is_dragging():
+			_swipe_on = false
+			var ok: bool = d.x > Press.SWIPE_CLOSE and absf(d.y) < d.x * 0.5 and not get_viewport().gui_is_dragging()
+			if was_on or ok:
+				get_viewport().set_input_as_handled()
+				if not was_on:
+					TouchScroll._cancel_press()      # 움직임 없이 한 번에 온 쓸기 —— 여기서라도 걷는다
+				# 떼기를 삼켰으니 TouchScroll 은 이 떼기를 못 본다 —— 누름 기억을 직접 걷는다 (안 그러면 PC 에서 다음 마우스 이동이 스크롤이 된다)
+				TouchScroll.drop_press()
+			if ok:
 				UI.buzz()
 				if _hist.is_empty():
 					close_sheet()
 				else:
 					go_back()
+	elif e is InputEventMouseMotion and _swipe_p != Vector2.INF and not _swipe_on:
+		var d: Vector2 = e.position - _swipe_p
+		if d.x > Press.SWIPE_CLOSE / 3.0 and d.x >= absf(d.y) * 2.0 and not get_viewport().gui_is_dragging():
+			_swipe_on = true
+			TouchScroll._cancel_press()
 
 
 func _menu() -> void:
@@ -1635,6 +1738,7 @@ func _settings_sheet() -> void:
 			Sfx.play("gain")
 			_settings_sheet()))
 	var vb := CheckButton.new()
+	vb.focus_mode = Control.FOCUS_NONE      # 11/20 조작: 누른 버튼에 포커스가 남아 스페이스 · 엔터가 다시 누르지 않게
 	vb.text = "누를 때 진동"
 	vb.button_pressed = Settings.haptics
 	vb.custom_minimum_size = Vector2(0, UI.BH_M)
@@ -1748,6 +1852,7 @@ func item_box(id: String, n := -1, on_tap := Callable(), amp := 1.0) -> Control:
 	var it: Dictionary = DB.IT[id]
 	var col := UI.item_col(id)
 	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE      # 11/20 조작: 누른 버튼에 포커스가 남지 않게 (TouchButton 과 같게)
 	b.custom_minimum_size = Vector2(0, 74)
 	b.add_theme_stylebox_override("normal", UI.flat(DB.PAL.ink2, col, 1, 8, 8))
 	b.add_theme_stylebox_override("hover", UI.flat(DB.PAL.ink3, col, 1, 8, 8))
@@ -1894,10 +1999,9 @@ func recipe_sheet(out: String) -> void:
 	var cv := CardView.new().setup(out, Vector2(112, 160))
 	cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	cv.mouse_filter = Control.MOUSE_FILTER_STOP          # 11/3 사용자: 초상을 누르면 디테일창
-	cv.gui_input.connect(func(e):
-		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-			UI.buzz()
-			card_info(out))
+	UI.tap(cv, func():      # 11/20 조작: '떼기'만 보던 것을 탭 판정으로 (UI.tap)
+		UI.buzz()
+		card_info(out))
 	tp.add_child(cv)      # 11/20 역할은 큰 카드 초상 위에 (CardView.show_role)
 	var rv := UI.vbox(UI.SP_S)
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2324,10 +2428,9 @@ func _unique_sheet() -> void:
 			var kk: String = k
 			var art := _art_crop(kk, Vector2(120, 120), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
 			art.mouse_filter = Control.MOUSE_FILTER_STOP
-			art.gui_input.connect(func(e):
-				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-					UI.buzz()
-					recipe_sheet(kk))      # 11/3 사용자: 디테일이 아니라 간략창으로
+			UI.tap(art, func():      # 11/20 조작: 탭 판정 (UI.tap)
+				UI.buzz()
+				recipe_sheet(kk))      # 11/3 사용자: 디테일이 아니라 간략창으로
 			col.add_child(art)
 			var gn := UI.lbl(DB.C[kk].name, UI.FS_CAP, DB.tier_color(kk), true)
 			UI.wrap_text(gn)
@@ -3073,16 +3176,15 @@ func _stat_cell(icon: String, nm: String, col: Color, num: Control) -> PanelCont
 	var pc := UI.panel(h, 4)
 	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pc.tooltip_text = nm
-	pc.gui_input.connect(func(e):
-		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-			var gen := int(pc.get_meta("gen", 0)) + 1
-			pc.set_meta("gen", gen)
-			iv.visible = false
-			nl.visible = true
-			get_tree().create_timer(1.5).timeout.connect(func():
-				if is_instance_valid(pc) and int(pc.get_meta("gen", 0)) == gen:
-					iv.visible = true
-					nl.visible = false))
+	UI.tap(pc, func():      # 11/20 조작: 탭 판정 (UI.tap)
+		var gen := int(pc.get_meta("gen", 0)) + 1
+		pc.set_meta("gen", gen)
+		iv.visible = false
+		nl.visible = true
+		get_tree().create_timer(1.5).timeout.connect(func():
+			if is_instance_valid(pc) and int(pc.get_meta("gen", 0)) == gen:
+				iv.visible = true
+				nl.visible = false))
 	return pc
 
 
@@ -3340,10 +3442,9 @@ func _ability_row(it: Dictionary, fs: int, narrow: bool, simple: bool, on_tap: C
 	m.add_theme_constant_override("margin_bottom", vm)
 	if on_tap.is_valid():
 		m.mouse_filter = Control.MOUSE_FILTER_STOP
-		m.gui_input.connect(func(e):
-			if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-				UI.buzz()
-				on_tap.call())
+		UI.tap(m, func():      # 11/20 조작: 탭 판정 (UI.tap)
+			UI.buzz()
+			on_tap.call())
 	else:
 		m.mouse_filter = Control.MOUSE_FILTER_PASS
 	var ic := Icons.View.new(str(it.icon), P.bamboo_dim, fs + 2)
@@ -5653,12 +5754,16 @@ class HpGauge extends Control:
 		if value <= LOW:
 			queue_redraw()      # 낮을 때만 천천히 맥동
 
+	## 11/20 조작: 보이는 높이는 24 —— 누르는 범위는 UI.HIT 까지 아래로만 넓힌다 (위는 군량 표시가 붙어 있고, 아래 플레이타임 글은 입력을 안 받는다)
+	func _has_point(p: Vector2) -> bool:
+		return Rect2(Vector2.ZERO, size).grow_individual(0, 0, 0, maxf(0.0, UI.HIT - size.y)).has_point(p)
+
 	func _gui_input(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 			if e.pressed:
 				_press = e.position
 			else:
-				if _press != Vector2.INF and Rect2(Vector2.ZERO, size).has_point(e.position):
+				if _press != Vector2.INF and e.position.distance_to(_press) <= Press.TAP_SLOP and _has_point(e.position):
 					tapped.emit()
 				_press = Vector2.INF
 
