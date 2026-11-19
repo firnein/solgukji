@@ -18,6 +18,7 @@ var _tw: Tween
 
 
 func _ready() -> void:
+	focus_mode = Control.FOCUS_NONE      # 11/20 조작: 누른 버튼에 포커스가 남아 스페이스 · 엔터가 그 버튼을 다시 눌렀다 (전투 일시정지 대신)
 	button_down.connect(_press.bind(true))
 	button_up.connect(_press.bind(false))
 	if OS.has_feature("mobile"):
