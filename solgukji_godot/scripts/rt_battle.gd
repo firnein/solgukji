@@ -1089,7 +1089,7 @@ func _ranged(u: Unit) -> bool:
 func _foes_of(u: Unit) -> Array:
 	var out := []      # 11/15 성능: filter(람다) → 그냥 훑기 (같은 순서 · 같은 답. 틱마다 부대 수만큼 불린다)
 	var cp := u.camp
-	var hide_on: bool = not _paeup.is_empty() and _tm < 8.0      # 숨는 장수는 패업이 있는 판의 개전 8초뿐 (_hidden 의 조건) —— 그 밖에는 묻지 않는다
+	var hide_on: bool = (not _paeup.is_empty() and _tm < 8.0) or (_sg != null and _tm < _sg.STEALTH_MAX and _sg.has("stealth"))      # 숨는 장수는 패업이 있는 판의 개전 8초 · 1.2 여몽 위장뿐 (_hidden 의 조건) —— 그 밖에는 묻지 않는다
 	for o in units:
 		if o.alive and o.camp != cp and not (hide_on and _hidden(o)):      # 감녕 백기야습 —— 숨은 동안은 목표가 되지 않는다
 			out.append(o)
@@ -1463,6 +1463,8 @@ func _choose(u: Unit, foes: Array) -> Unit:
 		return _nearest_ranged_target(u, foes, false)
 	var best: Unit = null
 	var bs := INF
+	var best0: Unit = null      # 1.2 개성 표적 가중을 뺀 선택 (개성 때문에 바뀌었나 세는 용)
+	var bs0 := INF
 	var lane: bool = not _ranged(u) and u.c.tag != "기병" and u.c.tag != "도적"
 	for o in foes:
 		var d := maxf(0.0, _gap(u, o))
@@ -1498,11 +1500,16 @@ func _choose(u: Unit, foes: Array) -> Unit:
 				if al != u and al.alive and al.camp == u.camp and not al.ranged and al.pos.distance_to(o.pos) * 0.7 <= al.hw + al.hd + o.hw + o.hd + 14.0 and _gap(al, o) <= TOUCH + 4.0:
 					crowd += 1
 			w *= 1.0 + 0.35 * crowd
+		if d * w < bs0:
+			bs0 = d * w
+			best0 = o
 		if _sg != null:
 			w *= _sg.target_w(u, o, d)      # 11/19 장수 개성 —— 도발 · 노리는 적 · 지목
 		if d * w < bs:
 			bs = d * w
 			best = o
+	if _sg != null and best != best0 and best != null and not u.m.is_empty():
+		_sg.note_pick(u, best)
 	return best
 
 
@@ -1855,10 +1862,18 @@ func _nearest_ranged_target(u: Unit, foes: Array, only_in_range := true) -> Unit
 	# 11/19 성능: 가운데끼리 멀면 틈이 사거리를 넘는 것이 확실하다 (틈 ≥ 거리 / √2 − 두 발자국의 반폭 + 반깊이) —— 그런 적은 틈을 재지 않는다.
 	# 원거리 부대마다 틱에 두 번(이동 · 행동) 적 전부의 틈을 쟀다. 결과는 같다 (tests/algo_audit 지문 동일)
 	var far := reach + u.hw + u.hd
+	var track: bool = _sg != null and only_in_range and not u.m.is_empty()      # 1.2 개성 때문에 표적이 바뀌었나 세려고 개성 없는 최근접도 함께 본다
+	var plain: Unit = null
+	var plain_d := INF
 	for o in foes:
 		if not o.alive or o.camp == u.camp or _hidden(o):
 			continue
 		var distance := u.pos.distance_squared_to(o.pos)
+		if track and distance < plain_d:
+			var lim0: float = (far + o.hw + o.hd) / 0.7
+			if distance <= lim0 * lim0 and _gap(u, o) <= reach:
+				plain = o
+				plain_d = distance
 		if not only_in_range and distance < approach_d:
 			approach = o
 			approach_d = distance
@@ -1871,6 +1886,8 @@ func _nearest_ranged_target(u: Unit, foes: Array, only_in_range := true) -> Unit
 			if distance <= lim * lim and _gap(u, o) <= reach:
 				best = o
 				best_d = sc
+	if track and best != null and best != plain:
+		_sg.note_pick(u, best)
 	return best if best != null or only_in_range else approach
 
 

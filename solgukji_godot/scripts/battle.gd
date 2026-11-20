@@ -1601,6 +1601,7 @@ func _ignite(a: Unit, d: Unit) -> void:
 		return
 	if p >= 1.0 or rng.randf() < p:
 		stats.ignites += 1
+		stats["u%s:ignite" % a.key] = int(stats.get("u%s:ignite" % a.key, 0)) + 1      # 1.2 장수별 점화 횟수 (점검용)
 		_chain(a.camp, "점화", a.key)
 		inflict(a, d, "burn", _fire_burn(a), int(DB.PSV.fire.burn.dur))
 
@@ -1856,6 +1857,7 @@ func _cleave(a: Unit, d: Unit, mult: float, phys: bool) -> void:
 	var near := units.filter(func(o): return o.alive and o != d and o.camp == d.camp and _same_line(o, d))
 	if near.is_empty():
 		return
+	stats["u%s:cleave" % a.key] = int(stats.get("u%s:cleave" % a.key, 0)) + 1      # 1.2 장수별 휩쓸기 횟수 (점검용)
 	a.cleaving = true
 	for t in near:
 		var b: float = t.troops
