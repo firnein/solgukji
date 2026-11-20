@@ -1467,7 +1467,7 @@ func mods_list(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> Array:
 		var mv: float = maxf(float(m[k]), float(m["int"])) if k == "atk" and m.has("int") else float(m[k])
 		var v: float = mv * (1.0 if k in PSV.flags else scale)      # 11/3 화상 지속 같은 정수 값은 전투에서도 배율 없이 (예전 화면엔 +0 으로)
 		var lb: String = MOD_LABEL.get(k, k)
-		var sign := "" if lb.ends_with("-") else "+"
+		var sign := "" if lb.ends_with("-") or mv < 0.0 else "+"      # 1.2 음수 값은 '방어+-6%' 가 아니라 '방어-6%'
 		if k == "terror":      # 11/19 불타는 적은 정산 한 번(Battle.tick_status)마다 사기가 깎인다 —— '화상마다 −0.4' 는 무엇마다인지 알 수 없었다
 			out.append([lb, "%.1f" % (v * Battle.pace_for(tier)), sec_text(1, tier) + "마다"])
 			continue
