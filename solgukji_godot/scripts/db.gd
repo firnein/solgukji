@@ -2487,10 +2487,11 @@ func cls_mul(a: String, d: String, tier := 8) -> float:
 	var amt := float(CLASS_COUNTER.amt)
 	if (INT_TAGS.has(a) or INT_TAGS.has(d)) and CLASS_COUNTER.has("int_amt"):
 		amt = float(CLASS_COUNTER.int_amt.get(str(tier), amt))
+	var pair: Dictionary = CLASS_COUNTER.get("pair_amt", {})      # 11/20 쌍마다 세기 ("공격>수비": amt) —— 없으면 amt
 	if CLASS_COUNTER.win.get(a, []).has(d):
-		return 1.0 + amt
+		return 1.0 + float(pair.get(a + ">" + d, amt))
 	if CLASS_COUNTER.lose.get(a, []).has(d):
-		return 1.0 - amt
+		return 1.0 - float(pair.get(a + ">" + d, amt))
 	return 1.0
 
 

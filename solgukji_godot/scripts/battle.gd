@@ -1331,7 +1331,10 @@ static func engage_v(k: String, dflt: float) -> float:
 
 ## 11/8 지원 병종 등급 성장 —— 유생 치료 · 모사 사기 깎기가 등급마다 class_guard.sup[병종] 씩 커진다 (전설 = 1, 등급표 없이 한 값)
 static func sup_mul(tag: String, tier: int) -> float:
-	var step := float(tune_over.get("sup", {}).get(tag, DB.GUARD.get("sup", {}).get(tag, 0.0)))
+	var sv = tune_over.get("sup", {}).get(tag, DB.GUARD.get("sup", {}).get(tag, 0.0))
+	if sv is Dictionary:      # 11/20 병종 밸런스 —— 등급표면 그 등급 배율을 그대로 (없는 등급은 1)
+		return float(sv.get(str(tier), 1.0))
+	var step := float(sv)
 	return maxf(0.5, 1.0 + step * (tier - 5))
 
 
