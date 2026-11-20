@@ -61,6 +61,7 @@ var _sheet: PanelContainer
 var _sheet_body: VBoxContainer
 var _sheet_title: Label
 var _sheet_scroll: ScrollContainer
+var _card_tab_bar: MarginContainer
 var _card_tabs: HBoxContainer
 var _sheet_h := 0.0
 var _sheet_tw: Tween
@@ -333,8 +334,7 @@ func _unhandled_key_input(e: InputEvent) -> void:
 
 func _build_top() -> Control:
 	var bar := PanelContainer.new()
-	var sb := UI.flat(Color("#0f1424"), DB.PAL.ink3, 0, 0, 0)
-	sb.border_width_bottom = 1
+	var sb := UI.surface(Color("#0f1424"), DB.PAL.gold, 0.10, 0)
 	sb.content_margin_left = 14
 	sb.content_margin_right = 6
 	sb.content_margin_top = 4
@@ -429,8 +429,7 @@ func _build_top() -> Control:
 
 func _build_tabbar() -> Control:
 	var bar := PanelContainer.new()
-	var sb := UI.flat(Color("#0f1424"), DB.PAL.ink3, 0, 0, 0)
-	sb.border_width_top = 1
+	var sb := UI.surface(Color("#0f1424"), DB.PAL.gold, 0.10, 0)
 	bar.add_theme_stylebox_override("panel", sb)
 	bar.custom_minimum_size = Vector2(0, TAB_H)
 	var h := UI.hbox(0)
@@ -469,7 +468,7 @@ func _build_sheet() -> void:
 	add_child(_sheet_mask)
 	# 11/3 사용자: 장수정보간략창(조합 시트) 위의 빈 공간에 신화 그림 —— 어두운 막 위, 시트 아래. 누르면 막처럼 닫힌다
 	_sheet = PanelContainer.new()
-	var sb := UI.flat(DB.PAL.ink2, DB.PAL.bamboo_dim, 0, 0, 0)
+	var sb := UI.flat(DB.PAL.ink2.lerp(DB.PAL.bamboo_dim, 0.04), Color(DB.PAL.gold, 0.5), 0, 0, 0)
 	sb.corner_radius_top_left = UI.R_SHEET
 	sb.corner_radius_top_right = UI.R_SHEET
 	sb.border_width_top = 1
@@ -522,15 +521,24 @@ func _build_sheet() -> void:
 	var x := UI.icon_btn("✕", close_sheet)      # 11/20 올리면 높이가 44 → 48 로 커져 시트 내용이 4 씩 내려앉았다 —— 기호 버튼 공용(여백 0)으로
 	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(x)
-	var tab_margin := MarginContainer.new()
+	_card_tab_bar = MarginContainer.new()
 	for side in ["left", "right"]:
-		tab_margin.add_theme_constant_override("margin_" + side, 16)
-	tab_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hv.add_child(tab_margin)
-	_card_tabs = UI.hbox(UI.SP_S)
+		_card_tab_bar.add_theme_constant_override("margin_" + side, 16)
+	_card_tab_bar.add_theme_constant_override("margin_top", UI.SP_XS)
+	_card_tab_bar.add_theme_constant_override("margin_bottom", UI.SP_XS)
+	_card_tab_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hv.add_child(_card_tab_bar)
+	_card_tabs = UI.hbox(UI.SP_XS)
 	_card_tabs.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tab_margin.add_child(_card_tabs)
-	tab_margin.hide()
+	var tab_track := AbilCard.new(DB.PAL.gold, true)
+	var tab_padding := StyleBoxEmpty.new()
+	tab_padding.set_content_margin_all(UI.SP_XS)
+	tab_track.add_theme_stylebox_override("panel", tab_padding)
+	tab_track.self_modulate.a = 0.65
+	tab_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tab_track.add_child(_card_tabs)
+	_card_tab_bar.add_child(tab_track)
+	_card_tab_bar.hide()
 	_sheet_scroll = UI.scroll()
 	_sheet_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(_sheet_scroll)
@@ -775,8 +783,8 @@ func _title_btn(text: String, cb: Callable, main: bool) -> Button:
 	var b := UI.btn_primary(text, cb, UI.BH_L) if main else UI.btn_secondary(text, cb, UI.BH_M)
 	if not main:
 		# 11/20 눌림만 테마 기본(불투명 남색)이라 누르는 순간 색이 튀었다 —— 같은 먹빛에서 금 선만
-		UI.btn_styles(b, UI.flat(Color("#0b0f1a", 0.72), Color(DB.PAL.paper, 0.22), 1, UI.R, 10), UI.flat(Color(DB.PAL.ink3, 0.85), Color(DB.PAL.paper, 0.35), 1, UI.R, 10),
-			UI.flat(Color("#0b0f1a", 0.85), Color(DB.PAL.gold, 0.7), 1, UI.R, 10))
+		UI.btn_styles(b, UI.surface(Color("#0b0f1a", 0.87), DB.PAL.gold, 0.17, 10),
+			UI.surface(DB.PAL.ink2, DB.PAL.gold, 0.23, 10), UI.surface(DB.PAL.ink, DB.PAL.gold, 0.28, 10))
 	b.add_theme_font_override("font", DB.title_font(UI.FS_TITLE))
 	b.add_theme_font_size_override("font_size", UI.FS_TITLE if main else UI.FS_LABEL + 2)
 	b.add_theme_color_override("font_color", Color("#f0e6cf"))
@@ -1570,7 +1578,7 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 		move_child(_sheet, -1)
 	_sheet_title.add_theme_color_override("font_color", col if col.a > 0 else DB.PAL.paper)
 	_sheet_title.add_theme_font_size_override("font_size", UI.FS_HEAD if col.a > 0 else UI.FS_TITLE)
-	_card_tabs.get_parent().hide()
+	_card_tab_bar.hide()
 	for tab in _card_tabs.get_children():
 		_card_tabs.remove_child(tab)
 		tab.queue_free()
@@ -3138,23 +3146,34 @@ func card_info(k: String, tab := -1) -> void:
 func _build_card_tabs(panels: Array[Control], selected: int) -> void:
 	var titles := ["능력", "인연", "조합"]
 	var group := ButtonGroup.new()
+	var p := DB.PAL
+	var clear := Color.TRANSPARENT
+	var normal := UI.flat(clear, clear, 0, UI.R, UI.SP_S)
+	var hover := UI.flat(p.ink3, clear, 0, UI.R, UI.SP_S)
+	var active := UI.flat(Color(p.ink4.lerp(p.gold, 0.15), 0.85), p.gold, 0, UI.R, UI.SP_S)
+	active.border_width_bottom = 2
 	for i in panels.size():
 		var button := UI.btn(titles[i], func():
+			if int(_route.get("tab", -1)) == i:
+				return
 			_route["tab"] = i
 			for j in panels.size():
 				panels[j].visible = j == i
 			_sheet_scroll.scroll_vertical = 0
-			_fit_sheet(false), "ghost", UI.HIT)
+			_fit_sheet(false), "", UI.HIT)
 		button.toggle_mode = true
 		button.button_group = group
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var active := UI.flat(DB.PAL.gold.darkened(0.72), Color(DB.PAL.gold, 0.85), 1, UI.R, 10)
-		button.add_theme_stylebox_override("pressed", active)
-		button.add_theme_stylebox_override("hover_pressed", active)
+		button.press_fx = false
+		UI.btn_styles(button, normal, hover, active)
+		button.add_theme_color_override("font_color", p.text_dim)
+		button.add_theme_color_override("font_hover_color", p.paper)
+		button.add_theme_color_override("font_pressed_color", p.gold.lightened(0.2))
+		button.add_theme_color_override("font_hover_pressed_color", p.gold.lightened(0.2))
 		_card_tabs.add_child(button)
 		button.set_pressed_no_signal(i == selected)
 		panels[i].visible = i == selected
-	_card_tabs.get_parent().show()
+	_card_tab_bar.show()
 	_route["tab"] = selected
 
 
@@ -6432,6 +6451,7 @@ class TabButton extends Control:
 	var on := false
 	var badge := -1
 	var _press := Vector2.INF
+	var _active_style := UI.surface(DB.PAL.ink2, DB.PAL.gold, 0.23, 0)
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
@@ -6451,10 +6471,7 @@ class TabButton extends Control:
 		var c := Vector2(size.x / 2, 22)
 		if on:
 			draw_rect(Rect2(c.x - 26, 1, 52, 3), DB.PAL.gold)
-			var pill := StyleBoxFlat.new()
-			pill.bg_color = Color(DB.PAL.gold, 0.14)
-			pill.set_corner_radius_all(14)
-			draw_style_box(pill, Rect2(c.x - 28, 8, 56, 28))
+			draw_style_box(_active_style, Rect2(c.x - 28, 8, 56, 28))
 		_icon(c, col)
 		draw_string(DB.title_font(13) if on else DB.font_body, Vector2(0, size.y - 8), text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, DB.PAL.paper if on else col)
 		if badge >= 0:

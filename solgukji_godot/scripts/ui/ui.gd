@@ -38,18 +38,50 @@ const HAIR := Color(0.914, 0.89, 0.827, 0.10)      # 구분선(hairline) —— 
 const WJ := "⁠"              # 단어 잇기(보이지 않음) —— 붙은 한글 음절 사이에 넣어 단어 중간 줄바꿈을 막는다 (keep_words)
 
 
+static var _surface_textures := {}
+
+
+## 고유기 카드의 색 번짐과 빗금을 공통 화면 부품에도 쓴다.
+static func surface(bg: Color, accent: Color, intensity: float, pad := 12) -> StyleBoxTexture:
+	var key := [bg, accent, intensity]
+	if not _surface_textures.has(key):
+		const WIDTH := 128
+		const HEIGHT := 48
+		var picture := Image.create_empty(WIDTH, HEIGHT, false, Image.FORMAT_RGBA8)
+		for y in HEIGHT:
+			for x in WIDTH:
+				var edge_x := mini(x, WIDTH - 1 - x)
+				var edge_y := mini(y, HEIGHT - 1 - y)
+				if edge_x + edge_y < R - 1:
+					continue
+				var fade := 1.0 - float(x) / (WIDTH - 1)
+				var tint := intensity * (0.06 + 0.94 * fade * fade)
+				if x >= WIDTH * 0.38 and (x + y) % 9 == 0:
+					tint += intensity * 0.22
+				if edge_x == 0 or edge_y == 0:
+					tint = maxf(tint, intensity * 1.55)
+				picture.set_pixel(x, y, bg.lerp(accent, tint))
+		_surface_textures[key] = ImageTexture.create_from_image(picture)
+	var box := StyleBoxTexture.new()
+	box.texture = _surface_textures[key]
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		box.set_texture_margin(side, R)
+		box.set_content_margin(side, pad)
+	return box
+
+
 static func theme() -> Theme:
 	var P := DB.PAL
 	var th := Theme.new()
 	th.default_font = DB.font_body
 	th.default_font_size = FS_BODY
-	# 11/9 사용자: AI 티를 걷는다 —— 상자는 테두리 없는 먹색 면 + 작은 모서리, 선택 · 눌림에만 금 얇은 선 (작업현황 ㊽ 규칙)
 	var none := Color(0, 0, 0, 0)
-	th.set_stylebox("panel", "PanelContainer", flat(P.ink2, none, 0, R, 12))
+	th.set_stylebox("panel", "PanelContainer", surface(P.ink2, P.gold, 0.08))
 	th.set_stylebox("normal", "Button", flat(P.ink3, none, 0, R, 10))
 	th.set_stylebox("hover", "Button", flat(P.ink4, none, 0, R, 10))
-	th.set_stylebox("pressed", "Button", flat(P.ink4, P.gold, 1, R, 10))
-	th.set_stylebox("hover_pressed", "Button", flat(P.ink4, P.gold, 1, R, 10))
+	var selected := surface(P.ink3, P.gold, 0.28, 10)
+	th.set_stylebox("pressed", "Button", selected)
+	th.set_stylebox("hover_pressed", "Button", selected)
 	th.set_stylebox("disabled", "Button", flat(Color(P.ink3, 0.5), none, 0, R, 10))
 	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	th.set_color("font_color", "Button", P.paper)
@@ -62,8 +94,8 @@ static func theme() -> Theme:
 	th.set_font_size("normal_font_size", "RichTextLabel", FS_BODY)
 	th.set_font("normal_font", "RichTextLabel", DB.font_body)
 	th.set_font("bold_font", "RichTextLabel", DB.font_bold)
-	th.set_stylebox("normal", "OptionButton", flat(P.ink3, none, 0, R, 10))
-	th.set_stylebox("hover", "OptionButton", flat(P.ink4, none, 0, R, 10))
+	th.set_stylebox("normal", "OptionButton", flat(P.ink3, Color(P.bamboo, 0.18), 1, R, 10))
+	th.set_stylebox("hover", "OptionButton", flat(P.ink4, Color(P.bamboo, 0.35), 1, R, 10))
 	# 스크롤 막대 —— 손가락으로 잡을 수 있게 굵게
 	var grab := flat(P.ink4, P.ink4, 0, 6, 0)
 	grab.content_margin_left = 6
@@ -85,8 +117,8 @@ static func theme() -> Theme:
 	thin_h.content_margin_bottom = 2
 	th.set_stylebox("grabber", "HScrollBar", thin_h)
 	th.set_stylebox("scroll", "HScrollBar", StyleBoxEmpty.new())
-	th.set_stylebox("normal", "LineEdit", flat(P.ink3, none, 0, R, 10))      # 11/9 사용자: 온라인 팝업 입력 칸 —— 상자 규칙(먹색 면 · 테두리 없음)으로, 초점만 가는 선
-	th.set_stylebox("focus", "LineEdit", flat(P.ink3, P.bamboo_dim, 1, R, 10))
+	th.set_stylebox("normal", "LineEdit", flat(P.ink, Color(P.bamboo, 0.18), 1, R, 10))
+	th.set_stylebox("focus", "LineEdit", flat(Color.TRANSPARENT, P.bamboo, 1, R, 10))
 	th.set_font_size("font_size", "LineEdit", FS_LABEL)
 	th.set_font_size("font_size", "CheckButton", FS_BODY)
 	return th
@@ -302,10 +334,10 @@ static func btn(text: String, cb: Callable, kind := "", h := BTN_H) -> TouchButt
 		cb.call())
 	var none := Color(0, 0, 0, 0)
 	match kind:
-		"pri", "gold":      # 주 행동은 금 한 가지 —— 먹금 바탕 + 금 얇은 선 (옥색 바탕은 걷었다 —— 옥색은 수치 강조에만)
-			b.add_theme_stylebox_override("normal", flat(DB.PAL.gold.darkened(0.72), Color(DB.PAL.gold, 0.85), 1, R, 10))
-			b.add_theme_stylebox_override("hover", flat(DB.PAL.gold.darkened(0.6), DB.PAL.gold, 1, R, 10))
-			b.add_theme_stylebox_override("pressed", flat(DB.PAL.gold.darkened(0.8), DB.PAL.gold, 1, R, 10))      # 눌림 = 같은 색 한 단계 어둡게 (다른 색으로 바뀌지 않게)
+		"pri", "gold":
+			var p := DB.PAL
+			btn_styles(b, surface(p.ink2, p.gold, 0.34, 10), surface(p.ink3, p.gold, 0.39, 10),
+				surface(p.ink, p.gold, 0.32, 10), flat(p.ink2, Color(p.bamboo, 0.15), 1, R, 10))
 		"warn":      # 인장 붉음 —— 경고 · 위험
 			b.add_theme_stylebox_override("normal", flat(DB.PAL.seal.darkened(0.35), none, 0, R, 10))
 			b.add_theme_stylebox_override("hover", flat(DB.PAL.seal.darkened(0.2), none, 0, R, 10))
@@ -436,7 +468,7 @@ static func act(title: String, sub: String, cb: Callable, kind := "", disabled :
 
 static func panel(child: Control, pad := 12) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", flat(DB.PAL.ink2, Color(0, 0, 0, 0), 0, R, pad))
+	p.add_theme_stylebox_override("panel", surface(DB.PAL.ink2, DB.PAL.gold, 0.08, pad))
 	p.add_child(child)
 	return p
 
@@ -554,6 +586,7 @@ static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 	var h := hbox(SP_XS)
 	p.add_child(h)
 	var none := Color(0, 0, 0, 0)
+	var sel := surface(P.ink3, P.gold, 0.25, 6)
 	for it in items:
 		var on: bool = it[0] == cur
 		var b := TouchButton.new()
@@ -562,8 +595,6 @@ static func segmented(items: Array, cur: String, cb: Callable) -> Control:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.add_theme_font_size_override("font_size", FS_BODY)
 		b.add_theme_font_override("font", DB.title_font(FS_BODY))
-		var sel := flat(P.ink4, P.gold, 0, R, 6)
-		sel.border_width_bottom = 2
 		b.add_theme_stylebox_override("normal", sel if on else flat(none, none, 0, R, 6))
 		b.add_theme_stylebox_override("hover", sel if on else flat(P.ink3, none, 0, R, 6))
 		b.add_theme_stylebox_override("pressed", sel)
