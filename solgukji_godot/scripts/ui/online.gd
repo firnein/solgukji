@@ -493,11 +493,17 @@ func connect_sheet(refresh := false) -> void:
 	b.add_child(UI.panel(connection))
 	if net.is_open() and net.consented():
 		var status_row := UI.hbox(UI.SP_S)
-		var status := UI.lbl("● 접속됨", UI.FS_BODY, DB.PAL.jade.lightened(0.2))
-		status.tooltip_text = net.url
-		status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		status.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		status_row.add_child(status)
+		var status_color := DB.PAL.jade.lightened(0.35)
+		var status := UI.lbl("●  접속됨", UI.FS_CAP, status_color)
+		var badge := UI.panel(status, UI.SP_XS)
+		badge.add_theme_stylebox_override("panel", UI.flat(Color(DB.PAL.jade, 0.10), Color(DB.PAL.jade, 0.45), 1, UI.R, UI.SP_XS))
+		badge.tooltip_text = net.url
+		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		status_row.add_child(badge)
+		var fill := Control.new()
+		fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		status_row.add_child(fill)
 		status_row.add_child(UI.btn("다시 접속", _connect_pressed, "ghost", UI.BH_S))
 		b.add_child(status_row)
 	elif _status != "":
@@ -634,6 +640,7 @@ func _conn_restore(k: Dictionary) -> void:
 ## 총 인원 고르기 —— [4명 | 6명 | 8명] + 한 줄 안내 (고르면 이 상자만 다시 그린다 — 시트의 이름 · 주소 칸은 그대로)
 func _fill_seat_pick(box: Control) -> void:
 	for c in box.get_children():
+		box.remove_child(c)
 		c.queue_free()
 	var items := []
 	for n in Room.SEAT_OPTIONS:
@@ -658,6 +665,8 @@ func _fill_seat_pick(box: Control) -> void:
 
 
 func _room_option(box: Control, title: String, description: String, items: Array, selected: String, change: Callable) -> void:
+	if box.get_child_count() > 0:
+		box.add_child(UI.hair())
 	var field := UI.vbox(UI.SP_XS)
 	field.add_child(UI.lbl(title, UI.FS_BODY, DB.PAL.paper))
 	var hint := UI.lbl(description, UI.FS_CAP, DB.PAL.text_dim)

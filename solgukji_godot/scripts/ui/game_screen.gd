@@ -334,7 +334,8 @@ func _unhandled_key_input(e: InputEvent) -> void:
 
 func _build_top() -> Control:
 	var bar := PanelContainer.new()
-	var sb := UI.surface(Color("#0f1424"), DB.PAL.gold, 0.10, 0)
+	var sb := UI.flat(Color("#0f1424"), DB.PAL.ink3, 0, 0, 0)
+	sb.border_width_bottom = 1
 	sb.content_margin_left = 14
 	sb.content_margin_right = 6
 	sb.content_margin_top = 4
@@ -429,7 +430,8 @@ func _build_top() -> Control:
 
 func _build_tabbar() -> Control:
 	var bar := PanelContainer.new()
-	var sb := UI.surface(Color("#0f1424"), DB.PAL.gold, 0.10, 0)
+	var sb := UI.flat(Color("#0f1424"), DB.PAL.ink3, 0, 0, 0)
+	sb.border_width_top = 1
 	bar.add_theme_stylebox_override("panel", sb)
 	bar.custom_minimum_size = Vector2(0, TAB_H)
 	var h := UI.hbox(0)
@@ -468,7 +470,7 @@ func _build_sheet() -> void:
 	add_child(_sheet_mask)
 	# 11/3 사용자: 장수정보간략창(조합 시트) 위의 빈 공간에 신화 그림 —— 어두운 막 위, 시트 아래. 누르면 막처럼 닫힌다
 	_sheet = PanelContainer.new()
-	var sb := UI.flat(DB.PAL.ink2.lerp(DB.PAL.bamboo_dim, 0.04), Color(DB.PAL.gold, 0.5), 0, 0, 0)
+	var sb := UI.flat(DB.PAL.ink2, DB.PAL.bamboo_dim, 0, 0, 0)
 	sb.corner_radius_top_left = UI.R_SHEET
 	sb.corner_radius_top_right = UI.R_SHEET
 	sb.border_width_top = 1
@@ -530,13 +532,9 @@ func _build_sheet() -> void:
 	hv.add_child(_card_tab_bar)
 	_card_tabs = UI.hbox(UI.SP_XS)
 	_card_tabs.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tab_track := AbilCard.new(DB.PAL.gold, true)
-	var tab_padding := StyleBoxEmpty.new()
-	tab_padding.set_content_margin_all(UI.SP_XS)
-	tab_track.add_theme_stylebox_override("panel", tab_padding)
-	tab_track.self_modulate.a = 0.65
+	var tab_track := UI.panel(_card_tabs, UI.SP_XS)
+	tab_track.add_theme_stylebox_override("panel", UI.flat(DB.PAL.ink, UI.HAIR, 1, UI.R, UI.SP_XS))
 	tab_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tab_track.add_child(_card_tabs)
 	_card_tab_bar.add_child(tab_track)
 	_card_tab_bar.hide()
 	_sheet_scroll = UI.scroll()
@@ -783,8 +781,8 @@ func _title_btn(text: String, cb: Callable, main: bool) -> Button:
 	var b := UI.btn_primary(text, cb, UI.BH_L) if main else UI.btn_secondary(text, cb, UI.BH_M)
 	if not main:
 		# 11/20 눌림만 테마 기본(불투명 남색)이라 누르는 순간 색이 튀었다 —— 같은 먹빛에서 금 선만
-		UI.btn_styles(b, UI.surface(Color("#0b0f1a", 0.87), DB.PAL.gold, 0.17, 10),
-			UI.surface(DB.PAL.ink2, DB.PAL.gold, 0.23, 10), UI.surface(DB.PAL.ink, DB.PAL.gold, 0.28, 10))
+		UI.btn_styles(b, UI.flat(Color("#0b0f1a", 0.72), Color(DB.PAL.paper, 0.22), 1, UI.R, 10), UI.flat(Color(DB.PAL.ink3, 0.85), Color(DB.PAL.paper, 0.35), 1, UI.R, 10),
+			UI.flat(Color("#0b0f1a", 0.85), Color(DB.PAL.gold, 0.7), 1, UI.R, 10))
 	b.add_theme_font_override("font", DB.title_font(UI.FS_TITLE))
 	b.add_theme_font_size_override("font_size", UI.FS_TITLE if main else UI.FS_LABEL + 2)
 	b.add_theme_color_override("font_color", Color("#f0e6cf"))
@@ -3150,7 +3148,7 @@ func _build_card_tabs(panels: Array[Control], selected: int) -> void:
 	var clear := Color.TRANSPARENT
 	var normal := UI.flat(clear, clear, 0, UI.R, UI.SP_S)
 	var hover := UI.flat(p.ink3, clear, 0, UI.R, UI.SP_S)
-	var active := UI.flat(Color(p.ink4.lerp(p.gold, 0.15), 0.85), p.gold, 0, UI.R, UI.SP_S)
+	var active := UI.flat(p.ink4, p.gold, 0, UI.R, UI.SP_S)
 	active.border_width_bottom = 2
 	for i in panels.size():
 		var button := UI.btn(titles[i], func():
@@ -4677,13 +4675,20 @@ func _war_btn(title: String, sub: String, done: bool, disabled: bool, cb: Callab
 func _result_panel() -> Control:
 	# 11/4 사용자: 레이아웃 정리 —— 왼쪽 큰 결과 글자, 오른쪽 전투 이름, 아래 한 줄에 잔존 · 수훈 · 보상 칩
 	var r: Dictionary = run.last_result
-	var col := Color("#8fd4c2") if r.win else DB.PAL.danger
+	var col := DB.PAL.bamboo if r.draw else (Color("#8fd4c2") if r.win else DB.PAL.danger)
 	var v := UI.vbox(UI.SP_S)
 	var h := UI.hbox(UI.SP_S)
+	var marker := ColorRect.new()
+	marker.color = col
+	marker.custom_minimum_size = Vector2(3, UI.FS_HEAD)
+	marker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(marker)
 	var big := UI.lbl("무승부" if r.draw else ("승리" if r.win else "패배"), UI.FS_HEAD, col, true)
 	big.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(big)
 	var tl := UI.lbl(str(r.title), UI.FS_BODY, DB.PAL.bamboo)
+	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	UI.wrap_text(tl)
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -6451,7 +6456,6 @@ class TabButton extends Control:
 	var on := false
 	var badge := -1
 	var _press := Vector2.INF
-	var _active_style := UI.surface(DB.PAL.ink2, DB.PAL.gold, 0.23, 0)
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
@@ -6471,7 +6475,10 @@ class TabButton extends Control:
 		var c := Vector2(size.x / 2, 22)
 		if on:
 			draw_rect(Rect2(c.x - 26, 1, 52, 3), DB.PAL.gold)
-			draw_style_box(_active_style, Rect2(c.x - 28, 8, 56, 28))
+			var pill := StyleBoxFlat.new()
+			pill.bg_color = Color(DB.PAL.gold, 0.14)
+			pill.set_corner_radius_all(14)
+			draw_style_box(pill, Rect2(c.x - 28, 8, 56, 28))
 		_icon(c, col)
 		draw_string(DB.title_font(13) if on else DB.font_body, Vector2(0, size.y - 8), text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, DB.PAL.paper if on else col)
 		if badge >= 0:
