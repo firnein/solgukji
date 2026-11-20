@@ -2128,8 +2128,9 @@ func _apply(i: int, quiet := false) -> void:
 	if e.get("sig", false):      # 11/19 장수 개성 —— 발동한 장수 머리 위에 특성 이름 (sig_rt)
 		var stx := str(e.get("t", ""))
 		var who_k := str(e.get("a", f)) if e.get("fx", "") == "debuff" else f
-		if stx.find("의 ") >= 0 and field.squads.has(who_k):
-			hud.float_text(who_k, stx.substr(stx.find("의 ") + 2).split(" ——")[0], Color("#ffd257"), 12, false, true)
+		var sig_head := stx.split(" ——")[0]      # 1.2 카드 이름에 "의 "(대의 노숙)가 들어 있어도 특성 이름만 —— 머리글의 마지막 "의 " 뒤
+		if sig_head.find("의 ") >= 0 and field.squads.has(who_k):
+			hud.float_text(who_k, sig_head.substr(sig_head.rfind("의 ") + 2), Color("#ffd257"), 12, false, true)
 	match e.get("fx", ""):
 		"inyeon_fin", "inyeon_theme":      # 11/12 인연기 —— 11/15 강화: 모음(어두워짐 · 빛줄기) → 터짐(섬광 · 충격파 · 연쇄 폭발 · 쾅 이름 띠). 인연 주제도 같은 틀
 			var th: bool = e.fx == "inyeon_theme"

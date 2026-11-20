@@ -1242,6 +1242,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 	_hit_kind = "phys"
 	if scheme_enabled and d.alive and d.troops > 0 and mv(a, "sow") > 0 and rng.randf() < mv(a, "sow"):     # 반목 —— 책략이 맞으면 혼란
 		stats.confuses += 1
+		stats["sig_sow"] = int(stats.get("sig_sow", 0)) + 1
 		_chain(a.camp, "반목", a.key)
 		inflict(a, d, "confuse", 1, int(DB.PSV.scheme.dur))
 
@@ -1429,6 +1430,7 @@ func _turn_sec() -> float:
 func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	if not d.alive: return
 	if mv(d, "stres") > 0 and rng.randf() < mv(d, "stres"):
+		stats["sig_resist"] = int(stats.get("sig_resist", 0)) + 1
 		L("st", "%s 『%s』%s 버텨냈다" % [ga(nm(d)), DB.D.STATUS[kind].n, "을" if jong(DB.D.STATUS[kind].n) else "를"],
 			{"fx": "resist", "f": d.key, "st": kind})
 		return
@@ -1837,6 +1839,7 @@ func _tac_hit(a: Unit, d: Unit, phys: bool) -> void:
 			_cut(a, d, "int", _cut_amt(a, "cut_int", false), "산란")
 	if scheme_enabled and has_st(d, "confuse") and mv(a, "confuse_break") > 0:      # 경국(초선) —— 혼란된 적의 방어가 무너진다
 		_cut(a, d, "def", 0.06 * maxf(a.c.atk, a.c["int"]) / turn_mul, "경국")
+		stats["sig_confuse_break"] = int(stats.get("sig_confuse_break", 0)) + 1
 	if mv(a, "awe") > 0 and d.morale <= 60 and rng.randf() < mv(a, "awe"):      # 위압 —— 꺾인 적은 겁에 질려 차례를 날린다
 		stats.awes += 1
 		_chain(a.camp, "위압", a.key)
@@ -2970,6 +2973,7 @@ func act(u: Unit) -> void:
 			if not own.is_empty():
 				var t: Unit = own[rng.randi() % own.size()]
 				stats.turncoats += 1
+				stats["sig_turncoat"] = int(stats.get("sig_turncoat", 0)) + 1
 				_chain(_foe(u.camp), "미인계")
 				L("st", "혼란에 빠진 %s 제 편 %s 들이친다" % [ga(nm(u)), eul(nm(t))], {"fx": "status", "f": u.key, "st": "confuse"})
 				if is_caster(u.c): int_hit(u, t, 1, 1)

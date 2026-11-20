@@ -1452,8 +1452,9 @@ func mods_list(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> Array:
 			continue
 		if k in ["cut_def", "first_cut", "open_cut_def"] and Battle.shield_enabled and GUARD.has("shred"):      # 11/9 갑옷 · 결계 깎기 —— 수치는 엔진 등급표 (trait_list 가 shred_text 로 적는다)
 			continue
-		if SIG_LABEL.has(k):      # 11/19 장수 개성 키 —— 등급 배율 없이, 제 글로 (행동뿐인 키는 설명 문장에 맡긴다)
-			var se: Array = SIG_LABEL[k]
+		var sig_lab: Dictionary = SIG_LABEL if SIG_LABEL.has(k) else load("res://scripts/sig_rt.gd").LABELS_SCHOLAR      # 11/21 모사 · 유생 새 키의 글은 sig_rt 에
+		if sig_lab.has(k):      # 11/19 장수 개성 키 —— 등급 배율 없이, 제 글로 (행동뿐인 키는 설명 문장에 맡긴다)
+			var se: Array = sig_lab[k]
 			if str(se[0]) == "":
 				continue
 			var sv := float(m[k]) * float(load("res://scripts/sig_rt.gd").tier_mul(k, int(tier)))      # 11/21 등급 세기 키(sig_rt TIER_KEYS)는 그 등급 값으로

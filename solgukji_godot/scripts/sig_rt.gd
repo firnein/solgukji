@@ -4,7 +4,8 @@ extends RefCounted
 ## 판정 자리: 표적(target_w) · 주는 피해(amp) · 받는 피해(taken) · 맞힌 뒤(after_hit) · 맞은 뒤(after_taken) · 쓰러뜨림(on_kill)
 ## · 이동(steer) · 주기(tick) · 패주 버팀(hold_rout · calm). 판정은 rng 만 쓰고 부대 순서대로 돈다 (결정적).
 
-const KEYS := ["taunt", "seek_low", "seek_gen", "seek_back", "seek_cav", "seek_strong", "seek_guard",
+const KEYS := ["slow_self", "gauge_top", "gauge_refund", "def_weak", "ward_aura", "song", "supply", "st_short", "fame",      # 1.2 모사 · 유생 (아래 맨 끝 머리)
+	"taunt", "seek_low", "seek_gen", "seek_back", "seek_cav", "seek_strong", "seek_guard",
 	"amp_low", "amp_cav", "amp_strong", "amp_gen", "amp_rear", "amp_open", "amp_same", "amp_still", "amp_come", "amp_drown",
 	"amp_allies", "amp_early", "amp_late", "amp_last", "amp_behind", "amp_far", "amp_kill", "amp_guard", "no_pin",
 	"charge_amp", "charge_run", "dr_still", "dr_link", "dr_low", "dr_early", "dodge_big", "ult_dr",
@@ -67,14 +68,14 @@ static func make(bt) -> Object:
 
 func v(u, k: String) -> float:
 	var x := float(u.m.get(k, 0.0))
-	if x != 0.0 and TIER_KEYS.has(k):
+	if x != 0.0 and tiered(k):
 		x *= tier_mul(k, int(u.c.tier))
 	return x
 
 
 ## 등급 세기 배율 (TIER_KEYS 만) —— 장수 정보창 설명(DB.mods_list)도 같은 값을 쓴다
 static func tier_mul(k: String, tier: int) -> float:
-	if not TIER_KEYS.has(k):
+	if not tiered(k):
 		return 1.0
 	return maxf(0.5, 1.0 + TIER_STEP * float(tier - TIER_BASE))
 
@@ -112,6 +113,7 @@ func _say(u, text: String, up := true) -> void:
 
 ## 전장 범위를 재기 전 —— 매복(측면 출현) · 후방 출현 · 위장 · 첫 기술
 func setup() -> void:
+	_scholar_setup()
 	for k in ["ambush", "rear_spawn"]:
 		for u in who.get(k, []):
 			var foes := _foes(u)
@@ -130,6 +132,7 @@ func setup() -> void:
 					back = maxf(back, o.pos.x) if sx > 0 else minf(back, o.pos.x)
 				u.pos = Vector2(back + sx * 90.0, c.y + (60.0 if u.slot % 2 == 0 else -60.0))
 				u.fwd = Vector2(-sx, 0.0)
+				_note(u, "rear_spawn")
 	for u in who.get("stealth", []):
 		u.sg["hide"] = v(u, "stealth")
 
@@ -144,6 +147,7 @@ func target_w(u, o, d: float) -> float:
 		if u.sg.get("tnt") == o:
 			w *= 0.3      # 도발에 걸린 적 —— 도발한 부대를 훨씬 먼저 (표적 강제는 RtBattle 이동 쪽 taunt_of)
 	if has("mark") and _mark.get(u.camp) == o:
+		_stat("sig_mark_w")
 		w *= 0.6
 	if u.m.is_empty():
 		return w
@@ -185,7 +189,9 @@ func amp(a, d, far: bool) -> float:
 	if v(a, "amp_drown") > 0.0 and (b.has_st(d, "flood") or b.has_st(d, "confuse")): m *= 1.0 + v(a, "amp_drown")
 	if v(a, "amp_allies") > 0.0: m *= 1.0 + v(a, "amp_allies") * float(_allies(a).size()) / 9.0
 	if v(a, "amp_early") > 0.0: m *= 1.0 + v(a, "amp_early") * clampf(1.0 - tm / 40.0, 0.0, 1.0)
+	if v(a, "amp_early") > 0.0: _stat("sig_amp_early")
 	if v(a, "amp_late") > 0.0: m *= 1.0 + v(a, "amp_late") * clampf((tm - 20.0) / 30.0, 0.0, 1.0)
+	if v(a, "amp_late") > 0.0: _stat("sig_amp_late")
 	if v(a, "amp_last") > 0.0 and _allies(a).size() <= 3: m *= 1.0 + v(a, "amp_last")
 	if v(a, "amp_behind") > 0.0:
 		var mine := 0.0
@@ -195,6 +201,7 @@ func amp(a, d, far: bool) -> float:
 				if o.camp == a.camp: mine += o.troops
 				else: theirs += o.troops
 		if mine < theirs * 0.85: m *= 1.0 + v(a, "amp_behind")
+		if mine < theirs * 0.85: _stat("sig_amp_behind")
 	if v(a, "amp_far") > 0.0 and far: m *= 1.0 + v(a, "amp_far") * clampf(b._gap(a, d) / 260.0, 0.0, 1.0)
 	if v(a, "amp_kill") > 0.0: m *= 1.0 + v(a, "amp_kill") * minf(3.0, float(a.kills)) / 3.0
 	if v(a, "amp_guard") > 0.0 and b._phalanx(d): m *= 1.0 + v(a, "amp_guard")
@@ -226,6 +233,7 @@ func taken(d, a, mult: float) -> float:
 		_say(d, "점술 —— 큰 한 방을 피했다")
 		m *= 0.05
 	if v(d, "frail_water") > 0.0 and b.has_st(d, "flood"): m *= 1.0 + v(d, "frail_water")
+	if v(d, "frail_water") > 0.0 and b.has_st(d, "flood"): _note(d, "frail_water")
 	return m
 
 
@@ -242,6 +250,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 		var dir: Vector2 = d.pos - a.pos
 		if dir.length() > 0.1:
 			d.pos += dir.normalized() * minf(30.0, v(a, "shove"))
+			_note(a, "shove")
 			b._clamp_arena(d)
 	if v(a, "bind") > 0.0 and b.rng.randf() < v(a, "bind"):
 		b.inflict(a, d, "flood", 0.0, 1)
@@ -252,8 +261,10 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 		a.mdmg += v(a, "morale_on")
 	if v(a, "gauge_on") > 0.0 and d.ult != null:
 		d.gauge = maxf(0.0, d.gauge - v(a, "gauge_on"))
+		_note(a, "gauge_on")
 	if v(a, "bleed_on") > 0.0 and b.rng.randf() < v(a, "bleed_on"):
 		b.inflict(a, d, "bleed", 0.05, 2)
+		_note(a, "bleed_on")
 	if v(a, "pierce_hit") > 0.0 and not b._in_ult:
 		var dir2: Vector2 = d.pos - a.pos
 		if dir2.length() > 0.1:
@@ -325,6 +336,7 @@ func on_kill(k, victim) -> void:
 		var g := minf(k.max - k.troops, victim.max * v(k, "absorb"))
 		if g > 0.0:
 			k.troops += g
+			_stat("sig_absorb")
 			k.htr += g
 			b.L("hl", "%s의 변절 유도 —— 흩어진 적병을 거두었다" % b.nm(k), {"fx": "heal", "f": k.key, "n": g, "healer": k.key, "sig": true})
 
@@ -421,10 +433,12 @@ func tick(dt: float) -> void:
 			u.sg.erase("ret")
 			if ra != null and ra.alive:
 				_say(u, "간웅 —— 되받아쳤다")
+				_stat("sig_ult_ret")
 				b.phys_hit(u, ra, minf(2.5, v(u, "ult_ret")), true)
 	for u in who.get("taunt", []):      # 11/21 도발 —— 키 하나(taunt)로 누구에게나 붙는 일반 장치
 		if u.alive and _due(u, "taunt", TAUNT_PULSE):
 			_taunt(u)
+	_scholar_tick()
 	if _due(null, "aura", AURA_T):
 		_auras()
 
@@ -490,6 +504,7 @@ func _auras() -> void:
 			continue
 		var al := _allies(u)
 		var fo := _foes(u)
+		_scholar_aura(u, al, fo)
 		if v(u, "roar") > 0.0:
 			var hit := _near(u, fo)
 			for o in hit:
@@ -498,26 +513,32 @@ func _auras() -> void:
 				o.sga["spd"] = float(o.sga.get("spd", 0.0)) - 0.2
 			if not hit.is_empty():
 				_say(u, "일갈 —— 주변 적이 움츠러든다", false)
+				_stat("sig_roar", hit.size())
 		if v(u, "cheer_aura") > 0.0:
 			for o in _near(u, al):
 				var g := minf(200.0 - o.morale, v(u, "cheer_aura"))
 				if g > 0.0:
 					o.morale += g
 					u.hmo += g
+					_note(u, "cheer_aura")
 		if v(u, "cleanse_aura") > 0.0:
 			for o in _near(u, al, R_AURA * 1.5):
 				if not o.st.is_empty() and b.rng.randf() < v(u, "cleanse_aura"):
 					b.cleanse(o)
+					_note(u, "cleanse_aura")
 					break
 		if v(u, "spd_aura") > 0.0:
 			for o in _near(u, al):
 				o.sga["spd"] = float(o.sga.get("spd", 0.0)) + v(u, "spd_aura")
+				_note(u, "spd_aura")
 		if v(u, "def_aura") > 0.0:
 			for o in _near(u, al):
 				o.sga["def"] = float(o.sga.get("def", 0.0)) + v(u, "def_aura")
+				_note(u, "def_aura")
 		if v(u, "atk_down") > 0.0:
 			for o in _near(u, fo):
 				o.sga["atk"] = float(o.sga.get("atk", 0.0)) - v(u, "atk_down")
+				_note(u, "atk_down")
 		if v(u, "quake") > 0.0:
 			for o in _near(u, fo):
 				o.sga["spd"] = float(o.sga.get("spd", 0.0)) - v(u, "quake")
@@ -536,6 +557,7 @@ func _auras() -> void:
 			for o in al:
 				if int(o.c.tier) >= top:
 					o.sga["atk"] = float(o.sga.get("atk", 0.0)) + v(u, "tier_aura")
+					_note(u, "tier_aura")
 		if v(u, "boost_best") > 0.0:
 			var best = null
 			for o in al:
@@ -543,10 +565,12 @@ func _auras() -> void:
 					best = o
 			if best != null:
 				best.sga["atk"] = float(best.sga.get("atk", 0.0)) + v(u, "boost_best")
+				_note(u, "boost_best")
 		if v(u, "gauge_aura") > 0.0:
 			for o in al:
 				if o.ult != null and o.charges > 0:
 					o.gauge = minf(100.0, o.gauge + v(u, "gauge_aura"))
+					_note(u, "gauge_aura")
 		if v(u, "morale_floor") > 0.0:
 			for o in _near(u, al):
 				o.morale = maxf(o.morale, v(u, "morale_floor"))
@@ -559,7 +583,7 @@ func _auras() -> void:
 		if v(u, "give_troops") > 0.0 and _due(u, "give", 8.0):
 			var hurt = null
 			for o in al:
-				if o != u and o.troops < o.max * 0.5 and (hurt == null or o.troops / o.max < hurt.troops / hurt.max):
+				if o != u and o.troops < o.max * GIVE_BELOW and (hurt == null or o.troops / o.max < hurt.troops / hurt.max):
 					hurt = o
 			if hurt != null and u.troops > u.max * 0.4:
 				var g2 := minf(hurt.max - hurt.troops, minf(u.troops * 0.5, hurt.max * v(u, "give_troops")))
@@ -567,11 +591,13 @@ func _auras() -> void:
 					u.troops -= g2
 					hurt.troops += g2
 					u.htr += g2
+					_stat("sig_give_troops")
 					b.L("hl", "%s의 양보 —— %s에게 병력을 나눠 주었다" % [b.nm(u), b.nm(hurt)], {"fx": "heal", "f": hurt.key, "n": g2, "healer": u.key, "sig": true})
 		if v(u, "truce") > 0.0 and _due(u, "truce", 12.0) and not fo.is_empty():
 			var t0 = fo[b.rng.randi_range(0, fo.size() - 1)]
 			b.inflict(u, t0, "confuse", 1.0, 1)
 			_say(u, "화친 —— 적 하나가 칼을 거두었다")
+			_stat("sig_truce")
 		if v(u, "mark") > 0.0 and _due(u, "mark", 10.0):
 			var best2 = null
 			for o in fo:
@@ -579,11 +605,13 @@ func _auras() -> void:
 					best2 = o
 			if best2 != null:
 				_mark[u.camp] = best2
+				_stat("sig_mark")
 				b.L("sk", "%s의 정군 —— %s 지목" % [b.nm(u), b.nm(best2)], {"fx": "debuff", "f": best2.key, "a": u.key, "sig": true})
 		if v(u, "trap") > 0.0 and _due(u, "trap", 8.0) and not fo.is_empty():
 			var near = b._nearest(u.pos, fo)
 			if near != null:
 				b.L("sk", "%s의 십면매복 —— 함정이 터졌다" % b.nm(u), {"fx": "skill", "a": u.key, "name": "십면매복", "kind": "int"})
+				_stat("sig_trap")
 				b.phys_hit(u, near, v(u, "trap"), true)
 				b.inflict(u, near, "flood", 0.0, 1)
 		if v(u, "rain") > 0.0 and _due(u, "rain", 10.0):
@@ -594,3 +622,194 @@ func _auras() -> void:
 			if not fo.is_empty():
 				b.inflict(u, fo[b.rng.randi_range(0, fo.size() - 1)], "flood", 0.0, 2)
 			_say(u, "청우 —— 비가 내린다")
+
+
+
+# ── 모사 · 유생 (1.2) ──
+## 11/21 1.2 전장의 개성 —— 모사 16 · 유생 18. 책략 병종은 장치가 이미 많아('숫자만 바뀌는' 오라가 많았다) 겹치는 사람끼리 갈래를 나눈다:
+##  · 기 채우기 셋: 전원에게 조금(여범 gauge_aura) · 가장 찬 한 명에게 몰아서(순욱 gauge_top) · 고유기를 쓴 직후 되돌려 줌(장완 gauge_refund)
+##  · 방어 셋: 주변 + 제 속도↓(심배 def_aura · slow_self) · 가장 위태로운 한 부대만 크게(노숙 def_weak) · 아주 넓은 범위(장소 ward_aura)
+##  · 병력 주기 둘: 자기 병력을 덜어 위기 아군에게(도겸 give_troops) · 덜지 않고 꺾인 아군을 치료(미축 supply)
+##  · 사기 둘: 주변 전원 조금씩(유비 cheer_aura) · 사기 가장 낮은 한 명을 크게(채문희 song)
+##  · 상태이상 풀기: 확률로 하나 씻김(전풍 · 비의 cleanse_aura) · 지속을 줄임(보즐 st_short)
+## 눈에 보이게 —— 숫자만 바뀌는 오라는 SAYS 의 말풍선(간격 SAY_GAP)으로 알린다. 수치는 상식선 기본값(밸런스 측정 없음).
+## 등급 세기 —— 5급 기준 한 급마다 +10% (TIER_BASE · TIER_STEP). 상세창 수치도 같은 값 (tier_mul)
+const TIER_SCHOLAR := {"gauge_top": true, "gauge_refund": true, "gauge_aura": true, "def_weak": true, "ward_aura": true, "def_aura": true,
+	"song": true, "supply": true, "give_troops": true, "cheer_aura": true, "spd_aura": true, "atk_down": true, "boost_best": true,
+	"tier_aura": true, "cleanse_aura": true}
+const LABELS_SCHOLAR := {
+	"slow_self": ["자신 속도 -", "%"], "gauge_top": ["8초마다 기가 가장 찬 아군 고유기 기", "n"], "gauge_refund": ["고유기를 쓴 아군에게 돌려주는 기", "n"],
+	"def_weak": ["가장 위태로운 아군 방어", "%"], "ward_aura": ["넓은 범위 아군 방어", "%"], "song": ["8초마다 사기 낮은 아군 하나 사기", "n"],
+	"supply": ["8초마다 꺾인 아군 치료", "%"], "st_short": ["", ""], "fame": ["", ""]}
+const SAY_GAP := 10.0       # 말풍선 기본 간격 (초) —— 같은 장수 · 같은 일은 이 간격 안에 한 번만
+const TOP_T := 8.0          # 순욱 —— 가장 찬 아군에게 기를 몰아주는 간격 (초, 오라 주기 4초의 배수)
+const SONG_T := 8.0         # 채문희 —— 사기 낮은 아군을 일으키는 간격
+const SONG_LOW := 90.0      # 채문희 —— 사기가 이 아래인 아군만
+const SUPPLY_T := 8.0       # 미축 —— 군량을 푸는 간격
+const SUPPLY_LOW := 0.7     # 미축 —— 병력 비율이 이 아래인 아군만
+const GIVE_BELOW := 0.35   # 도겸 —— 병력 비율이 이 아래인 위기 아군에게만 제 병력을 나눈다
+const WEAK_BELOW := 0.9     # 노숙 —— 병력 비율이 이 아래여야 '위태로운 아군'
+const WARD_R := 1.7         # 장소 —— 방어 결계 반지름 (오라 반지름 배수)
+const SHORT_R := 1.3        # 보즐 —— 상태이상 지속을 줄이는 반지름 (오라 반지름 배수)
+const EARLY_END := 25.0     # 원술 —— 칭제 기세가 꺾였다고 알리는 때 (초)
+const LATE_SAY := 24.0      # 사마의 —— 낭고가 발톱을 드러냈다고 알리는 때 (초)
+const BEHIND_SAY := 12.0    # 진궁 —— 밀리고 있다고 알리는 간격
+## 키별 말풍선 [글, 간격(초), 올라감(true) / 내려감(false)] —— 이름은 SCHOLAR_NAME (모사 · 유생 34명만 말한다)
+const SAYS := {
+	"shove": ["적을 뒤로 밀어냈다", 6.0, true], "gauge_on": ["말솜씨로 적의 기를 뺐다", 8.0, true], "bleed_on": ["적이 피를 흘린다", 6.0, false],
+	"cheer_aura": ["주변 아군의 사기가 오른다", 10.0, true], "cleanse_aura": ["아군의 이상을 풀어 주었다", 8.0, true],
+	"spd_aura": ["아군의 발걸음이 가벼워졌다", 12.0, true], "def_aura": ["아군의 방어가 단단해졌다", 12.0, true],
+	"atk_down": ["주변 적이 넋을 잃었다", 10.0, false], "tier_aura": ["가장 높은 등급 부대가 힘을 낸다", 12.0, true],
+	"boost_best": ["가장 강한 아군 장수에게 힘을 실었다", 12.0, true], "gauge_aura": ["아군의 기가 차오른다", 10.0, true],
+	"rear_spawn": ["적의 등 뒤에 나타났다", 999.0, true], "frail_water": ["물에 잠겨 무너진다", 10.0, false],
+	"ward_aura": ["넓은 결계로 아군을 감쌌다", 12.0, true], "st_short": ["아군의 이상이 가라앉는다", 8.0, true]}
+const SCHOLAR_NAME := {"가후": "독사", "초선": "경국", "사마의": "낭고", "조조": "간웅", "진궁": "백문 결의", "등애": "음평 기습", "원술": "칭제", "정욱": "십면매복",
+	"전풍": "강직", "이유": "독살", "맹달": "변절 유도", "여범": "재무", "동소": "밀어내기", "마속": "산상 포진", "보즐": "안정", "심배": "농성",
+	"유비": "인의", "순욱": "왕좌", "노숙": "대의", "사마휘": "수경", "법정": "정군", "미축": "군량 보급", "대교": "국색", "소교": "청아", "장소": "보국",
+	"채문희": "호가", "장완": "정무", "공융": "명사", "도겸": "양보", "비의": "중재", "간옹": "담소", "제갈근": "화친", "진군": "구품", "진림": "격문"}
+
+
+static func tiered(k: String) -> bool:
+	return TIER_KEYS.has(k) or TIER_SCHOLAR.has(k)
+
+
+## 모사 · 유생이면 그 특성 이름 (아니면 "" —— 말하지 않는다)
+func _sn(u) -> String:
+	return str(SCHOLAR_NAME.get(DB.person(u.c.id), ""))
+
+
+## 같은 장수 · 같은 일은 gap 초 안에 한 번만 말풍선 (모사 · 유생만)
+func _say_gap(u, job: String, text: String, gap := SAY_GAP, up := true) -> void:
+	var jk := "sy_" + job
+	if b._tm < float(u.sg.get(jk, 0.0)):
+		return
+	u.sg[jk] = b._tm + gap
+	var nm := _sn(u)
+	if nm == "":
+		return
+	_say(u, "%s —— %s" % [nm, text], up)
+
+
+## 발동 기록(점검용 통계) + SAYS 말풍선
+func _note(u, k: String, n := 1) -> void:
+	_stat("sig_" + k, n)
+	var sy = SAYS.get(k)
+	if sy != null:
+		_say_gap(u, k, str(sy[0]), float(sy[1]), bool(sy[2]))
+
+
+## 전투 시작 —— 명사(공융)는 아군 시작 사기를 올려 두었다고 알린다
+func _scholar_setup() -> void:
+	for u in who.get("fame", []):
+		_say_gap(u, "fame", "아군 전원의 의기가 높아졌다", 999.0)
+
+
+func _weakest(al: Array, below: float):
+	var best = null
+	for o in al:
+		var r: float = o.troops / maxf(1.0, o.max)
+		if r < below and (best == null or r < best.troops / maxf(1.0, best.max)):
+			best = o
+	return best
+
+
+func _is_behind(a) -> bool:
+	var mine := 0.0
+	var theirs := 0.0
+	for o in b.units:
+		if o.alive:
+			if o.camp == a.camp: mine += o.troops
+			else: theirs += o.troops
+	return mine < theirs * 0.85
+
+
+## 시각으로 알리는 것 · 쓴 순간을 지켜보는 것 (프레임마다)
+func _scholar_tick() -> void:
+	var tm: float = b._tm
+	for u in who.get("amp_early", []):      # 칭제 —— 초반 기세와 그 끝
+		if u.alive:
+			if tm < 4.0:
+				_say_gap(u, "early", "천하를 얻은 듯 기세가 하늘을 찌른다", 999.0)
+			elif tm >= EARLY_END:
+				_say_gap(u, "early_end", "기세가 한풀 꺾였다", 999.0, false)
+	for u in who.get("amp_late", []):      # 낭고 —— 늦게 드러내는 발톱
+		if u.alive and tm >= LATE_SAY:
+			_say_gap(u, "late", "숨겨 둔 발톱을 드러낸다", 999.0)
+	for u in who.get("amp_behind", []):      # 백문 결의 —— 밀릴 때
+		if u.alive and tm >= float(u.sg.get("bh_chk", 0.0)):
+			u.sg["bh_chk"] = tm + 1.0
+			if _is_behind(u):
+				_say_gap(u, "behind", "밀릴수록 이를 악문다", BEHIND_SAY)
+	for u in who.get("gauge_refund", []):      # 정무 —— 고유기를 쓴 아군에게 기를 돌려준다
+		if not u.alive:
+			continue
+		for o in _allies(u):
+			if o.ult == null:
+				continue
+			var jk := "gr_" + str(o.key)
+			var seen: float = float(u.sg.get(jk, -99.0))
+			if o.ult_tm > seen:
+				u.sg[jk] = o.ult_tm
+				if seen > -99.0 or o.ult_tm > 0.0:
+					if o.charges > 0:
+						o.gauge = minf(100.0, o.gauge + v(u, "gauge_refund"))
+						_stat("sig_gauge_refund")
+						_say_gap(u, "refund", "%s의 고유기에 기를 보태 주었다" % b.nm(o), 6.0)
+
+
+## 오라 주기마다 (AURA_T) —— 모사 · 유생의 갈래 (sga 는 이 주기 앞에서 비워졌다)
+func _scholar_aura(u, al: Array, fo: Array) -> void:
+	if v(u, "slow_self") > 0.0:      # 농성 —— 진영은 단단히, 제 몸은 무겁다
+		u.sga["spd"] = float(u.sga.get("spd", 0.0)) - minf(0.6, v(u, "slow_self"))
+	if v(u, "def_weak") > 0.0:      # 대의 —— 가장 위태로운 한 부대만 크게 감싼다
+		var weak = _weakest(al, WEAK_BELOW)
+		if weak != null:
+			weak.sga["def"] = float(weak.sga.get("def", 0.0)) + v(u, "def_weak")
+			_stat("sig_def_weak")
+			if u.sg.get("dw") != weak:
+				u.sg["dw"] = weak
+				_say_gap(u, "dw", "%s을(를) 감싼다" % b.nm(weak), 6.0)
+	if v(u, "ward_aura") > 0.0:      # 보국 —— 아주 넓은 범위의 방어 결계
+		var hit := _near(u, al, R_AURA * WARD_R)
+		for o in hit:
+			o.sga["def"] = float(o.sga.get("def", 0.0)) + v(u, "ward_aura")
+		if not hit.is_empty():
+			_note(u, "ward_aura", hit.size())
+	if v(u, "st_short") > 0.0:      # 안정 —— 걸린 이상의 지속을 줄인다
+		var cut := 0
+		for o in _near(u, al, R_AURA * SHORT_R):
+			for s in o.st:
+				if int(s.dur) > 1:
+					s.dur = int(s.dur) - 1
+					cut += 1
+		if cut > 0:
+			_note(u, "st_short", cut)
+	if v(u, "gauge_top") > 0.0 and _due(u, "gtop", TOP_T):      # 왕좌 —— 기가 가장 찬 아군 한 명에게 몰아준다
+		var top = null
+		for o in al:
+			if o.ult != null and o.charges > 0 and o.gauge < 100.0 and (top == null or o.gauge > top.gauge):
+				top = o
+		if top != null:
+			top.gauge = minf(100.0, top.gauge + v(u, "gauge_top"))
+			_stat("sig_gauge_top")
+			_say_gap(u, "gtop", "%s의 기를 북돋웠다" % b.nm(top), 6.0)
+	if v(u, "song") > 0.0 and _due(u, "song", SONG_T):      # 호가 —— 사기가 가장 낮은 한 명을 일으킨다
+		var low = null
+		for o in al:
+			if o.morale < SONG_LOW and (low == null or o.morale < low.morale):
+				low = o
+		if low != null:
+			var g := minf(200.0 - low.morale, v(u, "song"))
+			if g > 0.0:
+				low.morale += g
+				u.hmo += g
+				_stat("sig_song")
+				_say_gap(u, "song", "%s의 사기를 일으켰다" % b.nm(low), 6.0)
+	if v(u, "supply") > 0.0 and _due(u, "supply", SUPPLY_T):      # 군량 보급 —— 제 병력은 덜지 않고 꺾인 아군을 치료
+		var hurt = _weakest(al, SUPPLY_LOW)
+		if hurt != null:
+			var before: float = hurt.troops
+			b.heal_troop(hurt, v(u, "supply"), "군량 보급", u)
+			if hurt.troops > before:
+				_stat("sig_supply")
+				_say_gap(u, "supply", "%s에게 군량을 풀었다" % b.nm(hurt), 6.0)
