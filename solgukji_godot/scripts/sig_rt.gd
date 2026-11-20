@@ -12,7 +12,8 @@ const KEYS := ["taunt", "seek_low", "seek_gen", "seek_back", "seek_cav", "seek_s
 	"counter_all", "dr_guard", "enrage", "ult_ret", "chain", "kill_gauge", "absorb", "undying", "ally_calm", "morale_floor",
 	"kite", "hit_run", "blink", "stealth", "ambush", "rear_spawn",
 	"roar", "cheer_aura", "cleanse_aura", "spd_aura", "def_aura", "atk_down", "cav_aura", "caster_aura", "tier_aura", "boost_best",
-	"give_troops", "truce", "mark", "trap", "rain", "quake", "confuse_aura", "gauge_aura", "frail_water"]
+	"give_troops", "truce", "mark", "trap", "rain", "quake", "confuse_aura", "gauge_aura", "frail_water",
+	"escort", "seek_rear", "die_hard", "burn_out", "twin", "dr_last"]      # 1.2 창병
 
 const R_AURA := 260.0       # 주변 오라 반지름
 const AURA_T := 4.0         # 주변 오라 주기 (초)
@@ -32,7 +33,8 @@ const GUARD_DR_MAX := 0.6   # 방진 중 받는 피해 감소 상한
 ## 등급 세기 —— 개성 키는 보통 등급 배율을 받지 않지만, 아래 키는 TIER_BASE 급 값에서 한 급마다 TIER_STEP 만큼 세진다 (4급 0.9 · 5급 1.0 · 6급 1.1 · 7급 1.2 …)
 const TIER_BASE := 5
 const TIER_STEP := 0.1
-const TIER_KEYS := {"taunt": true, "dr_guard": true, "counter_all": true, "dr_low": true}
+const TIER_KEYS := {"taunt": true, "dr_guard": true, "counter_all": true, "dr_low": true,
+	"amp_low": true, "amp_same": true, "pierce_hit": true, "enrage": true, "roar": true, "shove": true, "amp_guard": true, "dr_still": true, "escort": true, "die_hard": true}      # 1.2 창병
 
 var b      # RtBattle
 var who := {}               # 키 -> 그 키를 가진 부대들 (전투 시작에 한 번)
@@ -159,6 +161,7 @@ func target_w(u, o, d: float) -> float:
 		w *= 1.0 - minf(0.8, v(u, "seek_strong"))
 	if v(u, "seek_guard") > 0.0 and o.tgt != null and o.tgt.alive and o.tgt.camp == u.camp and o.tgt != u and b._gap(o, o.tgt) <= RtBattle.TOUCH + 6.0:
 		w *= 1.0 - minf(0.8, v(u, "seek_guard"))
+	w *= _spear_w(u, o)      # 1.2 창병 호위 · 후위 수비
 	return maxf(0.15, w)
 
 
@@ -186,7 +189,7 @@ func amp(a, d, far: bool) -> float:
 	if v(a, "amp_allies") > 0.0: m *= 1.0 + v(a, "amp_allies") * float(_allies(a).size()) / 9.0
 	if v(a, "amp_early") > 0.0: m *= 1.0 + v(a, "amp_early") * clampf(1.0 - tm / 40.0, 0.0, 1.0)
 	if v(a, "amp_late") > 0.0: m *= 1.0 + v(a, "amp_late") * clampf((tm - 20.0) / 30.0, 0.0, 1.0)
-	if v(a, "amp_last") > 0.0 and _allies(a).size() <= 3: m *= 1.0 + v(a, "amp_last")
+	if v(a, "amp_last") > 0.0 and _allies(a).size() <= LAST_N: m *= 1.0 + v(a, "amp_last")
 	if v(a, "amp_behind") > 0.0:
 		var mine := 0.0
 		var theirs := 0.0
@@ -198,24 +201,21 @@ func amp(a, d, far: bool) -> float:
 	if v(a, "amp_far") > 0.0 and far: m *= 1.0 + v(a, "amp_far") * clampf(b._gap(a, d) / 260.0, 0.0, 1.0)
 	if v(a, "amp_kill") > 0.0: m *= 1.0 + v(a, "amp_kill") * minf(3.0, float(a.kills)) / 3.0
 	if v(a, "amp_guard") > 0.0 and b._phalanx(d): m *= 1.0 + v(a, "amp_guard")
+	if v(a, "die_hard") > 0.0: m *= 1.0 + v(a, "die_hard") * clampf((DIE_HARD_FROM - a.troops / a.max) / DIE_HARD_FROM, 0.0, 1.0)      # 1.2 방덕 결사 —— 병력이 줄수록
 	if v(a, "no_pin") > 0.0 and b._pinned(a): m /= maxf(0.1, b.engage_v("pin_atk", 1.0))
 	return m
 
 
 ## 맞는 쪽 배율. 큰 한 방 피하기(우번)는 여기서 굴린다
 func taken(d, a, mult: float) -> float:
-	if d.m.is_empty() and not has("ult_dr"):
+	if d.m.is_empty() and not has("ult_dr") and not has("dr_link"):
 		return 1.0
 	var m := 1.0
 	if v(d, "dr_still") > 0.0 and float(d.sg.get("still", 0.0)) >= 1.0: m *= 1.0 - minf(0.6, v(d, "dr_still"))
 	if v(d, "dr_low") > 0.0: m *= 1.0 - minf(0.6, v(d, "dr_low")) * clampf(1.0 - d.troops / d.max, 0.0, 1.0)
 	if v(d, "dr_early") > 0.0 and b._tm < 20.0: m *= 1.0 - minf(0.6, v(d, "dr_early"))
 	if v(d, "dr_guard") > 0.0 and b._phalanx(d): m *= 1.0 - minf(GUARD_DR_MAX, v(d, "dr_guard"))      # 11/21 조인 —— 방진을 친 동안
-	if v(d, "dr_link") > 0.0:
-		for o in b.units:
-			if o != d and o.alive and o.camp == d.camp and o.c.tag == "창병" and o.pos.distance_to(d.pos) < d.hw + o.hw + 40.0:
-				m *= 1.0 - minf(0.5, v(d, "dr_link"))
-				break
+	m *= _spear_taken(d)      # 1.2 창병 고수 · 방진 연결 · 버팀목
 	if has("ult_dr") and b._in_ult:
 		var best := 0.0
 		for o in who["ult_dr"]:
@@ -236,6 +236,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 	a.sg["hits"] = int(a.sg.get("hits", 0)) + 1
 	a.sg["same"] = int(a.sg.get("same", 0)) + 1 if a.sg.get("last") == d else 0
 	a.sg["last"] = d
+	_spear_hit(a, d, loss, far)      # 1.2 창병 —— 발동 기록 · 말풍선
 	if not d.alive:
 		return
 	if v(a, "shove") > 0.0 and (not far or b._ranged(a)) and not b._in_ult:
@@ -243,6 +244,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 		if dir.length() > 0.1:
 			d.pos += dir.normalized() * minf(30.0, v(a, "shove"))
 			b._clamp_arena(d)
+			_note(a, "shove", "함진 돌파 —— 적을 밀며 파고든다")
 	if v(a, "bind") > 0.0 and b.rng.randf() < v(a, "bind"):
 		b.inflict(a, d, "flood", 0.0, 1)
 	if v(a, "slow_on") > 0.0 and b.rng.randf() < 0.35:
@@ -271,6 +273,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 				a.sg["piercing"] = true
 				b.phys_hit(a, best, v(a, "pierce_hit"), true)
 				a.sg["piercing"] = false
+				_note(a, "pierce", "관통 돌진 —— 뒤 열까지 꿰뚫었다")
 	if v(a, "hit_run") > 0.0 and not far and b._tm >= float(a.sg.get("run_cd", 0.0)):
 		a.sg["back"] = b._tm + minf(2.0, v(a, "hit_run"))
 		a.sg["run_cd"] = b._tm + 3.5
@@ -303,6 +306,7 @@ func after_taken(d, a, loss: float, far: bool) -> void:
 		d.sg["hold"] = tm + 3.0
 		d.sga["atk"] = maxf(float(d.sga.get("atk", 0.0)), minf(0.6, v(d, "enrage")))
 		d.sg["rage_off"] = tm + 3.0
+		_stat_u(d, "enrage")
 		_say(d, "분노 —— 눈알을 삼키고 덤벼든다")
 	if v(d, "ult_ret") > 0.0 and b._in_ult and a.camp != d.camp and tm >= float(d.sg.get("ret_t", 0.0)):
 		d.sg["ret_t"] = tm + 6.0
@@ -354,9 +358,13 @@ func calm(u) -> float:
 	if not has("ally_calm"):
 		return 0.0
 	var best := 0.0
+	var by = null
 	for o in who["ally_calm"]:
-		if o.alive and o.camp == u.camp and o.pos.distance_to(u.pos) < R_AURA:
-			best = maxf(best, v(o, "ally_calm"))
+		if o.alive and o.camp == u.camp and o.pos.distance_to(u.pos) < R_AURA and v(o, "ally_calm") > best:
+			best = v(o, "ally_calm")
+			by = o
+	if by != null:
+		_note(by, "ally_calm", "군율 —— 흔들리는 아군을 다잡는다")      # 패주 판정이 걸린 부대에만 불린다
 	return minf(0.8, best)
 
 
@@ -378,6 +386,10 @@ func steer(u, t, pin, desired: Vector2, sp: float) -> Vector2:
 	if backing(u):
 		var away: Vector2 = u.pos - t.pos
 		return away.normalized() * sp if away.length() > 0.1 else desired
+	if has("escort") and v(u, "escort") > 0.0:
+		var esc: Vector2 = _escort_steer(u, t, pin, desired, sp)
+		if esc != desired:
+			return esc
 	if v(u, "kite") > 0.0 and pin != null and b._ranged(u):
 		var away2: Vector2 = u.pos - pin.pos
 		if away2.length() > 0.1:
@@ -405,6 +417,7 @@ func tick(dt: float) -> void:
 			var g: float = b._gap(u, u.tgt)
 			if g > 20.0 and g < 150.0:
 				u.sg["thrown"] = true
+				_stat_u(u, "throw")
 				_say(u, "유성추 —— 달려들며 던졌다")
 				b.phys_hit(u, u.tgt, v(u, "throw"), true)
 		# 선술 —— 붙잡히면 물러나 나타난다
@@ -422,6 +435,9 @@ func tick(dt: float) -> void:
 			if ra != null and ra.alive:
 				_say(u, "간웅 —— 되받아쳤다")
 				b.phys_hit(u, ra, minf(2.5, v(u, "ult_ret")), true)
+	for u in who.get("burn_out", []):      # 1.2 주연 화계 차단
+		if u.alive and _due(u, "burn_out", BURN_OUT_T):
+			_burn_out(u)
 	for u in who.get("taunt", []):      # 11/21 도발 —— 키 하나(taunt)로 누구에게나 붙는 일반 장치
 		if u.alive and _due(u, "taunt", TAUNT_PULSE):
 			_taunt(u)
@@ -497,7 +513,7 @@ func _auras() -> void:
 				u.mdmg += v(u, "roar")
 				o.sga["spd"] = float(o.sga.get("spd", 0.0)) - 0.2
 			if not hit.is_empty():
-				_say(u, "일갈 —— 주변 적이 움츠러든다", false)
+				_note(u, "roar", "일갈 —— 주변 적이 움츠러든다", ROAR_SAY, false)
 		if v(u, "cheer_aura") > 0.0:
 			for o in _near(u, al):
 				var g := minf(200.0 - o.morale, v(u, "cheer_aura"))
@@ -594,3 +610,172 @@ func _auras() -> void:
 			if not fo.is_empty():
 				b.inflict(u, fo[b.rng.randi_range(0, fo.size() - 1)], "flood", 0.0, 2)
 			_say(u, "청우 —— 비가 내린다")
+
+
+# ── 창병 (1.2) ──
+## 1.2 「전장의 개성」 창병 18명 —— 발동 횟수(b.stats["sig_*"])를 남기고, 보이게(말풍선 · 표적 · 움직임) 한다. 수치는 상식선 기본값.
+const SPEAR_SAY := 6.0       # 창병 개성 말풍선 간격 (초) —— 부대 · 개성마다
+const ROAR_SAY := 8.0        # 일갈 말풍선 간격 (초)
+const ESCORT_R := 190.0      # 호위 —— 아군 장수에게서 이 안이면 곁에 있는 것
+const ESCORT_PULL := 0.9     # 호위 —— 곁으로 돌아가는 속도 (제 속도의 몫)
+const ESCORT_NEAR := 260.0   # 호위 —— 이 안의 아군 장수만 지킨다
+const BURN_OUT_T := 2.0      # 화계 차단 —— 불을 끄는 간격 (초)
+const BURN_OUT_LEFT := 1     # 화계 차단 —— 주변 아군 화상이 남는 길이 (이 이하로 줄인다)
+const LAST_N := 5           # 버팀목 —— 아군이 이 수 이하(아홉 중 절반)로 남으면
+const REAR_R := 120.0        # 후위 수비 —— 아군 원거리와 이 틈 안까지 다가온 적을 먼저 친다
+const TWIN_R := 110.0        # 삼첨도 —— 둘째 적과의 틈이 이 안이면 함께 찌른다 (긴 삼첨도가 곁의 적까지)
+const DIE_HARD_FROM := 0.8   # 결사 —— 병력이 이 비율 아래로 줄면 공격이 오르기 시작
+static var say_on := true    # 점검용 —— false 면 말풍선 없이 횟수만 (전 · 후 비교)
+
+
+## 횟수만 —— 판 전체(sig_<key>)와 그 부대 몫(su_<부대>_<key>, 점검이 읽는다)
+func _stat_u(u, key: String) -> void:
+	_stat("sig_" + key)
+	_stat("su_%s_%s" % [u.key, key])
+
+
+## 발동 한 번 —— 횟수(sig_<key>)를 올리고, 말풍선은 every 초에 한 번
+func _note(u, key: String, text: String, every := SPEAR_SAY, up := true) -> void:
+	_stat_u(u, key)
+	if not say_on:
+		return
+	var sk := "say_" + key
+	if b._tm >= float(u.sg.get(sk, 0.0)):
+		u.sg[sk] = b._tm + every
+		_say(u, text, up)
+
+
+## 가장 가까운 아군 장수(고유기를 가진 부대) —— 호위 대상. 1초마다 다시 고른다
+func _escort_of(u):
+	var g = u.sg.get("esc_g")
+	if g != null and g.alive and b._tm < float(u.sg.get("esc_t", 0.0)):
+		return g
+	var best = null
+	var bd := ESCORT_NEAR
+	for o in b.units:
+		if o.alive and o.camp == u.camp and o != u and o.ult != null:
+			var d: float = o.pos.distance_to(u.pos)
+			if d < bd:
+				bd = d
+				best = o
+	u.sg["esc_g"] = best
+	u.sg["esc_t"] = b._tm + 1.0
+	return best
+
+
+## 표적 무게 —— 호위(아군 장수의 표적 · 아군 장수를 치는 적) · 후위 수비(아군 원거리에 붙은 적)
+func _spear_w(u, o) -> float:
+	var w := 1.0
+	if has("escort") and v(u, "escort") > 0.0:
+		var g = _escort_of(u)
+		if g != null:
+			if g.tgt == o:
+				w *= 1.0 - minf(0.8, v(u, "escort"))
+			elif o.tgt == g:
+				w *= 1.0 - minf(0.8, v(u, "escort")) * 0.6
+	if has("seek_rear") and v(u, "seek_rear") > 0.0:
+		if _rear_threat(u, o):
+			w *= 1.0 - minf(0.8, v(u, "seek_rear"))
+	return w
+
+
+## 후위 수비 —— o 가 u 의 아군 원거리 부대를 노리거나 그 곁(REAR_R)까지 다가왔나
+func _rear_threat(u, o) -> bool:
+	var ot = o.tgt
+	if ot != null and ot.alive and ot.camp == u.camp and b._ranged(ot):
+		return true
+	for r in b.units:
+		if r.alive and r.camp == u.camp and r != u and b._ranged(r) and b._gap(o, r) <= REAR_R:
+			return true
+	return false
+
+
+## 호위 이동 —— 아군 장수에게서 멀어졌고 아직 손 닿는 적이 없으면 곁으로 돌아간다
+func _escort_steer(u, t, pin, desired: Vector2, sp: float) -> Vector2:
+	if pin != null:
+		u.sg.erase("esc_on")
+		return desired
+	var g = _escort_of(u)
+	if g == null or u.pos.distance_to(g.pos) <= ESCORT_R or b._gap(u, t) <= RtBattle.TOUCH + 8.0:
+		u.sg.erase("esc_on")
+		return desired
+	var to: Vector2 = g.pos - u.pos
+	if not u.sg.has("esc_on"):
+		u.sg["esc_on"] = true
+		_note(u, "escort_back", "호위 —— 아군 장수 곁으로 돌아간다")
+	return to.normalized() * sp * ESCORT_PULL
+
+
+## 때린 뒤 기록 —— 어느 개성이 이번 타격에서 일했나 (loss = 이번 타격이 깎은 병력)
+func _spear_hit(a, d, loss: float, far: bool) -> void:
+	if v(a, "amp_guard") > 0.0 and b._phalanx(d):
+		_note(a, "amp_guard", "함진영 —— 방진을 짓밟는다")
+	var was_low: bool = d.troops + loss < d.max * LOW
+	if was_low and (v(a, "amp_low") > 0.0 or v(a, "seek_low") > 0.0):
+		_note(a, "amp_low", "처형 —— 꺾인 적을 베어 넘긴다")
+	if int(a.sg.get("same", 0)) >= 1 and v(a, "amp_same") > 0.0:
+		_note(a, "amp_same", "맞붙기 —— 한 적에게 매달려 갈수록 거세진다")
+	if v(a, "amp_open") > 0.0 and int(a.sg.get("hits", 0)) <= 3:
+		_note(a, "amp_open", "선봉 패기 —— 첫 접전부터 거세게 친다", 12.0)
+	if v(a, "amp_strong") > 0.0 and (d.c.tier > a.c.tier or float(d.c.atk) > float(a.c.atk)):
+		_note(a, "amp_strong", "강적 노림 —— 센 적에게 이를 간다")
+	if v(a, "amp_last") > 0.0 and _allies(a).size() <= LAST_N:
+		_note(a, "amp_last", "버팀목 —— 마지막까지 버틴다")
+	if v(a, "die_hard") > 0.0 and a.troops < a.max * DIE_HARD_FROM:
+		_note(a, "die_hard", "결사 —— 물러서지 않고 맞선다" if a.troops < a.max * 0.5 else "결사 —— 이를 악문다")
+	if v(a, "seek_guard") > 0.0 and d.tgt != null and d.tgt.camp == a.camp and d.tgt != a:      # 옛 표적 장치 (점검 전후 비교용)
+		_stat_u(a, "seek_guard")
+	if v(a, "seek_rear") > 0.0 and _rear_threat(a, d):
+		_note(a, "seek_rear", "후위 수비 —— 아군 후열에 붙은 적을 쳤다")
+	if v(a, "escort") > 0.0:
+		var g = _escort_of(a)
+		if g != null and (g.tgt == d or d.tgt == g):
+			_note(a, "escort", "호위 —— 아군 장수를 지킨다")
+	if v(a, "twin") > 0.0 and not far and not b._in_ult:
+		var other = null
+		var bg := TWIN_R
+		for o in b.units:
+			if o.alive and o.camp == d.camp and o != d and not b._ranged(o):
+				var gp: float = b._gap(a, o)
+				if gp <= bg:
+					bg = gp
+					other = o
+		if other != null:
+			a.sg["piercing"] = true      # after_hit 되돌림 방지 (관통과 같은 장치)
+			b.phys_hit(a, other, v(a, "twin"), true)
+			a.sg["piercing"] = false
+			_note(a, "twin", "삼첨도 —— 두 적을 한꺼번에 찔렀다")
+
+
+## 받는 쪽 배율 —— 고수(제자리) · 방진 연결(옆 창병과 붙으면 고람도 옆 창병도) · 버팀목(아군 셋 이하)
+func _spear_taken(d) -> float:
+	var m := 1.0
+	if v(d, "dr_still") > 0.0 and float(d.sg.get("still", 0.0)) >= 1.0:
+		_note(d, "dr_still", "고수 —— 제자리에서 버틴다")
+	if v(d, "dr_last") > 0.0 and _allies(d).size() <= LAST_N:
+		m *= 1.0 - minf(0.6, v(d, "dr_last"))
+		_note(d, "dr_last", "버팀목 —— 마지막까지 버틴다")
+	if has("dr_link") and d.c.tag == "창병":
+		for o in b.units:
+			if o != d and o.alive and o.camp == d.camp and o.c.tag == "창병" and o.pos.distance_to(d.pos) < d.hw + o.hw + 40.0 \
+					and (v(d, "dr_link") > 0.0 or v(o, "dr_link") > 0.0):
+				var src = d if v(d, "dr_link") > 0.0 else o
+				m *= 1.0 - minf(0.5, v(src, "dr_link"))
+				_note(src, "dr_link", "방진 연결 —— 옆 창병과 어깨를 맞댔다")
+				break
+	return m
+
+
+## 화계 차단 —— 자신 · 주변 아군의 화상을 곧 꺼지게 한다
+func _burn_out(u) -> void:
+	var n := 0
+	for o in _allies(u):
+		if o.pos.distance_to(u.pos) > R_AURA:
+			continue
+		for s in o.st:
+			if s.k == "burn" and int(s.dur) > BURN_OUT_LEFT:
+				s.dur = BURN_OUT_LEFT
+				n += 1
+	if n > 0:
+		_note(u, "burn_out", "화계 차단 —— 번진 불을 눌러 껐다")
+		_stat("sig_burn_out_n", n)
