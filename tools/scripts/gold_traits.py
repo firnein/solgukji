@@ -3,7 +3,10 @@
 - 불멸 · 신화에 오르는 인물 42명 + 방통이 금색 특기 하나씩을 갖는다.
 - 예전 고유 특기(수엄칠군 · 칠진칠출 · 적벽 …)의 장치는 그 인물의 금색 특기 안으로 들어간다 (self).
 - 단체(아군 전원 · 적 전원) 효과가 있는 금색은 scope + m, 주인에게만 붙는 장치는 self.
-- 붙는 등급: 예전 고유 특기의 가장 이른 등급, 없으면 불멸(불멸 카드가 없으면 신화). 레벨: 전설 4 · 초월 5 · 불멸 7 · 신화 9.
+- 붙는 등급: 예전 고유 특기의 가장 이른 등급, 없으면 불멸(불멸 카드가 없으면 신화). 레벨: 고급 2 · 희귀 3 · 전설 4 · 초월 5 · 불멸 7 · 신화 9.
+- 11/21 FIRST(장비 · 하후돈 · 장료 · 원소)는 그 인물의 가장 낮은 카드 등급부터 붙는다 (장수 개성 1.2).
+- 다시 돌려도 이미 있는 고유 특기의 정의(뒤에 axis_traits.py 등이 고쳐 쓴 값)는 그대로 둔다 —— 사다리 붙는 등급 · 레벨만 다시 매긴다.
+- gen_passives.py 는 옛 형식(catalog · persons)으로 파일 전체를 새로 쓰는 첫 생성기라 다시 돌리면 안 된다.
 
 실행: python -I tools/scripts/gold_traits.py
 """
@@ -67,13 +70,16 @@ G = {
 }
 
 T, L, LV = P["traits"], P["ladder"], P["level"]
+# 11/21 다시 돌려도 뒤 스크립트(axis_traits.py 등)가 고쳐 쓴 고유 특기 정의 · 사다리 순서를 되돌리지 않게 ——
+# 이미 있는 고유는 정의를 그대로 두고, 없는 것만 G 로 새로 만든다. 사다리 · 레벨은 제자리에서 붙는 등급 · 레벨만 고친다.
 old_unique = {n for n, t in T.items() if t.get("unique")}
-for n in list(old_unique):
-    del T[n]
 names = set()
 for p, (n, desc, attr, scope, m, self_) in G.items():
-    assert n not in T and n not in names, (p, n)
+    assert n not in names, (p, n)
     names.add(n)
+    if T.get(n, {}).get("unique"):
+        continue
+    assert n not in T, (p, n)
     t = OrderedDict([("d", desc), ("m", m)])
     if attr:
         t["attr"] = attr
@@ -83,22 +89,34 @@ for p, (n, desc, attr, scope, m, self_) in G.items():
         t["self"] = self_
     t["unique"] = True
     T[n] = t
+for n in old_unique - names:
+    del T[n]
 LVMAP = {3: 2, 4: 3, 5: 4, 6: 5, 7: 7, 8: 9}
+# 11/21 장수 개성 1.2 (docs/장수_개성_정리_1119.md 6절 2번) —— 이 인물들은 고유를 첫 등장 등급(가장 낮은 카드)부터.
+# 앞당긴 등급은 LVMAP 대로 약하게, 원래 등급(불멸 7 · 신화 9)은 그대로
+FIRST = {"장비", "하후돈", "장료", "원소"}
 for p, rows in L.items():
     olds = [r for r in rows if r[0] in old_unique]
-    L[p] = [r for r in rows if r[0] not in old_unique]
     for on in [r[0] for r in olds]:
-        LV.get(p, {}).pop(on, None)
+        if p not in G or on != G[p][0]:
+            LV.get(p, {}).pop(on, None)
     if p not in G:
         assert not olds, p
         continue
     n = G[p][0]
     frm = min([r[1] for r in olds] + [7 if 7 in tiers[p] else 8])
-    L[p].append([n, frm])
+    if p in FIRST:
+        frm = min(tiers[p])
+    keep = [r for r in rows if r[0] == n]
+    if keep:
+        keep[0][1] = frm
+    L[p] = [r for r in rows if r[0] not in old_unique or r is (keep[0] if keep else None)]
+    if not keep:
+        L[p].append([n, frm])
     LV.setdefault(p, OrderedDict())[n] = OrderedDict((str(t), LVMAP[t]) for t in sorted(tiers[p]) if t >= frm)
 for p in G:
     assert p in L, p
 P["_고유"] = ("traits 의 unique: true = 금색(고유) 특기 —— 인물 정체성 위주, 인물마다 최대 1개 (삼국지14 금색 개성 참고). "
              "scope 가 있으면 m 은 단체 효과, self 는 주인에게만 붙는 장치. 나머지는 일반 특기 —— 특기판에는 일반 특기만 모두 늘어놓는다.")
 open(PATH, "w", encoding="utf-8", newline="\n").write(json.dumps(P, ensure_ascii=False, indent=1) + "\n")
-print("금색", len(G), "· 지운 예전 고유", len(old_unique))
+print("금색", len(G), "· 지운 예전 고유", len(old_unique - names))
