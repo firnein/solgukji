@@ -121,6 +121,9 @@ func _load() -> void:
 	D.ITEMDEF.append_array(ext.items)
 	for k in ext.get("status", {}):
 		D.STATUS[k] = ext.status[k]
+	# 11/21 장수 개성 표시용 딱지 (상태이상이 아니다 —— 정화 · 저항 · 칸 수와 무관. sig_rt.shown 이 화면 상태 목록에만 넣는다)
+	D.STATUS["taunted"] = {"n": "도발", "c": "#ff7a4a", "d": "적장의 도발에 걸렸다 —— 잠시 표적을 그 부대로 돌린다"}
+	D.STATUS["undying"] = {"n": "불사", "c": "#ffd257", "d": "패주 직전에 버텨 섰다 —— 병력 문턱까지 물러서지 않는다"}
 	CLASS_COUNTER = ext.get("class_counter", {})
 	GUARD = ext.get("class_guard", {})
 	SKILL_COND = ext.get("skill_cond", {})
@@ -1406,7 +1409,7 @@ const SIG_LABEL := {
 	"amp_last": ["아군 셋 이하일 때 피해", "%"], "amp_behind": ["아군이 밀릴수록 피해 최대", "%"], "amp_far": ["멀리서 쏠수록 피해 최대", "%"],
 	"amp_kill": ["적을 무너뜨릴수록 피해 최대", "%"], "amp_guard": ["방진을 친 적에게 피해", "%"], "charge_amp": ["돌격 피해", "%"],
 	"dr_still": ["제자리에서 받는 피해 -", "%"], "dr_link": ["옆 창병과 붙어 서면 받는 피해 -", "%"], "dr_low": ["병력이 줄수록 받는 피해 최대 -", "%"],
-	"dr_early": ["개전 20초 동안 받는 피해 -", "%"], "dodge_big": ["큰 한 방을 피할 확률", "%"], "ult_dr": ["아군이 받는 적 고유기 피해 -", "%"],
+	"dr_early": ["개전 20초 동안 받는 피해 -", "%"], "dr_guard": ["방진을 친 동안 받는 피해 -", "%"], "dodge_big": ["큰 한 방을 피할 확률", "%"], "ult_dr": ["아군이 받는 적 고유기 피해 -", "%"],
 	"bind": ["맞힌 적을 묶을 확률", "%"], "slow_on": ["맞힌 적 속도 -", "%"], "morale_on": ["맞힌 적 사기 -", "n"], "gauge_on": ["맞힌 적 고유기 기 -", "n"],
 	"bleed_on": ["출혈을 입힐 확률", "%"], "pierce_hit": ["뒤의 적에게 꿰뚫는 피해", "%"], "throw": ["던지기 피해(공격의)", "%"],
 	"counter_all": ["붙은 적 전부에게 반격 피해", "%"], "enrage": ["크게 맞은 뒤 공격", "%"], "ult_ret": ["적 고유기 되받아치기 피해", "%"],
@@ -1453,7 +1456,7 @@ func mods_list(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> Array:
 			var se: Array = SIG_LABEL[k]
 			if str(se[0]) == "":
 				continue
-			var sv := float(m[k])
+			var sv := float(m[k]) * float(load("res://scripts/sig_rt.gd").tier_mul(k, int(tier)))      # 11/21 등급 세기 키(sig_rt TIER_KEYS)는 그 등급 값으로
 			var sl: String = se[0]
 			var ssign := "" if sl.ends_with("-") else " +"
 			if str(se[1]) == "%":

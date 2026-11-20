@@ -1210,6 +1210,13 @@ func _move() -> void:
 		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0 or _hidden(u.tgt):
 			u.tgt = _choose(u, foes)
 			u.retgt = 0.5
+		# 11/21 도발 (sig_rt taunt) —— 도발에 걸린 부대는 표적을 도발한 부대로 돌린다.
+		# 원거리 · 다른 적에게 묶인 근접은 도발한 부대가 손 닿는 거리(사거리)일 때만 (묶인 채 엉뚱한 곳으로 걸어가지 않게)
+		if _sg != null and _sg.has("taunt") and u.sg.has("tnt"):
+			var tt = _sg.taunt_of(u)
+			if tt != null and tt != u.tgt and not _hidden(tt) and ((not u.ranged and pin == null) or _gap(u, tt) <= _reach(u)):
+				u.tgt = tt
+				stats["sig_taunt_pull"] = int(stats.get("sig_taunt_pull", 0)) + 1
 		# 11/15 성능: 이동 속도(eff → 특기 · 위세 · 버프를 다 훑는다)는 실제로 움직일 때만 잰다 —— 맞붙어 서 있는 부대(목표 속도 0 · 지금 속도 0)는
 		# 속도가 얼마든 그대로 0 이다. 점검용 특기 세기(probe_on)를 켠 판은 예전처럼 늘 잰다 (읽힌 횟수가 같게)
 		var sp := _speed(u) if probe_on else -1.0

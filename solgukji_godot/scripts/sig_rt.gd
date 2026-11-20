@@ -9,7 +9,7 @@ const KEYS := ["taunt", "seek_low", "seek_gen", "seek_back", "seek_cav", "seek_s
 	"amp_allies", "amp_early", "amp_late", "amp_last", "amp_behind", "amp_far", "amp_kill", "amp_guard", "no_pin",
 	"charge_amp", "charge_run", "dr_still", "dr_link", "dr_low", "dr_early", "dodge_big", "ult_dr",
 	"shove", "bind", "slow_on", "morale_on", "gauge_on", "bleed_on", "pierce_hit", "throw",
-	"counter_all", "enrage", "ult_ret", "chain", "kill_gauge", "absorb", "undying", "ally_calm", "morale_floor",
+	"counter_all", "dr_guard", "enrage", "ult_ret", "chain", "kill_gauge", "absorb", "undying", "ally_calm", "morale_floor",
 	"kite", "hit_run", "blink", "stealth", "ambush", "rear_spawn",
 	"roar", "cheer_aura", "cleanse_aura", "spd_aura", "def_aura", "atk_down", "cav_aura", "caster_aura", "tier_aura", "boost_best",
 	"give_troops", "truce", "mark", "trap", "rain", "quake", "confuse_aura", "gauge_aura", "frail_water"]
@@ -18,6 +18,21 @@ const R_AURA := 260.0       # 주변 오라 반지름
 const AURA_T := 4.0         # 주변 오라 주기 (초)
 const TAUNT_R := 240.0      # 도발 반지름
 const LOW := 0.35           # '약한 적' —— 병력 비율
+
+# 11/21 1.2 창병 탱커 셋 (조인 도발 · 전위 역습 범위 · 주태 불사) —— 엔진 쪽 수치는 여기 한곳. 인물별 세기는 passives.json sig (tools/scripts/gold_traits.py SIG_TANK)
+const TAUNT_PULSE := 3.0    # 도발을 다시 외치는 간격 (초)
+const TAUNT_HOLD := 3.5     # 도발에 걸린 적이 표적을 도발한 부대로 붙드는 시간 (초) —— 외침 간격보다 길어 반지름 안에 있으면 끊기지 않는다
+const TAUNT_SAY := 6.0      # 도발 말풍선 간격 (초)
+const COUNTER_CD := 1.0     # 역습 범위 —— 되받아치기 간격 (초)
+const COUNTER_MAX := 1.2    # 역습 범위 —— 한 번에 되받아치는 세기 상한 (기본 공격 배수)
+const COUNTER_SAY := 3.0    # 역습 범위 말풍선 간격 (초)
+const UNDYING_SHOW := 4.0   # 불사가 패주를 버틴 뒤 딱지를 보이는 시간 (초)
+const UNDYING_SAY := 8.0    # 불사 말풍선 간격 (초)
+const GUARD_DR_MAX := 0.6   # 방진 중 받는 피해 감소 상한
+## 등급 세기 —— 개성 키는 보통 등급 배율을 받지 않지만, 아래 키는 TIER_BASE 급 값에서 한 급마다 TIER_STEP 만큼 세진다 (4급 0.9 · 5급 1.0 · 6급 1.1 · 7급 1.2 …)
+const TIER_BASE := 5
+const TIER_STEP := 0.1
+const TIER_KEYS := {"taunt": true, "dr_guard": true, "counter_all": true, "dr_low": true}
 
 var b      # RtBattle
 var who := {}               # 키 -> 그 키를 가진 부대들 (전투 시작에 한 번)
@@ -51,7 +66,21 @@ static func make(bt) -> Object:
 
 
 func v(u, k: String) -> float:
-	return float(u.m.get(k, 0.0))
+	var x := float(u.m.get(k, 0.0))
+	if x != 0.0 and TIER_KEYS.has(k):
+		x *= tier_mul(k, int(u.c.tier))
+	return x
+
+
+## 등급 세기 배율 (TIER_KEYS 만) —— 장수 정보창 설명(DB.mods_list)도 같은 값을 쓴다
+static func tier_mul(k: String, tier: int) -> float:
+	if not TIER_KEYS.has(k):
+		return 1.0
+	return maxf(0.5, 1.0 + TIER_STEP * float(tier - TIER_BASE))
+
+
+func _stat(k: String, n := 1) -> void:
+	b.stats[k] = int(b.stats.get(k, 0)) + n
 
 
 func has(k: String) -> bool:
@@ -112,6 +141,8 @@ func target_w(u, o, d: float) -> float:
 	var w := 1.0
 	if has("taunt") and v(o, "taunt") > 0.0 and d < TAUNT_R:
 		w *= 1.0 - minf(0.8, v(o, "taunt"))
+		if u.sg.get("tnt") == o:
+			w *= 0.3      # 도발에 걸린 적 —— 도발한 부대를 훨씬 먼저 (표적 강제는 RtBattle 이동 쪽 taunt_of)
 	if has("mark") and _mark.get(u.camp) == o:
 		w *= 0.6
 	if u.m.is_empty():
@@ -179,6 +210,7 @@ func taken(d, a, mult: float) -> float:
 	if v(d, "dr_still") > 0.0 and float(d.sg.get("still", 0.0)) >= 1.0: m *= 1.0 - minf(0.6, v(d, "dr_still"))
 	if v(d, "dr_low") > 0.0: m *= 1.0 - minf(0.6, v(d, "dr_low")) * clampf(1.0 - d.troops / d.max, 0.0, 1.0)
 	if v(d, "dr_early") > 0.0 and b._tm < 20.0: m *= 1.0 - minf(0.6, v(d, "dr_early"))
+	if v(d, "dr_guard") > 0.0 and b._phalanx(d): m *= 1.0 - minf(GUARD_DR_MAX, v(d, "dr_guard"))      # 11/21 조인 —— 방진을 친 동안
 	if v(d, "dr_link") > 0.0:
 		for o in b.units:
 			if o != d and o.alive and o.camp == d.camp and o.c.tag == "창병" and o.pos.distance_to(d.pos) < d.hw + o.hw + 40.0:
@@ -250,16 +282,22 @@ func after_taken(d, a, loss: float, far: bool) -> void:
 		return
 	var tm: float = b._tm
 	if v(d, "counter_all") > 0.0 and not far and not a.countering and not b._in_ult and tm >= float(d.sg.get("ca", 0.0)):
-		d.sg["ca"] = tm + 1.0
+		d.sg["ca"] = tm + COUNTER_CD
 		var hit := 0
+		var pw := minf(COUNTER_MAX, v(d, "counter_all"))
 		for o in b.units:
-			if o != a and o.alive and o.camp != d.camp and not b._ranged(o) and b._gap(d, o) <= RtBattle.TOUCH + 4.0:
+			# 11/21 때린 적도 포함 —— 맞닿은 근접 적 전부 (한 부대에게만 맞아도 발동, 둘러싸일수록 여럿에게)
+			if o.alive and o.camp != d.camp and not b._ranged(o) and b._gap(d, o) <= RtBattle.TOUCH + 4.0:
 				d.countering = true
-				b.phys_hit(d, o, minf(1.2, v(d, "counter_all")), true)
+				b.phys_hit(d, o, pw, true)
 				d.countering = false
 				hit += 1
 		if hit > 0:
-			_say(d, "쌍철극 —— 둘러싼 적을 모두 되받아쳤다")
+			_stat("sig_counter_all")
+			_stat("sig_counter_all_hits", hit)
+			if tm >= float(d.sg.get("ca_say", 0.0)):      # 말풍선은 COUNTER_SAY 초에 한 번 (반격 타격은 매번 —— 맞은 적마다 부딪힘 연출)
+				d.sg["ca_say"] = tm + COUNTER_SAY
+				_say(d, "쌍철극 —— 둘러싼 적 %d부대를 되받아쳤다" % hit)
 	if v(d, "enrage") > 0.0 and loss > d.max * 0.05 and tm >= float(d.sg.get("rage", 0.0)):
 		d.sg["rage"] = tm + 6.0
 		d.sg["hold"] = tm + 3.0
@@ -295,10 +333,14 @@ func on_kill(k, victim) -> void:
 func hold_rout(u, cause: String) -> bool:
 	if u.m.is_empty() or cause in ["annihilated", "boss"] or u.troops <= 0.0:
 		return false
+	# 불사 —— 이 판정이 Battle.rout 맨 앞이라 불굴 계열(rout 키: 패주 확률 · 붕괴 · 결전 사기 감소를 줄임)과 겹치지 않는다.
+	# 불굴은 '패주에 이르기까지'를 늦추고, 불사는 '이른 패주 자체'를 병력 문턱까지 취소한다. 문턱 아래에서는 불굴만 남는다
 	if v(u, "undying") > 0.0 and u.troops > u.max * clampf(v(u, "undying"), 0.05, 0.5):
 		u.morale = maxf(u.morale, 15.0)
+		u.sg["ud_show"] = b._tm + UNDYING_SHOW
+		_stat("sig_undying")
 		if b._tm >= float(u.sg.get("ud_say", 0.0)):
-			u.sg["ud_say"] = b._tm + 8.0
+			u.sg["ud_say"] = b._tm + UNDYING_SAY
 			_say(u, "불사 —— 상처투성이로 버틴다")
 		return true
 	if b._tm < float(u.sg.get("hold", 0.0)):
@@ -380,8 +422,55 @@ func tick(dt: float) -> void:
 			if ra != null and ra.alive:
 				_say(u, "간웅 —— 되받아쳤다")
 				b.phys_hit(u, ra, minf(2.5, v(u, "ult_ret")), true)
+	for u in who.get("taunt", []):      # 11/21 도발 —— 키 하나(taunt)로 누구에게나 붙는 일반 장치
+		if u.alive and _due(u, "taunt", TAUNT_PULSE):
+			_taunt(u)
 	if _due(null, "aura", AURA_T):
 		_auras()
+
+
+# ───────── 도발 (11/21) ─────────
+## 도발 —— TAUNT_PULSE 초마다 반지름(TAUNT_R × 등급 세기) 안의 적 부대에 '도발' 을 건다. 걸린 적은 TAUNT_HOLD 초 동안
+## 표적을 도발한 부대로 돌린다 (근접은 다른 적에게 묶여 있으면 도발한 부대가 손 닿는 거리일 때만, 원거리는 사거리 안일 때만 —— RtBattle 이동).
+## 기록: o.sg["tnt"] = 도발한 부대 · o.sg["tnt_t"] = 풀리는 시각. 화면 딱지는 shown() 의 "taunted"
+func _taunt(u) -> void:
+	var r := TAUNT_R * tier_mul("taunt", int(u.c.tier))
+	var tm: float = b._tm
+	var fresh := 0
+	for o in _foes(u):
+		if b._hidden(o) or b._gap(u, o) > r:
+			continue
+		var cur = o.sg.get("tnt")
+		if cur != null and cur != u and cur.alive and tm < float(o.sg.get("tnt_t", 0.0)) and v(cur, "taunt") >= v(u, "taunt"):
+			continue      # 더 센 도발이 이미 걸려 있다
+		if cur != u or tm >= float(o.sg.get("tnt_t", 0.0)):
+			fresh += 1
+		o.sg["tnt"] = u
+		o.sg["tnt_t"] = tm + TAUNT_HOLD
+	if fresh > 0:
+		_stat("sig_taunt", fresh)
+		if tm >= float(u.sg.get("tnt_say", 0.0)):
+			u.sg["tnt_say"] = tm + TAUNT_SAY
+			_say(u, "도발 —— 주변 적 %d부대가 달려든다" % fresh)
+
+
+## 도발에 걸려 있으면 도발한 부대 (풀렸거나 쓰러졌으면 null)
+func taunt_of(o):
+	var t = o.sg.get("tnt")
+	if t == null:
+		return null
+	if not t.alive or b._tm >= float(o.sg.get("tnt_t", 0.0)):
+		o.sg.erase("tnt")
+		return null
+	return t
+
+
+## 화면 딱지 —— Battle._shown_st 가 덧붙인다 (상태이상이 아닌 표시용: 도발에 걸림 · 불사 버팀)
+func shown(u, out: Array) -> void:
+	if u.sg.has("tnt") and taunt_of(u) != null:
+		out.append("taunted")
+	if u.sg.has("ud_show") and b._tm < float(u.sg["ud_show"]):
+		out.append("undying")
 
 
 func _near(u, pool: Array, r := R_AURA) -> Array:

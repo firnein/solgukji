@@ -1943,6 +1943,8 @@ func _shown_st(u: Unit) -> Array:
 			out.append("cut_def")      # 11/8 갑옷 깨짐 —— 제 아이콘은 3단계, 지금은 파갑 표지를 같이 쓴다
 		if int(u.shred["int"].t) > 0 and float(u.shield["int"]) > 0.0:
 			out.append("cut_res")      # 11/9 결계 깨짐 —— 화면 표지 (기록만)
+	if _sg != null and not u.sg.is_empty():
+		_sg.shown(u, out)      # 11/21 도발에 걸림(taunted) · 불사 버팀(undying) 딱지
 	return out
 
 

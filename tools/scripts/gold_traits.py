@@ -12,6 +12,26 @@ from collections import OrderedDict, defaultdict
 
 PATH = "solgukji_godot/data/passives.json"
 P = json.load(open(PATH, encoding="utf-8"), object_pairs_hook=OrderedDict)
+
+# 11/21 1.2 「전장의 개성」 —— 창병 탱커 셋의 행동 특성 (passives.json 의 sig 칸, docs/장수_개성_정리_1119.md 6절 1번).
+# [특기 이름, 설명, 개성 키] —— 고유(금색)가 있는 인물(조인 번성 · 전위 악래)은 이름은 쓰지 않고 그 고유에 설명 · 키를 붙인다 (DB._apply_sig).
+# 키 값은 5급 기준 세기 —— 등급이 하나 오를 때마다 sig_rt.gd TIER_STEP 만큼 세진다 (taunt · dr_guard · counter_all · dr_low).
+# 실행: python -I tools/scripts/gold_traits.py --sig  → sig 칸의 아래 인물 줄만 바꾸고 끝낸다 (아래 금색 재생성은 돌지 않는다)
+SIG_TANK = {
+    "조인": ["도발", "주변 적 부대가 표적을 조인으로 돌린다 (도발 딱지) · 방진을 친 동안 받는 피해가 준다",
+             {"taunt": 0.6, "dr_guard": 0.2}],
+    "전위": ["쌍철극", "맞을 때마다 맞닿은 적 전부에게 되받아친다 —— 둘러싸일수록 강하다",
+             {"counter_all": 0.6}],
+    "주태": ["불사", "병력 20%가 남을 때까지 패주하지 않고, 병력이 줄수록 받는 피해가 준다",
+             {"undying": 0.2, "dr_low": 0.35}],
+}
+if "--sig" in __import__("sys").argv:
+    for _p, _row in SIG_TANK.items():
+        P["sig"][_p] = _row
+    open(PATH, "w", encoding="utf-8", newline="\n").write(json.dumps(P, ensure_ascii=False, indent=1) + "\n")
+    print("sig 줄", ", ".join(SIG_TANK))
+    raise SystemExit(0)
+
 d = json.load(open("solgukji_godot/data/game.json", encoding="utf-8"))
 e = json.load(open("solgukji_godot/data/cards_ext.json", encoding="utf-8"))
 tiers = defaultdict(set)

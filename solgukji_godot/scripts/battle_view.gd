@@ -2837,6 +2837,7 @@ class Hud extends Control:
 
 	# 실제 확산 출처와 추가 피해 사건을 전장에 연결한다.
 	const DECK_ST := {
+		"taunted": ["도발", Color("#ff7a4a")], "undying": ["불사", Color("#ffd257")],      # 11/21 장수 개성 딱지 (sig_rt.shown) —— 앞에 두어 셋 안에 먼저 든다
 		"burn": ["화상", Color("#ff9b45")], "flood": ["둔화", Color("#71caff")],
 		"cut_def": ["방깎", Color("#ffb697")], "cut_res": ["책방깎", Color("#ed9aff")],
 		"cut_atk": ["공깎", Color("#9bbcf2")], "cut_int": ["공깎", Color("#9bbcf2")],
@@ -3013,6 +3014,8 @@ class Hud extends Control:
 			"atk_down", "cut_atk", "cut_int": return Color("#9bbcf2")
 			"confuse": return Color("#c4a0ff")
 			"heal": return Color("#7fd6a4")
+			"taunted": return Color("#ff7a4a")
+			"undying": return Color("#ffd257")
 		return Color.WHITE
 
 	## 상태 기호 —— c 가운데, 반지름 s. 불꽃 · 물결 · 방패↓(방어) · 결계↓(책략 방어) · 칼↓(공격) · 소용돌이(혼란). _spread 는 옆으로 번지는 화살표를 덧붙인다
@@ -3062,6 +3065,9 @@ class Hud extends Control:
 					var t := float(i) / 17.0
 					pts.append(c + Vector2(cos(t * TAU * 1.6), sin(t * TAU * 1.6)) * s * (0.15 + 0.8 * t))
 				ci.draw_polyline(pts, col, 1.6, true)
+			"taunted", "undying":      # 11/21 장수 개성 —— 글자 원 (도 · 불)
+				var fs := maxi(7, roundi(s * 1.7))
+				ci.draw_string(DB.font_bold, c + Vector2(-s * 1.2, fs * 0.36), "도" if base == "taunted" else "불", HORIZONTAL_ALIGNMENT_CENTER, s * 2.4, fs, col)
 			_:
 				ci.draw_circle(c, s * 0.5, col)
 		if base in ["def_down", "res_down", "atk_down"]:      # 깎임 —— 오른쪽 아래 붉은 ↓
