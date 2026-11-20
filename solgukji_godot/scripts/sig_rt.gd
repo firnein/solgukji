@@ -15,7 +15,8 @@ const KEYS := ["slow_self", "gauge_top", "gauge_refund", "def_weak", "ward_aura"
 	"roar", "cheer_aura", "cleanse_aura", "spd_aura", "def_aura", "atk_down", "cav_aura", "caster_aura", "tier_aura", "boost_best",
 	"give_troops", "truce", "mark", "trap", "rain", "quake", "confuse_aura", "gauge_aura", "frail_water",
 	"escort", "seek_rear", "die_hard", "burn_out", "twin", "dr_last",      # 1.2 창병
-	"revive", "fire_chain", "gauge_cut", "cult", "dr_early_all"]      # 1.2 책사 · 술사
+	"revive", "fire_chain", "gauge_cut", "cult", "dr_early_all",      # 1.2 책사 · 술사
+	"cav_show"]      # 1.2 기병 —— 숫자만 바뀌는 특기(속도 · 방어 · 회복 · 수몰 저항)의 말풍선 표식 (값은 1, 판정에는 안 쓴다)
 
 const R_AURA := 260.0       # 주변 오라 반지름
 const AURA_T := 4.0         # 주변 오라 주기 (초)
@@ -219,7 +220,10 @@ func amp(a, d, far: bool) -> float:
 		if v(a, "rate") > 0.0: _note_s(a, "rate", "기술이 빨리 찬다")
 	if v(a, "fire_amp") > 0.0 and b.has_st(d, "burn"): _note_s(a, "fire_amp", "불타는 적에게 더 매섭다")
 	if v(a, "icleave") > 0.0 and b.is_caster(a.c): _note_s(a, "icleave", "옆 부대까지 덮쳤다")
-	if v(a, "no_pin") > 0.0 and b._pinned(a): m /= maxf(0.1, b.engage_v("pin_atk", 1.0)); _stat("sig_no_pin"); _note_s(a, "no_pin", "붙어도 계략을 거두지 않는다")
+	if v(a, "no_pin") > 0.0 and b._pinned(a):
+		m /= maxf(0.1, b.engage_v("pin_atk", 1.0))
+		if b.is_caster(a.c): _stat("sig_no_pin"); _note_s(a, "no_pin", "붙어도 계략을 거두지 않는다")
+		else: _f(a, "no_pin", 0.0)      # 궁병 (태사자 · 엄안) —— 말풍선은 BOW_TEXT
 	return m
 
 
@@ -278,6 +282,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 	a.sg["same"] = int(a.sg.get("same", 0)) + 1 if a.sg.get("last") == d else 0
 	a.sg["last"] = d
 	_spear_hit(a, d, loss, far)      # 1.2 창병 —— 발동 기록 · 말풍선
+	cav_hit(a, d, loss, far)      # 1.2 기병 —— 계수 · 말풍선
 	if not d.alive:
 		return
 	if v(a, "shove") > 0.0 and (not far or b._ranged(a)) and not b._in_ult:
@@ -289,6 +294,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 			_note(a, "shove", "함진 돌파 —— 적을 밀며 파고든다")
 	if v(a, "bind") > 0.0 and b.rng.randf() < v(a, "bind"):
 		b.inflict(a, d, "flood", 0.0, 1)
+		cav_bind(a, d)
 	if v(a, "slow_on") > 0.0 and b.rng.randf() < 0.35:
 		d.sga["spd"] = minf(float(d.sga.get("spd", 0.0)), -minf(0.5, v(a, "slow_on")))
 		_stat("sig_slow_on")
@@ -308,8 +314,8 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 			_f(a, "gauge_on", 0.0)
 	if v(a, "bleed_on") > 0.0 and b.rng.randf() < v(a, "bleed_on"):
 		b.inflict(a, d, "bleed", 0.05, 2)
-		_stat("sig_bleed_on")
-		_note_s(a, "bleed_on", "독이 번져 피를 흘린다", false)
+		if b.is_caster(a.c): _stat("sig_bleed_on"); _note_s(a, "bleed_on", "독이 번져 피를 흘린다", false)
+		else: _f(a, "bleed_on", 0.0)      # 궁병 (하제 독화살) —— 말풍선은 BOW_TEXT
 	if v(a, "amp_guard") > 0.0 and b._phalanx(d) and _due(a, "gbreak", PHALANX_BREAK_CD):      # 서서 간파 —— 방진을 깨뜨린다 (피해 증가에 더해)
 		d.buffs = d.buffs.filter(func(x): return x.stat != "phalanx")
 		_stat("sig_phalanx_break")
@@ -331,7 +337,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 				a.sg["piercing"] = true
 				b.phys_hit(a, best, v(a, "pierce_hit"), true)
 				a.sg["piercing"] = false
-				_note(a, "pierce", "관통 돌진 —— 뒤 열까지 꿰뚫었다")
+				cav_pierce(a, best)
 	if v(a, "hit_run") > 0.0 and not far and b._tm >= float(a.sg.get("run_cd", 0.0)):
 		a.sg["back"] = b._tm + minf(2.0, v(a, "hit_run"))
 		a.sg["run_cd"] = b._tm + 3.5
@@ -343,6 +349,7 @@ func after_taken(d, a, loss: float, far: bool) -> void:
 	if d.m.is_empty() or not d.alive or a == null:
 		return
 	var tm: float = b._tm
+	cav_taken(d, a, loss, far)      # 1.2 기병 —— 계수 · 말풍선
 	if v(d, "counter_all") > 0.0 and not far and not a.countering and not b._in_ult and tm >= float(d.sg.get("ca", 0.0)):
 		d.sg["ca"] = tm + COUNTER_CD
 		var hit := 0
@@ -376,6 +383,7 @@ func after_taken(d, a, loss: float, far: bool) -> void:
 func on_kill(k, victim) -> void:
 	if k == null or not k.alive or k.m.is_empty() or k.camp == victim.camp:
 		return
+	cav_kill(k, victim)      # 1.2 기병 —— 계수 · 말풍선
 	if v(k, "chain") > 0.0:
 		k.ran = maxf(k.ran, RtBattle.CHARGE_RUN)
 		k.retgt = 0.0
@@ -465,7 +473,7 @@ func steer(u, t, pin, desired: Vector2, sp: float) -> Vector2:
 			_stat("sig_kite_ticks")
 			return away2.normalized() * sp * minf(1.0, 0.6 + v(u, "kite"))
 	u.sg["kt"] = false
-	return desired
+	return cav_steer(u, t, desired)      # 1.2 기병 —— 장합 우회
 
 
 # ───────── 주기 ─────────
@@ -490,6 +498,7 @@ func tick(dt: float) -> void:
 				u.sg["thrown"] = true
 				_stat_u(u, "throw")
 				_say(u, "유성추 —— 달려들며 던졌다")
+				_cav(u, "throw")
 				b.phys_hit(u, u.tgt, v(u, "throw"), true)
 		# 선술 —— 붙잡히면 물러나 나타난다
 		if v(u, "blink") > 0.0 and b._pinned(u) and _due(u, "blink", 8.0):
@@ -515,6 +524,7 @@ func tick(dt: float) -> void:
 		if u.alive and _due(u, "taunt", TAUNT_PULSE):
 			_taunt(u)
 	_scholar_tick()
+	cav_tick(dt)      # 1.2 기병 —— 숫자 특기 말풍선
 	if _due(null, "aura", AURA_T):
 		_auras()
 
@@ -1304,3 +1314,123 @@ func _scholar_aura(u, al: Array, fo: Array) -> void:
 			if hurt.troops > before:
 				_stat("sig_supply")
 				_say_gap(u, "supply", "%s에게 군량을 풀었다" % b.nm(hurt), 6.0)
+
+
+# ── 기병 (1.2) ──
+## 기병 22명(여포 · 조운 · 마초 · 장료 · 손책 · 장합 · 공손찬 · 마등 · 동탁 · 원소 · 문추 · 화웅 · 마대 · 조홍 · 곽회 · 한수 · 반장 · 오반 · 안량 · 오의 · 하후패 · 한당)의
+## '발동했다' 계수(stats sig_*)와 '보이게'(말풍선 · 우회). 키 · 세기는 passives.json sig 그대로 —— 여기서는 계수 · 말풍선 · 우회 경로만 더한다.
+## 계수와 말풍선은 판정(rng · 위치)을 바꾸지 않는다. 우회(장합)만 이동 방향을 더 꺾는다.
+static var cav_fx := true             # 점검용 —— false 면 계수만 하고 말풍선 · 우회를 끈다 (전/후 비교. 게임에서는 늘 true)
+const CAV_SAY := 6.0                  # 기병 말풍선 기본 간격 (초) —— 같은 장수 · 같은 말
+const CAV_SAY_LONG := 12.0            # 자주 일어나는 것(오라 · 달림 · 병력 회복)의 간격
+const FLANK_MIN := 170.0              # 이 거리 아래로 붙으면 우회를 멈추고 곧장 달려든다
+const RUN_SPEED := 40.0               # '달리는 중' 으로 치는 속도 (한수 말풍선)
+
+
+static func set_cav_fx(on: bool) -> void:
+	cav_fx = on
+
+
+## 계수 + (켜져 있으면) 말풍선 —— 같은 장수 · 같은 일은 every 초에 한 번만 말한다
+func _cav(u, k: String, text := "", every := CAV_SAY, n := 1) -> void:
+	_stat("sig_%s@%s" % [k, u.c.name], n)      # 계수는 그 장수 이름으로 (한 판에 같은 키를 가진 다른 부대와 섞이지 않게)
+	if cav_fx and text != "" and _due(u, "cv_" + k, every):
+		_say(u, text)
+
+
+## 때린 뒤 —— 맞힌 쪽 키 (after_hit 에서 hits · last 갱신 직후)
+func cav_hit(a, d, loss: float, far: bool) -> void:
+	var tm: float = b._tm
+	if v(a, "amp_early") > 0.0 and tm < 40.0:
+		_cav(a, "amp_early", "개전 초반 —— 매섭게 몰아친다")
+	if v(a, "amp_kill") > 0.0 and a.kills > 0:
+		_cav(a, "amp_kill", "기세 —— 쓰러뜨린 적 %d부대, 공격이 오른다" % mini(3, a.kills))
+	if v(a, "amp_allies") > 0.0:
+		_cav(a, "amp_allies", "명문의 위세 —— 아군 %d부대가 받쳐 준다" % _allies(a).size(), CAV_SAY_LONG)
+	if v(a, "amp_low") > 0.0 and d.troops + loss < d.max * LOW:
+		_cav(a, "amp_low", "추격 —— 꺾인 적을 끝까지 쫓는다")
+	if v(a, "amp_open") > 0.0 and int(a.sg.get("hits", 0)) <= 3:
+		_cav(a, "amp_open", "효기 —— 첫 돌격이 거세다", 20.0)
+	if v(a, "amp_rear") > 0.0:
+		var dv: Vector2 = a.pos - d.pos
+		if dv.length() > 0.1 and absf(d.fwd.angle_to(dv)) > PI / 3.0:
+			_cav(a, "amp_rear", "급습 —— 옆 · 뒤를 쳤다")
+	if v(a, "amp_cav") > 0.0 and d.c.tag == "기병":
+		_cav(a, "amp_cav", "기병 견제 —— 적 기병을 아프게 쳤다")
+	if v(a, "seek_back") > 0.0 and b._ranged(d):
+		_cav(a, "seek_back", "후열 돌파 —— 원거리 부대를 잡았다")
+	if v(a, "seek_guard") > 0.0 and d.tgt != null and d.tgt.alive and d.tgt.camp == a.camp and d.tgt != a:
+		_cav(a, "seek_guard", "구원 —— 아군에게 붙은 적을 막았다")
+	if v(a, "morale_on") > 0.0:
+		_cav(a, "morale_on", "위압 —— 맞은 적의 사기가 꺾인다")
+	if v(a, "hit_run") > 0.0 and not far and tm >= float(a.sg.get("run_cd", 0.0)):
+		_cav(a, "hit_run", "치고 빠지기 —— 말머리를 돌린다")
+
+
+## 꿰뚫음 한 번 (after_hit 의 pierce_hit 가 뒤의 적을 쳤을 때)
+func cav_pierce(a, best) -> void:
+	_cav(a, "pierce", "관통 —— %s까지 꿰뚫었다" % b.nm(best))
+
+
+## 묶음 한 번 (bind 굴림이 맞았을 때)
+func cav_bind(a, d) -> void:
+	_cav(a, "bind", "포박 —— %s을(를) 묶었다" % b.nm(d))
+
+
+## 쓰러뜨림 (on_kill 맨 앞)
+func cav_kill(k, victim) -> void:
+	if v(k, "chain") > 0.0:
+		_cav(k, "chain")      # 말풍선은 on_kill 의 무쌍이 낸다
+	if v(k, "amp_kill") > 0.0:
+		_cav(k, "amp_kill_on", "기세 —— %s을(를) 무너뜨렸다" % b.nm(victim), 4.0)
+
+
+## 맞은 뒤 (맞은 쪽 키)
+func cav_taken(d, a, loss: float, far: bool) -> void:
+	if int(v(d, "cav_show")) == 2 and v(d, "def") > 0.0:
+		_cav(d, "def","중기병 —— 두꺼운 갑옷이 막아냈다", CAV_SAY_LONG)
+
+
+## 돌격이 박힌 순간 (rt_battle 물리 타격에서 기병 돌격 가산을 받을 때)
+func on_charge(a, d) -> void:
+	if v(a, "charge_amp") > 0.0:
+		_cav(a, "charge_amp", "맹습 —— 돌격이 더 깊이 박힌다")
+	if v(a, "charge_run") > 0.0 and a.ran < RtBattle.CHARGE_RUN:
+		_cav(a, "charge_run", "즉시 돌격 —— 짧게 달려도 부딪는다")
+	if v(a, "chain") > 0.0 and a.kills > 0:
+		_cav(a, "chain_charge")      # 무쌍 이후 돌격이 박힘 (여포)
+
+
+## 이동 —— 장합 우회: 후열(원거리)을 노리는 기병은 적 무리 옆 바깥 길목(도적 우회와 같은 _flank_way)을 지나 노린 적 뒤로 돌아 든다 (steer 끝에서)
+func cav_steer(u, t, desired: Vector2) -> Vector2:
+	if desired == Vector2.ZERO or u.c.tag != "기병" or v(u, "seek_back") <= 0.0 or not b._ranged(t):
+		return desired
+	if b._gap(u, t) <= FLANK_MIN:
+		return desired
+	var way = b._flank_way(u, t, _foes(u))
+	if way == null:
+		return desired
+	var wv: Vector2 = way - u.pos
+	if wv.length() <= 20.0:
+		return desired
+	if _due(u, "cv_flank_t", 3.0):
+		_cav(u, "flank", "우회 —— 옆으로 돌아 후열을 노린다", CAV_SAY_LONG)
+	if not cav_fx:
+		return desired
+	return wv.normalized() * desired.length()
+
+
+## 주기 (tick 끝에서) —— 숫자만 바뀌는 특기(속도 · 회복 · 수몰 저항 · 오라)를 말풍선으로 보인다
+func cav_tick(dt: float) -> void:
+	for u in b.units:
+		if not u.alive or u.m.is_empty():
+			continue
+		var show := int(v(u, "cav_show"))      # 숫자 특기 표식 —— 1 속도(한수) · 2 방어(오의) · 3 회복(하후패) · 4 수몰 저항(한당). 일반 능력치와 섞이지 않게 장수가 정한다
+		if show == 1 and v(u, "spd") > 0.0 and u.vel.length() > RUN_SPEED and _due(u, "cv_spd_t", CAV_SAY_LONG):
+			_cav(u, "spd", "경기병 —— 쏜살같이 달린다", 0.0)
+		if show == 3 and v(u, "regen") > 0.0 and u.troops < u.max * 0.95 and _due(u, "cv_regen_t", CAV_SAY_LONG):
+			_cav(u, "regen", "추스름 —— 흩어진 병력을 추슬렀다", 0.0)
+		if show == 4 and v(u, "flood_res") > 0.0 and b.has_st(u, "flood") and _due(u, "cv_flood_t", CAV_SAY_LONG):
+			_cav(u, "flood_res", "강동 기병 —— 물살에도 말을 몰아간다", 0.0)
+		if v(u, "cav_aura") > 0.0 and _due(u, "cv_aura_t", AURA_T):
+			_cav(u, "cav_aura", "서량 기치 —— 아군 기병의 기세가 오른다", CAV_SAY_LONG)

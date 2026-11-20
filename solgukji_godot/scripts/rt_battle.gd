@@ -1966,6 +1966,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 				m *= cav_charge * (1.0 + mv(a, "charge_amp"))
 				stats["charges"] = stats.get("charges", 0) + 1
 				painted_charge = "hit"
+				if _sg != null:      # 1.2 기병 —— 돌격 개성(맹습 · 즉시 돌격 · 무쌍) 계수 · 말풍선
+					_sg.on_charge(a, d)
 		if a.c.tag == "창병" and a.ran >= SPEAR_RUN and not far and not a.countering:      # 11/8 창병은 붙는 순간이 힘
 			m *= engage_v("spear_impact", 1.0)
 	var heavy := false
