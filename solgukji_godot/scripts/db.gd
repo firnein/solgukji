@@ -1418,7 +1418,8 @@ const SIG_LABEL := {
 	"spd_aura": ["주변 아군 속도", "%"], "def_aura": ["주변 아군 방어", "%"],
 	"atk_down": ["주변 적 공격 -", "%"], "cav_aura": ["아군 기병 공격", "%"], "caster_aura": ["아군 책략 부대 공격", "%"], "tier_aura": ["아군 최고 등급 부대 공격", "%"],
 	"boost_best": ["가장 강한 아군 장수 공격", "%"], "give_troops": ["꺾인 아군에게 나눠 주는 병력", "%"], "quake": ["주변 적 속도 -", "%"],
-	"gauge_aura": ["4초마다 아군 고유기 기", "n"], "frail_water": ["받는 수몰 피해", "%"]}
+	"gauge_aura": ["4초마다 아군 고유기 기", "n"], "frail_water": ["받는 수몰 피해", "%"],
+	"cav_show": ["", ""]}
 const FLOW_LABEL := {"regen": "전투 동안 병력", "mregen": "전투 동안 사기", "mend": "전투 동안 치료", "cheer_hit": "전투 동안 맞힐 때 치료"}
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt", "rally_kill", "cheer_turn", "resolve", "steady", "ult_rally"]
 ## 11/19 사용자: "속도 100 = 초당 1번 공격"(RtBattle.spd_rule) —— 행동할 때마다 일어나는 효과 (Battle._turn_start · _after_hit).
