@@ -30,26 +30,52 @@ static func make(r: Dictionary) -> BattleReport:
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UI.flat(Color(0.06, 0.07, 0.11, 1.0), DB.PAL.ink3, 1, 10, 12))      # 불투명 —— 뒤의 종료 문구가 비쳐 글씨가 겹쳤다
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# 11/22 결과창 정리 —— 위계: 승패 제목 → 요약 수치 칸 → 내 덱 요약(고정) → 진영 · 기준 탭 → 열 머리(범례) → 장수 줄(스크롤)
 	var v := UI.vbox(UI.SP_S)
 	add_child(v)
-	var col: Color = DB.PAL.jade if res.win else DB.PAL.seal
-	var head := UI.hbox(UI.SP_S)
-	head.add_child(UI.lbl("무승부" if res.draw else ("승전" if res.win else "패전"), UI.FS_TITLE, col, true))
-	var sub := UI.lbl("잔존 %d 대 %d · %s" % [res.left, res.eLeft, _len_text()], UI.FS_BODY, DB.PAL.text_dim)
-	sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	sub.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	head.add_child(sub)
-	v.add_child(head)
+	var col: Color = DB.PAL.bamboo if res.draw else (DB.PAL.jade if res.win else DB.PAL.seal)
+	var vp := get_viewport_rect().size
+	if vp.x > vp.y or max_h < 440.0:      # 가로 화면(PC) · 낮은 창 —— 높이가 모자라 제목을 수치 칸 왼쪽에 붙여 한 줄을 아낀다 (장수 줄이 한 줄 더 보인다)
+		var hd := UI.hbox(UI.SP_M)
+		var t := UI.lbl("무승부" if res.draw else ("승전" if res.win else "패전"), UI.FS_HEAD, col, true)
+		t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hd.add_child(t)
+		var sr := _stat_row()
+		sr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hd.add_child(sr)
+		v.add_child(hd)
+	else:
+		v.add_child(_title_row(col))
+		v.add_child(_stat_row())
+	var sm := UI.vbox(2)      # 내 덱 요약 · 활약 —— 탭과 상관없이 늘 보이는 한두 줄 (예전엔 장수 줄과 같이 스크롤됐다)
+	for t in [_deck_summary(), _feats()]:
+		if t != "":
+			sm.add_child(UI.wrap_text(UI.rich(t, UI.FS_BODY)))
+	if sm.get_child_count() > 0:
+		v.add_child(sm)
+	else:
+		sm.free()
 	_tabs = Control.new()
 	v.add_child(_tabs)
+	_legend = UI.rich("", UI.FS_CAP)      # 열 머리 —— 막대 색 범례(왼쪽) · 오른쪽 셈 칸 이름. 줄 바로 위에 둬서 무엇을 읽는지 먼저 보이게
+	_legend.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var lh := UI.hbox(UI.SP_S)
+	lh.add_child(_legend)
+	var ch_lbl := UI.lbl("격파·기술·고유기", UI.FS_CAP, DB.PAL.text_dim)
+	ch_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	ch_lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	lh.add_child(ch_lbl)
+	v.add_child(lh)
+	var rule := ColorRect.new()
+	rule.color = Color(DB.PAL.ink4, 0.8)
+	rule.custom_minimum_size.y = 1
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(rule)
 	_scroll = UI.scroll()
 	v.add_child(_scroll)
 	_body = UI.vbox(int(ROW_SEP))
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_body)
-	_legend = UI.rich("", UI.FS_CAP)
-	v.add_child(_legend)
 	_fill()
 	await get_tree().process_frame      # 한 번 자리 잡은 뒤 —— 표 틀(머리줄 · 탭 · 범례 · 여백) 높이를 재고 줄 칸 높이를 정한다
 	if not is_inside_tree():
@@ -63,13 +89,58 @@ func _ready() -> void:
 func _est_h(cp: String) -> float:
 	var n := _rows(cp).size()
 	var lines := 0
-	if cp == "A" and _deck_summary() != "":
-		lines += 2
-	if cp == "A" and _feats() != "":
-		lines += 1
 	if not res.get("chains", {}).get(cp, {}).is_empty():
 		lines += 1
 	return n * ROW_H + maxi(0, n - 1) * ROW_SEP + lines * (LINE_H + ROW_SEP)
+
+
+## 제목 줄 —— 가운데 큰 글자(승패 색) 양옆으로 같은 색 가는 선
+func _title_row(col: Color) -> Control:
+	var h := UI.hbox(UI.SP_M)
+	for i in 3:
+		if i == 1:
+			var t := UI.lbl("무승부" if res.draw else ("승전" if res.win else "패전"), UI.FS_HEAD, col, true)
+			t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			h.add_child(t)
+			continue
+		var ln := ColorRect.new()
+		ln.color = Color(col, 0.55)
+		ln.custom_minimum_size = Vector2(0, 2)
+		ln.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var m := VBoxContainer.new()
+		m.alignment = BoxContainer.ALIGNMENT_CENTER
+		m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		m.add_child(ln)
+		h.add_child(m)
+	return h
+
+
+## 요약 수치 칸 —— 아군 잔존 · 적 잔존 · 격파 · 시간 (예전 머리줄 오른쪽 「잔존 0 대 17 · 0:26」 한 줄을 칸으로)
+func _stat_row() -> Control:
+	var kills := 0
+	for u in res.roster:
+		if u.camp == "A":
+			kills += int(u.get("kills", 0))
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", UI.flat(Color(1, 1, 1, 0.035), DB.PAL.ink3, 1, 8, 6))
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := UI.hbox(0)
+	pc.add_child(h)
+	var P := DB.PAL
+	var items := [[Battle.num(float(res.left)), "아군 잔존", P.jade.lightened(0.25) if float(res.left) > 0 else P.text_dim],
+		[Battle.num(float(res.eLeft)), "적 잔존", P.danger if float(res.eLeft) > 0 else P.text_dim],
+		[str(kills), "격파", P.paper], [_len_text(), "전투 시간", P.paper]]
+	for i in items.size():
+		if i > 0:
+			var sep := ColorRect.new()
+			sep.color = Color(P.ink4, 0.7)
+			sep.custom_minimum_size = Vector2(1, 0)
+			sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(sep)
+		var st := UI.stat(items[i][0], items[i][1])
+		(st.get_child(0) as Label).add_theme_color_override("font_color", items[i][2])
+		h.add_child(st)
+	return pc
 
 
 func _len_text() -> String:
@@ -105,13 +176,6 @@ func _fill() -> void:
 	_scroll.scroll_vertical = 0      # 탭을 바꾸면 맨 위부터
 	for c in _body.get_children():
 		c.queue_free()
-	if camp == "A":      # 11/6 #16 덱 설계 요약 —— "내 덱의 무엇이 통했는지" 한 줄 (데일리 진행의 확인 순간)
-		var ds := _deck_summary()
-		if ds != "":
-			_body.add_child(UI.wrap_text(UI.rich(ds, UI.FS_BODY)))      # 11/20 폴리싱: 요약 줄이 단어 중간에서 끊겼다 (「반 / 격」) —— 띄어쓰기 자리에서만
-		var ft := _feats()
-		if ft != "":
-			_body.add_child(UI.wrap_text(UI.rich(ft, UI.FS_BODY)))
 	var ch: Dictionary = res.get("chains", {}).get(camp, {})
 	if not ch.is_empty():
 		var names := ch.keys()
@@ -135,11 +199,11 @@ func _fill() -> void:
 	var P := DB.PAL
 	var lg: Array = {"dmg": [[P.gold, "준 피해"], [DOT_COL, "지속"], [P.seal.lightened(0.05), "받은 피해"]],
 		"heal": [[HEAL_COL, "병력 회복"], [MO_COL, "사기 회복"]],
-		"sup": [[SUP_COL, "깎기로 늘린 아군 피해"], [P.seal.lightened(0.35), "사기 피해"]]}[view]
+		"sup": [[SUP_COL, "깎기로 늘린 피해"], [P.seal.lightened(0.35), "사기 피해"]]}[view]
 	var parts := []
 	for it in lg:
 		parts.append("[color=#%s]■[/color] %s" % [it[0].to_html(false), it[1]])
-	_legend.text = "   ".join(parts) + "   ·   격파 · 기술 · 고유기"
+	_legend.text = "  ".join(parts)
 
 
 ## 11/19 실제 활약 요약 (아군, 최대 3) —— 기록에 있는 수치로만. 없으면 그 문구를 뺀다 (반사실 인과는 쓰지 않는다)
@@ -177,7 +241,6 @@ func _deck_summary() -> String:
 	var auras := []
 	var ults := 0
 	var joint := 0      # 11/11 인연 합동 고유기 (대표 사건에 mates)
-	var kills := 0
 	for e in res.ev:
 		if e.get("fx") == "ult" and str(e.get("a", "")).begins_with("A"):
 			ults += 1
@@ -187,23 +250,14 @@ func _deck_summary() -> String:
 		var u: Dictionary = res.roster[i]
 		if u.camp != "A":
 			continue
-		kills += int(u.get("kills", 0))
 		if DB.AURA.has(u.id):
 			auras.append("[color=#%s]『%s』[/color]%s" % [DB.tier_color(u.id).to_html(false), DB.AURA[u.id].n, "" if final[i][2] == 1 else "(무너짐)"])
 	var parts := []
 	if not auras.is_empty():
 		parts.append("위세 " + " ".join(auras.slice(0, 3)))
-	var ch: Dictionary = res.get("chains", {}).get("A", {})
-	if not ch.is_empty():
-		var best := ""
-		for k in ch:
-			if best == "" or int(ch[k]) > int(ch[best]):
-				best = k
-		parts.append("연쇄 [b]%s[/b] ×%d" % [best, int(ch[best])])
+	# 11/22 연쇄는 아래 「덱 연쇄」 줄에, 격파는 위 수치 칸에 —— 같은 글을 두 번 쓰지 않는다
 	if ults > 0:
 		parts.append("고유기 %d회" % ults + (" (인연 합동 %d)" % joint if joint > 0 else ""))
-	if kills > 0:
-		parts.append("격파 %d" % kills)
 	if parts.is_empty():
 		return ""
 	return "[color=#ffd257]내 덱[/color]  " + "  ·  ".join(parts)
@@ -311,6 +365,9 @@ class Row extends Control:
 		var status_w := size.x - x0 - 6.0
 		var status_fs := UI.fit_fs(DB.font_body, status, UI.FS_TINY, 9, status_w)
 		draw_string(DB.font_body, Vector2(x0, ROW_H - 6), status, HORIZONTAL_ALIGNMENT_LEFT, status_w, status_fs, col)
+		# 11/22 줄 사이 가는 선 —— 상태 줄(작은 글씨)이 다음 장수의 이름 줄과 붙어 한 덩어리로 읽혔다
+		var ly := ROW_H + ROW_SEP / 2.0
+		draw_line(Vector2(x0, ly), Vector2(size.x, ly), Color(P.ink4, 0.55), 1.0)
 
 	## 막대 + 오른쪽 제 칸의 수치 (막대 색과 같은 계열)
 	func _bar(p: Vector2, w: float, f: float, col: Color, txt: String) -> void:
