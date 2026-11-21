@@ -653,7 +653,8 @@ static func featured_cards(cards: Array) -> Array:
 
 static func _peer_signature(r: Run) -> Array:
 	var keys := key_cards(r)
-	return [keys, featured_cards(r.board) if keys.is_empty() else [], r.tk_plan.duplicate() if Run.tac_on else []]
+	return [keys, featured_cards(r.board) if keys.is_empty() else [], r.tk_plan.duplicate() if Run.tac_on else [],
+		r.tk_pub() if Run.tac_on else []]      # 11/21 늘 켜짐 · 영구 군략 효과도 —— 3택1 로 고른 순간 다른 사람 화면에 퍼지게
 
 
 ## 응답이 없는 사람 몫을 봇이 한다 —— 끊겼거나 단계 내내 아무 행동도 없으면 전부, 행동은 했으면 빈 것만
