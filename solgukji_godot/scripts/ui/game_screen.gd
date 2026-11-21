@@ -738,17 +738,33 @@ func _build_title() -> void:
 	v.add_child(fill)
 	# 버튼 —— 주 버튼 하나(게임 안 주 버튼과 같은 먹금 모양, BH_L) + 보조 버튼(먹빛 바탕 + 얇은 선). 설정 · 버전은 아래 한 줄
 	var bv := UI.vbox(UI.SP_M)
+	# 11/21 사용자: 이어하기를 「싱글 이어하기」 · 「멀티 이어하기」로 나눠 명시한다 —— 둘 다 늘 보이고, 이을 게 없으면 흐리게 + 이유 한 줄
 	var live := Online.live_mark()      # 11/19 끊긴 온라인 대전 —— 그 판으로 바로 돌아간다 (Online.rejoin)
+	var has_sv := Run.has_save()
+	if _dev_title.has("save"):
+		has_sv = bool(_dev_title.save)
+	if _dev_title.has("live"):
+		live = {"room": "ABCD", "ts": Time.get_unix_time_from_system()} if _dev_title.live else {}
+	var sv_sub := "저장된 싱글 판이 없다"
+	if has_sv:
+		var sr := Run.load_saved()
+		sv_sub = "이어 할 수 없는 저장" if sr == null else ("끝난 판 —— 결과 보기" if sr.over != null else sr.when_text())
+		if sr == null:
+			has_sv = false
+	var lv_sub := "진행 중인 온라인 방이 없다"
 	if not live.is_empty():
-		bv.add_child(_title_btn("대전으로 돌아가기 · 방 %s" % str(live.get("room", "")), func():
-			if online == null:
-				online = Online.new()
-				online.gs = self
-				add_child(online)
-			online.rejoin(live), true))
-	if Run.has_save():
-		bv.add_child(_title_btn("이어 하기", _continue, live.is_empty()))
-	bv.add_child(_title_btn("새 판 시작", _confirm_new if Run.has_save() else _new_game, not Run.has_save() and live.is_empty()))      # 11/14 UI 4단계: 저장된 판이 있으면 확인부터
+		var ago := int((Time.get_unix_time_from_system() - float(live.get("ts", 0.0))) / 60.0)
+		lv_sub = "방 %s · %s" % [str(live.get("room", "")), "방금 전 소식" if ago < 1 else "%d분 전 소식" % ago if ago < 60 else "%d시간 전 소식" % (ago / 60)]
+	var live_on := not live.is_empty()
+	_title_info = {}
+	bv.add_child(_title_btn2("멀티 이어하기", lv_sub, func():
+		if online == null:
+			online = Online.new()
+			online.gs = self
+			add_child(online)
+		online.rejoin(live), live_on, live_on, "multi"))
+	bv.add_child(_title_btn2("싱글 이어하기", sv_sub, _continue, has_sv, has_sv and not live_on, "single"))
+	bv.add_child(_title_btn("새 판 시작", _confirm_new if Run.has_save() else _new_game, not has_sv and not live_on))      # 11/14 UI 4단계: 저장된 판이 있으면 확인부터
 	bv.add_child(_title_btn("온라인 대전", _go_online, false))
 	var low := UI.hbox(UI.SP_S)
 	var sb := UI.btn_ghost("설정", _settings_sheet, UI.BH_S)
@@ -781,6 +797,33 @@ func _title_btn(text: String, cb: Callable, main: bool) -> Button:
 	b.add_theme_font_override("font", DB.title_font(UI.FS_TITLE))
 	b.add_theme_font_size_override("font_size", UI.FS_TITLE if main else UI.FS_LABEL + 2)
 	b.add_theme_color_override("font_color", Color("#f0e6cf"))
+	return b
+
+
+var _dev_title := {}           # 점검용 —— --gtitle=sl : 저장(s) · 대전(l) 있음 (없는 글자는 없음)
+var _title_info := {}          # 점검용 —— 이어하기 버튼 상태 {키: [글, 부제, 켜짐]}
+
+
+## 이어하기 버튼 —— 큰 글 + 부제 한 줄. 이을 게 없으면(on=false) 눌리지 않고 흐리게, 부제가 이유
+func _title_btn2(text: String, sub: String, cb: Callable, on: bool, main: bool, key: String) -> Button:
+	var b := _title_btn("", cb if on else func(): pass, main and on)
+	b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, 64.0)
+	b.disabled = not on
+	var bx := VBoxContainer.new()
+	bx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bx.alignment = BoxContainer.ALIGNMENT_CENTER
+	bx.add_theme_constant_override("separation", 0)
+	bx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := Color("#f0e6cf") if on else Color("#f0e6cf", 0.4)
+	var l1 := UI.lbl(text, UI.FS_TITLE if (main and on) else UI.FS_LABEL + 2, col)
+	l1.add_theme_font_override("font", DB.title_font(UI.FS_TITLE))
+	var l2 := UI.lbl(sub, UI.FS_BODY, Color(DB.PAL.bamboo, 1.0 if on else 0.55))
+	for l in [l1, l2]:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bx.add_child(l)
+	b.add_child(bx)
+	_title_info[key] = [text, sub, on]
 	return b
 
 
@@ -5463,6 +5506,11 @@ func _dev_args() -> void:
 		if str(dk).begins_with("g"):
 			Run.dev_nosave = true
 			break
+	if a.has("gtitle"):      # 점검용 —— --gtitle=sl | s | l | n : 타이틀 이어하기 버튼을 저장 · 대전 있음/없음으로 꾸며 보이고 상태를 찍는다 (11/21)
+		_dev_title = {"save": "s" in a.gtitle, "live": "l" in a.gtitle}
+		_build_title()
+		for k in _title_info:
+			print("TITLE ", k, " 글=", _title_info[k][0], " 부제=", _title_info[k][1], " 켜짐=", _title_info[k][2])
 	if a.has("gnew"):
 		PlayLog.enabled = false        # 점검 실행은 플레이 기록에 섞지 않는다
 		Run.dev_immortal = true        # 11/5 사용자: 자동 진행은 멸망하지 않는다
