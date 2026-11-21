@@ -263,8 +263,9 @@ static func result_stats(items: Array, note_bb := "") -> VBoxContainer:
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var val := lbl(str(it[1]), FS_BODY + 2, it[2] if it.size() > 2 else DB.PAL.paper, true)
 		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		val.clip_text = true      # 긴 이름(수훈)은 칸 안에서 … 로
-		val.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		if str(it[1]).length() > 4:      # 긴 이름(수훈)만 칸 안에서 … 로 —— 11/22 숫자(선택권 12)는 자르지 않는다 ("1" 로 보였다)
+			val.clip_text = true
+			val.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		var nm := lbl(str(it[0]), FS_CAP, DB.PAL.text_dim)
 		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cell.add_child(val)

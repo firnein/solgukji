@@ -2451,6 +2451,9 @@ func _page_draw() -> Control:
 			if not rnd:
 				picker(tt), "gold", false, not can_act())
 		tb.add_theme_color_override("font_color", DB.TIER[tt].c)
+		for l in tb.find_children("*", "Label", true, false):      # 11/22 사용자: 10장 넘으면 「희귀 1」 로 잘려 보였다 —— 수는 자르지 않는다
+			l.clip_text = false
+			l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		UI.tier_mark(tb, tt)
 		acts.add_child(tb)
 	if tks.is_empty() and not pl.is_empty():
