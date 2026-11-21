@@ -18,6 +18,7 @@ const DeathBand := preload("res://scripts/ui/death_band.gd")      # 11/12 장수
 const Ending := preload("res://scripts/ui/ending.gd")      # 11/12 멸망 · 엔딩 연출 + 요약 (class_name 없이) —— show_ending
 const SayBubble := preload("res://scripts/ui/say_bubble.gd")      # 11/12 받은 한마디(글 · 이모티콘) 구름 말풍선 (class_name 없이) —— 11/10 EmotePop 을 대신한다
 const TacUI := preload("res://scripts/ui/tac_ui.gd")      # 11/15 군략 카드 화면 부품 (class_name 없이)
+const BattleUnitCard := preload("res://scripts/ui/battle_unit_card.gd")      # 11/21 전투장수창 본문 (class_name 없이)
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 ## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
 const COACH_STEPS := [
@@ -3539,122 +3540,15 @@ func _stat_cell(icon: String, nm: String, col: Color, num: Control) -> PanelCont
 	return pc
 
 
-## 11/13 사용자: 전투에서 꾹 눌러 나오는 창에 장착 아이템 정보 —— 무기 · 갑옷 한 줄씩 (이름 · 등급 · 효과). 빈 칸은 「없음」.
-## 재료는 시작 능력치(ss)의 item · item2, 없으면(온라인 재생) 전투 결과 명단(res.roster)의 것
-func _battle_gear_rows(b: VBoxContainer, key: String, ss: Dictionary) -> void:
-	var gear := [ss.get("item"), ss.get("item2")]
-	if ss.is_empty() and _battle != null and _battle.res is Dictionary:
-		for r in _battle.res.get("roster", []):
-			if str(r.get("key", "")) == key:
-				gear = [r.get("item"), r.get("item2")]
-				break
-	var v := UI.vbox(3)
-	for si in 2:
-		var sl: String = ["weapon", "armor"][si]
-		var iid = gear[si]
-		if iid != null and DB.IT.has(iid):
-			var it: Dictionary = DB.IT[iid]
-			v.add_child(UI.rich("[color=#A89574]%s[/color]  [color=#%s][b]%s[/b][/color] [color=#A89574]%s[/color]  %s" % [
-				DB.ISLOT_NAME[sl], UI.item_col(iid).lightened(0.2).to_html(false), it.name, it.grade, UI.item_text(iid)], UI.FS_BODY))
-		else:
-			v.add_child(UI.rich("[color=#A89574]%s  없음[/color]" % DB.ISLOT_NAME[sl], UI.FS_BODY))
-	b.add_child(UI.panel(v, 8))
-
-
-## 전투장수창 (11/6 사용자) —— 전투 중 꾹 눌러 연다. 이미 만든 장수라 재료 · 갈무리는 빼고 전투 요소만:
-## 병력 · 사기 · 상태, 공격 · 방어 · 속도 = 기본 수치 + (버프로 늘어난 만큼, 다른 색), 기술 · 고유기 · 특기
+## 전투장수창 (11/6 사용자) —— 전투 중 꾹 눌러 연다. 11/21 폴리싱: 지금 상황(병력 · 사기 · 고유기 기 · 걸린 상태) · 이번 전투 기여 · 전장의 개성 ·
+## 이 장수에게 일어난 사건 기록이 위, 장수 정보(능력치 · 장비 · 고유기 · 기술 · 특기)가 아래. 열어 둔 채 전투가 흐르면 값이 바뀐다 —— scripts/ui/battle_unit_card.gd
 func battle_unit_sheet(key: String) -> void:
 	var sq: Squad = _battle.field.squads.get(key) if _battle and _battle.field else null
 	if sq == null or not DB.C.has(sq.cid):
 		return
-	var k: String = sq.cid
-	var c: Dictionary = DB.C[k]
-	var tc := DB.tier_color(k)
-	var b := open_sheet(c.name, tc.lightened(0.2))
-	var ss: Dictionary = _battle.start_stats(key)
-	var top := UI.hbox(UI.SP_M)
-	var big := CardView.new().setup(k, Vector2(96, 136))
-	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	top.add_child(big)
-	var right := UI.vbox(UI.SP_S)
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var camp := "아군" if sq.camp == "A" else "적군"
-	var pos := ""
-	var fk := str(_battle.res.get("aForm" if sq.camp == "A" else "bForm", ""))
-	var si := int(key.substr(1))
-	if DB.FORM.has(fk) and si >= 0 and si < DB.FORM[fk].slots.size():
-		var sl: Dictionary = DB.FORM[fk].slots[si]
-		pos = UI.pos_name(str(sl.line), int(sl.col))
-	right.add_child(UI.rich("[color=%s][b]%s[/b][/color]  [color=#C6AC7C]%s · %s%s[/color]" % [
-		War3D.TEAM[sq.camp].lightened(0.3).to_html(false), camp, DB.tier_name(k), c.tag, (" · " + pos) if pos != "" else ""], UI.FS_BODY))
-	var state := ("%s / %s명" % [Battle.num(sq.troops), Battle.num(sq.max)]) if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")
-	right.add_child(UI.rich("[color=#A89574]병력[/color] [b]%s[/b]   [color=#A89574]사기[/color] [b]%d[/b]" % [state, roundi(sq.morale)], UI.FS_BODY))
-	if not sq.statuses.is_empty():
-		var names := []
-		for st in sq.statuses:
-			names.append(str(DB.D.STATUS.get(st, {}).get("n", st)))
-		right.add_child(UI.rich("[color=#A89574]상태[/color] [color=#ff9a7a]%s[/color]" % " · ".join(names), UI.FS_BODY))
-	# 공격 · 방어 · 속도 —— 큰 숫자 = 기본, 옆 작은 숫자 = 버프로 늘어난 값(더한 결과가 아니라 늘어난 만큼만)
-	var g := GridContainer.new()
-	g.columns = 3
-	g.add_theme_constant_override("h_separation", 4)
-	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for pair in [["blade", "공격", "atk"], ["shield", "방어", "def"], ["boot", "속도", "spd"]]:
-		var base: float = float(c[pair[2]])
-		var got: float = ss[pair[2]][1] if ss.has(pair[2]) else base
-		var raw: float = ss[pair[2]][2] if ss.has(pair[2]) else base
-		var d := roundi(raw - base)          # 버프로 늘어난 만큼 (초록)
-		var cutv := roundi(raw - got)        # 적 효과로 깎인 만큼 (빨강)
-		var bb := "[center][b][font_size=18]%d[/font_size][/b]" % roundi(base)
-		if d != 0:
-			bb += " [color=%s][font_size=13]%s%d[/font_size][/color]" % ["#7fe0a8" if d > 0 else "#ff7a6a", "+" if d > 0 else "−", absi(d)]
-		if cutv > 0:
-			bb += " [color=#ff7a6a][font_size=13]−%d[/font_size][/color]" % cutv
-		bb += "[/center]"
-		var a := UI.rich(bb, UI.FS_BODY)
-		a.fit_content = true
-		a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.add_child(_stat_cell(pair[0], pair[1], (Color("#6fa8ff") if DB.INT_TAGS.has(c.tag) else Color("#ff6b5a")) if pair[2] == "atk" else DB.PAL.bamboo_dim.lightened(0.15), a))
-	right.add_child(g)
-	if ss.is_empty():
-		right.add_child(UI.hint("온라인 재생은 버프 수치를 계산하지 않는다 —— 기본 수치만."))
-	else:
-		var why := []
-		var lm: Dictionary = DB.D.LINE.get(ss.line, {})
-		if not lm.is_empty():
-			why.append("%s 공격 ×%.2f · 방어 ×%.2f" % [ss.line, float(lm["int"] if Battle.is_caster(c) else lm.atk), float(lm["def"])])
-		var z := DB.aff_of(c.tag, ss.line, ss.side)
-		if z != "":
-			why.append("자리 %s" % ("선호" if z == "pref" else "어색"))
-		for iid in [ss.get("item"), ss.get("item2")]:
-			if iid:
-				why.append("%s %s" % [DB.ISLOT_NAME[DB.item_slot(iid)], DB.IT[iid].name])
-		right.add_child(UI.rich("[color=#7fe0a8]＋늘어난 값[/color] [color=#A89574]%s · 단체 특기 · 위세 · 사기[/color]  [color=#ff7a6a]−깎인 값[/color] [color=#A89574]적 효과 (전투 시작 기준)[/color]" % " · ".join(why), UI.FS_CAP))
-	top.add_child(right)
-	b.add_child(top)
-	_battle_gear_rows(b, key, ss)
-	# 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸 (11/7 사용자)
-	_ability_rows(b, k, 13)
-	# 기술 (자주 쓰는 기술 + 일반 기술)
-	var mk := Battle.minor_kind(k)
-	var bsk := []
-	if mk != "":
-		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, minor_when(k), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
-	for x in c.get("sks", []):
-		bsk.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x, c), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-	if c.get("sks", []).size() >= 2:      # 11/19 준비를 나눠 쓴다는 한 줄
-		bsk.append(UI.rich("[color=#A89574]%s[/color]" % DB.SK_SHARE_NOTE, UI.FS_CAP))
-	if not bsk.is_empty():
-		b.add_child(_kv_stack(bsk))
-	# 특기 —— 이름 · 레벨 · 수치 한 줄씩 (고유 특기는 위 칸에)
-	var tl := DB.trait_list(k).filter(func(x): return not x.unique)
-	if not tl.is_empty():
-		var tg := _info_grid()
-		for t in tl:
-			_info_row(tg, "[b]%s[/b][color=#D9A64B]%d[/color]" % [t.name, int(t.lv)],
-				"[color=#8FD4C2]%s[/color]" % (t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0)))
-		b.add_child(UI.eyebrow("특기 %d" % tl.size()))
-		b.add_child(tg)
+	var b := open_sheet(DB.C[sq.cid].name, DB.tier_color(sq.cid).lightened(0.2))
+	sheet_head(sq.cid, BattleUnitCard.head_extra(_battle, key))      # 갈무리창 · 상세창과 같은 머리 + [아군/적군] [자리] 덧칩
+	b.add_child(BattleUnitCard.new(self, _battle, key))
 
 
 ## 11/7 고유기 기질 (사용자: 플레이어가 알 수 있게) —— 기호(Icons). 11/9 색은 걷었다
