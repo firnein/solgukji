@@ -26,10 +26,9 @@ const OPEN_RT := 0.8        # 실시간 엔진 —— 엔진 0초가 화면 이 
 const STEP := 0.6
 const MELEE_WAIT := 6.0
 const PVP_LEN := 52.0       # 대전·토너먼트 목표 길이(초, 1배속) —— 행동 간격을 벌려 맞춘다. 끝맺음까지 50~60초
-const ONLINE_SPEED := 1.5     # 11/10 사용자: 온라인 재생은 1.5배속 하나만 (배속이 다르면 클라이언트끼리 보는 시점이 어긋난다) —— 배속 단추 · 일시정지는 숨긴다
-const QUEST_SPEED := 1.25   # 11/3 사용자: 기본 배속 2배속 → 11/5 1.25배속 (토벌 · 대전 모두) —— 위 띠에서 바꾼다
-const RAID_SPEED := 2.0     # 11/12 사용자: 토벌은 2배속으로 재생 (혼자 하기 기본 배속 · 온라인 고정 배속 모두, 대전은 위 두 값 그대로)
-var _lock_speed := ONLINE_SPEED      # 온라인 재생의 고정 배속 —— 토벌이면 RAID_SPEED
+# 11/21 사용자: "모든 전투 배속은 1로 함. 멀티에서는 1배속 외에 존재하지 않음. 싱글에서는 1, 1.25, 1.5 존재, 기본값 1."
+const DEFAULT_SPEED := 1.0  # 모든 전투(혼자 하기 토벌 · 대전, 온라인)의 시작 배속
+const ONLINE_SPEED := 1.0   # 온라인 재생은 1배속 하나만 —— 배속 단추 · 일시정지는 숨긴다 (토벌도 같다)
 var pace := 1.0             # 행동 간격 배율 (STEP · 턴 끝 정산에 곱한다)
 var target_len := 0.0       # 0 이면 늘리지 않는다
 
@@ -327,7 +326,7 @@ func _build_top() -> Control:
 	var sp := HBoxContainer.new()
 	sp.add_theme_constant_override("separation", 2)
 	seg.add_child(sp)
-	# 11/14 UI 4단계: 위 띠는 [일시정지] [배속 순환] 두 칸 (모바일 관례 —— 칸마다 손가락이 넉넉히 들어간다). 1 · 1.25 · 2 를 하나씩 고르는 줄은 ⋯ 메뉴에
+	# 11/14 UI 4단계: 위 띠는 [일시정지] [배속 순환] 두 칸 (모바일 관례 —— 칸마다 손가락이 넉넉히 들어간다). 1 · 1.25 · 1.5 를 하나씩 고르는 줄은 ⋯ 메뉴에
 	_pause_top = _top_btn(func():
 		UI.buzz()
 		_set_speed(_run_speed if speed == 0.0 else 0.0))
@@ -383,10 +382,10 @@ func _bar_btn(text: String, cb: Callable) -> Button:
 	return b
 
 
-const SPEEDS := [1.0, 1.25, 2.0]      # 11/5 사용자: 1 · 1.25 · 2배속 (4배속 뺌)
+const SPEEDS := [1.0, 1.25, 1.5]      # 11/21 사용자: 혼자 하기는 1 · 1.25 · 1.5배속 (기본 1)
 var _pause_top: TouchButton = null
 var _cycle_top: TouchButton = null
-var _run_speed := QUEST_SPEED      # 멈췄다 다시 갈 때의 배속
+var _run_speed := DEFAULT_SPEED      # 멈췄다 다시 갈 때의 배속
 
 
 ## 위 띠의 일시정지 · 배속 칸 —— 테두리 없는 면, 멈춤일 때만 금 얇은 선
@@ -421,7 +420,7 @@ func _speed_btn(s: float, h: int, fs: int) -> Button:
 	b.hit.x = 0.0      # 배속 칸은 다닥다닥 붙어 있다 —— 누르는 범위는 위아래로만 넓힌다
 	b.text = "❚❚" if s == 0.0 else ("%s×" % str(s) if s != floorf(s) else "%d×" % s)
 	b.toggle_mode = true
-	b.button_pressed = s == QUEST_SPEED
+	b.button_pressed = s == DEFAULT_SPEED
 	b.custom_minimum_size = Vector2(38, h)
 	b.add_theme_font_size_override("font_size", fs)
 	b.add_theme_stylebox_override("normal", UI.flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, UI.R, 4))
@@ -524,7 +523,7 @@ func _build_side() -> void:
 	v.add_child(UI.eyebrow("진행"))
 	var spd := HBoxContainer.new()
 	spd.add_theme_constant_override("separation", 4)
-	for sv in [0.0, 1.0, 1.25, 2.0]:
+	for sv in [0.0] + SPEEDS:      # 11/21 일시정지 · 1 · 1.25 · 1.5 (위 띠 순환과 같은 목록)
 		var sb2 := _speed_btn(sv, UI.BH_S, UI.FS_BODY)
 		sb2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		spd.add_child(sb2)
@@ -673,7 +672,7 @@ func fit_port() -> void:
 	field.set_portrait(stage.size.x < stage.size.y)
 
 
-## 온라인 재생에서는 배속 단추 · 일시정지를 숨긴다 (1.5배속 고정)
+## 온라인 재생에서는 배속 단추 · 일시정지를 숨긴다 (1배속 고정)
 func _show_speed_ui(on: bool) -> void:
 	if _speed_seg != null:
 		_speed_seg.visible = on
@@ -682,8 +681,8 @@ func _show_speed_ui(on: bool) -> void:
 
 
 func _set_speed(s: float) -> void:
-	if locked and s != _lock_speed:      # 온라인 재생은 어느 경로로 불려도 고정 배속 (대전 1.5 · 토벌 2)
-		s = _lock_speed
+	if locked and s != ONLINE_SPEED:      # 온라인 재생은 어느 경로로 불려도 1배속 (11/21 —— 일시정지도 없다)
+		s = ONLINE_SPEED
 	speed = s
 	if s > 0.0:
 		_run_speed = s
@@ -903,16 +902,81 @@ func play(bt: Dictionary, direct_ := false) -> void:
 	inputs = bt.get("inputs", []).duplicate(true)
 	# 11/19 혼자 하기 전투 계산(PC 약 0.5초, 휴대폰은 몇 초)을 다른 스레드에서 —— 그동안 화면이 멈추지 않는다. 결과는 같은 식 · 같은 시드라 그대로
 	if async_sim and OS.has_feature("threads"):
+		var my := _sim_id + 1
 		var r = await _simulate_async()
 		if r == null:
-			return      # 기다리는 사이 다른 전투가 시작됐거나 화면이 닫혔다
+			if my == _sim_id and is_inside_tree():      # 11/21 다른 전투가 끼어든 것이 아닌데 결과가 없다 —— 덮개만 남기지 않고 바로 다시 계산
+				print("[전투] 계산 스레드 결과 없음 —— 바로 다시 계산한다 (%s · 시드 %s)" % [str(_p.get("title", "")), str(_p.get("seed", ""))])
+				_loading = false
+				_show_load_cover(false)
+				r = _simulate()
+			else:
+				return      # 기다리는 사이 다른 전투가 시작됐거나 화면이 닫혔다
 		res = r
 	else:
 		res = _simulate()
 	_pace_for(str(bt.get("kind", "")))
 	_tac = str(bt.a.get("tac", ""))
+	_start_checked()
+	_set_speed(DEFAULT_SPEED)      # 11/21 사용자: 혼자 하기도 늘 1배속으로 시작 (1.25 · 1.5 는 위 띠에서)
+
+
+## 11/21 토벌이 0:00 에서 멈춘 채 남았다 (위 띠 · 부대 독은 그려졌는데 병사도 시계도 안 움직임) —— 계산 결과가 비었거나 시작 도중 오류가 나면
+## 오류를 찍고 바로(스레드 없이) 한 번 다시 계산해 시작한다. 그래도 안 되면 결과로 넘어갈 수 있게 안내를 띄운다
+func _res_ok(r) -> bool:
+	return r is Dictionary and r.get("ev") is Array and not r.ev.is_empty() and r.get("roster") is Array and not r.roster.is_empty()
+
+
+func _start_checked() -> void:
+	_stall_retry = false
+	if not _res_ok(res):
+		print("[전투] 계산 결과가 비었다 (ev %d · roster %d) —— 바로 다시 계산한다" % [res.get("ev", []).size() if res.get("ev") is Array else -1, res.get("roster", []).size() if res.get("roster") is Array else -1])
+		res = _simulate()
+	running = false
 	_begin()
-	_set_speed(RAID_SPEED if str(bt.get("kind", "")) == "quest" else QUEST_SPEED)
+	if not running and _res_ok(res):
+		print("[전투] 시작 도중 멈춤 (running=false) —— 한 번 더 시작한다")
+		_begin()
+	if not running:
+		print("[전투] 전투를 시작하지 못했다 —— 결과로 넘어가기를 띄운다")
+		_stall_notice()
+
+
+var _stall_retry := false      # 재생이 멈춘 것을 한 번 되살렸다 (같은 판에 두 번은 하지 않는다)
+var _stall_ms := -1            # 시계가 마지막으로 움직인 실제 시각 (ms, -1 = 아직 안 잼)
+var _stall_clock := -1.0
+
+
+## 재생 감시 —— 혼자 하기 전투가 도는데(배속 > 0) 시계가 3초 넘게 그대로면 오류를 찍고, 같은 결과로 한 번 다시 시작한다
+func _watch_stall() -> void:
+	if not running or finished or speed <= 0.0 or locked or _loading or not is_visible_in_tree():
+		_stall_ms = -1
+		return
+	var now := Time.get_ticks_msec() + 1      # 0 부터 세는 시각과 '안 잼'(-1)이 섞이지 않게
+	if _stall_ms < 0 or clock != _stall_clock:
+		_stall_ms = now
+		_stall_clock = clock
+		return
+	if now - _stall_ms < 3000:
+		return
+	_stall_ms = -1
+	print("[전투] 재생이 멈췄다 —— 시계 %.2f · 묶음 %d/%d · 사건 %d (%s)" % [clock, gi, groups.size(), res.get("ev", []).size(), str(_p.get("title", ""))])
+	if _stall_retry:
+		_stall_notice()
+		return
+	_stall_retry = true
+	_begin()
+	_set_speed(_run_speed)
+
+
+func _stall_notice() -> void:
+	if hud != null:
+		hud.announce("전투 화면이 멈췄습니다 —— 위의 「결과로」를 눌러 주세요", DB.PAL.danger)
+	if not locked:
+		if _skip_btn != null:
+			_skip_btn.visible = true
+		if _skip_top != null:
+			_skip_top.visible = true
 
 
 ## 11/19 전투 계산을 스레드로 (play 전용 —— 연습 전투 · 다시 계산(_resim)은 예전처럼 바로 계산)
@@ -935,6 +999,8 @@ func _simulate_async():
 	running = false
 	_loading = true
 	_show_load_cover(true)
+	load("res://scripts/sig_rt.gd")      # 11/21 장수 개성 · 군략 스크립트를 스레드가 처음 읽지 않게 화면 쪽에서 먼저 (RtBattle.run 안의 load 는 캐시를 쓴다)
+	load("res://scripts/tac_rt.gd")
 	for k in _p.a + _p.b:
 		if k != null and DB.C.has(str(k)):
 			DB.passives_of(str(k))
@@ -951,9 +1017,15 @@ func _simulate_async():
 	while th.is_alive():
 		await get_tree().process_frame
 	if _sim_thread != th:
+		if my == _sim_id:      # 화면이 닫혀 스레드를 거뒀다 —— 덮개를 걷는다 (다음 전투가 거둬 갔으면 그쪽 덮개는 그대로)
+			_loading = false
+			_show_load_cover(false)
 		return null      # 그사이 다음 전투가 이 스레드를 거둬 갔다
-	var r: Dictionary = th.wait_to_finish()
+	var r = th.wait_to_finish()      # 11/21 스레드 안 스크립트 오류면 null —— 타입을 박아 두면 여기서 다시 오류가 나 덮개 · _loading 이 남았다
 	_sim_thread = null
+	if not _res_ok(r):
+		print("[전투] 계산 스레드가 결과를 내지 못했다 (%s) —— 바로 다시 계산한다" % type_string(typeof(r)))
+		r = _simulate()
 	Battle.tr_mul = {"A": 1.0, "B": 1.0}
 	Battle.side_trait = {"A": {}, "B": {}}
 	_loading = false
@@ -996,8 +1068,7 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 	speed_sec = {}
 	game_mode = true
 	locked = true
-	_lock_speed = RAID_SPEED if kind == "quest" else ONLINE_SPEED      # 11/12 토벌은 2배속
-	_show_speed_ui(false)      # 11/10 온라인: 1.5배속 고정 (토벌 2배속)
+	_show_speed_ui(false)      # 11/21 온라인: 1배속 고정 (토벌 · 대전 모두) —— 배속 단추 · 일시정지를 숨긴다
 	_skip_btn.visible = false      # 11/10 사용자: 멀티플레이에서 전투 스킵은 없어야 한다 (11/9 에 넣었던 '결과로' 를 뺀다)
 	_skip_top.visible = false
 	_refresh_quick()
@@ -1027,7 +1098,7 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 	_set_speed(ONLINE_SPEED)
 
 
-## 모든 전투를 1배속 기준 50~60초에 맞춘다 (토벌은 2배속으로 보니 25~30초)
+## 모든 전투를 1배속 기준 50~60초에 맞춘다
 var _bgm_kind := ""      # 이번 전투 종류 (quest · pvp · tour) —— 배경 음악 고르기
 
 
@@ -1481,6 +1552,7 @@ func _process(dt: float) -> void:
 				UI.buzz(30)
 				hud.announce("%s 따라가기" % sq.row.name, DB.PAL.gold)
 	_process_inner(dt)
+	_watch_stall()
 	if field:
 		field.pt("[화면전체]", tv)
 
