@@ -482,7 +482,7 @@ func _init(screen: GameScreen, bv: BattleView, unit_key: String) -> void:
 	ult = DB.ult_of(k) if int(c.tier) >= 6 or DB.is_kiin(k) else null
 	if ult != null:
 		temper = Battle.temper_name(c, ult)
-		ult_total = int(Battle.ULT_CHARGES.get(int(c.tier), 1))
+		ult_total = Battle.ult_charges_of(c)
 	add_theme_constant_override("separation", UI.SP_M)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mouse_filter = Control.MOUSE_FILTER_PASS

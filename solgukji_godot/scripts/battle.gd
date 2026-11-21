@@ -138,6 +138,9 @@ const TEMPER := {
 }
 const TEMPER_FREE := 22.0     # 전투 이 초(턴 엔진은 6턴)가 지나면 기질 발동 조건 없이 —— 쓰지도 못하고 끝나지 않게
 const ULT_CHARGES := {6: 3, 7: 3, 8: 3}   # 11/7 사용자: 한 전투에서 다시 쓸 수 있되 쓸수록 어렵게 (예전 1번) —— 3번 상한
+## 고유기 횟수 —— 기인은 등급 번호가 전설(5)이라 표에 없어 1번이 되던 것 (11/21): 대기 시간(first) · 한 방 상한처럼 초월 값을 쓴다
+static func ult_charges_of(c: Dictionary) -> int:
+	return int(ULT_CHARGES.get(6 if str(c.get("kind", "")) == "kiin" else int(c.tier), 1))
 ## 11/7 고유기 재사용 체감 —— 쓴 뒤 게이지 0 에서 다시 모으되 n번 쓴 장수는 기 모이는 속도 × reult_decay^n, 다음 발동은 제 대기 시간 × reult_wait 가 지나야.
 ## 목표(사용자): 두 번째 발동은 가끔(장수 20~30%), 세 번째는 거의 없음, 전투 길이 35초 안팎. 사람이 누르는 can_ult 도 같은 규칙
 static var reult_decay := 0.7      # 11/7 측정: 2회 이상 발동 초월 9 · 불멸 4 · 신화 3%, 3회 0~1% —— 두 번째를 제 속도로 해도 같았다(전투 36~42초에 첫 발동 22~25초라 시간이 한계). 목표 20~30% 는 사용자 결정
@@ -471,7 +474,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	if u.c.tier >= 6 or u.c.kind == "kiin":      # 11/3 기인도 고유기 (초월 세기)
 		u.ult = DB.ult_of(cid)
 		if u.ult:
-			u.charges = ULT_CHARGES.get(u.c.tier, 1)
+			u.charges = ult_charges_of(u.c)
 			u.temper = temper_of(u)
 	return u
 
