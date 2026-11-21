@@ -279,6 +279,10 @@ func info(i: int) -> Dictionary:
 			# 필드만 늘렸다 —— 옛 클라이언트는 모르는 키를 무시한다. 봇 자리에는 없다 (민심도 카드도 없다)
 			row["hp"] = s.run.hp
 			row["key"] = key_cards(s.run)
+			if row.key.is_empty():
+				row["featured"] = featured_cards(s.run.board)
+			if Run.tac_on:
+				row["plan"] = s.run.tk_plan.duplicate()
 		elif s.bot != null:
 			row["hp"] = int(s.bot.get("hp", Run.HP_MAX))      # 11/12 최후 1인 —— 봇도 민심이 있다 (멸망하는 세력)
 		if s.has("rank"):
@@ -483,6 +487,7 @@ func on_cmd(peer: int, m: String, a: Array, q := -1) -> void:
 		server.send(peer, {"t": "toast", "text": why, "kind": "bad"})
 		push(seats[i])      # 클라이언트가 먼저 해 본 조합을 되돌린다
 		return
+	var before := _peer_signature(r)
 	var n_toast := r.toasts.size()
 	var ok = r.command(m, a)
 	if m in ["sell", "buy"]:
@@ -506,11 +511,8 @@ func on_cmd(peer: int, m: String, a: Array, q := -1) -> void:
 				var gi := {"who": seats[i].name, "line": nm, "band": "item"}
 				_news_add({"who": seats[i].name, "text": "%s —— 고대 아이템 「%s」 획득" % [seats[i].name, nm]}, seats[i])
 				_announce("%s —— 고대 아이템 「%s」 획득" % [seats[i].name, nm], gi, seats[i], true)
-	var sig := ",".join(key_cards(r))
-	var changed: bool = sig != str(seats[i].get("key_sig", ""))
-	seats[i]["key_sig"] = sig
-	if changed:
-		push_all()      # 11/11 핵심 유닛이 늘거나 줄었다 —— 다른 사람 화면의 기록 탭도 새로 (보통은 단계가 바뀔 때만 모두에게 간다). 드문 일이라 부담이 없다
+	if before != _peer_signature(r):
+		push_all()
 	else:
 		push(seats[i])
 
@@ -634,6 +636,23 @@ static func key_cards(r: Run) -> Array:
 
 static func key_rank(k: String) -> int:
 	return 5 if DB.is_kiin(k) else int(DB.C[k].tier)
+
+
+static func featured_cards(cards: Array) -> Array:
+	var out := []
+	for k in cards:
+		if k != null and DB.C.has(k) and not out.has(k):
+			out.append(k)
+	out.sort_custom(func(a, b):
+		var ra := key_rank(a)
+		var rb := key_rank(b)
+		return ra > rb if ra != rb else DB.C[a].pv > DB.C[b].pv)
+	return out.slice(0, 3)
+
+
+static func _peer_signature(r: Run) -> Array:
+	var keys := key_cards(r)
+	return [keys, featured_cards(r.board) if keys.is_empty() else [], r.tk_plan.duplicate() if Run.tac_on else []]
 
 
 ## 응답이 없는 사람 몫을 봇이 한다 —— 끊겼거나 단계 내내 아무 행동도 없으면 전부, 행동은 했으면 빈 것만
@@ -1523,6 +1542,7 @@ func _pv(s: Dictionary) -> int:
 
 ## 사람마다 Run.bots 를 다른 자리들의 거울로 채운다 —— 순위 화면·머리띠 순위가 그대로 쓴다
 func _mirror() -> void:
+	var plans := {}
 	for s in humans():
 		var lst := []
 		for o in seats:
@@ -1538,6 +1558,11 @@ func _mirror() -> void:
 				lst.append({"name": o.name, "epi": b.epi, "fac": b.fac, "style": b.style, "pv": b.pv * _bot_mul(o),
 					"w": b.w, "l": b.l, "strikes": b.strikes, "top": 0, "skill": b.skill, "army": (b.get("army", []) as Array).duplicate(),
 					"hp": int(b.get("hp", Run.HP_MAX)), "dead": o.dead})      # 11/12 봇 민심 · 멸망
+				if Run.tac_on and not o.dead:
+					if not plans.has(o.name):
+						var side := Run.bot_side_of(b.duplicate(true), int(rng.seed), day * 3 + phase, _bot_mul(o))
+						plans[o.name] = side.get("plan", {}).get("p", [])
+					lst[-1]["plan"] = plans[o.name]
 		s.run.bots = lst
 
 

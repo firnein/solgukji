@@ -26,6 +26,7 @@ extends Node
 ## 머리띠(GameScreen._render_head)는 온라인이면 방의 일차 · 단계 · 남은 시간을 보인다 —— 혼자 하기의 요일 · 페이즈 · 병사 수 대신 (11/9 사용자: 싱크 · 병사 수 제거).
 
 const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # class_name 없이 (낡은 .godot 캐시에서 'not declared')
+const TacUI := preload("res://scripts/ui/tac_ui.gd")
 const WARN_SEC := 10           # 남은 시간이 이 초 이하(10 → 1)면 붉은 가장자리 깜빡임 (11/12 사용자: 깜빡임은 10초부터)
 const BEEP_SEC := 5            # 비프는 그대로 5초부터 (10초 내내 울리면 시끄럽다)
 ## 11/12 사용자: 4일차~ 준비 15초 —— 깜빡임이 10초부터면 단계의 2/3 가 붉다. 단계 길이(room.stage_len)의 1/3 이하부터, 5 ~ 10초 사이로 (60 · 30초 단계 10초 · 15초 단계 5초)
@@ -355,10 +356,14 @@ func record_notice() -> Control:
 	v.add_child(UI.hair())
 	if net.consented():
 		var row := UI.hbox(UI.SP_S)
-		var l := UI.hint("플레이 기록 동의함 · 이름 · 행동 · 전투 결과")
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(l)
+		var detail := UI.vbox(2)
+		detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		detail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		detail.add_child(UI.lbl("플레이 기록 동의함", UI.FS_BODY, DB.PAL.paper))
+		var fields := UI.lbl("이름 · 행동 · 전투 결과", UI.FS_CAP, DB.PAL.text_dim)
+		UI.wrap_text(fields)
+		detail.add_child(fields)
+		row.add_child(detail)
 		row.add_child(UI.btn("동의 철회", _withdraw_consent, "ghost", UI.BH_S))
 		v.add_child(row)
 		return v
@@ -536,7 +541,7 @@ func connect_sheet(refresh := false) -> void:
 	var create_box := UI.vbox(UI.SP_M)
 	create_box.add_child(UI.eyebrow("방 만들기"))
 	# 11/11 사용자: 총 인원(자리 수)은 방장이 고른다 —— 짝수 4 · 6 · 8. 사람이 앉고 남은 자리만 시작할 때 봇이 채운다
-	var seat_box := UI.vbox(UI.SP_M)
+	var seat_box := UI.vbox(UI.SP_S)
 	create_box.add_child(seat_box)
 	_fill_seat_pick(seat_box)
 	var mk := UI.hbox()
@@ -668,11 +673,26 @@ func _room_option(box: Control, title: String, description: String, items: Array
 	if box.get_child_count() > 0:
 		box.add_child(UI.hair())
 	var field := UI.vbox(UI.SP_XS)
-	field.add_child(UI.lbl(title, UI.FS_BODY, DB.PAL.paper))
+	var label := UI.lbl(title, UI.FS_BODY, DB.PAL.paper)
 	var hint := UI.lbl(description, UI.FS_CAP, DB.PAL.text_dim)
 	UI.wrap_text(hint)
-	field.add_child(hint)
-	field.add_child(UI.segmented(items, selected, change))
+	var options := UI.segmented(items, selected, change)
+	if items.size() == 2:
+		var row := UI.hbox(UI.SP_S)
+		var copy := UI.vbox(2)
+		copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		copy.add_child(label)
+		copy.add_child(hint)
+		options.custom_minimum_size.x = 124
+		options.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(copy)
+		row.add_child(options)
+		field.add_child(row)
+	else:
+		field.add_child(label)
+		field.add_child(hint)
+		field.add_child(options)
 	box.add_child(field)
 
 
@@ -1622,6 +1642,10 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 				return ra > rb if ra != rb else a < b)
 		var row := {"name": str(s.get("name", "")), "me": me, "online": bool(s.get("online", false)), "dead": bool(s.get("dead", false)),
 			"hp": hp, "key": key, "has_key": raw is Array}
+		if key.is_empty() and s.get("featured") is Array:
+			row.key = Room.featured_cards(s.featured)
+		if s.get("plan") is Array:
+			row["plan"] = s.plan
 		if s.has("st"):
 			row["st"] = str(s.st)      # 11/12 지금 하는 일 (Room.seat_status)
 		if me:
@@ -1638,6 +1662,10 @@ func peers_section() -> Control:
 	var seats: Array = room.get("seats", [])
 	var v := UI.vbox(UI.SP_S)
 	for r in peer_rows(room, run.hp, Room.key_cards(run)):
+		if r.me:
+			if r.key.is_empty():
+				r.key = Room.featured_cards(run.board)
+			r["plan"] = run.tk_plan if Run.tac_on else []
 		v.add_child(peer_row(gs, r))
 	for x in seats:
 		if x is Dictionary and not bool(x.get("human", false)):
@@ -1645,7 +1673,7 @@ func peers_section() -> Control:
 				if str(b.name) == str(x.get("name", "")):
 					v.add_child(peer_row(gs, GameScreen.bot_row(run, b)))
 					break
-	return UI.sect("군웅 — 민심 · 핵심 유닛", v)
+	return UI.sect("군웅 현황", v)
 
 
 ## 한 사람(또는 봇)의 칸 —— 혼자 하기 기록 탭(GameScreen._page_rank)도 같이 쓴다
@@ -1707,8 +1735,7 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 	elif r.key.is_empty():
 		pass      # 11/14 UI 4단계: 「핵심 유닛 아직 없음」이 줄마다 반복돼 높이만 차지했다 —— 없으면 줄을 생략
 	else:
-		if bool(r.get("bot", false)):
-			v.add_child(UI.lbl("핵심 유닛 (봇 군세)", UI.FS_CAP, P.text_dim))
+		v.add_child(UI.lbl("핵심 유닛", UI.FS_CAP, P.text_dim))
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 4)
 		fl.add_theme_constant_override("v_separation", 4)
@@ -1718,6 +1745,8 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 			t.tapped.connect(func(kk): scr.card_info(kk))
 			fl.add_child(t)
 		v.add_child(fl)
+	if not r.get("plan", []).is_empty() and not r.dead:
+		v.add_child(TacUI.plan_chips(r.plan, func(text: String): scr.toast(text)))
 	var pnl := UI.panel(v, 10)
 	if r.me:
 		pnl.add_theme_stylebox_override("panel", UI.flat(P.ink3, P.gold, 1, 8, 10))

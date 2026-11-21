@@ -725,11 +725,6 @@ func _build_title() -> void:
 	var logo := TitleBG.Logo.new()
 	logo.custom_minimum_size = Vector2(0, 150)
 	v.add_child(logo)
-	var sub := UI.lbl("THREE KINGDOMS · RANDOM DEFENSE", UI.FS_CAP, DB.PAL.gold)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_constant_override("outline_size", 4)
-	sub.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
-	v.add_child(sub)
 	var ko := UI.lbl("마지막까지 살아남아 천하를 통일하라", UI.FS_LABEL, DB.PAL.bamboo)
 	ko.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ko.add_theme_constant_override("outline_size", 5)
@@ -925,7 +920,7 @@ func _restore_scroll(v: int) -> void:
 ## 기록 탭 —— 위에 [순위 | 계보 | 업데이트] 나눔 탭
 func _page_more(body: Control) -> Control:
 	var v := UI.vbox(UI.SP_L)
-	v.add_child(UI.segmented([["rank", "순위"], ["line", "계보"], ["update", "업데이트"]], page, func(k): go(k)))
+	v.add_child(UI.segmented([["rank", "군웅"], ["line", "계보"], ["update", "업데이트"]], page, func(k): go(k)))
 	v.add_child(body)
 	return v
 
@@ -1639,7 +1634,7 @@ func go_back() -> void:
 	if r.kind == "recipe":
 		recipe_sheet(r.k)
 	else:
-		card_info(r.k, int(r.get("tab", 0)))
+		card_info(r.k, int(r.get("tab", 0)), str(r.get("inyeon", "")))
 
 
 func _update_back() -> void:
@@ -2520,10 +2515,7 @@ func _unique_sheet() -> void:
 		var sp := Control.new()
 		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_child(sp)
-		col.add_child(UI.btn("받기", func():
-			if act("pick_unique", [iid]):      # 11/7 사용자: 아래 알림("○○ 획득 · 아이템 보급")은 뺐다 —— 가운데 띠(_item_band)만. 얻는 소리는 남긴다
-				Sfx.play("gain")
-			close_sheet(), "pri", UI.BH_S))
+		col.add_child(UI.btn("받기", func(): _confirm_unique(iid), "pri", UI.BH_S))
 		var pc := UI.panel(col, 5)
 		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pc.size_flags_stretch_ratio = 1.0
@@ -2539,6 +2531,25 @@ func _unique_sheet() -> void:
 				_unique_sheet()
 			else:
 				toast("바꿀 아이템이 없다"), "ghost", UI.BH_S))
+
+
+func _confirm_unique(iid: String) -> void:
+	var scroll_y := _sheet_scroll.scroll_vertical
+	var b := open_sheet("아이템을 받을까요?", DB.PAL.gold)
+	b.add_child(UI.lbl(str(DB.IT[iid].name), UI.FS_TITLE, DB.PAL.paper, true))
+	b.add_child(UI.hint("확정하면 이번 보급에서 다른 아이템을 고를 수 없습니다."))
+	var row := UI.hbox(UI.SP_S)
+	var cancel := UI.btn("취소", func():
+		_unique_sheet()
+		_restore_sheet_scroll.call_deferred(scroll_y), "ghost")
+	var accept := UI.btn("받기 확정", func():
+		if act("pick_unique", [iid]):
+			Sfx.play("gain")
+			close_sheet(), "pri")
+	for button in [cancel, accept]:
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(button)
+	b.add_child(row)
 
 
 ## 그림을 상자 비율로 —— 얼굴이 있는 위쪽 기준으로 자른다 (myth 면 신화 그림, 없으면 기본 초상)
@@ -2981,10 +2992,14 @@ func can_form() -> bool:
 
 # ───────── 카드 상세 ─────────
 
-func card_info(k: String, tab := -1) -> void:
+func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 	if tab < 0:
-		tab = int(_route.get("tab", 0)) if _route.get("kind") == "card" and _route.get("k") == k else 0
+		tab = 0
+		if _route.get("kind") == "card" and _route.get("k") == k:
+			tab = int(_route.get("tab", 0))
+			inyeon_name = str(_route.get("inyeon", ""))
 	_route_enter("card", k)
+	_route["inyeon"] = inyeon_name
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
 	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
@@ -3637,9 +3652,10 @@ func _card_inyeon(into: Container, k: String) -> void:
 		return
 	var me: String = DB.person(k)
 	var ic := AbilCard.new(DB.PAL.yeon)
+	var route := _route
 	ic.add_child(InyeonUI.detail_row(iy.inyeon, _inyeon_ctx(k), 12, false, func(card: String):
 		if DB.person(card) != me:
-			card_info(card)))
+			card_info(card), Callable(), str(route.inyeon), func(name: String): route["inyeon"] = name))
 	into.add_child(ic)
 
 
@@ -4255,11 +4271,11 @@ func _goal_block() -> Control:
 	if fold:
 		return gsec
 	if not near_all.is_empty():
-		gsec.add_child(UI.lbl("추천 조합 (가까운)", UI.FS_CAP, DB.PAL.danger))
+		gsec.add_child(UI.eyebrow("재료가 거의 모인 조합"))
 		gsec.add_child(_goal_strip(near_all, func(o): return run.goal_reason(o), DB.PAL.seal))      # 11/19 이유 한 마디 (유니크 · 승급 · 역할 보강 · 인연)
 	if not bond_all.is_empty():
 		var owned := run.owned_persons()
-		gsec.add_child(UI.lbl("추천 조합 (인연)", UI.FS_CAP, DB.PAL.yeon))
+		gsec.add_child(UI.eyebrow("인연 추천 조합"))
 		gsec.add_child(_goal_strip(bond_all, func(o): return "인연 %d명" % Run.bond_links(o, owned), DB.PAL.yeon))      # 가진 장수 가운데 같은 인연으로 이어진 수
 	return gsec
 
@@ -4346,8 +4362,14 @@ func _page_forge() -> Control:
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
 	if not ready.is_empty():
 		var sec := UI.vbox(UI.SP_S)
-		sec.add_child(UI.head("지금 조합 가능 %d" % ready.size(), ""))
 		var rs := UI.strip(8)
+		var head := UI.head("지금 조합 가능 %d" % ready.size(), "옆으로 더 보기  ›")
+		var more_hint := head.get_child(1) as Label
+		more_hint.hide()
+		var range_bar: HScrollBar = rs[0].get_h_scroll_bar()
+		range_bar.changed.connect(func():
+			more_hint.visible = range_bar.max_value > range_bar.page)
+		sec.add_child(head)
 		for r in ready:
 			rs[1].add_child(recipe_card(r[0]))
 		sec.add_child(rs[0])
@@ -4372,7 +4394,7 @@ func _page_forge() -> Control:
 	for r in lst.slice(0, shown_n):
 		g.add_child(_forge_tile(r[0]))
 	var sec2 := UI.vbox(UI.SP_S)
-	sec2.add_child(UI.head(("나머지 %d" if not ready.is_empty() else "조합법 %d") % lst.size(), "−N = 모자란 재료 수"))      # 11/14 UI 4단계: 빨간 −1 · −2 배지의 뜻을 머리줄 오른쪽에 한 번
+	sec2.add_child(UI.head("재료 부족 %d" % lst.size(), "−N: 부족한 장수 · ◆: 아이템"))
 	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
 	if shown_n < lst.size():
 		var rest: Array = lst.slice(shown_n)
@@ -4570,12 +4592,13 @@ func boss_panel() -> Control:
 	var qi := Icons.View.new("burst", DB.PAL.gold, 18)
 	qi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	qh.add_child(qi)
-	var ql := UI.rich("[b][color=%s]오늘 토벌 우두머리[/color][/b]  %s" % [DB.PAL.gold.to_html(false), tt], UI.FS_BODY)
+	var ql := UI.head("오늘 토벌 우두머리", "총대장을 베면 승리")
 	ql.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UI.wrap_text(ql)      # 11/20 「병/력 회복」처럼 단어 가운데서 줄이 바뀌었다
 	qh.add_child(ql)
 	v.add_child(qh)
-	v.add_child(UI.rich("[color=%s]총대장을 베면 승리[/color]" % DB.PAL.gold.to_html(false), UI.FS_CAP))      # 11/19 토벌 차별화 A
+	var traits := UI.rich(tt, UI.FS_BODY)
+	UI.wrap_text(traits)
+	v.add_child(traits)
 	if Run.tac_on:
 		v.add_child(TacUI.plan_chips(run.quest_plan(), func(t: String): toast(t)))
 	return UI.panel(v, 10)
@@ -4706,11 +4729,6 @@ func _result_panel() -> Control:
 		items.append(["민심", "−%d" % run.last_hp_loss, DB.PAL.danger])
 	v.add_child(UI.hair())
 	v.add_child(UI.result_stats(items, UI.spoil_note(run.last_spoil)))
-	if not r.win and str(r.get("why", "")) != "":      # 11/9 패배 사유 (민심 깎인 양은 위 결과 줄에 이미 있다)
-		v.add_child(UI.hair())
-		var wl := UI.lbl(str(r.why), UI.FS_BODY, DB.PAL.paper)
-		UI.wrap_text(wl)
-		v.add_child(wl)
 	return UI.panel(v, 12)
 
 
@@ -4907,53 +4925,10 @@ func battle_visible() -> bool:
 	return _battle_layer.visible
 
 
-## 11/9 패배 사유 —— 결과 로스터(등급 · 병력)로 어림한다. 의미 있는 것 두 줄까지 (병력 → 등급 → 낮은 등급 비율 → 빈 칸). 판정과 무관한 안내 글
-func _why_lost(res: Dictionary) -> String:
-	var n_a := 0.0
-	var n_b := 0.0
-	var t_a := 0.0
-	var t_b := 0.0
-	var c_a := 0
-	var c_b := 0
-	var low := 0
-	var b_left := 0.0
-	for u in res.get("roster", []):
-		if u.camp == "A":
-			n_a += float(u.max)
-			t_a += float(u.tier)
-			c_a += 1
-			if int(u.tier) <= 2:
-				low += 1
-		else:
-			n_b += float(u.max)
-			t_b += float(u.tier)
-			c_b += 1
-			b_left += maxf(0.0, float(u.left))
-	var out: Array = []
-	if n_b > n_a * 1.15 and n_a > 0:
-		out.append("적 병력 %s명 대 아군 %s명 —— 머릿수에서 밀렸다." % [Battle.num(int(n_b)), Battle.num(int(n_a))])
-	if c_a > 0 and c_b > 0 and t_b / c_b - t_a / c_a >= 0.5:
-		out.append("적 평균 %.1f등급 대 내 %.1f등급 —— 조합 탭에서 등급을 올리자." % [t_b / c_b, t_a / c_a])
-	if c_a > 0 and low >= 3 and low * 3 >= c_a:
-		out.append("%s · %s 카드가 %d/%d장 —— 같은 카드를 모아 조합하면 강해진다." % [DB.TIER[1].n, DB.TIER[2].n, low, c_a])
-	if c_a < 9:
-		out.append("편성 %d칸만 채웠다 —— 9칸을 모두 채우자." % c_a)
-	if out.is_empty():
-		var pct := roundi(b_left / maxf(1.0, n_b) * 100.0)      # 적이 남긴 병력 비율 —— 60% 이상이면 완패
-		if pct >= 60:
-			out.append("적이 병력 %d%% 를 남긴 완패 —— 등급보다 조합 · 편성 구성을 다시 확인하자." % pct)
-		else:
-			out.append("아깝게 졌다(적 %d%% 남음) —— 편성 탭에서 앞줄 · 뒷줄 배치를 바꿔 보자." % pct)
-	return "
-".join(out.slice(0, 2))
-
-
 func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 	if _dev_bonus_r >= 0.0:      # 점검 전용 —— 온라인은 재생이 결과를 다시 계산하니 여기서 서버가 준 것(dev_fake_room)과 같게 고친다
 		_dev_force_bonus(res)
 	_battle_res = res
-	if not res.win:
-		res["why"] = _why_lost(res)      # 11/9 패배 사유 —— 결과표 · 전투 탭 결과에 한두 줄
 	_plan_hp_fx(res)
 	_plan_bonus_fx(res)
 	if online != null:
@@ -5153,10 +5128,7 @@ func _on_battle_close() -> void:
 		return
 	PlayLog.battle_end(run, run.battle, _battle_res, _battle.end_clock, _battle.inputs, _battle.speed_sec)
 	var hp0 := run.hp
-	var why := str(_battle_res.get("why", ""))
 	run.finish_battle(_battle_res)
-	if why != "" and run.last_result != null:
-		run.last_result["why"] = why
 	if _dev_hploss > 0:      # 점검용 --ghploss : 연출한 만큼만 깎인 것으로 맞춘다
 		run.hp = maxi(0, hp0 - _dev_hploss)
 		run.last_hp_loss = _dev_hploss
@@ -5252,38 +5224,25 @@ func _standings() -> Control:
 
 func _page_rank() -> Control:
 	var v := UI.vbox(UI.SP_L)
-	var sr := UI.grid(80, 4)
-	sr.add_child(UI.stat("%d위" % run.rank(), "%d인 중" % (run.bots.size() + 1)))      # 11/11 온라인은 방 자리 수(4 · 6 · 8)만큼 — 혼자 하기는 봇 7명 = 8인
-	sr.add_child(UI.stat(str(run.my_pv()), "내 전력"))
-	sr.add_child(UI.stat("%d승 %d패%s" % [run.my_w, run.my_l, (" · " + Run.streak_text(run.streak)) if absi(run.streak) >= 2 else ""], "전적"))      # 11/19 연승 · 연패
-	sr.add_child(UI.stat("%d" % run.hp, "민심"))      # 11/9 경고 → 민심 (패배마다 깎이고 0 이면 멸망)
-	v.add_child(UI.sect("군웅 할거 · %d일차 %s" % [run.day + 1, Run.PHASE_N[run.phase]], UI.panel(sr)))
 	if online != null and online.in_game and not online.room.is_empty():
 		v.add_child(online.peers_section())      # 11/11 사용자: 다른 유저의 민심 · 핵심 유닛(기인 · 초월 · 불멸 · 신화)
 	else:
 		v.add_child(_peers_solo())      # 11/12 사용자: 혼자 하기에서도 봇의 핵심 유닛 · 민심을 기록 탭에
-	v.add_child(UI.sect("순위", _standings()))
-	var bv := UI.vbox(UI.SP_S)
-	var bs: Array = run.bots.duplicate()
-	bs.sort_custom(func(a, b): return a.pv > b.pv)
-	for b in bs:
-		bv.add_child(UI.rich("[b]%s[/b]  [color=#A89574]%s 편중 · %s%s[/color]" % [b.name, b.style, DB.FORM[DB.STYLE_FORM[b.style]].n,
-			(" · 토벌 실패 %d" % b.strikes) if b.strikes else ""]))
-	bv.add_child(UI.hint("토벌 · 대전에 지면 민심이 깎이고 0 이면 멸망한다 —— 봇 세력도 같다. 8일차부터는 패배 피해가 매일 커지며, 마지막 한 세력이 천하를 통일한다."))
-	v.add_child(UI.sect("세력 성향", UI.panel(bv)))
 	return v
 
 
 ## 혼자 하기의 「군웅」 —— 온라인 Online.peers_section 과 같은 칸: 나(민심 게이지 · 핵심 유닛) + 봇마다 (전력 높은 순)
 func _peers_solo() -> Control:
 	var v := UI.vbox(UI.SP_S)
+	var keys := Room.key_cards(run)
 	v.add_child(Online.peer_row(self, {"name": "나", "me": true, "online": true, "dead": run.over != null and not run.over.win,
-		"hp": run.hp, "key": Room.key_cards(run), "has_key": true}))
+		"hp": run.hp, "key": keys if not keys.is_empty() else Room.featured_cards(run.board), "has_key": true,
+		"plan": run.tk_plan if Run.tac_on else []}))
 	var bs: Array = run.bots.duplicate()
 	bs.sort_custom(func(a, b): return a.pv > b.pv)
 	for b in bs:
 		v.add_child(Online.peer_row(self, bot_row(run, b)))
-	return UI.sect("군웅 — 민심 · 핵심 유닛", v)
+	return UI.sect("군웅 현황", v)
 
 
 ## 봇 한 줄 (Online.peer_row 의 줄) —— 11/12 최후 1인: 봇도 민심이 있다(멸망하는 세력) —— 민심 게이지 + 전적. 민심을 주지 않는 옛 서버의 봇만 글(전적)로. 핵심 유닛은 bot_key
@@ -5291,8 +5250,13 @@ static func bot_row(r: Run, b: Dictionary) -> Dictionary:
 	var note := "%d승 %d패" % [int(b.get("w", 0)), int(b.get("l", 0))]
 	if int(b.get("strikes", 0)) > 0:
 		note += " · 토벌 실패 %d" % int(b.strikes)
+	var keys := bot_key(r, b)
+	var plan: Array = b.get("plan", [])
+	if Run.tac_on and not r.mp and not bool(b.get("dead", false)):
+		plan = r._bot_side_of(b.duplicate(true)).get("plan", {}).get("p", [])
 	return {"name": str(b.name), "me": false, "online": true, "dead": bool(b.get("dead", false)), "bot": true, "note": note,
-		"hp": clampi(int(b.hp), 0, Run.HP_MAX) if b.has("hp") else -1, "key": bot_key(r, b), "has_key": true}
+		"hp": clampi(int(b.hp), 0, Run.HP_MAX) if b.has("hp") else -1,
+		"key": keys if not keys.is_empty() else Room.featured_cards(b.get("army", [])), "has_key": true, "plan": plan}
 
 
 ## 봇의 핵심 유닛 (11/12 사용자) —— 11/12 부터 봇 군세는 봇마다 한 번 만들어 자라는 것(b.army, Run.bot_grow)이라 그 군세의 기인 이상(Room.is_urgent_unit)을 높은 등급부터 보인다.
@@ -5725,6 +5689,10 @@ func _dev_args() -> void:
 		var tb := _find_btn(_sheet, "받기")
 		if tb != null:
 			tb.pressed.emit()
+			await get_tree().process_frame
+			var confirm := _find_btn(_sheet, "받기 확정")
+			if confirm != null:
+				confirm.pressed.emit()
 	if a.has("gtitle"):
 		_title.visible = true
 	if a.has("gdots") and not Settings.PAINTING_ONLY:          # 점검용 —— 전장 표현 (1 점묘 · 0 3D, 저장하지 않는다)
@@ -6456,6 +6424,8 @@ class TabButton extends Control:
 	var on := false
 	var badge := -1
 	var _press := Vector2.INF
+	var _selected := UI.flat(Color(DB.PAL.gold, 0.10), Color(DB.PAL.gold, 0.26), 1, 4, 0)
+	var _pressed := UI.flat(DB.PAL.ink3, Color.TRANSPARENT, 0, 4, 0)
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
@@ -6466,25 +6436,24 @@ class TabButton extends Control:
 			if e.pressed:
 				_press = e.position
 			else:
-				if _press != Vector2.INF and Rect2(Vector2.ZERO, size).has_point(e.position):
-					tapped.emit(key)
+				var tapped_inside := _press != Vector2.INF and Rect2(Vector2.ZERO, size).has_point(e.position)
 				_press = Vector2.INF
+				if tapped_inside:
+					tapped.emit(key)
+			queue_redraw()
 
 	func _draw() -> void:
-		var col: Color = DB.PAL.gold if on else DB.PAL.bamboo_dim
+		var col: Color = DB.PAL.gold if on else DB.PAL.text_dim
 		var c := Vector2(size.x / 2, 22)
-		if on:
-			draw_rect(Rect2(c.x - 26, 1, 52, 3), DB.PAL.gold)
-			var pill := StyleBoxFlat.new()
-			pill.bg_color = Color(DB.PAL.gold, 0.14)
-			pill.set_corner_radius_all(14)
-			draw_style_box(pill, Rect2(c.x - 28, 8, 56, 28))
+		if on or _press != Vector2.INF:
+			draw_style_box(_pressed if _press != Vector2.INF else _selected, Rect2(5, 4, size.x - 10, size.y - 8))
 		_icon(c, col)
 		draw_string(DB.title_font(13) if on else DB.font_body, Vector2(0, size.y - 8), text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, DB.PAL.paper if on else col)
 		if badge >= 0:
 			var bp := c + Vector2(15, -10)
 			if badge == 0:
-				draw_circle(bp, 4.5, DB.PAL.seal)
+				draw_circle(bp, 5, DB.PAL.ink)
+				draw_circle(bp, 3.5, DB.PAL.danger)
 			else:
 				var s := str(badge) if badge < 100 else "99+"
 				var w := maxf(18.0, DB.font_body.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 8)

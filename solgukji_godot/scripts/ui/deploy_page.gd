@@ -87,10 +87,6 @@ func build() -> Control:
 	var fl := UI.lbl(f.n, UI.FS_LABEL, DB.PAL.paper, true)
 	fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	fnr.add_child(fl)
-	if str(f.get("full", "")) != "" and not open:      # 11/12 진형마다 5칸이 꽉 찬 줄 하나 (열린 때는 머리줄을 한 줄로)
-		var fu := UI.lbl("%s 5칸" % f.full, UI.FS_BODY, DB.PAL.text_dim)
-		fu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		fnr.add_child(fu)
 	fnr.add_child(_inyeon_chip())      # 11/11 인연 —— 진형 이름 옆 칩 (이어진 수 · 누르면 시트)
 	if run.quest_open() and gs.can_form():      # 11/13 사용자: 험지 토벌이 눈에 안 띈다(전투 탭 아래 옅은 버튼뿐) —— 편성 화면 진형 이름 옆 칩
 		fnr.add_child(_hard_chip())
@@ -104,9 +100,11 @@ func build() -> Control:
 	hd.add_child(ab)
 	var cb := UI.btn("해제", func(): gs.act("clear_board"), "ghost", UI.BH_S)
 	cb.add_theme_font_size_override("font_size", UI.FS_BODY)
-	cb.disabled = not gs.can_form()
+	cb.disabled = not gs.can_form() or run.placed() == 0
 	hd.add_child(cb)
 	bp.add_child(hd)
+	if str(f.get("full", "")) != "" and not open:
+		bp.add_child(UI.lbl("%s 5칸" % f.full, UI.FS_CAP, DB.PAL.text_dim))
 	var grid := GridContainer.new()
 	grid.columns = 1 + DB.FORM_COLS      # 11/6 진형 4행 5열
 	grid.add_theme_constant_override("h_separation", 5)

@@ -87,12 +87,19 @@ func _ready() -> void:
 	_ground_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_ground_view)
 	move_child(_ground_view, 0)
+	_scenery = BattlefieldScenery.new()
+	_scenery.view = self
+	_scenery.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scenery.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_scenery.clip_contents = true
+	add_child(_scenery)
+	move_child(_scenery, 1)
 	_under = Under.new()
 	_under.v = self
 	_under.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_under.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_under)
-	move_child(_under, 1)
+	move_child(_under, 2)
 	painting = preload("res://scripts/field/war_painting.gd").new()
 	painting.v = self
 	painting.visible = painting_on()
@@ -154,6 +161,7 @@ func setup() -> void:
 ## 전장 px → 화면 px —— DotView 처럼 아군 아래 · 적 위, 세로를 TILT 만큼 눌러 비스듬히
 ## 11/19 프레임: map · depth_scale 은 한 프레임에 수천 번 불린다 —— 화풍 확인(정적 함수 · 설정 읽기)을 _process 가 한 번 정한 값으로
 var _paint := true
+var _scenery: BattlefieldScenery
 func map(p: Vector2) -> Vector2:
 	var d := p - _center - _jit
 	if _paint:
@@ -538,6 +546,9 @@ func _ground_step() -> void:
 	_ground.position = Vector2.ZERO
 	_ground.size = Vector2(psz)
 	_ground_port.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_scenery.visible = _paint
+	if _paint:
+		_scenery.queue_redraw()
 
 
 ## 진영 시작선 (전장 x) —— 바닥에 옅은 진지선을 긋는다 (11/6 사용자: 바닥 타일링 의미 불분명 → 의미 있는 선만)
@@ -801,6 +812,94 @@ func _draw_formation_preview(ci: CanvasItem) -> void:
 					rect.position.x += h
 					rect.size.x = -h
 				ci.draw_texture_rect_region(_fig_tex, rect, Rect2(_cell(sq.tag) * 48.0 * ATLAS_N, 0, 48, 48), Color(team.lightened(0.1 if row == 0 else 0.0), sq.fade))
+
+
+class BattlefieldScenery extends Control:
+	const PINES := preload("res://assets/trees/fir_sapling.png")
+	const TREE_FRAMES := [Rect2(8, 270, 164, 242), Rect2(198, 324, 151, 188), Rect2(386, 367, 126, 145)]
+	var view: Type2View
+	var objects := []
+	var reference_scale := 0.0
+
+	func setup(seed_value: int) -> void:
+		objects.clear()
+		reference_scale = 0.0
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var side := 1.0 if rng.randf() > 0.5 else -1.0
+		objects.append({"type": "fort", "uv": Vector2(0.5 + side * 0.33, 0.20), "size": 0.76})
+		for i in 3:
+			objects.append({"type": "house", "uv": Vector2(0.5 - side * (0.32 + 0.055 * (i % 2)), 0.31 + 0.047 * i), "size": rng.randf_range(0.65, 0.90)})
+		for edge in [-1.0, 1.0]:
+			for y in [0.24, 0.47, 0.77]:
+				for i in rng.randi_range(3, 6):
+					var uv := Vector2(0.5 + edge * rng.randf_range(0.391, 0.50), y + rng.randf_range(-0.035, 0.047))
+					objects.append({"type": "tree", "uv": uv, "size": rng.randf_range(0.62, 1.27), "frame": rng.randi_range(0, 2)})
+			for i in 3:
+				var uv := Vector2(0.5 + edge * rng.randf_range(0.38, 0.49), rng.randf_range(0.55, 0.93))
+				objects.append({"type": "rock", "uv": uv, "size": rng.randf_range(0.60, 1.25)})
+		objects.sort_custom(func(a, b): return a.uv.y < b.uv.y)
+
+	func _draw() -> void:
+		if size.x <= 0.0 or size.y <= 0.0 or view._scale <= 0.0 or objects.is_empty():
+			return
+		if reference_scale <= 0.0:
+			reference_scale = view._scale
+			for obj in objects:
+				obj["world"] = view.unmap(obj.uv * size)
+		var zoom := view._scale / reference_scale
+		for obj in objects:
+			var p := view.map(obj.world)
+			var depth := lerpf(0.65, 1.15, obj.uv.y)
+			draw_set_transform(p, 0.0, Vector2.ONE * depth * zoom * float(obj.size))
+			match obj.type:
+				"tree":
+					_shadow(18.0)
+					var frame: Rect2 = TREE_FRAMES[obj.frame]
+					var height := 42.0
+					var width := height * frame.size.x / frame.size.y
+					draw_texture_rect_region(PINES, Rect2(-width / 2.0, -height, width, height), frame, Color("#c1b791"))
+				"house":
+					_shadow(28.0)
+					_building(Vector2.ZERO, 30.0, 15.0)
+				"fort":
+					_fort()
+				"rock":
+					_shadow(12.0)
+					_shape([Vector2(-10, 0), Vector2(-6, -8), Vector2(4, -11), Vector2(11, -5), Vector2(9, 1)], Color("#6d6756"))
+					_shape([Vector2(-6, -8), Vector2(4, -11), Vector2(11, -5), Vector2(-1, -4)], Color("#948775"))
+		draw_set_transform(Vector2.ZERO)
+
+	func _shape(points: Array[Vector2], tint: Color) -> void:
+		draw_colored_polygon(PackedVector2Array(points), tint)
+
+	func _shadow(width: float) -> void:
+		_shape([Vector2(-width * 0.5, -2), Vector2(width * 0.35, -5), Vector2(width * 0.85, 5),
+			Vector2(width * 0.48, 9), Vector2(-width * 0.45, 5)], Color("#29271d44"))
+
+	func _building(p: Vector2, width: float, height: float) -> void:
+		var w := width * 0.5
+		draw_rect(Rect2(p + Vector2(-w, -height), Vector2(width, height)), Color("#9d8564"))
+		_shape([p + Vector2(w, -height), p + Vector2(w + 7, -height - 6), p + Vector2(w + 7, -5), p + Vector2(w, 0)], Color("#655945"))
+		draw_rect(Rect2(p + Vector2(-3, -8), Vector2(6, 8)), Color("#423b31"))
+		var top := p - Vector2(0, height)
+		_shape([top + Vector2(-w - 5, 0), top + Vector2(-w + 4, -9), top + Vector2(w + 2, -9),
+			top + Vector2(w + 9, -4), top + Vector2(w + 4, 1)], Color("#4d5247"))
+		draw_line(top + Vector2(-w + 4, -9), top + Vector2(w + 2, -9), Color("#77796a"), 1.4)
+		draw_line(top + Vector2(-w - 4, 0), top + Vector2(w + 4, 1), Color("#35392f"), 1.8)
+
+	func _fort() -> void:
+		_shadow(88.0)
+		draw_rect(Rect2(-42, -19, 84, 19), Color("#757366"))
+		draw_rect(Rect2(-42, -19, 84, 3), Color("#9c9381"))
+		for i in range(-38, 42, 10):
+			draw_rect(Rect2(i, -23, 5, 5), Color("#8e8775"))
+		for row in 2:
+			draw_line(Vector2(-41, -7 - row * 5), Vector2(41, -7 - row * 5), Color("#605d52"), 1)
+		draw_rect(Rect2(-8, -13, 16, 13), Color("#49463f"))
+		_building(Vector2(-34, -13), 18.0, 15.0)
+		_building(Vector2(28, -13), 18.0, 15.0)
+		_building(Vector2(-1, -14), 28.0, 19.0)
 
 
 class Under extends Control:
@@ -2298,6 +2397,7 @@ func _roll_ground() -> void:
 	var r := RandomNumberGenerator.new()
 	var sd = view._p.get("seed") if view != null and view.get("_p") is Dictionary else null
 	r.seed = hash(str(sd) + "바닥") if sd != null else hash(str(field.order.map(func(q): return q.cid)))
+	_scenery.setup(r.seed)
 	var g: Array = GROUNDS[r.randi() % GROUNDS.size()]
 	var m: ShaderMaterial = _ground.material
 	m.set_shader_parameter("seed_off", Vector2(r.randf_range(-4000, 4000), r.randf_range(-4000, 4000)))

@@ -919,6 +919,9 @@ static func _mip1(img: Image) -> Image:
 ## 그림 한 장 읽기 —— 파일 읽기 · 디코드 · 밉맵 · 투명 영역 검사까지 (여기는 메인 스레드가 아니어도 된다: 자기 Image 만 만지고 DB 상태는 건드리지 않는다).
 ## 결과: {img, used(Rect2) · face(Rect2) — 잘라 낸 인물일 때만, panel(패널 윗변 y) — 패널째 잘린 그림일 때만, us(구간별 마이크로초)}. img 가 null 이면 그림 없음
 ## sm —— 작은 칸용 반쪽 (위 '작은 칸용 반쪽 그림'). 큰 그림이면 img 가 1단계 밉맵이고 영역들도 그 크기로 줄어 있다. 원래 작은 그림이면 원본 그대로 + full = true
+const PORTRAIT_FACE_CENTER := {"우금": Vector2(0.53, 0.44), "주창": Vector2(0.53, 0.42), "조홍": Vector2(0.49, 0.36)}
+
+
 static func _decode_portrait(base: String, sm := false) -> Dictionary:
 	var out := {"img": null, "us": {"decode": 0, "res": 0, "mip": 0, "scan": 0}}
 	var us: Dictionary = out.us
@@ -953,6 +956,10 @@ static func _decode_portrait(base: String, sm := false) -> Dictionary:
 					var ur := img.get_used_rect()
 					out.used = Rect2(ur)
 					out.face = _find_face(img, ur)
+					if base.begins_with("res://assets/portraits/") and PORTRAIT_FACE_CENTER.has(base.get_file()):
+						# 깃발이나 장병기가 머리보다 높게 잡히는 초상은 얼굴 위치를 따로 맞춘다.
+						var center: Vector2 = PORTRAIT_FACE_CENTER[base.get_file()] * Vector2(img.get_size())
+						out.face.position = center - out.face.size * 0.5
 					var n := 0
 					var on := 0
 					for y in range(ur.position.y, ur.end.y, 8):

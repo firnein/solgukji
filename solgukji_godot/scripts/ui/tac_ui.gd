@@ -75,7 +75,7 @@ static func card_btn(id: String, cb: Callable, sel := false, note := "", tall :=
 	var gc := Tac.grade_col(id)
 	var sb := UI.flat(P.ink2.lerp(gc, 0.16 if sel else 0.09), P.gold if sel else Color(gc, 0.55), 2 if sel else 1, UI.R, 0)
 	sb.border_width_top = 3
-	sb.border_color = P.gold if sel else gc
+	sb.border_color = P.gold if sel else Color(gc, 0.65)
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(st, sb)
 	var v := UI.vbox(3 if tall else 2)
@@ -337,35 +337,33 @@ static func offer_sheet(gs, sel := "") -> void:
 	if run.tk_offer.is_empty():
 		b.add_child(UI.empty("draw", "고를 카드가 없다", "하루가 끝날 때마다 군략 2장 + 능력치 · 경제 1장이 온다."))
 		return
-	b.add_child(UI.hint("하루를 마친 보상 —— 하나를 고른다. 군략은 손패로, 능력치 · 경제는 바로 또는 영구로."))
-	var row := UI.hbox(UI.SP_S)
+	b.add_child(UI.hint("오늘의 보상을 하나 고르세요."))
+	var row: Container = UI.grid(140, UI.SP_S) if run.tk_offer.size() > 3 else UI.hbox(UI.SP_S)
 	for id in run.tk_offer:
 		var sid := str(id)
 		row.add_child(card_btn(sid, func(): offer_sheet(gs, sid), sid == sel, "", true))
 	b.add_child(row)
-	if sel != "" and Tac.placeable(sel):
-		b.add_child(UI.hint("「%s」 —— 편성 화면의 군략 칸에 놓아 쓴다. 우세 계열을 상대하면 공격 +15%%, 열세 계열을 만나면 효과 절반." % sel))
-	var ok := UI.btn("「%s」 고르기" % sel if sel != "" else "카드를 눌러 고른다", func():
+	var actions := UI.hbox(UI.SP_S)
+	var later := UI.btn("나중에", func(): gs.close_sheet(), "ghost")
+	later.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(later)
+	var ok := UI.btn("받기 확정", func():
 		if sel == "":
 			return
 		var r = gs.act("pick_tac", [sel])
 		gs.close_sheet()
 		if r:
-			gs.toast("군략 「%s」" % sel, "gold"), "pri", UI.BH_L)
+			gs.toast("군략 「%s」" % sel, "gold"), "pri")
 	ok.disabled = sel == ""
-	b.add_child(ok)
-	var hb := UI.hbox(UI.SP_S)
+	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(ok)
+	b.add_child(actions)
 	if run.tk_reroll > 0:
 		var rb := UI.btn("다시 굴리기 (%d)" % run.tk_reroll, func():
 			gs.act("reroll_tac")
-			offer_sheet(gs), "ghost", UI.BH_M)
-		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hb.add_child(rb)
-	var lb := UI.btn("나중에", func(): gs.close_sheet(), "ghost", UI.BH_M)
-	lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(lb)
-	b.add_child(hb)
-	b.add_child(UI.hint("나중에 고르면 머리띠의 「군략 3택1」 로 다시 연다. 다음 날까지 안 고르면 첫 카드를 받는다."))
+			offer_sheet(gs), "ghost", UI.BH_S)
+		b.add_child(rb)
+	b.add_child(UI.hint("나중에 상단의 ‘군략 3택1’에서 다시 열 수 있습니다. 다음 날엔 첫 카드가 자동 지급됩니다."))
 
 
 # ───────── 전투 탭 · 대전 상대 ─────────

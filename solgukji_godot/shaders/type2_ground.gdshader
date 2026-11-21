@@ -74,7 +74,13 @@ void fragment() {
 	vec3 col = mix(grass_lo, grass_hi, n);
 	col *= 0.93 + 0.14 * n2;
 	if (painting) {
-		col = mix(col, texture(painting_ground, ws / 1000.0).rgb, 0.8);
+		vec3 brush = texture(painting_ground, ws / 1000.0).rgb;
+		float field_edge = smoothstep(140.0, 520.0, abs(w.y - mid_y));
+		float meadow = smoothstep(0.40, 0.69, n + (n2 - 0.5) * 0.22);
+		vec3 turf = mix(vec3(0.31, 0.36, 0.26), vec3(0.55, 0.57, 0.39), n2);
+		col = mix(col, brush, 0.74);
+		col = mix(col, turf, meadow * (0.18 + field_edge * 0.40));
+		col *= 0.86 + n * 0.28;
 	}
 	// 마른 흙 얼룩
 	float soil = smoothstep(0.62 - soil_amt * 0.25, 0.72 - soil_amt * 0.25, fbm(ws * 0.0028 + 13.0));
@@ -149,8 +155,8 @@ void fragment() {
 	float fz = smoothstep(forest_amt, forest_amt + 0.1, fbm(ws * 0.003 + 31.0)) * side;
 	if (painting) {
 		// Broad brush masses replace tiny tiled treetops at the low viewing angle.
-		float foliage = smoothstep(0.42, 0.69, fbm(ws * 0.018 + 5.0));
-		col = mix(col, mix(tree_lo, tree_hi, n2), foliage * fz * 0.65);
+		float foliage = smoothstep(0.33, 0.67, n2);
+		col = mix(col, mix(tree_lo, tree_hi, foliage), fz * (0.18 + 0.58 * foliage));
 	}
 	if (fz > 0.01 && !painting) {
 		float cs = 20.0;
@@ -171,16 +177,18 @@ void fragment() {
 	col *= 1.0 - dot(q, q) * 0.35;      // 11/6 적이 있는 위쪽이 너무 어두웠다
 	if (painting) {
 		float grain = hash(floor(ws * 1.5));
-		col = mix(col, vec3(0.79, 0.70, 0.51), 0.10);
-		col *= 0.97 + grain * 0.06;
-		// A distant, hazy tree line establishes eye height; the playable ground
-		// still uses the exact inverse projection shared with the formations.
-		vec3 distant = vec3(0.73, 0.69, 0.55);
-		float ridge = 0.055 + sin(UV.x * 8.0) * 0.016 + sin(UV.x * 21.0) * 0.005;
-		distant = mix(distant, vec3(0.45, 0.48, 0.35), smoothstep(ridge - 0.003, ridge + 0.008, UV.y));
-		float ridge2 = 0.105 + sin(UV.x * 11.0 + 2.0) * 0.015;
-		distant = mix(distant, vec3(0.54, 0.53, 0.36), smoothstep(ridge2 - 0.005, ridge2 + 0.015, UV.y));
-		col = mix(distant, col, smoothstep(0.07, 0.19, UV.y));
+		col *= (0.96 + grain * 0.08) * mix(vec3(0.87, 0.93, 1.0), vec3(1.04, 1.01, 0.91), smoothstep(0.14, 0.72, UV.y));
+		if (UV.y < 0.21) {
+			float profile = UV.x * 5.0 + seed_off.x * 0.001;
+			float hills = noise(vec2(profile, 1.3));
+			float canopy = noise(vec2(profile * 7.0, 5.9));
+			float far_ridge = 0.034 + hills * 0.054;
+			float near_ridge = 0.075 + hills * 0.044 + canopy * 0.019;
+			vec3 distance_col = mix(vec3(0.57, 0.61, 0.60), vec3(0.76, 0.73, 0.60), smoothstep(0.0, 0.095, UV.y));
+			distance_col = mix(distance_col, vec3(0.48, 0.54, 0.50), smoothstep(far_ridge, far_ridge + 0.012, UV.y) * 0.75);
+			distance_col = mix(distance_col, vec3(0.31, 0.38, 0.32), smoothstep(near_ridge, near_ridge + 0.009, UV.y) * 0.83);
+			col = mix(distance_col, col, smoothstep(0.085, 0.21, UV.y));
+		}
 	}
 	COLOR = vec4(col, 1.0);
 }

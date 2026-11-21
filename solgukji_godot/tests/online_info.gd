@@ -1,13 +1,13 @@
 extends Node
 ## 기록 탭의 다른 유저 정보 점검 (11/11 사용자: 다른 유저의 민심 · 핵심 유닛을 본다) —— 가짜 서버로 Room 을 직접 돌린다. TCP 포트를 쓰지 않는다.
 ## 실행: godot --headless --path . res://tests/online_info.tscn
-## ① 서버 줄: 시작 뒤 사람 자리마다 hp(정수) · key(배열), 봇 자리에는 둘 다 없다. 시작 전(대기실)에는 둘 다 없다
+## ① 서버 줄: 시작 뒤 사람 자리마다 민심 · 핵심 유닛 · 선택 군략, 봇 자리에는 민심. 대기실에서는 공개하지 않는다.
 ## ② key 는 기초불신(기인 · 초월 · 불멸 · 신화) id 만 · 손패 + 편성판 모두 · 높은 등급 순 · 중복 없음. 전설(기인 아님) · 일반 카드는 없다
 ## ③ 새는 것이 없다: 줄의 키는 허용 목록 안에서만 (병사 수 · 덱 · 아이템 · 토큰 없음) · 메시지 크기
 ## ④ 핵심 유닛이 바뀌는 명령(조합) 뒤에는 다른 사람에게도 새 room 이 간다
 ## ⑤ 클라이언트 도우미 Online.peer_rows: 옛 서버 줄(hp · key 없음) → hp −1 · has_key false (화면에는 「—」), 엉뚱한 key 는 걸러진다, 나는 내 값으로, 봇은 빠진다
 
-const ALLOWED := ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key"]      # pv 는 이전부터 있던 키 (화면은 쓰지 않는다 —— 결정 ⑥)
+const ALLOWED := ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "featured", "plan", "st"]
 
 class FakeSrv:
 	var out := []        # [peer, msg]
@@ -26,8 +26,8 @@ func _ready() -> void:
 	r.add_human(3, "다", "tk3")
 	# ① 대기실 —— 아직 Run 이 없다
 	for row in r.info(0).seats:
-		if row.has("hp") or row.has("key"):
-			fails.append("대기실 줄에 hp · key 가 있다")
+		if row.has("hp") or row.has("key") or row.has("featured") or row.has("plan"):
+			fails.append("대기실 줄에 전투 정보가 있다")
 	r.start()
 	var seats: Array = r.info(0).seats
 	for k in seats.size():
@@ -37,8 +37,10 @@ func _ready() -> void:
 				fails.append("사람 자리 %d 에 hp 정수가 없다: %s" % [k, str(row.get("hp"))])
 			if not (row.get("key") is Array):
 				fails.append("사람 자리 %d 에 key 배열이 없다" % k)
-		elif row.has("hp") or row.has("key"):
-			fails.append("봇 자리 %d 에 hp · key 가 있다" % k)
+			if Run.tac_on and row.get("plan") != r.seats[k].run.tk_plan:
+				fails.append("사람 자리 %d 에 선택 군략이 없다" % k)
+		elif not (row.get("hp") is int) or row.has("key"):
+			fails.append("봇 자리 %d 의 민심 또는 핵심 유닛 필드가 잘못됐다" % k)
 	# ② 핵심 유닛 —— 자리 1 에 여러 등급을 쥐여 준다 (손패 + 편성판). 시작 패는 기초불신이 아니다
 	var want := {8: [], 7: [], 6: [], 5: []}      # 5 = 기인
 	var legend := ""
@@ -132,6 +134,12 @@ func _ready() -> void:
 		break
 	if not forged:
 		fails.append("조합을 시험하지 못했다 (재료 부족)")
+	if Run.tac_on:
+		srv.out.clear()
+		r.on_cmd(1, "set_plan", [0, ""])
+		var changes := srv.of(2, "state")
+		if changes.is_empty() or changes[-1].room.seats[0].plan[0] != "":
+			fails.append("단계 군략 변경이 다른 사람에게 갱신되지 않았다")
 	# ⑤ 클라이언트 도우미
 	var room_new := {"you": 1, "seats": [
 		{"name": "가", "human": true, "online": true, "dead": false, "hp": 80, "key": ["c177", want[8][0], "KILL", plain, want[8][0], 7]},

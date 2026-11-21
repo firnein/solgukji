@@ -176,7 +176,8 @@ static func members_row(nm: String, ctx: Dictionary, on_card: Callable) -> Contr
 
 ## 디테일창 · 갈무리창의 '인연' 줄 —— 왼쪽 기호 + 라벨, 오른쪽 인연 이름 칩(흐름). 칩을 누르면 아래에 그 인연의 구성원이 나온다 (처음엔 첫 인연).
 ## simple(갈무리창)이면 이름 칩만 —— 줄째 on_tap(디테일창으로). 라벨 칸은 _ability_row 와 같은 폭(80)이라 이름 왼끝이 맞는다
-static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_card: Callable, on_tap := Callable()) -> Control:
+static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_card: Callable, on_tap := Callable(),
+		selected := "", on_select := Callable()) -> Control:
 	var P := DB.PAL
 	var m := MarginContainer.new()
 	var vm := 6 if simple else 8
@@ -219,7 +220,7 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 		return m
 	var holder := UI.vbox(UI.SP_S)
 	v.add_child(holder)
-	var cur := [names[0]]
+	var cur := [selected if names.has(selected) else names[0]]
 	var rf := [Callable()]      # 람다가 자기 자신을 부르려면 배열에 담는다 (지역 변수는 값으로 잡힌다)
 	rf[0] = func():
 		for c in flow.get_children():
@@ -230,6 +231,8 @@ static func detail_row(names: Array, ctx: Dictionary, fs: int, simple: bool, on_
 			flow.add_child(chip(nm, on, func():
 				if cur[0] != nm:
 					cur[0] = nm
+					if on_select.is_valid():
+						on_select.call(nm)
 					rf[0].call()))
 		for c in holder.get_children():
 			holder.remove_child(c)
