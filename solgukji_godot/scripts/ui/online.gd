@@ -1481,7 +1481,7 @@ func _foe_panel() -> Control:
 		rv.add_child(rl)
 		v.add_child(rv)
 	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], UI.FS_BODY))
-	var th = GameScreen.TacUI.hist_line(f.get("tac", []))      # 11/15 상대가 최근 두 판에 쓴 군략 계열
+	var th = TacUI.foe_block(gs)      # 11/21 상대 군략 —— 단계 계획(대전 때 공개, 그 전엔 고르는 중 · 선택 완료) · 지난 대전 · 상시 효과 (11/15 최근 군략 줄을 품는다)
 	if th != null:
 		v.add_child(th)
 	var key := []
@@ -1646,6 +1646,9 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 			row.key = Room.featured_cards(s.featured)
 		if s.get("plan") is Array:
 			row["plan"] = s.plan
+		if s.get("tk") is Dictionary:
+			row["tk"] = s.tk      # 11/21 늘 켜짐 · 영구 효과 · 지난 대전 (TacUI.peer_tac)
+		row["ready"] = bool(s.get("ready", false))
 		if s.has("st"):
 			row["st"] = str(s.st)      # 11/12 지금 하는 일 (Room.seat_status)
 		if me:
@@ -1745,8 +1748,10 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 			t.tapped.connect(func(kk): scr.card_info(kk))
 			fl.add_child(t)
 		v.add_child(fl)
-	if not r.get("plan", []).is_empty() and not r.dead:
-		v.add_child(TacUI.plan_chips(r.plan, func(text: String): scr.toast(text)))
+	if not r.dead:
+		var tv = TacUI.peer_tac(scr, r)      # 11/21 단계 계획(고르는 동안 가림) · 상시 효과 · 지난 대전
+		if tv != null:
+			v.add_child(tv)
 	var pnl := UI.panel(v, 10)
 	if r.me:
 		pnl.add_theme_stylebox_override("panel", UI.flat(P.ink3, P.gold, 1, 8, 10))

@@ -202,14 +202,78 @@ static func clean(plan: Array, hand: Dictionary) -> Array:
 	return out
 
 
-## 전투에 넘길 짐
-static func payload(plan: Array, hand: Dictionary, perm: Dictionary) -> Dictionary:
+## 손패의 늘 켜지는 카드 id (정렬)
+static func own_of(hand: Dictionary) -> Array:
 	var own := []
 	for id in hand:
 		if str(card(str(id)).get("kind", "")) == "passive" and is_on(str(id)):
 			own.append(str(id))
 	own.sort()
-	return {"p": clean(plan, hand), "own": own, "perm": (perm.get("parts", []) as Array).duplicate(true)}
+	return own
+
+
+## 전투에 넘길 짐
+static func payload(plan: Array, hand: Dictionary, perm: Dictionary) -> Dictionary:
+	return {"p": clean(plan, hand), "own": own_of(hand), "perm": (perm.get("parts", []) as Array).duplicate(true)}
+
+
+## 11/21 사용자 "다른 유저가 고른 군략과 버프(기병 속도 10%)도 나열" —— 남에게 보여도 되는 군략 상태 (3택1 로 고른 순간 확정이라 늘 공개).
+## own = 늘 켜지는 카드 id · perm = 능력치 · 경제 카드 이름(Run.tk_perm.notes —— 병종 단련은 「병종 단련 (궁병)」) · hist = 지난 대전 계획(Run.tk_hist, 앞이 최근).
+## 서버 방 정보 seats[].tk(Run.tk_pub) · 군략 현황 화면(tac_ui)이 쓴다. 단계 계획(p)은 여기 없다 —— 고르는 동안은 가린다 (Run.tk_plan_open)
+static func pub(hand: Dictionary, perm: Dictionary, hist: Array) -> Dictionary:
+	return {"own": own_of(hand), "perm": (perm.get("notes", []) as Array).duplicate(), "hist": hist.duplicate(true)}
+
+
+## 상시 효과 줄 —— [{src: 출처 카드 이름, text: 효과(수치) 한 줄, kind: "늘" | "영구", n: 겹친 수}]. 같은 영구 카드를 여러 번 고르면 한 줄에 「×n」.
+## own · perm 은 pub 과 같은 꼴 (믿지 않는다 —— 모르는 이름도 깨지지 않게 이름만 보인다)
+static func buff_rows(own, perm) -> Array:
+	var out := []
+	for id in (own if own is Array else []):
+		var sid := str(id)
+		if CARDS.has(sid) or has(sid):
+			out.append({"src": sid, "text": desc(sid).trim_prefix("[늘] "), "kind": "늘", "n": 1})
+	var order := []
+	var cnt := {}
+	for nm in (perm if perm is Array else []):
+		var s := str(nm)
+		if not cnt.has(s):
+			order.append(s)
+		cnt[s] = int(cnt.get(s, 0)) + 1
+	for s in order:
+		var base: String = s.get_slice(" (", 0)
+		var tag: String = s.get_slice(" (", 1).trim_suffix(")") if s.contains(" (") else ""
+		var n := int(cnt[s])
+		out.append({"src": base, "text": perm_text(base, tag) + (" ×%d" % n if n > 1 else ""), "kind": "영구", "n": n})
+	return out
+
+
+## 영구 효과 한 줄 —— 카드 설명에서 「(영구 …)」 꼬리를 떼고, 무작위 병종은 뽑힌 병종으로 (「병종 단련 (궁병)」 → 「궁병 공격 +8%」)
+static func perm_text(base: String, tag := "") -> String:
+	var t := desc(base)
+	var cut := t.find(" (영구")
+	if cut >= 0:
+		t = t.substr(0, cut)
+	if tag != "":
+		t = t.replace("무작위 병종", tag)
+	return t
+
+
+## 카드가 더한 상성 규칙 {beats, draw_vs} —— 화면 미리보기용 (전투 안 판정 tac_rt._rules 와 같은 표)
+static func rules(id: String) -> Dictionary:
+	var out := {"beats": [], "draw_vs": []}
+	if id == "":
+		return out
+	for part in card(id).get("fx", []):
+		if str(part.get("k", "")) in ["beats", "draw_vs"]:
+			out[str(part.k)].append_array(part.get("fams", []))
+	return out
+
+
+## 두 카드의 상성 미리보기 —— a 쪽에서 본 "win" · "lose" · "draw", 어느 한쪽이 비면 "" (무효 · 연환계는 전투 안에서만 본다)
+static func preview(a: String, b: String) -> String:
+	if a == "" or b == "" or not has(a) or not has(b):
+		return ""
+	return outcome(fams(a), fams(b), rules(a), rules(b))
 
 
 ## 짐이 비었나 (전투 처리를 아예 켜지 않는다)
