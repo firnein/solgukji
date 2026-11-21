@@ -8,10 +8,13 @@ const SFX_NAMES := ["tap", "open", "draw", "gain", "forge", "deny", "hit", "crit
 	"burn", "splash", "confuse", "heal", "debuff", "horn", "drums", "win", "lose", "clash", "arrow", "swing",
 	"alert_beep", "alert_war", "alert_wise"]      # 11/5 shout(함성) 삭제 —— 불쾌하다
 ## 소리마다 기본 크기(dB)와 최소 간격(초)
-const TUNE := {"tap": [-16.0, 0.05], "open": [-16.0, 0.1], "draw": [-10.0, 0.06], "deny": [-14.0, 0.2], "gain": [-10.0, 0.12],
-	"forge": [-8.0, 0.2], "hit": [-15.0, 0.09], "crit": [-10.0, 0.12], "magic": [-13.0, 0.1], "skill": [-9.0, 0.15],
-	"ult": [-6.0, 0.3], "clash": [-12.0, 0.11], "arrow": [-10.0, 0.35], "swing": [-7.0, 0.1], "rout": [-10.0, 0.2], "horn": [-8.0, 0.8], "drums": [-6.0, 1.0], "win": [-5.0, 1.0],
-	"alert_beep": [-9.0, 0.3], "alert_war": [-5.0, 1.0], "alert_wise": [-5.0, 1.0]}      # 11/10 5초 비프 · 긴급 등용 함성 (무장 · 지장)     # 10/31 녹음 소리에 맞춘 크기 (dB) · 최소 간격 (초)
+## 11/21 사운드 폴리싱 —— tools/scripts/polish_sfx.py 로 변형끼리 크기를 맞추고(피크 -1 dBFS) 잰 값에서 거꾸로 정했다.
+## 실효 크기(짧은 구간 최대 RMS + 이 값) 목표: UI -32~-23 · 잦은 전투음 -27~-20 · 상태 효과 -28 · 큰 순간(고유기 · 뿔나팔 · 북 · 승패) -20~-15
+const TUNE := {"tap": [-14.5, 0.05], "open": [-13.8, 0.1], "draw": [-9.9, 0.06], "deny": [-16.2, 0.2], "gain": [-3.0, 0.12],
+	"forge": [-6.9, 0.2], "hit": [-10.5, 0.09], "crit": [-7.1, 0.12], "magic": [-11.2, 0.1], "skill": [-7.6, 0.15],
+	"ult": [-5.2, 0.3], "clash": [-4.7, 0.11], "arrow": [-10.0, 0.35], "swing": [-10.3, 0.1], "rout": [-8.2, 0.2], "horn": [-7.5, 0.8], "drums": [-6.0, 1.0], "win": [-5.0, 1.0],
+	"lose": [-10.6, 1.0], "burn": [-4.6, 0.25], "splash": [-13.8, 0.25], "confuse": [-16.3, 0.25], "heal": [-16.0, 0.25], "debuff": [-16.1, 0.25],
+	"alert_beep": [-9.0, 0.3], "alert_war": [-5.0, 1.0], "alert_wise": [-5.0, 1.0]}      # 11/10 5초 비프 · 긴급 등용 함성 (무장 · 지장)
 const POOL := 12
 const ENABLED := true      # 10/31 사용자: 유치하지 않은 소리로 바꿔 다시 켠다 (CC0 녹음 —— assets/sfx/_licenses/출처.txt)
 
@@ -54,6 +57,7 @@ func _ready() -> void:
 		p.bus = "Music"
 		add_child(p)
 	_bgm_rng.randomize()
+	set_process(false)      # 덕킹할 때만 돈다
 	Settings.load_cfg()
 	apply_volume()
 
@@ -66,7 +70,36 @@ func apply_volume() -> void:
 			continue
 		var v: float = pair[1]
 		AudioServer.set_bus_mute(i, v <= 0.001)
-		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.001)))
+		AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.001)) + (_duck if pair[0] == "Music" else 0.0))
+
+
+## 11/21 덕킹 —— 큰 순간의 소리(고유기 · 뿔나팔 · 긴급 등용)가 날 때 배경 음악을 잠깐 낮춰 소리가 묻히지 않게.
+## [낮출 dB, 유지 초]. 승패 마무리는 곡 자체가 바뀌니 넣지 않는다
+const DUCK := {"ult": [-7.0, 1.6], "horn": [-4.0, 1.0], "alert_war": [-6.0, 1.4], "alert_wise": [-6.0, 1.4]}
+const DUCK_ATTACK := 0.08      # 낮추는 데 걸리는 초
+const DUCK_RELEASE := 0.6      # 되돌아오는 데 걸리는 초
+var _duck := 0.0               # 지금 낮춘 양 (dB, 0 이하)
+var _duck_depth := 0.0
+var _duck_until := 0.0
+
+
+func _duck_start(n: String, now: float) -> void:
+	var d: Array = DUCK[n]
+	_duck_depth = minf(_duck_depth if now < _duck_until else 0.0, float(d[0]))
+	_duck_until = maxf(_duck_until, now + float(d[1]))
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var goal := _duck_depth if now < _duck_until else 0.0
+	var rate := absf(_duck_depth) / (DUCK_ATTACK if goal < _duck else DUCK_RELEASE)
+	_duck = move_toward(_duck, goal, maxf(rate, 1.0) * delta)
+	var i := AudioServer.get_bus_index("Music")
+	if i >= 0 and Settings.bgm_vol > 0.001:
+		AudioServer.set_bus_volume_db(i, linear_to_db(Settings.bgm_vol) + _duck)
+	if goal == 0.0 and _duck == 0.0:
+		set_process(false)
 
 
 func play(n: String, vol_db := 0.0, pitch_var := 0.06) -> void:
@@ -77,6 +110,8 @@ func play(n: String, vol_db := 0.0, pitch_var := 0.06) -> void:
 	if now - float(_last.get(n, -9.0)) < float(tune[1]):
 		return
 	_last[n] = now
+	if DUCK.has(n):
+		_duck_start(n, now)
 	var best: AudioStreamPlayer = null
 	for p in _pool:
 		if not p.playing:

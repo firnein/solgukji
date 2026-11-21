@@ -22,3 +22,9 @@ bgm/battle_3 : Emma_MA "QaziJamJam (orchestral battle theme)" https://opengamear
 bgm/final_1 : Dizzy Crow "Epic transformation [1:24]" https://opengameart.org/content/epic-transformation-124 (CC0)
 bgm/win : Nene "Hero's Reprise" https://opengameart.org/content/heros-reprise (CC0) —— 앞 9초를 잘라 끝을 줄임
 bgm/lose : indieteur "Aftermath" https://opengameart.org/content/aftermath (CC0) —— 앞 11초를 잘라 끝을 줄임
+
+11/21 사운드 폴리싱 (tools/scripts/polish_sfx.py):
+- 같은 이름 변형끼리 크기를 맞추고 피크를 -1 dBFS 로 (원본은 깃 기록에)
+- burn · splash : 직접 합성한 잡음 질감 (음정 없음, 외부 음원 없음)
+- heal · debuff · confuse : magic.wav(RPG Sound Pack, CC0) 를 높이 · 음색만 바꿔 씀
+- lose : horn.wav(Horde War Drums loop, CC0) 를 낮고 짧게 바꿔 씀
