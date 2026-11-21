@@ -3547,6 +3547,7 @@ func battle_unit_sheet(key: String) -> void:
 	if sq == null or not DB.C.has(sq.cid):
 		return
 	var b := open_sheet(DB.C[sq.cid].name, DB.tier_color(sq.cid).lightened(0.2))
+	sheet_head(sq.cid, BattleUnitCard.head_extra(_battle, key))      # 갈무리창 · 상세창과 같은 머리 + [아군/적군] [자리] 덧칩
 	b.add_child(BattleUnitCard.new(self, _battle, key))
 
 
