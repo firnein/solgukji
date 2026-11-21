@@ -1295,9 +1295,11 @@ static func cmd_kind(m: String) -> String:
 
 
 func me() -> Dictionary:
-	if room.is_empty() or int(room.you) < 0:
+	var you := int(room.get("you", -1))      # 11/21 방 정보가 덜 온 때(you · seats 없음)도 있다 —— 낙관적 '준비' 반영 뒤 등
+	var seats: Array = room.get("seats", [])
+	if you < 0 or you >= seats.size() or not seats[you] is Dictionary:
 		return {}
-	return room.seats[int(room.you)]
+	return seats[you]
 
 
 func remain() -> float:
