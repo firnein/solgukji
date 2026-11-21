@@ -438,6 +438,27 @@ var _rows: Array = []        # 기록 줄 [{m, hair, badge, t, title, detail, nv
 var _tl_all := false
 var _tl_dirty := true
 
+# 공방속 (실시간) —— 초상 옆 줄 4
+var _ss := {}                # view.start_stats (전투 시작 기준)
+var _l_sv: Array = []        # 값 글자 × 3
+var _l_sd: Array = []        # 기본 대비 ± 글자 × 3
+var _sv_key := ""
+var _probe_wait := false     # 그림자 계산을 기다리는 중 (전투가 끝나도 _process 를 켜 둔다)
+
+## 그림자 계산 —— 같은 재료 · 시드 · 입력으로 엔진을 다른 스레드에서 한 번 더 돌려, 위치를 적는 때(_record, 0.4초)마다 모든 부대의
+## 공 · 방 · 속 실제 값(Battle.eff —— 진형 · 특기 · 위세 · 고유기 버프 · 깎임 · 병력 · 사기 모두)을 적는다. 재생에는 손대지 않는다.
+## 결과 사건 수가 재생 중인 결과와 다르면(온라인에서 상대 입력을 모를 때 등) 버리고 시작 값을 보인다. 전투(res) 하나에 한 번 —— 창끼리 나눠 쓴다
+static var _pb := {}         # {res, th, st: [[엔진 초, [[공, 방, 속] × 부대]]], bad}
+
+class StatProbe extends RtBattle:
+	var st := []
+	func _record() -> void:
+		super._record()
+		var fr := []
+		for u in units:
+			fr.append([eff(u, "atk"), eff(u, "def"), eff(u, "spd")])
+		st.append([_tm, fr])
+
 # 사건 집계 (이 부대 기준)
 var _dmg_by := {}            # 부대 key -> 준 피해 (기여 순위)
 var _last_hit := {}          # 부대 key -> 마지막으로 친 적 부대 key (격파 몫)
@@ -521,7 +542,14 @@ func _ready() -> void:
 
 
 func _process(dt: float) -> void:
-	if _ended or not is_visible_in_tree():
+	if _ended:      # 전투는 끝났고 그림자 계산만 기다린다 —— 오면 끝 시각 값으로 한 번
+		if _probe_wait and is_instance_valid(view):
+			_probe_start()
+			if not _probe_wait:
+				_update_stats()
+				set_process(false)
+		return
+	if not is_visible_in_tree():
 		return
 	_t += dt
 	if _t < REFRESH:
@@ -602,6 +630,8 @@ func _build_live() -> Control:
 	_l_mo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	r3.add_child(_l_mo)
 	rv.add_child(r3)
+	# 줄 4 —— 공격 · 방어 · 속도 (11/22 사용자: 병력 / 사기 / 공방속 순서로 초상 옆 그라데이션 위에, 지금 실제 값 —— 버프 · 깎임 반영)
+	rv.add_child(_build_stat_row())
 	top.add_child(rv)
 	v.add_child(top)
 	# 고유기 기 —— 이름 · 남은 횟수 · 백분율, 막대, 남은 시간 · 차고 쓰는 때
@@ -642,6 +672,129 @@ func _build_live() -> Control:
 	v.add_child(_st_row)
 	card.add_child(v)
 	return card
+
+
+## 글자 그림자 —— 등급 색 그라데이션 위에서도 읽히게
+static func _shade(l: Label) -> Label:
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	l.add_theme_constant_override("shadow_offset_x", 1)
+	l.add_theme_constant_override("shadow_offset_y", 1)
+	l.add_theme_constant_override("shadow_outline_size", 3)
+	return l
+
+
+func _build_stat_row() -> Control:
+	_ss = view.start_stats(key)
+	var magic: bool = DB.INT_TAGS.has(c.tag)
+	var r := UI.hbox(UI.SP_S)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var i := 0
+	for pair in [["blade", "책략" if magic else "공격"], ["shield", "방어"], ["boot", "속도"]]:
+		var g := UI.hbox(3)
+		g.mouse_filter = Control.MOUSE_FILTER_STOP
+		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.tooltip_text = "%s —— 지금 실제 값 (버프 · 깎임 · 병력 · 사기 반영). 옆 작은 글은 기본 대비" % pair[1]
+		var ic := Icons.View.new(str(pair[0]), (SS.ATK_INT if magic else SS.ATK) if i == 0 else SS.LABEL, 14)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		g.add_child(ic)
+		var vl := _shade(UI.lbl("0", SS.FS_VALUE, SS.TEXT, true))
+		vl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		g.add_child(vl)
+		var dl := _shade(UI.lbl("", SS.FS_SUB, SS.DIM, true))
+		dl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		g.add_child(dl)
+		r.add_child(g)
+		_l_sv.append(vl)
+		_l_sd.append(dl)
+		i += 1
+	return r
+
+
+## 지금 공 · 방 · 속 —— 그림자 계산이 있으면 화면 시계의 값, 없으면 전투 시작 값(start_stats), 그것도 없으면 기본
+func _stat_now() -> Array:
+	var d = _pb.get("st")
+	if d is Array and not d.is_empty() and is_same(_pb.get("res"), view.res) and ki >= 0:
+		var now := maxf(0.0, (view.end_clock if view.end_clock > 0.0 else view.clock) - BattleView.OPEN_RT)
+		var lo := 0
+		var hi: int = d.size() - 1
+		while lo < hi:      # now 이하인 마지막 기록
+			var mid := (lo + hi + 1) >> 1
+			if float(d[mid][0]) <= now:
+				lo = mid
+			else:
+				hi = mid - 1
+		var fr: Array = d[lo][1]
+		if ki < fr.size():
+			return fr[ki]
+	var out := []
+	for st in ["atk", "def", "spd"]:
+		out.append(float(_ss[st][1]) if _ss.has(st) else float(c[st]))
+	return out
+
+
+func _update_stats() -> void:
+	if _l_sv.is_empty():
+		return
+	var now := _stat_now()
+	var vals := []
+	for i in 3:
+		vals.append(roundi(float(now[i])))
+	var sk := str(vals)
+	if sk == _sv_key:
+		return
+	_sv_key = sk
+	var i := 0
+	for st in ["atk", "def", "spd"]:
+		var base := roundi(float(c[st]))
+		var d: int = vals[i] - base
+		var col := SS.VAL if d > 0 else (SS.WARN if d < 0 else SS.TEXT)
+		_l_sv[i].text = str(vals[i])
+		_fc(_l_sv[i], col)
+		_l_sd[i].text = "" if d == 0 else (("+%d" % d) if d > 0 else ("−%d" % absi(d)))
+		_fc(_l_sd[i], col)
+		i += 1
+
+
+## 그림자 계산을 시작한다 (이 전투에서 아직이면). 계산 스레드가 도는 동안(_loading)은 엔진 정적 값을 건드리지 않는다
+func _probe_start() -> void:
+	_probe_poll()
+	if not RtBattle.enabled or is_same(_pb.get("res"), view.res):
+		_probe_wait = _pb.get("th") != null and is_same(_pb.get("res"), view.res)
+		return
+	if _pb.get("th") != null:      # 앞 전투 계산이 아직 돈다 —— 끝나면 다음 갱신 때 다시
+		_probe_wait = true
+		return
+	var p: Dictionary = view._p
+	if p.is_empty() or not p.has("a") or view._loading or view.res.get("ev", []).is_empty():
+		_probe_wait = false
+		return
+	Battle.tr_mul = {"A": float(p.get("tra", 1.0)), "B": float(p.get("trb", 1.0))}
+	Battle.side_trait = {"A": {}, "B": p.get("tb", {})}
+	var inp: Array = view.inputs.duplicate(true)
+	var th := Thread.new()
+	_pb = {"res": view.res, "th": th, "n": view.res.ev.size()}
+	th.start(func() -> Dictionary:
+		var b := StatProbe.new(int(p.seed))
+		var r: Dictionary = b.run(p.a, p.fa, p.get("ma", 100), p.get("ea"), p.b, p.fb, p.get("mb", 100), p.get("eb"),
+			p.title, p.foe, inp, p.policy)
+		return {"st": b.st, "n": r.get("ev", []).size()})
+	_probe_wait = true
+
+
+func _probe_poll() -> void:
+	var th = _pb.get("th")
+	if th == null or th.is_alive():
+		return
+	var out = th.wait_to_finish()
+	_pb.erase("th")
+	if is_instance_valid(view) and not view._loading:
+		Battle.tr_mul = {"A": 1.0, "B": 1.0}
+		Battle.side_trait = {"A": {}, "B": {}}
+	if out is Dictionary and int(out.get("n", -1)) == int(_pb.get("n", -2)):
+		_pb["st"] = out.st
+	else:      # 재생 중인 결과와 다르다 —— 시작 값으로
+		_pb["bad"] = true
+		print("[장수창] 공방속 그림자 계산이 재생과 달라 버린다 (사건 %s / %s)" % [str(out.get("n", "?")) if out is Dictionary else "?", str(_pb.get("n", "?"))])
 
 
 func _st_name(st: String) -> String:
@@ -1237,6 +1390,9 @@ func _refresh(first: bool) -> void:
 		_rebuild_status(sts)
 	if ult != null:
 		_refresh_ult(done)
+	# 공방속 —— 지금 실제 값
+	_probe_start()
+	_update_stats()
 	# 이번 전투
 	var dmg := float(_dmg_by.get(key, 0.0))
 	var kills := _kills
@@ -1285,7 +1441,7 @@ func _refresh(first: bool) -> void:
 		_rebuild_timeline()
 	if done:
 		_ended = true
-		set_process(false)
+		set_process(_probe_wait)
 
 
 ## 고유기 —— 기 · 남은 횟수 · 남은 시간. 시각은 화면 시계(엔진 0초 = OPEN_RT)로, 대기 = 장수 대기 × 기질 배율 (재사용은 × reult 배율, RtBattle.can_ult · _reult_ok 와 같은 식)
@@ -1350,7 +1506,7 @@ func _freeze() -> void:
 # ───────── 장수 정보 (전투 시작 기준) —— 상세창과 같은 부품 ─────────
 
 func _build_info() -> void:
-	var ss: Dictionary = view.start_stats(key)
+	var ss: Dictionary = _ss      # _build_stat_row 가 잰 시작 능력치
 	var iv := UI.vbox(UI.SP_S)
 	iv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	iv.add_child(SS.section("장수 정보", "전투 시작 기준"))
@@ -1403,26 +1559,12 @@ func _build_info() -> void:
 		add_child(_sect(SS.section("특기", "%d개" % tn.size()), gs._trait_icons(tn)))
 
 
-## 공격 · 방어 · 속도 —— SheetStyle 능력치 칸 그대로, 큰 숫자 = 기본 · 옆 작은 글 = 이 전투에서 실제로 달라진 만큼(버프 − 적 깎기).
-## 아래 칩 = 달라진 까닭 (진형 자리 배율 · 자리 선호 · 그 밖)
+## 공방속이 달라진 까닭 칩 (진형 자리 배율 · 자리 선호 · 그 밖) —— 값 자체는 11/22 위 상황판 줄 4(실시간)로 옮겼다
 func _build_stats(ss: Dictionary) -> Control:
 	var v := UI.vbox(6)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var magic: bool = DB.INT_TAGS.has(c.tag)
-	var ac := SS.ATK_INT if magic else SS.ATK
-	var items := []
-	for pair in [["blade", "책략" if magic else "공격", "atk"], ["shield", "방어", "def"], ["boot", "속도", "spd"]]:
-		var base: float = float(c[pair[2]])
-		var got: float = float(ss[pair[2]][1]) if ss.has(pair[2]) else base
-		var d := roundi(got - base)
-		var it := {"icon": pair[0], "label": pair[1], "value": str(roundi(base)), "col": ac if pair[2] == "atk" else SS.TEXT, "icon_col": ac if pair[2] == "atk" else SS.LABEL}
-		if d != 0:
-			it["bonus"] = ("+%d" % d) if d > 0 else ("−%d" % absi(d))
-			it["bonus_col"] = SS.VAL if d > 0 else SS.WARN
-		items.append(it)
-	v.add_child(SS.stat_cells(items))
 	if ss.is_empty():
-		v.add_child(SS.note("온라인 재생은 버프 수치를 계산하지 않는다 —— 기본 수치만", SS.DIM, "news"))
+		v.add_child(SS.note("온라인 재생은 버프 수치를 계산하지 않는다 —— 공방속은 기본 수치만", SS.DIM, "news"))
 		return v
 	var f := UI.flow(5)
 	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1485,6 +1627,8 @@ func dev_dump() -> void:
 		_l_tr.text, _l_pct.text, _l_mo.text, _l_ult.text if _l_ult else "-", _l_ult_sub.text.replace(UI.WJ, "") if _l_ult_sub else "",
 		Battle.num(_dmg_by.get(key, 0.0)), _kills, Battle.num(_heal), Battle.num(_taken), _sig_cnt.text if _sig_cnt else "-", _entries.size(), bad.size()])
 	print("  열기 %.1fms · 갱신 %d번 · 평균 %.2fms · 최대 %.2fms · 끝 %s" % [_us_init / 1000.0, _us_n, _us_sum / 1000.0 / maxf(1.0, _us_n), _us_max / 1000.0, str(_ended)])
+	print("  공방속 %s (기본 %d/%d/%d · 그림자 %s)" % [str(_l_sv.map(func(l): return l.text)) + str(_l_sd.map(func(l): return l.text)),
+		roundi(c.atk), roundi(c.def), roundi(c.spd), "있음" if _pb.has("st") else ("버림" if _pb.has("bad") else ("계산 중" if _pb.has("th") else "없음"))])
 	for b in bad.slice(0, 12):
 		print("  ", b)
 	for e in _entries.slice(maxi(0, _entries.size() - 4)):
