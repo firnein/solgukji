@@ -75,6 +75,7 @@ var _name_draft := ""
 var _stage_len := 0.0             # 지금 단계의 전체 길이 (방 정보 stage_len, 옛 서버는 단계 시작 때 남은 시간)
 var _noon_end_room := ""          # 토벌 종료 띠를 띄운 방 코드 —— 한 판에 한 번 (상태 · 소식 어느 쪽이 먼저 와도)
 var _cmd_t := 0                  # 마지막 명령을 보낸 시각 (ms)
+const STALE_MS := 10000           # 이 안에 온 옛 상태(ack < 보낸 번호)는 화면에 덮지 않는다
 var _cmd_q := 0                  # 11/17 보낸 명령 번호 (서버가 상태의 ack 로 어디까지 처리했는지 알려 준다)
 var _warn_off_no := -1            # 이 단계 번호에서는 '준비 완료'를 눌렀다 —— 서버가 알려 주기 전에도 바로 끈다
 var _render_wait := -1            # 11/20 조작: 다시 그리기를 미루기 시작한 시각 (ms). -1 이면 미룬 것이 없다
@@ -84,6 +85,15 @@ const READY_LOCK_MS := 600        # 이 안의 다시 누름은 버린다 (연�
 var _wait_btns: Array = []        # 11/20 조작: 서버 응답을 기다리며 꺼 둔 버튼 (시작 · 방 만들기 · 참가)
 var _rooms_cap: Label = null      # 접속 시트의 「열린 방 — N개」 줄
 var _rooms_box: VBoxContainer = null      # 접속 시트의 열린 방 목록 —— rooms 가 오면 여기만 다시 채운다
+## 11/21 지연 —— 상태(state)가 올 때마다 페이지를 통째로 다시 지었다 (모두 조합 6개 → 상태 6개 → 다시 짓기 6번, 늦게 와 버리는 상태도 다시 지었다).
+## 이제: 버린 상태(stale)는 머리띠만 · 내가 먼저 해 본 결과와 서버 것이 같으면 머리띠만 · 다르면 그 프레임 끝에 한 번만 다시 짓는다 (_render_soon → _render_flush)
+var _render_queued := false
+var _cmd_sent := {}               # 명령 번호 -> 보낸 시각 (us) —— 왕복 실측 (서버 기록 perf kind "net")
+var _np := {}                     # 이번 단계의 실측 합계 {rtt:[합,최대,수], st:[…], rd:[…], skip, stale}
+var _ready_want := {}             # 11/21 '준비'를 누르면 버튼을 먼저 바꾼다 {sno, on, t} —— 서버가 같은 값을 알려 주거나 3초가 지나면 지운다
+## 11/21 관전 —— 내 전투를 다 보고 기다리는 동안 사람이 낀 전투 목록 (서버 spec_list) · 지금 관전 중인가
+var spec_list: Array = []
+var spectating := false
 
 
 func _ready() -> void:
@@ -107,6 +117,8 @@ func _ready() -> void:
 		_refresh_sheet())
 	net.closed.connect(func():
 		_status = "접속 끊김"
+		_cmd_t = -STALE_MS      # 11/21 끊겼다 —— 답을 못 받은 명령은 잃었을 수 있다. 다시 붙으면 서버 상태를 그대로 믿는다
+		_cmd_sent.clear()
 		if _leaving:
 			return
 		if in_game or not room.is_empty():
@@ -763,14 +775,26 @@ func _on_msg(d: Dictionary) -> void:
 		"state":
 			# 11/17 아직 처리 안 된 내 명령이 있으면(ack < 보낸 번호) 같은 단계의 옛 상태로 화면을 덮지 않는다 —— 연달아 조합할 때 되돌아갔다 다시 나타나
 			# 다시 누르게 되고(서버엔 실패로 쌓였다) 느리게 느껴졌다. 마지막 명령의 상태가 오면 그것으로 맞춘다 (옛 서버는 ack 가 없어 늘 덮는다)
-			var stale: bool = in_game and d.has("ack") and int(d.ack) < _cmd_q and int(d.room.get("stage_no", 0)) == _stage_no and Time.get_ticks_msec() - _cmd_t < 3000      # 3초가 지나면 서버를 믿는다 (명령이 안 닿은 경우)
+			var st0 := Time.get_ticks_usec()
+			# 11/21 바깥 접속(Funnel)은 왕복이 0.6~2.6초까지 늘어 3초 창이 모자랐다 —— 끊김이 아니면 명령은 꼭 닿으므로(TCP) 10초로 늘리고, 끊기면 바로 서버를 믿는다 (closed 에서 _cmd_t 를 지운다)
+			var stale: bool = in_game and d.has("ack") and int(d.ack) < _cmd_q and int(d.room.get("stage_no", 0)) == _stage_no and Time.get_ticks_msec() - _cmd_t < STALE_MS
+			if d.has("ack"):
+				_ack_rtt(int(d.ack))
+			_keep_ready_want(d.room)      # 11/21 방금 누른 '준비'를 서버가 아직 모르면 버튼을 되돌리지 않는다
+			# 11/21 같은 단계 안에서 내 화면과 서버 상태가 같으면(내가 먼저 해 본 결과 그대로) 다시 짓지 않는다 —— 단계가 바뀌면 늘 다시 짓는다
+			var same: bool = in_game and not stale and gs.run != null and int(d.room.get("stage_no", -1)) == _stage_no and _same_view(d.run, d.room)
 			room = d.room
-			if not stale:
+			if not stale and not same:
 				var r := Run.new()
 				r.from_dict(d.run)
 				if in_game:
 					_unpin_claimed(gs.run, r)
 				gs.run = r
+			if stale:
+				_np_add("stale", 1)
+			elif same:
+				_np_add("skip", 1)
+			_np_add("st", Time.get_ticks_usec() - st0)
 			stage_end = Room.now() + float(room.remain)
 			if bool(room.get("started", true)):      # 11/19 돌아갈 판 표시 —— 내 세력이 끝났으면 지운다
 				if gs.run != null and gs.run.over != null:
@@ -779,6 +803,12 @@ func _on_msg(d: Dictionary) -> void:
 					_live_touch()
 			if int(room.get("stage_no", 0)) != _stage_no:
 				_stage_len = float(room.get("stage_len", room.remain))      # 새 단계 —— 길이 (옛 서버는 필드가 없어 지금 남은 시간)
+				_np_flush()      # 11/21 지난 단계의 왕복 · 다시 짓기 실측을 서버 기록으로
+				spec_list = []
+				if spectating:      # 11/21 관전 중에 내 다음 단계가 열렸다 —— 관전을 닫고 넘어간다 (건너뛰었다는 알림 없이)
+					spectating = false
+					if gs.battle_visible():
+						gs.hide_battle()
 				# 새 단계 —— 본 기록을 지운다. 전투는 battles 메시지로 따로 온다. 보는 단계가 아니면 지난 전투 줄 · 결과 칸도 걷는다
 				var was_watch := _stage_no >= 0 and ((gs.battle_visible() and not gs._battle.finished) or not watch.is_empty())      # 결과표를 보는 중이면 그대로 둔다
 				_stage_no = int(room.get("stage_no", 0))
@@ -810,10 +840,35 @@ func _on_msg(d: Dictionary) -> void:
 					_dev_step()
 				return
 			if not gs.battle_visible():
-				_render_soon()
+				if stale or same:
+					gs._render_head()      # 11/21 화면은 그대로 —— 남은 시간 · 단계 머리띠 · 자리 상태 아이콘만
+					_st_refresh()
+				else:
+					_render_soon()
 			_maybe_ask_alone()
 			if dev_auto:
 				_dev_step()
+		"spec_list":
+			# 11/21 관전 목록 —— 내 전투를 다 보고 기다리는 동안 진행 중인 사람 전투 [{id, who, foe, kind, title, at}]. 전투 탭에 「관전」 줄
+			if int(d.get("stage_no", -1)) == int(room.get("stage_no", -2)):
+				spec_list = d.get("list", [])
+				if in_game and gs.page == "war" and not gs.battle_visible():
+					_render_soon()
+				if dev_auto and not spectating and not spec_list.is_empty() and (not gs.battle_visible() or gs._battle.finished):      # 점검(--gauto): 목록이 오면 첫 전투를 관전
+					print("SPEC|목록 %d개 —— %s" % [spec_list.size(), str(spec_list[0])])
+					net.send({"t": "spectate", "id": str(spec_list[0].get("id", ""))})
+		"spec":
+			# 11/21 관전 재생 —— 서버가 이미 계산한 결과를 1배속으로. 그 사람이 보기 시작한 뒤 지난 초(at)만큼 앞으로 감아 지금 보는 지점 근처부터. 판정과 무관
+			if in_game and int(d.get("stage_no", -1)) == int(room.get("stage_no", -2)) and (not gs.battle_visible() or gs._battle.finished) and watch.is_empty() and d.get("res") is Dictionary:
+				spectating = true
+				gs.show_battle(d.res, true, "spec", d.get("params", {}))      # kind "spec" —— 내 민심 · 보상 연출을 띄우지 않는다 (GameScreen._plan_hp_fx · _plan_bonus_fx 는 quest · pvp 만)
+				if gs._battle.has_method("fast_to"):
+					gs._battle.fast_to(float(d.get("at", 0.0)) - 1.5)
+				gs.toast("관전 —— %s · %s" % [str(d.get("who", "")), str(d.get("title", ""))], "news")
+				if dev_auto:      # 점검(--gauto): 재생이 시작되어 빨리 감기로 따라붙는지 2초 뒤 찍는다
+					print("SPEC|관전 시작 %s · at %.1f초" % [str(d.get("who", "")), float(d.get("at", 0.0))])
+					get_tree().create_timer(2.0).timeout.connect(func():
+						print("SPEC|2초 뒤 —— 보임 %s · 재생 %s · 시계 %.1f · 빨리 감기 목표 %.1f" % [gs.battle_visible(), gs._battle.running, gs._battle.clock, gs._battle.ff_until]))
 		"battles":
 			_await_battles = false
 			last_battles = d.list
@@ -826,7 +881,7 @@ func _on_msg(d: Dictionary) -> void:
 					gs.render()
 			else:
 				watch = d.list.duplicate()
-				if not gs.battle_visible():
+				if not gs.battle_visible() or (dev_auto and gs._battle.finished):      # 점검(--gauto)은 지난 결과표를 닫을 사람이 없다
 					watch_next()
 		"toast":
 			gs.toast(str(d.text), str(d.kind))
@@ -905,14 +960,109 @@ func _on_msg(d: Dictionary) -> void:
 
 ## 11/20 조작: 서버 상태가 올 때마다 페이지를 통째로 다시 만들어, 손가락이 눌린 채면 그 탭 · 꾹 누름 · 끌기 · 스크롤이 날아갔다 ——
 ## 화면에 눌림이 있는 동안은 표시만 해 두고(머리띠는 바로) 뗀 다음 프레임에 한 번 그린다 (_process). 길어도 RENDER_HOLD_MS
+## 11/21 한 프레임에 상태가 여럿 와도(모두 조합 · 늦게 몰려온 응답) 그 프레임 끝에 한 번만 짓는다
 func _render_soon() -> void:
+	if _render_queued:
+		return
+	_render_queued = true
+	_render_flush.call_deferred()
+
+
+func _render_flush() -> void:
+	_render_queued = false
+	if not in_game or gs.run == null or gs.battle_visible():
+		return
 	if not gs.touch_held():
 		_render_wait = -1
+		var t0 := Time.get_ticks_usec()
 		gs.render()
+		_np_add("rd", Time.get_ticks_usec() - t0)
 		return
 	gs._render_head()
 	if _render_wait < 0:
 		_render_wait = Time.get_ticks_msec()
+
+
+## 11/21 서버 상태가 지금 내 화면과 같은가 —— Run(내가 먼저 해 본 명령 결과)과 방 정보(남은 시간 remain 빼고)를 JSON 으로 맞춰 비교한다.
+## 서버 것은 JSON 을 거쳐 수가 모두 실수라, 내 쪽도 한 번 JSON 을 거쳐 같은 모양으로 만든 뒤 글자로 비교 (키 정렬)
+func _same_view(run_d: Dictionary, room_d: Dictionary) -> bool:
+	if gs.run == null:
+		return false
+	var mine_only := gs.page != "war"      # 전투 탭(자리 줄에 내 전력이 보인다)이 아니면 내 자리의 Run 에서 나오는 값은 Run 비교로 갈음
+	if _room_key(room, mine_only) != _room_key(room_d, mine_only):
+		return false
+	var mine = JSON.parse_string(JSON.stringify(gs.run.to_dict()))
+	return JSON.stringify(mine) == JSON.stringify(run_d)
+
+
+## 비교용 방 정보 글 —— 남은 시간(remain)과 자리마다의 상태 아이콘(st —— act_st 가 다시 짓지 않고 바꾼다)은 뺀다.
+## drop_mine 이면 내 자리 줄의 전력 · 민심 · 핵심 장수 · 군략(내 Run 에서 나온다 —— Run 이 같으면 같다)도 뺀다 (혼자 하는 방은 내 명령마다 이 값이 바뀌어 늘 다시 지었다)
+static func _room_key(r: Dictionary, drop_mine := false) -> String:
+	var c: Dictionary = r.duplicate(true)
+	c.erase("remain")
+	var ss: Array = c.get("seats", [])
+	for i in ss.size():
+		if ss[i] is Dictionary:
+			ss[i].erase("st")
+			if drop_mine and i == int(c.get("you", -1)):
+				for k in ["pv", "hp", "key", "featured", "plan"]:
+					ss[i].erase(k)
+	return JSON.stringify(c)
+
+
+## 11/21 '준비'를 누른 뒤 서버가 아직 내 준비를 모르는 상태가 오면(누르기 전에 떠난 응답) 내 자리 ready 를 누른 값으로 둔다 —— 버튼이 되돌아갔다 다시 바뀌지 않게.
+## 서버가 같은 값을 알려 주면 · 단계가 바뀌면 · 3초가 지나면 지운다 (서버가 거부했으면 그때 서버 값)
+func _keep_ready_want(room_d: Dictionary) -> void:
+	if _ready_want.is_empty():
+		return
+	var you := int(room_d.get("you", -1))
+	var ss: Array = room_d.get("seats", [])
+	if int(room_d.get("stage_no", -1)) != int(_ready_want.sno) or Time.get_ticks_msec() - int(_ready_want.t) > 3000 or you < 0 or you >= ss.size():
+		_ready_want = {}
+		return
+	if bool(ss[you].get("ready", false)) == bool(_ready_want.on):
+		_ready_want = {}
+		return
+	ss[you]["ready"] = bool(_ready_want.on)
+
+
+## 11/21 명령 왕복 —— 보낸 번호 q 의 상태(ack ≥ q)가 오면 그 사이 시간
+func _ack_rtt(ack: int) -> void:
+	for q in _cmd_sent.keys():
+		if int(q) <= ack:
+			_np_add("rtt", Time.get_ticks_usec() - int(_cmd_sent[q]))
+			_cmd_sent.erase(q)
+
+
+func _np_add(k: String, us: int) -> void:
+	if k == "skip" or k == "stale":
+		_np[k] = int(_np.get(k, 0)) + us
+		return
+	var v: Array = _np.get(k, [0, 0, 0])
+	v[0] += us
+	v[1] = maxi(v[1], us)
+	v[2] += 1
+	_np[k] = v
+
+
+## 단계가 바뀔 때 지난 단계의 실측을 서버 기록(ev perf, kind "net")으로 —— 왕복(rtt) · 상태 처리(st) · 다시 짓기(rd) ms, 건너뛴 다시 짓기 · 버린 상태 수
+func _np_flush() -> void:
+	if _np.is_empty() or net == null or not in_game:
+		_np = {}
+		return
+	var d := {"kind": "net", "os": OS.get_name(), "dev": OS.get_model_name(), "ver": Changelog.version()}
+	for k in ["rtt", "st", "rd"]:
+		if _np.has(k):
+			var v: Array = _np[k]
+			d[k if k != "rd" else "rd_ms"] = snappedf(v[0] / 1000.0 / maxf(1, v[2]), 0.1)
+			d[k + "_max"] = snappedf(v[1] / 1000.0, 0.1)
+			d[k + "_n" if k != "rd" else "rd"] = v[2]
+	d["skip"] = int(_np.get("skip", 0))
+	d["stale"] = int(_np.get("stale", 0))
+	_np = {}
+	if dev_auto:
+		print("NETPERF|", JSON.stringify(d))
+	net.send({"t": "perf", "d": d})
 
 
 ## 11/20 조작: 서버 응답을 기다리는 버튼(시작 · 방 만들기 · 참가) —— 누르면 꺼 두고(연타로 같은 요청이 두 번 나가지 않게)
@@ -950,15 +1100,27 @@ func noon_end_band(line: String) -> void:
 
 
 func send_cmd(m: String, a: Array) -> void:
+	if not net.is_open():
+		return      # 11/21 끊긴 동안의 명령은 서버에 닿지 않는다 —— 번호를 올리면 다시 붙은 뒤 서버 상태를 10초 동안 '옛 것'으로 버렸다. 다음 상태가 내 화면을 맞춘다
 	_cmd_q += 1
 	_cmd_t = Time.get_ticks_msec()
+	_cmd_sent[_cmd_q] = Time.get_ticks_usec()
+	if _cmd_sent.size() > 64:      # 답이 안 온 것(끊김)이 쌓이지 않게
+		_cmd_sent.erase(_cmd_sent.keys()[0])
 	net.send({"t": "cmd", "m": m, "a": a, "q": _cmd_q})
 
 
 ## '준비 완료' —— 지금 단계 번호를 실어 보낸다 (지난 단계의 준비가 다음 단계에 섞이지 않게)
+## 11/21 버튼(준비 완료 ↔ 준비 취소)과 자리 줄은 서버 답을 기다리지 않고 바로 바꾼다 —— 바깥 접속(Funnel)은 왕복이 길어 누른 뒤 한참 그대로였다. 확정은 서버 상태로 (_keep_ready_want)
 func send_ready(on: bool) -> void:
 	_warn_off_no = int(room.get("stage_no", -1)) if on else -1
 	net.send({"t": "ready", "on": on, "sno": int(room.get("stage_no", -1))})
+	var my := me()
+	if not my.is_empty() and bool(my.get("ready", false)) != on:
+		_ready_want = {"sno": int(room.get("stage_no", -1)), "on": on, "t": Time.get_ticks_msec()}
+		my["ready"] = on
+		if in_game and not gs.battle_visible():
+			_render_soon()
 
 
 ## 한마디 —— 미리 적힌 글의 번호만 보낸다 (서버가 2초에 한 번으로 거른다)
@@ -1251,6 +1413,7 @@ func _stage_moved() -> void:
 
 
 func watch_next() -> void:
+	spectating = false      # 11/21 관전 전투를 닫았다 (종료) —— 아래 길은 내 전투를 다 본 것과 같다 (이미 준비라 다시 보내지 않는다)
 	if watch.is_empty():
 		if gs.battle_visible():
 			gs.hide_battle()
@@ -1824,6 +1987,9 @@ func war_page() -> Control:
 			v.add_child(gs.boss_panel())
 		if watching and not watch.is_empty():
 			v.add_child(UI.btn("남은 전투 보기 (%d)" % watch.size(), func(): watch_next(), "gold", UI.BH_M))
+	# (b2) 11/21 관전 —— 내 전투를 다 보고 다른 사람을 기다리는 동안, 아직 진행 중인 사람 전투를 골라 본다 (봇끼리 승부는 전투가 없어 목록에 없다)
+	if watching and not spec_list.is_empty() and watch.is_empty() and (bool(my.get("ready", false)) or bool(my.get("dead", false)) or last_battles.is_empty()):
+		v.add_child(UI.sect("관전 — 진행 중인 전투", _spec_panel()))
 	# (c) 이번 단계 전투 —— 본 전투의 결과 칸 + 한 줄씩
 	if not last_battles.is_empty():
 		var bv := UI.vbox(UI.SP_S)
@@ -1857,6 +2023,26 @@ func war_page() -> Control:
 		var rn := seats.filter(func(x): return x.human and x.ready).size()
 		v.add_child(UI.sect("자리 — 사람 %d · 봇 %d · 준비 %d/%d" % [hn, seats.size() - hn, rn, hn], UI.panel(sv, 10)))
 	return v
+
+
+## 11/21 관전 목록 —— 한 줄에 「누구 — 상대 · 토벌/대전 · N초째」 + [관전] (1배속, 그 사람이 보는 지점 근처부터)
+func _spec_panel() -> Control:
+	var rows := UI.vbox(UI.SP_S)
+	for i in spec_list.size():
+		var it: Dictionary = spec_list[i]
+		if i > 0:
+			rows.add_child(UI.hair())
+		var h := UI.hbox(UI.SP_S)
+		var kind := "토벌" if str(it.get("kind", "")) == "quest" else "대전"
+		var lb := UI.lbl("%s — %s · %s" % [str(it.get("who", "")), str(it.get("foe", "")), kind], UI.FS_BODY, DB.PAL.paper)
+		lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lb.clip_text = true
+		h.add_child(lb)
+		var id := str(it.get("id", ""))
+		h.add_child(UI.btn("관전 ›", func(): net.send({"t": "spectate", "id": id}), "gold", UI.BH_M))
+		rows.add_child(h)
+	return UI.panel(rows, 10)
 
 
 ## 점검용 —— 서버 없이 전투 탭을 그려 본다 (--gsheet=onwar:noon 등). 가짜 방 정보 + 지금 Run 으로 토벌 하나를 계산해 '본 전투'로 둔다

@@ -19,6 +19,8 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##   alone {go}            혼자 남았을 때의 답 —— go 가 참이면 봇만 상대로 계속, 아니면 방을 닫는다
 ##   say {i}               한마디 —— Room.QUICK_MSGS 의 번호 (자유 입력 없음, 2초에 한 번). 방의 모두에게 say 로 뿌린다 (11/9)
 ##   emote {i}             한마디 이모티콘 —— 0 ~ Room.EMOTE_N-1 번호만 (글과 같은 2초 간격). 방의 모두에게 {"t":"emote","who","i"} (11/10)
+##   spectate {id}         11/21 관전 —— spec_list 의 id("자리:번호"). 내 전투를 다 본 사람만. 답: spec {id, who, foe, title, kind, res, params, at(그 사람이 보기 시작한 뒤 초), stage_no}
+##                         spec_list {list: [{id, who, foe, kind, title, at}], stage_no} 은 보는 단계에서 다 본 사람에게 목록이 바뀔 때마다 온다
 ## 32KB 가 넘는 메시지는 gzip 바이너리로 보낸다.
 ## 보내는 것: hello {id, token} · rooms {list} · room {room} · state {run, room} · battles {list, stage, stage_no, seen} · toast {text, kind, news?} · say {who, text} · error {msg} · left
 ## 방 정보(room)에 11/11 추가: noon(이 일차에 점심 단계가 있나 — 4일차부터 false) · act(지금 cmd 를 받나). 없으면(옛 서버) 클라이언트가 점심 있음 · 준비 단계만으로 본다.
@@ -32,6 +34,16 @@ var peers := {}               # id -> {ws, name, token, room}
 var rooms := {}               # code -> Room
 var _next_id := 1
 var max_msg := 0              # 점검용 —— 가장 큰 메시지 (보낸 바이트, 압축 뒤)
+## 11/21 지연 실측 —— --lagstat 을 주면 5초마다 서버 한 프레임 · 메시지 처리 · 보낸 양을 한 줄로 찍는다 (tests/net_lag 와 짝). 없으면 재지 않는다
+var lagstat := false
+var _ls := {}                 # 종류 -> [횟수, 합 us, 최대 us] (h:받은 메시지 처리 · s:보낸 메시지 바이트 · f:프레임 · tick)
+var _ls_t := 0
+var _ls_frame := 0
+## 11/21 상태 모아 보내기 —— 받은 메시지를 처리하는 동안(_batch) Room.push 는 자리마다 한 번으로 모았다가 처리가 끝나면 그때의 최신 상태를 한 번 보낸다.
+## 모두 조합(명령 여러 개가 한 번에 옴)마다 상태(5KB)가 명령 수만큼 가서 휴대폰이 그만큼 화면을 다시 짓던 것 (측정: 조합 6개 → 상태 6개 · 29KB).
+## 다른 종류의 메시지를 그 사람에게 보내기 전에는 모아 둔 상태를 먼저 보낸다 (순서 유지 —— 상태 다음에 전투 · 알림)
+var _batch := false
+var _st_q := {}               # peer -> [Room, 자리 Dictionary]
 
 
 func _ready() -> void:
@@ -39,6 +51,8 @@ func _ready() -> void:
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		if kv[0] == "port" and kv.size() > 1:
 			port = int(kv[1])
+		elif kv[0] == "lagstat":
+			lagstat = true
 	var err := tcp.listen(port, "*")
 	if err != OK:
 		printerr("포트 %d 을(를) 열지 못했다 (%s) — 다른 프로그램이 쓰고 있지 않은지 확인" % [port, error_string(err)])
@@ -53,6 +67,9 @@ func _ready() -> void:
 
 
 func _process(_dt: float) -> void:
+	var f0 := Time.get_ticks_usec() if lagstat else 0
+	if lagstat and _ls_frame > 0:
+		_ls_add("gap", f0 - _ls_frame)      # 프레임 사이 간격 (서버가 얼마나 자주 소켓을 보나)
 	while tcp.is_connection_available():
 		var ws := WebSocketPeer.new()
 		ws.inbound_buffer_size = 1 << 22
@@ -63,7 +80,10 @@ func _process(_dt: float) -> void:
 			var id := _next_id
 			_next_id += 1
 			peers[id] = {"ws": ws, "name": "", "token": "", "room": "", "rec": false}
+	_batch = true
 	for id in peers.keys():
+		if not peers.has(id):
+			continue
 		var p: Dictionary = peers[id]
 		var ws: WebSocketPeer = p.ws
 		ws.poll()
@@ -73,27 +93,86 @@ func _process(_dt: float) -> void:
 					var txt := ws.get_packet().get_string_from_utf8()
 					var d = JSON.parse_string(txt)
 					if typeof(d) == TYPE_DICTIONARY and d.has("t"):
+						var h0 := Time.get_ticks_usec() if lagstat else 0
 						_handle(id, d)
+						if lagstat:
+							_ls_add("h:" + str(d.t) + (":" + str(d.get("m", "")) if d.t == "cmd" else ""), Time.get_ticks_usec() - h0)
 			WebSocketPeer.STATE_CLOSED:
 				_drop(id)
+	_batch = false
+	flush_states()
 	for code in rooms.keys():
 		var r: Room = rooms[code]
+		var k0 := Time.get_ticks_usec() if lagstat else 0
 		r.tick()
+		if lagstat:
+			var k := Time.get_ticks_usec() - k0
+			if k > 1000:
+				_ls_add("tick", k)
 		# 아무도 없는 방은 10분 뒤 (끝난 방은 1분 뒤) 지운다
 		if r.empty_since > 0 and Room.now() - r.empty_since > (60.0 if r.stage == "over" else 600.0):
 			rooms.erase(code)
 			print("방 %s 정리" % code)
 		elif not r.started and r.seats.is_empty():
 			rooms.erase(code)
+	if lagstat:
+		var now_us := Time.get_ticks_usec()
+		_ls_add("frame", now_us - f0)
+		_ls_frame = now_us
+		if now_us - _ls_t > 5000000:
+			_ls_t = now_us
+			var parts := []
+			for k in _ls:
+				var v: Array = _ls[k]
+				parts.append("%s n%d avg%.1f max%.1f" % [k, v[0], v[1] / 1000.0 / maxf(1, v[0]), v[2] / 1000.0])      # ms (s:* 는 KB)
+			print("LAGSTAT|" + " | ".join(parts))
+			_ls.clear()
+
+
+func _ls_add(k: String, us: int) -> void:
+	var v: Array = _ls.get(k, [0, 0, 0])
+	v[0] += 1
+	v[1] += us
+	v[2] = maxi(v[2], us)
+	_ls[k] = v
+
+
+## Room.push 가 묻는다 —— 지금 모으는 중이면 맡아 두고 true (같은 사람의 앞선 것은 덮는다: 보낼 때 그때의 최신 상태를 짓는다)
+func queue_state(peer: int, room: Room, seat: Dictionary) -> bool:
+	if not _batch:
+		return false
+	_st_q[peer] = [room, seat]
+	return true
+
+
+func batching() -> bool:
+	return _batch
+
+
+## 모아 둔 상태를 보낸다
+func flush_states() -> void:
+	while not _st_q.is_empty():
+		var peer: int = _st_q.keys()[0]
+		var e: Array = _st_q[peer]
+		_st_q.erase(peer)
+		(e[0] as Room).push_now(e[1])
 
 
 func send(id: int, msg: Dictionary) -> void:
+	if _st_q.has(id) and str(msg.get("t", "")) != "state":
+		var e: Array = _st_q[id]      # 이 사람에게 모아 둔 상태가 있으면 먼저 (상태 → 전투 · 알림 순서를 지킨다)
+		_st_q.erase(id)
+		(e[0] as Room).push_now(e[1])
 	if not peers.has(id):
 		return
 	var ws: WebSocketPeer = peers[id].ws
 	if ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
+		var j0 := Time.get_ticks_usec() if lagstat else 0
 		var txt := JSON.stringify(msg, "", false, true)
 		var raw := txt.to_utf8_buffer()
+		if lagstat:
+			_ls_add("s:" + str(msg.get("t", "")), raw.size())
+			_ls_add("json", Time.get_ticks_usec() - j0)
 		if raw.size() > 32768:
 			# 큰 메시지(전투 결과)는 gzip 으로 줄여 바이너리로 보낸다 —— 받는 쪽이 풀어 쓴다
 			var z := raw.compress(FileAccess.COMPRESSION_GZIP)
@@ -186,9 +265,13 @@ func _handle(id: int, d: Dictionary) -> void:
 			if rooms.has(p.room):
 				rooms[p.room].on_emote(id, int(d.get("i", -1)))
 		"perf":
-			# 11/19 전투 프레임 실측 —— 클라이언트가 전투 하나를 본 뒤 보내는 요약. 기록만 한다
+			# 11/19 전투 프레임 실측 —— 클라이언트가 전투 하나를 본 뒤 보내는 요약. 기록만 한다 (11/21 kind "net" = 왕복 · 상태 처리 실측)
 			if rooms.has(p.room) and d.get("d") is Dictionary:
 				rooms[p.room].on_perf(id, d.d)
+		"spectate":
+			# 11/21 관전 —— 내 전투를 다 본 뒤 다른 사람(사람이 낀) 전투를 받아 재생. 판정과 무관
+			if rooms.has(p.room):
+				rooms[p.room].on_spectate(id, str(d.get("id", "")))
 
 
 func _leave(id: int) -> void:
