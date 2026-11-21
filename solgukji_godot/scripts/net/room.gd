@@ -385,6 +385,16 @@ func _live() -> Array:
 		return not s.dead or (stage in WATCH_STAGES and not s.battles.is_empty()))
 
 
+## 단계가 기다리는 사람 —— _live, 단 보는 단계에서 그 목록이 비면(모두 봇 대행 auto) 접속해 있고 볼 전투가 있는 사람.
+## 11/21 전엔 빈 목록이면 '모두 준비'가 아니어서 아무도 안 기다린 채 단계 시간(점심 75초 · 저녁 100초)을 다 채웠다.
+## 봇끼리 · 봇 대 유랑군 승부는 전투 없이 바로 정해지므로(_pvp_bots) 기다릴 것이 없다
+func _waiting() -> Array:
+	var live := _live()
+	if live.is_empty() and stage in WATCH_STAGES:
+		live = humans().filter(func(s): return s.peer >= 0 and not s.battles.is_empty())
+	return live
+
+
 ## 사람이 나 혼자 남았나 —— 다른 사람이 모두 멸망했거나 나갔다(토큰 끊김). 2명 이상이던 방에서 한 번만 묻는다 (결정 ④)
 func _check_alone() -> void:
 	if not started or stage == "over" or human_n0 < 2 or alone != "":
@@ -414,10 +424,14 @@ func on_alone(peer: int, go: bool) -> void:
 
 
 func tick() -> void:
+	if _mirror_due:      # 모아 보내는 동안 미룬 것 —— 보낼 사람이 없었어도 단계 진행 전에 맞춰 둔다
+		_mirror_due = false
+		_mirror()
 	if not started or stage == "over":
 		return
 	_status_sync()
-	var live := _live()
+	_spec_sync()      # 11/21 관전 목록
+	var live := _waiting()
 	var all_ready := not live.is_empty() and live.all(func(s): return s.ready)
 	if now() < stage_end and not all_ready:
 		return
@@ -659,7 +673,9 @@ static func _peer_signature(r: Run) -> Array:
 func _fill(s: Dictionary, full_if_idle := true) -> void:
 	var r: Run = s.run
 	var idle: bool = s.peer < 0 or (full_if_idle and not s.acted)
-	s["auto"] = idle      # 11/11 봇이 대신했다 —— 이어지는 전투 보는 단계에서 기다리지 않는다 (_live)
+	# 11/11 봇이 대신했다 —— 이어지는 전투 보는 단계에서 기다리지 않는다 (_live).
+	# 11/21 명령 없이 '준비 완료'만 누른 사람은 자리에 있다 —— 대행으로 찍으면 혼자 하는 방에서 아무도 안 기다려 점심 75초 · 저녁 100초를 다 채웠다 (기록 18번, 준비 뒤 30~66초)
+	s["auto"] = s.peer < 0 or (idle and not s.ready)
 	if rlog != null and idle:      # 행동은 했지만 못 끝낸 사람의 빈 편성 채우기는 적지 않는다 —— 봇이 통째로 대신한 것만
 		rlog.event(_idx(s), r, "bot_fill", {"disconnected": s.peer < 0})
 	r.bot_prepare(idle)
@@ -1353,10 +1369,11 @@ func on_perf(peer: int, d: Dictionary) -> void:
 	if i < 0 or rlog == null:
 		return
 	var out := {}
-	for k in ["n", "avg", "max", "s25", "s50", "lv", "lv_max", "units", "q"]:
+	# 11/21 kind "net" —— 휴대폰이 잰 명령 왕복(rtt · 보냄 → 그 번호가 실린 상태) · 상태 처리(st) · 화면 다시 짓기(rd 횟수 · rd_ms) · 건너뛴 다시 짓기(skip) · 늦게 와 버린 상태(stale)
+	for k in ["n", "avg", "max", "s25", "s50", "lv", "lv_max", "units", "q", "rtt", "rtt_max", "rtt_n", "st", "st_max", "st_n", "rd", "rd_ms", "rd_max", "skip", "stale"]:
 		if d.has(k) and (d[k] is float or d[k] is int):
 			out[k] = d[k]
-	for k in ["os", "dev", "gpu", "ver"]:
+	for k in ["os", "dev", "gpu", "ver", "kind"]:
 		if d.has(k):
 			out[k] = str(d[k]).left(48)
 	if d.get("win") is Array and (d.win as Array).size() == 2:
@@ -1566,15 +1583,33 @@ func _mirror() -> void:
 		s.run.bots = lst
 
 
+## 11/21 서버가 받은 메시지를 처리하는 중이면 자리마다 한 번으로 모아 두었다가(MatchServer.queue_state) 처리가 끝나면 push_now —— 그때의 최신 상태 · 마지막 ack
 func push(s: Dictionary) -> void:
 	if s.peer < 0:
 		return
+	if server != null and server.has_method("queue_state") and server.queue_state(s.peer, self, s):
+		return
+	push_now(s)
+
+
+var _mirror_due := false      # 11/21 모아 보내는 동안 미룬 _mirror (봇 군세 계획을 명령마다 다시 짓지 않게)
+
+
+func push_now(s: Dictionary) -> void:
+	if s.peer < 0:
+		return
+	if _mirror_due:
+		_mirror_due = false
+		_mirror()
 	server.send(s.peer, {"t": "state", "run": s.run.to_dict(), "room": info(seats.find(s)), "ack": int(s.get("ack", -1))})
 
 
 func push_all() -> void:
 	if started:
-		_mirror()
+		if server != null and server.has_method("batching") and server.batching():
+			_mirror_due = true
+		else:
+			_mirror()
 		for s in humans():
 			push(s)
 	else:
@@ -1584,5 +1619,81 @@ func push_all() -> void:
 ## 이 단계의 전투 —— 아직 안 봤으면 보게, 이미 다 봤으면(재접속) 목록만 (seen)
 func _send_battles(s: Dictionary) -> void:
 	if s.peer >= 0 and stage in WATCH_STAGES and not s.battles.is_empty():
+		if not s.watched:
+			s["bt_t"] = now()      # 11/21 관전 —— 이 사람이 전투를 보기 시작한 때 (관전자는 여기서 지난 초만큼 앞으로 감아 본다)
 		server.send(s.peer, {"t": "battles", "list": s.battles, "day": day, "phase": phase, "stage_no": stage_no,
 			"stage": stage, "seen": s.watched})
+
+
+# ───────── 관전 (11/21 사용자: 내 전투가 먼저 끝나 기다리는 동안 사람이 낀 전투를 본다) ─────────
+## 판정 · 진행과 무관 —— 서버가 이미 계산해 둔 결과(s.battles)를 그대로 보낸다. 봇끼리 승부는 전투가 없어(_pvp_bots) 목록에 없다.
+## 목록 = 지금 보는 단계에서 아직 보고 있는(준비 전) 사람 자리의 전투. 사람끼리 대전은 한쪽 것 하나만. 받는 사람 = 다 보고 준비한(또는 볼 전투가 없는) 접속자
+var _spec_sig := ""
+
+
+func spec_list(viewer: int) -> Array:
+	var out := []
+	if not (stage in WATCH_STAGES):
+		return out
+	var waiting := _waiting()
+	for j in seats.size():
+		var s: Dictionary = seats[j]
+		if j == viewer or not s.human or s.ready or s.battles.is_empty() or not _in(waiting, s):
+			continue
+		for k in s.battles.size():
+			var b: Dictionary = s.battles[k]
+			var foe := str(b.get("res", {}).get("foe", ""))
+			var fi := _seat_by_name(foe)
+			if fi == viewer:
+				continue      # 나와의 대전은 이미 봤다
+			if fi >= 0 and seats[fi].human and fi < j and _in(waiting, seats[fi]) and not seats[fi].ready:
+				continue      # 사람끼리 대전 —— 앞자리 쪽 하나만
+			out.append({"id": "%d:%d" % [j, k], "who": str(s.name), "foe": foe, "kind": str(b.get("kind", "")), "title": str(b.get("title", "")),
+				"at": snappedf(now() - float(s.get("bt_t", now())), 0.1)})
+	return out
+
+
+static func _in(arr: Array, s: Dictionary) -> bool:      # 같은 자리인지만 (has 는 내용 비교라 큰 자리 사전에 느리다)
+	return arr.any(func(x): return is_same(x, s))
+
+
+func _seat_by_name(nm: String) -> int:
+	for i in seats.size():
+		if str(seats[i].name) == nm:
+			return i
+	return -1
+
+
+## 목록이 바뀌었으면(누가 준비함 · 단계가 바뀜 · 끊김) 받을 사람에게 다시 보낸다 —— tick 에서 매 프레임 서명만 비교
+func _spec_sync() -> void:
+	if not (stage in WATCH_STAGES):
+		return
+	var parts := [str(stage_no)]
+	for s in seats:
+		parts.append("%s%s%s" % [int(s.human and s.ready), int(s.human and s.peer >= 0), int(s.human and s.get("auto", false))])
+	var sig := ",".join(parts)
+	if sig == _spec_sig:
+		return
+	_spec_sig = sig
+	for i in seats.size():
+		var s: Dictionary = seats[i]
+		if s.human and s.peer >= 0 and (s.ready or s.battles.is_empty()):
+			server.send(s.peer, {"t": "spec_list", "list": spec_list(i), "stage_no": stage_no})
+
+
+## 관전 요청 {id: "자리:번호"} —— 다 본 사람만. 결과 · 재료 · 그 사람이 보기 시작한 뒤 지난 초(at)
+func on_spectate(peer: int, id: String) -> void:
+	var i := seat_of(peer)
+	var p := id.split(":")
+	if i < 0 or p.size() != 2 or not (stage in WATCH_STAGES):
+		return
+	if not (seats[i].ready or seats[i].battles.is_empty()):
+		return      # 내 전투를 다 본 뒤에만
+	var j := int(p[0])
+	var k := int(p[1])
+	if j < 0 or j >= seats.size() or not seats[j].human or k < 0 or k >= seats[j].battles.size():
+		return
+	var b: Dictionary = seats[j].battles[k]
+	server.send(peer, {"t": "spec", "id": id, "who": str(seats[j].name), "foe": str(b.get("res", {}).get("foe", "")), "title": str(b.get("title", "")),
+		"kind": str(b.get("kind", "")), "res": b.res, "params": b.get("params", {}), "stage_no": stage_no,
+		"at": snappedf(now() - float(seats[j].get("bt_t", now())), 0.1)})

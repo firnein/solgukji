@@ -47,6 +47,9 @@ var _speed_row_menu: Control = null  # ⋯ 메뉴의 배속 줄 (온라인 재�
 var res: Dictionary
 var rng := RandomNumberGenerator.new()
 var speed := 1.0
+## 11/21 온라인 관전 —— 이 전투 시각까지는 빨리 감는다 (다른 사람이 지금 보고 있는 지점 근처부터 보게). 화면 연출만, 결과는 서버 것 그대로
+var ff_until := 0.0
+const FF_SPD := 8.0
 var speed_sec := {}       # 배속마다 본 실제 초 (플레이 기록 —— PlayLog)
 var clock := 0.0
 var running := false
@@ -883,6 +886,7 @@ func _simulate() -> Dictionary:
 ## 게임에서 부른다 —— bt 는 Run.battle (a·b 진영 {cards, form, morale, equip}, seed, title, foe, inputs)
 func play(bt: Dictionary, direct_ := false) -> void:
 	end_clock = 0.0
+	ff_until = 0.0
 	speed_sec = {}
 	game_mode = true
 	locked = false
@@ -1092,10 +1096,19 @@ func play_res(r: Dictionary, kind := "", params := {}) -> void:
 			"policy": bp.get("pol", {"A": "smart", "B": "smart"}), "tra": float(pa.get("tr_mul", 1.0)), "trb": float(pb.get("tr_mul", 1.0)), "tb": pb.get("trait", {})}
 	inputs = []
 	res = r
+	ff_until = 0.0
 	_pace_for(kind)
 	_tac = ""
 	_begin()
 	_set_speed(ONLINE_SPEED)
+
+
+## 11/21 관전: t 초(전투 시계)까지 빨리 감기 —— 끝나기 3초 전보다 뒤로는 감지 않는다 (결과 직전부터는 1배속으로 본다)
+func fast_to(t: float) -> void:
+	var end_t := 0.0
+	for g in groups:      # 마지막 묶음(끝 정산)은 시각이 없을 수 있다 —— 가장 늦은 묶음
+		end_t = maxf(end_t, float(g.t))
+	ff_until = clampf(t, 0.0, maxf(0.0, end_t - 3.0))
 
 
 ## 모든 전투를 1배속 기준 50~60초에 맞춘다
@@ -1582,6 +1595,8 @@ func _process_inner(dt: float) -> void:
 			_first_clash()
 		elif clock > 0.3 and speed > 0:
 			spd *= MARCH_SPD
+	if clock < ff_until:
+		spd = FF_SPD      # 관전 빨리 감기 —— 느린 화면 · 멈칫도 건너뛴다
 	field.time_scale = spd
 	field.active = is_visible_in_tree()
 	var d := dt * spd
