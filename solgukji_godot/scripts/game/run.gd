@@ -2645,6 +2645,18 @@ func tac_load() -> Dictionary:
 	return Tac.payload(tk_plan, tk_hand, tk_perm) if tac_on else {}
 
 
+## 11/21 남에게 보이는 군략 —— 늘 켜짐 · 영구 효과 이름 · 지난 대전 계획 (Tac.pub). 서버 방 정보 seats[].tk · 군략 현황 화면
+func tk_pub() -> Dictionary:
+	return Tac.pub(tk_hand, tk_perm, tk_hist) if tac_on else {}
+
+
+## 11/21 남의 단계 계획을 보여도 되는 단계 (서버 Room.info 의 seats[].plan · 화면 tac_ui 가 같이 쓴다).
+## 계획은 동시 선택 —— 고르는 동안(아침 · 대전 준비)과 그 사이 토벌 단계(대전 준비에 또 바꿀 수 있다)는 가리고 '고르는 중 · 선택 완료'만, 대전 단계(전투가 계산돼 단계마다 뒤집힌다)와 판 끝에는 내용까지.
+## 지난 대전 계획(tk_hist) · 늘 켜짐 · 영구 효과는 언제나 보인다. 봇 · 토벌 우두머리 계획은 그 페이즈에 이미 정해져 있어 언제나 보인다
+static func tk_plan_open(stage: String) -> bool:
+	return stage in ["evening", "over"]
+
+
 ## 봇 계획 —— 손패는 사람과 같은 규칙(기본 3장 + 지난 날 수만큼 3택1, 씨앗 hsd), 계획은 씨앗 sd (같은 봇 · 페이즈면 같다)
 static func bot_plan_load(cards: Array, p_idx: int, sd: int, hsd: int) -> Dictionary:
 	if not tac_on:
@@ -2804,10 +2816,11 @@ func tk_after_battle(bt: Dictionary, res: Dictionary) -> void:
 		b["tk_hist"] = tk_hist_push(b.get("tk_hist", []), tr, "B")
 
 
-## 최근 두 판 기록에 한 판을 더한다 —— 결과의 단계 기록(tac.log)에서 그 진영 카드의 계열 (없으면 빈 글)
+## 최근 두 판 기록에 한 판을 더한다 —— 결과의 단계 기록(tac.log)에서 그 진영이 낸 카드 id (없으면 빈 글).
+## 11/21 계열 → 카드 id: 전투에서 이미 뒤집혀 공개된 카드라 군략 현황에 이름까지 보인다 (옛 저장의 계열 글은 화면이 계열로 읽는다 —— tac_ui.hist_line)
 static func tk_hist_push(h: Array, tr: Dictionary, cp: String) -> Array:
 	var fs := []
 	for e in tr.get("log", []):
-		fs.append(str((e.get(cp, {}) as Dictionary).get("fam", "")))
+		fs.append(str((e.get(cp, {}) as Dictionary).get("id", "")))
 	var out := [fs] + h
 	return out.slice(0, 2)

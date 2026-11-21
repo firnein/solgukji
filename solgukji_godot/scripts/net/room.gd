@@ -282,7 +282,8 @@ func info(i: int) -> Dictionary:
 			if row.key.is_empty():
 				row["featured"] = featured_cards(s.run.board)
 			if Run.tac_on:
-				row["plan"] = s.run.tk_plan.duplicate()
+				row["plan"] = s.run.tk_plan.duplicate() if k == i or Run.tk_plan_open(stage) else []      # 11/21 대전 단계 전(아침 · 토벌 · 대전 준비)은 남에게 가린다 (Run.tk_plan_open)
+				row["tk"] = s.run.tk_pub()      # 11/21 늘 켜짐 · 영구 효과 · 지난 대전 계획 (고른 순간 확정 —— 늘 공개)
 		elif s.bot != null:
 			row["hp"] = int(s.bot.get("hp", Run.HP_MAX))      # 11/12 최후 1인 —— 봇도 민심이 있다 (멸망하는 세력)
 		if s.has("rank"):
@@ -1561,8 +1562,9 @@ func _mirror() -> void:
 				if Run.tac_on and not o.dead:
 					if not plans.has(o.name):
 						var side := Run.bot_side_of(b.duplicate(true), int(rng.seed), day * 3 + phase, _bot_mul(o))
-						plans[o.name] = side.get("plan", {}).get("p", [])
-					lst[-1]["plan"] = plans[o.name]
+						plans[o.name] = side.get("plan", {})
+					lst[-1]["plan"] = plans[o.name].get("p", [])
+					lst[-1]["own"] = plans[o.name].get("own", [])      # 11/21 봇의 늘 켜지는 군략 (군략 현황)
 		s.run.bots = lst
 
 

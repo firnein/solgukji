@@ -5,9 +5,10 @@ extends Node
 ## ② key 는 기초불신(기인 · 초월 · 불멸 · 신화) id 만 · 손패 + 편성판 모두 · 높은 등급 순 · 중복 없음. 전설(기인 아님) · 일반 카드는 없다
 ## ③ 새는 것이 없다: 줄의 키는 허용 목록 안에서만 (병사 수 · 덱 · 아이템 · 토큰 없음) · 메시지 크기
 ## ④ 핵심 유닛이 바뀌는 명령(조합) 뒤에는 다른 사람에게도 새 room 이 간다
+## ⑥ 11/21 군략 공개 규칙(Run.tk_plan_open): 고르는 동안(아침)은 남의 단계 계획을 비워 보내고 내 것만, 대전 단계에는 모두. 늘 켜짐 · 영구 · 지난 대전(tk)은 언제나
 ## ⑤ 클라이언트 도우미 Online.peer_rows: 옛 서버 줄(hp · key 없음) → hp −1 · has_key false (화면에는 「—」), 엉뚱한 key 는 걸러진다, 나는 내 값으로, 봇은 빠진다
 
-const ALLOWED := ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "featured", "plan", "st"]
+const ALLOWED := ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "featured", "plan", "tk", "st"]
 
 class FakeSrv:
 	var out := []        # [peer, msg]
@@ -37,8 +38,12 @@ func _ready() -> void:
 				fails.append("사람 자리 %d 에 hp 정수가 없다: %s" % [k, str(row.get("hp"))])
 			if not (row.get("key") is Array):
 				fails.append("사람 자리 %d 에 key 배열이 없다" % k)
-			if Run.tac_on and row.get("plan") != r.seats[k].run.tk_plan:
-				fails.append("사람 자리 %d 에 선택 군략이 없다" % k)
+			if Run.tac_on and k == 0 and row.get("plan") != r.seats[k].run.tk_plan:
+				fails.append("내 자리 %d 에 선택 군략이 없다" % k)
+			if Run.tac_on and k != 0 and row.get("plan") != []:      # ⑥ 아침 —— 남의 계획은 가린다
+				fails.append("아침인데 남의 자리 %d 계획이 보인다: %s" % [k, str(row.get("plan"))])
+			if Run.tac_on and not (row.get("tk") is Dictionary and row.tk.has("own") and row.tk.has("perm") and row.tk.has("hist")):
+				fails.append("사람 자리 %d 에 tk(늘 켜짐 · 영구 · 지난 대전)가 없다" % k)
 		elif not (row.get("hp") is int) or row.has("key"):
 			fails.append("봇 자리 %d 의 민심 또는 핵심 유닛 필드가 잘못됐다" % k)
 	# ② 핵심 유닛 —— 자리 1 에 여러 등급을 쥐여 준다 (손패 + 편성판). 시작 패는 기초불신이 아니다
@@ -138,8 +143,26 @@ func _ready() -> void:
 		srv.out.clear()
 		r.on_cmd(1, "set_plan", [0, ""])
 		var changes := srv.of(2, "state")
-		if changes.is_empty() or changes[-1].room.seats[0].plan[0] != "":
-			fails.append("단계 군략 변경이 다른 사람에게 갱신되지 않았다")
+		if changes.is_empty() or changes[-1].room.seats[0].plan != []:
+			fails.append("단계 군략 변경 뒤 다른 사람에게 새 상태가 안 갔거나 계획이 보인다 (아침은 가림)")
+		var mine := srv.of(1, "state")
+		if mine.is_empty() or mine[-1].room.seats[0].plan[0] != "":
+			fails.append("내 단계 군략 변경이 내게 갱신되지 않았다")
+		# ⑥ 대전 단계 —— 계획이 잠겨 전투에 들어갔다: 모두에게 공개
+		var st0 := r.stage
+		r.stage = "evening"
+		if r.info(1).seats[0].plan != r.seats[0].run.tk_plan:
+			fails.append("대전 단계인데 남의 계획이 안 보인다")
+		r.stage = "evening_prep"
+		if r.info(1).seats[0].plan != []:
+			fails.append("대전 준비인데 남의 계획이 보인다")
+		r.stage = st0
+		# tk —— 영구 효과 이름 · 늘 켜짐
+		r.seats[0].run.tk_perm = {"notes": ["명마"], "parts": []}
+		r.seats[0].run.tk_hand["창림"] = 1
+		var tk0: Dictionary = r.info(1).seats[0].tk
+		if tk0.perm != ["명마"] or not tk0.own.has("창림"):
+			fails.append("tk 가 다르다: %s" % str(tk0))
 	# ⑤ 클라이언트 도우미
 	var room_new := {"you": 1, "seats": [
 		{"name": "가", "human": true, "online": true, "dead": false, "hp": 80, "key": ["c177", want[8][0], "KILL", plain, want[8][0], 7]},

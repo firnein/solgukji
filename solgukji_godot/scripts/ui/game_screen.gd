@@ -4600,7 +4600,7 @@ func boss_panel() -> Control:
 	UI.wrap_text(traits)
 	v.add_child(traits)
 	if Run.tac_on:
-		v.add_child(TacUI.plan_chips(run.quest_plan(), func(t: String): toast(t)))
+		v.add_child(TacUI.boss_rows(self))      # 11/21 계획 칩 + 우두머리 늘 켜짐 + 「군략 현황 ›」
 	return UI.panel(v, 10)
 
 
@@ -5252,11 +5252,14 @@ static func bot_row(r: Run, b: Dictionary) -> Dictionary:
 		note += " · 토벌 실패 %d" % int(b.strikes)
 	var keys := bot_key(r, b)
 	var plan: Array = b.get("plan", [])
+	var own: Array = b.get("own", []) if b.get("own") is Array else []      # 11/21 늘 켜지는 군략 (온라인은 서버 거울)
 	if Run.tac_on and not r.mp and not bool(b.get("dead", false)):
-		plan = r._bot_side_of(b.duplicate(true)).get("plan", {}).get("p", [])
+		var ld: Dictionary = r._bot_side_of(b.duplicate(true)).get("plan", {})
+		plan = ld.get("p", [])
+		own = ld.get("own", [])
 	return {"name": str(b.name), "me": false, "online": true, "dead": bool(b.get("dead", false)), "bot": true, "note": note,
 		"hp": clampi(int(b.hp), 0, Run.HP_MAX) if b.has("hp") else -1,
-		"key": keys if not keys.is_empty() else Room.featured_cards(b.get("army", [])), "has_key": true, "plan": plan}
+		"key": keys if not keys.is_empty() else Room.featured_cards(b.get("army", [])), "has_key": true, "plan": plan, "own": own}
 
 
 ## 봇의 핵심 유닛 (11/12 사용자) —— 11/12 부터 봇 군세는 봇마다 한 번 만들어 자라는 것(b.army, Run.bot_grow)이라 그 군세의 기인 이상(Room.is_urgent_unit)을 높은 등급부터 보인다.
@@ -5671,6 +5674,14 @@ func _dev_args() -> void:
 				if not run.ticket_tiers().is_empty():
 					picker(run.ticket_tiers()[0])
 			"online": _go_online()
+	if a.has("gtac") and run != null:      # 점검용 —— 11/21 군략 현황: --gtac=board (현황 시트) · hand:1 (손패 시트 2단계) · war (전투 탭). 가짜 손패 · 다른 자리 군략을 채운다 (저장하지 않는다)
+		TacUI.dev_fill(self)
+		var tv: PackedStringArray = str(a.gtac).split(":")
+		match tv[0]:
+			"board": TacUI.status_sheet(self)
+			"hand": TacUI.hand_sheet(self, int(tv[1]) if tv.size() > 1 else 0)
+			"war": go("war")
+			"rank": go("rank")
 	if a.has("gemote"):      # 점검용 —— --gemote=3 (받은 이모티콘 팝업 + 한마디 시트) · 3,4,5 (여러 개) · cmp (8종 비교 그림). --gsheet=onwar:morning:75:hot 과 함께 쓰면 긴급 띠와의 자리 점검
 		if online == null:
 			online = Online.new()
