@@ -2203,6 +2203,8 @@ func _apply(i: int, quiet := false) -> void:
 		var sig_head := stx.split(" ——")[0]      # 1.2 카드 이름에 "의 "(대의 노숙)가 들어 있어도 특성 이름만 —— 머리글의 마지막 "의 " 뒤
 		if sig_head.find("의 ") >= 0 and field.squads.has(who_k):
 			hud.float_text(who_k, sig_head.substr(sig_head.rfind("의 ") + 2), Color("#ffd257"), 12, false, true)
+			if field.squads[who_k].camp == "A":      # 11/21 사운드 —— 내 편 장수 행동에만 작은 소리 (종류별 간격은 Sfx.sig_cue)
+				Sfx.sig_cue(stx)
 	match e.get("fx", ""):
 		"inyeon_fin", "inyeon_theme":      # 11/12 인연기 —— 11/15 강화: 모음(어두워짐 · 빛줄기) → 터짐(섬광 · 충격파 · 연쇄 폭발 · 쾅 이름 띠). 인연 주제도 같은 틀
 			var th: bool = e.fx == "inyeon_theme"

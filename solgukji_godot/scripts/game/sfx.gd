@@ -110,7 +110,7 @@ func play(n: String, vol_db := 0.0, pitch_var := 0.06) -> void:
 	if now - float(_last.get(n, -9.0)) < float(tune[1]):
 		return
 	_last[n] = now
-	if DUCK.has(n):
+	if DUCK.has(n) and vol_db > -6.0:      # 작게 부른 것(개성 말풍선의 뿔나팔 등)은 음악을 누르지 않는다
 		_duck_start(n, now)
 	var best: AudioStreamPlayer = null
 	for p in _pool:
@@ -206,3 +206,34 @@ func _on_jingle_done() -> void:
 		_resume = ""
 		_bgm_name = "~"      # 같은 이름 건너뛰기 방지
 		music(back)
+
+
+## 11/21 장수 개성(sig_rt) 말풍선에 붙는 작은 소리 —— 글에 든 낱말로 종류를 고른다. 한 판에 수십 번 뜨니 종류마다 SIG_GAP 초에 한 번, 작게
+## [낱말들, 소리, 크기 보정 dB]. 위에서부터 처음 맞는 것. 아무것도 안 맞으면 소리 없음 (숫자만 바뀌는 개성까지 울리면 시끄럽다)
+const SIG_CUES := [
+	[["도발", "일갈", "위압", "호령", "격문", "함진"], "horn", -9.0],
+	[["버팀", "불사", "버틴", "물러서지", "이를 악", "다잡", "붙들"], "drums", -10.0],
+	[["치료", "일으", "군량", "회복", "씻", "풀어", "추슬"], "heal", 0.0],
+	[["독", "피를", "약화", "꺾", "늦", "묶", "기를 뺐", "홀렸", "칼을 거두"], "debuff", -2.0],
+	[["화공", "연영", "불길", "불타", "불을"], "burn", -2.0],
+	[["비가", "물살", "물에"], "splash", -2.0],
+	[["사격", "저격", "겨눈", "쏜다", "화살", "연사", "맞혔", "던졌"], "arrow", -6.0],
+	[["막아", "피했", "줄인", "지켜", "어깨", "막았"], "clash", -6.0],
+	[["반격", "되받아", "관통", "꿰뚫", "돌격", "돌파", "밀어", "삼첨", "연격", "베", "벤", "친다", "쳤", "덤벼", "몰아", "달려", "돌아", "노린", "노림", "무너뜨", "매섭", "거세", "첫 칼", "짓밟", "덮쳤", "다음 적", "말을 몰"], "swing", -4.0],
+	[["기세", "사기", "의기", "북돋", "힘을 얻", "빨라", "위세", "받쳐", "발톱", "보태"], "drums", -12.0],
+]
+const SIG_GAP := 1.2
+var _sig_last := {}
+
+
+func sig_cue(text: String) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	for c in SIG_CUES:
+		for w in c[0]:
+			if text.contains(w):
+				var snd: String = c[1]
+				if now - float(_sig_last.get(snd, -9.0)) < SIG_GAP:
+					return
+				_sig_last[snd] = now
+				play(snd, float(c[2]), 0.08)
+				return
