@@ -175,9 +175,37 @@ func _run_flow() -> void:
 	_ok(r2.tk_offer == run.tk_offer and r2.tk_plan == run.tk_plan and r2.tk_hand.size() == run.tk_hand.size(), "저장 왕복")
 	_ok(r2.command("pick_tac", [pick]) == true, "3택1 고르기 (명령)")
 	_ok(r2.tk_offer.is_empty(), "고른 뒤 비움")
+	# 11/22 군략 → 연구 두 단계 (아침마다)
+	_ok(run.tk_offer.all(func(id): return not Tac.is_res(str(id))), "군략 3택1 에 연구 없음")
+	_ok(run.rs_offer.size() == 3 and run.rs_offer.all(func(id): return Tac.is_res(str(id))), "연구 3택1 (%d장)" % run.rs_offer.size())
+	_ok(r2.rs_offer == run.rs_offer, "연구 저장 왕복")
+	var rp := str(r2.rs_offer[0])
+	_ok(r2.command("pick_res", [rp]) == true and r2.rs_offer.is_empty() and int(r2.rs_done.get(rp, 0)) == 1, "연구 고르기 (명령)")
+	_ok(not r2.pick_res(rp), "고른 뒤 다시 못 고름")
+	var day0 := r2.day
+	for i in 3:
+		r2.quest_done = true
+		r2.pvp_done = true
+		r2.advance()
+	_ok(r2.day == day0 + 1 and r2.tk_offer.size() == 3 and r2.rs_offer.size() == 3, "다음 아침 다시 두 3택1")
+	# 연구 트리 —— 앞 단계를 골라야 다음 단계가 후보
+	_ok(not Tac.res_ok("양마 번식", {}, [], []) and Tac.res_ok("양마 번식", {"명마": 1}, [], []), "트리 앞 단계")
+	_ok(not Tac.res_ok("양마 번식", {"명마": 1, "양마 번식": 1}, [], []), "트리 단계는 한 번")
+	_ok(Tac.res_ok("명마", {"명마": 5}, [], []), "뿌리 연구는 여러 번")
+	_ok(not Tac.res_ok("둔전", {}, [], ["위", "위", "위"]) and Tac.res_ok("둔전", {}, [], ["위", "위", "위", "위"]), "둔전 위 4장")
+	# 옛 저장 —— 연구 키 없음: 영구 효과 이름으로 고른 연구 어림 · 3택1 에 남은 경제 카드도 고를 수 있다
+	var od := d.duplicate(true)
+	od.erase("rs_offer")
+	od.erase("rs_done")
+	od["tk_perm"] = {"notes": ["명마", "병종 단련 (궁병)"], "parts": []}
+	od["tk_offer"] = ["돌격 나팔", "강궁"]
+	var r5 := Run.new()
+	r5.from_dict(JSON.parse_string(JSON.stringify(od)))
+	_ok(r5.rs_offer.is_empty() and int(r5.rs_done.get("명마", 0)) == 1 and int(r5.rs_done.get("병종 단련", 0)) == 1, "옛 저장 연구 어림")
+	_ok(r5.pick_tac("강궁") and int(r5.rs_done.get("강궁", 0)) == 1, "옛 3택1 의 경제 카드 → 연구로 셈")
 	# 옛 저장 (키 없음) —— 기본 3장
 	var old := d.duplicate(true)
-	for k in ["tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls"]:
+	for k in ["tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls", "rs_offer", "rs_done"]:
 		old.erase(k)
 	var r3 := Run.new()
 	r3.from_dict(old)
@@ -186,8 +214,8 @@ func _run_flow() -> void:
 	for id in Tac.ECON:
 		var r4 := Run.new()
 		r4.new_game(3)
-		r4.tk_offer = [id]
-		_ok(r4.pick_tac(id), "경제 카드 %s" % id)
+		r4.rs_offer = [id]
+		_ok(r4.pick_res(id), "연구 %s" % id)
 	# 토벌 · 대전 한 판씩 (계획이 짐으로 들어간다)
 	run.auto_deploy()
 	var q := run.start_quest()

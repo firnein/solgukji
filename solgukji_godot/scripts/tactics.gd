@@ -362,7 +362,8 @@ static func bot_plan(cards: Array, pool: Array, r: RandomNumberGenerator, hand :
 
 
 ## 3택1 뽑기 —— 군략 n_tac 장(등급 확률 · 병종 · 세력 조건) + 능력치 · 경제 1장. owned = 이미 가진 군략(고급 이상은 다시 안 나온다)
-static func offer(board: Array, owned: Dictionary, n_tac: int, r: RandomNumberGenerator) -> Array:
+## 11/22 econ = false 면 군략만 (연구는 res_offer 로 따로 —— 아침 군략 3택1 → 연구 3택1). 봇 손패(sim_hand)는 예전 꼴 그대로(같은 씨앗 순서)
+static func offer(board: Array, owned: Dictionary, n_tac: int, r: RandomNumberGenerator, econ := true) -> Array:
 	data()
 	var tags := deck_tags(board)
 	var facs := []
@@ -403,10 +404,85 @@ static func offer(board: Array, owned: Dictionary, n_tac: int, r: RandomNumberGe
 				pick = e[1]
 				break
 		out.append(pick[r.randi() % pick.size()])
+	if not econ:
+		return out
 	var ek := ECON.keys()
 	ek.sort()
 	out.append(ek[r.randi() % ek.size()])
 	return out
+
+
+# ───────── 11/22 연구 트리 (tactics.json econ —— br 갈래 · req 앞 단계 · max 횟수(0 = 끝없이, 없으면 1) · cond 덱 조건) ─────────
+
+## 연구 하나를 지금 후보에 올릴 수 있나 —— done = 고른 연구 id -> 횟수 (Run.rs_done)
+static func res_ok(id: String, done: Dictionary, tags: Array, facs: Array) -> bool:
+	data()
+	if not ECON.has(id):
+		return false
+	var c: Dictionary = ECON[id]
+	var mx := int(c.get("max", 1))
+	if mx > 0 and int(done.get(id, 0)) >= mx:
+		return false
+	for q in c.get("req", []):
+		if int(done.get(str(q), 0)) <= 0:
+			return false
+	if c.has("cond"):
+		var cd: Dictionary = c.cond
+		if cd.has("tag") and tags.count(str(cd.tag)) < 3:
+			return false
+		if cd.has("fac") and facs.count(str(cd.fac)) < 4:
+			return false
+	return true
+
+
+## 연구 3택1 —— 열린 연구 중 n 개 (겹치지 않게). 앞 단계를 고르고 막 열린 다음 단계(req 있음)는 두 배 무게
+static func res_offer(board: Array, done: Dictionary, n: int, r: RandomNumberGenerator) -> Array:
+	data()
+	var tags := deck_tags(board)
+	var facs := []
+	for k in board:
+		if k != null and DB.C.has(str(k)):
+			facs.append(str(DB.C[str(k)].fac))
+	var cand := []
+	var ek := ECON.keys()
+	ek.sort()
+	for id in ek:
+		if res_ok(str(id), done, tags, facs):
+			cand.append(str(id))
+	var out := []
+	for i in n:
+		var tot := 0.0
+		for id in cand:
+			tot += 2.0 if ECON[id].has("req") else 1.0
+		if cand.is_empty():
+			break
+		var roll := r.randf() * tot
+		var pick: String = cand[cand.size() - 1]
+		for id in cand:
+			roll -= 2.0 if ECON[id].has("req") else 1.0
+			if roll <= 0.0:
+				pick = id
+				break
+		out.append(pick)
+		cand.erase(pick)
+	return out
+
+
+## 이 연구를 고르면 열리는 다음 단계 이름 (카드 덧말)
+static func res_next(id: String) -> Array:
+	data()
+	var out := []
+	for k in ECON:
+		if (ECON[k].get("req", []) as Array).has(id):
+			out.append(str(k))
+	out.sort()
+	return out
+
+
+## 연구인가 (econ 목록)
+static func is_res(id: String) -> bool:
+	data()
+	return ECON.has(id)
 
 
 ## 이 카드 계열이 이기는 계열 (표 그대로, 겹치지 않게) —— 카드 화면의 「우세」 줄
@@ -441,7 +517,7 @@ static func desc(id: String) -> String:
 ## 등급 이름 · 색
 static func grade_name(id: String) -> String:
 	var g := int(card(id).get("g", -1))
-	return "능력치 · 경제" if g < 0 else GRADE_N[g]
+	return ("연구 · " + str(card(id).get("br", "")) if is_res(id) else "능력치 · 경제") if g < 0 else GRADE_N[g]
 
 
 static func grade_col(id: String) -> Color:

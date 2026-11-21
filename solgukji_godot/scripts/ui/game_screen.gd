@@ -1105,8 +1105,9 @@ func _render_head() -> void:
 func _tk_head() -> void:
 	if _tk_btn == null:
 		return
-	var on: bool = run.over == null and not run.tk_offer.is_empty()
+	var on: bool = run.over == null and (not run.tk_offer.is_empty() or not run.rs_offer.is_empty())      # 11/22 군략 → 연구 두 단계
 	_tk_btn.visible = on
+	_tk_btn.text = "군략 3택1" if not run.tk_offer.is_empty() else "연구 3택1"
 	if on and _tk_auto != run.day and not sheet_open() and not (_battle_layer != null and _battle_layer.visible):
 		_tk_auto = run.day
 		(func(): if not sheet_open(): TacUI.offer_sheet(self)).call_deferred()

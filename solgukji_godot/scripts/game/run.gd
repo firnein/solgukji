@@ -145,6 +145,9 @@ var tk_more := false          # 군략 연구 —— 다음 3택1 선택지 4장
 var tk_reroll := 0            # 기책 —— 3택1 다시 굴리기 남은 수
 var tk_draw := 0              # 징병 —— 다음 기본 징집에 더하는 장수
 var tk_rolls := 0             # 3택1 뽑기 횟수 (씨앗 —— 본 난수를 쓰지 않는다)
+## 11/22 사용자: 군략을 군략 · 연구 두 트리로 —— 아침마다 군략 3택1 을 고르고 이어서 연구 3택1 (tactics.json econ = 연구 트리)
+var rs_offer := []            # 연구 3택1 —— 고를 연구 id (비면 대기 없음)
+var rs_done := {}             # 고른 연구 id -> 횟수 (트리 앞 단계 · 횟수 판정)
 static var tac_on := true     # 점검용 —— 끄면 계획 없이 예전 전투 그대로
 var on_forge := Callable()    # 서버 전용 —— 조합에 성공하면 결과 id 로 부른다 (Room 이 선점 기록에 쓴다). 저장 · 전송하지 않는다
 
@@ -2313,7 +2316,7 @@ func gacha(n) -> Variant:
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
 const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
 	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1,
-	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2, "set_plan": 2, "pick_tac": 1, "reroll_tac": 0}
+	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2, "set_plan": 2, "pick_tac": 1, "reroll_tac": 0, "pick_res": 1}
 
 
 func command(m: String, a: Array):
@@ -2330,7 +2333,7 @@ func command(m: String, a: Array):
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "equip2", "gacha_pity", "last_gacha", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
 	"my_w", "my_l", "streak", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on",
-	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls"]
+	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls", "rs_offer", "rs_done"]
 
 
 func to_dict() -> Dictionary:
@@ -2504,6 +2507,8 @@ func bot_prepare(full := true) -> void:
 		return
 	if not tk_offer.is_empty():      # 11/15 군략 3택1 —— 군략 카드부터
 		pick_tac(str(tk_offer[0]))
+	if not rs_offer.is_empty():      # 11/22 이어서 연구 3택1
+		pick_res(str(rs_offer[0]))
 	if not uniq_offer.is_empty():
 		# 11/3 신화에 가장 가까운 유니크를 고른다 (예전엔 첫 번째 —— 신화를 한 번도 못 만들었다)
 		var bu: String = uniq_offer[0]
@@ -2614,6 +2619,8 @@ func tk_reset() -> void:
 	tk_reroll = 0
 	tk_draw = 0
 	tk_rolls = 0
+	rs_offer = []
+	rs_done = {}
 
 
 ## 불러오기 —— 옛 저장(키 없음)은 처음 상태. JSON 숫자(float)는 int 로
@@ -2638,6 +2645,18 @@ func tk_load(d: Dictionary) -> void:
 		tk_perm = {}
 	if not (tk_hist is Array):
 		tk_hist = []
+	rs_offer = (rs_offer if rs_offer is Array else []).map(func(x): return str(x)).filter(func(x): return Tac.is_res(x))
+	if d.has("rs_done") and rs_done is Dictionary:
+		var rd := {}
+		for k in rs_done:
+			rd[str(k)] = int(rs_done[k])
+		rs_done = rd
+	else:      # 11/22 옛 저장 —— 영구 효과 이름(tk_perm.notes)으로 고른 연구를 어림 (트리 앞 단계가 이어지게)
+		rs_done = {}
+		for nm in (tk_perm.get("notes", []) as Array):
+			var base := str(nm).get_slice(" (", 0)
+			if Tac.is_res(base):
+				rs_done[base] = int(rs_done.get(base, 0)) + 1
 
 
 ## 전투에 넘길 내 짐 {p, own, perm}
@@ -2717,17 +2736,32 @@ func tk_day_end() -> void:
 		var id := str(tk_offer[0])
 		pick_tac(id)
 		toasts.append(["안 고른 군략 3택1 —— 「%s」 을(를) 받았다" % id, "gain"])
+	if not rs_offer.is_empty():
+		var rid := str(rs_offer[0])
+		pick_res(rid)
+		toasts.append(["안 고른 연구 3택1 —— 「%s」 을(를) 받았다" % rid, "gain"])
 	var gd := int(tk_perm.get("grain_day", 0))
 	if gd > 0:
 		grain += gd
 	tk_new_offer()
 
 
-## 군략 2장(군략 연구면 3장) + 능력치 · 경제 1장
+## 11/22 아침마다 군략 3장(연구 「군략 연구」면 4장) → 이어서 연구 3장 (옛: 군략 2장 + 능력치 · 경제 1장)
 func tk_new_offer() -> void:
-	var n := 3 if tk_more else 2
+	var n := 4 if tk_more else 3
 	tk_more = false
-	tk_offer = Tac.offer(board, tk_hand, n, _tk_rng(29))
+	tk_offer = Tac.offer(board, tk_hand, n, _tk_rng(29), false)
+	rs_offer = Tac.res_offer(board, rs_done, 3, _tk_rng(43))
+
+
+## 연구 고르기 —— 효과는 능력치 · 경제 카드와 같은 길(_tk_econ), 트리 횟수 기록
+func pick_res(id: String) -> bool:
+	if not rs_offer.has(id):
+		return false
+	rs_offer = []
+	rs_done[id] = int(rs_done.get(id, 0)) + 1
+	_tk_econ(Tac.card(id))
+	return true
 
 
 func pick_tac(id: String) -> bool:
@@ -2736,6 +2770,8 @@ func pick_tac(id: String) -> bool:
 	tk_offer = []
 	var c := Tac.card(id)
 	if str(c.get("kind", "")) == "econ":
+		if Tac.is_res(id):      # 11/22 옛 저장의 3택1 에 남은 능력치 · 경제 카드 —— 이제 연구라 트리 횟수에도 센다
+			rs_done[id] = int(rs_done.get(id, 0)) + 1
 		_tk_econ(c)
 	else:
 		tk_hand[id] = int(tk_hand.get(id, 0)) + 1
@@ -2747,7 +2783,7 @@ func reroll_tac() -> bool:
 	if tk_reroll <= 0 or tk_offer.is_empty():
 		return false
 	tk_reroll -= 1
-	tk_offer = Tac.offer(board, tk_hand, tk_offer.size() - 1, _tk_rng(31))
+	tk_offer = Tac.offer(board, tk_hand, tk_offer.size(), _tk_rng(31), false)
 	return true
 
 

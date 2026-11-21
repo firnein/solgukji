@@ -89,7 +89,7 @@ static func card_btn(id: String, cb: Callable, sel := false, note := "", tall :=
 	var nl := UI.lbl(id, UI.FS_LABEL, P.gold if sel else P.paper, true)
 	nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	nl.clip_text = true
-	var gl := UI.lbl("능력치 · 경제" if econ else Tac.grade_name(id), UI.FS_CAP, gc.lightened(0.2))
+	var gl := UI.lbl("능력치 · 경제" if econ and not Tac.is_res(id) else Tac.grade_name(id), UI.FS_CAP, gc.lightened(0.2))
 	gl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if tall:
 		# 세로 카드 —— 등급 · 문장 · 이름 · 계열을 가운데로
@@ -327,14 +327,17 @@ static func head_btn(gs) -> TouchButton:
 
 
 ## 3택1 시트 —— 카드 세 장(군략 연구면 넷) 가로. 누르면 고르고, 아래 「이 카드로」 확인 한 번. 기책이 있으면 다시 굴리기
+## 11/22 두 단계 —— ① 군략 3택1 을 고르면 ② 연구 3택1 시트가 이어 열린다 (군략이 없으면 연구부터)
 static func offer_sheet(gs, sel := "") -> void:
-	var P := DB.PAL
 	var run: Run = gs.run
-	var b: VBoxContainer = gs.open_sheet("군략 3택1")
-	if run.tk_offer.is_empty():
-		b.add_child(UI.empty("draw", "고를 카드가 없다", "하루가 끝날 때마다 군략 2장 + 능력치 · 경제 1장이 온다."))
+	if run.tk_offer.is_empty() and not run.rs_offer.is_empty():
+		res_sheet(gs, sel)
 		return
-	b.add_child(UI.hint("오늘의 보상을 하나 고르세요."))
+	var b: VBoxContainer = gs.open_sheet("군략 3택1  (1/2)")
+	if run.tk_offer.is_empty():
+		b.add_child(UI.empty("draw", "고를 카드가 없다", "아침마다 군략 3장 중 하나, 이어서 연구 3장 중 하나를 고른다."))
+		return
+	b.add_child(UI.hint("오늘의 군략을 하나 고르세요. 이어서 연구를 고릅니다."))
 	var row: Container = UI.grid(140, UI.SP_S) if run.tk_offer.size() > 3 else UI.hbox(UI.SP_S)
 	for id in run.tk_offer:
 		var sid := str(id)
@@ -350,7 +353,9 @@ static func offer_sheet(gs, sel := "") -> void:
 		var r = gs.act("pick_tac", [sel])
 		gs.close_sheet()
 		if r:
-			gs.toast("군략 「%s」" % sel, "gold"), "pri")
+			gs.toast("군략 「%s」" % sel, "gold")
+			if not gs.run.rs_offer.is_empty():      # 11/22 이어서 연구 3택1
+				(func(): res_sheet(gs)).call_deferred(), "pri")
 	ok.disabled = sel == ""
 	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(ok)
@@ -361,6 +366,42 @@ static func offer_sheet(gs, sel := "") -> void:
 			offer_sheet(gs), "ghost", UI.BH_S)
 		b.add_child(rb)
 	b.add_child(UI.hint("나중에 상단의 ‘군략 3택1’에서 다시 열 수 있습니다. 다음 날엔 첫 카드가 자동 지급됩니다."))
+
+
+## 11/22 연구 3택1 시트 —— 군략 3택1 과 같은 꼴. 카드 아래 덧말에 갈래 · 고르면 열리는 다음 단계
+static func res_sheet(gs, sel := "") -> void:
+	var run: Run = gs.run
+	var b: VBoxContainer = gs.open_sheet("연구 3택1  (2/2)")
+	if run.rs_offer.is_empty():
+		b.add_child(UI.empty("draw", "고를 연구가 없다", "아침마다 군략 다음에 연구 3장 중 하나를 고른다."))
+		return
+	b.add_child(UI.hint("오늘의 연구를 하나 고르세요. 앞 단계를 고르면 다음 단계가 후보에 오릅니다."))
+	var row: Container = UI.grid(140, UI.SP_S) if run.rs_offer.size() > 3 else UI.hbox(UI.SP_S)
+	for id in run.rs_offer:
+		var sid := str(id)
+		var nx := Tac.res_next(sid)
+		var n := int(run.rs_done.get(sid, 0))
+		var note := ("다음 ▸ " + " · ".join(nx)) if not nx.is_empty() else ""
+		if n > 0:
+			note = ("%d번 연구함" % n) + ((" · " + note) if note != "" else "")
+		row.add_child(card_btn(sid, func(): res_sheet(gs, sid), sid == sel, note, true))
+	b.add_child(row)
+	var actions := UI.hbox(UI.SP_S)
+	var later := UI.btn("나중에", func(): gs.close_sheet(), "ghost")
+	later.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(later)
+	var ok := UI.btn("연구 확정", func():
+		if sel == "":
+			return
+		var r = gs.act("pick_res", [sel])
+		gs.close_sheet()
+		if r:
+			gs.toast("연구 「%s」" % sel, "gold"), "pri")
+	ok.disabled = sel == ""
+	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(ok)
+	b.add_child(actions)
+	b.add_child(UI.hint("나중에 상단의 ‘연구 3택1’에서 다시 열 수 있습니다. 다음 날엔 첫 연구가 자동으로 정해집니다."))
 
 
 # ───────── 전투 탭 · 대전 상대 ─────────
