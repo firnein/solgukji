@@ -259,6 +259,7 @@ class Unit:
 	var mdmg := 0.0
 	var heal := 0.0
 	var over := 0.0           # 11/19 준 피해 중 남은 병력을 넘친 몫 (기록만)
+	var blk := 0.0            # 11/22 내 피해 중 적 갑옷 · 결계에 막힌 몫 (근사 —— 막 뒤 피해 × 막/(1−막). 기록만, 판정에 안 쓴다)
 	var htr := 0.0            # 11/19 실제로 되살린 병력 (초과 회복 제외 · 결과창 치료. 기록만, 판정에 안 쓴다)
 	var hmo := 0.0            # 11/19 실제로 올린 사기 (200 상한 넘친 몫 제외 · 기록만)
 	var kills := 0
@@ -1141,8 +1142,10 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	var op := 1.0 if a.opens >= roundi(turn_mul) else 1.0 + mv(a, "opener")
 	a.opens += 1
 	var dmg := A * (A / (A + Dv)) * m_mul(a) * rnd(0.9, 1.1) * mult * cm * op * (1.0 - mv(d, "dr")) * _amp_once(a)
+	var shf := 0.0
 	if shield_enabled:
-		dmg *= 1.0 - _shield(d, dmg_kind(a))      # 11/8 갑옷 · 결계 —— 피해 종류는 때리는 장수의 병종 (평타 · 기술 · 고유기 · 잔기술 · 반격 모두 여기로 온다)
+		shf = _shield(d, dmg_kind(a))
+		dmg *= 1.0 - shf      # 11/8 갑옷 · 결계 —— 피해 종류는 때리는 장수의 병종 (평타 · 기술 · 고유기 · 잔기술 · 반격 모두 여기로 온다)
 	if d.troops / d.max <= 0.5:
 		dmg *= 1.0 + mv(a, "int_low")          # 기책 —— 병력 절반 아래인 적에게
 	if a.in_skill:
@@ -1205,6 +1208,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	stats.water_amp += loss * (1.0 - 1.0 / wm)
 	_stat(d, loss)
 	a.over += maxf(0.0, loss - maxf(0.0, d.troops))      # 11/19 남은 병력을 넘친 몫 (기록만 —— 결과창은 dmg − over 를 실제 피해로)
+	if shf > 0.0:
+		a.blk += loss * shf / maxf(0.25, 1.0 - shf)      # 11/22 막힌 몫 (기록만 —— 플레이 기록 battle_end.units[].blk)
 	d.troops -= loss
 	a.dmg += loss + shared
 	d.last_hit = a
@@ -2972,7 +2977,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 		roster.append({"id": u.c.id, "name": u.c.name, "tier": u.c.tier, "tag": u.c.tag, "fac": u.c.fac,
 			"line": u.line, "side": u.side, "camp": u.camp, "max": u.max, "key": u.key, "slot": u.slot,
 			"item": u.item, "item2": u.item2, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "dot": roundi(u.dot), "heal": roundi(u.heal), "kills": u.kills,
-			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken), "htr": roundi(u.htr), "hmo": roundi(u.hmo), "over": roundi(u.over), "boss": u.boss})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
+			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken), "htr": roundi(u.htr), "hmo": roundi(u.hmo), "over": roundi(u.over), "blk": roundi(u.blk), "boss": u.boss})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))

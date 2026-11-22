@@ -8,6 +8,8 @@ class_name PlayLog
 ##   page             탭 이동 (어디서 시간을 쓰는지)
 ##   battle_start     전투 시작 —— 내 편성 · 적 편성 · 전력 비
 ##   battle_end       전투 결과 —— 승패 · 잔존 병력 비 · 부대별 기록 · 개입(고유기 · 군령) · 배속
+##                    11/22 부대별 기록에 카드 번호(id) · 장비(items) · 피해 종류(kind) · 도트(dot) · 막힌 피해(blk) · 넘친 피해(over) · 깎기 기여(gain) ·
+##                    고유기 횟수 · 시각(ult · ult_tm) · 기술 횟수(sk) · 개성 발동(sig) · 무너진 시각(out_tm, 버티면 −1). battle_start 에 tk(내 군략 · 연구) · foe_plan
 ##   phase_end        페이즈 끝 —— 걸린 시간 · 보유 패 · 덱 · 선택권 · 봇 전력
 ##   over             판 끝
 
@@ -141,7 +143,18 @@ static func page(run, pg: String) -> void:
 static func battle_start(run, bt: Dictionary) -> void:
 	if not ensure(run):
 		return
-	_put(run, "battle_start", battle_start_data(bt))
+	var a := battle_start_data(bt)
+	a["tk"] = tac_state(run)
+	_put(run, "battle_start", a)
+
+
+## 11/22 사용자 "전투 지표 넣어" —— 이 전투에 든 내 군략 · 연구 상태 (단계 계획 · 늘 켜짐 · 영구 효과 이름 · 고른 연구 횟수)
+const Tac := preload("res://scripts/tactics.gd")      # class_name 없이 (Run 과 같은 방식)
+static func tac_state(run) -> Dictionary:
+	if run == null or not Run.tac_on:
+		return {}
+	return {"plan": (run.tk_plan as Array).duplicate(), "own": Tac.own_of(run.tk_hand), "perm": (run.tk_perm.get("notes", []) as Array).duplicate(),
+		"rs": (run.rs_done as Dictionary).duplicate()}
 
 
 static func battle_start_data(bt: Dictionary) -> Dictionary:
@@ -151,7 +164,8 @@ static func battle_start_data(bt: Dictionary) -> Dictionary:
 		"me": a, "foe": b, "form": bt.a.form, "foe_form": bt.b.form, "tac": bt.a.get("tac", ""), "foe_tac": bt.b.get("tac", ""),
 		"morale": bt.a.morale, "foe_morale": bt.b.morale, "equip": bt.a.equip.filter(func(x): return x != null).size(),
 		"foe_equip": (bt.b.equip if bt.b.equip else []).filter(func(x): return x != null).size(),
-		"tr_ratio": snappedf(float(a.tr) / maxf(1.0, float(b.tr)), 0.001)}
+		"tr_ratio": snappedf(float(a.tr) / maxf(1.0, float(b.tr)), 0.001),
+		"foe_plan": ((bt.b.get("plan", {}) as Dictionary).get("p", []) as Array).duplicate()}      # 11/22 상대의 이번 단계 군략 계획
 
 
 static func battle_end(run, bt, res: Dictionary, view_len: float, inputs: Array, speeds: Dictionary) -> void:
@@ -164,12 +178,30 @@ static func battle_end_data(bt, res: Dictionary, view_len: float, inputs: Array,
 	var units := []
 	var left := {"A": 0, "B": 0}
 	var mx := {"A": 0, "B": 0}
+	var per := unit_events(res)
 	for u in res.get("roster", []):
 		left[u.camp] += maxi(0, int(u.left))
 		mx[u.camp] += int(u.max)
-		units.append({"camp": u.camp, "name": u.name, "tier": int(u.tier), "tag": u.tag, "line": u.line,
+		var row := {"camp": u.camp, "name": u.name, "tier": int(u.tier), "tag": u.tag, "line": u.line,
 			"dmg": int(u.dmg), "taken": int(u.get("taken", 0)), "heal": int(u.heal), "kills": int(u.kills),
-			"mdmg": float(u.mdmg), "left": maxi(0, int(u.left)), "max": int(u.max), "alive": bool(u.alive)})
+			"mdmg": float(u.mdmg), "left": maxi(0, int(u.left)), "max": int(u.max), "alive": bool(u.alive)}
+		# 11/22 사용자 "전투 지표 넣어" —— 카드 번호 · 장비 · 피해 종류 · 도트 · 막힌 피해 · 넘친 피해 · 깎기 기여 · 고유기 · 기술 · 개성 횟수 · 무너진 시각
+		row["id"] = str(u.get("id", ""))
+		var its := []
+		for it in [u.get("item"), u.get("item2")]:
+			if it != null and DB.IT.has(it):
+				its.append(str(DB.IT[it].name))
+		row["items"] = its
+		row["kind"] = DB.dmg_kind(str(u.tag))
+		for k in ["dot", "blk", "over", "gain"]:
+			row[k] = int(u.get(k, 0))
+		var pe: Dictionary = per.get(str(u.get("key", "")), {})
+		row["ult"] = int(pe.get("ult", 0))
+		row["ult_tm"] = pe.get("ult_tm", [])
+		row["sk"] = int(pe.get("sk", 0))
+		row["sig"] = int(pe.get("sig", 0))
+		row["out_tm"] = pe.get("out_tm", -1.0)      # 무너진(패주 · 전멸) 시각 초, 끝까지 버텼으면 −1
+		units.append(row)
 	var ult := 0
 	var cmd := 0
 	for x in inputs:
@@ -198,6 +230,36 @@ static func battle_end_data(bt, res: Dictionary, view_len: float, inputs: Array,
 		"turns": res.get("turns", 0), "view_sec": snappedf(view_len, 0.1),
 		"mvp": res.mvp.name if res.get("mvp") else "", "ult_inputs": ult, "cmd_inputs": cmd, "speeds": speeds,
 		"chains": res.get("chains", {}), "units": units}
+
+
+## 11/22 전투 사건(res.ev)에서 부대(key)마다 —— 고유기 횟수 · 시각, 기술(장수 기술 · 병종 기술) 횟수, 개성 발동 횟수, 무너진 시각.
+## 개성 사건의 주인은 전투 장수창(BattleUnitCard._sig_who)과 같은 규칙
+static func unit_events(res: Dictionary) -> Dictionary:
+	var per := {}
+	var get_p := func(k: String) -> Dictionary:
+		if not per.has(k):
+			per[k] = {"ult": 0, "ult_tm": [], "sk": 0, "sig": 0, "out_tm": -1.0}
+		return per[k]
+	for e in res.get("ev", []):
+		var tm := snappedf(float(e.get("tm", 0.0)), 0.1)
+		match str(e.get("fx", "")):
+			"ult":
+				var p: Dictionary = get_p.call(str(e.get("a", "")))
+				p.ult += 1
+				(p.ult_tm as Array).append(tm)
+			"skill":
+				var ps: Dictionary = get_p.call(str(e.get("a", "")))
+				ps.sk += 1
+			"rout":
+				var p: Dictionary = get_p.call(str(e.get("f", "")))
+				if float(p.out_tm) < 0.0:
+					p.out_tm = tm
+		if e.get("sig", false):
+			var who := str(e.healer) if e.has("healer") else (str(e.get("a", e.get("f", ""))) if str(e.get("fx", "")) == "debuff" else str(e.get("f", "")))
+			var pg: Dictionary = get_p.call(who)
+			pg.sig += 1
+	per.erase("")
+	return per
 
 
 static func after_battle(run) -> void:

@@ -186,8 +186,9 @@ func battle(i: int, run, bt: Dictionary, res: Dictionary, foe_name: String, foe_
 			x["ghost_of"] = HIDDEN
 	var a := PlayLog.battle_start_data(bt)
 	a["title"] = _scrub(str(a.title))
+	a["tk"] = PlayLog.tac_state(run)      # 11/22 내 군략 · 연구 상태
 	if hide:
-		for k in ["foe", "foe_form", "foe_tac", "foe_morale", "foe_equip", "tr_ratio"]:
+		for k in ["foe", "foe_form", "foe_tac", "foe_morale", "foe_equip", "tr_ratio", "foe_plan"]:
 			a.erase(k)
 	a.merge(x)
 	put(i, run, "battle_start", a)
