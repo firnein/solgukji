@@ -3612,7 +3612,7 @@ func _ability_items(k: String) -> Array:
 		out.append({"kind": "패업", "name": str(pa.n), "effect": pe, "icon": ABILITY_ICON["패업"], "sub": ""})
 	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
 	if u != null:
-		out.append({"kind": "고유기", "name": u.name, "effect": UI.ult_desc(u, c.tier), "icon": ABILITY_ICON["고유기"], "sub": "%d초부터" % roundi(u.wait)})
+		out.append({"kind": "고유기", "name": u.name, "effect": UI.ult_desc(u, c.tier), "icon": ABILITY_ICON["고유기"], "sub": DB.ult_when(u)})
 	return out
 
 
@@ -3833,7 +3833,7 @@ func _ult_card(k: String, u: Dictionary) -> Control:
 	var top := UI.hbox(UI.SP_S)
 	var left := UI.vbox(0)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(_abil_tag("고유기", col.lightened(0.3), "%d초부터" % roundi(u.wait)))
+	left.add_child(_abil_tag("고유기", col.lightened(0.3), DB.ult_when(u)))
 	var nl := UI.lbl(str(u.name), UI.FS_TITLE, P.paper, true)
 	UI.wrap_text(nl)
 	left.add_child(nl)

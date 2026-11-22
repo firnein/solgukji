@@ -1765,6 +1765,7 @@ func ult_of(k: String):
 	var u: Dictionary = base.duplicate(true)
 	u.first = u.get("first", ULT.first.get(str(C[k].tier), ULT.first["6"]))      # 기인(전설 등급)은 초월 값
 	u.cd = u.get("cd", ULT.cd)
+	u.wind = float(u.get("wind", ULT.get("wind", 2.5)))      # 11/22 기 모으기 초 —— 장수별 (data/ultimates.json "wind", 없으면 공통값 2.5)
 	for comp in u.eff:
 		if comp.has("status"):
 			comp.status.k = ST_MERGE.get(comp.status.k, comp.status.k)
@@ -1915,7 +1916,18 @@ func ult_score(u: Dictionary) -> float:
 	return sc
 
 
+## 장수창 고유기 꼬리표 —— "8초부터", 기 모으기가 공통값(2.5초)과 다르면 " · 기 1.5초" 를 붙인다 (11/22)
+func ult_when(u: Dictionary) -> String:
+	var s := "%d초부터" % roundi(float(u.get("wait", 14.0)))
+	var w := float(u.get("wind", 2.5))
+	if absf(w - float(ULT.get("wind", 2.5))) > 0.01:
+		s += " · 기 %s초" % str(snappedf(w, 0.1))
+	return s
+
+
 func ult_wait(k: String, u: Dictionary) -> float:
+	if u.has("wait"):      # 11/22 장수별 대기 —— data/ultimates.json 의 그 장수 "wait" (기습형은 일찍)
+		return float(u.wait)
 	if ULT_WAIT.has(person(k)):
 		return ULT_WAIT[person(k)]
 	return clampf(6.0 + ult_score(u) * 0.7, 8.0, 18.0)      # 11/6 밸런스: 대기 10~26초가 판 길이(약 38초)의 절반 → 8~18초

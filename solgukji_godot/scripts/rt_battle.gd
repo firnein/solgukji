@@ -394,7 +394,7 @@ func _by_distance() -> bool:
 # ───────── 고유기 기 모으기 (10/31 사용자: 전투에 판단할 거리를 —— 예고 → 대응) ─────────
 ## 고유기는 바로 터지지 않고 WIND 초 동안 기를 모은다. 그동안 상대는 ① 방진으로 받거나 ② 제 고유기로 그 장수를 맞혀 끊는다.
 ## 11/2 맞받아치기(적이 기를 모을 때 쓴 고유기는 WIND_FAST 초 만에 터져 끊는다)와 영리한 AI 의 고유기 아껴 두기는 없앴다 —— 자동 감상에서 고유기가 연달아 터졌다.
-const WIND := 2.5
+const WIND := 2.5      # 기본값 —— 11/22 장수별 값은 고유기 데이터의 wind (DB.ult_of, data/ultimates.json)
 const WIND_FAST := 0.7
 const CUT_GAUGE := 30.0        # 끊긴 장수는 게이지가 이만큼 남는다 (횟수는 그대로)
 var _wind := {}                # 유닛 -> 터질 시각
@@ -499,7 +499,7 @@ func _interrupt_ult(u: Unit) -> void:
 	if _wind.has(u):
 		return
 	var fast := false
-	var wait := WIND + (1.0 if _kv(_foe(u.camp), "wind_slow") else 0.0)      # 점복 관로 —— 적 고유기 기 모으기 +1초
+	var wait := float(u.ult.get("wind", WIND)) + (1.0 if _kv(_foe(u.camp), "wind_slow") else 0.0)      # 점복 관로 —— 적 고유기 기 모으기 +1초
 	_wind[u] = _tm + wait
 	_ult_t = _tm                  # 11/6 #14: 간격(ult_gap · ult_side_sec)은 기를 모으기 시작한 때부터 센다 (예전엔 터진 뒤부터 —— 기 모으기 2.5초가 간격에 더해져 한 판에 몇 번 못 썼다)
 	_ult_side_t[u.camp] = _tm

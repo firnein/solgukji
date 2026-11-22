@@ -3431,6 +3431,11 @@ func _smart(cp: String, ult_t: String, cmd_t: String, seen: Dictionary) -> void:
 			ready.append(u)
 	if not ready.is_empty():
 		ready.sort_custom(func(x, y):
+			var stx := _ult_starved(x)      # 11/22 오래 굶은 장수 먼저 (오래 기다린 순)
+			if stx != _ult_starved(y):
+				return stx
+			if stx and _ult_open_t(x) != _ult_open_t(y):
+				return _ult_open_t(x) < _ult_open_t(y)
 			if support_first:      # 11/11 기 충전 수정 1: 지원형(전부 아군 대상) 고유기가 먼저 —— 늘 뒤로 밀려 0번 쓰던 유비
 				var sx := _ult_support(x)
 				if sx != _ult_support(y):
@@ -3660,7 +3665,7 @@ func _reult_ok(u: Unit) -> bool:
 
 ## 기질 발동 조건 (영리 AI · 자동 판단에만 —— 사람이 직접 누르는 것은 그대로). TEMPER_FREE 가 지나면 조건 없이
 func _temper_ok(u: Unit) -> bool:
-	if not temper_enabled or u.temper == "" or _ult_free_now():
+	if not temper_enabled or u.temper == "" or _ult_free_now() or _ult_starved(u):
 		return true
 	var foes := units.filter(func(o): return o.alive and o.camp != u.camp)
 	var mine := units.filter(func(o): return o.alive and o.camp == u.camp)
@@ -3701,6 +3706,24 @@ static var support_hurt := 0.18
 static var support_first := true
 var tier_avg := 0.0       # 11/19 이 전투의 평균 등급 (고유기 간격 등급 배율용)
 static var ult_danger := 0.7      # 11/19 병력이 이 비율 아래인 장수는 고유기 줄 앞으로 (0 이면 예전 —— 기 찬 순서만)
+## 11/22 굶주림 보장 —— 기가 찼고 대기도 끝났는데 이 초 넘게 못 쓴 장수는 기질 조건을 보지 않고 고유기 줄 맨 앞 (오래 기다린 순).
+## 사용자: 도적끼리 맞물리면(감녕 vs 장연) 서로 고유기를 못 쓴다 → 저격 기질(사거리 안 병력 70% 아래 적)이 맞물린 성한 도적끼리는 안 서고,
+## 줄 순서가 다친 장수 · 지원형 먼저라 숨어서 성한 감녕은 22초(TEMPER_FREE) 뒤에도 늘 밀려 끝내 못 썼다. 0 이면 끈다
+static var ult_starve := 6.0
+
+
+func _ult_open_t(u: Unit) -> float:
+	var w := float(u.ult.get("wait", 14.0)) * _tw(u, "wait")
+	var t := maxf(u.ult_ready_t, w)
+	if u.ult_n > 0:
+		t = maxf(t, u.ult_tm + w * float(reult_temper.get(u.temper, reult_wait)))
+	return t
+
+
+func _ult_starved(u: Unit) -> bool:
+	if ult_starve <= 0.0 or u.ult == null or u.ult_ready_t < 0.0 or u.gauge < 100.0:
+		return false
+	return _tm - _ult_open_t(u) >= ult_starve
 
 
 func _ult_support(u: Unit) -> bool:
