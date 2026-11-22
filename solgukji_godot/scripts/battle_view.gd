@@ -3763,10 +3763,13 @@ class Hud extends Control:
 			for mt: Texture2D in mts:
 				var tsz := Vector2(mt.get_size())
 				draw_texture_rect(mt, Rect2((tsz * -0.5).round() / S, tsz / S), false)
-			if boss:
-				BattleView.Hud.draw_crown(self, Vector2(0, - r - 5.0), 1.0)
+			if boss:      # 총대장 —— 메달 둘레 금테 + 큰 왕관 (위) + 금테 이름표
+				draw_arc(Vector2.ZERO, r + 1.5, 0, TAU, 32, Color(1.0, 0.82, 0.25, 0.95), 2.0, true)
+				BattleView.Hud.draw_crown(self, Vector2(0, - r - 8.0), 1.0, 1.8)
 			var label := Rect2(Vector2(- w * 0.5, r + 4.5), Vector2(w, 13.0))
-			draw_rect(label, Color(0.08, 0.08, 0.06, 0.82))
+			draw_rect(label, Color(0.30, 0.06, 0.04, 0.9) if boss else Color(0.08, 0.08, 0.06, 0.82))
+			if boss:
+				draw_rect(label.grow(0.5), Color(1.0, 0.82, 0.25, 0.95), false, 1.0)
 			if troops_t == "":
 				draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81))
 			else:
@@ -3798,8 +3801,8 @@ class Hud extends Control:
 
 
 	## 11/19 토벌 총대장 왕관 —— 금색 세 봉우리 (글자 없이 기호로)
-	static func draw_crown(ci: CanvasItem, c: Vector2, a: float) -> void:
-		var pts := PackedVector2Array([c + Vector2(-6, 3), c + Vector2(-6, -3), c + Vector2(-3, 0), c + Vector2(0, -5), c + Vector2(3, 0), c + Vector2(6, -3), c + Vector2(6, 3)])
+	static func draw_crown(ci: CanvasItem, c: Vector2, a: float, k := 1.0) -> void:
+		var pts := PackedVector2Array([c + Vector2(-6, 3) * k, c + Vector2(-6, -3) * k, c + Vector2(-3, 0) * k, c + Vector2(0, -5) * k, c + Vector2(3, 0) * k, c + Vector2(6, -3) * k, c + Vector2(6, 3) * k])
 		var outline := pts.duplicate()
 		outline.append(pts[0])
 		ci.draw_colored_polygon(pts, Color(1.0, 0.82, 0.25, a))
@@ -4432,7 +4435,8 @@ class Hud extends Control:
 				if sq.state == "gone":
 					continue
 				var p: Vector2 = tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0))
-				var r := 10.0 if sq.tier >= 7 else 8.0
+				var bz0: bool = bool(sq.row.get("boss", false))
+				var r := 13.0 if bz0 else (10.0 if sq.tier >= 7 else 8.0)      # 토벌 총대장은 메달을 크게
 				var mts: Array
 				var te = _tok_tex.get(sq.key)
 				if te != null and te[0] == sq.cid and te[1] == r:
@@ -4444,6 +4448,8 @@ class Hud extends Control:
 				var nw = _tok_name.get(sq.key)      # 이름 · 폭은 전투 내내 같다 —— 한 번만 잰다
 				if nw == null or nw[2] != sq.cid:
 					var name_: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+					if bz0:
+						name_ = "총대장 " + name_
 					nw = [name_, fbo2.get_string_size(name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8.0, sq.cid]
 					_tok_name[sq.key] = nw
 				var w: float = nw[1]
@@ -4482,6 +4488,7 @@ class Hud extends Control:
 					node.r = r
 					node.queue_redraw()
 				node.position = (p * S).round() / S      # 화면 픽셀 칸에 맞춘다
+				node.z_index = 1 if bz0 else 0      # 총대장 메달 · 이름표는 다른 메달 위에
 				node.modulate.a = sq.fade
 				node.visible = true
 				seen[sq.key] = true
@@ -4572,7 +4579,7 @@ class Hud extends Control:
 				_medal(pc, ps * 0.5, sq, a, lvq[1] > 0 and lvq[0] >= 100)
 				_deck_badges(sq, pc, ps * 0.5, a)
 				if bool(sq.row.get("boss", false)) and sq.alive:
-					draw_crown(self, pc + Vector2(0, - ps * 0.5 - 5.0), a)
+					draw_crown(self, pc + Vector2(0, - ps * 0.5 - 7.0), a, 1.5)
 				if not sq.alive:
 					draw_circle(pc, ps * 0.5, Color(0, 0, 0, 0.6))
 				elif shaky(sq):      # 11/11 사기 30 아래 —— 메달 아래에 「동요」 딱지

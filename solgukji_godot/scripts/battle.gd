@@ -330,8 +330,9 @@ const ROUT_SPREAD := 1.5        # 패주 전염 (K.routSame · routOther 배율)
 const ROUT_SHOCK_FLOOR := 31.0  # 11/12 패주 충격으로 내려갈 수 있는 사기 바닥 —— 패주 문턱(30) 바로 위라 연쇄 패주가 안 난다
 var _collapsed := {"A": false, "B": false}
 ## 11/19 사용자(토벌 차별화 A): 토벌은 총대장을 베면 이긴다 —— 우두머리 9부대 가운데 가장 높은 등급(같으면 병력이 많은) 부대가 총대장.
-## 총대장은 병력 × BOSS_TR · 패주 저항 + BOSS_ROUT. 무너지면 그 진영의 남은 부대가 모두 패주한다 (잡병 · 우두머리 모두). side_trait.B.boss 가 켠다
-const BOSS_TR := 1.3
+## 총대장은 병력 × boss_tr · 패주 저항 + BOSS_ROUT. 무너지면 그 진영의 남은 부대가 모두 패주한다 (잡병 · 우두머리 모두). side_trait.B.boss 가 켠다
+static var boss_tr := 1.3
+static var boss_dr := 0.25      # 11/22 총대장 받는 피해 감소 (phys_hit 의 dr 수정치) —— 너무 쉽게 죽었다. 헤드리스 토벌 승률 평균 66→63%
 const BOSS_ROUT := 0.5
 var boss_u: Unit = null
 var _boss_fell := false
@@ -2650,8 +2651,10 @@ func _boss_setup() -> void:
 	if boss_u == null:
 		return
 	boss_u.boss = true
-	boss_u.troops = roundf(boss_u.troops * BOSS_TR)
-	boss_u.max = roundf(boss_u.max * BOSS_TR)
+	boss_u.troops = roundf(boss_u.troops * boss_tr)
+	boss_u.max = roundf(boss_u.max * boss_tr)
+	if boss_dr > 0.0:
+		boss_u.m["dr"] = float(boss_u.m.get("dr", 0.0)) + boss_dr
 	boss_u.m["rout"] = float(boss_u.m.get("rout", 0.0)) + BOSS_ROUT
 
 

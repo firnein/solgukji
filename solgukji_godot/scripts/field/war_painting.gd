@@ -411,11 +411,16 @@ func _pm(p: Vector2) -> Vector2:
 func _pk(p: Vector2) -> float:
 	return _ps / maxf(0.35, 1.0 + (p.x - _pc.x) * Type2View.PAINT_PERSPECTIVE)
 
+const BOSS_FIG := 1.7
+
 func _figure_height(sq: Squad, form: FormationMotion) -> float:
 	var scale: float = _pk(form.center)
 	var nominal := (61.0 if form.cavalry else 51.0) * scale
 	var horizontal := 2.0 * form.half_width / maxf(1, form.cols - 1) * scale
-	return clampf(minf(nominal, horizontal / 0.58), 12.0, 46.0)
+	var h := clampf(minf(nominal, horizontal / 0.58), 12.0, 46.0)
+	if bool(sq.row.get("boss", false)):      # 토벌 총대장 —— 병사 인형을 크게 (그림만, 자리 · 충돌은 그대로)
+		h *= BOSS_FIG
+	return h
 
 func _contact_limits(sq: Squad) -> Array:
 	var limits := []

@@ -91,6 +91,8 @@ func _ready() -> void:
 	if args.has("rdrop"): Run.QUEST_RABBLE_DROP = _list(str(args.rdrop)).map(func(x): return int(x))
 	if args.has("rfloor"): Run.QUEST_RABBLE_FLOOR = _list(str(args.rfloor)).map(func(x): return int(x))
 	if args.has("late"): Run.BOT_LATE = _list(str(args.late))
+	if args.has("boss_tr"): Battle.boss_tr = float(args.boss_tr)      # 총대장 값 미리 재 보기
+	if args.has("boss_dr"): Battle.boss_dr = float(args.boss_dr)
 	var dr := str(args.get("days", "1-7")).split("-")
 	var d0 := int(dr[0]) - 1
 	var d1 := int(dr[dr.size() - 1]) - 1
@@ -168,6 +170,9 @@ func _quest(d0: int, d1: int, games: int, k: Array, seed0: int, phases: Array) -
 		var dlen := 0.0
 		var dmen := [0.0, 0.0]
 		var dfmax := 0.0
+		var bfell := 0
+		var bt_sum := 0.0
+		var btk := 0.0
 		for ps in phases:
 			var p := int(ps)
 			var rng := RandomNumberGenerator.new()
@@ -193,8 +198,17 @@ func _quest(d0: int, d1: int, games: int, k: Array, seed0: int, phases: Array) -
 				for u in res.get("roster", []):
 					if u.camp == "B":
 						dfmax += float(u.max)
+						if bool(u.get("boss", false)):
+							btk += float(u.get("taken", 0)) / maxf(1.0, float(u.max))
+				# 총대장 생존 시간 —— 쓰러지면 boss_t, 끝까지 버티면 전투 길이
+				var st: Dictionary = res.get("stats", {})
+				if st.has("boss_t"):
+					bfell += 1
+					bt_sum += float(st.boss_t)
+				else:
+					bt_sum += float(res.get("len", 0.0))
 				dn += 1
-		print("QUEST %d일 | 승 %3.0f%% | 내 남은 병력 %3.0f%% | 적 남은 %3.0f%% | %4.1f초 | 적 병력 %5.0f | 병사 내 %4.0f 적 %4.0f | n=%d" % [d + 1, dw / dn * 100, dl / dn * 100, dfl / dn * 100, dlen / dn, dfmax / dn, dmen[0] / dn, dmen[1] / dn, dn])
+		print("QUEST %d일 | 승 %3.0f%% | 내 남은 병력 %3.0f%% | 적 남은 %3.0f%% | %4.1f초 | 총대장 격파 %3.0f%% 생존 %4.1f초 받은 피해 %3.0f%% | 적 병력 %5.0f | n=%d" % [d + 1, dw / dn * 100, dl / dn * 100, dfl / dn * 100, dlen / dn, bfell * 100.0 / dn, bt_sum / dn, btk / dn * 100, dfmax / dn, dn])
 		tot_w += dw
 		tot_l += dl
 		tot_n += dn
