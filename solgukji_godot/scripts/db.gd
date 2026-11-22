@@ -1264,19 +1264,25 @@ func passives_of(k: String):
 			var attr: String = t.get("attr", "")
 			var lv := trait_level(k, e[0])
 			var sc: float = (PSV.level_scale_attr if attr != "" else PSV.level_scale)[str(lv)]
-			sc *= float(t.get("tier_mul", PSV.get("axis_tier_mul", {}).get(attr, {})).get(str(c.tier), 1.0))      # 축 × 등급 밸런스 (10/31) —— 특기에 tier_mul 이 있으면 그것 (현혹 · 요언, 11/7)
+			var tmul := float(t.get("tier_mul", PSV.get("axis_tier_mul", {}).get(attr, {})).get(str(c.tier), 1.0))
+			sc *= tmul      # 축 × 등급 밸런스 (10/31) —— 특기에 tier_mul 이 있으면 그것 (현혹 · 요언, 11/7)
 			if c.tier >= 8:
 				sc *= myth_trait
 			sc *= card_psv(k)      # 11/10 카드별 특기 세기 배율 (card_adjust.psv)
 			if c.get("kind", "") == "kiin" and str(kr[0]) == e[0]:      # 11/9 기인 대표 역할 —— 세기 배율
 				sc *= float(kr[1])
+			# 11/22 금색(고유) 특기의 고정값 키(시작 사기 · 적 시작 사기 등 GROUP_FLAT) —— 축 등급 배율 · 신화 배율을 빼고 레벨표만 따른다
+			# (만인적 적 시작 사기 4급 −11 > 8급 −8 · 위진 6급 −18 > 8급 −8 처럼 낮은 등급이 더 세던 역전)
+			var fsc := sc
+			if t.get("unique", false):
+				fsc = sc / maxf(0.001, tmul * (myth_trait if c.tier >= 8 else 1.0))
 			if t.has("self"):      # 금색 특기 —— 단체 효과와 함께 주인에게만 붙는 장치
 				var sm := {}
 				for key in t.self:
 					sm[key] = t.self[key] * (1.0 if key in PSV.flags else sc)
 				out.traits.append({"name": e[0], "d": t.d, "m": sm, "attr": attr, "lv": lv})
 			if t.has("scope"):
-				out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc, "attr": attr, "lv": lv})
+				out.groups.append({"name": e[0], "d": t.d, "scope": t.scope, "scale": sc, "fscale": fsc, "attr": attr, "lv": lv})
 			elif not t.has("self"):
 				var m := {}
 				for key in t.m:
@@ -1332,7 +1338,11 @@ func trait_list(k: String) -> Array:
 			tml.append(mod_split(st))
 		by[t.name] = {"name": t.name, "lv": t.lv, "group": false, "attr": t.attr, "unique": PSV.traits[t.name].get("unique", false), "d": turn_text(t.d, C[k].tier, C[k].spd), "mt": " · ".join(tml.map(mod_str)), "ml": tml}
 	for g in ps.groups:
-		var gml := mods_list(PSV.traits[g.name].m, g.scale, C[k].tier, C[k].spd)
+		var gm0: Dictionary = PSV.traits[g.name].m.duplicate()
+		for fk in GROUP_FLAT:      # 11/22 고정값 키는 fscale (passives_of)
+			if gm0.has(fk):
+				gm0[fk] = float(gm0[fk]) * float(g.get("fscale", g.scale)) / maxf(0.001, g.scale)
+		var gml := mods_list(gm0, g.scale, C[k].tier, C[k].spd)
 		if by.has(g.name) and by[g.name].mt != "":      # 금색 —— 주인 장치 수치도 함께
 			var own: Array = by[g.name].ml
 			for oi in own.size():      # 문장은 예전처럼 "자신 " 을 한 번만 (첫 항목 앞)
@@ -1435,6 +1445,7 @@ const SIG_LABEL := {
 	"gauge_aura": ["4초마다 아군 고유기 기", "n"], "frail_water": ["받는 수몰 피해", "%"],
 	"cav_show": ["", ""]}
 const FLOW_LABEL := {"regen": "전투 동안 병력", "mregen": "전투 동안 사기", "mend": "전투 동안 치료", "cheer_hit": "전투 동안 맞힐 때 치료"}
+const GROUP_FLAT := ["morale", "foe_morale"]      # 11/22 금색 단체 특기에서 등급 · 신화 배율 대신 레벨표만 따르는 고정값 키 (passives_of fscale)
 const MOD_FLAT := ["morale", "mregen", "foe_morale", "burn_dur", "jolt", "rally_kill", "cheer_turn", "resolve", "steady", "ult_rally"]
 ## 11/19 사용자: "속도 100 = 초당 1번 공격"(RtBattle.spd_rule) —— 행동할 때마다 일어나는 효과 (Battle._turn_start · _after_hit).
 ## 이들의 '전투 동안' 합계는 정산 횟수(turns_for)가 아니라 그 카드의 행동 횟수(acts_for)로 곱한다. regen · mregen · terror 는 정산(_settle · tick_status)마다라 그대로.

@@ -3240,7 +3240,7 @@ func _group_from(u: Unit, g: Dictionary, got: Dictionary, owner: Dictionary) -> 
 				got[t] = {}
 			if not got[t].has(g.name):
 				got[t][g.name] = []
-			got[t][g.name].append(g.scale)
+			got[t][g.name].append([g.scale, float(g.get("fscale", g.scale))])      # 11/22 [세기, 고정값 키 세기]
 			n += 1
 	var ok: String = u.camp + g.name
 	if not owner.has(ok) or g.scale > owner[ok][1]:
@@ -3251,12 +3251,12 @@ func _finish_groups(got: Dictionary, owner: Dictionary) -> void:
 	for t in got:
 		for nm_ in got[t]:
 			var sc: Array = got[t][nm_]
-			sc.sort()
-			sc.reverse()
-			var total: float = sc[0] + (sc[1] * 0.5 if sc.size() > 1 else 0.0)
+			sc.sort_custom(func(a, b): return a[0] > b[0])
+			var total: float = sc[0][0] + (sc[1][0] * 0.5 if sc.size() > 1 else 0.0)
+			var ftotal: float = sc[0][1] + (sc[1][1] * 0.5 if sc.size() > 1 else 0.0)
 			var base: Dictionary = DB.group_def(nm_).m
 			for k in base:
-				t.m[k] = t.m.get(k, 0.0) + base[k] * (1.0 if k == "burn_dur" else total)
+				t.m[k] = t.m.get(k, 0.0) + base[k] * (1.0 if k == "burn_dur" else (ftotal if k in DB.GROUP_FLAT else total))
 	for ok in owner:
 		var o: Array = owner[ok]
 		var cm: Dictionary = DB.group_def(o[3].name).get("cmd", {}) if cmd_links else {}
