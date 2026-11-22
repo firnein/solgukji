@@ -803,7 +803,7 @@ func _fire_winds() -> void:
 	if not _join_q.is_empty():
 		_inyeon_joins()
 	for u: Unit in _tick_units():
-		if not _wind.has(u) or _wind[u] > _tm + 0.001:
+		if not _wind.has(u) or _wind[u] > _tm + 0.001 or _yeon_held(u):
 			continue
 		_wind.erase(u)
 		if not u.alive or has_st(u, "confuse"):
@@ -819,11 +819,27 @@ func _fire_winds() -> void:
 		_fire_one(u)
 
 
+## 11/22 연쇄를 여는 장수(대표 · 기인)가 아직 돌진 중이면 합류한 짝은 기다린다 —— 돌격 대표(마초 · 조운 · 손책 …)는 기를 다 모은 뒤
+## 최대 DASH_MAX 초 달려가 부딪혀야 터지는데, 짝은 대표의 원래 끝 시각 + inyeon_stagger 에 먼저 터져 버려 연쇄가 깨졌다 (짝 · 대표 모두 단독, tests/chain_rate)
+func _yeon_held(u: Unit) -> bool:
+	var grp: Dictionary = _wind_grp.get(u, {})
+	if grp.is_empty() or grp.get("fired", false):
+		return false
+	var head: Unit = grp.get("kiin", grp.lead) if inyeon_theme else grp.lead
+	return head != u and _dash.has(head) and grp.members.has(head)
+
+
 ## 기를 다 모은 (돌격이면 부딪힌) 고유기 하나를 터뜨린다
 func _fire_one(u: Unit) -> void:
 	var grp: Dictionary = _wind_grp.get(u, {})
 	if not grp.is_empty():
 		_inyeon_fire_setup(u, grp)
+		if grp.get("head") == u and _dash_from.has(u):      # 돌진 끝에 연 연쇄 —— 기다리던 짝은 지금부터 inyeon_stagger 간격으로
+			var k := 0
+			for o in grp.members:
+				if o != u and _wind.has(o):
+					k += 1
+					_wind[o] = maxf(float(_wind[o]), _tm + inyeon_stagger * k)
 	super._interrupt_ult(u)
 	var joint: bool = not _ult_grp.is_empty()      # 합동으로 터졌다 (대표가 끊겨 혼자 쏜 장수는 세지 않는다)
 	_ult_grp = {}
