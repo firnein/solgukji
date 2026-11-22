@@ -3464,6 +3464,9 @@ func _pin_btn(k: String, after: Callable) -> Button:
 	var pb := UI.btn("★ 갈무리 해제" if pn else "★ 갈무리", func():
 		forge_tree.toggle(k)
 		after.call(), "ghost" if pn else "", UI.BH_M)
+	if not pn and forge_tree.is_dead(k):      # 11/22 사망한 장수는 갈무리 불가
+		pb.text = "사망 —— 갈무리 불가"
+		pb.disabled = true
 	pb.custom_minimum_size.x = 120 if pn else 104
 	pb.add_theme_color_override("font_color", DB.PAL.gold.lightened(0.15) if not pn else DB.PAL.paper)
 	return pb
@@ -4295,6 +4298,9 @@ func _up_row(out: String) -> Control:
 		SheetStyle.quiet_btn(pb)
 	else:
 		SheetStyle.sub_btn(pb)
+	if not pn and forge_tree.is_dead(out):      # 11/22 사망한 장수는 갈무리 불가
+		pb.text = "사망"
+		pb.disabled = true
 	pb.custom_minimum_size = Vector2(72, 48)
 	pb.add_theme_font_size_override("font_size", UI.FS_BODY)
 	pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
