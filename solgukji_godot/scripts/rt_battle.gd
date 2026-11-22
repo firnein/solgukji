@@ -569,6 +569,7 @@ const INYEON_MAX_UP := 4
 static var inyeon_join_at4 := [0.24, 0.48, 0.72]   # 4명 연쇄의 합류 시각 (대표 기 모으기 길이 비율)
 static var yeon_kiin_fin_mul := 1.3
 static var yeon_kiin_cap_mul := 1.8
+static var yeon_n4_amp := 0.8       # 11/22 4명 연쇄에 든 장수의 고유기 피해 배율 (1.0 = 예전). 0.8: 4인 연쇄 한 번 적 현재 병력 대비 29 → 27% (기인이 열면 37~42 → 32~36%), tests/chain_power
 static var yeon_up_join := 70.0      # 11/12 2차 85 → 70 (초월 인연 덱 20판 4명 연쇄 4 → 6, 무작위 덱은 문턱과 무관하게 0 —— 구성원 넷이 모이는 일이 드묾). 같은 인연 초월이 살아 있으면(또는 자신이 초월이면) 게이지가 이만큼만 차도 합류 (평소 100)
 
 
@@ -918,6 +919,7 @@ func _inyeon_fire_setup(u: Unit, grp: Dictionary) -> void:
 			return
 		grp.fired = true
 		grp["head"] = u
+		grp["n0"] = 1 + mates.size()      # 11/22 연쇄 인원 —— 인원별 합동 상한 (Battle.inyeon_cap_n)
 		if inyeon_theme:
 			grp["foes0"] = units.filter(func(o): return o.alive and o.camp != u.camp).size()
 		_ult_extra = {"inyeon": grp.name, "mates": mates}
@@ -941,6 +943,8 @@ func _inyeon_fire_setup(u: Unit, grp: Dictionary) -> void:
 			stats["inyeon_kiin_fin"] = int(stats.get("inyeon_kiin_fin", 0)) + 1
 	else:
 		return
+	if inyeon_theme and int(grp.get("n0", 0)) >= 4:      # 11/22 4명 연쇄 —— 장수마다 피해 ×yeon_n4_amp (한 번에 적 병력 25~35% 목표, tests/chain_power)
+		_ult_amp_x *= yeon_n4_amp
 	_ult_grp = grp
 
 
