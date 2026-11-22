@@ -35,7 +35,10 @@ func _rebuild() -> void:
 	if not expanded or fixed:
 		_all = _all.filter(func(t): return _mine.has(t.name))
 	var rows := ceili((_all.size() + (0 if fixed else 1)) / float(cols))      # 마지막 칸은 '모두 보기' · '접기'
-	custom_minimum_size = Vector2(0, rows * (ch + gap) - gap)
+	var h := rows * (ch + gap) - gap
+	if _toggle_alone():
+		h -= ch - TOGGLE_LINE_H      # 혼자 남은 토글은 칸이 아니라 낮은 글자 줄
+	custom_minimum_size = Vector2(0, h)
 	queue_redraw()
 
 
@@ -47,6 +50,13 @@ func _gui_input(e: InputEvent) -> void:
 		expanded = not expanded
 		_rebuild()
 		accept_event()
+
+
+## 11/22 특기 수가 칸 수의 배수면 '모두 ▾' 칸이 혼자 새 줄로 넘어가 빈 줄처럼 보였다 (갈무리창 5특기) ——
+## 그때만 칸 대신 오른쪽 끝의 낮은 글자 줄(TOGGLE_LINE_H)로 그린다. 누르는 곳은 판 전체 그대로
+const TOGGLE_LINE_H := 13.0
+func _toggle_alone() -> bool:
+	return not fixed and _all.size() > 0 and _all.size() % cols == 0
 
 
 ## 사다리에 실제로 쓰이는 특기 전부 —— 계열(ORDER) 순서, 같은 계열 안은 passives.json 순서
@@ -95,6 +105,12 @@ func _draw() -> void:
 	if fixed:
 		return
 	var i := _all.size()
+	if _toggle_alone():
+		var ty := (ch + gap) * (i / cols)
+		var tl := "모든 특기 접기 ▴" if expanded else "모든 특기 보기 ▾"
+		var tf := fs - 1
+		draw_string(fb, Vector2(0, ty + TOGGLE_LINE_H * 0.5 + tf * 0.36), tl, HORIZONTAL_ALIGNMENT_RIGHT, size.x, tf, Color(DB.PAL.bamboo, 0.85))
+		return
 	var hr := Rect2((cw + gap) * (i % cols), (ch + gap) * (i / cols), cw, ch)
 	var hs := StyleBoxFlat.new()
 	hs.set_corner_radius_all(2)
