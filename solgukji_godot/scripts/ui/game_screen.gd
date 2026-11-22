@@ -1842,6 +1842,14 @@ func _settings_sheet() -> void:
 		Settings.save_cfg()
 		_settings_sheet()))
 	b.add_child(UI.hint("큰 것만: 기술 · 고유기 · 치명타 숫자만. 모아서: 작은 타격은 합쳐서. 모두: 전부."))
+	b.add_child(UI.eyebrow("고유기 연출"))      # 11/22 사용자: 중후반 고유기 연출이 쉼 없이 나온다
+	b.add_child(UI.segmented([["0", "모두"], ["1", "중요한 것만"], ["2", "간단히"]], str(Settings.ult_fx), func(key):
+		Settings.ult_fx = int(key)
+		Settings.save_cfg()
+		if _battle:
+			_battle.remark_ults()
+		_settings_sheet()))
+	b.add_child(UI.hint("중요한 것만: 내 장수의 첫 고유기 · 인연 합동의 첫 번째 · 적 신화의 첫 고유기 · 부대를 무너뜨린 한 방만 크게, 나머지는 멈추지 않고 이름과 효과만."))
 	b.add_child(UI.eyebrow("전투 카메라 연출"))      # 11/6 사용자: 불필요한 카메라 무빙 자제
 	b.add_child(UI.segmented([["0", "끔"], ["1", "적게"], ["2", "보통"]], str(Settings.cam_fx), func(key):
 		Settings.cam_fx = int(key)
@@ -5102,7 +5110,22 @@ func _on_battle_ended(res: Dictionary, _inputs: Array) -> void:
 ## 아래 장수 칸 · 버튼 위(REPORT_BOT)까지로 묶고, 그 안에서 장수 줄만 스크롤한다(BattleReport.max_h). 버튼은 표 바로 아래 고정
 const REPORT_TOP := 110.0      # 위 띠 · 병력 막대 · 시계(0:29) 아래 (논리 좌표 —— 400×889 기준)
 const REPORT_BOT := 236.0      # 아래 장수 칸(≈135) + [종료] 버튼(56) + 틈
+var _view_t0 := -1      # 점검용 --gviewtime: 전투 화면을 연 실제 시각 (ms)
 func _show_report(res: Dictionary) -> void:
+	if _view_t0 >= 0:
+		var nu := (res.get("ev", []) as Array).filter(func(e): return e.get("fx") == "ult").size()
+		var nb := 0
+		for g in _battle.groups:
+			if g.ult != null and bool(g.get("big", true)) and not (g.ult as Dictionary).has("lead"):
+				nb += 1
+		print("VIEWTIME|재생 %.1f초 · 고유기 %d (큰 연출 %d) · 연출 설정 %d" % [(Time.get_ticks_msec() - _view_t0) / 1000.0, nu, nb, Settings.ult_fx])
+		for g in _battle.groups:
+			if g.ult != null:
+				var sq = _battle.field.squads.get(g.who)
+				print("  ULT|%5.1f %s %s 등급%d %s%s" % [float(g.t), g.who, sq.row.name if sq else "?", int(sq.tier) if sq else 0,
+					"크게" if bool(g.get("big", true)) and not (g.ult as Dictionary).has("lead") else "가볍게",
+					" (인연 합류)" if (g.ult as Dictionary).has("lead") else (" (인연 대표)" if not (g.ult.get("mates", []) as Array).is_empty() else "")])
+		get_tree().quit()
 	var plan := _hp_plan
 	var bplan := _bonus_plan
 	_hp_plan = {}
@@ -5893,6 +5916,9 @@ func _dev_args() -> void:
 			_battle.apply_style()
 	if a.has("gbattle"):
 		await get_tree().process_frame
+		if a.has("gultfx"):      # 점검용 —— 고유기 연출 설정을 저장하지 않고 이번만 (0 모두 · 1 중요한 것만 · 2 간단히)
+			Settings.ult_fx = int(a.gultfx)
+		_view_t0 = Time.get_ticks_msec() if a.has("gviewtime") else -1      # 점검용 —— 결과표가 뜰 때까지 실제 시간 (11/22 고유기 연출 나누기)
 		await _start(a.gbattle)
 		if a.has("speed"):
 			_battle._set_speed(float(a.speed))

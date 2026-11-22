@@ -1418,7 +1418,7 @@ func _build_timeline(rebuild := false) -> void:
 		if g == null or g.ai != e.ai:
 			g = {"ai": e.ai, "ph": e.ph, "who": e.who, "ev": [], "targets": [], "skill": "",
 				"kind": "misc", "st": "", "phys": false, "int": false, "t": 0.0, "wait": 0.0,
-				"ult": null, "fin": null, "foes": [], "allies": [], "min_t": 0.0}
+				"ult": null, "fin": null, "foes": [], "allies": [], "min_t": 0.0, "big": true}
 			groups.append(g)
 		g.ev.append(i)
 		group_of.append(g)
@@ -1471,6 +1471,7 @@ func _build_timeline(rebuild := false) -> void:
 		else:
 			gr.t = t
 			t += STEP * pace
+	_mark_ult_big()
 	# 유닛별 손실 예정 시각 —— 흘려 넣는 기간을 정한다
 	loss_times = []
 	for u in res.roster.size():
@@ -1623,8 +1624,8 @@ func _process_inner(dt: float) -> void:
 	field.step(d)
 	t0 = Time.get_ticks_usec()
 	while gi < groups.size() and groups[gi].t <= clock:
-		# 고유기 컷인은 한 번에 하나 —— 앞 연출이 끝날 때까지 다음 고유기는 기다린다
-		if groups[gi].ult != null and (slow_t > 0 or hud.cut != null):
+		# 고유기 컷인은 한 번에 하나 —— 앞 연출이 끝날 때까지 다음 고유기는 기다린다 (11/22 가벼운 고유기는 큰 컷인 중에만 기다린다 —— 컷인이 덮고 있어서)
+		if groups[gi].ult != null and (slow_t > 0 or hud.cut != null) and (bool(groups[gi].get("big", true)) or hud.cut != null):
 			break
 		_start_group(groups[gi])
 		gi += 1
@@ -2071,11 +2072,77 @@ func _swing_sounds() -> void:
 	get_tree().create_timer(0.95).timeout.connect(func(): Sfx.play("crit_%d" % (1 + randi() % 4), 4.0))
 
 
+## 11/22 사용자 "중후반에 고유기 연출이 쉼 없이 나온다" —— 고유기마다 큰 연출(슬로모션 2.8초 + 컷인 1.8초, 앞 연출이 끝날 때까지 다음 고유기는 기다림)인지
+## 가벼운 연출(멈추지 않고 이름 · 효과만)인지 미리 정한다. 기록(93CS) 5일차 판당 고유기 15번(최대 27) —— 연출만 40초 남짓이었다.
+## Settings.ult_fx: 0 모두 크게 · 2 모두 가볍게 · 1(기본) 아래 중 하나면 크게 ——
+##   그 인연 합동의 첫 번째(진영마다 —— 같은 인연이 다시 터지면 가볍게) · 그 부대의 첫 고유기(아군 전부, 적은 신화만) · 상대 부대를 무너뜨린 한 방.
+##   단 인연 첫 합동이 아니면 앞 큰 연출과 ULT_BIG_GAP 초 안에 겹친 것은 가볍게 (동시에 터진 나머지).
+##   측정(21페이즈 뒤 대전, 고유기 14 —— 인연 합류 8): 모두 51.4초 · 간단히 38.7초 —— 큰 연출 하나에 약 2초
+const ULT_BIG_GAP := 2.5
+func _mark_ult_big() -> void:
+	var mode := Settings.ult_fx
+	var n_by := {}
+	var yeon_seen := {}
+	var last_big := -99.0
+	for gr in groups:
+		if gr.ult == null:
+			continue
+		var u: Dictionary = gr.ult
+		var who := str(gr.who)
+		var first: bool = int(n_by.get(who, 0)) == 0
+		n_by[who] = int(n_by.get(who, 0)) + 1
+		if u.has("lead"):      # 인연 합류자 —— 대표 컷인 옆에 서는 쪽 (늘 가벼운 길)
+			gr.big = false
+			continue
+		var yeon: bool = not (u.get("mates", []) as Array).is_empty()
+		var yk := who.left(1) + str(u.get("inyeon", ""))
+		var yeon_first: bool = yeon and not yeon_seen.has(yk)
+		if yeon:
+			yeon_seen[yk] = true
+		var big := mode == 0
+		if mode == 1:
+			var mine := who.begins_with("A")
+			var myth: bool = field.squads.has(who) and int(field.squads[who].tier) >= 8
+			var breaks := false
+			for i in gr.ev:
+				var e: Dictionary = res.ev[i]
+				if str(e.get("fx", "")) == "rout" and str(e.get("f", "")).left(1) != who.left(1):
+					breaks = true
+					break
+			big = yeon_first or (first and (mine or myth)) or breaks
+			if big and not yeon_first and float(gr.t) - last_big < ULT_BIG_GAP:
+				big = false
+		gr.big = big
+		if big:
+			last_big = float(gr.t)
+
+
+## 설정에서 고유기 연출을 바꾸면 지금 보는 전투에도 바로 (아직 안 터진 것만 의미가 있다)
+func remark_ults() -> void:
+	if not groups.is_empty():
+		_mark_ult_big()
+
+
 ## 고유기 —— 슬로모션 + 화면 가운데 초상 컷인 + 카메라가 다가간 뒤 대형 이펙트와 함께 터진다
 func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
 	var u: Dictionary = g.ult
 	hud.charge_end(g.who)      # 기 모으기 표시는 컷인이 뜨면 걷는다
+	if not u.has("lead") and not bool(g.get("big", true)):      # 11/22 가벼운 고유기 —— 슬로모션 · 컷인 · 카메라 없이 이름과 이펙트만, 전투를 멈추지 않는다
+		u["_lite"] = true      # 소리(_sound)도 가볍게
+		hud.float_text(g.who, "『%s』" % str(u.get("name", "고유기")), Color("#ffd257"), 13)
+		get_tree().create_timer(0.2).timeout.connect(func():
+			if is_instance_valid(sq):
+				field.flourish(sq, 1.1))
+		field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
+		g.min_t = clock + ULT_DELAY
+		if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty() and not _rt():
+			field.order_melee(g.who, g.targets[0])
+			g.wait = clock + MELEE_WAIT
+			pending.append(g)
+		else:
+			_release(g, clock + ULT_DELAY)
+		return
 	if u.has("lead"):      # 11/11 인연 합동 —— 대표 컷인 옆에 이미 서 있다. 컷인 · 카메라 · 슬로모션 없이 제 고유기 이펙트만 (슉 나아가 휘두른다)
 		hud.float_text(g.who, "인연 『%s』" % u.get("inyeon", ""), Color("#ffd257"), 13)
 		get_tree().create_timer(0.35).timeout.connect(func():
@@ -2090,6 +2157,7 @@ func _start_ult(g: Dictionary) -> void:
 		else:
 			_release(g, clock + ULT_DELAY)
 		return
+	u.erase("_lite")      # 11/22 설정을 바꿔 다시 크게 보이는 경우
 	if speed > 0:
 		slow_t = 2.8      # 11/4 휘두르기 · 날리기까지 슬로모션 (11/6 컷인이 길어져 2.0 → 2.8)
 	var ud = DB.ult_of(sq.cid) if DB.C.has(sq.cid) else null      # 효과 문구는 카드의 고유기 정의에서 (사건 쪽 사전에는 eff 가 없다)
@@ -2328,8 +2396,11 @@ func _sound(e: Dictionary) -> void:
 		"int": pass      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
 		"skill": if e.get("kind", "") == "phys": Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
 		"ult":
-			Sfx.play("horn", -2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
-			Sfx.play("crit", 2.0)
+			if e.get("_lite", false):      # 11/22 가벼운 고유기 —— 뿔나팔(음악 낮춤) 없이 병장기 한 번
+				Sfx.play("crit", 0.0)
+			else:
+				Sfx.play("horn", -2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
+				Sfx.play("crit", 2.0)
 		"rout":
 			Sfx.play("rout")
 		"collapse":
