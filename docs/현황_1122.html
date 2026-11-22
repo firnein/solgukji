@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>솔국지 현황 11/22</title>
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--ink:#e8e2d2;--dim:#a99c80;--gold:#e0b45a;--jade:#7fd0bd;--seal:#e0806f;--line:#2a3348}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 "Noto Sans KR","Malgun Gothic",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:28px;margin:0 0 4px;color:var(--gold)}
+h2{font-size:21px;margin:44px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold)}
+h3{font-size:16px;margin:24px 0 8px;color:var(--jade)}
+.sub{color:var(--dim);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin:12px 0}
+.shots figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px}
+.shots img{width:100%;display:block;border-radius:4px}
+figcaption{font-size:12.5px;color:var(--dim);margin-top:6px;line-height:1.45}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#1d2538;color:var(--gold);font-weight:600}
+code{background:#222b3f;padding:1px 5px;border-radius:4px;font-size:13px;color:#d9d0b8}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.flow span{background:#222b3f;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:13.5px}
+.flow b{color:var(--dim)}
+.risk{border-left:4px solid var(--seal)}
+.tag{display:inline-block;font-size:12px;border-radius:4px;padding:0 6px;margin-right:6px}
+.t-hi{background:#5a2a24;color:#ffb3a6}.t-mid{background:#4a3d1e;color:#f2d38a}.t-lo{background:#203a35;color:#a6e6d6}
+ul{margin:6px 0;padding-left:20px}
+.toc a{color:var(--jade);text-decoration:none}
+.tw{overflow-x:auto}
+@media (max-width:600px){h1{font-size:23px}.shots{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<h1>솔국지 현황 보고 — 2026-11-22 (하루 마감)</h1>
+<p class="sub">다른 AI 모델 · 다른 작업자에게 넘기는 문서. 이 문서 하나로 한 판의 흐름 · 화면 · 시스템 · 오늘(1.2e) 변경 · <b>약점</b>을 파악할 수 있게 썼다. 앞 문서: <code>docs/현황_1120.html</code> (게임 구조 · 온라인 · 부록 파일 지도는 거기와 같다 —— 여기서는 바뀐 것 위주). 출처: <code>data/changelog.json</code> 1.2e, <code>docs/밸런스_1122.md</code>, <code>git log --since=2026-11-22</code>. 스크린샷은 점검 인자로 찍은 실제 게임 화면(450×968, Mobile 렌더러, 시드 7).</p>
+
+<div class="card toc">
+<b>목차</b> ·
+<a href="#s1">1. 한눈에</a> ·
+<a href="#s2">2. 한 판의 흐름 · 아침 화면</a> ·
+<a href="#s3">3. 전투 화면</a> ·
+<a href="#s4">4. 핵심 시스템 (바뀐 것)</a> ·
+<a href="#s5">5. 오늘 변경 요약</a> ·
+<a href="#s6">6. 밸런스 · 측정</a> ·
+<a href="#s7">7. 약점 · 남은 문제</a> ·
+<a href="#s8">8. 묻고 싶은 것</a> ·
+<a href="#s9">9. 부록 · 스크린샷 찍기</a>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. 한눈에</h2>
+<div class="card">
+<p>솔국지는 Godot 4.4.1 로 만든 <b>세로 화면 삼국지 카드 오토배틀러</b>다(안드로이드 APK · PC EXE). 아침에 카드를 받고(징집) · 모아 한 등급 위로 올리고(조합) · 진형에 편성하고 · 군략 · 연구를 고르면, 전투는 자동 · 실시간으로 진행되고 사람은 구경한다. 민심이 0 이 되면 멸망, <b>최후의 한 세력</b>이 남을 때까지 날이 이어진다. 혼자 하기(봇)와 온라인(4 · 6 · 8명 방, 빈자리 봇)이 있고, 기준은 온라인 대전이다.</p>
+</div>
+<table>
+<tr><th>항목</th><th>지금</th></tr>
+<tr><td>버전</td><td><b>1.2e</b> (code 47, 11/22) —— 「매복과 기습 · 군략과 연구」. APK · EXE 1.2e 빌드 커밋 <code>5015bcb</code></td></tr>
+<tr><td>11/20 이후</td><td>1.1h → 1.1i · 1.1j · 1.1k (11/20) → 1.2a~1.2d (11/21) → 1.2e (11/22)</td></tr>
+<tr><td>전투 화면</td><td>전쟁 삽화 방식만. 오늘부터 전장 <b>좌우에 숲 · 바위 매복 띠</b></td></tr>
+<tr><td>전투 속도 규칙</td><td>속도 100 = 초당 1번 공격 (1.1h). 오늘 <b>판 평균 등급별 피해 배율</b>(<code>Battle.len_dmg</code>)로 높은 등급 전투를 늘였다</td></tr>
+<tr><td>아침 고르기</td><td>군략 3택1 → <b>연구 3택1</b> (오늘 새로, 두 트리)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s2">2. 한 판의 흐름 · 아침 화면</h2>
+<div class="flow"><span>타이틀</span><b>→</b><span>아침: 군략 3택1 → 연구 3택1</span><b>→</b><span>징집 · 조합 · 편성</span><b>→</b><span>토벌 (총대장을 베면 승)</span><b>→</b><span>대전 준비 10초</span><b>→</b><span>대전 (군략 3단계)</span><b>→</b><span>결과 · 민심</span><b>→</b><span>다음 날 아침 보상</span><b>→</b><span>최후 1인까지</span></div>
+<ul>
+<li>하루 = 오전 · 오후 · 저녁 3페이즈(<code>Run.PHASE_N</code>). 머리띠에 「DAY 3 · 수요일 오전」, 민심 게이지, 군량.</li>
+<li>아침마다 <b>군략 3장</b>(연구 「군략 연구」가 있으면 4장) 중 하나 → 이어서 <b>연구 3장</b> 중 하나. 고르지 않으면 하루 끝에 첫 카드가 자동 지급(<code>Run.tk_day_end</code>). 머리띠의 「군략 3택1」 · 「연구 3택1」 칩으로 다시 연다.</li>
+<li>지면 민심이 깎인다(패배 피해는 날이 갈수록 커짐). 보상은 이기든 지든 같다.</li>
+</ul>
+<div class="shots">
+<figure><img src="report_1122/01_draw.png" alt="징집"><figcaption>01 징집 (3일차 오전) —— 위 병종 막대 8칸, 「징집하기」, 상점 · 선택권(고급 3 · 기본 2) · 배급, 재료가 거의 모인 추천 조합.</figcaption></figure>
+<figure><img src="report_1122/02_tacoffer.png" alt="군략 3택1"><figcaption>02 군략 3택1 (1/2) —— 불화살 · 화살비(원거리) · 고육계(책략). 카드마다 <b>우세 · 열세</b> 상성. 「받기 확정」 뒤 연구로 이어진다.</figcaption></figure>
+<figure><img src="report_1122/03_research.png" alt="연구 3택1"><figcaption>03 연구 3택1 (2/2) —— 갈래(병종 · 군기 · 내정)별 트리. 중갑 보병(창병 받는 피해 −10% 영구, 다음 ▸ 장창 개량), 사기 진작, 인재 등용(선택권 +1). 위 띠는 토벌 전리품 알림.</figcaption></figure>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s3">3. 전투 화면</h2>
+<div class="card">
+<ul>
+<li><b>구조</b>: 결정적 엔진(<code>battle.gd</code> · <code>rt_battle.gd</code> · <code>sig_rt.gd</code>)이 끝까지 미리 계산, 화면(<code>battle_view.gd</code> · <code>war_painting</code>)은 재생만. 온라인은 서버가 계산. 전투 중 개입 없음.</li>
+<li><b>위 띠</b>: 양군 병력 · 시간 · 사기(100 초과는 "100 (+2)"). 바로 아래 <b>아군 군략 · 적 군략 칩</b>(1 · 2 · 3단계, 접기/펼치기, 발동 ✓ · 무효 ✕). 단계: 1 = 개전~12초 · 2 = 12~23초 · 3 = 23초~끝.</li>
+<li><b>매복 지형</b>: 전장 좌우가 숲 · 바위 띠. 그 안을 지나는 우회 · 매복 부대는 흐리게 보이다가 「기습!」과 함께 나타남(화면 전용, 판정과 무관). 우회 중 이동 속도 ×1.8(<code>RtBattle.flank_spd</code>, 판정 변경).</li>
+<li><b>상태 딱지</b>: 버프 초록 · 디버프 빨강 테두리 둥근 네모, 능력치 기호 + 큰 ↑↓, 크기 19, 넷 넘치면 +N.</li>
+<li><b>아래</b>: 장수 카드(병력 "8.7k", 병 · 사 막대). 누르면 전투 장수창.</li>
+</ul>
+</div>
+<div class="shots">
+<figure><img src="report_1122/04_battle_pvp.png" alt="대전 매복"><figcaption>04 대전 · 허창조나리 (0:08, 15페이즈 덱) —— 좌우 숲 · 바위 매복 띠, 「능통 · 구원」 「황충 · 저격」 개성 이름표, 빨강 디버프 딱지, 위 띠 아래 양쪽 군략 칩(접힘). 오른쪽 위 흐린 적은 매복 띠 안.</figcaption></figure>
+<figure><img src="report_1122/05_battle_tacopen.png" alt="군략 목록 펼침"><figcaption>05 같은 전투, <b>군략 목록 펼침</b> —— 아군 "1 개전~12초 돌격 ✓ · 2 12~23초 방진 · 3 23초~끝 우회", 적은 2 · 3단계가 「?」(단계가 열릴 때 공개). 펼친 목록이 전장 왼쪽 위를 가린다(약점 참고).</figcaption></figure>
+<figure><img src="report_1122/06_unit.png" alt="장수창"><figcaption>06 전투 장수창 · 방덕 (0:08) —— 초상 옆 <b>병력 8,634 / 8,698 · 사기 103 · 공 175 +49 · 방 258 +151 · 속 59 −29</b>(버프 · 깎임 반영 실시간 값), 걸린 상태, 이번 전투 수치, 전장 개성 「관을 진 결의」, 전투 기록.</figcaption></figure>
+<figure><img src="report_1122/07_quest_boss.png" alt="토벌 총대장"><figcaption>07 토벌 · 산월의 엄백호 (0:05) —— 맨 위 <b>총대장</b>: 큰 메달 · 금테 · 왕관 · 「총대장 … 60k」 이름표(병사 인형 1.7배, 받는 피해 −25%). 「적 고유기 준비 · 우길」 칸.</figcaption></figure>
+<figure><img src="report_1122/08_result.png" alt="결과창"><figcaption>08 전투 결과창 (대전 패배, 0:25) —— 제목 「패전」, 수치 칸(아군 잔존 · 적 잔존 · 격파 · 전투 시간), 활약 한 줄, 아군/적군 · 피해/치료/지원, 열 머리 범례, 덱 연쇄, 장수별 줄, 민심 −16. 이 판은 25초에 끝났다(짧은 판 예).</figcaption></figure>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4">4. 핵심 시스템 —— 오늘 바뀐 것</h2>
+<table>
+<tr><th>시스템</th><th>내용</th></tr>
+<tr><td>군략 · 연구 두 트리</td><td>예전엔 3택1 = 군략 2장 + 능력치 · 경제 1장. 지금은 <b>군략 3택1</b>(전투 카드) → <b>연구 3택1</b>(능력치 · 경제는 모두 연구로). 연구는 앞 단계를 고르면 다음 단계가 후보에 오른다(<code>Tac.res_offer</code> · <code>Run.rs_done</code>). 효과 길은 예전 능력치 · 경제 카드와 같음(<code>_tk_econ</code>). 코드 <code>efd1c36</code> · <code>scripts/ui/tac_ui.gd</code></td></tr>
+<tr><td>전투 길이</td><td><code>Battle.len_dmg {4:.75, 5:.5, 6:.55, 7:.4, 8:.45}</code> —— 판 평균 등급으로 직접 피해 · 지속 피해 · 치료 · 재생에 같은 배율(고급 1). 불멸 9장 중앙값 27.5 → 41.8초 · 신화 9장 30.3 → 44.7초 (<code>tests/battle_len</code> 40판)</td></tr>
+<tr><td>고유기 굶주림 보장</td><td>기가 차고 대기가 끝난 뒤 6초 넘게 못 쓴 장수는 기질 조건 면제 + 줄 맨 앞. <code>data/ultimates.json</code> 에 장수별 <code>wind</code>(기 모으기, 공통 2.5 · 속공 6명 1.5~1.8) · <code>wait</code>(기습 6명 6~7초)</td></tr>
+<tr><td>특별한 특기</td><td>등애 음평 착지 기습 + 장료 합비 돌파 · 조운 장판 구출 · 장비 장판교 호령 · 황개 고육계 · 태사자 포위 돌파 · 조조 할수기포 · 전위 호위 (<code>sig_rt.gd</code>, <code>892beed</code>)</td></tr>
+<tr><td>4인 연쇄</td><td>인연 4인 연쇄 피해 ×0.8 (<code>yeon_n4_amp</code>, 측정 도구 <code>tests/chain_power</code>)</td></tr>
+<tr><td>토벌 총대장</td><td>병사 인형 1.7배 · 큰 메달 · 금테 · 왕관 · 「총대장」 이름표, 받는 피해 −25%</td></tr>
+<tr><td>봇 덱</td><td>등급 계단 · 인연 고려 (후반 봇이 초월 9장뿐이던 것, <code>9c3854b</code>)</td></tr>
+<tr><td>금색 특기 등급 역전</td><td>금색 단체 특기의 고정값 키(사기 · 적 시작 사기)는 축 등급 배율 · 신화 배율 대신 레벨표만 (<code>59c6e08</code>) —— 장료 위진 8급 8.0 → 17.7 등</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s5">5. 오늘(11/22) 변경 요약 —— 1.2e</h2>
+<div class="tw"><table>
+<tr><th>갈래</th><th>내용</th><th>커밋</th></tr>
+<tr><td>전투</td><td>높은 등급 전투 길게(불멸 · 신화 보통 30초 넘김) · 우회 이동 ×1.8</td><td><code>e8e7b69</code></td></tr>
+<tr><td>전투</td><td>고유기 굶주림 보장 · 장수별 wind/wait</td><td><code>312a268</code></td></tr>
+<tr><td>전투</td><td>특별한 특기 7종 + 등애 음평</td><td><code>892beed</code></td></tr>
+<tr><td>전투</td><td>4인 연쇄 ×0.8</td><td><code>ebe0537</code></td></tr>
+<tr><td>전투</td><td>토벌 총대장 크게 · 받는 피해 −25%</td><td><code>704804d</code></td></tr>
+<tr><td>화면</td><td>삽화 전장 매복 지형(좌우 숲 · 바위) · 우회 · 매복 부대 그늘 · 「기습!」</td><td><code>d1ee267</code></td></tr>
+<tr><td>화면</td><td>상태 딱지 새 단장(초록 · 빨강, ↑↓, 크기 15 → 19, +N)</td><td><code>52e3cc4</code></td></tr>
+<tr><td>화면</td><td>전투 장수창: 공방속을 병력 · 사기 아래로, 실시간 값</td><td><code>b140bc3</code></td></tr>
+<tr><td>화면</td><td>전투 결과창 정리(승패 제목 · 요약 칸 · 범례 · 구분선)</td><td><code>8fc847d</code></td></tr>
+<tr><td>화면</td><td>선택권 10 넘으면 「1」 로 잘리던 것</td><td><code>b6a1e85</code></td></tr>
+<tr><td>군략</td><td>군략 3택1 → 연구 3택1 두 트리</td><td><code>efd1c36</code></td></tr>
+<tr><td>군략</td><td>단계 시각 설명 · 전투 HUD 양쪽 군략 목록</td><td><code>c3cf22a</code></td></tr>
+<tr><td>균형</td><td>봇 덱 등급 계단 · 인연</td><td><code>9c3854b</code></td></tr>
+<tr><td>균형</td><td>금색 특기 등급 역전 · card_adjust 40장 · 병종 stat_adjust 9칸 · 유비 레벨표</td><td><code>59c6e08</code> · <code>5b5d294</code> · <code>bb34eeb</code></td></tr>
+<tr><td>배포</td><td>버전 1.2e 변경 내역 · APK · EXE 빌드</td><td><code>6c90814</code> · <code>5015bcb</code></td></tr>
+</table></div>
+<p class="sub">11/20~21 판 제목: 1.1i~1.1k 화면 다듬기 · 1.2a 전장의 개성(장수마다 다른 전투 행동) · 1.2b 배속 · 사운드 · 1.2c 유니크 확인 · 세력 화면 · 1.2d 장수창 새 단장 · 관전 · 온라인 지연.</p>
+
+<!-- ============================================================ -->
+<h2 id="s6">6. 밸런스 · 측정 (<code>docs/밸런스_1122.md</code>)</h2>
+<table>
+<tr><th>항목</th><th>전 (시드 11·12)</th><th>후 (새 시드 13, 판 수 절반)</th></tr>
+<tr><td>카드 β σ 고급/희귀/전설/초월/불멸/신화/기인</td><td>4.5/5.5/6.5/7.1/5.9/8.3/8.3</td><td>4.9/5.4/6.2/7.0/5.0/8.1/8.0</td></tr>
+<tr><td>|β|&gt;12 카드 수</td><td>11</td><td>7</td></tr>
+<tr><td>등급 격차 (위 9 대 아래 9, 40판)</td><td>—</td><td>4&gt;3 100 · 5&gt;4 100 · 6&gt;5 100 · 7&gt;6 97.5 · 8&gt;7 100 % (유지)</td></tr>
+</table>
+<ul>
+<li>card_adjust 1회 40장 (|β|&gt;8 을 8 쪽으로 ±5%p): 전설 조운 +14.4 → −0.5 · 불멸 손권 +11.7 → +2.6 · 불멸 육손 −10.6 → +2.1 · 신화 감녕 +15.3 → +13.0 등.</li>
+<li>병종 stat_adjust 1회 9칸 (mix 시드 1120). <b>손질 뒤 병종 재측정은 안 함.</b></li>
+<li>시드 13 은 판 수 절반이라 카드 β 오차 약 2.5~3 (시드 11·12 평균은 약 1.6).</li>
+<li>점검: determinism 30판 · tac_check · ctl_check 40개 실패 0.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s7">7. 약점 · 남은 문제</h2>
+<h3>밸런스 잔여</h3>
+<div class="card risk"><span class="tag t-hi">높음</span><b>한계(0.7 / 1.3)에 걸린 카드</b> —— 전설 장비 +13 · 유비 +13(레벨표 낮춤이 시드 13 에서 안 보임), 불멸 조조 +11, 희귀 순유 −11 · 비의 −11. 배율로는 더 못 움직인다 → 원인 특기(장비 호령 · 유비 고무/연계 · 조조 할수기포) 직접 손질이 다음 회 대상.</div>
+<div class="card risk"><span class="tag t-hi">높음</span><b>2회차를 안 해서 남은 큰 β</b> —— 신화 감녕 +13 · 조조 +13, 기인 사마휘 +17 · 공손찬 −14 · 미축 −13.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>봇 덱 PV 1050 구간 승률 34%</b> —— 봇 덱 개편(등급 계단 · 인연) 뒤에도 이 구간만 낮다.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>신화가 싱글 7일 안에 거의 안 나옴</b> —— 혼자 하기 판 길이 안에 신화 완성까지 못 간다.</div>
+<h3>전투 길이 · 고유기</h3>
+<div class="card risk"><span class="tag t-hi">높음</span><b>짧은 판 하위 10% 가 아직 25초 안팎</b> —— <code>len_dmg</code> 로 중앙값은 40초대가 됐지만 꼬리는 짧다(스크린샷 08 의 대전도 0:25 에 끝남). 군략 3단계(23초~) 가 열리기도 전에 끝나는 판이 있다.</div>
+<div class="card risk"><span class="tag t-hi">높음</span><b>고유기 장수 약 35% 가 끝까지 못 씀</b> —— 굶주림 보장을 넣었지만 전역 간격(고유기끼리 비우는 시간) 때문에 줄이 밀린다.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>토벌 일차별 승률 미측정</b> —— 전투 길이 배율(<code>len_dmg</code>)이 토벌에도 걸려 토벌도 길어졌다. 총대장 받는 피해 −25% 와 겹쳐 난도가 어떻게 바뀌었는지 모름(<code>tests/diff_probe --mode=quest</code>).</div>
+<h3>화면</h3>
+<div class="card risk"><span class="tag t-mid">중간</span><b>속도↑ · 사기 · 기절 · 보호막 딱지 미표시</b> —— 딱지 그림은 있으나 전투 로직이 이 상태들을 화면 쪽으로 넘기지 않는다.</div>
+<div class="card risk"><span class="tag t-mid">중간</span><b>펼친 군략 목록이 전장 왼쪽 위 약 230px 를 가림</b> (스크린샷 05). 접어 두면 괜찮다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span><b>매복 띠에서 맞닿지 않은 도적은 계속 흐림</b> —— 「기습!」 은 적과 맞닿을 때 나오므로, 끝까지 안 붙는 도적은 판 내내 흐리게 보인다.</div>
+<div class="card risk"><span class="tag t-lo">낮음</span>실기기(Android) 프레임 · 터치는 여전히 직접 확인 못 함. 서버(7777)는 전투 판정을 바꾼 오늘 변경을 반영하려면 같은 소스로 재시작이 필요(사용자가 할 일).</div>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. 다른 모델에게 묻고 싶은 것</h2>
+<ol>
+<li>짧은 판 꼬리(하위 10% 25초)를 줄이는 손잡이: 판 평균 등급 대신 "남은 병력 비"에 따른 피해 배율? 개전 몇 초 피해 감소? 사기 붕괴 완화?</li>
+<li>고유기 35% 미사용 —— 전역 간격을 진영별로 나눌까, 고유기 줄을 등급 · 기다린 시간 가중치로 바꿀까?</li>
+<li>card_adjust 한계에 걸린 카드(장비 · 유비 · 조조)는 특기 수치를 직접 고칠지, 한계를 넓힐지?</li>
+<li>연구 트리 —— 능력치 · 경제가 연구로 빠지며 군략 3택1 은 전투 카드만 남았다. 연구 갈래 수 · 단계 깊이가 7일 판에 맞나?</li>
+<li>전투 HUD 군략 목록: 펼침이 전장을 가리지 않게 할 자리(위 띠 안 · 아래 장수 카드 위 · 꾹 눌러 보기)?</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="s9">9. 부록 —— 스크린샷 찍기</h2>
+<div class="card">
+<code>cd solgukji_godot && ../tools/Godot_v4.4.1-stable_win64_console.exe --path . --rendering-method mobile --resolution 450x968 --position 2000,100 -- --gnew=7 --gplay=15 --gbattle=pvp --gshot=out.png --after=9</code>
+<ul>
+<li>이 문서: 01 <code>--gplay=6 --gpage=draw --gquiet</code> · 02 <code>--gsheet=tacoffer --gnoband</code> · 04 <code>--gbattle=pvp --after=9</code> · 06 <code>--gunit=A1 --after=6</code> · 07 <code>--gbattle=quest --after=6</code> · 08 <code>--gbattle=pvp --speed=8 --after=20</code> (모두 <code>--gnew=7</code>).</li>
+<li>03 연구 3택1 · 05 군략 목록 펼침은 점검 인자가 없어 바깥 도우미 스크립트(<code>-s</code>, SceneTree 에서 game.tscn 을 띄운 뒤 <code>act("pick_tac")</code> → <code>TacUI.res_sheet</code> / <code>_battle._tac_list.open = true</code>)로 찍었다. 주의: <code>-s</code> 스크립트에서 <code>GameScreen</code> 처럼 오토로드에 기대는 class_name 을 형으로 쓰면 컴파일이 깨진다(스크립트 경로로 찾을 것). 필요하면 <code>--gsheet=resoffer</code> · <code>--gtacopen</code> 점검 인자를 게임에 더하는 것이 낫다.</li>
+<li>점검 인자가 있으면 사용자 저장을 쓰지 않는다(<code>Run.dev_nosave</code>).</li>
+</ul>
+</div>
+<p class="sub">이 문서의 스크린샷: <code>docs/report_1122/</code> 8장. 수치는 출처 문서 · 커밋 메시지의 측정값.</p>
+</main>
+</body>
+</html>
