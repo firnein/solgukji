@@ -3091,14 +3091,15 @@ class Hud extends Control:
 				var more := found.size() - (BADGE_MAX - 1)
 				found = found.slice(0, BADGE_MAX - 1)
 				found.append("+%d" % more)
-			c = [h, found]
+			c = [h, found, 0.0]
 			_badge_icons[sq.key] = c
 		var icons: PackedStringArray = c[1]
 		if icons.is_empty():
 			return [icons, 0.0]
 		var w := BADGE_D * icons.size() + BADGE_GAP * (icons.size() - 1)
 		var r := Rect2(p + Vector2(-w * 0.5, radius + 21.0), Vector2(w, BADGE_D))
-		for dy in [0.0, BADGE_D + 2.0, 2.0 * (BADGE_D + 2.0)]:
+		# 11/22 프레임: 지난번에 놓인 줄을 먼저 본다 —— 이웃과 스칠 때마다 줄이 오르내리며 다시 그리던 것을 줄인다
+		for dy in [c[2], 0.0, BADGE_D + 2.0, 2.0 * (BADGE_D + 2.0)]:
 			var cand := Rect2(r.position + Vector2(0, dy), r.size)
 			var hit := false
 			for o: Rect2 in _badge_rects:
@@ -3107,6 +3108,7 @@ class Hud extends Control:
 					break
 			if not hit:
 				_badge_rects.append(cand)
+				c[2] = dy
 				return [icons, dy]
 		return [PackedStringArray(), 0.0]
 
@@ -3143,6 +3145,80 @@ class Hud extends Control:
 			"def_up", "atk_up", "phalanx", "moved", "heal": return 0
 			"undying": return 1
 		return 2
+
+	## 11/22 프레임: 딱지를 한 장(아틀라스)에 미리 구워 두고 그림 조각으로만 찍는다.
+	## 벡터로 그리면 딱지마다 둥근 상자 · 그림자 · 기호 선이 다각형 그리기 호출로 따로 나가(묶이지 않는다) 딱지 수십 개에 그리기 호출이 +170 쯤 늘었다.
+	## 같은 그림 한 장의 사각형은 한 번에 묶인다. 굽기 전(첫 프레임 · 헤드리스)에는 예전처럼 벡터로 그린다
+	static var badge_atlas: Texture2D = null
+	static var badge_cells := {}         # 기호 -> 아틀라스 안 칸 (픽셀)
+	static var badge_atlas_s := 0.0      # 구운 화면 배율
+	static var badge_mat: CanvasItemMaterial = null      # 구운 그림은 빈 바탕 위에 섞인 색(곱해진 알파)이라 premult 섞기로 찍는다
+	var _badge_baking := false
+	const BADGE_PAD := 4.0      # 칸 둘레 여백 (그림자 · 테두리)
+
+	## 이 배율의 아틀라스가 있으면 true, 없으면 굽기를 걸고 false (그동안은 벡터)
+	func badge_atlas_ok(S: float) -> bool:
+		if badge_atlas != null and is_equal_approx(badge_atlas_s, S):
+			return true
+		if not _badge_baking and DisplayServer.get_name() != "headless":
+			_badge_baking = true
+			_bake_badges.call_deferred(S)
+		return false
+
+	class BadgeBaker extends Node2D:
+		var hud
+		var keys: Array = []
+		var cell := 1
+		var cols := 1
+		var S := 1.0
+		func _draw() -> void:
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(S, S))
+			for i in keys.size():
+				var c := Vector2((i % cols + 0.5) * cell, (i / cols + 0.5) * cell) / S
+				BattleView.Hud.draw_badge(self, hud, c, BattleView.Hud.BADGE_D, keys[i])
+
+	func _bake_badges(S: float) -> void:
+		var keys := []
+		for st in BADGE_ORDER:
+			var ic := _icon_of(st)
+			if not keys.has(ic):
+				keys.append(ic)
+		for n in range(2, BADGE_ORDER.size() + 1):
+			keys.append("+%d" % n)
+		var cell := ceili((BADGE_D + 2.0 * BADGE_PAD) * S)
+		var cols := 8
+		var rows := ceili(keys.size() / float(cols))
+		var vp := SubViewport.new()
+		vp.size = Vector2i(cols * cell, rows * cell)
+		vp.transparent_bg = true
+		vp.disable_3d = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+		var bk := BadgeBaker.new()
+		bk.hud = self
+		bk.keys = keys
+		bk.cell = cell
+		bk.cols = cols
+		bk.S = S
+		vp.add_child(bk)
+		add_child(vp)
+		await RenderingServer.frame_post_draw
+		await RenderingServer.frame_post_draw
+		var img: Image = vp.get_texture().get_image() if is_instance_valid(vp) else null
+		if is_instance_valid(vp):
+			vp.queue_free()
+		_badge_baking = false
+		if img == null or img.is_empty():
+			return
+		badge_atlas = ImageTexture.create_from_image(img)
+		badge_atlas_s = S
+		badge_cells.clear()
+		for i in keys.size():
+			badge_cells[keys[i]] = Rect2(Vector2((i % cols) * cell, (i / cols) * cell), Vector2(cell, cell))
+		if badge_mat == null:
+			badge_mat = CanvasItemMaterial.new()
+			badge_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+		for k in _badge_nodes:      # 이미 놓인 줄은 아틀라스로 다시
+			_badge_nodes[k].queue_redraw()
 
 	const BADGE_RIM := [Color("#4cff7a"), Color("#ffd257"), Color("#ff3b30")]
 	const BADGE_BG := [Color(0.03, 0.2, 0.08, 0.94), Color(0.25, 0.18, 0.02, 0.94), Color(0.3, 0.03, 0.03, 0.94)]
@@ -3869,9 +3945,6 @@ class Hud extends Control:
 		var w := 0.0
 		var S := 1.0
 		var r := 8.0
-		var hud                       # 기호 그리기(_st_icon)를 빌린다
-		var icons := PackedStringArray()
-		var badge_dy := 0.0
 		var boss := false             # 11/19 토벌 총대장 —— 메달 위에 왕관
 		# 11/19 사용자: 메달로 그 부대의 사기 · 병력("47k")을 본다 (고유기 고리는 넣었다가 사용자 뜻으로 뺐다). 값은 칸으로 끊어(사기 5) 바뀔 때만 다시 그린다
 		var troops_t := ""            # 이름 옆 병력 ("47k"), 빈 글이면 안 그린다
@@ -3908,15 +3981,24 @@ class Hud extends Control:
 		var icons := PackedStringArray()
 		var dy := 0.0
 		var r := 8.0
+		var S := 1.0
+		var baked := false      # 이번 그림이 아틀라스로 찍혔나 (투명 · 섞기가 다르다)
 		func _draw() -> void:
 			if icons.is_empty() or hud == null:
 				return
 			var D: float = BattleView.Hud.BADGE_D
 			var G: float = BattleView.Hud.BADGE_GAP
 			var bw := D * icons.size() + G * (icons.size() - 1)
+			var at: Texture2D = BattleView.Hud.badge_atlas if hud.badge_atlas_ok(S) else null
+			baked = at != null
+			material = BattleView.Hud.badge_mat if baked else null
 			for i in icons.size():
 				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + G), r + 21.0 + dy + D * 0.5)
-				BattleView.Hud.draw_badge(self, hud, c, D, icons[i])
+				if baked and BattleView.Hud.badge_cells.has(icons[i]):
+					var cl: Rect2 = BattleView.Hud.badge_cells[icons[i]]
+					draw_texture_rect_region(at, Rect2((c * S - cl.size * 0.5).round() / S, cl.size / S), cl)
+				else:
+					BattleView.Hud.draw_badge(self, hud, c, D, icons[i])
 	## 11/19 메달 옆 병력 —— "47k" · "4.7k" · "820"
 	static func troops_k(v: float) -> String:
 		if v >= 9950.0:
@@ -4556,6 +4638,7 @@ class Hud extends Control:
 				_medal_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				_medal_layer.show_behind_parent = true      # HUD 가 직접 그리는 것(글씨 · 컷인 · 띠)보다 아래 —— 예전에도 메달을 가장 먼저 그렸다
 				_medal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				_medal_layer.y_sort_enabled = true      # 11/22 사용자: 총대장이 맨 위로 떴다 —— z 를 올리지 않고 화면 y 로 (아래 = 앞). 총대장도 다른 메달과 같은 깊이
 				add_child(_medal_layer)
 			if _badge_layer == null:
 				_badge_layer = Control.new()
@@ -4609,14 +4692,11 @@ class Hud extends Control:
 					_medal_layer.add_child(node)
 					_medal_nodes[sq.key] = node
 				var bz: bool = bool(sq.row.get("boss", false)) and sq.alive
-				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.icons != bp[0] or node.badge_dy != bp[1] or node.boss != bz 						or node.troops_t != tt or node.mo != mo:
+				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.boss != bz 						or node.troops_t != tt or node.mo != mo:
 					node.boss = bz
 					node.troops_t = tt
 					node.tw = ttw
 					node.mo = mo
-					node.hud = self
-					node.icons = bp[0]
-					node.badge_dy = bp[1]
 					node.mts = mts
 					node.name_ = nw[0]
 					node.w = w
@@ -4624,7 +4704,6 @@ class Hud extends Control:
 					node.r = r
 					node.queue_redraw()
 				node.position = (p * S).round() / S      # 화면 픽셀 칸에 맞춘다
-				node.z_index = 1 if bz0 else 0      # 총대장 메달 · 이름표는 다른 메달 위에
 				var cvr := 0.0      # 11/22 매복 그늘 —— 숲 · 바위 띠를 지나는 우회 · 매복 부대는 메달도 그늘 속처럼 (화면 전용)
 				if view.type2 != null and view.type2.painting != null and view.type2.painting.has_method("cover_of"):
 					cvr = maxf(0.0, view.type2.painting.cover_of(sq))
@@ -4637,13 +4716,14 @@ class Hud extends Control:
 					row.hud = self
 					_badge_layer.add_child(row)
 					_badge_nodes[sq.key] = row
-				if row.icons != bp[0] or row.dy != bp[1] or row.r != r:
+				if row.icons != bp[0] or row.dy != bp[1] or row.r != r or row.S != S:
 					row.icons = bp[0]
 					row.dy = bp[1]
 					row.r = r
+					row.S = S
 					row.queue_redraw()
 				row.position = node.position
-				row.modulate.a = sq.fade
+				row.modulate = Color(sq.fade, sq.fade, sq.fade, sq.fade) if row.baked else Color(1, 1, 1, sq.fade)      # premult 는 색에도 투명을 곱한다
 				row.visible = not row.icons.is_empty()
 				seen[sq.key] = true
 			for k in _medal_nodes:
