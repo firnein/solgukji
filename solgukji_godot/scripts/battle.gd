@@ -178,6 +178,7 @@ var _ult_taken := {}           # 이번 고유기에 부대마다 잃은 병력 
 ## 합동 한 번이 한 부대에서 앗는 병력은 (합류한 장수 중 가장 큰 ult_cap) × inyeon_cap_mul 까지 (장수 개별 상한도 그대로)
 static var inyeon_enabled := true
 static var inyeon_cap_mul := 1.5
+static var inyeon_cap_n := {}      # 11/22 연쇄 인원(대표 포함, 터지기 시작할 때)별 합동 상한 배수 —— 없는 인원은 inyeon_cap_mul (기인이 연 연쇄는 × yeon_kiin_cap_mul / inyeon_cap_mul)
 var _ult_grp := {}             # 지금 터지는 합동 고유기 {members, taken, ...} (비면 단독 고유기)
 var _ult_extra := {}           # 이번 고유기 사건('ult')에 덧붙일 항목 (합동이면 inyeon · mates · lead)
 var _ult_amp_x := 1.0          # 11/12 인연 주제 —— 기인이 연 연쇄의 마무리 장수 피해 배율 (RtBattle 이 정한다, 평소 1.0)
@@ -3664,7 +3665,10 @@ func _ult_clamp(d: Unit, loss: float) -> float:
 		var gc := 0.0
 		for m in _ult_grp.members:
 			gc = maxf(gc, float(ult_cap.get(clampi(int(m.c.tier), 6, 8), 0.0)))
-		gc *= float(_ult_grp.get("cap_mul", inyeon_cap_mul))      # 11/12 기인이 연 연쇄는 더 높게
+		var cm := float(inyeon_cap_n.get(int(_ult_grp.get("n0", 0)), inyeon_cap_mul))
+		if _ult_grp.has("cap_mul"):      # 11/12 기인이 연 연쇄는 더 높게 (인원별 배수에 같은 비율로)
+			cm *= float(_ult_grp.cap_mul) / inyeon_cap_mul
+		gc *= cm
 		var gg: float = _ult_grp.taken.get(d, 0.0)
 		var o2 := clampf(gc * d.max - gg, 0.0, out)
 		if o2 < out:
