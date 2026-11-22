@@ -2,6 +2,7 @@ shader_type canvas_item;
 render_mode unshaded;
 uniform vec2 atlas_pixel_size;
 varying vec4 tint;
+varying float shade;      // 11/22 매복 그늘 (0~1) —— 숲 · 바위 지형을 지나는 우회 · 매복 부대
 
 void vertex() {
 	float cell = INSTANCE_CUSTOM.r;
@@ -18,8 +19,23 @@ void vertex() {
 	UV = (vec2(mod(cell, 4.0), floor(cell / 4.0)) + UV) * 0.25;
 	UV = mix(UV + pad, UV - pad, UV * 4.0 - vec2(mod(cell, 4.0), floor(cell / 4.0)));
 	tint = COLOR;
+	shade = INSTANCE_CUSTOM.a;
 }
 
 void fragment() {
-	COLOR = texture(TEXTURE, UV) * tint;
+	vec4 c = texture(TEXTURE, UV);
+	if (shade > 0.01) {
+		// 그늘 속 —— 두 탭 더 섞어 살짝 흐릿하게 (그늘 부대만), 빛을 빼고 푸른 그림자 빛으로 어둡게
+		vec2 o = vec2(0.007, 0.009) * shade;      // 아틀라스 칸(0.25)의 3% 남짓 = 인형 키의 1~2px
+		c = mix(c, (texture(TEXTURE, UV + o) + texture(TEXTURE, UV - o) + c) / 3.0, shade);
+		c *= tint;
+		float l = dot(c.rgb, vec3(0.3, 0.59, 0.11));
+		c.rgb = mix(c.rgb, vec3(l) * vec3(0.62, 0.72, 0.70), shade * 0.65) * (1.0 - 0.3 * shade);
+		COLOR = c;
+	} else {
+		COLOR = c * tint;
+		if (shade < -0.01) {      // 숲에서 막 나온 부대 —— 짧게 밝게 번쩍 (등장)
+			COLOR.rgb = mix(COLOR.rgb, vec3(1.0, 0.94, 0.78), -shade * 0.55);
+		}
+	}
 }

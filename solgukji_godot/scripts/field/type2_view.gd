@@ -135,6 +135,10 @@ func setup() -> void:
 	for sq: Squad in field.order:
 		ys += sq.pos.y
 	_mid_y = ys / maxf(1.0, field.order.size())
+	# 11/22 매복 지형 —— 진형 바깥 좌우(전장 y)를 숲 · 바위 띠로. 진형 자리(시작 위치)의 바깥 끝에서부터
+	cover_ext = 0.0
+	for sq: Squad in field.order:
+		cover_ext = maxf(cover_ext, absf(sq.pos.y - _mid_y) + sq.hw)
 	var men := 0
 	for sq: Squad in field.order:
 		men += sq.soldiers.size()
@@ -152,7 +156,13 @@ func setup() -> void:
 	_roll_ground()
 	var gm0: ShaderMaterial = _ground.material
 	_ground_rev += 1
-	gm0.set_shader_parameter("detail", 0.0 if _lv_floor >= 3 else 1.0)      # 대군이면 바닥 잡음을 2옥타브로 (전투 내내 같아 깜빡이지 않는다)
+	gm0.set_shader_parameter("detail", 0.0 if _lv_floor >= 3 else 1.0)
+	gm0.set_shader_parameter("cover_y", cover_ext + 8.0 if _paint else 9999.0)
+	if _paint:
+		var xs := Vector2(INF, -INF)
+		for sq: Squad in field.order:
+			xs = Vector2(minf(xs.x, sq.pos.x - sq.hd0), maxf(xs.y, sq.pos.x + sq.hd0))
+		_scenery.add_cover(hash(str(_ground_rev) + str(cover_ext)), _mid_y, cover_ext, xs)      # 대군이면 바닥 잡음을 2옥타브로 (전투 내내 같아 깜빡이지 않는다)
 	_reset_feel()
 	_setup_tac()
 	_build_gpu()
@@ -162,6 +172,13 @@ func setup() -> void:
 ## 11/19 프레임: map · depth_scale 은 한 프레임에 수천 번 불린다 —— 화풍 확인(정적 함수 · 설정 읽기)을 _process 가 한 번 정한 값으로
 var _paint := true
 var _scenery: BattlefieldScenery
+## 11/22 매복 · 우회 표현 —— 진형 바깥 좌우 띠(숲 · 바위)를 지나는 부대의 그늘 정도 (0~1). 화면 전용, 보이는 자리만 읽는다
+var cover_ext := INF           # 가운데(_mid_y)에서 진형 바깥 끝까지 (전장 y)
+const COVER_PAD := 45.0        # 삽화 맞춤에서 좌우로 더 담는 띠 (전장 px) —— 숲 가장자리가 화면에 보이게
+func cover_target(sq: Squad) -> float:
+	if not _paint or cover_ext == INF:
+		return 0.0
+	return smoothstep(cover_ext - sq.hw * 0.2, cover_ext + 25.0, absf(sq.pos.y - _mid_y))
 func map(p: Vector2) -> Vector2:
 	var d := p - _center - _jit
 	if _paint:
@@ -192,7 +209,7 @@ func _fit_painting() -> void:
 		var lo := Vector2(INF, INF)
 		var hi := Vector2(-INF, -INF)
 		for sq: Squad in field.order:
-			var extent := Vector2(sq.hd0 + 25.0, sq.hw + 25.0)
+			var extent := Vector2(sq.hd0 + 25.0, sq.hw + 25.0 + COVER_PAD)
 			lo = lo.min(sq.pos - extent)
 			hi = hi.max(sq.pos + extent)
 			for side in [Vector2(-1, -1), Vector2(-1, 1), Vector2(1, -1), Vector2(1, 1)]:
@@ -846,7 +863,11 @@ class BattlefieldScenery extends Control:
 		if reference_scale <= 0.0:
 			reference_scale = view._scale
 			for obj in objects:
-				obj["world"] = view.unmap(obj.uv * size)
+				if obj.has("fixed"):
+					obj["uv"] = view.map(obj.world) / size
+				else:
+					obj["world"] = view.unmap(obj.uv * size)
+			objects.sort_custom(func(a, b): return a.uv.y < b.uv.y)
 		var zoom := view._scale / reference_scale
 		for obj in objects:
 			var p := view.map(obj.world)
@@ -858,17 +879,45 @@ class BattlefieldScenery extends Control:
 					var frame: Rect2 = TREE_FRAMES[obj.frame]
 					var height := 42.0
 					var width := height * frame.size.x / frame.size.y
-					draw_texture_rect_region(PINES, Rect2(-width / 2.0, -height, width, height), frame, Color("#c1b791"))
+					draw_texture_rect_region(PINES, Rect2(-width / 2.0, -height, width, height), frame, Color("#8e9068") if obj.has("fixed") else Color("#c1b791"))
 				"house":
 					_shadow(28.0)
 					_building(Vector2.ZERO, 30.0, 15.0)
 				"fort":
 					_fort()
+				"crag":
+					_crag(obj.flip)
 				"rock":
 					_shadow(12.0)
 					_shape([Vector2(-10, 0), Vector2(-6, -8), Vector2(4, -11), Vector2(11, -5), Vector2(9, 1)], Color("#6d6756"))
 					_shape([Vector2(-6, -8), Vector2(4, -11), Vector2(11, -5), Vector2(-1, -4)], Color("#948775"))
 		draw_set_transform(Vector2.ZERO)
+
+	## 11/22 매복 지형 —— 진형 바깥 좌우 띠(전장 자리 고정)에 빽빽한 나무 · 바위 · 바위산. 가까울수록(띠 안쪽) 덤불, 멀수록 바위산
+	func add_cover(seed_value: int, mid: float, ext: float, xs: Vector2) -> void:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		reference_scale = 0.0
+		var x0 := xs.x - 160.0
+		var x1 := xs.y + 160.0
+		for edge in [-1.0, 1.0]:
+			for i in 18:
+				var at := Vector2(lerpf(x0, x1, (i + rng.randf()) / 18.0), mid + edge * (ext + rng.randf_range(25.0, 230.0)))
+				objects.append({"type": "tree", "fixed": true, "world": at, "uv": Vector2.ZERO, "size": rng.randf_range(0.95, 1.55), "frame": rng.randi_range(0, 2)})
+			for i in 7:
+				var at := Vector2(lerpf(x0, x1, (i + rng.randf()) / 7.0), mid + edge * (ext + rng.randf_range(10.0, 120.0)))
+				objects.append({"type": "rock", "fixed": true, "world": at, "uv": Vector2.ZERO, "size": rng.randf_range(0.9, 1.7)})
+			for i in 4:
+				var at := Vector2(lerpf(x0, x1, (i + rng.randf()) / 4.0), mid + edge * (ext + rng.randf_range(150.0, 260.0)))
+				objects.append({"type": "crag", "fixed": true, "world": at, "uv": Vector2.ZERO, "size": rng.randf_range(1.6, 2.4), "flip": rng.randf() < 0.5})
+
+	func _crag(flip: bool) -> void:
+		var k := -1.0 if flip else 1.0
+		_shadow(40.0)
+		_shape([Vector2(-22 * k, 0), Vector2(-14 * k, -20), Vector2(-5 * k, -31), Vector2(6 * k, -24), Vector2(15 * k, -12), Vector2(22 * k, 0)], Color("#5e5a4b"))
+		_shape([Vector2(-5 * k, -31), Vector2(6 * k, -24), Vector2(15 * k, -12), Vector2(22 * k, 0), Vector2(4 * k, 0), Vector2(0, -16)], Color("#4a483c"))
+		_shape([Vector2(-14 * k, -20), Vector2(-5 * k, -31), Vector2(-3 * k, -22), Vector2(-10 * k, -14)], Color("#857d68"))
+		_shape([Vector2(-22 * k, 0), Vector2(-17 * k, -7), Vector2(-9 * k, -4), Vector2(-4 * k, 0)], Color("#4f5838"))
 
 	func _shape(points: Array[Vector2], tint: Color) -> void:
 		draw_colored_polygon(PackedVector2Array(points), tint)

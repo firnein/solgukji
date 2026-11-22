@@ -170,7 +170,7 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		buffer[b + 12] = cell
 		buffer[b + 13] = stride
 		buffer[b + 14] = gait
-		buffer[b + 15] = 0
+		buffer[b + 15] = figs[f + 10] if w > 10 else 0.0      # 11/22 매복 그늘 (0~1) —— 셰이더가 어둡게 · 흐릿하게
 		var sh := i * 12
 		var r := h * 0.19
 		shadow_buffer[sh] = r

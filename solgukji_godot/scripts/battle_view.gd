@@ -4612,7 +4612,10 @@ class Hud extends Control:
 					node.queue_redraw()
 				node.position = (p * S).round() / S      # 화면 픽셀 칸에 맞춘다
 				node.z_index = 1 if bz0 else 0      # 총대장 메달 · 이름표는 다른 메달 위에
-				node.modulate.a = sq.fade
+				var cvr := 0.0      # 11/22 매복 그늘 —— 숲 · 바위 띠를 지나는 우회 · 매복 부대는 메달도 그늘 속처럼 (화면 전용)
+				if view.type2 != null and view.type2.painting != null and view.type2.painting.has_method("cover_of"):
+					cvr = maxf(0.0, view.type2.painting.cover_of(sq))
+				node.modulate = Color(1.0 - 0.35 * cvr, 1.0 - 0.3 * cvr, 1.0 - 0.25 * cvr, sq.fade * (1.0 - 0.5 * cvr))
 				node.visible = true
 				var row: BadgeRow = _badge_nodes.get(sq.key)
 				if row == null:

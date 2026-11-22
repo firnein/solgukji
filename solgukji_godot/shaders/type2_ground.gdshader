@@ -36,6 +36,7 @@ uniform float forest_bias = 0.0;         // 숲을 한쪽으로 (-1 ~ 1: 0 이�
 uniform float snow = 0.0;                // 1 이면 눈밭 —— 나무 · 바위 색이 겨울빛
 uniform vec3 tree_lo : source_color = vec3(0.20, 0.30, 0.17);
 uniform vec3 tree_hi : source_color = vec3(0.32, 0.43, 0.22);
+uniform float cover_y = 9999.0;          // 11/22 매복 지형 —— 가운데(mid_y)에서 이만큼 바깥 좌우는 숲 · 바위 띠 (9999 면 없음)
 uniform float detail = 1.0;              // 11/7 부하: 0 이면 잡음을 2옥타브로 (대군 전투 —— Type2View.setup 이 정해 전투 내내 같다). 화면 전체 픽셀마다 도는 셰이더라 휴대폰 GPU 몫이 크다
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -171,6 +172,23 @@ void fragment() {
 		float t = keep * (1.0 - smoothstep(tr - 1.0, tr, td));
 		vec3 leaf = mix(tree_lo, tree_hi, clamp(dot(normalize(ws - tc + 0.001), vec2(0.7, -0.7)) * 0.5 + 0.5, 0.0, 1.0));
 		col = mix(col, leaf * (0.9 + 0.2 * hash(cell + 1.7)), t);
+	}
+	// 11/22 매복 지형 —— 진형 바깥 좌우: 들쭉날쭉한 숲 가장자리, 안은 그늘진 숲바닥 · 얼룩진 빛, 멀리는 바위산
+	if (painting && cover_y < 9000.0) {
+		float e = abs(w.y - mid_y) - cover_y + (noise(vec2(w.x * 0.011, w.y > mid_y ? 3.0 : 8.0)) - 0.5) * 70.0;
+		float band = smoothstep(-25.0, 35.0, e);
+		if (band > 0.001) {
+			float dapple = smoothstep(0.35, 0.75, n2 + (n - 0.5) * 0.6);
+			vec3 floor_col = mix(tree_lo * 0.62, tree_hi * 0.85, dapple);
+			float crag = smoothstep(120.0, 230.0, e + (n - 0.5) * 90.0);
+			vec3 stone = mix(vec3(0.33, 0.32, 0.27), vec3(0.52, 0.49, 0.41), smoothstep(0.4, 0.7, n2));
+			floor_col = mix(floor_col, stone, crag * 0.75);
+			col = mix(col, floor_col, band * 0.85);
+			col *= 1.0 - band * 0.16;
+			// 숲 가장자리 —— 밝은 덤불 띠와 그 안쪽 그림자 선
+			float rim = exp(-pow((e - 8.0) / 14.0, 2.0));
+			col = mix(col, tree_hi * 1.05, rim * 0.35 * (0.6 + 0.4 * n2));
+		}
 	}
 	// 가장자리 어둡게
 	vec2 q = UV - 0.5;

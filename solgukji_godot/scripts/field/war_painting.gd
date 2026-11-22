@@ -9,7 +9,7 @@ var formations := {}
 var visible_soldiers: Array = []      # 점검용 사전 목록 (keep_dicts 일 때만 채운다) —— 그리기는 아래 묶음 배열을 쓴다
 ## 11/19 프레임: 병사마다 키 11개짜리 사전을 만들고 람다로 정렬하던 것이 삽화 그리기의 절반이었다 ——
 ## 인형 값은 묶음 배열 한 줄(FIG_W 칸)에, 깊이 순서는 정수 키(화면 y · 번호) 정렬로. 그리는 모양 · 순서는 그대로
-const FIG_W := 10              # x, y, 키, 칸, 투명, 기울기, 걸음 세기, 보폭, 피격, 좌우 뒤집기
+const FIG_W := 11              # x, y, 키, 칸, 투명, 기울기, 걸음 세기, 보폭, 피격, 좌우 뒤집기, 매복 그늘(− 면 등장 번쩍)
 var _figs := PackedFloat32Array()
 var _fig_sq: Array = []
 var _fig_keys := PackedInt64Array()
@@ -39,6 +39,17 @@ var bodies: Array = []
 var volleys: Array = []
 var ults: Array = []          # 11/17 고유기 이펙트 —— 삽화 화면에서는 type2 의 2D 연출이 꺼져 있어 여기서 그린다
 const MAX_ULTS := 6
+# 11/22 매복 · 우회 표현 —— 좌우 가장자리 숲 · 바위 지형(Type2View.cover_target)을 지나는 부대를 그늘 속처럼 흐릿하게, 나오면 짧게 등장 연출.
+# 화면 전용 —— 판정 · 위치와 무관 (부대 자리만 읽는다)
+var cover := {}                # 부대 key -> 그늘 (0~1, 부드럽게 따라간다)
+var _hid := {}                 # 부대 key -> 그늘에 깊이 들어간 적이 있다 (나올 때 등장 연출)
+var reveals: Array = []        # {key, t0} —— 등장 연출
+var _bared := {}               # 부대 key -> 마지막으로 적과 맞닿은 시각 (visual_time)
+const COVER_HOLD := 3.0
+const COVER_IN := 1.6          # 그늘로 드는 빠르기 (초당)
+const COVER_OUT := 3.0         # 나오는 빠르기
+const REVEAL_LIFE := 1.0
+const REVEAL_FLASH := 0.35
 const MAX_BODIES := 96
 const MAX_CONTACTS := 48
 const INK := Color("#29271f")
@@ -161,6 +172,10 @@ func reset() -> void:
 	fire_seas.clear()
 	flames.clear()
 	peerless.clear()
+	cover.clear()
+	_hid.clear()
+	_bared.clear()
+	reveals.clear()
 
 func _formation(sq: Squad) -> FormationMotion:
 	var form: FormationMotion = formations.get(sq.key)
@@ -375,6 +390,9 @@ func _process(dt: float) -> void:
 			form.limits_ready = true
 		form.step(sq, motion_dt)
 		ratios[sq.key] = form.ratio
+		_cover_step(sq)
+	if not reveals.is_empty():
+		reveals = reveals.filter(func(r): return visual_time - float(r.t0) < REVEAL_LIFE)
 	v.field.pt("삽화 갱신", t0)
 	queue_redraw()
 	if top_effects != null:
@@ -516,6 +534,7 @@ func _draw_overlay(ci: CanvasItem) -> void:
 	_draw_volleys(ci)
 	_draw_links(ci)
 	_draw_mythic_actions(ci)
+	_draw_reveals(ci)
 	_draw_ults(ci)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
@@ -556,6 +575,8 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var bow_base := visual_time - form.last_action      # 활 당김은 쏜 뒤 0.5초 안에만 보인다 (그 뒤는 0)
 	var sway := 0.035 if form.cavalry else 0.012
 	var fade_sq := sq.fade
+	var cv := cover_of(sq)
+	fade_sq *= 1.0 - 0.35 * maxf(cv, 0.0)
 	for id in form.capacity:
 		if form.alive[id] == 0:
 			continue
@@ -613,6 +634,7 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		_figs[b + 7] = stride
 		_figs[b + 8] = hit
 		_figs[b + 9] = 1.0 if mirror else 0.0
+		_figs[b + 10] = cv
 		_fig_sq.append(sq)
 		_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 	_scr[sq.key] = scr
@@ -646,7 +668,8 @@ func _mark_batch(sq: Squad, form: FormationMotion) -> void:
 	var c := _pm(front + side)
 	var d := _pm(back + side)
 	var color := ALLY_MARK if sq.camp == "A" else ENEMY_MARK
-	var fill := Color(color, 0.075 * sq.fade)
+	var mk_fade := sq.fade * (1.0 - 0.8 * maxf(cover_of(sq), 0.0))      # 그늘 속 부대는 진영색 표식도 흐리게
+	var fill := Color(color, 0.075 * mk_fade)
 	var base := _mk_pts.size()
 	_mk_pts.append(a)
 	_mk_pts.append(b)
@@ -660,7 +683,7 @@ func _mark_batch(sq: Squad, form: FormationMotion) -> void:
 	_mk_idx.append(base)
 	_mk_idx.append(base + 2)
 	_mk_idx.append(base + 3)
-	var rim_c := Color(color, 0.38 * sq.fade)
+	var rim_c := Color(color, 0.38 * mk_fade)
 	_mk_rim.append(a)
 	_mk_rim.append(b)
 	_mk_rim.append(b)
@@ -671,8 +694,8 @@ func _mark_batch(sq: Squad, form: FormationMotion) -> void:
 		_mk_rim_c.append(rim_c)
 	var scr: PackedVector2Array = _scr.get(sq.key, PackedVector2Array())
 	var half := maxf(2.0, _figure_height(sq, form) * 0.17)
-	var ink := Color(INK, 0.7 * sq.fade)
-	var lc := Color(color, 0.8 * sq.fade)
+	var ink := Color(INK, 0.7 * mk_fade)
+	var lc := Color(color, 0.8 * mk_fade)
 	var ally := sq.camp == "A"
 	for id in form.capacity:
 		if form.alive[id] == 0 or form.ranks[id] != 0:
@@ -716,6 +739,63 @@ func _mark_batch(sq: Squad, form: FormationMotion) -> void:
 			_mk_idx.append(b0)
 			_mk_idx.append(b0 + 1 + k)
 			_mk_idx.append(b0 + 1 + (k + 1) % DUST_SEG)
+
+## 11/22 매복 그늘 —— 지형 그늘로 부드럽게 들고 나며, 깊이 들었다가 빠져나오면 등장 연출을 건다
+func _cover_step(sq: Squad) -> void:
+	if sq.contact:      # 적과 맞붙으면 드러난다 (기습이 닿은 순간 등장) —— 맞닿음이 잠깐 끊겨도 깜빡이지 않게 COVER_HOLD 초 동안 드러난 채
+		_bared[sq.key] = visual_time
+	var bare := visual_time - float(_bared.get(sq.key, -99.0)) < COVER_HOLD
+	var want: float = v.cover_target(sq) if not bare and v.has_method("cover_target") and sq.alive and sq.state != "flee" else 0.0
+	var cur: float = cover.get(sq.key, want if last_clock <= 0.0 else 0.0)
+	cur = move_toward(cur, want, motion_dt * (COVER_IN if want > cur else COVER_OUT))
+	cover[sq.key] = cur
+	if cur > 0.6:
+		_hid[sq.key] = true
+	elif cur < 0.3 and _hid.has(sq.key):
+		_hid.erase(sq.key)
+		if sq.alive and sq.state != "flee":
+			reveals.append({"key": sq.key, "t0": visual_time})
+
+
+## 그리는 값 —— 0~1 그늘, 막 나온 부대는 음수(번쩍)
+func cover_of(sq: Squad) -> float:
+	var cv: float = cover.get(sq.key, 0.0)
+	for r in reveals:
+		if r.key == sq.key:
+			var age := visual_time - float(r.t0)
+			if age < REVEAL_FLASH:
+				return -(1.0 - age / REVEAL_FLASH)
+	return cv
+
+
+## 등장 연출 —— 숲을 헤치고 나온 자리에 흙먼지 고리 · 흩어지는 잎 · 「기습!」
+func _draw_reveals(ci: CanvasItem) -> void:
+	for r in reveals:
+		var sq: Squad = v.field.squads.get(r.key)
+		if sq == null or not sq.alive:
+			continue
+		var age := visual_time - float(r.t0)
+		var t := clampf(age / REVEAL_LIFE, 0.0, 1.0)
+		var p: Vector2 = v.map(sq.pos)
+		var k: float = v.depth_scale(sq.pos) * _ps
+		var fade := 1.0 - t
+		var rad := sq.hw * (0.5 + 0.9 * sqrt(t)) * k
+		ci.draw_set_transform(p, 0.0, Vector2(1.0, 0.42))
+		ci.draw_arc(Vector2.ZERO, rad, 0.0, TAU, 28, Color(0.80, 0.70, 0.50, 0.55 * fade), 5.0 * k * fade + 1.0, true)
+		ci.draw_arc(Vector2.ZERO, rad * 0.7, 0.0, TAU, 24, Color(0.92, 0.85, 0.66, 0.35 * fade), 2.0, true)
+		ci.draw_set_transform(Vector2.ZERO)
+		var seed_f := float(hash(r.key) % 97)
+		for i in 9:
+			var a := seed_f + i * 0.7
+			var dir := Vector2(cos(a * 2.3), -absf(sin(a * 1.7)) * 0.8 - 0.2)
+			var q := p + dir * sq.hw * (0.3 + 1.1 * t) * k + Vector2(0, sq.hw * 0.6 * t * t * k)
+			var leaf := Color(0.30, 0.42, 0.22, 0.85 * fade) if i % 3 != 0 else Color(0.55, 0.50, 0.30, 0.8 * fade)
+			ci.draw_set_transform(q, a + t * 6.0, Vector2(1.0, 0.5))
+			ci.draw_circle(Vector2.ZERO, 2.4 * k + 0.6, leaf)
+		ci.draw_set_transform(Vector2.ZERO)
+		var la := smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.65, 1.0, t))
+		_action_label(p + Vector2(0, -sq.hw * 0.8 * k - 16.0 - 14.0 * t), "기습!", Color("#ffd27a"), la, ci)
+
 
 ## 점검 · 옛 그리기용 —— 묶음 배열 한 줄을 예전 사전 꼴로
 func _fig_dict(n: int) -> Dictionary:
