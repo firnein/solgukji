@@ -36,6 +36,7 @@ func _ready() -> void:
 			"기인효과": Battle.kiin_matchup_share_enabled = false      # 장합 · 서서 새 효과만
 			"잔기술": Battle.minor_enabled = false
 			"인덕": Battle.virtue_enabled = false
+			"특별": load("res://scripts/sig_rt.gd").special_on = false      # 11/22 특별한 특기 (sig_rt SPECIAL_KEYS) —— 전 · 후 짝비교
 			_: push_error("모르는 --off: " + o)
 	if args.has("myth"):      # --myth=능력치:병력:특기 → 신화 몸값 배율 (mono_league 와 같다)
 		var mp := str(args.myth).split(":")

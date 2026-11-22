@@ -16,7 +16,9 @@ const KEYS := ["slow_self", "gauge_top", "gauge_refund", "def_weak", "ward_aura"
 	"give_troops", "truce", "mark", "trap", "rain", "quake", "confuse_aura", "gauge_aura", "frail_water",
 	"escort", "seek_rear", "die_hard", "burn_out", "twin", "dr_last",      # 1.2 창병
 	"revive", "fire_chain", "gauge_cut", "cult", "dr_early_all",      # 1.2 책사 · 술사
-	"cav_show"]      # 1.2 기병 —— 숫자만 바뀌는 특기(속도 · 방어 · 회복 · 수몰 저항)의 말풍선 표식 (값은 1, 판정에는 안 쓴다)
+	"cav_show",      # 1.2 기병 —— 숫자만 바뀌는 특기(속도 · 방어 · 회복 · 수몰 저항)의 말풍선 표식 (값은 1, 판정에는 안 쓴다)
+	"rear_land", "breach", "rescue", "bridge", "feign_fire", "breakout", "flee", "body_guard"]      # 11/22 특별한 특기 —— 전장 행동을 바꾼다 (아래 「특별한 특기」)
+const SPECIAL_KEYS := ["rear_land", "breach", "rescue", "bridge", "feign_fire", "breakout", "flee", "body_guard"]
 
 const R_AURA := 260.0       # 주변 오라 반지름
 const AURA_T := 4.0         # 주변 오라 주기 (초)
@@ -41,8 +43,12 @@ const TIER_KEYS := {"taunt": true, "dr_guard": true, "counter_all": true, "dr_lo
 	"ult_dr": true, "amp_gen": true, "dodge_big": true, "dr_early_all": true, "caster_aura": true, "cult": true, "quake": true,      # 1.2 책사 · 술사 (곽가 · 주건평 · 우번 · 이의 · 남화노선 · 장각 · 황권 · 장보)
 	"amp_far": true, "amp_still": true, "amp_come": true, "amp_open": true, "amp_cav": true, "amp_allies": true, "amp_drown": true}      # 1.2 궁병 · 도적 —— 피해 · 감소 몫
 
+static var special_on := true      # 11/22 특별한 특기(SPECIAL_KEYS · 음평 착지) —— 점검(tests/sig_special --off)이 끄고 전 · 후를 잰다. 게임에서는 늘 true
+static var special_only := []      # 점검용 —— 비어 있지 않으면 이 특별 특기 키만 켠다 (그 카드 하나의 효과만 재게)
+
 var b      # RtBattle
-var who := {}               # 키 -> 그 키를 가진 부대들 (전투 시작에 한 번)
+var hide_until := 0.0       # 숨은 부대가 있을 수 있는 마지막 시각 —— RtBattle._foes_of 가 이때까지만 숨은 부대를 거른다 (여몽 위장 · 황개 거짓 항복 · 조조 할수기포)
+var who := {}              # 키 -> 그 키를 가진 부대들 (전투 시작에 한 번)
 var _next := {}             # [부대, 일] -> 다음 시각
 var _mark := {}             # 진영 -> 지목된 적 부대 (법정)
 var _seen := {}             # [부대, 적] -> true (팔진 —— 적마다 한 번)
@@ -66,6 +72,8 @@ static func make(bt) -> Object:
 	for u in bt.units:
 		for k in (KEYS + NOTE_KEYS) if u.c.tag in SAGE_TAGS else KEYS:      # 엔진 기본 키는 책사 · 술사만 (말풍선용)
 			if float(u.m.get(k, 0.0)) != 0.0:
+				if k in SPECIAL_KEYS and (not special_on or (not special_only.is_empty() and not k in special_only)):
+					continue
 				if not s.who.has(k):
 					s.who[k] = []
 				s.who[k].append(u)
@@ -142,7 +150,9 @@ func setup() -> void:
 				_note_m(u, "rear_spawn")
 	for u in who.get("stealth", []):
 		u.sg["hide"] = v(u, "stealth")
+		hide_until = maxf(hide_until, v(u, "stealth"))
 		_f(u, "stealth", 0.0)
+	_special_setup()
 
 
 # ───────── 표적 ─────────
@@ -229,9 +239,9 @@ func amp(a, d, far: bool) -> float:
 
 ## 맞는 쪽 배율. 큰 한 방 피하기(우번)는 여기서 굴린다
 func taken(d, a, mult: float) -> float:
-	if d.m.is_empty() and not has("ult_dr") and not has("dr_link") and not has("dr_early_all"):
+	if d.m.is_empty() and not has("ult_dr") and not has("dr_link") and not has("dr_early_all") and not has("body_guard") and not d.sg.has("sp_dr"):
 		return 1.0
-	var m := 1.0
+	var m := _special_taken(d, a)
 	if d.sg.has("hide") and b._tm < float(d.sg["hide"]):      # 위장 중인데 맞았다 (범위 피해 말고는 없어야 한다)
 		_stat("sig_hide_hit")
 	if v(d, "dr_still") > 0.0 and float(d.sg.get("still", 0.0)) >= 1.0: m *= _f(d, "dr_still", 1.0 - minf(0.6, v(d, "dr_still")))
@@ -282,6 +292,7 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 	a.sg["same"] = int(a.sg.get("same", 0)) + 1 if a.sg.get("last") == d else 0
 	a.sg["last"] = d
 	_spear_hit(a, d, loss, far)      # 1.2 창병 —— 발동 기록 · 말풍선
+	_special_hit(a, d)      # 11/22 장료 돌파 · 조운 구출 —— 정한 적에게 닿은 순간
 	cav_hit(a, d, loss, far)      # 1.2 기병 —— 계수 · 말풍선
 	if not d.alive:
 		return
@@ -346,6 +357,8 @@ func after_hit(a, d, loss: float, far: bool) -> void:
 
 ## 맞은 뒤 (맞은 쪽 키)
 func after_taken(d, a, loss: float, far: bool) -> void:
+	if d.sg.has("bg"):      # 11/22 전위 호위 —— 아군이 덜 받은 몫을 전위가 대신 받는다
+		_guard_take(d, loss)
 	if d.m.is_empty() or not d.alive or a == null:
 		return
 	var tm: float = b._tm
@@ -460,6 +473,9 @@ func steer(u, t, pin, desired: Vector2, sp: float) -> Vector2:
 	if backing(u):
 		var away: Vector2 = u.pos - t.pos
 		return away.normalized() * sp if away.length() > 0.1 else desired
+	if v(u, "feign_fire") > 0.0 and not u.sg.get("fg_done", false):      # 11/22 황개 거짓 항복 —— 숨은 동안 적진으로 걸어 들어간다
+		var to: Vector2 = t.pos - u.pos
+		return to.normalized() * sp if b._gap(u, t) > FEIGN_GAP and to.length() > 0.1 else Vector2.ZERO
 	if has("escort") and v(u, "escort") > 0.0:
 		var esc: Vector2 = _escort_steer(u, t, pin, desired, sp)
 		if esc != desired:
@@ -524,6 +540,7 @@ func tick(dt: float) -> void:
 		if u.alive and _due(u, "taunt", TAUNT_PULSE):
 			_taunt(u)
 	_scholar_tick()
+	_special_tick()      # 11/22 특별한 특기
 	cav_tick(dt)      # 1.2 기병 —— 숫자 특기 말풍선
 	if _due(null, "aura", AURA_T):
 		_auras()
@@ -1435,3 +1452,263 @@ func cav_tick(dt: float) -> void:
 			_cav(u, "flood_res", "강동 기병 —— 물살에도 말을 몰아간다", 0.0)
 		if v(u, "cav_aura") > 0.0 and _due(u, "cv_aura_t", AURA_T):
 			_cav(u, "cav_aura", "서량 기치 —— 아군 기병의 기세가 오른다", CAV_SAY_LONG)
+
+
+# ───────── 특별한 특기 (11/22) ─────────
+## 사용자 "등애가 적진으로 날아가 아무것도 못 하고 퇴각했다 · 그래도 이런 특별한 특기는 더 많아야 한다" —— 숫자가 아니라 전장 행동을 바꾸는 특기.
+## 인물 일화에서 하나씩 (키 값 = 세기, passives.json sig):
+##  · 등애 음평 기습 rear_land   —— 적 뒤에 내려앉는 순간 주변 적에게 책략 피해 · 사기 −, 잠시 받는 피해 − · 고유기 기 + (내려서 한 건 하고 버틴다)
+##  · 장료 합비 돌파 breach      —— BREACH_T 마다 적 최강 장수에게 곧장 파고들고(맞닿은 적을 흘려 지나간다), 닿는 순간 그 둘레 적 사기를 꺾는다
+##  · 조운 장판 구출 rescue      —— 무너지는 아군을 치는 적에게 달려가 떼어 내고(물러서게), 그 아군은 잠시 덜 다친다
+##  · 장비 장판교 호령 bridge    —— 둘레에 적이 몰리면 일갈해 둘레 적이 겁먹고 물러선다 (사기 −)
+##  · 황개 고육계 feign_fire     —— 개전에 거짓 항복해(숨은 채) 적진으로 걸어 들어가 불을 지르고 빠진다
+##  · 태사자 포위 돌파 breakout  —— 근접 적에게 붙잡히면 활을 쏘며 포위를 뚫고 물러난다
+##  · 조조 할수기포 flee         —— 병력이 꺾이면 한 번, 몸을 숨겨 빠져나가고 잠시 덜 다친다 (쫓던 적은 표적을 잃는다)
+##  · 전위 호위 body_guard       —— 둘레 아군이 받는 피해 일부를 대신 받는다 (호위 이동 escort 와 함께)
+## 판정은 rng 를 쓰지 않고 부대 순서대로 돈다 (결정적). 점검: tests/sig_special.tscn (--off 로 끄고 짝비교)
+const LAND_T := 0.3          # 등애 —— 내려앉는 때 (초)
+const LAND_R := 250.0        # 등애 —— 기습이 닿는 거리
+const LAND_MORALE := 15.0    # 등애 —— 기습에 꺾이는 적 사기
+const LAND_DR := 0.45        # 등애 —— 내려앉은 뒤 받는 피해 감소
+const LAND_DR_T := 7.0       # 등애 —— 그 시간 (초)
+const LAND_GAUGE := 40.0     # 등애 —— 고유기가 있으면 채우는 기
+const BREACH_T := 15.0       # 장료 —— 돌파를 다시 거는 간격 (초)
+const BREACH_HOLD := 6.0     # 장료 —— 한 번 돌파에 정한 적을 쫓는 최대 시간
+const BREACH_R := 170.0      # 장료 —— 닿는 순간 사기가 꺾이는 둘레
+const RESCUE_LOW := 0.4      # 조운 —— 병력이 이 비율 아래인 아군을 구한다
+const RESCUE_R := 650.0      # 조운 —— 구하러 가는 최대 거리
+const RESCUE_CD := 12.0      # 조운 —— 다시 구하러 가기까지 (초)
+const RESCUE_HOLD := 5.0     # 조운 —— 구하러 가는 시간 · 그 아군이 덜 다치는 시간
+const RESCUE_MORALE := 15.0  # 조운 —— 구한 아군의 사기
+const RESCUE_PUSH := 1.5     # 조운 —— 떼어 낸 적이 물러서는 시간 (초)
+const BRIDGE_N := 3          # 장비 —— 둘레에 이만큼 적이 몰리면 (병력이 꺾였으면 둘)
+const BRIDGE_R := 200.0      # 장비 —— 호령이 닿는 틈
+const BRIDGE_CD := 16.0      # 장비 —— 다시 외치기까지 (초)
+const BRIDGE_BACK := 1.6     # 장비 —— 겁먹은 적이 물러서는 시간 (초)
+const FEIGN_T := 7.0         # 황개 —— 거짓 항복(숨음) 최대 시간 (초)
+const FEIGN_GAP := 24.0      # 황개 —— 적과 이 틈까지 다가가면 불을 지른다
+const FEIGN_R := 230.0       # 황개 —— 불길이 닿는 거리
+const FEIGN_DUR := 3         # 황개 —— 화상 지속
+const FEIGN_BACK := 2.5      # 황개 —— 불을 지르고 빠지는 시간 (초)
+const BREAK_CD := 12.0       # 태사자 —— 다시 뚫기까지 (초)
+const BREAK_RUN := 1.6       # 태사자 —— 물러나는 시간 (초)
+const FLEE_LOW := 0.25       # 조조 —— 병력이 이 비율 아래로 꺾이면
+const FLEE_RUN := 3.0        # 조조 —— 빠져나가는 시간 (초)
+const FLEE_HIDE := 1.5       # 조조 —— 숨는 시간 (초)
+const FLEE_DR_T := 5.0       # 조조 —— 덜 다치는 시간 (초)
+const FLEE_MORALE := 40.0    # 조조 —— 사기 하한
+const GUARD_R := 180.0       # 전위 —— 지키는 둘레 (발자국 가장자리 틈)
+const GUARD_KEEP := 0.5      # 전위 —— 제 병력이 이 비율 아래면 대신 받지 않는다
+const GUARD_TAKE := 0.6      # 전위 —— 대신 받는 몫에 곱한다 (두꺼운 갑옷 —— 아군이 덜 받은 몫보다 적게 깎인다)
+
+
+## 말풍선 —— 특기 이름 (passives.json sig 이름) + 글, 횟수 sig_<key>
+func _sp(u, key: String, text: String, up := true) -> void:
+	_stat_u(u, key)
+	if say_on:
+		_say(u, "%s —— %s" % [_gname(u), text], up)
+
+
+## 정한 적 (장료 돌파 · 조운 구출) —— 풀렸거나 쓰러졌거나 숨었으면 null
+func force_tgt(u):
+	var f = u.sg.get("ftg")
+	if f == null:
+		return null
+	if not f.alive or b._tm >= float(u.sg.get("ftg_t", 0.0)) or b._hidden(f):
+		u.sg.erase("ftg")
+		u.sg.erase("ftk")
+		return null
+	return f
+
+
+func _hide(u, until: float) -> void:
+	u.sg["hide"] = until
+	hide_until = maxf(hide_until, until)
+
+
+func _special_setup() -> void:
+	for u in who.get("feign_fire", []):      # 황개 —— 거짓 항복: 숨은 채 시작
+		_hide(u, FEIGN_T)
+
+
+## 받는 쪽 배율 —— 잠시 덜 다침(sp_dr: 등애 착지 · 조운이 구한 아군 · 조조 할수기포) · 전위 호위
+func _special_taken(d, a) -> float:
+	var m := 1.0
+	if d.sg.has("sp_dr"):
+		if b._tm < float(d.sg.get("sp_dr_t", 0.0)):
+			m *= 1.0 - minf(0.6, float(d.sg["sp_dr"]))
+			_stat("sig_sp_dr")
+		else:
+			d.sg.erase("sp_dr")
+	d.sg.erase("bg")
+	if has("body_guard") and a != null and a.camp != d.camp:
+		for g in who["body_guard"]:
+			if g != d and g.alive and g.camp == d.camp and g.troops > g.max * GUARD_KEEP and b._gap(g, d) <= GUARD_R:
+				var sh := minf(0.5, v(g, "body_guard"))
+				m *= 1.0 - sh
+				d.sg["bg"] = [g, sh]
+				break
+	return m
+
+
+## 전위 호위 —— 아군이 덜 받은 몫(loss 는 줄어든 뒤의 피해)을 전위가 대신 받는다. 전위는 이것으로 쓰러지지 않는다 (병력 1 이상)
+func _guard_take(d, loss: float) -> void:
+	var e = d.sg["bg"]
+	d.sg.erase("bg")
+	var g = e[0]
+	if not g.alive or loss <= 0.0:
+		return
+	var sh: float = e[1]
+	var x := minf(loss * sh / maxf(0.05, 1.0 - sh) * GUARD_TAKE, g.troops - 1.0)
+	if x <= 0.0:
+		return
+	g.troops -= x
+	g.taken += x
+	_stat("sig_body_guard_n", int(x))
+	_note(g, "body_guard", "호위 —— %s 대신 창을 받는다" % b.nm(d), SPEAR_SAY * 2.0)
+
+
+## 때린 뒤 —— 정한 적에게 닿은 순간 (장료 돌파 · 조운 구출)
+func _special_hit(a, d) -> void:
+	if a.sg.get("ftg") != d:
+		return
+	var kind := str(a.sg.get("ftk", ""))
+	a.sg.erase("ftg")
+	a.sg.erase("ftk")
+	var tm: float = b._tm
+	if kind == "breach":
+		var n := 0
+		for o in _foes(a):
+			if o == d or b._gap(o, d) <= BREACH_R:
+				o.morale -= v(a, "breach") * (1.0 if o == d else 0.5)
+				a.mdmg += v(a, "breach") * (1.0 if o == d else 0.5)
+				n += 1
+		_sp(a, "breach_hit", "%s의 본진을 꿰뚫었다 —— 적 %d부대가 흔들린다" % [b.nm(d), n])
+	elif kind == "rescue":
+		d.sg["back"] = tm + RESCUE_PUSH      # 아군을 치던 적이 물러선다 (표적은 그대로 —— 뒤로 밀린다)
+		_sp(a, "rescue_hit", "%s을(를) 떼어 냈다" % b.nm(d))
+
+
+## 주기 (tick 끝) —— 착지 · 돌파 · 구출 · 호령 · 거짓 항복 · 포위 돌파 · 할수기포
+func _special_tick() -> void:
+	var tm: float = b._tm
+	for u in who.get("rear_land", []):      # 등애 —— 내려앉는 순간 한 번
+		if u.alive and not u.sg.get("landed", false) and tm >= LAND_T:
+			u.sg["landed"] = true
+			var n := 0
+			for o in _foes(u):
+				if o.pos.distance_to(u.pos) <= LAND_R + o.hw:
+					if b.is_caster(u.c): b.int_hit(u, o, v(u, "rear_land"), 1)
+					else: b.phys_hit(u, o, v(u, "rear_land"), true)
+					o.morale -= LAND_MORALE
+					u.mdmg += LAND_MORALE
+					n += 1
+			u.sg["sp_dr"] = LAND_DR
+			u.sg["sp_dr_t"] = tm + LAND_DR_T
+			if u.ult != null and u.charges > 0:
+				u.gauge = minf(100.0, u.gauge + LAND_GAUGE)
+			_stat("sig_rear_land_n", n)
+			_sp(u, "rear_land", "험로를 넘어 적의 등 뒤를 쳤다 —— 적 %d부대가 놀란다" % n)
+	for u in who.get("breach", []):      # 장료 —— 적 최강 장수에게 곧장
+		if u.alive and not u.sg.has("ftg") and _due(u, "breach", BREACH_T):
+			var best = null
+			for o in _foes(u):
+				if b._hidden(o):
+					continue
+				if best == null or int(o.c.tier) > int(best.c.tier) or (int(o.c.tier) == int(best.c.tier) and (o.ult != null and best.ult == null or o.troops > best.troops)):
+					best = o
+			if best != null:
+				u.sg["ftg"] = best
+				u.sg["ftk"] = "breach"
+				u.sg["ftg_t"] = tm + BREACH_HOLD
+				_sp(u, "breach", "%s을(를) 향해 적진을 가른다" % b.nm(best))
+	for u in who.get("rescue", []):      # 조운 —— 무너지는 아군을 치는 적에게
+		if not u.alive or u.sg.has("ftg") or tm < float(u.sg.get("rs_cd", 0.0)) or not _due(u, "rs_chk", 1.0):
+			continue
+		var hurt = null
+		for o in _allies(u):
+			if o != u and o.troops < o.max * RESCUE_LOW and o.pos.distance_to(u.pos) <= RESCUE_R and (hurt == null or o.troops / o.max < hurt.troops / hurt.max):
+				hurt = o
+		if hurt == null:
+			continue
+		var foe = null
+		var bd := INF
+		for o in _foes(u):
+			if o.tgt == hurt and not b._hidden(o):
+				var dd: float = o.pos.distance_to(hurt.pos)
+				if dd < bd:
+					bd = dd
+					foe = o
+		if foe == null:
+			continue
+		u.sg["rs_cd"] = tm + RESCUE_CD
+		u.sg["ftg"] = foe
+		u.sg["ftk"] = "rescue"
+		u.sg["ftg_t"] = tm + RESCUE_HOLD
+		hurt.sg["sp_dr"] = v(u, "rescue")
+		hurt.sg["sp_dr_t"] = tm + RESCUE_HOLD
+		var g := minf(200.0 - hurt.morale, RESCUE_MORALE)
+		if g > 0.0:
+			hurt.morale += g
+			u.hmo += g
+		_sp(u, "rescue", "%s을(를) 구하러 적진을 가른다" % b.nm(hurt))
+	for u in who.get("bridge", []):      # 장비 —— 둘레에 적이 몰리면 호령
+		if not u.alive or tm < float(u.sg.get("br_cd", 0.0)) or not _due(u, "br_chk", 0.5):
+			continue
+		var near := []
+		for o in _foes(u):
+			if not b._ranged(o) and b._gap(u, o) <= BRIDGE_R:
+				near.append(o)
+		if near.size() >= BRIDGE_N or (near.size() >= 2 and u.troops < u.max * 0.6):
+			u.sg["br_cd"] = tm + BRIDGE_CD
+			for o in near:
+				o.morale -= v(u, "bridge")
+				u.mdmg += v(u, "bridge")
+				o.sg["back"] = tm + BRIDGE_BACK
+			_stat("sig_bridge_n", near.size())
+			_sp(u, "bridge", "장판교의 호령 —— 적 %d부대가 겁먹고 물러선다" % near.size(), false)
+	for u in who.get("feign_fire", []):      # 황개 —— 적진에 닿거나 숨음이 풀리면 불을 지른다
+		if not u.alive or u.sg.get("fg_done", false):
+			continue
+		var close := false
+		for o in _foes(u):
+			if b._gap(u, o) <= FEIGN_GAP + 4.0:
+				close = true
+				break
+		if close or tm >= FEIGN_T:
+			u.sg["fg_done"] = true
+			u.sg["hide"] = tm
+			var n := 0
+			for o in _foes(u):
+				if o.pos.distance_to(u.pos) <= FEIGN_R + o.hw:
+					b.inflict(u, o, "burn", v(u, "feign_fire"), FEIGN_DUR)
+					n += 1
+			u.sg["back"] = tm + FEIGN_BACK
+			_stat("sig_feign_fire_n", n)
+			_sp(u, "feign_fire", "거짓 항복한 배에서 불길이 치솟는다 —— 적 %d부대" % n)
+	for u in who.get("breakout", []):      # 태사자 —— 근접 적에게 붙잡히면 쏘며 뚫고 물러난다
+		if not u.alive or tm < float(u.sg.get("bk_cd", 0.0)):
+			continue
+		var touch := []
+		for o in _foes(u):
+			if not b._ranged(o) and b._gap(u, o) <= RtBattle.TOUCH + 4.0:
+				touch.append(o)
+		if touch.size() >= 2 or (touch.size() >= 1 and u.troops < u.max * 0.6):
+			u.sg["bk_cd"] = tm + BREAK_CD
+			u.sg["back"] = tm + BREAK_RUN
+			for o in touch:
+				b.phys_hit(u, o, v(u, "breakout"), true)
+			_sp(u, "breakout", "활을 쏘며 포위를 뚫는다")
+	for u in who.get("flee", []):      # 조조 —— 한 번, 꺾이면 빠져나간다
+		if u.alive and not u.sg.get("fled", false) and u.troops < u.max * FLEE_LOW:
+			u.sg["fled"] = true
+			u.sg["back"] = tm + FLEE_RUN
+			_hide(u, tm + FLEE_HIDE)
+			u.sg["sp_dr"] = v(u, "flee")
+			u.sg["sp_dr_t"] = tm + FLEE_DR_T
+			u.morale = maxf(u.morale, FLEE_MORALE)
+			for o in _foes(u):
+				if o.tgt == u:
+					o.tgt = null
+					o.retgt = 0.0
+			_sp(u, "flee", "수염을 자르고 몸을 빼낸다")

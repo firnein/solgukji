@@ -1090,7 +1090,7 @@ func _ranged(u: Unit) -> bool:
 func _foes_of(u: Unit) -> Array:
 	var out := []      # 11/15 성능: filter(람다) → 그냥 훑기 (같은 순서 · 같은 답. 틱마다 부대 수만큼 불린다)
 	var cp := u.camp
-	var hide_on: bool = (not _paeup.is_empty() and _tm < 8.0) or (_sg != null and _tm < _sg.STEALTH_MAX and _sg.has("stealth"))      # 숨는 장수는 패업이 있는 판의 개전 8초 · 1.2 여몽 위장뿐 (_hidden 의 조건) —— 그 밖에는 묻지 않는다
+	var hide_on: bool = (not _paeup.is_empty() and _tm < 8.0) or (_sg != null and _tm < _sg.hide_until)      # 숨는 장수는 패업이 있는 판의 개전 8초 · 1.2 여몽 위장 · 11/22 황개 거짓 항복 · 조조 할수기포뿐 (_hidden 의 조건) —— 그 밖에는 묻지 않는다
 	for o in units:
 		if o.alive and o.camp != cp and not (hide_on and _hidden(o)):      # 감녕 백기야습 —— 숨은 동안은 목표가 되지 않는다
 			out.append(o)
@@ -1199,6 +1199,10 @@ func _move() -> void:
 					stats["rogue_held"] = int(stats.get("rogue_held", 0)) + 1
 				_rogue_held[hk] = left - TICK
 				slip = false
+		var ft = _sg.force_tgt(u) if (_sg != null and u.sg.has("ftg") and not u.ranged) else null      # 11/22 특별한 특기 —— 장료 돌파 · 조운 구출: 정한 적에게 곧장 (기병은 맞닿은 적을 흘려 지나간다)
+		if ft != null:
+			u.tgt = ft
+			slip = (u.c.tag == "기병" or u.c.tag == "도적") and pin != ft
 		if slip:
 			pin = null
 		if _sg != null and _sg.backing(u):      # 11/19 치고 빠지기 —— 물러나는 동안 묶이지 않는다
@@ -1218,6 +1222,8 @@ func _move() -> void:
 			if tt != null and tt != u.tgt and not _hidden(tt) and ((not u.ranged and pin == null) or _gap(u, tt) <= _reach(u)):
 				u.tgt = tt
 				stats["sig_taunt_pull"] = int(stats.get("sig_taunt_pull", 0)) + 1
+		if ft != null and ft.alive:
+			u.tgt = ft
 		# 11/15 성능: 이동 속도(eff → 특기 · 위세 · 버프를 다 훑는다)는 실제로 움직일 때만 잰다 —— 맞붙어 서 있는 부대(목표 속도 0 · 지금 속도 0)는
 		# 속도가 얼마든 그대로 0 이다. 점검용 특기 세기(probe_on)를 켠 판은 예전처럼 늘 잰다 (읽힌 횟수가 같게)
 		var sp := _speed(u) if probe_on else -1.0
@@ -1266,7 +1272,7 @@ func _move() -> void:
 				desired = dir * minf(sp, (gap - want) / TICK)      # 노리는 적 앞에서 멈춘다 (파고들지 않게)
 		else:
 			u.block_t = 0.0
-		if _sg != null and not u.m.is_empty():      # 11/19 치고 빠지기 · 후퇴 사격
+		if _sg != null and (not u.m.is_empty() or u.sg.has("back")):      # 11/19 치고 빠지기 · 후퇴 사격 · 11/22 장비 호령에 물러서는 적
 			var d2: Vector2 = _sg.steer(u, t, pin, desired, sp if sp >= 0.0 else _speed(u))
 			if d2 != desired:
 				desired = d2
