@@ -156,6 +156,7 @@ const SIDE := 0.15            # 옆에서 친 피해 +
 const REAR := 0.30            # 뒤에서 친 피해 +
 const TURN_RATE := 2.5        # 부대가 도는 속도 (라디안/초)
 
+static var flank_spd := 1.8             # 11/22 사용자 "우회가 너무 오래 걸린다" —— 우회 길목으로 도는 동안(도적 · 장합 우회 기병) 이동 속도 배율
 static var probe_rogue_flank := true    # 11/8 점검 (tests/mono_league --off=우회) —— 끄면 도적이 적 무리 옆으로 크게 돌지 않고 곧장 간다
 static var probe_back_basic := true     # --off=후열평타: 도적의 후열 평타 비교용. 원거리는 이 스위치와 무관하게 사거리 안 최근접 적.
 static var enabled := true    # 게임 · 서버의 전투를 실시간 엔진으로 (false 면 예전 턴 엔진 —— 비교용)
@@ -1238,6 +1239,7 @@ func _move() -> void:
 		var gap := _gap(u, t)
 		var want := TOUCH if not _ranged(u) else _reach(u) - 4.0
 		var desired := Vector2.ZERO
+		var flanking := false
 		if pin == null and gap > want:
 			var dir := to / maxf(dist, 0.001)
 			# 기병은 적 무리를 돌아 옆 · 뒤로 파고든다 (멀 때만)
@@ -1253,10 +1255,14 @@ func _move() -> void:
 					var wv: Vector2 = way - u.pos
 					if wv.length() > 20.0:
 						dir = wv.normalized()
+						flanking = true
 			dir = _steer(u, dir, t)
 			if dir != Vector2.ZERO:
 				if sp < 0.0:
 					sp = _speed(u)
+				if flanking:
+					sp *= flank_spd      # 11/22 우회 길목으로 도는 동안은 빨리 —— 적진 투입을 당긴다
+					stats["flank_run_t"] = stats.get("flank_run_t", 0.0) + TICK
 				desired = dir * minf(sp, (gap - want) / TICK)      # 노리는 적 앞에서 멈춘다 (파고들지 않게)
 		else:
 			u.block_t = 0.0

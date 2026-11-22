@@ -1417,7 +1417,8 @@ func cav_steer(u, t, desired: Vector2) -> Vector2:
 		_cav(u, "flank", "우회 —— 옆으로 돌아 후열을 노린다", CAV_SAY_LONG)
 	if not cav_fx:
 		return desired
-	return wv.normalized() * desired.length()
+	b.stats["flank_run_t"] = b.stats.get("flank_run_t", 0.0) + b.TICK
+	return wv.normalized() * desired.length() * b.flank_spd      # 11/22 우회하는 동안은 빨리 (RtBattle.flank_spd)
 
 
 ## 주기 (tick 끝에서) —— 숫자만 바뀌는 특기(속도 · 회복 · 수몰 저항 · 오라)를 말풍선으로 보인다

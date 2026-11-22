@@ -27,6 +27,23 @@ static var pace := BASE_PACE / 3.0
 var _sg = null             # 11/19 장수 개성 (sig_rt.gd) —— 실시간 엔진이 개성 키가 있는 판에만 만든다
 static var sig_enabled := true
 static var atk_up := 1.25  # 11/19 사용자: 전체 공격력을 올려 판 길이를 줄인다 —— 직접 피해(평타 · 기술 · 고유기)에만 곱한다
+## 11/22 사용자 "전투가 너무 빨리 끝난다" (불멸 · 신화 판 30초 이상) —— 판의 평균 등급(tier_avg)으로 고르는 직접 피해 배율. 표 사이는 잇고, 표 아래 등급은 1.
+## 한 판의 모든 부대에 같은 값이라 카드 사이 β 는 그대로다 (tests/battle_len 으로 잰다)
+static var len_dmg := {4: 0.75, 5: 0.5, 6: 0.55, 7: 0.4, 8: 0.45}      # 고급(3) 은 1 그대로. 측정 · 전후 수치는 tests/battle_len 머리말
+var _len_k := 1.0
+
+
+static func len_dmg_for(t: float) -> float:
+	if len_dmg.is_empty():
+		return 1.0
+	var ks: Array = len_dmg.keys()
+	ks.sort()
+	if t <= float(ks[0]):
+		return lerpf(1.0, float(len_dmg[ks[0]]), clampf(t - float(ks[0]) + 1.0, 0.0, 1.0))      # 첫 등급 한 칸 아래에서 1 로 잇는다
+	for i in range(ks.size() - 1):
+		if t <= float(ks[i + 1]):
+			return lerpf(float(len_dmg[ks[i]]), float(len_dmg[ks[i + 1]]), (t - float(ks[i])) / float(ks[i + 1] - ks[i]))
+	return float(len_dmg[ks[-1]])
 
 
 static func set_turn_mul(m: float) -> void:
@@ -1144,7 +1161,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	dmg *= _role_mul(a, d, true)
 	var mu := _kiin_matchup(a, d)      # 교변 장합 —— 상성이 불리한 공격은 아군이 덜 받는다
 	dmg *= mu
-	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.troop * pace * atk_up * _one))))
+	var loss := _stand(d, _kiin_guard(d, maxf(1, roundf(dmg * K.troop * pace * atk_up * _len_k * _one))))
 	if _in_ult and _ult_by != null and not ult_cap.is_empty():
 		loss = _ult_clamp(d, loss)
 	var shared := 0.0
@@ -1390,7 +1407,7 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 		ratio *= 0.5
 	if tag_roles and src:      # 치료는 유생 전담 (술사는 상태이상)
 		ratio *= ROLE.schol_heal * sup_mul("유생", src.c.tier) if src.c.tag == "유생" else (ROLE.occul_heal if src.c.tag == "술사" else 1.0)      # 11/8 지원 등급 성장
-	var g := minf(roundf(d.max * ratio * pace * _one), d.max - d.troops)
+	var g := minf(roundf(d.max * ratio * pace * _len_k * _one), d.max - d.troops)      # 11/22 _len_k —— 치료도 피해와 같이 줄여 비율을 지킨다
 	if g <= 0: return
 	d.troops += g
 	if src:
@@ -1493,6 +1510,7 @@ func cleanse(u: Unit) -> bool:
 
 ## 지속 피해(화상 · 출혈) 한 틱 —— 병력을 깎고, 실제로 깎인 만큼(남은 병력 한도)을 건 장수의 준 피해(dmg · dot)와 맞은 쪽의 받은 피해(taken)에 적는다
 func _dot_hit(u: Unit, s: Dictionary, amt: float) -> void:
+	amt *= _len_k      # 11/22 판 길이 배율 —— 직접 피해와 같이 (시간축만 늘인다)
 	var sh_to: Array = _kiin_share(u, amt)      # 11/10 단복 서서 —— 지속 피해도 일부를 가까운 아군이 나눠 받는다
 	if not sh_to.is_empty():
 		amt -= float(sh_to[0].amt) * sh_to.size()
@@ -2692,6 +2710,7 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 		for u in units:
 			ts += u.c.tier
 		tier_avg = ts / units.size()
+		_len_k = len_dmg_for(tier_avg)
 		if auto_turn:
 			set_turn_mul(turn_mul_for(tier_avg))
 	if passives_enabled or fire_enabled:
@@ -2895,7 +2914,7 @@ func _settle(frac: float, final: bool) -> String:
 			if mv(u, "mregen") > 0:
 				u.morale = minf(200, u.morale + mv(u, "mregen") * pace * frac)
 			if mv(u, "regen") > 0 and u.troops < u.max and not _scorched(u):
-				u.troops = minf(u.max, u.troops + u.max * mv(u, "regen") * pace * frac)
+				u.troops = minf(u.max, u.troops + u.max * mv(u, "regen") * pace * _len_k * frac)
 				healed = u.key
 		if healed != "" and final:
 			L("hl", "특기로 대오를 추스른다", {"fx": "heal", "f": healed})

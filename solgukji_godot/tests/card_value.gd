@@ -42,6 +42,15 @@ func _ready() -> void:
 		Battle.myth_power = float(mp[0])
 		if mp.size() > 1: Battle.myth_troop = float(mp[1])
 		if mp.size() > 2: DB.set_myth_trait(float(mp[2]))
+	if args.has("len"):      # 11/22 --len=7:0.6,8:0.6 → Battle.len_dmg 덮어쓰기 (--len=0 이면 끈다, 판 길이 배율 전/후 β 비교)
+		var ld := {}
+		for p in str(args.len).split(",", false):
+			var kv := p.split(":")
+			if kv.size() == 2:
+				ld[int(kv[0])] = float(kv[1])
+		Battle.len_dmg = ld
+	if args.has("flank"):    # 11/22 --flank=1.0 → RtBattle.flank_spd (우회 이동 속도 배율 전/후)
+		RtBattle.flank_spd = float(args.flank)
 	var t0 := Time.get_ticks_msec()
 	match str(args.get("mode", "scan")):
 		"scan": _scan(args)
