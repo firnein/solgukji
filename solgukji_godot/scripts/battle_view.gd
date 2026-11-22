@@ -157,6 +157,7 @@ var spot_sq: Squad = null
 const SPOT_SHADER := preload("res://shaders/spotlight.gdshader")
 const TacUI := preload("res://scripts/ui/tac_ui.gd")      # 11/15 군략 단계 공개 연출 (class_name 없이)
 var _tac_box: Control = null      # 지금 떠 있는 단계 공개 (다음 단계가 오면 갈아 끼운다)
+var _tac_list = null              # 11/22 위 띠 아래 양쪽 군략 목록 (scripts/ui/tac_hud.gd)
 var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 중) —— 방진 버튼을 깜빡인다
 var warn_key := ""
 var _yeon_say := {}         # 11/11 인연 합류자 key -> 투게더 멘트 (합류 때 정해 두고 컷인 때 같은 말을 한다)
@@ -260,6 +261,9 @@ func _ready() -> void:
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage.add_child(hud)
+	_tac_list = load("res://scripts/ui/tac_hud.gd").new()      # 11/22 양쪽 군략 목록 (접기 · 펼치기)
+	_tac_list.view = self
+	stage.add_child(_tac_list)
 	field.ult_flash.connect(hud.flash)
 	stage.resized.connect(fit_port)
 	# 11/9 사용자: 전투를 보는 중에도 다른 사람의 한마디가 보여야 한다 —— 전장 왼쪽 위에 작은 줄, 4초 뒤 사라진다
@@ -267,7 +271,7 @@ func _ready() -> void:
 	_say_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_say_box.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_say_box.offset_left = 10
-	_say_box.offset_top = 48      # 위 띠 바로 아래의 병력 막대 · 알림(announce) 아래
+	_say_box.offset_top = 70      # 위 띠 바로 아래의 병력 막대 · 알림(announce) 아래 —— 11/22 그 아래 군략 목록 칩(47 ~ 66) 밑으로
 	_say_box.offset_right = 290
 	stage.add_child(_say_box)
 
@@ -1282,6 +1286,13 @@ func _begin() -> void:
 	elif Settings.dots:
 		dots.setup()
 	hud.reset()
+	if _tac_list != null:      # 11/22 군략 목록 —— 정책의 계획(혼자 하기) 또는 결과의 단계 기록(아군 몫)
+		var tl: Array = []
+		var tr = res.get("tac")
+		if tr is Dictionary:
+			for en in tr.get("log", []):
+				tl.append(en.get("A", {}) if en is Dictionary else {})
+		_tac_list.setup((_p.get("policy", {}) as Dictionary).get("plan", {}) if _p.get("policy") is Dictionary else {}, tl)
 	# 11/6 컷인 초상을 처음 그릴 때 큰 그림을 불러오느라 프레임이 튀었다 —— 고유기가 있는 장수 그림을 미리 읽어 둔다
 	hud.prewarm.clear()
 	hud.prewarm_txt.clear()
@@ -2177,6 +2188,8 @@ func _apply(i: int, quiet := false) -> void:
 	var f: String = e.get("f", "")
 	if f != "" and idx_of.has(f):
 		field.squads[f].statuses = e.s[idx_of[f]][3]
+	if e.get("fx") == "tac" and _tac_list != null:
+		_tac_list.on_event(e)      # 11/22 군략 목록 —— 건너뛰기(quiet)에서도
 	if quiet:
 		if Type2View.painting_on() and type2 != null and type2.painting != null:
 			type2.painting.sync_quiet(troop_updates)

@@ -195,6 +195,23 @@ static func _match_rows(id: String, tall: bool) -> Control:
 
 # ───────── 편성 화면 —— 「군략 1 · 2 · 3단계」 ─────────
 
+## 11/22 사용자: 1 · 2 · 3단계가 언제인지 모호했다 —— 전투 시간을 셋으로 나눈다 (tac_rt: 단계 길이 = RtBattle.BATTLE_SEC / 3, 3단계는 끝까지).
+## 짧은 꼴(칸 · 전투 HUD)과 긴 꼴(손패 시트 머리)
+const STAGE_NAME := ["개전", "중반", "후반"]
+static func stage_span(i: int) -> String:
+	var L := RtBattle.BATTLE_SEC / float(Tac.STAGES)
+	if i <= 0:
+		return "개전~%d초" % roundi(L)
+	if i >= Tac.STAGES - 1:
+		return "%d초~끝" % roundi(L * i)
+	return "%d~%d초" % [roundi(L * i), roundi(L * (i + 1))]
+
+
+static func stage_when(i: int) -> String:
+	var tail := ["전투가 시작되자마자 양쪽 카드를 펴고 상성을 본다", "전투 한가운데 —— 1단계 효과가 끝나고 이 카드로 바뀐다", "전투가 끝날 때까지 이어진다 (결전도 이 단계)"]
+	return "%d단계 = %s (%s) —— %s" % [i + 1, STAGE_NAME[clampi(i, 0, 2)], stage_span(i), tail[clampi(i, 0, 2)]]
+
+
 ## 한 줄 —— 머리 「군략」 + 세 칸. 칸을 누르면 손패 시트
 static func plan_row(gs) -> Control:
 	var P := DB.PAL
@@ -226,7 +243,7 @@ static func _slot(gs, i: int, id: String) -> TouchButton:
 	v.offset_right = -4
 	var top := UI.hbox(3)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var nl := UI.lbl("%d단계" % (i + 1), UI.FS_TINY, P.text_dim)
+	var nl := UI.lbl("%d단계 %s" % [i + 1, STAGE_NAME[clampi(i, 0, 2)]], UI.FS_TINY, P.text_dim)      # 11/22 언제인지 —— 「1단계 개전」
 	nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(nl)
 	if on:
@@ -255,6 +272,7 @@ static func hand_sheet(gs, i: int) -> void:
 	var plan := Tac.norm(run.tk_plan)
 	var cur: String = plan[i]
 	var ctx := context(gs)      # 11/21 군략 현황 —— 상대 · 같은 방의 군략과 상시 효과
+	b.add_child(UI.hint(stage_when(i)))      # 11/22 이 단계가 전투의 언제인지
 	var fl := foe_line(ctx, i, func(t: String): gs.toast(t))
 	if fl != null:
 		b.add_child(fl)
@@ -297,6 +315,7 @@ static func hand_sheet(gs, i: int) -> void:
 	var rb := room_box(gs, ctx)
 	if rb != null:
 		b.add_child(rb)
+	b.add_child(UI.hint("단계 —— %s · %s · %s. 단계가 열리는 순간 양쪽 카드가 공개되고, 효과는 그 단계 동안 (‘다음 단계’ · ‘이 전투 동안’ 은 예외)." % [stage_span(0), stage_span(1), stage_span(2)]))
 	b.add_child(UI.hint("같은 단계에 낸 카드끼리 상성을 본다 —— 우세면 공격 +15%, 열세면 내 카드 효과 절반."))
 	b.add_child(UI.hint("기본 카드는 여러 단계에 겹쳐 놓을 수 있다 · 고급 이상은 전투당 한 번 · 전설은 한 장. 계획은 토벌 · 대전 모두에 쓴다."))
 
