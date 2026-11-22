@@ -59,6 +59,8 @@ var _inyeon_of_person := {}  # 인물 이름 -> [인연 이름] (json 순서)
 var CLASS_COUNTER: Dictionary # 병종 상성 (data/cards_ext.json)
 var GUARD: Dictionary = {}    # 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 · 토벌 우두머리 성질 (data/cards_ext.json class_guard) —— 없으면 막 0 · 깎기 없음
 var bot_mix := true           # 11/8 봇 덱 병종 섞기 (gen_board —— 같은 병종 3장까지 · 물리 · 책략 각 3장 이상). 끄면 예전 몰빵 그대로 (비교용)
+var bot_shape := true         # 11/22 봇 덱 등급 섞기 (board_tiers —— 에이스 · 중견 · 바닥 계단). 끄면 예전 평평한 배분(9칸이 한 등급, 후반 초월 9장) (비교용)
+var bot_yeon := true          # 11/22 봇 덱 인연 고려 (_army_pick —— 초월 이상 칸은 이미 뽑힌 장수와 인연이 맞는 인물을 먼저). 끄면 예전 무작위 (비교용)
 var SKILL_COND: Dictionary   # 일반 기술 발동 조건 (data/cards_ext.json skill_cond)
 var QUEST_ROSTERS: Array = []  # 토벌 고정 편성 —— 황건적 소탕 [일차][단계] (data/cards_ext.json quest_rosters, 11/2)
 
@@ -2080,7 +2082,55 @@ func aff_of(tag: String, line: String, side: String) -> String:
 # ───────── 보드 생성 (원본 genBoard / autoPlace) ─────────
 
 ## 봇 덱의 9칸 등급 —— 가장 낮은 칸부터 한 단계씩 올리며 PV 를 쓴다 (gen_board 와 군세 유지(army_fit)가 같이 쓴다. 난수 없음)
+## 11/22 사용자: 후반 봇이 모두 초월 9장이었다 —— 가장 낮은 칸부터 올리는 평평한 배분은 9칸이 늘 한 등급(차이 ≤ 1)이고,
+## 초월(15종)과 불멸 값 차이가 커서 PV 700~1000 사이가 통째로 「초월만」이었다. 이제는 계단 —— 높은 칸부터 줄 세워 칸 r 의 등급 칸수(PLAY_TIERS 위치)가
+## 「바닥 + BOT_SHAPE[r]」 모양이 되게 한 칸씩 올린다 (에이스 2장 +2 · 중견 3장 +1 · 바닥 4장). 앞섬은 「바닥 − 1」 칸까지만이라 초반(바닥 희귀 아래)은 예전처럼 평평하다.
+## 같은 키면 바닥 쪽을 먼저 올린다 (에이스가 모양보다 한 칸 더 앞서지 않게). 걸음 순서는 PV 와 상관없이 하나로 정해져 있고 PV 는 어디서 멈추는지만 정한다 ——
+## 그래서 PV 가 오르면 늘 한 칸 한 단계씩만 바뀐다 (군세 유지 army_fit 이 한 장씩 바꾸는 약속 그대로).
+## 값(같은 PV 맞대결로 맞춤, tests/bot_deck_mix): 불멸 · 신화는 카드 PV 에 비해 세다 —— 봇 예산에서는 불멸 한 장에 bot_imm_extra, 신화에 bot_myth_extra 를 더 쓴다.
+## 신화는 맨 앞 한 칸만 —— 불멸 중견까지 차고 바닥이 초월로 오르는 무렵(키 35)에 한 걸음으로. 일찍 들이면 그 값을 모으는 동안 군세가 멈춰(같은 PV 에서 약해져) 늦게 둔다
+const BOT_SHAPE := [2, 2, 1, 1, 1, 0, 0, 0, 0]
+const BOT_MYTH_KEY := 35
+var bot_imm_extra := 30
+var bot_myth_extra := 120
 func board_tiers(pv: float) -> Array:
+	if not bot_shape:
+		return board_tiers_flat(pv)
+	var mid := func(t): return roundi((TIER[t].lo + TIER[t].hi) / 2.0) + (bot_imm_extra if t == 7 else 0) + (bot_myth_extra if t == 8 else 0)
+	var top := PLAY_TIERS.size() - 1
+	var idx := []
+	idx.resize(9)
+	idx.fill(0)
+	var spent: int = mid.call(PLAY_TIERS[0]) * 9
+	for g in 600:
+		var base: int = idx.min()
+		var myth_ok: bool = int(idx[0]) == top - 1 and int(idx[1]) >= top - 1
+		var best := -1
+		var bk := 1 << 30
+		for r in 9:
+			var key: int
+			if r == 0 and myth_ok:
+				key = BOT_MYTH_KEY
+			else:
+				if int(idx[r]) >= top - 1:
+					continue
+				var b: int = mini(int(BOT_SHAPE[r]), maxi(0, base - 1))
+				key = (int(idx[r]) - b) * 10 + b
+			if key < bk:
+				bk = key
+				best = r
+		if best < 0:
+			break
+		var cost: int = mid.call(PLAY_TIERS[idx[best] + 1]) - mid.call(PLAY_TIERS[idx[best]])
+		if spent + cost > pv:
+			break
+		spent += cost
+		idx[best] += 1
+	return idx.map(func(i): return int(PLAY_TIERS[i]))
+
+
+## 예전 평평한 배분 (bot_shape 끔 —— 비교용)
+func board_tiers_flat(pv: float) -> Array:
 	var mid := func(t): return roundi((TIER[t].lo + TIER[t].hi) / 2.0)
 	var tiers := []
 	tiers.resize(9)
@@ -2107,6 +2157,15 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 	var tiers := board_tiers(pv)
 	var cards := []
 	var mix_tags := _mix_tags(style, rng) if bot_mix else []
+	if bot_yeon:
+		# 높은 등급 칸부터 고른다 —— 인연은 초월 이상끼리라, 먼저 뽑힌 에이스에 맞춰 나머지가 붙는다 (칸 순서 · 병종은 그대로)
+		cards.resize(tiers.size())
+		var order := range(tiers.size())
+		order.sort_custom(func(a, b): return tiers[a] > tiers[b] if tiers[a] != tiers[b] else a < b)
+		for i in order:
+			var tag := str(mix_tags[i]) if bot_mix else ""
+			cards[i] = _army_pick(int(tiers[i]), tag, cards, rng.randi(), style)
+		return {"cards": cards, "form": STYLE_FORM[style]}
 	for i in tiers.size():
 		var t: int = tiers[i]
 		var tag := str(mix_tags[i]) if bot_mix else ""
@@ -2119,7 +2178,7 @@ func gen_board(pv: float, style: String, rng: RandomNumberGenerator) -> Dictiona
 ## 후보 순서: 그 등급 · 그 병종(없으면 같은 피해 종류 · 아무나, _mix_src) → 그 등급 전체 → 한 등급 낮은 곳 … 안 겹치는 것이 하나라도 있는 첫 곳에서 고른다.
 ## 맨 아래 등급(기본패 8종)은 9칸을 채우면 모자라 겹칠 수 있다 —— 마지막 수단으로만 겹침을 허용. seed 만으로 같은 결과(난수 상태 없음)
 ## bot_mix 를 끈 옛 방식(style 풀)은 style 로 고른다
-func _army_pick(t: int, tag: String, others: Array, seed_: int, style := "균형") -> String:
+func _army_pick(t: int, tag: String, others: Array, seed_: int, style := "균형", keep := "") -> String:
 	var rg := RandomNumberGenerator.new()
 	rg.seed = seed_
 	var used_id := {}
@@ -2130,23 +2189,81 @@ func _army_pick(t: int, tag: String, others: Array, seed_: int, style := "균형
 		used_id[str(k)] = true
 		if int(C[k].tier) >= 3:
 			used_p[person(k)] = true
+	var lim := 9 if (bot_shape and t >= 8) else 8      # 11/22 신화는 계단 배분의 맨 앞 칸(t = 8)만
+	var free := func(k): return C[k].tier < lim and not used_id.has(k) and (int(C[k].tier) < 3 or not used_p.has(person(k)))
+	# 11/22 인연 —— 초월 이상 칸은 병종 칸보다 인연을 먼저: 같은 피해 종류(물리 · 책략)에서 병종 3장 한도를 지키며, 이미 뽑힌 장수와 인연이 가장 많이 겹치는 인물
+	# (군세가 자랄 때는 그 칸의 원래 인물(keep)의 윗 등급을 가장 먼저). 맞는 사람이 없으면 아래 예전 고르기
+	if bot_yeon and t >= 6:
+		var y := _yeon_pick(t, tag, others, keep, lim, free)
+		if not y.is_empty():
+			return y[rg.randi() % y.size()]
 	var chains := []
 	if bot_mix:
-		chains.append(_mix_src(t, tag))
+		chains.append(_mix_src(t, tag, lim))
 	else:
 		var src: Array = POOLS[style].get(t, [])
 		chains.append(src if not src.is_empty() else POOLS["균형"].get(t, []))
-	chains.append(POOLS["균형"].get(t, []).filter(func(k): return C[k].tier < 8))
+	chains.append(POOLS["균형"].get(t, []).filter(func(k): return C[k].tier < lim))
 	var lt := t
 	while lt > 1:
 		lt = _prev_tier(lt)
 		chains.append(POOLS["균형"].get(lt, []).filter(func(k): return C[k].tier < 8))
 	for src in chains:
-		var ok: Array = src.filter(func(k): return C[k].tier < 8 and not used_id.has(k) and (int(C[k].tier) < 3 or not used_p.has(person(k))))
+		var ok: Array = src.filter(free)
 		if not ok.is_empty():
 			return ok[rg.randi() % ok.size()]
 	var last: Array = chains[0] if not chains[0].is_empty() else chains[1]
 	return last[rg.randi() % last.size()]
+
+
+## 11/22 인연 맞춰 고르기 —— 그 등급에서 쓸 수 있는(free) 고유기 카드 가운데 점수가 가장 높은 후보들. 점수 = 이미 뽑힌 고유기 장수 중
+## 이 인물과 인연을 함께하는 사람 수 (+3: 그 칸의 원래 인물 keep). 후보는 병종 칸(tag)과 같은 피해 종류(물리 · 책략)이고 그 병종이 others 에 3장 미만인 것 ——
+## 봇 덱 병종 규칙(_mix_tags: 같은 병종 3장까지 · 물리/책략 비율)은 그대로. 0점뿐이면 빈 배열(예전 고르기)
+func _yeon_pick(t: int, tag: String, others: Array, keep: String, lim: int, free: Callable) -> Array:
+	var mates := {}
+	var tag_n := {}
+	for k in others:
+		if k == null:
+			continue
+		tag_n[C[k].tag] = int(tag_n.get(C[k].tag, 0)) + 1
+		if inyeon_card(k):
+			mates[person(k)] = true
+	var kind: Array = INT_TAGS if INT_TAGS.has(tag) else PHYS_TAGS
+	var best := []
+	var bs := 0
+	for k in POOLS["균형"].get(t, []):
+		if not free.call(k) or C[k].tier >= lim or not inyeon_card(k):
+			continue
+		if bot_mix and tag != "" and C[k].tag != tag and (not kind.has(C[k].tag) or int(tag_n.get(C[k].tag, 0)) >= 3):
+			continue
+		var p := person(k)
+		var s := 3 if p == keep else 0
+		for m in mates:
+			if m != p and inyeon_of_person(p).any(func(n): return INYEON[n].has(m)):
+				s += 1
+		if s > bs:
+			bs = s
+			best = [k]
+		elif s == bs and s > 0:
+			best.append(k)
+	return best
+
+
+## 덱(카드 id 배열)에서 실제로 맺어지는 인연 —— 고유기 카드 인물이 2명 이상 든 인연 이름 {이름: 인원}. 점검 · 표시용
+func deck_yeon(cards: Array) -> Dictionary:
+	var ps := {}
+	for k in cards:
+		if k != null and inyeon_card(k):
+			ps[person(k)] = true
+	var out := {}
+	for nm in INYEON:
+		var n := 0
+		for p in INYEON[nm]:
+			if ps.has(p):
+				n += 1
+		if n >= 2:
+			out[nm] = n
+	return out
 
 
 ## 한 등급 아래 플레이 등급 (기본 = 1)
@@ -2196,7 +2313,7 @@ func army_fit(army: Array, pv: float, style: String, aseed: int) -> Array:
 		var i: int = e[0]
 		var others := out.duplicate()
 		others[i] = null
-		out[i] = _army_pick(int(e[1]), str(C[out[i]].tag), others, mix_seed(aseed, i, int(e[1])), style)
+		out[i] = _army_pick(int(e[1]), str(C[out[i]].tag), others, mix_seed(aseed, i, int(e[1])), style, person(out[i]))
 	# 겹침 고치기 —— 처음 만들 때 기본패 8종이 9칸에 모자라 겹쳤던 칸 · 옛 저장의 겹침이, 같은 등급의 안 겹치는 카드가 생기면 바뀐다 (없으면 그대로)
 	for i in range(1, 9):
 		var k: String = out[i]
@@ -2232,8 +2349,8 @@ func _mix_tags(style: String, rng: RandomNumberGenerator) -> Array:
 
 
 ## 그 등급의 그 병종 (없으면 같은 피해 종류, 그래도 없으면 아무나) —— 신화는 뺀다
-func _mix_src(t: int, tag: String) -> Array:
-	var all_: Array = POOLS["균형"].get(t, []).filter(func(k): return C[k].tier < 8)
+func _mix_src(t: int, tag: String, lim := 8) -> Array:
+	var all_: Array = POOLS["균형"].get(t, []).filter(func(k): return C[k].tier < lim)
 	var same := all_.filter(func(k): return C[k].tag == tag)
 	if not same.is_empty():
 		return same
