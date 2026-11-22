@@ -378,7 +378,7 @@
      "morale": 25,
      "buff": {
       "stat": "atk",
-      "amt": 0.3,
+      "amt": 0.22,
       "dur": 2
      }
     },
@@ -387,7 +387,7 @@
      "tgt": "allyAll",
      "buff": {
       "stat": "int",
-      "amt": 0.3,
+      "amt": 0.22,
       "dur": 2
      }
     },
