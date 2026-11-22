@@ -80,7 +80,15 @@ func pinned(k: String) -> bool:
 	return pins.has(k)
 
 
+## 11/22 사용자: "사망한 장수는 갈무리할 수 없도록" —— 장수 사망룰로 이번 판 등용 불가 (Run.locked 의 dead)
+func is_dead(k: String) -> bool:
+	return gs.run != null and gs.run.locked.has(k) and gs.run.lock_text(k) == "사망"
+
+
 func toggle(k: String) -> void:
+	if not pins.has(k) and is_dead(k):
+		gs.toast("%s은(는) 이번 판에 사망해 갈무리할 수 없습니다" % DB.C[k].name, "bad")
+		return
 	if pins.has(k):
 		pins.erase(k)
 		morder.erase(k)
