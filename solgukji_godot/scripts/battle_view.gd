@@ -2517,6 +2517,9 @@ class Hud extends Control:
 		for k in _medal_nodes:
 			_medal_nodes[k].queue_free()
 		_medal_nodes.clear()
+		for k in _badge_nodes:
+			_badge_nodes[k].queue_free()
+		_badge_nodes.clear()
 		_badge_icons.clear()
 		_tok_off.clear()
 		_tok_want.clear()
@@ -3054,7 +3057,12 @@ class Hud extends Control:
 	## 예전엔 부대마다 매 프레임 원 · 고리 · 기호(다각형 · 안티에일리어싱 선)를 다시 그려 HUD 에서 가장 무거웠다 (프레임당 약 0.9ms)
 	## 돌려주는 값: [기호 목록, 아래로 비킨 거리] —— 겹쳐서 뺄 때는 빈 목록
 	var _badge_icons := {}      # 부대 key -> [상태 해시, 기호 목록]
-	const BADGE_D := 15.0
+	const BADGE_D := 19.0       # 11/22 사용자: 기호가 안 보인다 —— 15 → 19 (휴대폰 세로에서도 읽히게)
+	const BADGE_GAP := 2.0
+	const BADGE_MAX := 4        # 넘치면 셋 + 「+N」
+	## 11/22 메달 딱지 순서 —— 버프(초록 · 금)를 왼쪽에, 그다음 행동 막힘 · 능력치 깎임 · 지속 피해 (빨강)
+	const BADGE_ORDER := ["undying", "phalanx", "moved", "taunted", "confuse", "seal",
+		"cut_atk", "cut_int", "cut_def", "shred_phys", "cut_res", "shred_int", "burn", "flood", "bleed", "plague"]
 	func _badge_place(sq: Squad, p: Vector2, radius: float) -> Array:
 		if not sq.alive or sq.statuses.is_empty():
 			return [PackedStringArray(), 0.0]
@@ -3062,20 +3070,22 @@ class Hud extends Control:
 		var c = _badge_icons.get(sq.key)
 		if c == null or c[0] != h:
 			var found := PackedStringArray()
-			for st in DECK_ST:
+			for st in BADGE_ORDER:
 				var ic := _icon_of(st)
 				if sq.statuses.has(st) and not found.has(ic):
 					found.append(ic)
-					if found.size() == 3:
-						break
+			if found.size() > BADGE_MAX:
+				var more := found.size() - (BADGE_MAX - 1)
+				found = found.slice(0, BADGE_MAX - 1)
+				found.append("+%d" % more)
 			c = [h, found]
 			_badge_icons[sq.key] = c
 		var icons: PackedStringArray = c[1]
 		if icons.is_empty():
 			return [icons, 0.0]
-		var w := BADGE_D * icons.size() + 2.0 * (icons.size() - 1)
-		var r := Rect2(p + Vector2(-w * 0.5, radius + 17.0), Vector2(w, BADGE_D))
-		for dy in [0.0, BADGE_D + 2.0]:
+		var w := BADGE_D * icons.size() + BADGE_GAP * (icons.size() - 1)
+		var r := Rect2(p + Vector2(-w * 0.5, radius + 21.0), Vector2(w, BADGE_D))
+		for dy in [0.0, BADGE_D + 2.0, 2.0 * (BADGE_D + 2.0)]:
 			var cand := Rect2(r.position + Vector2(0, dy), r.size)
 			var hit := false
 			for o: Rect2 in _badge_rects:
@@ -3087,12 +3097,14 @@ class Hud extends Control:
 				return [icons, dy]
 		return [PackedStringArray(), 0.0]
 
-	## 상태 기호 이름 —— 같은 뜻(방어 깎기 · 갑옷 약화)은 같은 기호
+	## 상태 기호 이름 —— 같은 뜻(방어 깎기 · 갑옷 약화)은 같은 기호. 11/22 방진 = 방어↑ · 분발 = 공격↑
 	static func _icon_of(st: String) -> String:
 		match st:
 			"cut_def", "shred_phys": return "def_down"
 			"cut_res", "shred_int": return "res_down"
 			"cut_atk", "cut_int": return "atk_down"
+			"phalanx": return "def_up"
+			"moved": return "atk_up"
 		return st
 
 	static func _icon_col(ic: String) -> Color:
@@ -3106,16 +3118,73 @@ class Hud extends Control:
 			"heal": return Color("#7fd6a4")
 			"taunted": return Color("#ff7a4a")
 			"undying": return Color("#ffd257")
+			"def_up", "phalanx", "atk_up", "moved": return Color("#7dffa0")
+			"bleed": return Color("#ff5a52")
+			"plague": return Color("#a8e070")
+			"seal": return Color("#d6d6d6")
 		return Color.WHITE
 
-	## 상태 기호 —— c 가운데, 반지름 s. 불꽃 · 물결 · 방패↓(방어) · 결계↓(책략 방어) · 칼↓(공격) · 소용돌이(혼란). _spread 는 옆으로 번지는 화살표를 덧붙인다
+	## 11/22 딱지 갈래 —— 0 버프(초록) · 1 버팀(금) · 2 디버프(빨강)
+	static func badge_kind(ic: String) -> int:
+		match ic:
+			"def_up", "atk_up", "phalanx", "moved", "heal": return 0
+			"undying": return 1
+		return 2
+
+	const BADGE_RIM := [Color("#4cff7a"), Color("#ffd257"), Color("#ff3b30")]
+	const BADGE_BG := [Color(0.03, 0.2, 0.08, 0.94), Color(0.25, 0.18, 0.02, 0.94), Color(0.3, 0.03, 0.03, 0.94)]
+	static var _badge_sb := {}
+
+	## 11/22 사용자: 버프 · 디버프 기호가 안 보인다 —— 둥근 네모 딱지 하나. 버프 = 초록 테두리 · 디버프 = 빨강 테두리 · 버팀 = 금,
+	## 어두운 받침 + 그림자로 삽화 위에서도 뜬다. 「+N」 은 넘친 개수 (회색 알약)
+	static func draw_badge(ci: CanvasItem, hud, c: Vector2, D: float, ic: String, a := 1.0) -> void:
+		var r := Rect2(c - Vector2(D, D) * 0.5, Vector2(D, D))
+		var more := ic.begins_with("+")
+		var k := 3 if more else badge_kind(ic)
+		var sb: StyleBoxFlat = _badge_sb.get(k)
+		if sb == null:
+			sb = StyleBoxFlat.new()
+			sb.set_corner_radius_all(5)
+			sb.set_border_width_all(2)
+			sb.bg_color = Color(0.06, 0.06, 0.08, 0.92) if more else BADGE_BG[k]
+			sb.border_color = Color(0.75, 0.75, 0.78) if more else BADGE_RIM[k]
+			sb.shadow_color = Color(0, 0, 0, 0.75)
+			sb.shadow_size = 2
+			sb.anti_aliasing = true
+			_badge_sb[k] = sb
+		ci.draw_style_box(sb, r)      # (투명은 노드 modulate 로 —— 상자 색은 그대로)
+		if more:
+			var fs := roundi(D * 0.58)
+			ci.draw_string_outline(DB.font_bold, Vector2(r.position.x, c.y + fs * 0.36), ic, HORIZONTAL_ALIGNMENT_CENTER, D, fs, 3, Color(0, 0, 0, a))
+			ci.draw_string(DB.font_bold, Vector2(r.position.x, c.y + fs * 0.36), ic, HORIZONTAL_ALIGNMENT_CENTER, D, fs, Color(1, 1, 1, a))
+			return
+		if hud != null:
+			hud._st_icon(c, ic, D * 0.5 - 2.5, a, ci)
+
+	## 화살표 ↑ · ↓ —— q 가운데, 높이 h. 검은 테두리 + 채움 (능력치 오름 · 깎임)
+	static func _arrow(ci: CanvasItem, q: Vector2, h: float, up: bool, a: float) -> void:
+		var sy := 1.0 if up else -1.0
+		var pts := PackedVector2Array()
+		for v in [Vector2(0, -0.5), Vector2(0.48, 0.02), Vector2(0.17, 0.02), Vector2(0.17, 0.5), Vector2(-0.17, 0.5), Vector2(-0.17, 0.02), Vector2(-0.48, 0.02)]:
+			pts.append(q + Vector2(v.x, v.y * sy) * h)
+		var ol := pts.duplicate()
+		ol.append(pts[0])
+		ci.draw_polyline(ol, Color(0, 0, 0, 0.9 * a), 2.6, true)
+		ci.draw_colored_polygon(pts, Color("#5dff86", a) if up else Color("#ff3b30", a))
+
+	## 상태 기호 —— c 가운데, 반지름 s. 불꽃 · 물결 · 방패(방어) · 결계(책략 방어) · 칼(공격) + ↑↓ · 소용돌이(혼란) · 분노 표시(도발) · 금빛 심장(불사) ·
+	## 할퀸 자국(출혈) · 거품(역병) · 자물쇠(봉인). _spread 는 옆으로 번지는 화살표를 덧붙인다
 	func _st_icon(c: Vector2, ic: String, s: float, a: float, ci: CanvasItem = null) -> void:
 		if ci == null:
 			ci = self
 		var base := ic.trim_suffix("_spread")
 		base = _icon_of(base)
 		var col := Color(_icon_col(base), a)
-		var dark := Color(0, 0, 0, 0.6 * a)
+		var dark := Color(0, 0, 0, 0.7 * a)
+		var ink := Color("#fff4dc", a)      # 능력치 기호 몸 —— 밝은 상아색 (뜻은 화살표 색이 말한다)
+		var stat := base in ["def_down", "res_down", "atk_down", "def_up", "atk_up"]
+		var g := c + (Vector2(-s * 0.22, -s * 0.12) if stat else Vector2.ZERO)      # 능력치 기호는 왼쪽 위로 비켜 화살표 자리를 낸다
+		var lw := maxf(1.6, s * 0.26)
 		match base:
 			"burn":      # 물방울을 뒤집은 불꽃 —— 아래는 둥글고 위는 뾰족, 안쪽에 밝은 심지
 				for layer in 2:
@@ -3133,39 +3202,73 @@ class Hud extends Control:
 					for i in 9:
 						var x := -s + 2.0 * s * float(i) / 8.0
 						pts.append(Vector2(c.x + x, y + sin(float(i) / 8.0 * TAU) * s * 0.22))
-					ci.draw_polyline(pts, col, 1.6, true)
-			"def_down":
-				var sh := PackedVector2Array([c + Vector2(-s * 0.8, -s * 0.85), c + Vector2(s * 0.8, -s * 0.85), c + Vector2(s * 0.8, -s * 0.1), c + Vector2(0, s * 0.95), c + Vector2(-s * 0.8, -s * 0.1)])
-				ci.draw_colored_polygon(sh, col)
-				ci.draw_polyline(PackedVector2Array([c + Vector2(-s * 0.15, -s * 0.85), c + Vector2(s * 0.2, -s * 0.2), c + Vector2(-s * 0.1, s * 0.3)]), dark, 1.4, true)
-			"res_down":
-				ci.draw_arc(c, s * 0.8, 0, TAU, 16, col, 1.8, true)
-				ci.draw_circle(c, s * 0.3, col)
-				ci.draw_line(c + Vector2(-s * 0.7, -s * 0.7), c + Vector2(s * 0.7, s * 0.7), dark, 1.4, true)
-			"atk_down":
-				ci.draw_line(c + Vector2(-s * 0.7, s * 0.7), c + Vector2(s * 0.75, -s * 0.75), col, 2.0, true)
-				ci.draw_line(c + Vector2(-s * 0.75, s * 0.15), c + Vector2(-s * 0.15, s * 0.75), col, 1.8, true)
-				ci.draw_line(c + Vector2(-s * 0.85, -s * 0.2), c + Vector2(s * 0.2, s * 0.85), dark, 1.4, true)
+					ci.draw_polyline(pts, col, lw, true)
+			"def_down", "def_up":      # 방패
+				var k := 0.82
+				var sh := PackedVector2Array([g + Vector2(-s * 0.8, -s * 0.85) * k, g + Vector2(0, -s * 1.0) * k, g + Vector2(s * 0.8, -s * 0.85) * k,
+					g + Vector2(s * 0.8, -s * 0.05) * k, g + Vector2(0, s * 1.0) * k, g + Vector2(-s * 0.8, -s * 0.05) * k])
+				var ol := sh.duplicate()
+				ol.append(sh[0])
+				ci.draw_polyline(ol, dark, 2.4, true)
+				ci.draw_colored_polygon(sh, ink)
+				ci.draw_line(g + Vector2(0, -s * 0.7) * k, g + Vector2(0, s * 0.7) * k, Color(0.35, 0.3, 0.25, a), 1.2, true)
+				if base == "def_down":      # 금 간 방패
+					ci.draw_polyline(PackedVector2Array([g + Vector2(-s * 0.1, -s * 0.85) * k, g + Vector2(s * 0.25, -s * 0.2) * k, g + Vector2(-s * 0.15, s * 0.3) * k]), Color(0.7, 0.1, 0.08, a), 1.6, true)
+			"res_down":      # 결계 고리 + 금
+				ci.draw_arc(g, s * 0.72, 0, TAU, 18, dark, lw + 1.6, true)
+				ci.draw_arc(g, s * 0.72, 0, TAU, 18, Color("#f0c4ff", a), lw, true)
+				ci.draw_circle(g, s * 0.28, Color("#f0c4ff", a))
+				ci.draw_line(g + Vector2(-s * 0.7, -s * 0.7), g + Vector2(s * 0.7, s * 0.7), Color(0.7, 0.1, 0.08, a), 1.6, true)
+			"atk_down", "atk_up":      # 칼 —— 오른쪽 위로 뻗는 날 · 코등이 · 손잡이
+				var p0 := g + Vector2(-s * 0.55, s * 0.55)
+				var p1 := g + Vector2(s * 0.75, -s * 0.75)
+				ci.draw_line(p0, p1, dark, lw + 2.2, true)
+				ci.draw_line(p0, p1, ink, lw, true)
+				ci.draw_line(g + Vector2(-s * 0.7, s * 0.05), g + Vector2(-s * 0.05, s * 0.7), dark, lw + 1.6, true)
+				ci.draw_line(g + Vector2(-s * 0.7, s * 0.05), g + Vector2(-s * 0.05, s * 0.7), Color("#e0b060", a), lw * 0.85, true)
+				ci.draw_line(p0, g + Vector2(-s * 0.85, s * 0.85), Color("#8a5a30", a), lw * 0.85, true)
 			"heal":      # 십자
 				ci.draw_rect(Rect2(c - Vector2(s * 0.25, s * 0.8), Vector2(s * 0.5, s * 1.6)), col)
 				ci.draw_rect(Rect2(c - Vector2(s * 0.8, s * 0.25), Vector2(s * 1.6, s * 0.5)), col)
 			"confuse":
 				var pts := PackedVector2Array()
-				for i in 18:
-					var t := float(i) / 17.0
-					pts.append(c + Vector2(cos(t * TAU * 1.6), sin(t * TAU * 1.6)) * s * (0.15 + 0.8 * t))
-				ci.draw_polyline(pts, col, 1.6, true)
-			"taunted", "undying":      # 11/21 장수 개성 —— 글자 원 (도 · 불)
-				var fs := maxi(7, roundi(s * 1.7))
-				ci.draw_string(DB.font_bold, c + Vector2(-s * 1.2, fs * 0.36), "도" if base == "taunted" else "불", HORIZONTAL_ALIGNMENT_CENTER, s * 2.4, fs, col)
+				for i in 22:
+					var t := float(i) / 21.0
+					pts.append(c + Vector2(cos(t * TAU * 1.8), sin(t * TAU * 1.8)) * s * (0.12 + 0.85 * t))
+				ci.draw_polyline(pts, col.lightened(0.3), lw, true)
+			"taunted":      # 분노 표시 —— 가운데를 향해 굽은 네 획
+				for q in [Vector2(1, 1), Vector2(1, -1), Vector2(-1, 1), Vector2(-1, -1)]:
+					var at: Vector2 = c + q * s * 0.95
+					var ang := atan2(-q.y, -q.x)
+					ci.draw_arc(at, s * 0.62, ang - 0.75, ang + 0.75, 8, Color("#ffc24a", a), lw * 1.25, true)      # 빨강 바탕에서 읽히게 밝은 주황
+			"undying":      # 금빛 심장
+				var pts := PackedVector2Array()
+				for i in 24:
+					var t := TAU * float(i) / 24.0
+					var x := 16.0 * pow(sin(t), 3)
+					var y := -(13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t))
+					pts.append(c + Vector2(x, y + 2.0) * s / 17.0)
+				ci.draw_colored_polygon(pts, col)
+				ci.draw_circle(c + Vector2(-s * 0.35, -s * 0.3), s * 0.18, Color(1, 1, 0.85, 0.8 * a))
+			"bleed":      # 할퀸 자국 세 줄
+				for i in 3:
+					var o := Vector2(s * 0.42 * (i - 1), 0)
+					ci.draw_line(c + o + Vector2(s * 0.3, -s * 0.8), c + o + Vector2(-s * 0.3, s * 0.8), col, lw, true)
+			"plague":      # 거품 셋
+				ci.draw_circle(c + Vector2(-s * 0.3, s * 0.3), s * 0.45, col)
+				ci.draw_circle(c + Vector2(s * 0.4, s * 0.05), s * 0.32, col)
+				ci.draw_circle(c + Vector2(0, -s * 0.55), s * 0.24, col)
+				ci.draw_circle(c + Vector2(-s * 0.42, s * 0.15), s * 0.12, Color(1, 1, 1, 0.6 * a))
+			"seal":      # 자물쇠
+				ci.draw_arc(c + Vector2(0, -s * 0.15), s * 0.42, PI, TAU, 10, col, lw, true)
+				ci.draw_line(c + Vector2(-s * 0.42, -s * 0.15), c + Vector2(-s * 0.42, s * 0.05), col, lw, true)
+				ci.draw_line(c + Vector2(s * 0.42, -s * 0.15), c + Vector2(s * 0.42, s * 0.05), col, lw, true)
+				ci.draw_rect(Rect2(c + Vector2(-s * 0.68, 0), Vector2(s * 1.36, s * 0.85)), col)
+				ci.draw_circle(c + Vector2(0, s * 0.4), s * 0.14, Color(0.1, 0.1, 0.1, a))
 			_:
 				ci.draw_circle(c, s * 0.5, col)
-		if base in ["def_down", "res_down", "atk_down"]:      # 깎임 —— 오른쪽 아래 붉은 ↓
-			var q := c + Vector2(s * 0.7, s * 0.5)
-			var tri := PackedVector2Array([q + Vector2(-s * 0.6, -s * 0.3), q + Vector2(s * 0.6, -s * 0.3), q + Vector2(0, s * 0.6)])
-			ci.draw_colored_polygon(tri, Color(1, 0.3, 0.25, a))
-			tri.append(tri[0])
-			ci.draw_polyline(tri, Color(0, 0, 0, 0.7 * a), 1.0, true)
+		if stat:      # 오름 · 깎임 —— 오른쪽 아래 큰 화살표 (초록 ↑ · 빨강 ↓)
+			_arrow(ci, c + Vector2(s * 0.68, s * 0.42), s * 1.05, base.ends_with("_up"), a)
 		if ic.ends_with("_spread"):      # 번짐 —— 오른쪽으로 뻗는 화살표
 			var q := c + Vector2(s * 0.55, -s * 0.55)
 			ci.draw_line(q, q + Vector2(s * 0.6, 0), Color(1, 1, 1, a), 1.4, true)
@@ -3743,6 +3846,8 @@ class Hud extends Control:
 	var _tok_name := {}    # 부대 key -> [이름, 이름표 폭, 카드] (삽화 메달, 11/19)
 	var _medal_layer: Control = null
 	var _medal_nodes := {}  # 부대 key -> MedalNode
+	var _badge_layer: Control = null      # 11/22 상태 딱지 층 —— 메달 층 바로 위
+	var _badge_nodes := {}  # 부대 key -> BadgeRow
 
 	## 삽화 메달 하나 —— 틀 · 얼굴 · 이름표를 한 번 그려 두고 Hud 가 자리(position) · 투명(modulate)만 바꾼다
 	class MedalNode extends Control:
@@ -3782,15 +3887,23 @@ class Hud extends Control:
 				draw_rect(Rect2(bar.position, Vector2(w * clampf(m / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.morale_color(m))
 				if m > 100.0:
 					draw_rect(Rect2(bar.position, Vector2(w * clampf((m - 100.0) / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.MORALE_OVER_COL)
+			# 11/22 상태 기호는 BadgeRow 가 따로 그린다 —— 메달 층 위 딱지 층이라 이웃 메달에 가려지지 않는다
+
+	## 11/22 메달 아래 상태 딱지 줄 (최대 넷, 넘치면 「+N」) —— 버프 초록 · 디버프 빨강 테두리. 메달과 같은 자리에 두고 바뀔 때만 다시 그린다
+	class BadgeRow extends Control:
+		var hud
+		var icons := PackedStringArray()
+		var dy := 0.0
+		var r := 8.0
+		func _draw() -> void:
 			if icons.is_empty() or hud == null:
 				return
-			var D: float = BattleView.Hud.BADGE_D      # 메달 아래 작은 동그라미 기호 (최대 셋) —— _deck_badges 와 같은 모양
-			var bw := D * icons.size() + 2.0 * (icons.size() - 1)
+			var D: float = BattleView.Hud.BADGE_D
+			var G: float = BattleView.Hud.BADGE_GAP
+			var bw := D * icons.size() + G * (icons.size() - 1)
 			for i in icons.size():
-				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + 2.0), r + 21.0 + badge_dy + D * 0.5)
-				draw_circle(c, D * 0.5, Color(0.03, 0.04, 0.07, 0.92))
-				draw_arc(c, D * 0.5, 0, TAU, 20, Color(BattleView.Hud._icon_col(icons[i]), 0.9), 1.0, true)
-				hud._st_icon(c, icons[i], D * 0.5 - 2.0, 1.0, self)
+				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + G), r + 21.0 + dy + D * 0.5)
+				BattleView.Hud.draw_badge(self, hud, c, D, icons[i])
 	## 11/19 메달 옆 병력 —— "47k" · "4.7k" · "820"
 	static func troops_k(v: float) -> String:
 		if v >= 9950.0:
@@ -4417,6 +4530,8 @@ class Hud extends Control:
 				_bake_s = S
 		if _medal_layer != null and (not painted or tags.is_empty()):
 			_medal_layer.visible = false
+			if _badge_layer != null:
+				_badge_layer.visible = false
 		if painted and not tags.is_empty():
 			# 11/19 삽화 메달 —— 자리 계산은 여기서, 그림은 메달 노드(MedalNode)가 한 번만. 상태 기호만 여기서 그린다
 			tok_pos = _flat_token_pos(tags, painted)
@@ -4429,7 +4544,15 @@ class Hud extends Control:
 				_medal_layer.show_behind_parent = true      # HUD 가 직접 그리는 것(글씨 · 컷인 · 띠)보다 아래 —— 예전에도 메달을 가장 먼저 그렸다
 				_medal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 				add_child(_medal_layer)
+			if _badge_layer == null:
+				_badge_layer = Control.new()
+				_badge_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				_badge_layer.show_behind_parent = true
+				_badge_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				add_child(_badge_layer)
+				move_child(_badge_layer, _medal_layer.get_index() + 1)      # 메달 층 바로 다음 —— 모든 메달 위, HUD 글씨 아래
 			_medal_layer.visible = true
+			_badge_layer.visible = true
 			for t in tags:
 				var sq: Squad = t[1]
 				if sq.state == "gone":
@@ -4491,10 +4614,28 @@ class Hud extends Control:
 				node.z_index = 1 if bz0 else 0      # 총대장 메달 · 이름표는 다른 메달 위에
 				node.modulate.a = sq.fade
 				node.visible = true
+				var row: BadgeRow = _badge_nodes.get(sq.key)
+				if row == null:
+					row = BadgeRow.new()
+					row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					row.hud = self
+					_badge_layer.add_child(row)
+					_badge_nodes[sq.key] = row
+				if row.icons != bp[0] or row.dy != bp[1] or row.r != r:
+					row.icons = bp[0]
+					row.dy = bp[1]
+					row.r = r
+					row.queue_redraw()
+				row.position = node.position
+				row.modulate.a = sq.fade
+				row.visible = not row.icons.is_empty()
 				seen[sq.key] = true
 			for k in _medal_nodes:
 				if not seen.has(k):
 					_medal_nodes[k].visible = false
+			for k in _badge_nodes:
+				if not seen.has(k):
+					_badge_nodes[k].visible = false
 			tags.clear()
 		for t in tags:
 			var p: Vector2 = t[0]
