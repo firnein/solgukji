@@ -97,6 +97,7 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 ## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
 ## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
 static var tag_roles := true
+static var sk_split := true      # 11/23 사용자: 기술마다 충전 따로 (끄면 11/3 방식: 하나를 나눠 쓴다)
 static var sk_rotate := true     # 11/23 기술 고르기 —— 조건 맞는 기술 중 덜 쓴 것을 노리고 그 비용까지 기다린다 (끄면 예전: 앞에서부터 비용 되는 첫 기술)
 ## 11/6 밸런스: 기병 3장 덱 30% → 돌격 뒤 배율 0.8 → 0.9 · 전체 0.9 → 1.0, 책략계 피격 감면(int_guard)은 방어 통합으로 대신
 ## (11/8 ROLE · CHARGE · SPEAR_ATK 는 점검 장면 tests/mono_league 가 바꿔 볼 수 있게 static var)
@@ -1182,7 +1183,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 	if tag_roles and a.c.tag == "도적" and not a.countering:      # 도적 —— 맞힌 적의 고유기 게이지 · 기술 충전을 깎는다
 		d.gauge = maxf(0.0, d.gauge - ROLE.rogue_gauge)
 		if not d.sk_ch.is_empty():
-			d.sk_ch[0] = maxf(0.0, d.sk_ch[0] - ROLE.rogue_charge)
+			for jj in d.sk_ch.size():      # 따로 충전이면 기술마다 깎는다
+				d.sk_ch[jj] = maxf(0.0, d.sk_ch[jj] - ROLE.rogue_charge)
 	var assists := []
 	if shield_enabled:      # 11/9 깎기 기여 기록 —— 깎기가 없었다면 막 그대로였을 몫과의 차이를 건 장수에게
 		var gk := dmg_kind(a)
@@ -3029,12 +3031,18 @@ func act(u: Unit) -> void:
 	# 피해의 73%가 기술이었다. 이제 기술이 많으면 '더 자주'가 아니라 '고를 것이 많다'. 한 차례에 하나만, 앞 기술(고유 기술)부터 조건을 본다
 	var sks: Array = u.c.get("sks", [])
 	if not sks.is_empty():
-		if u.sk_ch.is_empty():
-			u.sk_ch.append(0.5)
-		var cap := 0.0
-		for x in sks:
-			cap = maxf(cap, float(x.get("cost", 1.0)))
-		u.sk_ch[0] = minf(cap, u.sk_ch[0] + sk_rate(u))      # 가장 비싼 기술 비용만큼 모은다 (더 모아 두지 않는다)
+		if sk_split:      # 11/23 사용자: 기술마다 충전을 따로 —— 하나를 써도 다른 기술 충전은 그대로. 차례에 하나만 쓰는 건 같다
+			while u.sk_ch.size() < sks.size():
+				u.sk_ch.append(0.5)
+			for j in sks.size():
+				u.sk_ch[j] = minf(float(sks[j].get("cost", 1.0)), u.sk_ch[j] + sk_rate(u))
+		else:
+			if u.sk_ch.is_empty():
+				u.sk_ch.append(0.5)
+			var cap := 0.0
+			for x in sks:
+				cap = maxf(cap, float(x.get("cost", 1.0)))
+			u.sk_ch[0] = minf(cap, u.sk_ch[0] + sk_rate(u))      # 가장 비싼 기술 비용만큼 모은다 (더 모아 두지 않는다)
 	# 11/23 사용자: 싼 기술이 충전을 먼저 가져가 비싼 기술(사마의 인내지계 2.4 ← 저주 1.9)이 거의 안 나갔다 ——
 	# 조건이 맞는 기술 가운데 이 판에 덜 쓴 기술(같으면 앞 기술)을 노리고, 그 비용이 모일 때까지 기다린다. 조건이 안 맞는 기술은 기다리지 않는다
 	var order: Array = range(sks.size())
@@ -3047,13 +3055,14 @@ func act(u: Unit) -> void:
 	for j in order:
 		if used or not u.alive or not foes.any(func(o): return o.alive):
 			break
-		if u.sk_ch[0] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
+		var ci: int = j if sk_split else 0
+		if u.sk_ch[ci] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
 			continue
 		sk = sks[j]
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false
-		if ok: u.sk_ch[0] -= float(sk.get("cost", 1.0))
+		if ok: u.sk_ch[ci] -= float(sk.get("cost", 1.0))
 		if ok:
 			used = true
 			u.sk_cnt[j] = int(u.sk_cnt.get(j, 0)) + 1
@@ -3151,6 +3160,7 @@ func _sk_cond(u: Unit, cond: String, foes: Array, allies: Array) -> bool:
 				if lf.any(func(o): return (o.line == v) if not _by_distance() else (_is_front(o) if lp <= 2 else _is_back(o))): return true
 			"no_st":
 				if lf.any(func(o): return not has_st(o, v)): return true
+			if sk_split and u.sk_ch[j] < float(sks[j].get("cost", 1.0)): continue      # 따로 충전이면 다 찬 기술 가운데서 고른다
 			"ally_st":
 				if la.any(func(o): return o.st.any(func(x): return x.k in ["burn", "bleed", "flood", "plague", "confuse", "seal", "break", "mark"])): return true
 			"ally_morale":      # 11/23 아군 '평균' 사기 → 사기가 그 아래인 아군이 '하나라도' (평균은 거의 안 떨어져 진두지휘 등 88% 가 한 번도 못 터졌다)

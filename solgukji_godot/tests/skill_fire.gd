@@ -5,6 +5,7 @@ const SHAPES := [[8, 7, 7, 7, 6, 5, 5, 5, 5], [8, 7, 7, 7, 7, 7, 6, 5, 5], [7, 7
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "--old": Battle.sk_rotate = false
+		if a == "--shared": Battle.sk_split = false
 	var myths: Array = DB.by_tier(8).filter(func(k): return not DB.is_foe(k) and not DB.is_kiin(k))
 	var have := {}
 	var fired := {}

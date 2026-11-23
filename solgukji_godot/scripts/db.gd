@@ -2492,8 +2492,8 @@ func sk_every_sec(sk: Dictionary, c: Dictionary) -> float:
 	return float(sk.get("cost", 1.0)) / r * act_sec(float(c.tier), float(c.get("spd", 0.0)))
 
 
-## 기술을 둘 이상 가진 장수 —— 준비는 하나를 나눠 쓴다 (Battle.act: sk_ch[0]). 기술 칸 아래 한 줄
-const SK_SHARE_NOTE := "기술은 한 번에 하나만 쓴다 —— 하나를 쓰면 나머지도 그만큼 다시 기다린다"
+## 기술을 둘 이상 가진 장수 —— 11/23 충전은 기술마다 따로, 쓰는 건 차례에 하나 (Battle.act: sk_ch[j], Battle.sk_split). 기술 칸 아래 한 줄
+const SK_SHARE_NOTE := "기술은 한 번에 하나만 쓴다 —— 충전은 기술마다 따로 모은다"
 
 
 ## 일반 기술 발동 조건 글 —— "자신 병력 60% 이하 또는 …"
