@@ -23,7 +23,12 @@ static func turns_for(t: float) -> float:
 
 ## 그 등급 전투의 한 턴(정산 간격) 길이 (초) —— 화면 설명의 'N턴'을 초로 바꿀 때 (DB.sec_text). 1·2등급은 3등급과 같게
 static func turn_sec(t: float) -> float:
+	if sec_fixed:
+		return 1.0
 	return period_base * PERIOD_MUL[clampi(roundi(t), 3, 8)]
+## 11/23 사용자: "턴 없앴잖아" —— 정산 간격(상태 · 버프 지속, 회복 · 도트 주기)을 모든 판에서 1초로. 데이터의 지속 숫자가 곧 초다.
+## 끄면 예전처럼 평균 등급에 따라 0.8 ~ 3.3초 (PERIOD_MUL). 판 길이 상한(cap_t)은 예전 간격으로 그대로 둔다
+static var sec_fixed := true
 
 
 static var period_base := 1.9           # 예전 한 턴에 해당하는 시간 (초) —— 턴 끝 정산 간격 · 행동 간격의 기준. 11/1 2.9→1.9 (감상 전투 35초 안팎)
@@ -242,10 +247,12 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	var lo_t := floori(mt)
 	var hi_t := mini(8, lo_t + 1)
 	period = period_base * lerpf(PERIOD_MUL[lo_t], PERIOD_MUL[hi_t], mt - lo_t)
+	var cap_t: float = K.cap * turn_mul * period
+	if sec_fixed:
+		period = 1.0
 	var turn := 1
 	_turn_begin(turn)
 	var winner := ""
-	var cap_t: float = K.cap * turn_mul * period
 	var next_end := period
 	var next_set := SETTLE
 	var last_set := 0.0

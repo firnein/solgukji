@@ -1571,8 +1571,8 @@ func acts_for(tier: float, spd: float) -> float:
 
 ## 초 → "약 X초" (0.5초 단위, 최소 0.5)
 func sec_str(sec: float) -> String:
-	var s := maxf(0.5, snappedf(sec, 0.5))
-	return "약 %s초" % (str(roundi(s)) if is_equal_approx(s, roundf(s)) else "%.1f" % s)
+	var s := maxf(0.1, snappedf(sec, 0.1))      # 11/23 사용자: '약' 빼고 그 초 그대로 (정산 간격이 1초로 고정 —— RtBattle.sec_fixed)
+	return "%s초" % (str(roundi(s)) if is_equal_approx(s, roundf(s)) else "%.1f" % s)
 
 
 var _turn_re: RegEx
