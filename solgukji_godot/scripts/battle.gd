@@ -97,6 +97,7 @@ static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 ·
 ## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
 ## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
 static var tag_roles := true
+static var sk_rotate := true     # 11/23 기술 고르기 —— 조건 맞는 기술 중 덜 쓴 것을 노리고 그 비용까지 기다린다 (끄면 예전: 앞에서부터 비용 되는 첫 기술)
 ## 11/6 밸런스: 기병 3장 덱 30% → 돌격 뒤 배율 0.8 → 0.9 · 전체 0.9 → 1.0, 책략계 피격 감면(int_guard)은 방어 통합으로 대신
 ## (11/8 ROLE · CHARGE · SPEAR_ATK 는 점검 장면 tests/mono_league 가 바꿔 볼 수 있게 static var)
 ## 11/8 병종 균형: 유생 치료 schol_heal 1.6 → 0.6 (몰빵 리그전 유생 덱 84% —— 치료가 분발 · 인의 방진을 내내 켰다. 분발 재발동 대기 moved_cd 와 함께).
@@ -272,6 +273,7 @@ class Unit:
 	var ult_n := 0            # 이 전투에서 고유기를 쓴 횟수 (11/7 재사용 체감 —— 쓸수록 게이지가 느리게 찬다)
 	var ult_tm := -99.0       # 마지막으로 고유기를 쓴 시각 (실시간 엔진, 초)
 	var ult_turn := -99       # 마지막으로 고유기를 쓴 턴 (턴 엔진)
+	var sk_cnt := {}          # 11/23 기술마다 이 판에 쓴 횟수 (기술 번호 → 수) —— 덜 쓴 기술부터 노린다 (Battle.sk_rotate)
 	var sk_ch := []           # 기술 충전 —— 11/3 부터 [0] 하나를 모든 기술이 나눠 쓴다
 	var charges := 0          # 남은 고유기 횟수
 	# 실시간 엔진(RtBattle) —— 전장 위치와 행동 준비. 턴 엔진은 쓰지 않는다
@@ -3033,7 +3035,16 @@ func act(u: Unit) -> void:
 		for x in sks:
 			cap = maxf(cap, float(x.get("cost", 1.0)))
 		u.sk_ch[0] = minf(cap, u.sk_ch[0] + sk_rate(u))      # 가장 비싼 기술 비용만큼 모은다 (더 모아 두지 않는다)
-	for j in sks.size():
+	# 11/23 사용자: 싼 기술이 충전을 먼저 가져가 비싼 기술(사마의 인내지계 2.4 ← 저주 1.9)이 거의 안 나갔다 ——
+	# 조건이 맞는 기술 가운데 이 판에 덜 쓴 기술(같으면 앞 기술)을 노리고, 그 비용이 모일 때까지 기다린다. 조건이 안 맞는 기술은 기다리지 않는다
+	var order: Array = range(sks.size())
+	if sk_rotate and sks.size() > 1 and u.alive and foes.any(func(o): return o.alive):
+		var best := -1
+		for j in sks.size():
+			if (best < 0 or int(u.sk_cnt.get(j, 0)) < int(u.sk_cnt.get(best, 0))) and _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
+				best = j
+		order = [best] if best >= 0 else []
+	for j in order:
 		if used or not u.alive or not foes.any(func(o): return o.alive):
 			break
 		if u.sk_ch[0] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
@@ -3045,6 +3056,7 @@ func act(u: Unit) -> void:
 		if ok: u.sk_ch[0] -= float(sk.get("cost", 1.0))
 		if ok:
 			used = true
+			u.sk_cnt[j] = int(u.sk_cnt.get(j, 0)) + 1
 			u.in_skill = true
 			_sk_on = true
 			stats.sk_n += 1
@@ -3141,8 +3153,8 @@ func _sk_cond(u: Unit, cond: String, foes: Array, allies: Array) -> bool:
 				if lf.any(func(o): return not has_st(o, v)): return true
 			"ally_st":
 				if la.any(func(o): return o.st.any(func(x): return x.k in ["burn", "bleed", "flood", "plague", "confuse", "seal", "break", "mark"])): return true
-			"ally_morale":
-				if not la.is_empty() and la.reduce(func(s, o): return s + o.morale, 0.0) / la.size() <= float(v): return true
+			"ally_morale":      # 11/23 아군 '평균' 사기 → 사기가 그 아래인 아군이 '하나라도' (평균은 거의 안 떨어져 진두지휘 등 88% 가 한 번도 못 터졌다)
+				if la.any(func(o): return o.morale <= float(v)): return true
 			"foe_morale":
 				if not lf.is_empty() and not la.is_empty():
 					var fm: float = lf.reduce(func(s, o): return s + o.morale, 0.0) / lf.size()

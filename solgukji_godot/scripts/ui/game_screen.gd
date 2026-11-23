@@ -4231,7 +4231,7 @@ static func minor_desc(k: String, with_every := true) -> String:
 	var m: Dictionary = Battle.minor_def(mk)
 	var phys: bool = (m.kind == "phys") if m.has("kind") else DB.C[k]["int"] <= DB.C[k].atk
 	var parts := [minor_when(k)] if with_every else []
-	parts.append("%s피해 ×%.2f" % ["적 후열에 " if m.get("back", false) else "", float(m.mult)])
+	parts.append("%s피해 ×%.2f" % ["가장 뒤쪽 적에게 " if m.get("back", false) else "", float(m.mult)])
 	if m.has("st"):
 		parts.append("%s %s" % [DB.D.STATUS[m.st[0]].n, DB.sec_text(int(m.st[2]), DB.C[k].tier)])
 	if m.has("extra"):

@@ -371,6 +371,8 @@ func strict_cond(cond: String, e: Dictionary) -> String:
 			"dense", "front_n": out.append("%s:%d" % [kv[0], maxi(2, int(v))])
 			"foe_n": out.append("foe_n:%d" % maxi(3, int(v)))
 			"ally_morale": out.append("ally_morale:%d" % roundi(float(v)))
+			# 11/23 사용자: 움직이며 싸우는데 '후군' 조건 —— 줄 조건은 거리 조건으로 (앞 줄 → 맞붙은 적, 뒤 줄 → 떨어져 있는 적)
+			"line": out.append("front_n:1" if int(D.LINE.get(v, {}).get("pri", 1)) <= 2 else "back_n:1")
 			_: out.append(one)
 	if out.is_empty():
 		var t: String = e.get("tgt", "front1")
@@ -1396,7 +1398,7 @@ const MOD_LABEL := {"atk": "공격", "def": "방어", "int": "공격", "spd": "�
 	"counter": "반격", "stres": "상태이상 저항", "low_atk": "절반 이하 공격", "avenge": "아군 이탈마다 공격",
 	"opener": "첫 공격 피해", "first": "개전 직후 바로 행동", "regen": "일정 시간마다 병력", "mregen": "일정 시간마다 사기",
 	"rout_loss": "아군 이탈 충격 -", "mshield": "받는 사기 피해 -", "mdeal": "주는 사기 피해",
-	"rpierce": "적 방어 무시", "front_atk": "선봉·전군 공격", "back_int": "중군·후군 공격", "foe_morale": "적 시작 사기 -",
+	"rpierce": "적 방어 무시", "front_atk": "적과 맞붙은 동안 공격", "back_int": "싸움에서 떨어져 있는 동안 책략", "foe_morale": "적 시작 사기 -",
 	"ignite": "점화 확률", "fire_amp": "불타는 적에게 피해", "burn_amp": "건 화상 피해", "spread": "화상 번짐",
 	"fire_res": "화상 저항", "fire_weak": "받는 화상 피해", "burn_dur": "화상 지속", "terror": "불타는 적 사기 -", "fear": "적 패주 확률", "st_amp": "거는 상태이상 세기",
 	"soak": "침수 확률", "water_amp": "잠긴 적에게 피해", "flow": "수몰 흐름", "flood_slow": "잠긴 적 속도 -", "flood_res": "수몰 저항", "fire_hit": "불길 추가 피해", "water_hit": "물살 추가 피해",
@@ -2430,7 +2432,7 @@ func auto_place(cards: Array, form: String) -> Array:
 ## 11/2 실시간 엔진에서 실제로 맞는 범위 (resolve_targets 와 맞춘다)
 const TGT_RT := {"front1": "맞붙은 적 1부대", "back1": "적진 가장 뒤 1부대", "back2": "적진 가장 뒤 2부대",
 	"front3": "대상과 그 둘레 3부대", "all": "사거리 안 적 전체", "denseLine": "가장 밀집한 적 무리",
-	"line:후군": "적 후군(뒤쪽 절반, 최대 3부대)", "line:선봉+전군": "적 선봉 · 전군(앞쪽 절반, 최대 3부대)",
+	"line:후군": "가장 뒤쪽 적 (최대 3부대)", "line:선봉+전군": "가장 앞쪽 적 (최대 3부대)",
 	"allyAll": "아군 전체", "allyFront": "적과 가장 가까운 아군", "self": "자신"}
 
 func tgt_name(t: String) -> String:
@@ -2521,16 +2523,16 @@ func cond_text(cond: String) -> String:
 			"ally_hurt": out.append("아군 병력 %s 이하가 있을 때" % pc)
 			"foe_hurt": out.append("적 병력 %s 이하가 있을 때" % pc)
 			"dense": out.append("적 %s부대 이상이 뭉쳐 있을 때" % v)
-			"front_n": out.append("적 전열에 %s부대 이상일 때" % v)
+			"front_n": out.append("맨 앞에 선 적이 %s부대 이상일 때" % v)
 			"foe_n": out.append("적이 %s부대 이상 남았을 때" % v)
-			"back_n": out.append("적 후열에 부대가 있을 때" if int(v) <= 1 else "적 후열에 %s부대 이상일 때" % v)
-			"line":      # 실시간은 줄 이름이 아니라 거리로 본다 (Battle._sk_cond: 선봉 · 전군 → 앞에 선 적, 중군 · 후군 → 뒤에 선 적)
-				var lt := "적 전열에 부대가 있을 때" if int(D.LINE.get(v, {}).get("pri", 1)) <= 2 else "적 후열에 부대가 있을 때"
+			"back_n": out.append("싸움에서 떨어져 있는 적이 있을 때" if int(v) <= 1 else "싸움에서 떨어져 있는 적이 %s부대 이상일 때" % v)
+			"line":      # 11/23 strict_cond 가 거리 조건으로 바꾼다 —— 예전 데이터를 그대로 보일 때만
+				var lt := "맞붙은 적이 있을 때" if int(D.LINE.get(v, {}).get("pri", 1)) <= 2 else "싸움에서 떨어져 있는 적이 있을 때"
 				if not out.has(lt): out.append(lt)
 			"no_st": out.append("『%s』 아닌 적이 있을 때" % D.STATUS[v].n)
 			"ally_st": out.append("상태이상 걸린 아군이 있을 때")
 			"foe_morale": out.append("적 사기가 아군 이상일 때")
-			"ally_morale": out.append("아군 평균 사기가 %s 아래일 때" % v)
+			"ally_morale": out.append("사기가 %s 아래인 아군이 있을 때" % v)
 			_: out.append(one)
 	return " 또는 ".join(out)
 
