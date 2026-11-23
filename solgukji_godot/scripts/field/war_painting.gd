@@ -68,7 +68,9 @@ var top_effects: Node2D
 var glow_effects: Node2D
 var _glow_q: Array = []
 const GLOW_SPR := ["flame_02", "flame_03", "flame_04", "fire_01", "fire_02", "spark_01", "spark_04", "light_02", "star_06",
-	"magic_01", "magic_03", "magic_05", "slash_01", "slash_02", "slash_03", "twirl_01", "circle_03", "circle_05", "trace_01", "muzzle_02"]
+	"magic_01", "magic_03", "magic_05", "slash_01", "slash_02", "slash_03", "twirl_01", "circle_03", "circle_05", "trace_01", "muzzle_02",
+	"spark_05", "spark_06", "star_04", "star_07", "star_08", "scratch_01", "slash_04", "trace_02", "trace_04", "twirl_02", "twirl_03",
+	"circle_02", "light_01", "light_03", "magic_02", "magic_04", "muzzle_01", "muzzle_03"]      # 11/23 기술 · 잔기술 이펙트 (_draw_skill_fx)
 const GLOW_BOOST := 1.6        # 더하기 합성에서 그림 자체가 어두워(평균 회색 0.3~0.5) 색을 조금 밝게
 
 class TopEffects extends Node2D:
@@ -163,6 +165,7 @@ func reset() -> void:
 	contacts.clear()
 	volleys.clear()
 	ults.clear()
+	skill_fx_q.clear()
 	_glow_q.clear()
 	last_clock = -1.0
 	visual_time = 0.0
@@ -374,6 +377,8 @@ func _process(dt: float) -> void:
 	contacts = contacts.filter(func(h): return visual_time < h.end)
 	volleys = volleys.filter(func(shot): return last_clock < shot.end)
 	ults = ults.filter(func(u): return last_clock < float(u.end) and last_clock >= float(u.start) - 5.0)
+	if not skill_fx_q.is_empty():
+		skill_fx_q = skill_fx_q.filter(func(s): return last_clock < float(s.end) and last_clock >= float(s.start) - 5.0)
 	_cl_tick += 1
 	_cl_i = 0
 	for sq: Squad in v.field.order:
@@ -535,6 +540,7 @@ func _draw_overlay(ci: CanvasItem) -> void:
 	_draw_links(ci)
 	_draw_mythic_actions(ci)
 	_draw_reveals(ci)
+	_draw_skill_fx(ci)
 	_draw_ults(ci)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
@@ -1741,3 +1747,344 @@ func _spell_orb(ci: CanvasItem, shot: Dictionary, id: int, start: Vector2, end: 
 		var u := (t - 0.86) / 0.14
 		var hit: Vector2 = v.map(end + spread)
 		ci.draw_arc(hit, 6.0 + u * 12.0, 0, TAU, 16, Color(col, 1.0 - u), 2.5, true)
+
+
+# ── 기술 · 잔기술 이펙트 (11/23) ──
+## 11/23 사용자: 「전설 이하 전투가 재미없다 · 일반 기술도 이펙트 없이 글자만 뜬다」 —— 삽화 화면에서는 type2 의 2D 연출(fx)이 꺼져 있어
+## 기술 · 잔기술은 이름 글자만 떴다. 기술 이름(없으면 종류 · 병종)으로 갈래를 골라 Kenney CC0 그림으로 그린다
+## (assets/fx/kenney —— tools/scripts/make_fx_sprites.py). 판정 · 수치와 무관한 화면 연출. 잔기술은 작고 짧게(sc 0.7).
+const SKILL_STYLE := {"화공": "fire", "불바다": "fire", "화시난발": "fire", "역병": "poison", "수공": "water", "수계": "water",
+	"천문": "bolt", "봉인부적": "bolt", "요술": "bolt", "제왕술": "aura", "후발제인": "flash",
+	"난무": "vortex", "유계": "vortex", "양호상쟁": "vortex", "혹세": "vortex", "이간": "vortex", "허실": "vortex", "진법": "vortex", "반간": "vortex", "봉계": "vortex",
+	"저주": "curse", "밀계": "curse", "교란": "curse",
+	"무쌍": "slash", "오관참장": "slash", "백인시비": "slash", "횡소천군": "slash", "방원지세": "slash", "팔문금쇄": "slash",
+	"일점돌파": "pierce", "필사돌격": "charge", "철기유린": "charge", "위진": "charge", "위진소요진": "charge", "추격": "charge",
+	"일제사격": "arrows", "화망": "firearrows", "저격": "snipe",
+	"백기야습": "shadow", "암습": "shadow", "매복": "shadow", "배후차단": "shadow", "후미교란": "shadow",
+	"장강방벽": "guard", "철옹성": "guard", "철벽방진": "guard",
+	"격려": "heal", "결속": "heal", "독려": "heal", "인덕": "heal", "진두지휘": "aura", "격문": "aura", "고함": "aura", "고취": "aura"}
+## 병종 잔기술이 하는 일(Battle.MINOR_ACT) → 갈래. 꺼져 있으면 잔기술 종류(MINOR_BASE_STYLE)로
+const MINOR_ACT_STYLE := {"push": "pierce", "through": "through", "rain": "rain", "steal": "steal", "zone": "zone", "rout": "vortex", "rally": "heal", "burst": "burst"}
+const MINOR_BASE_STYLE := {"fire": "fire", "fire_arrow": "firearrows", "poison": "poison", "rumor": "vortex", "roar": "vortex", "awe": "vortex",
+	"curse": "curse", "shatter": "slash", "thunder": "bolt", "spark": "bolt", "cheer": "heal", "guard": "guard", "lance": "charge",
+	"ambush": "shadow", "dagger": "shadow", "thrust": "pierce", "volley": "arrows"}
+const SKILL_FX_LIFE := {"fire": 1.4, "poison": 1.8, "zone": 2.4, "water": 1.3, "bolt": 0.9, "burst": 0.9, "flash": 0.9, "vortex": 1.4, "curse": 1.2,
+	"slash": 0.8, "pierce": 0.7, "charge": 1.0, "through": 0.9, "arrows": 0.9, "firearrows": 1.0, "rain": 1.0, "snipe": 0.8,
+	"shadow": 0.9, "steal": 1.0, "heal": 1.4, "guard": 1.2, "aura": 1.4}
+const SELF_STYLES := ["heal", "guard", "aura"]
+const MAX_SKILL_FX := 20
+var skill_fx_q: Array = []
+var skill_fx_seen := {}        # 점검용 —— 갈래마다 붙은 수 (tests/skill_fx_shot)
+
+
+static func skill_style(name: String, kind: String, tag: String) -> String:
+	if SKILL_STYLE.has(name):
+		return SKILL_STYLE[name]
+	match kind:
+		"heal":
+			return "heal"
+		"def", "morale":
+			return "curse"
+		"int":
+			return {"술사": "bolt", "책사": "fire", "모사": "vortex", "유생": "flash"}.get(tag, "curse")
+	return {"기병": "charge", "궁병": "arrows", "도적": "shadow", "창병": "pierce"}.get(tag, "slash")
+
+
+## 기술 —— battle_view 가 기술 묶음을 시작할 때 (delay: 근접 0.1 · 화살 0.55 · 책략 0.45 —— 맞는 순간에 맞춘다)
+func add_skill(name: String, a_key: String, targets: Array, kind: String, delay: float) -> void:
+	var a: Squad = v.field.squads.get(a_key)
+	if a != null:
+		_add_skill_fx(skill_style(name, kind, a.tag), a, targets, 1.0, delay)
+
+
+## 잔기술 —— 맞는 순간 (Type2View.fx_minor 가 삽화 화면이면 이리 넘긴다)
+func add_minor(mk: String, a_key: String, d_key: String) -> void:
+	if int(v.load_lv) >= 3:
+		return
+	var a: Squad = v.field.squads.get(a_key)
+	if a == null:
+		return
+	var st := ""
+	if Battle.minor_act_enabled and Battle.MINOR_ACT.has(a.tag):
+		st = str(MINOR_ACT_STYLE.get(str(Battle.MINOR_ACT[a.tag].act), ""))
+		if st == "zone" and str((Battle.minor_def(mk).get("st", ["burn"]) as Array)[0]) == "plague":
+			st = "poison"
+	if st == "":
+		st = str(MINOR_BASE_STYLE.get(str(War3D.MINOR_FX.get(mk, mk)), "slash"))
+	_add_skill_fx(st, a, [d_key], 0.7, 0.0)
+
+
+func _add_skill_fx(style: String, a: Squad, targets: Array, sc: float, delay: float) -> void:
+	var now: float = v.field.clock + delay
+	var sd := absi(hash(a.key + style + str(Time.get_ticks_msec()))) % 997
+	var e := {"k": style, "start": now, "end": now + float(SKILL_FX_LIFE.get(style, 1.0)) * (0.8 if sc < 1.0 else 1.0),
+		"from": a.pos, "sc": sc, "sd": sd, "hits": []}
+	for k in targets.slice(0, 4):
+		var d: Squad = v.field.squads.get(k)
+		if d == null or d == a:
+			continue
+		var spots := []
+		for j in 5:      # 발자국 안 지점 —— 화면 쪽 해시 (전투 rng 를 건드리지 않는다)
+			var h1 := float(hash(str(k) + ":" + str(j) + ":" + str(sd)) % 10007) / 10007.0
+			var h2 := float(hash(str(j) + ":" + str(sd) + ":" + str(k)) % 10007) / 10007.0
+			spots.append(d.pos + d.right() * (h1 * 2.0 - 1.0) * d.hw * 0.7 + d.fwd * (h2 * 2.0 - 1.0) * d.hd() * 0.5)
+		var dir: Vector2 = (d.pos - a.pos).normalized() if d.pos != a.pos else d.fwd
+		e.hits.append({"at": d.pos, "spots": spots, "dir": dir, "right": d.right(), "fwd": d.fwd, "hw": d.hw, "hd": d.hd()})
+	if e.hits.is_empty() and not SELF_STYLES.has(style):
+		return
+	skill_fx_q.append(e)
+	skill_fx_seen[style] = int(skill_fx_seen.get(style, 0)) + 1
+	while skill_fx_q.size() > MAX_SKILL_FX:
+		skill_fx_q.pop_front()
+
+
+func _draw_skill_fx(ci: CanvasItem) -> void:
+	for e: Dictionary in skill_fx_q:
+		var age := last_clock - float(e.start)
+		if age < 0.0:
+			continue
+		var life := float(e.end) - float(e.start)
+		var t := clampf(age / life, 0.0, 1.0)
+		var fade := 1.0 - smoothstep(0.65, 1.0, t)
+		if SELF_STYLES.has(e.k):
+			_skill_self(ci, e, age, t, fade)
+			continue
+		for i in e.hits.size():
+			_skill_hit(ci, e, e.hits[i], age - i * 0.06, life, fade)
+
+
+## 화면에서 hit.dir 이 가리키는 각
+func _scr_ang(at: Vector2, dir: Vector2) -> float:
+	return (v.map(at + dir * 20.0) - v.map(at)).angle()
+
+
+## 11/23 황토 땅 위에서 읽히게 —— 고유기처럼 진한 도형 + 먹 테두리가 바탕이고, Kenney 그림(폭발 · 독안개 · 섬광 · 먼지 · 연기)은 보통 합성으로 얹는다.
+## 더하기 합성 그림(빛 · 별)은 밝은 땅에서 거의 안 보여 곁들임으로만.
+func _skill_hit(ci: CanvasItem, e: Dictionary, hit: Dictionary, age: float, life: float, fade: float) -> void:
+	if age < 0.0:
+		return
+	var sc: float = e.sc
+	var sd: int = e.sd
+	var at: Vector2 = hit.at
+	var c: Vector2 = v.map(at)
+	var u := maxf(30.0, _px(at, 115.0)) * sc
+	var sp: Array = hit.spots
+	var t := clampf(age / life, 0.0, 1.0)
+	var sa := _scr_ang(at, hit.dir)
+	var sdir := Vector2.from_angle(sa)
+	var big := sc >= 1.0
+	match e.k:
+		"fire":      # 불덩이가 터지고(폭발 그림) 불길이 혀를 날름거리다 검은 연기가 오른다
+			_ellipse(ci, c, u * 0.9, u * 0.4, Color(0.2, 0.06, 0.02, 0.35 * fade))
+			for j in (3 if big else 2):
+				var a2 := age - j * 0.09
+				if a2 < 0.0:
+					continue
+				var p: Vector2 = v.map(sp[j])
+				var g := ease(minf(1.0, a2 / 0.25), 0.4)
+				_flame(ci, p, u * (0.75 + 0.2 * sin(a2 * 10.0 + j)) * g, u * 0.2, a2 * 8.0 + j, 0.95 * fade)
+				if a2 < 0.8:
+					_spr(ci, "explosion%02d" % [0, 2, 4, 6][(sd + j) % 4], p - Vector2(0, u * 0.3), u * (0.7 + 0.8 * g), Color(1, 1, 1, 1.0 - smoothstep(0.4, 0.8, a2)), sd + j * 1.7)
+				if a2 > 0.35:
+					var r2 := clampf((a2 - 0.35) / maxf(0.2, life - 0.35), 0.0, 1.0)
+					_spr(ci, "blackSmoke%02d" % [0, 3, 6, 9][(sd + j) % 4], p - Vector2(0, u * (0.5 + 0.7 * r2)), u * (0.6 + 0.5 * r2), Color(1, 1, 1, 0.55 * (1.0 - r2)), sd - j)
+		"poison":      # 초록 독안개 덩이가 퍼지며 머문다
+			var g0 := minf(1.0, age * 3.0)
+			_ellipse(ci, c, u * 1.0 * g0, u * 0.45 * g0, Color(0.14, 0.28, 0.06, 0.45 * fade))
+			for j in 4:
+				var a2 := age - j * 0.1
+				if a2 < 0.0:
+					continue
+				var r2 := clampf(a2 / life, 0.0, 1.0)
+				_spr(ci, "fart%02d" % [0, 2, 4, 6][(sd + j) % 4], v.map(sp[j]) - Vector2(0, u * 0.25 * r2), u * (0.7 + 0.5 * ease(minf(1.0, a2 / 0.4), 0.4)), Color(1, 1, 1, 0.85 * fade * minf(1.0, a2 * 5.0)), sd + j + a2 * 0.5)
+		"zone":      # 땅에 불길이 남는다 (책사 잔기술 —— 들어선 적이 탄다)
+			var al := minf(1.0, age * 5.0) * fade
+			_ellipse(ci, c, u * 1.1, u * 0.5, Color(0.25, 0.07, 0.02, 0.4 * al))
+			for j in 5:
+				_flame(ci, v.map(sp[j]), u * (0.6 + 0.18 * sin(age * 9.0 + j)), u * 0.18, age * 8.0 + j * 1.3, 0.9 * al)
+			if age < 0.5:
+				_spr(ci, "explosion%02d" % [0, 2, 4, 6][sd % 4], c - Vector2(0, u * 0.25), u * (0.8 + age), Color(1, 1, 1, 1.0 - age / 0.5), sd)
+		"water":      # 물결 —— 푸른 초승달 물마루가 시전자 쪽에서 적진을 쓸고, 물보라가 인다
+			var side := sdir.orthogonal()
+			_ellipse(ci, c, u * 1.1, u * 0.45, Color(0.1, 0.25, 0.45, 0.35 * fade))
+			for j in 3:
+				var a2 := age - j * 0.12
+				if a2 < 0.0 or a2 > life * 0.8:
+					continue
+				var r2 := a2 / (life * 0.8)
+				var w: Vector2 = c + sdir * u * (-1.0 + 2.0 * ease(r2, 0.6)) + side * (j - 1) * u * 0.5
+				_crescent(ci, w, u * 0.7, sa - 1.1, 2.2, u * 0.22, Color(0.45, 0.72, 1.0, 0.9 * (1.0 - r2)), 0.6)
+				_spr(ci, "whitePuff%02d" % [0, 3, 6, 9][(sd + j) % 4], w + sdir * u * 0.3, u * (0.6 + 0.4 * r2), Color(0.75, 0.9, 1.0, 0.75 * (1.0 - r2)), sd + j)
+		"bolt":      # 낙뢰 —— 하늘에서 지그재그 벼락이 꽂히고 섬광 · 그을음
+			for j in (2 if big else 1):
+				var a2 := age - j * 0.16
+				if a2 < 0.0:
+					continue
+				var p: Vector2 = v.map(sp[j])
+				_ellipse(ci, p, u * 0.5, u * 0.22, Color(0.08, 0.08, 0.12, 0.5 * fade))
+				if a2 < 0.45:
+					var q := a2 / 0.45
+					var flicker := 1.0 if fmod(a2 * 30.0 + j, 2.0) < 1.4 else 0.5
+					_bolt(ci, Vector2(p.x + sin(sd + j * 4.1) * u * 0.8, maxf(40.0, p.y - u * 4.5)), p, float(sd + j), Color(0.65, 0.8, 1.0), (1.0 - q * 0.6) * flicker)
+					_spr(ci, "flash%02d" % [0, 2, 4, 6][(sd + j) % 4], p - Vector2(0, u * 0.15), u * (0.6 + 0.6 * q), Color(0.8, 0.9, 1.0, 1.0 - q), sd + j)
+		"burst", "flash":      # 둘레로 터지는 섬광 + 먹 테두리 충격파 고리 (술사 잔기술 · 후발제인)
+			var warm: bool = e.k == "flash"
+			var col := Color(1.0, 0.82, 0.35) if warm else Color(0.78, 0.6, 1.0)
+			var g := ease(minf(1.0, age / 0.25), 0.4)
+			_spr(ci, "flash%02d" % [0, 2, 4, 6][sd % 4], c - Vector2(0, u * 0.25), u * (0.9 + 1.0 * g), Color(1, 1, 1, fade) if warm else Color(0.85, 0.75, 1.0, fade), sd)
+			for j in 2:
+				var q := clampf((age - j * 0.12) / 0.6, 0.0, 1.0)
+				if q > 0.0 and q < 1.0:
+					_world_ring(ci, at, 20.0 + q * 95.0 * sc, Color(col, 0.9 * (1.0 - q)), 4.0 - j * 1.5)
+		"vortex":      # 보랏빛 소용돌이 두 갈래가 적진을 감는다 (혼란 · 사기)
+			var al := sin(PI * t)
+			_ellipse(ci, c, u * 1.0, u * 0.45, Color(0.18, 0.06, 0.25, 0.35 * al))
+			for arm in 2:
+				var pts := PackedVector2Array()
+				for k in 16:
+					var q := float(k) / 15.0
+					var ang := age * 5.0 + arm * PI + q * 4.0
+					pts.append(c + Vector2(cos(ang), sin(ang) * 0.5) * u * 1.1 * (1.0 - q * 0.85))
+				ci.draw_polyline(pts, Color(INK, 0.4 * al), 7.0, true)
+				ci.draw_polyline(pts, Color(0.8, 0.55, 1.0, 0.95 * al), 3.5, true)
+		"curse":      # 땅에 검보라 법진 —— 두 겹 고리 + 별, 짙은 기운이 피어오른다 (방깎 · 저주)
+			var al := sin(PI * t)
+			_world_ring(ci, at, 48.0 * sc, Color(0.62, 0.3, 0.85, 0.9 * al), 3.0)
+			_world_ring(ci, at, 32.0 * sc, Color(0.62, 0.3, 0.85, 0.6 * al), 1.8)
+			var star := PackedVector2Array()
+			for k in 6:
+				var ang := age * 1.5 + k * TAU * 2.0 / 5.0
+				star.append(v.map(at + Vector2(cos(ang), sin(ang)) * 45.0 * sc))
+			ci.draw_polyline(star, Color(0.8, 0.55, 1.0, 0.8 * al), 2.0, true)
+			for j in 3:
+				var a2 := age - j * 0.1
+				if a2 < 0.0:
+					continue
+				var r2 := clampf(a2 / life, 0.0, 1.0)
+				_spr(ci, "blackSmoke%02d" % [0, 3, 6, 9][(sd + j) % 4], v.map(sp[j]) - Vector2(0, u * (0.2 + 0.6 * r2)), u * (0.5 + 0.4 * r2), Color(0.55, 0.35, 0.7, 0.7 * (1.0 - r2)), sd + j)
+		"slash":      # 일섬 —— 굵은 빛 선이 엇갈려 그어지고 먹 자국 · 먹 튐이 남는다
+			var angs: Array = [[-0.9, 0.7, -0.2], [0.1, -0.8, 0.9], [-1.2, 0.0, 1.2]][sd % 3]
+			for j in (3 if big else 1):
+				var a2 := age - j * 0.08
+				if a2 < 0.0 or a2 > 0.6:
+					continue
+				var p: Vector2 = (v.map(sp[j]) if big else c) + Vector2(0, -u * 0.2)
+				_iseom(ci, p, float(angs[j]), u * (2.4 if big else 1.8), u * 0.11, Color(1.0, 0.86, 0.5), a2 / 0.6, sd + j)
+		"pierce":      # 찌르기 —— 창끝 방향으로 곧은 빛 선이 꿰뚫고, 맞은 자리에서 흙먼지가 밀려난다 (창병 잔기술 = 밀쳐 냄)
+			_iseom(ci, c - sdir * u * 0.3, atan2(sdir.y / 0.6, sdir.x), u * 2.0, u * 0.12, Color(1.0, 0.92, 0.65), clampf(age / 0.5, 0.0, 1.0), sd)
+			for k in 3:
+				var q := clampf((age - 0.05) / 0.6, 0.0, 1.0)
+				if q <= 0.0 or q >= 1.0:
+					continue
+				var p := c + sdir * u * (0.3 + 0.6 * q) + sdir.orthogonal() * (k - 1) * u * 0.35
+				var rr := u * (0.18 + 0.25 * q)
+				ci.draw_circle(p, rr, Color(0.8, 0.71, 0.52, 0.8 * (1.0 - q)))
+				ci.draw_arc(p, rr, PI * 0.9, PI * 2.1, 10, Color(INK, 0.45 * (1.0 - q)), 1.6, true)
+		"charge", "through":      # 기병 —— 부딪힌 자리에 흙구름 · 파편. through 는 뒤 부대까지 꿰뚫는 빛 선
+			var q := clampf(age / (life * 0.9), 0.0, 1.0)
+			var side := sdir.orthogonal()
+			for k in (5 if big else 4):
+				var p := c - sdir * u * 0.3 + side * (k - 2) * u * 0.32 + Vector2(0, -q * u * 0.4 * (1 + k % 2))
+				var rr := u * (0.22 + q * 0.35)
+				ci.draw_circle(p, rr, Color(0.8, 0.71, 0.52, 0.85 * (1.0 - q)))
+				ci.draw_arc(p, rr, PI * 0.9, PI * 2.1, 10, Color(INK, 0.5 * (1.0 - q)), 1.8, true)
+			var deb := PackedVector2Array()
+			for k in 8:
+				var dd := sdir.rotated(-1.1 + k * 0.31)
+				var p0 := c - sdir * u * 0.3 + dd * u * (0.2 + q * 0.9)
+				deb.append(p0)
+				deb.append(p0 + dd * u * 0.12)
+			ci.draw_multiline(deb, Color(INK, 0.85 * (1.0 - q)), 2.5, true)
+			if e.k == "through":
+				_iseom(ci, c + sdir * u * 0.6, atan2(sdir.y / 0.6, sdir.x), u * 3.0, u * 0.1, Color(1.0, 0.88, 0.55), clampf(age / 0.55, 0.0, 1.0), sd)
+		"arrows", "firearrows", "rain":      # 화살이 쏟아져 꽂히고 흙이 튄다 (rain = 둘레 넓게)
+			var fire: bool = e.k == "firearrows"
+			var n := 12 if big or e.k == "rain" else 7
+			var spread := 1.8 if e.k == "rain" else 1.0
+			var from := -sdir * u * 0.9 + Vector2(0, -u * 1.6)
+			var right: Vector2 = hit.right
+			var fwd: Vector2 = hit.fwd
+			var lines := PackedVector2Array()
+			for i in n:
+				var a2 := age - i * 0.03
+				if a2 < 0.0:
+					continue
+				var h1 := fposmod(sin(sd * 3.1 + i * 7.7) * 431.7, 1.0)
+				var h2 := fposmod(sin(sd * 5.3 + i * 3.9) * 917.3, 1.0)
+				var p: Vector2 = v.map(at + right * (h1 * 2.0 - 1.0) * float(hit.hw) * spread + fwd * (h2 * 2.0 - 1.0) * float(hit.hd) * spread)
+				if a2 < 0.25:
+					var head := p + from * (1.0 - a2 / 0.25)
+					lines.append(head + from.normalized() * u * 0.55)
+					lines.append(head)
+				elif a2 < 0.65:      # 꽂힌 화살 + 튄 흙 (불화살은 불꽃)
+					var q := (a2 - 0.25) / 0.4
+					lines.append(p + from.normalized() * u * 0.25)
+					lines.append(p)
+					if fire:
+						_flame(ci, p, u * 0.35 * (1.0 - q * 0.5), u * 0.08, a2 * 9.0 + i, 0.9 * (1.0 - q))
+					else:
+						ci.draw_circle(p, u * (0.06 + 0.1 * q), Color(0.75, 0.65, 0.45, 0.8 * (1.0 - q)))
+			if not lines.is_empty():
+				ci.draw_multiline(lines, Color(INK, 0.85 * fade), 2.6, true)
+				ci.draw_multiline(lines, Color(EMBER, fade) if fire else Color(PAPER, 0.95 * fade), 1.2, true)
+		"snipe":      # 저격 —— 길고 곧은 한 줄기가 후열에 꽂히고 고리가 퍼진다
+			if age < 0.2:
+				var q := age / 0.2
+				var head := c - sdir * u * 3.0 * (1.0 - q)
+				ci.draw_line(head - sdir * u * 1.0, head, Color(INK, 0.85), 4.0, true)
+				ci.draw_line(head - sdir * u * 1.0, head, Color(1.0, 0.95, 0.75), 2.0, true)
+			else:
+				var q := clampf((age - 0.2) / maxf(0.1, life - 0.2), 0.0, 1.0)
+				_world_ring(ci, at, 10.0 + q * 50.0, Color(1.0, 0.9, 0.55, 0.9 * (1.0 - q)), 3.0)
+				_spr(ci, "flash%02d" % [0, 2, 4, 6][sd % 4], c - Vector2(0, u * 0.1), u * (0.5 + 0.3 * q), Color(1, 1, 1, 1.0 - q), sd)
+		"shadow", "steal":      # 어둠이 번지고 보랏빛 일섬이 엇갈린다 (도적). steal 은 빼앗은 기운이 시전자에게 날아간다
+			_ellipse(ci, c, u * 1.0, u * 0.45, Color(0.05, 0.03, 0.08, 0.45 * fade))
+			for j in 2:
+				var a2 := age - j * 0.08
+				if a2 < 0.0:
+					continue
+				var r2 := clampf(a2 / life, 0.0, 1.0)
+				_spr(ci, "blackSmoke%02d" % [0, 3, 6, 9][(sd + j) % 4], v.map(sp[j]), u * (0.6 + 0.4 * r2), Color(0.35, 0.25, 0.45, 0.7 * (1.0 - r2)), sd + j)
+				var a3 := a2 - 0.1
+				if a3 > 0.0 and a3 < 0.55:
+					_iseom(ci, c + Vector2(0, -u * 0.2), [-0.8, 0.8][j], u * 1.8, u * 0.1, Color(0.8, 0.65, 1.0), a3 / 0.55, sd + j)
+			if e.k == "steal" and age > 0.2 and age < 0.85:
+				var q := (age - 0.2) / 0.65
+				var orb := c.lerp(v.map(e.from), ease(q, 0.5)) - Vector2(0, sin(PI * q) * u * 0.8)
+				ci.draw_circle(orb, u * 0.14, Color(INK, 0.6))
+				ci.draw_circle(orb, u * 0.11, Color(0.75, 0.5, 1.0))
+				ci.draw_circle(orb, u * 0.05, Color(1, 1, 1, 0.95))
+
+
+## 시전자 둘레 —— 회복(초록 고리 · 오르는 빛 구슬) · 방어(푸른 빛 막 · 두꺼운 고리) · 위세(금빛 햇살 고리)
+func _skill_self(ci: CanvasItem, e: Dictionary, age: float, t: float, fade: float) -> void:
+	var from: Vector2 = e.from
+	var fc: Vector2 = v.map(from)
+	var sc: float = e.sc
+	var u := maxf(30.0, _px(from, 115.0)) * sc
+	var sd: int = e.sd
+	match e.k:
+		"heal":
+			var al := sin(PI * t)
+			_ellipse(ci, fc, u * 0.9, u * 0.4, Color(0.4, 0.95, 0.6, 0.3 * al))
+			_world_ring(ci, from, 40.0 * sc + 25.0 * t, Color(0.45, 1.0, 0.65, 0.9 * al), 3.0)
+			for j in 6:
+				var h1 := fposmod(sin(sd * 1.7 + j * 4.1) * 311.3, 1.0)
+				var q := fposmod(age * 1.1 + j / 6.0, 1.0)
+				var p := fc + Vector2((h1 - 0.5) * u * 1.4, -q * u * 1.4)
+				var a := sin(PI * q) * fade
+				ci.draw_circle(p, u * 0.08, Color(INK, 0.45 * a))
+				ci.draw_circle(p, u * 0.065, Color(0.55, 1.0, 0.7, a))
+				ci.draw_circle(p, u * 0.03, Color(1, 1, 1, a))
+		"guard", "aura":
+			var gold: bool = e.k == "aura"
+			var col := Color(1.0, 0.82, 0.35) if gold else Color(0.6, 0.8, 1.0)
+			var g := ease(minf(1.0, age / 0.3), 0.3)
+			_ellipse(ci, fc - Vector2(0, u * 0.15), u * (0.9 + 0.3 * g), u * (0.55 + 0.2 * g), Color(col, 0.22 * fade))
+			_world_ring(ci, from, (36.0 + 14.0 * g) * sc, Color(col, 0.95 * fade), 4.0)
+			_world_ring(ci, from, (52.0 + 20.0 * g) * sc, Color(col, 0.55 * fade), 2.0)
+			if gold:
+				for j in 2:
+					var q := clampf((age - j * 0.2) / 0.8, 0.0, 1.0)
+					if q > 0.0 and q < 1.0:
+						_world_ring(ci, from, 30.0 + q * 130.0 * sc, Color(col, (1.0 - q) * 0.9), 3.5 - j * 1.5)

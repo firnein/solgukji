@@ -1429,6 +1429,7 @@ func _build_timeline(rebuild := false) -> void:
 			g.fin = e
 		elif fx == "skill":
 			g.skill = e.name
+			g["skind"] = str(e.get("kind", ""))
 		elif (fx == "phys" or fx == "int") and e.get("a") == g.who:
 			if not g.targets.has(e.f):
 				g.targets.append(e.f)
@@ -1871,6 +1872,8 @@ func _start_group(g: Dictionary) -> void:
 		return
 	if g.skill != "":
 		field.skill_fx(g.who)
+		if Type2View.painting_on() and type2 != null and type2.painting != null:      # 11/23 삽화 화면 —— 기술마다 이펙트 (맞는 순간에 맞춰 늦춘다)
+			type2.painting.add_skill(g.skill, g.who, g.targets, str(g.get("skind", "")), float({"volley": 0.55, "spell": 0.45}.get(g.kind, 0.1)))
 		var asq: Squad = field.squads.get(g.who)
 		# 11/4 연출 점검: 5일차 한 판에 기술 현판 45~89장 —— 현판은 초월 이상과 진영 상위 둘(hud._emph)만, 나머지는 작은 글씨
 		var star: bool = asq != null and (asq.tier >= 6 or hud._emph.get(g.who, 0) > 0)

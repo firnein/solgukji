@@ -1499,6 +1499,10 @@ func vis_spot(sq: Squad) -> Vector2:
 
 
 func fx_minor(mk: String, a: Squad, d: Squad) -> void:
+	if painting_on():      # 11/23 삽화 화면 —— 2D 연출(fx)이 꺼져 있어 잔기술이 글자만 떴다. 삽화 층이 그린다 (WarPainting.add_minor)
+		if painting != null and painting.has_method("add_minor"):
+			painting.add_minor(mk, a.key, d.key)
+		return
 	var ap := vis_c(a)
 	var dp := vis_c(d)
 	match mk:
