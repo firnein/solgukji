@@ -765,6 +765,23 @@ const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "�
 	"인덕": "cheer", "사기": "cheer", "철벽": "guard"}
 const MINOR_TAG := {"창병": "thrust", "기병": "lance", "궁병": "volley", "도적": "ambush", "책사": "fire", "유생": "cheer",
 	"술사": "thunder", "모사": "rumor"}
+## 11/23 사용자: "평타 3번당 쓰는 잔기술 다 똑같다" —— 이름 60개가 모두 '조금 센 한 방 + 거의 안 보이는 덧붙임'이었다.
+## 병종마다 잔기술이 '하는 일'을 하나씩 준다 (리듬 every 도 병종 몫). 인물 · 특기 축 잔기술은 이름 · 덧붙임을 그대로 두고 그 위에 얹는다.
+##   push 밀쳐 냄(px · 행동 준비 깎기) · through 뚫고 뒤 부대까지 · rain 둘레 적 여럿에 나눠 · steal 후열을 치고 고유기 게이지를 뺏음
+##   zone 땅에 불 · 독 장판(초 동안 들어선 적에게 상태) · rout 사기 크게 · 혼란 · rally 지친 아군 둘 회복 · burst 둘레 폭발
+## act_x (인물 잔기술) —— 그 장수 특징으로 하는 일을 이만큼 세게 (합비 돌격은 더 멀리 뚫는다 …)
+static var minor_act_enabled := true
+const MINOR_ACT := {
+	"창병": {"act": "push", "every": 3, "px": 45.0, "delay": 0.45},
+	"기병": {"act": "through", "every": 4, "n": 2, "mult": 0.55},
+	"궁병": {"act": "rain", "every": 3, "n": 3, "mult": 0.45},
+	"도적": {"act": "steal", "every": 2, "gauge": 7.0},
+	"책사": {"act": "zone", "every": 4, "r": 70.0, "sec": 4.0},
+	"모사": {"act": "rout", "every": 4, "morale": 10.0},
+	"유생": {"act": "rally", "every": 3, "n": 2, "mend": 0.02, "cheer": 6.0},
+	"술사": {"act": "burst", "every": 4, "r": 70.0, "mult": 0.5}}
+const MINOR_ACT_X := {"hefei": 2.0, "cleave": 1.5, "lone_ride": 1.5, "divine_bow": 1.5, "tiger": 1.3, "yellow": 1.5, "sow": 1.3,
+	"benevolence": 1.5, "heal_bone": 1.5, "trap_camp": 1.5, "bodyguard": 1.3, "ten_ambush": 1.3, "taoist_book": 1.3, "plum": 1.3}
 static var _minor_cache := {}
 var _minor_nm := ""
 var _minor_mk := ""
@@ -811,10 +828,13 @@ func _minor(u: Unit) -> Array:
 	if mk == "":
 		return []
 	var m: Dictionary = minor_def(mk)
+	var every := int(m.every)
+	if minor_act_enabled and MINOR_ACT.has(u.c.tag):
+		every = int(MINOR_ACT[u.c.tag].every)      # 11/23 리듬은 병종 몫
 	if u.minor_n < 0:
-		u.minor_n = u.slot % int(m.every)      # 부대마다 차례를 어긋나게
+		u.minor_n = u.slot % every      # 부대마다 차례를 어긋나게
 	u.minor_n += 1
-	if u.minor_n < int(m.every):
+	if u.minor_n < every:
 		return []
 	u.minor_n = 0
 	return [m, mk]
@@ -822,7 +842,8 @@ func _minor(u: Unit) -> Array:
 
 ## 잔기술 한 번 —— 타격(대상은 back 이면 적 후열) + 덧붙임. 상태이상은 inflict(저항 판정 · 기록 포함)
 func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies: Array) -> void:
-	if m.get("back", false):
+	var act: Dictionary = MINOR_ACT.get(u.c.tag, {}) if minor_act_enabled else {}
+	if m.get("back", false) or act.get("act", "") == "steal":
 		var bt := resolve_targets("back1", foes, u, allies)
 		if not bt.is_empty() and bt[0].alive:
 			t = bt[0]
@@ -847,6 +868,10 @@ func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies:
 		if m.has("extra"):
 			if phys: phys_hit(u, t, float(m.extra) * tl, true)
 			else: int_hit(u, t, float(m.extra) * tl, 1)
+	if not act.is_empty():
+		_minor_act(u, t, act, float(MINOR_ACT_X.get(mk, 1.0)), tl, phys, m, foes, allies)
+		if act.act == "rally":
+			return
 	if m.has("cheer") or m.has("mend"):
 		var low: Unit = null
 		for o in allies:
@@ -857,6 +882,91 @@ func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies:
 				low.morale = minf(200.0, low.morale + float(m.cheer))
 			if m.has("mend") and not _scorched(low):
 				low.troops = minf(low.max, low.troops + roundf(low.max * float(m.mend)))
+
+
+## 잔기술 간격 (화면 설명용) —— 병종 리듬, 병종 잔기술이 꺼져 있으면 잔기술 자체 값
+static func minor_every(k: String) -> int:
+	var c: Dictionary = DB.C[k]
+	if minor_act_enabled and MINOR_ACT.has(c.tag):
+		return int(MINOR_ACT[c.tag].every)
+	return int(minor_def(minor_kind(k)).get("every", 3))
+
+
+## 병종 잔기술이 하는 일 한 줄 (화면 설명용)
+static func minor_act_text(k: String) -> String:
+	var c: Dictionary = DB.C[k]
+	if not minor_act_enabled or not MINOR_ACT.has(c.tag):
+		return ""
+	var a: Dictionary = MINOR_ACT[c.tag]
+	var mk := minor_kind(k)
+	var x := float(MINOR_ACT_X.get(mk, 1.0))
+	var m: Dictionary = minor_def(mk)
+	match str(a.act):
+		"push": return "맞은 적을 밀쳐 내 멈칫하게%s" % (" (더 멀리)" if x > 1.0 else "")
+		"through": return "뒤에 선 적 %d부대까지 뚫고 친다" % roundi(float(a.n) * x)
+		"rain": return "둘레 적 %d부대에도 화살" % roundi(float(a.n) * x)
+		"steal": return "맞은 적 고유기 게이지 −%d" % roundi(float(a.gauge) * x)
+		"zone":
+			var st: Array = m.get("st", ["burn"])
+			var k2 := str(st[0]) if str(st[0]) in ["burn", "plague", "bleed"] else "burn"
+			return "%d초 동안 땅에 남아 들어선 적에게 %s" % [roundi(float(a.sec)), DB.D.STATUS[k2].n]
+		"rout": return "적 사기 −%d%s" % [roundi(float(a.morale) * x), "" if m.has("st") else " · 혼란"]
+		"rally": return "가장 지친 아군 %d부대 병력 +%s%% · 사기 +%d" % [int(a.n), str(snappedf(maxf(float(a.mend), float(m.get("mend", 0.0))) * x * 100.0, 0.1)), roundi(maxf(float(a.cheer), float(m.get("cheer", 0.0))) * x)]
+		"burst": return "둘레 적에게 폭발%s" % (" (넓게)" if x > 1.0 else "")
+	return ""
+
+
+## 11/23 병종 잔기술이 하는 일 (MINOR_ACT). x = 인물 특징 배율 · tl = 등급 배율
+func _minor_act(u: Unit, t: Unit, a: Dictionary, x: float, tl: float, phys: bool, m: Dictionary, foes: Array, allies: Array) -> void:
+	match str(a.act):
+		"push":
+			if t.alive: _mi_push(u, t, float(a.px) * x, float(a.delay) * x)
+		"through":
+			for o in _mi_behind(u, t, foes, roundi(float(a.n) * x)):
+				if phys: phys_hit(u, o, float(a.mult) * tl, true)
+				else: int_hit(u, o, float(a.mult) * tl, 1)
+		"rain", "burst":
+			var r := float(a.get("r", 95.0))
+			var n := roundi(float(a.get("n", 9)) * x)
+			for o in _mi_near(t, r * (x if a.act == "burst" else 1.0), foes).slice(0, n):
+				if phys: phys_hit(u, o, float(a.mult) * tl * (1.0 if a.act == "rain" else x), true)
+				else: int_hit(u, o, float(a.mult) * tl * (1.0 if a.act == "rain" else x), 1)
+		"steal":
+			if t.alive and t.ult != null:
+				var g := minf(t.gauge, float(a.gauge) * x)
+				t.gauge -= g
+				_gain(u, g * 0.5)
+		"zone":
+			var st: Array = m.get("st", ["burn", 0.05, 2])
+			if not (str(st[0]) in ["burn", "plague", "bleed"]):
+				st = ["burn", 0.05, 2]
+			_mi_zone(u, t, str(st[0]), float(st[1]) * tl, int(st[2]), float(a.r) * x, float(a.sec))
+		"rout":
+			if t.alive:
+				t.morale = maxf(0.0, t.morale - float(a.morale) * x)
+				u.mdmg += float(a.morale) * x
+				if not m.has("st"):
+					inflict(u, t, "confuse", 1.0, 1)
+		"rally":
+			var al := allies.filter(func(o): return o.alive)
+			al.sort_custom(func(p, q): return p.troops / p.max < q.troops / q.max)
+			var mend := maxf(float(a.mend), float(m.get("mend", 0.0))) * x
+			var cheer := maxf(float(a.cheer), float(m.get("cheer", 0.0))) * x
+			for o in al.slice(0, int(a.n)):
+				o.morale = minf(200.0, o.morale + cheer)
+				if not _scorched(o):
+					o.troops = minf(o.max, o.troops + roundf(o.max * mend))
+
+
+## 잔기술 자리 계산 —— 턴 엔진은 같은 열로, 실시간(RtBattle)은 실제 거리로 덮어쓴다
+func _mi_near(t: Unit, _r: float, foes: Array) -> Array:
+	return foes.filter(func(o): return o.alive and o != t and _same_line(o, t))
+func _mi_behind(u: Unit, t: Unit, foes: Array, n: int) -> Array:
+	return _mi_near(t, 0.0, foes).slice(0, n)
+func _mi_push(_u: Unit, _t: Unit, _px: float, _delay: float) -> void:
+	pass
+func _mi_zone(u: Unit, t: Unit, k: String, v: float, dur: int, _r: float, _sec: float) -> void:
+	if t.alive: inflict(u, t, k, v, dur)
 
 
 static var strat_aura_enabled := false     # 11/4 사용자: 밸런스는 나중에 —— 꺼 둔다
@@ -3049,6 +3159,7 @@ func act(u: Unit) -> void:
 	if sk_rotate and sks.size() > 1 and u.alive and foes.any(func(o): return o.alive):
 		var best := -1
 		for j in sks.size():
+			if sk_split and u.sk_ch[j] < float(sks[j].get("cost", 1.0)): continue      # 따로 충전이면 다 찬 기술 가운데서 고른다
 			if (best < 0 or int(u.sk_cnt.get(j, 0)) < int(u.sk_cnt.get(best, 0))) and _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
 				best = j
 		order = [best] if best >= 0 else []
@@ -3160,7 +3271,6 @@ func _sk_cond(u: Unit, cond: String, foes: Array, allies: Array) -> bool:
 				if lf.any(func(o): return (o.line == v) if not _by_distance() else (_is_front(o) if lp <= 2 else _is_back(o))): return true
 			"no_st":
 				if lf.any(func(o): return not has_st(o, v)): return true
-			if sk_split and u.sk_ch[j] < float(sks[j].get("cost", 1.0)): continue      # 따로 충전이면 다 찬 기술 가운데서 고른다
 			"ally_st":
 				if la.any(func(o): return o.st.any(func(x): return x.k in ["burn", "bleed", "flood", "plague", "confuse", "seal", "break", "mark"])): return true
 			"ally_morale":      # 11/23 아군 '평균' 사기 → 사기가 그 아래인 아군이 '하나라도' (평균은 거의 안 떨어져 진두지휘 등 88% 가 한 번도 못 터졌다)

@@ -271,6 +271,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		_fire_winds()
 		_dash_tick()
 		_paeup_tick(TICK)
+		if not _zones.is_empty():
+			_zone_tick()
 		if _sg != null:
 			_sg.tick(TICK)
 		for u: Unit in _tick_units():
@@ -339,6 +341,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	if _sg != null:
 		_sg.release()      # 서로 붙든 참조를 끊는다 (장수 개성)
 		_sg = null
+	_zones.clear()
 	return r
 
 
@@ -1718,6 +1721,69 @@ func _record() -> void:
 # ───────── 위치로 대상 고르기 ─────────
 
 ## 행동 · 기술 · 고유기의 대상 —— 위치로 고른다. 고유기는 거리 제한 없이 크게
+# ───────── 잔기술 자리 (11/23 병종 잔기술 · Battle.MINOR_ACT) ─────────
+
+## 대상 둘레 r 안의 다른 적 (가까운 순)
+func _mi_near(t: Unit, r: float, foes: Array) -> Array:
+	var out := foes.filter(func(o): return o.alive and o != t and not _hidden(o) and _gap(o, t) <= r)
+	out.sort_custom(func(p, q): return _gap(p, t) < _gap(q, t))
+	return out
+
+
+## 공격자 → 대상 방향으로 대상 뒤에 선 적 (뚫고 지나간다) —— 줄 폭 안 · 대상 너머 220 안, 가까운 순
+func _mi_behind(u: Unit, t: Unit, foes: Array, n: int) -> Array:
+	var dir := (t.pos - u.pos).normalized()
+	if dir == Vector2.ZERO:
+		dir = u.fwd
+	var out := []
+	for o in foes:
+		if not o.alive or o == t or _hidden(o):
+			continue
+		var v: Vector2 = o.pos - t.pos
+		var along := v.dot(dir)
+		if along > 0.0 and along < 220.0 + o.hd and absf(v.cross(dir)) < LINE_W + o.hw:
+			out.append(o)
+	out.sort_custom(func(p, q): return (p.pos - t.pos).dot(dir) < (q.pos - t.pos).dot(dir))
+	return out.slice(0, n)
+
+
+## 밀쳐 냄 —— 공격자에게서 먼 쪽으로 px 밀고 행동 준비를 깎는다 (돌진하던 적이 멈칫한다). 기를 모으는 중이면 밀지 않는다
+func _mi_push(u: Unit, t: Unit, px: float, delay: float) -> void:
+	if _wind.has(t) or _dash.has(t):
+		return
+	var dir := (t.pos - u.pos).normalized()
+	if dir == Vector2.ZERO:
+		dir = u.fwd
+	t.pos += dir * px
+	_clamp_arena(t)
+	t.atb = maxf(0.0, t.atb - delay)
+	t.ran = 0.0      # 달려오던 기병의 돌격이 끊긴다
+
+
+## 장판 —— 대상 자리에 r 반지름 · sec 초. 1초마다 그 안의 적에게 상태
+var _zones := []
+var _zone_next := 0.0
+func _mi_zone(u: Unit, t: Unit, k: String, v: float, dur: int, r: float, sec: float) -> void:
+	_zones.append({"p": t.pos, "r": r, "end": _tm + sec, "a": u, "k": k, "v": v, "d": dur})
+	if t.alive:
+		inflict(u, t, k, v, dur)
+
+
+func _zone_tick() -> void:
+	if _tm < _zone_next:
+		return
+	_zone_next = _tm + 1.0
+	var keep := []
+	for z in _zones:
+		if _tm > float(z.end) or not z.a.alive:
+			continue
+		keep.append(z)
+		for o in units:
+			if o.alive and o.camp != z.a.camp and o.pos.distance_to(z.p) <= float(z.r) + o.hw * 0.5:
+				inflict(z.a, o, z.k, z.v, z.d)
+	_zones = keep
+
+
 func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Array:
 	if spec == "self": return [me]
 	if spec == "allyAll": return allies.filter(func(u): return u.alive)

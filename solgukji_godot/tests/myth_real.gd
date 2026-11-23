@@ -8,7 +8,10 @@ var myths: Array
 
 func _ready() -> void:
 	var a := OS.get_cmdline_user_args()
-	var n := int(a[0].trim_prefix("--n=")) if a.size() > 0 else 30
+	var n := 30
+	for x in a:
+		if x.begins_with("--n="): n = int(x.trim_prefix("--n="))
+		if x == "--nominor": Battle.minor_act_enabled = false      # 11/23 병종 잔기술 끄고 비교
 	myths = DB.by_tier(8).filter(func(k): return not DB.is_foe(k) and not DB.is_kiin(k))
 	var rows := []
 	for m in myths:

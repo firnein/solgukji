@@ -4220,7 +4220,7 @@ func _kv_split(text: String) -> Array:
 ## 잔기술이 나오는 간격 —— "공격 3번에 한 번 · 약 3.5초마다"
 ## 11/19 사용자: 턴제의 흔적 · 단위 없는 숫자를 걷는다 —— '평타 3번에 한 번' 에 그 장수의 속도로 몇 초마다인지 덧붙인다 (행동 간격 DB.act_sec)
 static func minor_when(k: String) -> String:
-	var n := int(Battle.minor_def(Battle.minor_kind(k)).every)
+	var n := Battle.minor_every(k)      # 11/23 병종 리듬
 	var c: Dictionary = DB.C[k]
 	return "공격 %d번에 한 번 · %s마다" % [n, DB.sec_str(n * DB.act_sec(float(c.tier), float(c.spd)))]
 
@@ -4231,7 +4231,11 @@ static func minor_desc(k: String, with_every := true) -> String:
 	var m: Dictionary = Battle.minor_def(mk)
 	var phys: bool = (m.kind == "phys") if m.has("kind") else DB.C[k]["int"] <= DB.C[k].atk
 	var parts := [minor_when(k)] if with_every else []
-	parts.append("%s피해 ×%.2f" % ["가장 뒤쪽 적에게 " if m.get("back", false) else "", float(m.mult)])
+	var act := Battle.minor_act_text(k)      # 11/23 병종 잔기술이 하는 일
+	var rally: bool = Battle.minor_act_enabled and str(Battle.MINOR_ACT.get(DB.C[k].tag, {}).get("act", "")) == "rally"
+	parts.append("%s피해 ×%.2f" % ["가장 뒤쪽 적에게 " if m.get("back", false) or str(Battle.MINOR_ACT.get(DB.C[k].tag, {}).get("act", "")) == "steal" else "", float(m.mult)])
+	if act != "":
+		parts.append(act)
 	if m.has("st"):
 		parts.append("%s %s" % [DB.D.STATUS[m.st[0]].n, DB.sec_text(int(m.st[2]), DB.C[k].tier)])
 	if m.has("extra"):
@@ -4242,7 +4246,9 @@ static func minor_desc(k: String, with_every := true) -> String:
 		parts.append("맞은 적 %s %+d%%(%s)" % [DB.D.STATNM.get(m.foe.stat, m.foe.stat), roundi(float(m.foe.amt) * 100), DB.sec_text(int(m.foe.dur), DB.C[k].tier)])
 	if m.has("morale"):
 		parts.append("적 사기 −%d" % int(m.morale))
-	if m.has("mend") and m.has("cheer"):
+	if rally:
+		pass
+	elif m.has("mend") and m.has("cheer"):
 		parts.append("가장 지친 아군 병력 +%s%% · 사기 +%d" % [str(snappedf(float(m.mend) * 100, 0.1)), int(m.cheer)])
 	elif m.has("mend"):
 		parts.append("가장 지친 아군 병력 +%s%%" % str(snappedf(float(m.mend) * 100, 0.1)))
