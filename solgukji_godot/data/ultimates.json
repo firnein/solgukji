@@ -577,6 +577,15 @@
       "amt": 0.25,
       "dur": 2
      }
+    },
+    {
+     "t": "ally",
+     "tgt": "allyAll",
+     "buff": {
+      "stat": "atk",
+      "amt": 0.2,
+      "dur": 8
+     }
     }
    ]
   },

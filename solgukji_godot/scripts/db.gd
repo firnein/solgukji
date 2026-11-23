@@ -1475,7 +1475,7 @@ func mods_list(m: Dictionary, scale := 1.0, tier := 5, spd := 0.0) -> Array:
 		if k == "int" and m.has("atk"):      # 11/11 사용자: 공격 · 책략이 합쳐진 뒤(11/6 #15) '공격+5% · 공격+5%' 로 두 번 적혔다 —— 한 번만 (큰 값)
 			continue
 		if k in ["kindle", "blaze", "night", "scorch", "drown", "tide", "steam", "collapse", "rush", "first_break", "chain_mark", "spot", "focus", "mark_break",
-				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx",
+				"wall", "last_stand", "phalanx_break", "confuse_pass", "turncoat", "confuse_break", "confuse_burn", "moved", "oath", "starve", "moved_phalanx", "moved_lord",
 				"chase", "open_slow"]:      # 계열 마무리 —— 설명으로 충분
 			continue
 		if k in ["cut_def", "first_cut", "open_cut_def"] and Battle.shield_enabled and GUARD.has("shred"):      # 11/9 갑옷 · 결계 깎기 —— 수치는 엔진 등급표 (trait_list 가 shred_text 로 적는다)

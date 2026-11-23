@@ -2207,15 +2207,19 @@ func _after_hit(a: Unit, d: Unit, loss: float) -> void:
 
 
 ## 분발 —— 치료받은 아군이 2턴 동안 공격 · 책략 + (이미 있으면 남은 턴만 늘린다). 유비 「인의」면 방진도 친다
+## 11/23 사용자 (유비 강화 B): 유비 「인의」(moved_lord)가 살아 있으면 분발이 길고(moved_dur_lord) 재발동 대기가 없다 —— 치료가 닿을 때마다 남은 턴을 채운다 (방진은 새로 일어날 때만)
 func _give_moved(u: Unit) -> void:
-	var dur: int = int(DB.PSV.virtue.moved_dur)
+	var lord := _side_max(u.camp, "moved_lord") > 0.0
+	var dur: int = int(DB.PSV.virtue.get("moved_dur_lord", 8)) if lord else int(DB.PSV.virtue.moved_dur)
 	var found := false
 	for b in u.buffs:
 		if b.get("moved", false):
-			if moved_cd <= 0:
+			if moved_cd <= 0 or lord:
 				b.dur = maxi(b.dur, dur)
 			found = true
-	if moved_cd > 0 and (found or _turn < u.moved_next):
+	if lord and found:
+		return
+	if moved_cd > 0 and not lord and (found or _turn < u.moved_next):
 		return          # 11/8 분발 중이거나 끝난 뒤 대기 중 —— 늘리지도 (인의) 방진을 다시 치지도 않는다
 	if not found:
 		u.moved_next = _turn + dur + moved_cd
