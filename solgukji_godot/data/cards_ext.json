@@ -2107,19 +2107,19 @@
   "화공": "dense:2",
   "수공": "foe_n:4",
   "팔문금쇄": "dense:2",
-  "격려": "ally_hurt:0.85|foe_morale",
+  "격려": "always",
   "독려": "ally_hurt:0.7",
   "인덕": "ally_st|ally_hurt:0.6",
-  "혹세": "foe_morale",
+  "혹세": "always",
   "역병": "foe_n:4",
   "저주": "always",
-  "이간": "foe_morale",
+  "이간": "always",
   "봉계": "always",
   "밀계": "back_n:1",
-  "진두지휘": "ally_morale:90",
-  "고함": "front_n:2|ally_morale:80",
-  "격문": "ally_morale:90|foe_morale",
-  "고취": "ally_hurt:0.7|ally_morale:80"
+  "진두지휘": "always",
+  "고함": "always",
+  "격문": "always",
+  "고취": "always"
  },
  "skills_ext": [
   {

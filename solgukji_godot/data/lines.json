@@ -4046,7 +4046,7 @@
     "dur": 2,
     "tgt": "allyAll"
    },
-   "cond": "ally_morale:90|ally_hurt:0.8"
+   "cond": "ally_morale:100|ally_hurt:0.8"
   },
   "법정": {
    "n": "기책보은",
@@ -4088,7 +4088,7 @@
     "dur": 2,
     "tgt": "allyAll"
    },
-   "cond": "ally_morale:90|ally_hurt:0.8"
+   "cond": "ally_morale:100|ally_hurt:0.8"
   },
   "대교": {
    "n": "자애치유",
@@ -4112,7 +4112,7 @@
    "morale": 10,
    "heal": 8,
    "rally": true,
-   "cond": "foe_morale|ally_morale:85"
+   "cond": "always"
   },
   "장소": {
    "n": "직언상소",
@@ -4214,7 +4214,7 @@
     "dur": 2,
     "tgt": "allyAll"
    },
-   "cond": "foe_morale|foe_n:3"
+   "cond": "always"
   },
   "사마의": {
    "n": "인내지계",
@@ -4728,7 +4728,7 @@
    "heal": 8,
    "rally": true,
    "morale": 6,
-   "cond": "ally_morale:85|foe_n:3"
+   "cond": "always"
   },
   "남화노선": {
    "n": "선도비술",
