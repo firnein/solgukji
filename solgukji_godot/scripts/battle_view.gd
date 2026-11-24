@@ -4037,6 +4037,11 @@ class Hud extends Control:
 	var _medal_nodes := {}  # 부대 key -> MedalNode
 	var _badge_layer: Control = null      # 11/22 상태 딱지 층 —— 메달 층 바로 위
 	var _badge_nodes := {}  # 부대 key -> BadgeRow
+	const PAINT_FACE_R := 7.0
+	const PAINT_FACE_SLOT := 18.0
+	const PAINT_NAME_FS := 9
+	const PAINT_BAR_MIN := 28.0
+	const PAINT_MORALE := Color("#7eb6d4")
 	const TROOP_LAYER_SIZE := 10000.0
 	const TROOP_LAYER_COLORS := [Color("#c0c7ce"), Color("#6fb998"), Color("#689fd0"),
 		Color("#ab8bd3"), Color("#d8b260"), Color("#da9168"), Color("#ce7d9f"),
@@ -4059,7 +4064,7 @@ class Hud extends Control:
 
 	## 삽화 메달 하나 —— 틀 · 얼굴 · 이름표를 한 번 그려 두고 Hud 가 자리(position) · 투명(modulate)만 바꾼다
 	class MedalNode extends Control:
-		var mts: Array = []
+		var portrait: Texture2D
 		var name_ := ""
 		var w := 0.0
 		var S := 1.0
@@ -4073,23 +4078,25 @@ class Hud extends Control:
 		var selected := false
 		var contributing := false
 		func _draw() -> void:
-			var label := Rect2(Vector2(-w * 0.5, -10.0), Vector2(w, 20.0))
-			draw_rect(label, Color(0.08, 0.08, 0.06, 0.86 if selected or boss else 0.62))
-			draw_rect(Rect2(label.position, Vector2(2, label.size.y)), team)
+			var left := -w * 0.5
+			var tx := left + BattleView.Hud.PAINT_FACE_SLOT
+			var bw := w - BattleView.Hud.PAINT_FACE_SLOT - 4.0
+			var panel := Rect2(Vector2(tx - 3.0, -1.0), Vector2(bw + 6.0, 11.0))
+			draw_rect(panel, Color(0.06, 0.07, 0.07, 0.88 if selected else 0.72))
+			draw_rect(panel, Color(0.22, 0.24, 0.24, 0.95), false, 1.0)
 			if selected or boss or contributing:
-				draw_rect(label.grow(1.0), Color("#ffe2a0") if boss or contributing else Color("#d8f2ff"), false, 1.2)
-			var face_at := Vector2(-w * 0.5 - r - 4.0, 0)
-			if selected or boss:
-				for mt: Texture2D in mts:
-					var tsz := Vector2(mt.get_size())
-					draw_texture_rect(mt, Rect2(face_at + (tsz * -0.5).round() / S, tsz / S), false)
-			if boss:      # 총대장 —— 메달 둘레 금테 + 큰 왕관 (위) + 금테 이름표
-				draw_arc(face_at, r + 1.5, 0, TAU, 32, Color(1.0, 0.82, 0.25, 0.95), 2.0, true)
-				BattleView.Hud.draw_crown(self, face_at + Vector2(0, -r - 8.0), 1.0, 1.8)
-			var tx := -w * 0.5 + 5.0
-			draw_string(DB.font_bold, Vector2(tx, -2), name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.98, 0.94, 0.81))
+				draw_rect(panel, Color("#ffe2a0") if boss or contributing else Color("#d8f2ff"), false, 1.0)
+			var face_at := Vector2(left + 8.0, 2.0)
+			draw_circle(face_at, r + 1.0, Color("#111820"))
+			if portrait != null:
+				var tsz := Vector2(portrait.get_size())
+				draw_texture_rect(portrait, Rect2(face_at + (tsz * -0.5).round() / S, tsz / S), false)
+			draw_arc(face_at, r + 0.6, 0, TAU, 20, Color("#e6ca7e") if boss else team, 1.2, true)
+			var name_at := Vector2(tx, -3.0)
+			draw_string_outline(DB.font_bold, name_at, name_, HORIZONTAL_ALIGNMENT_CENTER, bw, BattleView.Hud.PAINT_NAME_FS, 2, Color(0.03, 0.03, 0.02, 0.95))
+			draw_string(DB.font_bold, name_at, name_, HORIZONTAL_ALIGNMENT_CENTER, bw, BattleView.Hud.PAINT_NAME_FS, Color(0.98, 0.94, 0.81))
 			if troop_layer >= 0:
-				var bar := Rect2(Vector2(tx, 1.0), Vector2(w - 11.0, 3.0))
+				var bar := Rect2(Vector2(tx, 1.0), Vector2(bw, 3.0))
 				# 뒤의 두 층만 1px씩 비껴 보여 주며 이름표의 전체 크기는 늘리지 않는다.
 				for depth in [2, 1]:
 					if troop_layer > depth:
@@ -4098,11 +4105,10 @@ class Hud extends Control:
 				if troop_fill > 0.0:
 					draw_rect(Rect2(bar.position, Vector2(troop_fill, bar.size.y)), BattleView.Hud.troop_layer_color(troop_layer))
 			if mo >= 0:      # 사기는 병력 바 아래의 가는 별도 줄로 유지한다.
-				var bw := w * 0.5 - tx - 4.0
 				var bar := Rect2(Vector2(tx, 7.0), Vector2(bw, 2.0))
 				draw_rect(bar, Color(0.02, 0.02, 0.03, 0.9))
 				var m := mo * 5.0
-				draw_rect(Rect2(bar.position, Vector2(bw * clampf(m / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.morale_color(m))
+				draw_rect(Rect2(bar.position, Vector2(bw * clampf(m / 100.0, 0.0, 1.0), 2.0)), Color("#d27865") if m < 30.0 else BattleView.Hud.PAINT_MORALE)
 				if m > 100.0:
 					draw_rect(Rect2(bar.position, Vector2(bw * clampf((m - 100.0) / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.MORALE_OVER_COL)
 			# 11/22 상태 기호는 BadgeRow 가 따로 그린다 —— 메달 층 위 딱지 층이라 이웃 메달에 가려지지 않는다
@@ -4361,6 +4367,22 @@ class Hud extends Control:
 		_bake_us += Time.get_ticks_usec() - t0
 		return out
 
+	## 작은 이름표에는 얼굴만 굽는다. 옛 메달의 삼각형과 큰 틀은 만들지 않는다.
+	func _painted_face_tex(sq: Squad, S: float) -> Texture2D:
+		var key := _face_key(sq, PAINT_FACE_R, S)
+		if _medal_cache.has(key):
+			return _medal_cache[key]
+		var fid := Engine.get_process_frames()
+		if fid != _bake_frame:
+			_bake_frame = fid
+			_bake_us = 0
+		if _bake_us >= 2000:
+			return null
+		var t0 := Time.get_ticks_usec()
+		var tex := _medal_face(sq, PAINT_FACE_R, S)
+		_bake_us += Time.get_ticks_usec() - t0
+		return tex
+
 	func _medal_frame(sq: Squad, r: float, S: float) -> Texture2D:
 		var tcol: Color = DB.tier_color(sq.cid)
 		var key := _frame_key(sq, r, S)
@@ -4574,7 +4596,8 @@ class Hud extends Control:
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		if boss:
 			nm = "총대장 " + nm
-		var w := maxf(32.0, DB.font_bold.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10.0)
+		var bar_w := maxf(PAINT_BAR_MIN, DB.font_bold.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, PAINT_NAME_FS).x + 2.0)
+		var w := PAINT_FACE_SLOT + bar_w + 4.0
 		_tok_name[sq.key] = [nm, w, sq.cid, boss]
 		return Vector2(w, 20.0)
 
@@ -4592,7 +4615,7 @@ class Hud extends Control:
 				at.x -= (sq.hd0 + 12.0) * (1.0 if sq.camp == "A" else -1.0)
 				var p: Vector2 = view.field.to_screen(at, 0.0) + Vector2(0, 5)
 				var half := _painted_size(sq) * 0.5
-				fixed[sq.key] = p.clamp(Vector2(half.x + 30, 94 + half.y), size - Vector2(half.x + 3, half.y + 3))
+				fixed[sq.key] = p.clamp(Vector2(half.x + 3, 94 + half.y), size - Vector2(half.x + 3, half.y + 3))
 				_tok_off[sq.key] = Vector2.ZERO
 			return fixed
 		# 11/15 성능: 메달 18개면 쌍 153 × 4바퀴를 사전(문자열 열쇠)으로 돌던 것을 배열로 (같은 계산 —— 그리기 한 번에 약 0.5ms 였다)
@@ -4805,10 +4828,8 @@ class Hud extends Control:
 				var sq: Squad = t[1]
 				var p: Vector2 = tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0))
 				var plate := _painted_size(sq)
-				var pr := 13.0 if bool(sq.row.get("boss", false)) else (10.0 if sq.tier >= 7 else 8.0)
-				var portrait := Rect2()
-				if highlight_k(sq.key) > 0.0 or sq == view.field.follow or bool(sq.row.get("boss", false)):
-					portrait = Rect2(p + Vector2(-plate.x * 0.5 - pr * 2.0 - 4.0, -pr), Vector2.ONE * pr * 2.0)
+				var pr := PAINT_FACE_R
+				var portrait := Rect2(p + Vector2(-plate.x * 0.5 + 8.0 - pr, 2.0 - pr), Vector2.ONE * pr * 2.0)
 				_painted_medals[sq.key] = {"at": p, "radius": pr, "label": Rect2(p - plate * 0.5, plate), "portrait": portrait}
 			var S := _bake_s
 			var seen := {}
@@ -4825,16 +4846,8 @@ class Hud extends Control:
 				if sq.state == "gone":
 					continue
 				var p: Vector2 = tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0))
-				var bz0: bool = bool(sq.row.get("boss", false))
-				var r := 13.0 if bz0 else (10.0 if sq.tier >= 7 else 8.0)      # 토벌 총대장은 메달을 크게
-				var mts: Array
-				var te = _tok_tex.get(sq.key)
-				if te != null and te[0] == sq.cid and te[1] == r:
-					mts = te[2]
-				else:
-					mts = _medal_tex(sq, r, S)
-					if mts.size() == 2:
-						_tok_tex[sq.key] = [sq.cid, r, mts]
+				var r := PAINT_FACE_R
+				var portrait := _painted_face_tex(sq, S)
 				var w := _painted_size(sq).x
 				var nw: Array = _tok_name[sq.key]
 				var selected := highlight_k(sq.key) > 0.0 or sq == view.field.follow
@@ -4844,7 +4857,7 @@ class Hud extends Control:
 				if sq.alive:
 					var state := troop_layers(sq.troops)
 					layer = int(state.x)
-					fill = roundf(state.y * (w - 11.0) * S) / S
+					fill = roundf(state.y * (w - PAINT_FACE_SLOT - 4.0) * S) / S
 					mo = clampi(roundi(sq.morale / 5.0), 0, 40)
 				# 11/19 프레임: 메달(틀 · 얼굴 · 이름표)은 한 번 그려 둔 노드를 자리만 옮긴다 —— 매 프레임 메달 18개 × 그리기 4번을 다시 넣던 것이 HUD 에서 가장 무거웠다
 				var node: MedalNode = _medal_nodes.get(sq.key)
@@ -4854,12 +4867,12 @@ class Hud extends Control:
 					_medal_layer.add_child(node)
 					_medal_nodes[sq.key] = node
 				var bz: bool = bool(sq.row.get("boss", false)) and sq.alive
-				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.boss != bz 						or node.mo != mo or node.troop_layer != layer or node.troop_fill != fill:
+				if node.portrait != portrait or node.name_ != nw[0] or node.S != S or node.r != r or node.boss != bz 						or node.mo != mo or node.troop_layer != layer or node.troop_fill != fill:
 					node.boss = bz
 					node.troop_layer = layer
 					node.troop_fill = fill
 					node.mo = mo
-					node.mts = mts
+					node.portrait = portrait
 					node.name_ = nw[0]
 					node.w = w
 					node.S = S

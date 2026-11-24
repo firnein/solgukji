@@ -103,12 +103,14 @@ func _ready() -> void:
 		var troop_state := BattleView.Hud.troop_layers(unit.troops)
 		assert(node.troop_layer == (int(troop_state.x) if unit.alive else -1), "Both armies must use absolute troop layers")
 		if unit.alive:
-			assert(absf(node.troop_fill - troop_state.y * (node.w - 11.0)) <= 0.5 / node.S + 0.001, "Bar loss must follow actual displayed casualties within half a screen pixel")
-		assert(node.w == maxf(32.0, DB.font_bold.get_string_size(node.name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10.0), "Field labels must fit only the name, with no number reserve or large minimum width")
+			var bar_width := node.w - BattleView.Hud.PAINT_FACE_SLOT - 4.0
+			assert(absf(node.troop_fill - troop_state.y * bar_width) <= 0.5 / node.S + 0.001, "Bar loss must follow actual displayed casualties within half a screen pixel")
+		var name_width := DB.font_bold.get_string_size(node.name_, HORIZONTAL_ALIGNMENT_LEFT, -1, BattleView.Hud.PAINT_NAME_FS).x
+		assert(node.w == BattleView.Hud.PAINT_FACE_SLOT + maxf(BattleView.Hud.PAINT_BAR_MIN, name_width + 2.0) + 4.0, "One compact frame must fit the portrait, name and both bars, with no number reserve")
 		assert(node.mo == (clampi(roundi(unit.morale / 5.0), 0, 40) if unit.alive else -1), "Compacting must preserve morale")
 		var portrait: Rect2 = marker.get("portrait", Rect2())
-		var portrait_expected := view.hud.highlight_k(key) > 0.0 or unit == view.field.follow or bool(unit.row.get("boss", false))
-		assert(portrait.has_area() == portrait_expected, "Only selected units and the commander may show field portraits")
+		assert(portrait.has_area() and label.encloses(portrait), "Every portrait must fit inside its fixed nameplate")
+		assert(node.portrait != null and node.r == BattleView.Hud.PAINT_FACE_R, "Both armies must show a cached small portrait without enlarging higher tiers")
 	# 길어진 이름표의 초상 반대쪽 끝도 탭 대상이어야 한다.
 	var saved: Dictionary = view.hud._painted_medals.duplicate(true)
 	view.hud._painted_medals.clear()
@@ -121,14 +123,14 @@ func _ready() -> void:
 	if "--shot" in OS.get_cmdline_user_args():
 		sq.statuses = actual_statuses
 		await frame()
-		get_viewport().get_texture().get_image().save_png("res://../build/battle_compact_layers_selected.png")
+		get_viewport().get_texture().get_image().save_png("res://../build/battle_profile_hud.png")
 	view.hud._hl[sq.key] = view.clock - 1.0
 	await frame()
 	assert(view.hud._badge_nodes.is_empty())
 	view.play_res(result, "pvp")
 	view.speed = 0.0
 	assert(view.hud._hl.is_empty(), "Selection must clear when the same view starts another battle")
-	print("PASS battle readability: anchored nameplates / compact overlapping bars / no number reserve or ticks / card tap / absolute troop layers / boundaries and recovery / exact numbers in selected bottom card / morale / full label picking / replay immutability / reused view")
+	print("PASS battle readability: anchored compact portrait-name-HP-morale frame / cached portraits in both camps / no number reserve or ticks / card tap / absolute troop layers / boundaries and recovery / exact numbers in selected bottom card / full label picking / replay immutability / reused view")
 	view.queue_free()
 	await get_tree().process_frame
 	get_tree().quit()
