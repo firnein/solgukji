@@ -902,6 +902,19 @@ func _dash_target(u: Unit) -> Unit:
 	return best
 
 
+## 돌진 중 노린 적이 쓰러졌다 —— 쓰러진 적 자리에서 가장 가까운 살아 있는 적
+func _dash_retarget(u: Unit, dead: Unit) -> Unit:
+	var best: Unit = null
+	var bd := INF
+	for o in units:
+		if o.alive and o.camp != u.camp and not _hidden(o):
+			var g := o.pos.distance_squared_to(dead.pos)
+			if g < bd:
+				bd = g
+				best = o
+	return best
+
+
 ## 돌진 중인 장수를 움직이고, 닿으면(또는 시간이 다 되면) 고유기를 터뜨린다 (유닛 순서대로 —— 결정적)
 func _dash_tick() -> void:
 	if _dash.is_empty():
@@ -910,14 +923,18 @@ func _dash_tick() -> void:
 		if not _dash.has(u):
 			continue
 		var d: Dictionary = _dash[u]
-		if not u.alive or has_st(u, "confuse"):
+		if not u.alive:
 			_dash.erase(u)
 			u.gauge = CUT_GAUGE
 			_inyeon_drop(u)
 			continue
+		if has_st(u, "confuse"):      # 11/24 돌진 중 혼란 —— 고유기를 쥔 채 멈춰 섰다가 풀리면 남은 시간만큼 이어 달린다 (예전: 취소 · 게이지 30)
+			u.vel = Vector2.ZERO
+			d.end = float(d.end) + TICK
+			continue
 		var t: Unit = d.t
 		if not t.alive:
-			t = _dash_target(u)
+			t = _dash_retarget(u, t)      # 11/24 노린 적이 쓰러지면 그 자리에서 가장 가까운 적 (예전: 다시 가장 깊은 적 —— 반대편으로 꺾여 3초에 허공에서 터졌다)
 			d.t = t
 		var arrived := t == null or _gap(u, t) <= TOUCH + 2.0 or _tm >= float(d.end) - 0.001
 		if not arrived:
