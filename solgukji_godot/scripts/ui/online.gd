@@ -90,6 +90,9 @@ var _rooms_box: VBoxContainer = null      # 접속 시트의 열린 방 목록 �
 var _render_queued := false
 var _cmd_sent := {}               # 명령 번호 -> 보낸 시각 (us) —— 왕복 실측 (서버 기록 perf kind "net")
 var _np := {}                     # 이번 단계의 실측 합계 {rtt:[합,최대,수], st:[…], rd:[…], skip, stale}
+var _watch_sno := -1              # 11/24 전투 목록을 받은 단계 번호 · 그 목록에서 이미 튼 전투 수 (재접속으로 같은 목록이 다시 와도 다시 틀지 않게)
+var _watch_n := 0
+var _ready_resend_t := 0          # 11/24 준비를 다시 보낸 때 (ms) —— 끊긴 사이 잃은 준비를 서버 상태로 확인해 다시 보낸다
 var _ready_want := {}             # 11/21 '준비'를 누르면 버튼을 먼저 바꾼다 {sno, on, t} —— 서버가 같은 값을 알려 주거나 3초가 지나면 지운다
 ## 11/21 관전 —— 내 전투를 다 보고 기다리는 동안 사람이 낀 전투 목록 (서버 spec_list) · 지금 관전 중인가
 var spec_list: Array = []
@@ -781,6 +784,7 @@ func _on_msg(d: Dictionary) -> void:
 			if d.has("ack"):
 				_ack_rtt(int(d.ack))
 			_keep_ready_want(d.room)      # 11/21 방금 누른 '준비'를 서버가 아직 모르면 버튼을 되돌리지 않는다
+			_check_lost_ready(d.room)
 			# 11/21 같은 단계 안에서 내 화면과 서버 상태가 같으면(내가 먼저 해 본 결과 그대로) 다시 짓지 않는다 —— 단계가 바뀌면 늘 다시 짓는다
 			var same: bool = in_game and not stale and gs.run != null and int(d.room.get("stage_no", -1)) == _stage_no and _same_view(d.run, d.room)
 			room = d.room
@@ -880,8 +884,17 @@ func _on_msg(d: Dictionary) -> void:
 				if not gs.battle_visible():
 					gs.render()
 			else:
-				watch = d.list.duplicate()
-				if not gs.battle_visible() or (dev_auto and gs._battle.finished):      # 점검(--gauto)은 지난 결과표를 닫을 사람이 없다
+				# 11/24 사용자: 같은 전투가 두 번 —— 재접속하면 서버가 이 단계 목록을 다시 보낸다. 이미 틀었던 전투(앞에서부터 _watch_n 개)는 빼고 남은 것만 본다
+				var sno := int(d.get("stage_no", -1))
+				if sno != _watch_sno:
+					_watch_sno = sno
+					_watch_n = 0
+				watch = (d.list as Array).slice(_watch_n)
+				if watch.is_empty():
+					_seen_all = true
+					if not gs.battle_visible() or gs._battle.finished:
+						_resend_ready()
+				elif not gs.battle_visible() or (dev_auto and gs._battle.finished):      # 점검(--gauto)은 지난 결과표를 닫을 사람이 없다
 					watch_next()
 		"toast":
 			gs.toast(str(d.text), str(d.kind))
@@ -1108,6 +1121,28 @@ func send_cmd(m: String, a: Array) -> void:
 	if _cmd_sent.size() > 64:      # 답이 안 온 것(끊김)이 쌓이지 않게
 		_cmd_sent.erase(_cmd_sent.keys()[0])
 	net.send({"t": "cmd", "m": m, "a": a, "q": _cmd_q})
+
+
+## 11/24 이 단계에서 준비를 보냈는데(_warn_off_no) 서버는 아직 준비가 아니다 —— 끊긴 사이 잃었거나(보내기는 소켓이 닫혀 있으면 버려진다)
+## 서버가 끊김에 준비를 지웠다. 3초 넘게 그러면 다시 보낸다 (준비 취소는 _warn_off_no 를 지우므로 되돌리지 않는다)
+func _check_lost_ready(room_d: Dictionary) -> void:
+	var sno := int(room_d.get("stage_no", -1))
+	if _warn_off_no != sno or not _ready_want.is_empty():
+		return
+	var you := int(room_d.get("you", -1))
+	var ss: Array = room_d.get("seats", [])
+	if you < 0 or you >= ss.size() or bool(ss[you].get("ready", false)) or bool(ss[you].get("dead", false)):
+		return
+	if Time.get_ticks_msec() - _ready_resend_t < 3000:
+		return
+	_ready_resend_t = Time.get_ticks_msec()
+	net.send({"t": "ready", "on": true, "sno": sno})
+
+
+## 이 단계 전투를 다 봤다(재접속으로 남은 것이 없다) —— 아직 준비가 아니면 보낸다
+func _resend_ready() -> void:
+	if str(room.get("stage", "")) in Room.WATCH_STAGES and not bool(me().get("ready", false)):
+		send_ready(true)
 
 
 ## '준비 완료' —— 지금 단계 번호를 실어 보낸다 (지난 단계의 준비가 다음 단계에 섞이지 않게)
@@ -1398,9 +1433,9 @@ func replay_ended() -> void:
 		return
 	if not (str(room.get("stage", "")) in Room.WATCH_STAGES) or last_battles.is_empty():
 		return
-	if bool(me().get("ready", false)) or _warn_off_no == int(room.get("stage_no", -2)):
+	if bool(me().get("ready", false)):
 		return
-	send_ready(true)
+	send_ready(true)      # 11/24 사용자: 혼자인데 내 대전 종료를 기다림 —— 예전엔 '보냈다고 기억'(_warn_off_no)만으로 건너뛰어, 끊긴 사이 잃은 준비를 다시 안 보냈다
 
 
 ## 11/12 사용자: 전투 싱크가 밀렸다 —— 서버는 이미 다음 단계인데 재생 중(또는 볼 전투가 남음)이면 바로 건너뛴다. 결과는 전투 탭의 지난 전투 · 소식으로
@@ -1426,6 +1461,9 @@ func watch_next() -> void:
 		gs.go("war")
 		return
 	var b: Dictionary = watch.pop_front()
+	_watch_n += 1
+	if dev_auto:
+		print("WATCH| 단계 %d · %d번째 전투 %s" % [_watch_sno, _watch_n, str(b.get("title", ""))])
 	_last_watched = b          # 닫고 전투 탭으로 돌아오면 이 전투의 결과 칸을 보인다
 	gs.show_battle(b.res, watch.is_empty(), str(b.get("kind", "")), b.get("params", {}))
 

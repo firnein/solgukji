@@ -61,6 +61,7 @@ func connect_to(u: String) -> Error:
 		url = "ws://" + url
 	if url.begins_with("ws://") and url.count(":") < 2:      # wss:// (터널) 은 443 기본 포트 그대로
 		url += ":7777"
+	ws.close()      # 11/24 다시 붙기 전에 덜 붙은 옛 연결을 닫는다 (같은 토큰 두 연결이 자리를 다투지 않게)
 	ws = WebSocketPeer.new()
 	ws.inbound_buffer_size = 1 << 24      # 전투 결과(사건 수백 개)를 통째로 받는다
 	ws.outbound_buffer_size = 1 << 20

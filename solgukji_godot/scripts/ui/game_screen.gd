@@ -5760,6 +5760,8 @@ func _dev_args() -> void:
 		online.dev_auto = a.has("gauto")
 		online.net.connect_to(str(a.gonline))
 		await online.net.opened
+		if a.has("gdrop"):      # 11/24 점검: 전투를 보는 중 --gdrop 초 뒤 연결을 끊는다 (단계마다 한 번) —— 재접속 뒤 같은 전투를 다시 트는지 · 준비가 남는지
+			_dev_drop_loop(float(a.gdrop))
 		if a.has("gcreate"):
 			online.net.send({"t": "create", "mode": a.gcreate, "max": int(a.get("gmax", "8"))})      # 11/11 --gmax=4|6|8 총 인원
 			if a.has("gstart"):
@@ -6711,3 +6713,16 @@ class SheetHandle extends Control:
 		sb.bg_color = Color(DB.PAL.paper, 0.25)
 		sb.set_corner_radius_all(3)
 		draw_style_box(sb, Rect2(size.x / 2 - 20, 8, 40, 5))
+
+
+func _dev_drop_loop(sec: float) -> void:
+	var done := {}
+	while is_inside_tree():
+		await get_tree().create_timer(0.25).timeout
+		var sno := int(online.room.get("stage_no", -1))
+		if done.has(sno) or not battle_visible() or _battle.finished:
+			continue
+		done[sno] = true
+		await get_tree().create_timer(sec).timeout
+		print("DROP| 단계 %d —— 연결을 끊는다" % sno)
+		online.net.close()
