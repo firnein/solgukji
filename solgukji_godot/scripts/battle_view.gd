@@ -4041,11 +4041,14 @@ class Hud extends Control:
 	const PAINT_FACE_SLOT := 18.0
 	const PAINT_NAME_FS := 9
 	const PAINT_BAR_MIN := 28.0
-	const PAINT_MORALE := Color("#7eb6d4")
+	const PAINT_MORALE := Color("#d6bf80")
 	const TROOP_LAYER_SIZE := 10000.0
-	const TROOP_LAYER_COLORS := [Color("#c0c7ce"), Color("#6fb998"), Color("#689fd0"),
-		Color("#ab8bd3"), Color("#d8b260"), Color("#da9168"), Color("#ce7d9f"),
-		Color("#6dbdc1"), Color("#b4bc74"), Color("#e0b7a1")]
+	const TROOP_LAYER_COLORS := {
+		"A": [Color("#4f9ed8"), Color("#9acdf1"), Color("#2e75b6"),
+			Color("#74b5e4"), Color("#badff6"), Color("#4186bd")],
+		"B": [Color("#d96961"), Color("#efaaa0"), Color("#b44949"),
+			Color("#e8897c"), Color("#f4c8bb"), Color("#bd5c59")]
+	}
 
 	## 보스 체력 바처럼 현재 한 줄과 그 뒤의 층을 포갠다. 정확히 만 명이면 현재 줄이 가득 찬다.
 	static func troop_layers(amount: float) -> Vector2:
@@ -4055,12 +4058,11 @@ class Hud extends Control:
 		var layer := ceili(value / TROOP_LAYER_SIZE)
 		return Vector2(layer, (value - (layer - 1) * TROOP_LAYER_SIZE) / TROOP_LAYER_SIZE)
 
-	static func troop_layer_color(layer: int) -> Color:
+	static func troop_layer_color(layer: int, camp: String) -> Color:
 		if layer <= 0:
 			return Color("#171a1c")
-		if layer <= TROOP_LAYER_COLORS.size():
-			return TROOP_LAYER_COLORS[layer - 1]
-		return Color.from_hsv(fposmod(layer * 0.618034, 1.0), 0.4, 0.85)
+		var colors: Array = TROOP_LAYER_COLORS[camp]
+		return colors[(layer - 1) % colors.size()]
 
 	## 삽화 메달 하나 —— 틀 · 얼굴 · 이름표를 한 번 그려 두고 Hud 가 자리(position) · 투명(modulate)만 바꾼다
 	class MedalNode extends Control:
@@ -4075,6 +4077,7 @@ class Hud extends Control:
 		var troop_fill := 0.0          # 맨 앞 층의 폭. 화면 픽셀이 바뀔 때만 다시 그린다.
 		var mo := -1                  # 사기 칸 (0~40 = 0~200, 5 단위). -1 이면 막대 없음
 		var team := Color.WHITE
+		var camp := "A"
 		var selected := false
 		var contributing := false
 		func _draw() -> void:
@@ -4100,10 +4103,10 @@ class Hud extends Control:
 				# 뒤의 두 층만 1px씩 비껴 보여 주며 이름표의 전체 크기는 늘리지 않는다.
 				for depth in [2, 1]:
 					if troop_layer > depth:
-						draw_rect(Rect2(bar.position + Vector2.ONE * depth, bar.size), BattleView.Hud.troop_layer_color(troop_layer - depth))
-				draw_rect(bar, BattleView.Hud.troop_layer_color(troop_layer - 1))
+						draw_rect(Rect2(bar.position + Vector2.ONE * depth, bar.size), BattleView.Hud.troop_layer_color(troop_layer - depth, camp))
+				draw_rect(bar, BattleView.Hud.troop_layer_color(troop_layer - 1, camp))
 				if troop_fill > 0.0:
-					draw_rect(Rect2(bar.position, Vector2(troop_fill, bar.size.y)), BattleView.Hud.troop_layer_color(troop_layer))
+					draw_rect(Rect2(bar.position, Vector2(troop_fill, bar.size.y)), BattleView.Hud.troop_layer_color(troop_layer, camp))
 			if mo >= 0:      # 사기는 병력 바 아래의 가는 별도 줄로 유지한다.
 				var bar := Rect2(Vector2(tx, 7.0), Vector2(bw, 2.0))
 				draw_rect(bar, Color(0.02, 0.02, 0.03, 0.9))
@@ -4867,7 +4870,7 @@ class Hud extends Control:
 					_medal_layer.add_child(node)
 					_medal_nodes[sq.key] = node
 				var bz: bool = bool(sq.row.get("boss", false)) and sq.alive
-				if node.portrait != portrait or node.name_ != nw[0] or node.S != S or node.r != r or node.boss != bz 						or node.mo != mo or node.troop_layer != layer or node.troop_fill != fill:
+				if node.portrait != portrait or node.name_ != nw[0] or node.S != S or node.r != r or node.boss != bz 						or node.mo != mo or node.troop_layer != layer or node.troop_fill != fill or node.camp != sq.camp:
 					node.boss = bz
 					node.troop_layer = layer
 					node.troop_fill = fill
@@ -4878,6 +4881,7 @@ class Hud extends Control:
 					node.S = S
 					node.r = r
 					node.team = TOK_TEAM[sq.camp]
+					node.camp = sq.camp
 					node.queue_redraw()
 				if node.selected != selected:
 					node.selected = selected

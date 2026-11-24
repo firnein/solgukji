@@ -63,6 +63,13 @@ func _ready() -> void:
 		assert(state.y >= 0.0 and state.y <= 1.0)
 	assert(BattleView.Hud.troop_layers(38000.0).is_equal_approx(Vector2(4, 0.8)))
 	assert(BattleView.Hud.troop_layers(-1.0) == Vector2.ZERO)
+	for layer in range(1, 33):
+		var ally := BattleView.Hud.troop_layer_color(layer, "A")
+		var enemy := BattleView.Hud.troop_layer_color(layer, "B")
+		assert(ally.b > ally.r and enemy.r > enemy.b and ally != enemy, "Every HP layer must retain its camp color, including stacked boss bars")
+		assert(ally != BattleView.Hud.PAINT_MORALE and enemy != BattleView.Hud.PAINT_MORALE, "Morale must remain distinct from both HP palettes")
+		if layer > 1:
+			assert(ally != BattleView.Hud.troop_layer_color(layer - 1, "A") and enemy != BattleView.Hud.troop_layer_color(layer - 1, "B"), "Adjacent layers must stay distinguishable without changing faction hue")
 	# 만 명 경계 직전의 위층 색이 경계를 넘은 뒤의 아래층 색이다.
 	for boundary in [10000.0, 20000.0, 40000.0, 100000.0]:
 		var before := BattleView.Hud.troop_layers(boundary - 1.0)
@@ -101,6 +108,7 @@ func _ready() -> void:
 		var unit: Squad = view.field.squads[key]
 		var node: BattleView.Hud.MedalNode = view.hud._medal_nodes[key]
 		var troop_state := BattleView.Hud.troop_layers(unit.troops)
+		assert(node.camp == unit.camp, "The nameplate must receive the actual replay camp for its HP palette")
 		assert(node.troop_layer == (int(troop_state.x) if unit.alive else -1), "Both armies must use absolute troop layers")
 		if unit.alive:
 			var bar_width := node.w - BattleView.Hud.PAINT_FACE_SLOT - 4.0
@@ -130,7 +138,7 @@ func _ready() -> void:
 	view.play_res(result, "pvp")
 	view.speed = 0.0
 	assert(view.hud._hl.is_empty(), "Selection must clear when the same view starts another battle")
-	print("PASS battle readability: anchored compact portrait-name-HP-morale frame / cached portraits in both camps / no number reserve or ticks / card tap / absolute troop layers / boundaries and recovery / exact numbers in selected bottom card / full label picking / replay immutability / reused view")
+	print("PASS battle readability: compact portrait-name-HP-morale / blue ally and red enemy HP across all layers / distinct morale / fixed positions / cached portraits / card tap / absolute troop layers and recovery / replay immutability / reused view")
 	view.queue_free()
 	await get_tree().process_frame
 	get_tree().quit()
