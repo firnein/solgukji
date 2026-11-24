@@ -165,7 +165,8 @@ func _ready() -> void:
 		assert(view.hud.ult_notices[camp].size() == 1)
 		assert(view.hud.ult_notices[camp][0].skill == light.ult.name)
 		assert(view.hud.ult_notices[camp][0].cid == view.field.squads[light.who].cid, "The portrait must identify the actual caster")
-		assert(view.hud.ult_notices[camp][0].speech == light.ult.shout, "Fast ultimates must speak the actual recorded general's line")
+		assert(view.hud.ult_notices[camp][0].speech == view.hud.short_shout(DB.person(view.field.squads[light.who].cid), light.ult.shout), "Fast ultimates must speak the actual general's line (short form)")
+		assert(view.hud.ult_notices[camp][0].speech.length() <= 12, "Bubble lines stay short")
 		assert(not view.hud.ult_notices[camp][0].lines.is_empty())
 		view.hud.layout_ult_notices()
 		var nr: Rect2 = view.hud.ult_notices[camp][0].rect

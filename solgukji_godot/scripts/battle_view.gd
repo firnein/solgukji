@@ -2648,6 +2648,28 @@ class Hud extends Control:
 	var ult_notices := {"A": [], "B": []}
 	var _notice_styles := {}
 
+	## 11/24 말풍선용 짧은 외침 (data/ult_shout_short.json, 인물 → 한마디). 표에 없으면 원래 외침의 첫 마디까지만
+	static var _short_shout: Dictionary = {}
+	static var _short_loaded := false
+	static func short_shout(person: String, speech: String) -> String:
+		if not _short_loaded:
+			_short_loaded = true
+			var f := FileAccess.open("res://data/ult_shout_short.json", FileAccess.READ)
+			if f != null:
+				var d = JSON.parse_string(f.get_as_text())
+				if d is Dictionary:
+					_short_shout = d
+		if _short_shout.has(person):
+			return str(_short_shout[person])
+		var line := speech.strip_edges()
+		if line.length() > 12:
+			for i in range(3, line.length() - 1):
+				if line[i] in "!?.…":
+					return line.substr(0, i + 1)
+				if line[i] == ",":
+					return line.substr(0, i)
+		return line
+
 	## 빠른 · 미니 고유기 알림 —— 시전한 부대 이름표 바로 위에 초상 + 말풍선(기술명 · 외침). 여럿이 동시에 뜨고 서로 밀어낸다.
 	func ult_notice(sq: Squad, skill: String, mini := false, speech := "") -> void:
 		var queue: Array = ult_notices[sq.camp]
@@ -2655,6 +2677,7 @@ class Hud extends Control:
 			queue.remove_at(0)
 		if speech.strip_edges() == "" and DB.has_ult(sq.cid):
 			speech = str(DB.ult_of(sq.cid).get("shout", ""))
+		speech = short_shout(DB.person(sq.cid), speech)      # 11/24 사용자 「축약된 멘트로」 —— 말풍선은 짧은 한마디
 		var n := {"who": DB.person(sq.cid), "cid": sq.cid, "key": sq.key, "camp": sq.camp, "skill": skill, "mini": mini, "age": 0.0,
 			"speech": speech.strip_edges(), "anchor": Vector2(-9999, -9999), "rect": Rect2()}
 		n["lines"] = _notice_speech_lines(n.speech, ULT_NOTICE_W - 40.0 + 16.0)

@@ -115,7 +115,7 @@ func _ready() -> void:
 	assert(timing == [view.clock, view.speed, view.freeze_t, view.slow_t, view.field._cine])
 	var caster: Squad = view.field.squads[groups[0].who]
 	assert(view.hud.ult_notices[caster.camp][0].mini and view.hud.ult_notices[caster.camp][0].cid == caster.cid)
-	assert(view.hud.ult_notices[caster.camp][0].speech == groups[0].ult.shout)
+	assert(view.hud.ult_notices[caster.camp][0].speech == view.hud.short_shout(DB.person(caster.cid), groups[0].ult.shout))
 	view.hud.layout_ult_notices()
 	assert(view.hud.ult_notices[caster.camp][0].rect.has_area())
 	assert(JSON.stringify(ui_result) == source)
