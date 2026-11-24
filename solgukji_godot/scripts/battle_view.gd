@@ -1685,7 +1685,8 @@ func _lead_step() -> void:
 
 ## 궁병·지략 계열은 제 차례 사이에도 쉬지 않고 쏘고 던진다 (피해는 엔진 이벤트 때만 들어간다)
 func _ambient_fire() -> void:
-	if finished:
+	if finished or Type2View.painting_on():
+		# 삽화 전장의 사격·시전 자세는 실제 공격 묶음에서만 시작한다.
 		return
 	for sq in field.order:
 		if not sq.alive or sq.state == "flee" or (sq.cls != "ranged" and sq.cls != "caster"):
@@ -1986,6 +1987,11 @@ var _fin_busy := -99.0       # 이름 띠가 비는 시각 (실제 초)
 const FIN_HOLD := 1.9        # 모음 + 터짐 + 이름 띠가 한 화면을 쓰는 시간
 
 func _fin_show(e: Dictionary, gq: Dictionary, kind: String, fcol: Color, lbl: String, late := false) -> void:
+	if Type2View.painting_on() and Settings.ult_fx != 0:
+		# 합동 고유기 뒤의 후속 연출도 간단히 설정을 따른다. 큰 현판을 대기열로 쌓지 않는다.
+		if field.squads.has(str(e.get("a", ""))) and smooth:
+			field.ult.play(FIN_VFX.get(kind, "aura"), e.a, gq.foes, gq.allies, 0.0, true)
+		return
 	var now := Time.get_ticks_msec() / 1000.0
 	var wait := _fin_busy - now
 	if wait > 0.05 and not late:      # 앞 인연기의 이름 띠가 아직 떠 있다 —— 겹치지 않게 그 뒤로 미룬다 (인연기 → 인연 주제가 연달아 올 때)
@@ -2132,12 +2138,12 @@ func _start_ult(g: Dictionary) -> void:
 	var u: Dictionary = g.ult
 	hud.charge_end(g.who)      # 기 모으기 표시는 컷인이 뜨면 걷는다
 	if not u.has("lead") and not bool(g.get("big", true)):      # 11/22 가벼운 고유기 —— 슬로모션 · 컷인 · 카메라 없이 이름과 이펙트만, 전투를 멈추지 않는다
-		u["_lite"] = true      # 소리(_sound)도 가볍게
+		g["lite"] = true      # 연출 표시는 재생 묶음에만 둔다. 원본 사건은 수정하지 않는다.
 		hud.float_text(g.who, "『%s』" % str(u.get("name", "고유기")), Color("#ffd257"), 13)
 		get_tree().create_timer(0.2).timeout.connect(func():
 			if is_instance_valid(sq):
 				field.flourish(sq, 1.1))
-		field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
+		field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY, true)
 		g.min_t = clock + ULT_DELAY
 		if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty() and not _rt():
 			field.order_melee(g.who, g.targets[0])
@@ -2147,11 +2153,13 @@ func _start_ult(g: Dictionary) -> void:
 			_release(g, clock + ULT_DELAY)
 		return
 	if u.has("lead"):      # 11/11 인연 합동 —— 대표 컷인 옆에 이미 서 있다. 컷인 · 카메라 · 슬로모션 없이 제 고유기 이펙트만 (슉 나아가 휘두른다)
+		var join_lite := Type2View.painting_on() and Settings.ult_fx != 0
+		g["lite"] = join_lite
 		hud.float_text(g.who, "인연 『%s』" % u.get("inyeon", ""), Color("#ffd257"), 13)
 		get_tree().create_timer(0.35).timeout.connect(func():
 			if is_instance_valid(sq):
 				field.flourish(sq, 1.3))
-		field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY)
+		field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY, join_lite)
 		g.min_t = clock + ULT_DELAY
 		if g.phys and (sq.cls == "melee" or sq.cls == "cav") and not g.targets.is_empty() and not _rt():
 			field.order_melee(g.who, g.targets[0])
@@ -2160,7 +2168,7 @@ func _start_ult(g: Dictionary) -> void:
 		else:
 			_release(g, clock + ULT_DELAY)
 		return
-	u.erase("_lite")      # 11/22 설정을 바꿔 다시 크게 보이는 경우
+	g["lite"] = false      # 설정을 바꿔 다시 크게 보이는 경우
 	if speed > 0:
 		slow_t = 2.8      # 11/4 휘두르기 · 날리기까지 슬로모션 (11/6 컷인이 길어져 2.0 → 2.8)
 	var ud = DB.ult_of(sq.cid) if DB.C.has(sq.cid) else null      # 효과 문구는 카드의 고유기 정의에서 (사건 쪽 사전에는 eff 가 없다)
@@ -2276,9 +2284,9 @@ func _apply(i: int, quiet := false) -> void:
 	var painting := Type2View.painting_on()
 	if not (painting and e.has("kin_by")):
 		_damage_number(i, e, f)
-	_sound(e)
-	# 무쌍 —— 기술 · 고유기 타격은 병력을 바로 깎고 쓰러질 병사들을 한꺼번에 날린다
 	var gq: Dictionary = group_of[i]
+	_sound(e, bool(gq.get("lite", false)))
+	# 무쌍 —— 기술 · 고유기 타격은 병력을 바로 깎고 쓰러질 병사들을 한꺼번에 날린다
 	if painting and type2 != null and type2.painting != null:
 		type2.painting.play_event(e, gq.ult, troop_updates)
 	if not Type2View.painting_on() and not Type2View.formation_preview and (e.get("fx") == "phys" or e.get("fx") == "int") and (gq.skill != "" or gq.ult != null) and idx_of.has(f) and smooth:
@@ -2382,7 +2390,7 @@ func _tac_reveal(e: Dictionary) -> void:
 
 
 ## 소리 —— 사건 종류마다 (Sfx 가 잦은 소리는 건너뛴다)
-func _sound(e: Dictionary) -> void:
+func _sound(e: Dictionary, lite := false) -> void:
 	match e.get("fx", ""):
 		"phys":      # 11/4 사용자: 병장기 소리 —— 칼 소리와 병장기 부딪침을 섞는다
 			var heavy: bool = e.get("crit", false)
@@ -2399,7 +2407,7 @@ func _sound(e: Dictionary) -> void:
 		"int": pass      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
 		"skill": if e.get("kind", "") == "phys": Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
 		"ult":
-			if e.get("_lite", false):      # 11/22 가벼운 고유기 —— 뿔나팔(음악 낮춤) 없이 병장기 한 번
+			if lite:      # 가벼운 고유기 —— 뿔나팔(음악 낮춤) 없이 병장기 한 번
 				Sfx.play("crit", 0.0)
 			else:
 				Sfx.play("horn", -2.0)      # 고유기 —— 마법 소리(ult.wav) 대신 뿔나팔 + 병장기
@@ -2592,15 +2600,22 @@ func _finish() -> void:
 
 class Hud extends Control:
 	var view: BattleView
+	var story = preload("res://scripts/field/battle_story.gd").new()
+	var _story_revision := -1
+	var _story_caption := ""
+	var _story_width := 0.0
 	var floats := []
 	var stamp_info = null
 	var stamp_t := 0.0
 
 	func reset() -> void:
+		story.reset(view.res.get("roster", []))
+		_story_revision = -1
 		if _medal_cache.size() > 600:      # 11/9 구운 메달은 (장수 · 진영 · 등급색 · 크기 · 배율)이 키라 전투를 넘어 써도 된다 —— 너무 쌓였을 때만 비운다
 			_medal_cache.clear()
 		_tok_tex.clear()
 		_tok_name.clear()
+		_hl.clear()
 		for k in _medal_nodes:
 			_medal_nodes[k].queue_free()
 		_medal_nodes.clear()
@@ -3029,6 +3044,7 @@ class Hud extends Control:
 	var _badge_rects: Array = []      # 이번 그리기에서 놓인 상태 딱지 —— 딱지끼리 · 기여 알림이 피해 간다
 
 	func deck_event(e: Dictionary) -> void:
+		story.observe(e, view.clock)
 		for assist in e.get("assists", []):
 			if float(assist.get("n", 0.0)) > 0.0:
 				deck_event({"fx": "support", "f": e.get("f", ""), "st": assist.st, "from": assist.get("from", "")})
@@ -3161,21 +3177,29 @@ class Hud extends Control:
 				var ic := _icon_of(st)
 				if sq.statuses.has(st) and not found.has(ic):
 					found.append(ic)
-			if found.size() > BADGE_MAX:
-				var more := found.size() - (BADGE_MAX - 1)
-				found = found.slice(0, BADGE_MAX - 1)
-				found.append("+%d" % more)
 			c = [h, found, 0.0]
 			_badge_icons[sq.key] = c
 		var icons: PackedStringArray = c[1]
+		# 평소에는 두 항목과 남은 개수, 아래 카드를 누른 동안은 네 칸을 펼친다.
+		# 원본 목록을 보관해 선택 전환 때 상태 변화가 없어도 다시 펼칠 수 있다.
+		var detail := highlight_k(sq.key) > 0.0 or sq == view.field.follow
+		var limit := BADGE_MAX - 1 if detail else 2
+		if icons.size() > (BADGE_MAX if detail else 2):
+			var more := icons.size() - limit
+			icons = icons.slice(0, limit)
+			icons.append("+%d" % more)
 		if icons.is_empty():
 			return [icons, 0.0]
 		var w := BADGE_D * icons.size() + BADGE_GAP * (icons.size() - 1)
-		var r := Rect2(p + Vector2(-w * 0.5, radius + 21.0), Vector2(w, BADGE_D))
+		var r := Rect2(p + Vector2(-w * 0.5, radius + 7.0), Vector2(w, BADGE_D))
 		# 11/22 프레임: 지난번에 놓인 줄을 먼저 본다 —— 이웃과 스칠 때마다 줄이 오르내리며 다시 그리던 것을 줄인다
-		for dy in [c[2], 0.0, BADGE_D + 2.0, 2.0 * (BADGE_D + 2.0)]:
+		for dy in [c[2], 0.0, BADGE_D + 2.0, -(radius * 2.0 + BADGE_D + 14.0), 2.0 * (BADGE_D + 2.0)]:
 			var cand := Rect2(r.position + Vector2(0, dy), r.size)
-			var hit := false
+			var hit := cand.position.x < 2.0 or cand.end.x > size.x - 2.0 or cand.position.y < 94.0 or cand.end.y > size.y - 2.0
+			for key in _painted_medals:
+				if (_painted_medals[key].label as Rect2).grow(2.0).intersects(cand):
+					hit = true
+					break
 			for o: Rect2 in _badge_rects:
 				if o.intersects(cand):
 					hit = true
@@ -3257,7 +3281,7 @@ class Hud extends Control:
 			var ic := _icon_of(st)
 			if not keys.has(ic):
 				keys.append(ic)
-		for n in range(2, BADGE_ORDER.size() + 1):
+		for n in range(1, BADGE_ORDER.size() + 1):
 			keys.append("+%d" % n)
 		var cell := ceili((BADGE_D + 2.0 * BADGE_PAD) * S)
 		var cols := 8
@@ -3444,6 +3468,8 @@ class Hud extends Control:
 	## 피해 숫자 —— 적이 입은 피해는 흰색, 아군이 입은 피해는 붉은색, 책략은 보랏빛, 회복은 초록.
 	## 치명타는 금빛으로 크게 찍혔다가 자리를 잡고 "치명타!" 가 붙는다.
 	func damage(key: String, amount: float, kind: String, crit: bool, every := false) -> void:
+		if Type2View.painting_on() and amount <= 0.0:
+			return
 		var sq: Squad = view.field.squads.get(key)
 		if sq == null:
 			return
@@ -4006,11 +4032,30 @@ class Hud extends Control:
 	## 고등급이 뭉치면 다 같이 커서 오히려 안 보였다 —— 상대적으로 높은 장수만 눈에 띄게). 나머지 0
 	var _emph := {}
 	var _emph_n := -1      # 11/15 성능: 순위는 전투 동안 바뀌지 않는다(등급 · PV) —— 부대 구성이 바뀔 때만 다시 센다 (그리기마다 정렬하지 않게. reset 이 −1 로)
-	var _tok_name := {}    # 부대 key -> [이름, 이름표 폭, 카드] (삽화 메달, 11/19)
+	var _tok_name := {}    # 부대 key -> [이름, 이름에 맞춘 고정 폭, 카드, 총대장]
 	var _medal_layer: Control = null
 	var _medal_nodes := {}  # 부대 key -> MedalNode
 	var _badge_layer: Control = null      # 11/22 상태 딱지 층 —— 메달 층 바로 위
 	var _badge_nodes := {}  # 부대 key -> BadgeRow
+	const TROOP_LAYER_SIZE := 10000.0
+	const TROOP_LAYER_COLORS := [Color("#c0c7ce"), Color("#6fb998"), Color("#689fd0"),
+		Color("#ab8bd3"), Color("#d8b260"), Color("#da9168"), Color("#ce7d9f"),
+		Color("#6dbdc1"), Color("#b4bc74"), Color("#e0b7a1")]
+
+	## 보스 체력 바처럼 현재 한 줄과 그 뒤의 층을 포갠다. 정확히 만 명이면 현재 줄이 가득 찬다.
+	static func troop_layers(amount: float) -> Vector2:
+		var value := maxf(0.0, amount)
+		if value <= 0.0:
+			return Vector2.ZERO
+		var layer := ceili(value / TROOP_LAYER_SIZE)
+		return Vector2(layer, (value - (layer - 1) * TROOP_LAYER_SIZE) / TROOP_LAYER_SIZE)
+
+	static func troop_layer_color(layer: int) -> Color:
+		if layer <= 0:
+			return Color("#171a1c")
+		if layer <= TROOP_LAYER_COLORS.size():
+			return TROOP_LAYER_COLORS[layer - 1]
+		return Color.from_hsv(fposmod(layer * 0.618034, 1.0), 0.4, 0.85)
 
 	## 삽화 메달 하나 —— 틀 · 얼굴 · 이름표를 한 번 그려 두고 Hud 가 자리(position) · 투명(modulate)만 바꾼다
 	class MedalNode extends Control:
@@ -4020,33 +4065,46 @@ class Hud extends Control:
 		var S := 1.0
 		var r := 8.0
 		var boss := false             # 11/19 토벌 총대장 —— 메달 위에 왕관
-		# 11/19 사용자: 메달로 그 부대의 사기 · 병력("47k")을 본다 (고유기 고리는 넣었다가 사용자 뜻으로 뺐다). 값은 칸으로 끊어(사기 5) 바뀔 때만 다시 그린다
-		var troops_t := ""            # 이름 옆 병력 ("47k"), 빈 글이면 안 그린다
-		var tw := 0.0                 # 병력 글 폭
+		# 병력은 만 명 단위 누적 바, 사기는 5 단위로 바뀔 때만 다시 그린다.
+		var troop_layer := -1
+		var troop_fill := 0.0          # 맨 앞 층의 폭. 화면 픽셀이 바뀔 때만 다시 그린다.
 		var mo := -1                  # 사기 칸 (0~40 = 0~200, 5 단위). -1 이면 막대 없음
+		var team := Color.WHITE
+		var selected := false
+		var contributing := false
 		func _draw() -> void:
-			for mt: Texture2D in mts:
-				var tsz := Vector2(mt.get_size())
-				draw_texture_rect(mt, Rect2((tsz * -0.5).round() / S, tsz / S), false)
+			var label := Rect2(Vector2(-w * 0.5, -10.0), Vector2(w, 20.0))
+			draw_rect(label, Color(0.08, 0.08, 0.06, 0.86 if selected or boss else 0.62))
+			draw_rect(Rect2(label.position, Vector2(2, label.size.y)), team)
+			if selected or boss or contributing:
+				draw_rect(label.grow(1.0), Color("#ffe2a0") if boss or contributing else Color("#d8f2ff"), false, 1.2)
+			var face_at := Vector2(-w * 0.5 - r - 4.0, 0)
+			if selected or boss:
+				for mt: Texture2D in mts:
+					var tsz := Vector2(mt.get_size())
+					draw_texture_rect(mt, Rect2(face_at + (tsz * -0.5).round() / S, tsz / S), false)
 			if boss:      # 총대장 —— 메달 둘레 금테 + 큰 왕관 (위) + 금테 이름표
-				draw_arc(Vector2.ZERO, r + 1.5, 0, TAU, 32, Color(1.0, 0.82, 0.25, 0.95), 2.0, true)
-				BattleView.Hud.draw_crown(self, Vector2(0, - r - 8.0), 1.0, 1.8)
-			var label := Rect2(Vector2(- w * 0.5, r + 4.5), Vector2(w, 13.0))
-			draw_rect(label, Color(0.30, 0.06, 0.04, 0.9) if boss else Color(0.08, 0.08, 0.06, 0.82))
-			if boss:
-				draw_rect(label.grow(0.5), Color(1.0, 0.82, 0.25, 0.95), false, 1.0)
-			if troops_t == "":
-				draw_string(DB.font_bold, label.position + Vector2(0, 10), name_, HORIZONTAL_ALIGNMENT_CENTER, w, 10, Color(0.98, 0.94, 0.81))
-			else:
-				draw_string(DB.font_bold, label.position + Vector2(4, 10), name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.98, 0.94, 0.81))
-				draw_string(DB.font_bold, label.position + Vector2(w - tw - 4, 10), troops_t, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color("#a9c8f0"))
-			if mo >= 0:      # 사기 막대 —— 이름표 바로 아래 2px. 100 까지 사기색, 넘는 몫은 금색
-				var bar := Rect2(label.position + Vector2(0, 13.0), Vector2(w, 2.0))
+				draw_arc(face_at, r + 1.5, 0, TAU, 32, Color(1.0, 0.82, 0.25, 0.95), 2.0, true)
+				BattleView.Hud.draw_crown(self, face_at + Vector2(0, -r - 8.0), 1.0, 1.8)
+			var tx := -w * 0.5 + 5.0
+			draw_string(DB.font_bold, Vector2(tx, -2), name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.98, 0.94, 0.81))
+			if troop_layer >= 0:
+				var bar := Rect2(Vector2(tx, 1.0), Vector2(w - 11.0, 3.0))
+				# 뒤의 두 층만 1px씩 비껴 보여 주며 이름표의 전체 크기는 늘리지 않는다.
+				for depth in [2, 1]:
+					if troop_layer > depth:
+						draw_rect(Rect2(bar.position + Vector2.ONE * depth, bar.size), BattleView.Hud.troop_layer_color(troop_layer - depth))
+				draw_rect(bar, BattleView.Hud.troop_layer_color(troop_layer - 1))
+				if troop_fill > 0.0:
+					draw_rect(Rect2(bar.position, Vector2(troop_fill, bar.size.y)), BattleView.Hud.troop_layer_color(troop_layer))
+			if mo >= 0:      # 사기는 병력 바 아래의 가는 별도 줄로 유지한다.
+				var bw := w * 0.5 - tx - 4.0
+				var bar := Rect2(Vector2(tx, 7.0), Vector2(bw, 2.0))
 				draw_rect(bar, Color(0.02, 0.02, 0.03, 0.9))
 				var m := mo * 5.0
-				draw_rect(Rect2(bar.position, Vector2(w * clampf(m / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.morale_color(m))
+				draw_rect(Rect2(bar.position, Vector2(bw * clampf(m / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.morale_color(m))
 				if m > 100.0:
-					draw_rect(Rect2(bar.position, Vector2(w * clampf((m - 100.0) / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.MORALE_OVER_COL)
+					draw_rect(Rect2(bar.position, Vector2(bw * clampf((m - 100.0) / 100.0, 0.0, 1.0), 2.0)), BattleView.Hud.MORALE_OVER_COL)
 			# 11/22 상태 기호는 BadgeRow 가 따로 그린다 —— 메달 층 위 딱지 층이라 이웃 메달에 가려지지 않는다
 
 	## 11/22 메달 아래 상태 딱지 줄 (최대 넷, 넘치면 「+N」) —— 버프 초록 · 디버프 빨강 테두리. 메달과 같은 자리에 두고 바뀔 때만 다시 그린다
@@ -4067,7 +4125,7 @@ class Hud extends Control:
 			baked = at != null
 			material = BattleView.Hud.badge_mat if baked else null
 			for i in icons.size():
-				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + G), r + 21.0 + dy + D * 0.5)
+				var c := Vector2(- bw * 0.5 + D * 0.5 + i * (D + G), r + 7.0 + dy + D * 0.5)
 				if baked and BattleView.Hud.badge_cells.has(icons[i]):
 					var cl: Rect2 = BattleView.Hud.badge_cells[icons[i]]
 					draw_texture_rect_region(at, Rect2((c * S - cl.size * 0.5).round() / S, cl.size / S), cl)
@@ -4508,19 +4566,42 @@ class Hud extends Control:
 	var _tok_tick := 0
 	var _painted_medals := {}
 	const TOK_GAP := 38.0
+	func _painted_size(sq: Squad) -> Vector2:
+		var boss := bool(sq.row.get("boss", false))
+		var cached: Array = _tok_name.get(sq.key, [])
+		if cached.size() == 4 and cached[2] == sq.cid and cached[3] == boss:
+			return Vector2(cached[1], 20.0)
+		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
+		if boss:
+			nm = "총대장 " + nm
+		var w := maxf(32.0, DB.font_bold.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10.0)
+		_tok_name[sq.key] = [nm, w, sq.cid, boss]
+		return Vector2(w, 20.0)
+
 	func _flat_token_pos(tags: Array, painted: bool) -> Dictionary:
+		if painted:
+			# 이름표는 부대 뒤에 붙인다. 이웃·상태에 따라 비키거나 보간하지 않는다.
+			var fixed := {}
+			for tag in tags:
+				var sq: Squad = tag[1]
+				var at := sq.pos
+				if view.type2 != null and view.type2.painting != null:
+					var form = view.type2.painting.formations.get(sq.key)
+					if form != null:
+						at = form.center
+				at.x -= (sq.hd0 + 12.0) * (1.0 if sq.camp == "A" else -1.0)
+				var p: Vector2 = view.field.to_screen(at, 0.0) + Vector2(0, 5)
+				var half := _painted_size(sq) * 0.5
+				fixed[sq.key] = p.clamp(Vector2(half.x + 30, 94 + half.y), size - Vector2(half.x + 3, half.y + 3))
+				_tok_off[sq.key] = Vector2.ZERO
+			return fixed
 		# 11/15 성능: 메달 18개면 쌍 153 × 4바퀴를 사전(문자열 열쇠)으로 돌던 것을 배열로 (같은 계산 —— 그리기 한 번에 약 0.5ms 였다)
 		var n := tags.size()
 		var base := PackedVector2Array()
 		base.resize(n)
 		for i in n:
 			var sq: Squad = tags[i][1]
-			if painted:
-
-				var rear := sq.pos + Vector2(-1, 0) * (sq.hd0 + 12.0) * (1.0 if sq.camp == "A" else -1.0)
-				base[i] = view.field.to_screen(rear, 0.0) + Vector2(0, 5)
-			else:
-				base[i] = view.field.to_screen(sq.pos, 0.0)
+			base[i] = view.field.to_screen(sq.pos, 0.0)
 		# 11/19 프레임: 밀어내기(쌍 153 × 최대 4바퀴)는 세 프레임에 한 번만 다시 풀고, 사이 프레임은 지난 목표로 따라간다
 		# (메달 밑자리는 매 프레임 부대를 따라가고, 비켜난 거리만 천천히 바뀐다). 한 바퀴에 밀린 쌍이 없으면 바로 끝낸다
 		_tok_tick += 1
@@ -4555,9 +4636,6 @@ class Hud extends Control:
 			var cur: Vector2 = (_tok_off.get(k, Vector2.ZERO) as Vector2).lerp(off, 0.15)
 			_tok_off[k] = cur
 			out[k] = base[i] + cur
-			if painted:
-				var p: Vector2 = out[k]
-				out[k] = p.clamp(Vector2(26, 94), size - Vector2(26, 33))
 		return out
 
 	## 2D 전장에서 화면 위치 sp 에 있는 메달(부대) —— 그리는 자리(밀어낸 _tok_off 까지)와 같은 곳에서 고른다 (11/9 꾹 누르기 → 전투장수창).
@@ -4578,8 +4656,8 @@ class Hud extends Control:
 					continue
 				p = marker.at
 				radius = float(marker.radius) + 4.0
-				if (marker.label as Rect2).has_point(sp):
-					radius = 40.0
+				if (marker.label as Rect2).has_point(sp) or (marker.has("portrait") and (marker.portrait as Rect2).has_point(sp)):
+					radius = maxf(radius, p.distance_to(sp) + 0.1)
 			else:
 				p = view.field.to_screen(sq.pos, 0.0) + (_tok_off.get(sq.key, Vector2.ZERO) as Vector2)
 			var d := p.distance_to(sp)
@@ -4668,6 +4746,22 @@ class Hud extends Control:
 					draw_colored_polygon(pts, wc)
 		draw_set_transform(Vector2.ZERO)
 
+	func _draw_battle_story() -> void:
+		if cut != null or not story.active(view.clock):
+			return
+		if _story_revision != story.revision:
+			_story_revision = story.revision
+			_story_caption = story.caption(view.field.squads)
+			_story_width = DB.font_bold.get_string_size(_story_caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 18.0
+		if _story_caption == "":
+			return
+		var color := Color("#efb15d") if story.current.kind == "fire" else (Color("#90d9b0") if story.current.kind == "heal" else Color("#d9caa0"))
+		var width := minf(size.x - 24.0, _story_width)
+		var box := Rect2(Vector2(12, size.y - 27.0), Vector2(width, 23))
+		draw_rect(box, Color(0.07, 0.06, 0.04, 0.8))
+		draw_rect(Rect2(box.position, Vector2(2, box.size.y)), color)
+		draw_string(DB.font_bold, box.position + Vector2(9, 16), _story_caption, HORIZONTAL_ALIGNMENT_LEFT, width - 18.0, 12, color)
+
 	func _draw_all() -> void:
 		var painted := Type2View.painting_on()
 		_painted_medals.clear()
@@ -4701,11 +4795,22 @@ class Hud extends Control:
 			_medal_layer.visible = false
 			if _badge_layer != null:
 				_badge_layer.visible = false
+		if _badge_layer != null:
+			_badge_layer.hide()      # 전장 이름표 아래 버프·디버프 줄은 표시하지 않는다.
 		if painted and not tags.is_empty():
-			# 11/19 삽화 메달 —— 자리 계산은 여기서, 그림은 메달 노드(MedalNode)가 한 번만. 상태 기호만 여기서 그린다
+			# 삽화 이름표 —— 부대 뒤 고정 위치, 그림은 바뀐 값만 다시 그린다.
 			tok_pos = _flat_token_pos(tags, painted)
+			# 터치와 기여 알림이 참조하는 이름표 영역.
+			for t in tags:
+				var sq: Squad = t[1]
+				var p: Vector2 = tok_pos.get(sq.key, view.field.to_screen(sq.pos, 0.0))
+				var plate := _painted_size(sq)
+				var pr := 13.0 if bool(sq.row.get("boss", false)) else (10.0 if sq.tier >= 7 else 8.0)
+				var portrait := Rect2()
+				if highlight_k(sq.key) > 0.0 or sq == view.field.follow or bool(sq.row.get("boss", false)):
+					portrait = Rect2(p + Vector2(-plate.x * 0.5 - pr * 2.0 - 4.0, -pr), Vector2.ONE * pr * 2.0)
+				_painted_medals[sq.key] = {"at": p, "radius": pr, "label": Rect2(p - plate * 0.5, plate), "portrait": portrait}
 			var S := _bake_s
-			var fbo2: Font = DB.font_bold
 			var seen := {}
 			if _medal_layer == null:
 				_medal_layer = Control.new()
@@ -4714,15 +4819,7 @@ class Hud extends Control:
 				_medal_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 				_medal_layer.y_sort_enabled = true      # 11/22 사용자: 총대장이 맨 위로 떴다 —— z 를 올리지 않고 화면 y 로 (아래 = 앞). 총대장도 다른 메달과 같은 깊이
 				add_child(_medal_layer)
-			if _badge_layer == null:
-				_badge_layer = Control.new()
-				_badge_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				_badge_layer.show_behind_parent = true
-				_badge_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-				add_child(_badge_layer)
-				move_child(_badge_layer, _medal_layer.get_index() + 1)      # 메달 층 바로 다음 —— 모든 메달 위, HUD 글씨 아래
 			_medal_layer.visible = true
-			_badge_layer.visible = true
 			for t in tags:
 				var sq: Squad = t[1]
 				if sq.state == "gone":
@@ -4738,26 +4835,17 @@ class Hud extends Control:
 					mts = _medal_tex(sq, r, S)
 					if mts.size() == 2:
 						_tok_tex[sq.key] = [sq.cid, r, mts]
-				var nw = _tok_name.get(sq.key)      # 이름 · 폭은 전투 내내 같다 —— 한 번만 잰다
-				if nw == null or nw[2] != sq.cid:
-					var name_: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
-					if bz0:
-						name_ = "총대장 " + name_
-					nw = [name_, fbo2.get_string_size(name_, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 8.0, sq.cid]
-					_tok_name[sq.key] = nw
-				var w: float = nw[1]
-				# 11/19 병력 · 사기 · 고유기 (살아 있는 부대만)
-				var tt := ""
-				var ttw := 0.0
+				var w := _painted_size(sq).x
+				var nw: Array = _tok_name[sq.key]
+				var selected := highlight_k(sq.key) > 0.0 or sq == view.field.follow
 				var mo := -1
+				var layer := -1
+				var fill := 0.0
 				if sq.alive:
-					tt = troops_k(sq.troops)
-					ttw = fbo2.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
-					w += ttw + 3.0
+					var state := troop_layers(sq.troops)
+					layer = int(state.x)
+					fill = roundf(state.y * (w - 11.0) * S) / S
 					mo = clampi(roundi(sq.morale / 5.0), 0, 40)
-				var label := Rect2(p + Vector2(- w * 0.5, r + 4.5), Vector2(w, 15.0))
-				_painted_medals[sq.key] = {"at": p, "radius": r, "label": label}
-				var bp := _badge_place(sq, p, r)
 				# 11/19 프레임: 메달(틀 · 얼굴 · 이름표)은 한 번 그려 둔 노드를 자리만 옮긴다 —— 매 프레임 메달 18개 × 그리기 4번을 다시 넣던 것이 HUD 에서 가장 무거웠다
 				var node: MedalNode = _medal_nodes.get(sq.key)
 				if node == null:
@@ -4766,16 +4854,24 @@ class Hud extends Control:
 					_medal_layer.add_child(node)
 					_medal_nodes[sq.key] = node
 				var bz: bool = bool(sq.row.get("boss", false)) and sq.alive
-				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.boss != bz 						or node.troops_t != tt or node.mo != mo:
+				if node.mts != mts or node.name_ != nw[0] or node.S != S or node.r != r or node.boss != bz 						or node.mo != mo or node.troop_layer != layer or node.troop_fill != fill:
 					node.boss = bz
-					node.troops_t = tt
-					node.tw = ttw
+					node.troop_layer = layer
+					node.troop_fill = fill
 					node.mo = mo
 					node.mts = mts
 					node.name_ = nw[0]
 					node.w = w
 					node.S = S
 					node.r = r
+					node.team = TOK_TEAM[sq.camp]
+					node.queue_redraw()
+				if node.selected != selected:
+					node.selected = selected
+					node.queue_redraw()
+				var contributing: bool = story.pulse(sq.key, view.clock)
+				if node.contributing != contributing:
+					node.contributing = contributing
 					node.queue_redraw()
 				node.position = (p * S).round() / S      # 화면 픽셀 칸에 맞춘다
 				var cvr := 0.0      # 11/22 매복 그늘 —— 숲 · 바위 띠를 지나는 우회 · 매복 부대는 메달도 그늘 속처럼 (화면 전용)
@@ -4783,29 +4879,10 @@ class Hud extends Control:
 					cvr = maxf(0.0, view.type2.painting.cover_of(sq))
 				node.modulate = Color(1.0 - 0.35 * cvr, 1.0 - 0.3 * cvr, 1.0 - 0.25 * cvr, sq.fade * (1.0 - 0.5 * cvr))
 				node.visible = true
-				var row: BadgeRow = _badge_nodes.get(sq.key)
-				if row == null:
-					row = BadgeRow.new()
-					row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-					row.hud = self
-					_badge_layer.add_child(row)
-					_badge_nodes[sq.key] = row
-				if row.icons != bp[0] or row.dy != bp[1] or row.r != r or row.S != S:
-					row.icons = bp[0]
-					row.dy = bp[1]
-					row.r = r
-					row.S = S
-					row.queue_redraw()
-				row.position = node.position
-				row.modulate = Color(sq.fade, sq.fade, sq.fade, sq.fade) if row.baked else Color(1, 1, 1, sq.fade)      # premult 는 색에도 투명을 곱한다
-				row.visible = not row.icons.is_empty()
 				seen[sq.key] = true
 			for k in _medal_nodes:
 				if not seen.has(k):
 					_medal_nodes[k].visible = false
-			for k in _badge_nodes:
-				if not seen.has(k):
-					_badge_nodes[k].visible = false
 			tags.clear()
 		for t in tags:
 			var p: Vector2 = t[0]
@@ -4911,29 +4988,7 @@ class Hud extends Control:
 				_draw_number(f, u, col)
 				continue
 			if painted and f.get("deck", false):
-				var marker: Dictionary = _painted_medals.get(f.key, {})
-				var squad: Squad = view.field.squads.get(f.key)
-				if marker.is_empty() or squad == null:
-					continue
-				var name_: String = DB.person(squad.cid) if squad.tier > 2 else squad.row.name
-				if str(f.get("who", "")) != "":      # 받은 부대 위에 준 장수 이름 (치료)
-					name_ = str(f.who)
-				var ic := str(f.get("icon", ""))
-				var label := name_ if ic != "" else name_ + " · " + str(f.text)      # 11/17 기호가 있으면 이름만
-				var iw := 16.0 if ic != "" else 0.0
-				var width := fb.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0 + iw
-				var anchor: Vector2 = marker.at - Vector2(0, float(marker.radius) + 8.0 + u * 12.0)
-				anchor.x = clampf(anchor.x, width * 0.5 + 6.0, size.x - width * 0.5 - 6.0)
-				anchor.y = maxf(110.0, anchor.y)
-				anchor.y += _settle_dy(f, anchor, width, 18.0)
-				var box := Rect2(anchor - Vector2(width * 0.5, 18), Vector2(width, 18))
-				f.rect = box
-				draw_rect(box, Color(0.07, 0.06, 0.04, 0.94 * col.a))
-				draw_rect(box, Color(col, 0.8 * col.a), false, 1.0)
-				if ic != "":
-					_st_icon(box.position + Vector2(12, 9), ic, 6.0, col.a)
-				draw_string(fb, box.position + Vector2(6 + iw, 13), label, HORIZONTAL_ALIGNMENT_LEFT, width - 12 - iw, 11, col)
-				continue
+				continue # 기여는 아래 고정 띠에서 대표 연계 하나로 보여준다.
 			var p := _to_screen(f.p, 6.5) + Vector2(0, -20 - f.n * 16 - u * 26)
 			if view.field.flat != null:      # 2D 전장 —— 메달 밀어낸 만큼 따라가고, 겹치면 위로
 				if not painted:
@@ -4946,6 +5001,8 @@ class Hud extends Control:
 			draw_string_outline(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, 6, Color(0, 0, 0, col.a))
 			draw_string(fd, p - Vector2(80, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 160, f.fs, col)
 		floats = keep
+		if painted:
+			_draw_battle_story()
 		_draw_skill_banners()
 		_draw_fins()
 		tq = view.field.pt("머리표·글씨", tq)
@@ -5436,10 +5493,18 @@ class MiniCard extends Control:
 
 	var _last := []
 
+	func _troops_text() -> String:
+		if not sq.alive:
+			return "궤멸" if sq.troops <= 0 else "패주"
+		if view.hud.highlight_k(sq.key) > 0.0 or sq == view.field.follow:
+			return Battle.num(sq.troops)
+		return BattleView.Hud.troops_k(sq.troops)
+
 	func _process_card() -> void:
 		var lv := view.unit_live(sq.key)
 		var ready := view.ult_ready(sq.key)
-		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], lv[2], ready]
+		var selected := view.hud.highlight_k(sq.key) > 0.0 or sq == view.field.follow
+		var now := [int(sq.troops / sq.max * 200), int(sq.morale), sq.glow > 0.05, sq.hurt > 0.05, sq.alive, sq.troops <= 0, lv[0], lv[1], lv[2], ready, selected, roundi(sq.troops) if selected else -1]
 		# 11/15 성능: 값이 바뀌면 바로, 깜빡이는 칸(위태 · 「준비」 · 직접 지휘의 고유기 금테)은 BLINK_MS 마다 다시 그린다 —— 예전엔 매 프레임이라
 		# 후반(대부분 위태 · 준비)에는 칸 18개를 프레임마다 통째로 다시 그렸다. 고유기가 찼을 뿐(직접 지휘 아님)이면 그림이 같아 다시 그리지 않는다
 		var ms := Time.get_ticks_msec()
@@ -5492,6 +5557,8 @@ class MiniCard extends Control:
 	func _draw() -> void:
 		var t0 := Time.get_ticks_usec()
 		_draw_card()
+		if view.hud.highlight_k(sq.key) > 0.0:
+			draw_rect(Rect2(Vector2.ONE, size - Vector2.ONE * 2.0), Color("#d8f2ff"), false, 2.0)
 		view.field.pt("아래카드", t0)
 
 	## 넓은 카드 (폭 90 이상 —— 가로 · PC 창) —— 초상 · 이름 · 병종 · 병력, 아래에 글자 붙은 막대 세 줄
@@ -5514,7 +5581,7 @@ class MiniCard extends Control:
 		var nm: String = DB.person(sq.cid) if sq.tier > 2 else sq.row.name
 		draw_string(DB.title_font(UI.FS_CAP), Vector2(41, 17), UI.ellipsize(DB.title_font(UI.FS_CAP), nm, UI.FS_CAP, size.x - 45), HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_CAP, tc.lightened(0.2))      # 11/10 작은 이름은 굵은 고딕
 		draw_string(fb, Vector2(41, 29), sq.tag, HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_TINY, DB.PAL.text_dim)
-		var state: String = BattleView.Hud.troops_k(sq.troops) if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")      # 11/20 폴리싱: 병사 그림 수("203명") → 메달 이름표와 같은 병력("8.8k") —— 같은 부대가 두 곳에서 다른 수였다
+		var state := _troops_text()
 		draw_string(fb, Vector2(41, 41), state, HORIZONTAL_ALIGNMENT_LEFT, size.x - 45, UI.FS_TINY, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
 		_bar_rows(4.0, 44.0, size.x - 8.0, BAR_PITCH, UI.FS_TINY)
 		if view.direct and view.ult_ready(sq.key):       # 직접 지휘일 때만 '눌러라' 금테
@@ -5559,8 +5626,9 @@ class MiniCard extends Control:
 		var fs := UI.fit_fs(nmf, nm, UI.FS_CAP, UI.FS_TINY, tw)      # 11/14 감사 #10: FS_TINY 아래로는 줄이지 않고 … 으로
 		nm = UI.ellipsize(nmf, nm, fs, tw)
 		draw_string(nmf, Vector2(x, 16), nm, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, tc.lightened(0.2))
-		var state: String = BattleView.Hud.troops_k(sq.troops) if sq.alive else ("궤멸" if sq.troops <= 0 else "패주")      # 11/20 폴리싱: 병사 그림 수("203명") → 메달 이름표와 같은 병력("8.8k") —— 같은 부대가 두 곳에서 다른 수였다
-		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, UI.FS_TINY, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
+		var state := _troops_text()
+		var state_fs := mini(9, UI.FS_TINY) if state.contains(",") else UI.FS_TINY
+		draw_string(DB.font_body, Vector2(x, 30), state, HORIZONTAL_ALIGNMENT_LEFT, tw, state_fs, DB.PAL.bamboo if sq.alive else DB.PAL.danger)
 		_bar_rows(3.0, bar_y, w - 6.0, BAR_PITCH, UI.FS_TINY, 1)
 		if ready:
 			var pulse := 0.5 + 0.5 * sin(view.clock * 9.0)

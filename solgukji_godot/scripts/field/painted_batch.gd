@@ -2,6 +2,8 @@ extends Node2D
 ## One depth-ordered instance stream for all living soldiers. Walk deformation
 ## uses the old 7x7 shape with continuous poses on the GPU, without per-soldier draws.
 var atlas: Texture2D
+var action_blue: Texture2D
+var action_red: Texture2D
 var soldiers: MultiMeshInstance2D
 var shadows: MultiMeshInstance2D
 var capacity := 0
@@ -25,7 +27,13 @@ func _ready() -> void:
 	soldiers.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var material_ := ShaderMaterial.new()
 	material_.shader = preload("res://shaders/painted_batch.gdshader")
+	material_.set_shader_parameter("idle_atlas", atlas)
 	material_.set_shader_parameter("atlas_pixel_size", Vector2.ONE / atlas.get_size())
+	if action_blue != null and action_red != null:
+		material_.set_shader_parameter("action_blue", action_blue)
+		material_.set_shader_parameter("action_red", action_red)
+		material_.set_shader_parameter("action_blue_pixel_size", Vector2.ONE / action_blue.get_size())
+		material_.set_shader_parameter("action_red_pixel_size", Vector2.ONE / action_red.get_size())
 	soldiers.material = material_
 	add_child(soldiers)
 
@@ -81,7 +89,9 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 		var f: Dictionary = figures[i]
 		var h: float = f.h
 		var p: Vector2 = f.p
-		var lift := pow(absf(sin(float(f.stride))), 3.0) * float(f.gait) * h * (0.027 if int(f.cell) % 8 == 1 else 0.009)
+		var cell_id := int(f.cell)
+		var cavalry := ((cell_id - 32) % 32) / 4 == 1 if cell_id >= 32 else cell_id % 8 == 1
+		var lift := pow(absf(sin(float(f.stride))), 3.0) * float(f.gait) * h * (0.027 if cavalry else 0.009)
 		var c := cos(float(f.tilt))
 		var s := sin(float(f.tilt))
 		var sx := -h if f.mirror else h
@@ -94,7 +104,7 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 		buffer[b + 5] = c * h
 		buffer[b + 6] = 0
 		buffer[b + 7] = p.y - lift
-		var cloth := ally if int(f.cell) < 8 else enemy
+		var cloth := Color.WHITE if int(f.cell) >= 16 else (ally if int(f.cell) < 8 else enemy)
 		var tint := cloth if float(f.hurt) <= 0.0 else cloth.lerp(HURT_TINT, float(f.hurt) * 0.75)
 		buffer[b + 8] = tint.r
 		buffer[b + 9] = tint.g
@@ -117,7 +127,7 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 		shadow_buffer[sh + 8] = 0.1
 		shadow_buffer[sh + 9] = 0.08
 		shadow_buffer[sh + 10] = 0.05
-		shadow_buffer[sh + 11] = 0.25 * float(f.fade)
+		shadow_buffer[sh + 11] = 0.0 if cell_id in [16, 17] else 0.25 * float(f.fade)
 	if capacity > 0:
 		soldiers.multimesh.buffer = buffer
 		shadows.multimesh.buffer = shadow_buffer
@@ -148,7 +158,9 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		var stride := figs[f + 7]
 		var hurt := figs[f + 8]
 		var sn := absf(sin(stride))
-		var lift := sn * sn * sn * gait * h * (0.027 if int(cell) % 8 == 1 else 0.009)
+		var cell_id := int(cell)
+		var cavalry := ((cell_id - 32) % 32) / 4 == 1 if cell_id >= 32 else cell_id % 8 == 1
+		var lift := sn * sn * sn * gait * h * (0.027 if cavalry else 0.009)
 		var c := cos(tilt)
 		var s := sin(tilt)
 		var sx := -h if figs[f + 9] > 0.5 else h
@@ -161,7 +173,7 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		buffer[b + 5] = c * h
 		buffer[b + 6] = 0
 		buffer[b + 7] = py - lift
-		var cloth := ally if cell < 8.0 else enemy
+		var cloth := Color.WHITE if cell >= 16.0 else (ally if cell < 8.0 else enemy)
 		var tint := cloth if hurt <= 0.0 else cloth.lerp(HURT_TINT, hurt * 0.75)
 		buffer[b + 8] = tint.r
 		buffer[b + 9] = tint.g
@@ -184,7 +196,7 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		shadow_buffer[sh + 8] = 0.1
 		shadow_buffer[sh + 9] = 0.08
 		shadow_buffer[sh + 10] = 0.05
-		shadow_buffer[sh + 11] = 0.25 * fade
+		shadow_buffer[sh + 11] = 0.0 if cell_id in [16, 17] else 0.25 * fade
 	if capacity > 0:
 		soldiers.multimesh.buffer = buffer
 		shadows.multimesh.buffer = shadow_buffer

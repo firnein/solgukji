@@ -1,0 +1,53 @@
+extends Node
+const Story = preload("res://scripts/field/battle_story.gd")
+
+func _ready() -> void:
+	get_tree().create_timer(30.0).timeout.connect(func(): get_tree().quit(1))
+	var story = Story.new()
+	var ignition := {"fx": "status", "st": "burn", "f": "B0", "from": "A0", "spread": false}
+	var spread := {"fx": "status", "st": "burn", "f": "B1", "from": "B0", "contributor": "A1", "spread": true}
+	var original := JSON.stringify([ignition, spread])
+	story.observe(ignition, 0.0)
+	assert(story.current.phase == "ignite" and story.current.provider == "A0")
+	story.observe({"fx": "inyeon_fin", "a": "A2", "name": "합동"}, 0.1)
+	assert(story.current.phase == "ignite", "A finisher notice must not interrupt an active fire chain")
+	story.observe(spread, 0.3)
+	assert(story.current.phase == "spread" and story.current.provider == "A1" and story.current.origin == "B0")
+	assert(story.accepts_fire(spread, 0.3) and story.pulse("A1", 0.3))
+	story.observe({"fx": "rout", "f": "B1"}, 0.8)
+	assert(story.current.phase == "retreat" and "화공 격파" not in story.caption({}), "Retreat must not invent a killing cause")
+	assert(JSON.stringify([ignition, spread]) == original)
+	story.reset([{"key": "B0"}])
+	story.observe(ignition, 0.0)
+	story.observe({"fx": "rout", "f": "B0", "s": [[0, 0, 0, []]]}, 0.8)
+	assert(story.current.phase == "ignite", "A burn that ended before retreat must not be presented as a burning retreat")
+	story.reset()
+	story.observe({"fx": "phys", "a": "A2", "f": "B0", "assists": [{"from": "A3", "st": "shred_phys", "n": 10.0}]}, 1.0)
+	assert(story.current.provider == "A3" and story.current.attacker == "A2")
+	story.reset()
+	story.observe({"fx": "phys", "a": "A2", "f": "B0", "assists": [{"from": "A2", "st": "shred_phys", "n": 10.0}]}, 1.0)
+	assert(story.current.is_empty(), "A unit using its own debuff must not be presented as a deck cooperation")
+	story.reset()
+	story.observe({"fx": "status", "st": "burn", "f": "B0"}, 0.0)
+	assert(story.current.provider == "" and story.caption({}) == "불을 붙임", "Unknown sources must stay unnamed")
+	story.reset()
+	var helper = preload("res://tests/formation_preview.gd").new()
+	var a: Array = DB.auto_place(helper._cards(["주유", "육손", "제갈량", "방통", "감녕", "황개", "정보", "조운", "관우"]), "eorin")
+	var b: Array = DB.auto_place(helper._cards(["조조", "하후연", "전위", "마초", "허저", "황충", "손권", "조인", "서황"]), "hagik")
+	helper.free()
+	var result := RtBattle.new(5100).run(a, "eorin", 100, null, b, "hagik", 100, null, "", "", [], {"A": "auto", "B": "auto"})
+	var before := JSON.stringify(result.ev)
+	story.reset(result.roster)
+	for event: Dictionary in result.ev:
+		story.observe(event, float(event.get("tm", 0.0)))
+	assert(JSON.stringify(result.ev) == before)
+	var phases := {}
+	for item in story.history:
+		phases[item.phase] = int(phases.get(item.phase, 0)) + 1
+	print("STORY_PHASES ", JSON.stringify(phases))
+	var report := FileAccess.open("res://../build/battle_story_replay.json", FileAccess.WRITE)
+	report.store_string(JSON.stringify({"roster": result.roster, "seed": 5100, "source_hash": before.hash(), "history": story.history}, "\t"))
+	report.close()
+	assert(phases.has("ignite") and phases.has("spread") and (phases.has("retreat") or phases.has("collapse")), "The real fire deck must show ignition, propagation and observed battlefield outcome")
+	print("PASS battle story: ignition / actual spread provider / propagation origin / observed retreat / real support / unknown source / reset / real replay immutability")
+	get_tree().quit()

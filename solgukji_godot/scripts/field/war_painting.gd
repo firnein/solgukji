@@ -32,6 +32,10 @@ var _skip_dt := 0.0          # 11/18 부하 2단계부터 30Hz —— 건너뛴 
 var charges := {}
 var rallies := {}
 var fire_seas := {}
+var burn_fronts := {}        # 실제 화상 부여 순간과 불이 들어온 방향
+var fire_paths: Array = []   # 실제 spread 사건만 남기는 부대 사이 확산 경로
+const MAX_FIRE_PATHS := 1
+const FIRE_PATH_LIFE := 1.15
 var flames := {}
 var peerless := {}
 var contacts: Array = []
@@ -63,6 +67,8 @@ const ENEMY_CLOTH := Color("#ffc7aa")
 const TAGS := ["창병", "기병", "궁병", "도적", "책사", "유생", "술사", "모사"]
 const STRIDE_FRAMES := 12
 static var batch_rendering := true
+static var action_frames_on := true # 점검용으로 끄면 같은 인형 수로 이전 정지 원화와 비교한다.
+var action_frames_ready := false
 var batch: Node2D
 var top_effects: Node2D
 var glow_effects: Node2D
@@ -103,6 +109,10 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	batch = preload("res://scripts/field/painted_batch.gd").new()
 	batch.atlas = atlas
+	if ResourceLoader.exists("res://assets/war_painting/troops_action_blue_v1.png") and ResourceLoader.exists("res://assets/war_painting/troops_action_red_v1.png"):
+		batch.action_blue = load("res://assets/war_painting/troops_action_blue_v1.png")
+		batch.action_red = load("res://assets/war_painting/troops_action_red_v1.png")
+		action_frames_ready = batch.action_blue != null and batch.action_red != null
 	batch.visible = batch_rendering
 	add_child(batch)
 	top_effects = TopEffects.new()
@@ -173,6 +183,8 @@ func reset() -> void:
 	charges.clear()
 	rallies.clear()
 	fire_seas.clear()
+	burn_fronts.clear()
+	fire_paths.clear()
 	flames.clear()
 	peerless.clear()
 	cover.clear()
@@ -203,7 +215,7 @@ func prepare_attack(source_key: String, targets: Array, kind: String) -> void:
 		for key in targets:
 			var dst: Squad = v.field.squads.get(key)
 			if dst != null:
-				var count := mini(form.count, 8) if kind == "volley" else 3      # 11/17 책략 평타는 구슬 셋 (하나는 안 보였다 —— 「후열 주유가 무기력해 보인다」)
+				var count := mini(form.count, 8) if kind == "volley" else 1 # 책략 동작은 원화로 보이고 투사체는 한 줄만 남긴다.
 				if count <= 0:
 					continue
 				volleys.append({"start": v.field.clock, "end": v.field.clock + flight + 0.12 + (count - 1) * 0.025,
@@ -237,6 +249,7 @@ func play_event(event: Dictionary, ultimate, updates: Array = []) -> void:
 	var direct := source != null and target != null and source.camp != target.camp
 	var damage: bool = direct and event.get("fx", "") in ["phys", "int"] and float(event.get("n", 0)) > 0.0
 	var power := _hit_power(source, target, event, ultimate) if damage else 0.0
+	_record_burn(event)
 	if damage:
 		_record_contact(source, target, power, event.get("fx") == "int")
 	_sync_troops(updates, source, target, power, false)
@@ -296,11 +309,12 @@ func _sync_troops(updates: Array, source: Squad, target: Squad, power: float, qu
 			form.remove_soldier(id)
 
 func _spawn_body(sq: Squad, form: FormationMotion, id: int, direction: Vector2, power: float, order: int) -> void:
-	var flying := power >= 0.75
+	# 무너진 병사는 전열 안에서 넘어지고 밀린다. 고유기도 병사를 공중으로 날리지 않는다.
+	var flying := false
 	var seed := float(id * 13 + form.serial * 7 + int(sq.row.slot) * 3)
 	var spread := sin(seed * 1.7) * 0.28
-	var travel := (60.0 + power * 36.0) if flying else 9.0
-	var duration := 0.56 + power * 0.08 if flying else 0.28
+	var travel := 8.0 + minf(power, 2.0) * 7.0
+	var duration := 0.38 + minf(power, 2.0) * 0.05
 	var facing := 1.0 if sin(seed) > 0.0 else -1.0
 	bodies.append({"at": form.feet[id], "direction": direction.rotated(spread),
 		"start": visual_time + minf(0.12, order * 0.027), "duration": duration,
@@ -318,6 +332,8 @@ func _record_contact(source: Squad, target: Squad, power: float, magic: bool) ->
 	if direction.is_zero_approx():
 		direction = Vector2.from_angle(from.heading)
 	var at := form.center - direction * target.edge(direction)
+	if (not magic and source.cls != "ranged") or power >= 1.5:
+		form.receive_impact(at, direction, power)
 	var ids := form.nearest_living(at, mini(form.cols, 2 + floori(power)))
 	form.serial += 1
 	var received := 0
@@ -349,6 +365,7 @@ func _record_impact(source: Squad, target: Squad, now: float, brace: bool) -> vo
 		direction = source.fwd
 	charges[target.key] = {"start": now, "end": now + 0.65, "direction": direction,
 		"at": _formation(target).center - direction * target.edge(direction), "brace": brace}
+	_formation(target).receive_impact(_formation(target).center - direction * target.edge(direction), direction, 0.55 if brace else 1.9)
 
 func _process(dt: float) -> void:
 	if not is_visible_in_tree() or v == null or v.field == null:
@@ -374,6 +391,11 @@ func _process(dt: float) -> void:
 			if last_clock >= effects[key].end:
 				effects.erase(key)
 	bodies = bodies.filter(func(b): return visual_time < b.end)
+	fire_paths = fire_paths.filter(func(path): return visual_time - float(path.start) < FIRE_PATH_LIFE)
+	for key in burn_fronts.keys():
+		var burning: Squad = v.field.squads.get(key)
+		if burning == null or not burning.alive or not burning.statuses.has("burn"):
+			burn_fronts.erase(key)
 	contacts = contacts.filter(func(h): return visual_time < h.end)
 	volleys = volleys.filter(func(shot): return last_clock < shot.end)
 	ults = ults.filter(func(u): return last_clock < float(u.end) and last_clock >= float(u.start) - 5.0)
@@ -435,12 +457,13 @@ func _pk(p: Vector2) -> float:
 	return _ps / maxf(0.35, 1.0 + (p.x - _pc.x) * Type2View.PAINT_PERSPECTIVE)
 
 const BOSS_FIG := 1.7
+const FIGURE_SCALE := 1.4 # 최소 14px였던 병사는 약 20px로. 발 위치·대열 간격은 유지한다.
 
 func _figure_height(sq: Squad, form: FormationMotion) -> float:
 	var scale: float = _pk(form.center)
-	var nominal := (61.0 if form.cavalry else 51.0) * scale
+	var nominal := (72.0 if form.cavalry else 60.0) * scale
 	var horizontal := 2.0 * form.half_width / maxf(1, form.cols - 1) * scale
-	var h := clampf(minf(nominal, horizontal / 0.58), 12.0, 46.0)
+	var h := clampf(minf(nominal, horizontal / 0.58), 14.0, 46.0) * FIGURE_SCALE
 	if bool(sq.row.get("boss", false)):      # 토벌 총대장 —— 병사 인형을 크게 (그림만, 자리 · 충돌은 그대로)
 		h *= BOSS_FIG
 	return h
@@ -533,6 +556,7 @@ func _draw_overlay(ci: CanvasItem) -> void:
 		return
 	_draw_contacts(ci)
 	_draw_bodies(true, ci)
+	_draw_fire_paths(ci)
 	for sq: Squad in v.field.order:
 		if sq.fade > 0.01:
 			_draw_status(sq, ci)
@@ -546,6 +570,8 @@ func _draw_overlay(ci: CanvasItem) -> void:
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var h := _figure_height(sq, form)
 	var cell := maxi(0, TAGS.find(sq.tag)) + (0 if sq.camp == "A" else 8)
+	var action_base := 32 + maxi(0, TAGS.find(sq.tag)) * 4 + (0 if sq.camp == "A" else 32)
+	var animated := action_frames_ready and action_frames_on and batch_rendering
 	var facing := Vector2.from_angle(form.heading)
 	var direction := facing
 	var target: Squad = v.field.squads.get(form.action_target)
@@ -567,6 +593,8 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	elif face_x < -0.3:
 		form.facing_right = false
 	var mirror := not form.facing_right if sq.camp == "A" else form.facing_right
+	if animated:
+		mirror = not form.facing_right # 새 동작 원화는 양쪽 모두 공격이 화면 오른쪽으로 뻗는다.
 
 	var attacking := form.action_kind == "melee" and visual_time - form.last_action < 0.55
 	var eligible := (form.contact or attacking) and sq.state != "flee" and target != null and target.alive
@@ -590,13 +618,17 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		scr[id] = p
 		var p0 := p      # 11/18 발은 _place 에서 이미 접촉선 안 —— 찌르기 · 밀림으로 옮겨진 인형만 다시 맞춘다
 		var tilt := 0.0
+		tilt -= axis.x * minf(0.2, form.recoil[id].length() / maxf(form.row_gap, 1.0) * 0.5)
 		var gait: float = form.gait[id]
 		var stride: float = form.strides[id]
 		var hit := 0.0
+		var pose := 0
 		if not fleeing:
 			if has_front and front_ids.has(id):
 				# 11/19 찌르기 곡선은 앞줄만, 그것도 친 지 0.4초 안일 때만 잰다 (예전엔 모든 병사가 매 프레임 smoothstep 네 번)
 				var age := visual_time - form.strike_at[id]
+				if age >= 0.0 and age < 0.34:
+					pose = 1 if age < 0.12 else 2
 				var windup := 0.0
 				var thrust := 0.0
 				if age < 0.4:
@@ -610,10 +642,14 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 				gait *= 0.35
 			elif ranged and bow_base < 0.5:
 				var bow_age := bow_base - (id / form.cols) * 0.025
+				if bow_age >= 0.0 and bow_age < 0.4:
+					pose = 1 if bow_age < 0.12 else 2
 				var bow := smoothstep(0.0, 0.1, bow_age) * (1.0 - smoothstep(0.15, 0.32, bow_age))
 				tilt -= axis.x * bow * 0.065
 		var hurt_age := visual_time - form.hurt_at[id]
 		if hurt_age >= 0.0 and hurt_age < 0.38:
+			if hurt_age < 0.28:
+				pose = 3
 			var hurt_axis: Vector2 = (_pm(form.feet[id] + form.hurt_dir[id] * 16.0) - p).normalized()
 			var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, 0.38, hurt_age))
 			p += hurt_axis * recoil * (2.0 + form.hurt_power[id] * 2.4)
@@ -633,7 +669,7 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		_figs[b] = p.x
 		_figs[b + 1] = p.y
 		_figs[b + 2] = h
-		_figs[b + 3] = cell
+		_figs[b + 3] = action_base + pose if animated else cell
 		_figs[b + 4] = fade_sq * form.opacity[id]
 		_figs[b + 5] = tilt
 		_figs[b + 6] = gait
@@ -643,7 +679,40 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		_figs[b + 10] = cv
 		_fig_sq.append(sq)
 		_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
+	if form.count > 0 and batch_rendering:
+		_collect_standard(sq, form, h / FIGURE_SCALE, fade_sq, cv)
 	_scr[sq.key] = scr
+
+## 부대 안에 꽂힌 군기도 병사와 같은 깊이 순서·GPU 묶음에 넣는다.
+## 셀 16/17은 아틀라스 대신 셰이더가 그리는 청/적 천과 깃대다.
+func _collect_standard(sq: Squad, form: FormationMotion, soldier_h: float, alpha: float, shade: float) -> void:
+	var facing := Vector2.from_angle(form.heading)
+	var right := Vector2(-facing.y, facing.x)
+	var at := form.center - facing * minf(sq.hd0 * 0.65, form.row_gap * maxf(1, form.rows - 1)) + right * form.half_width * 0.65
+	var p := _pm(at)
+	var n := figure_count
+	figure_count += 1
+	if _figs.size() < figure_count * FIG_W:
+		_figs.resize(maxi(figure_count * FIG_W, _figs.size() * 2))
+	var b := n * FIG_W
+	var leaning := 0.0
+	if sq.state == "flee":
+		leaning = -0.75 if sq.camp == "A" else 0.75
+	elif sq.morale < 40.0:
+		leaning = (40.0 - sq.morale) / 40.0 * 0.45
+	_figs[b] = p.x
+	_figs[b + 1] = p.y
+	_figs[b + 2] = clampf(soldier_h * 2.0, 25.0, 47.0)
+	_figs[b + 3] = 16.0 if sq.camp == "A" else 17.0
+	_figs[b + 4] = alpha
+	_figs[b + 5] = leaning + sin(form.motion_clock * 3.0 + sq.row.slot) * 0.025
+	_figs[b + 6] = 0.0
+	_figs[b + 7] = form.motion_clock * 4.0 + sq.row.slot
+	_figs[b + 8] = 0.0
+	_figs[b + 9] = 0.0
+	_figs[b + 10] = shade
+	_fig_sq.append(sq)
+	_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 
 ## 11/19 그리기 호출 · 프레임: 부대마다 면 1 + 테두리 1 + 앞줄 표식 2 + 먼지 3 번씩 따로 그리던 것(18부대 ≈ 120회)을
 ## 전 부대 것을 모아 면(삼각형 묶음) 1 · 테두리 1 · 표식 2 번으로. 모양 · 색 · 자리는 _draw_formation_mark 와 같다
@@ -675,7 +744,13 @@ func _mark_batch(sq: Squad, form: FormationMotion) -> void:
 	var d := _pm(back + side)
 	var color := ALLY_MARK if sq.camp == "A" else ENEMY_MARK
 	var mk_fade := sq.fade * (1.0 - 0.8 * maxf(cover_of(sq), 0.0))      # 그늘 속 부대는 진영색 표식도 흐리게
-	var fill := Color(color, 0.075 * mk_fade)
+	var selected: bool = v.view != null and v.view.hud != null and v.view.hud.highlight_k(sq.key) > 0.0
+	var contributing: bool = v.view != null and v.view.hud != null and v.view.hud.story.pulse(sq.key, v.view.clock)
+	if selected:
+		color = Color("#d8f2ff")
+	elif contributing:
+		color = EMBER
+	var fill := Color(color, (0.15 if selected else (0.11 if contributing else 0.045)) * mk_fade)
 	var base := _mk_pts.size()
 	_mk_pts.append(a)
 	_mk_pts.append(b)
@@ -689,7 +764,7 @@ func _mark_batch(sq: Squad, form: FormationMotion) -> void:
 	_mk_idx.append(base)
 	_mk_idx.append(base + 2)
 	_mk_idx.append(base + 3)
-	var rim_c := Color(color, 0.38 * mk_fade)
+	var rim_c := Color(color, (0.95 if selected else (0.7 if contributing else 0.25)) * mk_fade)
 	_mk_rim.append(a)
 	_mk_rim.append(b)
 	_mk_rim.append(b)
@@ -953,7 +1028,7 @@ func _draw_volleys(ci: CanvasItem = null) -> void:
 			var p: Vector2 = v.map(world) - Vector2(0, 5.0 + sin(t * PI) * height * v.depth_scale(world))
 			var prev: Vector2 = v.map(start.lerp(end + spread, prev_t)) - Vector2(0, 5.0 + sin(prev_t * PI) * height * v.depth_scale(world))
 			if shot.kind == "spell":
-				_spell_orb(ci, shot, id, start, end, spread, t, height)
+				_spell_orb(ci, shot, p, prev, t)
 				continue
 			var color := PAPER
 			ci.draw_line(prev, p, Color(INK, 0.8), 2.0, true)
@@ -1043,7 +1118,12 @@ func _draw_links(ci: CanvasItem = null) -> void:
 		ci = self
 	if v.view == null or v.view.hud == null:
 		return
+	var story = v.view.hud.story
+	if not story.active(v.view.clock) or story.current.kind == "fire":
+		return
 	for e in v.view.hud._deck_links:
+		if e.a != story.current.provider or e.b != story.current.target:
+			continue
 		var a: Squad = v.field.squads.get(e.a)
 		var b: Squad = v.field.squads.get(e.b)
 		if a == null or b == null or not a.alive or not b.alive:
@@ -1067,6 +1147,92 @@ func _draw_dust(sq: Squad, width: float, form: FormationMotion) -> void:
 			at -= sq.fwd * sq.hd()
 		draw_circle(_pm(at), (4.0 + phase * 7.0) * _pk(at) / _ps, Color(0.72, 0.64, 0.46, sin(phase * PI) * 0.13 * sq.fade))
 
+## 메타데이터가 없는 공격이나 단순 화상 활용을 확산으로 추정하지 않는다.
+func _record_burn(event: Dictionary) -> void:
+	if event.get("fx") != "status" or event.get("st") != "burn":
+		return
+	var target: Squad = v.field.squads.get(str(event.get("f", "")))
+	if target == null:
+		return
+	var source: Squad = v.field.squads.get(str(event.get("from", event.get("a", ""))))
+	var form := _formation(target)
+	var direction := Vector2.from_angle(form.heading)
+	if source != null and source != target:
+		direction = _formation(source).center.direction_to(form.center)
+	if not burn_fronts.has(target.key):
+		burn_fronts[target.key] = {"start": visual_time, "direction": direction}
+	if not bool(event.get("spread", false)) or source == null or source == target:
+		return
+	if v.view != null and v.view.hud != null:
+		var story = v.view.hud.story
+		if story.active(v.view.clock) and not story.accepts_fire(event, v.view.clock):
+			return
+	for path in fire_paths:
+		if path.a == source.key and path.b == target.key and visual_time - float(path.start) < 0.35:
+			return
+	# 대표 연계 하나를 끝까지 보여준다. 새 사건마다 바꿔 가며 화면을 채우지 않는다.
+	if fire_paths.size() >= MAX_FIRE_PATHS:
+		return
+	fire_paths.append({"a": source.key, "b": target.key, "start": visual_time,
+		"from": _formation(source).center, "to": form.center})
+
+func burn_sites(sq: Squad) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var form: FormationMotion = formations.get(sq.key)
+	if form == null or not sq.alive or not sq.statuses.has("burn"):
+		return points
+	var ids: Array[int] = []
+	for id in form.capacity:
+		if form.alive[id] != 0:
+			ids.append(id)
+	var n := mini(3, ids.size())
+	var front: Dictionary = burn_fronts.get(sq.key, {})
+	var direction: Vector2 = front.get("direction", Vector2.from_angle(form.heading))
+	var age := visual_time - float(front.get("start", visual_time - 2.0))
+	var span := maxf(sq.edge(direction), 1.0)
+	for j in n:
+		var at: Vector2 = form.feet[ids[j * ids.size() / n]]
+		var delay := clampf(((at - form.center).dot(direction) / span + 1.0) * 0.5, 0.0, 1.0) * 0.7
+		if age >= delay:
+			points.append(at)
+	return points
+
+func _draw_fire_paths(ci: CanvasItem) -> void:
+	for path in fire_paths:
+		var source: Squad = v.field.squads.get(path.a)
+		var target: Squad = v.field.squads.get(path.b)
+		var start: Vector2 = path.from
+		var end: Vector2 = path.to
+		if source != null and formations.has(source.key):
+			start = formations[source.key].center
+		if target != null and formations.has(target.key):
+			end = formations[target.key].center
+		var direction := start.direction_to(end)
+		var distance := start.distance_to(end)
+		if source != null:
+			start += direction * minf(distance * 0.32, source.edge(direction) * 0.7)
+		if target != null:
+			end -= direction * minf(distance * 0.32, target.edge(direction) * 0.7)
+		var age := visual_time - float(path.start)
+		var reach := clampf(age / 0.65, 0.0, 1.0)
+		var alpha := 1.0 - smoothstep(0.7, FIRE_PATH_LIFE, age)
+		var side := Vector2(-direction.y, direction.x) * minf(distance * 0.1, 20.0)
+		var trail := PackedVector2Array()
+		for j in 7:
+			var u := reach * j / 6.0
+			trail.append(v.map(start.lerp(end, u) + side * sin(u * PI)))
+		if reach > 0.01:
+			ci.draw_polyline(trail, Color(0.18, 0.1, 0.04, alpha * 0.55), 5.0, true)
+			ci.draw_polyline(trail, Color(0.87, 0.38, 0.08, alpha * 0.7), 1.6, true)
+		for j in 3:
+			var u := reach - j * 0.1
+			if u <= 0.0:
+				continue
+			var world := start.lerp(end, u) + side * sin(u * PI)
+			var at: Vector2 = v.map(world)
+			var h: float = (12.0 + sin(age * 13.0 + j * 1.7) * 3.0) * v.depth_scale(world)
+			_spr(ci, "flame_02", at - Vector2(0, h * 0.4), h * 1.8, Color(1, 0.55, 0.15, alpha * 0.85), sin(j * 2.4) * 0.12, Vector2(0.6, 1))
+
 func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
 	if ci == null:
 		ci = self
@@ -1075,10 +1241,11 @@ func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
 	var p: Vector2 = v.map(sq.pos)
 	var perspective: float = v.depth_scale(sq.pos)
 	if sq.statuses.has("burn"):
-		for j in 4:
+		var sites := burn_sites(sq)
+		for j in sites.size():
 			var phase: float = v.field.clock * 5.0 + j * 1.7
-			var base: Vector2 = v.map(sq.pos + sq.right() * (j - 1.5) * sq.hw * 0.5)
-			var h := (13.0 + 5.0 * sin(phase)) * perspective
+			var base: Vector2 = v.map(sites[j])
+			var h: float = (12.0 + 4.0 * sin(phase)) * v.depth_scale(sites[j])
 			_spr(ci, "flame_02", base + Vector2(0, -h * 0.45), h * 2.0, Color(1.0, 0.62, 0.20, 0.85), sin(phase) * 0.12, Vector2(0.65, 1.0))
 	if sq.statuses.has("cut_def") or sq.statuses.has("cut_res"):
 		var q := p + Vector2(14, -22) * perspective
@@ -1106,7 +1273,7 @@ const ULT_LIFE := {"firestorm": 2.4, "thunder": 1.5, "slash": 1.1, "shadow": 1.3
 const ULT_STYLE := {"주유": "wave", "육손": "trail", "정보": "arrows", "황개": "ram", "방통": "chain", "동탁": "erupt"}
 
 ## phase "charge" —— 기 모으기 (시전자 둘레), "impact" —— 맞는 순간 (적 · 아군 부대)
-func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color, phase: String) -> void:
+func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color, phase: String, lite := false) -> void:
 	var now: float = v.field.clock
 	var a: Squad = v.field.squads.get(a_key)
 	var e := {"vfx": vfx, "a": a_key, "col": col, "phase": phase, "start": now,
@@ -1116,8 +1283,11 @@ func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color,
 	var who: String = DB.person(a.cid) if a != null and DB.C.has(a.cid) else ""
 	e["style"] = str(ULT_STYLE.get(who, ""))
 	e["sd"] = absi(hash(who)) % 997
+	e["lite"] = lite
+	if lite:
+		e.end = now + (BattleView.ULT_DELAY if phase == "charge" else 0.45)
 	var storm := vfx == "arrowstorm"
-	if storm and phase == "impact":      # 화살비 —— 기 모으기 동안은 컷인이 덮고 있어, 컷인이 걷힌 맞는 순간에 떼로 솟아 쏟아진다
+	if storm and phase == "impact" and not lite:      # 화살비 —— 기 모으기 동안은 컷인이 덮고 있어, 컷인이 걷힌 맞는 순간에 떼로 솟아 쏟아진다
 		e.end = now + 1.8
 	if phase == "impact":
 		for k in foes:
@@ -1125,7 +1295,7 @@ func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color,
 			if d == null:
 				continue
 			var spots := []
-			for j in 7:      # 발자국 안 고정 지점 —— 화면 쪽 해시 (전투 rng 를 건드리지 않는다)
+			for j in (0 if lite else 7):      # 간단한 연출에는 부대마다 일곱 효과 지점을 만들지 않는다.
 				var h1 := float(hash(str(k) + ":" + str(j)) % 10007) / 10007.0
 				var h2 := float(hash(str(j) + ":" + str(k) + ":y") % 10007) / 10007.0
 				spots.append(d.pos + d.right() * (h1 * 2.0 - 1.0) * d.hw * 0.75 + d.fwd * (h2 * 2.0 - 1.0) * d.hd() * 0.55)
@@ -1160,7 +1330,7 @@ func _ult_backdrop(ci: CanvasItem) -> void:
 	var best := 0.0
 	var tint := ULT_DIM_BASE
 	for e: Dictionary in ults:
-		if e.phase != "impact":
+		if e.phase != "impact" or bool(e.get("lite", false)):
 			continue
 		var age := last_clock - float(e.start)
 		var life := float(e.end) - float(e.start)
@@ -1183,6 +1353,9 @@ func _draw_ults(ci: CanvasItem) -> void:
 		var t := clampf(age / life, 0.0, 1.0)
 		var col: Color = e.col
 		var fade := 1.0 - smoothstep(0.7, 1.0, t)
+		if bool(e.get("lite", false)):
+			_draw_lite_ult(ci, e, t, col, fade)
+			continue
 		if e.vfx == "arrowstorm":
 			if e.phase == "impact":
 				_arrow_storm(ci, e, age)
@@ -1203,6 +1376,24 @@ func _draw_ults(ci: CanvasItem) -> void:
 				_sunburst(ci, from, age, col, fade, int(e.get("sd", 0)))
 			for q: Vector2 in e.allies:
 				_pillar(ci, q, age, col, fade)
+
+## 간단한 고유기는 부대 주변에서 짧게 끝난다. 배경 암전·다중 불기둥은 큰 고유기만 쓴다.
+func _draw_lite_ult(ci: CanvasItem, e: Dictionary, t: float, col: Color, fade: float) -> void:
+	if e.phase == "charge":
+		var at: Vector2 = v.map(e.from)
+		ci.draw_arc(at, 8.0 - t * 3.0, 0.0, TAU, 12, Color(col, fade * 0.7), 1.5, false)
+		return
+	var sites: Array = e.allies if e.vfx in ["heal", "aura"] else e.hits
+	for site in sites:
+		var world: Vector2 = site if site is Vector2 else site.at
+		var at: Vector2 = v.map(world)
+		var r: float = (8.0 + t * 9.0) * v.depth_scale(world)
+		if e.vfx == "firestorm":
+			_spr(ci, "flame_02", at - Vector2(0, r * 0.4), r * 2.0, Color(1, 0.6, 0.2, fade), 0.0, Vector2(0.65, 1.0))
+		elif e.vfx in ["slash", "charge", "shadow"]:
+			ci.draw_line(at + Vector2(-r, r * 0.3), at + Vector2(r, -r * 0.3), Color(col, fade), 2.5, false)
+		else:
+			ci.draw_arc(at, r, 0.0, TAU, 12, Color(col, fade * 0.85), 2.0, false)
 
 func _ult_charge(ci: CanvasItem, e: Dictionary, t: float, col: Color) -> void:
 	var from: Vector2 = e.from
@@ -1674,6 +1865,11 @@ func _ult_dash(ci: CanvasItem, e: Dictionary, age: float) -> void:
 
 ## 효과 그림 하나 —— 빛나는 그림(GLOW_SPR)은 더하기 층으로 미루고, 연기 · 그을음 같은 어두운 그림은 바로 그린다
 func _spr(ci: CanvasItem, nm: String, c: Vector2, sz: float, col: Color, rot := 0.0, stretch := Vector2.ONE) -> void:
+	if col.a <= 0.001 or sz < 1.0:
+		return
+	var radius := absf(sz) * stretch.length() * 0.5
+	if c.x + radius < 0.0 or c.y + radius < 0.0 or c.x - radius > v.size.x or c.y - radius > v.size.y:
+		return
 	if glow_effects != null and GLOW_SPR.has(nm):
 		if _glow_q.size() < 900:
 			_glow_q.append([nm, c, sz, Color(col.r * GLOW_BOOST, col.g * GLOW_BOOST, col.b * GLOW_BOOST, col.a), rot, stretch])
@@ -1731,23 +1927,11 @@ func _iseom(ci: CanvasItem, c: Vector2, ang: float, ln: float, w: float, glow: C
 
 ## 11/17 후열 책략 평타 —— 병종 색 구슬이 꼬리를 끌며 날아가 맞는 자리에서 번쩍인다 (판정 · 수치 무관)
 const SPELL_COL := {"책사": Color(1.0, 0.55, 0.18), "술사": Color(0.75, 0.5, 1.0), "모사": Color(0.55, 0.8, 1.0), "유생": Color(0.5, 0.95, 0.7)}
-func _spell_orb(ci: CanvasItem, shot: Dictionary, id: int, start: Vector2, end: Vector2, spread: Vector2, t: float, height: float) -> void:
+func _spell_orb(ci: CanvasItem, shot: Dictionary, tip: Vector2, previous: Vector2, t: float) -> void:
 	var col: Color = SPELL_COL.get(str(shot.get("tag", "")), EMBER)
-	var tail := PackedVector2Array()
-	for k in 6:
-		var tt := maxf(0.0, t - k * 0.035)
-		var w: Vector2 = start.lerp(end + spread, tt)
-		tail.append(v.map(w) - Vector2(0, 8.0 + sin(tt * PI) * height * 1.6 * v.depth_scale(w)))
-	ci.draw_polyline(tail, Color(INK, 0.35), 6.0, true)
-	ci.draw_polyline(tail, Color(col, 0.75), 3.5, true)
-	ci.draw_circle(tail[0], 5.0, Color(INK, 0.6))
-	ci.draw_circle(tail[0], 4.0, col)
-	ci.draw_circle(tail[0], 2.0, Color(1, 1, 1, 0.95))
-	if t > 0.86:      # 맞는 자리 —— 납작한 섬광 고리
-		var u := (t - 0.86) / 0.14
-		var hit: Vector2 = v.map(end + spread)
-		ci.draw_arc(hit, 6.0 + u * 12.0, 0, TAU, 16, Color(col, 1.0 - u), 2.5, true)
-
+	ci.draw_line(previous, tip, Color(INK, 0.45), 3.0, false)
+	ci.draw_line(previous, tip, Color(col, 0.85), 1.5, false)
+	ci.draw_circle(tip, 1.7, col)
 
 # ── 기술 · 잔기술 이펙트 (11/23) ──
 ## 11/23 사용자: 「전설 이하 전투가 재미없다 · 일반 기술도 이펙트 없이 글자만 뜬다」 —— 삽화 화면에서는 type2 의 2D 연출(fx)이 꺼져 있어

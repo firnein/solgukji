@@ -49,19 +49,21 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
-	get_tree().create_timer(90.0).timeout.connect(func(): get_tree().quit(1))
+	get_tree().create_timer(180.0).timeout.connect(func(): get_tree().quit(1))
 	PlayLog.enabled = false
 	Settings.load_cfg()
 	Settings.type2 = true
 	Settings.war_painting = true
 	Settings.quality = 1
 	Settings.cam_fx = 0
+	Settings.ult_fx = int(args.get("ult-fx", "1"))
 	Settings.apply()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = int(args.get("fps", "0"))
 	if args.has("lv"):      # 11/19 부하 단계 고정 (삽화 · HUD 갱신 주기 확인)
 		Type2View.force_lv = int(args.lv)
 	preload("res://scripts/field/war_painting.gd").batch_rendering = not args.has("legacy-painting")
+	preload("res://scripts/field/war_painting.gd").action_frames_on = not args.has("no-action-art")
 	preload("res://scripts/field/war_painting.gd").keep_dicts = args.has("validate-only")      # 11/19 점검만 사전 목록 (측정은 실제 게임처럼 묶음 배열만)
 	theme = UI.theme()
 	var view := BattleView.new()
@@ -315,6 +317,14 @@ func _ready() -> void:
 				assert(is_equal_approx(painter.batch.buffer[i * 16 + 13], float(figure.stride)))
 				assert(is_equal_approx(painter.batch.buffer[i * 16 + 14], float(figure.gait)))
 				assert(is_equal_approx(painter.batch.buffer[i * 16 + 3], float(figure.p.x)))
+				if int(figure.cell) in [16, 17]:
+					assert(painter.batch.shadow_buffer[i * 12 + 11] == 0.0, "Standards must not cast a soldier shadow")
+				elif painter.action_frames_ready and painter.action_frames_on:
+					var cell := int(figure.cell)
+					assert(cell >= 32 and cell < 96)
+					assert(((cell - 32) % 32) / 4 == painter.TAGS.find(figure.sq.tag), "Each role must use its own four action frames")
+					assert((cell < 64) == (figure.sq.camp == "A"), "Both armies must use the correct action sheet")
+					assert(painter.batch.shadow_buffer[i * 12 + 11] > 0.0 or float(figure.fade) <= 0.0, "Animated soldiers must retain their grounded shadow")
 			print("PASS batched renderer: all figures / depth order / atlas cell / no CPU pose cache")
 		if args.has("shot"):
 			get_viewport().get_texture().get_image().save_png("res://../build/motion5_renderer_%s.png" % str(args.get("tag", "smoke")))
@@ -324,6 +334,8 @@ func _ready() -> void:
 				var one: Dictionary = painter.visible_soldiers[i]
 				for j in range(i + 1, painter.visible_soldiers.size()):
 					var two: Dictionary = painter.visible_soldiers[j]
+					if int(one.cell) in [16, 17] or int(two.cell) in [16, 17]:
+						continue      # 군기는 병사 발 간격 검사 대상이 아니다
 					if one.sq.camp == two.sq.camp or not one.sq.alive or not two.sq.alive:
 						continue
 					var separation: float = one.p.distance_to(two.p) / minf(one.h, two.h)
@@ -356,12 +368,15 @@ func _ready() -> void:
 	var end := last + int(duration * 1e6)
 	var frames := []
 	var phases := {"march": [], "contact": [], "ultimate": []}
+	var stages := {"opening": [], "clash": [], "late": []}
+	var sample_start_clock: float = view.clock
 	var max_figures := 0
 	var max_meshes := 0
 	var max_bodies := 0
 	var draw_calls := 0.0
 	var upd0: int = painter.paint_updates
 	var lv_hist := {}
+	var slow_frames: Array = []
 	while Time.get_ticks_usec() < end and not view.finished:
 		await get_tree().process_frame
 		var now := Time.get_ticks_usec()
@@ -374,6 +389,11 @@ func _ready() -> void:
 		elif view.field.order.any(func(sq): return sq.alive and sq.contact):
 			phase = "contact"
 		phases[phase].append(frame_ms)
+		var stage := "opening" if view.clock < 5.0 else ("clash" if view.clock < 15.0 else "late")
+		stages[stage].append(frame_ms)
+		if frame_ms > 33.333:
+			slow_frames.append({"clock": view.clock, "ms": frame_ms, "phase": phase, "stage": stage,
+				"ultimates": painter.ults.size(), "figures": painter.figure_count, "draw_calls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)})
 		if args.has("phase-cpu"):      # 구간(행군 · 교전 · 고유기)별 CPU 몫 —— 프레임마다 prof 차이를 모은다 (측정 자체가 조금 무겁다)
 			var cur: Dictionary = view.field.prof
 			var acc: Dictionary = phase_cpu[phase]
@@ -394,6 +414,14 @@ func _ready() -> void:
 		"phases": {}, "max_figures": max_figures, "max_bodies": max_bodies, "max_walk_meshes": max_meshes,
 		"mean_draw_calls": draw_calls / maxf(1.0, frames.size()),
 		"paint_updates_per_sec": (painter.paint_updates - upd0) / maxf(0.001, (last - (end - int(duration * 1e6))) / 1e6), "load_lv_frames": lv_hist, "initial_formation_capacity": capacity}
+	report["ult_fx"] = Settings.ult_fx
+	report["slow_frames"] = slow_frames
+	report["game_clock_start"] = sample_start_clock
+	report["game_clock_end"] = view.clock
+	report["battle_finished"] = view.finished
+	report["stages"] = {}
+	for stage in stages:
+		report.stages[stage] = stats(stages[stage])
 	for phase in phases:
 		report.phases[phase] = stats(phases[phase])
 	# 구간별 CPU 시간 (프레임당 평균 ms) —— 측정 구간만 (준비 구간은 빼려고 아래 prof0 를 뺀다)

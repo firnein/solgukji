@@ -1,0 +1,28 @@
+{
+  "mode": "built-in image_gen",
+  "layout": {
+    "columns": 4,
+    "rows": [
+      "창병",
+      "기병",
+      "궁병",
+      "도적",
+      "책사",
+      "유생",
+      "술사",
+      "모사"
+    ],
+    "columns_meaning": [
+      "march",
+      "windup",
+      "attack",
+      "hit"
+    ]
+  },
+  "assets": [
+    "solgukji_godot/assets/war_painting/troops_action_blue_v1.png",
+    "solgukji_godot/assets/war_painting/troops_action_red_v1.png"
+  ],
+  "blue": "Use case: stylized-concept. Asset type: production 2D sprite animation atlas for an existing Three Kingdoms game. The attached image is a STYLE AND CHARACTER REFERENCE, not an image to reproduce as a layout. Generate a NEW transparent sprite sheet, tall portrait 1:2 aspect ratio, an EXACT uniform grid of FOUR COLUMNS and EIGHT ROWS, 32 separate full-body sprites, with NO grid lines, NO letters, NO labels, NO shadows on a ground plane, no background at all. Every cell has identical dimensions and generous transparent padding. All sprites face northeast (three-quarter BACK view, facing upper RIGHT). Same character, clothing, scale and foot anchor in every cell of a row. Feet or horse hooves on exactly 93% of cell height, body centered on 50% of cell width, no cropping or overlap between cells.\nStyle: restrained hand-painted Chinese historical illustration, clean dark ink contours, muted indigo cloth, dark bronze lamellar armor, realistic proportions, readable silhouette at tiny game size. Match the reference's blue army, no red soldiers. Small faces are unimportant; weapon silhouette and clear pose change matter.\nRows from top to bottom: 1 shield-and-long-spear infantry; 2 mounted armored lancer on brown horse; 3 archer with recurve bow and quiver; 4 saber infantry with short dao; 5 scholar strategist with feather fan; 6 healer scholar with bamboo scroll; 7 Taoist sorcerer with staff and talisman; 8 robed tactician with command baton.\nColumns from left to right in EVERY row: 1 marching/ready (one step, weapon carried); 2 attack wind-up (spear pulled back behind shield, horse rider coils lance, archer draws bow FULLY, saber lifted, scholar draws fan/scroll/staff/baton back); 3 attack RELEASE (spear thrust extends forward, mounted lancer leans and thrusts, archer bow arm extended with string RELEASED, saber slices across, scholar forcefully points or sweeps implement forward); 4 HIT reaction (same soldier recoils backward, knees bend and torso twists, shield tilted, horse braces, no blood, no flying bodies).\nThis is an animation sheet: columns 2 and 3 MUST have clearly different arm and weapon positions, not four copies of an idle illustration. Keep identities and feet perfectly aligned. No magic explosions, no beams, no text.",
+  "red": "Use case: stylized-concept. Asset type: production 2D sprite animation atlas. Image 1 is the EXACT GRID AND POSE REFERENCE: keep its FOUR COLUMNS and EIGHT ROWS, same cell sizes, character scale, pose meanings, and foot anchors. Image 2 is an additional clothing/style reference; its bottom two rows show the red enemy army's FRONT view.\nCreate a NEW red enemy army version of image 1 on a TRUE TRANSPARENT background. Tall 1:2 sheet, exactly 32 full-body sprites, no lines, no text, no labels, no shadows on a ground plane. Uniform cells; feet/hooves fixed at 93% of each cell height and body center at 50% cell width, ample transparent margins, no cropping or cross-cell overlap.\nCRITICAL: all characters face SOUTHWEST, a three-quarter FRONT view facing lower LEFT, so chest armor and faces are visible. Do NOT just recolor the blue backs. Muted cinnabar red cloth, bronze/dark lamellar armor, brown horses, same restrained historical Chinese ink-and-mineral-paint style and realistic proportions.\nRows top to bottom: shield-and-spear infantry; mounted lancer; archer; saber infantry; feather-fan strategist; bamboo-scroll healer; staff-and-talisman Taoist; command-baton tactician.\nColumns left to right in EVERY row: 1 marching/ready; 2 attack wind-up; 3 attack RELEASE; 4 recoiling from a hit, knees bending and torso pulled back, no blood or flying bodies.\nPreserve the reference's VERY DISTINCT weapon/arm changes: spear retracts then THRUSTS toward lower left; mounted lancer braces then leans forward and thrusts; archer draws FULLY then releases string; saber lifts then swings; scholars draw their implement back then point/sweep forward. Each row must be a consistent character across all four columns. Clean readable silhouettes for tiny game sprites. No magic explosions, no UI, no checkerboard drawn into the image."
+}
