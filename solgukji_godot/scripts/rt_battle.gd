@@ -222,6 +222,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			_ord_ba.append(ua[i])
 	if inyeon_theme and inyeon_enabled:
 		_yeon_up_setup()
+	_mt = load("res://scripts/minor_trig.gd").make(self) if minor_trig else null      # 11/24 잡기술 발동 조건 (장수마다)
 	_sg = load("res://scripts/sig_rt.gd").make(self) if sig_enabled else null      # 11/19 장수 개성 —— 개성 키가 있는 판에만
 	if _sg != null:
 		_sg.setup()
@@ -277,6 +278,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			tp0 = tp1
 		_fire_winds()
 		_dash_tick()
+		if _mt != null:
+			_mt.tick()
 		_paeup_tick(TICK)
 		if not _zones.is_empty():
 			_zone_tick()
@@ -348,6 +351,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	if _sg != null:
 		_sg.release()      # 서로 붙든 참조를 끊는다 (장수 개성)
 		_sg = null
+	if _mt != null:
+		_mt.release()
+		_mt = null
 	_zones.clear()
 	return r
 
@@ -822,6 +828,27 @@ func _inyeon_fin_fire(grp: Dictionary) -> void:
 				add_buff(o, {"stat": "atk", "amt": float(tune.atk[i]), "dur": int(tune.dur)})
 	_one = 1.0
 	_long = 1.0
+
+
+## 11/24 잡기술 발동 조건 —— 인물 잡기술은 장수마다, 공용 잡기술은 병종마다 (minor_trig.gd). 끄면 평타 N 번마다
+static var minor_trig := true
+var _mt = null
+
+
+func _minor_gate(u: Unit, mk: String, t: Unit):
+	return _mt.gate(u, mk, t) if _mt != null and t != null else null
+
+
+## 11/24 조건 잡기술은 드물게 터지는 만큼 세게 (사용자: 늘어지는 전투를 줄이려고 넣은 것 —— 위력 1.5배 · 간격 3초)
+static var minor_trig_amp := 1.5
+
+
+func _minor_boost(m: Dictionary) -> Dictionary:
+	if minor_trig_amp == 1.0:
+		return m
+	var x := m.duplicate()
+	x["amp"] = minor_trig_amp
+	return x
 
 
 ## 기 모으기가 끝난 고유기를 터뜨린다 (유닛 순서대로 —— 같은 시각이면 결정적으로)

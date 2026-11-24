@@ -825,13 +825,16 @@ static func minor_def(mk: String) -> Dictionary:
 
 
 ## 이번 평타가 잔기술인가 —— [정의, 종류] 또는 []
-func _minor(u: Unit) -> Array:
+func _minor(u: Unit, t: Unit = null) -> Array:
 	if not minor_enabled or has_st(u, "seal"):
 		return []
 	var mk := minor_kind(u.c.id)
 	if mk == "":
 		return []
 	var m: Dictionary = minor_def(mk)
+	var g = _minor_gate(u, mk, t)      # 11/24 장수마다 발동 조건 (실시간 엔진 · minor_trig.gd) —— null 이면 아래 평타 N 번
+	if g != null:
+		return [_minor_boost(m), mk, g] if g is Unit else []
 	var every := int(m.every)
 	if minor_act_enabled and MINOR_ACT.has(u.c.tag):
 		every = int(MINOR_ACT[u.c.tag].every)      # 11/23 리듬은 병종 몫
@@ -844,6 +847,15 @@ func _minor(u: Unit) -> Array:
 	return [m, mk]
 
 
+func _minor_gate(_u: Unit, _mk: String, _t: Unit):
+	return null
+
+
+## 조건으로 터진 잡기술의 위력 배율 (실시간 엔진이 덮어쓴다) —— m 의 amp 로 싣는다
+func _minor_boost(m: Dictionary) -> Dictionary:
+	return m
+
+
 ## 잔기술 한 번 —— 타격(대상은 back 이면 적 후열) + 덧붙임. 상태이상은 inflict(저항 판정 · 기록 포함)
 func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies: Array) -> void:
 	var act: Dictionary = MINOR_ACT.get(u.c.tag, {}) if minor_act_enabled else {}
@@ -852,7 +864,7 @@ func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies:
 		if not bt.is_empty() and bt[0].alive:
 			t = bt[0]
 	var phys: bool = (m.kind == "phys") if m.has("kind") else not is_caster(u.c)
-	var tl := clampf(0.8 + 0.1 * (u.c.tier - 3), 0.8, 1.3)      # 등급이 높을수록 조금 세게
+	var tl := clampf(0.8 + 0.1 * (u.c.tier - 3), 0.8, 1.3) * float(m.get("amp", 1.0))      # 등급이 높을수록 조금 세게 · 11/24 조건 잡기술 배율
 	_minor_nm = m.n
 	_minor_mk = mk
 	if phys: phys_hit(u, t, float(m.mult) * tl)
@@ -873,7 +885,7 @@ func _do_minor(u: Unit, t: Unit, m: Dictionary, mk: String, foes: Array, allies:
 			if phys: phys_hit(u, t, float(m.extra) * tl, true)
 			else: int_hit(u, t, float(m.extra) * tl, 1)
 	if not act.is_empty():
-		_minor_act(u, t, act, float(MINOR_ACT_X.get(mk, 1.0)), tl, phys, m, foes, allies)
+		_minor_act(u, t, act, float(MINOR_ACT_X.get(mk, 1.0)) * float(m.get("amp", 1.0)), tl, phys, m, foes, allies)
 		if act.act == "rally":
 			return
 	if m.has("cheer") or m.has("mend"):
@@ -3248,9 +3260,9 @@ func act(u: Unit) -> void:
 	if not used:
 		var tt := basic_target(u, foes)
 		if not tt.is_empty() and tt[0].alive:
-			var mn := _minor(u)
+			var mn := _minor(u, tt[0])
 			if not mn.is_empty():
-				_do_minor(u, tt[0], mn[0], mn[1], foes, allies)
+				_do_minor(u, mn[2] if mn.size() > 2 else tt[0], mn[0], mn[1], foes, allies)
 			elif is_caster(u.c): int_hit(u, tt[0], 1, 1)
 			else: phys_hit(u, tt[0], 1)
 
