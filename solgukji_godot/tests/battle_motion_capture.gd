@@ -38,7 +38,7 @@ func _ready() -> void:
 	var original_events: Array = result.ev.duplicate(true)
 	view.play_res(result, "pvp")
 	if args.has("notice"):
-		while view.hud.ult_notices.A.is_empty() or view.hud.ult_notices.B.is_empty():
+		while view.hud.cut != null or view.hud.ult_notices.A.is_empty() or view.hud.ult_notices.B.is_empty():
 			assert(not view.finished, "The real replay must produce simultaneous ally and enemy light activations")
 			await get_tree().process_frame
 		print("MOTION_NOTICES ally=", view.hud.ult_notices.A[0], " enemy=", view.hud.ult_notices.B[0], " clock=", view.clock)

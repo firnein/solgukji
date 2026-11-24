@@ -69,7 +69,7 @@ var shown := []             # 유닛별 [병력, 사기] —— 화면에 보이
 var drain := []             # 유닛별 [병력 초당 변화량, 사기 초당 변화량]
 var src := []               # 유닛별 마지막 공격자 key (쓰러지는 병사를 고르는 데 쓴다)
 var loss_times := []        # 유닛별 병력 손실이 예정된 행동 시각 (정렬)
-var rout_wait := {}         # 유닛 번호 -> true —— 병력이 다 흘러간 뒤 무너뜨린다
+var rout_wait := {}         # 유닛 번호 -> 빠른 고유기 여부. 병력이 다 흘러간 뒤 무너뜨린다.
 var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 (점검용)
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
 const CUT_T := 1.8           # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95, 11/6 사용자: 초상 · 글이 너무 빨리 사라진다 → 1.8 (터지는 순간은 컷인이 걷힌 뒤)
@@ -2086,10 +2086,24 @@ func _swing_sounds() -> void:
 ## Settings.ult_fx: 0 모두 크게 · 2 모두 가볍게 · 1(기본) 아래 중 하나면 크게 ——
 ##   그 인연 합동의 첫 번째(진영마다 —— 같은 인연이 다시 터지면 가볍게) · 그 부대의 첫 고유기(아군 전부, 적은 신화만) · 상대 부대를 무너뜨린 한 방.
 ##   단 인연 첫 합동이 아니면 앞 큰 연출과 ULT_BIG_GAP 초 안에 겹친 것은 가볍게 (동시에 터진 나머지).
+##   인연이 편성된 장수의 단독 발동은 설정·첫 발동·격파 여부와 관계없이 빠르게 재생한다.
 ##   측정(21페이즈 뒤 대전, 고유기 14 —— 인연 합류 8): 모두 51.4초 · 간단히 38.7초 —— 큰 연출 하나에 약 2초
 const ULT_BIG_GAP := 2.5
 func _mark_ult_big() -> void:
 	var mode := Settings.ult_fx
+	var bonded := {}
+	for camp in ["A", "B"]:
+		var cards := []
+		for sq: Squad in field.order:
+			if sq.camp == camp:
+				cards.append(sq.cid)
+		var people := {}
+		for link in DB.inyeon_links(cards):
+			for person in link["in"]:
+				people[person] = true
+		for sq: Squad in field.order:
+			if sq.camp == camp and people.has(DB.person(sq.cid)):
+				bonded[sq.key] = true
 	var n_by := {}
 	var yeon_seen := {}
 	var last_big := -99.0
@@ -2104,6 +2118,9 @@ func _mark_ult_big() -> void:
 			gr.big = false
 			continue
 		var yeon: bool = not (u.get("mates", []) as Array).is_empty()
+		if not yeon and bonded.has(who):
+			gr.big = false
+			continue
 		var yk := who.left(1) + str(u.get("inyeon", ""))
 		var yeon_first: bool = yeon and not yeon_seen.has(yk)
 		if yeon:
@@ -2300,7 +2317,8 @@ func _apply(i: int, quiet := false) -> void:
 		var gmul: float = Type2View.hit_skill_mul(field.squads[gq.who], field.squads[f]) if field.squads.has(gq.who) and field.squads.has(f) else 1.0
 		field.blast(f, from, (4.5 if gq.ult != null else (3.0 if ace else 1.0)) * gmul)
 		if gq.ult != null:
-			impact(0.24, 1.5)
+			if not bool(gq.get("lite", false)):
+				impact(0.24, 1.5)
 		elif ace:
 			impact(0.15, 1.0)
 	if e.has("mn") and field.squads.has(e.get("a", "")):      # 잔기술 (11/5) —— 쓴 부대 위에 이름 + 종류별 이펙트 (War3D.minor_fx)
@@ -2347,10 +2365,10 @@ func _apply(i: int, quiet := false) -> void:
 				hud.morale_rout(str(e.t).get_slice("의 군세가 ", 0), field.squads[f].camp)
 			if smooth and cur[u][0] <= 0 and shown[u][0] > 0.5:
 				# 병력이 다해 무너진다 —— 남은 병사가 0.9초에 걸쳐 다 쓰러진 뒤 무너뜨린다
-				rout_wait[u] = true
+				rout_wait[u] = bool(gq.get("lite", false))
 				drain[u][0] = maxf(drain[u][0], shown[u][0] / 0.9)
 			else:
-				_do_rout(u)
+				_do_rout(u, bool(gq.get("lite", false)))
 		"dodge":
 			hud.float_text(f, "회피", Color.WHITE, 12)
 		"resist", "passive":
@@ -2374,8 +2392,9 @@ func _apply(i: int, quiet := false) -> void:
 			else:
 				hud.announce("아군 총붕괴!" if mine else "적군 총붕괴!", Color("#ff7a66") if mine else Color("#ffd257"))
 			hud.flash(Color(0.9, 0.3, 0.2) if mine else Color(1.0, 0.85, 0.4))
-			impact(0.2, 1.2)
-			field.pull_back(2.5)
+			if not bool(gq.get("lite", false)):
+				impact(0.2, 1.2)
+				field.pull_back(2.5)
 		"decisive":
 			hud.announce("결전 —— 양군의 사기가 흔들린다", Color("#e8d6a8"))
 			hud.decisive_start()      # 11/11 끝날 때까지 위 띠 아래에 「결전 — 사기가 깎이는 중」
@@ -2496,8 +2515,9 @@ func _drain_step(dt: float) -> void:
 		if moved:
 			field.apply(res.roster[u].key, shown[u][0], shown[u][1], src[u])
 		if rout_wait.has(u) and absf(cur[u][0] - shown[u][0]) < 0.5:
+			var lite := bool(rout_wait[u])
 			rout_wait.erase(u)
-			_do_rout(u)
+			_do_rout(u, lite)
 
 
 func _draining() -> bool:
@@ -2509,7 +2529,7 @@ func _draining() -> bool:
 	return false
 
 
-func _do_rout(u: int) -> void:
+func _do_rout(u: int, lite := false) -> void:
 	var key: String = res.roster[u].key
 	_snap(u)
 	var sq: Squad = field.squads.get(key)
@@ -2517,10 +2537,11 @@ func _do_rout(u: int) -> void:
 	# 11/4 격파 연출 —— 적 장수가 무너지면 메달이 깨지며 "격파!", 카메라가 그쪽으로 잠깐 당겨진다 (4초에 한 번)
 	if sq and sq.camp == "B" and not finished and sq.tier >= 3:      # 병졸 부대는 메달 연출 없이 (큰 검은 원만 남았다)
 		hud.kill_mark(sq)
-		impact(0.1, 0.5)
-		if _kill_cd <= 0 and speed > 0 and field.follow == null and sq.tier >= 3 and field._cine <= 0:
-			_kill_cd = 4.0
-			field.cinematic(sq, 0.7)
+		if not lite:
+			impact(0.1, 0.5)
+			if _kill_cd <= 0 and speed > 0 and field.follow == null and sq.tier >= 3 and field._cine <= 0:
+				_kill_cd = 4.0
+				field.cinematic(sq, 0.7)
 	field.rout(key)
 
 
@@ -2612,6 +2633,7 @@ class Hud extends Control:
 	var stamp_t := 0.0
 	const ULT_NOTICE_LIFE := 1.5
 	const ULT_NOTICE_LIMIT := 16
+	const ULT_NOTICE_HEIGHT := 48.0
 	var ult_notices := {"A": [], "B": []}
 	var _ult_notice_y := 70.0
 
@@ -2619,7 +2641,7 @@ class Hud extends Control:
 		var queue: Array = ult_notices[sq.camp]
 		if queue.size() >= ULT_NOTICE_LIMIT:
 			queue.remove_at(1) # 현재 읽는 알림은 유지한다.
-		queue.append({"who": sq.row.name, "skill": skill, "age": 0.0})
+		queue.append({"who": DB.person(sq.cid), "cid": sq.cid, "skill": skill, "age": 0.0})
 
 	func _tick_ult_notices(dt: float) -> void:
 		if cut != null:
@@ -2633,8 +2655,12 @@ class Hud extends Control:
 				queue.pop_front()
 
 	func ult_notice_rect(camp: String) -> Rect2:
-		var w := minf(128.0, (size.x - 32.0) * 0.5)
-		return Rect2(12.0 if camp == "A" else size.x - 12.0 - w, _ult_notice_y, w, 32.0)
+		var w := minf(152.0, (size.x - 32.0) * 0.5)
+		return Rect2(12.0 if camp == "A" else size.x - 12.0 - w, _ult_notice_y, w, ULT_NOTICE_HEIGHT)
+
+	func ult_notice_portrait_rect(camp: String) -> Rect2:
+		var r := ult_notice_rect(camp)
+		return Rect2(Vector2(r.position.x + 5.0 if camp == "A" else r.end.x - 41.0, r.position.y + 4.0), Vector2(36, 40))
 
 	func _draw_ult_notices() -> void:
 		if cut != null:
@@ -2644,13 +2670,16 @@ class Hud extends Control:
 			if queue.is_empty():
 				continue
 			var notice: Dictionary = queue[0]
-			var alpha := minf(1.0, (ULT_NOTICE_LIFE - float(notice.age)) / 0.2)
 			var r := ult_notice_rect(camp)
-			var col := Color(PAINT_HP_COLORS[camp], alpha)
-			draw_rect(r, Color(0.035, 0.035, 0.045, 0.86 * alpha))
-			draw_rect(Rect2(r.position, Vector2(2, r.size.y)), col)
-			draw_string(DB.font_bold, r.position + Vector2(7, 11), notice.who + " · 고유기", HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12, 10, col)
-			draw_string(DB.font_bold, r.position + Vector2(7, 26), notice.skill, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12, 12, Color(0.98, 0.94, 0.82, alpha))
+			var col: Color = PAINT_HP_COLORS[camp]
+			draw_rect(r, Color(0.035, 0.035, 0.045, 0.86))
+			var stripe_x := r.position.x if camp == "A" else r.end.x - 2.0
+			draw_rect(Rect2(Vector2(stripe_x, r.position.y), Vector2(2, r.size.y)), col)
+			Art.draw_portrait(self, ult_notice_portrait_rect(camp), notice.cid, 0.0, "face")
+			var text_x := r.position.x + 47.0 if camp == "A" else r.position.x + 7.0
+			var text_w := r.size.x - 54.0
+			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 17.0), notice.who + " · 고유기", HORIZONTAL_ALIGNMENT_LEFT, text_w, 10, col)
+			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 36.0), notice.skill, HORIZONTAL_ALIGNMENT_LEFT, text_w, 12, Color(0.98, 0.94, 0.82))
 
 	func reset() -> void:
 		ult_notices.A.clear()
@@ -3750,7 +3779,7 @@ class Hud extends Control:
 		if _chip_keys.size() >= 2:      # 11/20 2차: 둘째 짝의 합류 초상 칩은 화면 오른쪽에 선다(_draw_join_chip) —— 이 칸과 같은 자리라 그 아래로
 			y += YEON_CHIP.y * (YEON_MATE3_SCALE if _chip_keys.size() >= 3 else 1.0) + 12.0
 		if not ult_notices.B.is_empty():
-			y = maxf(y, _ult_notice_y + 38.0)
+			y = maxf(y, _ult_notice_y + ULT_NOTICE_HEIGHT + 6.0)
 		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
 		for it in items.slice(0, 1 if Type2View.painting_on() else 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0

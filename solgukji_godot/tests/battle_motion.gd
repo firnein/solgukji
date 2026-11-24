@@ -22,6 +22,33 @@ func _ready() -> void:
 	var unchanged := JSON.stringify(result)
 	view.play_res(result, "pvp")
 	view.speed = 0.0
+	# 실제 인연 편성에서 단독 발동은 첫 발동/격파/설정과 무관하게 빠르게,
+	# 실제 합동의 대표는 기존 큰 연출을 유지한다.
+	var bonded_people := {}
+	for camp in ["A", "B"]:
+		var cards := []
+		for sq: Squad in view.field.order:
+			if sq.camp == camp:
+				cards.append(sq.cid)
+		for link in DB.inyeon_links(cards):
+			for person in link["in"]:
+				bonded_people[camp + person] = true
+	var solos: Array = view.groups.filter(func(g): return g.ult != null and not g.ult.has("lead") and g.ult.get("mates", []).is_empty() and bonded_people.has(view.field.squads[g.who].camp + DB.person(view.field.squads[g.who].cid)))
+	var joint_heads: Array = view.groups.filter(func(g): return g.ult != null and not g.ult.get("mates", []).is_empty())
+	assert(not solos.is_empty() and not joint_heads.is_empty())
+	var all_units: Array = view.field.order
+	view.field.order = [view.field.squads[solos[0].who]]
+	Settings.ult_fx = 0
+	view.remark_ults()
+	assert(solos[0].big, "A possible database bond without a partner in the deck must not force the fast path")
+	view.field.order = all_units
+	for mode in [0, 1, 2]:
+		Settings.ult_fx = mode
+		view.remark_ults()
+		assert(solos.all(func(g): return not g.big), "Solo activations with a deck bond must always be fast, even in all-large mode")
+		assert(joint_heads[0].big == (mode != 2), "The first actual joint activation must retain its full cinematic unless all-fast is selected")
+	Settings.ult_fx = 1
+	view.remark_ults()
 	var unit: Squad = view.field.order.filter(func(q): return q.tag == "창병")[0]
 	unit.puppet = false
 	unit.pos = Vector2.ZERO
@@ -118,15 +145,25 @@ func _ready() -> void:
 	view.hud.ult_notices.A.clear()
 	view.hud.ult_notices.B.clear()
 	view.speed = 1.0
+	var solo_timing := [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine]
+	view._start_ult(solos[0])
+	assert(solos[0].lite and view.hud.cut == null)
+	assert(solo_timing == [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine], "The actual bonded solo event must take the fast path under default settings")
+	view.hud.ult_notices.A.clear()
+	view.hud.ult_notices.B.clear()
+	Settings.ult_fx = 2
+	view.remark_ults()
 	var timing := [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine]
 	for camp in ["A", "B"]:
 		var regular: Array = view.groups.filter(func(g): return g.ult != null and not g.ult.has("lead") and view.field.squads[g.who].camp == camp)
 		assert(not regular.is_empty())
 		var light: Dictionary = regular[0].duplicate(true)
-		light.big = false
+		assert(not light.big, "The real classifier must select the fast path")
 		view._start_ult(light)
 		assert(view.hud.ult_notices[camp].size() == 1)
 		assert(view.hud.ult_notices[camp][0].skill == light.ult.name)
+		assert(view.hud.ult_notices[camp][0].cid == view.field.squads[light.who].cid, "The portrait must identify the actual caster")
+		assert(view.hud.ult_notice_rect(camp).encloses(view.hud.ult_notice_portrait_rect(camp)))
 		assert(timing == [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine], "A light activation must not slow, pause or move the camera")
 	assert(view.hud.ult_notice_rect("A").end.x < view.hud.size.x * 0.5)
 	assert(view.hud.ult_notice_rect("B").position.x > view.hud.size.x * 0.5)
@@ -143,6 +180,19 @@ func _ready() -> void:
 	view.hud.damage(burning.key, 0.0, "phys", true)
 	assert(view.hud.floats.size() == number_count, "Zero damage must not cover formations")
 	assert(JSON.stringify(result) == unchanged, "Motion and propagation displays must leave the replay intact")
+	view.speed = 1.0
+	var rout_timing := [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine]
+	var defeated: Squad = view.field.order.filter(func(q): return q.camp == "B" and q.alive)[0]
+	view._do_rout(view.idx_of[defeated.key], true)
+	assert(rout_timing == [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine], "Even a fast ultimate's defeat must not add a pause or camera move")
+	var delayed: Squad = view.field.order.filter(func(q): return q.camp == "B" and q.alive)[0]
+	var delayed_index: int = view.idx_of[delayed.key]
+	view.cur[delayed_index][0] = 0.0
+	view.shown[delayed_index][0] = 1.0
+	view.rout_wait[delayed_index] = true
+	view._drain_step(1.0)
+	assert(not view.rout_wait.has(delayed_index))
+	assert(rout_timing == [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine], "A delayed defeat must retain the fast flag until the final soldier falls")
 	painter.reset()
 	assert(painter.fire_paths.is_empty() and painter.burn_fronts.is_empty())
 	view.hud.reset()
@@ -150,11 +200,15 @@ func _ready() -> void:
 	print("PASS physical fire: real engine events / actual spread origin / living formation sites / effect budget / no inferred spread / reset / replay immutability")
 	print("PASS ultimate emphasis: light charge and impact / short lifetime / no repeated fire clusters / full important ultimate retained")
 	print("PASS light activation notices: real regular and linked events / ally left enemy right / unchanged clock speed slow pause camera / real-time expiry / bounded queue / reset")
+	print("PASS bonded solo ultimates: real replay classification in all modes / full joint retained / correct portrait and side / no defeat pause or camera")
 	form = null
 	unit = null
 	burning = null
 	burning_form = null
 	hitter = null
+	all_units = []
+	defeated = null
+	delayed = null
 	painter = null
 	view.queue_free()
 	view = null
