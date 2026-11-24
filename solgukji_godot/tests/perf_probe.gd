@@ -17,6 +17,8 @@ const T2_PATH := "res://scripts/field/type2_view.gd"
 var _pf_t := 0
 var _proc_us := 0
 var _proc_n := 0
+var _sp_prev := {}
+var _last_proc_us := 0
 
 
 func _ready() -> void:
@@ -151,6 +153,19 @@ func _ready() -> void:
 		await get_tree().process_frame
 		var dt := get_process_delta_time()
 		dts.append(dt)
+		if args.has("spikes"):      # 11/24 끊김 찾기 —— 40ms 넘는 프레임마다 그 프레임에 가장 오래 걸린 구간
+			if dt > 0.04:
+				var worst := []
+				for k in field.prof.keys():
+					if k != "_frames":
+						worst.append([float(field.prof[k]) - float(_sp_prev.get(k, 0)), k])
+				worst.sort()
+				worst.reverse()
+				var w_txt := []
+				for i in mini(4, worst.size()):
+					w_txt.append("%s %.1fms" % [worst[i][1], worst[i][0] / 1000.0])
+				print("SPIKE|%.0fms|전투 %.2f초|처리 %.1fms|%s" % [dt * 1000.0, bv.clock, _last_proc_us / 1000.0, " · ".join(w_txt)])
+			_sp_prev = field.prof.duplicate()
 		proc_sum += Performance.get_monitor(Performance.TIME_PROCESS)
 		gpu_sum += RenderingServer.viewport_get_measured_render_time_gpu(rid)
 		rcpu_sum += RenderingServer.viewport_get_measured_render_time_cpu(rid)
@@ -220,6 +235,7 @@ func _on_pf() -> void:
 
 func _on_pre_draw() -> void:
 	if _pf_t > 0:
-		_proc_us += Time.get_ticks_usec() - _pf_t
+		_last_proc_us = Time.get_ticks_usec() - _pf_t
+		_proc_us += _last_proc_us
 		_proc_n += 1
 		_pf_t = 0
