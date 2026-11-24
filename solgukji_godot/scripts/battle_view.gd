@@ -2168,7 +2168,6 @@ func _start_ult(g: Dictionary) -> void:
 	if not u.has("lead") and not bool(g.get("big", true)):      # 11/22 가벼운 고유기 —— 슬로모션 · 컷인 · 카메라 없이 이름과 이펙트만, 전투를 멈추지 않는다
 		g["lite"] = true      # 연출 표시는 재생 묶음에만 둔다. 원본 사건은 수정하지 않는다.
 		hud.ult_notice(sq, str(u.get("name", "고유기")), bool(u.get("mini", false)), str(u.get("shout", "")))
-		hud.float_text(g.who, "『%s』" % str(u.get("name", "고유기")), Color("#ffd257"), 13)
 		get_tree().create_timer(0.2).timeout.connect(func():
 			if is_instance_valid(sq):
 				field.flourish(sq, 1.1))
@@ -2644,119 +2643,159 @@ class Hud extends Control:
 	var stamp_t := 0.0
 	const ULT_NOTICE_LIFE := 2.0
 	const ULT_NOTICE_LIMIT := 16
-	const ULT_NOTICE_HEIGHT := 48.0
+	const ULT_NOTICE_W := 156.0
+	const ULT_NOTICE_PORTRAIT := Vector2(30, 34)
 	var ult_notices := {"A": [], "B": []}
-	var _ult_notice_y := 70.0
-	var _notice_speech_styles := {}
+	var _notice_styles := {}
 
+	## 빠른 · 미니 고유기 알림 —— 시전한 부대 이름표 바로 위에 초상 + 말풍선(기술명 · 외침). 여럿이 동시에 뜨고 서로 밀어낸다.
 	func ult_notice(sq: Squad, skill: String, mini := false, speech := "") -> void:
 		var queue: Array = ult_notices[sq.camp]
 		if queue.size() >= ULT_NOTICE_LIMIT:
-			queue.remove_at(1) # 현재 읽는 알림은 유지한다.
+			queue.remove_at(0)
 		if speech.strip_edges() == "" and DB.has_ult(sq.cid):
 			speech = str(DB.ult_of(sq.cid).get("shout", ""))
-		var width := ult_notice_rect(sq.camp).size.x
-		queue.append({"who": DB.person(sq.cid), "cid": sq.cid, "skill": skill, "mini": mini, "age": 0.0,
-			"speech": speech.strip_edges(), "lines": _notice_speech_lines(speech, width), "wrap_width": width})
+		var n := {"who": DB.person(sq.cid), "cid": sq.cid, "key": sq.key, "camp": sq.camp, "skill": skill, "mini": mini, "age": 0.0,
+			"speech": speech.strip_edges(), "anchor": Vector2(-9999, -9999), "rect": Rect2()}
+		n["lines"] = _notice_speech_lines(n.speech, ULT_NOTICE_W - 40.0 + 16.0)
+		_ult_anchor(n)
+		queue.append(n)
 
 	func _notice_speech_lines(speech: String, width: float) -> Array:
 		var lines := []
 		var current := ""
 		var room := maxf(40.0, width - 16.0)
 		for word in speech.strip_edges().replace("\n", " ").split(" ", false):
-			if current != "" and DB.font_bold.get_string_size(current + " " + word, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x <= room:
+			if current != "" and DB.font_bold.get_string_size(current + " " + word, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x <= room:
 				current += " " + word
 				continue
 			if current != "":
 				lines.append(current)
 				current = ""
 			for ch in word:
-				if current != "" and DB.font_bold.get_string_size(current + ch, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x > room:
+				if current != "" and DB.font_bold.get_string_size(current + ch, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x > room:
 					lines.append(current)
 					current = ""
 				current += ch
 		if current.strip_edges() != "":
 			lines.append(current.strip_edges())
-		if lines.size() > 3:
-			lines.resize(3)
-			var last: String = lines[2]
-			while last.length() > 0 and DB.font_bold.get_string_size(last + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x > room:
+		if lines.size() > 2:
+			lines.resize(2)
+			var last: String = lines[1]
+			while last.length() > 0 and DB.font_bold.get_string_size(last + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x > room:
 				last = last.left(last.length() - 1)
-			lines[2] = last + "…"
+			lines[1] = last + "…"
 		return lines
 
-	func ult_notice_speech_rect(camp: String) -> Rect2:
-		var queue: Array = ult_notices[camp]
-		if queue.is_empty() or queue[0].lines.is_empty():
-			return Rect2()
-		var r := ult_notice_rect(camp)
-		return Rect2(r.position.x, r.end.y + 6.0, r.size.x, 10.0 + queue[0].lines.size() * 14.0)
+	## 부대 이름표 윗변 가운데. 부대가 죽거나 사라지면 마지막 자리를 그대로 쓴다.
+	func _ult_anchor(n: Dictionary) -> Vector2:
+		var sq: Squad = view.field.squads.get(n.key)
+		if sq != null and sq.alive:
+			var marker: Dictionary = _painted_medals.get(n.key, {})
+			if not marker.is_empty():
+				var lab: Rect2 = marker.label
+				n.anchor = Vector2(lab.get_center().x, lab.position.y)
+			else:
+				n.anchor = view.field.to_screen(sq.pos, 0.0) + (_tok_off.get(n.key, Vector2.ZERO) as Vector2) + Vector2(0, -26)
+		return n.anchor
 
-	func _draw_notice_speech(camp: String, notice: Dictionary) -> void:
-		var r := ult_notice_speech_rect(camp)
-		if not r.has_area():
-			return
-		var col: Color = PAINT_HP_COLORS[camp]
-		if not _notice_speech_styles.has(camp):
-			var style := StyleBoxFlat.new()
-			style.bg_color = Color(0.035, 0.035, 0.045, 0.94)
-			style.border_color = Color(col, 0.8)
-			style.set_border_width_all(1)
-			style.set_corner_radius_all(5)
-			_notice_speech_styles[camp] = style
-		draw_style_box(_notice_speech_styles[camp], r)
-		var x := ult_notice_portrait_rect(camp).get_center().x
-		var tip := Vector2(x, r.position.y - 6.0)
-		var left := Vector2(x - 5.0, r.position.y)
-		var right := Vector2(x + 5.0, r.position.y)
-		draw_colored_polygon(PackedVector2Array([left, tip, right]), Color(0.035, 0.035, 0.045, 0.94))
-		draw_line(left, tip, Color(col, 0.8), 1.0)
-		draw_line(tip, right, Color(col, 0.8), 1.0)
-		for i in notice.lines.size():
-			draw_string(DB.font_bold, r.position + Vector2(8.0, 15.0 + i * 14.0), notice.lines[i], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 16.0, 11, Color("#f5ead4"))
+	func ult_notice_size(n: Dictionary) -> Vector2:
+		var text_h := 16.0 + maxi(1, n.lines.size()) * 12.0
+		return Vector2(minf(ULT_NOTICE_W, size.x - 8.0), maxf(ULT_NOTICE_PORTRAIT.y + 8.0, text_h + 6.0))
+
+	func ult_notice_portrait_rect(n: Dictionary) -> Rect2:
+		var r: Rect2 = n.rect
+		return Rect2(r.position + Vector2(4, 4), ULT_NOTICE_PORTRAIT)
+
+	## 매 프레임: 부대를 따라가며 위치를 정하고, 겹치면 위로 밀고, 화면 안으로 끌어온다.
+	func layout_ult_notices() -> void:
+		var all := []
+		for camp in ["A", "B"]:
+			all.append_array(ult_notices[camp])
+		all.sort_custom(func(a, b): return a.age > b.age)
+		var placed: Array = []
+		var top := 40.0
+		for n in all:
+			var sz := ult_notice_size(n)
+			var anchor := _ult_anchor(n)
+			var pos := Vector2(anchor.x - sz.x * 0.5, anchor.y - 8.0 - sz.y)
+			pos.x = clampf(pos.x, 4.0, maxf(4.0, size.x - sz.x - 4.0))
+			var guard := 0
+			var moved := true
+			while moved and guard < 24:
+				moved = false
+				guard += 1
+				for o: Rect2 in placed:
+					if Rect2(pos, sz).grow(2.0).intersects(o):
+						pos.y = o.position.y - sz.y - 3.0
+						moved = true
+			if pos.y < top:      # 위로 더 못 가면 부대 아래쪽으로
+				pos.y = minf(maxf(top, anchor.y + 30.0), size.y - sz.y - 4.0)
+				for o: Rect2 in placed:
+					if Rect2(pos, sz).grow(2.0).intersects(o):
+						pos.y = o.end.y + 3.0
+			pos.y = clampf(pos.y, 4.0, maxf(4.0, size.y - sz.y - 4.0))
+			n.rect = Rect2(pos, sz)
+			placed.append(n.rect)
 
 	func _tick_ult_notices(dt: float) -> void:
 		if cut != null:
 			return
 		for camp in ["A", "B"]:
 			var queue: Array = ult_notices[camp]
-			if queue.is_empty():
-				continue
-			queue[0].age += dt # 전투 배속과 별개인 HUD 시간. 전투 시계는 건드리지 않는다.
-			if queue[0].age >= ULT_NOTICE_LIFE:
-				queue.pop_front()
-
-	func ult_notice_rect(camp: String) -> Rect2:
-		var w := minf(152.0, (size.x - 32.0) * 0.5)
-		return Rect2(12.0 if camp == "A" else size.x - 12.0 - w, _ult_notice_y, w, ULT_NOTICE_HEIGHT)
-
-	func ult_notice_portrait_rect(camp: String) -> Rect2:
-		var r := ult_notice_rect(camp)
-		return Rect2(Vector2(r.position.x + 5.0 if camp == "A" else r.end.x - 41.0, r.position.y + 4.0), Vector2(36, 40))
+			for n in queue:
+				n.age += dt # 전투 배속과 별개인 HUD 시간. 전투 시계는 건드리지 않는다.
+			queue.assign(queue.filter(func(n): return n.age < ULT_NOTICE_LIFE))
 
 	func _draw_ult_notices() -> void:
 		if cut != null:
 			return
+		layout_ult_notices()
 		for camp in ["A", "B"]:
-			var queue: Array = ult_notices[camp]
-			if queue.is_empty():
-				continue
-			var notice: Dictionary = queue[0]
-			var r := ult_notice_rect(camp)
-			if notice.wrap_width != r.size.x:
-				notice.lines = _notice_speech_lines(notice.speech, r.size.x)
-				notice.wrap_width = r.size.x
-			var col: Color = PAINT_HP_COLORS[camp]
-			draw_rect(r, Color(0.035, 0.035, 0.045, 0.86))
-			var stripe_x := r.position.x if camp == "A" else r.end.x - 2.0
-			draw_rect(Rect2(Vector2(stripe_x, r.position.y), Vector2(2, r.size.y)), col)
-			Art.draw_portrait(self, ult_notice_portrait_rect(camp), notice.cid, 0.0, "face")
-			var text_x := r.position.x + 47.0 if camp == "A" else r.position.x + 7.0
-			var text_w := r.size.x - 54.0
-			var mini := bool(notice.get("mini", false))
-			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 17.0), notice.who + (" · 미니 고유기" if mini else " · 고유기"), HORIZONTAL_ALIGNMENT_LEFT, text_w, 9 if mini else 10, col)
-			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 36.0), notice.skill, HORIZONTAL_ALIGNMENT_LEFT, text_w, 12, Color(0.98, 0.94, 0.82))
-			_draw_notice_speech(camp, notice)
+			for n: Dictionary in ult_notices[camp]:
+				_draw_ult_notice(n)
+
+	func _draw_ult_notice(n: Dictionary) -> void:
+		var r: Rect2 = n.rect
+		var camp: String = n.camp
+		var mini := bool(n.get("mini", false))
+		var col: Color = PAINT_HP_COLORS[camp]
+		var fade := clampf(minf(n.age / 0.12, (ULT_NOTICE_LIFE - n.age) / 0.25), 0.0, 1.0)
+		var bg := Color(0.035, 0.035, 0.045, 0.93 * fade)
+		var key := camp + ("m" if mini else "n")
+		if not _notice_styles.has(key):
+			var style := StyleBoxFlat.new()
+			style.set_border_width_all(1 if mini else 2)
+			style.set_corner_radius_all(6)
+			_notice_styles[key] = style
+		var st: StyleBoxFlat = _notice_styles[key]
+		st.bg_color = bg
+		st.border_color = Color(col, (0.75 if mini else 1.0) * fade)
+		var a: Vector2 = n.anchor
+		var tx := clampf(a.x, r.position.x + 12.0, r.end.x - 12.0)
+		var below := r.position.y > a.y
+		var base_y := r.position.y if below else r.end.y
+		var tip := Vector2(tx, a.y + 4.0) if below else Vector2(tx, a.y - 2.0)
+		if absf(tip.y - base_y) < 40.0:
+			var l := Vector2(tx - 5.0, base_y)
+			var rr := Vector2(tx + 5.0, base_y)
+			draw_colored_polygon(PackedVector2Array([l, tip, rr]), bg)
+			draw_line(l, tip, st.border_color, 1.0)
+			draw_line(tip, rr, st.border_color, 1.0)
+		draw_style_box(st, r)
+		var pr := ult_notice_portrait_rect(n)
+		Art.draw_portrait(self, pr, n.cid, 0.0, "face")
+		draw_rect(pr, Color(col, 0.9 * fade), false, 1.0)
+		var text_x := r.position.x + ULT_NOTICE_PORTRAIT.x + 10.0
+		var text_w := r.end.x - text_x - 5.0
+		var gold := Color(0.7, 0.88, 1.0, fade) if mini else Color(1.0, 0.82, 0.34, fade)
+		var head := ("미니 『%s』" if mini else "『%s』") % n.skill
+		draw_string(DB.font_bold, Vector2(text_x, r.position.y + 14.0), head, HORIZONTAL_ALIGNMENT_LEFT, text_w, 11, gold)
+		var lines: Array = n.lines
+		for i in lines.size():
+			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 27.0 + i * 12.0), lines[i], HORIZONTAL_ALIGNMENT_LEFT, text_w, 10, Color(0.96, 0.92, 0.83, fade))
+		if lines.is_empty():
+			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 27.0), n.who, HORIZONTAL_ALIGNMENT_LEFT, text_w, 10, Color(col.lightened(0.3), fade))
 
 	func reset() -> void:
 		ult_notices.A.clear()
@@ -3820,9 +3859,6 @@ class Hud extends Control:
 			_draw_chains()
 			_draw_chain_pop()
 		_draw_charges()
-		_ult_notice_y = 70.0 + 46.0 * _charge_rows + 32.0 * _join_rows
-		if not _chip_keys.is_empty():
-			_ult_notice_y += YEON_CHIP.y * (YEON_MATE3_SCALE if _chip_keys.size() >= 3 else 1.0) + 12.0
 		_draw_ult_notices()
 		_draw_threats()
 		view.field.pt("머리표·띠", tq)
@@ -3855,8 +3891,6 @@ class Hud extends Control:
 		var y := maxf(104.0, 66.0 + 46.0 * _charge_rows + 32.0 * _join_rows)      # 11/20 폴리싱: 기 모으기 줄 · 인연 합류 줄이 떠 있으면 그 아래로 —— 합류 줄 오른쪽 끝과 겹쳐 글씨가 가렸다
 		if _chip_keys.size() >= 2:      # 11/20 2차: 둘째 짝의 합류 초상 칩은 화면 오른쪽에 선다(_draw_join_chip) —— 이 칸과 같은 자리라 그 아래로
 			y += YEON_CHIP.y * (YEON_MATE3_SCALE if _chip_keys.size() >= 3 else 1.0) + 12.0
-		if not ult_notices.B.is_empty():
-			y = maxf(y, maxf(ult_notice_rect("B").end.y, ult_notice_speech_rect("B").end.y) + 6.0)
 		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
 		for it in items.slice(0, 1 if Type2View.painting_on() else 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0

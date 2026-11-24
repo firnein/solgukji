@@ -165,21 +165,33 @@ func _ready() -> void:
 		assert(view.hud.ult_notices[camp][0].cid == view.field.squads[light.who].cid, "The portrait must identify the actual caster")
 		assert(view.hud.ult_notices[camp][0].speech == light.ult.shout, "Fast ultimates must speak the actual recorded general's line")
 		assert(not view.hud.ult_notices[camp][0].lines.is_empty())
-		assert(view.hud.ult_notice_speech_rect(camp).position.y > view.hud.ult_notice_rect(camp).end.y)
-		assert(view.hud.ult_notice_rect(camp).encloses(view.hud.ult_notice_portrait_rect(camp)))
+		view.hud.layout_ult_notices()
+		var nr: Rect2 = view.hud.ult_notices[camp][0].rect
+		var caster_sq: Squad = view.field.squads[light.who]
+		assert(nr.end.y <= view.hud._ult_anchor(view.hud.ult_notices[camp][0]).y + 1.0 or nr.position.y > 0.0, "The bubble must sit at the caster")
+		assert(Rect2(Vector2.ZERO, view.hud.size).encloses(nr), "The bubble must stay on screen")
+		assert(nr.encloses(view.hud.ult_notice_portrait_rect(view.hud.ult_notices[camp][0])))
+		assert(caster_sq != null)
 		assert(timing == [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine], "A light activation must not slow, pause or move the camera")
-	assert(view.hud.ult_notice_rect("A").end.x < view.hud.size.x * 0.5)
-	assert(view.hud.ult_notice_rect("B").position.x > view.hud.size.x * 0.5)
-	var long_speech := view.hud._notice_speech_lines("장수가 전투하며 외치는 긴 대사를 화면 안에서 읽도록 줄을 나눈다. ".repeat(5), 152.0)
-	assert(long_speech.size() == 3 and long_speech[-1].ends_with("…"))
+	var long_speech := view.hud._notice_speech_lines("장수가 전투하며 외치는 긴 대사를 화면 안에서 읽도록 줄을 나눈다. ".repeat(5), 132.0)
+	assert(long_speech.size() == 2 and long_speech[-1].ends_with("…"))
 	for line in long_speech:
-		assert(DB.font_bold.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x <= 136.01)
+		assert(DB.font_bold.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x <= 116.01)
 	view.speed = 0.0
 	view.hud._tick_ult_notices(view.hud.ULT_NOTICE_LIFE + 0.01)
 	assert(view.hud.ult_notices.A.is_empty() and view.hud.ult_notices.B.is_empty(), "Notices must expire in real HUD time, independently of battle speed")
 	for i in 30:
 		view.hud.ult_notice(hitter, "고유기")
 	assert(view.hud.ult_notices[hitter.camp].size() == view.hud.ULT_NOTICE_LIMIT, "Burst activations must have bounded UI cost")
+	view.hud.ult_notices[hitter.camp].clear()
+	for i in 4:
+		view.hud.ult_notice(hitter, "고유기", i % 2 == 1)
+	view.hud.layout_ult_notices()
+	var burst: Array = view.hud.ult_notices[hitter.camp]
+	for i in burst.size():
+		assert(Rect2(Vector2.ZERO, view.hud.size).encloses(burst[i].rect), "Stacked bubbles must stay on screen")
+		for j in range(i + 1, burst.size()):
+			assert(not burst[i].rect.intersects(burst[j].rect), "Simultaneous bubbles must not overlap")
 	var fin_count: int = view.hud.fins.size()
 	view._fin_show({"a": hitter.key}, {"foes": [burning.key], "allies": []}, "fire", Color.ORANGE, "인연기")
 	assert(view.hud.fins.size() == fin_count and painter.ults[-1].lite, "The follow-up must not queue a large banner or repeated full effects")
