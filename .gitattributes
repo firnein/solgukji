@@ -4,4 +4,3 @@
 *.jpg binary
 *.ttf binary
 build/solgukji.apk filter=lfs diff=lfs merge=lfs -text
-build/solgukji.exe filter=lfs diff=lfs merge=lfs -text

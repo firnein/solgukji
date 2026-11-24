@@ -18,8 +18,7 @@ tools/_sc_
 build/*
 # 11/12 사용자: 링크가 안 바뀌게 고정 이름 하나만 올린다 (버전은 게임 안 업데이트 내역에)
 !build/solgukji.apk
-# 11/19 사용자: 윈도우 exe 도 깃에 (LFS, 고정 이름)
-!build/solgukji.exe
+# 11/24 사용자: 깃에는 APK 만. 윈도우 EXE 는 깃에 올리지 않고 구글 드라이브에만 (APK · EXE 둘 다 드라이브)
 # 등급별 일러스트 참조 이미지 —— make_ref_sheet.py 로 언제든 다시 만든다
 prompts/등급별/*/참조_*.png
 # 등급별 일러스트 원본 시트 · 잘린 결과 (용량이 커서 깃에 넣지 않는다 —— 게임에 넣은 초상은 assets/portraits 에 있다)
