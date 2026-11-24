@@ -76,8 +76,11 @@ var myth_ready := false        # 11/24 신화 시트를 읽었나 (painted_batch
 static var heroes_on := true   # 점검용 (tests/tier_sprite_shot --heroes=0) —— 끄면 장수 인형 없이 (전후 비교)
 var hero_ready := false
 var _hero_cells := {}          # 인물 이름 -> 칸 번호 (data/myth_heroes.json)
+var _immortal_hero_cells := {}
 var _hero_fill := PackedFloat32Array()      # 칸 번호 -> 인형 키 / 칸 키 (발 0.97 기준)
 var _hero_of := {}             # 카드 id -> 칸 번호 (-1 = 없음)
+var _hero_falls := {}
+var _hero_poses := 1
 var batch: Node2D
 var top_effects: Node2D
 var glow_effects: Node2D
@@ -186,6 +189,7 @@ func reset() -> void:
 	_fig_keys.clear()
 	_scr.clear()
 	bodies.clear()
+	_hero_falls.clear()
 	contacts.clear()
 	volleys.clear()
 	ults.clear()
@@ -295,7 +299,7 @@ func sync_quiet(updates: Array) -> void:
 	_sync_troops(updates, null, null, 0.0, true)
 
 func has_unsettled_casualties() -> bool:
-	return bodies.any(func(body): return visual_time < float(body.start) + float(body.duration))
+	return not _hero_falls.is_empty() or bodies.any(func(body): return visual_time < float(body.start) + float(body.duration))
 
 func _sync_troops(updates: Array, source: Squad, target: Squad, power: float, quiet: bool) -> void:
 	for update in updates:
@@ -303,9 +307,13 @@ func _sync_troops(updates: Array, source: Squad, target: Squad, power: float, qu
 		if sq == null:
 			continue
 		var form := _formation(sq)
-		form.ratio = clampf(float(update.troops) / maxf(1.0, sq.max), 0.0, 1.0)
+		var ratio := clampf(float(update.troops) / maxf(1.0, sq.max), 0.0, 1.0)
+		var solo_hero := _shows_hero(sq)
+		form.ratio = ratio
 		ratios[sq.key] = form.ratio
 		var wanted := ceili(form.ratio * form.capacity)
+		if quiet or wanted > 0:
+			_hero_falls.erase(sq.key)
 		if wanted >= form.count:
 			form.restore_soldiers(wanted, sq)
 			continue
@@ -318,9 +326,12 @@ func _sync_troops(updates: Array, source: Squad, target: Squad, power: float, qu
 		var launch_count := mini(victims.size(), ceili(force * 2.0))
 		for n in victims.size():
 			var id: int = victims[n]
-			if not quiet:
+			if not quiet and not solo_hero:
 				_spawn_body(sq, form, id, direction, force if n < launch_count else 0.0, n)
 			form.remove_soldier(id)
+		if wanted == 0 and not quiet and solo_hero:
+			_hero_falls[sq.key] = {"at": form.center, "dir": direction,
+				"form": form, "start": visual_time, "mirror": not form.facing_right}
 
 func _spawn_body(sq: Squad, form: FormationMotion, id: int, direction: Vector2, power: float, order: int) -> void:
 	# 무너진 병사는 전열 안에서 넘어지고 밀린다. 고유기도 병사를 공중으로 날리지 않는다.
@@ -405,6 +416,9 @@ func _process(dt: float) -> void:
 			if last_clock >= effects[key].end:
 				effects.erase(key)
 	bodies = bodies.filter(func(b): return visual_time < b.end)
+	for key in _hero_falls.keys():
+		if visual_time >= float(_hero_falls[key].start) + HERO_FALL_TIME:
+			_hero_falls.erase(key)
 	fire_paths = fire_paths.filter(func(path): return visual_time - float(path.start) < FIRE_PATH_LIFE)
 	for key in burn_fronts.keys():
 		var burning: Squad = v.field.squads.get(key)
@@ -553,6 +567,8 @@ func _draw() -> void:
 			var form: FormationMotion = formations.get(sq.key)
 			if form != null:
 				_collect_figures(sq, form)
+		if _hero_falls.has(sq.key):
+			_collect_hero_fall(sq, _hero_falls[sq.key])
 	tq = v.field.pt("삽화·수집", tq)
 	_mk_pts.clear()
 	_mk_cols.clear()
@@ -565,7 +581,7 @@ func _draw() -> void:
 	for sq: Squad in v.field.order:
 		if sq.state != "gone" and sq.fade > 0.01:
 			var form: FormationMotion = formations.get(sq.key)
-			if form != null:
+			if form != null and not _shows_hero(sq):
 				if batch_rendering:
 					_mark_batch(sq, form)
 				else:
@@ -610,7 +626,6 @@ func _draw_overlay(ci: CanvasItem) -> void:
 	_draw_ults(ci)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
-	var first_fig := figure_count
 	var h := _figure_height(sq, form)
 	var grade := _grade(sq)
 	var style := _style(sq, grade)
@@ -643,19 +658,23 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 
 	var attacking := form.action_kind == "melee" and visual_time - form.last_action < 0.55
 	var eligible := (form.contact or attacking) and sq.state != "flee" and target != null and target.alive
-	var front_ids: Array = form.nearest_living(form.center + direction * sq.edge(direction), form.cols) if eligible else[]
-	var scr: PackedVector2Array = _scr.get(sq.key, PackedVector2Array())
-	if scr.size() != form.capacity:
-		scr.resize(form.capacity)
-	var fleeing := sq.state == "flee"
-	var has_front := not front_ids.is_empty()
-	var slot_f := float(sq.row.slot)
 	var ranged: bool = form.action_kind == "volley" or form.action_kind == "spell"
 	var bow_base := visual_time - form.last_action      # 활 당김은 쏜 뒤 0.5초 안에만 보인다 (그 뒤는 0)
 	var sway := 0.035 if form.cavalry else 0.012
 	var fade_sq := sq.fade
 	var cv := cover_of(sq)
 	fade_sq *= 1.0 - 0.35 * maxf(cv, 0.0)
+	if _shows_hero(sq):
+		if form.count > 0:
+			_collect_hero(sq, form, _hero_index(sq), h, axis, not form.facing_right, eligible, ranged, bow_base, fade_sq, cv, sway)
+		return
+	var front_ids: Array = form.nearest_living(form.center + direction * sq.edge(direction), form.cols) if eligible else []
+	var scr: PackedVector2Array = _scr.get(sq.key, PackedVector2Array())
+	if scr.size() != form.capacity:
+		scr.resize(form.capacity)
+	var fleeing := sq.state == "flee"
+	var has_front := not front_ids.is_empty()
+	var slot_f := float(sq.row.slot)
 	for id in form.capacity:
 		if form.alive[id] == 0:
 			continue
@@ -727,70 +746,89 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 	if form.count > 0 and batch_rendering:
 		_collect_standard(sq, form, h / FIGURE_SCALE, fade_sq, cv, grade)
-	if animated and hero_ready and heroes_on and tier_fx and sq.tier >= MYTH_TIER and form.count > 0:
-		var hi := _hero_index(sq)
-		if hi >= 0:
-			_collect_hero(sq, form, hi, h, axis, mirror, eligible, ranged, bow_base, fade_sq, cv, sway, first_fig)
 	_scr[sq.key] = scr
 
 ## 11/24 신화 장수 인형 ————————————————————————————————————————————————
-const HERO_DATA := "res://data/myth_heroes.json"
-const HERO_CELL := 96          # painted_batch.HERO_CELL —— 셀 96 + 칸 번호 (32칸까지)
+const HERO_DATA := "res://data/myth_hero_actions.json"
+const LEGACY_HERO_DATA := "res://data/myth_heroes.json"
+const IMMORTAL_HERO_DATA := "res://data/immortal_hero_actions.json"
+const IMMORTAL_TIER := 7
+const HERO_CELL := 96
+const IMMORTAL_HERO_OFFSET := 48 # 셰이더의 불멸 장수 시작 칸 = 96 + 48
 const HERO_FIG := 1.75         # 장수 키 = 병사 인형 키 × 이 값 (사용자 샘플 기준)
 const HERO_BODY := 0.92        # 병사 인형이 칸에서 차지하는 키 (동작 시트 실측 0.84~1.0) —— 장수 키를 칸이 아닌 몸으로 맞춘다
 const HERO_LUNGE := 2.2        # 공격 · 피격 때 내지르기 · 움찔 폭 (병사 대비, 그림 한 장이라 자리 · 기울기로)
-const HERO_STYLE := 13.0       # 모양 값 (신병 5 + 신화 8) —— 적군은 + painted_batch.HERO_ENEMY
-const HERO_AHEAD := 0.2        # 첫 줄보다 이만큼(줄 간격 배) 앞
+const MYTH_HERO_STYLE := 13.0
+const IMMORTAL_HERO_STYLE := 12.0
+const HERO_FALL_TIME := 0.60
 
 func _load_heroes() -> void:
-	if not FileAccess.file_exists(HERO_DATA):
+	var data_path := HERO_DATA if FileAccess.file_exists(HERO_DATA) else LEGACY_HERO_DATA
+	_load_hero_sheet(data_path, _hero_cells, 0)
+	_load_hero_sheet(IMMORTAL_HERO_DATA, _immortal_hero_cells, IMMORTAL_HERO_OFFSET)
+	hero_ready = not _hero_cells.is_empty() or not _immortal_hero_cells.is_empty()
+
+func _load_hero_sheet(data_path: String, map: Dictionary, offset: int) -> void:
+	if not FileAccess.file_exists(data_path):
 		return
-	var d = JSON.parse_string(FileAccess.get_file_as_string(HERO_DATA))
+	var d = JSON.parse_string(FileAccess.get_file_as_string(data_path))
 	if typeof(d) != TYPE_DICTIONARY or not ResourceLoader.exists(str(d.get("sheet", ""))):
 		return
 	var tex: Texture2D = load(str(d.sheet))
 	var grid: Array = d.get("grid", [4, 3])
 	var slots := int(grid[0]) * int(grid[1])
-	if tex == null or slots > 32:
+	if tex == null or slots <= 0 or (offset == 0 and slots > IMMORTAL_HERO_OFFSET):
 		return
-	_hero_fill.resize(slots)
+	var poses := clampi(int(d.get("poses", 1)), 1, 4)
+	_hero_fill.resize(maxi(_hero_fill.size(), offset + slots))
 	var cells_: Dictionary = d.get("cells", {})
 	for nm in cells_:
 		var i := int(cells_[nm].get("i", -1))
-		if i < 0 or i >= slots:
+		if i < 0 or i + poses > slots:
 			continue
-		_hero_cells[str(nm)] = i
-		_hero_fill[i] = maxf(0.2, float(cells_[nm].get("fill", HERO_BODY)))
-	batch.hero_atlas = tex
-	batch.hero_grid = Vector2(int(grid[0]), int(grid[1]))
-	hero_ready = not _hero_cells.is_empty()
+		map[str(nm)] = offset + i
+		_hero_fill[offset + i] = maxf(0.2, float(cells_[nm].get("fill", HERO_BODY)))
+	if offset == 0:
+		_hero_poses = poses
+		batch.hero_atlas = tex
+		batch.hero_grid = Vector2(int(grid[0]), int(grid[1]))
+	else:
+		batch.immortal_hero_atlas = tex
+		batch.immortal_hero_grid = Vector2(int(grid[0]), int(grid[1]))
+
+func _shows_hero(sq: Squad) -> bool:
+	return batch_rendering and hero_ready and heroes_on and tier_fx and sq.tier in [IMMORTAL_TIER, MYTH_TIER] and _hero_index(sq) >= 0
+
+func _collect_hero_fall(sq: Squad, fall: Dictionary) -> void:
+	var at: Vector2 = fall.at
+	var axis := (_pm(at + Vector2(fall.dir) * 16.0) - _pm(at)).normalized()
+	var phase := smoothstep(0.0, HERO_FALL_TIME, visual_time - float(fall.start))
+	var p := _pm(at) + axis * (phase * 6.0)
+	var h := _figure_height(sq, fall.form)
+	var tilt := phase * (1.36 if axis.x >= 0.0 else -1.36)
+	_append_hero(sq, _hero_index(sq), 3, p, h, 1.0 - phase, tilt, 0.0, 0.0, 0.0, fall.mirror, 0.0)
 
 ## 그 부대 장수의 인형 칸 (없으면 -1) —— 카드 id 로 한 번만 찾는다
 func _hero_index(sq: Squad) -> int:
 	var k := sq.cid
 	if not _hero_of.has(k):
-		_hero_of[k] = int(_hero_cells.get(DB.person(k), -1)) if DB.C.has(k) else -1
+		var person := DB.person(k) if DB.C.has(k) else ""
+		var immortal_idx := int(_immortal_hero_cells.get(person, -1))
+		_hero_of[k] = immortal_idx if sq.tier == IMMORTAL_TIER else int(_hero_cells.get(person, immortal_idx))
 	return int(_hero_of[k])
 
-## 대열 가운데 줄의 화면 위쪽 끝에 장수 인형 하나 —— 앞이 화면 위를 보면(보통 아군) 맨 앞, 아래를 보면(보통 적군) 맨 뒤.
-## 앞이 화면 아래인 부대의 맨 앞은 부대 이름 · 병력 막대 자리라 가렸다. 병사들의 가장 최근 찌르기 · 피격 시각을 받아
-## 같은 곡선으로 앞으로 내지르고 · 움찔한다 (폭만 HERO_LUNGE 배). 걸음은 살아 있는 병사 평균. 그림 · 판정과 무관 (자리만 읽는다)
-## 그리는 순서는 제 부대 병사 · 군기 다음 (깊이 키를 그 부대 맨 아래 인형까지 내린다) —— 앞에 세워도 제 병사 머리에 가려 안 보였다
+## 장수 한 명을 대열 중심에 그리며, 기존 부대의 공격·피격 시각을 받는다.
 func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float, axis: Vector2, mirror: bool,
-		eligible: bool, ranged: bool, bow_base: float, fade_sq: float, cv: float, sway: float, first_fig: int) -> void:
-	var facing := Vector2.from_angle(form.heading)
-	var front := maxf(sq.hd0 * form.ratio, RtBattle.HD_MIN) * 0.86
+		eligible: bool, ranged: bool, bow_base: float, fade_sq: float, cv: float, sway: float) -> void:
 	var strike := -10.0
 	var hurt := -10.0
 	var hurt_id := -1
 	var gait := 0.0
 	var living := 0
 	var lead := -1
-	var last_rank := 0
 	for id in form.capacity:
 		if form.alive[id] == 0:
 			continue
-		last_rank = maxi(last_rank, form.ranks[id])
 		strike = maxf(strike, form.strike_at[id])
 		if form.hurt_at[id] > hurt:
 			hurt = form.hurt_at[id]
@@ -801,24 +839,21 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 			lead = id
 	if living == 0:
 		return
-	var depth := front + form.row_gap * HERO_AHEAD
-	if facing.x < -0.2:      # 앞이 화면 아래 (화면 y = −필드 x)
-		depth = front - form.row_gap * (last_rank + HERO_AHEAD)
-	var at := form.center + facing * depth
-	if not form.contact_limits.is_empty():
-		at = form.constrain_foot(at)
+	var at := form.center
 	gait /= living
 	var stride: float = form.strides[lead]
 	var p := _pm(at)
 	var p0 := p
 	var tilt := 0.0
 	var hit := 0.0
+	var pose := 0
 	if sq.state != "flee":
-		if eligible:
+		if eligible and not ranged:
 			var age := visual_time - strike
 			var windup := 0.0
 			var thrust := 0.0
 			if age >= 0.0 and age < 0.4:
+				pose = 1 if age < 0.12 else 2
 				windup = smoothstep(0.0, 0.09, age) * (1.0 - smoothstep(0.09, 0.13, age))
 				thrust = smoothstep(0.09, 0.13, age) * (1.0 - smoothstep(0.18, 0.4, age))
 			var guard := sin(visual_time * 3.1 + float(sq.row.slot)) * form.contact_weight
@@ -828,11 +863,15 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 			tilt += axis.x * (thrust * 0.16 - windup * 0.07)
 			gait *= 0.35
 		elif ranged and bow_base < 0.5:
+			if bow_base >= 0.0 and bow_base < 0.4:
+				pose = 1 if bow_base < 0.12 else 2
 			var bow := smoothstep(0.0, 0.1, bow_base) * (1.0 - smoothstep(0.15, 0.32, bow_base))
 			tilt -= axis.x * bow * 0.08
 			p -= axis * bow * 2.0
 	var hurt_age := visual_time - hurt
 	if hurt_id >= 0 and hurt_age >= 0.0 and hurt_age < 0.38:
+		if hurt_age < 0.28:
+			pose = 3
 		var hurt_axis: Vector2 = (_pm(at + form.hurt_dir[hurt_id] * 16.0) - _pm(at)).normalized()
 		var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, 0.38, hurt_age))
 		p += hurt_axis * recoil * (2.0 + form.hurt_power[hurt_id] * 2.4) * HERO_LUNGE * 0.7
@@ -843,6 +882,10 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		tilt += sin(stride) * gait * sway * 0.7
 	if p != p0 and not form.contact_limits.is_empty():
 		p = _pm(form.constrain_foot(v.unmap(p)))
+	_append_hero(sq, idx, pose, p, soldier_h, fade_sq, tilt, gait, stride, hit, mirror, cv)
+
+func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, fade_sq: float,
+		tilt: float, gait: float, stride: float, hit: float, mirror: bool, cv: float) -> void:
 	var n := figure_count
 	figure_count += 1
 	if _figs.size() < figure_count * FIG_W:
@@ -850,8 +893,10 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 	var b := n * FIG_W
 	_figs[b] = p.x
 	_figs[b + 1] = p.y
-	_figs[b + 2] = soldier_h * HERO_FIG * HERO_BODY / _hero_fill[idx]      # 칸 크기 —— 인형 키가 병사 몸 × HERO_FIG 가 되게
-	_figs[b + 3] = float(HERO_CELL + idx)
+	var immortal := sq.tier == IMMORTAL_TIER
+	var scale := 1.55 if immortal else HERO_FIG
+	_figs[b + 2] = soldier_h * scale * HERO_BODY / _hero_fill[idx]
+	_figs[b + 3] = float(HERO_CELL + idx + (pose if idx >= IMMORTAL_HERO_OFFSET else mini(pose, _hero_poses - 1)))
 	_figs[b + 4] = fade_sq
 	_figs[b + 5] = tilt
 	_figs[b + 6] = gait
@@ -859,12 +904,9 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 	_figs[b + 8] = hit
 	_figs[b + 9] = 1.0 if mirror else 0.0
 	_figs[b + 10] = cv
-	_figs[b + 11] = HERO_STYLE + (0.0 if sq.camp == "A" else 16.0)
+	_figs[b + 11] = (IMMORTAL_HERO_STYLE if immortal else MYTH_HERO_STYLE) + (0.0 if sq.camp == "A" else 16.0)
 	_fig_sq.append(sq)
-	var key_y := p.y
-	for k in range(first_fig, n):
-		key_y = maxf(key_y, _figs[k * FIG_W + 1] + 0.2)
-	_fig_keys.append(((int(roundf(key_y * 8.0)) + 0x80000) << 16) | n)
+	_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 
 ## 부대 안에 꽂힌 군기도 병사와 같은 깊이 순서·GPU 묶음에 넣는다.
 ## 셀 16/17은 아틀라스 대신 셰이더가 그리는 청/적 천과 깃대다.

@@ -8,6 +8,8 @@ var myth_blue: Texture2D       # 11/24 신화 부대 전용 시트 (동작 시�
 var myth_red: Texture2D
 var hero_atlas: Texture2D      # 11/24 신화 장수 인형 시트 (tools/scripts/make_myth_heroes.py · data/myth_heroes.json) —— 셀 HERO_CELL + 칸 번호
 var hero_grid := Vector2(4, 3)
+var immortal_hero_atlas: Texture2D
+var immortal_hero_grid := Vector2(14, 12)
 var soldiers: MultiMeshInstance2D
 var shadows: MultiMeshInstance2D
 var capacity := 0
@@ -47,6 +49,11 @@ func _ready() -> void:
 		material_.set_shader_parameter("hero_grid", hero_grid)
 		material_.set_shader_parameter("hero_pixel_size", Vector2.ONE / hero_atlas.get_size())
 		material_.set_shader_parameter("has_hero", true)
+	if immortal_hero_atlas != null:
+		material_.set_shader_parameter("immortal_hero_atlas", immortal_hero_atlas)
+		material_.set_shader_parameter("immortal_hero_grid", immortal_hero_grid)
+		material_.set_shader_parameter("immortal_hero_pixel_size", Vector2.ONE / immortal_hero_atlas.get_size())
+		material_.set_shader_parameter("has_immortal_hero", true)
 	soldiers.material = material_
 	add_child(soldiers)
 
@@ -148,8 +155,6 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 
 ## 11/24 신화 시트 인형은 칸의 MYTH_FIT 배 (tools/scripts/make_myth_troops.py FIT) —— 칸을 1 / MYTH_FIT 배로 그려 몸 크기를 맞춘다
 const MYTH_FIT := 0.8
-## 11/24 병사 단계 · 신화 표시(style = 단계 0~5 + 신화면 8)는 셀 번호 칸에 STYLE_STEP 배로 얹는다 (셰이더가 floor(r / 128) 로 푼다)
-const STYLE_STEP := 128.0
 ## 11/24 신화 장수 인형 —— 셀 96 + 칸 번호 (병사 동작 시트 32~95 다음). 모양 값 16 이상 = 적군 장수 (발밑 원 · 셰이더 테두리 기운을 진영색으로)
 const HERO_CELL := 96.0
 const HERO_ENEMY := 16.0
@@ -205,10 +210,10 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		buffer[b + 9] = tint.g
 		buffer[b + 10] = tint.b
 		buffer[b + 11] = fade
-		buffer[b + 12] = cell + style * STYLE_STEP
+		buffer[b + 12] = cell
 		buffer[b + 13] = stride
 		buffer[b + 14] = gait
-		buffer[b + 15] = figs[f + 10] if w > 10 else 0.0      # 11/22 매복 그늘 (0~1) —— 셰이더가 어둡게 · 흐릿하게
+		buffer[b + 15] = style + (clampf(figs[f + 10], 0.0, 1.0) * 0.5 if w > 10 else 0.0)
 		var sh := i * 12
 		var r := h * (0.17 if hero else 0.19)
 		shadow_buffer[sh] = r

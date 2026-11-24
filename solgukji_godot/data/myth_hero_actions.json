@@ -1,0 +1,72 @@
+{
+ "sheet": "res://assets/war_painting/myth_hero_actions_v1.png",
+ "grid": [
+  8,
+  6
+ ],
+ "cell": 320,
+ "foot": 0.97,
+ "poses": 4,
+ "cells": {
+  "관우": {
+   "i": 0,
+   "fill": 0.6844,
+   "mounted": false
+  },
+  "여포": {
+   "i": 4,
+   "fill": 0.6125,
+   "mounted": true
+  },
+  "장료": {
+   "i": 8,
+   "fill": 0.7312,
+   "mounted": true
+  },
+  "손권": {
+   "i": 12,
+   "fill": 0.9094,
+   "mounted": false
+  },
+  "제갈량": {
+   "i": 16,
+   "fill": 0.8594,
+   "mounted": false
+  },
+  "유비": {
+   "i": 20,
+   "fill": 0.85,
+   "mounted": false
+  },
+  "장각": {
+   "i": 24,
+   "fill": 0.8094,
+   "mounted": false
+  },
+  "조조": {
+   "i": 28,
+   "fill": 0.6906,
+   "mounted": false
+  },
+  "주유": {
+   "i": 32,
+   "fill": 0.7625,
+   "mounted": false
+  },
+  "감녕": {
+   "i": 36,
+   "fill": 0.5125,
+   "mounted": false
+  },
+  "사마의": {
+   "i": 40,
+   "fill": 0.9094,
+   "mounted": false
+  },
+  "사마휘": {
+   "i": 44,
+   "fill": 0.7063,
+   "mounted": false
+  }
+ }
+}
