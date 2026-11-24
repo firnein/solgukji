@@ -1955,6 +1955,9 @@ const MINOR_BASE_STYLE := {"fire": "fire", "fire_arrow": "firearrows", "poison":
 const SKILL_FX_LIFE := {"fire": 1.4, "poison": 1.8, "zone": 2.4, "water": 1.3, "bolt": 0.9, "burst": 0.9, "flash": 0.9, "vortex": 1.4, "curse": 1.2,
 	"slash": 0.8, "pierce": 0.7, "charge": 1.0, "through": 0.9, "arrows": 0.9, "firearrows": 1.0, "rain": 1.0, "snipe": 0.8,
 	"shadow": 0.9, "steal": 1.0, "heal": 1.4, "guard": 1.2, "aura": 1.4}
+## 11/24 사용자: 「일반 기술 이펙트를 고유기랑 똑같은 걸 쓰면 어떡해, 최소한 작게라도」 —— 기술은 고유기(1.0)의 0.6, 잔기술은 그보다 작게
+const SKILL_FX_SC := 0.6
+const MINOR_FX_SC := 0.45
 const SELF_STYLES := ["heal", "guard", "aura"]
 const MAX_SKILL_FX := 20
 var skill_fx_q: Array = []
@@ -1978,7 +1981,7 @@ static func skill_style(name: String, kind: String, tag: String) -> String:
 func add_skill(name: String, a_key: String, targets: Array, kind: String, delay: float) -> void:
 	var a: Squad = v.field.squads.get(a_key)
 	if a != null:
-		_add_skill_fx(skill_style(name, kind, a.tag), a, targets, 1.0, delay)
+		_add_skill_fx(skill_style(name, kind, a.tag), a, targets, SKILL_FX_SC, delay)
 
 
 ## 잔기술 —— 맞는 순간 (Type2View.fx_minor 가 삽화 화면이면 이리 넘긴다)
@@ -1995,7 +1998,7 @@ func add_minor(mk: String, a_key: String, d_key: String) -> void:
 			st = "poison"
 	if st == "":
 		st = str(MINOR_BASE_STYLE.get(str(War3D.MINOR_FX.get(mk, mk)), "slash"))
-	_add_skill_fx(st, a, [d_key], 0.7, 0.0)
+	_add_skill_fx(st, a, [d_key], MINOR_FX_SC, 0.0)
 
 
 func _add_skill_fx(style: String, a: Squad, targets: Array, sc: float, delay: float) -> void:
