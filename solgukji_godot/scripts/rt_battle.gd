@@ -2269,7 +2269,7 @@ func _escape_tick() -> void:
 			_rescue_wide[u.camp] = _tm + float(e.wide)
 		stats["escape"] = int(stats.get("escape", 0)) + 1
 		stats["escape_" + u.c.tag] = int(stats.get("escape_" + u.c.tag, 0)) + 1
-		L("sk", "%s의 %s —— 붙은 %s 떼어 냈다" % [nm(u), e.n, eul(nm(pn))], {"fx": "buff", "f": u.key, "up": true, "sig": true})      # 선술(sig_rt._say)과 같은 꼴 —— 화면이 머리 위에 이름을 띄운다
+		L("sk", "%s의 %s —— 붙은 %s 떼어 냈다" % [nm(u), e.n, eul(nm(pn))], {"fx": "buff", "f": u.key, "up": true, "sig": true, "escape": e.n, "escape_cd": ESCAPE_CD})      # 표시용 발동명·재사용 간격. 이동과 발동 판정은 그대로다.
 
 
 ## 11/24 구원 거리 (발자국 틈) —— 0 이면 끈다

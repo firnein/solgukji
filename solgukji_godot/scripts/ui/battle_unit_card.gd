@@ -16,6 +16,10 @@ extends VBoxContainer
 ## 시트가 숨으면(닫힘) 아무것도 하지 않는다. 전투가 끝나면 결과 명단의 합계로 바꾸고 멈춘다.
 
 const SS := preload("res://scripts/ui/sheet_style.gd")      # 장수창 공통 시각 언어 (SheetStyle)
+const Skills := preload("res://scripts/ui/skill_panel.gd")
+var _skills = null
+var _skill_runtime := {}
+var _escape_spec := {}
 
 # ───────── 색 (SheetStyle 단계 위의 전투 전용 몇 가지) ─────────
 
@@ -509,6 +513,7 @@ func _init(screen: GameScreen, bv: BattleView, unit_key: String) -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	_sig_ever = _find_sig_ever()
 	add_child(_build_live())
+	_build_skills()
 	add_child(_sect(SS.section("이번 전투", "지금까지"), _build_contrib()))
 	var sg := _build_sig()
 	if sg != null:
@@ -1149,6 +1154,10 @@ func _scan_events() -> void:
 		var a := str(e.get("a", ""))
 		var f := str(e.get("f", ""))
 		var tm := float(e.get("tm", 0.0))
+		var escaped := Skills.escape_event(e, key, _escape_spec)
+		if not escaped.is_empty():
+			var previous: Dictionary = _skill_runtime.get("escape", {})
+			_skill_runtime["escape"] = {"n": int(previous.get("n", 0)) + 1, "tm": tm, "cd": escaped.cd, "approx": escaped.approx}
 		var g = groups[i] if i < groups.size() else null
 		match fx:
 			"phys", "int":
@@ -1390,6 +1399,9 @@ func _refresh(first: bool) -> void:
 		_rebuild_status(sts)
 	if ult != null:
 		_refresh_ult(done)
+	if _skills != null:
+		var skill_time := maxf(0.0, (view.end_clock if view.end_clock > 0.0 else view.clock) - BattleView.OPEN_RT)
+		_skills.update_runtime(_skill_runtime, skill_time, sq.alive, done)
 	# 공방속 —— 지금 실제 값
 	_probe_start()
 	_update_stats()
@@ -1505,6 +1517,15 @@ func _freeze() -> void:
 
 # ───────── 장수 정보 (전투 시작 기준) —— 상세창과 같은 부품 ─────────
 
+func _build_skills() -> void:
+	var section = gs._skills_section(k, false, true)
+	if section == null:
+		return
+	_skills = section.get_node("CombatSkills")
+	_escape_spec = Skills.escape_spec(k)
+	add_child(section)
+
+
 func _build_info() -> void:
 	var ss: Dictionary = _ss      # _build_stat_row 가 잰 시작 능력치
 	var iv := UI.vbox(UI.SP_S)
@@ -1540,19 +1561,6 @@ func _build_info() -> void:
 		ab.add_child(SS.section("고유 능력"))
 		ab.move_child(ab.get_child(ab.get_child_count() - 1), 0)
 		add_child(ab)
-	# 기술 —— 상세창과 같은 효과 · 수치 표 (자주 쓰는 기술 + 일반 기술)
-	var mk := Battle.minor_kind(k)
-	var sk_items := []
-	if mk != "":
-		sk_items.append(gs._kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, GameScreen.minor_when(k), GameScreen.minor_desc(k, false), DB.PAL.bamboo_dim, 13))
-	for x in c.get("sks", []):
-		sk_items.append(gs._kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x, c), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-	if c.get("sks", []).size() >= 2:
-		sk_items.append(UI.rich("[color=#A89574]%s[/color]" % DB.SK_SHARE_NOTE, UI.FS_CAP))
-	if not sk_items.is_empty():
-		var sp := SS.Plate.new(SS.GOLD, SS.PLAIN, "", Vector4(12, 0, 12, 0))
-		sp.add_child(gs._kv_stack(sk_items))
-		add_child(_sect(SS.section("기술", "%d개" % (c.get("sks", []).size() + (1 if mk != "" else 0))), sp))
 	# 특기 —— 상세창과 같은 계열 기호 칸 격자 + 고른 특기 설명 (고유 특기는 위)
 	var tn := DB.trait_list(k).filter(func(x): return not x.unique)
 	if not tn.is_empty():

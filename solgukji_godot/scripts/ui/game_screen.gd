@@ -13,6 +13,8 @@ extends Control
 const SHOW_DOTS := false     # 설정의 '전장 표현(3D · 점묘)' 고르기 —— 숨김 (11/3)
 const WarnEdge := preload("res://scripts/ui/warn_edge.gd")      # 11/10 민심 위험 비네트에 다시 쓴다 (5초 경고와 같은 가장자리 그림, class_name 없이)
 const InyeonUI := preload("res://scripts/ui/inyeon_ui.gd")      # 11/11 인연 표시 공용 (디테일창 · 갈무리창 줄, 편성 시트)
+const SkillPanel := preload("res://scripts/ui/skill_panel.gd")
+const MinorTriggers := preload("res://scripts/minor_trig.gd")
 const UrgentBand := preload("res://scripts/ui/urgent_band.gd")      # 11/10 기인 이상 등용 '긴급' 띠 (class_name 없이)
 const DeathBand := preload("res://scripts/ui/death_band.gd")      # 11/12 장수 사망룰 연출 (class_name 없이)
 const Ending := preload("res://scripts/ui/ending.gd")      # 11/12 멸망 · 엔딩 연출 + 요약 (class_name 없이) —— show_ending
@@ -2127,10 +2129,10 @@ func recipe_sheet(out: String) -> void:
 			close_sheet()
 		else:
 			go_back(), func(): close_sheet(), true))
-	# 11/3 사용자: 이름은 제목과 겹치니 빼고, 일반 기술도 뺀다.
+	# 이름은 시트 제목에, 일반 기술은 아래의 공통 요약 패널에 표시한다.
 	# 11/9 사용자: 시트를 더 크게 —— 큰 초상 + 능력치 · 특기판, 그 아래 고유 특기 · 위세 · 패업 · 고유기 · 인연을 이름만 (설명은 디테일창에서)
 	var tp := UI.hbox(UI.SP_M)
-	var cv := CardView.new().setup(out, Vector2(112, 160))
+	var cv := CardView.new().setup(out, Vector2(96, 136))
 	cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	cv.mouse_filter = Control.MOUSE_FILTER_STOP          # 11/3 사용자: 초상을 누르면 디테일창
 	UI.tap(cv, func():      # 11/20 조작: '떼기'만 보던 것을 탭 판정으로 (UI.tap)
@@ -2158,6 +2160,9 @@ func recipe_sheet(out: String) -> void:
 		av.add_child(SheetStyle.section("고유 능력", "누르면 상세"))
 		av.add_child(SheetStyle.info_table(rows))
 		b.add_child(av)
+	var skill_preview := _skills_section(out, true)
+	if skill_preview != null:
+		b.add_child(skill_preview)
 	# 11/21 재료 —— 섹션 머리에 모은 장 수, 칸마다 n/m 배지 (갖춤 옥색 · 모자람 붉은 배지 · 하나도 없으면 흐리게), 유니크 재료도 같은 줄의 칸
 	var pg := _forge_progress(out)
 	var mv := UI.vbox(UI.SP_S)
@@ -2541,6 +2546,8 @@ func _page_draw() -> Control:
 			var hl := UI.lbl("%s  %d" % [" · ".join(tn), cnt], UI.FS_CAP, DB.TIER[grp[0][0]].c.lightened(0.2), true)
 			inner.add_child(hl)
 			inner.add_child(g)
+		else:
+			g.free()
 	hs.add_child(inner)
 	var base := UI.grid(30, 4)      # 11/6 사용자: 기본병 8종은 맨 윗줄에 (조합 재료의 출발점이라 먼저 본다) —— 11/15 페이지 맨 위 고정 자리로
 	base.max_cols = 8
@@ -3299,7 +3306,7 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
 	sheet_head(k)      # 11/21 이름 아래 등급 리본 · 세력 · 병종 · 피해 종류 + 등급 색 머리 바탕 (갈무리창 · 전투 장수창과 같은 머리, SheetStyle)
 	var top := UI.hbox(UI.SP_M)
-	var big := CardView.new().setup(k, Vector2(132, 188))
+	var big := CardView.new().setup(k, Vector2(108, 152))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	top.add_child(big)      # 11/20 역할은 큰 카드 초상 위에 (CardView.show_role)
 	# 초상 오른쪽 (11/3 사용자: 초상과 높이를 맞춘다) —— 능력치 다섯 칸 · 특기판 · 접힌 고유 특기 · 위세 · 고유기
@@ -3330,6 +3337,9 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 	_ability_cards(ab, k)
 	var ability := UI.vbox(UI.SP_M)
 	b.add_child(ability)
+	var skills := _skills_section(k)
+	if skills != null:
+		ability.add_child(skills)
 	if ab.get_child_count() > 0:      # 11/21 섹션 머리 —— 갈무리창 「고유 능력」 표와 같은 이름 · 같은 금 마름모
 		ab.add_child(SheetStyle.section("고유 능력"))
 		ab.move_child(ab.get_child(ab.get_child_count() - 1), 0)
@@ -3337,18 +3347,6 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 	ab.visible = ab.get_child_count() > 0
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
 	ability.add_child(folds)
-	# 기술 —— 접힌 칸 하나에 기술마다 효과 · 수치 표
-	# 11/5 사용자: 잔기술을 따로 부르지 않는다 —— 자주 쓰는 기술로 기술 목록 맨 앞에 (발동: "평타 3번에 한 번")
-	var mk := Battle.minor_kind(k)
-	if not c.get("sks", []).is_empty() or mk != "":
-		var sk_items := []
-		if mk != "":
-			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % Battle.minor_def(mk).n, minor_when(k), minor_desc(k, false), DB.PAL.bamboo_dim, 13))
-		for x in c.get("sks", []):
-			sk_items.append(_kv_box("[color=#D9A64B][b]『%s』[/b][/color]" % x.n, DB.sk_when(x, c), DB.skill_desc(c, x), DB.PAL.bamboo_dim, 13))
-		if c.get("sks", []).size() >= 2:      # 11/19 기술마다 '약 N초마다' 로 적는다 —— 준비를 나눠 쓴다는 것을 한 줄로
-			sk_items.append(UI.rich("[color=#A89574]%s[/color]" % DB.SK_SHARE_NOTE, UI.FS_CAP))
-		folds.add_child(_fold_sec("card_skills", "기술 %d" % (c.get("sks", []).size() + (1 if mk != "" else 0)), _kv_stack(sk_items)))
 	var tl := DB.trait_list(k)
 	var tn := tl.filter(func(x): return not x.unique)      # 고유 특기는 위 능력 카드에
 	if not tn.is_empty():
@@ -4222,7 +4220,81 @@ func _kv_split(text: String) -> Array:
 static func minor_when(k: String) -> String:
 	var n := Battle.minor_every(k)      # 11/23 병종 리듬
 	var c: Dictionary = DB.C[k]
+	if RtBattle.minor_trig:
+		var def: Array = MinorTriggers.STORY.get(Battle.minor_kind(k), MinorTriggers.CLASS.get(c.tag, ["every", 0.0, n]))
+		var cd: float = float(def[1]) if def.size() >= 2 else MinorTriggers.CD
+		var p = def[2] if def.size() >= 3 else null
+		var key := str(def[0])
+		if key == "every":
+			n = int(p) if p != null else n
+		else:
+			var condition: String = MINOR_WHEN.get(key, "조건을 만족한 공격")
+			if key == "hit_n": condition = "피격 %d회 후 공격" % int(p)
+			if key == "ally_low": condition = "아군 병력 %d%% 이하에서 공격" % roundi(float(p) * 100)
+			return "%s · 재사용 %s" % [condition, DB.sec_str(cd)]
 	return "공격 %d번에 한 번 · %s마다" % [n, DB.sec_str(n * DB.act_sec(float(c.tier), float(c.spd)))]
+
+const MINOR_WHEN := {
+	"contact_new": "새 적과 맞붙은 뒤 공격", "solo": "주변 적이 하나일 때 공격", "surround": "적 셋 이상에게 둘러싸여 공격",
+	"impact": "돌격 적중 뒤 공격", "foe_low_morale": "대상 사기 60 미만", "multi_touch": "적 둘 이상과 맞붙어 공격",
+	"kill": "적 격파 뒤 공격", "bigger": "자신보다 병력이 많은 적 공격", "engaged": "다른 아군과 교전 중인 적 공격",
+	"half": "병력이 절반 아래로 떨어진 뒤 공격", "flank": "적 측면·후방 공격", "outnumbered": "주변에서 적이 우세할 때 공격",
+	"outnumber": "주변에서 아군이 우세할 때 공격", "ran": "긴 거리를 이동한 뒤 공격", "rammed": "적 돌격에 맞은 뒤 공격",
+	"ally_hit": "주변 아군이 맞은 뒤 공격", "big_hit": "큰 피해를 받은 뒤 공격", "long_melee": "5초 이상 근접전 후 공격",
+	"lord_hit": "아군 주장이 맞은 뒤 공격", "unwatched": "적에게 노려지지 않을 때 공격", "far": "최대 사거리 부근의 적 공격",
+	"foe_wind": "고유기 준비 중인 적 공격", "timer": "공격 시 발동", "morale_behind": "아군 평균 사기가 낮을 때 공격",
+	"losing": "아군 전체 병력이 열세일 때 공격", "hit": "피격 뒤 공격", "melee_hit": "근접 공격에 맞은 뒤 공격",
+	"clustered": "적 둘 이상이 뭉쳤을 때 공격", "foe_status": "지속 피해 상태인 적 공격", "ally_down": "아군이 쓰러진 뒤 공격",
+	"deep": "아군 원거리를 위협하는 적 공격", "ally_morale_low": "아군 사기 80 미만에서 공격", "ally_status": "지속 피해 상태인 아군이 있을 때 공격",
+	"camp_kill": "아군이 적을 격파하거나 대상 사기 60 미만", "volley": "사거리 안에 적 둘 이상",
+}
+
+func _skill_entry(id: String, title: String, kind: String, damage: String, when: String, effect: String) -> Dictionary:
+	var condition := []
+	var period := ""
+	for part in when.split(" · "):
+		if part.ends_with("마다") or part.begins_with("재사용 "):
+			period = part.trim_suffix("마다")
+		else:
+			condition.append(part)
+	var short_when := " · ".join(condition).strip_edges()
+	return {"id": id, "name": title, "kind": kind, "damage": damage, "period": period, "condition": short_when,
+		"when": when, "effect": effect, "effect_bb": _hl(effect)}
+
+func _skill_entries(k: String) -> Array:
+	var c: Dictionary = DB.C[k]
+	var items := []
+	var mk := Battle.minor_kind(k)
+	if mk != "":
+		var m: Dictionary = Battle.minor_def(mk)
+		items.append(_skill_entry("minor", m.n, "minor", str(m.get("kind", "int" if DB.INT_TAGS.has(c.tag) else "phys")), minor_when(k), minor_desc(k, false)))
+	for i in c.get("sks", []).size():
+		var sk: Dictionary = c.sks[i]
+		items.append(_skill_entry("skill:%d" % i, sk.n, "skill", str(sk.eff.get("kind", "support")), DB.sk_when(sk, c), DB.skill_desc(c, sk)))
+	var escape := SkillPanel.escape_spec(k)
+	if not escape.is_empty():
+		items.append(_skill_entry("escape", escape.name, "escape", "support", "근접 적에게 붙잡히면 · 재사용 %s" % DB.sec_str(escape.cd), escape.effect))
+	return items
+
+func _skills_section(k: String, compact := false, live := false) -> Control:
+	var items := _skill_entries(k)
+	if items.is_empty():
+		return null
+	var box := UI.vbox(6)
+	box.name = "SkillsSection"
+	box.add_child(SheetStyle.section("일반 기술", "%d종%s" % [items.size(), " · 누르면 상세" if compact else ""]))
+	var panel = SkillPanel.new().setup(items, compact)
+	if compact:
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		UI.tap(panel, func(): card_info(k))
+	if live:
+		panel.enable_runtime()
+	box.add_child(panel)
+	if DB.C[k].get("sks", []).size() >= 2:
+		var note := UI.lbl("각 기술은 따로 준비하고, 한 번에 하나씩 발동", 11, SheetStyle.DIM)
+		UI.wrap_text(note)
+		box.add_child(note)
+	return box
 
 
 ## 잔기술 설명 (Battle.MINOR · minor_kind) —— "공격 3번에 한 번 · 약 3.5초마다 · 책략 피해 ×0.90 · 화상"

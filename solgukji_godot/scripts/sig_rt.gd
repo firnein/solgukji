@@ -1,4 +1,5 @@
 extends RefCounted
+const BLINK_CD := 5.0
 ## 11/19 장수 개성 —— 사용자 "같은 병종이라도 장수마다 다른 특징이 명확하게 두드러지게" (docs/장수_개성_정리_1119.md 4장).
 ## 장수마다 고유 특기 하나(passives.json traits, unique)의 m 키를 읽어 실시간 엔진에 행동을 붙인다.
 ## 판정 자리: 표적(target_w) · 주는 피해(amp) · 받는 피해(taken) · 맞힌 뒤(after_hit) · 맞은 뒤(after_taken) · 쓰러뜨림(on_kill)
@@ -119,8 +120,8 @@ func _foes(u) -> Array:
 	return b.units.filter(func(o): return o.alive and o.camp != u.camp)
 
 
-func _say(u, text: String, up := true) -> void:
-	b.L("sk", "%s의 %s" % [b.nm(u), text], {"fx": "buff", "f": u.key, "up": up, "sig": true})
+func _say(u, text: String, up := true, extra := {}) -> void:
+	b.L("sk", "%s의 %s" % [b.nm(u), text], {"fx": "buff", "f": u.key, "up": up, "sig": true}.merged(extra))
 
 
 # ───────── 시작 ─────────
@@ -517,14 +518,14 @@ func tick(dt: float) -> void:
 				_cav(u, "throw")
 				b.phys_hit(u, u.tgt, v(u, "throw"), true)
 		# 선술 —— 붙잡히면 물러나 나타난다
-		if v(u, "blink") > 0.0 and b._pinned(u) and _due(u, "blink", 5.0):      # 11/24 8 → 5초 (책략계 공통 이탈기가 8초라 선술은 더 자주)
+		if v(u, "blink") > 0.0 and b._pinned(u) and _due(u, "blink", BLINK_CD):      # 11/24 8 → 5초 (책략계 공통 이탈기가 8초라 선술은 더 자주)
 			var pn = b._pinner(u, _foes(u))
 			if pn != null:
 				var away: Vector2 = (u.pos - pn.pos)
 				u.pos += (away.normalized() if away.length() > 0.1 else Vector2(-1.0 if u.camp == "B" else 1.0, 0.0) * -1.0) * 150.0
 				b._clamp_arena(u)
 				_stat("sig_blink")
-				_say(u, "선술 —— 홀연히 자리를 옮겼다")
+				_say(u, "선술 —— 홀연히 자리를 옮겼다", true, {"escape": "선술", "escape_cd": BLINK_CD})
 		# 간웅 —— 고유기를 맞으면 되받아친다
 		if u.sg.has("ret") and not b._in_ult:
 			var ra = u.sg["ret"]
