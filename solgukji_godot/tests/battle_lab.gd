@@ -3,10 +3,12 @@ extends Control
 ## 실행: tools/전투실험실.bat  (또는 godot --path solgukji_godot res://tests/battle_lab.tscn)
 ##   왼쪽 두 열 = 아군(A) · 적군(B) 덱 —— 카드 목록을 두 번 누르면 덱에 넣고, 덱에서 두 번 누르면 뺀다 (9장까지)
 ##   진형 · 작전 · 사기 · 장비(봇처럼 끼우기) 를 고른다. '무작위' 는 그 등급 9장
+##   기본은 온라인 기록의 비슷한 PV 편성. 혼합 예시와 등급별 인원 입력, 선택 칸 교체로 변형한다.
 ##   가운데 = 시드 · 판 수 · 관전 / 시뮬 / 양쪽 바꾸기 · 엔진 수치(점검용 static) · 결과
 ##   오른쪽 = 실제 게임 전투 화면 (BattleView) —— 직접 지휘 버튼으로 고유기 · 군령도 써 볼 수 있다
 
 const FORMS := ["eorin", "hagik", "bongsi", "anwol", "bangwon", "anhaeng", "chuhaeng", "jangsa"]
+const Decks := preload("res://tests/battle_lab_decks.gd")
 const KNOBS := [      # [이름, 객체, 속성, 최소, 최대, 칸]
 	["책략 배율 int_mul", "RtBattle", "int_mul", 0.1, 3.0, 0.05],
 	["근접 배율 near_mul", "RtBattle", "near_mul", 0.5, 3.0, 0.05],
@@ -28,6 +30,12 @@ var seed_rand: CheckBox
 var games_box: SpinBox
 var _busy := false
 var _knob_def := {}
+var _online := {}
+var _online_folder := Decks.ONLINE_DIR
+var _online_pick: OptionButton
+var _preset_pick: OptionButton
+var _online_status: Label
+var _pair_status: Label
 
 
 func _ready() -> void:
@@ -63,6 +71,7 @@ func _ready() -> void:
 	Settings.load_cfg()      # 11/6 사용자: 실험실에서 전투 설정(화풍 · 품질)을 바꿀 수 없다 —— 게임 설정을 읽고 가운데 열에서 바꾼다
 	# 11/11 사용자: 실험실도 기본 타입2 —— 저장된 설정이 무엇이든 시작은 타입2 (저장하지 않는다. 가운데 열에서 바꾸면 그때 저장)
 	Settings.type2 = true
+	Settings.war_painting = true
 	Settings.sumuk = false
 	Settings.dots = false
 	if _style_btn != null:
@@ -70,18 +79,28 @@ func _ready() -> void:
 	view.apply_style()
 	Settings.apply()
 	Settings.apply_port(view.port)
-	_random("A", 7)
-	_random("B", 7)
+	_reload_online()
+	_apply_preset()
+	if side.A.deck.is_empty() or side.B.deck.is_empty():
+		_preset_pick.select(1)
+		_apply_preset()
 	_dev_args()
 
 
-## 점검용 —— --gauto=watch|sim  --gshot=경로 --after=초
+## 점검용 —— --gauto=watch|sim --preset=0(온라인)|1~5(혼합) --gshot=경로 --after=초 --gpos=x,y
 func _dev_args() -> void:
 	var a := {}
 	for x in OS.get_cmdline_user_args():
 		var kv := x.trim_prefix("--").split("=", true, 1)
 		a[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	if a.has("games"): games_box.value = int(a.games)
+	if a.has("gpos"):
+		var coordinates := str(a.gpos).split(",")
+		if coordinates.size() == 2:
+			get_window().position = Vector2i(int(coordinates[0]), int(coordinates[1]))
+	if a.has("preset"):
+		_preset_pick.select(clampi(int(a.preset), 0, _preset_pick.item_count - 1))
+		_apply_preset()
 	match a.get("gauto", ""):
 		"watch": _watch()
 		"sim": _sim()
@@ -133,20 +152,31 @@ func _side_col(cp: String, title: String) -> Control:
 	s["search"] = search
 	v.add_child(search)
 	var list := ItemList.new()
+	list.custom_minimum_size.y = 120
 	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list.item_activated.connect(func(i): _add(cp, str(list.get_item_metadata(i))))
 	s["list"] = list
 	v.add_child(list)
 	var dl := Label.new()
-	dl.text = "덱 (두 번 누르면 뺀다)"
+	dl.text = "덱 · 선택 후 후보로 교체 / 두 번 눌러 삭제"
+	dl.add_theme_font_size_override("font_size", 11)
 	v.add_child(dl)
 	var deck := ItemList.new()
-	deck.custom_minimum_size = Vector2(0, 230)
+	deck.custom_minimum_size = Vector2(0, 180)
 	deck.item_activated.connect(func(i): s.deck.remove_at(i); _fill_deck(cp))
 	s["deck_list"] = deck
 	v.add_child(deck)
+	var replace_row := HBoxContainer.new()
+	var replace_button := Button.new()
+	replace_button.text = "후보로 선택 칸 교체"
+	replace_button.add_theme_font_size_override("font_size", 12)
+	replace_button.pressed.connect(func(): _replace_selected(cp))
+	replace_row.add_child(replace_button)
+	v.add_child(replace_row)
 	var sum := Label.new()
-	sum.add_theme_font_size_override("font_size", 12)
+	sum.add_theme_font_size_override("font_size", 11)
+	sum.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sum.custom_minimum_size.y = 48
 	s["sum"] = sum
 	v.add_child(sum)
 	# 진형 · 작전 · 사기 · 장비
@@ -173,13 +203,16 @@ func _side_col(cp: String, title: String) -> Control:
 	mo.max_value = 150
 	mo.value = 100
 	mo.value_changed.connect(func(x): s.morale = int(x))
+	s["morale_box"] = mo
 	r2.add_child(mo)
 	var eq := CheckBox.new()
 	eq.text = "장비"
 	eq.button_pressed = true
 	eq.toggled.connect(func(on): s.equip = on)
+	s["equip_box"] = eq
 	r2.add_child(eq)
 	v.add_child(r2)
+	v.add_child(_mix_controls(cp))
 	var r3 := HFlowContainer.new()
 	for t in [8, 7, 6, 5, 4, 3]:
 		var b := Button.new()
@@ -204,7 +237,88 @@ func _side_col(cp: String, title: String) -> Control:
 	r4.add_child(clr)
 	v.add_child(r4)
 	_fill.call_deferred(cp)
-	return v
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size.x = 290
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(v)
+	return scroll
+
+
+func _mix_controls(cp: String) -> Control:
+	var box := VBoxContainer.new()
+	var title := Label.new()
+	title.text = "혼합 등급 · 인원 수를 바꾸고 다시 뽑기"
+	title.add_theme_font_size_override("font_size", 12)
+	box.add_child(title)
+	var grid := GridContainer.new()
+	grid.columns = 6
+	side[cp]["mix"] = []
+	for grade in Decks.GRADES:
+		var label := Label.new()
+		label.text = "기인" if grade == 99 else DB.TIER[grade].n
+		label.add_theme_font_size_override("font_size", 11)
+		grid.add_child(label)
+		var count := SpinBox.new()
+		count.max_value = 9
+		count.custom_minimum_size.x = 48
+		count.get_line_edit().add_theme_font_size_override("font_size", 12)
+		count.value_changed.connect(func(_x): _mix_changed(cp))
+		side[cp].mix.append(count)
+		grid.add_child(count)
+	box.add_child(grid)
+	var row := HBoxContainer.new()
+	var generate := Button.new()
+	generate.text = "이 구성으로 다시 뽑기"
+	generate.add_theme_font_size_override("font_size", 12)
+	generate.pressed.connect(func(): _random_mix(cp))
+	side[cp]["mix_button"] = generate
+	row.add_child(generate)
+	var total := Label.new()
+	total.add_theme_font_size_override("font_size", 12)
+	side[cp]["mix_total"] = total
+	row.add_child(total)
+	box.add_child(row)
+	return box
+
+
+func _mix_counts(cp: String) -> Array:
+	return (side[cp].mix as Array).map(func(box): return int(box.value))
+
+
+func _mix_changed(cp: String) -> void:
+	var total := 0
+	for count in _mix_counts(cp):
+		total += count
+	side[cp].mix_total.text = "%d / 9장" % total
+	side[cp].mix_total.modulate = Color("#ff8878") if total > 9 else Color.WHITE
+	side[cp].mix_button.disabled = total < 1 or total > 9
+
+
+func _random_mix(cp: String) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var target := Decks.pv(side.A.deck) if cp == "B" and not side.A.deck.is_empty() else -1
+	var deck := Decks.make_mix(_mix_counts(cp), rng, target)
+	if deck.is_empty():
+		_say("혼합 인원은 1~9장이어야 하며 등급별 후보 수를 넘을 수 없습니다.")
+		return
+	side[cp].deck = deck
+	_fill_deck(cp)
+	_set_tac(cp, Run.recommend_tac(deck)[0])
+
+
+func _replace_selected(cp: String) -> void:
+	var s: Dictionary = side[cp]
+	var slot: PackedInt32Array = s.deck_list.get_selected_items()
+	var candidate: PackedInt32Array = s.list.get_selected_items()
+	if slot.is_empty() or candidate.is_empty():
+		_say("덱에서 바꿀 장수와 위 목록의 후보를 각각 선택해 주세요.")
+		return
+	s.deck[slot[0]] = str(s.list.get_item_metadata(candidate[0]))
+	_fill_deck(cp)
+	s.deck_list.select(slot[0])
 
 
 func _cards(cp: String) -> Array:
@@ -241,7 +355,6 @@ func _fill(cp: String) -> void:
 		var i := list.add_item(_label(k))
 		list.set_item_metadata(i, k)
 		list.set_item_custom_fg_color(i, DB.tier_color(k))
-	_fill_deck(cp)
 
 
 func _fill_deck(cp: String) -> void:
@@ -255,7 +368,12 @@ func _fill_deck(cp: String) -> void:
 		dl.set_item_custom_fg_color(i, DB.tier_color(k))
 		tr += int(DB.C[k].tr)
 		pv += int(DB.C[k].pv)
-	s.sum.text = "%d장 · 병력 %s · 전력 %d · 추천 작전 %s" % [s.deck.size(), _num(tr), pv, Run.recommend_tac(s.deck)[0]]
+	s.sum.text = "%d장 · 병력 %s · PV %d · 추천 %s\n%s" % [s.deck.size(), _num(tr), pv, Run.recommend_tac(s.deck)[0], Decks.summary(s.deck)]
+	var counts := Decks.counts_of(s.deck)
+	for i in counts.size():
+		s.mix[i].set_value_no_signal(counts[i])
+	_mix_changed(cp)
+	_update_pair_status()
 
 
 func _add(cp: String, k: String) -> void:
@@ -296,6 +414,128 @@ func _set_tac(cp: String, t: String) -> void:
 
 # ───────── 가운데 ─────────
 
+func _preset_controls() -> Control:
+	var box := VBoxContainer.new()
+	_preset_pick = OptionButton.new()
+	_preset_pick.add_item("온라인 기록 · PV가 비슷한 두 편성")
+	for preset in Decks.PRESETS:
+		_preset_pick.add_item(preset.name)
+	_preset_pick.item_selected.connect(func(i): _online_pick.disabled = i != 0)
+	box.add_child(_preset_pick)
+	var row := HBoxContainer.new()
+	var apply := Button.new()
+	apply.text = "양쪽 배치 / 장수 다시 뽑기"
+	apply.add_theme_font_size_override("font_size", 12)
+	apply.pressed.connect(_apply_preset)
+	row.add_child(apply)
+	var refresh := Button.new()
+	refresh.text = "기록 새로 읽기"
+	refresh.add_theme_font_size_override("font_size", 12)
+	refresh.pressed.connect(func(): _reload_online(_online_folder))
+	row.add_child(refresh)
+	var folder := Button.new()
+	folder.text = "기록 폴더"
+	folder.add_theme_font_size_override("font_size", 12)
+	folder.pressed.connect(_choose_online_folder)
+	row.add_child(folder)
+	box.add_child(row)
+	_online_pick = OptionButton.new()
+	_online_pick.tooltip_text = "아군으로 쓸 실제 온라인 편성입니다. 양쪽 배치를 누르면 PV 차이 10% 이내의 다른 기록 편성을 적군으로 고릅니다."
+	box.add_child(_online_pick)
+	_online_status = Label.new()
+	_online_status.add_theme_font_size_override("font_size", 11)
+	_online_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_online_status.custom_minimum_size.y = 34
+	box.add_child(_online_status)
+	_pair_status = Label.new()
+	_pair_status.add_theme_font_size_override("font_size", 12)
+	box.add_child(_pair_status)
+	return box
+
+
+func _reload_online(folder := Decks.ONLINE_DIR) -> void:
+	_online_folder = folder
+	_online = Decks.load_online(folder, folder == Decks.ONLINE_DIR)
+	_online_pick.clear()
+	for i in _online.records.size():
+		var record: Dictionary = _online.records[i]
+		if record.deck.size() == 9:
+			_online_pick.add_item("PV %d · %s" % [Decks.pv(record.deck), Decks.summary(record.deck)], i)
+	var source := "동봉 온라인 표본" if _online.archived else "로컬 온라인 %d파일" % _online.files
+	var highest := 0
+	for record in _online.records:
+		for k in record.deck:
+			highest = maxi(highest, int(DB.C[k].tier))
+	_online_status.text = "%s · %d종 편성 · 관측 최고 %s\n고티어 혼합은 예시 프리셋 선택 · 기록 장비는 자동 장착으로 근사" % [source, _online.records.size(), DB.TIER[highest].n if highest > 0 else "없음"]
+	_online_status.tooltip_text = "%s\n읽지 못한 편성/줄: %d. 실제 카드·진형·작전·사기를 복원하며 승패 재생은 새 시드로 계산합니다." % [ProjectSettings.globalize_path(folder), _online.skipped]
+
+
+func _choose_online_folder() -> void:
+	var dialog := FileDialog.new()
+	dialog.title = "서버의 playlog_online 폴더 선택"
+	dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.current_dir = ProjectSettings.globalize_path(_online_folder)
+	dialog.dir_selected.connect(func(path): _reload_online(path); dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(800, 600))
+
+
+func _apply_preset() -> void:
+	_online_pick.disabled = _preset_pick.selected != 0
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	if _preset_pick.selected == 0:
+		if _online_pick.item_count == 0:
+			_preset_pick.select(1)
+			_apply_preset()
+			_say("읽을 수 있는 온라인 편성이 없어 혼합 예시를 배치했습니다.")
+			return
+		var pair := Decks.match_online(_online.records, rng, _online_pick.get_selected_id())
+		if pair.is_empty():
+			_say("선택한 편성과 PV 차이 10% 이내인 다른 9장 기록이 없습니다. 다른 기록이나 혼합 예시를 선택해 주세요.")
+			return
+		for i in 2:
+			var cp := "A" if i == 0 else "B"
+			var record: Dictionary = _online.records[pair[i]]
+			for key in ["deck", "form", "tac", "morale", "equip"]:
+				side[cp][key] = record[key].duplicate() if record[key] is Array else record[key]
+			_sync_side_controls(cp)
+			_fill_deck(cp)
+		_say("실제 온라인 편성 두 개를 PV 차이 10% 이내로 배치했습니다. 장비는 기록의 장착 여부를 바탕으로 자동 생성합니다.")
+	else:
+		var counts: Array = Decks.PRESETS[_preset_pick.selected - 1].counts
+		var a := Decks.make_mix(counts, rng)
+		var b := Decks.make_mix(counts, rng, Decks.pv(a))
+		if a.is_empty() or b.is_empty():
+			_say("혼합 편성을 만들 후보가 부족합니다.")
+			return
+		for cp in ["A", "B"]:
+			side[cp].deck = a if cp == "A" else b
+			_fill_deck(cp)
+			_set_tac(cp, Run.recommend_tac(side[cp].deck)[0])
+		_say("혼합 예시를 양쪽에 배치했습니다. 등급별 인원을 고치거나 선택 칸만 교체할 수 있습니다.")
+
+
+func _sync_side_controls(cp: String) -> void:
+	var s: Dictionary = side[cp]
+	s.form_btn.select(FORMS.find(s.form))
+	_set_tac(cp, s.tac)
+	s.morale_box.value = s.morale
+	s.equip_box.button_pressed = s.equip
+
+
+func _update_pair_status() -> void:
+	if _pair_status == null:
+		return
+	var a := Decks.pv(side.A.deck)
+	var b := Decks.pv(side.B.deck)
+	var gap := 100.0 * absf(a - b) / maxf(1.0, maxf(a, b))
+	_pair_status.text = "현재 전력 PV  A %d : B %d · 차이 %.1f%%" % [a, b, gap]
+	_pair_status.modulate = Color("#e9bb7a") if gap > 10.0 else Color("#a4d9c4")
+
+
 func _mid_col() -> Control:
 	var v := VBoxContainer.new()
 	v.custom_minimum_size = Vector2(420, 0)
@@ -305,6 +545,7 @@ func _mid_col() -> Control:
 	h.add_theme_color_override("font_color", Color("#d8b56a"))
 	h.add_theme_font_size_override("font_size", 20)
 	v.add_child(h)
+	v.add_child(_preset_controls())
 	var r := HBoxContainer.new()
 	var sl := Label.new()
 	sl.text = "시드"
@@ -325,7 +566,7 @@ func _mid_col() -> Control:
 	rs.add_child(stl)
 	var style := OptionButton.new()
 	_style_btn = style
-	for nm in ["기본 3D", "수묵", "타입2 (삼국지11)", "점묘 (2D)"]:
+	for nm in ["기본 3D", "수묵", "타입2 (전쟁삽화)", "점묘 (2D)"]:
 		style.add_item(nm)
 	style.selected = 2 if Settings.type2 else (1 if Settings.sumuk else (3 if Settings.dots else 0))
 	style.item_selected.connect(func(i):
@@ -537,8 +778,7 @@ func _swap() -> void:
 		b[key] = x
 	for cp in ["A", "B"]:
 		_fill_deck(cp)
-		_set_tac(cp, side[cp].tac)
-		side[cp].form_btn.select(FORMS.find(side[cp].form))
+		_sync_side_controls(cp)
 
 
 func _report(rs: Array, title: String) -> void:
