@@ -48,6 +48,7 @@ var _ground: ColorRect          # 바닥 —— 셰이더 지도 (shaders/type2_
 var _ground_port: SubViewport
 var _ground_view: TextureRect
 var _ground_sig := []           # 지난번에 그린 값 —— 같으면 다시 그리지 않는다
+var _ground_again := 0          # 11/24 값이 바뀐 뒤 바닥을 몇 프레임 더 그린다 (첫 전투 지형 빠짐)
 var _ground_rev := 0            # 무늬(_roll_ground · detail)가 바뀌면 올린다
 const GROUND_MAX_PX := 2048     # 바닥 그림 긴 변 상한 (화면 px)
 var _under: Under               # 병사 아래 층 —— 부대 바닥 · 흙먼지 · 상태 칸 · 기술 범위
@@ -544,8 +545,14 @@ func _ground_step() -> void:
 	var psz := Vector2i(maxi(8, roundi(want.x)), maxi(8, roundi(want.y)))
 	var sig := [_center + _jit, _scale, size, _paint, _painting_origin, _painting_stretch, _mid_y, _camp_x("A"), _camp_x("B"), _ground_rev, psz]
 	if sig == _ground_sig:
+		# 11/24 사용자: 첫 전투에서 지형이 통째로 빠지고 바닥색만 (특히 휴대폰) —— 바뀐 프레임에 한 번만 그리면 뷰포트 크기 바꾸기 · 그림 첫 적재와
+		# 같은 프레임에 겹쳐 빈 그림이 남을 때가 있다. 바뀐 뒤 몇 프레임 더 그려 둔다 (그 뒤로는 그대로 —— 값이 안 바뀌면 비용 없음)
+		if _ground_again > 0:
+			_ground_again -= 1
+			_ground_port.render_target_update_mode = SubViewport.UPDATE_ONCE
 		return
 	_ground_sig = sig
+	_ground_again = 6
 	var mat: ShaderMaterial = _ground.material
 	mat.set_shader_parameter("center", _center + _jit)
 	mat.set_shader_parameter("scl", _scale)
