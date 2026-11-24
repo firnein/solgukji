@@ -485,18 +485,21 @@ static func is_res(id: String) -> bool:
 	return ECON.has(id)
 
 
-## 이 카드 계열이 이기는 계열 (표 그대로, 겹치지 않게) —— 카드 화면의 「우세」 줄
+## 이 카드 계열이 이기는 계열 —— 카드 화면의 「우세」 줄. 11/25 카드가 더한 규칙(천리행군 · 십면매복의 beats)까지 본다
 static func strong(id: String) -> Array:
 	data()
 	var out := []
-	for f in fams(id):
-		for b in (FAM[f].beat as Array) if FAM.has(f) else []:
-			if not out.has(b) and not fams(id).has(b):
-				out.append(b)
+	var mine := fams(id)
+	if mine.is_empty():
+		return out
+	for f in FAMS:
+		if not mine.has(f) and outcome(mine, [f], rules(id), {}) == "win":
+			out.append(f)
 	return out
 
 
-## 이 카드 계열을 이기는 계열 —— 「열세」 줄 (둘인 카드는 한쪽이 막아 주는 계열을 뺀다)
+## 이 카드 계열을 이기는 계열 —— 「열세」 줄 (둘인 카드는 한쪽이 막아 주는 계열을 뺀다).
+## 11/25 카드가 더한 규칙(원진 · 정공법 … 의 draw_vs)으로 비기는 계열도 뺀다 —— 예전엔 원진에도 「열세 기동」이 떴다
 static func weak(id: String) -> Array:
 	data()
 	var mine := fams(id)
@@ -504,8 +507,82 @@ static func weak(id: String) -> Array:
 	for f in FAMS:
 		if mine.has(f) or mine.is_empty():
 			continue
-		if outcome(mine, [f]) == "lose":
+		if outcome(mine, [f], rules(id), {}) == "lose":
 			out.append(f)
+	return out
+
+
+## 11/25 받아치기 배치 —— 상대 단계 카드(공개 · 봇 · 우두머리 계획, 가렸으면 지난 대전 같은 단계)를 보고 내 손패에서 상성으로 이기는 카드를 단계마다 놓는다.
+## foe = 단계 셋의 상대 카드 id (모르면 ""). 이미 이기는 칸은 그대로, 이길 카드가 없으면 지는 칸만 비기는 카드로 바꾼다(없으면 그대로).
+## 규칙(전투당 한 번 · 전설 한 장 · 단계 전용)은 plan_block 으로 —— 앞 단계부터 차례로 정한다. 같은 결과면 등급이 높은 카드, 같은 등급이면 이름 순
+static func counter_plan(plan: Array, hand: Dictionary, foe: Array) -> Array:
+	var out := norm(plan)
+	var f := norm(foe)
+	var rank := {"lose": 0, "": 1, "draw": 1, "win": 2}
+	for i in STAGES:
+		var fid := str(f[i])
+		if fid == "" or not has(fid) or fams(fid).is_empty():
+			continue
+		var cur := str(out[i])
+		var now := preview(cur, fid) if cur != "" else ""
+		if now == "win":
+			continue
+		var best := ""
+		var best_r := int(rank[now])
+		var best_g := -1
+		var ids: Array = hand.keys()
+		ids.sort()
+		for id in ids:
+			var sid := str(id)
+			if sid == cur or plan_block(out, hand, i, sid) != "":
+				continue
+			var r := int(rank[preview(sid, fid)])
+			var g := int(card(sid).get("g", 0))
+			if r > best_r or (r == best_r and best != "" and g > best_g):
+				best = sid
+				best_r = r
+				best_g = g
+		if best != "" and best_r > int(rank[now]):
+			out[i] = best
+	return out
+
+
+## 11/25 연구 단계 —— 앞 단계(req) 깊이: 0 초급 · 1 중급 · 2 이상 고급. 사용자 "연구 연계는 초급 → 중급 → 고급 식으로 다른 색상으로 표기"
+const RES_LV_N := ["초급", "중급", "고급"]
+const RES_LV_C := [Color("#5FAE8C"), Color("#5E9BE6"), Color("#B57BE8")]      # 청록 → 청 → 자. 군략 등급색(회 · 주황 · 보라 · 빨강)과 따로 읽히게 밝은 쪽으로
+static func res_level(id: String) -> int:
+	data()
+	var d := 0
+	var cur := id
+	while ECON.has(cur) and not (ECON[cur].get("req", []) as Array).is_empty() and d < 4:
+		cur = str(ECON[cur].req[0])
+		d += 1
+	return mini(d, RES_LV_N.size() - 1)
+
+
+static func res_col(id: String) -> Color:
+	return RES_LV_C[res_level(id)]
+
+
+## 이 연구가 든 갈래 줄 —— 맨 앞 단계부터 끝까지 (명마 → 양마 번식 → 서량 마구). 이어진 단계가 없으면 [id]
+static func res_chain(id: String) -> Array:
+	data()
+	if not ECON.has(id):
+		return [id]
+	var root := id
+	var guard := 0
+	while not (ECON[root].get("req", []) as Array).is_empty() and guard < 6:
+		root = str(ECON[root].req[0])
+		guard += 1
+	var out := [root]
+	var cur := root
+	while guard < 12:
+		var nx := res_next(cur)
+		if nx.is_empty():
+			break
+		cur = str(nx[0])
+		out.append(cur)
+		guard += 1
 	return out
 
 
@@ -517,13 +594,13 @@ static func desc(id: String) -> String:
 ## 등급 이름 · 색
 static func grade_name(id: String) -> String:
 	var g := int(card(id).get("g", -1))
-	return ("연구 · " + str(card(id).get("br", "")) if is_res(id) else "능력치 · 경제") if g < 0 else GRADE_N[g]
+	return ("%s 연구 · %s" % [RES_LV_N[res_level(id)], str(card(id).get("br", ""))] if is_res(id) else "능력치 · 경제") if g < 0 else GRADE_N[g]
 
 
 static func grade_col(id: String) -> Color:
 	var g := int(card(id).get("g", -1))
 	if g < 0:
-		return DB.PAL.jade
+		return res_col(id) if is_res(id) else DB.PAL.jade
 	return DB.TIER[GRADE_TIER[g]].c
 
 

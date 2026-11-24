@@ -125,7 +125,7 @@ func _panel(cp: String) -> Control:
 	return b
 
 
-## 머리 줄 칩 —— 단계 번호. 발동 전: 옅은 테 · 발동: 진영색 채움 · 무효: 붉은 채움
+## 머리 줄 칩 —— 단계 번호. 발동 전: 옅은 테 · 발동: 진영색 채움(우세 금테 · 열세 붉은 테) · 무효: 붉은 채움
 func _chip(cp: String, k: int) -> Control:
 	var P := DB.PAL
 	var ent = fired[cp][k]
@@ -142,6 +142,11 @@ func _chip(cp: String, k: int) -> Control:
 		elif str(ent.get("id", "")) != "":
 			bg = Color(_team(cp), 0.45)
 			bd = _team(cp)
+			var o := str(ent.get("out", ""))      # 11/25 접힌 칩에서도 상성 결과가 보이게 —— 우세 금테 · 열세 붉은 테
+			if o == "win":
+				bd = P.gold
+			elif o == "lose":
+				bd = P.danger
 		fg = P.paper
 	var sb := UI.flat(bg, bd, 1, 2, 0)
 	pc.add_theme_stylebox_override("panel", sb)
@@ -171,8 +176,8 @@ func _row(cp: String, k: int) -> Control:
 			if str(ent.get("via", "")) != "":
 				nm += "←" + str(ent.via)
 			nm += " ✓"
-			col = P.gold if str(ent.get("out", "")) == "win" else P.paper
 			var o := str(ent.get("out", ""))
+			col = P.gold if o == "win" else (P.danger if o == "lose" else P.paper)
 			if o == "win":
 				nm += " 우세"
 			elif o == "lose":

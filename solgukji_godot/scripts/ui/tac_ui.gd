@@ -66,12 +66,15 @@ static func fam_tag(id: String, fs := UI.FS_CAP) -> HBoxContainer:
 ## 카드 한 장 (손패 · 3택1) —— 등급색이 옅게 밴 바탕 · 위 등급색 선 · 계열 문장(기호) · 이름 · 등급 · 효과 · 상성(우세 / 열세). sel 이면 금테.
 ## note 는 못 놓는 까닭 같은 덧말(옅게). tall(3택1)은 문장을 가운데 크게 세운 세로 카드
 ## 11/16 사용자 "군략카드 폴리싱" —— 글만 있던 카드에 계열 문장 · 등급 바탕 · 상성 줄을 넣었다 (긴 상성 안내 글을 읽지 않아도 카드에서 바로 보이게)
-static func card_btn(id: String, cb: Callable, sel := false, note := "", tall := false) -> TouchButton:
+## 11/25 vs = 이 단계 상대 카드(알면) —— 일반 상성 줄 대신 「우세 · 상대 방진」 판정 한 줄 (vs_src = "상대" | "지난 대전"). rdone = 연구 카드면 갈래 줄(초급 ▸ 중급 ▸ 고급)에 고른 단계 ✓
+static func card_btn(id: String, cb: Callable, sel := false, note := "", tall := false, vs := "", vs_src := "", rdone = null) -> TouchButton:
 	var P := DB.PAL
 	var b := TouchButton.new()
 	var econ := str(Tac.card(id).get("kind", "")) == "econ"
 	var has_match := not Tac.fams(id).is_empty()
-	b.custom_minimum_size = Vector2(0, 204 if tall else ((118 if has_match else 100) + (14 if note != "" else 0)))      # 글이 짧아(효과 한두 줄) 높이를 정해 둔다 —— 줄바꿈 글의 최소 크기는 폭이 잡히기 전에 커서 못 믿는다
+	var verdict := _verdict(id, vs)
+	var chain: Array = Tac.res_chain(id) if Tac.is_res(id) else []
+	b.custom_minimum_size = Vector2(0, (204 + (34 if chain.size() > 1 else 0)) if tall else ((118 if has_match else 100) + (14 if note != "" else 0)))      # 글이 짧아(효과 한두 줄) 높이를 정해 둔다 —— 줄바꿈 글의 최소 크기는 폭이 잡히기 전에 커서 못 믿는다
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var gc := Tac.grade_col(id)
 	var sb := UI.flat(P.ink2.lerp(gc, 0.16 if sel else 0.09), P.gold if sel else Color(gc, 0.55), 2 if sel else 1, UI.R, 0)
@@ -137,7 +140,11 @@ static func card_btn(id: String, cb: Callable, sel := false, note := "", tall :=
 		var extra := maxi(0, dl.get_line_count() - base_lines) * (dl.get_line_height() + dl.get_theme_constant("line_spacing"))
 		if dl.size.x >= 60.0 and not is_equal_approx(b.custom_minimum_size.y, base_h + extra):      # 폭이 잡히기 전(글자마다 줄이 바뀐다)은 믿지 않는다
 			b.custom_minimum_size.y = base_h + extra)
-	if has_match:
+	if chain.size() > 1:
+		v.add_child(_chain_row(id, chain, rdone if rdone is Dictionary else {}))
+	if verdict != "":
+		v.add_child(_verdict_row(verdict, vs, vs_src, tall))
+	elif has_match:
 		v.add_child(_match_rows(id, tall))
 	b.add_child(v)
 	b.clip_contents = true
@@ -168,6 +175,56 @@ static func _emblem(id: String, gc: Color, d: float) -> Control:
 		h.add_child(Glyph.new(f, gc.lightened(0.35), d * 0.56))
 	pc.add_child(h)
 	return pc
+
+
+## 11/25 이 카드를 상대 카드 vs 에 냈을 때 —— "win" · "draw" · "lose", 어느 쪽이든 계열이 없거나 모르면 ""
+static func _verdict(id: String, vs: String) -> String:
+	if vs == "" or id == "" or not Tac.has(vs) or Tac.fams(vs).is_empty() or Tac.fams(id).is_empty():
+		return ""
+	return Tac.preview(id, vs)
+
+
+const VERDICT := {"win": ["우세", "공격 +15%"], "draw": ["비김", ""], "lose": ["열세", "효과 절반"]}      # ▲ · ▼ 는 정면 계열 문장(▲)과 헷갈려 글로
+static func verdict_col(o: String) -> Color:
+	return DB.PAL.jade.lightened(0.25) if o == "win" else (DB.PAL.danger if o == "lose" else DB.PAL.paper)
+
+
+## 판정 한 줄 —— 「우세  상대 방진 · 공격 +15%」. 지난 대전 기준(가려진 사람)이면 「지난 방진」
+static func _verdict_row(o: String, vs: String, src: String, tall: bool) -> Control:
+	var P := DB.PAL
+	var h := UI.hbox(4)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if tall:
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+	var hl := UI.lbl(str(VERDICT[o][0]), UI.FS_TINY, verdict_col(o), true)
+	hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(hl)
+	var tail := str(VERDICT[o][1])
+	var tl := UI.lbl("%s %s%s" % ["지난" if src == "지난 대전" else "상대", vs, (" · " + tail) if tail != "" else ""], UI.FS_TINY, P.text_dim)
+	tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tl.clip_text = true
+	tl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(tl)
+	return h
+
+
+## 연구 갈래 줄 —— 「초급 명마 ▸ 중급 양마 번식 ▸ 고급 서량 마구」 단계색, 이 카드는 굵게, 이미 고른 단계는 ✓
+static func _chain_row(id: String, chain: Array, done: Dictionary) -> Control:
+	var P := DB.PAL
+	var parts := []
+	for x in chain:
+		var sx := str(x)
+		var c := Tac.res_col(sx)
+		var nm := _bb(sx)
+		if sx == id:
+			nm = "[b]%s[/b]" % nm
+		var mark := "✓" if int(done.get(sx, 0)) > 0 else ""
+		parts.append("[color=#%s]%s%s[/color]" % [(c if sx == id or mark != "" else c.darkened(0.25)).to_html(false), mark, nm])
+	var rl := UI.rich("[center]%s[/center]" % ("[color=#%s] ▸ [/color]" % P.text_dim.to_html(false)).join(parts), UI.FS_TINY)
+	rl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return rl
 
 
 ## 상성 줄 —— 「우세 기동 · 원거리」(옥빛) · 「열세 수비 · 책략」(붉은빛). tall 이면 두 줄, 아니면 한 줄에 나란히
@@ -212,19 +269,21 @@ static func stage_when(i: int) -> String:
 	return "%d단계 = %s (%s) —— %s" % [i + 1, STAGE_NAME[clampi(i, 0, 2)], stage_span(i), tail[clampi(i, 0, 2)]]
 
 
-## 한 줄 —— 머리 「군략」 + 세 칸. 칸을 누르면 손패 시트
+## 한 줄 —— 머리 「군략」 + 세 칸. 칸을 누르면 손패 시트.
+## 11/25 상대 단계 카드를 알면(우두머리 · 봇 · 공개, 가렸으면 지난 대전) 칸마다 「우세 · 비김 · 열세」 작은 표시 —— 시트를 열지 않고도 어느 칸을 고칠지 보이게
 static func plan_row(gs) -> Control:
 	var P := DB.PAL
 	var run: Run = gs.run
 	var h := UI.hbox(UI.SP_XS)
 	h.add_child(_status_btn(gs))      # 11/21 「군략 / 현황 ›」 —— 누르면 나 · 상대 · 같은 방의 군략과 상시 효과 (예전 「군략」 글 자리, 폭 거의 그대로)
 	var plan := Tac.norm(run.tk_plan)
+	var fc := foe_cards(context(gs, false))
 	for i in Tac.STAGES:
-		h.add_child(_slot(gs, i, plan[i]))
+		h.add_child(_slot(gs, i, plan[i], _verdict(str(plan[i]), str(fc.ids[i]))))
 	return h
 
 
-static func _slot(gs, i: int, id: String) -> TouchButton:
+static func _slot(gs, i: int, id: String, o := "") -> TouchButton:
 	var P := DB.PAL
 	var b := TouchButton.new()
 	b.custom_minimum_size = Vector2(0, UI.HIT)
@@ -251,6 +310,16 @@ static func _slot(gs, i: int, id: String) -> TouchButton:
 			var g := Glyph.new(f, P.bamboo, 10)
 			g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			top.add_child(g)
+	if o != "":
+		var sp := Control.new()
+		sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(sp)
+		var ol := UI.lbl(str(VERDICT[o][0]), UI.FS_TINY, verdict_col(o), true)
+		ol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top.add_child(ol)
+		if o == "lose":
+			sb.border_color = Color(P.danger, 0.85)
 	v.add_child(top)
 	var cl := UI.lbl(id if on else "비었음 +", UI.FS_BODY, P.paper if on else P.text_dim, on)
 	cl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -272,24 +341,35 @@ static func hand_sheet(gs, i: int) -> void:
 	var plan := Tac.norm(run.tk_plan)
 	var cur: String = plan[i]
 	var ctx := context(gs)      # 11/21 군략 현황 —— 상대 · 같은 방의 군략과 상시 효과
+	var fc := foe_cards(ctx)      # 11/25 이 단계 상대 카드(공개 · 봇 · 우두머리, 가렸으면 지난 대전) —— 카드마다 우세 · 열세 판정
+	var vs := str(fc.ids[i])
+	var src := str(fc.src)
 	b.add_child(UI.hint(stage_when(i)))      # 11/22 이 단계가 전투의 언제인지
 	var fl := foe_line(ctx, i, func(t: String): gs.toast(t))
 	if fl != null:
 		b.add_child(fl)
+	var cbx := counter_btn(gs, ctx, func(): hand_sheet(gs, i))      # 11/25 세 단계를 한 번에 받아치기
+	if cbx != null:
+		b.add_child(cbx)
 	var done := func(id: String):
 		gs.act("set_plan", [i, id])
 		gs.close_sheet()
 	if cur != "":
 		b.add_child(UI.eyebrow("지금 놓인 카드"))
 		var cr := UI.hbox(UI.SP_S)
-		cr.add_child(card_btn(cur, func(): gs.toast(Tac.desc(cur)), true))
+		cr.add_child(card_btn(cur, func(): gs.toast(Tac.desc(cur)), true, "", false, vs, src))
 		var cb := UI.btn("비우기", func(): done.call(""), "ghost", UI.BH_M)
 		cb.custom_minimum_size.x = 84
 		cb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		cr.add_child(cb)
 		b.add_child(cr)
 	var ids: Array = run.tk_hand.keys().filter(func(id): return Tac.placeable(str(id)) and str(id) != cur)
+	var vr := {"win": 2, "draw": 1, "": 1, "lose": 0}
 	ids.sort_custom(func(x, y):
+		var ox := int(vr[_verdict(str(x), vs)])      # 11/25 상대 카드를 알면 이기는 카드가 먼저
+		var oy := int(vr[_verdict(str(y), vs)])
+		if ox != oy:
+			return ox > oy
 		var gx := int(Tac.card(x).g)
 		var gy := int(Tac.card(y).g)
 		return gx > gy if gx != gy else str(x) < str(y))
@@ -304,7 +384,7 @@ static func hand_sheet(gs, i: int) -> void:
 		var why := Tac.plan_block(plan, run.tk_hand, i, str(id))
 		var n := int(run.tk_hand[id])
 		var note := why if why != "" else ("%d장" % n if n > 1 else "")
-		var cbtn := card_btn(str(id), func(): done.call(str(id)), false, note)
+		var cbtn := card_btn(str(id), func(): done.call(str(id)), false, note, false, vs, src)
 		if why != "":
 			cbtn.modulate.a = 0.45
 			cbtn.disabled = true
@@ -356,11 +436,15 @@ static func offer_sheet(gs, sel := "") -> void:
 	if run.tk_offer.is_empty():
 		b.add_child(UI.empty("draw", "고를 카드가 없다", "아침마다 군략 3장 중 하나, 이어서 연구 3장 중 하나를 고른다."))
 		return
-	b.add_child(UI.hint("오늘의 군략을 하나 고르세요. 이어서 연구를 고릅니다."))
+	b.add_child(UI.hint("오늘의 군략을 하나 고르세요. 이어서 연구를 고릅니다. 계열 카드의 세기는 덱에 그 계열 병종이 많을수록 큽니다 (×0.7 ~ ×1.3)."))
 	var row: Container = UI.grid(140, UI.SP_S) if run.tk_offer.size() > 3 else UI.hbox(UI.SP_S)
+	var tags := Tac.deck_tags(run.board)
 	for id in run.tk_offer:
 		var sid := str(id)
-		row.add_child(card_btn(sid, func(): offer_sheet(gs, sid), sid == sel, "", true))
+		var note := ""
+		if not Tac.fams(sid).is_empty():      # 11/25 효과 세기는 덱 쏠림을 탄다 (0.7 ~ 1.3배) —— 고를 때 내 덱에서 몇 배인지
+			note = "내 덱에서 세기 ×%.2f" % Tac.bias(Tac.fams(sid), tags)
+		row.add_child(card_btn(sid, func(): offer_sheet(gs, sid), sid == sel, note, true))
 	b.add_child(row)
 	var actions := UI.hbox(UI.SP_S)
 	var later := UI.btn("나중에", func(): gs.close_sheet(), "ghost")
@@ -394,16 +478,14 @@ static func res_sheet(gs, sel := "") -> void:
 	if run.rs_offer.is_empty():
 		b.add_child(UI.empty("draw", "고를 연구가 없다", "아침마다 군략 다음에 연구 3장 중 하나를 고른다."))
 		return
-	b.add_child(UI.hint("오늘의 연구를 하나 고르세요. 앞 단계를 고르면 다음 단계가 후보에 오릅니다."))
+	b.add_child(UI.hint("오늘의 연구를 하나 고르세요. 초급을 고르면 중급, 중급을 고르면 고급이 후보에 오릅니다."))
+	b.add_child(res_legend())
 	var row: Container = UI.grid(140, UI.SP_S) if run.rs_offer.size() > 3 else UI.hbox(UI.SP_S)
 	for id in run.rs_offer:
 		var sid := str(id)
-		var nx := Tac.res_next(sid)
 		var n := int(run.rs_done.get(sid, 0))
-		var note := ("다음 ▸ " + " · ".join(nx)) if not nx.is_empty() else ""
-		if n > 0:
-			note = ("%d번 연구함" % n) + ((" · " + note) if note != "" else "")
-		row.add_child(card_btn(sid, func(): res_sheet(gs, sid), sid == sel, note, true))
+		var note := ("%d번 연구함" % n) if n > 0 else ""      # 11/25 다음 단계는 카드 아래 갈래 줄(초급 ▸ 중급 ▸ 고급)이 보인다
+		row.add_child(card_btn(sid, func(): res_sheet(gs, sid), sid == sel, note, true, "", "", run.rs_done))
 	b.add_child(row)
 	var actions := UI.hbox(UI.SP_S)
 	var later := UI.btn("나중에", func(): gs.close_sheet(), "ghost")
@@ -423,10 +505,21 @@ static func res_sheet(gs, sel := "") -> void:
 	b.add_child(UI.hint("나중에 상단의 ‘연구 3택1’에서 다시 열 수 있습니다. 다음 날엔 첫 연구가 자동으로 정해집니다."))
 
 
+## 11/25 연구 단계 색 안내 —— 「● 초급 ● 중급 ● 고급」 한 줄
+static func res_legend() -> Control:
+	var parts := []
+	for k in Tac.RES_LV_N.size():
+		parts.append("[color=#%s]● %s[/color]" % [(Tac.RES_LV_C[k] as Color).to_html(false), Tac.RES_LV_N[k]])
+	var rl := UI.rich("[color=#%s]연구 단계[/color]   %s" % [DB.PAL.text_dim.to_html(false), "   ".join(parts)], UI.FS_CAP)
+	rl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rl
+
+
 # ───────── 전투 탭 · 대전 상대 ─────────
 
 ## 우두머리 계획 줄 —— 「군략」 + 단계마다 기호 · 카드 이름. 누르면 효과 한 줄 (cb_toast)
-static func plan_chips(plan: Array, cb_toast: Callable) -> HBoxContainer:
+## 11/25 mine = 내 계획(상대 줄일 때) —— 칩 오른쪽 끝에 내 같은 단계 카드의 판정 우세 · 비김 · 열세 (칩 테두리도 우세 옥빛 · 열세 붉게)
+static func plan_chips(plan: Array, cb_toast: Callable, mine := []) -> HBoxContainer:
 	var P := DB.PAL
 	var h := UI.hbox(UI.SP_XS)
 	var hl := UI.lbl("군략", UI.FS_CAP, P.text_dim)
@@ -445,6 +538,8 @@ static func plan_chips(plan: Array, cb_toast: Callable) -> HBoxContainer:
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		r.alignment = BoxContainer.ALIGNMENT_CENTER
 		r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		r.offset_left = 4
+		r.offset_right = -4
 		var nl := UI.lbl("%d" % (i + 1), UI.FS_TINY, P.text_dim)
 		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -457,11 +552,29 @@ static func plan_chips(plan: Array, cb_toast: Callable) -> HBoxContainer:
 		var cl := UI.lbl(id if id != "" else "없음", UI.FS_CAP, P.paper if id != "" else P.text_dim)
 		cl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var o := _verdict(str(mine[i]), id) if mine.size() > i else ""
+		if o != "":      # 판정 글이 붙으면 칸이 좁다 —— 이름은 남는 폭만큼 (말줄임)
+			cl.clip_text = true
+			cl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cl.custom_minimum_size.x = 24
 		r.add_child(cl)
+		if o != "":
+			var ol := UI.lbl(str(VERDICT[o][0]), UI.FS_TINY, verdict_col(o), true)
+			ol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			ol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			r.add_child(ol)
+			if o == "lose":
+				sb.border_color = Color(P.danger, 0.8)
+			elif o == "win":
+				sb.border_color = Color(P.jade, 0.9)
 		b.add_child(r)
 		b.pressed.connect(func():
 			if id != "":
-				cb_toast.call("%s —— %s" % [id, Tac.desc(id)]))
+				var tail := ""
+				if o != "":
+					tail = " · 내 %d단계 %s %s" % [i + 1, str(mine[i]), str(VERDICT[o][0])]
+				cb_toast.call("%s —— %s%s" % [id, Tac.desc(id), tail]))
 		h.add_child(b)
 	return h
 
@@ -565,7 +678,8 @@ static func _arr(x) -> Array:
 
 ## 지금 화면의 나 · 다음 상대 · 같은 방(다른 세력) —— {me, foe(비면 {}), note(상대가 없을 때 글), others, online}
 ## 상대: 혼자 하기 = 토벌 전엔 우두머리, 토벌 뒤엔 출진 때 정해짐(봇 가운데 하나). 온라인 = 토벌 있는 날 아침엔 우두머리, 대전 준비 · 대전엔 방 정보 foe
-static func context(gs) -> Dictionary:
+## 11/25 others = false 면 혼자 하기의 다른 세력 계획은 계산하지 않는다 (편성 칸 줄은 상대만 필요 —— 그리기마다 봇 계획을 다시 짜지 않게)
+static func context(gs, others := true) -> Dictionary:
 	var run: Run = gs.run
 	var ctx := {"me": side_me(run), "foe": {}, "note": "", "others": [], "online": false}
 	var on = gs.online
@@ -617,10 +731,67 @@ static func context(gs) -> Dictionary:
 			ctx.note = "대전 상대는 출진 때 아래 세력 가운데 하나로 정해진다"
 		else:
 			ctx.note = "오늘 전투를 모두 마쳤다"
-		for b in run.bots:
+		for b in (run.bots if others else []):
 			if not bool(b.get("dead", false)):
 				ctx.others.append(side_bot(run, b))
 	return ctx
+
+
+## 11/25 상대 단계 카드 셋 —— {ids: [셋], src: "상대" | "지난 대전" | ""}. 공개 · 봇 · 우두머리 계획이면 그대로,
+## 사람이라 가렸으면 지난 대전 계획을 예상으로 (같은 사람은 같은 손패라 자주 되풀이한다). 모르면 src ""
+static func foe_cards(ctx: Dictionary) -> Dictionary:
+	var foe: Dictionary = ctx.get("foe", {})
+	var none := {"ids": ["", "", ""], "src": ""}
+	if foe.is_empty():
+		return none
+	if foe.get("plan") is Array:
+		return {"ids": Tac.norm(foe.plan), "src": "상대"}
+	var hist = foe.get("hist", [])
+	if hist is Array and not hist.is_empty() and hist[0] is Array:
+		var ids := Tac.norm(hist[0]).map(func(x): return str(x) if Tac.has(str(x)) else "")
+		if ids.any(func(x): return x != ""):
+			return {"ids": ids, "src": "지난 대전"}
+	return none
+
+
+static func _wins(plan: Array, foe: Array) -> int:
+	var n := 0
+	for i in Tac.STAGES:
+		if _verdict(str(plan[i]), str(foe[i])) == "win":
+			n += 1
+	return n
+
+
+## 11/25 받아치기 배치 —— 상대 단계 카드(가렸으면 지난 대전)를 보고 손패에서 상성으로 이기는 카드를 세 단계에 한 번에 놓는다.
+## 사용자 "상대 군략을 예측해서 카운터 하는 게 현재 가능한지 (멀티 기준 10초)" —— 대전 준비 10초 안에 한 번 눌러 끝나게.
+## 바꿀 것이 없으면(이미 최선 · 받아칠 카드 없음 · 상대를 모름) null. after = 누른 뒤 (시트 다시 열기)
+static func counter_btn(gs, ctx: Dictionary, after := Callable()) -> Control:
+	var run: Run = gs.run
+	var fc := foe_cards(ctx)
+	if str(fc.src) == "":
+		return null
+	var cur := Tac.norm(run.tk_plan)
+	var nxt := Tac.counter_plan(cur, run.tk_hand, fc.ids)
+	if nxt == cur:
+		return null
+	var w0 := _wins(cur, fc.ids)
+	var w1 := _wins(nxt, fc.ids)
+	var v := UI.vbox(2)
+	var bt := UI.btn("받아치기 배치  ·  우세 %d → %d곳" % [w0, w1], func():
+		var changed := []
+		for i in Tac.STAGES:
+			if str(nxt[i]) != str(cur[i]):
+				gs.act("set_plan", [i, str(nxt[i])])
+				changed.append("%d단계 %s" % [i + 1, nxt[i]])
+		gs.toast("받아치기 —— " + " · ".join(changed), "gold")
+		if after.is_valid():
+			after.call(), "gold", UI.BH_M)
+	v.add_child(bt)
+	var how := "상대 계획을 보고" if str(fc.src) == "상대" else "지난 대전 계획을 예상으로"
+	var nl := UI.lbl("%s 손패에서 상성으로 이기는 카드를 단계마다 놓는다" % how, UI.FS_CAP, DB.PAL.text_dim)
+	UI.wrap_text(nl)
+	v.add_child(nl)
+	return v
 
 
 ## 기록 한 칸의 계열 —— 11/21 부터 카드 id, 옛 저장 · 옛 서버는 계열 글("정면" · "정면·기동")
@@ -769,6 +940,11 @@ static func foe_line(ctx: Dictionary, i: int, toast: Callable) -> Control:
 			hh.add_child(g2)
 			hh.add_child(UI.lbl(hx, UI.FS_CAP, P.paper))
 			v.add_child(hh)
+			var hcs := _counters(hx) if Tac.has(hx) else []      # 11/25 가려졌어도 지난 대전 카드를 받아치는 계열 (예상)
+			if not hcs.is_empty():
+				var hcl := UI.lbl("또 낸다면 %s 계열이 상성 우세" % " · ".join(hcs), UI.FS_CAP, P.jade.lightened(0.25))
+				UI.wrap_text(hcl)
+				v.add_child(hcl)
 	var pnl := PanelContainer.new()
 	var sb := UI.flat(P.ink2, Color(P.gold, 0.5), 0, UI.R, 10)
 	sb.border_width_left = 3
@@ -927,7 +1103,11 @@ static func _buff_text(rows: Array, narrow := false) -> Control:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for r in rows:
 		var kc: Color = P.jade.lightened(0.25) if str(r.kind) == "늘" else P.bamboo
-		var head := "[color=#%s]%s[/color] [b]%s[/b]" % [kc.to_html(false), str(r.kind), _bb(str(r.src))]
+		var kind := str(r.kind)
+		if kind == "영구" and Tac.is_res(str(r.src)):      # 11/25 연구로 얻은 영구 효과 —— 단계 이름 · 색 (초급 · 중급 · 고급)
+			kc = Tac.res_col(str(r.src))
+			kind = Tac.RES_LV_N[Tac.res_level(str(r.src))]
+		var head := "[color=#%s]%s[/color] [b]%s[/b]" % [kc.to_html(false), kind, _bb(str(r.src))]
 		var body := "[color=#%s]%s[/color]" % [P.text_dim.to_html(false), _bb(str(r.text))]
 		var rl := UI.rich((head + "\n" + body) if narrow else (head + " " + body), UI.FS_CAP)
 		rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -987,12 +1167,13 @@ static func _room_row(side: Dictionary, toast: Callable) -> Control:
 	return v
 
 
-## 한 진영의 군략 몸통(가로 한 폭) —— 단계 계획 칩(가렸으면 「계획 비공개 · 상태」 + 지난 대전) · 상시 효과 글
-static func peer_body(side: Dictionary, toast: Callable) -> Control:
+## 한 진영의 군략 몸통(가로 한 폭) —— 단계 계획 칩(가렸으면 「계획 비공개 · 상태」 + 지난 대전) · 상시 효과 글.
+## 11/25 mine = 내 계획 (대전 상대 줄) —— 칩마다 내 같은 단계 카드의 판정
+static func peer_body(side: Dictionary, toast: Callable, mine := []) -> Control:
 	var P := DB.PAL
 	var v := UI.vbox(UI.SP_XS)
 	if side.plan is Array:
-		v.add_child(plan_chips(side.plan, toast))
+		v.add_child(plan_chips(side.plan, toast, mine))
 	else:
 		var h := UI.hbox(UI.SP_XS)
 		var hl := UI.lbl("군략", UI.FS_CAP, P.text_dim)
@@ -1002,15 +1183,16 @@ static func peer_body(side: Dictionary, toast: Callable) -> Control:
 		v.add_child(h)
 		var hist = side.get("hist", [])
 		if hist is Array and not hist.is_empty() and hist[0] is Array:
-			v.add_child(_last_line(hist[0], toast))
+			v.add_child(_last_line(hist[0], toast, mine))
 	var rows := Tac.buff_rows(side.get("own", []), side.get("perm", []))
 	if not rows.is_empty():
 		v.add_child(_buff_text(rows))
 	return v
 
 
-## 지난 대전 한 줄 —— 「지난 대전 ▲돌격 ■방진 »우회」 (기록이 계열 글인 옛 저장은 계열 이름)
-static func _last_line(last: Array, toast: Callable) -> Control:
+## 지난 대전 한 줄 —— 「지난 대전 ▲돌격 ■방진 »우회」 (기록이 계열 글인 옛 저장은 계열 이름).
+## 11/25 mine = 내 계획 —— 같은 계획을 또 내면 내 카드가 어떻게 되는지 우세 · 비김 · 열세
+static func _last_line(last: Array, toast: Callable, mine := []) -> Control:
 	var P := DB.PAL
 	var fl := UI.flow(UI.SP_S)
 	fl.add_child(UI.lbl("지난 대전", UI.FS_CAP, P.text_dim))
@@ -1021,6 +1203,9 @@ static func _last_line(last: Array, toast: Callable) -> Control:
 		g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(g)
 		h.add_child(UI.lbl(x if x != "" else "없음", UI.FS_CAP, P.paper if x != "" else P.text_dim))
+		var o := _verdict(str(mine[k]), x) if mine.size() > k else ""
+		if o != "":
+			h.add_child(UI.lbl(str(VERDICT[o][0]), UI.FS_TINY, verdict_col(o), true))
 		if Tac.has(x):
 			h.mouse_filter = Control.MOUSE_FILTER_STOP
 			UI.tap(h, func(): toast.call("%s —— %s" % [x, Tac.desc(x)]))
@@ -1032,10 +1217,13 @@ static func _last_line(last: Array, toast: Callable) -> Control:
 static func boss_rows(gs) -> Control:
 	var v := UI.vbox(UI.SP_XS)
 	var bs := side_boss(gs.run)
-	v.add_child(plan_chips(bs.plan, func(t: String): gs.toast(t)))
+	v.add_child(plan_chips(bs.plan, func(t: String): gs.toast(t), Tac.norm(gs.run.tk_plan)))
 	var rows := Tac.buff_rows(bs.own, [])
 	if not rows.is_empty():
 		v.add_child(_buff_text(rows))
+	var cbx := counter_btn(gs, {"foe": bs}, func(): gs.render())      # 11/25 우두머리 계획은 미리 보인다 —— 한 번에 받아치기
+	if cbx != null:
+		v.add_child(cbx)
 	v.add_child(status_link(gs))
 	return v
 
@@ -1049,9 +1237,14 @@ static func foe_block(gs) -> Control:
 		var f = gs.online.room.get("foe") if gs.online != null else null
 		return hist_line(f.get("tac", [])) if f is Dictionary else null
 	var v := UI.vbox(UI.SP_XS)
-	var tv = peer_body(foe, func(t: String): gs.toast(t))
+	var tv = peer_body(foe, func(t: String): gs.toast(t), Tac.norm(gs.run.tk_plan))
 	if tv != null:
 		v.add_child(tv)
+	var st := str(gs.online.room.get("stage", "")) if gs.online != null else ""
+	if st in ["morning", "evening_prep"]:      # 11/25 계획을 고칠 수 있는 단계 —— 대전 준비 10초 안에 한 번 눌러 받아치기
+		var cbx := counter_btn(gs, ctx, func(): gs.render())
+		if cbx != null:
+			v.add_child(cbx)
 	v.add_child(status_link(gs))
 	return v
 

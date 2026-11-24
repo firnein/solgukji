@@ -5874,7 +5874,15 @@ func _dev_args() -> void:
 			"update": _update_sheet(int(kv[1]) if kv.size() > 1 else -1)      # 11/20 업데이트 내역 시트 (--gsheet=update:2 = 앞에서 셋째 판도 펼친 채)
 			"uniq": _unique_sheet()
 			"shop": _shop_sheet()      # 11/13 군량 상점 (--ggrain=40 과 함께)
-			"tacoffer": TacUI.offer_sheet(self, kv[1] if kv.size() > 1 else "")      # 11/15 군략 3택1 (--gsheet=tacoffer:카드 = 고른 채로)
+			"tacoffer":      # 11/15 군략 3택1 (--gsheet=tacoffer:카드 = 고른 채로). 11/25 3택1 이 비었으면 새로 편다 (저장하지 않는다)
+				if run.tk_offer.is_empty():
+					run.tk_new_offer()
+				TacUI.offer_sheet(self, kv[1] if kv.size() > 1 else "")
+			"tacres":      # 11/25 연구 3택1 (--gsheet=tacres:명마+강궁 = 그 연구를 고른 뒤 —— 갈래 줄 ✓ · 중급이 후보에 오르는지)
+				for rid in (kv[1].split("+") if kv.size() > 1 and kv[1] != "" else []):
+					run.rs_done[rid] = int(run.rs_done.get(rid, 0)) + 1
+				run.tk_new_offer()
+				TacUI.res_sheet(self, kv[2] if kv.size() > 2 else "")
 			"tachand": TacUI.hand_sheet(self, int(kv[1]))      # 11/15 군략 손패 시트 (단계 0 · 1 · 2)
 			"gacha":      # 11/13 아이템 뽑기 결과 (--ggrain=80 --gsheet=gacha:10) · gacha:pity 는 천장 직전에서 한 번(고대 연출)
 				if kv.size() > 1 and kv[1] == "pity":

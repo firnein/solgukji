@@ -44,6 +44,24 @@ func _rules() -> void:
 	_ok(Tac.plan_block(["", "", ""], hand, 1, "야습") != "", "1단계 전용")
 	_ok(Tac.plan_block(["", "", ""], hand, 2, "연환계") != "", "연환계 3단계 금지")
 	_ok(Tac.plan_block(["", "", ""], hand, 0, "십면매복") != "", "없는 카드")
+	# 11/25 카드 상성 줄 · 받아치기 배치 · 연구 단계
+	_ok(not Tac.weak("원진").has("기동") and Tac.weak("원진").has("책략"), "원진 열세 줄에 기동이 없다 (비김)")
+	_ok(not Tac.weak("천리행군").has("원거리") and not Tac.strong("천리행군").has("원거리"), "천리행군: 원거리와 서로 이김 → 비김 (열세 줄에서 빠진다)")
+	_ok(Tac.strong("십면매복").has("정면") and not Tac.weak("십면매복").has("기동"), "십면매복: 정면 우세 · 기동 비김")
+	var ch := {"돌격": 1, "방진": 1, "우회": 1, "일제 사격": 1, "화공": 1, "총공격": 1, "제갈연노": 1}
+	var cp := Tac.counter_plan(["돌격", "돌격", "돌격"], ch, ["방진", "우회", "화공"])
+	_ok(Tac.preview(cp[0], "방진") == "win" and Tac.preview(cp[1], "우회") == "win" and Tac.preview(cp[2], "화공") == "win", "받아치기: 세 단계 모두 우세 %s" % str(cp))
+	var legends := 0
+	for k in 3:
+		_ok(Tac.plan_block(cp, ch, k, cp[k]) == "", "받아치기 결과가 규칙 안 (%d단계 %s)" % [k + 1, cp[k]])
+		if cp[k] != "" and int(Tac.card(cp[k]).g) == 3:
+			legends += 1
+	_ok(legends <= 1, "받아치기: 전설 한 장")
+	_ok(Tac.counter_plan(["우회", "", ""], ch, ["방진", "", ""]) == ["우회", "", ""], "받아치기: 이미 이기는 칸 · 모르는 단계는 그대로")
+	_ok(Tac.counter_plan(["돌격", "", ""], {"돌격": 1}, ["방진", "", ""]) == ["돌격", "", ""], "받아치기: 이길 카드가 없으면 그대로")
+	_ok(Tac.res_level("명마") == 0 and Tac.res_level("양마 번식") == 1 and Tac.res_level("서량 마구") == 2, "연구 단계 초급 · 중급 · 고급")
+	_ok(Tac.res_chain("양마 번식") == ["명마", "양마 번식", "서량 마구"], "연구 갈래 줄")
+	_ok(Tac.grade_name("서량 마구").begins_with("고급 연구") and Tac.grade_col("명마") != Tac.grade_col("서량 마구"), "연구 단계 이름 · 색")
 	var r := RandomNumberGenerator.new()
 	r.seed = 5
 	for i in 20:
