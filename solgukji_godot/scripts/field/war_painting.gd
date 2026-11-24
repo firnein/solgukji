@@ -78,9 +78,11 @@ var hero_ready := false
 var _hero_cells := {}          # 인물 이름 -> 칸 번호 (data/myth_heroes.json)
 var _immortal_hero_cells := {}
 var _hero_fill := PackedFloat32Array()      # 칸 번호 -> 인형 키 / 칸 키 (발 0.97 기준)
+var _hero_scale := PackedFloat32Array()
 var _hero_of := {}             # 카드 id -> 칸 번호 (-1 = 없음)
 var _hero_falls := {}
 var _hero_poses := 1
+var hero_feet := {}
 var batch: Node2D
 var top_effects: Node2D
 var glow_effects: Node2D
@@ -190,6 +192,7 @@ func reset() -> void:
 	_scr.clear()
 	bodies.clear()
 	_hero_falls.clear()
+	hero_feet.clear()
 	contacts.clear()
 	volleys.clear()
 	ults.clear()
@@ -552,6 +555,7 @@ func _contact_limits(sq: Squad) -> Array:
 
 func _draw() -> void:
 	visible_soldiers.clear()
+	hero_feet.clear()
 	if v == null or v.field == null or cells.is_empty():
 		return
 	var t0 := Time.get_ticks_usec()
@@ -781,6 +785,7 @@ func _load_hero_sheet(data_path: String, map: Dictionary, offset: int) -> void:
 		return
 	var poses := clampi(int(d.get("poses", 1)), 1, 4)
 	_hero_fill.resize(maxi(_hero_fill.size(), offset + slots))
+	_hero_scale.resize(_hero_fill.size())
 	var cells_: Dictionary = d.get("cells", {})
 	for nm in cells_:
 		var i := int(cells_[nm].get("i", -1))
@@ -788,6 +793,7 @@ func _load_hero_sheet(data_path: String, map: Dictionary, offset: int) -> void:
 			continue
 		map[str(nm)] = offset + i
 		_hero_fill[offset + i] = maxf(0.2, float(cells_[nm].get("fill", HERO_BODY)))
+		_hero_scale[offset + i] = float(cells_[nm].get("scale", 1.0))
 	if offset == 0:
 		_hero_poses = poses
 		batch.hero_atlas = tex
@@ -806,7 +812,7 @@ func _collect_hero_fall(sq: Squad, fall: Dictionary) -> void:
 	var p := _pm(at) + axis * (phase * 6.0)
 	var h := _figure_height(sq, fall.form)
 	var tilt := phase * (1.36 if axis.x >= 0.0 else -1.36)
-	_append_hero(sq, _hero_index(sq), 3, p, h, 1.0 - phase, tilt, 0.0, 0.0, 0.0, fall.mirror, 0.0)
+	_append_hero(sq, _hero_index(sq), 3, p, h, 1.0 - phase, tilt, 0.0, 0.0, fall.mirror, 0.0)
 
 ## 그 부대 장수의 인형 칸 (없으면 -1) —— 카드 id 로 한 번만 찾는다
 func _hero_index(sq: Squad) -> int:
@@ -830,7 +836,7 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		if form.alive[id] == 0:
 			continue
 		strike = maxf(strike, form.strike_at[id])
-		if form.hurt_at[id] > hurt:
+		if form.hurt_at[id] > hurt and form.hurt_at[id] <= visual_time:
 			hurt = form.hurt_at[id]
 			hurt_id = id
 		gait += form.gait[id]
@@ -845,7 +851,6 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 	var p := _pm(at)
 	var p0 := p
 	var tilt := 0.0
-	var hit := 0.0
 	var pose := 0
 	if sq.state != "flee":
 		if eligible and not ranged:
@@ -876,16 +881,15 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, 0.38, hurt_age))
 		p += hurt_axis * recoil * (2.0 + form.hurt_power[hurt_id] * 2.4) * HERO_LUNGE * 0.7
 		tilt += hurt_axis.x * recoil * (0.07 + form.hurt_power[hurt_id] * 0.05)
-		hit = 1.0 - smoothstep(0.025, 0.14, hurt_age)
 		gait *= 1.0 - recoil
 	if gait > 0.001:
 		tilt += sin(stride) * gait * sway * 0.7
 	if p != p0 and not form.contact_limits.is_empty():
 		p = _pm(form.constrain_foot(v.unmap(p)))
-	_append_hero(sq, idx, pose, p, soldier_h, fade_sq, tilt, gait, stride, hit, mirror, cv)
+	_append_hero(sq, idx, pose, p, soldier_h, fade_sq, tilt, gait, stride, mirror, cv)
 
 func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, fade_sq: float,
-		tilt: float, gait: float, stride: float, hit: float, mirror: bool, cv: float) -> void:
+		tilt: float, gait: float, stride: float, mirror: bool, cv: float) -> void:
 	var n := figure_count
 	figure_count += 1
 	if _figs.size() < figure_count * FIG_W:
@@ -895,13 +899,15 @@ func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, 
 	_figs[b + 1] = p.y
 	var immortal := sq.tier == IMMORTAL_TIER
 	var scale := 1.55 if immortal else HERO_FIG
-	_figs[b + 2] = soldier_h * scale * HERO_BODY / _hero_fill[idx]
+	var h := soldier_h * scale * _hero_scale[idx] * HERO_BODY / _hero_fill[idx]
+	_figs[b + 2] = h
+	hero_feet[sq.key] = p - Vector2(0.0, pow(absf(sin(stride)), 3.0) * gait * h * 0.012)
 	_figs[b + 3] = float(HERO_CELL + idx + (pose if idx >= IMMORTAL_HERO_OFFSET else mini(pose, _hero_poses - 1)))
 	_figs[b + 4] = fade_sq
 	_figs[b + 5] = tilt
 	_figs[b + 6] = gait
 	_figs[b + 7] = stride
-	_figs[b + 8] = hit
+	_figs[b + 8] = 0.0
 	_figs[b + 9] = 1.0 if mirror else 0.0
 	_figs[b + 10] = cv
 	_figs[b + 11] = (IMMORTAL_HERO_STYLE if immortal else MYTH_HERO_STYLE) + (0.0 if sq.camp == "A" else 16.0)

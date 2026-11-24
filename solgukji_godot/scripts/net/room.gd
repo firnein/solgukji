@@ -328,6 +328,8 @@ func start() -> void:
 		bi += 1
 	for s in seats:
 		if not s.human:
+			s.bot["material"] = true
+			s.bot["forge_sell"] = sell_on
 			Run.bot_grow(s.bot, int(rng.seed), 0)      # 11/12 봇 군세를 처음 만든다 (난수를 쓰지 않는다 —— 방의 다른 진행은 그대로)
 	for s in humans():
 		var r := Run.new()
@@ -351,7 +353,7 @@ func start() -> void:
 func _bot_seat(nm: String, epi: String, fac: String, style: String, pv: float, skill: float) -> Dictionary:
 	return {"name": nm, "human": false, "peer": -1, "token": "", "run": null, "ready": true, "dead": false, "battles": [],
 		"acted": false, "watched": false, "foe": null,
-		"bot": {"epi": epi, "fac": fac, "style": style, "pv": pv, "w": 0, "l": 0, "strikes": 0, "skill": skill, "top": 0, "hp": Run.HP_MAX}}      # top = 소식을 띄운 최고 등급 (Run.bot_news 와 같은 기준)
+		"bot": {"name": nm, "epi": epi, "fac": fac, "style": style, "pv": pv, "w": 0, "l": 0, "strikes": 0, "skill": skill, "top": 0, "hp": Run.HP_MAX}}      # top = 소식을 띄운 최고 등급 (Run.bot_news 와 같은 기준)
 
 
 func _stage(st: String) -> void:
@@ -575,6 +577,15 @@ func dead_myths() -> Array:
 
 ## 사람마다 Run.locked 를 새로 채운다 —— 사망 장수 + (선점제면) 다른 사람이 먼저 등용한 장수
 func _sync_locks() -> void:
+	var bot_locks := {}
+	for k in dead_units + dead_myths():
+		bot_locks[k] = {"dead": 1}
+	if claim_on:
+		for k in claims:
+			bot_locks[k] = {"by": claims[k]}
+	for s in seats:
+		if not s.human and s.bot.get("material", false):
+			s.bot["forge_locks"] = bot_locks
 	for s in humans():
 		if s.run == null:
 			continue
@@ -731,7 +742,8 @@ func _bot_quest_strikes() -> void:
 	for s in seats:
 		if not s.human and not s.dead and s.bot.pv < qpv * 0.95 * rng.randf_range(0.92, 1.08):
 			s.bot.strikes += 1
-			s.bot.pv *= 0.94
+			if not s.bot.get("material", false):
+				s.bot.pv *= 0.94
 
 
 
@@ -1074,7 +1086,7 @@ const ONLINE_BOT_MUL := [1.3, 1.4, 1.5, 1.4, 1.15, 1.0, 1.0]
 
 ## 자리에 앉은 봇에만 —— 유랑군은 평균 전력(이미 배율이 든)으로 만든다
 func _bot_mul(b: Dictionary) -> float:
-	if b.human or not seats.any(func(o): return is_same(o, b)):
+	if b.human or b.bot.get("material", false) or not seats.any(func(o): return is_same(o, b)):
 		return 1.0
 	return float(ONLINE_BOT_MUL[clampi(day, 0, ONLINE_BOT_MUL.size() - 1)])
 
@@ -1101,7 +1113,9 @@ func _advance() -> void:
 				if s.run.over != null and not s.run.over.win and not _mortal():
 					s.run.over = null       # 점검 모드는 7일차까지 멸망하지 않는다
 		elif not s.dead:
-			s.bot.pv += Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
+			var growth: float = Run.bot_pv_gain(day, phase) * s.bot.skill * rng.randf_range(0.9, 1.1)
+			if not s.bot.get("material", false):
+				s.bot.pv += growth
 			Run.bot_grow(s.bot, int(rng.seed), day * 3 + phase)      # 11/12 PV 가 오른 만큼 군세도 (필요한 칸만) 자란다
 		s.battles = []
 	_reap()      # 11/12 지난 저녁 대전으로 민심이 바닥난 사람 · 봇 —— 대전을 다 본 뒤라 결과가 새지 않는다

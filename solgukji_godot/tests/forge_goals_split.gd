@@ -73,6 +73,9 @@ func _ready() -> void:
 			_fail("신화 아이템을 가졌는데 「신화」 칸에 %s 가 없다: %s" % [myth, str(m)])
 		if r.bond_goals({}, 4).has(myth):
 			_fail("「인연」 칸에 신화 아이템 길이 섞였다")
+		r.inv[myth] = 1
+		if not r.bond_goals({}, 6).any(func(o): return DB.C[o].tier < 7):
+			_fail("신화 보유 후 전설·초월 인연 후보가 사라졌다")
 	# 가진 장수가 없으면 빈 목록 (먼 목표로 채우지 않는다)
 	var r0 := Run.new()
 	r0.new_game(31)

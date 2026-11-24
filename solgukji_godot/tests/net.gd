@@ -153,7 +153,7 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 			# 실제 소켓으로 받은 자리 정보의 공개 필드를 확인한다.
 			for sr in rm.seats:
 				for sk in sr:
-					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "st", "rank", "featured", "plan"]):      # st = 11/12 지금 하는 일 (사람 자리) · rank = 11/12 최종 순위 · featured = 핵심 장수가 없을 때 대표 장수 · plan = 11/15 군략 계획 (11/21 점검 목록을 방 정보에 맞춤)
+					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "st", "rank", "featured", "plan", "tk"]):
 						errors.append("%s: 자리 줄에 허용되지 않은 키 %s" % [b.name, sk])
 				if bool(sr.human):
 					if not (sr.has("hp") and sr.has("key")):

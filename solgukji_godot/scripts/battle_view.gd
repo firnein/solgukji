@@ -4802,18 +4802,25 @@ class Hud extends Control:
 
 	func _flat_token_pos(tags: Array, painted: bool) -> Dictionary:
 		if painted:
-			# 이름표는 부대 뒤에 붙인다. 이웃·상태에 따라 비키거나 보간하지 않는다.
 			var fixed := {}
+			var painting = view.type2.painting if view.type2 != null else null
+			var to_hud := get_global_transform_with_canvas().affine_inverse()
 			for tag in tags:
 				var sq: Squad = tag[1]
-				var at := sq.pos
-				if view.type2 != null and view.type2.painting != null:
-					var form = view.type2.painting.formations.get(sq.key)
+				var half := _painted_size(sq) * 0.5
+				var p: Vector2
+				if painting != null and painting.hero_feet.has(sq.key):
+					var foot: Vector2 = painting.get_global_transform_with_canvas() * painting.hero_feet[sq.key]
+					p = to_hud * foot + Vector2(0.0, half.y + 4.0)
+				else:
+					var at := sq.pos
+					var form = painting.formations.get(sq.key) if painting != null else null
 					if form != null:
 						at = form.center
-				at.x -= (sq.hd0 + 12.0) * (1.0 if sq.camp == "A" else -1.0)
-				var p: Vector2 = view.field.to_screen(at, 0.0) + Vector2(0, 5)
-				var half := _painted_size(sq) * 0.5
+					var solo: bool = painting != null and painting._shows_hero(sq)
+					if not solo:
+						at.x -= (sq.hd0 + 12.0) * (1.0 if sq.camp == "A" else -1.0)
+					p = view.field.to_screen(at, 0.0) + Vector2(0, half.y + 4.0 if solo else 5.0)
 				fixed[sq.key] = p.clamp(Vector2(half.x + 3, 94 + half.y), size - Vector2(half.x + 3, half.y + 3))
 				_tok_off[sq.key] = Vector2.ZERO
 			return fixed
@@ -5020,7 +5027,7 @@ class Hud extends Control:
 		if _badge_layer != null:
 			_badge_layer.hide()      # 전장 이름표 아래 버프·디버프 줄은 표시하지 않는다.
 		if painted and not tags.is_empty():
-			# 삽화 이름표 —— 부대 뒤 고정 위치, 그림은 바뀐 값만 다시 그린다.
+			# 삽화 이름표 —— 장수 발밑 또는 부대 뒤. 그림은 바뀐 값만 다시 그린다.
 			tok_pos = _flat_token_pos(tags, painted)
 			# 터치와 기여 알림이 참조하는 이름표 영역.
 			for t in tags:

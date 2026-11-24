@@ -8,9 +8,10 @@ func _ready() -> void:
 	Settings.war_painting = true
 	Settings.apply()
 	var view := BattleView.new()
+	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(view)
 	await get_tree().process_frame
-	var deck := ["c177", "c186", "c187", "c181", "c178", "c190", "c192", "c194", "c195"]
+	var deck := ["c177", "c186", "c187", "c181", "c178", "c182", "c192", "c194", "c195"]
 	var side := {"cards": DB.auto_place(deck, "eorin"), "form": "eorin", "morale": 100, "tac": "균형", "equip": []}
 	var enemy := side.duplicate(true)
 	enemy.cards = DB.auto_place(["s01", "c163", "c167", "c155", "c156", "c172", "s14", "c175", "c169"], "eorin")
@@ -36,12 +37,28 @@ func _ready() -> void:
 				continue
 			var form := painting._formation(sq)
 			form.contact_limits = []
+			var person := DB.person(sq.cid)
+			if person == "조조":
+				form.hurt_at[0] = painting.visual_time - 0.02
+				form.hurt_at[1] = painting.visual_time + 0.02
 			var before := painting.figure_count
 			painting._collect_figures(sq, form)
 			var base := before * painting.FIG_W
 			var style := int(painting._figs[base + 11]) % 16
 			valid = valid and painting.figure_count == before + 1 and painting._figs[base + 3] >= painting.HERO_CELL
 			valid = valid and style == (12 if sq.tier == 7 else 13)
+			var hud := view.hud
+			var half := hud._painted_size(sq) * 0.5
+			var foot: Vector2 = painting.get_global_transform_with_canvas() * painting.hero_feet[sq.key]
+			var expected := hud.get_global_transform_with_canvas().affine_inverse() * foot + Vector2(0, half.y + 4)
+			expected = expected.clamp(Vector2(half.x + 3, 94 + half.y), hud.size - Vector2(half.x + 3, half.y + 3))
+			var label: Vector2 = hud._flat_token_pos([[0, sq]], true)[sq.key]
+			valid = valid and label.is_equal_approx(expected)
+			if person == "조조":
+				valid = valid and int(painting._figs[base + 3]) == painting.HERO_CELL + painting._hero_index(sq) + 3
+				valid = valid and painting._figs[base + 8] == 0.0
+			if person == "장료":
+				valid = valid and is_equal_approx(painting._hero_scale[painting._hero_index(sq)], 0.86)
 			solo_count += 1
 			leads[sq.tier] = sq
 	for lead: Squad in leads.values():

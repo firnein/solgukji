@@ -152,7 +152,7 @@ static var tac_on := true     # 점검용 —— 끄면 계획 없이 예전 전
 var on_forge := Callable()    # 서버 전용 —— 조합에 성공하면 결과 id 로 부른다 (Room 이 선점 기록에 쓴다). 저장 · 전송하지 않는다
 
 
-func new_game(seed_value := -1) -> void:
+func new_game(seed_value := -1, with_bots := true) -> void:
 	if seed_value >= 0:
 		rng.seed = seed_value
 	else:
@@ -199,10 +199,10 @@ func new_game(seed_value := -1) -> void:
 	tk_reset()
 	bots = []
 	var bot_names := DB.gen_bot_names(rng.seed, DB.D.BOTNAME.size())      # 11/10 봇 이름은 판마다 랜덤 (DB.gen_bot_names)
-	for i in DB.D.BOTNAME.size():
+	for i in (DB.D.BOTNAME.size() if with_bots else 0):
 		var b: Array = DB.D.BOTNAME[i]
 		bots.append({"name": bot_names[i], "epi": b[1], "fac": b[2], "style": DB.D.STYLES[i], "pv": 0.0,
-			"w": 0, "l": 0, "strikes": 0, "top": 0, "skill": snappedf(rng.randf_range(SKILL_LO, SKILL_HI), 0.01), "hp": HP_MAX, "dead": false})
+			"w": 0, "l": 0, "strikes": 0, "top": 0, "skill": snappedf(rng.randf_range(SKILL_LO, SKILL_HI), 0.01), "hp": HP_MAX, "dead": false, "material": true})
 	for b in bots:
 		bot_grow(b, int(rng.seed), 0)      # 11/12 봇 군세는 한 번 만들어 PV 를 따라 자란다 (난수를 쓰지 않는다 —— 이 판의 다른 진행은 그대로)
 	give("spear", 3)
@@ -881,13 +881,14 @@ func owned_persons() -> Dictionary:
 
 
 func bond_goals(exclude: Dictionary, limit := 4) -> Array:
+	if limit <= 0:
+		return []
 	var out_ := []
 	var seen := exclude.duplicate()
 	var owned := owned_persons()
-	var min_t := goal_min_tier()
+	var min_t := mini(goal_min_tier(), 5)
 	var cand := []
-	for r in DB.D.RECDEF:
-		var k: String = r[0]
+	for k: String in DB.RECOF:
 		if seen.has(DB.person(k)) or not goal_ok(k, min_t):
 			continue
 		var n := bond_links(k, owned)
@@ -909,6 +910,13 @@ func bond_goals(exclude: Dictionary, limit := 4) -> Array:
 			continue
 		seen[p] = true
 		out_.append(c[3])
+	# 불멸·신화로만 찼으면 마지막 칸에 남은 전설·초월 후보를 한 명 넣는다.
+	if limit > 1 and out_.size() == limit and out_.all(func(k): return DB.C[k].tier >= 7):
+		seen.erase(DB.person(out_[-1]))
+		for c in cand:
+			if c[2] < 7 and not seen.has(DB.person(c[3])):
+				out_[-1] = c[3]
+				break
 	return out_
 
 
@@ -1005,7 +1013,7 @@ func swap(i: int, j: int) -> void:
 
 
 ## 병력 큰 순으로 9장을 골라 진형에 앉히고 아이템을 붙인다
-func auto_deploy() -> void:
+func auto_deploy(stable_ties := false) -> void:
 	var all := []
 	for k in inv:
 		for i in inv[k]:
@@ -1013,7 +1021,8 @@ func auto_deploy() -> void:
 	for k in board:
 		if k != null:
 			all.append(k)
-	all.sort_custom(func(a, b): return DB.C[a].tr > DB.C[b].tr)
+	all.sort_custom(func(a, b):
+		return str(a) < str(b) if stable_ties and DB.C[a].tr == DB.C[b].tr else DB.C[a].tr > DB.C[b].tr)
 	inv = {}
 	var pick9 := []
 	var seen := {}
@@ -1279,7 +1288,9 @@ func advance() -> void:
 	if mp:
 		return
 	for b in alive_bots():      # 11/12 멸망한 봇은 자라지 않는다
-		b.pv += _bot_pv_gain(day, phase) * b.skill * rng.randf_range(0.9, 1.1)
+		var growth: float = _bot_pv_gain(day, phase) * b.skill * rng.randf_range(0.9, 1.1)
+		if not b.get("material", false):
+			b.pv += growth
 		bot_grow(b, int(rng.seed), phase_idx())      # 11/12 PV 가 오른 만큼 군세도 (필요한 칸만) 자란다
 	for n in bot_news():
 		news_seq += 1
@@ -1351,13 +1362,80 @@ static func bot_aseed(b: Dictionary, base: int) -> int:
 ## 11/12 군세를 표준 PV 에 맞춘다 (저장) —— 비었으면 처음 만들고, 아니면 필요한 칸만 바꾼다 (DB.army_fit). 난수 · 전역 상태 없음
 static func bot_grow(b: Dictionary, base: int, p_idx: int) -> void:
 	var sd := bot_aseed(b, base)
+	if b.get("material", false):
+		_bot_material_grow(b, sd, p_idx)
+		return
 	b["army"] = DB.army_fit(b.get("army", []), bot_std_pv(b, p_idx), str(b.get("style", "균형")), sd)
+
+## 플레이어와 같은 보급표, 선택권과 조합 비용을 쓰는 유저봇의 개인 장부.
+static func _bot_material_grow(b: Dictionary, seed_value: int, p_idx: int) -> void:
+	if int(b.get("forge_phase", -1)) >= p_idx:
+		return
+	var r := Run.new()
+	var next_phase := 0
+	if b.has("forge_state"):
+		r.from_dict(b.forge_state)
+		next_phase = int(b.forge_phase) + 1
+	else:
+		r.new_game(seed_value, false)
+		r.mp = true
+		r.form = DB.STYLE_FORM[str(b.get("style", "균형"))]
+		if b.get("army", []).size() == 9:
+			# 기존 저장은 편성된 9장을 자산으로 이어받는다.
+			r.board = b.army.duplicate()
+			r.inv.clear()
+			r.myth_made = r.board.any(func(k): return DB.C.has(k) and DB.C[k].tier >= 8)
+			next_phase = p_idx
+			r.day = p_idx / 3
+			r.phase = p_idx % 3
+	r.sell_on = bool(b.get("forge_sell", r.sell_on))
+	r.locked = b.get("forge_locks", {}).duplicate()
+	for p in range(next_phase, p_idx + 1):
+		if p > next_phase or b.has("forge_state"):
+			r._bot_material_rewards()
+			r.advance()
+		if r.sell_on and r.phase == 2:
+			# 11/19~25 온라인 기록: 상점 구매의 대부분이 기본패였다. 4~5일차에 가장 많이 산다.
+			var base_buys: Array[int] = [0, 1, 1, 3, 2, 1, 1]
+			for i in base_buys[r.td()]:
+				r.buy(1)
+		r.bot_prepare(true, true)
+	b["forge_phase"] = p_idx
+	b["forge_state"] = r.to_dict()
+	b["army"] = r.board.duplicate()
+	b["pv"] = float(r.my_pv())
+
+func _bot_material_rewards() -> void:
+	var d := clampi(day, 0, LAST_TABLE_DAY)
+	# 오전·오후·저녁 각각 대전 보상이 있고, 1~3일차에는 같은 단계에 토벌도 있다.
+	for i in int(DB.D.PVP_BASE.win):
+		give(DB.BASE[rng.randi() % DB.BASE.size()])
+	add_ticket(4 if day >= 3 else 3, 1, true)
+	if pvp_quest_equiv():
+		_pvp_quest_reward({})
+	else:
+		for reward in no_empty_tier(DB.D.QUEST_REWARD[d]):
+			add_ticket(int(reward.t), int(reward.n), true)
+		var bonus := quest_bonus({}, day, true)
+		for i in int(DB.D.QUEST_BASE[d]) + int(bonus.base):
+			give(DB.BASE[rng.randi() % DB.BASE.size()])
+		if int(bonus.ticket) > 0:
+			add_ticket(mini(quest_top_tier(day), QUEST_BONUS_TICKET_TIER), 1, true)
 
 
 ## 봇 한 명의 대전 편성 —— 군세(b.army)를 표준 PV 에 맞추고(저장), extra != 1 이면 이번 전투만 그 PV 로 한 번 더 맞춘 복사본을 쓴다 (저장하지 않음 ·
 ## 같은 입력이면 같은 카드). 장비는 (봇 · 페이즈)마다 정해진 씨앗으로 —— 같은 페이즈에 몇 번 싸워도 같고, 페이즈가 바뀌면 새 보급표로 다시 낀다
 static func bot_side_of(b: Dictionary, base: int, p_idx: int, extra := 1.0) -> Dictionary:
 	bot_grow(b, base, p_idx)
+	if b.has("forge_state"):
+		var state: Dictionary = b.forge_state
+		var gear := []
+		for i in state.board.size():
+			var weapon = state.equip[i]
+			var armor = state.equip2[i]
+			gear.append([weapon, armor] if weapon != null or armor != null else null)
+		return {"cards": state.board.duplicate(), "form": state.form, "morale": 100, "equip": gear,
+			"tac": recommend_tac(state.board)[0], "plan": Tac.payload(state.tk_plan, state.tk_hand, state.tk_perm) if tac_on else {}}
 	var sd := bot_aseed(b, base)
 	var style := str(b.get("style", "균형"))
 	var army: Array = b.army
@@ -1962,7 +2040,8 @@ func _finish_battle(res: Dictionary) -> void:
 				for b in alive_bots():
 					if b.pv < bt.pv * 0.95 * rng.randf_range(0.92, 1.08):
 						b.strikes += 1
-						b.pv *= 0.94      # (봇의 토벌 실패는 전력 손실로만 —— 민심은 대전 · 봇끼리 승부에서만 깎인다: 측정에서 토벌 피해까지 얹으면 봇이 5일차에 모두 무너졌다)
+						if not b.get("material", false):
+							b.pv *= 0.94
 				_solo_fallen()
 		"pvp":
 			pvp_done = true
@@ -2374,6 +2453,8 @@ func from_dict(d: Dictionary) -> void:
 		b["dead"] = bool(b.get("dead", false))
 		if b.has("aseed"):
 			b["aseed"] = int(b.aseed)
+		if not mp:
+			b["material"] = true
 	if battle != null:
 		battle.seed = int(battle.seed)
 		if battle.has("bot"):
@@ -2493,7 +2574,7 @@ func dev_autoplay() -> void:
 ## 봇 플레이 —— 사람 대신 이 판의 자산으로 한 단계를 준비한다: 징집 · 선택권 · 배급 · 유니크 보급 · 조합 · 편성.
 ## 점검용 자동 진행(dev_autoplay)과 온라인 방(room.gd)의 무응답 플레이어 대행이 같이 쓴다 (11/7 멀티플레이).
 ## full 이 false 면 '행동은 했지만 끝내지 못한' 사람 몫만 채운다 —— 공짜 징집 · 배급과 빈 편성판. 선택권 · 조합은 그대로 둔다
-func bot_prepare(full := true) -> void:
+func bot_prepare(full := true, reserve_materials := false) -> void:
 	if not drawn and draws_n() > 0:
 		do_draw()
 	if not picked:
@@ -2521,7 +2602,7 @@ func bot_prepare(full := true) -> void:
 						bs = s
 						bu = id
 		pick_unique(bu)
-	_dev_spend()
+	_dev_spend(reserve_materials)
 	tk_auto()
 
 
@@ -2561,35 +2642,94 @@ func _dev_chain() -> Dictionary:
 	return out
 
 
-func _dev_spend() -> void:
+func _material_wants(card: String, count: int, wants: Dictionary) -> void:
+	var before := int(wants.get(card, 0))
+	wants[card] = before + count
+	var stock := have(card)
+	var missing := maxi(0, before + count - stock) - maxi(0, before - stock)
+	if missing > 0:
+		for material in DB.RECOF.get(card, []):
+			if DB.C.has(material) and DB.C[material].tier < DB.C[card].tier:
+				_material_wants(material, missing, wants)
+
+func _dev_spend(reserve_materials := false) -> void:
 	var chain := _dev_chain()
+	var goal := ""
+	# 온라인 사람 덱의 신화 비중은 3일차 54%, 4일차 80%였다.
+	# 나머지 봇은 불멸을 먼저 완성하는 경로를 선택한다.
+	var myth_focus := int(rng.seed) % 100
+	var myth_day := 1 if myth_focus < 55 else (3 if myth_focus < 80 else 4)
+	var pursue_myth := not reserve_materials or day >= myth_day
+	if reserve_materials and pursue_myth and not has_myth():
+		for k in myth_item_goals():
+			if goal == "" or _chain_miss(k) < _chain_miss(goal):
+				goal = k
+	if reserve_materials and day >= 1 and goal == "":
+		var closest := INF
+		var established := {}
+		for k in pool():
+			if DB.C[k].tier >= 7:
+				established[DB.person(k)] = true
+		for k in DB.by_tier(7):
+			if established.has(DB.person(k)) or locked.has(k) or not DB.RECOF.has(k):
+				continue
+			var effort := goal_effort(k)
+			if effort < closest:
+				closest = effort
+				goal = k
 	while ticket_left() > 0:
 		# 조합에 가장 가까워지는 카드를 고른다 (11/2: 줄기 재편 뒤 아무 카드나 고르면 전설을 못 만든다 —— 사람처럼 노리고 고른다)
 		var pl: Array = pickable(ticket_tiers()[0])
 		var best := []
 		var best_s := 999
+		var wants := {}
+		if goal != "":
+			_material_wants(goal, 1, wants)
 		for k in pl:
+			if locked.has(k):
+				continue
 			var sc := 99
 			for o in used_in(k):
 				if DB.C[o].tier < 8:
 					sc = mini(sc, miss_count(o))
 			if chain.has(k) and have(k) <= 0:
 				sc -= 2
+			if int(wants.get(k, 0)) > have(k):
+				sc -= 100
 			if sc < best_s:
 				best_s = sc
 				best = [k]
 			elif sc == best_s:
 				best.append(k)
-		pick(best[rng.randi() % best.size()])
+		if best.is_empty() or not pick(best[rng.randi() % best.size()]):
+			break
+	if reserve_materials:
+		auto_deploy(true)
 	var made := true
 	while made:
 		made = false
+		var wants := {}
+		if goal != "" and have(goal) == 0:
+			_material_wants(goal, 1, wants)
 		for t in range(8, 1, -1):
+			if t == 8 and not pursue_myth:
+				continue
 			for k in DB.by_tier(t):
 				if can_forge(k):
+					if reserve_materials and int(wants.get(k, 0)) <= have(k) and goal_score(k) < 0:
+						continue
+					if not wants.is_empty():
+						if int(wants.get(k, 0)) <= have(k):
+							var need := mat_count(DB.RECOF[k])
+							if need.keys().any(func(c): return have(c) - int(need[c]) < int(wants.get(c, 0))):
+								continue
 					forge(k)
 					made = true
-	auto_deploy()
+					if reserve_materials:
+						break
+			if made and reserve_materials:
+				break
+	auto_deploy(reserve_materials)
 
 
 # ───────── 11/15 군략 카드 (docs/군략_카드_초안.md · scripts/tactics.gd 규칙 · scripts/tac_rt.gd 전투) ─────────

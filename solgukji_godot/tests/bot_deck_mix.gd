@@ -44,6 +44,13 @@ func _flow(games: int, label: String) -> void:
 	for g in games:
 		var r := Run.new()
 		r.new_game(500 + g)
+		for b in r.bots:
+			# 이 비교는 PV 기반 군세의 두 배분 방식만 측정한다.
+			b.erase("material")
+			b.erase("forge_state")
+			b.erase("forge_phase")
+			b.army = []
+			b.pv = 0.0
 		for p in 21:
 			r.day = p / 3
 			r.phase = p % 3

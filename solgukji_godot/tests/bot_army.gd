@@ -111,7 +111,7 @@ func _track(b: Dictionary, prev: Array, now: Array, who: String, tag: String) ->
 	_stat["n_%d" % ph] = int(_stat.get("n_%d" % ph, 0)) + 1
 	_stat.sum_shared += shared
 	_stat.min_shared = mini(int(_stat.min_shared), shared)
-	if shared < 6:
+	if shared < 6 and not b.get("material", false):
 		_stat.jump_pairs += 1
 		# 허락 조건: 이 PV 에서 바뀌어야 하는 칸 수가 정말 4 이상이었다
 		var need := _need(prev, float(b.pv))
@@ -167,6 +167,8 @@ func _solo_persistence(games: int) -> void:
 					_fail("봇 %s 배율 전투가 저장된 군세를 바꿨다" % b.name)
 			# PV 가 한 페이즈 자라고 토벌에 실패하면 ×0.94 (실제 흐름) —— Run.advance 가 하는 일과 같다
 			for b in r.bots:
+				if b.get("material", false):
+					continue
 				b.pv += Run.bot_pv_gain(r.day, r.phase) * b.skill * 1.0
 				if step % 5 == 0:
 					b.pv *= 0.94
@@ -196,7 +198,8 @@ func _solo_fingerprint(seed_: int) -> String:
 		for b in r.bots:
 			var s := Run.bot_side_of(b, int(r.rng.seed), p)
 			out.append("%s|%s|%s|%s" % [b.name, str(s.cards), str(s.equip), s.tac])
-			b.pv += Run.bot_pv_gain(r.day, r.phase) * b.skill
+			if not b.get("material", false):
+				b.pv += Run.bot_pv_gain(r.day, r.phase) * b.skill
 	return "\n".join(out)
 
 
@@ -209,7 +212,8 @@ func _save_load() -> void:
 		r.phase = p % 3
 		for b in r.bots:
 			Run.bot_side_of(b, int(r.rng.seed), p)
-			b.pv += 40.0
+			if not b.get("material", false):
+				b.pv += 40.0
 	var txt := JSON.stringify(r.to_dict(), "", false, true)
 	var r2 := Run.new()
 	r2.from_dict(JSON.parse_string(txt))
@@ -240,6 +244,12 @@ func _mk_room(seed_: int) -> Room:
 func _room_bots() -> void:
 	var ra := _mk_room(4242)
 	var rb := _mk_room(4242)
+	var seeds := {}
+	for s in ra.seats:
+		if not s.human:
+			if seeds.has(s.bot.aseed):
+				_fail("온라인 유저봇이 같은 재료 난수 시드를 공유한다")
+			seeds[s.bot.aseed] = true
 	var prev := {}
 	var shots := {}
 	for ev in 21:
@@ -266,8 +276,9 @@ func _room_bots() -> void:
 			prev[i] = (s.bot.army as Array).duplicate()
 			shots[i] = sa
 			# 실제 진행처럼 PV 가 자란다 (Room._advance 와 같은 식)
-			s.bot.pv += Run.bot_pv_gain(ra.day, ra.phase) * s.bot.skill
-			rb.seats[i].bot.pv = s.bot.pv
+			if not s.bot.get("material", false):
+				s.bot.pv += Run.bot_pv_gain(ra.day, ra.phase) * s.bot.skill
+				rb.seats[i].bot.pv = s.bot.pv
 	# 방 정보 미러 —— 사람의 Run.bots 에 군세가 실린다
 	ra._mirror()
 	var mir: Array = ra.seats[0].run.bots
