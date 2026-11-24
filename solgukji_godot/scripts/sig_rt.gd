@@ -517,7 +517,7 @@ func tick(dt: float) -> void:
 				_cav(u, "throw")
 				b.phys_hit(u, u.tgt, v(u, "throw"), true)
 		# 선술 —— 붙잡히면 물러나 나타난다
-		if v(u, "blink") > 0.0 and b._pinned(u) and _due(u, "blink", 8.0):
+		if v(u, "blink") > 0.0 and b._pinned(u) and _due(u, "blink", 5.0):      # 11/24 8 → 5초 (책략계 공통 이탈기가 8초라 선술은 더 자주)
 			var pn = b._pinner(u, _foes(u))
 			if pn != null:
 				var away: Vector2 = (u.pos - pn.pos)

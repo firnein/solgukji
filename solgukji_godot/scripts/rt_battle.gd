@@ -280,6 +280,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 		_dash_tick()
 		if _mt != null:
 			_mt.tick()
+		if escape_on:
+			_escape_tick()
 		_paeup_tick(TICK)
 		if not _zones.is_empty():
 			_zone_tick()
@@ -1305,6 +1307,13 @@ func _move() -> void:
 		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0 or _hidden(u.tgt):
 			u.tgt = _choose(u, foes)
 			u.retgt = 0.5
+		# 11/24 구원 —— 맞닿은 적이 없는 근접 부대는 rescue_r 안에서 아군 원거리(궁병 · 책략계)를 붙잡은 근접 적을 먼저 친다 (사용자: 지켜 줘야 하는데 지키는 동작이 없다)
+		if rescue_r > 0.0 and not u.ranged and pin == null and ft == null:
+			var rv := _rescue_tgt(u)
+			if rv != null:
+				if rv != u.tgt:
+					stats["rescue"] = int(stats.get("rescue", 0)) + 1
+				u.tgt = rv
 		# 11/21 도발 (sig_rt taunt) —— 도발에 걸린 부대는 표적을 도발한 부대로 돌린다.
 		# 원거리 · 다른 적에게 묶인 근접은 도발한 부대가 손 닿는 거리(사거리)일 때만 (묶인 채 엉뚱한 곳으로 걸어가지 않게)
 		if _sg != null and _sg.has("taunt") and u.sg.has("tnt"):
@@ -2214,6 +2223,82 @@ func _pinned(u: Unit) -> bool:
 	return false
 
 
+## 11/24 묶인 원거리의 공격 배율 —— 높은 등급은 붙잡혀도 덜 깎인다 (사용자: 전설 장연에게 물린 신화 주유가 아무것도 못 한다). 등급표에 없으면 engage.pin_atk
+static var pin_atk_tier := {8: 0.8, 7: 0.7, 6: 0.65}
+
+
+func _pin_atk(a: Unit) -> float:
+	return float(pin_atk_tier.get(int(a.c.tier), engage_v("pin_atk", 1.0)))
+
+
+## 11/24 책략계 이탈기 —— 근접 적에게 붙잡히면 ESCAPE_CD 초에 한 번 떼어 낸다 (병종마다 모양이 다르다). 선술(blink) 장수는 제 특기로 (sig_rt, 5초)
+##   책사 화공 폭발: 붙은 적을 밀쳐 내고 행동을 늦춤 · 술사 둔갑: 제가 뒤로 · 모사 이간: 붙은 적 혼란 · 유생 호위 요청: 뒤로 빠지고 구원 거리를 잠시 두 배로
+static var escape_on := true
+const ESCAPE_CD := 8.0
+const ESCAPE := {"책사": {"n": "화공 폭발", "push": 70.0, "delay": 0.5}, "술사": {"n": "둔갑", "self": 120.0},
+	"모사": {"n": "이간", "confuse": 1}, "유생": {"n": "호위 요청", "self": 80.0, "wide": 3.0}}
+var _escape_t := {}
+var _rescue_wide := {}
+
+
+func _escape_tick() -> void:
+	for u: Unit in _tick_units():
+		if not u.alive or not u.ranged or not ESCAPE.has(u.c.tag) or _dash.has(u) or _wind.has(u) or has_st(u, "confuse"):
+			continue
+		if float(u.m.get("blink", 0.0)) > 0.0 or _tm < float(_escape_t.get(u, -99.0)):
+			continue
+		var pn := _pinner(u, _foes_of(u))
+		if pn == null:
+			continue
+		var e: Dictionary = ESCAPE[u.c.tag]
+		_escape_t[u] = _tm + ESCAPE_CD
+		var away := u.pos - pn.pos
+		var dir := away.normalized() if away.length() > 0.1 else -u.fwd
+		if e.has("push"):
+			pn.pos -= dir * float(e.push)
+			_clamp_arena(pn)
+			pn.vel = Vector2.ZERO
+			pn.atb = maxf(0.0, pn.atb - float(e.delay) / _interval(pn))
+		if e.has("self"):
+			u.pos += dir * float(e.self)
+			_clamp_arena(u)
+			u.vel = Vector2.ZERO
+		if e.has("confuse"):
+			inflict(u, pn, "confuse", 1, int(e.confuse))
+		if e.has("wide"):
+			_rescue_wide[u.camp] = _tm + float(e.wide)
+		stats["escape"] = int(stats.get("escape", 0)) + 1
+		stats["escape_" + u.c.tag] = int(stats.get("escape_" + u.c.tag, 0)) + 1
+		L("sk", "%s의 %s —— 붙은 %s 떼어 냈다" % [nm(u), e.n, eul(nm(pn))], {"fx": "buff", "f": u.key, "up": true, "sig": true})      # 선술(sig_rt._say)과 같은 꼴 —— 화면이 머리 위에 이름을 띄운다
+
+
+## 11/24 구원 거리 (발자국 틈) —— 0 이면 끈다
+static var rescue_r := 200.0
+var _pinr_tick := -1
+var _pinr := {"A": [], "B": []}
+
+
+## 아군 원거리를 붙잡은 근접 적 가운데 u 와 가장 가까운 적 (rescue_r 안) —— 진영마다 틱에 한 번 모은다
+func _rescue_tgt(u: Unit) -> Unit:
+	if _pinr_tick != _tick_n:
+		_pinr_tick = _tick_n
+		_pinr = {"A": [], "B": []}
+		for a in units:
+			if a.alive and a.ranged:
+				for o in units:
+					if o.alive and o.camp != a.camp and not o.ranged and not _hidden(o) and _gap(a, o) <= TOUCH + 2.0 and not _pinr[a.camp].has(o):
+						_pinr[a.camp].append(o)
+	var best: Unit = null
+	var bd := rescue_r * (2.0 if _tm < float(_rescue_wide.get(u.camp, -1.0)) else 1.0)      # 유생 호위 요청 동안 넓게
+	for o in _pinr[u.camp]:
+		if o.alive:
+			var g := _gap(u, o)
+			if g <= bd:
+				bd = g
+				best = o
+	return best
+
+
 ## 실제 자리에서 생기는 상성 —— 묶인 원거리는 덜 치고 더 맞는다 · 창병 정면의 도적 · 묶이지 않은 후열을 노리는 도적 · 창병 없는 궁병과 꺾인 적을 노리는 기병
 func _engage_mul(a: Unit, d: Unit) -> float:
 	if not counter_enabled or a.camp == d.camp:
@@ -2222,7 +2307,7 @@ func _engage_mul(a: Unit, d: Unit) -> float:
 	var pa := _pinned(a)
 	var pd := _pinned(d)
 	if pa:
-		m *= engage_v("pin_atk", 1.0)
+		m *= _pin_atk(a)
 	if pd:
 		m *= engage_v("pin_taken", 1.0)
 	match a.c.tag:
