@@ -34,6 +34,14 @@ class Probe extends RtBattle:
 		if _mem(u) and _wind_grp.has(u):
 			grps.append(_wind_grp[u])
 
+	func _inyeon_drop(d: Unit) -> void:      # 11/24 짝이 붙었는데 연쇄가 안 된 까닭 —— 누가(대표 · 짝) 왜 빠졌나
+		var gr: Dictionary = _wind_grp.get(d, {})
+		if not gr.is_empty():
+			var who := ("대표" if d == gr.lead else "짝") + ("(대표가 터진 뒤)" if gr.get("fired", false) else "")
+			var k := "쓰러짐" if not d.alive else ("혼란" if has_st(d, "confuse") else ("돌진 중" if _dash.has(d) else "적 고유기 · 끊기 효과"))
+			gr["drops"] = gr.get("drops", []) + ["%s %s(%s)" % [who, k, d.c.name]]
+		super._inyeon_drop(d)
+
 	func _fire_one(u: Unit) -> void:
 		if _mem(u):
 			shots += 1
@@ -128,6 +136,7 @@ func _ready() -> void:
 			var n := int(gr.get("shot", 0))
 			if int(gr.get("peak", 0)) >= 2 and n < 2:
 				tot.fail += 1
+				print("    실패 —— 연쇄 인원 최대 %d · 터진 %d · 빠짐 %s" % [int(gr.get("peak", 0)), n, str(gr.get("drops", []))])
 				if gr.get("dash", false):
 					tot.fdash += 1
 			if gr.get("dash", false):
