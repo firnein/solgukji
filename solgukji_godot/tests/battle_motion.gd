@@ -113,6 +113,29 @@ func _ready() -> void:
 	assert(not joined.is_empty())
 	view._start_ult(joined[0])
 	assert(joined[0].lite and painter.ults[-1].lite, "Linked generals must use the light path too")
+	var joined_camp: String = view.field.squads[joined[0].who].camp
+	assert(view.hud.ult_notices[joined_camp].size() == 1, "A linked general's light ultimate must announce its activation")
+	view.hud.ult_notices.A.clear()
+	view.hud.ult_notices.B.clear()
+	view.speed = 1.0
+	var timing := [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine]
+	for camp in ["A", "B"]:
+		var regular: Array = view.groups.filter(func(g): return g.ult != null and not g.ult.has("lead") and view.field.squads[g.who].camp == camp)
+		assert(not regular.is_empty())
+		var light: Dictionary = regular[0].duplicate(true)
+		light.big = false
+		view._start_ult(light)
+		assert(view.hud.ult_notices[camp].size() == 1)
+		assert(view.hud.ult_notices[camp][0].skill == light.ult.name)
+		assert(timing == [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine], "A light activation must not slow, pause or move the camera")
+	assert(view.hud.ult_notice_rect("A").end.x < view.hud.size.x * 0.5)
+	assert(view.hud.ult_notice_rect("B").position.x > view.hud.size.x * 0.5)
+	view.speed = 0.0
+	view.hud._tick_ult_notices(view.hud.ULT_NOTICE_LIFE + 0.01)
+	assert(view.hud.ult_notices.A.is_empty() and view.hud.ult_notices.B.is_empty(), "Notices must expire in real HUD time, independently of battle speed")
+	for i in 30:
+		view.hud.ult_notice(hitter, "고유기")
+	assert(view.hud.ult_notices[hitter.camp].size() == view.hud.ULT_NOTICE_LIMIT, "Burst activations must have bounded UI cost")
 	var fin_count: int = view.hud.fins.size()
 	view._fin_show({"a": hitter.key}, {"foes": [burning.key], "allies": []}, "fire", Color.ORANGE, "인연기")
 	assert(view.hud.fins.size() == fin_count and painter.ults[-1].lite, "The follow-up must not queue a large banner or repeated full effects")
@@ -122,8 +145,11 @@ func _ready() -> void:
 	assert(JSON.stringify(result) == unchanged, "Motion and propagation displays must leave the replay intact")
 	painter.reset()
 	assert(painter.fire_paths.is_empty() and painter.burn_fronts.is_empty())
+	view.hud.reset()
+	assert(view.hud.ult_notices.A.is_empty() and view.hud.ult_notices.B.is_empty())
 	print("PASS physical fire: real engine events / actual spread origin / living formation sites / effect budget / no inferred spread / reset / replay immutability")
 	print("PASS ultimate emphasis: light charge and impact / short lifetime / no repeated fire clusters / full important ultimate retained")
+	print("PASS light activation notices: real regular and linked events / ally left enemy right / unchanged clock speed slow pause camera / real-time expiry / bounded queue / reset")
 	form = null
 	unit = null
 	burning = null

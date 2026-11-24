@@ -26,6 +26,10 @@ func _ready() -> void:
 	if args.get("scenario", "") == "fire_front":
 		enemies = ["조조", "하후연", "전위", "마초", "허저", "황충", "손권", "조인", "서황"]
 	var b: Array = DB.auto_place(helper._cards(enemies), "hagik")
+	if args.has("starter"):
+		var cards: Array = ["spear", "bow", "strat", "schol", "occul", "schem", "horse", "bow", "strat"]
+		a = DB.auto_place(cards, "eorin")
+		b = DB.auto_place(cards, "hagik")
 	helper.free()
 	var result := RtBattle.new(5100).run(a, "eorin", 100, null, b, "hagik", 100, null, "", "", [], {"A": "auto", "B": "auto"})
 	var spreads: Array = result.ev.filter(func(e): return e.get("fx") == "status" and e.get("st") == "burn" and bool(e.get("spread", false)))
@@ -33,6 +37,11 @@ func _ready() -> void:
 	var original_hash: int = JSON.stringify(result.ev).hash()
 	var original_events: Array = result.ev.duplicate(true)
 	view.play_res(result, "pvp")
+	if args.has("notice"):
+		while view.hud.ult_notices.A.is_empty() or view.hud.ult_notices.B.is_empty():
+			assert(not view.finished, "The real replay must produce simultaneous ally and enemy light activations")
+			await get_tree().process_frame
+		print("MOTION_NOTICES ally=", view.hud.ult_notices.A[0], " enemy=", view.hud.ult_notices.B[0], " clock=", view.clock)
 	if args.has("interactive"):
 		return # 실제 프레임 속도와 카드 선택은 보통 게임 실행으로 직접 확인한다.
 	var count := int(args.get("frames", "90"))

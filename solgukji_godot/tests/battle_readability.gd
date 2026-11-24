@@ -27,16 +27,25 @@ func _ready() -> void:
 	var helper = preload("res://tests/formation_preview.gd").new()
 	var a: Array = DB.auto_place(helper._cards(["주유", "황충", "관우", "조운", "전위", "유비", "제갈량", "방통", "장료"]), "eorin")
 	var b: Array = DB.auto_place(helper._cards(["조조", "하후연", "사마의", "마초", "허저", "곽가", "손권", "여포", "화타"]), "hagik")
+	var starter := "--starter" in OS.get_cmdline_user_args()
+	if starter:
+		var cards: Array = ["spear", "bow", "strat", "schol", "occul", "schem", "horse", "bow", "strat"]
+		a = DB.auto_place(cards, "eorin")
+		b = DB.auto_place(cards, "hagik")
 	helper.free()
 	var result := RtBattle.new(5100).run(a, "eorin", 100, null, b, "hagik", 100, null, "", "", [], {"A": "auto", "B": "auto"})
 	var unchanged := JSON.stringify(result)
 	view.play_res(result, "pvp")
-	while view.clock < 5.0:
+	while view.clock < (0.25 if starter else 5.0):
 		await get_tree().process_frame
 	view.speed = 0.0
 	view.direct = false
 	view.set_process(false) # 표시 경계 검사는 일시정지한 제어기가 병력을 다시 덮어쓰지 않게 한다.
 	await frame()
+	if starter:
+		for unit: Squad in view.field.order:
+			assert(unit.max < 10000.0 and is_equal_approx(unit.troops, unit.max))
+			assert(is_equal_approx(view.hud._medal_nodes[unit.key].hp_fill, BattleView.Hud.PAINT_HP_WIDTH), "Opening starter units must show a full HP bar, not 1% of a ten-thousand layer")
 	var card: BattleView.MiniCard = view.cards_bar.find_children("*", "Control", true, false).filter(func(c): return c is BattleView.MiniCard and c.sq != null and c.sq.alive)[-1]
 	var sq := card.sq
 	var actual_statuses := sq.statuses.duplicate()
@@ -56,25 +65,29 @@ func _ready() -> void:
 			assert(positions[key] == again[key], "Neighbors and drawing order must not displace a nameplate")
 	var width: Vector2 = view.hud._painted_size(sq)
 	var troops: float = sq.troops
-	for value in [0.0, 1.0, 9999.0, 10000.0, 10001.0, 19999.0, 20000.0, 38000.0, 40000.0, 39999.0, 100001.0]:
-		var state := BattleView.Hud.troop_layers(value)
-		var represented := maxf(0.0, state.x - 1.0) * 10000.0 + state.y * 10000.0
-		assert(absf(represented - value) < 0.01, "Layer and fill must preserve actual troop strength across damage and recovery")
-		assert(state.y >= 0.0 and state.y <= 1.0)
-	assert(BattleView.Hud.troop_layers(38000.0).is_equal_approx(Vector2(4, 0.8)))
-	assert(BattleView.Hud.troop_layers(-1.0) == Vector2.ZERO)
-	for layer in range(1, 33):
-		var ally := BattleView.Hud.troop_layer_color(layer, "A")
-		var enemy := BattleView.Hud.troop_layer_color(layer, "B")
-		assert(ally.b > ally.r and enemy.r > enemy.b and ally != enemy, "Every HP layer must retain its camp color, including stacked boss bars")
-		assert(ally != BattleView.Hud.PAINT_MORALE and enemy != BattleView.Hud.PAINT_MORALE, "Morale must remain distinct from both HP palettes")
-		if layer > 1:
-			assert(ally != BattleView.Hud.troop_layer_color(layer - 1, "A") and enemy != BattleView.Hud.troop_layer_color(layer - 1, "B"), "Adjacent layers must stay distinguishable without changing faction hue")
-	# 만 명 경계 직전의 위층 색이 경계를 넘은 뒤의 아래층 색이다.
-	for boundary in [10000.0, 20000.0, 40000.0, 100000.0]:
-		var before := BattleView.Hud.troop_layers(boundary - 1.0)
-		var after := BattleView.Hud.troop_layers(boundary)
-		assert(before.x == after.x and after.y == 1.0, "At an exact layer boundary, the same front color must finish filling")
+	for maximum in [100.0, 500.0, 900.0, 2500.0, 10000.0, 50000.0, 1000000.0]:
+		assert(BattleView.Hud.troop_ratio(maximum, maximum) == 1.0)
+		assert(BattleView.Hud.troop_ratio(maximum * 0.5, maximum) == 0.5)
+		assert(BattleView.Hud.troop_ratio(0, maximum) == 0.0)
+		assert(BattleView.Hud.troop_ratio(-1, maximum) == 0.0)
+		assert(BattleView.Hud.troop_ratio(maximum + 1, maximum) == 1.0)
+		for scale in [0.5, 1.0, 1.25, 3.0]:
+			var grid: Array = BattleView.Hud.troop_grid(maximum, scale)
+			var count := 0
+			var pixels := {}
+			for lines: PackedVector2Array in grid:
+				for i in range(0, lines.size(), 2):
+					var pixel := roundi((lines[i].x + BattleView.Hud.PAINT_HP_WIDTH * 0.5) * scale)
+					assert(not pixels.has(pixel), "Dense grids must never overdraw the same pixel into a black bar")
+					pixels[pixel] = true
+					count += 1
+			assert(count <= roundi(BattleView.Hud.PAINT_HP_WIDTH * scale) - 1, "Grid cost must stay bounded by bar pixels, not maximum HP")
+	assert(BattleView.Hud.troop_ratio(1, 0) == 0.0)
+	var small_grid: Array = BattleView.Hud.troop_grid(500.0, 1.0)
+	var dense_grid: Array = BattleView.Hud.troop_grid(5000.0, 1.0)
+	assert(small_grid[0].size() == 8 and dense_grid[1].size() == 8, "500 HP has four 100-unit marks; 5000 HP has four 1000-unit marks")
+	assert(small_grid[0][0].x == -12.0 and dense_grid[1][0].x == -12.0, "Tick position must use absolute HP divided by maximum HP")
+	assert(BattleView.Hud.PAINT_HP_COLORS.A.b > BattleView.Hud.PAINT_HP_COLORS.A.r and BattleView.Hud.PAINT_HP_COLORS.B.r > BattleView.Hud.PAINT_HP_COLORS.B.b)
 	sq.troops = 9.0
 	assert(view.hud._painted_size(sq) == width, "Troop digits must not shift the portrait or name")
 	sq.troops = troops
@@ -89,14 +102,15 @@ func _ready() -> void:
 	assert(view.hud._medal_nodes[sq.key].selected, "Its battlefield nameplate must share selection")
 	assert(view.hud._badge_nodes.is_empty(), "Selection must not restore battlefield status rows")
 	assert(view.hud._painted_size(sq) == width and view.hud._flat_token_pos(tags, true) == positions, "Selection must not change label geometry or position")
-	for value in [41000.0, 40000.0, 39999.0, 38000.0, 39999.0, 40000.0]:
+	for ratio in [1.0, 0.25, 0.5, 0.0, 1.0]:
+		var value: float = sq.max * ratio
 		sq.troops = value
 		view.hud.queue_redraw()
 		await frame()
 		var selected_node: BattleView.Hud.MedalNode = view.hud._medal_nodes[sq.key]
 		assert(card._troops_text() == Battle.num(value), "Selected exact count belongs in the existing bottom card")
-		assert(selected_node.troop_layer == int(BattleView.Hud.troop_layers(value).x))
-		assert(view.hud._painted_size(sq) == width and view.hud._flat_token_pos(tags, true) == positions, "Losing and recovering a layer must not move the label")
+		assert(absf(selected_node.hp_fill - ratio * BattleView.Hud.PAINT_HP_WIDTH) <= 0.5 / selected_node.S + 0.001)
+		assert(view.hud._painted_size(sq) == width and view.hud._flat_token_pos(tags, true) == positions, "Damage and healing must not move or resize the label")
 	sq.troops = troops
 	view.hud.queue_redraw()
 	await frame()
@@ -107,38 +121,33 @@ func _ready() -> void:
 		assert(label.position.y >= 94 and label.end.y <= view.hud.size.y)
 		var unit: Squad = view.field.squads[key]
 		var node: BattleView.Hud.MedalNode = view.hud._medal_nodes[key]
-		var troop_state := BattleView.Hud.troop_layers(unit.troops)
 		assert(node.camp == unit.camp, "The nameplate must receive the actual replay camp for its HP palette")
-		assert(node.troop_layer == (int(troop_state.x) if unit.alive else -1), "Both armies must use absolute troop layers")
+		assert(node.hp_max == unit.max)
 		if unit.alive:
-			var bar_width := node.w - BattleView.Hud.PAINT_FACE_SLOT - 4.0
-			assert(absf(node.troop_fill - troop_state.y * bar_width) <= 0.5 / node.S + 0.001, "Bar loss must follow actual displayed casualties within half a screen pixel")
+			assert(absf(node.hp_fill - BattleView.Hud.troop_ratio(unit.troops, unit.max) * BattleView.Hud.PAINT_HP_WIDTH) <= 0.5 / node.S + 0.001, "HP fill must use current divided by actual maximum troops")
 		var name_width := DB.font_bold.get_string_size(node.name_, HORIZONTAL_ALIGNMENT_LEFT, -1, BattleView.Hud.PAINT_NAME_FS).x
-		assert(node.w == BattleView.Hud.PAINT_FACE_SLOT + maxf(BattleView.Hud.PAINT_BAR_MIN, name_width + 2.0) + 4.0, "One compact frame must fit the portrait, name and both bars, with no number reserve")
+		assert(node.w == maxf(BattleView.Hud.PAINT_HP_WIDTH + 8.0, name_width + 6.0), "HP bar width must stay fixed regardless of health, name or grade")
 		assert(node.mo == (clampi(roundi(unit.morale / 5.0), 0, 40) if unit.alive else -1), "Compacting must preserve morale")
-		var portrait: Rect2 = marker.get("portrait", Rect2())
-		assert(portrait.has_area() and label.encloses(portrait), "Every portrait must fit inside its fixed nameplate")
-		assert(node.portrait != null and node.r == BattleView.Hud.PAINT_FACE_R, "Both armies must show a cached small portrait without enlarging higher tiers")
+		assert(not marker.has("portrait") and marker.radius == 0.0, "No field portrait or round medal may remain")
+	assert(view.hud._medal_cache.is_empty(), "Removing portraits must also remove their image-baking work")
 	# 길어진 이름표의 초상 반대쪽 끝도 탭 대상이어야 한다.
 	var saved: Dictionary = view.hud._painted_medals.duplicate(true)
 	view.hud._painted_medals.clear()
 	view.hud._painted_medals[sq.key] = {"at": Vector2(150, 200), "radius": 13.0, "label": Rect2(95, 184, 110, 32)}
 	assert(view.hud.medal_at(Vector2(203, 200)) == sq, "The whole horizontal label must be pickable")
-	view.hud._painted_medals[sq.key].portrait = Rect2(65, 184, 24, 24)
-	assert(view.hud.medal_at(Vector2(67, 186)) == sq, "The selected portrait must also be pickable")
 	view.hud._painted_medals = saved
 	assert(JSON.stringify(result) == unchanged, "Presentation and selection must not mutate the battle replay")
 	if "--shot" in OS.get_cmdline_user_args():
 		sq.statuses = actual_statuses
 		await frame()
-		get_viewport().get_texture().get_image().save_png("res://../build/battle_profile_hud.png")
+		get_viewport().get_texture().get_image().save_png("res://../build/battle_hp_grid_%s.png" % ("starter" if starter else "heroes"))
 	view.hud._hl[sq.key] = view.clock - 1.0
 	await frame()
 	assert(view.hud._badge_nodes.is_empty())
 	view.play_res(result, "pvp")
 	view.speed = 0.0
 	assert(view.hud._hl.is_empty(), "Selection must clear when the same view starts another battle")
-	print("PASS battle readability: compact portrait-name-HP-morale / blue ally and red enemy HP across all layers / distinct morale / fixed positions / cached portraits / card tap / absolute troop layers and recovery / replay immutability / reused view")
+	print("PASS battle readability: full starter HP / actual current-max ratio / fixed-width absolute HP grid / bounded pixel cost / no medals or portrait baking / blue-red camps / card selection / healing / replay immutability / reused view")
 	view.queue_free()
 	await get_tree().process_frame
 	get_tree().quit()
