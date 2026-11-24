@@ -9,7 +9,7 @@ var formations := {}
 var visible_soldiers: Array = []      # 점검용 사전 목록 (keep_dicts 일 때만 채운다) —— 그리기는 아래 묶음 배열을 쓴다
 ## 11/19 프레임: 병사마다 키 11개짜리 사전을 만들고 람다로 정렬하던 것이 삽화 그리기의 절반이었다 ——
 ## 인형 값은 묶음 배열 한 줄(FIG_W 칸)에, 깊이 순서는 정수 키(화면 y · 번호) 정렬로. 그리는 모양 · 순서는 그대로
-const FIG_W := 11              # x, y, 키, 칸, 투명, 기울기, 걸음 세기, 보폭, 피격, 좌우 뒤집기, 매복 그늘(− 면 등장 번쩍)
+const FIG_W := 12              # x, y, 키, 칸, 투명, 기울기, 걸음 세기, 보폭, 피격, 좌우 뒤집기, 매복 그늘(− 면 등장 번쩍), 모양(병사 단계 0~5 + 신화 시트면 8)
 var _figs := PackedFloat32Array()
 var _fig_sq: Array = []
 var _fig_keys := PackedInt64Array()
@@ -68,7 +68,9 @@ const TAGS := ["창병", "기병", "궁병", "도적", "책사", "유생", "술�
 const STRIDE_FRAMES := 12
 static var batch_rendering := true
 static var action_frames_on := true # 점검용으로 끄면 같은 인형 수로 이전 정지 원화와 비교한다.
+static var tier_fx := true     # 11/24 점검용 (tests/tier_sprite_shot --tierfx=0) —— 끄면 등급 차등(크기 · 테두리 빛 · 기운 · 군기) · 신화 시트 없이 (전후 비교)
 var action_frames_ready := false
+var myth_ready := false        # 11/24 신화 시트를 읽었나 (painted_batch 가 셰이더에 넘기는 조건과 같다)
 var batch: Node2D
 var top_effects: Node2D
 var glow_effects: Node2D
@@ -113,6 +115,10 @@ func _ready() -> void:
 		batch.action_blue = load("res://assets/war_painting/troops_action_blue_v1.png")
 		batch.action_red = load("res://assets/war_painting/troops_action_red_v1.png")
 		action_frames_ready = batch.action_blue != null and batch.action_red != null
+		if ResourceLoader.exists("res://assets/war_painting/troops_myth_blue_v1.png") and ResourceLoader.exists("res://assets/war_painting/troops_myth_red_v1.png"):
+			batch.myth_blue = load("res://assets/war_painting/troops_myth_blue_v1.png")      # 11/24 신화 부대 전용 (tools/scripts/make_myth_troops.py)
+			batch.myth_red = load("res://assets/war_painting/troops_myth_red_v1.png")
+			myth_ready = batch.myth_blue != null and batch.myth_red != null and batch.myth_blue.get_size() == batch.action_blue.get_size() and batch.myth_red.get_size() == batch.action_red.get_size()
 	batch.visible = batch_rendering
 	add_child(batch)
 	top_effects = TopEffects.new()
@@ -459,11 +465,39 @@ func _pk(p: Vector2) -> float:
 const BOSS_FIG := 1.7
 const FIGURE_SCALE := 1.4 # 최소 14px였던 병사는 약 20px로. 발 위치·대열 간격은 유지한다.
 
+## 11/24 사용자 「책략계 스프라이트가 유독 크다」 —— 인형 키를 그 병종의 열 수(지원 3 · 궁병 5 · 보병 6)로 잰 간격에 맞추다 보니
+## 같은 폭의 부대라도 열이 적은 지원 병종은 간격 제한을 안 받아 기본 키(60)를 그대로 받았다 (보병은 간격 때문에 작아진다).
+## 걷는 병종은 모두 보병 열 수로 간격을 잰다 (기병은 말이 있어 제 열 수 그대로). 책략계 원화는 넓은 소매 · 도포로 칸을 더 채워(불투명 넓이 1.25 배) 조금 줄인다
+const SUPPORT_TAGS := ["책사", "유생", "술사", "모사"]
+const SUPPORT_ART := 0.9
+## 11/24 사용자 「같은 병종이라도 등급에 따라 차등, 좀 더 강해 보여야」 —— 병사 단계(Type2View.grade_of: 등급 · 시작 병력 · 기인)별 인형 키 배율
+##   0 잡병(고급 이하) · 1 정병(희귀) · 2 정예(전설) · 3 근위(초월 · 기인) · 4 철위(불멸) · 5 신병(신화). 색 · 테두리 빛 · 기운 · 군기는 셰이더(painted_batch.gdshader)가 단계로 그린다
+const GRADE_FIG := [0.9, 0.96, 1.03, 1.09, 1.15, 1.2]
+const GRADE_BANNER := [0.9, 1.0, 1.06, 1.14, 1.24, 1.34]      # 군기 키 상한 배율
+const MYTH_TIER := 8           # 이 등급 이상만 신화 전용 시트
+
+func _grade(sq: Squad) -> int:
+	if not tier_fx:
+		return 1
+	if v != null and v.has_method("_g"):
+		return clampi(int(v._g(sq)), 0, 5)
+	return clampi(sq.tier - 3, 0, 5)
+
+## 셰이더에 넘기는 모양 값 —— 병사 단계 + 신화 시트(8)
+func _style(sq: Squad, grade: int) -> float:
+	return float(grade + (8 if tier_fx and sq.tier >= MYTH_TIER and action_frames_ready and myth_ready else 0))
+
 func _figure_height(sq: Squad, form: FormationMotion) -> float:
 	var scale: float = _pk(form.center)
 	var nominal := (72.0 if form.cavalry else 60.0) * scale
-	var horizontal := 2.0 * form.half_width / maxf(1, form.cols - 1) * scale
+	var gaps := form.cols - 1
+	if not form.cavalry:
+		gaps = (6 if sq.hw >= 48.0 else 4) - 1      # painted_formation._init 의 보병 열 수
+	var horizontal := 2.0 * form.half_width / maxf(1, gaps) * scale
 	var h := clampf(minf(nominal, horizontal / 0.58), 14.0, 46.0) * FIGURE_SCALE
+	if sq.tag in SUPPORT_TAGS:
+		h *= SUPPORT_ART
+	h *= float(GRADE_FIG[_grade(sq)])
 	if bool(sq.row.get("boss", false)):      # 토벌 총대장 —— 병사 인형을 크게 (그림만, 자리 · 충돌은 그대로)
 		h *= BOSS_FIG
 	return h
@@ -569,6 +603,8 @@ func _draw_overlay(ci: CanvasItem) -> void:
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var h := _figure_height(sq, form)
+	var grade := _grade(sq)
+	var style := _style(sq, grade)
 	var cell := maxi(0, TAGS.find(sq.tag)) + (0 if sq.camp == "A" else 8)
 	var action_base := 32 + maxi(0, TAGS.find(sq.tag)) * 4 + (0 if sq.camp == "A" else 32)
 	var animated := action_frames_ready and action_frames_on and batch_rendering
@@ -677,15 +713,16 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		_figs[b + 8] = hit
 		_figs[b + 9] = 1.0 if mirror else 0.0
 		_figs[b + 10] = cv
+		_figs[b + 11] = style if animated else float(grade)
 		_fig_sq.append(sq)
 		_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 	if form.count > 0 and batch_rendering:
-		_collect_standard(sq, form, h / FIGURE_SCALE, fade_sq, cv)
+		_collect_standard(sq, form, h / FIGURE_SCALE, fade_sq, cv, grade)
 	_scr[sq.key] = scr
 
 ## 부대 안에 꽂힌 군기도 병사와 같은 깊이 순서·GPU 묶음에 넣는다.
 ## 셀 16/17은 아틀라스 대신 셰이더가 그리는 청/적 천과 깃대다.
-func _collect_standard(sq: Squad, form: FormationMotion, soldier_h: float, alpha: float, shade: float) -> void:
+func _collect_standard(sq: Squad, form: FormationMotion, soldier_h: float, alpha: float, shade: float, grade := 1) -> void:
 	var facing := Vector2.from_angle(form.heading)
 	var right := Vector2(-facing.y, facing.x)
 	var at := form.center - facing * minf(sq.hd0 * 0.65, form.row_gap * maxf(1, form.rows - 1)) + right * form.half_width * 0.65
@@ -702,7 +739,7 @@ func _collect_standard(sq: Squad, form: FormationMotion, soldier_h: float, alpha
 		leaning = (40.0 - sq.morale) / 40.0 * 0.45
 	_figs[b] = p.x
 	_figs[b + 1] = p.y
-	_figs[b + 2] = clampf(soldier_h * 2.0, 25.0, 47.0)
+	_figs[b + 2] = clampf(soldier_h * 2.0, 25.0, 47.0 * float(GRADE_BANNER[grade]))      # 11/24 높은 단계일수록 군기를 크게
 	_figs[b + 3] = 16.0 if sq.camp == "A" else 17.0
 	_figs[b + 4] = alpha
 	_figs[b + 5] = leaning + sin(form.motion_clock * 3.0 + sq.row.slot) * 0.025
@@ -711,6 +748,7 @@ func _collect_standard(sq: Squad, form: FormationMotion, soldier_h: float, alpha
 	_figs[b + 8] = 0.0
 	_figs[b + 9] = 0.0
 	_figs[b + 10] = shade
+	_figs[b + 11] = float(grade)
 	_fig_sq.append(sq)
 	_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 

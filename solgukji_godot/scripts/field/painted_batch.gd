@@ -4,6 +4,8 @@ extends Node2D
 var atlas: Texture2D
 var action_blue: Texture2D
 var action_red: Texture2D
+var myth_blue: Texture2D       # 11/24 신화 부대 전용 시트 (동작 시트와 같은 4×8 배치 · 인형을 MYTH_FIT 배로 줄여 위에 장식 자리)
+var myth_red: Texture2D
 var soldiers: MultiMeshInstance2D
 var shadows: MultiMeshInstance2D
 var capacity := 0
@@ -34,6 +36,10 @@ func _ready() -> void:
 		material_.set_shader_parameter("action_red", action_red)
 		material_.set_shader_parameter("action_blue_pixel_size", Vector2.ONE / action_blue.get_size())
 		material_.set_shader_parameter("action_red_pixel_size", Vector2.ONE / action_red.get_size())
+		if myth_blue != null and myth_red != null and myth_blue.get_size() == action_blue.get_size() and myth_red.get_size() == action_red.get_size():
+			material_.set_shader_parameter("myth_blue", myth_blue)
+			material_.set_shader_parameter("myth_red", myth_red)
+			material_.set_shader_parameter("has_myth", true)
 	soldiers.material = material_
 	add_child(soldiers)
 
@@ -133,6 +139,11 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 		shadows.multimesh.buffer = shadow_buffer
 
 
+## 11/24 신화 시트 인형은 칸의 MYTH_FIT 배 (tools/scripts/make_myth_troops.py FIT) —— 칸을 1 / MYTH_FIT 배로 그려 몸 크기를 맞춘다
+const MYTH_FIT := 0.8
+## 11/24 병사 단계 · 신화 표시(style = 단계 0~5 + 신화면 8)는 셀 번호 칸에 STYLE_STEP 배로 얹는다 (셰이더가 floor(r / 128) 로 푼다)
+const STYLE_STEP := 128.0
+
 ## 11/19 묶음 배열판 (war_painting._figs) —— keys 정렬 순서(아래 16비트 = 인형 번호)로 버퍼를 채운다. 값 · 식은 update_figures 와 같다
 func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, ally: Color, enemy: Color) -> void:
 	var count := keys.size()
@@ -163,14 +174,16 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		var lift := sn * sn * sn * gait * h * (0.027 if cavalry else 0.009)
 		var c := cos(tilt)
 		var s := sin(tilt)
-		var sx := -h if figs[f + 9] > 0.5 else h
+		var style := figs[f + 11] if w > 11 else 0.0
+		var hq := h / MYTH_FIT if style >= 8.0 and cell >= 32.0 else h      # 신화 시트 —— 장식 자리만큼 칸을 키운다 (몸 · 그림자 · 들썩임은 h 그대로)
+		var sx := -hq if figs[f + 9] > 0.5 else hq
 		var b := i * 16
 		buffer[b] = c * sx
-		buffer[b + 1] = -s * h
+		buffer[b + 1] = -s * hq
 		buffer[b + 2] = 0
 		buffer[b + 3] = px
 		buffer[b + 4] = s * sx
-		buffer[b + 5] = c * h
+		buffer[b + 5] = c * hq
 		buffer[b + 6] = 0
 		buffer[b + 7] = py - lift
 		var cloth := Color.WHITE if cell >= 16.0 else (ally if cell < 8.0 else enemy)
@@ -179,7 +192,7 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		buffer[b + 9] = tint.g
 		buffer[b + 10] = tint.b
 		buffer[b + 11] = fade
-		buffer[b + 12] = cell
+		buffer[b + 12] = cell + style * STYLE_STEP
 		buffer[b + 13] = stride
 		buffer[b + 14] = gait
 		buffer[b + 15] = figs[f + 10] if w > 10 else 0.0      # 11/22 매복 그늘 (0~1) —— 셰이더가 어둡게 · 흐릿하게
