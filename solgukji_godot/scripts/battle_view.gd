@@ -1297,11 +1297,16 @@ func _begin() -> void:
 	hud.prewarm.clear()
 	hud.prewarm_txt.clear()
 	for q in field.order:
-		if DB.C.has(q.cid) and (q.tier >= 6 or DB.is_kiin(q.cid)):
+		if DB.has_ult(q.cid):
 			var ftx := DB.face_tex(q.cid)      # 11/15 얼굴 메달이 있으면 전투는 원본 초상을 쓰지 않는다 —— 원본을 괜히 올리지 않는다
-			for tx in [ftx if ftx != null else DB.portrait(q.cid), DB.ult_art(q.cid)]:
+			var textures := [ftx if ftx != null else DB.portrait(q.cid)]
+			if not DB.is_mini_ult(q.cid):
+				textures.append(DB.ult_art(q.cid))
+			for tx in textures:
 				if tx != null:
 					hud.prewarm.append(tx)      # 첫 그리기 때 안 보이게 한 번 찍어 그래픽카드에 미리 올린다 (컷인 첫 프레임 10ms)
+			if DB.is_mini_ult(q.cid):
+				continue # 미니는 큰 컷인 그림과 큰 글씨를 만들지 않는다.
 			var ud = DB.ult_of(q.cid)
 			if ud != null:      # 컷인 큰 글씨도 —— 처음 쓰는 크기 · 글자는 그 자리에서 글리프를 만든다
 				hud.prewarm_txt.append(["『%s』" % ud.name, "“%s”" % str(ud.get("shout", "")), _ult_short(ud, q.tier) if ud.has("eff") else "", str(q.row.name)])
@@ -1716,6 +1721,9 @@ static func warning_shapes(e: Dictionary) -> Array:
 
 
 func _ult_warn(e: Dictionary) -> void:
+	if bool(e.get("mini", false)):
+		# 미니는 짧은 준비만 한다. 중앙 운기 줄과 전장 전체 연출 대기는 만들지 않는다.
+		return
 	var mine: bool = str(e.a).begins_with("A")
 	var wait: float = e.get("wait", 2.5)
 	var col := Color("#6fb0ff") if mine else Color("#ff4a3a")
@@ -2112,6 +2120,9 @@ func _mark_ult_big() -> void:
 			continue
 		var u: Dictionary = gr.ult
 		var who := str(gr.who)
+		if bool(u.get("mini", false)):
+			gr.big = false
+			continue
 		var first: bool = int(n_by.get(who, 0)) == 0
 		n_by[who] = int(n_by.get(who, 0)) + 1
 		if u.has("lead"):      # 인연 합류자 —— 대표 컷인 옆에 서는 쪽 (늘 가벼운 길)
@@ -2156,7 +2167,7 @@ func _start_ult(g: Dictionary) -> void:
 	hud.charge_end(g.who)      # 기 모으기 표시는 컷인이 뜨면 걷는다
 	if not u.has("lead") and not bool(g.get("big", true)):      # 11/22 가벼운 고유기 —— 슬로모션 · 컷인 · 카메라 없이 이름과 이펙트만, 전투를 멈추지 않는다
 		g["lite"] = true      # 연출 표시는 재생 묶음에만 둔다. 원본 사건은 수정하지 않는다.
-		hud.ult_notice(sq, str(u.get("name", "고유기")))
+		hud.ult_notice(sq, str(u.get("name", "고유기")), bool(u.get("mini", false)), str(u.get("shout", "")))
 		hud.float_text(g.who, "『%s』" % str(u.get("name", "고유기")), Color("#ffd257"), 13)
 		get_tree().create_timer(0.2).timeout.connect(func():
 			if is_instance_valid(sq):
@@ -2174,7 +2185,7 @@ func _start_ult(g: Dictionary) -> void:
 		var join_lite := Type2View.painting_on() and Settings.ult_fx != 0
 		g["lite"] = join_lite
 		if join_lite:
-			hud.ult_notice(sq, str(u.get("name", "고유기")))
+			hud.ult_notice(sq, str(u.get("name", "고유기")), false, str(u.get("shout", "")))
 		hud.float_text(g.who, "인연 『%s』" % u.get("inyeon", ""), Color("#ffd257"), 13)
 		get_tree().create_timer(0.35).timeout.connect(func():
 			if is_instance_valid(sq):
@@ -2631,17 +2642,78 @@ class Hud extends Control:
 	var floats := []
 	var stamp_info = null
 	var stamp_t := 0.0
-	const ULT_NOTICE_LIFE := 1.5
+	const ULT_NOTICE_LIFE := 2.0
 	const ULT_NOTICE_LIMIT := 16
 	const ULT_NOTICE_HEIGHT := 48.0
 	var ult_notices := {"A": [], "B": []}
 	var _ult_notice_y := 70.0
+	var _notice_speech_styles := {}
 
-	func ult_notice(sq: Squad, skill: String) -> void:
+	func ult_notice(sq: Squad, skill: String, mini := false, speech := "") -> void:
 		var queue: Array = ult_notices[sq.camp]
 		if queue.size() >= ULT_NOTICE_LIMIT:
 			queue.remove_at(1) # 현재 읽는 알림은 유지한다.
-		queue.append({"who": DB.person(sq.cid), "cid": sq.cid, "skill": skill, "age": 0.0})
+		if speech.strip_edges() == "" and DB.has_ult(sq.cid):
+			speech = str(DB.ult_of(sq.cid).get("shout", ""))
+		var width := ult_notice_rect(sq.camp).size.x
+		queue.append({"who": DB.person(sq.cid), "cid": sq.cid, "skill": skill, "mini": mini, "age": 0.0,
+			"speech": speech.strip_edges(), "lines": _notice_speech_lines(speech, width), "wrap_width": width})
+
+	func _notice_speech_lines(speech: String, width: float) -> Array:
+		var lines := []
+		var current := ""
+		var room := maxf(40.0, width - 16.0)
+		for word in speech.strip_edges().replace("\n", " ").split(" ", false):
+			if current != "" and DB.font_bold.get_string_size(current + " " + word, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x <= room:
+				current += " " + word
+				continue
+			if current != "":
+				lines.append(current)
+				current = ""
+			for ch in word:
+				if current != "" and DB.font_bold.get_string_size(current + ch, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x > room:
+					lines.append(current)
+					current = ""
+				current += ch
+		if current.strip_edges() != "":
+			lines.append(current.strip_edges())
+		if lines.size() > 3:
+			lines.resize(3)
+			var last: String = lines[2]
+			while last.length() > 0 and DB.font_bold.get_string_size(last + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x > room:
+				last = last.left(last.length() - 1)
+			lines[2] = last + "…"
+		return lines
+
+	func ult_notice_speech_rect(camp: String) -> Rect2:
+		var queue: Array = ult_notices[camp]
+		if queue.is_empty() or queue[0].lines.is_empty():
+			return Rect2()
+		var r := ult_notice_rect(camp)
+		return Rect2(r.position.x, r.end.y + 6.0, r.size.x, 10.0 + queue[0].lines.size() * 14.0)
+
+	func _draw_notice_speech(camp: String, notice: Dictionary) -> void:
+		var r := ult_notice_speech_rect(camp)
+		if not r.has_area():
+			return
+		var col: Color = PAINT_HP_COLORS[camp]
+		if not _notice_speech_styles.has(camp):
+			var style := StyleBoxFlat.new()
+			style.bg_color = Color(0.035, 0.035, 0.045, 0.94)
+			style.border_color = Color(col, 0.8)
+			style.set_border_width_all(1)
+			style.set_corner_radius_all(5)
+			_notice_speech_styles[camp] = style
+		draw_style_box(_notice_speech_styles[camp], r)
+		var x := ult_notice_portrait_rect(camp).get_center().x
+		var tip := Vector2(x, r.position.y - 6.0)
+		var left := Vector2(x - 5.0, r.position.y)
+		var right := Vector2(x + 5.0, r.position.y)
+		draw_colored_polygon(PackedVector2Array([left, tip, right]), Color(0.035, 0.035, 0.045, 0.94))
+		draw_line(left, tip, Color(col, 0.8), 1.0)
+		draw_line(tip, right, Color(col, 0.8), 1.0)
+		for i in notice.lines.size():
+			draw_string(DB.font_bold, r.position + Vector2(8.0, 15.0 + i * 14.0), notice.lines[i], HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 16.0, 11, Color("#f5ead4"))
 
 	func _tick_ult_notices(dt: float) -> void:
 		if cut != null:
@@ -2671,6 +2743,9 @@ class Hud extends Control:
 				continue
 			var notice: Dictionary = queue[0]
 			var r := ult_notice_rect(camp)
+			if notice.wrap_width != r.size.x:
+				notice.lines = _notice_speech_lines(notice.speech, r.size.x)
+				notice.wrap_width = r.size.x
 			var col: Color = PAINT_HP_COLORS[camp]
 			draw_rect(r, Color(0.035, 0.035, 0.045, 0.86))
 			var stripe_x := r.position.x if camp == "A" else r.end.x - 2.0
@@ -2678,8 +2753,10 @@ class Hud extends Control:
 			Art.draw_portrait(self, ult_notice_portrait_rect(camp), notice.cid, 0.0, "face")
 			var text_x := r.position.x + 47.0 if camp == "A" else r.position.x + 7.0
 			var text_w := r.size.x - 54.0
-			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 17.0), notice.who + " · 고유기", HORIZONTAL_ALIGNMENT_LEFT, text_w, 10, col)
+			var mini := bool(notice.get("mini", false))
+			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 17.0), notice.who + (" · 미니 고유기" if mini else " · 고유기"), HORIZONTAL_ALIGNMENT_LEFT, text_w, 9 if mini else 10, col)
 			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 36.0), notice.skill, HORIZONTAL_ALIGNMENT_LEFT, text_w, 12, Color(0.98, 0.94, 0.82))
+			_draw_notice_speech(camp, notice)
 
 	func reset() -> void:
 		ult_notices.A.clear()
@@ -3779,7 +3856,7 @@ class Hud extends Control:
 		if _chip_keys.size() >= 2:      # 11/20 2차: 둘째 짝의 합류 초상 칩은 화면 오른쪽에 선다(_draw_join_chip) —— 이 칸과 같은 자리라 그 아래로
 			y += YEON_CHIP.y * (YEON_MATE3_SCALE if _chip_keys.size() >= 3 else 1.0) + 12.0
 		if not ult_notices.B.is_empty():
-			y = maxf(y, _ult_notice_y + ULT_NOTICE_HEIGHT + 6.0)
+			y = maxf(y, maxf(ult_notice_rect("B").end.y, ult_notice_speech_rect("B").end.y) + 6.0)
 		var fd := DB.title_font(13)      # 11/10 작은 글자는 굵은 고딕
 		for it in items.slice(0, 1 if Type2View.painting_on() else 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
@@ -5598,7 +5675,7 @@ class MiniCard extends Control:
 
 	## 11/6 #14 게이지는 찼는데 차례(대기 · 간격 · 조건)를 기다리는 중 —— 「준비」 가 깜빡인다
 	func _waiting(lv: Array) -> bool:
-		return sq.tier >= 6 and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive and not lv[2]      # 모으는 중은 「준비」 아님
+		return DB.has_ult(sq.cid) and lv[1] > 0 and lv[0] >= 100.0 and not view.direct and sq.alive and not lv[2]      # 모으는 중은 「준비」 아님
 
 	var _pr := Press.new()      # 11/20 조작: 누름 판정은 Press 한 벌 —— 예전엔 이동 · 범위 판정이 없어 카드 밖에서 떼어도 강조(직접 지휘면 고유기)가 나갔고, 움직여도 꾹 누름이 취소되지 않았다
 
@@ -5745,7 +5822,7 @@ class MiniCard extends Control:
 				draw_rect(Rect2(bx, y + 3.0, bw2 * clampf((sq.morale - 100.0) / 100.0, 0, 1), 2), BattleView.Hud.MORALE_OVER_COL)
 		# 고유기 —— 금색 · 끝에 남은 횟수 구슬 (6급 이상 · 기인만. 횟수가 다 떨어지면 회색)
 		y += pitch
-		if sq.tier >= 6 or DB.is_kiin(sq.cid):
+		if DB.has_ult(sq.cid):
 			var lv := view.unit_live(sq.key)
 			var n: int = lv[1]
 			if text:

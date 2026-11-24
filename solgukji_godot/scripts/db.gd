@@ -1774,8 +1774,64 @@ func inyeon_card_of_person(p: String, high := true) -> String:
 	return best
 
 
+func is_mini_ult(k: String) -> bool:
+	return C.has(k) and int(C[k].tier) == 5 and C[k].kind not in ["kiin", "retired"] and not is_foe(k)
+
+
+func has_ult(k: String) -> bool:
+	if not C.has(k):
+		return false
+	if is_mini_ult(k):
+		return ULT.list.has(person(k)) or ULT.get("legend_mini", {}).get("extra", {}).has(person(k))
+	return (int(C[k].tier) >= 6 or is_kiin(k)) and ULT.list.has(person(k))
+
+
+## 일반 전설은 같은 장수의 고유기에서 범위·위력을 줄이고 처형을 뺀다. 기인의 고유기는 이 경로를 쓰지 않는다.
+func _mini_ult(k: String):
+	var cfg: Dictionary = ULT.get("legend_mini", {})
+	var base = ULT.list.get(person(k), cfg.get("extra", {}).get(person(k)))
+	if base == null:
+		return null
+	var u: Dictionary = base.duplicate(true)
+	u["mini"] = true
+	u["first"] = 4.0
+	u["cd"] = ULT.cd
+	u["wait"] = float(cfg.wait)
+	u["wind"] = float(cfg.wind)
+	var effects := []
+	for original in u.eff.slice(0, 2):
+		var comp: Dictionary = original.duplicate(true)
+		var target := str(comp.get("tgt", "front1"))
+		if comp.t == "ally":
+			comp.tgt = "self" if target == "self" else "allyLow2"
+		else:
+			comp.tgt = "back1" if target.begins_with("back") else "front1"
+		comp.erase("exec")
+		if comp.has("mult"):
+			comp.mult = minf(float(comp.mult) * float(cfg.hit_scale), float(cfg.hit_cap))
+		if comp.has("heal"):
+			comp.heal = minf(float(comp.heal) * float(cfg.heal_scale), float(cfg.heal_cap))
+		if comp.has("morale"):
+			comp.morale = minf(float(comp.morale) * float(cfg.morale_scale), float(cfg.morale_cap))
+		if comp.has("pierce"):
+			comp.pierce = minf(float(comp.pierce), 0.15)
+		if comp.has("buff"):
+			comp.buff.amt = clampf(float(comp.buff.amt) * float(cfg.buff_scale), -float(cfg.buff_cap), float(cfg.buff_cap))
+			comp.buff.dur = 1
+		if comp.has("status"):
+			comp.status.k = ST_MERGE.get(comp.status.k, comp.status.k)
+			comp.status.dur = 1
+			if comp.status.k in ["burn", "bleed", "flood", "plague"]:
+				comp.status.val = float(comp.status.val) * 0.25
+		effects.append(comp)
+	u.eff = effects
+	return u
+
+
 ## 고유기 —— 신화 기준 수치를 불멸 카드에는 tier7_scale, 초월 카드에는 tier6_scale 배로 줄여 준다
 func ult_of(k: String):
+	if is_mini_ult(k):
+		return _mini_ult(k)
 	var base = ULT.list.get(person(k))
 	if base == null:
 		return null
@@ -1825,7 +1881,7 @@ func ult_of(k: String):
 ## 수치 계산은 UI.ult_desc 와 같다 (타격 = 배율 × 그 등급 turn_mul, 회복 · 사기 = × Battle.burst). 큰 숫자는 첫 효과의 대표 값 (타격 > 회복 > 버프 > 사기)
 func ult_parts(u: Dictionary, tier := 0) -> Dictionary:
 	var tm := Battle.turn_mul_for(tier) if tier > 0 else 1.0
-	var cap := float(Battle.ult_cap.get(clampi(tier, 6, 8), 0.0)) if tier > 0 else 0.0
+	var cap := Battle.ult_cap_for(tier, bool(u.get("mini", false))) if tier > 0 else 0.0
 	var rows := []      # 효과마다 {t, tgt, items: [[글, 값, 종류]]}
 	for comp in u.eff:
 		var t := str(comp.get("t", ""))
@@ -1936,6 +1992,8 @@ func ult_score(u: Dictionary) -> float:
 ## 장수창 고유기 꼬리표 —— "8초부터", 기 모으기가 공통값(2.5초)과 다르면 " · 기 1.5초" 를 붙인다 (11/22)
 func ult_when(u: Dictionary) -> String:
 	var s := "%d초부터" % roundi(float(u.get("wait", 14.0)))
+	if bool(u.get("mini", false)):
+		s += " · 전투당 1회"
 	var w := float(u.get("wind", 2.5))
 	if absf(w - float(ULT.get("wind", 2.5))) > 0.01:
 		s += " · 기 %s초" % str(snappedf(w, 0.1))
@@ -2436,6 +2494,8 @@ const TGT_RT := {"front1": "맞붙은 적 1부대", "back1": "적진 가장 뒤 
 	"allyAll": "아군 전체", "allyFront": "적과 가장 가까운 아군", "self": "자신"}
 
 func tgt_name(t: String) -> String:
+	if t == "allyLow2":
+		return "병력이 낮은 아군 둘"
 	if TGT_RT.has(t):
 		return TGT_RT[t]
 	if D.TGTNM.has(t):

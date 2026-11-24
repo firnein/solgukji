@@ -523,7 +523,7 @@ func _interrupt_ult(u: Unit) -> void:
 	_ph = "act"
 	_who = u.key
 	L("sk", "%s 『%s』 기를 모은다%s" % [ga(nm(u)), u.ult.name, ""],
-		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": fast})
+		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": fast}.merged({"mini": true} if u.ult.get("mini", false) else {}))
 	var zh := _kv(_foe(u.camp), "ult_cut")      # 매복 주환 —— 적 고유기 기 모으기를 한 번 끊고 게이지를 비운다
 	if zh and int(_kiin_used.get("ult_cut:" + zh.camp, 0)) < 2:      # 두 번까지
 		_kiin_used["ult_cut:" + zh.camp] = int(_kiin_used.get("ult_cut:" + zh.camp, 0)) + 1
@@ -600,7 +600,7 @@ static func is_up_u(o: Unit) -> bool:      # 초월 (기인 아님)
 ## 같은 인연 초월 —— 고유기 있는 아군마다, 인연을 같이 나누는 초월 아군(자기 말고)
 func _yeon_up_setup() -> void:
 	for u in units:
-		if u.ult == null:
+		if u.ult == null or bool(u.ult.get("mini", false)):
 			continue
 		var my: Array = DB.INYEON_OF.get(DB.person(u.c.id), [])
 		if my.is_empty():
@@ -622,6 +622,8 @@ static var inyeon_gate_time := false
 
 
 func _join_ok(o: Unit) -> bool:
+	if o.ult != null and bool(o.ult.get("mini", false)):
+		return false
 	if inyeon_gate_time and o.ult != null and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") or not _reult_ok(o)):
 		return false
 	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= _join_gauge(o) \
@@ -629,6 +631,8 @@ func _join_ok(o: Unit) -> bool:
 
 
 func _inyeon_recruit(u: Unit, wait: float) -> void:
+	if bool(u.ult.get("mini", false)):
+		return
 	if tac != null and tac.yeon_cut(u.camp):      # 11/15 군략 이간 —— 이 단계 인연 합동을 모으지 못한다
 		return
 	var lead_in: Array = DB.INYEON_OF.get(DB.person(u.c.id), [])
@@ -877,7 +881,7 @@ func _fire_one(u: Unit) -> void:
 
 ## 돌격 고유기 —— 근접 장수의 vfx charge 고유기
 func _dash_ult(u: Unit) -> bool:
-	return u.ult != null and str(u.ult.get("vfx", "")) == "charge" and not _ranged(u)
+	return u.ult != null and not bool(u.ult.get("mini", false)) and str(u.ult.get("vfx", "")) == "charge" and not _ranged(u)
 
 
 ## 달려갈 적 —— 첫 타격 대상이 최후열(back1 · back2)이면 가장 깊은 적, 아니면 발자국 틈이 가장 가까운 적
@@ -1822,6 +1826,8 @@ func _zone_tick() -> void:
 
 func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Array:
 	if spec == "self": return [me]
+	if spec == "allyLow2":
+		return super.resolve_targets(spec, foes, me, allies)
 	if spec == "allyAll": return allies.filter(func(u): return u.alive)
 	if spec == "allyFront":
 		var al := allies.filter(func(u): return u.alive)
@@ -2144,7 +2150,7 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 			if (ev[i].get("fx") == "phys" or ev[i].get("fx") == "int") and ev[i].get("a") == a.key and ev[i].get("f") == d.key and not ev[i].has("tac"):
 				tac.after_hit(a, d, far, float(ev[i].get("n", 0.0)))
 				break
-	if _in_ult and _wind.has(d) and d.camp != a.camp:
+	if _in_ult and not (_ult_by != null and _ult_by.ult != null and bool(_ult_by.ult.get("mini", false))) and _wind.has(d) and d.camp != a.camp:
 		_cut_wind(d, a)
 	if heavy:      # 11/19 결정타 —— 사건에 적어 둔다 (화면 연출용)
 		for i in range(n0, ev.size()):
@@ -2217,7 +2223,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 		if _gap(a, d) > melee_gap + 6.0:
 			m *= far_mul
 	super.int_hit(a, d, m, spread)
-	if _in_ult and _wind.has(d) and d.camp != a.camp:
+	if _in_ult and not (_ult_by != null and _ult_by.ult != null and bool(_ult_by.ult.get("mini", false))) and _wind.has(d) and d.camp != a.camp:
 		_cut_wind(d, a)
 
 

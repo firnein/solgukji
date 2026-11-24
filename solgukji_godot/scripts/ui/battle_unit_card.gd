@@ -500,7 +500,7 @@ func _init(screen: GameScreen, bv: BattleView, unit_key: String) -> void:
 	ki = int(view.idx_of.get(key, -1))
 	_mx = maxf(1.0, sq.max)
 	_pos = pos_of(view, key)
-	ult = DB.ult_of(k) if int(c.tier) >= 6 or DB.is_kiin(k) else null
+	ult = DB.ult_of(k) if DB.has_ult(k) else null
 	if ult != null:
 		temper = Battle.temper_name(c, ult)
 		ult_total = Battle.ult_charges_of(c)

@@ -156,7 +156,8 @@ const TEMPER := {
 	"분노": {"act": 1.2, "deal": 1.2, "hit": 1.4, "ally": 0.6, "kill": 0.0, "fall": 40.0, "status": 0.0, "wait": 1.1},
 }
 const TEMPER_FREE := 22.0     # 전투 이 초(턴 엔진은 6턴)가 지나면 기질 발동 조건 없이 —— 쓰지도 못하고 끝나지 않게
-const ULT_CHARGES := {6: 3, 7: 3, 8: 3}   # 11/7 사용자: 한 전투에서 다시 쓸 수 있되 쓸수록 어렵게 (예전 1번) —— 3번 상한
+const ULT_CHARGES := {5: 1, 6: 3, 7: 3, 8: 3}   # 일반 전설 미니는 1회. 기인은 기존 초월 기준 3회.
+static var legend_minis_enabled := true # 실험용 비교 손잡이. 일반 게임에서는 켜 둔다.
 ## 고유기 횟수 —— 기인은 등급 번호가 전설(5)이라 표에 없어 1번이 되던 것 (11/21): 대기 시간(first) · 한 방 상한처럼 초월 값을 쓴다
 static func ult_charges_of(c: Dictionary) -> int:
 	return int(ULT_CHARGES.get(6 if str(c.get("kind", "")) == "kiin" else int(c.tier), 1))
@@ -168,7 +169,10 @@ static var reult_wait := 0.5
 ## 고유기 한 방 상한 —— 고유기 한 번이 한 부대에서 앗는 병력은 그 부대 최대 병력의 이 몫까지 (쓴 장수 등급별, 기인은 초월 값). 처형 · 화상 같은 지속 피해는 따로.
 ## 높은 등급 고유기가 낮은 등급 부대(희귀 · 기인)를 한 번에 지우던 것 (리그전 덱: 한 부대 30% 넘게 7% · 50% 넘게 3% · 최대 100%)
 ## 측정(리그전 덱 40판): 한 부대 30% 넘게 7 → 2% · 50% 넘게 3 → 0% · 최대 100 → 30% · 고유기 한 번에 무너진 부대 0.22 → 0.12. 같은 등급끼리는 거의 걸리지 않는다(30% 넘는 피해 0~2%)
-static var ult_cap := {6: 0.25, 7: 0.25, 8: 0.3}
+static var ult_cap := {5: 0.15, 6: 0.25, 7: 0.25, 8: 0.3}
+
+static func ult_cap_for(tier: int, mini := false) -> float:
+	return float(ult_cap.get(5 if mini else clampi(tier, 6, 8), 0.0))
 ## 기질별 재발동 대기 배율 —— 없으면 reult_wait. 수호 · 분노는 아군이 다칠수록 기가 차서 늘 먼저 차 있고, 같은 진영 고유기 순번(먼저 찬 장수부터)만 기다리다
 ## 판 후반에 거듭 터졌다 (기준 60판: 주태(초월) 보유 부대당 1.27번 · 2회 이상 36%, 하후돈 · 마초 · 장비(불멸) 0.96~1.22번 —— 등급 평균 0.65 · 0.53).
 ## 재사용 감쇠를 0.55 로 낮추거나 쓴 뒤 아군 피해로 받는 기를 절반으로 해도 주태는 그대로였다(1.26번 · 31%) —— 기가 아니라 시간으로 막는다
@@ -494,7 +498,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 		u.m["soak"] = DROWN_SOAK
 	if shield_enabled:
 		_set_shield(u, camp, slot)
-	if u.c.tier >= 6 or u.c.kind == "kiin":      # 11/3 기인도 고유기 (초월 세기)
+	if DB.has_ult(cid) and (legend_minis_enabled or not DB.is_mini_ult(cid)):
 		u.ult = DB.ult_of(cid)
 		if u.ult:
 			u.charges = ult_charges_of(u.c)
@@ -1165,6 +1169,10 @@ func _dense_max(us: Array) -> int:
 
 func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Array:
 	if spec == "self": return [me]
+	if spec == "allyLow2":
+		var hurt := allies.filter(func(u): return u.alive)
+		hurt.sort_custom(func(a, b): return a.troops / maxf(1.0, a.max) < b.troops / maxf(1.0, b.max))
+		return hurt.slice(0, 2)
 	if spec == "allyAll": return allies.filter(func(u): return u.alive)
 	if spec == "allyFront":
 		var al := allies.filter(func(u): return u.alive)
@@ -2334,7 +2342,7 @@ static func st_kinds_of(cid: String) -> Dictionary:
 	for sk in DB.C[cid].get("sks", []):
 		if sk.has("eff") and sk.eff.has("status"):
 			out[str(sk.eff.status.k)] = true
-	if DB.C[cid].tier >= 6 or DB.C[cid].kind == "kiin":
+	if DB.has_ult(cid):
 		var ul = DB.ult_of(cid)
 		if ul:
 			for comp in ul.eff:
@@ -3313,8 +3321,8 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	var nm_: String = ul.name
 	var amp := (tac_hold_amp if _tac(u.camp, 1) == "위기" else crisis_amp) if _crisis(u.camp) else 1.0
 	var amp_c := amp * _ult_amp_x      # 11/12 기인이 연 연쇄의 마무리 —— 피해 배율 (평소 1.0 이라 그대로)
-	L("sk", "%s 고유기 『%s』 —— “%s”%s" % [nm(u), nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
-		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0}.merged(_ult_extra))
+	L("sk", "%s %s 『%s』 —— “%s”%s" % [nm(u), "미니 고유기" if ul.get("mini", false) else "고유기", nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
+		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0}.merged(_ult_extra).merged({"mini": true} if ul.get("mini", false) else {}))
 	for comp_ in ul.eff:
 		var comp: Dictionary = _amp_comp(comp_, amp_c)
 		var ts := resolve_targets(comp.tgt, foes, u, allies)
@@ -3797,7 +3805,7 @@ func _gain(u: Unit, v: float) -> void:
 ## 고유기 한 방 상한 (11/7 2차) —— 이번 고유기에 이 부대가 잃는 병력은 최대 병력 × ult_cap[쓴 장수 등급] 까지.
 ## 사람이 누른 고유기 · AI 고유기 모두 _do_ult 를 지나므로 같다. 고유기 중 받은 반격(쓴 장수가 잃는 병력)에도 같은 상한
 func _ult_clamp(d: Unit, loss: float) -> float:
-	var cap := float(ult_cap.get(clampi(int(_ult_by.c.tier), 6, 8), 0.0))
+	var cap := ult_cap_for(int(_ult_by.c.tier), bool(_ult_by.ult.get("mini", false)))
 	if cap <= 0.0:
 		return loss
 	var got: float = _ult_taken.get(d, 0.0)

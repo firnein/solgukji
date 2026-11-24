@@ -2141,7 +2141,7 @@ func recipe_sheet(out: String) -> void:
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rv.add_child(SheetStyle.stat_block(c.atk, c["def"], c.spd, DB.INT_TAGS.has(c.tag)))      # 11/21 능력치 세 칸 —— 한 장의 먹 판 안 (SheetStyle)
 	rv.add_child(TraitBoard.new().setup(out))
-	var ult = DB.ult_of(out) if c.tier >= 6 or DB.is_kiin(out) else null
+	var ult = DB.ult_of(out) if DB.has_ult(out) else null
 	var open_detail := func(): card_info(out)      # 줄을 누르면 디테일창
 	if ult != null:      # 11/9 사용자: 초상 옆 빈 공간 정리 —— 기질은 오른쪽(능력치 · 특기판 아래)
 		# 11/20 사용자: 갈무리창의 기질은 이름("지략")만 있어 무슨 뜻인지 알 수 없었다 —— 디테일창과 같은 설명 두 줄(차는 때 · 쓰는 때)을 붙인다
@@ -3313,7 +3313,7 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 	tbd.fixed = true
 	st.add_child(tbd.setup(k))
 	# 11/9 사용자: 초상 옆 빈 공간 정리 —— 오른쪽에는 능력치 · 특기판 · 기질 띠(좁은 모양)를 쌓고, 고유 특기 · 위세 · 패업 · 고유기는 아래 폭 전체 카드 격자로
-	var ult0 = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	var ult0 = DB.ult_of(k) if DB.has_ult(k) else null
 	if ult0 != null:
 		var tb0 := _temper_box(c, ult0, 11, true)
 		if tb0 != null:
@@ -3622,7 +3622,7 @@ func _ability_items(k: String) -> Array:
 		var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
 		var pe: String = str(pa.get("d", "")) if str(pa.cond) == "none" else "아군에 %s 자신 외 %d명 이상이면 —— %s" % [cw, int(pa.need), str(pa.get("d", ""))]      # 조건 없는 패업은 설명만 (11/9)
 		out.append({"kind": "패업", "name": str(pa.n), "effect": pe, "icon": ABILITY_ICON["패업"], "sub": ""})
-	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	var u = DB.ult_of(k) if DB.has_ult(k) else null
 	if u != null:
 		out.append({"kind": "고유기", "name": u.name, "effect": UI.ult_desc(u, c.tier), "icon": ABILITY_ICON["고유기"], "sub": DB.ult_when(u)})
 	return out
@@ -3633,7 +3633,7 @@ func _ability_items(k: String) -> Array:
 func _ability_rows(into: Container, k: String, fs := 12, narrow := false, with_temper := true, skip: Array = [], with_inyeon := false) -> void:
 	var c: Dictionary = DB.C[k]
 	var its := _ability_items(k).filter(func(it): return not skip.has(str(it.get("kind", ""))))      # skip: 뺄 종류 (보급 팝업은 패업, 11/9)
-	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	var u = DB.ult_of(k) if DB.has_ult(k) else null
 	if u != null and with_temper:
 		var ti := _temper_item(c, u)
 		if not ti.is_empty():
@@ -3786,7 +3786,7 @@ const ABIL_NUM := UI.FS_HEAD + 2       # 고유기의 큰 숫자 —— 이 패�
 func _ability_cards(into: Container, k: String) -> void:
 	var c: Dictionary = DB.C[k]
 	var P := DB.PAL
-	var u = DB.ult_of(k) if c.tier >= 6 or DB.is_kiin(k) else null
+	var u = DB.ult_of(k) if DB.has_ult(k) else null
 	if u != null:
 		into.add_child(_ult_card(k, u))
 	var lead: bool = u == null      # 고유기가 없는 등급(3~5급)은 고유 특기가 주인공
@@ -3845,7 +3845,7 @@ func _ult_card(k: String, u: Dictionary) -> Control:
 	var top := UI.hbox(UI.SP_S)
 	var left := UI.vbox(0)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(_abil_tag("고유기", col.lightened(0.3), DB.ult_when(u)))
+	left.add_child(_abil_tag("미니 고유기" if u.get("mini", false) else "고유기", col.lightened(0.3), DB.ult_when(u)))
 	var nl := UI.lbl(str(u.name), UI.FS_TITLE, P.paper, true)
 	UI.wrap_text(nl)
 	left.add_child(nl)
@@ -5944,7 +5944,7 @@ func _dev_args() -> void:
 			var uk := str(a.gunit)
 			if uk == "ult":
 				for q in _battle.field.order:
-					if q.camp == "A" and DB.C.has(q.cid) and (DB.C[q.cid].tier >= 6 or DB.is_kiin(q.cid)):      # 기인은 전설 등급 값이지만 고유기가 있다
+					if q.camp == "A" and DB.has_ult(q.cid):      # 기인은 전설 등급 값이지만 고유기가 있다
 						uk = q.key
 						break
 			battle_unit_sheet(uk)

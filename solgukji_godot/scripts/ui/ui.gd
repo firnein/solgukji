@@ -807,7 +807,7 @@ static func item_text(id: String, amp := 1.0) -> String:
 static func ult_desc(u: Dictionary, tier := 0) -> String:
 	var tm := Battle.turn_mul_for(tier) if tier > 0 else 1.0
 	var parts := []
-	var cap := float(Battle.ult_cap.get(clampi(tier, 6, 8), 0.0)) if tier > 0 else 0.0      # 11/7 한 방 상한 —— 한 부대가 이번 고유기에 잃는 병력은 최대 병력의 이만큼까지 (한 번만 적는다)
+	var cap := Battle.ult_cap_for(tier, bool(u.get("mini", false))) if tier > 0 else 0.0      # 미니와 기인/상위 고유기의 실제 상한을 구분한다.
 	for comp in u.eff:
 		var tg := DB.tgt_name(str(comp.get("tgt", "")))
 		if str(comp.get("tgt", "")) == "all" and comp.t != "ally":      # 11/7 고유기의 '적 전체' 는 전장 전체가 아니라 노리는 적 둘레 (RtBattle.ult_all_r)

@@ -163,10 +163,17 @@ func _ready() -> void:
 		assert(view.hud.ult_notices[camp].size() == 1)
 		assert(view.hud.ult_notices[camp][0].skill == light.ult.name)
 		assert(view.hud.ult_notices[camp][0].cid == view.field.squads[light.who].cid, "The portrait must identify the actual caster")
+		assert(view.hud.ult_notices[camp][0].speech == light.ult.shout, "Fast ultimates must speak the actual recorded general's line")
+		assert(not view.hud.ult_notices[camp][0].lines.is_empty())
+		assert(view.hud.ult_notice_speech_rect(camp).position.y > view.hud.ult_notice_rect(camp).end.y)
 		assert(view.hud.ult_notice_rect(camp).encloses(view.hud.ult_notice_portrait_rect(camp)))
 		assert(timing == [view.clock, view.speed, view.slow_t, view.freeze_t, view.field._cine], "A light activation must not slow, pause or move the camera")
 	assert(view.hud.ult_notice_rect("A").end.x < view.hud.size.x * 0.5)
 	assert(view.hud.ult_notice_rect("B").position.x > view.hud.size.x * 0.5)
+	var long_speech := view.hud._notice_speech_lines("장수가 전투하며 외치는 긴 대사를 화면 안에서 읽도록 줄을 나눈다. ".repeat(5), 152.0)
+	assert(long_speech.size() == 3 and long_speech[-1].ends_with("…"))
+	for line in long_speech:
+		assert(DB.font_bold.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x <= 136.01)
 	view.speed = 0.0
 	view.hud._tick_ult_notices(view.hud.ULT_NOTICE_LIFE + 0.01)
 	assert(view.hud.ult_notices.A.is_empty() and view.hud.ult_notices.B.is_empty(), "Notices must expire in real HUD time, independently of battle speed")
@@ -210,6 +217,7 @@ func _ready() -> void:
 	defeated = null
 	delayed = null
 	painter = null
+	view.field.ult.clear()
 	view.queue_free()
 	view = null
 	await get_tree().process_frame
