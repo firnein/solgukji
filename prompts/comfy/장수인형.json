@@ -1,0 +1,50 @@
+{
+ "model": "animagine-xl-4.0-opt.safetensors",
+ "_설명": "신화 장수 인형 (전투 화면 삽화) —— 살아 있는 신화 11명, 화풍 A(초상풍, 11/24 사용자 결정). tools/scripts/hero_gen.py 가 읽고, 고른 시드는 장수인형_고름.json → tools/scripts/make_myth_heroes.py 가 assets/war_painting/myth_heroes_v1.png 로 묶는다. 기병(여포 · 장료)만 말 탄 모습",
+ "common": {
+  "positive": "solo, full body, three kingdoms, ancient china, chinese armor, white background, simple background, no text, masterpiece, high score, great score, absurdres",
+  "negative": "lowres, bad anatomy, bad hands, extra digits, fewer digits, missing fingers, extra arms, extra weapons, text, letters, chinese characters, watermark, signature, logo, frame, border, multiple views, 2koma, comic, worst quality, low quality, low score, bad score, average score, blurry, jpeg artifacts, modern clothes, japanese armor, multiple boys, crowd, scenery, outdoors, sky, clouds, fire, flames, aura, glowing aura, particles, sparks, splash, ink splatter, paint splatter, motion lines, speed lines, light rays, smoke, petals, background effects, gradient background, dark background, ground texture, cropped, out of frame, feet out of frame, close-up, portrait, upper body, cowboy shot, floating ribbons, streamers, flowing sash"
+ },
+ "variants": {
+  "A": {
+   "desc": "초상풍 —— 초상 일러스트 화풍 · 색을 따른다 (애니 · 굵은 선)",
+   "lead": "1boy, male focus, standing, battle stance, from side, profile, facing right",
+   "positive": "anime, detailed lineart, sharp lineart, gacha card art, vivid colors, dramatic, clear silhouette",
+   "negative": "chibi, realistic, photorealistic, 3d",
+   "w": 832,
+   "h": 1216,
+   "ip": [
+    {"ref": "초상", "weight": 0.7, "type": "style transfer precise"}
+   ]
+  }
+ },
+ "items": [
+  {"name": "관우", "portrait": "관우_신화",
+   "positive": "mature male, red skin, red face, very long black beard, long mustache, narrow eyes, green hood, green headwear, green robe over armor, dark green and gold armor, shoulder armor, holding polearm, guandao, long glaive with large crescent blade, green dragon crescent blade"},
+  {"name": "여포", "portrait": "여포_신화",
+   "lead": "1boy, male focus, riding horse, horseback, from side, profile, facing right, galloping",
+   "positive": "red horse, chestnut horse, young male, handsome, long black hair, two long pheasant tail feathers on headdress, gold crown, red and silver armor, red cape, holding polearm, halberd, fangtian ji, crescent blade",
+   "w": 1216, "h": 832},
+  {"name": "장료", "portrait": "장료_신화",
+   "lead": "1boy, male focus, riding horse, horseback, from side, profile, facing right, galloping",
+   "positive": "black horse, dark horse, mature male, short black beard, steel helmet, purple plume, dark blue armor, steel armor, purple cape, holding polearm, glaive, crescent blade",
+   "w": 1216, "h": 832},
+  {"name": "손권", "portrait": "손권_신화",
+   "positive": "mature male, reddish brown beard, brown mustache, gold crown, red and gold robe, gold armor, emperor, regal, holding bow, drawing bow, quiver, arrows"},
+  {"name": "제갈량", "portrait": "제갈량_신화",
+   "positive": "mature male, long black hair, thin mustache, small goatee, tall black hat, black guan hat, white robe, crane feather cloak, white and green robe, holding fan, white feather fan, scholar, strategist, calm"},
+  {"name": "유비", "portrait": "유비_신화",
+   "positive": "mature male, black hair, topknot, gold hair ornament, mustache, small beard, green robe, green cape, gold armor, holding two swords, dual wielding, twin swords, jian"},
+  {"name": "장각", "portrait": "장각_신화",
+   "positive": "old man, long white beard, long white hair, wild hair, yellow headwear, yellow turban, gold crown, yellow taoist robe, yellow scarf, taoist priest, holding staff, long wooden staff, sorcerer, raised hand"},
+  {"name": "조조", "portrait": "조조_신화",
+   "positive": "mature male, black hair, mustache, goatee, black guan hat, black robe, dark red lining, black cape, black and gold armor, holding sword, jian, regal, cunning"},
+  {"name": "주유", "portrait": "주유_신화",
+   "positive": "young male, handsome, long dark brown hair tied back, red headband, crimson robe, red hanfu, black and gold trim, light armor, short red cape, holding sword, jian, chinese sword",
+   "negative": "ribbons, hair ribbon, long ribbons, floating fabric, flowing sleeves, wind, long cape"},
+  {"name": "감녕", "portrait": "감녕_신화",
+   "positive": "mature male, muscular, short beard, red bandana, red headband, tattoo, sleeveless, bare arms, red vest, gold trim, rope, bells, pirate, holding sword, curved sword, dao, broadsword"},
+  {"name": "사마의", "portrait": "사마의_신화",
+   "positive": "mature male, long black hair, thin mustache, small goatee, tall black hat, black official hat, white robe, dark blue robe, blue trim, holding fan, black feather fan, strategist, cunning"}
+ ]
+}

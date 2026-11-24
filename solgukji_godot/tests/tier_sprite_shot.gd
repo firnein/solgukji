@@ -1,7 +1,8 @@
 extends Control
 ## 11/24 삽화 병사 인형 점검 —— 병종별 인형 키 · 등급 차등 · 신화 전용 그림 (창이 뜬다 · 휴대폰 세로):
 ##   godot --path . --resolution 719x1280 res://tests/tier_sprite_shot.tscn -- [--ta=3,4,5,6,7,8,5,7,8] [--tb=5] [--tags=창병,...]
-##     [--shots=1.5] [--zoom=1.6] [--fx=0 --fy=0] [--out=폴더] [--tag=이름] [--seed=5] [--tierfx=0 등급 차등 끔(전)]
+##     [--shots=1.5] [--zoom=1.6] [--fx=0 --fy=0] [--out=폴더] [--tag=이름] [--seed=5] [--tierfx=0 등급 차등 끔(전)] [--heroes=0 신화 장수 인형 끔]
+## 11/24 신화 장수 인형: --ta=8 --tb=8 --tags=창병,기병,기병,궁병,책사,유생,술사,모사,도적 (살아 있는 신화를 병종마다 하나씩)
 ## 칸마다 그 등급 · 병종 카드를 뽑아 삽화 화면으로 틀고, 부대마다 인형 키를 찍는다:
 ##   FIGH|진영|병종|등급|열|반폭|인형 키(px)   · 끝에 FIGAVG|병종|평균 키|부대 수
 ## 그리기만 보는 점검 —— 전투 결과 · 저장은 건드리지 않는다 (PlayLog 끔).
@@ -24,6 +25,8 @@ func _ready() -> void:
 	var wps: Script = load("res://scripts/field/war_painting.gd")
 	if _args.has("tierfx") and "tier_fx" in wps:
 		wps.set("tier_fx", str(_args.tierfx) != "0")
+	if _args.has("heroes") and "heroes_on" in wps:
+		wps.set("heroes_on", str(_args.heroes) != "0")
 	var view := BattleView.new()
 	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(view)
@@ -87,7 +90,7 @@ func _measure(view: BattleView, wp) -> void:
 		var n := 0
 		for i in int(wp.figure_count):
 			var cell: float = wp._figs[i * wp.FIG_W + 3]
-			if wp._fig_sq[i] == sq and (cell < 16.0 or cell >= 18.0):
+			if wp._fig_sq[i] == sq and (cell < 16.0 or cell >= 18.0) and cell < 96.0:      # 96 이상은 장수 인형 (아래 HERO 줄)
 				h += wp._figs[i * wp.FIG_W + 2]
 				n += 1
 		if n == 0:
@@ -105,6 +108,13 @@ func _measure(view: BattleView, wp) -> void:
 	for k in sums:
 		print("FIGAVG|%s|키 %.1f|키/원근 %.1f|%d" % [k, sums[k][0] / sums[k][1], sums[k][2] / sums[k][1], sums[k][1]])
 	print("FIGDRAW|인형 %d" % int(wp.figure_count))
+	# 11/24 신화 장수 인형 —— 진영 · 인물 · 칸 · 화면 발 자리 · 칸 크기 · 투명
+	for i in int(wp.figure_count):
+		var b: int = i * wp.FIG_W
+		if wp._figs[b + 3] >= 96.0:
+			var sq: Squad = wp._fig_sq[i]
+			var at: Vector2 = wp.get_global_transform_with_canvas() * Vector2(wp._figs[b], wp._figs[b + 1])
+			print("HERO|%s|%s|칸 %d|화면 %d,%d|칸 크기 %.1f|투명 %.2f|그늘 %.2f" % [sq.camp, DB.person(sq.cid), int(wp._figs[b + 3]) - 96, int(at.x), int(at.y), wp._figs[b + 2], wp._figs[b + 4], wp._figs[b + 10]])
 
 
 ## 아군 한가운데로 다가간다 (등급 차이를 가까이서)

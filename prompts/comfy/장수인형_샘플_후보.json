@@ -1,0 +1,44 @@
+[
+ {
+  "no": 1,
+  "who": "관우",
+  "desc": "A 초상풍 —— 초상 화풍·색을 많이 따름, 녹포·청룡언월도",
+  "path": "prompts/comfy/out/장수인형/관우/A_5202_cut.png",
+  "flip": true
+ },
+ {
+  "no": 2,
+  "who": "관우",
+  "desc": "B 병사 삽화풍 —— 지금 병사처럼 수수한 붓 삽화",
+  "path": "prompts/comfy/out/장수인형/관우/B_5201_cut.png",
+  "flip": true
+ },
+ {
+  "no": 3,
+  "who": "관우",
+  "desc": "C 적토마 기마 (초상풍) —— 데이터는 창병",
+  "path": "prompts/comfy/out/장수인형/관우/C_5200_cut.png",
+  "flip": true
+ },
+ {
+  "no": 4,
+  "who": "주유",
+  "desc": "A 초상풍 —— 붉은 도포·긴 머리·검",
+  "path": "prompts/comfy/out/장수인형/주유/A_5200_cut.png",
+  "flip": true
+ },
+ {
+  "no": 5,
+  "who": "주유",
+  "desc": "B 병사 삽화풍 —— 갑옷+붉은 옷, 수수한 붓 삽화",
+  "path": "prompts/comfy/out/장수인형/주유/B_5201_cut.png",
+  "flip": true
+ },
+ {
+  "no": 6,
+  "who": "주유",
+  "desc": "C 큰 머리 2.5등신 (초상풍) —— 작게 줄여도 얼굴이 읽히게",
+  "path": "prompts/comfy/out/장수인형/주유/C_5300_cut.png",
+  "flip": false
+ }
+]

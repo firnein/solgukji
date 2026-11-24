@@ -71,6 +71,13 @@ static var action_frames_on := true # 점검용으로 끄면 같은 인형 수�
 static var tier_fx := true     # 11/24 점검용 (tests/tier_sprite_shot --tierfx=0) —— 끄면 등급 차등(크기 · 테두리 빛 · 기운 · 군기) · 신화 시트 없이 (전후 비교)
 var action_frames_ready := false
 var myth_ready := false        # 11/24 신화 시트를 읽었나 (painted_batch 가 셰이더에 넘기는 조건과 같다)
+## 11/24 사용자 「신화는 초상화 일러스트 참고해서 스프라이트」 —— 신화 부대에 그 인물의 장수 인형 하나 (초상을 IP-Adapter 로 참조해 뽑은 그림,
+## tools/scripts/hero_gen.py → make_myth_heroes.py → assets/war_painting/myth_heroes_v1.png + data/myth_heroes.json). 병사와 같은 묶음 · 깊이 순서
+static var heroes_on := true   # 점검용 (tests/tier_sprite_shot --heroes=0) —— 끄면 장수 인형 없이 (전후 비교)
+var hero_ready := false
+var _hero_cells := {}          # 인물 이름 -> 칸 번호 (data/myth_heroes.json)
+var _hero_fill := PackedFloat32Array()      # 칸 번호 -> 인형 키 / 칸 키 (발 0.97 기준)
+var _hero_of := {}             # 카드 id -> 칸 번호 (-1 = 없음)
 var batch: Node2D
 var top_effects: Node2D
 var glow_effects: Node2D
@@ -119,6 +126,7 @@ func _ready() -> void:
 			batch.myth_blue = load("res://assets/war_painting/troops_myth_blue_v1.png")      # 11/24 신화 부대 전용 (tools/scripts/make_myth_troops.py)
 			batch.myth_red = load("res://assets/war_painting/troops_myth_red_v1.png")
 			myth_ready = batch.myth_blue != null and batch.myth_red != null and batch.myth_blue.get_size() == batch.action_blue.get_size() and batch.myth_red.get_size() == batch.action_red.get_size()
+		_load_heroes()
 	batch.visible = batch_rendering
 	add_child(batch)
 	top_effects = TopEffects.new()
@@ -602,6 +610,7 @@ func _draw_overlay(ci: CanvasItem) -> void:
 	_draw_ults(ci)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
+	var first_fig := figure_count
 	var h := _figure_height(sq, form)
 	var grade := _grade(sq)
 	var style := _style(sq, grade)
@@ -718,7 +727,144 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 	if form.count > 0 and batch_rendering:
 		_collect_standard(sq, form, h / FIGURE_SCALE, fade_sq, cv, grade)
+	if animated and hero_ready and heroes_on and tier_fx and sq.tier >= MYTH_TIER and form.count > 0:
+		var hi := _hero_index(sq)
+		if hi >= 0:
+			_collect_hero(sq, form, hi, h, axis, mirror, eligible, ranged, bow_base, fade_sq, cv, sway, first_fig)
 	_scr[sq.key] = scr
+
+## 11/24 신화 장수 인형 ————————————————————————————————————————————————
+const HERO_DATA := "res://data/myth_heroes.json"
+const HERO_CELL := 96          # painted_batch.HERO_CELL —— 셀 96 + 칸 번호 (32칸까지)
+const HERO_FIG := 1.75         # 장수 키 = 병사 인형 키 × 이 값 (사용자 샘플 기준)
+const HERO_BODY := 0.92        # 병사 인형이 칸에서 차지하는 키 (동작 시트 실측 0.84~1.0) —— 장수 키를 칸이 아닌 몸으로 맞춘다
+const HERO_LUNGE := 2.2        # 공격 · 피격 때 내지르기 · 움찔 폭 (병사 대비, 그림 한 장이라 자리 · 기울기로)
+const HERO_STYLE := 13.0       # 모양 값 (신병 5 + 신화 8) —— 적군은 + painted_batch.HERO_ENEMY
+const HERO_AHEAD := 0.2        # 첫 줄보다 이만큼(줄 간격 배) 앞
+
+func _load_heroes() -> void:
+	if not FileAccess.file_exists(HERO_DATA):
+		return
+	var d = JSON.parse_string(FileAccess.get_file_as_string(HERO_DATA))
+	if typeof(d) != TYPE_DICTIONARY or not ResourceLoader.exists(str(d.get("sheet", ""))):
+		return
+	var tex: Texture2D = load(str(d.sheet))
+	var grid: Array = d.get("grid", [4, 3])
+	var slots := int(grid[0]) * int(grid[1])
+	if tex == null or slots > 32:
+		return
+	_hero_fill.resize(slots)
+	var cells_: Dictionary = d.get("cells", {})
+	for nm in cells_:
+		var i := int(cells_[nm].get("i", -1))
+		if i < 0 or i >= slots:
+			continue
+		_hero_cells[str(nm)] = i
+		_hero_fill[i] = maxf(0.2, float(cells_[nm].get("fill", HERO_BODY)))
+	batch.hero_atlas = tex
+	batch.hero_grid = Vector2(int(grid[0]), int(grid[1]))
+	hero_ready = not _hero_cells.is_empty()
+
+## 그 부대 장수의 인형 칸 (없으면 -1) —— 카드 id 로 한 번만 찾는다
+func _hero_index(sq: Squad) -> int:
+	var k := sq.cid
+	if not _hero_of.has(k):
+		_hero_of[k] = int(_hero_cells.get(DB.person(k), -1)) if DB.C.has(k) else -1
+	return int(_hero_of[k])
+
+## 대열 가운데 줄의 화면 위쪽 끝에 장수 인형 하나 —— 앞이 화면 위를 보면(보통 아군) 맨 앞, 아래를 보면(보통 적군) 맨 뒤.
+## 앞이 화면 아래인 부대의 맨 앞은 부대 이름 · 병력 막대 자리라 가렸다. 병사들의 가장 최근 찌르기 · 피격 시각을 받아
+## 같은 곡선으로 앞으로 내지르고 · 움찔한다 (폭만 HERO_LUNGE 배). 걸음은 살아 있는 병사 평균. 그림 · 판정과 무관 (자리만 읽는다)
+## 그리는 순서는 제 부대 병사 · 군기 다음 (깊이 키를 그 부대 맨 아래 인형까지 내린다) —— 앞에 세워도 제 병사 머리에 가려 안 보였다
+func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float, axis: Vector2, mirror: bool,
+		eligible: bool, ranged: bool, bow_base: float, fade_sq: float, cv: float, sway: float, first_fig: int) -> void:
+	var facing := Vector2.from_angle(form.heading)
+	var front := maxf(sq.hd0 * form.ratio, RtBattle.HD_MIN) * 0.86
+	var strike := -10.0
+	var hurt := -10.0
+	var hurt_id := -1
+	var gait := 0.0
+	var living := 0
+	var lead := -1
+	var last_rank := 0
+	for id in form.capacity:
+		if form.alive[id] == 0:
+			continue
+		last_rank = maxi(last_rank, form.ranks[id])
+		strike = maxf(strike, form.strike_at[id])
+		if form.hurt_at[id] > hurt:
+			hurt = form.hurt_at[id]
+			hurt_id = id
+		gait += form.gait[id]
+		living += 1
+		if lead < 0:
+			lead = id
+	if living == 0:
+		return
+	var depth := front + form.row_gap * HERO_AHEAD
+	if facing.x < -0.2:      # 앞이 화면 아래 (화면 y = −필드 x)
+		depth = front - form.row_gap * (last_rank + HERO_AHEAD)
+	var at := form.center + facing * depth
+	if not form.contact_limits.is_empty():
+		at = form.constrain_foot(at)
+	gait /= living
+	var stride: float = form.strides[lead]
+	var p := _pm(at)
+	var p0 := p
+	var tilt := 0.0
+	var hit := 0.0
+	if sq.state != "flee":
+		if eligible:
+			var age := visual_time - strike
+			var windup := 0.0
+			var thrust := 0.0
+			if age >= 0.0 and age < 0.4:
+				windup = smoothstep(0.0, 0.09, age) * (1.0 - smoothstep(0.09, 0.13, age))
+				thrust = smoothstep(0.09, 0.13, age) * (1.0 - smoothstep(0.18, 0.4, age))
+			var guard := sin(visual_time * 3.1 + float(sq.row.slot)) * form.contact_weight
+			p += axis * guard * 0.8 * (1.0 - gait)
+			tilt += axis.x * guard * 0.018
+			p += axis * (thrust * 3.2 - windup * 1.2) * HERO_LUNGE
+			tilt += axis.x * (thrust * 0.16 - windup * 0.07)
+			gait *= 0.35
+		elif ranged and bow_base < 0.5:
+			var bow := smoothstep(0.0, 0.1, bow_base) * (1.0 - smoothstep(0.15, 0.32, bow_base))
+			tilt -= axis.x * bow * 0.08
+			p -= axis * bow * 2.0
+	var hurt_age := visual_time - hurt
+	if hurt_id >= 0 and hurt_age >= 0.0 and hurt_age < 0.38:
+		var hurt_axis: Vector2 = (_pm(at + form.hurt_dir[hurt_id] * 16.0) - _pm(at)).normalized()
+		var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, 0.38, hurt_age))
+		p += hurt_axis * recoil * (2.0 + form.hurt_power[hurt_id] * 2.4) * HERO_LUNGE * 0.7
+		tilt += hurt_axis.x * recoil * (0.07 + form.hurt_power[hurt_id] * 0.05)
+		hit = 1.0 - smoothstep(0.025, 0.14, hurt_age)
+		gait *= 1.0 - recoil
+	if gait > 0.001:
+		tilt += sin(stride) * gait * sway * 0.7
+	if p != p0 and not form.contact_limits.is_empty():
+		p = _pm(form.constrain_foot(v.unmap(p)))
+	var n := figure_count
+	figure_count += 1
+	if _figs.size() < figure_count * FIG_W:
+		_figs.resize(maxi(figure_count * FIG_W, _figs.size() * 2))
+	var b := n * FIG_W
+	_figs[b] = p.x
+	_figs[b + 1] = p.y
+	_figs[b + 2] = soldier_h * HERO_FIG * HERO_BODY / _hero_fill[idx]      # 칸 크기 —— 인형 키가 병사 몸 × HERO_FIG 가 되게
+	_figs[b + 3] = float(HERO_CELL + idx)
+	_figs[b + 4] = fade_sq
+	_figs[b + 5] = tilt
+	_figs[b + 6] = gait
+	_figs[b + 7] = stride
+	_figs[b + 8] = hit
+	_figs[b + 9] = 1.0 if mirror else 0.0
+	_figs[b + 10] = cv
+	_figs[b + 11] = HERO_STYLE + (0.0 if sq.camp == "A" else 16.0)
+	_fig_sq.append(sq)
+	var key_y := p.y
+	for k in range(first_fig, n):
+		key_y = maxf(key_y, _figs[k * FIG_W + 1] + 0.2)
+	_fig_keys.append(((int(roundf(key_y * 8.0)) + 0x80000) << 16) | n)
 
 ## 부대 안에 꽂힌 군기도 병사와 같은 깊이 순서·GPU 묶음에 넣는다.
 ## 셀 16/17은 아틀라스 대신 셰이더가 그리는 청/적 천과 깃대다.

@@ -69,6 +69,9 @@ func _ready() -> void:
 			max_figures = maxi(max_figures, painter.figure_count)
 			for id in painter.figure_count:
 				var cell := int(painter._figs[id * painter.FIG_W + 3])
+				if cell >= 96:      # 11/24 신화 장수 인형 (셀 96 + 칸 번호, 자세 없는 한 장)
+					assert(cell < 128, "Hero cells must stay inside 96..127")
+					continue
 				if cell >= 32:
 					assert(cell < 96, "Action sheet cells must stay inside the two 4 x 8 atlases")
 					poses[cell % 4] += 1

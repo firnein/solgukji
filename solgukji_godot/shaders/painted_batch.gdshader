@@ -10,6 +10,16 @@ uniform vec2 action_red_pixel_size;
 uniform sampler2D myth_blue : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D myth_red : source_color, filter_linear_mipmap, repeat_disable;
 uniform bool has_myth = false;
+// 11/24 신화 장수 인형 (assets/war_painting/myth_heroes_v1.png · tools/scripts/make_myth_heroes.py) —— 셀 96 + 칸 번호, 인물마다 그림 한 장.
+// 진영은 모양 값(style)의 16 자리 (16 이상 = 적군) —— 진영색 테두리 기운으로 가른다
+uniform sampler2D hero_atlas : source_color, filter_linear_mipmap, repeat_disable;
+uniform vec2 hero_grid = vec2(4.0, 3.0);
+uniform vec2 hero_pixel_size;
+uniform bool has_hero = false;
+const vec3 HERO_ALLY = vec3(0.36, 0.7, 1.0);
+const vec3 HERO_ENEMY = vec3(1.0, 0.34, 0.2);
+varying float hero;       // 1 = 장수 인형
+varying float enemy;      // 장수 인형이 적군
 const float MYTH_FIT = 0.8;      // painted_batch.gd MYTH_FIT · tools/scripts/make_myth_troops.py FIT 와 같게
 varying vec4 tint;
 varying float shade;      // 11/22 매복 그늘 (0~1) —— 숲 · 바위 지형을 지나는 우회 · 매복 부대
@@ -33,15 +43,17 @@ vec4 over(vec4 top, vec4 bottom) {
 void vertex() {
 	float style = floor(INSTANCE_CUSTOM.r / 128.0);
 	float cell = INSTANCE_CUSTOM.r - style * 128.0;
+	hero = (has_hero && cell >= 96.0) ? 1.0 : 0.0;
+	enemy = style >= 16.0 ? 1.0 : 0.0;
 	grade = mod(style, 8.0);
-	myth = (has_myth && style >= 8.0 && cell >= 32.0) ? 1.0 : 0.0;
+	myth = (has_myth && hero < 0.5 && mod(style, 16.0) >= 8.0 && cell >= 32.0) ? 1.0 : 0.0;
 	standard = cell >= 16.0 && cell < 18.0 ? cell - 15.0 : 0.0;
-	action_army = cell >= 64.0 ? 2.0 : (cell >= 32.0 ? 1.0 : 0.0);
+	action_army = hero > 0.5 ? 0.0 : (cell >= 64.0 ? 2.0 : (cell >= 32.0 ? 1.0 : 0.0));
 	flag_phase = INSTANCE_CUSTOM.g;
 	float phase = INSTANCE_CUSTOM.g;
 	float strength = INSTANCE_CUSTOM.b;
 	float action_cell = mod(cell - 32.0, 32.0);
-	bool cavalry = action_army > 0.5 ? floor(action_cell / 4.0) == 1.0 : mod(cell, 8.0) == 1.0;
+	bool cavalry = hero > 0.5 ? false : (action_army > 0.5 ? floor(action_cell / 4.0) == 1.0 : mod(cell, 8.0) == 1.0);
 	float swing = sin(phase) * strength;
 	// 신화 시트는 인형이 칸의 MYTH_FIT 배 (발 기준) —— 다리 구역 · 흔들림 폭을 같은 비율로
 	float fit = myth > 0.5 ? MYTH_FIT : 1.0;
@@ -52,7 +64,12 @@ void vertex() {
 	cell_uv = UV;
 	// Match the legacy mesh's 0.75-pixel inset on each atlas cell.
 	vec2 pad = vec2(0.75) * atlas_pixel_size;
-	if (action_army > 0.5) {
+	if (hero > 0.5) {
+		float hc = cell - 96.0;
+		vec2 h_origin = vec2(mod(hc, hero_grid.x), floor(hc / hero_grid.x));
+		UV = (h_origin + UV) / hero_grid;
+		UV = mix(UV + hero_pixel_size * 0.75, UV - hero_pixel_size * 0.75, UV * hero_grid - h_origin);
+	} else if (action_army > 0.5) {
 		vec2 action_px = action_army < 1.5 ? action_blue_pixel_size : action_red_pixel_size;
 		vec2 grid = vec2(4.0, 8.0);
 		vec2 origin = vec2(mod(action_cell, 4.0), floor(action_cell / 4.0));
@@ -67,6 +84,7 @@ void vertex() {
 }
 
 vec4 sprite_sample(vec2 at) {
+	if (hero > 0.5) { return texture(hero_atlas, at); }
 	if (action_army > 1.5) { return myth > 0.5 ? texture(myth_red, at) : texture(action_red, at); }
 	if (action_army > 0.5) { return myth > 0.5 ? texture(myth_blue, at) : texture(action_blue, at); }
 	return texture(idle_atlas, at);
@@ -74,6 +92,7 @@ vec4 sprite_sample(vec2 at) {
 
 // 갈래 안에서 읽는 판 —— 미분을 밖에서 재 넘긴다 (흐림은 미분을 키워 밉맵 한 장으로)
 vec4 sprite_grad(vec2 at, vec2 dx, vec2 dy) {
+	if (hero > 0.5) { return textureGrad(hero_atlas, at, dx, dy); }
 	if (action_army > 1.5) { return myth > 0.5 ? textureGrad(myth_red, at, dx, dy) : textureGrad(action_red, at, dx, dy); }
 	if (action_army > 0.5) { return myth > 0.5 ? textureGrad(myth_blue, at, dx, dy) : textureGrad(action_blue, at, dx, dy); }
 	return textureGrad(idle_atlas, at, dx, dy);
@@ -117,6 +136,18 @@ void fragment() {
 			}
 			c = mix(c, vec4(gold, 1.0), tail * (1.0 - cloth));
 		}
+	} else if (hero > 0.5 && shade <= 0.01) {
+		// 11/24 신화 장수 인형 —— 위에서 받는 금빛 테두리 · 먹 외곽선 · 바깥에 진영색 기운 (아군 청 · 적군 적, 숨 쉬듯)
+		vec3 side_c = enemy > 0.5 ? HERO_ENEMY : HERO_ALLY;
+		float a_up = sprite_grad(UV - dv * 1.1, du, dv).a;
+		c.rgb = mix(c.rgb, RIM_GOLD * 1.1, clamp(c.a * (1.0 - a_up) * 0.45, 0.0, 1.0));
+		float a_near = sprite_grad(UV, du * 2.5, dv * 2.5).a;
+		float ink = (1.0 - c.a) * smoothstep(0.04, 0.32, a_near) * 0.85;
+		float a_blur = sprite_grad(UV, du * 6.0, dv * 6.0).a;
+		float halo = (1.0 - c.a) * smoothstep(0.02, 0.4, a_blur);
+		halo *= smoothstep(0.0, 0.06, cell_uv.x) * (1.0 - smoothstep(0.94, 1.0, cell_uv.x)) * smoothstep(0.0, 0.06, cell_uv.y);
+		float pulse = 0.85 + 0.15 * sin(TIME * 3.0 + flag_phase * 0.15);
+		c = over(c, over(vec4(OUTLINE, ink), vec4(side_c, halo * 0.75 * pulse)));
 	} else if (grade > 1.5 && shade <= 0.01) {
 		// 11/24 정예 이상 —— 모래빛 바닥에서 또렷하게: 진한 옷 빛 · 먹 외곽선 · 위에서 받는 가는 테두리 빛 (정예 은 · 근위부터 금)
 		// 근위부터 외곽선 밖에 등급색 기운 (초월 하늘 · 불멸 주황 · 신화 금). 탭은 정예 3 · 근위 이상 4 번 (미분은 갈래 밖에서 잰 것)
