@@ -1,0 +1,102 @@
+{
+ "_설명": "신화 장수 인형 —— 고른 그림 (인물 · 갈래 · 시드 · 좌우 뒤집기). tools/scripts/make_myth_heroes.py 가 읽어 assets/war_painting/myth_heroes_v1.png + data/myth_heroes.json 을 만든다. 그림이 없으면 spec 으로 그 시드를 다시 뽑는다 (hero_gen.py <spec> <name> -v <variant> -n 1 --seed <seed>)",
+ "cell": 320,
+ "grid": [
+  4,
+  3
+ ],
+ "foot": 0.97,
+ "body": 0.92,
+ "items": [
+  {
+   "name": "관우",
+   "spec": "prompts/comfy/장수인형_샘플.json",
+   "variant": "A",
+   "seed": 5202,
+   "flip": true,
+   "desc": "창병 · 녹포 · 청룡언월도 (샘플 1번)"
+  },
+  {
+   "name": "여포",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6103,
+   "flip": true,
+   "mounted": true,
+   "desc": "기병 · 적토마 · 꿩깃 · 방천화극"
+  },
+  {
+   "name": "장료",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6100,
+   "flip": false,
+   "mounted": true,
+   "desc": "기병 · 흑마 · 보라 깃 · 언월도"
+  },
+  {
+   "name": "손권",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6102,
+   "flip": false,
+   "desc": "궁병 · 금관 · 붉은 금포 · 활 당김"
+  },
+  {
+   "name": "제갈량",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6103,
+   "flip": true,
+   "desc": "책사 · 윤건 · 학창의 · 깃털 부채"
+  },
+  {
+   "name": "유비",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6100,
+   "flip": true,
+   "desc": "유생 · 녹포 · 쌍고검"
+  },
+  {
+   "name": "장각",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6103,
+   "flip": false,
+   "desc": "술사 · 황건 도사 · 흰 수염 · 지팡이"
+  },
+  {
+   "name": "조조",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6100,
+   "flip": false,
+   "desc": "모사 · 흑포 · 붉은 안감 · 검"
+  },
+  {
+   "name": "주유",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6103,
+   "flip": true,
+   "desc": "책사 · 붉은 도포 · 검 (리본 뺌)"
+  },
+  {
+   "name": "감녕",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6100,
+   "flip": true,
+   "desc": "도적 · 붉은 두건 · 문신 · 곡도"
+  },
+  {
+   "name": "사마의",
+   "spec": "prompts/comfy/장수인형.json",
+   "variant": "A",
+   "seed": 6100,
+   "flip": false,
+   "desc": "모사 · 높은 관 · 청회색 포 · 깃털 부채"
+  }
+ ]
+}

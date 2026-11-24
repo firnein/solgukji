@@ -1,0 +1,67 @@
+{
+ "_설명": "신화 장수 인형 시트 칸 표 (tools/scripts/make_myth_heroes.py 가 만든다 —— 손으로 고치지 말 것). i = 칸 번호 (왼쪽 위부터 가로로), fill = 인형 키 / 칸 키 (발은 칸의 foot), war_painting._collect_hero 가 읽는다",
+ "sheet": "res://assets/war_painting/myth_heroes_v1.png",
+ "grid": [
+  4,
+  3
+ ],
+ "cell": 320,
+ "foot": 0.97,
+ "cells": {
+  "관우": {
+   "i": 0,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "여포": {
+   "i": 1,
+   "fill": 0.9187,
+   "mounted": true
+  },
+  "장료": {
+   "i": 2,
+   "fill": 0.9187,
+   "mounted": true
+  },
+  "손권": {
+   "i": 3,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "제갈량": {
+   "i": 4,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "유비": {
+   "i": 5,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "장각": {
+   "i": 6,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "조조": {
+   "i": 7,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "주유": {
+   "i": 8,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "감녕": {
+   "i": 9,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "사마의": {
+   "i": 10,
+   "fill": 0.9187,
+   "mounted": false
+  }
+ }
+}

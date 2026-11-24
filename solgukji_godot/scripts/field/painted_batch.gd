@@ -6,6 +6,8 @@ var action_blue: Texture2D
 var action_red: Texture2D
 var myth_blue: Texture2D       # 11/24 신화 부대 전용 시트 (동작 시트와 같은 4×8 배치 · 인형을 MYTH_FIT 배로 줄여 위에 장식 자리)
 var myth_red: Texture2D
+var hero_atlas: Texture2D      # 11/24 신화 장수 인형 시트 (tools/scripts/make_myth_heroes.py · data/myth_heroes.json) —— 셀 HERO_CELL + 칸 번호
+var hero_grid := Vector2(4, 3)
 var soldiers: MultiMeshInstance2D
 var shadows: MultiMeshInstance2D
 var capacity := 0
@@ -40,6 +42,11 @@ func _ready() -> void:
 			material_.set_shader_parameter("myth_blue", myth_blue)
 			material_.set_shader_parameter("myth_red", myth_red)
 			material_.set_shader_parameter("has_myth", true)
+	if hero_atlas != null:
+		material_.set_shader_parameter("hero_atlas", hero_atlas)
+		material_.set_shader_parameter("hero_grid", hero_grid)
+		material_.set_shader_parameter("hero_pixel_size", Vector2.ONE / hero_atlas.get_size())
+		material_.set_shader_parameter("has_hero", true)
 	soldiers.material = material_
 	add_child(soldiers)
 
@@ -143,6 +150,11 @@ func update_figures(figures: Array, ally: Color, enemy: Color) -> void:
 const MYTH_FIT := 0.8
 ## 11/24 병사 단계 · 신화 표시(style = 단계 0~5 + 신화면 8)는 셀 번호 칸에 STYLE_STEP 배로 얹는다 (셰이더가 floor(r / 128) 로 푼다)
 const STYLE_STEP := 128.0
+## 11/24 신화 장수 인형 —— 셀 96 + 칸 번호 (병사 동작 시트 32~95 다음). 모양 값 16 이상 = 적군 장수 (발밑 원 · 셰이더 테두리 기운을 진영색으로)
+const HERO_CELL := 96.0
+const HERO_ENEMY := 16.0
+const HERO_RING_ALLY := Color(0.3, 0.62, 1.0)
+const HERO_RING_ENEMY := Color(1.0, 0.32, 0.2)
 
 ## 11/19 묶음 배열판 (war_painting._figs) —— keys 정렬 순서(아래 16비트 = 인형 번호)로 버퍼를 채운다. 값 · 식은 update_figures 와 같다
 func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, ally: Color, enemy: Color) -> void:
@@ -170,12 +182,13 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		var hurt := figs[f + 8]
 		var sn := absf(sin(stride))
 		var cell_id := int(cell)
+		var hero := cell >= HERO_CELL
 		var cavalry := ((cell_id - 32) % 32) / 4 == 1 if cell_id >= 32 else cell_id % 8 == 1
-		var lift := sn * sn * sn * gait * h * (0.027 if cavalry else 0.009)
+		var lift := sn * sn * sn * gait * h * (0.012 if hero else (0.027 if cavalry else 0.009))
 		var c := cos(tilt)
 		var s := sin(tilt)
 		var style := figs[f + 11] if w > 11 else 0.0
-		var hq := h / MYTH_FIT if style >= 8.0 and cell >= 32.0 else h      # 신화 시트 —— 장식 자리만큼 칸을 키운다 (몸 · 그림자 · 들썩임은 h 그대로)
+		var hq := h / MYTH_FIT if style >= 8.0 and cell >= 32.0 and not hero else h      # 신화 시트 —— 장식 자리만큼 칸을 키운다 (몸 · 그림자 · 들썩임은 h 그대로)
 		var sx := -hq if figs[f + 9] > 0.5 else hq
 		var b := i * 16
 		buffer[b] = c * sx
@@ -197,7 +210,7 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		buffer[b + 14] = gait
 		buffer[b + 15] = figs[f + 10] if w > 10 else 0.0      # 11/22 매복 그늘 (0~1) —— 셰이더가 어둡게 · 흐릿하게
 		var sh := i * 12
-		var r := h * 0.19
+		var r := h * (0.17 if hero else 0.19)
 		shadow_buffer[sh] = r
 		shadow_buffer[sh + 1] = 0
 		shadow_buffer[sh + 2] = 0
@@ -206,6 +219,13 @@ func update_packed(figs: PackedFloat32Array, keys: PackedInt64Array, w: int, all
 		shadow_buffer[sh + 5] = r * 0.32
 		shadow_buffer[sh + 6] = 0
 		shadow_buffer[sh + 7] = py
+		if hero:      # 장수 발밑 —— 그림자 대신 진영색 원 (같은 묶음)
+			var ring := HERO_RING_ENEMY if style >= HERO_ENEMY else HERO_RING_ALLY
+			shadow_buffer[sh + 8] = ring.r
+			shadow_buffer[sh + 9] = ring.g
+			shadow_buffer[sh + 10] = ring.b
+			shadow_buffer[sh + 11] = 0.5 * fade
+			continue
 		shadow_buffer[sh + 8] = 0.1
 		shadow_buffer[sh + 9] = 0.08
 		shadow_buffer[sh + 10] = 0.05
