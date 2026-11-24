@@ -734,6 +734,18 @@ func _inyeon_drop(d: Unit) -> void:
 		_wind_grp.erase(d)
 		if grp.get("kiin") == d and not grp.get("fired", false):      # 연쇄를 열 기인이 끊겼다 —— 대표가 다시 연다
 			grp.erase("kiin")
+		# 11/24 사용자: 「인연들도 같이 차징을 시작했는데 연쇄가 안 된다」 —— 대표가 터지기 전에 빠지면(혼란 · 쓰러짐 · 끊김) 남은 짝이 모두 단독으로 터졌다.
+		# 남은 장수 가운데 가장 먼저 터질 장수가 대표를 잇는다 (남은 인원이 2명 이상이면 연쇄가 그대로 이어진다)
+		if grp.lead == d and not grp.get("fired", false):
+			var nx: Unit = null
+			for o in grp.members:
+				if _wind.has(o) and (nx == null or float(_wind[o]) < float(_wind[nx])):
+					nx = o
+			if nx != null:
+				grp.lead = nx
+				for j in _join_q:      # 아직 합류 전인 짝은 새 대표를 따라간다
+					if j.lead == d:
+						j.lead = nx
 		_inyeon_fin_check(grp)
 	_join_q = _join_q.filter(func(j): return j.lead != d)
 
