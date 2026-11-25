@@ -2484,7 +2484,7 @@ func _damage_number(i: int, e: Dictionary, f: String) -> void:
 			var big: bool = gq.skill != "" or gq.ult != null or (field.squads.has(gq.who) and field.squads[gq.who].tier >= 7)
 			if Settings.dmg_numbers == 0 and not big and not e.get("crit", false):      # 11/6 #16 C등급(평타)은 '큰 것만' 에서 숨긴다
 				return
-			hud.damage(f, n, k, e.get("crit", false) and big, Settings.dmg_numbers == 2)     # 불타는(화공) · 잠긴(수공) 적을 더 세게 친 타격
+			hud.damage(f, n, k, e.get("crit", false) and big, Settings.dmg_numbers == 2, gq.ult != null)     # 불타는(화공) · 잠긴(수공) 적을 더 세게 친 타격 · 11/25 고유기 타격은 늘 숫자
 		"heal":
 			hud.damage(f, n, "heal", false)
 		"tick":
@@ -3682,7 +3682,8 @@ class Hud extends Control:
 
 	## 피해 숫자 —— 적이 입은 피해는 흰색, 아군이 입은 피해는 붉은색, 책략은 보랏빛, 회복은 초록.
 	## 치명타는 금빛으로 크게 찍혔다가 자리를 잡고 "치명타!" 가 붙는다.
-	func damage(key: String, amount: float, kind: String, crit: bool, every := false) -> void:
+	## 11/25 ult = 고유기 타격 —— 삽화의 모으기 문턱(12%) · 1.5초 막기를 건너뛰고 늘 띄운다 (사용자: 고유기를 맞았는데 숫자가 안 나오는 경우)
+	func damage(key: String, amount: float, kind: String, crit: bool, every := false, ult := false) -> void:
 		if Type2View.painting_on() and amount <= 0.0:
 			return
 		var sq: Squad = view.field.squads.get(key)
@@ -3693,13 +3694,16 @@ class Hud extends Control:
 				return
 			# 11/19 사용자: 창병은 붙어 싸우는데 숫자가 하나도 안 뜬다 —— 한 대가 병력의 12% 아래면 버리던 것을 모아 두었다가 12% 가 차면 띄운다
 			# (창병 한 대 평균 2.5% · 기병 돌격 7~16% 라 돌격만 숫자가 떴다. tests/hit_size)
+			# 11/25 막는 글은 화면에 그려지는 것만 —— 삽화에서 그리지 않는 기여 알림(deck)이 숫자를 막아 고유기 숫자가 사라졌다 (신화 제갈량 고유기 26% 가 숫자 0개)
 			var pk: String = key + kind + "@p"
 			var acc: float = _small.get(pk, 0.0) + amount
-			if acc < sq.max * 0.12 or floats.any(func(f): return f.key == key and view.clock - f.t0 < 1.5):
+			if not ult and (acc < sq.max * 0.12 or floats.any(func(f): return f.key == key and not f.get("deck", false) and view.clock - f.t0 < 1.5)):
 				_small[pk] = acc
 				return
 			_small.erase(pk)
 			amount = acc
+		if ult:
+			every = true      # 아래 작은 타격 모으기도 건너뛴다
 		var mine: bool = sq.camp == "A"
 		var col: Color
 		var fs := 14                     # 10/31 작게(15 → 11) → 11/3 사용자: 군단 사이에서 안 읽힌다 → 14 + 두꺼운 외곽선 (작은 타격은 그대로 모아서 띄운다)
