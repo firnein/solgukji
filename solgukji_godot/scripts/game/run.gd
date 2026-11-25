@@ -1419,15 +1419,24 @@ static func _bot_material_grow(b: Dictionary, seed_value: int, p_idx: int) -> vo
 			r._bot_material_rewards()
 			r.advance()
 		if r.sell_on and r.phase == 2:
-			# 11/19~25 온라인 기록: 상점 구매의 대부분이 기본패였다. 4~5일차에 가장 많이 산다.
-			var base_buys: Array[int] = [0, 1, 1, 3, 2, 1, 1]
+			# 11/25 사용자 "유저 기록을 토대로 유저봇 강화" —— 1.2k~1.2m 온라인 기록의 사람 하루 평균 구매: 기본 랜덤권 0 · 5.7 · 0 · 0.8 · 4.2 · 5.5 · 2장,
+			# 5일차부터 남는 군량으로 전설 랜덤권 · 6일차부터 10연 뽑기(사람 5 · 6일차 하루 1 · 2번). 군량이 모자라면 buy · gacha 가 거절한다
+			var base_buys: Array = [0, 6, 0, 1, 4, 6, 2] if bot_human_econ else [0, 1, 1, 3, 2, 1, 1]
 			for i in base_buys[r.td()]:
 				r.buy(1)
+			if bot_human_econ and r.td() >= 4:
+				r.buy(5)
+			if bot_human_econ and r.td() >= 5:
+				r.gacha(GACHA_TEN)
 		r.bot_prepare(true, true)
 	b["forge_phase"] = p_idx
 	b["forge_state"] = r.to_dict()
 	b["army"] = r.board.duplicate()
 	b["pv"] = float(r.my_pv())
+
+const BOT_QUEST_WIN := 0.85      # 유저봇 장부의 토벌 승률 · 이긴 판 중 험지 돌파 비율 (사람 온라인 기록)
+const BOT_HARD_WIN := 0.65
+static var bot_human_econ := true      # 점검용 —— 끄면 11/25 이전 유저봇 장부(전리품 · 험지 보상 없음, 옛 구매표) (tests/bot_fit --old=1)
 
 func _bot_material_rewards() -> void:
 	var d := clampi(day, 0, LAST_TABLE_DAY)
@@ -1445,6 +1454,12 @@ func _bot_material_rewards() -> void:
 			give(DB.BASE[rng.randi() % DB.BASE.size()])
 		if int(bonus.ticket) > 0:
 			add_ticket(mini(quest_top_tier(day), QUEST_BONUS_TICKET_TIER), 1, true)
+		# 11/25 사용자 "유저 기록을 토대로 유저봇 강화": 사람은 토벌을 이기면 전리품 장비 한 점, 험지를 골라 이기면 한 등급 높은 선택권을 받는데 봇 장부엔 없었다
+		# (1.2k~1.2m 기록 87판: 토벌 승률 85% · 이긴 판의 65% 가 험지 돌파). 장비를 낀 칸이 사람 2~4일차 4.3 · 5.9 · 6.9 에 봇 2.8 · 3.3 · 4.5 였다
+		if bot_human_econ and rng.randf() < BOT_QUEST_WIN:
+			gain_item_grade(quest_loot_grade())
+			if rng.randf() < BOT_HARD_WIN:
+				add_ticket(quest_hard_tier(), 1, true)
 
 
 ## 봇 한 명의 대전 편성 —— 군세(b.army)를 표준 PV 에 맞추고(저장), extra != 1 이면 이번 전투만 그 PV 로 한 번 더 맞춘 복사본을 쓴다 (저장하지 않음 ·

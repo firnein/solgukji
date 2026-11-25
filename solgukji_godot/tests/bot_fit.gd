@@ -12,6 +12,10 @@ func _ready() -> void:
 			args[a.substr(2, a.find("=") - 2)] = a.substr(a.find("=") + 1)
 	var muls: Array = Array(str(args.get("muls", "0.8,1.0,1.2,1.4,1.6")).split(",")).map(func(x): return float(x))
 	var seeds := int(args.get("seeds", "2"))
+	var material := str(args.get("material", "0")) == "1"      # 11/25 유저봇(재료 봇) —— 배율 대신 사람과 같은 보급으로 자란 봇 (Run._bot_material_grow), 시드마다 한 봇을 21단계 키워 둔다
+	var mats := {}
+	Run.bot_human_econ = str(args.get("old", "0")) != "1"
+	var since := str(args.get("since", ""))      # 이 이름(날짜) 이후 기록만
 	var by_name := {}
 	for id in DB.C:
 		by_name[str(DB.C[id].name)] = id
@@ -21,7 +25,7 @@ func _ready() -> void:
 	var samples := []      # [day, phase, side, foe_pv, style, win]
 	var dir := DirAccess.open(str(args.get("logs", "")))
 	for f in dir.get_files():
-		if not f.ends_with(".jsonl"):
+		if not f.ends_with(".jsonl") or f < since:
 			continue
 		var fa := FileAccess.open(str(args.logs).path_join(f), FileAccess.READ)
 		var st = null
@@ -71,7 +75,18 @@ func _ready() -> void:
 					var r := RandomNumberGenerator.new()
 					r.seed = 9000 + sd * 31 + n
 					var p_idx := int(s[0]) * 3 + int(s[1])
-					var foe := Run.bot_side(float(s[3]) * float(m), str(s[4]), p_idx, r)
+					var foe := {}
+					if material:
+						var key := "%s|%d" % [s[4], sd]
+						if not mats.has(key):
+							var b := {"name": "봇%d" % sd, "style": str(s[4]), "material": true, "pv": 0.0, "forge_sell": true}
+							var snaps := []
+							for p in 21:
+								snaps.append(Run.bot_side_of(b, 7700 + sd * 13, p))
+							mats[key] = snaps
+						foe = (mats[key][mini(p_idx, 20)] as Dictionary).duplicate(true)
+					else:
+						foe = Run.bot_side(float(s[3]) * float(m), str(s[4]), p_idx, r)
 					var bt := {"kind": "pvp", "a": (s[2] as Dictionary).duplicate(true), "b": foe, "seed": 2000 + sd * 7919 + n, "title": "점검", "foe": "봇", "inputs": []}
 					var res := Run.simulate(bt, [], Run.policy_for(bt))
 					w += 1 if res.win else 0
