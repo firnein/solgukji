@@ -374,7 +374,20 @@ func _stage(st: String) -> void:
 				s.watched = true
 	if rlog != null:
 		rlog.on_stage(self)
+	if st == "morning":
+		_auto_draw()
 	push_all()
+
+
+## 11/25 자동 징집 —— 아침(징집이 열리는 준비 단계)이 시작되면 살아 있는 사람 자리마다 기본패를 받는다 (끊긴 자리도 —— 대행 bot_prepare 는 받은 것을 건너뛴다).
+## 기록에는 사람이 누른 것과 같은 act/do_draw 줄에 "auto": true
+func _auto_draw() -> void:
+	for s in humans():
+		if s.dead or s.run == null:
+			continue
+		var got: Array = s.run.auto_draw()
+		if not got.is_empty() and rlog != null:
+			rlog.act(_idx(s), s.run, "do_draw", [], got, true)
 
 
 ## 준비를 기다리는 사람 —— 접속해 있고 멸망하지 않은 사람. 모두 준비면 시간이 남아도 넘어간다.
@@ -491,6 +504,10 @@ func on_cmd(peer: int, m: String, a: Array, q := -1) -> void:
 		return
 	if q >= 0:
 		seats[i]["ack"] = q      # 11/17 이 자리가 보낸 명령 번호 —— 상태에 실어 보내 휴대폰이 늦게 온 옛 상태로 화면을 되돌리지 않게
+	# 11/25 자동 징집 —— 이미 받은 징집을 (옛 클라이언트 · 엇갈린 누름이) 또 보내면 조용히 넘긴다 (오류 · 헛기록 없이, 상태만 한 번 맞춰 준다)
+	if m == "do_draw" and seats[i].human and seats[i].run != null and seats[i].run.drawn:
+		push(seats[i])
+		return
 	var why := cmd_block(i, m)
 	if why != "":
 		server.send(peer, {"t": "error", "msg": why})

@@ -94,10 +94,14 @@ static func new_game(run) -> void:
 	ensure(run, "start")
 
 
-static func act(run, m: String, a: Array, r) -> void:
+## auto —— 누르지 않고 저절로 된 것 (11/25 자동 징집): 줄에 "auto": true
+static func act(run, m: String, a: Array, r, auto := false) -> void:
 	if not ensure(run):
 		return
-	_put(run, "act", act_data(m, a, r, run))
+	var d := act_data(m, a, r, run)
+	if auto:
+		d["auto"] = true
+	_put(run, "act", d)
 
 
 ## act 한 줄의 내용 —— 온라인 방 기록(RoomLog)도 같은 형식을 쓴다 (11/10)

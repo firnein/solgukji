@@ -31,7 +31,7 @@ func _ready() -> void:
 		fails.append("봇 줄에 st")
 	srv.out.clear()
 	r._status_sync()
-	r.on_cmd(2, "do_draw", [])
+	r.on_cmd(2, "auto_deploy", [])      # 11/25 자동 징집 —— 징집은 이미 받아 do_draw 는 조용히 넘어간다 (명령 상태는 다른 명령으로 본다)
 	r._status_sync()
 	var sts := srv.of(1, "act_st")
 	if sts.is_empty() or str(sts[-1].st[1]) != "busy":
