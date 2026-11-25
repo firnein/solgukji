@@ -476,7 +476,7 @@ var _ult_side_t := {"A": -99.0, "B": -99.0}
 ## 통계: stats["ult_counters"] 묶음 수 · counter_units 받아친 장수 수 · counter_nocut 묶음이라 안 끊긴 수 · counter_last 쓰러지며 받아친 수
 static var counter_on := true
 static var counter_gauge := 100.0     # 이만큼 찬 장수가 받아친다 (기다리던 장수)
-static var counter_max := 2           # 기다리던 장수 가운데 받아치는 최대 수 (이미 기를 모으던 장수는 수에 넣지 않고 전원)
+static var counter_max := 1           # 기다리던 장수 가운데 받아치는 최대 수 (이미 기를 모으던 장수는 수에 넣지 않고 전원). 실제 대전 덱 442판(tests/counter_check): 2명이면 첫 고유기 진영 승률 50.9 → 47.1% · 판당 고유기 7.0 → 9.5, 1명이면 49.3% · 8.4 —— 1 대 1 로 맞선다
 var _clash := {}               # 묶음에 든(아직 쏘지 않은) 장수 -> 묶음 {x, members}
 var _clash_by: Unit = null     # 지금 터지는 묶음 고유기의 주인
 var _clash_grp = null          # 그 묶음
