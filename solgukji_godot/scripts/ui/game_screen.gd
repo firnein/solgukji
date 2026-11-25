@@ -980,6 +980,7 @@ func render(new_page := false) -> void:
 		_warm_run = run
 		_warm_for_run()
 	MiniTile.locked = run.locked      # 11/12 온라인 장수 선점제 · 사망룰 —— 잠긴 장수 타일은 회색 + 까닭, 눌리지 않는다 (혼자 하기는 늘 빈 것)
+	_sync_lock_marks()
 	_render_head()
 	_build_tabbar_badges()
 	var keep := _scroll.scroll_vertical
@@ -1857,6 +1858,9 @@ func _update_back() -> void:
 	_back_btn.visible = not _hist.is_empty()
 	if _back_btn.visible:
 		var pk: String = _hist[-1].k
+		if not DB.C.has(pk):      # 11/25 「전체 조합법」(k 없음)에서 들어온 시트 —— DB.C[""] 오류로 버튼 글이 안 바뀌었다
+			_back_btn.text = "‹ 전체 조합법" if str(_hist[-1].kind) == "recipes" else "‹"
+			return
 		_back_btn.text = "‹ " + (DB.person(pk) if DB.C[pk].tier > 2 else DB.C[pk].name)
 
 
@@ -2217,6 +2221,60 @@ func minis() -> AutoGrid:
 	return UI.grid(66, 6)       # 10/30 66 → 78 (한 줄 4장) · 11/7 사용자: 카드 축소 —— 다시 한 줄 5장 (칸 66×96)
 
 
+## 11/25 사용자 "멀티에서 다른 사람이 먼저 선점한게 표기가 안되는 부분이 많음" —— 잠금 표시를 화면 한 곳에서 맞춘다.
+## MiniTile.blocked(재료 선점으로 막힌 장수) · 잠긴 칸 누름 알림을 넣고, 잠금이 바뀌었으면(다른 사람이 방금 등용) 열려 있는 시트도 다시 그린다
+var _lock_sig := ""
+func _sync_lock_marks() -> void:
+	MiniTile.blocked = run.mat_blocks()
+	if not MiniTile.on_deny.is_valid():
+		MiniTile.on_deny = func(k: String): toast("%s · %s — 이번 판에는 얻을 수 없다" % [DB.C[k].name, run.block_text(k)], "bad")
+	var sig := JSON.stringify([run.locked.keys(), MiniTile.blocked.keys()])
+	if sig == _lock_sig:
+		return
+	var first := _lock_sig == ""
+	_lock_sig = sig
+	if not first and _sheet.visible and not _sheet_closing:
+		_relock_sheet.call_deferred()
+
+
+## 열려 있는 시트를 새 잠금으로 —— 조합법 · 상세 · 전체 조합법은 그 자리(스크롤)에서 다시 짓고, 나머지(선택권 등)는 타일만 다시 그린다
+func _relock_sheet() -> void:
+	if not _sheet.visible or _sheet_closing:
+		return
+	var kind := str(_route.get("kind", ""))
+	var y := _sheet_scroll.scroll_vertical
+	if kind == "recipe" or kind == "card":
+		_back_nav = true
+		if kind == "recipe":
+			recipe_sheet(str(_route.k))
+		else:
+			card_info(str(_route.k))
+		_restore_sheet_scroll.call_deferred(y)
+	elif kind == "recipes":
+		recipes_sheet()
+	else:
+		for t in _sheet.find_children("*", "", true, false):
+			if t is MiniTile or t is CardTile or t is CardView:
+				t.queue_redraw()
+
+
+## 11/25 재료 칩 글 —— 모자란 재료가 잠겼으면 「 · 선점」 「 · 사망」, 그 재료를 만들 길이 다시 막혔으면 「 · 재료 선점」 (재료 칩 · 부족 글이 같이 쓴다)
+## paren 이면 「(선점)」 —— 「부족 · 관우 · 선점 · 조운」처럼 낱말 사이 점과 섞이지 않게
+func _mat_lock_tag(q: String, need: int, paren := false) -> String:
+	if run.have(q) >= need:
+		return ""
+	var mk := MiniTile.mark_of(q)
+	if mk.is_empty():
+		return ""
+	var w: String = str(mk[0]) if mk[3] else ("사망" if mk[2] else "선점")
+	return "(%s)" % w if paren else " · " + w
+
+
+## 11/25 막힌 까닭 한 줄 (선점 · 사망 · 재료 선점) —— 조합법 · 상세 · 갈무리 시트가 같은 모양으로
+func _lock_line(reason: String) -> Control:
+	return SheetStyle.note(reason, DB.PAL.danger, "seal")
+
+
 func mtile(k: String, n := -1, on_tap := Callable()) -> MiniTile:
 	var t := MiniTile.new().setup(k, n)
 	t.tapped.connect(on_tap if on_tap.is_valid() else func(id): card_info(id))
@@ -2296,12 +2354,16 @@ func recipe_sheet(out: String) -> void:
 	var m := Run.mat_count(DB.RECOF[out])
 	for q in m:
 		var got := mini(run.have(q), int(m[q]))
-		materials.add_child(SheetStyle.chip("%s %d/%d" % [DB.person(q), got, m[q]], DB.PAL.jade if got >= int(m[q]) else DB.PAL.bamboo, "soft"))
+		var lk := _mat_lock_tag(q, int(m[q]))      # 11/25 잠긴 재료 —— 「주태 0/1 · 선점」 붉은 칩
+		materials.add_child(SheetStyle.chip("%s %d/%d%s" % [DB.person(q), got, m[q], lk], DB.PAL.jade if got >= int(m[q]) else (DB.PAL.danger if lk != "" else DB.PAL.bamboo), "soft"))
 	var ni = Run.need_item(out)
 	if ni != null:
 		var got_item := mini(int(run.bag.get(ni, 0)), 1)
 		materials.add_child(SheetStyle.chip("%s %d/1" % [DB.IT[ni].name, got_item], DB.PAL.jade if got_item > 0 else DB.PAL.bamboo, "soft"))
 	mv.add_child(materials)
+	var reason := _forge_block_reason(out)      # 11/25 막힌 까닭(선점 · 사망 · 재료 선점)은 재료 칩 바로 아래 —— 시트 맨 아래에서는 보이지 않았다
+	if reason != "":
+		mv.add_child(_lock_line(reason))
 	b.add_child(mv)
 	if run.can_forge(out):
 		var forge := UI.btn("조합하기", func():
@@ -2316,6 +2378,7 @@ func recipe_sheet(out: String) -> void:
 		b.add_child(forge)
 	var tp := UI.hbox(UI.SP_M)
 	var cv := CardView.new().setup(out, Vector2(96, 136))
+	cv.lock_n = run.have(out)      # 11/25 잠김 · 재료 선점이면 큰 카드도 회색 + 띠
 	cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	cv.mouse_filter = Control.MOUSE_FILTER_STOP          # 11/3 사용자: 초상을 누르면 디테일창
 	UI.tap(cv, func():      # 11/20 조작: '떼기'만 보던 것을 탭 판정으로 (UI.tap)
@@ -2344,9 +2407,6 @@ func recipe_sheet(out: String) -> void:
 		if not pv.roles_lost.is_empty():
 			parts.append("%s 역할 없어짐" % ", ".join(pv.roles_lost))
 		mv.add_child(SheetStyle.note("조합하면 —— " + " · ".join(parts)))
-	var reason := _forge_block_reason(out)
-	if reason != "":
-		b.add_child(UI.hint(reason))
 
 
 func _compact_ability_summary(k: String) -> Control:
@@ -2416,6 +2476,9 @@ func _forge_block_reason(k: String) -> String:
 	var lock_t := run.lock_text(k)      # 11/12 선점 · 사망으로 잠긴 장수
 	if lock_t != "":
 		return lock_t + " — 등용 불가"
+	var mb := run.block_text(k)      # 11/25 재료 선점 —— 모자란 재료(아래 재료까지)가 잠겨 만들 길이 없다
+	if mb != "":
+		return mb + " — 만들 수 없다"
 	if int(DB.C[k].tier) >= 8 and run.has_myth():
 		return "신화는 한 판에 하나"
 	if DB.is_kiin(k) and (run.kiin_made.has(k) or run.have(k) > 0):
@@ -2533,6 +2596,8 @@ func _unique_state(out: String, ni: String) -> Dictionary:
 		return {"state": "ok", "line": "조합하면 이 장수에게 영구 장착된다", "pill": "보유", "tap": see}
 	if run.blocked_uniques().has(ni):
 		return {"state": "lock", "line": "신화가 잠겨(선점 · 사망) 보급에 나오지 않는다", "pill": "얻을 수 없음", "tap": see}
+	if run.mat_block(out) != "":      # 11/25 재료 선점 —— 보급에는 나오지만 받아도 이 신화는 만들 수 없다
+		return {"state": "lock", "line": run.block_text(out) + " — 받아도 만들 수 없다", "pill": "만들 수 없음", "tap": see}
 	if run.uniq_offer.has(ni):
 		return {"state": "open", "line": "지금 아이템 보급에 있다 · 셋 중 하나만 받는다", "pill": "받으러", "tap": open_offer}
 	if not run.uniq_offer.is_empty():
@@ -2931,6 +2996,9 @@ func _unique_sheet() -> void:
 			UI.wrap_text(gn)
 			gn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			col.add_child(gn)
+			var ubt := run.block_text(kk)      # 11/25 재료가 선점 · 사망으로 막힌 신화 —— 받아도 이번 판에 만들 수 없다
+			if ubt != "":
+				col.add_child(_lock_line(ubt + " — 만들 수 없다"))
 			# 11/7 사용자: 이 재료로 만드는 장수의 병종 —— 기호 + 이름
 			var tr := UI.hbox(UI.SP_XS)
 			tr.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -3088,7 +3156,8 @@ func picker(t: int) -> void:
 				f.call(c, f)
 		w2.call(forge_tree._node(target, 1, 0, target, "", true), w2)
 	for pk in pins:
-		note.call(pk, true)
+		if run.block_text(pk) == "":      # 11/25 선점 · 재료 선점으로 막힌 갈무리 목표의 재료는 「목표의 재료」로 권하지 않는다
+			note.call(pk, true)
 	var rec: Array = _forge_goals(DB.D.RECDEF)
 	var seen_p := {}
 	for o in rec:
@@ -3100,7 +3169,7 @@ func picker(t: int) -> void:
 	var top_ks := []
 	for tag in DB.D.TAGORDER:
 		for k in Run.pickable(t, tag):
-			if why.has(k):
+			if why.has(k) and MiniTile.mark_of(k).is_empty():      # 11/25 잠긴 장수는 맨 위 묶음에 올리지 않는다 (아래 병종 줄에 회색으로 남는다)
 				top_ks.append(k)
 	top_ks.sort_custom(func(x, y):      # 갈무리 재료 먼저 · 여러 목표에 쓰이는 것 먼저 (같으면 원래 차례)
 		var px: bool = why[x].any(func(e): return e[1])
@@ -3526,8 +3595,12 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 		recipe_button.custom_minimum_size.x = 104
 		action_row.add_child(recipe_button)
 		b.add_child(action_row)
+		var bt := run.block_text(k)      # 11/25 선점 · 사망 · 재료 선점 —— 상세창에도 까닭 한 줄
+		if bt != "" and run.have(k) <= 0:
+			b.add_child(_lock_line(bt + (" — 등용 불가" if run.locked.has(k) else " — 만들 수 없다")))
 	var top := UI.hbox(UI.SP_M)
 	var big := CardView.new().setup(k, Vector2(96, 136))
+	big.lock_n = run.have(k)      # 11/25 잠김 · 재료 선점이면 큰 카드도 회색 + 띠
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	top.add_child(big)      # 11/20 역할은 큰 카드 초상 위에 (CardView.show_role)
 	# 초상 오른쪽 (11/3 사용자: 초상과 높이를 맞춘다) —— 능력치 다섯 칸 · 특기판 · 접힌 고유 특기 · 위세 · 고유기
@@ -4614,11 +4687,12 @@ func _up_row(out: String) -> Control:
 		var got := run.have(q)
 		var ok: bool = got >= m[q]
 		var qn: String = DB.person(q) if DB.C[q].tier > 2 else DB.C[q].name
-		var cb := UI.btn("%s %d/%d" % [qn, got, m[q]], func(): card_info(q), "", UI.BH_S)      # 기호 없이 색으로 (4열에 이름이 잘렸다)
+		var lk := _mat_lock_tag(q, int(m[q]))      # 11/25 잠긴 재료 —— 「주태 0/1 · 선점」 붉은 칩
+		var cb := UI.btn("%s %d/%d%s" % [qn, got, m[q], lk], func(): card_info(q), "", UI.BH_S)      # 기호 없이 색으로 (4열에 이름이 잘렸다)
 		# 11/14 UI 4단계 (감사 10-6): 모자란 재료가 모두 붉어 오류처럼 보였다 —— 모자람은 중립(얇은 선 · 종이색), 갖춤만 옥색. 수량 n/m 이 상태를 말한다
-		var cb_c: Color = Color("#8fd4c2") if ok else Color(DB.PAL.paper, 0.16)
+		var cb_c: Color = Color("#8fd4c2") if ok else (Color(DB.PAL.danger, 0.7) if lk != "" else Color(DB.PAL.paper, 0.16))
 		UI.btn_styles(cb, UI.flat(DB.PAL.ink2, cb_c, 1, UI.R, 2), UI.flat(DB.PAL.ink3, cb_c, 1, UI.R, 2), UI.flat(DB.PAL.ink4, cb_c, 1, UI.R, 2))      # 11/20 올림 · 눌림은 바탕만 한 단계 밝게
-		cb.add_theme_color_override("font_color", Color("#8fd4c2") if ok else DB.PAL.paper)
+		cb.add_theme_color_override("font_color", Color("#8fd4c2") if ok else (DB.PAL.danger if lk != "" else DB.PAL.paper))
 		cb.add_theme_font_size_override("font_size", UI.FS_CAP)
 		cb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		cb.clip_text = true
@@ -4665,7 +4739,7 @@ const KIIN_T := 9      # 기인 칸 —— 등급 거르기 · 계보 줄 (등�
 ## 추천 목표 —— 점수는 Run.forge_goals (덱이 얻는 전력 − 모자란 재료를 구하는 수고 + 줄기 · 병종 맞춤, 11/5 사용자: 플레이에 도움이 되게)
 ## 11/13 사용자: 추천 조합칸 한 줄을 둘로 —— 왼쪽 「가장 가까운」(신화 아이템 길이 맨 앞 + 이 함수) · 오른쪽 「인연」(Run.bond_goals)
 func _forge_goals(lst: Array) -> Array:
-	var out_: Array = run.myth_item_goals().slice(0, 1)      # 11/5 사용자: 신화 아이템(유니크)을 가졌으면 그 신화 장수가 맨 앞 (재료가 몇 장 모자라든)
+	var out_: Array = run.myth_item_goals().filter(func(o): return run.mat_block(o) == "").slice(0, 1)      # 11/5 사용자: 신화 아이템(유니크)을 가졌으면 그 신화 장수가 맨 앞 (재료가 몇 장 모자라든) —— 11/25 재료가 선점 · 사망으로 막힌 신화는 뺀다
 	var seen := {}
 	for o in out_:
 		seen[DB.person(o)] = true
@@ -4784,7 +4858,7 @@ func _missing(out: String) -> Array:
 	for m in need:
 		var lack: int = int(need[m]) - (run.have(str(m)) if DB.C.has(str(m)) else 0)
 		if lack > 0 and DB.C.has(str(m)):
-			miss.append(DB.person(str(m)) + ("×%d" % lack if lack > 1 else ""))
+			miss.append(DB.person(str(m)) + ("×%d" % lack if lack > 1 else "") + _mat_lock_tag(str(m), int(need[m]), true))      # 11/25 잠긴 재료는 「조조 · 선점」
 	var ni = Run.need_item(out)
 	if ni != null and run.bag.get(ni, 0) <= 0:
 		miss.append(DB.IT[ni].name)

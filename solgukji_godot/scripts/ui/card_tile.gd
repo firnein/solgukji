@@ -51,6 +51,9 @@ func _gui_input(e: InputEvent) -> void:
 		Press.TAP:
 			_set_down(false)
 			if not _dragging:
+				if qty <= 0 and MiniTile.locked.has(k):
+					MiniTile.deny(k)      # 11/25 잠긴 장수 —— MiniTile 과 같게 거절 + 까닭 알림
+					return
 				UI.buzz()      # 11/20 조작: 탭 소리 · 진동 (MiniTile 과 같게)
 				tapped.emit(k)
 		Press.CANCEL:
@@ -171,6 +174,9 @@ func _draw() -> void:
 		draw_string(fb, qr.position + Vector2(0, 14.5), qs, HORIZONTAL_ALIGNMENT_CENTER, qr.size.x, UI.FS_CAP, Color("#1A1508"))
 	if mark == "dim":
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.55))
+	var mk := MiniTile.mark_of(k, qty)      # 11/25 잠김(선점 · 사망) · 재료 선점 —— MiniTile 과 같은 회색 + 띠 (상세창 조합 줄)
+	if not mk.is_empty():
+		MiniTile.draw_mark(self, mk, Rect2(Vector2.ZERO, size))
 
 
 ## 특기 칸 —— 네모 안에 이름 + 레벨(금색), 먹색 (11/9 계열 색 걷음). 칸이 모자라면 마지막에 +n
