@@ -25,6 +25,8 @@ func _ready() -> void:
 			var idx: int = slots[i]
 			var p := (Vector2(i % COLUMNS + 0.5, i / COLUMNS + 0.91)) * cell
 			var style := 12.0 if idx >= painting.IMMORTAL_HERO_OFFSET else 13.0
+			if (pose + i) % 2 != 0:
+				style += 16.0
 			figures.append_array(PackedFloat32Array([p.x, p.y, h, painting.HERO_CELL + idx + pose,
 				1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35 if i % 2 == 0 else 0.0, style]))
 			keys.append(i)
@@ -35,7 +37,9 @@ func _ready() -> void:
 		for i in slots.size():
 			var origin := Vector2(i % COLUMNS, i / COLUMNS) * image_cell
 			var changed := 0
-			for y in range(int(origin.y + image_cell.y * 0.22), int(origin.y + image_cell.y * 0.83), 2):
+			# Include low recoil poses. Stop just above the feet so a ground marker
+			# cannot satisfy the sprite check by itself.
+			for y in range(int(origin.y + image_cell.y * 0.22), int(origin.y + image_cell.y * 0.90), 2):
 				for x in range(int(origin.x + image_cell.x * 0.08), int(origin.x + image_cell.x * 0.92), 2):
 					var c := image.get_pixel(x, y)
 					changed += int(absf(c.r - BG.r) + absf(c.g - BG.g) + absf(c.b - BG.b) > 0.12)
