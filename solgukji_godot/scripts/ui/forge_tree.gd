@@ -217,7 +217,7 @@ func _goal(root: String) -> Control:
 	all.disabled = not can or not gs.can_act()
 	bx.add_child(all)
 	var op: bool = goal_open.get(root, false)
-	var fb := UI.btn("나무 접기 ▴" if op else "재료 나무 ▾", func():
+	var fb := UI.btn(("재료 접기 ▴" if drill else "나무 접기 ▴") if op else ("재료 보기 ▾" if drill else "재료 나무 ▾"), func():
 		goal_open[root] = not goal_open.get(root, false)
 		gs.render(), "ghost", UI.BH_XS)
 	fb.add_theme_font_size_override("font_size", UI.FS_CAP)
@@ -226,8 +226,159 @@ func _goal(root: String) -> Control:
 	row.add_child(bx)
 	v.add_child(row)
 	if op:
-		v.add_child(_card(root, true))
+		v.add_child(_drill(root) if drill else _card(root, true))
 	return v
+
+
+## 11/25 사용자: "갈무리 트리 펼쳐놓을 때 가로가 늘어진다 · 세로로 해도 늘어진다 —— 새로운 방식" → 나무를 그리지 않는다.
+##   ① 재료 한 줄: 지금 보는 장수의 재료만. 모자란 재료의 「재료 ▾」를 누르면 그 줄이 그 재료의 재료로 바뀌고, 위에 길(조조 › 위왕 조조)이 붙는다 —— 몇 단이든 한 줄
+##   ② 모자란 기본패 한 줄: 맨 아래까지 다 풀었을 때 아직 모자란 기본패를 병종별로 (+ 아이템). 중간 조합은 「모두 조합」이 한다 —— 사람이 구할 것은 이것뿐
+## 목표 하나의 높이가 깊이와 상관없이 늘 같다
+static var drill := true
+var focus := {}      # 갈무리 장수 -> 지금 보는 재료 경로 ("" = 맨 위)
+
+func _drill(root: String) -> Control:
+	var v := UI.vbox(UI.SP_S)
+	var full := _node(root, 1, 0, root, "", true)
+	var nd := full
+	var crumbs := [[root, ""]]
+	var acc := ""
+	for seg in str(focus.get(root, "")).split("/", false):
+		acc = seg if acc == "" else acc + "/" + seg
+		var hit = null
+		for c in nd.kids:
+			if c.has("k") and str(c.get("path", "")) == acc:
+				hit = c
+		if hit == null or (hit.kids.is_empty() and int(hit.get("basic", 0)) <= 0):
+			break      # 그 사이 재료가 채워졌다 —— 갈 수 있는 데까지만
+		nd = hit
+		crumbs.append([hit.k, acc])
+	focus[root] = str(crumbs[-1][1])
+	if crumbs.size() > 1:      # 길 —— 앞 칸을 누르면 그 단으로 올라간다
+		var cr := UI.hbox(2)
+		for i in crumbs.size():
+			var nm: String = str(DB.C[crumbs[i][0]].name)      # 카드 이름 그대로 (난세간웅 조조 › 위왕 조조 › 조조 —— 인물 이름만 쓰면 같은 이름이 겹친다)
+			if i < crumbs.size() - 1:
+				var p: String = crumbs[i][1]
+				var cb := UI.btn(nm + "  ›", func():
+					focus[root] = p
+					gs.render(), "ghost", UI.BH_XS)
+				cb.add_theme_font_size_override("font_size", UI.FS_CAP)
+				cb.add_theme_color_override("font_color", DB.PAL.bamboo)
+				cr.add_child(cb)
+			else:
+				var cl := UI.lbl(nm + "의 재료", UI.FS_CAP, DB.PAL.paper, true)
+				cl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				cr.add_child(cl)
+		var cs := UI.scroll(true)      # 길이 길어지면 옆으로 민다 (끝이 보이게 맨 뒤로 넘겨 둔다)
+		cs.custom_minimum_size.y = UI.BH_XS + 2
+		cs.add_child(cr)
+		cs.ready.connect(func():
+			await cs.get_tree().process_frame
+			if is_instance_valid(cs):
+				cs.scroll_horizontal = int(cs.get_h_scroll_bar().max_value))
+		v.add_child(cs)
+	var st := UI.strip(int(GAP))
+	for c in nd.kids:
+		st[1].add_child(_drill_cell(root, c))
+	if int(nd.get("basic", 0)) > 0:
+		var bl := UI.lbl("＋ 기본패\n%d장" % int(nd.basic), UI.FS_CAP, DB.PAL.bamboo)
+		bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		bl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		bl.custom_minimum_size = Vector2(NW, NH)
+		st[1].add_child(bl)
+	st[0].custom_minimum_size.y = NH + BTN + 2
+	v.add_child(st[0])
+	var lack := base_lack(full)
+	if not lack.is_empty():
+		var lr := UI.hbox(UI.SP_XS)
+		var ll := UI.lbl("모자란 기본패", UI.FS_CAP, DB.PAL.bamboo)
+		ll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		lr.add_child(ll)
+		for q in Run.sort_cards(lack.keys()):
+			var t := gs.mtile(q, int(lack[q]))
+			t.custom_minimum_size = Vector2(34, 46)
+			lr.add_child(t)
+		v.add_child(lr)
+	var row := UI.hbox(UI.SP_S)
+	row.alignment = BoxContainer.ALIGNMENT_END
+	var x := UI.btn("갈무리 해제", func(): toggle(root), "ghost", UI.BH_XS)
+	x.add_theme_font_size_override("font_size", UI.FS_CAP)
+	row.add_child(x)
+	v.add_child(row)
+	return v
+
+
+## 재료 한 칸 —— 초상(가진 수/필요 수) + 아래 ✓ / [조합] / [재료 ▾](그 재료의 재료로 들어간다)
+func _drill_cell(root: String, nd: Dictionary) -> Control:
+	var run: Run = gs.run
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	v.custom_minimum_size.x = NW
+	if nd.has("item"):
+		var it: Dictionary = DB.IT[nd.item]
+		var l := UI.rich("[center][color=%s]＋%s[/color]\n[color=#A89574]%s[/color][/center]" % ["#d59700" if nd.ok else "#e0806f", it.name, "보유" if nd.ok else "보급품"], UI.FS_CAP)
+		l.custom_minimum_size = Vector2(NW, NH)
+		v.add_child(l)
+		return v
+	var k: String = nd.k
+	var can: bool = not nd.ok and run.can_forge(k)
+	var t := gs.mtile(k, -1, func(id): gs.recipe_sheet(id) if DB.RECOF.has(id) else gs.card_info(id))
+	t.custom_minimum_size = Vector2(NW, NH)
+	t.lit = can
+	t.badge = "%d/%d" % [nd.have, nd.need]
+	t.badge_col = Color(DB.PAL.jade, 0.9) if nd.ok else Color(DB.PAL.seal, 0.9)
+	t.dim = nd.have <= 0 and not can
+	v.add_child(t)
+	if nd.ok:
+		var ok := UI.lbl("✓", UI.FS_CAP, DB.PAL.jade)
+		ok.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ok.custom_minimum_size = Vector2(NW, BTN - 2)
+		v.add_child(ok)
+	elif can:
+		var b := UI.btn("조합", func():
+			if gs.act("forge", [k]):
+				gs.toast("%s 조합 완료" % DB.C[k].name, "gain"), "pri", BTN - 2)
+		b.disabled = not gs.can_act()
+		b.add_theme_font_size_override("font_size", UI.FS_CAP)
+		v.add_child(b)
+	elif not nd.kids.is_empty() or int(nd.get("basic", 0)) > 0:
+		var path: String = nd.path
+		var fb := UI.btn("재료 ▾", func():
+			focus[root] = path
+			gs.render(), "ghost", BTN - 2)
+		fb.add_theme_font_size_override("font_size", UI.FS_CAP)
+		v.add_child(fb)
+	else:
+		var nl := UI.lbl("구해야 함", UI.FS_CAP, DB.PAL.seal.lightened(0.25))      # 조합법이 없는 재료 —— 선택권 · 상점으로
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl.custom_minimum_size = Vector2(NW, BTN - 2)
+		v.add_child(nl)
+	return v
+
+
+## 맨 아래까지 다 풀었을 때 아직 모자란 기본패 {기본패: 장 수} —— 나무 전체가 쓰는 수를 병종별로 모아 가진 수를 뺀다
+func base_lack(full: Dictionary) -> Dictionary:
+	var need := {}
+	_base_need(full, need, true)
+	var out := {}
+	for q in need:
+		var lack: int = int(need[q]) - gs.run.have(q)
+		if lack > 0:
+			out[q] = lack
+	return out
+
+
+func _base_need(nd: Dictionary, need: Dictionary, top := false) -> void:
+	if not nd.has("k") or nd.get("ok", false) or not DB.RECOF.has(nd.k):
+		return
+	var want: int = 1 if top else maxi(0, int(nd.need) - int(nd.have))
+	var m := Run.mat_count(DB.RECOF[nd.k])
+	for q in m:
+		if DB.C[q].tier <= BASIC_TIER:
+			need[q] = int(need.get(q, 0)) + int(m[q]) * want
+	for c in nd.kids:
+		_base_need(c, need)
 
 
 ## 완성 순서 시트 (11/15 사용자) —— 갈무리 장수의 차례(위가 먼저 —— 「순서대로 모두 조합」이 이 차례로, 재료가 겹치면 위 장수가 먼저 가져간다)와
