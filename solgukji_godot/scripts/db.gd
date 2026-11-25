@@ -126,6 +126,7 @@ func _load() -> void:
 	# 11/21 장수 개성 표시용 딱지 (상태이상이 아니다 —— 정화 · 저항 · 칸 수와 무관. sig_rt.shown 이 화면 상태 목록에만 넣는다)
 	D.STATUS["taunted"] = {"n": "도발", "c": "#ff7a4a", "d": "적장의 도발에 걸렸다 —— 잠시 표적을 그 부대로 돌린다"}
 	D.STATUS["undying"] = {"n": "불사", "c": "#ffd257", "d": "패주 직전에 버텨 섰다 —— 병력 문턱까지 물러서지 않는다"}
+	D.STATUS["cf_guard"] = {"n": "혼란 내성", "c": "#ffd257", "d": "혼란이 막 풀렸다 —— 겪은 혼란의 2배(최소 6초) 동안 다시 혼란에 걸리지 않는다"}      # 11/25 혼란 연쇄 방지 (Battle.cf_guard)
 	CLASS_COUNTER = ext.get("class_counter", {})
 	GUARD = ext.get("class_guard", {})
 	SKILL_COND = ext.get("skill_cond", {})

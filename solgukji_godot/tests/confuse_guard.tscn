@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tests/confuse_guard.gd" id="1"]
+
+[node name="confuse_guard" type="Node"]
+script = ExtResource("1")
