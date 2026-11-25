@@ -6136,6 +6136,24 @@ func _dev_args() -> void:
 		for k in str(a.gpin).split(","):
 			if DB.RECOF.has(k) and not forge_tree.pins.has(k):
 				forge_tree.pins.push_front(k)
+		if a.has("gtree"):      # 점검용 —— --gtree=old (예전 조직도, 다 편 채) | 0 | 1 | 2 (새 방식, 그만큼 파고든 채) : 갈무리 목표를 펼쳐 둔다
+			ForgeTree.drill = str(a.gtree) != "old"
+			for k in forge_tree.pins:
+				forge_tree.goal_open[k] = true
+				if not ForgeTree.drill:
+					if not forge_tree.all_open(k):
+						forge_tree.open_all(k)
+					continue
+				var nd: Dictionary = forge_tree._node(k, 1, 0, k, "", true)
+				for i in int(a.gtree):
+					var nx = null
+					for c in nd.kids:
+						if nx == null and c.has("k") and not c.ok and not run.can_forge(c.k) and not c.kids.is_empty():
+							nx = c
+					if nx == null:
+						break
+					nd = nx
+					forge_tree.focus[k] = str(nd.path)
 		render()
 	if a.has("gsheet"):
 		# 쉼표로 여러 시트를 차례로 열 수 있다 (카드 시트 길 점검: --gsheet=card:c39,recipe:c11)
