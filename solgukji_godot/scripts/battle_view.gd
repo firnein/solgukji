@@ -74,6 +74,7 @@ var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
 const CLASH_STAGGER := 0.55 # 11/26 받아치기 묶음의 고유기가 잇달아 터지는 간격 (전장 시간) —— 같은 순간에 겹치면 이펙트가 서로 묻힌다
 var _clash_gap_until := -99.0
+const CLASH_BAND := false   # 11/26 받아치기 컷인 모양 —— false: 화면 전체 사선 컷인(원래) · true: 위쪽 작은 띠 (전투 화면을 덮지 않는다)
 const CLASH_T := 1.8         # 11/25 고유기 받아치기 사선 컷인 길이 (실시간 초) —— 양쪽 고유기가 터지는 본 연출은 그 뒤 기존대로
 const CUT_T := 1.8           # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95, 11/6 사용자: 초상 · 글이 너무 빨리 사라진다 → 1.8 (터지는 순간은 컷인이 걷힌 뒤)
 const MORALE_ROUT_TXT := "끝내 패주"     # 사건 글에 이 말이 있으면 사기 패주 (병력 패주는 「병력이 꺾여」 · 「병력이 다해」)
@@ -1862,7 +1863,7 @@ func _ult_clash(e: Dictionary) -> void:
 	for cp in ["A", "B"]:
 		sides[cp].sort_custom(func(x, y): return x.tier > y.tier if x.tier != y.tier else (x.first and not y.first))
 	hud.clash_cutin(sides.A, sides.B, str(e.a).begins_with("A"))
-	Sfx.play("skill", -9.0)
+	Sfx.play("skill", -4.0)
 	# 11/26 사용자: "받아치기 이펙트가 생략되는 듯" —— 컷인(1.4초)이 화면을 덮는 동안 전투가 제 속도로 흘러, 걷히면 양쪽 고유기와 밀린 공격이 한꺼번에 터졌다.
 	# 큰 컷인처럼 그동안 전투를 늦춘다 (온라인 재생도 큰 컷인에서 같은 슬로모션을 쓴다)
 	if speed > 0:
@@ -5643,6 +5644,175 @@ class Hud extends Control:
 	const CLASH_A := Color("#6fb0ff")
 	const CLASH_B := Color("#ff4a3a")
 
+	## 11/26 사용자: "받아치기 연출 원래대로" —— 화면 전체 사선 컷인(1.2n 그림 그대로) + 대사. 작은 띠(_draw_clash_band)는 CLASH_BAND 로 고른다
+	func _draw_clash() -> void:
+		if CLASH_BAND:
+			_draw_clash_band()
+			return
+		var t: float = cut.t
+		var ln: float = cut.get("len", CLASH_T)
+		var fade := clampf(t / 0.1, 0, 1) * clampf((ln - t) / 0.25, 0, 1)
+		if fade <= 0.01:
+			return
+		var sz := size
+		var tall := sz.x < sz.y
+		var c := sz / 2.0
+		var dir := Vector2(0.5, 0.866)      # 11시 → 5시
+		var n := Vector2(0.866, -0.5)       # 1시 쪽 (적)
+		var ll := sz.length()
+		var bump := ease(clampf((t - 0.3) / 0.12, 0, 1), 0.4) * clampf(1.0 - (t - 0.42) / 0.5, 0, 1)      # 맞부딪치는 순간 크게 흔들린다
+		var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * (2.0 + 9.0 * bump) * fade if t > 0.25 else Vector2.ZERO
+		draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.72 * fade))
+		draw_set_transform(shake)
+		# 두 쪽 판 —— 제 모서리에서 미끄러져 들어온다
+		var slide := 1.0 - ease(clampf(t / 0.22, 0, 1), 0.3)
+		var p0 := c - dir * ll
+		var p1 := c + dir * ll
+		for side in [-1.0, 1.0]:
+			var off: Vector2 = n * side * slide * ll * 0.6
+			var poly := PackedVector2Array([p0 + off, p1 + off, p1 + n * side * ll + off, p0 + n * side * ll + off])
+			var bg := Color(0.04, 0.09, 0.22, 0.88 * fade) if side < 0 else Color(0.22, 0.04, 0.04, 0.88 * fade)
+			draw_colored_polygon(poly, bg)
+			# 집중선 —— 제 쪽 판 안에서 사선 쪽으로 몰린다
+			var r := RandomNumberGenerator.new()
+			r.seed = int(t * 24.0) * 2 + (1 if side > 0 else 0)
+			var lc := (CLASH_A if side < 0 else CLASH_B).lightened(0.3)
+			for i in 18:
+				var along := r.randf_range(-0.55, 0.55) * ll
+				var dep := r.randf_range(0.15, 0.6) * ll
+				var q0: Vector2 = c + dir * along + n * side * dep + off
+				var q1: Vector2 = q0 - n * side * r.randf_range(0.08, 0.2) * ll
+				draw_line(q0, q1, Color(lc, 0.18 * fade), r.randf_range(1.0, 2.5))
+		# 초상 자리 —— 아군 왼쪽 아래 · 적 오른쪽 위 (사선을 넘지 않게)
+		var ph := minf(sz.y * (0.28 if tall else 0.48), 380.0)
+		var pw := ph * 0.78
+		var mg := 12.0 if tall else sz.x * 0.08
+		var ra := Rect2(mg, sz.y * (0.80 if tall else 0.74) - ph, pw, ph)      # 가로 화면은 위아래 글 자리를 남긴다
+		var rb := Rect2(sz.x - mg - pw, sz.y * (0.16 if tall else 0.24), pw, ph)
+		var pin := ease(clampf((t - 0.05) / 0.22, 0, 1), 0.25)
+		ra.position += Vector2(-1, 1) * (1.0 - pin) * ll * 0.4
+		rb.position += Vector2(1, -1) * (1.0 - pin) * ll * 0.4
+		# 빛 줄기 —— 두 초상에서 사선 위 맞부딪치는 곳으로 (맞부딪친 곳이 사선을 따라 밀고 밀린다)
+		var bt := clampf((t - 0.22) / 0.12, 0, 1)
+		var k := c + dir * (sin(t * 9.0) * 0.03 + sin(t * 23.0) * 0.012) * ll
+		if bt > 0.0:
+			var fa := ra.get_center()
+			var fb := rb.get_center()
+			for s in [[fa, CLASH_A], [fb, CLASH_B]]:
+				var from: Vector2 = s[0]
+				var col: Color = s[1]
+				var to: Vector2 = from.lerp(k, bt)
+				var wob := 1.0 + 0.15 * sin(t * 40.0 + (0.0 if col == CLASH_A else 1.7))
+				draw_line(from, to, Color(col, 0.25 * fade), 46.0 * wob)
+				draw_line(from, to, Color(col, 0.55 * fade), 26.0 * wob)
+				draw_line(from, to, Color(col.lightened(0.6), 0.9 * fade), 10.0 * wob)
+				draw_circle(to, 22.0 * wob, Color(col.lightened(0.4), 0.8 * fade))
+		# 기 싸움 —— 두 쪽의 기운이 사선에 맞붙어 띠처럼 빛나고, 초상에서 맞부딪친 곳으로 쐐기꼴 기운이 몰린다
+		var on := 1.0 - slide
+		for side in [-1.0, 1.0]:
+			var gc: Color = CLASH_A if side < 0 else CLASH_B
+			var push := (1.0 + 0.3 * sin(t * 31.0 + side)) * on
+			draw_line(c - dir * ll + n * side * 14.0 * push, c + dir * ll + n * side * 14.0 * push, Color(gc, 0.28 * fade * on), 26.0 * push)
+			draw_line(c - dir * ll + n * side * 6.0, c + dir * ll + n * side * 6.0, Color(gc.lightened(0.25), 0.6 * fade * on), 9.0)
+			if bt > 0.0:
+				var src: Vector2 = (ra if side < 0 else rb).get_center()
+				var wedge := PackedVector2Array([src, k + dir * 110.0 * bt + n * side * 4.0, k - dir * 110.0 * bt + n * side * 4.0])
+				draw_colored_polygon(wedge, Color(gc, 0.3 * fade * bt))
+		# 사선 —— 두 빛의 경계 (지지직 번개)
+		var r2 := RandomNumberGenerator.new()
+		r2.seed = int(t * 30.0)
+		for side in [-1.0, 1.0]:
+			var zig := PackedVector2Array()
+			for i in 25:
+				var f := (i / 24.0 - 0.5) * ll * 1.2
+				zig.append(c + dir * f + n * side * (3.0 + r2.randf_range(-4.0, 4.0)))
+			draw_polyline(zig, Color((CLASH_A if side < 0 else CLASH_B).lightened(0.35), 0.9 * fade * (1.0 - slide)), 3.0)
+		draw_line(c - dir * ll, c + dir * ll, Color(1, 1, 1, 0.85 * fade * (1.0 - slide)), 2.0)
+		# 맞부딪친 곳 —— 불꽃
+		if bt >= 1.0:
+			var r3 := RandomNumberGenerator.new()
+			r3.seed = int(t * 40.0) + 7
+			var pulse := 1.0 + 0.25 * sin(t * 50.0) + 0.6 * bump
+			for i in 3:
+				draw_circle(k, (60.0 - i * 18.0) * pulse, Color(1, 0.95 - i * 0.05, 0.75 + i * 0.1, (0.25 + i * 0.3) * fade))
+			for i in 26:
+				var a := r3.randf() * TAU
+				var l0 := r3.randf_range(20.0, 40.0) * pulse
+				var l1 := l0 + r3.randf_range(30.0, 110.0) * pulse
+				var sc: Color = [CLASH_A, CLASH_B, Color("#fff2b0")][i % 3]
+				draw_line(k + Vector2.from_angle(a) * l0, k + Vector2.from_angle(a) * l1, Color(sc.lightened(0.3), 0.85 * fade), r3.randf_range(1.5, 4.0))
+		# 초상 —— 큰 장수 하나 + 곁의 작은 초상 (아래쪽에 겹쳐 선다)
+		var a_first: bool = cut.get("a_first", true)
+		for sd in [["A", ra, CLASH_A, true], ["B", rb, CLASH_B, false]]:
+			var arr: Array = cut[sd[0]]
+			var pr: Rect2 = sd[1]
+			var col: Color = sd[2]
+			var left: bool = sd[3]
+			var main: Dictionary = arr[0]
+			draw_rect(pr.grow(8), Color(col, 0.45 * fade))
+			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
+			Art.draw_portrait(self, pr, str(main.k), t, "ult")
+			if fade < 1.0:
+				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
+			draw_rect(pr, Color(DB.tier_color(str(main.k)), fade), false, 3.0)
+			var sh := ph * 0.36
+			var sw := sh * 0.78
+			var extra: Array = arr.slice(1, 3)
+			for j in extra.size():
+				var sx := pr.position.x - 4.0 + j * (sw + 4.0) if left else pr.end.x + 4.0 - (j + 1) * (sw + 4.0) + 4.0
+				var srr := Rect2(sx, pr.end.y - sh + 10.0, sw, sh)
+				draw_rect(srr.grow(4), Color(col, 0.5 * fade))
+				draw_rect(srr.grow(1), Color(0, 0, 0, 0.9 * fade))
+				Art.draw_portrait(self, srr, str(extra[j].k), t, "ult")
+				draw_rect(srr, Color(DB.tier_color(str(extra[j].k)), fade), false, 2.0)
+			if arr.size() > 3:
+				_text(DB.font_bold, Vector2(pr.position.x if left else pr.end.x - 60.0, pr.end.y - sh - 2.0), "+%d" % (arr.size() - 3),
+					HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 60.0, 16, Color(1, 1, 1, fade))
+			# 이름 · 기술명 —— 아군은 초상 아래(왼쪽 맞춤) · 적은 초상 위(오른쪽 맞춤)
+			var nt := clampf((t - 0.18 - (0.0 if left == a_first else 0.08)) / 0.16, 0, 1)
+			if nt <= 0.0:
+				continue
+			var fd := DB.font_display
+			var tw := sz.x * (0.80 if tall else 0.42)
+			var title := "『%s』" % str(main.name)
+			var tfs := 52 if tall else 44
+			while tfs > 26 and fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > tw:
+				tfs -= 2
+			var who := str(main.who)
+			if extra.size() > 0:
+				who += " 외 %d" % (arr.size() - 1)
+			var tag := "받아치기" if left != a_first else ""
+			var wsz := DB.font_body.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)
+			var tx := pr.position.x if left else pr.end.x - tw
+			var al := HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT
+			var wy := pr.end.y + 10.0 if left else pr.position.y - 36.0
+			var ty := wy + 26.0 + tfs * 0.95 if left else wy - 10.0
+			var wb := Rect2(Vector2(pr.position.x if left else pr.end.x - wsz.x - 20.0, wy), Vector2(wsz.x + 20.0, 26.0))
+			draw_rect(wb, Color(col.darkened(0.25), 0.9 * fade))
+			draw_string(DB.font_body, wb.position + Vector2(10, 19), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, fade))
+			if tag != "":
+				var gx := wb.end.x + 8.0 if left else wb.position.x - 8.0 - 80.0
+				_text(DB.font_bold, Vector2(gx, wy + 19.0), tag, HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 80.0, 16, Color("#ffd257", fade * nt))
+			var scl := lerpf(1.8, 1.0, ease(nt, 0.35))
+			var anchor := Vector2(tx + (0.0 if left else tw), ty)
+			draw_set_transform(shake + anchor, 0.0, Vector2.ONE * scl)
+			draw_string_outline(fd, Vector2(-tw if not left else 0.0, 0), title, al, tw, tfs, 12, Color(0, 0, 0, fade))
+			draw_string(fd, Vector2(-tw if not left else 0.0, 0), title, al, tw, tfs, Color(col.lightened(0.45), fade * nt))
+			draw_set_transform(shake)
+			# 11/26 대사 —— 아군은 기술명 아래, 적은 초상 아래. 먼저 쓴 쪽이 먼저, 받아치는 쪽이 조금 늦게
+			var say := str(main.get("say", ""))
+			var st := clampf((t - 0.5 - (0.0 if left == a_first else 0.22)) / 0.25, 0, 1)
+			if say != "" and st > 0.0:
+				var sfs := 18
+				var sw2 := sz.x * (0.86 if tall else 0.42) if left else pw + 40.0
+				var line := "“%s”" % say
+				while sfs > 13 and DB.font_body.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, sfs).x > sw2:
+					sfs -= 1
+				var sp := Vector2(pr.position.x, ty + 30.0) if left else Vector2(pr.end.x - sw2, pr.end.y + 28.0)
+				draw_string_outline(DB.font_body, sp, line, al, sw2, sfs, 6, Color(0, 0, 0, 0.85 * fade * st))
+				draw_string(DB.font_body, sp, line, al, sw2, sfs, Color(0.96, 0.93, 0.86, fade * st))
+		draw_set_transform(Vector2.ZERO)
+
 	## 11/26 사용자: "좀 작게 해서 전투화면 덮지 않는 선으로" —— 화면 전체를 덮던 사선 컷인을 위쪽 띠 하나로 줄였다 (위 띠 자리 + 전장 위 빈 여백).
 	## 띠 안에서 사선(11시 → 5시)으로 갈라 아군은 왼쪽 아래 · 적은 오른쪽 위. 흔들림 · 깜빡임 없음, 색은 한 톤 낮게, 대사 한 줄
 	func clash_band() -> Rect2:
@@ -5651,7 +5821,7 @@ class Hud extends Control:
 		var bh := clampf(size.y * (0.2 if tall else 0.3), 118.0, 190.0)
 		return Rect2((size.x - bw) / 2.0, 0.0, bw, bh)
 
-	func _draw_clash() -> void:
+	func _draw_clash_band() -> void:
 		var t: float = cut.t
 		var ln: float = cut.get("len", CLASH_T)
 		var fade := clampf(t / 0.15, 0, 1) * clampf((ln - t) / 0.3, 0, 1)

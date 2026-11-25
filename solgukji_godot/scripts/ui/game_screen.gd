@@ -2334,8 +2334,8 @@ func recipe_sheet(out: String) -> void:
 	var progress := UI.vbox(2)
 	progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	progress.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	progress.add_child(UI.lbl("조합 재료 %d/%d" % [pg.x, pg.y], UI.FS_CAP, DB.PAL.bamboo, true))
-	progress.add_child(SheetStyle.meter(pg.x, pg.y))
+	progress.add_child(UI.lbl("조합 재료 %d/%d · 진행 %d%%" % [pg.x, pg.y, run.goal_pct(out)], UI.FS_CAP, DB.PAL.bamboo, true))
+	progress.add_child(SheetStyle.tier_meter(tier_segs(out)))      # 11/26 가진 재료는 등급 색으로
 	progress.add_child(UI.lbl("%d장 부족" % (pg.y - pg.x) if pg.x < pg.y else "재료 갖춤", UI.FS_CAP, DB.PAL.text_dim))
 	actions.add_child(progress)
 	var pin := _pin_btn(out, func():
@@ -2484,6 +2484,29 @@ func _forge_block_reason(k: String) -> String:
 	if DB.is_kiin(k) and (run.kiin_made.has(k) or run.have(k) > 0):
 		return "기인은 한 판에 한 장"
 	return ""
+
+
+## 11/26 등급 색 진행 칸 —— 이 장수의 직접 재료를 한 장씩 [등급 색, 가졌나]. SheetStyle.tier_meter 가 그린다.
+## 순서는 재료 줄(갈무리 목표를 펼친 줄 · 조합법)에 놓인 차례 그대로 —— 하후돈 · 하후연 순이면 하후연만 가졌을 때 둘째 칸이 채워진다.
+## (재료 줄과 같게: 장수 재료(정해 둔 완성 순서 반영) → 유니크 아이템(금색) → 기본패)
+func tier_segs(out: String) -> Array:
+	var m := Run.mat_count(DB.RECOF.get(out, []))
+	var qs: Array = ForgeTree.sorted_mats(m.keys(), forge_tree.morder.get(out, []))
+	var segs := []
+	var basic := []
+	for q in qs:
+		if not DB.C.has(str(q)):
+			continue
+		var t: int = DB.C[q].tier
+		var col: Color = DB.KIIN_COL if DB.is_kiin(str(q)) else DB.TIER[t].c
+		var got := mini(run.have(str(q)), int(m[q]))
+		var part := float(run.goal_pct(str(q))) / 100.0 if DB.RECOF.has(str(q)) else 0.0      # 없는 재료 —— 그 재료의 재료를 모은 정도
+		for i in int(m[q]):
+			(basic if t <= ForgeTree.BASIC_TIER else segs).append([col, i < got, 0.0 if i < got else part])
+	var ni = Run.need_item(out)
+	if ni != null:
+		segs.append([DB.PAL.gold, int(run.bag.get(ni, 0)) > 0])
+	return segs + basic
 
 
 ## 11/21 조합 진행 —— (모은 장 수, 필요한 장 수). 유니크 재료도 한 장으로 센다 (Run.miss_count 와 같은 셈: 필요 − 모음 = 부족)
@@ -4761,8 +4784,10 @@ func _goal_strip(rec: Array, caption: Callable, col: Color) -> Control:
 		gv.custom_minimum_size = Vector2(GOAL_TILE.x, 0)
 		var gt := mtile(out, run.pool().get(out, -1), func(id): recipe_sheet(id))
 		gt.custom_minimum_size = GOAL_TILE
-		gt.badge = "-%d" % run.miss_count(out) if run.miss_count(out) > 0 else "조합"
-		gt.badge_col = Color(col, 0.9)
+		# 11/26 "-N"(모자란 장 수)은 전설 두 장이 남아도 -2 라 가까워 보였다 —— 기본패로 환산한 진행 퍼센트 (Run.goal_pct)
+		var gp := run.goal_pct(out)
+		gt.badge = "조합" if run.can_forge(out) else ("◆" if run.miss_count(out) > 0 and gp >= 100 else "%d%%" % mini(gp, 99))
+		gt.badge_col = Color(col, 0.9) if gp >= 70 else Color(DB.PAL.ink, 0.85)
 		gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
 		var cap: String = caption.call(out)
 		if cap == "":
@@ -4972,7 +4997,7 @@ func recipes_sheet() -> void:
 	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
 	var miss_of := {}
 	for r in lst:
-		miss_of[r[0]] = 0 if can_now.has(r[0]) else maxi(1, run.miss_count(r[0]))
+		miss_of[r[0]] = 0 if can_now.has(r[0]) else 1 + run.base_lack(r[0])      # 11/26 가까운 순 = 남은 기본패 몫이 적은 순
 	lst.sort_custom(func(x, y):      # 되는 것 먼저 → 모자란 장수 적은 순 → 높은 등급
 		var a: int = miss_of[x[0]]
 		var b2: int = miss_of[y[0]]
@@ -4986,7 +5011,7 @@ func recipes_sheet() -> void:
 		var ft := _forge_tile(r[0])
 		ft.tapped.connect(func(_id): _open["recipes:y"] = _sheet_scroll.scroll_vertical, CONNECT_REFERENCE_COUNTED)      # 조합법을 보고 돌아올 자리
 		g.add_child(ft)
-	b.add_child(UI.head("조합법 %d" % lst.size(), "−N: 부족한 장수 · ◆: 아이템"))
+	b.add_child(UI.head("조합법 %d" % lst.size(), "%: 모은 정도 · ◆: 아이템"))
 	b.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
 	if shown_n < lst.size():
 		var rest: Array = lst.slice(shown_n)
@@ -5005,9 +5030,10 @@ func _forge_tile(out: String) -> MiniTile:
 	if t.lit:
 		t.badge = "조합"
 		t.badge_col = Color(DB.PAL.jade, 0.95)
-	elif miss > 0:
-		t.badge = "-%d" % miss
-		t.badge_col = Color(DB.PAL.seal, 0.9) if miss <= 1 else Color(DB.PAL.ink, 0.85)
+	elif miss > 0 and run.goal_pct(out) < 100:
+		var gp := run.goal_pct(out)      # 11/26 모자란 장 수 대신 진행 퍼센트
+		t.badge = "%d%%" % mini(gp, 99)
+		t.badge_col = Color(DB.PAL.seal, 0.9) if gp >= 80 else Color(DB.PAL.ink, 0.85)
 	else:
 		t.badge = "◆"
 		t.badge_col = Color(DB.PAL.gold.darkened(0.3), 0.95)

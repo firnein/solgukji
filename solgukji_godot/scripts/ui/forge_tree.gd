@@ -199,9 +199,10 @@ func _goal(root: String) -> Control:
 	nl.clip_text = true
 	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	mid.add_child(nl)
+	# 11/26 재료 한 장이 한 칸 —— 가진 재료는 그 등급 색으로 채운다 (칸만 봐도 전설을 가졌는지 · 무엇이 빠졌는지). 옆의 퍼센트는 기본패로 환산한 실제 진행
 	var pg: Vector2i = gs._forge_progress(root)
-	mid.add_child(UI.lbl("재료 %d/%d" % [pg.x, pg.y], UI.FS_CAP, DB.PAL.bamboo, true))
-	mid.add_child(SheetStyle.meter(pg.x, pg.y))
+	mid.add_child(UI.lbl("재료 %d/%d · 진행 %d%%" % [pg.x, pg.y, gs.run.goal_pct(root)], UI.FS_CAP, DB.PAL.bamboo, true))
+	mid.add_child(SheetStyle.tier_meter(gs.tier_segs(root)))
 	var miss: Array = gs._missing(root)
 	var ml := UI.lbl("부족 · " + " · ".join(miss) if not miss.is_empty() else "재료를 다 모았다", UI.FS_CAP, DB.PAL.text_dim if not miss.is_empty() else DB.PAL.jade)
 	ml.clip_text = true

@@ -393,6 +393,11 @@ static func meter(got: int, need: int, col := VAL, h := 6.0) -> Control:
 	return Meter.new(got, need, col, h)
 
 
+## 등급 색 진행 막대 —— segs: [[색, 가졌나] …] (GameScreen.tier_segs)
+static func tier_meter(segs: Array, h := 8.0) -> Control:
+	return TierMeter.new(segs, h)
+
+
 ## 진행 칸 —— 비활성 버튼 대신. [라벨 · 모음/전체 · 오른쪽 note] 아래 진행 막대. need ≤ 0 이면 막대 없이 글만 (막힘 사유)
 static func need_block(label: String, got: int, need: int, note_text := "", col := WARN, height := 50.0) -> Control:
 	var pc := PanelContainer.new()
@@ -751,6 +756,34 @@ class Meter extends Control:
 			draw_style_box(UI.flat(track, Color(0, 0, 0, 0), 0, 2, 0), Rect2(Vector2.ZERO, size))
 			if g > 0:
 				draw_style_box(UI.flat(col, Color(0, 0, 0, 0), 0, 2, 0), Rect2(0, 0, size.x * g / float(n), size.y))
+
+
+## 11/26 사용자: "보유 중인 유닛의 등급에 따라 색깔 다른 걸로 채워줘 —— 그리드만으로 전설을 가졌구나 · 희귀를 가졌구나 알 수 있게"
+## 재료 한 장이 한 칸. 가진 재료는 그 등급 색으로 채우고, 없는 재료는 그 등급 색의 옅은 바탕 + 가는 테두리 (무엇이 빠졌는지도 등급으로 보인다)
+class TierMeter extends Control:
+	var segs: Array = []      # [[색, 가졌나] …] —— 높은 등급부터
+
+	func _init(s: Array, h := 8.0) -> void:
+		segs = s
+		custom_minimum_size = Vector2(0, h)
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var n := maxi(segs.size(), 1)
+		var gap := 3.0
+		var sw := (size.x - gap * (n - 1)) / n
+		for i in segs.size():
+			var c: Color = segs[i][0]
+			var r := Rect2(i * (sw + gap), 0, sw, size.y)
+			if segs[i][1]:
+				draw_style_box(UI.flat(c, Color(0, 0, 0, 0), 0, 2, 0), r)
+			else:
+				draw_style_box(UI.flat(Color(c, 0.13), Color(c, 0.6), 1, 2, 0), r)
+				# 아직 없는 재료라도 그 재료의 재료를 모았으면 그만큼 옅게 찬다 (예: 정봉은 없지만 창병 한 장만 더 있으면 되는 경우 —— 거의 다 찬 옅은 칸)
+				var fr: float = float(segs[i][2]) if segs[i].size() > 2 else 0.0
+				if fr > 0.0:
+					draw_rect(Rect2(r.position + Vector2(1, 1), Vector2((r.size.x - 2) * clampf(fr, 0, 1), r.size.y - 2)), Color(c, 0.42))
 
 
 ## 주 행동 버튼 뒤의 금빛 판 (main_btn) —— 부모(버튼)보다 먼저 그린다

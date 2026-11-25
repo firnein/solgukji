@@ -811,6 +811,62 @@ const GOAL_EFFORT := 14.0
 const GOAL_MISS := {1: 1.0, 3: 3.0, 4: 6.0, 5: 12.0}
 
 
+## 11/26 사용자: "재료가 거의 모인 조합도 단순 개수로 하니까 전설 2개가 남았는데 고급 하나 있다는 이유로 되게 가깝게 표현된다"
+## → 가까움을 장 수가 아니라 기본패로 환산한 수고로 잰다. 장수 하나를 맨바닥에서 만드는 데 드는 기본패: 고급 4 · 희귀 약 10 · 전설 약 28 · 초월 약 76 · 불멸 약 95 · 신화 약 125.
+## base_cost: 그 환산값 (조합법이 없으면 1) · base_lack: 가진 재료 · 가진 중간 장수를 빼고 아직 구해야 하는 몫 (아래 단계까지, 같은 카드를 두 번 쓰지 않는다)
+## goal_progress: (모은 몫, 전체 몫) —— 화면의 진행 막대 · 퍼센트
+static var _base_cost := {}
+
+static func base_cost(k: String) -> int:
+	if _base_cost.has(k):
+		return _base_cost[k]
+	_base_cost[k] = 1      # 돌고 도는 조합법 방지
+	var c := 0
+	if DB.RECOF.has(k):
+		for q in DB.RECOF[k]:
+			if DB.C.has(str(q)):
+				c += base_cost(str(q))
+	_base_cost[k] = maxi(1, c)
+	return _base_cost[k]
+
+
+func base_lack(out: String) -> int:
+	var used := {}
+	var lack := 0
+	var m := mat_count(DB.RECOF.get(out, []))
+	for q in m:
+		if DB.C.has(str(q)):
+			lack += _base_lack(str(q), int(m[q]), used, 0)
+	return lack
+
+
+func _base_lack(k: String, n: int, used: Dictionary, depth: int) -> int:
+	var take := mini(n, maxi(0, have(k) - int(used.get(k, 0))))
+	used[k] = int(used.get(k, 0)) + take
+	var rem := n - take
+	if rem <= 0:
+		return 0
+	if not DB.RECOF.has(k) or depth >= 8:
+		return rem * base_cost(k)
+	var lack := 0
+	var m := mat_count(DB.RECOF[k])
+	for q in m:
+		if DB.C.has(str(q)):
+			lack += _base_lack(str(q), int(m[q]) * rem, used, depth + 1)
+	return lack
+
+
+func goal_progress(out: String) -> Vector2i:
+	var need := base_cost(out)
+	return Vector2i(clampi(need - base_lack(out), 0, need), need)
+
+
+## 진행 퍼센트 (0 ~ 100). 재료를 다 모았으면 100 —— 유니크 아이템만 없는 경우도 100 (그건 ◆ 로 따로 보인다)
+func goal_pct(out: String) -> int:
+	var pg := goal_progress(out)
+	return 100 if pg.y <= 0 else int(floor(100.0 * pg.x / pg.y))
+
+
 func goal_effort(out: String) -> float:
 	var m := mat_count(DB.RECOF.get(out, []))
 	var e := 0.0
@@ -825,6 +881,7 @@ func goal_effort(out: String) -> float:
 		if DB.RECOF.has(q) and can_forge(q):
 			per = minf(per, 2.0)
 		e += per * short
+	e = minf(e, float(base_lack(out)) * 0.45)      # 11/26 아래 단계까지 따진 실제 남은 몫 (전설 한 장 ≈ 기본패 28 ≈ 12.6 —— 위 표와 같은 눈금). 재료의 재료를 이미 가졌으면 그만큼 가깝다
 	var ni = need_item(out)
 	if ni != null and bag.get(ni, 0) <= 0:
 		e += 40.0
