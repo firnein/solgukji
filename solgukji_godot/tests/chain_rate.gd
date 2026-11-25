@@ -14,7 +14,7 @@ class Probe extends RtBattle:
 	func _mem(o: Unit) -> bool:
 		return o.camp == mine and ppl.has(DB.person(o.c.id))
 
-	func _inyeon_recruit(u: Unit, wait: float) -> void:
+	func _inyeon_recruit(u: Unit, wait: float, cap := 0) -> void:      # 11/26 부모에 cap(받아치기 연쇄 상한)이 붙었다
 		if _mem(u):
 			leads += 1
 			for o in units:
@@ -30,7 +30,7 @@ class Probe extends RtBattle:
 				elif not _join_ok(o):
 					k = "그 밖"
 				why[k] = int(why.get(k, 0)) + 1
-		super._inyeon_recruit(u, wait)
+		super._inyeon_recruit(u, wait, cap)
 		if _mem(u) and _wind_grp.has(u):
 			grps.append(_wind_grp[u])
 
