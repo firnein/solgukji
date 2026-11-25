@@ -208,6 +208,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	if tp != null:
 		pol = policy_.duplicate()
 		pol.erase("plan")
+	_form_cp = {"A": a_form, "B": b_form}      # 11/26 진형 스위치(form_guard)가 지키는 쪽 진형을 본다
 	_setup(a_cards, a_form, a_morale, a_equip, b_cards, b_form, b_morale, b_equip, title, foe_name, inputs_, pol)
 	for i in units.size():
 		_idx[units[i]] = i
@@ -275,6 +276,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			_tick_b_first = fair_debug == 2
 		var tp0 := Time.get_ticks_usec() if algo_probe else 0
 		_move()
+		if probe_form:
+			_form_probe()
 		if algo_probe:
 			var tp1 := Time.get_ticks_usec()
 			stats["us_move"] = stats.get("us_move", 0) + tp1 - tp0
@@ -1464,6 +1467,12 @@ func _move() -> void:
 				pin = o
 		# 기병 · 도적은 맞닿아도 묶이지 않고 노리던 후열로 파고든다
 		var slip: bool = (u.c.tag == "기병" or u.c.tag == "도적") and u.tgt != null and u.tgt.alive and pin != u.tgt
+		if intercept and slip and u.c.tag == "도적" and (pin == null or pin.c.tag != "창병") and rogue_hold > 0.0:      # 11/26 (나) 지나가는 도적도 붙잡는다
+			for o in foes:
+				if o.c.tag == "창병" and float(_rogue_held.get([u, o], rogue_hold)) > 0.0 and _gap(u, o) <= intercept_gap:
+					pin = o
+					stats["intercept"] = int(stats.get("intercept", 0)) + 1
+					break
 		if slip and u.c.tag == "도적" and pin != null and pin.c.tag == "창병" and Battle.tag_roles and rogue_hold > 0.0:
 			# 11/19 사용자: 도적 대책 2 —— 창병 도발이 도적에게도. 맞닿은 창병이 그 도적을 rogue_hold 초 붙잡는다 (창병 하나가 같은 도적을 한 번만)
 			var hk := [u, pin]
@@ -1549,6 +1558,8 @@ func _move() -> void:
 					sp = _speed(u)
 				if flanking:
 					sp *= flank_spd      # 11/22 우회 길목으로 도는 동안은 빨리 —— 적진 투입을 당긴다
+					if form_guard:      # 11/26 (다) 지키는 쪽 진형이 둘레를 막는다
+						sp *= float(FORM_GUARD.get(_form_cp.get(t.camp, ""), 1.0))
 					stats["flank_run_t"] = stats.get("flank_run_t", 0.0) + TICK
 				desired = dir * minf(sp, (gap - want) / TICK)      # 노리는 적 앞에서 멈춘다 (파고들지 않게)
 		else:
@@ -1737,6 +1748,45 @@ var _rogue_held := {}   # [도적, 창병] -> 남은 붙잡힘 초 (도적 대�
 static var rogue_hold := 2.5      # 11/19 창병이 맞닿은 도적을 붙잡는 초 (0 이면 예전처럼 흘려 지나간다)
 static var escort_w := 0.4        # 11/19 도적 대책 1 —— 우리 후열에 붙은 적 기병 · 도적을 놀던 근접 부대가 고를 때 거리 배율 (1 이면 예전)
 const ESCORT_R := 320.0           # 호위하러 갈 최대 거리
+## 11/26 진형 분석 스위치 (docs/진형_분석_1126.md · tests/form_audit) —— 모두 기본 꺼짐, 켤지는 사용자가 정한다
+##   rear_guard : (가) 후군 줄의 창병은 호위병 —— guard_sec 초 동안(또는 앞줄 근접이 다 무너질 때까지) 앞으로 나가지 않고
+##                제 둘레(guard_r) 안의 적이나 우리 원거리를 노리고 다가오는 적만 상대한다 (없으면 제자리)
+##   intercept  : (나) 가로막기 —— 호위가 이미 붙은 도적 · 기병만이 아니라 우리 원거리를 노리고 intercept_r 안까지 다가온 적에게도 가고,
+##                창병은 틈 intercept_gap 안으로 지나가는 도적도 붙잡는다 (붙잡는 초 rogue_hold 그대로)
+##   form_guard : (다) 진형의 후열 보호 —— 도적이 그 진형 둘레를 도는 우회 속도 배율 (FORM_GUARD, 없는 진형은 1)
+static var rear_guard := false
+static var guard_r := 240.0
+static var guard_sec := 15.0
+static var intercept := false
+static var intercept_r := 220.0
+static var intercept_gap := 45.0
+static var form_guard := false
+static var FORM_GUARD := {"bangwon": 0.5, "eorin": 0.75, "jangsa": 0.75}
+var _form_cp := {}
+
+
+## (가) 후군 창병 호위 —— 지금 호위 중이면 상대할 적(없으면 null = 제자리), 호위가 아니면 false
+func _guard_pick(u: Unit, foes: Array):
+	if not rear_guard or u.c.tag != "창병" or u.line != "후군" or _tm >= guard_sec:
+		return false
+	var front := false
+	for al in units:
+		if al.alive and al.camp == u.camp and al != u and not al.ranged and al.line != "후군":
+			front = true
+			break
+	if not front:
+		return false
+	var best: Unit = null
+	var bd := INF
+	for o in foes:
+		if not o.alive or _hidden(o):
+			continue
+		var g := _gap(u, o)
+		var aim: bool = o.tgt != null and o.tgt.alive and o.tgt.camp == u.camp and o.tgt.ranged and _gap(o, o.tgt) <= guard_r
+		if (g <= guard_r or aim) and g < bd:
+			bd = g
+			best = o
+	return best
 func _flank_way(u: Unit, t: Unit, foes: Array):
 	var ahead := 1.0 if u.camp == "A" else -1.0       # A 는 +x 로 나아간다
 	if (t.pos.x - u.pos.x) * ahead < 40.0:
@@ -1754,6 +1804,10 @@ func _flank_way(u: Unit, t: Unit, foes: Array):
 func _choose(u: Unit, foes: Array) -> Unit:
 	if u.ranged:
 		return _nearest_ranged_target(u, foes, false)
+	if rear_guard:
+		var gp = _guard_pick(u, foes)
+		if not (gp is bool):
+			return gp
 	var best: Unit = null
 	var bs := INF
 	var best0: Unit = null      # 1.2 개성 표적 가중을 뺀 선택 (개성 때문에 바뀌었나 세는 용)
@@ -1773,7 +1827,7 @@ func _choose(u: Unit, foes: Array) -> Unit:
 			w *= 0.8            # 노리던 적을 쉽게 바꾸지 않는다
 		# 11/19 사용자: 도적 대책 1 (호위) —— 우리 원거리 · 책략 부대에 붙은 적 기병 · 도적은 근접 부대(도적 제외)가 막으러 간다.
 		# 맞붙어 묶인 부대는 여기 오지 않는다(_choose 는 묶이지 않았을 때만) —— 놀거나 막혀 기다리던 부대가 돌아선다
-		if escort_w < 1.0 and not _ranged(u) and u.c.tag != "도적" and (o.c.tag == "도적" or o.c.tag == "기병") 				and o.tgt != null and o.tgt.alive and o.tgt.camp == u.camp and _ranged(o.tgt) and _gap(o, o.tgt) <= TOUCH + 6.0 and d < ESCORT_R:
+		if escort_w < 1.0 and not _ranged(u) and u.c.tag != "도적" and (o.c.tag == "도적" or o.c.tag == "기병") 				and o.tgt != null and o.tgt.alive and o.tgt.camp == u.camp and _ranged(o.tgt) and _gap(o, o.tgt) <= (intercept_r if intercept else TOUCH + 6.0) and d < ESCORT_R:
 			w *= escort_w
 			if best != o and d * w < bs:
 				stats["escort"] = int(stats.get("escort", 0)) + 1
@@ -2717,3 +2771,38 @@ func _inyeon_theme_fire(grp: Dictionary) -> void:
 				_give_phalanx(o, 2, def.n)
 	_one = 1.0
 	_long = 1.0
+
+
+## 11/26 진형 점검 (tests/form_audit) —— 부대마다 처음 맞닿은 시각(아무 적 · 도적 · 근접) · 그때까지 한 일 · 도적에게 처음 노려진 시각 · 무너진 시각.
+## 판정에는 쓰지 않는다 (켜도 결과 같음)
+static var probe_form := false
+var fprobe := {}       # 유닛 -> {t_touch, t_rogue, t_melee, t_aimed, t_out, pre_dmg, pre_sk, pre_ult, by}
+func _form_probe() -> void:
+	for u: Unit in units:
+		var r: Dictionary = fprobe.get(u, {})
+		if r.is_empty():
+			fprobe[u] = r
+		if not u.alive:
+			if not r.has("t_out"):
+				r["t_out"] = _tm
+			continue
+		for o: Unit in units:
+			if not o.alive or o.camp == u.camp:
+				continue
+			if o.c.tag == "도적" and o.tgt == u and not r.has("t_aimed"):
+				r["t_aimed"] = _tm
+			if u.pos.distance_to(o.pos) * 0.7 > u.hw + u.hd + o.hw + o.hd + 12.0 or _gap(u, o) > TOUCH + 2.0:
+				continue
+			if not r.has("t_touch"):
+				r["t_touch"] = _tm
+				r["by"] = o.c.tag
+				var n := 0
+				for j in u.sk_cnt:
+					n += int(u.sk_cnt[j])
+				r["pre_dmg"] = u.dmg
+				r["pre_sk"] = n
+				r["pre_ult"] = u.ult_n
+			if o.c.tag == "도적" and not r.has("t_rogue"):
+				r["t_rogue"] = _tm
+			if not o.ranged and not r.has("t_melee"):
+				r["t_melee"] = _tm

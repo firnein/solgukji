@@ -2178,9 +2178,13 @@ func by_tier(t: int) -> Array:
 	return out
 
 
+## 11/26 진형 분석 (가) —— 켜면 창병의 '후군 측면' 나쁜 자리(방어 ×0.8)를 없앤다 (후열 호위병으로 세울 수 있게). 기본 꺼짐
+static var spear_rear_ok := false
 func aff_of(tag: String, line: String, side: String) -> String:
 	var a: Dictionary = D.AFF.get(tag, {})
 	if a.is_empty():
+		return ""
+	if spear_rear_ok and tag == "창병" and line == "후군":
 		return ""
 	for z in a.pref:
 		if z[0] == line and z[1] == side:
@@ -2472,6 +2476,9 @@ func _mix_src(t: int, tag: String, lim := 8) -> Array:
 	return all_ if not all_.is_empty() else POOLS["균형"].get(t, [])
 
 
+## 11/26 진형 분석 (라) —— 켜면 자동 배치가 바깥 열(0 · 4열, 전군 줄부터)에 창병 · 기병을 먼저, 원거리 · 책략은 덜 놓는다
+## (실제 대전에서 도적에게 물리는 칸은 줄보다 바깥 열이다 —— docs/진형_분석_1126.md). 기본 꺼짐
+static var outer_guard_place := false
 func auto_place(cards: Array, form: String) -> Array:
 	var f: Dictionary = FORM[form]
 	var fw: Dictionary = D.FRONT_WANT
@@ -2514,6 +2521,8 @@ func auto_place(cards: Array, form: String) -> Array:
 			var z := aff_of(C[k].tag, s.line, s.side)
 			var v: float = (6.0 if z == "pref" else -4.0 if z == "bad" else 0.0) \
 				- absf(D.LINE[s.line].pri - (4 - fw[C[k].tag])) * 0.6
+			if outer_guard_place and (int(s.col) == 0 or int(s.col) == FORM_COLS - 1) and int(s.row) >= 1:      # 11/26 진형 분석 (라) —— 바깥 열은 도적 길목
+				v += 2.5 if (C[k].tag == "창병" or C[k].tag == "기병") else (-2.5 if INT_TAGS.has(C[k].tag) or C[k].tag == "궁병" else 0.0)
 			if v > bs:
 				bs = v
 				best = i
