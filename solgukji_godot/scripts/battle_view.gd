@@ -5762,17 +5762,13 @@ class Hud extends Control:
 			var col: Color = sd[2]
 			var left: bool = sd[3]
 			var main: Dictionary = arr[0]
-			draw_rect(pr.grow(8), Color(col, 0.45 * fade))
-			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
-			Art.draw_portrait(self, pr, str(main.k), t, "ult")
-			if fade < 1.0:
-				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
-			draw_rect(pr, Color(DB.tier_color(str(main.k)), fade), false, 3.0)
 			var sh := ph * 0.6
 			var sw := sh * 0.78
 			var extra: Array = arr.slice(1, 3)
-			for j in extra.size():
-				var sx := pr.end.x + 8.0 + j * (sw + 6.0) if left else pr.position.x - 8.0 - (j + 1) * sw - j * 6.0
+			for jj in extra.size():
+				var j := extra.size() - 1 - jj
+				# 11/26 사용자: "좀 겹쳐서 놔도 돼 —— 초상화를 너무 띄웠네" → 주 초상 뒤로 30% 쯤 겹쳐 선다 (곁 초상끼리도 조금씩 겹친다 · 주 초상이 맨 앞)
+				var sx := pr.end.x - sw * 0.3 + j * sw * 0.82 if left else pr.position.x + sw * 0.3 - sw - j * sw * 0.82
 				var srr := Rect2(sx, pr.end.y - sh if left else pr.position.y, sw, sh)
 				draw_rect(srr.grow(4), Color(col, 0.5 * fade))
 				draw_rect(srr.grow(1), Color(0, 0, 0, 0.9 * fade))
@@ -5782,6 +5778,12 @@ class Hud extends Control:
 				var ex := pr.end.x + 8.0 + 2 * (sw + 6.0) if left else pr.position.x - 8.0 - 2 * (sw + 6.0) - 44.0
 				_text(DB.font_bold, Vector2(ex, (pr.end.y - 6.0) if left else (pr.position.y + 18.0)), "+%d" % (arr.size() - 3),
 					HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 44.0, 16, Color(1, 1, 1, fade))
+			draw_rect(pr.grow(8), Color(col, 0.45 * fade))
+			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
+			Art.draw_portrait(self, pr, str(main.k), t, "ult")
+			if fade < 1.0:
+				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
+			draw_rect(pr, Color(DB.tier_color(str(main.k)), fade), false, 3.0)
 			# 이름 · 기술명 —— 아군은 초상 아래(왼쪽 맞춤) · 적은 초상 위(오른쪽 맞춤)
 			var nt := clampf((t - 0.18 - (0.0 if left == a_first else 0.08)) / 0.16, 0, 1)
 			if nt <= 0.0:
