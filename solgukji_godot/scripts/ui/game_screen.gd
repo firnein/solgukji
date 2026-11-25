@@ -1992,12 +1992,12 @@ func _settings_sheet() -> void:
 		Settings.save_cfg()
 		_settings_sheet()))
 	b.add_child(UI.hint("적게: 아군 고유기 · 적 신화 고유기 · 장수 격파 때만 다가갑니다. 보통: 첫 격돌 · 모든 고유기에도."))
-	b.add_child(UI.eyebrow("전장 확대 · 따라가기"))      # 사용자 "유닛이 작아 답답하다"
+	b.add_child(UI.eyebrow("전장 확대"))      # 사용자 "유닛이 작아 답답하다"
 	b.add_child(UI.segmented([["1", "켬"], ["0", "끔"]], "1" if Settings.zoom_cam else "0", func(key):
 		Settings.zoom_cam = key == "1"
 		Settings.save_cfg()
 		_settings_sheet()))
-	b.add_child(UI.hint("켬: 빈 여백을 줄여 유닛을 키우고, 싸움이 이어져 부대가 줄면 천천히 더 가까이 비춥니다."))
+	b.add_child(UI.hint("켬: 빈 여백을 줄여 유닛을 키웁니다. 화면은 움직이지 않습니다."))
 	if Settings.type2:      # 11/6 타입2 전황 표시 단계 (일시정지하면 늘 자세히)
 		b.add_child(UI.eyebrow("전황 표시 (타입2)"))
 		b.add_child(UI.segmented([["0", "끔"], ["1", "간단"], ["2", "자세히"]], str(Settings.tac_info), func(key):

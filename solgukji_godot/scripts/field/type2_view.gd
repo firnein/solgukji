@@ -26,6 +26,7 @@ const ZOOM_OUT_MAX := 1.12     # 시작 범위보다 넓게 벌어졌을 때 물
 const ZOOM_IN_RATE := 0.35     # 당길 때 따라가는 속도 (1/초 —— 시정수 약 3초: 멀미 없이 천천히)
 const ZOOM_OUT_RATE := 2.0     # 부대가 범위 밖으로 나가려 할 때 물러서는 속도 (잘리기 전에 따라붙는다)
 const ZOOM_PAN_RATE := 0.8     # 가운데 따라가는 속도
+const ZOOM_FOLLOW := false     # 11/25 사용자: "카메라 안 움직이게" —— 시작 화면(여백을 줄여 키운 배율)에서 고정. true 면 살아 있는 부대 범위를 따라 당기고 물러선다 (1.2n)
 const ZOOM_COMMIT_PX := 0.5    # 화면에서 이만큼(px) 달라져야 새 시점으로 확정한다 (바닥 그림을 매 프레임 다시 그리지 않으려고 —— 눈에는 안 보이는 크기)
 var _cam_ready := false
 var _cam_base_sc := 1.0        # 시작 맞춤 배율 (당기기 · 물러서기 한도의 기준)
@@ -293,7 +294,7 @@ func _cam_fit(dt: float, now := false) -> void:
 		_cam_ready = true
 		_cam_pose = []
 		now = true
-	var goal := _cam_goal(true, _cam_base_sc)
+	var goal: Array = _cam_goal(true, _cam_base_sc) if ZOOM_FOLLOW else _cam_cur      # 고정이면 시작 맞춤 그대로 (창 크기가 바뀌면 위에서 다시 잡는다)
 	if goal.is_empty():
 		goal = _cam_cur
 	if now:
