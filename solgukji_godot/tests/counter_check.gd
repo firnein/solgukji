@@ -20,6 +20,8 @@ func _ready() -> void:
 	RtBattle.counter_keep_join = str(a.get("keep_join", "1")) != "0"      # 11/26 인연 연쇄 전/후 비교용
 	RtBattle.counter_recruit = str(a.get("recruit", "1")) != "0"
 	RtBattle.counter_recruit_cap = int(a.get("cap", "0"))
+	RtBattle.counter_bind_chain = str(a.get("bind", "0")) != "0"
+	RtBattle.counter_gate_time = str(a.get("gate", "1")) != "0"
 	for k in DB.C:
 		if DB.is_foe(k):
 			continue
