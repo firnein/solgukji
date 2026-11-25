@@ -811,6 +811,8 @@ func _inyeon_recruit(u: Unit, wait: float, cap := 0) -> void:      # cap: 모을
 		return
 	var lead_in: Array = DB.INYEON_OF.get(DB.person(u.c.id), [])
 	if lead_in.is_empty():
+		if yeon_basic:
+			_yeon_basic_recruit(u, wait, cap)
 		return
 	var cands := []
 	for o in units:
@@ -820,6 +822,8 @@ func _inyeon_recruit(u: Unit, wait: float, cap := 0) -> void:      # cap: 모을
 		if lead_in.any(func(n): return DB.INYEON[n].has(po)):
 			cands.append(o)
 	if cands.is_empty():
+		if yeon_basic:
+			_yeon_basic_recruit(u, wait, cap)
 		return
 	cands.sort_custom(func(x, y):      # 게이지가 먼저 찬 장수부터, 같으면 등급이 높은 장수, 그래도 같으면 유닛 순서 (주제 켬: 기인 → 초월이 맨 앞)
 		if inyeon_theme:
@@ -868,6 +872,36 @@ func _inyeon_recruit(u: Unit, wait: float, cap := 0) -> void:      # cap: 모을
 		_join_q.append({"u": o, "lead": u, "at": _tm + wait * float(at[mini(i, at.size() - 1)]), "grp": grp, "name": nm_})
 
 
+# ───────── 11/26 두 단 연쇄 (시험 손잡이, 기본 꺼짐 —— 켤지는 사용자가 정한다. docs/인연_분석_1126.md · tests/yeon_check) ─────────
+## 켜면 —— 대표가 기를 모을 때 같은 인연 짝이 없으면(인연이 없는 장수 포함) 게이지 100 인 아군 누구나 yeon_basic_max 명까지 합류하는 "기본 연쇄".
+## 보너스 없음: 인연 이름이 없어 인연기 · 주제 효과가 없고, 기인이 열기 · 초월 문턱(70) · 4명 연쇄도 없다. 인연 짝이 있으면 지금 그대로 (큰 연쇄).
+## 끄면(false) 예전과 비트 단위로 같다.
+static var yeon_basic := false
+static var yeon_basic_max := 1
+
+
+func _yeon_basic_recruit(u: Unit, wait: float, cap := 0) -> void:
+	var cands := []
+	for o in units:
+		if o != u and o.camp == u.camp and _join_ok(o) and o.gauge >= 100.0:
+			cands.append(o)
+	if cands.is_empty():
+		return
+	cands.sort_custom(func(x, y):      # 게이지가 먼저 찬 장수부터, 같으면 등급이 높은 장수, 그래도 같으면 유닛 순서
+		var rx: float = x.ult_ready_t if x.ult_ready_t >= 0.0 else 1e9
+		var ry: float = y.ult_ready_t if y.ult_ready_t >= 0.0 else 1e9
+		if rx != ry:
+			return rx < ry
+		if x.c.tier != y.c.tier:
+			return x.c.tier > y.c.tier
+		return _idx[x] < _idx[y])
+	var picks: Array = cands.slice(0, yeon_basic_max if cap <= 0 else mini(yeon_basic_max, cap))
+	var grp := {"lead": u, "name": "", "members": [u], "taken": {}, "fired": false, "basic": true}
+	_wind_grp[u] = grp
+	for i in picks.size():
+		_join_q.append({"u": picks[i], "lead": u, "at": _tm + wait * float(inyeon_join_at[mini(i, inyeon_join_at.size() - 1)]), "grp": grp, "name": "연쇄"})
+
+
 ## 합류 때가 된 장수를 붙인다 (매 틱, 고유기를 터뜨리기 전에)
 func _inyeon_joins() -> void:
 	for j in _join_q.duplicate():
@@ -883,7 +917,7 @@ func _inyeon_joins() -> void:
 		grp.members.append(o)
 		_wind_grp[o] = grp
 		var end: float = float(_wind[lead]) + inyeon_stagger * ord
-		if inyeon_theme:
+		if inyeon_theme and not grp.get("basic", false):      # 11/26 기본 연쇄(yeon_basic)는 기인이 열지 않는다
 			if not grp.has("kiin") and is_kiin_u(o):      # 기인은 연쇄를 연다 —— 대표보다 먼저 터진다
 				grp["kiin"] = o
 				end = float(_wind[lead]) - inyeon_stagger
@@ -1194,7 +1228,9 @@ func _inyeon_fire_setup(u: Unit, grp: Dictionary) -> void:
 		stats["inyeon_units"] = int(stats.get("inyeon_units", 0)) + 1 + mates.size()
 		var kn := "inyeon_n2" if mates.size() == 1 else ("inyeon_n3" if mates.size() == 2 else "inyeon_n4")
 		stats[kn] = int(stats.get(kn, 0)) + 1
-		if inyeon_theme:
+		if grp.get("basic", false):      # 11/26 기본 연쇄 (yeon_basic)
+			stats["yeon_basic"] = int(stats.get("yeon_basic", 0)) + 1
+		elif inyeon_theme:
 			if is_kiin_u(u):
 				grp["cap_mul"] = yeon_kiin_cap_mul
 				grp["kiin_open"] = true
