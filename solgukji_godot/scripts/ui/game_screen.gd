@@ -2810,22 +2810,9 @@ func _done_group(sp: Array, ks: Array, p: Dictionary, hand_tile: Callable) -> Pa
 	return pc
 
 
-## 징집 주 행동 카드 (11/14 감사 #2) —— 기호 + 「징집하기」 + 오늘 받는 장수 · 큰 주 버튼(BH_L)
-var _base_row: Control = null      # 징집 탭 맨 위 기본패 줄 (점검 · 캡처가 자리를 잰다)
+## 11/25 큰 「징집하기」 카드(_draw_cta)는 자동 징집으로 뺐다 —— _draw_cta_node 는 첫 판 안내가 묻는 자리라 null 로 남긴다
+var _base_row: Control = null      # 징집 탭 맨 위 기본패 줄 (점검 · 캡처 · 첫 판 안내가 자리를 잰다)
 var _draw_cta_node: Control = null
-func _draw_cta(n: int) -> Control:
-	var b := UI.act("징집하기", "오늘 기본패 %d장을 받는다" % n, func(): act("do_draw"), "pri", not can_act())
-	b.custom_minimum_size.y = UI.BH_L + UI.SP_S
-	var ic := Icons.View.new("draw", Color(DB.PAL.gold, 0.45 if b.disabled else 1.0), 26)
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ic.anchor_top = 0.5
-	ic.anchor_bottom = 0.5
-	ic.offset_left = UI.SP_L
-	ic.offset_right = UI.SP_L + 26
-	ic.offset_top = -13
-	ic.offset_bottom = 13
-	b.add_child(ic)
-	return b
 
 
 ## 장수가 아직 없을 때의 빈 상태 카드 (11/14 감사 #2) —— 기호 + 두 줄 설명 (+ 징집을 마쳤으면 조합 탭으로 가는 버튼)
