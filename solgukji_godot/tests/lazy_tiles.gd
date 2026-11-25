@@ -53,6 +53,8 @@ func _ready() -> void:
 	await get_tree().create_timer(0.4).timeout
 	gs._open["forge:more"] = true
 	gs.render()
+	if gs.has_method("recipes_sheet"):      # 11/25 조합법 목록은 「전체 조합법」 시트 안으로 옮겼다
+		gs.recipes_sheet()
 	await get_tree().create_timer(0.4).timeout
 	gs.close_sheet()
 	gs._bands.clear()

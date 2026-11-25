@@ -1759,6 +1759,8 @@ func go_back() -> void:
 	_back_nav = true
 	if r.kind == "recipe":
 		recipe_sheet(r.k)
+	elif r.kind == "recipes":      # 11/25 전체 조합법 목록
+		recipes_sheet()
 	else:
 		card_info(r.k, int(r.get("tab", 0)), str(r.get("inyeon", "")))
 
@@ -3037,12 +3039,12 @@ func picker(t: int) -> void:
 		var ttw := floorf((full - gap * (tcols - 1)) / tcols)
 		var tth := ttw * (1.3 if t <= 4 else 1.42)
 		var sec := UI.vbox(UI.SP_XS)
-		sec.add_child(UI.eyebrow("갈무리 · 추천 목표의 재료 %d" % top_ks.size()))
+		sec.add_child(UI.eyebrow("목표의 재료" if top_ks.size() <= tcols else "목표의 재료 · %d장 중 %d" % [top_ks.size(), tcols]))
 		var tg := GridContainer.new()
 		tg.columns = tcols
 		tg.add_theme_constant_override("h_separation", int(gap))
 		tg.add_theme_constant_override("v_separation", int(gap))
-		for k in top_ks.slice(0, tcols * 2):      # 두 줄까지 —— 나머지는 아래 병종 줄에서 ★ 로 보인다
+		for k in top_ks.slice(0, tcols):      # 한 줄만 (갈무리 재료 먼저 · 남는 칸은 추천 재료) —— 나머지는 아래 병종 줄에서 ★ 로 보인다
 			var cv := UI.vbox(1)
 			cv.add_child(make_tile.call(k, ttw, tth))
 			var ws: Array = why[k]
@@ -3056,7 +3058,7 @@ func picker(t: int) -> void:
 			tg.add_child(cv)
 		sec.add_child(tg)
 		b.add_child(UI.panel(sec, 8))
-	var avail_h: float = vp.y * 0.98 - 120.0 - (0.0 if top_ks.is_empty() else 150.0)      # 시트 머리 · 아래 여백 (· 위 재료 묶음)
+	var avail_h: float = vp.y * 0.98 - 120.0 - (0.0 if top_ks.is_empty() else 138.0)      # 시트 머리 · 아래 여백 (· 위 재료 묶음 한 줄)
 	if t <= 2:
 		# 기본 —— 두 줄에 넷씩: 위 물리(창 · 기 · 궁 · 도), 아래 책략(책 · 유 · 술 · 모). 병종 글자는 빼서 자리를 넓힌다
 		var tw := floorf((full - gap * 3) / 4)
@@ -4754,7 +4756,21 @@ func _page_forge() -> Control:
 		if run.can_forge(r[0]):
 			can_now[r[0]] = true
 	var ready: Array = DB.D.RECDEF.filter(func(r): return can_now.has(r[0]))
-	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
+	var goal_mat := {}      # 갈무리 목표와 그 재료(아래 재료까지) —— 지금 조합 가능 줄에서 앞에 선다
+	var gwalk := func(nd: Dictionary, f: Callable) -> void:
+		for c in nd.get("kids", []):
+			if c.has("k"):
+				goal_mat[c.k] = true
+			f.call(c, f)
+	for pk in forge_tree.pins:
+		goal_mat[pk] = true
+		gwalk.call(forge_tree._node(pk, 1, 0, pk, "", true), gwalk)
+	ready.sort_custom(func(x, y):
+		var gx: bool = goal_mat.has(x[0])
+		var gy: bool = goal_mat.has(y[0])
+		if gx != gy:
+			return gx
+		return DB.C[x[0]].tier > DB.C[y[0]].tier)
 	if not ready.is_empty():
 		var sec := UI.vbox(UI.SP_S)
 		var rs := UI.strip(8)
@@ -4766,7 +4782,11 @@ func _page_forge() -> Control:
 			more_hint.visible = range_bar.max_value > range_bar.page)
 		sec.add_child(head)
 		for r in ready:
-			rs[1].add_child(recipe_card(r[0]))
+			var rc := recipe_card(r[0])
+			if goal_mat.has(r[0]):      # 갈무리 목표로 가는 조합 —— ★
+				for mt in rc.find_children("*", "MiniTile", true, false):
+					mt.set_pin(true, false)
+			rs[1].add_child(rc)
 		sec.add_child(rs[0])
 		v.add_child(sec)
 	return v
@@ -4774,10 +4794,11 @@ func _page_forge() -> Control:
 
 ## 전체 조합법 시트 (11/25 UX) —— 병종 · 등급 거르기 + 가까운 순 목록. 조합 탭에 늘 펼쳐 있던 것을 버튼 뒤로
 func recipes_sheet() -> void:
-	var keep := _sheet_scroll.scroll_vertical if _sheet.visible and _open.get("recipes:on", false) else 0
+	var again: bool = _sheet.visible and _route.get("kind", "") == "recipes"      # 거르기를 바꿔 다시 그린다 —— 스크롤 자리를 지킨다
+	var keep: int = _sheet_scroll.scroll_vertical if again else (int(_open.get("recipes:y", 0)) if _back_nav else 0)
+	_route_enter("recipes", "")
 	var b := open_sheet("전체 조합법")
 	_sheet_full = true
-	_open["recipes:on"] = true
 	var can_now := {}
 	for r in DB.D.RECDEF:
 		if run.can_forge(r[0]):
@@ -4814,7 +4835,9 @@ func recipes_sheet() -> void:
 	var shown_n: int = lst.size() if (more_open or lst.size() < FORGE_FIRST + 12) else FORGE_FIRST
 	var g := minis()
 	for r in lst.slice(0, shown_n):
-		g.add_child(_forge_tile(r[0]))
+		var ft := _forge_tile(r[0])
+		ft.tapped.connect(func(_id): _open["recipes:y"] = _sheet_scroll.scroll_vertical, CONNECT_REFERENCE_COUNTED)      # 조합법을 보고 돌아올 자리
+		g.add_child(ft)
 	b.add_child(UI.head("조합법 %d" % lst.size(), "−N: 부족한 장수 · ◆: 아이템"))
 	b.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
 	if shown_n < lst.size():
@@ -6077,6 +6100,7 @@ func _dev_args() -> void:
 			"urgent_item":      # 11/13 고대 아이템 속보 띠 (--gsheet=urgent_item)
 				urgent("이한솔국지", "", "고대 환두대도", "item")
 			"sell": _sell_sheet(kv[1])      # 11/13 보유 카드 꾹 누르기 판매 시트
+			"recipes": recipes_sheet()      # 11/25 전체 조합법 시트
 			"unique":      # 점검용 —— 보급 팝업을 억지로 연다 (--gsheet=unique:i81+i72+i89, 비우면 신화 재료 앞 셋)
 				var ids: Array = Array(kv[1].split("+")) if kv.size() > 1 and kv[1] != "" else DB.MYTH_ITEMS.keys().slice(0, 3)
 				run.uniq_offer = ids
