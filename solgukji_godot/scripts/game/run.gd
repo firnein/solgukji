@@ -2811,7 +2811,8 @@ func tk_pub() -> Dictionary:
 
 ## 11/21 남의 단계 계획을 보여도 되는 단계 (서버 Room.info 의 seats[].plan · 화면 tac_ui 가 같이 쓴다).
 ## 계획은 동시 선택 —— 고르는 동안(아침 · 대전 준비)과 그 사이 토벌 단계(대전 준비에 또 바꿀 수 있다)는 가리고 '고르는 중 · 선택 완료'만, 대전 단계(전투가 계산돼 단계마다 뒤집힌다)와 판 끝에는 내용까지.
-## 지난 대전 계획(tk_hist) · 늘 켜짐 · 영구 효과는 언제나 보인다. 봇 · 토벌 우두머리 계획은 그 페이즈에 이미 정해져 있어 언제나 보인다
+## 지난 대전 계획(tk_hist) · 늘 켜짐 · 영구 효과는 언제나 보인다. 11/25 유저봇 계획도 사람처럼 가린다 (Room._mirror · TacUI.side_bot · GameScreen.bot_row).
+## 토벌 우두머리 계획만 그날 고정이라 언제나 보인다 (받아치는 퍼즐)
 static func tk_plan_open(stage: String) -> bool:
 	return stage in ["evening", "over"]
 

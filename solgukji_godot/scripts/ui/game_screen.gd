@@ -5508,15 +5508,15 @@ static func bot_row(r: Run, b: Dictionary) -> Dictionary:
 	if int(b.get("strikes", 0)) > 0:
 		note += " · 토벌 실패 %d" % int(b.strikes)
 	var keys := bot_key(r, b)
-	var plan: Array = b.get("plan", [])
-	var own: Array = b.get("own", []) if b.get("own") is Array else []      # 11/21 늘 켜지는 군략 (온라인은 서버 거울)
+	# 11/25 사용자 "유저봇 군략도 ? 히든": 단계 계획은 사람처럼 가린다 —— 혼자 하기는 늘 빈 계획, 온라인은 서버 거울이 대전 단계에만 채운다 (Room._mirror)
+	var plan: Array = b.get("plan", []) if r.mp and b.get("plan") is Array else []
+	var own: Array = b.get("own", []) if b.get("own") is Array else []      # 11/21 늘 켜지는 군략 (온라인은 서버 거울) —— 늘 공개
 	if Run.tac_on and not r.mp and not bool(b.get("dead", false)):
-		var ld: Dictionary = r._bot_side_of(b.duplicate(true)).get("plan", {})
-		plan = ld.get("p", [])
-		own = ld.get("own", [])
+		own = (r._bot_side_of(b.duplicate(true)).get("plan", {}) as Dictionary).get("own", [])
 	return {"name": str(b.name), "me": false, "online": true, "dead": bool(b.get("dead", false)), "bot": true, "note": note,
 		"hp": clampi(int(b.hp), 0, Run.HP_MAX) if b.has("hp") else -1,
-		"key": keys if not keys.is_empty() else Room.featured_cards(b.get("army", [])), "has_key": true, "plan": plan, "own": own}
+		"key": keys if not keys.is_empty() else Room.featured_cards(b.get("army", [])), "has_key": true, "plan": plan, "own": own,
+		"hist": b.get("tk_hist") if b.get("tk_hist") is Array else []}      # 지난 대전 계획 (이미 뒤집힌 카드)
 
 
 ## 봇의 핵심 유닛 (11/12 사용자) —— 11/12 부터 봇 군세는 봇마다 한 번 만들어 자라는 것(b.army, Run.bot_grow)이라 그 군세의 기인 이상(Room.is_urgent_unit)을 높은 등급부터 보인다.
@@ -5884,6 +5884,7 @@ func _dev_args() -> void:
 				run.tk_new_offer()
 				TacUI.res_sheet(self, kv[2] if kv.size() > 2 else "")
 			"tachand": TacUI.hand_sheet(self, int(kv[1]))      # 11/15 군략 손패 시트 (단계 0 · 1 · 2)
+			"tacstat": TacUI.status_sheet(self)      # 11/25 군략 현황 시트 (--gsheet=tacstat —— 봇 계획이 가려지는지)
 			"gacha":      # 11/13 아이템 뽑기 결과 (--ggrain=80 --gsheet=gacha:10) · gacha:pity 는 천장 직전에서 한 번(고대 연출)
 				if kv.size() > 1 and kv[1] == "pity":
 					run.gacha_pity = Run.GACHA_PITY - 1

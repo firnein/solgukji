@@ -614,7 +614,8 @@ static func hist_line(hist) -> Control:
 ## 전투 탭(토벌 우두머리 패널 · 온라인 저녁 상대 패널) · 기록 탭 군웅 줄.
 ## 공개 규칙(Run.tk_plan_open): 사람의 단계 계획은 동시 선택이라 대전 단계 전(아침 · 토벌 · 대전 준비)에는 가리고 상태만(고르는 중 · 선택 완료 · 토벌 중),
 ## 대전 단계(전투가 계산된 뒤 —— 단계마다 뒤집힌다)와 판 끝에는 내용까지. 지난 대전 계획(이미 뒤집힌 카드) · 늘 켜짐 · 영구 효과(3택1 로 고른 순간 확정)는 언제나.
-## 봇 · 토벌 우두머리 계획은 그 페이즈에 이미 정해져 있어 언제나 (혼자 하기는 Run 에서 바로 계산, 온라인 봇은 서버 거울 run.bots 의 plan · own).
+## 11/25 사용자 "유저봇 군략도 ? 히든": 유저봇도 사람과 같다 —— 단계 계획은 대전 전까지 가리고(상태 「선택 완료」) 늘 켜짐 · 지난 대전만 (혼자 하기는 대전이 출진 순간
+## 계산돼 늘 가림, 온라인은 서버 거울 run.bots 의 plan 이 공개 단계에만 찬다). 토벌 우두머리 계획만 그날 고정이라 언제나 보인다 (받아치는 퍼즐).
 ## 한 진영 side = {name, tag, me, plan(Array 셋 | null = 가림), state(가렸을 때 상태 글), own(늘 켜짐 id), perm(영구 효과 이름), hist(지난 대전 계획들)}
 
 const RULE_HINT := "상대의 단계 계획은 고르는 동안 가려지고 대전이 시작되면 공개된다. 늘 켜짐 · 영구 효과와 지난 대전 계획은 언제나 보인다."
@@ -635,16 +636,16 @@ static func side_boss(run: Run) -> Dictionary:
 		"own": ld.get("own", []), "perm": [], "hist": []}
 
 
-## 봇 —— 혼자 하기는 Run 에서 그 페이즈 계획을 바로 계산(기록 탭 GameScreen.bot_row 와 같은 식), 온라인은 서버 거울(run.bots)의 plan · own
-static func side_bot(run: Run, b: Dictionary) -> Dictionary:
-	var plan = b.get("plan", null)
+## 봇 —— 11/25 단계 계획은 사람처럼 가린다: 혼자 하기는 늘 가림(늘 켜짐만 Run 에서 계산 —— 기록 탭 GameScreen.bot_row 와 같은 식),
+## 온라인은 서버 거울(run.bots)의 plan —— 서버가 공개 단계(open)에만 채운다. 지난 대전(tk_hist) · 늘 켜짐은 언제나
+static func side_bot(run: Run, b: Dictionary, open := false) -> Dictionary:
+	var plan = b.get("plan", null) if run.mp and open else null
 	var own = b.get("own", [])
 	if Run.tac_on and not run.mp and b.has("pv") and not bool(b.get("dead", false)):
-		var ld: Dictionary = run._bot_side_of(b.duplicate(true)).get("plan", {})
-		plan = ld.get("p", [])
-		own = ld.get("own", [])
+		own = (run._bot_side_of(b.duplicate(true)).get("plan", {}) as Dictionary).get("own", [])
 	var ok: bool = plan is Array and not (plan as Array).is_empty()
-	return {"name": str(b.get("name", "")), "tag": "봇", "me": false, "plan": Tac.norm(plan) if ok else null, "state": "" if ok else "모름",
+	return {"name": str(b.get("name", "")), "tag": "봇", "me": false, "plan": Tac.norm(plan) if ok else null,
+		"state": "" if ok else ("모름" if open else "선택 완료"),
 		"own": own if own is Array else [], "perm": [], "hist": b.get("tk_hist") if b.get("tk_hist") is Array else []}
 
 
@@ -704,7 +705,7 @@ static func context(gs, others := true) -> Dictionary:
 				if str(b.get("name", "")) == bd.name:
 					bd = b
 					break
-			ctx.others.append(side_bot(run, bd))
+			ctx.others.append(side_bot(run, bd, open))
 		var f = room.get("foe")
 		if f is Dictionary and st in ["evening_prep", "evening"]:
 			for o in ctx.others:
@@ -737,8 +738,8 @@ static func context(gs, others := true) -> Dictionary:
 	return ctx
 
 
-## 11/25 상대 단계 카드 셋 —— {ids: [셋], src: "상대" | "지난 대전" | ""}. 공개 · 봇 · 우두머리 계획이면 그대로,
-## 사람이라 가렸으면 지난 대전 계획을 예상으로 (같은 사람은 같은 손패라 자주 되풀이한다). 모르면 src ""
+## 11/25 상대 단계 카드 셋 —— {ids: [셋], src: "상대" | "지난 대전" | ""}. 공개 · 우두머리 계획이면 그대로,
+## 가렸으면(사람 · 유저봇) 지난 대전 계획을 예상으로 (같은 사람은 같은 손패라 자주 되풀이한다). 모르면 src ""
 static func foe_cards(ctx: Dictionary) -> Dictionary:
 	var foe: Dictionary = ctx.get("foe", {})
 	var none := {"ids": ["", "", ""], "src": ""}
@@ -1156,7 +1157,7 @@ static func _room_row(side: Dictionary, toast: Callable) -> Control:
 	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(nl)
-	var st := ("확정" if str(side.get("tag", "")) == "봇" else "공개") if side.plan is Array else str(side.get("state", ""))      # 봇은 그 페이즈 계획이 정해져 있다
+	var st := "공개" if side.plan is Array else str(side.get("state", ""))      # 11/25 봇도 사람처럼 대전 단계에만 공개
 	var stl := UI.lbl(("%s · %s" % [str(side.tag), st]) if str(side.get("tag", "")) != "" else st, UI.FS_CAP, P.gold if st == "선택 완료" else P.text_dim)
 	stl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(stl)
@@ -1257,10 +1258,11 @@ static func peer_tac(scr, r: Dictionary) -> Control:
 	if bool(r.get("me", false)):
 		side = side_me(scr.run)
 	elif bool(r.get("bot", false)):
+		# 11/25 유저봇 계획도 사람처럼 가림 —— 줄의 plan 은 온라인 공개 단계에만 찬다 (GameScreen.bot_row · Room._mirror)
 		var p = r.get("plan", [])
 		var ok: bool = p is Array and not (p as Array).is_empty()
-		side = {"name": str(r.get("name", "")), "tag": "봇", "plan": Tac.norm(p) if ok else null, "state": "" if ok else "모름",
-			"own": r.get("own", []), "perm": [], "hist": []}
+		side = {"name": str(r.get("name", "")), "tag": "봇", "plan": Tac.norm(p) if ok else null, "state": "" if ok else "선택 완료",
+			"own": r.get("own", []), "perm": [], "hist": r.get("hist") if r.get("hist") is Array else []}
 	else:
 		var st := ""
 		if scr.online != null and scr.online.in_game:

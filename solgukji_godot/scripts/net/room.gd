@@ -1595,8 +1595,11 @@ func _mirror() -> void:
 					if not plans.has(o.name):
 						var side := Run.bot_side_of(b.duplicate(true), int(rng.seed), day * 3 + phase, _bot_mul(o))
 						plans[o.name] = side.get("plan", {})
-					lst[-1]["plan"] = plans[o.name].get("p", [])
-					lst[-1]["own"] = plans[o.name].get("own", [])      # 11/21 봇의 늘 켜지는 군략 (군략 현황)
+					# 11/25 사용자 "유저봇 군략도 ? 히든": 봇의 단계 계획도 사람처럼 대전 단계 전에는 보내지 않는다 (Run.tk_plan_open)
+					lst[-1]["plan"] = (plans[o.name].get("p", []) as Array).duplicate() if Run.tk_plan_open(stage) else []
+					lst[-1]["own"] = plans[o.name].get("own", [])      # 11/21 봇의 늘 켜지는 군략 (군략 현황) —— 사람의 늘 켜짐처럼 늘 공개
+				if Run.tac_on:
+					lst[-1]["tk_hist"] = (b.get("tk_hist", []) as Array).duplicate(true)      # 지난 대전 계획 (이미 뒤집힌 카드 —— 늘 공개)
 		s.run.bots = lst
 
 

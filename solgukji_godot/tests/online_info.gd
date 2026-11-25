@@ -6,8 +6,11 @@ extends Node
 ## ③ 새는 것이 없다: 줄의 키는 허용 목록 안에서만 (병사 수 · 덱 · 아이템 · 토큰 없음) · 메시지 크기
 ## ④ 핵심 유닛이 바뀌는 명령(조합) 뒤에는 다른 사람에게도 새 room 이 간다
 ## ⑥ 11/21 군략 공개 규칙(Run.tk_plan_open): 고르는 동안(아침)은 남의 단계 계획을 비워 보내고 내 것만, 대전 단계에는 모두. 늘 켜짐 · 영구 · 지난 대전(tk)은 언제나
+##   11/25 유저봇도 같다 —— 서버 거울(run.bots)의 plan 은 대전 단계에만, 늘 켜짐(own) · 지난 대전(tk_hist)은 언제나. 혼자 하기 화면(TacUI.side_bot · GameScreen.bot_row)도 가린다
 ## ⑤ 클라이언트 도우미 Online.peer_rows: 옛 서버 줄(hp · key 없음) → hp −1 · has_key false (화면에는 「—」), 엉뚱한 key 는 걸러진다, 나는 내 값으로, 봇은 빠진다
 
+const TacUI := preload("res://scripts/ui/tac_ui.gd")
+const Tac := preload("res://scripts/tactics.gd")
 const ALLOWED := ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "featured", "plan", "tk", "st"]
 
 class FakeSrv:
@@ -156,7 +159,36 @@ func _ready() -> void:
 		r.stage = "evening_prep"
 		if r.info(1).seats[0].plan != []:
 			fails.append("대전 준비인데 남의 계획이 보인다")
+		# ⑥ 11/25 유저봇 —— 거울(run.bots)의 단계 계획은 대전 단계에만
+		var bot_rows := func() -> Array:
+			return (r.seats[1].run.bots as Array).filter(func(b): return not str(b.get("epi", "")).begins_with("사람") and not bool(b.get("dead", false)))
+		for stg in ["morning", "evening_prep", "evening"]:
+			r.stage = stg
+			r._mirror()
+			var bm: Array = bot_rows.call()
+			if bm.is_empty():
+				fails.append("봇 거울이 비었다 (%s)" % stg)
+			for b in bm:
+				if not (b.get("own") is Array) or not (b.get("tk_hist") is Array):
+					fails.append("봇 %s 의 늘 켜짐 · 지난 대전이 없다 (%s)" % [b.name, stg])
+				if stg == "evening":
+					if not (b.get("plan") is Array and (b.plan as Array).size() == Tac.STAGES):
+						fails.append("대전 단계인데 봇 %s 계획이 안 보인다: %s" % [b.name, str(b.get("plan"))])
+				elif b.get("plan") != []:
+					fails.append("%s 인데 봇 %s 계획이 보인다: %s" % [stg, b.name, str(b.get("plan"))])
 		r.stage = st0
+		r._mirror()
+		# 혼자 하기 화면 —— 봇 계획은 늘 가림, 늘 켜짐 · 지난 대전은 보인다
+		var solo := Run.new()
+		solo.new_game(4242)
+		var sb: Dictionary = solo.bots[0]
+		sb["tk_hist"] = [["돌격", "방진", ""]]
+		var sd := TacUI.side_bot(solo, sb)
+		if sd.plan != null or str(sd.state) != "선택 완료" or sd.hist != sb.tk_hist or not (sd.own is Array):
+			fails.append("혼자 하기 봇 현황이 계획을 보이거나 지난 대전을 잃었다: %s" % str(sd))
+		var br := GameScreen.bot_row(solo, sb)
+		if br.plan != [] or br.hist != sb.tk_hist:
+			fails.append("혼자 하기 기록 탭 봇 줄이 계획을 보인다: %s" % str(br.plan))
 		# tk —— 영구 효과 이름 · 늘 켜짐
 		r.seats[0].run.tk_perm = {"notes": ["명마"], "parts": []}
 		r.seats[0].run.tk_hand["창림"] = 1
