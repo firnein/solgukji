@@ -1862,7 +1862,17 @@ func _ult_clash(e: Dictionary) -> void:
 		return
 	for cp in ["A", "B"]:
 		sides[cp].sort_custom(func(x, y): return x.tier > y.tier if x.tier != y.tier else (x.first and not y.first))
-	hud.clash_cutin(sides.A, sides.B, str(e.a).begins_with("A"))
+	# 11/26 받아치기 연쇄 —— 묶음 장수가 모은 인연 짝을 그 진영 곁 초상으로, 인연 이름을 이름 띠 옆에
+	var yeon := {"A": "", "B": ""}
+	var ch: Dictionary = e.get("chain", {})
+	for lk in ch:
+		var cp2 := "A" if str(lk).begins_with("A") else "B"
+		yeon[cp2] = str(ch[lk].get("n", ""))
+		for mk in ch[lk].get("m", []):
+			if field.squads.has(str(mk)):
+				var ms: Squad = field.squads[str(mk)]
+				sides[cp2].append({"k": ms.cid, "who": ms.row.name, "name": "", "tier": int(ms.tier), "first": false, "join": true})
+	hud.clash_cutin(sides.A, sides.B, str(e.a).begins_with("A"), yeon)
 	Sfx.play("skill", -4.0)
 	# 11/26 사용자: "받아치기 이펙트가 생략되는 듯" —— 컷인(1.4초)이 화면을 덮는 동안 전투가 제 속도로 흘러, 걷히면 양쪽 고유기와 밀린 공격이 한꺼번에 터졌다.
 	# 큰 컷인처럼 그동안 전투를 늦춘다 (온라인 재생도 큰 컷인에서 같은 슬로모션을 쓴다)
@@ -3843,8 +3853,8 @@ class Hud extends Control:
 	## 11/25 고유기 받아치기 컷인 —— a: 아군 [{k, who, name, tier}] (큰 장수 먼저) · b: 적. 앞 컷인이 떠 있으면 걷힌 뒤에 (_process)
 	var _clash_q = null
 
-	func clash_cutin(a: Array, b: Array, a_first: bool) -> void:
-		var c := {"clash": true, "A": a, "B": b, "a_first": a_first, "t": 0.0, "len": CLASH_T, "k": str(a[0].k), "who": str(a[0].who),
+	func clash_cutin(a: Array, b: Array, a_first: bool, yeon := {}) -> void:
+		var c := {"clash": true, "A": a, "B": b, "a_first": a_first, "yeon": yeon, "t": 0.0, "len": CLASH_T, "k": str(a[0].k), "who": str(a[0].who),
 			"name": str(a[0].name), "shout": "", "camp": "A", "crisis": false, "col": DB.tier_color(str(a[0].k)), "desc": "", "mates": [], "inyeon": "",
 			"pop": [false, false, false], "land": [false, false, false]}
 		if cut != null and not cut.has("clash"):
@@ -5782,6 +5792,9 @@ class Hud extends Control:
 			if extra.size() > 0:
 				who += " 외 %d" % (arr.size() - 1)
 			var tag := "받아치기" if left != a_first else ""
+			var yn := str((cut.get("yeon", {}) as Dictionary).get(sd[0], ""))      # 11/26 연쇄로 받아친다 —— 인연 이름
+			if yn != "":
+				tag = ("받아치기 · " if tag != "" else "") + "인연 『%s』" % yn
 			var wsz := DB.font_body.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)
 			var tx := pr.position.x if left else pr.end.x - tw
 			var al := HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT
@@ -5791,8 +5804,9 @@ class Hud extends Control:
 			draw_rect(wb, Color(col.darkened(0.25), 0.9 * fade))
 			draw_string(DB.font_body, wb.position + Vector2(10, 19), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, fade))
 			if tag != "":
-				var gx := wb.end.x + 8.0 if left else wb.position.x - 8.0 - 80.0
-				_text(DB.font_bold, Vector2(gx, wy + 19.0), tag, HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 80.0, 16, Color("#ffd257", fade * nt))
+				var gw := 240.0
+				var gx := wb.end.x + 8.0 if left else wb.position.x - 8.0 - gw
+				_text(DB.font_bold, Vector2(gx, wy + 19.0), tag, HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, gw, 16, Color("#ffd257", fade * nt))
 			var scl := lerpf(1.8, 1.0, ease(nt, 0.35))
 			var anchor := Vector2(tx + (0.0 if left else tw), ty)
 			draw_set_transform(shake + anchor, 0.0, Vector2.ONE * scl)

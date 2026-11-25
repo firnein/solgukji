@@ -641,6 +641,7 @@ func _counter(x: Unit, wi: int) -> void:
 	L("sk", "%s 『%s』 —— %s 받아친다!" % [ga(nm(x)), x.ult.name, ", ".join(names)],
 		{"fx": "ult_clash", "a": x.key, "name": x.ult.name, "by": by.map(func(o): return o.key), "by_names": by.map(func(o): return o.ult.name),
 		"wait": end - _tm, "pick": picks.size()})
+	var ci := ev.size() - 1      # 받아치기 사건 —— 아래에서 연쇄 짝을 적어 넣는다
 	for o in picks:
 		var wait := maxf(WIND_FAST, end - _tm)
 		grp.members.append(o)
@@ -661,6 +662,20 @@ func _counter(x: Unit, wi: int) -> void:
 		_zh_cut(o)      # 묶음 밖의 매복 주환은 예전처럼 끊는다
 		if inyeon_enabled and counter_recruit and _wind.has(o):      # 11/26 받아친 장수도 대표처럼 인연 짝을 모은다 (받아치기 연쇄)
 			_inyeon_recruit(o, wait, counter_recruit_cap)
+	# 11/26 화면용 —— 묶음 장수가 대표인 연쇄의 인연 이름 · 합류할 짝 (받아치기 컷인이 짝 초상과 인연 이름을 같이 보인다)
+	var chain := {}
+	for m in grp.members:
+		var g: Dictionary = _wind_grp.get(m, {})
+		if g.is_empty() or g.get("lead") != m:
+			continue
+		var ks := []
+		for j in _join_q:
+			if is_same(j.grp, g):
+				ks.append(j.u.key)
+		if not ks.is_empty():
+			chain[m.key] = {"n": str(g.get("name", "")), "m": ks}
+	if not chain.is_empty() and ci >= 0 and ci < ev.size() and ev[ci].get("fx") == "ult_clash":
+		ev[ci]["chain"] = chain
 
 
 ## 묶음 고유기가 터지는 동안 —— 그 묶음의 상대 장수(아직 제 고유기를 쏘지 않은)는 무너지지 않고 미뤄 둔다

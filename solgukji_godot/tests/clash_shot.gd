@@ -32,10 +32,24 @@ func _ready() -> void:
 	var bt := RtBattle.new(int(b.seed))
 	var r: Dictionary = sw._run_bt(bt, me, foe, {}, false)
 	var ce = null
-	for e in r.ev:
-		if e.get("fx") == "ult_clash":
-			ce = e
+	var want_chain := _args.has("chain")      # 11/26 --chain : 받아치기 연쇄(짝이 붙은 받아치기)가 나오는 판을 찾아 그 컷인을 찍는다
+	var bi := int(_args.get("bi", "146"))
+	for tries in (rows.size() if want_chain else 1):
+		for e in r.ev:
+			if e.get("fx") == "ult_clash" and (not want_chain or (e.get("chain", {}) as Dictionary).size() >= int(_args.get("chain", "1"))):
+				ce = e
+				break
+		if ce != null or not want_chain:
 			break
+		bi = (bi + 1) % rows.size()
+		b = rows[bi]
+		if float(b.get("av", 6.0)) < 5.5 and b.has("av"):
+			continue
+		me = sw._side(b.me)
+		foe = sw._side(b.foe)
+		bt = RtBattle.new(int(b.seed))
+		r = sw._run_bt(bt, me, foe, {}, false)
+	print("판 %d" % bi)
 	print("받아치기 %d번 · 첫 사건 %s" % [r.ev.filter(func(e): return e.get("fx") == "ult_clash").size(), str(ce.t) if ce != null else "없음"])
 	var view := BattleView.new()
 	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
