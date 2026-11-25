@@ -92,6 +92,14 @@ static var cut_enabled := true       # 수치 깎기 켜기 (위축 · 산란 ·
 static var guard_enabled := true     # 철벽 계열 켜기 (방진 · 반격 · 사수 —— 솔국지 확장)
 static var counter_charge := false   # 반격을 맞은 쪽도 고유기 게이지가 차는가 —— 차면 반격이 적 고유기를 앞당겨 철벽이 손해를 봤다(10/29 측정)
 static var scheme_enabled := true    # 계략 계열 켜기 (혼란 걸기 · 키우기 · 옮기기 · 미인계)
+## 11/25 혼란 연쇄 방지 (사용자: 혼란이 거듭 걸려 고등급 장수도 아무것도 못 하고 죽는다) —— tests/confuse_guard
+##  ① 내성: 혼란이 풀리면 max(cf_imm_min, 겪은 혼란 × cf_imm_mul) 초 동안 다시 걸리지 않는다. 혼란 중에 또 걸어도 늘지 않는다
+##  ② 등급 저항: 6급 이상은 혼란 지속이 짧다 (실시간 엔진 —— 혼란을 초 단위로 끝낸다. 턴 엔진은 내성만)
+static var cf_guard := true
+static var cf_imm_mul := 2.0
+static var cf_imm_min := 6.0
+static var cf_tier_res := {6: 0.15, 7: 0.30, 8: 0.40}
+static var cf_max_sec := 5.0      # 한 번 혼란의 상한 (초) —— 개전 군략 혼란(반목 · 반간 등, 한 번뿐인 효과 배율)이 7급에게도 9 ~ 14초 걸려 한 번에 판의 절반을 날렸다
 static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 · 도원결의 · 단량)
 ## 11/3 8병종 역할 (사용자: 병종이 제 역할을 못 한다 —— tests/tag_role.tscn: 창병이 탱커 · 딜러를 겸하고 도적은 하는 일이 없었다)
 ## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
@@ -279,6 +287,10 @@ class Unit:
 	var ult_n := 0            # 이 전투에서 고유기를 쓴 횟수 (11/7 재사용 체감 —— 쓸수록 게이지가 느리게 찬다)
 	var ult_tm := -99.0       # 마지막으로 고유기를 쓴 시각 (실시간 엔진, 초)
 	var ult_turn := -99       # 마지막으로 고유기를 쓴 턴 (턴 엔진)
+	var cf_t0 := -1.0         # 11/25 지금 혼란이 걸린 시각 (풀리면 -1)
+	var cf_imm := -99.0       # 11/25 이 시각까지 혼란 내성
+	var cf_sec := 0.0         # 11/25 이 판에 혼란으로 보낸 시간 (초 · 기록만)
+	var cf_n := 0             # 11/25 이 판에 혼란에 걸린 횟수 (기록만)
 	var sk_cnt := {}          # 11/23 기술마다 이 판에 쓴 횟수 (기술 번호 → 수) —— 덜 쓴 기술부터 노린다 (Battle.sk_rotate)
 	var sk_ch := []           # 기술 충전 —— 11/3 부터 [0] 하나를 모든 기술이 나눠 쓴다
 	var charges := 0          # 남은 고유기 횟수
@@ -1576,9 +1588,19 @@ func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
 			{"fx": "heal", "f": d.key, "m": g})
 
 
-func add_buff(u: Unit, b: Dictionary) -> void:
+## src —— 같은 기술에서 온 같은 능력치 버프 · 디버프는 겹치지 않고 지속만 새로 고친다 (11/25 조운 기술 71회 조사).
+## 예전엔 쌓여 곱해졌다: 용담창술(자신 속도 +35%)이 행동 간격을 줄이고 → 기술이 더 잦아지고 → 속도가 또 쌓여 한 판에 속도 136 → 8,700 (틱마다 행동, 17초에 기술 71회)
+static var buff_src := true      # false 면 예전처럼 쌓인다 (점검 비교용)
+func add_buff(u: Unit, b: Dictionary, src := "") -> void:
 	if _no_ally(u) and b.amt > 0 and not u.in_skill and not (_in_ult and _ult_by == u): return      # 여포 무쌍 —— 아군이 거는 버프를 받지 않는다
-	u.buffs.append({"stat": b.stat, "amt": float(b.amt), "dur": roundi(int(b.dur) * _long)})
+	var dur := roundi(int(b.dur) * _long)
+	if src != "" and buff_src:
+		for x in u.buffs:
+			if x.get("src", "") == src and x.stat == b.stat:
+				x.dur = maxi(int(x.dur), dur)
+				if absf(float(b.amt)) > absf(float(x.amt)): x.amt = float(b.amt)
+				return
+	u.buffs.append({"stat": b.stat, "amt": float(b.amt), "dur": dur, "src": src} if src != "" else {"stat": b.stat, "amt": float(b.amt), "dur": dur})
 	var up: bool = b.amt > 0
 	L("sk", "%s의 %s %s · %s%d%%" % [nm(u), ga(DB.D.STATNM.get(b.stat, b.stat)), "올랐다" if up else "꺾였다",
 		"+" if up else "", roundi(b.amt * 100)], {"fx": "buff", "f": u.key, "up": up})
@@ -1591,6 +1613,13 @@ func _turn_sec() -> float:
 
 func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	if not d.alive: return
+	if kind == "confuse" and cf_guard:
+		if has_st(d, "confuse"):
+			return      # 혼란 중에 또 걸어도 늘지 않는다
+		if _cf_now() < d.cf_imm:
+			stats["cf_block"] = int(stats.get("cf_block", 0)) + 1
+			L("st", "%s 정신을 다잡아 혼란에 걸리지 않는다" % ga(nm(d)), {"fx": "resist", "f": d.key, "st": "confuse", "guard": true})
+			return
 	if mv(d, "stres") > 0 and rng.randf() < mv(d, "stres"):
 		stats["sig_resist"] = int(stats.get("sig_resist", 0)) + 1
 		L("st", "%s 『%s』%s 버텨냈다" % [ga(nm(d)), DB.D.STATUS[kind].n, "을" if jong(DB.D.STATUS[kind].n) else "를"],
@@ -1634,16 +1663,87 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 			for s in d.st:
 				if s.dur <= w.dur: w = s
 			d.st.erase(w)
+			if w.k == "confuse": _cf_off(d)
 		d.st.append({"k": kind, "val": v, "dur": t, "sp": sp, "by": a.key if a else "", "spread_by": a.key if a else ""})
+		if kind == "confuse" and cf_guard:
+			var ent: Dictionary = d.st[d.st.size() - 1]
+			d.cf_t0 = _cf_now()
+			d.cf_n += 1
+			if _by_distance():      # 실시간 —— 평균 길이는 예전(턴 경계에서 풀림: (t − ½) 턴)과 같게, 등급 저항만큼 줄여 초로 끝낸다
+				var sec := minf(cf_max_sec, maxf(0.5, float(t) - 0.5) * _turn_sec() * (1.0 - float(cf_tier_res.get(int(d.c.tier), 0.0))))
+				ent["end"] = d.cf_t0 + sec
+				_cf_live += 1
+				L("st", "%s 『%s』에 걸렸다 — %s" % [ga(nm(d)), DB.D.STATUS[kind].n, DB.sec_str(sec)],
+					{"fx": "status", "f": d.key, "st": kind, "from": a.key if a else "", "spread": false})
+				if temper_enabled and a and a.alive and a.camp != d.camp and not _in_ult:
+					_gauge_add(a, _tw(a, "status"))
+				return
 	L("st", "%s 『%s』에 걸렸다 — %s" % [ga(nm(d)), DB.D.STATUS[kind].n, DB.sec_str(t * _turn_sec())],
 		{"fx": "status", "f": d.key, "st": kind, "from": a.key if a else "", "spread": false})
 	if temper_enabled and a and a.alive and a.camp != d.camp and not _in_ult:      # 11/7 지략 —— 상태이상을 걸 때마다 찬다
 		_gauge_add(a, _tw(a, "status"))
 
 
+## 반간 —— 풀린 혼란이 같은 열 이웃에게 옮겨 간다 (한 번만)
+func _cf_pass(u: Unit) -> void:
+	var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and _same_line(o, u) and not has_st(o, "confuse"))
+	if cand.is_empty(): return
+	var t: Unit = cand[rng.randi() % cand.size()]
+	stats.passes += 1
+	_chain(_foe(u.camp), "반간")
+	inflict(null, t, "confuse", 1, int(DB.PSV.scheme.dur))
+	var c = _st_of(t, "confuse")
+	if c: c.passed = true
+
+
+## 11/25 혼란 연쇄 방지 —— 지금 시각 (실시간은 초, 턴 엔진은 턴 × 기본 턴 길이)
+func _cf_now() -> float:
+	return _tm if _by_distance() else float(_turn) * _turn_sec()
+
+
+var _cf_live := 0      # 초로 끝나는 혼란이 걸린 부대 수 (0 이면 _cf_tick 을 건너뛴다)
+
+## 혼란이 풀렸다 —— 겪은 길이를 적고 내성을 건다
+func _cf_off(u: Unit) -> void:
+	if not cf_guard or u.cf_t0 < 0.0:
+		return
+	var now := _cf_now()
+	var took := maxf(0.0, now - u.cf_t0)
+	u.cf_sec += took
+	u.cf_t0 = -1.0
+	u.cf_imm = now + maxf(cf_imm_min, took * cf_imm_mul)
+
+
+## 실시간 —— 끝 시각이 지난 혼란을 푼다 (틱마다, 걸린 부대가 있을 때만)
+func _cf_tick() -> void:
+	if _cf_live <= 0:
+		return
+	var done := []
+	for u in units:
+		for s in u.st:
+			if s.k == "confuse" and s.has("end"):
+				if not u.alive or _tm >= float(s.end):
+					u.st.erase(s)
+					done.append([u, s])
+				break
+	for x in done:
+		var u: Unit = x[0]
+		_cf_off(u)
+		if u.alive and not x[1].get("passed", false) and scheme_enabled and _side_max(_foe(u.camp), "confuse_pass") > 0:
+			_cf_pass(u)      # 반간 —— 옮겨 간 혼란도 초로 끝난다
+	var live := 0      # 옮겨 간 혼란까지 다시 센다 (앞서 훑은 부대에 걸려도 놓치지 않게)
+	for u in units:
+		for s in u.st:
+			if s.k == "confuse" and s.has("end"):
+				live += 1
+				break
+	_cf_live = live
+
+
 func cleanse(u: Unit) -> bool:
 	if u.st.is_empty(): return false
 	var k: String = u.st.pop_front().k
+	if k == "confuse": _cf_off(u)
 	var sn: String = DB.D.STATUS[k].n
 	L("hl", "%s의 『%s』%s 씻겼다" % [nm(u), sn, "이" if jong(sn) else "가"], {"fx": "cleanse", "f": u.key, "st": k})
 	return true
@@ -1702,26 +1802,21 @@ func tick_status(frac := 1.0, final := true) -> void:
 						L("st", "%s의 군세에 역병이 돈다 — 사기 %d 감소" % [nm(u), roundi(s.val)], {"fx": "tick", "f": u.key, "st": "plague", "m": s.val})
 		if not final:
 			continue
-		for s in u.st: s.dur -= 1
 		for s in u.st:
-			if s.k == "confuse" and s.dur <= 0 and not s.get("passed", false) and scheme_enabled \
-					and _side_max(_foe(u.camp), "confuse_pass") > 0:
-				passes.append(u)
+			if not s.has("end"): s.dur -= 1      # 초로 끝나는 혼란(실시간 · cf_guard)은 _cf_tick 이 푼다
+		for s in u.st:
+			if s.k == "confuse" and s.dur <= 0:
+				_cf_off(u)
+				if not s.get("passed", false) and scheme_enabled and _side_max(_foe(u.camp), "confuse_pass") > 0:
+					passes.append(u)
 		u.st = u.st.filter(func(s): return s.dur > 0)
 	for sp in spreads:
 		_spread_burn(sp[0], sp[1])
 	if not final:
 		return
 	_shred_tick()      # 11/8 갑옷 · 결계 깎기
-	for u in passes:                                  # 반간 —— 풀린 혼란이 같은 열 이웃에게 옮겨 간다 (한 번만)
-		var cand := units.filter(func(o): return o.alive and o != u and o.camp == u.camp and _same_line(o, u) and not has_st(o, "confuse"))
-		if cand.is_empty(): continue
-		var t: Unit = cand[rng.randi() % cand.size()]
-		stats.passes += 1
-		_chain(_foe(u.camp), "반간")
-		inflict(null, t, "confuse", 1, int(DB.PSV.scheme.dur))
-		var c = _st_of(t, "confuse")
-		if c: c.passed = true
+	for u in passes:      # 반간 —— 풀린 혼란이 같은 열 이웃에게 옮겨 간다 (한 번만)
+		_cf_pass(u)
 	_drown()
 	for cp in ["A", "B"]:
 		var side := units.filter(func(u): return u.alive and u.camp == cp)
@@ -2097,6 +2192,8 @@ func _shown_st(u: Unit) -> Array:
 	var out: Array = []      # 11/15 성능: 사건마다 부대 수만큼 불린다 —— map · any(람다) 대신 그냥 훑기 (같은 값)
 	for x in u.st:
 		out.append(x.k)
+	if u.cf_t0 < 0.0 and u.cf_imm > -1.0 and _cf_now() < u.cf_imm:
+		out.append("cf_guard")      # 11/25 혼란 내성 딱지
 	var bf: Array = u.buffs
 	if not bf.is_empty():
 		if _phalanx(u):
@@ -3219,17 +3316,17 @@ func act(u: Unit) -> void:
 						phys_hit(u, t, e.mult, false, e.get("pierce", 0.0))
 						if e.has("exec") and t.troops > 0 and t.troops / t.max <= e.exec: rout(t, "한 칼에 짓밟혔다")
 						if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
-						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur})
-						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur})
+						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur}, "sk:" + sk.n)
+						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur}, "sk:" + sk.n)
 						if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
 						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
-					if e.has("selfBuff"): add_buff(u, e.selfBuff)
+					if e.has("selfBuff"): add_buff(u, e.selfBuff, "sk:" + sk.n)
 					if e.has("heal"):      # 범용 사기 기술 (진두지휘 · 고함)
 						for t in allies:
 							if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
 					if e.has("stance"): u.buffs.append({"stat": "counter", "amt": float(e.stance.amt), "dur": int(e.stance.dur)})
 					if e.has("allyBuff"):
-						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff)
+						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff, "sk:" + sk.n)
 				"int":
 					var ts := resolve_targets(e.tgt, foes, u, allies)
 					for t in ts:
@@ -3239,13 +3336,13 @@ func act(u: Unit) -> void:
 						if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
 						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
 						# 11/2 책략 기술의 속도 깎기 (수공 · 혹세의 foeSpd 가 적혀만 있고 쓰이지 않았다)
-						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur})
-						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur})
+						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur}, "sk:" + sk.n)
+						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur}, "sk:" + sk.n)
 						if u.caps.has("모사") and rng.randf() < 0.30: inflict(u, t, "confuse", 1, 1)      # 봉인은 혼란으로 합쳤다
 					if e.has("heal"):
 						for t in allies:
 							if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
-					if e.has("selfBuff"): add_buff(u, e.selfBuff)
+					if e.has("selfBuff"): add_buff(u, e.selfBuff, "sk:" + sk.n)
 					if e.has("tHeal"):
 						for t in allies:
 							if t.alive: heal_troop(t, e.tHeal, sk.n, u)
@@ -3255,7 +3352,7 @@ func act(u: Unit) -> void:
 							if n <= 0: break
 							if t.alive and not t.st.is_empty() and cleanse(t): n -= 1
 					if e.has("allyBuff"):
-						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff)
+						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff, "sk:" + sk.n)
 	u.in_skill = false
 	_sk_on = false
 	if not used:

@@ -290,6 +290,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			_zone_tick()
 		if _sg != null:
 			_sg.tick(TICK)
+		if _cf_live > 0:
+			_cf_tick()      # 11/25 초로 끝나는 혼란 (cf_guard)
 		for u: Unit in _tick_units():
 			if not u.alive:
 				continue

@@ -3253,7 +3253,7 @@ class Hud extends Control:
 
 	# 실제 확산 출처와 추가 피해 사건을 전장에 연결한다.
 	const DECK_ST := {
-		"taunted": ["도발", Color("#ff7a4a")], "undying": ["불사", Color("#ffd257")],      # 11/21 장수 개성 딱지 (sig_rt.shown) —— 앞에 두어 셋 안에 먼저 든다
+		"taunted": ["도발", Color("#ff7a4a")], "undying": ["불사", Color("#ffd257")], "cf_guard": ["혼란 내성", Color("#ffd257")],      # 11/21 장수 개성 딱지 (sig_rt.shown) —— 앞에 두어 셋 안에 먼저 든다
 		"burn": ["화상", Color("#ff9b45")], "flood": ["둔화", Color("#71caff")],
 		"cut_def": ["방깎", Color("#ffb697")], "cut_res": ["책방깎", Color("#ed9aff")],
 		"cut_atk": ["공깎", Color("#9bbcf2")], "cut_int": ["공깎", Color("#9bbcf2")],
@@ -3385,7 +3385,7 @@ class Hud extends Control:
 	const BADGE_GAP := 2.0
 	const BADGE_MAX := 4        # 넘치면 셋 + 「+N」
 	## 11/22 메달 딱지 순서 —— 버프(초록 · 금)를 왼쪽에, 그다음 행동 막힘 · 능력치 깎임 · 지속 피해 (빨강)
-	const BADGE_ORDER := ["undying", "phalanx", "moved", "taunted", "confuse", "seal",
+	const BADGE_ORDER := ["undying", "cf_guard", "phalanx", "moved", "taunted", "confuse", "seal",
 		"cut_atk", "cut_int", "cut_def", "shred_phys", "cut_res", "shred_int", "burn", "flood", "bleed", "plague"]
 	func _badge_place(sq: Squad, p: Vector2, radius: float) -> Array:
 		if not sq.alive or sq.statuses.is_empty():
@@ -3451,7 +3451,7 @@ class Hud extends Control:
 			"confuse": return Color("#c4a0ff")
 			"heal": return Color("#7fd6a4")
 			"taunted": return Color("#ff7a4a")
-			"undying": return Color("#ffd257")
+			"undying", "cf_guard": return Color("#ffd257")
 			"def_up", "phalanx", "atk_up", "moved": return Color("#7dffa0")
 			"bleed": return Color("#ff5a52")
 			"plague": return Color("#a8e070")
@@ -3462,7 +3462,7 @@ class Hud extends Control:
 	static func badge_kind(ic: String) -> int:
 		match ic:
 			"def_up", "atk_up", "phalanx", "moved", "heal": return 0
-			"undying": return 1
+			"undying", "cf_guard": return 1
 		return 2
 
 	## 11/22 프레임: 딱지를 한 장(아틀라스)에 미리 구워 두고 그림 조각으로만 찍는다.
@@ -3644,6 +3644,14 @@ class Hud extends Control:
 					var t := float(i) / 21.0
 					pts.append(c + Vector2(cos(t * TAU * 1.8), sin(t * TAU * 1.8)) * s * (0.12 + 0.85 * t))
 				ci.draw_polyline(pts, col.lightened(0.3), lw, true)
+			"cf_guard":      # 11/25 혼란 내성 —— 금빛 소용돌이에 빗금 (막 풀려 잠시 다시 걸리지 않는다)
+				var pts := PackedVector2Array()
+				for i in 22:
+					var t := float(i) / 21.0
+					pts.append(c + Vector2(cos(t * TAU * 1.8), sin(t * TAU * 1.8)) * s * (0.12 + 0.75 * t))
+				ci.draw_polyline(pts, col, lw * 0.9, true)
+				ci.draw_line(c + Vector2(-s * 0.8, s * 0.8), c + Vector2(s * 0.8, -s * 0.8), dark, lw * 1.9, true)
+				ci.draw_line(c + Vector2(-s * 0.8, s * 0.8), c + Vector2(s * 0.8, -s * 0.8), ink, lw * 1.1, true)
 			"taunted":      # 분노 표시 —— 가운데를 향해 굽은 네 획
 				for q in [Vector2(1, 1), Vector2(1, -1), Vector2(-1, 1), Vector2(-1, -1)]:
 					var at: Vector2 = c + q * s * 0.95
