@@ -15,6 +15,23 @@ static var formation_preview := false # Opt-in visual study; no simulation chang
 var painting: Control
 const PAINT_TILT := 0.72 # Ground seen obliquely, while figures stay upright.
 const PAINT_PERSPECTIVE := 0.00048
+## 전장 확대 · 따라가는 카메라 (Settings.zoom_cam, 사용자 "유닛이 작아 답답하다") —— 삽화 화면만. 전장 변환(_scale · _center · 투영)을 바꿔서 병사 · 장수 인형 ·
+## 이펙트 · 이름표 위치가 모두 함께 움직인다 (스프라이트만 따로 키우지 않는다). 엔진 좌표 · 판정은 그대로.
+##   시작: 빈 여백(옛 맞춤은 전장 폭 + 70 · 가장자리 20px)을 줄여 처음부터 더 크게. 이후: 살아 있는 부대(도망 · 사라진 부대 제외)의 범위에 맞춰 천천히 당긴다.
+const ZOOM_PAD_DEPTH := 20.0   # 부대 앞뒤로 더 담는 전장 px (옛 25)
+const ZOOM_PAD_WIDE := 24.0    # 부대 좌우로 더 담는 전장 px (옛 25 + 숲 띠 45 = 70) —— 이름표(반폭 약 30px)는 화면 px 여백(ZOOM_SIDE)이 받는다
+const ZOOM_SIDE := 8.0         # 화면 좌우 여백 (화면 px, 옛 20)
+const ZOOM_IN_MAX := 1.5       # 시작 화면 대비 당기는 한도 (후반에 부대가 줄어도 이 배율을 넘지 않는다 —— 이름표 · 병력 글씨가 서로 겹치지 않게)
+const ZOOM_OUT_MAX := 1.12     # 시작 범위보다 넓게 벌어졌을 때 물러서는 한도 (옛 화면은 아예 안 물러났다)
+const ZOOM_IN_RATE := 0.35     # 당길 때 따라가는 속도 (1/초 —— 시정수 약 3초: 멀미 없이 천천히)
+const ZOOM_OUT_RATE := 2.0     # 부대가 범위 밖으로 나가려 할 때 물러서는 속도 (잘리기 전에 따라붙는다)
+const ZOOM_PAN_RATE := 0.8     # 가운데 따라가는 속도
+const ZOOM_COMMIT_PX := 0.5    # 화면에서 이만큼(px) 달라져야 새 시점으로 확정한다 (바닥 그림을 매 프레임 다시 그리지 않으려고 —— 눈에는 안 보이는 크기)
+var _cam_ready := false
+var _cam_base_sc := 1.0        # 시작 맞춤 배율 (당기기 · 물러서기 한도의 기준)
+var _cam_size := Vector2.ZERO
+var _cam_cur := []             # 지금 시점 [배율, 늘림, 원점, 가운데] (보간 중인 값)
+var _cam_pose := []            # 마지막으로 확정한 [배율, 늘림, 원점, 가운데] —— 달라진 만큼만 갱신
 var _painting_bounds := Rect2()
 var _painting_points := PackedVector2Array()
 var _painting_origin := Vector2(0.5, 0.5)
@@ -118,6 +135,8 @@ func setup() -> void:
 	_areas.clear()      # 11/19 지난 전투의 범위 표시를 걷는다 —— 시계가 0 으로 돌아가 끝나지 않은 채 보이지 않게 계속 그려져, 전투를 볼수록 쌓였다 (24전투 뒤 프레임 2.7배)
 	_painting_bounds = Rect2()
 	_painting_points.clear()
+	_cam_ready = false
+	_cam_pose = []
 	if painting != null:
 		painting.reset()
 		painting.visible = painting_on()
@@ -203,7 +222,115 @@ func unmap(screen: Vector2) -> Vector2:
 	return _center + _jit + Vector2(x, local.x * (1.0 + x * PAINT_PERSPECTIVE))
 
 
+## 살아 있는 부대 범위에 맞춘 카메라 한 걸음 (now = 보간 없이 바로) —— _feel_step 이 매 프레임 부르고, 크기 · 방향이 바뀌면 처음 맞춤도 이걸 쓴다
+func _cam_extent(sq: Squad) -> Vector2:
+	return Vector2(sq.hd0 + ZOOM_PAD_DEPTH, sq.hw + ZOOM_PAD_WIDE)
+
+
+## 살아 있는 부대 모두를 담는 시점(배율 · 늘림 · 원점 · 가운데)을 구한다 —— 부대마다 꼭짓점 넷을 옛 _fit_painting 과 같은 식으로 투영해 잰다 (범위 사각형 꼭짓점으로 재면 투영 때문에 크게 잡힌다)
+## only_alive: false 면 전 부대 (시작 맞춤)
+func _cam_goal(only_alive: bool, base_sc := 0.0) -> Array:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for sq: Squad in field.order:
+		if only_alive and (not sq.alive or sq.state == "gone" or sq.state == "flee"):
+			continue
+		var e := _cam_extent(sq)
+		lo = lo.min(sq.pos - e)
+		hi = hi.max(sq.pos + e)
+	if lo.x == INF:
+		return []
+	var cen := (lo + hi) * 0.5
+	var plo := Vector2(INF, INF)
+	var phi := Vector2(-INF, -INF)
+	for sq: Squad in field.order:
+		if only_alive and (not sq.alive or sq.state == "gone" or sq.state == "flee"):
+			continue
+		var e := _cam_extent(sq)
+		for side in [Vector2(-1, -1), Vector2(-1, 1), Vector2(1, -1), Vector2(1, 1)]:
+			var d: Vector2 = sq.pos + e * side - cen
+			var pr := Vector2(d.y, -d.x * PAINT_TILT) / (1.0 + d.x * PAINT_PERSPECTIVE)
+			plo = plo.min(pr)
+			phi = phi.max(pr)
+	var span := phi - plo
+	var top := 90.0      # 위 상태줄 · 병력 막대 몫
+	var bottom := 30.0
+	var avail := Vector2(maxf(1.0, size.x - ZOOM_SIDE * 2.0), maxf(1.0, size.y - top - bottom))
+	var sc := minf(avail.x / maxf(span.x, 1.0), avail.y / maxf(span.y, 1.0))
+	if base_sc > 0.0:
+		sc = clampf(sc, base_sc / ZOOM_OUT_MAX, base_sc * ZOOM_IN_MAX)
+	var stretch := maxf(1.0, avail.y / maxf(span.y * sc, 1.0))
+	var org := (Vector2(ZOOM_SIDE, top) + (avail - Vector2(span.x, span.y * stretch) * sc) * 0.5 - Vector2(plo.x, plo.y * stretch) * sc) / size.max(Vector2.ONE)
+	return [sc, stretch, org, cen]
+
+
+## 지금 시점에서 살아 있는 부대 발 자리가 화면(좌우 · 위 띠 아래)을 벗어나는가
+func _cam_clips(sc: float, stretch: float, org: Vector2, cen: Vector2) -> bool:
+	var po := size * org
+	for sq: Squad in field.order:
+		if not sq.alive or sq.state == "gone" or sq.state == "flee":
+			continue
+		var d := sq.pos - cen
+		var q := po + Vector2(d.y, -d.x * PAINT_TILT * stretch) * (sc / maxf(0.35, 1.0 + d.x * PAINT_PERSPECTIVE))
+		var k := sc / maxf(0.35, 1.0 + d.x * PAINT_PERSPECTIVE)
+		if q.x - sq.hw * k < 2.0 or q.x + sq.hw * k > size.x - 2.0 or q.y < 70.0 or q.y > size.y - 6.0:
+			return true
+	return false
+
+
+func _cam_fit(dt: float, now := false) -> void:
+	if field == null or field.order.is_empty():
+		return
+	if _cam_ready and size != _cam_size:      # 창 크기 · 방향이 바뀌면 시작 맞춤을 다시 잡는다 (한도 기준이 낡지 않게)
+		_cam_ready = false
+	if not _cam_ready:
+		_cam_size = size
+		var g0 := _cam_goal(false)
+		if g0.is_empty():
+			return
+		_cam_base_sc = g0[0]
+		_cam_cur = g0
+		_cam_ready = true
+		_cam_pose = []
+		now = true
+	var goal := _cam_goal(true, _cam_base_sc)
+	if goal.is_empty():
+		goal = _cam_cur
+	if now:
+		_cam_cur = goal
+	elif dt > 0.0:
+		# 지금 시점이 부대를 자르려 하면 빠르게 물러서고 (잘리기 전에), 아니면 느리게 당긴다
+		var fast: bool = _cam_clips(_cam_cur[0], _cam_cur[1], _cam_cur[2], _cam_cur[3])
+		var zooming_out: bool = float(goal[0]) < float(_cam_cur[0])
+		var k := 1.0 - exp(-dt * (ZOOM_OUT_RATE if (fast or zooming_out) else ZOOM_IN_RATE))
+		var kp := 1.0 - exp(-dt * (ZOOM_OUT_RATE if fast else ZOOM_PAN_RATE))
+		_cam_cur = [lerpf(_cam_cur[0], goal[0], k), lerpf(_cam_cur[1], goal[1], k), Vector2(_cam_cur[2]).lerp(goal[2], k), Vector2(_cam_cur[3]).lerp(goal[3], kp)]
+	var sc: float = _cam_cur[0]
+	var stretch: float = _cam_cur[1]
+	var org: Vector2 = _cam_cur[2]
+	var cen: Vector2 = _cam_cur[3]
+	if not now and not _cam_pose.is_empty():
+		var old: Array = _cam_pose
+		var px := maxf(absf(sc / float(old[0]) - 1.0) * size.x, absf(stretch / float(old[1]) - 1.0) * size.y)
+		px = maxf(px, ((org - Vector2(old[2])) * size).length())
+		px = maxf(px, (cen - Vector2(old[3])).length() * sc)
+		if px < ZOOM_COMMIT_PX:
+			return
+	_cam_pose = [sc, stretch, org, cen]
+	_scale = sc
+	_want_scale = sc
+	_base_scale = sc
+	_painting_stretch = stretch
+	_painting_origin = org
+	_center = cen
+	_want_center = cen
+	_jit = Vector2.ZERO
+
+
 func _fit_painting() -> void:
+	if Settings.zoom_cam:
+		_cam_fit(0.0, true)
+		return
 	# Fit the initial battlefield once, not the shrinking set of survivors.
 	# A retreat or routed front must leave visible empty ground instead of zooming in.
 	if not _painting_bounds.has_area():
@@ -552,7 +679,7 @@ func _ground_step() -> void:
 			_ground_port.render_target_update_mode = SubViewport.UPDATE_ONCE
 		return
 	_ground_sig = sig
-	_ground_again = 6
+	_ground_again = 6 if (not Settings.zoom_cam or field == null or field.clock < 2.0) else 2      # 카메라가 움직이는 중에는 바뀔 때마다 다시 그리므로 덧그리기는 줄인다
 	var mat: ShaderMaterial = _ground.material
 	mat.set_shader_parameter("center", _center + _jit)
 	mat.set_shader_parameter("scl", _scale)
@@ -2117,6 +2244,8 @@ func shake(amt: float) -> void:
 func _feel_step(dt: float) -> void:
 	if painting_on():
 		_jit = Vector2.ZERO
+		if Settings.zoom_cam:
+			_cam_fit(dt)      # 살아 있는 부대 범위를 천천히 따라간다 (충격 · 격파에는 여전히 흔들리지 않는다)
 		return # The painting camera stays fixed through impacts and routes.
 	# 다가가거나 돌아올 때는 빠르게 (DotView 의 느린 따라가기 위에 한 번 더)
 	var fast := _focus_on() or absf(_scale - _want_scale) > _base_scale * 0.08

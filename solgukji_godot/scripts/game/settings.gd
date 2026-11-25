@@ -28,6 +28,7 @@ static var type2 := true       # 전장 표현 '타입2' —— 삼국지11 식 
 static var dmg_numbers := 1    # 피해 숫자 —— 0 큰 것만(기술 · 고유기 · 치명타) · 1 모아서 · 2 모두 (11/6 #16)
 static var ult_fx := 1         # 11/22 고유기 연출 —— 0 모두 크게 · 1 중요한 것만 크게(첫 고유기 · 인연 합동 · 적 신화 · 적을 무너뜨린 한 방) · 2 간단히 (슬로모션 · 컷인 없음)
 static var cam_fx := 1         # 전투 카메라 연출 —— 0 끔 · 1 적게(아군 고유기 · 적 신화 고유기 · 장수 격파) · 2 보통(첫 격돌 · 모든 고유기). 11/6 사용자
+static var zoom_cam := true   # 전투 화면 확대 · 따라가는 카메라 —— 켜면 빈 여백을 줄여 전장을 키우고 살아 있는 부대 범위에 맞춰 천천히 당긴다 (끄면 예전 고정 화면). 사용자 "유닛이 작아 답답하다"
 static var perf_hud := false   # 성능 표시 —— 전투 왼쪽 위에 fps · 계산 병사 · 보이는 인형 · 부하 조절 단계 (휴대폰 실측용, 11/6 목표)
 static var tac_info := 1       # 타입2 전황 표시 —— 0 끔 · 1 간단(진형 소개 · 책략 실) · 2 자세히(+ 사거리 · 전술 화살표). 11/6
 ## 11/9 사용자: 3D 전장(기본 3D · 수묵)은 점검하지 않으므로 설정에서 숨기고 늘 타입2 로 시작한다. 되살리려면 true —— 선택칸이 다시 보이고 저장된 값을 지킨다 (코드 · 점검 인자 --gtype2 · --gsumuk 는 그대로)
@@ -58,6 +59,7 @@ static func load_cfg() -> void:
 		tac_info = int(cf.get_value("gfx", "tac_info", 1))
 		perf_hud = bool(cf.get_value("gfx", "perf_hud", false))
 		cam_fx = int(cf.get_value("gfx", "cam_fx", 1))
+		zoom_cam = bool(cf.get_value("gfx", "zoom_cam", true))
 		dmg_numbers = int(cf.get_value("gfx", "dmg_numbers", 1))
 		ult_fx = int(cf.get_value("gfx", "ult_fx", 1))
 		if not SHOW_3D:      # 저장된 설정에 3D · 수묵이 켜져 있던 사용자도 타입2 로 (다음 저장 때 파일도 바뀐다)
@@ -96,6 +98,7 @@ static func save_cfg() -> void:
 	cf.set_value("gfx", "tac_info", tac_info)
 	cf.set_value("gfx", "perf_hud", perf_hud)
 	cf.set_value("gfx", "cam_fx", cam_fx)
+	cf.set_value("gfx", "zoom_cam", zoom_cam)
 	cf.set_value("gfx", "dmg_numbers", dmg_numbers)
 	cf.set_value("gfx", "ult_fx", ult_fx)
 	cf.set_value("gfx", "dots_v2", dots)
