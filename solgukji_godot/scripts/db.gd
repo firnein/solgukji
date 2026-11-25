@@ -2529,7 +2529,98 @@ func auto_place(cards: Array, form: String) -> Array:
 		if best >= 0:
 			used[best] = true
 			out[best] = k
+	if mid_place:
+		_mid_ranged(out, f)
 	return out
+
+
+## 11/26 사용자: "원거리 병종의 경우 가장 강한 유닛이 중앙 위주로 편제되게끔" —— 도적에게 물리는 자리는 줄이 아니라 바깥 열(0 · 4열)이다 (docs/진형_분석_1126.md).
+## 위 배치는 점수가 같으면 칸 번호가 앞선 자리(대개 왼쪽 바깥)부터 채워서, 가장 먼저 고르는 높은 등급 원거리가 바깥에 섰다.
+## 배치가 끝난 뒤 같은 줄 안에서만 원거리(궁병 · 책략계)끼리 —— 또는 그 줄의 빈 칸으로 —— 자리를 바꿔 「강한 순서 = 가운데 열에 가까운 순서」로 만든다.
+## 근접 부대의 자리 · 모든 부대의 줄은 그대로다 (원거리끼리의 맞바꿈과 빈 칸뿐이라).
+## 칸 선호(aff_of): 1 · 3열과 0 · 4열은 둘 다 '측면'이라 그 사이 이동은 선호가 같다. 가운데 열(2)이 끼면 선호가 달라질 수 있다 —— mid_place_aff 가 정한다.
+##   0: 누구든 선호 등급(선호 > 보통 > 나쁨)이 내려가는 바꿈은 하지 않는다
+##   1: 바깥 열(0 · 4)에서 나오는 길이 가운데 칸뿐이면 선호 한 단계를 내준다 (예: 어린 · 방원 중군 "X.X.X" 의 술사 · 모사 —— '중군 측면' 선호를 잃고 가운데로). 기본
+##   2: 안쪽(1 · 3열) → 가운데도 선호를 내준다
+## 어느 값이든 새로 '나쁜 자리'가 되는 바꿈(궁병 선봉 중앙 · 술사 전군 중앙 · 밀려난 모사의 전군 측면 …)은 하지 않는다.
+## 끄면(mid_place = false) 예전 배치 그대로
+static var mid_place := true
+static var mid_place_aff := 1
+func is_ranged(k) -> bool:
+	return k != null and C.has(k) and (C[k].tag == "궁병" or INT_TAGS.has(C[k].tag))
+
+
+## 배치에서 보는 세기 —— 등급 먼저, 같은 등급이면 PV (몸값: 병력 · 능력치에 맞춘 값). 기인은 등급 번호가 5 여도 몸이 초월 급(불멸의 병력 0.7 · 능력치 0.85, set_branch)이라 초월(6)로 센다
+func place_power(k) -> float:
+	if k == null or not C.has(k):
+		return -1.0
+	var t := 6 if is_kiin(k) else int(C[k].tier)
+	return float(t) * 100000.0 + float(C[k].pv)
+
+
+func _aff_rank(k, s: Dictionary) -> int:
+	var z := aff_of(C[k].tag, s.line, s.side)
+	return 1 if z == "pref" else (-1 if z == "bad" else 0)
+
+
+func _mid_ranged(out: Array, f: Dictionary) -> void:
+	for pass_i in 4:      # 한 번이면 거의 끝난다 —— 5칸이 꽉 찬 줄(대군 진형)에서 앞선 바꿈이 새 길을 열 때만 다시 돈다
+		if not _mid_ranged_pass(out, f):
+			break
+
+
+func _mid_ranged_pass(out: Array, f: Dictionary) -> bool:
+	var slots: Array = f.slots
+	var n := mini(out.size(), slots.size())
+	var ord := []      # 원거리가 선 칸 —— 강한 순 (같으면 칸 번호 순)
+	for i in n:
+		if is_ranged(out[i]):
+			ord.append(i)
+	ord.sort_custom(func(a, b):
+		var pa := place_power(out[a])
+		var pb := place_power(out[b])
+		return pa > pb if pa != pb else a < b)
+	var done := {}
+	var moved := false
+	for oi in ord.size():
+		var s: int = ord[oi]
+		var x = out[s]
+		var cs := absi(int(slots[s].col) - FORM_MID)      # 가운데 열에서 떨어진 칸 수 —— 0 가운데 · 1 안쪽 · 2 바깥
+		var best := -1
+		var best_cost := 9
+		var best_c := cs
+		for t in n:
+			if t == s or done.has(t) or slots[t].line != slots[s].line:
+				continue
+			var y = out[t]
+			if y != null and (not is_ranged(y) or place_power(y) >= place_power(x)):
+				continue      # 근접 부대는 건드리지 않는다 · 세기가 같은 원거리끼리는 바꾸지 않는다
+			var ct := absi(int(slots[t].col) - FORM_MID)
+			if ct >= cs:
+				continue
+			var xr := _aff_rank(x, slots[t])
+			var yr := 0 if y == null else _aff_rank(y, slots[s])
+			var cost := 0 if (xr >= _aff_rank(x, slots[s]) and (y == null or yr >= _aff_rank(y, slots[t]))) else 1
+			if cost == 1:
+				if mid_place_aff <= 0 or xr < 0 or yr < 0 or (mid_place_aff == 1 and cs < 2):
+					continue
+			# 0 · 1: 선호를 지키는 자리가 먼저, 그 안에서 가운데 쪽. 2: 가운데 쪽이 먼저
+			var better := (ct < best_c or (ct == best_c and cost < best_cost)) if mid_place_aff >= 2 else (cost < best_cost or (cost == best_cost and ct < best_c))
+			if best < 0 or better:
+				best = t
+				best_cost = cost
+				best_c = ct
+		if best >= 0:
+			out[s] = out[best]
+			out[best] = x
+			for oj in range(oi + 1, ord.size()):
+				if ord[oj] == best:
+					ord[oj] = s
+			done[best] = true
+			moved = true
+		else:
+			done[s] = true
+	return moved
 
 
 # ───────── 설명문 (원본 skillDesc) ─────────

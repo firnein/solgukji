@@ -1,6 +1,7 @@
 # 11/26 진형 분석 집계 (docs/진형_분석_1126.md) —— tests/form_audit.gd 출력(jsonl)을 읽는다
 # 쓰는 법: PYTHONIOENCODING=utf-8 python tests/form_audit_ana.py table <폴더>        —— fa_base_*.jsonl 칸 위치별 현황표
 #          PYTHONIOENCODING=utf-8 python tests/form_audit_ana.py final <폴더>        —— 안별 비교표 (fa_<이름>_*.jsonl, 이름은 문서의 재현 절 참고)
+#          PYTHONIOENCODING=utf-8 python tests/form_audit_ana.py mid <폴더> [0|1|2]  —— 11/26 원거리 가운데 배치 전/후 (fa_oo · fa_nn<n> · fa_no<n> · fa_on<n> · fa_base, --mid 로 만든 것)
 import os,sys
 import json,glob,sys,statistics as stt,collections
 RANGED={"궁병","책사","유생","술사","모사"}
@@ -100,7 +101,82 @@ def final():
     s=pls('rfp'); print('|후열↔전열 맞바꾸기 기준|%d|'%len(s)+stat(L('rfb'),s)+'|'); print('|후열 원거리를 전열로|%d|'%len(s)+stat(L('rfp'),s)+'|')
 
 
+# ───── 11/26 원거리 가운데 배치 (DB.mid_place) 전/후 ─────
+def _top(b, cp):
+    sl=b['top'][0 if cp=='A' else 1]
+    if sl<0: return None
+    for d in units(b):
+        if d['camp']==cp and d['slot']==sl: return d
+    return None
+def _side_rows(B, cps):
+    """판 · 진영마다 한 줄: 승 · 가장 강한 원거리의 값"""
+    out={}
+    for b in B:
+        U=list(units(b)); tot={'A':0,'B':0}
+        for d in U: tot[d['camp']]+=max(0,d['dmg'])
+        for cp in cps:
+            foe='B' if cp=='A' else 'A'
+            t=_top(b,cp)
+            R=[d for d in U if d['camp']==cp and d['ranged']]
+            out[(b['bi'],cp)]=dict(win=b['win'] if cp=='A' else 1-b['win'], fr=sum(1 for e in U if e['camp']==foe and e['tag']=='도적'), top=t,
+                share=(max(0,t['dmg'])/max(1,tot[cp])) if t else None, sig=sorted((d['slot'],d['tag'],d['tier'],d['max']) for d in U if d['camp']==cp),
+                rn=len(R), rbite=sum(1 for d in R if d['tr']>=0), rdead=sum(1 for d in R if not d['alive']), rdmg=sum(max(0,d['dmg']) for d in R), tot=tot[cp], len=b['len'])
+    return out
+def _fmt(rows, keys=None):
+    L=[rows[k] for k in (keys if keys is not None else rows)]
+    T=[r for r in L if r['top']]
+    RG=[r for r in T if r['fr']>0]
+    bite=sum(1 for r in RG if r['top']['tr']>=0)/max(1,len(RG))
+    out=sum(1 for r in T if r['top']['col'] in (0,4))/max(1,len(T))
+    alive=sum(1 for r in T if r['top']['alive'])/max(1,len(T))
+    dmg=sum(max(0,r['top']['dmg']) for r in T)/max(1,len(T))
+    share=sum(r['share'] for r in T)/max(1,len(T))
+    taken=sum(r['top']['taken']/max(1,r['top']['max']) for r in T)/max(1,len(T))
+    RA=[r for r in L if r['fr']>0]
+    rb=sum(r['rbite'] for r in RA)/max(1,sum(r['rn'] for r in RA))
+    win=sum(r['win'] for r in L)/max(1,len(L))
+    return f"{len(L)}|{out:.1%}|{bite:.1%} ({len(RG)})|{alive:.1%}|{taken:.2f}|{dmg:.0f}|{share:.1%}|{rb:.1%}|{sum(r['rdmg'] for r in L)/max(1,len(L)):.0f}|{win:.3f}"
+def _paired(new, old, keys):
+    d=[new[k]['win']-old[k]['win'] for k in keys]
+    if len(d)<2: return '-'
+    m=sum(d)/len(d); sd=stt.pstdev(d)
+    return f"{m*100:+.1f}pt ±{1.96*sd/len(d)**0.5*100:.1f} (바뀐 승패 {sum(1 for x in d if x!=0)})"
+def mid(n):
+    H='|조건|진영 수|최강 원거리 바깥 열|최강 원거리 도적 물림 (상대 도적 있는 진영 수)|최강 생존|최강 받은 피해/최대|최강 준 피해|최강 피해 몫|원거리 전체 도적 물림|원거리 전체 준 피해(진영)|승률|'
+    print(H); print('|'+'---|'*11)
+    oo=_side_rows(L('oo'),['A','B']); nn=_side_rows(L(f'nn{n}'),['A','B'])
+    noA=_side_rows(L(f'no{n}'),['A']); onB=_side_rows(L(f'on{n}'),['B'])
+    noB=_side_rows(L(f'no{n}'),['B']); onA=_side_rows(L(f'on{n}'),['A'])
+    one=dict(noA); one.update(onB)       # 새 배치인 쪽 (상대는 옛 배치)
+    oth=dict(noB); oth.update(onA)       # 옛 배치인 쪽 (상대가 새 배치)
+    base=L('base')
+    if base: print('|기록 그대로 (사람이 놓은 편성 포함)|'+_fmt(_side_rows(base,['A','B']))+'|')
+    print('|옛 자동 배치끼리 (기준선)|'+_fmt(oo)+'|')
+    print(f'|새 배치끼리 (aff={n})|'+_fmt(nn)+'|')
+    print('|한쪽만 새 배치 —— 새 배치 쪽|'+_fmt(one)+'|')
+    print('|한쪽만 새 배치 —— 옛 배치 쪽(상대)|'+_fmt(oth)+'|')
+    ch=[k for k in one if one[k]['sig']!=oo[k]['sig']]      # 배치가 실제로 달라진 진영
+    print(f'|배치가 달라진 진영만: 옛 배치(기준선)|'+_fmt(oo,ch)+'|')
+    print(f'|배치가 달라진 진영만: 새 배치 (상대는 옛 배치)|'+_fmt(one,ch)+'|')
+    mv=[k for k in ch if one[k]['top'] and oo[k]['top'] and one[k]['top']['slot']!=oo[k]['top']['slot']]
+    print(f'|최강 원거리가 옮겨진 진영만: 옛 배치|'+_fmt(oo,mv)+'|')
+    print(f'|최강 원거리가 옮겨진 진영만: 새 배치|'+_fmt(one,mv)+'|')
+    ob=[k for k in mv if oo[k]['top']['col'] in (0,4)]
+    print(f'|최강이 바깥 열에서 나온 진영만: 옛 배치|'+_fmt(oo,ob)+'|')
+    print(f'|최강이 바깥 열에서 나온 진영만: 새 배치|'+_fmt(one,ob)+'|')
+    print()
+    print('승률 차 (같은 판 · 같은 씨앗 짝, 새 배치 쪽 − 기준선 같은 쪽):')
+    print('  한쪽만 새 배치, 모든 진영:', _paired(one,oo,list(one)))
+    print('  한쪽만 새 배치, 배치가 달라진 진영:', _paired(one,oo,ch))
+    print('  한쪽만 새 배치, 최강이 옮겨진 진영:', _paired(one,oo,mv))
+    print('  한쪽만 새 배치, 최강이 바깥 열에서 나온 진영:', _paired(one,oo,ob))
+    kA=[k for k in oo if k[1]=='A']
+    print('  새 배치끼리 − 옛 배치끼리 (A 쪽 = 기록의 내 쪽):', _paired(nn,oo,kA), '· A 승률 %.3f → %.3f'%(sum(oo[k]['win'] for k in kA)/len(kA), sum(nn[k]['win'] for k in kA)/len(kA)))
+    print('  판 길이: 옛 %.1f → 새 %.1f초'%(sum(oo[k]['len'] for k in kA)/len(kA), sum(nn[k]['len'] for k in kA)/len(kA)))
+
+
 if __name__=='__main__':
     D=sys.argv[2]
     if sys.argv[1]=='table': table(load(os.path.join(D,'fa_base_*.jsonl')))
+    elif sys.argv[1]=='mid': mid(sys.argv[3] if len(sys.argv)>3 else '1')
     else: final()
