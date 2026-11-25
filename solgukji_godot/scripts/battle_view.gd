@@ -2318,7 +2318,7 @@ func _apply(i: int, quiet := false) -> void:
 	_sound(e, bool(gq.get("lite", false)))
 	# 무쌍 —— 기술 · 고유기 타격은 병력을 바로 깎고 쓰러질 병사들을 한꺼번에 날린다
 	if painting and type2 != null and type2.painting != null:
-		type2.painting.play_event(e, gq.ult, troop_updates)
+		type2.painting.play_event(e, gq.ult, troop_updates, gq)
 	if not Type2View.painting_on() and not Type2View.formation_preview and (e.get("fx") == "phys" or e.get("fx") == "int") and (gq.skill != "" or gq.ult != null) and idx_of.has(f) and smooth:
 		_snap(idx_of[f])
 		# 11/3 사용자: 에이스 장수의 무쌍만이 전장을 지배하도록 —— 날리기 · 프리즈 · 흔들림을 예전의 약 3배로 (일반 장수 기술은 그대로)
@@ -2436,8 +2436,14 @@ func _sound(e: Dictionary, lite := false) -> void:
 			else:
 				Sfx.play("crit" if heavy else "hit")
 				Sfx.play("clash", -2.0, 0.1)
-		"int": pass      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
-		"skill": if e.get("kind", "") == "phys": Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
+		"int":      # 11/4 사용자: '기공포' 같은 소리 —— RPG 효과음 팩의 마법 소리(magic · skill)를 전투에서 뺀다 (책략은 화면 효과로)
+			if Type2View.painting_on():      # 11/25 책략 타격이 조용히 지나갔다 —— 마법 소리 대신 바람 가르는 소리(swing)를 작게
+				Sfx.play("swing", -9.0, 0.12)
+		"skill":
+			if e.get("kind", "") == "phys":
+				Sfx.play("crit")      # 11/4 사용자: 물리 기술은 '기공포' 같은 마법 소리 대신 병장기 소리
+			elif e.get("kind", "") == "int" and Type2View.painting_on() and int(e.get("ai", 0)) > 0:
+				Sfx.play("swing", -3.0, 0.1)      # 11/25 책략 기술 발동 —— 같은 소리를 조금 크게 (개전 패업 알림은 뺀다)
 		"ult":
 			if lite:      # 가벼운 고유기 —— 뿔나팔(음악 낮춤) 없이 병장기 한 번
 				Sfx.play("crit", 0.0)
@@ -3712,7 +3718,7 @@ class Hud extends Control:
 			"phys":
 				col = Color("#ff8a78") if mine else Color("#fff1dc")
 			"int":
-				col = Color("#e3a2ff") if mine else Color("#d8c4ff")
+				col = Color("#e3a2ff") if mine else Color("#b98aff")      # 11/25 적이 입은 책략 피해 —— 연보라(#d8c4ff)는 흰 숫자(물리)와 잘 갈리지 않았다
 			"fire":
 				col = Color("#ff7a2e") if mine else Color("#ffa040")
 				fs = 15

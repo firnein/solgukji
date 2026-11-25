@@ -1,6 +1,11 @@
 extends Control
 
 const FormationMotion = preload("res://scripts/field/painted_formation.gd")
+const CasterFx = preload("res://scripts/field/painted_caster.gd")
+var caster = CasterFx.new(self)     # 11/25 책략계 기여 표시 (버프 · 디버프 · 천문 · 혼란 · 위세 · 기술 발동 · 책략 타격)
+var caster_stats: Dictionary:      # 점검용 (tests/caster_vis_shot)
+	get:
+		return caster.stats
 var v
 var atlas: Texture2D
 var cells: Array[AtlasTexture] = []
@@ -213,6 +218,7 @@ func reset() -> void:
 	_hid.clear()
 	_bared.clear()
 	reveals.clear()
+	caster.reset()
 
 func _formation(sq: Squad) -> FormationMotion:
 	var form: FormationMotion = formations.get(sq.key)
@@ -264,16 +270,24 @@ func _hit_power(source: Squad, target: Squad, event: Dictionary, ultimate) -> fl
 		power = maxf(power, 0.85)
 	return clampf(power, 0.0, 1.5)
 
-func play_event(event: Dictionary, ultimate, updates: Array = []) -> void:
+## group —— battle_view 의 사건 묶음 (skill · who …). 없어도 된다 (점검)
+func play_event(event: Dictionary, ultimate, updates: Array = [], group: Dictionary = {}) -> void:
 	var now: float = v.field.clock
 	var source: Squad = v.field.squads.get(event.get("a", ""))
 	var target: Squad = v.field.squads.get(event.get("f", ""))
 	var direct := source != null and target != null and source.camp != target.camp
 	var damage: bool = direct and event.get("fx", "") in ["phys", "int"] and float(event.get("n", 0)) > 0.0
 	var power := _hit_power(source, target, event, ultimate) if damage else 0.0
+	var magic: bool = damage and event.get("fx") == "int"
+	if magic and ultimate == null and (str(group.get("skill", "")) != "" or event.get("crit", false)):
+		power = maxf(power, MAGIC_PUSH)      # 11/25 책략 기술 · 치명타는 대열이 밀린다 (평타는 단계 세기 그대로)
 	_record_burn(event)
+	caster.on_event(event)
 	if damage:
-		_record_contact(source, target, power, event.get("fx") == "int")
+		_record_contact(source, target, power, magic)
+		if magic:
+			var dir := _formation(source).center.direction_to(_formation(target).center)
+			caster.add_spark(_formation(target).center - dir * target.edge(dir) * 0.6, source.tag)
 	_sync_troops(updates, source, target, power, false)
 	var charge: String = event.get("painted_charge", "")
 	if charge != "" and direct:
@@ -354,6 +368,7 @@ func _spawn_body(sq: Squad, form: FormationMotion, id: int, direction: Vector2, 
 	if bodies.size() > MAX_BODIES:
 		bodies.pop_front()
 
+const MAGIC_PUSH := 1.0
 func _record_contact(source: Squad, target: Squad, power: float, magic: bool) -> void:
 	var from := _formation(source)
 	var form := _formation(target)
@@ -366,7 +381,7 @@ func _record_contact(source: Squad, target: Squad, power: float, magic: bool) ->
 		form.hero_hurt_power = power
 		form.hero_hurt_dir = direction
 		form.hero_hurt_mirror = not form.facing_right
-	if (not magic and source.cls != "ranged") or power >= 1.5:
+	if (not magic and source.cls != "ranged") or power >= (MAGIC_PUSH if magic else 1.5):      # 11/25 책략 타격은 1.0 부터 대열이 밀린다 (예전 1.5 —— 책략은 거의 닿지 않았다)
 		form.receive_impact(at, direction, power)
 	var ids := form.nearest_living(at, mini(form.cols, 2 + floori(power)))
 	form.serial += 1
@@ -438,6 +453,7 @@ func _process(dt: float) -> void:
 	ults = ults.filter(func(u): return last_clock < float(u.end) and last_clock >= float(u.start) - 5.0)
 	if not skill_fx_q.is_empty():
 		skill_fx_q = skill_fx_q.filter(func(s): return last_clock < float(s.end) and last_clock >= float(s.start) - 5.0)
+	caster.prune(last_clock)
 	_cl_tick += 1
 	_cl_i = 0
 	for sq: Squad in v.field.order:
@@ -596,6 +612,8 @@ func _draw() -> void:
 					_mark_batch(sq, form)
 				else:
 					_draw_formation_mark(sq, form)
+			if form != null and form.count > 0 and sq.alive and caster.has_aura(sq):
+				caster.aura_marks(sq, form)      # 11/25 위세 —— 늘 켜진 진영 효과를 가진 부대 발밑 금빛 원
 	if not _mk_idx.is_empty():      # 부대 바닥 면 · 먼지 —— 삼각형 묶음 한 번
 		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), _mk_idx, _mk_pts, _mk_cols)
 	var mk_aa: bool = v.get("load_lv") == null or int(v.load_lv) < 2      # 11/18 부하 2단계부터 표식 선의 안티에일리어싱을 끈다
@@ -633,6 +651,7 @@ func _draw_overlay(ci: CanvasItem) -> void:
 	_draw_mythic_actions(ci)
 	_draw_reveals(ci)
 	_draw_skill_fx(ci)
+	caster.draw(ci)
 	_draw_ults(ci)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
@@ -685,6 +704,8 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var fleeing := sq.state == "flee"
 	var has_front := not front_ids.is_empty()
 	var slot_f := float(sq.row.slot)
+	var dizzy: bool = not fleeing and sq.statuses.has("confuse")      # 11/25 혼란 —— 병사들이 제자리에서 비틀거린다 (화면만)
+	var dizzy_px := h * 0.05
 	for id in form.capacity:
 		if form.alive[id] == 0:
 			continue
@@ -735,6 +756,10 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 		if p != p0 and not form.contact_limits.is_empty():
 			# Attack thrust and recoil must respect the same visible contact front.
 			p = _pm(form.constrain_foot(v.unmap(p)))
+		if dizzy:      # 접촉선 맞추기 뒤에 —— 몇 px 흔들림이라 다시 재지 않는다
+			var ph := visual_time * 6.2 + id * 1.7 + slot_f
+			p.x += sin(ph) * dizzy_px
+			tilt += sin(ph * 0.83 + 1.1) * 0.12
 		var n := figure_count
 		figure_count += 1
 		if _figs.size() < figure_count * FIG_W:
@@ -887,6 +912,10 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		tilt += sin(stride) * gait * sway * 0.7
 	if p != p0 and not form.contact_limits.is_empty():
 		p = _pm(form.constrain_foot(v.unmap(p)))
+	if sq.state != "flee" and sq.statuses.has("confuse"):      # 11/25 혼란 —— 장수도 비틀거린다
+		var ph := visual_time * 5.4 + float(sq.row.slot)
+		p.x += sin(ph) * soldier_h * 0.07
+		tilt += sin(ph * 0.8 + 0.7) * 0.1
 	_append_hero(sq, idx, pose, p, soldier_h, fade_sq, tilt, gait, stride, mirror, cv)
 
 func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, fade_sq: float,
@@ -1261,7 +1290,11 @@ func _draw_volleys(ci: CanvasItem = null) -> void:
 			var p: Vector2 = v.map(world) - Vector2(0, 5.0 + sin(t * PI) * height * v.depth_scale(world))
 			var prev: Vector2 = v.map(start.lerp(end + spread, prev_t)) - Vector2(0, 5.0 + sin(prev_t * PI) * height * v.depth_scale(world))
 			if shot.kind == "spell":
-				_spell_orb(ci, shot, p, prev, t)
+				var trail := PackedVector2Array([p])
+				for k in range(1, 6):      # 11/25 꼬리 —— 날아온 길을 다섯 점 거슬러 (예전 1.5px 선 한 토막)
+					var tk := maxf(0.0, t - k * 0.04)
+					trail.append(v.map(start.lerp(end + spread, tk)) - Vector2(0, 5.0 + sin(tk * PI) * height * v.depth_scale(world)))
+				_spell_orb(ci, shot, p, trail, t)
 				continue
 			var color := PAPER
 			ci.draw_line(prev, p, Color(INK, 0.8), 2.0, true)
@@ -1491,8 +1524,8 @@ func _draw_status(sq: Squad, ci: CanvasItem = null) -> void:
 	if sq.statuses.has("flood"):
 		for j in 2:
 			ci.draw_arc(p + Vector2(0, j * 3) * perspective, (13 + j * 2) * perspective, 0.1, PI - 0.1, 12, Color(0.35, 0.65, 0.75, 0.7), 1.3, true)
-	if sq.statuses.has("confuse"):
-		ci.draw_arc(p + Vector2(0, -17) * perspective, 7 * perspective, v.field.clock, v.field.clock + PI * 1.6, 12, Color("#be9aca"), 1.7, true)
+	if sq.statuses.has("confuse"):      # 11/25 도는 별 셋 + 물음표 (예전 반지름 7px 호 하나)
+		caster.draw_confuse(ci, sq)
 
 
 # ───────── 고유기 이펙트 (11/17) ─────────
@@ -2312,12 +2345,19 @@ func _iseom(ci: CanvasItem, c: Vector2, ang: float, ln: float, w: float, glow: C
 
 
 ## 11/17 후열 책략 평타 —— 병종 색 구슬이 꼬리를 끌며 날아가 맞는 자리에서 번쩍인다 (판정 · 수치 무관)
+## 11/25 사용자 「책략계가 하는 일이 눈에 띄지 않는다」 —— 1.5px 선 · 1.7px 점 → 가늘어지는 꼬리 · 먹 테두리 구슬 · 더하기 빛
 const SPELL_COL := {"책사": Color(1.0, 0.55, 0.18), "술사": Color(0.75, 0.5, 1.0), "모사": Color(0.55, 0.8, 1.0), "유생": Color(0.5, 0.95, 0.7)}
-func _spell_orb(ci: CanvasItem, shot: Dictionary, tip: Vector2, previous: Vector2, t: float) -> void:
+func _spell_orb(ci: CanvasItem, shot: Dictionary, tip: Vector2, trail: PackedVector2Array, t: float) -> void:
 	var col: Color = SPELL_COL.get(str(shot.get("tag", "")), EMBER)
-	ci.draw_line(previous, tip, Color(INK, 0.45), 3.0, false)
-	ci.draw_line(previous, tip, Color(col, 0.85), 1.5, false)
-	ci.draw_circle(tip, 1.7, col)
+	if trail.size() >= 2:
+		ci.draw_polyline(trail, Color(INK, 0.4), 4.5, false)
+		for k in trail.size() - 1:
+			var w := 3.6 * (1.0 - float(k) / trail.size())
+			ci.draw_line(trail[k], trail[k + 1], Color(col, 0.9 * (1.0 - float(k) / trail.size())), maxf(1.0, w), false)
+	ci.draw_circle(tip, 4.2, Color(INK, 0.55))
+	ci.draw_circle(tip, 3.3, col)
+	ci.draw_circle(tip, 1.6, Color(1, 1, 1, 0.95))
+	_spr(ci, "light_02", tip, 26.0, Color(col, 0.8 * sin(clampf(t, 0.0, 1.0) * PI * 0.5 + 0.5)))
 
 # ── 기술 · 잔기술 이펙트 (11/23) ──
 ## 11/23 사용자: 「전설 이하 전투가 재미없다 · 일반 기술도 이펙트 없이 글자만 뜬다」 —— 삽화 화면에서는 type2 의 2D 연출(fx)이 꺼져 있어
@@ -2343,6 +2383,7 @@ const SKILL_FX_LIFE := {"fire": 1.4, "poison": 1.8, "zone": 2.4, "water": 1.3, "
 	"shadow": 0.9, "steal": 1.0, "heal": 1.4, "guard": 1.2, "aura": 1.4}
 ## 11/24 사용자: 「일반 기술 이펙트를 고유기랑 똑같은 걸 쓰면 어떡해, 최소한 작게라도」 —— 기술은 고유기(1.0)의 0.6, 잔기술은 그보다 작게
 const SKILL_FX_SC := 0.6
+const CASTER_SKILL_FX_SC := 0.8      # 11/25 책략계 기술은 조금 크게 (「책략계가 하는 일이 눈에 띄지 않는다」 —— 고유기 1.0 보다는 작게)
 const MINOR_FX_SC := 0.45
 const SELF_STYLES := ["heal", "guard", "aura"]
 const MAX_SKILL_FX := 20
@@ -2367,7 +2408,8 @@ static func skill_style(name: String, kind: String, tag: String) -> String:
 func add_skill(name: String, a_key: String, targets: Array, kind: String, delay: float) -> void:
 	var a: Squad = v.field.squads.get(a_key)
 	if a != null:
-		_add_skill_fx(skill_style(name, kind, a.tag), a, targets, SKILL_FX_SC, delay)
+		var caster_unit: bool = a.tag in SUPPORT_TAGS
+		_add_skill_fx(skill_style(name, kind, a.tag), a, targets, CASTER_SKILL_FX_SC if caster_unit else SKILL_FX_SC, delay)      # 시전 원 + 이름은 skill 사건에서 (caster.on_event)
 
 
 ## 잔기술 —— 맞는 순간 (Type2View.fx_minor 가 삽화 화면이면 이리 넘긴다)
