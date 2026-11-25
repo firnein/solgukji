@@ -5694,7 +5694,10 @@ class Hud extends Control:
 				var q1: Vector2 = q0 - n * side * r.randf_range(0.08, 0.2) * ll
 				draw_line(q0, q1, Color(lc, 0.18 * fade), r.randf_range(1.0, 2.5))
 		# 초상 자리 —— 아군 왼쪽 아래 · 적 오른쪽 위 (사선을 넘지 않게)
-		var ph := minf(sz.y * (0.28 if tall else 0.48), 380.0)
+		# 11/26 사용자: "연쇄되는 장수도 좀 크게, 메인 장수는 좀 작게 —— 비율을 맞추자" → 곁 초상이 있으면 주 초상을 줄이고(0.28 → 0.235),
+		# 곁 초상은 주 초상의 0.36 → 0.6 배로 키워 옆에 나란히 세운다 (아군은 오른쪽 · 아래 맞춤, 적은 왼쪽 · 위 맞춤 —— 예전에는 주 초상 모서리에 작게 겹쳤다)
+		var has_mates: bool = (cut.A as Array).size() > 1 or (cut.B as Array).size() > 1
+		var ph := minf(sz.y * ((0.235 if has_mates else 0.28) if tall else (0.42 if has_mates else 0.48)), 380.0)
 		var pw := ph * 0.78
 		var mg := 12.0 if tall else sz.x * 0.08
 		var ra := Rect2(mg, sz.y * (0.80 if tall else 0.74) - ph, pw, ph)      # 가로 화면은 위아래 글 자리를 남긴다
@@ -5765,19 +5768,20 @@ class Hud extends Control:
 			if fade < 1.0:
 				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
 			draw_rect(pr, Color(DB.tier_color(str(main.k)), fade), false, 3.0)
-			var sh := ph * 0.36
+			var sh := ph * 0.6
 			var sw := sh * 0.78
 			var extra: Array = arr.slice(1, 3)
 			for j in extra.size():
-				var sx := pr.position.x - 4.0 + j * (sw + 4.0) if left else pr.end.x + 4.0 - (j + 1) * (sw + 4.0) + 4.0
-				var srr := Rect2(sx, pr.end.y - sh + 10.0, sw, sh)
+				var sx := pr.end.x + 8.0 + j * (sw + 6.0) if left else pr.position.x - 8.0 - (j + 1) * sw - j * 6.0
+				var srr := Rect2(sx, pr.end.y - sh if left else pr.position.y, sw, sh)
 				draw_rect(srr.grow(4), Color(col, 0.5 * fade))
 				draw_rect(srr.grow(1), Color(0, 0, 0, 0.9 * fade))
 				Art.draw_portrait(self, srr, str(extra[j].k), t, "ult")
 				draw_rect(srr, Color(DB.tier_color(str(extra[j].k)), fade), false, 2.0)
 			if arr.size() > 3:
-				_text(DB.font_bold, Vector2(pr.position.x if left else pr.end.x - 60.0, pr.end.y - sh - 2.0), "+%d" % (arr.size() - 3),
-					HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 60.0, 16, Color(1, 1, 1, fade))
+				var ex := pr.end.x + 8.0 + 2 * (sw + 6.0) if left else pr.position.x - 8.0 - 2 * (sw + 6.0) - 44.0
+				_text(DB.font_bold, Vector2(ex, (pr.end.y - 6.0) if left else (pr.position.y + 18.0)), "+%d" % (arr.size() - 3),
+					HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 44.0, 16, Color(1, 1, 1, fade))
 			# 이름 · 기술명 —— 아군은 초상 아래(왼쪽 맞춤) · 적은 초상 위(오른쪽 맞춤)
 			var nt := clampf((t - 0.18 - (0.0 if left == a_first else 0.08)) / 0.16, 0, 1)
 			if nt <= 0.0:
