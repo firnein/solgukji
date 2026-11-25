@@ -465,6 +465,22 @@ func _gap_tier() -> float:
 static var wind_max := 2            # 11/11 기 충전 수정 2: 한 진영이 동시에 기를 모을 수 있는 수 1 → 2
 var _ult_t := -99.0
 var _ult_side_t := {"A": -99.0, "B": -99.0}
+
+# ───────── 11/25 고유기 받아치기 (사용자: 「고유기를 먼저 쓰는 쪽이 유리한 경우가 많다(후반) —— 시전했을 때 차징 중이던 상대 고유기도 쓸 수 있게」) ─────────
+## 장수 X 가 기를 모으기 시작하면(_interrupt_ult · 미니 제외) 상대 진영에서 ① 이미 기를 모으던 장수 전원 ② 게이지가 counter_gauge 이상 찼는데 간격 때문에 기다리던 장수
+## counter_max 명(먼저 찬 순)이 X 와 한 묶음이 된다. ②는 간격(ult_gap · ult_side_sec · wind_max) · 장수 대기 · 기질 조건 · 재사용 대기를 건너뛰어 바로 기를 모으고
+## 끝 시각을 X 에 맞춘다(최소 WIND_FAST 초). ①은 X 보다 늦으면 X 의 끝 시각으로 당긴다 (인연 합동에 든 장수는 연쇄 시각이 어긋나지 않게 그대로).
+## 묶음 안에서는 서로의 고유기로 기세가 끊기지 않고(_cut_wind), 제 고유기를 쏘기 전에는 묶음 상대의 고유기로 무너지지 않는다 —— 무너질 때가 되면
+## 그 자리에서 제 고유기를 먼저 쏘고 무너진다(쓰러지며 받아친다 · 같은 틱의 처리 순서 유불리를 없앤다). 묶음 밖의 고유기 · 주환 매복은 예전처럼 끊는다.
+## 받아치기로 시작한 기 모으기는 인연 합류를 모집하지 않고 또 다른 받아치기를 부르지 않는다. 한 장수는 한 묶음에만. 끄면(false) 예전과 같다.
+## 통계: stats["ult_counters"] 묶음 수 · counter_units 받아친 장수 수 · counter_nocut 묶음이라 안 끊긴 수 · counter_last 쓰러지며 받아친 수
+static var counter_on := true
+static var counter_gauge := 100.0     # 이만큼 찬 장수가 받아친다 (기다리던 장수)
+static var counter_max := 2           # 기다리던 장수 가운데 받아치는 최대 수 (이미 기를 모으던 장수는 수에 넣지 않고 전원)
+var _clash := {}               # 묶음에 든(아직 쏘지 않은) 장수 -> 묶음 {x, members}
+var _clash_by: Unit = null     # 지금 터지는 묶음 고유기의 주인
+var _clash_grp = null          # 그 묶음
+var _clash_defer := []         # [[유닛, why, cause]] —— 묶음 상대의 고유기에 무너질 장수 (제 고유기를 쏜 뒤 무너진다)
 var _target_preview := false
 var _capture_preview_areas := false
 var _preview_areas: Array = []
@@ -558,15 +574,111 @@ func _interrupt_ult(u: Unit) -> void:
 	_ai += 1
 	_ph = "act"
 	_who = u.key
+	var wi := ev.size()
 	L("sk", "%s 『%s』 기를 모은다%s" % [ga(nm(u)), u.ult.name, ""],
 		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": fast}.merged({"mini": true} if u.ult.get("mini", false) else {}))
-	var zh := _kv(_foe(u.camp), "ult_cut")      # 매복 주환 —— 적 고유기 기 모으기를 한 번 끊고 게이지를 비운다
-	if zh and int(_kiin_used.get("ult_cut:" + zh.camp, 0)) < 2:      # 두 번까지
+	_zh_cut(u)
+	if inyeon_enabled and _wind.has(u):
+		_inyeon_recruit(u, wait)
+	if counter_on and _wind.has(u) and not bool(u.ult.get("mini", false)) and not _clash.has(u):
+		_counter(u, wi)
+
+
+## 매복 주환 —— 적 고유기 기 모으기를 한 번 끊고 게이지를 비운다 (두 번까지)
+func _zh_cut(u: Unit) -> void:
+	var zh := _kv(_foe(u.camp), "ult_cut")
+	if zh and int(_kiin_used.get("ult_cut:" + zh.camp, 0)) < 2:
 		_kiin_used["ult_cut:" + zh.camp] = int(_kiin_used.get("ult_cut:" + zh.camp, 0)) + 1
 		_cut_wind(u, zh)
 		u.gauge = 0.0
-	if inyeon_enabled and _wind.has(u):
-		_inyeon_recruit(u, wait)
+
+
+## 11/25 받아치기 —— X 가 기를 모으기 시작한 순간 상대 진영의 받아칠 장수를 묶는다 (위 counter_on 설명). wi: X 의 ult_warn 사건 번호
+func _counter(x: Unit, wi: int) -> void:
+	var winding := []      # ① 이미 기를 모으던 장수
+	var ready := []        # ② 게이지가 다 찼는데 기다리던 장수
+	for o in units:
+		if o.camp == x.camp or not o.alive or o.ult == null or bool(o.ult.get("mini", false)) or o.charges <= 0:
+			continue
+		if has_st(o, "confuse") or has_st(o, "seal") or _dash.has(o) or _clash.has(o):
+			continue
+		if _wind.has(o):
+			winding.append(o)
+		elif ults_enabled and o.gauge >= counter_gauge:
+			ready.append(o)
+	ready.sort_custom(func(p, q):      # 먼저 찬 순 · 같으면 유닛 순서 (결정적)
+		var rp: float = p.ult_ready_t if p.ult_ready_t >= 0.0 else 1e9
+		var rq: float = q.ult_ready_t if q.ult_ready_t >= 0.0 else 1e9
+		if rp != rq:
+			return rp < rq
+		return _idx[p] < _idx[q])
+	var picks: Array = ready.slice(0, maxi(0, counter_max))
+	if winding.is_empty() and picks.is_empty():
+		return
+	var end: float = float(_wind[x])
+	var grp := {"x": x, "members": [x]}
+	_clash[x] = grp
+	for o in winding:
+		grp.members.append(o)
+		_clash[o] = grp
+		if not _wind_grp.has(o) and float(_wind[o]) > end:      # 늦게 터질 장수는 X 와 함께 터지게 당긴다 (인연 합동은 연쇄 시각을 지킨다)
+			_wind[o] = end
+	if wi >= 0 and wi < ev.size():
+		ev[wi]["clash"] = true      # 화면: X 의 개별 컷인 대신 사선 컷인 (ult_clash)
+	stats["ult_counters"] = int(stats.get("ult_counters", 0)) + 1      # ("counters" 는 반격 수 —— 이름이 겹치지 않게)
+	stats["counter_units"] = int(stats.get("counter_units", 0)) + winding.size() + picks.size()
+	var by := winding + picks
+	var names: Array = by.map(func(o): return nm(o))
+	L("sk", "%s 『%s』 —— %s 받아친다!" % [ga(nm(x)), x.ult.name, ", ".join(names)],
+		{"fx": "ult_clash", "a": x.key, "name": x.ult.name, "by": by.map(func(o): return o.key), "by_names": by.map(func(o): return o.ult.name),
+		"wait": end - _tm, "pick": picks.size()})
+	for o in picks:
+		var wait := maxf(WIND_FAST, end - _tm)
+		grp.members.append(o)
+		_clash[o] = grp
+		_wind[o] = _tm + wait
+		_ult_t = _tm
+		_ult_side_t[o.camp] = _tm
+		o.gauge = 0.0
+		o.ult_ready_t = -1.0
+		_ult_last[o.camp] = act_n
+		var warn := _ult_warn_list(o)
+		_paeup_omen(o, warn.map(func(w): return w.k))
+		_ai += 1
+		_ph = "act"
+		_who = o.key
+		L("sk", "%s 『%s』 받아치며 기를 모은다" % [ga(nm(o)), o.ult.name],
+			{"fx": "ult_warn", "a": o.key, "name": o.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": false, "counter": true, "clash": true})
+		_zh_cut(o)      # 묶음 밖의 매복 주환은 예전처럼 끊는다
+
+
+## 묶음 고유기가 터지는 동안 —— 그 묶음의 상대 장수(아직 제 고유기를 쏘지 않은)는 무너지지 않고 미뤄 둔다
+func rout(u: Unit, why: String, cause := "effect") -> void:
+	if u.alive and _clash_by != null and u.camp != _clash_by.camp and _clash.has(u) and is_same(_clash[u], _clash_grp) and (_wind.has(u) or _dash.has(u)):
+		if not _clash_defer.any(func(d): return d[0] == u):
+			_clash_defer.append([u, why, cause])
+		return
+	super.rout(u, why, cause)
+
+
+## 미뤄 둔 장수 —— 그 자리에서 제 고유기를 먼저 쏘고(돌진하지 않는다) 무너진다 (유닛이 미뤄진 순서대로 —— 결정적)
+func _clash_flush() -> void:
+	while not _clash_defer.is_empty():
+		var d: Array = _clash_defer.pop_front()
+		var m: Unit = d[0]
+		if not m.alive:
+			continue
+		if _wind.has(m) or _dash.has(m):
+			_wind.erase(m)
+			_dash.erase(m)
+			if has_st(m, "confuse"):
+				m.gauge = CUT_GAUGE
+				_inyeon_drop(m)
+			else:
+				stats["counter_last"] = int(stats.get("counter_last", 0)) + 1
+				_fire_one(m)
+		if m.alive and (m.troops <= 0 or str(d[2]) != "annihilated"):
+			rout(m, str(d[1]), str(d[2]))
 
 
 ## 맞을 곳 미리 보기 —— 지금 자리 기준으로 고유기 대상들을 원으로
@@ -766,6 +878,7 @@ func _inyeon_joins() -> void:
 
 ## 합동에서 빠진다 (끊김 · 못 쏨) —— 아직 합류하지 않은 예약도 대표가 빠지면 지운다
 func _inyeon_drop(d: Unit) -> void:
+	_clash.erase(d)      # 11/25 받아치기 묶음에서도 빠진다 (끊김 · 쓰러짐 · 혼란)
 	if _wind_grp.has(d):
 		var grp: Dictionary = _wind_grp[d]
 		if grp.members.size() > 1:      # 합류한 짝이 있는 합동에서 끊겼다 (혼자 기를 모으던 대표가 끊긴 것은 합동이 아니다)
@@ -923,7 +1036,17 @@ func _fire_one(u: Unit) -> void:
 				if o != u and _wind.has(o):
 					k += 1
 					_wind[o] = maxf(float(_wind[o]), _tm + inyeon_stagger * k)
+	var cg = _clash.get(u)      # 11/25 받아치기 묶음 —— 이 고유기가 도는 동안 묶음 상대는 무너지지 않고 미뤄진다 (rout)
+	var pb: Unit = _clash_by
+	var pg = _clash_grp
+	if cg != null:
+		_ult_extra = _ult_extra.merged({"clash": true})      # 화면: 사선 컷인이 이미 대신했다 —— 개별 큰 컷인 없이
+		_clash_by = u
+		_clash_grp = cg
 	super._interrupt_ult(u)
+	_clash_by = pb
+	_clash_grp = pg
+	_clash.erase(u)
 	var joint: bool = not _ult_grp.is_empty()      # 합동으로 터졌다 (대표가 끊겨 혼자 쏜 장수는 세지 않는다)
 	_ult_grp = {}
 	_ult_extra = {}
@@ -934,6 +1057,8 @@ func _fire_one(u: Unit) -> void:
 		_inyeon_fin_check(grp)
 	_join_q = _join_q.filter(func(j): return j.lead != u)
 	_omen.erase(u)
+	if _clash_by == null and not _clash_defer.is_empty():
+		_clash_flush()
 
 
 ## 돌격 고유기 —— 근접 장수의 vfx charge 고유기
@@ -1077,6 +1202,9 @@ func _cut_wind_quiet(d: Unit) -> void:
 
 ## 기 모으던 장수가 적 고유기에 맞았다 —— 끊긴다
 func _cut_wind(d: Unit, a: Unit) -> void:
+	if _clash.has(d) and _clash.has(a) and is_same(_clash[d], _clash[a]):      # 11/25 받아치기 묶음끼리는 서로 끊지 못한다
+		stats["counter_nocut"] = int(stats.get("counter_nocut", 0)) + 1
+		return
 	_wind.erase(d)
 	_inyeon_drop(d)
 	d.gauge = CUT_GAUGE

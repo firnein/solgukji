@@ -10,6 +10,8 @@ func _ready() -> void:
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var n := int(args.get("n", "12"))
+	if args.has("ctr_off"):      # 11/25 고유기 받아치기 끄고 비교
+		RtBattle.counter_on = false
 	RtBattle.algo_probe = true
 	RtBattle.algo_v2 = str(args.get("v2", "1")) != "0"      # --v2=0 이면 예전 이동 알고리즘 (전후 비교)
 	RtBattle.algo_bits = int(args.get("bits", str(RtBattle.algo_bits)))
