@@ -28,6 +28,54 @@ var _dragging := false
 ## 11/12 온라인 장수 선점제 · 사망룰 —— 지금 판의 Run.locked (GameScreen.render 가 넣는다). 여기 있는 장수(가지지 않은 것)는
 ## 회색 + 「정지 세력이 등용」 · 「사망」 띠, 누를 수 없다
 static var locked := {}
+## 11/25 재료 선점 —— 재료가 잠겨 이번 판에 만들 길이 없는 장수 {id: 막은 재료 id} (Run.mat_blocks, GameScreen.render 가 넣는다). 회색 + 「재료 선점」 · 「재료 사망」 띠
+static var blocked := {}
+## 11/25 잠긴 칸을 누르면 부른다 (k) —— GameScreen 이 까닭 알림(toast)을 띄운다. 없으면 거절음만
+static var on_deny := Callable()
+var show_lock := true       # 11/25 다른 세력의 핵심 장수 · 적 편성처럼 '그 세력 것'을 보이는 칸은 잠금 띠를 그리지 않는다
+
+
+## 11/25 잠금 표시 한 벌 —— [긴 띠 글, 짧은 띠 글, 사망인가, 재료 잠금인가]. 표시가 없으면 [] (가진 장수 n > 0 는 표시하지 않는다).
+## MiniTile · CardTile · CardView 가 같이 쓴다
+static func mark_of(k: String, n := -1) -> Array:
+	if n > 0:
+		return []
+	if locked.has(k):
+		var e = locked[k]
+		if e is Dictionary and e.has("by"):
+			return ["%s 세력이 등용" % str(e.by), "등용", false, false]
+		return ["사망", "사망", true, false]
+	if blocked.has(k):
+		var e2 = locked.get(blocked[k])
+		var by: bool = e2 is Dictionary and e2.has("by")
+		return ["재료 선점" if by else "재료 사망", "재료", not by, true]
+	return []
+
+
+## 잠금 띠 —— r 을 회색으로 덮고 가운데(높이 42%)에 까닭 띠. 폭이 모자라면 짧은 글
+static func draw_mark(ci: CanvasItem, mk: Array, r: Rect2, fs_max := UI.FS_CAP) -> void:
+	var w := r.size.x
+	ci.draw_rect(r, Color(0.16, 0.16, 0.17, 0.72))
+	var dead: bool = mk[2]
+	var mat: bool = mk[3]
+	var tx: String = mk[0]
+	var fs := UI.fit_fs(DB.font_body, tx, fs_max if w >= 56 else UI.FS_TINY, UI.FS_TINY, w - 4)
+	if DB.font_body.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 4:
+		tx = mk[1]      # 11/14 감사 #10: 글자를 FS_TINY 아래로 줄이는 대신 짧게 (누르면 알림으로 까닭 전체)
+	var bh := fs + 8.0
+	var by := r.position.y + r.size.y * 0.42 - bh / 2.0
+	var band := Color(DB.PAL.seal, 0.9) if dead and not mat else (Color(0.24, 0.17, 0.08, 0.94) if mat else Color(0.1, 0.1, 0.12, 0.92))
+	ci.draw_rect(Rect2(r.position.x, by, w, bh), band)
+	var tc := Color.WHITE if dead and not mat else (Color("#E2C27A") if mat else Color(0.82, 0.82, 0.82))
+	ci.draw_string(DB.font_body, Vector2(r.position.x + 2, by + bh - 4.0 - (fs * 0.1)), tx, HORIZONTAL_ALIGNMENT_CENTER, w - 4, fs, tc)
+
+
+## 잠긴 칸을 눌렀다 —— 알림(까닭 전체) 또는 거절음
+static func deny(k: String) -> void:
+	if on_deny.is_valid():
+		on_deny.call(k)
+	else:
+		Sfx.play("deny")
 
 
 func setup(id: String, n := -1) -> MiniTile:
@@ -119,8 +167,8 @@ func _gui_input(e: InputEvent) -> void:
 			_set_down(false)
 			if _dragging:
 				return
-			if _is_locked():
-				Sfx.play("deny")      # 11/20 조작: 잠긴 타일(등용 · 사망)은 거절음 —— 까닭은 타일의 띠에 적혀 있다
+			if show_lock and qty <= 0 and locked.has(k):
+				MiniTile.deny(k)      # 11/20 조작: 잠긴 타일(등용 · 사망)은 거절음 —— 11/25 좁은 띠는 "등용" 두 글자라 까닭 전체를 알림으로
 			else:
 				UI.buzz()
 				tapped.emit(k)
@@ -299,23 +347,14 @@ func _draw() -> void:
 		_draw_lock(w, h)
 
 
+## 잠김 표시 —— 등용 · 사망(누르면 거절 + 까닭 알림) 또는 11/25 재료 선점 · 재료 사망(누르면 조합법 시트 —— 까닭 한 줄 · 갈무리 해제가 거기 있다)
 func _is_locked() -> bool:
-	return qty <= 0 and locked.has(k)
+	return show_lock and not mark_of(k, qty).is_empty()
 
 
-## 잠긴 장수 —— 회색으로 덮고 가운데에 까닭 띠 (11/12)
-func _draw_lock(w: float, h: float) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.16, 0.17, 0.72))
-	var e = locked[k]
-	var dead: bool = not (e is Dictionary and e.has("by"))
-	var tx := "사망" if dead else "%s 세력이 등용" % str(e.by)
-	var fs := UI.fit_fs(DB.font_body, tx, UI.FS_CAP if w >= 56 else UI.FS_TINY, UI.FS_TINY, w - 4)
-	if DB.font_body.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 4:
-		tx = "사망" if dead else "등용"      # 11/14 감사 #10: 글자를 FS_TINY 아래로 줄이는 대신 짧게
-	var bh := fs + 8.0
-	var by := h * 0.42 - bh / 2.0
-	draw_rect(Rect2(0, by, w, bh), Color(DB.PAL.seal, 0.9) if dead else Color(0.1, 0.1, 0.12, 0.92))
-	draw_string(DB.font_body, Vector2(2, by + bh - 4.0 - (fs * 0.1)), tx, HORIZONTAL_ALIGNMENT_CENTER, w - 4, fs, Color.WHITE if dead else Color(0.82, 0.82, 0.82))
+## 잠긴 장수 —— 회색으로 덮고 가운데에 까닭 띠 (11/12 · 11/25 공통 draw_mark)
+func _draw_lock(_w: float, _h: float) -> void:
+	draw_mark(self, mark_of(k, qty), Rect2(Vector2.ZERO, size))
 
 
 ## 작은 칸 (폭 56 아래 —— 징집 화면 보유 패 8열, 11/2) —— 초상 · 짧은 이름 · 수량 · ▲ 만. 편성 중이면 왼쪽 아래 옥색 점

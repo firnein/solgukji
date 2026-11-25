@@ -167,7 +167,7 @@ func build() -> Control:
 	if pins.size() >= 2:
 		var any := false
 		for k in pins:
-			if gs.run.can_forge(k) or _chain_can(_node(k, 1, 0, k, "", true)):
+			if gs.run.block_text(k) == "" and (gs.run.can_forge(k) or _chain_can(_node(k, 1, 0, k, "", true))):      # 11/25 막힌 목표는 세지 않는다
 				any = true
 				break
 		var ab := UI.btn("순서대로 모두 조합", func(): forge_all(), "pri" if any else "", UI.BH_S)
@@ -207,10 +207,13 @@ func _goal(root: String) -> Control:
 	ml.clip_text = true
 	ml.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	mid.add_child(ml)
+	var blk: String = gs.run.block_text(root)      # 11/25 선점 · 사망 · 재료 선점으로 막힌 목표 —— 조용히 빼지 않고 까닭을 보이고 「모두 조합」을 끈다
+	if blk != "":
+		mid.add_child(gs._lock_line(blk + " — 만들 수 없다"))
 	row.add_child(mid)
 	var bx := UI.vbox(UI.SP_XS)
 	bx.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var can: bool = gs.run.can_forge(root) or _chain_can(_node(root, 1, 0, root, "", true))
+	var can: bool = blk == "" and (gs.run.can_forge(root) or _chain_can(_node(root, 1, 0, root, "", true)))
 	var all := UI.btn("모두 조합", func(): forge_chain(root), "pri" if can else "", UI.BH_S)
 	all.add_theme_font_size_override("font_size", UI.FS_BODY)
 	all.custom_minimum_size.x = 96
@@ -673,6 +676,8 @@ func _chain_run(roots: Array) -> void:
 	var made := []
 	gs._forge_quiet = true      # 11/6 #17 한 장마다 연출하지 않고 끝에 셔플로
 	for root in roots:
+		if gs.run.block_text(root) != "":      # 11/25 막힌 목표(선점 · 재료 선점)는 재료를 쓰지 않는다
+			continue
 		made.append_array(chain(gs.run, root, func(k): return gs.act_quiet("forge", [k]) == true, morder.get(root, [])))
 	gs._forge_quiet = false
 	if made.is_empty():

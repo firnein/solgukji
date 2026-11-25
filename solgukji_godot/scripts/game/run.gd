@@ -738,6 +738,55 @@ func lock_text(k: String) -> String:
 	return "사망"
 
 
+## 11/25 재료 선점 —— 이 장수를 이번 판에 만들 길이 잠긴 재료(다른 세력이 등용 · 사망)로 막혔으면 그 재료 id, 아니면 "".
+## 가진 수가 모자란 재료만 아래까지 따진다: 모자란 재료가 잠겼거나, 조합으로만 얻는 재료(초월 이상 · 기인 —— 선택권 천장 FREE_TIER_CAP 위)를
+## 만들 길이 다시 잠긴 재료로 막혔으면 막힘. 선택권으로 받을 수 있는 재료(전설 이하)는 그 아래를 보지 않는다.
+## 가진 장수 · 스스로 잠긴 장수는 "" (그쪽은 lock_text). 화면 표시 · 추천 거르기 전용 —— 서버 판정(can_forge · pick)과 무관
+func mat_block(out: String) -> String:
+	if locked.is_empty() or not DB.RECOF.has(out) or locked.has(out) or have(out) > 0:
+		return ""
+	return _path_block(out, 0)
+
+
+func _path_block(out: String, depth: int) -> String:
+	if depth > 10:
+		return ""
+	var m := mat_count(DB.RECOF[out])
+	for q in m:
+		if have(q) >= int(m[q]):
+			continue
+		if locked.has(q):
+			return q
+		if DB.RECOF.has(q) and (DB.is_kiin(q) or int(DB.C[q].tier) > FREE_TIER_CAP):
+			var r := _path_block(q, depth + 1)
+			if r != "":
+				return r
+	return ""
+
+
+## 재료 선점으로 막힌 장수 전부 {장수 id: 막은 재료 id} —— 화면(MiniTile.blocked)이 render 마다 한 번 받는다. 잠금이 없으면(혼자 하기) 빈 것
+func mat_blocks() -> Dictionary:
+	var o := {}
+	if locked.is_empty():
+		return o
+	for k in DB.RECOF:
+		var q := mat_block(str(k))
+		if q != "":
+			o[k] = q
+	return o
+
+
+## 이 장수를 이번 판에 얻을 수 없는 까닭 (짧게) —— "정지 세력이 등용" · "사망" · "재료 무신 관우 — 정지 세력이 등용" · "" (길 있음)
+func block_text(k: String) -> String:
+	var lt := lock_text(k)
+	if lt != "":
+		return lt
+	var q := mat_block(k)
+	if q == "":
+		return ""
+	return "재료 %s — %s" % [DB.C[q].name, lock_text(q)]
+
+
 ## 재료 부족 수 (아이템 포함)
 func miss_count(out: String) -> int:
 	var m := mat_count(DB.RECOF.get(out, []))
@@ -822,6 +871,8 @@ func goal_min_tier() -> int:
 ## 추천 후보로 둘 수 있는가 (수고 한도는 따로) —— 잠김 · 적 · 지금 조합됨 · 낮은 등급 · 신화 중복 · 만든 기인 · 이미 그 등급 이상 가진 인물은 뺀다
 func goal_ok(out: String, min_t: int) -> bool:
 	if not DB.RECOF.has(out) or DB.is_foe(out) or locked.has(out) or can_forge(out) or DB.C[out].tier < min_t:
+		return false
+	if mat_block(out) != "":      # 11/25 재료가 선점 · 사망으로 잠겨 만들 길이 없다 (추천 · 인연 추천 —— 화면 전용 함수라 봇 판단과 무관)
 		return false
 	if DB.C[out].tier >= 8 and has_myth():
 		return false

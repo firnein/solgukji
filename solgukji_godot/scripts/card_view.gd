@@ -15,6 +15,7 @@ var _hover := false
 
 
 var show_role := true      # 11/20 초상 아래쪽에 역할 칩 (DB.role_chip)
+var lock_n := 1            # 11/25 가진 수 —— 0 이하로 주면 잠김(선점 · 사망) · 재료 선점을 MiniTile 과 같은 띠로 덮는다 (기본 1 = 그리지 않음)
 
 func setup(id: String, sz := Vector2(150, 214)) -> CardView:
 	k = id
@@ -127,6 +128,10 @@ func _draw() -> void:
 	draw_string(nf, Vector2(m, y), nm, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(nf, nm, int(18 * u), tw), col)
 	if title != "":
 		draw_string(fb, Vector2(m, y - 21 * u), title, HORIZONTAL_ALIGNMENT_CENTER, tw, _fit(fb, title, int(12 * u), tw), Color(col, 0.9))
+	if lock_n <= 0:
+		var mk := MiniTile.mark_of(k, lock_n)
+		if not mk.is_empty():
+			MiniTile.draw_mark(self, mk, Rect2(Vector2.ZERO, size))
 
 
 func _fit(f: Font, s: String, fs: int, wmax: float) -> int:

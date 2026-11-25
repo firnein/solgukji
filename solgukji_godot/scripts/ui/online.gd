@@ -1576,6 +1576,10 @@ func _unpin_claimed(old: Run, r: Run) -> void:
 		if gs.forge_tree.pinned(str(k)):
 			gs.forge_tree.drop(str(k))
 			gs.toast("%s이(가) %s에게 등용되어 갈무리가 해제되었습니다" % [DB.C[k].name, str(e.by)], "bad")
+	# 11/25 갈무리 목표의 재료가 방금 잠겼다 —— 목표는 남기고(목표 줄에 까닭 · 「모두 조합」 꺼짐) 알린다
+	for pk in gs.forge_tree.pins:
+		if old.mat_block(str(pk)) == "" and r.mat_block(str(pk)) != "":
+			gs.toast("갈무리한 %s · %s — 만들 수 없게 되었습니다" % [DB.C[pk].name, r.block_text(str(pk))], "bad")
 
 
 ## 방 정보 복사 —— 서버 주소 · 방 코드를 클립보드에 (메신저에 그대로 붙여 넣어 친구에게 보낸다). 11/11 사용자
@@ -1712,6 +1716,7 @@ func _foe_panel() -> Control:
 		for k in key:
 			var t := MiniTile.new().setup(str(k), -1)
 			t.custom_minimum_size = Vector2(50, 74)
+			t.show_lock = false      # 11/25 그 세력이 가진 장수 —— 내 잠금 띠(「○○ 세력이 등용」)를 덮지 않는다
 			t.tapped.connect(func(kk): gs.card_info(kk))
 			fl.add_child(t)
 		v.add_child(fl)
@@ -1948,6 +1953,7 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 		for k in r.key:
 			var t := MiniTile.new().setup(str(k), -1)
 			t.custom_minimum_size = Vector2(50, 74)      # 폭 56 미만 = 작은 칸 (초상 · 이름) —— 한 줄 12장
+			t.show_lock = false      # 11/25 그 세력이 가진 장수 —— 내 잠금 띠를 덮지 않는다 (누가 가졌는지는 줄 머리가 말한다)
 			t.tapped.connect(func(kk): scr.card_info(kk))
 			fl.add_child(t)
 		v.add_child(fl)
