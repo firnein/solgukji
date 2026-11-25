@@ -72,6 +72,7 @@ var loss_times := []        # 유닛별 병력 손실이 예정된 행동 시각
 var rout_wait := {}         # 유닛 번호 -> 빠른 고유기 여부. 병력이 다 흘러간 뒤 무너뜨린다.
 var fixed_seed := -1         # 0 이상이면 같은 전투를 다시 만든다 (점검용)
 var slow_t := 0.0           # 고유기 슬로모션이 남은 시간 (실시간)
+const CLASH_T := 1.4         # 11/25 고유기 받아치기 사선 컷인 길이 (실시간 초) —— 양쪽 고유기가 터지는 본 연출은 그 뒤 기존대로
 const CUT_T := 1.8           # 고유기 컷인 길이 (실시간 초) —— 11/4 1.6 → 0.95, 11/6 사용자: 초상 · 글이 너무 빨리 사라진다 → 1.8 (터지는 순간은 컷인이 걷힌 뒤)
 const MORALE_ROUT_TXT := "끝내 패주"     # 사건 글에 이 말이 있으면 사기 패주 (병력 패주는 「병력이 꺾여」 · 「병력이 다해」)
 const SLOW := 0.25          # 슬로모션 배속
@@ -1831,6 +1832,33 @@ static func yeon_choose(tbl: Dictionary, seed_: int, lead: String, key: String, 
 	return [str(f[h % f.size()]), tone, tiers[0][0]]
 
 
+## 11/25 고유기 받아치기 —— 사선(11시 → 5시) 분할 컷인. 아군은 늘 7시(왼쪽 아래) · 적은 늘 1시(오른쪽 위), 각 진영 가장 높은 등급이 크게 (Hud._draw_clash)
+func _ult_clash(e: Dictionary) -> void:
+	if not Type2View.painting_on():
+		return
+	var sides := {"A": [], "B": []}
+	var keys: Array = [str(e.a)]
+	var nms: Array = [str(e.get("name", ""))]
+	var by: Array = e.get("by", [])
+	var bn: Array = e.get("by_names", [])
+	for i in by.size():
+		keys.append(str(by[i]))
+		nms.append(str(bn[i]) if i < bn.size() else "")
+	for i in keys.size():
+		var k: String = keys[i]
+		if not field.squads.has(k):
+			continue
+		var sq: Squad = field.squads[k]
+		var who: String = res.roster[idx_of[k]].name if idx_of.has(k) else sq.row.name
+		sides["A" if k.begins_with("A") else "B"].append({"k": sq.cid, "who": who, "name": nms[i], "tier": int(sq.tier), "first": i == 0})
+	if sides.A.is_empty() or sides.B.is_empty():
+		return
+	for cp in ["A", "B"]:
+		sides[cp].sort_custom(func(x, y): return x.tier > y.tier if x.tier != y.tier else (x.first and not y.first))
+	hud.clash_cutin(sides.A, sides.B, str(e.a).begins_with("A"))
+	Sfx.play("skill", -4.0)
+
+
 func _ult_cut(e: Dictionary) -> void:
 	var f: String = e.get("f", "")
 	if f == warn_key:
@@ -1871,6 +1899,8 @@ func _start_group(g: Dictionary) -> void:
 				_ult_join(e)
 			"ult_cut":
 				_ult_cut(e)
+			"ult_clash":      # 11/25 고유기 받아치기 —— 사선 분할 컷인 (삽화 화면만)
+				_ult_clash(e)
 	if g.ult != null and field.squads.has(g.who):
 		_start_ult(g)
 		return
@@ -2165,6 +2195,16 @@ func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
 	var u: Dictionary = g.ult
 	hud.charge_end(g.who)      # 기 모으기 표시는 컷인이 뜨면 걷는다
+	if bool(u.get("clash", false)) and Type2View.painting_on():      # 11/25 받아치기 묶음 —— 사선 컷인이 이미 대신했다. 큰 컷인 없이 이름과 이펙트만
+		g["lite"] = true
+		hud.ult_notice(sq, str(u.get("name", "고유기")), false, str(u.get("shout", "")))
+		get_tree().create_timer(0.2).timeout.connect(func():
+			if is_instance_valid(sq):
+				field.flourish(sq, 1.3))
+		field.ult.play(u.vfx, g.who, g.foes, g.allies, ULT_DELAY, true)
+		g.min_t = clock + ULT_DELAY
+		_release(g, clock + ULT_DELAY)
+		return
 	if not u.has("lead") and not bool(g.get("big", true)):      # 11/22 가벼운 고유기 —— 슬로모션 · 컷인 · 카메라 없이 이름과 이펙트만, 전투를 멈추지 않는다
 		g["lite"] = true      # 연출 표시는 재생 묶음에만 둔다. 원본 사건은 수정하지 않는다.
 		hud.ult_notice(sq, str(u.get("name", "고유기")), bool(u.get("mini", false)), str(u.get("shout", "")))
@@ -3777,6 +3817,19 @@ class Hud extends Control:
 		for i in 25:
 			_brush.append(Vector2(i / 24.0, r.randf_range(-0.09, 0.09)))
 
+	## 11/25 고유기 받아치기 컷인 —— a: 아군 [{k, who, name, tier}] (큰 장수 먼저) · b: 적. 앞 컷인이 떠 있으면 걷힌 뒤에 (_process)
+	var _clash_q = null
+
+	func clash_cutin(a: Array, b: Array, a_first: bool) -> void:
+		var c := {"clash": true, "A": a, "B": b, "a_first": a_first, "t": 0.0, "len": CLASH_T, "k": str(a[0].k), "who": str(a[0].who),
+			"name": str(a[0].name), "shout": "", "camp": "A", "crisis": false, "col": DB.tier_color(str(a[0].k)), "desc": "", "mates": [], "inyeon": "",
+			"pop": [false, false, false], "land": [false, false, false]}
+		if cut != null and not cut.has("clash"):
+			_clash_q = c
+			return
+		_say_lay.clear()
+		cut = c
+
 	func stamp(text: String, sub: String, col: Color) -> void:
 		stamp_info = {"text": text, "sub": sub, "col": col}
 		stamp_t = 0.0
@@ -3791,9 +3844,12 @@ class Hud extends Control:
 		_tick_ult_notices(dt)
 		if stamp_info:
 			stamp_t += dt
+		if cut == null and _clash_q != null:      # 11/25 앞 컷인이 걷혔다 —— 기다리던 받아치기 컷인
+			cut = _clash_q
+			_clash_q = null
 		if cut:
 			cut.t += dt
-			if cut.t > CUT_T:
+			if cut.t > float(cut.get("len", CUT_T)):
 				cut = null
 			elif not cut.mates.is_empty() and cut.inyeon != "":
 				_yeon_pop_events()
@@ -5381,6 +5437,9 @@ class Hud extends Control:
 
 	## 고유기 컷인 —— 어두워진 화면, 비스듬한 먹띠, 미끄러져 들어오는 초상, 도장처럼 박히는 기술명, 외침
 	func _draw_cut() -> void:
+		if cut.has("clash"):
+			_draw_clash()
+			return
 		var t: float = cut.t
 		var fade := clampf(t / 0.12, 0, 1) * clampf((CUT_T - t) / 0.25, 0, 1)
 		if fade <= 0.01:
@@ -5556,6 +5615,164 @@ class Hud extends Control:
 				var dy := wb.end.y + 22
 				draw_string_outline(DB.font_bold, Vector2(tx, dy), desc, HORIZONTAL_ALIGNMENT_CENTER, tw, dfs, 6, Color(0, 0, 0, 0.85 * fade))
 				draw_string(DB.font_bold, Vector2(tx, dy), desc, HORIZONTAL_ALIGNMENT_CENTER, tw, dfs, Color("#ffe6a8", fade * nt))
+
+	## 11/25 고유기 받아치기 —— 화면을 11시 → 5시 사선으로 가르고 아군은 7시(왼쪽 아래) · 적은 1시(오른쪽 위). 드래곤볼 기 싸움처럼
+	## 두 초상에서 뻗은 빛 줄기(아군 파랑 · 적 빨강)가 사선 위에서 맞부딪쳐 불꽃이 튀고 화면이 떨린다. 진영에 장수가 여럿이면 가장 높은 등급이 크게, 나머지는 작은 초상
+	const CLASH_A := Color("#6fb0ff")
+	const CLASH_B := Color("#ff4a3a")
+
+	func _draw_clash() -> void:
+		var t: float = cut.t
+		var ln: float = cut.get("len", CLASH_T)
+		var fade := clampf(t / 0.1, 0, 1) * clampf((ln - t) / 0.25, 0, 1)
+		if fade <= 0.01:
+			return
+		var sz := size
+		var tall := sz.x < sz.y
+		var c := sz / 2.0
+		var dir := Vector2(0.5, 0.866)      # 11시 → 5시
+		var n := Vector2(0.866, -0.5)       # 1시 쪽 (적)
+		var ll := sz.length()
+		var bump := ease(clampf((t - 0.3) / 0.12, 0, 1), 0.4) * clampf(1.0 - (t - 0.42) / 0.5, 0, 1)      # 맞부딪치는 순간 크게 흔들린다
+		var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * (2.0 + 9.0 * bump) * fade if t > 0.25 else Vector2.ZERO
+		draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.72 * fade))
+		draw_set_transform(shake)
+		# 두 쪽 판 —— 제 모서리에서 미끄러져 들어온다
+		var slide := 1.0 - ease(clampf(t / 0.22, 0, 1), 0.3)
+		var p0 := c - dir * ll
+		var p1 := c + dir * ll
+		for side in [-1.0, 1.0]:
+			var off: Vector2 = n * side * slide * ll * 0.6
+			var poly := PackedVector2Array([p0 + off, p1 + off, p1 + n * side * ll + off, p0 + n * side * ll + off])
+			var bg := Color(0.04, 0.09, 0.22, 0.88 * fade) if side < 0 else Color(0.22, 0.04, 0.04, 0.88 * fade)
+			draw_colored_polygon(poly, bg)
+			# 집중선 —— 제 쪽 판 안에서 사선 쪽으로 몰린다
+			var r := RandomNumberGenerator.new()
+			r.seed = int(t * 24.0) * 2 + (1 if side > 0 else 0)
+			var lc := (CLASH_A if side < 0 else CLASH_B).lightened(0.3)
+			for i in 18:
+				var along := r.randf_range(-0.55, 0.55) * ll
+				var dep := r.randf_range(0.15, 0.6) * ll
+				var q0: Vector2 = c + dir * along + n * side * dep + off
+				var q1: Vector2 = q0 - n * side * r.randf_range(0.08, 0.2) * ll
+				draw_line(q0, q1, Color(lc, 0.18 * fade), r.randf_range(1.0, 2.5))
+		# 초상 자리 —— 아군 왼쪽 아래 · 적 오른쪽 위 (사선을 넘지 않게)
+		var ph := minf(sz.y * (0.28 if tall else 0.48), 380.0)
+		var pw := ph * 0.78
+		var mg := 12.0 if tall else sz.x * 0.08
+		var ra := Rect2(mg, sz.y * (0.80 if tall else 0.74) - ph, pw, ph)      # 가로 화면은 위아래 글 자리를 남긴다
+		var rb := Rect2(sz.x - mg - pw, sz.y * (0.16 if tall else 0.24), pw, ph)
+		var pin := ease(clampf((t - 0.05) / 0.22, 0, 1), 0.25)
+		ra.position += Vector2(-1, 1) * (1.0 - pin) * ll * 0.4
+		rb.position += Vector2(1, -1) * (1.0 - pin) * ll * 0.4
+		# 빛 줄기 —— 두 초상에서 사선 위 맞부딪치는 곳으로 (맞부딪친 곳이 사선을 따라 밀고 밀린다)
+		var bt := clampf((t - 0.22) / 0.12, 0, 1)
+		var k := c + dir * (sin(t * 9.0) * 0.03 + sin(t * 23.0) * 0.012) * ll
+		if bt > 0.0:
+			var fa := ra.get_center()
+			var fb := rb.get_center()
+			for s in [[fa, CLASH_A], [fb, CLASH_B]]:
+				var from: Vector2 = s[0]
+				var col: Color = s[1]
+				var to: Vector2 = from.lerp(k, bt)
+				var wob := 1.0 + 0.15 * sin(t * 40.0 + (0.0 if col == CLASH_A else 1.7))
+				draw_line(from, to, Color(col, 0.25 * fade), 46.0 * wob)
+				draw_line(from, to, Color(col, 0.55 * fade), 26.0 * wob)
+				draw_line(from, to, Color(col.lightened(0.6), 0.9 * fade), 10.0 * wob)
+				draw_circle(to, 22.0 * wob, Color(col.lightened(0.4), 0.8 * fade))
+		# 기 싸움 —— 두 쪽의 기운이 사선에 맞붙어 띠처럼 빛나고, 초상에서 맞부딪친 곳으로 쐐기꼴 기운이 몰린다
+		var on := 1.0 - slide
+		for side in [-1.0, 1.0]:
+			var gc: Color = CLASH_A if side < 0 else CLASH_B
+			var push := (1.0 + 0.3 * sin(t * 31.0 + side)) * on
+			draw_line(c - dir * ll + n * side * 14.0 * push, c + dir * ll + n * side * 14.0 * push, Color(gc, 0.28 * fade * on), 26.0 * push)
+			draw_line(c - dir * ll + n * side * 6.0, c + dir * ll + n * side * 6.0, Color(gc.lightened(0.25), 0.6 * fade * on), 9.0)
+			if bt > 0.0:
+				var src: Vector2 = (ra if side < 0 else rb).get_center()
+				var wedge := PackedVector2Array([src, k + dir * 110.0 * bt + n * side * 4.0, k - dir * 110.0 * bt + n * side * 4.0])
+				draw_colored_polygon(wedge, Color(gc, 0.3 * fade * bt))
+		# 사선 —— 두 빛의 경계 (지지직 번개)
+		var r2 := RandomNumberGenerator.new()
+		r2.seed = int(t * 30.0)
+		for side in [-1.0, 1.0]:
+			var zig := PackedVector2Array()
+			for i in 25:
+				var f := (i / 24.0 - 0.5) * ll * 1.2
+				zig.append(c + dir * f + n * side * (3.0 + r2.randf_range(-4.0, 4.0)))
+			draw_polyline(zig, Color((CLASH_A if side < 0 else CLASH_B).lightened(0.35), 0.9 * fade * (1.0 - slide)), 3.0)
+		draw_line(c - dir * ll, c + dir * ll, Color(1, 1, 1, 0.85 * fade * (1.0 - slide)), 2.0)
+		# 맞부딪친 곳 —— 불꽃
+		if bt >= 1.0:
+			var r3 := RandomNumberGenerator.new()
+			r3.seed = int(t * 40.0) + 7
+			var pulse := 1.0 + 0.25 * sin(t * 50.0) + 0.6 * bump
+			for i in 3:
+				draw_circle(k, (60.0 - i * 18.0) * pulse, Color(1, 0.95 - i * 0.05, 0.75 + i * 0.1, (0.25 + i * 0.3) * fade))
+			for i in 26:
+				var a := r3.randf() * TAU
+				var l0 := r3.randf_range(20.0, 40.0) * pulse
+				var l1 := l0 + r3.randf_range(30.0, 110.0) * pulse
+				var sc: Color = [CLASH_A, CLASH_B, Color("#fff2b0")][i % 3]
+				draw_line(k + Vector2.from_angle(a) * l0, k + Vector2.from_angle(a) * l1, Color(sc.lightened(0.3), 0.85 * fade), r3.randf_range(1.5, 4.0))
+		# 초상 —— 큰 장수 하나 + 곁의 작은 초상 (아래쪽에 겹쳐 선다)
+		var a_first: bool = cut.get("a_first", true)
+		for sd in [["A", ra, CLASH_A, true], ["B", rb, CLASH_B, false]]:
+			var arr: Array = cut[sd[0]]
+			var pr: Rect2 = sd[1]
+			var col: Color = sd[2]
+			var left: bool = sd[3]
+			var main: Dictionary = arr[0]
+			draw_rect(pr.grow(8), Color(col, 0.45 * fade))
+			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
+			Art.draw_portrait(self, pr, str(main.k), t, "ult")
+			if fade < 1.0:
+				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
+			draw_rect(pr, Color(DB.tier_color(str(main.k)), fade), false, 3.0)
+			var sh := ph * 0.36
+			var sw := sh * 0.78
+			var extra: Array = arr.slice(1, 3)
+			for j in extra.size():
+				var sx := pr.position.x - 4.0 + j * (sw + 4.0) if left else pr.end.x + 4.0 - (j + 1) * (sw + 4.0) + 4.0
+				var srr := Rect2(sx, pr.end.y - sh + 10.0, sw, sh)
+				draw_rect(srr.grow(4), Color(col, 0.5 * fade))
+				draw_rect(srr.grow(1), Color(0, 0, 0, 0.9 * fade))
+				Art.draw_portrait(self, srr, str(extra[j].k), t, "ult")
+				draw_rect(srr, Color(DB.tier_color(str(extra[j].k)), fade), false, 2.0)
+			if arr.size() > 3:
+				_text(DB.font_bold, Vector2(pr.position.x if left else pr.end.x - 60.0, pr.end.y - sh - 2.0), "+%d" % (arr.size() - 3),
+					HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 60.0, 16, Color(1, 1, 1, fade))
+			# 이름 · 기술명 —— 아군은 초상 아래(왼쪽 맞춤) · 적은 초상 위(오른쪽 맞춤)
+			var nt := clampf((t - 0.18 - (0.0 if left == a_first else 0.08)) / 0.16, 0, 1)
+			if nt <= 0.0:
+				continue
+			var fd := DB.font_display
+			var tw := sz.x * (0.80 if tall else 0.42)
+			var title := "『%s』" % str(main.name)
+			var tfs := 52 if tall else 44
+			while tfs > 26 and fd.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > tw:
+				tfs -= 2
+			var who := str(main.who)
+			if extra.size() > 0:
+				who += " 외 %d" % (arr.size() - 1)
+			var tag := "받아치기" if left != a_first else ""
+			var wsz := DB.font_body.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15)
+			var tx := pr.position.x if left else pr.end.x - tw
+			var al := HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT
+			var wy := pr.end.y + 10.0 if left else pr.position.y - 36.0
+			var ty := wy + 26.0 + tfs * 0.95 if left else wy - 10.0
+			var wb := Rect2(Vector2(pr.position.x if left else pr.end.x - wsz.x - 20.0, wy), Vector2(wsz.x + 20.0, 26.0))
+			draw_rect(wb, Color(col.darkened(0.25), 0.9 * fade))
+			draw_string(DB.font_body, wb.position + Vector2(10, 19), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, fade))
+			if tag != "":
+				var gx := wb.end.x + 8.0 if left else wb.position.x - 8.0 - 80.0
+				_text(DB.font_bold, Vector2(gx, wy + 19.0), tag, HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 80.0, 16, Color("#ffd257", fade * nt))
+			var scl := lerpf(1.8, 1.0, ease(nt, 0.35))
+			var anchor := Vector2(tx + (0.0 if left else tw), ty)
+			draw_set_transform(shake + anchor, 0.0, Vector2.ONE * scl)
+			draw_string_outline(fd, Vector2(-tw if not left else 0.0, 0), title, al, tw, tfs, 12, Color(0, 0, 0, fade))
+			draw_string(fd, Vector2(-tw if not left else 0.0, 0), title, al, tw, tfs, Color(col.lightened(0.45), fade * nt))
+			draw_set_transform(shake)
+		draw_set_transform(Vector2.ZERO)
 
 	## 진영 사기 게이지 —— r 안에 m(0~100)만큼 채운다. from_left 면 왼쪽에서 오른쪽으로(아군), 아니면 오른쪽에서(적).
 	## 색: 60↑ 옥색 → 45 황색 → 30 주황 → 30 미만 적색. 30 자리에 가는 눈금. 위험(평균 35 미만이거나 동요 부대 3 이상)이면 테두리 · 빛이 깜빡인다.
