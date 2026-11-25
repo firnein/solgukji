@@ -64,9 +64,12 @@ func _ready() -> void:
 		return
 	# 일 목록 —— [등급, 덱A 이름, 덱B 이름, 순번, 고유 번호]
 	var jobs := []
+	var only_tags := str(args.get("tags", "")).split(",", false)
 	for t in tiers:
 		if mode == "value":
 			for ti in TAGS.size():
+				if not only_tags.is_empty() and TAGS[ti] not in only_tags:
+					continue
 				for i in n:
 					jobs.append([t, TAGS[ti] + "6", "무작위", i, t * 1000000 + 1 * 100000 + ti * 1000 + i])
 		elif mode == "pair":

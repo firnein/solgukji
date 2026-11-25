@@ -2333,7 +2333,11 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 		m *= HILL.hit
 	if not _in_ult:      # 11/6 #15 책략 배율(int_mul · int_tier)은 쓰지 않는다 —— 거리 배율만
 		if _gap(a, d) > melee_gap + 6.0:
-			m *= far_mul
+			var ranged_scale := far_mul
+			if int(a.c.tier) >= 7 and is_caster(a.c) and not _pinned(a):
+				# 유생과 불멸 제어형은 안전한 자리에서 장거리 기여를 보완한다.
+				ranged_scale = 1.55 if a.c.tag == "유생" else 1.38 if int(a.c.tier) == 7 and a.c.tag in ["술사", "모사"] else 1.18
+			m *= ranged_scale
 	super.int_hit(a, d, m, spread)
 	if _in_ult and not (_ult_by != null and _ult_by.ult != null and bool(_ult_by.ult.get("mini", false))) and _wind.has(d) and d.camp != a.camp:
 		_cut_wind(d, a)

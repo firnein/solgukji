@@ -83,6 +83,7 @@ var _hero_of := {}             # 카드 id -> 칸 번호 (-1 = 없음)
 var _hero_falls := {}
 var _hero_poses := 1
 var hero_feet := {}
+const HERO_RECOIL_TIME := 0.38
 var batch: Node2D
 var top_effects: Node2D
 var glow_effects: Node2D
@@ -360,6 +361,11 @@ func _record_contact(source: Squad, target: Squad, power: float, magic: bool) ->
 	if direction.is_zero_approx():
 		direction = Vector2.from_angle(from.heading)
 	var at := form.center - direction * target.edge(direction)
+	if _shows_hero(target) and visual_time >= form.hero_hurt_at + HERO_RECOIL_TIME:
+		form.hero_hurt_at = visual_time
+		form.hero_hurt_power = power
+		form.hero_hurt_dir = direction
+		form.hero_hurt_mirror = not form.facing_right
 	if (not magic and source.cls != "ranged") or power >= 1.5:
 		form.receive_impact(at, direction, power)
 	var ids := form.nearest_living(at, mini(form.cols, 2 + floori(power)))
@@ -379,7 +385,7 @@ func _record_contact(source: Squad, target: Squad, power: float, magic: bool) ->
 		if contacts.size() > MAX_CONTACTS:
 			contacts.pop_front()
 
-	if source.cls != "ranged":
+	if source.cls == "melee" or source.cls == "cav":
 		var front := from.center + direction * source.edge(direction)
 		for id in from.nearest_living(front, from.cols):
 			from.strike_at[id] = visual_time - 0.105 + (id % from.cols) * 0.012
@@ -827,8 +833,6 @@ func _hero_index(sq: Squad) -> int:
 func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float, axis: Vector2, mirror: bool,
 		eligible: bool, ranged: bool, bow_base: float, fade_sq: float, cv: float, sway: float) -> void:
 	var strike := -10.0
-	var hurt := -10.0
-	var hurt_id := -1
 	var gait := 0.0
 	var living := 0
 	var lead := -1
@@ -836,9 +840,6 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		if form.alive[id] == 0:
 			continue
 		strike = maxf(strike, form.strike_at[id])
-		if form.hurt_at[id] > hurt and form.hurt_at[id] <= visual_time:
-			hurt = form.hurt_at[id]
-			hurt_id = id
 		gait += form.gait[id]
 		living += 1
 		if lead < 0:
@@ -873,14 +874,14 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 			var bow := smoothstep(0.0, 0.1, bow_base) * (1.0 - smoothstep(0.15, 0.32, bow_base))
 			tilt -= axis.x * bow * 0.08
 			p -= axis * bow * 2.0
-	var hurt_age := visual_time - hurt
-	if hurt_id >= 0 and hurt_age >= 0.0 and hurt_age < 0.38:
-		if hurt_age < 0.28:
-			pose = 3
-		var hurt_axis: Vector2 = (_pm(at + form.hurt_dir[hurt_id] * 16.0) - _pm(at)).normalized()
-		var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, 0.38, hurt_age))
-		p += hurt_axis * recoil * (2.0 + form.hurt_power[hurt_id] * 2.4) * HERO_LUNGE * 0.7
-		tilt += hurt_axis.x * recoil * (0.07 + form.hurt_power[hurt_id] * 0.05)
+	var hurt_age := visual_time - form.hero_hurt_at
+	if hurt_age >= 0.0 and hurt_age < HERO_RECOIL_TIME:
+		pose = 3
+		mirror = form.hero_hurt_mirror
+		var hurt_axis: Vector2 = (_pm(at + form.hero_hurt_dir * 16.0) - _pm(at)).normalized()
+		var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, HERO_RECOIL_TIME, hurt_age))
+		p += hurt_axis * recoil * (2.0 + form.hero_hurt_power * 2.4) * HERO_LUNGE * 0.7
+		tilt += hurt_axis.x * recoil * (0.07 + form.hero_hurt_power * 0.05)
 		gait *= 1.0 - recoil
 	if gait > 0.001:
 		tilt += sin(stride) * gait * sway * 0.7

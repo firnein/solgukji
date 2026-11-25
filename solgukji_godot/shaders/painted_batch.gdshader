@@ -199,6 +199,10 @@ void fragment() {
 	if (shade > 0.01) {
 		// 그늘 속 —— 두 탭 더 섞어 살짝 흐릿하게 (그늘 부대만), 빛을 빼고 푸른 그림자 빛으로 어둡게
 		vec2 o = vec2(0.007, 0.009) * shade;      // 아틀라스 칸(0.25)의 3% 남짓 = 인형 키의 1~2px
+		if (hero > 0.5) {
+			vec2 grid = immortal_hero > 0.5 ? immortal_hero_grid : hero_grid;
+			o *= 4.0 / grid;
+		}
 		if (standard < 0.5) {
 			c = mix(c, (sprite_grad(UV + o, du, dv) + sprite_grad(UV - o, du, dv) + c) / 3.0, shade);
 		}

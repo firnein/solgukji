@@ -1874,6 +1874,23 @@ func ult_of(k: String):
 			if comp.t == "hit":
 				comp.mult = snappedf(float(comp.mult) * f, 0.01)
 	u.wait = ult_wait(k, u)
+	if int(C[k].tier) >= 7 and Battle.is_caster(C[k]):
+		var scholar: bool = C[k].tag == "유생"
+		u.wind += 0.45
+		u.cap_bonus = 0.07
+		for comp in u.eff:
+			if comp.t == "hit":
+				comp.mult *= 1.45
+			if comp.has("heal"):
+				comp.heal *= 1.35
+			if comp.t == "ally" and comp.has("morale"):
+				comp.morale *= 1.2
+			if comp.has("buff"):
+				comp.buff.amt *= 1.30 if scholar and comp.t == "ally" else 1.15
+				if scholar and comp.t == "ally" and comp.buff.stat == "def":
+					comp.buff.dur = int(comp.buff.dur) + 1
+			if comp.has("status") and comp.status.k in ["burn", "bleed", "flood", "plague"]:
+				comp.status.val *= 1.25
 	return u
 
 
@@ -1881,7 +1898,7 @@ func ult_of(k: String):
 ## 수치 계산은 UI.ult_desc 와 같다 (타격 = 배율 × 그 등급 turn_mul, 회복 · 사기 = × Battle.burst). 큰 숫자는 첫 효과의 대표 값 (타격 > 회복 > 버프 > 사기)
 func ult_parts(u: Dictionary, tier := 0) -> Dictionary:
 	var tm := Battle.turn_mul_for(tier) if tier > 0 else 1.0
-	var cap := Battle.ult_cap_for(tier, bool(u.get("mini", false))) if tier > 0 else 0.0
+	var cap := Battle.ult_cap_for(tier, bool(u.get("mini", false)), float(u.get("cap_bonus", 0.0))) if tier > 0 else 0.0
 	var rows := []      # 효과마다 {t, tgt, items: [[글, 값, 종류]]}
 	for comp in u.eff:
 		var t := str(comp.get("t", ""))

@@ -171,8 +171,9 @@ static var reult_wait := 0.5
 ## 측정(리그전 덱 40판): 한 부대 30% 넘게 7 → 2% · 50% 넘게 3 → 0% · 최대 100 → 30% · 고유기 한 번에 무너진 부대 0.22 → 0.12. 같은 등급끼리는 거의 걸리지 않는다(30% 넘는 피해 0~2%)
 static var ult_cap := {5: 0.15, 6: 0.25, 7: 0.25, 8: 0.3}
 
-static func ult_cap_for(tier: int, mini := false) -> float:
-	return float(ult_cap.get(5 if mini else clampi(tier, 6, 8), 0.0))
+static func ult_cap_for(tier: int, mini := false, cap_bonus := 0.0) -> float:
+	var base := float(ult_cap.get(5 if mini else clampi(tier, 6, 8), 0.0))
+	return base + cap_bonus if base > 0.0 else 0.0
 ## 기질별 재발동 대기 배율 —— 없으면 reult_wait. 수호 · 분노는 아군이 다칠수록 기가 차서 늘 먼저 차 있고, 같은 진영 고유기 순번(먼저 찬 장수부터)만 기다리다
 ## 판 후반에 거듭 터졌다 (기준 60판: 주태(초월) 보유 부대당 1.27번 · 2회 이상 36%, 하후돈 · 마초 · 장비(불멸) 0.96~1.22번 —— 등급 평균 0.65 · 0.53).
 ## 재사용 감쇠를 0.55 로 낮추거나 쓴 뒤 아군 피해로 받는 기를 절반으로 해도 주태는 그대로였다(1.26번 · 31%) —— 기가 아니라 시간으로 막는다
@@ -3817,7 +3818,7 @@ func _gain(u: Unit, v: float) -> void:
 ## 고유기 한 방 상한 (11/7 2차) —— 이번 고유기에 이 부대가 잃는 병력은 최대 병력 × ult_cap[쓴 장수 등급] 까지.
 ## 사람이 누른 고유기 · AI 고유기 모두 _do_ult 를 지나므로 같다. 고유기 중 받은 반격(쓴 장수가 잃는 병력)에도 같은 상한
 func _ult_clamp(d: Unit, loss: float) -> float:
-	var cap := ult_cap_for(int(_ult_by.c.tier), bool(_ult_by.ult.get("mini", false)))
+	var cap := ult_cap_for(int(_ult_by.c.tier), bool(_ult_by.ult.get("mini", false)), float(_ult_by.ult.get("cap_bonus", 0.0)))
 	if cap <= 0.0:
 		return loss
 	var got: float = _ult_taken.get(d, 0.0)
@@ -3825,7 +3826,7 @@ func _ult_clamp(d: Unit, loss: float) -> float:
 	if not _ult_grp.is_empty() and inyeon_cap_mul > 0.0:      # 합동 고유기 —— 한 부대가 합동 전체에서 받는 몫의 상한
 		var gc := 0.0
 		for m in _ult_grp.members:
-			gc = maxf(gc, float(ult_cap.get(clampi(int(m.c.tier), 6, 8), 0.0)))
+			gc = maxf(gc, ult_cap_for(int(m.c.tier), bool(m.ult.get("mini", false)), float(m.ult.get("cap_bonus", 0.0))))
 		var cm := float(inyeon_cap_n.get(int(_ult_grp.get("n0", 0)), inyeon_cap_mul))
 		if _ult_grp.has("cap_mul"):      # 11/12 기인이 연 연쇄는 더 높게 (인원별 배수에 같은 비율로)
 			cm *= float(_ult_grp.cap_mul) / inyeon_cap_mul

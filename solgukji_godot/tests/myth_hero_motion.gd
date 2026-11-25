@@ -39,8 +39,7 @@ func _ready() -> void:
 			form.contact_limits = []
 			var person := DB.person(sq.cid)
 			if person == "조조":
-				form.hurt_at[0] = painting.visual_time - 0.02
-				form.hurt_at[1] = painting.visual_time + 0.02
+				form.hero_hurt_at = painting.visual_time - 0.02
 			var before := painting.figure_count
 			painting._collect_figures(sq, form)
 			var base := before * painting.FIG_W
@@ -75,7 +74,10 @@ func _ready() -> void:
 		painting.sync_quiet([{"key": lead.key, "troops": lead.max}])
 		valid = valid and painting._hero_falls.is_empty()
 	valid = valid and solo_count == 18 and leads.size() == 2
+	var checked := _check_repeated_hits(painting, view.field.order.back())
+	valid = valid and checked == _hero_card_ids().size()
 	print("HERO_SOLO_MOTION|%s|solo=%d|immortal=%d" % ["PASS" if valid else "FAIL", solo_count, immortal_cards.size()])
+	print("HERO_HIT_SEQUENCE|%d/%d" % [checked, _hero_card_ids().size()])
 	view.queue_free()
 	await get_tree().process_frame
 	for player in Sfx.get_children():
@@ -83,3 +85,37 @@ func _ready() -> void:
 			player.stop()
 	await get_tree().create_timer(0.1).timeout
 	get_tree().quit(0 if valid else 1)
+
+func _hero_card_ids() -> Array:
+	return DB.C.keys().filter(func(cid): return int(DB.C[cid].tier) in [7, 8] and DB.C[cid].kind != "foe")
+
+func _check_repeated_hits(painting: Painting, source: Squad) -> int:
+	var checked := 0
+	for cid in _hero_card_ids():
+		var card: Dictionary = DB.C[cid]
+		var row := {"id": cid, "key": "audit:" + cid, "tag": card.tag, "tier": card.tier, "slot": 0, "camp": "A", "max": card.tr}
+		var sq := Squad.new(row, Vector2(-100, 0), RandomNumberGenerator.new())
+		if not painting._shows_hero(sq):
+			continue
+		var form := painting._formation(sq)
+		var start := painting.visual_time
+		var hit_cell := painting.HERO_CELL + painting._hero_index(sq) + 3
+		var stable := true
+		for dt in [0.0, 0.08, 0.16, 0.24, 0.34, 0.39]:
+			painting.visual_time = start + dt
+			if dt > 0.0:
+				form.facing_right = not form.facing_right
+			if dt < 0.32:
+				painting._record_contact(source, sq, 1.5, false)
+			var base := painting.figure_count * painting.FIG_W
+			painting._collect_figures(sq, form)
+			stable = stable and is_equal_approx(form.hero_hurt_at, start)
+			stable = stable and (int(painting._figs[base + 3]) == hit_cell) == (dt < painting.HERO_RECOIL_TIME)
+			if dt < painting.HERO_RECOIL_TIME:
+				stable = stable and (painting._figs[base + 9] > 0.5) == form.hero_hurt_mirror
+			stable = stable and painting._figs[base + 8] == 0.0
+		if stable:
+			checked += 1
+		else:
+			printerr("Unstable hero hit sequence: ", DB.person(cid), " tier ", card.tier)
+	return checked
