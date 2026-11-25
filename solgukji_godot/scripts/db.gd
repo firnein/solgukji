@@ -275,6 +275,9 @@ func _reskill() -> void:
 		c.sk = _build_skill(c.tag, i, c.tier)
 	for k in ids:
 		C[k].sks = _skill_list(k)
+		if caster_skill_on and INT_TAGS.has(C[k].tag):
+			for s in C[k].sks:
+				_caster_skill(s, int(C[k].tier))
 
 
 ## 기술 여러 개 (솔국지 확장, 2026-10-30) —— 첫 기술은 원본 배정 그대로, 희귀부터 기술을 더한다 (희귀 · 전설 · 초월 +1, 불멸 · 신화 +2). 기술마다 충전이 따로 돈다.
@@ -348,6 +351,23 @@ const ULT_OVER := 3.2     # 고유기 한 방은 가장 센 일반 기술의 이
 const SK_COST_TIER := {6: 1.25, 7: 1.45, 8: 1.75}
 const SK_COST := {"front1": 0.6, "back1": 0.6,      # 11/5 사용자: 일반 기술 몇몇은 잘 터지게 —— 한 부대만 치는 기술은 싸게 (1.6 → 1.1)
 	"front3": 1.1, "back2": 1.1, "denseLine": 1.1, "all": 1.3}      # 11/5 사용자 2차: 더 자주 —— 모두 약 5.5할 (1.1 · 2.0 · 2.4 에서)
+## 11/25 사용자: 책략계 일반 기술 발동 조건 완화와 쿨타임 감소 —— 신화 제갈량 240판 측정(tests/zgl_measure): 기술 5.95회/판 (관우 10.4 · 여포 19.1),
+## 시간의 81~87% 가 충전 중 · 조건에 막힘 6~13%, 'all' 기술이 한 번에 실제로 맞힌 부대는 1.9~2.0 (front3 와 같다), 사거리 밖 대기 47% 동안 충전이 멈췄다.
+## 책략계(INT_TAGS)만 —— 'all' 피해 기술의 비용 계수 1.3 → CASTER_ALL_COST, 조건 중 적 수 · 뭉침(foe_n · dense)은 '준비되면 바로'. 사거리 밖 충전은 RtBattle.caster_idle_charge.
+## 실제 온라인 대전 기록(2~6일차 신화가 든 쪽, tests/real_myth_swap) 신화 바꿔 끼우기: 제갈량 65.3 → 73.3% · 장각 84.0 → 89.2 · 책략 신화 평균 72.8 → 76.7 · 정면 70.8 → 71.9
+const CASTER_ALL_COST := 0.85
+const CASTER_FREE_COND := ["foe_n", "dense"]
+var caster_skill_on := true      # 점검용 —— false 로 두고 _reskill() 을 다시 부르면 예전 비용 · 조건 (tests/real_myth_swap --old)
+
+
+func _caster_skill(s: Dictionary, tier: int) -> void:
+	var e: Dictionary = s.eff
+	if str(e.get("tgt", "")) == "all" and e.has("mult"):
+		s.cost = snappedf(CASTER_ALL_COST * float(SK_COST_TIER.get(tier, 1.0)), 0.1)
+	for one in str(s.get("cond", "always")).split("|"):      # '|' 는 또는 —— 하나라도 푼 조건이면 늘 맞는다
+		if CASTER_FREE_COND.has(one.split(":")[0]):
+			s.cond = "always"
+			break
 
 
 func sk_cost(e: Dictionary) -> float:

@@ -133,6 +133,9 @@ var lay := 1.0
 const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
 static var bow_range := 250.0      # 궁병 사거리 (점검 장면이 바꿔 볼 수 있게 static)
 static var cast_range := 220.0     # 지략 계열(책략으로 치는 유닛) 사거리
+## 11/25 사용자: 책략계 일반 기술 쿨타임 감소 —— 사거리 밖에서 기다리는 동안에도 기술 충전이 행동 몫의 이만큼 흐른다 (기술마다 비용 1회분까지, 혼란 중엔 멈춤).
+## 0 이면 예전 (행동할 때만). 측정: 신화 제갈량은 살아 있는 시간의 47% 를 사거리 밖에서 서 있었다
+static var caster_idle_charge := 0.5
 static var melee_reach := 130.0    # (예전 근접 중심 거리 —— 11/7 강체부터 판정은 melee_gap 틈. 점검 장면 호환용으로 남김)
 static var melee_bank := 2.0       # 근접은 행동 준비를 이만큼 모아 둔다 —— 걸어가는 동안 쌓았다가 닿자마자 몰아 친다
 static var int_mul := 0.6          # 책략 피해 배율 —— 후열이 안전해진 만큼 (고유기 제외). 등급별 INT_TIER 를 곱한다
@@ -297,6 +300,7 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 				u.atb = minf(atb_cap, u.atb + TICK / _interval(u))
 			if u.atb >= 1.0 and not _ready_to_hit(u):
 				_idle_gauge(u, TICK)
+				_idle_skill(u, TICK)
 				var wk := "wait_r" if _ranged(u) else "wait_m"      # 점검용 —— 준비가 다 찼는데 닿는 적이 없어 노는 시간
 				stats[wk] = stats.get(wk, 0.0) + TICK
 				if not _ranged(u) and u.tgt != null:
@@ -373,6 +377,30 @@ func _interval(u: Unit) -> float:
 		return SPD_RULE_BASE / maxf(20.0, eff(u, "spd") / fl) / fl * (tac.int_mul(u) if tac != null else 1.0)
 	var s := eff(u, "spd") / fl / maxf(1.0, float(u.c.spd))
 	return period / clampf(0.75 + 0.25 * s * (float(u.c.spd) / 75.0), 0.8, 1.25) / fl * (tac.int_mul(u) if tac != null else 1.0)      # 11/15 군략 공격 간격 (노궁 연사 · 제갈연노)
+
+
+## 11/25 책략계 일반 기술 —— 사거리 밖에서 기다리는 동안 충전 (caster_idle_charge 배, 기술마다 비용 1회분까지)
+func _idle_skill(u: Unit, dt: float) -> void:
+	if caster_idle_charge <= 0.0 or not u.alive or not is_caster(u.c) or has_st(u, "confuse"):
+		return
+	var sks: Array = u.c.get("sks", [])
+	if sks.is_empty():
+		return
+	var add := sk_rate(u) * caster_idle_charge * dt / _interval(u)
+	if add <= 0.0:
+		return
+	if sk_split:
+		while u.sk_ch.size() < sks.size():
+			u.sk_ch.append(0.5)
+		for j in sks.size():
+			u.sk_ch[j] = minf(float(sks[j].get("cost", 1.0)), u.sk_ch[j] + add)
+	else:
+		if u.sk_ch.is_empty():
+			u.sk_ch.append(0.5)
+		var cap := 0.0
+		for x in sks:
+			cap = maxf(cap, float(x.get("cost", 1.0)))
+		u.sk_ch[0] = minf(cap, u.sk_ch[0] + add)
 
 
 ## 사거리 때문에 차례를 못 쓰는 동안에도 기본 충전은 흐른다.
