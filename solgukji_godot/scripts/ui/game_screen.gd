@@ -2448,8 +2448,8 @@ func _page_draw() -> Control:
 	v.add_child(base_slot)
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
-	if run.day >= 7:      # 11/12 최후 1인 —— 8일차부터 패배 민심 피해가 매일 커진다
-		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]%d일차 — 난세의 끝[/color][/b] — 마지막 한 세력이 남을 때까지 싸운다. 패배 민심 피해 ×%s" % [run.day + 1, str(snappedf(pow(Run.HP_LATE_MUL, run.day - Run.LAST_TABLE_DAY), 0.01))], UI.FS_BODY), 10))
+	if run.day > Run.HP_LATE_START:      # 11/25 4일차부터 패배 민심 피해가 매일 커진다 (Run.hp_late_mul)
+		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]%d일차 — 난세[/color][/b] — 날이 갈수록 패배 민심 피해가 커진다 (3일차의 ×%s). 마지막 한 세력이 남으면 끝난다" % [run.day + 1, str(snappedf(Run.hp_late_mul(run.day), 0.01))], UI.FS_BODY), 10))
 
 	# 할 일 —— 기호 타일 한 줄 (11/7 사용자: 세로로 너무 컸다 —— 기호 · 제목을 옆으로 나란히 높이 34, 한 줄 최대 5칸)
 	# 11/14 UI 다듬기 2단계 (감사 #2 · #6-1): 오늘 징집을 아직 안 했으면 할 일 줄 위에 큰 주 행동 카드 「징집하기」 —— 코치 말풍선(1/4)이 이것을 가리킨다.
