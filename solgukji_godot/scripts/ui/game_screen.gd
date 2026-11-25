@@ -2491,20 +2491,18 @@ func _page_draw() -> Control:
 	v.add_child(base_slot)
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
-	if run.day > Run.HP_LATE_START:      # 11/25 4일차부터 패배 민심 피해가 매일 커진다 (Run.hp_late_mul)
-		v.add_child(UI.panel(UI.rich("[b][color=#D9A64B]%d일차 — 난세[/color][/b] — 날이 갈수록 패배 민심 피해가 커진다 (3일차의 ×%s). 마지막 한 세력이 남으면 끝난다" % [run.day + 1, str(snappedf(Run.hp_late_mul(run.day), 0.01))], UI.FS_BODY), 10))
+	if run.day > Run.HP_LATE_START:      # 11/25 4일차부터 패배 민심 피해가 매일 커진다 (Run.hp_late_mul) —— 11/25 UX: 칸 대신 작은 한 줄 (보유 장수 자리를 깎지 않게)
+		v.add_child(UI.rich("[color=#D9A64B]%d일차 난세[/color] [color=#A89574]· 패배 민심 피해 ×%s[/color]" % [run.day + 1, str(snappedf(Run.hp_late_mul(run.day), 0.01))], UI.FS_CAP))
 
 	# 할 일 —— 기호 타일 한 줄 (11/7 사용자: 세로로 너무 컸다 —— 기호 · 제목을 옆으로 나란히 높이 34, 한 줄 최대 5칸)
 	# 11/14 UI 다듬기 2단계 (감사 #2 · #6-1): 오늘 징집을 아직 안 했으면 할 일 줄 위에 큰 주 행동 카드 「징집하기」 —— 코치 말풍선(1/4)이 이것을 가리킨다.
 	#   징집을 마치면 예전처럼 할 일 줄의 작은 완료 칸(✓ 징집)으로 줄어든다
+	# 11/25 UX: 징집은 준비 단계가 시작될 때 자동으로 받는다 —— 큰 「징집하기」 카드는 뺐다. 아직 못 받은 상태(옛 서버 등)면 할 일 줄의 작은 칸으로 받는다
 	_draw_cta_node = null
-	if n > 0 and not run.drawn:
-		_draw_cta_node = _draw_cta(n)
-		v.add_child(_draw_cta_node)
 	var acts := UI.grid(70, 4)
+	if n > 0 and not run.drawn:
+		acts.add_child(UI.tile_act("draw", "징집 %d" % n, "", func(): act("do_draw"), "pri", false, not can_act()))
 	# 11/2 사용자: 타일 아래 설명 글(기본패 14장 · 11종 중 고르기)은 빼고 낮게. 선택권은 타일 하나 —— 고르다 닫아도 「일반 ×2」 같은 타일이 따로 생기지 않고 같은 타일로 다시 연다
-	if n > 0 and run.drawn:
-		acts.add_child(UI.tile_act("draw", "징집", "", func(): act("do_draw"), "pri", run.drawn, not can_act()))
 	if shop_on() or gacha_on():      # 11/13 사용자: 상점은 기본패 징집 바로 다음 칸 (군량 값은 머리띠 민심 위에 늘 보인다 —— 징집 탭 머리의 「군량 N [상점]」 줄은 걷었다)
 		acts.add_child(UI.tile_act("grain", "상점", "", _shop_sheet, "gold" if run.grain >= Run.GACHA_PRICE else ""))
 	# 11/2 사용자: 보급(선택권)을 하나로 합치지 말고 등급별 칸으로. 고르지 않고 닫으면 수는 줄지 않는다 (고른 만큼만 줄어든다)
@@ -2545,9 +2543,7 @@ func _page_draw() -> Control:
 				toast("%s 배급 · %s" % [DB.C[k].name, DB.tier_name(k)], "gain"), "", run.granted, not can_act()))
 	if acts.get_child_count() > 0:
 		v.add_child(acts)
-	var gb := _goal_block()      # 11/13 추천 조합 (가까운 · 인연) —— 할 일 줄 아래, 가진 장수 위
-	if gb != null:
-		v.add_child(gb)
+	# 11/25 UX: 추천 조합(_goal_block)은 조합 탭의 목표 보드로 옮겼다 —— 징집 탭은 받은 것 · 가진 장수가 주인공
 
 	# 11/7 사용자: '아이템 이름 · 효과' 칩은 획득 순간 가운데 띠(_item_band)로, '소식 N' 칩은 머리띠 ☰ 아래 버튼으로 —— 칩 줄은 없다
 
@@ -3001,7 +2997,66 @@ func picker(t: int) -> void:
 		elif mats.has(k):
 			tl.set_pin(true, bool(mats[k]))
 		return tl      # 11/6 사용자: 마지막으로 뽑은 장수에 금띠가 남던 것은 뺀다
-	var avail_h: float = vp.y * 0.98 - 120.0      # 시트 머리 · 아래 여백
+	# 11/25 UX: 판단 근거 —— 갈무리 목표(★)와 추천 목표의 재료 가운데 이 등급에서 고를 수 있고 아직 모자란 것을 맨 위 한 묶음으로, 타일 아래 "○○ 재료"
+	# (기록: 선택권 창에 머무는 시간 중앙 12초 · 상위 10% 39초 —— 40명 안팎을 얼굴 · 이름만으로 훑었다)
+	var why := {}      # 카드 -> [[목표 인물 이름, 갈무리인가] …]
+	var note := func(target: String, pinned_: bool) -> void:
+		var seen_k := {}
+		var w2 := func(nd: Dictionary, f: Callable) -> void:
+			for c in nd.get("kids", []):
+				if c.has("k") and not c.ok and not seen_k.has(c.k):
+					seen_k[c.k] = true
+					if not why.has(c.k):
+						why[c.k] = []
+					why[c.k].append([DB.person(target), pinned_])
+				f.call(c, f)
+		w2.call(forge_tree._node(target, 1, 0, target, "", true), w2)
+	for pk in pins:
+		note.call(pk, true)
+	var rec: Array = _forge_goals(DB.D.RECDEF)
+	var seen_p := {}
+	for o in rec:
+		seen_p[DB.person(o)] = true
+	rec += run.bond_goals(seen_p, 6)
+	for o in rec:
+		if not pins.has(o):
+			note.call(o, false)
+	var top_ks := []
+	for tag in DB.D.TAGORDER:
+		for k in Run.pickable(t, tag):
+			if why.has(k):
+				top_ks.append(k)
+	top_ks.sort_custom(func(x, y):      # 갈무리 재료 먼저 · 여러 목표에 쓰이는 것 먼저 (같으면 원래 차례)
+		var px: bool = why[x].any(func(e): return e[1])
+		var py: bool = why[y].any(func(e): return e[1])
+		if px != py:
+			return px
+		return why[x].size() > why[y].size())
+	if not top_ks.is_empty():
+		var tcols := 5 if t <= 4 else 4
+		var ttw := floorf((full - gap * (tcols - 1)) / tcols)
+		var tth := ttw * (1.3 if t <= 4 else 1.42)
+		var sec := UI.vbox(UI.SP_XS)
+		sec.add_child(UI.eyebrow("갈무리 · 추천 목표의 재료 %d" % top_ks.size()))
+		var tg := GridContainer.new()
+		tg.columns = tcols
+		tg.add_theme_constant_override("h_separation", int(gap))
+		tg.add_theme_constant_override("v_separation", int(gap))
+		for k in top_ks.slice(0, tcols * 2):      # 두 줄까지 —— 나머지는 아래 병종 줄에서 ★ 로 보인다
+			var cv := UI.vbox(1)
+			cv.add_child(make_tile.call(k, ttw, tth))
+			var ws: Array = why[k]
+			var pinned_any: bool = ws.any(func(e): return e[1])
+			var first: Array = ws.filter(func(e): return e[1])[0] if pinned_any else ws[0]
+			var cl := UI.lbl(("%s 재료" % first[0]) + (" +%d" % (ws.size() - 1) if ws.size() > 1 else ""), UI.FS_TINY, DB.PAL.gold.lightened(0.15) if pinned_any else DB.PAL.bamboo)
+			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cl.custom_minimum_size.x = ttw
+			cl.clip_text = true
+			cv.add_child(cl)
+			tg.add_child(cv)
+		sec.add_child(tg)
+		b.add_child(UI.panel(sec, 8))
+	var avail_h: float = vp.y * 0.98 - 120.0 - (0.0 if top_ks.is_empty() else 150.0)      # 시트 머리 · 아래 여백 (· 위 재료 묶음)
 	if t <= 2:
 		# 기본 —— 두 줄에 넷씩: 위 물리(창 · 기 · 궁 · 도), 아래 책략(책 · 유 · 술 · 모). 병종 글자는 빼서 자리를 넓힌다
 		var tw := floorf((full - gap * 3) / 4)
@@ -4560,11 +4615,28 @@ func _goal_strip(rec: Array, caption: Callable, col: Color) -> Control:
 		gt.badge_col = Color(col, 0.9)
 		gv.add_child(gt)      # 11/5 사용자: 아래에 모자란 장수 이름은 쓰지 않는다
 		var cap: String = caption.call(out)
+		if cap == "":
+			cap = " "      # 11/25 아래 ★ 칸이 옆 타일과 같은 높이에 오게 빈 줄을 둔다
 		if cap != "":
 			var cl := UI.lbl(cap, UI.FS_CAP, col)
 			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			cl.custom_minimum_size = Vector2(GOAL_TILE.x, 0)
 			gv.add_child(cl)
+		# 11/25 UX: 추천에서 한 번에 갈무리 —— 타일은 조합법 시트, 아래 ★ 칸은 바로 갈무리 / 해제 (갈무리하면 위 목표 보드에 재료 나무로 올라간다)
+		var pn := forge_tree.pinned(out)
+		if pn:
+			gt.set_pin(true, true)
+		if pn or not forge_tree.is_dead(out):
+			var pb := UI.btn("★ 해제" if pn else "★ 갈무리", func():
+				forge_tree.toggle(out)
+				render(), "ghost", UI.BH_XS)
+			pb.add_theme_font_size_override("font_size", UI.FS_CAP)
+			pb.add_theme_color_override("font_color", DB.PAL.text_dim if pn else DB.PAL.gold.lightened(0.15))
+			var pb_n := UI.flat(Color(0, 0, 0, 0), Color(DB.PAL.gold, 0.22 if pn else 0.5), 1, UI.R, 4)
+			pb_n.content_margin_top = 3
+			pb_n.content_margin_bottom = 3
+			UI.btn_styles(pb, pb_n, UI.flat(DB.PAL.ink3, Color(DB.PAL.gold, 0.6), 1, UI.R, 4), UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, UI.R, 4))
+			gv.add_child(pb)
 		gs_[1].add_child(gv)
 	return gs_[0]
 
@@ -4585,7 +4657,7 @@ func _goal_block() -> Control:
 		return null
 	var fold: bool = _open.get("draw:rec_fold", false)
 	var gsec := UI.vbox(UI.SP_S)
-	var tb := UI.btn("추천 열기 ▾" if fold else "추천 닫기 ▴", func(): _toggle("draw:rec_fold"), "ghost", UI.BH_XS)
+	var tb := UI.btn("추천 목표 열기 ▾" if fold else "추천 목표 닫기 ▴", func(): _toggle("draw:rec_fold"), "ghost", UI.BH_XS)
 	tb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	# 11/20 UI 다듬기: 높이 28 로 만들었지만 글자 16 + 여백 10 이라 실제로는 42 —— 다른 접기 버튼(군단 효과 「펼치기 ▾」 · 「완성된 장수 접기 ▴」)과 같은 작은 글씨 · 대나무색 · 낮은 여백으로
 	tb.add_theme_font_size_override("font_size", UI.FS_CAP)
@@ -4655,37 +4727,33 @@ const FORGE_FIRST := 36      # 조합 탭 '나머지' 에 처음 만드는 타�
 
 
 func _page_forge() -> Control:
+	# 11/25 UX: 조합 탭 = 목표 보드. 위에서부터 ① 갈무리 목표(재료 나무 · 진행 · 모두 조합) ② 추천 목표(누르면 조합법 · ★ 로 바로 갈무리)
+	# ③ 지금 조합 가능 ④ 「전체 조합법」 버튼(거르기 · 195개 목록은 시트 안으로 —— 예전에는 이 목록이 탭의 58% 를 차지했다).
+	# 실제 기록: 조합의 71% 가 갈무리 → 모두 조합에서 나온다 (1.2 버전 온라인 31자리)
 	var v := UI.vbox(UI.SP_L)
-	v.add_child(forge_tree.build())
-	# 거르기 —— 병종 · 등급을 기호 · 색 칸 한 줄씩 (11/2 사용자: 글씨를 줄여 공간 확보)
-	var row1 := HBoxContainer.new()
-	row1.add_theme_constant_override("separation", 4)
-	var can_now := {}      # 11/10 지금 되는 조합 —— 칸마다 191번씩 다시 묻지 않고 한 번만 (조합 탭 열 때 걸리는 시간)
+	var top := UI.vbox(UI.SP_S)
+	var hd := UI.hbox(UI.SP_S)
+	var hl := UI.lbl("갈무리 %d/%d" % [forge_tree.pins.size(), ForgeTree.MAX_PINS], UI.FS_LABEL, DB.PAL.gold, true)
+	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(hl)
+	var ab := UI.btn("전체 조합법 %d  ›" % DB.D.RECDEF.size(), func(): recipes_sheet(), "ghost", UI.BH_S)
+	ab.add_theme_font_size_override("font_size", UI.FS_BODY)
+	hd.add_child(ab)
+	top.add_child(hd)
+	if forge_tree.pins.is_empty():
+		top.add_child(UI.hint("노릴 장수를 ★ 갈무리하면 재료 진행과 「모두 조합」이 여기에 모인다."))
+	else:
+		top.add_child(forge_tree.build())
+	v.add_child(top)
+	var gb := _goal_block()
+	if gb != null:
+		v.add_child(gb)
+	var can_now := {}      # 11/10 지금 되는 조합 —— 한 번만 묻는다
 	for r in DB.D.RECDEF:
 		if run.can_forge(r[0]):
 			can_now[r[0]] = true
-	for t in [""] + DB.D.TAGORDER:
-		var n: int = DB.D.RECDEF.filter(func(r): return can_now.has(r[0]) and (t == "" or DB.C[r[0]].tag == t)).size()
-		row1.add_child(_filter_chip("all" if t == "" else "", DB.ICON.get(t) if t != "" else null, str(n) if n > 0 else "", DB.PAL.paper, forge_tag == t, func():
-			forge_tag = t
-			_open.erase("forge:more")
-			render()))
-	v.add_child(row1)
-	var row2 := HBoxContainer.new()
-	row2.add_theme_constant_override("separation", 4)
-	for t in [0, 3, 4, 5, KIIN_T, 6, 7, 8]:        # 11/3 일반 없음 · 기인(9)은 전설 옆
-		var tn: String = "all" if t == 0 else ("기인" if t == KIIN_T else DB.TIER[t].n)      # 11/14 UI 4단계: 한 글자(고 · 희 …)는 처음 보는 사람이 못 읽는다 —— 등급 이름 그대로
-		row2.add_child(_filter_chip(tn, null, "", DB.PAL.paper if t == 0 else (DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c), forge_tier == t, func():
-			forge_tier = t
-			_open.erase("forge:more")
-			render()))
-	v.add_child(row2)
-	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
-	# 11/3 추천 목표 —— 조합식이 170개가 넘어 무엇을 노릴지 고르기 어렵다: 재료가 1~2장 모자란 것 가운데 높은 등급 · 가진 재료가 많은 것 4개 (인물 하나씩)
-	# 11/6 사용자 #8 "추천 목표가 안 나오는 경우가 많다": 필터를 거친 목록만 넘겨 비었다 → 전체로 계산하고 필터에 걸린 것은 수만 알린다
-	# 11/13 사용자: 추천 조합은 징집 탭으로 옮겼다 (_goal_block)
-	# 지금 되는 것 —— 가로 띠, 버튼 한 번에 조합
-	var ready: Array = lst.filter(func(r): return can_now.has(r[0]))
+	var ready: Array = DB.D.RECDEF.filter(func(r): return can_now.has(r[0]))
 	ready.sort_custom(func(x, y): return DB.C[x[0]].tier > DB.C[y[0]].tier)
 	if not ready.is_empty():
 		var sec := UI.vbox(UI.SP_S)
@@ -4701,35 +4769,61 @@ func _page_forge() -> Control:
 			rs[1].add_child(recipe_card(r[0]))
 		sec.add_child(rs[0])
 		v.add_child(sec)
-	# 나머지 —— 가까운 순 (모자란 장수 적은 것 먼저, 같으면 높은 등급)
-	lst = lst.filter(func(r): return not can_now.has(r[0]))
-	var miss_of := {}      # 11/10 모자란 수를 비교할 때마다 다시 세지 않고 한 번만 (정렬이 약 10ms 걸렸다)
+	return v
+
+
+## 전체 조합법 시트 (11/25 UX) —— 병종 · 등급 거르기 + 가까운 순 목록. 조합 탭에 늘 펼쳐 있던 것을 버튼 뒤로
+func recipes_sheet() -> void:
+	var keep := _sheet_scroll.scroll_vertical if _sheet.visible and _open.get("recipes:on", false) else 0
+	var b := open_sheet("전체 조합법")
+	_sheet_full = true
+	_open["recipes:on"] = true
+	var can_now := {}
+	for r in DB.D.RECDEF:
+		if run.can_forge(r[0]):
+			can_now[r[0]] = true
+	var row1 := HBoxContainer.new()
+	row1.add_theme_constant_override("separation", 4)
+	for t in [""] + DB.D.TAGORDER:
+		var n: int = DB.D.RECDEF.filter(func(r): return can_now.has(r[0]) and (t == "" or DB.C[r[0]].tag == t)).size()
+		row1.add_child(_filter_chip("all" if t == "" else "", DB.ICON.get(t) if t != "" else null, str(n) if n > 0 else "", DB.PAL.paper, forge_tag == t, func():
+			forge_tag = t
+			_open.erase("forge:more")
+			recipes_sheet()))
+	b.add_child(row1)
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 4)
+	for t in [0, 3, 4, 5, KIIN_T, 6, 7, 8]:        # 11/3 일반 없음 · 기인(9)은 전설 옆
+		var tn: String = "all" if t == 0 else ("기인" if t == KIIN_T else DB.TIER[t].n)
+		row2.add_child(_filter_chip(tn, null, "", DB.PAL.paper if t == 0 else (DB.KIIN_COL if t == KIIN_T else DB.TIER[t].c), forge_tier == t, func():
+			forge_tier = t
+			_open.erase("forge:more")
+			recipes_sheet()))
+	b.add_child(row2)
+	var lst: Array = DB.D.RECDEF.filter(func(r): return (forge_tag == "" or DB.C[r[0]].tag == forge_tag) and _tier_match(r[0], forge_tier))
+	var miss_of := {}
 	for r in lst:
-		miss_of[r[0]] = run.miss_count(r[0])
-	lst.sort_custom(func(x, y):
+		miss_of[r[0]] = 0 if can_now.has(r[0]) else maxi(1, run.miss_count(r[0]))
+	lst.sort_custom(func(x, y):      # 되는 것 먼저 → 모자란 장수 적은 순 → 높은 등급
 		var a: int = miss_of[x[0]]
 		var b2: int = miss_of[y[0]]
 		if a != b2:
 			return a < b2
 		return DB.C[x[0]].tier > DB.C[y[0]].tier)
-	# 11/7 사용자: 조합 페이즈의 나머지는 모두 펼쳐 둔다 —— 11/3 의 '가까운 16개 + 더 보기' 를 걷었다.
-	# 11/10 사용자: 처음 조합 탭을 열면 프레임이 떨어진다 → 타일 200개를 한 번에 만들고 그리는 일(글꼴 · 그림 처음 쓰기)이 크다. 가까운 순 처음 36장만 만들고
-	# 나머지는 「더 보기」 로 (거르기를 바꾸거나 다른 탭에 다녀오면 다시 접힌다. 먼저 볼 줄 —— 갈무리 · 추천 · 지금 조합 가능 —— 은 그대로 다 보인다)
 	var more_open: bool = _open.get("forge:more", false)
-	var shown_n: int = lst.size() if (more_open or lst.size() < FORGE_FIRST + 12) else FORGE_FIRST      # 몇 장 안 남으면 단추 없이 다 보인다
+	var shown_n: int = lst.size() if (more_open or lst.size() < FORGE_FIRST + 12) else FORGE_FIRST
 	var g := minis()
 	for r in lst.slice(0, shown_n):
 		g.add_child(_forge_tile(r[0]))
-	var sec2 := UI.vbox(UI.SP_S)
-	sec2.add_child(UI.head("재료 부족 %d" % lst.size(), "−N: 부족한 장수 · ◆: 아이템"))
-	sec2.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
+	b.add_child(UI.head("조합법 %d" % lst.size(), "−N: 부족한 장수 · ◆: 아이템"))
+	b.add_child(g if not lst.is_empty() else UI.hint("이 조건의 조합법이 없다."))
 	if shown_n < lst.size():
 		var rest: Array = lst.slice(shown_n)
 		var mb := UI.btn("더 보기  (+%d)" % rest.size(), func(): pass, "ghost", UI.BH_S)
 		mb.pressed.connect(func(): _forge_more(g, mb, rest))
-		sec2.add_child(mb)
-	v.add_child(sec2)
-	return v
+		b.add_child(mb)
+	if keep > 0:
+		_restore_sheet_scroll.call_deferred(keep)
 
 
 ## 조합 탭 '나머지' 타일 한 장 —— 지금 조합 가능이면 옥색 '조합', 아니면 모자란 수 (-1 붉음 · -2 이상 먹색) · 재료 다 있고 아이템만 없으면 ◆
@@ -4755,8 +4849,8 @@ func _forge_more(g: Control, btn: Button, rest: Array) -> void:
 	btn.queue_free()
 	var i := 0
 	while i < rest.size():
-		if not is_instance_valid(g) or not g.is_inside_tree() or page != "forge":
-			return      # 그 사이 페이지가 다시 그려졌다 —— 새 페이지가 이미 다 펼쳐져 있다
+		if not is_instance_valid(g) or not g.is_inside_tree():
+			return      # 그 사이 시트가 다시 그려졌다 —— 새 목록이 이미 다 펼쳐져 있다
 		for j in range(i, mini(i + FORGE_STEP, rest.size())):
 			g.add_child(_forge_tile(rest[j][0]))
 		i += FORGE_STEP
@@ -5893,6 +5987,9 @@ func _dev_args() -> void:
 		if not a.has("gbattle") and not a.has("gsheet"):      # --gsheet=onwar:noon 과 함께면 온라인 재생이 그 전투를 보인다
 			a["gbattle"] = "quest"
 			a["speed"] = a.get("speed", "8")
+	if a.has("gdraw") and run != null and not run.drawn:      # 점검용 —— 이번 준비 단계의 징집을 이미 받은 상태로 (11/25 자동 징집 시안)
+		run.do_draw()
+		render()
 	if a.has("gopen"):
 		for key in str(a.gopen).split(","):
 			_open[key] = true
@@ -5942,6 +6039,7 @@ func _dev_args() -> void:
 		for k in str(a.gpin).split(","):
 			if DB.RECOF.has(k) and not forge_tree.pins.has(k):
 				forge_tree.pins.push_front(k)
+		render()
 	if a.has("gsheet"):
 		# 쉼표로 여러 시트를 차례로 열 수 있다 (카드 시트 길 점검: --gsheet=card:c39,recipe:c11)
 		var parts: PackedStringArray = str(a.gsheet).split(",")

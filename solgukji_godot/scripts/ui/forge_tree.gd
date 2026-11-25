@@ -159,10 +159,7 @@ func build() -> Control:
 		return v
 	# 11/15 사용자: 완성 순서를 정하는 창 + 그 차례대로 한 번에 —— 갈무리 묶음 머리줄 [갈무리 N] … [완성 순서] [순서대로 모두 조합]
 	var hd := UI.hbox(UI.SP_S)
-	var hl := UI.lbl("갈무리 %d" % pins.size(), UI.FS_LABEL, DB.PAL.gold, true)
-	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hd.add_child(hl)
+	hd.alignment = BoxContainer.ALIGNMENT_END      # 11/25 UX: 「갈무리 N」 머리글은 조합 탭 맨 윗줄(GameScreen._page_forge)이 쓴다
 	var ob := UI.btn("완성 순서", func(): order_sheet(), "ghost", UI.BH_S)
 	ob.add_theme_font_size_override("font_size", UI.FS_BODY)
 	ob.custom_minimum_size.x = 84
@@ -179,7 +176,57 @@ func build() -> Control:
 		hd.add_child(ab)
 	v.add_child(hd)
 	for k in pins:
-		v.add_child(UI.panel(_card(k), 10))
+		v.add_child(UI.panel(_goal(k), 10))
+	return v
+
+
+## 11/25 UX: 갈무리 목표 한 줄 —— 초상 · 이름 · 재료 진행 막대 · 모자란 재료 · [모두 조합] · [나무 ▾].
+## 재료 나무(_card)는 펼쳤을 때만 그 아래에 (예전에는 목표마다 나무가 늘 펼쳐져 둘이면 화면이 찼다). 펼친 상태는 이 탭에 있는 동안 (goal_open)
+var goal_open := {}
+
+func _goal(root: String) -> Control:
+	var v := UI.vbox(UI.SP_S)
+	var c: Dictionary = DB.C[root]
+	var row := UI.hbox(UI.SP_M)
+	var t := gs.mtile(root, gs.run.pool().get(root, -1), func(id): gs.recipe_sheet(id))
+	t.custom_minimum_size = Vector2(NW, NH)
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(t)
+	var mid := UI.vbox(3)
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var nl := UI.lbl(str(c.name), UI.FS_LABEL, (DB.KIIN_COL if DB.is_kiin(root) else DB.TIER[int(c.tier)].c).lightened(0.25), true)
+	nl.clip_text = true
+	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	mid.add_child(nl)
+	var pg: Vector2i = gs._forge_progress(root)
+	mid.add_child(UI.lbl("재료 %d/%d" % [pg.x, pg.y], UI.FS_CAP, DB.PAL.bamboo, true))
+	mid.add_child(SheetStyle.meter(pg.x, pg.y))
+	var miss: Array = gs._missing(root)
+	var ml := UI.lbl("부족 · " + " · ".join(miss) if not miss.is_empty() else "재료를 다 모았다", UI.FS_CAP, DB.PAL.text_dim if not miss.is_empty() else DB.PAL.jade)
+	ml.clip_text = true
+	ml.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	mid.add_child(ml)
+	row.add_child(mid)
+	var bx := UI.vbox(UI.SP_XS)
+	bx.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var can: bool = gs.run.can_forge(root) or _chain_can(_node(root, 1, 0, root, "", true))
+	var all := UI.btn("모두 조합", func(): forge_chain(root), "pri" if can else "", UI.BH_S)
+	all.add_theme_font_size_override("font_size", UI.FS_BODY)
+	all.custom_minimum_size.x = 96
+	all.disabled = not can or not gs.can_act()
+	bx.add_child(all)
+	var op: bool = goal_open.get(root, false)
+	var fb := UI.btn("나무 접기 ▴" if op else "재료 나무 ▾", func():
+		goal_open[root] = not goal_open.get(root, false)
+		gs.render(), "ghost", UI.BH_XS)
+	fb.add_theme_font_size_override("font_size", UI.FS_CAP)
+	fb.add_theme_color_override("font_color", DB.PAL.bamboo)
+	bx.add_child(fb)
+	row.add_child(bx)
+	v.add_child(row)
+	if op:
+		v.add_child(_card(root, true))
 	return v
 
 
@@ -368,7 +415,7 @@ static func _needs_walk(run: Run, k: String, want: int, depth: int, acc: Diction
 		_needs_walk(run, q, need - run.have(q), depth + 1, acc)
 
 
-func _card(root: String) -> Control:
+func _card(root: String, slim := false) -> Control:      # slim: 목표 한 줄(_goal) 아래에 펼친 나무 —— 「모두 조합」은 윗줄에 있다
 	var v := UI.vbox(UI.SP_S)
 	var tree := _node(root, 1, 0)
 	var view := TreeView.new()
@@ -392,7 +439,11 @@ func _card(root: String) -> Control:
 	var all := UI.btn("모두 조합", func(): forge_chain(root), "pri" if can else "", UI.BH_S)
 	all.disabled = not can or not gs.can_act()
 	all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(all)
+	if slim:
+		all.free()
+		row.alignment = BoxContainer.ALIGNMENT_END
+	else:
+		row.add_child(all)
 	var ao := all_open(root)
 	var ob := UI.btn("모두 접기" if ao else "모두 펴기", func(): open_all(root), "", UI.BH_S)
 	ob.custom_minimum_size.x = 92
