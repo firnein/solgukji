@@ -17,6 +17,9 @@ func _ready() -> void:
 	var part := int(a.get("part", "1"))
 	var parts := int(a.get("parts", "1"))
 	var mn := float(a.get("min", "5.0"))
+	RtBattle.counter_keep_join = str(a.get("keep_join", "1")) != "0"      # 11/26 인연 연쇄 전/후 비교용
+	RtBattle.counter_recruit = str(a.get("recruit", "1")) != "0"
+	RtBattle.counter_recruit_cap = int(a.get("cap", "0"))
 	for k in DB.C:
 		if DB.is_foe(k):
 			continue
@@ -66,7 +69,7 @@ func _ready() -> void:
 				var ctr := int(bt.stats.get("ult_counters", 0))
 				bt.units.clear()
 				f.store_line(JSON.stringify({"bi": bi, "av": snappedf(av, 0.01), "flip": flip, "on": on, "first": first, "fw": fw, "aw": aw, "cuts": cuts, "ults": ults, "tm": tm, "ctr": ctr,
-					"cu": int(bt.stats.get("counter_units", 0)), "nocut": int(bt.stats.get("counter_nocut", 0)), "last": int(bt.stats.get("counter_last", 0))}))
+					"yj": int(bt.stats.get("inyeon_joint", 0)), "yu": int(bt.stats.get("inyeon_units", 0)), "cu": int(bt.stats.get("counter_units", 0)), "nocut": int(bt.stats.get("counter_nocut", 0)), "last": int(bt.stats.get("counter_last", 0))}))
 				var s: Array = sum[on]
 				s[0] += 1
 				s[1] += maxf(fw, 0.0) if fw >= 0.0 else 0.5

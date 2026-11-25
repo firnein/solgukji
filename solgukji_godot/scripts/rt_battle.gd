@@ -479,6 +479,11 @@ var _ult_side_t := {"A": -99.0, "B": -99.0}
 static var counter_on := true
 static var counter_gauge := 100.0     # 이만큼 찬 장수가 받아친다 (기다리던 장수)
 static var counter_max := 1           # 기다리던 장수 가운데 받아치는 최대 수 (이미 기를 모으던 장수는 수에 넣지 않고 전원). 실제 대전 덱 442판(tests/counter_check): 2명이면 첫 고유기 진영 승률 50.9 → 47.1% · 판당 고유기 7.0 → 9.5, 1명이면 49.3% · 8.4 —— 1 대 1 로 맞선다
+## 11/26 사용자: "받아치기로 인해 인연 연쇄가 눈에 띄게 줄었다" —— ① 제 편 대표에게 합류하기로 예약된(_join_q) 장수를 받아치기가 빼 갔고 ② 받아친 장수는 혼자 쏴서
+## 그 장수가 대표였다면 모였을 짝이 남았다. counter_keep_join: 예약된 장수는 받아치기에서 뺀다 · counter_recruit: 받아친 장수도 인연 짝을 모은다
+static var counter_keep_join := true
+static var counter_recruit := true
+static var counter_recruit_cap := 0      # 받아치기 연쇄에 모이는 짝 수 상한 (0 = 평소 인연 상한)
 var _clash := {}               # 묶음에 든(아직 쏘지 않은) 장수 -> 묶음 {x, members}
 var _clash_by: Unit = null     # 지금 터지는 묶음 고유기의 주인
 var _clash_grp = null          # 그 묶음
@@ -607,6 +612,8 @@ func _counter(x: Unit, wi: int) -> void:
 		if _wind.has(o):
 			winding.append(o)
 		elif ults_enabled and o.gauge >= counter_gauge:
+			if counter_keep_join and _join_q.any(func(j): return j.u == o):
+				continue      # 11/26 제 편 연쇄에 합류하기로 예약된 장수 —— 받아치기로 빼 가지 않는다
 			ready.append(o)
 	ready.sort_custom(func(p, q):      # 먼저 찬 순 · 같으면 유닛 순서 (결정적)
 		var rp: float = p.ult_ready_t if p.ult_ready_t >= 0.0 else 1e9
@@ -652,6 +659,8 @@ func _counter(x: Unit, wi: int) -> void:
 		L("sk", "%s 『%s』 받아치며 기를 모은다" % [ga(nm(o)), o.ult.name],
 			{"fx": "ult_warn", "a": o.key, "name": o.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": false, "counter": true, "clash": true})
 		_zh_cut(o)      # 묶음 밖의 매복 주환은 예전처럼 끊는다
+		if inyeon_enabled and counter_recruit and _wind.has(o):      # 11/26 받아친 장수도 대표처럼 인연 짝을 모은다 (받아치기 연쇄)
+			_inyeon_recruit(o, wait, counter_recruit_cap)
 
 
 ## 묶음 고유기가 터지는 동안 —— 그 묶음의 상대 장수(아직 제 고유기를 쏘지 않은)는 무너지지 않고 미뤄 둔다
@@ -780,7 +789,7 @@ func _join_ok(o: Unit) -> bool:
 		and not has_st(o, "seal") and not has_st(o, "confuse") and not _wind.has(o) and not _wind_grp.has(o)
 
 
-func _inyeon_recruit(u: Unit, wait: float) -> void:
+func _inyeon_recruit(u: Unit, wait: float, cap := 0) -> void:      # cap: 모을 짝 수 상한 (0 = 평소 상한 그대로 —— 받아치기 연쇄가 쓴다)
 	if bool(u.ult.get("mini", false)):
 		return
 	if tac != null and tac.yeon_cut(u.camp):      # 11/15 군략 이간 —— 이 단계 인연 합동을 모으지 못한다
@@ -815,7 +824,7 @@ func _inyeon_recruit(u: Unit, wait: float) -> void:
 	var mx := INYEON_MAX
 	if inyeon_theme and (is_up_u(u) or cands.any(func(o): return is_up_u(o))):      # 초월이 끼면 참여 상한 +1
 		mx = INYEON_MAX_UP
-	var picks: Array = cands.slice(0, mx - 1)
+	var picks: Array = cands.slice(0, mx - 1 if cap <= 0 else mini(mx - 1, cap))
 	# 인연 이름 —— 대표의 인연 가운데 뽑힌 장수가 가장 많이 든 것 (같으면 파일 순서)
 	var best := ""
 	var bn := -1
