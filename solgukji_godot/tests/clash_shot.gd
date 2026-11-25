@@ -63,7 +63,24 @@ func _ready() -> void:
 	if ce == null:
 		get_tree().quit()
 		return
-	view._ult_clash(ce)
+	if _args.has("fake"):      # 11/26 --fake=N : 양쪽 N명 연쇄 받아치기를 꾸며 컷인만 본다 (배치 확인용 —— 실제 사건이 아니다)
+		var pick := func(names: Array) -> Array:
+			var out := []
+			for nm in names:
+				var best := ""
+				for k in DB.C:
+					if DB.is_foe(k) or DB.person(k) != nm or not DB.has_ult(k):
+						continue
+					if best == "" or int(DB.C[k].tier) > int(DB.C[best].tier):
+						best = k
+				if best != "":
+					out.append({"k": best, "who": str(DB.C[best].name), "name": str(DB.ult_of(best).name), "tier": int(DB.C[best].tier), "first": out.is_empty(),
+						"say": BattleView.Hud.short_shout(nm, str(DB.ult_of(best).get("shout", "")))})
+			return out
+		var n := int(_args.get("fake", "4"))
+		view.hud.clash_cutin(pick.call(["유비", "관우", "장비", "조운", "황충"].slice(0, n)), pick.call(["조조", "하후돈", "하후연", "조인", "장료"].slice(0, n)), false, {"A": "오호대장", "B": "조씨 일족"})
+	else:
+		view._ult_clash(ce)
 	var at := float(_args.get("at", "0.75"))
 	var out := str(_args.get("out", "user://"))
 	var t_end := Time.get_ticks_msec() + 20000

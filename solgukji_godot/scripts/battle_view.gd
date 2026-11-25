@@ -5764,19 +5764,20 @@ class Hud extends Control:
 			var main: Dictionary = arr[0]
 			var sh := ph * 0.6
 			var sw := sh * 0.78
-			var extra: Array = arr.slice(1, 3)
+			var extra: Array = arr.slice(1, 4)      # 11/26 4명 연쇄까지 —— 곁 초상 셋 (셋이면 더 촘촘히 겹친다)
+			var stp := 0.82 if extra.size() <= 2 else 0.66
 			for jj in extra.size():
 				var j := extra.size() - 1 - jj
 				# 11/26 사용자: "좀 겹쳐서 놔도 돼 —— 초상화를 너무 띄웠네" → 주 초상 뒤로 30% 쯤 겹쳐 선다 (곁 초상끼리도 조금씩 겹친다 · 주 초상이 맨 앞)
-				var sx := pr.end.x - sw * 0.3 + j * sw * 0.82 if left else pr.position.x + sw * 0.3 - sw - j * sw * 0.82
+				var sx := pr.end.x - sw * 0.3 + j * sw * stp if left else pr.position.x + sw * 0.3 - sw - j * sw * stp
 				var srr := Rect2(sx, pr.end.y - sh if left else pr.position.y, sw, sh)
 				draw_rect(srr.grow(4), Color(col, 0.5 * fade))
 				draw_rect(srr.grow(1), Color(0, 0, 0, 0.9 * fade))
 				Art.draw_portrait(self, srr, str(extra[j].k), t, "ult")
 				draw_rect(srr, Color(DB.tier_color(str(extra[j].k)), fade), false, 2.0)
-			if arr.size() > 3:
-				var ex := pr.end.x + 8.0 + 2 * (sw + 6.0) if left else pr.position.x - 8.0 - 2 * (sw + 6.0) - 44.0
-				_text(DB.font_bold, Vector2(ex, (pr.end.y - 6.0) if left else (pr.position.y + 18.0)), "+%d" % (arr.size() - 3),
+			if arr.size() > 4:
+				var ex := pr.end.x - sw * 0.3 + 3 * sw * stp + 6.0 if left else pr.position.x + sw * 0.3 - 3 * sw * stp - 50.0
+				_text(DB.font_bold, Vector2(ex, (pr.end.y - 6.0) if left else (pr.position.y + 18.0)), "+%d" % (arr.size() - 4),
 					HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT, 44.0, 16, Color(1, 1, 1, fade))
 			draw_rect(pr.grow(8), Color(col, 0.45 * fade))
 			draw_rect(pr.grow(3), Color(0, 0, 0, 0.9 * fade))
