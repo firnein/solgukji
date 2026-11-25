@@ -63,6 +63,7 @@ var _sheet_mask: ColorRect
 var _sheet: PanelContainer
 var _sheet_body: VBoxContainer
 var _sheet_title: Label
+var _sheet_temper: Label
 var _sheet_scroll: ScrollContainer
 var _card_tab_bar: MarginContainer
 var _sheet_wash: Control           # 11/21 장수창 머리 바탕 (SheetStyle.head_wash) —— sheet_head 가 켠다, open_sheet 가 끈다
@@ -536,6 +537,11 @@ func _build_sheet() -> void:
 	UI.wrap_text(_sheet_title)
 	_sheet_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(_sheet_title)
+	_sheet_temper = UI.lbl("", UI.FS_CAP, DB.PAL.bamboo)
+	_sheet_temper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sheet_temper.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_sheet_temper.hide()
+	top.add_child(_sheet_temper)
 	var x := UI.icon_btn("✕", close_sheet)      # 11/20 올리면 높이가 44 → 48 로 커져 시트 내용이 4 씩 내려앉았다 —— 기호 버튼 공용(여백 0)으로
 	x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(x)
@@ -1624,6 +1630,9 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	if not was:
 		Sfx.play("open")
 	_sheet_title.text = title
+	_sheet_title.custom_minimum_size.x = 0
+	_sheet_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sheet_temper.hide()
 	_sheet_full = false
 	# 전투 위에서도 시트가 보이게 맨 앞으로 —— 11/7 제목 화면도 (시트보다 나중에 붙어 위를 덮어, 제목의 '설정'이 열려도 안 보였다)
 	if (_battle_layer != null and _battle_layer.visible) or (is_instance_valid(_title) and _title.visible):
@@ -2120,17 +2129,59 @@ func recipe_sheet(out: String) -> void:
 		return
 	_route_enter("recipe", out)
 	var c: Dictionary = DB.C[out]
-	var b := open_sheet(c.name, DB.tier_color(out).lightened(0.2))
+	var ult = DB.ult_of(out) if DB.has_ult(out) else null
+	var temper := Battle.temper_name(c, ult) if ult != null else ""
+	var b := open_sheet(str(c.name), DB.tier_color(out).lightened(0.2))
+	if temper != "":
+		_sheet_title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		_sheet_title.custom_minimum_size.x = minf(220.0, _sheet_title.get_theme_font("font").get_string_size(str(c.name), HORIZONTAL_ALIGNMENT_LEFT, -1, _sheet_title.get_theme_font_size("font_size")).x + 2.0)
+		_sheet_temper.text = temper
+		_sheet_temper.show()
 	sheet_head(out)      # 11/21 이름 아래 등급 리본 · 세력 · 병종 + 등급 색 머리 바탕 (SheetStyle —— 상세창 · 전투 장수창과 같은 머리)
-	# 11/15 사용자: "갈무리 버튼이 맨 아래가 아니라 더 가까이" —— 행동 줄을 시트 맨 위(이름 바로 아래)로. 높이 50 (누르는 범위 48 이상)
-	# 11/21 죽은 칸처럼 보이던 비활성 「재료 부족 N장」 버튼 대신 진행 칸(모음/전체 · 막대), 조합할 수 없으면 ★ 갈무리가 주 행동 (_forge_actions)
-	b.add_child(_forge_actions(out, func():
-		if _hist.is_empty():
-			close_sheet()
-		else:
-			go_back(), func(): close_sheet(), true))
-	# 이름은 시트 제목에, 일반 기술은 아래의 공통 요약 패널에 표시한다.
-	# 11/9 사용자: 시트를 더 크게 —— 큰 초상 + 능력치 · 특기판, 그 아래 고유 특기 · 위세 · 패업 · 고유기 · 인연을 이름만 (설명은 디테일창에서)
+	var pg := _forge_progress(out)
+	var mv := UI.vbox(UI.SP_S)
+	var actions := UI.hbox(UI.SP_S)
+	var progress := UI.vbox(2)
+	progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	progress.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	progress.add_child(UI.lbl("조합 재료 %d/%d" % [pg.x, pg.y], UI.FS_CAP, DB.PAL.bamboo, true))
+	progress.add_child(SheetStyle.meter(pg.x, pg.y))
+	progress.add_child(UI.lbl("%d장 부족" % (pg.y - pg.x) if pg.x < pg.y else "재료 갖춤", UI.FS_CAP, DB.PAL.text_dim))
+	actions.add_child(progress)
+	var pin := _pin_btn(out, func():
+		var scroll_y := _sheet_scroll.scroll_vertical
+		_back_nav = true
+		recipe_sheet(out)
+		_restore_sheet_scroll.call_deferred(scroll_y))
+	SheetStyle.quiet_btn(pin) if forge_tree.pinned(out) else SheetStyle.sub_btn(pin)
+	actions.add_child(pin)
+	var detail := UI.btn("상세  ›", func(): card_info(out), "", UI.BH_M)
+	SheetStyle.sub_btn(detail)
+	detail.custom_minimum_size.x = 104
+	actions.add_child(detail)
+	mv.add_child(actions)
+	var materials := UI.flow(4)
+	var m := Run.mat_count(DB.RECOF[out])
+	for q in m:
+		var got := mini(run.have(q), int(m[q]))
+		materials.add_child(SheetStyle.chip("%s %d/%d" % [DB.person(q), got, m[q]], DB.PAL.jade if got >= int(m[q]) else DB.PAL.bamboo, "soft"))
+	var ni = Run.need_item(out)
+	if ni != null:
+		var got_item := mini(int(run.bag.get(ni, 0)), 1)
+		materials.add_child(SheetStyle.chip("%s %d/1" % [DB.IT[ni].name, got_item], DB.PAL.jade if got_item > 0 else DB.PAL.bamboo, "soft"))
+	mv.add_child(materials)
+	b.add_child(mv)
+	if run.can_forge(out):
+		var forge := UI.btn("조합하기", func():
+			if act("forge", [out]):
+				toast("%s 조합 완료" % c.name, "gain")
+				if _hist.is_empty():
+					close_sheet()
+				else:
+					go_back(), "", UI.BH_M)
+		SheetStyle.main_btn(forge)
+		forge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_child(forge)
 	var tp := UI.hbox(UI.SP_M)
 	var cv := CardView.new().setup(out, Vector2(96, 136))
 	cv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -2139,49 +2190,15 @@ func recipe_sheet(out: String) -> void:
 		UI.buzz()
 		card_info(out))
 	tp.add_child(cv)      # 11/20 역할은 큰 카드 초상 위에 (CardView.show_role)
-	var rv := UI.vbox(UI.SP_S)
+	var rv := UI.vbox(2)
 	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rv.add_child(SheetStyle.stat_block(c.atk, c["def"], c.spd, DB.INT_TAGS.has(c.tag)))      # 11/21 능력치 세 칸 —— 한 장의 먹 판 안 (SheetStyle)
-	rv.add_child(TraitBoard.new().setup(out))
-	var ult = DB.ult_of(out) if DB.has_ult(out) else null
-	var open_detail := func(): card_info(out)      # 줄을 누르면 디테일창
-	if ult != null:      # 11/9 사용자: 초상 옆 빈 공간 정리 —— 기질은 오른쪽(능력치 · 특기판 아래)
-		# 11/20 사용자: 갈무리창의 기질은 이름("지략")만 있어 무슨 뜻인지 알 수 없었다 —— 디테일창과 같은 설명 두 줄(차는 때 · 쓰는 때)을 붙인다
-		var tb1 := _temper_box(c, ult, 11, true)
-		if tb1 != null:
-			rv.add_child(tb1)
+	rv.add_child(SheetStyle.stat_block(c.atk, c["def"], c.spd, DB.INT_TAGS.has(c.tag)))
+	var traits := TraitBoard.new()
+	traits.fixed = true
+	rv.add_child(traits.setup(out))
+	rv.add_child(_compact_ability_summary(out))
 	tp.add_child(rv)
 	b.add_child(tp)      # 11/20 시트와 같은 색 상자(여백 10)에 싸여 초상만 10 들여 쓴 것처럼 보였다 —— 상자를 걷어 디테일창과 같은 왼끝
-	# 11/21 능력 표 —— 한 장의 판에 기호 배지 · 라벨 · 이름, 비어 있던 오른쪽에 그 능력의 머리 수치. 행을 누르면 디테일창
-	#   (「자세한 설명은 상세(디테일창)에서 보세요」 안내 줄은 섹션 머리의 '누르면 상세' 와 행 끝 › 로 바꿨다)
-	var rows := _ability_table_rows(out, open_detail)
-	if not rows.is_empty():
-		var av := UI.vbox(UI.SP_S)
-		av.add_child(SheetStyle.section("고유 능력", "누르면 상세"))
-		av.add_child(SheetStyle.info_table(rows))
-		b.add_child(av)
-	var skill_preview := _skills_section(out, true)
-	if skill_preview != null:
-		b.add_child(skill_preview)
-	# 11/21 재료 —— 섹션 머리에 모은 장 수, 칸마다 n/m 배지 (갖춤 옥색 · 모자람 붉은 배지 · 하나도 없으면 흐리게), 유니크 재료도 같은 줄의 칸
-	var pg := _forge_progress(out)
-	var mv := UI.vbox(UI.SP_S)
-	mv.add_child(SheetStyle.section("조합 재료", "%d / %d 모음" % [pg.x, pg.y]))
-	var row := UI.flow(UI.SP_S)
-	var m := Run.mat_count(DB.RECOF[out])
-	for q in m:
-		var got := run.have(q)
-		var t := mtile(q, -1)
-		t.custom_minimum_size = Vector2(56, 78)
-		t.badge = "%d/%d" % [got, m[q]]
-		t.badge_col = Color(DB.PAL.jade, 0.9) if got >= m[q] else Color(DB.PAL.seal, 0.9)
-		t.dim = got <= 0
-		row.add_child(t)
-	var ni = Run.need_item(out)
-	if ni != null:
-		row.add_child(_uniq_tile(str(ni)))
-	mv.add_child(row)
-	b.add_child(mv)
 	var pv := run.forge_preview(out)      # 11/19 조합하면 편성에서 빠지는 것 —— 실제로 빠질 때만 (손패 여분으로 되면 아무것도 안 띄운다)
 	if not pv.board_lost.is_empty():
 		var lost := []
@@ -2194,16 +2211,47 @@ func recipe_sheet(out: String) -> void:
 			parts.append("인연 「%s」 끊김" % "」「".join(pv.bonds_lost))
 		if not pv.roles_lost.is_empty():
 			parts.append("%s 역할 없어짐" % ", ".join(pv.roles_lost))
-		b.add_child(SheetStyle.note("조합하면 —— " + " · ".join(parts)))
-	# 11/21 유니크 재료 · 신화 한 장 규칙 —— 붉은 경고 한 줄 대신 상태 카드 (보유 · 지금 보급에 있음 · 다시 뽑기 남음 · N일차 보급 · 이번 판엔 없음)
-	var sc := _myth_status_card(out)
-	if sc != null:
-		b.add_child(sc)
+		mv.add_child(SheetStyle.note("조합하면 —— " + " · ".join(parts)))
+	var reason := _forge_block_reason(out)
+	if reason != "":
+		b.add_child(UI.hint(reason))
 
 
-## 11/21 갈무리창 · 상세창 행동 줄 (같은 모양) —— 조합할 수 있으면 [조합하기(금 판)] [★ 갈무리], 아니면 [진행 칸(모음/전체 · 막대)] [★ 갈무리(금 판)].
-## 막힌 장수(선점 · 사망 · 신화 한 장 · 기인 한 장)는 진행 칸 자리에 그 사유. with_detail 이면 끝에 [상세]
-func _forge_actions(k: String, on_forged: Callable, on_pin: Callable, with_detail: bool) -> Control:
+func _compact_ability_summary(k: String) -> Control:
+	var box := UI.vbox(2)
+	var abilities := _ability_items(k)
+	for kind in ["고유기", "고유 특기", "위세", "기인", "패업"]:
+		for it in abilities:
+			if it.kind != kind:
+				continue
+			var headline := _abil_headline(k, kind)
+			var category := ""
+			var source := str(headline[1]) if not headline.is_empty() else str(it.effect)
+			for word in ["사기", "피해", "공격", "방어", "속도", "회복", "치료", "화상", "혼란", "기절", "보호", "저항"]:
+				if source.contains(word):
+					category = word
+					break
+			var line := UI.hbox(5)
+			line.add_child(UI.lbl(kind, UI.FS_CAP, DB.PAL.gold))
+			var name_label := UI.lbl(str(it.name), UI.FS_CAP, DB.PAL.paper, true)
+			name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			name_label.clip_text = true
+			line.add_child(name_label)
+			if category != "":
+				var category_icons := {"사기": "banner", "피해": "burst", "공격": "blade", "방어": "shield", "속도": "boot", "회복": "heart", "치료": "heart", "화상": "flame", "혼란": "swirl", "기절": "burst", "보호": "shield", "저항": "shield"}
+				var category_line := UI.hbox(3)
+				var icon := Icons.View.new(str(category_icons.get(category, "burst")), ABIL_VAL, 12)
+				icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				category_line.add_child(icon)
+				category_line.add_child(UI.lbl(category, UI.FS_CAP, ABIL_VAL))
+				line.add_child(category_line)
+			box.add_child(line)
+	return box
+
+
+## 재료 진행은 재료 목록에 표시하고 행동과 조합 제한만 이 줄에 둔다.
+func _forge_actions(k: String, on_forged: Callable, on_pin: Callable) -> Control:
 	var c: Dictionary = DB.C[k]
 	var ok := run.can_forge(k)
 	var br := UI.hbox(UI.SP_S)
@@ -2215,29 +2263,19 @@ func _forge_actions(k: String, on_forged: Callable, on_pin: Callable, with_detai
 		SheetStyle.main_btn(fb)
 		fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		br.add_child(fb)
-	else:
-		var why := _forge_block_reason(k)
-		var nb: Control
-		if why != "":
-			nb = SheetStyle.need_block(why, 0, 0, "", SheetStyle.WARN, UI.BH_M)
-		else:
-			var pg := _forge_progress(k)
-			nb = SheetStyle.need_block("재료", pg.x, pg.y, "%d장 부족" % (pg.y - pg.x), SheetStyle.WARN, UI.BH_M)
-		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		br.add_child(nb)
 	var pb := _pin_btn(k, on_pin)
 	if forge_tree.pinned(k):
 		SheetStyle.quiet_btn(pb)
-	elif ok:
-		SheetStyle.sub_btn(pb)
 	else:
-		SheetStyle.main_btn(pb)
+		SheetStyle.sub_btn(pb)
+	pb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	br.add_child(pb)
-	if with_detail:
-		var ib := UI.btn("상세", func(): card_info(k), "ghost", UI.BH_M)
-		SheetStyle.quiet_btn(ib)
-		ib.custom_minimum_size.x = 72
-		br.add_child(ib)
+	var reason := _forge_block_reason(k)
+	if reason != "":
+		var actions := UI.vbox(UI.SP_XS)
+		actions.add_child(br)
+		actions.add_child(UI.hint(reason))
+		return actions
 	return br
 
 
@@ -2267,25 +2305,6 @@ func _forge_progress(out: String) -> Vector2i:
 		if int(run.bag.get(ni, 0)) > 0:
 			got += 1
 	return Vector2i(got, need)
-
-
-## 11/21 갈무리창 능력 표의 행 —— 고유 특기 · 위세(기인) · 패업 · 고유기 · 인연. 오른쪽에 그 능력의 머리 수치 하나 (_abil_headline)
-func _ability_table_rows(k: String, on_tap: Callable) -> Array:
-	var P := DB.PAL
-	var rows := []
-	for it in _ability_items(k):
-		var kind := str(it.kind)
-		var gold: bool = it.get("gold", false)
-		var opt := {"tap": on_tap, "icon_col": P.gold if gold else P.bamboo, "value_col": P.gold if gold else P.paper, "tag": str(it.get("sub", ""))}
-		var hl := _abil_headline(k, kind)
-		if not hl.is_empty():
-			opt["num"] = hl[0]
-			opt["num_label"] = hl[1]
-		rows.append(SheetStyle.info_row(str(it.icon), kind, str(it.name), opt))
-	var names: Array = DB.inyeon_of(k)      # 11/11 인연 —— 이름 칩만 (구성원은 디테일창에서)
-	if not names.is_empty():
-		rows.append(SheetStyle.info_row("link", "인연", "", {"chips": names, "chip_col": P.yeon, "icon_col": P.yeon, "tap": on_tap}))
-	return rows
 
 
 ## 능력의 머리 수치 [값, 그 이름] —— 원천 구조에서 (고유기 DB.ult_parts 의 hero · 고유 특기 ml 첫 칸 · 위세 aura_list 첫 칸 · 패업 조건). 없으면 []
@@ -3304,15 +3323,42 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 	var c: Dictionary = DB.C[k]
 	var p := run.pool()
 	var b := open_sheet(c.name, DB.tier_color(k).lightened(0.2))
+	var ult0 = DB.ult_of(k) if DB.has_ult(k) else null
+	var temper := Battle.temper_name(c, ult0) if ult0 != null else ""
+	if temper != "":
+		_sheet_title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		_sheet_title.custom_minimum_size.x = minf(220.0, _sheet_title.get_theme_font("font").get_string_size(str(c.name), HORIZONTAL_ALIGNMENT_LEFT, -1, _sheet_title.get_theme_font_size("font_size")).x + 2.0)
+		_sheet_temper.text = temper
+		_sheet_temper.show()
 	sheet_head(k)      # 11/21 이름 아래 등급 리본 · 세력 · 병종 · 피해 종류 + 등급 색 머리 바탕 (갈무리창 · 전투 장수창과 같은 머리, SheetStyle)
+	if DB.RECOF.has(k) and not DB.is_foe(k):
+		var action_row := UI.hbox(UI.SP_S)
+		var pg := _forge_progress(k)
+		var progress := UI.vbox(2)
+		progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		progress.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		progress.add_child(UI.lbl("조합 재료 %d/%d" % [pg.x, pg.y], UI.FS_CAP, DB.PAL.bamboo, true))
+		progress.add_child(SheetStyle.meter(pg.x, pg.y))
+		progress.add_child(UI.lbl("%d장 부족" % (pg.y - pg.x) if pg.x < pg.y else "재료 갖춤", UI.FS_CAP, DB.PAL.text_dim))
+		action_row.add_child(progress)
+		var reopen := func():
+			_back_nav = true
+			card_info(k)
+		var pin := _pin_btn(k, reopen)
+		SheetStyle.quiet_btn(pin) if forge_tree.pinned(k) else SheetStyle.sub_btn(pin)
+		action_row.add_child(pin)
+		var recipe_button := UI.btn("조합  ›", func(): recipe_sheet(k), "", UI.BH_M)
+		SheetStyle.sub_btn(recipe_button)
+		recipe_button.custom_minimum_size.x = 104
+		action_row.add_child(recipe_button)
+		b.add_child(action_row)
 	var top := UI.hbox(UI.SP_M)
-	var big := CardView.new().setup(k, Vector2(108, 152))
+	var big := CardView.new().setup(k, Vector2(96, 136))
 	big.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	top.add_child(big)      # 11/20 역할은 큰 카드 초상 위에 (CardView.show_role)
 	# 초상 오른쪽 (11/3 사용자: 초상과 높이를 맞춘다) —— 능력치 다섯 칸 · 특기판 · 접힌 고유 특기 · 위세 · 고유기
-	var st := UI.vbox(UI.SP_S)
+	var st := UI.vbox(2)
 	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	st.custom_minimum_size.y = 188
 	st.add_child(SheetStyle.stat_block(c.atk, c["def"], c.spd, DB.INT_TAGS.has(c.tag)))      # 11/21 갈무리창과 같은 능력치 판
 	# 11/8 피해 종류 한 줄("물리 피해 · 갑옷 30%")은 11/21 머리 한 줄(병종 칩 뒤 · SheetStyle.meta_row)로 옮겼다
 	# 11/20 사용자: 디테일창의 특기 열고 닫기를 없앤다(가진 특기만 고정). 그 자리에 넣었던 장수 열전은 같은 날 사용자 뜻으로 다시 뺐다
@@ -3320,31 +3366,21 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 	tbd.fixed = true
 	st.add_child(tbd.setup(k))
 	# 11/9 사용자: 초상 옆 빈 공간 정리 —— 오른쪽에는 능력치 · 특기판 · 기질 띠(좁은 모양)를 쌓고, 고유 특기 · 위세 · 패업 · 고유기는 아래 폭 전체 카드 격자로
-	var ult0 = DB.ult_of(k) if DB.has_ult(k) else null
-	if ult0 != null:
-		var tb0 := _temper_box(c, ult0, 11, true)
-		if tb0 != null:
-			st.add_child(tb0)
+	st.add_child(_compact_ability_summary(k))
 	top.add_child(st)
 	b.add_child(top)
-	if DB.RECOF.has(k) and not DB.is_foe(k):      # 11/15 사용자: 갈무리 버튼을 맨 아래(장수 조합법 줄)가 아니라 초상 바로 아래에
-		# 11/21 갈무리창과 같은 행동 줄 —— [조합하기(금 판) | ★ 갈무리] 또는 [재료 진행 칸 | ★ 갈무리(금 판)] (_forge_actions)
-		var reopen := func():
-			_back_nav = true
-			card_info(k)
-		b.add_child(_forge_actions(k, reopen, reopen, false))
 	var ab := UI.vbox(UI.SP_S)
 	_ability_cards(ab, k)
 	var ability := UI.vbox(UI.SP_M)
 	b.add_child(ability)
-	var skills := _skills_section(k)
-	if skills != null:
-		ability.add_child(skills)
 	if ab.get_child_count() > 0:      # 11/21 섹션 머리 —— 갈무리창 「고유 능력」 표와 같은 이름 · 같은 금 마름모
 		ab.add_child(SheetStyle.section("고유 능력"))
 		ab.move_child(ab.get_child(ab.get_child_count() - 1), 0)
 	ability.add_child(ab)
 	ab.visible = ab.get_child_count() > 0
+	var skills := _skills_section(k)
+	if skills != null:
+		ability.add_child(skills)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
 	ability.add_child(folds)
 	var tl := DB.trait_list(k)
@@ -3779,6 +3815,10 @@ const ULT_ICON := {"firestorm": "flame", "heal": "heart", "charge": "blade", "sl
 	"illusion": "swirl", "whirlwind": "swirl"}
 const ABIL_VAL := Color("#8FD4C2")      # 수치 글자 (_hl 과 같은 옥색)
 const ABIL_NUM := UI.FS_HEAD + 2       # 고유기의 큰 숫자 —— 이 패널에서 하나뿐인 큰 글자
+const ABIL_ULT_COLOR := Color("#E87963")
+const ABIL_TRAIT_COLOR := Color("#D9A64B")
+const ABIL_AURA_COLOR := Color("#6DADCF")
+const ABIL_PAEUP_COLOR := Color("#B48AD8")
 
 
 func _ability_cards(into: Container, k: String) -> void:
@@ -3799,7 +3839,7 @@ func _ability_cards(into: Container, k: String) -> void:
 			line = d0
 		elif chips.is_empty() and not d0.contains(line):
 			line += " · " + d0
-		into.add_child(_abil_card("고유 특기", str(t.name), line, chips, P.gold, lead))
+		into.add_child(_abil_card("고유 특기", str(t.name), line, chips, ABIL_TRAIT_COLOR, lead))
 		lead = false
 	if DB.AURA.has(k):
 		var al := DB.aura_list(k)
@@ -3807,14 +3847,14 @@ func _ability_cards(into: Container, k: String) -> void:
 		for g in al.groups:
 			for e in g.items:
 				chips.append([e[1], "%s %s" % [g.who, e[0]]])
-		into.add_child(_abil_card("기인" if DB.is_kiin(k) else "위세", str(DB.AURA[k].n), str(al.text), chips, DB.tier_color(k)))
+		into.add_child(_abil_card("기인" if DB.is_kiin(k) else "위세", str(DB.AURA[k].n), str(al.text), chips, ABIL_AURA_COLOR))
 		if DB.AURA[k].has("paeup"):      # 패업 —— 조건 · 효과 글 (판정은 Battle._paeup_setup)
 			var pa: Dictionary = DB.AURA[k].paeup
 			var pc := []
 			if str(pa.cond) != "none":
 				var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
 				pc.append(["%d명 이상" % int(pa.need), "아군에 %s (자신 외)" % cw])
-			into.add_child(_abil_card("패업", str(pa.n), str(pa.get("d", "")), pc, P.bamboo))
+			into.add_child(_abil_card("패업", str(pa.n), str(pa.get("d", "")), pc, ABIL_PAEUP_COLOR))
 
 
 func _card_inyeon(into: Container, k: String) -> void:
@@ -3835,7 +3875,7 @@ func _card_inyeon(into: Container, k: String) -> void:
 func _ult_card(k: String, u: Dictionary) -> Control:
 	var P := DB.PAL
 	var vfx := str(u.get("vfx", ""))
-	var col: Color = ULT_COL.get(vfx, DB.tier_color(k))
+	var col: Color = ABIL_ULT_COLOR
 	var parts := DB.ult_parts(u, int(DB.C[k].tier))
 	var card := AbilCard.new(col, true, str(ULT_ICON.get(vfx, "burst")))
 	var v := UI.vbox(6)
@@ -3858,6 +3898,7 @@ func _ult_card(k: String, u: Dictionary) -> Control:
 		var a := UI.lbl(str(parts.hero.v), ABIL_NUM, col.lightened(0.45), true)
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		var b := UI.lbl(str(parts.hero.l), UI.FS_TINY, P.bamboo)
+		UI.wrap_text(b)
 		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		hv.add_child(a)
 		hv.add_child(b)
@@ -3877,35 +3918,24 @@ func _ult_card(k: String, u: Dictionary) -> Control:
 ## lead = 이 장수의 주인공 카드 (고유기가 없을 때의 고유 특기) —— 이름을 제목 크기로, 바탕에 그라데이션
 func _abil_card(kind: String, name: String, line: String, chips: Array, col: Color, lead := false) -> Control:
 	var P := DB.PAL
-	var card := AbilCard.new(col, lead, str(ABILITY_ICON.get(kind, "")))
+	var card := AbilCard.new(col, true, str(ABILITY_ICON.get(kind, "")))
 	var v := UI.vbox(6)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hd := UI.hbox(UI.SP_S)
 	var nl := UI.lbl(name, UI.FS_TITLE if lead else UI.FS_LABEL, P.gold if kind == "고유 특기" else P.paper, true)
+	UI.wrap_text(nl)
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	hd.add_child(nl)
-	var below: bool = line.length() > 34      # 긴 글(패업 설명)은 이름 아래 온 폭으로
 	var ll: RichTextLabel = null
 	if line != "":
 		ll = UI.rich(_hl(line), UI.FS_CAP)
 		ll.add_theme_color_override("default_color", P.bamboo)
 		ll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UI.wrap_text(ll)
-	if ll != null and not below:
-		var lm := MarginContainer.new()      # 이름(큰 글자)과 첫 줄 밑선을 맞춘다
-		lm.add_theme_constant_override("margin_top", 6 if lead else 3)
-		lm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		lm.add_child(ll)
-		hd.add_child(lm)
-	else:
-		var sp := Control.new()
-		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hd.add_child(sp)
-	hd.add_child(_abil_tag(kind, P.text_dim))
+	hd.add_child(_abil_tag(kind, col.lightened(0.3)))
 	v.add_child(hd)
-	if ll != null and below:
+	if ll != null:
 		v.add_child(ll)
 	if not chips.is_empty():
 		var f := UI.flow(6)
@@ -3948,13 +3978,20 @@ func _stat_chip(val: String, label: String, fill := true) -> Control:
 		pc.custom_minimum_size.x = 96
 	if val == "":
 		var tl := UI.lbl(label, UI.FS_CAP, P.paper)
+		if label.length() > 16:
+			UI.wrap_text(tl)
+			tl.custom_minimum_size.x = 130
 		tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		pc.add_child(tl)
 		return pc
 	var v := UI.vbox(-3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(UI.lbl(val, UI.FS_LABEL, ABIL_VAL, true))      # 11/20 사용자: 글자를 줄여 카드 높이 목표(고유기 120 · 나머지 80)에 맞춘다
-	v.add_child(UI.lbl(label, UI.FS_TINY, P.text_dim))
+	var caption := UI.lbl(label, UI.FS_TINY, P.text_dim)
+	if label.length() > 16:
+		UI.wrap_text(caption)
+		caption.custom_minimum_size.x = 100
+	v.add_child(caption)
 	pc.add_child(v)
 	return pc
 
@@ -3978,7 +4015,11 @@ func _tag_chip(ch: Dictionary, col: Color) -> Control:
 		var ic := Icons.View.new("target", P.bamboo, 9)
 		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(ic)
-	h.add_child(UI.lbl(str(ch.l), UI.FS_TINY, P.paper if st or kind == "tgt" else (P.text_dim if kind == "cap" else P.bamboo)))
+	var caption := UI.lbl(str(ch.l), UI.FS_TINY, P.paper if st or kind == "tgt" else (P.text_dim if kind == "cap" else P.bamboo))
+	if str(ch.l).length() > 20:
+		UI.wrap_text(caption)
+		caption.custom_minimum_size.x = 130
+	h.add_child(caption)
 	if str(ch.get("v", "")) != "":
 		h.add_child(UI.lbl(str(ch.v), UI.FS_TINY, P.text_dim if kind == "cap" else ABIL_VAL, true))
 	pc.add_child(h)
@@ -4430,7 +4471,8 @@ func _up_row(out: String) -> Control:
 	var mt := SheetStyle.meter(pg.x, pg.y, SheetStyle.VAL, 4.0)
 	mt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mr.add_child(mt)
-	mr.add_child(UI.lbl("%d / %d" % [pg.x, pg.y], UI.FS_CAP, SheetStyle.VAL if pg.x >= pg.y else DB.PAL.text_dim, true))
+	mr.add_child(UI.lbl("%d장 부족" % (pg.y - pg.x) if pg.x < pg.y else "장수 재료 갖춤",
+		UI.FS_CAP, DB.PAL.danger if pg.x < pg.y else SheetStyle.VAL, true))
 	v.add_child(mr)
 	var pl := SheetStyle.Plate.new(SheetStyle.VAL, SheetStyle.ACCENT if run.can_forge(out) else SheetStyle.PLAIN, "", Vector4(10, 10, 10, 10))
 	pl.add_child(v)

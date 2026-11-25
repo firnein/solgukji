@@ -85,16 +85,31 @@ func setup(items: Array, compact := false) -> Control:
 		margin.add_child(body)
 		var header := UI.hbox(6)
 		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var color: Color = SS.VAL if entry.kind == "escape" else (SS.ATK if entry.damage == "phys" else SS.ATK_INT)
-		var symbol := Icons.View.new("boot" if entry.kind == "escape" else ("blade" if entry.damage == "phys" else "news"), color, 15)
+		var color: Color = SS.ATK if entry.damage == "phys" else (SS.ATK_INT if entry.damage == "int" else SS.VAL)
+		var symbol_name := "blade" if entry.damage == "phys" else ("news" if entry.damage == "int" else ("heart" if entry.damage == "heal" else ("boot" if entry.kind == "escape" else "banner")))
+		var symbol := Icons.View.new(symbol_name, color, 15)
 		symbol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		header.add_child(symbol)
 		var title := UI.lbl(entry.name, 14, SS.TEXT, true)
 		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		UI.wrap_text(title)
+		title.clip_text = true
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		header.add_child(title)
 		var period := SS.chip(entry.period, color, "well")
 		period.visible = entry.period != ""
+		var markers := UI.hbox(4)
+		markers.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var damage_label := "물리 피해" if entry.damage == "phys" else ("책략 피해" if entry.damage == "int" else ("회복" if entry.damage == "heal" else ""))
+		if damage_label != "":
+			markers.add_child(SS.chip(damage_label, color, "soft", symbol_name))
+		var effect_text := str(entry.effect)
+		for status in [["화상", "flame", Color("#E98A58")], ["중독", "flame", Color("#9FC46A")], ["혼란", "swirl", Color("#BE9BE1")], ["기절", "burst", Color("#E5BD68")], ["둔화", "hourglass", Color("#82AED5")]]:
+			if effect_text.contains(status[0]) and not effect_text.contains(str(status[0]) + " 상태인"):
+				markers.add_child(SS.chip(str(status[0]), status[2], "soft", str(status[1])))
+		if markers.get_child_count() > 0:
+			header.add_child(markers)
+		else:
+			markers.free()
 		header.add_child(period)
 		body.add_child(header)
 		if compact:

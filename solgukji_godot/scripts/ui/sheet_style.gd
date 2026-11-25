@@ -543,13 +543,12 @@ static func quiet_btn(b: Button) -> Button:
 ## 탭 단추 결 —— 평소 글자만, 고르면 금 밑줄 2 + 옅은 금 바닥. 탭 줄 바탕은 tab_track()
 static func tab_btn(b: Button) -> Button:
 	var none := Color(0, 0, 0, 0)
-	var n := UI.flat(none, none, 0, UI.R, 8)
-	var hv := UI.flat(Color(TEXT, 0.04), none, 0, UI.R, 8)
-	var on := UI.flat(Color(GOLD, 0.08), GOLD, 0, 0, 8)
-	on.border_width_bottom = 2
+	var n := UI.flat(Color("#202c43"), Color("#536079"), 1, UI.R, 8)
+	var hv := UI.flat(Color("#30405a"), Color("#8592a9"), 1, UI.R, 8)
+	var on := UI.flat(Color("#51452f"), GOLD, 1, UI.R, 8)
 	UI.btn_styles(b, n, hv, on)
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.add_theme_color_override("font_color", DIM)
+	b.add_theme_color_override("font_color", TEXT)
 	b.add_theme_color_override("font_hover_color", TEXT)
 	b.add_theme_color_override("font_pressed_color", GOLD_HI)
 	b.add_theme_color_override("font_hover_pressed_color", GOLD_HI)

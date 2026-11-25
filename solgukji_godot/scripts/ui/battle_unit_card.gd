@@ -4,8 +4,7 @@ extends VBoxContainer
 ## "전투 장수창은 전투 시에만 일어나는 사건들을 추가 (조합법 같은 건 빼고)" · "우와 신경 많이 썼구나".
 ##
 ## 위에서부터 '지금 상황'이 먼저 —— ① 상황판(초상 · 병력 · 사기 · 고유기 기와 남은 시간 · 걸린 상태) ② 이번 전투(준 피해 · 격파 · 치료 · 받은 피해)
-## ③ 전장의 개성(고유 특기 개성 문장 · 이번 전투 발동 횟수 · 최근 발동) ④ 전투 기록(이 장수에게 일어난 사건) —— 그 아래 장수 정보
-## (능력치 + 전투 버프 · 기질 · 장비 · 고유 능력 · 기술 · 특기 —— 상세창과 같은 부품).
+## 전투 기여 · 기술 발동 · 전장의 개성 · 사건 기록 다음에 시작 편성 효과와 장비를 표시한다.
 ##
 ## 모양은 장수창 공통 시각 언어(SheetStyle)로 —— 머리(등급 색 바탕 · 등급 리본 · 세력 · 병종)는 GameScreen.sheet_head, 판은 SheetStyle.Plate,
 ## 섹션 머리는 SheetStyle.section, 칸 · 칩 · 기록 줄은 SheetStyle 의 칸(stat_cells) · 칩 · 정보 행(info_row)과 같은 수치로 그린다.
@@ -513,13 +512,13 @@ func _init(screen: GameScreen, bv: BattleView, unit_key: String) -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	_sig_ever = _find_sig_ever()
 	add_child(_build_live())
-	_build_skills()
 	add_child(_sect(SS.section("이번 전투", "지금까지"), _build_contrib()))
+	_tl_sec = SS.section("주요 전투 장면", " ")
+	add_child(_sect(_tl_sec, _build_timeline()))
+	_build_skills()
 	var sg := _build_sig()
 	if sg != null:
 		add_child(sg)
-	_tl_sec = SS.section("전투 기록", " ")
-	add_child(_sect(_tl_sec, _build_timeline()))
 	_build_info()
 	_scan_events()
 	_refresh(true)
@@ -1174,6 +1173,8 @@ func _scan_events() -> void:
 					_ult_e.num = Battle.num(_ult_e.dmg)
 					_ult_e.nlab = "적 %d부대" % _ult_e.tg.size()
 					_tl_dirty = true
+				elif a == key and f != "" and f.left(1) != key.left(1) and n >= _mx * BIG_HIT:
+					_add(tm, C_GLOW, "blade", "%s에게 큰 피해" % _nm(f), {"num": Battle.num(n), "ncol": SS.GOLD_HI, "nlab": "피해"})
 				if f == key:
 					_taken += n
 					_big_hit(g, a, n, tm, e)
@@ -1186,6 +1187,8 @@ func _scan_events() -> void:
 				var hk := str(e.get("healer", a))
 				if hk == key and hn > 0.0:
 					_heal += hn
+					if f != "" and hn >= _mx * BIG_HEAL:
+						_add(tm, C_HEAL, "heart", "%s 치료" % _nm(f), {"num": "+" + Battle.num(hn), "ncol": SS.VAL, "nlab": "병력 회복"})
 				if f == key and hn >= _mx * BIG_HEAL and hk != key:
 					if _heal_e != null and str(_heal_e.by) == hk and tm - float(_heal_e.tm2) < 4.0:
 						_heal_e.n += hn
@@ -1515,7 +1518,7 @@ func _freeze() -> void:
 		_bar_ult.set_glow(false)
 
 
-# ───────── 장수 정보 (전투 시작 기준) —— 상세창과 같은 부품 ─────────
+# ───────── 이번 전투에 적용된 편성 효과와 장비 ─────────
 
 func _build_skills() -> void:
 	var section = gs._skills_section(k, false, true)
@@ -1530,41 +1533,10 @@ func _build_info() -> void:
 	var ss: Dictionary = _ss      # _build_stat_row 가 잰 시작 능력치
 	var iv := UI.vbox(UI.SP_S)
 	iv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	iv.add_child(SS.section("장수 정보", "전투 시작 기준"))
+	iv.add_child(SS.section("편성 효과 · 장비", "전투 시작 기준"))
 	iv.add_child(_build_stats(ss))
-	if ult != null:
-		var tb = gs._temper_box(c, ult, 11, true)
-		if tb != null:
-			iv.add_child(tb)
 	iv.add_child(_build_gear(ss))
 	add_child(iv)
-	# 고유 능력 —— 상세창 능력 카드 그대로 (고유기 주인공 판 · 위세 · 패업). 고유 특기는 위 '전장의 개성' 판이 맡는다
-	var ab := UI.vbox(UI.SP_S)
-	ab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if ult != null:
-		ab.add_child(gs._ult_card(k, ult))
-	if DB.AURA.has(k):
-		var al := DB.aura_list(k)
-		var chips := []
-		for gr in al.groups:
-			for it in gr.items:
-				chips.append([it[1], "%s %s" % [gr.who, it[0]]])
-		ab.add_child(gs._abil_card("기인" if DB.is_kiin(k) else "위세", str(DB.AURA[k].n), str(al.text), chips, DB.tier_color(k)))
-		if DB.AURA[k].has("paeup"):
-			var pa: Dictionary = DB.AURA[k].paeup
-			var pc := []
-			if str(pa.cond) != "none":
-				var cw: String = str(pa.get("what", "화상을 거는 장수" if str(pa.cond) == "burn" else "상태이상을 거는 장수"))
-				pc.append(["%d명 이상" % int(pa.need), "아군에 %s (자신 외)" % cw])
-			ab.add_child(gs._abil_card("패업", str(pa.n), str(pa.get("d", "")), pc, DB.PAL.bamboo))
-	if ab.get_child_count() > 0:
-		ab.add_child(SS.section("고유 능력"))
-		ab.move_child(ab.get_child(ab.get_child_count() - 1), 0)
-		add_child(ab)
-	# 특기 —— 상세창과 같은 계열 기호 칸 격자 + 고른 특기 설명 (고유 특기는 위)
-	var tn := DB.trait_list(k).filter(func(x): return not x.unique)
-	if not tn.is_empty():
-		add_child(_sect(SS.section("특기", "%d개" % tn.size()), gs._trait_icons(tn)))
 
 
 ## 공방속이 달라진 까닭 칩 (진형 자리 배율 · 자리 선호 · 그 밖) —— 값 자체는 11/22 위 상황판 줄 4(실시간)로 옮겼다
