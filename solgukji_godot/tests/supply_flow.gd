@@ -157,6 +157,10 @@ func _game(seed_: int, n_seats: int) -> void:
 			for i in nh:
 				var s: Dictionary = r.seats[i]
 				var sn := snap(s.run)
+				# 11/25 자동 징집 —— 아침이 열리자마자 기본패를 받는다. 이 페이즈 보급 정산은 받기 전 값에서 시작한다 (기본패는 모두 기본 등급)
+				if not s.dead and (not s.run.drawn or s.run.last_draw.size() < s.run.draws_n()):
+					_fail("%d일차 p%d %s: 아침 시작에 자동 징집이 안 됐다 (drawn %s · %d장 / 기대 %d 이상)" % [r.day + 1, r.phase, s.name, s.run.drawn, s.run.last_draw.size(), s.run.draws_n()])
+				sn.base -= s.run.last_draw.size()
 				s0[i] = sn
 				battles[i] = []
 				if last_end.has(i) and not s.dead:

@@ -1132,15 +1132,29 @@ func draws_n() -> int:
 func do_draw() -> Array:
 	if drawn:
 		return []
-	var got := []
 	var nd := draws_n() + tk_draw      # 11/15 군략 징병
 	tk_draw = 0
-	for i in nd:
+	var got := _draw_cards(nd)
+	last_draw = got
+	drawn = true
+	return got
+
+
+## 11/25 자동 징집 —— 준비 단계가 열리면 누르지 않아도 기본패를 받는다 (온라인: Room._stage("morning") · 혼자 하기: GameScreen.render).
+## 이미 받았거나 받을 것이 없으면 [] —— 재접속 · 대행(bot_prepare) · 이어하기와 겹쳐도 한 단계에 한 번
+func auto_draw() -> Array:
+	if drawn or draws_n() <= 0 or over != null or battle != null:
+		return []
+	return do_draw()
+
+
+## 기본패 n 장 —— 난수 한 번에 한 장 (do_draw 와 징병의 바로 받기가 같이 쓴다)
+func _draw_cards(n: int) -> Array:
+	var got := []
+	for i in n:
 		var k: String = DB.BASE[rng.randi() % DB.BASE.size()]
 		give(k)
 		got.append(k)
-	last_draw = got
-	drawn = true
 	return got
 
 
@@ -1271,6 +1285,7 @@ func advance() -> void:
 			var got := random_grant()
 			if not got.is_empty():
 				toasts.append(["안 받은 배급 %d장을 받았다" % got.size(), "gain"])
+	drawn = false      # 11/25 하루 끝(tk_day_end)에 안 고른 연구가 「징병」이면 지난 단계에 바로 받지 않고 다음 (자동) 징집에 더한다 (_tk_econ)
 	phase += 1
 	if phase > 2:
 		phase = 0
@@ -2964,7 +2979,12 @@ func _tk_econ(c: Dictionary) -> void:
 			"grain":
 				grain += int(v)
 			"draw":
-				tk_draw += int(v)
+				# 11/25 자동 징집: 이번 단계 기본패를 이미 받았으면(준비 단계가 열리자마자 받는다) 다음 징집까지 미루지 않고 바로 더 받는다 ——
+				# 예전에 징집을 누르기 전에 징병을 고르면 그 징집에 더해졌던 것과 같은 몫 (last_draw 에 이어 붙여 공개 연출이 더 받은 만큼 보여 준다)
+				if drawn:
+					last_draw.append_array(_draw_cards(int(v)))
+				else:
+					tk_draw += int(v)
 			"ticket":
 				var pl := pick_list()
 				add_ticket(int(pl[0].t) if not pl.is_empty() else 3, int(v))

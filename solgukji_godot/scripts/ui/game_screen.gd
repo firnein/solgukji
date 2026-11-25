@@ -24,7 +24,7 @@ const BattleUnitCard := preload("res://scripts/ui/battle_unit_card.gd")      # 1
 const CHANGELOG := preload("res://scripts/game/changelog.gd")   # 11/7 버전 · 업데이트 내역 (class_name 캐시와 무관하게 바로 쓰려고 preload)
 ## 11/9 첫 판 안내 —— 첫 유저가 조합 방법을 못 찾고 1성 9장으로 전멸했다. 4장, 건너뛰기 가능
 const COACH_STEPS := [
-	["draw", "1/4  징집", "매일 기본패를 받는다. 「징집하기」를 눌러 뽑자."],
+	["draw", "1/4  징집", "기본패를 받았다 —— 준비 단계가 열릴 때마다 저절로 들어온다. 맨 윗줄의 같은 패를 모아 조합해 장수로 올린다."],      # 11/25 자동 징집: 누를 버튼 대신 맨 위 기본패 줄(_base_row)을 가리킨다
 	["forge", "2/4  조합  —  꼭 알아 둘 것", "같은 장수 · 같은 카드를 모아 조합 탭에서 한 등급 위로 올린다. 1성 9장 그대로는 토벌에서 전멸한다."],
 	["deploy", "3/4  편성", "가진 장수를 9칸에 배치한다. 앞줄과 뒷줄 자리를 살피자."],
 	["war", "4/4  전투", "출진하면 자동으로 싸운다(조작 없음). 지면 민심이 깎이고, 0 이 되면 멸망한다. 출진 전에 조합부터."],
@@ -975,6 +975,7 @@ func go(pg: String) -> void:
 func render(new_page := false) -> void:
 	if run == null:
 		return
+	var drew_now := _auto_draw_solo()      # 11/25 자동 징집 (혼자 하기) —— 그리기 전에 받아 두어 이번 화면이 받은 상태로 나온다
 	if run != _warm_run:
 		_warm_run = run
 		_warm_for_run()
@@ -1008,6 +1009,7 @@ func render(new_page := false) -> void:
 		var want: int = _scroll_keep.get(page, 0) if new_page else keep
 		_restore_scroll.call_deferred(want)
 	_flush_toasts()
+	_draw_reveal_check(drew_now)
 	_coach_tick()
 	if _play_t0 < 0 and run.over == null:
 		_play_t0 = Time.get_ticks_msec()
@@ -1621,6 +1623,90 @@ func act(m: String, a := []):
 	return r
 
 
+# ───────── 자동 징집 (11/25 사용자: 준비 단계가 열리면 기본패를 저절로 받고 짧은 공개 연출만) ─────────
+
+## 혼자 하기 —— 새 판 · 다음 페이즈 · 받기 전에 저장된 판을 이어하기에서 render 가 부른다. 받았으면 true.
+## 온라인은 서버(Room._auto_draw)가 단계를 열 때 준다 —— 여기서는 받지 않는다
+func _auto_draw_solo() -> bool:
+	if online != null or run == null or (_title != null and _title.visible):
+		return false
+	var got := run.auto_draw()
+	if got.is_empty():
+		return false
+	PlayLog.act(run, "do_draw", [], got, true)
+	run.save()
+	return true
+
+
+static var _drawfx_key := ""     # 공개 연출을 띄운 단계 (판 시드:일차:페이즈) —— 다시 그리기 · 재접속에 또 뜨지 않게 (앱이 켜져 있는 동안)
+static var _drawfx_n := 0        # 그 단계에서 보여 준 장 수 —— 징병으로 더 받으면 더 받은 만큼만 한 번 더
+
+
+## 받은 기본패가 처음 보이는 순간 한 번 —— fresh: 혼자 하기에서 방금 저절로 받았다
+## 온라인은 서버 상태가 와서 '받았다'가 된 때. 앱을 새로 켜고 판 중간(첫 단계 밖)에 다시 들어온 것은 이미 본 징집이라 띄우지 않는다
+func _draw_reveal_check(fresh := false) -> void:
+	if run == null or not run.drawn or run.last_draw.is_empty() or (_title != null and _title.visible):
+		return
+	var key := "%s:%d:%d" % [str(run.rng.seed), run.day, run.phase]
+	var n: int = run.last_draw.size()
+	if key == _drawfx_key and n <= _drawfx_n:
+		return
+	var grew := key == _drawfx_key
+	var from := _drawfx_n if grew else 0
+	var show := fresh or grew or (online != null and (_drawfx_key != "" or (run.day == 0 and run.phase == 0)))
+	_drawfx_key = key
+	_drawfx_n = n
+	if show:
+		_draw_reveal(run.last_draw.slice(from), grew)
+
+
+## 공개 연출 —— 머리띠 아래에 기본패 줄 하나 (병종 타일 × 받은 수) 를 1초 남짓 띄운다. 입력은 막지 않는다 (마우스 무시)
+func _draw_reveal(cards: Array, more := false) -> void:
+	if cards.is_empty():
+		return
+	Sfx.play("draw")
+	var cnt := {}
+	for k in cards:
+		cnt[str(k)] = int(cnt.get(str(k), 0)) + 1
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_theme_stylebox_override("panel", UI.flat(Color("#0d1220", 0.93), Color(DB.PAL.gold, 0.75), 1, UI.R, 8))
+	var v := UI.vbox(4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := UI.lbl(("징병 —— 기본패 %d장 더" if more else "징집 —— 기본패 %d장") % cards.size(), UI.FS_BODY, DB.PAL.gold.lightened(0.2), true)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	var row := UI.hbox(4)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for k in Run.sort_cards(cnt.keys()):
+		var t := MiniTile.new().setup(str(k), int(cnt[k]))
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.custom_minimum_size = Vector2(30, HAND_TILE.y)
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		t.size_flags_stretch_ratio = 1.0
+		row.add_child(t)
+	v.add_child(row)
+	p.add_child(v)
+	add_child(p)
+	var y0 := (_top.get_global_rect().end.y - global_position.y + UI.SP_S) if is_instance_valid(_top) else 80.0
+	if _band_busy and is_instance_valid(_band_node) and _band_node.visible:      # 「아침이 밝았습니다」 띠가 같은 자리에 떠 있으면 그 아래로
+		y0 = _band_node.offset_bottom + UI.SP_S
+	var wmax := minf(size.x - 2.0 * UI.SP_M, 60.0 * cnt.size() + 40.0)
+	p.position = Vector2((size.x - wmax) / 2.0, y0)
+	p.size = Vector2(wmax, 0)
+	p.pivot_offset = Vector2(wmax / 2.0, 0)
+	p.modulate.a = 0.0
+	p.scale = Vector2(1.0, 0.6)
+	var tw := p.create_tween()
+	tw.tween_property(p, "modulate:a", 1.0, 0.12)
+	tw.parallel().tween_property(p, "scale:y", 1.0, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.85)
+	tw.tween_property(p, "position:y", y0 - 24.0, 0.25).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(p, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(p.queue_free)
+
+
 ## 조용한 행동 (11/15 모두 조합) —— act 와 같은 판정 · 기록 · 서버 전송을 하되 저장 · 다시 그리기 · 소리 · 한 장 연출은 하지 않는다.
 ## 여러 번 잇달아 부른 뒤 부르는 쪽이 changed() 를 한 번 부른다 (한 장마다 화면 전체를 다시 만들면 수십 번 조합에 몇 초씩 멈췄다)
 func act_quiet(m: String, a := []):
@@ -1986,7 +2072,8 @@ func _coach_tick() -> void:
 	var tb: Control = _tabs[key]
 	var aim := Vector2(tb.global_position.x + tb.size.x / 2.0, _tabbar.global_position.y)
 	# 11/14 감사 #6-4: 징집 · 전투 단계는 탭 대신 화면 안 주 행동 버튼(「징집하기」 · 「출진」)을 가리킨다 —— 버튼 바로 아래에 뜬다
-	var cta: Control = {"draw": _draw_cta_node, "war": _war_cta_node}.get(key) if _coach_i >= 0 else null
+	# 11/25 자동 징집: 징집은 누를 버튼이 없다 —— 받은 기본패 줄(_base_row)을 가리킨다 (없거나 사라졌으면 탭을 가리킨다)
+	var cta: Control = {"draw": _base_row, "war": _war_cta_node}.get(key) if _coach_i >= 0 else null
 	var under := false
 	if cta != null and is_instance_valid(cta) and cta.is_visible_in_tree() and page == key:
 		await get_tree().process_frame

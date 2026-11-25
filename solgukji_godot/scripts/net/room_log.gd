@@ -149,7 +149,8 @@ func ready(i: int, run, on: bool) -> void:
 
 
 ## 명령 —— 인자는 JSON 에서 온 것이라 float 정수를 int 로, 이상한 것은 잘라 쓴다
-func act(i: int, run, m: String, a: Array, r) -> void:
+## auto —— 사람이 누르지 않고 서버가 대신 한 것 (11/25 자동 징집): 줄에 "auto": true
+func act(i: int, run, m: String, a: Array, r, auto := false) -> void:
 	if not files.has(i):
 		return
 	var clean := []
@@ -166,6 +167,8 @@ func act(i: int, run, m: String, a: Array, r) -> void:
 	d["ok"] = r != null and not (r is bool and not r)      # 명령이 거절되면 null · false (do_draw 같은 것은 카드 배열이 온다)
 	if r == null and m in VOID_CMDS:      # 11/17 돌려주는 값이 없는 명령 —— 여기까지 왔으면 실행됐다 (전엔 늘 ok:false 로 찍혀 실패처럼 보였다)
 		d["ok"] = true
+	if auto:
+		d["auto"] = true
 	put(i, run, "act", d)
 
 
