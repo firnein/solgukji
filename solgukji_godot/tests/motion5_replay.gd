@@ -56,6 +56,8 @@ func _ready() -> void:
 	Settings.war_painting = true
 	Settings.quality = 1
 	Settings.cam_fx = 0
+	if args.has("zoom"):      # 전장 확대 카메라 전후 비교 (--zoom=0 끔)
+		Settings.zoom_cam = int(args.zoom) != 0
 	Settings.ult_fx = int(args.get("ult-fx", "1"))
 	Settings.apply()
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
