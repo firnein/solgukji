@@ -69,6 +69,7 @@ func _ready() -> void:
 	await _c_sheet_portrait()
 	await _b_swipe()
 	await _a_sheet()
+	await _t_tabkeys()
 	await _e_focus()
 	await _k_drag()
 	await _battle_checks()
@@ -436,6 +437,32 @@ func _a_sheet() -> void:
 	ck("A Android 뒤로 —— 열린 시트가 닫힌다", not gs._sheet.visible)
 	gs.close_sheet()
 	await _wait(0.3)
+
+
+# ───────── T —— 탭 단축키 (1 · 2 · 3 · 4 → 징집 · 조합 · 편성 · 전투, 5 → 기록) ─────────
+
+func _t_tabkeys() -> void:
+	if not gs.has_method("tab_keys_ok"):
+		skip("T 탭 단축키", "옛 코드")
+		return
+	gs.close_sheet()
+	await _wait(0.3)
+	var got := []
+	for kc in [KEY_2, KEY_3, KEY_4, KEY_1, KEY_KP_2, KEY_5]:
+		await _key(kc)
+		await _frames(3)
+		got.append(gs.page)
+	ck("T 숫자 키 —— 아래 탭이 바뀐다", got.slice(0, 5) == ["forge", "deploy", "war", "draw", "forge"] and got[5] in ["rank", "line", "update"], str(got))
+	gs.go("draw")
+	await _frames(4)
+	await _sheet_btn("a")
+	await _key(KEY_3)
+	await _frames(3)
+	ck("T 시트가 열려 있으면 숫자 키를 받지 않는다", gs.page == "draw" and gs._sheet.visible, gs.page)
+	gs.close_sheet()
+	await _wait(0.3)
+	gs.go("draw")
+	await _frames(4)
 
 
 # ───────── E —— 버튼 포커스 ─────────

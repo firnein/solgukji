@@ -331,9 +331,52 @@ func _confirm_leave() -> void:
 
 
 func _unhandled_key_input(e: InputEvent) -> void:
-	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_ESCAPE:
+	if not (e is InputEventKey) or not e.pressed or e.echo:
+		return
+	if e.keycode == KEY_ESCAPE:
 		get_viewport().set_input_as_handled()
 		back(true)
+		return
+	var ti := _tab_key(e)      # 11/25 사용자: 키보드 단축키 —— 1 · 2 · 3 · 4 로 아래 탭(징집 · 조합 · 편성 · 전투), 5 는 기록
+	if ti >= 0 and tab_keys_ok():
+		get_viewport().set_input_as_handled()
+		_tab_press(TABS[ti][0])
+
+
+## 숫자 키(윗줄 · 숫자패드) → 탭 번호. 조합 키(Ctrl · Alt · Meta)와 함께면 아니다
+func _tab_key(e: InputEventKey) -> int:
+	if e.ctrl_pressed or e.alt_pressed or e.meta_pressed:
+		return -1
+	var kc: int = e.keycode
+	var i := -1
+	if kc >= KEY_1 and kc <= KEY_9:
+		i = kc - KEY_1
+	elif kc >= KEY_KP_1 and kc <= KEY_KP_9:
+		i = kc - KEY_KP_1
+	return i if i < TABS.size() else -1
+
+
+## 탭 단축키를 받아도 되는가 —— 아래 탭이 보이고 눌리는 때만 (타이틀 · 시트 · 전투 · 엔딩 · 사망 연출 · 완성 연출 위에서는 아니다.
+## 전투 중 1 · 2 · 3 은 배속 —— BattleView._unhandled_input 이 받는다. 글 입력 칸은 키를 먼저 먹어 여기까지 오지 않는다)
+func tab_keys_ok() -> bool:
+	if run == null or _sheet == null or _tabbar == null or not _tabbar.is_visible_in_tree():
+		return false
+	if _sheet.visible or (is_instance_valid(_title) and _title.visible):
+		return false
+	if _battle_layer != null and _battle_layer.visible:
+		return false
+	return not is_instance_valid(_ending) and not _death_busy and not is_instance_valid(_fanfare)
+
+
+## 아래 탭 하나를 누른 것 (탭 · 단축키 공통)
+func _tab_press(k: String) -> void:
+	UI.buzz()
+	if k == "more":
+		go("rank" if page in ["line", "rank", "update"] else _open.get("more_page", "rank"))
+	elif k == page:
+		_scroll_to_top()
+	else:
+		go(k)
 
 
 # ───────── 뼈대 ─────────
@@ -447,14 +490,8 @@ func _build_tabbar() -> Control:
 		tb.key = t[0]
 		tb.text = t[1]
 		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tb.tapped.connect(func(k):
-			UI.buzz()
-			if k == "more":
-				go("rank" if page in ["line", "rank", "update"] else _open.get("more_page", "rank"))
-			elif k == page:
-				_scroll_to_top()
-			else:
-				go(k))
+		tb.tapped.connect(_tab_press)
+		tb.hint = str(_tabs.size() + 1) if OS.has_feature("pc") else ""      # PC 는 단축키 숫자를 귀퉁이에 작게
 		_tabs[t[0]] = tb
 		h.add_child(tb)
 	_tabbar = bar
@@ -6752,6 +6789,7 @@ class TabButton extends Control:
 	var text := ""
 	var on := false
 	var badge := -1
+	var hint := ""      # 키보드 단축키 글자 (PC 만 —— 왼쪽 위 귀퉁이에 작게)
 	var _press := Vector2.INF
 	var _selected := UI.flat(Color(DB.PAL.gold, 0.10), Color(DB.PAL.gold, 0.26), 1, 4, 0)
 	var _pressed := UI.flat(DB.PAL.ink3, Color.TRANSPARENT, 0, 4, 0)
@@ -6778,6 +6816,8 @@ class TabButton extends Control:
 			draw_style_box(_pressed if _press != Vector2.INF else _selected, Rect2(5, 4, size.x - 10, size.y - 8))
 		_icon(c, col)
 		draw_string(DB.title_font(13) if on else DB.font_body, Vector2(0, size.y - 8), text, HORIZONTAL_ALIGNMENT_CENTER, size.x, 13, DB.PAL.paper if on else col)
+		if hint != "":
+			draw_string(DB.font_body, Vector2(10, 17), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(col, 0.55))
 		if badge >= 0:
 			var bp := c + Vector2(15, -10)
 			if badge == 0:
