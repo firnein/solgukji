@@ -2633,7 +2633,7 @@ func _myth_status_card(out: String) -> Control:
 	return SheetStyle.status_card(th, "item", "유니크 %s" % DB.IT[ni].name, str(st.line), str(st.state), str(st.pill), st.tap)
 
 
-## 11/21 유니크 재료 상태 —— 지금 규칙으로 말한다: 유니크는 DB.D.UNIQUE_PHASES 의 아침 아이템 보급(지금 2일차 오전 한 번)에서 셋 중 하나를 고르고 다시 뽑기 한 번.
+## 11/21 유니크 재료 상태 —— 지금 규칙으로 말한다: 유니크는 DB.D.UNIQUE_PHASES 의 아침 아이템 보급(지금 2일차 오전 한 번)에서 하나씩 보이고 다시 뽑기 3번 (11/27).
 ## 상점 뽑기 · 토벌 장비 · 일반 보급에는 나오지 않는다 (Run.gain_item · gain_item_grade · _gacha_pick). 잠긴 신화(선점 · 사망)의 유니크는 보급에서 빠진다 (blocked_uniques).
 ## 예전 줄 「없음 · 2 · 4 · 6일차 아이템 보급」은 11/9(6일차) · 11/11(4일차) 보급이 없어진 뒤로 틀렸고, 지난 보급 · 열린 보급 · 다시 뽑기를 가리지 않았다.
 ## {state: used|ok|lock|open|reroll|wait|gone, line, pill, tap}
@@ -2653,14 +2653,14 @@ func _unique_state(out: String, ni: String) -> Dictionary:
 	if run.mat_block(out) != "":      # 11/25 재료 선점 —— 보급에는 나오지만 받아도 이 신화는 만들 수 없다
 		return {"state": "lock", "line": run.block_text(out) + " — 받아도 만들 수 없다", "pill": "만들 수 없음", "tap": see}
 	if run.uniq_offer.has(ni):
-		return {"state": "open", "line": "지금 아이템 보급에 있다 · 셋 중 하나만 받는다", "pill": "받으러", "tap": open_offer}
+		return {"state": "open", "line": "지금 아이템 보급에 보이고 있다 · 받으면 보급 끝", "pill": "받으러", "tap": open_offer}
 	if not run.uniq_offer.is_empty():
-		if not run.uniq_rerolled:
-			return {"state": "reroll", "line": "지금 보급 셋엔 없다 · 다시 뽑기 1번 남음", "pill": "보급 열기", "tap": open_offer}
-		return {"state": "gone", "line": "보급 셋에 없고 다시 뽑기도 썼다", "pill": "이번 판 없음", "tap": see}
+		if run.can_reroll_unique():
+			return {"state": "reroll", "line": "지금 보급엔 없다 · 다시 뽑기 %d번 남음" % run.uniq_rerolls, "pill": "보급 열기", "tap": open_offer}
+		return {"state": "gone", "line": "보급에 없고 다시 뽑기도 다 썼다", "pill": "이번 판 없음", "tap": see}
 	var nx := _next_unique_phase()
 	if nx >= 0:
-		return {"state": "wait", "line": "%s 아이템 보급에서 셋 중 하나 · 다시 뽑기 1번" % _phase_label(nx), "pill": _phase_label(nx), "tap": see}
+		return {"state": "wait", "line": "%s 아이템 보급 · 하나씩 보고 다시 뽑기 %d번" % [_phase_label(nx), Run.UNIQ_REROLLS], "pill": _phase_label(nx), "tap": see}
 	return {"state": "gone", "line": "유니크 보급(%s)이 지났다 · 상점 · 토벌엔 없다" % _unique_days_text(), "pill": "이번 판 없음", "tap": see}
 
 
@@ -3010,86 +3010,102 @@ func _item_sheet(id: String) -> void:
 		go("deploy"), "pri"))
 
 
-## 유니크 보급 —— 신화 재료 셋 중 하나 (11/2 사용자). 각 재료로 만드는 신화 장수와 그 위세를 함께 보인다
+## 유니크 보급 —— 11/27 사용자: 한 번에 하나만 크게 (1열) · 다시 뽑기 3번 · 받기. 재료로 만드는 신화 장수와 그 위세를 함께 보인다
 func _unique_sheet() -> void:
 	if run.uniq_offer.is_empty() or not can_act():
 		close_sheet()
 		return
 	var b := open_sheet("아이템 보급")
-	# 11/3 사용자: 스크롤 없이 가로 세 칸, 칸은 위아래로 길게 —— [아이템] [아이템 능력치] [장수(신화 그림)], 수치는 '효과 · 수치' 줄
-	# 11/7 사용자: 팝업을 화면 높이 88% 까지 키우고(_fit_sheet 의 상한) 장수의 병종 · 고유기 · 기질도 함께
-	# 11/9 사용자: '받기' 까지 스크롤 없이 한눈에 —— 시트를 선택권처럼 98% 로, 그림 150 → 120, 패업 줄은 뺀다 (그림을 누르면 간략창에서 본다)
+	# 11/9 사용자: '받기' 까지 스크롤 없이 한눈에 —— 시트를 선택권처럼 98% 로 (그림을 누르면 간략창에서 본다)
 	_sheet_full = true
-	var row := UI.hbox(UI.SP_XS)
 	var sa := _safe_insets()
 	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
-	row.custom_minimum_size.y = maxf(300.0, (size.y - sa.position.y) * 0.98 - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
-	for id in run.uniq_offer:
-		var iid: String = id
-		var it: Dictionary = DB.IT[iid]
-		var col := UI.vbox(UI.SP_XS)
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var ih := UI.hbox(UI.SP_XS)
-		var th := ItemArt.View.new(iid, 30)
-		th.custom_minimum_size = Vector2(30, 30)
-		ih.add_child(th)
-		var nl := UI.lbl(it.name, UI.FS_CAP, DB.PAL.gold, true)
-		UI.wrap_text(nl)
-		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		ih.add_child(nl)
-		col.add_child(ih)
-		col.add_child(_kv_grid(UI.item_text(iid), 10))
-		for k in DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid):
-			var kk: String = k
-			var art := _art_crop(kk, Vector2(120, 120), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
-			art.mouse_filter = Control.MOUSE_FILTER_STOP
-			UI.tap(art, func():      # 11/20 조작: 탭 판정 (UI.tap)
-				UI.buzz()
-				recipe_sheet(kk))      # 11/3 사용자: 디테일이 아니라 간략창으로
-			col.add_child(art)
-			var gn := UI.lbl(DB.C[kk].name, UI.FS_CAP, DB.tier_color(kk), true)
-			UI.wrap_text(gn)
-			gn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			col.add_child(gn)
-			var ubt := run.block_text(kk)      # 11/25 재료가 선점 · 사망으로 막힌 신화 —— 받아도 이번 판에 만들 수 없다
-			if ubt != "":
-				col.add_child(_lock_line(ubt + " — 만들 수 없다"))
-			# 11/7 사용자: 이 재료로 만드는 장수의 병종 —— 기호 + 이름
-			var tr := UI.hbox(UI.SP_XS)
-			tr.alignment = BoxContainer.ALIGNMENT_CENTER
-			var ti := TextureRect.new()
-			ti.texture = DB.ICON.get(DB.C[kk].tag)
-			ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			ti.custom_minimum_size = Vector2(14, 14)
-			ti.modulate = DB.PAL.bamboo
-			tr.add_child(ti)
-			tr.add_child(UI.lbl("%s · %s" % [DB.C[kk].tag, DB.tier_name(kk)], UI.FS_CAP, DB.PAL.bamboo))
-			col.add_child(tr)
-			var tb := TraitBoard.new()
-			tb.fixed = true
-			col.add_child(tb.setup(kk, 3))
-			_ability_rows(col, kk, 10, true, true, ["패업"])      # 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸 (좁은 세로 칸). 패업은 뺀다 (11/9)
-		var sp := Control.new()
-		sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		col.add_child(sp)
-		col.add_child(UI.btn("받기", func(): _confirm_unique(iid), "pri", UI.BH_S))
-		var pc := UI.panel(col, 5)
-		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		pc.size_flags_stretch_ratio = 1.0
-		pc.custom_minimum_size.x = 0
-		pc.clip_contents = true
-		row.add_child(pc)
-	b.add_child(row)
-	# 11/11 사용자: 유니크 보급은 한 번 다시 뽑을 수 있다 (셋 모두 바뀜 · 앞에 나온 것은 안 나옴)
-	if not run.uniq_rerolled:
-		b.add_child(UI.btn("다시 뽑기 (한 번) —— 셋 모두 바뀐다", func():
-			if act("reroll_unique", []):
-				Sfx.play("open")
-				_unique_sheet()
-			else:
-				toast("바꿀 아이템이 없다"), "ghost", UI.BH_S))
+	var iid: String = run.uniq_offer[0]
+	var it: Dictionary = DB.IT[iid]
+	var col := UI.vbox(UI.SP_S)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# 몇 번째 아이템인가 —— 본 수 / 볼 수 있는 수
+	var nth: int = maxi(1, run.uniq_seen.size())
+	var tot: int = nth + run.uniq_rerolls
+	var cnt := UI.lbl("유니크 %d / %d번째 · 받으면 보급 끝" % [nth, tot], UI.FS_CAP, DB.PAL.bamboo)
+	UI.wrap_text(cnt)
+	col.add_child(cnt)
+	# 아이템 —— 그림 · 이름 · 어느 신화의 재료인가
+	var ih := UI.hbox(UI.SP_S)
+	var th := ItemArt.View.new(iid, 56)
+	th.custom_minimum_size = Vector2(56, 56)
+	ih.add_child(th)
+	var nv := UI.vbox(0)
+	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var nl := UI.lbl(it.name, UI.FS_TITLE, DB.PAL.gold, true)
+	UI.wrap_text(nl)
+	nv.add_child(nl)
+	var myths: Array = DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid)
+	if not myths.is_empty():
+		var ml := UI.lbl("신화 %s 의 재료" % " · ".join(myths.map(func(x): return DB.C[x].name)), UI.FS_CAP, DB.PAL.paper)
+		UI.wrap_text(ml)
+		nv.add_child(ml)
+	ih.add_child(nv)
+	col.add_child(ih)
+	col.add_child(_kv_grid(UI.item_text(iid), 10))
+	for k in myths:
+		var kk: String = k
+		# 장수 —— 왼쪽 그림, 오른쪽 이름 · 병종 · 기질
+		var mr := UI.hbox(UI.SP_S)
+		var art := _art_crop(kk, Vector2(150, 150), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
+		art.mouse_filter = Control.MOUSE_FILTER_STOP
+		UI.tap(art, func():      # 11/20 조작: 탭 판정 (UI.tap)
+			UI.buzz()
+			recipe_sheet(kk))      # 11/3 사용자: 디테일이 아니라 간략창으로
+		mr.add_child(art)
+		var mv := UI.vbox(UI.SP_XS)
+		mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var gn := UI.lbl(DB.C[kk].name, UI.FS_BODY, DB.tier_color(kk), true)
+		UI.wrap_text(gn)
+		mv.add_child(gn)
+		# 11/7 사용자: 이 재료로 만드는 장수의 병종 —— 기호 + 이름
+		var tr := UI.hbox(UI.SP_XS)
+		var ti := TextureRect.new()
+		ti.texture = DB.ICON.get(DB.C[kk].tag)
+		ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ti.custom_minimum_size = Vector2(14, 14)
+		ti.modulate = DB.PAL.bamboo
+		tr.add_child(ti)
+		tr.add_child(UI.lbl("%s · %s" % [DB.C[kk].tag, DB.tier_name(kk)], UI.FS_CAP, DB.PAL.bamboo))
+		mv.add_child(tr)
+		var ubt := run.block_text(kk)      # 11/25 재료가 선점 · 사망으로 막힌 신화 —— 받아도 이번 판에 만들 수 없다
+		if ubt != "":
+			mv.add_child(_lock_line(ubt + " — 만들 수 없다"))
+		var tb := TraitBoard.new()
+		tb.fixed = true
+		mv.add_child(tb.setup(kk, 3))
+		mr.add_child(mv)
+		col.add_child(mr)
+		_ability_rows(col, kk, 10, true, true, ["패업"])      # 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸. 패업은 뺀다 (11/9)
+	var sp := Control.new()
+	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(sp)
+	# 아래 줄 —— [다시 뽑기 (남은 N)] [받기]. 남은 수가 0 이거나 다음 것이 없으면 다시 뽑기를 끈다
+	var br := UI.hbox(UI.SP_S)
+	var rb := UI.btn("다시 뽑기 (남은 %d)" % run.uniq_rerolls, func():
+		if act("reroll_unique", []):
+			Sfx.play("open")
+			_unique_sheet()
+		else:
+			toast("바꿀 아이템이 없다"), "ghost", UI.BH_S)
+	rb.disabled = not run.can_reroll_unique()
+	var pb := UI.btn("받기", func(): _confirm_unique(iid), "pri", UI.BH_S)
+	for bt in [rb, pb]:
+		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		br.add_child(bt)
+	col.add_child(br)
+	var pc := UI.panel(col, 8)
+	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pc.clip_contents = true
+	pc.custom_minimum_size.y = maxf(300.0, (size.y - sa.position.y) * 0.98 - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
+	b.add_child(pc)
 
 
 func _confirm_unique(iid: String) -> void:
@@ -6603,7 +6619,7 @@ func _dev_args() -> void:
 		if a.has("gdrop"):      # 11/24 점검: 전투를 보는 중 --gdrop 초 뒤 연결을 끊는다 (단계마다 한 번) —— 재접속 뒤 같은 전투를 다시 트는지 · 준비가 남는지
 			_dev_drop_loop(float(a.gdrop))
 		if a.has("gcreate"):
-			online.net.send({"t": "create", "mode": a.gcreate, "max": int(a.get("gmax", "8"))})      # 11/11 --gmax=4|6|8 총 인원
+			online.net.send({"t": "create", "mode": a.gcreate, "max": int(a.get("gmax", "4"))})      # --gmax 총 인원 (11/27 부터 서버가 4 만 받는다 —— 다른 값은 4)
 			if a.has("gstart"):
 				while online.room.is_empty() or online.room.seats.size() < int(a.gstart):
 					await online.net.message
@@ -6682,9 +6698,12 @@ func _dev_args() -> void:
 				urgent("이한솔국지", "", "고대 환두대도", "item")
 			"sell": _sell_sheet(kv[1])      # 11/13 보유 카드 꾹 누르기 판매 시트
 			"recipes": recipes_sheet()      # 11/25 전체 조합법 시트
-			"unique":      # 점검용 —— 보급 팝업을 억지로 연다 (--gsheet=unique:i81+i72+i89, 비우면 신화 재료 앞 셋)
-				var ids: Array = Array(kv[1].split("+")) if kv.size() > 1 and kv[1] != "" else DB.MYTH_ITEMS.keys().slice(0, 3)
-				run.uniq_offer = ids
+			"unique":      # 점검용 —— 보급 팝업을 억지로 연다 (--gsheet=unique:i81+i72+i89 = 이 순서로, 비우면 신화 재료 앞 넷 · 11/27 하나씩 보이고 다시 뽑기 3번)
+				var ids: Array = Array(kv[1].split("+")) if kv.size() > 1 and kv[1] != "" else DB.MYTH_ITEMS.keys().slice(0, Run.UNIQ_DECK_N)
+				run.uniq_deck = ids
+				run.uniq_offer = [ids[0]]
+				run.uniq_seen = [ids[0]]
+				run.uniq_rerolls = Run.UNIQ_REROLLS
 				_unique_sheet()
 			"pick":      # 점검용 —— --gsheet=pick:등급 (선택권을 2장 쥐여 주고 연다)
 				run.tickets[kv[1]] = maxi(2, int(run.tickets.get(kv[1], 0)))

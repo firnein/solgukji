@@ -105,8 +105,14 @@ static var dev_bonus_log := []   # 11/10 점검용 —— 토벌마다 [일차, 
 var last_hp_loss := 0         # 방금 전투에서 깎인 민심 (결과 화면용)
 var last_draw := []
 var last_item = null
-var uniq_offer := []          # 유니크 보급 —— 고를 수 있는 신화 재료 (고르면 비운다)
-var uniq_rerolled := false    # 11/11 사용자: 유니크 보급은 한 번 다시 뽑을 수 있다 (셋 모두 바뀜 · 앞에 나온 것은 다시 안 나옴) —— 이번 보급에서 이미 썼는가
+var uniq_offer := []          # 유니크 보급 —— 지금 보이는 신화 재료 (11/27 부터 늘 한 개짜리 배열 · 고르면 비운다)
+var uniq_rerolled := false    # 옛 필드 (11/11 다시 뽑기 한 번) —— 11/27 부터는 uniq_rerolls 가 0 인가를 따라 적는다 (옛 클라이언트 · 옛 저장 호환)
+const UNIQ_REROLLS := 3       # 11/27 사용자: 유니크 보급은 한 번에 하나만 보이고 다시 뽑기 3번 —— 한 사람이 볼 수 있는 유니크는 최대 4개
+const UNIQ_DECK_N := 4        # 한 사람 몫 순서의 길이 (1 + 다시 뽑기 3)
+var uniq_rerolls := UNIQ_REROLLS      # 이번 보급에서 남은 다시 뽑기 수
+var uniq_deck := []           # 11/27 이 사람의 유니크 순서 —— 온라인 방은 서버(Room.deal_uniques)가 판 시작 때 방 사람마다 겹치지 않게 넣고, 혼자 하기는 보급 때 rng 로 짓는다
+var uniq_avoid := []          # 다른 사람 몫(서버가 넣는다) —— 순서가 바닥났을 때 채울 것을 고르며 되도록 피한다
+var uniq_seen := []           # 이번 보급에서 이미 보인 것 —— 다시 나오지 않는다
 var myth_made := false        # 신화를 이미 만들었다 (한 판에 하나)
 var kiin_made: Array = []     # 만든 기인 (11/3 —— 한 판에 각 1장)
 var last_spoil = null         # {n, src} —— 방금 받은 기본패
@@ -200,6 +206,10 @@ func new_game(seed_value := -1, with_bots := true) -> void:
 	last_item = null
 	uniq_offer = []
 	uniq_rerolled = false
+	uniq_rerolls = UNIQ_REROLLS
+	uniq_deck = []
+	uniq_avoid = []
+	uniq_seen = []
 	myth_made = false
 	kiin_made = []
 	last_spoil = null
@@ -382,9 +392,7 @@ func gain_item() -> String:
 				break
 	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == grade)
 	if grade == "유니크":
-		cand = cand.filter(func(k): return DB.MYTH_ITEMS.has(k))      # 11/3 플레이어가 만들 수 있는 신화(12명)의 재료만
-		uniq_rerolled = false
-		_offer_unique(cand)
+		_offer_unique()      # 11/3 플레이어가 만들 수 있는 신화의 재료만 (DB.MYTH_ITEMS)
 		return ""
 	# 보급은 지금 세운 군세에 맞는 물건이 온다
 	var tags := {}
@@ -416,10 +424,27 @@ func blocked_uniques() -> Dictionary:
 	return out
 
 
-## 유니크 보급 (DB.ECON.UNIQUE_PHASES —— 11/11 부터 2일차 오전 한 번, 다시 뽑기 한 번) —— 신화 재료 셋 중 하나를 고른다 (11/2 사용자).
-## 군세와 상관없이 무작위 셋, 가방에 이미 있는 것은 빼고. 신화는 한 판에 하나뿐이라
-## 일찍 받은 것으로 빨리 만들지가 선택이 된다 (예전 2 · 4 · 6일차 세 번 → 11/9 · 11/11 에 4 · 6일차를 뺐다)
-func _offer_unique(cand: Array) -> void:
+## 유니크 보급 (DB.ECON.UNIQUE_PHASES —— 2일차 오전 한 번) —— 11/27 사용자: 한 번에 하나만 보이고 다시 뽑기 3번(최대 4개를 본다), 고르면 끝.
+## 보이는 것은 이 사람의 순서(uniq_deck)에서 앞에서부터 —— 가진 것(가방 · 가진 신화의 재료) · 막힌 것(선점 · 사망, blocked_uniques) · 이미 본 것은 건너뛴다.
+## 온라인 방은 서버가 사람마다 서로 겹치지 않는 4개 순서를 미리 나눠 주어(Room.deal_uniques) 두 사람이 같은 신화의 재료를 보고 선점으로 막히는 일이 보급 때문에 생기지 않는다.
+## 순서가 비었으면(혼자 하기) 여기서 rng 로 4개를 짓는다. 신화는 한 판에 하나뿐이라 일찍 받은 것으로 빨리 만들지가 선택이 된다
+func _offer_unique() -> void:
+	uniq_seen = []
+	uniq_rerolls = UNIQ_REROLLS
+	uniq_rerolled = false
+	if uniq_deck.is_empty():
+		var cand := _uniq_cand()
+		while uniq_deck.size() < UNIQ_DECK_N and not cand.is_empty():
+			uniq_deck.append(cand.pop_at(rng.randi() % cand.size()))
+	var nx := _uniq_next()
+	uniq_offer = [nx] if nx != "" else []
+	if nx != "":
+		uniq_seen.append(nx)
+		toasts.append(["아이템 보급 도착 · 유니크 하나 (다시 뽑기 %d번)" % uniq_rerolls, "gold"])
+
+
+## 지금 받을 수 있는 유니크 —— 신화 재료(DB.MYTH_ITEMS) 중 가진 것 · 막힌 것을 뺀다 (이미 본 것도 뺀다). 순서는 DB.IT 의 순서 그대로
+func _uniq_cand() -> Array:
 	# 11/4 사용자: 가진 유니크는 나오지 않게 —— 가방에 있는 것 + 신화 조합에 써서 장수에게 붙은 것(가진 신화의 재료)
 	var owned := {}
 	for k in bag:
@@ -428,68 +453,69 @@ func _offer_unique(cand: Array) -> void:
 		var inn = innate_item(k)
 		if inn != null:
 			owned[inn] = true
-	var blocked := blocked_uniques()
-	cand = cand.filter(func(k): return not owned.has(k) and not blocked.has(k))
-	var out := []
-	while out.size() < 3 and not cand.is_empty():
-		out.append(cand.pop_at(rng.randi() % cand.size()))
-	uniq_offer = out
-	if not out.is_empty():
-		toasts.append(["아이템 보급 도착 · %d개 중 하나를 고르시오" % out.size(), "gold"])
+	var b := blocked_uniques()
+	return DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k) and not owned.has(k) and not b.has(k) and not uniq_seen.has(k))
 
 
-## 11/12 보급이 이미 열려 있는데 그 사이 신화가 잠겼다(다른 사람의 선점) —— 보이는 셋에서 막힌 것만 빼고 빈자리는 새로 채운다 (서버 Room._sync_locks 가 부른다). 바뀌었으면 참
+## 다음에 보일 유니크 —— 순서(uniq_deck)에서 받을 수 있는 첫 것. 순서가 바닥났으면(막힘 · 가짐) 남은 것 중 다른 사람 몫(uniq_avoid)이 아닌 것부터 무작위. 없으면 ""
+func _uniq_next() -> String:
+	var cand := _uniq_cand()
+	for k in uniq_deck:
+		if cand.has(k):
+			return str(k)
+	if cand.is_empty():
+		return ""
+	var free: Array = cand.filter(func(k): return not uniq_avoid.has(k))
+	var src: Array = free if not free.is_empty() else cand
+	var k: String = src[rng.randi() % src.size()]
+	uniq_deck.append(k)      # 지은 것은 순서에 붙여 저장 · 되불러오기에도 같게
+	return k
+
+
+## 11/12 보급이 이미 열려 있는데 그 사이 신화가 잠겼다(다른 사람의 선점) —— 보이는 것이 막혔으면 순서의 다음 것으로 바꾼다 (다시 뽑기 수는 그대로).
+## 서버 Room._sync_locks 가 부른다. 바뀌었으면 참
 func prune_unique_offer() -> bool:
 	var b := blocked_uniques()
 	if uniq_offer.is_empty() or not uniq_offer.any(func(k): return b.has(k)):
 		return false
-	var keep: Array = uniq_offer.filter(func(k): return not b.has(k))
-	var owned := {}
-	for k in bag:
-		owned[k] = true
-	for k in pool():
-		var inn = innate_item(k)
-		if inn != null:
-			owned[inn] = true
-	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k) and not owned.has(k) and not b.has(k) and not keep.has(k) and not uniq_offer.has(k))
-	while keep.size() < 3 and not cand.is_empty():
-		keep.append(cand.pop_at(rng.randi() % cand.size()))
-	uniq_offer = keep
+	var nx := _uniq_next()
+	uniq_offer = [nx] if nx != "" else []
+	if nx != "":
+		uniq_seen.append(nx)
 	return true
 
 
-## 11/11 사용자: 유니크 보급은 한 번 다시 뽑을 수 있다 —— 보이던 셋이 모두 바뀌고, 앞에 나온 것은 다시 나오지 않는다 (가진 것도 제외)
-func reroll_unique() -> bool:
-	if uniq_offer.is_empty() or uniq_rerolled:
+## 다시 뽑을 수 있나 —— 보급이 열려 있고, 남은 수가 있고, 다음에 보일 것이 있다
+func can_reroll_unique() -> bool:
+	if uniq_offer.is_empty() or uniq_rerolls <= 0:
 		return false
-	var prev: Array = uniq_offer.duplicate()
-	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k) and not prev.has(k))
-	var owned := {}
-	for k in bag:
-		owned[k] = true
-	for k in pool():
-		var inn = innate_item(k)
-		if inn != null:
-			owned[inn] = true
-	var blocked := blocked_uniques()
-	cand = cand.filter(func(k): return not owned.has(k) and not blocked.has(k))
-	if cand.is_empty():
-		return false      # 바꿀 것이 없다 (다시 뽑기는 쓰지 않은 것으로 둔다)
-	var out := []
-	while out.size() < 3 and not cand.is_empty():
-		out.append(cand.pop_at(rng.randi() % cand.size()))
-	uniq_offer = out
-	uniq_rerolled = true
+	var cand := _uniq_cand()
+	return not cand.is_empty()
+
+
+## 11/27 사용자: 다시 뽑기 —— 보이던 것 대신 순서의 다음 것 (앞에 본 것은 다시 나오지 않는다). 남은 수가 0 이거나 바꿀 것이 없으면 거짓 (수는 쓰지 않는다)
+func reroll_unique() -> bool:
+	if not can_reroll_unique():
+		return false
+	var nx := _uniq_next()
+	if nx == "":
+		return false
+	uniq_offer = [nx]
+	uniq_seen.append(nx)
+	uniq_rerolls -= 1
+	uniq_rerolled = uniq_rerolls <= 0
 	return true
 
 
-## 유니크 보급에서 하나를 고른다
+## 유니크 보급에서 고른다 (보이는 것만) —— 고르면 이번 보급은 끝
 func pick_unique(id: String) -> bool:
 	if not uniq_offer.has(id):
 		return false
 	bag[id] = bag.get(id, 0) + 1
 	last_item = id
 	uniq_offer = []
+	uniq_seen = []
+	uniq_rerolls = UNIQ_REROLLS
 	uniq_rerolled = false
 	return true
 
@@ -1524,6 +1550,8 @@ static func _bot_material_grow(b: Dictionary, seed_value: int, p_idx: int) -> vo
 		r.new_game(seed_value, false)
 		r.mp = true
 		r.form = DB.STYLE_FORM[str(b.get("style", "균형"))]
+		r.uniq_deck = b.get("uniq_deck", []).duplicate()      # 11/27 방이 나눠 준 유니크 순서 (Room.deal_uniques —— 사람 몫과 겹치지 않는 남은 것에서)
+		r.uniq_avoid = b.get("uniq_avoid", []).duplicate()
 		if b.get("army", []).size() == 9:
 			# 기존 저장은 편성된 9장을 자산으로 이어받는다.
 			r.board = b.army.duplicate()
@@ -2655,7 +2683,7 @@ func command(m: String, a: Array):
 # ───────── 저장 ─────────
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "equip2", "gacha_pity", "last_gacha", "form", "tac", "drawn", "picked", "granted",
-	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
+	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "uniq_rerolls", "uniq_deck", "uniq_avoid", "uniq_seen", "myth_made", "kiin_made", "last_spoil",
 	"my_w", "my_l", "streak", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on", "hp_rule",
 	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls", "rs_offer", "rs_done", "merit", "kit"]
 
@@ -2684,6 +2712,7 @@ func from_dict(d: Dictionary) -> void:
 	sell_on = bool(d.get("sell_on", true))
 	hp_rule = float(d.get("hp_rule", 1.0))      # 옛 저장 · 옛 서버 —— 1.0
 	merit = int(d.get("merit", 0)) if (d.get("merit") is int or d.get("merit") is float) else 0      # 11/27 전공 —— 옛 저장 · 옛 서버는 0
+	_uniq_load(d)
 	kit = Kit.norm(d.get("kit"))      # 11/27 키트 강화 —— 옛 저장 · 옛 서버는 빈 것, 옛 형식(칸 → 강화 배열)은 새 형식(강화한 칸 목록)으로, 모르는 카드 · 칸은 버린다
 	tk_load(d)      # 11/15 군략 —— 옛 저장 · 옛 서버는 기본 3장으로      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
@@ -2726,6 +2755,26 @@ func _legacy_cards() -> void:
 			DB.legacy_ids(b.get("army"))
 	if battle is Dictionary:
 		DB.legacy_params(battle)
+
+
+## 11/27 유니크 보급 필드 되살리기 —— 옛 저장 · 옛 서버(uniq_rerolled 한 번 · 셋이 보이는 offer)는 새 규칙으로:
+## 보이던 셋 중 첫 것만 보이고 나머지 둘은 순서 앞에 둔다, 다시 뽑기는 옛것을 썼으면 0 · 아니면 3
+func _uniq_load(d: Dictionary) -> void:
+	if not d.has("uniq_rerolls"):
+		uniq_rerolls = 0 if bool(d.get("uniq_rerolled", false)) else UNIQ_REROLLS
+	uniq_rerolls = clampi(int(uniq_rerolls), 0, UNIQ_REROLLS)
+	for k in ["uniq_deck", "uniq_avoid", "uniq_seen", "uniq_offer"]:
+		if not (get(k) is Array):
+			set(k, [])
+		set(k, get(k).map(func(x): return str(x)))
+	if uniq_offer.size() > 1:
+		var old: Array = uniq_offer.duplicate()
+		uniq_offer = [old[0]]
+		var rest := old.slice(1).filter(func(x): return not uniq_deck.has(x))
+		uniq_deck = [old[0]] + rest + uniq_deck.filter(func(x): return x != old[0])
+	if not uniq_offer.is_empty() and not uniq_seen.has(uniq_offer[0]):
+		uniq_seen.append(uniq_offer[0])
+	uniq_rerolled = uniq_rerolls <= 0
 
 
 ## 11/20 점검 실행(--gnew 등 점검 인자)은 사용자 저장을 쓰지 않는다 —— 점검을 돌릴 때마다 save.json · pins.json 이 덮여

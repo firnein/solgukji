@@ -2,12 +2,12 @@ class_name Room
 extends RefCounted
 const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_name 캐시(.godot)와 무관하게 (낡은 캐시에서 "RoomLog not declared")
 ## 방 하나 —— 서버(집 PC)가 판정한다. 휴대폰은 명령만 보내고 결과를 받는다.
-## 자리 8개: 사람이 앉고 빈자리는 봇. 사람마다 Run 하나(mp=true)를 들고, 단계는 모두 같은 타이머로 넘어간다.
+## 자리 4개(11/27 부터 4인 방만 —— 예전 4 · 6 · 8): 사람이 앉고 빈자리는 봇. 사람마다 Run 하나(mp=true)를 들고, 단계는 모두 같은 타이머로 넘어간다.
 ##
 ## 하루(= 게임의 한 페이즈, 7일 × 3 = 21일차)는 네 단계 (11/7 사용자 기획):
 ##   아침 morning      징집 · 조합 · 편성 (약 1분). 모두 '준비 완료'거나 시간이 끝나면 다음
 ##   점심 noon         서버가 각자의 토벌을 계산해 보내고, 각자 본다. 다 봤으면(준비) 다음
-##   저녁 evening_prep 상대가 정해진다 —— 8자리(사람 + 빈자리 봇)를 라운드로빈(원 방식)으로 돌린다 (_begin_evening · rr_round, 11/10 사용자).
+##   저녁 evening_prep 상대가 정해진다 —— 모든 자리(사람 + 빈자리 봇, 4인 방이면 3라운드에 한 바퀴)를 라운드로빈(원 방식)으로 돌린다 (_begin_evening · rr_round, 11/10 사용자).
 ##                     저녁(토너먼트 빼고 0~19번째)마다 한 라운드, 7라운드에 한 사람이 다른 일곱 자리 전원과 정확히 한 번씩 (20번 = 7 + 7 + 6).
 ##                     난수 없이 순번과 자리 배치(방의 첫 저녁에 한 번 섞고 고정)로만 정한다. 11/7 결정 ① ②(PV 순 인접 · 어제 상대 회피 · 사람끼리 이틀 연속 금지)는 이것으로 대체.
 ##                     멸망한 사람의 짝이던 자리는 쉬지 않고 — 다른 산 사람이 있으면 그 사람의 '그림자'(저녁 편성 복사본, 11/11 그림자 대전), 없으면 떠돌이 군세(유랑군)와 붙는다. 봇끼리의 짝은 싸우지 않는다.
@@ -41,8 +41,8 @@ const MODES := {
 	"normal": {"n": "보통 — 준비 75초", "morning": 75.0, "noon": 75.0, "prep": 10.0, "evening": 100.0, "morning2": 45.0, "prep2": 10.0},
 	"test": {"n": "점검", "morning": 1.0, "noon": 0.5, "prep": 0.5, "evening": 0.5, "morning2": 1.0, "prep2": 0.5},      # 점검 모드는 빠르게 그대로 (4일차~ 도 같은 값)
 }
-const SEATS := 8              # 기본 자리 수 —— 방장이 만들 때 고르지 않으면 (옛 클라이언트) 8
-const SEAT_OPTIONS := [4, 6, 8]      # 방장이 고를 수 있는 총 인원(짝수) —— 자리 수 = 총 인원, 빈자리만 봇 (11/11 사용자)
+const SEATS := 4              # 기본 자리 수 —— 11/27 사용자: 6 · 8인 방은 일단 없앤다, 방은 4인 하나 (옛 클라이언트가 6 · 8 을 보내도 4)
+const SEAT_OPTIONS := [4]     # 방 총 인원 —— 자리 수 = 총 인원, 빈자리만 봇 (11/11 사용자 4 · 6 · 8 → 11/27 4 만)
 const TEST_MORTAL_DAY := 7    # 점검 모드는 7일차까지 멸망하지 않는다(민심 0 인 채로 간다) —— 8일차(day 7)부터는 진짜 방처럼 멸망해 판이 끝난다
 const STAGE_N := {"lobby": "대기실", "morning": "준비 — 징집·조합·편성", "noon": "토벌", "evening_prep": "대전 준비",
 	"evening": "대전", "over": "끝"}
@@ -66,7 +66,7 @@ const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "�
 var server                    # MatchServer —— send(peer, msg)
 var code := ""
 var mode := "fast"
-var max_seats := SEATS        # 이 방의 자리 수(총 인원) —— 4 · 6 · 8 (11/11). 시작할 때 빈자리만 봇으로 채운다
+var max_seats := SEATS        # 이 방의 자리 수(총 인원) —— 11/27 부터 4 만. 시작할 때 빈자리만 봇으로 채운다
 var host := -1                # 방장 peer
 var seats := []               # [{name, human, peer, token, run, bot, ready, dead, battles, acted, watched, foe}]
 var started := false
@@ -129,7 +129,7 @@ static func valid_deaths(v) -> int:
 	return 0
 
 
-## 방 만들기 메시지의 max —— 허용한 짝수(4 · 6 · 8)만, 없거나 이상하면 8 (옛 클라이언트)
+## 방 만들기 메시지의 max —— 허용한 인원(11/27 부터 4)만, 없거나 이상하면(옛 클라이언트의 6 · 8 포함) 4
 static func valid_seats(v) -> int:
 	if (typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT) and int(v) == v and int(v) in SEAT_OPTIONS:
 		return int(v)
@@ -358,6 +358,7 @@ func start() -> void:
 		# through s.run and creates a cycle that survives room deletion.
 		r.on_forge = _on_forged.bind(_idx(s))
 	_pick_deaths()
+	deal_uniques()
 	if RoomLog.wanted(mode):
 		rlog = RoomLog.new()
 		rlog.open(self)
@@ -590,6 +591,71 @@ func _pick_deaths() -> void:
 			tx += " (신화 %s 도)" % " · ".join(dm.map(func(k): return DB.C[k].name))
 		_news_add({"who": "천명", "text": tx})
 		_news_stage = ""
+
+
+## 11/27 사용자: 유니크 보급 순서를 자리마다 나눈다 (판 시작 때, 사망 장수를 정한 뒤) —— 방의 rng 로 신화 재료(DB.MYTH_ITEMS)를 섞어
+## 사람 자리부터, 그다음 봇(장부가 있는 유저봇)에 Run.UNIQ_DECK_N(4)개씩. 4인 방 4명 × 4 = 16 ≤ 종류면 서로 전혀 겹치지 않는다.
+## 이미 막힌 것(사망 장수의 신화 재료)은 처음부터 뺀다. 각 사람은 다른 사람 몫을 uniq_avoid 로 받아 순서가 바닥났을 때 되도록 피한다
+func deal_uniques() -> void:
+	var blocked := {}
+	for s in humans():
+		if s.run != null:
+			blocked = s.run.blocked_uniques()
+			break
+	var kinds: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k) and not blocked.has(k))
+	kinds.sort()
+	var order: Array = humans() + seats.filter(func(s): return not s.human)
+	var decks := deal_uniq_decks(kinds, order.size(), Run.UNIQ_DECK_N, rng, humans().size())
+	var human_all := {}
+	for i in order.size():
+		if order[i].human:
+			for k in decks[i]:
+				human_all[k] = true
+	for i in order.size():
+		var s: Dictionary = order[i]
+		var mine: Array = decks[i]
+		if s.human:
+			if s.run != null:
+				s.run.uniq_deck = mine.duplicate()
+				s.run.uniq_avoid = human_all.keys().filter(func(k): return not mine.has(k))
+		elif s.bot.get("material", false):
+			s.bot["uniq_deck"] = mine.duplicate()
+			s.bot["uniq_avoid"] = human_all.keys().filter(func(k): return not mine.has(k))
+			if s.bot.has("forge_state"):      # 이미 지은 장부(0 페이즈)에도 넣는다 —— 보급은 2일차 오전이라 아직 열리지 않았다
+				s.bot.forge_state["uniq_deck"] = s.bot.uniq_deck.duplicate()
+				s.bot.forge_state["uniq_avoid"] = s.bot.uniq_avoid.duplicate()
+
+
+## 종류(kinds) n 자리에 per 개씩 나눈다 —— 겹침이 가장 적게: 섞은 줄에서 앞의 것(가장 덜 쓰인 것)부터, 자기 몫에 이미 있는 것은 건너뛴다.
+## 앞의 first 자리(사람)를 먼저 다 나누고 남은 것을 뒤 자리(봇)에 —— 종류가 모자라도 사람끼리 먼저 겹치지 않는다.
+## 무리 안에서는 첫 칸(처음 보이는 것)부터 자리를 돌며 나눠 먼저 보이는 것끼리 먼저 겹치지 않는다. 종류가 per 보다 적으면 몫도 그만큼
+static func deal_uniq_decks(kinds: Array, n: int, per: int, r: RandomNumberGenerator, first := -1) -> Array:
+	var q := kinds.duplicate()
+	for i in range(q.size() - 1, 0, -1):      # 방 rng 로 섞기 (Array.shuffle 은 전역 난수라 쓰지 않는다)
+		var j := r.randi() % (i + 1)
+		var t = q[i]
+		q[i] = q[j]
+		q[j] = t
+	var out := []
+	for i in n:
+		out.append([])
+	var m := mini(per, q.size())
+	var f := n if first < 0 else clampi(first, 0, n)
+	for grp in [range(0, f), range(f, n)]:
+		for c in m:
+			for i in grp:
+				_deal_one(out[i], q)
+	return out
+
+
+## 줄(q)의 앞에서 deck 에 없는 첫 것을 deck 에 넣고 줄 끝으로 보낸다 (쓴 것은 뒤로 —— 앞에는 늘 덜 쓰인 것)
+static func _deal_one(deck: Array, q: Array) -> void:
+	for qi in q.size():
+		if not deck.has(q[qi]):
+			var k = q.pop_at(qi)
+			deck.append(k)
+			q.append(k)
+			return
 
 
 ## 불멸(7등급) 카드 k 를 재료로 쓰는 신화 id —— 하위 불멸이 사망하면 신화도 못 만든다. 없으면 "" (11/12 사용자)

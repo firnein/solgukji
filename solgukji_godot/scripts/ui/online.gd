@@ -64,7 +64,7 @@ var _code_edit: LineEdit
 var _tick := 0.0
 var _warn_fx: Control = null      # 붉은 가장자리 (WarnEdge)
 var _warn_c := -1                 # 마지막으로 비프를 울린 남은 초 (올림)
-var _pick_max := Room.SEATS       # 방 만들기 시트에서 고른 총 인원 (4 · 6 · 8, 11/11) —— create 의 max
+var _pick_max := Room.SEATS       # 방 만들기의 총 인원 —— 11/27 부터 4 고정 (create 의 max)
 var _pick_claim := true           # 11/12 장수 선점제 (기본 켜짐) —— create 의 claim
 var _pick_sell := true            # 11/13 유닛 판매 · 군량 상점 (기본 켜짐) —— create 의 sell
 var _pick_hp := 1.0               # 11/26 패배 민심 피해 배율 (Room.HP_OPTIONS) —— create 의 hp
@@ -561,7 +561,7 @@ func connect_sheet(refresh := false) -> void:
 		b.add_child(UI.hint("나가면 내 자리는 AI 가 이어받는다. 다른 방을 만들거나 들어가도 지금 방에서는 나간다."))
 	var create_box := UI.vbox(UI.SP_M)
 	create_box.add_child(UI.eyebrow("방 만들기"))
-	# 11/11 사용자: 총 인원(자리 수)은 방장이 고른다 —— 짝수 4 · 6 · 8. 사람이 앉고 남은 자리만 시작할 때 봇이 채운다
+	# 총 인원(자리 수) —— 11/27 사용자: 6 · 8인 방은 일단 없앤다, 4명 고정. 사람이 앉고 남은 자리만 시작할 때 봇이 채운다
 	var seat_box := UI.vbox(UI.SP_S)
 	create_box.add_child(seat_box)
 	_fill_seat_pick(seat_box)
@@ -663,7 +663,7 @@ func _conn_restore(k: Dictionary) -> void:
 		gs._restore_sheet_scroll(int(k.scroll))
 
 
-## 총 인원 고르기 —— [4명 | 6명 | 8명] + 한 줄 안내 (고르면 이 상자만 다시 그린다 — 시트의 이름 · 주소 칸은 그대로)
+## 방 규칙 고르기 (고르면 이 상자만 다시 그린다 — 시트의 이름 · 주소 칸은 그대로). 총 인원은 11/27 부터 4명 고정 표시 (고를 것 하나)
 func _fill_seat_pick(box: Control) -> void:
 	for c in box.get_children():
 		box.remove_child(c)
@@ -671,7 +671,8 @@ func _fill_seat_pick(box: Control) -> void:
 	var items := []
 	for n in Room.SEAT_OPTIONS:
 		items.append([str(n), "%d명" % n])
-	_room_option(box, "총 인원", "빈자리는 봇이 채웁니다. 시작 후에는 바꿀 수 없습니다.", items, str(_pick_max), func(k: String):
+	_pick_max = Room.SEATS
+	_room_option(box, "총 인원", "4명 고정입니다. 빈자리는 봇이 채웁니다.", items, str(_pick_max), func(k: String):
 		_pick_max = int(k)
 		_fill_seat_pick(box))
 	# 11/12 방 규칙 —— 장수 선점제(기본 켜짐) · 장수 사망룰(기본 끔, 3 · 5 · 10명)
@@ -724,9 +725,9 @@ func _room_option(box: Control, title: String, description: String, items: Array
 	box.add_child(field)
 
 
-## 이 방의 자리 수(총 인원) —— 옛 서버는 max 를 주지 않는다 → 8
+## 이 방의 자리 수(총 인원) —— 옛 서버는 max 를 주지 않는다 → 8 (그때의 기본. 11/27 새 서버는 늘 4 를 준다)
 func room_max() -> int:
-	return int(room.get("max", Room.SEATS))
+	return int(room.get("max", 8))
 
 
 ## 지금 방을 떠난다 (연결은 둔다) —— 서버는 leave 를 받으면 left · rooms 를 보낸다. 혼자 하던 판이 저장돼 있으면 그것으로 돌아간다 (11/9)

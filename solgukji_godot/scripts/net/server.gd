@@ -8,7 +8,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")      # 11/10 class_nam
 ##   hello {name, token, rec}   첫 인사. token 이 진행 중인 방의 자리와 맞으면 그 자리로 돌아간다.
 ##                         rec = 플레이 기록 동의 (11/10) —— true 인 사람만 서버가 기록한다 (RoomLog). 없으면(옛 APK) 접속은 되지만 기록하지 않는다
 ##   list                  열린 방 목록
-##   create {mode, max}    방 만들기 (fast · normal) —— 만든 사람이 방장. max = 총 인원(자리 수) 4 · 6 · 8 (11/11, 없거나 이상하면 8 — 옛 APK). 시작할 때 빈자리만 봇
+##   create {mode, max}    방 만들기 (fast · normal) —— 만든 사람이 방장. max = 총 인원(자리 수) —— 11/27 부터 4 만 (6 · 8 · 없음 · 이상한 값은 4 — 옛 APK). 시작할 때 빈자리만 봇
 ##                         11/12 claim = 장수 선점제(없으면 켜짐) · deaths = 장수 사망룰 인원 3 · 5 · 10 (없거나 0 이면 끔). 방 정보에 claim · deaths · dead_units
 ##                         11/13 sell = 유닛 판매 · 군량 상점(없으면 켜짐). 방 정보에 sell
 ##                         11/26 hp = 패배 민심 피해 배율 0.5 · 1 · 1.5 · 2 (없으면 1). 방 정보에 hp

@@ -337,6 +337,9 @@ func _unique_filter() -> void:
 		_unique_offer(run)
 		if run.uniq_offer.has(mi):
 			seen_free = true
+		while run.reroll_unique():      # 11/27 하나씩 보이고 다시 뽑기 3번 —— 본 것 전부로 센다
+			if run.uniq_offer.has(mi):
+				seen_free = true
 	if not seen_free:
 		_fail("잠금이 없을 때 %s 의 유니크 %s 가 한 번도 안 나온다 (표본 오류)" % [M, mi])
 	var bad := 0
@@ -349,8 +352,9 @@ func _unique_filter() -> void:
 		n_off += run.uniq_offer.size()
 		if run.uniq_offer.has(mi):
 			bad += 1
-		if run.reroll_unique() and run.uniq_offer.has(mi):
-			bad += 1
+		while run.reroll_unique():
+			if run.uniq_offer.has(mi):
+				bad += 1
 		# 선점으로 잠긴 신화도 같다
 		var run2 := Run.new()
 		run2.new_game(500 + sd)
@@ -358,8 +362,9 @@ func _unique_filter() -> void:
 		_unique_offer(run2)
 		if run2.uniq_offer.has(mi):
 			bad += 1
-		if run2.reroll_unique() and run2.uniq_offer.has(mi):
-			bad += 1
+		while run2.reroll_unique():
+			if run2.uniq_offer.has(mi):
+				bad += 1
 	if bad > 0:
 		_fail("잠긴 신화 %s 의 유니크 %s 가 %d 번 나왔다" % [M, mi, bad])
 	# 신화를 전부 잠그면 보급이 비어 있다 (오류 없이)
@@ -381,7 +386,7 @@ func _unique_filter() -> void:
 			victim = str(m)
 			break
 	run4.locked = {victim: {"by": "누군가"}}
-	if not run4.prune_unique_offer() or run4.uniq_offer.has(Run.need_item(victim)) or run4.uniq_offer.size() != 3:
+	if not run4.prune_unique_offer() or run4.uniq_offer.has(Run.need_item(victim)) or run4.uniq_offer.size() != 1:
 		_fail("열린 유니크 보급 갈아 끼우기: %s" % str(run4.uniq_offer))
 	# 방에서 사람2 가 선점당한 신화는 사람2 의 보급에서 빠진다
 	var mk := _mk(true, 0)
@@ -396,9 +401,8 @@ func _unique_filter() -> void:
 ## 유니크 보급 상태로 만든다 (UNIQUE_PHASES 아침과 같은 호출)
 static func _unique_offer(run: Run) -> void:
 	run.uniq_offer = []
-	run.uniq_rerolled = false
-	var cand: Array = DB.IT.keys().filter(func(k): return DB.IT[k].grade == "유니크" and DB.MYTH_ITEMS.has(k))
-	run._offer_unique(cand)
+	run.uniq_deck = []      # 11/27 혼자 하기처럼 —— 순서는 보급 때 rng 로
+	run._offer_unique()
 
 
 func _socket() -> void:
