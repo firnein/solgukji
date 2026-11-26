@@ -69,7 +69,17 @@ func _ready() -> void:
 	if headless:
 		Engine.time_scale = 6.0      # 화면 없이는 빨리 돌린다 (표시 대기열만 본다)
 	var with_up: Dictionary = result.duplicate(true)
-	print("KITFX|강화 판에 넣은 것 %s" % JSON.stringify(_inject(with_up)))
+	if _args.has("real"):      # 11/27 엔진 병합 뒤 —— 직접 넣지 않고 엔진이 강화(관우 Q·W · 감녕 W·R)로 계산한 결과 그대로
+		var pol := {"A": "auto", "B": "auto", "kit": {"A": {"c177": ["q", "w"], "c197": ["w", "r"]}, "B": {}}}
+		with_up = RtBattle.new(int(_args.get("seed", "5100"))).run(a, "eorin", 100, null, b, "hagik", 100, null, "", "", [], pol)
+		var kn := {}
+		for e in with_up.ev:
+			if e.has("kup"):
+				kn[str(e.kup)] = int(kn.get(str(e.kup), 0)) + 1
+		print("KITFX|엔진 강화 판 —— 일한 강화 %s" % JSON.stringify(kn))
+		_expect(not kn.is_empty(), "엔진이 강화 효과 사건(kup)을 내지 않았다")
+	else:
+		print("KITFX|강화 판에 넣은 것 %s" % JSON.stringify(_inject(with_up)))
 	if _args.has("perf"):
 		await _perf(view, result, with_up)
 		get_tree().quit(1 if _fail > 0 else 0)
