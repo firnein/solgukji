@@ -33,6 +33,9 @@ const PROFILES := {
 	"s13": [Motion.DECOY, 0.22, 0.24, 0.35, 3, 0.79], # Disappearing orange
 	"s17": [Motion.AMBUSH, 0.12, 0.19, 0.24, 2, 0.82], # Resolve at White Gate
 	"L50": [Motion.DECOY, 0.08, 0.09, 0.37, 1, 0.76], # Wolf glance
+	"L51": [Motion.SWEEP, 0.46, 0.18, 0.50, 2, 0.66], # 호치 허저 —— 불멸 맹공을 크게
+	"L52": [Motion.SHOT, 0.30, 0.11, 0.28, 2, 0.74], # 노익장 황충 —— 백보천양
+	"L53": [Motion.INVOKE, 0.09, 0.27, 0.32, 2, 0.84], # 오두미천사 장로 —— 오두미도
 }
 
 # Alternate grades of the same commander share the gesture, with smaller movement.
