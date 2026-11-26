@@ -10,7 +10,7 @@ func _ready() -> void:
 	add_child(painting)
 	painting.batch.show()
 	var slots := []
-	for map in [painting._hero_cells, painting._immortal_hero_cells]:
+	for map in [painting._hero_cells, painting._immortal_hero_cells, painting._transcendent_hero_cells]:
 		slots.append_array(map.values())
 	var viewport_size := get_viewport_rect().size
 	var rows := ceili(float(slots.size()) / COLUMNS)
@@ -50,4 +50,8 @@ func _ready() -> void:
 		if not args.is_empty():
 			image.save_png(args[0].path_join("hero_atlas_pose_%d.png" % pose))
 	print("HERO_ATLAS_GPU|%d/%d" % [verified, slots.size() * 4])
-	get_tree().quit(0 if verified == 212 and slots.size() == 53 else 1)
+	var expected := DB.C.keys().filter(func(k): return DB.C[k].tier == 6 and not DB.is_foe(k))
+	var actual := painting._transcendent_hero_cells.keys()
+	expected.sort()
+	actual.sort()
+	get_tree().quit(0 if verified == slots.size() * 4 and slots.size() == 53 + expected.size() and actual == expected else 1)

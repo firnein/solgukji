@@ -10,6 +10,8 @@ var hero_atlas: Texture2D      # 11/24 신화 장수 인형 시트 (tools/script
 var hero_grid := Vector2(4, 3)
 var immortal_hero_atlas: Texture2D
 var immortal_hero_grid := Vector2(14, 12)
+var transcendent_hero_atlas: Texture2D
+var transcendent_hero_grid := Vector2(12, 5)
 var soldiers: MultiMeshInstance2D
 var shadows: MultiMeshInstance2D
 var capacity := 0
@@ -54,6 +56,11 @@ func _ready() -> void:
 		material_.set_shader_parameter("immortal_hero_grid", immortal_hero_grid)
 		material_.set_shader_parameter("immortal_hero_pixel_size", Vector2.ONE / immortal_hero_atlas.get_size())
 		material_.set_shader_parameter("has_immortal_hero", true)
+	if transcendent_hero_atlas != null:
+		material_.set_shader_parameter("transcendent_hero_atlas", transcendent_hero_atlas)
+		material_.set_shader_parameter("transcendent_hero_grid", transcendent_hero_grid)
+		material_.set_shader_parameter("transcendent_hero_pixel_size", Vector2.ONE / transcendent_hero_atlas.get_size())
+		material_.set_shader_parameter("has_transcendent_hero", true)
 	soldiers.material = material_
 	add_child(soldiers)
 

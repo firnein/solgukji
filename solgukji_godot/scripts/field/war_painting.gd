@@ -2,6 +2,7 @@ extends Control
 
 const FormationMotion = preload("res://scripts/field/painted_formation.gd")
 const CasterFx = preload("res://scripts/field/painted_caster.gd")
+const MythUltimateMotion = preload("res://scripts/field/myth_ultimate_motion.gd")
 var caster = CasterFx.new(self)     # 11/25 책략계 기여 표시 (버프 · 디버프 · 천문 · 혼란 · 위세 · 기술 발동 · 책략 타격)
 var caster_stats: Dictionary:      # 점검용 (tests/caster_vis_shot)
 	get:
@@ -82,6 +83,7 @@ static var heroes_on := true   # 점검용 (tests/tier_sprite_shot --heroes=0) �
 var hero_ready := false
 var _hero_cells := {}          # 인물 이름 -> 칸 번호 (data/myth_heroes.json)
 var _immortal_hero_cells := {}
+var _transcendent_hero_cells := {}
 var _hero_fill := PackedFloat32Array()      # 칸 번호 -> 인형 키 / 칸 키 (발 0.97 기준)
 var _hero_scale := PackedFloat32Array()
 var _hero_of := {}             # 카드 id -> 칸 번호 (-1 = 없음)
@@ -203,6 +205,7 @@ func reset() -> void:
 	volleys.clear()
 	ults.clear()
 	skill_fx_q.clear()
+	_hero_skill_motion.clear()
 	_glow_q.clear()
 	last_clock = -1.0
 	visual_time = 0.0
@@ -787,9 +790,12 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 const HERO_DATA := "res://data/myth_hero_actions.json"
 const LEGACY_HERO_DATA := "res://data/myth_heroes.json"
 const IMMORTAL_HERO_DATA := "res://data/immortal_hero_actions.json"
+const TRANSCENDENT_HERO_DATA := "res://data/transcendent_hero_actions.json"
+const TRANSCENDENT_TIER := 6
 const IMMORTAL_TIER := 7
 const HERO_CELL := 96
 const IMMORTAL_HERO_OFFSET := 48 # 셰이더의 불멸 장수 시작 칸 = 96 + 48
+const TRANSCENDENT_HERO_OFFSET := 216 # First transcendent shader cell = 96 + 216.
 const HERO_FIG := 1.75         # 장수 키 = 병사 인형 키 × 이 값 (사용자 샘플 기준)
 const HERO_BODY := 0.92        # 병사 인형이 칸에서 차지하는 키 (동작 시트 실측 0.84~1.0) —— 장수 키를 칸이 아닌 몸으로 맞춘다
 const HERO_LUNGE := 2.2        # 공격 · 피격 때 내지르기 · 움찔 폭 (병사 대비, 그림 한 장이라 자리 · 기울기로)
@@ -801,7 +807,8 @@ func _load_heroes() -> void:
 	var data_path := HERO_DATA if FileAccess.file_exists(HERO_DATA) else LEGACY_HERO_DATA
 	_load_hero_sheet(data_path, _hero_cells, 0)
 	_load_hero_sheet(IMMORTAL_HERO_DATA, _immortal_hero_cells, IMMORTAL_HERO_OFFSET)
-	hero_ready = not _hero_cells.is_empty() or not _immortal_hero_cells.is_empty()
+	_load_hero_sheet(TRANSCENDENT_HERO_DATA, _transcendent_hero_cells, TRANSCENDENT_HERO_OFFSET)
+	hero_ready = not _hero_cells.is_empty() or not _immortal_hero_cells.is_empty() or not _transcendent_hero_cells.is_empty()
 
 func _load_hero_sheet(data_path: String, map: Dictionary, offset: int) -> void:
 	if not FileAccess.file_exists(data_path):
@@ -812,7 +819,11 @@ func _load_hero_sheet(data_path: String, map: Dictionary, offset: int) -> void:
 	var tex: Texture2D = load(str(d.sheet))
 	var grid: Array = d.get("grid", [4, 3])
 	var slots := int(grid[0]) * int(grid[1])
-	if tex == null or slots <= 0 or (offset == 0 and slots > IMMORTAL_HERO_OFFSET):
+	if tex == null or slots <= 0:
+		return
+	if offset == 0 and slots > IMMORTAL_HERO_OFFSET:
+		return
+	if offset == IMMORTAL_HERO_OFFSET and offset + slots > TRANSCENDENT_HERO_OFFSET:
 		return
 	var poses := clampi(int(d.get("poses", 1)), 1, 4)
 	_hero_fill.resize(maxi(_hero_fill.size(), offset + slots))
@@ -829,12 +840,15 @@ func _load_hero_sheet(data_path: String, map: Dictionary, offset: int) -> void:
 		_hero_poses = poses
 		batch.hero_atlas = tex
 		batch.hero_grid = Vector2(int(grid[0]), int(grid[1]))
-	else:
+	elif offset == IMMORTAL_HERO_OFFSET:
 		batch.immortal_hero_atlas = tex
 		batch.immortal_hero_grid = Vector2(int(grid[0]), int(grid[1]))
+	else:
+		batch.transcendent_hero_atlas = tex
+		batch.transcendent_hero_grid = Vector2(int(grid[0]), int(grid[1]))
 
 func _shows_hero(sq: Squad) -> bool:
-	return batch_rendering and hero_ready and heroes_on and tier_fx and sq.tier in [IMMORTAL_TIER, MYTH_TIER] and _hero_index(sq) >= 0
+	return batch_rendering and hero_ready and heroes_on and tier_fx and sq.tier in [TRANSCENDENT_TIER, IMMORTAL_TIER, MYTH_TIER] and _hero_index(sq) >= 0
 
 func _collect_hero_fall(sq: Squad, fall: Dictionary) -> void:
 	var at: Vector2 = fall.at
@@ -842,12 +856,16 @@ func _collect_hero_fall(sq: Squad, fall: Dictionary) -> void:
 	var phase := smoothstep(0.0, HERO_FALL_TIME, visual_time - float(fall.start))
 	var p := _pm(at) + axis * (phase * 6.0)
 	var h := _figure_height(sq, fall.form)
-	var tilt := phase * (1.36 if axis.x >= 0.0 else -1.36)
-	_append_hero(sq, _hero_index(sq), 3, p, h, 1.0 - phase, tilt, 0.0, 0.0, fall.mirror, 0.0)
+	var transcendent := sq.tier == TRANSCENDENT_TIER
+	var fall_tilt := 0.28 if transcendent else 1.36
+	var tilt := phase * fall_tilt * (1.0 if axis.x >= 0.0 else -1.0)
+	_append_hero(sq, _hero_index(sq), 4 if transcendent else 3, p, h, 1.0 - phase, tilt, 0.0, 0.0, fall.mirror, 0.0)
 
 ## 그 부대 장수의 인형 칸 (없으면 -1) —— 카드 id 로 한 번만 찾는다
 func _hero_index(sq: Squad) -> int:
 	var k := sq.cid
+	if sq.tier == TRANSCENDENT_TIER:
+		return int(_transcendent_hero_cells.get(k, -1))
 	if not _hero_of.has(k):
 		var person := DB.person(k) if DB.C.has(k) else ""
 		var immortal_idx := int(_immortal_hero_cells.get(person, -1))
@@ -916,6 +934,28 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		var ph := visual_time * 5.4 + float(sq.row.slot)
 		p.x += sin(ph) * soldier_h * 0.07
 		tilt += sin(ph * 0.8 + 0.7) * 0.1
+	if sq.state != "flee":
+		var motion := MythUltimateMotion.INACTIVE
+		for i in range(ults.size() - 1, -1, -1):
+			var action: Dictionary = ults[i]
+			if action.a != sq.key:
+				continue
+			var age := last_clock - float(action.start)
+			if action.phase == "dash" and age >= 0.3 and not sq.moving:
+				break
+			if pose == 3 and action.phase != "impact":
+				break
+			motion = MythUltimateMotion.sample(sq.cid, action.phase, age, float(action.end) - float(action.start))
+			break
+		if motion.w < 0.0 and pose != 3 and _hero_skill_motion.has(sq.key):
+			var skill: Dictionary = _hero_skill_motion[sq.key]
+			var age := last_clock - float(skill.start)
+			motion = MythUltimateMotion.sample_skill(sq.cid, skill.style, skill.kind, age, skill.delay)
+		if motion.w >= 0.0:
+			p += (axis * motion.x - Vector2(0.0, motion.y)) * soldier_h
+			tilt += motion.z * (-1.0 if mirror else 1.0)
+			pose = int(motion.w)
+			gait = 0.0
 	_append_hero(sq, idx, pose, p, soldier_h, fade_sq, tilt, gait, stride, mirror, cv)
 
 func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, fade_sq: float,
@@ -928,11 +968,16 @@ func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, 
 	_figs[b] = p.x
 	_figs[b + 1] = p.y
 	var immortal := sq.tier == IMMORTAL_TIER
-	var scale := 1.55 if immortal else HERO_FIG
+	var transcendent := sq.tier == TRANSCENDENT_TIER
+	var scale := 1.55 if immortal else (1.4 if transcendent else HERO_FIG)
 	var h := soldier_h * scale * _hero_scale[idx] * HERO_BODY / _hero_fill[idx]
 	_figs[b + 2] = h
 	hero_feet[sq.key] = p - Vector2(0.0, pow(absf(sin(stride)), 3.0) * gait * h * 0.012)
-	_figs[b + 3] = float(HERO_CELL + idx + (pose if idx >= IMMORTAL_HERO_OFFSET else mini(pose, _hero_poses - 1)))
+	var frame := pose if idx >= IMMORTAL_HERO_OFFSET else mini(pose, _hero_poses - 1)
+	if transcendent:
+		# Idle, action, recoil, defeat. The wind-up reuses idle with a tilt.
+		frame = maxi(0, pose - 1)
+	_figs[b + 3] = float(HERO_CELL + idx + frame)
 	_figs[b + 4] = fade_sq
 	_figs[b + 5] = tilt
 	_figs[b + 6] = gait
@@ -940,7 +985,8 @@ func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, 
 	_figs[b + 8] = 0.0
 	_figs[b + 9] = 1.0 if mirror else 0.0
 	_figs[b + 10] = cv
-	_figs[b + 11] = (IMMORTAL_HERO_STYLE if immortal else MYTH_HERO_STYLE) + (0.0 if sq.camp == "A" else 16.0)
+	var style := IMMORTAL_HERO_STYLE if immortal or transcendent else MYTH_HERO_STYLE
+	_figs[b + 11] = style + (0.0 if sq.camp == "A" else 16.0)
 	_fig_sq.append(sq)
 	_fig_keys.append(((int(roundf(p.y * 8.0)) + 0x80000) << 16) | n)
 
@@ -1536,7 +1582,7 @@ const ULT_LIFE := {"firestorm": 2.4, "thunder": 1.5, "slash": 1.1, "shadow": 1.3
 ## 11/19 화염 계열 여섯 —— 인물마다 불이 오는 방식이 다르다 (없으면 불덩이 셋). 다른 계열은 인물 갈래 번호(sd)로 획 수 · 각도 · 색을 바꾼다
 ##  wave 주유 적벽대화: 바람을 탄 불벽이 적진을 쓸고 지나간다 · trail 육손 이릉: 불길이 진영을 따라 차례로 옮겨붙는다 · arrows 정보 화선: 불화살 떼
 ##  ram 황개 고육지계: 불배 하나가 곧장 들이받고 터진다 · chain 방통 연환: 쇠사슬로 엮인 뒤 사슬을 따라 탄다 · erupt 동탁 낙양겁화: 땅에서 불기둥이 솟는다
-const ULT_STYLE := {"주유": "wave", "육손": "trail", "정보": "arrows", "황개": "ram", "방통": "chain", "동탁": "erupt"}
+const ULT_STYLE := {"여포": "halberd_whirlwind", "관우": "crescent", "주유": "wave", "육손": "trail", "정보": "arrows", "황개": "ram", "방통": "chain", "동탁": "erupt"}
 
 ## phase "charge" —— 기 모으기 (시전자 둘레), "impact" —— 맞는 순간 (적 · 아군 부대)
 func add_ult(vfx: String, a_key: String, foes: Array, allies: Array, col: Color, phase: String, lite := false) -> void:
@@ -1689,6 +1735,8 @@ func _draw_lite_ult(ci: CanvasItem, e: Dictionary, _t: float, col: Color, _fade:
 		return
 	if e.vfx in ["roar", "whirlwind"]:
 		_lite_shock(ci, e, from, age, life, col, fade)
+	if e.tl == 5 and e.style == "halberd_whirlwind" and age < 0.84:
+		_draw_myth_halberd_whirlwind(ci, from, age)
 	for i in e.hits.size():
 		var hit: Dictionary = e.hits[i]
 		var ai: float = age - i * 0.07
@@ -1698,8 +1746,62 @@ func _draw_lite_ult(ci: CanvasItem, e: Dictionary, _t: float, col: Color, _fade:
 		_ult_mark_ground(ci, e, hit.at, ai, fade)
 		_skill_hit(ci, e, hit, ai, life, fade)
 		_lite_extra(ci, e, hit.at, ai, life, fade, col)
+		if e.tl == 5 and e.style == "wave" and ai < 0.64 and i == 0:
+			_draw_myth_fire_wave(ci, from, hit.at, ai)
+		if e.tl == 5 and e.style == "crescent" and ai < 0.50 and i == 0:
+			_draw_myth_crescent(ci, from, hit.at, ai)
 		_tier_over(ci, e, hit.at, ai, fade)
 	_seal_stamp(ci, e.hits[0].at if not e.hits.is_empty() else from, age, fade, sc)
+
+
+func _draw_myth_halberd_whirlwind(ci: CanvasItem, from: Vector2, age: float) -> void:
+	var center := _pm(from)
+	var unit := maxf(29.0, _px(from, 95.0))
+	for pass_index in 3:
+		var t := (age - pass_index * 0.15) / 0.54
+		if t <= 0.0 or t >= 1.0:
+			continue
+		var fade := smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.40, 1.0, t))
+		var radius := unit * (0.66 + 0.52 * t + pass_index * 0.16)
+		var head := -PI * 0.65 + t * TAU * 1.06 + pass_index * 2.05
+		var arc := PackedVector2Array()
+		for step in 25:
+			var angle := head - 2.05 * (1.0 - step / 24.0)
+			arc.append(center + Vector2(cos(angle), sin(angle) * 0.54 - 0.38) * radius)
+		ci.draw_polyline(arc, Color(0.29, 0.03, 0.04, fade * 0.74), unit * 0.32, true)
+		ci.draw_polyline(arc, Color(1.0, 0.27, 0.13, fade * 0.94), unit * 0.16, true)
+		ci.draw_polyline(arc, Color(1.0, 0.89, 0.55, fade), unit * 0.055, true)
+
+
+func _draw_myth_crescent(ci: CanvasItem, from: Vector2, to: Vector2, age: float) -> void:
+	var origin := _pm(from)
+	var target := _pm(to)
+	var heading := (target - origin).angle()
+	var radius := maxf(25.0, _px(to, 105.0))
+	var progress := smoothstep(0.0, 0.22, age)
+	var opacity := smoothstep(0.0, 0.055, age) * (1.0 - smoothstep(0.20, 0.50, age))
+	var center := origin.lerp(target, 0.60) - Vector2(0.0, radius * 0.35)
+	var end := heading - 1.35 + progress * 2.70
+	var start := maxf(heading - 1.52, end - 1.18)
+	ci.draw_arc(center, radius, start, end, 22, Color(0.04, 0.38, 0.23, opacity * 0.52), radius * 0.32, true)
+	ci.draw_arc(center, radius, start, end, 22, Color(0.22, 0.95, 0.61, opacity), radius * 0.13, true)
+	ci.draw_arc(center, radius * 1.04, start, end, 22, Color(1.0, 0.94, 0.72, opacity), radius * 0.047, true)
+
+
+func _draw_myth_fire_wave(ci: CanvasItem, from: Vector2, to: Vector2, age: float) -> void:
+	var origin := _pm(from)
+	var target := _pm(to)
+	var dir := origin.direction_to(target)
+	var side := Vector2(-dir.y, dir.x)
+	var unit := maxf(14.0, _px(to, 62.0))
+	var progress := smoothstep(0.0, 0.46, age)
+	var strength := smoothstep(0.0, 0.10, age) * (1.0 - smoothstep(0.40, 0.64, age))
+	var front := origin.lerp(target + dir * unit * 0.55, progress)
+	for k in 7:
+		var lane := float(k - 3)
+		var at := front + side * lane * unit * 0.30 - dir * absf(lane) * unit * 0.14
+		var crest := 1.0 - absf(lane) * 0.16
+		_flame(ci, at, unit * 2.2 * crest * strength, unit * 0.36, last_clock * 8.0 + k, strength * 0.88)
 
 
 ## 고유기 표식 (기 모으기) —— 시전자 발밑에 금빛 원상이 커지며 돌고, 기가 불티로 빨려 들며, 머리 위로 붉은 인장이 튀어나온다
@@ -2388,6 +2490,7 @@ const MINOR_FX_SC := 0.45
 const SELF_STYLES := ["heal", "guard", "aura"]
 const MAX_SKILL_FX := 20
 var skill_fx_q: Array = []
+var _hero_skill_motion := {}
 var skill_fx_seen := {}        # 점검용 —— 갈래마다 붙은 수 (tests/skill_fx_shot)
 
 
@@ -2409,7 +2512,10 @@ func add_skill(name: String, a_key: String, targets: Array, kind: String, delay:
 	var a: Squad = v.field.squads.get(a_key)
 	if a != null:
 		var caster_unit: bool = a.tag in SUPPORT_TAGS
-		_add_skill_fx(skill_style(name, kind, a.tag), a, targets, CASTER_SKILL_FX_SC if caster_unit else SKILL_FX_SC, delay)      # 시전 원 + 이름은 skill 사건에서 (caster.on_event)
+		var style := skill_style(name, kind, a.tag)
+		if DB.C.has(a.cid):
+			_hero_skill_motion[a.key] = {"start": v.field.clock, "style": style, "kind": kind, "delay": delay}
+		_add_skill_fx(style, a, targets, CASTER_SKILL_FX_SC if caster_unit else SKILL_FX_SC, delay)      # 시전 원 + 이름은 skill 사건에서 (caster.on_event)
 
 
 ## 잔기술 —— 맞는 순간 (Type2View.fx_minor 가 삽화 화면이면 이리 넘긴다)

@@ -10,7 +10,7 @@ uniform vec2 action_red_pixel_size;
 uniform sampler2D myth_blue : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D myth_red : source_color, filter_linear_mipmap, repeat_disable;
 uniform bool has_myth = false;
-// 신화는 셀 96부터, 불멸은 셀 144부터.
+// Atlas cell ranges start at 96 for myth, 144 for immortal, and 312 for transcendent.
 // 진영은 모양 값(style)의 16 자리 (16 이상 = 적군) —— 진영색 테두리 기운으로 가른다
 uniform sampler2D hero_atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform vec2 hero_grid = vec2(4.0, 3.0);
@@ -20,10 +20,15 @@ uniform sampler2D immortal_hero_atlas : source_color, filter_linear_mipmap, repe
 uniform vec2 immortal_hero_grid;
 uniform vec2 immortal_hero_pixel_size;
 uniform bool has_immortal_hero = false;
+uniform sampler2D transcendent_hero_atlas : source_color, filter_linear_mipmap, repeat_disable;
+uniform vec2 transcendent_hero_grid;
+uniform vec2 transcendent_hero_pixel_size;
+uniform bool has_transcendent_hero = false;
 const vec3 HERO_ALLY = vec3(0.36, 0.7, 1.0);
 const vec3 HERO_ENEMY = vec3(1.0, 0.34, 0.2);
 varying float hero;       // 1 = 장수 인형
 varying float immortal_hero;
+varying float transcendent_hero;
 varying float enemy;      // 장수 인형이 적군
 const float MYTH_FIT = 0.8;      // painted_batch.gd MYTH_FIT · tools/scripts/make_myth_troops.py FIT 와 같게
 varying vec4 tint;
@@ -48,8 +53,9 @@ vec4 over(vec4 top, vec4 bottom) {
 void vertex() {
 	float style = floor(INSTANCE_CUSTOM.a);
 	float cell = INSTANCE_CUSTOM.r;
-	immortal_hero = (has_immortal_hero && cell >= 144.0) ? 1.0 : 0.0;
-	hero = (immortal_hero > 0.5 || (has_hero && cell >= 96.0 && cell < 144.0)) ? 1.0 : 0.0;
+	transcendent_hero = (has_transcendent_hero && cell >= 312.0) ? 1.0 : 0.0;
+	immortal_hero = (has_immortal_hero && cell >= 144.0 && cell < 312.0) ? 1.0 : 0.0;
+	hero = (transcendent_hero > 0.5 || immortal_hero > 0.5 || (has_hero && cell >= 96.0 && cell < 144.0)) ? 1.0 : 0.0;
 	enemy = style >= 16.0 ? 1.0 : 0.0;
 	grade = mod(style, 8.0);
 	myth = (has_myth && hero < 0.5 && mod(style, 16.0) >= 8.0 && cell >= 32.0) ? 1.0 : 0.0;
@@ -71,9 +77,9 @@ void vertex() {
 	// Match the legacy mesh's 0.75-pixel inset on each atlas cell.
 	vec2 pad = vec2(0.75) * atlas_pixel_size;
 	if (hero > 0.5) {
-		float hc = cell - (immortal_hero > 0.5 ? 144.0 : 96.0);
-		vec2 grid = immortal_hero > 0.5 ? immortal_hero_grid : hero_grid;
-		vec2 pixel = immortal_hero > 0.5 ? immortal_hero_pixel_size : hero_pixel_size;
+		float hc = cell - (transcendent_hero > 0.5 ? 312.0 : (immortal_hero > 0.5 ? 144.0 : 96.0));
+		vec2 grid = transcendent_hero > 0.5 ? transcendent_hero_grid : (immortal_hero > 0.5 ? immortal_hero_grid : hero_grid);
+		vec2 pixel = transcendent_hero > 0.5 ? transcendent_hero_pixel_size : (immortal_hero > 0.5 ? immortal_hero_pixel_size : hero_pixel_size);
 		vec2 h_origin = vec2(mod(hc, grid.x), floor(hc / grid.x));
 		UV = (h_origin + UV) / grid;
 		UV = mix(UV + pixel * 0.75, UV - pixel * 0.75, UV * grid - h_origin);
@@ -92,6 +98,7 @@ void vertex() {
 }
 
 vec4 sprite_sample(vec2 at) {
+	if (transcendent_hero > 0.5) { return texture(transcendent_hero_atlas, at); }
 	if (immortal_hero > 0.5) { return texture(immortal_hero_atlas, at); }
 	if (hero > 0.5) { return texture(hero_atlas, at); }
 	if (action_army > 1.5) { return myth > 0.5 ? texture(myth_red, at) : texture(action_red, at); }
@@ -101,6 +108,7 @@ vec4 sprite_sample(vec2 at) {
 
 // 갈래 안에서 읽는 판 —— 미분을 밖에서 재 넘긴다 (흐림은 미분을 키워 밉맵 한 장으로)
 vec4 sprite_grad(vec2 at, vec2 dx, vec2 dy) {
+	if (transcendent_hero > 0.5) { return textureGrad(transcendent_hero_atlas, at, dx, dy); }
 	if (immortal_hero > 0.5) { return textureGrad(immortal_hero_atlas, at, dx, dy); }
 	if (hero > 0.5) { return textureGrad(hero_atlas, at, dx, dy); }
 	if (action_army > 1.5) { return myth > 0.5 ? textureGrad(myth_red, at, dx, dy) : textureGrad(action_red, at, dx, dy); }
@@ -200,7 +208,7 @@ void fragment() {
 		// 그늘 속 —— 두 탭 더 섞어 살짝 흐릿하게 (그늘 부대만), 빛을 빼고 푸른 그림자 빛으로 어둡게
 		vec2 o = vec2(0.007, 0.009) * shade;      // 아틀라스 칸(0.25)의 3% 남짓 = 인형 키의 1~2px
 		if (hero > 0.5) {
-			vec2 grid = immortal_hero > 0.5 ? immortal_hero_grid : hero_grid;
+			vec2 grid = transcendent_hero > 0.5 ? transcendent_hero_grid : (immortal_hero > 0.5 ? immortal_hero_grid : hero_grid);
 			o *= 4.0 / grid;
 		}
 		if (standard < 0.5) {
