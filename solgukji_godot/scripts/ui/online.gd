@@ -67,6 +67,7 @@ var _warn_c := -1                 # 마지막으로 비프를 울린 남은 초 
 var _pick_max := Room.SEATS       # 방 만들기 시트에서 고른 총 인원 (4 · 6 · 8, 11/11) —— create 의 max
 var _pick_claim := true           # 11/12 장수 선점제 (기본 켜짐) —— create 의 claim
 var _pick_sell := true            # 11/13 유닛 판매 · 군량 상점 (기본 켜짐) —— create 의 sell
+var _pick_hp := 1.0               # 11/26 패배 민심 피해 배율 (Room.HP_OPTIONS) —— create 의 hp
 var _pick_deaths := 0             # 11/12 장수 사망룰 인원 (0 = 끔 · 3 · 5 · 10) —— create 의 deaths
 var _intro_room := ""             # 규칙 안내(선점제 팝업 · 사망 연출)를 띄운 방 코드 —— 한 판에 한 번
 var dev_max := 8                  # 점검용 —— 가짜 방의 총 인원 (--gseats=4)
@@ -563,7 +564,7 @@ func connect_sheet(refresh := false) -> void:
 	for m in ["fast", "normal"]:
 		var bt := UI.btn(Room.MODES[m].n, func():
 			_drop_room()
-			net.send({"t": "create", "mode": m, "max": _pick_max, "claim": _pick_claim, "deaths": _pick_deaths, "sell": _pick_sell}), "gold")
+			net.send({"t": "create", "mode": m, "max": _pick_max, "claim": _pick_claim, "deaths": _pick_deaths, "sell": _pick_sell, "hp": _pick_hp}), "gold")
 		bt.pressed.connect(func(): _hold_btn(bt))      # 11/20 조작: 응답이 올 때까지 꺼 둔다 (연타로 방이 두 개 만들어지지 않게)
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		UI.wrap_text(bt)      # 긴 모드 글이 시트 폭을 밀지 않게 (두 칸이 한 줄에 들어가도록 줄바꿈)
@@ -681,6 +682,13 @@ func _fill_seat_pick(box: Control) -> void:
 		_fill_seat_pick(box))
 	_room_option(box, "유닛 판매", "장수를 팔아 받은 군량으로 랜덤권을 삽니다.", toggle, "1" if _pick_sell else "0", func(k: String):
 		_pick_sell = k == "1"
+		_fill_seat_pick(box))
+	# 11/26 사용자: "민심 배율도 옵션으로, 온라인에서" —— 패배 민심 피해 배율 (기본 ×1)
+	var hl := []
+	for o in Room.HP_OPTIONS:
+		hl.append([str(o), "×%s" % str(o).trim_suffix(".0")])
+	_room_option(box, "민심 피해 배율", "패배할 때 깎이는 민심에 곱합니다. 높을수록 판이 빨리 끝납니다.", hl, str(_pick_hp), func(k: String):
+		_pick_hp = float(k)
 		_fill_seat_pick(box))
 
 
@@ -1536,6 +1544,8 @@ func rules_text() -> String:
 		out += " · 장수 사망 %d명" % int(room.deaths)
 	if room.has("sell"):      # 11/13 옛 서버는 sell 이 없다 —— 말하지 않는다
 		out += " · 유닛 판매" if bool(room.sell) else " · 판매 없음"
+	if not is_equal_approx(float(room.get("hp", 1.0)), 1.0):      # 11/26 민심 피해 배율 —— 기본(×1)이면 말하지 않는다
+		out += " · 민심 피해 ×%s" % str(float(room.hp)).trim_suffix(".0")
 	return out
 
 

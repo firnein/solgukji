@@ -59,6 +59,8 @@ const WATCH_STAGES := ["noon", "evening"]              # 전투를 보는 단계
 const FORM_CMDS := ["place", "unplace", "swap", "set_form", "set_tac", "auto_deploy", "clear_board", "set_equip", "unequip", "set_quest_hard", "set_plan"]      # 편성 명령 (11/12 험지 토벌 고르기도 준비 단계의 것) —— 나머지(징집 · 선택권 · 조합 · 보급)는 '징집 · 조합'
 ## 11/12 방 규칙 —— 장수 선점제(claim, 기본 켜짐) · 장수 사망룰(deaths = 판 시작 때 죽는 기인 이상 장수 수, 0 = 끔). 대상은 is_urgent_unit(기인 이상)
 const DEATH_OPTIONS := [3, 5, 10]
+## 11/26 사용자: "민심 배율도 옵션으로, 온라인에서" —— 패배 민심 피해 배율 (create 의 hp, 없거나 이상하면 1.0). 사람 자리의 Run.hp_rule 과 봇 피해(_bot_hit)에 곱한다
+const HP_OPTIONS := [0.5, 1.0, 1.5, 2.0]
 const STAGE_SHORT := {"morning": "준비", "noon": "토벌", "evening_prep": "대전 준비", "evening": "대전"}      # 소식의 시점 글 (Online.STAGE_SHORT 와 같다)
 
 var server                    # MatchServer —— send(peer, msg)
@@ -95,10 +97,11 @@ var claim_on := true          # 11/12 장수 선점제 —— 기인 이상은 �
 var death_n := 0              # 11/12 장수 사망룰 —— 판 시작 때 죽는 기인 이상 장수 수 (0 = 끔)
 var claims := {}              # 선점 기록: 장수 id -> 먼저 등용한 자리 이름 (그 사람이 멸망 · 퇴장해도 풀지 않는다 —— 단순하게)
 var dead_units := []          # 사망한 장수 id (시작 때 정하고 고정)
+var hp_mul := 1.0             # 11/26 패배 민심 피해 배율 (HP_OPTIONS)
 var sell_on := true           # 11/13 유닛 판매 · 군량 상점 (기본 켜짐) —— 사람 자리의 Run.sell_on 으로 넣는다. 꺼진 방은 sell · buy 를 거부
 
 
-func _init(srv, room_code: String, m: String, n_seats = SEATS, claim = true, deaths = 0, sell = true) -> void:
+func _init(srv, room_code: String, m: String, n_seats = SEATS, claim = true, deaths = 0, sell = true, hp = 1.0) -> void:
 	server = srv
 	code = room_code
 	mode = m if MODES.has(m) else "fast"
@@ -106,7 +109,17 @@ func _init(srv, room_code: String, m: String, n_seats = SEATS, claim = true, dea
 	claim_on = not (typeof(claim) == TYPE_BOOL and not claim)      # 없거나 이상하면 켜짐 (옛 클라이언트도 선점제)
 	death_n = valid_deaths(deaths)
 	sell_on = not (typeof(sell) == TYPE_BOOL and not sell)      # 없거나 이상하면 켜짐 (옛 클라이언트가 만든 방도 판매 켜짐)
+	hp_mul = valid_hp(hp)
 	rng.randomize()
+
+
+## 방 만들기 메시지의 hp —— HP_OPTIONS 의 값만, 나머지(없음 · 이상한 값)는 1.0
+static func valid_hp(v) -> float:
+	if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT:
+		for o in HP_OPTIONS:
+			if is_equal_approx(float(v), float(o)):
+				return float(o)
+	return 1.0
 
 
 ## 방 만들기 메시지의 deaths —— 3 · 5 · 10 만, 나머지(없음 · 0 · 이상한 값)는 0(끔)
@@ -299,7 +312,7 @@ func info(i: int) -> Dictionary:
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
 		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "act_plan": cmd_block(i, "set_plan") == "", "why_plan": cmd_block(i, "set_plan"), "alone": alone, "tour_round": -1, "winner": winner, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
-		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on, "gacha": true}
+		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on, "hp": hp_mul, "gacha": true}
 
 
 func push_lobby() -> void:
@@ -336,6 +349,7 @@ func start() -> void:
 		r.new_game(rng.randi())
 		r.mp = true
 		r.sell_on = sell_on
+		r.hp_rule = hp_mul
 		s.run = r
 		# Bind a stable seat index: binding its Dictionary retains the Run itself
 		# through s.run and creates a cycle that survives room deletion.
@@ -991,7 +1005,7 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 	else:
 		b.bot.w += 1
 	if res.win or res.draw:      # 11/12 봇도 민심이 깎인다 —— 봇 쪽에서 본 '적 남은 비' = 사람의 잔존 비 (유랑군은 자리가 아니라 빠진다)
-		_bot_hit(b, Run.hp_dmg_f(Run.hp_base(day) * Run.HP_PVP_MUL_ONLINE, Run.my_left_ratio(res), bool(res.draw)))
+		_bot_hit(b, Run.hp_dmg_f(Run.hp_base(day) * hp_mul * Run.HP_PVP_MUL_ONLINE, Run.my_left_ratio(res), bool(res.draw)))
 	x.battles.append({"title": bt.title, "res": res, "kind": "pvp", "params": _params(bt, false)})
 	if rlog != null:
 		rlog.battle(_idx(x), rx, bt, res, b.name, false, x.peer < 0)
@@ -1199,7 +1213,7 @@ func _pvp_bots(a: Dictionary, b: Dictionary) -> void:
 	var l: Dictionary = b if d.a_win else a
 	w.bot.w += 1
 	l.bot.l += 1
-	_bot_hit(l, Run.hp_dmg_f(Run.hp_base(day) * Run.HP_PVP_MUL_ONLINE, float(d.foe_left), false))
+	_bot_hit(l, Run.hp_dmg_f(Run.hp_base(day) * hp_mul * Run.HP_PVP_MUL_ONLINE, float(d.foe_left), false))
 
 
 ## 민심이 바닥난 자리를 멸망시킨다 —— 사람은 Run.over(패배)가 섰을 때, 봇은 민심 0. 같이 무너진 자리는 같은 순위(남은 수 + 1).

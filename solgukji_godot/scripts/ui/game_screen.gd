@@ -2668,8 +2668,10 @@ func _page_draw() -> Control:
 	v.add_child(base_slot)
 	if online != null and not can_act():      # 11/12 페이즈 개편 —— 징집 · 조합이 막힌 단계면 이유 한 줄 (버튼은 잠긴다)
 		v.add_child(UI.hint(online.block_reason("draw")))
+	if run.day <= Run.HP_LATE_START and not is_equal_approx(run.hp_rule, 1.0):      # 11/26 방 옵션(민심 피해 배율) —— 난세 전에도 한 줄
+		v.add_child(UI.rich("[color=#A89574]방 규칙 · 패배 민심 피해 ×%s[/color]" % str(snappedf(run.hp_rule, 0.01)), UI.FS_CAP))
 	if run.day > Run.HP_LATE_START:      # 11/25 4일차부터 패배 민심 피해가 매일 커진다 (Run.hp_late_mul) —— 11/25 UX: 칸 대신 작은 한 줄 (보유 장수 자리를 깎지 않게)
-		v.add_child(UI.rich("[color=#D9A64B]%d일차 난세[/color] [color=#A89574]· 패배 민심 피해 ×%s[/color]" % [run.day + 1, str(snappedf(Run.hp_late_mul(run.day), 0.01))], UI.FS_CAP))
+		v.add_child(UI.rich("[color=#D9A64B]%d일차 난세[/color] [color=#A89574]· 패배 민심 피해 ×%s[/color]" % [run.day + 1, str(snappedf(Run.hp_late_mul(run.day) * run.hp_rule, 0.01))], UI.FS_CAP))
 
 	# 할 일 —— 기호 타일 한 줄 (11/7 사용자: 세로로 너무 컸다 —— 기호 · 제목을 옆으로 나란히 높이 34, 한 줄 최대 5칸)
 	# 11/14 UI 다듬기 2단계 (감사 #2 · #6-1): 오늘 징집을 아직 안 했으면 할 일 줄 위에 큰 주 행동 카드 「징집하기」 —— 코치 말풍선(1/4)이 이것을 가리킨다.

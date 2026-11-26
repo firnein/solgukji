@@ -59,6 +59,9 @@ const HP_PVP_MUL_ONLINE := 1.0
 const ONLINE_NOON_DAYS := 9999
 const LAST_TABLE_DAY := 6      # 표(보급 · 토벌 편성 · 선택권 …)가 있는 마지막 일차 —— 8일차 이후는 7일차 표를 그대로 쓴다 (td)
 var hp := HP_MAX
+## 11/26 사용자: "민심 배율도 옵션으로, 온라인에서" —— 방 옵션(Room.hp_mul · ×0.5 / ×1 / ×1.5 / ×2). 패배 민심 피해 전체에 곱한다 (토벌 · 대전 · 봇 모두).
+## 서버가 판 시작 때 넣는다. 혼자 하기는 늘 1.0
+var hp_rule := 1.0
 
 
 ## 가속 배율 —— 4일차(day 3)부터 매일 ×HP_LATE_MUL (3일차까지 1.0)
@@ -69,6 +72,11 @@ static func hp_late_mul(day_i: int) -> float:
 ## 이 일차(0 = 1일차)의 패배 기본 피해 —— HP_QUEST(7일차 뒤는 7일차 값) × 가속 배율 (온라인 · 혼자 하기 · 봇 모두 같은 식)
 static func hp_base(day_i: int) -> float:
 	return float(HP_QUEST[clampi(day_i, 0, LAST_TABLE_DAY)]) * hp_late_mul(day_i)
+
+
+## 이 판의 오늘 패배 기본 피해 —— hp_base × 방 옵션 배율(hp_rule)
+func hp_today() -> float:
+	return hp_base(day) * hp_rule
 
 
 ## 표를 찾을 일차 —— 7일차(6)를 넘으면 7일차 표
@@ -205,6 +213,7 @@ func new_game(seed_value := -1, with_bots := true) -> void:
 	held = {}
 	grain = 0
 	sell_on = true
+	hp_rule = 1.0
 	tk_reset()
 	bots = []
 	var bot_names := DB.gen_bot_names(rng.seed, DB.D.BOTNAME.size())      # 11/10 봇 이름은 판마다 랜덤 (DB.gen_bot_names)
@@ -1996,8 +2005,8 @@ func hp_preview(bt: Dictionary, res: Dictionary) -> int:
 	if res.get("win", false):
 		return 0
 	match str(bt.get("kind", "")):
-		"quest": return roundi(hp_dmg(res, hp_base(day)) * hp_cut_mul())
-		"pvp": return roundi(hp_dmg(res, hp_base(day) * pvp_mul()) * hp_cut_mul())
+		"quest": return roundi(hp_dmg(res, hp_today()) * hp_cut_mul())
+		"pvp": return roundi(hp_dmg(res, hp_today() * pvp_mul()) * hp_cut_mul())
 	return 0
 
 
@@ -2185,7 +2194,7 @@ func _finish_battle(res: Dictionary) -> void:
 					toasts.append(["황건 전리품 —— %s" % DB.IT[lid].name, "gold"])
 			if not res.win:
 				strikes += 1       # 기록용
-				_hp_hit(res, hp_base(day), quest_name())
+				_hp_hit(res, hp_today(), quest_name())
 			if not mp:
 				for b in alive_bots():
 					if b.pv < bt.pv * 0.95 * rng.randf_range(0.92, 1.08):
@@ -2216,14 +2225,14 @@ func _finish_battle(res: Dictionary) -> void:
 			else:
 				my_l += 1
 				if b: b.w += 1
-				_hp_hit(res, hp_base(day) * pvp_mul(), "대전 · " + str(bt.foe))
+				_hp_hit(res, hp_today() * pvp_mul(), "대전 · " + str(bt.foe))
 				if over != null and not over.win:
 					over["by"] = str(bt.foe)      # 11/12 엔딩 연출(GameScreen.show_ending) —— 나를 멸망시킨 상대
 					over["by_human"] = false        # 온라인은 Room._reap 이 사람 자리면 참으로 고친다
 			if b and not mp:
 				# 11/12 사용자(최후 1인): 봇도 민심이 있다 —— 나에게 지면 같은 식(봇 쪽에서 본 적 남은 비 = 내 잔존 비)으로 깎인다. 무승부는 양쪽 다 절반
 				if res.win or res.get("draw", false):
-					bot_hp_hit(b, hp_dmg_f(hp_base(day) * pvp_mul(), my_left_ratio(res), res.get("draw", false)))
+					bot_hp_hit(b, hp_dmg_f(hp_today() * pvp_mul(), my_left_ratio(res), res.get("draw", false)))
 				_bot_duels(int(bt.bot))      # 나머지 봇끼리도 이 저녁에 겨룬다
 				_solo_fallen()
 
@@ -2281,7 +2290,7 @@ func _bot_duels(skip: int) -> void:
 		var l: Dictionary = c if d.a_win else a
 		w.w = int(w.w) + 1
 		l.l = int(l.l) + 1
-		bot_hp_hit(l, hp_dmg_f(hp_base(day) * HP_PVP_MUL_ONLINE, float(d.foe_left), false))
+		bot_hp_hit(l, hp_dmg_f(hp_today() * HP_PVP_MUL_ONLINE, float(d.foe_left), false))
 	if ls.size() % 2 == 1:      # 홀수면 남은 하나는 유랑군(남은 봇 평균 전력)과 겨룬다 —— 온라인 방의 유랑군과 같다 (쉬면 마지막 봇이 끝까지 안 깎인다)
 		var o: Dictionary = ls[ls.size() - 1]
 		var avg := 0.0
@@ -2293,7 +2302,7 @@ func _bot_duels(skip: int) -> void:
 			o.w = int(o.w) + 1
 		else:
 			o.l = int(o.l) + 1
-			bot_hp_hit(o, hp_dmg_f(hp_base(day) * HP_PVP_MUL_ONLINE, float(d.foe_left), false))
+			bot_hp_hit(o, hp_dmg_f(hp_today() * HP_PVP_MUL_ONLINE, float(d.foe_left), false))
 
 
 ## 혼자 하기 —— 방금 멸망한 봇 소식 · 마지막 한 세력이면 천하 통일 (내가 이미 멸망했으면 패배 그대로)
@@ -2561,7 +2570,7 @@ func command(m: String, a: Array):
 
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "equip2", "gacha_pity", "last_gacha", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
-	"my_w", "my_l", "streak", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on",
+	"my_w", "my_l", "streak", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on", "hp_rule",
 	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls", "rs_offer", "rs_done"]
 
 
@@ -2587,6 +2596,7 @@ func from_dict(d: Dictionary) -> void:
 	if not d.has("equip2") or equip2.size() != 9:      # 예전 저장 · 옛 서버 —— 갑옷 칸 없음
 		equip2 = _nine()
 	sell_on = bool(d.get("sell_on", true))
+	hp_rule = float(d.get("hp_rule", 1.0))      # 옛 저장 · 옛 서버 —— 1.0
 	tk_load(d)      # 11/15 군략 —— 옛 저장 · 옛 서버는 기본 3장으로      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
 		hp = maxi(1, HP_MAX - strikes * 20)
