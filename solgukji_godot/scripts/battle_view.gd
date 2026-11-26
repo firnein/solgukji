@@ -59,6 +59,7 @@ var finish_t := -1.0
 var groups := []            # 행동 묶음
 var group_of := []          # 이벤트 번호 -> 그 이벤트가 속한 행동 묶음 (치명타 판정에 쓴다)
 var gi := 0
+var _ahead := {}            # 11/26 기다리는 고유기 묶음을 앞질러 먼저 시작한 묶음 번호 (gi 보다 뒤) —— gi 가 따라오면 지운다
 var pending := []           # 상대에 닿기를 기다리는 근접 행동
 var due := []               # [시각, 이벤트 번호]
 var changes := []           # 이벤트별 [[유닛 번호, 병력 증감, 사기 증감], …]
@@ -1342,6 +1343,7 @@ func _begin() -> void:
 	_build_timeline()
 	clock = 0.0
 	gi = 0
+	_ahead.clear()
 	pending.clear()
 	due.clear()
 	finished = false
@@ -1633,13 +1635,22 @@ func _process_inner(dt: float) -> void:
 	t0 = field.pt("지휘", t0)
 	field.step(d)
 	t0 = Time.get_ticks_usec()
-	while gi < groups.size() and groups[gi].t <= clock:
-		# 고유기 컷인은 한 번에 하나 —— 앞 연출이 끝날 때까지 다음 고유기는 기다린다 (11/22 가벼운 고유기는 큰 컷인 중에만 기다린다 —— 컷인이 덮고 있어서)
-		if groups[gi].ult != null and (slow_t > 0 or hud.cut != null) and (bool(groups[gi].get("big", true)) or hud.cut != null):
-			break
-		if groups[gi].ult != null and clock < _clash_gap_until and bool(groups[gi].ult.get("clash", false)):      # 11/26 받아치기 묶음은 한 번에 터지지 않고 차례로
-			break
-		_start_group(groups[gi])
+	# 11/26 사용자: "응답 못 받는 것처럼 이동만 하다가 받는 순간 와라라라 진행" —— 맨 앞 고유기 묶음이 컷인 · 슬로모션 · 받아치기 간격을 기다리는 동안
+	# 그 뒤의 평범한 공격 묶음까지 줄 서서 기다렸다 (부대는 기록된 길을 계속 가 이동만 보이고, 풀리면 밀린 공격이 한 프레임에 터졌다).
+	# 기다리는 것은 고유기(· 인연기 마무리) 묶음뿐 —— 그들끼리는 차례를 지키고, 나머지 묶음은 제 시각에 지나간다 (_ahead = 앞질러 시작한 묶음 번호)
+	var hold := false
+	var gj := gi
+	while gj < groups.size() and groups[gj].t <= clock:
+		if not _ahead.has(gj):
+			var gq: Dictionary = groups[gj]
+			if (gq.ult != null or gq.fin != null) and (hold or _ult_waits(gq)):
+				hold = true
+			else:
+				_start_group(gq)
+				_ahead[gj] = true
+		gj += 1
+	while _ahead.has(gi):
+		_ahead.erase(gi)
 		gi += 1
 	for g in pending.duplicate():
 		if clock >= g.min_t and (field.arrived(g.who) or clock >= g.wait):
@@ -1661,6 +1672,16 @@ func _process_inner(dt: float) -> void:
 	var t2v = field.flat if field.flat != null and field.flat.get("load_lv") != null else null
 	if t2v == null or t2v.gate("hud", dt, 0.0 if int(t2v.load_lv) < 2 else 1.0 / 30.0):
 		hud.queue_redraw()      # 11/6 부하 조절 2단계면 HUD 를 30Hz 로 (11/19 실제 경과 시간 기준)
+
+
+## 고유기 묶음이 지금 기다려야 하는가 —— 컷인은 한 번에 하나 (앞 연출이 끝날 때까지. 11/22 가벼운 고유기는 큰 컷인이 덮고 있을 때만),
+## 11/26 받아치기 묶음은 한 번에 터지지 않고 CLASH_STAGGER 간격으로 차례로. 인연기 마무리(fin)는 앞의 고유기가 기다릴 때만 함께 기다린다 (hold)
+func _ult_waits(g: Dictionary) -> bool:
+	if g.ult == null:
+		return false
+	if (slow_t > 0 or hud.cut != null) and (bool(g.get("big", true)) or hud.cut != null):
+		return true
+	return clock < _clash_gap_until and bool(g.ult.get("clash", false))
 
 
 ## 전환점 (11/4 연출 점검) —— 화면에 보이는 병력 비율이 뒤집히는 순간 "전세 역전!" (한 판 둘까지)
@@ -2659,10 +2680,12 @@ func skip() -> void:
 	for g in pending:
 		rest.append_array(g.ev)
 	for j in range(gi, groups.size()):
-		rest.append_array(groups[j].ev)
+		if not _ahead.has(j):      # 앞질러 시작한 묶음은 이미 due · pending 에 있다
+			rest.append_array(groups[j].ev)
 	rest.sort()
 	due.clear()
 	pending.clear()
+	_ahead.clear()
 	gi = groups.size()
 	for u in shown.size():
 		_snap(u)
