@@ -129,6 +129,13 @@ func setup(items: Array, compact := false) -> Control:
 			effect.add_theme_color_override("default_color", SS.TEXT)
 			effect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			body.add_child(effect)
+		if str(entry.get("up_n", "")) != "" and Kit.SLOT_COL.has(slot):      # 11/27 키트 장수 —— 이 전투에서 강화한 칸: 「강화 · 이름」 효과
+			var ucol := Color(str(Kit.SLOT_COL[slot]))
+			var up := UI.rich("[color=#%s][b]강화 · %s[/b][/color]  %s" % [ucol.lightened(0.35).to_html(false), str(entry.up_n), str(entry.get("up_d", ""))], 11 if compact else 12)
+			up.add_theme_color_override("default_color", SS.TEXT)
+			up.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			up.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			body.add_child(up)
 		var footer := UI.hbox(5)
 		footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var category := UI.lbl("이탈" if entry.kind == "escape" else ("연계" if entry.kind == "minor" else "발동"), 10, color)

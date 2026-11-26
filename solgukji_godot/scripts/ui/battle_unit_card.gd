@@ -16,6 +16,8 @@ extends VBoxContainer
 
 const SS := preload("res://scripts/ui/sheet_style.gd")      # 장수창 공통 시각 언어 (SheetStyle)
 const Skills := preload("res://scripts/ui/skill_panel.gd")
+const Kit := preload("res://scripts/kit.gd")      # 11/27 장수 키트 —— 칸 딱지(Q · W · E · R · P) · 이 전투의 강화
+var _kit_ups: Array = []      # 이 부대가 이 전투에서 강화한 칸 (전투 재료의 policy.kit —— 진영별)
 var _skills = null
 var _skill_runtime := {}
 var _escape_spec := {}
@@ -504,6 +506,11 @@ func _init(screen: GameScreen, bv: BattleView, unit_key: String) -> void:
 	_mx = maxf(1.0, sq.max)
 	_pos = pos_of(view, key)
 	ult = DB.ult_of(k) if DB.has_ult(k) else null
+	if Kit.on(k):      # 11/27 이 전투에 든 강화 —— 전투 재료(view._p.policy.kit)의 이 진영 몫
+		var pol = view._p.get("policy") if view._p is Dictionary else null
+		var kt = pol.get("kit") if pol is Dictionary else null
+		if kt is Dictionary:
+			_kit_ups = Kit.ups_of(kt.get(str(sq.camp)), k)
 	if ult != null:
 		temper = Battle.temper_name(c, ult)
 		ult_total = Battle.ult_charges_of(c)
@@ -645,17 +652,24 @@ func _build_live() -> Control:
 		ub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var uh := UI.hbox(6)
 		uh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ic := Icons.View.new("burst", SS.GOLD_HI, 13)
+		var kr := UI.kit_text(k, "r") if Kit.on(k) else {}      # 11/27 키트 장수 —— R 딱지 · kit.json 이름 · 강화했으면 강화 이름
+		var ic: Control = Icons.View.new("burst", SS.GOLD_HI, 13)
+		if not kr.is_empty():
+			ic = SS.slot_badge("R", UI.kit_col("r"), 18.0)
 		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		uh.add_child(ic)
 		var ul := UI.lbl("고유기", SS.FS_SUB, SS.DIM)
 		ul.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		uh.add_child(ul)
-		var un := UI.lbl(str(ult.name), SS.FS_ROW, SS.TEXT, true)
+		var un := UI.lbl(str(kr.name) if not kr.is_empty() else str(ult.name), SS.FS_ROW, SS.TEXT, true)
 		un.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		un.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		un.clip_text = true
 		uh.add_child(un)
+		if not kr.is_empty() and _kit_ups.has("r"):
+			var uc := SS.chip("강화 · %s" % str(kr.up_n), UI.kit_col("r"), "soft")
+			uc.tooltip_text = str(kr.up_d)
+			uh.add_child(uc)
 		_pips = Pips.new(ult_total)
 		uh.add_child(_pips)
 		_l_ult = UI.lbl("0%", SS.FS_VALUE, SS.GOLD_HI, true)
@@ -951,6 +965,12 @@ func _build_sig() -> Control:
 	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lv.add_child(tag("전장의 개성", "seal", SS.GOLD, "고유 특기"))
 	var nm := str(ut.name) if not ut.is_empty() else str(sg[0])
+	var kp := UI.kit_text(k, "p") if Kit.on(k) else {}      # 11/27 키트 장수 —— P 딱지 · kit.json 이름 · 하는 일 · 강화했으면 강화 글
+	if not kp.is_empty():
+		nm = str(kp.name)
+		var pb := SS.slot_badge("P", UI.kit_col("p"), 22.0)
+		pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		hd.add_child(pb)
 	lv.add_child(UI.lbl(nm, SS.FS_VALUE, SS.GOLD_HI, true))
 	hd.add_child(lv)
 	var cv := UI.vbox(-4)      # 오른쪽 —— 이번 전투 발동 횟수 (늘 켜진 개성이면 '상시')
@@ -965,11 +985,18 @@ func _build_sig() -> Control:
 	hd.add_child(cv)
 	v.add_child(hd)
 	var line := str(sg[1]) if sg is Array and sg.size() >= 2 else (str(ut.d) as String).get_slice(" —— ", 0)
+	if not kp.is_empty():
+		line = str(kp.d)
 	var ll := UI.rich(hl(line), SS.FS_SUB)
 	ll.add_theme_color_override("default_color", SS.LABEL)
 	ll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.wrap_text(ll)
 	v.add_child(ll)
+	if not kp.is_empty() and _kit_ups.has("p"):
+		var pu := UI.rich("[color=#%s][b]강화 · %s[/b][/color]  %s" % [UI.kit_col("p").lightened(0.35).to_html(false), str(kp.up_n), str(kp.up_d)], SS.FS_SUB)
+		pu.add_theme_color_override("default_color", SS.TEXT)
+		pu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(pu)
 	if not ut.is_empty() and not (ut.ml as Array).is_empty():
 		var f := UI.flow(6)
 		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1158,6 +1185,16 @@ func _scan_events() -> void:
 			var previous: Dictionary = _skill_runtime.get("escape", {})
 			_skill_runtime["escape"] = {"n": int(previous.get("n", 0)) + 1, "tm": tm, "cd": escaped.cd, "approx": escaped.approx}
 		var g = groups[i] if i < groups.size() else null
+		# 11/27 키트 장수 —— Q · W · E 가 발동한 사건(칸이 붙은 skill): 기술 목록의 그 줄이 번쩍이고 횟수가 오른다. 강화 효과가 실제로 발동한 사건(kup)은 기록에 한 줄
+		if a == key and fx == "skill" and e.has("slot"):
+			var qi: int = ["q", "w", "e"].find(str(e.slot))
+			if qi >= 0:
+				var prev: Dictionary = _skill_runtime.get("skill:%d" % qi, {})
+				_skill_runtime["skill:%d" % qi] = {"n": int(prev.get("n", 0)) + 1, "tm": tm, "cd": 0.0}
+		if e.has("kup") and (a == key or (a == "" and f == key)):
+			var ks := str(e.get("slot", ""))
+			var kc: Color = UI.kit_col(ks) if Kit.SLOT_N.has(ks) else C_GLOW
+			_add(tm, kc, "up", "강화 「%s」 발동" % str(e.kup), {"tcol": kc.lightened(0.3), "detail": ("%s 칸" % str(Kit.SLOT_N[ks])) if Kit.SLOT_N.has(ks) else ""})
 		match fx:
 			"phys", "int":
 				var n := float(e.get("n", 0.0))
@@ -1521,7 +1558,7 @@ func _freeze() -> void:
 # ───────── 이번 전투에 적용된 편성 효과와 장비 ─────────
 
 func _build_skills() -> void:
-	var section = gs._skills_section(k, false, true)
+	var section = gs._skills_section(k, false, true, _kit_ups)
 	if section == null:
 		return
 	_skills = section.get_node("CombatSkills")

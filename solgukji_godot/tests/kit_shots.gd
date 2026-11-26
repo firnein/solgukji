@@ -248,6 +248,51 @@ func _ready() -> void:
 		await _wait(0.3)
 		await _shot("kit2_x_row_folded")
 
+	# ── ⑤ 키트 장수의 기술 글이 나오는 다른 곳 —— 능력 항목 · 기술 목록 · 전투 장수창 (kit.json 글 + 칸 딱지 + 강화 표시)
+	r.board[slots[0]] = card
+	r.kit = Kit.norm({card: ["q", "p"]})
+	var its: Array = gs._ability_items(card)
+	var it_r: Array = its.filter(func(x): return str(x.get("slot", "")) == "r")
+	var it_p: Array = its.filter(func(x): return str(x.get("slot", "")) == "p")
+	ok(it_r.size() == 1 and str(it_r[0].name) == str(Kit.cell(card, "r").n) and str(it_r[0].effect) == str(Kit.cell(card, "r").d) and it_p.size() == 1 and str(it_p[0].name) == str(Kit.cell(card, "p").n),
+		"능력 항목(갈무리창 · 보급 팝업) —— 고유기 · 고유 특기는 kit.json 글 + 칸(R · P)")
+	var ents: Array = gs._skill_entries(card, ["q"])
+	var sk3: Array = ents.filter(func(x): return str(x.kind) == "skill")
+	ok(sk3.size() == 3 and sk3.map(func(x): return str(x.name)) == ["q", "w", "e"].map(func(sl): return str(Kit.cell(card, sl).n)) and str(sk3[0].get("up_n", "")) == str(Kit.cell(card, "q").up.n) and not sk3[1].has("up_n"),
+		"기술 목록 —— Q · W · E 는 kit.json 이름 · 강화한 칸(Q)에 강화 글")
+	# 전투 장수창 —— 실제 전투 하나를 돌려 재생에 올리고 그 장수의 창을 연다 (전투 재료의 policy.kit 에서 이 전투의 강화를 읽는다)
+	var side_b: Dictionary = r._bot_side_of(r.bots[0])
+	var pol := {"A": "smart", "B": "smart", "kit": {"A": r.kit_side(), "B": {}}}
+	var res := RtBattle.make(5100).run(r.board.duplicate(), r.form, 100, null, side_b.cards, side_b.form, 100, null, "점검", "점검", [], pol)
+	gs._battle.visible = true
+	gs._battle.play_res(res, "pvp", {"a": r.board.duplicate(), "fa": r.form, "ma": 100, "ea": null, "b": side_b.cards, "fb": side_b.form, "mb": 100, "eb": null,
+		"seed": 5100, "title": "점검", "foe": "점검", "policy": pol, "tra": 1.0, "trb": 1.0, "tb": {}})
+	await _wait(0.6)
+	var ukey := ""
+	for u in gs._battle.field.order:
+		if u.camp == "A" and u.cid == card:
+			ukey = u.key
+	gs._battle.speed = 0.0
+	gs.battle_unit_sheet(ukey)
+	await _wait(0.9)
+	var bt2 := _texts(gs._sheet_body)
+	var names_ok := Kit.SLOTS.all(func(sl): return bt2.contains(str(Kit.cell(card, sl).n)))
+	ok(ukey != "" and names_ok and _count(gs._sheet_body, func(n): return n is SheetStyle.SlotBadge) == 5, "전투 장수창 —— 다섯 칸의 이름(kit.json) · 칸 딱지 다섯 (Q · W · E · R · P)")
+	ok(bt2.contains("강화 · %s" % str(Kit.cell(card, "q").up.n)) and bt2.contains("강화 · %s" % str(Kit.cell(card, "p").up.n)) and not bt2.contains("강화 · %s" % str(Kit.cell(card, "w").up.n)),
+		"전투 장수창 —— 이 전투에서 강화한 칸(Q · P)에만 강화 글")
+	ok(_overflow(gs, gs._sheet_body) == "", "전투 장수창이 시트 폭 안에 있다 %s" % _overflow(gs, gs._sheet_body))
+	if args.has("extra"):
+		await _shot("kit2_x_battle_unit")
+		gs._sheet_scroll.scroll_vertical = 420
+		await _wait(0.4)
+		await _shot("kit2_x_battle_unit_b")
+	gs.close_sheet()
+	gs._battle.field.ult.clear()
+	gs._battle.type2.painting.reset()
+	gs._battle.visible = false
+	Sfx.music("")
+	await _wait(0.5)
+
 	# ── ④ 상대의 강화가 보인다 —— 서버 없이 가짜 방 (사람 상대가 준 것처럼 핵심 장수 key · 강화 kit 을 넣는다)
 	r.board[slots[0]] = card
 	r.kit = Kit.norm({card: ["q", "e"]})

@@ -3945,8 +3945,13 @@ class RoleChip extends Control:
 func _ability_items(k: String) -> Array:
 	var c: Dictionary = DB.C[k]
 	var out := []
+	var kit_card := Kit.on(k)      # 11/27 키트 장수 —— 고유 특기(P) · 고유기(R)의 이름 · 글은 data/kit.json 그대로, 줄 머리에 칸 딱지 (slot)
+	var kp := UI.kit_text(k, "p") if kit_card else {}
+	var kr := UI.kit_text(k, "r") if kit_card else {}
+	if not kp.is_empty():
+		out.append({"kind": "고유 특기", "name": str(kp.name), "effect": str(kp.d), "icon": ABILITY_ICON["고유 특기"], "sub": "", "gold": true, "slot": "p"})
 	for t in DB.trait_list(k):
-		if t.unique:
+		if t.unique and kp.is_empty():
 			var eff: String = t.mt if t.mt != "" else (t.d as String).get_slice(" —— ", 0)
 			# 11/19 장수 개성(passives.json sig) 문장을 수치 앞에 —— 표적 고르기 같은 행동은 수치가 없어 문장이 없으면 무엇을 하는지 알 수 없다
 			var sg = DB.PSV.get("sig", {}).get(DB.person(k))
@@ -3963,7 +3968,9 @@ func _ability_items(k: String) -> Array:
 		var pe: String = str(pa.get("d", "")) if str(pa.cond) == "none" else "아군에 %s 자신 외 %d명 이상이면 —— %s" % [cw, int(pa.need), str(pa.get("d", ""))]      # 조건 없는 패업은 설명만 (11/9)
 		out.append({"kind": "패업", "name": str(pa.n), "effect": pe, "icon": ABILITY_ICON["패업"], "sub": ""})
 	var u = DB.ult_of(k) if DB.has_ult(k) else null
-	if u != null:
+	if u != null and not kr.is_empty():
+		out.append({"kind": "고유기", "name": str(kr.name), "effect": str(kr.d), "icon": ABILITY_ICON["고유기"], "sub": DB.ult_when(u), "slot": "r"})
+	elif u != null:
 		out.append({"kind": "고유기", "name": u.name, "effect": UI.ult_desc(u, c.tier), "icon": ABILITY_ICON["고유기"], "sub": DB.ult_when(u)})
 	return out
 
@@ -4047,7 +4054,9 @@ func _ability_row(it: Dictionary, fs: int, narrow: bool, simple: bool, on_tap: C
 			on_tap.call())
 	else:
 		m.mouse_filter = Control.MOUSE_FILTER_PASS
-	var ic := Icons.View.new(str(it.icon), P.bamboo_dim, fs + 2)
+	var ic: Control = Icons.View.new(str(it.icon), P.bamboo_dim, fs + 2)
+	if Kit.SLOT_N.has(str(it.get("slot", ""))):      # 11/27 키트 장수의 고유기 · 고유 특기 —— 기호 대신 칸 딱지 (R · P)
+		ic = SheetStyle.slot_badge(str(Kit.SLOT_N[str(it.slot)]), UI.kit_col(str(it.slot)), fs + 4.0)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var kl := UI.lbl(str(it.kind), fs - 1, P.text_dim)
 	kl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -4609,7 +4618,8 @@ func _skill_entry(id: String, title: String, kind: String, damage: String, when:
 	return {"id": id, "name": title, "kind": kind, "damage": damage, "period": period, "condition": short_when,
 		"when": when, "effect": effect, "effect_bb": _hl(effect)}
 
-func _skill_entries(k: String) -> Array:
+## ups —— 키트 장수의 강화한 칸 (전투 장수창이 그 전투의 강화를 준다). 그 칸 줄에 「강화 · 이름 —— 효과」가 붙는다
+func _skill_entries(k: String, ups: Array = []) -> Array:
 	var c: Dictionary = DB.C[k]
 	var items := []
 	var mk := Battle.minor_kind(k)
@@ -4617,19 +4627,30 @@ func _skill_entries(k: String) -> Array:
 		var m: Dictionary = Battle.minor_def(mk)
 		items.append(_skill_entry("minor", m.n, "minor", str(m.get("kind", "int" if DB.INT_TAGS.has(c.tag) else "phys")), minor_when(k), minor_desc(k, false)))
 	var kit_card := Kit.on(k)
-	for i in c.get("sks", []).size():
+	if kit_card:      # 11/27 키트 장수 —— Q · W · E 는 data/kit.json 의 이름 · 주기 · 하는 일 (카드의 옛 sks 글은 맞지 않는다), 칸 딱지 · 강화 글 (SkillPanel)
+		for i in 3:
+			var sl: String = ["q", "w", "e"][i]
+			var tx := UI.kit_text(k, sl)
+			if tx.is_empty():
+				continue
+			var sks: Array = c.get("sks", [])
+			var kind := str(sks[i].eff.get("kind", "support")) if i < sks.size() and sks[i].get("eff") is Dictionary else ("int" if DB.INT_TAGS.has(c.tag) else "phys")
+			var se := _skill_entry("skill:%d" % i, str(tx.name), "skill", kind, str(tx.when), str(tx.d))
+			se["slot"] = sl
+			if ups.has(sl):
+				se["up_n"] = str(tx.up_n)
+				se["up_d"] = str(tx.up_d)
+			items.append(se)
+	for i in (0 if kit_card else c.get("sks", []).size()):
 		var sk: Dictionary = c.sks[i]
-		var se := _skill_entry("skill:%d" % i, sk.n, "skill", str(sk.eff.get("kind", "support")), DB.sk_when(sk, c), DB.skill_desc(c, sk))
-		if kit_card and i < 3:
-			se["slot"] = ["q", "w", "e"][i]      # 11/27 키트 장수 —— 기술 목록(전투 장수창)에서도 Q · W · E 칸 딱지 (SkillPanel)
-		items.append(se)
+		items.append(_skill_entry("skill:%d" % i, sk.n, "skill", str(sk.eff.get("kind", "support")), DB.sk_when(sk, c), DB.skill_desc(c, sk)))
 	var escape := SkillPanel.escape_spec(k)
 	if not escape.is_empty():
 		items.append(_skill_entry("escape", escape.name, "escape", "support", "근접 적에게 붙잡히면 · 재사용 %s" % DB.sec_str(escape.cd), escape.effect))
 	return items
 
-func _skills_section(k: String, compact := false, live := false) -> Control:
-	var items := _skill_entries(k)
+func _skills_section(k: String, compact := false, live := false, ups: Array = []) -> Control:
+	var items := _skill_entries(k, ups)
 	if items.is_empty():
 		return null
 	var box := UI.vbox(6)
