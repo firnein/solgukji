@@ -278,6 +278,17 @@ static func icon_badge(icon: String, col: Color, box := 22.0) -> Control:
 	return pc
 
 
+## 11/27 장수 키트 칸 딱지 —— 칸 색 네모 안의 글자 (Q · W · E · R · P). 글자 폭과 상관없이 같은 크기 (줄마다 이름 왼끝이 맞는다)
+static func slot_badge(letter: String, col: Color, box := 26.0) -> Control:
+	var b := SlotBadge.new()
+	b.letter = letter
+	b.col = col
+	b.custom_minimum_size = Vector2(box, box)
+	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return b
+
+
 ## 누를 수 있다는 표시 —— 오른쪽 끝 옅은 ›
 static func chevron() -> Label:
 	var l := UI.lbl("›", FS_ROW, Color(DIM, 0.55), true)
@@ -694,6 +705,21 @@ class Ribbon extends Control:
 		draw_line(Vector2(2, 0.5), Vector2(w - 1, 0.5), Color(col.lightened(0.3), 0.55), 1.0)
 		draw_rect(Rect2(0, 0, 2, h), col.lightened(0.15))
 		draw_string(DB.font_bold, Vector2(8, h * 0.5 + 12 * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, col.lightened(0.35))
+
+
+## 장수 키트 칸 딱지 (slot_badge) —— 칸 색 면 + 밝은 윗선, 가운데 먹색 굵은 글자
+class SlotBadge extends Control:
+	var letter := ""
+	var col := Color.WHITE
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		draw_style_box(UI.flat(col.darkened(0.08), col.lightened(0.35), 1, UI.R, 0), r)
+		var fs := int(roundf(size.y * 0.62))
+		var f := DB.font_bold
+		var asc := f.get_ascent(fs)
+		var dsc := f.get_descent(fs)
+		draw_string(f, Vector2(0, (size.y + asc - dsc) * 0.5), letter, HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, Color("#101626"))
 
 
 ## 섹션 머리의 금 마름모

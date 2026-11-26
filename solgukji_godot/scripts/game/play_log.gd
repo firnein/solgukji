@@ -128,8 +128,19 @@ static func act_data(m: String, a: Array, r, run_ = null) -> Dictionary:
 			d["ok"] = r != null
 			if r is String:
 				d["got"] = [card(r)]
+		"kit_up":    # 11/27 장수 키트 강화 —— 장수 · 칸 · 강화 · 낸 전공 · 그 칸의 강화 수(명령 뒤)
+			d["card"] = card(str(a[0])) if not a.is_empty() else []
+			d["ok"] = r is bool and r
+			if d.ok and a.size() >= 3 and run_ != null:
+				var lv := Kit.lv(run_.kit, str(a[0]), str(a[1]))
+				d["slot"] = str(a[1])
+				d["aug"] = str(a[2])
+				d["lv"] = lv
+				d["cost"] = int(Kit.COST[clampi(lv - 1, 0, Kit.COST.size() - 1)])
 	if run_ != null and run_.get("grain") != null:
 		d["grain"] = int(run_.grain)      # 명령 뒤 남은 군량
+	if m == "kit_up" and run_ != null and run_.get("merit") != null:
+		d["merit"] = int(run_.merit)      # 명령 뒤 남은 전공
 	return d
 
 
@@ -154,6 +165,7 @@ static func battle_start(run, bt: Dictionary) -> void:
 
 ## 11/22 사용자 "전투 지표 넣어" —— 이 전투에 든 내 군략 · 연구 상태 (단계 계획 · 늘 켜짐 · 영구 효과 이름 · 고른 연구 횟수)
 const Tac := preload("res://scripts/tactics.gd")      # class_name 없이 (Run 과 같은 방식)
+const Kit := preload("res://scripts/kit.gd")          # 11/27 장수 키트 강화 (전공 · 강화 상태 기록)
 static func tac_state(run) -> Dictionary:
 	if run == null or not Run.tac_on:
 		return {}
@@ -164,12 +176,17 @@ static func tac_state(run) -> Dictionary:
 static func battle_start_data(bt: Dictionary) -> Dictionary:
 	var a := side(bt.a.cards)
 	var b := side(bt.b.cards)
-	return {"kind": bt.kind, "title": bt.title, "seed": bt.seed,
+	var d := {"kind": bt.kind, "title": bt.title, "seed": bt.seed,
 		"me": a, "foe": b, "form": bt.a.form, "foe_form": bt.b.form, "tac": bt.a.get("tac", ""), "foe_tac": bt.b.get("tac", ""),
 		"morale": bt.a.morale, "foe_morale": bt.b.morale, "equip": bt.a.equip.filter(func(x): return x != null).size(),
 		"foe_equip": (bt.b.equip if bt.b.equip else []).filter(func(x): return x != null).size(),
 		"tr_ratio": snappedf(float(a.tr) / maxf(1.0, float(b.tr)), 0.001),
 		"foe_plan": ((bt.b.get("plan", {}) as Dictionary).get("p", []) as Array).duplicate()}      # 11/22 상대의 이번 단계 군략 계획
+	# 11/27 이 전투에 든 키트 강화 {카드 id: {칸: [강화 …]}} —— 있을 때만 (강화 없는 판의 줄은 예전 그대로)
+	for pair in [["kit", bt.a.get("kit")], ["foe_kit", bt.b.get("kit")]]:
+		if pair[1] is Dictionary and not (pair[1] as Dictionary).is_empty():
+			d[pair[0]] = (pair[1] as Dictionary).duplicate(true)
+	return d
 
 
 static func battle_end(run, bt, res: Dictionary, view_len: float, inputs: Array, speeds: Dictionary) -> void:
@@ -278,6 +295,11 @@ static func after_battle(run) -> void:
 static func reward_data(run) -> Dictionary:
 	var d := {"strikes": run.strikes, "hp": run.hp, "hp_loss": run.last_hp_loss, "w": run.my_w, "l": run.my_l, "tickets": run.tickets.duplicate(),
 		"spoil": run.last_spoil, "inv_n": _inv_n(run)}
+	# 11/27 전공 —— 가진 것(merit) · 이 전투로 번 것(merit_gain) · 아침 지급을 기다리는 것(merit_held, 온라인)
+	d["merit"] = int(run.merit)
+	d["merit_gain"] = int((run.last_spoil as Dictionary).get("merit", 0)) if run.last_spoil is Dictionary else 0
+	if int((run.held as Dictionary).get("merit", 0)) > 0:
+		d["merit_held"] = int(run.held.merit)
 	if run.last_spoil is Dictionary and (run.last_spoil as Dictionary).has("perf_r"):      # 11/10 토벌 성과 보너스 (분석용 추가 필드)
 		d["bonus_base"] = int(run.last_spoil.get("bonus", 0))
 		d["bonus_ticket"] = int(run.last_spoil.get("bonus_ticket", 0))
@@ -317,7 +339,8 @@ static func phase_end_data(run) -> Dictionary:
 	return {"deck": side(run.board), "form": run.form, "tac": run.tac, "my_pv": run.my_pv(), "inv_n": _inv_n(run), "inv_tiers": tiers,
 		"bag_n": run.bag.values().reduce(func(s, x): return s + int(x), 0), "equip": run.equipped_count(),
 		"tickets": run.tickets.duplicate(), "strikes": run.strikes, "hp": run.hp, "w": run.my_w, "l": run.my_l, "rank": run.rank(),
-		"bot_pv": bots, "myth": run.myth_made}
+		"bot_pv": bots, "myth": run.myth_made,
+		"merit": int(run.merit), "kit": (run.kit as Dictionary).duplicate(true), "kit_spent": Kit.spent(run.kit)}      # 11/27 전공 · 키트 강화 상태 · 강화에 쓴 전공 합
 
 
 static func over(run) -> void:

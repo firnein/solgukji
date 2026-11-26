@@ -102,6 +102,12 @@ static func draw(ci: CanvasItem, name: String, c: Vector2, s: float, col: Color)
 				c + Vector2(0, -10.2) * u, c + Vector2(1.6, -8.2) * u, c + Vector2(5.6, -9.6) * u, c + Vector2(2.6, -5.6) * u]), col, w * 0.85)
 			ci.draw_line(c + Vector2(-3.6, -5.6) * u, c + Vector2(3.6, -5.6) * u, col, w * 1.1)
 			ci.draw_line(c + Vector2(-8.4, 3.2) * u, c + Vector2(8.4, 3.2) * u, col, w * 0.75)
+		"merit":     # 전공 —— 훈장: 위에서 모이는 두 가닥 끈, 아래 둥근 패와 가운데 점 (11/27 머리띠 · 키트 강화 값)
+			ci.draw_polyline(PackedVector2Array([c + Vector2(-6.2, -10.2) * u, c + Vector2(-2.2, -10.2) * u, c + Vector2(0, -5.6) * u,
+				c + Vector2(2.2, -10.2) * u, c + Vector2(6.2, -10.2) * u, c + Vector2(2.4, -2.6) * u]), col, w * 0.9)
+			ci.draw_line(c + Vector2(-6.2, -10.2) * u, c + Vector2(-2.4, -2.6) * u, col, w * 0.9)
+			ci.draw_arc(c + Vector2(0, 3.6) * u, 6.4 * u, 0, TAU, 24, col, w)
+			ci.draw_circle(c + Vector2(0, 3.6) * u, 2.3 * u, col)
 		"heart":     # 민심(마음) —— 아래가 뾰족한 하트 한 줄 (11/10 머리띠 민심 게이지)
 			var hrt := PackedVector2Array()
 			for i in 25:

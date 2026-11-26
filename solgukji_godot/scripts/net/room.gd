@@ -312,7 +312,7 @@ func info(i: int) -> Dictionary:
 		"day_no": day_no(), "you": i, "host": i >= 0 and seats[i].human and seats[i].peer == host, "seats": ss, "foe": me,
 		"noon": has_noon(day), "act": i >= 0 and can_cmd(i),
 		"act_draw": cmd_block(i, "forge") == "", "act_form": cmd_block(i, "place") == "", "why_draw": cmd_block(i, "forge"), "why_form": cmd_block(i, "place"), "act_plan": cmd_block(i, "set_plan") == "", "why_plan": cmd_block(i, "set_plan"), "alone": alone, "tour_round": -1, "winner": winner, "quick": QUICK_MSGS, "emote_n": EMOTE_N,
-		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on, "hp": hp_mul, "gacha": true}
+		"claim": claim_on, "deaths": death_n, "dead_units": dead_units, "dead_myth": dead_myths(), "sell": sell_on, "hp": hp_mul, "gacha": true, "kit": true}      # kit —— 11/27 이 서버는 키트 강화(kit_up · 전공)를 안다 (옛 서버에는 없어 화면이 강화 버튼을 숨긴다)
 
 
 func push_lobby() -> void:
@@ -531,6 +531,8 @@ func on_cmd(peer: int, m: String, a: Array, q := -1) -> void:
 	why = lock_reason(r, m, a)
 	if why == "":
 		why = shop_reason(r, m, a)
+	if why == "":
+		why = kit_reason(r, m, a)
 	if why != "":
 		server.send(peer, {"t": "toast", "text": why, "kind": "bad"})
 		push(seats[i])      # 클라이언트가 먼저 해 본 조합을 되돌린다
@@ -669,6 +671,15 @@ func shop_reason(r: Run, m: String, a: Array) -> String:
 	if not (a[0] is int or a[0] is float):
 		return "잘못된 명령입니다"
 	return r.buy_block(int(a[0]))
+
+
+## 키트 강화 거부 까닭 (11/27) —— 없는 장수 · 키트 아님 · 붙일 수 없는 강화 · 전공 부족 (Run.kit_block). "" 이면 거부 아님
+func kit_reason(r: Run, m: String, a: Array) -> String:
+	if m != "kit_up":
+		return ""
+	if a.size() != 3 or not (a[0] is String and a[1] is String and a[2] is String):
+		return "잘못된 명령입니다"
+	return r.kit_block(a[0], a[1], a[2])
 
 
 ## 긴급 소식 대상 —— 기인 이상 (기인 · 초월 6 · 불멸 7 · 신화 8)
@@ -1303,10 +1314,14 @@ func _params(bt: Dictionary, flipped: bool, title_ := "", foe_ := "") -> Diction
 	var b: Dictionary = bt.a if flipped else bt.b
 	var title: String = title_ if title_ != "" else str(bt.title)
 	var foe: String = foe_ if foe_ != "" else str(bt.foe)
+	var policy: Dictionary = {"A": pol.get("B", "smart"), "B": pol.get("A", "smart")} if flipped else {"A": pol.get("A", "smart"), "B": pol.get("B", "smart")}
+	var kt = pol.get("kit")      # 11/27 장수 키트 강화 —— 화면이 같은 엔진을 '준비'시켜 수치를 낼 때 같은 강화를 쓰게 (뒤집힌 쪽은 내 강화가 A)
+	if kt is Dictionary:
+		policy["kit"] = {"A": kt.get("B" if flipped else "A", {}), "B": kt.get("A" if flipped else "B", {})}
 	return {"a": a.cards, "fa": a.form, "ma": a.get("morale", 100), "ea": a.get("equip"),
 		"b": b.cards, "fb": b.form, "mb": b.get("morale", 100), "eb": b.get("equip"),
 		"seed": bt.seed, "title": title, "foe": foe,
-		"policy": {"A": pol.get("B", "smart"), "B": pol.get("A", "smart")} if flipped else {"A": pol.get("A", "smart"), "B": pol.get("B", "smart")},
+		"policy": policy,
 		"tra": float(a.get("tr_mul", 1.0)), "trb": float(b.get("tr_mul", 1.0)), "tb": b.get("trait", {})}
 
 

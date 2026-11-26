@@ -190,6 +190,31 @@ static func grain_btn(pre: String, text: String, cb: Callable, kind := "", h := 
 	return b
 
 
+## 전공 표기 (11/27 장수 키트 강화의 재화) —— [훈장 기호] [값]. 군량(grain)과 같은 모양, 은빛 (군량의 금색 · 칸 색과 겹치지 않게)
+const MERIT_COL := Color("#C9D8EA")
+static func merit(text: String, fs := FS_BODY, col := Color(0, 0, 0, 0), display := true) -> HBoxContainer:
+	var h := grain(text, fs, col if col.a > 0 else MERIT_COL, display)
+	(h.get_child(0) as Icons.View).icon = "merit"
+	return h
+
+
+## 전공 기호가 든 버튼 —— 「강화  [훈장] 2」 (grain_btn 과 같은 모양)
+static func merit_btn(pre: String, text: String, cb: Callable, kind := "", h := BTN_H, fs := FS_LABEL) -> Button:
+	var b := btn("", cb, kind, h)
+	var row := hbox(SP_S)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if pre != "":
+		var pl := lbl(pre, fs, DB.PAL.paper)
+		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(pl)
+	row.add_child(merit(text, fs, MERIT_COL, false))
+	b.add_child(row)
+	b.custom_minimum_size.x = maxf(b.custom_minimum_size.x, row.get_combined_minimum_size().x + 20)
+	return b
+
+
 static func hint(text: String) -> Label:
 	var l := lbl(text, FS_BODY, DB.PAL.text_dim)
 	wrap_text(l)
@@ -232,6 +257,9 @@ static func spoil_bb(sp) -> String:
 	var sg := int(sp.get("streak_g", 0))      # 11/19 연승 · 연패 보너스
 	if sg > 0:
 		s += " · [color=#%s]%s 군량 +%d[/color]" % [DB.PAL.gold.to_html(false), Run.streak_text(int(sp.get("streak", 0))), sg]
+	var mg := int(sp.get("merit", 0))      # 11/27 전공 (키트 강화의 재화) —— 대전 · 토벌 승리
+	if mg > 0:
+		s += " · [color=#%s]%s +%d[/color]" % [MERIT_COL.to_html(false), Run.Kit.CUR_N, mg]
 	if bool(sp.get("held", false)):      # 11/12 온라인 —— 전투 보상은 다음 아침(1페이즈)에 지급
 		s += " · 아침에 지급"
 	return s

@@ -184,6 +184,8 @@ func _draw() -> void:
 ## ② 고유 특기 칸은 금빛을 옅게 깐 면(탁한 황갈색)이라 눈에 띄지 않았다 —— 금 테 + 금 글자
 static func draw_traits(ci: CanvasItem, id: String, r: Rect2, fs := UI.FS_CAP) -> void:
 	var ts := DB.trait_list(id)
+	if preload("res://scripts/kit.gd").on(id):      # 11/27 키트 장수(신화)는 고유 특기(P) 하나만 —— 일반 특기는 쓰지 않는다
+		ts = ts.filter(func(t): return t.unique)
 	var fb := DB.font_body
 	var ch := fs + 6.0      # 11/14 글자 11 → FS_CAP(12): 칸 높이는 예전 그대로 18 (카드 높이 76 에 두 줄)
 	var gap := 3.0

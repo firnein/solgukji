@@ -22,8 +22,9 @@ var fixed := false           # 펼칠 수 없다 —— 가진 특기만 (아이
 func setup(id: String, n_cols := 5) -> TraitBoard:
 	k = id
 	cols = n_cols
+	var kit_card: bool = preload("res://scripts/kit.gd").on(k)      # 11/27 키트 장수(신화)는 일반 특기를 쓰지 않는다 —— 판이 빈다 (고유 특기 P 는 따로 보인다)
 	for t in DB.trait_list(k):
-		if not t.unique:
+		if not t.unique and not kit_card:
 			_mine[t.name] = t
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_rebuild()
@@ -38,7 +39,8 @@ func _rebuild() -> void:
 	var h := rows * (ch + gap) - gap
 	if _toggle_alone():
 		h -= ch - TOGGLE_LINE_H      # 혼자 남은 토글은 칸이 아니라 낮은 글자 줄
-	custom_minimum_size = Vector2(0, h)
+	custom_minimum_size = Vector2(0, maxf(0.0, h))      # 칸이 없으면(고정 판 · 일반 특기 없음) 높이 0 —— 음수 최소 크기를 두지 않는다
+	visible = not (fixed and _all.is_empty())           # 빈 고정 판은 자리(줄 간격)도 차지하지 않는다
 	queue_redraw()
 
 

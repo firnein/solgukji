@@ -16,6 +16,7 @@ const SKILL_LO := 1.15        # 봇 실력 계수 (11/2 난이도 상승: 0.98 ~
 const SKILL_HI := 1.35
 const SAVE_PATH := "user://save.json"
 const Tac := preload("res://scripts/tactics.gd")      # 11/15 군략 카드 규칙 (class_name 없이 —— 낡은 .godot 캐시에서도)
+const Kit := preload("res://scripts/kit.gd")          # 11/27 장수 키트 Q · W · E · R · P —— 칸 정의 · 강화 표 (재화 「전공」 · 강화 명령은 아래 '장수 키트 강화' 절)
 
 var rng := RandomNumberGenerator.new()
 var day := 0
@@ -212,6 +213,8 @@ func new_game(seed_value := -1, with_bots := true) -> void:
 	last_result = null
 	held = {}
 	grain = 0
+	merit = 0
+	kit = {}
 	sell_on = true
 	hp_rule = 1.0
 	tk_reset()
@@ -1459,7 +1462,7 @@ func can_next() -> bool:
 # ───────── 전투 —— 시작에 재료를 적고, 끝에 보상 ─────────
 
 func _my_side() -> Dictionary:
-	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": gear_pairs(), "tac": tac, "plan": tac_load()}
+	return {"cards": board.duplicate(), "form": form, "morale": my_morale(), "equip": gear_pairs(), "tac": tac, "plan": tac_load(), "kit": kit_side()}
 
 
 func _bot_side(pv: float, style: String) -> Dictionary:
@@ -1794,6 +1797,10 @@ static func policy_for(bt: Dictionary) -> Dictionary:
 	var pb = bt.b.get("plan", {})
 	if not Tac.empty_load(pa) or not Tac.empty_load(pb):      # 11/15 군략 —— 양쪽 계획은 정책과 같은 길로 엔진에 (RtBattle.run 이 떼어 낸다)
 		p["plan"] = {"A": pa if pa is Dictionary else {}, "B": pb if pb is Dictionary else {}}
+	var ka = bt.a.get("kit", {})      # 11/27 장수 키트 강화 —— 계획과 같은 길 (scripts/kit.gd 맨 위). 둘 다 비면 싣지 않는다 (강화 없는 판은 예전 정책 그대로)
+	var kb = bt.b.get("kit", {})
+	if (ka is Dictionary and not ka.is_empty()) or (kb is Dictionary and not kb.is_empty()):
+		p["kit"] = {"A": ka if ka is Dictionary else {}, "B": kb if kb is Dictionary else {}}
 	return p
 
 
@@ -2059,6 +2066,7 @@ func finish_battle(res: Dictionary) -> void:
 	var inv0 := inv.duplicate()
 	var tk0 := tickets.duplicate()
 	var bag0 := bag.duplicate()
+	var merit0 := merit
 	var kind0 := str(battle.kind)
 	_finish_battle(res)
 	var h_inv: Dictionary = held.get("inv", {})
@@ -2093,7 +2101,11 @@ func finish_battle(res: Dictionary) -> void:
 		var sg := int(last_spoil.streak_g)
 		grain -= sg
 		h_grain += sg
-	held = {"inv": h_inv, "tickets": h_tk, "bag": h_bag, "grain": h_grain}
+	var h_merit := int(held.get("merit", 0))      # 11/27 전공도 아침에 —— 토벌은 이겨야 받으므로 바로 주면 전투를 보기 전에 머리띠 숫자로 승패가 샌다
+	if merit > merit0:
+		h_merit += merit - merit0
+		merit = merit0
+	held = {"inv": h_inv, "tickets": h_tk, "bag": h_bag, "grain": h_grain, "merit": h_merit}
 	if last_spoil != null:
 		last_spoil["held"] = true      # 결과 줄에 '아침 지급'
 
@@ -2116,10 +2128,13 @@ func grant_held() -> void:
 		it += int(held.bag[k])
 	var hg := int(held.get("grain", 0))
 	grain += hg
+	var hm := int(held.get("merit", 0))      # 11/27 전공
+	merit += hm
 	held = {}
-	if n + t + it + hg > 0:
-		toasts.append(["지난 전투 보상 —— 장수 %d장%s%s%s" % [n, (" · 선택권 %d" % t) if t > 0 else "", (" · 장비 %d" % it) if it > 0 else "",
-			(" · %s 군량 +%d" % [streak_text(streak) if streak != 0 else "연속", hg]) if hg > 0 else ""], "gold"])
+	if n + t + it + hg + hm > 0:
+		toasts.append(["지난 전투 보상 —— 장수 %d장%s%s%s%s" % [n, (" · 선택권 %d" % t) if t > 0 else "", (" · 장비 %d" % it) if it > 0 else "",
+			(" · %s 군량 +%d" % [streak_text(streak) if streak != 0 else "연속", hg]) if hg > 0 else "",
+			(" · %s +%d" % [Kit.CUR_N, hm]) if hm > 0 else ""], "gold"])
 
 
 func _finish_battle(res: Dictionary) -> void:
@@ -2192,6 +2207,7 @@ func _finish_battle(res: Dictionary) -> void:
 					last_spoil["loot"] = lid
 				if lid != "" and not mp:
 					toasts.append(["황건 전리품 —— %s" % DB.IT[lid].name, "gold"])
+				merit_gain(MERIT_QUEST_WIN)      # 11/27 전공 —— 토벌은 이겨야 (난수를 쓰지 않는다)
 			if not res.win:
 				strikes += 1       # 기록용
 				_hp_hit(res, hp_today(), quest_name())
@@ -2219,6 +2235,7 @@ func _finish_battle(res: Dictionary) -> void:
 				last_spoil["streak_g"] = sg
 				if not mp:
 					toasts.append(["%s 보너스 —— 군량 +%d" % [streak_text(streak), sg], "gold"])
+			merit_gain(MERIT_PVP)      # 11/27 전공 —— 대전은 승패와 상관없이 (대전 보상은 승패가 같다)
 			if res.win:
 				my_w += 1
 				if b: b.l += 1
@@ -2551,10 +2568,96 @@ func gacha(n) -> Variant:
 	return out
 
 
+# ───────── 장수 키트 강화 · 전공 (11/27) ─────────
+## 11/27 사용자: "군량 외에 제 3의 재화로 q,w,e,r,p 를 선택해서 강화할 수 있음. 강화된 스킬은 추가효과를 가진다 —— 나만의 덱을 더 강화시키는 묘미. 일단은 신화 장수만."
+## 재화 「전공」(merit) —— 전투로만 번다: 대전 한 번 +MERIT_PVP (승패 무관) · 토벌 승리 +MERIT_QUEST_WIN (패배 0).
+##   온라인은 다른 전투 보상처럼 held 에 쌓였다가 다음 아침(grant_held)에 들어온다. 결과 줄에는 last_spoil.merit 로 「전공 +N」.
+## 강화 상태 kit —— { 카드 id: { 칸: [강화 id …] } } (형식 · 규칙은 scripts/kit.gd). 카드 id 에 붙는다 —— 그 장수를 팔아도 지워지지 않고 돌려주지도 않는다 (다시 얻으면 그대로).
+## 명령 "kit_up" [카드, 칸, 강화] —— 종류는 '징집 · 조합'(Room.FORM_CMDS 가 아님): 아침 · 전투를 다 본 뒤 기다리는 동안 되고, 대전 준비 단계에는 안 된다.
+##   전투는 시작할 때의 강화를 복사해 가므로(_my_side → kit_side) 이미 계산된 판은 바뀌지 않는다.
+## 전투로는 정책과 같은 길: policy_for 가 policy["kit"] = {"A": …, "B": …}. 봇 · 토벌 적은 강화가 없다. 점검 tests/kit_run
+const MERIT_PVP := 2
+const MERIT_QUEST_WIN := 1
+var merit := 0                     # 전공 —— 전투로 얻고 키트 강화에 쓴다
+var kit := {}                      # 강화 상태 (Kit.clean 을 거친 것만 들어 있다)
+
+
+## 전공을 얻는다 —— 방금 정산 중인 전투의 보상 글(last_spoil)에도 적는다
+func merit_gain(n: int) -> void:
+	if n <= 0:
+		return
+	merit += n
+	if last_spoil != null:
+		last_spoil["merit"] = int(last_spoil.get("merit", 0)) + n
+
+
+## 전투에 넘기는 내 강화 —— 편성한 장수의 것만 (사본 · 전투 재료는 그 뒤의 강화에 바뀌지 않는다)
+func kit_side() -> Dictionary:
+	var out := {}
+	for k in board:
+		if k != null and kit.get(k) is Dictionary and not out.has(k):
+			out[k] = (kit[k] as Dictionary).duplicate(true)
+	return out
+
+
+## 그 칸의 다음 강화 값 (전공) —— 더 못 올리면 −1
+func kit_cost(k: String, slot: String) -> int:
+	return Kit.next_cost(Kit.augs_of(kit, k, slot))
+
+
+## 강화를 받을 수 없는 까닭 —— "" 이면 된다 (서버가 거부 이유로 보낸다 · 화면은 버튼을 끄고 이 글을 보인다)
+func kit_block(k, slot, aug) -> String:
+	var id := str(k)
+	var sl := str(slot)
+	var ag := str(aug)
+	if not Kit.on(id):
+		return "강화할 수 없는 장수입니다 (키트 장수가 아님)"
+	if have(id) <= 0:
+		return "가지고 있지 않은 장수입니다"
+	if not Kit.SLOTS.has(sl) or Kit.slot_def(id, sl).is_empty():
+		return "없는 칸입니다"
+	var cur := Kit.augs_of(kit, id, sl)
+	if cur.size() >= Kit.MAX_LV:
+		return "이 칸은 더 강화할 수 없습니다 (최대 %d번)" % Kit.MAX_LV
+	if not Kit.AUG.has(ag):
+		return "없는 강화입니다"
+	if cur.has(ag) and not bool(Kit.AUG[ag].get("many", false)):
+		return "이미 붙인 강화입니다"
+	if not Kit.valid(id, sl, ag, cur):
+		return "이 칸에는 붙일 수 없는 강화입니다"
+	var cost := Kit.next_cost(cur)
+	if merit < cost:
+		return "%s이 모자랍니다 (%d / %d)" % [Kit.CUR_N, merit, cost]
+	return ""
+
+
+## 강화 하나를 붙인다 —— 전공을 내고 그 칸의 강화 목록 끝에 더한다. 못 하면 false (까닭은 kit_block)
+func kit_up(k, slot, aug) -> bool:
+	if kit_block(k, slot, aug) != "":
+		return false
+	var id := str(k)
+	var sl := str(slot)
+	var cur := Kit.augs_of(kit, id, sl)
+	merit -= Kit.next_cost(cur)
+	cur.append(str(aug))
+	if not (kit.get(id) is Dictionary):
+		kit[id] = {}
+	kit[id][sl] = cur
+	return true
+
+
+## 그 장수에 붙인 강화 수 (모든 칸의 합)
+func kit_n(k: String) -> int:
+	var n := 0
+	for sl in Kit.SLOTS:
+		n += Kit.lv(kit, k, sl)
+	return n
+
+
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
 const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
 	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1,
-	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2, "set_plan": 2, "pick_tac": 1, "reroll_tac": 0, "pick_res": 1}
+	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2, "set_plan": 2, "pick_tac": 1, "reroll_tac": 0, "pick_res": 1, "kit_up": 3}
 
 
 func command(m: String, a: Array):
@@ -2571,7 +2674,7 @@ func command(m: String, a: Array):
 const _KEYS := ["day", "phase", "inv", "bag", "board", "equip", "equip2", "gacha_pity", "last_gacha", "form", "tac", "drawn", "picked", "granted",
 	"quest_done", "quest_hard", "pvp_done", "tickets", "strikes", "hp", "last_hp_loss", "last_draw", "last_item", "uniq_offer", "uniq_rerolled", "myth_made", "kiin_made", "last_spoil",
 	"my_w", "my_l", "streak", "news", "news_seq", "bots", "over", "battle", "last_result", "mp", "held", "locked", "grain", "sell_on", "hp_rule",
-	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls", "rs_offer", "rs_done"]
+	"tk_hand", "tk_plan", "tk_offer", "tk_hist", "tk_perm", "tk_more", "tk_reroll", "tk_draw", "tk_rolls", "rs_offer", "rs_done", "merit", "kit"]
 
 
 func to_dict() -> Dictionary:
@@ -2597,6 +2700,8 @@ func from_dict(d: Dictionary) -> void:
 		equip2 = _nine()
 	sell_on = bool(d.get("sell_on", true))
 	hp_rule = float(d.get("hp_rule", 1.0))      # 옛 저장 · 옛 서버 —— 1.0
+	merit = int(d.get("merit", 0)) if (d.get("merit") is int or d.get("merit") is float) else 0      # 11/27 전공 —— 옛 저장 · 옛 서버는 0
+	kit = Kit.clean(d.get("kit"))      # 11/27 키트 강화 —— 옛 저장 · 옛 서버는 빈 것, 모르는 카드 · 칸 · 강화는 버린다
 	tk_load(d)      # 11/15 군략 —— 옛 저장 · 옛 서버는 기본 3장으로      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
 		hp = maxi(1, HP_MAX - strikes * 20)

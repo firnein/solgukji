@@ -1,6 +1,7 @@
 extends PanelContainer
 ## 세 장수 정보창이 공유하는 기술 목록. 이름·주기 / 효과 / 조건의 순서로 읽는다.
 const SS := preload("res://scripts/ui/sheet_style.gd")
+const Kit := preload("res://scripts/kit.gd")
 var entries := []
 var rows := {}
 
@@ -87,6 +88,11 @@ func setup(items: Array, compact := false) -> Control:
 		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var color: Color = SS.ATK if entry.damage == "phys" else (SS.ATK_INT if entry.damage == "int" else SS.VAL)
 		var symbol_name := "blade" if entry.damage == "phys" else ("news" if entry.damage == "int" else ("heart" if entry.damage == "heal" else ("boot" if entry.kind == "escape" else "banner")))
+		var slot := str(entry.get("slot", ""))      # 11/27 키트 장수의 일반기술 —— 이름 앞에 칸 딱지 Q · W · E (칸 색, scripts/kit.gd)
+		if Kit.SLOT_N.has(slot):
+			var badge := SS.slot_badge(str(Kit.SLOT_N[slot]), Color(str(Kit.SLOT_COL[slot])), 18.0)
+			badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			header.add_child(badge)
 		var symbol := Icons.View.new(symbol_name, color, 15)
 		symbol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		header.add_child(symbol)
