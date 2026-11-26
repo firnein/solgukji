@@ -86,7 +86,7 @@ func _ready() -> void:
 	var persons := {}
 	for k in DB.C:
 		persons[DB.person(k)] = true
-	_ok(DB.INYEON.size() == 47, "인연 수 47 (지금 %d)" % DB.INYEON.size())
+	_ok(DB.INYEON.size() == 50, "인연 수 50 (11/27 이릉대전 · 황조 토벌 · 조위의 기둥 추가) (지금 %d)" % DB.INYEON.size())
 	# 11/13 겹침 규칙 —— 어떤 두 인연도 구성원이 3명 이상 겹치지 않는다 (2명까지)
 	var names: Array = DB.INYEON.keys()
 	var two := 0
