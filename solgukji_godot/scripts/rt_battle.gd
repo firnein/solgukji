@@ -764,6 +764,7 @@ const INYEON_MAX_UP := 4
 static var inyeon_join_at4 := [0.24, 0.48, 0.72]   # 4명 연쇄의 합류 시각 (대표 기 모으기 길이 비율)
 static var yeon_kiin_fin_mul := 1.3
 static var yeon_kiin_cap_mul := 1.8
+static var yeon_kiin_first_off := ""      # 11/26 점검용 (tests/kiin_value) —— "A" · "B" · "AB": 그 진영 기인은 연쇄를 먼저 열지 않는다 (보통 장수처럼 낀다). 기본 "" = 지금 그대로
 static var yeon_n4_amp := 0.8       # 11/22 4명 연쇄에 든 장수의 고유기 피해 배율 (1.0 = 예전). 0.8: 4인 연쇄 한 번 적 현재 병력 대비 29 → 27% (기인이 열면 37~42 → 32~36%), tests/chain_power
 static var yeon_up_join := 70.0      # 11/12 2차 85 → 70 (초월 인연 덱 20판 4명 연쇄 4 → 6, 무작위 덱은 문턱과 무관하게 0 —— 구성원 넷이 모이는 일이 드묾). 같은 인연 초월이 살아 있으면(또는 자신이 초월이면) 게이지가 이만큼만 차도 합류 (평소 100)
 
@@ -871,7 +872,7 @@ func _inyeon_recruit(u: Unit, wait: float, cap := 0) -> void:      # cap: 모을
 	if inyeon_theme:
 		if picks.size() >= 3:
 			at = inyeon_join_at4
-		if is_kiin_u(u):
+		if is_kiin_u(u) and not yeon_kiin_first_off.contains(u.camp):
 			grp["kiin"] = u      # 기인이 대표 —— 원래 맨 먼저 터진다
 	_wind_grp[u] = grp
 	for i in picks.size():
@@ -933,7 +934,7 @@ func _inyeon_joins() -> void:
 			_clash[o] = cg
 		var end: float = float(_wind[lead]) + inyeon_stagger * ord
 		if inyeon_theme and not grp.get("basic", false):      # 11/26 기본 연쇄(yeon_basic)는 기인이 열지 않는다
-			if not grp.has("kiin") and is_kiin_u(o):      # 기인은 연쇄를 연다 —— 대표보다 먼저 터진다
+			if not grp.has("kiin") and is_kiin_u(o) and not yeon_kiin_first_off.contains(o.camp):      # 기인은 연쇄를 연다 —— 대표보다 먼저 터진다
 				grp["kiin"] = o
 				end = float(_wind[lead]) - inyeon_stagger
 			elif grp.has("kiin") and grp.kiin != lead:      # 기인이 앞에 끼어 뒤 장수는 한 칸씩 당겨진다

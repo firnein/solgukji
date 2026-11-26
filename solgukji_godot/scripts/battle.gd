@@ -126,6 +126,7 @@ const INT_TAG := ["책사", "유생", "술사", "모사"]
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 ## 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 (docs/역할_재설계_1108.md 9.1, 수치는 data/cards_ext.json class_guard → DB.GUARD)
 static var kiin_matchup_share_enabled := true   # 11/10 기인 교변 장합(불리한 상성 피해 −) · 단복 서서(피해 분담) —— 끄면 두 기인은 효과가 없다 (점검 비교용)
+static var kiin_fx_off := {}      # 11/26 점검용 (tests/kiin_value) —— "진영:칸" → 1: 그 기인의 기인 기능만 끔 · 2: 위세까지 끔. 기본 빔 = 지금 그대로
 static var shield_enabled := true    # 끄면 예전 판정 그대로 (지문 비교 · 점검용)
 static var side_trait := {"A": {}, "B": {}}    # 토벌 우두머리 성질 {t: armor · ward · mix, v} —— tr_mul 처럼 Run.simulate · BattleView 가 전투 전에 넣고 뒤에 되돌린다
 static var guard_over := {}          # 점검용 병종 막 덮어쓰기 {병종: 값} (--guard=창병:0.3,…) —— 물리 병종은 갑옷, 책략 병종은 결계
@@ -2767,7 +2768,7 @@ func rout(u: Unit, why: String, cause := "effect") -> void:
 	u.alive = false
 	if tac != null:
 		tac.on_fall(u)      # 11/15 군략 상벌 분명
-	if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].get("kiin", "") == "death_gauge":      # 유계 곽가 —— 쓰러지면 아군 전원 고유기 게이지 +50
+	if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].get("kiin", "") == "death_gauge" and not kiin_fx_off.has(u.camp + ":" + str(u.slot)):      # 유계 곽가 —— 쓰러지면 아군 전원 고유기 게이지 +50
 		for o in units:
 			if o.alive and o.camp == u.camp:
 				o.gauge = minf(100.0, o.gauge + 70.0)
@@ -2937,6 +2938,16 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 		if k and i < bS.size():
 			units.append(mk_unit(k, bS[i], "B", b_morale, i, b_equip[i] if b_equip and i < b_equip.size() else null, b_syn))
 	for u in units:
+		if not kiin_fx_off.is_empty() and DB.is_kiin(u.c.id):      # 11/26 점검용 —— 그 칸 기인의 기능(· 위세)을 뺀다
+			var off := int(kiin_fx_off.get(u.camp + ":" + str(u.slot), 0))
+			if off >= 2:
+				continue
+			if off == 1:
+				if aura_enabled and DB.AURA.has(u.c.id) and (aura_camp == "" or u.camp == aura_camp):
+					_myths.append(u)
+					if DB.AURA[u.c.id].has("m"):
+						_aura_m.append(u)
+				continue
 		if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].has("kiin"):
 			var kk: String = DB.AURA[u.c.id].kiin
 			if not _kiin_u.has(kk): _kiin_u[kk] = []
