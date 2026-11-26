@@ -132,7 +132,10 @@ const LAY_MIN := 0.62
 var lay := 1.0
 const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
 static var bow_range := 250.0      # 궁병 사거리 (점검 장면이 바꿔 볼 수 있게 static)
-static var cast_range := 220.0     # 지략 계열(책략으로 치는 유닛) 사거리
+static var cast_range := 250.0     # 지략 계열(책략으로 치는 유닛) 사거리 —— 이 값 하나가 실제 사거리다 (병종 배율 class_guard.range 의 책략계 0.8 은 11/26 뺐다)
+## 11/26 사용자 "책략계 사거리 올려봐" —— 실제 176(220 × 0.8) → 250 (궁병과 같다). 실제 대전 650판(tests/imm_skill --all=1, docs/불멸_기술횟수_1126.md):
+## 책략계 불멸 첫 행동 6.3 → 4.9초 · 가동률 0.50 → 0.57 (무력계 3.4초 · 0.73), 책략 쪽 승률 변화는 ±1.5%p 안. 되돌리려면 이 값만 176 으로.
+## '적 전체' 기술 반경(all_r)은 책략계에 한해 사거리를 따라 늘어난다 (ALL_PAD) —— 사거리만 늘리면 더 멀리 서서 한 번에 맞는 부대가 1.47 → 1.08 로 줄었다
 ## 11/25 사용자: 책략계 일반 기술 쿨타임 감소 —— 사거리 밖에서 기다리는 동안에도 기술 충전이 행동 몫의 이만큼 흐른다 (기술마다 비용 1회분까지, 혼란 중엔 멈춤).
 ## 0 이면 예전 (행동할 때만). 측정: 신화 제갈량은 살아 있는 시간의 47% 를 사거리 밖에서 서 있었다
 static var caster_idle_charge := 0.5
@@ -153,6 +156,7 @@ static var near_mul := 1.5         # 맞닿아 친 물리 피해 배율 (삼국�
 static var far_mul := 0.85          # 떨어진 곳(활 · 책략)에서 친 피해 배율 —— 근접은 맞닿아야만 쳐서 덜 치므로 맞춘다
 const AREA := 95.0            # 둘레 범위 (front3 · denseLine)
 static var all_r := 320.0   # '적 전체' 기술이 닿는 거리 (고유기는 아래 ult_all_r)
+const ALL_PAD := 144.0      # 11/26 책략계의 '적 전체' 반경 = max(all_r, 사거리 + 이만큼) —— 예전 사거리 176 일 때 320 이던 비율 그대로 (언덕 · 군략으로 사거리가 늘 때도 같이 늘어난다)
 ## 11/7 고유기 밸런스 2차 (사용자: "고유기가 거의 모든 범위에 효과가 있다") —— 고유기의 '적 전체'(all)는 전장 전체가 아니라
 ## 노리는 적(맞붙은 적 · 없으면 가장 가까운 적) 둘레 반지름 ult_all_r 안의 적. 가장자리가 원에 걸치면 맞는다. 0 이면 예전처럼 전장 전체
 ## 측정(같은 등급 30판, 반지름은 노리는 적 한가운데에서 발자국 가장자리까지): 신화 '적 전체' 고유기 번당 맞는 부대 5.7~6.2 → 3.3~3.6 (300 이면 2.4~2.9 · 220 이면 1.9 로 너무 좁다),
@@ -2203,7 +2207,8 @@ func resolve_targets(spec: String, foes: Array, me: Unit, allies: Array) -> Arra
 					_mark_targets(me, live)
 					return live
 				return _ult_area(me, main, live)
-			return live.filter(func(o): return me.pos.distance_to(o.pos) <= all_r)
+			var ar := maxf(all_r, _reach(me) + ALL_PAD) if is_caster(me.c) else all_r      # 11/26 책략계는 사거리를 따라 (멀리 서도 맞던 만큼 맞게)
+			return live.filter(func(o): return me.pos.distance_to(o.pos) <= ar)
 		"denseLine":
 			var best: Array = [main]
 			for c in near:

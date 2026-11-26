@@ -5,6 +5,9 @@ extends Node
 ##        [--sw=rear_guard,intercept,form_guard,spear_rear_ok] [--place=spear_rear|rear_front --only_place=1] [--place_check=spear_rear|rear_front]
 ##   --place=rear_front : 후군 원거리(가운데 쪽) 하나와 전열 근접(가장 뒤 · 낮은 등급) 하나를 맞바꾼다 —— 후열 배치의 값
 ##   --auto=A|B : 그 진영만 자동 배치(DB.auto_place)로 다시 놓는다 —— --sw=outer_guard_place 켬/끔 비교 (라)
+##   --auto=AB --mid=<A>,<B> : 11/26 원거리 가운데 배치(DB.mid_place) 전/후 —— 진영마다 off(끔 = 옛 배치) 또는 0 · 1 · 2(DB.mid_place_aff) 로 다시 놓는다.
+##                예: --mid=off,off 옛 배치끼리 · --mid=1,1 새 배치끼리 · --mid=1,off A 만 새 배치. --reseed=n 은 기록 씨앗에 n 을 더한다 (되풀이 표본)
+##                출력의 top: [A, B] = 그 진영에서 가장 강한 원거리(DB.place_power)가 선 칸 (없으면 −1)
 ##   --place_check=모드 : 바꾸지 않고 그 모드로 바꿀 수 있는 판만 돈다 (같은 판 기준선)
 ##   --sw         : 진형 분석 스위치를 켠다 (RtBattle.rear_guard · intercept · form_guard, DB.spear_rear_ok)
 ##   --place=spear_rear : 창병이 있고 후군 줄에 원거리가 둘 이상인 쪽마다, 가장 뒤쪽 창병과 후군 줄의 원거리 하나(가운데 쪽부터)를 맞바꾼다
@@ -30,7 +33,11 @@ func _ready() -> void:
 	DB.spear_rear_ok = sws.has("spear_rear_ok")
 	DB.outer_guard_place = sws.has("outer_guard_place")
 	RtBattle.probe_back_basic = not sws.has("no_back_basic")      # (라) 도적 평타가 적진 가장 뒤 부대 대신 맞닿은 적에게 (기존 점검 스위치)
-	var auto_cp := str(a.get("auto", ""))      # --auto=A|B : 그 진영을 DB.auto_place 로 다시 놓는다 (outer_guard_place 켬/끔 비교)
+	var auto_cp := str(a.get("auto", ""))      # --auto=A|B|AB : 그 진영을 DB.auto_place 로 다시 놓는다 (outer_guard_place 켬/끔 비교)
+	var mids: Array = Array(str(a.get("mid", "")).split(",", false))      # --mid=<A>,<B> : off | 0 | 1 | 2
+	var reseed := int(a.get("reseed", "0"))
+	var keep_mid := DB.mid_place
+	var keep_aff := DB.mid_place_aff
 	RtBattle.probe_form = true
 	var place := str(a.get("place", ""))
 	var only_place := a.has("only_place")
@@ -56,9 +63,17 @@ func _ready() -> void:
 		if me.is_empty() or foe.is_empty():
 			continue
 		var pl := []
-		if auto_cp != "":
-			_reauto(me if auto_cp == "A" else foe)
-			pl.append(auto_cp)
+		for cp in ["A", "B"]:
+			if not auto_cp.contains(cp):
+				continue
+			var mi := 0 if cp == "A" else 1
+			if mids.size() > mi:
+				DB.mid_place = str(mids[mi]) != "off"
+				DB.mid_place_aff = int(mids[mi]) if DB.mid_place else keep_aff
+			_reauto(me if cp == "A" else foe)
+			DB.mid_place = keep_mid
+			DB.mid_place_aff = keep_aff
+			pl.append(cp)
 		var pm := place if place != "" else str(a.get("place_check", ""))      # --place_check=모드 : 바꾸지 않고 그 모드로 바꿀 수 있는 판만 (기준선)
 		if pm != "":
 			for pair in [["A", me], ["B", foe]]:
@@ -70,7 +85,7 @@ func _ready() -> void:
 		var plan := {}
 		if not (b.me_plan as Array).is_empty() or not (b.foe_plan as Array).is_empty():
 			plan = {"A": {"p": b.me_plan, "own": b.me_own, "perm": []}, "B": {"p": b.foe_plan, "own": [], "perm": []}}
-		var bt := RtBattle.new(int(b.seed))
+		var bt := RtBattle.new(int(b.seed) + reseed)
 		var r: Dictionary = sw._run_bt(bt, me, foe, plan, false)
 		var us := []
 		for u in bt.units:
@@ -85,12 +100,25 @@ func _ready() -> void:
 		for k in ["rogue_held", "escort", "rescue", "escape", "intercept"]:
 			st[k] = int(bt.stats.get(k, 0))
 		var w := 0.5 if bool(r.draw) else (1.0 if bool(r.win) else 0.0)
-		f.store_line(JSON.stringify({"bi": bi, "day": b.day, "fa": me.form, "fb": foe.form, "win": w, "len": float(r.len), "st": st, "pl": pl, "u": us}))
+		f.store_line(JSON.stringify({"bi": bi, "day": b.day, "fa": me.form, "fb": foe.form, "win": w, "len": float(r.len), "st": st, "pl": pl, "top": [_top(me), _top(foe)], "u": us}))
 		bt.units.clear()
 		n += 1
 	f.close()
 	print("ZGL_FORM done part=%d/%d n=%d sw=%s place=%s" % [part, parts, n, JSON.stringify(sws), place])
 	get_tree().quit(0)
+
+
+## 가장 강한 원거리가 선 칸 (없으면 −1) —— 같은 세기면 가운데 열 쪽
+func _top(S: Dictionary) -> int:
+	var slots: Array = DB.FORM[S.form].slots
+	var best := -1
+	for i in mini(S.cards.size(), slots.size()):
+		if not DB.is_ranged(S.cards[i]):
+			continue
+		var p := DB.place_power(S.cards[i])
+		if best < 0 or p > DB.place_power(S.cards[best]) or (p == DB.place_power(S.cards[best]) and absi(int(slots[i].col) - 2) < absi(int(slots[best].col) - 2)):
+			best = i
+	return best
 
 
 ## 자동 배치로 다시 놓기 —— 장비는 카드를 따라간다
