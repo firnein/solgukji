@@ -32,6 +32,11 @@ func _ready() -> void:
 	RtBattle.form_guard = sws.has("form_guard")
 	DB.spear_rear_ok = sws.has("spear_rear_ok")
 	DB.outer_guard_place = sws.has("outer_guard_place")
+	RtBattle.rogue_touch = not sws.has("rogue_old")      # 11/27 도적 기본 공격: 맞닿은 적만(기본) / 예전(적진 가장 뒤)
+	if a.has("dive"):
+		RtBattle.rogue_dive_spd = float(a.dive)
+	if a.has("fspd"):
+		RtBattle.flank_spd = float(a.fspd)
 	RtBattle.probe_back_basic = not sws.has("no_back_basic")      # (라) 도적 평타가 적진 가장 뒤 부대 대신 맞닿은 적에게 (기존 점검 스위치)
 	var auto_cp := str(a.get("auto", ""))      # --auto=A|B|AB : 그 진영을 DB.auto_place 로 다시 놓는다 (outer_guard_place 켬/끔 비교)
 	var mids: Array = Array(str(a.get("mid", "")).split(",", false))      # --mid=<A>,<B> : off | 0 | 1 | 2

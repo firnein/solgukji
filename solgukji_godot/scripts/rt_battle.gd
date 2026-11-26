@@ -170,6 +170,11 @@ const TURN_RATE := 2.5        # 부대가 도는 속도 (라디안/초)
 
 static var flank_spd := 1.8             # 11/22 사용자 "우회가 너무 오래 걸린다" —— 우회 길목으로 도는 동안(도적 · 장합 우회 기병) 이동 속도 배율
 static var probe_rogue_flank := true    # 11/8 점검 (tests/mono_league --off=우회) —— 끄면 도적이 적 무리 옆으로 크게 돌지 않고 곧장 간다
+## 11/27 사용자: "몸과 떨어진 적을 어떻게 때리는 거야 → 실제로 후열까지 가도록, 갈 때 속도를 빠르게" —— 도적의 기본 공격은 맞닿은 적만 친다 (예전: 아무 적이나 닿아 있으면
+## 적진 가장 깊은 부대를 쳤다 —— 몸은 앞줄 옆에 있는데 피해는 맨 뒤에서 터졌다). 대신 ① 표적은 원거리 · 책략 부대가 남아 있는 동안 그들 가운데서만 고르고
+## ② 창병에게 붙잡힌 동안에도 노리던 후열을 잊지 않으며(붙잡힘이 끝나면 다시 간다) ③ 후열로 가는 동안 rogue_dive_spd 배로 달린다. 끄면 예전 그대로 (비교용)
+static var rogue_touch := true
+static var rogue_dive_spd := 2.2      # 실제 대전 덱 650판: 첫 맞닿음 6.7 → 5.9초 · 도적 피해 몫 13.0 → 11.8% · 승패 바뀐 판 29 (×1.0 이면 10.8%, ×1.6 이면 11.1%)
 static var probe_back_basic := true     # --off=후열평타: 도적의 후열 평타 비교용. 원거리는 이 스위치와 무관하게 사거리 안 최근접 적.
 static var enabled := true    # 게임 · 서버의 전투를 실시간 엔진으로 (false 면 예전 턴 엔진 —— 비교용)
 
@@ -1526,6 +1531,7 @@ func _move() -> void:
 				pin = o
 		# 기병 · 도적은 맞닿아도 묶이지 않고 노리던 후열로 파고든다
 		var slip: bool = (u.c.tag == "기병" or u.c.tag == "도적") and u.tgt != null and u.tgt.alive and pin != u.tgt
+		var held := false      # 11/27 창병에게 붙잡힌 도적 —— 붙잡힌 동안에도 노리던 후열을 표적으로 둔다 (rogue_touch)
 		if intercept and slip and u.c.tag == "도적" and (pin == null or pin.c.tag != "창병") and rogue_hold > 0.0:      # 11/26 (나) 지나가는 도적도 붙잡는다
 			for o in foes:
 				if o.c.tag == "창병" and float(_rogue_held.get([u, o], rogue_hold)) > 0.0 and _gap(u, o) <= intercept_gap:
@@ -1541,6 +1547,7 @@ func _move() -> void:
 					stats["rogue_held"] = int(stats.get("rogue_held", 0)) + 1
 				_rogue_held[hk] = left - TICK
 				slip = false
+				held = rogue_touch
 		var ft = _sg.force_tgt(u) if (_sg != null and u.sg.has("ftg") and not u.ranged) else null      # 11/22 특별한 특기 —— 장료 돌파 · 조운 구출: 정한 적에게 곧장 (기병은 맞닿은 적을 흘려 지나간다)
 		if ft != null:
 			u.tgt = ft
@@ -1552,7 +1559,7 @@ func _move() -> void:
 		# 11/16 사용자 "뒷라인이 도적에게 공격 받아도 타겟팅을 바꾸지 않음" —— 원거리(궁병 · 책략계)는 근접 적이 달라붙으면 사거리 안의 옛 목표를 버리고 붙은 적을 상대한다
 		if u.ranged:
 			u.tgt = _choose(u, foes)
-		elif pin != null and (u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
+		elif pin != null and not held and (u.tgt == null or not u.tgt.alive or _gap(u, u.tgt) > _reach(u)):
 			u.tgt = pin
 		elif u.tgt == null or not u.tgt.alive or u.retgt <= 0.0 or _hidden(u.tgt):
 			u.tgt = _choose(u, foes)
@@ -1616,10 +1623,13 @@ func _move() -> void:
 				if sp < 0.0:
 					sp = _speed(u)
 				if flanking:
-					sp *= flank_spd      # 11/22 우회 길목으로 도는 동안은 빨리 —— 적진 투입을 당긴다
+					sp *= maxf(flank_spd, rogue_dive_spd) if (rogue_touch and u.c.tag == "도적") else flank_spd      # 11/22 우회 길목으로 도는 동안은 빨리 —— 적진 투입을 당긴다 (11/27 도적은 달려드는 속도와 같게)
 					if form_guard:      # 11/26 (다) 지키는 쪽 진형이 둘레를 막는다
 						sp *= float(FORM_GUARD.get(_form_cp.get(t.camp, ""), 1.0))
 					stats["flank_run_t"] = stats.get("flank_run_t", 0.0) + TICK
+				elif rogue_touch and u.c.tag == "도적" and _ranged(t) and rogue_dive_spd != 1.0:      # 11/27 후열로 곧장 달려드는 동안 (우회 길목이 없을 때) —— 가는 데 시간을 다 쓰지 않게
+					sp *= rogue_dive_spd
+					stats["dive_run_t"] = stats.get("dive_run_t", 0.0) + TICK
 				desired = dir * minf(sp, (gap - want) / TICK)      # 노리는 적 앞에서 멈춘다 (파고들지 않게)
 		else:
 			u.block_t = 0.0
@@ -1872,7 +1882,16 @@ func _choose(u: Unit, foes: Array) -> Unit:
 	var best0: Unit = null      # 1.2 개성 표적 가중을 뺀 선택 (개성 때문에 바뀌었나 세는 용)
 	var bs0 := INF
 	var lane: bool = not _ranged(u) and u.c.tag != "기병" and u.c.tag != "도적"
+	# 11/27 도적은 원거리 · 책략 부대가 남아 있는 동안 그들 가운데서만 고른다 (맞닿은 앞줄이 거리 0 이라 늘 뽑혀 한 번 닿으면 거기 눌러앉았다)
+	var dive := false
+	if rogue_touch and u.c.tag == "도적":
+		for o in foes:
+			if _ranged(o):
+				dive = true
+				break
 	for o in foes:
+		if dive and not _ranged(o):
+			continue
 		var d := maxf(0.0, _gap(u, o))
 		if lane:      # 앞 열 우선 —— 진형 폭만큼 전선이 넓게 선다 (옆 거리는 무겁게)
 			d = maxf(0.0, Vector2(o.pos.x - u.pos.x, (o.pos.y - u.pos.y) * LANE_W).length() - u.hd - o.hd)
@@ -2319,7 +2338,7 @@ func basic_target(u: Unit, foes: Array) -> Array:
 	if u.ranged:
 		var nearest := _nearest_ranged_target(u, foes)
 		return [nearest] if nearest != null else []
-	var back: bool = probe_back_basic and ((u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or u.c.tag == "도적" or is_caster(u.c))
+	var back: bool = probe_back_basic and ((u.c.tag == "궁병" and (u.caps.has("궁병") or DB.aff_of(u.c.tag, u.line, u.side) == "pref")) 		or (u.c.tag == "도적" and not rogue_touch) or is_caster(u.c))
 	return resolve_targets("back1" if back else "front1", foes, u, [])
 
 
