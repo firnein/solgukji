@@ -315,10 +315,14 @@ class Unit:
 	var steer_side := 0.0     # 11/19 비켜 가는 쪽 (+1 · −1, 0 = 정하지 않음) —— 한 번 고르면 그 길이 막힐 때까지 지킨다 (RtBattle._steer)
 	var steer_keep := 0.0     # 막힘이 풀린 뒤에도 같은 쪽으로 비켜 가는 남은 시간 (초)
 	var ranged := false       # 원거리(궁병 · 책략계)인가 —— RtBattle.mk_unit 이 한 번 정한다 (11/15 성능: 틱마다 수백 번 묻는다)
-	# 11/27 장수 키트 (scripts/kit.gd) —— 키트 장수만. c(카드) · ult 는 강화를 입힌 사본이다 (원본 DB.C 는 그대로)
-	var kit = null            # {칸: [강화 id …]} 다섯 칸 모두 (없으면 빈 배열). 키트 장수가 아니면 null
+	# 11/27 장수 키트 (scripts/kit.gd · kit_rt.gd) —— c(카드) · ult 는 키트 기술 · 바탕 배율을 입힌 사본이다 (원본 DB.C 는 그대로)
+	var kit = null            # 강화한 칸 목록 ["q", "w"] (없으면 빈 배열). 키트 장수가 아니면 null
 	var kit_p := ""           # 붙은 고유 특기 이름 (특기가 꺼져 있으면 빈 글)
-	var kit_pm := 1.0         # 고유 특기 배율 (Kit.p_mul —— 바탕 × 각성)
+	var kit_pm := 1.0         # 고유 특기 배율 (Kit.p_mul —— 바탕 배율)
+	var sk_next := []         # 키트 장수 —— 기술마다 다음에 쓸 수 있는 시각 (재사용 대기, kit_rt)
+	var kt := {}              # 키트 효과가 건 상태 (끝 시각 · 깃발 —— 보호 · 표식 · 버팀 · 묶임 · 점찍은 적 …). 키트 장수가 아닌 부대에도 걸린다
+	var ult_shift := 0.0      # 고유기 장수 대기에 더하는 초 (키트 —— 늦춤 + · 당김 −)
+	var ult_hold := 0.0       # 이 시각까지 고유기를 시작하지 못한다 (키트 —— 늦춤)
 
 
 var K: Dictionary
@@ -346,7 +350,9 @@ var _myths: Array[Unit] = []   # 위세를 가진 장수 (신화 · 초월 —�
 var _aura_m: Array[Unit] = []  # 그 가운데 특수 효과(m)를 주는 장수 —— mv() 가 더한다
 var _tm := 0.0                # 전장 시각(초) —— 실시간 엔진만 쓴다. 사건에 tm 으로 적는다
 var tac = null                # 11/15 군략 카드 전투 처리 (scripts/tac_rt.gd) —— 계획이 없는 전투는 null (예전과 같다)
-var kit_st := {"A": {}, "B": {}}   # 11/27 장수 키트 강화 상태 (진영별 {카드 id: {칸: [강화 id …]}}) —— 정책의 "kit" 로 온다 (_setup 이 떼어 내 Kit.clean 으로 거른다)
+var kit_st := {"A": {}, "B": {}}   # 11/27 장수 키트 강화 상태 (진영별 {카드 id: [강화한 칸 …]}) —— 정책의 "kit" 로 온다 (_setup 이 Kit.norm 으로 거른다)
+var _kt = null                # 11/27 장수 키트 실행부 (scripts/kit_rt.gd) —— 실시간 엔진이 키트 장수가 있는 판에만 만든다
+var _kt_hits := []            # 지금 고유기가 노린 적들 (키트 고유기 강화가 쓴다)
 var stats := {"dmg": 0.0, "ult_dmg": 0.0, "sk_dmg": 0.0, "sk_n": 0, "blocked": 0, "ult_hits": 0,    # 점검용
 	"burn": 0.0, "fire_amp": 0.0, "ignites": 0, "spreads": 0, "doused": 0, "terror": 0.0, "blazes": 0, "scorched": 0,
 	"flood": 0.0, "water_amp": 0.0, "soaks": 0, "flows": 0, "drowned": 0, "tides": 0, "steams": 0,
@@ -508,11 +514,9 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	var kon: bool = Kit.on(cid)      # 11/27 장수 키트 —— 이 진영의 강화 상태로 기술 · 고유기 · 고유 특기 사본을 만든다 (아래 _kit_unit)
 	var kp := ""
 	if kon:
-		var ks: Dictionary = kit_st.get(camp, {}).get(cid, {})
-		u.kit = {}
-		for sl in Kit.SLOTS:
-			u.kit[sl] = (ks[sl] as Array).duplicate() if ks.get(sl) is Array else []
-		u.kit_pm = Kit.p_mul(u.kit.p)
+		var ks = kit_st.get(camp, {}).get(cid)
+		u.kit = (ks as Array).duplicate() if ks is Array else []
+		u.kit_pm = Kit.p_mul()
 		kp = Kit.p_name(cid)
 	if ps != null:
 		for t in ps.traits:
@@ -551,27 +555,23 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	return u
 
 
-## 11/27 장수 키트 —— 키트 장수의 기술(q · w · e) · 고유기(r)를 바탕 배율 · 강화를 입힌 사본으로 바꾼다.
-## 카드 사전은 얕은 사본에 sks 만 갈아 끼운다 (DB.C 는 그대로 —— 같은 카드가 양 진영에 있어도 진영마다 따로).
-## 기질(temper)은 강화 전 고유기로 이미 정해졌다 (위압이 '아군만' 고유기에 적 효과를 붙여도 기질이 바뀌지 않게)
+## 11/27 장수 키트 —— 키트 장수의 기술(q · w · e)을 키트 기술(data/kit.json —— 새 기술 · 재사용 대기 · 바탕 배율)로, 고유기(r)를 바탕 배율을 입힌 사본으로 바꾼다.
+## 카드 사전은 얕은 사본에 sks 만 갈아 끼운다 (DB.C 는 그대로 —— 같은 카드가 양 진영에 있어도 진영마다 따로)
 func _kit_unit(u: Unit) -> void:
-	var sks: Array = u.c.get("sks", [])
+	var sks: Array = Kit.skills_of(str(u.c.id)) if _by_distance() else (u.c.get("sks", []) as Array).map(func(x): return Kit.apply_skill(x))      # 턴 엔진(비교용)은 카드 기술을 충전 방식 그대로
 	if not sks.is_empty():
 		var c2: Dictionary = u.c.duplicate()
-		var out := []
-		for j in sks.size():
-			out.append(Kit.apply_skill(sks[j], u.kit[Kit.SLOTS[j]]) if j < 3 else sks[j])
-		c2["sks"] = out
+		c2["sks"] = sks
 		u.c = c2
 	if u.ult != null:
-		u.ult = Kit.apply_ult(u.ult, u.kit.r)
+		u.ult = Kit.apply_ult(u.ult)
 
 
-## 키트 장수의 사건에 붙이는 칸 표시 —— {"slot": 칸, "augs": [강화 id …]} (키트 장수가 아니면 빈 사전)
+## 키트 장수의 사건에 붙이는 칸 표시 —— {"slot": 칸} + 그 칸을 강화했으면 {"up": true} (키트 장수가 아니면 빈 사전)
 func _kit_tag(u: Unit, slot: String) -> Dictionary:
 	if u == null or u.kit == null:
 		return {}
-	return {"slot": slot, "augs": (u.kit.get(slot, []) as Array).duplicate()}
+	return {"slot": slot, "up": true} if (u.kit as Array).has(slot) else {"slot": slot}
 
 
 ## 기술 · 고유기 효과의 대상 —— 「확산」으로 넓힌 효과(tgt0 = 원래 범위)는 넓힌 범위에 원래 범위의 대상도 더한다 (넓혔는데 원래 대상을 놓치지 않게)
@@ -1393,6 +1393,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		if not d.sk_ch.is_empty():
 			for jj in d.sk_ch.size():      # 따로 충전이면 기술마다 깎는다
 				d.sk_ch[jj] = maxf(0.0, d.sk_ch[jj] - ROLE.rogue_charge)
+		if _kt != null and d.kit != null:
+			_kt.rogue_hit(d)      # 11/27 키트 장수는 충전이 없다 —— 재사용 대기가 조금 밀린다
 	var assists := []
 	if shield_enabled:      # 11/9 깎기 기여 기록 —— 깎기가 없었다면 막 그대로였을 몫과의 차이를 건 장수에게
 		var gk := dmg_kind(a)
@@ -1618,6 +1620,7 @@ func morale_hit(d: Unit, amt: float, who: String, spread: int, src: Unit) -> voi
 
 func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 	if not d.alive or _scorched(d): return
+	if _kt != null and not d.kt.is_empty() and _kt.no_heal(d): return      # 11/27 키트 —— 치료를 받지 못하는 동안 (미혹 · 단량 · 열화)
 	if _no_ally(d) and src != d: return      # 여포 무쌍 —— 아군의 치료를 받지 않는다
 	if virtue_enabled and _side_max(_foe(d.camp), "starve") > 0:
 		ratio *= 1.0 - float(DB.PSV.virtue.starve)      # 단량 —— 적이 군량을 끊었다
@@ -1642,6 +1645,7 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 
 func heal_morale(d: Unit, amt: float, who: String, src: Unit) -> void:
 	if _no_ally(d) and src != d: return      # 여포 무쌍
+	if _kt != null and not d.kt.is_empty() and _kt.no_morale(d): return      # 11/27 키트 —— 사기가 회복되지 않는 동안 (오소기습)
 	var b := d.morale
 	d.morale = minf(200, d.morale + amt * pace * _one)
 	var g := d.morale - b
@@ -1678,6 +1682,7 @@ func _turn_sec() -> float:
 
 func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 	if not d.alive: return
+	if _kt != null and _kt.st_block(a, d, kind): return      # 11/27 키트 —— 장각 태평도 (상태이상에 걸리지 않는 동안)
 	if kind == "confuse" and cf_guard:
 		if has_st(d, "confuse"):
 			return      # 혼란 중에 또 걸어도 늘지 않는다
@@ -1794,7 +1799,10 @@ func _cf_tick() -> void:
 	for x in done:
 		var u: Unit = x[0]
 		_cf_off(u)
-		if u.alive and not x[1].get("passed", false) and scheme_enabled and _side_max(_foe(u.camp), "confuse_pass") > 0:
+		var kp: bool = _kt != null and x[1].has("kt_pass")      # 11/27 키트 —— 제갈량 팔문 (그 고유기의 혼란만)
+		if u.alive and not x[1].get("passed", false) and scheme_enabled and (kp or _side_max(_foe(u.camp), "confuse_pass") > 0):
+			if kp:
+				_kt.cf_passed(u, x[1])
 			_cf_pass(u)      # 반간 —— 옮겨 간 혼란도 초로 끝난다
 	var live := 0      # 옮겨 간 혼란까지 다시 센다 (앞서 훑은 부대에 걸려도 놓치지 않게)
 	for u in units:
@@ -1807,6 +1815,18 @@ func _cf_tick() -> void:
 
 func cleanse(u: Unit) -> bool:
 	if u.st.is_empty(): return false
+	if _kt != null:      # 11/27 키트 —— 장각 대현량사: 장각이 건 혼란은 풀어 낼 수 없다 (풀 수 있는 첫 상태를 씻는다)
+		var ci := -1
+		for i in u.st.size():
+			if not _kt.cleanse_block(u, u.st[i]):
+				ci = i
+				break
+		if ci < 0:
+			return false
+		if ci > 0:
+			var keep = u.st[ci]
+			u.st.remove_at(ci)
+			u.st.push_front(keep)
 	var k: String = u.st.pop_front().k
 	if k == "confuse": _cf_off(u)
 	var sn: String = DB.D.STATUS[k].n
@@ -2278,6 +2298,10 @@ func _shown_st(u: Unit) -> Array:
 			out.append("cut_res")      # 11/9 결계 깨짐 —— 화면 표지 (기록만)
 	if _sg != null and not u.sg.is_empty():
 		_sg.shown(u, out)      # 11/21 도발에 걸림(taunted) · 불사 버팀(undying) 딱지
+	elif _kt != null and u.sg.has("tnt") and _kt.taunt_of(u) != null:
+		out.append("taunted")      # 11/27 키트 도발(주유 고육계) —— 개성 장수가 없는 판에서도 같은 딱지
+	if (u.sg.has("hide") or (_tm < 8.0 and not _paeup.is_empty())) and _hidden(u):
+		out.append("stealth")      # 11/27 숨어 있는 동안 (위장 · 거짓 항복 · 백기야습 · 키트 은신) —— 화면이 숨은 부대를 알아보게 (표시용, 판정은 _hidden)
 	return out
 
 
@@ -2336,6 +2360,8 @@ func _scheme_mul(a: Unit, d: Unit) -> float:
 ## 사기를 채운다 (사기 축 —— 함성 · 독전 · 결사 · 진정 · 고무). log=false 면 기록 없이 (차례마다 조금씩 차는 것)
 func _rally(u: Unit, amt: float, why: String, log := true) -> void:
 	if not u.alive or amt <= 0:
+		return
+	if _kt != null and not u.kt.is_empty() and _kt.no_morale(u):      # 11/27 키트 —— 사기가 회복되지 않는 동안 (오소기습)
 		return
 	var b := u.morale
 	u.morale = minf(200, u.morale + amt)
@@ -2809,6 +2835,8 @@ func _paeup_revive(u: Unit) -> bool:
 
 func rout(u: Unit, why: String, cause := "effect") -> void:
 	if not u.alive: return
+	if _kt != null and _kt.hold_rout(u, cause):      # 11/27 키트 —— 쓰러지지 않는 동안 · 패주하지 않는 동안 · 예약된 되살리기
+		return
 	if _sg != null and _sg.hold_rout(u, cause):      # 11/19 주태 불사 · 하후돈 분노
 		return
 	var ht := _kv(u.camp, "revive")      # 신의 화타 —— 처음 무너진 아군 2부대를 병력 40%로
@@ -2832,6 +2860,8 @@ func rout(u: Unit, why: String, cause := "effect") -> void:
 	u.alive = false
 	if tac != null:
 		tac.on_fall(u)      # 11/15 군략 상벌 분명
+	if _kt != null:
+		_kt.on_fall(u)      # 11/27 키트 —— 제갈량 출사표
 	if DB.AURA.has(u.c.id) and DB.AURA[u.c.id].get("kiin", "") == "death_gauge" and not kiin_fx_off.has(u.camp + ":" + str(u.slot)):      # 유계 곽가 —— 쓰러지면 아군 전원 고유기 게이지 +50
 		for o in units:
 			if o.alive and o.camp == u.camp:
@@ -2988,12 +3018,13 @@ func _setup(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: A
 		b_morale: float, b_equip, title: String, foe_name: String, inputs_: Array, policy_: Dictionary) -> void:
 	inputs = inputs_
 	for cp in policy_:
-		if cp != "kit":
-			policy[cp] = policy_[cp]
-	# 11/27 장수 키트 —— 양쪽 강화 상태는 정책과 같은 길로 온다 (policy["kit"] = {"A": …, "B": …} · 군략 plan 과 같다). 유닛을 만들기 전에 떼어 내 규칙대로 거른다.
-	# 준비만 시키는 화면(BattleView.start_stats)도 이 함수를 지나므로 같은 강화가 든다
+		policy[cp] = policy_[cp]
+	# 11/27 장수 키트 —— 양쪽 강화 상태는 정책과 같은 길로 온다 (policy["kit"] = {"A": …, "B": …} · 군략 plan 과 같다). 유닛을 만들기 전에 규칙대로 거른다 (Kit.norm).
+	# 거른 값은 정책에 그대로 남는다 —— 결과의 policy 로 클라이언트 전투 화면이 같은 엔진을 준비시킨다 (BattleView.start_stats 도 이 함수를 지난다)
 	var kt = policy_.get("kit")
-	kit_st = {"A": Kit.clean(kt.get("A")) if kt is Dictionary else {}, "B": Kit.clean(kt.get("B")) if kt is Dictionary else {}}
+	kit_st = {"A": Kit.norm(kt.get("A")) if kt is Dictionary else {}, "B": Kit.norm(kt.get("B")) if kt is Dictionary else {}}
+	if kt is Dictionary:
+		policy["kit"] = kit_st.duplicate(true)
 	var a_syn := fac_syn(a_cards, a_form)
 	var b_syn := fac_syn(b_cards, b_form)
 	var aS: Array = DB.FORM[a_form].slots
@@ -3213,7 +3244,7 @@ func _settle(frac: float, final: bool) -> String:
 		if not u.hit25 and r <= 0.25:
 			u.hit25 = true
 			u.morale -= K.hit25 * tg
-		if u.morale > 30 and u.morale < 100 and not _collapsed[u.camp] and not _decisive:
+		if u.morale > 30 and u.morale < 100 and not _collapsed[u.camp] and not _decisive and not (_kt != null and not u.kt.is_empty() and _kt.no_morale(u)):
 			var rg: float = K.regen * pace * frac * (1.5 if u.regen_up else 1.0)
 			if u.caps.has("유생"): rg *= 2
 			u.morale = minf(100, u.morale + rg)
@@ -3233,7 +3264,7 @@ func _settle(frac: float, final: bool) -> String:
 		var healed := ""
 		for u in units:
 			if not u.alive or u.camp != cp: continue
-			if mv(u, "mregen") > 0:
+			if mv(u, "mregen") > 0 and not (_kt != null and not u.kt.is_empty() and _kt.no_morale(u)):
 				u.morale = minf(200, u.morale + mv(u, "mregen") * pace * frac)
 			if mv(u, "regen") > 0 and u.troops < u.max and not _scorched(u):
 				u.troops = minf(u.max, u.troops + u.max * mv(u, "regen") * pace * _len_k * frac)
@@ -3295,7 +3326,7 @@ func _result(winner: String, turn: int) -> Dictionary:
 			"item": u.item, "item2": u.item2, "morale": u.morale, "gain": roundi(u.gain), "sh": [snappedf(float(u.shield.phys), 0.001), snappedf(float(u.shield["int"]), 0.001)], "dmg": roundi(u.dmg), "dot": roundi(u.dot), "heal": roundi(u.heal), "kills": u.kills,
 			"mdmg": snappedf(u.mdmg, 0.1), "left": roundi(u.troops), "alive": u.alive, "theal": snappedf(u.theal, 0.001), "taken": roundi(u.taken), "htr": roundi(u.htr), "hmo": roundi(u.hmo), "over": roundi(u.over), "blk": roundi(u.blk), "boss": u.boss})   # 끝난 뒤 결과표 (mdmg · left · alive: 점검용)
 		if u.kit != null:
-			roster[-1]["kit"] = u.kit.duplicate(true)      # 11/27 키트 장수 —— 칸별 강화 (화면이 칸 딱지에 쓴다)
+			roster[-1]["kit"] = (u.kit as Array).duplicate()      # 11/27 키트 장수 —— 강화한 칸 목록 (화면이 칸 딱지에 쓴다)
 	var merit := func(u: Unit): return u.dmg + u.mdmg * 420 + u.heal * 420 + u.kills * 3200
 	var mine := units.filter(func(u): return u.camp == "A" and merit.call(u) > 0)
 	mine.sort_custom(func(x, y): return merit.call(x) > merit.call(y))
@@ -3344,7 +3375,8 @@ func act(u: Unit) -> void:
 	# 11/3 사용자 (빈도 리밸런싱): 기술이 여럿이어도 충전은 하나를 나눠 쓴다 —— 예전엔 기술마다 따로 돌아 신화(기술 3개)는 부대당 한 판에 7.5번 터지고
 	# 피해의 73%가 기술이었다. 이제 기술이 많으면 '더 자주'가 아니라 '고를 것이 많다'. 한 차례에 하나만, 앞 기술(고유 기술)부터 조건을 본다
 	var sks: Array = u.c.get("sks", [])
-	if not sks.is_empty():
+	var kcd: bool = _kt != null and u.kit != null      # 11/27 키트 장수 —— 충전 대신 기술마다 재사용 대기 (kit_rt.pick · fire)
+	if not sks.is_empty() and not kcd:
 		if sk_split:      # 11/23 사용자: 기술마다 충전을 따로 —— 하나를 써도 다른 기술 충전은 그대로. 차례에 하나만 쓰는 건 같다
 			while u.sk_ch.size() < sks.size():
 				u.sk_ch.append(0.5)
@@ -3360,7 +3392,12 @@ func act(u: Unit) -> void:
 	# 11/23 사용자: 싼 기술이 충전을 먼저 가져가 비싼 기술(사마의 인내지계 2.4 ← 저주 1.9)이 거의 안 나갔다 ——
 	# 조건이 맞는 기술 가운데 이 판에 덜 쓴 기술(같으면 앞 기술)을 노리고, 그 비용이 모일 때까지 기다린다. 조건이 안 맞는 기술은 기다리지 않는다
 	var order: Array = range(sks.size())
-	if sk_rotate and sks.size() > 1 and u.alive and foes.any(func(o): return o.alive):
+	if kcd:
+		var kj: int = _kt.pick(u, foes, allies, false)
+		order = [kj] if kj >= 0 else []
+	elif _kt != null and has_st(u, "seal"):
+		order = []      # 봉인 —— 키트 판에서는 이미 찬 기술도 쓰지 못한다 (키트의 봉인 효과가 뜻대로 듣게)
+	elif sk_rotate and sks.size() > 1 and u.alive and foes.any(func(o): return o.alive):
 		var best := -1
 		for j in sks.size():
 			if sk_split and u.sk_ch[j] < float(sks[j].get("cost", 1.0)): continue      # 따로 충전이면 다 찬 기술 가운데서 고른다
@@ -3371,72 +3408,19 @@ func act(u: Unit) -> void:
 		if used or not u.alive or not foes.any(func(o): return o.alive):
 			break
 		var ci: int = j if sk_split else 0
-		if u.sk_ch[ci] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies):
+		if not kcd and (u.sk_ch[ci] < float(sks[j].get("cost", 1.0)) or not _sk_cond(u, str(sks[j].get("cond", "always")), foes, allies)):
 			continue
 		sk = sks[j]
 		var e: Dictionary = sk.eff
 		var ok := true
 		if e.get("cond") == "hurt" and u.troops / u.max > 0.5: ok = false
-		if ok: u.sk_ch[ci] -= float(sk.get("cost", 1.0))
+		if ok and not kcd: u.sk_ch[ci] -= float(sk.get("cost", 1.0))
 		if ok:
 			used = true
-			u.sk_cnt[j] = int(u.sk_cnt.get(j, 0)) + 1
-			u.in_skill = true
-			_sk_on = true
-			stats.sk_n += 1
-			for o in allies:
-				if o != u and o.alive and mv(o, "ally_sk") > 0:      # 연계 —— 아군이 기술을 쓰면 내 기술 충전이 모두 찬다
-					for jj in o.sk_ch.size():
-						o.sk_ch[jj] = minf(SK_BANK, o.sk_ch[jj] + mv(o, "ally_sk"))
-			L("sk", "%s 『%s』%s 펼친다" % [ga(nm(u)), sk.n, "을" if jong(sk.n) else "를"],
-				{"fx": "skill", "a": u.key, "name": sk.n, "kind": e.kind}.merged(_kit_tag(u, Kit.SLOTS[j]) if j < 3 else {}))      # 11/27 키트 장수 —— 칸(q · w · e) · 강화
-			match e.kind:
-				"phys":
-					var ts := _targets(e, foes, u, allies)
-					for t in ts:
-						if not t.alive: continue
-						phys_hit(u, t, e.mult, false, e.get("pierce", 0.0))
-						if e.has("exec") and t.troops > 0 and t.troops / t.max <= e.exec: rout(t, "한 칼에 짓밟혔다")
-						if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
-						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur}, "sk:" + sk.n)
-						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur}, "sk:" + sk.n)
-						if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
-						if e.has("status2"): inflict(u, t, e.status2.k, e.status2.val, int(e.status2.dur))      # 11/27 키트 강화가 덧붙인 두 번째 상태이상 —— 먼저 건다 (한도 2 에 걸리면 기술 본래 상태가 남게)
-						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
-					if e.has("selfBuff"): add_buff(u, e.selfBuff, "sk:" + sk.n)
-					if e.has("heal"):      # 범용 사기 기술 (진두지휘 · 고함)
-						for t in allies:
-							if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
-					if e.has("stance"): u.buffs.append({"stat": "counter", "amt": float(e.stance.amt), "dur": int(e.stance.dur)})
-					if e.has("allyBuff"):
-						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff, "sk:" + sk.n)
-				"int":
-					var ts := _targets(e, foes, u, allies)
-					for t in ts:
-						if not t.alive: continue
-						int_hit(u, t, e.mult, ts.size())
-						if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
-						if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
-						if e.has("status2"): inflict(u, t, e.status2.k, e.status2.val, int(e.status2.dur))      # 11/27 키트 강화의 두 번째 상태이상 (위 물리 기술과 같다)
-						if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
-						# 11/2 책략 기술의 속도 깎기 (수공 · 혹세의 foeSpd 가 적혀만 있고 쓰이지 않았다)
-						if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur}, "sk:" + sk.n)
-						if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur}, "sk:" + sk.n)
-						if u.caps.has("모사") and rng.randf() < 0.30: inflict(u, t, "confuse", 1, 1)      # 봉인은 혼란으로 합쳤다
-					if e.has("heal"):
-						for t in allies:
-							if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
-					if e.has("selfBuff"): add_buff(u, e.selfBuff, "sk:" + sk.n)
-					if e.has("tHeal"):
-						for t in allies:
-							if t.alive: heal_troop(t, e.tHeal, sk.n, u)
-					if e.has("cleanse"):
-						var n: int = e.cleanse
-						for t in allies:
-							if n <= 0: break
-							if t.alive and not t.st.is_empty() and cleanse(t): n -= 1
-					if e.has("allyBuff"):
-						for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff, "sk:" + sk.n)
+			if kcd:
+				_kt.fire(u, j, foes, allies)
+			else:
+				_sk_cast(u, j, sk, foes, allies)
 	u.in_skill = false
 	_sk_on = false
 	if not used:
@@ -3447,6 +3431,81 @@ func act(u: Unit) -> void:
 				_do_minor(u, mn[2] if mn.size() > 2 else tt[0], mn[0], mn[1], foes, allies)
 			elif is_caster(u.c): int_hit(u, tt[0], 1, 1)
 			else: phys_hit(u, tt[0], 1)
+
+
+## 기술 한 번 —— 횟수 · 연계 · 사건 · 효과. 돌려주는 값은 맞은(노린) 적들 (키트 강화 효과가 쓴다). act() 의 예전 본문 그대로 (11/27 키트 다시 쓰기 · 기다리는 차례에도 쓰려고 떼어 냈다)
+## extra: 사건에 덧붙일 항목 (키트 —— kup · again · act). eff.act 가 있는 기술(키트 고유 동작)은 효과를 kit_rt 가 처리한다
+func _sk_cast(u: Unit, j: int, sk: Dictionary, foes: Array, allies: Array, extra := {}) -> Array:
+	var e: Dictionary = sk.eff
+	u.sk_cnt[j] = int(u.sk_cnt.get(j, 0)) + 1
+	u.in_skill = true
+	_sk_on = true
+	stats.sk_n += 1
+	for o in allies:
+		if o != u and o.alive and mv(o, "ally_sk") > 0:      # 연계 —— 아군이 기술을 쓰면 내 기술 충전이 모두 찬다
+			for jj in o.sk_ch.size():
+				o.sk_ch[jj] = minf(SK_BANK, o.sk_ch[jj] + mv(o, "ally_sk"))
+	L("sk", "%s 『%s』%s %s" % [ga(nm(u)), sk.n, "을" if jong(sk.n) else "를", str(e.get("verb", "펼친다"))],      # (11/27 키트 —— 던지는 · 쏘는 기술은 그렇게 적는다: eff.verb)
+		{"fx": "skill", "a": u.key, "name": sk.n, "kind": e.kind}.merged(_kit_tag(u, Kit.SLOTS[j]) if j < 3 else {}).merged(extra))      # 11/27 키트 장수 —— 칸(q · w · e) · 강화 여부
+	if e.has("act"):
+		return []
+	return _sk_apply(u, sk, foes, allies)
+
+
+## 기술 효과 (카드 기술의 eff —— 물리 · 책략) —— 돌려주는 값은 맞은 적들
+func _sk_apply(u: Unit, sk: Dictionary, foes: Array, allies: Array) -> Array:
+	var e: Dictionary = sk.eff
+	var hit: Array = []
+	match e.kind:
+		"phys":
+			var ts := _targets(e, foes, u, allies)
+			hit = ts
+			for t in ts:
+				if not t.alive: continue
+				phys_hit(u, t, e.mult, false, e.get("pierce", 0.0))
+				if e.has("exec") and t.troops > 0 and t.troops / t.max <= e.exec: rout(t, "한 칼에 짓밟혔다")
+				if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
+				if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur}, "sk:" + sk.n)
+				if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur}, "sk:" + sk.n)
+				if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
+				if e.has("status2"): inflict(u, t, e.status2.k, e.status2.val, int(e.status2.dur))      # 11/27 키트 강화가 덧붙인 두 번째 상태이상 —— 먼저 건다 (한도 2 에 걸리면 기술 본래 상태가 남게)
+				if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
+			if e.has("selfBuff"): add_buff(u, e.selfBuff, "sk:" + sk.n)
+			if e.has("heal"):      # 범용 사기 기술 (진두지휘 · 고함)
+				for t in allies:
+					if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
+			if e.has("stance"): u.buffs.append({"stat": "counter", "amt": float(e.stance.amt), "dur": int(e.stance.dur)})
+			if e.has("allyBuff"):
+				for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff, "sk:" + sk.n)
+		"int":
+			var ts := _targets(e, foes, u, allies)
+			hit = ts
+			for t in ts:
+				if not t.alive: continue
+				int_hit(u, t, e.mult, ts.size())
+				if e.has("morale"): morale_hit(t, e.morale, sk.n, ts.size(), u)
+				if e.has("defDown"): _cut(u, t, "def", -float(e.defDown.amt) * eff(t, "def"), sk.n)      # 방어 감소 → 파갑(수치)
+				if e.has("status2"): inflict(u, t, e.status2.k, e.status2.val, int(e.status2.dur))      # 11/27 키트 강화의 두 번째 상태이상 (위 물리 기술과 같다)
+				if e.has("status"): inflict(u, t, e.status.k, e.status.val, int(e.status.dur))
+				# 11/2 책략 기술의 속도 깎기 (수공 · 혹세의 foeSpd 가 적혀만 있고 쓰이지 않았다)
+				if e.has("foeSpd"): add_buff(t, {"stat": "spd", "amt": e.foeSpd.amt, "dur": e.foeSpd.dur}, "sk:" + sk.n)
+				if e.has("spd"): add_buff(t, {"stat": "spd", "amt": e.spd.amt, "dur": e.spd.dur}, "sk:" + sk.n)
+				if u.caps.has("모사") and rng.randf() < 0.30: inflict(u, t, "confuse", 1, 1)      # 봉인은 혼란으로 합쳤다
+			if e.has("heal"):
+				for t in allies:
+					if t.alive: _rally(t, e.heal, sk.n) if e.get("rally", false) else heal_morale(t, e.heal, sk.n, u)
+			if e.has("selfBuff"): add_buff(u, e.selfBuff, "sk:" + sk.n)
+			if e.has("tHeal"):
+				for t in allies:
+					if t.alive: heal_troop(t, e.tHeal, sk.n, u)
+			if e.has("cleanse"):
+				var n: int = e.cleanse
+				for t in allies:
+					if n <= 0: break
+					if t.alive and not t.st.is_empty() and cleanse(t): n -= 1
+			if e.has("allyBuff"):
+				for t in resolve_targets(e.allyBuff.tgt, foes, u, allies): add_buff(t, e.allyBuff, "sk:" + sk.n)
+	return hit
 
 
 ## 일반 기술 발동 조건 —— DB.cond_text 와 같은 문법. '|' 는 또는
@@ -3517,9 +3576,14 @@ func _do_ult(u: Unit, foes: Array, allies: Array) -> void:
 	var amp_c := amp * _ult_amp_x      # 11/12 기인이 연 연쇄의 마무리 —— 피해 배율 (평소 1.0 이라 그대로)
 	L("sk", "%s %s 『%s』 —— “%s”%s" % [nm(u), "미니 고유기" if ul.get("mini", false) else "고유기", nm_, ul.shout, " (배수진 —— 위력 ×%.1f)" % amp if amp > 1.0 else ""],
 		{"fx": "ult", "a": u.key, "name": nm_, "shout": ul.shout, "vfx": ul.vfx, "crisis": amp > 1.0}.merged(_ult_extra).merged({"mini": true} if ul.get("mini", false) else {}).merged(_kit_tag(u, "r")))      # 11/27 키트 장수 —— 칸 r · 강화
+	_kt_hits = []
 	for comp_ in ul.eff:
 		var comp: Dictionary = _amp_comp(comp_, amp_c)
 		var ts := _targets(comp, foes, u, allies)
+		if _kt != null and u.kit != null and comp.t != "ally":      # 11/27 키트 —— 고유기 강화(r 칸)가 맞은 적을 쓴다
+			for t in ts:
+				if not _kt_hits.has(t):
+					_kt_hits.append(t)
 		match comp.t:
 			"hit":
 				for t in ts:

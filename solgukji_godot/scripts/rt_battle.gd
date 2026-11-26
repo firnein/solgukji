@@ -239,6 +239,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	_sg = load("res://scripts/sig_rt.gd").make(self) if sig_enabled else null      # 11/19 장수 개성 —— 개성 키가 있는 판에만
 	if _sg != null:
 		_sg.setup()
+	_kt = load("res://scripts/kit_rt.gd").make(self)      # 11/27 장수 키트 —— 키트 장수가 있는 판에만 (재사용 대기 · 고유 동작 기술 · 강화 효과)
+	if _kt != null:
+		_kt.setup()
 	# 전장 범위 —— 진형 자리 · 발자국에 맞춘다 (앞뒤로 반 행, 옆으로 한 열 남짓 여유: 예비대가 측면으로 돌 자리)
 	var xh := 0.0
 	var yh := 0.0
@@ -302,6 +305,8 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			_zone_tick()
 		if _sg != null:
 			_sg.tick(TICK)
+		if _kt != null:
+			_kt.tick(TICK)
 		if _cf_live > 0:
 			_cf_tick()      # 11/25 초로 끝나는 혼란 (cf_guard)
 		for u: Unit in _tick_units():
@@ -312,6 +317,11 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 			var atb_cap := 1.0 if u.ranged else melee_bank
 			if u.atb != atb_cap or probe_on:      # 11/15 성능: 이미 가득 찬 준비는 더해도 그대로다 —— 행동 간격(eff)을 재지 않는다
 				u.atb = minf(atb_cap, u.atb + TICK / _interval(u))
+			if _kt != null and u.kit != null and u.atb >= 1.0 and not _dash.has(u) and not has_st(u, "confuse") and not _ready_to_hit(u) and _kt.idle(u):
+				u.atb -= 1.0      # 11/27 키트 —— 닿는 적이 없어도 쓰는 기술(돌진 · 던지기 · 아군 지원)은 기다리는 차례에 쓴다
+				if live_count("A") == 0 or live_count("B") == 0:
+					break
+				continue
 			if u.atb >= 1.0 and not _ready_to_hit(u):
 				_idle_gauge(u, TICK)
 				_idle_skill(u, TICK)
@@ -374,6 +384,9 @@ func run(a_cards: Array, a_form: String, a_morale: float, a_equip, b_cards: Arra
 	if _mt != null:
 		_mt.release()
 		_mt = null
+	if _kt != null:
+		_kt.release()
+		_kt = null
 	_zones.clear()
 	return r
 
@@ -396,6 +409,8 @@ func _interval(u: Unit) -> float:
 ## 11/25 책략계 일반 기술 —— 사거리 밖에서 기다리는 동안 충전 (caster_idle_charge 배, 기술마다 비용 1회분까지)
 func _idle_skill(u: Unit, dt: float) -> void:
 	if caster_idle_charge <= 0.0 or not u.alive or not is_caster(u.c) or has_st(u, "confuse"):
+		return
+	if _kt != null and u.kit != null:      # 11/27 키트 장수는 충전이 아니라 재사용 대기
 		return
 	var sks: Array = u.c.get("sks", [])
 	if sks.is_empty():
@@ -515,7 +530,7 @@ var _last_warn_areas: Array = []
 ## 11/4 사용자: 고유기 대기 시간은 장수마다 (DB.ult_of 가 고유기 세기로 정한 wait 초 —— 센 고유기일수록 늦게). 그 전에는 쓰지 않는다
 func can_ult(u: Unit) -> bool:
 	var full: bool = u.ult != null and u.charges > 0 and u.gauge >= 100.0 and u.alive      # 점검용 —— 찼는데 막힌 이유를 센다 (11/6 #14)
-	if u.ult != null and _tm < float(u.ult.get("wait", 14.0)) * _tw(u, "wait"):      # 11/7 기질 배율 (맹장 0.9 · 분노 0.85 · 지략 1.1)
+	if u.ult != null and (_tm < float(u.ult.get("wait", 14.0)) * _tw(u, "wait") + u.ult_shift or _tm < u.ult_hold):      # 11/7 기질 배율 (맹장 0.9 · 분노 0.85 · 지략 1.1) · 11/27 키트 늦춤(ult_shift + · ult_hold) · 당김(ult_shift −)
 		if full: stats["ult_blk_wait"] = stats.get("ult_blk_wait", 0) + 1
 		return false
 	# 11/6 #14: 기 모으기는 진영마다 하나씩 (예전엔 어느 쪽이든 하나만 —— 처리량이 반이었다). 전체 간격 ult_gap 은 그대로
@@ -630,8 +645,10 @@ func _counter(x: Unit, wi: int) -> void:
 		if _wind.has(o):
 			winding.append(o)
 		elif ults_enabled and o.gauge >= counter_gauge:
-			if counter_gate_time and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") or not _reult_ok(o)):
+			if counter_gate_time and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") + o.ult_shift or not _reult_ok(o)):
 				continue      # 11/26 아직 제 대기 시간 전 —— 센 고유기를 받아치기로 앞당겨 쓰지 않는다
+			if _tm < o.ult_hold:
+				continue      # 11/27 키트 —— 고유기가 늦춰진 동안
 			if counter_keep_join and _join_q.any(func(j): return j.u == o):
 				continue      # 11/26 제 편 연쇄에 합류하기로 예약된 장수 —— 받아치기로 빼 가지 않는다
 			ready.append(o)
@@ -819,7 +836,9 @@ static var inyeon_gate_time := false
 func _join_ok(o: Unit) -> bool:
 	if o.ult != null and bool(o.ult.get("mini", false)):
 		return false
-	if inyeon_gate_time and o.ult != null and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") or not _reult_ok(o)):
+	if inyeon_gate_time and o.ult != null and (_tm < float(o.ult.get("wait", 14.0)) * _tw(o, "wait") + o.ult_shift or not _reult_ok(o)):
+		return false
+	if _tm < o.ult_hold:      # 11/27 키트 —— 고유기가 늦춰진 동안
 		return false
 	return ults_enabled and o.alive and o.ult != null and o.charges > 0 and o.gauge >= _join_gauge(o) \
 		and not has_st(o, "seal") and not has_st(o, "confuse") and not _wind.has(o) and not _wind_grp.has(o)
@@ -1131,6 +1150,12 @@ func _fire_one(u: Unit) -> void:
 		_clash_by = u
 		_clash_grp = cg
 	super._interrupt_ult(u)
+	if _kt != null:      # 11/27 키트 —— 끊기지 않는 표시를 지우고, 고유기 강화(r 칸) · 고유기에 걸린 고유 특기
+		_kt.ult_fired(u)
+		if u.kit != null:
+			var kh: Array = _kt_hits
+			_kt_hits = []
+			_kt.after_ult(u, kh)
 	_clash_by = pb
 	_clash_grp = pg
 	_clash.erase(u)
@@ -1298,6 +1323,8 @@ func _cut_wind(d: Unit, a: Unit) -> void:
 	if _clash.has(d) and _clash.has(a) and is_same(_clash[d], _clash[a]):      # 11/25 받아치기 묶음끼리는 서로 끊지 못한다
 		stats["counter_nocut"] = int(stats.get("counter_nocut", 0)) + 1
 		return
+	if _kt != null and not d.kt.is_empty() and _kt.nocut(d):      # 11/27 키트 —— 유비 와룡출려 (그 장수의 다음 고유기는 끊기지 않는다)
+		return
 	_wind.erase(d)
 	_inyeon_drop(d)
 	d.gauge = CUT_GAUGE
@@ -1431,7 +1458,7 @@ func _ranged(u: Unit) -> bool:
 func _foes_of(u: Unit) -> Array:
 	var out := []      # 11/15 성능: filter(람다) → 그냥 훑기 (같은 순서 · 같은 답. 틱마다 부대 수만큼 불린다)
 	var cp := u.camp
-	var hide_on: bool = (not _paeup.is_empty() and _tm < 8.0) or (_sg != null and _tm < _sg.hide_until)      # 숨는 장수는 패업이 있는 판의 개전 8초 · 1.2 여몽 위장 · 11/22 황개 거짓 항복 · 조조 할수기포뿐 (_hidden 의 조건) —— 그 밖에는 묻지 않는다
+	var hide_on: bool = (not _paeup.is_empty() and _tm < 8.0) or (_sg != null and _tm < _sg.hide_until) or (_kt != null and _tm < _kt.hide_until)      # 숨는 장수는 패업이 있는 판의 개전 8초 · 1.2 여몽 위장 · 11/22 황개 거짓 항복 · 조조 할수기포뿐 (_hidden 의 조건) —— 그 밖에는 묻지 않는다
 	for o in units:
 		if o.alive and o.camp != cp and not (hide_on and _hidden(o)):      # 감녕 백기야습 —— 숨은 동안은 목표가 되지 않는다
 			out.append(o)
@@ -1516,6 +1543,9 @@ func _move() -> void:
 		if foes.is_empty():
 			u.vel = Vector2.ZERO
 			continue
+		if _kt != null and not u.kt.is_empty() and _kt.rooted(u):      # 11/27 키트 —— 그 자리에 묶였다 (사마의 팔문금쇄): 움직이지 못한다 (치는 것은 그대로)
+			u.vel = Vector2.ZERO
+			continue
 		# 맞닿은 적이 있으면 묶인다 —— 발자국이 맞닿은(틈 TOUCH 안) 적 가운데 가장 가까운 적을 상대 (원거리도 붙으면 맞받아 싸운다)
 		var pin: Unit = null
 		var pd := TOUCH + 2.0
@@ -1534,11 +1564,11 @@ func _move() -> void:
 		var held := false      # 11/27 창병에게 붙잡힌 도적 —— 붙잡힌 동안에도 노리던 후열을 표적으로 둔다 (rogue_touch)
 		if intercept and slip and u.c.tag == "도적" and (pin == null or pin.c.tag != "창병") and rogue_hold > 0.0:      # 11/26 (나) 지나가는 도적도 붙잡는다
 			for o in foes:
-				if o.c.tag == "창병" and float(_rogue_held.get([u, o], rogue_hold)) > 0.0 and _gap(u, o) <= intercept_gap:
+				if o.c.tag == "창병" and float(_rogue_held.get([u, o], rogue_hold)) > 0.0 and _gap(u, o) <= intercept_gap and not (_kt != null and _kt.no_hold(u, o)):
 					pin = o
 					stats["intercept"] = int(stats.get("intercept", 0)) + 1
 					break
-		if slip and u.c.tag == "도적" and pin != null and pin.c.tag == "창병" and Battle.tag_roles and rogue_hold > 0.0:
+		if slip and u.c.tag == "도적" and pin != null and pin.c.tag == "창병" and Battle.tag_roles and rogue_hold > 0.0 and not (_kt != null and _kt.no_hold(u, pin)):      # 11/27 키트 —— 감녕 수적의 왕은 붙잡히지 않는다
 			# 11/19 사용자: 도적 대책 2 —— 창병 도발이 도적에게도. 맞닿은 창병이 그 도적을 rogue_hold 초 붙잡는다 (창병 하나가 같은 도적을 한 번만)
 			var hk := [u, pin]
 			var left: float = float(_rogue_held.get(hk, rogue_hold))
@@ -1549,9 +1579,13 @@ func _move() -> void:
 				slip = false
 				held = rogue_touch
 		var ft = _sg.force_tgt(u) if (_sg != null and u.sg.has("ftg") and not u.ranged) else null      # 11/22 특별한 특기 —— 장료 돌파 · 조운 구출: 정한 적에게 곧장 (기병은 맞닿은 적을 흘려 지나간다)
+		var kft := false
+		if ft == null and _kt != null and not u.kt.is_empty() and not u.ranged:      # 11/27 키트 —— 점찍은 적에게 곧장 (장료 팔백결사 · 유비 의형제): 병종과 관계없이 묶이지 않는다
+			ft = _kt.force_tgt(u)
+			kft = ft != null
 		if ft != null:
 			u.tgt = ft
-			slip = (u.c.tag == "기병" or u.c.tag == "도적") and pin != ft
+			slip = (kft or u.c.tag == "기병" or u.c.tag == "도적") and pin != ft
 		if slip:
 			pin = null
 		if _sg != null and _sg.backing(u):      # 11/19 치고 빠지기 —— 물러나는 동안 묶이지 않는다
@@ -1573,8 +1607,8 @@ func _move() -> void:
 				u.tgt = rv
 		# 11/21 도발 (sig_rt taunt) —— 도발에 걸린 부대는 표적을 도발한 부대로 돌린다.
 		# 원거리 · 다른 적에게 묶인 근접은 도발한 부대가 손 닿는 거리(사거리)일 때만 (묶인 채 엉뚱한 곳으로 걸어가지 않게)
-		if _sg != null and _sg.has("taunt") and u.sg.has("tnt"):
-			var tt = _sg.taunt_of(u)
+		if u.sg.has("tnt") and ((_sg != null and _sg.has("taunt")) or _kt != null):      # (11/27 키트 도발 —— 주유 고육계. 도발하는 개성 장수가 없는 판에서도)
+			var tt = _sg.taunt_of(u) if _sg != null else _kt.taunt_of(u)
 			if tt != null and tt != u.tgt and not _hidden(tt) and ((not u.ranged and pin == null) or _gap(u, tt) <= _reach(u)):
 				u.tgt = tt
 				stats["sig_taunt_pull"] = int(stats.get("sig_taunt_pull", 0)) + 1
@@ -2425,6 +2459,8 @@ func _deepest(me: Unit, us: Array) -> Unit:
 
 ## 옆 · 뒤에서 친 물리 피해 +, 떨어진 곳(활 · 고유기)에서 맞으면 반격하지 않는다
 func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0) -> void:
+	if _kt != null and _in_ult and not d.kt.is_empty() and _kt.dodge(a, d):      # 11/27 키트 —— 조조 허허실실 (다음에 맞는 고유기를 한 번 피한다)
+		return
 	var v := (a.pos - d.pos)
 	var far := _gap(a, d) > melee_gap + 6.0
 	var m := mult
@@ -2485,6 +2521,8 @@ func phys_hit(a: Unit, d: Unit, mult: float, no_counter := false, pierce := 0.0)
 		m *= tac.hit_mul(a, d, far)      # 11/15 군략 —— 주는 피해 · 적 공격 − · 받는 피해
 	if _sg != null and a.camp != d.camp:
 		m *= _sg.amp(a, d, far) * _sg.taken(d, a, m)      # 11/19 장수 개성 —— 주는 · 받는 피해
+	if _kt != null and a.camp != d.camp:
+		m *= _kt.hit_mul(a, d)      # 11/27 키트 —— 표식(받는 피해 +) · 보호(받는 피해 −)
 	var n0 := ev.size()
 	super.phys_hit(a, d, m, no_counter or far, pierce)
 	if _sg != null and a.camp != d.camp:

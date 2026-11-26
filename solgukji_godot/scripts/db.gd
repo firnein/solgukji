@@ -1278,6 +1278,8 @@ var _psv_kit := -99
 func passives_of(k: String):
 	if _kit_script == null:
 		_kit_script = load("res://scripts/kit.gd")      # (class_name 없이 —— kit.gd 가 DB 를 쓰므로 여기서는 preload 하지 않는다)
+		load("res://scripts/kit_rt.gd")      # 전투 계산 스레드가 처음 읽지 않게 (BattleView 가 스레드를 띄우기 전에 이 함수를 부른다 —— RtBattle.run 의 load 는 캐시를 쓴다)
+		_kit_script.data()
 	var kst: int = int(_kit_script.min_tier) if _kit_script.enabled else -1
 	if kst != _psv_kit:
 		_psv_kit = kst

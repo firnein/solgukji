@@ -3,8 +3,8 @@ extends Node
 ## 입력: tests/real_myth_swap.gd 와 같은 기록 정리본 JSON. 덱 · 진형 · 장비 · 사기 · 군략은 기록 그대로 (내 쪽 A)
 ## 실행: godot --headless --path . res://tests/kit_measure.tscn -- --in=C:/.../real_battles.json --out=C:/.../x.jsonl [--part=1 --parts=4]
 ##   --kit=off|on        : Kit.enabled (off = 예전 그대로 —— 일반 특기까지 다 쓴다)
-##   --aug=none|q:dmg|all3|<칸>:<강화>+<강화>,<칸>:…   : A 진영 키트 장수에게만 붙이는 강화 (all3 = 칸마다 표의 앞에서부터 붙일 수 있는 것 3개)
-##   --augb=…            : B 진영 키트 장수에게 (기본 none)
+##   --up=none|q|q,w|<카드>:q,w;<카드>:r   : A 진영 키트 장수가 강화한 칸 (칸 목록이면 A 의 키트 장수 모두 · 카드를 적으면 그 장수만)
+##   --upb=…             : B 진영 키트 장수에게 (기본 none)
 ##   --only=myth|mythA   : 신화가 든 판만 / A 에 신화가 든 판만
 ##   --swap7=A|B|AB      : 그 진영에 신화가 없으면 가장 앞 칸의 불멸(7성) 한 장을 같은 병종의 신화로 바꿔 끼운다 (표본 늘리기 —— 같은 인물이 덱에 있으면 건너뜀)
 ##   --reseed=n          : 기록 씨앗에 n × 7919 를 더한다 (되풀이 표본)
@@ -86,8 +86,8 @@ func _ready() -> void:
 		var pol := {"A": Run.side_pol({"tac": me.tac}), "B": Run.side_pol({"tac": foe.tac})}
 		if not plan.is_empty():
 			pol["plan"] = plan
-		var ka := _augs(ma, str(a.get("aug", "none")))
-		var kb := _augs(mb, str(a.get("augb", "none")))
+		var ka := _ups(ma, str(a.get("up", "none")))
+		var kb := _ups(mb, str(a.get("upb", "none")))
 		if not ka.is_empty() or not kb.is_empty():
 			pol["kit"] = {"A": ka, "B": kb}
 		var bt := RtBattle.new(int(b.seed) + reseed * 7919)
@@ -105,6 +105,10 @@ func _ready() -> void:
 			for u in r.roster:
 				tot[u.camp] += float(u.dmg) - float(u.over)
 			var ks := []
+			var kups := {}      # 강화 효과가 일한 횟수 {"카드:칸": n}
+			for sk in bt.stats:
+				if str(sk).begins_with("kup:"):
+					kups[str(sk).substr(4)] = int(bt.stats[sk])
 			for u in bt.units:
 				if int(u.c.tier) < 8 or u.ult == null:
 					continue
@@ -113,11 +117,11 @@ func _ready() -> void:
 					fires += int(u.sk_cnt[j])
 				ks.append([u.camp, u.slot, u.c.id, roundi(u.dmg - u.over), roundi(tot[u.camp]), u.alive, fires, u.ult_n, roundi(u.taken), roundi(u.max), roundi(u.htr), snappedf(u.mdmg, 0.1)])
 			f.store_line(JSON.stringify({"bi": bi, "day": b.day, "win": w, "len": float(r.len), "fp": h, "k": ks, "sw": swapped,
-				"st": {"burn": roundi(float(bt.stats.burn)), "sk_n": int(bt.stats.sk_n)}}))
+				"st": {"burn": roundi(float(bt.stats.burn)), "sk_n": int(bt.stats.sk_n)}, "kup": kups}))
 		bt.units.clear()
 		n += 1
 	f.close()
-	print("KIT_MEASURE done part=%d/%d n=%d kit=%s aug=%s" % [part, parts, n, Kit.enabled, str(a.get("aug", "none"))])
+	print("KIT_MEASURE done part=%d/%d n=%d kit=%s up=%s" % [part, parts, n, Kit.enabled, str(a.get("up", "none"))])
 	get_tree().quit(0)
 
 
@@ -152,34 +156,17 @@ func _swap7(S: Dictionary, by_tag: Dictionary, bi: int) -> String:
 	return ""
 
 
-## 강화 상태 —— none · all3 · "q:dmg" · "q:dmg+fire,r:wide" (붙일 수 없는 것은 Kit.valid 가 걸러 낸다)
-func _augs(ids: Array, spec: String) -> Dictionary:
+## 강화 상태 —— none · "q,w"(그 진영 키트 장수 모두) · "c177:q,w;c190:r"(그 장수만). 규칙에 안 맞는 것은 엔진이 Kit.norm 으로 거른다
+func _ups(ids: Array, spec: String) -> Dictionary:
 	var out := {}
 	if spec == "none" or spec == "":
 		return out
+	if spec.contains(":"):
+		for one in spec.split(";", false):
+			var kv := one.split(":")
+			if kv.size() == 2 and ids.has(kv[0]):
+				out[kv[0]] = Array(kv[1].split(",", false))
+		return out
 	for k in ids:
-		var row := {}
-		if spec == "all3":
-			for slot in Kit.SLOTS:
-				var have := []
-				while have.size() < Kit.MAX_LV:
-					var opts: Array = Kit.options(k, slot, have)
-					if opts.is_empty():
-						break
-					have.append(opts[0])
-				if not have.is_empty():
-					row[slot] = have
-		else:
-			for one in spec.split(",", false):
-				var kv := one.split(":")
-				if kv.size() < 2:
-					continue
-				var have := []
-				for aug in kv[1].split("+", false):
-					if Kit.valid(k, kv[0], aug, have):
-						have.append(aug)
-				if not have.is_empty():
-					row[kv[0]] = have
-		if not row.is_empty():
-			out[k] = row
+		out[k] = Array(spec.split(",", false))
 	return out

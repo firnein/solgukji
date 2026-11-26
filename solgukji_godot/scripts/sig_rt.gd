@@ -121,8 +121,8 @@ func _foes(u) -> Array:
 
 
 func _say(u, text: String, up := true, extra := {}) -> void:
-	# 11/27 장수 키트 —— 키트 장수의 개성 말풍선은 고유 특기(칸 P)가 발동한 것: "slot": "p" · "augs" (Battle._kit_tag, 키트 장수가 아니면 붙지 않는다)
-	b.L("sk", "%s의 %s" % [b.nm(u), text], {"fx": "buff", "f": u.key, "up": up, "sig": true}.merged(extra).merged(b._kit_tag(u, "p")))
+	# 11/27 장수 키트 —— 키트 장수의 개성 말풍선은 고유 특기(칸 P)가 발동한 것: "slot": "p" (이 사건의 "up" 은 버프 방향이라 강화 여부는 싣지 않는다 —— roster 의 kit 을 본다)
+	b.L("sk", "%s의 %s" % [b.nm(u), text], {"fx": "buff", "f": u.key, "up": up, "sig": true}.merged(extra).merged({"slot": "p"} if u.kit != null else {}))
 
 
 # ───────── 시작 ─────────
@@ -535,6 +535,8 @@ func tick(dt: float) -> void:
 				_say(u, "간웅 —— 되받아쳤다")
 				_stat("sig_ult_ret")
 				b.phys_hit(u, ra, minf(2.5, v(u, "ult_ret")), true)
+				if b._kt != null:
+					b._kt.on_ult_ret(u, ra)      # 11/27 키트 —— 조조 영웅론 (되받아친 적의 고유기 대기를 처음으로)
 	for u in who.get("burn_out", []):      # 1.2 주연 화계 차단
 		if u.alive and _due(u, "burn_out", BURN_OUT_T):
 			_burn_out(u)
