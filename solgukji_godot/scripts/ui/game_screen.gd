@@ -3043,7 +3043,7 @@ func _unique_sheet() -> void:
 	nv.add_child(nl)
 	var myths: Array = DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid)
 	if not myths.is_empty():
-		var ml := UI.lbl("신화 %s 의 재료" % " · ".join(myths.map(func(x): return DB.C[x].name)), UI.FS_CAP, DB.PAL.paper)
+		var ml := UI.lbl("신화 %s의 재료" % " · ".join(myths.map(func(x): return DB.C[x].name)), UI.FS_CAP, DB.PAL.paper)
 		UI.wrap_text(ml)
 		nv.add_child(ml)
 	ih.add_child(nv)
