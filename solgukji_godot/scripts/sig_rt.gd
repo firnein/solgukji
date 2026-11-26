@@ -121,7 +121,8 @@ func _foes(u) -> Array:
 
 
 func _say(u, text: String, up := true, extra := {}) -> void:
-	b.L("sk", "%s의 %s" % [b.nm(u), text], {"fx": "buff", "f": u.key, "up": up, "sig": true}.merged(extra))
+	# 11/27 장수 키트 —— 키트 장수의 개성 말풍선은 고유 특기(칸 P)가 발동한 것: "slot": "p" · "augs" (Battle._kit_tag, 키트 장수가 아니면 붙지 않는다)
+	b.L("sk", "%s의 %s" % [b.nm(u), text], {"fx": "buff", "f": u.key, "up": up, "sig": true}.merged(extra).merged(b._kit_tag(u, "p")))
 
 
 # ───────── 시작 ─────────

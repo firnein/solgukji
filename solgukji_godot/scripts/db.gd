@@ -1271,7 +1271,18 @@ func _apply_roles() -> void:
 			PSV.ladder[p] = lad
 
 
+## 11/27 장수 키트 (scripts/kit.gd) —— 키트 장수(지금은 신화)는 일반 특기 · 일반 단체 특기를 쓰지 않는다: 고유 특기 하나와 그 이름의 단체 효과만 남긴다.
+## Kit.enabled · Kit.min_tier 가 바뀌면 특기 캐시(와 그것으로 만든 Battle 의 상태이상 종류 캐시)를 비운다 —— 끄면 예전 그대로
+var _kit_script = null
+var _psv_kit := -99
 func passives_of(k: String):
+	if _kit_script == null:
+		_kit_script = load("res://scripts/kit.gd")      # (class_name 없이 —— kit.gd 가 DB 를 쓰므로 여기서는 preload 하지 않는다)
+	var kst: int = int(_kit_script.min_tier) if _kit_script.enabled else -1
+	if kst != _psv_kit:
+		_psv_kit = kst
+		_psv_cache.clear()
+		Battle._stk_cache.clear()
 	if _psv_cache.has(k):
 		return _psv_cache[k]
 	var out = null
@@ -1280,8 +1291,12 @@ func passives_of(k: String):
 	if lad != null:
 		out = {"traits": [], "groups": []}
 		var kr: Array = PSV.get("role", {}).get("kiin", {}).get(person(k), ["", 1.0])
+		var kit_on: bool = _kit_script.on(k)
+		var kit_p: String = _kit_script.p_name(k) if kit_on else ""
 		for e in lad:
 			if c.tier < int(e[1]) or (e.size() > 2 and c.tier > int(e[2])):
+				continue
+			if kit_on and e[0] != kit_p:      # 키트 장수 —— 고유 특기(칸 P)만
 				continue
 			var t: Dictionary = PSV.traits[e[0]]
 			var attr: String = t.get("attr", "")

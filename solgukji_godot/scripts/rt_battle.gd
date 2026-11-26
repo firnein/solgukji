@@ -575,7 +575,7 @@ func _ult_reach_n(u: Unit, foes: Array) -> int:
 	for comp in u.ult.eff:
 		if comp.t not in ["hit", "foe"] or not comp.has("tgt"):
 			continue
-		for target in resolve_targets(str(comp.tgt), foes, u, allies):
+		for target in _targets(comp, foes, u, allies):      # 11/27 키트 「확산」의 원래 범위까지 (Battle._targets —— 실제 터질 때와 같은 대상)
 			if target.alive and target.camp != u.camp:
 				targets[target.key] = true
 	_in_ult = previous_ult
@@ -601,7 +601,7 @@ func _interrupt_ult(u: Unit) -> void:
 	_who = u.key
 	var wi := ev.size()
 	L("sk", "%s 『%s』 기를 모은다%s" % [ga(nm(u)), u.ult.name, ""],
-		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": fast}.merged({"mini": true} if u.ult.get("mini", false) else {}))
+		{"fx": "ult_warn", "a": u.key, "name": u.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": fast}.merged({"mini": true} if u.ult.get("mini", false) else {}).merged(_kit_tag(u, "r")))      # 11/27 키트 장수 —— 칸 r · 강화
 	_zh_cut(u)
 	if inyeon_enabled and _wind.has(u):
 		_inyeon_recruit(u, wait)
@@ -678,7 +678,7 @@ func _counter(x: Unit, wi: int) -> void:
 		_ph = "act"
 		_who = o.key
 		L("sk", "%s 『%s』 받아치며 기를 모은다" % [ga(nm(o)), o.ult.name],
-			{"fx": "ult_warn", "a": o.key, "name": o.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": false, "counter": true, "clash": true})
+			{"fx": "ult_warn", "a": o.key, "name": o.ult.name, "wait": wait, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true), "fast": false, "counter": true, "clash": true}.merged(_kit_tag(o, "r")))
 		_zh_cut(o)      # 묶음 밖의 매복 주환은 예전처럼 끊는다
 		if inyeon_enabled and counter_recruit and _wind.has(o):      # 11/26 받아친 장수도 대표처럼 인연 짝을 모은다 (받아치기 연쇄)
 			_inyeon_recruit(o, wait, counter_recruit_cap)
@@ -743,7 +743,7 @@ func _ult_warn_list(u: Unit) -> Array:
 	for comp in u.ult.eff:
 		if comp.t == "ally":
 			continue
-		for t in resolve_targets(comp.tgt, foes, u, allies):
+		for t in _targets(comp, foes, u, allies):
 			if t.alive and not warn.any(func(w): return w.k == t.key):
 				warn.append({"k": t.key, "x": roundi(t.pos.x), "y": roundi(t.pos.y), "r": 60})
 	_last_warn_areas = _preview_areas.duplicate(true)
@@ -958,7 +958,7 @@ func _inyeon_joins() -> void:
 		_ph = "act"
 		_who = o.key
 		L("sk", "%s 『%s』 인연 『%s』 —— %s도 기를 모은다" % [ga(nm(o)), o.ult.name, j.name, nm(lead)],
-			{"fx": "ult_join", "a": o.key, "lead": lead.key, "name": o.ult.name, "inyeon": j.name, "ord": ord, "wait": end - _tm, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true)})
+			{"fx": "ult_join", "a": o.key, "lead": lead.key, "name": o.ult.name, "inyeon": j.name, "ord": ord, "wait": end - _tm, "warn": warn, "warn_shapes": _last_warn_areas.duplicate(true)}.merged(_kit_tag(o, "r")))
 
 
 ## 합동에서 빠진다 (끊김 · 못 쏨) —— 아직 합류하지 않은 예약도 대표가 빠지면 지운다
@@ -1161,7 +1161,7 @@ func _dash_target(u: Unit) -> Unit:
 	var spec := ""
 	for comp in u.ult.eff:
 		if comp.t == "hit" and comp.has("tgt"):
-			spec = str(comp.tgt)
+			spec = str(comp.get("tgt0", comp.tgt))      # 11/27 키트 「확산」 —— 달려갈 곳은 원래 범위로 정한다
 			break
 	if spec in ["back1", "back2"]:
 		return _deepest(u, live)
