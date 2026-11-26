@@ -9,6 +9,7 @@ const SHAPE := {
 	"i84": "seal", "i85": "twin_sword", "i86": "seal", "i87": "book", "i88": "book", "i89": "dao",
 	"i90": "zither", "i91": "pin", "i92": "sail", "i93": "robe", "i94": "map", "i95": "seal",
 	"i96": "mirror", "i97": "book", "i98": "map",
+	"u02": "armor", "u03": "dao", "u04": "seal", "i86": "pouch",      # 11/27 새 신화 유니크 —— 호위철갑 · 정군산 대도 · 천사인, 향낭(옛 왕좌지인)
 }
 const BY_TAG := {"창병": "glaive", "기병": "halberd", "궁병": "bow", "책사": "fan", "유생": "scroll",
 	"모사": "scroll", "도적": "dao"}
@@ -144,6 +145,17 @@ static func _shape(ci: CanvasItem, shape: String, c: Vector2, s: float, hi: Colo
 			ci.draw_circle(c, 7.5 * u, lo.darkened(0.35))
 			ci.draw_arc(c, 4.5 * u, PI * 1.1, PI * 1.7, 8, hi, w * 0.8)
 			ci.draw_arc(c, 2.5 * u, PI * 0.1, PI * 0.7, 8, hi, w * 0.8)
+		"armor":        # 철갑 —— 어깨 넓은 갑옷 + 비늘 줄
+			ci.draw_colored_polygon(PackedVector2Array([P.call(-11, -8), P.call(-4, -11), P.call(4, -11), P.call(11, -8), P.call(8, 0), P.call(7, 11), P.call(-7, 11), P.call(-8, 0)]), hi)
+			for y in [-4.0, 1.0, 6.0]:
+				ci.draw_line(P.call(-6, y), P.call(6, y), lo.darkened(0.3), w * 0.7)
+			ci.draw_line(P.call(0, -11), P.call(0, 11), lo.darkened(0.2), w * 0.6)
+		"pouch":        # 향낭 —— 끈으로 묶은 주머니 + 술
+			ci.draw_circle(P.call(0, 3), 8 * u, hi)
+			ci.draw_colored_polygon(PackedVector2Array([P.call(-4, -6), P.call(4, -6), P.call(2, -3), P.call(-2, -3)]), hi)
+			ci.draw_line(P.call(-4, -4), P.call(4, -4), lo.darkened(0.3), w)
+			ci.draw_line(P.call(0, -6), P.call(0, -12), lo, w * 0.8)
+			ci.draw_line(P.call(0, 11), P.call(0, 13), lo, w * 1.2)
 
 
 ## 썸네일 하나짜리 컨트롤
