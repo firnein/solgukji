@@ -2570,16 +2570,18 @@ func gacha(n) -> Variant:
 
 # ───────── 장수 키트 강화 · 전공 (11/27) ─────────
 ## 11/27 사용자: "군량 외에 제 3의 재화로 q,w,e,r,p 를 선택해서 강화할 수 있음. 강화된 스킬은 추가효과를 가진다 —— 나만의 덱을 더 강화시키는 묘미. 일단은 신화 장수만."
+## 11/27 저녁(새 방식): "강화는 1번씩만, 장수당 1개 많으면 2개 · 자리 개념이 아니라 그냥 1~2개를 강화하면 바로 끝남" —— 칸마다 고유 강화 하나(data/kit.json 의 up),
+##   장수당 Kit.MAX_UP 칸까지, 되돌릴 수 없다(옮기기 · 환불 없음). 값은 그 장수의 1 · 2번째 강화마다 Kit.UP_COST.
 ## 재화 「전공」(merit) —— 전투로만 번다: 대전 한 번 +MERIT_PVP (승패 무관) · 토벌 승리 +MERIT_QUEST_WIN (패배 0).
 ##   온라인은 다른 전투 보상처럼 held 에 쌓였다가 다음 아침(grant_held)에 들어온다. 결과 줄에는 last_spoil.merit 로 「전공 +N」.
-## 강화 상태 kit —— { 카드 id: { 칸: [강화 id …] } } (형식 · 규칙은 scripts/kit.gd). 카드 id 에 붙는다 —— 그 장수를 팔아도 지워지지 않고 돌려주지도 않는다 (다시 얻으면 그대로).
-## 명령 "kit_up" [카드, 칸, 강화] —— 종류는 '징집 · 조합'(Room.FORM_CMDS 가 아님): 아침 · 전투를 다 본 뒤 기다리는 동안 되고, 대전 준비 단계에는 안 된다.
+## 강화 상태 kit —— { 카드 id: ["q", "w"] } 강화한 칸 목록 (형식 · 규칙은 scripts/kit.gd 「새 방식」). 카드 id 에 붙는다 —— 그 장수를 팔아도 지워지지 않고 돌려주지도 않는다 (다시 얻으면 그대로).
+## 명령 "kit_up" [카드, 칸] —— 종류는 '징집 · 조합'(Room.FORM_CMDS 가 아님): 아침 · 전투를 다 본 뒤 기다리는 동안 되고, 대전 준비 단계에는 안 된다.
 ##   전투는 시작할 때의 강화를 복사해 가므로(_my_side → kit_side) 이미 계산된 판은 바뀌지 않는다.
 ## 전투로는 정책과 같은 길: policy_for 가 policy["kit"] = {"A": …, "B": …}. 봇 · 토벌 적은 강화가 없다. 점검 tests/kit_run
 const MERIT_PVP := 2
 const MERIT_QUEST_WIN := 1
 var merit := 0                     # 전공 —— 전투로 얻고 키트 강화에 쓴다
-var kit := {}                      # 강화 상태 (Kit.clean 을 거친 것만 들어 있다)
+var kit := {}                      # 강화 상태 (Kit.norm 을 거친 것만 들어 있다)
 
 
 ## 전공을 얻는다 —— 방금 정산 중인 전투의 보상 글(last_spoil)에도 적는다
@@ -2595,69 +2597,49 @@ func merit_gain(n: int) -> void:
 func kit_side() -> Dictionary:
 	var out := {}
 	for k in board:
-		if k != null and kit.get(k) is Dictionary and not out.has(k):
-			out[k] = (kit[k] as Dictionary).duplicate(true)
+		if k == null or out.has(k):
+			continue
+		var ups := Kit.ups_of(kit, k)
+		if not ups.is_empty():
+			out[k] = ups
 	return out
 
 
-## 그 칸의 다음 강화 값 (전공) —— 더 못 올리면 −1
-func kit_cost(k: String, slot: String) -> int:
-	return Kit.next_cost(Kit.augs_of(kit, k, slot))
+## 그 장수의 다음 강화 값 (전공) —— 더 강화할 수 없으면 −1
+func kit_cost(k) -> int:
+	return Kit.up_cost(kit, k)
 
 
-## 강화를 받을 수 없는 까닭 —— "" 이면 된다 (서버가 거부 이유로 보낸다 · 화면은 버튼을 끄고 이 글을 보인다)
-func kit_block(k, slot, aug) -> String:
+## 강화를 받을 수 없는 까닭 —— "" 이면 된다 (서버가 거부 이유로 보낸다 · 화면은 버튼을 끄거나 놓을 수 없는 까닭으로 보인다)
+func kit_block(k, slot) -> String:
 	var id := str(k)
-	var sl := str(slot)
-	var ag := str(aug)
-	if not Kit.on(id):
-		return "강화할 수 없는 장수입니다 (키트 장수가 아님)"
+	var why := Kit.up_block(kit, id, str(slot))
+	if why != "":
+		return why
 	if have(id) <= 0:
-		return "가지고 있지 않은 장수입니다"
-	if not Kit.SLOTS.has(sl) or Kit.slot_def(id, sl).is_empty():
-		return "없는 칸입니다"
-	var cur := Kit.augs_of(kit, id, sl)
-	if cur.size() >= Kit.MAX_LV:
-		return "이 칸은 더 강화할 수 없습니다 (최대 %d번)" % Kit.MAX_LV
-	if not Kit.AUG.has(ag):
-		return "없는 강화입니다"
-	if cur.has(ag) and not bool(Kit.AUG[ag].get("many", false)):
-		return "이미 붙인 강화입니다"
-	if not Kit.valid(id, sl, ag, cur):
-		return "이 칸에는 붙일 수 없는 강화입니다"
-	var cost := Kit.next_cost(cur)
+		return "가지고 있지 않은 장수다"
+	var cost := Kit.up_cost(kit, id)
 	if merit < cost:
-		return "%s이 모자랍니다 (%d / %d)" % [Kit.CUR_N, merit, cost]
+		return "%s 부족 %d/%d" % [Kit.CUR_N, merit, cost]
 	return ""
 
 
-## 강화 하나를 붙인다 —— 전공을 내고 그 칸의 강화 목록 끝에 더한다. 못 하면 false (까닭은 kit_block)
-func kit_up(k, slot, aug) -> bool:
-	if kit_block(k, slot, aug) != "":
+## 그 칸을 강화한다 —— 전공을 내고 그 장수의 강화한 칸 목록에 더한다 (되돌릴 수 없다). 못 하면 false (까닭은 kit_block)
+func kit_up(k, slot) -> bool:
+	if kit_block(k, slot) != "":
 		return false
 	var id := str(k)
-	var sl := str(slot)
-	var cur := Kit.augs_of(kit, id, sl)
-	merit -= Kit.next_cost(cur)
-	cur.append(str(aug))
-	if not (kit.get(id) is Dictionary):
-		kit[id] = {}
-	kit[id][sl] = cur
+	var ups := Kit.ups_of(kit, id)
+	merit -= Kit.up_cost(kit, id)
+	ups.append(str(slot))
+	kit[id] = ups
 	return true
-
-
-## 그 장수에 붙인 강화 수 (모든 칸의 합)
-func kit_n(k: String) -> int:
-	var n := 0
-	for sl in Kit.SLOTS:
-		n += Kit.lv(kit, k, sl)
-	return n
 
 
 ## 서버가 받아 주는 명령 —— 이름 -> 인자 수
 const COMMANDS := {"do_draw": 0, "random_grant": 0, "begin_picks": 2, "pick": 1, "forge": 1, "pick_unique": 1, "reroll_unique": 0,
 	"place": 2, "unplace": 1, "swap": 2, "set_form": 1, "set_tac": 1, "auto_deploy": 0, "clear_board": 0, "set_equip": 2, "set_quest_hard": 1,
-	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2, "set_plan": 2, "pick_tac": 1, "reroll_tac": 0, "pick_res": 1, "kit_up": 3}
+	"sell": 1, "buy": 1, "gacha": 1, "unequip": 2, "set_plan": 2, "pick_tac": 1, "reroll_tac": 0, "pick_res": 1, "kit_up": 2}
 
 
 func command(m: String, a: Array):
@@ -2701,7 +2683,7 @@ func from_dict(d: Dictionary) -> void:
 	sell_on = bool(d.get("sell_on", true))
 	hp_rule = float(d.get("hp_rule", 1.0))      # 옛 저장 · 옛 서버 —— 1.0
 	merit = int(d.get("merit", 0)) if (d.get("merit") is int or d.get("merit") is float) else 0      # 11/27 전공 —— 옛 저장 · 옛 서버는 0
-	kit = Kit.clean(d.get("kit"))      # 11/27 키트 강화 —— 옛 저장 · 옛 서버는 빈 것, 모르는 카드 · 칸 · 강화는 버린다
+	kit = Kit.norm(d.get("kit"))      # 11/27 키트 강화 —— 옛 저장 · 옛 서버는 빈 것, 옛 형식(칸 → 강화 배열)은 새 형식(강화한 칸 목록)으로, 모르는 카드 · 칸은 버린다
 	tk_load(d)      # 11/15 군략 —— 옛 저장 · 옛 서버는 기본 3장으로      # 옛 저장 · 옛 서버 —— 켜짐 (화면은 옛 서버면 방 정보에 sell 이 없어 상점을 숨긴다)
 	if not d.has("hp"):      # 예전 저장 —— 경고 수를 민심으로 어림
 		hp = maxi(1, HP_MAX - strikes * 20)

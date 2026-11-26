@@ -128,15 +128,15 @@ static func act_data(m: String, a: Array, r, run_ = null) -> Dictionary:
 			d["ok"] = r != null
 			if r is String:
 				d["got"] = [card(r)]
-		"kit_up":    # 11/27 장수 키트 강화 —— 장수 · 칸 · 강화 · 낸 전공 · 그 칸의 강화 수(명령 뒤)
+		"kit_up":    # 11/27 장수 키트 강화 —— 장수 · 칸 · 강화 이름 · 낸 전공 · 그 장수의 강화한 칸(명령 뒤)
 			d["card"] = card(str(a[0])) if not a.is_empty() else []
 			d["ok"] = r is bool and r
-			if d.ok and a.size() >= 3 and run_ != null:
-				var lv := Kit.lv(run_.kit, str(a[0]), str(a[1]))
+			if d.ok and a.size() >= 2 and run_ != null:
+				var ups: Array = Kit.ups_of(run_.kit, str(a[0]))
 				d["slot"] = str(a[1])
-				d["aug"] = str(a[2])
-				d["lv"] = lv
-				d["cost"] = int(Kit.COST[clampi(lv - 1, 0, Kit.COST.size() - 1)])
+				d["up"] = str(Kit.cell(str(a[0]), str(a[1])).get("up", {}).get("n", ""))
+				d["ups"] = ups
+				d["cost"] = int(Kit.UP_COST[clampi(ups.size() - 1, 0, Kit.UP_COST.size() - 1)])
 	if run_ != null and run_.get("grain") != null:
 		d["grain"] = int(run_.grain)      # 명령 뒤 남은 군량
 	if m == "kit_up" and run_ != null and run_.get("merit") != null:
@@ -327,6 +327,16 @@ static func phase_end(run) -> void:
 	page_time = {}
 
 
+## 강화에 쓴 전공 합 —— 장수마다 1 · 2번째 강화 값(Kit.UP_COST)
+static func kit_spent(kit) -> int:
+	var n := 0
+	if kit is Dictionary:
+		for k in kit:
+			for i in Kit.ups_of(kit, k).size():
+				n += int(Kit.UP_COST[mini(i, Kit.UP_COST.size() - 1)])
+	return n
+
+
 ## 페이즈 끝 스냅샷 (걸린 시간 · 탭 시간 빼고) —— 온라인 방 기록(RoomLog)도 같은 형식
 static func phase_end_data(run) -> Dictionary:
 	var tiers := {}
@@ -340,7 +350,7 @@ static func phase_end_data(run) -> Dictionary:
 		"bag_n": run.bag.values().reduce(func(s, x): return s + int(x), 0), "equip": run.equipped_count(),
 		"tickets": run.tickets.duplicate(), "strikes": run.strikes, "hp": run.hp, "w": run.my_w, "l": run.my_l, "rank": run.rank(),
 		"bot_pv": bots, "myth": run.myth_made,
-		"merit": int(run.merit), "kit": (run.kit as Dictionary).duplicate(true), "kit_spent": Kit.spent(run.kit)}      # 11/27 전공 · 키트 강화 상태 · 강화에 쓴 전공 합
+		"merit": int(run.merit), "kit": (run.kit as Dictionary).duplicate(true), "kit_spent": kit_spent(run.kit)}      # 11/27 전공 · 키트 강화 상태 · 강화에 쓴 전공 합
 
 
 static func over(run) -> void:

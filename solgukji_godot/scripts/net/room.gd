@@ -673,13 +673,13 @@ func shop_reason(r: Run, m: String, a: Array) -> String:
 	return r.buy_block(int(a[0]))
 
 
-## 키트 강화 거부 까닭 (11/27) —— 없는 장수 · 키트 아님 · 붙일 수 없는 강화 · 전공 부족 (Run.kit_block). "" 이면 거부 아님
+## 키트 강화 거부 까닭 (11/27) —— 없는 장수 · 키트 아님 · 이미 강화한 칸 · 2칸을 다 채움 · 전공 부족 (Run.kit_block). "" 이면 거부 아님
 func kit_reason(r: Run, m: String, a: Array) -> String:
 	if m != "kit_up":
 		return ""
-	if a.size() != 3 or not (a[0] is String and a[1] is String and a[2] is String):
+	if a.size() != 2 or not (a[0] is String and a[1] is String):
 		return "잘못된 명령입니다"
-	return r.kit_block(a[0], a[1], a[2])
+	return r.kit_block(a[0], a[1])
 
 
 ## 긴급 소식 대상 —— 기인 이상 (기인 · 초월 6 · 불멸 7 · 신화 8)
