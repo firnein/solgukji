@@ -7,7 +7,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")
 ## 점검 모드(test)는 7일차까지 멸망하지 않고, 8일차부터 민심이 바닥난 세력이 무너져 최후 1인이 남으면 끝난다 (11/12 토너먼트 없음).
 ## 확인: 모두 끝까지 가는가 · 사람끼리 대전의 승패가 양쪽에서 맞는가 · 저녁 준비에 받은 상대와 실제 대전 상대가 같은가 ·
 ##       라운드로빈(11/10): 한 바퀴(자리 수 - 1 저녁) 안에 같은 상대를 두 번 만나지 않는가 · 오류 메시지가 없는가.
-## 11/11 자리 수 --seats=4|6|8 (기본 8): create 에 max 를 실어 보낸다 —— 방 정보의 max · 자리 수 · 봇 수(= max - 사람 수)를 확인한다. --port= 로 포트를 바꾼다 (다른 세션과 겹치지 않게).
+## 11/11 자리 수 --seats (11/27 부터 방은 4인만 —— 기본 4): create 에 max 를 실어 보낸다 —— 방 정보의 max · 자리 수 · 봇 수(= max - 사람 수)를 확인한다. --port= 로 포트를 바꾼다 (다른 세션과 겹치지 않게).
 
 const DEFAULT_PORT := 7791
 const LOG_DIR := "user://playlog_online_net"
@@ -20,7 +20,7 @@ var pvp_seen := {}            # "day.phase" -> [[나, 상대, 승?, 무?]]
 var foe_log := {}             # 이름 -> {day_no: 상대 이름}  (저녁 준비에 받은 상대)
 var human_names := []
 var port := DEFAULT_PORT
-var seats_n := 8              # --seats —— 방의 총 인원 (create 의 max)
+var seats_n := 4              # --seats —— 방의 총 인원 (create 의 max)
 var n_humans := 0
 var seat_checked := false
 var norec := 0               # 기록에 동의하지 않은 가짜 클라이언트 수 (마지막 사람들)
@@ -62,7 +62,7 @@ func _ready() -> void:
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var n := int(args.get("players", "3"))
 	port = int(args.get("port", str(DEFAULT_PORT)))
-	seats_n = int(args.get("seats", "8"))
+	seats_n = int(args.get("seats", "4"))
 	n_humans = n
 	norec = int(args.get("norec", "1" if n >= 3 else "0"))      # 11/10 동의 —— 끝에서부터 이만큼은 기록에 동의하지 않은 클라이언트(hello 에 rec 없음)
 	RoomLog.test_ok = true                       # 11/10 온라인 기록 —— 점검 방도 이 점검에서는 남기고 끝에 파일을 본다

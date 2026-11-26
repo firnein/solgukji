@@ -136,7 +136,7 @@ func _check_files(fails: Array, full := false) -> void:
 				fails.append("나간 사람의 마지막 줄이 leave 가 아니다 (%s)" % last.ev)
 			if full and first.player != "시험2" and last.ev != "over":
 				fails.append("%s: 끝까지 갔는데 마지막 줄이 over 가 아니다 (%s)" % [first.player, last.ev])
-			if first.players.size() != 3 or first.bots.size() != 5 or not first.has("room") or not first.has("seat"):
+			if first.players.size() != 3 or first.bots.size() != Room.SEATS - 3 or not first.has("room") or not first.has("seat"):
 				fails.append("start 칸 부족 %s" % str(first))
 	print("  줄 종류: %s" % str(evs))
 	var need := ["start", "act", "stage", "ready", "battle_start", "battle_end", "reward", "phase_end", "disconnect", "reconnect", "leave", "bot_fill"]
