@@ -285,12 +285,16 @@ func _drill(root: String) -> Control:
 	var st := UI.strip(int(GAP))
 	for c in nd.kids:
 		st[1].add_child(_drill_cell(root, c))
-	if int(nd.get("basic", 0)) > 0:
-		var bl := UI.lbl("＋ 기본패\n%d장" % int(nd.basic), UI.FS_CAP, DB.PAL.bamboo)
-		bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		bl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		bl.custom_minimum_size = Vector2(NW, NH)
-		st[1].add_child(bl)
+	# 11/26 사용자: "이거 왜 기본패로 나와 그냥 나와도 될 거 같은데" —— 「＋ 기본패 N장」 글 대신 기본패도 재료 칸으로 (가진 수/필요 수)
+	if DB.RECOF.has(nd.k):
+		var want: int = 1 if crumbs.size() == 1 else maxi(1, int(nd.need) - int(nd.have))
+		var m := Run.mat_count(DB.RECOF[nd.k])
+		for q in m:
+			if DB.C[q].tier > BASIC_TIER:
+				continue
+			var bn: int = int(m[q]) * want
+			var bh: int = gs.run.have(q)
+			st[1].add_child(_drill_cell(root, {"k": q, "need": bn, "have": mini(bh, bn), "ok": bh >= bn, "kids": [], "basic": 0, "path": ""}))
 	st[0].custom_minimum_size.y = NH + BTN + 2
 	v.add_child(st[0])
 	var lack := base_lack(full)
@@ -354,7 +358,7 @@ func _drill_cell(root: String, nd: Dictionary) -> Control:
 		fb.add_theme_font_size_override("font_size", UI.FS_CAP)
 		v.add_child(fb)
 	else:
-		var nl := UI.lbl("구해야 함", UI.FS_CAP, DB.PAL.seal.lightened(0.25))      # 조합법이 없는 재료 —— 선택권 · 상점으로
+		var nl := UI.lbl("%d장 모자람" % (int(nd.need) - int(nd.have)) if DB.C[k].tier <= BASIC_TIER else "구해야 함", UI.FS_CAP, DB.PAL.seal.lightened(0.25))      # 조합법이 없는 재료 —— 선택권 · 상점으로 (기본패는 모자란 장 수)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		nl.custom_minimum_size = Vector2(NW, BTN - 2)
 		v.add_child(nl)

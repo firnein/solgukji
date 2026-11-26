@@ -140,6 +140,24 @@ func _ready() -> void:
 	await _wait(0.8)
 	_clean(gs)
 	await _shot("forge_1_pins_header")
+	# 11/26 재료 줄을 펼치고 기본패가 든 재료까지 들어간다 —— 기본패도 재료 칸으로 나오는지
+	if not roots.is_empty():
+		var ft = gs.forge_tree
+		var todo := [ft._node(roots[0], 1, 0, roots[0], "", true)]
+		while not todo.is_empty():
+			var nd: Dictionary = todo.pop_front()
+			if nd.has("k") and int(nd.get("basic", 0)) > 0 and str(nd.get("path", "")) != "":
+				ft.focus[roots[0]] = str(nd.path)
+				break
+			todo.append_array(nd.get("kids", []))
+		ft.goal_open[roots[0]] = true
+		gs.render()
+		await _wait(0.6)
+		await _shot("forge_1b_drill_basic")
+		ft.goal_open[roots[0]] = false
+		ft.focus.erase(roots[0])
+		gs.render()
+		await _wait(0.3)
 	gs.forge_tree.order_sheet()
 	await _wait(0.8)
 	await _shot("forge_2_order_sheet")
