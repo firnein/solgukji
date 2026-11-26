@@ -6,10 +6,10 @@ extends RefCounted
 const SHAPE := {
 	"i72": "glaive", "i73": "snake", "i74": "sword", "i75": "dao", "i76": "halberd", "i77": "flag",
 	"i78": "tally", "i79": "bow", "i80": "twin", "i81": "sword", "i82": "fan", "i83": "scroll",
-	"i84": "seal", "i85": "twin_sword", "i86": "seal", "i87": "book", "i88": "book", "i89": "dao",
+	"i84": "seal", "i85": "twin_sword", "i86": "pouch", "i87": "book", "i88": "book", "i89": "dao",
 	"i90": "zither", "i91": "pin", "i92": "sail", "i93": "robe", "i94": "map", "i95": "seal",
 	"i96": "mirror", "i97": "book", "i98": "map",
-	"u02": "armor", "u03": "dao", "u04": "seal", "i86": "pouch",      # 11/27 새 신화 유니크 —— 호위철갑 · 정군산 대도 · 천사인, 향낭(옛 왕좌지인)
+	"u02": "armor", "u03": "dao", "u04": "seal",      # 11/27 새 신화 유니크 —— 호위철갑 · 정군산 대도 · 천사인 (i86 향낭은 옛 왕좌지인 —— 인장 → 주머니)
 }
 const BY_TAG := {"창병": "glaive", "기병": "halberd", "궁병": "bow", "책사": "fan", "유생": "scroll",
 	"모사": "scroll", "도적": "dao"}
