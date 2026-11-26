@@ -1,6 +1,6 @@
 extends Node
 ## 군량 지급 · 아이템 뽑기 · 아이템 칸 둘 · 고대 등급 · 진형 재수정 · 험지 보상 점검 (11/13 사용자) —— 실행: godot --headless --path . res://tests/gacha_rules.tscn
-## (a) 고대 아이템 16개 (병종마다 무기 · 갑옷)  (b) 페이즈마다 군량  (c) 뽑기 값 · 10연 보장 · 천장 · 유니크 없음 · 저장 왕복
+## (a) 고대 아이템 16개 (병종마다 무기 · 갑옷 —— 11/27 술사 삭제 뒤 책사 무기 · 유생 갑옷은 둘)  (b) 페이즈마다 군량  (c) 뽑기 값 · 10연 보장 · 천장 · 유니크 없음 · 저장 왕복
 ## (d) 무기 · 갑옷 두 칸 장착 · 해제 · 전투로 넘기기 · 능력치  (e) 진형: 9칸 · 줄당 4칸까지 · 봉시 선봉 3 이상 · 방원 선봉 1 이하 · 줄 구성이 서로 다르다  (f) 험지 보상은 전설이 아니다
 
 var fails := []
@@ -24,8 +24,10 @@ func _ready() -> void:
 	if anc.size() != 16: _fail("고대 아이템 %d개 (16)" % anc.size())
 	for tag in DB.D.TAGORDER:
 		for sl in ["weapon", "armor"]:
-			if anc.filter(func(k): return DB.IT[k].tag == tag and DB.item_slot(k) == sl).size() != 1:
-				_fail("%s 고대 %s 가 하나가 아니다" % [tag, sl])
+			# 11/27 술사 병종 삭제 —— 술사 고대 무기(귀갑부)는 책사, 갑옷(황포)은 유생으로 옮겨 그 두 칸은 둘이다 (7병종 · 고대 16개)
+			var n_anc: int = anc.filter(func(k): return DB.IT[k].tag == tag and DB.item_slot(k) == sl).size()
+			if n_anc != (2 if [tag, sl] in [["책사", "weapon"], ["유생", "armor"]] else 1):
+				_fail("%s 고대 %s 가 %d개" % [tag, sl, n_anc])
 	if DB.IGRADE_ORDER.find("고대") != 1 or not DB.D.IGRADE.has("고대"): _fail("고대 등급 순서 · 색")
 	for k in DB.IT:
 		if DB.item_slot(k) == "": _fail("칸 없는 아이템 %s" % k)
