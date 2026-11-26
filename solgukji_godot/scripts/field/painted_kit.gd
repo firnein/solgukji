@@ -8,12 +8,21 @@ extends RefCounted
 ##   R 금   —— 햇살 눈금 고리 · 여덟 갈래 별        P 주황 —— 마름모
 ##   시전: 장수 발밑에서 칸 색 붓 고리가 퍼지고 몸에서 번쩍 + 칸 모양.   맞은 부대: 시전자에게서 짧은 빛줄기 → 머리 위 칸 모양 표식 + 발밑 고리
 ##   맞은 표식의 받침은 아군이 쓴 것이면 먹빛, 적이 쓴 것(당했다)이면 검붉다
-## 강화(augs) 덧표현: 화공 = 불빛 테두리 · 불꽃,  확산 = 고리가 더 크게 + 바깥 고리 한 겹,  강격 = 번쩍임이 더 세게 (나머지는 딱지 옆 ★ 색으로만)
+##
+## 강화 (11/27 저녁 새 방식 —— 칸마다 그 장수 고유의 효과 하나 · 장수당 최대 2칸. scripts/kit.gd 「새 방식」 · data/kit.json)
+##   사건의 "up": true = 강화된 칸의 발동 —— 고리가 더 크고 바깥에 한 겹 더, 번쩍임에 여덟 갈래 섬광, 맞은 표식에 가는 테 (딱지에는 겹테두리 + ◆)
+##   사건의 "kup": 강화 이름 = 강화 효과가 실제로 발동 —— 받은 부대에서 칸 색 두 겹 고리 · 큰 번쩍임 · 도는 별 (add_burst). 이름 글씨는 HUD 가 띄운다
+##
+## 상태 (11/27 —— 삽화 화면에는 메달 아래 상태 딱지 줄이 없어 아래 상태가 전장에서 보이지 않았다):
+##   봉인(seal) 자물쇠 · 도발(taunted) 성난 표시 · 불사(undying) 금빛 심장 + 발밑 금 고리 —— 머리 오른쪽에 작은 기호로
+##   출혈(bleed) 몸에 붉은 할퀸 자국 + 떨어지는 핏방울 · 역병(plague) 떠오르는 풀빛 거품 · 은신(stealth · hide) 발밑 먹 구름 (그늘은 WarPainting._cover_step)
+##   밀려남(add_shove) —— 밀린 쪽 반대로 흙먼지와 속도선 셋, 병사 · 장수는 돌아서지 않고 움찔하며 밀린다
 ##
 ## 그림 자산 (docs/코덱스_요청_키트.md) —— res://assets/kit/ 에 파일이 있으면 코드 그림 대신 그것을 쓴다 (없으면 코드 그림 · 넣기만 하면 바뀐다):
-##   slot_<칸>.png 칸 문장 · cast_<칸>.png 시전 이펙트(가로 띠 시트) · hit_<칸>.png 맞은 표식(한 장 또는 가로 띠) · aug_<강화 id>.png 강화 아이콘
+##   slot_<칸>.png 칸 문장 · cast_<칸>.png 시전 이펙트(가로 띠 시트) · hit_<칸>.png 맞은 표식(한 장 또는 가로 띠)
+##   up.png 「강화됨」 표식(흰 그림 —— 칸 색을 입힌다) · kup.png 강화 효과 발동 이펙트(흰 가로 띠 시트 —— 칸 색을 입힌다. kup_<칸>.png 가 있으면 그 색 그대로)
 ##
-## 머리 위 딱지(글자 + 기술 이름 + ★)는 HUD 가 그린다 (battle_view.gd Hud.kit_tag) —— 여기의 pill · draw_chip · draw_augs 를 같이 쓴다.
+## 머리 위 딱지(글자 + 기술 이름 + ◆)와 강화 이름 글씨는 HUD 가 그린다 (battle_view.gd Hud.kit_tag · kit_pop) —— 여기의 baked · draw_pill · draw_chip · draw_up 을 같이 쓴다.
 ##
 ## 프레임 부담 (11/27 실측: 신화 11명이 초당 6번 넘게 쓰는 판에서 처음 구현은 그리기 명령을 만드는 데만 프레임당 1.6ms 를 썼다 ——
 ##   둥근 상자(StyleBoxFlat) · 다각형 삼각 분할 · 안티에일리어싱 꺾은선 · 원은 명령마다 정점 버퍼를 새로 만든다):
@@ -24,39 +33,47 @@ extends RefCounted
 const Kit := preload("res://scripts/kit.gd")
 
 var p                       # WarPainting
-var casts: Array = []       # {key, slot, augs, start, hit, end, col, dsts: [부대 key], wide, fire, dmg, sd}
-var stats := {"cast": 0, "hit": 0, "skip": 0, "peak": 0, "by": {}}      # 점검용 (tests/kit_fx_shot)
+var casts: Array = []       # {key, slot, up, start, hit, end, col, dsts: [부대 key], sd}
+var bursts: Array = []      # 강화 효과 발동 {key(받은 부대), src(시전 부대), slot, col, start, sd}
+var shoves: Array = []      # 밀려남 {key, dir(전장 방향), start}
+var stats := {"cast": 0, "hit": 0, "skip": 0, "peak": 0, "by": {}, "burst": 0, "shove": 0, "state": {}}      # 점검용 (tests/kit_fx_shot)
 var draw_us := 0            # 점검용 —— 그리기에 쓴 시간 합(µs) · 그린 횟수
 var draw_n := 0
+var count_states := false   # 점검용 —— 상태 기호를 그린 횟수를 stats.state 에 센다
 var _marks := 0             # 이번 그리기에서 그린 맞은 표식 수
+var _queued := false        # 이번 그리기에 모은 것이 있다
 var _q_tex := {}            # 그림 이름 -> [가운데, 크기, 색, 돌림, 늘림, 땅에 눕힘] 을 이어 붙인 배열 (한 프레임 모았다가 _flush)
 var _q_line: Array = []     # [a, b, 색, 굵기, 안티에일리어싱] 이어 붙임
 var _q_prim: Array = []     # [점들(셋 · 넷), 색] 이어 붙임
-var _q_sheet: Array = []    # [그림(assets/kit), 가운데, 크기, 진행 0~1, 투명] 이어 붙임
+var _q_sheet: Array = []    # [그림(assets/kit), 가운데, 크기, 진행 0~1, 색] 이어 붙임
 
 const MAX_CASTS := 10
 const MAX_DSTS := 9
 const MAX_LINKS := 5
 const MAX_MARKS := 14        # 한 화면에 그리는 맞은 표식 (새 발동부터 센다)
-const CAST_LIFE := 0.75      # 시전 고리 · 번쩍임 · 칸 모양 (전장 초)
-const HIT_LIFE := 0.75       # 맞은 표식
+const MAX_BURSTS := 6
+const MAX_SHOVES := 8
+const CAST_LIFE := 0.9       # 시전 고리 · 번쩍임 · 칸 모양 (전장 초) —— 11/27 저녁: 발동이 드물어져(재사용 대기 5 ~ 13초) 하나하나를 더 길고 크게
+const HIT_LIFE := 0.9        # 맞은 표식
+const BURST_LIFE := 0.95     # 강화 효과 발동
+const SHOVE_LIFE := 0.5      # 밀려남 (길 기록 한 칸 0.4초 동안 미끄러진다)
 const LINK_TRAVEL := 0.18    # 시전자 → 대상 빛줄기가 닿는 시간 (맞는 순간에 닿는다)
 const HIT_STAGGER := 0.04    # 대상마다 조금씩 늦게
 const INK := Color("#29271f")
-const EMBER := Color("#ff8a2a")
 const ENSO_FILL := 0.78      # 원상 그림에서 고리가 차지하는 폭 (그림 한 변 대비)
+## 은신으로 읽는 상태 이름 (엔진이 사건 스냅숏의 상태 목록에 넣어 주면 뜬다)
+const STEALTH_KEYS := ["stealth", "hide"]
+const ICON_D := 20.0         # 상태 기호(봉인 · 도발 · 불사) 받침 지름 (화면 px)
 
 const ASSET_DIR := "res://assets/kit/"
-## 강화 종류 색 —— 딱지 옆 ★ (그림 aug_<id>.png 가 없을 때)
-const AUG_COL := {"dmg": "#ff5a4a", "wide": "#6fe0ff", "fire": "#ff9b45", "slow": "#7fb8ff", "awe": "#c58bff", "quick": "#d8f06a", "cheer": "#7fe6a4", "amp": "#ffd257"}
 ## 둥근 받침 그림 (머리 위 딱지) —— 3배로 굽고 1/3 로 그린다 (휴대폰 고해상도에서도 모서리가 또렷하게)
 const PILL_N := 48
 const PILL_R := 18.0         # 모서리 반지름 (그림 px —— 화면에서는 6)
 const PILL_B := 6.0          # 테두리 굵기 (그림 px —— 화면에서는 2)
 const PILL_K := 3.0
-## 모아 그리는 차례 (아래 → 위): 땅의 고리 → 땅의 별 → 받침 → 작은 고리 · 붓 획 · 별 → (세모 · 네모 · 선) → 불꽃
-const TEX_UNDER := ["enso_0", "enso_1", "gstar", "disc", "ring", "brush_0", "star"]
-const TEX_OVER := ["flame_0", "flame_1"]
+## 모아 그리는 차례 (아래 → 위): 땅의 구름 · 고리 → 땅의 별 → 받침 → 작은 고리 · 네모 · 붓 획 · 할퀸 자국 · 별 → (assets/kit 그림 · 세모 · 네모 · 선) → 불꽃
+const TEX_UNDER := ["cloud", "enso_0", "enso_1", "gstar", "disc", "ring", "fill", "brush_0", "claw", "star"]
+const TEX_OVER := ["dot"]
 
 static var _tex := {}
 static var _pill: Array = []
@@ -69,16 +86,21 @@ func _init(painter) -> void:
 
 func reset() -> void:
 	casts.clear()
-	stats = {"cast": 0, "hit": 0, "skip": 0, "peak": 0, "by": {}}
+	bursts.clear()
+	shoves.clear()
+	stats = {"cast": 0, "hit": 0, "skip": 0, "peak": 0, "by": {}, "burst": 0, "shove": 0, "state": {}}
 	draw_us = 0
 	draw_n = 0
 
 
 func prune(clock: float) -> void:
-	if casts.is_empty():
-		return
-	casts = casts.filter(func(c): return clock < float(c.end) and clock >= float(c.start) - 5.0)
-	stats.peak = maxi(int(stats.peak), casts.size())
+	if not casts.is_empty():
+		casts = casts.filter(func(c): return clock < float(c.end) and clock >= float(c.start) - 5.0)
+		stats.peak = maxi(int(stats.peak), casts.size())
+	if not bursts.is_empty():
+		bursts = bursts.filter(func(b): return clock < float(b.start) + BURST_LIFE and clock >= float(b.start) - 1.0)
+	if not shoves.is_empty():
+		shoves = shoves.filter(func(s): return clock < float(s.start) + SHOVE_LIFE and clock >= float(s.start) - 1.0)
 
 
 # ───────── 함께 쓰는 것 (HUD · 삽화 · 점검) ─────────
@@ -92,48 +114,73 @@ static func tex(nm: String) -> Texture2D:
 
 
 static func slot_col(slot: String) -> Color:
-	return Color(str(Kit.SLOT_COL.get(slot, "#ffffff")))
+	return Color(str(Kit.SLOT_COL.get(slot, "#ffe9a8")))
 
 
-static func aug_col(aug: String) -> Color:
-	return Color(str(AUG_COL.get(aug, "#ffd257")))
-
-
-## 그 사건이 어느 칸의 발동인가 —— {slot, augs, name} · 아니면 빈 사전. cid = 그 사건을 일으킨 부대의 카드 id
-## 사건에 "slot" 이 있으면 그대로 (엔진 약속 —— scripts/kit.gd 머리말). 없으면(옛 서버 결과 · 엔진 병합 전) 대비책:
-##   키트 장수의 기술 이름이 Kit.slot_def 의 q · w · e 이름과 같으면 그 칸, 고유기(ult · ult_warn)면 r, 개성 말풍선(sig)이면 p
+## 그 사건이 어느 칸의 발동인가 —— {slot, up(강화된 칸인가), name} · 아니면 빈 사전. cid = 그 사건을 일으킨 부대의 카드 id
+## 사건에 "slot" 이 있으면 그대로 (엔진 약속 —— scripts/kit.gd 「새 방식」). 없으면(옛 서버 결과) 대비책:
+##   키트 장수의 기술 이름이 Kit.cell(카드, q · w · e).n 과 같으면 그 칸 (옛 결과는 카드 기술 sks 이름으로도 맞춰 본다), 고유기(ult · ult_warn · ult_join)면 r, 개성 말풍선(sig)이면 p
+## 강화: "up": true. 단 buff · debuff 사건의 up 은 예전부터 「올림 / 깎음」 뜻이라 읽지 않는다 —— 그런 사건(개성 말풍선 = P)은 명단의 강화 칸으로 판단한다 (BattleView._kit_of).
+##   낮 방식의 "augs"(강화 id 배열)가 남은 결과는 비어 있지 않으면 강화로 본다
 static func resolve(e: Dictionary, cid: String) -> Dictionary:
 	var slot := str(e.get("slot", ""))
-	var augs: Array = []
-	if e.get("augs") is Array:
-		for a in e.augs:
-			augs.append(str(a))
+	var fx := str(e.get("fx", ""))
 	var nm := str(e.get("name", ""))
 	var known := DB.C.has(cid)
+	var up: bool = (e.get("up") is bool and bool(e.up) and not (fx in ["buff", "debuff"])) or (e.get("augs") is Array and not (e.augs as Array).is_empty())
 	if Kit.SLOT_N.has(slot):
-		if slot == "p" and known and Kit.p_name(cid) != "":
-			nm = Kit.p_name(cid)
-		return {"slot": slot, "augs": augs, "name": nm}
+		if known:
+			var cn := str(Kit.cell(cid, slot).get("n", ""))
+			if slot == "p":
+				nm = cn if cn != "" else (Kit.p_name(cid) if Kit.p_name(cid) != "" else nm)
+			elif nm == "":
+				nm = cn
+		return {"slot": slot, "up": up, "name": nm}
 	if not known or not Kit.on(cid):
 		return {}
-	match str(e.get("fx", "")):
+	match fx:
 		"skill":
 			if nm != "":
 				for s in ["q", "w", "e"]:
+					if str(Kit.cell(cid, s).get("n", "")) == nm:
+						return {"slot": s, "up": up, "name": nm}
+				for s in ["q", "w", "e"]:
 					if str(Kit.slot_def(cid, s).get("name", "")) == nm:
-						return {"slot": s, "augs": augs, "name": nm}
+						return {"slot": s, "up": up, "name": nm}
 			return {}
-		"ult", "ult_warn":
-			return {"slot": "r", "augs": augs, "name": nm}
+		"ult", "ult_warn", "ult_join":
+			return {"slot": "r", "up": up, "name": nm}
 	if bool(e.get("sig", false)):
-		var pn := Kit.p_name(cid)
+		var pn := str(Kit.cell(cid, "p").get("n", ""))
+		if pn == "":
+			pn = Kit.p_name(cid)
 		if pn == "":
 			var head := str(e.get("t", "")).split(" ——")[0]
 			if head.find("의 ") >= 0:
 				pn = head.substr(head.rfind("의 ") + 2)
 		if pn != "":
-			return {"slot": "p", "augs": augs, "name": pn}
+			return {"slot": "p", "up": up, "name": pn}
 	return {}
+
+
+## 강화 이름(kup)이 그 카드의 어느 칸 것인가 ("" = 그 카드에 없다)
+static func up_slot(cid: String, kup: String) -> String:
+	if kup == "":
+		return ""
+	for s in Kit.SLOTS:
+		var u = Kit.cell(cid, s).get("up")
+		if u is Dictionary and str(u.get("n", "")) == kup:
+			return s
+	return ""
+
+
+## 그 강화가 적을 밀어내는 것인가 —— 자료의 설명 글로 본다 (엔진이 사건에 "push": true 를 주면 그쪽이 먼저)
+static func up_pushes(cid: String, slot: String) -> bool:
+	var u = Kit.cell(cid, slot).get("up")
+	if not (u is Dictionary):
+		return false
+	var d := str(u.get("d", ""))
+	return d.contains("밀어") or d.contains("밀쳐")
 
 
 ## 전투 기록 머리 —— "[Q] " (RichTextLabel 용 BBCode · 대괄호는 [lb] [rb] 로)
@@ -198,35 +245,28 @@ static func draw_chip(ci: CanvasItem, c: Vector2, d: float, slot: String, a := 1
 	ci.draw_string(DB.font_bold, Vector2(r.position.x, c.y + fs * 0.36), str(Kit.SLOT_N.get(slot, "?")), HORIZONTAL_ALIGNMENT_CENTER, d, fs, Color(0.07, 0.06, 0.04, a))
 
 
-static func augs_w(augs: Array, sz: float) -> float:
-	return augs.size() * (sz + 1.0)
-
-
-## 강화 표시 —— 강화마다 ★ 하나 (강화 종류 색 · assets/kit/aug_<id>.png 가 있으면 그 그림). at = 왼쪽 가운데, 오른쪽으로 놓는다. 쓴 폭을 돌려준다
-## ★ 는 글꼴의 글자 (나눔고딕에 있다) —— 다각형을 만들지 않는다. outline 은 밝은 바탕(초상 위) 에서만
-static func draw_augs(ci: CanvasItem, at: Vector2, augs: Array, sz: float, a := 1.0, outline := false) -> float:
+## 「강화됨」 표식 하나 —— 칸 색을 밝힌 ◆ (assets/kit/up.png 가 있으면 그 흰 그림에 칸 색을 입힌다). c 가운데 · sz 한 변
+## ◆ 는 글꼴의 글자 (나눔고딕에 있다) —— 다각형을 만들지 않는다. outline 은 밝은 바탕(초상 위)에서만
+static func draw_up(ci: CanvasItem, c: Vector2, sz: float, slot: String, a := 1.0, outline := false) -> void:
 	if a <= 0.01 or sz < 2.0:
-		return augs_w(augs, sz)
-	var x := at.x
+		return
+	var col := slot_col(slot).lightened(0.45)
+	var art := tex("up")
+	if art != null:
+		ci.draw_texture_rect(art, Rect2(c - Vector2(sz, sz) * 0.5, Vector2(sz, sz)), false, Color(col, a))
+		return
 	var fs := roundi(sz + 2.0)
-	for aug in augs:
-		var art := tex("aug_" + str(aug))
-		if art != null:
-			ci.draw_texture_rect(art, Rect2(x, at.y - sz * 0.5, sz, sz), false, Color(1, 1, 1, a))
-		else:
-			var q := Vector2(x - 1.0, at.y + fs * 0.36)
-			if outline:
-				ci.draw_string_outline(DB.font_bold, q, "★", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0.05, 0.04, 0.03, 0.9 * a))
-			ci.draw_string(DB.font_bold, q, "★", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(aug_col(str(aug)), a))
-		x += sz + 1.0
-	return x - at.x
+	var q := Vector2(c.x - sz * 0.5 - 1.0, c.y + fs * 0.36)
+	if outline:
+		ci.draw_string_outline(DB.font_bold, q, "◆", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0.05, 0.04, 0.03, 0.9 * a))
+	ci.draw_string(DB.font_bold, q, "◆", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col, a))
 
 
-# ───────── 사건 받기 (battle_view 가 기술 묶음 · 고유기를 시작할 때) ─────────
+# ───────── 사건 받기 (battle_view 가 기술 묶음 · 고유기를 시작할 때 · 사건을 적용할 때) ─────────
 
-## key 가 slot 칸을 썼다 —— dsts 는 맞을(받을) 부대들, delay 는 맞는 순간까지 (근접 0.1 · 화살 0.55 · 책략 0.45 · 고유기 ULT_DELAY),
+## key 가 slot 칸을 썼다 —— up 이면 강화된 칸, dsts 는 맞을(받을) 부대들, delay 는 맞는 순간까지 (근접 0.1 · 화살 0.55 · 책략 0.45 · 고유기 ULT_DELAY),
 ## wait 는 뜨기까지 (개전 P 알림을 차례로)
-func add(key: String, slot: String, augs: Array, dsts: Array, delay: float, wait := 0.0) -> void:
+func add(key: String, slot: String, up: bool, dsts: Array, delay: float, wait := 0.0) -> void:
 	var sq: Squad = p.v.field.squads.get(key)
 	if sq == null or not Kit.SLOT_N.has(slot):
 		return
@@ -243,9 +283,9 @@ func add(key: String, slot: String, augs: Array, dsts: Array, delay: float, wait
 			if d.size() >= MAX_DSTS:
 				break
 	var hit := now + maxf(0.0, delay)
-	casts.append({"key": key, "slot": slot, "augs": augs, "start": now, "hit": hit,
+	casts.append({"key": key, "slot": slot, "up": up, "start": now, "hit": hit,
 		"end": maxf(now + CAST_LIFE, hit + HIT_LIFE + HIT_STAGGER * d.size()), "col": slot_col(slot), "dsts": d,
-		"wide": augs.has("wide"), "fire": augs.has("fire"), "dmg": augs.has("dmg"), "sd": float(absi(hash(key + slot)) % 628) * 0.01})
+		"sd": float(absi(hash(key + slot)) % 628) * 0.01})
 	stats.cast += 1
 	stats.hit += d.size()
 	stats.by[slot] = int(stats.by.get(slot, 0)) + 1
@@ -253,23 +293,60 @@ func add(key: String, slot: String, augs: Array, dsts: Array, delay: float, wait
 		casts.pop_front()
 
 
+## 강화 효과가 발동했다 —— key 는 그 효과를 받은 부대(없으면 시전 부대), src 는 시전 부대, slot 은 칸 색 ("" 이면 미색)
+func add_burst(key: String, slot: String, src := "") -> void:
+	if not p.v.field.squads.has(key):
+		return
+	bursts.append({"key": key, "src": src, "slot": slot, "col": slot_col(slot), "start": float(p.v.field.clock),
+		"sd": float(absi(hash(key + slot + str(bursts.size()))) % 628) * 0.01})
+	stats.burst += 1
+	while bursts.size() > MAX_BURSTS:
+		bursts.pop_front()
+
+
+## 부대가 밀려났다 —— dir 은 밀린 쪽(전장 방향). 병사 · 장수는 돌아서 걷지 않고 그대로 선 채 움찔하며 밀린다 (FormationMotion.shove_until)
+func add_shove(key: String, dir: Vector2) -> void:
+	var sq: Squad = p.v.field.squads.get(key)
+	if sq == null or not sq.alive or dir.length_squared() < 0.0001:
+		return
+	dir = dir.normalized()
+	var form = p.formations.get(key)
+	if form != null:
+		form.shove_until = form.motion_clock + SHOVE_LIFE
+		form.receive_impact(form.center - dir * 20.0, dir, 1.4)
+		if p._shows_hero(sq):
+			form.hero_hurt_at = p.visual_time
+			form.hero_hurt_power = 1.2
+			form.hero_hurt_dir = dir
+			form.hero_hurt_mirror = not form.facing_right
+	shoves.append({"key": key, "dir": dir, "start": float(p.v.field.clock)})
+	stats.shove += 1
+	while shoves.size() > MAX_SHOVES:
+		shoves.pop_front()
+
+
 # ───────── 위층 그리기 (TopEffects) ─────────
 
 func draw(ci: CanvasItem) -> void:
-	if casts.is_empty():
-		return
 	var t0 := Time.get_ticks_usec()
 	var clock := float(p.last_clock)
 	var lv := int(p.v.load_lv) if p.v.get("load_lv") != null else 0
+	_queued = false
+	_draw_states(lv)
+	for s: Dictionary in shoves:
+		_draw_shove(s, clock - float(s.start))
 	_marks = 0
 	for i in range(casts.size() - 1, -1, -1):      # 새 발동부터 —— 표식 상한(MAX_MARKS)은 새것이 먼저 쓴다
 		var c: Dictionary = casts[i]
 		_draw_cast(ci, c, clock - float(c.start), lv)
 		if not (c.dsts as Array).is_empty():
-			_draw_hits(ci, c, clock - float(c.hit), lv)
-	_flush(ci)
-	draw_us += Time.get_ticks_usec() - t0
-	draw_n += 1
+			_draw_hits(c, clock - float(c.hit), lv)
+	for b: Dictionary in bursts:
+		_draw_burst(ci, b, clock - float(b.start), lv)
+	if _queued:
+		_flush(ci)
+		draw_us += Time.get_ticks_usec() - t0
+		draw_n += 1
 
 
 ## 그림 한 장을 모음에 넣는다 —— nm 그림 이름 · c 가운데 · sz 긴 변 · st 늘림 · ground 면 땅에 눕힌다(st.y = 눌림)
@@ -286,6 +363,7 @@ func _t(nm: String, c: Vector2, sz: float, col: Color, rot := 0.0, st := Vector2
 	q.append(rot)
 	q.append(st)
 	q.append(ground)
+	_queued = true
 
 
 func _l(a: Vector2, b: Vector2, col: Color, w: float, aa := false) -> void:
@@ -294,11 +372,19 @@ func _l(a: Vector2, b: Vector2, col: Color, w: float, aa := false) -> void:
 	_q_line.append(col)
 	_q_line.append(w)
 	_q_line.append(aa)
+	_queued = true
+
+
+func _prim(pts: PackedVector2Array, col: Color) -> void:
+	_q_prim.append(pts)
+	_q_prim.append(col)
+	_queued = true
 
 
 func _texture(nm: String) -> Texture2D:
 	match nm:
-		"disc": return baked()[2]
+		"fill": return baked()[0]
+		"disc", "dot": return baked()[2]
 		"ring": return baked()[3]
 		"gstar": return p._ink_get("star")
 	return p._ink_get(nm)
@@ -327,7 +413,7 @@ func _flush_tex(ci: CanvasItem, names: Array) -> void:
 		q.clear()
 
 
-## 모아 둔 것을 차례대로 낸다 —— 그림(아래) → assets/kit 그림 → 세모 · 네모 → 선 → 불꽃
+## 모아 둔 것을 차례대로 낸다 —— 그림(아래) → assets/kit 그림 → 세모 · 네모 → 선 → 방울
 func _flush(ci: CanvasItem) -> void:
 	_flush_tex(ci, TEX_UNDER)
 	ci.draw_set_transform(Vector2.ZERO)
@@ -339,7 +425,7 @@ func _flush(ci: CanvasItem) -> void:
 		var fw := ts.x / n
 		var sz: float = _q_sheet[i + 2]
 		ci.draw_texture_rect_region(art, Rect2(_q_sheet[i + 1] - Vector2(sz, sz) * 0.5, Vector2(sz, sz)),
-			Rect2(fw * clampi(int(float(_q_sheet[i + 3]) * n), 0, n - 1), 0.0, fw, ts.y), Color(1, 1, 1, _q_sheet[i + 4]))
+			Rect2(fw * clampi(int(float(_q_sheet[i + 3]) * n), 0, n - 1), 0.0, fw, ts.y), _q_sheet[i + 4])
 		i += 5
 	_q_sheet.clear()
 	i = 0
@@ -393,13 +479,14 @@ func _outline(pts: PackedVector2Array, col: Color, w: float, a: float, aa: bool,
 		_l(pts[k], pts[(k + 1) % n], Color(col, a), w, aa)
 
 
-## assets/kit 의 그림 한 칸을 모음에 넣는다 —— 가로 띠 시트면 칸 수 = 폭 ÷ 높이, u 0~1 진행에 맞는 칸 (한 장이면 그 한 장)
-func _sheet(art: Texture2D, c: Vector2, sz: float, u: float, a: float) -> void:
+## assets/kit 의 그림 한 칸을 모음에 넣는다 —— 가로 띠 시트면 칸 수 = 폭 ÷ 높이, u 0~1 진행에 맞는 칸 (한 장이면 그 한 장). col 은 곱할 색
+func _sheet(art: Texture2D, c: Vector2, sz: float, u: float, col: Color) -> void:
 	_q_sheet.append(art)
 	_q_sheet.append(c)
 	_q_sheet.append(sz)
 	_q_sheet.append(u)
-	_q_sheet.append(a)
+	_q_sheet.append(col)
+	_queued = true
 
 
 func _draw_cast(ci: CanvasItem, c: Dictionary, age: float, lv: int) -> void:
@@ -414,46 +501,40 @@ func _draw_cast(ci: CanvasItem, c: Dictionary, age: float, lv: int) -> void:
 	var body := feet - Vector2(0, hh * 0.5)
 	var col: Color = c.col
 	var slot := str(c.slot)
+	var up := bool(c.up)
 	var aa := lv < 2
 	var ink := lv < 2
 	var sd := float(c.sd)
 	var t := age / CAST_LIFE
 	var a := (1.0 - smoothstep(0.55, 1.0, t)) * sq.fade
-	var u := clampf(age / 0.5, 0.0, 1.0)
-	var grow := 0.4 + 0.85 * ease(u, 0.45)
-	var big := 1.35 if bool(c.wide) else 1.0
+	var u := clampf(age / 0.55, 0.0, 1.0)
+	var grow := 0.45 + 1.0 * ease(u, 0.45)
+	var big := 1.2 if up else 1.0
 	var rx := R * grow * big
-	var w := 3.2 if bool(c.dmg) else 2.4
-	# 번쩍임 —— 몸에서 칸 색 빛 + 흰 심 (강격이면 더 크고 길게 + 여덟 갈래 섬광)
-	var fl := 1.0 - clampf(age / (0.36 if bool(c.dmg) else 0.26), 0.0, 1.0)
+	var w := 3.2 if up else 2.6
+	# 번쩍임 —— 몸에서 칸 색 빛 + 흰 심 (강화된 칸이면 더 크고 길게 + 여덟 갈래 섬광)
+	var fl := 1.0 - clampf(age / (0.4 if up else 0.3), 0.0, 1.0)
 	if fl > 0.0:
-		p._spr(ci, "light_02", body, R * (4.6 if bool(c.dmg) else 3.4), Color(col, 0.9 * fl * sq.fade))
+		p._spr(ci, "light_02", body, R * (4.8 if up else 3.8), Color(col, 0.9 * fl * sq.fade))
 		_t("disc", body, R * 0.7 * fl + 4.0, Color(1, 1, 1, 0.6 * fl * sq.fade))
-		if bool(c.dmg) and lv < 3:
+		if up and lv < 3:
 			_t("star", body, R * (2.0 + 2.2 * (1.0 - fl)), Color(1, 1, 1, 0.9 * fl * sq.fade), age * 2.5)
 	var sheet := tex("cast_" + slot)
-	if sheet != null:      # 그림 시트가 있으면 바탕 고리 · 칸 모양 대신 그것을 (장수 몸 가운데에 겹친다 —— 번쩍임 · 확산 · 화공 덧표현은 그대로 얹는다)
-		_sheet(sheet, body, R * 4.2 * big, t, sq.fade)
+	if sheet != null:      # 그림 시트가 있으면 바탕 고리 · 칸 모양 대신 그것을 (장수 몸 가운데에 겹친다 —— 번쩍임 · 강화 덧고리는 그대로 얹는다)
+		_sheet(sheet, body, R * 4.6 * big, t, Color(1, 1, 1, sq.fade))
 	else:      # 바탕 고리 —— 모든 칸이 같다 (누가 썼나)
 		_ring(feet, rx, col, a, ink, sd + age * 1.4)
-	if bool(c.wide) and lv < 3:      # 확산 —— 바깥에 한 겹 더, 조금 늦게
-		var u2 := clampf((age - 0.1) / 0.5, 0.0, 1.0)
+	if up and lv < 3:      # 강화된 칸 —— 바깥에 밝은 고리 한 겹 더, 조금 늦게
+		var u2 := clampf((age - 0.1) / 0.55, 0.0, 1.0)
 		if u2 > 0.0:
-			_ring(feet, R * (0.55 + 1.2 * ease(u2, 0.45)) * big, col.lightened(0.35), a * 0.8, false, -sd - age, 1)
-	if bool(c.fire):      # 화공 —— 불빛 테두리 + 고리 위 작은 불꽃
-		_ring(feet, rx * 1.13, EMBER, a * (0.75 + 0.25 * sin(age * 31.0)), false, -sd - age * 2.0, 1)
-		if lv < 3:
-			for k in 4:
-				var ang := TAU * (k + 0.5) / 4.0 + 0.4
-				var fs := R * (0.5 + 0.12 * sin(age * 17.0 + k * 2.1))
-				_t("flame_%d" % (k % 2), feet + Vector2(cos(ang) * rx * 1.13, sin(ang) * rx * 0.52 - fs * 0.35), fs, Color(1, 1, 1, a))
+			_ring(feet, R * (0.6 + 1.35 * ease(u2, 0.45)) * big, col.lightened(0.4), a * 0.85, false, -sd - age, 1)
 	if sheet != null:
 		return
 	# 칸 모양
 	match slot:
 		"q":      # 한 줄 베기 자국 —— 붓 한 획이 왼쪽 아래에서 오른쪽 위로 그어지고, 흰 날이 먼저 번쩍인다
 			var k := clampf(age / 0.12, 0.15, 1.0)
-			var ln := R * 3.3 * big
+			var ln := R * 3.5 * big
 			var rot := -0.61
 			var d := Vector2.from_angle(rot)
 			if ink:
@@ -463,33 +544,34 @@ func _draw_cast(ci: CanvasItem, c: Dictionary, age: float, lv: int) -> void:
 			if kf > 0.0:
 				_l(body - d * ln * 0.42 * k, body + d * ln * 0.42 * k, Color(1, 1, 1, 0.95 * kf * sq.fade), 2.0, aa)
 		"w":      # 두 겹 고리 —— 안쪽 고리가 조금 늦게, 거꾸로 돌며 뒤따른다
-			var uw := clampf((age - 0.12) / 0.5, 0.0, 1.0)
+			var uw := clampf((age - 0.12) / 0.55, 0.0, 1.0)
 			if uw > 0.0:
-				_ring(feet, R * (0.4 + 0.85 * ease(uw, 0.45)) * 0.62 * big, col.lightened(0.2), a, ink, -sd - age * 1.8, 1)
+				_ring(feet, R * (0.45 + 1.0 * ease(uw, 0.45)) * 0.62 * big, col.lightened(0.2), a, ink, -sd - age * 1.8, 1)
 		"e":      # 세모 —— 몸 둘레에 선 세모가 커지며 사라진다
-			var re := R * (0.55 + 0.5 * ease(u, 0.45)) * big
+			var re := R * (0.6 + 0.55 * ease(u, 0.45)) * big
 			_outline(PackedVector2Array([body + Vector2(0, -re), body + Vector2(re * 0.866, re * 0.5), body + Vector2(-re * 0.866, re * 0.5)]), col, w, a, aa, ink)
 		"r":      # 햇살 —— 고리 밑에 여덟 갈래 금빛 별이 땅에 깔려 천천히 돈다
 			if lv < 3:
 				_t("gstar", feet, rx * 3.3, Color(col.lightened(0.2), 0.9 * a), sd + age * 0.9, Vector2(1.0, 0.46), true)
 		"p":      # 마름모 —— 몸 둘레에서 두 번 맥박친다
-			var pu := fposmod(age / 0.36, 1.0) if age < 0.72 else 1.0
+			var pu := fposmod(age / 0.42, 1.0) if age < 0.84 else 1.0
 			var rp := R * (0.75 + 0.5 * ease(pu, 0.5)) * big
 			_outline(PackedVector2Array([body + Vector2(0, -rp * 1.15), body + Vector2(rp * 0.8, 0), body + Vector2(0, rp * 1.15), body + Vector2(-rp * 0.8, 0)]),
 				col, w, a * (1.0 - 0.6 * pu), aa, ink)
 
 
-func _draw_hits(ci: CanvasItem, c: Dictionary, age: float, lv: int) -> void:
+func _draw_hits(c: Dictionary, age: float, lv: int) -> void:
 	if age < -LINK_TRAVEL:
 		return
 	var src: Squad = p.v.field.squads.get(c.key)
 	var col: Color = c.col
 	var slot := str(c.slot)
+	var up := bool(c.up)
 	var aa := lv < 2
 	var dsts: Array = c.dsts
 	var mark := tex("hit_" + slot)
 	var foe_cast := str(c.key).begins_with("B")
-	var sz := 11.0 if bool(c.wide) else 9.0
+	var sz := 12.0 if up else 10.5
 	var cap := 4 if lv >= 3 else (8 if lv >= 2 else MAX_MARKS)
 	for j in dsts.size():
 		if _marks >= cap:
@@ -521,16 +603,14 @@ func _draw_hits(ci: CanvasItem, c: Dictionary, age: float, lv: int) -> void:
 		# 발밑 고리 —— 맞은 부대 둘레에서 한 번 퍼진다
 		if lv < 2 and aj < 0.35:
 			var gu := aj / 0.35
-			_ring(p.caster._anchor(dst, -2.0), clampf(p.caster._half_width_px(dst), 14.0, 40.0) * (0.6 + 0.6 * gu) * (1.2 if bool(c.wide) else 1.0),
+			_ring(p.caster._anchor(dst, -2.0), clampf(p.caster._half_width_px(dst), 14.0, 40.0) * (0.6 + 0.6 * gu) * (1.15 if up else 1.0),
 				col, (1.0 - gu) * dst.fade, false, float(c.sd) + j)
-		# 받침 —— 아군이 쓴 것은 먹빛, 적이 쓴 것(당했다)은 검붉게
+		# 받침 —— 아군이 쓴 것은 먹빛, 적이 쓴 것(당했다)은 검붉게. 강화된 칸이면 칸 색 가는 테를 두른다
 		_t("disc", m, s * 3.1, Color(0.45, 0.07, 0.05, 0.66 * a) if foe_cast else Color(INK, 0.46 * a))
-		if bool(c.fire):      # 화공 —— 표식 둘레 불빛 + 작은 불꽃
-			_t("ring", m, s * 3.9, Color(EMBER, (0.7 + 0.3 * sin(aj * 29.0)) * a))
-			if lv < 3:
-				_t("flame_0", m + Vector2(s * 1.3, s * 0.4), s * 1.5, Color(1, 1, 1, a))
+		if up:
+			_t("ring", m, s * 3.9, Color(col.lightened(0.35), 0.9 * a))
 		if mark != null:      # 그림이 있으면 칸 모양 대신 그것을 (받침 위에 —— 그림은 모양만 담는다)
-			_sheet(mark, m, s * 3.0, t, a)
+			_sheet(mark, m, s * 3.0, t, Color(1, 1, 1, a))
 			continue
 		match slot:
 			"q":      # 베기 자국 한 줄
@@ -543,15 +623,152 @@ func _draw_hits(ci: CanvasItem, c: Dictionary, age: float, lv: int) -> void:
 				_t("ring", m, s * 1.3, Color(col.lightened(0.3), a))
 			"e":      # 세모
 				var tri := PackedVector2Array([m + Vector2(0, -s), m + Vector2(s, s * 0.73), m + Vector2(-s, s * 0.73)])
-				_q_prim.append(tri)
-				_q_prim.append(Color(col, 0.95 * a))
+				_prim(tri, Color(col, 0.95 * a))
 				for k in 3:
 					_l(tri[k], tri[(k + 1) % 3], Color(INK, a), 1.5)
 			"r":      # 여덟 갈래 별 (먹 테가 있는 붓 별 그림)
 				_t("star", m, s * 3.6, Color(col.lightened(0.15), a), aj * 1.5)
 			_:        # P —— 마름모
 				var dia := PackedVector2Array([m + Vector2(0, -s * 1.2), m + Vector2(s * 0.85, 0), m + Vector2(0, s * 1.2), m + Vector2(-s * 0.85, 0)])
-				_q_prim.append(dia)
-				_q_prim.append(Color(col, 0.95 * a))
+				_prim(dia, Color(col, 0.95 * a))
 				for k in 4:
 					_l(dia[k], dia[(k + 1) % 4], Color(INK, a), 1.5)
+
+
+## 강화 효과 발동 —— 받은 부대에서 큰 번쩍임 · 칸 색 두 겹 고리 · 맥박치며 도는 칸 색 별, 시전 부대에서 굵은 빛줄기 (기술 표시보다 한 단계 세게)
+func _draw_burst(ci: CanvasItem, b: Dictionary, age: float, lv: int) -> void:
+	if age < 0.0 or age > BURST_LIFE:
+		return
+	var sq: Squad = p.v.field.squads.get(b.key)
+	if sq == null or sq.fade <= 0.01 or sq.state == "gone":
+		return
+	var feet := _feet(sq)
+	var R := _radius(sq)
+	var body := feet - Vector2(0, float(p.hero_h.get(sq.key, R * 1.6)) * 0.5)
+	var col: Color = b.col
+	var t := age / BURST_LIFE
+	var a := (1.0 - smoothstep(0.55, 1.0, t)) * sq.fade
+	var sd := float(b.sd)
+	var fl := 1.0 - clampf(age / 0.32, 0.0, 1.0)
+	if fl > 0.0:
+		p._spr(ci, "light_02", body, R * 5.6, Color(col, fl * sq.fade))
+		_t("disc", body, R * 1.1 * fl + 4.0, Color(1, 1, 1, 0.7 * fl * sq.fade))
+		_t("star", body, R * (1.8 + 2.8 * (1.0 - fl)), Color(1, 1, 1, 0.95 * fl * sq.fade), age * 3.0)
+	var src: Squad = p.v.field.squads.get(str(b.src))
+	if lv < 3 and src != null and src != sq and src.fade > 0.01 and age < 0.16:      # 시전 부대에서 굵은 빛줄기가 꽂힌다
+		var from := _feet(src) - Vector2(0, float(p.hero_h.get(src.key, 30.0)) * 0.5)
+		var q := age / 0.12
+		var l0 := from.lerp(body, clampf(q - 0.5, 0.0, 1.0))
+		var l1 := from.lerp(body, minf(q, 1.0))
+		_l(l0, l1, Color(INK, 0.45), 6.0)
+		_l(l0, l1, Color(col.lightened(0.25), 1.0), 3.4, true)
+	var art := tex("kup_" + str(b.slot))
+	var tint := Color(1, 1, 1, sq.fade)
+	if art == null:
+		art = tex("kup")      # 공용 흰 그림 —— 칸 색을 입힌다
+		tint = Color(col, sq.fade)
+	if art != null:
+		_sheet(art, body, R * 5.2, t, tint)
+		return
+	for k in 2:      # 두 겹 고리가 잇달아 크게 퍼진다
+		var u := clampf((age - k * 0.14) / 0.6, 0.0, 1.0)
+		if u > 0.0 and u < 1.0:
+			_ring(feet, R * (0.5 + 1.6 * ease(u, 0.45)), col.lightened(0.3 * k), (1.0 - u * u) * sq.fade, k == 0 and lv < 2, sd + age * (1.6 if k == 0 else -1.6), k)
+	_t("star", body - Vector2(0, R * 0.15), R * 1.5 * (1.0 + 0.18 * sin(age * 16.0)), Color(col.lightened(0.2), a), -age * 2.2)
+
+
+## 밀려남 —— 밀린 쪽 반대편에 흙먼지 구름 + 밀린 방향으로 그어지는 속도선 셋
+func _draw_shove(s: Dictionary, age: float) -> void:
+	if age < 0.0 or age > SHOVE_LIFE:
+		return
+	var sq: Squad = p.v.field.squads.get(s.key)
+	if sq == null or not sq.alive or sq.fade <= 0.01:
+		return
+	var feet := _feet(sq)
+	var R := _radius(sq)
+	var body := feet - Vector2(0, float(p.hero_h.get(sq.key, R * 1.6)) * 0.45)
+	var form = p.formations.get(sq.key)
+	var at: Vector2 = form.center if form != null else sq.pos
+	var sdir: Vector2 = p.v.map(at + Vector2(s.dir) * 20.0) - p.v.map(at)
+	if sdir.length_squared() < 0.01:
+		return
+	sdir = sdir.normalized()
+	var side := Vector2(-sdir.y, sdir.x)
+	var t := age / SHOVE_LIFE
+	var a := (1.0 - smoothstep(0.4, 1.0, t)) * sq.fade
+	_t("cloud", feet - sdir * R * (0.5 + 0.5 * t), R * (1.3 + 0.7 * t), Color(0.86, 0.78, 0.6, 0.75 * a), 0.0, Vector2(-1.0 if sdir.x > 0.0 else 1.0, 0.7))
+	for k in 3:
+		var off := side * (k - 1) * R * 0.45 - sdir * R * (0.7 + 0.25 * absf(k - 1.0))
+		var l0 := body + off - sdir * R * (1.1 - 0.5 * t)
+		var l1 := body + off + sdir * R * 0.1
+		_l(l0, l1, Color(INK, 0.4 * a), 3.4)
+		_l(l0, l1, Color(1.0, 0.97, 0.88, 0.9 * a), 1.6)
+
+
+## 상태 기호 —— 봉인 · 도발 · 불사는 머리 오른쪽에 작은 기호(위에서 아래로), 출혈 · 역병 · 은신은 몸 · 발밑에 겹친다. 걸려 있는 동안 계속
+func _draw_states(lv: int) -> void:
+	var clock := float(p.last_clock)
+	for sq: Squad in p.v.field.order:
+		if sq.statuses.is_empty() or not sq.alive or sq.fade <= 0.05 or sq.state == "gone":
+			continue
+		var st: Array = sq.statuses
+		var seal := st.has("seal")
+		var taunted := st.has("taunted")
+		var undying := st.has("undying")
+		var bleed := st.has("bleed")
+		var plague := st.has("plague")
+		var stealth := st.has(STEALTH_KEYS[0]) or st.has(STEALTH_KEYS[1])
+		if not (seal or taunted or undying or bleed or plague or stealth):
+			continue
+		var feet := _feet(sq)
+		var R := _radius(sq)
+		var hh := float(p.hero_h.get(sq.key, 0.0))
+		var top: Vector2 = feet - Vector2(0, hh) if hh > 1.0 else p.caster._anchor(sq, 30.0)
+		var body: Vector2 = feet - Vector2(0, hh * 0.5) if hh > 1.0 else p.caster._anchor(sq, 14.0)
+		var a := sq.fade
+		var ph := float(sq.row.slot) * 1.7
+		var ic := top + Vector2(R * 0.72 + 8.0, 10.0)      # 기호 줄의 첫 자리 (머리 오른쪽 —— 머리 위는 칸 딱지 자리)
+		if seal:      # 자물쇠 —— 회백색 몸통 + 고리 (기술을 쓰지 못한다)
+			_t("disc", ic, ICON_D, Color(0.05, 0.05, 0.07, 0.88 * a))
+			_t("ring", ic + Vector2(0, -3.0), 10.0, Color(0.88, 0.88, 0.88, a))
+			_t("fill", ic + Vector2(0, 2.8), 10.6, Color(0.88, 0.88, 0.88, a), 0.0, Vector2(1.0, 0.72))
+			ic.y += ICON_D
+		if taunted:      # 성난 표시 —— 가운데를 비운 네 갈래 (표적이 도발한 장수로 돌려졌다)
+			_t("disc", ic, ICON_D, Color(0.05, 0.05, 0.07, 0.88 * a))
+			var k := 1.0 + 0.12 * sin(clock * 9.0 + ph)
+			for q in 4:
+				var d := Vector2(1.0 if q % 2 == 0 else -1.0, 1.0 if q < 2 else -1.0)
+				var o := ic + d * 1.9 * k
+				_l(o + Vector2(d.x * 5.0, 0) * k, o, Color(1.0, 0.48, 0.29, a), 2.4)
+				_l(o + Vector2(0, d.y * 5.0) * k, o, Color(1.0, 0.48, 0.29, a), 2.4)
+			ic.y += ICON_D
+		if undying:      # 금빛 심장 + 발밑 금 고리 (쓰러지지 않는다)
+			var hb := 1.0 + 0.14 * sin(clock * 7.0 + ph)
+			_t("disc", ic, ICON_D, Color(0.05, 0.05, 0.07, 0.88 * a))
+			_t("disc", ic + Vector2(-2.9, -1.9) * hb, 7.5 * hb, Color(1.0, 0.82, 0.34, a))
+			_t("disc", ic + Vector2(2.9, -1.9) * hb, 7.5 * hb, Color(1.0, 0.82, 0.34, a))
+			_prim(PackedVector2Array([ic + Vector2(-6.1, -0.2) * hb, ic + Vector2(6.1, -0.2) * hb, ic + Vector2(0, 6.8) * hb]), Color(1.0, 0.82, 0.34, a))
+			if lv < 2:
+				_ring(feet, R * (1.05 + 0.06 * sin(clock * 5.0 + ph)), Color(1.0, 0.82, 0.34), 0.75 * a, false, clock * 0.8 + ph)
+			ic.y += ICON_D
+		if bleed:      # 붉은 할퀸 자국 + 떨어지는 핏방울 둘
+			_t("claw", body + Vector2(-R * 0.1, 0), R * 1.25, Color(0.88, 0.2, 0.17, 0.92 * a), -0.35)
+			if lv < 3:
+				for k in 2:
+					var f := fposmod(clock * 0.9 + ph * 0.37 + k * 0.5, 1.0)
+					_t("dot", body + Vector2((k - 0.5) * R * 0.7, R * 0.2 + f * R * 1.0), 4.6 - 1.6 * f, Color(0.85, 0.16, 0.14, (1.0 - f * f) * a))
+		if plague:      # 풀빛 거품 셋이 몸에서 떠오른다
+			for k in 3:
+				var f := fposmod(clock * 0.55 + ph * 0.21 + k / 3.0, 1.0)
+				var q := body + Vector2(sin(clock * 2.0 + ph + k * 2.1) * R * 0.5, R * 0.5 - f * R * 1.5)
+				var ba := sin(PI * f) * a
+				_t("dot", q, 9.5 + 3.0 * sin(f * PI), Color(0.56, 0.8, 0.36, 0.6 * ba))
+				_t("ring", q, 12.0 + 3.0 * sin(f * PI), Color(0.8, 0.97, 0.52, ba))
+		if stealth:      # 발밑 먹 구름 둘이 천천히 흐른다 (인형은 WarPainting._cover_step 이 그늘에 묻는다)
+			for k in 2:
+				var dx := sin(clock * 0.9 + ph + k * PI) * R * 0.5
+				_t("cloud", feet + Vector2(dx + (k - 0.5) * R * 0.9, -R * 0.12), R * 1.7, Color(0.2, 0.22, 0.28, 0.62 * a), 0.0, Vector2(1.0 if k == 0 else -1.0, 0.6))
+		if count_states:      # 점검 —— 어떤 상태를 그렸나
+			for key in ["seal", "taunted", "undying", "bleed", "plague", "stealth"]:
+				if st.has(key) or (key == "stealth" and stealth):
+					stats.state[key] = int(stats.state.get(key, 0)) + 1

@@ -58,6 +58,7 @@ var _hid := {}                 # 부대 key -> 그늘에 깊이 들어간 적이
 var reveals: Array = []        # {key, t0} —— 등장 연출
 var _bared := {}               # 부대 key -> 마지막으로 적과 맞닿은 시각 (visual_time)
 const COVER_HOLD := 3.0
+const STEALTH_COVER := 0.9     # 은신 상태의 그늘 깊이 (0~1)
 const COVER_IN := 1.6          # 그늘로 드는 빠르기 (초당)
 const COVER_OUT := 3.0         # 나오는 빠르기
 const REVEAL_LIFE := 1.0
@@ -1144,6 +1145,9 @@ func _cover_step(sq: Squad) -> void:
 		_bared[sq.key] = visual_time
 	var bare := visual_time - float(_bared.get(sq.key, -99.0)) < COVER_HOLD
 	var want: float = v.cover_target(sq) if not bare and v.has_method("cover_target") and sq.alive and sq.state != "flee" else 0.0
+	# 11/27 키트 은신 (표적이 되지 않는다) —— 사건 스냅숏의 상태에 stealth · hide 가 있으면 맞붙어 있어도 그늘에 묻는다. 풀리면 등장 연출(「기습!」)이 그대로 뜬다
+	if sq.alive and sq.state != "flee" and (sq.statuses.has("stealth") or sq.statuses.has("hide")):
+		want = maxf(want, STEALTH_COVER)
 	var cur: float = cover.get(sq.key, want if last_clock <= 0.0 else 0.0)
 	cur = move_toward(cur, want, motion_dt * (COVER_IN if want > cur else COVER_OUT))
 	cover[sq.key] = cur

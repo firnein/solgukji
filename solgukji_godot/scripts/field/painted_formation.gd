@@ -148,6 +148,7 @@ func restore_soldiers(wanted: int, sq: Squad) -> void:
 		feet[i] = center - Vector2.from_angle(heading) * sq.hd0
 
 var move_vel := Vector2.ZERO
+var shove_until := -10.0       # 11/27 밀려나는 중 (motion_clock 기준) —— 이동 방향을 갱신하지 않아 병사가 돌아서 걷지 않는다 (KitFx.add_shove)
 
 ## 실제 피격 지점에서 뒤쪽 줄로 충격이 전달된다. 부대 중심·엔진 위치는 움직이지 않는다.
 func receive_impact(at: Vector2, direction: Vector2, power: float) -> void:
@@ -179,7 +180,10 @@ func step(sq: Squad, dt: float) -> void:
 	var facing := sq.pfwd if following_track else sq.fwd
 	var before := center
 	center = center.lerp(goal, 1.0 - exp(- dt * 16.0))
-	move_vel = move_vel.lerp((center - before) / dt, 1.0 - exp(- dt * 5.0))      # 11/17 병사 그림이 가는 쪽을 보게 (문워크 방지)
+	if motion_clock < shove_until:      # 11/27 밀려나는 동안은 가던 쪽을 그대로 본다 (밀린 쪽으로 돌아서 걷는 것처럼 보이지 않게)
+		move_vel = move_vel.lerp(Vector2.ZERO, 1.0 - exp(- dt * 8.0))
+	else:
+		move_vel = move_vel.lerp((center - before) / dt, 1.0 - exp(- dt * 5.0))      # 11/17 병사 그림이 가는 쪽을 보게 (문워크 방지)
 	heading = rotate_toward(heading, facing.angle(), dt * 3.2)
 	contact = (sq.ptouch if following_track else sq.contact) and sq.state != "flee"
 	contact_weight = move_toward(contact_weight, 1.0 if contact else 0.0, dt * 5.0)
