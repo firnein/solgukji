@@ -7,7 +7,7 @@ extends Control
 ## 저장 · 기록을 만들지 않는다 (PlayLog 끔 · 설정 저장 안 함).
 
 var _args := {}
-const CASTER_TAGS := ["책사", "유생", "술사", "모사"]
+const CASTER_TAGS := ["책사", "유생", "모사"]
 
 
 func _ready() -> void:

@@ -136,7 +136,7 @@ for lim in (0.25, 9.0):
     if cmp_:
         print(f"평균 등급 차 ≤{lim}: 묶음이 더 큰 쪽 기록 승률 {pct(statistics.mean(cmp_))} (n{len(cmp_)})")
 # 책략 쏠림 덱
-print("책략(책사·유생·술사·모사) 장수 수별 —— 덱 · 기록 승률 · 가장 큰 인연 묶음 평균")
+print("책략(책사·유생·모사) 장수 수별 —— 덱 · 기록 승률 · 가장 큰 인연 묶음 평균")
 gi = collections.defaultdict(list)
 for d in decks:
     k = sum(cls(t) == "책략" for p, tr, t in d[2] if tr >= 3)

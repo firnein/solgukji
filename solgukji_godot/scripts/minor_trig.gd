@@ -28,7 +28,7 @@ const STORY := {
 ## 공용 잡기술 —— 병종 조건
 const CLASS := {
 	"창병": ["melee_hit", 3.0], "기병": ["impact"], "궁병": ["volley", 4.0], "도적": ["foe_wind"],
-	"책사": ["clustered", 6.0], "모사": ["camp_kill"], "유생": ["ally_low", 5.0, 0.7], "술사": ["every", 0.0, 4]}
+	"책사": ["clustered", 6.0], "모사": ["camp_kill"], "유생": ["ally_low", 5.0, 0.7]}
 
 var b = null
 var s := {}              # 부대 → 상태

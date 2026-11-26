@@ -29,7 +29,7 @@ func _ready() -> void:
 	var b: Array = DB.auto_place(helper._cards(["조조", "하후연", "사마의", "마초", "허저", "곽가", "손권", "여포", "화타"]), "hagik")
 	var starter := "--starter" in OS.get_cmdline_user_args()
 	if starter:
-		var cards: Array = ["spear", "bow", "strat", "schol", "occul", "schem", "horse", "bow", "strat"]
+		var cards: Array = ["spear", "bow", "strat", "schol", "strat", "schem", "horse", "bow", "strat"]
 		a = DB.auto_place(cards, "eorin")
 		b = DB.auto_place(cards, "hagik")
 	helper.free()

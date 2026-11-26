@@ -519,6 +519,7 @@ func on_cmd(peer: int, m: String, a: Array, q := -1) -> void:
 	var i := seat_of(peer)
 	if i < 0:
 		return
+	DB.legacy_ids(a)      # 11/27 옛 클라이언트의 술사 기본패(occul) —— 거부 판정(lock · shop · kit)부터 모사 기본패로 읽는다
 	if q >= 0:
 		seats[i]["ack"] = q      # 11/17 이 자리가 보낸 명령 번호 —— 상태에 실어 보내 휴대폰이 늦게 온 옛 상태로 화면을 되돌리지 않게
 	# 11/25 자동 징집 —— 이미 받은 징집을 (옛 클라이언트 · 엇갈린 누름이) 또 보내면 조용히 넘긴다 (오류 · 헛기록 없이, 상태만 한 번 맞춰 준다)

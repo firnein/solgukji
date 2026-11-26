@@ -16,7 +16,7 @@ const KEYS := ["slow_self", "gauge_top", "gauge_refund", "def_weak", "ward_aura"
 	"roar", "cheer_aura", "cleanse_aura", "spd_aura", "def_aura", "atk_down", "cav_aura", "caster_aura", "tier_aura", "boost_best",
 	"give_troops", "truce", "mark", "trap", "rain", "quake", "confuse_aura", "gauge_aura", "frail_water",
 	"escort", "seek_rear", "die_hard", "burn_out", "twin", "dr_last",      # 1.2 창병
-	"revive", "fire_chain", "gauge_cut", "cult", "dr_early_all",      # 1.2 책사 · 술사
+	"revive", "fire_chain", "gauge_cut", "cult", "dr_early_all",      # 1.2 책사 · 옛 술사 장수
 	"cav_show",      # 1.2 기병 —— 숫자만 바뀌는 특기(속도 · 방어 · 회복 · 수몰 저항)의 말풍선 표식 (값은 1, 판정에는 안 쓴다)
 	"rear_land", "breach", "rescue", "bridge", "feign_fire", "breakout", "flee", "body_guard"]      # 11/22 특별한 특기 —— 전장 행동을 바꾼다 (아래 「특별한 특기」)
 const SPECIAL_KEYS := ["rear_land", "breach", "rescue", "bridge", "feign_fire", "breakout", "flee", "body_guard"]
@@ -41,7 +41,7 @@ const TIER_BASE := 5
 const TIER_STEP := 0.1
 const TIER_KEYS := {"taunt": true, "dr_guard": true, "counter_all": true, "dr_low": true,
 	"amp_low": true, "amp_same": true, "pierce_hit": true, "enrage": true, "roar": true, "shove": true, "amp_guard": true, "dr_still": true, "escort": true, "die_hard": true,      # 1.2 창병
-	"ult_dr": true, "amp_gen": true, "dodge_big": true, "dr_early_all": true, "caster_aura": true, "cult": true, "quake": true,      # 1.2 책사 · 술사 (곽가 · 주건평 · 우번 · 이의 · 남화노선 · 장각 · 황권 · 장보)
+	"ult_dr": true, "amp_gen": true, "dodge_big": true, "dr_early_all": true, "caster_aura": true, "cult": true, "quake": true,      # 1.2 책사 · 옛 술사 장수 (곽가 · 주건평 · 우번 · 이의 · 남화노선 · 장각 · 황권 · 장보)
 	"amp_far": true, "amp_still": true, "amp_come": true, "amp_open": true, "amp_cav": true, "amp_allies": true, "amp_drown": true}      # 1.2 궁병 · 도적 —— 피해 · 감소 몫
 
 static var special_on := true      # 11/22 특별한 특기(SPECIAL_KEYS · 음평 착지) —— 점검(tests/sig_special --off)이 끄고 전 · 후를 잰다. 게임에서는 늘 true
@@ -71,7 +71,7 @@ static func make(bt) -> Object:
 	var s = load("res://scripts/sig_rt.gd").new()
 	s.b = bt
 	for u in bt.units:
-		for k in (KEYS + NOTE_KEYS) if u.c.tag in SAGE_TAGS else KEYS:      # 엔진 기본 키는 책사 · 술사만 (말풍선용)
+		for k in (KEYS + NOTE_KEYS) if u.c.tag in SAGE_TAGS else KEYS:      # 엔진 기본 키는 책사만 (말풍선용)
 			if float(u.m.get(k, 0.0)) != 0.0:
 				if k in SPECIAL_KEYS and (not special_on or (not special_only.is_empty() and not k in special_only)):
 					continue
@@ -226,7 +226,7 @@ func amp(a, d, far: bool) -> float:
 	if v(a, "amp_kill") > 0.0: m *= 1.0 + v(a, "amp_kill") * minf(3.0, float(a.kills)) / 3.0
 	if v(a, "amp_guard") > 0.0 and b._phalanx(d): m *= 1.0 + v(a, "amp_guard"); _stat("sig_amp_guard"); _note_s(a, "amp_guard", "방진의 틈을 꿰뚫었다")
 	if v(a, "die_hard") > 0.0: m *= 1.0 + v(a, "die_hard") * clampf((DIE_HARD_FROM - a.troops / a.max) / DIE_HARD_FROM, 0.0, 1.0)      # 1.2 방덕 결사 —— 병력이 줄수록
-	# 책사 · 술사 (1.2) 엔진 기본 키 —— 숫자만 바뀌므로 말풍선으로 보이게 한다
+	# 책사 (1.2) 엔진 기본 키 —— 숫자만 바뀌므로 말풍선으로 보이게 한다
 	if a.in_skill:
 		if v(a, "sk_amp") > 0.0: _note_s(a, "sk_amp", "기술이 매섭다")
 		if v(a, "rate") > 0.0: _note_s(a, "rate", "기술이 빨리 찬다")
@@ -661,7 +661,7 @@ func _auras() -> void:
 				if b.is_caster(o.c):
 					o.sga["atk"] = float(o.sga.get("atk", 0.0)) + v(u, "caster_aura")
 					_stat("sig_caster_aura")
-					_note(u, "caster_aura", "아군 술사들이 힘을 얻었다")
+					_note(u, "caster_aura", "아군 책략 부대들이 힘을 얻었다")
 		if v(u, "tier_aura") > 0.0:
 			var top := 0
 			for o in al:
@@ -744,7 +744,7 @@ func _auras() -> void:
 				b.inflict(u, fo[b.rng.randi_range(0, fo.size() - 1)], "flood", 0.0, 2)
 			_stat("sig_rain")
 			_say(u, "청우 —— 비가 내린다")
-		_sage_auras(u, al, fo)      # 1.2 책사 · 술사 —— 연영 · 사항계 · 황천 · 오소 정보
+		_sage_auras(u, al, fo)      # 1.2 책사 · 옛 술사 장수 —— 연영 · 사항계 · 황천 · 오소 정보
 
 
 # ── 창병 (1.2) ──
@@ -916,13 +916,14 @@ func _burn_out(u) -> void:
 		_stat("sig_burn_out_n", n)
 
 
-# ── 책사 · 술사 (1.2) ──
+# ── 책사 · 옛 술사 장수 (1.2) ──
+## 11/27 사용자: 병종 술사를 없앴다 —— 아래 술사 14명은 책사 · 유생 · 모사로 옮겼고 개성 키는 그대로다 (병종 조건이 없다)
 ## 담당 31명: 책사 17 (주유 · 육손 · 방통 · 제갈량 · 곽가 · 서서 · 강유 · 종회 · 마량 · 순유 · 저수 · 제갈각 · 황권 · 감택 · 유엽 · 이적 · 허유)
-## 술사 14 (장각 · 좌자 · 우길 · 관로 · 장로 · 화타 · 남화노선 · 길평 · 우번 · 이의 · 오범 · 장보 · 주건평 · 초주).
+## (옛) 술사 14 (장각 · 좌자 · 우길 · 관로 · 장로 · 화타 · 남화노선 · 길평 · 우번 · 이의 · 오범 · 장보 · 주건평 · 초주).
 ## 책략 병종은 화공 · 수공 · 혼란 · 결계 · 치료 · 사기 장치가 이미 많다 —— 겹치는 사람은 표적 · 범위 · 타이밍으로 갈래를 나눈다.
 ## 점검: tests/sig_probe_sage.tscn (발동 횟수만 센다)
 const NOTE_KEYS := ["rate", "sk_amp", "fire_amp", "icleave", "starve"]      # 엔진(Battle)이 이미 처리하는 키 —— 말풍선만 sig_rt 가 붙인다 (등급 배율 flags 에는 넣지 않는다)
-const SAGE_TAGS := ["책사", "술사"]
+const SAGE_TAGS := ["책사"]      # 11/27 술사를 없앴다 —— 엔진 기본 키 말풍선은 책사만
 const SAGE_SAY := 10.0       # 말풍선 간격 (초) —— 사람 · 키마다 (숫자만 바뀌는 개성을 보이게)
 const EARLY_T := 20.0         # 이의 예언이 막아 주는 개전 직후 시간 (초)
 const BAGUA_R := 320.0        # 제갈량 팔진 반지름

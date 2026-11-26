@@ -51,7 +51,7 @@ const SCALE_MIN := 0.3         # 11/7 대군 20칸(폭 약 1020)이 논리 폭 4
 const CLONE_OFF := [Vector2(0, 0), Vector2(0.62, 0.42), Vector2(-0.58, 0.5), Vector2(0.1, 0.85), Vector2(-0.3, -0.45)]     # 인형 크기 대비 자리 (예전)
 const CLONE_GRID := [Vector2(0, 0), Vector2(0.5, 0.5), Vector2(-0.5, 0.5), Vector2(0.5, -0.5), Vector2(-0.5, -0.5)]   # 대열 반 칸 단위 (오른쪽, 앞) —— 명세 1단계
 ## 1단계-3: 병종별 대열 모양 —— 가로 간격 배율. 창병 밀집, 궁병 산개, 책략계 호위 간격 (병사 수 · 판정은 그대로)
-const FORM_SHAPE := {"창병": 0.9, "기병": 1.05, "궁병": 1.25, "도적": 1.1, "책사": 1.15, "유생": 1.15, "술사": 1.15, "모사": 1.15}
+const FORM_SHAPE := {"창병": 0.9, "기병": 1.05, "궁병": 1.25, "도적": 1.1, "책사": 1.15, "유생": 1.15, "모사": 1.15}
 const TEAM_A := Color("#4a8ae8")      # 11/6 묶음 인형은 작아서 색이 탁해진다 —— 밝게
 const TEAM_B := Color("#ec4f3c")
 const DRAB_COL := Color(0.46, 0.41, 0.34)      # 11/15 잡병의 바랜 옷 (진영색에 섞는다 —— 셰이더 type2_gpu 의 drab 과 같은 빛)
@@ -931,7 +931,7 @@ func _draw_formation_preview(ci: CanvasItem) -> void:
 		# Fixed representative ranks: troop losses open gaps, never spawn a cloud.
 		var ratio := clampf(sq.troops / maxf(1.0, sq.max), 0.0, 1.0)
 		var cavalry := sq.tag == "기병"
-		var ranged := sq.tag in ["궁병", "책사", "유생", "술사", "모사"]
+		var ranged := sq.tag in ["궁병", "책사", "유생", "모사"]
 		var cols := 5 if cavalry else (6 if ranged else 7)
 		var ranks := 4
 		var count := roundi(cols * ranks * ratio)
@@ -1266,7 +1266,7 @@ func _make_atlas() -> Texture2D:
 
 ## 병종 인형 (11/7 사용자: 병종별로 약간의 모델링 차이) —— 흰 칸은 진영색이 곱해지고, 어두운 칸 · 살 · 무기는 그대로 남는다.
 ## 실루엣으로 읽히게: 창병 긴 창 + 둥근 방패 · 기병 말 위 · 궁병 활 · 도적 두건 + 쌍단검(낮은 자세) · 책사 도포 + 깃털 부채 ·
-## 유생 각진 관 + 두루마리 · 술사 뾰족 모자 + 구슬 지팡이 · 모사 높은 관 + 넓은 소매 + 책
+## 유생 각진 관 + 두루마리 · 모사 높은 관 + 넓은 소매 + 책
 func _make_tag_fig(tag: String, n: int) -> Image:
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -1277,7 +1277,7 @@ func _make_tag_fig(tag: String, n: int) -> Image:
 	var MT := Color(0.86, 0.87, 0.92, 1)           # 쇠 (날)
 	var PA := Color(0.95, 0.92, 0.80, 1)           # 종이 · 깃털
 	var HR := Color(0.62, 0.46, 0.33, 1)           # 말
-	var robe := tag in ["책사", "유생", "술사", "모사"]
+	var robe := tag in ["책사", "유생", "모사"]
 	var cav := tag == "기병"
 	var low := tag == "도적"
 	# 몸의 기준 —— 기병은 말 위라 위로 작게, 도적은 낮게
@@ -1302,8 +1302,6 @@ func _make_tag_fig(tag: String, n: int) -> Image:
 				c = PA                                   # 시위
 			if tag == "궁병" and absf((fx - 0.33) - (fy - 0.30) * 0.25) < 0.035 and fy > 0.28 and fy < 0.55:
 				c = D                                    # 화살통
-			if tag == "술사" and absf(fx - 0.74) < 0.016 and fy > 0.12 and fy < 0.95:
-				c = WD                                   # 지팡이
 			if cav:
 				# 말 —— 몸통 · 목 · 머리 · 다리 · 꼬리 (오른쪽을 본다)
 				if Vector2((fx - 0.48) / 0.34, (fy - 0.62) / 0.12).length() < 1.0:
@@ -1359,10 +1357,6 @@ func _make_tag_fig(tag: String, n: int) -> Image:
 				"유생":
 					if fy > hy - hr - 0.07 and fy < hy - hr * 0.5 and absf(fx - hx) < hr * 0.9:
 						c = D                            # 각진 관
-				"술사":
-					var tt := (fy - (hy - hr - 0.16)) / 0.16
-					if tt >= 0.0 and tt <= 1.0 and absf(fx - hx) < hr * 1.2 * tt and fy < hy - hr * 0.3:
-						c = W                            # 뾰족 모자 (진영색)
 				"모사":
 					if fy > hy - hr - 0.11 and fy < hy - hr * 0.4 and absf(fx - hx) < hr * (0.7 + 0.5 * (fy - (hy - hr - 0.11)) / 0.11):
 						c = D                            # 높은 관
@@ -1393,9 +1387,6 @@ func _make_tag_fig(tag: String, n: int) -> Image:
 						c = PA                           # 두루마리
 					if absf(fy - 0.52) < 0.04 and (absf(fx - 0.50) < 0.015 or absf(fx - 0.78) < 0.015):
 						c = WD
-				"술사":
-					if Vector2(fx - 0.74, fy - 0.10).length() < 0.05:
-						c = Color(0.75, 0.9, 1.0, 1)     # 지팡이 구슬
 				"모사":
 					if fx > 0.20 and fx < 0.34 and fy > 0.46 and fy < 0.60:
 						c = D if absf(fx - 0.27) < 0.012 else PA      # 책
@@ -2415,7 +2406,7 @@ func _deco_tex() -> ImageTexture:
 		var fig := _make_tag_fig(tag, n)
 		var cav := tag == "기병"
 		var low := tag == "도적"
-		var robe := tag in ["책사", "유생", "술사", "모사"]
+		var robe := tag in ["책사", "유생", "모사"]
 		var hx := 0.46
 		var hy := 0.13 if cav else (0.30 if low else 0.22)
 		var hr := 0.075 if cav else 0.085

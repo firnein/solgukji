@@ -31,7 +31,7 @@ static func body(tag: String) -> ArrayMesh:
 		"기병":
 			_horse(k)
 			_rider(k)
-		"책사", "유생", "술사", "모사":
+		"책사", "유생", "모사":
 			_robe(k, tag)
 		_:
 			_infantry(k, tag)
@@ -105,10 +105,6 @@ static func _robe(k: MeshKit, tag: String) -> void:
 			k.cyl(Vector3(0, 1.2, 0), Vector3(0, 1.36, 0), 0.1, DARK, 6, 0.09)
 			k.cyl(Vector3(0, 1.2, 0), Vector3(0, 1.22, 0), 0.26, DARK, 8)
 			k.box(Vector3(0.24, 0.66, 0.16), Vector3(0.16, 0.04, 0.22), PAPER)
-		"술사":
-			k.cone(Vector3(0, 1.17, 0), Vector3(-0.05, 1.55, 0), 0.17, DARK, 6)
-			k.cyl(Vector3(0.24, 0.0, 0.22), Vector3(0.24, 1.75, 0.22), 0.025, WOOD, 4)
-			k.sphere(Vector3(0.24, 1.8, 0.22), 0.07, Color(1.0, 0.62, 0.25, 0), 5, 3)
 		"모사":
 			k.box(Vector3(0, 1.28, 0), Vector3(0.2, 0.12, 0.17), DARK)
 			k.box(Vector3(-0.02, 1.36, 0), Vector3(0.08, 0.06, 0.24), DARK)

@@ -190,7 +190,7 @@ func _spear_rear(S: Dictionary) -> bool:
 		if int(slots[i].row) == 3:
 			if c.tag == "창병":
 				return false      # 이미 후군에 창병이 있다
-			if c.tag in ["궁병", "책사", "유생", "술사", "모사"]:
+			if c.tag in ["궁병", "책사", "유생", "모사"]:
 				rear.append(i)
 		elif c.tag == "창병":
 			if sp < 0 or int(slots[i].row) > int(slots[sp].row) or (int(slots[i].row) == int(slots[sp].row) and int(c.tier) < int(DB.C[S.cards[sp]].tier)):

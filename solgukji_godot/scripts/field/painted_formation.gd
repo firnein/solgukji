@@ -56,7 +56,7 @@ func constrain_foot(point: Vector2) -> Vector2:
 
 func _init(sq: Squad) -> void:
 	cavalry = sq.tag == "기병"
-	var support := sq.tag in ["책사", "유생", "술사", "모사"]
+	var support := sq.tag in ["책사", "유생", "모사"]
 	# 병종을 대열의 윤곽으로 구분한다. 대표 인형만 바꾸며 엔진 발자국은 그대로다.
 	# 대열 구분을 위해 병사 수를 늘리지 않는다. 보병 18·기병 12·궁병 10·지원 6 이하.
 	cols = 3 if support else (4 if cavalry else (5 if sq.tag == "궁병" else 6))

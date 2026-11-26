@@ -68,7 +68,7 @@ static func pace_for(t: float) -> float:
 static func burst() -> float:
 	return pace * turn_mul
 ## 사기는 '결과' —— 솔국지 확장. 책략 한 대마다 능력치에 비례해 사기를 깎던 것(원본 K.morale)을 없앴다.
-## 사기 통은 등급과 관계없이 100 이라 낮은 등급에선 그 피해가 거의 0 이었고(책사·술사가 약한 까닭), 높은 등급에선 과했다.
+## 사기 통은 등급과 관계없이 100 이라 낮은 등급에선 그 피해가 거의 0 이었고(책사가 약한 까닭), 높은 등급에선 과했다.
 ## 대신 책략은 병력 피해가 int_troop 배로 오르고, 패주는 병력이 꺾여도 일어난다(rout_hp 아래, 비율에 따라).
 ## 스킬·고유기·특기의 고정 사기 효과, 아군 이탈·반파 충격, 역병 같은 '사건'은 그대로다.
 static var int_troop := 1.7
@@ -104,7 +104,7 @@ static var cf_max_sec := 5.0      # 한 번 혼란의 상한 (초) —— 개전
 static var virtue_enabled := true    # 인덕 계열 켜기 (치료 · 분발 · 도원결의 · 단량)
 ## 11/3 8병종 역할 (사용자: 병종이 제 역할을 못 한다 —— tests/tag_role.tscn: 창병이 탱커 · 딜러를 겸하고 도적은 하는 일이 없었다)
 ## 창병 = 벽(도발 · 피해는 낮게) · 기병 = 첫 돌격 · 궁병 = 엄호받는 화력 · 도적 = 후열 암살 · 고유기 끊기
-## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 술사 = 상태이상 전담 · 모사 = 사기 깎기
+## 책사 = 범위 책략 화력 · 유생 = 치료 전담 · 모사 = 사기 깎기 (11/27 사용자: 상태이상 전담 술사는 없앴다 —— 장수는 책사 · 유생 · 모사로 옮김)
 static var tag_roles := true
 static var sk_split := true      # 11/23 사용자: 기술마다 충전 따로 (끄면 11/3 방식: 하나를 나눠 쓴다)
 static var sk_rotate := true     # 11/23 기술 고르기 —— 조건 맞는 기술 중 덜 쓴 것을 노리고 그 비용까지 기다린다 (끄면 예전: 앞에서부터 비용 되는 첫 기술)
@@ -113,7 +113,7 @@ static var sk_rotate := true     # 11/23 기술 고르기 —— 조건 맞는 �
 ## 11/8 병종 균형: 유생 치료 schol_heal 1.6 → 0.6 (몰빵 리그전 유생 덱 84% —— 치료가 분발 · 인의 방진을 내내 켰다. 분발 재발동 대기 moved_cd 와 함께).
 ##   병종마다 준 피해 · 받는 피해 · 사거리 배율(등급 무관 한 값)은 data/cards_ext.json class_guard 의 dmg · taken · range (class_tune), 지원 등급 성장은 sup, 맞붙음 상성은 engage
 static var ROLE := {"charge": 2.0, "horse_after": 0.9, "horse_all": 1.0, "int_guard": 1.0, "bow_cover": 1.25, "rogue_vs_int": 1.7, "rogue_vs_bow": 1.3, "rogue_all": 0.92,
-	"rogue_gauge": 5.0, "rogue_charge": 0.15, "strat_int": 2.4, "schol_heal": 0.6, "schol_int": 1.3, "occul_heal": 0.3, "occul_status": 1.3, "occul_int": 1.55,      # 11/6 밸런스: 유생 · 술사 3장 덱 70% → 치료 2.5 → 2.0 · 상태이상 1.8 → 1.5
+	"rogue_gauge": 5.0, "rogue_charge": 0.15, "strat_int": 2.4, "schol_heal": 0.6, "schol_int": 1.3,      # 11/6 밸런스: 유생 3장 덱 70% → 치료 2.5 → 2.0 (11/27 술사 몫 occul_heal · occul_status · occul_int 는 병종과 함께 없앴다)
 	"schem_morale": 2.2, "schem_int": 2.0}
 ## 낮은 등급 책략계 피해 (원본은 높은 등급에서야 책략이 세다 —— 희귀 책략계 3장 덱 승률 13~33%) · 기병 첫 돌격도 등급마다
 const INT_LOW := {3: 1.6, 4: 1.6, 5: 1.3, 6: 1.1}
@@ -122,7 +122,7 @@ const STRAT_HI := {7: 1.6, 8: 1.6}
 static var CHARGE := {3: 1.15, 4: 1.15, 5: 1.3, 6: 1.45, 7: 1.7, 8: 1.9}
 ## 창병 피해 배율 —— 낮은 등급일수록 선호 자리 보너스(공격 ×1.22)가 커 더 낮춘다
 static var SPEAR_ATK := {3: 0.45, 4: 0.45, 5: 0.5, 6: 0.55, 7: 0.6, 8: 0.65}
-const INT_TAG := ["책사", "유생", "술사", "모사"]
+const INT_TAG := ["책사", "유생", "모사"]
 
 static var counter_enabled := true   # 병종 상성 켜기 (솔국지 확장 —— DB.cls_mul)
 ## 11/8 피해 두 갈래 · 병종 갑옷 · 결계 · 깎기 (docs/역할_재설계_1108.md 9.1, 수치는 data/cards_ext.json class_guard → DB.GUARD)
@@ -846,7 +846,7 @@ const MINOR_PHYS := {"fire": "fire_arrow", "rumor": "roar", "curse": "shatter", 
 const MINOR_AXIS := {"도트": "fire", "혼란": "rumor", "공깎": "poison", "둔화": "poison", "책략깎": "curse", "방깎": "curse",
 	"인덕": "cheer", "사기": "cheer", "철벽": "guard"}
 const MINOR_TAG := {"창병": "thrust", "기병": "lance", "궁병": "volley", "도적": "ambush", "책사": "fire", "유생": "cheer",
-	"술사": "thunder", "모사": "rumor"}
+	"모사": "rumor"}
 ## 11/23 사용자: "평타 3번당 쓰는 잔기술 다 똑같다" —— 이름 60개가 모두 '조금 센 한 방 + 거의 안 보이는 덧붙임'이었다.
 ## 병종마다 잔기술이 '하는 일'을 하나씩 준다 (리듬 every 도 병종 몫). 인물 · 특기 축 잔기술은 이름 · 덧붙임을 그대로 두고 그 위에 얹는다.
 ##   push 밀쳐 냄(px · 행동 준비 깎기) · through 뚫고 뒤 부대까지 · rain 둘레 적 여럿에 나눠 · steal 후열을 치고 고유기 게이지를 뺏음
@@ -860,8 +860,7 @@ const MINOR_ACT := {
 	"도적": {"act": "steal", "every": 2, "gauge": 7.0},
 	"책사": {"act": "zone", "every": 4, "r": 70.0, "sec": 4.0},
 	"모사": {"act": "rout", "every": 4, "morale": 10.0},
-	"유생": {"act": "rally", "every": 3, "n": 2, "mend": 0.02, "cheer": 6.0},
-	"술사": {"act": "burst", "every": 4, "r": 70.0, "mult": 0.5}}
+	"유생": {"act": "rally", "every": 3, "n": 2, "mend": 0.02, "cheer": 6.0}}
 const MINOR_ACT_X := {"hefei": 2.0, "cleave": 1.5, "lone_ride": 1.5, "divine_bow": 1.5, "tiger": 1.3, "yellow": 1.5, "sow": 1.3,
 	"benevolence": 1.5, "heal_bone": 1.5, "trap_camp": 1.5, "bodyguard": 1.3, "ten_ambush": 1.3, "taoist_book": 1.3, "plum": 1.3}
 static var _minor_cache := {}
@@ -869,7 +868,7 @@ var _minor_nm := ""
 var _minor_mk := ""
 
 
-## 이 카드의 잔기술 종류 —— 특기 축(카드 등급에서 열린 첫 축) → 병종. 술사의 책략깎 · 방깎은 낙뢰, 도적이 책략형이면 단도
+## 이 카드의 잔기술 종류 —— 특기 축(카드 등급에서 열린 첫 축) → 병종. 도적이 책략형이면 단도 (11/27 술사의 책략깎 · 방깎 → 낙뢰는 병종과 함께 없앴다)
 static func minor_kind(k: String) -> String:
 	if _minor_cache.has(k):
 		return _minor_cache[k]
@@ -887,8 +886,6 @@ static func minor_kind(k: String) -> String:
 				break
 		if out == "":
 			out = MINOR_TAG.get(c.tag, "")
-		if out == "curse" and c.tag == "술사":
-			out = "thunder"
 		if out == "ambush" and is_caster(c):
 			out = "dagger"
 		if MINOR_PHYS.has(out) and not is_caster(c):      # 무장은 책략 잔기술 대신 무력판 (책략 0 이면 피해가 1 이었다)
@@ -1600,8 +1597,6 @@ func _role_tag(a: Unit, d: Unit, phys: bool) -> float:
 			if not phys: return ROLE.strat_int * STRAT_HI.get(a.c.tier, 1.0)
 		"모사":
 			if not phys: return ROLE.schem_int
-		"술사":
-			if not phys: return ROLE.occul_int
 		"유생":
 			if not phys: return ROLE.schol_int
 	return 1.0
@@ -1626,8 +1621,8 @@ func heal_troop(d: Unit, ratio: float, who: String, src: Unit) -> void:
 		ratio *= 1.0 - float(DB.PSV.virtue.starve)      # 단량 —— 적이 군량을 끊었다
 	if _kv(_foe(d.camp), "heal_cut"):      # 흑산 장연 —— 적 회복 −50%
 		ratio *= 0.5
-	if tag_roles and src:      # 치료는 유생 전담 (술사는 상태이상)
-		ratio *= ROLE.schol_heal * sup_mul("유생", src.c.tier) if src.c.tag == "유생" else (ROLE.occul_heal if src.c.tag == "술사" else 1.0)      # 11/8 지원 등급 성장
+	if tag_roles and src and src.c.tag == "유생":      # 치료는 유생 전담
+		ratio *= ROLE.schol_heal * sup_mul("유생", src.c.tier)      # 11/8 지원 등급 성장
 	var g := minf(roundf(d.max * ratio * pace * _len_k * _one), d.max - d.troops)      # 11/22 _len_k —— 치료도 피해와 같이 줄여 비율을 지킨다
 	if g <= 0: return
 	d.troops += g
@@ -1696,9 +1691,8 @@ func inflict(a: Unit, d: Unit, kind: String, val: float, dur: int) -> void:
 			{"fx": "resist", "f": d.key, "st": kind})
 		return
 	var stx: float = (1 + a.ts.v) if a and a.ts and a.ts.stat == "stx" else 1.0
-	if tag_roles and a and a.c.tag == "술사": stx *= ROLE.occul_status
-	var ext := (1 if a and a.caps.has("책사") else 0) + (1 if a and a.caps.has("술사") else 0)
-	var resist := 1.0 if a and a.caps.has("술사") else (morale_guard(a, d) if d.c.tier >= K.guardFrom else 1.0)
+	var ext := 1 if a and a.caps.has("책사") else 0      # 11/27 술사 현혹(저항 무시 · 지속 +1)은 병종과 함께 없앴다
+	var resist := morale_guard(a, d) if d.c.tier >= K.guardFrom else 1.0
 	var scale: float = d.max * pace if kind in ["burn", "flood", "bleed"] else (pace if kind == "plague" else 1.0)
 	var fire := 1.0
 	var sp := 0.0

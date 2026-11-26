@@ -27,7 +27,7 @@ func fixture(tag: String) -> Probe:
 
 func _ready() -> void:
 	get_tree().create_timer(5.0).timeout.connect(func(): get_tree().quit(1))
-	for tag in ["궁병", "책사", "유생", "술사", "모사"]:
+	for tag in ["궁병", "책사", "유생", "모사"]:
 		var bt := fixture(tag)
 		var me = bt.units[0]
 		var close = bt.units[1]

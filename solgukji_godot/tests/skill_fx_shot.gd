@@ -32,7 +32,7 @@ func _ready() -> void:
 	Settings.apply_port(view.port)
 	var tier := int(_args.get("tier", "5"))
 	var sd := int(_args.get("seed", "5"))
-	var tags: Array = ["창병", "기병", "궁병", "도적", "술사", "책사", "모사", "유생", "창병"]
+	var tags: Array = ["창병", "기병", "궁병", "도적", "유생", "책사", "모사", "유생", "창병"]
 	var r := RandomNumberGenerator.new()
 	r.seed = sd
 	var bt := {"kind": "pvp", "a": _side(tier, tags, r), "b": _side(tier, tags, r), "seed": sd,

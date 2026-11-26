@@ -21,7 +21,7 @@ const KIT := {
 			["hit", "Idle_HitReact_Left", 4, false], ["death", "Death", 6, false], ["cheer", "Idle_2", 6, true]]},
 	# ── 11/4 저녁 사용자 "2 적용": 보병 몸통을 KayKit(CC0) 사람으로 —— GPU 병사 셰이더 VAT 모드(soldier_gpu use_vat).
 	# bake_colors: 팔레트 색을 정점 색으로 굽고 UV 는 비운다(셰이더가 COLOR 만 쓴다). 투구 · 삿갓 · 관 · 무기는 코드 조각을 뼈에 붙인다
-	# (고대 중국풍: 둥근 쇠투구+붉은 술, 삿갓, 관모). 책사 굽기 하나를 책사 · 모사 · 술사 · 유생이 같이 쓴다 (War3D.GPU_VAT_MAP)
+	# (고대 중국풍: 둥근 쇠투구+붉은 술, 삿갓, 관모). 책사 굽기 하나를 책사 · 모사 · 유생이 같이 쓴다 (War3D.GPU_VAT_MAP)
 	"창병": {"src": "Knight", "parts": ["Knight_Body", "Knight_Head", "Knight_ArmLeft", "Knight_ArmRight", "Knight_LegLeft", "Knight_LegRight"],
 		"helmet": "steel", "weapon": "spear", "bake_colors": true, "dye_rest": 0.75, "target_tris": 1500,
 		"clips": [["idle", "Idle", 4, true], ["walk", "Walking_A", 8, true], ["attack", "1H_Melee_Attack_Stab", 6, false],

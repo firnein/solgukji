@@ -6,7 +6,7 @@ extends Node
 
 const THEME := ["c22", "c20", "c21", "c32", "c33", "c31", "c69", "c58", "c72", "c70", "c73", "c107", "c110", "c108",
 	"c133", "c148", "c147", "s16", "s14", "c173", "s12", "c192", "s13"]
-const GEN := {1: ["occul", "rogue", "spear", "bow", "horse"], 2: ["c9", "c6", "c0", "c4", "c1", "c5", "c3", "c2"]}
+const GEN := {1: ["rogue", "spear", "bow", "horse"], 2: ["c9", "c6", "c0", "c4", "c1", "c5", "c3", "c2"]}
 var games := 40
 var target := 0.75
 var snaps := {}           # "일차-단계" -> [내 편성]

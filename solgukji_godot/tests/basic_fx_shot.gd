@@ -1,7 +1,7 @@
 extends Control
 ## 기본 행동 연출 캡처 · 점검 (11/11) —— 실행 (창이 뜬다 · 휴대폰 세로 719x1280):
 ##   godot --path . --resolution 719x1280 --position 495,1500 res://tests/basic_fx_shot.tscn -- --tier=3 [--tierb=3] [--seed=5] [--fx=0 연출 끔(전)] [--out=폴더]
-##     [--shots=5,8,11 그 전장 시각(초)에 화면을 찍는다] [--tags=창병,기병,궁병,도적,술사 덱 병종 순서] [--stat=1 연출 수 · 그리기 시간 통계]
+##     [--shots=5,8,11 그 전장 시각(초)에 화면을 찍는다] [--tags=창병,기병,궁병,도적,책사 덱 병종 순서] [--stat=1 연출 수 · 그리기 시간 통계]
 ## 양쪽 9장을 그 등급에서 병종이 고루 섞이게 뽑아 BattleView(타입2)로 틀고, 지정한 전장 시각마다 화면을 저장한다 (out/fx<켬|끔>_t<등급>_<초>.png).
 
 var _args := {}
@@ -27,7 +27,7 @@ func _ready() -> void:
 	var tier := int(_args.get("tier", "3"))
 	var tierb := int(_args.get("tierb", str(tier)))
 	var sd := int(_args.get("seed", "5"))
-	var tags: Array = str(_args.get("tags", "창병,기병,궁병,도적,술사,창병,기병,궁병,책사")).split(",", false)
+	var tags: Array = str(_args.get("tags", "창병,기병,궁병,도적,책사,창병,기병,궁병,책사")).split(",", false)
 	var r := RandomNumberGenerator.new()
 	r.seed = sd
 	var bt := {"kind": "pvp", "a": _side(tier, tags, r), "b": _side(tierb, tags, r), "seed": sd,
@@ -124,7 +124,7 @@ func _gallery(view: BattleView, out: String) -> void:
 	t2._mm.visible = false
 	view.hud.visible = false
 	var rows := [["기병", "contact", 0.3], ["기병", "hit", 0.3], ["창병", "hit", 0.25], ["창병", "contact", 0.25], ["도적", "hit", 0.25],
-		["궁병", "volley", 0.45], ["술사", "cast", 0.4]]
+		["궁병", "volley", 0.45], ["책사", "cast", 0.4]]
 	var tiers := [1, 2, 3, 4, 5, 6, 7, 8]
 	var cell := Vector2i(104, 104)
 	var sc := int(_args.get("up", "3"))
@@ -151,7 +151,7 @@ func _gallery(view: BattleView, out: String) -> void:
 			a.tag = row[0]
 			a.tier = tiers[ti]
 			d.tier = 3
-			a.cls = {"기병": "cav", "창병": "melee", "도적": "melee", "궁병": "ranged", "술사": "caster"}[row[0]]
+			a.cls = {"기병": "cav", "창병": "melee", "도적": "melee", "궁병": "ranged", "책사": "caster"}[row[0]]
 			var span := 36.0 if row[1] in ["hit", "contact"] else 84.0
 			a.pos = _inv(t2, ctr + Vector2(-span * 0.5, 0))
 			d.pos = _inv(t2, ctr + Vector2(span * 0.5, 0))

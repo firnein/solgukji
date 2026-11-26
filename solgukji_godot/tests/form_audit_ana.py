@@ -4,7 +4,7 @@
 #          PYTHONIOENCODING=utf-8 python tests/form_audit_ana.py mid <폴더> [0|1|2]  —— 11/26 원거리 가운데 배치 전/후 (fa_oo · fa_nn<n> · fa_no<n> · fa_on<n> · fa_base, --mid 로 만든 것)
 import os,sys
 import json,glob,sys,statistics as stt,collections
-RANGED={"궁병","책사","유생","술사","모사"}
+RANGED={"궁병","책사","유생","모사"}
 def load(pat):
     out=[]
     for f in sorted(glob.glob(pat)):

@@ -27,7 +27,7 @@ func _ready() -> void:
 		enemies = ["조조", "하후연", "전위", "마초", "허저", "황충", "손권", "조인", "서황"]
 	var b: Array = DB.auto_place(helper._cards(enemies), "hagik")
 	if args.has("starter"):
-		var cards: Array = ["spear", "bow", "strat", "schol", "occul", "schem", "horse", "bow", "strat"]
+		var cards: Array = ["spear", "bow", "strat", "schol", "strat", "schem", "horse", "bow", "strat"]
 		a = DB.auto_place(cards, "eorin")
 		b = DB.auto_place(cards, "hagik")
 	if args.has("legend"):

@@ -4,7 +4,7 @@ extends Node
 ## 같은 두 덱을 자리를 바꿔 두 번 붙인다. 균형 대비 맹공 · 굳히기의 승률 차이를 병종마다 본다.
 
 const FORMS := ["eorin", "hagik", "bongsi", "anwol", "bangwon", "anhaeng", "chuhaeng", "jangsa"]
-const CLS := ["창병", "기병", "궁병", "도적", "책사", "유생", "술사", "모사"]
+const CLS := ["창병", "기병", "궁병", "도적", "책사", "유생", "모사"]
 
 
 func _ready() -> void:

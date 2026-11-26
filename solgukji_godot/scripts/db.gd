@@ -65,7 +65,63 @@ var SKILL_COND: Dictionary   # 일반 기술 발동 조건 (data/cards_ext.json 
 var QUEST_ROSTERS: Array = []  # 토벌 고정 편성 —— 황건적 소탕 [일차][단계] (data/cards_ext.json quest_rosters, 11/2)
 
 const PHYS_TAGS := ["창병", "기병", "궁병", "도적"]
-const INT_TAGS := ["책사", "유생", "술사", "모사"]
+const INT_TAGS := ["책사", "유생", "모사"]      # 11/27 사용자: 병종 술사를 없앴다 (장수는 책사 · 유생 · 모사로)
+## 11/27 옛 저장 · 옛 서버 결과 대비 —— 없앤 기본패 id · 병종을 지금 것으로 읽는다 (Run.from_dict · Room.on_cmd · BattleView.play_res)
+const LEGACY_ID := {"occul": "schem"}      # 술사 기본패 → 모사 기본패 (능력치 · 쓰임이 가장 가깝다)
+const LEGACY_TAG := {"술사": "모사"}
+
+
+## 카드 id 한 개를 지금 것으로 (모르는 것은 그대로)
+static func legacy_id(k):
+	return LEGACY_ID.get(k, k) if k is String else k
+
+
+## 카드 id 배열 안의 옛 id 를 제자리에서 바꾼다
+static func legacy_ids(a) -> void:
+	if a is Array:
+		for i in a.size():
+			a[i] = legacy_id(a[i])
+
+
+## {카드 id: 장수} 사전의 옛 id 를 새 id 로 합친다 (제자리)
+static func legacy_counts(d) -> void:
+	if not d is Dictionary:
+		return
+	for old in LEGACY_ID:
+		if d.has(old):
+			var n = d[old]
+			d.erase(old)
+			var nk: String = LEGACY_ID[old]
+			d[nk] = (d.get(nk, 0) + n) if (n is int or n is float) else d.get(nk, n)
+
+
+## 옛 서버 전투 결과(병종 「술사」 · 기본패 occul 이 든 roster)를 화면이 읽을 수 있게 (제자리)
+static func legacy_res(r) -> void:
+	if not r is Dictionary:
+		return
+	for row in r.get("roster", []):
+		if row is Dictionary:
+			if LEGACY_TAG.has(str(row.get("tag", ""))):
+				row.tag = LEGACY_TAG[str(row.tag)]
+			if LEGACY_ID.has(str(row.get("id", ""))):
+				row.id = LEGACY_ID[str(row.id)]
+	if r.get("mvp") is Dictionary and LEGACY_ID.has(str(r.mvp.get("id", ""))):
+		r.mvp.id = LEGACY_ID[str(r.mvp.id)]
+	var bp = r.get("bp")
+	if bp is Dictionary:
+		legacy_params(bp)
+
+
+## 전투 재료 (평평한 {a, b, …} 또는 {a: {cards}, b: {cards}}) 안의 옛 카드 id (제자리)
+static func legacy_params(p) -> void:
+	if not p is Dictionary:
+		return
+	for s in ["a", "b"]:
+		var v = p.get(s)
+		if v is Array:
+			legacy_ids(v)
+		elif v is Dictionary:
+			legacy_ids(v.get("cards"))
 const STYLE_FORM := {"물리": "hagik", "지략": "bangwon", "균형": "eorin"}
 
 
@@ -131,6 +187,7 @@ func _load() -> void:
 	GUARD = ext.get("class_guard", {})
 	SKILL_COND = ext.get("skill_cond", {})
 	QUEST_ROSTERS = ext.get("quest_rosters", {}).get("stages", [])
+	# 11/27 SKILLPOOL 「술법」(혹세 · 역병 · 저주)은 병종이 아니다 —— 옛 술사 기술 묶음을 이름으로만 찾게 남겼다 (_build_skill_named · 특기 축 기술)
 	D.SKILLPOOL["범용"] = ext.get("skills_ext", []).filter(func(x): return x.has("n"))     # 범용 기술 (누구나 추가 기술로)
 	# 11/2 인물 줄기 · 인연 조합 · 장수 고유 기술 (data/lines.json —— tools/scripts/lines.py 가 만든다)
 	LINES = JSON.parse_string(FileAccess.open("res://data/lines.json", FileAccess.READ).get_as_text())
@@ -465,7 +522,7 @@ const FORM_MID := 2
 ## 능력치 보정(stat_adjust)이 끝난 뒤에 합친다. 화면 용어도 공격 · 방어로 (STATNM · MOD_LABEL · 특기 설명문)
 ## 11/7 책략방어(res)는 데이터에서 지웠다 (효과는 방어로, 같이 있으면 큰 값 하나만 —— tools/scripts/extract.py drop_res). 카드 res 칸만 남아 방어와 같은 값
 const TXT_ALIAS := [["공격과 책략이", "공격이"], ["공격과 책략을", "공격을"], ["공격 · 책략이", "공격이"], ["공격 · 책략 · ", "공격 · "], ["공격 · 책략 +", "공격 +"], ["공격·책략 +", "공격 +"], ["책략 피해", "피해"], ["책략 치명타", "치명타"], ["물리 피해", "피해"], ["책략을", "공격을"], ["책략이", "공격이"], ["책략 +", "공격 +"], ["책략 −", "공격 −"], ["책략 -", "공격 -"]]
-const MERGE_DEF_W := 0.5      # 방어 = 방 + (책방 − 방) × 이만큼 (책방이 더 클 때) —— 0.3 으로 내려도 유생 · 술사 3장 덱 70% 그대로 (11/6): 원인은 방어가 아니다
+const MERGE_DEF_W := 0.5      # 방어 = 방 + (책방 − 방) × 이만큼 (책방이 더 클 때) —— 0.3 으로 내려도 유생 3장 덱 70% 그대로 (11/6): 원인은 방어가 아니다
 func merge_stats() -> void:
 	for k in C:
 		var c: Dictionary = C[k]
@@ -1465,7 +1522,7 @@ const SIG_LABEL := {
 	"rear_land": ["착지 기습 피해(공격의)", "%"], "breach": ["돌파에 꺾이는 적 사기", "n"], "rescue": ["구한 아군 받는 피해 -", "%"], "bridge": ["호령에 꺾이는 적 사기", "n"],      # 11/22 특별한 특기
 	"feign_fire": ["", ""], "breakout": ["포위 돌파 사격 피해(공격의)", "%"], "flee": ["빠져나갈 때 받는 피해 -", "%"], "body_guard": ["둘레 아군 대신 받는 피해", "%"],
 	"die_hard": ["병력이 줄수록 공격 최대", "%"], "dr_last": ["아군 다섯 이하일 때 받는 피해 -", "%"],
-	"fire_chain": ["", ""], "revive": ["무너지는 부대를 일으킬 때 병력", "%"], "gauge_cut": ["10초마다 적 고유기 기 -", "n"], "cult": ["걸린 적 한 부대마다 주변 아군 사기", "n"], "dr_early_all": ["개전 20초 동안 아군 받는 피해 -", "%"],      # 1.2 책사 · 술사
+	"fire_chain": ["", ""], "revive": ["무너지는 부대를 일으킬 때 병력", "%"], "gauge_cut": ["10초마다 적 고유기 기 -", "n"], "cult": ["걸린 적 한 부대마다 주변 아군 사기", "n"], "dr_early_all": ["개전 20초 동안 아군 받는 피해 -", "%"],      # 1.2 책사 (옛 술사 장수 포함)
 	"amp_low": ["병력이 꺾인 적에게 피해", "%"], "amp_cav": ["기병에게 피해", "%"], "amp_strong": ["더 센 적에게 피해", "%"], "amp_gen": ["고유기를 가진 적에게 피해", "%"],
 	"amp_rear": ["옆 · 뒤에서 칠 때 피해", "%"], "amp_open": ["첫 세 번 공격 피해", "%"], "amp_same": ["같은 적을 칠수록 피해 최대", "%"],
 	"amp_still": ["제자리에서 쏠 때 피해", "%"], "amp_come": ["다가오는 적에게 피해", "%"], "amp_drown": ["수몰 · 혼란한 적에게 피해", "%"],
@@ -2509,7 +2566,7 @@ func auto_place(cards: Array, form: String) -> Array:
 	var used := []
 	used.resize(out.size())
 	used.fill(false)
-	# 11/11 사용자: 선봉에 술사가 서는 경우가 있다(창병이 있는데도) —— 등급 높은 순으로 자리를 고르면 높은 등급 술사가 먼저 뒷자리를 채우고
+	# 11/11 사용자: 선봉에 책략계가 서는 경우가 있다(창병이 있는데도) —— 등급 높은 순으로 자리를 고르면 높은 등급 책략계가 먼저 뒷자리를 채우고
 	# 남은 선봉에 들어갔다. 선봉 자리는 등급과 상관없이 먼저, 그 자리에 가장 맞는 카드(기병 · 창병 …)로 채운다
 	var rest: Array = order.duplicate()
 	for i in f.slots.size():
@@ -2521,7 +2578,7 @@ func auto_place(cards: Array, form: String) -> Array:
 		for k in rest:
 			var z0 := aff_of(C[k].tag, s0.line, s0.side)
 			var v0: float = (6.0 if z0 == "pref" else -4.0 if z0 == "bad" else 0.0) - absf(D.LINE[s0.line].pri - (4 - fw[C[k].tag])) * 0.6 + float(C[k].tier) * 0.01
-			if v0 > bv and v0 >= -2.0:      # 술사 · 모사(−2.4)는 이 자리의 몫이 아니다 (책사 · 유생 · 도적 −1.8 은 앞줄 카드가 모자랄 때만) —— 그래도 남으면 아래 일반 배치가 정한다
+			if v0 > bv and v0 >= -2.0:      # 모사(−2.4)는 이 자리의 몫이 아니다 (책사 · 유생 · 도적 −1.8 은 앞줄 카드가 모자랄 때만) —— 그래도 남으면 아래 일반 배치가 정한다
 				bv = v0
 				bk = k
 		if bk != null:
@@ -2557,9 +2614,9 @@ func auto_place(cards: Array, form: String) -> Array:
 ## 근접 부대의 자리 · 모든 부대의 줄은 그대로다 (원거리끼리의 맞바꿈과 빈 칸뿐이라).
 ## 칸 선호(aff_of): 1 · 3열과 0 · 4열은 둘 다 '측면'이라 그 사이 이동은 선호가 같다. 가운데 열(2)이 끼면 선호가 달라질 수 있다 —— mid_place_aff 가 정한다.
 ##   0: 누구든 선호 등급(선호 > 보통 > 나쁨)이 내려가는 바꿈은 하지 않는다
-##   1: 바깥 열(0 · 4)에서 나오는 길이 가운데 칸뿐이면 선호 한 단계를 내준다 (예: 어린 · 방원 중군 "X.X.X" 의 술사 · 모사 —— '중군 측면' 선호를 잃고 가운데로). 기본
+##   1: 바깥 열(0 · 4)에서 나오는 길이 가운데 칸뿐이면 선호 한 단계를 내준다 (예: 어린 · 방원 중군 "X.X.X" 의 모사 —— '중군 측면' 선호를 잃고 가운데로). 기본
 ##   2: 안쪽(1 · 3열) → 가운데도 선호를 내준다
-## 어느 값이든 새로 '나쁜 자리'가 되는 바꿈(궁병 선봉 중앙 · 술사 전군 중앙 · 밀려난 모사의 전군 측면 …)은 하지 않는다.
+## 어느 값이든 새로 '나쁜 자리'가 되는 바꿈(궁병 선봉 중앙 · 밀려난 모사의 전군 측면 …)은 하지 않는다.
 ## 끄면(mid_place = false) 예전 배치 그대로
 static var mid_place := true
 static var mid_place_aff := 1

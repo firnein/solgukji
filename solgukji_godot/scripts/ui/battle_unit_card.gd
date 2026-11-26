@@ -29,7 +29,7 @@ const C_HEAL := Color("#7fd6a4")       # 치료 (전장 치료 글씨와 같은 
 const C_GLOW := Color("#ffd257")       # 고유기 막대 · 개성 발동 (전장 머리 위 글씨와 같은 금)
 const TROOP_COL := {"A": [Color("#6fa8ff"), Color("#2f5fb8")], "B": [Color("#ff8a72"), Color("#b5382c")]}      # 병력 막대 (위 띠 병력 막대와 같은 진영색)
 const ULT_BAR := [Color("#ffe08a"), Color("#b8801f")]
-const CLS_ICON := {"창병": "blade", "도적": "blade_down", "기병": "boot", "궁병": "target", "책사": "news", "유생": "news", "모사": "news", "술사": "swirl"}
+const CLS_ICON := {"창병": "blade", "도적": "blade_down", "기병": "boot", "궁병": "target", "책사": "news", "유생": "news", "모사": "news"}
 const ST_ICON := {"phalanx": "shield", "moved": "up", "seal": "seal", "plague": "swirl", "bleed": "flame"}      # 전장 딱지에 그림이 없는 상태의 기호
 const ST_NAME := {"phalanx": "방진", "moved": "분발", "cut_atk": "공격 깎임", "cut_int": "책략 깎임", "cut_def": "방어 깎임", "cut_res": "결계 깎임",
 	"shred_phys": "갑옷 약화", "shred_int": "결계 약화"}

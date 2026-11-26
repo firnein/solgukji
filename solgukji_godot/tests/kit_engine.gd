@@ -2,10 +2,10 @@ extends Node
 ## 11/27 장수 키트 Q · W · E · R · P —— 전투 엔진 점검 (scripts/kit.gd · kit_rt.gd · data/kit.json · Battle.mk_unit · act · _kit_tag)
 ## 실행: godot --headless --path . res://tests/kit_engine.tscn [-- --cells=c177:q,c190:r (그 칸만) --verbose]
 ##  1) 특기 배제 —— 키트 장수의 DB.passives_of 는 고유 특기 하나와 그 이름의 단체 효과만. Kit.enabled 를 끄면 예전 그대로 (캐시가 따라온다)
-##  2) 자료 —— kit.json 11명 × 5칸: 이름 · 글 · 강화 이름 · 글 · 엔진 필드(fx), q·w·e 의 cd, new 칸의 sk. 강화 상태 형식(칸 목록 · 장수당 2칸 · 옛 형식 읽기)
+##  2) 자료 —— kit.json 10명 × 5칸 (11/27 대현량사 장각 c192 는 토벌 적 전용으로 빠졌다): 이름 · 글 · 강화 이름 · 글 · 엔진 필드(fx), q·w·e 의 cd, new 칸의 sk. 강화 상태 형식(칸 목록 · 장수당 2칸 · 옛 형식 읽기)
 ##  3) 전투 준비 —— 정책의 kit 이 유닛에 실리고(준비만 시키는 화면 길 _setup 포함) 상대 진영 · 카드 사전에 새지 않는다. 결과의 policy · roster 에 kit
 ##  4) 재사용 대기 —— 같은 칸 기술은 cd 초 안에 다시 나가지 않는다 (다시 쓰기 · 당김이 없는 편성에서)
-##  5) 55칸 —— 칸마다 강화를 켠 판에서 그 강화가 실제로 일하고(kup 사건 · b.stats["kup:진영:카드:칸"]), 끈 같은 판에서는 일하지 않는다
+##  5) 50칸 —— 칸마다 강화를 켠 판에서 그 강화가 실제로 일하고(kup 사건 · b.stats["kup:진영:카드:칸"]), 끈 같은 판에서는 일하지 않는다
 ##  6) 사건 —— 기술 slot q/w/e · 고유기 slot r · 고유 특기 알림 slot p · 강화한 칸이면 up, kup 사건의 이름이 kit.json 과 같다, 옛 augs 필드는 없다
 ##  7) 결정성 —— 같은 씨앗이면 같은 사건 (강화 없음 · 있음). Kit.enabled 를 끄면 kit 정책이 아무것도 바꾸지 않는다
 const Kit := preload("res://scripts/kit.gd")
@@ -31,7 +31,7 @@ func _ready() -> void:
 	Kit.enabled = true
 	var myths: Array = DB.C.keys().filter(func(k): return Kit.on(k))
 	myths.sort()
-	ok(myths.size() == 11, "키트 장수 11명 (지금 %d)" % myths.size())
+	ok(myths.size() == 10, "키트 장수 10명 (지금 %d)" % myths.size())
 	if not a.has("cells"):
 		_check_passives(myths)
 		_check_data(myths)
@@ -92,7 +92,7 @@ func _check_data(myths: Array) -> void:
 				bad.append("%s.r 고유기 이름" % k)
 			elif slot == "p" and Kit.p_name(k) != str(c.n):
 				bad.append("%s.p 고유 특기 이름" % k)
-	ok(n == 55 and bad.is_empty(), "kit.json 55칸 —— 이름 · 글 · 강화 · 엔진 필드 · 재사용 대기 · 카드 기술과 이름이 맞는다 %s" % str(bad))
+	ok(n == 50 and bad.is_empty(), "kit.json 50칸 —— 이름 · 글 · 강화 · 엔진 필드 · 재사용 대기 · 카드 기술과 이름이 맞는다 %s" % str(bad))
 	var c0 := JSON.stringify(DB.C["c177"])
 	var q: Dictionary = DB.C["c177"].sks[0]
 	var mq: Dictionary = Kit.skills_of("c177")[0]
@@ -244,7 +244,7 @@ func _check_cooldown() -> void:
 	ok(n / maxf(1.0, secs) < n_old / maxf(1.0, secs_old), "관우 기술 발동 간격 —— 예전(충전) %.1f초에 한 번 → 지금 %.1f초에 한 번" % [secs_old / maxf(1.0, n_old), secs / maxf(1.0, n)])
 
 
-# ───────── 5) 55칸 ─────────
+# ───────── 5) 50칸 ─────────
 
 ## 그 칸의 강화가 나올 만한 편성들 —— [A 덱, B 덱, A 사기, B 사기]. 차례로 해 본다
 func _scenes(k: String, slot: String) -> Array:
@@ -330,27 +330,27 @@ func _check_cells(myths: Array, only: String) -> void:
 				dead.append("%s.%s(%s)" % [k, slot, nm])
 			elif verbose:
 				print("    %s %s 「%s」 %d번 (%s)" % [DB.C[k].name, Kit.SLOT_N[slot], nm, got, where])
-	ok(dead.is_empty(), "강화 55칸 —— 칸마다 그 강화가 실제로 일하는 판이 있다 (전투 %d판) 못 본 칸: %s" % [runs, str(dead)])
+	ok(dead.is_empty(), "강화 50칸 —— 칸마다 그 강화가 실제로 일하는 판이 있다 (전투 %d판) 못 본 칸: %s" % [runs, str(dead)])
 	ok(stray.is_empty(), "강화가 일하면 그 이름의 kup 사건이 남고, 끈 같은 판에는 없다 %s" % str(stray))
 
 
 # ───────── 6) 사건 ─────────
 
 func _check_events() -> void:
-	var a := _deck("c192", 0)      # 장각 —— 단체 효과가 있는 고유 특기
+	var a := _deck("c190", 0)      # 유비 —— 단체 효과가 있는 고유 특기 (11/27 장각 c192 는 키트에서 빠졌다)
 	var b := _deck("c181", 2)      # 여포 —— 단체 효과가 없는 고유 특기
-	var res: Array = _run(a, b, _pol({"c192": ["e", "r"]}, {"c181": ["q"]}), 101)
+	var res: Array = _run(a, b, _pol({"c190": ["e", "r"]}, {"c181": ["q"]}), 101)
 	var r: Dictionary = res[0]
-	var ka: String = res[1]["A:c192"]
+	var ka: String = res[1]["A:c190"]
 	var kb: String = res[1]["B:c181"]
 	var names := {ka: {}, kb: {}}
 	var ups := {ka: ["e", "r"], kb: ["q"]}
 	for i in 3:
-		names[ka][str(Kit.cell("c192", Kit.SLOTS[i]).n)] = Kit.SLOTS[i]
+		names[ka][str(Kit.cell("c190", Kit.SLOTS[i]).n)] = Kit.SLOTS[i]
 		names[kb][str(Kit.cell("c181", Kit.SLOTS[i]).n)] = Kit.SLOTS[i]
 	var upn := {}      # 강화 이름 -> [부대 키, 칸]
 	for s in ["e", "r"]:
-		upn[str(Kit.cell("c192", s).up.n)] = [ka, s]
+		upn[str(Kit.cell("c190", s).up.n)] = [ka, s]
 	upn[str(Kit.cell("c181", "q").up.n)] = [kb, "q"]
 	var sk_ok := 0
 	var sk_bad := 0

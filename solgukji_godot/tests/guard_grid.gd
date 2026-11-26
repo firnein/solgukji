@@ -1,7 +1,7 @@
 extends Node
 ## 11/8 갑옷 · 결계 수치 격자 (docs/역할_재설계_1108.md 9.4-2) —— 실행: godot --headless --path . res://tests/guard_grid.tscn
 ##   [-- --games=20 --tier=7 --cells=off,15:15,30:30,45:45]
-## 칸 a:w = 창병 갑옷 a% · 술사 결계 w% (기병 · 책사는 그 절반, 나머지 병종 0). off = 막 · 깎기를 끈 지금 판정.
+## 칸 a:w = 창병 갑옷 a% · 책사 결계 w% (기병은 그 절반, 나머지 병종 0). off = 막 · 깎기를 끈 지금 판정.
 ## 칸마다 병종 3장 + 무작위 6장 덱 대 무작위 9장 덱의 승률 (tag_role 과 같은 방식) —— 칸 사이에 같은 시드를 써서 차이만 보이게 한다.
 ## 기준 (9.1 통과 기준): 병종 3장 덱 승률이 모두 40~62% 안
 
@@ -33,7 +33,7 @@ func _ready() -> void:
 			var a := float(p[0]) / 100.0
 			var w := float(p[1]) / 100.0 if p.size() > 1 else a
 			Battle.shield_enabled = true
-			Battle.guard_over = {"창병": a, "기병": a / 2.0, "술사": w, "책사": w / 2.0}
+			Battle.guard_over = {"창병": a, "기병": a / 2.0, "책사": w}
 		var line := "%-7s" % ("끔" if cell == "off" else str(cell))
 		var lo := 1.0
 		var hi := 0.0

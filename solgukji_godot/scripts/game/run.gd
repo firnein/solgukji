@@ -1182,7 +1182,7 @@ const TACS := {
 
 
 ## 덱에 맞는 작전 —— 물리(공격 ≥ 지력) 장수가 많으면 맹공, 지략 장수가 많으면 굳히기 (11/1 tests/tac_fit 측정:
-## 기병 · 창병 · 궁병 · 도적 덱은 맹공 +4~15%p, 책사 · 모사 · 술사 · 유생 덱은 맹공 -4~-11 · 굳히기 +2~11%p). [작전, 물리 수, 지략 수]
+## 기병 · 창병 · 궁병 · 도적 덱은 맹공 +4~15%p, 책사 · 모사 · 유생 덱은 맹공 -4~-11 · 굳히기 +2~11%p). [작전, 물리 수, 지략 수]
 static func recommend_tac(cards: Array) -> Array:
 	var ph := 0
 	var it := 0
@@ -2648,6 +2648,7 @@ func command(m: String, a: Array):
 	for j in a.size():
 		if a[j] is float:
 			a[j] = int(a[j])      # JSON 숫자는 float 로 온다 —— 칸 번호 등
+	DB.legacy_ids(a)      # 11/27 옛 클라이언트가 보낸 술사 기본패(occul) —— 모사 기본패로 읽는다
 	return callv(m, a)
 
 
@@ -2709,6 +2710,22 @@ func from_dict(d: Dictionary) -> void:
 		for inp in battle.inputs:
 			inp[0] = int(inp[0])
 	tour = null      # 옛 저장의 토너먼트는 버린다 (11/12 최후 1인) —— 7일차 저녁의 대전부터 이어 간다
+	_legacy_cards()
+
+
+## 11/27 술사 병종 삭제 —— 옛 저장 · 옛 서버 상태의 술사 기본패(occul)를 모사 기본패(schem)로 (DB.LEGACY_ID). 다른 카드는 id 가 그대로라 둔다.
+## 봇 장부(forge_state)는 그 장부를 from_dict 할 때 같은 길로 바뀐다
+func _legacy_cards() -> void:
+	DB.legacy_counts(inv)
+	DB.legacy_ids(board)
+	DB.legacy_ids(last_draw)
+	if held is Dictionary:
+		DB.legacy_counts(held.get("inv"))
+	for b in bots:
+		if b is Dictionary:
+			DB.legacy_ids(b.get("army"))
+	if battle is Dictionary:
+		DB.legacy_params(battle)
 
 
 ## 11/20 점검 실행(--gnew 등 점검 인자)은 사용자 저장을 쓰지 않는다 —— 점검을 돌릴 때마다 save.json · pins.json 이 덮여

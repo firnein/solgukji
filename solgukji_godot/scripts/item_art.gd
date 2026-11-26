@@ -11,7 +11,7 @@ const SHAPE := {
 	"i96": "mirror", "i97": "book", "i98": "map",
 }
 const BY_TAG := {"창병": "glaive", "기병": "halberd", "궁병": "bow", "책사": "fan", "유생": "scroll",
-	"술사": "book", "모사": "scroll", "도적": "dao"}
+	"모사": "scroll", "도적": "dao"}
 
 static var _tex := {}
 

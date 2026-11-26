@@ -3,7 +3,7 @@ extends Node
 ## 실행: godot --headless --path . res://tests/legend_slot_value.tscn [-- --trials=8 --list]
 ## 같은 시드 · 같은 아군 8명 · 같은 적 9명 · 진영 교체. 수치는 바꾸지 않는다
 const Audit = preload("res://tests/motion5_role_audit.gd")
-const BACK := ["책사", "궁병", "술사", "모사", "유생"]
+const BACK := ["책사", "궁병", "모사", "유생"]
 
 func _ready() -> void:
 	var args := {}

@@ -88,7 +88,7 @@ class OrigRun extends Run:
 
 	## 11/9 토벌 적 구성(황건 잡병 y1x · y2x)을 바꾸기 전 모양 —— 첫 토벌 편성의 일반 부대 · 1 · 2 등급 잡병 풀
 	const ROSTER_11 := ["c22", "c9", "c6", "c0", "c4", "c1", "c5", "c3", "c2"]
-	const HORDE_POOL := {1: ["spear", "rogue", "horse", "bow", "occul"], 2: ["c0", "c1", "c6", "c2", "c3", "c4", "c5", "c9"]}
+	const HORDE_POOL := {1: ["spear", "rogue", "horse", "bow"], 2: ["c0", "c1", "c6", "c2", "c3", "c4", "c5", "c9"]}
 
 	func start_quest() -> Dictionary:
 		var q = quest_roster()

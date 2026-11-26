@@ -32,7 +32,7 @@ func _ready() -> void:
 	print("전투 탭: %d일차 성질 %s" % [r.day + 1, DB.trait_text(DB.quest_trait(r.day))])
 	var cards: Array = str(args.get("card", "")).split(",", false)
 	if cards.is_empty():
-		for tg in ["창병", "술사", "궁병"]:      # 그 병종의 전설 한 장씩
+		for tg in ["창병", "책사", "궁병"]:      # 그 병종의 전설 한 장씩
 			cards.append(DB.by_tier(5).filter(func(k): return DB.C[k].tag == tg and not DB.is_kiin(k))[0])
 	for k in cards:
 		gs.card_info(k)

@@ -32,8 +32,8 @@ func _ready() -> void:
 					bad += 1
 		var pool := DB.by_tier(tier).filter(func(k): return not DB.is_foe(k) and DB.person(k) != person)
 		var foe_pool := pool
-		if person == "주연":      # 화계 차단은 불이 나야 보인다 —— 적을 책략 · 술사 쪽으로
-			foe_pool = pool.filter(func(k): return DB.C[k].tag in ["책사", "술사", "모사"])
+		if person == "주연":      # 화계 차단은 불이 나야 보인다 —— 적을 책략 쪽으로
+			foe_pool = pool.filter(func(k): return DB.C[k].tag in ["책사", "모사"])
 		var sum := {}
 		var says := 0
 		var len_sum := 0.0

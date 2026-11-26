@@ -1082,6 +1082,8 @@ func _show_load_cover(on: bool) -> void:
 ## 이거나 res.bp 같은 {a:{cards,form,morale,equip}, b:{…}, seed, pol} 꼴 둘 다 받는다. 없으면 res.bp, 그것도 없으면 빈 재료(전투장수창 버프 수치만 빈다)
 func play_res(r: Dictionary, kind := "", params := {}) -> void:
 	_sim_id += 1      # 혼자 하기 계산이 돌고 있었다면 그 결과는 버린다
+	DB.legacy_res(r)      # 11/27 옛 서버 결과 —— 없앤 병종 「술사」는 모사 그림으로, 술사 기본패(occul)는 모사 기본패로 읽는다 (같은 사전을 쓰는 결과표도 함께)
+	DB.legacy_params(params)
 	_show_load_cover(false)
 	end_clock = 0.0
 	speed_sec = {}
@@ -1819,7 +1821,7 @@ static func yeon_table() -> Dictionary:
 	return _yeon_tbl
 
 
-## 합류자의 멘트 [글, 말투(0 호방 · 1 정중), 출처("pair" 짝 · "story" 인연 · "tone" 말투 풀)] —— 병종이 책사 · 유생 · 술사 · 모사면 정중, 아니면 호방.
+## 합류자의 멘트 [글, 말투(0 호방 · 1 정중), 출처("pair" 짝 · "story" 인연 · "tone" 말투 풀)] —— 병종이 책사 · 유생 · 모사면 정중, 아니면 호방.
 ## 11/12 서사 개편 —— 우선순위: ① 짝 멘트(pairs["합류자>대표"], 인물 이름 · 확률 1) ② 인연 이야기 멘트(by_inyeon) ③ 말투 풀(bold · polite).
 ## 시드 · 대표 · 합류자 key 의 해시로 고르므로(전투 난수 안 씀) 한 판 안에서 늘 같고, 같은 합동 안에서는 같은 말이 겹치지 않는다(겹치면 다음 단계에서 고른다).
 ## 합류자가 둘이면 각자 자기 짝 키로 따로 고른다 (서로의 짝이 아니라 대표와의 짝)

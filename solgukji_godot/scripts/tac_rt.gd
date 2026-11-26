@@ -144,8 +144,8 @@ func _add_scope(cp: String, part: Dictionary, s: float, id: String, passive: boo
 
 ## 천시 —— 원거리 · 책략 부대가 상대보다 많으면 바람(내 화상 +50% · 원거리 공격 +15%), 아니면 비(이 전투 화상 무효)
 func _weather(cp: String) -> void:
-	var mine: int = _tags[cp].filter(func(t): return t in ["궁병", "술사", "책사"]).size()
-	var foe: int = _tags[_foe(cp)].filter(func(t): return t in ["궁병", "술사", "책사"]).size()
+	var mine: int = _tags[cp].filter(func(t): return t in ["궁병", "책사"]).size()
+	var foe: int = _tags[_foe(cp)].filter(func(t): return t in ["궁병", "책사"]).size()
 	if mine >= foe:
 		weather = "wind"
 		_burn[cp] += 0.5

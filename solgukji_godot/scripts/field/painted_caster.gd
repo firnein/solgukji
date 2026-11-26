@@ -41,7 +41,7 @@ const GLYPH_UP := {"atk": Color("#ffb04a"), "def": Color("#8fd0ff"), "spd": Colo
 const GLYPH_DOWN := Color("#c58bff")
 const WARD_COL := Color(0.62, 0.86, 1.0)
 const AURA_COL := Color("#ffd27a")
-const CASTER_TAGS := ["책사", "유생", "술사", "모사"]
+const CASTER_TAGS := ["책사", "유생", "모사"]
 
 
 func _init(painter) -> void:

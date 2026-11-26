@@ -16,7 +16,7 @@ func _ok(cond: bool, what: String) -> void:
 func _ready() -> void:
 	# 1) 병종 막 · 피해 종류
 	var want := {"창병": [0.3, 0.0, "phys"], "기병": [0.15, 0.0, "phys"], "궁병": [0.0, 0.0, "phys"], "도적": [0.0, 0.0, "phys"],
-		"책사": [0.0, 0.15, "int"], "모사": [0.0, 0.0, "int"], "술사": [0.0, 0.3, "int"], "유생": [0.0, 0.0, "int"]}
+		"책사": [0.0, 0.15, "int"], "모사": [0.0, 0.0, "int"], "유생": [0.0, 0.0, "int"]}
 	for tg in want:
 		var g := DB.guard_of(tg)
 		_ok(is_equal_approx(g.phys, want[tg][0]) and is_equal_approx(g["int"], want[tg][1]) and DB.dmg_kind(tg) == want[tg][2],
@@ -48,13 +48,13 @@ func _ready() -> void:
 	_ok(boss_ok, "6일차 우두머리 9부대 —— 앞 갑옷 60 · 뒤 결계 60")
 	_ok(rab_ok, "6일차 잡병 —— 병종 기본")
 	_ok(a_ok, "아군 —— 성질 없음 (병종 기본)")
-	# 3) 깎기 사건 —— 깎기 특기 장수 3 + 무작위 6 대 창병 · 술사 6 + 무작위 3
+	# 3) 깎기 사건 —— 깎기 특기 장수 3 + 무작위 6 대 창병 · 책사 6 (11/27 술사를 없애 결계 병종은 책사) + 무작위 3
 	for t in [5, 7]:
 		var pool: Array = DB.by_tier(t).filter(func(k): return not DB.is_kiin(k))
 		var phys_sh := pool.filter(func(k): return _has_key(k, ["cut_def", "first_cut", "rush"], ["현혹"]))
 		var int_sh := pool.filter(func(k): return _has_trait(k, ["현혹", "요언"]))
 		var spear := pool.filter(func(k): return DB.C[k].tag == "창병")
-		var occul := pool.filter(func(k): return DB.C[k].tag == "술사")
+		var occul := pool.filter(func(k): return DB.C[k].tag == "책사")
 		print("   등급 %d —— 갑옷 깎기 %d명 · 결계 깎기 %d명 (%s)" % [t, phys_sh.size(), int_sh.size(), " ".join(int_sh.map(func(k): return DB.C[k].name))])
 		if phys_sh.is_empty() or spear.is_empty() or occul.is_empty():
 			continue

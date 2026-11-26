@@ -73,7 +73,7 @@ const ALLY_MARK := Color("#8bd8ff")
 const ENEMY_MARK := Color("#ff8a66")
 const ALLY_CLOTH := Color("#b3dcff")
 const ENEMY_CLOTH := Color("#ffc7aa")
-const TAGS := ["창병", "기병", "궁병", "도적", "책사", "유생", "술사", "모사"]
+const TAGS := ["창병", "기병", "궁병", "도적", "책사", "유생", "", "모사"]      # 아틀라스 칸 순서 (진영마다 8칸) —— 6번은 옛 술사 그림 자리라 비워 둔다 (11/27 술사 병종 삭제, 모사가 7번 칸을 그대로 쓰게)
 const STRIDE_FRAMES := 12
 static var batch_rendering := true
 static var action_frames_on := true # 점검용으로 끄면 같은 인형 수로 이전 정지 원화와 비교한다.
@@ -525,7 +525,7 @@ const FIGURE_SCALE := 1.4 # 최소 14px였던 병사는 약 20px로. 발 위치�
 ## 11/24 사용자 「책략계 스프라이트가 유독 크다」 —— 인형 키를 그 병종의 열 수(지원 3 · 궁병 5 · 보병 6)로 잰 간격에 맞추다 보니
 ## 같은 폭의 부대라도 열이 적은 지원 병종은 간격 제한을 안 받아 기본 키(60)를 그대로 받았다 (보병은 간격 때문에 작아진다).
 ## 걷는 병종은 모두 보병 열 수로 간격을 잰다 (기병은 말이 있어 제 열 수 그대로). 책략계 원화는 넓은 소매 · 도포로 칸을 더 채워(불투명 넓이 1.25 배) 조금 줄인다
-const SUPPORT_TAGS := ["책사", "유생", "술사", "모사"]
+const SUPPORT_TAGS := ["책사", "유생", "모사"]
 const SUPPORT_ART := 0.9
 ## 11/24 사용자 「같은 병종이라도 등급에 따라 차등, 좀 더 강해 보여야」 —— 병사 단계(Type2View.grade_of: 등급 · 시작 병력 · 기인)별 인형 키 배율
 ##   0 잡병(고급 이하) · 1 정병(희귀) · 2 정예(전설) · 3 근위(초월 · 기인) · 4 철위(불멸) · 5 신병(신화). 색 · 테두리 빛 · 기운 · 군기는 셰이더(painted_batch.gdshader)가 단계로 그린다
@@ -2461,7 +2461,7 @@ func _iseom(ci: CanvasItem, c: Vector2, ang: float, ln: float, w: float, glow: C
 
 ## 11/17 후열 책략 평타 —— 병종 색 구슬이 꼬리를 끌며 날아가 맞는 자리에서 번쩍인다 (판정 · 수치 무관)
 ## 11/25 사용자 「책략계가 하는 일이 눈에 띄지 않는다」 —— 1.5px 선 · 1.7px 점 → 가늘어지는 꼬리 · 먹 테두리 구슬 · 더하기 빛
-const SPELL_COL := {"책사": Color(1.0, 0.55, 0.18), "술사": Color(0.75, 0.5, 1.0), "모사": Color(0.55, 0.8, 1.0), "유생": Color(0.5, 0.95, 0.7)}
+const SPELL_COL := {"책사": Color(1.0, 0.55, 0.18), "모사": Color(0.55, 0.8, 1.0), "유생": Color(0.5, 0.95, 0.7)}
 func _spell_orb(ci: CanvasItem, shot: Dictionary, tip: Vector2, trail: PackedVector2Array, t: float) -> void:
 	var col: Color = SPELL_COL.get(str(shot.get("tag", "")), EMBER)
 	if trail.size() >= 2:
@@ -2516,7 +2516,7 @@ static func skill_style(name: String, kind: String, tag: String) -> String:
 		"def", "morale":
 			return "curse"
 		"int":
-			return {"술사": "bolt", "책사": "fire", "모사": "vortex", "유생": "flash"}.get(tag, "curse")
+			return {"책사": "fire", "모사": "vortex", "유생": "flash"}.get(tag, "curse")
 	return {"기병": "charge", "궁병": "arrows", "도적": "shadow", "창병": "pierce"}.get(tag, "slash")
 
 
@@ -2695,7 +2695,7 @@ func _skill_hit(ci: CanvasItem, e: Dictionary, hit: Dictionary, age: float, life
 					var flicker := 1.0 if fmod(a2 * 30.0 + j, 2.0) < 1.4 else 0.5
 					_bolt(ci, Vector2(p.x + sin(sd + j * 4.1) * u * 0.8, maxf(40.0, p.y - u * 4.5)), p, float(sd + j), Color(0.65, 0.8, 1.0), (1.0 - q * 0.6) * flicker)
 					_spr(ci, "flash%02d" % [0, 2, 4, 6][(sd + j) % 4], p - Vector2(0, u * 0.15), u * (0.6 + 0.6 * q), Color(0.8, 0.9, 1.0, 1.0 - q), sd + j)
-		"burst", "flash":      # 둘레로 터지는 섬광 + 먹 테두리 충격파 고리 (술사 잔기술 · 후발제인)
+		"burst", "flash":      # 둘레로 터지는 섬광 + 먹 테두리 충격파 고리 (후발제인)
 			var warm: bool = e.k == "flash"
 			var col := Color(1.0, 0.82, 0.35) if warm else Color(0.78, 0.6, 1.0)
 			var g := ease(minf(1.0, age / 0.25), 0.4)

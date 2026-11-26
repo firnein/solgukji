@@ -45,8 +45,8 @@ const CONTACT := 64.0         # (예전 맞닿음 중심 거리 —— 화면 �
 ## 맞닿음(TOUCH) · 근접 사거리(melee_gap) · 원거리 사거리는 모두 발자국 가장자리 사이 틈(_gap)으로 잰다.
 ## 병력이 줄면 깊이가 뒤에서부터 줄어든다(앞줄 고정). 앞이 막힌 부대는 막은 부대를 비켜 옆으로 흘러간다(_steer) —— 예비대가 측면으로 돈다.
 const FP_SPREAD := 1.35       # 병사 간격 배율 (Type2View 가 넓혀 그리던 값을 발자국에 넣었다)
-const FP_SP := {"기병": 12.0, "책사": 8.5, "유생": 8.5, "술사": 8.5, "모사": 8.5}     # 병사 간격 (px) —— 그 밖은 7.0
-const FP_RATIO := {"기병": 2.0, "책사": 2.0, "유생": 2.0, "술사": 2.0, "모사": 2.0}   # 폭 : 깊이 —— 그 밖은 2.6 (넓고 얇은 가로줄)
+const FP_SP := {"기병": 12.0, "책사": 8.5, "유생": 8.5, "모사": 8.5}     # 병사 간격 (px) —— 그 밖은 7.0
+const FP_RATIO := {"기병": 2.0, "책사": 2.0, "유생": 2.0, "모사": 2.0}   # 폭 : 깊이 —— 그 밖은 2.6 (넓고 얇은 가로줄)
 const FP_TIER := {6: 1.1, 7: 1.2, 8: 1.32}       # 초월 위는 정예라 넓게 선다 (Squad.TIER_SIZE 와 같게)
 const FP_PER_PV := 5.5        # PV 1 당 기준 병사 수 (Squad.PER_PV 와 같게)
 const FP_FEW := 12000.0       # 이 병력 아래 부대는 작게 (Squad.FEW_TROOPS)
@@ -130,7 +130,7 @@ static var compact_enabled := true
 const LAY_FULL := 150000.0
 const LAY_MIN := 0.62
 var lay := 1.0
-const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "술사": 50.0, "모사": 50.0}
+const SPEED := {"창병": 62.0, "도적": 105.0, "기병": 95.0, "궁병": 55.0, "책사": 50.0, "유생": 50.0, "모사": 50.0}
 static var bow_range := 250.0      # 궁병 사거리 (점검 장면이 바꿔 볼 수 있게 static)
 static var cast_range := 250.0     # 지략 계열(책략으로 치는 유닛) 사거리 —— 이 값 하나가 실제 사거리다 (병종 배율 class_guard.range 의 책략계 0.8 은 11/26 뺐다)
 ## 11/26 사용자 "책략계 사거리 올려봐" —— 실제 176(220 × 0.8) → 250 (궁병과 같다). 실제 대전 650판(tests/imm_skill --all=1, docs/불멸_기술횟수_1126.md):
@@ -147,7 +147,7 @@ static var int_tier := {3: 1.5, 4: 1.35, 5: 0.85, 6: 0.7, 7: 0.75, 8: 0.8}   # �
 ## 기병 돌격(cav_charge) · 창병 붙는 순간(spear_impact)이 없는 병종도 첫 공격 한 번을 세게 (반격 · 고유기 제외)
 static var first_strike := {}      # 11/19 첫 공격 1.6배는 첫 무너짐을 못 당겼다(궁병 9.4 → 9.9초) —— 비워 둔다
 ## 11/19 A2 반복되는 결정타 —— 기병은 돌격이 판당 14번 되풀이되어 빨리 끝난다. 다른 전투 병종도 N 번째 차례마다 그 차례의 타격 전부 heavy_mul 배
-## (반격 · 고유기 제외. 지원 병종 술사 · 모사 · 유생은 뺀다)
+## (반격 · 고유기 제외. 지원 병종 모사 · 유생은 뺀다)
 static var heavy_every := {}      # 11/19 4번째 · 1.6배를 해 봤으나 거울전 첫 무너짐이 0~1초만 당겨졌다 —— 비워 둔다
 static var heavy_mul := 1.6
 static var cav_charge := 1.6       # 기병 돌격 —— CHARGE_RUN 넘게 달려와 친 첫 물리 공격 피해 배율
@@ -2585,10 +2585,10 @@ func _pin_atk(a: Unit) -> float:
 
 
 ## 11/24 책략계 이탈기 —— 근접 적에게 붙잡히면 ESCAPE_CD 초에 한 번 떼어 낸다 (병종마다 모양이 다르다). 선술(blink) 장수는 제 특기로 (sig_rt, 5초)
-##   책사 화공 폭발: 붙은 적을 밀쳐 내고 행동을 늦춤 · 술사 둔갑: 제가 뒤로 · 모사 이간: 붙은 적 혼란 · 유생 호위 요청: 뒤로 빠지고 구원 거리를 잠시 두 배로
+##   책사 화공 폭발: 붙은 적을 밀쳐 내고 행동을 늦춤 · 모사 이간: 붙은 적 혼란 · 유생 호위 요청: 뒤로 빠지고 구원 거리를 잠시 두 배로
 static var escape_on := true
 const ESCAPE_CD := 8.0
-const ESCAPE := {"책사": {"n": "화공 폭발", "push": 70.0, "delay": 0.5}, "술사": {"n": "둔갑", "self": 120.0},
+const ESCAPE := {"책사": {"n": "화공 폭발", "push": 70.0, "delay": 0.5},
 	"모사": {"n": "이간", "confuse": 1}, "유생": {"n": "호위 요청", "self": 80.0, "wide": 3.0}}
 var _escape_t := {}
 var _rescue_wide := {}
@@ -2689,7 +2689,7 @@ func int_hit(a: Unit, d: Unit, mult: float, spread: int) -> void:
 			var ranged_scale := far_mul
 			if int(a.c.tier) >= 7 and is_caster(a.c) and not _pinned(a):
 				# 유생과 불멸 제어형은 안전한 자리에서 장거리 기여를 보완한다.
-				ranged_scale = 1.55 if a.c.tag == "유생" else 1.38 if int(a.c.tier) == 7 and a.c.tag in ["술사", "모사"] else 1.18
+				ranged_scale = 1.55 if a.c.tag == "유생" else 1.38 if int(a.c.tier) == 7 and a.c.tag == "모사" else 1.18
 			m *= ranged_scale
 	super.int_hit(a, d, m, spread)
 	if _in_ult and not (_ult_by != null and _ult_by.ult != null and bool(_ult_by.ult.get("mini", false))) and _wind.has(d) and d.camp != a.camp:

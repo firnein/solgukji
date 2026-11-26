@@ -32,7 +32,7 @@ func _ready() -> void:
 		assert(entry.when == DB.sk_when(DB.C[hero].sks[i], DB.C[hero]))
 	assert(items[-1].id == "escape" and items[-1].name == RtBattle.ESCAPE[DB.C[hero].tag].n)
 	assert(Skills.escape_spec(blink).cd == preload("res://scripts/sig_rt.gd").BLINK_CD)
-	for k in ["strat", "occul", "schem", "schol"]:
+	for k in ["strat", "schem", "schol"]:
 		assert(Skills.escape_spec(k).cd == RtBattle.ESCAPE_CD)
 	assert(Skills.escape_spec("spear").is_empty())
 	for def in GameScreen.MinorTriggers.STORY.values() + GameScreen.MinorTriggers.CLASS.values():
