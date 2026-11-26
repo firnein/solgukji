@@ -252,5 +252,30 @@ func _ready() -> void:
 	ok(pe.get("kit") == ky and int(pe.get("kit_spent", 0)) == c1 + c2, "phase_end 기록 —— merit · kit · kit_spent %s" % str(pe.get("kit_spent")))
 	var bsd := PlayLog.battle_start_data({"kind": "pvp", "title": "t", "seed": 1, "a": rx._my_side(), "b": ry._my_side()})
 	ok(bsd.get("kit") == kx and bsd.get("foe_kit") == ky, "battle_start 기록 —— kit · foe_kit")
+
+	# ── ⑥ 상대의 강화가 보인다 —— 방 정보 자리 줄 · 오늘 상대 정보 (핵심 유닛으로 보이는 장수에만)
+	ok(Room.key_kit(rx) == kx and Room.key_kit(ry) == ky, "핵심 유닛의 강화 —— 가 %s · 나 %s" % [str(Room.key_kit(rx)), str(Room.key_kit(ry))])
+	var inf1: Dictionary = room.info(1)      # 「나」가 받는 방 정보
+	ok(inf1.seats[0].get("kit") == kx and (inf1.seats[0].key as Array).has(ma), "방 정보 자리 줄 —— 남(가)의 핵심 유닛 강화가 실린다 %s" % str(inf1.seats[0].get("kit")))
+	ok(inf1.seats[1].get("kit") == ky, "방 정보 자리 줄 —— 내 줄에도")
+	ok(room.seats.filter(func(s): return not s.human).all(func(s): return not room.info(0).seats[room.seats.find(s)].has("kit")), "봇 자리 줄에는 kit 이 없다")
+	var fi: Dictionary = room._foe_info(y)
+	ok(fi.get("kit") == ky and (fi.key as Array).has(mb), "오늘 상대 정보 —— 상대(나)의 핵심 장수 강화 %s" % str(fi.get("kit")))
+	var sh_seat := {"name": "나의 그림자", "human": false, "peer": -1, "shadow_of": 1, "bot": {"epi": Room.SHADOW_EPI, "w": 0, "l": 0}}
+	ok(room._foe_info(sh_seat).get("kit") == ky, "그림자 상대 정보 —— 원본의 강화")
+	var hidden := Run.new()      # 강화했지만 핵심 유닛이 아닌(가지지 않은) 장수는 실리지 않는다
+	hidden.new_game(21)
+	hidden.kit = {ma: ["q"]}
+	ok(Room.key_kit(hidden).is_empty(), "핵심 유닛으로 보이지 않는 장수의 강화는 싣지 않는다")
+	var sig0 := JSON.stringify(Room._peer_signature(rx))
+	rx.merit = 20
+	room.stage = "morning"
+	srv.sent.clear()
+	room.on_cmd(1, "kit_up", [ma, "p"])
+	ok(rx.kit == {ma: ["w", "p"]} and JSON.stringify(Room._peer_signature(rx)) != sig0 and srv.sent.any(func(m): return m[0] == 2 and m[1].get("t") == "state" and m[1].room.seats[0].get("kit") == {ma: ["w", "p"]}),
+		"강화하면 다른 사람에게도 바로 퍼진다 (방 정보 자리 줄의 kit)")
+	# 화면이 받는 쪽 —— 믿지 않는 자료를 걸러 줄로
+	var rows: Array = Online.peer_rows({"you": 1, "seats": [{"name": "가", "human": true, "online": true, "hp": 80, "key": [ma], "kit": {ma: ["w", "p", "q"], "no_such": ["q"], mb: "x"}}, {"name": "나", "human": true, "online": true}]}, 90, [mb])
+	ok(rows.size() == 2 and rows[1].get("kit") == {ma: ["w", "p"]}, "화면 —— 군웅 줄 자료의 kit 은 걸러서 (2칸까지 · 모르는 카드 버림) %s" % str(rows[1].get("kit")))
 	print("키트 재화 · 강화 점검 —— 실패 %d" % fails)
 	get_tree().quit(1 if fails > 0 else 0)

@@ -294,6 +294,9 @@ func info(i: int) -> Dictionary:
 			row["key"] = key_cards(s.run)
 			if row.key.is_empty():
 				row["featured"] = featured_cards(s.run.board)
+			var kk := key_kit(s.run)      # 11/27 장수 키트 —— 핵심 유닛 가운데 강화한 장수의 강화한 칸 (군웅 줄의 글자 표시 「QW 관우」). 없으면 키도 없다
+			if not kk.is_empty():
+				row["kit"] = kk
 			if Run.tac_on:
 				row["plan"] = s.run.tk_plan.duplicate() if k == i or Run.tk_plan_open(stage) else []      # 11/21 대전 단계 전(아침 · 토벌 · 대전 준비)은 남에게 가린다 (Run.tk_plan_open)
 				row["tk"] = s.run.tk_pub()      # 11/21 늘 켜짐 · 영구 효과 · 지난 대전 계획 (고른 순간 확정 —— 늘 공개)
@@ -687,6 +690,17 @@ static func is_urgent_unit(k: String) -> bool:
 	return DB.C.has(k) and (DB.is_kiin(k) or int(DB.C[k].tier) >= 6)
 
 
+## 11/27 핵심 유닛(key_cards)의 키트 강화 —— {카드 id: [강화한 칸 …]} (강화한 장수만). 사용자: 상대가 무엇을 강화했는지 보고 내 강화를 고른다 ——
+## 대전 결과 · 전투 재료로 이미 알 수 있는 정보라 숨기지 않는다. 편성을 가리는 규칙은 그대로: 핵심 유닛으로 이미 보이는 장수에만 붙인다
+static func key_kit(r: Run) -> Dictionary:
+	var out := {}
+	for k in key_cards(r):
+		var ups := Run.Kit.ups_of(r.kit, k)
+		if not ups.is_empty():
+			out[k] = ups
+	return out
+
+
 ## 11/11 기록 탭에 보이는 핵심 유닛 —— 가진 카드(손패 + 편성판) 중 기초불신(기인 · 초월 · 불멸 · 신화)의 id (한 종류에 하나 · 등급 높은 순 → id 순).
 ## 순위: 신화 8 > 불멸 7 > 초월 6 > 기인 (기인은 등급 값이 전설 5 라 따로 5 로 센다)
 static func key_cards(r: Run) -> Array:
@@ -721,7 +735,7 @@ static func featured_cards(cards: Array) -> Array:
 static func _peer_signature(r: Run) -> Array:
 	var keys := key_cards(r)
 	return [keys, featured_cards(r.board) if keys.is_empty() else [], r.tk_plan.duplicate() if Run.tac_on else [],
-		r.tk_pub() if Run.tac_on else []]      # 11/21 늘 켜짐 · 영구 군략 효과도 —— 3택1 로 고른 순간 다른 사람 화면에 퍼지게
+		r.tk_pub() if Run.tac_on else [], key_kit(r)]      # 11/27 핵심 유닛의 키트 강화도 —— 강화한 순간 다른 사람 화면에 퍼지게      # 11/21 늘 켜짐 · 영구 군략 효과도 —— 3택1 로 고른 순간 다른 사람 화면에 퍼지게
 
 
 ## 응답이 없는 사람 몫을 봇이 한다 —— 끊겼거나 단계 내내 아무 행동도 없으면 전부, 행동은 했으면 빈 것만
@@ -926,9 +940,11 @@ func _foe_info(s: Dictionary) -> Dictionary:
 		"epi": "사람" if s.human else (s.bot.epi if s.bot.epi in [SHADOW_EPI, "떠돌이 군세"] else "봇"), "w": s.run.my_w if s.human else s.bot.w, "l": s.run.my_l if s.human else s.bot.l}
 	if s.human:
 		d["key"] = key_cards(s.run)
+		d["kit"] = key_kit(s.run)      # 11/27 핵심 장수의 키트 강화 (강화한 칸) —— 상대 정보에 글자 표시 · 강화 효과
 		d["tac"] = s.run.tk_hist      # 11/15 군략 —— 상대가 최근 두 판에 쓴 카드 계열
 	elif s.has("shadow_of"):
 		d["key"] = key_cards(seats[int(s.shadow_of)].run)
+		d["kit"] = key_kit(seats[int(s.shadow_of)].run)      # 그림자는 원본의 강화
 		d["tac"] = seats[int(s.shadow_of)].run.tk_hist
 	else:
 		d["tac"] = s.bot.get("tk_hist", [])

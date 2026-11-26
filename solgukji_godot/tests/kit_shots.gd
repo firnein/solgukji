@@ -247,6 +247,50 @@ func _ready() -> void:
 		_clean(gs)
 		await _wait(0.3)
 		await _shot("kit2_x_row_folded")
+
+	# ── ④ 상대의 강화가 보인다 —— 서버 없이 가짜 방 (사람 상대가 준 것처럼 핵심 장수 key · 강화 kit 을 넣는다)
+	r.board[slots[0]] = card
+	r.kit = Kit.norm({card: ["q", "e"]})
+	var on := Online.new()
+	on.gs = gs
+	gs.add_child(on)
+	gs.online = on
+	on.dev_max = 4
+	on.dev_fake_room("evening_prep")
+	await _wait(0.5)
+	var plain7 := ""
+	for k in DB.by_tier(7):
+		if not Kit.on(k) and not DB.is_foe(k):
+			plain7 = k
+			break
+	var foe_key := [card2, other, plain7]
+	var foe_kit := {card2: ["w", "p"], other: ["r"], "no_such": ["q"]}
+	on.room["foe"] = {"name": "장수214", "human": true, "online": true, "epi": "사람", "w": 5, "l": 2, "key": foe_key, "kit": foe_kit, "tac": []}
+	on.room.seats[1]["key"] = foe_key
+	on.room.seats[1]["kit"] = foe_kit
+	on.room.seats[0]["foe"] = "장수214"
+	gs.go("war")
+	await _wait(0.8)
+	_clean(gs)
+	await _wait(0.3)
+	var kf := _find(gs, "KitFoe")
+	var kt := _texts(kf)
+	ok(kf != null and kt.contains(str(Kit.cell(card2, "w").up.n)) and kt.contains(str(Kit.cell(card2, "p").up.n)) and kt.contains(str(Kit.cell(other, "r").up.n)) and kt.contains(str(Kit.cell(other, "r").up.d).substr(0, 6)),
+		"오늘 저녁 상대 —— 핵심 장수의 강화 이름 · 효과 (%s W · P, %s R)" % [DB.person(card2), DB.person(other)])
+	var ft := _all(gs._scroll, func(n): return n is MiniTile and (n as MiniTile).kit_ups is Array and not ((n as MiniTile).kit_ups as Array).is_empty())
+	ok(ft.size() == 2 and ft.all(func(n): return not n.show_lock), "상대 핵심 장수 타일에 강화한 칸 글자 —— %s" % str(ft.map(func(n): return "%s %s" % [DB.person(n.k), "".join(n.kit_ups).to_upper()])))
+	ok(_overflow_page(gs, kf) == "", "상대 강화 줄이 화면 폭 안에 있다 %s" % _overflow_page(gs, kf))
+	await _shot("kit2_4_foe_info")
+	gs.go("rank")
+	await _wait(0.8)
+	_clean(gs)
+	await _wait(0.3)
+	var pf := _all(gs._scroll, func(n): return n.name == "KitFoe" or str(n.name).begins_with("KitFoe"))
+	var pt := "".join(pf.map(func(n): return _texts(n)))
+	ok(pf.size() >= 2 and pt.contains(str(Kit.cell(card, "q").up.n)) and pt.contains(str(Kit.cell(card2, "w").up.n)), "군웅 현황 —— 내 줄 · 장수214 줄에 강화한 칸의 강화 이름")
+	var pm := _all(gs._scroll, func(n): return n is MiniTile and (n as MiniTile).kit_ups is Array and not ((n as MiniTile).kit_ups as Array).is_empty())
+	ok(pm.size() == 3, "군웅 현황 —— 핵심 유닛 타일의 강화 글자 %d개 (내 %s · 장수214 둘)" % [pm.size(), DB.person(card)])
+	await _shot("kit2_4b_peers")
 	print("실패 %d" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
@@ -407,6 +451,20 @@ func _send(p: Vector2, pressed, touch: bool, rel: Vector2) -> void:
 		e.global_position = p
 		e.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
 		Input.parse_input_event(e)
+
+
+## 묶음 안에서 화면 오른쪽 끝을 넘는 것이 있으면 그 이름 · 넘친 폭 (페이지 —— 시트가 아닐 때)
+func _overflow_page(gs: GameScreen, n: Node) -> String:
+	if n == null:
+		return ""
+	var lim: float = gs._scroll.get_global_rect().end.x + 0.5
+	var todo := [n]
+	while not todo.is_empty():
+		var c: Node = todo.pop_back()
+		if c is Control and (c as Control).is_visible_in_tree() and (c as Control).get_global_rect().end.x > lim:
+			return "(%s +%.0f)" % [c.get_class(), (c as Control).get_global_rect().end.x - lim]
+		todo.append_array(c.get_children())
+	return ""
 
 
 func _clean(gs: GameScreen) -> void:

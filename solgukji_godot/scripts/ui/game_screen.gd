@@ -4908,6 +4908,45 @@ func kit_confirm(k: String, slot: String, to_info := false) -> void:
 	b.add_child(br)
 
 
+## 남의 핵심 장수들의 강화 —— 장수마다 「관우」 [Q] 연참 [W] 격퇴 (with_text 면 줄마다 효과 글까지: 상대 정보). 강화한 장수가 없으면 null.
+## keys = 보이는 핵심 장수 id 들, kit = 그 세력의 강화 상태 (서버가 실어 준 것 —— Kit.norm 을 거친 것). 상대 정보 · 군웅 줄이 쓴다
+func kit_foe_lines(keys: Array, kit: Dictionary, with_text: bool) -> Control:
+	var v := UI.vbox(4)
+	v.name = "KitFoe"
+	for k in keys:
+		var ups := Kit.ups_of(kit, k)
+		if ups.is_empty() or not Kit.on(k):
+			continue
+		if with_text:
+			var box := UI.vbox(2)
+			box.add_child(UI.lbl("%s 강화" % DB.person(str(k)), UI.FS_CAP, DB.tier_color(str(k)).lightened(0.2), true))
+			var ks := kit_summary(str(k), ups, true)
+			if ks != null:
+				box.add_child(ks)
+			v.add_child(box)
+			continue
+		var h := UI.hbox(5)
+		var nl := UI.lbl(DB.person(str(k)), UI.FS_CAP, DB.tier_color(str(k)).lightened(0.2), true)
+		nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(nl)
+		for u in ups:
+			var sl := str(u)
+			var tx := UI.kit_text(k, sl)
+			if tx.is_empty():
+				continue
+			var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[sl]), UI.kit_col(sl), 16.0)
+			bd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			h.add_child(bd)
+			var ul := UI.lbl(str(tx.up_n), UI.FS_CAP, UI.kit_col(sl).lightened(0.35))
+			ul.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			h.add_child(ul)
+		v.add_child(h)
+	if v.get_child_count() == 0:
+		v.free()
+		return null
+	return v
+
+
 ## 강화한 칸 요약 —— 줄마다 [Q] 강화 이름 · 기술 이름 (+ 효과 글). 칸 시트 · 상대 정보에서 쓴다. 강화가 없으면 null
 func kit_summary(k: String, ups: Array, with_text := false) -> Control:
 	if ups.is_empty() or not Kit.on(k):
@@ -6196,7 +6235,7 @@ func _peers_solo() -> Control:
 	var keys := Room.key_cards(run)
 	v.add_child(Online.peer_row(self, {"name": "나", "me": true, "online": true, "dead": run.over != null and not run.over.win,
 		"hp": run.hp, "key": keys if not keys.is_empty() else Room.featured_cards(run.board), "has_key": true,
-		"plan": run.tk_plan if Run.tac_on else []}))
+		"plan": run.tk_plan if Run.tac_on else [], "kit": run.kit}))      # kit —— 11/27 내 핵심 유닛의 키트 강화 (강화한 칸 글자)
 	var bs: Array = run.bots.duplicate()
 	bs.sort_custom(func(a, b): return a.pv > b.pv)
 	for b in bs:

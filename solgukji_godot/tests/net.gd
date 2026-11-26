@@ -153,8 +153,12 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 			# 실제 소켓으로 받은 자리 정보의 공개 필드를 확인한다.
 			for sr in rm.seats:
 				for sk in sr:
-					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "st", "rank", "featured", "plan", "tk"]):
+					if not (sk in ["name", "human", "online", "ready", "dead", "pv", "foe", "hp", "key", "st", "rank", "featured", "plan", "tk", "kit"]):      # kit —— 11/27 핵심 유닛의 키트 강화 (강화한 칸)
 						errors.append("%s: 자리 줄에 허용되지 않은 키 %s" % [b.name, sk])
+					if sr.get("kit") is Dictionary:      # 핵심 유닛으로 보이는 장수에만 붙는다 (편성을 흘리지 않는다)
+						for kc in sr.kit:
+							if not (sr.get("key", []) as Array).has(kc):
+								errors.append("%s: kit 에 핵심 유닛이 아닌 카드 %s" % [b.name, kc])
 				if bool(sr.human):
 					if not (sr.has("hp") and sr.has("key")):
 						errors.append("%s: 사람 자리 줄에 hp · key 가 없다" % b.name)

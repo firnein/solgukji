@@ -100,6 +100,11 @@ var spec_list: Array = []
 var spectating := false
 
 
+## 11/27 정적 변수(BattleView.perf_sink)에 이 노드를 붙잡은 람다가 남으면 앱이 끝날 때 엔진이 죽는다 (종료 코드 139 · 점검 장면에서 확인) —— 나갈 때 비운다
+func _exit_tree() -> void:
+	BattleView.perf_sink = Callable()
+
+
 func _ready() -> void:
 	# 11/19 전투 프레임 실측 —— 전투 하나를 다 보면 요약을 서버에 보낸다 (서버 기록 ev "perf". 옛 서버는 모르는 메시지라 버린다)
 	BattleView.perf_sink = func(d: Dictionary) -> void:
@@ -1026,7 +1031,7 @@ static func _room_key(r: Dictionary, drop_mine := false) -> String:
 		if ss[i] is Dictionary:
 			ss[i].erase("st")
 			if drop_mine and i == int(c.get("you", -1)):
-				for k in ["pv", "hp", "key", "featured", "plan"]:
+				for k in ["pv", "hp", "key", "featured", "plan", "kit"]:      # kit —— 11/27 핵심 유닛의 키트 강화 (내 것은 Run.kit 에서 나온다)
 					ss[i].erase(k)
 	return JSON.stringify(c)
 
@@ -1723,13 +1728,18 @@ func _foe_panel() -> Control:
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 4)
 		fl.add_theme_constant_override("v_separation", 4)
+		var fkit: Dictionary = Run.Kit.norm(f.get("kit"))      # 11/27 상대 핵심 장수의 키트 강화 (믿지 않는다 —— 모르는 카드 · 칸은 버린다)
 		for k in key:
 			var t := MiniTile.new().setup(str(k), -1)
 			t.custom_minimum_size = Vector2(50, 74)
 			t.show_lock = false      # 11/25 그 세력이 가진 장수 —— 내 잠금 띠(「○○ 세력이 등용」)를 덮지 않는다
+			t.kit_ups = Run.Kit.ups_of(fkit, k)      # 강화한 칸 글자 (Q · W …)
 			t.tapped.connect(func(kk): gs.card_info(kk))
 			fl.add_child(t)
 		v.add_child(fl)
+		var fk := gs.kit_foe_lines(key, fkit, true)      # 강화한 칸마다 강화 이름 · 효과 —— 이것을 보고 내 강화를 고른다
+		if fk != null:
+			v.add_child(fk)
 	elif f.get("key") is Array or guess:
 		v.add_child(UI.lbl("핵심 장수 아직 없음", UI.FS_CAP, DB.PAL.text_dim))
 	if str(room.get("stage", "")) == "evening_prep":
@@ -1862,6 +1872,8 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 			"hp": hp, "key": key, "has_key": raw is Array}
 		if key.is_empty() and s.get("featured") is Array:
 			row.key = Room.featured_cards(s.featured)
+		if s.get("kit") is Dictionary:
+			row["kit"] = Run.Kit.norm(s.kit)      # 11/27 핵심 유닛의 키트 강화 (강화한 칸)
 		if s.get("plan") is Array:
 			row["plan"] = s.plan
 		if s.get("tk") is Dictionary:
@@ -1887,6 +1899,7 @@ func peers_section() -> Control:
 			if r.key.is_empty():
 				r.key = Room.featured_cards(run.board)
 			r["plan"] = run.tk_plan if Run.tac_on else []
+			r["kit"] = run.kit      # 내 줄은 내 강화 그대로 (서버 답을 기다리지 않는다)
 		v.add_child(peer_row(gs, r))
 	for x in seats:
 		if x is Dictionary and not bool(x.get("human", false)):
@@ -1960,13 +1973,18 @@ static func peer_row(scr: GameScreen, r: Dictionary) -> Control:
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 4)
 		fl.add_theme_constant_override("v_separation", 4)
+		var rkit: Dictionary = r.kit if r.get("kit") is Dictionary else {}
 		for k in r.key:
 			var t := MiniTile.new().setup(str(k), -1)
 			t.custom_minimum_size = Vector2(50, 74)      # 폭 56 미만 = 작은 칸 (초상 · 이름) —— 한 줄 12장
 			t.show_lock = false      # 11/25 그 세력이 가진 장수 —— 내 잠금 띠를 덮지 않는다 (누가 가졌는지는 줄 머리가 말한다)
+			t.kit_ups = Run.Kit.ups_of(rkit, k)      # 11/27 그 세력이 강화한 칸 글자 (Q · W …)
 			t.tapped.connect(func(kk): scr.card_info(kk))
 			fl.add_child(t)
 		v.add_child(fl)
+		var kl := scr.kit_foe_lines(r.key, rkit, false)      # 강화한 칸의 강화 이름 한 줄씩 (효과 글은 상대 정보 · 장수 정보창에서)
+		if kl != null:
+			v.add_child(kl)
 	if not r.dead:
 		var tv = TacUI.peer_tac(scr, r)      # 11/21 단계 계획(고르는 동안 가림) · 상시 효과 · 지난 대전
 		if tv != null:
@@ -2147,7 +2165,7 @@ func dev_fake_room(stage: String, remain_s := 75.0) -> void:      # remain_s —
 	room = {"code": "K7QX", "mode": "fast", "max": n_max, "mode_n": Room.MODES.fast.n, "started": true, "stage": stage, "stage_no": 3,
 		"stage_n": Room.STAGE_N.get(stage, stage), "remain": remain_s, "day": run.day, "phase": run.phase, "day_no": day_no, "you": 0, "host": true,
 		"seats": seats, "foe": ({"name": seats[3].name, "human": false, "online": false, "epi": "", "w": 3, "l": 1} if stage in ["evening_prep", "evening"] else null),
-		"noon": run.day < Run.ONLINE_NOON_DAYS, "act": true, "alone": "", "tour_round": -1, "quick": Room.QUICK_MSGS, "emote_n": Room.EMOTE_N}
+		"noon": run.day < Run.ONLINE_NOON_DAYS, "act": true, "alone": "", "tour_round": -1, "quick": Room.QUICK_MSGS, "emote_n": Room.EMOTE_N, "kit": true}
 	stage_end = Room.now() + remain_s
 	_stage_no = 3
 	if stage in Room.WATCH_STAGES:
