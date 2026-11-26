@@ -46,6 +46,10 @@ func set_pin(s: bool, r: bool) -> void:
 
 
 func _gui_input(e: InputEvent) -> void:
+	if drag_data != null and not _dragging and Press.mouse_drag(e, _pr.down):      # 11/27 PC 마우스 —— 누른 채 움직이면 바로 끈다 (터치는 꾹 눌러서)
+		accept_event()
+		_begin_drag()
+		return
 	match _pr.feed(self, e):
 		Press.DOWN:
 			_dragging = false
@@ -100,16 +104,20 @@ func _process(_dt: float) -> void:
 	if not _down_fx and Time.get_ticks_msec() - _pr.t0 >= 70:      # 쓸기 시작의 짧은 누름에는 깜빡이지 않게
 		_set_down(true)
 	if _pr.long_due(Press.HOLD_DRAG):
-		_dragging = true
-		_pr.reset()
-		_set_down(false)
-		UI.buzz(15)      # 11/20 조작: 끌기 시작 진동은 편성판 칸과 같은 값
-		var pv := CardTile.new().setup(k, -1)
-		pv.modulate = Color(1, 1, 1, 0.85)
-		var holder := Control.new()
-		holder.add_child(pv)
-		pv.position = Vector2(-SIZE.x / 2, -SIZE.y)      # 11/20 조작: 미리 보기를 손가락 위쪽으로 (가려지지 않게 반 칸 올림)
-		force_drag(drag_data, holder)
+		_begin_drag()
+
+
+func _begin_drag() -> void:
+	_dragging = true
+	_pr.reset()
+	_set_down(false)
+	UI.buzz(15)      # 11/20 조작: 끌기 시작 진동은 편성판 칸과 같은 값
+	var pv := CardTile.new().setup(k, -1)
+	pv.modulate = Color(1, 1, 1, 0.85)
+	var holder := Control.new()
+	holder.add_child(pv)
+	pv.position = Vector2(-SIZE.x / 2, -SIZE.y)      # 11/20 조작: 미리 보기를 손가락 위쪽으로 (가려지지 않게 반 칸 올림)
+	force_drag(drag_data, holder)
 
 
 func _draw() -> void:

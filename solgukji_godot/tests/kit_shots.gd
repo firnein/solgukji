@@ -2,7 +2,7 @@ extends Node
 ## 11/27 장수 키트 Q · W · E · R · P 화면 캡처 + 화면 흐름 점검 (새 방식 —— 칸마다 고유 강화 하나 · 장수당 2칸 · 되돌릴 수 없다)
 ## 창이 있어야 캡처가 된다 (화면 없이 돌리면 흐름만 점검하고 캡처는 건너뛴다):
 ##   godot --path . --resolution 540x1200 res://tests/kit_shots.tscn -- --out=폴더 [--seed=3] [--play=9] [--card=c177]
-## ① 편성 화면 강화 줄 —— 칩을 끌어 장수 위에 올린 순간 (놓을 수 있는 장수 밝게 · 나머지 어둡게 · 미리보기)   ② 놓으면 확인 창 → 확인하면 강화
+## ① 편성 화면 —— 강화 줄 없음 · 마우스로 바로 끌어 부대 옮기기 · 편성 칸 도움말   ② 정보창 [강화] → 확인 창 → 확인하면 강화
 ## ③ 장수 정보창 다섯 줄 (강화 효과가 늘 보인다 · 강화됨 · 강화 버튼 · 2칸을 채우면 나머지 흐리게)   ④ 상대 정보 · 군웅 줄의 강화 표시
 ## 실패가 있으면 끝에 「실패 N」.
 
@@ -67,12 +67,9 @@ func _ready() -> void:
 	await _wait(0.3)
 	ok(gs._merit_box.visible and gs._merit_lbl.text == "7" and gs.kit_on(), "머리띠에 전공 7 (보임 %s · 글 %s)" % [str(gs._merit_box.visible), gs._merit_lbl.text])
 
-	# ── ① 편성 화면 강화 줄 · 칩 끌기
+	# ── ① 편성 화면 —— 11/27 사용자: "드래그는 유닛 편성만, 스킬 강화는 기존 시안대로" —— 강화 줄은 없고, PC 마우스로 누르고 바로 끌면 부대를 옮긴다
 	var dp: DeployPage = gs.deploy
-	var row := _find(gs, "KitRow")
-	var chips := _all(row, func(n): return n is DeployPage.KitChip)
-	ok(row != null and chips.size() == 5 and chips.map(func(c): return c.kslot) == Kit.SLOTS, "편성 화면 강화 줄 —— 칩 다섯 (Q · W · E · R · P)")
-	ok(chips.filter(func(c): return c.usable).map(func(c): return c.kslot) == ["w", "e", "r", "p"], "Q 칩은 흐리게 (놓을 장수가 없다 —— %s 는 Q 를 이미 강화 · %s 는 2칸을 다 채움)" % [DB.person(card), DB.person(card2)])
+	ok(_find(gs, "KitRow") == null, "편성 화면에 강화 줄(칩 끌기)이 없다")
 	var i1: int = r.board.find(card)
 	var i2: int = r.board.find(card2)
 	var i3 := -1      # 키트가 아닌 장수가 선 칸
@@ -80,86 +77,20 @@ func _ready() -> void:
 		if r.board[i] != null and not Kit.on(r.board[i]):
 			i3 = i
 			break
-	ok(dp.kit_drop_block(i1, "w") == "" and dp.kit_drop_block(i1, "q").contains("이미 강화") and dp.kit_drop_block(i2, "e").contains("모두 강화") and dp.kit_drop_block(i3, "w").contains("신화"),
-		"놓을 수 있나 —— %s W 됨 · Q 「%s」 · %s 「%s」 · 키트 아님 「%s」" % [DB.person(card), dp.kit_drop_block(i1, "q"), DB.person(card2), dp.kit_drop_block(i2, "e"), dp.kit_drop_block(i3, "w")])
-	r.merit = 5
-	ok(dp.kit_drop_block(i1, "w").contains("부족"), "전공이 모자라면 —— 「%s」" % dp.kit_drop_block(i1, "w"))
-	r.merit = 7
-	ok(chips[1]._get_tooltip(Vector2.ZERO).contains(str(Kit.cell(card, "w").up.n)) and dp.kit_slot_tip(i1).contains("강화됨") and dp.kit_slot_tip(i2).contains("모두 강화") and dp.kit_slot_tip(i3) == "",
-		"마우스 도움말 —— 칩: 장수마다 기술 → 강화 이름 · 칸: 강화한 칸 / 고를 수 있는 칸")
-	# 끌기 자료 —— 칩이 주는 것 · 칸이 받는 것
-	var b1: DeployPage.SlotBox = dp._boxes[i1]
-	var b2: DeployPage.SlotBox = dp._boxes[i2]
-	var b3: DeployPage.SlotBox = dp._boxes[i3]
-	ok(b1._can_drop_data(Vector2.ZERO, {"kit": "w"}) and not b1._can_drop_data(Vector2.ZERO, {"kit": "q"}) and not b2._can_drop_data(Vector2.ZERO, {"kit": "w"}) and not b3._can_drop_data(Vector2.ZERO, {"kit": "w"}),
-		"칸이 받는 끌기 —— 놓을 수 있는 장수만")
-	ok(b1._can_drop_data(Vector2.ZERO, {"card": card2, "from": i2}), "카드 끌기(자리 바꾸기)는 예전 그대로 받는다")
-	# 끄는 중의 화면 (점검용 —— 진짜 끌기 없이 덧층을 켠다): W 칩을 끌어 관우 위에
-	var layer: DeployPage.KitDragLayer = dp.kit_drag_start("w", true)
-	await _wait(0.2)
-	var fx := _all(gs, func(n): return n is DeployPage.SlotBox.KitFx)
-	ok(fx.size() == dp._boxes.size() and fx.filter(func(n): return n.ok).size() == 1 and b1._kit_fx != null and b1._kit_fx.ok, "끄는 동안 —— 놓을 수 있는 칸 1개만 밝게, 나머지 %d칸은 어둡게" % (fx.size() - 1))
-	layer.point(b1.get_global_rect().get_center())
-	await _wait(0.3)
-	var bal := layer._balloon
-	var bt := _texts(bal)
-	ok(bal != null and bt.contains(str(Kit.cell(card, "w").n)) and bt.contains(str(Kit.cell(card, "w").up.n)) and bt.contains(str(Kit.cell(card, "w").up.d).substr(0, 6)) and _has_merit_icon(bal),
-		"장수 위에 올리면 미리보기 —— 기술 이름 → 강화 이름 · 효과 · 값")
-	ok(bal != null and bal.get_global_rect().position.x >= 0.0 and bal.get_global_rect().end.x <= gs.size.x + 0.5 and not bal.get_global_rect().intersects(b1.get_global_rect()), "미리보기가 화면 안 · 그 칸을 가리지 않는다 %s" % (str(bal.get_global_rect()) if bal != null else ""))
-	await _shot("kit2_1_drag_hover")
-	layer.point(b2.get_global_rect().get_center())
-	await _wait(0.3)
-	bal = layer._balloon
-	ok(bal != null and _texts(bal).contains("이미 강화") and not _has_merit_icon(bal), "못 놓는 장수 위 —— 까닭 (%s 는 W 를 이미 강화)" % DB.person(card2))
-	await _shot("kit2_1b_drag_blocked")
-	layer.point(b3.get_global_rect().get_center())
-	await _wait(0.2)
-	ok(_texts(layer._balloon).contains("신화"), "키트가 아닌 장수 위 —— 까닭")
-	layer.point(Vector2(-50, -50))
-	await _wait(0.1)
-	ok(layer._balloon == null, "칸 밖 —— 미리보기 없음")
-	layer.finish()
-	await _wait(0.2)
-	ok(_all(gs, func(n): return n is DeployPage.SlotBox.KitFx).is_empty() and not is_instance_valid(dp._kit_layer), "끌기가 끝나면 칸 표시 · 덧층이 걷힌다")
-	# 놓았다 → 확인 창 → 「그대로 둔다」
-	b1._drop_data(Vector2.ZERO, {"kit": "w"})
-	await _wait(0.8)
-	var yes0 := _find(gs._sheet_body, "KitYes") as Button
-	ok(gs.sheet_open() and yes0 != null and not yes0.disabled and _texts(gs._sheet_body).contains("되돌릴 수 없습니다"), "놓으면 확인 창")
-	for bb in _all(gs._sheet_body, func(n): return n is Button and (n as Button).text == "그대로 둔다"):
-		(bb as Button).pressed.emit()
-	await _wait(0.5)
-	ok(r.kit[card] == ["q"] and r.merit == 7, "「그대로 둔다」 —— 아무것도 바뀌지 않는다")
-	# 진짜 끌기 —— 입력 사건으로 (마우스): W 칩을 누른 채 관우 칸까지 움직이고 뗀다
-	await _real_drag(gs, chips[1], b1, false)
-	ok(gs.sheet_open() and _find(gs._sheet_body, "KitYes") != null and _texts(gs._sheet_body).contains(str(Kit.cell(card, "w").up.n)), "진짜 끌기(마우스) —— W 칩을 관우 위에 놓으면 확인 창")
-	gs.close_sheet()
-	await _wait(0.5)
-	# 진짜 끌기 (터치) —— 못 놓는 장수(여포 · W 이미 강화) 위에서 떼면 확인 창 없이 까닭 알림
-	for c in gs._toast_box.get_children():
-		c.queue_free()
-	await _wait(0.1)
-	await _real_drag(gs, chips[1], b2, true)
-	ok(not gs.sheet_open() and _texts(gs._toast_box).contains("이미 강화"), "진짜 끌기(터치) —— 못 놓는 장수 위에서 떼면 창은 안 뜨고 까닭 알림 「%s」" % _texts(gs._toast_box).strip_edges().get_slice("
-", 0))
-	await _real_drag(gs, chips[2], b1, true)
-	ok(gs.sheet_open() and _texts(gs._sheet_body).contains(str(Kit.cell(card, "e").up.n)), "진짜 끌기(터치) —— E 칩을 관우 위에 놓으면 확인 창")
-	gs.close_sheet()
-	await _wait(0.5)
-	# 칩을 누르면(끌지 않고) 그 칸 시트 —— 입력 사건으로 눌렀다 뗀다
-	await _real_tap(gs, chips[3])
-	ok(gs.sheet_open() and _texts(gs._sheet_body).contains(str(Kit.cell(card, "r").up.n)), "칩을 누르면(끌지 않고) 그 칸 시트가 열린다 (R)")
-	gs.close_sheet()
-	await _wait(0.5)
-	# 칩을 누르면(끌지 않고) 그 칸 시트
-	dp.kit_chip_sheet("w")
-	await _wait(0.7)
-	var cs := _texts(gs._sheet_body)
-	ok(cs.contains(DB.person(card)) and cs.contains(DB.person(card2)) and cs.contains("강화됨") and _buttons(gs._sheet_body).size() == 1, "칩을 누르면 그 칸 시트 —— 장수마다 강화 효과 · %s 는 [강화] · %s 는 강화됨" % [DB.person(card), DB.person(card2)])
-	ok(_overflow(gs, gs._sheet_body) == "", "칩 시트가 시트 폭 안에 있다 %s" % _overflow(gs, gs._sheet_body))
-	if args.has("extra"):
-		await _shot("kit2_x_chip_sheet")
-	gs.close_sheet()
+	ok(dp.kit_slot_tip(i1).contains("강화됨") and dp.kit_slot_tip(i1).contains("장수 정보") and dp.kit_slot_tip(i2).contains("모두 강화") and dp.kit_slot_tip(i3) == "",
+		"마우스 도움말 —— 편성 칸: 강화한 칸 / 강화할 수 있는 칸 (장수 정보에서)")
+	await _shot("kit2_1_deploy")
+	var k3 = r.board[i3]
+	# 진짜 끌기 (마우스) —— 꾹 누르지 않고 바로 끌어 관우 칸에서 키트 아닌 장수의 칸으로: 자리를 바꾼다
+	await _real_drag(gs, dp._boxes[i1], dp._boxes[i3], false)
+	ok(_drag_seen.dragging and r.board[i3] == card and r.board[i1] == k3, "마우스로 바로 끌면 부대를 옮긴다 (끌기 %s · %s ↔ %s)" % [str(_drag_seen.dragging), DB.person(card), DB.person(str(k3))])
+	# 진짜 끌기 (터치) —— 꾹 누르지 않고 쓸면 끌기가 아니다 (예전 그대로 —— 터치는 꾹 눌러서 끈다)
+	var before := r.board.duplicate()
+	await _real_drag(gs, dp._boxes[i1], dp._boxes[i2], true)
+	ok(not _drag_seen.dragging and r.board == before, "터치로 바로 쓸면 끌지 않는다 (꾹 눌러서 끈다 —— 예전 그대로)")
+	r.board[i1] = k3
+	r.board[i3] = card
+	gs.render()
 	await _wait(0.4)
 
 	# ── ③ 장수 정보창
@@ -218,36 +149,6 @@ func _ready() -> void:
 	ok(_find(gs._sheet_body, "KitSection") == null and _find(gs._sheet_body, "SkillsSection") != null, "키트가 아닌 %s —— 예전 그대로 (일반 기술 묶음 · 키트 묶음 없음)" % DB.C[plain].name)
 	gs.close_sheet()
 	await _wait(0.4)
-	# ── ② 끌어 놓기 → 확인 → 강화 (새로 맞춘 상태에서: 전공 6 · E 를 놓는다)
-	r.kit = Kit.norm({card: ["q"], card2: ["w", "p"]})
-	r.merit = 6
-	gs.render()
-	await _wait(0.5)
-	(dp._boxes[r.board.find(card)] as DeployPage.SlotBox)._drop_data(Vector2.ZERO, {"kit": "e"})
-	await _wait(0.8)
-	var yes2 := _find(gs._sheet_body, "KitYes") as Button
-	ok(yes2 != null and not yes2.disabled, "E 칩을 놓았다 —— 확인 창")
-	if yes2 != null:
-		yes2.pressed.emit()
-	await _wait(0.9)
-	ok(r.kit[card] == ["q", "e"] and r.merit == 0, "확인 → E 강화 · 전공 6 → %d · %s" % [r.merit, str(r.kit.get(card))])
-	await _wait(0.4)
-	ok(not gs.sheet_open() or gs._sheet_closing, "편성 화면에서 한 강화는 확인 뒤 시트가 닫힌다")
-	var chips2 := _all(_find(gs, "KitRow"), func(n): return n is DeployPage.KitChip)
-	ok(chips2.size() == 5 and chips2.all(func(c): return not c.usable), "두 장수 모두 2칸을 채웠다 —— 칩이 모두 흐리다")
-	# 키트 장수가 편성에 없으면 접힌 한 줄
-	for i in 9:
-		if r.board[i] != null and Kit.on(r.board[i]):
-			r.board[i] = null
-	gs.render()
-	await _wait(0.5)
-	var row2 := _find(gs, "KitRow")
-	ok(row2 != null and _all(row2, func(n): return n is DeployPage.KitChip).is_empty() and _has_merit_icon(row2), "키트 장수가 편성에 없으면 접힌 한 줄 (전공만)")
-	if args.has("extra"):
-		_clean(gs)
-		await _wait(0.3)
-		await _shot("kit2_x_row_folded")
-
 	# ── ⑤ 키트 장수의 기술 글이 나오는 다른 곳 —— 능력 항목 · 기술 목록 · 전투 장수창 (kit.json 글 + 칸 딱지 + 강화 표시)
 	r.board[slots[0]] = card
 	r.kit = Kit.norm({card: ["q", "p"]})
@@ -436,7 +337,7 @@ func _overflow(gs: GameScreen, n: Node) -> String:
 
 ## 진짜 입력 사건으로 끈다 —— from 가운데를 누르고 to 가운데까지 움직인 뒤 뗀다. 끄는 도중(to 위)에 덧층 · 풍선 · 칸 표시가 켜졌는지도 본다
 var _drag_seen := {}
-func _real_drag(gs: GameScreen, from: Control, to: Control, touch: bool) -> void:
+func _real_drag(_gs: GameScreen, from: Control, to: Control, touch: bool) -> void:
 	var xf := get_viewport().get_final_transform()      # 화면 좌표 → 창 좌표 (입력 사건은 창 좌표로 넣는다)
 	var a: Vector2 = xf * from.get_global_rect().get_center()
 	var b: Vector2 = xf * to.get_global_rect().get_center()
@@ -449,10 +350,7 @@ func _real_drag(gs: GameScreen, from: Control, to: Control, touch: bool) -> void
 		prev = p
 		await _wait(0.03)
 	await _wait(0.15)
-	var dp: DeployPage = gs.deploy
-	_drag_seen = {"dragging": get_viewport().gui_is_dragging(), "layer": is_instance_valid(dp._kit_layer),
-		"balloon": is_instance_valid(dp._kit_layer) and is_instance_valid(dp._kit_layer._balloon), "fx": _all(gs, func(n): return n is DeployPage.SlotBox.KitFx).size()}
-	ok(_drag_seen.dragging and _drag_seen.layer and _drag_seen.balloon and _drag_seen.fx == dp._boxes.size(), "  끄는 중(%s) —— 끌기 %s · 덧층 %s · 풍선 %s · 칸 표시 %d" % ["터치" if touch else "마우스", str(_drag_seen.dragging), str(_drag_seen.layer), str(_drag_seen.balloon), int(_drag_seen.fx)])
+	_drag_seen = {"dragging": get_viewport().gui_is_dragging()}
 	_send(b, false, touch, Vector2.ZERO)
 	await _wait(0.7)
 

@@ -79,3 +79,18 @@ static func is_tap(c: Control, up: Vector2, down_at: Vector2) -> bool:
 	if up.distance_to(down_at) > TAP_SLOP:
 		return false
 	return Rect2(Vector2.ZERO, c.size).has_point(up)
+
+
+## 11/27 PC 마우스 끌기 —— 진짜 마우스(터치를 흉내 낸 것이 아니다)로 누른 채 MOUSE_DRAG 넘게 움직였다.
+## 편성판 · 손패는 이때 꾹 누르기 없이 바로 끈다. TouchScroll 은 SLOP(10) 부터 스크롤을 잡으므로 그보다 먼저 끌기를 시작해야 한다
+const MOUSE_DRAG := 5.0
+
+static func mouse_drag(e: InputEvent, down_at: Vector2) -> bool:
+	if not (e is InputEventMouseMotion) or down_at == Vector2.INF:
+		return false
+	if e.device == InputEvent.DEVICE_ID_EMULATION:
+		return false
+	if not (e.button_mask & MOUSE_BUTTON_MASK_LEFT):
+		return false
+	return e.position.distance_to(down_at) > MOUSE_DRAG
+

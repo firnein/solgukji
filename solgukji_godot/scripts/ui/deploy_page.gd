@@ -144,8 +144,6 @@ func build() -> Control:
 	bpp.size_flags_vertical = Control.SIZE_FILL if open else Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
 	bp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(bpp)
-	if gs.kit_on():
-		v.add_child(_kit_row())      # 11/27 장수 키트 강화 줄 —— 칩을 끌어 편성 칸의 장수 위에
 	v.add_child(TacUI.plan_row(gs))      # 11/15 군략 —— 칸을 누르면 손패 시트
 
 	# 아래 —— [보유 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
@@ -649,104 +647,11 @@ func item_sheet(i: int) -> void:
 		b.add_child(f)
 
 
-# ───────── 장수 키트 강화 줄 —— 칩을 끌어 장수 위에 (11/27) ─────────
-## 사용자: "편성 화면에서 드래그를 통해 되도록 (은근 PC 플레이 니즈가 있음)".
-## 편성판 아래 한 줄: [훈장 전공]  [Q] [W] [E] [R] [P]  「끌어서 장수 위에」.
-##   끌기 —— 칩을 누른 채 움직이면 바로 끌린다 (마우스 · 터치 같다, 꾹 누르기 없음 · 이 줄은 스크롤 안에 있지 않다). 편성 칸의 키트 장수 위에 놓으면 확인 창(GameScreen.kit_confirm) → kit_up.
-##   끄는 동안 —— 놓을 수 있는 칸(키트 장수 · 그 칸 미강화 · 2칸 미만 · 전공 충분)은 칸 색 테로 밝게, 나머지는 어둡게 (SlotBox.KitFx).
-##     칸 위에 올리면 그 칸 위(자리가 없으면 아래)에 미리보기 풍선: 기술 이름 → 강화 이름 · 효과 · 값. 못 놓는 장수 위에서는 까닭 (전공 부족 2/4 …).
-##     못 놓는 장수 위에서 손을 떼면 같은 까닭을 알림으로.
-##   누르기 —— 칩을 끌지 않고 누르면 그 칸 시트(kit_chip_sheet): 편성한 키트 장수마다 그 칸의 기술 → 강화 효과 · [강화] (끌기와 같은 확인 창 · 터치에서 쓰기 쉽게).
-##   마우스를 올리면(PC) 칩 · 편성 칸에 도움말 (tooltip).
-## 키트 장수가 편성에 없으면 접힌 한 줄 (전공만).
+# ───────── 장수 키트 (11/27) ─────────
+## 11/27 사용자: "그 드래그로 하려던 건 유닛 편성만 하려던 거고 스킬 강화는 기존 시안대로 유지" —— 편성판 아래 강화 줄(칩을 끌어 장수 위에)은 걷었다.
+## 강화는 장수 정보창의 다섯 줄(GameScreen._kit_row · kit_confirm)에서. 편성 칸에는 강화한 칸 글자와 마우스 도움말만
 
-var _boxes := {}              # 편성 칸 번호 -> SlotBox (build 때마다 다시 —— 끄는 동안 칸을 찾는다)
-var _kit_layer: KitDragLayer = null
-
-
-## 편성한 키트 장수 [[칸 번호, 카드 id] …] (칸 차례 · 같은 장수는 한 번)
-func kit_generals() -> Array:
-	var out := []
-	var seen := {}
-	var run: Run = gs.run
-	for i in run.board.size():
-		var k = run.board[i]
-		if k != null and Kit.on(k) and not seen.has(k):
-			seen[k] = true
-			out.append([i, str(k)])
-	return out
-
-
-## 편성 칸 i 의 장수에 그 칸(kslot) 강화를 놓을 수 없는 까닭 —— "" 이면 놓을 수 있다. 빈 칸은 "-" (까닭을 보일 것도 없다)
-func kit_drop_block(i: int, kslot: String) -> String:
-	var run: Run = gs.run
-	if i < 0 or i >= run.board.size() or run.board[i] == null:
-		return "-"
-	var k: String = run.board[i]
-	if not Kit.on(k):
-		return "신화 장수만 강화할 수 있다"
-	var why := gs.kit_stage_block()
-	if why != "":
-		return why
-	return run.kit_block(k, kslot)
-
-
-## 칩을 편성 칸 i 에 놓았다 —— 확인 창
-func kit_drop(i: int, kslot: String) -> void:
-	if kit_drop_block(i, kslot) != "":
-		return
-	gs.kit_confirm(str(gs.run.board[i]), kslot)
-
-
-func _kit_row() -> Control:
-	var run: Run = gs.run
-	var gens := kit_generals()
-	var h := UI.hbox(UI.SP_S)
-	h.name = "KitRow"
-	var mb := UI.merit(str(run.merit), UI.FS_BODY)
-	mb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	mb.mouse_filter = Control.MOUSE_FILTER_PASS
-	mb.tooltip_text = "%s —— 대전 +%d · 토벌 승리 +%d. 신화 장수의 강화에 쓴다" % [Kit.CUR_N, Run.MERIT_PVP, Run.MERIT_QUEST_WIN]
-	h.add_child(mb)
-	if gens.is_empty():      # 접힌 한 줄 —— 전공만
-		var tl := UI.lbl("신화 장수를 편성하면 여기서 Q · W · E · R · P 를 강화한다", UI.FS_CAP, DB.PAL.text_dim)
-		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		tl.clip_text = true
-		tl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		h.add_child(tl)
-		return h
-	var cl := UI.lbl("강화", UI.FS_CAP, DB.PAL.bamboo, true)
-	cl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(cl)
-	var chips := UI.hbox(5)
-	for sl in Kit.SLOTS:
-		var ch := KitChip.new()
-		ch.page = self
-		ch.kslot = sl
-		ch.usable = gens.any(func(g): return kit_drop_block(int(g[0]), sl) == "")
-		chips.add_child(ch)
-	h.add_child(chips)
-	var hint := UI.lbl("끌어서 장수 위에", UI.FS_CAP, DB.PAL.text_dim)
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	hint.clip_text = true
-	hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	h.add_child(hint)
-	return h
-
-
-## 칩 도움말 (마우스를 올렸을 때) —— 칸 종류 + 편성한 키트 장수마다 기술 → 강화 이름 (효과)
-func kit_chip_tip(kslot: String) -> String:
-	var lines := ["%s · %s —— 끌어서 편성한 신화 장수 위에 놓으면 강화한다" % [str(Kit.SLOT_N[kslot]), str(Kit.SLOT_KIND[kslot])]]
-	for g in kit_generals():
-		var tx := UI.kit_text(g[1], kslot)
-		if tx.is_empty():
-			continue
-		var why := kit_drop_block(int(g[0]), kslot)
-		lines.append("%s: %s → %s (%s)%s" % [DB.person(g[1]), str(tx.name), str(tx.up_n), str(tx.up_d), "" if why == "" else " —— " + why])
-	return "\n".join(lines)
+var _boxes := {}              # 편성 칸 번호 -> SlotBox (build 때마다 다시)
 
 
 ## 편성 칸 도움말 (마우스를 올렸을 때) —— 키트 장수의 강화한 칸 · 아직 고를 수 있는 칸
@@ -768,274 +673,8 @@ func kit_slot_tip(i: int) -> String:
 		for sl in Kit.SLOTS:
 			if not ups.has(sl) and not Kit.cell(k, sl).is_empty():
 				rest.append("%s %s" % [str(Kit.SLOT_N[sl]), str(Kit.cell(k, sl).get("up", {}).get("n", ""))])
-		lines.append("강화할 수 있는 칸 (%s %d): %s" % [Kit.CUR_N, Kit.up_cost(run.kit, k), " · ".join(rest)])
+		lines.append("강화할 수 있는 칸 (%s %d · 장수 정보에서): %s" % [Kit.CUR_N, Kit.up_cost(run.kit, k), " · ".join(rest)])
 	return "\n".join(lines)
-
-
-## 칩을 눌렀다(끌지 않고) —— 그 칸 시트: 편성한 키트 장수마다 기술 → 강화 효과 · [강화] 또는 까닭
-func kit_chip_sheet(kslot: String) -> void:
-	var run: Run = gs.run
-	var col := UI.kit_col(kslot)
-	var b := gs.open_sheet("%s 강화 · %s" % [str(Kit.SLOT_N[kslot]), str(Kit.SLOT_KIND[kslot])])
-	var top := UI.hbox(UI.SP_S)
-	var tl := UI.lbl("칩을 끌어 장수 위에 놓거나 여기서 고른다", UI.FS_CAP, DB.PAL.text_dim)
-	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	UI.wrap_text(tl)
-	top.add_child(tl)
-	var ml := UI.lbl("가진 %s" % Kit.CUR_N, UI.FS_CAP, DB.PAL.text_dim)
-	ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	top.add_child(ml)
-	top.add_child(UI.merit(str(run.merit), UI.FS_LABEL))
-	b.add_child(top)
-	var gens := kit_generals()
-	if gens.is_empty():
-		b.add_child(UI.hint("편성한 신화 장수가 없다."))
-		return
-	for g in gens:
-		var k: String = g[1]
-		var tx := UI.kit_text(k, kslot)
-		if tx.is_empty():
-			continue
-		var is_up := Kit.is_up(run.kit, k, kslot)
-		var why := kit_drop_block(int(g[0]), kslot)
-		var pv := UI.vbox(5)
-		var hd := UI.hbox(UI.SP_S)
-		var t := gs.mtile(k, -1, func(id): gs.card_info(id))
-		t.custom_minimum_size = Vector2(48, 68)
-		hd.add_child(t)
-		var nv := UI.vbox(2)
-		nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		nv.add_child(UI.lbl(DB.person(k), UI.FS_CAP, DB.tier_color(k).lightened(0.2), true))
-		var sr := UI.hbox(6)
-		var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[kslot]), col, 22.0)
-		bd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		sr.add_child(bd)
-		var nl := UI.lbl(str(tx.name), UI.FS_LABEL, DB.PAL.paper, true)
-		nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		sr.add_child(nl)
-		var wl := UI.lbl(str(tx.when), UI.FS_CAP, DB.PAL.text_dim)
-		wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		sr.add_child(wl)
-		nv.add_child(sr)
-		var dl := UI.lbl(str(tx.d), UI.FS_CAP, DB.PAL.bamboo)
-		UI.wrap_text(dl)
-		nv.add_child(dl)
-		hd.add_child(nv)
-		pv.add_child(hd)
-		var right: Control = null
-		if is_up:
-			right = SheetStyle.chip("강화됨", col, "solid")
-		elif why == "":
-			var bt := UI.merit_btn("강화", str(Kit.up_cost(run.kit, k)), func(): gs.kit_confirm(k, kslot), "", UI.BH_S, UI.FS_BODY)
-			SheetStyle.sub_btn(bt)
-			bt.custom_minimum_size.x = 88
-			bt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			right = bt
-		pv.add_child(gs.kit_up_box(kslot, tx, is_up, right))
-		if not is_up and why != "":
-			var yl := UI.lbl(why, UI.FS_CAP, DB.PAL.danger)
-			UI.wrap_text(yl)
-			pv.add_child(yl)
-		b.add_child(UI.panel(pv, 8))
-
-
-## 끌기 시작 (KitChip) —— 미리보기 풍선을 맡는 덧층을 화면 맨 위에 올린다
-func kit_drag_start(kslot: String, manual := false, at := Vector2(-9999, -9999)) -> KitDragLayer:
-	if is_instance_valid(_kit_layer):
-		_kit_layer.queue_free()
-	_kit_layer = KitDragLayer.new()
-	_kit_layer.page = self
-	_kit_layer.kslot = kslot
-	_kit_layer.manual = manual
-	gs.add_child(_kit_layer)
-	_kit_layer.point(at)
-	if manual:      # 점검 · 캡처용 —— 진짜 끌기 없이 칸의 밝기 표시를 켠다
-		for i in _boxes:
-			if is_instance_valid(_boxes[i]):
-				(_boxes[i] as SlotBox).kit_fx_on(kslot)
-	return _kit_layer
-
-
-## 미리보기 풍선 —— 그 칸의 기술 이름 → 강화 이름 · 효과 · 값 (못 놓으면 까닭). 빈 칸이면 null
-func kit_balloon(i: int, kslot: String) -> Control:
-	var why := kit_drop_block(i, kslot)
-	if why == "-":
-		return null
-	var run: Run = gs.run
-	var k: String = run.board[i]
-	var col := UI.kit_col(kslot)
-	var okc := why == ""
-	var pc := PanelContainer.new()
-	pc.name = "KitBalloon"
-	var sb := UI.flat(Color("#0F1424"), col if okc else Color(DB.PAL.danger, 0.8), 2 if okc else 1, UI.R, 8)
-	sb.shadow_color = Color(0, 0, 0, 0.5)
-	sb.shadow_size = 6
-	pc.add_theme_stylebox_override("panel", sb)
-	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var v := UI.vbox(3)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pc.add_child(v)
-	var tx := UI.kit_text(k, kslot)
-	var hd := UI.hbox(6)
-	hd.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not tx.is_empty():
-		var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[kslot]), col, 20.0)
-		bd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		hd.add_child(bd)
-		var nm := UI.rich("[color=#%s]%s[/color] → [b][color=#%s]%s[/color][/b]" % [SheetStyle.DIM.to_html(false), str(tx.name), col.lightened(0.35).to_html(false), str(tx.up_n)], UI.FS_BODY)
-		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hd.add_child(nm)
-		if okc:
-			hd.add_child(UI.merit(str(Kit.up_cost(run.kit, k)), UI.FS_BODY, UI.MERIT_COL, false))
-		v.add_child(hd)
-		var dl := UI.lbl(str(tx.up_d), UI.FS_CAP, DB.PAL.paper if okc else DB.PAL.text_dim)
-		dl.custom_minimum_size.x = 196
-		UI.wrap_text(dl)
-		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(dl)
-	if not okc:
-		var yl := UI.lbl(why, UI.FS_CAP, DB.PAL.danger, true)
-		yl.custom_minimum_size.x = 196
-		UI.wrap_text(yl)
-		yl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(yl)
-	return pc
-
-
-## 끄는 동안의 덧층 —— 지금 손가락(마우스) 아래 편성 칸을 찾아 그 위에 미리보기 풍선을 띄운다. 끌기가 끝나면 스스로 사라진다.
-## manual = 점검 · 캡처용 (진짜 끌기 없이 point 로 칸을 짚는다)
-class KitDragLayer extends Control:
-	var page: DeployPage
-	var kslot := ""
-	var manual := false
-	var hover := -1               # 지금 올려 둔 편성 칸 (-1 = 없음)
-	var _balloon: Control = null
-
-	func _ready() -> void:
-		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		z_index = 50
-
-	## 손가락(마우스) 자리는 입력 사건에서 받는다 —— 끄는 중에도 _input 은 온다 (화면 좌표). 터치는 마우스로 바뀌어 온다 (emulate_mouse_from_touch)
-	func _input(e: InputEvent) -> void:
-		if not manual and e is InputEventMouse and (e as InputEventMouse).position.x > -1000.0:
-			point((e as InputEventMouse).position)
-
-	func _process(_dt: float) -> void:
-		if not manual and not get_viewport().gui_is_dragging():
-			finish()
-			return
-		_place()
-
-	## 화면 좌표 p 아래의 편성 칸으로 풍선을 옮긴다
-	func point(p: Vector2) -> void:
-		var at := -1
-		for i in page._boxes:
-			var bx = page._boxes[i]
-			if is_instance_valid(bx) and (bx as Control).get_global_rect().has_point(p):
-				at = int(i)
-				break
-		if at == hover:
-			return
-		hover = at
-		if is_instance_valid(_balloon):
-			_balloon.queue_free()
-		_balloon = null
-		if at < 0:
-			return
-		_balloon = page.kit_balloon(at, kslot)
-		if _balloon != null:
-			add_child(_balloon)
-			_place()
-
-	## 풍선 자리 —— 올려 둔 칸 바로 위 가운데 (화면 밖으로 나가지 않게 · 위에 자리가 없으면 칸 아래). 글 줄바꿈이 자리 잡은 뒤의 크기를 쓰려고 프레임마다 맞춘다
-	func _place() -> void:
-		if not is_instance_valid(_balloon) or hover < 0 or not is_instance_valid(page._boxes.get(hover)):
-			return
-		_balloon.size = Vector2.ZERO      # 최소 크기로 줄인다
-		var sz := _balloon.size
-		var br: Rect2 = (page._boxes[hover] as Control).get_global_rect()
-		var x := clampf(br.get_center().x - sz.x * 0.5, 6.0, maxf(6.0, size.x - sz.x - 6.0))
-		var y := br.position.y - sz.y - 8.0
-		if y < 70.0:      # 위에 자리가 없다 (머리띠 아래) —— 칸 아래로
-			y = br.end.y + 8.0
-		_balloon.position = Vector2(x, y)
-
-	## 끌기가 끝났다 —— 못 놓는 장수 위에서 뗐으면 까닭을 알림으로
-	func finish() -> void:
-		if hover >= 0 and not manual and not get_viewport().gui_is_drag_successful():
-			var why := page.kit_drop_block(hover, kslot)
-			if why != "" and why != "-":
-				Sfx.play("deny")
-				page.gs.toast(why, "bad")
-		if manual:
-			for i in page._boxes:
-				if is_instance_valid(page._boxes[i]):
-					(page._boxes[i] as SlotBox).kit_fx_off()
-		if page._kit_layer == self:
-			page._kit_layer = null
-		queue_free()
-
-
-## 강화 줄의 칩 —— 칸 색 네모 + 글자. 누른 채 움직이면 끌린다(끌기 자료 {"kit": 칸}), 그냥 누르면 그 칸 시트
-class KitChip extends Control:
-	const SZ := Vector2(34, 30)
-	var page: DeployPage
-	var kslot := ""
-	var usable := true           # 지금 이 칸을 놓을 수 있는 장수가 편성에 있다 (없으면 흐리게 —— 눌러서 까닭은 볼 수 있다)
-	var _pr := Press.new()
-	var _hot := false
-
-	func _ready() -> void:
-		custom_minimum_size = SZ
-		mouse_filter = Control.MOUSE_FILTER_STOP
-		mouse_default_cursor_shape = Control.CURSOR_DRAG if usable else Control.CURSOR_POINTING_HAND
-		mouse_entered.connect(func():
-			_hot = true
-			queue_redraw())
-		mouse_exited.connect(func():
-			_hot = false
-			queue_redraw())
-
-	func _get_tooltip(_at: Vector2) -> String:
-		return page.kit_chip_tip(kslot)
-
-	func _gui_input(e: InputEvent) -> void:
-		if _pr.feed(self, e) == Press.TAP:
-			UI.buzz()
-			page.kit_chip_sheet(kslot)
-
-	func _get_drag_data(at: Vector2) -> Variant:
-		_pr.reset()
-		var why: String = page.gs.kit_stage_block()
-		if why != "":
-			Sfx.play("deny")
-			page.gs.toast(why, "bad")
-			return null
-		UI.buzz(15)
-		var holder := Control.new()
-		var bd := SheetStyle.slot_badge(str(Run.Kit.SLOT_N[kslot]), UI.kit_col(kslot), 34.0)
-		bd.position = Vector2(-44, -44)      # 손가락 왼쪽 위 —— 손가락 · 풍선에 가리지 않게
-		bd.size = Vector2(34, 34)
-		bd.modulate.a = 0.92
-		holder.add_child(bd)
-		set_drag_preview(holder)
-		page.kit_drag_start(kslot, false, get_global_rect().position + at)
-		return {"kit": kslot}
-
-	func _draw() -> void:
-		var col := UI.kit_col(kslot)
-		var r := Rect2(Vector2.ZERO, size)
-		var a := 1.0 if usable else 0.38
-		draw_style_box(UI.flat(Color(col.darkened(0.08 if not _hot else 0.0), a), Color(col.lightened(0.4), a), 2 if _hot and usable else 1, UI.R, 0), r)
-		var fs := 17
-		var f := DB.font_bold
-		draw_string(f, Vector2(0, (size.y + f.get_ascent(fs) - f.get_descent(fs)) * 0.5), str(Run.Kit.SLOT_N[kslot]), HORIZONTAL_ALIGNMENT_CENTER, size.x, fs, Color(Color("#101626"), maxf(a, 0.7)))
 
 
 ## 편성판 한 칸 —— 누르면 칸 시트(또는 고른 카드를 놓는다), 길게 누르면 끌어서 옮기기·내리기
@@ -1066,6 +705,11 @@ class SlotBox extends Control:
 
 	func _gui_input(e: InputEvent) -> void:
 		if slot < 0:
+			return
+		# 11/27 사용자: "편성 화면에서 드래그를 통해 되도록 (은근 PC 플레이 니즈가 있음)" —— 마우스는 누른 채 움직이면 바로 끈다 (터치는 그대로 꾹 눌러서)
+		if not _dragging and Press.mouse_drag(e, _pr.down) and page.gs.run.board[slot] != null:
+			accept_event()
+			_start_drag()
 			return
 		var at := _pr.down
 		match _pr.feed(self, e):
@@ -1119,53 +763,16 @@ class SlotBox extends Control:
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_DRAG_BEGIN:
 			var d = get_viewport().gui_get_drag_data()
-			if d is Dictionary and d.has("kit"):      # 11/27 강화 칩을 끄는 중 —— 놓을 수 있는 칸은 밝게, 나머지는 어둡게
-				kit_fx_on(str(d.kit))
-			elif _drop_fx == null and _can_drop_data(Vector2.ZERO, d):
+			if _drop_fx == null and _can_drop_data(Vector2.ZERO, d):
 				_drop_fx = DropFx.new()
 				_drop_fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 				_drop_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				_drop_fx.own = d.get("from", -1) == slot
 				add_child(_drop_fx)
 		elif what == NOTIFICATION_DRAG_END:
-			kit_fx_off()
 			if _drop_fx != null:
 				_drop_fx.queue_free()
 				_drop_fx = null
-
-	## 11/27 강화 칩을 끄는 동안의 칸 표시 —— 놓을 수 있으면(ok) 칸 색 테 + 옅은 칸 색 면이 숨 쉬고, 아니면 어두운 막
-	var _kit_fx: KitFx = null
-
-	func kit_fx_on(kslot: String) -> void:
-		kit_fx_off()
-		if slot < 0:
-			return
-		_kit_fx = KitFx.new()
-		_kit_fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_kit_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_kit_fx.ok = page.kit_drop_block(slot, kslot) == ""
-		_kit_fx.col = UI.kit_col(kslot)
-		add_child(_kit_fx)
-
-	func kit_fx_off() -> void:
-		if _kit_fx != null:
-			_kit_fx.queue_free()
-			_kit_fx = null
-
-	class KitFx extends Control:
-		var ok := false
-		var col := Color.WHITE
-		func _ready() -> void:
-			if ok:
-				var tw := create_tween().set_loops()
-				tw.tween_property(self, "modulate:a", 0.62, 0.55).set_trans(Tween.TRANS_SINE)
-				tw.tween_property(self, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_SINE)
-		func _draw() -> void:
-			var r := Rect2(Vector2.ZERO, size)
-			if ok:
-				draw_style_box(UI.flat(Color(col, 0.16), col.lightened(0.3), 3, 8, 0), r)
-			else:
-				draw_style_box(UI.flat(Color(0.03, 0.04, 0.08, 0.68), Color(0, 0, 0, 0), 0, 8, 0), r)
 
 	## 마우스를 올렸을 때(PC) —— 키트 장수면 강화한 칸 · 고를 수 있는 칸
 	func _get_tooltip(_at: Vector2) -> String:
@@ -1197,14 +804,9 @@ class SlotBox extends Control:
 		draw_string(DB.font_bold, r.position + Vector2(15, 12.5), str(lv), HORIZONTAL_ALIGNMENT_LEFT, 11, 12, Color("#2A1018"))
 
 	func _can_drop_data(_p: Vector2, data) -> bool:
-		if slot >= 0 and data is Dictionary and data.has("kit"):      # 11/27 강화 칩 —— 놓을 수 있는 장수 위에서만
-			return page.kit_drop_block(slot, str(data.kit)) == ""
 		return slot >= 0 and data is Dictionary and data.has("card")
 
 	func _drop_data(_p: Vector2, data) -> void:
-		if data is Dictionary and data.has("kit"):
-			page.kit_drop(slot, str(data.kit))
-			return
 		page.drop(slot, data)
 
 	func _draw() -> void:
