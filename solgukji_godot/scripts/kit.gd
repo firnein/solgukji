@@ -385,3 +385,94 @@ static func p_apply(m: Dictionary, augs: Array) -> Dictionary:
 			if p_scales(str(key)):
 				out[key] = float(out[key]) * x
 	return out
+
+
+# ═════════ 새 방식 (11/27 저녁 사용자) ═════════
+## "W · E 기술도 장수별로 고유하게 · 강화를 능력치가 아니라 다양한 효과로(단순 파워업이 아니라) · 강화는 1번씩만, 장수당 1개 많으면 2개
+##  · 자리 개념이 아니라 그냥 1~2개를 강화하면 바로 끝남 (QW 관우가 QW 장각을 만났을 때 QE 관우로 바꿔 카운터 치는 것이 아니라,
+##    더 늦게 조합되는 WE 장비로 QW 장각을 약화시키는 개념) · 편성 화면에서 드래그로 되도록"
+## 자료: data/kit.json —— 카드 id → 칸 → {n 이름, cd 재사용 대기(초 · q·w·e), d 하는 일, new, up: {n 강화 이름, d 강화하면 붙는 효과}} (+ 엔진이 쓰는 필드)
+## 강화 상태(새 형식 —— Run.kit): { 카드 id: ["q", "w"] }  강화한 칸 목록 (고른 차례대로, 최대 MAX_UP 칸 · 칸마다 한 번 · 되돌릴 수 없다)
+##   옛 형식(칸 → 강화 id 배열)은 norm 이 새 형식으로 바꾼다. 전투에는 그대로 policy["kit"] = {"A": 강화 상태, "B": 강화 상태}
+## 전투 사건: 키트 장수의 기술 · 고유기 · 고유 특기 사건에 "slot", 그 칸이 강화돼 있으면 "up": true.
+##   강화 효과가 실제로 발동한 사건(다시 쓰기 · 밀어내기 · 끊기 …)에는 "kup": 강화 이름 —— 화면이 그 이름을 칸 색으로 띄운다
+const MAX_UP := 2
+const UP_COST := [4, 6]              # 그 장수의 1 · 2번째 강화 값 (전공)
+
+static var _data := {}
+
+
+static func data() -> Dictionary:
+	if _data.is_empty():
+		var f := FileAccess.open("res://data/kit.json", FileAccess.READ)
+		if f != null:
+			var d = JSON.parse_string(f.get_as_text())
+			if d is Dictionary:
+				_data = d
+	return _data
+
+
+## 그 장수 그 칸의 자료 —— {n, d, up: {n, d}, cd?, new?, …}. 없으면 빈 사전 (키트 장수가 아니거나 자료가 없다)
+static func cell(k, slot: String) -> Dictionary:
+	var h = data().get(str(k))
+	if not (h is Dictionary) or not (h.get(slot) is Dictionary):
+		return {}
+	return h[slot]
+
+
+## 강화한 칸 목록 (사본). 옛 형식이 들어와도 칸 목록으로 읽는다
+static func ups_of(kit, k) -> Array:
+	if not (kit is Dictionary):
+		return []
+	var v = kit.get(str(k))
+	var out := []
+	if v is Array:
+		for s in v:
+			if SLOTS.has(str(s)) and not out.has(str(s)):
+				out.append(str(s))
+	elif v is Dictionary:
+		for s in SLOTS:
+			if v.get(s) is Array and not (v[s] as Array).is_empty():
+				out.append(s)
+	return out.slice(0, MAX_UP)
+
+
+static func is_up(kit, k, slot: String) -> bool:
+	return ups_of(kit, k).has(slot)
+
+
+## 그 장수의 다음 강화 값 (전공) —— 더 강화할 수 없으면 −1
+static func up_cost(kit, k) -> int:
+	var n := ups_of(kit, k).size()
+	return int(UP_COST[n]) if n < MAX_UP else -1
+
+
+## 그 칸을 강화할 수 없는 까닭 ("" = 할 수 있다 —— 전공 · 보유 여부는 Run 이 본다)
+static func up_block(kit, k, slot: String) -> String:
+	if not on(k):
+		return "키트 장수가 아니다"
+	if cell(k, slot).is_empty():
+		return "없는 칸이다"
+	var have := ups_of(kit, k)
+	if have.has(slot):
+		return "이미 강화한 칸이다"
+	if have.size() >= MAX_UP:
+		return "이 장수는 %d칸을 모두 강화했다" % MAX_UP
+	return ""
+
+
+## 믿을 수 없는 강화 상태(옛 저장 · 옛 형식 · 클라이언트)를 새 형식으로 —— 모르는 카드 · 칸은 버리고 장수당 MAX_UP 칸까지
+static func norm(kit) -> Dictionary:
+	var out := {}
+	if not (kit is Dictionary):
+		return out
+	for k in kit:
+		if not on(k):
+			continue
+		var have := []
+		for s in ups_of(kit, k):
+			if not cell(k, s).is_empty():
+				have.append(s)
+		if not have.is_empty():
+			out[str(k)] = have
+	return out
