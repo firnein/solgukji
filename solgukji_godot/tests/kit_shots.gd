@@ -1,8 +1,9 @@
 extends Node
-## 11/27 장수 키트 Q · W · E · R · P 화면 캡처 + 화면 흐름 점검 —— 창이 있어야 캡처가 된다 (화면 없이 돌리면 흐름만 점검하고 캡처는 건너뛴다):
+## 11/27 장수 키트 Q · W · E · R · P 화면 캡처 + 화면 흐름 점검 (새 방식 —— 칸마다 고유 강화 하나 · 장수당 2칸 · 되돌릴 수 없다)
+## 창이 있어야 캡처가 된다 (화면 없이 돌리면 흐름만 점검하고 캡처는 건너뛴다):
 ##   godot --path . --resolution 540x1200 res://tests/kit_shots.tscn -- --out=폴더 [--seed=3] [--play=9] [--card=c177]
-## ① 머리띠의 전공 · 편성 칸의 강화 표시   ② 장수 정보창의 Q · W · E · R · P 다섯 줄 (강화 칩 · 강화 버튼 · 전공 부족)
-## ③ 강화 선택 시트 → 고르면 전공이 줄고 정보창으로 돌아온다   ④ 가지지 않은 키트 장수는 보기만 (버튼 없음)
+## ① 편성 화면 강화 줄 —— 칩을 끌어 장수 위에 올린 순간 (놓을 수 있는 장수 밝게 · 나머지 어둡게 · 미리보기)   ② 놓으면 확인 창 → 확인하면 강화
+## ③ 장수 정보창 다섯 줄 (강화 효과가 늘 보인다 · 강화됨 · 강화 버튼 · 2칸을 채우면 나머지 흐리게)   ④ 상대 정보 · 군웅 줄의 강화 표시
 ## 실패가 있으면 끝에 「실패 N」.
 
 const Kit := preload("res://scripts/kit.gd")
@@ -10,6 +11,7 @@ const Kit := preload("res://scripts/kit.gd")
 var out := "user://"
 var fails := 0
 var headless := false
+var args := {}
 
 
 func ok(cond: bool, what: String) -> void:
@@ -19,7 +21,6 @@ func ok(cond: bool, what: String) -> void:
 
 
 func _ready() -> void:
-	var args := {}
 	for s in OS.get_cmdline_user_args():
 		var kv := s.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
@@ -37,18 +38,25 @@ func _ready() -> void:
 	gs.forge_tree.clear()
 
 	var card := str(args.get("card", "c177"))
+	var card2 := ""      # 편성에 올릴 둘째 키트 장수 (2칸을 다 채운 장수)
+	for k in DB.C:
+		if Kit.on(k) and k != card:
+			card2 = k
+			break
 	var r := Run.new()
 	r.new_game(int(args.get("seed", "3")))
 	for i in int(args.get("play", "9")):
 		r.dev_autoplay()
-	# 편성 가운데 칸에 키트 장수를 올리고 몇 칸을 미리 강화해 둔다 (Q 둘 · R 하나 · P 둘), 전공은 3 —— W(2) · E(2) · R(3)은 되고 Q(4) · P(4)는 모자라다
-	var at := 4
+	# 편성에 키트 장수 둘 —— card 는 Q 하나만 강화(둘째 값 6), card2 는 2칸을 다 채웠다. 전공 7
+	var slots := []
 	for i in 9:
-		if r.board[i] != null and int(DB.C[r.board[i]].tier) <= int(DB.C[r.board[at]].tier if r.board[at] != null else 99):
-			at = i
-	r.board[at] = card
-	r.kit = Kit.clean({card: {"q": Kit.options(card, "q", []).slice(0, 2), "r": Kit.options(card, "r", []).slice(0, 1), "p": ["amp", "amp"]}})
-	r.merit = 3
+		if r.board[i] != null:
+			slots.append(i)
+	slots.sort_custom(func(a, b): return int(DB.C[r.board[a]].tier) < int(DB.C[r.board[b]].tier))
+	r.board[slots[0]] = card
+	r.board[slots[1]] = card2
+	r.kit = Kit.norm({card: ["q"], card2: ["w", "p"]})
+	r.merit = 7
 	r.grain = maxi(r.grain, 12)
 	r.auto_draw()      # 기본패를 미리 받아 둔다 —— 화면에 징집 공개 연출이 겹치지 않게
 	gs.run = r
@@ -57,56 +65,53 @@ func _ready() -> void:
 	await _wait(0.6)
 	_clean(gs)
 	await _wait(0.3)
-	ok(gs._merit_box.visible and gs._merit_lbl.text == "3", "머리띠에 전공 3 (보임 %s · 글 %s)" % [str(gs._merit_box.visible), gs._merit_lbl.text])
-	ok(gs.kit_on(), "혼자 하기 —— 키트 강화를 쓰는 판")
-	await _shot("kit_1_head_deploy")
+	ok(gs._merit_box.visible and gs._merit_lbl.text == "7" and gs.kit_on(), "머리띠에 전공 7 (보임 %s · 글 %s)" % [str(gs._merit_box.visible), gs._merit_lbl.text])
 
-	# ② 장수 정보창
+	# ── ③ 장수 정보창
 	gs.card_info(card)
 	await _wait(0.9)
 	var sec := _find(gs._sheet_body, "KitSection")
 	ok(sec != null, "정보창에 「장수 키트」 묶음")
-	var badges := _count(gs._sheet_body, func(n): return n is SheetStyle.SlotBadge)
-	ok(badges == 5, "칸 딱지 다섯 (Q · W · E · R · P) —— %d" % badges)
+	ok(_count(sec, func(n): return n is SheetStyle.SlotBadge) == 5, "칸 딱지 다섯 (Q · W · E · R · P)")
+	var rows := _rows(sec)
+	ok(rows.size() == 5 and rows.filter(func(n): return bool(n.get_meta("kit_up"))).map(func(n): return str(n.get_meta("kit_slot"))) == ["q"], "다섯 줄 · 강화됨은 Q 하나")
+	var texts := _texts(sec)
+	var all_up := Kit.SLOTS.all(func(sl): return texts.contains(str(Kit.cell(card, sl).up.n)) and texts.contains(str(Kit.cell(card, sl).n)))
+	ok(all_up, "다섯 줄 모두 기술 이름 · 강화 이름이 보인다 (강화 전에도)")
 	var btns := _buttons(sec)
-	var on_n := btns.filter(func(b): return not b.disabled).size()
-	ok(btns.size() == 5 and on_n == 3, "강화 버튼 5 · 켜진 것 3 (전공 3: W · E · R) —— %d / %d" % [on_n, btns.size()])
-	ok(_find(gs._sheet_body, "SkillsSection") == null and _count(gs._sheet_body, func(n): return n is TraitBoard and n.visible) == 0, "일반 기술 묶음 · 특기판은 그리지 않는다 (Q · W · E 는 키트 줄에)")
+	ok(btns.size() == 4 and btns.all(func(b): return not b.disabled), "강화 버튼 4 (안 한 칸마다) · 전공 7 ≥ 둘째 값 6 이라 모두 켜짐 —— %d" % btns.size())
+	ok(_find(gs._sheet_body, "SkillsSection") == null and _count(gs._sheet_body, func(n): return n is TraitBoard and n.visible) == 0, "일반 기술 묶음 · 특기판은 그리지 않는다")
 	ok(_overflow(gs, sec) == "", "키트 묶음이 시트 폭 안에 있다 %s" % _overflow(gs, sec))
-	await _shot("kit_2_card_info")
-	gs._sheet_scroll.scroll_vertical = 260
+	await _shot("kit2_3_card_info")
+	gs._sheet_scroll.scroll_vertical = 330
 	await _wait(0.4)
-	await _shot("kit_2b_card_info_scrolled")
+	await _shot("kit2_3b_card_info_scrolled")
 
-	# ③ 강화 선택 시트 —— W
-	gs._kit_pick(card, "w")
+	# 정보창의 [강화] → 확인 창 → 「그대로 둔다」 는 정보창으로
+	btns[0].pressed.emit()      # W
 	await _wait(0.8)
-	var picks := _buttons(gs._sheet_body).filter(func(b): return _has_merit_icon(b))
-	ok(picks.size() == Kit.options(card, "w", []).size() and picks.all(func(b): return not b.disabled), "강화 선택 시트 —— 고를 수 있는 강화 %d개 모두 켜짐" % picks.size())
-	await _shot("kit_3_pick_sheet")
-	var first: String = Kit.options(card, "w", [])[0]
-	picks[0].pressed.emit()
+	var yes := _find(gs._sheet_body, "KitYes") as Button
+	ok(yes != null and not yes.disabled and _texts(gs._sheet_body).contains("되돌릴 수 없습니다") and _texts(gs._sheet_body).contains(str(Kit.cell(card, "w").up.n)), "정보창 [강화] → 확인 창 (강화 이름 · 되돌릴 수 없습니다)")
+	ok(_overflow(gs, gs._sheet_body) == "", "확인 창이 시트 폭 안에 있다 %s" % _overflow(gs, gs._sheet_body))
+	await _shot("kit2_2_confirm")
+	yes.pressed.emit()
 	await _wait(0.9)
-	ok(r.merit == 1 and Kit.augs_of(r.kit, card, "w") == [first], "고르면 전공 3 → %d · W 에 「%s」" % [r.merit, Kit.AUG[first].n])
-	ok(gs._merit_lbl.text == "1", "머리띠 전공도 %s" % gs._merit_lbl.text)
+	ok(r.kit[card] == ["q", "w"] and r.merit == 1, "확인 → W 강화 · 전공 7 → %d · %s" % [r.merit, str(r.kit[card])])
 	sec = _find(gs._sheet_body, "KitSection")
-	ok(sec != null and _buttons(sec).filter(func(b): return not b.disabled).is_empty(), "정보창으로 돌아온다 —— 남은 전공 1 로는 모든 버튼이 꺼진다")
-	# 전공이 모자란 칸의 선택 시트 —— 버튼이 꺼지고 까닭
-	gs._kit_pick(card, "q")
-	await _wait(0.7)
-	var qp := _buttons(gs._sheet_body).filter(func(b): return _has_merit_icon(b))
-	ok(not qp.is_empty() and qp.all(func(b): return b.disabled), "전공이 모자란 칸 —— 선택 버튼이 모두 꺼진다")
+	ok(sec != null and _buttons(sec).is_empty() and _texts(sec).contains("모두 강화했다"), "정보창으로 돌아온다 —— 2칸을 채워 버튼이 없고 「모두 강화했다」")
+	ok(_rows(sec).filter(func(n): return bool(n.get_meta("kit_up"))).size() == 2, "강화됨 두 줄")
+	await _shot("kit2_3c_card_info_full")
 
-	# ④ 가지지 않은 키트 장수 —— 보기만
+	# 가지지 않은 키트 장수 —— 보기만
 	var other := ""
 	for k in DB.C:
-		if Kit.on(k) and k != card and r.have(k) <= 0:
+		if Kit.on(k) and r.have(k) <= 0:
 			other = k
 			break
 	gs.card_info(other)
 	await _wait(0.9)
 	sec = _find(gs._sheet_body, "KitSection")
-	ok(sec != null and _buttons(sec).is_empty() and _count(gs._sheet_body, func(n): return n is SheetStyle.SlotBadge) == 5, "가지지 않은 %s —— 다섯 줄은 보이고 강화 버튼은 없다" % DB.C[other].name)
+	ok(sec != null and _buttons(sec).is_empty() and _rows(sec).size() == 5 and _find(sec, "KitRule") == null, "가지지 않은 %s —— 다섯 줄 · 강화 효과는 보이고 버튼은 없다" % DB.C[other].name)
 	# 키트가 아닌 장수는 예전 그대로
 	var plain := ""
 	for k in DB.by_tier(7):
@@ -116,19 +121,14 @@ func _ready() -> void:
 	gs.card_info(plain)
 	await _wait(0.8)
 	ok(_find(gs._sheet_body, "KitSection") == null and _find(gs._sheet_body, "SkillsSection") != null, "키트가 아닌 %s —— 예전 그대로 (일반 기술 묶음 · 키트 묶음 없음)" % DB.C[plain].name)
-	# 전투 장수창이 쓰는 기술 목록(_skills_section) —— 키트 장수의 일반기술 줄에 Q · W · E 칸 딱지
-	var sb := gs.open_sheet("기술 목록 점검")
-	sb.add_child(gs._skills_section(card))
-	await _wait(0.6)
-	ok(_count(sb, func(n): return n is SheetStyle.SlotBadge) == 3 and _overflow(gs, sb) == "", "기술 목록(전투 장수창) —— Q · W · E 칸 딱지 셋 · 폭 안 %s" % _overflow(gs, sb))
-	if args.has("extra"):
-		await _shot("kit_x_skill_panel")
 	gs.close_sheet()
 	print("실패 %d" % fails)
 	get_tree().quit(1 if fails > 0 else 0)
 
 
 func _find(n: Node, nm: String) -> Node:
+	if n == null:
+		return null
 	if n.name == nm and not n.is_queued_for_deletion():
 		return n
 	for c in n.get_children():
@@ -139,7 +139,7 @@ func _find(n: Node, nm: String) -> Node:
 
 
 func _count(n: Node, pred: Callable) -> int:
-	if n.is_queued_for_deletion():
+	if n == null or n.is_queued_for_deletion():
 		return 0
 	var s := 1 if pred.call(n) else 0
 	for c in n.get_children():
@@ -147,6 +147,33 @@ func _count(n: Node, pred: Callable) -> int:
 	return s
 
 
+## 묶음 안의 키트 줄 (kit_slot 메타가 붙은 판) —— 화면 차례대로
+func _rows(n: Node) -> Array:
+	var o := []
+	if n == null or n.is_queued_for_deletion():
+		return o
+	if n.has_meta("kit_slot"):
+		o.append(n)
+	for c in n.get_children():
+		o.append_array(_rows(c))
+	return o
+
+
+## 묶음 안의 글을 모두 이어 붙인다 (Label · RichTextLabel · 단어 잇기 문자는 뺀다)
+func _texts(n: Node) -> String:
+	if n == null or n.is_queued_for_deletion():
+		return ""
+	var s := ""
+	if n is Label:
+		s += (n as Label).text + "\n"
+	elif n is RichTextLabel:
+		s += (n as RichTextLabel).get_parsed_text() + "\n"
+	for c in n.get_children():
+		s += _texts(c)
+	return s.replace(UI.WJ, "")
+
+
+## 전공 기호가 든 버튼들 (강화 버튼)
 func _buttons(n: Node) -> Array:
 	var o := []
 	if n == null or n.is_queued_for_deletion():
@@ -158,7 +185,6 @@ func _buttons(n: Node) -> Array:
 	return o
 
 
-## 전공 기호가 든 버튼인가 (강화 · 선택 버튼)
 func _has_merit_icon(n: Node) -> bool:
 	if n is Icons.View and (n as Icons.View).icon == "merit":
 		return true

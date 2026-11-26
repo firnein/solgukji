@@ -441,7 +441,7 @@ func _build_top() -> Control:
 	_merit_box = UI.merit("0", UI.FS_BODY)
 	_merit_box.mouse_filter = Control.MOUSE_FILTER_STOP
 	UI.tap(_merit_box, func():
-		toast("%s —— 대전 +%d · 토벌 승리 +%d. 신화 장수의 Q · W · E · R · P 강화에 쓴다 (장수 정보창)" % [Kit.CUR_N, Run.MERIT_PVP, Run.MERIT_QUEST_WIN]))
+		toast("%s —— 대전 +%d · 토벌 승리 +%d. 신화 장수의 Q · W · E · R · P 강화에 쓴다 (편성 화면에서 칩을 끌어 장수 위에)" % [Kit.CUR_N, Run.MERIT_PVP, Run.MERIT_QUEST_WIN]))
 	_merit_lbl = _merit_box.get_child(1)
 	cur_row.add_child(_merit_box)
 	cur_row.add_child(_grain_box)
@@ -993,6 +993,7 @@ func render(new_page := false) -> void:
 	if run != _warm_run:
 		_warm_run = run
 		_warm_for_run()
+	MiniTile.kit = run.kit      # 11/27 장수 키트 —— 가진 장수 타일 왼쪽 위에 강화한 칸 글자 (Q · W …)
 	MiniTile.locked = run.locked      # 11/12 온라인 장수 선점제 · 사망룰 —— 잠긴 장수 타일은 회색 + 까닭, 눌리지 않는다 (혼자 하기는 늘 빈 것)
 	_sync_lock_marks()
 	_render_head()
@@ -4648,10 +4649,14 @@ func _skills_section(k: String, compact := false, live := false) -> Control:
 	return box
 
 
-# ───────── 11/27 장수 키트 Q · W · E · R · P (scripts/kit.gd) ─────────
+# ───────── 11/27 장수 키트 Q · W · E · R · P (scripts/kit.gd · data/kit.json) ─────────
 ## 사용자: "고유기를 가진 등급의 일반기술을 q,w,e · 고유기를 r · 고유 특기는 p 라고 칭하자. 군량 외에 제 3의 재화로 q,w,e,r,p 를 선택해서 강화."
-## 키트 장수(지금은 신화)의 상세창 기술 영역 —— 다섯 줄: [칸 딱지(칸 색)] 이름 · 주기 / 설명 / 발동 조건 / 붙인 강화 칩, 가진 장수면 오른쪽에 [강화 · 전공 N].
-## 버튼을 누르면 강화 선택 시트(_kit_pick) —— 고르면 명령 kit_up (Run.kit_up · 서버는 '징집 · 조합' 단계에 받는다). 가지지 않은 장수(조합법 · 도감에서 볼 때)는 보기만.
+## 11/27 저녁(새 방식): 칸마다 고유 강화 하나 · 장수당 2칸까지 · 되돌릴 수 없다 —— 강화 목록에서 고르는 시트는 없앴다.
+## 키트 장수(지금은 신화)의 상세창 기술 영역 —— 다섯 줄(줄마다 판 한 장): [칸 딱지(칸 색)] 이름 · 주기 / 하는 일 / 강화 효과(강화 전에도 늘 보인다).
+##   강화한 줄은 칸 색 테두리 + 「강화됨」. 가진 장수이고 2칸 미만이면 강화 안 한 줄에 [강화 · 전공 N] —— 누르면 확인 창(kit_confirm) 뒤 명령 kit_up.
+##   2칸을 채우면 나머지 줄의 강화 효과는 흐리게. 가지지 않은 장수(조합법 · 도감에서 볼 때)는 보기만.
+## 글은 모두 data/kit.json (UI.kit_text) —— 카드의 옛 sks 이름 · 설명은 키트 장수에게 맞지 않는다.
+## 편성 화면에서는 강화 줄의 칩을 끌어 장수 위에 놓아 강화한다 (DeployPage —— 같은 확인 창).
 ## 이 장수의 특기는 고유 특기(P) 하나만 보인다 —— 일반 특기 묶음 · 특기판 · 고유기 카드는 그리지 않는다 (card_info · TraitBoard · CardTile.draw_traits)
 
 ## 키트 강화(전공)를 쓰는 판인가 —— 혼자 하기는 늘, 온라인은 서버가 아는 판 (방 정보 kit —— 옛 서버는 없어 숨긴다)
@@ -4661,48 +4666,49 @@ func kit_on() -> bool:
 	return online == null or bool(online.room.get("kit", false))
 
 
-## 그 칸의 화면 글 —— {name, kind("sk"|"ult"|"p"), when(주기 · 시작 시각 칩), cond(발동 조건), effect(설명)}. 그 칸이 없으면 빈 사전.
-## 설명은 기존 글 그대로: 일반기술 DB.skill_desc · sk_when, 고유기 UI.ult_desc · DB.ult_when, 고유 특기 _ability_items
-func _kit_slot_text(k: String, slot: String) -> Dictionary:
-	var sd := Kit.slot_def(k, slot)
-	if sd.is_empty():
-		return {}
-	var c: Dictionary = DB.C[k]
-	var out := {"name": str(sd.name), "kind": str(sd.kind), "when": "", "cond": "", "effect": ""}
-	match str(sd.kind):
-		"sk":
-			var e := _skill_entry("", str(sd.name), "skill", "", DB.sk_when(sd.src, c), DB.skill_desc(c, sd.src))
-			out.when = (str(e.period) + "마다") if str(e.period) != "" else ""
-			out.cond = str(e.condition)
-			out.effect = str(e.effect)
-		"ult":
-			out.when = "고유기 · " + DB.ult_when(sd.src)
-			out.effect = UI.ult_desc(sd.src, int(c.tier))
-		"p":
-			out.when = "고유 특기"
-			for it in _ability_items(k):
-				if str(it.kind) == "고유 특기" and str(it.name) == str(sd.name):
-					out.effect = str(it.effect)
-			if out.effect == "":      # 특기 목록에 없을 때 (엔진 쪽 목록이 달라져도 이름 · 설명은 남는다)
-				out.effect = str(sd.src.get("d", ""))
-	return out
+## 지금 강화 명령을 낼 수 없는 까닭 (단계) —— "" 이면 된다. 전공 · 칸 사정은 run.kit_block 이 본다
+func kit_stage_block() -> String:
+	if can_act():
+		return ""
+	return online.block_reason("draw") if online != null else "지금은 강화할 수 없다"
 
 
-## 붙인 강화 칩 줄 —— 같은 강화를 여러 번 붙였으면 「각성 ×2」
-func _kit_aug_chips(augs: Array, col: Color) -> Control:
-	var f := UI.flow(5)
-	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var seen := {}
-	for a in augs:
-		seen[a] = int(seen.get(a, 0)) + 1
-	for a in seen:
-		var nm := str(Kit.AUG.get(a, {}).get("n", a))
-		f.add_child(SheetStyle.chip(nm if int(seen[a]) == 1 else "%s ×%d" % [nm, int(seen[a])], col, "soft", "up"))
-	return f
+## 강화 효과 한 칸 —— 왼쪽 칸 색 띠 + 「강화 · 이름」 / 효과 글. lit = 강화한 칸 (칸 색 바탕), right = 오른쪽에 둘 것(버튼 칸 · 없으면 null)
+func kit_up_box(slot: String, tx: Dictionary, lit: bool, right: Control = null) -> Control:
+	var col := UI.kit_col(slot)
+	var pc := PanelContainer.new()
+	var sb := UI.flat(Color(col, 0.16) if lit else Color(DB.PAL.ink, 0.55), Color(0, 0, 0, 0), 0, UI.R, 0)
+	sb.border_color = col if lit else Color(col, 0.75)
+	sb.border_width_left = 3
+	sb.content_margin_left = 10
+	sb.content_margin_right = 8
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 6
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_PASS
+	var h := UI.hbox(UI.SP_S)
+	h.mouse_filter = Control.MOUSE_FILTER_PASS
+	pc.add_child(h)
+	var v := UI.vbox(1)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(UI.lbl("강화 · %s" % str(tx.up_n), 11, col.lightened(0.35), true))
+	var dl := UI.rich(_hl(str(tx.up_d)), 13)
+	dl.add_theme_color_override("default_color", SheetStyle.TEXT)
+	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(dl)
+	h.add_child(v)
+	if right != null:
+		h.add_child(right)
+	return pc
 
 
 func _kit_section(k: String) -> Control:
-	var can_up: bool = run.have(k) > 0 and kit_on()
+	var owned: bool = run.have(k) > 0
+	var can_up: bool = owned and kit_on()
+	var ups := Kit.ups_of(run.kit, k) if owned else []
+	var full: bool = ups.size() >= Kit.MAX_UP
 	var box := UI.vbox(6)
 	box.name = "KitSection"
 	var head := SheetStyle.section("장수 키트", "" if can_up else "Q · W · E 일반기술 · R 고유기 · P 고유 특기")
@@ -4712,118 +4718,96 @@ func _kit_section(k: String) -> Control:
 		head.add_child(hl)
 		head.add_child(UI.merit(str(run.merit), SheetStyle.FS_ROW, UI.MERIT_COL, false))
 	box.add_child(head)
-	if can_up and not can_act():
-		box.add_child(UI.hint(online.block_reason("draw") if online != null else "지금은 강화할 수 없다"))
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", UI.flat(SheetStyle.WELL, SheetStyle.LINE, 1, 6, 0))
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	var stack := UI.vbox(0)
-	panel.add_child(stack)
-	for slot in Kit.SLOTS:
-		if Kit.slot_def(k, slot).is_empty():
-			continue
-		if stack.get_child_count() > 0:
-			var line := MarginContainer.new()
-			line.add_theme_constant_override("margin_left", 10)
-			line.add_theme_constant_override("margin_right", 10)
-			line.add_child(UI.hair())
-			stack.add_child(line)
-		stack.add_child(_kit_row(k, slot, can_up))
-	box.add_child(panel)
 	if can_up:
-		var note := UI.lbl("칸마다 강화 %d번까지 (%s %s) · %s은 대전 +%d · 토벌 승리 +%d" % [Kit.MAX_LV, Kit.CUR_N, " → ".join(Kit.COST.map(func(x): return str(x))), Kit.CUR_N, Run.MERIT_PVP, Run.MERIT_QUEST_WIN], 11, SheetStyle.DIM)
-		UI.wrap_text(note)
-		box.add_child(note)
+		var rule_text := "%d칸을 모두 강화했다 —— 이 장수는 더 강화할 수 없다" % Kit.MAX_UP
+		if not full:
+			rule_text = "강화는 장수마다 %d칸까지 (%s %s) · 한 번 강화하면 되돌릴 수 없다" % [Kit.MAX_UP, Kit.CUR_N, " → ".join(Kit.UP_COST.map(func(x): return str(x)))]
+		var rule := UI.lbl(rule_text, 11, UI.kit_col(str(ups[-1])).lightened(0.3) if full else SheetStyle.DIM)
+		rule.name = "KitRule"
+		UI.wrap_text(rule)
+		box.add_child(rule)
+		if not full and kit_stage_block() != "":
+			box.add_child(UI.hint(kit_stage_block()))
+	for slot in Kit.SLOTS:
+		if not Kit.cell(k, slot).is_empty():
+			box.add_child(_kit_row(k, slot, can_up, ups))
 	return box
 
 
-## 키트 한 줄 —— 윗줄: [칸 딱지] 이름 / 주기 · 발동 조건   [강화 · 전공 N],  아랫줄(이름 왼끝에 맞춰 들여서): 설명 · 붙인 강화 칩.
-## 설명을 버튼 옆 좁은 칸에 넣으면 세 줄로 끊겨서(휴대폰 폭) 버튼 아래 온 폭을 쓴다
-func _kit_row(k: String, slot: String, can_up: bool) -> Control:
-	var tx := _kit_slot_text(k, slot)
-	var col := Color(str(Kit.SLOT_COL[slot]))
-	var augs := Kit.augs_of(run.kit, k, slot)
+## 키트 한 줄 (판 한 장) —— [칸 딱지] 이름 · 주기 … 「강화됨」 / 하는 일 / 강화 효과 칸 (+ 강화 버튼)
+func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
+	var tx := UI.kit_text(k, slot)
+	var col := UI.kit_col(slot)
+	var is_up := ups.has(slot)
+	var full := ups.size() >= Kit.MAX_UP
 	var badge_w := 26.0
-	var m := MarginContainer.new()
-	for edge in ["left", "right"]:
-		m.add_theme_constant_override("margin_" + edge, 10)
-	for edge in ["top", "bottom"]:
-		m.add_theme_constant_override("margin_" + edge, 8)
-	m.mouse_filter = Control.MOUSE_FILTER_PASS
+	var pc := PanelContainer.new()
+	var sb := UI.flat(Color(col, 0.07) if is_up else SheetStyle.WELL, col if is_up else SheetStyle.LINE, 2 if is_up else 1, 6, 0)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 9
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_PASS
+	pc.set_meta("kit_slot", slot)
+	pc.set_meta("kit_up", is_up)
 	var rows := UI.vbox(4)
 	rows.mouse_filter = Control.MOUSE_FILTER_PASS
-	m.add_child(rows)
+	pc.add_child(rows)
 	var h := UI.hbox(UI.SP_S)
-	h.mouse_filter = Control.MOUSE_FILTER_PASS
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rows.add_child(h)
-	h.add_child(SheetStyle.slot_badge(str(Kit.SLOT_N[slot]), col, badge_w))
-	var v := UI.vbox(1)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(v)
+	var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[slot]), col, badge_w)
+	bd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(bd)
 	var nl := UI.lbl(str(tx.name), SheetStyle.FS_VALUE, SheetStyle.TEXT, true)
-	nl.clip_text = true
-	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	v.add_child(nl)
-	var sub := []      # 주기(칸 색) · 발동 조건
-	if str(tx.when) != "":
-		sub.append("[color=#%s]%s[/color]" % [col.lightened(0.35).to_html(false), str(tx.when)])
-	if str(tx.cond) != "":
-		sub.append(str(tx.cond))
-	if not sub.is_empty():
-		var sl := UI.rich(" · ".join(sub), SheetStyle.FS_SUB)
-		sl.add_theme_color_override("default_color", SheetStyle.DIM)
-		sl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(sl)
-	var body := UI.vbox(4)
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if str(tx.effect) != "":
-		var ef := UI.rich(_hl(str(tx.effect)), 13)
-		ef.add_theme_color_override("default_color", SheetStyle.TEXT)
-		ef.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		body.add_child(ef)
-	if not augs.is_empty():
-		body.add_child(_kit_aug_chips(augs, col))
-	if body.get_child_count() > 0:
-		var ind := MarginContainer.new()
-		ind.add_theme_constant_override("margin_left", int(badge_w) + UI.SP_S)
-		ind.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ind.add_child(body)
-		rows.add_child(ind)
-	else:
-		body.free()
-	if not can_up:
-		return m
-	# 강화 버튼 칸 —— 다음 값 · 모자라면 꺼지고 아래에 까닭 · 다 올렸으면 「강화 완료」
-	var bv := UI.vbox(2)
-	bv.custom_minimum_size.x = 92
-	bv.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var cost := Kit.next_cost(augs)
-	if cost < 0 or Kit.options(k, slot, augs).is_empty():
-		var dl := UI.lbl("강화 완료" if cost < 0 else "강화 없음", UI.FS_CAP, col.lightened(0.3) if cost < 0 else SheetStyle.DIM, true)
-		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		dl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		dl.custom_minimum_size.y = UI.BH_S
-		bv.add_child(dl)
-	else:
-		var bt := UI.merit_btn("강화", str(cost), func(): _kit_pick(k, slot), "", UI.BH_S, UI.FS_BODY)
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(nl)
+	var wl := UI.lbl(str(tx.when), SheetStyle.FS_SUB, SheetStyle.DIM)
+	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	wl.clip_text = true
+	h.add_child(wl)
+	if is_up:
+		h.add_child(SheetStyle.chip("강화됨", col, "solid"))
+	var body := UI.vbox(5)
+	body.mouse_filter = Control.MOUSE_FILTER_PASS
+	var ind := MarginContainer.new()
+	ind.add_theme_constant_override("margin_left", int(badge_w) + UI.SP_S)
+	ind.mouse_filter = Control.MOUSE_FILTER_PASS
+	ind.add_child(body)
+	rows.add_child(ind)
+	var ef := UI.rich(_hl(str(tx.d)), 13)
+	ef.add_theme_color_override("default_color", SheetStyle.TEXT)
+	ef.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(ef)
+	# 강화 버튼 칸 —— 가진 장수 · 2칸 미만 · 아직 안 한 칸에만. 전공이 모자라거나 단계가 막히면 꺼지고 아래에 까닭
+	var bv: VBoxContainer = null
+	if can_up and not is_up and not full:
+		var cost := Kit.up_cost(run.kit, k)
+		bv = UI.vbox(2)
+		bv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var bt := UI.merit_btn("강화", str(cost), func(): kit_confirm(k, slot, true), "", UI.BH_S, UI.FS_BODY)
 		SheetStyle.sub_btn(bt)
-		bt.custom_minimum_size.x = 92
+		bt.custom_minimum_size.x = 88
 		var short: bool = run.merit < cost
-		bt.disabled = short or not can_act()
+		bt.disabled = short or kit_stage_block() != ""
 		if bt.disabled:      # 비활성 —— 버튼 모양은 남기고 안의 글자 · 값만 흐리게 (_buy_btn 과 같다)
 			bt.add_theme_stylebox_override("disabled", UI.flat(DB.PAL.ink2, Color(DB.PAL.paper, 0.16), 1, UI.R, 10))
 			bt.get_child(bt.get_child_count() - 1).modulate.a = 0.4
 		bv.add_child(bt)
 		if short:
-			var wl := UI.lbl("%s 부족 %d/%d" % [Kit.CUR_N, run.merit, cost], UI.FS_TINY, SheetStyle.WARN)
-			wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			bv.add_child(wl)
-	h.add_child(bv)
-	return m
+			var sl := UI.lbl("%s 부족 %d/%d" % [Kit.CUR_N, run.merit, cost], UI.FS_TINY, SheetStyle.WARN)
+			sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			bv.add_child(sl)
+	var ub := kit_up_box(slot, tx, is_up, bv)
+	if can_up and full and not is_up:
+		ub.modulate.a = 0.45      # 2칸을 다 채웠다 —— 못 고른 칸의 강화 효과는 흐리게 (글은 남긴다)
+	body.add_child(ub)
+	return pc
 
 
-## 키트 장수의 나머지 기술 —— 잔기술(연계) · 이탈기 (일반기술 셋은 키트 줄 Q · W · E 에 있다). 없으면 null
+## 키트 장수의 나머지 기술 —— 잔기술(연계) · 이탈기 (기술 셋은 키트 줄 Q · W · E 에 있다). 없으면 null
 func _kit_rest_skills(k: String) -> Control:
 	var items := _skill_entries(k).filter(func(e): return str(e.kind) != "skill")
 	if items.is_empty():
@@ -4834,82 +4818,120 @@ func _kit_rest_skills(k: String) -> Control:
 	return box
 
 
-## 강화 선택 시트 —— 그 칸에 지금 붙일 수 있는 강화 목록(이름 · 설명 · 값). 고르면 kit_up, 끝나면 장수 정보창으로 돌아간다
-func _kit_pick(k: String, slot: String) -> void:
-	var tx := _kit_slot_text(k, slot)
-	if tx.is_empty() or run.have(k) <= 0:
+## 강화 확인 창 —— 장수 · 칸 · 기술 → 강화 효과 · 값 · 「되돌릴 수 없습니다」. 확인하면 kit_up.
+## to_info = 장수 정보창에서 왔다 (끝나면 그리로 돌아간다). 편성 화면(끌어 놓기 · 칩 시트)에서 왔으면 시트를 닫는다
+func kit_confirm(k: String, slot: String, to_info := false) -> void:
+	var tx := UI.kit_text(k, slot)
+	if tx.is_empty() or not DB.C.has(k):
 		return
-	var col := Color(str(Kit.SLOT_COL[slot]))
-	var augs := Kit.augs_of(run.kit, k, slot)
-	var cost := Kit.next_cost(augs)
-	var b := open_sheet("%s 강화" % str(tx.name))
-	var hd := UI.hbox(UI.SP_S)
-	hd.add_child(SheetStyle.slot_badge(str(Kit.SLOT_N[slot]), col))
-	var who := UI.lbl("%s · %s" % [DB.C[k].name, str(Kit.SLOT_KIND[slot])], UI.FS_BODY, DB.PAL.text_dim)
-	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	who.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	who.clip_text = true
-	who.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	hd.add_child(who)
+	var col := UI.kit_col(slot)
+	var why := kit_stage_block()
+	if why == "":
+		why = run.kit_block(k, slot)
+	var cost := Kit.up_cost(run.kit, k)
+	var nth := Kit.ups_of(run.kit, k).size() + 1
+	var back := func():
+		if to_info:
+			_back_nav = true
+			card_info(k)
+		else:
+			close_sheet()
+	var b := open_sheet("강화합니다")
+	var who := UI.hbox(UI.SP_S)
+	var wt := mtile(k, -1)
+	wt.custom_minimum_size = Vector2(56, 78)
+	wt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	who.add_child(wt)
+	var wv := UI.vbox(3)
+	wv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var wn := UI.lbl(str(DB.C[k].name), UI.FS_LABEL, DB.tier_color(k).lightened(0.2), true)
+	wn.clip_text = true
+	wn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	wv.add_child(wn)
+	wv.add_child(UI.lbl("이 장수의 %d번째 강화 (장수마다 %d칸까지)" % [nth, Kit.MAX_UP], UI.FS_CAP, DB.PAL.text_dim))
+	var mr := UI.hbox(UI.SP_XS)
 	var ml := UI.lbl("가진 %s" % Kit.CUR_N, UI.FS_CAP, DB.PAL.text_dim)
 	ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hd.add_child(ml)
-	hd.add_child(UI.merit(str(run.merit), UI.FS_LABEL))
-	b.add_child(hd)
-	if str(tx.effect) != "":
-		var ef := UI.rich(_hl(str(tx.effect)), 13)
-		ef.add_theme_color_override("default_color", SheetStyle.DIM)
-		b.add_child(ef)
-	if not augs.is_empty():
-		var ar := UI.hbox(UI.SP_S)
-		var al := UI.lbl("붙인 강화 %d/%d" % [augs.size(), Kit.MAX_LV], UI.FS_CAP, DB.PAL.text_dim)
+	mr.add_child(ml)
+	mr.add_child(UI.merit(str(run.merit), UI.FS_BODY, UI.MERIT_COL, false))
+	if cost >= 0 and run.merit >= cost:
+		var al := UI.lbl("→ %d" % (run.merit - cost), UI.FS_CAP, DB.PAL.text_dim)
 		al.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		ar.add_child(al)
-		var chips := _kit_aug_chips(augs, col)
-		chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		ar.add_child(chips)
-		b.add_child(ar)
-	var back := func():
-		_back_nav = true
-		card_info(k)
-	var opts: Array = Kit.options(k, slot, augs) if cost >= 0 else []
-	if opts.is_empty():
-		b.add_child(UI.hint("이 칸은 더 강화할 수 없다 (칸마다 %d번까지)." % Kit.MAX_LV if cost < 0 else "이 칸에 붙일 수 있는 강화가 없다."))
-		b.add_child(UI.btn("장수 정보", back, "ghost"))
-		return
-	b.add_child(SheetStyle.section("고를 수 있는 강화", "%d번째 강화" % (augs.size() + 1)))
-	var short: bool = run.merit < cost
-	if not can_act():
-		b.add_child(UI.hint(online.block_reason("draw") if online != null else "지금은 강화할 수 없다"))
-	elif short:
-		var wl := UI.lbl("%s이 모자랍니다 (%d / %d) —— 대전 +%d · 토벌 승리 +%d" % [Kit.CUR_N, run.merit, cost, Run.MERIT_PVP, Run.MERIT_QUEST_WIN], UI.FS_BODY, DB.PAL.danger)
-		UI.wrap_text(wl)
-		b.add_child(wl)
-	for aug in opts:
-		var ag: String = aug
-		var row := UI.hbox(UI.SP_S)
-		var tv := UI.vbox(2)
-		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		tv.add_child(UI.lbl(str(Kit.AUG[ag].n), UI.FS_LABEL, col.lightened(0.3), true))
-		var dl := UI.rich(_hl(Kit.aug_text(ag, str(tx.kind))), 13)
-		dl.add_theme_color_override("default_color", SheetStyle.TEXT)
-		tv.add_child(dl)
-		row.add_child(tv)
-		var bt := UI.merit_btn("선택", str(cost), func():
-			if act("kit_up", [k, slot, ag]):
-				toast("%s —— 「%s」 강화" % [str(tx.name), str(Kit.AUG[ag].n)], "gain")
-				back.call(), "", UI.BH_M, UI.FS_BODY)
-		SheetStyle.sub_btn(bt)
-		bt.custom_minimum_size.x = 100
-		bt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		bt.disabled = short or not can_act()
-		if bt.disabled:
-			bt.add_theme_stylebox_override("disabled", UI.flat(DB.PAL.ink2, Color(DB.PAL.paper, 0.16), 1, UI.R, 10))
-			bt.get_child(bt.get_child_count() - 1).modulate.a = 0.4
-		row.add_child(bt)
-		b.add_child(UI.panel(row, 8))
-	b.add_child(UI.btn("장수 정보", back, "ghost"))
+		mr.add_child(al)
+	wv.add_child(mr)
+	who.add_child(wv)
+	b.add_child(who)
+	# 칸 —— 기술 이름 · 주기 · 하는 일 + 강화 효과
+	var pc := PanelContainer.new()
+	pc.name = "KitConfirm"
+	pc.add_theme_stylebox_override("panel", UI.flat(Color(col, 0.07), Color(col, 0.8), 1, 6, 10))
+	var pv := UI.vbox(5)
+	pc.add_child(pv)
+	var hd := UI.hbox(UI.SP_S)
+	var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[slot]), col, 26.0)
+	bd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(bd)
+	var nl := UI.lbl(str(tx.name), SheetStyle.FS_VALUE, SheetStyle.TEXT, true)
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(nl)
+	var wl := UI.lbl(str(tx.when), SheetStyle.FS_SUB, SheetStyle.DIM)
+	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hd.add_child(wl)
+	pv.add_child(hd)
+	var ef := UI.rich(_hl(str(tx.d)), 13)
+	ef.add_theme_color_override("default_color", SheetStyle.DIM)
+	pv.add_child(ef)
+	pv.add_child(kit_up_box(slot, tx, true))
+	b.add_child(pc)
+	var warn := UI.lbl("한 번 강화하면 되돌릴 수 없습니다 (옮기기 · 환불 없음)", UI.FS_BODY, DB.PAL.danger)
+	UI.wrap_text(warn)
+	b.add_child(warn)
+	if why != "":
+		var wl2 := UI.lbl(why, UI.FS_BODY, DB.PAL.danger, true)
+		UI.wrap_text(wl2)
+		b.add_child(wl2)
+	var br := UI.hbox(UI.SP_S)
+	var no := UI.btn("그대로 둔다", back, "ghost", UI.BH_M)
+	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	br.add_child(no)
+	var yes := UI.merit_btn("강화한다", str(maxi(cost, 0)), func():
+		if act("kit_up", [k, slot]):
+			toast("%s —— %s 「%s」 강화" % [DB.person(k), str(Kit.SLOT_N[slot]), str(tx.up_n)], "gain")
+		back.call(), "pri", UI.BH_M)
+	yes.name = "KitYes"
+	yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	yes.disabled = why != ""
+	if yes.disabled:
+		yes.get_child(yes.get_child_count() - 1).modulate.a = 0.4
+	br.add_child(yes)
+	b.add_child(br)
+
+
+## 강화한 칸 요약 —— 줄마다 [Q] 강화 이름 · 기술 이름 (+ 효과 글). 칸 시트 · 상대 정보에서 쓴다. 강화가 없으면 null
+func kit_summary(k: String, ups: Array, with_text := false) -> Control:
+	if ups.is_empty() or not Kit.on(k):
+		return null
+	var v := UI.vbox(3)
+	v.name = "KitSummary"
+	for u in ups:
+		var sl := str(u)
+		var tx := UI.kit_text(k, sl)
+		if tx.is_empty():
+			continue
+		var h := UI.hbox(6)
+		var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[sl]), UI.kit_col(sl), 18.0)
+		bd.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		h.add_child(bd)
+		var bb := "[color=#%s][b]%s[/b][/color] [color=#%s](%s)[/color]" % [UI.kit_col(sl).lightened(0.35).to_html(false), str(tx.up_n), SheetStyle.DIM.to_html(false), str(tx.name)]
+		if with_text:
+			bb += "  " + _hl(str(tx.up_d))
+		var t := UI.rich(bb, UI.FS_CAP)
+		t.add_theme_color_override("default_color", SheetStyle.TEXT)
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(t)
+		v.add_child(h)
+	return v if v.get_child_count() > 0 else null
 
 
 ## 잔기술 설명 (Battle.MINOR · minor_kind) —— "공격 3번에 한 번 · 약 3.5초마다 · 책략 피해 ×0.90 · 화상"

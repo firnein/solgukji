@@ -215,6 +215,29 @@ static func merit_btn(pre: String, text: String, cb: Callable, kind := "", h := 
 	return b
 
 
+## 11/27 장수 키트 칸의 화면 글 —— data/kit.json (Kit.cell) 그대로: {name, when(주기 글), d(하는 일), up_n(강화 이름), up_d(강화하면 붙는 효과)}.
+## 그 칸의 자료가 없으면 빈 사전. 글은 엔진 갈래가 고칠 수 있어 코드에 옮겨 적지 않고 늘 여기서 읽는다 (정보창 · 편성 강화 줄 · 확인 창 · 기술 목록 · 전투 장수창)
+static func kit_text(k, slot: String) -> Dictionary:
+	var c: Dictionary = Run.Kit.cell(k, slot)
+	if c.is_empty():
+		return {}
+	var when := ""
+	match slot:
+		"r": when = "고유기"
+		"p": when = "고유 특기"
+		_:
+			if c.get("cd") is int or c.get("cd") is float:
+				var cd := float(c.cd)
+				when = ("%d초마다" % int(cd)) if is_equal_approx(cd, roundf(cd)) else ("%.1f초마다" % cd)
+	var up: Dictionary = c.up if c.get("up") is Dictionary else {}
+	return {"name": str(c.get("n", "")), "when": when, "d": str(c.get("d", "")), "up_n": str(up.get("n", "")), "up_d": str(up.get("d", ""))}
+
+
+## 칸 색 (Kit.SLOT_COL)
+static func kit_col(slot: String) -> Color:
+	return Color(str(Run.Kit.SLOT_COL.get(slot, "#ffffff")))
+
+
 static func hint(text: String) -> Label:
 	var l := lbl(text, FS_BODY, DB.PAL.text_dim)
 	wrap_text(l)

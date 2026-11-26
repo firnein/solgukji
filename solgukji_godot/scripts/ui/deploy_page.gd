@@ -796,7 +796,7 @@ class SlotBox extends Control:
 		if compact:      # 11/14 감사 #8 —— 아래 목록을 연 때: 초상 / 이름 (아이템은 초상 아래 두 점)
 			_draw_compact(k, c, run)
 			_draw_yeon(page.slot_link_lv(slot))
-			_draw_kit(k, run, 5.0)
+			_draw_kit(k, run, 10.0)
 			return
 		if size.x < 120:      # 11/6 5열 —— 좁은 칸: 초상 / 이름 / 병종 · 병력 / 아이템 / 진형 버프
 			_draw_narrow(k, c, z, run)
@@ -823,19 +823,12 @@ class SlotBox extends Control:
 		_draw_yeon(page.slot_link_lv(slot))
 		_draw_kit(k, run)
 
-	## 11/27 장수 키트 강화 표시 —— 강화한 칸(Q · W · E · R · P)마다 칸 색 작은 네모를 칸 왼쪽 위에서 아래로. 강화가 없으면 아무것도 그리지 않는다.
-	## 오른쪽 위는 인연 · 선호 자리 표시가 써서 왼쪽 세로줄로 (좁은 칸에서도 겹치지 않는다). 무엇을 붙였는지는 장수 정보창에서
-	func _draw_kit(k: String, run: Run, pip := 6.0) -> void:
-		if not (run.kit.get(k) is Dictionary):
-			return
-		var y := 7.0
-		for sl in Run.Kit.SLOTS:
-			if Run.Kit.lv(run.kit, k, sl) <= 0:
-				continue
-			var r := Rect2(4.0, y, pip, pip)
-			draw_rect(r.grow(1.0), Color(DB.PAL.ink, 0.9))
-			draw_rect(r, Color(str(Run.Kit.SLOT_COL[sl])))
-			y += pip + 3.0
+	## 11/27 장수 키트 강화 표시 —— 강화한 칸의 글자(Q · W …)를 칸 색 네모로 칸 왼쪽 위에서 아래로 (MiniTile.draw_kit —— 타일과 같은 딱지).
+	## 오른쪽 위는 인연 · 선호 자리 표시가 써서 왼쪽 세로줄로 (좁은 칸에서도 겹치지 않는다). 강화가 없으면 아무것도 그리지 않는다
+	func _draw_kit(k: String, run: Run, box := 13.0) -> void:
+		var ups := Run.Kit.ups_of(run.kit, k)
+		if not ups.is_empty():
+			MiniTile.draw_kit(self, ups, Vector2(4.0, 6.0 if box > 11.0 else 4.0), box, true, 2.0 if box > 11.0 else 1.0)
 
 	## 자리 선호 · 어색에 따른 글자색 (옥 · 붉음 —— 글자용 danger)
 	static func _aff_col(z: String, base: Color) -> Color:

@@ -33,6 +33,38 @@ static var blocked := {}
 ## 11/25 잠긴 칸을 누르면 부른다 (k) —— GameScreen 이 까닭 알림(toast)을 띄운다. 없으면 거절음만
 static var on_deny := Callable()
 var show_lock := true       # 11/25 다른 세력의 핵심 장수 · 적 편성처럼 '그 세력 것'을 보이는 칸은 잠금 띠를 그리지 않는다
+## 11/27 장수 키트 강화 표시 —— 타일 왼쪽 위에 강화한 칸의 글자(Q · W …)를 칸 색 네모로 ("QW 관우" 가 한눈에). MiniTile · CardTile · 편성 칸이 같이 쓴다.
+## kit = 내 강화 상태(Run.kit, GameScreen.render 가 넣는다). 남의 장수를 보이는 칸(show_lock = false —— 상대 정보 · 군웅 줄 · 적 편성)은 내 것을 보지 않고 kit_ups 로 준 것만 그린다
+const Kit := preload("res://scripts/kit.gd")
+static var kit := {}
+var kit_ups = null          # 이 타일만의 강화한 칸 목록 (서버가 실어 준 상대의 강화). null 이면 내 것
+
+
+## 그 타일에 보일 강화한 칸 —— own 이 배열이면 그것, 아니면 내 강화(mine 일 때만)
+static func kit_marks(id: String, own, mine := true) -> Array:
+	if own is Array:
+		return own
+	return Kit.ups_of(kit, id) if mine else []
+
+
+## 강화한 칸 글자 딱지 —— p 에서 아래로(vertical) 또는 옆으로 box 크기 네모를 늘어놓는다
+static func draw_kit(ci: CanvasItem, ups: Array, p: Vector2, box := 13.0, vertical := true, gap := 2.0) -> void:
+	var i := 0
+	for u in ups:
+		var sl := str(u)
+		if not Kit.SLOT_N.has(sl):
+			continue
+		var r := Rect2(p + (Vector2(0, (box + gap) * i) if vertical else Vector2((box + gap) * i, 0)), Vector2(box, box))
+		var col := Color(str(Kit.SLOT_COL[sl]))
+		ci.draw_rect(r.grow(1.0), Color(DB.PAL.ink, 0.92))
+		ci.draw_rect(r, col)
+		ci.draw_rect(Rect2(r.position, Vector2(box, 1.0)), col.lightened(0.4))
+		var fs := maxi(7, int(roundf(box * 0.74)))
+		var f := DB.font_bold
+		ci.draw_string(f, Vector2(r.position.x, r.position.y + (box + f.get_ascent(fs) - f.get_descent(fs)) * 0.5), str(Kit.SLOT_N[sl]), HORIZONTAL_ALIGNMENT_CENTER, box, fs, Color("#101626"))
+		i += 1
+
+
 
 
 ## 11/25 잠금 표시 한 벌 —— [긴 띠 글, 짧은 띠 글, 사망인가, 재료 잠금인가]. 표시가 없으면 [] (가진 장수 n > 0 는 표시하지 않는다).
@@ -341,6 +373,15 @@ func _draw() -> void:
 		bb.set_corner_radius_all(UI.R / 2)
 		draw_style_box(bb, br)
 		draw_string(DB.font_body, br.position + Vector2(0, 11), b_txt, HORIZONTAL_ALIGNMENT_CENTER, bw, UI.FS_TINY, DB.PAL.gold)
+	var ups := kit_marks(k, kit_ups, show_lock)      # 11/27 장수 키트 강화 표시 —— 세력 점 오른쪽에 가로로, 수량 배지에 닿으면 세력 점 아래 세로로
+	if not ups.is_empty():
+		var kb := 11.0 if small else 13.0
+		var kx := pr.position.x + (18.0 if c.tier > 2 else 1.0)
+		if kx + (kb + 2.0) * ups.size() <= q_left - 1.0:
+			draw_kit(self, ups, Vector2(kx, pr.position.y + 1.0), kb, false)
+		else:
+			var room := pr.end.y - (15.0 if has_role else 0.0) - (pr.position.y + 18.0) - 1.0
+			draw_kit(self, ups, Vector2(pr.position.x + 1.0, pr.position.y + 18.0), clampf(room / maxf(1.0, ups.size()) - 1.0, 8.0, kb), true, 1.0)
 	if dim:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.5))
 	if _is_locked():
@@ -411,6 +452,9 @@ func _draw_compact(c: Dictionary, tc: Color, w: float, h: float) -> void:
 		ub.set_corner_radius_all(6)
 		draw_style_box(ub, ur)
 		Icons.draw(self, "up", ur.get_center(), 10, Color.WHITE)
+	var ups := kit_marks(k, kit_ups, show_lock)      # 11/27 장수 키트 강화 표시 —— 작은 칸은 왼쪽 위에 세로로
+	if not ups.is_empty():
+		draw_kit(self, ups, Vector2(pr.position.x + 1.0, pr.position.y + 1.0), 10.0, true, 1.0)
 	if badge != "":
 		draw_circle(Vector2(6, h - 19), 4, Color(DB.PAL.jade, 0.95))
 	if dim:

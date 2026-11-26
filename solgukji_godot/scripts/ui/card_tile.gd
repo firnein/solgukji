@@ -19,6 +19,8 @@ var _pr := Press.new()       # 11/20 조작: 누름 판정은 Press 한 벌 (탭
 var _dragging := false
 var _down_fx := false        # 11/20 조작: 꾹 누르는 동안의 눌림 모양 (살짝 어둡게)
 var _fx: MiniTile.PinFx = null   # 11/7 갈무리 표시 덧칸 (★ · 깜빡이는 테) —— MiniTile 과 같은 표현
+var kit_ups = null          # 11/27 이 타일만의 강화한 칸 목록 (남의 장수). null 이면 내 강화 (MiniTile.kit)
+var kit_mine := true        # 내 장수 칸인가 —— 아니면 kit_ups 로 준 것만 그린다
 
 
 func setup(id: String, n := -1, sz := SIZE) -> CardTile:
@@ -172,6 +174,9 @@ func _draw() -> void:
 		var qr := Rect2(w - 5 - qw, 5, qw, 19)
 		draw_style_box(UI.flat(Color(DB.PAL.gold, 0.92), Color(0, 0, 0, 0), 0, UI.R, 0), qr)
 		draw_string(fb, qr.position + Vector2(0, 14.5), qs, HORIZONTAL_ALIGNMENT_CENTER, qr.size.x, UI.FS_CAP, Color("#1A1508"))
+	var ups := MiniTile.kit_marks(k, kit_ups, kit_mine)      # 11/27 장수 키트 강화 표시 —— 초상 왼쪽, 세력 점 아래 세로로
+	if not ups.is_empty():
+		MiniTile.draw_kit(self, ups, Vector2(pr.position.x + 1.0, pr.position.y + 19.0), 12.0, true, 1.0)
 	if mark == "dim":
 		draw_rect(Rect2(Vector2.ZERO, size), Color(DB.PAL.ink, 0.55))
 	var mk := MiniTile.mark_of(k, qty)      # 11/25 잠김(선점 · 사망) · 재료 선점 —— MiniTile 과 같은 회색 + 띠 (상세창 조합 줄)
