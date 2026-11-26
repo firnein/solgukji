@@ -516,7 +516,7 @@ func mk_unit(cid: String, slot_info: Dictionary, camp: String, morale: float, sl
 	if kon:
 		var ks = kit_st.get(camp, {}).get(cid)
 		u.kit = (ks as Array).duplicate() if ks is Array else []
-		u.kit_pm = Kit.p_mul()
+		u.kit_pm = Kit.p_mul_of(cid)
 		kp = Kit.p_name(cid)
 	if ps != null:
 		for t in ps.traits:
@@ -564,7 +564,7 @@ func _kit_unit(u: Unit) -> void:
 		c2["sks"] = sks
 		u.c = c2
 	if u.ult != null:
-		u.ult = Kit.apply_ult(u.ult)
+		u.ult = Kit.ult_of(str(u.c.id))      # 바탕 배율 + 그 장수 r 칸의 배율
 
 
 ## 키트 장수의 사건에 붙이는 칸 표시 —— {"slot": 칸} + 그 칸을 강화했으면 {"up": true} (키트 장수가 아니면 빈 사전)

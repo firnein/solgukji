@@ -12,7 +12,7 @@ extends Node
 ## 읽는 법: 같은 판(bi) · 같은 씨앗의 --kit=off 출력과 짝지어 ① 신화가 든 쪽의 승(k 의 진영 기준) ② k[3]/k[4] = 신화 부대의 진영 피해 몫을 비교한다.
 ##   양쪽에 신화가 든 판은 신화 쪽 승률이 늘 50% 라 승률은 한쪽에만 신화가 든 판으로도 따로 본다. fp 가 같으면 그 판은 사건까지 같다 (kit=off 는 바꾸기 전과 650판 모두 같았다)
 ##   --fp                : 사건 지문(결정성 · 전후 비교)만 —— 판마다 {bi, win, len, fp}
-## 판마다 한 줄: {bi, day, win(A 승 1 · 0.5 · 0), len, fp, k: [[진영, 칸, 카드, 준 피해, 진영 피해 합, 살았나, 기술 수, 고유기 수, 받은 피해, 최대 병력, 치료, 사기 피해]]}
+## 판마다 한 줄: {bi, day, win(A 승 1 · 0.5 · 0), len, fp, mg(남은 병력 비의 차 A − B), kup{"진영:카드:칸": 강화가 일한 횟수}, k: [[진영, 칸, 카드, 준 피해, 진영 피해 합, 살았나, 기술 수, 고유기 수, 받은 피해, 최대 병력, 치료, 사기 피해]]}
 const Kit := preload("res://scripts/kit.gd")
 
 
@@ -80,6 +80,10 @@ func _ready() -> void:
 			continue
 		if only == "mythA" and ma.is_empty():
 			continue
+		if a.has("has"):      # --has=c186,c194 : 그 카드가 든 판만 (장수별 수치 맞추기)
+			var want: Array = Array(str(a.has).split(",", false))
+			if not (ma + mb).any(func(x): return want.has(x)):
+				continue
 		var plan := {}
 		if not (b.me_plan as Array).is_empty() or not (b.foe_plan as Array).is_empty():
 			plan = {"A": {"p": b.me_plan, "own": b.me_own, "perm": []}, "B": {"p": b.foe_plan, "own": [], "perm": []}}
@@ -116,7 +120,13 @@ func _ready() -> void:
 				for j in u.sk_cnt:
 					fires += int(u.sk_cnt[j])
 				ks.append([u.camp, u.slot, u.c.id, roundi(u.dmg - u.over), roundi(tot[u.camp]), u.alive, fires, u.ult_n, roundi(u.taken), roundi(u.max), roundi(u.htr), snappedf(u.mdmg, 0.1)])
-			f.store_line(JSON.stringify({"bi": bi, "day": b.day, "win": w, "len": float(r.len), "fp": h, "k": ks, "sw": swapped,
+			var left := {"A": 0.0, "B": 0.0}
+			var mx := {"A": 0.0, "B": 0.0}
+			for u in r.roster:
+				left[u.camp] += maxf(0.0, float(u.left)) if bool(u.alive) else 0.0
+				mx[u.camp] += float(u.max)
+			var mg := snappedf(left.A / maxf(1.0, mx.A) - left.B / maxf(1.0, mx.B), 0.0001)      # 남은 병력 비의 차 (A − B) —— 승패보다 촘촘한 세기 척도
+			f.store_line(JSON.stringify({"bi": bi, "day": b.day, "win": w, "len": float(r.len), "fp": h, "mg": mg, "k": ks, "sw": swapped,
 				"st": {"burn": roundi(float(bt.stats.burn)), "sk_n": int(bt.stats.sk_n)}, "kup": kups}))
 		bt.units.clear()
 		n += 1

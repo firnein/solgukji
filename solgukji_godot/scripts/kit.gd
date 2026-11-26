@@ -108,7 +108,7 @@ static func slot_def(k: String, slot: String) -> Dictionary:
 				return {}
 			return {"slot": slot, "kind": "sk", "name": str(sks[i].n), "src": sks[i]}
 		"r":
-			var u = DB.ult_of(k)
+			var u = ult_of(k)
 			if u == null:
 				return {}
 			return {"slot": slot, "kind": "ult", "name": str(cl.get("n", u.name)), "src": u}
@@ -203,6 +203,8 @@ static func skills_of(k: String) -> Array:
 			sk = {"n": str(cl.get("n", "")), "eff": (src.get("eff", {}) as Dictionary).duplicate(true), "cond": str(src.get("cond", "always")), "psv": null, "cost": 1.0}
 			if bool(src.get("free", false)):
 				sk["free"] = true
+			if src.has("start"):
+				sk["start"] = float(src.start)
 		elif i < sks.size():
 			sk = (sks[i] as Dictionary).duplicate(true)
 			if cl.has("n"):
@@ -211,6 +213,11 @@ static func skills_of(k: String) -> Array:
 				sk["cond"] = str(cl.cond)
 			if cl.has("mul") and _hits(sk.eff):
 				sk.eff["mult"] = float(sk.eff.mult) * float(cl.mul)
+			if cl.has("sup"):
+				_sup_skill(sk.eff, float(cl.sup))
+			if cl.get("eff") is Dictionary:      # 카드 기술의 효과 값 덮어쓰기 (그 키만)
+				for key in cl.eff:
+					sk.eff[key] = (cl.eff[key] as Dictionary).duplicate(true) if cl.eff[key] is Dictionary else cl.eff[key]
 		else:
 			break
 		sk["slot"] = slot
@@ -256,6 +263,33 @@ static func apply_ult(ult: Dictionary, _augs := []) -> Dictionary:
 			if e.has("buff"):
 				e.buff["amt"] = float(e.buff.amt) * base_sup
 	return out
+
+
+## 그 장수의 고유기 —— 전투가 쓰는 사본 (바탕 배율 + 그 장수 r 칸의 mul: 타격 배율과 아군 효과(회복 · 사기 · 강화)에 곱한다). 고유기가 없으면 null
+static func ult_of(k: String):
+	var u = DB.ult_of(k)
+	if u == null:
+		return null
+	var out := apply_ult(u)
+	var x := float(cell(k, "r").get("mul", 1.0))
+	if x != 1.0:
+		for e in out.get("eff", []):
+			var t := str(e.get("t", ""))
+			if t == "hit":
+				e["mult"] = float(e.get("mult", 0.0)) * x
+			elif t == "ally":
+				if e.has("heal"):
+					e["heal"] = float(e.heal) * x
+				if e.has("morale"):
+					e["morale"] = float(e.morale) * x
+				if e.has("buff"):
+					e.buff["amt"] = float(e.buff.amt) * x
+	return out
+
+
+## 그 장수의 고유 특기 배율 —— 바탕 배율 × 그 장수 p 칸의 mul
+static func p_mul_of(k) -> float:
+	return base_p * float(cell(k, "p").get("mul", 1.0))
 
 
 ## 전투가 고유 특기에 곱하는 값 —— 바탕 배율. 주인에게 붙는 수치(p_scales 가 참인 키)와 단체 효과 세기(scale · fscale)에 곱한다 (인자는 옛 강화 목록 —— 쓰지 않는다)

@@ -16,6 +16,7 @@ const ROGUE_DELAY := 0.3    # 도적에게 맞을 때마다 키트 장수의 기
 const START_CD := 0.5       # 개전 때 첫 대기 —— cd 의 이 몫부터 센다 (접전 전에 한꺼번에 터지지 않게)
 const SAY_GAP := 6.0        # 지속형 강화(사기 바닥 · 풀 수 없는 혼란 …)의 kup 사건 최소 간격 (초)
 const TOUCH_R := 8.0        # '붙은 적' —— 발자국 틈이 이 안
+const STAGGER := 0.7        # 밀려난 부대가 잃는 행동 준비 (1 = 한 차례) —— 밀려나며 주춤한다. 밀기만 하면 적이 사거리 밖으로 흩어져 민 쪽이 손해였다 (실제 대전 덱: 여포 돌파 −4.3%p)
 
 var b                       # RtBattle
 var hide_until := 0.0       # 숨은 부대가 있을 수 있는 마지막 시각 (RtBattle._foes_of 가 이때까지만 숨은 부대를 거른다)
@@ -123,7 +124,7 @@ func setup() -> void:
 		var sks: Array = u.c.get("sks", [])
 		u.sk_next = []
 		for sk in sks:
-			u.sk_next.append(float(sk.get("cd", 8.0)) * START_CD)
+			u.sk_next.append(float(sk.get("start", float(sk.get("cd", 8.0)) * START_CD)))      # (sk.start: 그 기술의 첫 대기 초 —— 개전 직후 적진 뒤로 뛰어드는 기술을 늦출 때)
 		var up := _up(u, "p")
 		if str(up.get("k", "")) == "open_ult_delay":      # 장료 위명 —— 개전 때 적 최강 장수의 고유기를 늦춘다
 			var t = _top_gen(_foes(u))
@@ -1332,6 +1333,7 @@ func _shove(t, off: Vector2, by) -> void:
 	t.pos += off
 	b._clamp_arena(t)
 	t.vel = Vector2.ZERO
+	t.atb = maxf(0.0, t.atb - STAGGER)
 	b.L("mo", "%s 밀려났다" % b.ga(b.nm(t)), {"fx": "push", "f": t.key, "a": by.key, "push": true})
 
 
