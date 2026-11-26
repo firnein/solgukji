@@ -161,6 +161,11 @@ var spot_len := 0.0
 var spot_sq: Squad = null
 const SPOT_SHADER := preload("res://shaders/spotlight.gdshader")
 const TacUI := preload("res://scripts/ui/tac_ui.gd")      # 11/15 군략 단계 공개 연출 (class_name 없이)
+const Kit := preload("res://scripts/kit.gd")                 # 11/27 장수 키트 Q · W · E · R · P (칸 정의 · 칸 색)
+const KitFx := preload("res://scripts/field/painted_kit.gd") # 11/27 칸이 보이는 발동 표시 (칸 풀이 resolve · 딱지 draw_chip · 삽화 고리 · 맞은 표식)
+var _kit_warn := {}               # 부대 key -> 기 모으기(ult_warn)에서 읽은 R 칸 {slot, augs, name} —— 받아치기 컷인이 ★ 를 붙인다
+var _kit_p_ev := false            # 이번 결과에 "slot": "p" 사건이 있다 (없으면 개전 P 알림 · 개성 말풍선을 대비책으로 띄운다)
+var kit_seen := {}                # 점검용 —— 칸마다 띄운 수 (tests/kit_fx_shot)
 var _tac_box: Control = null      # 지금 떠 있는 단계 공개 (다음 단계가 오면 갈아 끼운다)
 var _tac_list = null              # 11/22 위 띠 아래 양쪽 군략 목록 (scripts/ui/tac_hud.gd)
 var warn_until := -1.0     # 적 고유기가 터지는 시각 (기 모으는 중) —— 방진 버튼을 깜빡인다
@@ -1341,6 +1346,7 @@ func _begin() -> void:
 	live_i = 0
 	_winding.clear()
 	_build_timeline()
+	_kit_open()
 	clock = 0.0
 	gi = 0
 	_ahead.clear()
@@ -1441,6 +1447,11 @@ func _build_timeline(rebuild := false) -> void:
 		elif fx == "skill":
 			g.skill = e.name
 			g["skind"] = str(e.get("kind", ""))
+			var kq := _kit_of(e)      # 11/27 키트 장수의 Q · W · E —— 묶음을 시작할 때 칸 딱지 · 칸 색 고리 (_kit_cast)
+			if not kq.is_empty() and str(kq.slot) in ["q", "w", "e"]:
+				if not g.has("kits"):
+					g["kits"] = []
+				g.kits.append(kq)
 		elif (fx == "phys" or fx == "int") and e.get("a") == g.who:
 			if not g.targets.has(e.f):
 				g.targets.append(e.f)
@@ -1761,6 +1772,11 @@ func _ult_warn(e: Dictionary) -> void:
 	var who: String = res.roster[idx_of[e.a]].name if idx_of.has(e.a) else ""
 	# 11/7 사용자: "기를 모은다 —— 2.5초" 글 대신 작은 장수 이름 · 붓글씨 기술명 · 차오르는 고리 · 「운기」 (Hud.charge_start —— 아군은 늘, 적은 직접 지휘 때만 보인다)
 	hud.charge_start(e.a, who, e.name, wait, mine)
+	var kq := _kit_of(e)      # 11/27 키트 R 예고 —— 기 모으기 줄의 장수 이름 앞에 R 딱지 (받아치기 컷인도 이 기록으로 ★ 를 붙인다)
+	if not kq.is_empty():
+		_kit_warn[str(e.a)] = kq
+		if hud.charges.has(e.a):
+			hud.charges[e.a]["kit"] = kq
 	_wind_mark(e)
 	_yeon_used.erase(e.a)      # 새 합동 —— 투게더 멘트 겹침 기록을 비운다
 	if field.flat != null and field.flat.has_method("ult_hold"):      # 11/11 기 모으는 동안 기본 행동 연출을 줄인다 (고유기가 주인공)
@@ -1878,7 +1894,10 @@ func _ult_clash(e: Dictionary) -> void:
 		var who: String = res.roster[idx_of[k]].name if idx_of.has(k) else sq.row.name
 		# 11/26 사용자: "받아치기도 대사 해줘" —— 장수의 고유기 외침을 짧은 한마디로 (말풍선과 같은 표 · Hud.short_shout)
 		var say := Hud.short_shout(DB.person(sq.cid), str(DB.ult_of(sq.cid).get("shout", "")) if DB.has_ult(sq.cid) else "")
-		sides["A" if k.begins_with("A") else "B"].append({"k": sq.cid, "who": who, "name": nms[i], "tier": int(sq.tier), "first": i == 0, "say": say.strip_edges()})
+		var ckq: Dictionary = _kit_warn.get(k, {})      # 11/27 키트 R —— 큰 초상 모서리에 R 딱지 (기 모으기에서 읽은 강화 ★, 없으면 카드로 판단)
+		if ckq.is_empty():
+			ckq = KitFx.resolve({"fx": "ult", "name": nms[i]}, sq.cid)
+		sides["A" if k.begins_with("A") else "B"].append({"k": sq.cid, "who": who, "name": nms[i], "tier": int(sq.tier), "first": i == 0, "say": say.strip_edges(), "kit": ckq})
 	if sides.A.is_empty() or sides.B.is_empty():
 		return
 	for cp in ["A", "B"]:
@@ -1925,6 +1944,86 @@ func _show_areas(g: Dictionary) -> void:
 				field.area_mark(sh, col, 1.4 if e.get("fx") == "ult" else 1.0)
 
 
+# ───────── 11/27 장수 키트 Q · W · E · R · P —— 칸이 보이는 발동 표시 (삽화 화면만) ─────────
+# 사용자: 「아 쟤가 q 스킬이 발동이 됐구나, e 가 발동이 됐구나를 알 수 있어야 함」. 등급 · 진영 상위 둘 제한 없이 키트 장수의 기술 전부.
+#   머리 위 딱지 [칸 글자] 기술 이름 ★ (Hud.kit_tag) + 삽화의 칸 색 고리 · 번쩍임 · 맞은 표식 (scripts/field/painted_kit.gd)
+#   R 은 기존 컷인 · 말풍선 · 기 모으기 줄에 딱지를 붙인다. P 는 개전 알림 · 개성 말풍선
+# 사건에서 읽는 것: "slot" ("q"|"w"|"e"|"r"|"p") · "augs" ([강화 id …]) —— 없으면 대비책 (KitFx.resolve)
+
+## 그 사건이 어느 칸의 발동인가 —— {slot, augs, name, key}. 아니면 빈 사전
+## key 는 그 칸을 쓴 부대: 기술 · 고유기는 사건의 a, 개성 말풍선(sig)은 버프 f · 디버프 a · 치료 healer
+func _kit_of(e: Dictionary) -> Dictionary:
+	if not Type2View.painting_on() or field == null:
+		return {}
+	var fx := str(e.get("fx", ""))
+	var key := str(e.get("a", ""))
+	if bool(e.get("sig", false)):
+		if fx == "heal":
+			key = str(e.get("healer", e.get("f", "")))
+		elif fx != "debuff" or key == "":
+			key = str(e.get("f", ""))
+	if key == "":
+		key = str(e.get("who", ""))
+		if key == "":
+			key = str(e.get("f", ""))
+	var sq: Squad = field.squads.get(key)
+	if sq == null:
+		return {}
+	var kq: Dictionary = KitFx.resolve(e, sq.cid)
+	if not kq.is_empty():
+		kq["key"] = key
+	return kq
+
+
+## 칸 발동 하나를 화면에 —— 머리 위 딱지(tag) + 삽화의 칸 색 고리 · 맞은 표식 (dsts 는 맞을 부대, delay 는 맞는 순간까지 · wait 는 뜨기까지)
+func _kit_show(kq: Dictionary, dsts: Array, delay: float, tag := true, wait := 0.0) -> void:
+	if kq.is_empty() or not field.squads.has(str(kq.get("key", ""))):
+		return
+	var slot := str(kq.slot)
+	if tag:
+		wait = hud.kit_tag(str(kq.key), slot, str(kq.name), kq.augs, wait)      # P 는 차례를 기다릴 수 있다 —— 삽화 고리도 같은 때에
+		if wait < 0.0:
+			return
+	kit_seen[slot] = int(kit_seen.get(slot, 0)) + 1
+	if type2 != null and type2.painting != null:
+		type2.painting.kit.add(str(kq.key), slot, kq.augs, dsts, delay, wait)
+
+
+## 키트 장수의 기술 묶음을 시작한다 —— 묶음 주인이 쓴 기술이면 그 묶음이 친 부대(없으면 영향을 받은 적 · 아군)가 대상
+func _kit_cast(g: Dictionary, delay: float) -> void:
+	for kq: Dictionary in g.get("kits", []):
+		var dsts: Array = []
+		if str(kq.key) == str(g.who):
+			dsts = g.targets if not g.targets.is_empty() else g.foes + g.allies
+		_kit_show(kq, dsts, delay)
+
+
+## 개전 —— 지난 판 기록을 비우고, 엔진이 "slot": "p" 사건을 주는지 본다. 주지 않으면(옛 결과 · 엔진 병합 전) 대비책으로
+## 키트 장수마다 머리 위에 [P] 고유 특기 이름을 차례로 띄운다 (개전 1초 뒤부터 · 아군 먼저 · 0.14초 간격)
+func _kit_open() -> void:
+	_kit_warn.clear()
+	kit_seen.clear()
+	_kit_p_ev = false
+	if not Type2View.painting_on():
+		return
+	hud.kit_prewarm = ["QWERP"]      # 딱지 글자는 처음 뜰 때 글리프를 만든다 —— 이번 판 키트 장수의 칸 이름을 미리 찍어 둔다 (Hud._draw)
+	for sq: Squad in field.order:
+		if DB.C.has(sq.cid) and Kit.on(sq.cid):
+			for s in Kit.SLOTS:
+				var sn := str(Kit.slot_def(sq.cid, s).get("name", ""))
+				if sn != "" and not hud.kit_prewarm.has(sn):
+					hud.kit_prewarm.append(sn)
+	for e in res.ev:
+		if str(e.get("slot", "")) == "p":
+			_kit_p_ev = true
+			return
+	var list: Array = field.order.filter(func(sq): return DB.C.has(sq.cid) and Kit.on(sq.cid) and Kit.p_name(sq.cid) != "")
+	list.sort_custom(func(x, y): return x.camp < y.camp if x.camp != y.camp else int(x.row.slot) < int(y.row.slot))
+	for i in list.size():
+		var sq: Squad = list[i]
+		_kit_show({"key": sq.key, "slot": "p", "name": Kit.p_name(sq.cid), "augs": []}, [], 0.0, true, 1.0)      # 간격은 Hud.kit_tag 가 벌린다 (KIT_P_STEP)
+
+
 func _start_group(g: Dictionary) -> void:
 	_show_areas(g)
 	if Type2View.painting_on() and type2 != null and type2.painting != null:
@@ -1955,6 +2054,7 @@ func _start_group(g: Dictionary) -> void:
 		field.skill_fx(g.who)
 		if Type2View.painting_on() and type2 != null and type2.painting != null:      # 11/23 삽화 화면 —— 기술마다 이펙트 (맞는 순간에 맞춰 늦춘다)
 			type2.painting.add_skill(g.skill, g.who, g.targets, str(g.get("skind", "")), float({"volley": 0.55, "spell": 0.45}.get(g.kind, 0.1)))
+			_kit_cast(g, float({"volley": 0.55, "spell": 0.45}.get(g.kind, 0.1)))      # 11/27 키트 장수 —— 칸 딱지 · 칸 색 고리 · 맞은 표식
 		var asq: Squad = field.squads.get(g.who)
 		# 11/4 연출 점검: 5일차 한 판에 기술 현판 45~89장 —— 현판은 초월 이상과 진영 상위 둘(hud._emph)만, 나머지는 작은 글씨
 		var star: bool = asq != null and (asq.tier >= 6 or hud._emph.get(g.who, 0) > 0)
@@ -2237,10 +2337,14 @@ func _start_ult(g: Dictionary) -> void:
 	var sq: Squad = field.squads[g.who]
 	var u: Dictionary = g.ult
 	hud.charge_end(g.who)      # 기 모으기 표시는 컷인이 뜨면 걷는다
+	# 11/27 키트 R —— 컷인 · 말풍선에 R 딱지(+ 강화 ★), 삽화에 금빛 햇살 고리와 맞은 부대의 네 갈래 별 (큰 컷인 · 가벼운 고유기 · 받아치기 · 인연 합류 모두)
+	var kq := _kit_of(u)
+	var kit_dsts: Array = g.targets if not g.targets.is_empty() else g.foes + g.allies
 	if bool(u.get("clash", false)) and Type2View.painting_on():      # 11/25 받아치기 묶음 —— 사선 컷인이 이미 대신했다. 큰 컷인 · 카메라 없이 이름과 이펙트
 		# 11/26 가벼운 이펙트(lite)로 틀어 받아친 고유기가 거의 안 보였다 —— 이펙트는 큰 고유기와 같은 것으로, 묶음 장수는 CLASH_STAGGER 간격으로 차례로 터진다 (_clash_gap_until)
 		g["lite"] = false
-		hud.ult_notice(sq, str(u.get("name", "고유기")), false, str(u.get("shout", "")))
+		hud.ult_notice(sq, str(u.get("name", "고유기")), false, str(u.get("shout", "")), kq)
+		_kit_show(kq, kit_dsts, ULT_DELAY, false)
 		get_tree().create_timer(0.2).timeout.connect(func():
 			if is_instance_valid(sq):
 				field.flourish(sq, 1.3)
@@ -2253,7 +2357,8 @@ func _start_ult(g: Dictionary) -> void:
 		return
 	if not u.has("lead") and not bool(g.get("big", true)):      # 11/22 가벼운 고유기 —— 슬로모션 · 컷인 · 카메라 없이 이름과 이펙트만, 전투를 멈추지 않는다
 		g["lite"] = true      # 연출 표시는 재생 묶음에만 둔다. 원본 사건은 수정하지 않는다.
-		hud.ult_notice(sq, str(u.get("name", "고유기")), bool(u.get("mini", false)), str(u.get("shout", "")))
+		hud.ult_notice(sq, str(u.get("name", "고유기")), bool(u.get("mini", false)), str(u.get("shout", "")), kq)
+		_kit_show(kq, kit_dsts, ULT_DELAY, false)
 		get_tree().create_timer(0.2).timeout.connect(func():
 			if is_instance_valid(sq):
 				field.flourish(sq, 1.1))
@@ -2270,7 +2375,8 @@ func _start_ult(g: Dictionary) -> void:
 		var join_lite := Type2View.painting_on() and Settings.ult_fx != 0
 		g["lite"] = join_lite
 		if join_lite:
-			hud.ult_notice(sq, str(u.get("name", "고유기")), false, str(u.get("shout", "")))
+			hud.ult_notice(sq, str(u.get("name", "고유기")), false, str(u.get("shout", "")), kq)
+		_kit_show(kq, kit_dsts, ULT_DELAY, not join_lite)      # 말풍선이 없으면(전부 큰 컷인 설정) 머리 위 R 딱지로
 		hud.float_text(g.who, "인연 『%s』" % u.get("inyeon", ""), Color("#ffd257"), 13)
 		get_tree().create_timer(0.35).timeout.connect(func():
 			if is_instance_valid(sq):
@@ -2299,6 +2405,9 @@ func _start_ult(g: Dictionary) -> void:
 				say = _yeon_pick(mk, g.who, str(u.get("inyeon", "")))
 			mates.append({"k": ms.cid, "who": ms.row.name, "line": say[0], "tone": say[1]})
 	hud.ult_cutin(sq, u.name, u.shout, u.get("crisis", false), desc, mates, str(u.get("inyeon", "")))
+	if not kq.is_empty() and hud.cut != null:
+		hud.cut["kit"] = kq      # 컷인의 장수 이름 낙관 옆에 R 딱지 · 강화 ★ (Hud._draw_cut)
+	_kit_show(kq, kit_dsts, ULT_DELAY, false)
 	# 11/4 사용자: 숄더뷰로 다가가 장수가 무기를 크게 휘두르고(효과 · 소리), 적이 날아간 뒤 원래 카메라로
 	field.cinematic(sq, 3.0, true)
 	get_tree().create_timer(CUT_T * 0.7).timeout.connect(func():
@@ -2429,6 +2538,12 @@ func _apply(i: int, quiet := false) -> void:
 			hud.float_text(who_k, sig_head.substr(sig_head.rfind("의 ") + 2), Color("#ffd257"), 12, false, true)
 			if field.squads[who_k].camp == "A":      # 11/21 사운드 —— 내 편 장수 행동에만 작은 소리 (종류별 간격은 Sfx.sig_cue)
 				Sfx.sig_cue(stx)
+	# 11/27 키트 P —— 고유 특기가 눈에 띄게 발동했다: 머리 위 [P] 고유 특기 이름 + 주황 마름모.
+	# 엔진이 "slot": "p" 를 주는 결과면 그 사건만, 주지 않는 결과(옛 서버 · 병합 전)면 키트 장수의 개성 말풍선(sig)을 대비책으로
+	if painting and (e.has("slot") or (not _kit_p_ev and e.get("sig", false))):
+		var kp := _kit_of(e)
+		if not kp.is_empty() and str(kp.slot) == "p":
+			_kit_show(kp, [], 0.0)
 	match e.get("fx", ""):
 		"inyeon_fin", "inyeon_theme":      # 11/12 인연기 —— 11/15 강화: 모음(어두워짐 · 빛줄기) → 터짐(섬광 · 충격파 · 연쇄 폭발 · 쾅 이름 띠). 인연 주제도 같은 틀
 			var th: bool = e.fx == "inyeon_theme"
@@ -2654,12 +2769,16 @@ func _log(e: Dictionary) -> void:
 		if e.t != "":
 			log_box.append_text("[color=#C6AC7C]%s[/color]\n" % e.t)
 		return
+	# 11/27 키트 —— 기술 · 고유기 · 고유 특기 줄 앞에 칸 머리 "[Q] " (칸 색)
+	var kh := ""
+	if e.has("slot") or e.get("fx", "") in ["skill", "ult"] or (not _kit_p_ev and e.get("sig", false)):
+		kh = KitFx.log_head(str(_kit_of(e).get("slot", "")))
 	if e.get("fx") == "ult":
-		log_box.append_text("[color=#5d6a88]%s[/color] [color=#ffd76e][b]%s[/b][/color]\n" % [clock_text(), e.t])
+		log_box.append_text("[color=#5d6a88]%s[/color] %s[color=#ffd76e][b]%s[/b][/color]\n" % [clock_text(), kh, e.t])
 		return
 	var col: String = {"A": "#E9E3D3", "B": "#E9A79E", "sk": "#D9A64B", "mo": "#C9A2FF", "hl": "#8FD4C2",
 		"st": "#E8A06A", "rt": "#FF6B57"}.get(e.c, "#E9E3D3")
-	log_box.append_text("[color=#5d6a88]%s[/color] [color=%s]%s[/color]\n" % [clock_text(), col, e.t])
+	log_box.append_text("[color=#5d6a88]%s[/color] %s[color=%s]%s[/color]\n" % [clock_text(), kh, col, e.t])
 
 
 func clock_text() -> String:
@@ -2765,7 +2884,8 @@ class Hud extends Control:
 		return line
 
 	## 빠른 · 미니 고유기 알림 —— 시전한 부대 이름표 바로 위에 초상 + 말풍선(기술명 · 외침). 여럿이 동시에 뜨고 서로 밀어낸다.
-	func ult_notice(sq: Squad, skill: String, mini := false, speech := "") -> void:
+	## kit —— 11/27 키트 장수의 고유기면 {slot: "r", augs …}: 기술명 앞에 R 딱지, 초상 아래에 강화 ★
+	func ult_notice(sq: Squad, skill: String, mini := false, speech := "", kit := {}) -> void:
 		var queue: Array = ult_notices[sq.camp]
 		if queue.size() >= ULT_NOTICE_LIMIT:
 			queue.remove_at(0)
@@ -2773,7 +2893,7 @@ class Hud extends Control:
 			speech = str(DB.ult_of(sq.cid).get("shout", ""))
 		speech = short_shout(DB.person(sq.cid), speech)      # 11/24 사용자 「축약된 멘트로」 —— 말풍선은 짧은 한마디
 		var n := {"who": DB.person(sq.cid), "cid": sq.cid, "key": sq.key, "camp": sq.camp, "skill": skill, "mini": mini, "age": 0.0,
-			"speech": speech.strip_edges(), "anchor": Vector2(-9999, -9999), "rect": Rect2()}
+			"speech": speech.strip_edges(), "anchor": Vector2(-9999, -9999), "rect": Rect2(), "kit": kit}
 		n["lines"] = _notice_speech_lines(n.speech, ULT_NOTICE_W - 40.0 + 16.0)
 		_ult_anchor(n)
 		queue.append(n)
@@ -2907,14 +3027,233 @@ class Hud extends Control:
 		var text_w := r.end.x - text_x - 5.0
 		var gold := Color(0.7, 0.88, 1.0, fade) if mini else Color(1.0, 0.82, 0.34, fade)
 		var head := ("미니 『%s』" if mini else "『%s』") % n.skill
-		draw_string(DB.font_bold, Vector2(text_x, r.position.y + 14.0), head, HORIZONTAL_ALIGNMENT_LEFT, text_w, 11, gold)
+		var kq: Dictionary = n.get("kit", {})
+		var head_x := text_x
+		if not kq.is_empty():      # 11/27 키트 R —— 기술명 앞 딱지, 강화 ★ 는 초상 아랫변에
+			KitFx.draw_chip(self, Vector2(text_x + 7.0, r.position.y + 10.0), 14.0, str(kq.slot), fade, 1.0 - clampf(n.age / 0.25, 0.0, 1.0))
+			head_x += 16.0
+			if not (kq.augs as Array).is_empty():
+				KitFx.draw_augs(self, Vector2(pr.position.x + 0.5, pr.end.y - 3.0), kq.augs, 9.0, fade)
+		draw_string(DB.font_bold, Vector2(head_x, r.position.y + 14.0), head, HORIZONTAL_ALIGNMENT_LEFT, text_w - (head_x - text_x), 11, gold)
 		var lines: Array = n.lines
 		for i in lines.size():
 			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 27.0 + i * 12.0), lines[i], HORIZONTAL_ALIGNMENT_LEFT, text_w, 10, Color(0.96, 0.92, 0.83, fade))
 		if lines.is_empty():
 			draw_string(DB.font_bold, Vector2(text_x, r.position.y + 27.0), n.who, HORIZONTAL_ALIGNMENT_LEFT, text_w, 10, Color(col.lightened(0.3), fade))
 
+	# ── 11/27 장수 키트 칸 딱지 —— 장수 머리 위에 [칸 글자] 기술 이름 ★ (삽화 화면만 · 등급 · 상위 둘 제한 없이 키트 장수 전부) ──
+	# 사용자: 「아 쟤가 q 스킬이 발동이 됐구나, e 가 발동이 됐구나를 알 수 있어야 함」. 칸 색 · 글자 · 모양은 KitFx.draw_chip (scripts/field/painted_kit.gd)
+	# 겹침: 같은 장수가 잇달아 쓰면 새것이 머리 바로 위, 앞의 것은 위로 밀린다 (장수마다 둘까지). 여러 장수가 함께 쓰면 서로 · 고유기 말풍선을 피해 위로 쌓인다
+	const KIT_TAG_LIFE := 1.35      # 보이는 시간 (HUD 초 —— 전투가 1배속보다 빠르면 그만큼 빨리 간다 · 컷인 · 일시정지 동안은 멈춘다)
+	const KIT_TAG_LIFE_P := 1.6
+	const KIT_TAG_MAX := 14         # 한 화면에 떠 있는(기다리는 것 포함 26) 딱지 상한 —— 넘으면 오래된 것부터 걷는다
+	const KIT_TAG_PER_UNIT := 2     # 한 장수 머리 위에 쌓이는 수 (연속 발동)
+	const KIT_CROWD := 7            # 떠 있는 딱지가 이만큼이면 붐빈다 —— 장수마다 하나만 · 보이는 시간은 넷부터 줄어 열에서 0.7배
+	const KIT_P_GAP := 2.5          # 같은 장수의 P 딱지 사이 최소 간격 (개성 말풍선은 잦다)
+	const KIT_P_STEP := 0.14        # P 딱지가 한꺼번에 올 때 뜨는 간격 (개전 알림 —— 장수마다 차례로)
+	const KIT_TAG_H := 22.0
+	const KIT_CHIP := 20.0
+	const KIT_FS := 13
+	const KIT_STAR := 12.0
+	var kit_tags: Array = []        # {key, slot, name, augs, age, life, w, tw, camp, anchor, dy, rect}
+	var kit_tag_n := 0              # 점검용 —— 띄운 수
+	var kit_draw_us := 0            # 점검용 —— 딱지 그리기에 쓴 시간 합(µs) · 그린 횟수
+	var kit_draw_n := 0
+	var kit_prewarm: Array = []     # 첫 그리기 때 미리 찍어 둘 글 (기술 이름 · 칸 글자 —— BattleView._kit_open 이 채운다)
+	var _kit_p_at := {}             # 부대 key -> 마지막 P 딱지 시각 (HUD 초)
+	var _kit_p_next := 0.0          # 다음 P 딱지가 뜰 수 있는 시각 (HUD 초)
+	var _kit_time := 0.0
+
+	## key 장수가 slot 칸을 썼다 —— 머리 위 딱지. wait 초 뒤에 뜬다. 띄웠으면 실제로 기다리는 초(0 이상), 띄우지 않았으면 −1
+	## (같은 발동이 겹쳐 왔거나 P 가 너무 잦을 때). P 는 여럿이 한꺼번에 와도(개전 알림) KIT_P_STEP 간격으로 차례로 뜬다
+	func kit_tag(key: String, slot: String, nm: String, augs: Array = [], wait := 0.0) -> float:
+		if not Type2View.painting_on() or not Kit.SLOT_N.has(slot) or nm == "":
+			return -1.0
+		var sq: Squad = view.field.squads.get(key)
+		if sq == null:
+			return -1.0
+		wait = maxf(0.0, wait)
+		if slot == "p":
+			var at := maxf(_kit_time + wait, _kit_p_next)
+			if at - float(_kit_p_at.get(key, -99.0)) < KIT_P_GAP:
+				return -1.0
+			_kit_p_at[key] = at
+			_kit_p_next = at + KIT_P_STEP
+			wait = at - _kit_time
+		var mine := []
+		for n: Dictionary in kit_tags:
+			if n.key != key:
+				continue
+			if n.slot == slot and n.name == nm and float(n.age) < 0.45:
+				return -1.0
+			mine.append(n)
+		var shown := kit_tags.filter(func(n): return float(n.age) >= 0.0)
+		# 붐빌 때(여러 장수가 한꺼번에) —— 장수마다 하나만 남기고(새것이 앞의 것을 갈아 끼운다) 더 짧게 보인다
+		var crowd := shown.size()
+		while mine.size() >= (KIT_TAG_PER_UNIT if crowd < KIT_CROWD else 1):
+			var old_tag: Dictionary = mine.pop_front()
+			kit_tags.erase(old_tag)
+			shown.erase(old_tag)
+		while shown.size() >= KIT_TAG_MAX:
+			kit_tags.erase(shown.pop_front())
+		while kit_tags.size() >= KIT_TAG_MAX + 12:
+			kit_tags.pop_front()
+		var life := (KIT_TAG_LIFE_P if slot == "p" else KIT_TAG_LIFE) * lerpf(1.0, 0.7, clampf((crowd - 4) / 6.0, 0.0, 1.0))
+		var tw: float = DB.font_bold.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, KIT_FS).x
+		var w := KIT_CHIP + 5.0 + tw + 7.0 + (KitFx.augs_w(augs, KIT_STAR) + 2.0 if not augs.is_empty() else 0.0)
+		kit_tags.append({"id": kit_tag_n, "key": key, "slot": slot, "name": nm, "augs": augs, "age": -wait, "life": life,
+			"w": w, "tw": tw, "camp": sq.camp, "anchor": Vector2(-9999, -9999), "dy": NAN, "rect": Rect2(), "want": Rect2()})
+		kit_tag_n += 1
+		return wait
+
+	func _tick_kit_tags(dt: float) -> void:
+		_kit_time += dt
+		if kit_tags.is_empty() or cut != null or view.speed == 0.0:
+			return
+		var k := dt * maxf(1.0, float(view.field.time_scale) if view.field != null else 1.0)
+		for n: Dictionary in kit_tags:
+			n.age += k
+		kit_tags = kit_tags.filter(func(n): return float(n.age) < float(n.life))
+
+	## 장수 머리 위 (HUD 좌표) —— 장수 인형의 정수리. 인형이 없으면 부대 가운데 조금 위. 부대가 사라지면 마지막 자리를 그대로 쓴다
+	func _kit_anchor(n: Dictionary, painting, xf: Transform2D) -> Vector2:
+		var sq: Squad = view.field.squads.get(n.key)
+		if sq != null and sq.state != "gone" and sq.fade > 0.05:
+			if painting != null and painting.hero_feet.has(n.key):
+				var top: Vector2 = painting.hero_feet[n.key] - Vector2(0.0, float(painting.hero_h.get(n.key, 36.0)))
+				n.anchor = xf * top
+			else:
+				n.anchor = view.field.to_screen(sq.pos, 0.0) + Vector2(0.0, -34.0)
+		return n.anchor
+
+	func _layout_kit_tags() -> void:
+		var painting = view.type2.painting if view.type2 != null else null
+		var xf := Transform2D()
+		if painting != null:
+			xf = get_global_transform_with_canvas().affine_inverse() * painting.get_global_transform_with_canvas()
+		var placed: Array = []
+		for camp in ["A", "B"]:      # 고유기 말풍선은 피해 간다 (먼저 놓였다)
+			for nn: Dictionary in ult_notices[camp]:
+				placed.append(nn.rect)
+		placed.append_array(_threat_rects)
+		if ann != null and ann.has("w") and cut == null:      # 가운데 알림 글(선봉 격돌! …)도 피해 간다 —— _draw_all 이 그린 자리와 같은 셈
+			var afs := float(ann.fs)
+			placed.append(Rect2((size.x - float(ann.w)) * 0.5 - 12.0, 84.0 + 46.0 * _charge_rows + 32.0 * _join_rows - afs - 1.0, float(ann.w) + 24.0, afs + 10.0))
+		var pad := Vector2(1.0, 1.0)
+		for i in range(kit_tags.size() - 1, -1, -1):      # 새것부터 머리 바로 위에 놓는다
+			var n: Dictionary = kit_tags[i]
+			if float(n.age) < 0.0:
+				continue
+			var a := _kit_anchor(n, painting, xf)
+			var sz := Vector2(float(n.w), KIT_TAG_H)
+			var pos := Vector2(clampf(a.x - sz.x * 0.5, 3.0, maxf(3.0, size.x - sz.x - 3.0)), a.y - sz.y - 7.0)
+			var probe := Rect2(pos - pad, sz + pad * 2.0)
+			var guard := 0
+			var moved := true
+			while moved and guard < 16:
+				moved = false
+				guard += 1
+				for o: Rect2 in placed:
+					if probe.intersects(o):
+						probe.position.y = o.position.y - sz.y - 3.0
+						moved = true
+			if probe.position.y < _float_top + 1.0:      # 위로 더 쌓을 자리가 없다 (맨 윗줄 장수) —— 머리 아래쪽으로 내려 쌓는다
+				probe.position.y = maxf(_float_top + 1.0, a.y + 3.0)
+				guard = 0
+				moved = true
+				while moved and guard < 16:
+					moved = false
+					guard += 1
+					for o: Rect2 in placed:
+						if probe.intersects(o):
+							probe.position.y = o.end.y + 1.0
+							moved = true
+			pos.y = probe.position.y + 1.0
+			placed.append(Rect2(pos, sz))
+			n.want = Rect2(pos, sz)      # 자리 잡기가 정한 자리 (점검용 —— 그리는 자리 rect 는 여기로 부드럽게 따라간다)
+			var want := pos.y - a.y      # 밀릴 때 튀지 않게 —— 가로는 장수를 그대로 따라가고 세로만 부드럽게
+			n.dy = want if is_nan(float(n.dy)) else lerpf(float(n.dy), want, 0.45)
+			n.rect = Rect2(Vector2(pos.x, a.y + float(n.dy)), sz)
+
+	## 세 번에 나눠 그린다 —— ① 받침 · 칸 바탕(둥근 면 그림) ② 테두리(둥근 테 그림) ③ 글자 · 꼬리 · ★ · 불꽃.
+	## 같은 그림끼리 이어 그리면 렌더러가 한 번에 그린다 (딱지마다 그림을 번갈아 쓰면 딱지 수 × 여덟 번으로 쪼개진다). 둥근 상자(StyleBoxFlat) · 다각형은 쓰지 않는다
+	func _draw_kit_tags() -> void:
+		if kit_tags.is_empty() or cut != null:
+			return
+		var t0 := Time.get_ticks_usec()
+		_layout_kit_tags()
+		var fb := DB.font_bold
+		var K: float = KitFx.PILL_K
+		var live: Array = []
+		for n: Dictionary in kit_tags:      # ① 받침 · 칸 바탕
+			var age := float(n.age)
+			if age < 0.0:
+				continue
+			live.append(n)
+			var r: Rect2 = n.rect
+			var fade := clampf(age / 0.08, 0.0, 1.0) * clampf((float(n.life) - age) / 0.25, 0.0, 1.0)
+			var pop := lerpf(1.28, 1.0, ease(clampf(age / 0.14, 0.0, 1.0), 0.4))
+			n["fade"] = fade
+			n["pop"] = pop
+			var col := KitFx.slot_col(str(n.slot))
+			draw_set_transform(r.get_center(), 0.0, Vector2.ONE * (pop / K))
+			var big := Rect2(-r.size * 0.5 * K, r.size * K)
+			KitFx.draw_pill(self, 0, big, Color(0.035, 0.05, 0.09, 0.92 * fade) if n.camp == "A" else Color(0.11, 0.035, 0.03, 0.92 * fade))
+			if KitFx.tex("slot_" + str(n.slot)) == null:
+				var flash := 1.0 - clampf(age / 0.22, 0.0, 1.0)
+				var chip_r := Rect2(big.position + Vector2(2.0, 2.0) * K, Vector2(KIT_CHIP - 2.0, r.size.y - 4.0) * K)
+				if str(n.slot) == "p":      # P 는 동그란 바탕 (모양으로도 갈린다)
+					draw_texture_rect(KitFx.baked()[2], chip_r.grow(K), false, Color(col.lerp(Color.WHITE, 0.85 * flash), fade))
+				else:
+					KitFx.draw_pill(self, 0, chip_r, Color(col.lerp(Color.WHITE, 0.85 * flash), fade))
+		for n: Dictionary in live:      # ② 테두리 (화공이면 칸 색 테두리 밖에 일렁이는 불빛 테두리 한 겹)
+			var r: Rect2 = n.rect
+			var fade: float = n.fade
+			draw_set_transform(r.get_center(), 0.0, Vector2.ONE * (float(n.pop) / K))
+			var big := Rect2(-r.size * 0.5 * K, r.size * K)
+			if (n.augs as Array).has("fire"):
+				KitFx.draw_pill(self, 1, big.grow(2.5 * K), Color(KitFx.EMBER, (0.55 + 0.35 * sin(_kit_time * 14.0)) * fade))
+			KitFx.draw_pill(self, 1, big, Color(KitFx.slot_col(str(n.slot)), fade))
+		var flame: Texture2D = null
+		for n: Dictionary in live:      # ③ 글자 · 꼬리 · ★ · 불꽃
+			var r: Rect2 = n.rect
+			var fade: float = n.fade
+			var slot := str(n.slot)
+			var col := KitFx.slot_col(slot)
+			var augs: Array = n.augs
+			var c := r.get_center()
+			var box := Rect2(-r.size * 0.5, r.size)
+			draw_set_transform(c, 0.0, Vector2.ONE * float(n.pop))
+			var chip := Rect2(box.position + Vector2(2.0, 2.0), Vector2(KIT_CHIP - 2.0, box.size.y - 4.0))
+			var chip_art: Texture2D = KitFx.tex("slot_" + slot)
+			if chip_art != null:
+				draw_texture_rect(chip_art, chip.grow(1.5), false, Color(1, 1, 1, fade))
+			else:
+				draw_string(fb, Vector2(chip.position.x, 4.8), str(Kit.SLOT_N[slot]), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x, KIT_FS, Color(0.07, 0.06, 0.04, fade))
+			var tx0 := box.position.x + KIT_CHIP + 5.0
+			draw_string(fb, Vector2(tx0, 4.8), n.name, HORIZONTAL_ALIGNMENT_LEFT, -1, KIT_FS, Color(Color("#fff4d8").lerp(col, 0.12), fade))      # 외곽선 없이 (어두운 받침 위 —— 외곽선 글리프를 새로 만들지 않는다)
+			if not augs.is_empty():
+				KitFx.draw_augs(self, Vector2(tx0 + float(n.tw) + 3.0, 0.0), augs, KIT_STAR, fade)
+			var a: Vector2 = n.anchor
+			if absf(r.end.y - a.y) < 14.0:      # 꼬리 —— 머리 바로 위에 있을 때만 (위로 밀려 쌓인 것은 꼬리 없이)
+				var tx := clampf(a.x - c.x, box.position.x + 9.0, box.end.x - 9.0)
+				draw_primitive(PackedVector2Array([Vector2(tx - 4.5, box.end.y - 0.5), Vector2(tx, box.end.y + 5.0), Vector2(tx + 4.5, box.end.y - 0.5)]),
+					PackedColorArray([Color(col, fade)]), KitFx._no_uv)
+			if augs.has("fire"):      # 오른쪽 위 작은 불꽃
+				if flame == null and view.type2 != null and view.type2.painting != null:
+					flame = view.type2.painting._ink_get("flame_0")
+				if flame != null:
+					var fsz := 13.0 + 1.5 * sin(_kit_time * 17.0)
+					draw_texture_rect(flame, Rect2(box.end.x - fsz * 0.55, box.position.y - fsz * 0.7, fsz, fsz), false, Color(1, 1, 1, fade))
+		draw_set_transform(Vector2.ZERO)
+		kit_draw_us += Time.get_ticks_usec() - t0
+		kit_draw_n += 1
+
 	func reset() -> void:
+		kit_tags.clear()
+		_kit_p_at.clear()
+		_kit_p_next = 0.0
+		kit_tag_n = 0
 		ult_notices.A.clear()
 		ult_notices.B.clear()
 		story.reset(view.res.get("roster", []))
@@ -3898,6 +4237,7 @@ class Hud extends Control:
 
 	func _process(dt: float) -> void:
 		_tick_ult_notices(dt)
+		_tick_kit_tags(dt)
 		if stamp_info:
 			stamp_t += dt
 		if cut == null and _clash_q != null:      # 11/25 앞 컷인이 걷혔다 —— 기다리던 받아치기 컷인
@@ -3996,6 +4336,10 @@ class Hud extends Control:
 				draw_string(DB.font_bold, Vector2(-9999, -9999), e[2], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
 				draw_string(DB.font_body, Vector2(-9999, -9999), e[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, inv)
 			prewarm_txt.clear()
+		if not kit_prewarm.is_empty():      # 11/27 키트 칸 딱지의 기술 이름 · 칸 글자 —— 처음 뜰 때 글리프를 만드느라 멈칫하지 않게 미리 한 번
+			for nm in kit_prewarm:
+				draw_string(DB.font_bold, Vector2(-9999, -9999), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, KIT_FS, Color(1, 1, 1, 0.003))
+			kit_prewarm.clear()
 		_draw_all()
 		_draw_deck_links()
 		var tq := Time.get_ticks_usec()
@@ -4006,13 +4350,16 @@ class Hud extends Control:
 		_draw_charges()
 		_draw_ult_notices()
 		_draw_threats()
+		_draw_kit_tags()      # 11/27 키트 칸 딱지 —— 말풍선 · 위험 칸이 자리를 잡은 뒤에 (피해 간다)
 		view.field.pt("머리표·띠", tq)
 		_draw_top()
 		view.field.pt("머리표", t0)
 
 	## 11/6 #16 A등급 위험 신호 —— 화면 오른쪽 위 고정 칸: 적 고유기 준비(이름) · 아군 장수 병력 30% 아래(이름). 카메라 · 메달과 무관하게 늘 같은 자리
 	var _threat_seen := {}
+	var _threat_rects: Array = []      # 이번 그리기에서 놓인 위험 칸 —— 키트 칸 딱지가 피해 간다 (11/27)
 	func _draw_threats() -> void:
+		_threat_rects.clear()
 		if cut != null:      # 11/12 사용자: 컷인(인연 말풍선 포함)이 떠 있는 동안은 위험 칸(적 고유기 준비 · 위태롭다)이 말풍선을 가렸다 —— 컷인이 걷힌 뒤에 보인다
 			return
 		var items := []
@@ -4040,6 +4387,7 @@ class Hud extends Control:
 		for it in items.slice(0, 1 if Type2View.painting_on() else 3):
 			var w: float = fd.get_string_size(it[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 22.0
 			var r := Rect2(size.x - w - 10.0, y, w, 22.0)
+			_threat_rects.append(r)
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = Color(0.06, 0.05, 0.04, 0.85)
 			sb.border_color = Color(it[1], 0.5 + 0.5 * sin(view.clock * 8.0))
@@ -4121,8 +4469,15 @@ class Hud extends Control:
 			draw_style_box(sb, Rect2(x0 - 12.0, y, total + 24.0, 42.0))
 			# 장수 이름 —— 작게, 기술명 위
 			var who: String = c.who if c.mine else "적 · " + c.who
-			draw_string_outline(fb, Vector2(tx, y + 12.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 4, Color(0, 0, 0, 0.8 * a))
-			draw_string(fb, Vector2(tx, y + 12.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#9cc8ff" if c.mine else "#ffb3a6", a))
+			var wx := tx
+			var ckq: Dictionary = c.get("kit", {})
+			if not ckq.is_empty():      # 11/27 키트 R 예고 —— 이름 앞에 R 딱지, 이름 뒤에 강화 ★
+				KitFx.draw_chip(self, Vector2(tx + 6.5, y + 8.0), 13.0, str(ckq.slot), a)
+				wx += 16.0
+				if not (ckq.augs as Array).is_empty():
+					KitFx.draw_augs(self, Vector2(wx + fb.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 4.0, y + 8.0), ckq.augs, 9.0, a)
+			draw_string_outline(fb, Vector2(wx, y + 12.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 4, Color(0, 0, 0, 0.8 * a))
+			draw_string(fb, Vector2(wx, y + 12.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#9cc8ff" if c.mine else "#ffb3a6", a))
 			# 기술명 —— 붓글씨. 다 차면 금빛으로
 			var tcol := Color("#eaf3ff") if c.mine else Color("#ffe0d8")
 			if u >= 1.0:
@@ -5662,6 +6017,11 @@ class Hud extends Control:
 			var wb := Rect2(Vector2(tx + tw / 2 - wsz.x / 2 - 10, by + 50), Vector2(wsz.x + 20, 26))
 			draw_rect(wb, Color(accent, 0.85 * fade))
 			draw_string(DB.font_body, wb.position + Vector2(10, 19), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 1, 1, fade))
+			var ckq: Dictionary = cut.get("kit", {})
+			if not ckq.is_empty():      # 11/27 키트 R —— 이름 낙관 왼쪽에 R 딱지, 오른쪽에 강화 ★
+				KitFx.draw_chip(self, Vector2(wb.position.x - 19.0, wb.get_center().y), 28.0, str(ckq.slot), fade * nt, 1.0 - clampf((t - 0.22) / 0.4, 0.0, 1.0))
+				if not (ckq.augs as Array).is_empty():
+					KitFx.draw_augs(self, Vector2(wb.end.x + 6.0, wb.get_center().y), ckq.augs, 17.0, fade * nt)
 			# 11/6 사용자: 고유기명 아래 효과 —— "적 전체 피해 320% · 화상"
 			var desc: String = cut.get("desc", "")
 			if desc != "":
@@ -5808,6 +6168,12 @@ class Hud extends Control:
 			if fade < 1.0:
 				draw_rect(pr, Color(0, 0, 0, (1.0 - fade) * 0.7))
 			draw_rect(pr, Color(DB.tier_color(str(main.k)), fade), false, 3.0)
+			var ckq: Dictionary = main.get("kit", {})
+			if not ckq.is_empty():      # 11/27 키트 R —— 큰 초상 왼쪽 위 모서리에 R 딱지 · 강화 ★
+				var kc := pr.position + Vector2(17.0, 17.0)
+				KitFx.draw_chip(self, kc, 26.0, str(ckq.slot), fade)
+				if not (ckq.augs as Array).is_empty():
+					KitFx.draw_augs(self, kc + Vector2(16.0, 0.0), ckq.augs, 15.0, fade)
 			# 이름 · 기술명 —— 아군은 초상 아래(왼쪽 맞춤) · 적은 초상 위(오른쪽 맞춤)
 			var nt := clampf((t - 0.18 - (0.0 if left == a_first else 0.08)) / 0.16, 0, 1)
 			if nt <= 0.0:

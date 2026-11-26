@@ -3,7 +3,9 @@ extends Control
 const FormationMotion = preload("res://scripts/field/painted_formation.gd")
 const CasterFx = preload("res://scripts/field/painted_caster.gd")
 const MythUltimateMotion = preload("res://scripts/field/myth_ultimate_motion.gd")
+const KitFx = preload("res://scripts/field/painted_kit.gd")
 var caster = CasterFx.new(self)     # 11/25 책략계 기여 표시 (버프 · 디버프 · 천문 · 혼란 · 위세 · 기술 발동 · 책략 타격)
+var kit = KitFx.new(self)           # 11/27 장수 키트 Q · W · E · R · P 발동 표시 (칸 색 고리 · 번쩍임 · 맞은 표식)
 var caster_stats: Dictionary:      # 점검용 (tests/caster_vis_shot)
 	get:
 		return caster.stats
@@ -90,6 +92,7 @@ var _hero_of := {}             # 카드 id -> 칸 번호 (-1 = 없음)
 var _hero_falls := {}
 var _hero_poses := 1
 var hero_feet := {}
+var hero_h := {}               # 부대 key -> 이번 그리기의 장수 인형 키 (화면 px) —— 머리 위 칸 딱지 · 시전 고리 크기 (11/27 키트)
 const HERO_RECOIL_TIME := 0.38
 var batch: Node2D
 var top_effects: Node2D
@@ -201,6 +204,7 @@ func reset() -> void:
 	bodies.clear()
 	_hero_falls.clear()
 	hero_feet.clear()
+	hero_h.clear()
 	contacts.clear()
 	volleys.clear()
 	ults.clear()
@@ -222,6 +226,7 @@ func reset() -> void:
 	_bared.clear()
 	reveals.clear()
 	caster.reset()
+	kit.reset()
 
 func _formation(sq: Squad) -> FormationMotion:
 	var form: FormationMotion = formations.get(sq.key)
@@ -457,6 +462,7 @@ func _process(dt: float) -> void:
 	if not skill_fx_q.is_empty():
 		skill_fx_q = skill_fx_q.filter(func(s): return last_clock < float(s.end) and last_clock >= float(s.start) - 5.0)
 	caster.prune(last_clock)
+	kit.prune(last_clock)
 	_cl_tick += 1
 	_cl_i = 0
 	for sq: Squad in v.field.order:
@@ -581,6 +587,7 @@ func _contact_limits(sq: Squad) -> Array:
 func _draw() -> void:
 	visible_soldiers.clear()
 	hero_feet.clear()
+	hero_h.clear()
 	if v == null or v.field == null or cells.is_empty():
 		return
 	var t0 := Time.get_ticks_usec()
@@ -656,6 +663,7 @@ func _draw_overlay(ci: CanvasItem) -> void:
 	_draw_skill_fx(ci)
 	caster.draw(ci)
 	_draw_ults(ci)
+	kit.draw(ci)      # 11/27 키트 칸 표시 —— 고유기 이펙트 위에 (R 고리 · 맞은 표식이 묻히지 않게)
 
 func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 	var h := _figure_height(sq, form)
@@ -973,6 +981,7 @@ func _append_hero(sq: Squad, idx: int, pose: int, p: Vector2, soldier_h: float, 
 	var h := soldier_h * scale * _hero_scale[idx] * HERO_BODY / _hero_fill[idx]
 	_figs[b + 2] = h
 	hero_feet[sq.key] = p - Vector2(0.0, pow(absf(sin(stride)), 3.0) * gait * h * 0.012)
+	hero_h[sq.key] = h * _hero_fill[idx]      # 칸 키가 아니라 몸 키 (칸마다 여백이 다르다 —— 말 탄 여포는 칸의 일부만 쓴다)
 	var frame := pose if idx >= IMMORTAL_HERO_OFFSET else mini(pose, _hero_poses - 1)
 	if transcendent:
 		# Idle, action, recoil, defeat. The wind-up reuses idle with a tilt.

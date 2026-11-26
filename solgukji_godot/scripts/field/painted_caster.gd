@@ -10,6 +10,8 @@ extends RefCounted
 ##   혼란 —— 머리 위 도는 별 셋 + 물음표 (병사 비틀거림은 WarPainting._collect_figures)
 ##   위세 —— 늘 켜진 진영 효과를 가진 부대 발밑에 옅은 금빛 원 + 여덟 눈금 (팔괘)
 
+const KitFx = preload("res://scripts/field/painted_kit.gd")
+
 var p        # WarPainting
 var links: Array = []      # {src, dsts: [key], kinds: [kind], up, start}
 var wards: Array = []      # {key, src, start}
@@ -88,7 +90,10 @@ func on_event(e: Dictionary) -> void:
 			var a := str(e.get("a", ""))
 			if int(e.get("ai", 0)) == 0:      # 개전 「패업 발동」 알림 —— 판 첫머리에 한꺼번에 뜨지 않게
 				return
-			add_cast(a, str(e.get("name", "")))      # 묶음의 who 가 아니라 사건의 a (천문은 적 장수 차례에 적힌다)
+			var ksq: Squad = p.v.field.squads.get(a)
+			# 11/27 키트 장수의 Q · W · E 는 칸 딱지 · 칸 색 고리가 대신한다 (같은 기술 이름이 두 번 뜨지 않게 —— painted_kit.gd)
+			if ksq == null or KitFx.resolve(e, ksq.cid).is_empty():
+				add_cast(a, str(e.get("name", "")))      # 묶음의 who 가 아니라 사건의 a (천문은 적 장수 차례에 적힌다)
 			if str(e.get("name", "")) == "천문":
 				var sq: Squad = p.v.field.squads.get(a)
 				if sq != null:
