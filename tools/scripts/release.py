@@ -82,7 +82,7 @@ def write_html(d):
     for i, v in enumerate(vs):
         groups = ""
         for g in v.get("groups", []):
-            items = "".join(f"<li>{html.escape(it)}</li>" for it in g.get("items", []))
+            items = "".join((f"<li><b>{html.escape(it.split(chr(10),1)[0])}</b><br><span class=\"d\">{html.escape(it.split(chr(10),1)[1])}</span></li>" if chr(10) in it else f"<li>{html.escape(it)}</li>") for it in g.get("items", []))
             groups += f"<h3>{html.escape(g.get('n', ''))}</h3><ul>{items}</ul>"
         tag = '<span class="tag now">지금 버전</span>' if i == 0 else ""
         parts.append(
@@ -114,6 +114,7 @@ h1{{font-size:28px;margin:0 0 4px;color:var(--gold)}}
 .head{{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}}
 h2{{font-size:24px;margin:0;color:var(--gold)}}
 .date,.code{{color:var(--dim);font-size:13px}}
+li .d{{color:var(--dim);font-size:13.5px}}
 .tag{{display:inline-block;font-size:12px;border-radius:4px;padding:0 7px;border:1px solid var(--jade);color:var(--jade)}}
 .title{{margin:4px 0 6px;color:var(--ink);font-weight:600}}
 h3{{font-size:15px;margin:14px 0 4px;color:var(--jade)}}

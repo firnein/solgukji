@@ -1160,10 +1160,19 @@ func _changelog_fill(box: VBoxContainer, ver: Dictionary, now: bool, open: bool)
 			dot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			dot.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 			row.add_child(dot)
-			var l := UI.lbl(str(it), UI.FS_BODY, P.paper)
-			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			# 11/27 사용자: 패치노트는 「항목(제목) 한 줄 + 아래 짧은 설명」 —— 항목 글에 줄바꿈이 있으면 첫 줄이 제목, 나머지가 설명
+			var parts := str(it).split("
+", true, 1)
+			var tb := UI.vbox(0)
+			tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var l := UI.lbl(parts[0], UI.FS_BODY, P.paper, parts.size() > 1)
 			UI.wrap_text(l)
-			row.add_child(l)
+			tb.add_child(l)
+			if parts.size() > 1:
+				var dl := UI.lbl(parts[1], UI.FS_CAP, P.text_dim)
+				UI.wrap_text(dl)
+				tb.add_child(dl)
+			row.add_child(tb)
 			gb.add_child(row)
 		body.add_child(gb)
 	var pad := MarginContainer.new()
