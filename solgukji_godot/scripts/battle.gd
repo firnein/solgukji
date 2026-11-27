@@ -565,6 +565,10 @@ func _kit_unit(u: Unit) -> void:
 		u.c = c2
 	if u.ult != null:
 		u.ult = Kit.ult_of(str(u.c.id))      # 바탕 배율 + 그 장수 r 칸의 배율
+		if u.ult != null:      # 11/27 고유기는 드물게 · 크게 —— 횟수 상한 · 한 방 상한 · 기 차는 속도 (_gain)
+			u.charges = mini(u.charges, Kit.ult_charges)
+			u.ult["cap_bonus"] = float(u.ult.get("cap_bonus", 0.0)) + Kit.ult_cap_bonus
+			u.ult["gauge_mul"] = Kit.ult_gauge
 
 
 ## 키트 장수의 사건에 붙이는 칸 표시 —— {"slot": 칸} + 그 칸을 강화했으면 {"up": true} (키트 장수가 아니면 빈 사전)
@@ -4080,6 +4084,8 @@ func _gain(u: Unit, v: float) -> void:
 		return
 	if not _gain_up.is_empty() and _gain_up.has(u) and _gain_up[u].any(func(o): return o.alive):      # 11/12 같은 인연 초월이 살아 있으면 기가 빨리 찬다
 		v *= inyeon_up_gain
+	if u.ult != null:
+		v *= float(u.ult.get("gauge_mul", 1.0))      # 11/27 키트 장수는 기가 느리게 찬다 (Kit.ult_gauge)
 	u.gauge = minf(100.0, u.gauge + v * (pow(reult_decay, u.ult_n) if u.ult_n > 0 else 1.0))      # n번 쓴 장수는 reult_decay^n 배로 (쓸수록 어렵게)
 
 

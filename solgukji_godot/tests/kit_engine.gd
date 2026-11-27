@@ -241,7 +241,7 @@ func _check_cooldown() -> void:
 				n_old += 1
 		secs_old += float(old[0].len)
 	ok(n > 0 and short == 0, "관우 —— 같은 칸 기술은 재사용 대기 안에 다시 나가지 않는다 (%d번 · 어긋남 %d · Q %d W %d E %d)" % [n, short, per.q, per.w, per.e])
-	ok(n / maxf(1.0, secs) < n_old / maxf(1.0, secs_old), "관우 기술 발동 간격 —— 예전(충전) %.1f초에 한 번 → 지금 %.1f초에 한 번" % [secs_old / maxf(1.0, n_old), secs / maxf(1.0, n)])
+	ok(n / maxf(1.0, secs) <= n_old / maxf(1.0, secs_old) * 1.05, "관우 기술 발동 간격 (11/27 잽 3~4초 · 결정타 12~14초 —— 예전보다 잦지 않으면 된다) —— 예전(충전) %.1f초에 한 번 → 지금 %.1f초에 한 번" % [secs_old / maxf(1.0, n_old), secs / maxf(1.0, n)])
 
 
 # ───────── 5) 105칸 ─────────

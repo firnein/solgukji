@@ -45,7 +45,12 @@ static var min_tier := 8             # 이 등급 이상만 (11/27 "일단은 �
 ##   base_sk 일반기술(q · w · e) 피해 배율 · base_ult 고유기(r) 타격 배율 · base_p 고유 특기(p) 수치 배율
 ##   base_sup 기술 · 고유기가 아군에게 주는 회복 · 강화 배율 (기술의 heal · tHeal · allyBuff, 고유기 아군 효과의 heal · morale · buff, 지속은 그대로)
 static var base_sk := 1.08
-static var base_ult := 1.08
+static var base_ult := 1.4           # 11/27 사용자 "고유기를 좀 덜 나가게 · 대신 파급력은 좀 올려" —— 1.08 → 1.4 (아래 ult_gauge · ult_charges · ult_cap_bonus 와 함께)
+## 고유기 리듬 (11/27) —— 일반기술 대기(잽 3~4 · 주력 5~6 · 큰 수 8~10 · 결정타 12~14초)보다 드물게, 한 방은 크게
+##   ult_gauge 기가 차는 속도 배율 (첫 고유기 12초 안팎 → 16초 안팎) · ult_charges 한 판 최대 횟수 (신화 3 → 2) · ult_cap_bonus 고유기 한 방 상한(Battle.ult_cap)에 더하는 몫
+static var ult_gauge := 0.75
+static var ult_charges := 2
+static var ult_cap_bonus := 0.1
 static var base_p := 1.0
 static var base_sup := 1.2
 
