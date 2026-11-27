@@ -5004,20 +5004,31 @@ func _kit_section(k: String) -> Control:
 		head.add_child(UI.merit(str(run.merit), SheetStyle.FS_ROW, UI.MERIT_COL, false))
 	box.add_child(head)
 	if can_up:
-		# 11/27 사용자: "qwerp 강화 좀 더 컴팩트하게" —— 머리 설명은 한 줄로
+		# 11/27 사용자: "qwerp 강화 좀 더 컴팩트하게" —— 머리 설명은 한 줄로. 앞에 강화 칸 현황 [Q][ ] (확인 창과 같은 모양)
+		var rh := UI.hbox(6)
+		rh.name = "KitRuleRow"
+		rh.add_child(_kit_pips(ups, "", 16.0))
 		var rule_text := "%d칸을 모두 강화했다 · 더 강화할 수 없다" % Kit.MAX_UP
 		if not full:
 			rule_text = "장수마다 %d칸 · %s %s · 되돌릴 수 없음 · 줄을 누르면 강화 효과" % [Kit.MAX_UP, Kit.CUR_N, " → ".join(Kit.UP_COST.map(func(x): return str(x)))]
-		var rule := UI.lbl(rule_text, 11, UI.kit_col(str(ups[-1])).lightened(0.3) if full else SheetStyle.DIM)
+		var need := Kit.up_cost(run.kit, k)
+		var lack: bool = not full and run.merit < need      # 전공이 모자라면 줄마다 쓰지 않고 여기 한 번만
+		if lack:
+			rule_text = "%s %d 모자람 (%d/%d) · 장수마다 %d칸 · 되돌릴 수 없음" % [Kit.CUR_N, need - run.merit, run.merit, need, Kit.MAX_UP]
+		var rule := UI.lbl(rule_text, 11, SheetStyle.GOLD_HI if full else (SheetStyle.WARN if lack else SheetStyle.DIM))
 		rule.name = "KitRule"
 		rule.clip_text = true
 		rule.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		box.add_child(rule)
+		rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		rh.add_child(rule)
+		box.add_child(rh)
 		if not full and kit_stage_block() != "":
 			box.add_child(UI.hint(kit_stage_block()))
 	for slot in Kit.SLOTS:
 		if not Kit.cell(k, slot).is_empty():
 			box.add_child(_kit_row(k, slot, can_up, ups))
+	_kit_flash.erase(k)      # 방금 강화한 줄의 번쩍임은 한 번만
 	return box
 
 
@@ -5032,7 +5043,13 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 	var full := ups.size() >= Kit.MAX_UP
 	var badge_w := 24.0
 	var pc := PanelContainer.new()
-	var sb := UI.flat(Color(col, 0.07) if is_up else SheetStyle.WELL, col if is_up else SheetStyle.LINE, 2 if is_up else 1, 6, 0)
+	# 줄 바탕 —— 왼쪽 칸 색 띠(3)로 칸을 먼저 알아본다. 강화한 줄은 칸 색 테 · 옅은 칸 색 바탕 · 옅은 빛, 못 고르게 된 줄(2칸을 채움)은 띠도 옅게
+	var dead := can_up and full and not is_up
+	var sb := UI.flat(Color(col, 0.10) if is_up else SheetStyle.WELL, Color(col, 0.95) if is_up else Color(col, 0.16 if dead else 0.30), 1, 6, 0)
+	sb.border_width_left = 3
+	if is_up:
+		sb.shadow_color = Color(col, 0.18)
+		sb.shadow_size = 4
 	sb.content_margin_left = 8
 	sb.content_margin_right = 8
 	sb.content_margin_top = 3
@@ -5100,6 +5117,8 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 		var ch := SheetStyle.chip("강화됨", col, "solid")
 		ch.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		outer.add_child(ch)
+		if str(_kit_flash.get(k, "")) == slot:      # 확인 창에서 방금 강화했다 —— 이 줄이 한 번 번쩍인다
+			pc.tree_entered.connect(func(): _kit_row_flash(pc, ch), CONNECT_ONE_SHOT)
 	elif can_up and not full:
 		var cost := Kit.up_cost(run.kit, k)
 		var bv := UI.vbox(1)
@@ -5112,11 +5131,7 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 		if bt.disabled:      # 비활성 —— 버튼 모양은 남기고 안의 글자 · 값만 흐리게 (_buy_btn 과 같다)
 			bt.add_theme_stylebox_override("disabled", UI.flat(DB.PAL.ink2, Color(DB.PAL.paper, 0.16), 1, UI.R, 10))
 			bt.get_child(bt.get_child_count() - 1).modulate.a = 0.4
-		bv.add_child(bt)
-		if short:
-			var sl := UI.lbl("%s 부족 %d/%d" % [Kit.CUR_N, run.merit, cost], UI.FS_TINY, SheetStyle.WARN)
-			sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			bv.add_child(sl)
+		bv.add_child(bt)      # 전공이 모자란 까닭은 묶음 머리(KitRule)에 한 번만 쓴다 —— 줄마다 「부족」을 되풀이하지 않는다
 		outer.add_child(bv)
 	return pc
 
@@ -5132,18 +5147,26 @@ func _kit_rest_skills(k: String) -> Control:
 	return box
 
 
-## 강화 확인 창 —— 장수 · 칸 · 기술 → 강화 효과 · 값 · 「되돌릴 수 없습니다」. 확인하면 kit_up.
+## 강화 확인 창 —— 11/27 "강화 시도 페이지 폴리싱": 무엇이 어떻게 바뀌나가 한눈에.
+##   [장수 타일] 이름 / 강화 칸 [Q][W?] (이번 칸은 흐린 칸 딱지 · 마지막 칸이면 「마지막 칸 · 나머지 N칸은 잠김」) / 전공 ◎7 → ◎1 남음 (모자라면 붉게 「N 모자람」)
+##   칸 카드 —— [W] 기술 이름 · 주기 / 하는 일(지금) / 「+ 강화 이름」 상자(칸 색 테 · 빛 —— 강화하면 더해지는 것)
+##   한 줄 경고(작게) · [그대로 둔다] [강화한다 ◎N](금빛 주 버튼). 누르면 칸 딱지 번쩍 · 「강화됨」 딱지가 붙고 정보창으로 —— 그 줄도 한 번 번쩍인다 (_kit_flash)
 ## to_info = 장수 정보창에서 왔다 (끝나면 그리로 돌아간다). 편성 화면(끌어 놓기 · 칩 시트)에서 왔으면 시트를 닫는다
+var _kit_flash := {}      # 방금 강화한 {장수: 칸} —— 정보창 줄이 한 번 번쩍이고 지운다
+
 func kit_confirm(k: String, slot: String, to_info := false) -> void:
 	var tx := UI.kit_text(k, slot)
 	if tx.is_empty() or not DB.C.has(k):
 		return
 	var col := UI.kit_col(slot)
+	var ucol := col.lightened(0.35)
 	var why := kit_stage_block()
 	if why == "":
 		why = run.kit_block(k, slot)
 	var cost := Kit.up_cost(run.kit, k)
-	var nth := Kit.ups_of(run.kit, k).size() + 1
+	var ups := Kit.ups_of(run.kit, k)
+	var nth := ups.size() + 1
+	var short: bool = cost >= 0 and run.merit < cost
 	var back := func():
 		if to_info:
 			_back_nav = true
@@ -5151,36 +5174,72 @@ func kit_confirm(k: String, slot: String, to_info := false) -> void:
 		else:
 			close_sheet()
 	var b := open_sheet("강화합니다")
-	var who := UI.hbox(UI.SP_S)
+	# 머리 —— 장수 타일 · 이름 / 강화 칸 현황 / 전공
+	var who := UI.hbox(UI.SP_M)
 	var wt := mtile(k, -1)
 	wt.custom_minimum_size = Vector2(56, 78)
 	wt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	who.add_child(wt)
-	var wv := UI.vbox(3)
+	var wv := UI.vbox(4)
 	wv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var wn := UI.lbl(str(DB.C[k].name), UI.FS_LABEL, DB.tier_color(k).lightened(0.2), true)
 	wn.clip_text = true
 	wn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	wv.add_child(wn)
-	wv.add_child(UI.lbl("이 장수의 %d번째 강화 (장수마다 %d칸까지)" % [nth, Kit.MAX_UP], UI.FS_CAP, DB.PAL.text_dim))
+	var pr := UI.hbox(6)
+	pr.name = "KitPips"
+	var pl := UI.lbl("강화 칸", SheetStyle.FS_SUB, SheetStyle.DIM)
+	pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pr.add_child(pl)
+	var pips := _kit_pips(ups, slot, 20.0)
+	pr.add_child(pips)
+	if nth >= Kit.MAX_UP:
+		var left := 0
+		for sl in Kit.SLOTS:
+			if not Kit.cell(k, sl).is_empty() and not ups.has(sl) and sl != slot:
+				left += 1
+		pr.add_child(SheetStyle.chip("마지막 칸", SheetStyle.GOLD, "line"))
+		var ll := UI.lbl("나머지 %d칸은 잠김" % left, SheetStyle.FS_SUB, SheetStyle.GOLD_HI)
+		ll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pr.add_child(ll)
+	else:
+		var ll := UI.lbl("%d칸 중 %d번째" % [Kit.MAX_UP, nth], SheetStyle.FS_SUB, SheetStyle.DIM)
+		ll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pr.add_child(ll)
+	wv.add_child(pr)
 	var mr := UI.hbox(UI.SP_XS)
-	var ml := UI.lbl("가진 %s" % Kit.CUR_N, UI.FS_CAP, DB.PAL.text_dim)
+	mr.name = "KitMerit"
+	var ml := UI.lbl(Kit.CUR_N, SheetStyle.FS_SUB, SheetStyle.DIM)
 	ml.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mr.add_child(ml)
-	mr.add_child(UI.merit(str(run.merit), UI.FS_BODY, UI.MERIT_COL, false))
-	if cost >= 0 and run.merit >= cost:
-		var al := UI.lbl("→ %d" % (run.merit - cost), UI.FS_CAP, DB.PAL.text_dim)
+	mr.add_child(UI.merit(str(run.merit), SheetStyle.FS_ROW, SheetStyle.WARN if short else UI.MERIT_COL, false))
+	if short:
+		var sl2 := UI.lbl("/ %d  ·  %d 모자람" % [cost, cost - run.merit], SheetStyle.FS_SUB, SheetStyle.WARN, true)
+		sl2.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mr.add_child(sl2)
+	elif cost >= 0:
+		var al := UI.lbl("→", SheetStyle.FS_ROW, SheetStyle.DIM)
 		al.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		mr.add_child(al)
+		mr.add_child(UI.merit(str(run.merit - cost), SheetStyle.FS_ROW, SheetStyle.TEXT, false))
+		var al2 := UI.lbl("남음", SheetStyle.FS_SUB, SheetStyle.DIM)
+		al2.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mr.add_child(al2)
 	wv.add_child(mr)
 	who.add_child(wv)
 	b.add_child(who)
-	# 칸 —— 기술 이름 · 주기 · 하는 일 + 강화 효과
+	# 칸 카드 —— [칸] 기술 이름 · 주기 (오른쪽에 강화하면 붙는 「강화됨」 자리) / 하는 일 / + 강화 효과
 	var pc := PanelContainer.new()
 	pc.name = "KitConfirm"
-	pc.add_theme_stylebox_override("panel", UI.flat(Color(col, 0.07), Color(col, 0.8), 1, 6, 10))
-	var pv := UI.vbox(5)
+	var psb := UI.flat(Color(col, 0.06), Color(col, 0.45), 1, 8, 0)
+	psb.content_margin_left = 12
+	psb.content_margin_right = 12
+	psb.content_margin_top = 10
+	psb.content_margin_bottom = 12
+	pc.add_theme_stylebox_override("panel", psb)
+	var pv := UI.vbox(6)
 	pc.add_child(pv)
 	var hd := UI.hbox(UI.SP_S)
 	var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[slot]), col, 26.0)
@@ -5191,35 +5250,136 @@ func kit_confirm(k: String, slot: String, to_info := false) -> void:
 	hd.add_child(nl)
 	var wl := UI.lbl(str(tx.when), SheetStyle.FS_SUB, SheetStyle.DIM)
 	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hd.add_child(wl)
+	var done := SheetStyle.chip("강화됨", col, "solid")
+	done.name = "KitDone"
+	done.modulate.a = 0.0      # 자리만 잡아 둔다 —— 강화하는 순간 나타난다 (줄이 밀리지 않게)
+	hd.add_child(done)
 	pv.add_child(hd)
+	var ind := MarginContainer.new()
+	ind.add_theme_constant_override("margin_left", 26 + UI.SP_S)
 	var ef := UI.rich(_hl(str(tx.d)), 13)
-	ef.add_theme_color_override("default_color", SheetStyle.DIM)
-	pv.add_child(ef)
-	pv.add_child(kit_up_box(slot, tx, true))
+	ef.add_theme_color_override("default_color", Color(SheetStyle.TEXT, 0.8))
+	ind.add_child(ef)
+	pv.add_child(ind)
+	var ub := PanelContainer.new()
+	ub.name = "KitPlus"
+	var usb := UI.flat(Color(col, 0.15), Color(col, 0.9), 1, UI.R, 0)
+	usb.border_width_left = 3
+	usb.content_margin_left = 11
+	usb.content_margin_right = 10
+	usb.content_margin_top = 6
+	usb.content_margin_bottom = 8
+	usb.shadow_color = Color(col, 0.22)
+	usb.shadow_size = 8
+	ub.add_theme_stylebox_override("panel", usb)
+	var uv := UI.vbox(2)
+	var uh := UI.hbox(UI.SP_S)
+	var un := UI.lbl("+ %s" % str(tx.up_n), SheetStyle.FS_ROW, ucol, true)
+	un.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	uh.add_child(un)
+	var ut := UI.lbl("강화하면 더해짐", SheetStyle.FS_TAG, Color(ucol, 0.7))
+	ut.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	uh.add_child(ut)
+	uv.add_child(uh)
+	var ud := UI.rich(_hl(str(tx.up_d)), 14)
+	ud.add_theme_color_override("default_color", SheetStyle.TEXT)
+	uv.add_child(ud)
+	ub.add_child(uv)
+	pv.add_child(ub)
 	b.add_child(pc)
-	var warn := UI.lbl("한 번 강화하면 되돌릴 수 없습니다 (옮기기 · 환불 없음)", UI.FS_BODY, DB.PAL.danger)
-	UI.wrap_text(warn)
-	b.add_child(warn)
-	if why != "":
-		var wl2 := UI.lbl(why, UI.FS_BODY, DB.PAL.danger, true)
-		UI.wrap_text(wl2)
-		b.add_child(wl2)
+	# 막힌 까닭 (전공 부족은 위 전공 줄이 말한다) · 되돌릴 수 없음 한 줄
+	if why != "" and not short:
+		b.add_child(SheetStyle.note(why, SheetStyle.WARN))
+	b.add_child(SheetStyle.note("한 번 강화하면 되돌릴 수 없습니다 · 옮기기 · 환불 없음", Color(SheetStyle.WARN, 0.8)))
 	var br := UI.hbox(UI.SP_S)
-	var no := UI.btn("그대로 둔다", back, "ghost", UI.BH_M)
+	var no := SheetStyle.quiet_btn(UI.btn("그대로 둔다", back, "", UI.BH_M))
 	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	br.add_child(no)
+	var hold := []      # 람다는 지역 변수를 값으로 잡는다 —— 버튼은 배열에 담아 넘긴다
 	var yes := UI.merit_btn("강화한다", str(maxi(cost, 0)), func():
-		if act("kit_up", [k, slot]):
-			toast("%s —— %s 「%s」 강화" % [DB.person(k), str(Kit.SLOT_N[slot]), str(tx.up_n)], "gain")
-		back.call(), "pri", UI.BH_M)
+		if hold.is_empty() or hold[0].disabled:
+			return
+		hold[0].disabled = true
+		no.disabled = true
+		if not act("kit_up", [k, slot]):
+			back.call()
+			return
+		toast("%s —— %s 「%s」 강화" % [DB.person(k), str(Kit.SLOT_N[slot]), str(tx.up_n)], "gain")
+		_kit_flash = {k: slot}
+		_kit_up_burst(pips.get_node_or_null("KitPipNow"), bd, done, ub)
+		get_tree().create_timer(0.55).timeout.connect(func():
+			if is_instance_valid(pc) and pc.is_inside_tree() and not pc.is_queued_for_deletion():
+				back.call()), "", UI.BH_M)
 	yes.name = "KitYes"
+	hold.append(yes)
+	var yrow := yes.get_child(yes.get_child_count() - 1)
+	SheetStyle.main_btn(yes)
 	yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	yes.size_flags_stretch_ratio = 1.4
 	yes.disabled = why != ""
 	if yes.disabled:
-		yes.get_child(yes.get_child_count() - 1).modulate.a = 0.4
+		yrow.modulate.a = 0.4
 	br.add_child(yes)
 	b.add_child(br)
+
+
+## 장수의 강화 칸 현황 —— 장수마다 MAX_UP 칸: 강화한 칸은 칸 딱지, 이번에 고른 칸(now)은 흐린 칸 딱지(KitPipNow), 빈 칸은 옅은 테
+func _kit_pips(ups: Array, now := "", box := 20.0) -> HBoxContainer:
+	var h := UI.hbox(3)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in Kit.MAX_UP:
+		var c: Control
+		if i < ups.size():
+			c = SheetStyle.slot_badge(str(Kit.SLOT_N[str(ups[i])]), UI.kit_col(str(ups[i])), box)
+		elif i == ups.size() and now != "":
+			c = SheetStyle.slot_badge(str(Kit.SLOT_N[now]), UI.kit_col(now), box)
+			c.name = "KitPipNow"
+			c.modulate.a = 0.38
+		else:
+			c = Panel.new()
+			c.add_theme_stylebox_override("panel", UI.flat(Color(0, 0, 0, 0.18), Color(SheetStyle.TEXT, 0.22), 1, UI.R, 0))
+			c.custom_minimum_size = Vector2(box, box)
+			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(c)
+	return h
+
+
+## 강화한 순간 —— 칸 딱지 번쩍 · 「강화됨」 딱지가 톡 붙는다 · 강화 상자 한 번 밝게 (0.4초 · 과하지 않게)
+func _kit_up_burst(pip: Control, badge: Control, chip: Control, box: Control) -> void:
+	for c: Control in [pip, badge]:
+		if c == null:
+			continue
+		c.pivot_offset = c.size * 0.5
+		var t := c.create_tween().set_parallel()
+		c.modulate = Color(1.8, 1.8, 1.8, 1.0)
+		c.scale = Vector2(1.35, 1.35)
+		t.tween_property(c, "modulate", Color.WHITE, 0.35)
+		t.tween_property(c, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if chip != null:
+		chip.pivot_offset = chip.size * 0.5
+		chip.scale = Vector2(1.4, 1.4)
+		var t2 := chip.create_tween().set_parallel()
+		t2.tween_property(chip, "modulate:a", 1.0, 0.12)
+		t2.tween_property(chip, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if box != null:
+		box.modulate = Color(1.45, 1.45, 1.45, 1.0)
+		box.create_tween().tween_property(box, "modulate", Color.WHITE, 0.45)
+
+
+## 정보창으로 돌아온 뒤 방금 강화한 줄 —— 한 번 밝아졌다 가라앉고 「강화됨」 딱지가 톡 (배치가 끝난 다음 프레임에)
+func _kit_row_flash(row: Control, chip: Control) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(row) or not row.is_inside_tree():
+		return
+	row.modulate = Color(1.5, 1.5, 1.5, 1.0)
+	row.create_tween().tween_property(row, "modulate", Color.WHITE, 0.6).set_ease(Tween.EASE_OUT)
+	if chip != null and is_instance_valid(chip):
+		chip.pivot_offset = chip.size * 0.5
+		chip.scale = Vector2(1.35, 1.35)
+		chip.create_tween().tween_property(chip, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## 남의 핵심 장수들의 강화 —— 장수마다 「관우」 [Q] 연참 [W] 격퇴 (with_text 면 줄마다 효과 글까지: 상대 정보). 강화한 장수가 없으면 null.

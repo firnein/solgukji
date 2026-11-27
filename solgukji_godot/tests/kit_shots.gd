@@ -113,7 +113,7 @@ func _ready() -> void:
 	await _wait(0.9)
 	var sec := _find(gs._sheet_body, "KitSection")
 	ok(sec != null, "정보창에 「장수 키트」 묶음")
-	ok(_count(sec, func(n): return n is SheetStyle.SlotBadge) == 5, "칸 딱지 다섯 (Q · W · E · R · P)")
+	ok(_rows(sec).reduce(func(a, rw): return a + _count(rw, func(n): return n is SheetStyle.SlotBadge), 0) == 5, "칸 딱지 다섯 (Q · W · E · R · P) —— 머리의 강화 칸 현황은 빼고 셈")
 	var rows := _rows(sec)
 	ok(rows.size() == 5 and rows.filter(func(n): return bool(n.get_meta("kit_up"))).map(func(n): return str(n.get_meta("kit_slot"))) == ["q"], "다섯 줄 · 강화됨은 Q 하나")
 	var texts := _texts(sec)
