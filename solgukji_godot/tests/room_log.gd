@@ -81,7 +81,7 @@ func _play(log_on: bool, stop_slot := STOP_SLOT, rec := [true, true, true], back
 				r.on_cmd(s.peer, "auto_deploy", [])
 				r.on_cmd(s.peer, "nonsense", [1.0, "x"])      # 거절되는 명령도 기록에 ok:false 로 남는다
 		var slot := r.day * 3 + r.phase
-		if slot == 1 and r.stage == "evening_prep" and not left:
+		if slot == 1 and r.stage in ["evening_prep", "noon"] and not left:      # 11/27 군략이 꺼지면 대전 준비가 없다 —— 토벌 단계에서 끊는다
 			left = true
 			r.remove_peer(2)                  # 시험1 접속 끊김
 		if slot == 2 and r.stage == "morning" and left and not back:
