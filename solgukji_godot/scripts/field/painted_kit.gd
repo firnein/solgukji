@@ -46,6 +46,7 @@ var _q_tex := {}            # 그림 이름 -> [가운데, 크기, 색, 돌림, 
 var _q_line: Array = []     # [a, b, 색, 굵기, 안티에일리어싱] 이어 붙임
 var _q_prim: Array = []     # [점들(셋 · 넷), 색] 이어 붙임
 var _q_sheet: Array = []    # [그림(assets/kit), 가운데, 크기, 진행 0~1, 색] 이어 붙임
+var _q_vfx: Array = []      # [그림(assets/kit/fx), 가운데, 크기, 진행 0~1, 색, 뒤집기] 이어 붙임 —— 기술 타입 이펙트 (_draw_vfx)
 
 const MAX_CASTS := 10
 const MAX_DSTS := 9
@@ -59,6 +60,14 @@ const BURST_LIFE := 0.95     # 강화 효과 발동
 const SHOVE_LIFE := 0.5      # 밀려남 (길 기록 한 칸 0.4초 동안 미끄러진다)
 const LINK_TRAVEL := 0.18    # 시전자 → 대상 빛줄기가 닿는 시간 (맞는 순간에 닿는다)
 const HIT_STAGGER := 0.04    # 대상마다 조금씩 늦게
+## 11/27 기술 타입 이펙트 (data/kit.json 칸의 "vfx" —— assets/kit/fx/<종류>.png 가로 8칸 띠, docs/코덱스_요청_기술이펙트.md)
+##   대상 자리: 맞은 · 받은 부대 몸 가운데 (대상이 없으면 시전 장수). 시전 자리 종류(VFX_SELF)는 시전 장수 몸에
+##   방향이 있는 그림(오른쪽을 본다)은 대상이 왼쪽이면 뒤집는다. 고유기(R)는 VFX_ULT 배로 크게
+const VFX_LIFE := 0.9
+const VFX_MAX_DST := 4
+const VFX_ULT := 1.6
+const VFX_SELF := ["dash", "stealth", "taunt", "haste"]
+const VFX_DIR := ["slash", "thrust", "dash", "arrow", "pierce", "throw", "pull", "sweep"]
 const INK := Color("#29271f")
 const ENSO_FILL := 0.78      # 원상 그림에서 고리가 차지하는 폭 (그림 한 변 대비)
 ## 은신으로 읽는 상태 이름 (엔진이 사건 스냅숏의 상태 목록에 넣어 주면 뜬다)
@@ -283,8 +292,9 @@ func add(key: String, slot: String, up: bool, dsts: Array, delay: float, wait :=
 			if d.size() >= MAX_DSTS:
 				break
 	var hit := now + maxf(0.0, delay)
-	casts.append({"key": key, "slot": slot, "up": up, "start": now, "hit": hit,
-		"end": maxf(now + CAST_LIFE, hit + HIT_LIFE + HIT_STAGGER * d.size()), "col": slot_col(slot), "dsts": d,
+	var vf: Array = Kit.cell(str(sq.cid), slot).get("vfx", []) if DB.C.has(str(sq.cid)) else []
+	casts.append({"key": key, "slot": slot, "up": up, "start": now, "hit": hit, "vfx": vf,
+		"end": maxf(maxf(now + CAST_LIFE, hit + HIT_LIFE + HIT_STAGGER * d.size()), (hit + VFX_LIFE + 0.25) if not vf.is_empty() else 0.0), "col": slot_col(slot), "dsts": d,
 		"sd": float(absi(hash(key + slot)) % 628) * 0.01})
 	stats.cast += 1
 	stats.hit += d.size()
@@ -341,6 +351,8 @@ func draw(ci: CanvasItem) -> void:
 		_draw_cast(ci, c, clock - float(c.start), lv)
 		if not (c.dsts as Array).is_empty():
 			_draw_hits(c, clock - float(c.hit), lv)
+		if not (c.get("vfx", []) as Array).is_empty():
+			_draw_vfx(c, clock - float(c.hit), lv)
 	for b: Dictionary in bursts:
 		_draw_burst(ci, b, clock - float(b.start), lv)
 	if _queued:
@@ -428,6 +440,19 @@ func _flush(ci: CanvasItem) -> void:
 			Rect2(fw * clampi(int(float(_q_sheet[i + 3]) * n), 0, n - 1), 0.0, fw, ts.y), _q_sheet[i + 4])
 		i += 5
 	_q_sheet.clear()
+	i = 0
+	while i < _q_vfx.size():      # 기술 타입 이펙트 —— 뒤집기면 그림 영역을 거꾸로 (오른쪽을 보는 그림이 왼쪽을 본다)
+		var va: Texture2D = _q_vfx[i]
+		var vs := va.get_size()
+		var vn := maxi(1, roundi(vs.x / maxf(1.0, vs.y)))
+		var vw := vs.x / vn
+		var vz: float = _q_vfx[i + 2]
+		var src := Rect2(vw * clampi(int(float(_q_vfx[i + 3]) * vn), 0, vn - 1), 0.0, vw, vs.y)
+		if _q_vfx[i + 5]:
+			src = Rect2(src.position.x + vw, 0.0, -vw, vs.y)
+		ci.draw_texture_rect_region(va, Rect2(_q_vfx[i + 1] - Vector2(vz, vz) * 0.5, Vector2(vz, vz)), src, _q_vfx[i + 4])
+		i += 6
+	_q_vfx.clear()
 	i = 0
 	while i < _q_prim.size():
 		ci.draw_primitive(_q_prim[i], PackedColorArray([_q_prim[i + 1]]), _no_uv)
@@ -772,3 +797,52 @@ func _draw_states(lv: int) -> void:
 			for key in ["seal", "taunted", "undying", "bleed", "plague", "stealth"]:
 				if st.has(key) or (key == "stealth" and stealth):
 					stats.state[key] = int(stats.state.get(key, 0)) + 1
+
+
+## 기술 타입 이펙트 (11/27) —— 그 칸의 vfx 종류마다 띠 그림 한 번 (0.9초). 맞는 순간(c.hit)부터, 대상마다 조금씩 늦게
+func _draw_vfx(c: Dictionary, age: float, lv: int) -> void:
+	if age < 0.0:
+		return
+	var src: Squad = p.v.field.squads.get(c.key)
+	if src == null:
+		return
+	var kinds: Array = c.vfx
+	if lv >= 3:
+		kinds = kinds.slice(0, 1)      # 부하 조절 3단계 —— 주된 종류 하나만
+	var big := VFX_ULT if str(c.slot) == "r" else 1.0
+	var src_at := _feet(src) - Vector2(0, float(p.hero_h.get(src.key, 30.0)) * 0.5)
+	for k in kinds.size():
+		var art := tex("fx/" + str(kinds[k]))
+		if art == null:
+			continue
+		var who: Array = []
+		if str(kinds[k]) in VFX_SELF or (c.dsts as Array).is_empty():
+			who = [src]
+		else:
+			for key in (c.dsts as Array).slice(0, VFX_MAX_DST if lv < 2 else 2):
+				var d: Squad = p.v.field.squads.get(key)
+				if d != null:
+					who.append(d)
+		for j in who.size():
+			var sq: Squad = who[j]
+			if sq.fade <= 0.01 or sq.state == "gone":
+				continue
+			var aj := age - j * HIT_STAGGER - k * 0.08
+			if aj < 0.0 or aj > VFX_LIFE:
+				continue
+			var at: Vector2 = src_at if sq == src else p.caster._anchor(sq, 18.0)
+			var sz := clampf(p.caster._half_width_px(sq) * 4.2, 110.0, 230.0) * big      # 그림 내용이 칸의 3분의 1 남짓이라 칸을 크게
+			if p.hero_h.has(sq.key):
+				sz = clampf(float(p.hero_h[sq.key]) * 3.8, 110.0, 250.0) * big
+			var flip := false
+			if str(kinds[k]) in VFX_DIR:
+				flip = (at.x < src_at.x) if sq != src else (src.camp == "B")
+			stats["vfx"] = int(stats.get("vfx", 0)) + 1
+			_q_vfx.append(art)
+			_q_vfx.append(at)
+			_q_vfx.append(sz)
+			_q_vfx.append(aj / VFX_LIFE)
+			_q_vfx.append(Color(1, 1, 1, sq.fade))
+			_q_vfx.append(flip)
+			_queued = true
+
