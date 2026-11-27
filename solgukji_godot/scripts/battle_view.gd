@@ -329,7 +329,7 @@ var _dock: Control
 var _dock_box: Control
 var _card_col: PanelContainer
 const CARD_COL_TOP := 96.0      # 위 병력 · 사기 막대와 군략 목록 · 한마디 줄 아래
-const CARD_COL_BOTTOM := 16.0
+const CARD_COL_BOTTOM := 44.0    # 왼쪽 아래 전투 소식 한 줄 위까지
 const CARD_COL_PAD := 8
 const CARD_COL_SEP := 6
 
@@ -359,27 +359,23 @@ func _place_cards() -> void:
 		cards_bar.center_last = true
 		return
 	var avail_h := stage.size.y - CARD_COL_TOP - CARD_COL_BOTTOM - CARD_COL_PAD * 2
+	# 11/27 사용자: "좌측에 그냥 세로로 쭉 나열" —— 늘 한 열. 높이가 모자라면 열 전체를 줄인다(scale)
 	var cols := 1
 	var cw := 150.0
 	var ch := MiniCard.H_WIDE
 	var rows := n
-	for c in [1, 2, 3]:
-		cols = c
-		cw = [150.0, 118.0, 80.0][c - 1]
-		ch = MiniCard.H_WIDE if cw >= 90.0 else MiniCard.H_SMALL
-		rows = ceili(n / float(c))
-		if rows * ch + (rows - 1) * CARD_COL_SEP <= avail_h:
-			break
 	cards_bar.min_w = cw
 	cards_bar.max_cols = cols
 	cards_bar.sep = CARD_COL_SEP
 	cards_bar.center_last = false
 	var w := cols * cw + (cols - 1) * CARD_COL_SEP + CARD_COL_PAD * 2
 	var h := rows * ch + (rows - 1) * CARD_COL_SEP + CARD_COL_PAD * 2
+	var k := clampf((avail_h + CARD_COL_PAD * 2) / maxf(h, 1.0), 0.4, 1.0)
 	_card_col.size = Vector2(w, h)
-	_card_col.position = Vector2(8.0, CARD_COL_TOP + maxf(0.0, (stage.size.y - CARD_COL_TOP - CARD_COL_BOTTOM - h) * 0.5))
+	_card_col.scale = Vector2(k, k)
+	_card_col.position = Vector2(8.0, CARD_COL_TOP + maxf(0.0, (stage.size.y - CARD_COL_TOP - CARD_COL_BOTTOM - h * k) * 0.5))
 	if type2 != null:
-		type2.side_pad = w + 8.0      # 카메라 맞춤이 열 폭만큼 양옆을 비운다 —— 양 끝 부대가 카드 밑에 숨지 않게
+		type2.side_pad = w * k + 8.0      # 카메라 맞춤이 열 폭만큼 양옆을 비운다 —— 양 끝 부대가 카드 밑에 숨지 않게
 
 
 ## 위 띠 —— 전투 이름 · 배속 · ⋯ 메뉴
