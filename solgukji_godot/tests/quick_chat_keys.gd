@@ -58,7 +58,7 @@ func _checks() -> void:
 	var b1 := _btn_text(0)
 	var b10 := _btn_text(9)
 	ck("엔터 → 한마디 시트가 열린다", on.quick_open() and gs._sheet_title.text == "한마디", gs._sheet_title.text)
-	ck("글 앞에 번호 1~9, 10번째부터는 번호 없음", b1 == "1. " + str(Room.QUICK_MSGS[0]) and (Room.QUICK_MSGS.size() < 10 or b10 == str(Room.QUICK_MSGS[9])), "%s / %s" % [b1, b10])
+	ck("글 앞에 번호 1~9, 10번째부터는 번호 없음", b1 == "1. " + str(Room.QUICK_MSGS[0]) and (Room.QUICK_MSGS.size() < 10 or b10 == str(Room.QUICK_MSGS[mini(9, Room.QUICK_MSGS.size() - 1)])), "%s / %s" % [b1, b10])
 	# 2. 숫자 3 → 3번 글을 보내고 닫힌다
 	fake.sent.clear()
 	_key(KEY_3)
