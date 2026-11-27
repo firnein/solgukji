@@ -61,6 +61,12 @@ static var trans := TRANS_ON         # 점검(tests/kit_engine --trans)만 바�
 const KIIN_ON := false
 static var kiin := KIIN_ON           # 점검(tests/kit_engine --kiin)만 바꾼다
 
+## ★ 강화는 신화만 (11/27 사용자 "qwer 이 적용된 모든 장수는 ui 에 qwer 반영, 단 신화를 제외한 등급에는 강화할 수 없음")
+##   불멸 · 초월 · 기인은 스위치를 켜면 키트 장수(Q · W · E · R · P 다섯 줄 · 재사용 대기 · 딱지)가 되지만 강화(전공)는 없다 —— can_up 이 거짓.
+##   강화 규칙의 모든 길이 can_up 을 본다: up_block(Run.kit_up · 서버 검증) · up_cost(전공 값) · norm(정책 · 저장 · 상대 강화) · ups_of(화면 표시)
+const UP_TIER := 8
+static var up_any := false           # 점검(tests/kit_engine --immortal · --trans · --kiin)만 바꾼다 —— 켜면 키트 장수 모두 강화 가능 (그 등급의 강화 엔진 길을 계속 점검)
+
 ## 바탕 배율 —— 키트 장수는 일반 특기 · 일반 단체 특기를 쓰지 않아 그만큼 약해지고, 기술은 재사용 대기로 드물어진다. 강화가 없어도 늘 곱해 예전 세기에 맞춘다 (실제 대전 덱 —— tests/kit_measure)
 ##   base_sk 일반기술(q · w · e) 피해 배율 · base_ult 고유기(r) 타격 배율 · base_p 고유 특기(p) 수치 배율
 ##   base_sup 기술 · 고유기가 아군에게 주는 회복 · 강화 배율 (기술의 heal · tHeal · allyBuff, 고유기 아군 효과의 heal · morale · buff, 지속은 그대로)
@@ -117,6 +123,16 @@ static func on(k) -> bool:
 	return card_on(k) and DB.has_ult(str(k))      # (DB.ult_of 는 부를 때마다 깊은 사본을 만든다 —— 있는지만 묻는다)
 
 
+## 강화할 수 있는 장수인가 —— 키트 장수이고 신화(UP_TIER 이상 · 기인 kind 는 아님). 불멸 · 초월 · 기인은 키트 장수여도 강화 없음
+static func can_up(k) -> bool:
+	if not on(k):
+		return false
+	if up_any:
+		return true
+	var c: Dictionary = DB.C[str(k)]
+	return str(c.get("kind", "")) != "kiin" and int(c.tier) >= UP_TIER
+
+
 ## 고유 특기 이름 (없으면 "")
 static func p_name(k: String) -> String:
 	var lad = DB.PSV.ladder.get(DB.person(k))
@@ -170,9 +186,9 @@ static func slot_def(k: String, slot: String) -> Dictionary:
 
 # ───────── 강화 상태 ─────────
 
-## 강화한 칸 목록 (사본). 옛 형식이 들어와도 칸 목록으로 읽는다
+## 강화한 칸 목록 (사본). 옛 형식이 들어와도 칸 목록으로 읽는다. 강화할 수 없는 장수(can_up 거짓 —— 신화가 아님)는 늘 빈 배열
 static func ups_of(kit, k) -> Array:
-	if not (kit is Dictionary):
+	if not (kit is Dictionary) or not can_up(k):
 		return []
 	var v = kit.get(str(k))
 	var out := []
@@ -193,6 +209,8 @@ static func is_up(kit, k, slot: String) -> bool:
 
 ## 그 장수의 다음 강화 값 (전공) —— 더 강화할 수 없으면 −1
 static func up_cost(kit, k) -> int:
+	if not can_up(k):
+		return -1
 	var n := ups_of(kit, k).size()
 	return int(UP_COST[n]) if n < MAX_UP else -1
 
@@ -201,6 +219,8 @@ static func up_cost(kit, k) -> int:
 static func up_block(kit, k, slot: String) -> String:
 	if not on(k):
 		return "키트 장수가 아니다"
+	if not can_up(k):
+		return "강화는 신화 장수만 할 수 있다"
 	if cell(k, slot).is_empty():
 		return "없는 칸이다"
 	var have := ups_of(kit, k)
@@ -217,7 +237,7 @@ static func norm(kit) -> Dictionary:
 	if not (kit is Dictionary):
 		return out
 	for k in kit:
-		if not on(k):
+		if not can_up(k):      # 키트 장수가 아니거나 신화가 아니면 (불멸 · 초월 · 기인) 버린다
 			continue
 		var have := []
 		for s in ups_of(kit, k):

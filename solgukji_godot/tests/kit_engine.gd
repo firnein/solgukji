@@ -34,6 +34,7 @@ func _ready() -> void:
 	Kit.immortal = a.has("immortal")      # 11/27 불멸 키트 스위치 (게임은 Kit.IMMORTAL_ON 상수) —— --immortal 이면 켠 상태로 점검
 	Kit.trans = a.has("trans")            # 11/27 초월 · 기인 키트 스위치 (게임은 Kit.TRANS_ON · KIIN_ON 상수)
 	Kit.kiin = a.has("kiin")
+	Kit.up_any = Kit.immortal or Kit.trans or Kit.kiin      # 11/27 강화는 신화만(Kit.can_up) —— 켠 등급의 강화 엔진 길은 점검에서만 열어 계속 본다
 	var myths: Array = DB.C.keys().filter(func(k): return Kit.on(k))
 	myths.sort()
 	if Kit.trans or Kit.kiin:

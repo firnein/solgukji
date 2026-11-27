@@ -659,7 +659,7 @@ var _boxes := {}              # 편성 칸 번호 -> SlotBox (build 때마다 �
 func kit_slot_tip(i: int) -> String:
 	var run: Run = gs.run
 	var k = run.board[i] if i >= 0 and i < run.board.size() else null
-	if k == null or not Kit.on(k) or not gs.kit_on():
+	if k == null or not Kit.can_up(k) or not gs.kit_on():      # 강화는 신화만 —— 다른 키트 장수(불멸 · 초월 · 기인)는 도움말 없음
 		return ""
 	var ups := Kit.ups_of(run.kit, k)
 	var lines := [str(DB.C[k].name)]

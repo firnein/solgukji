@@ -5000,12 +5000,13 @@ func kit_up_box(slot: String, tx: Dictionary, lit: bool, right: Control = null) 
 
 func _kit_section(k: String) -> Control:
 	var owned: bool = run.have(k) > 0
-	var can_up: bool = owned and kit_on()
+	var upg := Kit.can_up(k)      # 11/27 강화는 신화만 —— 불멸 · 초월 · 기인(스위치를 켰을 때)은 다섯 줄만 보이고 강화 버튼 · 펼침 · 칸 현황 · 전공 · 강화 효과 글이 없다
+	var can_up: bool = owned and kit_on() and upg
 	var ups := Kit.ups_of(run.kit, k) if owned else []
 	var full: bool = ups.size() >= Kit.MAX_UP
 	var box := UI.vbox(3)
 	box.name = "KitSection"
-	var head := SheetStyle.section("장수 키트", "" if can_up else "Q · W · E 일반기술 · R 고유기 · P 고유 특기")
+	var head := SheetStyle.section("장수 키트", "" if can_up else ("Q · W · E 일반기술 · R 고유기 · P 고유 특기" if upg else "강화는 신화 장수만"))
 	if can_up:
 		var hl := UI.lbl("가진 %s" % Kit.CUR_N, SheetStyle.FS_SUB, SheetStyle.DIM)
 		hl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -5036,7 +5037,7 @@ func _kit_section(k: String) -> Control:
 			box.add_child(UI.hint(kit_stage_block()))
 	for slot in Kit.SLOTS:
 		if not Kit.cell(k, slot).is_empty():
-			box.add_child(_kit_row(k, slot, can_up, ups))
+			box.add_child(_kit_row(k, slot, can_up, ups, upg))
 	_kit_flash.erase(k)      # 방금 강화한 줄의 번쩍임은 한 번만
 	return box
 
@@ -5044,7 +5045,8 @@ func _kit_section(k: String) -> Control:
 ## 키트 한 줄 (판 한 장 · 컴팩트) —— 11/27 사용자: "qwerp 강화 좀 더 컴팩트하게 해서 스크롤 최대한 안나오게"
 ##   왼쪽: [칸 딱지] 이름 · 주기 / 하는 일 / 강화 한 줄 —— 강화한 칸은 「◆ 이름  효과」, 안 한 칸은 「강화 · 이름 ▸」 (줄을 누르면 효과가 펼쳐진다)
 ##   오른쪽: [강화 ◎N] 버튼(높이 40) 또는 「강화됨」 딱지. 강화 효과 전체 설명은 확인 창(kit_confirm)에도 나온다
-func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
+## show_up = 강화 한 줄(「강화 · 이름 ▸」 · 효과)을 보인다 —— 강화할 수 없는 장수(신화가 아님)는 거짓 (강화 효과 글로 헷갈리지 않게)
+func _kit_row(k: String, slot: String, can_up: bool, ups: Array, show_up := true) -> Control:
 	var tx := UI.kit_text(k, slot)
 	var col := UI.kit_col(slot)
 	var ucol := col.lightened(0.35)
@@ -5114,8 +5116,11 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 	ul.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if can_up and full and not is_up:
 		ul.modulate.a = 0.45      # 2칸을 다 채웠다 —— 못 고른 칸의 강화는 흐리게 (글은 남긴다)
-	body.add_child(ul)
-	if not is_up:
+	if show_up:
+		body.add_child(ul)
+	else:
+		ul.free()
+	if show_up and not is_up:
 		var open := [false]
 		UI.tap(pc, func():
 			open[0] = not open[0]
@@ -5165,7 +5170,7 @@ var _kit_flash := {}      # 방금 강화한 {장수: 칸} —— 정보창 줄�
 
 func kit_confirm(k: String, slot: String, to_info := false) -> void:
 	var tx := UI.kit_text(k, slot)
-	if tx.is_empty() or not DB.C.has(k):
+	if tx.is_empty() or not DB.C.has(k) or not Kit.can_up(k):      # 강화는 신화만
 		return
 	var col := UI.kit_col(slot)
 	var ucol := col.lightened(0.35)
