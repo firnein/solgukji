@@ -32,7 +32,15 @@ const COACH_STEPS := [
 ]
 const TABS := [["draw", "징집"], ["forge", "조합"], ["deploy", "편성"], ["war", "전투"], ["more", "기록"]]
 const STAT_ICON := 22.0       # 능력치 아이콘(칼 · 방패 · 신발) 크기 —— 14 아래로는 선이 뭉개진다 (11/9)
-const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만
+const MAX_W := 640.0         # PC 에서 창을 넓혀도 글줄은 이 폭까지만 (세로 화면 —— 가로 화면은 WIDE_MAX)
+## 11/27 사용자: "가로형 해상도에서도 UI 적절하게 —— 세로화면처럼 하고 양옆에 다 비워두지 말고".
+## 가로 화면(가로 > 세로 × WIDE_K)이면 본문은 화면 폭 대부분(좌우 WIDE_SIDE, 최대 WIDE_MAX) · 편성 · 조합 · 전투 탭은 두 칸 ·
+## 시트는 오른쪽 옆 패널(SIDE_W). 세로 화면(휴대폰)은 예전 그대로
+const WIDE_K := 1.15
+const WIDE_MAX := 1800.0
+const WIDE_SIDE := 24.0
+const SIDE_W := 600.0         # 가로 화면 시트(옆 패널) 폭
+const SIDE_GAP := 12.0        # 옆 패널과 화면 끝 사이
 const TOP_H := 68.0          # 11/7 사용자: DAY 네비게이터 축소 (66 → 58). 11/20 상수를 실제 높이에 맞춘다 —— 오른쪽 칸 세 줄(군량 19 + 민심 24 + 플레이타임 17) + 여백 8 = 68, 58 은 한 번도 지켜진 적이 없었다
 const TAB_H := 62.0
 
@@ -151,6 +159,8 @@ func _ready() -> void:
 	_toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast_box.alignment = BoxContainer.ALIGNMENT_END
 	add_child(_toast_box)
+	_wide = is_wide()
+	_wide_w = size.x
 	_build_sheet()
 	_build_battle()
 	_build_title()
@@ -208,17 +218,21 @@ func _layout() -> void:
 	_safe.add_theme_constant_override("margin_left", int(sa.position.x))
 	_safe.add_theme_constant_override("margin_right", int(sa.size.x))
 	var side := maxf(14.0, (size.x - MAX_W) / 2.0)
+	var bside := side
+	if is_wide():
+		bside = maxf(WIDE_SIDE, (size.x - sa.position.x - sa.size.x - WIDE_MAX) / 2.0)
 	for m in [_body, _fixed]:
-		m.add_theme_constant_override("margin_left", int(side))
-		m.add_theme_constant_override("margin_right", int(side))
+		m.add_theme_constant_override("margin_left", int(bside))
+		m.add_theme_constant_override("margin_right", int(bside))
 		m.add_theme_constant_override("margin_top", 14 if m == _body else 10)
 		m.add_theme_constant_override("margin_bottom", 28 if m == _body else 8)
 	_toast_box.anchor_left = 0
 	_toast_box.anchor_right = 1
 	_toast_box.anchor_top = 1
 	_toast_box.anchor_bottom = 1
-	_toast_box.offset_left = side
+	_toast_box.offset_left = side      # 알림은 가로 화면에서도 가운데 MAX_W 폭 (한 줄 글이 화면 끝까지 늘어지지 않게)
 	_toast_box.offset_right = -side
+	_wide_check()
 	_toast_box.offset_bottom = -(TAB_H + sa.size.y + 12)
 	_toast_box.offset_top = _toast_box.offset_bottom - 300
 	if _sheet != null and _sheet.visible:
@@ -226,6 +240,75 @@ func _layout() -> void:
 	if _battle_layer != null:
 		_battle_layer.offset_top = sa.position.y
 		_battle_layer.offset_bottom = -sa.size.y
+
+
+## 가로 화면인가 (11/27) —— 가로가 세로의 WIDE_K 배를 넘으면. 세로 화면(휴대폰)은 늘 false
+func is_wide() -> bool:
+	return size.y > 0.0 and size.x > size.y * WIDE_K
+
+
+## 본문 폭 (좌우 여백을 뺀) —— 세로 화면은 MAX_W 까지, 가로 화면은 WIDE_MAX 까지
+func body_w() -> float:
+	var sa := _safe_insets()
+	var full := size.x - sa.position.x - sa.size.x
+	if is_wide():
+		return minf(full - WIDE_SIDE * 2.0, WIDE_MAX)
+	return minf(full - 28.0, MAX_W)
+
+
+## 가로 화면의 두 칸 —— 왼쪽 · 오른쪽을 ratio(왼쪽 몫) 로 나눈다. 칸마다 세로를 꽉 채운다
+func split2(left: Control, right: Control, ratio := 0.5, sep := UI.SP_XL) -> HBoxContainer:
+	var h := UI.hbox(sep)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	for c in [left, right]:
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		c.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		h.add_child(c)
+	left.size_flags_stretch_ratio = ratio
+	right.size_flags_stretch_ratio = 1.0 - ratio
+	return h
+
+
+## 세로 화면이면 그대로, 가로 화면이면 제 스크롤을 두른다 (두 칸 배치의 한 칸이 길 때)
+func _col_scroll(c: Control) -> Control:
+	var sc := UI.scroll()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.add_child(c)
+	return sc
+
+
+## 창 크기가 바뀌면 (창 모드 늘리기 · 세로 ↔ 가로) —— 가로 여부나 가로 화면의 폭이 바뀌었으면 지금 화면을 다시 그린다
+var _wide := false
+var _wide_w := 0.0
+var _wide_redo := false
+func _wide_check() -> void:
+	var w := is_wide()
+	var changed := w != _wide or (w and absf(size.x - _wide_w) > 24.0)
+	_wide = w
+	_wide_w = size.x
+	if not changed or _wide_redo:
+		return
+	_wide_redo = true
+	(func():
+		_wide_redo = false
+		if not is_inside_tree():
+			return
+		_sheet_style()
+		if is_instance_valid(_title) and _title.visible:
+			_title.queue_free()
+			_build_title()
+			if _sheet.visible:
+				move_child(_sheet_mask, -1)
+				move_child(_sheet, -1)
+		elif run != null:
+			render()
+		if online != null and is_instance_valid(online.lobby):
+			online._show_lobby()
+		if _sheet.visible:
+			_fit_sheet(false)).call_deferred()
 
 
 ## 노치·홈 막대를 피할 여백 (논리 좌표) —— position = 왼쪽·위, size = 오른쪽·아래
@@ -588,12 +671,10 @@ func _build_sheet() -> void:
 	sb.shadow_color = Color(0, 0, 0, 0.45)
 	sb.shadow_size = 18
 	_sheet.add_theme_stylebox_override("panel", sb)
+	_sheet_sb = sb
 	_sheet.visible = false
-	_sheet.anchor_left = 0
-	_sheet.anchor_right = 1
-	_sheet.anchor_top = 1
-	_sheet.anchor_bottom = 1
 	add_child(_sheet)
+	_sheet_style()
 	var v := UI.vbox(0)
 	_sheet.add_child(v)
 	# 손잡이 + 제목 —— 여기를 끌어내리면 닫힌다
@@ -613,6 +694,7 @@ func _build_sheet() -> void:
 	handle.custom_minimum_size = Vector2(0, 18)
 	handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hv.add_child(handle)
+	_sheet_handle = handle
 	var top := UI.hbox()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var tm := MarginContainer.new()
@@ -677,12 +759,13 @@ func _build_sheet() -> void:
 	_sheet_body = UI.vbox(UI.SP_M)
 	_sheet_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	m.add_child(_sheet_body)
+	_sheet_style()
 
 
 func _sheet_head_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 		if e.pressed:
-			_sheet_drag = e.global_position.y
+			_sheet_drag = e.global_position.x if _sheet_side else e.global_position.y
 			_sheet_dy = 0.0
 		elif _sheet_drag >= 0:
 			_sheet_drag = -1.0
@@ -691,22 +774,82 @@ func _sheet_head_input(e: InputEvent) -> void:
 			else:
 				_slide_sheet(0.0, 0.18)
 	elif e is InputEventMouseMotion and _sheet_drag >= 0:
-		_sheet_dy = maxf(0.0, e.global_position.y - _sheet_drag)
+		if _sheet_side:      # 가로 화면 옆 패널 —— 오른쪽으로 끌면 닫힌다 (끈 거리를 시트 높이 단위로)
+			_sheet_dy = maxf(0.0, e.global_position.x - _sheet_drag) * _sheet_h / _side_run()
+		else:
+			_sheet_dy = maxf(0.0, e.global_position.y - _sheet_drag)
 		_put_sheet(_sheet_dy)
 
 
-## 시트 위치 —— dy 만큼 아래로 내려가 있다
+## 11/27 가로 화면 —— 시트를 아래에서 올라오는 전체 폭 대신 오른쪽 옆 패널(SIDE_W, 내용 높이 · 세로 가운데)로
+var _sheet_side := false
+var _sheet_at := 0.0               # 지금 시트 위치 (0 = 다 열림 · _sheet_h = 다 닫힘)
+var _sheet_sb: StyleBoxFlat
+var _sheet_handle: Control
+func _sheet_style() -> void:
+	if _sheet == null:
+		return
+	_sheet_side = is_wide()
+	if _sheet_side:
+		_sheet.anchor_left = 1
+		_sheet.anchor_right = 1
+		_sheet.anchor_top = 0.5
+		_sheet.anchor_bottom = 0.5
+	else:
+		_sheet.anchor_left = 0
+		_sheet.anchor_right = 1
+		_sheet.anchor_top = 1
+		_sheet.anchor_bottom = 1
+	if _sheet_sb != null:
+		var r := UI.R_SHEET if _sheet_side else 0
+		_sheet_sb.corner_radius_bottom_left = r
+		_sheet_sb.corner_radius_bottom_right = r
+		for s in [SIDE_LEFT, SIDE_RIGHT, SIDE_BOTTOM]:
+			_sheet_sb.set_border_width(s, 1 if _sheet_side else 0)
+	if _sheet_handle != null:
+		_sheet_handle.visible = not _sheet_side
+
+
+## 옆 패널 폭 · 다 닫혔을 때 밀려나는 거리
+func _side_w() -> float:
+	return minf(SIDE_W, size.x * 0.62)
+
+
+func _side_run() -> float:
+	return _side_w() + SIDE_GAP + 40.0
+
+
+## 시트가 쓸 수 있는 가장 큰 높이 —— 세로 화면 88% (full 이면 98%), 가로 화면 옆 패널은 위아래 SIDE_GAP 만 남기고
+func sheet_max_h(full := false) -> float:
+	if _sheet_side:
+		return size.y - SIDE_GAP * 2.0
+	var sa := _safe_insets()
+	return (size.y - sa.position.y) * (0.98 if full else 0.88)
+
+
+## 시트 위치 —— dy 만큼 아래로 내려가 있다 (가로 화면 옆 패널은 그만큼의 비율로 오른쪽으로)
 func _put_sheet(dy: float) -> void:
+	_sheet_at = dy
+	var f := clampf(1.0 - dy / maxf(1.0, _sheet_h), 0, 1)
+	if _sheet_side:
+		var w := _side_w()
+		var dx := (1.0 - f) * _side_run()
+		_sheet.offset_left = -w - SIDE_GAP + dx
+		_sheet.offset_right = -SIDE_GAP + dx
+		_sheet.offset_top = -_sheet_h / 2.0
+		_sheet.offset_bottom = _sheet_h / 2.0
+		_sheet_mask.color.a = 0.35 * f      # 뒤 화면이 보이게 옅게
+		return
 	_sheet.offset_top = -_sheet_h + dy
 	_sheet.offset_bottom = dy
-	_sheet_mask.color.a = 0.55 * clampf(1.0 - dy / maxf(1.0, _sheet_h), 0, 1)
+	_sheet_mask.color.a = 0.55 * f
 
 
 func _slide_sheet(to: float, dur: float, then := Callable()) -> void:
 	if _sheet_tw != null:
 		_sheet_tw.kill()
 	_sheet_closing = false
-	var from := _sheet.offset_bottom
+	var from := _sheet_at
 	_sheet_tw = create_tween()
 	_sheet_tw.tween_method(_put_sheet, from, to, dur).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if then.is_valid():
@@ -719,13 +862,16 @@ func _fit_sheet(animate: bool) -> void:
 	if not _sheet.visible:
 		return
 	var sa := _safe_insets()
-	var max_h := (size.y - sa.position.y) * (0.98 if _sheet_full else 0.88)      # 11/6 사용자: 선택권은 전체 화면처럼 크게
+	if _sheet_side != is_wide():
+		_sheet_style()
+	var max_h := sheet_max_h(_sheet_full)      # 11/6 사용자: 선택권은 전체 화면처럼 크게
 	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
 	var body_h: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
 	_sheet_h = minf(max_h, head_h + body_h + sa.size.y + 4)
-	var side := maxf(0.0, (size.x - MAX_W) / 2.0)
-	_sheet.offset_left = side
-	_sheet.offset_right = -side
+	if not _sheet_side:
+		var side := maxf(0.0, (size.x - MAX_W) / 2.0)
+		_sheet.offset_left = side
+		_sheet.offset_right = -side
 	if animate:
 		_put_sheet(_sheet_h)
 		_slide_sheet(0.0, 0.24)
@@ -740,7 +886,7 @@ func _fit_sheet(animate: bool) -> void:
 	var body2: float = _sheet_scroll.get_child(0).get_combined_minimum_size().y
 	var h2 := minf(max_h, head_h + body2 + sa.size.y + 4)
 	if absf(h2 - _sheet_h) > 1.5:
-		var dy := _sheet.offset_bottom
+		var dy := _sheet_at
 		_sheet_h = h2
 		_put_sheet(dy)
 
@@ -820,37 +966,50 @@ func _build_title() -> void:
 	# 11/14 감사 #6 (01 제목 화면): 아래 절반에 먹빛 그라데이션 깔개 —— 초상 콜라주 위에서도 버튼 · 글자가 읽힌다
 	var scrim := TextureRect.new()
 	var gt := GradientTexture2D.new()
+	var wide := is_wide()      # 11/27 가로 화면 —— 왼쪽 로고 · 오른쪽 버튼 칸 (깔개는 오른쪽에서 왼쪽으로 옅어진다)
 	gt.fill_from = Vector2(0, 0)
-	gt.fill_to = Vector2(0, 1)
+	gt.fill_to = Vector2(1, 0) if wide else Vector2(0, 1)
 	var gr := Gradient.new()
 	gr.set_color(0, Color("#0b0f1a", 0.0))
 	gr.set_color(1, Color("#0b0f1a", 0.94))
 	gr.add_point(0.4, Color("#0b0f1a", 0.78))
 	gt.gradient = gr
-	gt.width = 4
-	gt.height = 64
+	gt.width = 64 if wide else 4
+	gt.height = 4 if wide else 64
 	scrim.texture = gt
 	scrim.stretch_mode = TextureRect.STRETCH_SCALE
 	scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	scrim.anchor_left = 0
+	scrim.anchor_left = 0.35 if wide else 0.0
 	scrim.anchor_right = 1
-	scrim.anchor_top = 0.5
+	scrim.anchor_top = 0.0 if wide else 0.5
 	scrim.anchor_bottom = 1
 	_title.add_child(scrim)
 	var m := MarginContainer.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var side := maxf(30.0, (size.x - 420.0) / 2.0)
+	var side := maxf(64.0, (size.x - 1320.0) / 2.0) if wide else maxf(30.0, (size.x - 420.0) / 2.0)
 	for s in ["left", "right"]:
 		m.add_theme_constant_override("margin_" + s, int(side))
-	m.add_theme_constant_override("margin_top", 70)
-	m.add_theme_constant_override("margin_bottom", UI.SP_XL + int(_safe_insets().size.y))
+	m.add_theme_constant_override("margin_top", 40 if wide else 70)
+	m.add_theme_constant_override("margin_bottom", (40 if wide else UI.SP_XL) + int(_safe_insets().size.y))
 	_title.add_child(m)
 	var v := UI.vbox(0)
-	m.add_child(v)
+	var bcol := v      # 버튼이 들어갈 칸 —— 세로 화면은 로고 아래, 가로 화면은 오른쪽 칸
+	if wide:
+		var hb := UI.hbox(72)
+		m.add_child(hb)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		hb.add_child(v)
+		bcol = UI.vbox(0)
+		bcol.custom_minimum_size.x = 420
+		bcol.alignment = BoxContainer.ALIGNMENT_CENTER
+		hb.add_child(bcol)
+	else:
+		m.add_child(v)
 	# 로고 (11/3 사용자: 한글을 빼고 붓으로 휘갈긴 영문) —— 먹 붓질 띠 위에 금빛 붓글씨 'Solgukji', 오른쪽 위에 붉은 낙관
 	var logo := TitleBG.Logo.new()
-	logo.custom_minimum_size = Vector2(0, 150)
+	logo.custom_minimum_size = Vector2(0, 220 if wide else 150)
 	v.add_child(logo)
 	var ko := UI.lbl("마지막까지 살아남아 천하를 통일하라", UI.FS_LABEL, DB.PAL.bamboo)
 	ko.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -860,9 +1019,10 @@ func _build_title() -> void:
 	rg3.custom_minimum_size.y = UI.SP_S
 	v.add_child(rg3)
 	v.add_child(ko)
-	var fill := Control.new()
-	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(fill)
+	if not wide:
+		var fill := Control.new()
+		fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		v.add_child(fill)
 	# 버튼 —— 주 버튼 하나(게임 안 주 버튼과 같은 먹금 모양, BH_L) + 보조 버튼(먹빛 바탕 + 얇은 선). 설정 · 버전은 아래 한 줄
 	var bv := UI.vbox(UI.SP_M)
 	# 11/21 사용자: 이어하기를 「싱글 이어하기」 · 「멀티 이어하기」로 나눠 명시한다 —— 둘 다 늘 보이고, 이을 게 없으면 흐리게 + 이유 한 줄
@@ -910,7 +1070,7 @@ func _build_title() -> void:
 	gap.custom_minimum_size.y = UI.SP_XS
 	bv.add_child(gap)
 	bv.add_child(low)
-	v.add_child(bv)
+	bcol.add_child(bv)
 
 
 ## 타이틀 버튼 (11/14 감사 #6) —— 주 버튼은 게임 안 주 버튼(UI.btn_primary, 먹금 바탕 + 금 선)과 같은 모양 · 높이 BH_L,
@@ -1873,6 +2033,8 @@ func open_sheet(title: String, col := Color(0, 0, 0, 0)) -> VBoxContainer:
 	_sheet.visible = true
 	_sheet_scroll.scroll_vertical = 0
 	if not was:
+		if _sheet_side != is_wide():
+			_sheet_style()
 		_sheet_mask.color.a = 0.0
 		_sheet_h = size.y
 		_put_sheet(size.y)
@@ -2855,6 +3017,7 @@ func _page_draw() -> Control:
 		if not by.has(key):
 			by[key] = []
 		by[key].append(k)
+	var wide := is_wide()      # 11/27 가로 화면 —— 왼쪽 좁은 칸: 기본패 · 할 일, 오른쪽 칸: 보유 장수 목록 (완성된 장수 · 등급 묶음)
 	_hand_done(inner, by, p, hand_tile)
 	if by.keys().all(func(x): return x is int and x <= 1):      # 11/14 감사 #2: 장수(일반 위)가 하나도 없으면 빈 상태 카드
 		inner.add_child(_draw_empty())
@@ -2863,9 +3026,13 @@ func _page_draw() -> Control:
 	for grp in [[[5], 6, 96.0], [[4], 6, 80.0], [[3, 2], 7, 72.0]]:
 		var g := UI.grid(30, 6)
 		g.max_cols = grp[1]
+		var th: float = grp[2] * (1.3 if wide else 1.0)
+		if wide:      # 넓은 칸 —— 열 수를 묶어 두지 않고 칸을 조금 크게 (폭은 높이의 0.72)
+			g.max_cols = 0
+			g.min_w = roundf(th * 0.72)
 		for t in grp[0]:
 			for k in by.get(t, []):
-				g.add_child(hand_tile.call(k, p[k], grp[2]))
+				g.add_child(hand_tile.call(k, p[k], th))
 		if g.get_child_count() > 0:
 			# 11/14 UI 4단계: 묶음이 줄 간격으로만 나뉘어 어디서 등급이 바뀌는지 안 보였다 —— 작은 등급 머리글 (등급색 글자 + 장 수, 높이 한 줄)
 			var tn: Array = []
@@ -2881,15 +3048,22 @@ func _page_draw() -> Control:
 			g.free()
 	hs.add_child(inner)
 	var base := UI.grid(30, 4)      # 11/6 사용자: 기본병 8종은 맨 윗줄에 (조합 재료의 출발점이라 먼저 본다) —— 11/15 페이지 맨 위 고정 자리로
-	base.max_cols = 8
+	base.max_cols = 4 if wide else 8
 	for k in Run.sort_cards(DB.BASE.duplicate()):
-		base.add_child(hand_tile.call(k, int(p.get(k, 0)), HAND_TILE.y))
+		base.add_child(hand_tile.call(k, int(p.get(k, 0)), 104.0 if wide else HAND_TILE.y))
 	base_slot.add_child(base)
 	_base_row = base
 	hv.add_child(hs)
 	_hand_scroll = hs
 	_restore_hand_scroll.call_deferred(_hand_scroll_y)
 	hs.get_v_scroll_bar().value_changed.connect(func(y): _hand_scroll_y = int(y))
+	if wide:
+		var lc := UI.vbox(UI.SP_S)
+		for c in v.get_children():
+			v.remove_child(c)
+			lc.add_child(c)
+		v.free()
+		return split2(_col_scroll(lc), hv, DRAW_LEFT)
 	v.add_child(hv)
 	return v
 
@@ -2915,13 +3089,16 @@ func _hand_done(inner: VBoxContainer, by: Dictionary, p: Dictionary, hand_tile: 
 	inner.add_child(_done_toggle(fold, counts))
 	if fold:
 		return
-	var sa := _safe_insets()
-	var w := minf(size.x - sa.position.x - sa.size.x - 28.0, MAX_W)      # 보유 목록 폭 (_layout 의 좌우 여백 14)
+	var w := body_w()      # 보유 목록 폭 (_layout 의 좌우 여백 14)
+	if is_wide():
+		w = (w - UI.SP_XL) * (1.0 - DRAW_LEFT) - 14.0      # 가로 화면 —— 오른쪽 칸 (_page_draw split2 · 스크롤 막대 몫)
 	for row in DONE_ROWS:
 		var r := _done_row(row, by, p, hand_tile, w)
 		if r != null:
 			inner.add_child(r)
 
+
+const DRAW_LEFT := 0.32      # 11/27 가로 화면 징집 탭 왼쪽 칸(기본패 · 할 일) 몫
 
 func _done_col(key) -> Color:
 	return DB.KIIN_COL if key is String else DB.TIER[key].c
@@ -3187,7 +3364,7 @@ func _unique_sheet(fx := false) -> void:
 	var pc := UI.panel(col, 8)
 	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pc.clip_contents = true
-	pc.custom_minimum_size.y = maxf(300.0, (size.y - sa.position.y) * 0.98 - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
+	pc.custom_minimum_size.y = maxf(300.0, sheet_max_h(true) - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
 	b.add_child(pc)
 	if fx:      # 다시 뽑기 —— 바뀐 부분만 0.22초 떠오른다 (옅게 → 또렷, 조금 아래 → 제자리)
 		swap.modulate.a = 0.0
@@ -3433,7 +3610,7 @@ func picker(t: int) -> void:
 	_sheet_full = true      # 11/6 사용자 2차: 타일이 너무 작다 → 전체 화면 높이 · 큰 타일 · 병종 묶음
 	b.add_child(UI.lbl("한 장을 누르면 바로 받는다", UI.FS_CAP, DB.PAL.text_dim))      # 11/14 UI 4단계: 누르면 무엇이 되는지 한 줄
 	var vp := get_viewport_rect().size
-	var full: float = (_sheet.size.x if _sheet.size.x > 100 else vp.x) - 36
+	var full: float = (_side_w() if _sheet_side else (_sheet.size.x if _sheet.size.x > 100 else vp.x)) - 36
 	var gap := 6.0
 	# 갈무리 장수의 재료 —— 직접 재료뿐 아니라 그 아래 재료(재료의 재료)까지 (11/6 사용자)
 	var pins: Array = forge_tree.pins
@@ -5853,8 +6030,32 @@ func _page_forge() -> Control:
 				for mt in rc.find_children("*", "MiniTile", true, false):
 					mt.set_pin(true, false)
 			rs[1].add_child(rc)
-		sec.add_child(rs[0])
+		if is_wide():      # 11/27 가로 화면 —— 옆으로 넘기지 않고 줄을 바꿔 한눈에
+			var fl := UI.flow(8)
+			for rc in rs[1].get_children():
+				rs[1].remove_child(rc)
+				fl.add_child(rc)
+			rs[0].free()
+			more_hint.hide()
+			sec.add_child(fl)
+		else:
+			sec.add_child(rs[0])
 		v.add_child(sec)
+	if is_wide() and v.get_child_count() > 1:      # 11/27 가로 화면 —— 왼쪽 갈무리 목표, 오른쪽 추천 목표 · 지금 조합 가능
+		var rc2 := UI.vbox(UI.SP_L)
+		for c in v.get_children().slice(1):
+			v.remove_child(c)
+			if forge_tree.pins.is_empty() and c != gb:      # 갈무리가 비면 왼쪽에 「지금 조합 가능」 (왼쪽 칸이 비지 않게)
+				top.add_child(c)
+			else:
+				rc2.add_child(c)
+		v.remove_child(top)
+		v.free()
+		var hs := split2(top, rc2, 0.5)
+		hs.size_flags_vertical = Control.SIZE_FILL
+		top.size_flags_vertical = Control.SIZE_FILL
+		rc2.size_flags_vertical = Control.SIZE_FILL
+		return hs
 	return v
 
 
@@ -6042,6 +6243,7 @@ func _page_war() -> Control:
 				if run.over != null:
 					PlayLog.over(run)
 				go("draw"), "pri", UI.BH_M))
+	var split_at := v.get_child_count()      # 11/27 가로 화면 —— 여기까지 왼쪽 칸(출진 · 토벌 정보 · 결과), 아래(군단 효과 · 진영 그림)는 오른쪽 칸
 	if placed > 0:
 		# 11/7 사용자: 군단 효과는 그림 밖 칩 흐름(접으면 6개 + '+N 더', 펼치면 2열 표)으로 —— 효과가 많은 덱도 줄바꿈될 뿐 메달 줄을 누르지 않는다
 		var fx := FormationView.effects_box(run.board, run.form, _open.get("war:fx", false), func(): _toggle("war:fx"), func(k): card_info(k))
@@ -6076,6 +6278,15 @@ func _page_war() -> Control:
 	if true:
 		# 11/7: 전투 탭은 고정 페이지(render 의 fixed —— 진영 그림이 남는 공간을 채운다)라 내용이 길면(점괘 · 펼친 효과 표) 아래가 잘리고
 		# 내릴 수도 없었다 —— 탭 안에 제 스크롤을 둔다. 짧으면 안쪽 VBox 가 창을 채우고(진영 그림이 남는 공간), 길면 손가락으로 내린다
+		if is_wide() and v.get_child_count() > split_at:
+			var lc := UI.vbox(UI.SP_L)
+			var rc := UI.vbox(UI.SP_L)
+			var kids := v.get_children()
+			for i in kids.size():
+				v.remove_child(kids[i])
+				(lc if i < split_at else rc).add_child(kids[i])
+			v.free()
+			return split2(_col_scroll(lc), _col_scroll(rc), 0.42)
 		var sc := UI.scroll()
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -6760,7 +6971,7 @@ func _page_rank() -> Control:
 
 ## 혼자 하기의 「군웅」 —— 온라인 Online.peers_section 과 같은 칸: 나(민심 게이지 · 핵심 유닛) + 봇마다 (전력 높은 순)
 func _peers_solo() -> Control:
-	var v := UI.vbox(UI.SP_S)
+	var v: Container = UI.grid(520, UI.SP_S) if is_wide() else UI.vbox(UI.SP_S)      # 11/27 가로 화면 —— 군웅 줄을 두세 칸으로
 	var keys := Room.key_cards(run)
 	v.add_child(Online.peer_row(self, {"name": "나", "me": true, "online": true, "dead": run.over != null and not run.over.win,
 		"hp": run.hp, "key": keys if not keys.is_empty() else Room.featured_cards(run.board), "has_key": true,

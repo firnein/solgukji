@@ -22,6 +22,7 @@ var _form_scroll := 0         # 진형 띠 가로 스크롤 —— 진형을 골
 const MIN_LOWER_H := 150.0    # 열린 아래 목록의 최소 높이 (남는 높이는 모두 목록에)
 const HARD_CHIP := Vector2(84, UI.BH_S)      # 험지 토벌 칩 —— 켜도 꺼도 같은 크기 (11/15 칸 밀림)
 const HAND_TILE := Vector2(56, 80)     # 보유 카드 격자 한 칸 (최소 —— 남는 폭은 나눠 가진다)
+const HAND_TILE_WIDE := Vector2(76, 106)     # 가로 화면의 보유 격자 한 칸
 
 
 func build() -> Control:
@@ -34,7 +35,11 @@ func build() -> Control:
 	for l in _links:
 		for p in l["in"]:
 			_link_n[p] = int(_link_n.get(p, 0)) + 1
-	var open := seg != ""
+	# 11/27 가로 화면 —— 왼쪽 칸: 진형 띠 · 편성판(칸을 줄이지 않는다) · 군략 줄, 오른쪽 칸: [보유 | 보급품] 목록이 늘 열려 있다
+	var wide := gs.is_wide()
+	var cur := seg if seg != "" else ("hand" if wide else "")
+	var open := cur != ""
+	var squeeze := open and not wide      # 세로 화면에서 목록이 열리면 편성판 칸을 줄인다
 	# 11/14 UI 감사 #8: 「보유」를 열면 페이지가 위로 밀려 진형 고르기 · 자동 편성이 화면 밖으로 사라지고 보유 목록은 두 줄만 보였다 ——
 	# 이제 페이지는 스크롤하지 않는다. 진형 띠 · 편성판 머리줄은 늘 제자리, 열리면 편성판 칸을 줄이고(SlotBox.compact) 남는 높이를 모두 아래 목록에 준다
 	var v := UI.vbox(int(SEP))
@@ -105,13 +110,13 @@ func build() -> Control:
 	cb.disabled = not gs.can_form() or run.placed() == 0
 	hd.add_child(cb)
 	bp.add_child(hd)
-	if str(f.get("full", "")) != "" and not open:
+	if str(f.get("full", "")) != "" and not squeeze:
 		bp.add_child(UI.lbl("%s 5칸" % f.full, UI.FS_CAP, DB.PAL.text_dim))
 	var grid := GridContainer.new()
 	grid.columns = 1 + DB.FORM_COLS      # 11/6 진형 4행 5열
 	grid.add_theme_constant_override("h_separation", 5)
-	grid.add_theme_constant_override("v_separation", UI.SP_XS if open else 5)
-	if not open:      # 열린 때는 칸 이름 줄(좌익 · 좌 …)을 접어 아래 목록에 높이를 준다
+	grid.add_theme_constant_override("v_separation", UI.SP_XS if squeeze else 5)
+	if not squeeze:      # 열린 때는 칸 이름 줄(좌익 · 좌 …)을 접어 아래 목록에 높이를 준다
 		var face := UI.lbl("▲적", UI.FS_CAP, DB.PAL.danger)
 		face.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		grid.add_child(face)
@@ -132,7 +137,7 @@ func build() -> Control:
 			var box := SlotBox.new()
 			box.page = self
 			box.slot = si
-			box.compact = open
+			box.compact = squeeze
 			box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			grid.add_child(box)
@@ -141,7 +146,7 @@ func build() -> Control:
 	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	bp.add_child(grid)
 	var bpp := UI.panel(bp, UI.SP_S)
-	bpp.size_flags_vertical = Control.SIZE_FILL if open else Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
+	bpp.size_flags_vertical = Control.SIZE_FILL if squeeze else Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
 	bp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(bpp)
 	if Run.tac_on:      # 11/27 군략이 꺼지면 「군략 1 · 2 · 3단계」 칸 줄도 없다
@@ -159,9 +164,13 @@ func build() -> Control:
 	var hv := UI.vbox(UI.SP_S)
 	hand.add_child(hv)
 	# 11/5 사용자: '손패' → '보유', 진형 탭 버튼 제거. 11/14 감사 #8-5: 닫힌 탭이 비활성처럼 보였다 —— 펼침 화살표(▴ 열기 · ▾ 닫기)
-	var arrow := func(k: String) -> String: return " ▾" if seg == k else " ▴"
-	var tabs := UI.segmented([["hand", "보유 %d%s" % [keys.size(), arrow.call("hand")]], ["item", "보급품 %d%s" % [n_items, arrow.call("item")]]], seg, func(k):
+	var arrow := func(k: String) -> String: return "" if wide else (" ▾" if seg == k else " ▴")      # 가로 화면은 늘 열려 있어 접는 화살표가 없다
+	var tabs := UI.segmented([["hand", "보유 %d%s" % [keys.size(), arrow.call("hand")]], ["item", "보급품 %d%s" % [n_items, arrow.call("item")]]], cur, func(k):
 		var was := seg
+		if wide:
+			seg = k
+			gs.render()
+			return
 		seg = "" if seg == k else k
 		_slide_up = was == "" and seg != ""
 		gs.render())
@@ -176,7 +185,7 @@ func build() -> Control:
 		var lower := UI.vbox(UI.SP_S)
 		lower.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sc.add_child(lower)
-		match seg:
+		match cur:
 			"hand": _hand(lower, keys)
 			"item": _items(lower)
 		var pad := Control.new()
@@ -190,6 +199,11 @@ func build() -> Control:
 					lower.create_tween().tween_property(lower, "modulate:a", 1.0, 0.18)
 				elif is_instance_valid(lower):
 					lower.modulate.a = 1.0).call_deferred()
+	if wide:      # 가로 화면 —— 탭은 목록 위, 편성판 옆에 나란히
+		hv.add_child(tabs)
+		hv.move_child(tabs, 0)
+		v.remove_child(hand)
+		return gs.split2(v, hand, 0.56)
 	hv.add_child(tabs)          # 탭은 늘 맨 아래 —— 열리면 내용이 그 위에 온다
 	return v
 
@@ -209,10 +223,11 @@ func _hand(hv: VBoxContainer, keys: Array) -> void:
 
 	# 11/5 사용자: 손패는 높은 등급부터 (Run.sort_cards). 누르면 고르고, 고른 카드를 다시 누르면 상세. 길게 눌러 칸으로 끈다.
 	# 11/14 감사 #8: 한 줄에 하나씩(높이 50) 두면 열어도 두세 장만 보였다 —— 작은 카드 격자(한 줄 6장 안팎)로
-	var gr := UI.grid(HAND_TILE.x, UI.SP_XS + 2)
+	var ts := HAND_TILE_WIDE if gs.is_wide() else HAND_TILE      # 11/27 가로 화면 —— 옆 칸이 넓어 칸을 조금 크게
+	var gr := UI.grid(ts.x, UI.SP_XS + 2)
 	for k in keys:
 		var t := gs.mtile(k, run.inv[k] if run.inv[k] > 1 else -1, func(id): hand_tap(id))      # 수량은 둘 이상일 때만
-		t.custom_minimum_size = HAND_TILE
+		t.custom_minimum_size = ts
 		t.drag_data = {"card": k, "from": -1}
 		if k == sel:
 			t.mark = "sel"
