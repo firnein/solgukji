@@ -19,8 +19,10 @@ const PAINT_PERSPECTIVE := 0.00048
 ## 이펙트 · 이름표 위치가 모두 함께 움직인다 (스프라이트만 따로 키우지 않는다). 엔진 좌표 · 판정은 그대로.
 ##   시작: 빈 여백(옛 맞춤은 전장 폭 + 70 · 가장자리 20px)을 줄여 처음부터 더 크게. 이후: 살아 있는 부대(도망 · 사라진 부대 제외)의 범위에 맞춰 천천히 당긴다.
 const ZOOM_PAD_DEPTH := 20.0   # 부대 앞뒤로 더 담는 전장 px (옛 25)
-const ZOOM_PAD_WIDE := 24.0    # 부대 좌우로 더 담는 전장 px (옛 25 + 숲 띠 45 = 70) —— 이름표(반폭 약 30px)는 화면 px 여백(ZOOM_SIDE)이 받는다
-const ZOOM_SIDE := 8.0         # 화면 좌우 여백 (화면 px, 옛 20)
+const ZOOM_PAD_WIDE := 8.0     # 부대 좌우로 더 담는 전장 px (옛 25 + 숲 띠 45 = 70 → 24 → 11/27 아래 독을 빼며 8) —— 이름표는 화면 안으로 당겨진다 (Hud._flat_token_pos)
+const ZOOM_SIDE := 2.0         # 화면 좌우 여백 (화면 px, 옛 20 → 8 → 11/27 2)
+const ZOOM_TOP := 80.0         # 11/27 위 병력 · 사기 막대 몫 (화면 px, 옛 90 —— 66 이면 맨 위 적 부대 그림 머리가 사기 막대 뒤로 들어갔다). 가로 화면은 높이가 배율을 정한다
+const ZOOM_BOTTOM := 24.0      # 맨 아래 부대 이름표 몫 (옛 30)
 const ZOOM_IN_MAX := 1.5       # 시작 화면 대비 당기는 한도 (후반에 부대가 줄어도 이 배율을 넘지 않는다 —— 이름표 · 병력 글씨가 서로 겹치지 않게)
 const ZOOM_OUT_MAX := 1.12     # 시작 범위보다 넓게 벌어졌을 때 물러서는 한도 (옛 화면은 아예 안 물러났다)
 const ZOOM_IN_RATE := 0.35     # 당길 때 따라가는 속도 (1/초 —— 시정수 약 3초: 멀미 없이 천천히)
@@ -254,8 +256,8 @@ func _cam_goal(only_alive: bool, base_sc := 0.0) -> Array:
 			plo = plo.min(pr)
 			phi = phi.max(pr)
 	var span := phi - plo
-	var top := 90.0      # 위 상태줄 · 병력 막대 몫
-	var bottom := 30.0
+	var top := ZOOM_TOP      # 위 상태줄 · 병력 막대 몫
+	var bottom := ZOOM_BOTTOM
 	var avail := Vector2(maxf(1.0, size.x - ZOOM_SIDE * 2.0), maxf(1.0, size.y - top - bottom))
 	var sc := minf(avail.x / maxf(span.x, 1.0), avail.y / maxf(span.y, 1.0))
 	if base_sc > 0.0:

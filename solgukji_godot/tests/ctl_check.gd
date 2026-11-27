@@ -582,6 +582,8 @@ func _battle_checks() -> void:
 	# G —— 아래 장수 카드
 	if not live:
 		skip("G 아래 장수 카드", "전투가 뜨지 않아 카드가 없다")
+	elif not bv.cards_bar.is_visible_in_tree():
+		skip("G 아래 장수 카드", "11/27 아래 카드 격자를 뺐다 (숨김)")
 	else:
 		var card: Control = bv.cards_bar.get_child(0)
 		var p := _mid(card)

@@ -299,6 +299,9 @@ func _ready() -> void:
 	sb.content_margin_bottom = 8
 	dock.add_theme_stylebox_override("panel", sb)
 	col.add_child(dock)
+	# 11/27 사용자: 카드 격자를 빼고 그 세로를 전장에 —— 숨기고 멈춘다 (카드는 그대로 만들어 cards_bar 를 쓰는 점검이 깨지지 않게)
+	dock.visible = false
+	dock.process_mode = Node.PROCESS_MODE_DISABLED
 	var dv := VBoxContainer.new()
 	dv.add_theme_constant_override("separation", 8)
 	dock.add_child(dv)
