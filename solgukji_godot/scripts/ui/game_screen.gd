@@ -4800,7 +4800,7 @@ func _kit_section(k: String) -> Control:
 	var can_up: bool = owned and kit_on()
 	var ups := Kit.ups_of(run.kit, k) if owned else []
 	var full: bool = ups.size() >= Kit.MAX_UP
-	var box := UI.vbox(6)
+	var box := UI.vbox(3)
 	box.name = "KitSection"
 	var head := SheetStyle.section("장수 키트", "" if can_up else "Q · W · E 일반기술 · R 고유기 · P 고유 특기")
 	if can_up:
@@ -4810,12 +4810,14 @@ func _kit_section(k: String) -> Control:
 		head.add_child(UI.merit(str(run.merit), SheetStyle.FS_ROW, UI.MERIT_COL, false))
 	box.add_child(head)
 	if can_up:
-		var rule_text := "%d칸을 모두 강화했다 —— 이 장수는 더 강화할 수 없다" % Kit.MAX_UP
+		# 11/27 사용자: "qwerp 강화 좀 더 컴팩트하게" —— 머리 설명은 한 줄로
+		var rule_text := "%d칸을 모두 강화했다 · 더 강화할 수 없다" % Kit.MAX_UP
 		if not full:
-			rule_text = "강화는 장수마다 %d칸까지 (%s %s) · 한 번 강화하면 되돌릴 수 없다" % [Kit.MAX_UP, Kit.CUR_N, " → ".join(Kit.UP_COST.map(func(x): return str(x)))]
+			rule_text = "장수마다 %d칸 · %s %s · 되돌릴 수 없음 · 줄을 누르면 강화 효과" % [Kit.MAX_UP, Kit.CUR_N, " → ".join(Kit.UP_COST.map(func(x): return str(x)))]
 		var rule := UI.lbl(rule_text, 11, UI.kit_col(str(ups[-1])).lightened(0.3) if full else SheetStyle.DIM)
 		rule.name = "KitRule"
-		UI.wrap_text(rule)
+		rule.clip_text = true
+		rule.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		box.add_child(rule)
 		if not full and kit_stage_block() != "":
 			box.add_child(UI.hint(kit_stage_block()))
@@ -4825,26 +4827,34 @@ func _kit_section(k: String) -> Control:
 	return box
 
 
-## 키트 한 줄 (판 한 장) —— [칸 딱지] 이름 · 주기 … 「강화됨」 / 하는 일 / 강화 효과 칸 (+ 강화 버튼)
+## 키트 한 줄 (판 한 장 · 컴팩트) —— 11/27 사용자: "qwerp 강화 좀 더 컴팩트하게 해서 스크롤 최대한 안나오게"
+##   왼쪽: [칸 딱지] 이름 · 주기 / 하는 일 / 강화 한 줄 —— 강화한 칸은 「◆ 이름  효과」, 안 한 칸은 「강화 · 이름 ▸」 (줄을 누르면 효과가 펼쳐진다)
+##   오른쪽: [강화 ◎N] 버튼(높이 40) 또는 「강화됨」 딱지. 강화 효과 전체 설명은 확인 창(kit_confirm)에도 나온다
 func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 	var tx := UI.kit_text(k, slot)
 	var col := UI.kit_col(slot)
+	var ucol := col.lightened(0.35)
 	var is_up := ups.has(slot)
 	var full := ups.size() >= Kit.MAX_UP
-	var badge_w := 26.0
+	var badge_w := 24.0
 	var pc := PanelContainer.new()
 	var sb := UI.flat(Color(col, 0.07) if is_up else SheetStyle.WELL, col if is_up else SheetStyle.LINE, 2 if is_up else 1, 6, 0)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 9
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 4
 	pc.add_theme_stylebox_override("panel", sb)
 	pc.mouse_filter = Control.MOUSE_FILTER_PASS
 	pc.set_meta("kit_slot", slot)
 	pc.set_meta("kit_up", is_up)
-	var rows := UI.vbox(4)
+	var outer := UI.hbox(UI.SP_S)
+	outer.mouse_filter = Control.MOUSE_FILTER_PASS
+	pc.add_child(outer)
+	var rows := UI.vbox(0)
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.mouse_filter = Control.MOUSE_FILTER_PASS
-	pc.add_child(rows)
+	outer.add_child(rows)
+	# 첫 줄 —— [칸 딱지] 이름 · 주기(작게)
 	var h := UI.hbox(UI.SP_S)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rows.add_child(h)
@@ -4858,10 +4868,10 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	wl.clip_text = true
+	wl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	h.add_child(wl)
-	if is_up:
-		h.add_child(SheetStyle.chip("강화됨", col, "solid"))
-	var body := UI.vbox(5)
+	# 둘째 줄 —— 하는 일 (딱지 오른쪽에 맞춘다)
+	var body := UI.vbox(1)
 	body.mouse_filter = Control.MOUSE_FILTER_PASS
 	var ind := MarginContainer.new()
 	ind.add_theme_constant_override("margin_left", int(badge_w) + UI.SP_S)
@@ -4872,15 +4882,37 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 	ef.add_theme_color_override("default_color", SheetStyle.TEXT)
 	ef.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(ef)
-	# 강화 버튼 칸 —— 가진 장수 · 2칸 미만 · 아직 안 한 칸에만. 전공이 모자라거나 단계가 막히면 꺼지고 아래에 까닭
-	var bv: VBoxContainer = null
-	if can_up and not is_up and not full:
+	# 셋째 줄 —— 강화 한 줄. 강화한 칸은 효과까지, 안 한 칸은 이름만 (줄을 누르면 펼친다)
+	var hx := ucol.to_html(false)
+	var short_bb := "[color=#%s]강화 · %s[/color] [color=#%s]▸[/color]" % [hx, str(tx.up_n), SheetStyle.DIM.to_html(false)]
+	var long_bb := "[color=#%s][b]강화 · %s[/b][/color]  %s" % [hx, str(tx.up_n), _hl(str(tx.up_d))]
+	if is_up:
+		long_bb = "[color=#%s][b]◆ %s[/b][/color]  %s" % [hx, str(tx.up_n), _hl(str(tx.up_d))]
+	var ul := UI.rich(long_bb if is_up else short_bb, SheetStyle.FS_SUB)
+	ul.name = "KitUpLine"
+	ul.add_theme_color_override("default_color", SheetStyle.TEXT)
+	ul.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if can_up and full and not is_up:
+		ul.modulate.a = 0.45      # 2칸을 다 채웠다 —— 못 고른 칸의 강화는 흐리게 (글은 남긴다)
+	body.add_child(ul)
+	if not is_up:
+		var open := [false]
+		UI.tap(pc, func():
+			open[0] = not open[0]
+			ul.clear()
+			ul.append_text(UI.keep_words(long_bb if open[0] else short_bb)))
+	# 오른쪽 —— 강화 버튼 (가진 장수 · 2칸 미만 · 아직 안 한 칸) 또는 「강화됨」
+	if is_up:
+		var ch := SheetStyle.chip("강화됨", col, "solid")
+		ch.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		outer.add_child(ch)
+	elif can_up and not full:
 		var cost := Kit.up_cost(run.kit, k)
-		bv = UI.vbox(2)
+		var bv := UI.vbox(1)
 		bv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var bt := UI.merit_btn("강화", str(cost), func(): kit_confirm(k, slot, true), "", UI.BH_S, UI.FS_BODY)
 		SheetStyle.sub_btn(bt)
-		bt.custom_minimum_size.x = 88
+		bt.custom_minimum_size.x = 80
 		var short: bool = run.merit < cost
 		bt.disabled = short or kit_stage_block() != ""
 		if bt.disabled:      # 비활성 —— 버튼 모양은 남기고 안의 글자 · 값만 흐리게 (_buy_btn 과 같다)
@@ -4891,10 +4923,7 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array) -> Control:
 			var sl := UI.lbl("%s 부족 %d/%d" % [Kit.CUR_N, run.merit, cost], UI.FS_TINY, SheetStyle.WARN)
 			sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			bv.add_child(sl)
-	var ub := kit_up_box(slot, tx, is_up, bv)
-	if can_up and full and not is_up:
-		ub.modulate.a = 0.45      # 2칸을 다 채웠다 —— 못 고른 칸의 강화 효과는 흐리게 (글은 남긴다)
-	body.add_child(ub)
+		outer.add_child(bv)
 	return pc
 
 

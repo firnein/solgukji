@@ -4,6 +4,7 @@ extends Node
 ##   godot --path . --resolution 540x1200 res://tests/kit_shots.tscn -- --out=폴더 [--seed=3] [--play=9] [--card=c177]
 ## ① 편성 화면 —— 강화 줄 없음 · 마우스로 바로 끌어 부대 옮기기 · 편성 칸 도움말   ② 정보창 [강화] → 확인 창 → 확인하면 강화
 ## ③ 장수 정보창 다섯 줄 (강화 효과가 늘 보인다 · 강화됨 · 강화 버튼 · 2칸을 채우면 나머지 흐리게)   ④ 상대 정보 · 군웅 줄의 강화 표시
+## 화면 배치를 재는 점검(스크롤 없이 P 까지 · 눌러 펼치기)은 창이 있을 때만 (화면 없이는 배치가 실제와 다르다).
 ## 실패가 있으면 끝에 「실패 N」.
 
 const Kit := preload("res://scripts/kit.gd")
@@ -94,6 +95,20 @@ func _ready() -> void:
 	await _wait(0.4)
 
 	# ── ③ 장수 정보창
+	# 강화 0칸 —— 컴팩트 줄: 강화 안 한 칸은 강화 이름만, 줄을 누르면 효과가 펼쳐진다 (11/27 "스크롤 최대한 안나오게")
+	r.kit = {}
+	gs.card_info(card)
+	await _wait(0.9)
+	var sec0 := _find(gs._sheet_body, "KitSection")
+	var w0: Control = _rows(sec0)[1]
+	var wd := str(Kit.cell(card, "w").up.d).substr(0, 6)
+	var before_tap := not _texts(w0).contains(wd)
+	var bot0 := _bottom(sec0)
+	await _real_tap(gs, _find(w0, "KitUpLine"))
+	ok(headless or (before_tap and _texts(w0).contains(wd)), "강화 안 한 줄 —— 처음엔 강화 이름만, 누르면 효과가 펼쳐진다")
+	ok(headless or (bot0 <= gs._sheet_scroll.get_global_rect().end.y + 0.5), "강화 0칸 —— 다섯 줄(P 까지)이 스크롤 없이 보인다 (끝 %.0f · 창 %.0f)" % [bot0, gs._sheet_scroll.get_global_rect().end.y])
+	await _shot("kit2_3a_card_info_none")
+	r.kit = Kit.norm({card: ["q"], card2: ["w", "p"]})
 	gs.card_info(card)
 	await _wait(0.9)
 	var sec := _find(gs._sheet_body, "KitSection")
@@ -108,10 +123,9 @@ func _ready() -> void:
 	ok(btns.size() == 4 and btns.all(func(b): return not b.disabled), "강화 버튼 4 (안 한 칸마다) · 전공 7 ≥ 둘째 값 6 이라 모두 켜짐 —— %d" % btns.size())
 	ok(_find(gs._sheet_body, "SkillsSection") == null and _count(gs._sheet_body, func(n): return n is TraitBoard and n.visible) == 0, "일반 기술 묶음 · 특기판은 그리지 않는다")
 	ok(_overflow(gs, sec) == "", "키트 묶음이 시트 폭 안에 있다 %s" % _overflow(gs, sec))
+	ok(headless or (_bottom(sec) <= gs._sheet_scroll.get_global_rect().end.y + 0.5), "강화 1칸 —— 다섯 줄(P 까지)이 스크롤 없이 보인다 (끝 %.0f · 창 %.0f)" % [_bottom(sec), gs._sheet_scroll.get_global_rect().end.y])
+	ok(btns.all(func(b): return b.size.y >= 40), "강화 버튼 높이 40 이상 (누르기 충분)")
 	await _shot("kit2_3_card_info")
-	gs._sheet_scroll.scroll_vertical = 330
-	await _wait(0.4)
-	await _shot("kit2_3b_card_info_scrolled")
 
 	# 정보창의 [강화] → 확인 창 → 「그대로 둔다」 는 정보창으로
 	btns[0].pressed.emit()      # W
@@ -126,6 +140,7 @@ func _ready() -> void:
 	sec = _find(gs._sheet_body, "KitSection")
 	ok(sec != null and _buttons(sec).is_empty() and _texts(sec).contains("모두 강화했다"), "정보창으로 돌아온다 —— 2칸을 채워 버튼이 없고 「모두 강화했다」")
 	ok(_rows(sec).filter(func(n): return bool(n.get_meta("kit_up"))).size() == 2, "강화됨 두 줄")
+	ok(headless or (_bottom(sec) <= gs._sheet_scroll.get_global_rect().end.y + 0.5), "강화 2칸 —— 다섯 줄(P 까지)이 스크롤 없이 보인다 (끝 %.0f · 창 %.0f)" % [_bottom(sec), gs._sheet_scroll.get_global_rect().end.y])
 	await _shot("kit2_3c_card_info_full")
 
 	# 가지지 않은 키트 장수 —— 보기만
@@ -272,6 +287,12 @@ func _all(n: Node, pred: Callable) -> Array:
 	for c in n.get_children():
 		o.append_array(_all(c, pred))
 	return o
+
+
+## 묶음 안 마지막 키트 줄의 아래 끝 (화면 좌표)
+func _bottom(n: Node) -> float:
+	var rs := _rows(n)
+	return (rs[-1] as Control).get_global_rect().end.y if not rs.is_empty() else INF
 
 
 ## 묶음 안의 키트 줄 (kit_slot 메타가 붙은 판) —— 화면 차례대로
