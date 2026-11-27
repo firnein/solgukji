@@ -66,11 +66,11 @@ static func _profile(card: String) -> Array:
 const INACTIVE := Vector4(0.0, 0.0, 0.0, -1.0)
 
 ## X is the forward offset in soldier heights, Y is the rise, Z is lean, W is the atlas pose.
-static func sample(card: String, phase: String, age: float, life: float) -> Vector4:
-	var motion := _sample_ultimate(card, phase, age, life)
+static func sample(card: String, phase: String, age: float, life: float, vfx := "") -> Vector4:
+	var motion := _sample_ultimate(card, phase, age, life, vfx)
 	if motion.w >= 0.0:
 		if phase == "impact":
-			var prep := _sample_ultimate(card, "charge", 0.549, 0.55)
+			var prep := _sample_ultimate(card, "charge", 0.549, 0.55, vfx)
 			var release := smoothstep(0.0, minf(0.16, life * 0.3), age)
 			motion = Vector4(
 				lerpf(prep.x, motion.x, release),
@@ -85,12 +85,18 @@ static func sample(card: String, phase: String, age: float, life: float) -> Vect
 	return motion
 
 
-static func _sample_ultimate(card: String, phase: String, age: float, life: float) -> Vector4:
+static func _sample_ultimate(card: String, phase: String, age: float, life: float, vfx := "") -> Vector4:
 	var profile := _profile(card)
 	if age < 0.0 or age >= life:
 		return INACTIVE
 	if profile.is_empty():
-		profile = [Motion.SWEEP, 0.38, 0.18, 0.34, 1, 0.7]
+		var form: int = {
+			"charge": Motion.CHARGE, "arrowstorm": Motion.SHOT, "roar": Motion.ROAR,
+			"heal": Motion.RESTORE, "aura": Motion.COMMAND, "firestorm": Motion.EMBER,
+			"shadow": Motion.AMBUSH, "thunder": Motion.INVOKE, "illusion": Motion.DECOY,
+			"whirlwind": Motion.WHIRLWIND, "poison": Motion.INVOKE,
+		}.get(vfx, Motion.SWEEP)
+		profile = [form, 0.38, 0.18, 0.34, 1, 0.7]
 	var motion: int = profile[0]
 	var travel: float = profile[1]
 	var rise: float = profile[2]
@@ -208,20 +214,24 @@ static func _skill_release(style: String, kind: String, t: float, weight: float)
 
 ## Q uses a short, distinct release gesture based on the actual skill style.
 static func sample_q(style: String, kind: String, age: float, delay: float) -> Vector4:
+	return sample_kit("q", style, kind, age, delay)
+
+
+static func sample_kit(slot: String, style: String, kind: String, age: float, delay: float) -> Vector4:
 	var travel := 0.32
 	var rise := 0.18
 	var lean := 0.36
 	match style:
-		"pierce", "charge", "dash":
+		"pierce", "charge", "dash", "thrust":
 			travel = 0.78
 		"arrows", "arrow", "volley":
 			travel = -0.34
 			lean = -0.32
-		"heal", "guard", "aura", "buff":
+		"heal", "guard", "aura", "buff", "shield", "cleanse", "banner", "haste":
 			travel = 0.0
 			rise = 0.34
 			lean = -0.16
-		"shadow", "steal":
+		"shadow", "steal", "stealth", "pull":
 			travel = 0.52
 			rise = -0.19
 		_:
@@ -229,9 +239,12 @@ static func sample_q(style: String, kind: String, age: float, delay: float) -> V
 				travel = 0.11
 				rise = 0.38
 	var windup := maxf(0.05, delay)
-	const RELEASE := 0.12
-	const RECOVERY := 0.38
-	if age < 0.0 or age >= windup + RELEASE + RECOVERY:
+	var release_time := 0.16 if slot == "w" else 0.12
+	var recovery_time := 0.45 if slot == "e" else 0.38
+	if slot != "q":
+		travel *= 0.72
+		lean *= 0.80
+	if age < 0.0 or age >= windup + release_time + recovery_time:
 		return INACTIVE
 	var rest := Vector3.ZERO
 	var brace := Vector3(-absf(travel) * 0.35, -0.08, -lean * 0.55)
@@ -242,12 +255,12 @@ static func sample_q(style: String, kind: String, age: float, delay: float) -> V
 		var t := smoothstep(0.0, windup, age)
 		offset = rest.lerp(brace, t)
 		pose = 1.0 if t > 0.18 else 0.0
-	elif age < windup + RELEASE:
-		var t := smoothstep(0.0, RELEASE, age - windup)
+	elif age < windup + release_time:
+		var t := smoothstep(0.0, release_time, age - windup)
 		offset = brace.lerp(strike, t)
 		pose = 2.0 if t > 0.42 else 1.0
 	else:
-		var t := smoothstep(0.0, RECOVERY, age - windup - RELEASE)
+		var t := smoothstep(0.0, recovery_time, age - windup - release_time)
 		offset = strike.lerp(rest, t)
 		pose = 0.0 if t > 0.85 else 2.0
 	return Vector4(offset.x, offset.y, offset.z, pose)

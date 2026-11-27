@@ -3,6 +3,7 @@ extends Control
 const FormationMotion = preload("res://scripts/field/painted_formation.gd")
 const CasterFx = preload("res://scripts/field/painted_caster.gd")
 const MythUltimateMotion = preload("res://scripts/field/myth_ultimate_motion.gd")
+const HeroKit = preload("res://scripts/kit.gd")
 const KitFx = preload("res://scripts/field/painted_kit.gd")
 var caster = CasterFx.new(self)     # 11/25 책략계 기여 표시 (버프 · 디버프 · 천문 · 혼란 · 위세 · 기술 발동 · 책략 타격)
 var kit = KitFx.new(self)           # 11/27 장수 키트 Q · W · E · R · P 발동 표시 (칸 색 고리 · 번쩍임 · 맞은 표식)
@@ -961,13 +962,15 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 				break
 			if pose == 3 and action.phase != "impact":
 				break
-			motion = MythUltimateMotion.sample(sq.cid, action.phase, age, float(action.end) - float(action.start))
+			motion = MythUltimateMotion.sample(sq.cid, action.phase, age, float(action.end) - float(action.start), str(action.vfx) if sq.tier == MYTH_TIER else "")
 			break
 		if motion.w < 0.0 and pose != 3 and _hero_skill_motion.has(sq.key):
 			var skill: Dictionary = _hero_skill_motion[sq.key]
 			var age := last_clock - float(skill.start)
 			if skill.slot == "q":
 				motion = MythUltimateMotion.sample_q(skill.style, skill.kind, age, skill.delay)
+			elif sq.tier == MYTH_TIER and skill.slot in ["w", "e"]:
+				motion = MythUltimateMotion.sample_kit(skill.slot, skill.motion_style, skill.kind, age, skill.delay)
 			else:
 				motion = MythUltimateMotion.sample_skill(sq.cid, skill.style, skill.kind, age, skill.delay)
 		if motion.w >= 0.0:
@@ -2537,7 +2540,12 @@ func add_skill(name: String, a_key: String, targets: Array, kind: String, delay:
 		var caster_unit: bool = a.tag in SUPPORT_TAGS
 		var style := skill_style(name, kind, a.tag)
 		if DB.C.has(a.cid):
-			_hero_skill_motion[a.key] = {"start": v.field.clock, "style": style, "kind": kind, "delay": delay, "slot": slot}
+			var motion_style := style
+			if a.tier == MYTH_TIER and slot in ["w", "e"]:
+				var vfx = HeroKit.cell(a.cid, slot).get("vfx", [])
+				if vfx is Array and not vfx.is_empty():
+					motion_style = str(vfx[0])
+			_hero_skill_motion[a.key] = {"start": v.field.clock, "style": style, "motion_style": motion_style, "kind": kind, "delay": delay, "slot": slot}
 		_add_skill_fx(style, a, targets, CASTER_SKILL_FX_SC if caster_unit else SKILL_FX_SC, delay)      # 시전 원 + 이름은 skill 사건에서 (caster.on_event)
 
 
