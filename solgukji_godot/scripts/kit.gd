@@ -26,6 +26,7 @@ extends RefCounted
 ##   결과 roster 의 키트 장수 줄에는 "kit": [강화한 칸 …]
 ##
 ## 바탕 배율(base_*)은 강화가 없어도 키트 장수 모두에게 —— 일반 특기를 뺀 만큼을 메운다 (tests/kit_measure 로 맞춘다)
+##   불멸(스위치 IMMORTAL_ON)도 같은 바탕 배율을 쓴다 —— 고유기 수치는 DB.ult_of 가 불멸 배율(tier7_scale)로 이미 줄인다. 등급별로 달라야 하면 마지막 밸런스 때 나눈다
 ##
 ## class_name 없이 preload 로 쓴다 (낡은 .godot 캐시에서도 이름을 찾게 —— tactics.gd 와 같다):  const Kit := preload("res://scripts/kit.gd")
 
@@ -40,6 +41,15 @@ const UP_COST := [4, 6]              # 그 장수의 1 · 2번째 강화 값 (�
 
 static var enabled := true           # 끄면 키트 장수가 없다 (예전 그대로 —— 비교 · 점검용)
 static var min_tier := 8             # 이 등급 이상만 (11/27 "일단은 신화 장수에 대해서만")
+
+## ★ 불멸 키트 스위치 (11/27 사용자 "불멸 장수들도 qwer 화 해줘, 적용은 플래그로 on/off —— 나중에 on 하면 한번에 적용되도록, 아직 실 패치는 하지 않을 생각")
+##   켜는 곳은 여기 한 군데 —— true 로 바꾸면 불멸(7성 · 적 전용 · 은퇴 제외 · 고유기가 있는 카드 30명)이 한 번에 키트 장수가 된다:
+##   Kit.on 이 참 → 기술 Q · W · E(data/kit.json 의 불멸 칸) · 재사용 대기 · 고유기 R · 고유 특기 P · 강화 UI · 전공 · 전투 딱지 · 이펙트가 신화와 같은 길로 따라온다.
+##   false 면 불멸 칸 자료를 읽지 않는다 (cell 이 빈 사전) —— 전투 결과 · 화면이 예전 그대로.
+##   온라인은 서버와 클라이언트가 같은 값을 써야 한다 (정책 kit 은 양쪽이 Kit.norm 으로 거른다) —— 이 상수를 바꾼 빌드를 서버 · APK · EXE 에 함께 낸다
+const IMMORTAL_ON := false
+const IMMORTAL_TIER := 7
+static var immortal := IMMORTAL_ON   # 점검(tests/kit_engine --immortal)만 바꾼다 —— 게임은 위 상수를 따른다
 
 ## 바탕 배율 —— 키트 장수는 일반 특기 · 일반 단체 특기를 쓰지 않아 그만큼 약해지고, 기술은 재사용 대기로 드물어진다. 강화가 없어도 늘 곱해 예전 세기에 맞춘다 (실제 대전 덱 —— tests/kit_measure)
 ##   base_sk 일반기술(q · w · e) 피해 배율 · base_ult 고유기(r) 타격 배율 · base_p 고유 특기(p) 수치 배율
@@ -67,14 +77,24 @@ static func data() -> Dictionary:
 	return _data
 
 
-## 키트 장수인가 (지금은 신화) —— 적 전용 카드 · 은퇴 카드는 아니다
+## 이 등급이 키트 등급인가 —— min_tier 이상 (신화), 불멸 스위치가 켜졌으면 불멸(IMMORTAL_TIER)도
+static func tier_on(t: int) -> bool:
+	return t >= min_tier or (immortal and t == IMMORTAL_TIER)
+
+
+## 키트 등급 설정을 한 값으로 —— 특기 캐시(DB.passives_of)가 이 값이 바뀌면 비운다 (끔 −1)
+static func tier_key() -> int:
+	return (min_tier * 2 + (1 if immortal else 0)) if enabled else -1
+
+
+## 키트 장수인가 (신화 —— 불멸 스위치가 켜졌으면 불멸도) —— 적 전용 카드 · 은퇴 카드는 아니다
 static func on(k) -> bool:
 	if not enabled or k == null or not DB.C.has(str(k)):
 		return false
 	var c: Dictionary = DB.C[str(k)]
 	if DB.is_foe(str(k)) or str(c.get("kind", "")) == "retired":
 		return false
-	return int(c.tier) >= min_tier and DB.has_ult(str(k))      # (DB.ult_of 는 부를 때마다 깊은 사본을 만든다 —— 있는지만 묻는다)
+	return tier_on(int(c.tier)) and DB.has_ult(str(k))      # (DB.ult_of 는 부를 때마다 깊은 사본을 만든다 —— 있는지만 묻는다)
 
 
 ## 고유 특기 이름 (없으면 "")
@@ -91,8 +111,11 @@ static func p_name(k: String) -> String:
 	return ""
 
 
-## 그 장수 그 칸의 자료 —— {n, d, up: {n, d}, cd?, new?, …}. 없으면 빈 사전 (키트 장수가 아니거나 자료가 없다)
+## 그 장수 그 칸의 자료 —— {n, d, up: {n, d}, cd?, new?, …}. 없으면 빈 사전 (키트 장수가 아니거나 자료가 없다).
+## 키트 등급이 아닌 카드(불멸 스위치가 꺼졌을 때의 불멸)의 자료는 없는 것으로 본다 —— 화면 · 기록이 불멸 칸 이름을 쓰지 않게
 static func cell(k, slot: String) -> Dictionary:
+	if not DB.C.has(str(k)) or not tier_on(int(DB.C[str(k)].tier)):
+		return {}
 	var h = data().get(str(k))
 	if not (h is Dictionary) or not (h.get(slot) is Dictionary):
 		return {}

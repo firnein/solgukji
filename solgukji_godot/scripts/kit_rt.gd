@@ -136,6 +136,16 @@ func setup() -> void:
 		elif str(up.get("k", "")) == "patience":      # 11/27 육손 지구전 —— 개전 얼마 동안 아군이 받는 피해 −
 			_pat[u.camp] = [b._tm + float(up.get("sec", 15.0)), float(up.get("dr", 0.15))]
 			_kup(u, "p", "%d초 동안 지키며 때를 기다린다 (아군이 받는 피해 −%d%%)" % [roundi(float(up.get("sec", 15.0))), roundi(float(up.get("dr", 0.15)) * 100)])
+		elif str(up.get("k", "")) == "open_haste":      # 11/27 불멸 (여몽 수불석권 · 주유 웅자영발) —— 개전 때 자기 기술 대기를 당긴다
+			for jj in u.sk_next.size():
+				u.sk_next[jj] = maxf(0.0, float(u.sk_next[jj]) - float(up.get("sec", 2.0)))
+			_kup(u, "p", "기술이 %d초 빨리 준비된다" % roundi(float(up.get("sec", 2.0))))
+		elif str(up.get("k", "")) == "open_mark":      # 11/27 불멸 (법정 선견지명) —— 개전 때 적 최강 장수에게 표식
+			var t = _top_gen(_foes(u))
+			if t != null:
+				t.kt["vuln"] = maxf(float(t.kt.get("vuln", 0.0)) if b._tm < float(t.kt.get("vuln_t", -1.0)) else 0.0, float(up.get("amt", 0.2)))
+				t.kt["vuln_t"] = maxf(float(t.kt.get("vuln_t", 0.0)), b._tm + float(up.get("sec", 8.0)))
+				_kup(u, "p", "%s 지목한다 (%d초 동안 받는 피해 +%d%%)" % [b.eul(b.nm(t)), roundi(float(up.get("sec", 8.0))), roundi(float(up.get("amt", 0.2)) * 100)], str(t.key))
 
 
 func tick(_dt: float) -> void:
@@ -965,6 +975,8 @@ func after_ult(u, hits: Array) -> void:
 	var fn := "_ult_" + str(up.get("k", ""))
 	if has_method(fn):
 		call(fn, u, up, hits, foes, allies)
+	elif has_method("_up_" + str(up.get("k", ""))):      # 11/27 불멸 —— 고유기 전용 효과가 없으면 같은 이름의 기술 강화 효과를 고유기에 맞은 적에게 (칸 번호 3 = r)
+		call("_up_" + str(up.get("k", "")), u, 3, {"n": str(u.ult.get("name", "")) if u.ult != null else "", "eff": {}}, up, hits, foes, allies)
 
 
 ## 관우 수엄칠군 —— 맞은 적이 물에 잠긴다
@@ -2198,6 +2210,43 @@ func _p_tick(u, up: Dictionary) -> void:
 				if t != null and b.cleanse(t):
 					u.kt["p_next"] = tm + float(up.get("every", 6.0))
 					_kup(u, "p", "%s의 상태이상을 씻는다" % b.nm(t), str(t.key))
+		"low_haste_all":      # 11/27 불멸 (제갈량 국궁진췌 · 육손 대도독의 침착) —— 병력이 꺾이면 한 번, 아군 전체 기술 대기 당김
+			if not u.kt.get("p_used", false) and u.troops < u.max * float(up.get("below", 0.5)):
+				u.kt["p_used"] = true
+				var n := 0
+				for o in _allies(u):
+					if not (o.c.get("sks", []) as Array).is_empty():
+						_sk_haste(o, float(up.get("sec", 3.0)), null, -1)
+						n += 1
+				_kup(u, "p", "아군 %d부대의 기술이 %d초 빨라진다" % [n, roundi(float(up.get("sec", 3.0)))])
+		"low_guard":      # 11/27 불멸 (진궁 충절불이 · 손권 강동 수성) —— 병력이 꺾이면 한 번, 아군 전체가 잠시 받는 피해 −
+			if not u.kt.get("p_used", false) and u.troops < u.max * float(up.get("below", 0.4)):
+				u.kt["p_used"] = true
+				var dr := float(up.get("dr", 0.2))
+				for o in _allies(u):
+					o.kt["dr"] = maxf(float(o.kt.get("dr", 0.0)) if tm < float(o.kt.get("dr_t", -1.0)) else 0.0, dr)
+					o.kt["dr_t"] = maxf(float(o.kt.get("dr_t", 0.0)), tm + float(up.get("sec", 4.0)))
+				_kup(u, "p", "%d초 동안 아군이 받는 피해 −%d%%" % [roundi(float(up.get("sec", 4.0))), roundi(dr * 100)])
+		"fear_tick":      # 11/27 불멸 (동탁 폭정) —— 일정 시간마다 둘레 적 사기 −
+			if not u.kt.has("p_next"):
+				u.kt["p_next"] = float(up.get("every", 6.0))
+			if tm >= float(u.kt.p_next):
+				var near := _around(u, _foes(u), float(up.get("r", 120.0)))
+				if not near.is_empty():
+					u.kt["p_next"] = tm + float(up.get("every", 6.0))
+					for o in near:
+						o.morale -= float(up.get("morale", 8.0))
+					_kup(u, "p", "폭정에 둘레 적 %d부대의 사기가 꺾인다" % near.size(), str(near[0].key))
+		"low_purge":      # 11/27 불멸 (관우 괄골요독) —— 병력이 꺾이면 한 번, 상태이상을 모두 씻고 잠시 걸리지 않는다
+			if not u.kt.get("p_used", false) and u.troops < u.max * float(up.get("below", 0.5)):
+				u.kt["p_used"] = true
+				var n := 0
+				while n < 4 and b.cleanse(u):
+					n += 1
+				u.kt["stimm_t"] = tm + float(up.get("sec", 4.0))
+				u.kt["stimm_k"] = []
+				u.kt["stimm_by"] = [u, "p"]
+				_kup(u, "p", "뼈를 긁어 독을 씻어 낸다 —— %d초 동안 상태이상에 걸리지 않는다" % roundi(float(up.get("sec", 4.0))))
 
 
 ## 무너진 부대 u —— 새 신화 고유 특기 강화 (동탁 주지육림 · 태사자 유한 · 순욱 빈 찬합 · 진궁 백문루)
@@ -2215,6 +2264,27 @@ func _p_fall(u) -> void:
 				b.inflict(k, o, "plague", float(pu.get("val", 40)), int(pu.get("dur", 4)))
 			if not got.is_empty():
 				_kup(k, "p", "무너진 %s의 역병이 둘레 %d부대로 옮는다" % [b.nm(u), got.size()], str(got[0].key))
+		if not k.alive or k == u:      # 11/27 불멸 —— 무너진 부대를 보는 고유 특기 강화 (아래)
+			continue
+		var kk := _upk(k, "p")
+		if kk == "kill_haste" and k.camp != u.camp and int(k.kt.get("kh_n", 0)) < int(_up(k, "p").get("max", 4)):      # 손책 질풍노도 · 태사자 대장부의 뜻 —— 적이 무너질 때마다 기술 대기 당김
+			k.kt["kh_n"] = int(k.kt.get("kh_n", 0)) + 1
+			var sec := float(_up(k, "p").get("sec", 2.0))
+			for jj in k.sk_next.size():
+				k.sk_next[jj] = float(k.sk_next[jj]) - sec
+			_kup(k, "p", "적이 무너지자 기술이 %s초 빨라진다 (%d번째)" % [str(snappedf(sec, 0.1)), int(k.kt.kh_n)])
+		elif kk == "avenge" and k.camp == u.camp and not k.kt.get("p_used", false):      # 장비 형님의 원수 · 마초 복수의 맹세 · 강유 승상의 유지 —— 아군이 처음 무너지면 한 번
+			k.kt["p_used"] = true
+			var pu := _up(k, "p")
+			b.add_buff(k, {"stat": "atk", "amt": float(pu.get("atk", 0.3)), "dur": ceili(float(pu.get("sec", 6.0)))}, "kit:p")
+			k.morale = maxf(k.morale, 100.0)
+			_kup(k, "p", "%s 무너지자 분노가 치민다 (%d초 동안 공격 +%d%%)" % [b.ga(b.nm(u)), roundi(float(pu.get("sec", 6.0))), roundi(float(pu.get("atk", 0.3)) * 100)], str(u.key))
+		elif kk == "grief_heal" and k.camp == u.camp and int(k.kt.get("gh_n", 0)) < int(_up(k, "p").get("max", 3)):      # 유비 유비의 눈물 —— 아군이 무너질 때마다 아군 전체 병력 회복
+			k.kt["gh_n"] = int(k.kt.get("gh_n", 0)) + 1
+			var nm := str(Kit.cell(k.c.id, "p").get("up", {}).get("n", ""))
+			for o in _allies(k):
+				b.heal_troop(o, float(_up(k, "p").get("ratio", 0.04)), nm, k)
+			_kup(k, "p", "%s 잃은 눈물에 아군이 다시 일어선다 (병력 +%d%%)" % [b.eul(b.nm(u)), roundi(float(_up(k, "p").get("ratio", 0.04)) * 100)], str(u.key))
 	if u.kit == null:
 		return
 	var up := _up(u, "p")

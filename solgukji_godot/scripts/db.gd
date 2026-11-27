@@ -1329,7 +1329,7 @@ func _apply_roles() -> void:
 
 
 ## 11/27 장수 키트 (scripts/kit.gd) —— 키트 장수(지금은 신화)는 일반 특기 · 일반 단체 특기를 쓰지 않는다: 고유 특기 하나와 그 이름의 단체 효과만 남긴다.
-## Kit.enabled · Kit.min_tier 가 바뀌면 특기 캐시(와 그것으로 만든 Battle 의 상태이상 종류 캐시)를 비운다 —— 끄면 예전 그대로
+## Kit.enabled · Kit.min_tier · Kit.immortal(불멸 스위치)이 바뀌면 특기 캐시(와 그것으로 만든 Battle 의 상태이상 종류 캐시)를 비운다 —— 끄면 예전 그대로
 var _kit_script = null
 var _psv_kit := -99
 func passives_of(k: String):
@@ -1337,7 +1337,7 @@ func passives_of(k: String):
 		_kit_script = load("res://scripts/kit.gd")      # (class_name 없이 —— kit.gd 가 DB 를 쓰므로 여기서는 preload 하지 않는다)
 		load("res://scripts/kit_rt.gd")      # 전투 계산 스레드가 처음 읽지 않게 (BattleView 가 스레드를 띄우기 전에 이 함수를 부른다 —— RtBattle.run 의 load 는 캐시를 쓴다)
 		_kit_script.data()
-	var kst: int = int(_kit_script.min_tier) if _kit_script.enabled else -1
+	var kst: int = int(_kit_script.tier_key())      # (켬/끔 · min_tier · 불멸 스위치)
 	if kst != _psv_kit:
 		_psv_kit = kst
 		_psv_cache.clear()
