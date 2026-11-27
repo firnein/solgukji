@@ -293,7 +293,9 @@ func play_event(event: Dictionary, ultimate, updates: Array = [], group: Diction
 	_record_burn(event)
 	caster.on_event(event)
 	if damage:
-		_record_contact(source, target, power, magic)
+		var heavy: bool = ultimate != null or bool(event.get("crit", false)) or event.get("painted_charge", "") == "hit"
+		var damage_ratio := float(event.get("n", 0.0)) / maxf(float(target.max), 1.0)
+		_record_contact(source, target, power, magic, ultimate != null, heavy or damage_ratio >= 0.10)
 		if magic:
 			var dir := _formation(source).center.direction_to(_formation(target).center)
 			caster.add_spark(_formation(target).center - dir * target.edge(dir) * 0.6, source.tag)
@@ -378,30 +380,33 @@ func _spawn_body(sq: Squad, form: FormationMotion, id: int, direction: Vector2, 
 		bodies.pop_front()
 
 const MAGIC_PUSH := 1.0
-func _record_contact(source: Squad, target: Squad, power: float, magic: bool) -> void:
+func _record_contact(source: Squad, target: Squad, power: float, magic: bool, push_formation := false, reaction := true) -> void:
 	var from := _formation(source)
 	var form := _formation(target)
 	var direction := from.center.direction_to(form.center)
 	if direction.is_zero_approx():
 		direction = Vector2.from_angle(from.heading)
 	var at := form.center - direction * target.edge(direction)
-	if _shows_hero(target) and visual_time >= form.hero_hurt_at + HERO_RECOIL_TIME:
+	if reaction and _shows_hero(target) and visual_time >= form.hero_hurt_at + HERO_RECOIL_TIME:
 		form.hero_hurt_at = visual_time
 		form.hero_hurt_power = power
 		form.hero_hurt_dir = direction
 		form.hero_hurt_mirror = not form.facing_right
-	if (not magic and source.cls != "ranged") or power >= (MAGIC_PUSH if magic else 1.5):      # 11/25 책략 타격은 1.0 부터 대열이 밀린다 (예전 1.5 —— 책략은 거의 닿지 않았다)
-		form.receive_impact(at, direction, power)
+	# Ordinary hits animate the figure without pushing the formation.
+	# Charge and kit knockback have their own movement events.
+	if push_formation and power >= 1.5:
+		form.receive_impact(at, direction, minf(power * 0.4, 0.85))
 	var ids := form.nearest_living(at, mini(form.cols, 2 + floori(power)))
 	form.serial += 1
 	var received := 0
 	for id in ids:
-		if visual_time - form.hurt_at[id] < 0.14:
+		if reaction and visual_time - form.hurt_at[id] < 0.14:
 			continue
 		var offset := received * 0.018
-		form.hurt_at[id] = visual_time + offset
-		form.hurt_power[id] = power
-		form.hurt_dir[id] = direction
+		if reaction:
+			form.hurt_at[id] = visual_time + offset
+			form.hurt_power[id] = power
+			form.hurt_dir[id] = direction
 		contacts.append({"start": visual_time + offset, "end": visual_time + 0.28 + offset,
 			"at": form.feet[id], "key": target.key, "id": id, "direction": direction,
 			"power": power, "magic": magic, "ranged": source.cls == "ranged"})
@@ -734,23 +739,23 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 			if has_front and front_ids.has(id):
 				# 11/19 찌르기 곡선은 앞줄만, 그것도 친 지 0.4초 안일 때만 잰다 (예전엔 모든 병사가 매 프레임 smoothstep 네 번)
 				var age := visual_time - form.strike_at[id]
-				if age >= 0.0 and age < 0.34:
-					pose = 1 if age < 0.12 else 2
+				if age >= 0.0 and age < 0.43:
+					pose = 1 if age < 0.16 else 2
 				var windup := 0.0
 				var thrust := 0.0
-				if age < 0.4:
-					windup = smoothstep(0.0, 0.09, age) * (1.0 - smoothstep(0.09, 0.13, age))
-					thrust = smoothstep(0.09, 0.13, age) * (1.0 - smoothstep(0.18, 0.4, age))
+				if age < 0.48:
+					windup = smoothstep(0.0, 0.10, age) * (1.0 - smoothstep(0.10, 0.20, age))
+					thrust = smoothstep(0.10, 0.20, age) * (1.0 - smoothstep(0.22, 0.48, age))
 				var guard := sin(visual_time * 4.3 + id * 2.4 + slot_f) * form.contact_weight
 				p += axis * guard * 0.55 * (1.0 - gait)
 				tilt += axis.x * guard * 0.022
-				p += axis * (thrust * 3.2 - windup * 1.2)
-				tilt += axis.x * (thrust * 0.14 - windup * 0.065)
-				gait *= 0.35
+				p += axis * (thrust * 0.9 - windup * 0.25)
+				tilt += axis.x * (thrust * 0.07 - windup * 0.035)
+				gait *= 1.0 - 0.65 * maxf(windup, thrust)
 			elif ranged and bow_base < 0.5:
 				var bow_age := bow_base - (id / form.cols) * 0.025
 				if bow_age >= 0.0 and bow_age < 0.4:
-					pose = 1 if bow_age < 0.12 else 2
+					pose = 1 if bow_age < 0.16 else 2
 				var bow := smoothstep(0.0, 0.1, bow_age) * (1.0 - smoothstep(0.15, 0.32, bow_age))
 				tilt -= axis.x * bow * 0.065
 		var hurt_age := visual_time - form.hurt_at[id]
@@ -758,9 +763,9 @@ func _collect_figures(sq: Squad, form: FormationMotion) -> void:
 			if hurt_age < 0.28:
 				pose = 3
 			var hurt_axis: Vector2 = (_pm(form.feet[id] + form.hurt_dir[id] * 16.0) - p).normalized()
-			var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, 0.38, hurt_age))
-			p += hurt_axis * recoil * (2.0 + form.hurt_power[id] * 2.4)
-			tilt += hurt_axis.x * recoil * (0.09 + form.hurt_power[id] * 0.06)
+			var recoil := smoothstep(0.0, 0.075, hurt_age) * (1.0 - smoothstep(0.14, 0.38, hurt_age))
+			p += hurt_axis * recoil * (0.45 + minf(form.hurt_power[id], 2.0) * 0.40)
+			tilt += hurt_axis.x * recoil * (0.035 + minf(form.hurt_power[id], 2.0) * 0.025)
 			hit = 1.0 - smoothstep(0.025, 0.14, hurt_age)
 			gait *= 1.0 - recoil
 		if gait > 0.001:
@@ -803,8 +808,8 @@ const TRANSCENDENT_HERO_DATA := "res://data/transcendent_hero_actions.json"
 const TRANSCENDENT_TIER := 6
 const IMMORTAL_TIER := 7
 const HERO_CELL := 96
-const IMMORTAL_HERO_OFFSET := 48 # 셰이더의 불멸 장수 시작 칸 = 96 + 48
-const TRANSCENDENT_HERO_OFFSET := 216 # First transcendent shader cell = 96 + 216.
+const IMMORTAL_HERO_OFFSET := 96 # 셰이더의 불멸 장수 시작 칸 = 96 + 96
+const TRANSCENDENT_HERO_OFFSET := 264 # First transcendent shader cell = 96 + 264.
 const HERO_FIG := 1.75         # 장수 키 = 병사 인형 키 × 이 값 (사용자 샘플 기준)
 const HERO_BODY := 0.92        # 병사 인형이 칸에서 차지하는 키 (동작 시트 실측 0.84~1.0) —— 장수 키를 칸이 아닌 몸으로 맞춘다
 const HERO_LUNGE := 2.2        # 공격 · 피격 때 내지르기 · 움찔 폭 (병사 대비, 그림 한 장이라 자리 · 기울기로)
@@ -862,13 +867,15 @@ func _shows_hero(sq: Squad) -> bool:
 func _collect_hero_fall(sq: Squad, fall: Dictionary) -> void:
 	var at: Vector2 = fall.at
 	var axis := (_pm(at + Vector2(fall.dir) * 16.0) - _pm(at)).normalized()
-	var phase := smoothstep(0.0, HERO_FALL_TIME, visual_time - float(fall.start))
+	var age := visual_time - float(fall.start)
+	var phase := smoothstep(0.0, HERO_FALL_TIME * 0.85, age)
+	var alpha := 1.0 - smoothstep(HERO_FALL_TIME * 0.32, HERO_FALL_TIME, age)
 	var p := _pm(at) + axis * (phase * 6.0)
 	var h := _figure_height(sq, fall.form)
 	var transcendent := sq.tier == TRANSCENDENT_TIER
 	var fall_tilt := 0.28 if transcendent else 1.36
 	var tilt := phase * fall_tilt * (1.0 if axis.x >= 0.0 else -1.0)
-	_append_hero(sq, _hero_index(sq), 4 if transcendent else 3, p, h, 1.0 - phase, tilt, 0.0, 0.0, fall.mirror, 0.0)
+	_append_hero(sq, _hero_index(sq), 4 if transcendent else 3, p, h, alpha, tilt, 0.0, 0.0, fall.mirror, 0.0)
 
 ## 그 부대 장수의 인형 칸 (없으면 -1) —— 카드 id 로 한 번만 찾는다
 func _hero_index(sq: Squad) -> int:
@@ -910,16 +917,16 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 			var age := visual_time - strike
 			var windup := 0.0
 			var thrust := 0.0
-			if age >= 0.0 and age < 0.4:
-				pose = 1 if age < 0.12 else 2
-				windup = smoothstep(0.0, 0.09, age) * (1.0 - smoothstep(0.09, 0.13, age))
-				thrust = smoothstep(0.09, 0.13, age) * (1.0 - smoothstep(0.18, 0.4, age))
+			if age >= 0.0 and age < 0.48:
+				pose = 1 if age < 0.16 else 2
+				windup = smoothstep(0.0, 0.10, age) * (1.0 - smoothstep(0.10, 0.20, age))
+				thrust = smoothstep(0.10, 0.20, age) * (1.0 - smoothstep(0.22, 0.48, age))
 			var guard := sin(visual_time * 3.1 + float(sq.row.slot)) * form.contact_weight
 			p += axis * guard * 0.8 * (1.0 - gait)
 			tilt += axis.x * guard * 0.018
-			p += axis * (thrust * 3.2 - windup * 1.2) * HERO_LUNGE
-			tilt += axis.x * (thrust * 0.16 - windup * 0.07)
-			gait *= 0.35
+			p += axis * (thrust * 0.9 - windup * 0.25) * HERO_LUNGE
+			tilt += axis.x * (thrust * 0.08 - windup * 0.04)
+			gait *= 1.0 - 0.65 * maxf(windup, thrust)
 		elif ranged and bow_base < 0.5:
 			if bow_base >= 0.0 and bow_base < 0.4:
 				pose = 1 if bow_base < 0.12 else 2
@@ -931,9 +938,9 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		pose = 3
 		mirror = form.hero_hurt_mirror
 		var hurt_axis: Vector2 = (_pm(at + form.hero_hurt_dir * 16.0) - _pm(at)).normalized()
-		var recoil := smoothstep(0.0, 0.055, hurt_age) * (1.0 - smoothstep(0.11, HERO_RECOIL_TIME, hurt_age))
-		p += hurt_axis * recoil * (2.0 + form.hero_hurt_power * 2.4) * HERO_LUNGE * 0.7
-		tilt += hurt_axis.x * recoil * (0.07 + form.hero_hurt_power * 0.05)
+		var recoil := smoothstep(0.0, 0.075, hurt_age) * (1.0 - smoothstep(0.14, HERO_RECOIL_TIME, hurt_age))
+		p += hurt_axis * recoil * (0.65 + minf(form.hero_hurt_power, 2.0) * 0.5)
+		tilt += hurt_axis.x * recoil * (0.04 + minf(form.hero_hurt_power, 2.0) * 0.025)
 		gait *= 1.0 - recoil
 	if gait > 0.001:
 		tilt += sin(stride) * gait * sway * 0.7
@@ -959,7 +966,10 @@ func _collect_hero(sq: Squad, form: FormationMotion, idx: int, soldier_h: float,
 		if motion.w < 0.0 and pose != 3 and _hero_skill_motion.has(sq.key):
 			var skill: Dictionary = _hero_skill_motion[sq.key]
 			var age := last_clock - float(skill.start)
-			motion = MythUltimateMotion.sample_skill(sq.cid, skill.style, skill.kind, age, skill.delay)
+			if skill.slot == "q":
+				motion = MythUltimateMotion.sample_q(skill.style, skill.kind, age, skill.delay)
+			else:
+				motion = MythUltimateMotion.sample_skill(sq.cid, skill.style, skill.kind, age, skill.delay)
 		if motion.w >= 0.0:
 			p += (axis * motion.x - Vector2(0.0, motion.y)) * soldier_h
 			tilt += motion.z * (-1.0 if mirror else 1.0)
@@ -1291,7 +1301,7 @@ func _draw_bodies(airborne: bool, ci: CanvasItem = null) -> void:
 		var turn := float(body.turn) * tumble
 		var squash := lerpf(1.0, 0.4, smoothstep(0.78, 1.0, t))
 		var cloth := ALLY_CLOTH if body.cell < 8 else ENEMY_CLOTH
-		var tint := Color(cloth.darkened(0.25 * tumble), alpha * (0.7 if t >= 1.0 else 1.0))
+		var tint := Color(cloth.darkened(0.25 * tumble), alpha * lerpf(1.0, 0.7, smoothstep(0.78, 1.0, t)))
 		ci.draw_set_transform(p - Vector2(0, height + h * 0.3), turn, Vector2(-1.0 if body.mirror else 1.0, squash))
 		ci.draw_texture_rect(cells[body.cell], Rect2(- h * 0.5, - h * 0.62, h, h), false, tint)
 		ci.draw_set_transform(Vector2.ZERO)
@@ -2521,13 +2531,13 @@ static func skill_style(name: String, kind: String, tag: String) -> String:
 
 
 ## 기술 —— battle_view 가 기술 묶음을 시작할 때 (delay: 근접 0.1 · 화살 0.55 · 책략 0.45 —— 맞는 순간에 맞춘다)
-func add_skill(name: String, a_key: String, targets: Array, kind: String, delay: float) -> void:
+func add_skill(name: String, a_key: String, targets: Array, kind: String, delay: float, slot := "") -> void:
 	var a: Squad = v.field.squads.get(a_key)
 	if a != null:
 		var caster_unit: bool = a.tag in SUPPORT_TAGS
 		var style := skill_style(name, kind, a.tag)
 		if DB.C.has(a.cid):
-			_hero_skill_motion[a.key] = {"start": v.field.clock, "style": style, "kind": kind, "delay": delay}
+			_hero_skill_motion[a.key] = {"start": v.field.clock, "style": style, "kind": kind, "delay": delay, "slot": slot}
 		_add_skill_fx(style, a, targets, CASTER_SKILL_FX_SC if caster_unit else SKILL_FX_SC, delay)      # 시전 원 + 이름은 skill 사건에서 (caster.on_event)
 
 

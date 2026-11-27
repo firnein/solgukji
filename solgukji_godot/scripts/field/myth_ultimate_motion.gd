@@ -68,6 +68,18 @@ const INACTIVE := Vector4(0.0, 0.0, 0.0, -1.0)
 ## X is the forward offset in soldier heights, Y is the rise, Z is lean, W is the atlas pose.
 static func sample(card: String, phase: String, age: float, life: float) -> Vector4:
 	var motion := _sample_ultimate(card, phase, age, life)
+	if motion.w >= 0.0:
+		if phase == "impact":
+			var prep := _sample_ultimate(card, "charge", 0.549, 0.55)
+			var release := smoothstep(0.0, minf(0.16, life * 0.3), age)
+			motion = Vector4(
+				lerpf(prep.x, motion.x, release),
+				lerpf(prep.y, motion.y, release),
+				lerpf(prep.z, motion.z, release),
+				prep.w if release < 0.4 else motion.w)
+		elif phase == "dash":
+			var blend := smoothstep(0.0, 0.10, age) * (1.0 - smoothstep(maxf(0.1, life - 0.16), life, age))
+			motion = Vector4(motion.x * blend, motion.y * blend, motion.z * blend, motion.w)
 	if motion.w >= 0.0 and (IMMORTAL_VARIANTS.has(card) or IMMORTAL_PROFILES.has(card)):
 		return Vector4(motion.x * 0.72, motion.y * 0.72, motion.z * 0.78, motion.w)
 	return motion
@@ -154,16 +166,28 @@ static func _sample_ultimate(card: String, phase: String, age: float, life: floa
 ## Ordinary skills wind up into the real hit delay and use a shorter recovery than ultimates.
 static func sample_skill(card: String, style: String, kind: String, age: float, delay: float) -> Vector4:
 	var profile := _profile(card)
+	var weight := 0.9
+	if not profile.is_empty():
+		weight = 0.72 + float(profile[1]) * 0.36 + float(profile[3]) * 0.24
+	var windup := maxf(0.05, delay)
+	const RELEASE := 0.10
 	const RECOVERY := 0.38
-	if age < 0.0 or age >= delay + RECOVERY:
+	var brace := Vector3(-0.21, 0.08, -0.17) * weight
+	if age < 0.0 or age >= windup + RELEASE + RECOVERY:
 		return INACTIVE
-	if profile.is_empty():
-		profile = [Motion.SWEEP, 0.35, 0.16, 0.30, 1, 0.7]
-	var weight := 0.72 + float(profile[1]) * 0.36 + float(profile[3]) * 0.24
-	var anticipation := smoothstep(0.0, maxf(0.05, delay), age)
-	if age < delay:
-		return Vector4(-0.21 * anticipation * weight, 0.08 * anticipation, -0.17 * anticipation * weight, 1.0)
-	var t := (age - delay) / RECOVERY
+	if age < windup:
+		var t := smoothstep(0.0, windup, age)
+		return Vector4(brace.x * t, brace.y * t, brace.z * t, 1.0 if t > 0.18 else 0.0)
+	var elapsed := age - windup
+	if elapsed < RELEASE:
+		var t := smoothstep(0.0, RELEASE, elapsed)
+		var attack := _skill_release(style, kind, 0.0, weight)
+		return Vector4(lerpf(brace.x, attack.x, t), lerpf(brace.y, attack.y, t),
+			lerpf(brace.z, attack.z, t), 1.0 if t < 0.42 else 2.0)
+	return _skill_release(style, kind, (elapsed - RELEASE) / RECOVERY, weight)
+
+
+static func _skill_release(style: String, kind: String, t: float, weight: float) -> Vector4:
 	var snap := (1.0 - smoothstep(0.12, 1.0, t)) * weight
 	var lift := sin(PI * t) * weight
 	var pose := 2.0 if t < 0.76 else 0.0
@@ -181,3 +205,49 @@ static func sample_skill(card: String, style: String, kind: String, age: float, 
 	if kind == "phys":
 		return Vector4(0.31 * snap, 0.16 * lift, 0.25 * snap, pose)
 	return Vector4(0.13 * snap, 0.24 * lift, 0.21 * snap, pose)
+
+## Q uses a short, distinct release gesture based on the actual skill style.
+static func sample_q(style: String, kind: String, age: float, delay: float) -> Vector4:
+	var travel := 0.32
+	var rise := 0.18
+	var lean := 0.36
+	match style:
+		"pierce", "charge", "dash":
+			travel = 0.78
+		"arrows", "arrow", "volley":
+			travel = -0.34
+			lean = -0.32
+		"heal", "guard", "aura", "buff":
+			travel = 0.0
+			rise = 0.34
+			lean = -0.16
+		"shadow", "steal":
+			travel = 0.52
+			rise = -0.19
+		_:
+			if kind == "int":
+				travel = 0.11
+				rise = 0.38
+	var windup := maxf(0.05, delay)
+	const RELEASE := 0.12
+	const RECOVERY := 0.38
+	if age < 0.0 or age >= windup + RELEASE + RECOVERY:
+		return INACTIVE
+	var rest := Vector3.ZERO
+	var brace := Vector3(-absf(travel) * 0.35, -0.08, -lean * 0.55)
+	var strike := Vector3(travel, rise, lean)
+	var offset: Vector3
+	var pose: float
+	if age < windup:
+		var t := smoothstep(0.0, windup, age)
+		offset = rest.lerp(brace, t)
+		pose = 1.0 if t > 0.18 else 0.0
+	elif age < windup + RELEASE:
+		var t := smoothstep(0.0, RELEASE, age - windup)
+		offset = brace.lerp(strike, t)
+		pose = 2.0 if t > 0.42 else 1.0
+	else:
+		var t := smoothstep(0.0, RECOVERY, age - windup - RELEASE)
+		offset = strike.lerp(rest, t)
+		pose = 0.0 if t > 0.85 else 2.0
+	return Vector4(offset.x, offset.y, offset.z, pose)

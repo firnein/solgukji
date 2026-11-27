@@ -50,7 +50,7 @@ var _q_sheet: Array = []    # [그림(assets/kit), 가운데, 크기, 진행 0~1
 const MAX_CASTS := 10
 const MAX_DSTS := 9
 const MAX_LINKS := 5
-const MAX_MARKS := 14        # 한 화면에 그리는 맞은 표식 (새 발동부터 센다)
+const MAX_MARKS := 7        # 한 화면에 그리는 맞은 표식 (새 발동부터 센다)
 const MAX_BURSTS := 6
 const MAX_SHOVES := 8
 const CAST_LIFE := 0.9       # 시전 고리 · 번쩍임 · 칸 모양 (전장 초) —— 11/27 저녁: 발동이 드물어져(재사용 대기 5 ~ 13초) 하나하나를 더 길고 크게
@@ -509,15 +509,15 @@ func _draw_cast(ci: CanvasItem, c: Dictionary, age: float, lv: int) -> void:
 	var a := (1.0 - smoothstep(0.55, 1.0, t)) * sq.fade
 	var u := clampf(age / 0.55, 0.0, 1.0)
 	var grow := 0.45 + 1.0 * ease(u, 0.45)
-	var big := 1.2 if up else 1.0
+	var big := (1.05 if up else 1.0) * (0.85 if slot == "r" else 0.62)
 	var rx := R * grow * big
 	var w := 3.2 if up else 2.6
 	# 번쩍임 —— 몸에서 칸 색 빛 + 흰 심 (강화된 칸이면 더 크고 길게 + 여덟 갈래 섬광)
 	var fl := 1.0 - clampf(age / (0.4 if up else 0.3), 0.0, 1.0)
 	if fl > 0.0:
-		p._spr(ci, "light_02", body, R * (4.8 if up else 3.8), Color(col, 0.9 * fl * sq.fade))
+		p._spr(ci, "light_02", body, R * (4.8 if up else 3.8) * big, Color(col, 0.36 * fl * sq.fade))
 		_t("disc", body, R * 0.7 * fl + 4.0, Color(1, 1, 1, 0.6 * fl * sq.fade))
-		if up and lv < 3:
+		if slot == "r" and up and lv < 3:
 			_t("star", body, R * (2.0 + 2.2 * (1.0 - fl)), Color(1, 1, 1, 0.9 * fl * sq.fade), age * 2.5)
 	var sheet := tex("cast_" + slot)
 	if sheet != null:      # 그림 시트가 있으면 바탕 고리 · 칸 모양 대신 그것을 (장수 몸 가운데에 겹친다 —— 번쩍임 · 강화 덧고리는 그대로 얹는다)
@@ -571,7 +571,7 @@ func _draw_hits(c: Dictionary, age: float, lv: int) -> void:
 	var dsts: Array = c.dsts
 	var mark := tex("hit_" + slot)
 	var foe_cast := str(c.key).begins_with("B")
-	var sz := 12.0 if up else 10.5
+	var sz := 9.0 if up else 8.0
 	var cap := 4 if lv >= 3 else (8 if lv >= 2 else MAX_MARKS)
 	for j in dsts.size():
 		if _marks >= cap:

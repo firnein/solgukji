@@ -19,7 +19,7 @@ func _ready() -> void:
 		"title": "장수 단독 인형 점검", "foe": "적군", "inputs": []}, false)
 	await get_tree().process_frame
 	var painting: Painting = view.type2.painting
-	var valid := painting != null and painting.hero_ready and painting._hero_poses == 4 and painting._hero_cells.size() == 12
+	var valid := painting != null and painting.hero_ready and painting._hero_poses == 4
 	var immortal_cards := DB.by_tier(7)
 	if valid:
 		valid = not immortal_cards.is_empty()
@@ -27,7 +27,8 @@ func _ready() -> void:
 			valid = valid and painting._immortal_hero_cells.has(DB.person(cid))
 		for cid in DB.by_tier(8):
 			var person := DB.person(cid)
-			valid = valid and (painting._hero_cells.has(person) or painting._immortal_hero_cells.has(person))
+			if DB.RECOF.has(cid) and not DB.is_foe(cid):
+				valid = valid and painting._hero_cells.has(person)
 	var leads := {}
 	var solo_count := 0
 	if valid:

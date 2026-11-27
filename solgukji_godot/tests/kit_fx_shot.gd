@@ -1,4 +1,4 @@
-extends Control
+﻿extends Control
 ## 11/27 장수 키트 Q · W · E · R · P 발동 표시 점검 · 캡처 (삽화 화면) —— 사용자: 「쟤가 q 스킬이 발동됐구나, e 가 발동됐구나를 알 수 있어야 함」
 ## 화면 없이 (스크립트 오류 · 칸 풀이 · 표시 대기열이 만들어지는가):
 ##   godot --headless --path . res://tests/kit_fx_shot.tscn
@@ -242,7 +242,7 @@ func _play(view: BattleView, r: Dictionary, label: String, want: Array) -> void:
 	while not view.finished and Time.get_ticks_msec() < t_end:
 		await get_tree().process_frame
 		frames += 1
-		var live := hud.kit_tags.filter(func(n): return float(n.age) >= 0.0)
+		var live := hud._visible_kit_tags()
 		peak_tags = maxi(peak_tags, live.size())
 		peak_casts = maxi(peak_casts, wp.kit.casts.size())
 		for i in live.size():      # 자리 잡기가 겹치게 놓은 쌍
@@ -264,7 +264,7 @@ func _play(view: BattleView, r: Dictionary, label: String, want: Array) -> void:
 	print("KITFX|%s 판 —— 전투 %.1f초 · 프레임 %d · 칸별 표시 %s · 머리 위 딱지 %d · 삽화 고리 %d · 맞은 표식 %d · 강화 번쩍임 %d · 밀려남 %d · 상태 기호 %s" % [
 		label, view.clock, frames, JSON.stringify(view.kit_seen), hud.kit_tag_n, int(st.cast), int(st.hit), int(st.burst), int(st.shove), JSON.stringify(st.state)])
 	print("KITFX|%s 판 —— 동시에 뜬 딱지 최대 %d (상한 %d) · 동시 고리 최대 %d (상한 %d) · 자리 잡기가 겹치게 놓은 쌍 · 프레임 %d · 기록 머리 %s" % [
-		label, peak_tags, hud.KIT_TAG_MAX, peak_casts, wp.kit.MAX_CASTS, over_n, " ".join(heads)])
+		label, peak_tags, hud.KIT_TAG_VISIBLE_MAX, peak_casts, wp.kit.MAX_CASTS, over_n, " ".join(heads)])
 	_expect(todo.is_empty() or not _args.has("png"), "%s 판에서 찍지 못한 장면 %s" % [label, str(todo)])
 	_expect(int(view.kit_seen.get("q", 0)) > 0, "%s 판에서 Q 표시가 한 번도 뜨지 않았다" % label)
 	if want.has("up"):
@@ -274,7 +274,7 @@ func _play(view: BattleView, r: Dictionary, label: String, want: Array) -> void:
 	if want.has("state"):
 		for k in ["seal", "taunted", "undying", "bleed", "plague", "stealth"]:
 			_expect(int(st.state.get(k, 0)) > 0, "상태 기호 %s 를 그리지 않았다" % k)
-	_expect(peak_tags <= hud.KIT_TAG_MAX + 6 and peak_casts <= wp.kit.MAX_CASTS, "상한을 넘었다")
+	_expect(peak_tags <= hud.KIT_TAG_VISIBLE_MAX and peak_casts <= wp.kit.MAX_CASTS, "상한을 넘었다")
 
 
 ## 그 장면이 "보기 좋게" 떠 있는 순간인가
@@ -313,7 +313,7 @@ func _who(view: BattleView, key: String) -> String:
 
 func _shot(nm: String, view: BattleView, what: String) -> void:
 	var hud := view.hud
-	var tags := hud.kit_tags.filter(func(n): return float(n.age) >= 0.0).map(func(n):
+	var tags := hud._visible_kit_tags().map(func(n):
 		return ("◆%s" % n.name) if bool(n.pop) else "%s %s%s" % [Kit.SLOT_N[n.slot], n.name, "◆" if bool(n.up) else ""])
 	print("KITFX|장면 %s —— 전투 %.2f초 · %s · 떠 있는 딱지 %s" % [what, view.clock, _pick, JSON.stringify(tags)])
 	_pick = ""

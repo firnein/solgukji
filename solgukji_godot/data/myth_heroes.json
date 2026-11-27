@@ -1,9 +1,9 @@
 {
  "_설명": "신화 장수 인형 시트 칸 표 (tools/scripts/make_myth_heroes.py 가 만든다 —— 손으로 고치지 말 것). i = 칸 번호 (왼쪽 위부터 가로로), fill = 인형 키 / 칸 키 (발은 칸의 foot), war_painting._collect_hero 가 읽는다",
- "sheet": "res://assets/war_painting/myth_heroes_v1.png",
+ "sheet": "res://assets/war_painting/myth_heroes_v2.png",
  "grid": [
   4,
-  3
+  6
  ],
  "cell": 320,
  "foot": 0.97,
@@ -60,6 +60,61 @@
   },
   "사마의": {
    "i": 10,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "허저": {
+   "i": 12,
+   "fill": 0.8781,
+   "mounted": false
+  },
+  "황충": {
+   "i": 13,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "여몽": {
+   "i": 14,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "육손": {
+   "i": 15,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "장로": {
+   "i": 16,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "진궁": {
+   "i": 17,
+   "fill": 0.9187,
+   "mounted": false
+  },
+  "장비": {
+   "i": 18,
+   "fill": 0.7719,
+   "mounted": false
+  },
+  "동탁": {
+   "i": 19,
+   "fill": 0.8875,
+   "mounted": true
+  },
+  "태사자": {
+   "i": 20,
+   "fill": 0.85,
+   "mounted": false
+  },
+  "위연": {
+   "i": 21,
+   "fill": 0.7719,
+   "mounted": false
+  },
+  "순욱": {
+   "i": 22,
    "fill": 0.9187,
    "mounted": false
   }

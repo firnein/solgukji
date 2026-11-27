@@ -1458,6 +1458,7 @@ func _build_timeline(rebuild := false) -> void:
 				if not g.has("kits"):
 					g["kits"] = []
 				g.kits.append(kq)
+				g["skill_slot"] = str(kq.slot)
 		elif (fx == "phys" or fx == "int") and e.get("a") == g.who:
 			if not g.targets.has(e.f):
 				g.targets.append(e.f)
@@ -2164,7 +2165,7 @@ func _start_group(g: Dictionary) -> void:
 	if g.skill != "":
 		field.skill_fx(g.who)
 		if Type2View.painting_on() and type2 != null and type2.painting != null:      # 11/23 삽화 화면 —— 기술마다 이펙트 (맞는 순간에 맞춰 늦춘다)
-			type2.painting.add_skill(g.skill, g.who, g.targets, str(g.get("skind", "")), float({"volley": 0.55, "spell": 0.45}.get(g.kind, 0.1)))
+			type2.painting.add_skill(g.skill, g.who, g.targets, str(g.get("skind", "")), float({"volley": 0.55, "spell": 0.45}.get(g.kind, 0.1)), str(g.get("skill_slot", "")))
 			_kit_cast(g, float({"volley": 0.55, "spell": 0.45}.get(g.kind, 0.1)))      # 11/27 키트 장수 —— 칸 딱지 · 칸 색 고리 · 맞은 표식
 		var asq: Squad = field.squads.get(g.who)
 		# 11/4 연출 점검: 5일차 한 판에 기술 현판 45~89장 —— 현판은 초월 이상과 진영 상위 둘(hud._emph)만, 나머지는 작은 글씨
@@ -3170,12 +3171,13 @@ class Hud extends Control:
 	const KIT_CROWD := 7            # 떠 있는 딱지가 이만큼이면 붐빈다 —— 장수마다 하나만 · 보이는 시간은 넷부터 줄어 열에서 0.7배
 	const KIT_P_GAP := 2.5          # 같은 장수의 P 딱지 사이 최소 간격 (개성 말풍선은 잦다)
 	const KIT_P_STEP := 0.14        # P 딱지가 한꺼번에 올 때 뜨는 간격 (개전 알림 —— 장수마다 차례로)
-	const KIT_TAG_H := 22.0
-	const KIT_CHIP := 20.0
+	const KIT_TAG_VISIBLE_MAX := 4
+	const KIT_TAG_H := 18.0
+	const KIT_CHIP := 15.0
 	const KIT_FS := 13
 	const KIT_UP := 11.0            # 「강화됨」 ◆ 크기
-	const KIT_POP_H := 27.0         # 강화 이름 글씨의 받침 높이
-	const KIT_POP_FS := 17
+	const KIT_POP_H := 19.0         # 강화 이름 글씨의 받침 높이
+	const KIT_POP_FS := 13
 	var kit_tags: Array = []        # {id, key, slot, name, up, pop(강화 이름 글씨인가), age, life, w, h, tw, camp, anchor, dy, rect, want}
 	var kit_tag_n := 0              # 점검용 —— 띄운 수
 	var kit_draw_us := 0            # 점검용 —— 딱지 그리기에 쓴 시간 합(µs) · 그린 횟수
@@ -3266,7 +3268,21 @@ class Hud extends Control:
 				n.anchor = view.field.to_screen(sq.pos, 0.0) + Vector2(0.0, -34.0)
 		return n.anchor
 
-	func _layout_kit_tags() -> void:
+	func _visible_kit_tags() -> Array:
+		var visible_tags := []
+		var units := {}
+		for ultimate in [true, false]:
+			for i in range(kit_tags.size() - 1, -1, -1):
+				var tag: Dictionary = kit_tags[i]
+				if float(tag.age) < 0.0 or units.has(tag.key) or (tag.slot == "r" and not tag.pop) != ultimate:
+					continue
+				visible_tags.append(tag)
+				units[tag.key] = true
+				if visible_tags.size() >= KIT_TAG_VISIBLE_MAX:
+					return visible_tags
+		return visible_tags
+
+	func _layout_kit_tags(visible_tags: Array) -> void:
 		var painting = view.type2.painting if view.type2 != null else null
 		var xf := Transform2D()
 		if painting != null:
@@ -3280,10 +3296,7 @@ class Hud extends Control:
 			var afs := float(ann.fs)
 			placed.append(Rect2((size.x - float(ann.w)) * 0.5 - 12.0, 84.0 + 46.0 * _charge_rows + 32.0 * _join_rows - afs - 1.0, float(ann.w) + 24.0, afs + 10.0))
 		var pad := Vector2(1.0, 1.0)
-		for i in range(kit_tags.size() - 1, -1, -1):      # 새것부터 머리 바로 위에 놓는다
-			var n: Dictionary = kit_tags[i]
-			if float(n.age) < 0.0:
-				continue
+		for n: Dictionary in visible_tags:
 			var a := _kit_anchor(n, painting, xf)
 			var sz := Vector2(float(n.w), float(n.h))
 			var pos := Vector2(clampf(a.x - sz.x * 0.5, 3.0, maxf(3.0, size.x - sz.x - 3.0)), a.y - sz.y - 7.0)
@@ -3323,11 +3336,12 @@ class Hud extends Control:
 		if kit_tags.is_empty() or cut != null:
 			return
 		var t0 := Time.get_ticks_usec()
-		_layout_kit_tags()
+		var visible_tags := _visible_kit_tags()
+		_layout_kit_tags(visible_tags)
 		var fb := DB.font_bold
 		var K: float = KitFx.PILL_K
 		var live: Array = []
-		for n: Dictionary in kit_tags:      # ① 받침 · 칸 바탕
+		for n: Dictionary in visible_tags:      # ① 받침 · 칸 바탕
 			var age := float(n.age)
 			if age < 0.0:
 				continue
@@ -3335,9 +3349,8 @@ class Hud extends Control:
 			var r: Rect2 = n.rect
 			var fade := clampf(age / 0.08, 0.0, 1.0) * clampf((float(n.life) - age) / 0.25, 0.0, 1.0)
 			var col := KitFx.slot_col(str(n.slot))
-			var pop := lerpf(1.28, 1.0, ease(clampf(age / 0.14, 0.0, 1.0), 0.4))
-			if bool(n.pop):
-				pop = lerpf(1.6, 1.0, ease(clampf(age / 0.18, 0.0, 1.0), 0.4)) + (0.07 * sin((age - 0.18) * 13.0) * (1.0 - (age - 0.18) / 0.75) if age > 0.18 and age < 0.93 else 0.0)
+			var pop := lerpf(1.08, 1.0, ease(clampf(age / 0.14, 0.0, 1.0), 0.4))
+
 			n["fade"] = fade
 			n["sc"] = pop
 			draw_set_transform(r.get_center(), 0.0, Vector2.ONE * (pop / K))
@@ -3348,7 +3361,7 @@ class Hud extends Control:
 				continue
 			if bool(n.up):      # 겹테두리의 바깥 테가 설 자리까지 받침을 넓힌다
 				KitFx.draw_pill(self, 0, big.grow(3.5 * K), Color(0.03, 0.03, 0.04, 0.9 * fade))
-			KitFx.draw_pill(self, 0, big, Color(0.035, 0.05, 0.09, 0.92 * fade) if n.camp == "A" else Color(0.11, 0.035, 0.03, 0.92 * fade))
+			KitFx.draw_pill(self, 0, big, Color(0.035, 0.05, 0.09, 0.74 * fade) if n.camp == "A" else Color(0.11, 0.035, 0.03, 0.74 * fade))
 			if KitFx.tex("slot_" + str(n.slot)) == null:
 				var flash := 1.0 - clampf(age / 0.22, 0.0, 1.0)
 				var chip_r := Rect2(big.position + Vector2(2.0, 2.0) * K, Vector2(KIT_CHIP - 2.0, r.size.y - 4.0) * K)

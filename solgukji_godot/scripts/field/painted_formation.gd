@@ -198,7 +198,8 @@ func _place(sq: Squad, dt: float, initial: bool) -> void:
 	var decay := exp(-12.0 * dt)
 	var follow := 1.0 - exp(-11.0 * dt)
 	var hit_follow := 1.0 - exp(-24.0 * dt)
-	var gait_follow := 1.0 - exp(-9.0 * dt)
+	var gait_follow := 1.0 - exp(-8.0 * dt)
+	var gait_settle := 1.0 - exp(-6.0 * dt)
 	var recoil_limit := maxf(12.0, row_gap * 0.75)
 	var disorder := clampf((0.55 - ratio) * 2.2, 0.0, 0.9)
 	var fleeing := sq.state == "flee"
@@ -246,7 +247,7 @@ func _place(sq: Squad, dt: float, initial: bool) -> void:
 		feet[i] = constrain_foot(before.lerp(goal, response)) if limited else before.lerp(goal, response)
 		var speed := feet[i].distance_to(before) / dt
 		var walking := smoothstep(10.0, 90.0, speed)
-		gait[i] = lerpf(gait[i], walking, gait_follow)
+		gait[i] = lerpf(gait[i], walking, gait_follow if walking > gait[i] else gait_settle)
 		strides[i] = fposmod(strides[i] + minf(speed * 0.08, stride_limit) * dt, TAU)
 		opacity[i] = move_toward(opacity[i], 1.0, dt * 3.0)
 

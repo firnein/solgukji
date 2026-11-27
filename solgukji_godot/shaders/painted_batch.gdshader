@@ -10,7 +10,7 @@ uniform vec2 action_red_pixel_size;
 uniform sampler2D myth_blue : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D myth_red : source_color, filter_linear_mipmap, repeat_disable;
 uniform bool has_myth = false;
-// Atlas cell ranges start at 96 for myth, 144 for immortal, and 312 for transcendent.
+// Atlas cell ranges start at 96 for myth, 192 for immortal, and 360 for transcendent.
 // 진영은 모양 값(style)의 16 자리 (16 이상 = 적군) —— 진영색 테두리 기운으로 가른다
 uniform sampler2D hero_atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform vec2 hero_grid = vec2(4.0, 3.0);
@@ -53,9 +53,9 @@ vec4 over(vec4 top, vec4 bottom) {
 void vertex() {
 	float style = floor(INSTANCE_CUSTOM.a);
 	float cell = INSTANCE_CUSTOM.r;
-	transcendent_hero = (has_transcendent_hero && cell >= 312.0) ? 1.0 : 0.0;
-	immortal_hero = (has_immortal_hero && cell >= 144.0 && cell < 312.0) ? 1.0 : 0.0;
-	hero = (transcendent_hero > 0.5 || immortal_hero > 0.5 || (has_hero && cell >= 96.0 && cell < 144.0)) ? 1.0 : 0.0;
+	transcendent_hero = (has_transcendent_hero && cell >= 360.0) ? 1.0 : 0.0;
+	immortal_hero = (has_immortal_hero && cell >= 192.0 && cell < 360.0) ? 1.0 : 0.0;
+	hero = (transcendent_hero > 0.5 || immortal_hero > 0.5 || (has_hero && cell >= 96.0 && cell < 192.0)) ? 1.0 : 0.0;
 	enemy = style >= 16.0 ? 1.0 : 0.0;
 	grade = mod(style, 8.0);
 	myth = (has_myth && hero < 0.5 && mod(style, 16.0) >= 8.0 && cell >= 32.0) ? 1.0 : 0.0;
@@ -77,7 +77,7 @@ void vertex() {
 	// Match the legacy mesh's 0.75-pixel inset on each atlas cell.
 	vec2 pad = vec2(0.75) * atlas_pixel_size;
 	if (hero > 0.5) {
-		float hc = cell - (transcendent_hero > 0.5 ? 312.0 : (immortal_hero > 0.5 ? 144.0 : 96.0));
+		float hc = cell - (transcendent_hero > 0.5 ? 360.0 : (immortal_hero > 0.5 ? 192.0 : 96.0));
 		vec2 grid = transcendent_hero > 0.5 ? transcendent_hero_grid : (immortal_hero > 0.5 ? immortal_hero_grid : hero_grid);
 		vec2 pixel = transcendent_hero > 0.5 ? transcendent_hero_pixel_size : (immortal_hero > 0.5 ? immortal_hero_pixel_size : hero_pixel_size);
 		vec2 h_origin = vec2(mod(hc, grid.x), floor(hc / grid.x));
