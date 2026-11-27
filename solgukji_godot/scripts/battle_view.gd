@@ -299,10 +299,10 @@ func _ready() -> void:
 	sb.content_margin_bottom = 8
 	dock.add_theme_stylebox_override("panel", sb)
 	col.add_child(dock)
-	# 11/27 사용자: 카드 격자를 빼고 그 세로를 전장에 —— 숨기고 멈춘다 (카드는 그대로 만들어 cards_bar 를 쓰는 점검이 깨지지 않게)
-	dock.visible = false
-	dock.process_mode = Node.PROCESS_MODE_DISABLED
+	# 11/27 사용자: "세로 휴대폰 화면에서는 기존처럼 하단에, 가로 PC 의 경우 좌측에" —— 가로면 독을 숨기고 카드 격자(cards_bar)를 전장 왼쪽 세로 열로 옮긴다 (_place_cards)
+	_dock = dock
 	var dv := VBoxContainer.new()
+	_dock_box = dv
 	dv.add_theme_constant_override("separation", 8)
 	dock.add_child(dv)
 	var row := HBoxContainer.new()
@@ -314,8 +314,72 @@ func _ready() -> void:
 	cards_bar.max_cols = 5
 	cards_bar.center_last = true      # 11/7 9장이면 5 + 4 —— 둘째 줄이 왼쪽으로 쏠리지 않게
 	dv.add_child(cards_bar)
+	# 가로 화면의 왼쪽 세로 열 —— 반투명 먹빛 바탕, 전장 위에 얹는다 (hud 컷인보다 아래)
+	_card_col = PanelContainer.new()
+	_card_col.add_theme_stylebox_override("panel", UI.flat(Color(0.03, 0.04, 0.07, 0.72), Color(1, 1, 1, 0.08), 1, UI.R, CARD_COL_PAD))
+	_card_col.visible = false
+	stage.add_child(_card_col)
+	stage.move_child(_card_col, hud.get_index())
+	stage.resized.connect(_place_cards, CONNECT_DEFERRED)      # 크기 정렬 도중에 카드 격자를 옮기지 않게 (프레임 끝에서)
 
 	_build_side()
+
+
+var _dock: Control
+var _dock_box: Control
+var _card_col: PanelContainer
+const CARD_COL_TOP := 96.0      # 위 병력 · 사기 막대와 군략 목록 · 한마디 줄 아래
+const CARD_COL_BOTTOM := 16.0
+const CARD_COL_PAD := 8
+const CARD_COL_SEP := 6
+
+
+## 11/27 가로(전장 가로 > 세로 × 1.15)면 장수 카드를 왼쪽 세로 열에, 세로면 예전 아래 독에. 높이가 모자라면 두 열 · 세 열(작은 카드)
+func _place_cards() -> void:
+	if stage == null or cards_bar == null or _card_col == null:
+		return
+	var n := 0
+	for c in cards_bar.get_children():
+		if not c.is_queued_for_deletion():
+			n += 1
+	# 독을 뺀 전장 세로로 잰다 —— 독을 켜고 끈 전장 세로로 재면 정사각에 가까운 창에서 독 ↔ 열이 끝없이 뒤집혔다
+	var full_h := stage.size.y + (_dock.size.y if _dock.visible else 0.0)
+	var wide := stage.size.x > full_h * 1.15
+	var home: Control = _card_col if wide else _dock_box
+	if cards_bar.get_parent() != home:
+		cards_bar.reparent(home, false)
+	_dock.visible = not wide
+	_card_col.visible = wide and n > 0
+	if type2 != null:
+		type2.side_pad = 0.0
+	if not wide:
+		cards_bar.min_w = 64
+		cards_bar.max_cols = 5
+		cards_bar.sep = 8
+		cards_bar.center_last = true
+		return
+	var avail_h := stage.size.y - CARD_COL_TOP - CARD_COL_BOTTOM - CARD_COL_PAD * 2
+	var cols := 1
+	var cw := 150.0
+	var ch := MiniCard.H_WIDE
+	var rows := n
+	for c in [1, 2, 3]:
+		cols = c
+		cw = [150.0, 118.0, 80.0][c - 1]
+		ch = MiniCard.H_WIDE if cw >= 90.0 else MiniCard.H_SMALL
+		rows = ceili(n / float(c))
+		if rows * ch + (rows - 1) * CARD_COL_SEP <= avail_h:
+			break
+	cards_bar.min_w = cw
+	cards_bar.max_cols = cols
+	cards_bar.sep = CARD_COL_SEP
+	cards_bar.center_last = false
+	var w := cols * cw + (cols - 1) * CARD_COL_SEP + CARD_COL_PAD * 2
+	var h := rows * ch + (rows - 1) * CARD_COL_SEP + CARD_COL_PAD * 2
+	_card_col.size = Vector2(w, h)
+	_card_col.position = Vector2(8.0, CARD_COL_TOP + maxf(0.0, (stage.size.y - CARD_COL_TOP - CARD_COL_BOTTOM - h) * 0.5))
+	if type2 != null:
+		type2.side_pad = w + 8.0      # 카메라 맞춤이 열 폭만큼 양옆을 비운다 —— 양 끝 부대가 카드 밑에 숨지 않게
 
 
 ## 위 띠 —— 전투 이름 · 배속 · ⋯ 메뉴
@@ -1330,6 +1394,7 @@ func _begin() -> void:
 	log_box.clear()
 	title_label.text = res.title
 	for c in cards_bar.get_children():
+		cards_bar.remove_child(c)      # 11/27 지울 카드를 격자째 옮기면(_place_cards) 프레임 끝 정리에서 지워진 노드를 밟아 멈췄다 —— 먼저 떼어 낸다
 		c.queue_free()
 	var mine: Array = field.order.filter(func(s): return s.camp == "A")
 	mine.sort_custom(func(x, y): return x.row.slot < y.row.slot)
@@ -1338,6 +1403,7 @@ func _begin() -> void:
 		mc.sq = sq
 		mc.view = self
 		cards_bar.add_child(mc)
+	_place_cards()
 	_shift = 0.0
 	warn_until = -1.0
 	# 11/16 사용자 "잘못된 인연멘트" —— 지난 전투의 멘트 기록이 남아, 같은 자리(A2 …)에 선 다른 장수가 지난 판 장수의 말을 했다 (유비가 등애의 「농서」 멘트). 판마다 비운다

@@ -33,6 +33,8 @@ const ZOOM_COMMIT_PX := 0.5    # 화면에서 이만큼(px) 달라져야 새 시
 var _cam_ready := false
 var _cam_base_sc := 1.0        # 시작 맞춤 배율 (당기기 · 물러서기 한도의 기준)
 var _cam_size := Vector2.ZERO
+var side_pad := 0.0            # 11/27 가로 화면 왼쪽 장수 카드 열 몫 (BattleView._place_cards) —— 양옆을 같은 폭만큼 비워 전장은 가운데 그대로
+var _cam_pad := 0.0
 var _cam_cur := []             # 지금 시점 [배율, 늘림, 원점, 가운데] (보간 중인 값)
 var _cam_pose := []            # 마지막으로 확정한 [배율, 늘림, 원점, 가운데] —— 달라진 만큼만 갱신
 var _painting_bounds := Rect2()
@@ -258,12 +260,12 @@ func _cam_goal(only_alive: bool, base_sc := 0.0) -> Array:
 	var span := phi - plo
 	var top := ZOOM_TOP      # 위 상태줄 · 병력 막대 몫
 	var bottom := ZOOM_BOTTOM
-	var avail := Vector2(maxf(1.0, size.x - ZOOM_SIDE * 2.0), maxf(1.0, size.y - top - bottom))
+	var avail := Vector2(maxf(1.0, size.x - (ZOOM_SIDE + side_pad) * 2.0), maxf(1.0, size.y - top - bottom))
 	var sc := minf(avail.x / maxf(span.x, 1.0), avail.y / maxf(span.y, 1.0))
 	if base_sc > 0.0:
 		sc = clampf(sc, base_sc / ZOOM_OUT_MAX, base_sc * ZOOM_IN_MAX)
 	var stretch := maxf(1.0, avail.y / maxf(span.y * sc, 1.0))
-	var org := (Vector2(ZOOM_SIDE, top) + (avail - Vector2(span.x, span.y * stretch) * sc) * 0.5 - Vector2(plo.x, plo.y * stretch) * sc) / size.max(Vector2.ONE)
+	var org := (Vector2(ZOOM_SIDE + side_pad, top) + (avail - Vector2(span.x, span.y * stretch) * sc) * 0.5 - Vector2(plo.x, plo.y * stretch) * sc) / size.max(Vector2.ONE)
 	return [sc, stretch, org, cen]
 
 
@@ -276,7 +278,7 @@ func _cam_clips(sc: float, stretch: float, org: Vector2, cen: Vector2) -> bool:
 		var d := sq.pos - cen
 		var q := po + Vector2(d.y, -d.x * PAINT_TILT * stretch) * (sc / maxf(0.35, 1.0 + d.x * PAINT_PERSPECTIVE))
 		var k := sc / maxf(0.35, 1.0 + d.x * PAINT_PERSPECTIVE)
-		if q.x - sq.hw * k < 2.0 or q.x + sq.hw * k > size.x - 2.0 or q.y < 70.0 or q.y > size.y - 6.0:
+		if q.x - sq.hw * k < 2.0 + side_pad or q.x + sq.hw * k > size.x - 2.0 - side_pad or q.y < 70.0 or q.y > size.y - 6.0:
 			return true
 	return false
 
@@ -284,10 +286,11 @@ func _cam_clips(sc: float, stretch: float, org: Vector2, cen: Vector2) -> bool:
 func _cam_fit(dt: float, now := false) -> void:
 	if field == null or field.order.is_empty():
 		return
-	if _cam_ready and size != _cam_size:      # 창 크기 · 방향이 바뀌면 시작 맞춤을 다시 잡는다 (한도 기준이 낡지 않게)
+	if _cam_ready and (size != _cam_size or side_pad != _cam_pad):      # 창 크기 · 방향 · 옆 카드 열이 바뀌면 시작 맞춤을 다시 잡는다 (한도 기준이 낡지 않게)
 		_cam_ready = false
 	if not _cam_ready:
 		_cam_size = size
+		_cam_pad = side_pad
 		var g0 := _cam_goal(false)
 		if g0.is_empty():
 			return
@@ -361,7 +364,7 @@ func _fit_painting() -> void:
 	var span := hi - lo
 	var top := 90.0 # Room for strength and morale; avoid wasting portrait depth.
 	var bottom := 30.0
-	var available := Vector2(maxf(1.0, size.x - 40.0), maxf(1.0, size.y - top - bottom))
+	var available := Vector2(maxf(1.0, size.x - 40.0 - side_pad * 2.0), maxf(1.0, size.y - top - bottom))
 	_scale = minf(available.x / maxf(span.x, 1.0), available.y / maxf(span.y, 1.0))
 	_want_scale = _scale
 	_base_scale = _scale
@@ -370,7 +373,7 @@ func _fit_painting() -> void:
 	_painting_stretch = available.y / maxf(span.y * _scale, 1.0)
 	lo.y *= _painting_stretch
 	span.y *= _painting_stretch
-	_painting_origin = (Vector2(20, top) + (available - span * _scale) * 0.5 - lo * _scale) / size.max(Vector2.ONE)
+	_painting_origin = (Vector2(20.0 + side_pad, top) + (available - span * _scale) * 0.5 - lo * _scale) / size.max(Vector2.ONE)
 
 
 func _fit(now := false) -> void:
