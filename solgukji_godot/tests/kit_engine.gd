@@ -1,6 +1,7 @@
 extends Node
 ## 11/27 장수 키트 Q · W · E · R · P —— 전투 엔진 점검 (scripts/kit.gd · kit_rt.gd · data/kit.json · Battle.mk_unit · act · _kit_tag)
-## 실행: godot --headless --path . res://tests/kit_engine.tscn [-- --cells=c177:q,c190:r (그 칸만) --verbose]
+## 실행: godot --headless --path . res://tests/kit_engine.tscn [-- --cells=c177:q,c190:r (그 칸만) --verbose --immortal (불멸 키트 스위치를 켜고 불멸 30명 점검)]
+##  8) (11/27) 불멸 키트 스위치 —— 꺼짐(기본): 불멸은 키트 장수가 아니고 불멸 전투가 예전(키트 끔)과 같다. --immortal: 신화 21 + 불멸 30, 불멸 150칸 강화가 모두 일한다
 ##  1) 특기 배제 —— 키트 장수의 DB.passives_of 는 고유 특기 하나와 그 이름의 단체 효과만. Kit.enabled 를 끄면 예전 그대로 (캐시가 따라온다)
 ##  2) 자료 —— kit.json 21명 × 5칸 (11/27 대현량사 장각 c192 는 토벌 적 전용으로 빠졌고, 같은 날 새 신화 11명이 더해졌다): 이름 · 글 · 강화 이름 · 글 · 엔진 필드(fx), q·w·e 의 cd, new 칸의 sk. 강화 상태 형식(칸 목록 · 장수당 2칸 · 옛 형식 읽기)
 ##  3) 전투 준비 —— 정책의 kit 이 유닛에 실리고(준비만 시키는 화면 길 _setup 포함) 상대 진영 · 카드 사전에 새지 않는다. 결과의 policy · roster 에 kit
@@ -29,9 +30,15 @@ func _ready() -> void:
 		a[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	verbose = a.has("verbose")
 	Kit.enabled = true
+	Kit.immortal = a.has("immortal")      # 11/27 불멸 키트 스위치 (게임은 Kit.IMMORTAL_ON 상수) —— --immortal 이면 켠 상태로 점검
 	var myths: Array = DB.C.keys().filter(func(k): return Kit.on(k))
 	myths.sort()
+	if Kit.immortal:
+		_ready_immortal(myths, str(a.get("cells", "")))
+		return
 	ok(myths.size() == 21, "키트 장수 21명 (지금 %d)" % myths.size())
+	if not a.has("cells"):
+		_check_immortal_off()
 	if not a.has("cells"):
 		_check_passives(myths)
 		_check_data(myths)
@@ -92,7 +99,7 @@ func _check_data(myths: Array) -> void:
 				bad.append("%s.r 고유기 이름" % k)
 			elif slot == "p" and Kit.p_name(k) != str(c.n):
 				bad.append("%s.p 고유 특기 이름" % k)
-	ok(n == 105 and bad.is_empty(), "kit.json 105칸 —— 이름 · 글 · 강화 · 엔진 필드 · 재사용 대기 · 카드 기술과 이름이 맞는다 %s" % str(bad))
+	ok(n == myths.size() * 5 and bad.is_empty(), "kit.json %d칸 —— 이름" % n + " · 글 · 강화 · 엔진 필드 · 재사용 대기 · 카드 기술과 이름이 맞는다 %s" % str(bad))
 	var c0 := JSON.stringify(DB.C["c177"])
 	var q: Dictionary = DB.C["c177"].sks[0]
 	var mq: Dictionary = Kit.skills_of("c177")[0]
@@ -331,7 +338,7 @@ func _check_cells(myths: Array, only: String) -> void:
 				dead.append("%s.%s(%s)" % [k, slot, nm])
 			elif verbose:
 				print("    %s %s 「%s」 %d번 (%s)" % [DB.C[k].name, Kit.SLOT_N[slot], nm, got, where])
-	ok(dead.is_empty(), "강화 105칸 —— 칸마다 그 강화가 실제로 일하는 판이 있다 (전투 %d판) 못 본 칸: %s" % [runs, str(dead)])
+	ok(dead.is_empty(), "강화 %d칸 —— 칸마다 그 강화가 실제로 일하는 판이 있다 (전투 %d판) 못 본 칸: %s" % [myths.size() * 5 if want.is_empty() else want.size(), runs, str(dead)])
 	ok(stray.is_empty(), "강화가 일하면 그 이름의 kup 사건이 남고, 끈 같은 판에는 없다 %s" % str(stray))
 
 
@@ -405,11 +412,9 @@ func _check_events() -> void:
 
 # ───────── 7) 결정성 ─────────
 
-func _check_determinism() -> void:
-	var a := _deck("c187", 0)
-	var b := _deck("c194", 1)
-	var kit := {"c187": ["e", "r"]}
-	var kitb := {"c194": ["w", "p"]}
+func _check_determinism(ia := "c187", ib := "c194", kit := {"c187": ["e", "r"]}, kitb := {"c194": ["w", "p"]}) -> void:
+	var a := _deck(ia, 0)
+	var b := _deck(ib, 1)
 	var same0 := true
 	var same1 := true
 	var differs := 0
@@ -441,3 +446,147 @@ func _check_determinism() -> void:
 	Kit.enabled = true
 	ok(off_same, "Kit.enabled 를 끄면 kit 정책이 있어도 결과가 같다 (예전 그대로)")
 	ok(no_slot, "Kit.enabled 를 끄면 사건 · roster 에 칸 표시가 없다")
+
+
+# ───────── 8) 불멸 키트 스위치 (11/27 —— Kit.IMMORTAL_ON / Kit.immortal) ─────────
+
+## 불멸 30명 (7성 · 적 전용 · 은퇴 제외 · 고유기 있음)
+func _immortals() -> Array:
+	var out: Array = DB.C.keys().filter(func(k): return int(DB.C[k].tier) == Kit.IMMORTAL_TIER and not DB.is_foe(k) and str(DB.C[k].kind) != "retired" and DB.has_ult(k))
+	out.sort()
+	return out
+
+
+## 꺼짐 (게임 기본) —— 불멸은 키트 장수가 아니고, 불멸 칸 자료 · 강화 정책이 아무것도 바꾸지 않는다. 불멸 전투는 키트를 끈 것과 같은 씨앗 → 같은 결과
+func _check_immortal_off() -> void:
+	var ims := _immortals()
+	var data_n := 0
+	for k in ims:
+		if Kit.data().has(k):
+			data_n += 1
+	ok(ims.size() == 30 and data_n == 30, "불멸 30명 —— kit.json 에 칸 자료가 있다 (명단 %d · 자료 %d)" % [ims.size(), data_n])
+	ok(not Kit.IMMORTAL_ON and not Kit.immortal, "스위치 기본값 꺼짐 (Kit.IMMORTAL_ON = %s)" % str(Kit.IMMORTAL_ON))
+	var leak := []
+	for k in ims:
+		if Kit.on(k) or not Kit.cell(k, "q").is_empty() or not Kit.cell(k, "p").is_empty():
+			leak.append(k)
+	ok(leak.is_empty() and Kit.norm({"L38": ["q", "r"], "s01": ["w"]}).is_empty(), "꺼짐 —— 불멸은 키트 장수가 아니다 (Kit.on · cell 빈 사전 · 강화 정책은 버려진다) %s" % str(leak))
+	var ps0 := JSON.stringify(DB.passives_of("L38"))
+	ok((DB.passives_of("L38").traits as Array).size() > 1, "꺼짐 —— 불멸은 일반 특기를 그대로 쓴다")
+	Kit.immortal = true
+	var ps1 := JSON.stringify(DB.passives_of("L38"))
+	Kit.immortal = false
+	ok(ps1 != ps0 and JSON.stringify(DB.passives_of("L38")) == ps0, "스위치를 켰다 끄면 특기 캐시가 따라온다 (켬: 고유 특기만 → 끔: 예전 그대로)")
+	# 불멸 · 7성만 든 판 (신화 없음) —— 꺼짐이면 키트가 아예 없는 판(Kit.enabled 끔)과 같은 사건, 불멸 강화 정책을 줘도 같다
+	var same := true
+	var marks := 0
+	var n := 0
+	for pair in [["L38", "s01"], ["L12", "c169"], ["c156", "L05"]]:
+		var a := _deck(pair[0], 0)
+		var b := _deck(pair[1], 1)
+		for sd in [3, 7]:
+			var base: Dictionary = _run(a, b, _pol({}), sd)[0]
+			var pol: Dictionary = _run(a, b, _pol({pair[0]: ["q", "r"]}, {pair[1]: ["w", "p"]}), sd)[0]
+			Kit.enabled = false
+			var old: Dictionary = _run(a, b, _pol({}), sd)[0]
+			Kit.enabled = true
+			n += 1
+			if not (_fp(base) == _fp(old) and _fp(pol) == _fp(old) and base.ev.size() == old.ev.size()):
+				same = false
+			for e in base.ev + pol.ev:
+				if e.has("slot") or e.has("kup"):
+					marks += 1
+	ok(same and marks == 0, "꺼짐 —— 불멸 전투 %d판: 같은 씨앗이면 예전(키트 끔)과 같은 결과 · 강화 정책도 무시 · 칸 표시 없음 (표시 %d)" % [n, marks])
+
+
+## 켬 (--immortal) —— 신화 21 + 불멸 30 = 51명이 키트 장수. 불멸의 특기 · 칸 자료 · 칸마다 강화가 실제로 일하는지 · 사건 · 결정성
+func _ready_immortal(kits: Array, cells: String) -> void:
+	var ims := _immortals()
+	ok(kits.size() == 51 and ims.all(func(k): return kits.has(k)), "켬 —— 키트 장수 51명 (신화 21 + 불멸 %d · 지금 %d)" % [ims.size(), kits.size()])
+	if cells == "":
+		_check_passives(ims)
+		_check_data(kits)
+		_check_immortal_rules(ims)
+	_check_cells(ims, cells)
+	if cells == "":
+		_check_immortal_events()
+		_check_determinism("L12", "c169", {"L12": ["w", "r"]}, {"c169": ["q", "p"]})
+	Kit.immortal = false
+	print("장수 키트 엔진 점검 (불멸 켬) —— 실패 %d" % fails)
+	get_tree().quit(1 if fails > 0 else 0)
+
+
+## 불멸 칸 규칙 —— 같은 인물의 신화와 기술 이름 · 강화 이름이 겹치지 않는다, 칸마다 vfx, 대기 3~14초, 고유기 · 특기 강화 효과가 엔진에 있다
+func _check_immortal_rules(ims: Array) -> void:
+	var myth_of := {}
+	for k in DB.C.keys():
+		if int(DB.C[k].tier) >= 8 and Kit.on(k):
+			myth_of[DB.person(k)] = k
+	var rt = load("res://scripts/kit_rt.gd").new()
+	var bad := []
+	var with_myth := 0
+	for k in ims:
+		var m = myth_of.get(DB.person(k))
+		if m != null:
+			with_myth += 1
+			var taken := {}
+			for s in Kit.SLOTS:
+				taken[str(Kit.cell(m, s).up.n)] = true
+				if s in ["q", "w", "e"]:
+					taken[str(Kit.cell(m, s).n)] = true
+			for s in Kit.SLOTS:
+				if s in ["q", "w", "e"] and taken.has(str(Kit.cell(k, s).n)):
+					bad.append("%s.%s 이름이 신화와 같다" % [k, s])
+				if taken.has(str(Kit.cell(k, s).up.n)):
+					bad.append("%s.%s 강화 이름이 신화와 같다" % [k, s])
+		for s in Kit.SLOTS:
+			var c := Kit.cell(k, s)
+			if s != "p" and (c.get("vfx", []) as Array).is_empty():
+				bad.append("%s.%s vfx" % [k, s])
+			if s in ["q", "w", "e"] and (float(c.cd) < 3.0 or float(c.cd) > 14.0):
+				bad.append("%s.%s 대기 %s" % [k, s, str(c.cd)])
+			if s in ["q", "w", "e"] and c.has("sk") and c.sk.eff.has("act") and not rt.has_method("_act_" + str(c.sk.eff.act)):
+				bad.append("%s.%s 고유 동작 %s 없음" % [k, s, str(c.sk.eff.act)])
+		var rk := str(Kit.cell(k, "r").fx.k)
+		if not rt.has_method("_ult_" + rk) and not rt.has_method("_up_" + rk):
+			bad.append("%s.r 강화 효과 %s 없음" % [k, rk])
+	ok(bad.is_empty(), "불멸 칸 규칙 —— 신화가 있는 %d명은 기술 · 강화 이름이 신화와 다르다, vfx · 대기 3~14초 · 고유 동작 · 고유기 강화 효과가 엔진에 있다 %s" % [with_myth, str(bad)])
+
+
+## 불멸 사건 —— 기술 slot q/w/e · 고유기 slot r · 고유 특기 알림 slot p (신화와 같은 길)
+func _check_immortal_events() -> void:
+	var a := _deck("L38", 0)
+	var b := _deck("s07", 2)
+	var res: Array = _run(a, b, _pol({"L38": ["w", "r"]}, {"s07": ["q"]}), 101)
+	var r: Dictionary = res[0]
+	var ka: String = res[1]["A:L38"]
+	var kb: String = res[1]["B:s07"]
+	var sk := {ka: 0, kb: 0}
+	var ul := {ka: 0, kb: 0}
+	var pn := {ka: 0, kb: 0}
+	var bad := 0
+	for e in r.ev:
+		var who := str(e.get("a", ""))
+		if not sk.has(who) or e.has("kup"):
+			continue
+		match str(e.get("fx", "")):
+			"skill":
+				if e.has("slot"):
+					sk[who] += 1
+					var want: bool = (who == ka and str(e.slot) == "w") or (who == kb and str(e.slot) == "q")
+					if bool(e.get("up", false)) != want:
+						bad += 1
+			"ult":
+				if str(e.get("slot", "")) == "r":
+					ul[who] += 1
+					if bool(e.get("up", false)) != (who == ka):
+						bad += 1
+			"passive":
+				if str(e.get("slot", "")) == "p":
+					pn[who] += 1
+	var rk := {}
+	for u in r.roster:
+		if u.has("kit"):
+			rk[u.key] = u.kit
+	ok(int(sk[ka]) > 0 and int(sk[kb]) > 0 and int(ul[ka]) + int(ul[kb]) > 0 and bad == 0, "불멸 사건 —— 기술 칸 q/w/e · 고유기 칸 r · 강화 여부(up)가 맞다 (여포 기술 %d · 유비 기술 %d · 고유기 %d · 어긋남 %d)" % [sk[ka], sk[kb], int(ul[ka]) + int(ul[kb]), bad])
+	ok(int(pn[ka]) == 1 and int(pn[kb]) == 1 and rk.get(ka) == ["w", "r"] and rk.get(kb) == ["q"], "불멸 고유 특기 알림 한 번씩 · 결과 roster 에 강화한 칸 %s" % str(rk))
