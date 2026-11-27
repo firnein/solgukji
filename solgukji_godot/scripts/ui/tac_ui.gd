@@ -406,7 +406,7 @@ static func hand_sheet(gs, i: int) -> void:
 static func head_btn(gs) -> TouchButton:
 	var P := DB.PAL
 	var b := TouchButton.new()
-	b.text = "군략 3택1"
+	b.text = "군략 3택1" if Run.tac_on else "연구 3택1"      # 11/27 군략이 꺼지면 연구 3택1 만
 	b.hit = Vector2(UI.HIT, UI.HIT)
 	b.custom_minimum_size = Vector2(0, 20)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -429,7 +429,7 @@ static func head_btn(gs) -> TouchButton:
 ## 11/22 두 단계 —— ① 군략 3택1 을 고르면 ② 연구 3택1 시트가 이어 열린다 (군략이 없으면 연구부터)
 static func offer_sheet(gs, sel := "") -> void:
 	var run: Run = gs.run
-	if run.tk_offer.is_empty() and not run.rs_offer.is_empty():
+	if not Run.tac_on or (run.tk_offer.is_empty() and not run.rs_offer.is_empty()):      # 11/27 군략이 꺼지면 늘 연구 3택1 시트
 		res_sheet(gs, sel)
 		return
 	var b: VBoxContainer = gs.open_sheet("군략 3택1  (1/2)")
@@ -474,9 +474,9 @@ static func offer_sheet(gs, sel := "") -> void:
 ## 11/22 연구 3택1 시트 —— 군략 3택1 과 같은 꼴. 카드 아래 덧말에 갈래 · 고르면 열리는 다음 단계
 static func res_sheet(gs, sel := "") -> void:
 	var run: Run = gs.run
-	var b: VBoxContainer = gs.open_sheet("연구 3택1  (2/2)")
+	var b: VBoxContainer = gs.open_sheet("연구 3택1  (2/2)" if Run.tac_on else "연구 3택1")      # 11/27 군략이 꺼지면 한 단계뿐
 	if run.rs_offer.is_empty():
-		b.add_child(UI.empty("draw", "고를 연구가 없다", "아침마다 군략 다음에 연구 3장 중 하나를 고른다."))
+		b.add_child(UI.empty("draw", "고를 연구가 없다", "아침마다 군략 다음에 연구 3장 중 하나를 고른다." if Run.tac_on else "아침마다 연구 3장 중 하나를 고른다."))
 		return
 	b.add_child(UI.hint("오늘의 연구를 하나 고르세요. 초급을 고르면 중급, 중급을 고르면 고급이 후보에 오릅니다."))
 	b.add_child(res_legend())
@@ -503,6 +503,11 @@ static func res_sheet(gs, sel := "") -> void:
 	actions.add_child(ok)
 	b.add_child(actions)
 	b.add_child(UI.hint("나중에 상단의 ‘연구 3택1’에서 다시 열 수 있습니다. 다음 날엔 첫 연구가 자동으로 정해집니다."))
+	if not Run.tac_on:      # 11/27 군략 현황 화면이 없어졌다 —— 지금까지 연구한 영구 효과는 여기서 본다
+		var rows := Tac.buff_rows([], run.tk_perm.get("notes", []))
+		if not rows.is_empty():
+			b.add_child(UI.head("연구한 영구 효과", ""))
+			b.add_child(_buff_text(rows))
 
 
 ## 11/25 연구 단계 색 안내 —— 「● 초급 ● 중급 ● 고급」 한 줄

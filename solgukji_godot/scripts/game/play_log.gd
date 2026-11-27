@@ -167,8 +167,10 @@ static func battle_start(run, bt: Dictionary) -> void:
 const Tac := preload("res://scripts/tactics.gd")      # class_name 없이 (Run 과 같은 방식)
 const Kit := preload("res://scripts/kit.gd")          # 11/27 장수 키트 강화 (전공 · 강화 상태 기록)
 static func tac_state(run) -> Dictionary:
-	if run == null or not Run.tac_on:
+	if run == null:
 		return {}
+	if not Run.tac_on:      # 11/27 군략이 꺼졌다 —— 연구 상태만 (영구 효과 이름 · 고른 연구 횟수)
+		return {"perm": (run.tk_perm.get("notes", []) as Array).duplicate(), "rs": (run.rs_done as Dictionary).duplicate()}
 	return {"plan": (run.tk_plan as Array).duplicate(), "own": Tac.own_of(run.tk_hand), "perm": (run.tk_perm.get("notes", []) as Array).duplicate(),
 		"rs": (run.rs_done as Dictionary).duplicate()}
 

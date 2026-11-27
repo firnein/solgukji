@@ -420,6 +420,8 @@ static func res_ok(id: String, done: Dictionary, tags: Array, facs: Array) -> bo
 	if not ECON.has(id):
 		return false
 	var c: Dictionary = ECON[id]
+	if not Run.tac_on and tac_only(id):      # 11/27 군략이 꺼졌다 —— 군략 3택1 에만 일하는 연구(군략 연구)는 후보에서 뺀다
+		return false
 	var mx := int(c.get("max", 1))
 	if mx > 0 and int(done.get(id, 0)) >= mx:
 		return false
@@ -431,6 +433,18 @@ static func res_ok(id: String, done: Dictionary, tags: Array, facs: Array) -> bo
 		if cd.has("tag") and tags.count(str(cd.tag)) < 3:
 			return false
 		if cd.has("fac") and facs.count(str(cd.fac)) < 4:
+			return false
+	return true
+
+
+## 11/27 군략 카드에만 의미가 있는 연구인가 —— 효과가 군략 3택1 장 수(more) · 다시 굴리기(reroll) 뿐 (Run.tac_on 이 꺼지면 후보에서 빠진다)
+const TAC_ONLY_FX := ["more", "reroll"]
+static func tac_only(id: String) -> bool:
+	var fx: Array = card(id).get("fx", [])
+	if fx.is_empty():
+		return false
+	for part in fx:
+		if not (str(part.get("k", "")) in TAC_ONLY_FX):
 			return false
 	return true
 

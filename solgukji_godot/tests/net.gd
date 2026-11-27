@@ -3,6 +3,7 @@ const RoomLog := preload("res://scripts/net/room_log.gd")
 ## 서버 점검 —— 실행: godot --headless --path . res://tests/net.tscn [-- --players=4 --seats=4|6|8 --port=7791]
 ## 서버(MatchServer)와 가짜 플레이어 N명을 한 프로세스에 띄워 실제 WebSocket 으로 한 판을 끝까지 돈다.
 ## 하루 = 아침(징집 → 선택권 → 조합 → 자동 편성 → 준비) → 점심(토벌이 오면 '본 것'으로 준비) → 저녁 준비(군략 확인 후 준비) → 저녁(대전이 오면 준비).
+## 11/27 군략이 꺼지면(Run.tac_on false —— 기본) 저녁 준비 단계는 없다: 대전 준비 0번이어야 하고, 상대는 저녁(대전) 방 정보에서 적는다. 아침마다 연구 3택1 을 고른다
 ## 둘째 플레이어는 2일차에 끊었다가 같은 토큰으로 돌아온다 (그동안은 봇이 대신한다).
 ## 점검 모드(test)는 7일차까지 멸망하지 않고, 8일차부터 민심이 바닥난 세력이 무너져 최후 1인이 남으면 끝난다 (11/12 토너먼트 없음).
 ## 확인: 모두 끝까지 가는가 · 사람끼리 대전의 승패가 양쪽에서 맞는가 · 저녁 준비에 받은 상대와 실제 대전 상대가 같은가 ·
@@ -45,6 +46,7 @@ func validate_permissions() -> void:
 	room.stage = "evening_prep"
 	assert(room.cmd_block(0, "set_plan") == "")
 	assert(room.cmd_block(0, "auto_deploy") != "" and room.cmd_block(0, "forge") != "")
+	assert(Run.tac_on or Room.stage_len("fast", "evening_prep", 0) == 0.0, "군략이 꺼지면 대전 준비 길이 0")
 	for stage in Room.WATCH_STAGES:
 		room.stage = stage
 		room.seats[0].watched = false
@@ -145,7 +147,7 @@ func _on_msg(b: Dictionary, d: Dictionary) -> void:
 					if not rm.has("act") or bool(rm.get("act_form")) != want_form or (not (rm.stage in Room.WATCH_STAGES) and bool(rm.get("act_draw")) != want_draw):
 						errors.append("%s: 방 정보 act %s · 징집 %s · 편성 %s (%s)" % [b.name, str(rm.get("act")), str(rm.get("act_draw")), str(rm.get("act_form")), rm.stage])
 				# 저녁 준비 —— 받은 상대를 적어 둔다 (PV 가 실려 오면 안 된다, 결정 ⑥)
-				if rm.stage == "evening_prep" and rm.get("foe") != null:
+				if (rm.stage == "evening_prep" or (rm.stage == "evening" and not foe_log[b.name].has(int(rm.day_no)))) and rm.get("foe") != null:      # 11/27 대전 준비가 없으면 저녁에
 					var f: Dictionary = rm.foe
 					if f.has("pv"):
 						errors.append("%s: 상대 정보에 PV 가 실려 있다" % b.name)
@@ -261,6 +263,10 @@ func _play(b: Dictionary, run: Dictionary, room: Dictionary) -> void:
 		if not off.is_empty():
 			c.send({"t": "cmd", "m": "pick_tac", "a": [str(off[b.i % off.size()])]})
 			return
+		var roff: Array = run.get("rs_offer", [])      # 11/27 연구 3택1 —— 군략이 꺼져도 남는다
+		if not roff.is_empty():
+			c.send({"t": "cmd", "m": "pick_res", "a": [str(roff[b.i % roff.size()])]})
+			return
 	if room.stage in Room.ACT_STAGES:      # 11/15 군략 계획 —— 1단계가 비었으면 기본 카드 하나 (서버 명령 set_plan)
 		var tp: Array = run.get("tk_plan", [])
 		if tp.size() == 3 and str(tp[0]) == "":
@@ -329,7 +335,9 @@ func _report(el: float, all_done: bool) -> void:
 	# 11/20 고정 9(1~3일차 × 3페이즈) 대신 규칙에서 유도 —— 11/19 온라인 토벌 계속(Run.ONLINE_NOON_DAYS = 9999)으로 페이즈마다 점심이 온다. 값을 3 으로 되돌리면 다시 9 가 된다
 	if all_done and int(stage_count.get("noon", 0)) != noon_want:
 		errors.append("점심(토벌) 단계가 %d번 (기대 %d = 토벌이 있는 일차의 아침 수 · Run.ONLINE_NOON_DAYS %d)" % [int(stage_count.get("noon", 0)), noon_want, Run.ONLINE_NOON_DAYS])
-	if all_done and (int(stage_count.get("morning", 0)) < 22 or int(stage_count.get("evening_prep", 0)) < 22):
+	if all_done and not Run.tac_on and int(stage_count.get("evening_prep", 0)) != 0:      # 11/27 군략이 꺼지면 대전 준비(군략만 고치는 단계)는 없다
+		errors.append("군략이 꺼졌는데 대전 준비 단계가 %d번 왔다" % int(stage_count.get("evening_prep", 0)))
+	if all_done and (int(stage_count.get("morning", 0)) < 22 or (Run.tac_on and int(stage_count.get("evening_prep", 0)) < 22)):
 		errors.append("준비 %d번 · 대전 준비 %d번 (기대 22 이상 —— 7일이 지나도 이어진다)" % [int(stage_count.get("morning", 0)), int(stage_count.get("evening_prep", 0))])
 	print("  끝난 일차 %d · 천하 통일 %s" % [end_day, winner])
 	print("  상태 아이콘(act_st) %d번 받음" % act_st_n)

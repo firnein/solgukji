@@ -267,7 +267,8 @@ func _begin(k: int) -> void:
 	var tx := "%d단계 —— %s 대 %s" % [k + 1, _nm(ent.A), _nm(ent.B)]
 	if oa != "draw":
 		tx += " · %s 우세" % ("아군" if oa == "win" else "적")
-	b.L("tac", tx, {"fx": "tac", "stage": k + 1, "A": ent.A, "B": ent.B})
+	if Run.tac_on:      # 11/27 군략이 꺼지면 연구 영구 부품만 걸리고 단계 공개(카드 뒤집기) 사건은 없다
+		b.L("tac", tx, {"fx": "tac", "stage": k + 1, "A": ent.A, "B": ent.B})
 
 
 static func _nm(e: Dictionary) -> String:

@@ -152,7 +152,7 @@ static func stage_len(mode_: String, st: String, day_i: int) -> float:
 	match st:
 		"morning": return float(m.morning2 if late else m.morning)
 		"noon": return float(m.noon)
-		"evening_prep": return float(m.prep2 if late else m.prep)
+		"evening_prep": return float(m.prep2 if late else m.prep) if Run.tac_on else 0.0      # 11/27 군략이 꺼지면 대전 준비(군략만 고치는 10초)는 없다 —— 토벌 → 바로 대전 (11/13 prep 0 길)
 		"evening": return float(m.evening)
 	return 0.0
 
@@ -1091,7 +1091,7 @@ func _pvp_bot(x: Dictionary, b: Dictionary) -> void:
 	var res := Run.simulate(bt, [], bt.pol)
 	rx.battle = bt
 	rx.finish_battle(res)
-	if res.get("tac") is Dictionary:      # 11/15 군략 —— 봇이 쓴 계획 계열 (다음 상대 화면에)
+	if Run.tac_on and res.get("tac") is Dictionary:      # 11/15 군략 —— 봇이 쓴 계획 계열 (다음 상대 화면에)
 		b.bot["tk_hist"] = Run.tk_hist_push(b.bot.get("tk_hist", []), res.tac, "B")
 	_mvp_track(x, res, "A", bool(res.win))
 	if res.win:

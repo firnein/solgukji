@@ -272,9 +272,10 @@ func _ready() -> void:
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage.add_child(hud)
-	_tac_list = load("res://scripts/ui/tac_hud.gd").new()      # 11/22 양쪽 군략 목록 (접기 · 펼치기)
-	_tac_list.view = self
-	stage.add_child(_tac_list)
+	if Run.tac_on:      # 11/27 군략이 꺼지면 군략 목록 띠도 없다
+		_tac_list = load("res://scripts/ui/tac_hud.gd").new()      # 11/22 양쪽 군략 목록 (접기 · 펼치기)
+		_tac_list.view = self
+		stage.add_child(_tac_list)
 	field.ult_flash.connect(hud.flash)
 	stage.resized.connect(fit_port)
 	# 11/9 사용자: 전투를 보는 중에도 다른 사람의 한마디가 보여야 한다 —— 전장 왼쪽 위에 작은 줄, 4초 뒤 사라진다
@@ -2613,7 +2614,7 @@ func _apply(i: int, quiet := false) -> void:
 		elif e.get("fx") == "decisive":
 			hud.decisive_on = true
 		return
-	if e.get("fx") == "tac":
+	if e.get("fx") == "tac" and Run.tac_on:      # 11/27 군략이 꺼지면 옛 기록의 단계 공개도 띄우지 않는다
 		_tac_reveal(e)      # 11/15 군략 단계 공개 (인연기 연출과 따로)
 	hud.deck_event(e)
 	var painting := Type2View.painting_on()

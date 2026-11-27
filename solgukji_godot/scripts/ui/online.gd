@@ -1704,7 +1704,7 @@ func _foe_panel() -> Control:
 		rv.add_child(rl)
 		v.add_child(rv)
 	v.add_child(UI.rich("[color=#C6AC7C]전적 %d승 %d패[/color]" % [int(f.w), int(f.l)], UI.FS_BODY))
-	var th = TacUI.foe_block(gs)      # 11/21 상대 군략 —— 단계 계획(대전 때 공개, 그 전엔 고르는 중 · 선택 완료) · 지난 대전 · 상시 효과 (11/15 최근 군략 줄을 품는다)
+	var th = TacUI.foe_block(gs) if Run.tac_on else null      # 11/27 군략이 꺼지면 상대 군략 줄도 없다 · 11/21 상대 군략 —— 단계 계획(대전 때 공개, 그 전엔 고르는 중 · 선택 완료) · 지난 대전 · 상시 효과 (11/15 최근 군략 줄을 품는다)
 	if th != null:
 		v.add_child(th)
 	var key := []
@@ -2056,7 +2056,7 @@ func war_page() -> Control:
 		v.add_child(UI.act("준비 취소" if rd else "준비 완료", sub, func(): tap_ready(not rd), "ghost" if rd else "pri", disabled))
 		if st == "morning" and has_noon() and run.quest_open():      # 11/12 험지 토벌 고르기 —— 토벌이 있는 일차의 준비 단계
 			v.add_child(gs.quest_hard_btn())
-		if st == "evening_prep" and not rd:      # 11/16 토벌 뒤 · 대전 전 —— 군략(편성 화면의 「군략 1 · 2 · 3단계」)을 고치러 가는 길
+		if st == "evening_prep" and not rd and Run.tac_on:      # 11/16 토벌 뒤 · 대전 전 —— 군략(편성 화면의 「군략 1 · 2 · 3단계」)을 고치러 가는 길
 			v.add_child(UI.btn("군략 고치기 ›", func(): gs.go("deploy"), "gold", UI.BH_M))
 		if st == "morning" and has_noon():      # 11/15 오늘 토벌 우두머리 (성질 · 군략 계획) —— 혼자 하기 전투 탭과 같은 패널
 			v.add_child(gs.boss_panel())

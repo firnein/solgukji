@@ -11,11 +11,16 @@ var fails := 0
 
 func _ready() -> void:
 	Tac.data()
+	# 11/27 사용자 "군략은 제거, 연구는 유지" —— 게임에서는 꺼져 있어야 한다 (꺼진 흐름은 tests/no_tactics).
+	# 아래는 스위치를 다시 켰을 때 잠든 군략 엔진이 그대로 도는지만 본다 (점검 동안만 켠다)
+	_ok(not Run.tac_on, "군략 스위치(Run.tac_on)가 꺼져 있다")
+	Run.tac_on = true
 	_rules()
 	_each_card()
 	_twice()
 	_effect()
 	_run_flow()
+	Run.tac_on = false
 	var c := Tac.counts()
 	print("군략 점검 —— 넣은 카드 %d · 능력치·경제 %d · 뺀 카드 %d · 실패 %d" % [c.on, c.econ, c.off.size(), fails])
 	get_tree().quit()

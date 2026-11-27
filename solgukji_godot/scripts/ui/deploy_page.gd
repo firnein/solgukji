@@ -144,7 +144,8 @@ func build() -> Control:
 	bpp.size_flags_vertical = Control.SIZE_FILL if open else Control.SIZE_EXPAND_FILL      # 11/5 사용자: 아래 탭을 닫아 생긴 공간만큼 칸을 크게
 	bp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(bpp)
-	v.add_child(TacUI.plan_row(gs))      # 11/15 군략 —— 칸을 누르면 손패 시트
+	if Run.tac_on:      # 11/27 군략이 꺼지면 「군략 1 · 2 · 3단계」 칸 줄도 없다
+		v.add_child(TacUI.plan_row(gs))      # 11/15 군략 —— 칸을 누르면 손패 시트
 
 	# 아래 —— [보유 | 보급품] 나눔 탭, 그 안만 스크롤. 칸을 여기로 끌면 내린다
 	var keys := Run.sort_cards(run.inv.keys())

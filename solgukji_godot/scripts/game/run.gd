@@ -172,7 +172,9 @@ var tk_rolls := 0             # 3택1 뽑기 횟수 (씨앗 —— 본 난수를
 ## 11/22 사용자: 군략을 군략 · 연구 두 트리로 —— 아침마다 군략 3택1 을 고르고 이어서 연구 3택1 (tactics.json econ = 연구 트리)
 var rs_offer := []            # 연구 3택1 —— 고를 연구 id (비면 대기 없음)
 var rs_done := {}             # 고른 연구 id -> 횟수 (트리 앞 단계 · 횟수 판정)
-static var tac_on := true     # 점검용 —— 끄면 계획 없이 예전 전투 그대로
+## 11/27 사용자 "군략은 제거, 연구는 유지" —— 군략 카드 스위치. 끄면 아침 군략 3택1 · 단계 계획 · 늘 카드 · 봇 · 우두머리 계획 · 대전 준비(군략만 고치는 단계)가 빠진다.
+## 연구(rs_offer · rs_done · tk_perm 영구 효과 · 사기 · 군량 · 징병 …)는 그대로 —— 영구 부품은 빈 계획 짐(perm 만)으로 전투에 간다 (tac_rt 가 카드 없이 부품만 건다)
+static var tac_on := false
 var on_forge := Callable()    # 서버 전용 —— 조합에 성공하면 결과 id 로 부른다 (Room 이 선점 기록에 쓴다). 저장 · 전송하지 않는다
 
 
@@ -1699,7 +1701,7 @@ static func bot_side_of(b: Dictionary, base: int, p_idx: int, extra := 1.0) -> D
 			var armor = state.equip2[i]
 			gear.append([weapon, armor] if weapon != null or armor != null else null)
 		return {"cards": state.board.duplicate(), "form": state.form, "morale": 100, "equip": gear,
-			"tac": recommend_tac(state.board)[0], "plan": Tac.payload(state.tk_plan, state.tk_hand, state.tk_perm) if tac_on else {}}
+			"tac": recommend_tac(state.board)[0], "plan": Tac.payload(state.tk_plan, state.tk_hand, state.tk_perm) if tac_on else Tac.payload([], {}, state.tk_perm)}
 	var sd := bot_aseed(b, base)
 	var style := str(b.get("style", "균형"))
 	var army: Array = b.army
@@ -3169,6 +3171,8 @@ func tk_load(d: Dictionary) -> void:
 	if tk_plan == ["", "", ""]:      # 11/19 세 칸이 다 빈 옛 저장도 기본으로 채운다
 		tk_plan = tk_default_plan()
 	tk_offer = (tk_offer if tk_offer is Array else []).map(func(x): return str(x)).filter(func(x): return Tac.has(x))
+	if not tac_on:      # 11/27 군략이 꺼졌다 —— 옛 저장 · 옛 서버에 남은 군략 3택1 은 버린다 (연구 3택1 은 그대로)
+		tk_offer = []
 	tk_more = bool(tk_more)
 	tk_reroll = int(tk_reroll)
 	tk_draw = int(tk_draw)
@@ -3193,7 +3197,7 @@ func tk_load(d: Dictionary) -> void:
 
 ## 전투에 넘길 내 짐 {p, own, perm}
 func tac_load() -> Dictionary:
-	return Tac.payload(tk_plan, tk_hand, tk_perm) if tac_on else {}
+	return Tac.payload(tk_plan, tk_hand, tk_perm) if tac_on else Tac.payload([], {}, tk_perm)      # 11/27 군략이 꺼지면 연구 영구 부품만
 
 
 ## 11/21 남에게 보이는 군략 —— 늘 켜짐 · 영구 효과 이름 · 지난 대전 계획 (Tac.pub). 서버 방 정보 seats[].tk · 군략 현황 화면
@@ -3234,6 +3238,8 @@ func quest_load() -> Dictionary:
 
 ## i 칸(0 ~ 2)에 카드를 놓는다 —— 빈 글이면 비운다. 규칙에 어긋나면 까닭 알림
 func set_plan(i: int, id: String) -> bool:
+	if not tac_on:      # 11/27 군략이 꺼졌다 —— 옛 클라이언트의 계획 명령은 조용히 거른다
+		return false
 	var p := Tac.norm(tk_plan)
 	var why := Tac.plan_block(p, tk_hand, i, id)
 	if why != "":
@@ -3263,8 +3269,8 @@ func _tk_rng(salt: int) -> RandomNumberGenerator:
 
 ## 하루 끝 —— 안 고른 3택1 은 첫 카드를 받고(사라지지 않게) 새 3택1 을 편다. 둔전 군량
 func tk_day_end() -> void:
-	if not tac_on:
-		return
+	if not tac_on:      # 11/27 군략이 꺼져도 연구 3택1 · 둔전 군량은 돈다
+		tk_offer = []
 	if not tk_offer.is_empty():
 		var id := str(tk_offer[0])
 		pick_tac(id)
@@ -3283,7 +3289,7 @@ func tk_day_end() -> void:
 func tk_new_offer() -> void:
 	var n := 4 if tk_more else 3
 	tk_more = false
-	tk_offer = Tac.offer(board, tk_hand, n, _tk_rng(29), false)
+	tk_offer = Tac.offer(board, tk_hand, n, _tk_rng(29), false) if tac_on else []      # 11/27 군략이 꺼지면 연구 3택1 만
 	rs_offer = Tac.res_offer(board, rs_done, 3, _tk_rng(43))
 
 
@@ -3298,7 +3304,7 @@ func pick_res(id: String) -> bool:
 
 
 func pick_tac(id: String) -> bool:
-	if not tk_offer.has(id):
+	if not tac_on or not tk_offer.has(id):      # 11/27 군략이 꺼지면 군략 3택1 고르기도 없다 (옛 클라이언트 명령)
 		return false
 	tk_offer = []
 	var c := Tac.card(id)
@@ -3313,7 +3319,7 @@ func pick_tac(id: String) -> bool:
 
 ## 기책 —— 3택1 을 다시 굴린다 (같은 장 수)
 func reroll_tac() -> bool:
-	if tk_reroll <= 0 or tk_offer.is_empty():
+	if not tac_on or tk_reroll <= 0 or tk_offer.is_empty():
 		return false
 	tk_reroll -= 1
 	tk_offer = Tac.offer(board, tk_hand, tk_offer.size(), _tk_rng(31), false)
@@ -3382,7 +3388,7 @@ func tk_after_battle(bt: Dictionary, res: Dictionary) -> void:
 	if g > 0:
 		grain += g
 		toasts.append(["약탈 —— 군량 +%d" % g, "gold"])
-	if str(bt.get("kind", "")) != "pvp":
+	if str(bt.get("kind", "")) != "pvp" or not tac_on:      # 11/27 군략이 꺼지면 대전 계획 기록도 없다
 		return
 	tk_hist = tk_hist_push(tk_hist, tr, "A")
 	if bt.has("bot") and not mp:
