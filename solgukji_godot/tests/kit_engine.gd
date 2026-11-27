@@ -1,6 +1,7 @@
 extends Node
 ## 11/27 장수 키트 Q · W · E · R · P —— 전투 엔진 점검 (scripts/kit.gd · kit_rt.gd · data/kit.json · Battle.mk_unit · act · _kit_tag)
-## 실행: godot --headless --path . res://tests/kit_engine.tscn [-- --cells=c177:q,c190:r (그 칸만) --verbose --immortal (불멸 키트 스위치를 켜고 불멸 30명 점검)]
+## 실행: godot --headless --path . res://tests/kit_engine.tscn [-- --cells=c177:q,c190:r (그 칸만) --verbose --immortal (불멸 키트 스위치를 켜고 불멸 30명 점검) --trans (초월 15명) --kiin (기인 22명)]
+##  9) (11/27) 초월 · 기인 키트 스위치 —— 꺼짐(기본): 초월 · 기인은 키트 장수가 아니고 그 전투가 예전(키트 끔)과 같다. --trans · --kiin: 그 등급 75칸 · 110칸 강화가 모두 일한다
 ##  8) (11/27) 불멸 키트 스위치 —— 꺼짐(기본): 불멸은 키트 장수가 아니고 불멸 전투가 예전(키트 끔)과 같다. --immortal: 신화 21 + 불멸 30, 불멸 150칸 강화가 모두 일한다
 ##  1) 특기 배제 —— 키트 장수의 DB.passives_of 는 고유 특기 하나와 그 이름의 단체 효과만. Kit.enabled 를 끄면 예전 그대로 (캐시가 따라온다)
 ##  2) 자료 —— kit.json 21명 × 5칸 (11/27 대현량사 장각 c192 는 토벌 적 전용으로 빠졌고, 같은 날 새 신화 11명이 더해졌다): 이름 · 글 · 강화 이름 · 글 · 엔진 필드(fx), q·w·e 의 cd, new 칸의 sk. 강화 상태 형식(칸 목록 · 장수당 2칸 · 옛 형식 읽기)
@@ -31,14 +32,20 @@ func _ready() -> void:
 	verbose = a.has("verbose")
 	Kit.enabled = true
 	Kit.immortal = a.has("immortal")      # 11/27 불멸 키트 스위치 (게임은 Kit.IMMORTAL_ON 상수) —— --immortal 이면 켠 상태로 점검
+	Kit.trans = a.has("trans")            # 11/27 초월 · 기인 키트 스위치 (게임은 Kit.TRANS_ON · KIIN_ON 상수)
+	Kit.kiin = a.has("kiin")
 	var myths: Array = DB.C.keys().filter(func(k): return Kit.on(k))
 	myths.sort()
+	if Kit.trans or Kit.kiin:
+		_ready_tk(myths, str(a.get("cells", "")))
+		return
 	if Kit.immortal:
 		_ready_immortal(myths, str(a.get("cells", "")))
 		return
 	ok(myths.size() == 21, "키트 장수 21명 (지금 %d)" % myths.size())
 	if not a.has("cells"):
 		_check_immortal_off()
+		_check_tk_off()
 	if not a.has("cells"):
 		_check_passives(myths)
 		_check_data(myths)
@@ -590,3 +597,192 @@ func _check_immortal_events() -> void:
 			rk[u.key] = u.kit
 	ok(int(sk[ka]) > 0 and int(sk[kb]) > 0 and int(ul[ka]) + int(ul[kb]) > 0 and bad == 0, "불멸 사건 —— 기술 칸 q/w/e · 고유기 칸 r · 강화 여부(up)가 맞다 (여포 기술 %d · 유비 기술 %d · 고유기 %d · 어긋남 %d)" % [sk[ka], sk[kb], int(ul[ka]) + int(ul[kb]), bad])
 	ok(int(pn[ka]) == 1 and int(pn[kb]) == 1 and rk.get(ka) == ["w", "r"] and rk.get(kb) == ["q"], "불멸 고유 특기 알림 한 번씩 · 결과 roster 에 강화한 칸 %s" % str(rk))
+
+# ───────── 9) 초월 · 기인 키트 스위치 (11/27 —— Kit.TRANS_ON · KIIN_ON / Kit.trans · kiin) ─────────
+
+## 초월 15명 (6성 · 기인 아님 · 적 전용 · 은퇴 제외 · 고유기 있음) · 기인 22명 (kind kiin · 고유기 있음)
+func _trans_list() -> Array:
+	var out: Array = DB.C.keys().filter(func(k): return int(DB.C[k].tier) == Kit.TRANS_TIER and not DB.is_kiin(k) and not DB.is_foe(k) and str(DB.C[k].kind) != "retired" and DB.has_ult(k))
+	out.sort()
+	return out
+
+
+func _kiin_list() -> Array:
+	var out: Array = DB.C.keys().filter(func(k): return DB.is_kiin(k) and not DB.is_foe(k) and DB.has_ult(k))
+	out.sort()
+	return out
+
+
+## 꺼짐 (게임 기본) —— 초월 · 기인은 키트 장수가 아니고, 그 칸 자료 · 강화 정책이 아무것도 바꾸지 않는다
+func _check_tk_off() -> void:
+	var tr := _trans_list()
+	var ki := _kiin_list()
+	var data_n := 0
+	for k in tr + ki:
+		if Kit.data().has(k):
+			data_n += 1
+	ok(tr.size() == 15 and ki.size() == 22 and data_n == 37, "초월 15명 · 기인 22명 —— kit.json 에 칸 자료가 있다 (초월 %d · 기인 %d · 자료 %d)" % [tr.size(), ki.size(), data_n])
+	ok(not Kit.TRANS_ON and not Kit.KIIN_ON and not Kit.trans and not Kit.kiin, "스위치 기본값 꺼짐 (Kit.TRANS_ON = %s · Kit.KIIN_ON = %s)" % [str(Kit.TRANS_ON), str(Kit.KIIN_ON)])
+	var leak := []
+	for k in tr + ki:
+		if Kit.on(k) or not Kit.cell(k, "q").is_empty() or not Kit.cell(k, "p").is_empty():
+			leak.append(k)
+	ok(leak.is_empty() and Kit.norm({"c117": ["q", "r"], "K21": ["w"], "N01": ["e"]}).is_empty(), "꺼짐 —— 초월 · 기인은 키트 장수가 아니다 (Kit.on · cell 빈 사전 · 강화 정책은 버려진다) %s" % str(leak))
+	var t0 := JSON.stringify(DB.passives_of("c117"))
+	var k0 := JSON.stringify(DB.passives_of("K21"))
+	Kit.trans = true
+	var t1 := JSON.stringify(DB.passives_of("c117"))
+	var k_mid := JSON.stringify(DB.passives_of("K21"))
+	Kit.trans = false
+	Kit.kiin = true
+	var k1 := JSON.stringify(DB.passives_of("K21"))
+	var t_mid := JSON.stringify(DB.passives_of("c117"))
+	Kit.kiin = false
+	ok(t1 != t0 and k_mid == k0 and k1 != k0 and t_mid == t0 and JSON.stringify(DB.passives_of("c117")) == t0 and JSON.stringify(DB.passives_of("K21")) == k0,
+		"스위치를 켰다 끄면 특기 캐시가 따라온다 · 초월 스위치는 기인을, 기인 스위치는 초월을 건드리지 않는다")
+	Kit.trans = true
+	var on_t: bool = tr.all(func(k): return Kit.on(k)) and not ki.any(func(k): return Kit.on(k)) and not _immortals().any(func(k): return Kit.on(k))
+	Kit.trans = false
+	Kit.kiin = true
+	var on_k: bool = ki.all(func(k): return Kit.on(k)) and not tr.any(func(k): return Kit.on(k)) and not _immortals().any(func(k): return Kit.on(k))
+	Kit.kiin = false
+	ok(on_t and on_k, "스위치는 서로 독립 —— 초월만 켜면 초월만, 기인만 켜면 기인만 키트 장수 (불멸은 그대로 꺼짐)")
+	# 초월 · 기인이 든 판 —— 꺼짐이면 키트가 아예 없는 판(Kit.enabled 끔)과 같은 사건, 그 등급의 강화 정책을 줘도 같다
+	var same := true
+	var marks := 0
+	var n := 0
+	for pair in [["c117", "K21"], ["K14", "c140"], ["K18", "s06"]]:
+		var a := _deck(pair[0], 0, 6)
+		var b := _deck(pair[1], 1, 6, ["K02", "K07"])
+		for sd in [3, 7]:
+			var base: Dictionary = _run(a, b, _pol({}), sd)[0]
+			var pol: Dictionary = _run(a, b, _pol({pair[0]: ["q", "r"]}, {pair[1]: ["w", "p"], "K02": ["e"]}), sd)[0]
+			Kit.enabled = false
+			var old: Dictionary = _run(a, b, _pol({}), sd)[0]
+			Kit.enabled = true
+			n += 1
+			if not (_fp(base) == _fp(old) and _fp(pol) == _fp(old) and base.ev.size() == old.ev.size()):
+				same = false
+			for e in base.ev + pol.ev:
+				if e.has("slot") or e.has("kup"):
+					marks += 1
+	ok(same and marks == 0, "꺼짐 —— 초월 · 기인 전투 %d판: 같은 씨앗이면 예전(키트 끔)과 같은 결과 · 강화 정책도 무시 · 칸 표시 없음 (표시 %d)" % [n, marks])
+	# 신화 · 불멸 · 초월 · 기인이 섞인 판 —— 초월 · 기인 강화 정책은 무시되고 신화 키트는 그대로 일한다
+	var mixed := true
+	var myth_marks := 0
+	for sd in [5, 11]:
+		var a := DB.auto_place(["c177", "L38", "c117", "K01", "N01", "c140", "K21", "s11", "c127"], "eorin")
+		var b := DB.auto_place(["c181", "s01", "K14", "c150", "K02", "c145", "N03", "K12", "c132"], "eorin")
+		var x: Dictionary = _run(a, b, _pol({"c177": ["q", "r"]}, {"c181": ["w"]}), sd)[0]
+		var y: Dictionary = _run(a, b, _pol({"c177": ["q", "r"], "c117": ["q"], "K01": ["w", "p"]}, {"c181": ["w"], "K14": ["r"], "c150": ["e"]}), sd)[0]
+		mixed = mixed and _fp(x) == _fp(y) and x.ev.size() == y.ev.size()
+		for e in y.ev:
+			if e.has("slot"):
+				myth_marks += 1
+	ok(mixed and myth_marks > 0, "꺼짐 —— 신화 · 불멸 · 초월 · 기인이 섞인 판: 초월 · 기인 강화 정책은 무시되고 같은 씨앗이면 같은 결과, 신화 칸 표시는 그대로 (%d)" % myth_marks)
+
+
+## 켬 (--trans · --kiin) —— 그 등급이 키트 장수. 특기 · 칸 자료 · 칸 규칙 · 칸마다 강화가 실제로 일하는지 · 사건 · 결정성
+func _ready_tk(kits: Array, cells: String) -> void:
+	var tks: Array = (_trans_list() if Kit.trans else []) + (_kiin_list() if Kit.kiin else [])
+	var want: int = 21 + (30 if Kit.immortal else 0) + tks.size()
+	ok(kits.size() == want and tks.all(func(k): return kits.has(k)), "켬 —— 키트 장수 %d명 (신화 21%s%s%s · 지금 %d)" % [want, " + 불멸 30" if Kit.immortal else "", " + 초월 15" if Kit.trans else "", " + 기인 22" if Kit.kiin else "", kits.size()])
+	var label: String = " · ".join((["초월"] if Kit.trans else []) + (["기인"] if Kit.kiin else []))
+	if cells == "":
+		_check_passives(tks)
+		_check_data(kits)
+		_check_tk_rules(tks)
+	_check_cells(tks, cells)
+	if cells == "":
+		if Kit.trans:
+			_check_tk_events("c140", "N03", {"c140": ["w", "r"]}, {"N03": ["q"]})
+			_check_determinism("c117", "c150", {"c117": ["w", "r"]}, {"c150": ["q", "p"]})
+		if Kit.kiin:
+			_check_tk_events("K21", "K02", {"K21": ["e", "r"]}, {"K02": ["q"]})
+			_check_determinism("K14", "K18", {"K14": ["w", "r"]}, {"K18": ["e", "p"]})
+	Kit.trans = false
+	Kit.kiin = false
+	Kit.immortal = false
+	print("장수 키트 엔진 점검 (%s 켬) —— 실패 %d" % [label, fails])
+	get_tree().quit(1 if fails > 0 else 0)
+
+
+## 초월 · 기인 칸 규칙 —— 같은 인물의 다른 등급(신화 · 불멸)과 기술 · 강화 이름이 겹치지 않는다, 칸마다 vfx, 대기 3~14초, 고유 동작 · 고유기 강화 · 고유 특기 강화가 엔진에 있다
+func _check_tk_rules(tks: Array) -> void:
+	var rt = load("res://scripts/kit_rt.gd").new()
+	var src: String = (load("res://scripts/kit_rt.gd") as Script).source_code
+	var bad := []
+	var with_hi := 0
+	for k in tks:
+		var taken := {}
+		for o in DB.C.keys():
+			if o == k or DB.person(o) != DB.person(k) or not Kit.data().has(o):
+				continue
+			var h: Dictionary = Kit.data()[o]
+			for s in Kit.SLOTS:
+				if h.get(s) is Dictionary:
+					taken[str(h[s].get("up", {}).get("n", ""))] = true
+					if s in ["q", "w", "e"]:
+						taken[str(h[s].get("n", ""))] = true
+		if not taken.is_empty():
+			with_hi += 1
+		for s in Kit.SLOTS:
+			var c := Kit.cell(k, s)
+			if s in ["q", "w", "e"] and taken.has(str(c.n)):
+				bad.append("%s.%s 이름이 같은 인물의 다른 등급과 같다" % [k, s])
+			if taken.has(str(c.up.n)):
+				bad.append("%s.%s 강화 이름이 같은 인물의 다른 등급과 같다" % [k, s])
+			if s != "p" and (c.get("vfx", []) as Array).is_empty():
+				bad.append("%s.%s vfx" % [k, s])
+			if s in ["q", "w", "e"] and (float(c.cd) < 3.0 or float(c.cd) > 14.0):
+				bad.append("%s.%s 대기 %s" % [k, s, str(c.cd)])
+			if s in ["q", "w", "e"] and c.has("sk") and c.sk.eff.has("act") and not rt.has_method("_act_" + str(c.sk.eff.act)):
+				bad.append("%s.%s 고유 동작 %s 없음" % [k, s, str(c.sk.eff.act)])
+		var rk := str(Kit.cell(k, "r").fx.k)
+		if not rt.has_method("_ult_" + rk) and not rt.has_method("_up_" + rk):
+			bad.append("%s.r 강화 효과 %s 없음" % [k, rk])
+		var pk := str(Kit.cell(k, "p").fx.k)
+		if not src.contains("\"%s\"" % pk):
+			bad.append("%s.p 강화 효과 %s 없음" % [k, pk])
+	ok(bad.is_empty(), "초월 · 기인 칸 규칙 —— 같은 인물의 다른 등급이 있는 %d명과 이름이 겹치지 않는다, vfx · 대기 3~14초 · 고유 동작 · 고유기 · 고유 특기 강화가 엔진에 있다 %s" % [with_hi, str(bad)])
+
+
+## 초월 · 기인 사건 —— 기술 slot q/w/e · 고유기 slot r · 고유 특기 알림 slot p · 강화 여부(up) · roster 의 kit (신화와 같은 길)
+func _check_tk_events(ia: String, ib: String, kit_a: Dictionary, kit_b: Dictionary) -> void:
+	var a := _deck(ia, 0, 6)
+	var b := _deck(ib, 2, 6)
+	var res: Array = _run(a, b, _pol(kit_a, kit_b), 101)
+	var r: Dictionary = res[0]
+	var ka: String = res[1]["A:" + ia]
+	var kb: String = res[1]["B:" + ib]
+	var ups := {ka: kit_a[ia], kb: kit_b[ib]}
+	var sk := {ka: 0, kb: 0}
+	var ul := 0
+	var pn := {ka: 0, kb: 0}
+	var bad := 0
+	for e in r.ev:
+		var who := str(e.get("a", ""))
+		if not sk.has(who) or e.has("kup"):
+			continue
+		match str(e.get("fx", "")):
+			"skill":
+				if e.has("slot"):
+					sk[who] += 1
+					if bool(e.get("up", false)) != (ups[who] as Array).has(str(e.slot)):
+						bad += 1
+			"ult":
+				if str(e.get("slot", "")) == "r":
+					ul += 1
+					if bool(e.get("up", false)) != (ups[who] as Array).has("r"):
+						bad += 1
+				else:
+					bad += 1
+			"passive":
+				if str(e.get("slot", "")) == "p":
+					pn[who] += 1
+	var rk := {}
+	for u in r.roster:
+		if u.has("kit"):
+			rk[u.key] = u.kit
+	ok(int(sk[ka]) > 0 and int(sk[kb]) > 0 and ul > 0 and bad == 0, "%s · %s 사건 —— 기술 칸 q/w/e · 고유기 칸 r · 강화 여부(up)가 맞다 (기술 %d · %d · 고유기 %d · 어긋남 %d)" % [DB.C[ia].name, DB.C[ib].name, sk[ka], sk[kb], ul, bad])
+	ok(int(pn[ka]) == 1 and int(pn[kb]) == 1 and rk.get(ka) == kit_a[ia] and rk.get(kb) == kit_b[ib], "%s · %s 고유 특기 알림 한 번씩 · 결과 roster 에 강화한 칸 %s" % [DB.C[ia].name, DB.C[ib].name, str(rk)])
