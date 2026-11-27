@@ -1520,9 +1520,13 @@ func _show_lobby() -> void:
 	TouchScroll.block(lobby)
 	var c := MarginContainer.new()
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var side := maxf(24.0, (gs.size.x - 520.0) / 2.0)
+	var wide := gs.is_wide()      # 11/27 가로 화면 —— 왼쪽: 방 코드 · 자리 목록, 오른쪽: 시작 · 복사 · 한마디 · 나가기
+	var side := maxf(48.0, (gs.size.x - 1200.0) / 2.0) if wide else maxf(24.0, (gs.size.x - 520.0) / 2.0)
 	for sd in ["left", "right"]:
 		c.add_theme_constant_override("margin_" + sd, int(side))
+	if wide:
+		for sd in ["top", "bottom"]:
+			c.add_theme_constant_override("margin_" + sd, 32)
 	lobby.add_child(c)
 	var v := UI.vbox(UI.SP_M)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1544,6 +1548,7 @@ func _show_lobby() -> void:
 	for i in range(room.seats.size(), room_max()):
 		sv.add_child(UI.rich("[color=#5d6a88]빈자리 — 시작하면 봇[/color]", UI.FS_BODY))
 	v.add_child(UI.panel(sv, 14))
+	var n_left := v.get_child_count()
 	if room.host:
 		var go := UI.btn("시작 — 사람 %d명 + 봇 %d" % [room.seats.size(), room_max() - room.seats.size()], func(): net.send({"t": "start"}), "pri", UI.BH_L)
 		go.pressed.connect(func(): _hold_btn(go))      # 11/20 조작: 응답이 올 때까지 꺼 둔다
@@ -1564,6 +1569,14 @@ func _show_lobby() -> void:
 	lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(lb)
 	v.add_child(hb)
+	if wide:
+		var rv := UI.vbox(UI.SP_M)
+		rv.alignment = BoxContainer.ALIGNMENT_CENTER
+		for x in v.get_children().slice(n_left):
+			v.remove_child(x)
+			rv.add_child(x)
+		c.remove_child(v)
+		c.add_child(gs.split2(v, rv, 0.58, 48))
 	gs.move_child(gs._toast_box, -1)      # 대기실은 화면을 다 덮는다 —— 알림(한마디 · 소식)이 그 위에 보이게
 
 
@@ -1920,7 +1933,7 @@ static func peer_rows(room: Dictionary, my_hp: int, my_key: Array) -> Array:
 func peers_section() -> Control:
 	var run: Run = gs.run
 	var seats: Array = room.get("seats", [])
-	var v := UI.vbox(UI.SP_S)
+	var v: Container = UI.grid(520, UI.SP_S) if gs.is_wide() else UI.vbox(UI.SP_S)      # 11/27 가로 화면 —— 군웅 줄을 두세 칸으로
 	for r in peer_rows(room, run.hp, Room.key_cards(run)):
 		if r.me:
 			if r.key.is_empty():
