@@ -1344,7 +1344,23 @@ func _changelog_fill(box: VBoxContainer, ver: Dictionary, now: bool, open: bool)
 func _page_update() -> Control:
 	var v := UI.vbox(UI.SP_M)
 	v.add_child(_page_head("업데이트 내역", "지금 버전 v%s · 빌드마다 바뀐 것" % CHANGELOG.version()))
-	v.add_child(_changelog_body())
+	var body := _changelog_body()
+	if is_wide() and body.get_child_count() > 2:      # 11/27 가로 화면 —— 왼쪽 지금 판(펼침), 오른쪽 지난 판 목록
+		var lc := UI.vbox(UI.SP_S)
+		var rc := UI.vbox(UI.SP_S)
+		var kids := body.get_children()
+		for i in kids.size():
+			body.remove_child(kids[i])
+			if i == 0:
+				lc.add_child(kids[i])
+			elif i > 1:      # 1 은 지금 판 아래 구분선
+				rc.add_child(kids[i])
+			else:
+				kids[i].queue_free()
+		body.free()
+		v.add_child(split2(lc, rc, 0.55))
+		return v
+	v.add_child(body)
 	return v
 
 
@@ -6886,8 +6902,11 @@ func _page_line() -> Control:
 	# 11/3 사용자: 계보는 '조합 목록'(병종별 장수) 하나만 —— 등급표 · 진행도 · 신화 경로는 뺐다
 	var v := UI.vbox(UI.SP_L)
 	var p := run.pool()
-	var lv0 := UI.vbox(UI.SP_S)
+	var lv0: Container = UI.grid(460, UI.SP_M) if is_wide() else UI.vbox(UI.SP_S)      # 11/27 가로 화면 —— 병종 묶음을 두세 칸으로
 	for tag in DB.D.TAGORDER:
+		var tg := UI.vbox(UI.SP_S)      # 병종 하나 —— 접힘 머리 + 펼친 표 (가로 화면 격자의 한 칸)
+		tg.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		lv0.add_child(tg)
 		var key: String = "line:" + tag
 		var open: bool = _open.get(key, false)
 		var cnt := [6, 7, 8].map(func(t): return Run.by_tier_tag(t, tag).size())
@@ -6895,7 +6914,7 @@ func _page_line() -> Control:
 		for k in p:
 			if DB.C[k].tag == tag:
 				own_n += 1
-		lv0.add_child(UI.fold(tag, "보유 %d종 · 초월 %d 불멸 %d 신화 %d" % [own_n, cnt[0], cnt[1], cnt[2]], open, func(): _toggle(key)))
+		tg.add_child(UI.fold(tag, "보유 %d종 · 초월 %d 불멸 %d 신화 %d" % [own_n, cnt[0], cnt[1], cnt[2]], open, func(): _toggle(key)))
 		if not open:
 			continue
 		var lv := UI.vbox(UI.SP_S)
@@ -6916,7 +6935,7 @@ func _page_line() -> Control:
 					UI.btn_styles(b, UI.flat(DB.PAL.ink3, DB.tier_color(k), 1, 8, 10), UI.flat(DB.PAL.ink4, DB.tier_color(k), 1, 8, 10), UI.flat(DB.PAL.ink4, DB.PAL.gold, 1, 8, 10))
 				f.add_child(b)
 			lv.add_child(f)
-		lv0.add_child(UI.panel(lv))
+		tg.add_child(UI.panel(lv))
 	v.add_child(UI.sect("조합 목록", lv0))
 	return v
 

@@ -2101,6 +2101,7 @@ func war_page() -> Control:
 			v.add_child(gs.boss_panel())
 		if watching and not watch.is_empty():
 			v.add_child(UI.btn("남은 전투 보기 (%d)" % watch.size(), func(): watch_next(), "gold", UI.BH_M))
+	var split_at := v.get_child_count()      # 11/27 가로 화면 —— 여기까지(단계 · 할 일 · 준비)는 왼쪽, 아래(관전 · 전투 목록 · 상대 · 자리)는 오른쪽
 	# (b2) 11/21 관전 —— 내 전투를 다 보고 다른 사람을 기다리는 동안, 아직 진행 중인 사람 전투를 골라 본다 (봇끼리 승부는 전투가 없어 목록에 없다)
 	if watching and not spec_list.is_empty() and watch.is_empty() and (bool(my.get("ready", false)) or bool(my.get("dead", false)) or last_battles.is_empty()):
 		v.add_child(UI.sect("관전 — 진행 중인 전투", _spec_panel()))
@@ -2136,6 +2137,15 @@ func war_page() -> Control:
 		var hn := seats.filter(func(x): return x.human).size()
 		var rn := seats.filter(func(x): return x.human and x.ready).size()
 		v.add_child(UI.sect("자리 — 사람 %d · 봇 %d · 준비 %d/%d" % [hn, seats.size() - hn, rn, hn], UI.panel(sv, 10)))
+	if gs.is_wide() and v.get_child_count() > split_at and split_at > 0:
+		var lc := UI.vbox(UI.SP_L)
+		var rc := UI.vbox(UI.SP_L)
+		var kids := v.get_children()
+		for i in kids.size():
+			v.remove_child(kids[i])
+			(lc if i < split_at else rc).add_child(kids[i])
+		v.free()
+		return gs.split2(gs._col_scroll(lc), gs._col_scroll(rc), 0.42)
 	return v
 
 
