@@ -337,6 +337,9 @@ func _confirm_leave() -> void:
 func _unhandled_key_input(e: InputEvent) -> void:
 	if not (e is InputEventKey) or not e.pressed or e.echo:
 		return
+	if _quick_key(e):
+		get_viewport().set_input_as_handled()
+		return
 	if e.keycode == KEY_ESCAPE:
 		get_viewport().set_input_as_handled()
 		back(true)
@@ -358,6 +361,57 @@ func _tab_key(e: InputEventKey) -> int:
 	elif kc >= KEY_KP_1 and kc <= KEY_KP_9:
 		i = kc - KEY_KP_1
 	return i if i < TABS.size() else -1
+
+
+## 11/27 사용자: 빠른 채팅(한마디) 키보드 —— 엔터로 한마디 시트를 열고(열려 있으면 닫고), 열린 동안 숫자 1~9(윗줄 · 숫자패드)로 그 번호의 글을 보낸다.
+## 받았으면 true. 글 입력 칸에 포커스가 있으면 받지 않는다. 시트가 열린 동안의 숫자 키는 (번호 밖이어도) 삼킨다 —— 뒤의 탭 · 배속 단축키로 새지 않게
+func _quick_key(e: InputEventKey) -> bool:
+	if online == null or e.ctrl_pressed or e.alt_pressed or e.meta_pressed:
+		return false
+	var fo := get_viewport().gui_get_focus_owner()
+	if fo is LineEdit or fo is TextEdit:
+		return false
+	var kc: int = e.keycode
+	var open := online.quick_open()
+	if kc == KEY_ENTER or kc == KEY_KP_ENTER:
+		if open:
+			close_sheet()
+			return true
+		if not quick_keys_ok():
+			return false
+		online.quick_sheet()
+		return true
+	if not open:
+		return false
+	var i := -1
+	if kc >= KEY_1 and kc <= KEY_9:
+		i = kc - KEY_1
+	elif kc >= KEY_KP_1 and kc <= KEY_KP_9:
+		i = kc - KEY_KP_1
+	if i < 0:
+		return false
+	online.quick_pick(i)
+	return true
+
+
+## 엔터로 한마디 시트를 열어도 되는가 —— 온라인 판(준비 · 전투 관전) · 대기실에서, 다른 시트 · 확인 창 · 연출 · 전투 메뉴 · 결과표(엔터 = 종료)가 없을 때
+func quick_keys_ok() -> bool:
+	if online == null or _sheet == null or _sheet.visible:
+		return false
+	if not (online.in_game or (online.lobby != null and is_instance_valid(online.lobby))):
+		return false
+	if (online.room.get("quick", []) as Array).is_empty() and int(online.room.get("emote_n", 0)) <= 0:
+		return false
+	if is_instance_valid(_title) and _title.visible:
+		return false
+	if is_instance_valid(_ending) or _death_busy or is_instance_valid(_fanfare):
+		return false
+	if _battle_layer != null and _battle_layer.visible:
+		if _battle_done.visible or not ("say_cb" in _battle) or not _battle.say_cb.is_valid():
+			return false
+		if _battle._side != null and _battle._side.visible:
+			return false
+	return true
 
 
 ## 탭 단축키를 받아도 되는가 —— 아래 탭이 보이고 눌리는 때만 (타이틀 · 시트 · 전투 · 엔딩 · 사망 연출 · 완성 연출 위에서는 아니다.

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/quick_chat_keys.gd" id="1"]
+
+[node name="QuickChatKeys" type="Node"]
+script = ExtResource("1")

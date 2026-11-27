@@ -1201,6 +1201,27 @@ func _emote_row() -> Control:
 	return h
 
 
+## 11/27 사용자: PC 빠른 채팅 —— 엔터로 이 시트를 열고, 열린 동안 숫자 1~9 로 그 번호의 글을 보낸다 (GameScreen._quick_key).
+## 번호는 키보드가 있는 기기(휴대폰 아님)에서만 글 앞에 붙인다. 10번째부터는 번호 없이 누르기로만
+const QUICK_KEYS := 9
+var _qs_grid: Control = null      # 지금 열린 한마디 시트의 글 칸 —— 시트가 다른 것으로 바뀌면 지워진다(queue_free)
+
+
+## 한마디 시트가 지금 떠 있는가 (닫히는 중이면 아니다)
+func quick_open() -> bool:
+	return is_instance_valid(_qs_grid) and not _qs_grid.is_queued_for_deletion() and gs.sheet_open() and not gs._sheet_closing
+
+
+## 숫자 키 i(0부터)의 글을 보내고 시트를 닫는다. 그 번호의 글이 없으면 false
+func quick_pick(i: int) -> bool:
+	var quick: Array = room.get("quick", [])
+	if i < 0 or i >= mini(quick.size(), QUICK_KEYS):
+		return false
+	send_say(i)
+	gs.close_sheet()
+	return true
+
+
 ## 한마디 시트 —— 방 정보의 미리 적힌 글(room.quick)을 버튼으로. 대기실(가득 덮는 판) 위에서도 보이게 시트를 맨 앞으로 (11/9 사용자)
 func quick_sheet() -> void:
 	var quick: Array = room.get("quick", [])
@@ -1208,14 +1229,19 @@ func quick_sheet() -> void:
 	if lobby != null and is_instance_valid(lobby):
 		gs.move_child(gs._sheet_mask, -1)
 		gs.move_child(gs._sheet, -1)
-	b.add_child(UI.hint("방의 모두에게 보인다 · 2초에 한 번"))
+	var keys := not OS.has_feature("mobile")
+	b.add_child(UI.hint("방의 모두에게 보인다 · 2초에 한 번" + (" · 숫자 키로 바로 보낸다" if keys else "")))
 	if int(room.get("emote_n", 0)) > 0:
 		b.add_child(_emote_row())
 	if quick.is_empty():
 		b.add_child(UI.hint("서버가 아직 글 목록을 주지 않았다."))
 	var g := UI.grid(150, 8)
+	_qs_grid = g
 	for i in quick.size():
-		var bt := UI.btn(str(quick[i]), func():
+		var t := str(quick[i])
+		if keys and i < QUICK_KEYS:
+			t = "%d. %s" % [i + 1, t]
+		var bt := UI.btn(t, func():
 			send_say(i)
 			gs.close_sheet(), "", UI.BH_M)
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
