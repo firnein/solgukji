@@ -597,7 +597,6 @@ func recommend_gear() -> Array:
 	var used := {}
 	var eq := _nine()
 	var eq2 := _nine()
-	var order: Array = DB.IGRADE_ORDER
 	var slots := []
 	for i in 9:
 		if board[i] != null:
@@ -608,19 +607,27 @@ func recommend_gear() -> Array:
 		return DB.C[board[a]].pv > DB.C[board[b]].pv)
 	for sl in ["weapon", "armor"]:
 		for i in slots:
-			var k: String = board[i]
-			var cand: Array = bag.keys().filter(func(it): return DB.item_slot(it) == sl and can_equip(k, it) and bag[it] - used.get(it, 0) > 0)
-			if cand.is_empty():
+			var best = _best_gear(board[i], sl, used)
+			if best == null:
 				continue
-			cand.sort_custom(func(a, b):
-				var ga := order.find(DB.IT[a].grade)
-				var gb := order.find(DB.IT[b].grade)
-				if ga != gb:
-					return ga < gb
-				return DB.IT[a].pa + DB.IT[a].sa > DB.IT[b].pa + DB.IT[b].sa)
-			(eq2 if sl == "armor" else eq)[i] = cand[0]
-			used[cand[0]] = used.get(cand[0], 0) + 1
+			(eq2 if sl == "armor" else eq)[i] = best
+			used[best] = used.get(best, 0) + 1
 	return [eq, eq2]
+
+
+## 가방에서 그 장수가 낄 수 있는 그 칸(weapon · armor)의 최상 등급 아이템 —— used(아이템 id -> 이미 낀 수)를 빼고 남는 것만. 없으면 null
+func _best_gear(k: String, sl: String, used: Dictionary):
+	var order: Array = DB.IGRADE_ORDER
+	var cand: Array = bag.keys().filter(func(it): return DB.item_slot(it) == sl and can_equip(k, it) and bag[it] - used.get(it, 0) > 0)
+	if cand.is_empty():
+		return null
+	cand.sort_custom(func(a, b):
+		var ga := order.find(DB.IT[a].grade)
+		var gb := order.find(DB.IT[b].grade)
+		if ga != gb:
+			return ga < gb
+		return DB.IT[a].pa + DB.IT[a].sa > DB.IT[b].pa + DB.IT[b].sa)
+	return cand[0]
 
 
 func recommend_items() -> Array:
@@ -1192,6 +1199,76 @@ func auto_deploy(stable_ties := false) -> void:
 	var gear := recommend_gear()
 	equip = gear[0]
 	equip2 = gear[1]
+
+
+## 강한 순 —— 등급 → 병력(tr) → 전력(pv) → id (같으면 늘 같은 순서)
+static func stronger(a: String, b: String) -> bool:
+	if DB.C[a].tier != DB.C[b].tier:
+		return DB.C[a].tier > DB.C[b].tier
+	if DB.C[a].tr != DB.C[b].tr:
+		return DB.C[a].tr > DB.C[b].tr
+	if DB.C[a].pv != DB.C[b].pv:
+		return DB.C[a].pv > DB.C[b].pv
+	return a < b
+
+
+## 11/27 사용자: 편성을 다 못 채우고 전투로 넘어가면 손패에 남은 장수를 강한 순으로 빈 칸에 채운다.
+## 사람이 놓은 칸 · 장비는 그대로 —— 빈 칸 수만큼, 같은 인물은 한 부대만(auto_deploy 와 같은 규칙), 자리는 DB.auto_place(병종 선호 · 선봉 먼저)가 빈 칸 안에서 고른다.
+## 새로 앉은 장수에게는 가방에 남은 장비(낀 것 빼고)를 강한 순으로 끼운다. 판이 비어 있으면 auto_deploy 몫이라 여기선 하지 않는다. 돌려주는 값 = 채운 칸 수
+func fill_empty() -> int:
+	if placed() == 0 or inv.is_empty() or not DB.FORM.has(form):
+		return 0
+	var nslot := mini(9, (DB.FORM[form].slots as Array).size())
+	var empty := 0
+	for i in nslot:
+		if board[i] == null:
+			empty += 1
+	if empty == 0:
+		return 0
+	var seen := {}
+	for k in board:
+		if k != null and DB.C[k].tier >= 3:
+			seen[DB.person(k)] = true
+	var cand := []
+	for k in inv:
+		for n in int(inv[k]):
+			cand.append(k)
+	cand.sort_custom(stronger)
+	var pick := []
+	for k in cand:
+		if pick.size() >= empty:
+			break
+		var p: String = DB.person(k) if DB.C[k].tier >= 3 else ""
+		if p != "" and seen.has(p):
+			continue
+		pick.append(k)
+		if p != "":
+			seen[p] = true
+	if pick.is_empty():
+		return 0
+	var out := DB.auto_place(pick, form, board)
+	var used := {}
+	for j in 9:
+		for e in [equip[j], equip2[j]]:
+			if e != null:
+				used[e] = used.get(e, 0) + 1
+	var added := []
+	for i in 9:
+		if board[i] == null and i < out.size() and out[i] != null:
+			take(out[i])
+			board[i] = out[i]
+			added.append(i)
+	added.sort_custom(func(a, b): return stronger(board[a], board[b]))
+	for sl in ["weapon", "armor"]:
+		for i in added:
+			var it = _best_gear(board[i], sl, used)
+			if it != null:
+				if sl == "armor":
+					equip2[i] = it
+				else:
+					equip[i] = it
+				used[it] = used.get(it, 0) + 1
+	return added.size()
 
 
 func clear_board() -> void:
@@ -2897,6 +2974,8 @@ func bot_prepare(full := true, reserve_materials := false) -> void:
 	if not full:
 		if placed() == 0:
 			auto_deploy()
+		else:
+			fill_empty()      # 11/27 다 못 채운 편성 —— 놓은 칸은 그대로, 빈 칸만 강한 순으로
 		tk_auto()
 		return
 	if not tk_offer.is_empty():      # 11/15 군략 3택1 —— 군략 카드부터

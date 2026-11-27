@@ -5755,6 +5755,7 @@ func _result_panel() -> Control:
 func _start(kind: String) -> void:
 	if run.placed() == 0 or run.battle != null:
 		return
+	run.fill_empty()      # 11/27 다 못 채운 편성은 남은 장수를 강한 순으로 빈 칸에 (놓은 칸은 그대로)
 	var bt: Dictionary
 	match kind:
 		"quest": bt = run.start_quest()

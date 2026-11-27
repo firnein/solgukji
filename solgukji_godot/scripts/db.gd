@@ -2553,7 +2553,8 @@ func _mix_src(t: int, tag: String, lim := 8) -> Array:
 ## 11/26 진형 분석 (라) —— 켜면 자동 배치가 바깥 열(0 · 4열, 전군 줄부터)에 창병 · 기병을 먼저, 원거리 · 책략은 덜 놓는다
 ## (실제 대전에서 도적에게 물리는 칸은 줄보다 바깥 열이다 —— docs/진형_분석_1126.md). 기본 꺼짐
 static var outer_guard_place := false
-func auto_place(cards: Array, form: String) -> Array:
+## keep: 이미 앉은 판(9칸, null = 빈 칸) —— 주면 그 칸은 그대로 두고 cards 를 남은 빈 칸에만 같은 규칙으로 앉힌다 (11/27 빈 편성 채우기, Run.fill_empty)
+func auto_place(cards: Array, form: String, keep: Array = []) -> Array:
 	var f: Dictionary = FORM[form]
 	var fw: Dictionary = D.FRONT_WANT
 	var order := cards.filter(func(k): return k != null)
@@ -2566,12 +2567,18 @@ func auto_place(cards: Array, form: String) -> Array:
 	var used := []
 	used.resize(out.size())
 	used.fill(false)
+	var kept := false
+	for i in mini(keep.size(), out.size()):
+		if keep[i] != null:
+			out[i] = keep[i]
+			used[i] = true
+			kept = true
 	# 11/11 사용자: 선봉에 책략계가 서는 경우가 있다(창병이 있는데도) —— 등급 높은 순으로 자리를 고르면 높은 등급 책략계가 먼저 뒷자리를 채우고
 	# 남은 선봉에 들어갔다. 선봉 자리는 등급과 상관없이 먼저, 그 자리에 가장 맞는 카드(기병 · 창병 …)로 채운다
 	var rest: Array = order.duplicate()
 	for i in f.slots.size():
 		var s0: Dictionary = f.slots[i]
-		if s0.line != "선봉" or rest.is_empty():
+		if used[i] or s0.line != "선봉" or rest.is_empty():
 			continue
 		var bk = null
 		var bv := -1e9
@@ -2603,7 +2610,7 @@ func auto_place(cards: Array, form: String) -> Array:
 		if best >= 0:
 			used[best] = true
 			out[best] = k
-	if mid_place:
+	if mid_place and not kept:      # 사람이 놓은 원거리 자리는 옮기지 않는다
 		_mid_ranged(out, f)
 	return out
 
