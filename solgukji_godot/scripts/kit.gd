@@ -26,7 +26,7 @@ extends RefCounted
 ##   결과 roster 의 키트 장수 줄에는 "kit": [강화한 칸 …]
 ##
 ## 바탕 배율(base_*)은 강화가 없어도 키트 장수 모두에게 —— 일반 특기를 뺀 만큼을 메운다 (tests/kit_measure 로 맞춘다)
-##   불멸(스위치 IMMORTAL_ON)도 같은 바탕 배율을 쓴다 —— 고유기 수치는 DB.ult_of 가 불멸 배율(tier7_scale)로 이미 줄인다. 등급별로 달라야 하면 마지막 밸런스 때 나눈다
+##   불멸(스위치 IMMORTAL_ON) · 초월(TRANS_ON) · 기인(KIIN_ON)도 같은 바탕 배율을 쓴다 —— 고유기 수치는 DB.ult_of 가 등급 배율(tier7_scale · tier6_scale)로 이미 줄인다. 등급별로 달라야 하면 마지막 밸런스 때 나눈다
 ##
 ## class_name 없이 preload 로 쓴다 (낡은 .godot 캐시에서도 이름을 찾게 —— tactics.gd 와 같다):  const Kit := preload("res://scripts/kit.gd")
 
@@ -50,6 +50,16 @@ static var min_tier := 8             # 이 등급 이상만 (11/27 "일단은 �
 const IMMORTAL_ON := false
 const IMMORTAL_TIER := 7
 static var immortal := IMMORTAL_ON   # 점검(tests/kit_engine --immortal)만 바꾼다 —— 게임은 위 상수를 따른다
+
+## ★ 초월 · 기인 키트 스위치 (11/27 사용자 "기인, 초월도 적용해볼래? 불멸처럼 플래그로") —— 불멸 스위치와 서로 독립, 등급마다 따로
+##   TRANS_ON: 초월(6성 카드 · 적 전용 · 은퇴 제외 · 고유기가 있는 15명)   KIIN_ON: 기인(kind "kiin" —— 카드 등급은 전설 5, 고유기가 있는 22명)
+##   true 로 바꾸면 그 등급이 한 번에 키트 장수가 된다 (data/kit.json 의 그 등급 칸 · 표는 docs/초월기인_키트표.md). false 면 그 칸 자료를 읽지 않는다 —— 예전 그대로.
+##   고유기 수치는 DB.ult_of 가 초월 배율(tier6_scale)로 줄인다 (기인도 같다 —— 카드 등급 5 는 tier7_scale 쪽이 아니다)
+const TRANS_ON := false
+const TRANS_TIER := 6
+static var trans := TRANS_ON         # 점검(tests/kit_engine --trans)만 바꾼다
+const KIIN_ON := false
+static var kiin := KIIN_ON           # 점검(tests/kit_engine --kiin)만 바꾼다
 
 ## 바탕 배율 —— 키트 장수는 일반 특기 · 일반 단체 특기를 쓰지 않아 그만큼 약해지고, 기술은 재사용 대기로 드물어진다. 강화가 없어도 늘 곱해 예전 세기에 맞춘다 (실제 대전 덱 —— tests/kit_measure)
 ##   base_sk 일반기술(q · w · e) 피해 배율 · base_ult 고유기(r) 타격 배율 · base_p 고유 특기(p) 수치 배율
@@ -77,24 +87,34 @@ static func data() -> Dictionary:
 	return _data
 
 
-## 이 등급이 키트 등급인가 —— min_tier 이상 (신화), 불멸 스위치가 켜졌으면 불멸(IMMORTAL_TIER)도
+## 이 등급이 키트 등급인가 —— min_tier 이상 (신화), 불멸 스위치가 켜졌으면 불멸(IMMORTAL_TIER)도, 초월 스위치가 켜졌으면 초월(TRANS_TIER)도 (기인은 card_on —— 등급이 아니라 카드 성격)
 static func tier_on(t: int) -> bool:
-	return t >= min_tier or (immortal and t == IMMORTAL_TIER)
+	return t >= min_tier or (immortal and t == IMMORTAL_TIER) or (trans and t == TRANS_TIER)
+
+
+## 이 카드가 키트 등급인가 —— 기인(kind "kiin")은 기인 스위치만 본다 (카드 등급과 무관), 그 밖은 tier_on
+static func card_on(k) -> bool:
+	if k == null or not DB.C.has(str(k)):
+		return false
+	var c: Dictionary = DB.C[str(k)]
+	if str(c.get("kind", "")) == "kiin":
+		return kiin
+	return tier_on(int(c.tier))
 
 
 ## 키트 등급 설정을 한 값으로 —— 특기 캐시(DB.passives_of)가 이 값이 바뀌면 비운다 (끔 −1)
 static func tier_key() -> int:
-	return (min_tier * 2 + (1 if immortal else 0)) if enabled else -1
+	return (min_tier * 8 + (1 if immortal else 0) + (2 if trans else 0) + (4 if kiin else 0)) if enabled else -1
 
 
-## 키트 장수인가 (신화 —— 불멸 스위치가 켜졌으면 불멸도) —— 적 전용 카드 · 은퇴 카드는 아니다
+## 키트 장수인가 (신화 —— 불멸 · 초월 · 기인 스위치가 켜졌으면 그 등급도) —— 적 전용 카드 · 은퇴 카드는 아니다
 static func on(k) -> bool:
 	if not enabled or k == null or not DB.C.has(str(k)):
 		return false
 	var c: Dictionary = DB.C[str(k)]
 	if DB.is_foe(str(k)) or str(c.get("kind", "")) == "retired":
 		return false
-	return tier_on(int(c.tier)) and DB.has_ult(str(k))      # (DB.ult_of 는 부를 때마다 깊은 사본을 만든다 —— 있는지만 묻는다)
+	return card_on(k) and DB.has_ult(str(k))      # (DB.ult_of 는 부를 때마다 깊은 사본을 만든다 —— 있는지만 묻는다)
 
 
 ## 고유 특기 이름 (없으면 "")
@@ -112,9 +132,9 @@ static func p_name(k: String) -> String:
 
 
 ## 그 장수 그 칸의 자료 —— {n, d, up: {n, d}, cd?, new?, …}. 없으면 빈 사전 (키트 장수가 아니거나 자료가 없다).
-## 키트 등급이 아닌 카드(불멸 스위치가 꺼졌을 때의 불멸)의 자료는 없는 것으로 본다 —— 화면 · 기록이 불멸 칸 이름을 쓰지 않게
+## 키트 등급이 아닌 카드(스위치가 꺼졌을 때의 불멸 · 초월 · 기인)의 자료는 없는 것으로 본다 —— 화면 · 기록이 그 칸 이름을 쓰지 않게
 static func cell(k, slot: String) -> Dictionary:
-	if not DB.C.has(str(k)) or not tier_on(int(DB.C[str(k)].tier)):
+	if not card_on(k):
 		return {}
 	var h = data().get(str(k))
 	if not (h is Dictionary) or not (h.get(slot) is Dictionary):

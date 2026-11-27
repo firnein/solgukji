@@ -146,6 +146,8 @@ func setup() -> void:
 				t.kt["vuln"] = maxf(float(t.kt.get("vuln", 0.0)) if b._tm < float(t.kt.get("vuln_t", -1.0)) else 0.0, float(up.get("amt", 0.2)))
 				t.kt["vuln_t"] = maxf(float(t.kt.get("vuln_t", 0.0)), b._tm + float(up.get("sec", 8.0)))
 				_kup(u, "p", "%s 지목한다 (%d초 동안 받는 피해 +%d%%)" % [b.eul(b.nm(t)), roundi(float(up.get("sec", 8.0))), roundi(float(up.get("amt", 0.2)) * 100)], str(t.key))
+		elif str(up.get("k", "")) == "revive_once":      # 11/27 기인 (화타 청낭서) —— 살아 있는 동안 처음 무너지는 아군 1부대를 한 번 일으킨다 (hold_rout 의 예약된 되살리기 —— 칸 p)
+			_rev[u.camp] = {"by": u, "until": 1.0e9, "ratio": float(up.get("ratio", 0.2)), "slot": "p"}
 
 
 func tick(_dt: float) -> void:
@@ -1152,17 +1154,18 @@ func hold_rout(u, cause: String) -> bool:
 		u.morale = maxf(u.morale, 10.0)
 		return true
 	var rv = _rev.get(u.camp)
-	if rv != null and not u.boss:
+	var rsl := str(rv.get("slot", "r")) if rv != null else "r"      # 11/27 기인 화타 청낭서는 칸 p (주인이 살아 있을 때 · 자신은 아니다)
+	if rv != null and not u.boss and (rsl == "r" or (rv.by.alive and rv.by != u)):
 		_rev.erase(u.camp)
 		if tm <= float(rv.until):
 			var by = rv.by
 			u.troops = maxf(u.troops, roundf(u.max * float(rv.ratio)))
 			u.morale = maxf(u.morale, 60.0)
 			by.htr += u.troops
-			_stat(by, "r")
-			var nm := str(Kit.cell(by.c.id, "r").get("up", {}).get("n", ""))
+			_stat(by, rsl)
+			var nm := str(Kit.cell(by.c.id, rsl).get("up", {}).get("n", ""))
 			b.L("hl", "%s의 「%s」 —— 무너지던 %s 다시 일어선다" % [b.nm(by), nm, b.ga(b.nm(u))],
-				{"fx": "heal", "f": u.key, "n": u.troops, "healer": by.key, "revive": true, "a": by.key, "slot": "r", "up": true, "kup": nm})
+				{"fx": "heal", "f": u.key, "n": u.troops, "healer": by.key, "revive": true, "a": by.key, "slot": rsl, "up": true, "kup": nm})
 			return true
 	return false
 
@@ -2247,6 +2250,33 @@ func _p_tick(u, up: Dictionary) -> void:
 				u.kt["stimm_k"] = []
 				u.kt["stimm_by"] = [u, "p"]
 				_kup(u, "p", "뼈를 긁어 독을 씻어 낸다 —— %d초 동안 상태이상에 걸리지 않는다" % roundi(float(up.get("sec", 4.0))))
+		"heal_tick":      # 11/27 기인 (미축 창고를 열다) —— 일정 시간마다 가장 위태로운 아군 1부대 병력 회복
+			if not u.kt.has("p_next"):
+				u.kt["p_next"] = float(up.get("every", 10.0))
+			if tm >= float(u.kt.p_next):
+				var t = _weakest(_allies(u))
+				if t != null and t.troops < t.max:
+					u.kt["p_next"] = tm + float(up.get("every", 10.0))
+					b.heal_troop(t, float(up.get("ratio", 0.03)), str(Kit.cell(u.c.id, "p").get("up", {}).get("n", "")), u)
+					_kup(u, "p", "%s 군량으로 치료한다 (병력 +%d%%)" % [b.eul(b.nm(t)), roundi(float(up.get("ratio", 0.03)) * 100)], str(t.key))
+		"cf_tick":      # 11/27 기인 (좌자 도술 장난) —— 일정 시간마다 가장 가까운 적 1부대 혼란
+			if not u.kt.has("p_next"):
+				u.kt["p_next"] = float(up.get("every", 9.0))
+			if tm >= float(u.kt.p_next):
+				for o in _around(u, _foes(u), float(up.get("r", 140.0))):
+					if _confuse(u, o, float(up.get("sec", 1.2))):
+						u.kt["p_next"] = tm + float(up.get("every", 9.0))
+						_kup(u, "p", "도술에 홀린 %s 혼란에 빠진다" % b.ga(b.nm(o)), str(o.key))
+						break
+		"ult_tick":      # 11/27 초월 · 기인 (소교 강동의 꽃 · 사마휘 은자의 안목) —— 일정 시간마다 기가 가장 찬 아군의 고유기를 당긴다
+			if not u.kt.has("p_next"):
+				u.kt["p_next"] = float(up.get("every", 12.0))
+			if tm >= float(u.kt.p_next):
+				var t = _ult_next(u, false)
+				if t != null:
+					u.kt["p_next"] = tm + float(up.get("every", 12.0))
+					_ult_haste(t, float(up.get("sec", 2.0)))
+					_kup(u, "p", "%s의 고유기가 %d초 앞당겨진다" % [b.nm(t), roundi(float(up.get("sec", 2.0)))], str(t.key))
 
 
 ## 무너진 부대 u —— 새 신화 고유 특기 강화 (동탁 주지육림 · 태사자 유한 · 순욱 빈 찬합 · 진궁 백문루)
@@ -2309,6 +2339,115 @@ func _p_fall(u) -> void:
 				if o.alive and o.camp != u.camp and _confuse(u, o, float(up.get("sec", 1.5))):
 					n += 1
 			_kup(u, "p", "백문루의 결의 —— 적 %d부대가 혼란에 빠진다" % n)
+
+
+# ───────── 11/27 초월 · 기인 (스위치 Kit.TRANS_ON · KIIN_ON —— 꺼져 있으면 쓰이지 않는다) ─────────
+
+## 초선 이간지계 —— 가장 강한 적 장수 둘이 서로를 한 번씩 친다 (동탁과 여포)
+func _act_discord(u, slot: String, sk: Dictionary, _up_: Dictionary, foes: Array, _allies_: Array) -> Array:
+	var live := _live(foes)
+	var t1 = _top_gen(live)
+	if t1 == null:
+		return []
+	var t2 = _top_gen(live.filter(func(o): return o != t1))
+	if t2 == null:
+		return []
+	b._mark(u, {"k": "line", "x": t1.pos.x, "y": t1.pos.y, "x2": t2.pos.x, "y2": t2.pos.y, "w": 20.0})
+	b.L("sk", "『%s』 —— %s %s 서로 다툰다" % [str(sk.n), b.ga(b.nm(t1)), b.eul(b.nm(t2))], {"fx": "debuff", "a": u.key, "f": t1.key})
+	var m := float(sk.eff.get("mult", 0.8))
+	if t1.alive and t2.alive:
+		_hit(t1, t2, m, 1)
+	if t1.alive and t2.alive:
+		_hit(t2, t1, m, 1)
+	return [t1, t2]
+
+
+## 맞은 적에게 상태이상(st —— burn · plague · flood …)을 건다 (정보 불화살비 · 가후 독계)
+func _up_inflict(u, j: int, _sk: Dictionary, up: Dictionary, hit: Array, _foes_: Array, _allies_: Array) -> void:
+	var st := str(up.get("st", "burn"))
+	var n := 0
+	var first := ""
+	for t in hit:
+		if not t.alive or t.camp == u.camp:
+			continue
+		b.inflict(u, t, st, float(up.get("val", 0.08)), int(up.get("dur", 3)))
+		if b.has_st(t, st):
+			if first == "":
+				first = str(t.key)
+			n += 1
+	if n > 0:
+		_kup(u, Kit.SLOTS[j], "맞은 적 %d부대에 『%s』" % [n, str(DB.D.STATUS[st].n) if DB.D.STATUS.has(st) else st], first)
+
+
+## 다시 쓰기 —— 이 기술을 every 번째 쓸 때마다 곧바로 한 번 더 (황월영 · 전위 · 손상향)
+func _up_echo(u, j: int, _sk: Dictionary, up: Dictionary, _hit: Array, foes: Array, allies: Array) -> void:
+	if _busy or not u.alive or j > 2:
+		return
+	var key := "echo%d" % j
+	u.kt[key] = int(u.kt.get(key, 0)) + 1
+	if int(u.kt[key]) % maxi(1, int(up.get("every", 2))) != 0 or not foes.any(func(o): return o.alive):
+		return
+	_busy = true
+	_stat(u, Kit.SLOTS[j])
+	fire(u, j, foes, allies, {"kup": str(Kit.cell(u.c.id, Kit.SLOTS[j]).get("up", {}).get("n", "")), "again": true}, true)
+	_busy = false
+
+
+## 도발 —— 맞은 적이 sec 초 동안 이 장수만 노린다 (주태 · 능통 · 전위)
+func _up_taunt_hit(u, j: int, _sk: Dictionary, up: Dictionary, hit: Array, _foes_: Array, _allies_: Array) -> void:
+	if not u.alive:
+		return
+	var n := 0
+	var first := ""
+	for t in hit:
+		if t.alive and t.camp != u.camp:
+			t.sg["tnt"] = u
+			t.sg["tnt_t"] = b._tm + float(up.get("sec", 2.0))
+			if first == "":
+				first = str(t.key)
+			n += 1
+	if n > 0:
+		_kup(u, Kit.SLOTS[j], "적 %d부대가 %d초 동안 %s 노린다" % [n, roundi(float(up.get("sec", 2.0))), b.eul(b.nm(u))], first)
+
+
+## 가장 위태로운 아군 1부대 병력 회복 (대교 · 황월영 · 미축 · 노숙 · 화타)
+func _up_heal_weak(u, j: int, _sk: Dictionary, up: Dictionary, _hit: Array, _foes_: Array, allies: Array) -> void:
+	var t = _weakest(allies)
+	if t == null or t.troops >= t.max:
+		return
+	b.heal_troop(t, float(up.get("ratio", 0.05)), str(Kit.cell(u.c.id, Kit.SLOTS[j]).get("up", {}).get("n", "")), u)
+	_kup(u, Kit.SLOTS[j], "%s 돌본다 (병력 +%d%%)" % [b.eul(b.nm(t)), roundi(float(up.get("ratio", 0.05)) * 100)], str(t.key))
+
+
+## 아군 전체 사기 + (정보 · 마등 · 미축)
+func _up_rally_all(u, j: int, _sk: Dictionary, up: Dictionary, _hit: Array, _foes_: Array, allies: Array) -> void:
+	var nm := str(Kit.cell(u.c.id, Kit.SLOTS[j]).get("up", {}).get("n", ""))
+	var n := 0
+	for o in allies:
+		if o.alive:
+			b._rally(o, float(up.get("morale", 6.0)), nm, false)
+			n += 1
+	if n > 0:
+		_kup(u, Kit.SLOTS[j], "아군 %d부대의 사기가 오른다 (+%d)" % [n, roundi(float(up.get("morale", 6.0)))])
+
+
+## 천기 탈취 —— 맞은 적의 고유기 기를 빼앗아(sec 초 늦춤) 고유기가 가장 가까운 아군에게 준다 (곽가 · 관로)
+func _up_gauge_steal(u, j: int, _sk: Dictionary, up: Dictionary, hit: Array, _foes_: Array, _allies_: Array) -> void:
+	var sec := float(up.get("sec", 2.0))
+	var n := 0
+	var first := ""
+	for t in hit:
+		if t.alive and t.camp != u.camp and t.ult != null and t.charges > 0:
+			_ult_delay(t, sec)
+			if first == "":
+				first = str(t.key)
+			n += 1
+	if n <= 0:
+		return
+	var a = _ult_next(u, false)
+	if a != null:
+		_ult_haste(a, sec)
+	_kup(u, Kit.SLOTS[j], "적 %d부대의 고유기 기를 빼앗는다%s" % [n, (" —— %s의 고유기가 %d초 앞당겨진다" % [b.nm(a), roundi(sec)]) if a != null else ""], first)
 
 
 # ───────── 11/27 새 신화 11명 —— 부품 ─────────
