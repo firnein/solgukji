@@ -2765,7 +2765,7 @@ func _inyeon_theme_fire(grp: Dictionary) -> void:
 					t.st.erase(s)
 					_dot_hit(t, s, amt)
 					stats.burn += amt
-					L("st", "%s의 불길이 한꺼번에 터졌다 — 병력 %s 손실" % [nm(t), num(amt)], {"fx": "tick", "f": t.key, "st": "burn", "n": roundi(amt)})
+					L("st", "%s의 불길이 한꺼번에 터졌다 — 병력 %s 손실" % [nm(t), num(amt * _len_k)], {"fx": "tick", "f": t.key, "st": "burn", "n": roundi(amt * _len_k)})
 				else:
 					inflict(by, t, "burn", float(tune.burn[i]), int(tune.dur[i]))
 		"spread":

@@ -1872,13 +1872,13 @@ func tick_status(frac := 1.0, final := true) -> void:
 					if s.get("sp", 0.0) > 0 and rng.randf() < 1.0 - pow(1.0 - float(s.sp), frac):
 						spreads.append([u, s])
 					if final:
-						L("st", "%s 불길에 휩싸인다 — 병력 %s 손실" % [ga(nm(u)), num(s.val)], {"fx": "tick", "f": u.key, "st": "burn", "n": s.val})
+						L("st", "%s 불길에 휩싸인다 — 병력 %s 손실" % [ga(nm(u)), num(s.val * _len_k)], {"fx": "tick", "f": u.key, "st": "burn", "n": s.val * _len_k})      # 11/27 실제로 깎이는 몫(_dot_hit 의 _len_k)과 같게 —— 화면 숫자가 병력 손실보다 2배 넘게 컸다
 				"flood":
 					pass       # 둔화 —— 피해 없이 느려지기만 한다 (eff 의 _flood_slow)
 				"bleed":
 					_dot_hit(u, s, s.val * frac)
 					if final:
-						L("st", "%s의 상처가 벌어진다 — 병력 %s 손실" % [nm(u), num(s.val)], {"fx": "tick", "f": u.key, "st": "bleed", "n": s.val})
+						L("st", "%s의 상처가 벌어진다 — 병력 %s 손실" % [nm(u), num(s.val * _len_k)], {"fx": "tick", "f": u.key, "st": "bleed", "n": s.val * _len_k})
 				"plague":
 					u.morale -= s.val * frac
 					if final:
