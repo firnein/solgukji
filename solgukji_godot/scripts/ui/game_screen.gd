@@ -3957,7 +3957,7 @@ func card_info(k: String, tab := -1, inyeon_name := "") -> void:
 		ab.move_child(ab.get_child(ab.get_child_count() - 1), 0)
 	ability.add_child(ab)
 	ab.visible = ab.get_child_count() > 0
-	var skills := _kit_rest_skills(k) if kit_card else _skills_section(k)
+	var skills = null if kit_card else _skills_section(k)      # 키트 장수의 잔기술은 키트 묶음 안 (_kit_minor_row)
 	if skills != null:
 		ability.add_child(skills)
 	var folds := UI.vbox(0)          # 11/3 사용자: 접힌 기술 · 특기 · 선호 대열 사이를 좁힌다
@@ -5038,6 +5038,8 @@ func _kit_section(k: String) -> Control:
 	for slot in Kit.SLOTS:
 		if not Kit.cell(k, slot).is_empty():
 			box.add_child(_kit_row(k, slot, can_up, ups, upg))
+	for e in _skill_entries(k).filter(func(x): return str(x.kind) != "skill"):      # 11/27 사용자 "잔기술도 넣어줬으면" —— 잔기술(연계) · 이탈기를 키트 묶음 맨 아래 한 줄로 (따로 「그 밖의 기술」 묶음을 두지 않는다)
+		box.add_child(_kit_minor_row(e))
 	_kit_flash.erase(k)      # 방금 강화한 줄의 번쩍임은 한 번만
 	return box
 
@@ -5147,6 +5149,44 @@ func _kit_row(k: String, slot: String, can_up: bool, ups: Array, show_up := true
 			bt.get_child(bt.get_child_count() - 1).modulate.a = 0.4
 		bv.add_child(bt)      # 전공이 모자란 까닭은 묶음 머리(KitRule)에 한 번만 쓴다 —— 줄마다 「부족」을 되풀이하지 않는다
 		outer.add_child(bv)
+	return pc
+
+
+## 키트 묶음의 잔기술 한 줄 —— 칸 딱지 대신 먹빛 「연」 딱지, 이름 · 언제 / 하는 일 (강화 없음)
+func _kit_minor_row(e: Dictionary) -> Control:
+	var pc := PanelContainer.new()
+	var sb := UI.flat(SheetStyle.WELL, Color(SheetStyle.DIM, 0.30), 1, 6, 0)
+	sb.border_width_left = 3
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 4
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.name = "KitMinorRow"
+	var rows := UI.vbox(0)
+	pc.add_child(rows)
+	var h := UI.hbox(UI.SP_S)
+	rows.add_child(h)
+	var bd := SheetStyle.slot_badge("연", Color("#8a8f9c"), 24.0)
+	bd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(bd)
+	var nl := UI.lbl(str(e.get("name", "")), SheetStyle.FS_VALUE, SheetStyle.TEXT, true)
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(nl)
+	var wl := UI.lbl("잔기술 · " + str(e.get("when", "")).replace("
+", " "), SheetStyle.FS_SUB, SheetStyle.DIM)
+	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	wl.clip_text = true
+	wl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	h.add_child(wl)
+	var ind := MarginContainer.new()
+	ind.add_theme_constant_override("margin_left", 24 + UI.SP_S)
+	rows.add_child(ind)
+	var ef := UI.rich(_hl(str(e.get("effect", ""))), 13)
+	ef.add_theme_color_override("default_color", SheetStyle.TEXT)
+	ef.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ind.add_child(ef)
 	return pc
 
 
