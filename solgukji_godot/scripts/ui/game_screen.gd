@@ -6799,7 +6799,7 @@ func _dev_args() -> void:
 						online.room.foe["revenge"] = true
 						render()
 					await get_tree().create_timer(0.3).timeout
-					online._on_msg({"t": "say", "who": "장수214", "text": "다음엔 이깁니다"})
+					online._on_msg({"t": "say", "who": "장수214", "text": "잠시만요"})
 					online._on_msg({"t": "emote", "who": str(ss[0].name), "i": 1})
 					if kv[3] == "fall":
 						online._on_msg({"t": "news", "list": [{"text": "장수377의 나라가 무너졌습니다 —— 남은 군주 7명", "kind": "news", "who": "장수377", "id": 8, "line": "남은 군주 7명", "band": "fall", "hot": 1}]})
