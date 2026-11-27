@@ -3064,8 +3064,10 @@ func _item_sheet(id: String) -> void:
 		go("deploy"), "pri"))
 
 
-## 유니크 보급 —— 11/27 사용자: 한 번에 하나만 크게 (1열) · 다시 뽑기 3번 · 받기. 재료로 만드는 신화 장수와 그 위세를 함께 보인다
-func _unique_sheet() -> void:
+## 유니크 보급 —— 11/27 사용자: 한 번에 하나만 크게 (1열) · 다시 뽑기 3번 · 받기.
+## 11/27 다듬기: 아이템이 주인공(등급 색 판 · 큰 이름 · 능력치) → 「이 재료로 만드는 신화」 이음 줄 → 장수(초상 · 이름 · 기질 · 위세 + 키트 Q·W·E·R·P 한 줄씩).
+## 맨 위는 점 진행 표시(본 것 · 지금 · 남은 다시 뽑기), 아래는 [다시 뽑기 · N](조용히) [받기](금 주 행동). fx 면 바뀐 아이템 · 장수가 살짝 떠오른다 (다시 뽑기)
+func _unique_sheet(fx := false) -> void:
 	if run.uniq_offer.is_empty() or not can_act():
 		close_sheet()
 		return
@@ -3076,81 +3078,99 @@ func _unique_sheet() -> void:
 	var head_h: float = _sheet.get_child(0).get_child(0).get_combined_minimum_size().y
 	var iid: String = run.uniq_offer[0]
 	var it: Dictionary = DB.IT[iid]
+	var icol := UI.item_col(iid)
 	var col := UI.vbox(UI.SP_S)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# 몇 번째 아이템인가 —— 본 수 / 볼 수 있는 수
+	# 진행 —— 점 4개(본 것 · 지금 · 아직) + 오른쪽 남은 다시 뽑기
 	var nth: int = maxi(1, run.uniq_seen.size())
 	var tot: int = nth + run.uniq_rerolls
-	var cnt := UI.lbl("유니크 %d / %d번째 · 받으면 보급 끝" % [nth, tot], UI.FS_CAP, DB.PAL.bamboo)
-	UI.wrap_text(cnt)
-	col.add_child(cnt)
-	# 아이템 —— 그림 · 이름 · 어느 신화의 재료인가
-	var ih := UI.hbox(UI.SP_S)
-	var th := ItemArt.View.new(iid, 56)
-	th.custom_minimum_size = Vector2(56, 56)
+	col.add_child(_uq_progress(nth, tot, run.uniq_rerolls))
+	var swap := UI.vbox(UI.SP_S)      # 다시 뽑기 때 바뀌는 부분 (떠오르기)
+	col.add_child(swap)
+	# 아이템 판 —— 등급 색 테 · 옅은 바탕. 그림 · 이름 · 등급 칩 · 능력치
+	var ic := PanelContainer.new()
+	var isb := UI.flat(Color(icol, 0.08), Color(icol, 0.65), 1, 8, 10)
+	isb.border_width_left = 3
+	ic.add_theme_stylebox_override("panel", isb)
+	var iv := UI.vbox(UI.SP_S)
+	ic.add_child(iv)
+	var ih := UI.hbox(UI.SP_M)
+	var th := ItemArt.View.new(iid, 64)
+	th.custom_minimum_size = Vector2(64, 64)
+	th.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	ih.add_child(th)
-	var nv := UI.vbox(0)
+	var nv := UI.vbox(2)
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var nl := UI.lbl(it.name, UI.FS_TITLE, DB.PAL.gold, true)
+	var nr := UI.hbox(UI.SP_S)
+	var nl := UI.lbl(it.name, UI.FS_HEAD, icol.lightened(0.15), true)
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.wrap_text(nl)
-	nv.add_child(nl)
+	nr.add_child(nl)
+	var gch := SheetStyle.chip(str(it.grade), icol, "soft")
+	nr.add_child(gch)
+	nv.add_child(nr)
 	var myths: Array = DB.by_tier(8).filter(func(x): return Run.need_item(x) == iid)
-	if not myths.is_empty():
-		var ml := UI.lbl("신화 %s의 재료" % " · ".join(myths.map(func(x): return DB.C[x].name)), UI.FS_CAP, DB.PAL.paper)
-		UI.wrap_text(ml)
-		nv.add_child(ml)
+	var sub := ("신화 %s의 재료" % " · ".join(myths.map(func(x): return DB.C[x].name))) if not myths.is_empty() else "신화 장수 조합 재료"
+	var sl := UI.lbl(sub, UI.FS_CAP, SheetStyle.DIM)
+	nv.add_child(sl)
 	ih.add_child(nv)
-	col.add_child(ih)
-	col.add_child(_kv_grid(UI.item_text(iid), 10))
+	iv.add_child(ih)
+	# 능력치 —— 이름 왼쪽 · 수치 오른쪽, 한 줄씩 같은 크기 (옛 10 → 14)
+	var stats := _kv_split(UI.item_text(iid))
+	if not stats.is_empty():
+		var sp := PanelContainer.new()
+		var ssb := UI.flat(SheetStyle.WELL, Color(0, 0, 0, 0), 0, 6, 0)
+		ssb.content_margin_left = 10
+		ssb.content_margin_right = 10
+		ssb.content_margin_top = 4
+		ssb.content_margin_bottom = 4
+		sp.add_theme_stylebox_override("panel", ssb)
+		var g := GridContainer.new()
+		g.columns = 2
+		g.add_theme_constant_override("h_separation", 8)
+		g.add_theme_constant_override("v_separation", 2)
+		for kv in stats:
+			var l := UI.lbl(str(kv[0]), UI.FS_BODY, SheetStyle.TEXT)
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			UI.wrap_text(l)
+			g.add_child(l)
+			var r := UI.lbl(str(kv[1]), UI.FS_LABEL, SheetStyle.VAL, true)
+			r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			g.add_child(r)
+		sp.add_child(g)
+		iv.add_child(sp)
+	swap.add_child(ic)
 	for k in myths:
 		var kk: String = k
-		# 장수 —— 왼쪽 그림, 오른쪽 이름 · 병종 · 기질
-		var mr := UI.hbox(UI.SP_S)
-		var art := _art_crop(kk, Vector2(150, 150), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
-		art.mouse_filter = Control.MOUSE_FILTER_STOP
-		UI.tap(art, func():      # 11/20 조작: 탭 판정 (UI.tap)
-			UI.buzz()
-			recipe_sheet(kk))      # 11/3 사용자: 디테일이 아니라 간략창으로
-		mr.add_child(art)
-		var mv := UI.vbox(UI.SP_XS)
-		mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var gn := UI.lbl(DB.C[kk].name, UI.FS_BODY, DB.tier_color(kk), true)
-		UI.wrap_text(gn)
-		mv.add_child(gn)
-		# 11/7 사용자: 이 재료로 만드는 장수의 병종 —— 기호 + 이름
-		var tr := UI.hbox(UI.SP_XS)
-		var ti := TextureRect.new()
-		ti.texture = DB.ICON.get(DB.C[kk].tag)
-		ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ti.custom_minimum_size = Vector2(14, 14)
-		ti.modulate = DB.PAL.bamboo
-		tr.add_child(ti)
-		tr.add_child(UI.lbl("%s · %s" % [DB.C[kk].tag, DB.tier_name(kk)], UI.FS_CAP, DB.PAL.bamboo))
-		mv.add_child(tr)
-		var ubt := run.block_text(kk)      # 11/25 재료가 선점 · 사망으로 막힌 신화 —— 받아도 이번 판에 만들 수 없다
-		if ubt != "":
-			mv.add_child(_lock_line(ubt + " — 만들 수 없다"))
-		var tb := TraitBoard.new()
-		tb.fixed = true
-		mv.add_child(tb.setup(kk, 3))
-		mr.add_child(mv)
-		col.add_child(mr)
-		_ability_rows(col, kk, 10, true, true, ["패업"])      # 고유 특기 · 위세 · 고유기 + 기질 —— 디테일창과 같은 칸. 패업은 뺀다 (11/9)
-	var sp := Control.new()
-	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(sp)
-	# 아래 줄 —— [다시 뽑기 (남은 N)] [받기]. 남은 수가 0 이거나 다음 것이 없으면 다시 뽑기를 끈다
+		swap.add_child(_uq_link(icol, DB.tier_color(kk)))
+		swap.add_child(_uq_myth(kk))
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(fill)
+	# 아래 줄 —— [다시 뽑기 · N](조용히) [받기](금 · 넓게). 남은 수가 0 이거나 다음 것이 없으면 다시 뽑기를 끄고 글로 이유를 적는다
 	var br := UI.hbox(UI.SP_S)
-	var rb := UI.btn("다시 뽑기 (남은 %d)" % run.uniq_rerolls, func():
+	var can_rr: bool = run.can_reroll_unique()
+	var rtx := "다시 뽑기 · %d" % run.uniq_rerolls
+	if run.uniq_rerolls <= 0:
+		rtx = "다시 뽑기 다 씀"
+	elif not can_rr:
+		rtx = "바꿀 아이템 없음"
+	var rb := UI.btn(rtx, func():
 		if act("reroll_unique", []):
 			Sfx.play("open")
-			_unique_sheet()
+			_unique_sheet(true)
 		else:
-			toast("바꿀 아이템이 없다"), "ghost", UI.BH_S)
-	rb.disabled = not run.can_reroll_unique()
-	var pb := UI.btn("받기", func(): _confirm_unique(iid), "pri", UI.BH_S)
+			toast("바꿀 아이템이 없다"), "", UI.BH_M)
+	SheetStyle.quiet_btn(rb)
+	rb.add_theme_color_override("font_disabled_color", Color(SheetStyle.DIM, 0.6))
+	rb.add_theme_font_size_override("font_size", UI.FS_BODY)
+	rb.disabled = not can_rr
+	rb.size_flags_stretch_ratio = 1.0
+	var pb := UI.btn("받기", func(): _confirm_unique(iid), "pri", UI.BH_M)
+	SheetStyle.main_btn(pb)
+	pb.size_flags_stretch_ratio = 1.7
 	for bt in [rb, pb]:
 		bt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		br.add_child(bt)
@@ -3160,6 +3180,180 @@ func _unique_sheet() -> void:
 	pc.clip_contents = true
 	pc.custom_minimum_size.y = maxf(300.0, (size.y - sa.position.y) * 0.98 - head_h - sa.size.y - 34.0)      # 시트 머리 · 본문 여백(6 + 24)을 뺀 나머지
 	b.add_child(pc)
+	if fx:      # 다시 뽑기 —— 바뀐 부분만 0.22초 떠오른다 (옅게 → 또렷, 조금 아래 → 제자리)
+		swap.modulate.a = 0.0
+		var tw := swap.create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(swap, "modulate:a", 1.0, 0.22)
+		var fy := func():
+			if is_instance_valid(swap):
+				var y0 := swap.position.y
+				swap.position.y = y0 + 14.0
+				swap.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).tween_property(swap, "position:y", y0, 0.22)
+		fy.call_deferred()
+
+
+## 보급 진행 한 줄 —— 「유니크 보급」 + 점(본 것 흐린 금 · 지금 금 · 아직 빈 테) + 오른쪽 남은 다시 뽑기 / 마지막
+func _uq_progress(nth: int, tot: int, left: int) -> Control:
+	var h := UI.hbox(UI.SP_S)
+	var t := UI.lbl("유니크 %d / %d" % [nth, tot], UI.FS_CAP, SheetStyle.LABEL, true)
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(t)
+	var dots := UI.hbox(5)
+	dots.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for i in tot:
+		var d := Panel.new()
+		var cur := i == nth - 1
+		var w := 18.0 if cur else 8.0
+		var bg := SheetStyle.GOLD if cur else (Color(SheetStyle.GOLD, 0.4) if i < nth else Color(0, 0, 0, 0))
+		var bd := Color(SheetStyle.GOLD, 0.0 if i < nth else 0.45)
+		d.add_theme_stylebox_override("panel", UI.flat(bg, bd, 1, 4, 0))
+		d.custom_minimum_size = Vector2(w, 8)
+		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dots.add_child(d)
+	h.add_child(dots)
+	var rt := ("다시 뽑기 %d번 남음 · 받으면 보급 끝" % left) if left > 0 else "마지막 아이템 · 받으면 보급 끝"
+	var r := UI.lbl(rt, UI.FS_CAP, SheetStyle.DIM if left > 0 else SheetStyle.GOLD_HI)
+	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	r.clip_text = true
+	r.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	h.add_child(r)
+	return h
+
+
+## 아이템 → 신화 이음 줄 —— 아이템 색에서 장수 등급 색으로 「▼ 이 재료로 만드는 신화 장수」
+func _uq_link(from: Color, to: Color) -> Control:
+	var h := UI.hbox(UI.SP_S)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in 2:
+		var ln := ColorRect.new()
+		ln.color = Color(from if side == 0 else to, 0.35)
+		ln.custom_minimum_size = Vector2(0, 1)
+		ln.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ln.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ln.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(ln)
+		if side == 0:
+			var l := UI.lbl("▼  이 재료로 만드는 신화 장수", UI.FS_CAP, to.lightened(0.2), true)
+			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(l)
+	return h
+
+
+## 신화 장수 판 —— 왼쪽 초상(누르면 간략창), 오른쪽 이름 · 병종 · 기질 · 위세, 아래 키트 다섯 줄 (키트가 없으면 옛 능력 패널)
+func _uq_myth(kk: String) -> Control:
+	var tcol := DB.tier_color(kk)
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", UI.flat(Color(DB.PAL.ink3, 0.55), Color(tcol, 0.25), 1, 8, 8))
+	var v := UI.vbox(UI.SP_S)
+	pc.add_child(v)
+	var top := UI.hbox(UI.SP_M)
+	top.mouse_filter = Control.MOUSE_FILTER_STOP
+	UI.tap(top, func():      # 11/3 사용자: 디테일이 아니라 간략창으로
+		UI.buzz()
+		recipe_sheet(kk))
+	var fr := PanelContainer.new()
+	fr.add_theme_stylebox_override("panel", UI.flat(SheetStyle.WELL, Color(tcol, 0.55), 1, 6, 0))
+	fr.custom_minimum_size = Vector2(104, 128)
+	fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fr.clip_contents = true
+	var art := _art_crop(kk, Vector2(104, 128), false)      # 11/3 사용자: 보급 창은 기본 장수 그림 (신화 그림은 갈무리 창에만)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fr.add_child(art)
+	top.add_child(fr)
+	var mv := UI.vbox(UI.SP_XS)
+	mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gn := UI.lbl(DB.C[kk].name, UI.FS_TITLE, tcol, true)
+	UI.wrap_text(gn)
+	mv.add_child(gn)
+	# 병종 · 등급 · 기질 —— 한 줄 칩
+	var f := UI.flow(6)
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	f.add_child(SheetStyle.tier_ribbon(DB.tier_name(kk), tcol))
+	var tg := str(DB.C[kk].tag)
+	f.add_child(SheetStyle.chip(tg, SheetStyle.LABEL, "well"))
+	var u = DB.ult_of(kk) if DB.has_ult(kk) else null
+	var tn := Battle.temper_name(DB.C[kk], u) if u != null else ""
+	if tn != "":
+		f.add_child(SheetStyle.chip("기질 " + tn, SheetStyle.LABEL, "line"))
+	mv.add_child(f)
+	# 위세 —— 살아 있는 동안 전장 전체 배율 (군략과 상관없이 전투에서 쓴다). 이름 + 한 줄
+	if DB.AURA.has(kk):
+		var ah := UI.hbox(UI.SP_XS)
+		ah.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ai := Icons.View.new("banner", SheetStyle.LABEL, 12)
+		ai.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ah.add_child(ai)
+		ah.add_child(UI.lbl("%s %s" % ["기인" if DB.is_kiin(kk) else "위세", str(DB.AURA[kk].n)], UI.FS_CAP, SheetStyle.LABEL, true))
+		mv.add_child(ah)
+		var ae := UI.rich(_hl(DB.aura_effect(kk)), UI.FS_CAP)
+		ae.add_theme_color_override("default_color", SheetStyle.DIM)
+		ae.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mv.add_child(ae)
+	var ubt := run.block_text(kk)      # 11/25 재료가 선점 · 사망으로 막힌 신화 —— 받아도 이번 판에 만들 수 없다
+	if ubt != "":
+		mv.add_child(_lock_line(ubt + " — 만들 수 없다"))
+	top.add_child(mv)
+	top.add_child(SheetStyle.chevron())
+	v.add_child(top)
+	# 키트 다섯 줄 —— [칸 딱지] 기술 이름 · 주기 / 하는 일 한 줄
+	var has_kit := false
+	if Kit.on(kk):
+		var kb := UI.vbox(3)
+		for slot in Kit.SLOTS:
+			if not Kit.cell(kk, slot).is_empty():
+				kb.add_child(_uq_kit_row(kk, slot))
+				has_kit = true
+		if has_kit:
+			v.add_child(kb)
+	if not has_kit:
+		var tb := TraitBoard.new()
+		tb.fixed = true
+		v.add_child(tb.setup(kk, 3))
+		_ability_rows(v, kk, 10, true, false, ["패업", "위세", "기인"])      # 키트가 없는 신화 —— 고유 특기 · 고유기 (위세는 위에, 패업은 뺀다 11/9)
+	return pc
+
+
+## 보급 창 키트 한 줄 (읽기 전용 · 정보창 _kit_row 보다 작게) —— [딱지] 이름 · 주기 / 하는 일
+func _uq_kit_row(k: String, slot: String) -> Control:
+	var tx := UI.kit_text(k, slot)
+	var col := UI.kit_col(slot)
+	var pc := PanelContainer.new()
+	var sb := UI.flat(SheetStyle.WELL, Color(0, 0, 0, 0), 0, 6, 0)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 8
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 4
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var h := UI.hbox(UI.SP_S)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_child(h)
+	var bd := SheetStyle.slot_badge(str(Kit.SLOT_N[slot]), col, 22.0)
+	bd.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(bd)
+	var rv := UI.vbox(0)
+	rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(rv)
+	var hr := UI.hbox(UI.SP_S)
+	hr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var nl := UI.lbl(str(tx.name), UI.FS_BODY, col.lightened(0.45) if slot in ["r", "p"] else SheetStyle.TEXT, true)
+	hr.add_child(nl)
+	var wl := UI.lbl(str(tx.when), UI.FS_TINY, SheetStyle.DIM)
+	wl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	hr.add_child(wl)
+	rv.add_child(hr)
+	var ef := UI.rich(_hl(str(tx.d)), UI.FS_CAP)
+	ef.add_theme_color_override("default_color", Color(SheetStyle.TEXT, 0.82))
+	ef.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rv.add_child(ef)
+	return pc
 
 
 func _confirm_unique(iid: String) -> void:
@@ -6788,6 +6982,11 @@ func _dev_args() -> void:
 				run.uniq_offer = [ids[0]]
 				run.uniq_seen = [ids[0]]
 				run.uniq_rerolls = Run.UNIQ_REROLLS
+				if kv.size() > 2:      # --gsheet=unique::0 = 다시 뽑기를 다 쓴 마지막 모양 (본 수도 그만큼 늘린다)
+					run.uniq_rerolls = clampi(int(kv[2]), 0, Run.UNIQ_REROLLS)
+					var used := Run.UNIQ_REROLLS - run.uniq_rerolls
+					run.uniq_offer = [ids[mini(used, ids.size() - 1)]]
+					run.uniq_seen = ids.slice(0, used + 1)
 				_unique_sheet()
 			"pick":      # 점검용 —— --gsheet=pick:등급 (선택권을 2장 쥐여 주고 연다)
 				run.tickets[kv[1]] = maxi(2, int(run.tickets.get(kv[1], 0)))
